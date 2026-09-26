@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "skin": "zombie_touch_hud_v1",
+  "approved": "2026-09-26",
+  "source": "User-approved project-generated HUD sheet",
+  "license_note": "Project asset. Do not relabel as CC0 and do not claim these are extracted Call of Duty/Nazi Zombies assets.",
+  "rendering": {
+    "outer_canvas": "transparent",
+    "interior_style": "neutral smoky translucent glass",
+    "base_interior_alpha": 0.27,
+    "black_zombie_hands_target_alpha": 0.49,
+    "rim_and_icon_target_alpha": 0.9,
+    "recommended_visual_to_hitbox_scale": 1.15,
+    "action_runtime_px": [256, 256],
+    "hybrid_runtime_px": [512, 512],
+    "weapon_slot_runtime_px": [512, 256]
+  },
+  "buttons": [
+    {"id":"ads_fire_hybrid","function":"Hybrid ADS + Fire","nzp_existing_role":"XZ_TOUCH_ADSFIRE","xziel_action":"ads_fire"},
+    {"id":"ads","function":"ADS / Aim","nzp_existing_role":"XZ_TOUCH_ADS","xziel_action":"ads"},
+    {"id":"fire","function":"Hip fire / Fire","nzp_existing_role":"XZ_TOUCH_FIRE","xziel_action":"fire"},
+    {"id":"reload","function":"Reload","nzp_existing_role":"XZ_TOUCH_RELOAD","xziel_action":"reload"},
+    {"id":"squad","function":"Squad / Team panel","nzp_reserved_role":"XZ_TOUCH_SQUAD","xziel_action":"squad"},
+    {"id":"crouch","function":"Crouch / squat (eñangotado)","nzp_reserved_role":"XZ_TOUCH_CROUCH","xziel_action":"crouch"},
+    {"id":"slide","function":"Tactical slide","nzp_existing_role":"XZ_TOUCH_SLIDE","xziel_action":"slide"},
+    {"id":"prone","function":"Prone","nzp_reserved_role":"XZ_TOUCH_PRONE","xziel_action":"prone"},
+    {"id":"jump_vault","function":"Jump / Vault","nzp_existing_role":"XZ_TOUCH_JUMP","xziel_action":"jump_vault"},
+    {"id":"sprint","function":"Sprint","nzp_reserved_role":"XZ_TOUCH_SPRINT","xziel_action":"sprint"},
+    {"id":"dolphin_dive","function":"Dolphin Dive","nzp_reserved_role":"XZ_TOUCH_DOLPHIN_DIVE","xziel_action":"dolphin_dive"},
+    {"id":"melee_knife","function":"Melee / Knife","nzp_existing_role":"XZ_TOUCH_KNIFE","xziel_action":"melee"},
+    {"id":"grenade","function":"Grenade / Throwable","nzp_existing_role":"XZ_TOUCH_GRENADE","xziel_action":"grenade"},
+    {"id":"interact_zombie_hand","function":"Use / Interact","nzp_existing_role":"XZ_TOUCH_USE","xziel_action":"interact"},
+    {"id":"weapon_swap","function":"Quick weapon swap","nzp_existing_role":"XZ_TOUCH_SWITCH","xziel_action":"weapon_swap"},
+    {"id":"weapon_primary","function":"Primary weapon slot","nzp_existing_role":"XZ_TOUCH_WEAPON2/3 mapping","xziel_action":"weapon_primary"},
+    {"id":"weapon_secondary","function":"Secondary weapon slot","nzp_existing_role":"XZ_TOUCH_WEAPON2/3 mapping","xziel_action":"weapon_secondary"}
+  ]
+}
