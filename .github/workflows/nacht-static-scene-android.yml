@@ -437,9 +437,11 @@ jobs:
                       exportMaterials: true));
 
           Console.WriteLine(
-              $"exportResults={result.Count}");
+              $"exportResults={result.Count}"
+              + $" minimumExpected={wanted.Count + materialQueued.Count}");
 
-          return result.Count == wanted.Count
+          return result.Count >=
+              wanted.Count + materialQueued.Count
               ? 0
               : 5;
           CS
