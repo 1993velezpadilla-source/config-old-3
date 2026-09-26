@@ -920,13 +920,16 @@ static int XzCreateStaticSceneProgram(void)
         "precision mediump float;\n"
         "in vec3 vNormal;\n"
         "in vec2 vUV;\n"
+        "uniform sampler2D uBaseColor;\n"
+        "uniform int uBaseColorEnabled;\n"
         "out vec4 outColor;\n"
         "void main(){\n"
         "  vec3 n=normalize(vNormal);\n"
         "  float light=0.38+0.62*abs(n.z);\n"
-        "  float uvTone=0.92+0.08*clamp(vUV.y,0.0,1.0);\n"
-        "  vec3 base=vec3(0.56,0.54,0.50)*uvTone;\n"
-        "  outColor=vec4(base*light,1.0);\n"
+        "  vec4 base=uBaseColorEnabled!=0\n"
+        "    ? texture(uBaseColor,vUV)\n"
+        "    : vec4(0.56,0.54,0.50,1.0);\n"
+        "  outColor=vec4(base.rgb*light,base.a);\n"
         "}\n";
 
     XzNativeGles3Api *gl = &xz_shadow.gl;
@@ -977,10 +980,30 @@ static int XzCreateStaticSceneProgram(void)
         gl->GetUniformLocation(
             xz_shadow.static_program,
             "uProjection");
+    xz_shadow.static_base_color_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uBaseColor");
+    xz_shadow.static_base_color_enabled_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uBaseColorEnabled");
 
     if (xz_shadow.static_view_loc < 0 ||
-        xz_shadow.static_projection_loc < 0)
+        xz_shadow.static_projection_loc < 0 ||
+        xz_shadow.static_base_color_loc < 0 ||
+        xz_shadow.static_base_color_enabled_loc < 0)
         return 0;
+
+    gl->UseProgram(
+        xz_shadow.static_program);
+    gl->Uniform1i(
+        xz_shadow.static_base_color_loc,
+        0);
+    gl->Uniform1i(
+        xz_shadow.static_base_color_enabled_loc,
+        0);
+    gl->UseProgram(0u);
 
     return gl->GetError() == GL_NO_ERROR;
 }
