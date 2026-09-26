@@ -266,21 +266,24 @@ defs.write_text(dtext, encoding="utf-8")
 
 sv_main = source / "sv_main.c"
 stext = sv_main.read_text(encoding="utf-8")
-remote_stats_old = r'''\tMSG_WriteByte(msg, STAT_XZIEL_W3RES);
-\tMSG_WriteLong(msg, (int)PR_GetEdictFloat(ent, "xziel_weapon3_reserve"));
-'''
-remote_stats_new = r'''\tMSG_WriteByte(msg, STAT_XZIEL_W3RES);
-\tMSG_WriteLong(msg, (int)PR_GetEdictFloat(ent, "xziel_weapon3_reserve"));
-\tMSG_WriteByte(msg, svc_updatestat);
-\tMSG_WriteByte(msg, STAT_XZIEL_FACINGENEMY);
-\tMSG_WriteLong(msg, (int)ent->v.facingenemy);
-\tMSG_WriteByte(msg, svc_updatestat);
-\tMSG_WriteByte(msg, STAT_XZIEL_MAXSPEED);
-\tMSG_WriteLong(msg, (int)(ent->v.maxspeed * 100.0f));
-'''
 if "STAT_XZIEL_MAXSPEED);" not in stext:
-    stext = replace_once(stext, remote_stats_old, remote_stats_new,
-                         "remote gameplay stat replication")
+    w3_marker = 'MSG_WriteByte(msg, STAT_XZIEL_W3RES);'
+    w3_reserve = 'MSG_WriteLong(msg, (int)PR_GetEdictFloat(ent, "xziel_weapon3_reserve"));'
+    marker_pos = stext.find(w3_marker)
+    reserve_pos = stext.find(w3_reserve, marker_pos if marker_pos >= 0 else 0)
+    if marker_pos < 0 or reserve_pos < 0:
+        raise SystemExit("Could not find remote gameplay stat insertion point")
+    line_end = stext.find("\n", reserve_pos)
+    if line_end < 0:
+        line_end = len(stext)
+    remote_stats = """
+	MSG_WriteByte(msg, svc_updatestat);
+	MSG_WriteByte(msg, STAT_XZIEL_FACINGENEMY);
+	MSG_WriteLong(msg, (int)ent->v.facingenemy);
+	MSG_WriteByte(msg, svc_updatestat);
+	MSG_WriteByte(msg, STAT_XZIEL_MAXSPEED);
+	MSG_WriteLong(msg, (int)(ent->v.maxspeed * 100.0f));"""
+    stext = stext[:line_end] + remote_stats + stext[line_end:]
 sv_main.write_text(stext, encoding="utf-8")
 
 client_h = source / "client.h"
@@ -394,6 +397,42 @@ if "(sv.active && sv_player) ? sv_player->v.Flash_Size" not in rtext:
         "        size = (sv.active && sv_player) ? sv_player->v.Flash_Size : 5.0f;\n",
         "remote muzzle flash size null guard")
 particles.write_text(rtext, encoding="utf-8")
+
+# Some HUD paths still read server-only QC fields directly. On a remote client
+# there is no local sv_player edict, so visual-only helpers must not dereference
+# it. Gameplay values above are replicated; these guards only suppress labels
+# that do not yet have a network mirror.
+hud = source / "render" / "r_hud.c"
+hudtext = hud.read_text(encoding="utf-8")
+hud_weapon_anchor = r'''void
+HUD_Weapon(void)
+{
+    static char last_weapon_name[32];
+'''
+hud_weapon_repl = r'''void
+HUD_Weapon(void)
+{
+    if (!(sv.active && sv_player))
+        return;
+
+    static char last_weapon_name[32];
+'''
+if "HUD_Weapon(void)\n{\n    if (!(sv.active && sv_player))" not in hudtext:
+    hudtext = replace_once(hudtext, hud_weapon_anchor, hud_weapon_repl,
+                           "remote HUD weapon null guard")
+
+hud_gungame_anchor = r'''HUD_GunGame(void)
+{
+'''
+hud_gungame_repl = r'''HUD_GunGame(void)
+{
+    if (!(sv.active && sv_player))
+        return;
+'''
+if "HUD_GunGame(void)\n{\n    if (!(sv.active && sv_player))" not in hudtext:
+    hudtext = replace_once(hudtext, hud_gungame_anchor, hud_gungame_repl,
+                           "remote HUD gungame null guard")
+hud.write_text(hudtext, encoding="utf-8")
 
 # Make LoadingScreen_Begin() own the map-name storage instead of relying on
 # Menu_SelectMap() to have set a borrowed pointer first. This keeps host/solo
