@@ -89,6 +89,79 @@ if "Online co-op keeps a visible fire-ready pose while ADS is held" not in text:
         raise SystemExit("Could not find third-person idle animation anchor")
     text = text.replace(idle_old, idle_new, 1)
 
+# Vril/classic-protocol player footsteps.
+# Upstream only emits human footsteps inside #ifdef FTE, which means Android
+# clients can see remote movement but never receive a player footstep sound.
+# Keep the original FTE path untouched and add the equivalent authoritative
+# SSQC sound emission for non-FTE builds, using server velocity as movement
+# evidence. Sound_PlaySound/PLAYSOUND then replicates the real svc_sound packet
+# to every observer.
+footstep_anchor = """#endif // FTE
+	
+	// Health Regeneration
+"""
+footstep_insert = """#endif // FTE
+
+#ifndef FTE
+	// Networked player footsteps for Vril/classic protocol builds.
+	if ((vlen(self.velocity) > 20) &&
+		((time - self.lastsound_time > 0.4) ||
+		 (time - self.lastsound_time > 0.3 && self.sprinting)) &&
+		(self.flags & FL_ONGROUND))
+	{
+		local float ran = random();
+		if (ran > 0.8)
+			Sound_PlaySound(self, "sounds/player/footstep1.wav", SOUND_TYPE_PLAYER_FOOTSTEP, SOUND_PRIORITY_PLAYALWAYS);
+		else if (ran > 0.6)
+			Sound_PlaySound(self, "sounds/player/footstep2.wav", SOUND_TYPE_PLAYER_FOOTSTEP, SOUND_PRIORITY_PLAYALWAYS);
+		else if (ran > 0.4)
+			Sound_PlaySound(self, "sounds/player/footstep3.wav", SOUND_TYPE_PLAYER_FOOTSTEP, SOUND_PRIORITY_PLAYALWAYS);
+		else if (ran > 0.2)
+			Sound_PlaySound(self, "sounds/player/footstep4.wav", SOUND_TYPE_PLAYER_FOOTSTEP, SOUND_PRIORITY_PLAYALWAYS);
+		else
+			Sound_PlaySound(self, "sounds/player/footstep5.wav", SOUND_TYPE_PLAYER_FOOTSTEP, SOUND_PRIORITY_PLAYALWAYS);
+		self.lastsound_time = time;
+	}
+#endif // !FTE
+	
+	// Health Regeneration
+"""
+if "Networked player footsteps for Vril/classic protocol builds" not in text:
+    if footstep_anchor not in text:
+        raise SystemExit("Could not find non-FTE footstep insertion anchor")
+    text = text.replace(footstep_anchor, footstep_insert, 1)
+
+# The sound must be in the precache table on non-FTE too. Make the five player
+# footsteps unconditional; FTE continues to precache the same assets once.
+main_path = root / "source" / "server" / "main.qc"
+main = main_path.read_text(encoding="utf-8")
+precache_old = """#ifdef FTE
+
+	precache_sound("sounds/player/footstep1.wav");
+	precache_sound("sounds/player/footstep2.wav");
+	precache_sound("sounds/player/footstep3.wav");
+	precache_sound("sounds/player/footstep4.wav");
+	precache_sound("sounds/player/footstep5.wav");
+
+#endif // FTE
+
+	precache_sound("sounds/player/jump.wav");
+"""
+precache_new = """	precache_sound("sounds/player/footstep1.wav");
+	precache_sound("sounds/player/footstep2.wav");
+	precache_sound("sounds/player/footstep3.wav");
+	precache_sound("sounds/player/footstep4.wav");
+	precache_sound("sounds/player/footstep5.wav");
+
+	precache_sound("sounds/player/jump.wav");
+"""
+if "Xziel player footsteps are networked on Vril" not in main:
+    if precache_old not in main:
+        raise SystemExit("Could not find FTE-only player footstep precache block")
+    main = main.replace(precache_old,
+        "/* Xziel player footsteps are networked on Vril too. */\n" + precache_new, 1)
+main_path.write_text(main, encoding="utf-8")
+
 # Mystery Box co-op pickup sharing.
 # Stock NZ:P only lets the player who paid collect the revealed gun. Online
 # co-op keeps the roll/animation authoritative on the host, but once the gun is
