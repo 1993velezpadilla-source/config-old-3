@@ -226,89 +226,27 @@ jobs:
           void QueueMaterialTextures(
               UMaterialInterface sourceMaterial)
           {
-              var refs = new List<FPackageIndex>();
+              /*
+               * CUE4Parse 1.2.2.202609 returns loaded
+               * UUnrealMaterial objects here, not FPackageIndex refs.
+               * Filter the returned set to UTexture directly so this probe
+               * matches the NuGet API actually used by CI.
+               */
+              var refs = new List<UUnrealMaterial>();
               sourceMaterial.AppendReferencedTextures(
                   refs,
                   false);
 
               foreach (
-                  var textureRef in refs
+                  var texture in refs
+                      .OfType<UTexture>()
                       .DistinctBy(
                           x => x.GetPathName(),
                           StringComparer.OrdinalIgnoreCase))
               {
                   textureRefs++;
-
-                  UTexture? texture = null;
-                  if (
-                      textureRef.TryLoad<UTexture>(
-                          out var loaded)
-                      && loaded is not null)
-                  {
-                      texture = loaded;
-                  }
-                  else
-                  {
-                      var refName = textureRef.Name;
-                      var exactMatches =
-                          packageBasenames.TryGetValue(
-                              refName,
-                              out var exact)
-                              ? exact
-                              : [];
-
-                      if (exactMatches.Length > 0)
-                          exactTexturePackageMatches++;
-
-                      foreach (
-                          var candidate in exactMatches)
-                      {
-                          try
-                          {
-                              texture =
-                                  provider
-                                      .LoadPackage(candidate)
-                                      .GetExports()
-                                      .OfType<UTexture>()
-                                      .FirstOrDefault(
-                                          x => x.Name.Equals(
-                                              refName,
-                                              StringComparison.OrdinalIgnoreCase))
-                                  ?? provider
-                                      .LoadPackage(candidate)
-                                      .GetExports()
-                                      .OfType<UTexture>()
-                                      .FirstOrDefault();
-
-                              if (texture is not null)
-                                  break;
-                          }
-                          catch (Exception e)
-                          {
-                              Console.WriteLine(
-                                  $"texture-direct-package-error"
-                                  + $" material={sourceMaterial.Name}"
-                                  + $" path={candidate}"
-                                  + $" error={e.Message}");
-                          }
-                      }
-
-                      if (texture is not null)
-                          directTextureLoads++;
-                  }
-
-                  if (texture is null)
-                  {
-                      directTextureLoadFailures++;
-                      Console.WriteLine(
-                          $"texture-load-fail"
-                          + $" material={sourceMaterial.Name}"
-                          + $" refName={textureRef.Name}"
-                          + $" refPath={textureRef.GetPathName()}");
-                      continue;
-                  }
-
                   textureLoads++;
+
                   var textureKey =
                       texture.GetPathName();
 
