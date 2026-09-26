@@ -1617,12 +1617,18 @@ int XzAndroidRuntime_CompositeVisibleWorld(void)
             "static_scene_draw ready=1 meshes=%u"
             " instances=%u drawCalls=%u"
             " attempts=%" PRIu64
-            " failures=%" PRIu64,
+            " failures=%" PRIu64
+            " fboPixels=%u surfacePixels=%u"
+            " readback=%ux%u",
             xz_runtime.gles3_shadow.static_scene_gpu_meshes,
             xz_runtime.gles3_shadow.static_scene_last_instances,
             xz_runtime.gles3_shadow.static_scene_last_draw_calls,
             xz_runtime.gles3_shadow.static_scene_draw_attempts,
-            xz_runtime.gles3_shadow.static_scene_draw_failures);
+            xz_runtime.gles3_shadow.static_scene_draw_failures,
+            xz_runtime.gles3_shadow.static_scene_fbo_nonblack_pixels,
+            xz_runtime.gles3_shadow.static_scene_surface_nonblack_pixels,
+            xz_runtime.gles3_shadow.static_scene_readback_width,
+            xz_runtime.gles3_shadow.static_scene_readback_height);
     }
 
     return presented;
