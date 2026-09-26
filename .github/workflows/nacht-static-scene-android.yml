@@ -8,6 +8,7 @@ on:
       - feature/xziel-static-scene-gpu-v1
       - feature/xziel-static-scene-framebuffer-v1
       - feature/xziel-static-scene-materials-v1
+      - feature/xziel-static-scene-material-colors-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -203,6 +204,11 @@ jobs:
           var meshMaterialRows =
               new List<Dictionary<string, string>>();
 
+          var materialVectorRows =
+              new List<Dictionary<string, string>>();
+          var materialParentRows =
+              new List<Dictionary<string, string>>();
+
           var queued =
               new HashSet<string>(
                   StringComparer.OrdinalIgnoreCase);
@@ -267,6 +273,235 @@ jobs:
               var field =
                   type.GetField(name, flags);
               return field?.GetValue(target);
+          }
+
+          bool TryReadNumber(
+              object? value,
+              out double result)
+          {
+              result = 0.0;
+              if (value is null)
+                  return false;
+
+              try
+              {
+                  if (value is IConvertible)
+                  {
+                      result =
+                          Convert.ToDouble(
+                              value,
+                              System.Globalization.CultureInfo.InvariantCulture);
+                      return
+                          !double.IsNaN(result)
+                          && !double.IsInfinity(result);
+                  }
+              }
+              catch
+              {
+              }
+
+              return false;
+          }
+
+          bool TryReadLinearColor(
+              object? value,
+              out double r,
+              out double g,
+              out double b,
+              out double a)
+          {
+              r = g = b = 0.0;
+              a = 1.0;
+
+              if (value is null)
+                  return false;
+
+              object? ReadColorMember(
+                  string primary,
+                  string fallback)
+              {
+                  return
+                      ReadMember(value, primary)
+                      ?? ReadMember(value, fallback);
+              }
+
+              if (
+                  !TryReadNumber(
+                      ReadColorMember("R", "X"),
+                      out r)
+                  || !TryReadNumber(
+                      ReadColorMember("G", "Y"),
+                      out g)
+                  || !TryReadNumber(
+                      ReadColorMember("B", "Z"),
+                      out b))
+                  return false;
+
+              var alpha =
+                  ReadColorMember("A", "W");
+              if (alpha is not null)
+                  TryReadNumber(alpha, out a);
+
+              return true;
+          }
+
+          string ReadParameterName(
+              object parameter)
+          {
+              var info =
+                  ReadMember(
+                      parameter,
+                      "ParameterInfo");
+
+              var name =
+                  info is not null
+                      ? ReadMember(
+                          info,
+                          "Name")?.ToString()
+                      : null;
+
+              return
+                  name
+                  ?? ReadMember(
+                      parameter,
+                      "ParameterName")?.ToString()
+                  ?? ReadMember(
+                      parameter,
+                      "Name")?.ToString()
+                  ?? "unknown";
+          }
+
+          void AddMaterialVector(
+              UMaterialInterface sourceMaterial,
+              string sourceKind,
+              string parameterName,
+              object? value)
+          {
+              if (
+                  !TryReadLinearColor(
+                      value,
+                      out var r,
+                      out var g,
+                      out var b,
+                      out var a))
+                  return;
+
+              materialVectorRows.Add(
+                  new Dictionary<string, string> {
+                      ["materialPath"] =
+                          sourceMaterial.GetPathName(),
+                      ["materialName"] =
+                          sourceMaterial.Name,
+                      ["source"] = sourceKind,
+                      ["parameterName"] =
+                          parameterName,
+                      ["r"] =
+                          r.ToString(
+                              "R",
+                              System.Globalization.CultureInfo.InvariantCulture),
+                      ["g"] =
+                          g.ToString(
+                              "R",
+                              System.Globalization.CultureInfo.InvariantCulture),
+                      ["b"] =
+                          b.ToString(
+                              "R",
+                              System.Globalization.CultureInfo.InvariantCulture),
+                      ["a"] =
+                          a.ToString(
+                              "R",
+                              System.Globalization.CultureInfo.InvariantCulture),
+                  });
+          }
+
+          void CollectMaterialVectors(
+              UMaterialInterface sourceMaterial)
+          {
+              if (
+                  ReadMember(
+                      sourceMaterial,
+                      "VectorParameterValues")
+                  is System.Collections.IEnumerable vectorParameters)
+              {
+                  foreach (
+                      var vectorParameter
+                      in vectorParameters)
+                  {
+                      if (vectorParameter is null)
+                          continue;
+
+                      AddMaterialVector(
+                          sourceMaterial,
+                          "VectorParameterValues",
+                          ReadParameterName(
+                              vectorParameter),
+                          ReadMember(
+                              vectorParameter,
+                              "ParameterValue")
+                          ?? ReadMember(
+                              vectorParameter,
+                              "Value"));
+                  }
+              }
+
+              if (
+                  ReadMember(
+                      sourceMaterial,
+                      "Expressions")
+                  is System.Collections.IEnumerable expressions)
+              {
+                  foreach (
+                      var expressionRef
+                      in expressions)
+                  {
+                      object? expression =
+                          expressionRef;
+
+                      if (
+                          expressionRef
+                          is FPackageIndex expressionIndex)
+                          expression =
+                              expressionIndex.Load();
+
+                      if (expression is null)
+                          continue;
+
+                      var typeName =
+                          expression
+                              .GetType()
+                              .Name;
+
+                      if (
+                          !typeName.Contains(
+                              "VectorParameter",
+                              StringComparison.OrdinalIgnoreCase)
+                          && !typeName.Contains(
+                              "Constant3Vector",
+                              StringComparison.OrdinalIgnoreCase)
+                          && !typeName.Contains(
+                              "Constant4Vector",
+                              StringComparison.OrdinalIgnoreCase))
+                          continue;
+
+                      var value =
+                          ReadMember(
+                              expression,
+                              "DefaultValue")
+                          ?? ReadMember(
+                              expression,
+                              "Constant")
+                          ?? ReadMember(
+                              expression,
+                              "Value");
+
+                      AddMaterialVector(
+                          sourceMaterial,
+                          $"expression:{typeName}",
+                          ReadParameterName(
+                              expression),
+                          value);
+                  }
+              }
           }
 
           var materialTextureWalkVisited =
@@ -635,6 +870,9 @@ jobs:
               if (!materialTextureWalkVisited.Add(materialKey))
                   return;
 
+              CollectMaterialVectors(
+                  sourceMaterial);
+
               /*
                * First use the pinned NuGet's public API. It is
                * known to return UUnrealMaterial objects in CI.
@@ -767,6 +1005,18 @@ jobs:
                       parentMaterial,
                       sourceMaterial))
               {
+                  materialParentRows.Add(
+                      new Dictionary<string, string> {
+                          ["materialPath"] =
+                              sourceMaterial.GetPathName(),
+                          ["materialName"] =
+                              sourceMaterial.Name,
+                          ["parentPath"] =
+                              parentMaterial.GetPathName(),
+                          ["parentName"] =
+                              parentMaterial.Name,
+                      });
+
                   QueueMaterialTextures(
                       parentMaterial);
               }
@@ -1026,12 +1276,20 @@ jobs:
                       materialTextureRows.Count,
                   meshMaterialCount =
                       meshMaterialRows.Count,
+                  materialVectorCount =
+                      materialVectorRows.Count,
+                  materialParentCount =
+                      materialParentRows.Count,
                   textures =
                       explicitTextureRows,
                   bindings =
                       materialTextureRows,
                   meshMaterials =
                       meshMaterialRows,
+                  materialVectors =
+                      materialVectorRows,
+                  materialParents =
+                      materialParentRows,
               };
 
           File.WriteAllText(
@@ -1048,7 +1306,9 @@ jobs:
               $"textureXztFiles={explicitTextureFiles}"
               + $" textureXztDecodeFailures={explicitTextureDecodeFailures}"
               + $" textureXztUnsupportedFormats={explicitTextureUnsupportedFormats}"
-              + $" materialTextureBindings={materialTextureRows.Count}");
+              + $" materialTextureBindings={materialTextureRows.Count}"
+              + $" materialVectors={materialVectorRows.Count}"
+              + $" materialParents={materialParentRows.Count}");
 
           Console.WriteLine(
               $"wanted={wanted.Count} queued={queued.Count}"
@@ -1375,6 +1635,75 @@ jobs:
               json.dumps(report, indent=2),
               encoding="utf-8",
           )
+
+          manifest_path = (
+              pathlib.Path(
+                  os.environ["RUNNER_TEMP"]
+              )
+              / "scene-glb"
+              / "xziel-texture-manifest.json"
+          )
+
+          if manifest_path.is_file():
+              manifest = json.loads(
+                  manifest_path.read_text(
+                      encoding="utf-8"
+                  )
+              )
+              vectors = manifest.get(
+                  "materialVectors", []
+              )
+              parents = manifest.get(
+                  "materialParents", []
+              )
+
+              parameter_names = Counter(
+                  str(row.get(
+                      "parameterName",
+                      "unknown",
+                  ))
+                  for row in vectors
+              )
+              vector_sources = Counter(
+                  str(row.get(
+                      "source",
+                      "unknown",
+                  ))
+                  for row in vectors
+              )
+
+              vector_report = {
+                  "vectorCount": len(vectors),
+                  "parentCount": len(parents),
+                  "parameterNames": dict(
+                      parameter_names.most_common()
+                  ),
+                  "sources": dict(
+                      vector_sources.most_common()
+                  ),
+                  "vectors": vectors,
+                  "parents": parents,
+              }
+
+              vector_out = pathlib.Path(
+                  "build/nacht-static-scene/"
+                  "material-audit/"
+                  "material-vector-audit.json"
+              )
+              vector_out.write_text(
+                  json.dumps(
+                      vector_report,
+                      indent=2,
+                  ),
+                  encoding="utf-8",
+              )
+
+              print(
+                  "XZIEL_NACHT_MATERIAL_VECTOR_AUDIT",
+                  f"vectors={len(vectors)}",
+                  f"parents={len(parents)}",
+                  f"parameters={dict(parameter_names.most_common(24))}",
+              )
 
           print(
               "XZIEL_NACHT_MATERIAL_EXPORT_AUDIT",
