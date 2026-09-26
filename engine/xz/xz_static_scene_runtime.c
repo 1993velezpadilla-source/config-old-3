@@ -11,6 +11,14 @@
 #define XZ_STATIC_SCENE_MAX_MESH_BYTES \
     (64u * 1024u * 1024u)
 
+#define XZ_STATIC_SCENE_MAX_MATERIAL_BYTES \
+    (4u * 1024u * 1024u)
+
+#define XZ_STATIC_SCENE_MAX_TEXTURE_BYTES \
+    (2u * 1024u * 1024u)
+
+#define XZ_STATIC_SCENE_MAX_TEXTURE_COUNT 2048u
+
 #define XZ_STATIC_SCENE_GAMEPLAY_UNITS_PER_METER \
     39.3700787402f
 
@@ -170,6 +178,24 @@ static void XzFreeMeshResources(
     free(resources);
 }
 
+
+static void XzFreeTextureResources(
+    XzStaticTextureResource *resources,
+    uint32_t count)
+{
+    uint32_t i;
+
+    if (!resources)
+        return;
+
+    for (i = 0u; i < count; ++i) {
+        if (resources[i].data)
+            free(resources[i].data);
+    }
+
+    free(resources);
+}
+
 void XzStaticSceneRuntime_Init(
     XzStaticSceneRuntimeState *state)
 {
@@ -190,6 +216,13 @@ void XzStaticSceneRuntime_Reset(
         state->mesh_resources,
         state->mesh_resource_count);
 
+    XzFreeTextureResources(
+        state->texture_resources,
+        state->texture_resource_count);
+
+    if (state->material_data)
+        free(state->material_data);
+
     if (state->scene_data)
         free(state->scene_data);
 
@@ -206,14 +239,22 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
     XzXzsceneView scene;
     XzXzsceneStatus scene_status;
     XzStaticMeshResource *resources = NULL;
+    XzStaticTextureResource *texture_resources = NULL;
+    unsigned char *material_data = NULL;
+    size_t material_bytes = 0u;
+    XzXzmaterialView materials;
     char scene_path[256];
+    char material_path[256];
     char mesh_prefix[160];
+    char texture_path[256];
     char failure[128] = "";
     uint32_t mesh_index;
     uint64_t mesh_bytes_total = 0u;
     uint64_t vertex_total = 0u;
     uint64_t index_total = 0u;
     uint64_t submesh_total = 0u;
+    uint64_t texture_bytes_total = 0u;
+    uint32_t texture_index;
     int read_status;
 
     if (!state)
@@ -457,12 +498,202 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
             (uint64_t)resource->mesh.submesh_count;
     }
 
+    if (snprintf(
+            material_path,
+            sizeof(material_path),
+            "xziel/maps/%s/materials.xzmt",
+            map_id) <= 0 ||
+        strlen(material_path) >=
+            sizeof(material_path) - 1u) {
+        snprintf(
+            failure,
+            sizeof(failure),
+            "%s",
+            "material_path_overflow");
+        goto invalid;
+    }
+
+    read_status = XzReadVfsFile(
+        material_path,
+        XZ_STATIC_SCENE_MAX_MATERIAL_BYTES,
+        &material_data,
+        &material_bytes);
+
+    if (read_status <= 0) {
+        snprintf(
+            failure,
+            sizeof(failure),
+            "%s",
+            read_status == 0
+                ? "material_table_missing"
+                : "material_table_read_failed");
+        goto invalid;
+    }
+
+    {
+        XzXzmaterialStatus material_status =
+            XzXzmaterial_Parse(
+                &materials,
+                material_data,
+                material_bytes);
+
+        if (material_status != XZ_XZMT_OK) {
+            snprintf(
+                failure,
+                sizeof(failure),
+                "xzmaterial_%s",
+                XzXzmaterial_StatusName(
+                    material_status));
+            goto invalid;
+        }
+    }
+
+    if (materials.mesh_count !=
+            scene.mesh_count ||
+        (uint64_t)materials.binding_count !=
+            submesh_total ||
+        materials.texture_count >
+            XZ_STATIC_SCENE_MAX_TEXTURE_COUNT) {
+        snprintf(
+            failure,
+            sizeof(failure),
+            "%s",
+            "material_scene_count_mismatch");
+        goto invalid;
+    }
+
+    for (mesh_index = 0u;
+         mesh_index < scene.mesh_count;
+         ++mesh_index) {
+        XzXzmaterialMeshSpan span;
+
+        if (!XzXzmaterial_ReadMeshSpan(
+                &materials,
+                mesh_index,
+                &span) ||
+            span.binding_count !=
+                resources[mesh_index].mesh.submesh_count) {
+            snprintf(
+                failure,
+                sizeof(failure),
+                "material_mesh_%u_span_mismatch",
+                (unsigned int)mesh_index);
+            goto invalid;
+        }
+    }
+
+    if (materials.texture_count > 0u) {
+        texture_resources =
+            (XzStaticTextureResource *)calloc(
+                (size_t)materials.texture_count,
+                sizeof(*texture_resources));
+
+        if (!texture_resources) {
+            snprintf(
+                failure,
+                sizeof(failure),
+                "%s",
+                "texture_resource_alloc_failed");
+            goto invalid;
+        }
+    }
+
+    for (texture_index = 0u;
+         texture_index < materials.texture_count;
+         ++texture_index) {
+        XzStaticTextureResource *texture_resource =
+            &texture_resources[texture_index];
+        XzXztextureStatus texture_status;
+
+        if (snprintf(
+                texture_path,
+                sizeof(texture_path),
+                "xziel/maps/%s/textures/t%04u.xzt",
+                map_id,
+                (unsigned int)texture_index) <= 0 ||
+            strlen(texture_path) >=
+                sizeof(texture_path) - 1u) {
+            snprintf(
+                failure,
+                sizeof(failure),
+                "%s",
+                "texture_path_overflow");
+            goto invalid;
+        }
+
+        snprintf(
+            texture_resource->path,
+            sizeof(texture_resource->path),
+            "%s",
+            texture_path);
+
+        read_status = XzReadVfsFile(
+            texture_path,
+            XZ_STATIC_SCENE_MAX_TEXTURE_BYTES,
+            &texture_resource->data,
+            &texture_resource->bytes);
+
+        if (read_status <= 0) {
+            snprintf(
+                failure,
+                sizeof(failure),
+                "texture_%u_%s",
+                (unsigned int)texture_index,
+                read_status == 0
+                    ? "missing"
+                    : "read_failed");
+            goto invalid;
+        }
+
+        texture_status = XzXztexture_Parse(
+            &texture_resource->texture,
+            texture_resource->data,
+            texture_resource->bytes);
+
+        if (texture_status != XZ_XZTX_OK) {
+            snprintf(
+                failure,
+                sizeof(failure),
+                "texture_%u_xztx_%s",
+                (unsigned int)texture_index,
+                XzXztexture_StatusName(
+                    texture_status));
+            goto invalid;
+        }
+
+        if (strcmp(
+                map_id,
+                "xziel_nacht_bo3") == 0 &&
+            (texture_resource->texture.width > 256u ||
+             texture_resource->texture.height > 256u)) {
+            snprintf(
+                failure,
+                sizeof(failure),
+                "texture_%u_mobile_mip_exceeded",
+                (unsigned int)texture_index);
+            goto invalid;
+        }
+
+        texture_bytes_total +=
+            (uint64_t)texture_resource->bytes;
+    }
+
     state->scene_data = scene_data;
     state->scene_bytes = scene_bytes;
     state->scene = scene;
     state->mesh_resources = resources;
     state->mesh_resource_count =
         scene.mesh_count;
+    state->material_data =
+        material_data;
+    state->material_bytes =
+        material_bytes;
+    state->materials =
+        materials;
+    state->texture_resources =
+        texture_resources;
+    state->texture_resource_count =
+        materials.texture_count;
     state->mesh_files_validated =
         scene.mesh_count;
     state->mesh_bytes_validated =
@@ -473,6 +704,12 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
         index_total;
     state->submesh_count =
         submesh_total;
+    state->material_bindings_validated =
+        materials.binding_count;
+    state->texture_files_validated =
+        materials.texture_count;
+    state->texture_bytes_validated =
+        texture_bytes_total;
     state->status =
         XZ_STATIC_SCENE_READY;
     state->error[0] = '\0';
@@ -480,6 +717,10 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
     return state->status;
 
 invalid:
+    XzFreeTextureResources(
+        texture_resources,
+        materials.texture_count);
+    free(material_data);
     XzFreeMeshResources(
         resources,
         scene.mesh_count);
@@ -539,6 +780,47 @@ uint32_t XzStaticSceneRuntime_MeshCount(
         return 0u;
 
     return state->mesh_resource_count;
+}
+
+const XzXzmaterialView *
+XzStaticSceneRuntime_Materials(
+    const XzStaticSceneRuntimeState *state)
+{
+    if (!state ||
+        state->status !=
+            XZ_STATIC_SCENE_READY ||
+        !state->material_data)
+        return NULL;
+
+    return &state->materials;
+}
+
+const XzStaticTextureResource *
+XzStaticSceneRuntime_Texture(
+    const XzStaticSceneRuntimeState *state,
+    uint32_t texture_index)
+{
+    if (!state ||
+        state->status !=
+            XZ_STATIC_SCENE_READY ||
+        !state->texture_resources ||
+        texture_index >=
+            state->texture_resource_count)
+        return NULL;
+
+    return &state->texture_resources[
+        texture_index];
+}
+
+uint32_t XzStaticSceneRuntime_TextureCount(
+    const XzStaticSceneRuntimeState *state)
+{
+    if (!state ||
+        state->status !=
+            XZ_STATIC_SCENE_READY)
+        return 0u;
+
+    return state->texture_resource_count;
 }
 
 const char *XzStaticSceneRuntime_StatusName(
