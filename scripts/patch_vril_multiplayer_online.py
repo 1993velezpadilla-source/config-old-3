@@ -834,6 +834,19 @@ cl_update_repl = """	CL_RelinkEntities ();
 	CL_UpdateTEnts ();
 
 #ifdef __ANDROID__
+	/* Remote clients can occasionally reach full signon while a stale loading
+	   flag remains set. At SIGNONS the world/precache is complete, so keeping
+	   LoadingScreen_IsActive() true only suppresses V_RenderView() and leaves a
+	   black framebuffer. Make the fully-connected state authoritative. */
+	if (Xziel_Android_OnlineActive() &&
+		cls.signon == SIGNONS && LoadingScreen_IsActive()) {
+		LoadingScreen_Finish();
+		SCR_EndLoadingPlaque();
+		key_dest = key_game;
+		m_state = m_none;
+		m_previous_state = m_state;
+	}
+
 	if (cl.viewentity > 0 && cl.viewentity < cl.num_entities) {
 		entity_t *voice_listener = &cl_entities[cl.viewentity];
 		Xziel_Android_VoiceUpdatePosition(
