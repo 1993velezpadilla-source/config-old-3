@@ -126,6 +126,8 @@ jobs:
           using CUE4Parse.UE4.Versions;
           using CUE4Parse.UE4.Assets.Exports.StaticMesh;
           using CUE4Parse.UE4.Assets.Exports.Material;
+          using CUE4Parse.UE4.Assets.Exports.Texture;
+          using CUE4Parse.UE4.Objects.UObject;
           using CUE4Parse_Conversion;
           using CUE4Parse_Conversion.Options;
           using System.Text.Json;
@@ -212,6 +214,116 @@ jobs:
           var directMaterialLoads = 0;
           var directMaterialLoadFailures = 0;
 
+          var textureRefs = 0;
+          var textureLoads = 0;
+          var directTextureLoads = 0;
+          var directTextureLoadFailures = 0;
+          var exactTexturePackageMatches = 0;
+          var textureQueued =
+              new HashSet<string>(
+                  StringComparer.OrdinalIgnoreCase);
+
+          void QueueMaterialTextures(
+              UMaterialInterface sourceMaterial)
+          {
+              var refs = new List<FPackageIndex>();
+              sourceMaterial.AppendReferencedTextures(
+                  refs,
+                  false);
+
+              foreach (
+                  var textureRef in refs
+                      .DistinctBy(
+                          x => x.GetPathName(),
+                          StringComparer.OrdinalIgnoreCase))
+              {
+                  textureRefs++;
+
+                  UTexture? texture = null;
+                  if (
+                      textureRef.TryLoad<UTexture>(
+                          out var loaded)
+                      && loaded is not null)
+                  {
+                      texture = loaded;
+                  }
+                  else
+                  {
+                      var refName = textureRef.Name;
+                      var exactMatches =
+                          packageBasenames.TryGetValue(
+                              refName,
+                              out var exact)
+                              ? exact
+                              : [];
+
+                      if (exactMatches.Length > 0)
+                          exactTexturePackageMatches++;
+
+                      foreach (
+                          var candidate in exactMatches)
+                      {
+                          try
+                          {
+                              texture =
+                                  provider
+                                      .LoadPackage(candidate)
+                                      .GetExports()
+                                      .OfType<UTexture>()
+                                      .FirstOrDefault(
+                                          x => x.Name.Equals(
+                                              refName,
+                                              StringComparison.OrdinalIgnoreCase))
+                                  ?? provider
+                                      .LoadPackage(candidate)
+                                      .GetExports()
+                                      .OfType<UTexture>()
+                                      .FirstOrDefault();
+
+                              if (texture is not null)
+                                  break;
+                          }
+                          catch (Exception e)
+                          {
+                              Console.WriteLine(
+                                  $"texture-direct-package-error"
+                                  + $" material={sourceMaterial.Name}"
+                                  + $" path={candidate}"
+                                  + $" error={e.Message}");
+                          }
+                      }
+
+                      if (texture is not null)
+                          directTextureLoads++;
+                  }
+
+                  if (texture is null)
+                  {
+                      directTextureLoadFailures++;
+                      Console.WriteLine(
+                          $"texture-load-fail"
+                          + $" material={sourceMaterial.Name}"
+                          + $" refName={textureRef.Name}"
+                          + $" refPath={textureRef.GetPathName()}");
+                      continue;
+                  }
+
+                  textureLoads++;
+                  var textureKey =
+                      texture.GetPathName();
+
+                  if (textureQueued.Add(textureKey))
+                  {
+                      session.Add(texture);
+                      Console.WriteLine(
+                          $"texture-direct-ok"
+                          + $" material={sourceMaterial.Name}"
+                          + $" texture={texture.Name}"
+                          + $" path={textureKey}");
+                  }
+              }
+          }
+
           foreach (
               var file in provider.Files.Values
                   .Where(f => f.IsUePackage)
@@ -271,7 +383,10 @@ jobs:
                                   if (
                                       materialQueued.Add(
                                           material.GetPathName()))
+                                  {
                                       session.Add(material);
+                                      QueueMaterialTextures(material);
+                                  }
 
                                   Console.WriteLine(
                                       $"material-ok"
@@ -374,7 +489,11 @@ jobs:
                                           directMaterial.GetPathName();
 
                                       if (materialQueued.Add(materialKey))
+                                      {
                                           session.Add(directMaterial);
+                                          QueueMaterialTextures(
+                                              directMaterial);
+                                      }
 
                                       Console.WriteLine(
                                           $"material-direct-ok"
@@ -420,12 +539,20 @@ jobs:
               + $" exactPackageMatches={exactPackageMatches}"
               + $" normalizedPackageMatches={normalizedPackageMatches}"
               + $" directMaterialLoads={directMaterialLoads}"
-              + $" directMaterialLoadFailures={directMaterialLoadFailures}");
+              + $" directMaterialLoadFailures={directMaterialLoadFailures}"
+              + $" textureRefs={textureRefs}"
+              + $" textureLoads={textureLoads}"
+              + $" textureQueued={textureQueued.Count}"
+              + $" exactTexturePackageMatches={exactTexturePackageMatches}"
+              + $" directTextureLoads={directTextureLoads}"
+              + $" directTextureLoadFailures={directTextureLoadFailures}");
 
           if (queued.Count != wanted.Count)
               return 4;
           if (materialRefs == 0 || materialLoads == 0)
               return 6;
+          if (textureRefs == 0 || textureLoads == 0)
+              return 7;
 
           Directory.CreateDirectory(args[1]);
 
@@ -438,10 +565,10 @@ jobs:
 
           Console.WriteLine(
               $"exportResults={result.Count}"
-              + $" minimumExpected={wanted.Count + materialQueued.Count}");
+              + $" minimumExpected={wanted.Count + materialQueued.Count + textureQueued.Count}");
 
           return result.Count >=
-              wanted.Count + materialQueued.Count
+              wanted.Count + materialQueued.Count + textureQueued.Count
               ? 0
               : 5;
           CS
