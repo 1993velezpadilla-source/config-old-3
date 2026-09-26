@@ -634,4 +634,103 @@ new_write = r'''int UDP_Write (int socket, byte *buf, int len, struct qsockaddr 
 text = replace_once(text, old_write, new_write, "UDP_Write")
 udp.write_text(text, encoding="utf-8")
 
+# ---------------------------------------------------------------------------
+# Bounded native datagram diagnostics for Android CI. This does not alter
+# routing or packet contents; it proves whether post-connect packets are
+# rejected by address validation or fail before the ACK write.
+# ---------------------------------------------------------------------------
+dgrm = source / "platform" / "sdl" / "net_dgrm.c"
+dtext = dgrm.read_text(encoding="utf-8")
+
+d_include = '#include "net_dgrm.h"\n'
+d_diag_decl = r'''#ifdef __ANDROID__
+#include <android/log.h>
+static int xziel_dgrm_trace_count;
+#endif
+'''
+if "xziel_dgrm_trace_count" not in dtext:
+    dtext = replace_once(dtext, d_include, d_include + d_diag_decl,
+                         "Datagram Android diagnostics include")
+
+d_addr_old = r'''		if (sfunc.AddrCompare(&readaddr, &sock->addr) != 0)
+		{
+#ifdef DEBUG
+			Con_DPrintf("Forged packet received\n");
+			Con_DPrintf("Expected: %s\n", StrAddr (&sock->addr));
+			Con_DPrintf("Received: %s\n", StrAddr (&readaddr));
+#endif
+			continue;
+		}
+'''
+d_addr_new = r'''		{
+			int xziel_addr_compare = sfunc.AddrCompare(&readaddr, &sock->addr);
+#ifdef __ANDROID__
+			if (xziel_dgrm_trace_count < 32) {
+				struct sockaddr_in *expected =
+					(struct sockaddr_in *)&sock->addr;
+				struct sockaddr_in *received =
+					(struct sockaddr_in *)&readaddr;
+				unsigned int xziel_header = BigLong(packetBuffer.length);
+				unsigned int xziel_flags =
+					xziel_header & (~NETFLAG_LENGTH_MASK);
+				unsigned int xziel_declared =
+					xziel_header & NETFLAG_LENGTH_MASK;
+				unsigned int xziel_sequence = BigLong(packetBuffer.sequence);
+				__android_log_print(ANDROID_LOG_INFO, "XzielNet",
+					"DGRM_RX bytes=%u declared=%u flags=0x%08x seq=%u "
+					"expected=%u.%u.%u.%u:%u got=%u.%u.%u.%u:%u cmp=%d",
+					length, xziel_declared, xziel_flags, xziel_sequence,
+					(ntohl(expected->sin_addr.s_addr) >> 24) & 0xff,
+					(ntohl(expected->sin_addr.s_addr) >> 16) & 0xff,
+					(ntohl(expected->sin_addr.s_addr) >> 8) & 0xff,
+					ntohl(expected->sin_addr.s_addr) & 0xff,
+					ntohs(expected->sin_port),
+					(ntohl(received->sin_addr.s_addr) >> 24) & 0xff,
+					(ntohl(received->sin_addr.s_addr) >> 16) & 0xff,
+					(ntohl(received->sin_addr.s_addr) >> 8) & 0xff,
+					ntohl(received->sin_addr.s_addr) & 0xff,
+					ntohs(received->sin_port),
+					xziel_addr_compare);
+				xziel_dgrm_trace_count++;
+			}
+#endif
+			if (xziel_addr_compare != 0)
+			{
+#ifdef DEBUG
+				Con_DPrintf("Forged packet received\n");
+				Con_DPrintf("Expected: %s\n", StrAddr (&sock->addr));
+				Con_DPrintf("Received: %s\n", StrAddr (&readaddr));
+#endif
+				continue;
+			}
+		}
+'''
+if "DGRM_RX bytes=" not in dtext:
+    dtext = replace_once(dtext, d_addr_old, d_addr_new,
+                         "Datagram address-compare diagnostics")
+
+d_ack_old = r'''			packetBuffer.length = BigLong(NET_HEADERSIZE | NETFLAG_ACK);
+			packetBuffer.sequence = BigLong(sequence);
+			sfunc.Write (sock->socket, (byte *)&packetBuffer, NET_HEADERSIZE, &readaddr);
+'''
+d_ack_new = r'''			int xziel_ack_result;
+			packetBuffer.length = BigLong(NET_HEADERSIZE | NETFLAG_ACK);
+			packetBuffer.sequence = BigLong(sequence);
+			xziel_ack_result =
+				sfunc.Write (sock->socket, (byte *)&packetBuffer,
+					NET_HEADERSIZE, &readaddr);
+#ifdef __ANDROID__
+			if (xziel_dgrm_trace_count < 32) {
+				__android_log_print(ANDROID_LOG_INFO, "XzielNet",
+					"DGRM_ACK seq=%u write=%d", sequence, xziel_ack_result);
+				xziel_dgrm_trace_count++;
+			}
+#endif
+'''
+if "DGRM_ACK seq=" not in dtext:
+    dtext = replace_once(dtext, d_ack_old, d_ack_new,
+                         "Datagram ACK diagnostics")
+
+dgrm.write_text(dtext, encoding="utf-8")
+
 print("Xziel multiplayer internet tunnel patch applied.")
