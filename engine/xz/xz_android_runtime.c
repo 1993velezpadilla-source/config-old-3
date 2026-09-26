@@ -1593,6 +1593,8 @@ int XzAndroidRuntime_ShouldSuppressLegacyWorldDraw(
 
 int XzAndroidRuntime_CompositeVisibleWorld(void)
 {
+    int presented;
+
     if (!xz_runtime.initialized ||
         !xz_runtime.cutover.candidate_ready ||
         !xz_runtime.gles3_shadow.real_geometry_ready ||
@@ -1600,11 +1602,30 @@ int XzAndroidRuntime_CompositeVisibleWorld(void)
         !xz_runtime.gles3_shadow.visible_context_ready)
         return 0;
 
-    return XzGles3Shadow_CompositeVisibleWorld(
-        &xz_runtime.gles3_shadow,
-        XzGeometryTap_GetWriteFrame(),
-        xz_runtime.active_quality.width,
-        xz_runtime.active_quality.height);
+    presented =
+        XzGles3Shadow_CompositeVisibleWorld(
+            &xz_runtime.gles3_shadow,
+            XzGeometryTap_GetWriteFrame(),
+            xz_runtime.active_quality.width,
+            xz_runtime.active_quality.height);
+
+    if (presented &&
+        xz_runtime.gles3_shadow.static_scene_frame_ready &&
+        xz_runtime.gles3_shadow.static_scene_draw_successes == 1u) {
+        XzAndroidLog(
+            ANDROID_LOG_INFO,
+            "static_scene_draw ready=1 meshes=%u"
+            " instances=%u drawCalls=%u"
+            " attempts=%" PRIu64
+            " failures=%" PRIu64,
+            xz_runtime.gles3_shadow.static_scene_gpu_meshes,
+            xz_runtime.gles3_shadow.static_scene_last_instances,
+            xz_runtime.gles3_shadow.static_scene_last_draw_calls,
+            xz_runtime.gles3_shadow.static_scene_draw_attempts,
+            xz_runtime.gles3_shadow.static_scene_draw_failures);
+    }
+
+    return presented;
 }
 
 void XzAndroidRuntime_EndFrame(double now_seconds)
