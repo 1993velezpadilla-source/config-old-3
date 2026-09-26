@@ -1,0 +1,48 @@
+name: XZIEL Static Scene Draw Plan CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/xziel-static-scene-drawplan-v1
+      - feature/xziel-static-scene-gpu-v1
+      - feature/xziel-static-scene-framebuffer-v1
+      - feature/xziel-engine-nacht-runtime-v1
+    paths:
+      - "engine/xz/xz_static_scene_draw_plan.*"
+      - "tests/xz_static_scene_draw_plan_test.c"
+      - "tools/maps/compile_nacht_xzscene.py"
+      - ".github/workflows/xzscene-drawplan-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  draw-plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Compile real Nacht XZSC
+        run: |
+          set -euo pipefail
+          mkdir -p build/drawplan
+          python3 tools/maps/compile_nacht_xzscene.py \
+            --output build/drawplan/scene.xzsc \
+            --report build/drawplan/scene-report.json
+
+      - name: Build and test static scene draw plan
+        run: |
+          set -euo pipefail
+          cc -std=c99 -O2 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tests/xz_static_scene_draw_plan_test.c \
+            engine/xz/xz_static_scene_draw_plan.c \
+            engine/xz/xz_xzscene.c \
+            -lm \
+            -o /tmp/xz_static_scene_draw_plan_test
+
+          /tmp/xz_static_scene_draw_plan_test \
+            build/drawplan/scene.xzsc
