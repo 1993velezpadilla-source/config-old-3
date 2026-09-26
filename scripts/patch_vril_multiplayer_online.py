@@ -620,7 +620,10 @@ new_write = r'''int UDP_Write (int socket, byte *buf, int len, struct qsockaddr 
 				Xziel_Android_GameSend(buf, len, destination_slot,
 					source_port, destination_port))
 				return len;
-			return 0;
+			// Keep Vril's normal UDP error contract. A rejected tunnel packet
+			// must be -1; returning 0 makes Datagram_SendMessage mark reliable
+			// signon data as sent even though Java/Worker dropped it.
+			return -1;
 		}
 	}
 #endif
