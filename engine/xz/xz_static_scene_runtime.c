@@ -478,6 +478,76 @@ const XzXzsceneView *XzStaticSceneRuntime_Scene(
     return &state->scene;
 }
 
+int XzStaticSceneRuntime_ReadMesh(
+    const XzStaticSceneRuntimeState *state,
+    uint32_t mesh_index,
+    unsigned char **data,
+    size_t *data_bytes,
+    XzXzmeshView *mesh)
+{
+    char mesh_path[
+        XZ_XZSC_MAX_PATH_BYTES + 1u];
+    unsigned char *mesh_data = NULL;
+    size_t mesh_size = 0u;
+    int read_status;
+    XzXzmeshStatus mesh_status;
+
+    if (!state ||
+        state->status !=
+            XZ_STATIC_SCENE_READY ||
+        !state->scene_data ||
+        !data ||
+        !data_bytes ||
+        !mesh ||
+        mesh_index >=
+            state->scene.mesh_count)
+        return 0;
+
+    *data = NULL;
+    *data_bytes = 0u;
+    memset(mesh, 0, sizeof(*mesh));
+
+    if (!XzXzscene_ReadMeshPath(
+            &state->scene,
+            mesh_index,
+            mesh_path,
+            sizeof(mesh_path)))
+        return 0;
+
+    read_status = XzReadVfsFile(
+        mesh_path,
+        XZ_STATIC_SCENE_MAX_MESH_BYTES,
+        &mesh_data,
+        &mesh_size);
+
+    if (read_status != 1 ||
+        !mesh_data ||
+        mesh_size == 0u)
+        return 0;
+
+    mesh_status = XzXzmesh_Parse(
+        mesh,
+        mesh_data,
+        mesh_size);
+
+    if (mesh_status != XZ_XZMS_OK) {
+        free(mesh_data);
+        memset(mesh, 0, sizeof(*mesh));
+        return 0;
+    }
+
+    *data = mesh_data;
+    *data_bytes = mesh_size;
+    return 1;
+}
+
+void XzStaticSceneRuntime_FreeMesh(
+    unsigned char *data)
+{
+    if (data)
+        free(data);
+}
+
 const char *XzStaticSceneRuntime_StatusName(
     XzStaticSceneStatus status)
 {

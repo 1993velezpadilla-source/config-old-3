@@ -51,6 +51,16 @@ void XzStaticSceneRuntime_Shutdown(
 const XzXzsceneView *XzStaticSceneRuntime_Scene(
     const XzStaticSceneRuntimeState *state);
 
+int XzStaticSceneRuntime_ReadMesh(
+    const XzStaticSceneRuntimeState *state,
+    uint32_t mesh_index,
+    unsigned char **data,
+    size_t *data_bytes,
+    XzXzmeshView *mesh);
+
+void XzStaticSceneRuntime_FreeMesh(
+    unsigned char *data);
+
 const char *XzStaticSceneRuntime_StatusName(
     XzStaticSceneStatus status);
 
