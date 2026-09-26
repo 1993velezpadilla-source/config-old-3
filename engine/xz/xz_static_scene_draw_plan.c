@@ -86,10 +86,6 @@ int XzStaticSceneDrawPlan_Build(
             scene->gameplay_units_per_meter))
         return 0;
 
-    if ((uint64_t)scene->instance_count >
-        (uint64_t)SIZE_MAX / (16u * sizeof(float)))
-        return 0;
-
     matrix_floats =
         (uint64_t)scene->instance_count * 16u;
 
