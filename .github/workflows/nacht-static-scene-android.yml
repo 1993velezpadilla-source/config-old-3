@@ -759,13 +759,7 @@ jobs:
                   }
               }
 
-              if (
-                  !hasExplicitAlbedo
-                  && !string.IsNullOrWhiteSpace(
-                      normalTextureName)
-                  && !normalTextureName.Contains(
-                      "identitynormalmap",
-                      StringComparison.OrdinalIgnoreCase))
+              if (!hasExplicitAlbedo)
               {
                   var inferredNames =
                       new List<string>();
@@ -782,32 +776,77 @@ jobs:
                       }
                   }
 
-                  var normalName =
-                      normalTextureName!;
+                  /*
+                   * BO3/Pavlov material names often preserve the cooked image
+                   * basename more reliably than the material's normal override.
+                   * Probe only exact package basenames; this never fabricates a
+                   * texture and therefore cannot bind a non-existent sibling.
+                   */
+                  var materialName =
+                      sourceMaterial.Name ?? "";
+
+                  AddInferred(
+                      "i_" + materialName + "_c");
+                  AddInferred(
+                      "i_" + materialName + "_d");
+                  AddInferred(
+                      materialName + "_c");
+                  AddInferred(
+                      materialName + "_d");
 
                   if (
-                      normalName.EndsWith(
-                          "_n",
-                          StringComparison.OrdinalIgnoreCase))
+                      materialName.StartsWith(
+                          "mtl_",
+                          StringComparison.OrdinalIgnoreCase)
+                      && materialName.Length > 4)
                   {
-                      var stem =
-                          normalName[..^2];
-                      AddInferred(stem + "_c");
-                      AddInferred(stem + "_d");
-                      AddInferred(stem + "_diffuse");
-                      AddInferred(stem + "_albedo");
+                      var materialStem =
+                          materialName[4..];
+
+                      AddInferred(
+                          "i_" + materialStem + "_c");
+                      AddInferred(
+                          "i_" + materialStem + "_d");
+                      AddInferred(
+                          materialStem + "_c");
+                      AddInferred(
+                          materialStem + "_d");
                   }
 
+                  var normalName =
+                      normalTextureName ?? "";
+
                   if (
-                      normalName.EndsWith(
-                          "_normal",
+                      !string.IsNullOrWhiteSpace(
+                          normalName)
+                      && !normalName.Contains(
+                          "identitynormalmap",
                           StringComparison.OrdinalIgnoreCase))
                   {
-                      var stem =
-                          normalName[..^7];
-                      AddInferred(stem + "_c");
-                      AddInferred(stem + "_diffuse");
-                      AddInferred(stem + "_albedo");
+                      if (
+                          normalName.EndsWith(
+                              "_n",
+                              StringComparison.OrdinalIgnoreCase))
+                      {
+                          var stem =
+                              normalName[..^2];
+                          AddInferred(stem + "_c");
+                          AddInferred(stem + "_d");
+                          AddInferred(stem + "_diffuse");
+                          AddInferred(stem + "_albedo");
+                      }
+
+                      if (
+                          normalName.EndsWith(
+                              "_normal",
+                              StringComparison.OrdinalIgnoreCase))
+                      {
+                          var stem =
+                              normalName[..^7];
+                          AddInferred(stem + "_c");
+                          AddInferred(stem + "_diffuse");
+                          AddInferred(stem + "_albedo");
+                      }
                   }
 
                   foreach (
@@ -860,12 +899,12 @@ jobs:
                       QueueTextureCandidate(
                           inferredTexture,
                           sourceMaterial,
-                          "inferred:AlbedoFromNormal");
+                          "inferred:AlbedoSibling");
 
                       Console.WriteLine(
                           $"texture-inferred-albedo"
                           + $" material={sourceMaterial.Name}"
-                          + $" normal={normalName}"
+                          + $" normal={(normalName.Length > 0 ? normalName : "none")}"
                           + $" albedo={inferredTexture.Name}");
 
                       break;
