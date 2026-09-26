@@ -268,7 +268,6 @@ sv_main = source / "sv_main.c"
 stext = sv_main.read_text(encoding="utf-8")
 remote_stats_old = r'''\tMSG_WriteByte(msg, STAT_XZIEL_W3RES);
 \tMSG_WriteLong(msg, (int)PR_GetEdictFloat(ent, "xziel_weapon3_reserve"));
-#endif
 '''
 remote_stats_new = r'''\tMSG_WriteByte(msg, STAT_XZIEL_W3RES);
 \tMSG_WriteLong(msg, (int)PR_GetEdictFloat(ent, "xziel_weapon3_reserve"));
@@ -278,7 +277,6 @@ remote_stats_new = r'''\tMSG_WriteByte(msg, STAT_XZIEL_W3RES);
 \tMSG_WriteByte(msg, svc_updatestat);
 \tMSG_WriteByte(msg, STAT_XZIEL_MAXSPEED);
 \tMSG_WriteLong(msg, (int)(ent->v.maxspeed * 100.0f));
-#endif
 '''
 if "STAT_XZIEL_MAXSPEED);" not in stext:
     stext = replace_once(stext, remote_stats_old, remote_stats_new,
