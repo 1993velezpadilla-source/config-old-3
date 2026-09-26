@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "live_label_to_asset": {
+    "ADS+FIRE": "ads_fire_hybrid_512.png",
+    "ADS": "ads.png",
+    "FIRE": "fire.png",
+    "RLD": "reload.png",
+    "USE": "interact_zombie_hand.png",
+    "NADE": "grenade.png",
+    "JUMP": "jump_vault.png",
+    "SLIDE": "slide.png",
+    "KNIFE": "melee_knife.png",
+    "SWITCH": "weapon_swap.png"
+  },
+  "reserved_distinct_touch_roles": {
+    "CROUCH": "crouch.png",
+    "PRONE": "prone.png",
+    "DIVE": "dolphin_dive.png",
+    "SQUAD": "squad.png",
+    "SPRINT": "sprint.png"
+  },
+  "weapon_slots": {
+    "PRIMARY": "weapon_primary.png",
+    "SECONDARY": "weapon_secondary.png"
+  }
+}
