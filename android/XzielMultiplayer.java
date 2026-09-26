@@ -54,7 +54,10 @@ public final class XzielMultiplayer {
     private static final String TAG = "XzielOnline";
     private static final int MAX_PLAYERS = 4;
     private static final int GAME_HEADER_BYTES = 9;
-    private static final int MAX_GAME_DATAGRAM = 4096;
+    // Vril MAX_DATAGRAM is 8000 plus its 8-byte network header. Keep a
+    // power-of-two ceiling above NET_DATAGRAMSIZE so reliable signon chunks
+    // (model/sound precache included) are never rejected by the bridge.
+    private static final int MAX_GAME_DATAGRAM = 8192;
     private static final int MAX_QUEUE_PER_PORT = 256;
     private static final long CONNECT_RETRY_MS = 3000L;
     private static final String DEFAULT_MAP = "ndu";
@@ -1186,6 +1189,14 @@ public final class XzielMultiplayer {
             destinationSlot < 1 || destinationSlot > MAX_PLAYERS ||
             sourcePort < 0 || sourcePort > 65535 ||
             destinationPort < 0 || destinationPort > 65535) {
+            if (ciEvidenceMode && payload != null &&
+                payload.length > MAX_GAME_DATAGRAM) {
+                Log.e(TAG, "GAME_TX_REJECT oversize=" + payload.length +
+                    " max=" + MAX_GAME_DATAGRAM +
+                    " dst=" + destinationSlot +
+                    " srcPort=" + sourcePort +
+                    " dstPort=" + destinationPort);
+            }
             return false;
         }
 
