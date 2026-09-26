@@ -240,7 +240,8 @@ jobs:
               foreach (var textureRef in refs)
               {
                   var refKey =
-                      textureRef.GetPathName();
+                      textureRef.ResolvedObject?.GetPathName()
+                      ?? $"{textureRef.Name}#{textureRef.Index}";
 
                   if (!seenRefs.Add(refKey))
                       continue;
