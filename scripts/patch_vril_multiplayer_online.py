@@ -751,7 +751,12 @@ cl_main = source / "cl_main.c"
 text = cl_main.read_text(encoding="utf-8")
 
 cl_include = '#include "nzportable_def.h"\n'
+cl_menu_include = '#include "menu/menu_defs.h"\n'
+if cl_menu_include not in text:
+    text = replace_once(text, cl_include, cl_include + cl_menu_include,
+                        "cl_main menu state declarations")
 cl_voice_decl = """#ifdef __ANDROID__
+extern int Xziel_Android_OnlineActive(void);
 extern void Xziel_Android_VoiceUpdatePosition(float x, float y, float z);
 extern void Xziel_Android_CiRemoteEntity(int slot, float x, float y, float z,
     int frame, float yaw);
@@ -759,8 +764,41 @@ static double xziel_ci_avatar_next;
 #endif
 """
 if "Xziel_Android_VoiceUpdatePosition" not in text:
-    text = replace_once(text, cl_include, cl_include + cl_voice_decl,
+    text = replace_once(text, cl_menu_include, cl_menu_include + cl_voice_decl,
                         "cl_main voice include anchor")
+
+# A true remote client connects while the main menu is still active. Host/solo
+# normally clears that state through Menu_SelectMap(), but the network connect
+# path never does. Once signon reaches 4, hand input/rendering to the game so
+# the mobile pause control opens Menu_Pause_Set() instead of leaving MAIN MENU
+# drawn over the live world.
+signon_game_old = """\t\tcase 4:
+\t\t{
+\t\t\tLoadingScreen_Finish();
+\t\t\tSCR_EndLoadingPlaque ();\t\t// allow normal screen updates
+\t\t\tbreak;
+\t\t}
+"""
+signon_game_new = """\t\tcase 4:
+\t\t{
+\t\t\tLoadingScreen_Finish();
+\t\t\tSCR_EndLoadingPlaque ();\t\t// allow normal screen updates
+#ifdef __ANDROID__
+\t\t\tif (Xziel_Android_OnlineActive()) {
+\t\t\t\tkey_dest = key_game;
+\t\t\t\tm_state = m_none;
+\t\t\t\tm_previous_state = m_state;
+\t\t\t}
+#endif
+\t\t\tbreak;
+\t\t}
+"""
+if "m_previous_state = m_state; /* Xziel remote signon */" not in text:
+    signon_game_new = signon_game_new.replace(
+        "m_previous_state = m_state;",
+        "m_previous_state = m_state; /* Xziel remote signon */")
+    text = replace_once(text, signon_game_old, signon_game_new,
+                        "remote signon game-view transition")
 
 cl_update_anchor = """	CL_RelinkEntities ();
 	CL_UpdateTEnts ();
