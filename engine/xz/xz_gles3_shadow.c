@@ -207,6 +207,7 @@ typedef struct {
     uint32_t index_count;
     uint32_t submesh_count;
     XzXzmeshSubmesh *submeshes;
+    uint32_t *diffuse_texture_indices;
     uint64_t gpu_bytes;
     int alive;
 } XzGles3StaticMesh;
@@ -258,7 +259,11 @@ typedef struct {
     GLuint static_program;
     GLint static_view_loc;
     GLint static_projection_loc;
+    GLint static_texture_loc;
+    GLint static_texture_enabled_loc;
     GLuint static_instance_vbo;
+    GLuint *static_textures;
+    uint32_t static_texture_count;
     XzStaticSceneDrawPlan static_draw_plan;
     int static_draw_plan_ready;
 
@@ -907,13 +912,16 @@ static int XzCreateStaticSceneProgram(void)
         "precision mediump float;\n"
         "in vec3 vNormal;\n"
         "in vec2 vUV;\n"
+        "uniform sampler2D uTexture;\n"
+        "uniform int uTextureEnabled;\n"
         "out vec4 outColor;\n"
         "void main(){\n"
         "  vec3 n=normalize(vNormal);\n"
         "  float light=0.38+0.62*abs(n.z);\n"
         "  float uvTone=0.92+0.08*clamp(vUV.y,0.0,1.0);\n"
-        "  vec3 base=vec3(0.56,0.54,0.50)*uvTone;\n"
-        "  outColor=vec4(base*light,1.0);\n"
+        "  vec4 texel=(uTextureEnabled!=0)?texture(uTexture,vUV):vec4(0.56,0.54,0.50,1.0);\n"
+        "  vec3 base=(uTextureEnabled!=0)?texel.rgb:(texel.rgb*uvTone);\n"
+        "  outColor=vec4(base*light,texel.a);\n"
         "}\n";
 
     XzNativeGles3Api *gl = &xz_shadow.gl;
@@ -964,10 +972,27 @@ static int XzCreateStaticSceneProgram(void)
         gl->GetUniformLocation(
             xz_shadow.static_program,
             "uProjection");
+    xz_shadow.static_texture_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uTexture");
+    xz_shadow.static_texture_enabled_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uTextureEnabled");
 
     if (xz_shadow.static_view_loc < 0 ||
-        xz_shadow.static_projection_loc < 0)
+        xz_shadow.static_projection_loc < 0 ||
+        xz_shadow.static_texture_loc < 0 ||
+        xz_shadow.static_texture_enabled_loc < 0)
         return 0;
+
+    gl->UseProgram(xz_shadow.static_program);
+    gl->Uniform1i(
+        xz_shadow.static_texture_loc, 0);
+    gl->Uniform1i(
+        xz_shadow.static_texture_enabled_loc, 0);
+    gl->UseProgram(0u);
 
     return gl->GetError() == GL_NO_ERROR;
 }
@@ -1678,6 +1703,8 @@ static void XzDestroyStaticSceneCurrent(
             if (mesh->ibo)
                 xz_shadow.gl.DeleteBuffers(
                     1, &mesh->ibo);
+            free(mesh->diffuse_texture_indices);
+            mesh->diffuse_texture_indices = NULL;
             free(mesh->submeshes);
             mesh->submeshes = NULL;
         }
@@ -1687,6 +1714,16 @@ static void XzDestroyStaticSceneCurrent(
 
     xz_shadow.static_meshes = NULL;
     xz_shadow.static_mesh_count = 0u;
+
+    if (xz_shadow.static_textures) {
+        if (xz_shadow.static_texture_count > 0u)
+            xz_shadow.gl.DeleteTextures(
+                (GLsizei)xz_shadow.static_texture_count,
+                xz_shadow.static_textures);
+        free(xz_shadow.static_textures);
+        xz_shadow.static_textures = NULL;
+    }
+    xz_shadow.static_texture_count = 0u;
 
     if (xz_shadow.static_instance_vbo) {
         xz_shadow.gl.DeleteBuffers(
@@ -1702,11 +1739,18 @@ static void XzDestroyStaticSceneCurrent(
         state->static_scene_gpu_bytes = 0u;
         state->static_scene_gpu_vertices = 0u;
         state->static_scene_gpu_indices = 0u;
+        state->static_scene_texture_bytes = 0u;
+        state->static_scene_texture_uploads = 0u;
+        state->static_scene_texture_failures = 0u;
+        state->static_scene_material_bindings = 0u;
+        state->static_scene_textured_bindings = 0u;
         state->static_scene_gpu_meshes = 0u;
         state->static_scene_gpu_submeshes = 0u;
         state->static_scene_gpu_ready = 0;
         state->static_scene_last_draw_calls = 0u;
         state->static_scene_last_instances = 0u;
+        state->static_scene_last_textured_draw_calls = 0u;
+        state->static_scene_last_untextured_draw_calls = 0u;
         state->static_scene_frame_ready = 0;
     }
 }
@@ -1758,7 +1802,10 @@ int XzGles3Shadow_UploadStaticScene(
     uint64_t vertices = 0u;
     uint64_t indices = 0u;
     uint64_t submeshes = 0u;
+    uint64_t texture_bytes = 0u;
     uint32_t mesh_index;
+    uint32_t texture_index;
+    uint32_t texture_count;
     int restored = 0;
 
     if (!state || !scene ||
@@ -1783,6 +1830,93 @@ int XzGles3Shadow_UploadStaticScene(
 
     XzDrainErrors(state);
     XzDestroyStaticSceneCurrent(state);
+
+    texture_count =
+        XzStaticSceneRuntime_TextureCount(scene);
+
+    if (texture_count > 0u) {
+        xz_shadow.static_textures =
+            (GLuint *)calloc(
+                texture_count,
+                sizeof(*xz_shadow.static_textures));
+        if (!xz_shadow.static_textures)
+            goto fail;
+
+        xz_shadow.static_texture_count =
+            texture_count;
+
+        xz_shadow.gl.GenTextures(
+            (GLsizei)texture_count,
+            xz_shadow.static_textures);
+
+        for (texture_index = 0u;
+             texture_index < texture_count;
+             ++texture_index) {
+            unsigned char *pixels = NULL;
+            uint32_t width = 0u;
+            uint32_t height = 0u;
+            uint64_t bytes;
+
+            if (!xz_shadow.static_textures[texture_index] ||
+                !XzStaticSceneRuntime_LoadTextureRgba(
+                    scene,
+                    texture_index,
+                    &pixels,
+                    &width,
+                    &height)) {
+                free(pixels);
+                state->static_scene_texture_failures++;
+                goto fail;
+            }
+
+            xz_shadow.gl.ActiveTexture(GL_TEXTURE0);
+            xz_shadow.gl.BindTexture(
+                GL_TEXTURE_2D,
+                xz_shadow.static_textures[texture_index]);
+            xz_shadow.gl.TexParameteri(
+                GL_TEXTURE_2D,
+                GL_TEXTURE_MIN_FILTER,
+                GL_LINEAR);
+            xz_shadow.gl.TexParameteri(
+                GL_TEXTURE_2D,
+                GL_TEXTURE_MAG_FILTER,
+                GL_LINEAR);
+            xz_shadow.gl.TexParameteri(
+                GL_TEXTURE_2D,
+                GL_TEXTURE_WRAP_S,
+                GL_REPEAT);
+            xz_shadow.gl.TexParameteri(
+                GL_TEXTURE_2D,
+                GL_TEXTURE_WRAP_T,
+                GL_REPEAT);
+            xz_shadow.gl.TexImage2D(
+                GL_TEXTURE_2D,
+                0,
+                GL_RGBA,
+                (GLsizei)width,
+                (GLsizei)height,
+                0,
+                GL_RGBA,
+                GL_UNSIGNED_BYTE,
+                pixels);
+
+            bytes =
+                (uint64_t)width *
+                (uint64_t)height * 4u;
+            texture_bytes += bytes;
+            state->static_scene_texture_uploads++;
+            free(pixels);
+
+            if (xz_shadow.gl.GetError() !=
+                    GL_NO_ERROR) {
+                state->static_scene_texture_failures++;
+                goto fail;
+            }
+        }
+
+        xz_shadow.gl.BindTexture(
+            GL_TEXTURE_2D, 0u);
+    }
 
     gpu_meshes = (XzGles3StaticMesh *)calloc(
         (size_t)scene->mesh_resource_count,
@@ -1815,18 +1949,40 @@ int XzGles3Shadow_UploadStaticScene(
             (XzXzmeshSubmesh *)calloc(
                 source->mesh.submesh_count,
                 sizeof(*dest->submeshes));
-        if (!dest->submeshes)
+        dest->diffuse_texture_indices =
+            (uint32_t *)calloc(
+                source->mesh.submesh_count,
+                sizeof(*dest->diffuse_texture_indices));
+        if (!dest->submeshes ||
+            !dest->diffuse_texture_indices)
             goto fail;
 
         for (submesh_index = 0u;
              submesh_index <
                 source->mesh.submesh_count;
              ++submesh_index) {
+            uint32_t diffuse_texture_index;
+
             if (!XzXzmesh_ReadSubmesh(
                     &source->mesh,
                     submesh_index,
                     &dest->submeshes[submesh_index]))
                 goto fail;
+
+            diffuse_texture_index =
+                XzStaticSceneRuntime_DiffuseTextureIndex(
+                    scene,
+                    mesh_index,
+                    dest->submeshes[submesh_index].material_index);
+
+            if (diffuse_texture_index !=
+                    XZ_STATIC_MATERIAL_NO_TEXTURE &&
+                diffuse_texture_index >=
+                    texture_count)
+                goto fail;
+
+            dest->diffuse_texture_indices[submesh_index] =
+                diffuse_texture_index;
         }
 
         vertex_bytes =
@@ -2025,6 +2181,12 @@ int XzGles3Shadow_UploadStaticScene(
         vertices;
     state->static_scene_gpu_indices =
         indices;
+    state->static_scene_texture_bytes =
+        texture_bytes;
+    state->static_scene_material_bindings =
+        XzStaticSceneRuntime_MaterialBindingCount(scene);
+    state->static_scene_textured_bindings =
+        scene->textured_material_bindings;
     state->static_scene_gpu_meshes =
         xz_shadow.static_mesh_count;
     state->static_scene_gpu_submeshes =
@@ -2038,6 +2200,11 @@ int XzGles3Shadow_UploadStaticScene(
             scene->index_count &&
         state->static_scene_gpu_submeshes ==
             scene->submesh_count &&
+        xz_shadow.static_texture_count ==
+            texture_count &&
+        state->static_scene_texture_uploads ==
+            texture_count &&
+        state->static_scene_texture_failures == 0u &&
         xz_shadow.static_draw_plan_ready &&
         xz_shadow.static_instance_vbo != 0u;
 
@@ -2126,6 +2293,8 @@ static int XzDrawStaticScene(
     const XzGeometryBatch *camera;
     uint32_t mesh_index;
     unsigned int draw_calls = 0u;
+    unsigned int textured_draw_calls = 0u;
+    unsigned int untextured_draw_calls = 0u;
 
     if (!state ||
         !state->static_scene_gpu_ready ||
@@ -2143,8 +2312,11 @@ static int XzDrawStaticScene(
     state->static_scene_frame_ready = 0;
     state->static_scene_last_draw_calls = 0u;
     state->static_scene_last_instances = 0u;
+    state->static_scene_last_textured_draw_calls = 0u;
+    state->static_scene_last_untextured_draw_calls = 0u;
 
     gl->UseProgram(xz_shadow.static_program);
+    gl->ActiveTexture(GL_TEXTURE0);
     gl->UniformMatrix4fv(
         xz_shadow.static_view_loc,
         1,
@@ -2190,11 +2362,42 @@ static int XzDrawStaticScene(
             const XzXzmeshSubmesh *submesh =
                 &mesh->submeshes[submesh_index];
 
+            uint32_t diffuse_texture_index;
+
             if (submesh->index_count == 0u ||
                 submesh->first_index +
                     submesh->index_count >
-                    mesh->index_count)
+                    mesh->index_count ||
+                !mesh->diffuse_texture_indices)
                 goto fail;
+
+            diffuse_texture_index =
+                mesh->diffuse_texture_indices[submesh_index];
+
+            if (diffuse_texture_index !=
+                    XZ_STATIC_MATERIAL_NO_TEXTURE &&
+                diffuse_texture_index <
+                    xz_shadow.static_texture_count &&
+                xz_shadow.static_textures &&
+                xz_shadow.static_textures[
+                    diffuse_texture_index] != 0u) {
+                gl->BindTexture(
+                    GL_TEXTURE_2D,
+                    xz_shadow.static_textures[
+                        diffuse_texture_index]);
+                gl->Uniform1i(
+                    xz_shadow.static_texture_enabled_loc,
+                    1);
+                textured_draw_calls++;
+            } else {
+                gl->BindTexture(
+                    GL_TEXTURE_2D,
+                    xz_shadow.real_fallback_texture);
+                gl->Uniform1i(
+                    xz_shadow.static_texture_enabled_loc,
+                    0);
+                untextured_draw_calls++;
+            }
 
             gl->DrawElementsInstanced(
                 GL_TRIANGLES,
@@ -2211,6 +2414,7 @@ static int XzDrawStaticScene(
     if (gl->GetError() != GL_NO_ERROR)
         goto fail;
 
+    gl->BindTexture(GL_TEXTURE_2D, 0u);
     gl->BindVertexArray(0u);
     gl->UseProgram(0u);
 
@@ -2218,6 +2422,10 @@ static int XzDrawStaticScene(
         draw_calls;
     state->static_scene_last_instances =
         xz_shadow.static_draw_plan.instance_count;
+    state->static_scene_last_textured_draw_calls =
+        textured_draw_calls;
+    state->static_scene_last_untextured_draw_calls =
+        untextured_draw_calls;
     state->static_scene_frame_ready =
         draw_calls ==
             state->static_scene_gpu_submeshes &&
