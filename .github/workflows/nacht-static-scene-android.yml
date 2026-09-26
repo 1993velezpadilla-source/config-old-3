@@ -8,6 +8,7 @@ on:
       - feature/xziel-static-scene-gpu-v1
       - feature/xziel-static-scene-framebuffer-v1
       - feature/xziel-static-scene-materials-v1
+      - feature/xziel-static-scene-material-coverage-v2
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -199,6 +200,11 @@ jobs:
               new List<Dictionary<string, string>>();
           var materialTextureRows =
               new List<Dictionary<string, string>>();
+
+          var materialVectorRows =
+              new List<Dictionary<string, string>>();
+
+          var inferredAlbedoLoads = 0;
 
           var meshMaterialRows =
               new List<Dictionary<string, string>>();
@@ -694,8 +700,13 @@ jobs:
 
               /*
                * Material instances override textures through
-               * TextureParameterValues.
+               * TextureParameterValues. Track albedo/normal semantics so
+               * normal-only instances can probe an exact cooked sibling
+               * diffuse texture instead of remaining flat gray.
                */
+              var hasExplicitAlbedo = false;
+              string? normalTextureName = null;
+
               if (
                   ReadMember(
                       sourceMaterial,
@@ -720,10 +731,203 @@ jobs:
                               "Name")?.ToString()
                           ?? "unknown";
 
+                      if (
+                          parameterName.Equals(
+                              "AlbedoTexture",
+                              StringComparison.OrdinalIgnoreCase))
+                      {
+                          hasExplicitAlbedo = true;
+                      }
+
+                      if (
+                          parameterName.Equals(
+                              "NormalTexture",
+                              StringComparison.OrdinalIgnoreCase))
+                      {
+                          normalTextureName =
+                              parameterValue is FPackageIndex normalIndex
+                                  ? normalIndex.Name
+                                  : ReadMember(
+                                      parameterValue!,
+                                      "Name")?.ToString();
+                      }
+
                       QueueTextureCandidate(
                           parameterValue,
                           sourceMaterial,
                           $"parameter:{parameterName}");
+                  }
+              }
+
+              if (
+                  !hasExplicitAlbedo
+                  && !string.IsNullOrWhiteSpace(
+                      normalTextureName)
+                  && !normalTextureName.Contains(
+                      "identitynormalmap",
+                      StringComparison.OrdinalIgnoreCase))
+              {
+                  var inferredNames =
+                      new List<string>();
+
+                  void AddInferred(string value)
+                  {
+                      if (
+                          value.Length > 0
+                          && !inferredNames.Contains(
+                              value,
+                              StringComparer.OrdinalIgnoreCase))
+                      {
+                          inferredNames.Add(value);
+                      }
+                  }
+
+                  var normalName =
+                      normalTextureName!;
+
+                  if (
+                      normalName.EndsWith(
+                          "_n",
+                          StringComparison.OrdinalIgnoreCase))
+                  {
+                      var stem =
+                          normalName[..^2];
+                      AddInferred(stem + "_c");
+                      AddInferred(stem + "_d");
+                      AddInferred(stem + "_diffuse");
+                      AddInferred(stem + "_albedo");
+                  }
+
+                  if (
+                      normalName.EndsWith(
+                          "_normal",
+                          StringComparison.OrdinalIgnoreCase))
+                  {
+                      var stem =
+                          normalName[..^7];
+                      AddInferred(stem + "_c");
+                      AddInferred(stem + "_diffuse");
+                      AddInferred(stem + "_albedo");
+                  }
+
+                  foreach (
+                      var inferredName
+                      in inferredNames)
+                  {
+                      if (
+                          !packageBasenames.TryGetValue(
+                              inferredName,
+                              out var inferredPackages))
+                      {
+                          continue;
+                      }
+
+                      UTexture? inferredTexture =
+                          null;
+
+                      foreach (
+                          var inferredPackagePath
+                          in inferredPackages)
+                      {
+                          try
+                          {
+                              var inferredPackage =
+                                  provider.LoadPackage(
+                                      inferredPackagePath);
+
+                              inferredTexture =
+                                  inferredPackage
+                                      .GetExports()
+                                      .OfType<UTexture>()
+                                      .FirstOrDefault(
+                                          x => x.Name.Equals(
+                                              inferredName,
+                                              StringComparison.OrdinalIgnoreCase));
+
+                              if (inferredTexture is not null)
+                                  break;
+                          }
+                          catch
+                          {
+                          }
+                      }
+
+                      if (inferredTexture is null)
+                          continue;
+
+                      inferredAlbedoLoads++;
+
+                      QueueTextureCandidate(
+                          inferredTexture,
+                          sourceMaterial,
+                          "inferred:AlbedoFromNormal");
+
+                      Console.WriteLine(
+                          $"texture-inferred-albedo"
+                          + $" material={sourceMaterial.Name}"
+                          + $" normal={normalName}"
+                          + $" albedo={inferredTexture.Name}");
+
+                      break;
+                  }
+              }
+
+              if (
+                  ReadMember(
+                      sourceMaterial,
+                      "VectorParameterValues")
+                  is System.Collections.IEnumerable vectorParameters)
+              {
+                  foreach (
+                      var vectorParameter
+                      in vectorParameters)
+                  {
+                      if (vectorParameter is null)
+                          continue;
+
+                      var parameterName =
+                          ReadMember(
+                              vectorParameter,
+                              "Name")?.ToString()
+                          ?? "unknown";
+
+                      var parameterValue =
+                          ReadMember(
+                              vectorParameter,
+                              "ParameterValue");
+
+                      if (parameterValue is null)
+                          continue;
+
+                      materialVectorRows.Add(
+                          new Dictionary<string, string> {
+                              ["materialPath"] =
+                                  sourceMaterial.GetPathName(),
+                              ["materialName"] =
+                                  sourceMaterial.Name,
+                              ["parameter"] =
+                                  parameterName,
+                              ["r"] =
+                                  ReadMember(
+                                      parameterValue,
+                                      "R")?.ToString()
+                                  ?? "",
+                              ["g"] =
+                                  ReadMember(
+                                      parameterValue,
+                                      "G")?.ToString()
+                                  ?? "",
+                              ["b"] =
+                                  ReadMember(
+                                      parameterValue,
+                                      "B")?.ToString()
+                                  ?? "",
+                              ["a"] =
+                                  ReadMember(
+                                      parameterValue,
+                                      "A")?.ToString()
+                                  ?? "",
+                          });
                   }
               }
 
@@ -1026,12 +1230,18 @@ jobs:
                       materialTextureRows.Count,
                   meshMaterialCount =
                       meshMaterialRows.Count,
+                  vectorParameterCount =
+                      materialVectorRows.Count,
+                  inferredAlbedoLoads =
+                      inferredAlbedoLoads,
                   textures =
                       explicitTextureRows,
                   bindings =
                       materialTextureRows,
                   meshMaterials =
                       meshMaterialRows,
+                  materialVectors =
+                      materialVectorRows,
               };
 
           File.WriteAllText(
@@ -1048,7 +1258,9 @@ jobs:
               $"textureXztFiles={explicitTextureFiles}"
               + $" textureXztDecodeFailures={explicitTextureDecodeFailures}"
               + $" textureXztUnsupportedFormats={explicitTextureUnsupportedFormats}"
-              + $" materialTextureBindings={materialTextureRows.Count}");
+              + $" materialTextureBindings={materialTextureRows.Count}"
+              + $" inferredAlbedoLoads={inferredAlbedoLoads}"
+              + $" vectorParameters={materialVectorRows.Count}");
 
           Console.WriteLine(
               $"wanted={wanted.Count} queued={queued.Count}"
@@ -1559,6 +1771,12 @@ jobs:
           cp \
             build/android-project/app/build/outputs/apk/debug/app-debug.apk \
             dist/XZIEL-Nacht-Static-Scene-debug.apk
+          cp \
+            build/nacht-static-scene/xziel.xzmat.report.json \
+            dist/xziel.xzmat.report.json
+          cp \
+            "$RUNNER_TEMP/scene-glb/xziel-texture-manifest.json" \
+            dist/xziel-texture-manifest.json
           ls -lh dist/XZIEL-Nacht-Static-Scene-debug.apk
 
       - name: Boot Nacht and prove 492/492 VFS validation
