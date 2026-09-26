@@ -236,6 +236,22 @@ jobs:
             VOICE_SENDERS="$(awk '/XzielVoice.*CI_VOICE_PLAY/ { if (match($0, / sender=[1-4]/)) print substr($0, RSTART + 8, 1) }' "$LOG" | sort -u | wc -l | tr -d ' ')"
             LOCAL_SLOT="$(awk '/XzielOnline.*WELCOME/ { if (match($0, / slot=[1-4]/)) slot=substr($0, RSTART + 6, 1) } END { if (slot != "") print slot }' "$LOG")"
 
+            # A Quake control handshake over the XZD1 tunnel should complete
+            # quickly once SERVER_READY is received. During CI, fail fast with
+            # bounded transport evidence instead of burning the full scenario
+            # timeout when the native UDP <-> WebSocket bridge is broken.
+            if [[ "$i" -ge 35 && -n "$LOCAL_SLOT" && "$LOCAL_SLOT" != "1" ]] &&                grep -q "XzielOnline.*SERVER_READY" "$LOG" &&                ! grep -q "XzielOnline.*SIGNON_COMPLETE" "$LOG"; then
+              echo "Client signon did not complete after tunnel diagnostic window."
+              grep -E "XzielOnline.*(WELCOME|SERVER_READY|CONNECT_|GAME_(TX|RX|POLL)|SIGNON_COMPLETE)" "$LOG" | tail -n 120 || true
+              break
+            fi
+
+            if [[ "$i" -ge 50 && "$LOCAL_SLOT" = "1" ]] &&                grep -q "XzielOnline.*HOST_SERVER_READY" "$LOG" &&                ! grep -q "XzielOnline.*CLIENT_READY" "$LOG"; then
+              echo "Host received no ready client after tunnel diagnostic window."
+              grep -E "XzielOnline.*(WELCOME|HOST_SERVER_READY|GAME_(TX|RX|POLL)|CLIENT_READY)" "$LOG" | tail -n 120 || true
+              break
+            fi
+
             SOUND_OK=1
 
             # Player 2 walks long enough to emit native SSQC footsteps.
@@ -347,7 +363,7 @@ jobs:
           {
             echo "runner=${{ matrix.runner }}"
             echo "queue=$QUEUE"
-            grep -E "(XzielOnline.*(WELCOME|PLAYER_JOINED|HOST_PREPARE|HOST_SERVER_READY|SERVER_READY|CONNECT_START|CONNECT_RETRY|SIGNON_COMPLETE|CLIENT_READY|CI_)|XzielVoice.*(VOICE_OPEN|CAPTURE_STARTED|CI_TONE_SENT|CI_VOICE_PLAY|CI_VOICE_OUT_OF_RANGE|MIC_MUTED|SPEAKER_MUTED|PLAYER_MUTE))" \
+            grep -E "(XzielOnline.*(WELCOME|PLAYER_JOINED|HOST_PREPARE|HOST_SERVER_READY|SERVER_READY|CONNECT_START|CONNECT_RETRY|SIGNON_COMPLETE|CLIENT_READY|GAME_(TX|RX|POLL)|CI_)|XzielVoice.*(VOICE_OPEN|CAPTURE_STARTED|CI_TONE_SENT|CI_VOICE_PLAY|CI_VOICE_OUT_OF_RANGE|MIC_MUTED|SPEAKER_MUTED|PLAYER_MUTE))" \
               "evidence/logcat-${{ matrix.runner }}.txt" || true
           } > "evidence/online-summary-${{ matrix.runner }}.txt"
 
