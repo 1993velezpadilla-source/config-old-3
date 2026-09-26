@@ -84,6 +84,8 @@ for name in (
     "xz_xzscene.c",
     "xz_static_scene_runtime.h",
     "xz_static_scene_runtime.c",
+    "xz_static_scene_draw_plan.h",
+    "xz_static_scene_draw_plan.c",
     "xz_world_transform.h",
     "xz_world_transform.c",
     "xz_bo3_weapon_specs.h",
