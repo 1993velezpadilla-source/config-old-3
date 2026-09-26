@@ -7,6 +7,7 @@ on:
       - feature/xziel-nacht-static-scene-runtime-v1
       - feature/xziel-static-scene-gpu-v1
       - feature/xziel-static-scene-framebuffer-v1
+      - feature/xziel-static-scene-materials-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -229,7 +230,7 @@ jobs:
                   args[1],
                   new ExportOptions(
                       meshFormat: EMeshFormat.Gltf2,
-                      exportMaterials: false));
+                      exportMaterials: true));
 
           Console.WriteLine(
               $"exportResults={result.Count}");
@@ -294,6 +295,100 @@ jobs:
               "XZIEL_NACHT_GLBS_READY",
               len(glbs),
           )
+          PY
+
+      - name: Audit exported Nacht materials and textures
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-static-scene/material-audit
+
+          python3 - <<'PY'
+          import json
+          import os
+          import pathlib
+          from collections import Counter
+
+          roots = [
+              pathlib.Path(os.environ["RUNNER_TEMP"]) / "scene-glb",
+              pathlib.Path.cwd(),
+          ]
+
+          files = []
+          seen = set()
+          for root in roots:
+              if not root.exists():
+                  continue
+              for p in root.rglob("*"):
+                  if not p.is_file():
+                      continue
+                  rp = str(p.resolve())
+                  if rp in seen:
+                      continue
+                  seen.add(rp)
+                  files.append(p)
+
+          suffixes = Counter(p.suffix.lower() for p in files)
+          material_json = []
+          texture_files = []
+
+          texture_exts = {
+              ".png", ".tga", ".jpg", ".jpeg",
+              ".bmp", ".dds", ".hdr", ".exr"
+          }
+
+          for p in files:
+              if p.suffix.lower() == ".json":
+                  try:
+                      doc = json.loads(p.read_text(encoding="utf-8"))
+                  except Exception:
+                      continue
+                  # CUE4Parse material JSON contains the resolved material
+                  # parameter payload, including texture references.
+                  keys = set(doc) if isinstance(doc, dict) else set()
+                  if {
+                      "Textures", "Scalars", "Vectors"
+                  } & keys:
+                      material_json.append(p)
+
+              if p.suffix.lower() in texture_exts:
+                  texture_files.append(p)
+
+          report = {
+              "allFiles": len(files),
+              "suffixCounts": dict(sorted(suffixes.items())),
+              "materialJsonCount": len(material_json),
+              "textureFileCount": len(texture_files),
+              "materialJsonSamples": [
+                  str(p) for p in material_json[:40]
+              ],
+              "textureSamples": [
+                  str(p) for p in texture_files[:40]
+              ],
+          }
+
+          out = pathlib.Path(
+              "build/nacht-static-scene/material-audit/"
+              "material-export-audit.json"
+          )
+          out.write_text(
+              json.dumps(report, indent=2),
+              encoding="utf-8",
+          )
+
+          print(
+              "XZIEL_NACHT_MATERIAL_EXPORT_AUDIT",
+              f"materials={len(material_json)}",
+              f"textures={len(texture_files)}",
+          )
+
+          if not material_json:
+              raise SystemExit(
+                  "CUE4Parse material export produced no material JSON"
+              )
+          if not texture_files:
+              raise SystemExit(
+                  "CUE4Parse material export produced no textures"
+              )
           PY
 
       - name: Build XZMS + XZSC Android overlay
