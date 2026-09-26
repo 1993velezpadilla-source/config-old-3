@@ -95,6 +95,11 @@ typedef struct {
     uint64_t static_scene_gpu_bytes;
     uint64_t static_scene_gpu_vertices;
     uint64_t static_scene_gpu_indices;
+    uint64_t static_scene_texture_bytes;
+    uint32_t static_scene_texture_uploads;
+    uint32_t static_scene_texture_failures;
+    uint32_t static_scene_material_bindings;
+    uint32_t static_scene_textured_bindings;
     unsigned int static_scene_gpu_meshes;
     unsigned int static_scene_gpu_submeshes;
     int static_scene_gpu_ready;
@@ -104,6 +109,8 @@ typedef struct {
     uint64_t static_scene_draw_failures;
     unsigned int static_scene_last_draw_calls;
     unsigned int static_scene_last_instances;
+    unsigned int static_scene_last_textured_draw_calls;
+    unsigned int static_scene_last_untextured_draw_calls;
     unsigned int static_scene_fbo_nonblack_pixels;
     unsigned int static_scene_surface_nonblack_pixels;
     unsigned int static_scene_postrestore_nonblack_pixels;
