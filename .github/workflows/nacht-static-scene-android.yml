@@ -198,6 +198,8 @@ jobs:
               new List<Dictionary<string, string>>();
           var materialTextureRows =
               new List<Dictionary<string, string>>();
+          var meshMaterialRows =
+              new List<Dictionary<string, string>>();
 
           var queued =
               new HashSet<string>(
@@ -265,14 +267,16 @@ jobs:
               return field?.GetValue(target);
           }
 
-          var materialTextureWalkVisited =
-              new HashSet<string>(
+          var resolvedTextureCache =
+              new Dictionary<string, UTexture>(
                   StringComparer.OrdinalIgnoreCase);
 
           void QueueTextureCandidate(
               object? candidate,
               UMaterialInterface sourceMaterial,
-              string sourceKind)
+              UMaterialInterface bindingMaterial,
+              string sourceKind,
+              int inheritanceDepth)
           {
               if (candidate is null)
                   return;
@@ -320,11 +324,20 @@ jobs:
 
               var refKey =
                   $"{sourceKind}:{refPath}";
+              var firstRef =
+                  seenTextureRefs.Add(refKey);
 
-              if (!seenTextureRefs.Add(refKey))
-                  return;
+              if (firstRef)
+                  textureRefs++;
 
-              textureRefs++;
+              if (
+                  texture is null
+                  && resolvedTextureCache.TryGetValue(
+                      refPath,
+                      out var cachedTexture))
+              {
+                  texture = cachedTexture;
+              }
 
               if (texture is null)
               {
@@ -361,7 +374,8 @@ jobs:
                               {
                                   texturePackage =
                                       packagePath;
-                                  directTextureLoads++;
+                                  if (firstRef)
+                                      directTextureLoads++;
                                   break;
                               }
                           }
@@ -381,7 +395,8 @@ jobs:
 
               if (texture is null)
               {
-                  directTextureLoadFailures++;
+                  if (firstRef)
+                      directTextureLoadFailures++;
                   Console.WriteLine(
                       $"texture-load-fail"
                       + $" material={sourceMaterial.Name}"
@@ -392,18 +407,28 @@ jobs:
                   return;
               }
 
-              textureLoads++;
+              if (firstRef)
+                  textureLoads++;
 
               var textureKey =
                   texture.GetPathName();
 
+              resolvedTextureCache[refPath] =
+                  texture;
+
               materialTextureRows.Add(
                   new Dictionary<string, string> {
                       ["materialPath"] =
-                          sourceMaterial.GetPathName(),
+                          bindingMaterial.GetPathName(),
                       ["materialName"] =
+                          bindingMaterial.Name,
+                      ["declaredMaterialPath"] =
+                          sourceMaterial.GetPathName(),
+                      ["declaredMaterialName"] =
                           sourceMaterial.Name,
                       ["source"] = sourceKind,
+                      ["inheritanceDepth"] =
+                          inheritanceDepth.ToString(),
                       ["texturePath"] = textureKey,
                       ["textureName"] = texture.Name,
                   });
@@ -623,18 +648,17 @@ jobs:
           }
 
           void QueueMaterialTextures(
-              UMaterialInterface sourceMaterial)
+              UMaterialInterface sourceMaterial,
+              UMaterialInterface bindingMaterial,
+              int inheritanceDepth,
+              HashSet<string> visited)
           {
               var materialKey =
                   sourceMaterial.GetPathName();
 
-              if (!materialTextureWalkVisited.Add(materialKey))
+              if (!visited.Add(materialKey))
                   return;
 
-              /*
-               * First use the pinned NuGet's public API. It is
-               * known to return UUnrealMaterial objects in CI.
-               */
               var publicRefs =
                   new List<UUnrealMaterial>();
 
@@ -647,13 +671,11 @@ jobs:
                   QueueTextureCandidate(
                       textureRef,
                       sourceMaterial,
-                      "append");
+                      bindingMaterial,
+                      "append",
+                      inheritanceDepth);
               }
 
-              /*
-               * UE4.21 cooked base materials commonly keep the
-               * actual texture links on Material Expressions.
-               */
               if (
                   ReadMember(
                       sourceMaterial,
@@ -684,14 +706,12 @@ jobs:
                       QueueTextureCandidate(
                           expressionTexture,
                           sourceMaterial,
-                          "expression");
+                          bindingMaterial,
+                          "expression",
+                          inheritanceDepth);
                   }
               }
 
-              /*
-               * Material instances override textures through
-               * TextureParameterValues.
-               */
               if (
                   ReadMember(
                       sourceMaterial,
@@ -719,15 +739,12 @@ jobs:
                       QueueTextureCandidate(
                           parameterValue,
                           sourceMaterial,
-                          $"parameter:{parameterName}");
+                          bindingMaterial,
+                          $"parameter:{parameterName}",
+                          inheritanceDepth);
                   }
               }
 
-              /*
-               * Some CUE4Parse builds expose an explicit
-               * ReferencedTextures collection even when the
-               * public append helper returns nothing.
-               */
               if (
                   ReadMember(
                       sourceMaterial,
@@ -741,14 +758,12 @@ jobs:
                       QueueTextureCandidate(
                           textureRef,
                           sourceMaterial,
-                          "referenced");
+                          bindingMaterial,
+                          "referenced",
+                          inheritanceDepth);
                   }
               }
 
-              /*
-               * Walk material-instance inheritance so textures
-               * supplied by parent materials are not omitted.
-               */
               var parentRef =
                   ReadMember(
                       sourceMaterial,
@@ -764,7 +779,10 @@ jobs:
                       sourceMaterial))
               {
                   QueueMaterialTextures(
-                      parentMaterial);
+                      parentMaterial,
+                      bindingMaterial,
+                      inheritanceDepth + 1,
+                      visited);
               }
           }
 
@@ -799,9 +817,13 @@ jobs:
                               + $" staticMaterials={mesh.StaticMaterials.Length}"
                               + $" materials={mesh.Materials.Length}");
 
-                          foreach (
-                              var slot in mesh.StaticMaterials)
+                          for (
+                              var slotIndex = 0;
+                              slotIndex < mesh.StaticMaterials.Length;
+                              ++slotIndex)
                           {
+                              var slot =
+                                  mesh.StaticMaterials[slotIndex];
                               var slotName =
                                   slot.ImportedMaterialSlotName?.Text
                                   ?? slot.MaterialSlotName.Text;
@@ -829,8 +851,25 @@ jobs:
                                           material.GetPathName()))
                                   {
                                       session.Add(material);
-                                      QueueMaterialTextures(material);
+                                      QueueMaterialTextures(
+                                          material,
+                                          material,
+                                          0,
+                                          new HashSet<string>(
+                                              StringComparer.OrdinalIgnoreCase));
                                   }
+
+                                  meshMaterialRows.Add(
+                                      new Dictionary<string, string> {
+                                          ["meshName"] = mesh.Name,
+                                          ["slotIndex"] =
+                                              slotIndex.ToString(),
+                                          ["slotName"] = slotName,
+                                          ["materialName"] =
+                                              material.Name,
+                                          ["materialPath"] =
+                                              material.GetPathName(),
+                                      });
 
                                   Console.WriteLine(
                                       $"material-ok"
@@ -936,8 +975,26 @@ jobs:
                                       {
                                           session.Add(directMaterial);
                                           QueueMaterialTextures(
-                                              directMaterial);
+                                              directMaterial,
+                                              directMaterial,
+                                              0,
+                                              new HashSet<string>(
+                                                  StringComparer.OrdinalIgnoreCase));
                                       }
+
+                                      meshMaterialRows.Add(
+                                          new Dictionary<string, string> {
+                                              ["meshName"] =
+                                                  mesh.Name,
+                                              ["slotIndex"] =
+                                                  slotIndex.ToString(),
+                                              ["slotName"] =
+                                                  slotName,
+                                              ["materialName"] =
+                                                  directMaterial.Name,
+                                              ["materialPath"] =
+                                                  directMaterial.GetPathName(),
+                                          });
 
                                       Console.WriteLine(
                                           $"material-direct-ok"
@@ -981,10 +1038,14 @@ jobs:
                       explicitTextureRows.Count,
                   bindingCount =
                       materialTextureRows.Count,
+                  meshMaterialCount =
+                      meshMaterialRows.Count,
                   textures =
                       explicitTextureRows,
                   bindings =
                       materialTextureRows,
+                  meshMaterials =
+                      meshMaterialRows,
               };
 
           File.WriteAllText(
@@ -1001,7 +1062,8 @@ jobs:
               $"textureXztFiles={explicitTextureFiles}"
               + $" textureXztDecodeFailures={explicitTextureDecodeFailures}"
               + $" textureXztUnsupportedFormats={explicitTextureUnsupportedFormats}"
-              + $" materialTextureBindings={materialTextureRows.Count}");
+              + $" materialTextureBindings={materialTextureRows.Count}"
+              + $" meshMaterialBindings={meshMaterialRows.Count}");
 
           Console.WriteLine(
               $"wanted={wanted.Count} queued={queued.Count}"
