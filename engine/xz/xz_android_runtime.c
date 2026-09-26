@@ -1434,6 +1434,9 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             " gpuVertices=%" PRIu64
             " gpuIndices=%" PRIu64
             " gpuBytes=%" PRIu64
+            " textures=%u textureUploads=%u"
+            " textureFailures=%u textureBytes=%" PRIu64
+            " materialBindings=%u texturedBindings=%u"
             " error='%s'",
             XzStaticSceneRuntime_StatusName(
                 static_status),
@@ -1457,6 +1460,12 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             xz_runtime.gles3_shadow.static_scene_gpu_vertices,
             xz_runtime.gles3_shadow.static_scene_gpu_indices,
             xz_runtime.gles3_shadow.static_scene_gpu_bytes,
+            xz_runtime.static_scene.texture_count,
+            xz_runtime.gles3_shadow.static_scene_texture_uploads,
+            xz_runtime.gles3_shadow.static_scene_texture_failures,
+            xz_runtime.gles3_shadow.static_scene_texture_bytes,
+            xz_runtime.gles3_shadow.static_scene_material_bindings,
+            xz_runtime.gles3_shadow.static_scene_textured_bindings,
             xz_runtime.static_scene.error);
     }
 
@@ -1616,6 +1625,7 @@ int XzAndroidRuntime_CompositeVisibleWorld(void)
             ANDROID_LOG_INFO,
             "static_scene_draw ready=1 meshes=%u"
             " instances=%u drawCalls=%u"
+            " texturedDrawCalls=%u untexturedDrawCalls=%u"
             " attempts=%" PRIu64
             " failures=%" PRIu64
             " fboPixels=%u surfacePixels=%u"
@@ -1624,6 +1634,8 @@ int XzAndroidRuntime_CompositeVisibleWorld(void)
             xz_runtime.gles3_shadow.static_scene_gpu_meshes,
             xz_runtime.gles3_shadow.static_scene_last_instances,
             xz_runtime.gles3_shadow.static_scene_last_draw_calls,
+            xz_runtime.gles3_shadow.static_scene_last_textured_draw_calls,
+            xz_runtime.gles3_shadow.static_scene_last_untextured_draw_calls,
             xz_runtime.gles3_shadow.static_scene_draw_attempts,
             xz_runtime.gles3_shadow.static_scene_draw_failures,
             xz_runtime.gles3_shadow.static_scene_fbo_nonblack_pixels,
