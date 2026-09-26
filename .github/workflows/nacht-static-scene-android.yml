@@ -125,6 +125,7 @@ jobs:
           using CUE4Parse.FileProvider;
           using CUE4Parse.UE4.Versions;
           using CUE4Parse.UE4.Assets.Exports.StaticMesh;
+          using CUE4Parse.UE4.Assets.Exports.Material;
           using CUE4Parse_Conversion;
           using CUE4Parse_Conversion.Options;
           using System.Text.Json;
@@ -183,6 +184,12 @@ jobs:
               new HashSet<string>(
                   StringComparer.OrdinalIgnoreCase);
 
+          var materialRefs = 0;
+          var materialLoads = 0;
+          var materialQueued =
+              new HashSet<string>(
+                  StringComparer.OrdinalIgnoreCase);
+
           foreach (
               var file in provider.Files.Values
                   .Where(f => f.IsUePackage)
@@ -206,7 +213,59 @@ jobs:
                       if (
                           wanted.Contains(mesh.Name)
                           && queued.Add(mesh.Name))
+                      {
                           session.Add(mesh);
+
+                          Console.WriteLine(
+                              $"mesh={mesh.Name}"
+                              + $" staticMaterials={mesh.StaticMaterials.Length}"
+                              + $" materials={mesh.Materials.Length}");
+
+                          foreach (
+                              var slot in mesh.StaticMaterials)
+                          {
+                              var slotName =
+                                  slot.ImportedMaterialSlotName?.Text
+                                  ?? slot.MaterialSlotName.Text;
+
+                              if (slot.MaterialInterface is not { } materialRef)
+                              {
+                                  Console.WriteLine(
+                                      $"material-ref-missing"
+                                      + $" mesh={mesh.Name}"
+                                      + $" slot={slotName}");
+                                  continue;
+                              }
+
+                              materialRefs++;
+
+                              if (
+                                  materialRef.TryLoad<UMaterialInterface>(
+                                      out var material)
+                                  && material is not null)
+                              {
+                                  materialLoads++;
+
+                                  if (
+                                      materialQueued.Add(
+                                          material.Name))
+                                      session.Add(material);
+
+                                  Console.WriteLine(
+                                      $"material-ok"
+                                      + $" mesh={mesh.Name}"
+                                      + $" slot={slotName}"
+                                      + $" material={material.Name}");
+                              }
+                              else
+                              {
+                                  Console.WriteLine(
+                                      $"material-load-fail"
+                                      + $" mesh={mesh.Name}"
+                                      + $" slot={slotName}");
+                              }
+                          }
+                      }
                   }
               }
               catch (Exception e)
@@ -218,10 +277,15 @@ jobs:
           }
 
           Console.WriteLine(
-              $"wanted={wanted.Count} queued={queued.Count}");
+              $"wanted={wanted.Count} queued={queued.Count}"
+              + $" materialRefs={materialRefs}"
+              + $" materialLoads={materialLoads}"
+              + $" materialQueued={materialQueued.Count}");
 
           if (queued.Count != wanted.Count)
               return 4;
+          if (materialRefs == 0 || materialLoads == 0)
+              return 6;
 
           Directory.CreateDirectory(args[1]);
 
@@ -310,6 +374,7 @@ jobs:
 
           roots = [
               pathlib.Path(os.environ["RUNNER_TEMP"]) / "scene-glb",
+              pathlib.Path(os.environ["RUNNER_TEMP"]) / "exporter",
               pathlib.Path.cwd(),
           ]
 
