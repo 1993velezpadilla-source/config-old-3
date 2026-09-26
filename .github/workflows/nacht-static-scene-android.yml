@@ -223,128 +223,317 @@ jobs:
               new HashSet<string>(
                   StringComparer.OrdinalIgnoreCase);
 
+          object? ReadMember(
+              object target,
+              string name)
+          {
+              const System.Reflection.BindingFlags flags =
+                  System.Reflection.BindingFlags.Instance
+                  | System.Reflection.BindingFlags.Public
+                  | System.Reflection.BindingFlags.NonPublic;
+
+              var type = target.GetType();
+
+              var property =
+                  type.GetProperty(name, flags);
+              if (property is not null)
+                  return property.GetValue(target);
+
+              var field =
+                  type.GetField(name, flags);
+              return field?.GetValue(target);
+          }
+
+          var materialTextureWalkVisited =
+              new HashSet<string>(
+                  StringComparer.OrdinalIgnoreCase);
+
+          void QueueTextureCandidate(
+              object? candidate,
+              UMaterialInterface sourceMaterial,
+              string sourceKind)
+          {
+              if (candidate is null)
+                  return;
+
+              UTexture? texture =
+                  candidate as UTexture;
+              string textureName = "";
+              string refPath = "";
+              string texturePackage = "";
+
+              if (candidate is FPackageIndex packageIndex)
+              {
+                  textureName =
+                      packageIndex.Name;
+
+                  refPath =
+                      packageIndex.ResolvedObject?.GetPathName()
+                      ?? $"{packageIndex.Name}#{packageIndex.Index}";
+
+                  if (
+                      packageIndex.TryLoad<UTexture>(
+                          out var loadedTexture)
+                      && loadedTexture is not null)
+                  {
+                      texture = loadedTexture;
+                  }
+              }
+              else if (candidate is UUnrealMaterial unrealMaterial)
+              {
+                  textureName =
+                      unrealMaterial.Name;
+                  refPath =
+                      unrealMaterial.GetPathName();
+              }
+              else
+              {
+                  var reflectedName =
+                      ReadMember(candidate, "Name");
+                  textureName =
+                      reflectedName?.ToString()
+                      ?? candidate.GetType().Name;
+                  refPath =
+                      textureName;
+              }
+
+              var refKey =
+                  $"{sourceKind}:{refPath}";
+
+              if (!seenTextureRefs.Add(refKey))
+                  return;
+
+              textureRefs++;
+
+              if (texture is null)
+              {
+                  if (
+                      packageBasenames.TryGetValue(
+                          textureName,
+                          out var candidates))
+                  {
+                      exactTexturePackageMatches++;
+
+                      foreach (
+                          var packagePath in candidates)
+                      {
+                          try
+                          {
+                              var package =
+                                  provider.LoadPackage(
+                                      packagePath);
+
+                              texture =
+                                  package
+                                      .GetExports()
+                                      .OfType<UTexture>()
+                                      .FirstOrDefault(
+                                          x => x.Name.Equals(
+                                              textureName,
+                                              StringComparison.OrdinalIgnoreCase))
+                                  ?? package
+                                      .GetExports()
+                                      .OfType<UTexture>()
+                                      .FirstOrDefault();
+
+                              if (texture is not null)
+                              {
+                                  texturePackage =
+                                      packagePath;
+                                  directTextureLoads++;
+                                  break;
+                              }
+                          }
+                          catch (Exception e)
+                          {
+                              Console.WriteLine(
+                                  $"texture-direct-package-error"
+                                  + $" material={sourceMaterial.Name}"
+                                  + $" source={sourceKind}"
+                                  + $" type={candidate.GetType().Name}"
+                                  + $" path={packagePath}"
+                                  + $" error={e.Message}");
+                          }
+                      }
+                  }
+              }
+
+              if (texture is null)
+              {
+                  directTextureLoadFailures++;
+                  Console.WriteLine(
+                      $"texture-load-fail"
+                      + $" material={sourceMaterial.Name}"
+                      + $" source={sourceKind}"
+                      + $" type={candidate.GetType().Name}"
+                      + $" texture={textureName}"
+                      + $" refPath={refPath}");
+                  return;
+              }
+
+              textureLoads++;
+
+              var textureKey =
+                  texture.GetPathName();
+
+              if (textureQueued.Add(textureKey))
+              {
+                  session.Add(texture);
+
+                  Console.WriteLine(
+                      $"texture-direct-ok"
+                      + $" material={sourceMaterial.Name}"
+                      + $" source={sourceKind}"
+                      + $" type={candidate.GetType().Name}"
+                      + $" texture={texture.Name}"
+                      + $" path={textureKey}"
+                      + (texturePackage.Length > 0
+                          ? $" package={texturePackage}"
+                          : ""));
+              }
+          }
+
           void QueueMaterialTextures(
               UMaterialInterface sourceMaterial)
           {
+              var materialKey =
+                  sourceMaterial.GetPathName();
+
+              if (!materialTextureWalkVisited.Add(materialKey))
+                  return;
+
               /*
-               * The pinned CI NuGet overload returns loaded
-               * UUnrealMaterial objects. Do not pre-filter them
-               * to UTexture: some cooked Pavlov refs arrive as
-               * the base material type even when the backing
-               * package is a texture. Resolve by object name.
+               * First use the pinned NuGet's public API. It is
+               * known to return UUnrealMaterial objects in CI.
                */
-              var refs =
+              var publicRefs =
                   new List<UUnrealMaterial>();
 
               sourceMaterial.AppendReferencedTextures(
-                  refs,
+                  publicRefs,
                   false);
 
-              var seenRefs =
-                  new HashSet<string>(
-                      StringComparer.OrdinalIgnoreCase);
-
-              foreach (var textureRef in refs)
+              foreach (var textureRef in publicRefs)
               {
-                  var refKey =
-                      textureRef.GetPathName();
+                  QueueTextureCandidate(
+                      textureRef,
+                      sourceMaterial,
+                      "append");
+              }
 
-                  if (!seenRefs.Add(refKey))
-                      continue;
-
-                  textureRefs++;
-
-                  UTexture? texture =
-                      textureRef as UTexture;
-                  string texturePackage = "";
-
-                  if (texture is not null)
+              /*
+               * UE4.21 cooked base materials commonly keep the
+               * actual texture links on Material Expressions.
+               */
+              if (
+                  ReadMember(
+                      sourceMaterial,
+                      "Expressions")
+                  is System.Collections.IEnumerable expressions)
+              {
+                  foreach (var expressionRef in expressions)
                   {
-                      textureLoads++;
-                  }
-                  else
-                  {
-                      var textureName =
-                          textureRef.Name;
+                      object? expression =
+                          expressionRef;
 
                       if (
-                          packageBasenames.TryGetValue(
-                              textureName,
-                              out var candidates))
+                          expressionRef
+                          is FPackageIndex expressionIndex)
                       {
-                          exactTexturePackageMatches++;
-
-                          foreach (
-                              var candidate in candidates)
-                          {
-                              try
-                              {
-                                  var package =
-                                      provider.LoadPackage(
-                                          candidate);
-
-                                  texture =
-                                      package
-                                          .GetExports()
-                                          .OfType<UTexture>()
-                                          .FirstOrDefault(
-                                              x => x.Name.Equals(
-                                                  textureName,
-                                                  StringComparison.OrdinalIgnoreCase))
-                                      ?? package
-                                          .GetExports()
-                                          .OfType<UTexture>()
-                                          .FirstOrDefault();
-
-                                  if (texture is not null)
-                                  {
-                                      texturePackage =
-                                          candidate;
-                                      directTextureLoads++;
-                                      textureLoads++;
-                                      break;
-                                  }
-                              }
-                              catch (Exception e)
-                              {
-                                  Console.WriteLine(
-                                      $"texture-direct-package-error"
-                                      + $" material={sourceMaterial.Name}"
-                                      + $" refType={textureRef.GetType().Name}"
-                                      + $" path={candidate}"
-                                      + $" error={e.Message}");
-                              }
-                          }
+                          expression =
+                              expressionIndex.Load();
                       }
 
-                      if (texture is null)
-                      {
-                          directTextureLoadFailures++;
-                          Console.WriteLine(
-                              $"texture-load-fail"
-                              + $" material={sourceMaterial.Name}"
-                              + $" refType={textureRef.GetType().Name}"
-                              + $" texture={textureName}"
-                              + $" refPath={refKey}");
+                      if (expression is null)
                           continue;
-                      }
+
+                      var expressionTexture =
+                          ReadMember(
+                              expression,
+                              "Texture");
+
+                      QueueTextureCandidate(
+                          expressionTexture,
+                          sourceMaterial,
+                          "expression");
                   }
+              }
 
-                  var textureKey =
-                      texture.GetPathName();
-
-                  if (textureQueued.Add(textureKey))
+              /*
+               * Material instances override textures through
+               * TextureParameterValues.
+               */
+              if (
+                  ReadMember(
+                      sourceMaterial,
+                      "TextureParameterValues")
+                  is System.Collections.IEnumerable textureParameters)
+              {
+                  foreach (
+                      var textureParameter
+                      in textureParameters)
                   {
-                      session.Add(texture);
+                      if (textureParameter is null)
+                          continue;
 
-                      Console.WriteLine(
-                          $"texture-direct-ok"
-                          + $" material={sourceMaterial.Name}"
-                          + $" refType={textureRef.GetType().Name}"
-                          + $" texture={texture.Name}"
-                          + $" path={textureKey}"
-                          + (texturePackage.Length > 0
-                              ? $" package={texturePackage}"
+                      var parameterValue =
+                          ReadMember(
+                              textureParameter,
+                              "ParameterValue");
+
+                      QueueTextureCandidate(
+                          parameterValue,
+                          sourceMaterial,
+                          "parameter");
+                  }
+              }
+
+              /*
+               * Some CUE4Parse builds expose an explicit
+               * ReferencedTextures collection even when the
+               * public append helper returns nothing.
+               */
+              if (
+                  ReadMember(
+                      sourceMaterial,
+                      "ReferencedTextures")
+                  is System.Collections.IEnumerable referencedTextures)
+              {
+                  foreach (
+                      var textureRef
+                      in referencedTextures)
+                  {
+                      QueueTextureCandidate(
+                          textureRef,
+                          sourceMaterial,
+                          "referenced");
+                  }
+              }
+
+              /*
+               * Walk material-instance inheritance so textures
+               * supplied by parent materials are not omitted.
+               */
+              var parentRef =
+                  ReadMember(
+                      sourceMaterial,
+                      "Parent");
+
+              if (
+                  parentRef is FPackageIndex parentIndex
+                  && parentIndex.TryLoad<UMaterialInterface>(
+                      out var parentMaterial)
+                  && parentMaterial is not null
+                  && !ReferenceEquals(
+                      parentMaterial,
+                      sourceMaterial))
+              {
+                  QueueMaterialTextures(
+                      parentMaterial);
+              }
+          }
+
+   ? $" package={texturePackage}"
                               : ""));
                   }
               }
