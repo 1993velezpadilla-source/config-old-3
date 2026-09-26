@@ -2233,6 +2233,7 @@ static int XzDrawStaticScene(
 fail:
     gl->BindVertexArray(0u);
     gl->UseProgram(0u);
+    XzDrainErrors(state);
 
 fail_no_state_reset:
     state->static_scene_frame_ready = 0;
