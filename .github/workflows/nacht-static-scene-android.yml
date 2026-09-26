@@ -7,6 +7,7 @@ on:
       - feature/xziel-nacht-static-scene-runtime-v1
       - feature/xziel-static-scene-gpu-v1
       - feature/xziel-static-scene-framebuffer-v1
+      - feature/xziel-nacht-materials-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -18,6 +19,7 @@ on:
       - "tools/maps/compile_xziel_static_scene.py"
       - "tools/maps/compile_nacht_xzscene.py"
       - "tools/maps/convert_glb_to_xzmesh.py"
+      - "tools/maps/audit_nacht_material_export.py"
       - "tools/maps/compile_nacht_xzmesh_bundle.py"
       - "tools/maps/export_nacht_nzp_harness.py"
       - "scripts/patch_vril_xz_phase0.py"
@@ -229,7 +231,7 @@ jobs:
                   args[1],
                   new ExportOptions(
                       meshFormat: EMeshFormat.Gltf2,
-                      exportMaterials: false));
+                      exportMaterials: true));
 
           Console.WriteLine(
               $"exportResults={result.Count}");
@@ -295,6 +297,15 @@ jobs:
               len(glbs),
           )
           PY
+
+      - name: Audit exported Nacht materials and textures
+        run: |
+          set -euo pipefail
+          python3 tools/maps/audit_nacht_material_export.py \
+            "$RUNNER_TEMP/scene-glb" \
+            build/nacht-static-scene/xziel.material-export.audit.json \
+            | tee build/nacht-static-scene/material-export-audit.log
+          test -s build/nacht-static-scene/xziel.material-export.audit.json
 
       - name: Build XZMS + XZSC Android overlay
         run: |
