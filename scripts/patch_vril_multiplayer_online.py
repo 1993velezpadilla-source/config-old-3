@@ -133,6 +133,7 @@ text = cl_parse.read_text(encoding="utf-8")
 
 cl_parse_include = '#include "nzportable_def.h"\n'
 cl_parse_decl = """#ifdef __ANDROID__
+extern int Xziel_Android_OnlineActive(void);
 extern void Xziel_Android_CiSoundEvent(int ent, int channel, const char *name,
     float x, float y, float z);
 #endif
@@ -140,6 +141,35 @@ extern void Xziel_Android_CiSoundEvent(int ent, int channel, const char *name,
 if "Xziel_Android_CiSoundEvent" not in text:
     text = replace_once(text, cl_parse_include, cl_parse_include + cl_parse_decl,
                         "cl_parse CI sound declaration")
+
+# Online clients can receive serverinfo while still drawing the previous
+# menu/world. CL_ClearState() frees map-owned GL textures, and the Con_Printf()
+# calls immediately afterwards synchronously call SCR_UpdateScreen() while
+# signon is incomplete. Gate redraws across that tiny unsafe window, then
+# re-enable them once the remote loading screen owns rendering.
+serverinfo_clear_anchor = r'''	Con_DPrintf ("Serverinfo packet received.\n");
+	//Con_Printf ("Serverinfo packet received.\n");
+//
+// wipe the client_state_t struct
+//
+	CL_ClearState ();
+'''
+serverinfo_clear_repl = r'''	Con_DPrintf ("Serverinfo packet received.\n");
+	//Con_Printf ("Serverinfo packet received.\n");
+#ifdef __ANDROID__
+	qboolean xziel_remote_loading_gate =
+		Xziel_Android_OnlineActive() && !LoadingScreen_IsActive();
+	if (xziel_remote_loading_gate)
+		scr_disabled_for_loading = true;
+#endif
+//
+// wipe the client_state_t struct
+//
+	CL_ClearState ();
+'''
+if "xziel_remote_loading_gate" not in text:
+    text = replace_once(text, serverinfo_clear_anchor, serverinfo_clear_repl,
+                        "remote serverinfo redraw gate")
 
 sound_anchor = """    S_StartSound (ent, channel, cl.sound_precache[sound_num], pos, volume/255.0, attenuation);
 }"""
@@ -167,12 +197,16 @@ remote_load_anchor = r'''  }
 remote_load_repl = r'''  }
 
 #ifdef __ANDROID__
-	if (!LoadingScreen_IsActive() && nummodels > 1 &&
-		model_precache[1][0]) {
-		char xziel_remote_map[MAX_QPATH];
-		COM_StripExtension(COM_SkipPath(model_precache[1]),
-			xziel_remote_map);
-		LoadingScreen_Begin(xziel_remote_map);
+	if (xziel_remote_loading_gate) {
+		if (nummodels > 1 && model_precache[1][0]) {
+			char xziel_remote_map[MAX_QPATH];
+			COM_StripExtension(COM_SkipPath(model_precache[1]),
+				xziel_remote_map);
+			LoadingScreen_Begin(xziel_remote_map);
+		} else {
+			LoadingScreen_Begin("online");
+		}
+		scr_disabled_for_loading = false;
 	}
 #endif
 
