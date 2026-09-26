@@ -1,0 +1,277 @@
+name: XZIEL Nacht Texture Payload Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/xziel-nacht-texture-payload-v1
+    paths:
+      - "tools/maps/audit_nacht_texture_payload.py"
+      - "tests/test_nacht_texture_payload_audit.py"
+      - ".github/workflows/nacht-texture-payload-audit.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xziel-nacht-texture-payload-audit
+  cancel-in-progress: true
+
+jobs:
+  texture-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Test texture payload resolver
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/maps/audit_nacht_texture_payload.py
+          python3 tests/test_nacht_texture_payload_audit.py
+
+      - name: Install extraction dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y \
+            libsdl2-dev zlib1g-dev libpng-dev \
+            build-essential perl git p7zip-full
+          mkdir -p "$RUNNER_TEMP/steamcmd" "$RUNNER_TEMP/repak"
+          curl -fL --retry 6 --retry-delay 2 --retry-all-errors \
+            https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz \
+            -o "$RUNNER_TEMP/steamcmd.tgz"
+          tar -xzf "$RUNNER_TEMP/steamcmd.tgz" \
+            -C "$RUNNER_TEMP/steamcmd"
+          "$RUNNER_TEMP/steamcmd/steamcmd.sh" +quit || true
+          curl -fL --retry 5 \
+            https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-unknown-linux-gnu.tar.xz \
+            -o "$RUNNER_TEMP/repak.tar.xz"
+          tar -xJf "$RUNNER_TEMP/repak.tar.xz" \
+            -C "$RUNNER_TEMP/repak"
+          REPAK=$(find "$RUNNER_TEMP/repak" \
+            -type f -name 'repak*' -perm -111 | head -1)
+          test -n "$REPAK"
+          echo "REPAK=$REPAK" >> "$GITHUB_ENV"
+
+      - name: Download and unpack public Pavlov Nacht source
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/steamcmd/steamcmd.sh" \
+            +login anonymous \
+            +workshop_download_item 555160 2755515831 validate \
+            +quit
+          ROOT=$(find "$HOME" "$RUNNER_TEMP" -type d \
+            -path '*/steamapps/workshop/content/555160/2755515831' \
+            -print -quit 2>/dev/null)
+          test -n "$ROOT"
+          test -f "$ROOT/WindowsNoEditor.pak"
+          mkdir -p "$RUNNER_TEMP/nacht-unpacked"
+          "$REPAK" unpack "$ROOT/WindowsNoEditor.pak" \
+            -o "$RUNNER_TEMP/nacht-unpacked"
+          echo "UNPACKED=$RUNNER_TEMP/nacht-unpacked" \
+            >> "$GITHUB_ENV"
+
+      - name: Build UE Viewer
+        run: |
+          set -euo pipefail
+          git clone --depth 1 \
+            https://github.com/gildor2/UEViewer.git \
+            "$RUNNER_TEMP/UEViewer"
+          cd "$RUNNER_TEMP/UEViewer"
+          ./build.sh
+          UMODEL=$(realpath \
+            "$(find . -type f -name umodel -perm -111 | head -1)")
+          test -n "$UMODEL"
+          echo "UMODEL=$UMODEL" >> "$GITHUB_ENV"
+
+      - name: Build corrected 492 package list
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-textures
+          python3 - <<'PY'
+          import json
+          import pathlib
+
+          d=json.loads(
+              pathlib.Path(
+                  "assets/nacht_reference/pavlov_scene_reference/assets.json"
+              ).read_text()
+          )
+          rows=d["meshes"]
+          assert d["uniqueMeshCount"]==492
+          assert len(rows)==492
+
+          out=[]
+          for row in rows:
+              p=row["sourcePath"]
+              assert p.startswith("/Game/")
+              parts=pathlib.PurePosixPath(
+                  p[len("/Game/"):].strip("/")
+              ).parts
+              assert len(parts)>=2,(p,parts)
+              rel=(
+                  "Pavlov/Content/"
+                  +pathlib.PurePosixPath(*parts[:-1]).as_posix()
+                  +".uasset"
+              )
+              out.append(rel)
+
+          assert len(set(x.lower() for x in out))==492
+          pathlib.Path(
+              "build/nacht-textures/source-uassets.txt"
+          ).write_text("\n".join(out)+"\n")
+          print("XZIEL_NACHT_TEXTURE_SOURCE_LIST_OK",len(out))
+          PY
+
+      - name: Export materials and referenced images
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/umodel-textures"
+          mkdir -p "$OUT"
+          ok=0
+          fail=0
+
+          while IFS= read -r rel; do
+            file="$UNPACKED/$rel"
+            if [ ! -f "$file" ]; then
+              echo "MISSING_PACKAGE $rel"
+              fail=$((fail+1))
+              continue
+            fi
+
+            if "$UMODEL" \
+              -export \
+              -gltf \
+              -game=ue4.21 \
+              -path="$UNPACKED" \
+              -out="$OUT" \
+              "$rel" >/dev/null 2>&1; then
+              ok=$((ok+1))
+            else
+              echo "UMODEL_FAIL $rel"
+              fail=$((fail+1))
+            fi
+          done < build/nacht-textures/source-uassets.txt
+
+          echo "packages_ok=$ok packages_fail=$fail" \
+            | tee build/nacht-textures/export-summary.txt
+          test "$ok" -eq 492
+          test "$fail" -eq 0
+
+          echo "TEXTURE_EXPORT_ROOT=$OUT" >> "$GITHUB_ENV"
+
+      - name: Build live material report
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import collections
+          import json
+          import os
+          import pathlib
+          import re
+
+          root=pathlib.Path(
+              os.environ["TEXTURE_EXPORT_ROOT"]
+          )
+          mats=sorted(root.rglob("*.mat"))
+          if not mats:
+              raise SystemExit("no .mat files exported")
+
+          channels=collections.Counter()
+          suffixes=collections.Counter()
+          texture_refs=collections.Counter()
+          rows=[]
+          keys=(
+              "Diffuse","Normal","Specular","SpecPower",
+              "Opacity","Emissive","Cube","Mask"
+          )
+
+          for p in mats:
+              vals={}
+              others=[]
+              for raw in p.read_text(
+                  errors="replace"
+              ).splitlines():
+                  line=raw.strip()
+                  if not line or "=" not in line:
+                      continue
+                  k,v=line.split("=",1)
+                  if k in keys:
+                      vals[k]=v
+                      channels[k]+=1
+                      texture_refs[v]+=1
+                      m=re.search(r"_([cnsg])$",v,re.I)
+                      if m:
+                          suffixes[
+                              "_"+m.group(1).lower()
+                          ]+=1
+                  elif k.startswith("Other["):
+                      others.append(v)
+                      texture_refs[v]+=1
+              rows.append({
+                  "material":p.stem,
+                  "channels":vals,
+                  "other_textures":others,
+              })
+
+          report={
+              "material_count":len(mats),
+              "channel_counts":dict(channels),
+              "texture_suffix_counts":dict(suffixes),
+              "unique_texture_refs":len(texture_refs),
+              "materials":rows,
+          }
+
+          pathlib.Path(
+              "build/nacht-textures/material-report.json"
+          ).write_text(
+              json.dumps(report,indent=2)+"\n"
+          )
+
+          print(
+              "XZIEL_NACHT_TEXTURE_MATERIAL_REPORT",
+              json.dumps({
+                  "materialCount":len(mats),
+                  "uniqueTextureReferences":len(texture_refs),
+                  "channelCounts":dict(channels),
+              },sort_keys=True),
+          )
+          PY
+
+      - name: Audit exported image payload
+        run: |
+          set -euo pipefail
+          python3 tools/maps/audit_nacht_texture_payload.py \
+            build/nacht-textures/material-report.json \
+            "$TEXTURE_EXPORT_ROOT" \
+            build/nacht-textures/texture-payload-report.json
+
+          python3 - <<'PY'
+          import json
+          import pathlib
+
+          p=json.loads(
+              pathlib.Path(
+                  "build/nacht-textures/texture-payload-report.json"
+              ).read_text()
+          )
+          s=p["summary"]
+          assert s["referencedUniqueTextures"] >= 600,s
+          assert s["exportedImageFiles"] > 0,s
+          assert s["resolvedExternalReferences"] > 0,s
+          print("XZIEL_NACHT_TEXTURE_PAYLOAD_DISCOVERY_GREEN",s)
+          PY
+
+      - name: Upload texture audit evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Nacht-Texture-Payload-Audit
+          path: |
+            build/nacht-textures/source-uassets.txt
+            build/nacht-textures/export-summary.txt
+            build/nacht-textures/material-report.json
+            build/nacht-textures/texture-payload-report.json
+          retention-days: 7
