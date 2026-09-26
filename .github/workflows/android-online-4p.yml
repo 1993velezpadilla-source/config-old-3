@@ -397,10 +397,20 @@ jobs:
           im = Image.open(p).convert("RGB")
           if im.width < 1000 or im.height < 500 or im.width <= im.height:
               raise SystemExit(f"invalid screenshot dimensions: {im.size}")
-          stat = ImageStat.Stat(im.convert("L"))
+          # Validate the actual game framebuffer, not the Android voice
+          # overlay. The old whole-image stddev check let a black 3D frame pass
+          # because the yellow mic/speaker icons added enough variance.
+          w, h = im.size
+          game = im.crop((
+              int(w * 0.15), int(h * 0.12),
+              int(w * 0.95), int(h * 0.92)
+          )).convert("L")
+          stat = ImageStat.Stat(game)
           if stat.stddev[0] < 8:
-              raise SystemExit(f"screenshot appears blank: std={stat.stddev[0]:.2f}")
-          print(p, im.size, "std", stat.stddev[0])
+              raise SystemExit(
+                  f"game framebuffer appears blank: center_std={stat.stddev[0]:.2f}"
+              )
+          print(p, im.size, "center_std", stat.stddev[0])
           PY
 
       - name: Upload player evidence
