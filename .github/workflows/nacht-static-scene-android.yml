@@ -226,26 +226,97 @@ jobs:
           void QueueMaterialTextures(
               UMaterialInterface sourceMaterial)
           {
-              /*
-               * CUE4Parse 1.2.2.202609 returns loaded
-               * UUnrealMaterial objects here, not FPackageIndex refs.
-               * Filter the returned set to UTexture directly so this probe
-               * matches the NuGet API actually used by CI.
-               */
-              var refs = new List<UUnrealMaterial>();
-              sourceMaterial.AppendReferencedTextures(
-                  refs,
-                  false);
+              var parameters =
+                  new CMaterialParams2();
+
+              sourceMaterial.GetParams(
+                  parameters,
+                  EMaterialDepth.AllLayers);
 
               foreach (
-                  var texture in refs
-                      .OfType<UTexture>()
+                  var textureRef in parameters
+                      .Textures
+                      .Values
                       .DistinctBy(
                           x => x.GetPathName(),
                           StringComparer.OrdinalIgnoreCase))
               {
                   textureRefs++;
-                  textureLoads++;
+
+                  UTexture? texture = null;
+                  string texturePackage = "";
+
+                  if (
+                      textureRef.TryLoad<UTexture>(
+                          out var loadedTexture)
+                      && loadedTexture is not null)
+                  {
+                      texture = loadedTexture;
+                      textureLoads++;
+                  }
+                  else
+                  {
+                      var textureName =
+                          textureRef.Name;
+
+                      if (
+                          packageBasenames.TryGetValue(
+                              textureName,
+                              out var candidates))
+                      {
+                          exactTexturePackageMatches++;
+
+                          foreach (
+                              var candidate in candidates)
+                          {
+                              try
+                              {
+                                  texture =
+                                      provider
+                                          .LoadPackage(candidate)
+                                          .GetExports()
+                                          .OfType<UTexture>()
+                                          .FirstOrDefault(
+                                              x => x.Name.Equals(
+                                                  textureName,
+                                                  StringComparison.OrdinalIgnoreCase))
+                                      ?? provider
+                                          .LoadPackage(candidate)
+                                          .GetExports()
+                                          .OfType<UTexture>()
+                                          .FirstOrDefault();
+
+                                  if (texture is not null)
+                                  {
+                                      texturePackage =
+                                          candidate;
+                                      directTextureLoads++;
+                                      textureLoads++;
+                                      break;
+                                  }
+                              }
+                              catch (Exception e)
+                              {
+                                  Console.WriteLine(
+                                      $"texture-direct-package-error"
+                                      + $" material={sourceMaterial.Name}"
+                                      + $" path={candidate}"
+                                      + $" error={e.Message}");
+                              }
+                          }
+                      }
+
+                      if (texture is null)
+                      {
+                          directTextureLoadFailures++;
+                          Console.WriteLine(
+                              $"texture-load-fail"
+                              + $" material={sourceMaterial.Name}"
+                              + $" texture={textureName}"
+                              + $" refPath={textureRef.GetPathName()}");
+                          continue;
+                      }
+                  }
 
                   var textureKey =
                       texture.GetPathName();
@@ -253,11 +324,15 @@ jobs:
                   if (textureQueued.Add(textureKey))
                   {
                       session.Add(texture);
+
                       Console.WriteLine(
                           $"texture-direct-ok"
                           + $" material={sourceMaterial.Name}"
                           + $" texture={texture.Name}"
-                          + $" path={textureKey}");
+                          + $" path={textureKey}"
+                          + (texturePackage.Length > 0
+                              ? $" package={texturePackage}"
+                              : ""));
                   }
               }
           }
