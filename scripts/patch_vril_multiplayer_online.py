@@ -156,7 +156,98 @@ if "Xziel_Android_CiSoundEvent(" not in text[text.find("void CL_ParseStartSoundP
     text = replace_once(text, sound_anchor, sound_repl,
                         "CL_ParseStartSoundPacket CI evidence hook")
 
+# Remote clients do not enter through Menu_SelectMap(), so they never call
+# LoadingScreen_Begin() before CL_ClearState() frees map-owned textures.
+# Derive the authoritative map name from model_precache[1] and activate the
+# loading renderer before the first precache SCR_UpdateScreen().
+remote_load_anchor = r'''  }
+
+// precache sounds
+'''
+remote_load_repl = r'''  }
+
+#ifdef __ANDROID__
+	if (!LoadingScreen_IsActive() && nummodels > 1 &&
+		model_precache[1][0]) {
+		char xziel_remote_map[MAX_QPATH];
+		COM_StripExtension(COM_SkipPath(model_precache[1]),
+			xziel_remote_map);
+		LoadingScreen_Begin(xziel_remote_map);
+	}
+#endif
+
+// precache sounds
+'''
+if "xziel_remote_map" not in text:
+    text = replace_once(text, remote_load_anchor, remote_load_repl,
+                        "remote client loading-screen begin")
+
 cl_parse.write_text(text, encoding="utf-8")
+
+# Make LoadingScreen_Begin() own the map-name storage instead of relying on
+# Menu_SelectMap() to have set a borrowed pointer first. This keeps host/solo
+# pretty names when the same map was selected locally and gives remote clients
+# a valid stable map name for loading art, HUD labels and music.
+loadscreen = source / "menu" / "menu_loadscreen.c"
+ltext = loadscreen.read_text(encoding="utf-8")
+loadscreen_globals = r'''char* 			map_loadname;
+char* 			map_loadname_pretty;
+'''
+loadscreen_globals_repl = r'''char* 			map_loadname;
+char* 			map_loadname_pretty;
+static char		xziel_loading_map_name[MAX_QPATH];
+'''
+if "xziel_loading_map_name" not in ltext:
+    ltext = replace_once(ltext, loadscreen_globals, loadscreen_globals_repl,
+                         "loading screen owned map-name storage")
+
+loadscreen_begin_old = r'''void LoadingScreen_Begin(const char *map_name)
+{
+	LoadingScreen_ClearProgress();
+	loadingScreen = 1;
+	loadscreeninit = false;
+	lscreen_image = -1;
+	lscreen_identifier[0] = '\0';
+	loading_waiting_for_input = menu_is_solo;
+	loading_spawn_released = false;
+	loading_precache_complete = false;
+	loading_skip_key = -1;
+	loadscreen_start_time = Sys_FloatTime();
+	loading_progress_shown = 0;
+	loading_progress_phase_active = false;
+	Music_PlayLoadingTrack(map_name);
+}'''
+loadscreen_begin_new = r'''void LoadingScreen_Begin(const char *map_name)
+{
+	qboolean preserve_pretty =
+		map_loadname && map_name && !Q_strcasecmp(map_loadname, map_name);
+
+	if (!map_name || !map_name[0])
+		map_name = "unknown";
+	Q_strncpyz(xziel_loading_map_name, map_name,
+		sizeof(xziel_loading_map_name));
+	map_loadname = xziel_loading_map_name;
+	if (!preserve_pretty)
+		map_loadname_pretty = NULL;
+
+	LoadingScreen_ClearProgress();
+	loadingScreen = 1;
+	loadscreeninit = false;
+	lscreen_image = -1;
+	lscreen_identifier[0] = '\0';
+	loading_waiting_for_input = menu_is_solo;
+	loading_spawn_released = false;
+	loading_precache_complete = false;
+	loading_skip_key = -1;
+	loadscreen_start_time = Sys_FloatTime();
+	loading_progress_shown = 0;
+	loading_progress_phase_active = false;
+	Music_PlayLoadingTrack(map_loadname);
+}'''
+if "preserve_pretty =" not in ltext:
+    ltext = replace_once(ltext, loadscreen_begin_old, loadscreen_begin_new,
+                         "LoadingScreen_Begin owned map name")
+loadscreen.write_text(ltext, encoding="utf-8")
 
 # ---------------------------------------------------------------------------
 # Online pause menu: gameplay continues while the overlay is open. Reuse the
