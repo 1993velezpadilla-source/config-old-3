@@ -1,0 +1,532 @@
+name: XZIEL Nacht Static Scene Android
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/xziel-nacht-static-scene-runtime-v1
+      - feature/xziel-engine-nacht-runtime-v1
+    paths:
+      - "engine/xz/xz_xzmesh.*"
+      - "engine/xz/xz_xzscene.*"
+      - "engine/xz/xz_static_scene_runtime.*"
+      - "engine/xz/xz_android_runtime.*"
+      - "tools/maps/compile_xziel_static_scene.py"
+      - "tools/maps/compile_nacht_xzscene.py"
+      - "tools/maps/convert_glb_to_xzmesh.py"
+      - "tools/maps/compile_nacht_xzmesh_bundle.py"
+      - "tools/maps/export_nacht_nzp_harness.py"
+      - "scripts/patch_vril_xz_phase0.py"
+      - "scripts/prepare_android.sh"
+      - ".github/workflows/nacht-static-scene-android.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xziel-nacht-static-scene-android-\${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android-static-scene:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout XZIEL Engine
+        uses: actions/checkout@v5
+
+      - name: Generate Nacht gameplay harness
+        env:
+          XZIEL_NACHT_MAP_OUT: \${{ github.workspace }}/nacht-ci/xziel_nacht_bo3.map
+          XZIEL_NACHT_HARNESS_SUMMARY: \${{ github.workspace }}/nacht-ci/xziel_nacht_bo3_harness.json
+          XZIEL_MYSTERY_BOX_MB2_OUT: \${{ github.workspace }}/nacht-ci/xziel_nacht_bo3.mb2
+        run: |
+          set -euo pipefail
+          mkdir -p nacht-ci
+          python3 tools/maps/export_nacht_nzp_harness.py \
+            | tee nacht-ci/export.log
+          python3 tools/weapons/export_xziel_mystery_box_pool.py
+          python3 tools/weapons/export_nacht_prototype_box_pool.py
+          python3 tools/weapons/export_xziel_mystery_box_runtime_pool.py
+          test -s nacht-ci/xziel_nacht_bo3.map
+          test -s nacht-ci/xziel_nacht_bo3.mb2
+          test -s nacht-ci/xziel_nacht_bo3_harness.json
+
+      - name: Compile Nacht BSP with official NZP toolchain
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/nzp-assets
+          git clone --depth 1 https://github.com/nzp-team/assets.git /tmp/nzp-assets
+          (
+            cd /tmp/nzp-assets
+            bash tools/compile-wads.sh
+            mkdir -p source/maps/xziel_nacht_bo3
+            cp "\$GITHUB_WORKSPACE/nacht-ci/xziel_nacht_bo3.map" \
+              source/maps/xziel_nacht_bo3/xziel_nacht_bo3.map
+            bash tools/compile-maps.sh --map xziel_nacht_bo3
+          ) 2>&1 | tee nacht-ci/compile.log
+          cp /tmp/nzp-assets/common/maps/xziel_nacht_bo3.bsp \
+            nacht-ci/xziel_nacht_bo3.bsp
+          test -s nacht-ci/xziel_nacht_bo3.bsp
+
+      - name: Install SteamCMD and repak
+        run: |
+          set -euo pipefail
+          mkdir -p "\$RUNNER_TEMP/steamcmd" "\$RUNNER_TEMP/repak"
+          curl -fL --retry 6 --retry-delay 2 --retry-all-errors \
+            https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz \
+            -o "\$RUNNER_TEMP/steamcmd.tgz"
+          tar -xzf "\$RUNNER_TEMP/steamcmd.tgz" \
+            -C "\$RUNNER_TEMP/steamcmd"
+          "\$RUNNER_TEMP/steamcmd/steamcmd.sh" +quit || true
+          curl -fL --retry 5 \
+            https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-unknown-linux-gnu.tar.xz \
+            -o "\$RUNNER_TEMP/repak.tar.xz"
+          tar -xJf "\$RUNNER_TEMP/repak.tar.xz" \
+            -C "\$RUNNER_TEMP/repak"
+          REPAK=\$(find "\$RUNNER_TEMP/repak" \
+            -type f -name 'repak*' -perm -111 | head -1)
+          test -n "\$REPAK"
+          echo "REPAK=\$REPAK" >> "\$GITHUB_ENV"
+
+      - name: Download and unpack public Pavlov Nacht source
+        run: |
+          set -euo pipefail
+          "\$RUNNER_TEMP/steamcmd/steamcmd.sh" \
+            +login anonymous \
+            +workshop_download_item 555160 2755515831 validate \
+            +quit
+          ROOT=\$(find "\$HOME" "\$RUNNER_TEMP" -type d \
+            -path '*/steamapps/workshop/content/555160/2755515831' \
+            -print -quit 2>/dev/null)
+          test -n "\$ROOT"
+          test -f "\$ROOT/WindowsNoEditor.pak"
+          mkdir -p "\$RUNNER_TEMP/nacht-unpacked"
+          "\$REPAK" unpack "\$ROOT/WindowsNoEditor.pak" \
+            -o "\$RUNNER_TEMP/nacht-unpacked"
+          echo "UNPACKED=\$RUNNER_TEMP/nacht-unpacked" \
+            >> "\$GITHUB_ENV"
+
+      - name: Build exact 492-mesh CUE4Parse exporter
+        run: |
+          set -euo pipefail
+          mkdir -p "\$RUNNER_TEMP/exporter"
+          cd "\$RUNNER_TEMP/exporter"
+          dotnet new console --framework net10.0 --force
+          dotnet add package CUE4Parse --version 1.2.2.202609
+          dotnet add package CUE4Parse-Conversion --version 1.2.2.202609
+          cat > Program.cs <<'CS'
+          using CUE4Parse.FileProvider;
+          using CUE4Parse.UE4.Versions;
+          using CUE4Parse.UE4.Assets.Exports.StaticMesh;
+          using CUE4Parse_Conversion;
+          using CUE4Parse_Conversion.Options;
+          using System.Text.Json;
+
+          if (args.Length < 3) return 2;
+
+          using var doc =
+              JsonDocument.Parse(File.ReadAllText(args[2]));
+
+          var wanted =
+              new HashSet<string>(
+                  StringComparer.OrdinalIgnoreCase);
+
+          foreach (
+              var row in doc.RootElement
+                  .GetProperty("meshes")
+                  .EnumerateArray())
+          {
+              var source =
+                  row.GetProperty("sourcePath")
+                      .GetString() ?? "";
+              var name =
+                  source.Replace('\\', '/')
+                      .TrimEnd('/')
+                      .Split('/')
+                      .Last();
+
+              if (!string.IsNullOrWhiteSpace(name))
+                  wanted.Add(name);
+          }
+
+          if (wanted.Count != 492)
+              return 3;
+
+          var provider =
+              new DefaultFileProvider(
+                  args[0],
+                  SearchOption.AllDirectories,
+                  true,
+                  new VersionContainer(
+                      EGame.GAME_UE4_21));
+
+          provider.Initialize();
+          provider.PostMount();
+          provider.LoadVirtualPaths();
+
+          var session =
+              new ExportSession {
+                  MaxDegreeOfParallelism =
+                      Math.Max(
+                          1,
+                          Environment.ProcessorCount / 2)
+              };
+
+          var queued =
+              new HashSet<string>(
+                  StringComparer.OrdinalIgnoreCase);
+
+          foreach (
+              var file in provider.Files.Values
+                  .Where(f => f.IsUePackage)
+                  .Where(
+                      f => f.Path.Contains(
+                          "/CoD_nacht/",
+                          StringComparison.OrdinalIgnoreCase))
+                  .Where(
+                      f => f.Path.EndsWith(
+                          ".uasset",
+                          StringComparison.OrdinalIgnoreCase)))
+          {
+              try
+              {
+                  foreach (
+                      var mesh in provider
+                          .LoadPackage(file.Path)
+                          .GetExports()
+                          .OfType<UStaticMesh>())
+                  {
+                      if (
+                          wanted.Contains(mesh.Name)
+                          && queued.Add(mesh.Name))
+                          session.Add(mesh);
+                  }
+              }
+              catch (Exception e)
+              {
+                  Console.WriteLine(
+                      "skip=" + file.Path
+                      + " :: " + e.Message);
+              }
+          }
+
+          Console.WriteLine(
+              $"wanted={wanted.Count} queued={queued.Count}");
+
+          if (queued.Count != wanted.Count)
+              return 4;
+
+          Directory.CreateDirectory(args[1]);
+
+          var result =
+              await session.RunAsync(
+                  args[1],
+                  new ExportOptions(
+                      meshFormat: EMeshFormat.Gltf2,
+                      exportMaterials: false));
+
+          Console.WriteLine(
+              $"exportResults={result.Count}");
+
+          return result.Count == wanted.Count
+              ? 0
+              : 5;
+          CS
+          dotnet build -c Release
+
+      - name: Export all 492 referenced GLBs
+        run: |
+          set -euo pipefail
+          mkdir -p "\$RUNNER_TEMP/scene-glb" \
+            build/nacht-static-scene
+
+          dotnet \
+            "\$RUNNER_TEMP/exporter/bin/Release/net10.0/exporter.dll" \
+            "\$UNPACKED" \
+            "\$RUNNER_TEMP/scene-glb" \
+            "\$GITHUB_WORKSPACE/assets/nacht_reference/pavlov_scene_reference/assets.json" \
+            2>&1 | tee build/nacht-static-scene/export.log
+
+          python3 - <<'PY'
+          import os
+          import pathlib
+          import shutil
+
+          root = (
+              pathlib.Path(os.environ["RUNNER_TEMP"])
+              / "scene-glb"
+          )
+          root.mkdir(parents=True, exist_ok=True)
+
+          for p in list(pathlib.Path.cwd().iterdir()):
+              if (
+                  p.is_file()
+                  and "\\" in p.name
+                  and p.name.lower().endswith(".glb")
+              ):
+                  name = (
+                      p.name.replace("\\", "/")
+                      .split("/")[-1]
+                  )
+                  target = root / name
+                  if target.exists():
+                      raise SystemExit(
+                          f"duplicate exported GLB {name}"
+                      )
+                  shutil.move(
+                      str(p),
+                      str(target),
+                  )
+
+          glbs = list(root.rglob("*.glb"))
+          assert len(glbs) == 492, len(glbs)
+          assert len(
+              {p.stem.lower() for p in glbs}
+          ) == 492
+
+          print(
+              "XZIEL_NACHT_GLBS_READY",
+              len(glbs),
+          )
+          PY
+
+      - name: Build XZMS + XZSC Android overlay
+        run: |
+          set -euo pipefail
+
+          OVERLAY="\$RUNNER_TEMP/nacht-overlay"
+          MAPROOT="\$OVERLAY/xziel/maps/xziel_nacht_bo3"
+          mkdir -p "\$MAPROOT/meshes"
+
+          python3 tools/maps/compile_nacht_xzmesh_bundle.py \
+            --glb-root "\$RUNNER_TEMP/scene-glb" \
+            --output-root "\$MAPROOT/meshes" \
+            --manifest build/nacht-static-scene/xziel.xzmesh.bundle.json \
+            | tee build/nacht-static-scene/xzmesh-compile.log
+
+          python3 tools/maps/compile_nacht_xzscene.py \
+            --output "\$MAPROOT/scene.xzsc" \
+            --report build/nacht-static-scene/xziel.xzscene.report.json \
+            | tee build/nacht-static-scene/xzscene-compile.log
+
+          test "\$(find "\$MAPROOT/meshes" \
+            -maxdepth 1 -type f -name '*.xzm' | wc -l)" \
+            -eq 492
+          test -s "\$MAPROOT/scene.xzsc"
+
+          python3 - <<'PY'
+          import json
+          import pathlib
+
+          mesh = json.loads(
+              pathlib.Path(
+                  "build/nacht-static-scene/xziel.xzmesh.bundle.json"
+              ).read_text()
+          )
+          scene = json.loads(
+              pathlib.Path(
+                  "build/nacht-static-scene/xziel.xzscene.report.json"
+              ).read_text()
+          )
+
+          assert mesh["summary"]["meshCount"] == 492
+          assert mesh["summary"]["vertexCount"] == 1067383
+          assert mesh["summary"]["indexCount"] == 3608148
+          assert mesh["summary"]["submeshCount"] == 1063
+          assert mesh["summary"]["runtimeMeshBytes"] == 48633408
+
+          assert scene["meshCount"] == 492
+          assert scene["instanceCount"] == 10791
+
+          print(
+              "XZIEL_NACHT_STATIC_OVERLAY_READY",
+              {
+                  "meshes": 492,
+                  "instances": 10791,
+                  "vertices": 1067383,
+                  "indices": 3608148,
+                  "submeshes": 1063,
+                  "meshBytes": 48633408,
+              },
+          )
+          PY
+
+          echo "XZIEL_EXTRA_ASSET_DIR=\$OVERLAY" \
+            >> "\$GITHUB_ENV"
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android SDK, NDK and emulator
+        run: |
+          set -euo pipefail
+          SDKMANAGER=\$(find "\${ANDROID_HOME}/cmdline-tools" \
+            -type f -name sdkmanager | sort | tail -n 1)
+          test -n "\$SDKMANAGER"
+          yes | "\$SDKMANAGER" --licenses >/dev/null || true
+          "\$SDKMANAGER" \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0" \
+            "ndk;27.2.12479018" \
+            "emulator" \
+            "system-images;android-35;google_apis;x86_64"
+
+      - name: Prepare Android project with real static scene overlay
+        env:
+          XZIEL_EXTRA_MAP_NAME: xziel_nacht_bo3
+          XZIEL_EXTRA_MAP_BSP: \${{ github.workspace }}/nacht-ci/xziel_nacht_bo3.bsp
+          XZIEL_EXTRA_MAP_MB2: \${{ github.workspace }}/nacht-ci/xziel_nacht_bo3.mb2
+        run: |
+          set -euo pipefail
+
+          bash scripts/prepare_android.sh
+
+          test -f build/deps/vril/source/xz_xzmesh.c
+          test -f build/deps/vril/source/xz_xzscene.c
+          test -f build/deps/vril/source/xz_static_scene_runtime.c
+
+          grep -F 'static_scene status=%s' \
+            build/deps/vril/source/xz_android_runtime.c
+          grep -F 'XzStaticSceneRuntime_LoadMap' \
+            build/deps/vril/source/xz_android_runtime.c
+
+          ZIP=build/android-project/app/src/main/assets/nzp-data.zip
+
+          unzip -l "\$ZIP" \
+            | grep -F 'nzp/xziel/maps/xziel_nacht_bo3/scene.xzsc'
+
+          test "\$(unzip -Z1 "\$ZIP" \
+            | grep -E '^nzp/xziel/maps/xziel_nacht_bo3/meshes/.*\.xzm$' \
+            | wc -l)" -eq 492
+
+          echo "XZIEL_NACHT_ANDROID_OVERLAY_ZIP_OK xzms=492"
+
+      - name: Build static-scene Android APK
+        working-directory: build/android-project
+        run: |
+          ./gradlew --no-daemon assembleDebug --stacktrace
+
+      - name: Collect APK
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp \
+            build/android-project/app/build/outputs/apk/debug/app-debug.apk \
+            dist/XZIEL-Nacht-Static-Scene-debug.apk
+          ls -lh dist/XZIEL-Nacht-Static-Scene-debug.apk
+
+      - name: Boot Nacht and prove 492/492 VFS validation
+        env:
+          ANDROID_AVD_HOME: \${{ runner.temp }}/xziel-static-scene-avd
+        run: |
+          set -euo pipefail
+
+          mkdir -p "\$ANDROID_AVD_HOME" dist
+
+          ADB="\${ANDROID_HOME}/platform-tools/adb"
+          EMULATOR="\${ANDROID_HOME}/emulator/emulator"
+          AVDMANAGER=\$(find "\${ANDROID_HOME}/cmdline-tools" \
+            -type f -name avdmanager | sort | tail -n 1)
+
+          printf 'no\n' | "\$AVDMANAGER" create avd \
+            --force \
+            --name xziel-static-scene-ci \
+            --package "system-images;android-35;google_apis;x86_64" \
+            --device "pixel_6"
+
+          if [[ -e /dev/kvm ]]; then
+            sudo chmod 666 /dev/kvm || true
+          fi
+
+          nohup "\$EMULATOR" \
+            @xziel-static-scene-ci \
+            -no-window \
+            -no-audio \
+            -no-boot-anim \
+            -no-snapshot \
+            -gpu swiftshader_indirect \
+            -memory 3072 \
+            > dist/emulator-stdout.txt 2>&1 &
+
+          EMU_PID=\$!
+          sleep 5
+          kill -0 "\$EMU_PID"
+
+          timeout 120 "\$ADB" wait-for-device
+
+          for i in \$(seq 1 60); do
+            if [[ "\$("\$ADB" shell getprop sys.boot_completed \
+                2>/dev/null | tr -d '\r')" == "1" ]]; then
+              break
+            fi
+            sleep 2
+          done
+
+          test "\$("\$ADB" shell getprop sys.boot_completed \
+            2>/dev/null | tr -d '\r')" = "1"
+
+          "\$ADB" install -r \
+            dist/XZIEL-Nacht-Static-Scene-debug.apk
+
+          "\$ADB" logcat -c
+          "\$ADB" shell am force-stop com.xziel.engine || true
+
+          "\$ADB" shell am start -W \
+            -n com.xziel.engine/org.libsdl.app.NZPActivity \
+            --es xziel_ci_map xziel_nacht_bo3 \
+            --ez xziel_ci_hud_preview true \
+            > dist/am-start.txt 2>&1 || true
+
+          STAGE=""
+          for i in \$(seq 1 90); do
+            STAGE=\$("\$ADB" shell run-as com.xziel.engine \
+              cat files/nzp-runtime/.xziel-stage \
+              2>/dev/null | tr -d '\r' || true)
+
+            if [[ "\$STAGE" == "FIRST_FRAME_OK" ]]; then
+              break
+            fi
+            sleep 2
+          done
+
+          "\$ADB" logcat -d -v threadtime \
+            > dist/static-scene-logcat.txt || true
+
+          echo "STAGE=\$STAGE" \
+            | tee dist/static-scene-status.txt
+
+          test "\$STAGE" = "FIRST_FRAME_OK"
+
+          grep -E \
+            "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*meshes=492 instances=10791 xzms=492.*vertices=1067383 indices=3608148 submeshes=1063 meshBytes=48633408" \
+            dist/static-scene-logcat.txt
+
+          grep -E \
+            "XZIEL-XZ.*legacy3d worldTransition.*map='xziel_nacht_bo3'.*mapRuntime=NACHT_BO3" \
+            dist/static-scene-logcat.txt
+
+          echo \
+            "XZIEL_NACHT_ANDROID_STATIC_SCENE_GREEN meshes=492 instances=10791 xzms=492 vertices=1067383 indices=3608148 submeshes=1063"
+
+          "\$ADB" exec-out screencap -p \
+            > dist/static-scene-runtime.png || true
+
+      - name: Upload Android static-scene evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Nacht-Static-Scene-Android-Evidence
+          path: |
+            dist/
+            build/nacht-static-scene/xziel.xzmesh.bundle.json
+            build/nacht-static-scene/xziel.xzscene.report.json
+            build/nacht-static-scene/xzmesh-compile.log
+            build/nacht-static-scene/xzscene-compile.log
+            nacht-ci/xziel_nacht_bo3_harness.json
+          retention-days: 7
