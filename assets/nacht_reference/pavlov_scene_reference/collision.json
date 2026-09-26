@@ -1,0 +1,645 @@
+{
+  "schemaVersion": 1,
+  "actors": [
+    {
+      "id": "collision_navmeshboundsvolume_2",
+      "name": "NavMeshBoundsVolume_2",
+      "class": "/Script/NavigationSystem/NavMeshBoundsVolume",
+      "transform": {
+        "position": {
+          "x": 4.634678955078125,
+          "y": 6.168914794921875,
+          "z": 10.4050830078125
+        },
+        "sourcePositionUEcm": {
+          "X": 463.4678955078125,
+          "Y": -616.8914794921875,
+          "Z": 1040.50830078125
+        },
+        "sourceRotationUE": null,
+        "sourceScale": {
+          "X": 35.097164154052734,
+          "Y": 40.040523529052734,
+          "Z": 12.296234130859375
+        },
+        "sourceRootComponent": 88
+      },
+      "source": "pavlov_port_spatial_reference"
+    },
+    {
+      "id": "collision_recastnavmesh_default",
+      "name": "RecastNavMesh-Default",
+      "class": "/Script/NavigationSystem/RecastNavMesh",
+      "transform": {
+        "position": null,
+        "sourcePositionUEcm": null,
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 579
+      },
+      "source": "pavlov_port_spatial_reference"
+    },
+    {
+      "id": "collision_blockingvolume_1",
+      "name": "BlockingVolume_1",
+      "class": "/Script/Engine/BlockingVolume",
+      "transform": {
+        "position": {
+          "x": 0.7144845581054687,
+          "y": 26.7681640625,
+          "z": 1.595312042236328
+        },
+        "sourcePositionUEcm": {
+          "X": 71.44845581054688,
+          "Y": -2676.81640625,
+          "Z": 159.5312042236328
+        },
+        "sourceRotationUE": {
+          "Pitch": -33.53672409057617,
+          "Yaw": 0.0,
+          "Roll": 0.0
+        },
+        "sourceScale": {
+          "X": 3.6940948963165283,
+          "Y": 1.28125,
+          "Z": 0.0625
+        },
+        "sourceRootComponent": 87
+      },
+      "source": "pavlov_port_spatial_reference"
+    },
+    {
+      "id": "collision_blockingvolume2_4",
+      "name": "BlockingVolume2_4",
+      "class": "/Script/Engine/BlockingVolume",
+      "transform": {
+        "position": {
+          "x": 4.26363037109375,
+          "y": 2.1836312866210936,
+          "z": 2.9139105224609376
+        },
+        "sourcePositionUEcm": {
+          "X": 426.363037109375,
+          "Y": -218.36312866210938,
+          "Z": 291.39105224609375
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 0.0,
+          "Roll": 34.08158874511719
+        },
+        "sourceScale": {
+          "X": 1.1688988208770752,
+          "Y": 1.3165847063064575,
+          "Z": 0.07154709845781326
+        },
+        "sourceRootComponent": 86
+      },
+      "source": "pavlov_port_spatial_reference"
+    },
+    {
+      "id": "collision_playerblocker_2",
+      "name": "PlayerBlocker_2",
+      "class": "/Game/CustomMaps/UGC2755515831/Blueprints/Objects/InvisibleWalls/PlayerBlocker/PlayerBlocker_C",
+      "transform": {
+        "position": {
+          "x": -5.290841064453125,
+          "y": 12.404061279296876,
+          "z": 0.6260281372070312
+        },
+        "sourcePositionUEcm": {
+          "X": -529.0841064453125,
+          "Y": -1240.4061279296875,
+          "Z": 62.602813720703125
+        },
+        "sourceRotationUE": null,
+        "sourceScale": {
+          "X": 0.4418981373310089,
+          "Y": 2.896200180053711,
+          "Z": 1.0
+        },
+        "sourceRootComponent": 576
+      },
+      "source": "pavlov_port_spatial_reference"
+    },
+    {
+      "id": "collision_playerblocker2",
+      "name": "PlayerBlocker2",
+      "class": "/Game/CustomMaps/UGC2755515831/Blueprints/Objects/InvisibleWalls/PlayerBlocker/PlayerBlocker_C",
+      "transform": {
+        "position": {
+          "x": -5.290841064453125,
+          "y": -4.872117004394531,
+          "z": 0.6260281372070312
+        },
+        "sourcePositionUEcm": {
+          "X": -529.0841064453125,
+          "Y": 487.2117004394531,
+          "Z": 62.602813720703125
+        },
+        "sourceRotationUE": null,
+        "sourceScale": {
+          "X": 0.441897988319397,
+          "Y": 2.896199941635132,
+          "Z": 1.0
+        },
+        "sourceRootComponent": 568
+      },
+      "source": "pavlov_port_spatial_reference"
+    },
+    {
+      "id": "collision_playerblocker3",
+      "name": "PlayerBlocker3",
+      "class": "/Game/CustomMaps/UGC2755515831/Blueprints/Objects/InvisibleWalls/PlayerBlocker/PlayerBlocker_C",
+      "transform": {
+        "position": {
+          "x": -5.290841064453125,
+          "y": -19.1322412109375,
+          "z": 0.6260281372070312
+        },
+        "sourcePositionUEcm": {
+          "X": -529.0841064453125,
+          "Y": 1913.22412109375,
+          "Z": 62.602813720703125
+        },
+        "sourceRotationUE": null,
+        "sourceScale": {
+          "X": 0.441897988319397,
+          "Y": 2.896199941635132,
+          "Z": 1.0
+        },
+        "sourceRootComponent": 569
+      },
+      "source": "pavlov_port_spatial_reference"
+    },
+    {
+      "id": "collision_playerblocker4",
+      "name": "PlayerBlocker4",
+      "class": "/Game/CustomMaps/UGC2755515831/Blueprints/Objects/InvisibleWalls/PlayerBlocker/PlayerBlocker_C",
+      "transform": {
+        "position": {
+          "x": 4.315318908691406,
+          "y": -22.2027685546875,
+          "z": 0.62602783203125
+        },
+        "sourcePositionUEcm": {
+          "X": 431.5318908691406,
+          "Y": 2220.27685546875,
+          "Z": 62.602783203125
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": -90.00003051757812,
+          "Roll": 0.0
+        },
+        "sourceScale": {
+          "X": 0.441897988319397,
+          "Y": 2.896199941635132,
+          "Z": 1.0
+        },
+        "sourceRootComponent": 570
+      },
+      "source": "pavlov_port_spatial_reference"
+    },
+    {
+      "id": "collision_playerblocker5",
+      "name": "PlayerBlocker5",
+      "class": "/Game/CustomMaps/UGC2755515831/Blueprints/Objects/InvisibleWalls/PlayerBlocker/PlayerBlocker_C",
+      "transform": {
+        "position": {
+          "x": 5.74616943359375,
+          "y": -6.436246948242188,
+          "z": 0.6260284423828125
+        },
+        "sourcePositionUEcm": {
+          "X": 574.616943359375,
+          "Y": 643.6246948242188,
+          "Z": 62.60284423828125
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 179.99996948242188,
+          "Roll": 0.0
+        },
+        "sourceScale": {
+          "X": 0.441897988319397,
+          "Y": 2.896199941635132,
+          "Z": 1.0
+        },
+        "sourceRootComponent": 571
+      },
+      "source": "pavlov_port_spatial_reference"
+    },
+    {
+      "id": "collision_playerblocker6",
+      "name": "PlayerBlocker6",
+      "class": "/Game/CustomMaps/UGC2755515831/Blueprints/Objects/InvisibleWalls/PlayerBlocker/PlayerBlocker_C",
+      "transform": {
+        "position": {
+          "x": 11.43625732421875,
+          "y": 25.78741943359375,
+          "z": 0.6260284423828125
+        },
+        "sourcePositionUEcm": {
+          "X": 1143.625732421875,
+          "Y": -2578.741943359375,
+          "Z": 62.60284423828125
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 89.99979400634766,
+          "Roll": 0.0
+        },
+        "sourceScale": {
+          "X": 0.441897988319397,
+          "Y": 2.896199941635132,
+          "Z": 1.0
+        },
+        "sourceRootComponent": 572
+      },
+      "source": "pavlov_port_spatial_reference"
+    },
+    {
+      "id": "collision_playerblocker7",
+      "name": "PlayerBlocker7",
+      "class": "/Game/CustomMaps/UGC2755515831/Blueprints/Objects/InvisibleWalls/PlayerBlocker/PlayerBlocker_C",
+      "transform": {
+        "position": {
+          "x": 26.51646484375,
+          "y": 22.8639111328125,
+          "z": 0.6260284423828125
+        },
+        "sourcePositionUEcm": {
+          "X": 2651.646484375,
+          "Y": -2286.39111328125,
+          "Z": 62.60284423828125
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 179.99978637695312,
+          "Roll": 0.0
+        },
+        "sourceScale": {
+          "X": 0.441897988319397,
+          "Y": 2.896199941635132,
+          "Z": 1.0
+        },
+        "sourceRootComponent": 573
+      },
+      "source": "pavlov_port_spatial_reference"
+    },
+    {
+      "id": "collision_playerblocker8",
+      "name": "PlayerBlocker8",
+      "class": "/Game/CustomMaps/UGC2755515831/Blueprints/Objects/InvisibleWalls/PlayerBlocker/PlayerBlocker_C",
+      "transform": {
+        "position": {
+          "x": 16.1585595703125,
+          "y": 15.80070556640625,
+          "z": 0.6260284423828125
+        },
+        "sourcePositionUEcm": {
+          "X": 1615.85595703125,
+          "Y": -1580.070556640625,
+          "Z": 62.60284423828125
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": -90.0001220703125,
+          "Roll": 0.0
+        },
+        "sourceScale": {
+          "X": 0.441897988319397,
+          "Y": 2.896199941635132,
+          "Z": 1.0
+        },
+        "sourceRootComponent": 574
+      },
+      "source": "pavlov_port_spatial_reference"
+    },
+    {
+      "id": "collision_playerblocker9",
+      "name": "PlayerBlocker9",
+      "class": "/Game/CustomMaps/UGC2755515831/Blueprints/Objects/InvisibleWalls/PlayerBlocker/PlayerBlocker_C",
+      "transform": {
+        "position": {
+          "x": 23.0176318359375,
+          "y": 25.70107666015625,
+          "z": 4.340954284667969
+        },
+        "sourcePositionUEcm": {
+          "X": 2301.76318359375,
+          "Y": -2570.107666015625,
+          "Z": 434.0954284667969
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": -90.0001220703125,
+          "Roll": 0.0
+        },
+        "sourceScale": {
+          "X": 0.441897988319397,
+          "Y": 2.896199941635132,
+          "Z": 1.0
+        },
+        "sourceRootComponent": 575
+      },
+      "source": "pavlov_port_spatial_reference"
+    },
+    {
+      "id": "collision_playerblocker10",
+      "name": "PlayerBlocker10",
+      "class": "/Game/CustomMaps/UGC2755515831/Blueprints/Objects/InvisibleWalls/PlayerBlocker/PlayerBlocker_C",
+      "transform": {
+        "position": {
+          "x": 6.034658203125,
+          "y": 28.7391455078125,
+          "z": 4.340954284667969
+        },
+        "sourcePositionUEcm": {
+          "X": 603.4658203125,
+          "Y": -2873.91455078125,
+          "Z": 434.0954284667969
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": -90.0001220703125,
+          "Roll": 0.0
+        },
+        "sourceScale": {
+          "X": 0.441897988319397,
+          "Y": 2.896199941635132,
+          "Z": 1.0
+        },
+        "sourceRootComponent": 558
+      },
+      "source": "pavlov_port_spatial_reference"
+    },
+    {
+      "id": "collision_playerblocker11",
+      "name": "PlayerBlocker11",
+      "class": "/Game/CustomMaps/UGC2755515831/Blueprints/Objects/InvisibleWalls/PlayerBlocker/PlayerBlocker_C",
+      "transform": {
+        "position": {
+          "x": 5.621752319335937,
+          "y": 6.172037963867187,
+          "z": 4.340954284667969
+        },
+        "sourcePositionUEcm": {
+          "X": 562.1752319335938,
+          "Y": -617.2037963867188,
+          "Z": 434.0954284667969
+        },
+        "sourceRotationUE": null,
+        "sourceScale": {
+          "X": 0.441897988319397,
+          "Y": 2.896199941635132,
+          "Z": 1.0
+        },
+        "sourceRootComponent": 559
+      },
+      "source": "pavlov_port_spatial_reference"
+    },
+    {
+      "id": "collision_playerblocker12",
+      "name": "PlayerBlocker12",
+      "class": "/Game/CustomMaps/UGC2755515831/Blueprints/Objects/InvisibleWalls/PlayerBlocker/PlayerBlocker_C",
+      "transform": {
+        "position": {
+          "x": -5.235231323242187,
+          "y": 6.172037963867187,
+          "z": 4.506893005371094
+        },
+        "sourcePositionUEcm": {
+          "X": -523.5231323242188,
+          "Y": -617.2037963867188,
+          "Z": 450.6893005371094
+        },
+        "sourceRotationUE": null,
+        "sourceScale": {
+          "X": 0.441897988319397,
+          "Y": 28.376995086669922,
+          "Z": 1.8547528982162476
+        },
+        "sourceRootComponent": 560
+      },
+      "source": "pavlov_port_spatial_reference"
+    },
+    {
+      "id": "collision_playerblocker13",
+      "name": "PlayerBlocker13",
+      "class": "/Game/CustomMaps/UGC2755515831/Blueprints/Objects/InvisibleWalls/PlayerBlocker/PlayerBlocker_C",
+      "transform": {
+        "position": {
+          "x": 1.3968620300292969,
+          "y": -10.0098681640625,
+          "z": 4.506893005371094
+        },
+        "sourcePositionUEcm": {
+          "X": 139.6862030029297,
+          "Y": 1000.98681640625,
+          "Z": 450.6893005371094
+        },
+        "sourceRotationUE": null,
+        "sourceScale": {
+          "X": 0.441897988319397,
+          "Y": 11.247974395751953,
+          "Z": 1.854753017425537
+        },
+        "sourceRootComponent": 561
+      },
+      "source": "pavlov_port_spatial_reference"
+    },
+    {
+      "id": "collision_playerblocker14",
+      "name": "PlayerBlocker14",
+      "class": "/Game/CustomMaps/UGC2755515831/Blueprints/Objects/InvisibleWalls/PlayerBlocker/PlayerBlocker_C",
+      "transform": {
+        "position": {
+          "x": -0.3280441665649414,
+          "y": -12.61895263671875,
+          "z": 4.286213989257813
+        },
+        "sourcePositionUEcm": {
+          "X": -32.80441665649414,
+          "Y": 1261.895263671875,
+          "Z": 428.62139892578125
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 90.0000228881836,
+          "Roll": 0.0
+        },
+        "sourceScale": {
+          "X": 2.110590934753418,
+          "Y": 7.475115776062012,
+          "Z": 1.854753017425537
+        },
+        "sourceRootComponent": 562
+      },
+      "source": "pavlov_port_spatial_reference"
+    },
+    {
+      "id": "collision_playerblocker15",
+      "name": "PlayerBlocker15",
+      "class": "/Game/CustomMaps/UGC2755515831/Blueprints/Objects/InvisibleWalls/PlayerBlocker/PlayerBlocker_C",
+      "transform": {
+        "position": {
+          "x": -2.684398193359375,
+          "y": -15.4415771484375,
+          "z": 4.286213989257813
+        },
+        "sourcePositionUEcm": {
+          "X": -268.4398193359375,
+          "Y": 1544.15771484375,
+          "Z": 428.62139892578125
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 179.99998474121094,
+          "Roll": 0.0
+        },
+        "sourceScale": {
+          "X": 0.441897988319397,
+          "Y": 7.475115776062012,
+          "Z": 1.854753017425537
+        },
+        "sourceRootComponent": 563
+      },
+      "source": "pavlov_port_spatial_reference"
+    },
+    {
+      "id": "collision_playerblocker16_21",
+      "name": "PlayerBlocker16_21",
+      "class": "/Game/CustomMaps/UGC2755515831/Blueprints/Objects/InvisibleWalls/PlayerBlocker/PlayerBlocker_C",
+      "transform": {
+        "position": {
+          "x": -2.6843887329101563,
+          "y": -19.91787841796875,
+          "z": 4.286213989257813
+        },
+        "sourcePositionUEcm": {
+          "X": -268.4388732910156,
+          "Y": 1991.787841796875,
+          "Z": 428.62139892578125
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 179.99998474121094,
+          "Roll": 0.0
+        },
+        "sourceScale": {
+          "X": 0.441897988319397,
+          "Y": 7.475115776062012,
+          "Z": 1.854753017425537
+        },
+        "sourceRootComponent": 564
+      },
+      "source": "pavlov_port_spatial_reference"
+    },
+    {
+      "id": "collision_playerblocker17_25",
+      "name": "PlayerBlocker17_25",
+      "class": "/Game/CustomMaps/UGC2755515831/Blueprints/Objects/InvisibleWalls/PlayerBlocker/PlayerBlocker_C",
+      "transform": {
+        "position": {
+          "x": 1.3968687438964844,
+          "y": -4.025633239746094,
+          "z": 4.272827758789062
+        },
+        "sourcePositionUEcm": {
+          "X": 139.68687438964844,
+          "Y": 402.5633239746094,
+          "Z": 427.28277587890625
+        },
+        "sourceRotationUE": null,
+        "sourceScale": {
+          "X": 0.441897988319397,
+          "Y": 2.283193826675415,
+          "Z": 1.854753017425537
+        },
+        "sourceRootComponent": 565
+      },
+      "source": "pavlov_port_spatial_reference"
+    },
+    {
+      "id": "collision_playerblocker18",
+      "name": "PlayerBlocker18",
+      "class": "/Game/CustomMaps/UGC2755515831/Blueprints/Objects/InvisibleWalls/PlayerBlocker/PlayerBlocker_C",
+      "transform": {
+        "position": {
+          "x": 26.298603515625,
+          "y": 20.5067529296875,
+          "z": 4.34095458984375
+        },
+        "sourcePositionUEcm": {
+          "X": 2629.8603515625,
+          "Y": -2050.67529296875,
+          "Z": 434.095458984375
+        },
+        "sourceRotationUE": null,
+        "sourceScale": {
+          "X": 0.441897988319397,
+          "Y": 10.677672386169434,
+          "Z": 2.8937265872955322
+        },
+        "sourceRootComponent": 566
+      },
+      "source": "pavlov_port_spatial_reference"
+    },
+    {
+      "id": "collision_playerblocker19",
+      "name": "PlayerBlocker19",
+      "class": "/Game/CustomMaps/UGC2755515831/Blueprints/Objects/InvisibleWalls/PlayerBlocker/PlayerBlocker_C",
+      "transform": {
+        "position": {
+          "x": 25.50604736328125,
+          "y": 16.50537353515625,
+          "z": 4.34095458984375
+        },
+        "sourcePositionUEcm": {
+          "X": 2550.604736328125,
+          "Y": -1650.537353515625,
+          "Z": 434.095458984375
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 50.000064849853516,
+          "Roll": 0.0
+        },
+        "sourceScale": {
+          "X": 0.441897988319397,
+          "Y": 3.774353504180908,
+          "Z": 2.729398250579834
+        },
+        "sourceRootComponent": 567
+      },
+      "source": "pavlov_port_spatial_reference"
+    },
+    {
+      "id": "collision_precomputedvisibilityvolume_1",
+      "name": "PrecomputedVisibilityVolume_1",
+      "class": "/Script/Engine/PrecomputedVisibilityVolume",
+      "transform": {
+        "position": {
+          "x": -1.7859536743164062,
+          "y": 2.5783087158203126,
+          "z": 1.026400375366211
+        },
+        "sourcePositionUEcm": {
+          "X": -178.59536743164062,
+          "Y": -257.83087158203125,
+          "Z": 102.6400375366211
+        },
+        "sourceRotationUE": null,
+        "sourceScale": {
+          "X": 224.5682373046875,
+          "Y": 226.25625610351562,
+          "Z": 25.326583862304688
+        },
+        "sourceRootComponent": 89
+      },
+      "source": "pavlov_port_spatial_reference"
+    }
+  ]
+}

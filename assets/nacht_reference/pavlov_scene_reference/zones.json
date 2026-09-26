@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "zones": [
+    {
+      "id": "start_zone",
+      "name": "start_zone",
+      "source": "official_t7_decompiled_script",
+      "initiallyActive": true,
+      "neighbors": [
+        {
+          "zone": "box_zone",
+          "flag": "start_2_box"
+        },
+        {
+          "zone": "upstairs_zone",
+          "flag": "start_2_upstairs"
+        }
+      ]
+    },
+    {
+      "id": "box_zone",
+      "name": "box_zone",
+      "source": "official_t7_decompiled_script",
+      "initiallyActive": false,
+      "neighbors": [
+        {
+          "zone": "start_zone",
+          "flag": "start_2_box"
+        },
+        {
+          "zone": "upstairs_zone",
+          "flag": "box_2_upstairs"
+        }
+      ]
+    },
+    {
+      "id": "upstairs_zone",
+      "name": "upstairs_zone",
+      "source": "official_t7_decompiled_script",
+      "initiallyActive": false,
+      "neighbors": [
+        {
+          "zone": "start_zone",
+          "flag": "start_2_upstairs"
+        },
+        {
+          "zone": "box_zone",
+          "flag": "box_2_upstairs"
+        }
+      ]
+    }
+  ]
+}

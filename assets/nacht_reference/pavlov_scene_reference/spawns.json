@@ -1,0 +1,1564 @@
+{
+  "schemaVersion": 1,
+  "spawns": [
+    {
+      "id": "player_spawn_pavlov_spawn_1",
+      "name": "Pavlov_Spawn_1",
+      "type": "player_spawn_candidate",
+      "transform": {
+        "position": {
+          "x": -0.10019207954406738,
+          "y": 11.94,
+          "z": 1.0938642883300782
+        },
+        "sourcePositionUEcm": {
+          "X": -10.019207954406738,
+          "Y": -1194.0,
+          "Z": 109.38642883300781
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 103
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "maxCanonicalPlayers": 4
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "player_spawn_pavlov_spawn2",
+      "name": "Pavlov_Spawn2",
+      "type": "player_spawn_candidate",
+      "transform": {
+        "position": {
+          "x": -0.11,
+          "y": 10.51,
+          "z": 0.9621702575683594
+        },
+        "sourcePositionUEcm": {
+          "X": -11.0,
+          "Y": -1051.0,
+          "Z": 96.21702575683594
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 95
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "maxCanonicalPlayers": 4
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "player_spawn_pavlov_spawn3",
+      "name": "Pavlov_Spawn3",
+      "type": "player_spawn_candidate",
+      "transform": {
+        "position": {
+          "x": -0.11,
+          "y": 8.83,
+          "z": 0.9728014373779297
+        },
+        "sourcePositionUEcm": {
+          "X": -11.0,
+          "Y": -883.0,
+          "Z": 97.28014373779297
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 96
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "maxCanonicalPlayers": 4
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "player_spawn_pavlov_spawn4",
+      "name": "Pavlov_Spawn4",
+      "type": "player_spawn_candidate",
+      "transform": {
+        "position": {
+          "x": 0.33532253265380857,
+          "y": -7.530911865234375,
+          "z": 1.0938642883300782
+        },
+        "sourcePositionUEcm": {
+          "X": 33.53225326538086,
+          "Y": 753.0911865234375,
+          "Z": 109.38642883300781
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 97
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "maxCanonicalPlayers": 4
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "player_spawn_pavlov_spawn5",
+      "name": "Pavlov_Spawn5",
+      "type": "player_spawn_candidate",
+      "transform": {
+        "position": {
+          "x": 0.3255146026611328,
+          "y": -9.684246826171876,
+          "z": 1.1685306549072265
+        },
+        "sourcePositionUEcm": {
+          "X": 32.55146026611328,
+          "Y": 968.4246826171875,
+          "Z": 116.85306549072266
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 98
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "maxCanonicalPlayers": 4
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "player_spawn_pavlov_spawn6",
+      "name": "Pavlov_Spawn6",
+      "type": "player_spawn_candidate",
+      "transform": {
+        "position": {
+          "x": 0.3255146026611328,
+          "y": -11.618629150390625,
+          "z": 1.1803909301757813
+        },
+        "sourcePositionUEcm": {
+          "X": 32.55146026611328,
+          "Y": 1161.8629150390625,
+          "Z": 118.03909301757812
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 99
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "maxCanonicalPlayers": 4
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "player_spawn_pavlov_spawn7",
+      "name": "Pavlov_Spawn7",
+      "type": "player_spawn_candidate",
+      "transform": {
+        "position": {
+          "x": -2.175964660644531,
+          "y": -15.280321044921875,
+          "z": 0.9685158538818359
+        },
+        "sourcePositionUEcm": {
+          "X": -217.59646606445312,
+          "Y": 1528.0321044921875,
+          "Z": 96.8515853881836
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 100
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "maxCanonicalPlayers": 4
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "player_spawn_pavlov_spawn8",
+      "name": "Pavlov_Spawn8",
+      "type": "player_spawn_candidate",
+      "transform": {
+        "position": {
+          "x": 0.7505819702148437,
+          "y": -17.433656005859376,
+          "z": 1.321099853515625
+        },
+        "sourcePositionUEcm": {
+          "X": 75.05819702148438,
+          "Y": 1743.3656005859375,
+          "Z": 132.1099853515625
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 101
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "maxCanonicalPlayers": 4
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "player_spawn_pavlov_spawn9",
+      "name": "Pavlov_Spawn9",
+      "type": "player_spawn_candidate",
+      "transform": {
+        "position": {
+          "x": -2.185772705078125,
+          "y": -19.368038330078125,
+          "z": 1.015989990234375
+        },
+        "sourcePositionUEcm": {
+          "X": -218.5772705078125,
+          "Y": 1936.8038330078125,
+          "Z": 101.5989990234375
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 102
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "maxCanonicalPlayers": 4
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "player_spawn_pavlov_spawn10",
+      "name": "Pavlov_Spawn10",
+      "type": "player_spawn_candidate",
+      "transform": {
+        "position": {
+          "x": 1.924321746826172,
+          "y": 10.51,
+          "z": 1.1046920013427735
+        },
+        "sourcePositionUEcm": {
+          "X": 192.4321746826172,
+          "Y": -1051.0,
+          "Z": 110.46920013427734
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 94
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "maxCanonicalPlayers": 4
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "zspawn_zombiespawner10",
+      "name": "ZombieSpawner10",
+      "type": "zombie_spawn",
+      "transform": {
+        "position": {
+          "x": 12.8770458984375,
+          "y": -2.7272909545898436,
+          "z": 0.0010002899169921876
+        },
+        "sourcePositionUEcm": {
+          "X": 1287.70458984375,
+          "Y": 272.7290954589844,
+          "Z": 0.10002899169921875
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 121.05314636230469,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 604
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "linkedBarricade": "barricade_barricade5",
+        "sourceBarricadeExportIndex": 12,
+        "sourceDoorFlag": null,
+        "activeDefault": true,
+        "riser": true,
+        "zoneHint": "start_zone",
+        "zoneHintAuthority": "inferred_from_pavlov_door_flag"
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "zspawn_zombiespawner11",
+      "name": "ZombieSpawner11",
+      "type": "zombie_spawn",
+      "transform": {
+        "position": {
+          "x": 14.172049560546874,
+          "y": 6.879191284179687,
+          "z": 0.12560100555419923
+        },
+        "sourcePositionUEcm": {
+          "X": 1417.2049560546875,
+          "Y": -687.9191284179688,
+          "Z": 12.560100555419922
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": -63.94708251953125,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 605
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "linkedBarricade": "barricade_barricade6",
+        "sourceBarricadeExportIndex": 13,
+        "sourceDoorFlag": 1,
+        "activeDefault": false,
+        "riser": true,
+        "zoneHint": "box_zone",
+        "zoneHintAuthority": "inferred_from_pavlov_door_flag"
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "zspawn_zombiespawner12",
+      "name": "ZombieSpawner12",
+      "type": "zombie_spawn",
+      "transform": {
+        "position": {
+          "x": 20.629140625,
+          "y": 10.61396728515625,
+          "z": 0.16862045288085936
+        },
+        "sourcePositionUEcm": {
+          "X": 2062.9140625,
+          "Y": -1061.396728515625,
+          "Z": 16.862045288085938
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 176.0528106689453,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 606
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "linkedBarricade": "barricade_barricade6",
+        "sourceBarricadeExportIndex": 13,
+        "sourceDoorFlag": 1,
+        "activeDefault": false,
+        "riser": true,
+        "zoneHint": "box_zone",
+        "zoneHintAuthority": "inferred_from_pavlov_door_flag"
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "zspawn_zombiespawner13",
+      "name": "ZombieSpawner13",
+      "type": "zombie_spawn",
+      "transform": {
+        "position": {
+          "x": 15.286885986328125,
+          "y": 33.4252783203125,
+          "z": -0.12056605339050293
+        },
+        "sourcePositionUEcm": {
+          "X": 1528.6885986328125,
+          "Y": -3342.52783203125,
+          "Z": -12.056605339050293
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 126.05303192138672,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 607
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "linkedBarricade": "barricade_barricade8",
+        "sourceBarricadeExportIndex": 15,
+        "sourceDoorFlag": 1,
+        "activeDefault": false,
+        "riser": false,
+        "zoneHint": "box_zone",
+        "zoneHintAuthority": "inferred_from_pavlov_door_flag"
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "zspawn_zombiespawner14",
+      "name": "ZombieSpawner14",
+      "type": "zombie_spawn",
+      "transform": {
+        "position": {
+          "x": 38.90985107421875,
+          "y": 15.198731689453124,
+          "z": -0.6489412689208984
+        },
+        "sourcePositionUEcm": {
+          "X": 3890.985107421875,
+          "Y": -1519.8731689453125,
+          "Z": -64.89412689208984
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": -153.9471435546875,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 608
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "linkedBarricade": "barricade_barricade7",
+        "sourceBarricadeExportIndex": 14,
+        "sourceDoorFlag": 1,
+        "activeDefault": false,
+        "riser": true,
+        "zoneHint": "box_zone",
+        "zoneHintAuthority": "inferred_from_pavlov_door_flag"
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "zspawn_zombiespawner15",
+      "name": "ZombieSpawner15",
+      "type": "zombie_spawn",
+      "transform": {
+        "position": {
+          "x": 37.457021484375,
+          "y": 16.985982666015627,
+          "z": -0.4980802154541016
+        },
+        "sourcePositionUEcm": {
+          "X": 3745.7021484375,
+          "Y": -1698.5982666015625,
+          "Z": -49.808021545410156
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": -153.9471435546875,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 609
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "linkedBarricade": "barricade_barricade7",
+        "sourceBarricadeExportIndex": 14,
+        "sourceDoorFlag": 1,
+        "activeDefault": false,
+        "riser": true,
+        "zoneHint": "box_zone",
+        "zoneHintAuthority": "inferred_from_pavlov_door_flag"
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "zspawn_zombiespawner16",
+      "name": "ZombieSpawner16",
+      "type": "zombie_spawn",
+      "transform": {
+        "position": {
+          "x": 14.516220703125,
+          "y": -0.8363288879394531,
+          "z": -0.038027191162109376
+        },
+        "sourcePositionUEcm": {
+          "X": 1451.6220703125,
+          "Y": 83.63288879394531,
+          "Z": -3.8027191162109375
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 101.05302429199219,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 610
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "linkedBarricade": "barricade_barricade9",
+        "sourceBarricadeExportIndex": 16,
+        "sourceDoorFlag": 2,
+        "activeDefault": false,
+        "riser": true,
+        "zoneHint": "upstairs_zone",
+        "zoneHintAuthority": "inferred_from_pavlov_door_flag"
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "zspawn_zombiespawner17",
+      "name": "ZombieSpawner17",
+      "type": "zombie_spawn",
+      "transform": {
+        "position": {
+          "x": 12.062818603515625,
+          "y": -6.670210571289062,
+          "z": -0.09522506713867188
+        },
+        "sourcePositionUEcm": {
+          "X": 1206.2818603515625,
+          "Y": 667.0210571289062,
+          "Z": -9.522506713867188
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": -113.94705200195312,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 611
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "linkedBarricade": "barricade_barricade10",
+        "sourceBarricadeExportIndex": 6,
+        "sourceDoorFlag": 2,
+        "activeDefault": false,
+        "riser": true,
+        "zoneHint": "upstairs_zone",
+        "zoneHintAuthority": "inferred_from_pavlov_door_flag"
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "zspawn_zombiespawner18",
+      "name": "ZombieSpawner18",
+      "type": "zombie_spawn",
+      "transform": {
+        "position": {
+          "x": 10.4923193359375,
+          "y": 40.28262451171875,
+          "z": 3.8100030517578123
+        },
+        "sourcePositionUEcm": {
+          "X": 1049.23193359375,
+          "Y": -4028.262451171875,
+          "Z": 381.00030517578125
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 116.052734375,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 612
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "linkedBarricade": "barricade_barricade11",
+        "sourceBarricadeExportIndex": 7,
+        "sourceDoorFlag": 2,
+        "activeDefault": false,
+        "riser": true,
+        "zoneHint": "upstairs_zone",
+        "zoneHintAuthority": "inferred_from_pavlov_door_flag"
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "zspawn_zombiespawner19",
+      "name": "ZombieSpawner19",
+      "type": "zombie_spawn",
+      "transform": {
+        "position": {
+          "x": 10.631846923828125,
+          "y": 28.7237841796875,
+          "z": 3.8100021362304686
+        },
+        "sourcePositionUEcm": {
+          "X": 1063.1846923828125,
+          "Y": -2872.37841796875,
+          "Z": 381.0002136230469
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": -143.9472198486328,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 613
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "linkedBarricade": "barricade_barricade11",
+        "sourceBarricadeExportIndex": 7,
+        "sourceDoorFlag": 2,
+        "activeDefault": false,
+        "riser": true,
+        "zoneHint": "upstairs_zone",
+        "zoneHintAuthority": "inferred_from_pavlov_door_flag"
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "zspawn_zombiespawner20",
+      "name": "ZombieSpawner20",
+      "type": "zombie_spawn",
+      "transform": {
+        "position": {
+          "x": 15.181988525390626,
+          "y": 27.959873046875,
+          "z": 3.9032177734375
+        },
+        "sourcePositionUEcm": {
+          "X": 1518.1988525390625,
+          "Y": -2795.9873046875,
+          "Z": 390.32177734375
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": -3.947113037109375,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 614
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "linkedBarricade": "barricade_barricade12",
+        "sourceBarricadeExportIndex": 8,
+        "sourceDoorFlag": 2,
+        "activeDefault": false,
+        "riser": true,
+        "zoneHint": "upstairs_zone",
+        "zoneHintAuthority": "inferred_from_pavlov_door_flag"
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "zspawn_zombiespawner21",
+      "name": "ZombieSpawner21",
+      "type": "zombie_spawn",
+      "transform": {
+        "position": {
+          "x": 25.4056640625,
+          "y": 38.5150927734375,
+          "z": 3.408245849609375
+        },
+        "sourcePositionUEcm": {
+          "X": 2540.56640625,
+          "Y": -3851.50927734375,
+          "Z": 340.8245849609375
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 101.05296325683594,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 615
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "linkedBarricade": "barricade_barricade12",
+        "sourceBarricadeExportIndex": 8,
+        "sourceDoorFlag": 2,
+        "activeDefault": false,
+        "riser": true,
+        "zoneHint": "upstairs_zone",
+        "zoneHintAuthority": "inferred_from_pavlov_door_flag"
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "zspawn_zombiespawner2_20",
+      "name": "ZombieSpawner2_20",
+      "type": "zombie_spawn",
+      "transform": {
+        "position": {
+          "x": -14.535648193359375,
+          "y": 4.6941921997070315,
+          "z": -0.2715321731567383
+        },
+        "sourcePositionUEcm": {
+          "X": -1453.5648193359375,
+          "Y": -469.4192199707031,
+          "Z": -27.153217315673828
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": -43.8262939453125,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 616
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "linkedBarricade": "barricade_barricade_2",
+        "sourceBarricadeExportIndex": 17,
+        "sourceDoorFlag": null,
+        "activeDefault": true,
+        "riser": true,
+        "zoneHint": "start_zone",
+        "zoneHintAuthority": "inferred_from_pavlov_door_flag"
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "zspawn_zombiespawner3_23",
+      "name": "ZombieSpawner3_23",
+      "type": "zombie_spawn",
+      "transform": {
+        "position": {
+          "x": -15.354805908203126,
+          "y": -0.23741846084594725,
+          "z": -0.33397216796875
+        },
+        "sourcePositionUEcm": {
+          "X": -1535.4805908203125,
+          "Y": 23.741846084594727,
+          "Z": -33.397216796875
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 39.696346282958984,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 617
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "linkedBarricade": "barricade_barricade2",
+        "sourceBarricadeExportIndex": 9,
+        "sourceDoorFlag": null,
+        "activeDefault": true,
+        "riser": true,
+        "zoneHint": "start_zone",
+        "zoneHintAuthority": "inferred_from_pavlov_door_flag"
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "zspawn_zombiespawner4",
+      "name": "ZombieSpawner4",
+      "type": "zombie_spawn",
+      "transform": {
+        "position": {
+          "x": -7.49038330078125,
+          "y": -15.38451171875,
+          "z": -0.12963478088378907
+        },
+        "sourcePositionUEcm": {
+          "X": -749.038330078125,
+          "Y": 1538.451171875,
+          "Z": -12.963478088378906
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 61.05299377441406,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 618
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "linkedBarricade": "barricade_barricade3",
+        "sourceBarricadeExportIndex": 10,
+        "sourceDoorFlag": null,
+        "activeDefault": true,
+        "riser": true,
+        "zoneHint": "start_zone",
+        "zoneHintAuthority": "inferred_from_pavlov_door_flag"
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "zspawn_zombiespawner5",
+      "name": "ZombieSpawner5",
+      "type": "zombie_spawn",
+      "transform": {
+        "position": {
+          "x": -15.101214599609374,
+          "y": -22.08655517578125,
+          "z": -0.7743317413330079
+        },
+        "sourcePositionUEcm": {
+          "X": -1510.1214599609375,
+          "Y": 2208.655517578125,
+          "Z": -77.43317413330078
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": -29.08740234375,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 619
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "linkedBarricade": "barricade_barricade3",
+        "sourceBarricadeExportIndex": 10,
+        "sourceDoorFlag": null,
+        "activeDefault": true,
+        "riser": true,
+        "zoneHint": "start_zone",
+        "zoneHintAuthority": "inferred_from_pavlov_door_flag"
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "zspawn_zombiespawner6",
+      "name": "ZombieSpawner6",
+      "type": "zombie_spawn",
+      "transform": {
+        "position": {
+          "x": -14.392579345703124,
+          "y": -11.24710205078125,
+          "z": -0.4749028778076172
+        },
+        "sourcePositionUEcm": {
+          "X": -1439.2579345703125,
+          "Y": 1124.710205078125,
+          "Z": -47.49028778076172
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": -23.83740234375,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 620
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "linkedBarricade": "barricade_barricade2",
+        "sourceBarricadeExportIndex": 9,
+        "sourceDoorFlag": null,
+        "activeDefault": true,
+        "riser": true,
+        "zoneHint": "start_zone",
+        "zoneHintAuthority": "inferred_from_pavlov_door_flag"
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "zspawn_zombiespawner7",
+      "name": "ZombieSpawner7",
+      "type": "zombie_spawn",
+      "transform": {
+        "position": {
+          "x": 10.037568359375,
+          "y": -33.2123486328125,
+          "z": 0.2309402656555176
+        },
+        "sourcePositionUEcm": {
+          "X": 1003.7568359375,
+          "Y": 3321.23486328125,
+          "Z": 23.094026565551758
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": -143.94688415527344,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 621
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "linkedBarricade": "barricade_barricade4",
+        "sourceBarricadeExportIndex": 11,
+        "sourceDoorFlag": null,
+        "activeDefault": true,
+        "riser": true,
+        "zoneHint": "start_zone",
+        "zoneHintAuthority": "inferred_from_pavlov_door_flag"
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "zspawn_zombiespawner8",
+      "name": "ZombieSpawner8",
+      "type": "zombie_spawn",
+      "transform": {
+        "position": {
+          "x": 8.901859130859375,
+          "y": -25.66520263671875,
+          "z": 0.02044414520263672
+        },
+        "sourcePositionUEcm": {
+          "X": 890.1859130859375,
+          "Y": 2566.520263671875,
+          "Z": 2.044414520263672
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": -143.94688415527344,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 622
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "linkedBarricade": "barricade_barricade4",
+        "sourceBarricadeExportIndex": 11,
+        "sourceDoorFlag": null,
+        "activeDefault": true,
+        "riser": true,
+        "zoneHint": "start_zone",
+        "zoneHintAuthority": "inferred_from_pavlov_door_flag"
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "zspawn_zombiespawner9",
+      "name": "ZombieSpawner9",
+      "type": "zombie_spawn",
+      "transform": {
+        "position": {
+          "x": 12.99484375,
+          "y": -12.927320556640625,
+          "z": -0.22169429779052735
+        },
+        "sourcePositionUEcm": {
+          "X": 1299.484375,
+          "Y": 1292.7320556640625,
+          "Z": -22.169429779052734
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": -143.94688415527344,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 623
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "linkedBarricade": "barricade_barricade5",
+        "sourceBarricadeExportIndex": 12,
+        "sourceDoorFlag": null,
+        "activeDefault": true,
+        "riser": true,
+        "zoneHint": "start_zone",
+        "zoneHintAuthority": "inferred_from_pavlov_door_flag"
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "zspawn_zombiespawner_16",
+      "name": "ZombieSpawner_16",
+      "type": "zombie_spawn",
+      "transform": {
+        "position": {
+          "x": -16.25829345703125,
+          "y": 16.08880859375,
+          "z": -0.1303386688232422
+        },
+        "sourcePositionUEcm": {
+          "X": -1625.829345703125,
+          "Y": -1608.880859375,
+          "Z": -13.033866882324219
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 61.39194869995117,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 624
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "linkedBarricade": "barricade_barricade_2",
+        "sourceBarricadeExportIndex": 17,
+        "sourceDoorFlag": null,
+        "activeDefault": true,
+        "riser": false,
+        "zoneHint": "start_zone",
+        "zoneHintAuthority": "inferred_from_pavlov_door_flag"
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "hound_spawn_zombie_hounds_spawner10_29",
+      "name": "Zombie_hounds_Spawner10_29",
+      "type": "hound_spawn",
+      "transform": {
+        "position": {
+          "x": 8.561459350585938,
+          "y": 17.63474365234375,
+          "z": 0.02540069580078125
+        },
+        "sourcePositionUEcm": {
+          "X": 856.1459350585938,
+          "Y": -1763.474365234375,
+          "Z": 2.540069580078125
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": -60.00006103515625,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 588
+      },
+      "source": "pavlov_extension",
+      "enabledProfiles": [
+        "pavlov_extended"
+      ],
+      "properties": {},
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "hound_spawn_zombie_hounds_spawner11_32",
+      "name": "Zombie_hounds_Spawner11_32",
+      "type": "hound_spawn",
+      "transform": {
+        "position": {
+          "x": 24.2637841796875,
+          "y": 20.8436962890625,
+          "z": 3.6576019287109376
+        },
+        "sourcePositionUEcm": {
+          "X": 2426.37841796875,
+          "Y": -2084.36962890625,
+          "Z": 365.76019287109375
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": -169.99990844726562,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 589
+      },
+      "source": "pavlov_extension",
+      "enabledProfiles": [
+        "pavlov_extended"
+      ],
+      "properties": {},
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "hound_spawn_zombie_hounds_spawner12",
+      "name": "Zombie_hounds_Spawner12",
+      "type": "hound_spawn",
+      "transform": {
+        "position": {
+          "x": 10.34219482421875,
+          "y": 24.49634765625,
+          "z": 3.6830020141601563
+        },
+        "sourcePositionUEcm": {
+          "X": 1034.219482421875,
+          "Y": -2449.634765625,
+          "Z": 368.3002014160156
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 114.99994659423828,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 590
+      },
+      "source": "pavlov_extension",
+      "enabledProfiles": [
+        "pavlov_extended"
+      ],
+      "properties": {},
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "hound_spawn_zombie_hounds_spawner13_36",
+      "name": "Zombie_hounds_Spawner13_36",
+      "type": "hound_spawn",
+      "transform": {
+        "position": {
+          "x": 4.372511901855469,
+          "y": 17.222152099609374,
+          "z": 3.6830020141601563
+        },
+        "sourcePositionUEcm": {
+          "X": 437.2511901855469,
+          "Y": -1722.2152099609375,
+          "Z": 368.3002014160156
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": -150.00001525878906,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 591
+      },
+      "source": "pavlov_extension",
+      "enabledProfiles": [
+        "pavlov_extended"
+      ],
+      "properties": {},
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "hound_spawn_zombie_hounds_spawner14",
+      "name": "Zombie_hounds_Spawner14",
+      "type": "hound_spawn",
+      "transform": {
+        "position": {
+          "x": 3.9283853149414063,
+          "y": 14.25773681640625,
+          "z": 3.683001708984375
+        },
+        "sourcePositionUEcm": {
+          "X": 392.8385314941406,
+          "Y": -1425.773681640625,
+          "Z": 368.3001708984375
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 144.99984741210938,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 592
+      },
+      "source": "pavlov_extension",
+      "enabledProfiles": [
+        "pavlov_extended"
+      ],
+      "properties": {},
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "hound_spawn_zombie_hounds_spawner15",
+      "name": "Zombie_hounds_Spawner15",
+      "type": "hound_spawn",
+      "transform": {
+        "position": {
+          "x": -4.091625366210938,
+          "y": 4.791477661132813,
+          "z": 3.6830014038085936
+        },
+        "sourcePositionUEcm": {
+          "X": -409.16253662109375,
+          "Y": -479.14776611328125,
+          "Z": 368.3001403808594
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 10.871040344238281,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 593
+      },
+      "source": "pavlov_extension",
+      "enabledProfiles": [
+        "pavlov_extended"
+      ],
+      "properties": {},
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "hound_spawn_zombie_hounds_spawner2_5",
+      "name": "Zombie_hounds_Spawner2_5",
+      "type": "hound_spawn",
+      "transform": {
+        "position": {
+          "x": -3.890025634765625,
+          "y": -21.0859375,
+          "z": 0.025399017333984374
+        },
+        "sourcePositionUEcm": {
+          "X": -389.0025634765625,
+          "Y": 2108.59375,
+          "Z": 2.5399017333984375
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": -40.00006103515625,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 594
+      },
+      "source": "pavlov_extension",
+      "enabledProfiles": [
+        "pavlov_extended"
+      ],
+      "properties": {},
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "hound_spawn_zombie_hounds_spawner3_8",
+      "name": "Zombie_hounds_Spawner3_8",
+      "type": "hound_spawn",
+      "transform": {
+        "position": {
+          "x": 4.1267263793945315,
+          "y": -8.36213134765625,
+          "z": 0.05012481689453125
+        },
+        "sourcePositionUEcm": {
+          "X": 412.6726379394531,
+          "Y": 836.213134765625,
+          "Z": 5.012481689453125
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": -135.00013732910156,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 595
+      },
+      "source": "pavlov_extension",
+      "enabledProfiles": [
+        "pavlov_extended"
+      ],
+      "properties": {},
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "hound_spawn_zombie_hounds_spawner4_11",
+      "name": "Zombie_hounds_Spawner4_11",
+      "type": "hound_spawn",
+      "transform": {
+        "position": {
+          "x": 5.884182739257812,
+          "y": 5.401141357421875,
+          "z": 0.025401268005371094
+        },
+        "sourcePositionUEcm": {
+          "X": 588.4182739257812,
+          "Y": -540.1141357421875,
+          "Z": 2.5401268005371094
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": -150.00013732910156,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 596
+      },
+      "source": "pavlov_extension",
+      "enabledProfiles": [
+        "pavlov_extended"
+      ],
+      "properties": {},
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "hound_spawn_zombie_hounds_spawner5_14",
+      "name": "Zombie_hounds_Spawner5_14",
+      "type": "hound_spawn",
+      "transform": {
+        "position": {
+          "x": -3.97160888671875,
+          "y": -6.673674926757813,
+          "z": 0.02540008544921875
+        },
+        "sourcePositionUEcm": {
+          "X": -397.160888671875,
+          "Y": 667.3674926757812,
+          "Z": 2.540008544921875
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": -45.00006103515625,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 597
+      },
+      "source": "pavlov_extension",
+      "enabledProfiles": [
+        "pavlov_extended"
+      ],
+      "properties": {},
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "hound_spawn_zombie_hounds_spawner6_17",
+      "name": "Zombie_hounds_Spawner6_17",
+      "type": "hound_spawn",
+      "transform": {
+        "position": {
+          "x": 22.55760986328125,
+          "y": 18.58956298828125,
+          "z": 0.025401802062988282
+        },
+        "sourcePositionUEcm": {
+          "X": 2255.760986328125,
+          "Y": -1858.956298828125,
+          "Z": 2.540180206298828
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": -145.0000457763672,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 598
+      },
+      "source": "pavlov_extension",
+      "enabledProfiles": [
+        "pavlov_extended"
+      ],
+      "properties": {},
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "hound_spawn_zombie_hounds_spawner7_20",
+      "name": "Zombie_hounds_Spawner7_20",
+      "type": "hound_spawn",
+      "transform": {
+        "position": {
+          "x": 23.65826416015625,
+          "y": 24.198046875,
+          "z": 0.025401153564453126
+        },
+        "sourcePositionUEcm": {
+          "X": 2365.826416015625,
+          "Y": -2419.8046875,
+          "Z": 2.5401153564453125
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 144.99998474121094,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 599
+      },
+      "source": "pavlov_extension",
+      "enabledProfiles": [
+        "pavlov_extended"
+      ],
+      "properties": {},
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "hound_spawn_zombie_hounds_spawner8_23",
+      "name": "Zombie_hounds_Spawner8_23",
+      "type": "hound_spawn",
+      "transform": {
+        "position": {
+          "x": -1.2590997314453125,
+          "y": 24.5106591796875,
+          "z": 0.025401458740234376
+        },
+        "sourcePositionUEcm": {
+          "X": -125.90997314453125,
+          "Y": -2451.06591796875,
+          "Z": 2.5401458740234375
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 45.00005340576172,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 600
+      },
+      "source": "pavlov_extension",
+      "enabledProfiles": [
+        "pavlov_extended"
+      ],
+      "properties": {},
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "hound_spawn_zombie_hounds_spawner9_26",
+      "name": "Zombie_hounds_Spawner9_26",
+      "type": "hound_spawn",
+      "transform": {
+        "position": {
+          "x": 7.177884521484375,
+          "y": 26.23717041015625,
+          "z": 0.0254010009765625
+        },
+        "sourcePositionUEcm": {
+          "X": 717.7884521484375,
+          "Y": -2623.717041015625,
+          "Z": 2.54010009765625
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 130.00009155273438,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 601
+      },
+      "source": "pavlov_extension",
+      "enabledProfiles": [
+        "pavlov_extended"
+      ],
+      "properties": {},
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "hound_spawn_zombie_hounds_spawner_2",
+      "name": "Zombie_hounds_Spawner_2",
+      "type": "hound_spawn",
+      "transform": {
+        "position": {
+          "x": 2.8549798583984374,
+          "y": -14.333258056640625,
+          "z": 3.814697265625e-07
+        },
+        "sourcePositionUEcm": {
+          "X": 285.49798583984375,
+          "Y": 1433.3258056640625,
+          "Z": 3.814697265625e-05
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 132.90077209472656,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 602
+      },
+      "source": "pavlov_extension",
+      "enabledProfiles": [
+        "pavlov_extended"
+      ],
+      "properties": {},
+      "replicationPolicy": "server_authoritative"
+    }
+  ]
+}

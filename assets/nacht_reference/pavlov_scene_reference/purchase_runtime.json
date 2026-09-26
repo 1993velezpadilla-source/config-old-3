@@ -1,0 +1,393 @@
+{
+  "schemaVersion": 1,
+  "adapter": "xziel_nzp_purchase_bridge",
+  "purchases": [
+    {
+      "id": "purchase_arak",
+      "name": "KN-44",
+      "purchaseType": "wall_buy",
+      "transform": {
+        "position": {
+          "x": -5.7094189453125,
+          "y": 26.4571630859375,
+          "z": 4.990671997070312
+        },
+        "sourcePositionUEcm": {
+          "x": -570.94189453125,
+          "y": -2645.71630859375,
+          "z": 499.06719970703125
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null
+      },
+      "interaction": {
+        "radiusMeters": 1.5,
+        "serverAuthoritative": true
+      },
+      "economy": {
+        "purchaseCost": 1400,
+        "ammoRefillCost": null,
+        "ammoRefillCostStatus": "awaiting_bo3_weapon_definition"
+      },
+      "weapon": {
+        "logicalWeaponId": "ar_standard",
+        "pavlovWeaponId": "kn44",
+        "nativeWeaponSymbol": null,
+        "adapterStatus": "awaiting_native_weapon_definition"
+      },
+      "nzpAdapter": {
+        "triggerClass": "buy_weapon",
+        "visualClass": "weapon_wall",
+        "costField": "cost",
+        "chalkSequence": null,
+        "requiresNativeWeaponDefinition": true,
+        "note": "Grenades map directly to NZ:P W_GRENADE. BO3 firearms intentionally remain unmapped until their native XZIEL/QuakeC weapon definitions exist."
+      },
+      "source": "pavlov_functional_actor"
+    },
+    {
+      "id": "purchase_argus",
+      "name": "Argus",
+      "purchaseType": "wall_buy",
+      "transform": {
+        "position": {
+          "x": 18.62450760935201,
+          "y": 25.683309689222213,
+          "z": 5.7070074541575035
+        },
+        "sourcePositionUEcm": {
+          "x": 1862.4507609352008,
+          "y": -2568.3309689222215,
+          "z": 570.7007454157504
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null
+      },
+      "interaction": {
+        "radiusMeters": 1.5,
+        "serverAuthoritative": true
+      },
+      "economy": {
+        "purchaseCost": 1100,
+        "ammoRefillCost": null,
+        "ammoRefillCostStatus": "awaiting_bo3_weapon_definition"
+      },
+      "weapon": {
+        "logicalWeaponId": "shotgun_precision",
+        "pavlovWeaponId": "argus",
+        "nativeWeaponSymbol": null,
+        "adapterStatus": "awaiting_native_weapon_definition"
+      },
+      "nzpAdapter": {
+        "triggerClass": "buy_weapon",
+        "visualClass": "weapon_wall",
+        "costField": "cost",
+        "chalkSequence": null,
+        "requiresNativeWeaponDefinition": true,
+        "note": "Grenades map directly to NZ:P W_GRENADE. BO3 firearms intentionally remain unmapped until their native XZIEL/QuakeC weapon definitions exist."
+      },
+      "source": "bo3_derived_chalk_geometry_reconstruction"
+    },
+    {
+      "id": "purchase_frag",
+      "name": "Fragmentation Grenades",
+      "purchaseType": "equipment_buy",
+      "transform": {
+        "position": {
+          "x": -3.9604599253760893,
+          "y": -3.098613153425634,
+          "z": 5.04670271604978
+        },
+        "sourcePositionUEcm": {
+          "x": -396.0459925376089,
+          "y": 309.8613153425634,
+          "z": 504.670271604978
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null
+      },
+      "interaction": {
+        "radiusMeters": 1.5,
+        "serverAuthoritative": true
+      },
+      "economy": {
+        "purchaseCost": 250,
+        "ammoRefillCost": 250,
+        "ammoRefillCostStatus": "native_grenade_refill_cost"
+      },
+      "weapon": {
+        "logicalWeaponId": "frag_grenade",
+        "pavlovWeaponId": "frag",
+        "nativeWeaponSymbol": "W_GRENADE",
+        "adapterStatus": "native_ready"
+      },
+      "nzpAdapter": {
+        "triggerClass": "buy_weapon",
+        "visualClass": "weapon_wall",
+        "costField": "cost2",
+        "chalkSequence": 25,
+        "requiresNativeWeaponDefinition": false,
+        "note": "Grenades map directly to NZ:P W_GRENADE. BO3 firearms intentionally remain unmapped until their native XZIEL/QuakeC weapon definitions exist."
+      },
+      "source": "bo3_derived_chalk_geometry_reconstruction"
+    },
+    {
+      "id": "purchase_krm",
+      "name": "KRM-262",
+      "purchaseType": "wall_buy",
+      "transform": {
+        "position": {
+          "x": 26.352487186904444,
+          "y": 19.63263163915723,
+          "z": 1.4404212000717695
+        },
+        "sourcePositionUEcm": {
+          "x": 2635.2487186904445,
+          "y": -1963.2631639157228,
+          "z": 144.04212000717695
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null
+      },
+      "interaction": {
+        "radiusMeters": 1.5,
+        "serverAuthoritative": true
+      },
+      "economy": {
+        "purchaseCost": 750,
+        "ammoRefillCost": null,
+        "ammoRefillCostStatus": "awaiting_bo3_weapon_definition"
+      },
+      "weapon": {
+        "logicalWeaponId": "shotgun_pump",
+        "pavlovWeaponId": "krm",
+        "nativeWeaponSymbol": null,
+        "adapterStatus": "awaiting_native_weapon_definition"
+      },
+      "nzpAdapter": {
+        "triggerClass": "buy_weapon",
+        "visualClass": "weapon_wall",
+        "costField": "cost",
+        "chalkSequence": null,
+        "requiresNativeWeaponDefinition": true,
+        "note": "Grenades map directly to NZ:P W_GRENADE. BO3 firearms intentionally remain unmapped until their native XZIEL/QuakeC weapon definitions exist."
+      },
+      "source": "bo3_derived_chalk_geometry_reconstruction"
+    },
+    {
+      "id": "purchase_kuda",
+      "name": "Kuda",
+      "purchaseType": "wall_buy",
+      "transform": {
+        "position": {
+          "x": 24.04990234375,
+          "y": 25.62860107421875,
+          "z": 1.3602821350097656
+        },
+        "sourcePositionUEcm": {
+          "x": 2404.990234375,
+          "y": -2562.860107421875,
+          "z": 136.02821350097656
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null
+      },
+      "interaction": {
+        "radiusMeters": 1.5,
+        "serverAuthoritative": true
+      },
+      "economy": {
+        "purchaseCost": 1250,
+        "ammoRefillCost": null,
+        "ammoRefillCostStatus": "awaiting_bo3_weapon_definition"
+      },
+      "weapon": {
+        "logicalWeaponId": "smg_standard",
+        "pavlovWeaponId": "kuda",
+        "nativeWeaponSymbol": null,
+        "adapterStatus": "awaiting_native_weapon_definition"
+      },
+      "nzpAdapter": {
+        "triggerClass": "buy_weapon",
+        "visualClass": "weapon_wall",
+        "costField": "cost",
+        "chalkSequence": null,
+        "requiresNativeWeaponDefinition": true,
+        "note": "Grenades map directly to NZ:P W_GRENADE. BO3 firearms intentionally remain unmapped until their native XZIEL/QuakeC weapon definitions exist."
+      },
+      "source": "pavlov_functional_actor"
+    },
+    {
+      "id": "purchase_locus_decal",
+      "name": "Locus",
+      "purchaseType": "weapon_cabinet",
+      "transform": {
+        "position": {
+          "x": 14.256981037611695,
+          "y": 22.525285960196513,
+          "z": 4.376229337848837
+        },
+        "sourcePositionUEcm": {
+          "x": 1425.6981037611695,
+          "y": -2252.528596019651,
+          "z": 437.6229337848837
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null
+      },
+      "interaction": {
+        "radiusMeters": 1.5,
+        "serverAuthoritative": true
+      },
+      "economy": {
+        "purchaseCost": 5000,
+        "ammoRefillCost": null,
+        "ammoRefillCostStatus": "awaiting_bo3_weapon_definition"
+      },
+      "weapon": {
+        "logicalWeaponId": "sniper_fastbolt",
+        "pavlovWeaponId": "locus",
+        "nativeWeaponSymbol": null,
+        "adapterStatus": "awaiting_native_weapon_definition"
+      },
+      "nzpAdapter": {
+        "triggerClass": "buy_weapon",
+        "visualClass": null,
+        "costField": "cost",
+        "chalkSequence": null,
+        "requiresNativeWeaponDefinition": true,
+        "note": "Grenades map directly to NZ:P W_GRENADE. BO3 firearms intentionally remain unmapped until their native XZIEL/QuakeC weapon definitions exist."
+      },
+      "source": "bo3_derived_chalk_geometry_reconstruction"
+    },
+    {
+      "id": "purchase_pharaoh",
+      "name": "Pharo",
+      "purchaseType": "wall_buy",
+      "transform": {
+        "position": {
+          "x": 5.424383897261544,
+          "y": 11.316591832493614,
+          "z": 5.04670271604978
+        },
+        "sourcePositionUEcm": {
+          "x": 542.4383897261544,
+          "y": -1131.6591832493614,
+          "z": 504.670271604978
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null
+      },
+      "interaction": {
+        "radiusMeters": 1.5,
+        "serverAuthoritative": true
+      },
+      "economy": {
+        "purchaseCost": 700,
+        "ammoRefillCost": null,
+        "ammoRefillCostStatus": "awaiting_bo3_weapon_definition"
+      },
+      "weapon": {
+        "logicalWeaponId": "smg_burst",
+        "pavlovWeaponId": "pharaoh",
+        "nativeWeaponSymbol": null,
+        "adapterStatus": "awaiting_native_weapon_definition"
+      },
+      "nzpAdapter": {
+        "triggerClass": "buy_weapon",
+        "visualClass": "weapon_wall",
+        "costField": "cost",
+        "chalkSequence": null,
+        "requiresNativeWeaponDefinition": true,
+        "note": "Grenades map directly to NZ:P W_GRENADE. BO3 firearms intentionally remain unmapped until their native XZIEL/QuakeC weapon definitions exist."
+      },
+      "source": "bo3_derived_chalk_geometry_reconstruction"
+    },
+    {
+      "id": "purchase_shiva",
+      "name": "Sheiva",
+      "purchaseType": "wall_buy",
+      "transform": {
+        "position": {
+          "x": -5.232186912031551,
+          "y": 6.0582829485687455,
+          "z": 1.4404212596678456
+        },
+        "sourcePositionUEcm": {
+          "x": -523.2186912031551,
+          "y": -605.8282948568745,
+          "z": 144.04212596678457
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null
+      },
+      "interaction": {
+        "radiusMeters": 1.5,
+        "serverAuthoritative": true
+      },
+      "economy": {
+        "purchaseCost": 500,
+        "ammoRefillCost": null,
+        "ammoRefillCostStatus": "awaiting_bo3_weapon_definition"
+      },
+      "weapon": {
+        "logicalWeaponId": "ar_marksman",
+        "pavlovWeaponId": "shiva",
+        "nativeWeaponSymbol": null,
+        "adapterStatus": "awaiting_native_weapon_definition"
+      },
+      "nzpAdapter": {
+        "triggerClass": "buy_weapon",
+        "visualClass": "weapon_wall",
+        "costField": "cost",
+        "chalkSequence": null,
+        "requiresNativeWeaponDefinition": true,
+        "note": "Grenades map directly to NZ:P W_GRENADE. BO3 firearms intentionally remain unmapped until their native XZIEL/QuakeC weapon definitions exist."
+      },
+      "source": "bo3_derived_chalk_geometry_reconstruction"
+    },
+    {
+      "id": "purchase_triton",
+      "name": "RK5",
+      "purchaseType": "wall_buy",
+      "transform": {
+        "position": {
+          "x": -2.48919921875,
+          "y": -10.343101806640625,
+          "z": 1.4115147399902344
+        },
+        "sourcePositionUEcm": {
+          "x": -248.919921875,
+          "y": 1034.3101806640625,
+          "z": 141.15147399902344
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null
+      },
+      "interaction": {
+        "radiusMeters": 1.5,
+        "serverAuthoritative": true
+      },
+      "economy": {
+        "purchaseCost": 500,
+        "ammoRefillCost": null,
+        "ammoRefillCostStatus": "awaiting_bo3_weapon_definition"
+      },
+      "weapon": {
+        "logicalWeaponId": "pistol_burst",
+        "pavlovWeaponId": "triton",
+        "nativeWeaponSymbol": null,
+        "adapterStatus": "awaiting_native_weapon_definition"
+      },
+      "nzpAdapter": {
+        "triggerClass": "buy_weapon",
+        "visualClass": "weapon_wall",
+        "costField": "cost",
+        "chalkSequence": null,
+        "requiresNativeWeaponDefinition": true,
+        "note": "Grenades map directly to NZ:P W_GRENADE. BO3 firearms intentionally remain unmapped until their native XZIEL/QuakeC weapon definitions exist."
+      },
+      "source": "pavlov_functional_actor"
+    }
+  ]
+}

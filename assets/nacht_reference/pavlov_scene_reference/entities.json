@@ -1,0 +1,1080 @@
+{
+  "schemaVersion": 1,
+  "entities": [
+    {
+      "id": "barricade_barricade_2",
+      "name": "Barricade_2",
+      "type": "barricade",
+      "transform": {
+        "position": {
+          "x": -5.481378784179688,
+          "y": 12.30949462890625,
+          "z": 0.025400848388671876
+        },
+        "sourcePositionUEcm": {
+          "X": -548.1378784179688,
+          "Y": -1230.949462890625,
+          "Z": 2.5400848388671875
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 180.0,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 517
+      },
+      "source": "bo3_derived_geometry",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "boardCount": 6,
+        "repairable": true
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "barricade_barricade2",
+      "name": "Barricade2",
+      "type": "barricade",
+      "transform": {
+        "position": {
+          "x": -5.481376342773437,
+          "y": -4.917536010742188,
+          "z": 0.025400850772857666
+        },
+        "sourcePositionUEcm": {
+          "X": -548.1376342773438,
+          "Y": 491.75360107421875,
+          "Z": 2.5400850772857666
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 180.0,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 509
+      },
+      "source": "bo3_derived_geometry",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "boardCount": 6,
+        "repairable": true
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "barricade_barricade3",
+      "name": "Barricade3",
+      "type": "barricade",
+      "transform": {
+        "position": {
+          "x": -5.481376953125,
+          "y": -19.17356201171875,
+          "z": 0.025400850772857666
+        },
+        "sourcePositionUEcm": {
+          "X": -548.1376953125,
+          "Y": 1917.356201171875,
+          "Z": 2.5400850772857666
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 180.0,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 510
+      },
+      "source": "bo3_derived_geometry",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "boardCount": 6,
+        "repairable": true
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "barricade_barricade4",
+      "name": "Barricade4",
+      "type": "barricade",
+      "transform": {
+        "position": {
+          "x": 4.326168823242187,
+          "y": -22.4179638671875,
+          "z": 0.025400850772857666
+        },
+        "sourcePositionUEcm": {
+          "X": 432.61688232421875,
+          "Y": 2241.79638671875,
+          "Z": 2.5400850772857666
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 90.00015258789062,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 511
+      },
+      "source": "bo3_derived_geometry",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "boardCount": 6,
+        "repairable": true
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "barricade_barricade5",
+      "name": "Barricade5",
+      "type": "barricade",
+      "transform": {
+        "position": {
+          "x": 5.845164184570312,
+          "y": -6.443779296875,
+          "z": 0.025400850772857666
+        },
+        "sourcePositionUEcm": {
+          "X": 584.5164184570312,
+          "Y": 644.3779296875,
+          "Z": 2.5400850772857666
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 0.00013065338134765625,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 512
+      },
+      "source": "bo3_derived_geometry",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "boardCount": 6,
+        "repairable": true
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "barricade_barricade6",
+      "name": "Barricade6",
+      "type": "barricade",
+      "transform": {
+        "position": {
+          "x": 16.195526123046875,
+          "y": 15.702349853515624,
+          "z": 0.02538971185684204
+        },
+        "sourcePositionUEcm": {
+          "X": 1619.5526123046875,
+          "Y": -1570.2349853515625,
+          "Z": 2.538971185684204
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 90.0,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 513
+      },
+      "source": "bo3_derived_geometry",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "boardCount": 6,
+        "repairable": true
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "barricade_barricade7",
+      "name": "Barricade7",
+      "type": "barricade",
+      "transform": {
+        "position": {
+          "x": 26.65904296875,
+          "y": 22.80712158203125,
+          "z": 0.02538970947265625
+        },
+        "sourcePositionUEcm": {
+          "X": 2665.904296875,
+          "Y": -2280.712158203125,
+          "Z": 2.538970947265625
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 514
+      },
+      "source": "bo3_derived_geometry",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "boardCount": 6,
+        "repairable": true
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "barricade_barricade8",
+      "name": "Barricade8",
+      "type": "barricade",
+      "transform": {
+        "position": {
+          "x": 11.44954833984375,
+          "y": 25.872958984375,
+          "z": 0.02538970947265625
+        },
+        "sourcePositionUEcm": {
+          "X": 1144.954833984375,
+          "Y": -2587.2958984375,
+          "Z": 2.538970947265625
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": -90.00003051757812,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 515
+      },
+      "source": "bo3_derived_geometry",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "boardCount": 6,
+        "repairable": true
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "barricade_barricade9",
+      "name": "Barricade9",
+      "type": "barricade",
+      "transform": {
+        "position": {
+          "x": 5.632709350585937,
+          "y": 6.218766479492188,
+          "z": 3.6830010986328126
+        },
+        "sourcePositionUEcm": {
+          "X": 563.2709350585938,
+          "Y": -621.8766479492188,
+          "Z": 368.30010986328125
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 0.00013099999341648072,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 516
+      },
+      "source": "bo3_derived_geometry",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "boardCount": 6,
+        "repairable": true
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "barricade_barricade10",
+      "name": "Barricade10",
+      "type": "barricade",
+      "transform": {
+        "position": {
+          "x": 7.165343017578125,
+          "y": 14.78618896484375,
+          "z": 3.6830010986328126
+        },
+        "sourcePositionUEcm": {
+          "X": 716.5343017578125,
+          "Y": -1478.618896484375,
+          "Z": 368.30010986328125
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 90.00016021728516,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 506
+      },
+      "source": "bo3_derived_geometry",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "boardCount": 6,
+        "repairable": true
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "barricade_barricade11",
+      "name": "Barricade11",
+      "type": "barricade",
+      "transform": {
+        "position": {
+          "x": 5.965833740234375,
+          "y": 28.83086669921875,
+          "z": 3.6830010986328126
+        },
+        "sourcePositionUEcm": {
+          "X": 596.5833740234375,
+          "Y": -2883.086669921875,
+          "Z": 368.30010986328125
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": -89.99960327148438,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 507
+      },
+      "source": "bo3_derived_geometry",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "boardCount": 6,
+        "repairable": true
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "barricade_barricade12",
+      "name": "Barricade12",
+      "type": "barricade",
+      "transform": {
+        "position": {
+          "x": 23.08538330078125,
+          "y": 25.92599365234375,
+          "z": 3.6830010986328126
+        },
+        "sourcePositionUEcm": {
+          "X": 2308.538330078125,
+          "Y": -2592.599365234375,
+          "Z": 368.30010986328125
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": -89.99960327148438,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 508
+      },
+      "source": "bo3_derived_geometry",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "boardCount": 6,
+        "repairable": true
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "purchase_arak",
+      "name": "KN-44",
+      "type": "wall_buy",
+      "transform": {
+        "position": {
+          "x": -5.7094189453125,
+          "y": 26.4571630859375,
+          "z": 4.990671997070312
+        },
+        "sourcePositionUEcm": {
+          "x": -570.94189453125,
+          "y": -2645.71630859375,
+          "z": 499.06719970703125
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null
+      },
+      "source": "pavlov_functional_actor",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "canonical": "KN-44",
+        "bo3WeaponId": "ar_standard",
+        "pavlovWeaponId": "kn44",
+        "price": 1400,
+        "chalkAsset": "zm_prototype_part4_t7_zm_chalk_buy_arak",
+        "interactionRadiusCm": 150,
+        "reconstructed": false,
+        "functionalActor": "WallBuy2_2"
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "purchase_argus",
+      "name": "Argus",
+      "type": "wall_buy",
+      "transform": {
+        "position": {
+          "x": 18.62450760935201,
+          "y": 25.683309689222213,
+          "z": 5.7070074541575035
+        },
+        "sourcePositionUEcm": {
+          "x": 1862.4507609352008,
+          "y": -2568.3309689222215,
+          "z": 570.7007454157504
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null
+      },
+      "source": "bo3_derived_chalk_geometry_reconstruction",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "canonical": "Argus",
+        "bo3WeaponId": "shotgun_precision",
+        "pavlovWeaponId": "argus",
+        "price": 1100,
+        "chalkAsset": "zm_prototype_part4_t7_zm_chalk_buy_argus",
+        "interactionRadiusCm": 150,
+        "reconstructed": true,
+        "functionalActor": null
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "purchase_frag",
+      "name": "Fragmentation Grenades",
+      "type": "equipment_buy",
+      "transform": {
+        "position": {
+          "x": -3.9604599253760893,
+          "y": -3.098613153425634,
+          "z": 5.04670271604978
+        },
+        "sourcePositionUEcm": {
+          "x": -396.0459925376089,
+          "y": 309.8613153425634,
+          "z": 504.670271604978
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null
+      },
+      "source": "bo3_derived_chalk_geometry_reconstruction",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "canonical": "Fragmentation Grenades",
+        "bo3WeaponId": "frag_grenade",
+        "pavlovWeaponId": "frag",
+        "price": 250,
+        "chalkAsset": "zm_prototype_part4_t7_zm_chalk_buy_frag",
+        "interactionRadiusCm": 150,
+        "reconstructed": true,
+        "functionalActor": null
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "purchase_krm",
+      "name": "KRM-262",
+      "type": "wall_buy",
+      "transform": {
+        "position": {
+          "x": 26.352487186904444,
+          "y": 19.63263163915723,
+          "z": 1.4404212000717695
+        },
+        "sourcePositionUEcm": {
+          "x": 2635.2487186904445,
+          "y": -1963.2631639157228,
+          "z": 144.04212000717695
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null
+      },
+      "source": "bo3_derived_chalk_geometry_reconstruction",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "canonical": "KRM-262",
+        "bo3WeaponId": "shotgun_pump",
+        "pavlovWeaponId": "krm",
+        "price": 750,
+        "chalkAsset": "zm_prototype_part4_t7_zm_chalk_buy_krm",
+        "interactionRadiusCm": 150,
+        "reconstructed": true,
+        "functionalActor": null
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "purchase_kuda",
+      "name": "Kuda",
+      "type": "wall_buy",
+      "transform": {
+        "position": {
+          "x": 24.04990234375,
+          "y": 25.62860107421875,
+          "z": 1.3602821350097656
+        },
+        "sourcePositionUEcm": {
+          "x": 2404.990234375,
+          "y": -2562.860107421875,
+          "z": 136.02821350097656
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null
+      },
+      "source": "pavlov_functional_actor",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "canonical": "Kuda",
+        "bo3WeaponId": "smg_standard",
+        "pavlovWeaponId": "kuda",
+        "price": 1250,
+        "chalkAsset": "zm_prototype_part4_t7_zm_chalk_buy_kuda",
+        "interactionRadiusCm": 150,
+        "reconstructed": false,
+        "functionalActor": "WallBuy3_2"
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "purchase_locus_decal",
+      "name": "Locus",
+      "type": "weapon_cabinet",
+      "transform": {
+        "position": {
+          "x": 14.256981037611695,
+          "y": 22.525285960196513,
+          "z": 4.376229337848837
+        },
+        "sourcePositionUEcm": {
+          "x": 1425.6981037611695,
+          "y": -2252.528596019651,
+          "z": 437.6229337848837
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null
+      },
+      "source": "bo3_derived_chalk_geometry_reconstruction",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "canonical": "Locus",
+        "bo3WeaponId": "sniper_fastbolt",
+        "pavlovWeaponId": "locus",
+        "price": 5000,
+        "chalkAsset": "zm_prototype_part4_t7_zm_chalk_buy_locus_decal",
+        "interactionRadiusCm": 150,
+        "reconstructed": true,
+        "functionalActor": null
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "purchase_pharaoh",
+      "name": "Pharo",
+      "type": "wall_buy",
+      "transform": {
+        "position": {
+          "x": 5.424383897261544,
+          "y": 11.316591832493614,
+          "z": 5.04670271604978
+        },
+        "sourcePositionUEcm": {
+          "x": 542.4383897261544,
+          "y": -1131.6591832493614,
+          "z": 504.670271604978
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null
+      },
+      "source": "bo3_derived_chalk_geometry_reconstruction",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "canonical": "Pharo",
+        "bo3WeaponId": "smg_burst",
+        "pavlovWeaponId": "pharaoh",
+        "price": 700,
+        "chalkAsset": "zm_prototype_part4_t7_zm_chalk_buy_pharaoh",
+        "interactionRadiusCm": 150,
+        "reconstructed": true,
+        "functionalActor": null
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "purchase_shiva",
+      "name": "Sheiva",
+      "type": "wall_buy",
+      "transform": {
+        "position": {
+          "x": -5.232186912031551,
+          "y": 6.0582829485687455,
+          "z": 1.4404212596678456
+        },
+        "sourcePositionUEcm": {
+          "x": -523.2186912031551,
+          "y": -605.8282948568745,
+          "z": 144.04212596678457
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null
+      },
+      "source": "bo3_derived_chalk_geometry_reconstruction",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "canonical": "Sheiva",
+        "bo3WeaponId": "ar_marksman",
+        "pavlovWeaponId": "shiva",
+        "price": 500,
+        "chalkAsset": "zm_prototype_part4_t7_zm_chalk_buy_shiva",
+        "interactionRadiusCm": 150,
+        "reconstructed": true,
+        "functionalActor": null
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "purchase_triton",
+      "name": "RK5",
+      "type": "wall_buy",
+      "transform": {
+        "position": {
+          "x": -2.48919921875,
+          "y": -10.343101806640625,
+          "z": 1.4115147399902344
+        },
+        "sourcePositionUEcm": {
+          "x": -248.919921875,
+          "y": 1034.3101806640625,
+          "z": 141.15147399902344
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null
+      },
+      "source": "pavlov_functional_actor",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "canonical": "RK5",
+        "bo3WeaponId": "pistol_burst",
+        "pavlovWeaponId": "triton",
+        "price": 500,
+        "chalkAsset": "zm_prototype_part4_t7_zm_chalk_buy_triton",
+        "interactionRadiusCm": 150,
+        "reconstructed": false,
+        "functionalActor": "WallBuy_2"
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "door_buyabledoor2_2",
+      "name": "BuyableDoor2_2",
+      "type": "buyable_door",
+      "transform": {
+        "position": {
+          "x": -4.724400024414063,
+          "y": -3.238500061035156,
+          "z": 5.042835083007812
+        },
+        "sourcePositionUEcm": {
+          "X": -472.44000244140625,
+          "Y": 323.8500061035156,
+          "Z": 504.28350830078125
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 89.99998474121094,
+          "Roll": 3.999998625658918e-06
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 520
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "price": 10000,
+        "zombieSpawnerFlags": [],
+        "moveToOpenUE": null,
+        "rotateToOpenUE": {
+          "Pitch": 0.0,
+          "Yaw": 104.0,
+          "Roll": 0.0
+        },
+        "canonicalZoneEdgePending": true
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "door_buyabledoor_2",
+      "name": "BuyableDoor_2",
+      "type": "buyable_door",
+      "transform": {
+        "position": {
+          "x": 4.343399963378906,
+          "y": 14.884400634765624,
+          "z": 1.2446000671386719
+        },
+        "sourcePositionUEcm": {
+          "X": 434.3399963378906,
+          "Y": -1488.4400634765625,
+          "Z": 124.46000671386719
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": -90.0,
+          "Roll": 0.0
+        },
+        "sourceScale": {
+          "X": 1.0,
+          "Y": 1.0,
+          "Z": 1.0099999904632568
+        },
+        "sourceRootComponent": 522
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "price": 1000,
+        "zombieSpawnerFlags": [
+          1
+        ],
+        "moveToOpenUE": {
+          "X": 200.0,
+          "Y": 0.0,
+          "Z": 0.0
+        },
+        "rotateToOpenUE": null,
+        "canonicalZoneEdgePending": true
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "door_buyabledoor_child2",
+      "name": "BuyableDoor_Child2",
+      "type": "buyable_door",
+      "transform": {
+        "position": {
+          "x": 4.290648193359375,
+          "y": 2.219196472167969,
+          "z": 4.073595886230469
+        },
+        "sourcePositionUEcm": {
+          "X": 429.0648193359375,
+          "Y": -221.91964721679688,
+          "Z": 407.3595886230469
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 90.00001525878906,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 524
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "price": 1000,
+        "zombieSpawnerFlags": [
+          2
+        ],
+        "moveToOpenUE": {
+          "X": 0.0,
+          "Y": 0.0,
+          "Z": 470.0
+        },
+        "rotateToOpenUE": null,
+        "canonicalZoneEdgePending": true
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "door_buyabledoor_child_2",
+      "name": "BuyableDoor_Child_2",
+      "type": "buyable_door",
+      "transform": {
+        "position": {
+          "x": -1.1531600952148438,
+          "y": 26.81067138671875,
+          "z": 4.003040161132812
+        },
+        "sourcePositionUEcm": {
+          "X": -115.31600952148438,
+          "Y": -2681.067138671875,
+          "Z": 400.30401611328125
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 526
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "price": 1000,
+        "zombieSpawnerFlags": [
+          2,
+          1
+        ],
+        "moveToOpenUE": {
+          "X": 0.0,
+          "Y": 0.0,
+          "Z": 470.0
+        },
+        "rotateToOpenUE": null,
+        "canonicalZoneEdgePending": true
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "mystery_box_mysteryboxlocation_5",
+      "name": "MysteryBoxLocation_5",
+      "type": "mystery_box_anchor",
+      "transform": {
+        "position": {
+          "x": -3.4489825439453123,
+          "y": 17.27906005859375,
+          "z": 0.0
+        },
+        "sourcePositionUEcm": {
+          "X": -344.89825439453125,
+          "Y": -1727.906005859375,
+          "Z": 0.0
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": -34.753509521484375,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 556
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "alwaysSpawnHereFirst": true
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "gobblegum_machinegumball_2",
+      "name": "MachineGumball_2",
+      "type": "gobblegum_machine",
+      "transform": {
+        "position": {
+          "x": 2.334840087890625,
+          "y": 22.29349609375,
+          "z": 3.868224792480469
+        },
+        "sourcePositionUEcm": {
+          "X": 233.4840087890625,
+          "Y": -2229.349609375,
+          "Z": 386.8224792480469
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 169.99993896484375,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 550
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {},
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "gobblegum_machinegumball2_2",
+      "name": "MachineGumball2_2",
+      "type": "gobblegum_machine",
+      "transform": {
+        "position": {
+          "x": -4.812414855957031,
+          "y": -1.5572979736328125,
+          "z": 0.050127391815185544
+        },
+        "sourcePositionUEcm": {
+          "X": -481.2414855957031,
+          "Y": 155.72979736328125,
+          "Z": 5.012739181518555
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 544
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {},
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "pap_punchapackmachine_2",
+      "name": "PunchAPackMachine_2",
+      "type": "pack_a_punch",
+      "transform": {
+        "position": {
+          "x": 1.3131686401367189,
+          "y": -5.580546875,
+          "z": 4.386164245605468
+        },
+        "sourcePositionUEcm": {
+          "X": 131.31686401367188,
+          "Y": 558.0546875,
+          "Z": 438.6164245605469
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 180.0,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 577
+      },
+      "source": "pavlov_extension",
+      "enabledProfiles": [
+        "pavlov_extended"
+      ],
+      "properties": {
+        "canonicalBo3Nacht": false
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "wunderfizz_wonderfizz_2",
+      "name": "WonderFizz_2",
+      "type": "wunderfizz",
+      "transform": {
+        "position": {
+          "x": -4.95678466796875,
+          "y": 20.6478125,
+          "z": 3.687571716308594
+        },
+        "sourcePositionUEcm": {
+          "X": -495.678466796875,
+          "Y": -2064.78125,
+          "Z": 368.7571716308594
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 586
+      },
+      "source": "pavlov_port_spatial_reference",
+      "enabledProfiles": [
+        "bo3_chronicles",
+        "pavlov_extended"
+      ],
+      "properties": {
+        "price": 1500
+      },
+      "replicationPolicy": "server_authoritative"
+    },
+    {
+      "id": "quickrevive_perkmachine_quickrevive_2",
+      "name": "PerkMachine_QuickRevive_2",
+      "type": "perk_machine",
+      "transform": {
+        "position": {
+          "x": -4.967789001464844,
+          "y": -14.7050048828125,
+          "z": 0.02539886474609375
+        },
+        "sourcePositionUEcm": {
+          "X": -496.7789001464844,
+          "Y": 1470.50048828125,
+          "Z": 2.539886474609375
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": -90.00006103515625,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 557
+      },
+      "source": "pavlov_extension",
+      "enabledProfiles": [
+        "pavlov_extended"
+      ],
+      "properties": {
+        "perk": "specialty_quickrevive",
+        "canonicalBo3NachtStandaloneMachine": false
+      },
+      "replicationPolicy": "server_authoritative"
+    }
+  ]
+}

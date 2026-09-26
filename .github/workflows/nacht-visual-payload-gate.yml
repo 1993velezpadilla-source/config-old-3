@@ -1,0 +1,34 @@
+name: XZIEL Nacht Visual Payload Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/xziel-engine-nacht-runtime-v1
+    paths:
+      - "assets/nacht_reference/pavlov_scene_reference/**"
+      - "tools/maps/audit_nacht_visual_payload.py"
+      - "tests/test_nacht_visual_payload_audit.py"
+      - ".github/workflows/nacht-visual-payload-gate.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  visual-payload-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout XZIEL Engine
+        uses: actions/checkout@v5
+
+      - name: Validate persisted Nacht visual reference
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/maps/audit_nacht_visual_payload.py
+          python3 tools/maps/audit_nacht_visual_payload.py --self-check
+
+      - name: Prove strict 492-mesh payload resolution
+        run: |
+          set -euo pipefail
+          python3 tests/test_nacht_visual_payload_audit.py

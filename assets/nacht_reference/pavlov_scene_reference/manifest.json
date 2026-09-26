@@ -1,0 +1,20 @@
+{
+  "id": "nacht_bo3_reference",
+  "schemaVersion": 1,
+  "source": {
+    "workshopId": "2755515831",
+    "pavlovMap": "Nacht_de_Untoten.umap",
+    "bo3InternalMapName": "zm_prototype",
+    "officialT7Script": "scripts/zm/zm_prototype.gsc"
+  },
+  "authority": {
+    "zonesAndAiLimit": "official_t7_decompiled_script",
+    "purchaseIdentityAndPrices": "BO3 Chronicles references + baked purchase chalks",
+    "geometryAndPlacements": "Pavlov community port credited to BO1/BO3 geometry/models",
+    "pavlovGameplayActors": "reference_only_unless_enabled_by_profile"
+  },
+  "redistribution": {
+    "thirdPartyAssetPayloadCommitted": false,
+    "metadataOnly": true
+  }
+}

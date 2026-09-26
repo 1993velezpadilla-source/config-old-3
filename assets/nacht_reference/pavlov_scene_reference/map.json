@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "nacht_bo3_reference",
+  "displayName": "Nacht der Untoten \u2014 BO3 Reference",
+  "coordinateSystem": {
+    "units": "meters",
+    "basis": "X, -Y, Z from Unreal centimeters",
+    "source": "UE4.21 cooked map"
+  },
+  "sceneInstances": "scene_instances.json",
+  "assets": "assets.json",
+  "entities": "entities.json",
+  "spawns": "spawns.json",
+  "zones": "zones.json",
+  "environment": "environment.json",
+  "collision": "collision.json",
+  "profiles": "profiles.json",
+  "purchaseRuntime": "purchase_runtime.json",
+  "defaultProfile": "bo3_chronicles",
+  "referenceOnly": true
+}

@@ -1,0 +1,31 @@
+{
+  "ok": true,
+  "errors": [],
+  "counts": {
+    "sceneInstances": 10791,
+    "uniqueMeshes": 492,
+    "barricades": 12,
+    "zombieSpawns": 21,
+    "houndSpawnsPavlovExtension": 15,
+    "playerSpawnCandidates": 10,
+    "purchaseSlots": 9,
+    "runtimePurchaseContracts": 9,
+    "nativeRuntimePurchasesReady": 1,
+    "runtimePurchasesAwaitingWeaponDefinitions": 8,
+    "doors": 4,
+    "utilityEntities": 6,
+    "environmentActors": 129,
+    "collisionActors": 24,
+    "zones": 3
+  },
+  "wallBuyValidation": {
+    "slot_count": 9,
+    "functional_actor_slots": 3,
+    "geometry_derived_slots": 6,
+    "weapon_or_cabinet_slots": 8,
+    "equipment_slots": 1,
+    "unresolved_slot_count": 0,
+    "duplicate_marker_exports": {},
+    "gate": "PASS"
+  }
+}

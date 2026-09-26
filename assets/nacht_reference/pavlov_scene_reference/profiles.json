@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "profiles": {
+    "bo3_chronicles": {
+      "description": "BO3 Zombies Chronicles reference profile; Pavlov-only additions remain disabled.",
+      "zombieAiLimit": 24,
+      "maxPlayers": 4,
+      "hellhoundSpawnersEnabled": false,
+      "packAPunchMachineEnabled": false,
+      "standaloneQuickReviveMachineEnabled": false,
+      "wunderfizzEnabled": true,
+      "gobblegumEnabled": true,
+      "wallBuyCount": 9
+    },
+    "pavlov_extended": {
+      "description": "Full community-port actor layer retained for engine stress/feature testing.",
+      "zombieAiLimit": 24,
+      "maxPlayers": 4,
+      "hellhoundSpawnersEnabled": true,
+      "packAPunchMachineEnabled": true,
+      "standaloneQuickReviveMachineEnabled": true,
+      "wunderfizzEnabled": true,
+      "gobblegumEnabled": true,
+      "wallBuyCount": 9
+    }
+  }
+}

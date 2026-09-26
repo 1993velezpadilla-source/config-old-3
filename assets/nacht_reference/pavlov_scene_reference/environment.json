@@ -1,0 +1,3536 @@
+{
+  "schemaVersion": 1,
+  "actors": [
+    {
+      "id": "env_exponentialheightfog_1",
+      "name": "ExponentialHeightFog_1",
+      "class": "/Script/Engine/ExponentialHeightFog",
+      "transform": {
+        "position": {
+          "x": 0.0,
+          "y": -3.814697265625e-05,
+          "z": 3.05673583984375
+        },
+        "sourcePositionUEcm": {
+          "X": 0.0,
+          "Y": 0.003814697265625,
+          "Z": 305.673583984375
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 158
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": null,
+        "intensityUnits": null,
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_pointlight_3",
+      "name": "PointLight_3",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 0.0,
+          "y": 13.3,
+          "z": -0.8
+        },
+        "sourcePositionUEcm": {
+          "X": 0.0,
+          "Y": -1330.0,
+          "Z": -80.0
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 486
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 41.32795333862305,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 16384.0,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_lightsource",
+      "name": "LightSource",
+      "class": "/Script/Engine/DirectionalLight",
+      "transform": {
+        "position": {
+          "x": 0.0,
+          "y": 3.099999958067201e-07,
+          "z": 5.48642822265625
+        },
+        "sourcePositionUEcm": {
+          "X": 0.0,
+          "Y": -3.099999958067201e-05,
+          "Z": 548.642822265625
+        },
+        "sourceRotationUE": {
+          "Pitch": 84.66376495361328,
+          "Yaw": 29.642250061035156,
+          "Roll": -14.860977172851562
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 145
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.0,
+        "intensityUnits": null,
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_skylight_1",
+      "name": "SkyLight_1",
+      "class": "/Script/Engine/SkyLight",
+      "transform": {
+        "position": {
+          "x": 0.2077435302734375,
+          "y": 0.30995208740234376,
+          "z": 9.631934204101562
+        },
+        "sourcePositionUEcm": {
+          "X": 20.77435302734375,
+          "Y": -30.995208740234375,
+          "Z": 963.1934204101562
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 672
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 1.5,
+        "intensityUnits": null,
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_spherereflectioncapture_1",
+      "name": "SphereReflectionCapture_1",
+      "class": "/Script/Engine/SphereReflectionCapture",
+      "transform": {
+        "position": {
+          "x": -0.1090765380859375,
+          "y": 0.09328659057617188,
+          "z": 2.66861328125
+        },
+        "sourcePositionUEcm": {
+          "X": -10.90765380859375,
+          "Y": -9.328659057617188,
+          "Z": 266.861328125
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 679
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": null,
+        "intensityUnits": null,
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_pointlight8_2",
+      "name": "PointLight8_2",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": -2.59878173828125,
+          "y": 4.067959594726562,
+          "z": 1.7583132934570314
+        },
+        "sourcePositionUEcm": {
+          "X": -259.878173828125,
+          "Y": -406.79595947265625,
+          "Z": 175.83132934570312
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 484
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 7.0,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 400.69586181640625,
+        "lightColor": "255, 204, 112"
+      }
+    },
+    {
+      "id": "env_pointlight9",
+      "name": "PointLight9",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 5.570977783203125,
+          "y": 10.6468798828125,
+          "z": 0.48814632415771486
+        },
+        "sourcePositionUEcm": {
+          "X": 557.0977783203125,
+          "Y": -1064.68798828125,
+          "Z": 48.814632415771484
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 485
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 7.0,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 576.3795776367188,
+        "lightColor": "255, 204, 112"
+      }
+    },
+    {
+      "id": "env_pointlight10",
+      "name": "PointLight10",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 2.8160821533203126,
+          "y": -24.2619580078125,
+          "z": 1.2636074829101562
+        },
+        "sourcePositionUEcm": {
+          "X": 281.60821533203125,
+          "Y": 2426.19580078125,
+          "Z": 126.36074829101562
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 401
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 50.0,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 760.2389526367188,
+        "lightColor": "255, 204, 112"
+      }
+    },
+    {
+      "id": "env_pointlight11",
+      "name": "PointLight11",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 4.515269165039062,
+          "y": -1.42702392578125,
+          "z": 2.508048095703125
+        },
+        "sourcePositionUEcm": {
+          "X": 451.52691650390625,
+          "Y": 142.702392578125,
+          "Z": 250.8048095703125
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 402
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 167.0199737548828,
+        "lightColor": "203, 227, 255"
+      }
+    },
+    {
+      "id": "env_pointlight2_0",
+      "name": "PointLight2_0",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 6.982398681640625,
+          "y": 11.048387451171875,
+          "z": 1.7971336364746093
+        },
+        "sourcePositionUEcm": {
+          "X": 698.2398681640625,
+          "Y": -1104.8387451171875,
+          "Z": 179.71336364746094
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 421
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "203, 227, 255"
+      }
+    },
+    {
+      "id": "env_pointlight3_1",
+      "name": "PointLight3_1",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 6.412291259765625,
+          "y": 5.30984375,
+          "z": 1.5557316589355468
+        },
+        "sourcePositionUEcm": {
+          "X": 641.2291259765625,
+          "Y": -530.984375,
+          "Z": 155.5731658935547
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 432
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "203, 227, 255"
+      }
+    },
+    {
+      "id": "env_pointlight4_2",
+      "name": "PointLight4_2",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 1.9028549194335938,
+          "y": 5.309843139648438,
+          "z": 1.5557316589355468
+        },
+        "sourcePositionUEcm": {
+          "X": 190.28549194335938,
+          "Y": -530.9843139648438,
+          "Z": 155.5731658935547
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 443
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "203, 227, 255"
+      }
+    },
+    {
+      "id": "env_pointlight5_3",
+      "name": "PointLight5_3",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 1.6219659423828126,
+          "y": 11.048387451171875,
+          "z": 1.7971336364746093
+        },
+        "sourcePositionUEcm": {
+          "X": 162.19659423828125,
+          "Y": -1104.8387451171875,
+          "Z": 179.71336364746094
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 454
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "203, 227, 255"
+      }
+    },
+    {
+      "id": "env_pointlight6_4",
+      "name": "PointLight6_4",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": -4.202969360351562,
+          "y": 10.61052978515625,
+          "z": 1.7971336364746093
+        },
+        "sourcePositionUEcm": {
+          "X": -420.29693603515625,
+          "Y": -1061.052978515625,
+          "Z": 179.71336364746094
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 465
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "203, 227, 255"
+      }
+    },
+    {
+      "id": "env_pointlight7_5",
+      "name": "PointLight7_5",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 0.5011502838134766,
+          "y": 0.1807586669921875,
+          "z": 1.5557316589355468
+        },
+        "sourcePositionUEcm": {
+          "X": 50.115028381347656,
+          "Y": -18.07586669921875,
+          "Z": 155.5731658935547
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 476
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "203, 227, 255"
+      }
+    },
+    {
+      "id": "env_pointlight12_6",
+      "name": "PointLight12_6",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": -3.57888671875,
+          "y": 0.18075836181640625,
+          "z": 1.5557316589355468
+        },
+        "sourcePositionUEcm": {
+          "X": -357.888671875,
+          "Y": -18.075836181640625,
+          "Z": 155.5731658935547
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 403
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "203, 227, 255"
+      }
+    },
+    {
+      "id": "env_pointlight13_7",
+      "name": "PointLight13_7",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 0.501152114868164,
+          "y": -4.577090454101563,
+          "z": 1.5557316589355468
+        },
+        "sourcePositionUEcm": {
+          "X": 50.115211486816406,
+          "Y": 457.70904541015625,
+          "Z": 155.5731658935547
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 404
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "203, 227, 255"
+      }
+    },
+    {
+      "id": "env_pointlight14_8",
+      "name": "PointLight14_8",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": -3.5788870239257813,
+          "y": -4.577091064453125,
+          "z": 1.5557316589355468
+        },
+        "sourcePositionUEcm": {
+          "X": -357.8887023925781,
+          "Y": 457.7091064453125,
+          "Z": 155.5731658935547
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 405
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "203, 227, 255"
+      }
+    },
+    {
+      "id": "env_pointlight15_9",
+      "name": "PointLight15_9",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 0.5011545562744141,
+          "y": -14.778323974609375,
+          "z": 1.5557316589355468
+        },
+        "sourcePositionUEcm": {
+          "X": 50.115455627441406,
+          "Y": 1477.8323974609375,
+          "Z": 155.5731658935547
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 406
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "203, 227, 255"
+      }
+    },
+    {
+      "id": "env_pointlight16_10",
+      "name": "PointLight16_10",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": -3.5788845825195312,
+          "y": -14.778323974609375,
+          "z": 1.5557316589355468
+        },
+        "sourcePositionUEcm": {
+          "X": -357.8884582519531,
+          "Y": 1477.8323974609375,
+          "Z": 155.5731658935547
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 407
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "203, 227, 255"
+      }
+    },
+    {
+      "id": "env_pointlight17_11",
+      "name": "PointLight17_11",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 0.501156997680664,
+          "y": -19.68993408203125,
+          "z": 1.5557316589355468
+        },
+        "sourcePositionUEcm": {
+          "X": 50.115699768066406,
+          "Y": 1968.993408203125,
+          "Z": 155.5731658935547
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 408
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "203, 227, 255"
+      }
+    },
+    {
+      "id": "env_pointlight18_12",
+      "name": "PointLight18_12",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": -3.578882141113281,
+          "y": -19.68993408203125,
+          "z": 1.5557316589355468
+        },
+        "sourcePositionUEcm": {
+          "X": -357.8882141113281,
+          "Y": 1968.993408203125,
+          "Z": 155.5731658935547
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 409
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "203, 227, 255"
+      }
+    },
+    {
+      "id": "env_pointlight19_13",
+      "name": "PointLight19_13",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 2.970121154785156,
+          "y": -14.16256103515625,
+          "z": 2.2173973083496095
+        },
+        "sourcePositionUEcm": {
+          "X": 297.0121154785156,
+          "Y": 1416.256103515625,
+          "Z": 221.73973083496094
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 410
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "203, 227, 255"
+      }
+    },
+    {
+      "id": "env_pointlight20_14",
+      "name": "PointLight20_14",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 2.9701171875,
+          "y": -18.037421875,
+          "z": 2.2173973083496095
+        },
+        "sourcePositionUEcm": {
+          "X": 297.01171875,
+          "Y": 1803.7421875,
+          "Z": 221.73973083496094
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 411
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "203, 227, 255"
+      }
+    },
+    {
+      "id": "env_pointlight21_15",
+      "name": "PointLight21_15",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 4.146402282714844,
+          "y": -5.152890625,
+          "z": 2.512677764892578
+        },
+        "sourcePositionUEcm": {
+          "X": 414.6402282714844,
+          "Y": 515.2890625,
+          "Z": 251.2677764892578
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 412
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "203, 227, 255"
+      }
+    },
+    {
+      "id": "env_directionallight_1",
+      "name": "DirectionalLight_1",
+      "class": "/Script/Engine/DirectionalLight",
+      "transform": {
+        "position": {
+          "x": 0.06551605224609375,
+          "y": 0.6275933837890625,
+          "z": 5.3387689208984375
+        },
+        "sourcePositionUEcm": {
+          "X": 6.551605224609375,
+          "Y": -62.75933837890625,
+          "Z": 533.8768920898438
+        },
+        "sourceRotationUE": {
+          "Pitch": -26.698959350585938,
+          "Yaw": -6.945659160614014,
+          "Roll": -49.964622497558594
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 144
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 2.5,
+        "intensityUnits": null,
+        "attenuationRadius": null,
+        "lightColor": "203, 227, 255"
+      }
+    },
+    {
+      "id": "env_pointlight22",
+      "name": "PointLight22",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": -1.4946659851074218,
+          "y": 17.311328125,
+          "z": 1.7971336364746093
+        },
+        "sourcePositionUEcm": {
+          "X": -149.4665985107422,
+          "Y": -1731.1328125,
+          "Z": 179.71336364746094
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 413
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "202, 212, 134"
+      }
+    },
+    {
+      "id": "env_pointlight23",
+      "name": "PointLight23",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 25.61434814453125,
+          "y": 16.699862060546874,
+          "z": 1.0784876251220703
+        },
+        "sourcePositionUEcm": {
+          "X": 2561.434814453125,
+          "Y": -1669.9862060546875,
+          "Z": 107.84876251220703
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 414
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 7.0,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 576.3795776367188,
+        "lightColor": "255, 204, 112"
+      }
+    },
+    {
+      "id": "env_pointlight24",
+      "name": "PointLight24",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": -4.9027099609375,
+          "y": 24.15714599609375,
+          "z": 1.0965864562988281
+        },
+        "sourcePositionUEcm": {
+          "X": -490.27099609375,
+          "Y": -2415.714599609375,
+          "Z": 109.65864562988281
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 415
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 7.0,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 576.3795776367188,
+        "lightColor": "255, 204, 112"
+      }
+    },
+    {
+      "id": "env_spotlight_1",
+      "name": "SpotLight_1",
+      "class": "/Script/Engine/SpotLight",
+      "transform": {
+        "position": {
+          "x": 4.688595581054687,
+          "y": 18.275452880859376,
+          "z": 2.5792840576171874
+        },
+        "sourcePositionUEcm": {
+          "X": 468.85955810546875,
+          "Y": -1827.5452880859375,
+          "Z": 257.92840576171875
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 710
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 20.0,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": null,
+        "lightColor": "209, 212, 193"
+      }
+    },
+    {
+      "id": "env_pointlight25_16",
+      "name": "PointLight25_16",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 4.688595581054687,
+          "y": 18.275452880859376,
+          "z": 2.5792840576171874
+        },
+        "sourcePositionUEcm": {
+          "X": 468.85955810546875,
+          "Y": -1827.5452880859375,
+          "Z": 257.92840576171875
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 416
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 1.0,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 134.71543884277344,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_spotlight2",
+      "name": "SpotLight2",
+      "class": "/Script/Engine/SpotLight",
+      "transform": {
+        "position": {
+          "x": -3.59874755859375,
+          "y": 17.32093994140625,
+          "z": 2.4678549194335937
+        },
+        "sourcePositionUEcm": {
+          "X": -359.874755859375,
+          "Y": -1732.093994140625,
+          "Z": 246.78549194335938
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 702
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 20.0,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": null,
+        "lightColor": "209, 212, 193"
+      }
+    },
+    {
+      "id": "env_pointlight26_17",
+      "name": "PointLight26_17",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": -3.59874755859375,
+          "y": 17.32093994140625,
+          "z": 2.4678549194335937
+        },
+        "sourcePositionUEcm": {
+          "X": -359.874755859375,
+          "Y": -1732.093994140625,
+          "Z": 246.78549194335938
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 417
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 2.0,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 167.0199737548828,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_spotlight3",
+      "name": "SpotLight3",
+      "class": "/Script/Engine/SpotLight",
+      "transform": {
+        "position": {
+          "x": -0.042849650382995604,
+          "y": 26.834208984375,
+          "z": 6.123314208984375
+        },
+        "sourcePositionUEcm": {
+          "X": -4.2849650382995605,
+          "Y": -2683.4208984375,
+          "Z": 612.3314208984375
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 703
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 20.0,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": null,
+        "lightColor": "209, 212, 193"
+      }
+    },
+    {
+      "id": "env_pointlight27",
+      "name": "PointLight27",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": -0.042849650382995604,
+          "y": 26.834208984375,
+          "z": 6.123314208984375
+        },
+        "sourcePositionUEcm": {
+          "X": -4.2849650382995605,
+          "Y": -2683.4208984375,
+          "Z": 612.3314208984375
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 418
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 2.0,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 172.73397827148438,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_pointlight41_18",
+      "name": "PointLight41_18",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": -1.52134765625,
+          "y": 12.540045166015625,
+          "z": 1.7796884155273438
+        },
+        "sourcePositionUEcm": {
+          "X": -152.134765625,
+          "Y": -1254.0045166015625,
+          "Z": 177.96884155273438
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 434
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 1.0,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 441.3263854980469,
+        "lightColor": "203, 227, 255"
+      }
+    },
+    {
+      "id": "env_pointlight28",
+      "name": "PointLight28",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": -1.4946678161621094,
+          "y": 23.29781005859375,
+          "z": 1.7971336364746093
+        },
+        "sourcePositionUEcm": {
+          "X": -149.46678161621094,
+          "Y": -2329.781005859375,
+          "Z": 179.71336364746094
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 419
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "202, 212, 134"
+      }
+    },
+    {
+      "id": "env_pointlight29",
+      "name": "PointLight29",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 7.022337036132813,
+          "y": 18.45614013671875,
+          "z": 1.7971336364746093
+        },
+        "sourcePositionUEcm": {
+          "X": 702.2337036132812,
+          "Y": -1845.614013671875,
+          "Z": 179.71336364746094
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 420
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "202, 212, 134"
+      }
+    },
+    {
+      "id": "env_pointlight30",
+      "name": "PointLight30",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 7.022335205078125,
+          "y": 23.29781005859375,
+          "z": 1.7971336364746093
+        },
+        "sourcePositionUEcm": {
+          "X": 702.2335205078125,
+          "Y": -2329.781005859375,
+          "Z": 179.71336364746094
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 422
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "202, 212, 134"
+      }
+    },
+    {
+      "id": "env_pointlight31",
+      "name": "PointLight31",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 10.62147705078125,
+          "y": 18.45614013671875,
+          "z": 1.7971336364746093
+        },
+        "sourcePositionUEcm": {
+          "X": 1062.147705078125,
+          "Y": -1845.614013671875,
+          "Z": 179.71336364746094
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 423
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "202, 212, 134"
+      }
+    },
+    {
+      "id": "env_pointlight32",
+      "name": "PointLight32",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 10.6233447265625,
+          "y": 23.29781005859375,
+          "z": 1.7971336364746093
+        },
+        "sourcePositionUEcm": {
+          "X": 1062.33447265625,
+          "Y": -2329.781005859375,
+          "Z": 179.71336364746094
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 424
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "202, 212, 134"
+      }
+    },
+    {
+      "id": "env_pointlight33",
+      "name": "PointLight33",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 13.49593505859375,
+          "y": 18.45614013671875,
+          "z": 1.7971336364746093
+        },
+        "sourcePositionUEcm": {
+          "X": 1349.593505859375,
+          "Y": -1845.614013671875,
+          "Z": 179.71336364746094
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 425
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "202, 212, 134"
+      }
+    },
+    {
+      "id": "env_pointlight34",
+      "name": "PointLight34",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 13.495933837890625,
+          "y": 23.29781005859375,
+          "z": 1.7971336364746093
+        },
+        "sourcePositionUEcm": {
+          "X": 1349.5933837890625,
+          "Y": -2329.781005859375,
+          "Z": 179.71336364746094
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 426
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "202, 212, 134"
+      }
+    },
+    {
+      "id": "env_pointlight35",
+      "name": "PointLight35",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 17.096944580078127,
+          "y": 18.45614013671875,
+          "z": 1.7971336364746093
+        },
+        "sourcePositionUEcm": {
+          "X": 1709.6944580078125,
+          "Y": -1845.614013671875,
+          "Z": 179.71336364746094
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 427
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "202, 212, 134"
+      }
+    },
+    {
+      "id": "env_pointlight36",
+      "name": "PointLight36",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 17.098812255859375,
+          "y": 23.29781005859375,
+          "z": 1.7971336364746093
+        },
+        "sourcePositionUEcm": {
+          "X": 1709.8812255859375,
+          "Y": -2329.781005859375,
+          "Z": 179.71336364746094
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 428
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "202, 212, 134"
+      }
+    },
+    {
+      "id": "env_pointlight37",
+      "name": "PointLight37",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 21.13133544921875,
+          "y": 18.45614013671875,
+          "z": 1.7971336364746093
+        },
+        "sourcePositionUEcm": {
+          "X": 2113.133544921875,
+          "Y": -1845.614013671875,
+          "Z": 179.71336364746094
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 429
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "202, 212, 134"
+      }
+    },
+    {
+      "id": "env_pointlight38",
+      "name": "PointLight38",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 21.13133544921875,
+          "y": 23.29781005859375,
+          "z": 1.7971336364746093
+        },
+        "sourcePositionUEcm": {
+          "X": 2113.133544921875,
+          "Y": -2329.781005859375,
+          "Z": 179.71336364746094
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 430
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "202, 212, 134"
+      }
+    },
+    {
+      "id": "env_pointlight39",
+      "name": "PointLight39",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 24.73235107421875,
+          "y": 18.45614013671875,
+          "z": 1.7971336364746093
+        },
+        "sourcePositionUEcm": {
+          "X": 2473.235107421875,
+          "Y": -1845.614013671875,
+          "Z": 179.71336364746094
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 431
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "202, 212, 134"
+      }
+    },
+    {
+      "id": "env_pointlight40",
+      "name": "PointLight40",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 24.7323486328125,
+          "y": 23.29781005859375,
+          "z": 1.7971336364746093
+        },
+        "sourcePositionUEcm": {
+          "X": 2473.23486328125,
+          "Y": -2329.781005859375,
+          "Z": 179.71336364746094
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 433
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "202, 212, 134"
+      }
+    },
+    {
+      "id": "env_spotlight4",
+      "name": "SpotLight4",
+      "class": "/Script/Engine/SpotLight",
+      "transform": {
+        "position": {
+          "x": 17.77433349609375,
+          "y": 12.474649658203125,
+          "z": 3.6558355712890624
+        },
+        "sourcePositionUEcm": {
+          "X": 1777.433349609375,
+          "Y": -1247.4649658203125,
+          "Z": 365.58355712890625
+        },
+        "sourceRotationUE": {
+          "Pitch": -30.637073516845703,
+          "Yaw": -118.20172119140625,
+          "Roll": 15.284918785095215
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 704
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 40.0,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": null,
+        "lightColor": "209, 212, 193"
+      }
+    },
+    {
+      "id": "env_pointlight42_19",
+      "name": "PointLight42_19",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 17.77433349609375,
+          "y": 12.474649658203125,
+          "z": 3.6558355712890624
+        },
+        "sourcePositionUEcm": {
+          "X": 1777.433349609375,
+          "Y": -1247.4649658203125,
+          "Z": 365.58355712890625
+        },
+        "sourceRotationUE": {
+          "Pitch": -34.653411865234375,
+          "Yaw": -119.623046875,
+          "Roll": 17.918235778808594
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 435
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 2.0,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 102.66566467285156,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_spotlight5",
+      "name": "SpotLight5",
+      "class": "/Script/Engine/SpotLight",
+      "transform": {
+        "position": {
+          "x": 8.189076538085937,
+          "y": 13.848759765625,
+          "z": 5.976835327148438
+        },
+        "sourcePositionUEcm": {
+          "X": 818.9076538085938,
+          "Y": -1384.8759765625,
+          "Z": 597.6835327148438
+        },
+        "sourceRotationUE": {
+          "Pitch": -37.97240447998047,
+          "Yaw": -120.87439727783203,
+          "Roll": 46.62248229980469
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 705
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 20.0,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 766.8734130859375,
+        "lightColor": "209, 212, 193"
+      }
+    },
+    {
+      "id": "env_pointlight43",
+      "name": "PointLight43",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 8.189076538085937,
+          "y": 13.848759765625,
+          "z": 5.976835327148438
+        },
+        "sourcePositionUEcm": {
+          "X": 818.9076538085938,
+          "Y": -1384.8759765625,
+          "Z": 597.6835327148438
+        },
+        "sourceRotationUE": {
+          "Pitch": -37.972530364990234,
+          "Yaw": -113.12332916259766,
+          "Roll": 46.62247085571289
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 436
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 1.0,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_bp_sky_sphere_2",
+      "name": "BP_Sky_Sphere_2",
+      "class": "/Game/CustomMaps/UGC2755515831/CoD_nacht/BP_Sky_Sphere/BP_Sky_Sphere_C",
+      "transform": {
+        "position": {
+          "x": 0.0,
+          "y": -0.0,
+          "z": 8.9002490234375
+        },
+        "sourcePositionUEcm": {
+          "X": 0.0,
+          "Y": 0.0,
+          "Z": 890.02490234375
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 519
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": null,
+        "intensityUnits": null,
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_pointlight44",
+      "name": "PointLight44",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": -1.4946672058105468,
+          "y": 17.311328125,
+          "z": 5.2203271484375
+        },
+        "sourcePositionUEcm": {
+          "X": -149.4667205810547,
+          "Y": -1731.1328125,
+          "Z": 522.03271484375
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 437
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "202, 212, 134"
+      }
+    },
+    {
+      "id": "env_pointlight45",
+      "name": "PointLight45",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": -1.4946690368652344,
+          "y": 23.29781005859375,
+          "z": 5.2203271484375
+        },
+        "sourcePositionUEcm": {
+          "X": -149.46690368652344,
+          "Y": -2329.781005859375,
+          "Z": 522.03271484375
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 438
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "202, 212, 134"
+      }
+    },
+    {
+      "id": "env_pointlight46",
+      "name": "PointLight46",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 7.022335815429687,
+          "y": 18.45614013671875,
+          "z": 5.2203271484375
+        },
+        "sourcePositionUEcm": {
+          "X": 702.2335815429688,
+          "Y": -1845.614013671875,
+          "Z": 522.03271484375
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 439
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "202, 212, 134"
+      }
+    },
+    {
+      "id": "env_pointlight47",
+      "name": "PointLight47",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 7.022333984375,
+          "y": 23.29781005859375,
+          "z": 5.2203271484375
+        },
+        "sourcePositionUEcm": {
+          "X": 702.2333984375,
+          "Y": -2329.781005859375,
+          "Z": 522.03271484375
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 440
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "202, 212, 134"
+      }
+    },
+    {
+      "id": "env_pointlight48",
+      "name": "PointLight48",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 10.621475830078126,
+          "y": 18.45614013671875,
+          "z": 5.2203271484375
+        },
+        "sourcePositionUEcm": {
+          "X": 1062.1475830078125,
+          "Y": -1845.614013671875,
+          "Z": 522.03271484375
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 441
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "202, 212, 134"
+      }
+    },
+    {
+      "id": "env_pointlight49",
+      "name": "PointLight49",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 10.623343505859374,
+          "y": 23.29781005859375,
+          "z": 5.2203271484375
+        },
+        "sourcePositionUEcm": {
+          "X": 1062.3343505859375,
+          "Y": -2329.781005859375,
+          "Z": 522.03271484375
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 442
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "202, 212, 134"
+      }
+    },
+    {
+      "id": "env_pointlight50",
+      "name": "PointLight50",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 13.495933837890625,
+          "y": 18.45614013671875,
+          "z": 5.2203271484375
+        },
+        "sourcePositionUEcm": {
+          "X": 1349.5933837890625,
+          "Y": -1845.614013671875,
+          "Z": 522.03271484375
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 444
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "202, 212, 134"
+      }
+    },
+    {
+      "id": "env_pointlight51",
+      "name": "PointLight51",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 13.4959326171875,
+          "y": 23.29781005859375,
+          "z": 5.2203271484375
+        },
+        "sourcePositionUEcm": {
+          "X": 1349.59326171875,
+          "Y": -2329.781005859375,
+          "Z": 522.03271484375
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 445
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "202, 212, 134"
+      }
+    },
+    {
+      "id": "env_pointlight52",
+      "name": "PointLight52",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 17.096943359375,
+          "y": 18.45614013671875,
+          "z": 5.2203271484375
+        },
+        "sourcePositionUEcm": {
+          "X": 1709.6943359375,
+          "Y": -1845.614013671875,
+          "Z": 522.03271484375
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 446
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "202, 212, 134"
+      }
+    },
+    {
+      "id": "env_pointlight53",
+      "name": "PointLight53",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 17.09881103515625,
+          "y": 23.29781005859375,
+          "z": 5.2203271484375
+        },
+        "sourcePositionUEcm": {
+          "X": 1709.881103515625,
+          "Y": -2329.781005859375,
+          "Z": 522.03271484375
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 447
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "202, 212, 134"
+      }
+    },
+    {
+      "id": "env_pointlight54",
+      "name": "PointLight54",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 21.1313330078125,
+          "y": 18.45614013671875,
+          "z": 5.2203271484375
+        },
+        "sourcePositionUEcm": {
+          "X": 2113.13330078125,
+          "Y": -1845.614013671875,
+          "Z": 522.03271484375
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 448
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "202, 212, 134"
+      }
+    },
+    {
+      "id": "env_pointlight55",
+      "name": "PointLight55",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 21.1313330078125,
+          "y": 23.29781005859375,
+          "z": 5.2203271484375
+        },
+        "sourcePositionUEcm": {
+          "X": 2113.13330078125,
+          "Y": -2329.781005859375,
+          "Z": 522.03271484375
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 449
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "202, 212, 134"
+      }
+    },
+    {
+      "id": "env_pointlight56",
+      "name": "PointLight56",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 24.7323486328125,
+          "y": 18.45614013671875,
+          "z": 5.2203271484375
+        },
+        "sourcePositionUEcm": {
+          "X": 2473.23486328125,
+          "Y": -1845.614013671875,
+          "Z": 522.03271484375
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 450
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "202, 212, 134"
+      }
+    },
+    {
+      "id": "env_pointlight57",
+      "name": "PointLight57",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 24.7323486328125,
+          "y": 23.29781005859375,
+          "z": 5.2203271484375
+        },
+        "sourcePositionUEcm": {
+          "X": 2473.23486328125,
+          "Y": -2329.781005859375,
+          "Z": 522.03271484375
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 451
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "202, 212, 134"
+      }
+    },
+    {
+      "id": "env_pointlight58",
+      "name": "PointLight58",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 4.515269165039062,
+          "y": -1.4270361328125,
+          "z": 5.8564404296875
+        },
+        "sourcePositionUEcm": {
+          "X": 451.52691650390625,
+          "Y": 142.70361328125,
+          "Z": 585.64404296875
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 452
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 167.0199737548828,
+        "lightColor": "203, 227, 255"
+      }
+    },
+    {
+      "id": "env_pointlight59",
+      "name": "PointLight59",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 6.982398681640625,
+          "y": 11.048375244140624,
+          "z": 5.145526123046875
+        },
+        "sourcePositionUEcm": {
+          "X": 698.2398681640625,
+          "Y": -1104.8375244140625,
+          "Z": 514.5526123046875
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 453
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "203, 227, 255"
+      }
+    },
+    {
+      "id": "env_pointlight61",
+      "name": "PointLight61",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 1.9028549194335938,
+          "y": 5.309830932617188,
+          "z": 4.90412353515625
+        },
+        "sourcePositionUEcm": {
+          "X": 190.28549194335938,
+          "Y": -530.9830932617188,
+          "Z": 490.412353515625
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 456
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "203, 227, 255"
+      }
+    },
+    {
+      "id": "env_pointlight62",
+      "name": "PointLight62",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 1.6219659423828126,
+          "y": 11.048375244140624,
+          "z": 5.145526123046875
+        },
+        "sourcePositionUEcm": {
+          "X": 162.19659423828125,
+          "Y": -1104.8375244140625,
+          "Z": 514.5526123046875
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 457
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "203, 227, 255"
+      }
+    },
+    {
+      "id": "env_pointlight63",
+      "name": "PointLight63",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": -4.202969360351562,
+          "y": 10.610517578125,
+          "z": 5.145526123046875
+        },
+        "sourcePositionUEcm": {
+          "X": -420.29693603515625,
+          "Y": -1061.0517578125,
+          "Z": 514.5526123046875
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 458
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "203, 227, 255"
+      }
+    },
+    {
+      "id": "env_pointlight64",
+      "name": "PointLight64",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 0.5011502838134766,
+          "y": 0.1807464599609375,
+          "z": 4.90412353515625
+        },
+        "sourcePositionUEcm": {
+          "X": 50.115028381347656,
+          "Y": -18.07464599609375,
+          "Z": 490.412353515625
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 459
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "203, 227, 255"
+      }
+    },
+    {
+      "id": "env_pointlight65",
+      "name": "PointLight65",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": -3.57888671875,
+          "y": 0.18074615478515624,
+          "z": 4.90412353515625
+        },
+        "sourcePositionUEcm": {
+          "X": -357.888671875,
+          "Y": -18.074615478515625,
+          "Z": 490.412353515625
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 460
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "203, 227, 255"
+      }
+    },
+    {
+      "id": "env_pointlight66",
+      "name": "PointLight66",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 0.501152114868164,
+          "y": -4.5771026611328125,
+          "z": 4.90412353515625
+        },
+        "sourcePositionUEcm": {
+          "X": 50.115211486816406,
+          "Y": 457.71026611328125,
+          "Z": 490.412353515625
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 461
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "203, 227, 255"
+      }
+    },
+    {
+      "id": "env_pointlight67",
+      "name": "PointLight67",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": -3.5788870239257813,
+          "y": -4.577103271484375,
+          "z": 4.90412353515625
+        },
+        "sourcePositionUEcm": {
+          "X": -357.8887023925781,
+          "Y": 457.7103271484375,
+          "Z": 490.412353515625
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 462
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "203, 227, 255"
+      }
+    },
+    {
+      "id": "env_pointlight68",
+      "name": "PointLight68",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 0.5011545562744141,
+          "y": -14.778336181640626,
+          "z": 4.90412353515625
+        },
+        "sourcePositionUEcm": {
+          "X": 50.115455627441406,
+          "Y": 1477.8336181640625,
+          "Z": 490.412353515625
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 463
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "203, 227, 255"
+      }
+    },
+    {
+      "id": "env_pointlight69",
+      "name": "PointLight69",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": -3.5788845825195312,
+          "y": -14.778336181640626,
+          "z": 4.90412353515625
+        },
+        "sourcePositionUEcm": {
+          "X": -357.8884582519531,
+          "Y": 1477.8336181640625,
+          "Z": 490.412353515625
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 464
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "203, 227, 255"
+      }
+    },
+    {
+      "id": "env_pointlight70",
+      "name": "PointLight70",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 0.501156997680664,
+          "y": -19.6899462890625,
+          "z": 4.90412353515625
+        },
+        "sourcePositionUEcm": {
+          "X": 50.115699768066406,
+          "Y": 1968.99462890625,
+          "Z": 490.412353515625
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 466
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "203, 227, 255"
+      }
+    },
+    {
+      "id": "env_pointlight71",
+      "name": "PointLight71",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": -3.578882141113281,
+          "y": -19.6899462890625,
+          "z": 4.90412353515625
+        },
+        "sourcePositionUEcm": {
+          "X": -357.8882141113281,
+          "Y": 1968.99462890625,
+          "Z": 490.412353515625
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 467
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "203, 227, 255"
+      }
+    },
+    {
+      "id": "env_pointlight72",
+      "name": "PointLight72",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 2.970121154785156,
+          "y": -14.1625732421875,
+          "z": 5.565789794921875
+        },
+        "sourcePositionUEcm": {
+          "X": 297.0121154785156,
+          "Y": 1416.25732421875,
+          "Z": 556.5789794921875
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 468
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "203, 227, 255"
+      }
+    },
+    {
+      "id": "env_pointlight73",
+      "name": "PointLight73",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 2.9701171875,
+          "y": -18.03743408203125,
+          "z": 5.565789794921875
+        },
+        "sourcePositionUEcm": {
+          "X": 297.01171875,
+          "Y": 1803.743408203125,
+          "Z": 556.5789794921875
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 469
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "203, 227, 255"
+      }
+    },
+    {
+      "id": "env_pointlight74",
+      "name": "PointLight74",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 4.146402282714844,
+          "y": -5.15290283203125,
+          "z": 5.861070556640625
+        },
+        "sourcePositionUEcm": {
+          "X": 414.6402282714844,
+          "Y": 515.290283203125,
+          "Z": 586.1070556640625
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 470
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 0.5,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1283.5604248046875,
+        "lightColor": "203, 227, 255"
+      }
+    },
+    {
+      "id": "env_pointlight60_32",
+      "name": "PointLight60_32",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 30.411748046875,
+          "y": 23.570517578125,
+          "z": 1.0784876251220703
+        },
+        "sourcePositionUEcm": {
+          "X": 3041.1748046875,
+          "Y": -2357.0517578125,
+          "Z": 107.84876251220703
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 455
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 7.0,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 232.41477966308594,
+        "lightColor": "255, 204, 112"
+      }
+    },
+    {
+      "id": "env_spotlight6",
+      "name": "SpotLight6",
+      "class": "/Script/Engine/SpotLight",
+      "transform": {
+        "position": {
+          "x": 0.9049977111816406,
+          "y": 20.063221435546875,
+          "z": 6.152180786132813
+        },
+        "sourcePositionUEcm": {
+          "X": 90.49977111816406,
+          "Y": -2006.3221435546875,
+          "Z": 615.2180786132812
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 706
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 20.0,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": null,
+        "lightColor": "209, 212, 193"
+      }
+    },
+    {
+      "id": "env_pointlight75",
+      "name": "PointLight75",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 0.9049977111816406,
+          "y": 20.063221435546875,
+          "z": 6.152180786132813
+        },
+        "sourcePositionUEcm": {
+          "X": 90.49977111816406,
+          "Y": -2006.3221435546875,
+          "Z": 615.2180786132812
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 471
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 2.0,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 167.0199737548828,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_spotlight7",
+      "name": "SpotLight7",
+      "class": "/Script/Engine/SpotLight",
+      "transform": {
+        "position": {
+          "x": 10.540750732421875,
+          "y": 20.063221435546875,
+          "z": 6.1766424560546875
+        },
+        "sourcePositionUEcm": {
+          "X": 1054.0750732421875,
+          "Y": -2006.3221435546875,
+          "Z": 617.6642456054688
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 707
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 20.0,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": null,
+        "lightColor": "209, 212, 193"
+      }
+    },
+    {
+      "id": "env_pointlight76",
+      "name": "PointLight76",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 10.540750732421875,
+          "y": 20.063221435546875,
+          "z": 6.1766424560546875
+        },
+        "sourcePositionUEcm": {
+          "X": 1054.0750732421875,
+          "Y": -2006.3221435546875,
+          "Z": 617.6642456054688
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 472
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 2.0,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 70.86577606201172,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_spotlight8",
+      "name": "SpotLight8",
+      "class": "/Script/Engine/SpotLight",
+      "transform": {
+        "position": {
+          "x": 31.48967041015625,
+          "y": 15.863721923828125,
+          "z": 4.192328186035156
+        },
+        "sourcePositionUEcm": {
+          "X": 3148.967041015625,
+          "Y": -1586.3721923828125,
+          "Z": 419.2328186035156
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 708
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 20.0,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 798.068115234375,
+        "lightColor": "209, 212, 193"
+      }
+    },
+    {
+      "id": "env_pointlight77",
+      "name": "PointLight77",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 31.48967041015625,
+          "y": 15.863721923828125,
+          "z": 4.192328186035156
+        },
+        "sourcePositionUEcm": {
+          "X": 3148.967041015625,
+          "Y": -1586.3721923828125,
+          "Z": 419.2328186035156
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 473
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 1.0,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_spotlight9",
+      "name": "SpotLight9",
+      "class": "/Script/Engine/SpotLight",
+      "transform": {
+        "position": {
+          "x": 6.539104614257813,
+          "y": 4.026761779785156,
+          "z": 6.101396484375
+        },
+        "sourcePositionUEcm": {
+          "X": 653.9104614257812,
+          "Y": -402.6761779785156,
+          "Z": 610.1396484375
+        },
+        "sourceRotationUE": {
+          "Pitch": -29.23835563659668,
+          "Yaw": -117.61897277832031,
+          "Roll": 40.76124572753906
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 709
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 20.0,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 722.7719116210938,
+        "lightColor": "144, 169, 127"
+      }
+    },
+    {
+      "id": "env_pointlight78",
+      "name": "PointLight78",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 6.539104614257813,
+          "y": 4.026761779785156,
+          "z": 6.101396484375
+        },
+        "sourcePositionUEcm": {
+          "X": 653.9104614257812,
+          "Y": -402.6761779785156,
+          "Z": 610.1396484375
+        },
+        "sourceRotationUE": {
+          "Pitch": -37.972530364990234,
+          "Yaw": -113.12332916259766,
+          "Roll": 46.62247085571289
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 474
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 1.0,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": null,
+        "lightColor": "144, 169, 127"
+      }
+    },
+    {
+      "id": "env_spotlight10",
+      "name": "SpotLight10",
+      "class": "/Script/Engine/SpotLight",
+      "transform": {
+        "position": {
+          "x": -16.858018798828127,
+          "y": -0.6453970336914062,
+          "z": 4.376930541992188
+        },
+        "sourcePositionUEcm": {
+          "X": -1685.8018798828125,
+          "Y": 64.53970336914062,
+          "Z": 437.69305419921875
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 699
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 20.0,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": null,
+        "lightColor": "209, 212, 193"
+      }
+    },
+    {
+      "id": "env_pointlight79",
+      "name": "PointLight79",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": -16.858018798828127,
+          "y": -0.6453970336914062,
+          "z": 4.376930541992188
+        },
+        "sourcePositionUEcm": {
+          "X": -1685.8018798828125,
+          "Y": 64.53970336914062,
+          "Z": 437.69305419921875
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 475
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 1.0,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_spotlight11",
+      "name": "SpotLight11",
+      "class": "/Script/Engine/SpotLight",
+      "transform": {
+        "position": {
+          "x": -16.858018798828127,
+          "y": -2.4139450073242186,
+          "z": 4.376930541992188
+        },
+        "sourcePositionUEcm": {
+          "X": -1685.8018798828125,
+          "Y": 241.39450073242188,
+          "Z": 437.69305419921875
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 700
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 20.0,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": null,
+        "lightColor": "209, 212, 193"
+      }
+    },
+    {
+      "id": "env_pointlight80",
+      "name": "PointLight80",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": -16.858018798828127,
+          "y": -2.4139450073242186,
+          "z": 4.376930541992188
+        },
+        "sourcePositionUEcm": {
+          "X": -1685.8018798828125,
+          "Y": 241.39450073242188,
+          "Z": 437.69305419921875
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 477
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 1.0,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_spotlight12",
+      "name": "SpotLight12",
+      "class": "/Script/Engine/SpotLight",
+      "transform": {
+        "position": {
+          "x": 0.019898386001586915,
+          "y": -5.564151000976563,
+          "z": 5.858348388671875
+        },
+        "sourcePositionUEcm": {
+          "X": 1.9898386001586914,
+          "Y": 556.4151000976562,
+          "Z": 585.8348388671875
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 701
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 20.0,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": null,
+        "lightColor": "209, 212, 193"
+      }
+    },
+    {
+      "id": "env_pointlight81",
+      "name": "PointLight81",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 0.019898386001586915,
+          "y": -5.564151000976563,
+          "z": 5.858348388671875
+        },
+        "sourcePositionUEcm": {
+          "X": 1.9898386001586914,
+          "Y": 556.4151000976562,
+          "Z": 585.8348388671875
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 478
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 1.0,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_pointlight82",
+      "name": "PointLight82",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": -4.977936401367187,
+          "y": -2.870199890136719,
+          "z": 5.035918579101563
+        },
+        "sourcePositionUEcm": {
+          "X": -497.79364013671875,
+          "Y": 287.0199890136719,
+          "Z": 503.59185791015625
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 479
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 7.0,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 400.69586181640625,
+        "lightColor": "255, 204, 112"
+      }
+    },
+    {
+      "id": "env_2_bonefire2b_fwd2_pt_2",
+      "name": "2_bonefire2B_fwd2_pt_2",
+      "class": "/Script/Engine/Emitter",
+      "transform": {
+        "position": {
+          "x": 4.793354187011719,
+          "y": -1.6416151428222656,
+          "z": 1.5032063293457032
+        },
+        "sourcePositionUEcm": {
+          "X": 479.3354187011719,
+          "Y": 164.16151428222656,
+          "Z": 150.3206329345703
+        },
+        "sourceRotationUE": {
+          "Pitch": 0.0,
+          "Yaw": 30.00004005432129,
+          "Roll": 0.0
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 187
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": null,
+        "intensityUnits": null,
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_2_bonefire3_pt_8",
+      "name": "2_bonefire3_pt_8",
+      "class": "/Script/Engine/Emitter",
+      "transform": {
+        "position": {
+          "x": -6.5298699951171875,
+          "y": -3.766033020019531,
+          "z": 0.036029815673828125
+        },
+        "sourcePositionUEcm": {
+          "X": -652.9869995117188,
+          "Y": 376.6033020019531,
+          "Z": 3.6029815673828125
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 188
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": null,
+        "intensityUnits": null,
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_fire_00_56",
+      "name": "Fire_00_56",
+      "class": "/Script/Engine/Emitter",
+      "transform": {
+        "position": {
+          "x": 2.94041015625,
+          "y": -24.044912109375,
+          "z": 0.9258070373535157
+        },
+        "sourcePositionUEcm": {
+          "X": 294.041015625,
+          "Y": 2404.4912109375,
+          "Z": 92.58070373535156
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 194
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": null,
+        "intensityUnits": null,
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_pointlight83_2",
+      "name": "PointLight83_2",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 28.04325927734375,
+          "y": -12.403582763671874,
+          "z": 4.136539916992188
+        },
+        "sourcePositionUEcm": {
+          "X": 2804.325927734375,
+          "Y": 1240.3582763671875,
+          "Z": 413.65399169921875
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 480
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 8.0,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_pointlight84_6",
+      "name": "PointLight84_6",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": -2.041097412109375,
+          "y": -35.7705224609375,
+          "z": 4.428283081054688
+        },
+        "sourcePositionUEcm": {
+          "X": -204.1097412109375,
+          "Y": 3577.05224609375,
+          "Z": 442.82830810546875
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 481
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 8.0,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_fire_62",
+      "name": "Fire_62",
+      "class": "/Script/Engine/Emitter",
+      "transform": {
+        "position": {
+          "x": 4.534191284179688,
+          "y": 38.4271533203125,
+          "z": 4.097230224609375
+        },
+        "sourcePositionUEcm": {
+          "X": 453.41912841796875,
+          "Y": -3842.71533203125,
+          "Z": 409.7230224609375
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 196
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": null,
+        "intensityUnits": null,
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_4_bigfire_vg_smk_pt_65",
+      "name": "4_bigfire_vg_smk_pt_65",
+      "class": "/Script/Engine/Emitter",
+      "transform": {
+        "position": {
+          "x": 11.377978515625,
+          "y": 34.9070654296875,
+          "z": 3.8897384643554687
+        },
+        "sourcePositionUEcm": {
+          "X": 1137.7978515625,
+          "Y": -3490.70654296875,
+          "Z": 388.9738464355469
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 191
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": null,
+        "intensityUnits": null,
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_pointlight85_9",
+      "name": "PointLight85_9",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 10.91909423828125,
+          "y": 41.08189453125,
+          "z": 7.783011474609375
+        },
+        "sourcePositionUEcm": {
+          "X": 1091.909423828125,
+          "Y": -4108.189453125,
+          "Z": 778.3011474609375
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 482
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 10.425348281860352,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 1423.1466064453125,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_4_bigfire_fwd2_pt_68",
+      "name": "4_bigfire_fwd2_pt_68",
+      "class": "/Script/Engine/Emitter",
+      "transform": {
+        "position": {
+          "x": 16.30831298828125,
+          "y": 34.967978515625,
+          "z": 5.861644897460938
+        },
+        "sourcePositionUEcm": {
+          "X": 1630.831298828125,
+          "Y": -3496.7978515625,
+          "Z": 586.1644897460938
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 190
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": null,
+        "intensityUnits": null,
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_4_bigfire_fwd2_pt2",
+      "name": "4_bigfire_fwd2_pt2",
+      "class": "/Script/Engine/Emitter",
+      "transform": {
+        "position": {
+          "x": 19.691317138671874,
+          "y": 31.27482177734375,
+          "z": 3.961969299316406
+        },
+        "sourcePositionUEcm": {
+          "X": 1969.1317138671875,
+          "Y": -3127.482177734375,
+          "Z": 396.1969299316406
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 189
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": null,
+        "intensityUnits": null,
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_pointlight86_12",
+      "name": "PointLight86_12",
+      "class": "/Script/Engine/PointLight",
+      "transform": {
+        "position": {
+          "x": 27.720283203125,
+          "y": 35.85232666015625,
+          "z": 6.221297607421875
+        },
+        "sourcePositionUEcm": {
+          "X": 2772.0283203125,
+          "Y": -3585.232666015625,
+          "Z": 622.1297607421875
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 483
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": 4.0,
+        "intensityUnits": "ELightUnits::Candelas",
+        "attenuationRadius": 729.3419189453125,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_fire_15",
+      "name": "Fire_15",
+      "class": "/Script/Engine/Emitter",
+      "transform": {
+        "position": {
+          "x": 27.964326171875,
+          "y": 36.57177734375,
+          "z": 4.097230224609375
+        },
+        "sourcePositionUEcm": {
+          "X": 2796.4326171875,
+          "Y": -3657.177734375,
+          "Z": 409.7230224609375
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 195
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": null,
+        "intensityUnits": null,
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_fire_79",
+      "name": "Fire_79",
+      "class": "/Script/Engine/Emitter",
+      "transform": {
+        "position": {
+          "x": -13.823485107421876,
+          "y": 10.36309814453125,
+          "z": 0.4588888549804688
+        },
+        "sourcePositionUEcm": {
+          "X": -1382.3485107421875,
+          "Y": -1036.309814453125,
+          "Z": 45.888885498046875
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 197
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": null,
+        "intensityUnits": null,
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_flickerfire2_5",
+      "name": "Flickerfire2_5",
+      "class": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Blueprints/Flickerfire/Flickerfire_C",
+      "transform": {
+        "position": {
+          "x": 2.8089642333984375,
+          "y": -24.27560546875,
+          "z": 1.137830810546875
+        },
+        "sourcePositionUEcm": {
+          "X": 280.89642333984375,
+          "Y": 2427.560546875,
+          "Z": 113.7830810546875
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 528
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": null,
+        "intensityUnits": null,
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_flickerfire_2",
+      "name": "Flickerfire_2",
+      "class": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Blueprints/Flickerfire/Flickerfire_C",
+      "transform": {
+        "position": {
+          "x": 4.694359436035156,
+          "y": -1.2583663940429688,
+          "z": 2.259698944091797
+        },
+        "sourcePositionUEcm": {
+          "X": 469.4359436035156,
+          "Y": 125.83663940429688,
+          "Z": 225.9698944091797
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 529
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": null,
+        "intensityUnits": null,
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_flickerlight2_5",
+      "name": "FlickerLight2_5",
+      "class": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Blueprints/FlickerLight/FlickerLight_C",
+      "transform": {
+        "position": {
+          "x": 0.18184167861938477,
+          "y": 5.899111328125,
+          "z": 2.5301283264160155
+        },
+        "sourcePositionUEcm": {
+          "X": 18.184167861938477,
+          "Y": -589.9111328125,
+          "Z": 253.01283264160156
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 530
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": null,
+        "intensityUnits": null,
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_flickerlight3_8",
+      "name": "FlickerLight3_8",
+      "class": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Blueprints/FlickerLight/FlickerLight_C",
+      "transform": {
+        "position": {
+          "x": 8.63267578125,
+          "y": 23.3298779296875,
+          "z": 2.39451171875
+        },
+        "sourcePositionUEcm": {
+          "X": 863.267578125,
+          "Y": -2332.98779296875,
+          "Z": 239.451171875
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 531
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": null,
+        "intensityUnits": null,
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_flickerlight4_11",
+      "name": "FlickerLight4_11",
+      "class": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Blueprints/FlickerLight/FlickerLight_C",
+      "transform": {
+        "position": {
+          "x": 19.617803955078124,
+          "y": 21.99212890625,
+          "z": 0.3039518356323242
+        },
+        "sourcePositionUEcm": {
+          "X": 1961.7803955078125,
+          "Y": -2199.212890625,
+          "Z": 30.395183563232422
+        },
+        "sourceRotationUE": {
+          "Pitch": 6.830188794992864e-06,
+          "Yaw": 143.27760314941406,
+          "Roll": -139.59898376464844
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 532
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": null,
+        "intensityUnits": null,
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_flickerlight5",
+      "name": "FlickerLight5",
+      "class": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Blueprints/FlickerLight/FlickerLight_C",
+      "transform": {
+        "position": {
+          "x": -2.7917514038085938,
+          "y": 23.03234619140625,
+          "z": 4.0634457397460935
+        },
+        "sourcePositionUEcm": {
+          "X": -279.1751403808594,
+          "Y": -2303.234619140625,
+          "Z": 406.3445739746094
+        },
+        "sourceRotationUE": {
+          "Pitch": -26.306396484375,
+          "Yaw": 145.96365356445312,
+          "Roll": -125.80987548828125
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 533
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": null,
+        "intensityUnits": null,
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_flickerlight_2",
+      "name": "FlickerLight_2",
+      "class": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Blueprints/FlickerLight/FlickerLight_C",
+      "transform": {
+        "position": {
+          "x": 0.1553927993774414,
+          "y": -10.339041748046874,
+          "z": 2.5129660034179686
+        },
+        "sourcePositionUEcm": {
+          "X": 15.53927993774414,
+          "Y": 1033.9041748046875,
+          "Z": 251.29660034179688
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 534
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": null,
+        "intensityUnits": null,
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_flickerlight_low_2",
+      "name": "FlickerLight_Low_2",
+      "class": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Blueprints/FlickerLight_Low/FlickerLight_Low_C",
+      "transform": {
+        "position": {
+          "x": -4.516898803710937,
+          "y": -11.174002685546874,
+          "z": 0.4624126434326172
+        },
+        "sourcePositionUEcm": {
+          "X": -451.68988037109375,
+          "Y": 1117.4002685546875,
+          "Z": 46.24126434326172
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 535
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": null,
+        "intensityUnits": null,
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_flickerlight_verylow2_5",
+      "name": "FlickerLight_VeryLow2_5",
+      "class": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Blueprints/FlickerLight_VeryLow/FlickerLight_VeryLow_C",
+      "transform": {
+        "position": {
+          "x": 0.15639026641845702,
+          "y": -10.358536376953126,
+          "z": 2.5301283264160155
+        },
+        "sourcePositionUEcm": {
+          "X": 15.639026641845703,
+          "Y": 1035.8536376953125,
+          "Z": 253.01283264160156
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 539
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": null,
+        "intensityUnits": null,
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_flickerlight_verylow3_8",
+      "name": "FlickerLight_VeryLow3_8",
+      "class": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Blueprints/FlickerLight_VeryLow/FlickerLight_VeryLow_C",
+      "transform": {
+        "position": {
+          "x": 8.656007690429687,
+          "y": 23.3298779296875,
+          "z": 2.39451171875
+        },
+        "sourcePositionUEcm": {
+          "X": 865.6007690429688,
+          "Y": -2332.98779296875,
+          "Z": 239.451171875
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 540
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": null,
+        "intensityUnits": null,
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_flickerlight_verylow4_11",
+      "name": "FlickerLight_VeryLow4_11",
+      "class": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Blueprints/FlickerLight_VeryLow/FlickerLight_VeryLow_C",
+      "transform": {
+        "position": {
+          "x": 19.627037353515625,
+          "y": 22.0135693359375,
+          "z": 0.3039518356323242
+        },
+        "sourcePositionUEcm": {
+          "X": 1962.7037353515625,
+          "Y": -2201.35693359375,
+          "Z": 30.395183563232422
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 541
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": null,
+        "intensityUnits": null,
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_flickerlight_verylow5",
+      "name": "FlickerLight_VeryLow5",
+      "class": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Blueprints/FlickerLight_VeryLow/FlickerLight_VeryLow_C",
+      "transform": {
+        "position": {
+          "x": -2.77031005859375,
+          "y": 23.02311279296875,
+          "z": 4.0634457397460935
+        },
+        "sourcePositionUEcm": {
+          "X": -277.031005859375,
+          "Y": -2302.311279296875,
+          "Z": 406.3445739746094
+        },
+        "sourceRotationUE": {
+          "Pitch": -26.306396484375,
+          "Yaw": 145.96365356445312,
+          "Roll": -125.80987548828125
+        },
+        "sourceScale": null,
+        "sourceRootComponent": 542
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": null,
+        "intensityUnits": null,
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_flickerlight_verylow_2",
+      "name": "FlickerLight_VeryLow_2",
+      "class": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Blueprints/FlickerLight_VeryLow/FlickerLight_VeryLow_C",
+      "transform": {
+        "position": {
+          "x": 0.20517333984375,
+          "y": 5.899111328125,
+          "z": 2.5301283264160155
+        },
+        "sourcePositionUEcm": {
+          "X": 20.517333984375,
+          "Y": -589.9111328125,
+          "Z": 253.01283264160156
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 543
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": null,
+        "intensityUnits": null,
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_flickerlight_verylow1_slow2",
+      "name": "FlickerLight_VeryLow1_slow2",
+      "class": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Blueprints/FlickerLight_VeryLow1_slow/FlickerLight_VeryLow1_slow_C",
+      "transform": {
+        "position": {
+          "x": 11.580672607421874,
+          "y": 27.12799072265625,
+          "z": 1.36268798828125
+        },
+        "sourcePositionUEcm": {
+          "X": 1158.0672607421875,
+          "Y": -2712.799072265625,
+          "Z": 136.268798828125
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 536
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": null,
+        "intensityUnits": null,
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_flickerlight_verylow1_slow3_6",
+      "name": "FlickerLight_VeryLow1_slow3_6",
+      "class": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Blueprints/FlickerLight_VeryLow1_slow/FlickerLight_VeryLow1_slow_C",
+      "transform": {
+        "position": {
+          "x": 17.830369873046877,
+          "y": 25.02763671875,
+          "z": 4.128972778320312
+        },
+        "sourcePositionUEcm": {
+          "X": 1783.0369873046875,
+          "Y": -2502.763671875,
+          "Z": 412.89727783203125
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 537
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": null,
+        "intensityUnits": null,
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    },
+    {
+      "id": "env_flickerlight_verylow1_slow_2",
+      "name": "FlickerLight_VeryLow1_slow_2",
+      "class": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Blueprints/FlickerLight_VeryLow1_slow/FlickerLight_VeryLow1_slow_C",
+      "transform": {
+        "position": {
+          "x": 13.535050048828126,
+          "y": 32.7297900390625,
+          "z": 0.9359161376953125
+        },
+        "sourcePositionUEcm": {
+          "X": 1353.5050048828125,
+          "Y": -3272.97900390625,
+          "Z": 93.59161376953125
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null,
+        "sourceRootComponent": 538
+      },
+      "source": "pavlov_port_spatial_reference",
+      "properties": {
+        "intensity": null,
+        "intensityUnits": null,
+        "attenuationRadius": null,
+        "lightColor": null
+      }
+    }
+  ]
+}

@@ -1,0 +1,1985 @@
+{
+  "schemaVersion": 1,
+  "uniqueMeshCount": 492,
+  "meshes": [
+    {
+      "id": "mesh_0000",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/1_Porps_Atlas/p7_barrel_metal_55gal_blue_lt_SM/p7_barrel_metal_55gal_blue_lt_SM/p7_barrel_metal_55gal_blue_lt_SM"
+    },
+    {
+      "id": "mesh_0001",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/1_Porps_Atlas/p7_debris_concrete_rubble_med_00/p7_debris_concrete_rubble_med_00_SM/p7_debris_concrete_rubble_med_00_SM"
+    },
+    {
+      "id": "mesh_0002",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/1_Porps_Atlas/p7_debris_concrete_rubble_med_10/p7_debris_concrete_rubble_med_10_SM/p7_debris_concrete_rubble_med_10_SM"
+    },
+    {
+      "id": "mesh_0003",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/1_Porps_Atlas/p7_debris_concrete_rubble_med_11_SM/p7_debris_concrete_rubble_med_11_SM/p7_debris_concrete_rubble_med_11_SM"
+    },
+    {
+      "id": "mesh_0004",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/1_Porps_Atlas/p7_zm_ctl_crate_ammo_vintage_01_SM/p7_zm_ctl_crate_ammo_vintage_01_SM/p7_zm_ctl_crate_ammo_vintage_01_SM"
+    },
+    {
+      "id": "mesh_0005",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/1_Porps_Atlas/p7_zm_ctl_crate_ammo_vintage_01_lid_SM/p7_zm_ctl_crate_ammo_vintage_01_lid_SM/p7_zm_ctl_crate_ammo_vintage_01_lid_SM"
+    },
+    {
+      "id": "mesh_0006",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/1_Porps_Atlas/p7_zm_ctl_crate_ammo_vintage_02_SM/p7_zm_ctl_crate_ammo_vintage_02_SM/p7_zm_ctl_crate_ammo_vintage_02_SM"
+    },
+    {
+      "id": "mesh_0007",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/1_Porps_Atlas/p7_zm_ctl_crate_wood_02_long_dmg_01/p7_zm_ctl_crate_wood_02_long_dmg_01/p7_zm_ctl_crate_wood_02_long_dmg_01"
+    },
+    {
+      "id": "mesh_0008",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/1_Porps_Atlas/p7_zm_der_light_bulb_small_SM/p7_zm_der_light_shade_bronze_SM/p7_zm_der_light_shade_bronze_SM"
+    },
+    {
+      "id": "mesh_0009",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/1_Porps_Atlas/veh_t7_dlc1_motorcycle_german_no_sidecar_SM/veh_t7_dlc1_motorcycle_german_no_sidecar_SM/veh_t7_dlc1_motorcycle_german_no_sidecar_SM"
+    },
+    {
+      "id": "mesh_0010",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/1_Porps_Atlas/veh_t7_dlc3_mil_tank_tiger_SM/veh_t7_dlc3_mil_tank_tiger_SM/veh_t7_dlc3_mil_tank_tiger_SM"
+    },
+    {
+      "id": "mesh_0011",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/1_Porps_Atlas/veh_t7_dlc3_mil_tank_tiger_dead_SM/veh_t7_dlc3_mil_tank_tiger_dead_SM/veh_t7_dlc3_mil_tank_tiger_dead_SM"
+    },
+    {
+      "id": "mesh_0012",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/C2M_V2/p7_zm_nac_door_help/p7_zm_nac_door_help"
+    },
+    {
+      "id": "mesh_0013",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Extra_models/p7_fxanim_gp_tarp_drape_beige_02_s1_smod/p7_fxanim_gp_tarp_drape_beige_02_s1_smod"
+    },
+    {
+      "id": "mesh_0014",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Extra_models/p7_fxanim_mp_banzai_n_tribe_banner_tunnel_wht_01_s2_smod/p7_fxanim_mp_banzai_n_tribe_banner_tunnel_wht_01_s2_smod"
+    },
+    {
+      "id": "mesh_0015",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Extra_models/p7_fxanim_zm_factory_flag_iron_cross_s1_mod_LOD0/p7_fxanim_zm_factory_flag_iron_cross_s1_mod_LOD0"
+    },
+    {
+      "id": "mesh_0016",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Extra_models/p7_zm_der_vista_moon/p7_zm_der_vista_moon"
+    },
+    {
+      "id": "mesh_0017",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/Part1/zm_prototype_part1_t7_concrete_poured_bunker_dirty_01/zm_prototype_part1_t7_concrete_poured_bunker_dirty_01"
+    },
+    {
+      "id": "mesh_0018",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part1_caulk_shadow_primary/zm_prototype_part1_caulk_shadow_primary"
+    },
+    {
+      "id": "mesh_0019",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part1_mtl_p7_cai_hav_elevator_lift_set_scratch3/zm_prototype_part1_mtl_p7_cai_hav_elevator_lift_set_scratch3"
+    },
+    {
+      "id": "mesh_0020",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part1_t7_asphalt_old_dark/zm_prototype_part1_t7_asphalt_old_dark"
+    },
+    {
+      "id": "mesh_0021",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part1_t7_cloth_rope/zm_prototype_part1_t7_cloth_rope"
+    },
+    {
+      "id": "mesh_0022",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part1_t7_concrete_floor_broken_02/zm_prototype_part1_t7_concrete_floor_broken_02"
+    },
+    {
+      "id": "mesh_0023",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part1_t7_concrete_floor_broken_03_blend_grey/zm_prototype_part1_t7_concrete_floor_broken_03_blend_grey"
+    },
+    {
+      "id": "mesh_0024",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part1_t7_concrete_floor_sealed_01/zm_prototype_part1_t7_concrete_floor_sealed_01"
+    },
+    {
+      "id": "mesh_0025",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part1_t7_concrete_floor_trim_01/zm_prototype_part1_t7_concrete_floor_trim_01"
+    },
+    {
+      "id": "mesh_0026",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part1_t7_concrete_tiles_4x4_dirty_01/zm_prototype_part1_t7_concrete_tiles_4x4_dirty_01"
+    },
+    {
+      "id": "mesh_0027",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part1_t7_concrete_trim_edge_damaged_01/zm_prototype_part1_t7_concrete_trim_edge_damaged_01"
+    },
+    {
+      "id": "mesh_0028",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part1_t7_concrete_trim_flat/zm_prototype_part1_t7_concrete_trim_flat"
+    },
+    {
+      "id": "mesh_0029",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part1_t7_concrete_trim_inset_01/zm_prototype_part1_t7_concrete_trim_inset_01"
+    },
+    {
+      "id": "mesh_0030",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part1_t7_concrete_wall_damaged_01_bare/zm_prototype_part1_t7_concrete_wall_damaged_01_bare"
+    },
+    {
+      "id": "mesh_0031",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part1_t7_concrete_wall_weathered_01/zm_prototype_part1_t7_concrete_wall_weathered_01"
+    },
+    {
+      "id": "mesh_0032",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part1_t7_decal_damage_burn_impact_01/zm_prototype_part1_t7_decal_damage_burn_impact_01"
+    },
+    {
+      "id": "mesh_0033",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part1_t7_decal_damage_concrete_blast/zm_prototype_part1_t7_decal_damage_concrete_blast"
+    },
+    {
+      "id": "mesh_0034",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part1_t7_decal_damage_glass_shatter_05_black/zm_prototype_part1_t7_decal_damage_glass_shatter_05_black"
+    },
+    {
+      "id": "mesh_0035",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part1_t7_decal_damage_ground_cracked_01/zm_prototype_part1_t7_decal_damage_ground_cracked_01"
+    },
+    {
+      "id": "mesh_0036",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part1_t7_decal_damage_plaster_damage_02/zm_prototype_part1_t7_decal_damage_plaster_damage_02"
+    },
+    {
+      "id": "mesh_0037",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part1_t7_decal_damage_plaster_damage_02_blend/zm_prototype_part1_t7_decal_damage_plaster_damage_02_blend"
+    },
+    {
+      "id": "mesh_0038",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part1_t7_decal_damage_potholepatch_puddles_01/zm_prototype_part1_t7_decal_damage_potholepatch_puddles_01"
+    },
+    {
+      "id": "mesh_0039",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part2_t7_decal_grunge_calcium_drip_01_drk/zm_prototype_part2_t7_decal_grunge_calcium_drip_01_drk"
+    },
+    {
+      "id": "mesh_0040",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part2_t7_decal_grunge_calcium_drip_02/zm_prototype_part2_t7_decal_grunge_calcium_drip_02"
+    },
+    {
+      "id": "mesh_0041",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part2_t7_decal_grunge_concrete_stain_01/zm_prototype_part2_t7_decal_grunge_concrete_stain_01"
+    },
+    {
+      "id": "mesh_0042",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part2_t7_decal_grunge_oil_stain_wet_01/zm_prototype_part2_t7_decal_grunge_oil_stain_wet_01"
+    },
+    {
+      "id": "mesh_0043",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part2_t7_decal_grunge_pool_silt_01/zm_prototype_part2_t7_decal_grunge_pool_silt_01"
+    },
+    {
+      "id": "mesh_0044",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part2_t7_decal_grunge_scorch_02/zm_prototype_part2_t7_decal_grunge_scorch_02"
+    },
+    {
+      "id": "mesh_0045",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part2_t7_decal_signage_letters_upper_blend/zm_prototype_part2_t7_decal_signage_letters_upper_blend"
+    },
+    {
+      "id": "mesh_0046",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part2_t7_decal_signage_numbers_stencil_grungy/zm_prototype_part2_t7_decal_signage_numbers_stencil_grungy"
+    },
+    {
+      "id": "mesh_0047",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part3_t7_dirt_rocky_01/zm_prototype_part3_t7_dirt_rocky_01"
+    },
+    {
+      "id": "mesh_0048",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part3_t7_linoleum_floor_tile_grout/zm_prototype_part3_t7_linoleum_floor_tile_grout"
+    },
+    {
+      "id": "mesh_0049",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part3_t7_metal_chainlink_worn/zm_prototype_part3_t7_metal_chainlink_worn"
+    },
+    {
+      "id": "mesh_0050",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part3_t7_metal_handrail_pipe/zm_prototype_part3_t7_metal_handrail_pipe"
+    },
+    {
+      "id": "mesh_0051",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part3_t7_metal_handrail_tile/zm_prototype_part3_t7_metal_handrail_tile"
+    },
+    {
+      "id": "mesh_0052",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part3_t7_metal_rust_ceiling_01/zm_prototype_part3_t7_metal_rust_ceiling_01"
+    },
+    {
+      "id": "mesh_0053",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part3_t7_metal_trim_worn_iron_black/zm_prototype_part3_t7_metal_trim_worn_iron_black"
+    },
+    {
+      "id": "mesh_0054",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part3_t7_metal_trim_worn_iron_dark/zm_prototype_part3_t7_metal_trim_worn_iron_dark"
+    },
+    {
+      "id": "mesh_0055",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part3_t7_metal_worn_iron_dark/zm_prototype_part3_t7_metal_worn_iron_dark"
+    },
+    {
+      "id": "mesh_0056",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part3_t7_mud_ground_dirt_wet_01/zm_prototype_part3_t7_mud_ground_dirt_wet_01"
+    },
+    {
+      "id": "mesh_0057",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part3_t7_mud_sludge_wet_03/zm_prototype_part3_t7_mud_sludge_wet_03"
+    },
+    {
+      "id": "mesh_0058",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part3_t7_plaster_paint_peel/zm_prototype_part3_t7_plaster_paint_peel"
+    },
+    {
+      "id": "mesh_0059",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part3_t7_plastic_wire_black/zm_prototype_part3_t7_plastic_wire_black"
+    },
+    {
+      "id": "mesh_0060",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part3_t7_rock_cliff_desert_red_prologue/zm_prototype_part3_t7_rock_cliff_desert_red_prologue"
+    },
+    {
+      "id": "mesh_0061",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part3_t7_rock_sand_crest_01/zm_prototype_part3_t7_rock_sand_crest_01"
+    },
+    {
+      "id": "mesh_0062",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part3_t7_rubble_concrete_sm/zm_prototype_part3_t7_rubble_concrete_sm"
+    },
+    {
+      "id": "mesh_0063",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part3_t7_rubble_concrete_sm_blend/zm_prototype_part3_t7_rubble_concrete_sm_blend"
+    },
+    {
+      "id": "mesh_0064",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part3_t7_rubble_dirt_01/zm_prototype_part3_t7_rubble_dirt_01"
+    },
+    {
+      "id": "mesh_0065",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part3_t7_sky_rubber_flat_dlc1/zm_prototype_part3_t7_sky_rubber_flat_dlc1"
+    },
+    {
+      "id": "mesh_0066",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part3_t7_stone_jagged/zm_prototype_part3_t7_stone_jagged"
+    },
+    {
+      "id": "mesh_0067",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part4_t7_water_cp_bio_muddy_waterfall/zm_prototype_part4_t7_water_cp_bio_muddy_waterfall"
+    },
+    {
+      "id": "mesh_0068",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part4_t7_wood_beam_worn_oak_bleached/zm_prototype_part4_t7_wood_beam_worn_oak_bleached"
+    },
+    {
+      "id": "mesh_0069",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part4_t7_wood_beam_worn_oak_bleached_dark/zm_prototype_part4_t7_wood_beam_worn_oak_bleached_dark"
+    },
+    {
+      "id": "mesh_0070",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part4_t7_wood_panel_worn_brown/zm_prototype_part4_t7_wood_panel_worn_brown"
+    },
+    {
+      "id": "mesh_0071",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part4_t7_wood_planks_splintered_drk/zm_prototype_part4_t7_wood_planks_splintered_drk"
+    },
+    {
+      "id": "mesh_0072",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part4_t7_wood_planks_weathered_teak/zm_prototype_part4_t7_wood_planks_weathered_teak"
+    },
+    {
+      "id": "mesh_0073",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part4_t7_zm_chalk_buy_arak/zm_prototype_part4_t7_zm_chalk_buy_arak"
+    },
+    {
+      "id": "mesh_0074",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part4_t7_zm_chalk_buy_argus/zm_prototype_part4_t7_zm_chalk_buy_argus"
+    },
+    {
+      "id": "mesh_0075",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part4_t7_zm_chalk_buy_frag/zm_prototype_part4_t7_zm_chalk_buy_frag"
+    },
+    {
+      "id": "mesh_0076",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part4_t7_zm_chalk_buy_krm/zm_prototype_part4_t7_zm_chalk_buy_krm"
+    },
+    {
+      "id": "mesh_0077",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part4_t7_zm_chalk_buy_kuda/zm_prototype_part4_t7_zm_chalk_buy_kuda"
+    },
+    {
+      "id": "mesh_0078",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part4_t7_zm_chalk_buy_locus_decal/zm_prototype_part4_t7_zm_chalk_buy_locus_decal"
+    },
+    {
+      "id": "mesh_0079",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part4_t7_zm_chalk_buy_pharaoh/zm_prototype_part4_t7_zm_chalk_buy_pharaoh"
+    },
+    {
+      "id": "mesh_0080",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part4_t7_zm_chalk_buy_shiva/zm_prototype_part4_t7_zm_chalk_buy_shiva"
+    },
+    {
+      "id": "mesh_0081",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part4_t7_zm_chalk_buy_triton/zm_prototype_part4_t7_zm_chalk_buy_triton"
+    },
+    {
+      "id": "mesh_0082",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part4_t7_zm_ctl_wood_plank_wide_01/zm_prototype_part4_t7_zm_ctl_wood_plank_wide_01"
+    },
+    {
+      "id": "mesh_0083",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part4_t7_zm_der_chalk_unknown/zm_prototype_part4_t7_zm_der_chalk_unknown"
+    },
+    {
+      "id": "mesh_0084",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part4_t7_zm_gen_decal_damage_crack_line/zm_prototype_part4_t7_zm_gen_decal_damage_crack_line"
+    },
+    {
+      "id": "mesh_0085",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part4_t7_zm_nac_chalk_ascend/zm_prototype_part4_t7_zm_nac_chalk_ascend"
+    },
+    {
+      "id": "mesh_0086",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part4_t7_zm_nac_chalk_salvation/zm_prototype_part4_t7_zm_nac_chalk_salvation"
+    },
+    {
+      "id": "mesh_0087",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/Normal_mesh/zm_prototype_part4_t7_zm_ori_rubble_concrete_01/zm_prototype_part4_t7_zm_ori_rubble_concrete_01"
+    },
+    {
+      "id": "mesh_0088",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_drips_01/zm_prototype_part1_1_t7_decal_blood_drips_01"
+    },
+    {
+      "id": "mesh_0089",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_drips_01_001/zm_prototype_part1_1_t7_decal_blood_drips_01_001"
+    },
+    {
+      "id": "mesh_0090",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_drips_01_002/zm_prototype_part1_1_t7_decal_blood_drips_01_002"
+    },
+    {
+      "id": "mesh_0091",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_drips_01_003/zm_prototype_part1_1_t7_decal_blood_drips_01_003"
+    },
+    {
+      "id": "mesh_0092",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_footprints/zm_prototype_part1_1_t7_decal_blood_footprints"
+    },
+    {
+      "id": "mesh_0093",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_footprints_001/zm_prototype_part1_1_t7_decal_blood_footprints_001"
+    },
+    {
+      "id": "mesh_0094",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_footprints_002/zm_prototype_part1_1_t7_decal_blood_footprints_002"
+    },
+    {
+      "id": "mesh_0095",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_footprints_003/zm_prototype_part1_1_t7_decal_blood_footprints_003"
+    },
+    {
+      "id": "mesh_0096",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_hand_03/zm_prototype_part1_1_t7_decal_blood_hand_03"
+    },
+    {
+      "id": "mesh_0097",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_hand_03_001/zm_prototype_part1_1_t7_decal_blood_hand_03_001"
+    },
+    {
+      "id": "mesh_0098",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_hand_03_002/zm_prototype_part1_1_t7_decal_blood_hand_03_002"
+    },
+    {
+      "id": "mesh_0099",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_hand_03_003/zm_prototype_part1_1_t7_decal_blood_hand_03_003"
+    },
+    {
+      "id": "mesh_0100",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_hand_03_004/zm_prototype_part1_1_t7_decal_blood_hand_03_004"
+    },
+    {
+      "id": "mesh_0101",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_hand_03_005/zm_prototype_part1_1_t7_decal_blood_hand_03_005"
+    },
+    {
+      "id": "mesh_0102",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_hand_03_006/zm_prototype_part1_1_t7_decal_blood_hand_03_006"
+    },
+    {
+      "id": "mesh_0103",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_hand_03_007/zm_prototype_part1_1_t7_decal_blood_hand_03_007"
+    },
+    {
+      "id": "mesh_0104",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_hand_03_008/zm_prototype_part1_1_t7_decal_blood_hand_03_008"
+    },
+    {
+      "id": "mesh_0105",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_hand_03_009/zm_prototype_part1_1_t7_decal_blood_hand_03_009"
+    },
+    {
+      "id": "mesh_0106",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_hand_03_010/zm_prototype_part1_1_t7_decal_blood_hand_03_010"
+    },
+    {
+      "id": "mesh_0107",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_hand_03_011/zm_prototype_part1_1_t7_decal_blood_hand_03_011"
+    },
+    {
+      "id": "mesh_0108",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_hand_03_012/zm_prototype_part1_1_t7_decal_blood_hand_03_012"
+    },
+    {
+      "id": "mesh_0109",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_hand_05/zm_prototype_part1_1_t7_decal_blood_hand_05"
+    },
+    {
+      "id": "mesh_0110",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_hand_05_001/zm_prototype_part1_1_t7_decal_blood_hand_05_001"
+    },
+    {
+      "id": "mesh_0111",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_hand_05_002/zm_prototype_part1_1_t7_decal_blood_hand_05_002"
+    },
+    {
+      "id": "mesh_0112",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_hand_05_003/zm_prototype_part1_1_t7_decal_blood_hand_05_003"
+    },
+    {
+      "id": "mesh_0113",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_hand_05_004/zm_prototype_part1_1_t7_decal_blood_hand_05_004"
+    },
+    {
+      "id": "mesh_0114",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_hand_05_005/zm_prototype_part1_1_t7_decal_blood_hand_05_005"
+    },
+    {
+      "id": "mesh_0115",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_hand_05_006/zm_prototype_part1_1_t7_decal_blood_hand_05_006"
+    },
+    {
+      "id": "mesh_0116",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_hand_05_007/zm_prototype_part1_1_t7_decal_blood_hand_05_007"
+    },
+    {
+      "id": "mesh_0117",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_hand_05_008/zm_prototype_part1_1_t7_decal_blood_hand_05_008"
+    },
+    {
+      "id": "mesh_0118",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_hand_05_009/zm_prototype_part1_1_t7_decal_blood_hand_05_009"
+    },
+    {
+      "id": "mesh_0119",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_hand_05_010/zm_prototype_part1_1_t7_decal_blood_hand_05_010"
+    },
+    {
+      "id": "mesh_0120",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_hand_05_011/zm_prototype_part1_1_t7_decal_blood_hand_05_011"
+    },
+    {
+      "id": "mesh_0121",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_hand_05_012/zm_prototype_part1_1_t7_decal_blood_hand_05_012"
+    },
+    {
+      "id": "mesh_0122",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_pool_01/zm_prototype_part1_1_t7_decal_blood_pool_01"
+    },
+    {
+      "id": "mesh_0123",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_pool_01_001/zm_prototype_part1_1_t7_decal_blood_pool_01_001"
+    },
+    {
+      "id": "mesh_0124",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_smear_01/zm_prototype_part1_1_t7_decal_blood_smear_01"
+    },
+    {
+      "id": "mesh_0125",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_spray_01/zm_prototype_part1_1_t7_decal_blood_spray_01"
+    },
+    {
+      "id": "mesh_0126",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_spray_01_001/zm_prototype_part1_1_t7_decal_blood_spray_01_001"
+    },
+    {
+      "id": "mesh_0127",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_spray_01_002/zm_prototype_part1_1_t7_decal_blood_spray_01_002"
+    },
+    {
+      "id": "mesh_0128",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_spray_01_003/zm_prototype_part1_1_t7_decal_blood_spray_01_003"
+    },
+    {
+      "id": "mesh_0129",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_spray_01_004/zm_prototype_part1_1_t7_decal_blood_spray_01_004"
+    },
+    {
+      "id": "mesh_0130",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_spray_01_005/zm_prototype_part1_1_t7_decal_blood_spray_01_005"
+    },
+    {
+      "id": "mesh_0131",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_spray_01_006/zm_prototype_part1_1_t7_decal_blood_spray_01_006"
+    },
+    {
+      "id": "mesh_0132",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_spray_01_007/zm_prototype_part1_1_t7_decal_blood_spray_01_007"
+    },
+    {
+      "id": "mesh_0133",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_spray_02/zm_prototype_part1_1_t7_decal_blood_spray_02"
+    },
+    {
+      "id": "mesh_0134",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_spray_02_001/zm_prototype_part1_1_t7_decal_blood_spray_02_001"
+    },
+    {
+      "id": "mesh_0135",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_spray_02_002/zm_prototype_part1_1_t7_decal_blood_spray_02_002"
+    },
+    {
+      "id": "mesh_0136",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/MAP_FILES/zm_prototype_part1_1_t7_decal_blood_spray_02_003/zm_prototype_part1_1_t7_decal_blood_spray_02_003"
+    },
+    {
+      "id": "mesh_0137",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Trees/p7_ban_foliage_tree_acacia_med/p7_ban_foliage_tree_acacia_med"
+    },
+    {
+      "id": "mesh_0138",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Trees/p7_foliage_tree_acacia_bush_sway/p7_foliage_tree_acacia_bush_sway"
+    },
+    {
+      "id": "mesh_0139",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Trees/p7_foliage_tree_birch_lrg_dead/p7_foliage_tree_birch_lrg_dead"
+    },
+    {
+      "id": "mesh_0140",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Trees/p7_foliage_tree_birch_med_dead/p7_foliage_tree_birch_med_dead"
+    },
+    {
+      "id": "mesh_0141",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Trees/p7_foliage_tree_birch_sml_dead/p7_foliage_tree_birch_sml_dead"
+    },
+    {
+      "id": "mesh_0142",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Trees/p7_foliage_tree_elm_english_dead_medium/p7_foliage_tree_elm_english_dead_medium"
+    },
+    {
+      "id": "mesh_0143",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Trees/p7_foliage_tree_elm_english_dead_tall/p7_foliage_tree_elm_english_dead_tall"
+    },
+    {
+      "id": "mesh_0144",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Trees/p7_foliage_tree_elm_english_dead_tall_background/p7_foliage_tree_elm_english_dead_tall_background"
+    },
+    {
+      "id": "mesh_0145",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Trees/p7_foliage_tree_pine_01_vista/p7_foliage_tree_pine_01_vista"
+    },
+    {
+      "id": "mesh_0146",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Trees/p7_foliage_tree_pine_02_vista/p7_foliage_tree_pine_02_vista"
+    },
+    {
+      "id": "mesh_0147",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Trees/p7_foliage_tree_pine_03_vista/p7_foliage_tree_pine_03_vista"
+    },
+    {
+      "id": "mesh_0148",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Trees/p7_foliage_tree_ponderosa_pine_broken_01/p7_foliage_tree_ponderosa_pine_broken_01"
+    },
+    {
+      "id": "mesh_0149",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Trees/p7_foliage_tree_ponderosa_pine_broken_04_log/p7_foliage_tree_ponderosa_pine_broken_04_log"
+    },
+    {
+      "id": "mesh_0150",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Trees/p7_foliage_tree_ponderosa_pine_burnt_01/p7_foliage_tree_ponderosa_pine_burnt_01"
+    },
+    {
+      "id": "mesh_0151",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Trees/p7_foliage_tree_ponderosa_pine_tall_vista_01/p7_foliage_tree_ponderosa_pine_tall_vista_01"
+    },
+    {
+      "id": "mesh_0152",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Trees/p7_foliage_tree_roots_set_01a/p7_foliage_tree_roots_set_01a"
+    },
+    {
+      "id": "mesh_0153",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/Trees/p7_foliage_tree_roots_set_01b/p7_foliage_tree_roots_set_01b"
+    },
+    {
+      "id": "mesh_0154",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/c_ger_winter_soldier_1_helm/c_ger_winter_soldier_1_helm"
+    },
+    {
+      "id": "mesh_0155",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p6_la_scattered_rubble/p6_la_scattered_rubble"
+    },
+    {
+      "id": "mesh_0156",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_anim_ven_gate_chainlink_01_left/p7_anim_ven_gate_chainlink_01_left"
+    },
+    {
+      "id": "mesh_0157",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_anim_ven_gate_chainlink_01_right/p7_anim_ven_gate_chainlink_01_right"
+    },
+    {
+      "id": "mesh_0158",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_ban_rock_cave_flat_large_02/p7_ban_rock_cave_flat_large_02"
+    },
+    {
+      "id": "mesh_0159",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_barbed_wire/p7_barbed_wire"
+    },
+    {
+      "id": "mesh_0160",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_barbed_wire_b_flat/p7_barbed_wire_b_flat"
+    },
+    {
+      "id": "mesh_0161",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_barbed_wire_vista/p7_barbed_wire_vista"
+    },
+    {
+      "id": "mesh_0162",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_barrel_metal_55gal/p7_barrel_metal_55gal"
+    },
+    {
+      "id": "mesh_0163",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_barrel_metal_55gal_lid/p7_barrel_metal_55gal_lid"
+    },
+    {
+      "id": "mesh_0164",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_barrier_block_concrete_worn_1/p7_barrier_block_concrete_worn_1"
+    },
+    {
+      "id": "mesh_0165",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_bottle_glass_wine_broken_01/p7_bottle_glass_wine_broken_01"
+    },
+    {
+      "id": "mesh_0166",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_bullet_shell_casing_pile_556_02/p7_bullet_shell_casing_pile_556_02"
+    },
+    {
+      "id": "mesh_0167",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_bullet_shell_casing_pile_556_04/p7_bullet_shell_casing_pile_556_04"
+    },
+    {
+      "id": "mesh_0168",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_cai_rock_entry_03/p7_cai_rock_entry_03"
+    },
+    {
+      "id": "mesh_0169",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_can_metal_01/p7_can_metal_01"
+    },
+    {
+      "id": "mesh_0170",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_cinder_block/p7_cinder_block"
+    },
+    {
+      "id": "mesh_0171",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_cloth_drape_06_torn_beige/p7_cloth_drape_06_torn_beige"
+    },
+    {
+      "id": "mesh_0172",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_concrete_pillar_bent_02/p7_concrete_pillar_bent_02"
+    },
+    {
+      "id": "mesh_0173",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_concrete_pillar_block_01/p7_concrete_pillar_block_01"
+    },
+    {
+      "id": "mesh_0174",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_concrete_pillar_block_03/p7_concrete_pillar_block_03"
+    },
+    {
+      "id": "mesh_0175",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_metal_1_coupling_ribbed/p7_conduit_metal_1_coupling_ribbed"
+    },
+    {
+      "id": "mesh_0176",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_metal_2_coupling_screw/p7_conduit_metal_2_coupling_screw"
+    },
+    {
+      "id": "mesh_0177",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_1_body_joint_ll/p7_conduit_rust_1_body_joint_ll"
+    },
+    {
+      "id": "mesh_0178",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_1_body_joint_lr/p7_conduit_rust_1_body_joint_lr"
+    },
+    {
+      "id": "mesh_0179",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_1_body_joint_t/p7_conduit_rust_1_body_joint_t"
+    },
+    {
+      "id": "mesh_0180",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_1_coupling_bare/p7_conduit_rust_1_coupling_bare"
+    },
+    {
+      "id": "mesh_0181",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_1_coupling_ribbed/p7_conduit_rust_1_coupling_ribbed"
+    },
+    {
+      "id": "mesh_0182",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_1_elbow45_long/p7_conduit_rust_1_elbow45_long"
+    },
+    {
+      "id": "mesh_0183",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_1_elbow45_short/p7_conduit_rust_1_elbow45_short"
+    },
+    {
+      "id": "mesh_0184",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_1_elbow90_long/p7_conduit_rust_1_elbow90_long"
+    },
+    {
+      "id": "mesh_0185",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_1_elbow90_short/p7_conduit_rust_1_elbow90_short"
+    },
+    {
+      "id": "mesh_0186",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_1_outlet_plug_box/p7_conduit_rust_1_outlet_plug_box"
+    },
+    {
+      "id": "mesh_0187",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_1_straight_128/p7_conduit_rust_1_straight_128"
+    },
+    {
+      "id": "mesh_0188",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_1_straight_16/p7_conduit_rust_1_straight_16"
+    },
+    {
+      "id": "mesh_0189",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_1_straight_32/p7_conduit_rust_1_straight_32"
+    },
+    {
+      "id": "mesh_0190",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_1_straight_4/p7_conduit_rust_1_straight_4"
+    },
+    {
+      "id": "mesh_0191",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_1_straight_64/p7_conduit_rust_1_straight_64"
+    },
+    {
+      "id": "mesh_0192",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_1_straight_8/p7_conduit_rust_1_straight_8"
+    },
+    {
+      "id": "mesh_0193",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_1_strap_med/p7_conduit_rust_1_strap_med"
+    },
+    {
+      "id": "mesh_0194",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_1_union/p7_conduit_rust_1_union"
+    },
+    {
+      "id": "mesh_0195",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_2_body_joint_c/p7_conduit_rust_2_body_joint_c"
+    },
+    {
+      "id": "mesh_0196",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_2_body_joint_ll/p7_conduit_rust_2_body_joint_ll"
+    },
+    {
+      "id": "mesh_0197",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_2_body_joint_lr/p7_conduit_rust_2_body_joint_lr"
+    },
+    {
+      "id": "mesh_0198",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_2_body_joint_t/p7_conduit_rust_2_body_joint_t"
+    },
+    {
+      "id": "mesh_0199",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_2_coupling_ribbed/p7_conduit_rust_2_coupling_ribbed"
+    },
+    {
+      "id": "mesh_0200",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_2_coupling_screw/p7_conduit_rust_2_coupling_screw"
+    },
+    {
+      "id": "mesh_0201",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_2_elbow45_long/p7_conduit_rust_2_elbow45_long"
+    },
+    {
+      "id": "mesh_0202",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_2_elbow45_short/p7_conduit_rust_2_elbow45_short"
+    },
+    {
+      "id": "mesh_0203",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_2_elbow90_long/p7_conduit_rust_2_elbow90_long"
+    },
+    {
+      "id": "mesh_0204",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_2_elbow90_short/p7_conduit_rust_2_elbow90_short"
+    },
+    {
+      "id": "mesh_0205",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_2_straight_128/p7_conduit_rust_2_straight_128"
+    },
+    {
+      "id": "mesh_0206",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_2_straight_16/p7_conduit_rust_2_straight_16"
+    },
+    {
+      "id": "mesh_0207",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_2_straight_32/p7_conduit_rust_2_straight_32"
+    },
+    {
+      "id": "mesh_0208",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_2_straight_4/p7_conduit_rust_2_straight_4"
+    },
+    {
+      "id": "mesh_0209",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_2_straight_64/p7_conduit_rust_2_straight_64"
+    },
+    {
+      "id": "mesh_0210",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_2_straight_8/p7_conduit_rust_2_straight_8"
+    },
+    {
+      "id": "mesh_0211",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_2_strap_lrg/p7_conduit_rust_2_strap_lrg"
+    },
+    {
+      "id": "mesh_0212",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_2_strap_med/p7_conduit_rust_2_strap_med"
+    },
+    {
+      "id": "mesh_0213",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_2_strap_sml/p7_conduit_rust_2_strap_sml"
+    },
+    {
+      "id": "mesh_0214",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_conduit_rust_2_union/p7_conduit_rust_2_union"
+    },
+    {
+      "id": "mesh_0215",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_container_bottle_wine_01/p7_container_bottle_wine_01"
+    },
+    {
+      "id": "mesh_0216",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_corrugated_sheet_metal_rust_dmg_01/p7_corrugated_sheet_metal_rust_dmg_01"
+    },
+    {
+      "id": "mesh_0217",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_corrugated_sheet_metal_rust_dmg_02/p7_corrugated_sheet_metal_rust_dmg_02"
+    },
+    {
+      "id": "mesh_0218",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_crane_gantry_hangar_strap/p7_crane_gantry_hangar_strap"
+    },
+    {
+      "id": "mesh_0219",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_crate_ammo_metal/p7_crate_ammo_metal"
+    },
+    {
+      "id": "mesh_0220",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_crate_wood_01/p7_crate_wood_01"
+    },
+    {
+      "id": "mesh_0221",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_crate_wood_02_iron_cross/p7_crate_wood_02_iron_cross"
+    },
+    {
+      "id": "mesh_0222",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_crate_wood_02_iron_cross_long/p7_crate_wood_02_iron_cross_long"
+    },
+    {
+      "id": "mesh_0223",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_crate_wood_02_lid/p7_crate_wood_02_lid"
+    },
+    {
+      "id": "mesh_0224",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_cup_coffee_mug_01_grey/p7_cup_coffee_mug_01_grey"
+    },
+    {
+      "id": "mesh_0225",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_asphalt_chunks_sm_09/p7_debris_asphalt_chunks_sm_09"
+    },
+    {
+      "id": "mesh_0226",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_concrete_rubble_lg_01/p7_debris_concrete_rubble_lg_01"
+    },
+    {
+      "id": "mesh_0227",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_concrete_rubble_lg_01_no_metal_flat/p7_debris_concrete_rubble_lg_01_no_metal_flat"
+    },
+    {
+      "id": "mesh_0228",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_concrete_rubble_lg_02/p7_debris_concrete_rubble_lg_02"
+    },
+    {
+      "id": "mesh_0229",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_concrete_rubble_lg_02_no_metal_small/p7_debris_concrete_rubble_lg_02_no_metal_small"
+    },
+    {
+      "id": "mesh_0230",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_concrete_rubble_lg_03/p7_debris_concrete_rubble_lg_03"
+    },
+    {
+      "id": "mesh_0231",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_concrete_rubble_lg_03_no_metal_flat/p7_debris_concrete_rubble_lg_03_no_metal_flat"
+    },
+    {
+      "id": "mesh_0232",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_concrete_rubble_lg_03_no_metal_flat_edge_01/p7_debris_concrete_rubble_lg_03_no_metal_flat_edge_01"
+    },
+    {
+      "id": "mesh_0233",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_concrete_rubble_lg_03_no_metal_flat_edge_02/p7_debris_concrete_rubble_lg_03_no_metal_flat_edge_02"
+    },
+    {
+      "id": "mesh_0234",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_concrete_rubble_lg_03_no_metal_flat_edge_03/p7_debris_concrete_rubble_lg_03_no_metal_flat_edge_03"
+    },
+    {
+      "id": "mesh_0235",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_concrete_rubble_med_01/p7_debris_concrete_rubble_med_01"
+    },
+    {
+      "id": "mesh_0236",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_concrete_rubble_med_02/p7_debris_concrete_rubble_med_02"
+    },
+    {
+      "id": "mesh_0237",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_concrete_rubble_med_03/p7_debris_concrete_rubble_med_03"
+    },
+    {
+      "id": "mesh_0238",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_concrete_rubble_med_04/p7_debris_concrete_rubble_med_04"
+    },
+    {
+      "id": "mesh_0239",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_concrete_rubble_med_04_no_metal/p7_debris_concrete_rubble_med_04_no_metal"
+    },
+    {
+      "id": "mesh_0240",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_concrete_rubble_med_05/p7_debris_concrete_rubble_med_05"
+    },
+    {
+      "id": "mesh_0241",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_concrete_rubble_med_06/p7_debris_concrete_rubble_med_06"
+    },
+    {
+      "id": "mesh_0242",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_concrete_rubble_med_06_no_metal/p7_debris_concrete_rubble_med_06_no_metal"
+    },
+    {
+      "id": "mesh_0243",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_concrete_rubble_med_08/p7_debris_concrete_rubble_med_08"
+    },
+    {
+      "id": "mesh_0244",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_concrete_rubble_med_10_no_metal/p7_debris_concrete_rubble_med_10_no_metal"
+    },
+    {
+      "id": "mesh_0245",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_concrete_rubble_med_11_no_metal/p7_debris_concrete_rubble_med_11_no_metal"
+    },
+    {
+      "id": "mesh_0246",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_concrete_rubble_pile_01/p7_debris_concrete_rubble_pile_01"
+    },
+    {
+      "id": "mesh_0247",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_concrete_rubble_scattered_01/p7_debris_concrete_rubble_scattered_01"
+    },
+    {
+      "id": "mesh_0248",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_concrete_rubble_slab_02/p7_debris_concrete_rubble_slab_02"
+    },
+    {
+      "id": "mesh_0249",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_concrete_rubble_slab_03/p7_debris_concrete_rubble_slab_03"
+    },
+    {
+      "id": "mesh_0250",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_concrete_rubble_sm_02/p7_debris_concrete_rubble_sm_02"
+    },
+    {
+      "id": "mesh_0251",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_concrete_rubble_sm_02_snow/p7_debris_concrete_rubble_sm_02_snow"
+    },
+    {
+      "id": "mesh_0252",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_concrete_rubble_sm_07/p7_debris_concrete_rubble_sm_07"
+    },
+    {
+      "id": "mesh_0253",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_concrete_rubble_sm_16/p7_debris_concrete_rubble_sm_16"
+    },
+    {
+      "id": "mesh_0254",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_drywall_chunks_edge_01/p7_debris_drywall_chunks_edge_01"
+    },
+    {
+      "id": "mesh_0255",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_glass_shards_04/p7_debris_glass_shards_04"
+    },
+    {
+      "id": "mesh_0256",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_rocks_loose_01/p7_debris_rocks_loose_01"
+    },
+    {
+      "id": "mesh_0257",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_rocks_loose_02/p7_debris_rocks_loose_02"
+    },
+    {
+      "id": "mesh_0258",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_rockychunks_small_07/p7_debris_rockychunks_small_07"
+    },
+    {
+      "id": "mesh_0259",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_rockychunks_small_09_snow/p7_debris_rockychunks_small_09_snow"
+    },
+    {
+      "id": "mesh_0260",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_wood_board_2pc_2x4x128_rt_burn_02/p7_debris_wood_board_2pc_2x4x128_rt_burn_02"
+    },
+    {
+      "id": "mesh_0261",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_wood_board_2pc_2x8x128_rt_burn_02/p7_debris_wood_board_2pc_2x8x128_rt_burn_02"
+    },
+    {
+      "id": "mesh_0262",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_wood_board_2pc_4x4x128_rt_burn/p7_debris_wood_board_2pc_4x4x128_rt_burn"
+    },
+    {
+      "id": "mesh_0263",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_wood_board_cluster_burn_03/p7_debris_wood_board_cluster_burn_03"
+    },
+    {
+      "id": "mesh_0264",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_wood_plank_old_32_darker_tint_grn/p7_debris_wood_plank_old_32_darker_tint_grn"
+    },
+    {
+      "id": "mesh_0265",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_debris_wood_plank_old_96/p7_debris_wood_plank_old_96"
+    },
+    {
+      "id": "mesh_0266",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_electrical_box_set2_box01/p7_electrical_box_set2_box01"
+    },
+    {
+      "id": "mesh_0267",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_electrical_box_set2_box05/p7_electrical_box_set2_box05"
+    },
+    {
+      "id": "mesh_0268",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_electrical_box_set2_meter05/p7_electrical_box_set2_meter05"
+    },
+    {
+      "id": "mesh_0269",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_electrical_box_set2_meter06/p7_electrical_box_set2_meter06"
+    },
+    {
+      "id": "mesh_0270",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_electrical_box_set2_meter07/p7_electrical_box_set2_meter07"
+    },
+    {
+      "id": "mesh_0271",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_electrical_box_set2_meter08/p7_electrical_box_set2_meter08"
+    },
+    {
+      "id": "mesh_0272",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_electrical_box_set2_meter09/p7_electrical_box_set2_meter09"
+    },
+    {
+      "id": "mesh_0273",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_electrical_box_set2_meter10/p7_electrical_box_set2_meter10"
+    },
+    {
+      "id": "mesh_0274",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_eth_rock_cluster_03/p7_eth_rock_cluster_03"
+    },
+    {
+      "id": "mesh_0275",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_eth_rock_large_02/p7_eth_rock_large_02"
+    },
+    {
+      "id": "mesh_0276",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_file_cab_metal_02/p7_file_cab_metal_02"
+    },
+    {
+      "id": "mesh_0277",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_file_cab_metal_02_drawer_01_rusty/p7_file_cab_metal_02_drawer_01_rusty"
+    },
+    {
+      "id": "mesh_0278",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_file_cab_metal_02_drawer_02_rusty/p7_file_cab_metal_02_drawer_02_rusty"
+    },
+    {
+      "id": "mesh_0279",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_file_cab_metal_02_rusty/p7_file_cab_metal_02_rusty"
+    },
+    {
+      "id": "mesh_0280",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_file_cab_metal_02_shell/p7_file_cab_metal_02_shell"
+    },
+    {
+      "id": "mesh_0281",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_file_cab_metal_02_shell_rusty/p7_file_cab_metal_02_shell_rusty"
+    },
+    {
+      "id": "mesh_0282",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_foliage_bush_02_dead/p7_foliage_bush_02_dead"
+    },
+    {
+      "id": "mesh_0283",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_foliage_bush_03_dead/p7_foliage_bush_03_dead"
+    },
+    {
+      "id": "mesh_0284",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_foliage_grass_dry_01/p7_foliage_grass_dry_01"
+    },
+    {
+      "id": "mesh_0285",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_foliage_grass_dry_02/p7_foliage_grass_dry_02"
+    },
+    {
+      "id": "mesh_0286",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_foliage_grass_dry_05/p7_foliage_grass_dry_05"
+    },
+    {
+      "id": "mesh_0287",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_foliage_grass_dry_06/p7_foliage_grass_dry_06"
+    },
+    {
+      "id": "mesh_0288",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_foliage_grass_tall_cluster_lrg_dry/p7_foliage_grass_tall_cluster_lrg_dry"
+    },
+    {
+      "id": "mesh_0289",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_foliage_grass_tall_cluster_sml_dry/p7_foliage_grass_tall_cluster_sml_dry"
+    },
+    {
+      "id": "mesh_0290",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_foliage_grass_tussock_green_2_dry_sway/p7_foliage_grass_tussock_green_2_dry_sway"
+    },
+    {
+      "id": "mesh_0291",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_foliage_plant_lillypad_bunch2_vibrant/p7_foliage_plant_lillypad_bunch2_vibrant"
+    },
+    {
+      "id": "mesh_0292",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_foliage_roots_hanging_01/p7_foliage_roots_hanging_01"
+    },
+    {
+      "id": "mesh_0293",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_gas_mask_can/p7_gas_mask_can"
+    },
+    {
+      "id": "mesh_0294",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_gasmask_german_01/p7_gasmask_german_01"
+    },
+    {
+      "id": "mesh_0295",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_glass_shard_chunk/p7_glass_shard_chunk"
+    },
+    {
+      "id": "mesh_0296",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_glass_shard_corner/p7_glass_shard_corner"
+    },
+    {
+      "id": "mesh_0297",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_glass_shard_sharp/p7_glass_shard_sharp"
+    },
+    {
+      "id": "mesh_0298",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_grenade_potato_masher/p7_grenade_potato_masher"
+    },
+    {
+      "id": "mesh_0299",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_handrail_joint_corner_weathered/p7_handrail_joint_corner_weathered"
+    },
+    {
+      "id": "mesh_0300",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_handrail_joint_end_weathered/p7_handrail_joint_end_weathered"
+    },
+    {
+      "id": "mesh_0301",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_handrail_joint_middle_weathered/p7_handrail_joint_middle_weathered"
+    },
+    {
+      "id": "mesh_0302",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_handrail_post_corner_weathered/p7_handrail_post_corner_weathered"
+    },
+    {
+      "id": "mesh_0303",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_handrail_post_end_weathered/p7_handrail_post_end_weathered"
+    },
+    {
+      "id": "mesh_0304",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_handrail_post_middle_weathered/p7_handrail_post_middle_weathered"
+    },
+    {
+      "id": "mesh_0305",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_hook_metal_shelf/p7_hook_metal_shelf"
+    },
+    {
+      "id": "mesh_0306",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_ibeam_bracket_32_thin_l_01/p7_ibeam_bracket_32_thin_l_01"
+    },
+    {
+      "id": "mesh_0307",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_ibeam_bracket_bolt/p7_ibeam_bracket_bolt"
+    },
+    {
+      "id": "mesh_0308",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_inf_foy_beginning_house_crate_01/p7_inf_foy_beginning_house_crate_01"
+    },
+    {
+      "id": "mesh_0309",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_inf_rock_boulder_medium_01/p7_inf_rock_boulder_medium_01"
+    },
+    {
+      "id": "mesh_0310",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_light_hurricane_lamp/p7_light_hurricane_lamp"
+    },
+    {
+      "id": "mesh_0311",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_log_wood_01/p7_log_wood_01"
+    },
+    {
+      "id": "mesh_0312",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_metal_bolt_bracket_top/p7_metal_bolt_bracket_top"
+    },
+    {
+      "id": "mesh_0313",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_metal_cut_panel_08/p7_metal_cut_panel_08"
+    },
+    {
+      "id": "mesh_0314",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_nut_and_bolt/p7_nut_and_bolt"
+    },
+    {
+      "id": "mesh_0315",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_pallet_wood_destroyed/p7_pallet_wood_destroyed"
+    },
+    {
+      "id": "mesh_0316",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_pole_telephone_whole/p7_pole_telephone_whole"
+    },
+    {
+      "id": "mesh_0317",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_rebar_patch_64x64_01/p7_rebar_patch_64x64_01"
+    },
+    {
+      "id": "mesh_0318",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_rebar_patch_64x64_02/p7_rebar_patch_64x64_02"
+    },
+    {
+      "id": "mesh_0319",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_rebar_single_01_bloody/p7_rebar_single_01_bloody"
+    },
+    {
+      "id": "mesh_0320",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_rebar_straight_32_01/p7_rebar_straight_32_01"
+    },
+    {
+      "id": "mesh_0321",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_rebar_straight_32_02/p7_rebar_straight_32_02"
+    },
+    {
+      "id": "mesh_0322",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_rope_pile/p7_rope_pile"
+    },
+    {
+      "id": "mesh_0323",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_sandbag_01/p7_sandbag_01"
+    },
+    {
+      "id": "mesh_0324",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_sandbag_02/p7_sandbag_02"
+    },
+    {
+      "id": "mesh_0325",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_sandbag_short/p7_sandbag_short"
+    },
+    {
+      "id": "mesh_0326",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_sandbag_stack_32_left/p7_sandbag_stack_32_left"
+    },
+    {
+      "id": "mesh_0327",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_sandbag_stack_32_right/p7_sandbag_stack_32_right"
+    },
+    {
+      "id": "mesh_0328",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_sandbag_stack_44_end/p7_sandbag_stack_44_end"
+    },
+    {
+      "id": "mesh_0329",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_sandbag_stack_44_middle/p7_sandbag_stack_44_middle"
+    },
+    {
+      "id": "mesh_0330",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_shelf_industrial_vintage_96/p7_shelf_industrial_vintage_96"
+    },
+    {
+      "id": "mesh_0331",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_sin_rock_park_01_large_a_grey/p7_sin_rock_park_01_large_a_grey"
+    },
+    {
+      "id": "mesh_0332",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_street_curb_concrete_chunk_00/p7_street_curb_concrete_chunk_00"
+    },
+    {
+      "id": "mesh_0333",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_street_curb_concrete_chunk_06_white/p7_street_curb_concrete_chunk_06_white"
+    },
+    {
+      "id": "mesh_0334",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_table_rectangle_wood_02/p7_table_rectangle_wood_02"
+    },
+    {
+      "id": "mesh_0335",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_tiedown_i_hook_metal_01/p7_tiedown_i_hook_metal_01"
+    },
+    {
+      "id": "mesh_0336",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_tire_rubber_worn_large/p7_tire_rubber_worn_large"
+    },
+    {
+      "id": "mesh_0337",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_tools_axe/p7_tools_axe"
+    },
+    {
+      "id": "mesh_0338",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_tools_bolt/p7_tools_bolt"
+    },
+    {
+      "id": "mesh_0339",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_ven_old_wood_bucket_01/p7_ven_old_wood_bucket_01"
+    },
+    {
+      "id": "mesh_0340",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_vld_rock_cliff_01/p7_vld_rock_cliff_01"
+    },
+    {
+      "id": "mesh_0341",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_window_glass_shard_09_no_col/p7_window_glass_shard_09_no_col"
+    },
+    {
+      "id": "mesh_0342",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_window_glass_shard_10_dark/p7_window_glass_shard_10_dark"
+    },
+    {
+      "id": "mesh_0343",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_ctl_ammo_flak_bullet_01/p7_zm_ctl_ammo_flak_bullet_01"
+    },
+    {
+      "id": "mesh_0344",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_ctl_ammo_flak_bullet_02/p7_zm_ctl_ammo_flak_bullet_02"
+    },
+    {
+      "id": "mesh_0345",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_ctl_ammo_flak_shell_lrg/p7_zm_ctl_ammo_flak_shell_lrg"
+    },
+    {
+      "id": "mesh_0346",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_ctl_ammo_flak_shell_sml/p7_zm_ctl_ammo_flak_shell_sml"
+    },
+    {
+      "id": "mesh_0347",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_ctl_case_ammo_vintage/p7_zm_ctl_case_ammo_vintage"
+    },
+    {
+      "id": "mesh_0348",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_ctl_case_ammo_vintage_rust/p7_zm_ctl_case_ammo_vintage_rust"
+    },
+    {
+      "id": "mesh_0349",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_ctl_case_medical_vintage/p7_zm_ctl_case_medical_vintage"
+    },
+    {
+      "id": "mesh_0350",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_ctl_crate_wood_02_long_lid_dmg_01/p7_zm_ctl_crate_wood_02_long_lid_dmg_01"
+    },
+    {
+      "id": "mesh_0351",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_ctl_crate_wood_02_long_lid_dmg_02/p7_zm_ctl_crate_wood_02_long_lid_dmg_02"
+    },
+    {
+      "id": "mesh_0352",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_ctl_debris_wood_plank_old_128/p7_zm_ctl_debris_wood_plank_old_128"
+    },
+    {
+      "id": "mesh_0353",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_ctl_debris_wood_plank_old_64/p7_zm_ctl_debris_wood_plank_old_64"
+    },
+    {
+      "id": "mesh_0354",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_ctl_debris_wood_plank_old_96/p7_zm_ctl_debris_wood_plank_old_96"
+    },
+    {
+      "id": "mesh_0355",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_ctl_hay_pile_crate_01_long_b/p7_zm_ctl_hay_pile_crate_01_long_b"
+    },
+    {
+      "id": "mesh_0356",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_ctl_hay_pile_floor_group_03/p7_zm_ctl_hay_pile_floor_group_03"
+    },
+    {
+      "id": "mesh_0357",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_ctl_jacket_hanging_locker/p7_zm_ctl_jacket_hanging_locker"
+    },
+    {
+      "id": "mesh_0358",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_ctl_light_cage_wall_dmg/p7_zm_ctl_light_cage_wall_dmg"
+    },
+    {
+      "id": "mesh_0359",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_ctl_railing_wood_01_rail_bttm_broken_short/p7_zm_ctl_railing_wood_01_rail_bttm_broken_short"
+    },
+    {
+      "id": "mesh_0360",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_ctl_rebar_01/p7_zm_ctl_rebar_01"
+    },
+    {
+      "id": "mesh_0361",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_ctl_street_signage_large_square_air_raid_shelter_01/p7_zm_ctl_street_signage_large_square_air_raid_shelter_01"
+    },
+    {
+      "id": "mesh_0362",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_ctl_street_signage_large_square_bent_shocking_hazards_01/p7_zm_ctl_street_signage_large_square_bent_shocking_hazards_01"
+    },
+    {
+      "id": "mesh_0363",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_ctl_street_signage_large_square_warning_explosives_01/p7_zm_ctl_street_signage_large_square_warning_explosives_01"
+    },
+    {
+      "id": "mesh_0364",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_ctl_street_signage_square_access_forbidden_01/p7_zm_ctl_street_signage_square_access_forbidden_01"
+    },
+    {
+      "id": "mesh_0365",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_ctl_toolbox_vintage/p7_zm_ctl_toolbox_vintage"
+    },
+    {
+      "id": "mesh_0366",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_ctl_wood_plank_wide_01_a_32_worn/p7_zm_ctl_wood_plank_wide_01_a_32_worn"
+    },
+    {
+      "id": "mesh_0367",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_debris_newspaper_german_01/p7_zm_debris_newspaper_german_01"
+    },
+    {
+      "id": "mesh_0368",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_debris_newspaper_german_02/p7_zm_debris_newspaper_german_02"
+    },
+    {
+      "id": "mesh_0369",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_debris_newspaper_german_03/p7_zm_debris_newspaper_german_03"
+    },
+    {
+      "id": "mesh_0370",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_debris_newspaper_german_04/p7_zm_debris_newspaper_german_04"
+    },
+    {
+      "id": "mesh_0371",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_debris_newspaper_german_05/p7_zm_debris_newspaper_german_05"
+    },
+    {
+      "id": "mesh_0372",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_debris_newspaper_german_06/p7_zm_debris_newspaper_german_06"
+    },
+    {
+      "id": "mesh_0373",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_der2_electrical_box_set2_box04/p7_zm_der2_electrical_box_set2_box04"
+    },
+    {
+      "id": "mesh_0374",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_der2_signage_hazard_01/p7_zm_der2_signage_hazard_01"
+    },
+    {
+      "id": "mesh_0375",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_der_chainlink_fence_metal_base/p7_zm_der_chainlink_fence_metal_base"
+    },
+    {
+      "id": "mesh_0376",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_der_chainlink_fence_post_cap/p7_zm_der_chainlink_fence_post_cap"
+    },
+    {
+      "id": "mesh_0377",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_der_chainlink_fence_rail_end/p7_zm_der_chainlink_fence_rail_end"
+    },
+    {
+      "id": "mesh_0378",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_der_chainlink_fence_tension_band/p7_zm_der_chainlink_fence_tension_band"
+    },
+    {
+      "id": "mesh_0379",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_der_door_metal_rusted_left/p7_zm_der_door_metal_rusted_left"
+    },
+    {
+      "id": "mesh_0380",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_der_generator_01/p7_zm_der_generator_01"
+    },
+    {
+      "id": "mesh_0381",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_der_light_cage_02/p7_zm_der_light_cage_02"
+    },
+    {
+      "id": "mesh_0382",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_der_light_shade/p7_zm_der_light_shade"
+    },
+    {
+      "id": "mesh_0383",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_der_light_wall_mount/p7_zm_der_light_wall_mount"
+    },
+    {
+      "id": "mesh_0384",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_der_magic_box_fake_trunk/p7_zm_der_magic_box_fake_trunk"
+    },
+    {
+      "id": "mesh_0385",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_der_pallet_wood_01/p7_zm_der_pallet_wood_01"
+    },
+    {
+      "id": "mesh_0386",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_der_radio_receiver/p7_zm_der_radio_receiver"
+    },
+    {
+      "id": "mesh_0387",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_der_rust_angle_plate_bolt/p7_zm_der_rust_angle_plate_bolt"
+    },
+    {
+      "id": "mesh_0388",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_der_signage_caution/p7_zm_der_signage_caution"
+    },
+    {
+      "id": "mesh_0389",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_der_signage_electrical_room/p7_zm_der_signage_electrical_room"
+    },
+    {
+      "id": "mesh_0390",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_der_signage_steps/p7_zm_der_signage_steps"
+    },
+    {
+      "id": "mesh_0391",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_gen_debris_concrete_rubble_lg_01_no_metal_flat/p7_zm_gen_debris_concrete_rubble_lg_01_no_metal_flat"
+    },
+    {
+      "id": "mesh_0392",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_gen_debris_concrete_rubble_lg_01_no_metal_flat_edge_01/p7_zm_gen_debris_concrete_rubble_lg_01_no_metal_flat_edge_01"
+    },
+    {
+      "id": "mesh_0393",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_gen_debris_concrete_rubble_lg_01_no_metal_flat_edge_02/p7_zm_gen_debris_concrete_rubble_lg_01_no_metal_flat_edge_02"
+    },
+    {
+      "id": "mesh_0394",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_gen_debris_concrete_rubble_lg_02/p7_zm_gen_debris_concrete_rubble_lg_02"
+    },
+    {
+      "id": "mesh_0395",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_gen_debris_concrete_rubble_lg_02_no_metal_flat/p7_zm_gen_debris_concrete_rubble_lg_02_no_metal_flat"
+    },
+    {
+      "id": "mesh_0396",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_gen_debris_concrete_rubble_lg_02_no_metal_flat_edge/p7_zm_gen_debris_concrete_rubble_lg_02_no_metal_flat_edge"
+    },
+    {
+      "id": "mesh_0397",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_gen_debris_concrete_rubble_lg_03/p7_zm_gen_debris_concrete_rubble_lg_03"
+    },
+    {
+      "id": "mesh_0398",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_gen_debris_concrete_rubble_lg_03_no_metal_flat/p7_zm_gen_debris_concrete_rubble_lg_03_no_metal_flat"
+    },
+    {
+      "id": "mesh_0399",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_gen_debris_concrete_rubble_lg_03_no_metal_flat_edge_01/p7_zm_gen_debris_concrete_rubble_lg_03_no_metal_flat_edge_01"
+    },
+    {
+      "id": "mesh_0400",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_gen_debris_concrete_rubble_lg_03_no_metal_flat_edge_02/p7_zm_gen_debris_concrete_rubble_lg_03_no_metal_flat_edge_02"
+    },
+    {
+      "id": "mesh_0401",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_gen_debris_concrete_rubble_lg_03_no_metal_flat_edge_03/p7_zm_gen_debris_concrete_rubble_lg_03_no_metal_flat_edge_03"
+    },
+    {
+      "id": "mesh_0402",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_gen_proto_column_concrete/p7_zm_gen_proto_column_concrete"
+    },
+    {
+      "id": "mesh_0403",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_gen_proto_column_concrete_arch/p7_zm_gen_proto_column_concrete_arch"
+    },
+    {
+      "id": "mesh_0404",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_gen_proto_column_concrete_arch_dmg_01/p7_zm_gen_proto_column_concrete_arch_dmg_01"
+    },
+    {
+      "id": "mesh_0405",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_gen_proto_column_concrete_arch_dmg_02/p7_zm_gen_proto_column_concrete_arch_dmg_02"
+    },
+    {
+      "id": "mesh_0406",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_gen_proto_column_concrete_arch_sm/p7_zm_gen_proto_column_concrete_arch_sm"
+    },
+    {
+      "id": "mesh_0407",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_gen_proto_column_concrete_dmg_01/p7_zm_gen_proto_column_concrete_dmg_01"
+    },
+    {
+      "id": "mesh_0408",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_gen_proto_column_concrete_dmg_02/p7_zm_gen_proto_column_concrete_dmg_02"
+    },
+    {
+      "id": "mesh_0409",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_gen_proto_column_concrete_dmg_03/p7_zm_gen_proto_column_concrete_dmg_03"
+    },
+    {
+      "id": "mesh_0410",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_gen_proto_column_concrete_dmg_04/p7_zm_gen_proto_column_concrete_dmg_04"
+    },
+    {
+      "id": "mesh_0411",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_gen_proto_column_concrete_dmg_05/p7_zm_gen_proto_column_concrete_dmg_05"
+    },
+    {
+      "id": "mesh_0412",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_gen_proto_column_concrete_rebar_01/p7_zm_gen_proto_column_concrete_rebar_01"
+    },
+    {
+      "id": "mesh_0413",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_gen_proto_column_concrete_rebar_02/p7_zm_gen_proto_column_concrete_rebar_02"
+    },
+    {
+      "id": "mesh_0414",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_gen_proto_column_concrete_rebar_03/p7_zm_gen_proto_column_concrete_rebar_03"
+    },
+    {
+      "id": "mesh_0415",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_gen_proto_column_concrete_sm/p7_zm_gen_proto_column_concrete_sm"
+    },
+    {
+      "id": "mesh_0416",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_gen_proto_doorframe_metal_double/p7_zm_gen_proto_doorframe_metal_double"
+    },
+    {
+      "id": "mesh_0417",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_gen_proto_doorframe_metal_single/p7_zm_gen_proto_doorframe_metal_single"
+    },
+    {
+      "id": "mesh_0418",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_gen_proto_doorframe_metal_single_wide/p7_zm_gen_proto_doorframe_metal_single_wide"
+    },
+    {
+      "id": "mesh_0419",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_gen_proto_windowframe_metal_01/p7_zm_gen_proto_windowframe_metal_01"
+    },
+    {
+      "id": "mesh_0420",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_gen_proto_windowframe_metal_02/p7_zm_gen_proto_windowframe_metal_02"
+    },
+    {
+      "id": "mesh_0421",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_gen_tile_stone_floor_large/p7_zm_gen_tile_stone_floor_large"
+    },
+    {
+      "id": "mesh_0422",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_gen_tile_stone_floor_large_broken_01/p7_zm_gen_tile_stone_floor_large_broken_01"
+    },
+    {
+      "id": "mesh_0423",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_gen_tile_stone_floor_large_broken_02/p7_zm_gen_tile_stone_floor_large_broken_02"
+    },
+    {
+      "id": "mesh_0424",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_gen_tile_stone_floor_large_broken_03/p7_zm_gen_tile_stone_floor_large_broken_03"
+    },
+    {
+      "id": "mesh_0425",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_gen_tile_stone_floor_large_broken_04/p7_zm_gen_tile_stone_floor_large_broken_04"
+    },
+    {
+      "id": "mesh_0426",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_gen_tile_stone_floor_large_broken_05/p7_zm_gen_tile_stone_floor_large_broken_05"
+    },
+    {
+      "id": "mesh_0427",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_isl_barbwire_fence_128/p7_zm_isl_barbwire_fence_128"
+    },
+    {
+      "id": "mesh_0428",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_isl_barbwire_fence_64/p7_zm_isl_barbwire_fence_64"
+    },
+    {
+      "id": "mesh_0429",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_isl_barbwire_fence_96/p7_zm_isl_barbwire_fence_96"
+    },
+    {
+      "id": "mesh_0430",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_isl_barbwire_fence_post/p7_zm_isl_barbwire_fence_post"
+    },
+    {
+      "id": "mesh_0431",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_isl_barricade_wood_plank_02/p7_zm_isl_barricade_wood_plank_02"
+    },
+    {
+      "id": "mesh_0432",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_isl_barricade_wood_plank_03/p7_zm_isl_barricade_wood_plank_03"
+    },
+    {
+      "id": "mesh_0433",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_isl_foliage_grass_dry_03/p7_zm_isl_foliage_grass_dry_03"
+    },
+    {
+      "id": "mesh_0434",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_isl_pipe_hp_12_brace_lrg_1_rust/p7_zm_isl_pipe_hp_12_brace_lrg_1_rust"
+    },
+    {
+      "id": "mesh_0435",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_isl_pipe_hp_12_flange_rust/p7_zm_isl_pipe_hp_12_flange_rust"
+    },
+    {
+      "id": "mesh_0436",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_isl_pipe_hp_4_brace_lrg_1_rust/p7_zm_isl_pipe_hp_4_brace_lrg_1_rust"
+    },
+    {
+      "id": "mesh_0437",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_isl_pipe_hp_4_brace_lrg_2_rust/p7_zm_isl_pipe_hp_4_brace_lrg_2_rust"
+    },
+    {
+      "id": "mesh_0438",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_isl_pipe_hp_4_brace_lrg_3_rust/p7_zm_isl_pipe_hp_4_brace_lrg_3_rust"
+    },
+    {
+      "id": "mesh_0439",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_isl_pipe_hp_4_coupling_rust/p7_zm_isl_pipe_hp_4_coupling_rust"
+    },
+    {
+      "id": "mesh_0440",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_isl_pipe_hp_4_elbow_45_rust/p7_zm_isl_pipe_hp_4_elbow_45_rust"
+    },
+    {
+      "id": "mesh_0441",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_isl_pipe_hp_4_elbow_90_rust/p7_zm_isl_pipe_hp_4_elbow_90_rust"
+    },
+    {
+      "id": "mesh_0442",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_isl_pipe_hp_4_straight_16_rust/p7_zm_isl_pipe_hp_4_straight_16_rust"
+    },
+    {
+      "id": "mesh_0443",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_isl_pipe_hp_4_straight_32_rust/p7_zm_isl_pipe_hp_4_straight_32_rust"
+    },
+    {
+      "id": "mesh_0444",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_isl_pipe_hp_4_straight_4_rust/p7_zm_isl_pipe_hp_4_straight_4_rust"
+    },
+    {
+      "id": "mesh_0445",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_isl_pipe_hp_4_straight_64_rust/p7_zm_isl_pipe_hp_4_straight_64_rust"
+    },
+    {
+      "id": "mesh_0446",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_isl_pipe_hp_4_straight_8_rust/p7_zm_isl_pipe_hp_4_straight_8_rust"
+    },
+    {
+      "id": "mesh_0447",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_isl_pipe_hp_4_valve_01_rust/p7_zm_isl_pipe_hp_4_valve_01_rust"
+    },
+    {
+      "id": "mesh_0448",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_nac_antenna_radar_tower/p7_zm_nac_antenna_radar_tower"
+    },
+    {
+      "id": "mesh_0449",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_nac_barrel_explosive_red_dest/p7_zm_nac_barrel_explosive_red_dest"
+    },
+    {
+      "id": "mesh_0450",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_nac_barrel_explosive_red_dmg_01/p7_zm_nac_barrel_explosive_red_dmg_01"
+    },
+    {
+      "id": "mesh_0451",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_nac_box_wood_sml/p7_zm_nac_box_wood_sml"
+    },
+    {
+      "id": "mesh_0452",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_nac_cabinet_wood_vintage/p7_zm_nac_cabinet_wood_vintage"
+    },
+    {
+      "id": "mesh_0453",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_nac_cabinet_wood_vintage_door_lt/p7_zm_nac_cabinet_wood_vintage_door_lt"
+    },
+    {
+      "id": "mesh_0454",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_nac_cabinet_wood_vintage_door_rt/p7_zm_nac_cabinet_wood_vintage_door_rt"
+    },
+    {
+      "id": "mesh_0455",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_nac_cagelight/p7_zm_nac_cagelight"
+    },
+    {
+      "id": "mesh_0456",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_nac_chair_metal_dining/p7_zm_nac_chair_metal_dining"
+    },
+    {
+      "id": "mesh_0457",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_nac_concrete_pillar_block_03/p7_zm_nac_concrete_pillar_block_03"
+    },
+    {
+      "id": "mesh_0458",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_nac_couch_victorian_beige/p7_zm_nac_couch_victorian_beige"
+    },
+    {
+      "id": "mesh_0459",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_nac_crate_wood_02_iron_cross_long_lid/p7_zm_nac_crate_wood_02_iron_cross_long_lid"
+    },
+    {
+      "id": "mesh_0460",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_nac_foliage_palm_pacific_snapped_01/p7_zm_nac_foliage_palm_pacific_snapped_01"
+    },
+    {
+      "id": "mesh_0461",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_nac_jerrycan_fuel_red/p7_zm_nac_jerrycan_fuel_red"
+    },
+    {
+      "id": "mesh_0462",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_nac_light_flood_stand/p7_zm_nac_light_flood_stand"
+    },
+    {
+      "id": "mesh_0463",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_nac_sapling_pacific_dmg_01/p7_zm_nac_sapling_pacific_dmg_01"
+    },
+    {
+      "id": "mesh_0464",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_nac_sapling_pacific_dmg_02/p7_zm_nac_sapling_pacific_dmg_02"
+    },
+    {
+      "id": "mesh_0465",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_nac_spool_wire_electric/p7_zm_nac_spool_wire_electric"
+    },
+    {
+      "id": "mesh_0466",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_nac_trailer_generator/p7_zm_nac_trailer_generator"
+    },
+    {
+      "id": "mesh_0467",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_nac_trailer_generator_grp/p7_zm_nac_trailer_generator_grp"
+    },
+    {
+      "id": "mesh_0468",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_nac_trailer_wheel/p7_zm_nac_trailer_wheel"
+    },
+    {
+      "id": "mesh_0469",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_nac_truck_opel_blitz/p7_zm_nac_truck_opel_blitz"
+    },
+    {
+      "id": "mesh_0470",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_nac_wall_custom_tear_in_wall_01/p7_zm_nac_wall_custom_tear_in_wall_01"
+    },
+    {
+      "id": "mesh_0471",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_nac_wire_ends/p7_zm_nac_wire_ends"
+    },
+    {
+      "id": "mesh_0472",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_ori_barbedwire_128/p7_zm_ori_barbedwire_128"
+    },
+    {
+      "id": "mesh_0473",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_sta_debris_concrete_rubble_pile_01_half_02/p7_zm_sta_debris_concrete_rubble_pile_01_half_02"
+    },
+    {
+      "id": "mesh_0474",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_sta_debris_concrete_rubble_pile_02_half_01/p7_zm_sta_debris_concrete_rubble_pile_02_half_01"
+    },
+    {
+      "id": "mesh_0475",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_zod_boxing_ring_trim_corner/p7_zm_zod_boxing_ring_trim_corner"
+    },
+    {
+      "id": "mesh_0476",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/p7_zm_zod_boxing_ring_trim_straight_02/p7_zm_zod_boxing_ring_trim_straight_02"
+    },
+    {
+      "id": "mesh_0477",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/static_peleliu_barbedwire/static_peleliu_barbedwire"
+    },
+    {
+      "id": "mesh_0478",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/static_peleliu_crate01/static_peleliu_crate01"
+    },
+    {
+      "id": "mesh_0479",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/veh_t7_dlc1_motorcycle_german_no_sidecar/veh_t7_dlc1_motorcycle_german_no_sidecar"
+    },
+    {
+      "id": "mesh_0480",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/veh_t7_dlc1_motorcycle_german_sidecar_wheel_attach/veh_t7_dlc1_motorcycle_german_sidecar_wheel_attach"
+    },
+    {
+      "id": "mesh_0481",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/veh_t7_dlc1_motorcycle_german_wheel_front_attach/veh_t7_dlc1_motorcycle_german_wheel_front_attach"
+    },
+    {
+      "id": "mesh_0482",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/veh_t7_dlc1_motorcycle_german_wheel_rear_attach/veh_t7_dlc1_motorcycle_german_wheel_rear_attach"
+    },
+    {
+      "id": "mesh_0483",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/veh_t7_dlc3_mil_tank_tiger_decal/veh_t7_dlc3_mil_tank_tiger_decal"
+    },
+    {
+      "id": "mesh_0484",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/veh_t7_dlc_b17_bomber_piece_engine_right/veh_t7_dlc_b17_bomber_piece_engine_right"
+    },
+    {
+      "id": "mesh_0485",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/veh_t7_dlc_b17_bomber_piece_nose/veh_t7_dlc_b17_bomber_piece_nose"
+    },
+    {
+      "id": "mesh_0486",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/veh_t7_dlc_b17_bomber_piece_wing_right_low/veh_t7_dlc_b17_bomber_piece_wing_right_low"
+    },
+    {
+      "id": "mesh_0487",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/veh_t7_dlc_b17_interior_bomb_wall_front/veh_t7_dlc_b17_interior_bomb_wall_front"
+    },
+    {
+      "id": "mesh_0488",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/veh_t7_dlc_b17_piece_tail/veh_t7_dlc_b17_piece_tail"
+    },
+    {
+      "id": "mesh_0489",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/veh_t7_dlc_b17_piece_tail_stabilizer_left/veh_t7_dlc_b17_piece_tail_stabilizer_left"
+    },
+    {
+      "id": "mesh_0490",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/veh_t7_dlc_b17_piece_wing_right_inner/veh_t7_dlc_b17_piece_wing_right_inner"
+    },
+    {
+      "id": "mesh_0491",
+      "sourcePath": "/Game/CustomMaps/UGC2755515831/CoD_nacht/xmodels/veh_t7_turret_mg42_notripod/veh_t7_turret_mg42_notripod"
+    }
+  ],
+  "materialContract": {
+    "sourceAudit": "Pavlov BO3 Nacht Material Channel Audit",
+    "expectedChannels": [
+      "Diffuse",
+      "Normal"
+    ],
+    "optionalChannels": [
+      "SpecPower"
+    ],
+    "note": "XZIEL renderer must preserve at least diffuse + normal for this reference."
+  }
+}
