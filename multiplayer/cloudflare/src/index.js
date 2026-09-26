@@ -4,7 +4,9 @@ const MAX_PLAYERS = 4;
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const GAME_MAGIC = [0x58, 0x5a, 0x44, 0x31]; // XZD1
 const GAME_HEADER_BYTES = 9;
-const MAX_GAME_DATAGRAM = 4096;
+// Vril chunks reliable traffic into NET_DATAGRAMSIZE <= 8008 bytes.
+// Keep the tunnel ceiling above that so signon/precache packets survive.
+const MAX_GAME_DATAGRAM = 8192;
 const MAX_VOICE_PACKET = 4096;
 const DEFAULT_MAP = "ndu";
 
