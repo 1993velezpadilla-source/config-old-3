@@ -246,10 +246,7 @@ jobs:
                   UTexture? texture = null;
                   string texturePackage = "";
 
-                  if (
-                      textureRef.TryLoad<UTexture>(
-                          out var loadedTexture)
-                      && loadedTexture is not null)
+                  if (textureRef is UTexture loadedTexture)
                   {
                       texture = loadedTexture;
                       textureLoads++;
