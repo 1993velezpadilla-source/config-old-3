@@ -3802,6 +3802,67 @@ int XzGles3Shadow_SubmitCommands(
         state, commands, plan, resources, geometry);
 }
 
+static unsigned int XzCountNonBlackPixels(
+    XzNativeGles3Api *gl,
+    unsigned int width,
+    unsigned int height,
+    int *ok)
+{
+    unsigned char *pixels;
+    size_t pixel_count;
+    size_t byte_count;
+    size_t i;
+    unsigned int nonblack = 0u;
+
+    if (ok)
+        *ok = 0;
+
+    if (!gl || !gl->ReadPixels ||
+        width == 0u || height == 0u)
+        return 0u;
+
+    pixel_count = (size_t)width * (size_t)height;
+    if (pixel_count > ((size_t)-1) / 4u)
+        return 0u;
+
+    byte_count = pixel_count * 4u;
+    pixels = (unsigned char *)malloc(byte_count);
+    if (!pixels)
+        return 0u;
+
+    gl->ReadPixels(
+        0, 0,
+        (GLsizei)width,
+        (GLsizei)height,
+        GL_RGBA,
+        GL_UNSIGNED_BYTE,
+        pixels);
+
+    if (gl->GetError() != GL_NO_ERROR) {
+        free(pixels);
+        return 0u;
+    }
+
+    for (i = 0u; i < pixel_count; ++i) {
+        const unsigned char *p = pixels + i * 4u;
+
+        /*
+         * The diagnostic clear is roughly RGB 3/4/5. Treat values above 16
+         * as real rendered color so readback proves useful pixels, not merely
+         * a successful draw call against an empty/off-camera scene.
+         */
+        if (p[0] > 16u ||
+            p[1] > 16u ||
+            p[2] > 16u)
+            nonblack++;
+    }
+
+    free(pixels);
+    if (ok)
+        *ok = 1;
+    return nonblack;
+}
+
 int XzGles3Shadow_CompositeVisibleWorld(
     XzGles3ShadowState *state,
     const XzGeometryFrame *geometry,
@@ -3894,6 +3955,26 @@ int XzGles3Shadow_CompositeVisibleWorld(
                 state,
                 geometry);
 
+    if (static_world_drawn &&
+        state->static_scene_draw_successes == 1u &&
+        state->static_scene_readback_width == 0u) {
+        int readback_ok = 0;
+
+        state->static_scene_fbo_nonblack_pixels =
+            XzCountNonBlackPixels(
+                gl,
+                render_width,
+                render_height,
+                &readback_ok);
+        state->static_scene_readback_width =
+            readback_ok ? render_width : 0u;
+        state->static_scene_readback_height =
+            readback_ok ? render_height : 0u;
+
+        if (!readback_ok)
+            state->readback_failures++;
+    }
+
     if (!XzDrawRealGeometry(
             state,
             geometry,
@@ -3954,6 +4035,22 @@ int XzGles3Shadow_CompositeVisibleWorld(
     gl->DrawArrays(
         GL_TRIANGLES, 0, 3);
     gl->Finish();
+
+    if (state->static_scene_draw_successes == 1u &&
+        state->static_scene_readback_width != 0u &&
+        state->static_scene_surface_nonblack_pixels == 0u) {
+        int readback_ok = 0;
+
+        state->static_scene_surface_nonblack_pixels =
+            XzCountNonBlackPixels(
+                gl,
+                (unsigned int)surface_width,
+                (unsigned int)surface_height,
+                &readback_ok);
+
+        if (!readback_ok)
+            state->readback_failures++;
+    }
 
     error = gl->GetError();
     if (error == GL_NO_ERROR)
