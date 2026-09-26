@@ -193,6 +193,7 @@ jobs:
 
           var explicitTextureFiles = 0;
           var explicitTextureDecodeFailures = 0;
+          var explicitTextureUnsupportedFormats = 0;
           var explicitTextureRows =
               new List<Dictionary<string, string>>();
           var materialTextureRows =
@@ -422,11 +423,103 @@ jobs:
                               "Decode returned null");
                       }
 
-                      var png =
-                          decoded.Encode(
-                              ETextureFormat.Png,
-                              false,
-                              out var extension);
+                      byte[] rgba;
+
+                      if (
+                          decoded.PixelFormat ==
+                              EPixelFormat.PF_R8G8B8A8)
+                      {
+                          rgba = decoded.Data;
+                      }
+                      else if (
+                          decoded.PixelFormat ==
+                              EPixelFormat.PF_B8G8R8A8
+                          || decoded.PixelFormat ==
+                              EPixelFormat.PF_A8R8G8B8)
+                      {
+                          if (
+                              decoded.Data.Length !=
+                              decoded.Width *
+                              decoded.Height * 4)
+                          {
+                              throw new Exception(
+                                  "BGRA byte count mismatch");
+                          }
+
+                          rgba =
+                              new byte[
+                                  decoded.Data.Length];
+
+                          for (
+                              var pixel = 0;
+                              pixel <
+                                  decoded.Width *
+                                  decoded.Height;
+                              pixel++)
+                          {
+                              var at = pixel * 4;
+                              rgba[at + 0] =
+                                  decoded.Data[at + 2];
+                              rgba[at + 1] =
+                                  decoded.Data[at + 1];
+                              rgba[at + 2] =
+                                  decoded.Data[at + 0];
+                              rgba[at + 3] =
+                                  decoded.Data[at + 3];
+                          }
+                      }
+                      else if (
+                          decoded.PixelFormat ==
+                              EPixelFormat.PF_G8)
+                      {
+                          if (
+                              decoded.Data.Length !=
+                              decoded.Width *
+                              decoded.Height)
+                          {
+                              throw new Exception(
+                                  "G8 byte count mismatch");
+                          }
+
+                          rgba =
+                              new byte[
+                                  decoded.Width *
+                                  decoded.Height * 4];
+
+                          for (
+                              var pixel = 0;
+                              pixel <
+                                  decoded.Width *
+                                  decoded.Height;
+                              pixel++)
+                          {
+                              var value =
+                                  decoded.Data[pixel];
+                              var at = pixel * 4;
+                              rgba[at + 0] = value;
+                              rgba[at + 1] = value;
+                              rgba[at + 2] = value;
+                              rgba[at + 3] = 255;
+                          }
+                      }
+                      else
+                      {
+                          explicitTextureUnsupportedFormats++;
+                          throw new Exception(
+                              $"unsupported decoded format "
+                              + $"{decoded.PixelFormat}");
+                      }
+
+                      if (
+                          decoded.Width <= 0
+                          || decoded.Height <= 0
+                          || rgba.Length !=
+                              decoded.Width *
+                              decoded.Height * 4)
+                      {
+                          throw new Exception(
+                              "decoded RGBA size mismatch");
+                      }
 
                       var digest =
                           Convert.ToHexString(
@@ -447,16 +540,37 @@ jobs:
                                           : '_'));
 
                       var fileName =
-                          $"{safeName}_{digest}.{extension}";
+                          $"{safeName}_{digest}.xzt";
 
                       var outputPath =
                           Path.Combine(
                               explicitTextureDir,
                               fileName);
 
-                      File.WriteAllBytes(
-                          outputPath,
-                          png);
+                      using (
+                          var stream =
+                              File.Create(outputPath))
+                      using (
+                          var writer =
+                              new BinaryWriter(stream))
+                      {
+                          writer.Write(
+                              new byte[] {
+                                  (byte)'X',
+                                  (byte)'Z',
+                                  (byte)'T',
+                                  (byte)'X'
+                              });
+                          writer.Write((uint)1);
+                          writer.Write(
+                              (uint)decoded.Width);
+                          writer.Write(
+                              (uint)decoded.Height);
+                          writer.Write((uint)1);
+                          writer.Write(
+                              (uint)rgba.Length);
+                          writer.Write(rgba);
+                      }
 
                       explicitTextureFiles++;
 
@@ -466,25 +580,36 @@ jobs:
                               ["textureName"] = texture.Name,
                               ["file"] =
                                   $"textures/{fileName}",
+                              ["width"] =
+                                  decoded.Width.ToString(),
+                              ["height"] =
+                                  decoded.Height.ToString(),
+                              ["decodedFormat"] =
+                                  decoded.PixelFormat.ToString(),
+                              ["runtimeFormat"] =
+                                  "RGBA8",
                           });
 
                       Console.WriteLine(
-                          $"texture-png-ok"
+                          $"texture-xzt-ok"
                           + $" texture={texture.Name}"
                           + $" file={fileName}"
-                          + $" bytes={png.Length}");
+                          + $" size={decoded.Width}x{decoded.Height}"
+                          + $" sourceFormat={decoded.PixelFormat}"
+                          + $" rgbaBytes={rgba.Length}");
                   }
                   catch (Exception e)
                   {
                       explicitTextureDecodeFailures++;
                       Console.WriteLine(
-                          $"texture-png-fail"
+                          $"texture-xzt-fail"
                           + $" texture={texture.Name}"
                           + $" path={textureKey}"
                           + $" error={e.Message}");
                   }
 
                   Console.WriteLine(
+                      $"texture-direct-ok"                  Console.WriteLine(
                       $"texture-direct-ok"
                       + $" material={sourceMaterial.Name}"
                       + $" source={sourceKind}"
@@ -873,8 +998,9 @@ jobs:
                   }));
 
           Console.WriteLine(
-              $"texturePngFiles={explicitTextureFiles}"
-              + $" texturePngDecodeFailures={explicitTextureDecodeFailures}"
+              $"textureXztFiles={explicitTextureFiles}"
+              + $" textureXztDecodeFailures={explicitTextureDecodeFailures}"
+              + $" textureXztUnsupportedFormats={explicitTextureUnsupportedFormats}"
               + $" materialTextureBindings={materialTextureRows.Count}");
 
           Console.WriteLine(
@@ -1031,7 +1157,8 @@ jobs:
 
           texture_exts = {
               ".png", ".tga", ".jpg", ".jpeg",
-              ".bmp", ".dds", ".hdr", ".exr"
+              ".bmp", ".dds", ".hdr", ".exr",
+              ".xzt"
           }
 
           for p in files:
