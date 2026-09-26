@@ -2341,6 +2341,8 @@ static int XzDrawStaticScene(
     const XzGeometryBatch *camera;
     uint32_t mesh_index;
     unsigned int draw_calls = 0u;
+    unsigned int textured_draw_calls = 0u;
+    unsigned int untextured_draw_calls = 0u;
 
     if (!state ||
         !state->static_scene_gpu_ready ||
@@ -2358,6 +2360,8 @@ static int XzDrawStaticScene(
     state->static_scene_frame_ready = 0;
     state->static_scene_last_draw_calls = 0u;
     state->static_scene_last_instances = 0u;
+    state->static_scene_last_textured_draw_calls = 0u;
+    state->static_scene_last_untextured_draw_calls = 0u;
 
     gl->UseProgram(xz_shadow.static_program);
     gl->UniformMatrix4fv(
@@ -2393,6 +2397,7 @@ static int XzDrawStaticScene(
         if (!mesh->alive ||
             !mesh->vao ||
             !mesh->submeshes ||
+            !mesh->material_bindings ||
             !span ||
             span->instance_count == 0u)
             goto fail;
@@ -2405,11 +2410,50 @@ static int XzDrawStaticScene(
             const XzXzmeshSubmesh *submesh =
                 &mesh->submeshes[submesh_index];
 
+            const XzXzmaterialBinding *binding =
+                &mesh->material_bindings[
+                    submesh_index];
+
             if (submesh->index_count == 0u ||
                 submesh->first_index +
                     submesh->index_count >
                     mesh->index_count)
                 goto fail;
+
+            gl->ActiveTexture(GL_TEXTURE0);
+
+            if (binding->base_color_texture !=
+                    XZ_XZMT_NO_TEXTURE) {
+                XzGles3StaticTexture *texture;
+
+                if (binding->base_color_texture >=
+                        xz_shadow.static_texture_count)
+                    goto fail;
+
+                texture =
+                    &xz_shadow.static_textures[
+                        binding->base_color_texture];
+
+                if (!texture->alive ||
+                    !texture->object)
+                    goto fail;
+
+                gl->BindTexture(
+                    GL_TEXTURE_2D,
+                    texture->object);
+                gl->Uniform1i(
+                    xz_shadow.static_base_color_enabled_loc,
+                    1);
+                textured_draw_calls++;
+            } else {
+                gl->BindTexture(
+                    GL_TEXTURE_2D,
+                    0u);
+                gl->Uniform1i(
+                    xz_shadow.static_base_color_enabled_loc,
+                    0);
+                untextured_draw_calls++;
+            }
 
             gl->DrawElementsInstanced(
                 GL_TRIANGLES,
@@ -2427,12 +2471,17 @@ static int XzDrawStaticScene(
         goto fail;
 
     gl->BindVertexArray(0u);
+    gl->BindTexture(GL_TEXTURE_2D, 0u);
     gl->UseProgram(0u);
 
     state->static_scene_last_draw_calls =
         draw_calls;
     state->static_scene_last_instances =
         xz_shadow.static_draw_plan.instance_count;
+    state->static_scene_last_textured_draw_calls =
+        textured_draw_calls;
+    state->static_scene_last_untextured_draw_calls =
+        untextured_draw_calls;
     state->static_scene_frame_ready =
         draw_calls ==
             state->static_scene_gpu_submeshes &&
@@ -2447,6 +2496,7 @@ static int XzDrawStaticScene(
 
 fail:
     gl->BindVertexArray(0u);
+    gl->BindTexture(GL_TEXTURE_2D, 0u);
     gl->UseProgram(0u);
     XzDrainErrors(state);
 
