@@ -226,8 +226,15 @@ jobs:
           void QueueMaterialTextures(
               UMaterialInterface sourceMaterial)
           {
+              /*
+               * The pinned CI NuGet overload returns loaded
+               * UUnrealMaterial objects. Do not pre-filter them
+               * to UTexture: some cooked Pavlov refs arrive as
+               * the base material type even when the backing
+               * package is a texture. Resolve by object name.
+               */
               var refs =
-                  new List<FPackageIndex>();
+                  new List<UUnrealMaterial>();
 
               sourceMaterial.AppendReferencedTextures(
                   refs,
@@ -240,23 +247,19 @@ jobs:
               foreach (var textureRef in refs)
               {
                   var refKey =
-                      textureRef.ResolvedObject?.GetPathName()
-                      ?? $"{textureRef.Name}#{textureRef.Index}";
+                      textureRef.GetPathName();
 
                   if (!seenRefs.Add(refKey))
                       continue;
 
                   textureRefs++;
 
-                  UTexture? texture = null;
+                  UTexture? texture =
+                      textureRef as UTexture;
                   string texturePackage = "";
 
-                  if (
-                      textureRef.TryLoad<UTexture>(
-                          out var loadedTexture)
-                      && loadedTexture is not null)
+                  if (texture is not null)
                   {
-                      texture = loadedTexture;
                       textureLoads++;
                   }
                   else
@@ -307,6 +310,7 @@ jobs:
                                   Console.WriteLine(
                                       $"texture-direct-package-error"
                                       + $" material={sourceMaterial.Name}"
+                                      + $" refType={textureRef.GetType().Name}"
                                       + $" path={candidate}"
                                       + $" error={e.Message}");
                               }
@@ -319,6 +323,7 @@ jobs:
                           Console.WriteLine(
                               $"texture-load-fail"
                               + $" material={sourceMaterial.Name}"
+                              + $" refType={textureRef.GetType().Name}"
                               + $" texture={textureName}"
                               + $" refPath={refKey}");
                           continue;
@@ -335,6 +340,7 @@ jobs:
                       Console.WriteLine(
                           $"texture-direct-ok"
                           + $" material={sourceMaterial.Name}"
+                          + $" refType={textureRef.GetType().Name}"
                           + $" texture={texture.Name}"
                           + $" path={textureKey}"
                           + (texturePackage.Length > 0
