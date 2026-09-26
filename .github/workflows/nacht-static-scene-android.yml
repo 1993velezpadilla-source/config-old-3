@@ -492,11 +492,21 @@ jobs:
           "$ADB" logcat -c
           "$ADB" shell am force-stop com.xziel.engine || true
 
+          # Prevent Android's first-use immersive-mode education card from
+          # covering the framebuffer evidence. The fixed tap is a fallback for
+          # emulator images that ignore the secure confirmation setting.
+          "$ADB" shell settings put secure \
+            immersive_mode_confirmations confirmed || true
+
           "$ADB" shell am start -W \
             -n com.xziel.engine/org.libsdl.app.NZPActivity \
             --es xziel_ci_map xziel_nacht_bo3 \
             --ez xziel_ci_hud_preview true \
             > dist/am-start.txt 2>&1 || true
+
+          sleep 2
+          "$ADB" shell input tap 1700 626 || true
+          sleep 1
 
           STAGE=""
           for i in $(seq 1 90); do
