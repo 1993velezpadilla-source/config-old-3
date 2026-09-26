@@ -226,27 +226,34 @@ jobs:
           void QueueMaterialTextures(
               UMaterialInterface sourceMaterial)
           {
-              var parameters =
-                  new CMaterialParams2();
+              var refs =
+                  new List<FPackageIndex>();
 
-              sourceMaterial.GetParams(
-                  parameters,
-                  EMaterialDepth.AllLayers);
+              sourceMaterial.AppendReferencedTextures(
+                  refs,
+                  false);
 
-              foreach (
-                  var textureRef in parameters
-                      .Textures
-                      .Values
-                      .DistinctBy(
-                          x => x.GetPathName(),
-                          StringComparer.OrdinalIgnoreCase))
+              var seenRefs =
+                  new HashSet<string>(
+                      StringComparer.OrdinalIgnoreCase);
+
+              foreach (var textureRef in refs)
               {
+                  var refKey =
+                      textureRef.GetPathName();
+
+                  if (!seenRefs.Add(refKey))
+                      continue;
+
                   textureRefs++;
 
                   UTexture? texture = null;
                   string texturePackage = "";
 
-                  if (textureRef is UTexture loadedTexture)
+                  if (
+                      textureRef.TryLoad<UTexture>(
+                          out var loadedTexture)
+                      && loadedTexture is not null)
                   {
                       texture = loadedTexture;
                       textureLoads++;
@@ -268,17 +275,19 @@ jobs:
                           {
                               try
                               {
+                                  var package =
+                                      provider.LoadPackage(
+                                          candidate);
+
                                   texture =
-                                      provider
-                                          .LoadPackage(candidate)
+                                      package
                                           .GetExports()
                                           .OfType<UTexture>()
                                           .FirstOrDefault(
                                               x => x.Name.Equals(
                                                   textureName,
                                                   StringComparison.OrdinalIgnoreCase))
-                                      ?? provider
-                                          .LoadPackage(candidate)
+                                      ?? package
                                           .GetExports()
                                           .OfType<UTexture>()
                                           .FirstOrDefault();
@@ -310,7 +319,7 @@ jobs:
                               $"texture-load-fail"
                               + $" material={sourceMaterial.Name}"
                               + $" texture={textureName}"
-                              + $" refPath={textureRef.GetPathName()}");
+                              + $" refPath={refKey}");
                           continue;
                       }
                   }
