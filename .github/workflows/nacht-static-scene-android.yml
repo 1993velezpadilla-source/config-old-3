@@ -223,6 +223,10 @@ jobs:
               new HashSet<string>(
                   StringComparer.OrdinalIgnoreCase);
 
+          var seenTextureRefs =
+              new HashSet<string>(
+                  StringComparer.OrdinalIgnoreCase);
+
           object? ReadMember(
               object target,
               string name)
@@ -530,12 +534,6 @@ jobs:
               {
                   QueueMaterialTextures(
                       parentMaterial);
-              }
-          }
-
-   ? $" package={texturePackage}"
-                              : ""));
-                  }
               }
           }
 
