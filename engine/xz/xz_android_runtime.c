@@ -1434,6 +1434,9 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             " gpuVertices=%" PRIu64
             " gpuIndices=%" PRIu64
             " gpuBytes=%" PRIu64
+            " materialReady=%d gpuTextures=%u"
+            " gpuTextureBytes=%" PRIu64
+            " materialBindings=%u mappedBindings=%u"
             " error='%s'",
             XzStaticSceneRuntime_StatusName(
                 static_status),
@@ -1457,6 +1460,11 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             xz_runtime.gles3_shadow.static_scene_gpu_vertices,
             xz_runtime.gles3_shadow.static_scene_gpu_indices,
             xz_runtime.gles3_shadow.static_scene_gpu_bytes,
+            xz_runtime.gles3_shadow.static_scene_material_ready,
+            xz_runtime.gles3_shadow.static_scene_gpu_textures,
+            xz_runtime.gles3_shadow.static_scene_gpu_texture_bytes,
+            xz_runtime.gles3_shadow.static_scene_material_bindings,
+            xz_runtime.gles3_shadow.static_scene_material_mapped_bindings,
             xz_runtime.static_scene.error);
     }
 

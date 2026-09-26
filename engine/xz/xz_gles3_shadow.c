@@ -212,6 +212,14 @@ typedef struct {
 } XzGles3StaticMesh;
 
 typedef struct {
+    GLuint object;
+    uint32_t width;
+    uint32_t height;
+    uint64_t gpu_bytes;
+    int alive;
+} XzGles3StaticTexture;
+
+typedef struct {
     int ready;
 
     EGLDisplay display;
@@ -258,12 +266,18 @@ typedef struct {
     GLuint static_program;
     GLint static_view_loc;
     GLint static_projection_loc;
+    GLint static_texture_loc;
+    GLint static_texture_enabled_loc;
     GLuint static_instance_vbo;
     XzStaticSceneDrawPlan static_draw_plan;
     int static_draw_plan_ready;
 
     XzGles3StaticMesh *static_meshes;
     uint32_t static_mesh_count;
+    XzGles3StaticTexture *static_textures;
+    uint32_t static_texture_count;
+    uint32_t *static_material_bindings;
+    uint32_t static_material_binding_count;
 
     GLuint scratch_fbo;
 
@@ -907,13 +921,16 @@ static int XzCreateStaticSceneProgram(void)
         "precision mediump float;\n"
         "in vec3 vNormal;\n"
         "in vec2 vUV;\n"
+        "uniform sampler2D uBaseColor;\n"
+        "uniform int uHasBaseColor;\n"
         "out vec4 outColor;\n"
         "void main(){\n"
         "  vec3 n=normalize(vNormal);\n"
         "  float light=0.38+0.62*abs(n.z);\n"
         "  float uvTone=0.92+0.08*clamp(vUV.y,0.0,1.0);\n"
-        "  vec3 base=vec3(0.56,0.54,0.50)*uvTone;\n"
-        "  outColor=vec4(base*light,1.0);\n"
+        "  vec4 texel=uHasBaseColor!=0?texture(uBaseColor,vUV):vec4(0.56,0.54,0.50,1.0);\n"
+        "  if(uHasBaseColor!=0 && texel.a<0.04) discard;\n"
+        "  outColor=vec4(texel.rgb*uvTone*light,texel.a);\n"
         "}\n";
 
     XzNativeGles3Api *gl = &xz_shadow.gl;
@@ -964,10 +981,26 @@ static int XzCreateStaticSceneProgram(void)
         gl->GetUniformLocation(
             xz_shadow.static_program,
             "uProjection");
+    xz_shadow.static_texture_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uBaseColor");
+    xz_shadow.static_texture_enabled_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uHasBaseColor");
 
     if (xz_shadow.static_view_loc < 0 ||
-        xz_shadow.static_projection_loc < 0)
+        xz_shadow.static_projection_loc < 0 ||
+        xz_shadow.static_texture_loc < 0 ||
+        xz_shadow.static_texture_enabled_loc < 0)
         return 0;
+
+    gl->UseProgram(xz_shadow.static_program);
+    gl->Uniform1i(
+        xz_shadow.static_texture_loc,
+        0);
+    gl->UseProgram(0u);
 
     return gl->GetError() == GL_NO_ERROR;
 }
@@ -1662,6 +1695,26 @@ static void XzDestroyStaticSceneCurrent(
 {
     uint32_t i;
 
+    if (xz_shadow.static_textures) {
+        for (i = 0u;
+             i < xz_shadow.static_texture_count;
+             ++i) {
+            if (xz_shadow.static_textures[i].alive &&
+                xz_shadow.static_textures[i].object)
+                xz_shadow.gl.DeleteTextures(
+                    1,
+                    &xz_shadow.static_textures[i].object);
+        }
+        free(xz_shadow.static_textures);
+    }
+
+    xz_shadow.static_textures = NULL;
+    xz_shadow.static_texture_count = 0u;
+
+    free(xz_shadow.static_material_bindings);
+    xz_shadow.static_material_bindings = NULL;
+    xz_shadow.static_material_binding_count = 0u;
+
     if (xz_shadow.static_meshes) {
         for (i = 0u;
              i < xz_shadow.static_mesh_count;
@@ -1704,9 +1757,16 @@ static void XzDestroyStaticSceneCurrent(
         state->static_scene_gpu_indices = 0u;
         state->static_scene_gpu_meshes = 0u;
         state->static_scene_gpu_submeshes = 0u;
+        state->static_scene_gpu_texture_bytes = 0u;
+        state->static_scene_gpu_textures = 0u;
+        state->static_scene_material_bindings = 0u;
+        state->static_scene_material_mapped_bindings = 0u;
+        state->static_scene_material_ready = 0;
         state->static_scene_gpu_ready = 0;
         state->static_scene_last_draw_calls = 0u;
         state->static_scene_last_instances = 0u;
+        state->static_scene_last_textured_draw_calls = 0u;
+        state->static_scene_last_untextured_draw_calls = 0u;
         state->static_scene_frame_ready = 0;
     }
 }
@@ -1759,6 +1819,7 @@ int XzGles3Shadow_UploadStaticScene(
     uint64_t indices = 0u;
     uint64_t submeshes = 0u;
     uint32_t mesh_index;
+    uint32_t material_binding_index;
     int restored = 0;
 
     if (!state || !scene ||
@@ -1930,6 +1991,150 @@ int XzGles3Shadow_UploadStaticScene(
         submeshes += dest->submesh_count;
     }
 
+    if (scene->material_data &&
+        scene->material_texture_count > 0u &&
+        scene->material_binding_count > 0u) {
+        uint32_t texture_index;
+        uint32_t mapped_bindings = 0u;
+        uint64_t texture_bytes_total = 0u;
+
+        if (scene->material_binding_count !=
+                (uint32_t)submeshes)
+            goto fail;
+
+        xz_shadow.static_textures =
+            (XzGles3StaticTexture *)calloc(
+                scene->material_texture_count,
+                sizeof(*xz_shadow.static_textures));
+        if (!xz_shadow.static_textures)
+            goto fail;
+
+        xz_shadow.static_texture_count =
+            scene->material_texture_count;
+
+        for (texture_index = 0u;
+             texture_index <
+                scene->material_texture_count;
+             ++texture_index) {
+            XzStaticTextureView source_texture;
+            XzGles3StaticTexture *dest_texture =
+                &xz_shadow.static_textures[
+                    texture_index];
+
+            if (!XzStaticSceneRuntime_Texture(
+                    scene,
+                    texture_index,
+                    &source_texture) ||
+                !source_texture.rgba ||
+                source_texture.width == 0u ||
+                source_texture.height == 0u ||
+                source_texture.rgba_bytes !=
+                    (size_t)source_texture.width *
+                    (size_t)source_texture.height *
+                    4u)
+                goto fail;
+
+            xz_shadow.gl.GenTextures(
+                1,
+                &dest_texture->object);
+            if (!dest_texture->object)
+                goto fail;
+
+            xz_shadow.gl.ActiveTexture(GL_TEXTURE0);
+            xz_shadow.gl.BindTexture(
+                GL_TEXTURE_2D,
+                dest_texture->object);
+            xz_shadow.gl.TexParameteri(
+                GL_TEXTURE_2D,
+                GL_TEXTURE_MIN_FILTER,
+                GL_LINEAR);
+            xz_shadow.gl.TexParameteri(
+                GL_TEXTURE_2D,
+                GL_TEXTURE_MAG_FILTER,
+                GL_LINEAR);
+            xz_shadow.gl.TexParameteri(
+                GL_TEXTURE_2D,
+                GL_TEXTURE_WRAP_S,
+                GL_REPEAT);
+            xz_shadow.gl.TexParameteri(
+                GL_TEXTURE_2D,
+                GL_TEXTURE_WRAP_T,
+                GL_REPEAT);
+            xz_shadow.gl.TexImage2D(
+                GL_TEXTURE_2D,
+                0,
+                GL_RGBA8,
+                (GLsizei)source_texture.width,
+                (GLsizei)source_texture.height,
+                0,
+                GL_RGBA,
+                GL_UNSIGNED_BYTE,
+                source_texture.rgba);
+
+            if (xz_shadow.gl.GetError() !=
+                    GL_NO_ERROR)
+                goto fail;
+
+            dest_texture->width =
+                source_texture.width;
+            dest_texture->height =
+                source_texture.height;
+            dest_texture->gpu_bytes =
+                (uint64_t)source_texture.rgba_bytes;
+            dest_texture->alive = 1;
+            texture_bytes_total +=
+                dest_texture->gpu_bytes;
+        }
+
+        xz_shadow.static_material_bindings =
+            (uint32_t *)calloc(
+                scene->material_binding_count,
+                sizeof(uint32_t));
+        if (!xz_shadow.static_material_bindings)
+            goto fail;
+
+        xz_shadow.static_material_binding_count =
+            scene->material_binding_count;
+
+        for (material_binding_index = 0u;
+             material_binding_index <
+                scene->material_binding_count;
+             ++material_binding_index) {
+            uint32_t texture_index_value;
+
+            if (!XzStaticSceneRuntime_MaterialBinding(
+                    scene,
+                    material_binding_index,
+                    &texture_index_value))
+                goto fail;
+
+            xz_shadow.static_material_bindings[
+                material_binding_index] =
+                    texture_index_value;
+
+            if (texture_index_value !=
+                    XZ_STATIC_MATERIAL_NO_TEXTURE)
+                mapped_bindings++;
+        }
+
+        xz_shadow.gl.BindTexture(
+            GL_TEXTURE_2D,
+            0u);
+
+        state->static_scene_gpu_texture_bytes =
+            texture_bytes_total;
+        state->static_scene_gpu_textures =
+            scene->material_texture_count;
+        state->static_scene_material_bindings =
+            scene->material_binding_count;
+        state->static_scene_material_mapped_bindings =
+            mapped_bindings;
+        state->static_scene_material_ready =
+            state->static_scene_gpu_textures > 0u &&
+            state->static_scene_material_bindings ==
+                (unsigned int)submeshes &&
+            mapped_bindings > 0u;
+    }
 
     if (!XzStaticSceneDrawPlan_Build(
             &xz_shadow.static_draw_plan,
@@ -2039,7 +2244,11 @@ int XzGles3Shadow_UploadStaticScene(
         state->static_scene_gpu_submeshes ==
             scene->submesh_count &&
         xz_shadow.static_draw_plan_ready &&
-        xz_shadow.static_instance_vbo != 0u;
+        xz_shadow.static_instance_vbo != 0u &&
+        (strcmp(
+             scene->map_id,
+             "xziel_nacht_bo3") != 0 ||
+         state->static_scene_material_ready);
 
     if (!state->static_scene_gpu_ready)
         goto fail_current_owned;
@@ -2125,7 +2334,10 @@ static int XzDrawStaticScene(
     XzNativeGles3Api *gl = &xz_shadow.gl;
     const XzGeometryBatch *camera;
     uint32_t mesh_index;
+    uint32_t binding_cursor = 0u;
     unsigned int draw_calls = 0u;
+    unsigned int textured_draw_calls = 0u;
+    unsigned int untextured_draw_calls = 0u;
 
     if (!state ||
         !state->static_scene_gpu_ready ||
@@ -2143,8 +2355,14 @@ static int XzDrawStaticScene(
     state->static_scene_frame_ready = 0;
     state->static_scene_last_draw_calls = 0u;
     state->static_scene_last_instances = 0u;
+    state->static_scene_last_textured_draw_calls = 0u;
+    state->static_scene_last_untextured_draw_calls = 0u;
 
     gl->UseProgram(xz_shadow.static_program);
+    gl->Uniform1i(
+        xz_shadow.static_texture_loc,
+        0);
+    gl->ActiveTexture(GL_TEXTURE0);
     gl->UniformMatrix4fv(
         xz_shadow.static_view_loc,
         1,
@@ -2190,11 +2408,59 @@ static int XzDrawStaticScene(
             const XzXzmeshSubmesh *submesh =
                 &mesh->submeshes[submesh_index];
 
+            uint32_t texture_index =
+                XZ_STATIC_MATERIAL_NO_TEXTURE;
+            int has_texture = 0;
+
             if (submesh->index_count == 0u ||
                 submesh->first_index +
                     submesh->index_count >
                     mesh->index_count)
                 goto fail;
+
+            if (state->static_scene_material_ready) {
+                if (binding_cursor >=
+                        xz_shadow.static_material_binding_count)
+                    goto fail;
+
+                texture_index =
+                    xz_shadow.static_material_bindings[
+                        binding_cursor];
+
+                if (texture_index !=
+                        XZ_STATIC_MATERIAL_NO_TEXTURE) {
+                    if (texture_index >=
+                            xz_shadow.static_texture_count ||
+                        !xz_shadow.static_textures[
+                            texture_index].alive ||
+                        !xz_shadow.static_textures[
+                            texture_index].object)
+                        goto fail;
+
+                    gl->BindTexture(
+                        GL_TEXTURE_2D,
+                        xz_shadow.static_textures[
+                            texture_index].object);
+                    has_texture = 1;
+                    textured_draw_calls++;
+                } else {
+                    gl->BindTexture(
+                        GL_TEXTURE_2D,
+                        0u);
+                    untextured_draw_calls++;
+                }
+
+                binding_cursor++;
+            } else {
+                gl->BindTexture(
+                    GL_TEXTURE_2D,
+                    0u);
+                untextured_draw_calls++;
+            }
+
+            gl->Uniform1i(
+                xz_shadow.static_texture_enabled_loc,
+                has_texture);
 
             gl->DrawElementsInstanced(
                 GL_TRIANGLES,
@@ -2218,11 +2484,18 @@ static int XzDrawStaticScene(
         draw_calls;
     state->static_scene_last_instances =
         xz_shadow.static_draw_plan.instance_count;
+    state->static_scene_last_textured_draw_calls =
+        textured_draw_calls;
+    state->static_scene_last_untextured_draw_calls =
+        untextured_draw_calls;
     state->static_scene_frame_ready =
         draw_calls ==
             state->static_scene_gpu_submeshes &&
         state->static_scene_last_instances ==
-            xz_shadow.static_draw_plan.instance_count;
+            xz_shadow.static_draw_plan.instance_count &&
+        (!state->static_scene_material_ready ||
+         binding_cursor ==
+            xz_shadow.static_material_binding_count);
 
     if (!state->static_scene_frame_ready)
         goto fail_no_state_reset;
