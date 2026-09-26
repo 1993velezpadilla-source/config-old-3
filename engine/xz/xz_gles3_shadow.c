@@ -4163,6 +4163,25 @@ int XzGles3Shadow_CompositeVisibleWorld(
         previous_context);
     visible_current = 0;
 
+    if (restored &&
+        state->static_scene_draw_successes == 1u &&
+        state->static_scene_readback_width != 0u &&
+        state->static_scene_postrestore_nonblack_pixels == 0u) {
+        int readback_ok = 0;
+
+        XzDrainErrors(state);
+        gl->BindFramebuffer(GL_FRAMEBUFFER, 0u);
+        state->static_scene_postrestore_nonblack_pixels =
+            XzCountNonBlackPixels(
+                gl,
+                (unsigned int)surface_width,
+                (unsigned int)surface_height,
+                &readback_ok);
+
+        if (!readback_ok)
+            state->readback_failures++;
+    }
+
     if (!restored) {
         state->restore_failures++;
         state->restore_ok = 0;
