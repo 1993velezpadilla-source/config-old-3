@@ -242,6 +242,161 @@ if "xziel_remote_map" not in text:
 
 cl_parse.write_text(text, encoding="utf-8")
 
+# ---------------------------------------------------------------------------
+# Remote-client gameplay state. A listen-server client can read sv_player
+# directly, but a real network client has no local server edict. Replicate the
+# two gameplay fields that input depends on, and make the remaining visual-only
+# sv_player reads null-safe until their weapon offsets are mirrored explicitly.
+# ---------------------------------------------------------------------------
+defs = source / "nzportable_def.h"
+dtext = defs.read_text(encoding="utf-8")
+if "STAT_XZIEL_FACINGENEMY" not in dtext:
+    dtext = replace_once(
+        dtext,
+        "#define\tSTAT_PRIGRENADES\t\t15\n",
+        "#define\tSTAT_PRIGRENADES\t\t15\n#define STAT_XZIEL_FACINGENEMY   16\n",
+        "remote facing-enemy stat")
+if "STAT_XZIEL_MAXSPEED" not in dtext:
+    dtext = replace_once(
+        dtext,
+        "#define STAT_XZIEL_W3RES         30\n",
+        "#define STAT_XZIEL_W3RES         30\n#define STAT_XZIEL_MAXSPEED      31\n",
+        "remote maxspeed stat")
+defs.write_text(dtext, encoding="utf-8")
+
+sv_main = source / "sv_main.c"
+stext = sv_main.read_text(encoding="utf-8")
+remote_stats_old = r'''\tMSG_WriteByte(msg, STAT_XZIEL_W3RES);
+\tMSG_WriteLong(msg, (int)PR_GetEdictFloat(ent, "xziel_weapon3_reserve"));
+#endif
+'''
+remote_stats_new = r'''\tMSG_WriteByte(msg, STAT_XZIEL_W3RES);
+\tMSG_WriteLong(msg, (int)PR_GetEdictFloat(ent, "xziel_weapon3_reserve"));
+\tMSG_WriteByte(msg, svc_updatestat);
+\tMSG_WriteByte(msg, STAT_XZIEL_FACINGENEMY);
+\tMSG_WriteLong(msg, (int)ent->v.facingenemy);
+\tMSG_WriteByte(msg, svc_updatestat);
+\tMSG_WriteByte(msg, STAT_XZIEL_MAXSPEED);
+\tMSG_WriteLong(msg, (int)(ent->v.maxspeed * 100.0f));
+#endif
+'''
+if "STAT_XZIEL_MAXSPEED);" not in stext:
+    stext = replace_once(stext, remote_stats_old, remote_stats_new,
+                         "remote gameplay stat replication")
+sv_main.write_text(stext, encoding="utf-8")
+
+client_h = source / "client.h"
+htext = client_h.read_text(encoding="utf-8")
+remote_helper_anchor = "void CL_BaseMove (usercmd_t *cmd);\n"
+remote_helper_repl = """void CL_BaseMove (usercmd_t *cmd);
+float CL_PlayerMoveSpeed (void);
+qboolean CL_PlayerFacingEnemy (void);
+"""
+if "CL_PlayerMoveSpeed" not in htext:
+    htext = replace_once(htext, remote_helper_anchor, remote_helper_repl,
+                         "remote gameplay helper declarations")
+client_h.write_text(htext, encoding="utf-8")
+
+cl_input = source / "cl_input.c"
+itext = cl_input.read_text(encoding="utf-8")
+helper_anchor = """qboolean in_game;
+float crosshair_opacity;
+"""
+helper_repl = r'''qboolean in_game;
+float crosshair_opacity;
+
+float CL_PlayerMoveSpeed (void)
+{
+\tif (sv.active && sv_player)
+\t\treturn sv_player->v.maxspeed;
+#ifdef __ANDROID__
+\tif (cl.stats[STAT_XZIEL_MAXSPEED] > 0)
+\t\treturn cl.stats[STAT_XZIEL_MAXSPEED] / 100.0f;
+#endif
+\t/* PlayerPreThink's normal non-beta walk speed. This only covers the first
+\t   remote frame before the authoritative stat arrives. */
+\treturn 190.0f;
+}
+
+qboolean CL_PlayerFacingEnemy (void)
+{
+\tif (sv.active && sv_player)
+\t\treturn sv_player->v.facingenemy == 1;
+#ifdef __ANDROID__
+\treturn cl.stats[STAT_XZIEL_FACINGENEMY] != 0;
+#else
+\treturn false;
+#endif
+}
+'''
+if "float CL_PlayerMoveSpeed (void)" not in itext:
+    itext = replace_once(itext, helper_anchor, helper_repl,
+                         "remote gameplay helper implementations")
+itext = itext.replace("(sv_player->v.facingenemy == 1)", "CL_PlayerFacingEnemy()")
+itext = itext.replace("sv_player->v.maxspeed", "CL_PlayerMoveSpeed()")
+# Restore the one intentional local-server read inside the helper after the
+# global replacement above.
+itext = itext.replace("return CL_PlayerMoveSpeed();\n#ifdef __ANDROID__",
+                      "return sv_player->v.maxspeed;\n#ifdef __ANDROID__", 1)
+cl_input.write_text(itext, encoding="utf-8")
+
+inp = source / "input.c"
+ptext = inp.read_text(encoding="utf-8")
+ptext = ptext.replace("sv_player->v.facingenemy == 1", "CL_PlayerFacingEnemy()")
+ptext = ptext.replace("sv_player->v.maxspeed", "CL_PlayerMoveSpeed()")
+inp.write_text(ptext, encoding="utf-8")
+
+cl_main = source / "cl_main.c"
+mtext = cl_main.read_text(encoding="utf-8")
+mtext = mtext.replace("move_limit = sv_player->v.maxspeed;",
+                      "move_limit = CL_PlayerMoveSpeed();")
+flash_old = r'''\t\t\t\tright_offset\t = sv_player->v.Flash_Offset[0];
+\t\t\t\tup_offset\t\t = sv_player->v.Flash_Offset[1];
+\t\t\t\tforward_offset \t = sv_player->v.Flash_Offset[2];
+'''
+flash_new = r'''\t\t\t\tif (sv.active && sv_player) {
+\t\t\t\t\tright_offset\t = sv_player->v.Flash_Offset[0];
+\t\t\t\t\tup_offset\t\t = sv_player->v.Flash_Offset[1];
+\t\t\t\t\tforward_offset \t = sv_player->v.Flash_Offset[2];
+\t\t\t\t} else {
+\t\t\t\t\tright_offset = up_offset = forward_offset = 0;
+\t\t\t\t}
+'''
+if "right_offset = up_offset = forward_offset = 0;" not in mtext:
+    mtext = replace_once(mtext, flash_old, flash_new,
+                         "remote muzzle offset null guard")
+cl_main.write_text(mtext, encoding="utf-8")
+
+view = source / "view.c"
+vtext = view.read_text(encoding="utf-8")
+ads_old = r'''\tif(cl.stats[STAT_ZOOM] == 1 || cl.stats[STAT_ZOOM] == 2)
+\t{
+\t\tADSOffset[0] = sv_player->v.ADS_Offset[0];
+\t\tADSOffset[1] = sv_player->v.ADS_Offset[1];
+\t\tADSOffset[2] = sv_player->v.ADS_Offset[2];
+'''
+ads_new = r'''\tif((cl.stats[STAT_ZOOM] == 1 || cl.stats[STAT_ZOOM] == 2) &&
+\t\tsv.active && sv_player)
+\t{
+\t\tADSOffset[0] = sv_player->v.ADS_Offset[0];
+\t\tADSOffset[1] = sv_player->v.ADS_Offset[1];
+\t\tADSOffset[2] = sv_player->v.ADS_Offset[2];
+'''
+if "sv.active && sv_player)" not in vtext[vtext.find("vec3_t ADSOffset"):vtext.find("vec3_t ADSOffset")+600]:
+    vtext = replace_once(vtext, ads_old, ads_new,
+                         "remote ADS offset null guard")
+view.write_text(vtext, encoding="utf-8")
+
+particles = source / "render" / "r_particles.c"
+rtext = particles.read_text(encoding="utf-8")
+if "(sv.active && sv_player) ? sv_player->v.Flash_Size" not in rtext:
+    rtext = replace_once(
+        rtext,
+        "        size = sv_player->v.Flash_Size;\n",
+        "        size = (sv.active && sv_player) ? sv_player->v.Flash_Size : 5.0f;\n",
+        "remote muzzle flash size null guard")
+particles.write_text(rtext, encoding="utf-8")
+
 # Make LoadingScreen_Begin() own the map-name storage instead of relying on
 # Menu_SelectMap() to have set a borrowed pointer first. This keeps host/solo
 # pretty names when the same map was selected locally and gives remote clients
