@@ -6,11 +6,13 @@ on:
     branches:
       - feature/xziel-nacht-static-scene-runtime-v1
       - feature/xziel-static-scene-gpu-v1
+      - feature/xziel-static-scene-framebuffer-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
       - "engine/xz/xz_xzscene.*"
       - "engine/xz/xz_static_scene_runtime.*"
+      - "engine/xz/xz_static_scene_draw_plan.*"
       - "engine/xz/xz_android_runtime.*"
       - "engine/xz/xz_gles3_shadow.*"
       - "tools/maps/compile_xziel_static_scene.py"
@@ -392,6 +394,7 @@ jobs:
           test -f build/deps/vril/source/xz_xzmesh.c
           test -f build/deps/vril/source/xz_xzscene.c
           test -f build/deps/vril/source/xz_static_scene_runtime.c
+          test -f build/deps/vril/source/xz_static_scene_draw_plan.c
 
           grep -F 'static_scene status=%s' \
             build/deps/vril/source/xz_android_runtime.c
