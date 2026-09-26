@@ -213,8 +213,6 @@ loadscreen_begin_old = r'''void LoadingScreen_Begin(const char *map_name)
 	loading_precache_complete = false;
 	loading_skip_key = -1;
 	loadscreen_start_time = Sys_FloatTime();
-	loading_progress_shown = 0;
-	loading_progress_phase_active = false;
 	Music_PlayLoadingTrack(map_name);
 }'''
 loadscreen_begin_new = r'''void LoadingScreen_Begin(const char *map_name)
@@ -240,8 +238,6 @@ loadscreen_begin_new = r'''void LoadingScreen_Begin(const char *map_name)
 	loading_precache_complete = false;
 	loading_skip_key = -1;
 	loadscreen_start_time = Sys_FloatTime();
-	loading_progress_shown = 0;
-	loading_progress_phase_active = false;
 	Music_PlayLoadingTrack(map_loadname);
 }'''
 if "preserve_pretty =" not in ltext:
