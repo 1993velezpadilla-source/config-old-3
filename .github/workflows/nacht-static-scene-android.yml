@@ -24,7 +24,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: xziel-nacht-static-scene-android-\${{ github.ref }}
+  group: xziel-nacht-static-scene-android-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -38,9 +38,9 @@ jobs:
 
       - name: Generate Nacht gameplay harness
         env:
-          XZIEL_NACHT_MAP_OUT: \${{ github.workspace }}/nacht-ci/xziel_nacht_bo3.map
-          XZIEL_NACHT_HARNESS_SUMMARY: \${{ github.workspace }}/nacht-ci/xziel_nacht_bo3_harness.json
-          XZIEL_MYSTERY_BOX_MB2_OUT: \${{ github.workspace }}/nacht-ci/xziel_nacht_bo3.mb2
+          XZIEL_NACHT_MAP_OUT: ${{ github.workspace }}/nacht-ci/xziel_nacht_bo3.map
+          XZIEL_NACHT_HARNESS_SUMMARY: ${{ github.workspace }}/nacht-ci/xziel_nacht_bo3_harness.json
+          XZIEL_MYSTERY_BOX_MB2_OUT: ${{ github.workspace }}/nacht-ci/xziel_nacht_bo3.mb2
         run: |
           set -euo pipefail
           mkdir -p nacht-ci
@@ -62,7 +62,7 @@ jobs:
             cd /tmp/nzp-assets
             bash tools/compile-wads.sh
             mkdir -p source/maps/xziel_nacht_bo3
-            cp "\$GITHUB_WORKSPACE/nacht-ci/xziel_nacht_bo3.map" \
+            cp "$GITHUB_WORKSPACE/nacht-ci/xziel_nacht_bo3.map" \
               source/maps/xziel_nacht_bo3/xziel_nacht_bo3.map
             bash tools/compile-maps.sh --map xziel_nacht_bo3
           ) 2>&1 | tee nacht-ci/compile.log
@@ -73,46 +73,46 @@ jobs:
       - name: Install SteamCMD and repak
         run: |
           set -euo pipefail
-          mkdir -p "\$RUNNER_TEMP/steamcmd" "\$RUNNER_TEMP/repak"
+          mkdir -p "$RUNNER_TEMP/steamcmd" "$RUNNER_TEMP/repak"
           curl -fL --retry 6 --retry-delay 2 --retry-all-errors \
             https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz \
-            -o "\$RUNNER_TEMP/steamcmd.tgz"
-          tar -xzf "\$RUNNER_TEMP/steamcmd.tgz" \
-            -C "\$RUNNER_TEMP/steamcmd"
-          "\$RUNNER_TEMP/steamcmd/steamcmd.sh" +quit || true
+            -o "$RUNNER_TEMP/steamcmd.tgz"
+          tar -xzf "$RUNNER_TEMP/steamcmd.tgz" \
+            -C "$RUNNER_TEMP/steamcmd"
+          "$RUNNER_TEMP/steamcmd/steamcmd.sh" +quit || true
           curl -fL --retry 5 \
             https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-unknown-linux-gnu.tar.xz \
-            -o "\$RUNNER_TEMP/repak.tar.xz"
-          tar -xJf "\$RUNNER_TEMP/repak.tar.xz" \
-            -C "\$RUNNER_TEMP/repak"
-          REPAK=\$(find "\$RUNNER_TEMP/repak" \
+            -o "$RUNNER_TEMP/repak.tar.xz"
+          tar -xJf "$RUNNER_TEMP/repak.tar.xz" \
+            -C "$RUNNER_TEMP/repak"
+          REPAK=$(find "$RUNNER_TEMP/repak" \
             -type f -name 'repak*' -perm -111 | head -1)
-          test -n "\$REPAK"
-          echo "REPAK=\$REPAK" >> "\$GITHUB_ENV"
+          test -n "$REPAK"
+          echo "REPAK=$REPAK" >> "$GITHUB_ENV"
 
       - name: Download and unpack public Pavlov Nacht source
         run: |
           set -euo pipefail
-          "\$RUNNER_TEMP/steamcmd/steamcmd.sh" \
+          "$RUNNER_TEMP/steamcmd/steamcmd.sh" \
             +login anonymous \
             +workshop_download_item 555160 2755515831 validate \
             +quit
-          ROOT=\$(find "\$HOME" "\$RUNNER_TEMP" -type d \
+          ROOT=$(find "$HOME" "$RUNNER_TEMP" -type d \
             -path '*/steamapps/workshop/content/555160/2755515831' \
             -print -quit 2>/dev/null)
-          test -n "\$ROOT"
-          test -f "\$ROOT/WindowsNoEditor.pak"
-          mkdir -p "\$RUNNER_TEMP/nacht-unpacked"
-          "\$REPAK" unpack "\$ROOT/WindowsNoEditor.pak" \
-            -o "\$RUNNER_TEMP/nacht-unpacked"
-          echo "UNPACKED=\$RUNNER_TEMP/nacht-unpacked" \
-            >> "\$GITHUB_ENV"
+          test -n "$ROOT"
+          test -f "$ROOT/WindowsNoEditor.pak"
+          mkdir -p "$RUNNER_TEMP/nacht-unpacked"
+          "$REPAK" unpack "$ROOT/WindowsNoEditor.pak" \
+            -o "$RUNNER_TEMP/nacht-unpacked"
+          echo "UNPACKED=$RUNNER_TEMP/nacht-unpacked" \
+            >> "$GITHUB_ENV"
 
       - name: Build exact 492-mesh CUE4Parse exporter
         run: |
           set -euo pipefail
-          mkdir -p "\$RUNNER_TEMP/exporter"
-          cd "\$RUNNER_TEMP/exporter"
+          mkdir -p "$RUNNER_TEMP/exporter"
+          cd "$RUNNER_TEMP/exporter"
           dotnet new console --framework net10.0 --force
           dotnet add package CUE4Parse --version 1.2.2.202609
           dotnet add package CUE4Parse-Conversion --version 1.2.2.202609
@@ -239,14 +239,14 @@ jobs:
       - name: Export all 492 referenced GLBs
         run: |
           set -euo pipefail
-          mkdir -p "\$RUNNER_TEMP/scene-glb" \
+          mkdir -p "$RUNNER_TEMP/scene-glb" \
             build/nacht-static-scene
 
           dotnet \
-            "\$RUNNER_TEMP/exporter/bin/Release/net10.0/exporter.dll" \
-            "\$UNPACKED" \
-            "\$RUNNER_TEMP/scene-glb" \
-            "\$GITHUB_WORKSPACE/assets/nacht_reference/pavlov_scene_reference/assets.json" \
+            "$RUNNER_TEMP/exporter/bin/Release/net10.0/exporter.dll" \
+            "$UNPACKED" \
+            "$RUNNER_TEMP/scene-glb" \
+            "$GITHUB_WORKSPACE/assets/nacht_reference/pavlov_scene_reference/assets.json" \
             2>&1 | tee build/nacht-static-scene/export.log
 
           python3 - <<'PY'
@@ -296,25 +296,25 @@ jobs:
         run: |
           set -euo pipefail
 
-          OVERLAY="\$RUNNER_TEMP/nacht-overlay"
-          MAPROOT="\$OVERLAY/xziel/maps/xziel_nacht_bo3"
-          mkdir -p "\$MAPROOT/meshes"
+          OVERLAY="$RUNNER_TEMP/nacht-overlay"
+          MAPROOT="$OVERLAY/xziel/maps/xziel_nacht_bo3"
+          mkdir -p "$MAPROOT/meshes"
 
           python3 tools/maps/compile_nacht_xzmesh_bundle.py \
-            --glb-root "\$RUNNER_TEMP/scene-glb" \
-            --output-root "\$MAPROOT/meshes" \
+            --glb-root "$RUNNER_TEMP/scene-glb" \
+            --output-root "$MAPROOT/meshes" \
             --manifest build/nacht-static-scene/xziel.xzmesh.bundle.json \
             | tee build/nacht-static-scene/xzmesh-compile.log
 
           python3 tools/maps/compile_nacht_xzscene.py \
-            --output "\$MAPROOT/scene.xzsc" \
+            --output "$MAPROOT/scene.xzsc" \
             --report build/nacht-static-scene/xziel.xzscene.report.json \
             | tee build/nacht-static-scene/xzscene-compile.log
 
-          test "\$(find "\$MAPROOT/meshes" \
+          test "$(find "$MAPROOT/meshes" \
             -maxdepth 1 -type f -name '*.xzm' | wc -l)" \
             -eq 492
-          test -s "\$MAPROOT/scene.xzsc"
+          test -s "$MAPROOT/scene.xzsc"
 
           python3 - <<'PY'
           import json
@@ -353,8 +353,8 @@ jobs:
           )
           PY
 
-          echo "XZIEL_EXTRA_ASSET_DIR=\$OVERLAY" \
-            >> "\$GITHUB_ENV"
+          echo "XZIEL_EXTRA_ASSET_DIR=$OVERLAY" \
+            >> "$GITHUB_ENV"
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
@@ -365,11 +365,11 @@ jobs:
       - name: Install Android SDK, NDK and emulator
         run: |
           set -euo pipefail
-          SDKMANAGER=\$(find "\${ANDROID_HOME}/cmdline-tools" \
+          SDKMANAGER=$(find "${ANDROID_HOME}/cmdline-tools" \
             -type f -name sdkmanager | sort | tail -n 1)
-          test -n "\$SDKMANAGER"
-          yes | "\$SDKMANAGER" --licenses >/dev/null || true
-          "\$SDKMANAGER" \
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" \
             "platform-tools" \
             "platforms;android-35" \
             "build-tools;35.0.0" \
@@ -380,8 +380,8 @@ jobs:
       - name: Prepare Android project with real static scene overlay
         env:
           XZIEL_EXTRA_MAP_NAME: xziel_nacht_bo3
-          XZIEL_EXTRA_MAP_BSP: \${{ github.workspace }}/nacht-ci/xziel_nacht_bo3.bsp
-          XZIEL_EXTRA_MAP_MB2: \${{ github.workspace }}/nacht-ci/xziel_nacht_bo3.mb2
+          XZIEL_EXTRA_MAP_BSP: ${{ github.workspace }}/nacht-ci/xziel_nacht_bo3.bsp
+          XZIEL_EXTRA_MAP_MB2: ${{ github.workspace }}/nacht-ci/xziel_nacht_bo3.mb2
         run: |
           set -euo pipefail
 
@@ -398,10 +398,10 @@ jobs:
 
           ZIP=build/android-project/app/src/main/assets/nzp-data.zip
 
-          unzip -l "\$ZIP" \
+          unzip -l "$ZIP" \
             | grep -F 'nzp/xziel/maps/xziel_nacht_bo3/scene.xzsc'
 
-          test "\$(unzip -Z1 "\$ZIP" \
+          test "$(unzip -Z1 "$ZIP" \
             | grep -E '^nzp/xziel/maps/xziel_nacht_bo3/meshes/.*\.xzm$' \
             | wc -l)" -eq 492
 
@@ -423,18 +423,18 @@ jobs:
 
       - name: Boot Nacht and prove 492/492 VFS validation
         env:
-          ANDROID_AVD_HOME: \${{ runner.temp }}/xziel-static-scene-avd
+          ANDROID_AVD_HOME: ${{ runner.temp }}/xziel-static-scene-avd
         run: |
           set -euo pipefail
 
-          mkdir -p "\$ANDROID_AVD_HOME" dist
+          mkdir -p "$ANDROID_AVD_HOME" dist
 
-          ADB="\${ANDROID_HOME}/platform-tools/adb"
-          EMULATOR="\${ANDROID_HOME}/emulator/emulator"
-          AVDMANAGER=\$(find "\${ANDROID_HOME}/cmdline-tools" \
+          ADB="${ANDROID_HOME}/platform-tools/adb"
+          EMULATOR="${ANDROID_HOME}/emulator/emulator"
+          AVDMANAGER=$(find "${ANDROID_HOME}/cmdline-tools" \
             -type f -name avdmanager | sort | tail -n 1)
 
-          printf 'no\n' | "\$AVDMANAGER" create avd \
+          printf 'no\n' | "$AVDMANAGER" create avd \
             --force \
             --name xziel-static-scene-ci \
             --package "system-images;android-35;google_apis;x86_64" \
@@ -444,7 +444,7 @@ jobs:
             sudo chmod 666 /dev/kvm || true
           fi
 
-          nohup "\$EMULATOR" \
+          nohup "$EMULATOR" \
             @xziel-static-scene-ci \
             -no-window \
             -no-audio \
@@ -454,54 +454,54 @@ jobs:
             -memory 3072 \
             > dist/emulator-stdout.txt 2>&1 &
 
-          EMU_PID=\$!
+          EMU_PID=$!
           sleep 5
-          kill -0 "\$EMU_PID"
+          kill -0 "$EMU_PID"
 
-          timeout 120 "\$ADB" wait-for-device
+          timeout 120 "$ADB" wait-for-device
 
-          for i in \$(seq 1 60); do
-            if [[ "\$("\$ADB" shell getprop sys.boot_completed \
+          for i in $(seq 1 60); do
+            if [[ "$("$ADB" shell getprop sys.boot_completed \
                 2>/dev/null | tr -d '\r')" == "1" ]]; then
               break
             fi
             sleep 2
           done
 
-          test "\$("\$ADB" shell getprop sys.boot_completed \
+          test "$("$ADB" shell getprop sys.boot_completed \
             2>/dev/null | tr -d '\r')" = "1"
 
-          "\$ADB" install -r \
+          "$ADB" install -r \
             dist/XZIEL-Nacht-Static-Scene-debug.apk
 
-          "\$ADB" logcat -c
-          "\$ADB" shell am force-stop com.xziel.engine || true
+          "$ADB" logcat -c
+          "$ADB" shell am force-stop com.xziel.engine || true
 
-          "\$ADB" shell am start -W \
+          "$ADB" shell am start -W \
             -n com.xziel.engine/org.libsdl.app.NZPActivity \
             --es xziel_ci_map xziel_nacht_bo3 \
             --ez xziel_ci_hud_preview true \
             > dist/am-start.txt 2>&1 || true
 
           STAGE=""
-          for i in \$(seq 1 90); do
-            STAGE=\$("\$ADB" shell run-as com.xziel.engine \
+          for i in $(seq 1 90); do
+            STAGE=$("$ADB" shell run-as com.xziel.engine \
               cat files/nzp-runtime/.xziel-stage \
               2>/dev/null | tr -d '\r' || true)
 
-            if [[ "\$STAGE" == "FIRST_FRAME_OK" ]]; then
+            if [[ "$STAGE" == "FIRST_FRAME_OK" ]]; then
               break
             fi
             sleep 2
           done
 
-          "\$ADB" logcat -d -v threadtime \
+          "$ADB" logcat -d -v threadtime \
             > dist/static-scene-logcat.txt || true
 
-          echo "STAGE=\$STAGE" \
+          echo "STAGE=$STAGE" \
             | tee dist/static-scene-status.txt
 
-          test "\$STAGE" = "FIRST_FRAME_OK"
+          test "$STAGE" = "FIRST_FRAME_OK"
 
           grep -E \
             "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*meshes=492 instances=10791 xzms=492.*vertices=1067383 indices=3608148 submeshes=1063 meshBytes=48633408" \
@@ -514,7 +514,7 @@ jobs:
           echo \
             "XZIEL_NACHT_ANDROID_STATIC_SCENE_GREEN meshes=492 instances=10791 xzms=492 vertices=1067383 indices=3608148 submeshes=1063"
 
-          "\$ADB" exec-out screencap -p \
+          "$ADB" exec-out screencap -p \
             > dist/static-scene-runtime.png || true
 
       - name: Upload Android static-scene evidence
