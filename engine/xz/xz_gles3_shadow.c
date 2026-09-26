@@ -1973,7 +1973,7 @@ int XzGles3Shadow_UploadStaticScene(
                 XzStaticSceneRuntime_DiffuseTextureIndex(
                     scene,
                     mesh_index,
-                    dest->submeshes[submesh_index].material_index);
+                    submesh_index);
 
             if (diffuse_texture_index !=
                     XZ_STATIC_MATERIAL_NO_TEXTURE &&
