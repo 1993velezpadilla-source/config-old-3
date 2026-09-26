@@ -524,6 +524,13 @@ jobs:
             "XZIEL-XZ.*legacy3d worldTransition.*map='xziel_nacht_bo3'.*mapRuntime=NACHT_BO3" \
             dist/static-scene-logcat.txt
 
+          grep -E \
+            "XZIEL-XZ.*static_scene_draw ready=1 meshes=492 instances=10791 drawCalls=1063 attempts=[1-9][0-9]* failures=0" \
+            dist/static-scene-logcat.txt
+
+          echo \
+            "XZIEL_NACHT_FRAMEBUFFER_DRAW_GREEN meshes=492 instances=10791 drawCalls=1063"
+
           echo \
             "XZIEL_NACHT_ANDROID_STATIC_SCENE_GREEN meshes=492 instances=10791 xzms=492 vertices=1067383 indices=3608148 submeshes=1063 gpuBytes=48588848"
 
