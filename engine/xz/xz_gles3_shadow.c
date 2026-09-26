@@ -200,6 +200,14 @@ typedef struct {
 } XzGles3RealTexture;
 
 typedef struct {
+    GLuint object;
+    uint32_t width;
+    uint32_t height;
+    uint64_t gpu_bytes;
+    int alive;
+} XzGles3StaticTexture;
+
+typedef struct {
     GLuint vbo;
     GLuint ibo;
     GLuint vao;
@@ -207,6 +215,7 @@ typedef struct {
     uint32_t index_count;
     uint32_t submesh_count;
     XzXzmeshSubmesh *submeshes;
+    XzXzmaterialBinding *material_bindings;
     uint64_t gpu_bytes;
     int alive;
 } XzGles3StaticMesh;
@@ -258,12 +267,16 @@ typedef struct {
     GLuint static_program;
     GLint static_view_loc;
     GLint static_projection_loc;
+    GLint static_base_color_loc;
+    GLint static_base_color_enabled_loc;
     GLuint static_instance_vbo;
     XzStaticSceneDrawPlan static_draw_plan;
     int static_draw_plan_ready;
 
     XzGles3StaticMesh *static_meshes;
     uint32_t static_mesh_count;
+    XzGles3StaticTexture *static_textures;
+    uint32_t static_texture_count;
 
     GLuint scratch_fbo;
 
