@@ -1812,11 +1812,14 @@ int XzGles3Shadow_UploadStaticScene(
     EGLSurface previous_read;
     EGLContext previous_context;
     XzGles3StaticMesh *gpu_meshes = NULL;
+    const XzXzmaterialView *materials;
     uint64_t gpu_bytes = 0u;
+    uint64_t gpu_texture_bytes = 0u;
     uint64_t vertices = 0u;
     uint64_t indices = 0u;
     uint64_t submeshes = 0u;
     uint32_t mesh_index;
+    uint32_t texture_index;
     int restored = 0;
 
     if (!state || !scene ||
@@ -1841,6 +1844,107 @@ int XzGles3Shadow_UploadStaticScene(
 
     XzDrainErrors(state);
     XzDestroyStaticSceneCurrent(state);
+
+    materials =
+        XzStaticSceneRuntime_Materials(scene);
+
+    if (!materials ||
+        materials->mesh_count !=
+            scene->mesh_resource_count ||
+        materials->binding_count !=
+            scene->material_bindings_validated ||
+        materials->texture_count !=
+            scene->texture_resource_count)
+        goto fail;
+
+    if (materials->texture_count > 0u) {
+        xz_shadow.static_textures =
+            (XzGles3StaticTexture *)calloc(
+                (size_t)materials->texture_count,
+                sizeof(*xz_shadow.static_textures));
+
+        if (!xz_shadow.static_textures)
+            goto fail;
+
+        xz_shadow.static_texture_count =
+            materials->texture_count;
+    }
+
+    for (texture_index = 0u;
+         texture_index < materials->texture_count;
+         ++texture_index) {
+        const XzStaticTextureResource *source_texture =
+            XzStaticSceneRuntime_Texture(
+                scene,
+                texture_index);
+        XzGles3StaticTexture *dest_texture =
+            &xz_shadow.static_textures[
+                texture_index];
+
+        if (!source_texture ||
+            !source_texture->data ||
+            source_texture->texture.format !=
+                XZ_XZTX_FORMAT_RGBA8 ||
+            source_texture->texture.width == 0u ||
+            source_texture->texture.height == 0u ||
+            !source_texture->texture.pixels)
+            goto fail;
+
+        xz_shadow.gl.GenTextures(
+            1, &dest_texture->object);
+        if (!dest_texture->object)
+            goto fail;
+
+        xz_shadow.gl.ActiveTexture(
+            GL_TEXTURE0);
+        xz_shadow.gl.BindTexture(
+            GL_TEXTURE_2D,
+            dest_texture->object);
+        xz_shadow.gl.TexParameteri(
+            GL_TEXTURE_2D,
+            GL_TEXTURE_MIN_FILTER,
+            GL_LINEAR);
+        xz_shadow.gl.TexParameteri(
+            GL_TEXTURE_2D,
+            GL_TEXTURE_MAG_FILTER,
+            GL_LINEAR);
+        xz_shadow.gl.TexParameteri(
+            GL_TEXTURE_2D,
+            GL_TEXTURE_WRAP_S,
+            GL_REPEAT);
+        xz_shadow.gl.TexParameteri(
+            GL_TEXTURE_2D,
+            GL_TEXTURE_WRAP_T,
+            GL_REPEAT);
+        xz_shadow.gl.TexImage2D(
+            GL_TEXTURE_2D,
+            0,
+            GL_RGBA8,
+            (GLsizei)source_texture->texture.width,
+            (GLsizei)source_texture->texture.height,
+            0,
+            GL_RGBA,
+            GL_UNSIGNED_BYTE,
+            source_texture->texture.pixels);
+
+        if (xz_shadow.gl.GetError() !=
+                GL_NO_ERROR)
+            goto fail;
+
+        dest_texture->width =
+            source_texture->texture.width;
+        dest_texture->height =
+            source_texture->texture.height;
+        dest_texture->gpu_bytes =
+            source_texture->texture.pixel_bytes;
+        dest_texture->alive = 1;
+
+        gpu_texture_bytes +=
+            dest_texture->gpu_bytes;
+    }
+
+    xz_shadow.gl.BindTexture(
+        GL_TEXTURE_2D, 0u);
 
     gpu_meshes = (XzGles3StaticMesh *)calloc(
         (size_t)scene->mesh_resource_count,
@@ -1869,21 +1973,60 @@ int XzGles3Shadow_UploadStaticScene(
             source->mesh.submesh_count == 0u)
             goto fail;
 
-        dest->submeshes =
-            (XzXzmeshSubmesh *)calloc(
-                source->mesh.submesh_count,
-                sizeof(*dest->submeshes));
-        if (!dest->submeshes)
-            goto fail;
+        {
+            XzXzmaterialMeshSpan material_span;
+
+            if (!XzXzmaterial_ReadMeshSpan(
+                    materials,
+                    mesh_index,
+                    &material_span) ||
+                material_span.binding_count !=
+                    source->mesh.submesh_count)
+                goto fail;
+
+            dest->submeshes =
+                (XzXzmeshSubmesh *)calloc(
+                    source->mesh.submesh_count,
+                    sizeof(*dest->submeshes));
+            dest->material_bindings =
+                (XzXzmaterialBinding *)calloc(
+                    source->mesh.submesh_count,
+                    sizeof(*dest->material_bindings));
+
+            if (!dest->submeshes ||
+                !dest->material_bindings)
+                goto fail;
+
+            for (submesh_index = 0u;
+                 submesh_index <
+                    source->mesh.submesh_count;
+                 ++submesh_index) {
+                if (!XzXzmesh_ReadSubmesh(
+                        &source->mesh,
+                        submesh_index,
+                        &dest->submeshes[submesh_index]) ||
+                    !XzXzmaterial_ReadBinding(
+                        materials,
+                        material_span.first_binding +
+                            submesh_index,
+                        &dest->material_bindings[
+                            submesh_index]))
+                    goto fail;
+            }
+        }
 
         for (submesh_index = 0u;
              submesh_index <
                 source->mesh.submesh_count;
              ++submesh_index) {
-            if (!XzXzmesh_ReadSubmesh(
-                    &source->mesh,
-                    submesh_index,
-                    &dest->submeshes[submesh_index]))
+            const XzXzmaterialBinding *binding =
+                &dest->material_bindings[
+                    submesh_index];
+
+            if (binding->base_color_texture !=
+                    XZ_XZMT_NO_TEXTURE &&
+                binding->base_color_texture >=
+                    xz_shadow.static_texture_count)
                 goto fail;
         }
 
@@ -2087,6 +2230,12 @@ int XzGles3Shadow_UploadStaticScene(
         xz_shadow.static_mesh_count;
     state->static_scene_gpu_submeshes =
         (unsigned int)submeshes;
+    state->static_scene_gpu_textures =
+        xz_shadow.static_texture_count;
+    state->static_scene_gpu_material_bindings =
+        materials->binding_count;
+    state->static_scene_gpu_texture_bytes =
+        gpu_texture_bytes;
     state->static_scene_gpu_ready =
         state->static_scene_gpu_meshes ==
             scene->mesh_resource_count &&
@@ -2096,6 +2245,14 @@ int XzGles3Shadow_UploadStaticScene(
             scene->index_count &&
         state->static_scene_gpu_submeshes ==
             scene->submesh_count &&
+        state->static_scene_gpu_textures ==
+            scene->texture_resource_count &&
+        state->static_scene_gpu_material_bindings ==
+            scene->material_bindings_validated &&
+        state->static_scene_gpu_texture_bytes +
+            (uint64_t)scene->texture_resource_count *
+                XZ_XZTX_HEADER_BYTES ==
+            scene->texture_bytes_validated &&
         xz_shadow.static_draw_plan_ready &&
         xz_shadow.static_instance_vbo != 0u;
 
