@@ -1716,6 +1716,8 @@ static void XzDestroyStaticSceneCurrent(
                     1, &mesh->ibo);
             free(mesh->submeshes);
             mesh->submeshes = NULL;
+            free(mesh->material_bindings);
+            mesh->material_bindings = NULL;
         }
 
         free(xz_shadow.static_meshes);
@@ -1723,6 +1725,21 @@ static void XzDestroyStaticSceneCurrent(
 
     xz_shadow.static_meshes = NULL;
     xz_shadow.static_mesh_count = 0u;
+
+    if (xz_shadow.static_textures) {
+        for (i = 0u;
+             i < xz_shadow.static_texture_count;
+             ++i) {
+            if (xz_shadow.static_textures[i].object)
+                xz_shadow.gl.DeleteTextures(
+                    1,
+                    &xz_shadow.static_textures[i].object);
+        }
+        free(xz_shadow.static_textures);
+    }
+
+    xz_shadow.static_textures = NULL;
+    xz_shadow.static_texture_count = 0u;
 
     if (xz_shadow.static_instance_vbo) {
         xz_shadow.gl.DeleteBuffers(
@@ -1740,9 +1757,14 @@ static void XzDestroyStaticSceneCurrent(
         state->static_scene_gpu_indices = 0u;
         state->static_scene_gpu_meshes = 0u;
         state->static_scene_gpu_submeshes = 0u;
+        state->static_scene_gpu_textures = 0u;
+        state->static_scene_gpu_material_bindings = 0u;
+        state->static_scene_gpu_texture_bytes = 0u;
         state->static_scene_gpu_ready = 0;
         state->static_scene_last_draw_calls = 0u;
         state->static_scene_last_instances = 0u;
+        state->static_scene_last_textured_draw_calls = 0u;
+        state->static_scene_last_untextured_draw_calls = 0u;
         state->static_scene_frame_ready = 0;
     }
 }
