@@ -1023,9 +1023,13 @@ public final class XzielMultiplayer {
         }
 
         if (localSlot > 1 && serverReadyReceived) {
-            if (!clientConnected || signon < 4) {
+            // ca_connected with signon 0..3 is the normal Quake handshake /
+            // signon progression. Do not tear it down just because signon has
+            // not reached 4 yet. Retry only after Vril reports that the client
+            // is actually disconnected.
+            if (!clientConnected) {
                 beginClientConnection(true);
-            } else if (!clientReadySent) {
+            } else if (signon >= 4 && !clientReadySent) {
                 clientReadySent = true;
                 JSONObject ready = new JSONObject();
                 try {
