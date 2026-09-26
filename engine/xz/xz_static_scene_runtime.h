@@ -2,7 +2,9 @@
 #define XZ_STATIC_SCENE_RUNTIME_H
 
 #include "xz_xzmesh.h"
+#include "xz_xzmaterial.h"
 #include "xz_xzscene.h"
+#include "xz_xztexture.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -26,6 +28,13 @@ typedef struct {
 } XzStaticMeshResource;
 
 typedef struct {
+    unsigned char *data;
+    size_t bytes;
+    XzXztextureView texture;
+    char path[128];
+} XzStaticTextureResource;
+
+typedef struct {
     XzStaticSceneStatus status;
 
     unsigned char *scene_data;
@@ -35,11 +44,22 @@ typedef struct {
     XzStaticMeshResource *mesh_resources;
     uint32_t mesh_resource_count;
 
+    unsigned char *material_data;
+    size_t material_bytes;
+    XzXzmaterialView materials;
+
+    XzStaticTextureResource *texture_resources;
+    uint32_t texture_resource_count;
+
     uint32_t mesh_files_validated;
     uint64_t mesh_bytes_validated;
     uint64_t vertex_count;
     uint64_t index_count;
     uint64_t submesh_count;
+
+    uint32_t material_bindings_validated;
+    uint32_t texture_files_validated;
+    uint64_t texture_bytes_validated;
 
     char map_id[64];
     char scene_path[256];
@@ -68,6 +88,18 @@ XzStaticSceneRuntime_Mesh(
     uint32_t mesh_index);
 
 uint32_t XzStaticSceneRuntime_MeshCount(
+    const XzStaticSceneRuntimeState *state);
+
+const XzXzmaterialView *
+XzStaticSceneRuntime_Materials(
+    const XzStaticSceneRuntimeState *state);
+
+const XzStaticTextureResource *
+XzStaticSceneRuntime_Texture(
+    const XzStaticSceneRuntimeState *state,
+    uint32_t texture_index);
+
+uint32_t XzStaticSceneRuntime_TextureCount(
     const XzStaticSceneRuntimeState *state);
 
 const char *XzStaticSceneRuntime_StatusName(
