@@ -106,6 +106,7 @@ typedef struct {
     unsigned int static_scene_last_instances;
     unsigned int static_scene_fbo_nonblack_pixels;
     unsigned int static_scene_surface_nonblack_pixels;
+    unsigned int static_scene_postrestore_nonblack_pixels;
     unsigned int static_scene_readback_width;
     unsigned int static_scene_readback_height;
     int static_scene_frame_ready;
