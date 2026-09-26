@@ -1,6 +1,7 @@
 #ifndef XZ_STATIC_SCENE_RUNTIME_H
 #define XZ_STATIC_SCENE_RUNTIME_H
 
+#include "xz_xzmesh.h"
 #include "xz_xzscene.h"
 
 #include <stddef.h>
@@ -18,11 +19,21 @@ typedef enum {
 } XzStaticSceneStatus;
 
 typedef struct {
+    unsigned char *data;
+    size_t bytes;
+    XzXzmeshView mesh;
+    char path[XZ_XZSC_MAX_PATH_BYTES + 1u];
+} XzStaticMeshResource;
+
+typedef struct {
     XzStaticSceneStatus status;
 
     unsigned char *scene_data;
     size_t scene_bytes;
     XzXzsceneView scene;
+
+    XzStaticMeshResource *mesh_resources;
+    uint32_t mesh_resource_count;
 
     uint32_t mesh_files_validated;
     uint64_t mesh_bytes_validated;
@@ -49,6 +60,14 @@ void XzStaticSceneRuntime_Shutdown(
     XzStaticSceneRuntimeState *state);
 
 const XzXzsceneView *XzStaticSceneRuntime_Scene(
+    const XzStaticSceneRuntimeState *state);
+
+const XzStaticMeshResource *
+XzStaticSceneRuntime_Mesh(
+    const XzStaticSceneRuntimeState *state,
+    uint32_t mesh_index);
+
+uint32_t XzStaticSceneRuntime_MeshCount(
     const XzStaticSceneRuntimeState *state);
 
 const char *XzStaticSceneRuntime_StatusName(

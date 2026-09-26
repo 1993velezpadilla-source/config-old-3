@@ -1,5 +1,4 @@
 #include "xz_static_scene_runtime.h"
-#include "xz_xzmesh.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -154,6 +153,23 @@ static int XzHasPrefix(
         prefix_length) == 0;
 }
 
+static void XzFreeMeshResources(
+    XzStaticMeshResource *resources,
+    uint32_t count)
+{
+    uint32_t i;
+
+    if (!resources)
+        return;
+
+    for (i = 0u; i < count; ++i) {
+        if (resources[i].data)
+            free(resources[i].data);
+    }
+
+    free(resources);
+}
+
 void XzStaticSceneRuntime_Init(
     XzStaticSceneRuntimeState *state)
 {
@@ -170,6 +186,10 @@ void XzStaticSceneRuntime_Reset(
     if (!state)
         return;
 
+    XzFreeMeshResources(
+        state->mesh_resources,
+        state->mesh_resource_count);
+
     if (state->scene_data)
         free(state->scene_data);
 
@@ -185,9 +205,15 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
     size_t scene_bytes = 0u;
     XzXzsceneView scene;
     XzXzsceneStatus scene_status;
+    XzStaticMeshResource *resources = NULL;
     char scene_path[256];
     char mesh_prefix[160];
+    char failure[128] = "";
     uint32_t mesh_index;
+    uint64_t mesh_bytes_total = 0u;
+    uint64_t vertex_total = 0u;
+    uint64_t index_total = 0u;
+    uint64_t submesh_total = 0u;
     int read_status;
 
     if (!state)
@@ -261,33 +287,25 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
         scene_bytes);
 
     if (scene_status != XZ_XZSC_OK) {
-        char error[128];
-
         snprintf(
-            error,
-            sizeof(error),
+            failure,
+            sizeof(failure),
             "xzscene_%s",
             XzXzscene_StatusName(
                 scene_status));
-        free(scene_data);
-
-        state->status =
-            XZ_STATIC_SCENE_INVALID;
-        XzSetError(state, error);
-        return state->status;
+        goto invalid;
     }
 
     if (fabsf(
             scene.gameplay_units_per_meter -
             XZ_STATIC_SCENE_GAMEPLAY_UNITS_PER_METER) >
             0.001f) {
-        free(scene_data);
-        state->status =
-            XZ_STATIC_SCENE_INVALID;
-        XzSetError(
-            state,
+        snprintf(
+            failure,
+            sizeof(failure),
+            "%s",
             "gameplay_scale_mismatch");
-        return state->status;
+        goto invalid;
     }
 
     if (strcmp(
@@ -295,13 +313,12 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
             "xziel_nacht_bo3") == 0 &&
         (scene.mesh_count != 492u ||
          scene.instance_count != 10791u)) {
-        free(scene_data);
-        state->status =
-            XZ_STATIC_SCENE_INVALID;
-        XzSetError(
-            state,
+        snprintf(
+            failure,
+            sizeof(failure),
+            "%s",
             "nacht_scene_count_mismatch");
-        return state->status;
+        goto invalid;
     }
 
     if (snprintf(
@@ -311,97 +328,92 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
             map_id) <= 0 ||
         strlen(mesh_prefix) >=
             sizeof(mesh_prefix) - 1u) {
-        free(scene_data);
-        state->status =
-            XZ_STATIC_SCENE_INVALID;
-        XzSetError(
-            state,
+        snprintf(
+            failure,
+            sizeof(failure),
+            "%s",
             "mesh_prefix_overflow");
-        return state->status;
+        goto invalid;
+    }
+
+    resources =
+        (XzStaticMeshResource *)calloc(
+            (size_t)scene.mesh_count,
+            sizeof(*resources));
+
+    if (!resources) {
+        snprintf(
+            failure,
+            sizeof(failure),
+            "%s",
+            "mesh_resource_alloc_failed");
+        goto invalid;
     }
 
     for (mesh_index = 0u;
          mesh_index < scene.mesh_count;
          ++mesh_index) {
-        char mesh_path[
-            XZ_XZSC_MAX_PATH_BYTES + 1u];
-        unsigned char *mesh_data = NULL;
-        size_t mesh_bytes = 0u;
-        XzXzmeshView mesh;
+        XzStaticMeshResource *resource =
+            &resources[mesh_index];
         XzXzmeshStatus mesh_status;
         uint32_t submesh_index;
 
         if (!XzXzscene_ReadMeshPath(
                 &scene,
                 mesh_index,
-                mesh_path,
-                sizeof(mesh_path))) {
-            free(scene_data);
-            state->status =
-                XZ_STATIC_SCENE_INVALID;
-            XzSetError(
-                state,
+                resource->path,
+                sizeof(resource->path))) {
+            snprintf(
+                failure,
+                sizeof(failure),
+                "%s",
                 "mesh_path_read_failed");
-            return state->status;
+            goto invalid;
         }
 
         if (!XzHasPrefix(
-                mesh_path,
+                resource->path,
                 mesh_prefix)) {
-            free(scene_data);
-            state->status =
-                XZ_STATIC_SCENE_INVALID;
-            XzSetError(
-                state,
+            snprintf(
+                failure,
+                sizeof(failure),
+                "%s",
                 "mesh_path_cross_map");
-            return state->status;
+            goto invalid;
         }
 
         read_status = XzReadVfsFile(
-            mesh_path,
+            resource->path,
             XZ_STATIC_SCENE_MAX_MESH_BYTES,
-            &mesh_data,
-            &mesh_bytes);
+            &resource->data,
+            &resource->bytes);
 
         if (read_status <= 0) {
-            char error[128];
-
             snprintf(
-                error,
-                sizeof(error),
+                failure,
+                sizeof(failure),
                 "mesh_%u_%s",
                 (unsigned int)mesh_index,
                 read_status == 0
                     ? "missing"
                     : "read_failed");
-            free(scene_data);
-            state->status =
-                XZ_STATIC_SCENE_INVALID;
-            XzSetError(state, error);
-            return state->status;
+            goto invalid;
         }
 
         mesh_status = XzXzmesh_Parse(
-            &mesh,
-            mesh_data,
-            mesh_bytes);
+            &resource->mesh,
+            resource->data,
+            resource->bytes);
 
         if (mesh_status != XZ_XZMS_OK) {
-            char error[128];
-
             snprintf(
-                error,
-                sizeof(error),
+                failure,
+                sizeof(failure),
                 "mesh_%u_xzms_%s",
                 (unsigned int)mesh_index,
                 XzXzmesh_StatusName(
                     mesh_status));
-            free(mesh_data);
-            free(scene_data);
-            state->status =
-                XZ_STATIC_SCENE_INVALID;
-            XzSetError(state, error);
-            return state->status;
+            goto invalid;
         }
 
         /*
@@ -411,12 +423,12 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
          */
         for (submesh_index = 0u;
              submesh_index <
-                 mesh.submesh_count;
+                 resource->mesh.submesh_count;
              ++submesh_index) {
             XzXzmeshSubmesh submesh;
 
             if (!XzXzmesh_ReadSubmesh(
-                    &mesh,
+                    &resource->mesh,
                     submesh_index,
                     &submesh) ||
                 (submesh.attribute_flags &
@@ -426,37 +438,60 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
                     (XZ_XZMS_ATTR_POSITION |
                      XZ_XZMS_ATTR_NORMAL |
                      XZ_XZMS_ATTR_UV0)) {
-                free(mesh_data);
-                free(scene_data);
-                state->status =
-                    XZ_STATIC_SCENE_INVALID;
-                XzSetError(
-                    state,
+                snprintf(
+                    failure,
+                    sizeof(failure),
+                    "%s",
                     "mesh_attributes_incomplete");
-                return state->status;
+                goto invalid;
             }
         }
 
-        state->mesh_files_validated++;
-        state->mesh_bytes_validated +=
-            (uint64_t)mesh_bytes;
-        state->vertex_count +=
-            (uint64_t)mesh.vertex_count;
-        state->index_count +=
-            (uint64_t)mesh.index_count;
-        state->submesh_count +=
-            (uint64_t)mesh.submesh_count;
-
-        free(mesh_data);
+        mesh_bytes_total +=
+            (uint64_t)resource->bytes;
+        vertex_total +=
+            (uint64_t)resource->mesh.vertex_count;
+        index_total +=
+            (uint64_t)resource->mesh.index_count;
+        submesh_total +=
+            (uint64_t)resource->mesh.submesh_count;
     }
 
     state->scene_data = scene_data;
     state->scene_bytes = scene_bytes;
     state->scene = scene;
+    state->mesh_resources = resources;
+    state->mesh_resource_count =
+        scene.mesh_count;
+    state->mesh_files_validated =
+        scene.mesh_count;
+    state->mesh_bytes_validated =
+        mesh_bytes_total;
+    state->vertex_count =
+        vertex_total;
+    state->index_count =
+        index_total;
+    state->submesh_count =
+        submesh_total;
     state->status =
         XZ_STATIC_SCENE_READY;
     state->error[0] = '\0';
 
+    return state->status;
+
+invalid:
+    XzFreeMeshResources(
+        resources,
+        scene.mesh_count);
+    free(scene_data);
+
+    state->status =
+        XZ_STATIC_SCENE_INVALID;
+    XzSetError(
+        state,
+        failure[0]
+            ? failure
+            : "unknown_static_scene_failure");
     return state->status;
 }
 
@@ -476,6 +511,34 @@ const XzXzsceneView *XzStaticSceneRuntime_Scene(
         return NULL;
 
     return &state->scene;
+}
+
+const XzStaticMeshResource *
+XzStaticSceneRuntime_Mesh(
+    const XzStaticSceneRuntimeState *state,
+    uint32_t mesh_index)
+{
+    if (!state ||
+        state->status !=
+            XZ_STATIC_SCENE_READY ||
+        !state->mesh_resources ||
+        mesh_index >=
+            state->mesh_resource_count)
+        return NULL;
+
+    return &state->mesh_resources[mesh_index];
+}
+
+uint32_t XzStaticSceneRuntime_MeshCount(
+    const XzStaticSceneRuntimeState *state)
+{
+    if (!state ||
+        state->status !=
+            XZ_STATIC_SCENE_READY ||
+        !state->mesh_resources)
+        return 0u;
+
+    return state->mesh_resource_count;
 }
 
 const char *XzStaticSceneRuntime_StatusName(

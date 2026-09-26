@@ -1,0 +1,106 @@
+name: XZIEL Static Scene Residency CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/xziel-static-scene-residency-v1
+      - feature/xziel-engine-nacht-runtime-v1
+    paths:
+      - "engine/xz/xz_static_scene_runtime.*"
+      - "tests/xz_static_scene_residency_test.c"
+      - ".github/workflows/xzscene-residency-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  residency:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build one-mesh XZSC/XZMS fixture
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/xz-residency/xziel/maps/unit_map/meshes
+
+          python3 - <<'PY'
+          import json
+          import pathlib
+          import struct
+
+          root=pathlib.Path("/tmp/xz-residency")
+          mesh=root/"xziel/maps/unit_map/meshes/a.xzm"
+
+          header=struct.Struct("<4sIIIIIII6f")
+          vertex=struct.Struct("<8f")
+          submesh=struct.Struct("<IIII")
+
+          vertices=[
+              (0,0,0, 0,0,1, 0,0),
+              (1,0,0, 0,0,1, 1,0),
+              (0,1,0, 0,0,1, 0,1),
+          ]
+          indices=(0,1,2)
+
+          raw=bytearray()
+          raw += header.pack(
+              b"XZMS",1,3,3,1,3,
+              vertex.size,submesh.size,
+              0,0,0,1,1,0,
+          )
+          for row in vertices:
+              raw += vertex.pack(*row)
+          raw += struct.pack("<3I",*indices)
+          raw += submesh.pack(0,3,0,7)
+          mesh.write_bytes(raw)
+
+          scene={
+              "format":"xziel_visual_scene_v1",
+              "meshes":[
+                  {
+                      "index":0,
+                      "sourceBasename":"a",
+                  }
+              ],
+              "instances":[
+                  {
+                      "meshIndex":0,
+                      "matrixRowMajor":[
+                          1,0,0,0,
+                          0,1,0,0,
+                          0,0,1,0,
+                          0,0,0,1,
+                      ],
+                  }
+              ],
+          }
+
+          visual=root/"visual.json"
+          visual.write_text(json.dumps(scene))
+          PY
+
+          python3 tools/maps/compile_xziel_static_scene.py \
+            /tmp/xz-residency/visual.json \
+            /tmp/xz-residency/xziel/maps/unit_map/scene.xzsc \
+            --runtime-map-id unit_map
+
+      - name: Build and run retained-mesh runtime test
+        run: |
+          set -euo pipefail
+          cc -std=c99 -O2 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tests/xz_static_scene_residency_test.c \
+            engine/xz/xz_static_scene_runtime.c \
+            engine/xz/xz_xzscene.c \
+            engine/xz/xz_xzmesh.c \
+            -lm \
+            -o /tmp/xz_static_scene_residency_test
+
+          (
+            cd /tmp/xz-residency
+            /tmp/xz_static_scene_residency_test
+          )
