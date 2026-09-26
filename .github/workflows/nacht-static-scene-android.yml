@@ -191,6 +191,8 @@ jobs:
           Directory.CreateDirectory(
               explicitTextureDir);
 
+          const int runtimeTextureMaxMipSize = 256;
+
           var explicitTextureFiles = 0;
           var explicitTextureDecodeFailures = 0;
           var explicitTextureUnsupportedFormats = 0;
@@ -440,7 +442,8 @@ jobs:
                   try
                   {
                       var decoded =
-                          texture.Decode();
+                          texture.Decode(
+                              runtimeTextureMaxMipSize);
 
                       if (decoded is null)
                       {
@@ -622,7 +625,8 @@ jobs:
                           + $" file={fileName}"
                           + $" size={decoded.Width}x{decoded.Height}"
                           + $" sourceFormat={decoded.PixelFormat}"
-                          + $" rgbaBytes={rgba.Length}");
+                          + $" rgbaBytes={rgba.Length}"
+                          + $" runtimeMaxMip={runtimeTextureMaxMipSize}");
                   }
                   catch (Exception e)
                   {
@@ -1038,6 +1042,7 @@ jobs:
                       explicitTextureRows.Count,
                   bindingCount =
                       materialTextureRows.Count,
+                  runtimeTextureMaxMipSize,
                   meshMaterialCount =
                       meshMaterialRows.Count,
                   textures =
