@@ -69,6 +69,12 @@ public final class XzielMultiplayer {
     private final Set<Integer> connectedSlots = ConcurrentHashMap.newKeySet();
     private final AtomicReference<String> pendingNativeCommand =
         new AtomicReference<>("");
+    // CI-only bounded transport tracing. These counters never affect routing;
+    // they only prove which edge of the native UDP <-> WebSocket bridge saw
+    // the first few Quake datagrams.
+    private volatile int gameTxTraceCount;
+    private volatile int gameRxTraceCount;
+    private volatile int gamePollTraceCount;
 
     private volatile String baseUrl;
     private volatile String roomCode = "";
@@ -630,6 +636,9 @@ public final class XzielMultiplayer {
         lastConnectAttemptMs = 0;
         connectedSlots.clear();
         packetsByPort.clear();
+        gameTxTraceCount = 0;
+        gameRxTraceCount = 0;
+        gamePollTraceCount = 0;
 
         toast("Joining room " + code + "...");
         openGameSocket();
@@ -1189,7 +1198,17 @@ public final class XzielMultiplayer {
         packet.putShort((short)(destinationPort & 0xffff));
         packet.put(payload);
 
-        return socket.send(ByteString.of(packet.array()));
+        boolean sent = socket.send(ByteString.of(packet.array()));
+        if (ciEvidenceMode && gameTxTraceCount < 16) {
+            gameTxTraceCount++;
+            Log.i(TAG, "GAME_TX slot=" + localSlot +
+                " dst=" + destinationSlot +
+                " srcPort=" + sourcePort +
+                " dstPort=" + destinationPort +
+                " bytes=" + payload.length +
+                " accepted=" + sent);
+        }
+        return sent;
     }
 
     private void handleGamePacket(byte[] data) {
@@ -1214,6 +1233,15 @@ public final class XzielMultiplayer {
         byte[] payload = new byte[packet.remaining()];
         packet.get(payload);
 
+        if (ciEvidenceMode && gameRxTraceCount < 16) {
+            gameRxTraceCount++;
+            Log.i(TAG, "GAME_RX slot=" + localSlot +
+                " src=" + sourceSlot +
+                " srcPort=" + sourcePort +
+                " dstPort=" + destinationPort +
+                " bytes=" + payload.length);
+        }
+
         ConcurrentLinkedQueue<GamePacket> queue = packetsByPort.computeIfAbsent(
             destinationPort,
             ignored -> new ConcurrentLinkedQueue<>()
@@ -1231,6 +1259,15 @@ public final class XzielMultiplayer {
 
         GamePacket packet = queue.poll();
         if (packet == null) return null;
+
+        if (ciEvidenceMode && gamePollTraceCount < 16) {
+            gamePollTraceCount++;
+            Log.i(TAG, "GAME_POLL slot=" + localSlot +
+                " localPort=" + localPort +
+                " src=" + packet.sourceSlot +
+                " srcPort=" + packet.sourcePort +
+                " bytes=" + packet.payload.length);
+        }
 
         byte[] out = new byte[3 + packet.payload.length];
         out[0] = (byte)packet.sourceSlot;
@@ -1286,6 +1323,9 @@ public final class XzielMultiplayer {
         voiceChat.leaveRoom();
         connectedSlots.clear();
         packetsByPort.clear();
+        gameTxTraceCount = 0;
+        gameRxTraceCount = 0;
+        gamePollTraceCount = 0;
         pendingNativeCommand.set("");
     }
 
