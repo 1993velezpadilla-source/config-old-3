@@ -133,12 +133,12 @@ host.write_text(text, encoding="utf-8")
 pr_exec = source / "qcvm" / "pr_exec.c"
 ptext = pr_exec.read_text(encoding="utf-8")
 pr_generic = '\tHost_Error ("Program error");\n'
-pr_android = r'''#ifdef __ANDROID__
-\tHost_Error ("Program error: function=%s statement=%d reason=%s",
-\t\tpr_xfunction ? PR_GetString(pr_xfunction->s_name) : "<none>",
-\t\tpr_xstatement, string);
+pr_android = '''#ifdef __ANDROID__
+	Host_Error ("Program error: function=%s statement=%d reason=%s",
+		pr_xfunction ? PR_GetString(pr_xfunction->s_name) : "<none>",
+		pr_xstatement, string);
 #else
-\tHost_Error ("Program error");
+	Host_Error ("Program error");
 #endif
 '''
 if "Program error: function=%s statement=%d reason=%s" not in ptext:
