@@ -480,6 +480,12 @@ jobs:
           test "$("$ADB" shell getprop sys.boot_completed \
             2>/dev/null | tr -d '\r')" = "1"
 
+          # Suppress Android's one-time immersive-mode education overlay so the
+          # captured framebuffer is the game itself rather than the system
+          # "Viewing full screen / Got it" tutorial.
+          "$ADB" shell settings put secure \
+            immersive_mode_confirmations confirmed || true
+
           "$ADB" install -r \
             dist/XZIEL-Nacht-Static-Scene-debug.apk
 
@@ -531,6 +537,32 @@ jobs:
 
           "$ADB" logcat -d -v threadtime \
             > dist/static-scene-logcat.txt || true
+
+          # API 35 emulators may still show the education dialog even when the
+          # secure setting was pre-seeded. Detect it instead of blindly tapping
+          # the game, and dismiss it only when the system text is present.
+          "$ADB" shell uiautomator dump /sdcard/xziel-window.xml \
+            >/dev/null 2>&1 || true
+          "$ADB" shell cat /sdcard/xziel-window.xml \
+            > dist/static-scene-window.xml 2>/dev/null || true
+
+          if grep -q "Viewing full screen" \
+              dist/static-scene-window.xml 2>/dev/null; then
+            "$ADB" shell input tap 1960 720 || true
+            sleep 1
+            "$ADB" shell uiautomator dump /sdcard/xziel-window.xml \
+              >/dev/null 2>&1 || true
+            "$ADB" shell cat /sdcard/xziel-window.xml \
+              > dist/static-scene-window-after-dismiss.xml \
+              2>/dev/null || true
+          fi
+
+          if grep -q "Viewing full screen" \
+              dist/static-scene-window-after-dismiss.xml \
+              2>/dev/null; then
+            echo "XZIEL_SCREENSHOT_BLOCKED_BY_ANDROID_OVERLAY"
+            exit 1
+          fi
 
           "$ADB" exec-out screencap -p \
             > dist/static-scene-runtime.png || true
