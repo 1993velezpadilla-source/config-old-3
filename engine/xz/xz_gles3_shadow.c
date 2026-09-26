@@ -261,6 +261,9 @@ typedef struct {
 
 static XzGles3ShadowInternal xz_shadow;
 
+static void XzDrainErrors(
+    XzGles3ShadowState *state);
+
 static float XzAbsFloat(float value)
 {
     return value < 0.0f ? -value : value;
