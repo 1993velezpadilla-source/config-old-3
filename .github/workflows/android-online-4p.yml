@@ -327,11 +327,23 @@ jobs:
 
           # Press the real in-game pause control. Online gameplay must continue;
           # the menu shows the native scoreboard plus the per-player voice grid.
-          SIZE="$("$ADB" shell wm size | grep -oE '[0-9]+x[0-9]+' | tail -n 1 | tr -d '\r')"
-          WIDTH="${SIZE%x*}"
-          HEIGHT="${SIZE#*x}"
+          # Android's physical wm size can remain portrait even while SDL is
+          # locked/rendering landscape. Read the dimensions from the actual
+          # framebuffer screenshot we just captured so the tap lands on the
+          # same normalized HUD coordinate that Vril rendered.
+          read -r WIDTH HEIGHT < <(python3 - "evidence/player-${{ matrix.runner }}.png" <<'PY'
+          import struct, sys
+          from pathlib import Path
+          data = Path(sys.argv[1]).read_bytes()
+          if len(data) < 24 or data[:8] != b"\x89PNG\r\n\x1a\n":
+              raise SystemExit("invalid framebuffer PNG")
+          width, height = struct.unpack(">II", data[16:24])
+          print(width, height)
+          PY
+          )
           PAUSE_X=$((WIDTH * 965 / 1000))
           PAUSE_Y=$((HEIGHT * 75 / 1000))
+          echo "Pause HUD tap framebuffer=${WIDTH}x${HEIGHT} at ${PAUSE_X},${PAUSE_Y}"
           "$ADB" shell input tap "$PAUSE_X" "$PAUSE_Y"
           sleep 2
           "$ADB" exec-out screencap -p > "evidence/online-pause-${{ matrix.runner }}.png" || true
