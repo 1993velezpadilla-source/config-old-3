@@ -548,6 +548,13 @@ jobs:
           "$ADB" logcat -d -v threadtime \
             > dist/static-scene-logcat.txt || true
 
+          # Capture the renderer's own FBO before Android/GL4ES presentation.
+          # This is the authoritative visual proof for the native GLES3 scene.
+          "$ADB" shell run-as com.xziel.engine \
+            cat files/nzp-runtime/static-scene-fbo.ppm \
+            > dist/static-scene-fbo.ppm 2>/dev/null || true
+          test -s dist/static-scene-fbo.ppm
+
           # API 35 emulators may still show the education dialog even when the
           # secure setting was pre-seeded. Detect it instead of blindly tapping
           # the game, and dismiss it only when the system text is present.
