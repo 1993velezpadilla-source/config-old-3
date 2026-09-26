@@ -139,7 +139,8 @@ def vector_binding_score(row: dict) -> int:
     score = 0
     exact = {
         "basecolor", "basecolour", "albedocolor", "albedocolour",
-        "diffusecolor", "diffusecolour", "colortint", "basetint",
+        "diffusecolor", "diffusecolour", "blendcolor", "blendcolour",
+        "colortint", "colourtint", "basetint",
     }
     if name in exact:
         score += 12000
@@ -172,7 +173,10 @@ def vector_rgba(row: dict) -> bytes:
         component("r", 1.0),
         component("g", 1.0),
         component("b", 1.0),
-        component("a", 1.0),
+        # Unreal material color vectors frequently leave A at zero even when
+        # alpha is not part of the shader path. Constant-color fallbacks are
+        # therefore opaque; true invisibility is handled explicitly above.
+        255,
     ))
 
 
