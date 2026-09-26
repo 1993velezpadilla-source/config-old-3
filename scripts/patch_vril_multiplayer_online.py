@@ -201,20 +201,6 @@ if "xziel_loading_map_name" not in ltext:
     ltext = replace_once(ltext, loadscreen_globals, loadscreen_globals_repl,
                          "loading screen owned map-name storage")
 
-loadscreen_begin_old = r'''void LoadingScreen_Begin(const char *map_name)
-{
-	LoadingScreen_ClearProgress();
-	loadingScreen = 1;
-	loadscreeninit = false;
-	lscreen_image = -1;
-	lscreen_identifier[0] = '\0';
-	loading_waiting_for_input = menu_is_solo;
-	loading_spawn_released = false;
-	loading_precache_complete = false;
-	loading_skip_key = -1;
-	loadscreen_start_time = Sys_FloatTime();
-	Music_PlayLoadingTrack(map_name);
-}'''
 loadscreen_begin_new = r'''void LoadingScreen_Begin(const char *map_name)
 {
 	qboolean preserve_pretty =
@@ -232,7 +218,7 @@ loadscreen_begin_new = r'''void LoadingScreen_Begin(const char *map_name)
 	loadingScreen = 1;
 	loadscreeninit = false;
 	lscreen_image = -1;
-	lscreen_identifier[0] = '\0';
+	lscreen_identifier[0] = '\\0';
 	loading_waiting_for_input = menu_is_solo;
 	loading_spawn_released = false;
 	loading_precache_complete = false;
@@ -241,8 +227,26 @@ loadscreen_begin_new = r'''void LoadingScreen_Begin(const char *map_name)
 	Music_PlayLoadingTrack(map_loadname);
 }'''
 if "preserve_pretty =" not in ltext:
-    ltext = replace_once(ltext, loadscreen_begin_old, loadscreen_begin_new,
-                         "LoadingScreen_Begin owned map name")
+    signature = "void LoadingScreen_Begin(const char *map_name)"
+    begin = ltext.find(signature)
+    if begin < 0:
+        raise SystemExit("Could not find LoadingScreen_Begin signature")
+    brace = ltext.find("{", begin)
+    if brace < 0:
+        raise SystemExit("Could not find LoadingScreen_Begin body")
+    depth = 0
+    finish = -1
+    for i in range(brace, len(ltext)):
+        if ltext[i] == "{":
+            depth += 1
+        elif ltext[i] == "}":
+            depth -= 1
+            if depth == 0:
+                finish = i + 1
+                break
+    if finish < 0:
+        raise SystemExit("Could not find LoadingScreen_Begin end")
+    ltext = ltext[:begin] + loadscreen_begin_new + ltext[finish:]
 loadscreen.write_text(ltext, encoding="utf-8")
 
 # ---------------------------------------------------------------------------
