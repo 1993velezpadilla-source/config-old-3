@@ -190,6 +190,26 @@ jobs:
               new HashSet<string>(
                   StringComparer.OrdinalIgnoreCase);
 
+          var packageBasenames =
+              provider.Files.Values
+                  .Where(f => f.IsUePackage)
+                  .Where(
+                      f => f.Path.EndsWith(
+                          ".uasset",
+                          StringComparison.OrdinalIgnoreCase))
+                  .GroupBy(
+                      f => Path.GetFileNameWithoutExtension(
+                          f.Path.Replace('\\', '/')),
+                      StringComparer.OrdinalIgnoreCase)
+                  .ToDictionary(
+                      g => g.Key,
+                      g => g.Select(x => x.Path).ToArray(),
+                      StringComparer.OrdinalIgnoreCase);
+
+          var refResolved = 0;
+          var exactPackageMatches = 0;
+          var normalizedPackageMatches = 0;
+
           foreach (
               var file in provider.Files.Values
                   .Where(f => f.IsUePackage)
@@ -259,10 +279,62 @@ jobs:
                               }
                               else
                               {
+                                  var resolved =
+                                      materialRef.ResolvedObject;
+                                  var refName =
+                                      materialRef.Name;
+                                  var refPath =
+                                      resolved?.GetPathName()
+                                      ?? "";
+                                  var refClass =
+                                      resolved?.Class?.Name.Text
+                                      ?? "";
+
+                                  if (resolved is not null)
+                                      refResolved++;
+
+                                  string NormalizeCandidate(
+                                      string value)
+                                  {
+                                      if (
+                                          value.EndsWith(
+                                              "Mat",
+                                              StringComparison.OrdinalIgnoreCase))
+                                          return value[..^3];
+                                      return value;
+                                  }
+
+                                  var exactMatches =
+                                      packageBasenames.TryGetValue(
+                                          refName,
+                                          out var exact)
+                                          ? exact
+                                          : [];
+
+                                  var normalized =
+                                      NormalizeCandidate(refName);
+                                  var normalizedMatches =
+                                      packageBasenames.TryGetValue(
+                                          normalized,
+                                          out var norm)
+                                          ? norm
+                                          : [];
+
+                                  if (exactMatches.Length > 0)
+                                      exactPackageMatches++;
+                                  if (normalizedMatches.Length > 0)
+                                      normalizedPackageMatches++;
+
                                   Console.WriteLine(
                                       $"material-load-fail"
                                       + $" mesh={mesh.Name}"
-                                      + $" slot={slotName}");
+                                      + $" slot={slotName}"
+                                      + $" refIndex={materialRef.Index}"
+                                      + $" refName={refName}"
+                                      + $" refClass={refClass}"
+                                      + $" refPath={refPath}"
+                                      + $" exactPackages={string.Join('|', exactMatches)}"
+                                      + $" normalizedPackages={string.Join('|', normalizedMatches)}");
                               }
                           }
                       }
@@ -280,7 +352,10 @@ jobs:
               $"wanted={wanted.Count} queued={queued.Count}"
               + $" materialRefs={materialRefs}"
               + $" materialLoads={materialLoads}"
-              + $" materialQueued={materialQueued.Count}");
+              + $" materialQueued={materialQueued.Count}"
+              + $" refResolved={refResolved}"
+              + $" exactPackageMatches={exactPackageMatches}"
+              + $" normalizedPackageMatches={normalizedPackageMatches}");
 
           if (queued.Count != wanted.Count)
               return 4;
