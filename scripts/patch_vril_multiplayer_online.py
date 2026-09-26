@@ -171,6 +171,30 @@ if "xziel_remote_loading_gate" not in text:
     text = replace_once(text, serverinfo_clear_anchor, serverinfo_clear_repl,
                         "remote serverinfo redraw gate")
 
+# CL_KeepaliveMessage temporarily saves the current reliable net_message while
+# precaching. The upstream scratch buffer is still hard-coded to 8192 even
+# though NET_MAXMESSAGE is 16384. Large Zombies serverinfo messages can exceed
+# 8192, so size the scratch buffer to the networking contract.
+keepalive_old = r'''void CL_KeepaliveMessage (void)
+{
+	double	time;
+	static double lastmsg;//BLUBSFIX, this was a float
+	int		ret;
+	sizebuf_t	old;
+	byte		olddata[8192];
+'''
+keepalive_new = r'''void CL_KeepaliveMessage (void)
+{
+	double	time;
+	static double lastmsg;//BLUBSFIX, this was a float
+	int		ret;
+	sizebuf_t	old;
+	byte		olddata[NET_MAXMESSAGE];
+'''
+if "olddata[NET_MAXMESSAGE]" not in text:
+    text = replace_once(text, keepalive_old, keepalive_new,
+                        "CL_KeepaliveMessage network-sized scratch buffer")
+
 sound_anchor = """    S_StartSound (ent, channel, cl.sound_precache[sound_num], pos, volume/255.0, attenuation);
 }"""
 sound_repl = """    S_StartSound (ent, channel, cl.sound_precache[sound_num], pos, volume/255.0, attenuation);
