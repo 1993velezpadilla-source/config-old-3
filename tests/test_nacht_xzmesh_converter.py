@@ -20,7 +20,6 @@ def pad4(data:bytes,pad=b" ")->bytes:
 
 
 def make_glb(path:Path)->None:
-    # Three vertices with P/N/UV + uint16 indices.
     pos=struct.pack("<9f",0,0,0,1,0,0,0,1,0)
     nrm=struct.pack("<9f",0,0,1,0,0,1,0,0,1)
     uv=struct.pack("<6f",0,0,1,0,0,1)
@@ -86,7 +85,6 @@ with tempfile.TemporaryDirectory() as td:
     assert head[0]==b"XZMS" and head[1]==1
     assert head[2:5]==(3,3,1),head
     v0=VERTEX.unpack_from(raw,HEADER.size)
-    # glTF point translation (1,2,3) -> XZIEL (1,-3,2).
     assert abs(v0[0]-1)<1e-6 and abs(v0[1]+3)<1e-6 and abs(v0[2]-2)<1e-6,v0
 
     assets=json.loads(ASSETS.read_text())
@@ -114,6 +112,13 @@ with tempfile.TemporaryDirectory() as td:
     assert s["submeshesWithoutUv0"]==0,s
     assert s["geometryRuntimeFormatReady"] is True
     assert s["materialBindingReady"] is False
-    assert len(list(xzroot.glob("*.xzm")))==492
 
-print("XZIEL_NACHT_XZMS_TEST_OK meshes=492 basis_conversion=PASS binary_format=PASS")
+    files=sorted(p.name for p in xzroot.glob("*.xzm"))
+    assert len(files)==492
+    assert files[0]=="m0000.xzm",files[:3]
+    assert files[-1]=="m0491.xzm",files[-3:]
+    assert payload["meshes"][0]["runtimeFile"]=="m0000.xzm"
+    assert payload["meshes"][-1]["runtimeFile"]=="m0491.xzm"
+    assert payload["runtimeNaming"]["scheme"]=="compact_ordinal_v1"
+
+print("XZIEL_NACHT_XZMS_TEST_OK meshes=492 compact_qpath=PASS basis_conversion=PASS binary_format=PASS")

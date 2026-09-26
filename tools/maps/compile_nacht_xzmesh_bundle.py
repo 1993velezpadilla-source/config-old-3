@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Compile all 492 BO3 Nacht reference GLBs into XZMS v1 and emit a bundle manifest."""
+"""Compile all 492 BO3 Nacht reference GLBs into XZMS v1 and emit a bundle manifest.
+
+Runtime filenames are deliberately compact ordinals (m0000.xzm ... m0491.xzm).
+Vril inherits Quake's 64-byte MAX_QPATH and 128-byte MAX_OSPATH constraints;
+source asset names remain in the manifest for identity/provenance and are never
+used as runtime VFS filenames.
+"""
 
 from __future__ import annotations
 
@@ -35,6 +41,12 @@ def sha256(path:Path)->str:
     return h.hexdigest()
 
 
+def runtime_name(index:int)->str:
+    if not 0 <= index < 10000:
+        raise ValueError(f"runtime mesh ordinal out of range: {index}")
+    return f"m{index:04d}.xzm"
+
+
 def main()->int:
     ap=argparse.ArgumentParser()
     ap.add_argument("--assets",type=Path,default=DEFAULT_ASSETS)
@@ -68,14 +80,16 @@ def main()->int:
         src=glbs.get(name.lower())
         if src is None:
             raise SystemExit(f"missing GLB for {name}")
-        dst=args.output_root/f"{name}.xzm"
+        runtime=runtime_name(index)
+        dst=args.output_root/runtime
         stats=converter.convert(src,dst)
         output_rows.append({
             "index":index,
             "id":row["id"],
             "sourcePath":row["sourcePath"],
             "sourceGlb":f"meshes/{name}.glb",
-            "runtimeMesh":f"meshes/{name}.xzm",
+            "runtimeMesh":f"meshes/{runtime}",
+            "runtimeFile":runtime,
             "sha256":sha256(dst),
             "stats":stats,
         })
@@ -91,6 +105,10 @@ def main()->int:
     if totals["meshes"]!=EXPECTED:
         raise SystemExit(f"converted only {totals['meshes']} meshes")
 
+    runtime_files=[row["runtimeFile"] for row in output_rows]
+    if len(set(runtime_files)) != EXPECTED:
+        raise SystemExit("runtime mesh filenames are not unique")
+
     manifest={
         "schemaVersion":1,
         "format":"xziel_xzmesh_bundle_v1",
@@ -102,6 +120,12 @@ def main()->int:
             "indexType":"uint32",
             "coordinateBasis":"XZIEL_Z_UP",
             "sourceBasisConversion":"glTF_Y_UP -> XZIEL_Z_UP: (x,-z,y)",
+        },
+        "runtimeNaming":{
+            "scheme":"compact_ordinal_v1",
+            "pattern":"m%04d.xzm",
+            "quakeMaxQpathBytes":63,
+            "sourceIdentityPreservedInManifest":True,
         },
         "policy":{
             "requiredMeshCount":EXPECTED,

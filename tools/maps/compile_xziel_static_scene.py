@@ -4,6 +4,10 @@
 XZSC does not contain third-party mesh bytes. It binds a map's instance matrices
 to safe VFS-relative XZMS mesh paths so the native runtime can validate and later
 stream the scene without parsing JSON or glTF on Android.
+
+Vril inherits Quake's 64-byte MAX_QPATH, so every runtime VFS path emitted here
+must fit in 63 bytes plus the terminating NUL. Long source asset names therefore
+stay in metadata; runtime mesh files use compact stable ordinals.
 """
 
 from __future__ import annotations
@@ -17,6 +21,7 @@ from pathlib import Path
 
 MAGIC = b"XZSC"
 VERSION = 1
+MAX_RUNTIME_QPATH_BYTES = 63
 
 FLAG_XZIEL_Z_UP = 1 << 0
 FLAG_METERS = 1 << 1
@@ -33,12 +38,18 @@ HEADER = struct.Struct("<4s7IfI")
 MESH_RECORD = struct.Struct("<II")
 INSTANCE_RECORD = struct.Struct("<I16f")
 RUNTIME_MAP_ID = re.compile(r"^[A-Za-z0-9_-]+$")
+RUNTIME_MESH_FILE = re.compile(r"^[A-Za-z0-9_.-]+\.xzm$", re.IGNORECASE)
 
 
 def safe_relative_path(value: str) -> bool:
+    try:
+        encoded = value.encode("ascii")
+    except UnicodeEncodeError:
+        return False
+
     if (
         not value
-        or len(value) > 255
+        or len(encoded) > MAX_RUNTIME_QPATH_BYTES
         or value.startswith("/")
         or "\\" in value
         or ":" in value
@@ -53,6 +64,12 @@ def safe_relative_path(value: str) -> bool:
         all(ch.isalnum() or ch in "_.-" for ch in part)
         for part in parts
     )
+
+
+def default_runtime_file(index: int) -> str:
+    if not 0 <= index < 10000:
+        raise ValueError(f"runtime mesh ordinal out of range: {index}")
+    return f"m{index:04d}.xzm"
 
 
 def compile_scene(
@@ -85,16 +102,24 @@ def compile_scene(
         if not isinstance(row, dict) or row.get("index") != index:
             raise ValueError(f"mesh index drift at {index}")
 
-        basename = row.get("sourceBasename")
-        if not isinstance(basename, str) or not basename:
-            raise ValueError(f"mesh basename missing at {index}")
+        runtime_file = row.get("runtimeFile", default_runtime_file(index))
+        if (
+            not isinstance(runtime_file, str)
+            or not RUNTIME_MESH_FILE.fullmatch(runtime_file)
+            or "/" in runtime_file
+        ):
+            raise ValueError(
+                f"invalid compact runtime mesh filename at {index}: "
+                f"{runtime_file!r}"
+            )
 
         runtime_path = (
-            f"xziel/maps/{runtime_map_id}/meshes/{basename}.xzm"
+            f"xziel/maps/{runtime_map_id}/meshes/{runtime_file}"
         )
         if not safe_relative_path(runtime_path):
             raise ValueError(
-                f"unsafe runtime mesh path: {runtime_path!r}"
+                "runtime mesh path exceeds Quake/Vril MAX_QPATH "
+                f"({MAX_RUNTIME_QPATH_BYTES} bytes): {runtime_path!r}"
             )
         paths.append(runtime_path)
 
@@ -205,6 +230,14 @@ def main() -> int:
         args.gameplay_units_per_meter,
     )
 
+    paths = [
+        (
+            f"xziel/maps/{args.runtime_map_id}/meshes/"
+            f"{row.get('runtimeFile', default_runtime_file(index))}"
+        )
+        for index, row in enumerate(visual_scene["meshes"])
+    ]
+
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_bytes(payload)
 
@@ -218,6 +251,14 @@ def main() -> int:
         "gameplayUnitsPerMeter": (
             args.gameplay_units_per_meter
         ),
+        "runtimeNaming": {
+            "scheme": "compact_ordinal_v1",
+            "maxQpathBytes": MAX_RUNTIME_QPATH_BYTES,
+            "longestPathBytes": max(
+                len(path.encode("ascii"))
+                for path in paths
+            ),
+        },
     }
 
     if args.report:

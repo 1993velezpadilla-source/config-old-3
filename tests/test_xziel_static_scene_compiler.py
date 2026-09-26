@@ -77,11 +77,30 @@ with tempfile.TemporaryDirectory() as td:
     assert header[6] == INSTANCE.size
     assert abs(header[8] - 39.3700787402) < 0.001
 
+    mesh_offset=HEADER.size
+    inst_offset=mesh_offset+2*MESH.size
+    strings_offset=inst_offset+3*INSTANCE.size
+    records=[
+        MESH.unpack_from(raw,mesh_offset+i*MESH.size)
+        for i in range(2)
+    ]
+    paths=[]
+    for offset,length in records:
+        path=raw[strings_offset+offset:strings_offset+offset+length].decode("ascii")
+        paths.append(path)
+    assert paths==[
+        "xziel/maps/unit_map/meshes/m0000.xzm",
+        "xziel/maps/unit_map/meshes/m0001.xzm",
+    ],paths
+    assert max(len(p.encode("ascii")) for p in paths) <= 63
+
     payload = json.loads(
         report.read_text(encoding="utf-8")
     )
     assert payload["meshCount"] == 2
     assert payload["instanceCount"] == 3
+    assert payload["runtimeNaming"]["maxQpathBytes"] == 63
+    assert payload["runtimeNaming"]["longestPathBytes"] <= 63
 
     bad = dict(scene)
     bad["instances"] = [
@@ -112,7 +131,31 @@ with tempfile.TemporaryDirectory() as td:
     assert rejected.returncode != 0
     assert "meshes are referenced" in rejected.stdout
 
+    too_long = dict(scene)
+    too_long["meshes"] = [
+        {
+            "index":0,
+            "runtimeFile":"m0000.xzm",
+        },
+        {
+            "index":1,
+            "runtimeFile":"m0001.xzm",
+        },
+    ]
+    source.write_text(json.dumps(too_long),encoding="utf-8")
+    long_map="x"*40
+    long_result=subprocess.run(
+        [
+            "python3",str(TOOL),str(source),str(output),
+            "--runtime-map-id",long_map,
+        ],
+        cwd=ROOT,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,
+        check=False,
+    )
+    assert long_result.returncode != 0
+    assert "MAX_QPATH" in long_result.stdout,long_result.stdout
+
 print(
     "XZIEL_STATIC_SCENE_COMPILER_TEST_OK "
-    "mesh_paths=SAFE zero_omission=PASS"
+    "mesh_paths=SAFE quake_qpath=PASS zero_omission=PASS"
 )

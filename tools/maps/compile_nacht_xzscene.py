@@ -90,6 +90,7 @@ def main() -> int:
         compiled_meshes.append({
             "index": index,
             "sourceBasename": basename,
+            "runtimeFile": f"m{index:04d}.xzm",
         })
 
     default_counts = {
@@ -145,6 +146,16 @@ def main() -> int:
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_bytes(payload)
 
+    longest_path = max(
+        len(
+            (
+                f"xziel/maps/{args.runtime_map_id}/meshes/"
+                f"m{index:04d}.xzm"
+            ).encode("ascii")
+        )
+        for index in range(EXPECTED_MESHES)
+    )
+
     report = {
         "schemaVersion": 1,
         "format": "xziel_nacht_xzscene_build_v1",
@@ -155,6 +166,13 @@ def main() -> int:
         "gameplayUnitsPerMeter": 39.3700787402,
         "defaultTransformFields": default_counts,
         "allMeshesReferenced": True,
+        "runtimeNaming": {
+            "scheme": "compact_ordinal_v1",
+            "first": "m0000.xzm",
+            "last": "m0491.xzm",
+            "longestPathBytes": longest_path,
+            "maxQpathBytes": 63,
+        },
     }
 
     if args.report:
