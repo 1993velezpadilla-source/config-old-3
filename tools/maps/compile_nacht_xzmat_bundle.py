@@ -118,6 +118,77 @@ def binding_score(row: dict) -> int:
     return score
 
 
+def vector_binding_score(row: dict) -> int:
+    """Rank only vector parameters that plausibly represent surface base color."""
+    name = re.sub(
+        r"[^a-z0-9]+",
+        "",
+        str(row.get("parameter", "")).lower(),
+    )
+    if not name:
+        return -10000
+
+    rejected = (
+        "emissive", "emission", "normal", "rough", "metal",
+        "specular", "opacity", "alphatest", "mask", "fresnel",
+        "subsurface", "uv", "coordinate",
+    )
+    if any(token in name for token in rejected):
+        return -10000
+
+    score = 0
+    exact = {
+        "basecolor", "basecolour", "albedocolor", "albedocolour",
+        "diffusecolor", "diffusecolour", "blendcolor", "blendcolour",
+        "colortint", "colourtint", "basetint",
+    }
+    if name in exact:
+        score += 12000
+    if "base" in name and ("color" in name or "colour" in name):
+        score += 10000
+    if "albedo" in name:
+        score += 9000
+    if "diffuse" in name:
+        score += 8500
+    if "tint" in name:
+        score += 8000
+    if "color" in name or "colour" in name:
+        score += 5000
+    return score
+
+
+def vector_rgba(row: dict) -> bytes:
+    def component(key: str, default: float) -> int:
+        raw = str(row.get(key, "")).strip()
+        try:
+            value = float(raw) if raw else default
+        except ValueError:
+            value = default
+        if not math.isfinite(value):
+            value = default
+        value = min(1.0, max(0.0, value))
+        return int(round(value * 255.0))
+
+    return bytes((
+        component("r", 1.0),
+        component("g", 1.0),
+        component("b", 1.0),
+        # Unreal material color vectors frequently leave A at zero even when
+        # alpha is not part of the shader path. Constant-color fallbacks are
+        # therefore opaque; true invisibility is handled explicitly above.
+        255,
+    ))
+
+
+def material_object_name(material_path: str) -> str:
+    tail = str(material_path).replace("\\", "/").rsplit("/", 1)[-1]
+    return tail.split(".", 1)[0].lower()
+
+
+def is_global_invisible(material_path: str) -> bool:
+    return material_object_name(material_path) == "global_invisible"
+
+
 def read_xzt_header(path: Path) -> tuple[int, int, int, int]:
     raw = path.read_bytes()[:XZTX_HEADER.size]
     if len(raw) != XZTX_HEADER.size:
@@ -196,6 +267,7 @@ def main() -> int:
     texture_rows = manifest.get("textures", [])
     binding_rows = manifest.get("bindings", [])
     mesh_material_rows = manifest.get("meshMaterials", [])
+    vector_rows = manifest.get("materialVectors", [])
     if not texture_rows or not binding_rows or not mesh_material_rows:
         raise SystemExit("texture manifest missing textures/bindings/meshMaterials")
 
@@ -215,6 +287,57 @@ def main() -> int:
         ranked = sorted(candidates, key=binding_score, reverse=True)
         if ranked and binding_score(ranked[0]) > 0:
             selected_by_material[material_path] = str(ranked[0]["texturePath"]).lower()
+
+    vectors_by_material: dict[str, list[dict]] = {}
+    for row in vector_rows:
+        key = str(row.get("materialPath", "")).lower()
+        if key:
+            vectors_by_material.setdefault(key, []).append(row)
+
+    material_paths = {
+        str(row.get("materialPath", "")).lower()
+        for row in mesh_material_rows
+        if str(row.get("materialPath", "")).strip()
+    }
+
+    synthetic_textures: dict[str, dict] = {}
+    synthetic_by_material: dict[str, str] = {}
+
+    # global_invisible is helper geometry, not a visible gray surface. A
+    # transparent 1x1 texture makes the existing GLES shader discard it while
+    # keeping XZMT v1 and the runtime material ABI unchanged.
+    for material_path in sorted(material_paths):
+        if not is_global_invisible(material_path):
+            continue
+        key = f"synthetic://invisible/{material_path}"
+        synthetic_textures[key] = {
+            "kind": "global_invisible",
+            "materialPath": material_path,
+            "parameter": "",
+            "rgba": bytes((0, 0, 0, 0)),
+        }
+        synthetic_by_material[material_path] = key
+
+    # If a material genuinely has no usable base-color texture, preserve its
+    # authored constant BaseColor/Tint vector instead of rendering flat gray.
+    for material_path, candidates in vectors_by_material.items():
+        if (
+            material_path in synthetic_by_material
+            or material_path in selected_by_material
+        ):
+            continue
+        ranked = sorted(candidates, key=vector_binding_score, reverse=True)
+        if not ranked or vector_binding_score(ranked[0]) <= 0:
+            continue
+        selected = ranked[0]
+        key = f"synthetic://vector/{material_path}"
+        synthetic_textures[key] = {
+            "kind": "vector_color",
+            "materialPath": material_path,
+            "parameter": str(selected.get("parameter", "")),
+            "rgba": vector_rgba(selected),
+        }
+        synthetic_by_material[material_path] = key
 
     mesh_slots: dict[str, list[dict]] = {}
     for row in mesh_material_rows:
@@ -271,9 +394,26 @@ def main() -> int:
             texture_path: str | None = None
             if slot is not None:
                 material_path = str(slot.get("materialPath", "")).lower()
-                texture_path = selected_by_material.get(material_path)
+                synthetic_path = synthetic_by_material.get(material_path)
 
-            if texture_path and texture_path in textures_by_path:
+                # Invisible helper geometry wins over any inherited texture.
+                # Otherwise prefer authored real albedo, then vector fallback.
+                if (
+                    synthetic_path
+                    and synthetic_textures[synthetic_path]["kind"]
+                    == "global_invisible"
+                ):
+                    texture_path = synthetic_path
+                else:
+                    texture_path = (
+                        selected_by_material.get(material_path)
+                        or synthetic_path
+                    )
+
+            if texture_path and (
+                texture_path in textures_by_path
+                or texture_path in synthetic_textures
+            ):
                 mapped += 1
                 raw_binding_texture_paths.append(texture_path)
             else:
@@ -314,6 +454,26 @@ def main() -> int:
     )
 
     for path in used_paths:
+        if path in synthetic_textures:
+            synthetic = synthetic_textures[path]
+            runtime_textures.append({
+                "texturePath": path,
+                "textureName": material_object_name(
+                    synthetic["materialPath"]
+                ),
+                "sourceKind": "synthetic",
+                "kind": synthetic["kind"],
+                "materialPath": synthetic["materialPath"],
+                "parameter": synthetic["parameter"],
+                "width": 1,
+                "height": 1,
+                "offset": data_offset,
+                "bytes": 4,
+                "rgba": synthetic["rgba"],
+            })
+            data_offset += 4
+            continue
+
         row = textures_by_path[path]
         source = args.glb_root / str(row["file"])
         width, height, _fmt, _bytes = read_xzt_header(source)
@@ -324,6 +484,7 @@ def main() -> int:
         runtime_textures.append({
             "texturePath": path,
             "textureName": row.get("textureName", ""),
+            "sourceKind": "xzt",
             "source": source,
             "sourceWidth": width,
             "sourceHeight": height,
@@ -356,19 +517,40 @@ def main() -> int:
             out.write(struct.pack("<I", binding))
 
         for texture in runtime_textures:
-            width, height, rgba = read_xzt_rgba(texture["source"])
-            runtime_rgba = resize_nearest_rgba(
-                rgba,
-                width,
-                height,
-                texture["width"],
-                texture["height"],
-            )
+            if texture.get("sourceKind") == "synthetic":
+                runtime_rgba = texture["rgba"]
+            else:
+                width, height, rgba = read_xzt_rgba(texture["source"])
+                runtime_rgba = resize_nearest_rgba(
+                    rgba,
+                    width,
+                    height,
+                    texture["width"],
+                    texture["height"],
+                )
             if len(runtime_rgba) != texture["bytes"]:
                 raise SystemExit("runtime texture resize byte mismatch")
             out.write(runtime_rgba)
 
     mapped = sum(binding != NO_TEXTURE for binding in bindings)
+    synthetic_mapped = sum(
+        1 for path in raw_binding_texture_paths
+        if path in synthetic_textures
+    )
+    transparent_mapped = sum(
+        1 for path in raw_binding_texture_paths
+        if (
+            path in synthetic_textures
+            and synthetic_textures[path]["kind"] == "global_invisible"
+        )
+    )
+    vector_mapped = sum(
+        1 for path in raw_binding_texture_paths
+        if (
+            path in synthetic_textures
+            and synthetic_textures[path]["kind"] == "vector_color"
+        )
+    )
     report = {
         "schemaVersion": 1,
         "format": "XZMT",
@@ -379,6 +561,21 @@ def main() -> int:
         "mappedBindings": mapped,
         "unmappedBindings": len(bindings) - mapped,
         "textureCount": len(runtime_textures),
+        "syntheticTextureCount": sum(
+            1 for texture in runtime_textures
+            if texture.get("sourceKind") == "synthetic"
+        ),
+        "transparentMaterialCount": sum(
+            1 for item in synthetic_textures.values()
+            if item["kind"] == "global_invisible"
+        ),
+        "vectorColorMaterialCount": sum(
+            1 for item in synthetic_textures.values()
+            if item["kind"] == "vector_color"
+        ),
+        "syntheticMappedBindings": synthetic_mapped,
+        "transparentMappedBindings": transparent_mapped,
+        "vectorColorMappedBindings": vector_mapped,
         "runtimeMaxDimension": args.max_dimension,
         "runtimeBytes": args.output.stat().st_size,
         "unresolvedSamples": unresolved_slots,
@@ -387,7 +584,7 @@ def main() -> int:
             {
                 k: v
                 for k, v in texture.items()
-                if k != "source"
+                if k not in {"source", "rgba"}
             }
             for texture in runtime_textures
         ],
@@ -400,6 +597,8 @@ def main() -> int:
 
     if mapped == 0 or not runtime_textures:
         raise SystemExit("no static-scene material bindings resolved")
+    if transparent_mapped == 0:
+        raise SystemExit("global_invisible did not map to transparent runtime texture")
 
     print(
         "XZIEL_NACHT_XZMT_OK",
@@ -407,6 +606,9 @@ def main() -> int:
         f"bindings={len(bindings)}",
         f"mapped={mapped}",
         f"unmapped={len(bindings)-mapped}",
+        f"synthetic={synthetic_mapped}",
+        f"transparent={transparent_mapped}",
+        f"vectorColor={vector_mapped}",
         f"maxDim={args.max_dimension}",
         f"bytes={args.output.stat().st_size}",
     )
