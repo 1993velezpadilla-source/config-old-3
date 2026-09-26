@@ -21,6 +21,7 @@
 #include "xz_geometry_tap.h"
 #include "xz_texture_tap.h"
 #include "xz_map_runtime.h"
+#include "xz_static_scene_runtime.h"
 
 #include <SDL.h>
 
@@ -56,6 +57,7 @@ typedef struct {
     XzStreamResidency stream_residency;
     XzCutoverState cutover;
     XzMapRuntimeState map_runtime;
+    XzStaticSceneRuntimeState static_scene;
     uint64_t command_encode_failures;
     uint64_t graph_rebuild_failures;
     int graph_resources_ready;
@@ -1081,6 +1083,7 @@ void XzAndroidRuntime_Init(size_t engine_heap_bytes)
         &xz_runtime.gpu_resources);
 
     XzMapRuntime_Init(&xz_runtime.map_runtime);
+    XzStaticSceneRuntime_Init(&xz_runtime.static_scene);
 
     xz_runtime.initialized = 1;
 
@@ -1396,6 +1399,46 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
         &xz_runtime.map_runtime,
         world_model_name);
 
+    {
+        XzStaticSceneStatus static_status =
+            XzStaticSceneRuntime_LoadMap(
+                &xz_runtime.static_scene,
+                XzMapRuntime_MapId(
+                    &xz_runtime.map_runtime));
+        const XzXzsceneView *static_scene =
+            XzStaticSceneRuntime_Scene(
+                &xz_runtime.static_scene);
+
+        XzAndroidLog(
+            static_status == XZ_STATIC_SCENE_INVALID
+                ? ANDROID_LOG_WARN
+                : ANDROID_LOG_INFO,
+            "static_scene status=%s map='%s' scene='%s'"
+            " meshes=%u instances=%u xzms=%u"
+            " vertices=%" PRIu64 " indices=%" PRIu64
+            " submeshes=%" PRIu64
+            " meshBytes=%" PRIu64 " sceneBytes=%zu"
+            " error='%s'",
+            XzStaticSceneRuntime_StatusName(
+                static_status),
+            XzMapRuntime_MapId(
+                &xz_runtime.map_runtime),
+            xz_runtime.static_scene.scene_path,
+            static_scene
+                ? static_scene->mesh_count
+                : 0u,
+            static_scene
+                ? static_scene->instance_count
+                : 0u,
+            xz_runtime.static_scene.mesh_files_validated,
+            xz_runtime.static_scene.vertex_count,
+            xz_runtime.static_scene.index_count,
+            xz_runtime.static_scene.submesh_count,
+            xz_runtime.static_scene.mesh_bytes_validated,
+            xz_runtime.static_scene.scene_bytes,
+            xz_runtime.static_scene.error);
+    }
+
     XzAndroidLog(
         ANDROID_LOG_INFO,
         "legacy3d worldTransition count=%" PRIu64
@@ -1432,6 +1475,15 @@ int XzAndroidRuntime_ActiveMapIsVerifiedPackage(void)
     return xz_runtime.initialized &&
         XzMapRuntime_IsVerifiedPackage(
             &xz_runtime.map_runtime);
+}
+
+int XzAndroidRuntime_StaticSceneReady(void)
+{
+    return xz_runtime.initialized &&
+        xz_runtime.static_scene.status ==
+            XZ_STATIC_SCENE_READY &&
+        XzStaticSceneRuntime_Scene(
+            &xz_runtime.static_scene) != NULL;
 }
 
 int XzAndroidRuntime_ActiveMapIsNachtBo3(void)
@@ -1652,6 +1704,8 @@ void XzAndroidRuntime_Shutdown(void)
     XzLogSnapshot(xz_runtime.last_log_seconds + 5.0);
     XzRhi_Shutdown(&xz_runtime.rhi);
     XzDestroyGraphResourceHandles();
+    XzStaticSceneRuntime_Shutdown(
+        &xz_runtime.static_scene);
     XzTextureTap_Shutdown();
     XzAndroidLog(
         ANDROID_LOG_INFO,

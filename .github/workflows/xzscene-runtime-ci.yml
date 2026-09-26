@@ -1,0 +1,96 @@
+name: XZIEL Static Scene Runtime CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/xziel-nacht-static-scene-runtime-v1
+      - feature/xziel-engine-nacht-runtime-v1
+    paths:
+      - "tools/maps/compile_xziel_static_scene.py"
+      - "tools/maps/compile_nacht_xzscene.py"
+      - "engine/xz/xz_xzscene.*"
+      - "engine/xz/xz_static_scene_runtime.*"
+      - "tests/test_xziel_static_scene_compiler.py"
+      - "tests/xz_xzscene_test.c"
+      - "scripts/patch_vril_xz_phase0.py"
+      - "engine/xz/xz_android_runtime.*"
+      - ".github/workflows/xzscene-runtime-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  scene-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Test XZSC compiler
+        run: |
+          set -euo pipefail
+          python3 -m py_compile \
+            tools/maps/compile_xziel_static_scene.py \
+            tools/maps/compile_nacht_xzscene.py
+          python3 tests/test_xziel_static_scene_compiler.py
+
+      - name: Compile real Nacht XZSC
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-xzscene
+          python3 tools/maps/compile_nacht_xzscene.py \
+            --output build/nacht-xzscene/scene.xzsc \
+            --report build/nacht-xzscene/scene-report.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=json.loads(
+              Path(
+                  "build/nacht-xzscene/scene-report.json"
+              ).read_text()
+          )
+          assert p["meshCount"] == 492, p
+          assert p["instanceCount"] == 10791, p
+          assert p["allMeshesReferenced"] is True, p
+          assert abs(
+              p["gameplayUnitsPerMeter"]
+              - 39.3700787402
+          ) < 1e-9, p
+          print(
+              "XZIEL_NACHT_XZSC_REPORT_OK",
+              p,
+          )
+          PY
+
+      - name: Test native XZSC parser
+        run: |
+          set -euo pipefail
+          cc -std=c99 -O2 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tests/xz_xzscene_test.c \
+            engine/xz/xz_xzscene.c \
+            -lm \
+            -o /tmp/xz_xzscene_test
+          /tmp/xz_xzscene_test \
+            build/nacht-xzscene/scene.xzsc
+
+      - name: Compile static-scene VFS bridge
+        run: |
+          set -euo pipefail
+          cc -std=c99 -O2 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            -c engine/xz/xz_static_scene_runtime.c \
+            -o /tmp/xz_static_scene_runtime.o
+          python3 -m py_compile \
+            scripts/patch_vril_xz_phase0.py
+
+      - name: Upload XZSC contract evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Nacht-XZSC-Contract-Evidence
+          path: |
+            build/nacht-xzscene/scene.xzsc
+            build/nacht-xzscene/scene-report.json
+          retention-days: 7

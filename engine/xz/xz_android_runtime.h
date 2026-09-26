@@ -26,6 +26,7 @@ void XzAndroidRuntime_NotifyWorldTransition(void);
 void XzAndroidRuntime_NotifyWorldTransitionNamed(
     const char *world_model_name);
 int XzAndroidRuntime_ActiveMapIsVerifiedPackage(void);
+int XzAndroidRuntime_StaticSceneReady(void);
 int XzAndroidRuntime_ActiveMapIsNachtBo3(void);
 const XzNachtGameplayState *XzAndroidRuntime_NachtState(void);
 int XzAndroidRuntime_ShouldSuppressLegacyWorldDraw(
