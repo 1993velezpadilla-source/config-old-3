@@ -329,7 +329,7 @@ jobs:
               }
 
               var refKey =
-                  $"{sourceKind}:{refPath}";
+                  $"{sourceMaterial.GetPathName()}|{sourceKind}:{refPath}";
 
               if (!seenTextureRefs.Add(refKey))
                   return;
@@ -899,7 +899,7 @@ jobs:
                       if (parameterValue is null)
                           continue;
 
-                      materialVectorRows.Add(
+                      var vectorRow =
                           new Dictionary<string, string> {
                               ["materialPath"] =
                                   sourceMaterial.GetPathName(),
@@ -927,7 +927,16 @@ jobs:
                                       parameterValue,
                                       "A")?.ToString()
                                   ?? "",
-                          });
+                          };
+
+                      materialVectorRows.Add(
+                          vectorRow);
+
+                      Console.WriteLine(
+                          $"material-vector"
+                          + $" material={sourceMaterial.Name}"
+                          + $" parameter={parameterName}"
+                          + $" rgba={vectorRow["r"]},{vectorRow["g"]},{vectorRow["b"]},{vectorRow["a"]}");
                   }
               }
 
@@ -1697,6 +1706,14 @@ jobs:
           )
           PY
 
+          mkdir -p "$RUNNER_TEMP/xziel-material-evidence"
+          cp \
+            build/nacht-static-scene/xziel.xzmat.report.json \
+            "$RUNNER_TEMP/xziel-material-evidence/xziel.xzmat.report.json"
+          cp \
+            "$RUNNER_TEMP/scene-glb/xziel-texture-manifest.json" \
+            "$RUNNER_TEMP/xziel-material-evidence/xziel-texture-manifest.json"
+
           echo "XZIEL_EXTRA_ASSET_DIR=$OVERLAY" \
             >> "$GITHUB_ENV"
 
@@ -1772,10 +1789,10 @@ jobs:
             build/android-project/app/build/outputs/apk/debug/app-debug.apk \
             dist/XZIEL-Nacht-Static-Scene-debug.apk
           cp \
-            build/nacht-static-scene/xziel.xzmat.report.json \
+            "$RUNNER_TEMP/xziel-material-evidence/xziel.xzmat.report.json" \
             dist/xziel.xzmat.report.json
           cp \
-            "$RUNNER_TEMP/scene-glb/xziel-texture-manifest.json" \
+            "$RUNNER_TEMP/xziel-material-evidence/xziel-texture-manifest.json" \
             dist/xziel-texture-manifest.json
           ls -lh dist/XZIEL-Nacht-Static-Scene-debug.apk
 
@@ -2004,6 +2021,7 @@ jobs:
             build/nacht-static-scene/xziel.xzscene.report.json
             build/nacht-static-scene/xziel.xzmat.report.json
             build/nacht-static-scene/xzmat-compile.log
+            ${{ runner.temp }}/xziel-material-evidence/
             build/nacht-static-scene/material-audit/
             build/nacht-static-scene/xzmesh-compile.log
             build/nacht-static-scene/xzscene-compile.log
