@@ -303,7 +303,7 @@ itext = cl_input.read_text(encoding="utf-8")
 helper_anchor = """qboolean in_game;
 float crosshair_opacity;
 """
-helper_repl = r'''qboolean in_game;
+helper_repl = '''qboolean in_game;
 float crosshair_opacity;
 
 float CL_PlayerMoveSpeed (void)
@@ -351,11 +351,11 @@ cl_main = source / "cl_main.c"
 mtext = cl_main.read_text(encoding="utf-8")
 mtext = mtext.replace("move_limit = sv_player->v.maxspeed;",
                       "move_limit = CL_PlayerMoveSpeed();")
-flash_old = r'''\t\t\t\tright_offset\t = sv_player->v.Flash_Offset[0];
+flash_old = '''\t\t\t\tright_offset\t = sv_player->v.Flash_Offset[0];
 \t\t\t\tup_offset\t\t = sv_player->v.Flash_Offset[1];
 \t\t\t\tforward_offset \t = sv_player->v.Flash_Offset[2];
 '''
-flash_new = r'''\t\t\t\tif (sv.active && sv_player) {
+flash_new = '''\t\t\t\tif (sv.active && sv_player) {
 \t\t\t\t\tright_offset\t = sv_player->v.Flash_Offset[0];
 \t\t\t\t\tup_offset\t\t = sv_player->v.Flash_Offset[1];
 \t\t\t\t\tforward_offset \t = sv_player->v.Flash_Offset[2];
@@ -370,13 +370,13 @@ cl_main.write_text(mtext, encoding="utf-8")
 
 view = source / "view.c"
 vtext = view.read_text(encoding="utf-8")
-ads_old = r'''\tif(cl.stats[STAT_ZOOM] == 1 || cl.stats[STAT_ZOOM] == 2)
+ads_old = '''\tif(cl.stats[STAT_ZOOM] == 1 || cl.stats[STAT_ZOOM] == 2)
 \t{
 \t\tADSOffset[0] = sv_player->v.ADS_Offset[0];
 \t\tADSOffset[1] = sv_player->v.ADS_Offset[1];
 \t\tADSOffset[2] = sv_player->v.ADS_Offset[2];
 '''
-ads_new = r'''\tif((cl.stats[STAT_ZOOM] == 1 || cl.stats[STAT_ZOOM] == 2) &&
+ads_new = '''\tif((cl.stats[STAT_ZOOM] == 1 || cl.stats[STAT_ZOOM] == 2) &&
 \t\tsv.active && sv_player)
 \t{
 \t\tADSOffset[0] = sv_player->v.ADS_Offset[0];
