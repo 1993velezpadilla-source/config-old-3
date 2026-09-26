@@ -1,0 +1,27 @@
+name: XZIEL XZMS Loader CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/xziel-nacht-xzmesh-loader-v1
+      - feature/xziel-engine-nacht-runtime-v1
+    paths:
+      - "engine/xz/xz_xzmesh.*"
+      - "tests/xz_xzmesh_test.c"
+      - ".github/workflows/xzmesh-loader-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  loader:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build and run XZMS fail-closed loader tests
+        run: |
+          set -euo pipefail
+          cc -std=c99 -O2 -Wall -Wextra -Werror             -Iengine/xz             tests/xz_xzmesh_test.c             engine/xz/xz_xzmesh.c             -lm             -o /tmp/xz_xzmesh_test
+          /tmp/xz_xzmesh_test
