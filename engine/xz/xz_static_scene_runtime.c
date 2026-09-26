@@ -242,7 +242,7 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
     XzStaticTextureResource *texture_resources = NULL;
     unsigned char *material_data = NULL;
     size_t material_bytes = 0u;
-    XzXzmaterialView materials;
+    XzXzmaterialView materials = {0};
     char scene_path[256];
     char material_path[256];
     char mesh_prefix[160];
