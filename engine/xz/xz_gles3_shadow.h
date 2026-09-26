@@ -104,6 +104,10 @@ typedef struct {
     uint64_t static_scene_draw_failures;
     unsigned int static_scene_last_draw_calls;
     unsigned int static_scene_last_instances;
+    unsigned int static_scene_fbo_nonblack_pixels;
+    unsigned int static_scene_surface_nonblack_pixels;
+    unsigned int static_scene_readback_width;
+    unsigned int static_scene_readback_height;
     int static_scene_frame_ready;
 
     uint64_t real_texture_uploads;
