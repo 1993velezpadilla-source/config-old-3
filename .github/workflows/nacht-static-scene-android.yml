@@ -209,6 +209,8 @@ jobs:
           var refResolved = 0;
           var exactPackageMatches = 0;
           var normalizedPackageMatches = 0;
+          var directMaterialLoads = 0;
+          var directMaterialLoadFailures = 0;
 
           foreach (
               var file in provider.Files.Values
@@ -268,7 +270,7 @@ jobs:
 
                                   if (
                                       materialQueued.Add(
-                                          material.Name))
+                                          material.GetPathName()))
                                       session.Add(material);
 
                                   Console.WriteLine(
@@ -325,16 +327,77 @@ jobs:
                                   if (normalizedMatches.Length > 0)
                                       normalizedPackageMatches++;
 
-                                  Console.WriteLine(
-                                      $"material-load-fail"
-                                      + $" mesh={mesh.Name}"
-                                      + $" slot={slotName}"
-                                      + $" refIndex={materialRef.Index}"
-                                      + $" refName={refName}"
-                                      + $" refClass={refClass}"
-                                      + $" refPath={refPath}"
-                                      + $" exactPackages={string.Join('|', exactMatches)}"
-                                      + $" normalizedPackages={string.Join('|', normalizedMatches)}");
+                                  UMaterialInterface? directMaterial = null;
+                                  string directPackage = "";
+
+                                  foreach (
+                                      var candidate in exactMatches)
+                                  {
+                                      try
+                                      {
+                                          directMaterial =
+                                              provider
+                                                  .LoadPackage(candidate)
+                                                  .GetExports()
+                                                  .OfType<UMaterialInterface>()
+                                                  .FirstOrDefault(
+                                                      x => x.Name.Equals(
+                                                          refName,
+                                                          StringComparison.OrdinalIgnoreCase))
+                                              ?? provider
+                                                  .LoadPackage(candidate)
+                                                  .GetExports()
+                                                  .OfType<UMaterialInterface>()
+                                                  .FirstOrDefault();
+
+                                          if (directMaterial is not null)
+                                          {
+                                              directPackage = candidate;
+                                              break;
+                                          }
+                                      }
+                                      catch (Exception e)
+                                      {
+                                          Console.WriteLine(
+                                              $"material-direct-package-error"
+                                              + $" path={candidate}"
+                                              + $" error={e.Message}");
+                                      }
+                                  }
+
+                                  if (directMaterial is not null)
+                                  {
+                                      materialLoads++;
+                                      directMaterialLoads++;
+
+                                      var materialKey =
+                                          directMaterial.GetPathName();
+
+                                      if (materialQueued.Add(materialKey))
+                                          session.Add(directMaterial);
+
+                                      Console.WriteLine(
+                                          $"material-direct-ok"
+                                          + $" mesh={mesh.Name}"
+                                          + $" slot={slotName}"
+                                          + $" material={directMaterial.Name}"
+                                          + $" path={materialKey}"
+                                          + $" package={directPackage}");
+                                  }
+                                  else
+                                  {
+                                      directMaterialLoadFailures++;
+                                      Console.WriteLine(
+                                          $"material-load-fail"
+                                          + $" mesh={mesh.Name}"
+                                          + $" slot={slotName}"
+                                          + $" refIndex={materialRef.Index}"
+                                          + $" refName={refName}"
+                                          + $" refClass={refClass}"
+                                          + $" refPath={refPath}"
+                                          + $" exactPackages={string.Join('|', exactMatches)}"
+                                          + $" normalizedPackages={string.Join('|', normalizedMatches)}");
+                                  }
                               }
                           }
                       }
@@ -355,7 +418,9 @@ jobs:
               + $" materialQueued={materialQueued.Count}"
               + $" refResolved={refResolved}"
               + $" exactPackageMatches={exactPackageMatches}"
-              + $" normalizedPackageMatches={normalizedPackageMatches}");
+              + $" normalizedPackageMatches={normalizedPackageMatches}"
+              + $" directMaterialLoads={directMaterialLoads}"
+              + $" directMaterialLoadFailures={directMaterialLoadFailures}");
 
           if (queued.Count != wanted.Count)
               return 4;
