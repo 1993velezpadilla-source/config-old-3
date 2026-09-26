@@ -545,6 +545,27 @@ jobs:
             sleep 2
           done
 
+          # One successful native present is not enough to promote the
+          # cutover. Let XZIEL complete the required consecutive presents and
+          # prove that legacy world suppression has actually reached MODERN
+          # before capturing Android's front buffer.
+          CUTOVER_READY=0
+          for i in $(seq 1 30); do
+            if "$ADB" logcat -d -v threadtime 2>/dev/null \
+                | grep -Eq \
+                  "XZIEL-XZ.*phase16 heartbeat requested=MODERN active=MODERN.*blockers=0x0"; then
+              CUTOVER_READY=1
+              break
+            fi
+            if ! "$ADB" shell pidof com.xziel.engine >/dev/null 2>&1; then
+              break
+            fi
+            sleep 1
+          done
+
+          echo "CUTOVER_READY=$CUTOVER_READY" \
+            | tee -a dist/static-scene-status.txt
+
           "$ADB" logcat -d -v threadtime \
             > dist/static-scene-logcat.txt || true
 
@@ -588,6 +609,7 @@ jobs:
             | tee -a dist/static-scene-status.txt
 
           test "$DRAW_READY" = "1"
+          test "$CUTOVER_READY" = "1"
 
           grep -E \
             "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*meshes=492 instances=10791 xzms=492.*vertices=1067383 indices=3608148 submeshes=1063 meshBytes=48633408" \
