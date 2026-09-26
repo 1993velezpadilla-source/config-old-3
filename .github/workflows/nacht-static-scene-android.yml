@@ -811,25 +811,39 @@ jobs:
           )
           root.mkdir(parents=True, exist_ok=True)
 
+          normalized_outputs = 0
           for p in list(pathlib.Path.cwd().iterdir()):
-              if (
-                  p.is_file()
-                  and "\\" in p.name
-                  and p.name.lower().endswith(".glb")
-              ):
-                  name = (
-                      p.name.replace("\\", "/")
-                      .split("/")[-1]
+              if not (p.is_file() and "\\" in p.name):
+                  continue
+
+              normalized = p.name.replace("\\", "/")
+              marker = "/scene-glb/"
+              if marker in normalized:
+                  rel = normalized.split(marker, 1)[1]
+              else:
+                  rel = normalized.split("/")[-1]
+
+              target = root / rel
+              target.parent.mkdir(
+                  parents=True,
+                  exist_ok=True,
+              )
+
+              if target.exists():
+                  raise SystemExit(
+                      f"duplicate normalized export {rel}"
                   )
-                  target = root / name
-                  if target.exists():
-                      raise SystemExit(
-                          f"duplicate exported GLB {name}"
-                      )
-                  shutil.move(
-                      str(p),
-                      str(target),
-                  )
+
+              shutil.move(
+                  str(p),
+                  str(target),
+              )
+              normalized_outputs += 1
+
+          print(
+              "XZIEL_CUE4PARSE_OUTPUTS_NORMALIZED",
+              normalized_outputs,
+          )
 
           glbs = list(root.rglob("*.glb"))
           assert len(glbs) == 492, len(glbs)
@@ -852,6 +866,7 @@ jobs:
           import json
           import os
           import pathlib
+          import struct
           from collections import Counter
 
           roots = [
@@ -886,12 +901,16 @@ jobs:
           for p in files:
               if p.suffix.lower() == ".json":
                   try:
-                      doc = json.loads(p.read_text(encoding="utf-8"))
+                      doc = json.loads(
+                          p.read_text(encoding="utf-8")
+                      )
                   except Exception:
                       continue
-                  # CUE4Parse material JSON contains the resolved material
-                  # parameter payload, including texture references.
-                  keys = set(doc) if isinstance(doc, dict) else set()
+                  keys = (
+                      set(doc)
+                      if isinstance(doc, dict)
+                      else set()
+                  )
                   if {
                       "Textures", "Scalars", "Vectors"
                   } & keys:
@@ -900,17 +919,142 @@ jobs:
               if p.suffix.lower() in texture_exts:
                   texture_files.append(p)
 
+          def read_glb_json(path):
+              raw = path.read_bytes()
+              if len(raw) < 20:
+                  return None
+              magic, version, declared = struct.unpack_from(
+                  "<III", raw, 0
+              )
+              if (
+                  magic != 0x46546C67
+                  or version != 2
+                  or declared != len(raw)
+              ):
+                  return None
+
+              offset = 12
+              while offset + 8 <= len(raw):
+                  length, kind = struct.unpack_from(
+                      "<II", raw, offset
+                  )
+                  offset += 8
+                  chunk = raw[offset:offset + length]
+                  offset += length
+                  if kind == 0x4E4F534A:
+                      return json.loads(
+                          chunk.rstrip(
+                              b" \t\r\n\x00"
+                          ).decode("utf-8")
+                      )
+              return None
+
+          glb_stats = {
+              "files": 0,
+              "materials": 0,
+              "textures": 0,
+              "images": 0,
+              "embeddedImages": 0,
+              "uriImages": 0,
+              "baseColorTextures": 0,
+              "normalTextures": 0,
+              "metallicRoughnessTextures": 0,
+              "emissiveTextures": 0,
+          }
+          glb_samples = []
+
+          for p in files:
+              if p.suffix.lower() != ".glb":
+                  continue
+              doc = read_glb_json(p)
+              if not isinstance(doc, dict):
+                  continue
+
+              materials = doc.get("materials", [])
+              textures = doc.get("textures", [])
+              images = doc.get("images", [])
+
+              glb_stats["files"] += 1
+              glb_stats["materials"] += len(materials)
+              glb_stats["textures"] += len(textures)
+              glb_stats["images"] += len(images)
+              glb_stats["embeddedImages"] += sum(
+                  1 for image in images
+                  if isinstance(image, dict)
+                  and "bufferView" in image
+              )
+              glb_stats["uriImages"] += sum(
+                  1 for image in images
+                  if isinstance(image, dict)
+                  and "uri" in image
+              )
+
+              for material in materials:
+                  if not isinstance(material, dict):
+                      continue
+                  pbr = material.get(
+                      "pbrMetallicRoughness", {}
+                  )
+                  if isinstance(pbr, dict):
+                      if isinstance(
+                          pbr.get("baseColorTexture"),
+                          dict,
+                      ):
+                          glb_stats[
+                              "baseColorTextures"
+                          ] += 1
+                      if isinstance(
+                          pbr.get(
+                              "metallicRoughnessTexture"
+                          ),
+                          dict,
+                      ):
+                          glb_stats[
+                              "metallicRoughnessTextures"
+                          ] += 1
+                  if isinstance(
+                      material.get("normalTexture"),
+                      dict,
+                  ):
+                      glb_stats["normalTextures"] += 1
+                  if isinstance(
+                      material.get("emissiveTexture"),
+                      dict,
+                  ):
+                      glb_stats["emissiveTextures"] += 1
+
+              if (
+                  len(glb_samples) < 20
+                  and (
+                      materials
+                      or textures
+                      or images
+                  )
+              ):
+                  glb_samples.append({
+                      "path": str(p),
+                      "materials": len(materials),
+                      "textures": len(textures),
+                      "images": len(images),
+                  })
+
           report = {
               "allFiles": len(files),
-              "suffixCounts": dict(sorted(suffixes.items())),
-              "materialJsonCount": len(material_json),
-              "textureFileCount": len(texture_files),
+              "suffixCounts": dict(
+                  sorted(suffixes.items())
+              ),
+              "materialJsonCount":
+                  len(material_json),
+              "textureFileCount":
+                  len(texture_files),
+              "glb": glb_stats,
               "materialJsonSamples": [
                   str(p) for p in material_json[:40]
               ],
               "textureSamples": [
                   str(p) for p in texture_files[:40]
               ],
+              "glbSamples": glb_samples,
           }
 
           out = pathlib.Path(
@@ -925,16 +1069,29 @@ jobs:
           print(
               "XZIEL_NACHT_MATERIAL_EXPORT_AUDIT",
               f"materials={len(material_json)}",
-              f"textures={len(texture_files)}",
+              f"textureFiles={len(texture_files)}",
+              f"glbMaterials={glb_stats['materials']}",
+              f"glbTextures={glb_stats['textures']}",
+              f"glbImages={glb_stats['images']}",
+              f"embeddedImages={glb_stats['embeddedImages']}",
+              f"baseColor={glb_stats['baseColorTextures']}",
+              f"normal={glb_stats['normalTextures']}",
+              f"suffixes={dict(sorted(suffixes.items()))}",
           )
 
           if not material_json:
               raise SystemExit(
-                  "CUE4Parse material export produced no material JSON"
+                  "CUE4Parse material export produced "
+                  "no material JSON"
               )
-          if not texture_files:
+
+          if (
+              not texture_files
+              and glb_stats["images"] == 0
+          ):
               raise SystemExit(
-                  "CUE4Parse material export produced no textures"
+                  "CUE4Parse produced neither external "
+                  "texture files nor GLB images"
               )
           PY
 
@@ -1288,6 +1445,7 @@ jobs:
             dist/
             build/nacht-static-scene/xziel.xzmesh.bundle.json
             build/nacht-static-scene/xziel.xzscene.report.json
+            build/nacht-static-scene/material-audit/
             build/nacht-static-scene/xzmesh-compile.log
             build/nacht-static-scene/xzscene-compile.log
             nacht-ci/xziel_nacht_bo3_harness.json
