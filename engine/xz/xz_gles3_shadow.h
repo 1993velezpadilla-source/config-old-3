@@ -99,6 +99,13 @@ typedef struct {
     unsigned int static_scene_gpu_submeshes;
     int static_scene_gpu_ready;
 
+    uint64_t static_scene_draw_attempts;
+    uint64_t static_scene_draw_successes;
+    uint64_t static_scene_draw_failures;
+    unsigned int static_scene_last_draw_calls;
+    unsigned int static_scene_last_instances;
+    int static_scene_frame_ready;
+
     uint64_t real_texture_uploads;
     uint64_t real_texture_binds;
     uint64_t real_texture_bytes;
