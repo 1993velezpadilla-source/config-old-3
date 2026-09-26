@@ -1174,6 +1174,14 @@ public final class XzielMultiplayer {
         }
 
         String sound = name == null ? "" : name;
+        // CI only needs proof of networked human footsteps and weapon/grenade
+        // audio. Logging every zombie ambient/step sound can flood logcat with
+        // hundreds of thousands of lines and hide the actual fatal engine error.
+        if (!sound.startsWith("sounds/player/footstep") &&
+            !sound.startsWith("sounds/weapons/")) {
+            return;
+        }
+
         Log.i(TAG, "CI_REMOTE_SOUND observer=" + localSlot +
             " source=" + entity +
             " channel=" + channel +
