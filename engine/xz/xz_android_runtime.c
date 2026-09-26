@@ -1399,6 +1399,9 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
         &xz_runtime.map_runtime,
         world_model_name);
 
+    XzGles3Shadow_ReleaseStaticScene(
+        &xz_runtime.gles3_shadow);
+
     {
         XzStaticSceneStatus static_status =
             XzStaticSceneRuntime_LoadMap(
@@ -1408,6 +1411,15 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
         const XzXzsceneView *static_scene =
             XzStaticSceneRuntime_Scene(
                 &xz_runtime.static_scene);
+        int static_gpu_ready = 0;
+
+        if (static_status ==
+                XZ_STATIC_SCENE_READY) {
+            static_gpu_ready =
+                XzGles3Shadow_UploadStaticScene(
+                    &xz_runtime.gles3_shadow,
+                    &xz_runtime.static_scene);
+        }
 
         XzAndroidLog(
             static_status == XZ_STATIC_SCENE_INVALID
@@ -1418,6 +1430,10 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             " vertices=%" PRIu64 " indices=%" PRIu64
             " submeshes=%" PRIu64
             " meshBytes=%" PRIu64 " sceneBytes=%zu"
+            " gpuReady=%d gpuMeshes=%u"
+            " gpuVertices=%" PRIu64
+            " gpuIndices=%" PRIu64
+            " gpuBytes=%" PRIu64
             " error='%s'",
             XzStaticSceneRuntime_StatusName(
                 static_status),
@@ -1436,6 +1452,11 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             xz_runtime.static_scene.submesh_count,
             xz_runtime.static_scene.mesh_bytes_validated,
             xz_runtime.static_scene.scene_bytes,
+            static_gpu_ready,
+            xz_runtime.gles3_shadow.static_scene_gpu_meshes,
+            xz_runtime.gles3_shadow.static_scene_gpu_vertices,
+            xz_runtime.gles3_shadow.static_scene_gpu_indices,
+            xz_runtime.gles3_shadow.static_scene_gpu_bytes,
             xz_runtime.static_scene.error);
     }
 

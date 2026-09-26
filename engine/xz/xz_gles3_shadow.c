@@ -10,6 +10,7 @@
 #include <dlfcn.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #ifndef EGL_OPENGL_ES3_BIT_KHR
@@ -193,6 +194,17 @@ typedef struct {
 } XzGles3RealTexture;
 
 typedef struct {
+    GLuint vbo;
+    GLuint ibo;
+    GLuint vao;
+    uint32_t vertex_count;
+    uint32_t index_count;
+    uint32_t submesh_count;
+    uint64_t gpu_bytes;
+    int alive;
+} XzGles3StaticMesh;
+
+typedef struct {
     int ready;
 
     EGLDisplay display;
@@ -235,6 +247,9 @@ typedef struct {
     GLuint real_vao;
     GLuint real_fallback_texture;
     XzGles3RealTexture real_textures[XZ_TEXTURE_MAX_ENTRIES];
+
+    XzGles3StaticMesh *static_meshes;
+    uint32_t static_mesh_count;
 
     GLuint scratch_fbo;
 
@@ -1509,6 +1524,335 @@ static int XzRestorePrevious(
         EGL_NO_SURFACE,
         EGL_NO_SURFACE,
         EGL_NO_CONTEXT) ? 1 : 0;
+}
+
+
+static void XzDestroyStaticSceneCurrent(
+    XzGles3ShadowState *state)
+{
+    uint32_t i;
+
+    if (xz_shadow.static_meshes) {
+        for (i = 0u;
+             i < xz_shadow.static_mesh_count;
+             ++i) {
+            XzGles3StaticMesh *mesh =
+                &xz_shadow.static_meshes[i];
+
+            if (mesh->vao)
+                xz_shadow.gl.DeleteVertexArrays(
+                    1, &mesh->vao);
+            if (mesh->vbo)
+                xz_shadow.gl.DeleteBuffers(
+                    1, &mesh->vbo);
+            if (mesh->ibo)
+                xz_shadow.gl.DeleteBuffers(
+                    1, &mesh->ibo);
+        }
+
+        free(xz_shadow.static_meshes);
+    }
+
+    xz_shadow.static_meshes = NULL;
+    xz_shadow.static_mesh_count = 0u;
+
+    if (state) {
+        state->static_scene_gpu_bytes = 0u;
+        state->static_scene_gpu_vertices = 0u;
+        state->static_scene_gpu_indices = 0u;
+        state->static_scene_gpu_meshes = 0u;
+        state->static_scene_gpu_submeshes = 0u;
+        state->static_scene_gpu_ready = 0;
+    }
+}
+
+void XzGles3Shadow_ReleaseStaticScene(
+    XzGles3ShadowState *state)
+{
+    EGLDisplay previous_display;
+    EGLSurface previous_draw;
+    EGLSurface previous_read;
+    EGLContext previous_context;
+
+    if (!state || !state->initialized ||
+        !xz_shadow.ready)
+        return;
+
+    if (!XzMakeShadowCurrent(
+            &previous_display,
+            &previous_draw,
+            &previous_read,
+            &previous_context)) {
+        state->static_scene_upload_failures++;
+        state->static_scene_gpu_ready = 0;
+        return;
+    }
+
+    XzDestroyStaticSceneCurrent(state);
+
+    if (!XzRestorePrevious(
+            previous_display,
+            previous_draw,
+            previous_read,
+            previous_context)) {
+        state->restore_failures++;
+        state->restore_ok = 0;
+    }
+}
+
+int XzGles3Shadow_UploadStaticScene(
+    XzGles3ShadowState *state,
+    const XzStaticSceneRuntimeState *scene)
+{
+    EGLDisplay previous_display;
+    EGLSurface previous_draw;
+    EGLSurface previous_read;
+    EGLContext previous_context;
+    XzGles3StaticMesh *gpu_meshes = NULL;
+    uint64_t gpu_bytes = 0u;
+    uint64_t vertices = 0u;
+    uint64_t indices = 0u;
+    uint64_t submeshes = 0u;
+    uint32_t mesh_index;
+    int restored = 0;
+
+    if (!state || !scene ||
+        !state->initialized ||
+        !state->available ||
+        !xz_shadow.ready ||
+        scene->status != XZ_STATIC_SCENE_READY ||
+        XzStaticSceneRuntime_MeshCount(scene) == 0u)
+        return 0;
+
+    state->static_scene_upload_attempts++;
+
+    if (!XzMakeShadowCurrent(
+            &previous_display,
+            &previous_draw,
+            &previous_read,
+            &previous_context)) {
+        state->static_scene_upload_failures++;
+        state->static_scene_gpu_ready = 0;
+        return 0;
+    }
+
+    XzDrainErrors(state);
+    XzDestroyStaticSceneCurrent(state);
+
+    gpu_meshes = (XzGles3StaticMesh *)calloc(
+        (size_t)scene->mesh_resource_count,
+        sizeof(*gpu_meshes));
+    if (!gpu_meshes)
+        goto fail;
+
+    for (mesh_index = 0u;
+         mesh_index < scene->mesh_resource_count;
+         ++mesh_index) {
+        const XzStaticMeshResource *source =
+            XzStaticSceneRuntime_Mesh(
+                scene, mesh_index);
+        XzGles3StaticMesh *dest =
+            &gpu_meshes[mesh_index];
+        uint64_t vertex_bytes;
+        uint64_t index_bytes;
+
+        if (!source ||
+            !source->data ||
+            source->mesh.vertex_stride !=
+                XZ_XZMS_VERTEX_BYTES ||
+            source->mesh.vertex_count == 0u ||
+            source->mesh.index_count == 0u ||
+            source->mesh.submesh_count == 0u)
+            goto fail;
+
+        vertex_bytes =
+            (uint64_t)source->mesh.vertex_count *
+            (uint64_t)source->mesh.vertex_stride;
+        index_bytes =
+            (uint64_t)source->mesh.index_count *
+            (uint64_t)sizeof(uint32_t);
+
+        if (vertex_bytes > (uint64_t)INT32_MAX ||
+            index_bytes > (uint64_t)INT32_MAX)
+            goto fail;
+
+        xz_shadow.gl.GenVertexArrays(
+            1, &dest->vao);
+        xz_shadow.gl.GenBuffers(
+            1, &dest->vbo);
+        xz_shadow.gl.GenBuffers(
+            1, &dest->ibo);
+
+        if (!dest->vao ||
+            !dest->vbo ||
+            !dest->ibo)
+            goto fail;
+
+        xz_shadow.gl.BindVertexArray(
+            dest->vao);
+
+        xz_shadow.gl.BindBuffer(
+            GL_ARRAY_BUFFER,
+            dest->vbo);
+        xz_shadow.gl.BufferData(
+            GL_ARRAY_BUFFER,
+            (GLsizeiptr)vertex_bytes,
+            source->data +
+                source->mesh.vertex_offset,
+            GL_STATIC_DRAW);
+
+        xz_shadow.gl.BindBuffer(
+            GL_ELEMENT_ARRAY_BUFFER,
+            dest->ibo);
+        xz_shadow.gl.BufferData(
+            GL_ELEMENT_ARRAY_BUFFER,
+            (GLsizeiptr)index_bytes,
+            source->data +
+                source->mesh.index_offset,
+            GL_STATIC_DRAW);
+
+        /*
+         * XZMS vertex layout:
+         *   location 0: position.xyz
+         *   location 1: uv.xy
+         *   location 2: normal.xyz
+         * Location 2 is staged now even though the current parity shader does
+         * not consume it yet; the material/lighting static shader will.
+         */
+        xz_shadow.gl.EnableVertexAttribArray(0u);
+        xz_shadow.gl.VertexAttribPointer(
+            0u,
+            3,
+            GL_FLOAT,
+            GL_FALSE,
+            (GLsizei)XZ_XZMS_VERTEX_BYTES,
+            (const void *)0);
+
+        xz_shadow.gl.EnableVertexAttribArray(1u);
+        xz_shadow.gl.VertexAttribPointer(
+            1u,
+            2,
+            GL_FLOAT,
+            GL_FALSE,
+            (GLsizei)XZ_XZMS_VERTEX_BYTES,
+            (const void *)(uintptr_t)24u);
+
+        xz_shadow.gl.EnableVertexAttribArray(2u);
+        xz_shadow.gl.VertexAttribPointer(
+            2u,
+            3,
+            GL_FLOAT,
+            GL_FALSE,
+            (GLsizei)XZ_XZMS_VERTEX_BYTES,
+            (const void *)(uintptr_t)12u);
+
+        if (xz_shadow.gl.GetError() !=
+                GL_NO_ERROR)
+            goto fail;
+
+        dest->vertex_count =
+            source->mesh.vertex_count;
+        dest->index_count =
+            source->mesh.index_count;
+        dest->submesh_count =
+            source->mesh.submesh_count;
+        dest->gpu_bytes =
+            vertex_bytes + index_bytes;
+        dest->alive = 1;
+
+        gpu_bytes += dest->gpu_bytes;
+        vertices += dest->vertex_count;
+        indices += dest->index_count;
+        submeshes += dest->submesh_count;
+    }
+
+    xz_shadow.gl.BindVertexArray(0u);
+    xz_shadow.gl.BindBuffer(
+        GL_ARRAY_BUFFER, 0u);
+    xz_shadow.gl.BindBuffer(
+        GL_ELEMENT_ARRAY_BUFFER, 0u);
+
+    if (xz_shadow.gl.GetError() != GL_NO_ERROR)
+        goto fail;
+
+    xz_shadow.static_meshes = gpu_meshes;
+    xz_shadow.static_mesh_count =
+        scene->mesh_resource_count;
+    gpu_meshes = NULL;
+
+    state->static_scene_gpu_bytes =
+        gpu_bytes;
+    state->static_scene_gpu_vertices =
+        vertices;
+    state->static_scene_gpu_indices =
+        indices;
+    state->static_scene_gpu_meshes =
+        xz_shadow.static_mesh_count;
+    state->static_scene_gpu_submeshes =
+        (unsigned int)submeshes;
+    state->static_scene_gpu_ready =
+        state->static_scene_gpu_meshes ==
+            scene->mesh_resource_count &&
+        state->static_scene_gpu_vertices ==
+            scene->vertex_count &&
+        state->static_scene_gpu_indices ==
+            scene->index_count &&
+        state->static_scene_gpu_submeshes ==
+            scene->submesh_count;
+
+    if (!state->static_scene_gpu_ready)
+        goto fail_current_owned;
+
+    restored = XzRestorePrevious(
+        previous_display,
+        previous_draw,
+        previous_read,
+        previous_context);
+
+    if (!restored) {
+        state->restore_failures++;
+        state->restore_ok = 0;
+        state->static_scene_upload_failures++;
+        state->static_scene_gpu_ready = 0;
+        return 0;
+    }
+
+    state->restore_ok = 1;
+    state->static_scene_upload_successes++;
+    return 1;
+
+fail:
+    if (gpu_meshes) {
+        /*
+         * Temporarily publish so the single cleanup path can delete objects
+         * already created before the failure.
+         */
+        xz_shadow.static_meshes = gpu_meshes;
+        xz_shadow.static_mesh_count =
+            scene->mesh_resource_count;
+        gpu_meshes = NULL;
+    }
+
+fail_current_owned:
+    XzDestroyStaticSceneCurrent(state);
+    xz_shadow.gl.BindVertexArray(0u);
+    xz_shadow.gl.BindBuffer(
+        GL_ARRAY_BUFFER, 0u);
+    xz_shadow.gl.BindBuffer(
+        GL_ELEMENT_ARRAY_BUFFER, 0u);
+
+    if (!XzRestorePrevious(
+            previous_display,
+            previous_draw,
+            previous_read,
+            previous_context)) {
+        state->restore_failures++;
+        state->restore_ok = 0;
+    }
+
+    state->static_scene_upload_failures++;
+    state->static_scene_gpu_ready = 0;
+    return 0;
 }
 
 static int XzCreateVisibleContext(
@@ -3298,6 +3642,7 @@ void XzGles3Shadow_Shutdown(
             &previous_read,
             &previous_context)) {
         XzDestroyAllPhysicalResources(state);
+        XzDestroyStaticSceneCurrent(state);
         XzDestroyRealTextures();
         XzDestroyVisibleTargets();
 

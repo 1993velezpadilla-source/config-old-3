@@ -4,6 +4,7 @@
 #include "xz_render_plan.h"
 #include "xz_command_stream.h"
 #include "xz_geometry_tap.h"
+#include "xz_static_scene_runtime.h"
 
 #include <stdint.h>
 
@@ -88,6 +89,16 @@ typedef struct {
     int real_sky_ready;
     int real_water_ready;
 
+    uint64_t static_scene_upload_attempts;
+    uint64_t static_scene_upload_successes;
+    uint64_t static_scene_upload_failures;
+    uint64_t static_scene_gpu_bytes;
+    uint64_t static_scene_gpu_vertices;
+    uint64_t static_scene_gpu_indices;
+    unsigned int static_scene_gpu_meshes;
+    unsigned int static_scene_gpu_submeshes;
+    int static_scene_gpu_ready;
+
     uint64_t real_texture_uploads;
     uint64_t real_texture_binds;
     uint64_t real_texture_bytes;
@@ -155,6 +166,13 @@ int XzGles3Shadow_SubmitCommands(
     const XzRenderPlan *plan,
     XzGpuResourcePool *resources,
     const XzGeometryFrame *geometry);
+
+int XzGles3Shadow_UploadStaticScene(
+    XzGles3ShadowState *state,
+    const XzStaticSceneRuntimeState *scene);
+
+void XzGles3Shadow_ReleaseStaticScene(
+    XzGles3ShadowState *state);
 
 int XzGles3Shadow_CompositeVisibleWorld(
     XzGles3ShadowState *state,
