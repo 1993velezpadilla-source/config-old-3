@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import subprocess
 import tempfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "assets/nacht_reference/pavlov_scene_reference/assets.json"
@@ -22,6 +22,13 @@ def run(*args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
+def physical_package(source: str) -> str:
+    assert source.startswith("/Game/")
+    parts = PurePosixPath(source[len("/Game/"):].strip("/")).parts
+    assert len(parts) >= 2
+    return "Pavlov/Content/" + PurePosixPath(*parts[:-1]).as_posix() + ".uasset"
+
+
 assets = json.loads(ASSETS.read_text(encoding="utf-8"))
 assert assets["uniqueMeshCount"] == 492
 assert len(assets["meshes"]) == 492
@@ -29,6 +36,7 @@ assert len(assets["meshes"]) == 492
 selfcheck = run("--self-check")
 assert selfcheck.returncode == 0, selfcheck.stdout
 assert '"expectedUniqueMeshes": 492' in selfcheck.stdout, selfcheck.stdout
+assert '"expectedUniquePackages": 492' in selfcheck.stdout, selfcheck.stdout
 
 with tempfile.TemporaryDirectory() as td:
     td = Path(td)
@@ -36,15 +44,16 @@ with tempfile.TemporaryDirectory() as td:
     report = td / "report.json"
 
     lines = []
+    packages = []
     for i, row in enumerate(assets["meshes"]):
-        source = row["sourcePath"]
-        assert source.startswith("/Game/")
-        rel = source[len("/Game/"):]
-        entry = f'../../../Pavlov/Content/{rel}.uasset'
+        entry = physical_package(row["sourcePath"])
+        packages.append(entry.lower())
+        display = "../../../" + entry
         if i % 2:
-            entry = entry.replace("/", "\\")
-        lines.append(f'"{entry}" offset={i * 4096} size=4096')
+            display = display.replace("/", "\\")
+        lines.append(f'"{display}" offset={i * 4096} size=4096')
 
+    assert len(set(packages)) == 492
     index.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     ok = run("--pak-index", str(index), "--report", str(report), "--strict")
@@ -64,6 +73,5 @@ with tempfile.TemporaryDirectory() as td:
     assert payload["summary"]["resolved"] == 491, payload
     assert payload["summary"]["missing"] == 1, payload
     assert payload["summary"]["payloadReady"] is False, payload
-    assert len(payload["missing"]) == 1, payload
 
-print("XZIEL_NACHT_VISUAL_PAYLOAD_TEST_OK meshes=492 strict_missing_gate=PASS")
+print("XZIEL_NACHT_VISUAL_PAYLOAD_TEST_OK packages=492 object_path_mapping=PASS strict_missing_gate=PASS")

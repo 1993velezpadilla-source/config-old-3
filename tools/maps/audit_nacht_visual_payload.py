@@ -5,28 +5,33 @@ The repository intentionally stores only reference metadata. This tool proves wh
 an extracted user-owned/licensed Pavlov payload actually contains every UAsset package
 referenced by the 492-mesh Nacht scene inventory. It never silently substitutes stock
 NZ:P content for a missing source asset.
+
+Unreal object paths have the form /Game/.../Package/Object. The physical cooked
+package is Pavlov/Content/.../Package.uasset; the final object segment is not a
+filesystem component and must be removed during package resolution.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import re
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ASSETS = ROOT / "assets/nacht_reference/pavlov_scene_reference/assets.json"
 DEFAULT_REPORT = ROOT / "build/nacht_visual_payload_report.json"
-
-UASSET_RE = re.compile(r"(?i)[^\r\n]*?\.uasset")
 
 
 def expected_uasset(source_path: str) -> str:
     value = source_path.replace("\\", "/").strip()
     if not value.startswith("/Game/"):
         raise ValueError(f"unsupported Unreal source path: {source_path!r}")
-    rel = value[len("/Game/"):].lstrip("/")
-    return ("Pavlov/Content/" + rel + ".uasset").lower()
+    object_rel = value[len("/Game/"):].strip("/")
+    parts = PurePosixPath(object_rel).parts
+    if len(parts) < 2:
+        raise ValueError(f"Unreal object path lacks package/object split: {source_path!r}")
+    package_rel = PurePosixPath(*parts[:-1]).as_posix()
+    return ("Pavlov/Content/" + package_rel + ".uasset").lower()
 
 
 def canonical_entry(raw: str) -> str | None:
@@ -91,7 +96,9 @@ def load_reference(path: Path) -> tuple[list[dict], set[str]]:
         raise SystemExit("Nacht visual reference inventory is not uniquely 492 meshes")
     expected = {expected_uasset(p) for p in paths}
     if len(expected) != declared:
-        raise SystemExit("normalized visual asset paths collide")
+        raise SystemExit(
+            "normalized Unreal package paths collide; object->package mapping is not 1:1"
+        )
     return meshes, expected
 
 
@@ -114,8 +121,9 @@ def main() -> int:
         print(json.dumps({
             "status": "MANIFEST_OK",
             "expectedUniqueMeshes": len(meshes),
+            "expectedUniquePackages": len(expected),
+            "unrealObjectPathRule": "/Game/.../Package/Object -> Pavlov/Content/.../Package.uasset",
             "payloadMounted": False,
-            "note": "Reference metadata is valid; no visual payload was supplied.",
         }, sort_keys=True))
         return 0
 
@@ -137,14 +145,13 @@ def main() -> int:
     report = {
         "schemaVersion": 1,
         "mapId": "bo3_nacht_reference",
-        "source": {
-            "kind": input_kind,
-            "value": input_value,
-        },
+        "source": {"kind": input_kind, "value": input_value},
         "policy": {
             "expectedUniqueMeshes": 492,
+            "expectedUniquePackages": 492,
             "noSilentFallbacks": True,
             "requireAllReferencedUassets": True,
+            "unrealObjectPathDropsFinalObjectSegment": True,
         },
         "summary": {
             "expected": len(expected),

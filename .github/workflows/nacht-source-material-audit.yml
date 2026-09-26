@@ -88,11 +88,13 @@ jobs:
           for row in rows:
               p=row['sourcePath']
               assert p.startswith('/Game/')
-              rel='Pavlov/Content/'+p[len('/Game/'):]+'.uasset'
+              parts=pathlib.PurePosixPath(p[len('/Game/'):].strip('/')).parts
+              assert len(parts)>=2,(p,parts)
+              rel='Pavlov/Content/'+pathlib.PurePosixPath(*parts[:-1]).as_posix()+'.uasset'
               out.append(rel)
           assert len(set(x.lower() for x in out))==492
           pathlib.Path('build/nacht-material-audit/source-uassets.txt').write_text('\n'.join(out)+'\n')
-          print('XZIEL_NACHT_MATERIAL_SOURCE_LIST_OK',len(out))
+          print('XZIEL_NACHT_MATERIAL_SOURCE_LIST_OK',len(out),'object_to_package_mapping=DROP_FINAL_OBJECT_SEGMENT')
           PY
 
       - name: Export material metadata for all 492 referenced meshes
