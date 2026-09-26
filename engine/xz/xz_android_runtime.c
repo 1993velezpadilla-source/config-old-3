@@ -724,6 +724,26 @@ static void XzLogSnapshot(double now_seconds)
         rec->light_budget_scale,
         rec->streaming_aggression);
 
+    XzAndroidLog(
+        ANDROID_LOG_INFO,
+        "staticScene gpuReady=%d gpuMeshes=%u gpuInstances=%u"
+        " gpuBytes=%" PRIu64
+        " drawReady=%d drawAttempts=%" PRIu64
+        " drawSuccess=%" PRIu64
+        " drawFail=%" PRIu64
+        " drawCalls=%" PRIu64
+        " instancesDrawn=%" PRIu64,
+        g3->static_scene_gpu_ready,
+        g3->static_scene_gpu_meshes,
+        g3->static_scene_gpu_instances,
+        g3->static_scene_gpu_bytes,
+        g3->static_scene_draw_ready,
+        g3->static_scene_draw_attempts,
+        g3->static_scene_draw_successes,
+        g3->static_scene_draw_failures,
+        g3->static_scene_draw_calls,
+        g3->static_scene_instances_drawn);
+
     /*
      * Keep graph/resource telemetry on a dedicated short logcat record.
      * Android truncates oversized records; splitting this preserves stable
@@ -1433,6 +1453,7 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             " gpuReady=%d gpuMeshes=%u"
             " gpuVertices=%" PRIu64
             " gpuIndices=%" PRIu64
+            " gpuInstances=%u"
             " gpuBytes=%" PRIu64
             " error='%s'",
             XzStaticSceneRuntime_StatusName(
@@ -1456,6 +1477,7 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             xz_runtime.gles3_shadow.static_scene_gpu_meshes,
             xz_runtime.gles3_shadow.static_scene_gpu_vertices,
             xz_runtime.gles3_shadow.static_scene_gpu_indices,
+            xz_runtime.gles3_shadow.static_scene_gpu_instances,
             xz_runtime.gles3_shadow.static_scene_gpu_bytes,
             xz_runtime.static_scene.error);
     }
@@ -1602,6 +1624,10 @@ int XzAndroidRuntime_CompositeVisibleWorld(void)
 
     return XzGles3Shadow_CompositeVisibleWorld(
         &xz_runtime.gles3_shadow,
+        XzStaticSceneRuntime_Scene(
+            &xz_runtime.static_scene)
+            ? &xz_runtime.static_scene
+            : NULL,
         XzGeometryTap_GetWriteFrame(),
         xz_runtime.active_quality.width,
         xz_runtime.active_quality.height);

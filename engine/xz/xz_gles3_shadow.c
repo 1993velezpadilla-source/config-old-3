@@ -79,6 +79,7 @@ typedef void (*XzGlBindVertexArrayFn)(GLuint);
 typedef void (*XzGlEnableVertexAttribArrayFn)(GLuint);
 typedef void (*XzGlVertexAttribPointerFn)(
     GLuint, GLint, GLenum, GLboolean, GLsizei, const void *);
+typedef void (*XzGlVertexAttribDivisorFn)(GLuint, GLuint);
 typedef void (*XzGlUseProgramFn)(GLuint);
 typedef void (*XzGlActiveTextureFn)(GLenum);
 typedef GLint (*XzGlGetUniformLocationFn)(GLuint, const GLchar *);
@@ -102,6 +103,8 @@ typedef void (*XzGlPolygonOffsetFn)(GLfloat, GLfloat);
 typedef void (*XzGlDrawArraysFn)(GLenum, GLint, GLsizei);
 typedef void (*XzGlDrawElementsFn)(
     GLenum, GLsizei, GLenum, const void *);
+typedef void (*XzGlDrawElementsInstancedFn)(
+    GLenum, GLsizei, GLenum, const void *, GLsizei);
 typedef void (*XzGlReadPixelsFn)(
     GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, void *);
 typedef void (*XzGlFinishFn)(void);
@@ -150,6 +153,7 @@ typedef struct {
     XzGlBindVertexArrayFn BindVertexArray;
     XzGlEnableVertexAttribArrayFn EnableVertexAttribArray;
     XzGlVertexAttribPointerFn VertexAttribPointer;
+    XzGlVertexAttribDivisorFn VertexAttribDivisor;
 
     XzGlUseProgramFn UseProgram;
     XzGlActiveTextureFn ActiveTexture;
@@ -172,6 +176,7 @@ typedef struct {
     XzGlPolygonOffsetFn PolygonOffset;
     XzGlDrawArraysFn DrawArrays;
     XzGlDrawElementsFn DrawElements;
+    XzGlDrawElementsInstancedFn DrawElementsInstanced;
     XzGlReadPixelsFn ReadPixels;
     XzGlFinishFn Finish;
     XzGlGetErrorFn GetError;
@@ -200,6 +205,8 @@ typedef struct {
     uint32_t vertex_count;
     uint32_t index_count;
     uint32_t submesh_count;
+    uint32_t instance_count;
+    uint32_t instance_first;
     uint64_t gpu_bytes;
     int alive;
 } XzGles3StaticMesh;
@@ -248,6 +255,10 @@ typedef struct {
     GLuint real_fallback_texture;
     XzGles3RealTexture real_textures[XZ_TEXTURE_MAX_ENTRIES];
 
+    GLuint static_program;
+    GLint static_modelview_loc;
+    GLint static_projection_loc;
+    GLuint static_instance_vbo;
     XzGles3StaticMesh *static_meshes;
     uint32_t static_mesh_count;
 
@@ -422,6 +433,9 @@ static int XzLoadApi(XzNativeGles3Api *api)
     XZ_GL_LOAD(
         VertexAttribPointer,
         "glVertexAttribPointer");
+    XZ_GL_LOAD(
+        VertexAttribDivisor,
+        "glVertexAttribDivisor");
 
     XZ_GL_LOAD(UseProgram, "glUseProgram");
     XZ_GL_LOAD(ActiveTexture, "glActiveTexture");
@@ -444,6 +458,9 @@ static int XzLoadApi(XzNativeGles3Api *api)
     XZ_GL_LOAD(PolygonOffset, "glPolygonOffset");
     XZ_GL_LOAD(DrawArrays, "glDrawArrays");
     XZ_GL_LOAD(DrawElements, "glDrawElements");
+    XZ_GL_LOAD(
+        DrawElementsInstanced,
+        "glDrawElementsInstanced");
     XZ_GL_LOAD(ReadPixels, "glReadPixels");
     XZ_GL_LOAD(Finish, "glFinish");
     XZ_GL_LOAD(GetError, "glGetError");
@@ -858,6 +875,102 @@ static int XzCreateRealGeometryProgram(void)
             fallback_rgba);
         gl->BindTexture(GL_TEXTURE_2D, 0u);
     }
+
+    return gl->GetError() == GL_NO_ERROR;
+}
+
+
+static int XzCreateStaticSceneProgram(void)
+{
+    static const char *vs_source =
+        "#version 300 es\n"
+        "layout(location=0) in vec3 aPos;\n"
+        "layout(location=1) in vec2 aUV;\n"
+        "layout(location=2) in vec3 aNormal;\n"
+        "layout(location=3) in vec4 iModel0;\n"
+        "layout(location=4) in vec4 iModel1;\n"
+        "layout(location=5) in vec4 iModel2;\n"
+        "layout(location=6) in vec4 iModel3;\n"
+        "uniform mat4 uModelView;\n"
+        "uniform mat4 uProjection;\n"
+        "out vec3 vNormal;\n"
+        "out vec2 vUV;\n"
+        "void main(){\n"
+        "  mat4 model=mat4(iModel0,iModel1,iModel2,iModel3);\n"
+        "  vec4 world=model*vec4(aPos,1.0);\n"
+        "  gl_Position=uProjection*uModelView*world;\n"
+        "  vNormal=normalize(mat3(model)*aNormal);\n"
+        "  vUV=aUV;\n"
+        "}\n";
+
+    static const char *fs_source =
+        "#version 300 es\n"
+        "precision mediump float;\n"
+        "in vec3 vNormal;\n"
+        "in vec2 vUV;\n"
+        "out vec4 outColor;\n"
+        "void main(){\n"
+        "  vec3 n=normalize(vNormal);\n"
+        "  vec3 l=normalize(vec3(0.35,0.45,0.82));\n"
+        "  float ndl=max(dot(n,l),0.0);\n"
+        "  float hemi=0.25+0.25*(n.z*0.5+0.5);\n"
+        "  float shade=clamp(hemi+0.55*ndl,0.18,1.0);\n"
+        "  vec3 base=vec3(0.58,0.61,0.64);\n"
+        "  outColor=vec4(base*shade,1.0);\n"
+        "}\n";
+
+    XzNativeGles3Api *gl = &xz_shadow.gl;
+    GLuint vs = 0u;
+    GLuint fs = 0u;
+    GLint linked = 0;
+
+    if (!XzCompileShader(
+            gl, GL_VERTEX_SHADER, vs_source, &vs))
+        return 0;
+
+    if (!XzCompileShader(
+            gl, GL_FRAGMENT_SHADER, fs_source, &fs)) {
+        gl->DeleteShader(vs);
+        return 0;
+    }
+
+    xz_shadow.static_program =
+        gl->CreateProgram();
+    if (!xz_shadow.static_program) {
+        gl->DeleteShader(vs);
+        gl->DeleteShader(fs);
+        return 0;
+    }
+
+    gl->AttachShader(
+        xz_shadow.static_program, vs);
+    gl->AttachShader(
+        xz_shadow.static_program, fs);
+    gl->LinkProgram(
+        xz_shadow.static_program);
+    gl->GetProgramiv(
+        xz_shadow.static_program,
+        GL_LINK_STATUS,
+        &linked);
+
+    gl->DeleteShader(vs);
+    gl->DeleteShader(fs);
+
+    if (!linked)
+        return 0;
+
+    xz_shadow.static_modelview_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uModelView");
+    xz_shadow.static_projection_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uProjection");
+
+    if (xz_shadow.static_modelview_loc < 0 ||
+        xz_shadow.static_projection_loc < 0)
+        return 0;
 
     return gl->GetError() == GL_NO_ERROR;
 }
@@ -1395,6 +1508,138 @@ static int XzDrawRealGeometry(
     return 1;
 }
 
+
+static const XzGeometryBatch *XzFindWorldCameraBatch(
+    const XzGeometryFrame *geometry)
+{
+    unsigned int i;
+
+    if (!geometry)
+        return NULL;
+
+    for (i = 0u;
+         i < geometry->batch_count;
+         ++i) {
+        if (geometry->batches[i].kind ==
+                XZ_GEOMETRY_SURFACE)
+            return &geometry->batches[i];
+    }
+
+    return geometry->batch_count > 0u
+        ? &geometry->batches[0]
+        : NULL;
+}
+
+static int XzDrawStaticScene(
+    XzGles3ShadowState *state,
+    const XzStaticSceneRuntimeState *scene,
+    const XzGeometryFrame *geometry)
+{
+    const XzGeometryBatch *camera;
+    XzNativeGles3Api *gl =
+        &xz_shadow.gl;
+    uint32_t mesh_index;
+    uint64_t instances = 0u;
+    uint64_t draw_calls = 0u;
+
+    if (!state ||
+        !scene ||
+        !geometry ||
+        !state->static_scene_gpu_ready ||
+        !xz_shadow.static_program ||
+        !xz_shadow.static_meshes ||
+        xz_shadow.static_mesh_count !=
+            scene->mesh_resource_count)
+        return 0;
+
+    state->static_scene_draw_attempts++;
+
+    camera =
+        XzFindWorldCameraBatch(geometry);
+    if (!camera) {
+        state->static_scene_draw_failures++;
+        state->static_scene_draw_ready = 0;
+        return 0;
+    }
+
+    gl->UseProgram(
+        xz_shadow.static_program);
+    gl->UniformMatrix4fv(
+        xz_shadow.static_modelview_loc,
+        1,
+        GL_FALSE,
+        camera->modelview);
+    gl->UniformMatrix4fv(
+        xz_shadow.static_projection_loc,
+        1,
+        GL_FALSE,
+        camera->projection);
+
+    gl->Enable(GL_DEPTH_TEST);
+    gl->DepthMask(GL_TRUE);
+    gl->DepthFunc(GL_LEQUAL);
+    gl->Disable(GL_BLEND);
+    gl->Disable(GL_CULL_FACE);
+
+    for (mesh_index = 0u;
+         mesh_index <
+             xz_shadow.static_mesh_count;
+         ++mesh_index) {
+        const XzGles3StaticMesh *mesh =
+            &xz_shadow.static_meshes[mesh_index];
+
+        if (!mesh->alive ||
+            !mesh->vao ||
+            mesh->index_count == 0u ||
+            mesh->instance_count == 0u) {
+            state->static_scene_draw_failures++;
+            state->static_scene_draw_ready = 0;
+            gl->BindVertexArray(0u);
+            gl->UseProgram(0u);
+            return 0;
+        }
+
+        gl->BindVertexArray(mesh->vao);
+        gl->DrawElementsInstanced(
+            GL_TRIANGLES,
+            (GLsizei)mesh->index_count,
+            GL_UNSIGNED_INT,
+            (const void *)0,
+            (GLsizei)mesh->instance_count);
+
+        if (gl->GetError() != GL_NO_ERROR) {
+            state->static_scene_draw_failures++;
+            state->static_scene_draw_ready = 0;
+            gl->BindVertexArray(0u);
+            gl->UseProgram(0u);
+            return 0;
+        }
+
+        draw_calls++;
+        instances += mesh->instance_count;
+    }
+
+    gl->BindVertexArray(0u);
+    gl->UseProgram(0u);
+    gl->DepthMask(GL_TRUE);
+    gl->DepthFunc(GL_LEQUAL);
+    gl->Disable(GL_CULL_FACE);
+    gl->Disable(GL_BLEND);
+
+    state->static_scene_draw_calls +=
+        draw_calls;
+    state->static_scene_instances_drawn +=
+        instances;
+    state->static_scene_draw_successes++;
+    state->static_scene_draw_ready =
+        draw_calls ==
+            (uint64_t)scene->mesh_resource_count &&
+        instances ==
+            (uint64_t)scene->scene.instance_count;
+
+    return state->static_scene_draw_ready;
+}
+
 static int XzCreateFullscreenProgram(void)
 {
     static const char *vs_source =
@@ -1559,6 +1804,13 @@ static void XzDestroyStaticSceneCurrent(
         free(xz_shadow.static_meshes);
     }
 
+    if (xz_shadow.static_instance_vbo) {
+        xz_shadow.gl.DeleteBuffers(
+            1,
+            &xz_shadow.static_instance_vbo);
+        xz_shadow.static_instance_vbo = 0u;
+    }
+
     xz_shadow.static_meshes = NULL;
     xz_shadow.static_mesh_count = 0u;
 
@@ -1568,7 +1820,9 @@ static void XzDestroyStaticSceneCurrent(
         state->static_scene_gpu_indices = 0u;
         state->static_scene_gpu_meshes = 0u;
         state->static_scene_gpu_submeshes = 0u;
+        state->static_scene_gpu_instances = 0u;
         state->static_scene_gpu_ready = 0;
+        state->static_scene_draw_ready = 0;
     }
 }
 
@@ -1615,11 +1869,17 @@ int XzGles3Shadow_UploadStaticScene(
     EGLSurface previous_read;
     EGLContext previous_context;
     XzGles3StaticMesh *gpu_meshes = NULL;
+    uint32_t *instance_counts = NULL;
+    uint32_t *instance_offsets = NULL;
+    uint32_t *instance_cursors = NULL;
+    float *instance_matrices = NULL;
     uint64_t gpu_bytes = 0u;
     uint64_t vertices = 0u;
     uint64_t indices = 0u;
     uint64_t submeshes = 0u;
     uint32_t mesh_index;
+    uint32_t instance_index;
+    uint32_t total_instances;
     int restored = 0;
 
     if (!state || !scene ||
@@ -1627,7 +1887,8 @@ int XzGles3Shadow_UploadStaticScene(
         !state->available ||
         !xz_shadow.ready ||
         scene->status != XZ_STATIC_SCENE_READY ||
-        XzStaticSceneRuntime_MeshCount(scene) == 0u)
+        XzStaticSceneRuntime_MeshCount(scene) == 0u ||
+        !XzStaticSceneRuntime_Scene(scene))
         return 0;
 
     state->static_scene_upload_attempts++;
@@ -1645,11 +1906,157 @@ int XzGles3Shadow_UploadStaticScene(
     XzDrainErrors(state);
     XzDestroyStaticSceneCurrent(state);
 
+    total_instances =
+        scene->scene.instance_count;
+
     gpu_meshes = (XzGles3StaticMesh *)calloc(
         (size_t)scene->mesh_resource_count,
         sizeof(*gpu_meshes));
-    if (!gpu_meshes)
+    instance_counts = (uint32_t *)calloc(
+        (size_t)scene->mesh_resource_count,
+        sizeof(*instance_counts));
+    instance_offsets = (uint32_t *)calloc(
+        (size_t)scene->mesh_resource_count,
+        sizeof(*instance_offsets));
+    instance_cursors = (uint32_t *)calloc(
+        (size_t)scene->mesh_resource_count,
+        sizeof(*instance_cursors));
+    instance_matrices = (float *)malloc(
+        (size_t)total_instances *
+        16u * sizeof(float));
+
+    if (!gpu_meshes ||
+        !instance_counts ||
+        !instance_offsets ||
+        !instance_cursors ||
+        !instance_matrices)
         goto fail;
+
+    for (instance_index = 0u;
+         instance_index < total_instances;
+         ++instance_index) {
+        XzXzsceneInstance instance;
+
+        if (!XzXzscene_ReadInstance(
+                &scene->scene,
+                instance_index,
+                &instance) ||
+            instance.mesh_index >=
+                scene->mesh_resource_count)
+            goto fail;
+
+        if (instance_counts[
+                instance.mesh_index] ==
+            UINT32_MAX)
+            goto fail;
+
+        instance_counts[
+            instance.mesh_index]++;
+    }
+
+    {
+        uint32_t cursor = 0u;
+
+        for (mesh_index = 0u;
+             mesh_index <
+                 scene->mesh_resource_count;
+             ++mesh_index) {
+            if (instance_counts[mesh_index] == 0u)
+                goto fail;
+
+            instance_offsets[mesh_index] =
+                cursor;
+
+            if (UINT32_MAX - cursor <
+                    instance_counts[mesh_index])
+                goto fail;
+
+            cursor += instance_counts[mesh_index];
+        }
+
+        if (cursor != total_instances)
+            goto fail;
+    }
+
+    for (instance_index = 0u;
+         instance_index < total_instances;
+         ++instance_index) {
+        XzXzsceneInstance instance;
+        uint32_t mesh_slot;
+        uint32_t target_index;
+        float *dst;
+        const float *m;
+        const float scale =
+            scene->scene.gameplay_units_per_meter;
+
+        if (!XzXzscene_ReadInstance(
+                &scene->scene,
+                instance_index,
+                &instance))
+            goto fail;
+
+        mesh_slot = instance.mesh_index;
+        target_index =
+            instance_offsets[mesh_slot] +
+            instance_cursors[mesh_slot]++;
+
+        if (target_index >= total_instances)
+            goto fail;
+
+        dst =
+            instance_matrices +
+            (size_t)target_index * 16u;
+        m = instance.matrix;
+
+        /*
+         * XZSC stores row-major matrices for column-vector math in meters.
+         * GLES mat4 attributes are four columns. S * M converts the scene
+         * result from meters to the same Quake/Vril units as the live camera.
+         */
+        dst[0]  = m[0]  * scale;
+        dst[1]  = m[4]  * scale;
+        dst[2]  = m[8]  * scale;
+        dst[3]  = m[12];
+
+        dst[4]  = m[1]  * scale;
+        dst[5]  = m[5]  * scale;
+        dst[6]  = m[9]  * scale;
+        dst[7]  = m[13];
+
+        dst[8]  = m[2]  * scale;
+        dst[9]  = m[6]  * scale;
+        dst[10] = m[10] * scale;
+        dst[11] = m[14];
+
+        dst[12] = m[3]  * scale;
+        dst[13] = m[7]  * scale;
+        dst[14] = m[11] * scale;
+        dst[15] = m[15];
+    }
+
+    xz_shadow.gl.GenBuffers(
+        1, &xz_shadow.static_instance_vbo);
+    if (!xz_shadow.static_instance_vbo)
+        goto fail;
+
+    xz_shadow.gl.BindBuffer(
+        GL_ARRAY_BUFFER,
+        xz_shadow.static_instance_vbo);
+    xz_shadow.gl.BufferData(
+        GL_ARRAY_BUFFER,
+        (GLsizeiptr)(
+            (size_t)total_instances *
+            16u * sizeof(float)),
+        instance_matrices,
+        GL_STATIC_DRAW);
+
+    if (xz_shadow.gl.GetError() !=
+            GL_NO_ERROR)
+        goto fail;
+
+    gpu_bytes +=
+        (uint64_t)total_instances *
+        16u * sizeof(float);
 
     for (mesh_index = 0u;
          mesh_index < scene->mesh_resource_count;
@@ -1661,6 +2068,8 @@ int XzGles3Shadow_UploadStaticScene(
             &gpu_meshes[mesh_index];
         uint64_t vertex_bytes;
         uint64_t index_bytes;
+        uintptr_t instance_base;
+        unsigned int column;
 
         if (!source ||
             !source->data ||
@@ -1717,40 +2126,54 @@ int XzGles3Shadow_UploadStaticScene(
                 source->mesh.index_offset,
             GL_STATIC_DRAW);
 
-        /*
-         * XZMS vertex layout:
-         *   location 0: position.xyz
-         *   location 1: uv.xy
-         *   location 2: normal.xyz
-         * Location 2 is staged now even though the current parity shader does
-         * not consume it yet; the material/lighting static shader will.
-         */
         xz_shadow.gl.EnableVertexAttribArray(0u);
         xz_shadow.gl.VertexAttribPointer(
-            0u,
-            3,
-            GL_FLOAT,
-            GL_FALSE,
+            0u, 3, GL_FLOAT, GL_FALSE,
             (GLsizei)XZ_XZMS_VERTEX_BYTES,
             (const void *)0);
 
         xz_shadow.gl.EnableVertexAttribArray(1u);
         xz_shadow.gl.VertexAttribPointer(
-            1u,
-            2,
-            GL_FLOAT,
-            GL_FALSE,
+            1u, 2, GL_FLOAT, GL_FALSE,
             (GLsizei)XZ_XZMS_VERTEX_BYTES,
             (const void *)(uintptr_t)24u);
 
         xz_shadow.gl.EnableVertexAttribArray(2u);
         xz_shadow.gl.VertexAttribPointer(
-            2u,
-            3,
-            GL_FLOAT,
-            GL_FALSE,
+            2u, 3, GL_FLOAT, GL_FALSE,
             (GLsizei)XZ_XZMS_VERTEX_BYTES,
             (const void *)(uintptr_t)12u);
+
+        xz_shadow.gl.BindBuffer(
+            GL_ARRAY_BUFFER,
+            xz_shadow.static_instance_vbo);
+
+        instance_base =
+            (uintptr_t)instance_offsets[mesh_index] *
+            16u * sizeof(float);
+
+        for (column = 0u;
+             column < 4u;
+             ++column) {
+            const GLuint location =
+                3u + column;
+
+            xz_shadow.gl.EnableVertexAttribArray(
+                location);
+            xz_shadow.gl.VertexAttribPointer(
+                location,
+                4,
+                GL_FLOAT,
+                GL_FALSE,
+                (GLsizei)(16u * sizeof(float)),
+                (const void *)(
+                    instance_base +
+                    (uintptr_t)column *
+                    4u * sizeof(float)));
+            xz_shadow.gl.VertexAttribDivisor(
+                location,
+                1u);
+        }
 
         if (xz_shadow.gl.GetError() !=
                 GL_NO_ERROR)
@@ -1762,6 +2185,10 @@ int XzGles3Shadow_UploadStaticScene(
             source->mesh.index_count;
         dest->submesh_count =
             source->mesh.submesh_count;
+        dest->instance_count =
+            instance_counts[mesh_index];
+        dest->instance_first =
+            instance_offsets[mesh_index];
         dest->gpu_bytes =
             vertex_bytes + index_bytes;
         dest->alive = 1;
@@ -1796,6 +2223,8 @@ int XzGles3Shadow_UploadStaticScene(
         xz_shadow.static_mesh_count;
     state->static_scene_gpu_submeshes =
         (unsigned int)submeshes;
+    state->static_scene_gpu_instances =
+        total_instances;
     state->static_scene_gpu_ready =
         state->static_scene_gpu_meshes ==
             scene->mesh_resource_count &&
@@ -1804,7 +2233,18 @@ int XzGles3Shadow_UploadStaticScene(
         state->static_scene_gpu_indices ==
             scene->index_count &&
         state->static_scene_gpu_submeshes ==
-            scene->submesh_count;
+            scene->submesh_count &&
+        state->static_scene_gpu_instances ==
+            scene->scene.instance_count;
+
+    free(instance_counts);
+    free(instance_offsets);
+    free(instance_cursors);
+    free(instance_matrices);
+    instance_counts = NULL;
+    instance_offsets = NULL;
+    instance_cursors = NULL;
+    instance_matrices = NULL;
 
     if (!state->static_scene_gpu_ready)
         goto fail_current_owned;
@@ -1828,11 +2268,12 @@ int XzGles3Shadow_UploadStaticScene(
     return 1;
 
 fail:
+    free(instance_counts);
+    free(instance_offsets);
+    free(instance_cursors);
+    free(instance_matrices);
+
     if (gpu_meshes) {
-        /*
-         * Temporarily publish so the single cleanup path can delete objects
-         * already created before the failure.
-         */
         xz_shadow.static_meshes = gpu_meshes;
         xz_shadow.static_mesh_count =
             scene->mesh_resource_count;
@@ -2852,6 +3293,9 @@ int XzGles3Shadow_Init(
     if (!XzCreateRealGeometryProgram())
         goto fail_current;
 
+    if (!XzCreateStaticSceneProgram())
+        goto fail_current;
+
     if (!XzCreateFullscreenProgram())
         goto fail_current;
 
@@ -3418,6 +3862,7 @@ int XzGles3Shadow_SubmitCommands(
 
 int XzGles3Shadow_CompositeVisibleWorld(
     XzGles3ShadowState *state,
+    const XzStaticSceneRuntimeState *static_scene,
     const XzGeometryFrame *geometry,
     unsigned int render_width,
     unsigned int render_height)
@@ -3500,6 +3945,15 @@ int XzGles3Shadow_CompositeVisibleWorld(
 
     if (gl->GetError() != GL_NO_ERROR)
         goto fail;
+
+    if (static_scene &&
+        state->static_scene_gpu_ready) {
+        if (!XzDrawStaticScene(
+                state,
+                static_scene,
+                geometry))
+            goto fail;
+    }
 
     if (!XzDrawRealGeometry(
             state,
@@ -3685,6 +4139,10 @@ void XzGles3Shadow_Shutdown(
             xz_shadow.real_program)
             xz_shadow.gl.DeleteProgram(
                 xz_shadow.real_program);
+        if (xz_shadow.gl.DeleteProgram &&
+            xz_shadow.static_program)
+            xz_shadow.gl.DeleteProgram(
+                xz_shadow.static_program);
         if (xz_shadow.gl.DeleteProgram &&
             xz_shadow.fullscreen_program)
             xz_shadow.gl.DeleteProgram(

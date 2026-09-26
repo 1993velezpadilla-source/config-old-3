@@ -97,7 +97,15 @@ typedef struct {
     uint64_t static_scene_gpu_indices;
     unsigned int static_scene_gpu_meshes;
     unsigned int static_scene_gpu_submeshes;
+    unsigned int static_scene_gpu_instances;
     int static_scene_gpu_ready;
+
+    uint64_t static_scene_draw_attempts;
+    uint64_t static_scene_draw_successes;
+    uint64_t static_scene_draw_failures;
+    uint64_t static_scene_draw_calls;
+    uint64_t static_scene_instances_drawn;
+    int static_scene_draw_ready;
 
     uint64_t real_texture_uploads;
     uint64_t real_texture_binds;
@@ -176,6 +184,7 @@ void XzGles3Shadow_ReleaseStaticScene(
 
 int XzGles3Shadow_CompositeVisibleWorld(
     XzGles3ShadowState *state,
+    const XzStaticSceneRuntimeState *static_scene,
     const XzGeometryFrame *geometry,
     unsigned int render_width,
     unsigned int render_height);
