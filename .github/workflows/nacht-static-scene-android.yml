@@ -130,6 +130,9 @@ jobs:
           using CUE4Parse.UE4.Objects.UObject;
           using CUE4Parse_Conversion;
           using CUE4Parse_Conversion.Options;
+          using CUE4Parse_Conversion.Textures;
+          using System.Security.Cryptography;
+          using System.Text;
           using System.Text.Json;
 
           if (args.Length < 3) return 2;
@@ -181,6 +184,19 @@ jobs:
                           1,
                           Environment.ProcessorCount / 2)
               };
+
+          Directory.CreateDirectory(args[1]);
+          var explicitTextureDir =
+              Path.Combine(args[1], "textures");
+          Directory.CreateDirectory(
+              explicitTextureDir);
+
+          var explicitTextureFiles = 0;
+          var explicitTextureDecodeFailures = 0;
+          var explicitTextureRows =
+              new List<Dictionary<string, string>>();
+          var materialTextureRows =
+              new List<Dictionary<string, string>>();
 
           var queued =
               new HashSet<string>(
@@ -380,9 +396,93 @@ jobs:
               var textureKey =
                   texture.GetPathName();
 
+              materialTextureRows.Add(
+                  new Dictionary<string, string> {
+                      ["materialPath"] =
+                          sourceMaterial.GetPathName(),
+                      ["materialName"] =
+                          sourceMaterial.Name,
+                      ["source"] = sourceKind,
+                      ["texturePath"] = textureKey,
+                      ["textureName"] = texture.Name,
+                  });
+
               if (textureQueued.Add(textureKey))
               {
                   session.Add(texture);
+
+                  try
+                  {
+                      var decoded =
+                          texture.Decode();
+
+                      if (decoded is null)
+                      {
+                          throw new Exception(
+                              "Decode returned null");
+                      }
+
+                      var png =
+                          decoded.Encode(
+                              ETextureFormat.Png,
+                              false,
+                              out var extension);
+
+                      var digest =
+                          Convert.ToHexString(
+                              SHA256.HashData(
+                                  Encoding.UTF8.GetBytes(
+                                      textureKey)))
+                              .ToLowerInvariant()
+                              [..16];
+
+                      var safeName =
+                          string.Concat(
+                              texture.Name.Select(
+                                  ch =>
+                                      char.IsLetterOrDigit(ch)
+                                      || ch == '_'
+                                      || ch == '-'
+                                          ? ch
+                                          : '_'));
+
+                      var fileName =
+                          $"{safeName}_{digest}.{extension}";
+
+                      var outputPath =
+                          Path.Combine(
+                              explicitTextureDir,
+                              fileName);
+
+                      File.WriteAllBytes(
+                          outputPath,
+                          png);
+
+                      explicitTextureFiles++;
+
+                      explicitTextureRows.Add(
+                          new Dictionary<string, string> {
+                              ["texturePath"] = textureKey,
+                              ["textureName"] = texture.Name,
+                              ["file"] =
+                                  $"textures/{fileName}",
+                          });
+
+                      Console.WriteLine(
+                          $"texture-png-ok"
+                          + $" texture={texture.Name}"
+                          + $" file={fileName}"
+                          + $" bytes={png.Length}");
+                  }
+                  catch (Exception e)
+                  {
+                      explicitTextureDecodeFailures++;
+                      Console.WriteLine(
+                          $"texture-png-fail"
+                          + $" texture={texture.Name}"
+                          + $" path={textureKey}"
+                          + $" error={e.Message}");
+                  }
 
                   Console.WriteLine(
                       $"texture-direct-ok"
@@ -485,10 +585,16 @@ jobs:
                               textureParameter,
                               "ParameterValue");
 
+                      var parameterName =
+                          ReadMember(
+                              textureParameter,
+                              "Name")?.ToString()
+                          ?? "unknown";
+
                       QueueTextureCandidate(
                           parameterValue,
                           sourceMaterial,
-                          "parameter");
+                          $"parameter:{parameterName}");
                   }
               }
 
@@ -743,6 +849,34 @@ jobs:
               }
           }
 
+          var textureManifest =
+              new {
+                  schemaVersion = 1,
+                  textureCount =
+                      explicitTextureRows.Count,
+                  bindingCount =
+                      materialTextureRows.Count,
+                  textures =
+                      explicitTextureRows,
+                  bindings =
+                      materialTextureRows,
+              };
+
+          File.WriteAllText(
+              Path.Combine(
+                  args[1],
+                  "xziel-texture-manifest.json"),
+              JsonSerializer.Serialize(
+                  textureManifest,
+                  new JsonSerializerOptions {
+                      WriteIndented = true
+                  }));
+
+          Console.WriteLine(
+              $"texturePngFiles={explicitTextureFiles}"
+              + $" texturePngDecodeFailures={explicitTextureDecodeFailures}"
+              + $" materialTextureBindings={materialTextureRows.Count}");
+
           Console.WriteLine(
               $"wanted={wanted.Count} queued={queued.Count}"
               + $" materialRefs={materialRefs}"
@@ -766,8 +900,10 @@ jobs:
               return 6;
           if (textureRefs == 0 || textureLoads == 0)
               return 7;
-
-          Directory.CreateDirectory(args[1]);
+          if (
+              explicitTextureFiles == 0
+              || explicitTextureDecodeFailures != 0)
+              return 8;
 
           var result =
               await session.RunAsync(
