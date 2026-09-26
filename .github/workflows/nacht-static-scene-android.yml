@@ -504,13 +504,41 @@ jobs:
             sleep 2
           done
 
-          "$ADB" logcat -d -v threadtime \
-            > dist/static-scene-logcat.txt || true
-
           echo "STAGE=$STAGE" \
             | tee dist/static-scene-status.txt
 
           test "$STAGE" = "FIRST_FRAME_OK"
+
+          # FIRST_FRAME_OK only proves Vril completed its first host frame.
+          # The modern cutover intentionally needs several real geometry frames
+          # before the static scene can borrow a valid gameplay camera and
+          # replace the legacy BSP world. Keep the app alive until the first
+          # complete Nacht instanced framebuffer draw is observed.
+          DRAW_READY=0
+          for i in $(seq 1 90); do
+            if "$ADB" logcat -d -v threadtime 2>/dev/null \
+                | grep -Eq \
+                  "XZIEL-XZ.*static_scene_draw ready=1 meshes=492 instances=10791 drawCalls=1063 attempts=[1-9][0-9]* failures=0"; then
+              DRAW_READY=1
+              break
+            fi
+
+            if ! "$ADB" shell pidof com.xziel.engine >/dev/null 2>&1; then
+              break
+            fi
+            sleep 2
+          done
+
+          "$ADB" logcat -d -v threadtime \
+            > dist/static-scene-logcat.txt || true
+
+          "$ADB" exec-out screencap -p \
+            > dist/static-scene-runtime.png || true
+
+          echo "DRAW_READY=$DRAW_READY" \
+            | tee -a dist/static-scene-status.txt
+
+          test "$DRAW_READY" = "1"
 
           grep -E \
             "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*meshes=492 instances=10791 xzms=492.*vertices=1067383 indices=3608148 submeshes=1063 meshBytes=48633408" \
@@ -533,9 +561,6 @@ jobs:
 
           echo \
             "XZIEL_NACHT_ANDROID_STATIC_SCENE_GREEN meshes=492 instances=10791 xzms=492 vertices=1067383 indices=3608148 submeshes=1063 gpuBytes=48588848"
-
-          "$ADB" exec-out screencap -p \
-            > dist/static-scene-runtime.png || true
 
       - name: Upload Android static-scene evidence
         if: always()
