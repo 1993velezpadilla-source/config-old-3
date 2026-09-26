@@ -8,6 +8,7 @@ on:
       - feature/xziel-static-scene-gpu-v1
       - feature/xziel-static-scene-framebuffer-v1
       - feature/xziel-static-scene-materials-v1
+      - feature/xziel-static-scene-texture-bindings-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -20,6 +21,7 @@ on:
       - "tools/maps/compile_nacht_xzscene.py"
       - "tools/maps/convert_glb_to_xzmesh.py"
       - "tools/maps/compile_nacht_xzmesh_bundle.py"
+      - "tools/maps/compile_nacht_xzmat_bundle.py"
       - "tools/maps/export_nacht_nzp_harness.py"
       - "scripts/patch_vril_xz_phase0.py"
       - "scripts/prepare_android.sh"
@@ -197,6 +199,9 @@ jobs:
           var explicitTextureRows =
               new List<Dictionary<string, string>>();
           var materialTextureRows =
+              new List<Dictionary<string, string>>();
+
+          var meshMaterialRows =
               new List<Dictionary<string, string>>();
 
           var queued =
@@ -799,9 +804,14 @@ jobs:
                               + $" staticMaterials={mesh.StaticMaterials.Length}"
                               + $" materials={mesh.Materials.Length}");
 
-                          foreach (
-                              var slot in mesh.StaticMaterials)
+                          for (
+                              var slotIndex = 0;
+                              slotIndex < mesh.StaticMaterials.Length;
+                              slotIndex++)
                           {
+                              var slot =
+                                  mesh.StaticMaterials[slotIndex];
+
                               var slotName =
                                   slot.ImportedMaterialSlotName?.Text
                                   ?? slot.MaterialSlotName.Text;
@@ -831,6 +841,23 @@ jobs:
                                       session.Add(material);
                                       QueueMaterialTextures(material);
                                   }
+
+                                  meshMaterialRows.Add(
+                                      new Dictionary<string, string> {
+                                          ["meshName"] = mesh.Name,
+                                          ["slotIndex"] =
+                                              slotIndex.ToString(),
+                                          ["slotName"] = slotName,
+                                          ["materialSlotName"] =
+                                              slot.MaterialSlotName.Text,
+                                          ["importedSlotName"] =
+                                              slot.ImportedMaterialSlotName?.Text
+                                              ?? "",
+                                          ["materialName"] =
+                                              material.Name,
+                                          ["materialPath"] =
+                                              material.GetPathName(),
+                                      });
 
                                   Console.WriteLine(
                                       $"material-ok"
@@ -939,6 +966,23 @@ jobs:
                                               directMaterial);
                                       }
 
+                                      meshMaterialRows.Add(
+                                          new Dictionary<string, string> {
+                                              ["meshName"] = mesh.Name,
+                                              ["slotIndex"] =
+                                                  slotIndex.ToString(),
+                                              ["slotName"] = slotName,
+                                              ["materialSlotName"] =
+                                                  slot.MaterialSlotName.Text,
+                                              ["importedSlotName"] =
+                                                  slot.ImportedMaterialSlotName?.Text
+                                                  ?? "",
+                                              ["materialName"] =
+                                                  directMaterial.Name,
+                                              ["materialPath"] =
+                                                  materialKey,
+                                          });
+
                                       Console.WriteLine(
                                           $"material-direct-ok"
                                           + $" mesh={mesh.Name}"
@@ -981,10 +1025,14 @@ jobs:
                       explicitTextureRows.Count,
                   bindingCount =
                       materialTextureRows.Count,
+                  meshMaterialCount =
+                      meshMaterialRows.Count,
                   textures =
                       explicitTextureRows,
                   bindings =
                       materialTextureRows,
+                  meshMaterials =
+                      meshMaterialRows,
               };
 
           File.WriteAllText(
@@ -1377,10 +1425,20 @@ jobs:
             --report build/nacht-static-scene/xziel.xzscene.report.json \
             | tee build/nacht-static-scene/xzscene-compile.log
 
+          python3 tools/maps/compile_nacht_xzmat_bundle.py \
+            --assets assets/nacht_reference/pavlov_scene_reference/assets.json \
+            --glb-root "$RUNNER_TEMP/scene-glb" \
+            --texture-manifest "$RUNNER_TEMP/scene-glb/xziel-texture-manifest.json" \
+            --output "$MAPROOT/materials.xzmt" \
+            --report build/nacht-static-scene/xziel.xzmat.report.json \
+            --max-dimension 256 \
+            | tee build/nacht-static-scene/xzmat-compile.log
+
           test "$(find "$MAPROOT/meshes" \
             -maxdepth 1 -type f -name '*.xzm' | wc -l)" \
             -eq 492
           test -s "$MAPROOT/scene.xzsc"
+          test -s "$MAPROOT/materials.xzmt"
 
           python3 - <<'PY'
           import json
@@ -1397,6 +1455,12 @@ jobs:
               ).read_text()
           )
 
+          material = json.loads(
+              pathlib.Path(
+                  "build/nacht-static-scene/xziel.xzmat.report.json"
+              ).read_text()
+          )
+
           assert mesh["summary"]["meshCount"] == 492
           assert mesh["summary"]["vertexCount"] == 1067383
           assert mesh["summary"]["indexCount"] == 3608148
@@ -1405,6 +1469,9 @@ jobs:
 
           assert scene["meshCount"] == 492
           assert scene["instanceCount"] == 10791
+          assert material["bindingCount"] == 1063
+          assert material["mappedBindings"] > 0
+          assert material["textureCount"] > 0
 
           print(
               "XZIEL_NACHT_STATIC_OVERLAY_READY",
@@ -1471,6 +1538,9 @@ jobs:
 
           unzip -l "$ZIP" \
             | grep -F 'nzp/xziel/maps/xziel_nacht_bo3/scene.xzsc'
+
+          unzip -l "$ZIP" \
+            | grep -F 'nzp/xziel/maps/xziel_nacht_bo3/materials.xzmt'
 
           test "$(unzip -Z1 "$ZIP" \
             | grep -E '^nzp/xziel/maps/xziel_nacht_bo3/meshes/.*\.xzm$' \
@@ -1708,6 +1778,8 @@ jobs:
             dist/
             build/nacht-static-scene/xziel.xzmesh.bundle.json
             build/nacht-static-scene/xziel.xzscene.report.json
+            build/nacht-static-scene/xziel.xzmat.report.json
+            build/nacht-static-scene/xzmat-compile.log
             build/nacht-static-scene/material-audit/
             build/nacht-static-scene/xzmesh-compile.log
             build/nacht-static-scene/xzscene-compile.log
