@@ -471,6 +471,56 @@ if "voice_listener = &cl_entities[cl.viewentity]" not in text:
 cl_main.write_text(text, encoding="utf-8")
 
 # ---------------------------------------------------------------------------
+# Online map loading: CL_ParseServerInfo clears map-owned GL textures before it
+# repeatedly calls SCR_UpdateScreen() to show precache progress. Online loading
+# does not use LoadingScreen_IsWaiting() (that flag is the solo input gate), so
+# the stock renderer would still draw the stale old world/HUD/menu in those
+# frames and bind texture IDs that Mod_ClearAll() just freed. While any loading
+# screen is active, render only the loading UI/progress until the new map has
+# rebuilt its textures.
+# ---------------------------------------------------------------------------
+r_screen = source / "render" / "r_screen.c"
+rtext = r_screen.read_text(encoding="utf-8")
+old_loading_render = r'''	if (!LoadingScreen_IsWaiting()) {
+		SCR_SetUpToDrawConsole ();
+		V_RenderView ();
+	}
+
+	GL_Set2D ();
+
+	if (!LoadingScreen_IsWaiting()) {
+		//muff - to show FPS on screen
+		SCR_DrawFPS ();
+		HUD_Draw ();
+		SCR_DrawConsole ();
+		Menu_Draw ();
+	}
+'''
+new_loading_render = r'''	if (!LoadingScreen_IsActive()) {
+		SCR_SetUpToDrawConsole ();
+		V_RenderView ();
+	}
+
+	GL_Set2D ();
+
+	if (!LoadingScreen_IsActive()) {
+		//muff - to show FPS on screen
+		SCR_DrawFPS ();
+		HUD_Draw ();
+		SCR_DrawConsole ();
+		Menu_Draw ();
+	}
+'''
+if "Online loading must not render stale map textures" not in rtext:
+    rtext = replace_once(rtext, old_loading_render, new_loading_render,
+                         "online loading renderer guard")
+    rtext = rtext.replace(
+        "void SCR_UpdateScreen (void)\n{",
+        "void SCR_UpdateScreen (void)\n{\n\t/* Online loading must not render stale map textures. */",
+        1)
+r_screen.write_text(rtext, encoding="utf-8")
+
+# ---------------------------------------------------------------------------
 # SDL UDP: virtual internet peers are 10.77.0.<slot>. OS UDP remains untouched
 # for normal solo/LAN operation and for local socket allocation/port identity.
 # ---------------------------------------------------------------------------
