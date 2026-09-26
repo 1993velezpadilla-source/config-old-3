@@ -3802,6 +3802,92 @@ int XzGles3Shadow_SubmitCommands(
         state, commands, plan, resources, geometry);
 }
 
+static int XzDumpFramebufferPpm(
+    XzNativeGles3Api *gl,
+    unsigned int width,
+    unsigned int height,
+    const char *path)
+{
+    unsigned char *rgba = NULL;
+    unsigned char *row = NULL;
+    FILE *file = NULL;
+    size_t pixel_count;
+    size_t rgba_bytes;
+    size_t row_bytes;
+    unsigned int y;
+    unsigned int x;
+    int ok = 0;
+
+    if (!gl || !gl->ReadPixels ||
+        !path || !path[0] ||
+        width == 0u || height == 0u)
+        return 0;
+
+    pixel_count = (size_t)width * (size_t)height;
+    if (pixel_count > ((size_t)-1) / 4u)
+        return 0;
+
+    rgba_bytes = pixel_count * 4u;
+    row_bytes = (size_t)width * 3u;
+
+    rgba = (unsigned char *)malloc(rgba_bytes);
+    row = (unsigned char *)malloc(row_bytes);
+    if (!rgba || !row)
+        goto cleanup;
+
+    gl->ReadPixels(
+        0, 0,
+        (GLsizei)width,
+        (GLsizei)height,
+        GL_RGBA,
+        GL_UNSIGNED_BYTE,
+        rgba);
+
+    if (gl->GetError() != GL_NO_ERROR)
+        goto cleanup;
+
+    file = fopen(path, "wb");
+    if (!file)
+        goto cleanup;
+
+    if (fprintf(file, "P6\n%u %u\n255\n", width, height) <= 0)
+        goto cleanup;
+
+    /*
+     * OpenGL readback is bottom-up. PPM viewers expect the first row to be
+     * the top of the image, so flip vertically while dropping alpha.
+     */
+    for (y = 0u; y < height; ++y) {
+        const unsigned int source_y =
+            height - 1u - y;
+        const unsigned char *src =
+            rgba +
+            (size_t)source_y *
+            (size_t)width * 4u;
+
+        for (x = 0u; x < width; ++x) {
+            row[(size_t)x * 3u + 0u] =
+                src[(size_t)x * 4u + 0u];
+            row[(size_t)x * 3u + 1u] =
+                src[(size_t)x * 4u + 1u];
+            row[(size_t)x * 3u + 2u] =
+                src[(size_t)x * 4u + 2u];
+        }
+
+        if (fwrite(row, 1u, row_bytes, file) != row_bytes)
+            goto cleanup;
+    }
+
+    ok = 1;
+
+cleanup:
+    if (file)
+        fclose(file);
+    free(row);
+    free(rgba);
+    return ok;
+}
+
 static unsigned int XzCountNonBlackPixels(
     XzNativeGles3Api *gl,
     unsigned int width,
@@ -3966,6 +4052,16 @@ int XzGles3Shadow_CompositeVisibleWorld(
                 render_width,
                 render_height,
                 &readback_ok);
+
+        if (readback_ok) {
+            (void)XzDumpFramebufferPpm(
+                gl,
+                render_width,
+                render_height,
+                "/data/data/com.xziel.engine/files/"
+                "nzp-runtime/static-scene-fbo.ppm");
+        }
+
         state->static_scene_readback_width =
             readback_ok ? render_width : 0u;
         state->static_scene_readback_height =
