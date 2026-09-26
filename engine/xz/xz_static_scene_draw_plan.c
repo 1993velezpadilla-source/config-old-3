@@ -271,8 +271,8 @@ int XzStaticSceneDrawPlan_SelfTest(void)
         "xziel/maps/test/meshes/m0001.xzm";
 
     enum {
-        P0 = 34,
-        P1 = 34,
+        P0 = 32,
+        P1 = 32,
         STRINGS = P0 + P1,
         MESHES = 2,
         INSTANCES = 3,
