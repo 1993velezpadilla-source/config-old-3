@@ -1565,7 +1565,7 @@ jobs:
             build/deps/vril/source/xz_android_runtime.c
           grep -F 'XzGles3Shadow_UploadStaticScene' \
             build/deps/vril/source/xz_android_runtime.c
-          grep -F 'static_scene_gpu_ready' \
+          grep -F 'static_scene_gpu_textures' \
             build/deps/vril/source/xz_gles3_shadow.c
 
           ZIP=build/android-project/app/src/main/assets/nzp-data.zip
@@ -1576,12 +1576,15 @@ jobs:
           unzip -l "$ZIP" \
             | grep -F 'nzp/xziel/maps/xziel_nacht_bo3/materials.xzmt'
 
-          test "$(unzip -Z1 "$ZIP" \
-            | grep -E '^nzp/xziel/maps/xziel_nacht_bo3/textures/t[0-9]{4}\.xzt          test "$(unzip -Z1 "$ZIP" \
-            | grep -E '^nzp/xziel/maps/xziel_nacht_bo3/meshes/.*\.xzm$' \
-            | wc -l)" -eq 492
+          XZTX_COUNT="$(unzip -Z1 "$ZIP" \
+            | grep -Ec '^nzp/xziel/maps/xziel_nacht_bo3/textures/t[0-9]{4}\.xzt$')"
+          test "$XZTX_COUNT" -gt 0
 
-          echo "XZIEL_NACHT_ANDROID_OVERLAY_ZIP_OK xzms=492"
+          XZMS_COUNT="$(unzip -Z1 "$ZIP" \
+            | grep -Ec '^nzp/xziel/maps/xziel_nacht_bo3/meshes/.*\.xzm$')"
+          test "$XZMS_COUNT" -eq 492
+
+          echo "XZIEL_NACHT_ANDROID_OVERLAY_ZIP_OK xzms=$XZMS_COUNT xztx=$XZTX_COUNT"
 
       - name: Build static-scene Android APK
         working-directory: build/android-project
@@ -1597,7 +1600,7 @@ jobs:
             dist/XZIEL-Nacht-Static-Scene-debug.apk
           ls -lh dist/XZIEL-Nacht-Static-Scene-debug.apk
 
-      - name: Boot Nacht and prove 492/492 VFS validation
+      - name: Boot Nacht and prove textured static-scene runtime
         env:
           ANDROID_AVD_HOME: ${{ runner.temp }}/xziel-static-scene-avd
         run: |
@@ -1647,9 +1650,6 @@ jobs:
           test "$("$ADB" shell getprop sys.boot_completed \
             2>/dev/null | tr -d '\r')" = "1"
 
-          # Suppress Android's one-time immersive-mode education overlay so the
-          # captured framebuffer is the game itself rather than the system
-          # "Viewing full screen / Got it" tutorial.
           "$ADB" shell settings put secure \
             immersive_mode_confirmations confirmed || true
 
@@ -1659,9 +1659,6 @@ jobs:
           "$ADB" logcat -c
           "$ADB" shell am force-stop com.xziel.engine || true
 
-          # Prevent Android's first-use immersive-mode education card from
-          # covering the framebuffer evidence. The fixed tap is a fallback for
-          # emulator images that ignore the secure confirmation setting.
           "$ADB" shell settings put secure \
             immersive_mode_confirmations confirmed || true
 
@@ -1692,11 +1689,6 @@ jobs:
 
           test "$STAGE" = "FIRST_FRAME_OK"
 
-          # FIRST_FRAME_OK only proves Vril completed its first host frame.
-          # The modern cutover intentionally needs several real geometry frames
-          # before the static scene can borrow a valid gameplay camera and
-          # replace the legacy BSP world. Keep the app alive until the first
-          # complete Nacht instanced framebuffer draw is observed.
           DRAW_READY=0
           for i in $(seq 1 90); do
             if "$ADB" logcat -d -v threadtime 2>/dev/null \
@@ -1712,10 +1704,6 @@ jobs:
             sleep 2
           done
 
-          # One successful native present is not enough to promote the
-          # cutover. Let XZIEL complete the required consecutive presents and
-          # prove that legacy world suppression has actually reached MODERN
-          # before capturing Android's front buffer.
           CUTOVER_READY=0
           for i in $(seq 1 30); do
             if "$ADB" logcat -d -v threadtime 2>/dev/null \
@@ -1736,16 +1724,11 @@ jobs:
           "$ADB" logcat -d -v threadtime \
             > dist/static-scene-logcat.txt || true
 
-          # Capture the renderer's own FBO before Android/GL4ES presentation.
-          # This is the authoritative visual proof for the native GLES3 scene.
           "$ADB" shell run-as com.xziel.engine \
             cat files/nzp-runtime/static-scene-fbo.ppm \
             > dist/static-scene-fbo.ppm 2>/dev/null || true
           test -s dist/static-scene-fbo.ppm
 
-          # API 35 emulators may still show the education dialog even when the
-          # secure setting was pre-seeded. Detect it instead of blindly tapping
-          # the game, and dismiss it only when the system text is present.
           "$ADB" shell uiautomator dump /sdcard/xziel-window.xml \
             >/dev/null 2>&1 || true
           "$ADB" shell cat /sdcard/xziel-window.xml \
@@ -1818,249 +1801,5 @@ jobs:
             build/nacht-static-scene/xzmesh-compile.log
             build/nacht-static-scene/xzscene-compile.log
             build/nacht-static-scene/xzmaterial-compile.log
-            nacht-ci/xziel_nacht_bo3_harness.json
-          retention-days: 7
- \
-            | wc -l)" -gt 0
-
-          test "$(unzip -Z1 "$ZIP" \
-            | grep -E '^nzp/xziel/maps/xziel_nacht_bo3/meshes/.*\.xzm$' \
-            | wc -l)" -eq 492
-
-          echo "XZIEL_NACHT_ANDROID_OVERLAY_ZIP_OK xzms=492"
-
-      - name: Build static-scene Android APK
-        working-directory: build/android-project
-        run: |
-          ./gradlew --no-daemon assembleDebug --stacktrace
-
-      - name: Collect APK
-        run: |
-          set -euo pipefail
-          mkdir -p dist
-          cp \
-            build/android-project/app/build/outputs/apk/debug/app-debug.apk \
-            dist/XZIEL-Nacht-Static-Scene-debug.apk
-          ls -lh dist/XZIEL-Nacht-Static-Scene-debug.apk
-
-      - name: Boot Nacht and prove 492/492 VFS validation
-        env:
-          ANDROID_AVD_HOME: ${{ runner.temp }}/xziel-static-scene-avd
-        run: |
-          set -euo pipefail
-
-          mkdir -p "$ANDROID_AVD_HOME" dist
-
-          ADB="${ANDROID_HOME}/platform-tools/adb"
-          EMULATOR="${ANDROID_HOME}/emulator/emulator"
-          AVDMANAGER=$(find "${ANDROID_HOME}/cmdline-tools" \
-            -type f -name avdmanager | sort | tail -n 1)
-
-          printf 'no\n' | "$AVDMANAGER" create avd \
-            --force \
-            --name xziel-static-scene-ci \
-            --package "system-images;android-35;google_apis;x86_64" \
-            --device "pixel_6"
-
-          if [[ -e /dev/kvm ]]; then
-            sudo chmod 666 /dev/kvm || true
-          fi
-
-          nohup "$EMULATOR" \
-            @xziel-static-scene-ci \
-            -no-window \
-            -no-audio \
-            -no-boot-anim \
-            -no-snapshot \
-            -gpu swiftshader_indirect \
-            -memory 3072 \
-            > dist/emulator-stdout.txt 2>&1 &
-
-          EMU_PID=$!
-          sleep 5
-          kill -0 "$EMU_PID"
-
-          timeout 120 "$ADB" wait-for-device
-
-          for i in $(seq 1 60); do
-            if [[ "$("$ADB" shell getprop sys.boot_completed \
-                2>/dev/null | tr -d '\r')" == "1" ]]; then
-              break
-            fi
-            sleep 2
-          done
-
-          test "$("$ADB" shell getprop sys.boot_completed \
-            2>/dev/null | tr -d '\r')" = "1"
-
-          # Suppress Android's one-time immersive-mode education overlay so the
-          # captured framebuffer is the game itself rather than the system
-          # "Viewing full screen / Got it" tutorial.
-          "$ADB" shell settings put secure \
-            immersive_mode_confirmations confirmed || true
-
-          "$ADB" install -r \
-            dist/XZIEL-Nacht-Static-Scene-debug.apk
-
-          "$ADB" logcat -c
-          "$ADB" shell am force-stop com.xziel.engine || true
-
-          # Prevent Android's first-use immersive-mode education card from
-          # covering the framebuffer evidence. The fixed tap is a fallback for
-          # emulator images that ignore the secure confirmation setting.
-          "$ADB" shell settings put secure \
-            immersive_mode_confirmations confirmed || true
-
-          "$ADB" shell am start -W \
-            -n com.xziel.engine/org.libsdl.app.NZPActivity \
-            --es xziel_ci_map xziel_nacht_bo3 \
-            --ez xziel_ci_hud_preview true \
-            > dist/am-start.txt 2>&1 || true
-
-          sleep 2
-          "$ADB" shell input tap 1700 626 || true
-          sleep 1
-
-          STAGE=""
-          for i in $(seq 1 90); do
-            STAGE=$("$ADB" shell run-as com.xziel.engine \
-              cat files/nzp-runtime/.xziel-stage \
-              2>/dev/null | tr -d '\r' || true)
-
-            if [[ "$STAGE" == "FIRST_FRAME_OK" ]]; then
-              break
-            fi
-            sleep 2
-          done
-
-          echo "STAGE=$STAGE" \
-            | tee dist/static-scene-status.txt
-
-          test "$STAGE" = "FIRST_FRAME_OK"
-
-          # FIRST_FRAME_OK only proves Vril completed its first host frame.
-          # The modern cutover intentionally needs several real geometry frames
-          # before the static scene can borrow a valid gameplay camera and
-          # replace the legacy BSP world. Keep the app alive until the first
-          # complete Nacht instanced framebuffer draw is observed.
-          DRAW_READY=0
-          for i in $(seq 1 90); do
-            if "$ADB" logcat -d -v threadtime 2>/dev/null \
-                | grep -Eq \
-                  "XZIEL-XZ.*static_scene_draw ready=1 meshes=492 instances=10791 drawCalls=1063 textured=[1-9][0-9]* untextured=[0-9]+ attempts=[1-9][0-9]* failures=0"; then
-              DRAW_READY=1
-              break
-            fi
-
-            if ! "$ADB" shell pidof com.xziel.engine >/dev/null 2>&1; then
-              break
-            fi
-            sleep 2
-          done
-
-          # One successful native present is not enough to promote the
-          # cutover. Let XZIEL complete the required consecutive presents and
-          # prove that legacy world suppression has actually reached MODERN
-          # before capturing Android's front buffer.
-          CUTOVER_READY=0
-          for i in $(seq 1 30); do
-            if "$ADB" logcat -d -v threadtime 2>/dev/null \
-                | grep -Eq \
-                  "XZIEL-XZ.*phase16 heartbeat requested=MODERN active=MODERN.*blockers=0x0"; then
-              CUTOVER_READY=1
-              break
-            fi
-            if ! "$ADB" shell pidof com.xziel.engine >/dev/null 2>&1; then
-              break
-            fi
-            sleep 1
-          done
-
-          echo "CUTOVER_READY=$CUTOVER_READY" \
-            | tee -a dist/static-scene-status.txt
-
-          "$ADB" logcat -d -v threadtime \
-            > dist/static-scene-logcat.txt || true
-
-          # Capture the renderer's own FBO before Android/GL4ES presentation.
-          # This is the authoritative visual proof for the native GLES3 scene.
-          "$ADB" shell run-as com.xziel.engine \
-            cat files/nzp-runtime/static-scene-fbo.ppm \
-            > dist/static-scene-fbo.ppm 2>/dev/null || true
-          test -s dist/static-scene-fbo.ppm
-
-          # API 35 emulators may still show the education dialog even when the
-          # secure setting was pre-seeded. Detect it instead of blindly tapping
-          # the game, and dismiss it only when the system text is present.
-          "$ADB" shell uiautomator dump /sdcard/xziel-window.xml \
-            >/dev/null 2>&1 || true
-          "$ADB" shell cat /sdcard/xziel-window.xml \
-            > dist/static-scene-window.xml 2>/dev/null || true
-
-          if grep -q "Viewing full screen" \
-              dist/static-scene-window.xml 2>/dev/null; then
-            "$ADB" shell input tap 1960 720 || true
-            sleep 1
-            "$ADB" shell uiautomator dump /sdcard/xziel-window.xml \
-              >/dev/null 2>&1 || true
-            "$ADB" shell cat /sdcard/xziel-window.xml \
-              > dist/static-scene-window-after-dismiss.xml \
-              2>/dev/null || true
-          fi
-
-          if grep -q "Viewing full screen" \
-              dist/static-scene-window-after-dismiss.xml \
-              2>/dev/null; then
-            echo "XZIEL_SCREENSHOT_BLOCKED_BY_ANDROID_OVERLAY"
-            exit 1
-          fi
-
-          "$ADB" exec-out screencap -p \
-            > dist/static-scene-runtime.png || true
-
-          echo "DRAW_READY=$DRAW_READY" \
-            | tee -a dist/static-scene-status.txt
-
-          test "$DRAW_READY" = "1"
-          test "$CUTOVER_READY" = "1"
-
-          grep -E \
-            "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*meshes=492 instances=10791 xzms=492.*vertices=1067383 indices=3608148 submeshes=1063 meshBytes=48633408" \
-            dist/static-scene-logcat.txt
-
-          grep -E \
-            "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*gpuReady=1 gpuMeshes=492 gpuVertices=1067383 gpuIndices=3608148 gpuBytes=48588848" \
-            dist/static-scene-logcat.txt
-
-          grep -E \
-            "XZIEL-XZ.*legacy3d worldTransition.*map='xziel_nacht_bo3'.*mapRuntime=NACHT_BO3" \
-            dist/static-scene-logcat.txt
-
-          grep -E \
-            "XZIEL-XZ.*static_scene_draw ready=1 meshes=492 instances=10791 drawCalls=1063 textured=[1-9][0-9]* untextured=[0-9]+ attempts=[1-9][0-9]* failures=0" \
-            dist/static-scene-logcat.txt
-
-          grep -E \
-            "XZIEL-XZ.*static_scene_draw ready=1.*fboPixels=[1-9][0-9]* surfacePixels=[1-9][0-9]* postRestorePixels=[1-9][0-9]* readback=[1-9][0-9]*x[1-9][0-9]*" \
-            dist/static-scene-logcat.txt
-
-          echo \
-            "XZIEL_NACHT_FRAMEBUFFER_DRAW_GREEN meshes=492 instances=10791 drawCalls=1063"
-
-          echo \
-            "XZIEL_NACHT_ANDROID_STATIC_SCENE_GREEN meshes=492 instances=10791 xzms=492 vertices=1067383 indices=3608148 submeshes=1063 gpuBytes=48588848"
-
-      - name: Upload Android static-scene evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: XZIEL-Nacht-Static-Scene-Android-Evidence
-          path: |
-            dist/
-            build/nacht-static-scene/xziel.xzmesh.bundle.json
-            build/nacht-static-scene/xziel.xzscene.report.json
-            build/nacht-static-scene/material-audit/
-            build/nacht-static-scene/xzmesh-compile.log
-            build/nacht-static-scene/xzscene-compile.log
             nacht-ci/xziel_nacht_bo3_harness.json
           retention-days: 7
