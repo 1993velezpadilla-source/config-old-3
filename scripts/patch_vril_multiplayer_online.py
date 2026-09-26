@@ -124,6 +124,29 @@ if "char xziel_online_command[512]" not in text:
 host.write_text(text, encoding="utf-8")
 
 # ---------------------------------------------------------------------------
+# Android QC VM diagnostics. Upstream PR_RunError prints the useful QC reason
+# and stack only through the in-engine console, then collapses the fatal error
+# to the generic "Program error". CI/logcat therefore loses the actual failing
+# QC function. Preserve stock behavior everywhere else, but include the current
+# QC function, statement and reason in Android's Host_Error.
+# ---------------------------------------------------------------------------
+pr_exec = source / "qcvm" / "pr_exec.c"
+ptext = pr_exec.read_text(encoding="utf-8")
+pr_generic = '\tHost_Error ("Program error");\n'
+pr_android = r'''#ifdef __ANDROID__
+\tHost_Error ("Program error: function=%s statement=%d reason=%s",
+\t\tpr_xfunction ? PR_GetString(pr_xfunction->s_name) : "<none>",
+\t\tpr_xstatement, string);
+#else
+\tHost_Error ("Program error");
+#endif
+'''
+if "Program error: function=%s statement=%d reason=%s" not in ptext:
+    ptext = replace_once(ptext, pr_generic, pr_android,
+                         "Android QC VM fatal diagnostics")
+pr_exec.write_text(ptext, encoding="utf-8")
+
+# ---------------------------------------------------------------------------
 # Cross-client game-audio evidence. The normal Vril sound packet is parsed and
 # played first; Android only receives metadata afterwards, so this hook cannot
 # synthesize or replace game audio.
