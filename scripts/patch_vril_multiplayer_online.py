@@ -896,6 +896,79 @@ cl_main.write_text(text, encoding="utf-8")
 # ---------------------------------------------------------------------------
 r_screen = source / "render" / "r_screen.c"
 rtext = r_screen.read_text(encoding="utf-8")
+
+# Bounded Android render-state trace. This is diagnostics only: remote clients
+# can be fully signed on and exchanging gameplay while the Vril framebuffer is
+# black. Capture the exact gates before and after console/render setup.
+render_include = '#include "../nzportable_def.h"\n'
+render_diag_decl = r'''#ifdef __ANDROID__
+#include <android/log.h>
+extern int Xziel_Android_OnlineActive(void);
+static int xziel_render_pre_trace;
+static int xziel_render_post_trace;
+#endif
+'''
+if "xziel_render_pre_trace" not in rtext:
+    rtext = replace_once(rtext, render_include,
+        render_include + render_diag_decl,
+        "Android render diagnostic declarations")
+
+render_start_old = r'''void SCR_UpdateScreen (void)
+{
+	/* Online loading must not render stale map textures. */
+	if (block_drawing)
+		return;
+'''
+render_start_new = r'''void SCR_UpdateScreen (void)
+{
+	/* Online loading must not render stale map textures. */
+#ifdef __ANDROID__
+	if (Xziel_Android_OnlineActive() && cls.signon == SIGNONS &&
+		xziel_render_pre_trace < 12) {
+		__android_log_print(ANDROID_LOG_INFO, "XzielRender",
+			"PRE n=%d block=%d disabled=%d loading=%d waiting=%d drawloading=%d con=%d world=%p key=%d state=%d",
+			xziel_render_pre_trace, block_drawing ? 1 : 0,
+			scr_disabled_for_loading ? 1 : 0,
+			LoadingScreen_IsActive() ? 1 : 0,
+			LoadingScreen_IsWaiting() ? 1 : 0,
+			scr_drawloading ? 1 : 0, con_forcedup ? 1 : 0,
+			(void *)cl.worldmodel, (int)key_dest, (int)cls.state);
+		xziel_render_pre_trace++;
+	}
+#endif
+	if (block_drawing)
+		return;
+'''
+if "XzielRender" not in rtext:
+    if render_start_old not in rtext:
+        raise SystemExit("Could not find SCR_UpdateScreen diagnostic anchor")
+    rtext = rtext.replace(render_start_old, render_start_new, 1)
+
+render_setup_old = r'''	if (!LoadingScreen_IsActive()) {
+		SCR_SetUpToDrawConsole ();
+		V_RenderView ();
+	}
+'''
+render_setup_new = r'''	if (!LoadingScreen_IsActive()) {
+		SCR_SetUpToDrawConsole ();
+#ifdef __ANDROID__
+		if (Xziel_Android_OnlineActive() && cls.signon == SIGNONS &&
+			xziel_render_post_trace < 12) {
+			__android_log_print(ANDROID_LOG_INFO, "XzielRender",
+				"POST n=%d con=%d world=%p viewentity=%d entities=%d key=%d",
+				xziel_render_post_trace, con_forcedup ? 1 : 0,
+				(void *)cl.worldmodel, cl.viewentity, cl.num_entities,
+				(int)key_dest);
+			xziel_render_post_trace++;
+		}
+#endif
+		V_RenderView ();
+	}
+'''
+if "POST n=%d con=%d" not in rtext:
+    if render_setup_old not in rtext:
+        raise SystemExit("Could not find V_RenderView diagnostic anchor")
+    rtext = rtext.replace(render_setup_old, render_setup_new, 1)
 old_loading_render = r'''	if (!LoadingScreen_IsWaiting()) {
 		SCR_SetUpToDrawConsole ();
 		V_RenderView ();
