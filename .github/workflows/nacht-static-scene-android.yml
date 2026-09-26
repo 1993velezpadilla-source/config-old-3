@@ -9,6 +9,7 @@ on:
       - feature/xziel-static-scene-framebuffer-v1
       - feature/xziel-static-scene-materials-v1
       - feature/xziel-static-scene-material-coverage-v2
+      - feature/xziel-static-scene-material-coverage-v2-synth
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
