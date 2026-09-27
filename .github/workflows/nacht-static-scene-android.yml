@@ -2797,6 +2797,10 @@ jobs:
             dist/static-scene-logcat.txt
 
           grep -E \
+            "XZIEL-XZ.*present_luma postRestoreRGBA=[0-9]+,[0-9]+,[0-9]+,[1-9][0-9]* preSwapRGBA=[0-9]+,[0-9]+,[0-9]+,[1-9][0-9]*" \
+            dist/static-scene-logcat.txt
+
+          grep -E \
             "XZIEL-XZ.*legacy3d worldTransition.*map='xziel_nacht_bo3'.*mapRuntime=NACHT_BO3" \
             dist/static-scene-logcat.txt
 
