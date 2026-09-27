@@ -31,6 +31,7 @@ on:
       - feature/xziel-nacht-postprocess-census-v1
       - feature/xziel-nacht-tonemap-v1
       - feature/xziel-nacht-pavlov-legacy-tonemap-v1
+      - feature/xziel-nacht-authored-global-lighting-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -3561,6 +3562,19 @@ jobs:
           ! grep -q "outColor=vec4(ueDefaultFilmicTonemap(fogged),texel.a)" \
             engine/xz/xz_gles3_shadow.c
 
+          grep -Fq \
+            "float skyDiffuse=uAmbientWeight*uReflectionParams.z*uReflectionParams.w" \
+            engine/xz/xz_gles3_shadow.c
+          grep -Fq \
+            "vec3 light=vec3(skyDiffuse)+uDirectionalColor*(uDirectionalWeight*ndl)" \
+            engine/xz/xz_gles3_shadow.c
+          ! grep -Fq \
+            "float neutralBaseline=uAmbientWeight+uDirectionalWeight" \
+            engine/xz/xz_gles3_shadow.c
+          ! grep -Fq \
+            "float directionalContrast=uDirectionalWeight*(ndl-0.5)" \
+            engine/xz/xz_gles3_shadow.c
+
           grep -E \
             "XZIEL-XZ.*static_scene_tonemap map='xziel_nacht_bo3' ready=1 tonemapMode=pavlov_legacy autoExposure=0 tonemapperFilm=0 contrast=0\.030000 dynamicRange=4\.000000 toeAmount=1\.000000 healAmount=1\.000000 exposure=1\.000000 exposureMode=fixed" \
             dist/static-scene-logcat.txt
@@ -3678,6 +3692,9 @@ jobs:
 
           echo \
             "XZIEL_NACHT_PAVLOV_LEGACY_TONEMAP_GREEN autoExposure=0 tonemapperFilm=0 contrast=0.03 dynamicRange=4 toeAmount=1 healAmount=1 exposure=1.0"
+
+          echo \
+            "XZIEL_NACHT_AUTHORED_GLOBAL_LIGHTING_GREEN skyIntensity=1.5 reflectionAverageBrightness=0.04043579 skyDiffuse=0.060653685 directionalIntensity=2.5 normalized=0"
 
           echo \
             "XZIEL_NACHT_ENVIRONMENT_GREEN lights=166 point=144 spot=19 directional=2 sky=1 bytes=14636"

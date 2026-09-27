@@ -1082,7 +1082,6 @@ static int XzStaticSceneSourceLighting(
     XzEnvironmentLight directional;
     float sky_intensity = -1.0f;
     float directional_intensity = -1.0f;
-    float total;
     float pitch;
     float yaw;
     float cp;
@@ -1147,16 +1146,17 @@ static int XzStaticSceneSourceLighting(
     if (!have_sky || !have_directional)
         return 0;
 
-    total =
-        sky_intensity +
-        directional_intensity;
-    if (!isfinite(total) || total <= 0.0f)
-        return 0;
-
-    *ambient_weight =
-        sky_intensity / total;
-    *directional_weight =
-        directional_intensity / total;
+    /*
+     * Preserve authored UE/Pavlov global-light intensities.  The old path
+     * normalized Sky + Directional to 1.0, which imposed a flat neutral
+     * baseline across Nacht and washed out authored darkness.
+     *
+     * uAmbientWeight now carries SkyLight intensity.  The shader derives
+     * diffuse sky energy from the exact reflection-capture average brightness.
+     * uDirectionalWeight carries the authored DirectionalLight intensity.
+     */
+    *ambient_weight = sky_intensity;
+    *directional_weight = directional_intensity;
 
     for (i = 0u; i < 3u; ++i) {
         if (!isfinite(directional.color[i]))
@@ -2090,9 +2090,8 @@ static int XzCreateStaticSceneProgram(void)
         "  vec3 f0=mix(vec3(0.08*specular),albedo,metallic);\n"
         "  vec3 Ld=normalize(uDirectionalDirection);\n"
         "  float ndl=max(dot(n,Ld),0.0);\n"
-        "  float neutralBaseline=uAmbientWeight+uDirectionalWeight;\n"
-        "  float directionalContrast=uDirectionalWeight*(ndl-0.5);\n"
-        "  vec3 light=vec3(neutralBaseline)+uDirectionalColor*directionalContrast;\n"
+        "  float skyDiffuse=uAmbientWeight*uReflectionParams.z*uReflectionParams.w;\n"
+        "  vec3 light=vec3(skyDiffuse)+uDirectionalColor*(uDirectionalWeight*ndl);\n"
         "  vec3 localLight=vec3(0.0);\n"
         "  vec3 localSpec=vec3(0.0);\n"
         "  for(int i=0;i<64;++i){\n"
