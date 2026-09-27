@@ -1,0 +1,78 @@
+name: XZIEL Nacht Weapon Runtime
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/xziel-nacht-weapon-runtime-v1
+    paths:
+      - "engine/xz/xz_bo3_weapon_specs.*"
+      - "engine/xz/xz_bo3_weapon_runtime.*"
+      - "tests/xz_bo3_weapon_specs_test.c"
+      - "tests/xz_bo3_weapon_runtime_test.c"
+      - "assets/weapons/**"
+      - "assets/nacht_reference/runtime_reference_v1.json"
+      - "tools/weapons/**"
+      - ".github/workflows/xziel-nacht-weapon-runtime.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  weapon-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Validate weapon identity pools
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/weapons/export_xziel_mystery_box_pool.py
+          python3 tools/weapons/export_nacht_prototype_box_pool.py
+          git diff --exit-code -- assets/weapons/xziel_mystery_box_pool_v1.json
+          git diff --exit-code -- assets/weapons/nacht_prototype_box_pool_v1.json
+          python3 tools/weapons/validate_xziel_weapon_catalog.py
+
+      - name: Build and run BO3 weapon spec tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cc -std=c99 -O2 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tests/xz_bo3_weapon_specs_test.c \
+            engine/xz/xz_bo3_weapon_specs.c \
+            -lm \
+            -o /tmp/xz_bo3_weapon_specs_test
+          /tmp/xz_bo3_weapon_specs_test
+
+      - name: Build and run deterministic weapon runtime tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cc -std=c99 -O2 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tests/xz_bo3_weapon_runtime_test.c \
+            engine/xz/xz_bo3_weapon_runtime.c \
+            engine/xz/xz_bo3_weapon_specs.c \
+            -lm \
+            -o /tmp/xz_bo3_weapon_runtime_test
+          /tmp/xz_bo3_weapon_runtime_test
+
+      - name: Assert native playable gate remains conservative
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("engine/xz/xz_bo3_weapon_specs.c").read_text()
+          allowed = source.count(".native_enablement_allowed = 1")
+          if allowed != 0:
+              raise SystemExit(
+                  f"Unexpected native weapon enablement without full binding proof: {allowed}"
+              )
+          print("XZIEL_WEAPON_NATIVE_GATE_OK enabled=0")
+          PY
