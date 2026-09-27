@@ -496,7 +496,7 @@ var output = new {
         referencedSkyOcclusionTextures.ToArray(),
     aoMaskTextures =
         referencedAoMaskTextures.ToArray(),
-    buildDataCandidates,
+    buildDataCandidates = builtDataCandidates,
     buildDataRegistries = registryRows,
     meshBuildData = meshRows,
     precomputedLightVolumes = volumeRows,
