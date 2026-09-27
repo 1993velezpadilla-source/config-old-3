@@ -1001,6 +1001,8 @@ static uint32_t XzStaticSelectLocalLights(
         XZ_STATIC_LOCAL_LIGHT_ACTIVE_MAX * 4u],
     float directions[
         XZ_STATIC_LOCAL_LIGHT_ACTIVE_MAX * 4u],
+    float specular[
+        XZ_STATIC_LOCAL_LIGHT_ACTIVE_MAX * 4u],
     XzGles3ShadowState *state)
 {
     uint32_t selected[
@@ -1010,12 +1012,14 @@ static uint32_t XzStaticSelectLocalLights(
     uint32_t selected_count = 0u;
     uint32_t affecting_count = 0u;
     uint32_t selected_affecting = 0u;
+    uint32_t active_specular = 0u;
     uint32_t i;
 
     if (!camera_origin ||
         !positions ||
         !colors ||
         !directions ||
+        !specular ||
         !state)
         return 0u;
 
@@ -1127,6 +1131,16 @@ static uint32_t XzStaticSelectLocalLights(
         directions[base + 3u] =
             light->cos_outer;
 
+        specular[base + 0u] =
+            light->specular_scale;
+        specular[base + 1u] = 0.0f;
+        specular[base + 2u] = 0.0f;
+        specular[base + 3u] = 0.0f;
+
+        if (light->specular_authored &&
+            light->specular_scale > 0.0f)
+            active_specular++;
+
         if (scores[i] <= 1.0f)
             selected_affecting++;
     }
@@ -1142,6 +1156,8 @@ static uint32_t XzStaticSelectLocalLights(
                 ? affecting_count -
                     selected_affecting
                 : 0u;
+    state->static_scene_last_active_specular_lights =
+        active_specular;
 
     return selected_count;
 }
