@@ -1,0 +1,30 @@
+name: Hayuya 3D Quality v33
+
+on:
+  push:
+    branches:
+      - feature/hayuya-3d-quality-v33
+    paths:
+      - "tools/hayuya_3d/**"
+      - "docs/HAYUYA_3D_PIPELINE_V33.md"
+      - ".github/workflows/hayuya-3d-quality-v33.yml"
+  workflow_dispatch:
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Syntax
+        run: python -m py_compile tools/hayuya_3d/quality_contract.py
+      - name: Validate quality contract self-test
+        run: |
+          python tools/hayuya_3d/quality_contract.py             tools/hayuya_3d/sample_manifest.v1.json             --out /tmp/hayuya-quality-report.json
+      - name: Validate JSON records
+        run: |
+          python -m json.tool tools/hayuya_3d/quality_policy.v1.json >/dev/null
+          python -m json.tool tools/hayuya_3d/stained_shade_tripo_observed.v1.json >/dev/null
+          python -m json.tool tools/hayuya_3d/sample_manifest.v1.json >/dev/null
