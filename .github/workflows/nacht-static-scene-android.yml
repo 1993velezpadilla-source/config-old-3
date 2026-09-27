@@ -155,15 +155,36 @@ jobs:
       - name: Download and unpack public Pavlov Nacht source
         run: |
           set -euo pipefail
-          "$RUNNER_TEMP/steamcmd/steamcmd.sh" \
-            +login anonymous \
-            +workshop_download_item 555160 2755515831 validate \
-            +quit
+
+          # Steam Workshop occasionally returns transient "Busy" failures even
+          # after anonymous login succeeds. Preserve partial data so SteamCMD
+          # can resume, and retry with bounded backoff instead of burning an
+          # otherwise-valid Android evidence run.
+          WORKSHOP_OK=0
+          for attempt in 1 2 3 4 5 6; do
+            echo "XZIEL_STEAM_WORKSHOP_ATTEMPT attempt=$attempt max=6"
+            if "$RUNNER_TEMP/steamcmd/steamcmd.sh" \
+                +login anonymous \
+                +workshop_download_item 555160 2755515831 validate \
+                +quit; then
+              WORKSHOP_OK=1
+              break
+            fi
+
+            if [[ "$attempt" -lt 6 ]]; then
+              delay=$((attempt * 10))
+              echo "XZIEL_STEAM_WORKSHOP_RETRY attempt=$attempt delaySeconds=$delay"
+              sleep "$delay"
+            fi
+          done
+
+          test "$WORKSHOP_OK" -eq 1
           ROOT=$(find "$HOME" "$RUNNER_TEMP" -type d \
             -path '*/steamapps/workshop/content/555160/2755515831' \
             -print -quit 2>/dev/null)
           test -n "$ROOT"
           test -f "$ROOT/WindowsNoEditor.pak"
+          echo "XZIEL_STEAM_WORKSHOP_GREEN attempts<=6 root=$ROOT"
           mkdir -p "$RUNNER_TEMP/nacht-unpacked"
           "$REPAK" unpack "$ROOT/WindowsNoEditor.pak" \
             -o "$RUNNER_TEMP/nacht-unpacked"
