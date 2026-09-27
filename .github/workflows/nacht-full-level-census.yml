@@ -7,6 +7,11 @@ on:
       - feature/xziel-nacht-full-level-census-v1
     paths:
       - ".github/workflows/nacht-full-level-census.yml"
+  pull_request:
+    branches:
+      - feature/xziel-static-scene-material-final5
+    paths:
+      - ".github/workflows/nacht-full-level-census.yml"
 
 permissions:
   contents: read
