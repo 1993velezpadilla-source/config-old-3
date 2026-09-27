@@ -422,6 +422,12 @@ foreach (var candidate in builtDataCandidates)
                 string? skyOcclusionTexture = null;
                 string? aoMaskTexture = null;
                 string? shadowTexture = null;
+                float[] lightMapCoordinateScale = Array.Empty<float>();
+                float[] lightMapCoordinateBias = Array.Empty<float>();
+                float[][] lightMapScaleVectors = Array.Empty<float[]>();
+                float[][] lightMapAddVectors = Array.Empty<float[]>();
+                float[] shadowMapCoordinateScale = Array.Empty<float>();
+                float[] shadowMapCoordinateBias = Array.Empty<float>();
 
                 if (data.LightMap is FLegacyLightMap1D)
                 {
@@ -465,6 +471,39 @@ foreach (var candidate in builtDataCandidates)
                     if (shadowTexture is not null)
                         referencedShadowmapTextures.Add(
                             shadowTexture);
+
+
+                    if (lm2d.CoordinateScale.HasValue)
+                    {
+                        var v = lm2d.CoordinateScale.Value;
+                        lightMapCoordinateScale =
+                            new[] { v.X, v.Y };
+                    }
+
+                    if (lm2d.CoordinateBias.HasValue)
+                    {
+                        var v = lm2d.CoordinateBias.Value;
+                        lightMapCoordinateBias =
+                            new[] { v.X, v.Y };
+                    }
+
+                    lightMapScaleVectors =
+                        lm2d.ScaleVectors?
+                            .Select(
+                                v => new[] {
+                                    v.X, v.Y, v.Z, v.W
+                                })
+                            .ToArray()
+                        ?? Array.Empty<float[]>();
+
+                    lightMapAddVectors =
+                        lm2d.AddVectors?
+                            .Select(
+                                v => new[] {
+                                    v.X, v.Y, v.Z, v.W
+                                })
+                            .ToArray()
+                        ?? Array.Empty<float[]>();
                 }
                 else
                 {
@@ -481,6 +520,18 @@ foreach (var candidate in builtDataCandidates)
                         shadowTexture ??= path;
                         referencedShadowmapTextures.Add(path);
                     }
+
+
+                    shadowMapCoordinateScale =
+                        new[] {
+                            sm2d.CoordinateScale.X,
+                            sm2d.CoordinateScale.Y
+                        };
+                    shadowMapCoordinateBias =
+                        new[] {
+                            sm2d.CoordinateBias.X,
+                            sm2d.CoordinateBias.Y
+                        };
                 }
                 else
                 {
@@ -511,6 +562,12 @@ foreach (var candidate in builtDataCandidates)
                         skyOcclusionTexture,
                         aoMaskTexture,
                         shadowTexture,
+                        lightMapCoordinateScale,
+                        lightMapCoordinateBias,
+                        lightMapScaleVectors,
+                        lightMapAddVectors,
+                        shadowMapCoordinateScale,
+                        shadowMapCoordinateBias,
                         lightGuids =
                             data.LightMap?.LightGuids
                                 .Select(x => x.ToString())
