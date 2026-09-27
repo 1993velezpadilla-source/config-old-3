@@ -503,15 +503,16 @@ jobs:
           # the same point, instead of letting GitHub tear the host down early.
           EVIDENCE_BARRIER=0
           BARRIER_ADB_MISSES=0
+          BARRIER_LOG="evidence/barrier-logcat-${{ matrix.runner }}.txt"
           for i in $(seq 1 90); do
-            BARRIER_LOG="evidence/barrier-logcat-${{ matrix.runner }}.txt"
-
-            # ADB going offline is not evidence that NZP exited. Recover the
-            # transport and keep the peer alive instead of cascading a false
-            # PLAYER_LEFT into the other jobs.
-            if ! adb_logcat_snapshot "$BARRIER_LOG" brief; then
+            # CI_EVIDENCE_DONE is now accumulated inside XzielMultiplayer.
+            # Once the local client has observed every required slot, it writes
+            # a private marker file. Read that persistent state instead of
+            # requiring four old logcat lines to coexist in Android's noisy
+            # ring buffer.
+            if ! adb_recover; then
               BARRIER_ADB_MISSES=$((BARRIER_ADB_MISSES + 1))
-              echo "Barrier ADB snapshot unavailable (${BARRIER_ADB_MISSES}/6)."
+              echo "Barrier ADB transport unavailable (${BARRIER_ADB_MISSES}/6)."
               if [[ "$BARRIER_ADB_MISSES" -ge 6 ]]; then
                 echo "ADB could not be recovered during the evidence barrier."
                 break
@@ -521,29 +522,30 @@ jobs:
             fi
             BARRIER_ADB_MISSES=0
 
-            REMOTE_DONE="$(awk '/XzielOnline.*CI_REMOTE_ACTION/ && /action=CI_EVIDENCE_DONE/ { if (match($0, / remote=[1-4]/)) print substr($0, RSTART + 8, 1) }' "$BARRIER_LOG" | sort -u | wc -l | tr -d ' ')"
-            if grep -q "XzielOnline.*CI_EVIDENCE_DONE slot=" "$BARRIER_LOG" && \
-               [[ "$REMOTE_DONE" -ge 3 ]]; then
+            BARRIER_STATE="$(timeout 10 "$ADB" shell run-as com.xziel.nzp \
+              cat files/xziel-ci-evidence-barrier.txt 2>/dev/null | tr -d '\r' || true)"
+            if [[ "$BARRIER_STATE" == complete* ]]; then
+              echo "CI evidence barrier complete: $BARRIER_STATE"
               EVIDENCE_BARRIER=1
               break
             fi
 
-            # Only treat a missing process as real after ADB itself has been
-            # positively recovered. A transport failure never means app death.
-            if adb_recover; then
-              PID_NOW="$(timeout 10 "$ADB" shell pidof com.xziel.nzp 2>/dev/null | tr -d '\r' || true)"
-              if [[ -z "$PID_NOW" ]]; then
-                echo "NZP process is no longer running after healthy ADB recovery."
-                break
-              fi
+            PID_NOW="$(timeout 10 "$ADB" shell pidof com.xziel.nzp 2>/dev/null | tr -d '\r' || true)"
+            if [[ -z "$PID_NOW" ]]; then
+              echo "NZP process is no longer running after healthy ADB recovery."
+              break
             fi
             sleep 2
           done
 
+          # Capture one diagnostic snapshot after the barrier. The barrier
+          # itself no longer rereads tens of megabytes of logcat every loop.
+          adb_logcat_snapshot "$BARRIER_LOG" brief || true
+
           if [[ "$EVIDENCE_BARRIER" != "1" ]]; then
             echo "CI evidence barrier did not complete."
-            grep -E "XzielOnline.*(CI_EVIDENCE_DONE|CI_REMOTE_ACTION|PLAYER_LEFT|PLAYER_JOINED|WELCOME|PAUSE_VOICE|GAME_SOCKET_(OPEN|CLOSED|FAILURE)|GAME_RECONNECT)|Host_Error|Program error|lost server connection" \
-              "evidence/barrier-logcat-${{ matrix.runner }}.txt" | tail -n 180 || true
+            grep -E "XzielOnline.*(CI_EVIDENCE_(DONE|STATE|BARRIER)|CI_REMOTE_ACTION|PLAYER_LEFT|PLAYER_JOINED|WELCOME|PAUSE_VOICE|GAME_SOCKET_(OPEN|CLOSED|FAILURE)|GAME_RECONNECT)|Host_Error|Program error|lost server connection" \
+              "$BARRIER_LOG" | tail -n 180 || true
           fi
 
           adb_logcat_snapshot "evidence/logcat-${{ matrix.runner }}.txt" threadtime || true
