@@ -53,6 +53,7 @@ jobs:
           XZIEL_NACHT_MAP_OUT: ${{ github.workspace }}/nacht-ci/xziel_nacht_bo3.map
           XZIEL_NACHT_HARNESS_SUMMARY: ${{ github.workspace }}/nacht-ci/xziel_nacht_bo3_harness.json
           XZIEL_MYSTERY_BOX_MB2_OUT: ${{ github.workspace }}/nacht-ci/xziel_nacht_bo3.mb2
+          XZIEL_NACHT_FIXED_CI_SPAWN: "1"
         run: |
           set -euo pipefail
           mkdir -p nacht-ci
@@ -64,6 +65,23 @@ jobs:
           test -s nacht-ci/xziel_nacht_bo3.map
           test -s nacht-ci/xziel_nacht_bo3.mb2
           test -s nacht-ci/xziel_nacht_bo3_harness.json
+
+          python3 - <<'PY'
+          import json
+          import pathlib
+
+          summary = json.loads(
+              pathlib.Path(
+                  "nacht-ci/xziel_nacht_bo3_harness.json"
+              ).read_text()
+          )
+          assert summary["counts"]["playerSpawns"] == 4
+          assert summary["counts"]["fixedCiPlayerSpawn"] is True
+          print(
+              "XZIEL_NACHT_FIXED_CI_SPAWN_OK",
+              summary["counts"]["playerSpawns"],
+          )
+          PY
 
       - name: Compile Nacht BSP with official NZP toolchain
         run: |
