@@ -722,6 +722,20 @@ jobs:
           Directory.CreateDirectory(
               Path.GetDirectoryName(output)!);
 
+          var targetComponents =
+              new[] {
+                  exports[11628],
+                  exports[22263]
+              };
+
+          File.WriteAllText(
+              Path.Combine(
+                  Path.GetDirectoryName(output)!,
+                  "nacht-target-components.json"),
+              Newtonsoft.Json.JsonConvert.SerializeObject(
+                  targetComponents,
+                  Newtonsoft.Json.Formatting.Indented));
+
           File.WriteAllText(
               output,
               JsonSerializer.Serialize(
@@ -796,5 +810,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: nacht-full-level-census
-          path: nacht-full-level-census.json
+          path: |
+            nacht-full-level-census.json
+            nacht-target-components.json
           if-no-files-found: error
