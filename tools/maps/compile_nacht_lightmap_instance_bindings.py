@@ -182,6 +182,18 @@ def main() -> int:
         encoding="utf-8",
     )
 
+    for record in records:
+        binding = record.get("binding")
+        unresolved = (
+            isinstance(binding, dict)
+            and binding.get("lightMapCoordinateIndex", -1) < 0
+        )
+        if record["status"] != "mapped" or unresolved:
+            print(
+                "XZIEL_NACHT_LIGHTMAP_INSTANCE_FINAL_CASE",
+                json.dumps(record, sort_keys=True),
+            )
+
     print(
         "XZIEL_NACHT_LIGHTMAP_INSTANCE_JOIN_OK",
         json.dumps(stats, sort_keys=True),
