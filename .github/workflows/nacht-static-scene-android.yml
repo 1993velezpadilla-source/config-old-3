@@ -1323,7 +1323,13 @@ jobs:
                                       + $" material={sourceMaterial.Name}"
                                       + $" owner={ownerMaterial.Name}"
                                       + $" expression={expressionExport.Name}"
-                                      + $" texture={textureRef.Name}"
+                                      + $" texture={(
+                                          textureRef is FPackageIndex loggedIndex
+                                              ? loggedIndex.Name
+                                              : ReadMember(
+                                                  textureRef,
+                                                  "Name")?.ToString()
+                                                ?? "unknown")}"
                                       + $" package={expressionPackagePath}");
                               }
                           }
