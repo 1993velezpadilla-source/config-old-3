@@ -3,6 +3,9 @@
 #include <math.h>
 #include <string.h>
 
+#define XZ_ENV_KNOWN_FLAGS ((1u << 17) - 1u)
+#define XZ_ENV_KNOWN_BEHAVIOR ((1u << 4) - 1u)
+
 static uint32_t XzEnvReadU32Le(
     const unsigned char *p)
 {
@@ -64,35 +67,68 @@ int XzEnvironment_ReadLight(
     light->color[1] = XzEnvReadF32Le(p + 36u);
     light->color[2] = XzEnvReadF32Le(p + 40u);
 
-    light->intensity = XzEnvReadF32Le(p + 44u);
-    light->radius_meters = XzEnvReadF32Le(p + 48u);
-    light->inner_cone_degrees = XzEnvReadF32Le(p + 52u);
-    light->outer_cone_degrees = XzEnvReadF32Le(p + 56u);
-    light->units = XzEnvReadU32Le(p + 60u);
+    light->intensity =
+        XzEnvReadF32Le(p + 44u);
+    light->radius_meters =
+        XzEnvReadF32Le(p + 48u);
+    light->inner_cone_degrees =
+        XzEnvReadF32Le(p + 52u);
+    light->outer_cone_degrees =
+        XzEnvReadF32Le(p + 56u);
+    light->falloff_exponent =
+        XzEnvReadF32Le(p + 60u);
+    light->temperature_kelvin =
+        XzEnvReadF32Le(p + 64u);
+    light->source_radius_meters =
+        XzEnvReadF32Le(p + 68u);
+    light->soft_source_radius_meters =
+        XzEnvReadF32Le(p + 72u);
+    light->source_length_meters =
+        XzEnvReadF32Le(p + 76u);
+    light->units =
+        XzEnvReadU32Le(p + 80u);
+    light->behavior_flags =
+        XzEnvReadU32Le(p + 84u);
 
     if (light->type < XZ_ENV_LIGHT_POINT ||
         light->type > XZ_ENV_LIGHT_SKY ||
-        (light->flags & ~((1u << 7) - 1u)) != 0u ||
+        (light->flags & ~XZ_ENV_KNOWN_FLAGS) != 0u ||
+        (light->behavior_flags &
+         ~XZ_ENV_KNOWN_BEHAVIOR) != 0u ||
         !XzEnvFinite3(light->position) ||
         !XzEnvFinite3(light->rotation) ||
         !XzEnvFinite3(light->color) ||
         !isfinite(light->intensity) ||
         !isfinite(light->radius_meters) ||
-        light->radius_meters < 0.0f ||
         !isfinite(light->inner_cone_degrees) ||
-        !isfinite(light->outer_cone_degrees))
+        !isfinite(light->outer_cone_degrees) ||
+        !isfinite(light->falloff_exponent) ||
+        !isfinite(light->temperature_kelvin) ||
+        !isfinite(light->source_radius_meters) ||
+        !isfinite(light->soft_source_radius_meters) ||
+        !isfinite(light->source_length_meters) ||
+        light->radius_meters < 0.0f ||
+        light->source_radius_meters < 0.0f ||
+        light->soft_source_radius_meters < 0.0f ||
+        light->source_length_meters < 0.0f)
         return 0;
 
-    if (light->type == XZ_ENV_LIGHT_SPOT) {
-        if ((light->flags & XZ_ENV_HAS_CONE) == 0u ||
-            light->inner_cone_degrees < 0.0f ||
-            light->outer_cone_degrees <=
-                light->inner_cone_degrees ||
-            light->outer_cone_degrees >= 90.0f)
-            return 0;
-    } else if ((light->flags & XZ_ENV_HAS_CONE) != 0u) {
+    if ((light->flags & XZ_ENV_HAS_COLOR) != 0u &&
+        (light->color[0] < 0.0f ||
+         light->color[0] > 1.0f ||
+         light->color[1] < 0.0f ||
+         light->color[1] > 1.0f ||
+         light->color[2] < 0.0f ||
+         light->color[2] > 1.0f))
         return 0;
-    }
+
+    if (light->type == XZ_ENV_LIGHT_SPOT &&
+        ((light->flags & XZ_ENV_HAS_INNER_CONE) == 0u ||
+         (light->flags & XZ_ENV_HAS_OUTER_CONE) == 0u ||
+         light->inner_cone_degrees < 0.0f ||
+         light->outer_cone_degrees <
+             light->inner_cone_degrees))
+        return 0;
 
     return 1;
 }

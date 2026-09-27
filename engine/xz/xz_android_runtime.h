@@ -32,6 +32,15 @@ const XzNachtGameplayState *XzAndroidRuntime_NachtState(void);
 int XzAndroidRuntime_ShouldSuppressLegacyWorldDraw(
     XzLegacyWorldDrawKind kind);
 int XzAndroidRuntime_CompositeVisibleWorld(void);
+void XzAndroidRuntime_AuditLegacyPresentBeforeSwap(
+    unsigned int width,
+    unsigned int height,
+    int screenflash_color,
+    int screenflash_type,
+    double screenflash_duration,
+    double screenflash_starttime,
+    double screenflash_worktime,
+    double server_time);
 void XzAndroidRuntime_EndFrame(double now_seconds);
 void XzAndroidRuntime_Shutdown(void);
 
