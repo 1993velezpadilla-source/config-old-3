@@ -1449,6 +1449,10 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             " localLights=%u localActive=%u"
             " localCameraAffecting=%u localDropped=%u"
             " localReady=%d"
+            " specularBindings=%u specularAuthored=%u"
+            " localSpecularAuthored=%u specularReady=%d"
+            " directionalSpecularAuthored=%d"
+            " directionalSpecularScale=%.6f"
             " heightFogReady=%d directionalFog=%d"
             " fogDensity=%.6f fogFalloff=%.6f"
             " fogMaxOpacity=%.6f fogStartMeters=%.6f"
@@ -1513,6 +1517,12 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             xz_runtime.gles3_shadow.static_scene_local_light_camera_affecting,
             xz_runtime.gles3_shadow.static_scene_local_light_dropped_affecting,
             xz_runtime.gles3_shadow.static_scene_local_lighting_ready,
+            xz_runtime.gles3_shadow.static_scene_light_specular_bindings,
+            xz_runtime.gles3_shadow.static_scene_light_specular_authored,
+            xz_runtime.gles3_shadow.static_scene_local_specular_authored,
+            xz_runtime.gles3_shadow.static_scene_light_specular_ready,
+            xz_runtime.gles3_shadow.static_scene_directional_specular_authored,
+            xz_runtime.gles3_shadow.static_scene_directional_specular_scale,
             xz_runtime.gles3_shadow.static_scene_height_fog_ready,
             xz_runtime.gles3_shadow.static_scene_directional_fog_enabled,
             xz_runtime.gles3_shadow.static_scene_fog_density,
@@ -1685,6 +1695,8 @@ int XzAndroidRuntime_CompositeVisibleWorld(void)
             " postRestorePixels=%u"
             " readback=%ux%u"
             " localLights=%u active=%u affecting=%u dropped=%u"
+            " activeSpecularLights=%u specularReady=%d"
+            " directionalSpecularScale=%.6f"
             " normalReady=%d normalApplied=%u normalMapped=%u"
             " pbrReady=%d pbrApplied=%u pbrAuthored=%u"
             " heightFogReady=%d directionalFog=%d"
@@ -1704,6 +1716,9 @@ int XzAndroidRuntime_CompositeVisibleWorld(void)
             xz_runtime.gles3_shadow.static_scene_local_light_active,
             xz_runtime.gles3_shadow.static_scene_local_light_camera_affecting,
             xz_runtime.gles3_shadow.static_scene_local_light_dropped_affecting,
+            xz_runtime.gles3_shadow.static_scene_last_active_specular_lights,
+            xz_runtime.gles3_shadow.static_scene_light_specular_ready,
+            xz_runtime.gles3_shadow.static_scene_directional_specular_scale,
             xz_runtime.gles3_shadow.static_scene_normal_ready,
             xz_runtime.gles3_shadow.static_scene_last_normal_bindings,
             xz_runtime.gles3_shadow.static_scene_normal_mapped_bindings,
