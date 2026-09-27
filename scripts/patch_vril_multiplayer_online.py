@@ -263,6 +263,25 @@ if "xziel_remote_map" not in text:
     text = replace_once(text, remote_load_anchor, remote_load_repl,
                         "remote client loading-screen begin")
 
+# Remote multiplayer clients do not own a local server clock. Upstream Vril
+# timestamps svc_screenflash against sv.time and HUD_Draw also tests expiry
+# against sv.time. On a pure client sv.time can remain frozen, leaving the
+# Nacht intro black fade active forever even though V_RenderView is healthy.
+# Use the client simulation clock for this client-side presentation timer.
+screenflash_parse_old = r'''			screenflash_duration = sv.time + MSG_ReadByte();
+			screenflash_type = MSG_ReadByte();
+			screenflash_worktime = 0;
+			screenflash_starttime = sv.time;
+'''
+screenflash_parse_new = r'''			screenflash_duration = cl.time + MSG_ReadByte();
+			screenflash_type = MSG_ReadByte();
+			screenflash_worktime = 0;
+			screenflash_starttime = cl.time;
+'''
+if "screenflash_duration = cl.time + MSG_ReadByte();" not in text:
+    text = replace_once(text, screenflash_parse_old, screenflash_parse_new,
+                        "remote screenflash client clock")
+
 cl_parse.write_text(text, encoding="utf-8")
 
 # ---------------------------------------------------------------------------
@@ -455,6 +474,27 @@ hud_gungame_repl = r'''HUD_GunGame(void)
 if "HUD_GunGame(void)\n{\n    if (!(sv.active && sv_player))" not in hudtext:
     hudtext = replace_once(hudtext, hud_gungame_anchor, hud_gungame_repl,
                            "remote HUD gungame null guard")
+# Keep the screenflash expiry on the same client clock used when parsing the
+# network message. This fixes remote clients that render a valid world but have
+# a permanent full-screen black intro overlay because sv.time is not advancing.
+if "screenflash_duration > sv.time" in hudtext:
+    hudtext = hudtext.replace(
+        "screenflash_duration > sv.time",
+        "screenflash_duration > cl.time")
+
+# invertfloat() is used by the fade-out path. Once progress is beyond 100%,
+# inverted alpha must be zero, not one; upstream returning one can resurrect a
+# full-opacity black flash if an expiry predicate is ever delayed by a frame.
+invert_old = r'''    else if (input > 1)
+        return 1;  // adjust to upper boundary
+'''
+invert_new = r'''    else if (input > 1)
+        return 0;  // fade-out completed
+'''
+if "return 0;  // fade-out completed" not in hudtext:
+    hudtext = replace_once(hudtext, invert_old, invert_new,
+                           "screenflash invert upper boundary")
+
 hud.write_text(hudtext, encoding="utf-8")
 
 # Make LoadingScreen_Begin() own the map-name storage instead of relying on
