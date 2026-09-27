@@ -108,6 +108,7 @@ public final class XzielMultiplayer {
     private volatile boolean gameSocketConnecting;
 
     private volatile boolean ciEvidenceMode;
+    private volatile boolean ciEvidenceDoneSent;
     private volatile boolean ciReadySent;
     private volatile boolean ciScenarioStarted;
     private final boolean[] ciRemoteSeen = new boolean[MAX_PLAYERS + 1];
@@ -232,7 +233,8 @@ public final class XzielMultiplayer {
             .pingInterval(15, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
             .build();
-        this.voiceChat = new XzielVoiceChat(activity, this.http);
+        this.voiceChat = new XzielVoiceChat(
+            activity, this.http, this::sendCiEvidenceDone);
     }
 
     public boolean isOnlineActive() {
@@ -255,6 +257,7 @@ public final class XzielMultiplayer {
 
     public void setCiEvidenceMode(boolean enabled) {
         ciEvidenceMode = enabled;
+        ciEvidenceDoneSent = false;
         Log.i(TAG, "CI_EVIDENCE_MODE=" + enabled);
     }
 
@@ -1064,6 +1067,23 @@ public final class XzielMultiplayer {
         } catch (Exception e) {
             ciReadySent = false;
         }
+    }
+
+    private void sendCiEvidenceDone() {
+        if (!ciEvidenceMode || ciEvidenceDoneSent || !isOnlineActive()) return;
+
+        WebSocket socket = gameSocket;
+        if (socket == null || localSlot < 1 || localSlot > MAX_PLAYERS) return;
+
+        JSONObject action = new JSONObject();
+        try {
+            action.put("type", "ci_action");
+            action.put("action", "CI_EVIDENCE_DONE");
+            if (socket.send(action.toString())) {
+                ciEvidenceDoneSent = true;
+                Log.i(TAG, "CI_EVIDENCE_DONE slot=" + localSlot);
+            }
+        } catch (Exception ignored) {}
     }
 
     private void ciCommand(long delayMs, String marker, String command) {
