@@ -4,6 +4,7 @@
 #include "xz_xzmesh.h"
 #include "xz_xzscene.h"
 #include "xz_environment.h"
+#include "xz_height_fog.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -58,6 +59,10 @@ typedef struct {
     size_t environment_bytes;
     XzEnvironmentView environment;
 
+    unsigned char *height_fog_data;
+    size_t height_fog_bytes;
+    XzHeightFogView height_fog;
+
     uint32_t mesh_files_validated;
     uint64_t mesh_bytes_validated;
     uint64_t vertex_count;
@@ -68,6 +73,7 @@ typedef struct {
     char scene_path[256];
     char material_path[256];
     char environment_path[256];
+    char height_fog_path[256];
     char error[128];
 } XzStaticSceneRuntimeState;
 
@@ -113,6 +119,10 @@ int XzStaticSceneRuntime_EnvironmentLight(
     const XzStaticSceneRuntimeState *state,
     uint32_t light_index,
     XzEnvironmentLight *light);
+
+const XzHeightFogView *
+XzStaticSceneRuntime_HeightFog(
+    const XzStaticSceneRuntimeState *state);
 
 const char *XzStaticSceneRuntime_StatusName(
     XzStaticSceneStatus status);
