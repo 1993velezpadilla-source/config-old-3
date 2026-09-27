@@ -307,6 +307,8 @@ typedef struct {
     GLint static_fog_primary_loc;
     GLint static_fog_color_min_loc;
     GLint static_fog_cutoff_loc;
+    GLint static_pbr_params_loc;
+    GLint static_pbr_flags_loc;
     float static_ambient_weight;
     float static_directional_weight;
     float static_directional_color[3];
@@ -327,6 +329,8 @@ typedef struct {
     uint32_t static_texture_count;
     uint32_t *static_material_bindings;
     uint32_t static_material_binding_count;
+    XzPbrMaterialBinding *static_pbr_bindings;
+    uint32_t static_pbr_binding_count;
 
     GLuint scratch_fbo;
 
@@ -2668,6 +2672,10 @@ static void XzDestroyStaticSceneCurrent(
     xz_shadow.static_material_bindings = NULL;
     xz_shadow.static_material_binding_count = 0u;
 
+    free(xz_shadow.static_pbr_bindings);
+    xz_shadow.static_pbr_bindings = NULL;
+    xz_shadow.static_pbr_binding_count = 0u;
+
     if (xz_shadow.static_meshes) {
         for (i = 0u;
              i < xz_shadow.static_mesh_count;
@@ -2715,6 +2723,10 @@ static void XzDestroyStaticSceneCurrent(
         state->static_scene_material_bindings = 0u;
         state->static_scene_material_mapped_bindings = 0u;
         state->static_scene_material_ready = 0;
+        state->static_scene_pbr_bindings = 0u;
+        state->static_scene_pbr_authored_bindings = 0u;
+        state->static_scene_last_pbr_bindings = 0u;
+        state->static_scene_pbr_ready = 0;
         state->static_scene_lighting_ready = 0;
         state->static_scene_local_light_count = 0u;
         state->static_scene_local_light_active = 0u;
@@ -3139,6 +3151,54 @@ int XzGles3Shadow_UploadStaticScene(
             state->static_scene_material_bindings ==
                 (unsigned int)submeshes &&
             mapped_bindings > 0u;
+    }
+
+    if (scene->pbr_material_data &&
+        scene->pbr_material.binding_count > 0u) {
+        uint32_t pbr_index;
+        uint32_t authored_bindings = 0u;
+
+        if (scene->pbr_material.binding_count !=
+                (uint32_t)submeshes ||
+            scene->pbr_material.binding_count !=
+                scene->material_binding_count)
+            goto fail;
+
+        xz_shadow.static_pbr_bindings =
+            (XzPbrMaterialBinding *)calloc(
+                scene->pbr_material.binding_count,
+                sizeof(*xz_shadow.static_pbr_bindings));
+        if (!xz_shadow.static_pbr_bindings)
+            goto fail;
+
+        xz_shadow.static_pbr_binding_count =
+            scene->pbr_material.binding_count;
+
+        for (pbr_index = 0u;
+             pbr_index <
+                scene->pbr_material.binding_count;
+             ++pbr_index) {
+            XzPbrMaterialBinding binding;
+
+            if (!XzStaticSceneRuntime_PbrBinding(
+                    scene,
+                    pbr_index,
+                    &binding))
+                goto fail;
+
+            xz_shadow.static_pbr_bindings[pbr_index] =
+                binding;
+            if (binding.flags != 0u)
+                authored_bindings++;
+        }
+
+        state->static_scene_pbr_bindings =
+            xz_shadow.static_pbr_binding_count;
+        state->static_scene_pbr_authored_bindings =
+            authored_bindings;
+        state->static_scene_pbr_ready =
+            state->static_scene_pbr_bindings ==
+                (unsigned int)submeshes;
     }
 
     if (!XzStaticSceneDrawPlan_Build(
