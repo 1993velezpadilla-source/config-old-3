@@ -1444,6 +1444,7 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             " normalTextures=%u normalBytes=%zu normalGpuReady=%d"
             " pbrBindings=%u pbrBytes=%zu"
             " pbrGpuReady=%d pbrAuthored=%u"
+            " specularReady=%d"
             " envLights=%u envPoint=%u envSpot=%u"
             " envDirectional=%u envSky=%u envBytes=%zu"
             " localLights=%u localActive=%u"
@@ -1492,6 +1493,7 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             xz_runtime.static_scene.pbr_material_bytes,
             xz_runtime.gles3_shadow.static_scene_pbr_ready,
             xz_runtime.gles3_shadow.static_scene_pbr_authored_bindings,
+            xz_runtime.gles3_shadow.static_scene_specular_response_ready,
             environment
                 ? environment->light_count
                 : 0u,
@@ -1687,6 +1689,7 @@ int XzAndroidRuntime_CompositeVisibleWorld(void)
             " localLights=%u active=%u affecting=%u dropped=%u"
             " normalReady=%d normalApplied=%u normalMapped=%u"
             " pbrReady=%d pbrApplied=%u pbrAuthored=%u"
+            " specularReady=%d specularLocal=%u"
             " heightFogReady=%d directionalFog=%d"
             " fogDensity=%.6f fogFalloff=%.6f"
             " fogMaxOpacity=%.6f fogStartMeters=%.6f",
@@ -1710,6 +1713,8 @@ int XzAndroidRuntime_CompositeVisibleWorld(void)
             xz_runtime.gles3_shadow.static_scene_pbr_ready,
             xz_runtime.gles3_shadow.static_scene_last_pbr_bindings,
             xz_runtime.gles3_shadow.static_scene_pbr_authored_bindings,
+            xz_runtime.gles3_shadow.static_scene_specular_response_ready,
+            xz_runtime.gles3_shadow.static_scene_last_specular_local_lights,
             xz_runtime.gles3_shadow.static_scene_height_fog_ready,
             xz_runtime.gles3_shadow.static_scene_directional_fog_enabled,
             xz_runtime.gles3_shadow.static_scene_fog_density,
