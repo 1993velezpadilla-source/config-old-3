@@ -624,6 +624,9 @@ jobs:
                       ?? x.GetType().Name,
                   StringComparer.OrdinalIgnoreCase);
 
+          var actorOwnedComponentSamples =
+              new List<object>();
+
           var nonActorStaticMeshComponents =
               new List<object>();
 
@@ -665,6 +668,53 @@ jobs:
               if (actorOwned)
               {
                   staticMeshActorOwnedCount++;
+
+                  if (actorOwnedComponentSamples.Count < 4)
+                  {
+                      var propertyRows =
+                          new List<object>();
+
+                      var propertiesMember =
+                          ReadNamedMember(
+                              component,
+                              "Properties");
+
+                      if (
+                          propertiesMember
+                          is System.Collections.IEnumerable propertyEnumerable)
+                      {
+                          foreach (
+                              var propertyTag
+                              in propertyEnumerable)
+                          {
+                              if (propertyTag is null)
+                                  continue;
+
+                              propertyRows.Add(
+                                  new {
+                                      type =
+                                          propertyTag.GetType().FullName
+                                          ?? propertyTag.GetType().Name,
+                                      members =
+                                          DescribeObjectMembers(
+                                              propertyTag)
+                                  });
+                          }
+                      }
+
+                      actorOwnedComponentSamples.Add(
+                          new {
+                              name = component.Name,
+                              path = componentPath,
+                              parentPath,
+                              parentType = parentType ?? "",
+                              componentMembers =
+                                  DescribeObjectMembers(
+                                      component),
+                              propertyRows
+                          });
+                  }
+
                   continue;
               }
 
@@ -716,7 +766,8 @@ jobs:
                   staticMeshActorOwnedCount,
                   nonActorStaticMeshComponentCount =
                       nonActorStaticMeshComponents.Count,
-                  nonActorStaticMeshComponents
+                  nonActorStaticMeshComponents,
+                  actorOwnedComponentSamples
               };
 
           Directory.CreateDirectory(
@@ -802,6 +853,11 @@ jobs:
           for row in data.get("nonActorStaticMeshComponents", []):
               print(
                   "XZIEL_NACHT_EXTRA_STATIC_COMPONENT",
+                  json.dumps(row, sort_keys=True),
+              )
+          for row in data.get("actorOwnedComponentSamples", []):
+              print(
+                  "XZIEL_NACHT_ACTOR_COMPONENT_SAMPLE",
                   json.dumps(row, sort_keys=True),
               )
           PY
