@@ -78,6 +78,9 @@ string(entity player) XzielBot_ZombiesJson =
 	while (z != world && emitted < 12) {
 		float distance = vlen(z.origin - player.origin);
 		if (distance <= 1200 && z.health > 0) {
+			float targeting_player = 0;
+			if (z.enemy == player)
+				targeting_player = 1;
 			out = sprintf(
 				"%s%s{\\\"id\\\":%g,\\\"position\\\":[%g,%g,%g]",
 				out, comma ? "," : "", emitted + 1,
@@ -85,7 +88,7 @@ string(entity player) XzielBot_ZombiesJson =
 			);
 			out = sprintf(
 				"%s,\\\"health\\\":%g,\\\"targeting_me\\\":%g,\\\"state\\\":\\\"%s\\\"}",
-				out, z.health, z.enemy == player, z.aistatus
+				out, z.health, targeting_player, z.aistatus
 			);
 			comma = 1;
 			emitted++;
@@ -133,6 +136,9 @@ string(entity player) XzielBot_InteractablesJson =
 	item = find(world, classname, "window");
 	while (item != world && emitted < 24) {
 		if (item.health != -10 && vlen(item.origin - player.origin) <= 1500) {
+			float breached = 0;
+			if (item.health <= 0)
+				breached = 1;
 			out = sprintf(
 				"%s%s{\\\"id\\\":%g,\\\"kind\\\":\\\"window\\\",\\\"position\\\":[%g,%g,%g]",
 				out, comma ? "," : "", id,
@@ -140,7 +146,7 @@ string(entity player) XzielBot_InteractablesJson =
 			);
 			out = sprintf(
 				"%s,\\\"active\\\":1,\\\"boards\\\":%g,\\\"max_boards\\\":%g,\\\"breached\\\":%g}",
-				out, item.health, item.health_delay, item.health <= 0
+				out, item.health, item.health_delay, breached
 			);
 			comma = 1; id++; emitted++;
 		}
