@@ -35,6 +35,8 @@ jobs:
       - uses: actions/checkout@v5
       - name: Clone NZ:P QuakeC
         run: git clone --depth 1 https://github.com/nzp-team/quakec.git build/quakec
+      - name: Install NZ:P QuakeC build dependencies
+        run: python3 -m pip install --quiet colorama==0.4.6 fastcrc==0.3.0 pandas==2.1.4
       - name: Apply emulator telemetry patch
         run: python3 scripts/patch_quakec_emulator_bot_telemetry.py build/quakec
       - name: Compile patched QuakeC
