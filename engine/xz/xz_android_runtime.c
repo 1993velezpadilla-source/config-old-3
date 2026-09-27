@@ -1695,7 +1695,12 @@ int XzAndroidRuntime_CompositeVisibleWorld(void)
 
 void XzAndroidRuntime_AuditLegacyPresentBeforeSwap(
     unsigned int width,
-    unsigned int height)
+    unsigned int height,
+    int screenflash_color,
+    int screenflash_type,
+    double screenflash_duration,
+    double screenflash_starttime,
+    double screenflash_worktime)
 {
     unsigned int *rgba;
 
@@ -1718,7 +1723,12 @@ void XzAndroidRuntime_AuditLegacyPresentBeforeSwap(
         ANDROID_LOG_INFO,
         "present_luma"
         " postRestoreRGBA=%u,%u,%u,%u"
-        " preSwapRGBA=%u,%u,%u,%u",
+        " preSwapRGBA=%u,%u,%u,%u"
+        " screenflashColor=%d"
+        " screenflashType=%d"
+        " screenflashDuration=%.6f"
+        " screenflashStart=%.6f"
+        " screenflashWork=%.6f",
         xz_runtime.gles3_shadow.static_scene_postrestore_mean_rgba[0],
         xz_runtime.gles3_shadow.static_scene_postrestore_mean_rgba[1],
         xz_runtime.gles3_shadow.static_scene_postrestore_mean_rgba[2],
@@ -1726,7 +1736,12 @@ void XzAndroidRuntime_AuditLegacyPresentBeforeSwap(
         rgba[0],
         rgba[1],
         rgba[2],
-        rgba[3]);
+        rgba[3],
+        screenflash_color,
+        screenflash_type,
+        screenflash_duration,
+        screenflash_starttime,
+        screenflash_worktime);
 }
 
 void XzAndroidRuntime_EndFrame(double now_seconds)
