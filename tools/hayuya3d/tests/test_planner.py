@@ -24,10 +24,27 @@ class HayuyaPlannerTests(unittest.TestCase):
     def test_profiles_have_monster_path(self):
         p = hayuya.PROFILES["monster"]
         self.assertGreaterEqual(p.faces, 200_000)
+        self.assertGreaterEqual(p.hero_faces, 1_000_000)
+        self.assertGreater(p.hero_faces, p.faces)
         self.assertGreaterEqual(p.texture_size, 4096)
         self.assertIn("trellis2", p.backends)
         self.assertIn("triposg", p.backends)
         self.assertIn("trellis", p.backends)
+
+    def test_monster_plan_separates_hero_master_from_runtime_budget(self):
+        refs = [Path("/tmp/zombie_front.png")]
+        plan = hayuya.make_job_plan(
+            refs,
+            profile_name="monster",
+            mode="character",
+            seed=1993,
+            selected_backends=["trellis2"],
+            model_root=Path("/tmp/models"),
+        )
+        self.assertEqual(plan["targets"]["runtime_faces"], 250_000)
+        self.assertEqual(plan["targets"]["hero_faces"], 1_500_000)
+        self.assertTrue(plan["hero_master"]["enabled"])
+        self.assertIn("before retopology", plan["hero_master"]["policy"])
 
     def test_multi_photo_plan_has_no_logical_limit(self):
         refs = [Path(f"/tmp/view-{i}.png") for i in range(9)]
