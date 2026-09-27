@@ -5421,8 +5421,15 @@ int XzGles3Shadow_CompositeVisibleWorld(
                 (unsigned int)surface_height,
                 &readback_ok);
 
-        if (!readback_ok)
+        if (!readback_ok) {
             state->readback_failures++;
+        } else if (!XzMeasureFramebufferMeanRgba(
+                       gl,
+                       (unsigned int)surface_width,
+                       (unsigned int)surface_height,
+                       state->static_scene_postrestore_mean_rgba)) {
+            state->readback_failures++;
+        }
     }
 
     if (!restored) {
@@ -5477,6 +5484,35 @@ fail_after_restore:
     state->visible_present_streak = 0u;
     state->visible_present_ready = 0;
     return 0;
+}
+
+int XzGles3Shadow_AuditCurrentFramebuffer(
+    XzGles3ShadowState *state,
+    unsigned int width,
+    unsigned int height,
+    unsigned int out_rgba[4])
+{
+    XzNativeGles3Api *gl = &xz_shadow.gl;
+
+    if (!state ||
+        !state->initialized ||
+        !state->available ||
+        !xz_shadow.ready ||
+        !out_rgba ||
+        width == 0u ||
+        height == 0u)
+        return 0;
+
+    XzDrainErrors(state);
+
+    if (!XzMeasureFramebufferMeanRgba(
+            gl,
+            width,
+            height,
+            out_rgba))
+        return 0;
+
+    return gl->GetError() == GL_NO_ERROR;
 }
 
 void XzGles3Shadow_Shutdown(
