@@ -11,12 +11,14 @@ on:
       - feature/xziel-static-scene-material-coverage-v2
       - feature/xziel-static-scene-material-final5
       - feature/xziel-static-scene-material-final5-exact-gate
+      - feature/xziel-nacht-decal-environment-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
       - "engine/xz/xz_xzscene.*"
       - "engine/xz/xz_static_scene_runtime.*"
       - "engine/xz/xz_static_scene_draw_plan.*"
+      - "engine/xz/xz_environment.*"
       - "engine/xz/xz_android_runtime.*"
       - "engine/xz/xz_gles3_shadow.*"
       - "tools/maps/compile_xziel_static_scene.py"
@@ -24,6 +26,7 @@ on:
       - "tools/maps/convert_glb_to_xzmesh.py"
       - "tools/maps/compile_nacht_xzmesh_bundle.py"
       - "tools/maps/compile_nacht_xzmat_bundle.py"
+      - "tools/maps/compile_nacht_environment.py"
       - "tools/maps/export_nacht_nzp_harness.py"
       - "scripts/patch_vril_xz_phase0.py"
       - "scripts/prepare_android.sh"
@@ -2360,11 +2363,17 @@ jobs:
             --max-dimension 256 \
             | tee build/nacht-static-scene/xzmat-compile.log
 
+          python3 tools/maps/compile_nacht_environment.py \
+            --output "$MAPROOT/environment.xzen" \
+            --report build/nacht-static-scene/xziel.xzen.report.json \
+            | tee build/nacht-static-scene/xzen-compile.log
+
           test "$(find "$MAPROOT/meshes" \
             -maxdepth 1 -type f -name '*.xzm' | wc -l)" \
             -eq 492
           test -s "$MAPROOT/scene.xzsc"
           test -s "$MAPROOT/materials.xzmt"
+          test -s "$MAPROOT/environment.xzen"
 
           python3 - <<'PY'
           import json
@@ -2384,6 +2393,12 @@ jobs:
           material = json.loads(
               pathlib.Path(
                   "build/nacht-static-scene/xziel.xzmat.report.json"
+              ).read_text()
+          )
+
+          environment = json.loads(
+              pathlib.Path(
+                  "build/nacht-static-scene/xziel.xzen.report.json"
               ).read_text()
           )
 
@@ -2407,6 +2422,11 @@ jobs:
           assert material["bindingCount"] == 1063
           assert material["mappedBindings"] == 1063
           assert material["textureCount"] > 0
+          assert environment["lightCount"] == 101
+          assert environment["pointCount"] == 86
+          assert environment["spotCount"] == 12
+          assert environment["directionalCount"] == 2
+          assert environment["skyCount"] == 1
 
           print(
               "XZIEL_NACHT_STATIC_OVERLAY_READY",
@@ -2467,6 +2487,7 @@ jobs:
           test -f build/deps/vril/source/xz_xzscene.c
           test -f build/deps/vril/source/xz_static_scene_runtime.c
           test -f build/deps/vril/source/xz_static_scene_draw_plan.c
+          test -f build/deps/vril/source/xz_environment.c
 
           grep -F 'static_scene status=%s' \
             build/deps/vril/source/xz_android_runtime.c
@@ -2484,6 +2505,9 @@ jobs:
 
           unzip -l "$ZIP" \
             | grep -F 'nzp/xziel/maps/xziel_nacht_bo3/materials.xzmt'
+
+          unzip -l "$ZIP" \
+            | grep -F 'nzp/xziel/maps/xziel_nacht_bo3/environment.xzen'
 
           test "$(unzip -Z1 "$ZIP" \
             | grep -E '^nzp/xziel/maps/xziel_nacht_bo3/meshes/.*\.xzm$' \
