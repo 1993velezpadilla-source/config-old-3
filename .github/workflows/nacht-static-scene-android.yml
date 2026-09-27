@@ -2719,6 +2719,29 @@ jobs:
           echo "CUTOVER_READY=$CUTOVER_READY" \
             | tee -a dist/static-scene-status.txt
 
+          # The stock NZ:P round start intentionally keeps a black
+          # SCREENFLASH_FADE_OUT active during the ~3 second pre-game window,
+          # then replaces it with a final 1 second fade. Never judge the
+          # renderer from that transitional frame. Wait for the first native
+          # pre-swap sample after the authored black fade has completed.
+          POSTFADE_READY=0
+          for i in $(seq 1 30); do
+            if "$ADB" logcat -d -v threadtime 2>/dev/null \
+                | grep -Eq \
+                  "XZIEL-XZ.*present_luma_postfade preSwapRGBA=[0-9]+,[0-9]+,[0-9]+,[1-9][0-9]*"; then
+              POSTFADE_READY=1
+              break
+            fi
+            if ! "$ADB" shell pidof com.xziel.engine >/dev/null 2>&1; then
+              break
+            fi
+            sleep 1
+          done
+
+          echo "POSTFADE_READY=$POSTFADE_READY" \
+            | tee -a dist/static-scene-status.txt
+          test "$POSTFADE_READY" = "1"
+
           "$ADB" logcat -d -v threadtime \
             > dist/static-scene-logcat-late.txt || true
           cat \
@@ -2798,6 +2821,10 @@ jobs:
 
           grep -E \
             "XZIEL-XZ.*present_luma postRestoreRGBA=[0-9]+,[0-9]+,[0-9]+,[1-9][0-9]* preSwapRGBA=[0-9]+,[0-9]+,[0-9]+,[1-9][0-9]* screenflashColor=-?[0-9]+ screenflashType=-?[0-9]+ screenflashDuration=[0-9.-]+ screenflashStart=[0-9.-]+ screenflashWork=[0-9.-]+" \
+            dist/static-scene-logcat.txt
+
+          grep -E \
+            "XZIEL-XZ.*present_luma_postfade preSwapRGBA=[0-9]+,[0-9]+,[0-9]+,[1-9][0-9]* screenflashColor=1 screenflashType=2" \
             dist/static-scene-logcat.txt
 
           python3 - <<'PY'
