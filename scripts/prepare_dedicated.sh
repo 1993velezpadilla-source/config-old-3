@@ -79,7 +79,7 @@ for _ in $(seq 1 300); do
         echo "Dedicated process exited before UDP bind" >&2
         exit 1
     fi
-    if ss -lun | awk '{print $5}' | grep -Eq ":${SMOKE_PORT}$"; then
+    if ss -lun | awk '{print $4}' | grep -Eq ":${SMOKE_PORT}$"; then
         READY=1
         break
     fi
