@@ -1287,10 +1287,19 @@ jobs:
                               var expressionExport
                               in expressionPackage.GetExports())
                           {
-                              var textureRef =
+                              /*
+                               * Prefer CUE4Parse's typed material-expression
+                               * object when available. Cooked UE4.21 materials
+                               * can expose Texture on UMaterialExpressionTextureBase
+                               * even when the generic property bag reports null.
+                               */
+                              object? textureRef =
                                   expressionExport
-                                      .GetOrDefault<FPackageIndex?>(
-                                          "Texture");
+                                  is UMaterialExpressionTextureBase typedTextureExpression
+                                      ? typedTextureExpression.Texture
+                                      : expressionExport
+                                          .GetOrDefault<FPackageIndex?>(
+                                              "Texture");
 
                               if (textureRef is null)
                                   continue;
@@ -1301,7 +1310,7 @@ jobs:
                               QueueTextureCandidate(
                                   textureRef,
                                   ownerMaterial,
-                                  "expression-export");
+                                  "expression-export-typed");
 
                               if (
                                   materialTextureRows.Count
@@ -2223,6 +2232,14 @@ jobs:
           # parent/constants can be audited instead of guessed from names.
           DIAG="build/nacht-static-scene/material-audit/source-materials"
           mkdir -p "$DIAG"
+
+          # Preserve the complete resolver manifest before the strict 1063/1063
+          # gate so a failed run still contains every candidate/binding needed
+          # for deterministic diagnosis.
+          cp \
+            "$RUNNER_TEMP/scene-glb/xziel-texture-manifest.json" \
+            "build/nacht-static-scene/material-audit/xziel-texture-manifest.json"
+
           for name in \
             Atlas_39246_Mat \
             p7_fxanim_gp_tarp_drape_beige_02_s1_smod_Mat \
