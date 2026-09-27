@@ -471,6 +471,7 @@ def main() -> int:
 
     unresolved_slots: list[dict] = []
     raw_binding_texture_paths: list[str | None] = []
+    raw_binding_materials: list[dict[str, str]] = []
     mesh_reports = []
 
     for asset in rows:
@@ -592,6 +593,12 @@ def main() -> int:
                     )
                     texture_path = factor_key
 
+            raw_binding_materials.append({
+                "materialPath": material_path,
+                "aliasMaterialPath": alias_material_path,
+                "glbMaterial": material_name.lower(),
+            })
+
             if texture_path and (
                 texture_path in textures_by_path
                 or texture_path in synthetic_textures
@@ -619,6 +626,11 @@ def main() -> int:
         raise SystemExit(
             f"expected {EXPECTED_SUBMESHES} submesh bindings, "
             f"got {len(raw_binding_texture_paths)}"
+        )
+    if len(raw_binding_materials) != EXPECTED_SUBMESHES:
+        raise SystemExit(
+            f"expected {EXPECTED_SUBMESHES} material rows, "
+            f"got {len(raw_binding_materials)}"
         )
 
     used_paths = sorted({p for p in raw_binding_texture_paths if p is not None})
@@ -774,6 +786,7 @@ def main() -> int:
         "runtimeMaxDimension": args.max_dimension,
         "runtimeBytes": args.output.stat().st_size,
         "unresolvedSamples": unresolved_slots,
+        "bindingMaterials": raw_binding_materials,
         "meshes": mesh_reports,
         "textures": [
             {
