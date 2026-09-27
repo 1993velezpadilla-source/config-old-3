@@ -1,0 +1,228 @@
+name: XZIEL Nacht Height Fog Audit
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - feature/xziel-nacht-local-light-render-v1
+    paths:
+      - ".github/workflows/nacht-height-fog-audit.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install SteamCMD and repak
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/steamcmd" "$RUNNER_TEMP/repak"
+          curl -fL --retry 6 --retry-delay 2 --retry-all-errors \
+            https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz \
+            -o "$RUNNER_TEMP/steamcmd.tgz"
+          tar -xzf "$RUNNER_TEMP/steamcmd.tgz" -C "$RUNNER_TEMP/steamcmd"
+          "$RUNNER_TEMP/steamcmd/steamcmd.sh" +quit || true
+          curl -fL --retry 5 \
+            https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-unknown-linux-gnu.tar.xz \
+            -o "$RUNNER_TEMP/repak.tar.xz"
+          tar -xJf "$RUNNER_TEMP/repak.tar.xz" -C "$RUNNER_TEMP/repak"
+          REPAK=$(find "$RUNNER_TEMP/repak" -type f -name 'repak*' -perm -111 | head -1)
+          test -n "$REPAK"
+          echo "REPAK=$REPAK" >> "$GITHUB_ENV"
+
+      - name: Download Nacht source
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/steamcmd/steamcmd.sh" \
+            +login anonymous \
+            +workshop_download_item 555160 2755515831 validate \
+            +quit
+          ROOT=$(find "$HOME" "$RUNNER_TEMP" -type d \
+            -path '*/steamapps/workshop/content/555160/2755515831' \
+            -print -quit 2>/dev/null)
+          test -n "$ROOT/WindowsNoEditor.pak"
+          mkdir -p "$RUNNER_TEMP/nacht-unpacked"
+          "$REPAK" unpack "$ROOT/WindowsNoEditor.pak" -o "$RUNNER_TEMP/nacht-unpacked"
+          echo "UNPACKED=$RUNNER_TEMP/nacht-unpacked" >> "$GITHUB_ENV"
+
+      - name: Extract typed ExponentialHeightFog
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/fog-audit"
+          cd "$RUNNER_TEMP/fog-audit"
+          dotnet new console --framework net10.0 --force
+          dotnet add package CUE4Parse --version 1.2.2.202609
+          cat > Program.cs <<'CS'
+          using CUE4Parse.FileProvider;
+          using CUE4Parse.UE4.Versions;
+          using System.Reflection;
+          using System.Text.Json;
+
+          if (args.Length != 2) return 2;
+
+          const BindingFlags Flags =
+              BindingFlags.Instance |
+              BindingFlags.Public |
+              BindingFlags.NonPublic;
+
+          var provider = new DefaultFileProvider(
+              args[0],
+              SearchOption.AllDirectories,
+              true,
+              new VersionContainer(EGame.GAME_UE4_21));
+          provider.Initialize();
+          provider.PostMount();
+          provider.LoadVirtualPaths();
+
+          var maps = provider.Files.Values
+              .Where(f => Path.GetFileName(f.Path).Equals(
+                  "Nacht_de_Untoten.umap",
+                  StringComparison.OrdinalIgnoreCase))
+              .Select(f => f.Path)
+              .Distinct(StringComparer.OrdinalIgnoreCase)
+              .ToArray();
+
+          if (maps.Length != 1) return 3;
+
+          var exports =
+              provider.LoadPackage(maps[0])
+                  .GetExports()
+                  .ToArray();
+
+          object? Read(object target, string name)
+          {
+              var f = target.GetType().GetField(name, Flags);
+              if (f is not null) {
+                  try { return f.GetValue(target); } catch { }
+              }
+              var p = target.GetType().GetProperty(name, Flags);
+              if (p is not null &&
+                  p.GetIndexParameters().Length == 0 &&
+                  p.GetMethod is not null) {
+                  try { return p.GetValue(target); } catch { }
+              }
+              return null;
+          }
+
+          string Text(object? value)
+          {
+              if (value is null) return "";
+              try { return value.ToString() ?? ""; }
+              catch { return ""; }
+          }
+
+          string[] Wanted = {
+              "FogDensity",
+              "FogHeightFalloff",
+              "SecondFogData",
+              "FogInscatteringColor",
+              "InscatteringColorCubemap",
+              "InscatteringColorCubemapAngle",
+              "InscatteringTextureTint",
+              "FullyDirectionalInscatteringColorDistance",
+              "NonDirectionalInscatteringColorDistance",
+              "DirectionalInscatteringExponent",
+              "DirectionalInscatteringStartDistance",
+              "DirectionalInscatteringColor",
+              "FogMaxOpacity",
+              "StartDistance",
+              "FogCutoffDistance",
+              "bEnableVolumetricFog",
+              "VolumetricFogScatteringDistribution",
+              "VolumetricFogAlbedo",
+              "VolumetricFogEmissive",
+              "VolumetricFogExtinctionScale",
+              "VolumetricFogDistance",
+              "VolumetricFogStaticLightingScatteringIntensity",
+              "bOverrideLightColorsWithFogInscatteringColors",
+              "RelativeLocation",
+              "RelativeRotation",
+              "RelativeScale3D",
+              "bVisible"
+          };
+
+          var rows = new List<object>();
+
+          foreach (var export in exports)
+          {
+              var type =
+                  export.GetType().FullName
+                  ?? export.GetType().Name;
+              if (!type.Contains(
+                      "ExponentialHeightFogComponent",
+                      StringComparison.OrdinalIgnoreCase))
+                  continue;
+
+              var values =
+                  new SortedDictionary<string,string>(
+                      StringComparer.OrdinalIgnoreCase);
+
+              foreach (var name in Wanted)
+                  values[name] =
+                      Text(Read(export, name));
+
+              rows.Add(new {
+                  name = export.Name,
+                  type,
+                  path = export.GetPathName() ?? "",
+                  values
+              });
+          }
+
+          var report = new {
+              schemaVersion = 1,
+              sourcePackage = maps[0],
+              fogComponentCount = rows.Count,
+              rows
+          };
+
+          File.WriteAllText(
+              args[1],
+              JsonSerializer.Serialize(
+                  report,
+                  new JsonSerializerOptions {
+                      WriteIndented = true
+                  }));
+
+          Console.WriteLine(
+              "XZIEL_NACHT_HEIGHT_FOG_AUDIT " +
+              JsonSerializer.Serialize(new {
+                  report.fogComponentCount
+              }));
+
+          foreach (var row in rows)
+              Console.WriteLine(
+                  "XZIEL_NACHT_HEIGHT_FOG_ROW " +
+                  JsonSerializer.Serialize(row));
+
+          return rows.Count == 1 ? 0 : 4;
+          CS
+
+          dotnet run --configuration Release -- \
+            "$UNPACKED" \
+            "$GITHUB_WORKSPACE/nacht-height-fog-audit.json"
+
+      - name: Gate exact fog component
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          d=json.load(open("nacht-height-fog-audit.json", encoding="utf-8"))
+          assert d["fogComponentCount"] == 1
+          row=d["rows"][0]
+          assert "ExponentialHeightFogComponent" in row["type"]
+          print("XZIEL_NACHT_HEIGHT_FOG_GATE_OK", row["path"])
+          PY
+
+      - name: Upload audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: nacht-height-fog-audit
+          path: nacht-height-fog-audit.json
+          if-no-files-found: error
