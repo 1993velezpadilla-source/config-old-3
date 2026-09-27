@@ -293,7 +293,8 @@ public final class XzielMultiplayer {
             }
 
             if (isOnlineActive()) {
-                if (matchStarted && localSlot > 1 && serverReadyReceived) {
+                if (matchStarted && serverReadyReceived &&
+                    (localSlot > 1 || isDedicatedMode())) {
                     beginClientConnection(true);
                     toast("Rejoining active match...");
                     return;
@@ -911,7 +912,12 @@ public final class XzielMultiplayer {
                 return;
             }
 
-            if ("server_ready".equals(type) && localSlot != 1) {
+            if ("server_ready".equals(type)) {
+                String incomingMode = sanitizeServerMode(
+                    message.optString("serverMode", serverMode));
+                boolean dedicated = "dedicated".equals(incomingMode);
+                if (!dedicated && localSlot == 1) return;
+
                 String authoritativeMap = message.optString("map", selectedMap);
                 int revision = Math.max(0,
                     message.optInt("worldRevision", worldRevision));
@@ -922,15 +928,28 @@ public final class XzielMultiplayer {
                     return;
                 }
 
+                String endpoint = sanitizeServerEndpoint(
+                    message.optString("endpoint", dedicatedEndpoint));
+                if (dedicated && endpoint.isEmpty()) {
+                    Log.e(TAG, "SERVER_READY dedicated endpoint missing");
+                    toast("Dedicated server endpoint invalid");
+                    return;
+                }
+
+                serverMode = incomingMode;
+                if (!endpoint.isEmpty()) dedicatedEndpoint = endpoint;
                 selectedMap = authoritativeMap;
                 worldRevision = revision;
                 worldPhase = "live";
                 serverReadyReceived = true;
                 matchStarted = true;
+                hostPreparing = false;
                 dismissTrackedDialog();
                 Log.i(TAG, "SERVER_READY slot=" + localSlot +
                     " map=" + selectedMap +
                     " world=" + worldRevision +
+                    " serverMode=" + serverMode +
+                    " endpoint=" + dedicatedEndpoint +
                     " replay=" + message.optBoolean("replay", false));
                 beginClientConnection(message.optBoolean("replay", false));
                 return;
@@ -1015,6 +1034,24 @@ public final class XzielMultiplayer {
             gameSocket.send(prepare.toString());
         } catch (Exception ignored) {}
 
+        if (isDedicatedMode()) {
+            JSONObject start = new JSONObject();
+            try {
+                start.put("type", "start_match");
+                start.put("map", selectedMap);
+                start.put("targetPlayers",
+                    "public".equals(roomMode) ? targetPlayers : MAX_PLAYERS);
+                WebSocket socket = gameSocket;
+                if (socket != null) socket.send(start.toString());
+            } catch (Exception ignored) {}
+
+            worldPhase = "preparing";
+            Log.i(TAG, "DEDICATED_START_REQUEST map=" + selectedMap +
+                " targetPlayers=" + targetPlayers);
+            toast("Starting dedicated " + prettyMap(selectedMap) + " server...");
+            return;
+        }
+
         queueNativeCommand(
             "disconnect\n" +
             "maxplayers " + ("public".equals(roomMode) ? targetPlayers : MAX_PLAYERS) + "\n" +
@@ -1084,8 +1121,8 @@ public final class XzielMultiplayer {
 
         if (!isOnlineActive()) return;
 
-        if (localSlot == 1 && hostPreparing && !serverReadySent &&
-            serverActive && selectedMap.equals(engineMap)) {
+        if (!isDedicatedMode() && localSlot == 1 && hostPreparing &&
+            !serverReadySent && serverActive && selectedMap.equals(engineMap)) {
             serverReadySent = true;
             hostPreparing = false;
             worldPhase = "live";
@@ -1104,7 +1141,7 @@ public final class XzielMultiplayer {
             return;
         }
 
-        if (localSlot > 1 && serverReadyReceived) {
+        if ((localSlot > 1 || isDedicatedMode()) && serverReadyReceived) {
             // ca_connected with signon 0..3 is the normal Quake handshake /
             // signon progression. Retry engine connection only until this world
             // has completed signon once. After client_ready, a later
