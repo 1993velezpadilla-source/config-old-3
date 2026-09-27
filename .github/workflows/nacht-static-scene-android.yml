@@ -2800,6 +2800,36 @@ jobs:
             "XZIEL-XZ.*present_luma postRestoreRGBA=[0-9]+,[0-9]+,[0-9]+,[1-9][0-9]* preSwapRGBA=[0-9]+,[0-9]+,[0-9]+,[1-9][0-9]*" \
             dist/static-scene-logcat.txt
 
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          text=Path("dist/static-scene-logcat.txt").read_text(
+              encoding="utf-8",
+              errors="replace",
+          )
+          rows=re.findall(
+              r"present_luma postRestoreRGBA=(\d+),(\d+),(\d+),(\d+) "
+              r"preSwapRGBA=(\d+),(\d+),(\d+),(\d+)",
+              text,
+          )
+          assert rows, "missing present_luma samples"
+          row=tuple(map(int, rows[-1]))
+          post=row[:4]
+          preswap=row[4:]
+          post_rgb=sum(post[:3])/3.0
+          preswap_rgb=sum(preswap[:3])/3.0
+          ratio=preswap_rgb/post_rgb if post_rgb else 0.0
+          assert post[3] > 0 and preswap[3] > 0
+          assert post_rgb > 0 and preswap_rgb > 0
+          print(
+              "XZIEL_NACHT_PRESENT_LUMA_STAGE",
+              f"postRestore={post}",
+              f"preSwap={preswap}",
+              f"rgbRatio={ratio:.6f}",
+          )
+          PY
+
           grep -E \
             "XZIEL-XZ.*legacy3d worldTransition.*map='xziel_nacht_bo3'.*mapRuntime=NACHT_BO3" \
             dist/static-scene-logcat.txt
