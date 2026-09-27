@@ -147,6 +147,40 @@ jobs:
               "bVisible"
           };
 
+          object DescribeMembers(object target)
+          {
+              var members =
+                  new SortedDictionary<string,object?>(
+                      StringComparer.OrdinalIgnoreCase);
+
+              foreach (var field in target.GetType().GetFields(Flags))
+              {
+                  try {
+                      var value = field.GetValue(target);
+                      members["field:" + field.Name] = new {
+                          type = value?.GetType().FullName ?? "",
+                          text = Text(value)
+                      };
+                  } catch { }
+              }
+
+              foreach (var property in target.GetType().GetProperties(Flags))
+              {
+                  if (property.GetIndexParameters().Length != 0 ||
+                      property.GetMethod is null)
+                      continue;
+                  try {
+                      var value = property.GetValue(target);
+                      members["property:" + property.Name] = new {
+                          type = value?.GetType().FullName ?? "",
+                          text = Text(value)
+                      };
+                  } catch { }
+              }
+
+              return members;
+          }
+
           var rows = new List<object>();
 
           foreach (var export in exports)
@@ -167,11 +201,35 @@ jobs:
                   values[name] =
                       Text(Read(export, name));
 
+              var propertyTags =
+                  new List<object>();
+
+              var properties =
+                  Read(export, "Properties");
+
+              if (properties is System.Collections.IEnumerable enumerable)
+              {
+                  foreach (var tag in enumerable)
+                  {
+                      if (tag is null)
+                          continue;
+                      propertyTags.Add(new {
+                          type =
+                              tag.GetType().FullName
+                              ?? tag.GetType().Name,
+                          text = Text(tag),
+                          members = DescribeMembers(tag)
+                      });
+                  }
+              }
+
               rows.Add(new {
                   name = export.Name,
                   type,
                   path = export.GetPathName() ?? "",
-                  values
+                  values,
+                  propertyTagCount = propertyTags.Count,
+                  propertyTags
               });
           }
 
