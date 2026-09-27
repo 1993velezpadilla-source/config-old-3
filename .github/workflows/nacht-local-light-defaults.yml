@@ -65,16 +65,37 @@ jobs:
           using System.Reflection;
           using System.Text.Json;
 
-          if (args.Length != 2) return 2;
+          if (args.Length != 3) return 2;
+
+          using var environmentDoc =
+              JsonDocument.Parse(
+                  File.ReadAllText(args[2]));
 
           var targetActors = new HashSet<string>(
-              new [] {
-                  "SpotLight_1","SpotLight2","SpotLight3","SpotLight4",
-                  "SpotLight6","SpotLight7","SpotLight10","SpotLight11","SpotLight12",
-                  "PointLight43","PointLight77","PointLight78","PointLight79",
-                  "PointLight80","PointLight81","PointLight83_2","PointLight84_6"
-              },
               StringComparer.OrdinalIgnoreCase);
+
+          foreach (
+              var actor
+              in environmentDoc.RootElement
+                  .GetProperty("actors")
+                  .EnumerateArray())
+          {
+              var actorClass =
+                  actor.GetProperty("class").GetString()
+                  ?? "";
+              if (
+                  actorClass != "/Script/Engine/PointLight"
+                  && actorClass != "/Script/Engine/SpotLight")
+                  continue;
+
+              var name =
+                  actor.GetProperty("name").GetString();
+              if (!string.IsNullOrWhiteSpace(name))
+                  targetActors.Add(name);
+          }
+
+          if (targetActors.Count != 98)
+              return 5;
 
           var provider = new DefaultFileProvider(
               args[0],
@@ -205,7 +226,9 @@ jobs:
           CS
 
           dotnet run --configuration Release -- \
-            "$UNPACKED" "$GITHUB_WORKSPACE/nacht-local-light-defaults.json"
+            "$UNPACKED" \
+            "$GITHUB_WORKSPACE/nacht-local-light-defaults.json" \
+            "$GITHUB_WORKSPACE/assets/nacht_reference/pavlov_scene_reference/environment.json"
 
       - name: Upload audit
         uses: actions/upload-artifact@v4
