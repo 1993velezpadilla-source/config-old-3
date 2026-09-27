@@ -12,6 +12,7 @@ on:
       - feature/xziel-static-scene-material-final5
       - feature/xziel-static-scene-material-final5-exact-gate
       - feature/xziel-nacht-srgb-fidelity-v1
+      - feature/xziel-nacht-source-lighting-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -25,6 +26,7 @@ on:
       - "tools/maps/convert_glb_to_xzmesh.py"
       - "tools/maps/compile_nacht_xzmesh_bundle.py"
       - "tools/maps/compile_nacht_xzmat_bundle.py"
+      - "tools/maps/compile_nacht_xzlighting.py"
       - "tools/maps/export_nacht_nzp_harness.py"
       - "scripts/patch_vril_xz_phase0.py"
       - "scripts/prepare_android.sh"
@@ -2361,11 +2363,19 @@ jobs:
             --max-dimension 256 \
             | tee build/nacht-static-scene/xzmat-compile.log
 
+          python3 tools/maps/compile_nacht_xzlighting.py \
+            --environment assets/nacht_reference/pavlov_scene_reference/environment.json \
+            --output "$MAPROOT/lighting.xzlt" \
+            --report build/nacht-static-scene/xziel.xzlighting.report.json \
+            | tee build/nacht-static-scene/xzlighting-compile.log
+
           test "$(find "$MAPROOT/meshes" \
             -maxdepth 1 -type f -name '*.xzm' | wc -l)" \
             -eq 492
           test -s "$MAPROOT/scene.xzsc"
           test -s "$MAPROOT/materials.xzmt"
+          test -s "$MAPROOT/lighting.xzlt"
+          test "$(wc -c < "$MAPROOT/lighting.xzlt")" -eq 40
 
           python3 - <<'PY'
           import json
@@ -2385,6 +2395,11 @@ jobs:
           material = json.loads(
               pathlib.Path(
                   "build/nacht-static-scene/xziel.xzmat.report.json"
+              ).read_text()
+          )
+          lighting = json.loads(
+              pathlib.Path(
+                  "build/nacht-static-scene/xziel.xzlighting.report.json"
               ).read_text()
           )
 
@@ -2409,6 +2424,28 @@ jobs:
           assert material["mappedBindings"] == 1063
           assert material["textureCount"] > 0
 
+          assert lighting["format"] == "XZLT"
+          assert lighting["version"] == 1
+          assert lighting["bytes"] == 40
+          assert lighting["skyLight"]["name"] == "SkyLight_1"
+          assert abs(lighting["skyLight"]["intensity"] - 1.5) < 1.0e-6
+          assert abs(lighting["skyLight"]["weight"] - 0.375) < 1.0e-6
+          assert lighting["directionalLight"]["name"] == "DirectionalLight_1"
+          assert abs(lighting["directionalLight"]["intensity"] - 2.5) < 1.0e-6
+          assert abs(lighting["directionalLight"]["weight"] - 0.625) < 1.0e-6
+
+          direction = lighting["directionalLight"]["surfaceToLightDirection"]
+          length = sum(value * value for value in direction) ** 0.5
+          assert abs(length - 1.0) < 1.0e-6
+
+          print(
+              "XZIEL_NACHT_SOURCE_LIGHTING_READY",
+              {
+                  "sky": lighting["skyLight"],
+                  "directional": lighting["directionalLight"],
+              },
+          )
+
           print(
               "XZIEL_NACHT_STATIC_OVERLAY_READY",
               {
@@ -2426,6 +2463,9 @@ jobs:
           cp \
             build/nacht-static-scene/xziel.xzmat.report.json \
             "$RUNNER_TEMP/xziel-material-evidence/xziel.xzmat.report.json"
+          cp \
+            build/nacht-static-scene/xziel.xzlighting.report.json \
+            "$RUNNER_TEMP/xziel-material-evidence/xziel.xzlighting.report.json"
           cp \
             "$RUNNER_TEMP/scene-glb/xziel-texture-manifest.json" \
             "$RUNNER_TEMP/xziel-material-evidence/xziel-texture-manifest.json"
@@ -2711,7 +2751,7 @@ jobs:
             dist/static-scene-logcat.txt
 
           grep -E \
-            "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*materialReady=1 gpuTextures=[1-9][0-9]* gpuTextureBytes=[1-9][0-9]* materialBindings=1063 mappedBindings=[1-9][0-9]*" \
+            "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*materialReady=1 gpuTextures=[1-9][0-9]* gpuTextureBytes=[1-9][0-9]* materialBindings=1063 mappedBindings=1063 lightingReady=1 ambient=0\.375 directional=0\.625" \
             dist/static-scene-logcat.txt
 
           grep -E \
