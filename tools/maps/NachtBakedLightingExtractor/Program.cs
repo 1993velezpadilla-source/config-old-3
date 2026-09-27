@@ -6,6 +6,7 @@ using CUE4Parse.UE4.Assets.Exports.BuildData;
 using CUE4Parse.UE4.Assets.Exports.Component;
 using CUE4Parse.UE4.Assets.Exports.Component.StaticMesh;
 using CUE4Parse.UE4.Assets.Exports.StaticMesh;
+using CUE4Parse.UE4.Assets.Exports.FastGeoStreaming;
 using CUE4Parse.UE4.Assets.Exports.Component.Landscape;
 using CUE4Parse.UE4.Objects.Core.Misc;
 using System.Text.Json;
@@ -75,6 +76,41 @@ var packageBasenames =
             g => g.Key,
             g => g.Select(x => x.Path).ToArray(),
             StringComparer.OrdinalIgnoreCase);
+
+(string value, string source, string? ownerPath) ResolveMobility(
+    UObject component)
+{
+    var visited =
+        new HashSet<UObject>(
+            ReferenceEqualityComparer.Instance);
+    UObject? current = component;
+    var depth = 0;
+
+    while (current is not null && depth < 16)
+    {
+        if (!visited.Add(current))
+            break;
+
+        if (
+            current.TryGetValue(
+                out EComponentMobility mobility,
+                "Mobility"))
+        {
+            return (
+                mobility.ToString(),
+                depth == 0 ? "component" : "template",
+                current.GetPathName()
+            );
+        }
+
+        current =
+            current.Template?.Object?.Value
+                as UObject;
+        depth++;
+    }
+
+    return ("Unknown", "unresolved", null);
+}
 
 UStaticMesh? ResolveStaticMesh(
     UStaticMeshComponent component)
@@ -170,6 +206,8 @@ var lightMapCoordinateIndexCounts =
 
 var unresolvedStaticMeshBindings =
     new List<object>();
+var staticMeshComponents =
+    new List<object>();
 var staticMeshBuildBindingCount = 0;
 
 void AddComponentBuildId(
@@ -228,6 +266,9 @@ foreach (var export in mapExports)
                     staticMeshComponent.GetStaticMesh());
             var lightMapCoordinateIndex = -1;
             var numTexCoords = -1;
+            var mobility =
+                ResolveMobility(
+                    staticMeshComponent);
 
             if (
                 loadedStaticMesh?.RenderData?.LODs is { Length: > 0 } lods &&
@@ -255,6 +296,32 @@ foreach (var export in mapExports)
                  */
                 lightMapCoordinateIndex = 0;
             }
+
+            staticMeshComponents.Add(
+                new {
+                    componentExportIndex =
+                        mapExportIndexByObject[export],
+                    componentName =
+                        staticMeshComponent.Name,
+                    componentPath =
+                        staticMeshComponent.GetPathName()
+                        ?? "",
+                    staticMeshPath,
+                    loadedStaticMeshName =
+                        loadedStaticMesh?.Name,
+                    lightMapCoordinateIndex,
+                    numTexCoords,
+                    mobility = mobility.value,
+                    mobilitySource = mobility.source,
+                    mobilityOwnerPath = mobility.ownerPath,
+                    lodCount =
+                        staticMeshComponent.LODData.Length,
+                    lodBuildDataIds =
+                        staticMeshComponent.LODData
+                            .Select(
+                                x => x.MapBuildDataId.ToString())
+                            .ToArray()
+                });
 
             for (
                 var lodIndex = 0;
@@ -708,6 +775,10 @@ var output = new {
         componentBuildIds.Count,
     staticMeshBuildBindingCount,
     lightMapCoordinateIndexCounts,
+
+    staticMeshComponentCount =
+        staticMeshComponents.Count,
+    staticMeshComponents,
 
     unresolvedStaticMeshBindingCount =
         unresolvedStaticMeshBindings.Count,
