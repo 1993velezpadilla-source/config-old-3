@@ -298,7 +298,49 @@ jobs:
             sleep 2
           done
 
-          "$ADB" exec-out screencap -p > "evidence/player-${{ matrix.runner }}.png" || true
+          # A hosted Android emulator can transiently leave ADB in "offline"
+          # state while QEMU and the game process are still healthy. Run #93
+          # proved that exact case: the client had live XZD1 traffic/rendering,
+          # but one empty screencap made the job exit and GitHub then killed the
+          # emulator, cascading PLAYER_LEFT into the other three jobs.
+          #
+          # Recover the ADB transport and require a real PNG before using its
+          # dimensions for the pause tap. This is CI-only; game/runtime behavior
+          # is unchanged.
+          capture_framebuffer() {
+            local out="$1"
+            local tmp="${out}.tmp"
+            local attempt
+            for attempt in 1 2 3 4 5; do
+              rm -f "$tmp"
+              if "$ADB" get-state 2>/dev/null | grep -qx "device" && \
+                 "$ADB" exec-out screencap -p > "$tmp" 2>/dev/null && \
+                 python3 - "$tmp" <<'PY'
+          import struct, sys
+          from pathlib import Path
+          data = Path(sys.argv[1]).read_bytes()
+          ok = len(data) >= 24 and data[:8] == b"\x89PNG\r\n\x1a\n"
+          if ok:
+              width, height = struct.unpack(">II", data[16:24])
+              ok = width > 0 and height > 0
+          raise SystemExit(0 if ok else 1)
+          PY
+              then
+                mv "$tmp" "$out"
+                return 0
+              fi
+
+              echo "ADB framebuffer attempt ${attempt}/5 failed; reconnecting transport."
+              "$ADB" reconnect offline >/dev/null 2>&1 || true
+              timeout 20 "$ADB" wait-for-device >/dev/null 2>&1 || true
+              sleep 2
+            done
+            rm -f "$tmp"
+            echo "Could not recover a valid framebuffer from the emulator."
+            return 1
+          }
+
+          capture_framebuffer "evidence/player-${{ matrix.runner }}.png"
 
           # Prove the two small HUD voice controls are interactive.
           "$ADB" shell uiautomator dump /sdcard/xziel-hud.xml >/dev/null 2>&1 || true
