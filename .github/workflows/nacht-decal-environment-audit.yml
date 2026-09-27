@@ -5,13 +5,19 @@ on:
   push:
     branches:
       - feature/xziel-nacht-decal-environment-v1
+      - feature/xziel-nacht-light-components-166-v1
     paths:
       - ".github/workflows/nacht-decal-environment-audit.yml"
+      - "tools/maps/NachtLightExtractor/**"
+      - "tools/maps/compile_nacht_environment.py"
   pull_request:
     branches:
       - feature/xziel-static-scene-material-final5
+      - feature/xziel-nacht-decal-environment-v1
     paths:
       - ".github/workflows/nacht-decal-environment-audit.yml"
+      - "tools/maps/NachtLightExtractor/**"
+      - "tools/maps/compile_nacht_environment.py"
 
 permissions:
   contents: read
