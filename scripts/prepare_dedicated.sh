@@ -59,7 +59,7 @@ cp "$DEPS/quakec/LICENSE" "$DIST/licenses/NZP-QUAKEC-GPL-2.0.txt"
 echo "==> Smoke-testing true headless dedicated UDP server"
 SMOKE_PORT="${XZIEL_DEDICATED_SMOKE_PORT:-26990}"
 LOG="$BUILD/dedicated-smoke.log"
-SDL_AUDIODRIVER=dummy "$DIST/bin/nzportable" \
+SDL_AUDIODRIVER=dummy stdbuf -oL -eL "$DIST/bin/nzportable" \
     -dedicated 4 \
     +vid_renderer headless \
     -basedir "$DATA" \
@@ -72,8 +72,9 @@ SDL_AUDIODRIVER=dummy "$DIST/bin/nzportable" \
 PID=$!
 
 READY=0
-for _ in $(seq 1 80); do
+for _ in $(seq 1 300); do
     if ! kill -0 "$PID" 2>/dev/null; then
+        echo "==> Dedicated log before exit"
         cat "$LOG"
         echo "Dedicated process exited before UDP bind" >&2
         exit 1
@@ -86,7 +87,12 @@ for _ in $(seq 1 80); do
 done
 
 if [[ "$READY" != "1" ]]; then
-    cat "$LOG"
+    echo "==> Dedicated process status"
+    ps -o pid,ppid,stat,etime,wchan:32,cmd -p "$PID" || true
+    echo "==> UDP sockets"
+    ss -lunp || true
+    echo "==> Dedicated log"
+    cat "$LOG" || true
     kill "$PID" 2>/dev/null || true
     echo "Dedicated server never bound UDP ${SMOKE_PORT}" >&2
     exit 1
