@@ -25,6 +25,7 @@ on:
       - feature/xziel-nacht-specular-response-v1
       - feature/xziel-nacht-reflection-capture-census-v1
       - feature/xziel-nacht-reflection-builtdata-v1
+      - feature/xziel-nacht-reflection-payload-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -175,12 +176,86 @@ jobs:
             | tee build/nacht-static-scene/light-extract.log
           test -s build/nacht-static-scene/light-components.json
 
+      - name: Build exact UE4 reflection payload reader
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/cue4parse-reflection"
+          rm -rf "$ROOT"
+          mkdir -p "$ROOT"
+          git -C "$ROOT" init
+          git -C "$ROOT" remote add origin \
+            https://github.com/FabianFG/CUE4Parse.git
+          git -C "$ROOT" fetch --depth 1 origin \
+            eecbd416f358460e8552de93b4f6157ddd673a85
+          git -C "$ROOT" checkout --detach FETCH_HEAD
+          test "$(git -C "$ROOT" rev-parse HEAD)" = \
+            eecbd416f358460e8552de93b4f6157ddd673a85
+
+          python3 - \
+            "$ROOT/CUE4Parse/UE4/Assets/Exports/BuildData/UMapBuildDataRegistry.cs" \
+            <<'PY'
+          from pathlib import Path
+          import sys
+
+          p = Path(sys.argv[1])
+          s = p.read_text(encoding="utf-8-sig")
+
+          field_old = """    [JsonIgnore] public byte[]? FullHDRCapturedData;
+              public FPackageIndex? EncodedCaptureData;"""
+          field_new = """    [JsonIgnore] public byte[]? FullHDRCapturedData;
+              [JsonIgnore] public byte[]? EncodedHDRCapturedData;
+              public FPackageIndex? EncodedCaptureData;"""
+
+          full_old = """        //FullHDRCapturedData = Ar.ReadArray<byte>(); // Can also be stripped, but still a byte[]
+                  Ar.SkipFixedArray(1); // Skip for now"""
+          full_new = """        FullHDRCapturedData = Ar.ReadArray<byte>();"""
+
+          encoded_old = """        if (FMobileObjectVersion.Get(Ar) >= FMobileObjectVersion.Type.StoreReflectionCaptureCompressedMobile &&
+                      FUE5ReleaseStreamObjectVersion.Get(Ar) < FUE5ReleaseStreamObjectVersion.Type.StoreReflectionCaptureEncodedHDRDataInRG11B10Format)
+                  {
+                      EncodedCaptureData = new FPackageIndex(Ar);
+                  }
+                  else
+                  {
+                      Ar.SkipFixedArray(1);
+                  }"""
+          encoded_new = """        if (FMobileObjectVersion.Get(Ar) >= FMobileObjectVersion.Type.StoreReflectionCaptureCompressedMobile &&
+                      FUE5ReleaseStreamObjectVersion.Get(Ar) < FUE5ReleaseStreamObjectVersion.Type.StoreReflectionCaptureEncodedHDRDataInRG11B10Format)
+                  {
+                      EncodedCaptureData = new FPackageIndex(Ar);
+                  }
+                  else
+                  {
+                      EncodedHDRCapturedData = Ar.ReadArray<byte>();
+                  }"""
+
+          for old, new, name in (
+              (field_old, field_new, "field"),
+              (full_old, full_new, "FullHDR"),
+              (encoded_old, encoded_new, "EncodedHDR"),
+          ):
+              if s.count(old) != 1:
+                  raise SystemExit(
+                      f"expected exactly one {name} patch anchor, got {s.count(old)}"
+                  )
+              s = s.replace(old, new)
+
+          p.write_text(s, encoding="utf-8")
+          print("XZIEL_REFLECTION_READER_PATCHED")
+          PY
+
+          PROJECT="$ROOT/CUE4Parse/CUE4Parse.csproj"
+          test -f "$PROJECT"
+          echo "CUE4PARSE_REFLECTION_PROJECT=$PROJECT" \
+            >> "$GITHUB_ENV"
+
       - name: Census Nacht reflection captures and SkyLight source
         run: |
           set -euo pipefail
-          dotnet run \
+          CUE4PARSE_SKIP_NATIVE=true dotnet run \
             --project tools/maps/NachtReflectionExtractor/NachtReflectionExtractor.csproj \
             --configuration Release \
+            -p:CUE4ParseProject="$CUE4PARSE_REFLECTION_PROJECT" \
             -- \
             "$UNPACKED" \
             build/nacht-static-scene/reflection-census.json \
@@ -200,6 +275,46 @@ jobs:
           assert data["buildDataRegistryCount"] > 0
           assert data["reflectionCaptureBuildDataCount"] > 0
           assert data["reflectionCaptureBuildDataLinkedCount"] == 1
+
+          linked = [
+              row for row in data["reflectionCaptureBuildData"]
+              if row["linkedToCapture"]
+          ]
+          assert len(linked) == 1
+          entry = linked[0]
+          size = entry["cubemapSize"]
+          assert size == 128
+          assert size > 0 and size & (size - 1) == 0
+
+          texels_per_face = sum(
+              (size >> mip) ** 2
+              for mip in range(size.bit_length())
+          )
+          expected_full = texels_per_face * 6 * 8
+          expected_encoded = texels_per_face * 6 * 4
+
+          full_bytes = data["linkedFullHdrCapturedBytes"]
+          encoded_bytes = data["linkedEncodedHdrCapturedBytes"]
+          assert full_bytes > 0 or encoded_bytes > 0
+
+          if full_bytes:
+              assert full_bytes == expected_full, (
+                  full_bytes,
+                  expected_full,
+              )
+              assert Path(
+                  "build/nacht-static-scene/reflection-fullhdr.bin"
+              ).stat().st_size == full_bytes
+
+          if encoded_bytes:
+              assert encoded_bytes == expected_encoded, (
+                  encoded_bytes,
+                  expected_encoded,
+              )
+              assert Path(
+                  "build/nacht-static-scene/reflection-encodedhdr.bin"
+              ).stat().st_size == encoded_bytes
+
           print(
               "XZIEL_NACHT_REFLECTION_CENSUS_GREEN",
               {
@@ -218,10 +333,26 @@ jobs:
                   "linked": data["reflectionCaptureBuildDataLinkedCount"],
               },
           )
+          print(
+              "XZIEL_NACHT_REFLECTION_PAYLOAD_GREEN",
+              {
+                  "cubemapSize": size,
+                  "fullHDR": full_bytes,
+                  "encodedHDR": encoded_bytes,
+                  "fullSHA256": data["linkedFullHdrSha256"],
+                  "encodedSHA256": data["linkedEncodedHdrSha256"],
+              },
+          )
           PY
           mkdir -p dist
           cp build/nacht-static-scene/reflection-census.json \
             dist/reflection-census.json
+          test ! -f build/nacht-static-scene/reflection-fullhdr.bin || \
+            cp build/nacht-static-scene/reflection-fullhdr.bin \
+              dist/reflection-fullhdr.bin
+          test ! -f build/nacht-static-scene/reflection-encodedhdr.bin || \
+            cp build/nacht-static-scene/reflection-encodedhdr.bin \
+              dist/reflection-encodedhdr.bin
 
       - name: Extract exact Nacht exponential height fog
         run: |
