@@ -1,0 +1,131 @@
+name: Android Live Public Squad 3P
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/multiplayer-online-tunnel-test
+    paths:
+      - ".github/workflows/android-online-live-squad.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xziel-live-public-squad
+  cancel-in-progress: true
+
+jobs:
+  live-three-player:
+    name: Live public runner ${{ matrix.runner }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        runner: [1, 2, 3]
+
+    steps:
+      - name: Download proven online APK from run 105
+        uses: actions/download-artifact@v5
+        with:
+          name: Xziel-NZP-native-universal-debug
+          path: apk
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: 36299413606
+
+      - name: Install Android emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          PACKAGES=("platform-tools" "system-images;android-35;google_apis;x86_64")
+          if [[ ! -x "${ANDROID_HOME}/emulator/emulator" ]]; then PACKAGES+=("emulator"); fi
+          INSTALLED=0
+          for attempt in 1 2 3; do
+            if "$SDKMANAGER" "${PACKAGES[@]}"; then INSTALLED=1; break; fi
+            rm -rf "${HOME}/.android/cache" "${ANDROID_HOME}/.temp" || true
+            find "${ANDROID_HOME}" -maxdepth 1 -type d -name "temp*" -exec rm -rf {} + 2>/dev/null || true
+            sleep $((attempt * 4))
+          done
+          test "$INSTALLED" = "1"
+
+      - name: Boot live public emulator
+        shell: bash
+        env:
+          ANDROID_AVD_HOME: ${{ runner.temp }}/xziel-live-avd
+        run: |
+          set -euo pipefail
+          mkdir -p "$ANDROID_AVD_HOME" evidence
+          ADB="${ANDROID_HOME}/platform-tools/adb"
+          EMULATOR="${ANDROID_HOME}/emulator/emulator"
+          AVDMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name avdmanager | sort | tail -n 1)"
+          printf "no\n" | "$AVDMANAGER" create avd --force --name "xziel-live-${{ matrix.runner }}" --package "system-images;android-35;google_apis;x86_64" --device "pixel_6"
+          if [[ -e /dev/kvm ]]; then sudo chmod 666 /dev/kvm || true; fi
+          nohup "$EMULATOR" @"xziel-live-${{ matrix.runner }}" -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -memory 2048 > "evidence/emulator-${{ matrix.runner }}.txt" 2>&1 &
+          timeout 180 "$ADB" wait-for-device
+          BOOTED=0
+          for i in $(seq 1 90); do
+            if [[ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; then BOOTED=1; break; fi
+            sleep 2
+          done
+          test "$BOOTED" = "1"
+          "$ADB" install -r apk/Xziel-NZP-native-universal-debug.apk
+          "$ADB" shell pm grant com.xziel.nzp android.permission.RECORD_AUDIO || true
+          "$ADB" shell settings put secure immersive_mode_confirmations confirmed || true
+          sleep 8
+          "$ADB" shell settings put system accelerometer_rotation 0 || true
+          "$ADB" shell settings put system user_rotation 1 || true
+          "$ADB" shell wm dismiss-keyguard || true
+          sleep 3
+          "$ADB" logcat -c
+
+      - name: Join real public QUAD queue
+        shell: bash
+        env:
+          ANDROID_AVD_HOME: ${{ runner.temp }}/xziel-live-avd
+        run: |
+          set -euo pipefail
+          ADB="${ANDROID_HOME}/platform-tools/adb"
+          PLAYER="live-${GITHUB_RUN_ID}-p${{ matrix.runner }}"
+          "$ADB" shell am force-stop com.xziel.nzp || true
+          "$ADB" shell am start -W -n com.xziel.nzp/org.libsdl.app.NZPActivity --ez xziel_ci_public_match true --es xziel_ci_match_queue "public-v1" --es xziel_ci_player_id "$PLAYER" > "evidence/am-start-${{ matrix.runner }}.txt" 2>&1
+          echo "LIVE_QUEUE_READY runner=${{ matrix.runner }} queue=public-v1 map=ndu players=4"
+          FOUND=0
+          for i in $(seq 1 360); do
+            "$ADB" logcat -d -v brief > "evidence/logcat-${{ matrix.runner }}.txt" || true
+            LOG="evidence/logcat-${{ matrix.runner }}.txt"
+            if grep -q "XzielOnline.*MATCH_FOUND" "$LOG"; then FOUND=1; fi
+            if (( i % 10 == 0 )); then
+              grep -E "XzielOnline.*(MATCH_CONNECT|MATCH_SOCKET_OPEN|MATCH_SEARCHING|MATCH_FOUND|WELCOME|PLAYER_JOINED|SERVER_READY|HOST_SERVER_READY|SIGNON_COMPLETE)" "$LOG" | tail -n 40 || true
+              "$ADB" exec-out screencap -p > "evidence/live-${{ matrix.runner }}.png" || true
+            fi
+            if [[ "$FOUND" = "1" ]] && grep -q "XzielOnline.*WELCOME" "$LOG"; then
+              echo "LIVE_MATCH_JOINED runner=${{ matrix.runner }}"
+              sleep 300
+              break
+            fi
+            PID="$("$ADB" shell pidof com.xziel.nzp 2>/dev/null | tr -d '\r' || true)"
+            if [[ -z "$PID" ]]; then echo "Xziel exited while waiting for live public match."; exit 1; fi
+            sleep 2
+          done
+          "$ADB" logcat -d -v threadtime > "evidence/final-logcat-${{ matrix.runner }}.txt" || true
+          "$ADB" exec-out screencap -p > "evidence/final-${{ matrix.runner }}.png" || true
+          if [[ "$FOUND" != "1" ]]; then
+            echo "Live public match was not filled before timeout."
+            grep -E "XzielOnline.*(MATCH_CONNECT|MATCH_SOCKET_OPEN|MATCH_SEARCHING|MATCH_FOUND)" "evidence/final-logcat-${{ matrix.runner }}.txt" | tail -n 80 || true
+            exit 1
+          fi
+
+      - name: Upload live evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xziel-live-public-runner-${{ matrix.runner }}
+          path: evidence/
+          retention-days: 3
