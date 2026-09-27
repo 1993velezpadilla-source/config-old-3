@@ -28,6 +28,7 @@ on:
       - feature/xziel-nacht-reflection-payload-v1
       - feature/xziel-nacht-reflection-cubemap-v1
       - feature/xziel-nacht-reflection-sphere-v1
+      - feature/xziel-nacht-postprocess-census-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -48,6 +49,7 @@ on:
       - "tools/maps/NachtLightExtractor/**"
       - "tools/maps/NachtReflectionExtractor/**"
       - "tools/maps/compile_nacht_reflection_capture.py"
+      - "tools/maps/NachtPostProcessExtractor/**"
       - "tools/maps/NachtFogExtractor/**"
       - "tools/maps/compile_nacht_height_fog.py"
       - "engine/xz/xz_height_fog.*"
@@ -165,6 +167,40 @@ jobs:
             -o "$RUNNER_TEMP/nacht-unpacked"
           echo "UNPACKED=$RUNNER_TEMP/nacht-unpacked" \
             >> "$GITHUB_ENV"
+
+      - name: Census exact Nacht post-process settings
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-static-scene
+          dotnet run \
+            --project tools/maps/NachtPostProcessExtractor/NachtPostProcessExtractor.csproj \
+            --configuration Release \
+            -- \
+            "$UNPACKED" \
+            build/nacht-static-scene/postprocess-census.json \
+            | tee build/nacht-static-scene/postprocess-census.log
+          test -s build/nacht-static-scene/postprocess-census.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          p = Path("build/nacht-static-scene/postprocess-census.json")
+          data = json.loads(p.read_text(encoding="utf-8"))
+          assert data["schemaVersion"] == 1
+          assert data["candidateCount"] > 0
+          assert len(data["candidates"]) == data["candidateCount"]
+
+          print(
+              "XZIEL_NACHT_POSTPROCESS_CENSUS_GREEN",
+              {
+                  "exports": data["exportCount"],
+                  "candidates": data["candidateCount"],
+              },
+          )
+          PY
+          mkdir -p dist
+          cp build/nacht-static-scene/postprocess-census.json \
+            dist/postprocess-census.json
 
       - name: Extract exact 166 Nacht light components
         run: |
@@ -3467,6 +3503,8 @@ jobs:
             build/nacht-static-scene/xzfg-compile.log
             build/nacht-static-scene/light-components.json
             build/nacht-static-scene/light-extract.log
+            build/nacht-static-scene/postprocess-census.json
+            build/nacht-static-scene/postprocess-census.log
             build/nacht-static-scene/reflection-census.json
             build/nacht-static-scene/reflection-census.log
             build/nacht-static-scene/reflection.xzrc
