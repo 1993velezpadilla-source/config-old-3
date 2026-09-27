@@ -2744,6 +2744,11 @@ jobs:
           echo "FADE_CLEAR_READY=$FADE_CLEAR_READY" \
             | tee -a dist/static-scene-status.txt
 
+          if [[ "$FADE_CLEAR_READY" == "1" ]]; then
+            echo "XZIEL_NACHT_INTRO_BLACKOUT_CLEARED" \
+              | tee -a dist/static-scene-status.txt
+          fi
+
           "$ADB" logcat -d -v threadtime \
             > dist/static-scene-logcat-late.txt || true
           cat \
