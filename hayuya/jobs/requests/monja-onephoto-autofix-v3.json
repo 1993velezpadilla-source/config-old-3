@@ -15,6 +15,6 @@
   "texture_quality": "ultra",
   "portable_target": "high",
   "gpu_vram": 24,
-  "backends": "trellis2,triposr",
-  "retry_token": "hero-master-v1-dense-first-20260927"
+  "backends": "trellis2,triposg,detailgen3d,triposr",
+  "retry_token": "hero-master-v2-open-vast-chain-20260927"
 }
