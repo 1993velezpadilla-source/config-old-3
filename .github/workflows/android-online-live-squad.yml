@@ -17,8 +17,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  build-online-apk:
+    uses: ./.github/workflows/android-native.yml
+    with:
+      multiplayer_url: https://xziel-multiplayer.xziel-875d0324.workers.dev
+
   live-three-player:
     name: Live public runner ${{ matrix.runner }}
+    needs: build-online-apk
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -28,14 +34,11 @@ jobs:
         runner: [1, 2, 3]
 
     steps:
-      - name: Download proven online APK from run 105
+      - name: Download current online APK
         uses: actions/download-artifact@v5
         with:
           name: Xziel-NZP-native-universal-debug
           path: apk
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          repository: ${{ github.repository }}
-          run-id: 36299413606
 
       - name: Install Android emulator
         shell: bash
