@@ -3692,6 +3692,43 @@ static const XzGeometryBatch *XzStaticSceneCamera(
         : NULL;
 }
 
+static uint32_t XzStaticCountCameraLights(
+    const float camera_origin[3])
+{
+    uint32_t count = 0u;
+    uint32_t i;
+
+    if (!camera_origin)
+        return 0u;
+
+    for (i = 0u;
+         i < xz_shadow.static_local_light_count;
+         ++i) {
+        const XzGles3StaticLocalLight *light =
+            &xz_shadow.static_local_lights[i];
+        const float dx =
+            light->position_game[0] -
+            camera_origin[0];
+        const float dy =
+            light->position_game[1] -
+            camera_origin[1];
+        const float dz =
+            light->position_game[2] -
+            camera_origin[2];
+        const float distance_sq =
+            dx * dx + dy * dy + dz * dz;
+        const float radius_sq =
+            light->radius_game *
+            light->radius_game;
+
+        if (isfinite(distance_sq) &&
+            distance_sq <= radius_sq)
+            count++;
+    }
+
+    return count;
+}
+
 static int XzDrawStaticScene(
     XzGles3ShadowState *state,
     const XzGeometryFrame *geometry)
@@ -3704,13 +3741,8 @@ static int XzDrawStaticScene(
     unsigned int textured_draw_calls = 0u;
     unsigned int untextured_draw_calls = 0u;
     float camera_origin[3];
-    float local_positions[
-        XZ_STATIC_LOCAL_LIGHT_ACTIVE_MAX * 4u];
-    float local_colors[
-        XZ_STATIC_LOCAL_LIGHT_ACTIVE_MAX * 4u];
-    float local_directions[
-        XZ_STATIC_LOCAL_LIGHT_ACTIVE_MAX * 4u];
-    uint32_t active_local_lights;
+    float grid_min_cell[4];
+    float grid_dims[4];
 
     if (!state ||
         !state->static_scene_gpu_ready ||
@@ -3727,20 +3759,44 @@ static int XzDrawStaticScene(
             camera_origin))
         return 0;
 
-    active_local_lights =
-        XzStaticSelectLocalLights(
-            camera_origin,
-            local_positions,
-            local_colors,
-            local_directions,
-            state);
-
     if (!state->static_scene_local_lighting_ready ||
-        active_local_lights >
-            XZ_STATIC_LOCAL_LIGHT_ACTIVE_MAX ||
-        state->
-            static_scene_local_light_dropped_affecting != 0u)
+        !state->static_scene_clustered_lighting_ready ||
+        !xz_shadow.static_local_pos_radius_texture ||
+        !xz_shadow.static_local_color_cone_texture ||
+        !xz_shadow.static_local_dir_cos_texture ||
+        !xz_shadow.static_local_grid_texture ||
+        !xz_shadow.static_light_grid.cells ||
+        xz_shadow.static_light_grid.cell_count == 0u ||
+        xz_shadow.static_light_grid.max_lights_per_cell >
+            XZ_STATIC_LIGHT_GRID_CAPACITY)
         return 0;
+
+    state->static_scene_local_light_active =
+        xz_shadow.static_local_light_count;
+    state->static_scene_local_light_camera_affecting =
+        XzStaticCountCameraLights(
+            camera_origin);
+    state->static_scene_local_light_dropped_affecting =
+        0u;
+
+    grid_min_cell[0] =
+        xz_shadow.static_light_grid.minimum[0];
+    grid_min_cell[1] =
+        xz_shadow.static_light_grid.minimum[1];
+    grid_min_cell[2] =
+        xz_shadow.static_light_grid.minimum[2];
+    grid_min_cell[3] =
+        1.0f /
+        xz_shadow.static_light_grid.cell_size;
+
+    grid_dims[0] =
+        (float)xz_shadow.static_light_grid.dimensions[0];
+    grid_dims[1] =
+        (float)xz_shadow.static_light_grid.dimensions[1];
+    grid_dims[2] =
+        (float)xz_shadow.static_light_grid.dimensions[2];
+    grid_dims[3] =
+        (float)XZ_STATIC_LIGHT_GRID_STRIDE;
 
     state->static_scene_draw_attempts++;
     state->static_scene_frame_ready = 0;
@@ -3778,23 +3834,32 @@ static int XzDrawStaticScene(
         xz_shadow.static_directional_direction_loc,
         1,
         xz_shadow.static_directional_direction);
-    gl->Uniform1i(
-        xz_shadow.static_local_light_count_loc,
-        (GLint)active_local_lights);
-    if (active_local_lights > 0u) {
-        gl->Uniform4fv(
-            xz_shadow.static_local_pos_inv_radius_loc,
-            (GLsizei)active_local_lights,
-            local_positions);
-        gl->Uniform4fv(
-            xz_shadow.static_local_color_cone_loc,
-            (GLsizei)active_local_lights,
-            local_colors);
-        gl->Uniform4fv(
-            xz_shadow.static_local_dir_cos_outer_loc,
-            (GLsizei)active_local_lights,
-            local_directions);
-    }
+    gl->Uniform4fv(
+        xz_shadow.static_cluster_grid_min_cell_loc,
+        1,
+        grid_min_cell);
+    gl->Uniform4fv(
+        xz_shadow.static_cluster_grid_dims_loc,
+        1,
+        grid_dims);
+
+    gl->ActiveTexture(GL_TEXTURE1);
+    gl->BindTexture(
+        GL_TEXTURE_2D,
+        xz_shadow.static_local_pos_radius_texture);
+    gl->ActiveTexture(GL_TEXTURE2);
+    gl->BindTexture(
+        GL_TEXTURE_2D,
+        xz_shadow.static_local_color_cone_texture);
+    gl->ActiveTexture(GL_TEXTURE3);
+    gl->BindTexture(
+        GL_TEXTURE_2D,
+        xz_shadow.static_local_dir_cos_texture);
+    gl->ActiveTexture(GL_TEXTURE4);
+    gl->BindTexture(
+        GL_TEXTURE_2D,
+        xz_shadow.static_local_grid_texture);
+    gl->ActiveTexture(GL_TEXTURE0);
 
     gl->Enable(GL_DEPTH_TEST);
     gl->DepthMask(GL_TRUE);
