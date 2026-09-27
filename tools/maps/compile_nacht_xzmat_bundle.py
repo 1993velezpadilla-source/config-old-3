@@ -118,6 +118,20 @@ def binding_score(row: dict) -> int:
     return score
 
 
+def is_auxiliary_texture(row: dict) -> bool:
+    """True for authored maps that must never stand in for surface base color."""
+    source = str(row.get("source", "")).lower()
+    name = str(row.get("textureName", "")).lower()
+    negative = (
+        "normal", "_n", "mrs", "rough", "metal", "spec",
+        "opacity", "mask", "_ao", "ambientocclusion",
+    )
+    return (
+        "normaltexture" in source
+        or any(token in name for token in negative)
+    )
+
+
 def vector_binding_score(row: dict) -> int:
     """Rank only vector parameters that plausibly represent surface base color."""
     name = re.sub(
@@ -328,10 +342,48 @@ def main() -> int:
             bindings_by_material.setdefault(key, []).append(row)
 
     selected_by_material: dict[str, str] = {}
+    streaming_identity_fallbacks = 0
+    streaming_unique_color_fallbacks = 0
+
     for material_path, candidates in bindings_by_material.items():
         ranked = sorted(candidates, key=binding_score, reverse=True)
         if ranked and binding_score(ranked[0]) > 0:
-            selected_by_material[material_path] = str(ranked[0]["texturePath"]).lower()
+            selected_by_material[material_path] = str(
+                ranked[0]["texturePath"]
+            ).lower()
+            continue
+
+        # TextureStreamingData survives on cooked materials whose semantic
+        # parameter tables are stripped. Prefer exact material/texture identity
+        # first (for example Foo_Mat -> Foo).
+        streaming = [
+            row for row in candidates
+            if str(row.get("source", "")).lower().startswith("streaming:")
+        ]
+        material_identity = canonical(material_object_name(material_path))
+        identity_matches = {
+            str(row.get("texturePath", "")).lower()
+            for row in streaming
+            if not is_auxiliary_texture(row)
+            and canonical(str(row.get("textureName", ""))) == material_identity
+            and str(row.get("texturePath", "")).strip()
+        }
+        if len(identity_matches) == 1:
+            selected_by_material[material_path] = next(iter(identity_matches))
+            streaming_identity_fallbacks += 1
+            continue
+
+        # If only one authored non-auxiliary streaming texture remains, the
+        # choice is unambiguous. Normals/spec/masks are explicitly excluded.
+        color_candidates = {
+            str(row.get("texturePath", "")).lower()
+            for row in streaming
+            if not is_auxiliary_texture(row)
+            and str(row.get("texturePath", "")).strip()
+        }
+        if len(color_candidates) == 1:
+            selected_by_material[material_path] = next(iter(color_candidates))
+            streaming_unique_color_fallbacks += 1
 
     vectors_by_material: dict[str, list[dict]] = {}
     for row in vector_rows:
