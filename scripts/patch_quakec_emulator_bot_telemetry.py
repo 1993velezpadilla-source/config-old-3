@@ -79,16 +79,24 @@ string(entity player) XzielBot_ZombiesJson =
 		float distance = vlen(z.origin - player.origin);
 		if (distance <= 1200 && z.health > 0) {
 			float targeting_player = 0;
+			float visible = 0;
 			if (z.enemy == player)
 				targeting_player = 1;
+			traceline(player.origin + '0 0 24', z.origin + '0 0 32', FALSE, player);
+			if (trace_fraction >= 1 || trace_ent == z || trace_ent.owner == z)
+				visible = 1;
 			out = sprintf(
 				"%s%s{\\\"id\\\":%g,\\\"position\\\":[%g,%g,%g]",
 				out, comma ? "," : "", emitted + 1,
 				z.origin_x, z.origin_y, z.origin_z
 			);
 			out = sprintf(
-				"%s,\\\"health\\\":%g,\\\"targeting_me\\\":%g,\\\"state\\\":\\\"%s\\\"}",
-				out, z.health, targeting_player, z.aistatus
+				"%s,\\\"health\\\":%g,\\\"targeting_me\\\":%g,\\\"visible\\\":%g",
+				out, z.health, targeting_player, visible
+			);
+			out = sprintf(
+				"%s,\\\"state\\\":\\\"%s\\\"}",
+				out, z.aistatus
 			);
 			comma = 1;
 			emitted++;
