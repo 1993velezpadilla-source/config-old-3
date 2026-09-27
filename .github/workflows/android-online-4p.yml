@@ -307,14 +307,93 @@ jobs:
           # Recover the ADB transport and require a real PNG before using its
           # dimensions for the pause tap. This is CI-only; game/runtime behavior
           # is unchanged.
+          adb_recover() {
+            local attempt
+            for attempt in 1 2 3 4 5 6; do
+              if timeout 5 "$ADB" get-state 2>/dev/null | grep -qx "device" && \
+                 timeout 5 "$ADB" shell true >/dev/null 2>&1; then
+                return 0
+              fi
+
+              echo "ADB transport attempt ${attempt}/6 is not ready; recovering."
+              "$ADB" reconnect offline >/dev/null 2>&1 || true
+              timeout 12 "$ADB" wait-for-device >/dev/null 2>&1 || true
+
+              if timeout 5 "$ADB" get-state 2>/dev/null | grep -qx "device" && \
+                 timeout 5 "$ADB" shell true >/dev/null 2>&1; then
+                return 0
+              fi
+
+              # One emulator lives on each isolated GitHub runner, so restarting
+              # that runner's adb server cannot disturb any of the other players.
+              "$ADB" kill-server >/dev/null 2>&1 || true
+              "$ADB" start-server >/dev/null 2>&1 || true
+              timeout 20 "$ADB" wait-for-device >/dev/null 2>&1 || true
+              sleep 2
+            done
+            return 1
+          }
+
+          adb_shell_retry() {
+            local attempt
+            for attempt in 1 2 3 4 5; do
+              if adb_recover && timeout 15 "$ADB" shell "$@"; then
+                return 0
+              fi
+              echo "ADB shell attempt ${attempt}/5 failed: $*"
+              sleep 2
+            done
+            return 1
+          }
+
+          adb_logcat_snapshot() {
+            local out="$1"
+            local format="$2"
+            local tmp="${out}.tmp"
+            local attempt
+            for attempt in 1 2 3 4 5; do
+              rm -f "$tmp"
+              if adb_recover && \
+                 timeout 20 "$ADB" logcat -d -v "$format" > "$tmp" 2>/dev/null; then
+                mv "$tmp" "$out"
+                return 0
+              fi
+              echo "ADB logcat attempt ${attempt}/5 failed; preserving the last snapshot."
+              sleep 2
+            done
+            rm -f "$tmp"
+            return 1
+          }
+
+          adb_ui_dump() {
+            local remote="$1"
+            local out="$2"
+            local tmp="${out}.tmp"
+            local attempt
+            for attempt in 1 2 3 4 5; do
+              rm -f "$tmp"
+              if adb_recover && \
+                 timeout 20 "$ADB" shell uiautomator dump "$remote" >/dev/null 2>&1 && \
+                 timeout 15 "$ADB" pull "$remote" "$tmp" >/dev/null 2>&1 && \
+                 [[ -s "$tmp" ]]; then
+                mv "$tmp" "$out"
+                return 0
+              fi
+              echo "ADB UI dump attempt ${attempt}/5 failed; reconnecting."
+              sleep 2
+            done
+            rm -f "$tmp"
+            return 1
+          }
+
           capture_framebuffer() {
             local out="$1"
             local tmp="${out}.tmp"
             local attempt
             for attempt in 1 2 3 4 5; do
               rm -f "$tmp"
-              if "$ADB" get-state 2>/dev/null | grep -qx "device" && \
-                 "$ADB" exec-out screencap -p > "$tmp" 2>/dev/null && \
+              if adb_recover && \
+                 timeout 20 "$ADB" exec-out screencap -p > "$tmp" 2>/dev/null && \
                  python3 - "$tmp" <<'PY'
           import struct, sys
           from pathlib import Path
@@ -331,8 +410,6 @@ jobs:
               fi
 
               echo "ADB framebuffer attempt ${attempt}/5 failed; reconnecting transport."
-              "$ADB" reconnect offline >/dev/null 2>&1 || true
-              timeout 20 "$ADB" wait-for-device >/dev/null 2>&1 || true
               sleep 2
             done
             rm -f "$tmp"
@@ -343,8 +420,7 @@ jobs:
           capture_framebuffer "evidence/player-${{ matrix.runner }}.png"
 
           # Prove the two small HUD voice controls are interactive.
-          "$ADB" shell uiautomator dump /sdcard/xziel-hud.xml >/dev/null 2>&1 || true
-          "$ADB" pull /sdcard/xziel-hud.xml "evidence/hud-ui-${{ matrix.runner }}.xml" >/dev/null 2>&1 || true
+          adb_ui_dump /sdcard/xziel-hud.xml "evidence/hud-ui-${{ matrix.runner }}.xml" || true
           python3 - "evidence/hud-ui-${{ matrix.runner }}.xml" "evidence/hud-taps-${{ matrix.runner }}.txt" <<'PY'
           import re, sys
           from pathlib import Path
@@ -361,15 +437,15 @@ jobs:
 
           while IFS='|' read -r LABEL X Y; do
             [[ -n "$X" && -n "$Y" ]] || continue
-            "$ADB" shell input tap "$X" "$Y"
+            adb_shell_retry input tap "$X" "$Y"
             sleep 1
           done < "evidence/hud-taps-${{ matrix.runner }}.txt"
-          "$ADB" exec-out screencap -p > "evidence/hud-voice-muted-${{ matrix.runner }}.png" || true
+          capture_framebuffer "evidence/hud-voice-muted-${{ matrix.runner }}.png" || true
 
           # Restore the global HUD voice toggles so the pause mixer starts live.
           while IFS='|' read -r LABEL X Y; do
             [[ -n "$X" && -n "$Y" ]] || continue
-            "$ADB" shell input tap "$X" "$Y"
+            adb_shell_retry input tap "$X" "$Y"
             sleep 1
           done < "evidence/hud-taps-${{ matrix.runner }}.txt"
 
@@ -392,12 +468,11 @@ jobs:
           PAUSE_X=$((WIDTH * 965 / 1000))
           PAUSE_Y=$((HEIGHT * 75 / 1000))
           echo "Pause HUD tap framebuffer=${WIDTH}x${HEIGHT} at ${PAUSE_X},${PAUSE_Y}"
-          "$ADB" shell input tap "$PAUSE_X" "$PAUSE_Y"
+          adb_shell_retry input tap "$PAUSE_X" "$PAUSE_Y"
           sleep 2
-          "$ADB" exec-out screencap -p > "evidence/online-pause-${{ matrix.runner }}.png" || true
+          capture_framebuffer "evidence/online-pause-${{ matrix.runner }}.png" || true
 
-          "$ADB" shell uiautomator dump /sdcard/xziel-pause.xml >/dev/null 2>&1 || true
-          "$ADB" pull /sdcard/xziel-pause.xml "evidence/pause-ui-${{ matrix.runner }}.xml" >/dev/null 2>&1 || true
+          adb_ui_dump /sdcard/xziel-pause.xml "evidence/pause-ui-${{ matrix.runner }}.xml" || true
           echo "Pause accessibility controls for runner ${{ matrix.runner }}:"
           grep -o 'content-desc="[^"]*"' "evidence/pause-ui-${{ matrix.runner }}.xml" | \
             grep -E 'Mute|Unmute' || true
@@ -416,9 +491,9 @@ jobs:
 
           if [[ -s "evidence/player-mute-tap-${{ matrix.runner }}.txt" ]]; then
             read -r MUTED_SLOT MX MY < "evidence/player-mute-tap-${{ matrix.runner }}.txt"
-            "$ADB" shell input tap "$MX" "$MY"
+            adb_shell_retry input tap "$MX" "$MY"
             sleep 1
-            "$ADB" exec-out screencap -p > "evidence/online-pause-muted-${{ matrix.runner }}.png" || true
+            capture_framebuffer "evidence/online-pause-muted-${{ matrix.runner }}.png" || true
           fi
 
           # The per-player mute is the final real interaction in this job.
@@ -427,16 +502,40 @@ jobs:
           # slot 1, the listen server) alive until all four jobs have reached
           # the same point, instead of letting GitHub tear the host down early.
           EVIDENCE_BARRIER=0
+          BARRIER_ADB_MISSES=0
           for i in $(seq 1 90); do
-            "$ADB" logcat -d -v brief > "evidence/barrier-logcat-${{ matrix.runner }}.txt" || true
             BARRIER_LOG="evidence/barrier-logcat-${{ matrix.runner }}.txt"
+
+            # ADB going offline is not evidence that NZP exited. Recover the
+            # transport and keep the peer alive instead of cascading a false
+            # PLAYER_LEFT into the other jobs.
+            if ! adb_logcat_snapshot "$BARRIER_LOG" brief; then
+              BARRIER_ADB_MISSES=$((BARRIER_ADB_MISSES + 1))
+              echo "Barrier ADB snapshot unavailable (${BARRIER_ADB_MISSES}/6)."
+              if [[ "$BARRIER_ADB_MISSES" -ge 6 ]]; then
+                echo "ADB could not be recovered during the evidence barrier."
+                break
+              fi
+              sleep 2
+              continue
+            fi
+            BARRIER_ADB_MISSES=0
+
             REMOTE_DONE="$(awk '/XzielOnline.*CI_REMOTE_ACTION/ && /action=CI_EVIDENCE_DONE/ { if (match($0, / remote=[1-4]/)) print substr($0, RSTART + 8, 1) }' "$BARRIER_LOG" | sort -u | wc -l | tr -d ' ')"
-            if grep -q "XzielOnline.*CI_EVIDENCE_DONE slot=" "$BARRIER_LOG" &&                [[ "$REMOTE_DONE" -ge 3 ]]; then
+            if grep -q "XzielOnline.*CI_EVIDENCE_DONE slot=" "$BARRIER_LOG" && \
+               [[ "$REMOTE_DONE" -ge 3 ]]; then
               EVIDENCE_BARRIER=1
               break
             fi
-            if ! "$ADB" shell pidof com.xziel.nzp >/dev/null 2>&1; then
-              break
+
+            # Only treat a missing process as real after ADB itself has been
+            # positively recovered. A transport failure never means app death.
+            if adb_recover; then
+              PID_NOW="$(timeout 10 "$ADB" shell pidof com.xziel.nzp 2>/dev/null | tr -d '\r' || true)"
+              if [[ -z "$PID_NOW" ]]; then
+                echo "NZP process is no longer running after healthy ADB recovery."
+                break
+              fi
             fi
             sleep 2
           done
@@ -447,7 +546,7 @@ jobs:
               "evidence/barrier-logcat-${{ matrix.runner }}.txt" | tail -n 180 || true
           fi
 
-          "$ADB" logcat -d -v threadtime > "evidence/logcat-${{ matrix.runner }}.txt" || true
+          adb_logcat_snapshot "evidence/logcat-${{ matrix.runner }}.txt" threadtime || true
 
           {
             echo "runner=${{ matrix.runner }}"
@@ -456,7 +555,8 @@ jobs:
               "evidence/logcat-${{ matrix.runner }}.txt" || true
           } > "evidence/online-summary-${{ matrix.runner }}.txt"
 
-          PID="$("$ADB" shell pidof com.xziel.nzp 2>/dev/null | tr -d '\r' || true)"
+          adb_recover || true
+          PID="$(timeout 10 "$ADB" shell pidof com.xziel.nzp 2>/dev/null | tr -d '\r' || true)"
           test -n "$PID"
           test "$SUCCESS" = "1"
           test "$EVIDENCE_BARRIER" = "1"
