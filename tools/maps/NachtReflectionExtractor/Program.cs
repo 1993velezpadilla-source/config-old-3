@@ -538,4 +538,8 @@ Console.WriteLine(
             output.reflectionCaptureTypeCounts
         }));
 
+Console.WriteLine(
+    "XZIEL_NACHT_REFLECTION_CENSUS_DATA "
+    + JsonSerializer.Serialize(output));
+
 return 0;
