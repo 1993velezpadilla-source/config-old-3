@@ -23,6 +23,9 @@
 #define XZ_STATIC_SCENE_MAX_ENVIRONMENT_BYTES \
     (256u * 1024u)
 
+#define XZ_STATIC_SCENE_MAX_LIGHT_SPECULAR_BYTES \
+    (16u * 1024u)
+
 #define XZ_STATIC_SCENE_MAX_HEIGHT_FOG_BYTES \
     (4u * 1024u)
 
@@ -34,6 +37,12 @@
 #define XZ_XZMN_TEXTURE_BYTES 20u
 #define XZ_XZMN_VERSION 1u
 #define XZ_XZMN_FLAG_RGBA8_NORMAL 2u
+#define XZ_XZLS_HEADER_BYTES 16u
+#define XZ_XZLS_RECORD_BYTES 12u
+#define XZ_XZLS_VERSION 1u
+#define XZ_XZLS_ALLOWED_FLAGS \
+    (XZ_STATIC_LIGHT_SPECULAR_HAS_SCALE | \
+     XZ_STATIC_LIGHT_SPECULAR_HAS_INDIRECT)
 
 #define XZ_STATIC_SCENE_GAMEPLAY_UNITS_PER_METER \
     39.3700787402f
@@ -62,6 +71,97 @@ static uint32_t XzStaticReadU32Le(
            ((uint32_t)p[1] << 8) |
            ((uint32_t)p[2] << 16) |
            ((uint32_t)p[3] << 24);
+}
+
+static float XzStaticReadF32Le(
+    const unsigned char *p)
+{
+    uint32_t bits =
+        XzStaticReadU32Le(p);
+    float value;
+
+    memcpy(&value, &bits, sizeof(value));
+    return value;
+}
+
+static int XzValidateLightSpecularPack(
+    const unsigned char *data,
+    size_t size,
+    uint32_t expected_lights,
+    uint32_t *light_count,
+    size_t *records_offset)
+{
+    uint32_t lights;
+    uint32_t record_bytes;
+    uint64_t expected_size;
+    uint32_t i;
+
+    if (!data ||
+        size < XZ_XZLS_HEADER_BYTES ||
+        !light_count ||
+        !records_offset)
+        return 0;
+
+    if (data[0] != 'X' ||
+        data[1] != 'Z' ||
+        data[2] != 'L' ||
+        data[3] != 'S')
+        return 0;
+
+    if (XzStaticReadU32Le(data + 4u) !=
+            XZ_XZLS_VERSION)
+        return 0;
+
+    lights = XzStaticReadU32Le(data + 8u);
+    record_bytes = XzStaticReadU32Le(data + 12u);
+
+    if (lights == 0u ||
+        lights != expected_lights ||
+        record_bytes != XZ_XZLS_RECORD_BYTES)
+        return 0;
+
+    expected_size =
+        (uint64_t)XZ_XZLS_HEADER_BYTES +
+        (uint64_t)lights *
+            (uint64_t)XZ_XZLS_RECORD_BYTES;
+    if (expected_size != (uint64_t)size)
+        return 0;
+
+    for (i = 0u; i < lights; ++i) {
+        const unsigned char *record =
+            data +
+            XZ_XZLS_HEADER_BYTES +
+            (size_t)i * XZ_XZLS_RECORD_BYTES;
+        uint32_t flags =
+            XzStaticReadU32Le(record + 0u);
+        float specular =
+            XzStaticReadF32Le(record + 4u);
+        float indirect =
+            XzStaticReadF32Le(record + 8u);
+
+        if ((flags & ~XZ_XZLS_ALLOWED_FLAGS) != 0u)
+            return 0;
+
+        if ((flags &
+             XZ_STATIC_LIGHT_SPECULAR_HAS_SCALE) != 0u) {
+            if (!isfinite(specular) ||
+                specular < 0.0f ||
+                specular > 64.0f)
+                return 0;
+        }
+
+        if ((flags &
+             XZ_STATIC_LIGHT_SPECULAR_HAS_INDIRECT) != 0u) {
+            if (!isfinite(indirect) ||
+                indirect < 0.0f ||
+                indirect > 64.0f)
+                return 0;
+        }
+    }
+
+    *light_count = lights;
+    *records_offset = XZ_XZLS_HEADER_BYTES;
+    return 1;
 }
 
 static int XzValidateMaterialPack(
@@ -463,6 +563,9 @@ void XzStaticSceneRuntime_Reset(
     if (state->environment_data)
         free(state->environment_data);
 
+    if (state->light_specular_data)
+        free(state->light_specular_data);
+
     if (state->height_fog_data)
         free(state->height_fog_data);
 
@@ -488,6 +591,10 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
     size_t environment_bytes = 0u;
     XzEnvironmentView environment;
     XzEnvironmentStatus environment_status;
+    unsigned char *light_specular_data = NULL;
+    size_t light_specular_bytes = 0u;
+    uint32_t light_specular_count = 0u;
+    size_t light_specular_records_offset = 0u;
     unsigned char *height_fog_data = NULL;
     size_t height_fog_bytes = 0u;
     XzHeightFogView height_fog;
@@ -500,6 +607,7 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
     char pbr_material_path[256];
     char normal_material_path[256];
     char environment_path[256];
+    char light_specular_path[256];
     char height_fog_path[256];
     char mesh_prefix[160];
     char failure[128] = "";
