@@ -449,6 +449,12 @@ foreach (var export in exports)
                 export,
                 "bVisible"));
 
+    var usedAsAtmosphereSunLight =
+        Boolean(
+            ReadMember(
+                export,
+                "bUsedAsAtmosphereSunLight"));
+
     if (
         intensity is null ||
         lightColor is null)
@@ -600,6 +606,7 @@ foreach (var export in exports)
                 useTemperature,
                 visible,
                 castShadows,
+                usedAsAtmosphereSunLight,
                 optional
             }
         });
