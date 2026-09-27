@@ -2775,6 +2775,10 @@ jobs:
             dist/static-scene-logcat.txt
 
           grep -E \
+            "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*envLights=166 envPoint=144 envSpot=19 envDirectional=2 envSky=1 envBytes=14636" \
+            dist/static-scene-logcat.txt
+
+          grep -E \
             "XZIEL-XZ.*legacy3d worldTransition.*map='xziel_nacht_bo3'.*mapRuntime=NACHT_BO3" \
             dist/static-scene-logcat.txt
 
@@ -2791,6 +2795,9 @@ jobs:
 
           echo \
             "XZIEL_NACHT_MATERIAL_GPU_GREEN bindings=1063"
+
+          echo \
+            "XZIEL_NACHT_ENVIRONMENT_GREEN lights=166 point=144 spot=19 directional=2 sky=1 bytes=14636"
 
           echo \
             "XZIEL_NACHT_ANDROID_STATIC_SCENE_GREEN meshes=492 instances=10791 xzms=492 vertices=1067383 indices=3608148 submeshes=1063 gpuBytes=48588848"
