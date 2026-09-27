@@ -90,6 +90,8 @@ for name in (
     "xz_environment.c",
     "xz_height_fog.h",
     "xz_height_fog.c",
+    "xz_pbr_material.h",
+    "xz_pbr_material.c",
     "xz_world_transform.h",
     "xz_world_transform.c",
     "xz_bo3_weapon_specs.h",
