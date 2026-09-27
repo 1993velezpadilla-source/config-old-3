@@ -11,6 +11,7 @@ on:
       - feature/xziel-static-scene-material-coverage-v2
       - feature/xziel-static-scene-material-final5
       - feature/xziel-static-scene-material-final5-exact-gate
+      - feature/xziel-nacht-srgb-fidelity-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
