@@ -26,6 +26,7 @@ on:
       - feature/xziel-nacht-reflection-capture-census-v1
       - feature/xziel-nacht-reflection-builtdata-v1
       - feature/xziel-nacht-reflection-payload-v1
+      - feature/xziel-nacht-reflection-cubemap-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -45,6 +46,7 @@ on:
       - "tools/maps/compile_nacht_environment.py"
       - "tools/maps/NachtLightExtractor/**"
       - "tools/maps/NachtReflectionExtractor/**"
+      - "tools/maps/compile_nacht_reflection_capture.py"
       - "tools/maps/NachtFogExtractor/**"
       - "tools/maps/compile_nacht_height_fog.py"
       - "engine/xz/xz_height_fog.*"
@@ -353,6 +355,100 @@ jobs:
           test ! -f build/nacht-static-scene/reflection-encodedhdr.bin || \
             cp build/nacht-static-scene/reflection-encodedhdr.bin \
               dist/reflection-encodedhdr.bin
+
+      - name: Compile exact Nacht XZRC reflection cubemap
+        run: |
+          set -euo pipefail
+          python3 tools/maps/compile_nacht_reflection_capture.py \
+            --payload build/nacht-static-scene/reflection-fullhdr.bin \
+            --census build/nacht-static-scene/reflection-census.json \
+            --output build/nacht-static-scene/reflection.xzrc \
+            --report build/nacht-static-scene/xziel.xzrc.report.json \
+            | tee build/nacht-static-scene/xzrc-compile.log
+
+          test -s build/nacht-static-scene/reflection.xzrc
+          test -s build/nacht-static-scene/xziel.xzrc.report.json
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          import json
+          import struct
+
+          asset = Path(
+              "build/nacht-static-scene/reflection.xzrc"
+          ).read_bytes()
+          header = struct.Struct("<4sIIIIIIIIff16sI")
+          assert header.size == 64
+          assert len(asset) == 1_048_624
+
+          (
+              magic,
+              version,
+              size,
+              mips,
+              faces,
+              pixel_format,
+              bytes_per_texel,
+              payload_offset,
+              payload_bytes,
+              average_brightness,
+              brightness,
+              guid,
+              flags,
+          ) = header.unpack_from(asset)
+
+          assert magic == b"XZRC"
+          assert version == 1
+          assert size == 128
+          assert mips == 8
+          assert faces == 6
+          assert pixel_format == 1
+          assert bytes_per_texel == 8
+          assert payload_offset == 64
+          assert payload_bytes == 1_048_560
+          assert flags == 0
+          assert abs(average_brightness - 0.04043579) < 1e-6
+          assert abs(brightness - 1.0) < 1e-6
+          assert guid.hex().upper() == (
+              "26AEB6B544E0C552B1F0519279A3BF2D"
+          )
+
+          payload = asset[payload_offset:]
+          assert len(payload) == payload_bytes
+          sha = hashlib.sha256(payload).hexdigest().upper()
+          assert sha == (
+              "B371451EE1E0AAD877125B4F36EAE584"
+              "3A5009CB8E23143206BD54683D6B8843"
+          )
+
+          report = json.loads(
+              Path(
+                  "build/nacht-static-scene/xziel.xzrc.report.json"
+              ).read_text(encoding="utf-8")
+          )
+          assert report["format"] == "XZRC"
+          assert report["cubemapSize"] == 128
+          assert report["mipCount"] == 8
+          assert report["faceCount"] == 6
+          assert report["pixelFormat"] == "RGBA16F"
+          assert report["payloadLayout"] == "mip-major-face-minor"
+          assert report["sourcePreservedByteForByte"] is True
+
+          print(
+              "XZIEL_NACHT_XZRC_GREEN",
+              {
+                  "size": size,
+                  "mips": mips,
+                  "faces": faces,
+                  "payloadBytes": payload_bytes,
+                  "sha256": sha,
+              },
+          )
+          PY
+
+          cp build/nacht-static-scene/reflection.xzrc \
+            dist/reflection.xzrc
 
       - name: Extract exact Nacht exponential height fog
         run: |
@@ -2739,6 +2835,9 @@ jobs:
             --report build/nacht-static-scene/xziel.xzfg.report.json \
             | tee build/nacht-static-scene/xzfg-compile.log
 
+          cp build/nacht-static-scene/reflection.xzrc \
+            "$MAPROOT/reflection.xzrc"
+
           test "$(find "$MAPROOT/meshes" \
             -maxdepth 1 -type f -name '*.xzm' | wc -l)" \
             -eq 492
@@ -2748,6 +2847,7 @@ jobs:
           test -s "$MAPROOT/materials.xzmn"
           test -s "$MAPROOT/environment.xzen"
           test -s "$MAPROOT/fog.xzfg"
+          test -s "$MAPROOT/reflection.xzrc"
 
           python3 - <<'PY'
           import json
@@ -2925,6 +3025,9 @@ jobs:
 
           unzip -l "$ZIP" \
             | grep -F 'nzp/xziel/maps/xziel_nacht_bo3/fog.xzfg'
+
+          unzip -l "$ZIP" \
+            | grep -F 'nzp/xziel/maps/xziel_nacht_bo3/reflection.xzrc'
 
           test "$(unzip -Z1 "$ZIP" \
             | grep -E '^nzp/xziel/maps/xziel_nacht_bo3/meshes/.*\.xzm$' \
@@ -3173,6 +3276,22 @@ jobs:
           grep -q "float distributionGGX" engine/xz/xz_gles3_shadow.c
           grep -q "vec3 cookTorranceSpec" engine/xz/xz_gles3_shadow.c
           grep -q "localSpec+=cookTorranceSpec" engine/xz/xz_gles3_shadow.c
+          grep -q "uniform samplerCube uReflectionCapture" \
+            engine/xz/xz_gles3_shadow.c
+          grep -q "float ueReflectionMip" \
+            engine/xz/xz_gles3_shadow.c
+          grep -q "float levelFrom1x1=1.0-1.2\*log2" \
+            engine/xz/xz_gles3_shadow.c
+          grep -q "vec3 ueEnvBRDFApprox" \
+            engine/xz/xz_gles3_shadow.c
+          grep -q "textureLod(uReflectionCapture,ueR,mip)" \
+            engine/xz/xz_gles3_shadow.c
+          grep -q "vec3 ueR=normalize(vec3(R.x,-R.y,R.z))" \
+            engine/xz/xz_gles3_shadow.c
+
+          grep -E \
+            "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*reflectionReady=1 reflectionIblReady=1 reflectionSize=128 reflectionMips=8 reflectionBytes=1048624 reflectionGpuBytes=1048560 reflectionAvg=0\.04043579 reflectionBrightness=1\.000000" \
+            dist/static-scene-logcat.txt
 
           grep -E \
             "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*normalBindings=1063 normalMapped=[1-9][0-9]* normalTextures=[1-9][0-9]* normalBytes=[1-9][0-9]* normalGpuReady=1" \
@@ -3200,6 +3319,10 @@ jobs:
 
           grep -E \
             "XZIEL-XZ.*static_scene_draw ready=1.*normalReady=1 normalApplied=[1-9][0-9]* normalMapped=[1-9][0-9]*.*pbrReady=1 pbrApplied=1063 pbrAuthored=91 specularReady=1 specularLocal=64" \
+            dist/static-scene-logcat.txt
+
+          grep -E \
+            "XZIEL-XZ.*static_scene_draw ready=1.*reflectionReady=1 reflectionIblReady=1 reflectionSize=128 reflectionMips=8 reflectionGpuBytes=1048560" \
             dist/static-scene-logcat.txt
 
           python3 - <<'PY'
@@ -3272,6 +3395,9 @@ jobs:
             "XZIEL_NACHT_SPECULAR_RESPONSE_GREEN ggx=1 fresnel=1 local=64 pbrAuthored=91"
 
           echo \
+            "XZIEL_NACHT_REFLECTION_CUBEMAP_GREEN size=128 mips=8 faces=6 rgba16f=1 gpuBytes=1048560 ibl=1"
+
+          echo \
             "XZIEL_NACHT_ENVIRONMENT_GREEN lights=166 point=144 spot=19 directional=2 sky=1 bytes=14636"
 
           echo \
@@ -3306,6 +3432,9 @@ jobs:
             build/nacht-static-scene/light-extract.log
             build/nacht-static-scene/reflection-census.json
             build/nacht-static-scene/reflection-census.log
+            build/nacht-static-scene/reflection.xzrc
+            build/nacht-static-scene/xziel.xzrc.report.json
+            build/nacht-static-scene/xzrc-compile.log
             build/nacht-static-scene/xzen-compile.log
             build/nacht-static-scene/xzmat-compile.log
             ${{ runner.temp }}/xziel-material-evidence/
