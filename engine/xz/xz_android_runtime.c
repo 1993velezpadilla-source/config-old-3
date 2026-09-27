@@ -1693,6 +1693,42 @@ int XzAndroidRuntime_CompositeVisibleWorld(void)
     return presented;
 }
 
+void XzAndroidRuntime_AuditLegacyPresentBeforeSwap(
+    unsigned int width,
+    unsigned int height)
+{
+    unsigned int *rgba;
+
+    if (!xz_runtime.initialized ||
+        !xz_runtime.gles3_shadow.static_scene_frame_ready ||
+        xz_runtime.gles3_shadow.static_scene_draw_successes != 1u)
+        return;
+
+    rgba =
+        xz_runtime.gles3_shadow.static_scene_preswap_mean_rgba;
+
+    if (!XzGles3Shadow_AuditCurrentFramebuffer(
+            &xz_runtime.gles3_shadow,
+            width,
+            height,
+            rgba))
+        return;
+
+    XzAndroidLog(
+        ANDROID_LOG_INFO,
+        "present_luma"
+        " postRestoreRGBA=%u,%u,%u,%u"
+        " preSwapRGBA=%u,%u,%u,%u",
+        xz_runtime.gles3_shadow.static_scene_postrestore_mean_rgba[0],
+        xz_runtime.gles3_shadow.static_scene_postrestore_mean_rgba[1],
+        xz_runtime.gles3_shadow.static_scene_postrestore_mean_rgba[2],
+        xz_runtime.gles3_shadow.static_scene_postrestore_mean_rgba[3],
+        rgba[0],
+        rgba[1],
+        rgba[2],
+        rgba[3]);
+}
+
 void XzAndroidRuntime_EndFrame(double now_seconds)
 {
     uint64_t rss;
