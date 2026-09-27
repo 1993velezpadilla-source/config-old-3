@@ -63,6 +63,8 @@ def _retryable(exc: Exception) -> bool:
         "unexpected trellis.2 preprocess signature",
         "produced invalid glb",
         "returned no downloaded glb",
+        "greater than maximum value",
+        "less than minimum value",
     )
     if any(marker in text for marker in hard):
         return False
@@ -361,20 +363,21 @@ def generate(
     extract_ep,extract_spec=_endpoint(named,"/extract_glb","extract_glb")
     texture_size=4096 if quality in {"high","ultra"} else 2048
 
-    # Hero Master policy: high-end reconstruction stays dense until after
-    # source/face/cloth fidelity gates. Runtime retopology happens downstream.
-    # The previous 300k/500k extraction target was effectively an early
-    # decimation step and erased exactly the facial/cloth detail we need to
-    # preserve for Monster/Ultra assets.
+    # The public TRELLIS.2 Space hard-caps GLB extraction at 500k faces.
+    # Keep that provider constraint explicit instead of repeatedly submitting an
+    # invalid 1-2M request. HAYUYA's Hero Master target stays separate and is
+    # fulfilled by downstream open geometry enhancement / dense challengers.
+    provider_extract_cap=500_000
     if quality=="ultra":
-        faces=2_000_000
+        hero_target_faces=2_000_000
         hero_min_faces=1_000_000
     elif quality=="high":
-        faces=1_250_000
+        hero_target_faces=1_250_000
         hero_min_faces=650_000
     else:
-        faces=500_000
+        hero_target_faces=500_000
         hero_min_faces=0
+    faces=min(hero_target_faces,provider_extract_cap)
 
     extract_values={
         "state":state,
@@ -422,8 +425,10 @@ def generate(
         "generation_checkpoint":checkpoint,
         "texture_size":texture_size,
         "faces_target":faces,
-        "hero_master_target_faces":faces,
+        "provider_extract_cap_faces":provider_extract_cap,
+        "hero_master_target_faces":hero_target_faces,
         "hero_master_min_faces":hero_min_faces,
+        "hero_master_requires_refinement":hero_target_faces>faces,
         "hero_master_policy":"dense-first-fidelity-before-retopo",
         "bytes":len(data),
     }
