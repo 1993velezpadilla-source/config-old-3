@@ -1612,7 +1612,7 @@ static int XzCreateStaticSceneProgram(void)
 
     static const char *fs_source =
         "#version 300 es\n"
-        "precision mediump float;\n"
+        "precision highp float;\n"
         "in vec3 vNormal;\n"
         "in vec3 vWorldPos;\n"
         "in vec2 vUV;\n"
