@@ -9,9 +9,9 @@ extern "C" {
 #endif
 
 #define XZ_ENV_MAGIC_BYTES 4u
-#define XZ_ENV_VERSION 1u
+#define XZ_ENV_VERSION 2u
 #define XZ_ENV_HEADER_BYTES 28u
-#define XZ_ENV_LIGHT_BYTES 56u
+#define XZ_ENV_LIGHT_BYTES 64u
 
 enum {
     XZ_ENV_LIGHT_POINT = 1u,
@@ -26,7 +26,8 @@ enum {
     XZ_ENV_HAS_COLOR = 1u << 2,
     XZ_ENV_HAS_INTENSITY = 1u << 3,
     XZ_ENV_HAS_RADIUS = 1u << 4,
-    XZ_ENV_HAS_UNITS = 1u << 5
+    XZ_ENV_HAS_UNITS = 1u << 5,
+    XZ_ENV_HAS_CONE = 1u << 6
 };
 
 typedef enum {
@@ -59,6 +60,8 @@ typedef struct {
     float color[3];
     float intensity;
     float radius_meters;
+    float inner_cone_degrees;
+    float outer_cone_degrees;
     uint32_t units;
 } XzEnvironmentLight;
 
