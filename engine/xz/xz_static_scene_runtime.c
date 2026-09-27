@@ -14,6 +14,9 @@
 #define XZ_STATIC_SCENE_MAX_MATERIAL_BYTES \
     (384u * 1024u * 1024u)
 
+#define XZ_STATIC_SCENE_MAX_ENVIRONMENT_BYTES \
+    (256u * 1024u)
+
 #define XZ_XZMT_HEADER_BYTES 24u
 #define XZ_XZMT_TEXTURE_BYTES 20u
 #define XZ_XZMT_VERSION 1u
@@ -325,6 +328,9 @@ void XzStaticSceneRuntime_Reset(
     if (state->material_data)
         free(state->material_data);
 
+    if (state->environment_data)
+        free(state->environment_data);
+
     memset(state, 0, sizeof(*state));
     state->status = XZ_STATIC_SCENE_IDLE;
 }
@@ -337,11 +343,16 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
     size_t scene_bytes = 0u;
     unsigned char *material_data = NULL;
     size_t material_bytes = 0u;
+    unsigned char *environment_data = NULL;
+    size_t environment_bytes = 0u;
+    XzEnvironmentView environment;
+    XzEnvironmentStatus environment_status;
     XzXzsceneView scene;
     XzXzsceneStatus scene_status;
     XzStaticMeshResource *resources = NULL;
     char scene_path[256];
     char material_path[256];
+    char environment_path[256];
     char mesh_prefix[160];
     char failure[128] = "";
     uint32_t material_texture_count = 0u;
@@ -647,6 +658,74 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
         goto invalid;
     }
 
+    if (snprintf(
+            environment_path,
+            sizeof(environment_path),
+            "xziel/maps/%s/environment.xzen",
+            map_id) <= 0 ||
+        strlen(environment_path) >=
+            sizeof(environment_path) - 1u) {
+        snprintf(
+            failure,
+            sizeof(failure),
+            "%s",
+            "environment_path_overflow");
+        goto invalid;
+    }
+
+    read_status = XzReadVfsFile(
+        environment_path,
+        XZ_STATIC_SCENE_MAX_ENVIRONMENT_BYTES,
+        &environment_data,
+        &environment_bytes);
+
+    if (read_status < 0 ||
+        (read_status == 0 &&
+         strcmp(map_id, "xziel_nacht_bo3") == 0)) {
+        snprintf(
+            failure,
+            sizeof(failure),
+            "%s",
+            read_status == 0
+                ? "environment_pack_missing"
+                : "environment_pack_read_failed");
+        goto invalid;
+    }
+
+    if (read_status > 0) {
+        environment_status =
+            XzEnvironment_Parse(
+                &environment,
+                environment_data,
+                environment_bytes);
+
+        if (environment_status != XZ_ENV_OK) {
+            snprintf(
+                failure,
+                sizeof(failure),
+                "environment_%s",
+                XzEnvironment_StatusName(
+                    environment_status));
+            goto invalid;
+        }
+
+        if (strcmp(
+                map_id,
+                "xziel_nacht_bo3") == 0 &&
+            (environment.light_count != 101u ||
+             environment.point_count != 86u ||
+             environment.spot_count != 12u ||
+             environment.directional_count != 2u ||
+             environment.sky_count != 1u)) {
+            snprintf(
+                failure,
+                sizeof(failure),
+                "%s",
+                "nacht_environment_count_mismatch");
+            goto invalid;
+        }
+    }
+
     state->scene_data = scene_data;
     state->scene_bytes = scene_bytes;
     state->scene = scene;
@@ -663,12 +742,25 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
         material_texture_table_offset;
     state->material_binding_offset =
         material_binding_offset;
+    state->environment_data =
+        environment_data;
+    state->environment_bytes =
+        environment_bytes;
+    if (environment_data)
+        state->environment = environment;
     if (material_data) {
         snprintf(
             state->material_path,
             sizeof(state->material_path),
             "%s",
             material_path);
+    }
+    if (environment_data) {
+        snprintf(
+            state->environment_path,
+            sizeof(state->environment_path),
+            "%s",
+            environment_path);
     }
     state->mesh_files_validated =
         scene.mesh_count;
@@ -692,6 +784,7 @@ invalid:
         scene.mesh_count);
     free(scene_data);
     free(material_data);
+    free(environment_data);
 
     state->status =
         XZ_STATIC_SCENE_INVALID;
@@ -810,6 +903,36 @@ int XzStaticSceneRuntime_Texture(
         state->material_data + offset;
     texture->rgba_bytes = (size_t)bytes;
     return 1;
+}
+
+const XzEnvironmentView *
+XzStaticSceneRuntime_Environment(
+    const XzStaticSceneRuntimeState *state)
+{
+    if (!state ||
+        state->status !=
+            XZ_STATIC_SCENE_READY ||
+        !state->environment_data)
+        return NULL;
+
+    return &state->environment;
+}
+
+int XzStaticSceneRuntime_EnvironmentLight(
+    const XzStaticSceneRuntimeState *state,
+    uint32_t light_index,
+    XzEnvironmentLight *light)
+{
+    if (!state ||
+        state->status !=
+            XZ_STATIC_SCENE_READY ||
+        !state->environment_data)
+        return 0;
+
+    return XzEnvironment_ReadLight(
+        &state->environment,
+        light_index,
+        light);
 }
 
 const char *XzStaticSceneRuntime_StatusName(
