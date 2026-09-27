@@ -5,13 +5,19 @@ on:
   push:
     branches:
       - feature/xziel-nacht-decal-environment-v1
+      - feature/xziel-nacht-light-components-166-v1
     paths:
       - ".github/workflows/nacht-decal-environment-audit.yml"
+      - "tools/maps/NachtLightExtractor/**"
+      - "tools/maps/compile_nacht_environment.py"
   pull_request:
     branches:
       - feature/xziel-static-scene-material-final5
+      - feature/xziel-nacht-decal-environment-v1
     paths:
       - ".github/workflows/nacht-decal-environment-audit.yml"
+      - "tools/maps/NachtLightExtractor/**"
+      - "tools/maps/compile_nacht_environment.py"
 
 permissions:
   contents: read
@@ -800,16 +806,64 @@ jobs:
           cp i_t7_zm_der_chalk_help_r.xzt \
             "$GITHUB_WORKSPACE/i_t7_zm_der_chalk_help_r.xzt"
 
-      - name: Compile XZIEL environment pack
+      - name: Extract exact 166 Nacht light components
         run: |
           set -euo pipefail
           mkdir -p build/nacht-environment
+          dotnet run \
+            --project tools/maps/NachtLightExtractor/NachtLightExtractor.csproj \
+            --configuration Release \
+            -- \
+            "$UNPACKED" \
+            build/nacht-environment/light-components.json \
+            | tee build/nacht-environment/extract.log
+          test -s build/nacht-environment/light-components.json
+
+      - name: Compile XZIEL environment pack
+        run: |
+          set -euo pipefail
           python3 tools/maps/compile_nacht_environment.py \
+            --source build/nacht-environment/light-components.json \
             --output build/nacht-environment/environment.xzen \
             --report build/nacht-environment/environment.xzen.report.json \
             | tee build/nacht-environment/compile.log
           test -s build/nacht-environment/environment.xzen
           test -s build/nacht-environment/environment.xzen.report.json
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(
+              Path(
+                  "build/nacht-environment/environment.xzen.report.json"
+              ).read_text(encoding="utf-8")
+          )
+          assert d["version"] == 2
+          assert d["lightCount"] == 166
+          assert d["pointCount"] == 144
+          assert d["spotCount"] == 19
+          assert d["directionalCount"] == 2
+          assert d["skyCount"] == 1
+          assert d["withPosition"] == 166
+          assert d["withRotation"] == 166
+          assert d["withColor"] == 166
+          assert d["withIntensity"] == 166
+          assert d["withRadius"] == 163
+          assert d["withCone"] == 19
+          assert d["withTemperature"] == 165
+          assert d["withCastShadows"] == 166
+          print(
+              "XZIEL_NACHT_XZEN_166_GATE",
+              {
+                  "lights": d["lightCount"],
+                  "point": d["pointCount"],
+                  "spot": d["spotCount"],
+                  "directional": d["directionalCount"],
+                  "sky": d["skyCount"],
+                  "bytes": d["bytes"],
+              },
+          )
+          PY
 
       - name: Gate audit
         run: |

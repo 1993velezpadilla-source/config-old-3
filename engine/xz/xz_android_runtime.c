@@ -1411,6 +1411,9 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
         const XzXzsceneView *static_scene =
             XzStaticSceneRuntime_Scene(
                 &xz_runtime.static_scene);
+        const XzEnvironmentView *environment =
+            XzStaticSceneRuntime_Environment(
+                &xz_runtime.static_scene);
         int static_gpu_ready = 0;
 
         if (static_status ==
@@ -1437,6 +1440,8 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             " materialReady=%d gpuTextures=%u"
             " gpuTextureBytes=%" PRIu64
             " materialBindings=%u mappedBindings=%u"
+            " envLights=%u envPoint=%u envSpot=%u"
+            " envDirectional=%u envSky=%u envBytes=%zu"
             " error='%s'",
             XzStaticSceneRuntime_StatusName(
                 static_status),
@@ -1465,6 +1470,22 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             xz_runtime.gles3_shadow.static_scene_gpu_texture_bytes,
             xz_runtime.gles3_shadow.static_scene_material_bindings,
             xz_runtime.gles3_shadow.static_scene_material_mapped_bindings,
+            environment
+                ? environment->light_count
+                : 0u,
+            environment
+                ? environment->point_count
+                : 0u,
+            environment
+                ? environment->spot_count
+                : 0u,
+            environment
+                ? environment->directional_count
+                : 0u,
+            environment
+                ? environment->sky_count
+                : 0u,
+            xz_runtime.static_scene.environment_bytes,
             xz_runtime.static_scene.error);
     }
 
