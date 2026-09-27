@@ -123,7 +123,8 @@ def main():
     full_dir.mkdir(parents=True,exist_ok=True)
     face_dir.mkdir(parents=True,exist_ok=True)
 
-    # Existing HAYUYA AniGen convention: imported GLB front faces +Y.
+    # HAYUYA generated GLBs import into Blender facing -Y. Empirically,
+    # index 12 / 180 deg is the semantic front for current character exports.
     full_scale=max(float(ext.x),float(ext.y),float(ext.z))*1.08
     full_scale=max(full_scale,0.35)
     head_target=center.copy()
@@ -135,12 +136,13 @@ def main():
     # Judge v4 consumes only the front/quarter neighborhood. Keep the full
     # 24-view body turntable, but do not waste render time on 15 face angles
     # that are never evaluated.
-    face_indices={0,1,2,3,4,20,21,22,23}
+    # Nine closeups centered on the real semantic front (180 deg).
+    face_indices={8,9,10,11,12,13,14,15,16}
     distance=3.2*radius
     for index in range(24):
         deg=index*15
         rad=math.radians(deg)
-        # 0 deg = +Y (front), 90 = +X side, 180 = -Y rear.
+        # 0 deg = +Y rear, 90 = +X side, 180 = -Y semantic front.
         offset=Vector((math.sin(rad)*distance,math.cos(rad)*distance,0.02*radius))
         fp=full_dir/f"{index:02d}_{deg:03d}.png"
         render(scene,cam,fp,center,offset,full_scale,a.size)
@@ -154,7 +156,7 @@ def main():
         "schema":1,
         "source":str(a.input),
         "renderer":"blender-eevee-24view-material-faithful-v1",
-        "front_convention":"+Y after Blender glTF import",
+        "front_convention":"-Y after Blender glTF import; index 12 / 180 deg",
         "bounds":{
             "min":[float(x) for x in mn],
             "max":[float(x) for x in mx],
