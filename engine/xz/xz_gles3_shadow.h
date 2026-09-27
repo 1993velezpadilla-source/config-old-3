@@ -125,6 +125,9 @@ typedef struct {
     unsigned int static_scene_surface_mean_rgba[4];
     unsigned int static_scene_postrestore_mean_rgba[4];
     unsigned int static_scene_preswap_mean_rgba[4];
+    unsigned int static_scene_preswap_clear_mean_rgba[4];
+    int static_scene_preswap_intro_sampled;
+    int static_scene_preswap_clear_sampled;
     unsigned int static_scene_readback_width;
     unsigned int static_scene_readback_height;
     int static_scene_frame_ready;
