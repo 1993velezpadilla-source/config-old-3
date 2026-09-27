@@ -1331,7 +1331,40 @@ if "XZ_PRESENT_LUMA_PRESWAP" not in screen:
         1,
     )
 
+old_preswap_call = (
+    "\tXzAndroidRuntime_AuditLegacyPresentBeforeSwap(\n"
+    "\t\t(unsigned int)glwidth,\n"
+    "\t\t(unsigned int)glheight,\n"
+    "\t\tscreenflash_color,\n"
+    "\t\tscreenflash_type,\n"
+    "\t\tscreenflash_duration,\n"
+    "\t\tscreenflash_starttime,\n"
+    "\t\tscreenflash_worktime);\n"
+)
+new_preswap_call = (
+    "\tXzAndroidRuntime_AuditLegacyPresentBeforeSwap(\n"
+    "\t\t(unsigned int)glwidth,\n"
+    "\t\t(unsigned int)glheight,\n"
+    "\t\tscreenflash_color,\n"
+    "\t\tscreenflash_type,\n"
+    "\t\tscreenflash_duration,\n"
+    "\t\tscreenflash_starttime,\n"
+    "\t\tscreenflash_worktime,\n"
+    "\t\tsv.time);\n"
+)
+if old_preswap_call in screen:
+    screen = screen.replace(
+        old_preswap_call,
+        new_preswap_call,
+        1,
+    )
+
 r_screen.write_text(screen, encoding="utf-8")
+
+if new_preswap_call not in screen:
+    raise SystemExit(
+        "Pre-swap luma audit call does not include server time"
+    )
 
 if screen.count('#include "../xz_android_runtime.h"') != 1:
     raise SystemExit("Visible present header injection count mismatch")
