@@ -1211,6 +1211,7 @@ register_repl = """void IN_Init(void)
 	Cvar_RegisterVariable(&xziel_mobile_hud_scale);
 	Cvar_RegisterVariable(&xziel_mobile_hud_opacity);
 	Cvar_RegisterVariable(&xziel_mobile_autofire_ms);
+	Cvar_RegisterVariable(&xziel_bot_telemetry);
 #endif
 """
 if "Cvar_RegisterVariable(&xziel_mobile_ads_toggle);" not in text:
@@ -2019,6 +2020,7 @@ text = inp.read_text(encoding="utf-8")
 
 pos_cvars = r'''
 #ifdef __ANDROID__
+cvar_t xziel_bot_telemetry = {"xziel_bot_telemetry", "0", false};
 cvar_t xziel_hud_joy_x = {"xziel_hud_joy_x", "0.17", true};
 cvar_t xziel_hud_joy_y = {"xziel_hud_joy_y", "0.74", true};
 cvar_t xziel_hud_fire_x = {"xziel_hud_fire_x", "0.885", true};
