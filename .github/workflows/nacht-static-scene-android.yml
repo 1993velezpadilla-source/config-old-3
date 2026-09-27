@@ -2839,7 +2839,7 @@ jobs:
               r"present_luma_postfade preSwapRGBA=(\d+),(\d+),(\d+),(\d+) "
               r"screenflashColor=(\d+) screenflashType=(\d+) "
               r"screenflashDuration=([0-9.-]+) screenflashStart=([0-9.-]+) "
-              r"screenflashWork=([0-9.-]+)",
+              r"screenflashWork=([0-9.-]+) serverTime=([0-9.-]+)",
               text,
           )
           assert rows, "missing post-fade pre-swap sample"
@@ -2850,10 +2850,11 @@ jobs:
           duration=float(row[6])
           start=float(row[7])
           work=float(row[8])
+          server_time=float(row[9])
           span=duration-start
           mean=sum(rgba[:3])/3.0
           assert color == 1 and flash_type == 2
-          assert span > 0 and work >= span
+          assert span > 0 and server_time >= duration
           assert rgba[3] > 0
           assert mean > 80, rgba
           print(
@@ -2862,6 +2863,7 @@ jobs:
               f"meanRGB={mean:.3f}",
               f"flashSpan={span:.6f}",
               f"flashWork={work:.6f}",
+              f"serverTime={server_time:.6f}",
           )
           PY
 
