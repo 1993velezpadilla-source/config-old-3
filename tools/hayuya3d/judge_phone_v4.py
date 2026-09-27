@@ -96,7 +96,9 @@ def _build_blender_evidence(final_glb:Path,out_dir:Path):
         raise RuntimeError(
             f"Blender Judge turntable incomplete: {len(turns)}/24"
         )
-    requested=(0,1,2,3,4,20,21,22,23)
+    # Canonical Judge order is front,+15,+30,+45,+60,-60,-45,-30,-15.
+    # HAYUYA GLBs face -Y in Blender, so semantic front is index 12 (180 deg).
+    requested=(12,13,14,15,16,8,9,10,11)
     rendered_face_indices=[
         int(value)
         for value in (render_manifest.get("face_indices") or [])
