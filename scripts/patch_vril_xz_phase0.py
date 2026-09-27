@@ -11,6 +11,7 @@ quality budgets and asset residency while legacy GL4ES remains visible.
 """
 
 from pathlib import Path
+import re
 import shutil
 import sys
 
@@ -1331,16 +1332,6 @@ if "XZ_PRESENT_LUMA_PRESWAP" not in screen:
         1,
     )
 
-old_preswap_call = (
-    "\tXzAndroidRuntime_AuditLegacyPresentBeforeSwap(\n"
-    "\t\t(unsigned int)glwidth,\n"
-    "\t\t(unsigned int)glheight,\n"
-    "\t\tscreenflash_color,\n"
-    "\t\tscreenflash_type,\n"
-    "\t\tscreenflash_duration,\n"
-    "\t\tscreenflash_starttime,\n"
-    "\t\tscreenflash_worktime);\n"
-)
 new_preswap_call = (
     "\tXzAndroidRuntime_AuditLegacyPresentBeforeSwap(\n"
     "\t\t(unsigned int)glwidth,\n"
@@ -1352,18 +1343,46 @@ new_preswap_call = (
     "\t\tscreenflash_worktime,\n"
     "\t\tsv.time);\n"
 )
-if old_preswap_call in screen:
-    screen = screen.replace(
-        old_preswap_call,
-        new_preswap_call,
-        1,
-    )
+
+# Normalize any previously injected 7-argument call regardless of whitespace.
+screen, preswap_migrations = re.subn(
+    r"XzAndroidRuntime_AuditLegacyPresentBeforeSwap\(\s*"
+    r"\(unsigned int\)glwidth\s*,\s*"
+    r"\(unsigned int\)glheight\s*,\s*"
+    r"screenflash_color\s*,\s*"
+    r"screenflash_type\s*,\s*"
+    r"screenflash_duration\s*,\s*"
+    r"screenflash_starttime\s*,\s*"
+    r"screenflash_worktime\s*\)\s*;",
+    "XzAndroidRuntime_AuditLegacyPresentBeforeSwap(\n"
+    "\t\t(unsigned int)glwidth,\n"
+    "\t\t(unsigned int)glheight,\n"
+    "\t\tscreenflash_color,\n"
+    "\t\tscreenflash_type,\n"
+    "\t\tscreenflash_duration,\n"
+    "\t\tscreenflash_starttime,\n"
+    "\t\tscreenflash_worktime,\n"
+    "\t\tsv.time);",
+    screen,
+)
 
 r_screen.write_text(screen, encoding="utf-8")
 
-if new_preswap_call not in screen:
+if screen.count("XzAndroidRuntime_AuditLegacyPresentBeforeSwap(") != 1:
+    raise SystemExit(
+        "Pre-swap luma audit call count mismatch"
+    )
+if new_preswap_call.strip() not in screen:
     raise SystemExit(
         "Pre-swap luma audit call does not include server time"
+    )
+if re.search(
+    r"XzAndroidRuntime_AuditLegacyPresentBeforeSwap\([^;]*screenflash_worktime\s*\)\s*;",
+    screen,
+    flags=re.S,
+):
+    raise SystemExit(
+        "Legacy 7-argument pre-swap luma call survived normalization"
     )
 
 if screen.count('#include "../xz_android_runtime.h"') != 1:
