@@ -1,0 +1,89 @@
+name: XZIEL Nacht PostProcess Census
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/xziel-nacht-postprocess-census-v1
+    paths:
+      - "tools/maps/NachtPostProcessExtractor/**"
+      - ".github/workflows/nacht-postprocess-census.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xziel-nacht-postprocess-census-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  census:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout XZIEL Engine
+        uses: actions/checkout@v5
+
+      - name: Install SteamCMD and repak
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/steamcmd" "$RUNNER_TEMP/repak"
+          curl -fL --retry 6 --retry-delay 2 --retry-all-errors \
+            https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz \
+            -o "$RUNNER_TEMP/steamcmd.tgz"
+          tar -xzf "$RUNNER_TEMP/steamcmd.tgz" -C "$RUNNER_TEMP/steamcmd"
+          "$RUNNER_TEMP/steamcmd/steamcmd.sh" +quit || true
+          curl -fL --retry 5 \
+            https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-unknown-linux-gnu.tar.xz \
+            -o "$RUNNER_TEMP/repak.tar.xz"
+          tar -xJf "$RUNNER_TEMP/repak.tar.xz" -C "$RUNNER_TEMP/repak"
+          REPAK=$(find "$RUNNER_TEMP/repak" -type f -name 'repak*' -perm -111 | head -1)
+          test -n "$REPAK"
+          echo "REPAK=$REPAK" >> "$GITHUB_ENV"
+
+      - name: Download and unpack public Pavlov Nacht source
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/steamcmd/steamcmd.sh" \
+            +login anonymous \
+            +workshop_download_item 555160 2755515831 validate \
+            +quit
+          ROOT=$(find "$HOME" "$RUNNER_TEMP" -type d \
+            -path '*/steamapps/workshop/content/555160/2755515831' \
+            -print -quit 2>/dev/null)
+          test -n "$ROOT"
+          test -f "$ROOT/WindowsNoEditor.pak"
+          mkdir -p "$RUNNER_TEMP/nacht-unpacked"
+          "$REPAK" unpack "$ROOT/WindowsNoEditor.pak" \
+            -o "$RUNNER_TEMP/nacht-unpacked"
+          echo "UNPACKED=$RUNNER_TEMP/nacht-unpacked" >> "$GITHUB_ENV"
+
+      - name: Extract Nacht PostProcess settings
+        run: |
+          set -euo pipefail
+          mkdir -p build/postprocess
+          dotnet run \
+            --project tools/maps/NachtPostProcessExtractor/NachtPostProcessExtractor.csproj \
+            --configuration Release \
+            -- \
+            "$UNPACKED" \
+            build/postprocess/postprocess-census.json \
+            | tee build/postprocess/postprocess-census.log
+          test -s build/postprocess/postprocess-census.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          data=json.loads(Path("build/postprocess/postprocess-census.json").read_text())
+          assert data["candidateCount"] > 0
+          print("XZIEL_NACHT_POSTPROCESS_CENSUS_DATA")
+          print(json.dumps(data, indent=2))
+          print("XZIEL_NACHT_POSTPROCESS_CENSUS_GREEN")
+          PY
+
+      - name: Upload census
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Nacht-PostProcess-Census
+          path: build/postprocess/
+          retention-days: 7
