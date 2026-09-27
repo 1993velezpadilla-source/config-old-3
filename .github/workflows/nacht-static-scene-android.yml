@@ -13,6 +13,8 @@ on:
       - feature/xziel-static-scene-material-final5-exact-gate
       - feature/xziel-nacht-decal-environment-v1
       - feature/xziel-nacht-light-components-166-v1
+      - feature/xziel-nacht-light-components-166-integrate-v1
+      - feature/xziel-nacht-local-light-render-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -38,9 +40,12 @@ on:
     branches:
       - feature/xziel-static-scene-material-final5
       - feature/xziel-nacht-decal-environment-v1
+      - feature/xziel-nacht-light-components-166-integrate-v1
     paths:
       - "engine/xz/xz_environment.*"
       - "engine/xz/xz_static_scene_runtime.*"
+      - "engine/xz/xz_android_runtime.*"
+      - "engine/xz/xz_gles3_shadow.*"
       - "tools/maps/compile_nacht_environment.py"
       - "tools/maps/NachtLightExtractor/**"
       - "scripts/patch_vril_xz_phase0.py"
