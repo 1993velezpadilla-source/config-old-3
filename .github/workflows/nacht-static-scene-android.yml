@@ -16,6 +16,7 @@ on:
       - feature/xziel-nacht-light-components-166-integrate-v1
       - feature/xziel-nacht-local-light-render-v1
       - feature/xziel-nacht-height-fog-runtime-v1
+      - feature/xziel-nacht-height-fog-shader-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -46,6 +47,7 @@ on:
       - feature/xziel-nacht-decal-environment-v1
       - feature/xziel-nacht-light-components-166-integrate-v1
       - feature/xziel-nacht-local-light-render-v1
+      - feature/xziel-nacht-height-fog-runtime-v1
     paths:
       - "engine/xz/xz_environment.*"
       - "engine/xz/xz_static_scene_runtime.*"
@@ -2501,7 +2503,8 @@ jobs:
           assert environment["withCone"] == 19
           assert environment["withTemperature"] == 165
           assert environment["withCastShadows"] == 166
-          assert environment["withAtmosphereSun"] == 2
+          assert environment["withAtmosphereSun"] == 0
+          assert environment["atmosphereSunEnabled"] == 0
           assert fog["format"] == "XZFG"
           assert fog["version"] == 1
           assert fog["bytes"] == 92
@@ -2841,7 +2844,15 @@ jobs:
             dist/static-scene-logcat.txt
 
           grep -E \
+            "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*localReady=1.*heightFogReady=1 directionalFog=0 fogDensity=0\.100000 fogFalloff=2\.000000 fogMaxOpacity=0\.200000 fogStartMeters=3\.000000 fogBytes=92 error=''" \
+            dist/static-scene-logcat.txt
+
+          grep -E \
             "XZIEL-XZ.*static_scene_draw ready=1.*localLights=163 active=64 affecting=[1-9][0-9]* dropped=0" \
+            dist/static-scene-logcat.txt
+
+          grep -E \
+            "XZIEL-XZ.*static_scene_draw ready=1.*localLights=163 active=64 affecting=[1-9][0-9]* dropped=0.*heightFogReady=1 directionalFog=0 fogDensity=0\.100000 fogFalloff=2\.000000 fogMaxOpacity=0\.200000 fogStartMeters=3\.000000" \
             dist/static-scene-logcat.txt
 
           grep -E \
@@ -2867,6 +2878,9 @@ jobs:
 
           echo \
             "XZIEL_NACHT_LOCAL_LIGHTING_GREEN local=163 active=64 dropped=0"
+
+          echo \
+            "XZIEL_NACHT_HEIGHT_FOG_GREEN density=0.1 falloff=2 maxOpacity=0.2 startMeters=3 directional=0"
 
           echo \
             "XZIEL_NACHT_ANDROID_STATIC_SCENE_GREEN meshes=492 instances=10791 xzms=492 vertices=1067383 indices=3608148 submeshes=1063 gpuBytes=48588848"
