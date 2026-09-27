@@ -1786,6 +1786,42 @@ static int XzCreateStaticSceneProgram(void)
         "  if(det<0.0) B=-B;\n"
         "  return normalize(mat3(T,B,geometricNormal)*mapN);\n"
         "}\n"
+        "vec3 fresnelSchlick(float cosTheta,vec3 f0){\n"
+        "  float x=clamp(1.0-cosTheta,0.0,1.0);\n"
+        "  float x2=x*x;\n"
+        "  float x5=x2*x2*x;\n"
+        "  return f0+(vec3(1.0)-f0)*x5;\n"
+        "}\n"
+        "float distributionGGX(vec3 N,vec3 H,float roughness){\n"
+        "  float a=roughness*roughness;\n"
+        "  float a2=a*a;\n"
+        "  float ndh=max(dot(N,H),0.0);\n"
+        "  float ndh2=ndh*ndh;\n"
+        "  float denom=ndh2*(a2-1.0)+1.0;\n"
+        "  return a2/max(3.14159265359*denom*denom,1.0e-6);\n"
+        "}\n"
+        "float geometrySchlickGGX(float ndv,float roughness){\n"
+        "  float r=roughness+1.0;\n"
+        "  float k=(r*r)*0.125;\n"
+        "  return ndv/max(ndv*(1.0-k)+k,1.0e-6);\n"
+        "}\n"
+        "float geometrySmith(vec3 N,vec3 V,vec3 L,float roughness){\n"
+        "  float ndv=max(dot(N,V),0.0);\n"
+        "  float ndl=max(dot(N,L),0.0);\n"
+        "  return geometrySchlickGGX(ndv,roughness)*geometrySchlickGGX(ndl,roughness);\n"
+        "}\n"
+        "vec3 cookTorranceSpec(vec3 N,vec3 V,vec3 L,float roughness,vec3 f0){\n"
+        "  float ndv=max(dot(N,V),0.0);\n"
+        "  float ndl=max(dot(N,L),0.0);\n"
+        "  vec3 halfRaw=V+L;\n"
+        "  float halfLen2=dot(halfRaw,halfRaw);\n"
+        "  if(ndv<=0.0||ndl<=0.0||halfLen2<=1.0e-6) return vec3(0.0);\n"
+        "  vec3 H=halfRaw*inversesqrt(halfLen2);\n"
+        "  float D=distributionGGX(N,H,roughness);\n"
+        "  float G=geometrySmith(N,V,L,roughness);\n"
+        "  vec3 F=fresnelSchlick(max(dot(H,V),0.0),f0);\n"
+        "  return (D*G*F)/max(4.0*ndv*ndl,1.0e-4);\n"
+        "}\n"
         "float ueFogTransmission(vec3 worldPosGame){\n"
         "  vec3 rayCm=(worldPosGame-uCameraPosGame)*2.54;\n"
         "  float originalLength=length(rayCm);\n"
@@ -1814,11 +1850,26 @@ static int XzCreateStaticSceneProgram(void)
         "}\n"
         "void main(){\n"
         "  vec3 n=surfaceNormal(normalize(vNormal));\n"
-        "  float ndl=max(dot(n,normalize(uDirectionalDirection)),0.0);\n"
+        "  float uvTone=0.92+0.08*clamp(vUV.y,0.0,1.0);\n"
+        "  vec4 texel=uHasBaseColor!=0?texture(uBaseColor,vUV):vec4(0.56,0.54,0.50,1.0);\n"
+        "  if(uHasBaseColor!=0 && texel.a<0.04) discard;\n"
+        "  vec3 albedo=texel.rgb*uvTone;\n"
+        "  int pbrEnabled=uPbrFlags!=0?1:0;\n"
+        "  float roughness=clamp(uPbrParams.x,0.04,1.0);\n"
+        "  float metallic=clamp(uPbrParams.y,0.0,1.0);\n"
+        "  float specular=clamp(uPbrParams.z,0.0,1.0);\n"
+        "  float emissive=max(uPbrParams.w,0.0);\n"
+        "  vec3 viewRaw=uCameraPosGame-vWorldPos;\n"
+        "  float viewLen2=dot(viewRaw,viewRaw);\n"
+        "  vec3 V=viewLen2>1.0e-8?viewRaw*inversesqrt(viewLen2):n;\n"
+        "  vec3 f0=mix(vec3(0.08*specular),albedo,metallic);\n"
+        "  vec3 Ld=normalize(uDirectionalDirection);\n"
+        "  float ndl=max(dot(n,Ld),0.0);\n"
         "  float neutralBaseline=uAmbientWeight+uDirectionalWeight;\n"
         "  float directionalContrast=uDirectionalWeight*(ndl-0.5);\n"
         "  vec3 light=vec3(neutralBaseline)+uDirectionalColor*directionalContrast;\n"
         "  vec3 localLight=vec3(0.0);\n"
+        "  vec3 localSpec=vec3(0.0);\n"
         "  for(int i=0;i<64;++i){\n"
         "    if(i>=uLocalLightCount) break;\n"
         "    vec4 pr=uLocalPosInvRadius[i];\n"
@@ -1840,32 +1891,19 @@ static int XzCreateStaticSceneProgram(void)
         "    }\n"
         "    float localNdl=max(dot(n,L),0.0);\n"
         "    float attenuation=(1.0/(d2+1.0))*radiusMask*spot;\n"
-        "    localLight+=uLocalColorCone[i].rgb*(attenuation*localNdl*0.31830988618);\n"
+        "    vec3 radiance=uLocalColorCone[i].rgb*attenuation;\n"
+        "    localLight+=radiance*(localNdl*0.31830988618);\n"
+        "    if(pbrEnabled!=0 && localNdl>0.0){\n"
+        "      localSpec+=cookTorranceSpec(n,V,L,roughness,f0)*radiance*localNdl;\n"
+        "    }\n"
         "  }\n"
         "  light+=localLight;\n"
-        "  float uvTone=0.92+0.08*clamp(vUV.y,0.0,1.0);\n"
-        "  vec4 texel=uHasBaseColor!=0?texture(uBaseColor,vUV):vec4(0.56,0.54,0.50,1.0);\n"
-        "  if(uHasBaseColor!=0 && texel.a<0.04) discard;\n"
-        "  vec3 albedo=texel.rgb*uvTone;\n"
         "  vec3 lit=albedo*light;\n"
-        "  if(uPbrFlags!=0){\n"
-        "    float roughness=clamp(uPbrParams.x,0.04,1.0);\n"
-        "    float metallic=clamp(uPbrParams.y,0.0,1.0);\n"
-        "    float specular=clamp(uPbrParams.z,0.0,1.0);\n"
-        "    float emissive=max(uPbrParams.w,0.0);\n"
-        "    vec3 V=normalize(uCameraPosGame-vWorldPos);\n"
-        "    vec3 Ld=normalize(uDirectionalDirection);\n"
-        "    vec3 halfRaw=V+Ld;\n"
-        "    float halfLen2=dot(halfRaw,halfRaw);\n"
-        "    vec3 H=halfLen2>1.0e-6?halfRaw*inversesqrt(halfLen2):n;\n"
-        "    float ndh=max(dot(n,H),0.0);\n"
-        "    float gloss=1.0-roughness;\n"
-        "    float shininess=mix(2.0,96.0,gloss*gloss);\n"
-        "    float specLobe=pow(ndh,shininess)*ndl;\n"
-        "    vec3 f0=mix(vec3(0.08*specular),albedo,metallic);\n"
+        "  if(pbrEnabled!=0){\n"
         "    vec3 diffuse=albedo*light*(1.0-metallic);\n"
-        "    vec3 directSpec=f0*(specLobe*uDirectionalWeight)*uDirectionalColor;\n"
-        "    lit=diffuse+directSpec+albedo*emissive;\n"
+        "    vec3 directRadiance=uDirectionalColor*uDirectionalWeight;\n"
+        "    vec3 directSpec=cookTorranceSpec(n,V,Ld,roughness,f0)*directRadiance*ndl;\n"
+        "    lit=diffuse+directSpec+localSpec+albedo*emissive;\n"
         "  }\n"
         "  float fogT=ueFogTransmission(vWorldPos);\n"
         "  vec3 fogged=lit*fogT+uFogColorMin.rgb*(1.0-fogT);\n"
@@ -2828,6 +2866,8 @@ static void XzDestroyStaticSceneCurrent(
         state->static_scene_pbr_authored_bindings = 0u;
         state->static_scene_last_pbr_bindings = 0u;
         state->static_scene_pbr_ready = 0;
+        state->static_scene_specular_response_ready = 0;
+        state->static_scene_last_specular_local_lights = 0u;
         state->static_scene_lighting_ready = 0;
         state->static_scene_local_light_count = 0u;
         state->static_scene_local_light_active = 0u;
@@ -3449,6 +3489,20 @@ int XzGles3Shadow_UploadStaticScene(
                 (unsigned int)submeshes;
     }
 
+    state->static_scene_specular_response_ready =
+        state->static_scene_pbr_ready &&
+        state->static_scene_pbr_authored_bindings > 0u &&
+        state->static_scene_lighting_ready &&
+        state->static_scene_local_lighting_ready &&
+        state->static_scene_local_light_count ==
+            XZ_STATIC_LOCAL_LIGHT_SOURCE_MAX;
+
+    if (strcmp(
+            scene->map_id,
+            "xziel_nacht_bo3") == 0 &&
+        !state->static_scene_specular_response_ready)
+        goto fail;
+
     if (!XzStaticSceneDrawPlan_Build(
             &xz_shadow.static_draw_plan,
             XzStaticSceneRuntime_Scene(scene)) ||
@@ -3563,6 +3617,8 @@ int XzGles3Shadow_UploadStaticScene(
              "xziel_nacht_bo3") != 0 ||
          (state->static_scene_material_ready &&
           state->static_scene_normal_ready &&
+          state->static_scene_pbr_ready &&
+          state->static_scene_specular_response_ready &&
           state->static_scene_lighting_ready &&
           state->static_scene_local_lighting_ready &&
           state->static_scene_local_light_count ==
@@ -3708,6 +3764,11 @@ static int XzDrawStaticScene(
     state->static_scene_last_untextured_draw_calls = 0u;
     state->static_scene_last_normal_bindings = 0u;
     state->static_scene_last_pbr_bindings = 0u;
+    state->static_scene_last_specular_local_lights = 0u;
+
+    if (state->static_scene_specular_response_ready)
+        state->static_scene_last_specular_local_lights =
+            active_local_lights;
 
     gl->UseProgram(xz_shadow.static_program);
     gl->Uniform1i(
@@ -3974,7 +4035,10 @@ static int XzDrawStaticScene(
             xz_shadow.static_normal_binding_count) &&
         (!state->static_scene_pbr_ready ||
          pbr_cursor ==
-            xz_shadow.static_pbr_binding_count);
+            xz_shadow.static_pbr_binding_count) &&
+        (!state->static_scene_specular_response_ready ||
+         state->static_scene_last_specular_local_lights ==
+            active_local_lights);
 
     if (!state->static_scene_frame_ready)
         goto fail_no_state_reset;
