@@ -1027,10 +1027,12 @@ public final class XzielMultiplayer {
 
         if (localSlot > 1 && serverReadyReceived) {
             // ca_connected with signon 0..3 is the normal Quake handshake /
-            // signon progression. Do not tear it down just because signon has
-            // not reached 4 yet. Retry only after Vril reports that the client
-            // is actually disconnected.
-            if (!clientConnected) {
+            // signon progression. Retry engine connection only until this world
+            // has completed signon once. After client_ready, a later
+            // clientConnected=false can be normal end-of-match teardown; a real
+            // transport reconnect is driven by replayed server_ready from the
+            // WebSocket room state instead of blindly issuing disconnect/connect.
+            if (!clientConnected && !clientReadySent) {
                 beginClientConnection(true);
             } else if (signon >= 4 && !clientReadySent) {
                 clientReadySent = true;
@@ -1086,6 +1088,12 @@ public final class XzielMultiplayer {
     }
 
     private void scheduleCiEvidenceScenario() {
+        // Keep the evidence window alive without changing normal multiplayer.
+        // Godmode is a normal server-side client flag in coop, so zombies still
+        // target, move, attack and emit their real world audio while CI players
+        // cannot end the match before pause/voice/mute evidence is captured.
+        ciCommand(50, "CI_GODMODE", "god\n");
+
         if (localSlot == 1) {
             ciCommand(250, "CI_P1_SPRINT_AWAY",
                 "cl_yawspeed 180\nimpulse 23\n+forward\n");
