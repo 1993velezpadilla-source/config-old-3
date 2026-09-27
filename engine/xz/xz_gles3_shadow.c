@@ -1766,12 +1766,142 @@ static int XzCreateStaticSceneProgram(void)
         "uniform vec4 uReflectionSphere;\n"
         "uniform vec3 uReflectionCaptureOffset;\n"
         "out vec4 outColor;\n"
-        "float linearToSrgb1(float x){\n"
-        "  x=clamp(x,0.0,1.0);\n"
+        "float ueLinearToSrgb1(float x){\n"
+        "  x=max(x,0.0);\n"
         "  return x<=0.0031308?12.92*x:1.055*pow(x,1.0/2.4)-0.055;\n"
         "}\n"
-        "vec3 linearToSrgb(vec3 v){\n"
-        "  return vec3(linearToSrgb1(v.r),linearToSrgb1(v.g),linearToSrgb1(v.b));\n"
+        "vec3 ueLinearToSrgb(vec3 v){\n"
+        "  return vec3(ueLinearToSrgb1(v.r),ueLinearToSrgb1(v.g),ueLinearToSrgb1(v.b));\n"
+        "}\n"
+        "float ueLog10(float x){\n"
+        "  return log2(max(x,1.0e-10))*0.301029995664;\n"
+        "}\n"
+        "vec3 ueLog10v(vec3 v){\n"
+        "  return vec3(ueLog10(v.r),ueLog10(v.g),ueLog10(v.b));\n"
+        "}\n"
+        "vec3 ueSrgbToAp1(vec3 c){\n"
+        "  return vec3(\n"
+        "    dot(vec3(0.6131914784,0.3395120888,0.0473663312),c),\n"
+        "    dot(vec3(0.0702069045,0.9163358171,0.0134500113),c),\n"
+        "    dot(vec3(0.0206188714,0.1095672943,0.8696067475),c));\n"
+        "}\n"
+        "vec3 ueAp1ToSrgb(vec3 c){\n"
+        "  return vec3(\n"
+        "    dot(vec3(1.7050515455,-0.6217906804,-0.0832583971),c),\n"
+        "    dot(vec3(-0.1302571442,1.1408028901,-0.0105485284),c),\n"
+        "    dot(vec3(-0.0240032750,-0.1289687693,1.1529717079),c));\n"
+        "}\n"
+        "vec3 ueAp1ToAp0(vec3 c){\n"
+        "  return vec3(\n"
+        "    dot(vec3(0.6954522414,0.1406786965,0.1638690622),c),\n"
+        "    dot(vec3(0.0447945634,0.8596711185,0.0955343182),c),\n"
+        "    dot(vec3(-0.0055258826,0.0040252103,1.0015006723),c));\n"
+        "}\n"
+        "vec3 ueAp0ToAp1(vec3 c){\n"
+        "  return vec3(\n"
+        "    dot(vec3(1.4514393161,-0.2365107469,-0.2149285693),c),\n"
+        "    dot(vec3(-0.0765537734,1.1762296998,-0.0996759264),c),\n"
+        "    dot(vec3(0.0083161484,-0.0060324498,0.9977163014),c));\n"
+        "}\n"
+        "vec3 ueExpandAp1(vec3 c){\n"
+        "  return vec3(\n"
+        "    dot(vec3(1.3704127095,-0.3292913010,-0.0636827679),c),\n"
+        "    dot(vec3(-0.0834341865,1.0970909835,-0.0108615725),c),\n"
+        "    dot(vec3(-0.0257932582,-0.0986256403,1.2036942940),c));\n"
+        "}\n"
+        "vec3 ueBlueCorrectAp1(vec3 c){\n"
+        "  return vec3(\n"
+        "    dot(vec3(0.9386393778,0.0000000001,0.0613606221),c),\n"
+        "    dot(vec3(0.0,0.8307941330,0.1692058671),c),\n"
+        "    c.b);\n"
+        "}\n"
+        "vec3 ueBlueCorrectInvAp1(vec3 c){\n"
+        "  return vec3(\n"
+        "    dot(vec3(1.0653748755,0.0000014467,-0.0653710053),c),\n"
+        "    dot(vec3(-0.0000003456,1.2036635245,-0.2036677199),c),\n"
+        "    dot(vec3(0.0000000198,0.0000000212,0.9999996001),c));\n"
+        "}\n"
+        "float ueRgbSaturation(vec3 rgb){\n"
+        "  float mn=min(min(rgb.r,rgb.g),rgb.b);\n"
+        "  float mx=max(max(rgb.r,rgb.g),rgb.b);\n"
+        "  return (max(mx,1.0e-10)-max(mn,1.0e-10))/max(mx,1.0e-2);\n"
+        "}\n"
+        "float ueRgbYc(vec3 rgb){\n"
+        "  float r=rgb.r; float g=rgb.g; float b=rgb.b;\n"
+        "  float chroma=sqrt(max(b*(b-g)+g*(g-r)+r*(r-b),0.0));\n"
+        "  return (b+g+r+1.75*chroma)/3.0;\n"
+        "}\n"
+        "float ueSigmoidShaper(float x){\n"
+        "  float t=max(1.0-abs(0.5*x),0.0);\n"
+        "  return 0.5*(1.0+sign(x)*(1.0-t*t));\n"
+        "}\n"
+        "float ueGlowFwd(float yc,float gain,float mid){\n"
+        "  if(yc<=0.666666666667*mid) return gain;\n"
+        "  if(yc>=2.0*mid) return 0.0;\n"
+        "  return gain*(mid/yc-0.5);\n"
+        "}\n"
+        "float ueRgbHue(vec3 rgb){\n"
+        "  if(rgb.r==rgb.g && rgb.g==rgb.b) return 0.0;\n"
+        "  float h=57.2957795131*atan(sqrt(3.0)*(rgb.g-rgb.b),2.0*rgb.r-rgb.g-rgb.b);\n"
+        "  if(h<0.0) h+=360.0;\n"
+        "  return clamp(h,0.0,360.0);\n"
+        "}\n"
+        "float ueCenterHue(float hue,float center){\n"
+        "  float h=hue-center;\n"
+        "  if(h<-180.0) h+=360.0; else if(h>180.0) h-=360.0;\n"
+        "  return h;\n"
+        "}\n"
+        "vec3 ueFilmToneMapAp1(vec3 linearAp1){\n"
+        "  const float FilmSlope=0.88;\n"
+        "  const float FilmToe=0.55;\n"
+        "  const float FilmShoulder=0.26;\n"
+        "  const float FilmBlackClip=0.0;\n"
+        "  const float FilmWhiteClip=0.04;\n"
+        "  const vec3 AP1_RGB2Y=vec3(0.2722287168,0.6740817658,0.0536895174);\n"
+        "  vec3 colorAp0=ueAp1ToAp0(linearAp1);\n"
+        "  float saturation=ueRgbSaturation(colorAp0);\n"
+        "  float ycIn=ueRgbYc(colorAp0);\n"
+        "  float sig=ueSigmoidShaper((saturation-0.4)/0.2);\n"
+        "  colorAp0*=1.0+ueGlowFwd(ycIn,0.05*sig,0.08);\n"
+        "  float centeredHue=ueCenterHue(ueRgbHue(colorAp0),0.0);\n"
+        "  float hueBase=clamp(1.0-abs(2.0*centeredHue/135.0),0.0,1.0);\n"
+        "  float hueSmooth=hueBase*hueBase*(3.0-2.0*hueBase);\n"
+        "  float hueWeight=hueSmooth*hueSmooth;\n"
+        "  colorAp0.r+=hueWeight*saturation*(0.03-colorAp0.r)*0.18;\n"
+        "  vec3 working=max(ueAp0ToAp1(colorAp0),vec3(0.0));\n"
+        "  working=mix(vec3(dot(working,AP1_RGB2Y)),working,0.96);\n"
+        "  float toeScale=1.0+FilmBlackClip-FilmToe;\n"
+        "  float shoulderScale=1.0+FilmWhiteClip-FilmShoulder;\n"
+        "  float bt=(0.18+FilmBlackClip)/toeScale-1.0;\n"
+        "  float toeMatch=ueLog10(0.18)-0.5*log((1.0+bt)/(1.0-bt))*(toeScale/FilmSlope);\n"
+        "  float straightMatch=(1.0-FilmToe)/FilmSlope-toeMatch;\n"
+        "  float shoulderMatch=FilmShoulder/FilmSlope-straightMatch;\n"
+        "  vec3 logColor=ueLog10v(working);\n"
+        "  vec3 straightColor=FilmSlope*(logColor+vec3(straightMatch));\n"
+        "  vec3 toeColor=vec3(-FilmBlackClip)+(2.0*toeScale)/(vec3(1.0)+exp((-2.0*FilmSlope/toeScale)*(logColor-vec3(toeMatch))));\n"
+        "  vec3 shoulderColor=vec3(1.0+FilmWhiteClip)-(2.0*shoulderScale)/(vec3(1.0)+exp((2.0*FilmSlope/shoulderScale)*(logColor-vec3(shoulderMatch))));\n"
+        "  toeColor=mix(toeColor,straightColor,step(vec3(toeMatch),logColor));\n"
+        "  shoulderColor=mix(straightColor,shoulderColor,step(vec3(shoulderMatch),logColor));\n"
+        "  vec3 t=clamp((logColor-vec3(toeMatch))/(shoulderMatch-toeMatch),0.0,1.0);\n"
+        "  if(shoulderMatch<toeMatch) t=vec3(1.0)-t;\n"
+        "  t=(vec3(3.0)-2.0*t)*t*t;\n"
+        "  vec3 tone=mix(toeColor,shoulderColor,t);\n"
+        "  tone=mix(vec3(dot(tone,AP1_RGB2Y)),tone,0.93);\n"
+        "  return max(tone,vec3(0.0));\n"
+        "}\n"
+        "vec3 ueDefaultFilmicTonemap(vec3 linearSrgb){\n"
+        "  const vec3 AP1_RGB2Y=vec3(0.2722287168,0.6740817658,0.0536895174);\n"
+        "  vec3 colorAp1=ueSrgbToAp1(max(linearSrgb,vec3(0.0)));\n"
+        "  float luma=max(dot(colorAp1,AP1_RGB2Y),1.0e-6);\n"
+        "  vec3 chroma=colorAp1/luma;\n"
+        "  float chromaDist=dot(chroma-vec3(1.0),chroma-vec3(1.0));\n"
+        "  float expandAmount=(1.0-exp2(-4.0*chromaDist))*(1.0-exp2(-4.0*luma*luma));\n"
+        "  colorAp1=mix(colorAp1,ueExpandAp1(colorAp1),expandAmount);\n"
+        "  colorAp1=mix(colorAp1,ueBlueCorrectAp1(colorAp1),0.6);\n"
+        "  colorAp1=ueFilmToneMapAp1(colorAp1);\n"
+        "  colorAp1=mix(colorAp1,ueBlueCorrectInvAp1(colorAp1),0.6);\n"
+        "  vec3 filmLinear=max(ueAp1ToSrgb(colorAp1),vec3(0.0));\n"
+        "  return clamp(ueLinearToSrgb(filmLinear)/1.05,0.0,1.0);\n"
         "}\n"
         "vec3 surfaceNormal(vec3 geometricNormal){\n"
         "  if(uHasNormalMap==0) return geometricNormal;\n"
@@ -1962,7 +2092,7 @@ static int XzCreateStaticSceneProgram(void)
         "  lit+=ueReflectionIBL(n,V,roughness,f0);\n"
         "  float fogT=ueFogTransmission(vWorldPos);\n"
         "  vec3 fogged=lit*fogT+uFogColorMin.rgb*(1.0-fogT);\n"
-        "  outColor=vec4(linearToSrgb(fogged),texel.a);\n"
+        "  outColor=vec4(ueDefaultFilmicTonemap(fogged),texel.a);\n"
         "}\n";
 
     XzNativeGles3Api *gl = &xz_shadow.gl;
@@ -3119,6 +3249,13 @@ static void XzDestroyStaticSceneCurrent(
         state->static_scene_reflection_offset_meters[2] = 0.0f;
         state->static_scene_reflection_sphere_ready = 0;
         state->static_scene_reflection_ibl_ready = 0;
+        state->static_scene_tonemap_ready = 0;
+        state->static_scene_film_slope = 0.0f;
+        state->static_scene_film_toe = 0.0f;
+        state->static_scene_film_shoulder = 0.0f;
+        state->static_scene_film_black_clip = 0.0f;
+        state->static_scene_film_white_clip = 0.0f;
+        state->static_scene_exposure_multiplier = 0.0f;
         state->static_scene_lighting_ready = 0;
         state->static_scene_local_light_count = 0u;
         state->static_scene_local_light_active = 0u;
@@ -3759,11 +3896,20 @@ int XzGles3Shadow_UploadStaticScene(
              "xziel_nacht_bo3") != 0 ||
          state->static_scene_reflection_sphere_ready);
 
+    state->static_scene_tonemap_ready = 1;
+    state->static_scene_film_slope = 0.88f;
+    state->static_scene_film_toe = 0.55f;
+    state->static_scene_film_shoulder = 0.26f;
+    state->static_scene_film_black_clip = 0.0f;
+    state->static_scene_film_white_clip = 0.04f;
+    state->static_scene_exposure_multiplier = 1.0f;
+
     if (strcmp(
             scene->map_id,
             "xziel_nacht_bo3") == 0 &&
         (!state->static_scene_reflection_sphere_ready ||
-         !state->static_scene_reflection_ibl_ready))
+         !state->static_scene_reflection_ibl_ready ||
+         !state->static_scene_tonemap_ready))
         goto fail;
 
     state->static_scene_specular_response_ready =
@@ -3896,6 +4042,7 @@ int XzGles3Shadow_UploadStaticScene(
           state->static_scene_normal_ready &&
           state->static_scene_pbr_ready &&
           state->static_scene_specular_response_ready &&
+          state->static_scene_tonemap_ready &&
           state->static_scene_lighting_ready &&
           state->static_scene_local_lighting_ready &&
           state->static_scene_local_light_count ==
