@@ -283,11 +283,13 @@ jobs:
           print("resolved_profile="+("character.humanoid" if skeletal else profile))
           PY
 
-      - name: Install Judge v4 Core eyes
+      - name: Install Judge v4 Core eyes + faithful renderer
         if: success() && steps.character_motion.outputs.skeletal == 'true'
         shell: bash
         run: |
           set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender
           python -m pip install --upgrade "transformers>=5.2,<6" accelerate safetensors huggingface_hub sentencepiece einops timm
           python -m pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
           python -m pip install "mediapipe==1.0.1" dreamsim
