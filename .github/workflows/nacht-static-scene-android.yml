@@ -12,6 +12,7 @@ on:
       - feature/xziel-static-scene-material-final5
       - feature/xziel-static-scene-material-final5-exact-gate
       - feature/xziel-nacht-decal-environment-v1
+      - feature/xziel-nacht-light-components-166-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -27,6 +28,7 @@ on:
       - "tools/maps/compile_nacht_xzmesh_bundle.py"
       - "tools/maps/compile_nacht_xzmat_bundle.py"
       - "tools/maps/compile_nacht_environment.py"
+      - "tools/maps/NachtLightExtractor/**"
       - "tools/maps/export_nacht_nzp_harness.py"
       - "scripts/patch_vril_xz_phase0.py"
       - "scripts/prepare_android.sh"
@@ -35,10 +37,12 @@ on:
   pull_request:
     branches:
       - feature/xziel-static-scene-material-final5
+      - feature/xziel-nacht-decal-environment-v1
     paths:
       - "engine/xz/xz_environment.*"
       - "engine/xz/xz_static_scene_runtime.*"
       - "tools/maps/compile_nacht_environment.py"
+      - "tools/maps/NachtLightExtractor/**"
       - "scripts/patch_vril_xz_phase0.py"
       - ".github/workflows/nacht-static-scene-android.yml"
 
@@ -129,6 +133,19 @@ jobs:
             -o "$RUNNER_TEMP/nacht-unpacked"
           echo "UNPACKED=$RUNNER_TEMP/nacht-unpacked" \
             >> "$GITHUB_ENV"
+
+      - name: Extract exact 166 Nacht light components
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-static-scene
+          dotnet run \
+            --project tools/maps/NachtLightExtractor/NachtLightExtractor.csproj \
+            --configuration Release \
+            -- \
+            "$UNPACKED" \
+            build/nacht-static-scene/light-components.json \
+            | tee build/nacht-static-scene/light-extract.log
+          test -s build/nacht-static-scene/light-components.json
 
       - name: Build exact 492-mesh CUE4Parse exporter
         run: |
@@ -2374,6 +2391,7 @@ jobs:
             | tee build/nacht-static-scene/xzmat-compile.log
 
           python3 tools/maps/compile_nacht_environment.py \
+            --source build/nacht-static-scene/light-components.json \
             --output "$MAPROOT/environment.xzen" \
             --report build/nacht-static-scene/xziel.xzen.report.json \
             | tee build/nacht-static-scene/xzen-compile.log
@@ -2432,11 +2450,20 @@ jobs:
           assert material["bindingCount"] == 1063
           assert material["mappedBindings"] == 1063
           assert material["textureCount"] > 0
-          assert environment["lightCount"] == 101
-          assert environment["pointCount"] == 86
-          assert environment["spotCount"] == 12
+          assert environment["version"] == 2
+          assert environment["lightCount"] == 166
+          assert environment["pointCount"] == 144
+          assert environment["spotCount"] == 19
           assert environment["directionalCount"] == 2
           assert environment["skyCount"] == 1
+          assert environment["withPosition"] == 166
+          assert environment["withRotation"] == 166
+          assert environment["withColor"] == 166
+          assert environment["withIntensity"] == 166
+          assert environment["withRadius"] == 163
+          assert environment["withCone"] == 19
+          assert environment["withTemperature"] == 165
+          assert environment["withCastShadows"] == 166
 
           print(
               "XZIEL_NACHT_STATIC_OVERLAY_READY",
@@ -2778,6 +2805,10 @@ jobs:
             build/nacht-static-scene/xziel.xzmesh.bundle.json
             build/nacht-static-scene/xziel.xzscene.report.json
             build/nacht-static-scene/xziel.xzmat.report.json
+            build/nacht-static-scene/xziel.xzen.report.json
+            build/nacht-static-scene/light-components.json
+            build/nacht-static-scene/light-extract.log
+            build/nacht-static-scene/xzen-compile.log
             build/nacht-static-scene/xzmat-compile.log
             ${{ runner.temp }}/xziel-material-evidence/
             build/nacht-static-scene/material-audit/
