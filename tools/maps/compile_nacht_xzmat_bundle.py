@@ -367,7 +367,15 @@ def main() -> int:
 
         by_exact: dict[str, dict] = {}
         by_canon: dict[str, list[dict]] = {}
+        by_index: dict[int, dict] = {}
         for slot in slots:
+            try:
+                slot_index = int(slot.get("slotIndex", -1))
+            except (TypeError, ValueError):
+                slot_index = -1
+            if slot_index >= 0:
+                by_index.setdefault(slot_index, slot)
+
             names = {
                 str(slot.get("slotName", "")),
                 str(slot.get("materialSlotName", "")),
@@ -390,6 +398,17 @@ def main() -> int:
                 candidates = by_canon.get(canonical(material_name), [])
                 if len(candidates) == 1:
                     slot = candidates[0]
+
+            # CUE4Parse/glTF may rename a material while preserving its
+            # original slot ordering. Only use index fallback when both sides
+            # expose the same material count, which makes the correspondence
+            # unambiguous and avoids guessing across reordered multi-slot meshes.
+            if (
+                slot is None
+                and local_material != NO_TEXTURE
+                and len(slots) == len(materials)
+            ):
+                slot = by_index.get(local_material)
 
             texture_path: str | None = None
             if slot is not None:
