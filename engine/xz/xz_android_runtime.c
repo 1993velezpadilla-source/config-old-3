@@ -1441,6 +1441,7 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             " gpuTextureBytes=%" PRIu64
             " materialBindings=%u mappedBindings=%u"
             " pbrBindings=%u pbrBytes=%zu"
+            " pbrGpuReady=%d pbrAuthored=%u"
             " envLights=%u envPoint=%u envSpot=%u"
             " envDirectional=%u envSky=%u envBytes=%zu"
             " localLights=%u localActive=%u"
@@ -1482,6 +1483,8 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
                 ? xz_runtime.static_scene.pbr_material.binding_count
                 : 0u,
             xz_runtime.static_scene.pbr_material_bytes,
+            xz_runtime.gles3_shadow.static_scene_pbr_ready,
+            xz_runtime.gles3_shadow.static_scene_pbr_authored_bindings,
             environment
                 ? environment->light_count
                 : 0u,
@@ -1675,6 +1678,7 @@ int XzAndroidRuntime_CompositeVisibleWorld(void)
             " postRestorePixels=%u"
             " readback=%ux%u"
             " localLights=%u active=%u affecting=%u dropped=%u"
+            " pbrReady=%d pbrApplied=%u pbrAuthored=%u"
             " heightFogReady=%d directionalFog=%d"
             " fogDensity=%.6f fogFalloff=%.6f"
             " fogMaxOpacity=%.6f fogStartMeters=%.6f",
@@ -1692,6 +1696,9 @@ int XzAndroidRuntime_CompositeVisibleWorld(void)
             xz_runtime.gles3_shadow.static_scene_local_light_active,
             xz_runtime.gles3_shadow.static_scene_local_light_camera_affecting,
             xz_runtime.gles3_shadow.static_scene_local_light_dropped_affecting,
+            xz_runtime.gles3_shadow.static_scene_pbr_ready,
+            xz_runtime.gles3_shadow.static_scene_last_pbr_bindings,
+            xz_runtime.gles3_shadow.static_scene_pbr_authored_bindings,
             xz_runtime.gles3_shadow.static_scene_height_fog_ready,
             xz_runtime.gles3_shadow.static_scene_directional_fog_enabled,
             xz_runtime.gles3_shadow.static_scene_fog_density,
