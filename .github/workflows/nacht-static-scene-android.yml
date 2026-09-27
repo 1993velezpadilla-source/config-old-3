@@ -2279,6 +2279,11 @@ jobs:
 
           test "$STAGE" = "FIRST_FRAME_OK"
 
+          # Preserve the one-shot startup evidence before the verbose renderer
+          # can rotate it out of logcat while we wait for MODERN cutover.
+          "$ADB" logcat -d -v threadtime \
+            > dist/static-scene-logcat-early.txt || true
+
           # FIRST_FRAME_OK only proves Vril completed its first host frame.
           # The modern cutover intentionally needs several real geometry frames
           # before the static scene can borrow a valid gameplay camera and
@@ -2321,7 +2326,11 @@ jobs:
             | tee -a dist/static-scene-status.txt
 
           "$ADB" logcat -d -v threadtime \
-            > dist/static-scene-logcat.txt || true
+            > dist/static-scene-logcat-late.txt || true
+          cat \
+            dist/static-scene-logcat-early.txt \
+            dist/static-scene-logcat-late.txt \
+            > dist/static-scene-logcat.txt
 
           # Capture the renderer's own FBO before Android/GL4ES presentation.
           # This is the authoritative visual proof for the native GLES3 scene.
