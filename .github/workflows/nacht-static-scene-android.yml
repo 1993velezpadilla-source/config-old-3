@@ -11,6 +11,7 @@ on:
       - feature/xziel-static-scene-material-coverage-v2
       - feature/xziel-static-scene-material-final5
       - feature/xziel-static-scene-material-final5-exact-gate
+      - feature/xziel-static-scene-material-fidelity-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -2357,7 +2358,8 @@ jobs:
             --texture-manifest "$RUNNER_TEMP/scene-glb/xziel-texture-manifest.json" \
             --output "$MAPROOT/materials.xzmt" \
             --report build/nacht-static-scene/xziel.xzmat.report.json \
-            --max-dimension 256 \
+            --max-dimension 1024 \
+            --max-runtime-bytes 201326592 \
             | tee build/nacht-static-scene/xzmat-compile.log
 
           test "$(find "$MAPROOT/meshes" \
@@ -2407,6 +2409,29 @@ jobs:
           assert material["bindingCount"] == 1063
           assert material["mappedBindings"] == 1063
           assert material["textureCount"] > 0
+          assert material["requestedMaxDimension"] == 1024
+          assert material["runtimeBudgetBytes"] == 201326592
+          assert material["runtimeBytes"] <= material["runtimeBudgetBytes"]
+          assert material["runtimeBytes"] == material["estimatedRuntimeBytes"]
+          assert 1 <= material["runtimeMaxDimension"] <= 1024
+
+          print(
+              "XZIEL_NACHT_TEXTURE_RESIDENCY",
+              {
+                  "requestedMaxDimension":
+                      material["requestedMaxDimension"],
+                  "effectiveMaxDimension":
+                      material["runtimeMaxDimension"],
+                  "sourceMaxDimension":
+                      material["sourceMaxDimension"],
+                  "runtimeBytes":
+                      material["runtimeBytes"],
+                  "budgetBytes":
+                      material["runtimeBudgetBytes"],
+                  "fullResolutionUsedTextureBytes":
+                      material["fullResolutionUsedTextureBytes"],
+              },
+          )
 
           print(
               "XZIEL_NACHT_STATIC_OVERLAY_READY",

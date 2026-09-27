@@ -301,6 +301,16 @@ def main() -> int:
     ap.add_argument("--output", type=Path, required=True)
     ap.add_argument("--report", type=Path, required=True)
     ap.add_argument("--max-dimension", type=int, default=256)
+    ap.add_argument(
+        "--max-runtime-bytes",
+        type=int,
+        default=0,
+        help=(
+            "Optional hard byte budget for the complete XZMT pack. "
+            "When set, the compiler selects the largest global texture "
+            "dimension cap <= --max-dimension that fits the budget."
+        ),
+    )
     args = ap.parse_args()
 
     assets = json.loads(args.assets.read_text(encoding="utf-8"))
@@ -628,12 +638,92 @@ def main() -> int:
         for path in raw_binding_texture_paths
     ]
 
-    runtime_textures = []
-    data_offset = (
+    if args.max_dimension <= 0:
+        raise SystemExit("--max-dimension must be positive")
+    if args.max_runtime_bytes < 0:
+        raise SystemExit("--max-runtime-bytes cannot be negative")
+
+    requested_max_dimension = args.max_dimension
+    runtime_budget_bytes = args.max_runtime_bytes
+    fixed_pack_bytes = (
         HEADER.size
         + len(used_paths) * TEXTURE.size
         + len(bindings) * 4
     )
+
+    # Resolve source dimensions once so the quality tier can be chosen from
+    # the real Nacht textures instead of a guessed fixed cap. The estimator is
+    # exact for XZMT v1 because every runtime texture is RGBA8 and the metadata
+    # size is fixed before pixel payloads are appended.
+    source_texture_info: dict[str, tuple[Path, int, int]] = {}
+    full_resolution_used_texture_bytes = 0
+    source_max_dimension = 1
+
+    for path in used_paths:
+        if path in synthetic_textures:
+            continue
+        row = textures_by_path[path]
+        source = args.glb_root / str(row["file"])
+        width, height, _fmt, _bytes = read_xzt_header(source)
+        source_texture_info[path] = (source, width, height)
+        full_resolution_used_texture_bytes += width * height * 4
+        source_max_dimension = max(
+            source_max_dimension,
+            width,
+            height,
+        )
+
+    def estimated_pack_bytes(max_dimension: int) -> int:
+        total = fixed_pack_bytes
+        for path in used_paths:
+            if path in synthetic_textures:
+                total += 4
+                continue
+            _source, width, height = source_texture_info[path]
+            runtime_width, runtime_height = runtime_size(
+                width,
+                height,
+                max_dimension,
+            )
+            total += runtime_width * runtime_height * 4
+        return total
+
+    effective_max_dimension = requested_max_dimension
+
+    if runtime_budget_bytes:
+        minimum_bytes = estimated_pack_bytes(1)
+        if minimum_bytes > runtime_budget_bytes:
+            raise SystemExit(
+                "XZMT metadata/minimum pixels exceed "
+                f"--max-runtime-bytes ({minimum_bytes} > "
+                f"{runtime_budget_bytes})"
+            )
+
+        if (
+            estimated_pack_bytes(effective_max_dimension)
+            > runtime_budget_bytes
+        ):
+            # Pack size is monotonic with the global dimension cap. Binary
+            # search therefore finds the highest fidelity tier that fits the
+            # explicit residency budget without a hand-picked 256/512 guess.
+            low = 1
+            high = requested_max_dimension
+            best = 1
+            while low <= high:
+                mid = (low + high) // 2
+                if estimated_pack_bytes(mid) <= runtime_budget_bytes:
+                    best = mid
+                    low = mid + 1
+                else:
+                    high = mid - 1
+            effective_max_dimension = best
+
+    estimated_runtime_bytes = estimated_pack_bytes(
+        effective_max_dimension
+    )
+
+    runtime_textures = []
+    data_offset = fixed_pack_bytes
 
     for path in used_paths:
         if path in synthetic_textures:
@@ -657,10 +747,9 @@ def main() -> int:
             continue
 
         row = textures_by_path[path]
-        source = args.glb_root / str(row["file"])
-        width, height, _fmt, _bytes = read_xzt_header(source)
+        source, width, height = source_texture_info[path]
         runtime_width, runtime_height = runtime_size(
-            width, height, args.max_dimension
+            width, height, effective_max_dimension
         )
         runtime_bytes = runtime_width * runtime_height * 4
         runtime_textures.append({
@@ -713,6 +802,21 @@ def main() -> int:
             if len(runtime_rgba) != texture["bytes"]:
                 raise SystemExit("runtime texture resize byte mismatch")
             out.write(runtime_rgba)
+
+    actual_runtime_bytes = args.output.stat().st_size
+    if actual_runtime_bytes != estimated_runtime_bytes:
+        raise SystemExit(
+            "XZMT size estimator mismatch "
+            f"({actual_runtime_bytes} != {estimated_runtime_bytes})"
+        )
+    if (
+        runtime_budget_bytes
+        and actual_runtime_bytes > runtime_budget_bytes
+    ):
+        raise SystemExit(
+            "XZMT runtime budget exceeded "
+            f"({actual_runtime_bytes} > {runtime_budget_bytes})"
+        )
 
     mapped = sum(binding != NO_TEXTURE for binding in bindings)
     synthetic_mapped = sum(
@@ -771,8 +875,14 @@ def main() -> int:
         "vectorColorMappedBindings": vector_mapped,
         "glbBaseColorMappedBindings": glb_base_color_mapped,
         "streamingFallbackBindings": streaming_fallback_bindings,
-        "runtimeMaxDimension": args.max_dimension,
-        "runtimeBytes": args.output.stat().st_size,
+        "requestedMaxDimension": requested_max_dimension,
+        "runtimeMaxDimension": effective_max_dimension,
+        "runtimeBudgetBytes": runtime_budget_bytes,
+        "sourceMaxDimension": source_max_dimension,
+        "fullResolutionUsedTextureBytes":
+            full_resolution_used_texture_bytes,
+        "estimatedRuntimeBytes": estimated_runtime_bytes,
+        "runtimeBytes": actual_runtime_bytes,
         "unresolvedSamples": unresolved_slots,
         "meshes": mesh_reports,
         "textures": [
@@ -806,8 +916,12 @@ def main() -> int:
         f"vectorColor={vector_mapped}",
         f"glbBaseColor={glb_base_color_mapped}",
         f"streamingFallback={streaming_fallback_bindings}",
-        f"maxDim={args.max_dimension}",
-        f"bytes={args.output.stat().st_size}",
+        f"requestedMaxDim={requested_max_dimension}",
+        f"effectiveMaxDim={effective_max_dimension}",
+        f"sourceMaxDim={source_max_dimension}",
+        f"budgetBytes={runtime_budget_bytes}",
+        f"fullResBytes={full_resolution_used_texture_bytes}",
+        f"bytes={actual_runtime_bytes}",
     )
     return 0
 
