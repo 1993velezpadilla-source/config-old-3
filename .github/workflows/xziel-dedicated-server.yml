@@ -39,6 +39,7 @@ jobs:
       - name: Test and build Xziel control plane
         working-directory: multiplayer/xziel-server
         run: |
+          go mod tidy
           go test ./...
           mkdir -p ../../dist
           go build -trimpath -o ../../dist/xziel-server ./cmd/xziel-server
