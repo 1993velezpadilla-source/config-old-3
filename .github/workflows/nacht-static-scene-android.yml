@@ -3293,6 +3293,27 @@ jobs:
           echo "CUTOVER_READY=$CUTOVER_READY" \
             | tee -a dist/static-scene-status.txt
 
+          # Nacht intentionally holds a black FADE_OUT during its pre-game.
+          # SwiftShader can advance game time much slower than wall time, so
+          # never capture Android's front buffer until Vril proves that the
+          # screenflash has actually expired.
+          FADE_CLEAR_READY=0
+          for i in $(seq 1 180); do
+            if "$ADB" logcat -d -v threadtime 2>/dev/null \
+                | grep -Eq \
+                  "XZIEL-XZ.*present_luma_clear preSwapRGBA=[0-9]+,[0-9]+,[0-9]+,[1-9][0-9]*.*screenflashActive=0"; then
+              FADE_CLEAR_READY=1
+              break
+            fi
+            if ! "$ADB" shell pidof com.xziel.engine >/dev/null 2>&1; then
+              break
+            fi
+            sleep 1
+          done
+
+          echo "FADE_CLEAR_READY=$FADE_CLEAR_READY" \
+            | tee -a dist/static-scene-status.txt
+
           "$ADB" logcat -d -v threadtime \
             > dist/static-scene-logcat-late.txt || true
           cat \
@@ -3342,6 +3363,11 @@ jobs:
 
           test "$DRAW_READY" = "1"
           test "$CUTOVER_READY" = "1"
+          test "$FADE_CLEAR_READY" = "1"
+
+          grep -E \
+            "XZIEL-XZ.*present_luma_clear preSwapRGBA=[0-9]+,[0-9]+,[0-9]+,[1-9][0-9]*.*screenflashActive=0" \
+            dist/static-scene-logcat.txt
 
           grep -E \
             "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*meshes=492 instances=10791 xzms=492.*vertices=1067383 indices=3608148 submeshes=1063 meshBytes=48633408" \
