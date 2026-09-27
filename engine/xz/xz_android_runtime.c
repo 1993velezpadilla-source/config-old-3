@@ -1445,6 +1445,10 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             " localLights=%u localActive=%u"
             " localCameraAffecting=%u localDropped=%u"
             " localReady=%d"
+            " heightFogReady=%d directionalFog=%d"
+            " fogDensity=%.6f fogFalloff=%.6f"
+            " fogMaxOpacity=%.6f fogStartMeters=%.6f"
+            " fogBytes=%zu"
             " error='%s'",
             XzStaticSceneRuntime_StatusName(
                 static_status),
@@ -1494,6 +1498,13 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             xz_runtime.gles3_shadow.static_scene_local_light_camera_affecting,
             xz_runtime.gles3_shadow.static_scene_local_light_dropped_affecting,
             xz_runtime.gles3_shadow.static_scene_local_lighting_ready,
+            xz_runtime.gles3_shadow.static_scene_height_fog_ready,
+            xz_runtime.gles3_shadow.static_scene_directional_fog_enabled,
+            xz_runtime.gles3_shadow.static_scene_fog_density,
+            xz_runtime.gles3_shadow.static_scene_fog_height_falloff,
+            xz_runtime.gles3_shadow.static_scene_fog_max_opacity,
+            xz_runtime.gles3_shadow.static_scene_fog_start_meters,
+            xz_runtime.static_scene.height_fog_bytes,
             xz_runtime.static_scene.error);
     }
 
@@ -1658,7 +1669,10 @@ int XzAndroidRuntime_CompositeVisibleWorld(void)
             " fboPixels=%u surfacePixels=%u"
             " postRestorePixels=%u"
             " readback=%ux%u"
-            " localLights=%u active=%u affecting=%u dropped=%u",
+            " localLights=%u active=%u affecting=%u dropped=%u"
+            " heightFogReady=%d directionalFog=%d"
+            " fogDensity=%.6f fogFalloff=%.6f"
+            " fogMaxOpacity=%.6f fogStartMeters=%.6f",
             xz_runtime.gles3_shadow.static_scene_gpu_meshes,
             xz_runtime.gles3_shadow.static_scene_last_instances,
             xz_runtime.gles3_shadow.static_scene_last_draw_calls,
@@ -1672,7 +1686,13 @@ int XzAndroidRuntime_CompositeVisibleWorld(void)
             xz_runtime.gles3_shadow.static_scene_local_light_count,
             xz_runtime.gles3_shadow.static_scene_local_light_active,
             xz_runtime.gles3_shadow.static_scene_local_light_camera_affecting,
-            xz_runtime.gles3_shadow.static_scene_local_light_dropped_affecting);
+            xz_runtime.gles3_shadow.static_scene_local_light_dropped_affecting,
+            xz_runtime.gles3_shadow.static_scene_height_fog_ready,
+            xz_runtime.gles3_shadow.static_scene_directional_fog_enabled,
+            xz_runtime.gles3_shadow.static_scene_fog_density,
+            xz_runtime.gles3_shadow.static_scene_fog_height_falloff,
+            xz_runtime.gles3_shadow.static_scene_fog_max_opacity,
+            xz_runtime.gles3_shadow.static_scene_fog_start_meters);
     }
 
     return presented;
