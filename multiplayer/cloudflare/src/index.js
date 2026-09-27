@@ -122,7 +122,7 @@ export default {
       const queue = rawQueue.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 64) || "public-v1";
       const map = sanitizeMap(url.searchParams.get("map"));
       const targetPlayers = sanitizeTargetPlayers(url.searchParams.get("players"));
-    const hostPriority = sanitizeHostPriority(url.searchParams.get("hostPriority"));
+      const hostPriority = sanitizeHostPriority(url.searchParams.get("hostPriority"));
       const id = env.MATCHMAKER.idFromName(
         "queue-" + queue + "-" + map + "-" + targetPlayers
       );
@@ -132,6 +132,7 @@ export default {
       target.searchParams.set("queue", queue);
       target.searchParams.set("map", map);
       target.searchParams.set("players", String(targetPlayers));
+      target.searchParams.set("hostPriority", String(hostPriority));
       return stub.fetch(new Request(target, request));
     }
 
