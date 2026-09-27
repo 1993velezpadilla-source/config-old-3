@@ -2836,6 +2836,44 @@ jobs:
               errors="replace",
           )
           rows=re.findall(
+              r"present_luma_postfade preSwapRGBA=(\d+),(\d+),(\d+),(\d+) "
+              r"screenflashColor=(\d+) screenflashType=(\d+) "
+              r"screenflashDuration=([0-9.-]+) screenflashStart=([0-9.-]+) "
+              r"screenflashWork=([0-9.-]+)",
+              text,
+          )
+          assert rows, "missing post-fade pre-swap sample"
+          row=rows[-1]
+          rgba=tuple(map(int,row[:4]))
+          color=int(row[4])
+          flash_type=int(row[5])
+          duration=float(row[6])
+          start=float(row[7])
+          work=float(row[8])
+          span=duration-start
+          mean=sum(rgba[:3])/3.0
+          assert color == 1 and flash_type == 2
+          assert span > 0 and work >= span
+          assert rgba[3] > 0
+          assert mean > 80, rgba
+          print(
+              "XZIEL_NACHT_POSTFADE_PRESENT_GREEN",
+              f"rgba={rgba}",
+              f"meanRGB={mean:.3f}",
+              f"flashSpan={span:.6f}",
+              f"flashWork={work:.6f}",
+          )
+          PY
+
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          text=Path("dist/static-scene-logcat.txt").read_text(
+              encoding="utf-8",
+              errors="replace",
+          )
+          rows=re.findall(
               r"present_luma postRestoreRGBA=(\d+),(\d+),(\d+),(\d+) "
               r"preSwapRGBA=(\d+),(\d+),(\d+),(\d+) "
               r"screenflashColor=(-?\d+) screenflashType=(-?\d+) "
@@ -2861,7 +2899,16 @@ jobs:
           fade_out_alpha=max(0.0,min(1.0,1.0-progress))
           expected_black_ratio=1.0-fade_out_alpha
           assert post[3] > 0 and preswap[3] > 0
-          assert post_rgb > 0 and preswap_rgb > 0
+          assert post_rgb > 0
+          # A zero RGB pre-swap sample is valid during the stock NZ:P
+          # 90-second black FADE_OUT that is repeatedly re-issued during
+          # the short pre-game window. Quantization can make the expected
+          # first-frame ratio effectively zero.
+          if color == 1 and flash_type == 2:
+              assert abs(ratio - expected_black_ratio) <= 0.03, (
+                  ratio,
+                  expected_black_ratio,
+              )
           print(
               "XZIEL_NACHT_PRESENT_LUMA_STAGE",
               f"postRestore={post}",
