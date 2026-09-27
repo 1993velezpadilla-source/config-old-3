@@ -1,0 +1,61 @@
+name: XZIEL Nacht Mystery Box Runtime
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/xziel-nacht-mystery-box-runtime-v1
+    paths:
+      - "engine/xz/xz_nacht_mystery_box.*"
+      - "engine/xz/xz_nacht_mystery_box_pool.generated.inc"
+      - "tests/xz_nacht_mystery_box_test.c"
+      - "assets/weapons/**"
+      - "tools/weapons/generate_nacht_mystery_box_runtime.py"
+      - ".github/workflows/xziel-nacht-mystery-box-runtime.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  mystery-box-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Regenerate exact Nacht box pool
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/weapons/export_nacht_prototype_box_pool.py
+          git diff --exit-code -- assets/weapons/nacht_prototype_box_pool_v1.json
+          python3 tools/weapons/generate_nacht_mystery_box_runtime.py
+          git diff --exit-code -- engine/xz/xz_nacht_mystery_box_pool.generated.inc
+
+      - name: Validate global weapon catalog
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/weapons/export_xziel_mystery_box_pool.py
+          git diff --exit-code -- assets/weapons/xziel_mystery_box_pool_v1.json
+          python3 tools/weapons/validate_xziel_weapon_catalog.py
+
+      - name: Build and run Nacht Mystery Box tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cc -std=c99 -O2 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tests/xz_nacht_mystery_box_test.c \
+            engine/xz/xz_nacht_mystery_box.c \
+            -o /tmp/xz_nacht_mystery_box_test
+          /tmp/xz_nacht_mystery_box_test
+
+      - name: Assert verified Nacht constants
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F '#define XZ_NACHT_MYSTERY_BOX_COST 950u' engine/xz/xz_nacht_mystery_box.h
+          grep -F '#define XZ_NACHT_MYSTERY_BOX_POOL_COUNT 34u' engine/xz/xz_nacht_mystery_box.h
+          grep -F '#define XZ_NACHT_MYSTERY_BOX_MOVABLE 0' engine/xz/xz_nacht_mystery_box.h
