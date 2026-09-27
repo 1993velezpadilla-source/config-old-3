@@ -166,8 +166,8 @@ jobs:
               var path = export.GetPathName() ?? "";
 
               typeCounts[type] =
-                  typeCounts.TryGetValue(type, out var count)
-                      ? count + 1
+                  typeCounts.TryGetValue(type, out var typeCount)
+                      ? typeCount + 1
                       : 1;
 
               var haystack =
@@ -185,8 +185,8 @@ jobs:
               foreach (var hit in hits)
               {
                   keywordCounts[hit] =
-                      keywordCounts.TryGetValue(hit, out var count)
-                          ? count + 1
+                      keywordCounts.TryGetValue(hit, out var keywordCount)
+                          ? keywordCount + 1
                           : 1;
               }
 
