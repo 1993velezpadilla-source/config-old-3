@@ -1552,6 +1552,23 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             xz_runtime.gles3_shadow.static_scene_reflection_offset_meters[0],
             xz_runtime.gles3_shadow.static_scene_reflection_offset_meters[1],
             xz_runtime.gles3_shadow.static_scene_reflection_offset_meters[2]);
+
+        XzAndroidLog(
+            ANDROID_LOG_INFO,
+            "static_scene_tonemap map='%s'"
+            " ready=%d"
+            " slope=%.6f toe=%.6f shoulder=%.6f"
+            " blackClip=%.6f whiteClip=%.6f"
+            " exposure=%.6f exposureMode=neutral",
+            XzMapRuntime_MapId(
+                &xz_runtime.map_runtime),
+            xz_runtime.gles3_shadow.static_scene_tonemap_ready,
+            xz_runtime.gles3_shadow.static_scene_film_slope,
+            xz_runtime.gles3_shadow.static_scene_film_toe,
+            xz_runtime.gles3_shadow.static_scene_film_shoulder,
+            xz_runtime.gles3_shadow.static_scene_film_black_clip,
+            xz_runtime.gles3_shadow.static_scene_film_white_clip,
+            xz_runtime.gles3_shadow.static_scene_exposure_multiplier);
     }
 
     XzAndroidLog(
