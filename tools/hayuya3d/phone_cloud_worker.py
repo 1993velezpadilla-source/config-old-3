@@ -449,7 +449,8 @@ selected_generator="trellis-community/TRELLIS"
 selected_compute="GitHub-hosted CPU controller + public TRELLIS ZeroGPU"
 modern_candidate=None
 preview_recovery_candidate=None
-preview_recovery_hold_reason=None
+preview_recovery_face_rescue_required=False
+preview_recovery_face_rescue_reason=None
 
 # Modern single-image authority. TRELLIS.2 is deliberately not used to replace
 # classic TRELLIS native multi-image fusion: with 2+ real geometry views the
@@ -527,36 +528,36 @@ if not multi and TRELLIS2_ENABLED and TEXTURE_QUALITY in {"high","ultra"}:
                             "TRELLIS.2 preview recovery texture gate failed: "
                             + json.dumps(asdict(recovered_texture_report),separators=(",",":"))
                         )
-                    # A preview-recovered visual hull is an approximation of
-                    # TRELLIS.2's static turntable, not the native latent mesh. It can
-                    # satisfy topology/texture gates while erasing face geometry. For
-                    # characters with real/source-derived head evidence, preserve it as
-                    # a diagnostic candidate but NEVER auto-promote it before the face
-                    # judge. Continue to the explicit continuity backend instead.
+                    # A preview-recovered visual hull is only an approximation
+                    # of TRELLIS.2's static turntable, not the native latent mesh. It
+                    # may be used provisionally, but face-critical characters are not
+                    # allowed to leave this worker until the downstream seam-limited
+                    # head-geometry rescue has actually produced a Judge-ready mesh.
+                    modern_candidate=recovered_candidate
+                    preview_recovery_candidate=recovered_candidate
+                    selected_generator=recovered_meta["generator"]
+                    selected_compute=recovered_meta["compute"]
+                    actual_mesh_simplify=0.0
+                    actual_texture_size=int(recovered_meta["texture_size"])
+                    result=str(modern_candidate)
                     is_character_asset=ASSET_PROFILE in {
                         "auto","character.humanoid","character.creature"
                     }
                     if is_character_asset and detail_views:
-                        preview_recovery_candidate=recovered_candidate
-                        preview_recovery_hold_reason=(
-                            "character_face_evidence_requires_native_or_independently_"
-                            "validated_geometry"
+                        preview_recovery_face_rescue_required=True
+                        preview_recovery_face_rescue_reason=(
+                            "approximate_visual_hull_requires_face_geometry_rescue"
                         )
                         print(
-                            "HAYUYA_TRELLIS2_PREVIEW_RECOVERY_HELD_FOR_FACE",
+                            "HAYUYA_TRELLIS2_PREVIEW_RECOVERY_PROVISIONAL",
                             json.dumps({
                                 **recovered_meta,
-                                "hold_reason":preview_recovery_hold_reason,
+                                "face_rescue_required":True,
+                                "reason":preview_recovery_face_rescue_reason,
                                 "detail_views":len(detail_views),
                             },separators=(",",":")),
                         )
                     else:
-                        modern_candidate=recovered_candidate
-                        selected_generator=recovered_meta["generator"]
-                        selected_compute=recovered_meta["compute"]
-                        actual_mesh_simplify=0.0
-                        actual_texture_size=int(recovered_meta["texture_size"])
-                        result=str(modern_candidate)
                         print(
                             "HAYUYA_TRELLIS2_PREVIEW_RECOVERY_PROMOTED",
                             json.dumps(recovered_meta,separators=(",",":")),
@@ -781,6 +782,20 @@ if (
             +head_geometry_fusion_payload["error"]
         )
 
+# A face-critical preview visual hull cannot be finalized merely because its
+# topology and texture are valid. The geometry rescue above is mandatory; if it
+# could not produce a safe Judge-ready challenger, fail closed instead of letting
+# a texture-only face paint reach Judge v4 as the master.
+if preview_recovery_face_rescue_required and not (
+    head_geometry_fusion_payload
+    and head_geometry_fusion_payload.get("promoted")
+):
+    fail(
+        "TRELLIS.2 preview recovery refused final promotion: "
+        "source-derived face evidence exists but the seam-limited head geometry "
+        "rescue did not produce a Judge-ready candidate."
+    )
+
 # Real head/detail evidence must affect the final character instead of only
 # being written to the manifest. Build a CPU TripoSR donor from the tight
 # source-derived head crop, align that donor to the semantic head region, and
@@ -959,11 +974,18 @@ manifest={
         str(preview_recovery_candidate)
         if preview_recovery_candidate is not None else None
     ),
+    "preview_recovery_face_rescue_required":preview_recovery_face_rescue_required,
+    "preview_recovery_face_rescue_reason":preview_recovery_face_rescue_reason,
     "preview_recovery_promoted":bool(
-        preview_recovery_candidate is None
-        and selected_generator=="microsoft/TRELLIS.2-preview-recovery"
+        selected_generator=="microsoft/TRELLIS.2-preview-recovery"
+        and (
+            not preview_recovery_face_rescue_required
+            or bool(
+                head_geometry_fusion_payload
+                and head_geometry_fusion_payload.get("promoted")
+            )
+        )
     ),
-    "preview_recovery_hold_reason":preview_recovery_hold_reason,
     "requested_backends":BACKENDS,
     "strict_trellis2":STRICT_TRELLIS2,
     "texture_size":actual_texture_size,
