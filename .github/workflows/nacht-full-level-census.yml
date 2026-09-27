@@ -419,6 +419,12 @@ jobs:
               "XZIEL_NACHT_STRUCTURAL_CANDIDATES",
               data["structuralCandidateCount"],
           )
+          for model in data.get("modelDetails", []):
+              if "PersistentLevel.Model_0" in model.get("path", ""):
+                  print(
+                      "XZIEL_NACHT_PERSISTENT_MODEL",
+                      json.dumps(model, sort_keys=True),
+                  )
           PY
 
       - name: Upload census artifact
