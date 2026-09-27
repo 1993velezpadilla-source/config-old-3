@@ -54,12 +54,14 @@ string(entity player) XzielBot_WeaponArrayJson =
 
 		string weapon_name = GetWeaponName(weapon_id, player.weapons[i].weapon_tier);
 		out = sprintf(
-			"%s%s{\"name\":\"%s\",\"magazine\":%d,\"reserve\":%d,"
-			"\"wall_weapon\":%d,\"ammo_cost\":%d}",
+			"%s%s{\\\"name\\\":\\\"%s\\\",\\\"magazine\\\":%g,\\\"reserve\\\":%g",
 			out, comma ? "," : "", weapon_name,
 			player.weapons[i].weapon_magazine,
-			player.weapons[i].weapon_reserve,
-			is_wall, ammo_cost
+			player.weapons[i].weapon_reserve
+		);
+		out = sprintf(
+			"%s,\\\"wall_weapon\\\":%g,\\\"ammo_cost\\\":%g}",
+			out, is_wall, ammo_cost
 		);
 		comma = 1;
 	}
@@ -77,11 +79,13 @@ string(entity player) XzielBot_ZombiesJson =
 		float distance = vlen(z.origin - player.origin);
 		if (distance <= 1200 && z.health > 0) {
 			out = sprintf(
-				"%s%s{\"id\":%d,\"position\":[%g,%g,%g],"
-				"\"health\":%g,\"targeting_me\":%d,\"state\":\"%s\"}",
+				"%s%s{\\\"id\\\":%g,\\\"position\\\":[%g,%g,%g]",
 				out, comma ? "," : "", emitted + 1,
-				z.origin_x, z.origin_y, z.origin_z, z.health,
-				z.enemy == player, z.aistatus
+				z.origin_x, z.origin_y, z.origin_z
+			);
+			out = sprintf(
+				"%s,\\\"health\\\":%g,\\\"targeting_me\\\":%g,\\\"state\\\":\\\"%s\\\"}",
+				out, z.health, z.enemy == player, z.aistatus
 			);
 			comma = 1;
 			emitted++;
@@ -101,11 +105,13 @@ string(entity player) XzielBot_TeammatesJson =
 	while (teammate != world) {
 		if (teammate != player) {
 			out = sprintf(
-				"%s%s{\"slot\":%d,\"position\":[%g,%g,%g],"
-				"\"health\":%g,\"downed\":%d,\"bleedout_seconds\":%g}",
+				"%s%s{\\\"slot\\\":%g,\\\"position\\\":[%g,%g,%g]",
 				out, comma ? "," : "", slot,
-				teammate.origin_x, teammate.origin_y, teammate.origin_z,
-				teammate.health, teammate.downed,
+				teammate.origin_x, teammate.origin_y, teammate.origin_z
+			);
+			out = sprintf(
+				"%s,\\\"health\\\":%g,\\\"downed\\\":%g,\\\"bleedout_seconds\\\":%g}",
+				out, teammate.health, teammate.downed,
 				teammate.downed ? qc_max(teammate.bleedingtime - time, 0) : 999
 			);
 			comma = 1;
@@ -128,12 +134,13 @@ string(entity player) XzielBot_InteractablesJson =
 	while (item != world && emitted < 24) {
 		if (item.health != -10 && vlen(item.origin - player.origin) <= 1500) {
 			out = sprintf(
-				"%s%s{\"id\":%d,\"kind\":\"window\","
-				"\"position\":[%g,%g,%g],\"active\":1,"
-				"\"boards\":%d,\"max_boards\":%d,\"breached\":%d}",
+				"%s%s{\\\"id\\\":%g,\\\"kind\\\":\\\"window\\\",\\\"position\\\":[%g,%g,%g]",
 				out, comma ? "," : "", id,
-				item.origin_x, item.origin_y, item.origin_z,
-				item.health, item.health_delay, item.health <= 0
+				item.origin_x, item.origin_y, item.origin_z
+			);
+			out = sprintf(
+				"%s,\\\"active\\\":1,\\\"boards\\\":%g,\\\"max_boards\\\":%g,\\\"breached\\\":%g}",
+				out, item.health, item.health_delay, item.health <= 0
 			);
 			comma = 1; id++; emitted++;
 		}
@@ -144,12 +151,13 @@ string(entity player) XzielBot_InteractablesJson =
 	while (item != world && emitted < 24) {
 		if (vlen(item.origin - player.origin) <= 1800) {
 			out = sprintf(
-				"%s%s{\"id\":%d,\"kind\":\"wall_weapon\","
-				"\"position\":[%g,%g,%g],\"active\":1,"
-				"\"cost\":%d,\"weapon\":\"%s\",\"ammo_cost\":%d}",
+				"%s%s{\\\"id\\\":%g,\\\"kind\\\":\\\"wall_weapon\\\",\\\"position\\\":[%g,%g,%g]",
 				out, comma ? "," : "", id,
-				item.origin_x, item.origin_y, item.origin_z,
-				item.cost, GetWeaponName(item.weapon, -1), item.cost2
+				item.origin_x, item.origin_y, item.origin_z
+			);
+			out = sprintf(
+				"%s,\\\"active\\\":1,\\\"cost\\\":%g,\\\"weapon\\\":\\\"%s\\\",\\\"ammo_cost\\\":%g}",
+				out, item.cost, GetWeaponName(item.weapon, -1), item.cost2
 			);
 			comma = 1; id++; emitted++;
 		}
@@ -160,11 +168,11 @@ string(entity player) XzielBot_InteractablesJson =
 	while (item != world && emitted < 24) {
 		if (vlen(item.origin - player.origin) <= 2200 && item.solid != SOLID_NOT) {
 			out = sprintf(
-				"%s%s{\"id\":%d,\"kind\":\"mystery_box\","
-				"\"position\":[%g,%g,%g],\"active\":1,\"cost\":%d}",
+				"%s%s{\\\"id\\\":%g,\\\"kind\\\":\\\"mystery_box\\\",\\\"position\\\":[%g,%g,%g]",
 				out, comma ? "," : "", id,
-				item.origin_x, item.origin_y, item.origin_z, mystery_box_cost
+				item.origin_x, item.origin_y, item.origin_z
 			);
+			out = sprintf("%s,\\\"active\\\":1,\\\"cost\\\":%g}", out, mystery_box_cost);
 			comma = 1; id++; emitted++;
 		}
 		item = find(item, classname, "mystery");
@@ -174,11 +182,11 @@ string(entity player) XzielBot_InteractablesJson =
 	while (item != world && emitted < 24) {
 		if (vlen(item.origin - player.origin) <= 2200) {
 			out = sprintf(
-				"%s%s{\"id\":%d,\"kind\":\"door\","
-				"\"position\":[%g,%g,%g],\"active\":1,\"cost\":%d}",
+				"%s%s{\\\"id\\\":%g,\\\"kind\\\":\\\"door\\\",\\\"position\\\":[%g,%g,%g]",
 				out, comma ? "," : "", id,
-				item.origin_x, item.origin_y, item.origin_z, item.cost
+				item.origin_x, item.origin_y, item.origin_z
 			);
+			out = sprintf("%s,\\\"active\\\":1,\\\"cost\\\":%g}", out, item.cost);
 			comma = 1; id++; emitted++;
 		}
 		item = find(item, classname, "door_nzp_cost");
@@ -201,22 +209,30 @@ void() XzielBot_EmitTelemetry =
 		string current_name = player.weapon
 			? GetWeaponName(player.weapon, player.weapon_tier)
 			: "";
+
 		string payload = sprintf(
-			"XzielBotState {\"timestamp\":%g,\"map_id\":\"%s\","
-			"\"round\":%d,\"round_phase\":\"%s\","
-			"\"player\":{\"slot\":%d,\"position\":[%g,%g,%g],"
-			"\"yaw\":%g,\"health\":%g,\"max_health\":%g,"
-			"\"downed\":%d,\"points\":%d,\"current_weapon\":\"%s\","
-			"\"weapons\":%s},\"zombies\":%s,\"interactables\":%s,"
-			"\"teammates\":%s}\n",
-			time, mapname, rounds, phase,
-			slot, player.origin_x, player.origin_y, player.origin_z,
-			player.angles_y, player.health, player.max_health,
-			player.downed, player.points, current_name,
-			XzielBot_WeaponArrayJson(player),
-			XzielBot_ZombiesJson(player),
-			XzielBot_InteractablesJson(player),
-			XzielBot_TeammatesJson(player)
+			"XzielBotState {\\\"timestamp\\\":%g,\\\"map_id\\\":\\\"%s\\\",\\\"round\\\":%g,\\\"round_phase\\\":\\\"%s\\\"",
+			time, mapname, rounds, phase
+		);
+		payload = sprintf(
+			"%s,\\\"player\\\":{\\\"slot\\\":%g,\\\"position\\\":[%g,%g,%g]",
+			payload, slot, player.origin_x, player.origin_y, player.origin_z
+		);
+		payload = sprintf(
+			"%s,\\\"yaw\\\":%g,\\\"health\\\":%g,\\\"max_health\\\":%g",
+			payload, player.angles_y, player.health, player.max_health
+		);
+		payload = sprintf(
+			"%s,\\\"downed\\\":%g,\\\"points\\\":%g,\\\"current_weapon\\\":\\\"%s\\\"",
+			payload, player.downed, player.points, current_name
+		);
+		payload = sprintf(
+			"%s,\\\"weapons\\\":%s},\\\"zombies\\\":%s",
+			payload, XzielBot_WeaponArrayJson(player), XzielBot_ZombiesJson(player)
+		);
+		payload = sprintf(
+			"%s,\\\"interactables\\\":%s,\\\"teammates\\\":%s}\\n",
+			payload, XzielBot_InteractablesJson(player), XzielBot_TeammatesJson(player)
 		);
 
 		// Send only this player's state to its client. The host/server keeps
@@ -227,7 +243,6 @@ void() XzielBot_EmitTelemetry =
 		player = find(player, classname, "player");
 	}
 };
-
 '''
 
 text = text.replace(anchor, payload + anchor, 1)
