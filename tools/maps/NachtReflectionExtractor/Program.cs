@@ -554,6 +554,7 @@ var builtDataCandidates =
 
 var registryRows = new List<object>();
 var reflectionBuildRows = new List<object>();
+var buildDataRegistryCount = 0;
 var linkedBuildDataCount = 0;
 
 foreach (var candidate in builtDataCandidates)
@@ -589,6 +590,7 @@ foreach (var candidate in builtDataCandidates)
             continue;
 
         registryCount++;
+        buildDataRegistryCount++;
 
         var buildData =
             registry.ReflectionCaptureBuildData;
@@ -667,12 +669,7 @@ var output = new {
     buildDataCandidateCount =
         builtDataCandidates.Length,
     buildDataCandidates,
-    buildDataRegistryCount =
-        registryRows.Sum(
-            row =>
-                (int)(row.GetType()
-                    .GetProperty("registryCount")!
-                    .GetValue(row) ?? 0)),
+    buildDataRegistryCount,
     reflectionCaptureBuildDataCount =
         reflectionBuildRows.Count,
     reflectionCaptureBuildDataLinkedCount =
