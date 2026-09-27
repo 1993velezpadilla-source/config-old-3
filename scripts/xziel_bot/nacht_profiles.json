@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "profiles": {
+    "ndu_nzp": {
+      "map_id": "ndu",
+      "label": "Nacht der Untoten - NZ:P runtime",
+      "runtime_authority": "telemetry",
+      "strategy": {
+        "repair_only_when_safe": true,
+        "wall_ammo_before_box_when_owned": true,
+        "box_base_cost": 950,
+        "keep_emergency_point_reserve": true,
+        "revive_priority": "high",
+        "shopping_priority_under_close_threat": "never"
+      },
+      "mystery_box": {
+        "source": "nzp-team/assets common/maps/ndu.mb2",
+        "mode": "deny",
+        "denied_weapons": [
+          "m1911",
+          "ppsh-41",
+          "wunderwaffe",
+          "ballistic_knife",
+          "type_100",
+          "mp5k"
+        ],
+        "supported_weapon_names": [
+          "m1911",
+          "kar98k",
+          "thompson",
+          "357_magnum",
+          "bar",
+          "ballistic_knife",
+          "browning",
+          "double_barreled_shotgun",
+          "fg42",
+          "gewehr",
+          "kar98k_scoped",
+          "m1_garand",
+          "m1a1_carbine",
+          "m2_flamethrower",
+          "mp40",
+          "mg42",
+          "panzerschreck",
+          "ppsh-41",
+          "ptrs-41",
+          "ray_gun",
+          "sawed_off_shotgun",
+          "stg-44",
+          "trenchgun",
+          "type_100",
+          "wunderwaffe",
+          "mp5k",
+          "springfield"
+        ]
+      }
+    },
+    "nacht_bo3_chronicles_research": {
+      "map_id": "nacht_bo3",
+      "label": "Nacht der Untoten - Zombies Chronicles research profile",
+      "runtime_authority": "telemetry",
+      "wall_buys_reference": {
+        "rk5": 500,
+        "pharo": 700,
+        "kuda": 1250,
+        "kn-44": 1400,
+        "sheiva": 500,
+        "krm-262": 750,
+        "argus": 1100,
+        "locus_cabinet": 5000,
+        "frag_grenades": 250
+      },
+      "box_research_pool": [
+        "l-car9",
+        "vesper",
+        "vmp",
+        "kuda",
+        "pharo",
+        "weevil",
+        "bootlegger",
+        "mp40",
+        "ak-74u",
+        "icr-1",
+        "kn-44",
+        "m8a7",
+        "sheiva",
+        "hvk-30",
+        "man-o-war",
+        "stg-44",
+        "mx_garand",
+        "krm-262",
+        "argus",
+        "205_brecci",
+        "haymaker_12",
+        "brm",
+        "dingo",
+        "48_dredge",
+        "gorgon",
+        "rpk",
+        "locus",
+        "drakon",
+        "svg-100",
+        "xm-53",
+        "ray_gun",
+        "ray_gun_mk_ii",
+        "thundergun",
+        "annihilator",
+        "monkey_bomb"
+      ],
+      "note": "Reference profile only. Runtime map entities and costs override this table."
+    }
+  }
+}
