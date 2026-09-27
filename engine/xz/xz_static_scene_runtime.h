@@ -30,6 +30,15 @@ typedef struct {
 
 #define XZ_STATIC_MATERIAL_NO_TEXTURE 0xffffffffu
 
+#define XZ_STATIC_LIGHT_SPECULAR_HAS_SCALE (1u << 0)
+#define XZ_STATIC_LIGHT_SPECULAR_HAS_INDIRECT (1u << 1)
+
+typedef struct {
+    uint32_t flags;
+    float specular_scale;
+    float indirect_lighting_intensity;
+} XzStaticLightSpecular;
+
 typedef struct {
     uint32_t width;
     uint32_t height;
@@ -71,6 +80,11 @@ typedef struct {
     size_t environment_bytes;
     XzEnvironmentView environment;
 
+    unsigned char *light_specular_data;
+    size_t light_specular_bytes;
+    uint32_t light_specular_count;
+    size_t light_specular_records_offset;
+
     unsigned char *height_fog_data;
     size_t height_fog_bytes;
     XzHeightFogView height_fog;
@@ -87,6 +101,7 @@ typedef struct {
     char pbr_material_path[256];
     char normal_material_path[256];
     char environment_path[256];
+    char light_specular_path[256];
     char height_fog_path[256];
     char error[128];
 } XzStaticSceneRuntimeState;
@@ -148,6 +163,11 @@ int XzStaticSceneRuntime_EnvironmentLight(
     const XzStaticSceneRuntimeState *state,
     uint32_t light_index,
     XzEnvironmentLight *light);
+
+int XzStaticSceneRuntime_LightSpecular(
+    const XzStaticSceneRuntimeState *state,
+    uint32_t light_index,
+    XzStaticLightSpecular *specular);
 
 const XzHeightFogView *
 XzStaticSceneRuntime_HeightFog(
