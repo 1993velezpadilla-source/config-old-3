@@ -20,6 +20,7 @@ on:
       - feature/xziel-nacht-height-fog-shader-v2
       - feature/xziel-nacht-pbr-scalar-census-v1
       - feature/xziel-nacht-pbr-scalar-pack-v1
+      - feature/xziel-nacht-pbr-scalar-shader-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -2940,7 +2941,7 @@ jobs:
             dist/static-scene-logcat.txt
 
           grep -E \
-            "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*pbrBindings=1063 pbrBytes=21280" \
+            "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*pbrBindings=1063 pbrBytes=21280 pbrGpuReady=1 pbrAuthored=91" \
             dist/static-scene-logcat.txt
 
           grep -E \
@@ -2960,7 +2961,7 @@ jobs:
             dist/static-scene-logcat.txt
 
           grep -E \
-            "XZIEL-XZ.*static_scene_draw ready=1.*localLights=163 active=64 affecting=[1-9][0-9]* dropped=0.*heightFogReady=1 directionalFog=0 fogDensity=0\.100000 fogFalloff=2\.000000 fogMaxOpacity=0\.200000 fogStartMeters=3\.000000" \
+            "XZIEL-XZ.*static_scene_draw ready=1.*localLights=163 active=64 affecting=[1-9][0-9]* dropped=0.*pbrReady=1 pbrApplied=1063 pbrAuthored=91.*heightFogReady=1 directionalFog=0 fogDensity=0\.100000 fogFalloff=2\.000000 fogMaxOpacity=0\.200000 fogStartMeters=3\.000000" \
             dist/static-scene-logcat.txt
 
           grep -E \
@@ -2983,6 +2984,9 @@ jobs:
 
           echo \
             "XZIEL_NACHT_PBR_SCALAR_PACK_GREEN bindings=1063 bytes=21280"
+
+          echo \
+            "XZIEL_NACHT_PBR_SHADER_GREEN bindings=1063 authored=91"
 
           echo \
             "XZIEL_NACHT_ENVIRONMENT_GREEN lights=166 point=144 spot=19 directional=2 sky=1 bytes=14636"
