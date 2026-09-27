@@ -1746,6 +1746,8 @@ static int XzCreateStaticSceneProgram(void)
         "uniform vec4 uFogPrimary;\n"
         "uniform vec4 uFogColorMin;\n"
         "uniform float uFogCutoffCm;\n"
+        "uniform vec4 uPbrParams;\n"
+        "uniform int uPbrFlags;\n"
         "out vec4 outColor;\n"
         "float linearToSrgb1(float x){\n"
         "  x=clamp(x,0.0,1.0);\n"
@@ -1814,7 +1816,27 @@ static int XzCreateStaticSceneProgram(void)
         "  float uvTone=0.92+0.08*clamp(vUV.y,0.0,1.0);\n"
         "  vec4 texel=uHasBaseColor!=0?texture(uBaseColor,vUV):vec4(0.56,0.54,0.50,1.0);\n"
         "  if(uHasBaseColor!=0 && texel.a<0.04) discard;\n"
-        "  vec3 lit=texel.rgb*uvTone*light;\n"
+        "  vec3 albedo=texel.rgb*uvTone;\n"
+        "  vec3 lit=albedo*light;\n"
+        "  if(uPbrFlags!=0){\n"
+        "    float roughness=clamp(uPbrParams.x,0.04,1.0);\n"
+        "    float metallic=clamp(uPbrParams.y,0.0,1.0);\n"
+        "    float specular=clamp(uPbrParams.z,0.0,1.0);\n"
+        "    float emissive=max(uPbrParams.w,0.0);\n"
+        "    vec3 V=normalize(uCameraPosGame-vWorldPos);\n"
+        "    vec3 Ld=normalize(uDirectionalDirection);\n"
+        "    vec3 halfRaw=V+Ld;\n"
+        "    float halfLen2=dot(halfRaw,halfRaw);\n"
+        "    vec3 H=halfLen2>1.0e-6?halfRaw*inversesqrt(halfLen2):n;\n"
+        "    float ndh=max(dot(n,H),0.0);\n"
+        "    float gloss=1.0-roughness;\n"
+        "    float shininess=mix(2.0,96.0,gloss*gloss);\n"
+        "    float specLobe=pow(ndh,shininess)*ndl;\n"
+        "    vec3 f0=mix(vec3(0.08*specular),albedo,metallic);\n"
+        "    vec3 diffuse=albedo*light*(1.0-metallic);\n"
+        "    vec3 directSpec=f0*(specLobe*uDirectionalWeight)*uDirectionalColor;\n"
+        "    lit=diffuse+directSpec+albedo*emissive;\n"
+        "  }\n"
         "  float fogT=ueFogTransmission(vWorldPos);\n"
         "  vec3 fogged=lit*fogT+uFogColorMin.rgb*(1.0-fogT);\n"
         "  outColor=vec4(linearToSrgb(fogged),texel.a);\n"
@@ -1924,6 +1946,14 @@ static int XzCreateStaticSceneProgram(void)
         gl->GetUniformLocation(
             xz_shadow.static_program,
             "uFogCutoffCm");
+    xz_shadow.static_pbr_params_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uPbrParams");
+    xz_shadow.static_pbr_flags_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uPbrFlags");
 
     if (xz_shadow.static_view_loc < 0 ||
         xz_shadow.static_projection_loc < 0 ||
@@ -1940,7 +1970,9 @@ static int XzCreateStaticSceneProgram(void)
         xz_shadow.static_camera_pos_loc < 0 ||
         xz_shadow.static_fog_primary_loc < 0 ||
         xz_shadow.static_fog_color_min_loc < 0 ||
-        xz_shadow.static_fog_cutoff_loc < 0)
+        xz_shadow.static_fog_cutoff_loc < 0 ||
+        xz_shadow.static_pbr_params_loc < 0 ||
+        xz_shadow.static_pbr_flags_loc < 0)
         return 0;
 
     gl->UseProgram(xz_shadow.static_program);
