@@ -207,6 +207,8 @@ jobs:
 
           var inferredAlbedoLoads = 0;
           var slotAliasMaterialLoads = 0;
+          var params2TextureCandidates = 0;
+          var params2VectorCandidates = 0;
 
           var meshMaterialRows =
               new List<Dictionary<string, string>>();
@@ -669,6 +671,131 @@ jobs:
                       textureRef,
                       ownerMaterial,
                       "append");
+              }
+
+              /*
+               * Let the pinned CUE4Parse material resolver walk the complete
+               * material stack as well. CMaterialParams2 understands parent
+               * instances, expression semantics, referenced textures and
+               * cached parameter data that are easy to miss with ad-hoc
+               * reflection. Keep obvious normal maps out of PM_Diffuse when a
+               * one-texture material triggers CUE4Parse's generic fallback.
+               */
+              try
+              {
+                  var resolvedParams =
+                      new CMaterialParams2();
+
+                  sourceMaterial.GetParams(
+                      resolvedParams,
+                      EMaterialDepth.AllLayers);
+
+                  foreach (
+                      var pair
+                      in resolvedParams.Textures)
+                  {
+                      var semantic =
+                          pair.Key ?? "";
+                      var textureName =
+                          pair.Value?.Name ?? "";
+                      var lowerTextureName =
+                          textureName.ToLowerInvariant();
+
+                      var obviousNormal =
+                          lowerTextureName.EndsWith(
+                              "_n",
+                              StringComparison.Ordinal)
+                          || lowerTextureName.Contains(
+                              "_normal",
+                              StringComparison.Ordinal)
+                          || lowerTextureName.Contains(
+                              "normalmap",
+                              StringComparison.Ordinal);
+
+                      if (
+                          semantic.Equals(
+                              CMaterialParams2.FallbackDiffuse,
+                              StringComparison.OrdinalIgnoreCase)
+                          && obviousNormal)
+                      {
+                          Console.WriteLine(
+                              $"material-params2-skip-normal-fallback"
+                              + $" material={sourceMaterial.Name}"
+                              + $" texture={textureName}");
+                          continue;
+                      }
+
+                      QueueTextureCandidate(
+                          pair.Value,
+                          ownerMaterial,
+                          $"params2:{semantic}");
+                      params2TextureCandidates++;
+                  }
+
+                  foreach (
+                      var pair
+                      in resolvedParams.Colors)
+                  {
+                      var ownerPath =
+                          ownerMaterial.GetPathName();
+
+                      if (
+                          materialVectorRows.Any(
+                              row =>
+                                  row.TryGetValue(
+                                      "materialPath",
+                                      out var existingPath)
+                                  && existingPath.Equals(
+                                      ownerPath,
+                                      StringComparison.OrdinalIgnoreCase)
+                                  && row.TryGetValue(
+                                      "parameter",
+                                      out var existingParameter)
+                                  && existingParameter.Equals(
+                                      pair.Key,
+                                      StringComparison.OrdinalIgnoreCase)))
+                      {
+                          continue;
+                      }
+
+                      var value =
+                          pair.Value;
+
+                      materialVectorRows.Add(
+                          new Dictionary<string, string> {
+                              ["materialPath"] =
+                                  ownerPath,
+                              ["materialName"] =
+                                  ownerMaterial.Name,
+                              ["parameter"] =
+                                  pair.Key,
+                              ["r"] =
+                                  value.R.ToString(
+                                      "R",
+                                      System.Globalization.CultureInfo.InvariantCulture),
+                              ["g"] =
+                                  value.G.ToString(
+                                      "R",
+                                      System.Globalization.CultureInfo.InvariantCulture),
+                              ["b"] =
+                                  value.B.ToString(
+                                      "R",
+                                      System.Globalization.CultureInfo.InvariantCulture),
+                              ["a"] =
+                                  value.A.ToString(
+                                      "R",
+                                      System.Globalization.CultureInfo.InvariantCulture),
+                          });
+
+                      params2VectorCandidates++;
+                  }
+              }
+              catch (Exception e)
+              {
+                  Console.WriteLine(
+                      $"material-params2-error"
+                      + $" material={sourceMaterial.Name}"
+                      + $" error={e.Message}");
               }
 
               /*
@@ -1497,6 +1624,10 @@ jobs:
                       inferredAlbedoLoads,
                   slotAliasMaterialLoads =
                       slotAliasMaterialLoads,
+                  params2TextureCandidates =
+                      params2TextureCandidates,
+                  params2VectorCandidates =
+                      params2VectorCandidates,
                   textures =
                       explicitTextureRows,
                   bindings =
@@ -1524,6 +1655,8 @@ jobs:
               + $" materialTextureBindings={materialTextureRows.Count}"
               + $" inferredAlbedoLoads={inferredAlbedoLoads}"
               + $" slotAliasMaterialLoads={slotAliasMaterialLoads}"
+              + $" params2TextureCandidates={params2TextureCandidates}"
+              + $" params2VectorCandidates={params2VectorCandidates}"
               + $" vectorParameters={materialVectorRows.Count}");
 
           Console.WriteLine(
