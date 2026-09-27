@@ -1738,6 +1738,10 @@ static int XzCreateStaticSceneProgram(void)
         "uniform vec4 uLocalPosInvRadius[64];\n"
         "uniform vec4 uLocalColorCone[64];\n"
         "uniform vec4 uLocalDirCosOuter[64];\n"
+        "uniform vec3 uCameraPosGame;\n"
+        "uniform vec4 uFogPrimary;\n"
+        "uniform vec4 uFogColorMin;\n"
+        "uniform float uFogCutoffCm;\n"
         "out vec4 outColor;\n"
         "float linearToSrgb1(float x){\n"
         "  x=clamp(x,0.0,1.0);\n"
@@ -1745,6 +1749,32 @@ static int XzCreateStaticSceneProgram(void)
         "}\n"
         "vec3 linearToSrgb(vec3 v){\n"
         "  return vec3(linearToSrgb1(v.r),linearToSrgb1(v.g),linearToSrgb1(v.b));\n"
+        "}\n"
+        "float ueFogTransmission(vec3 worldPosGame){\n"
+        "  vec3 rayCm=(worldPosGame-uCameraPosGame)*2.54;\n"
+        "  float originalLength=length(rayCm);\n"
+        "  if(originalLength<=1.0e-5 || originalLength<=uFogPrimary.w || uFogPrimary.x<=0.0) return 1.0;\n"
+        "  float cameraZ=uCameraPosGame.z*2.54;\n"
+        "  float rayLength=originalLength;\n"
+        "  float rayDirectionZ=rayCm.z;\n"
+        "  float collapsedPower=clamp(-uFogPrimary.y*(cameraZ-uFogPrimary.z),-125.0,126.0);\n"
+        "  float rayOriginTerms=uFogPrimary.x*exp2(collapsedPower);\n"
+        "  if(uFogPrimary.w>0.0){\n"
+        "    float excludeT=clamp(uFogPrimary.w/originalLength,0.0,1.0);\n"
+        "    float exclusionZ=cameraZ+excludeT*rayCm.z;\n"
+        "    rayLength=(1.0-excludeT)*originalLength;\n"
+        "    rayDirectionZ=(1.0-excludeT)*rayCm.z;\n"
+        "    float exponent=max(-127.0,uFogPrimary.y*(exclusionZ-uFogPrimary.z));\n"
+        "    rayOriginTerms=uFogPrimary.x*exp2(-exponent);\n"
+        "  }\n"
+        "  float falloff=max(-127.0,uFogPrimary.y*rayDirectionZ);\n"
+        "  float lineIntegral=(abs(falloff)>0.01)\n"
+        "    ?(1.0-exp2(-falloff))/falloff\n"
+        "    :(0.69314718056-0.24022650696*falloff);\n"
+        "  float shared=rayOriginTerms*lineIntegral;\n"
+        "  float transmission=max(clamp(exp2(-(shared*rayLength)),0.0,1.0),uFogColorMin.a);\n"
+        "  if(uFogCutoffCm>0.0 && originalLength>uFogCutoffCm) transmission=1.0;\n"
+        "  return transmission;\n"
         "}\n"
         "void main(){\n"
         "  vec3 n=normalize(vNormal);\n"
@@ -1781,7 +1811,9 @@ static int XzCreateStaticSceneProgram(void)
         "  vec4 texel=uHasBaseColor!=0?texture(uBaseColor,vUV):vec4(0.56,0.54,0.50,1.0);\n"
         "  if(uHasBaseColor!=0 && texel.a<0.04) discard;\n"
         "  vec3 lit=texel.rgb*uvTone*light;\n"
-        "  outColor=vec4(linearToSrgb(lit),texel.a);\n"
+        "  float fogT=ueFogTransmission(vWorldPos);\n"
+        "  vec3 fogged=lit*fogT+uFogColorMin.rgb*(1.0-fogT);\n"
+        "  outColor=vec4(linearToSrgb(fogged),texel.a);\n"
         "}\n";
 
     XzNativeGles3Api *gl = &xz_shadow.gl;
@@ -1872,6 +1904,22 @@ static int XzCreateStaticSceneProgram(void)
         gl->GetUniformLocation(
             xz_shadow.static_program,
             "uLocalDirCosOuter[0]");
+    xz_shadow.static_camera_pos_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uCameraPosGame");
+    xz_shadow.static_fog_primary_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uFogPrimary");
+    xz_shadow.static_fog_color_min_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uFogColorMin");
+    xz_shadow.static_fog_cutoff_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uFogCutoffCm");
 
     if (xz_shadow.static_view_loc < 0 ||
         xz_shadow.static_projection_loc < 0 ||
@@ -1884,7 +1932,11 @@ static int XzCreateStaticSceneProgram(void)
         xz_shadow.static_local_light_count_loc < 0 ||
         xz_shadow.static_local_pos_inv_radius_loc < 0 ||
         xz_shadow.static_local_color_cone_loc < 0 ||
-        xz_shadow.static_local_dir_cos_outer_loc < 0)
+        xz_shadow.static_local_dir_cos_outer_loc < 0 ||
+        xz_shadow.static_camera_pos_loc < 0 ||
+        xz_shadow.static_fog_primary_loc < 0 ||
+        xz_shadow.static_fog_color_min_loc < 0 ||
+        xz_shadow.static_fog_cutoff_loc < 0)
         return 0;
 
     gl->UseProgram(xz_shadow.static_program);
