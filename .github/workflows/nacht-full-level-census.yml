@@ -1,0 +1,950 @@
+name: XZIEL Nacht Full Level Census
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/xziel-nacht-full-level-census-v1
+    paths:
+      - ".github/workflows/nacht-full-level-census.yml"
+  pull_request:
+    branches:
+      - feature/xziel-static-scene-material-final5
+    paths:
+      - ".github/workflows/nacht-full-level-census.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  census:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout XZIEL Engine
+        uses: actions/checkout@v5
+
+      - name: Install SteamCMD and repak
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/steamcmd" "$RUNNER_TEMP/repak"
+          curl -fL --retry 6 --retry-delay 2 --retry-all-errors \
+            https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz \
+            -o "$RUNNER_TEMP/steamcmd.tgz"
+          tar -xzf "$RUNNER_TEMP/steamcmd.tgz" \
+            -C "$RUNNER_TEMP/steamcmd"
+          "$RUNNER_TEMP/steamcmd/steamcmd.sh" +quit || true
+          curl -fL --retry 5 \
+            https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-unknown-linux-gnu.tar.xz \
+            -o "$RUNNER_TEMP/repak.tar.xz"
+          tar -xJf "$RUNNER_TEMP/repak.tar.xz" \
+            -C "$RUNNER_TEMP/repak"
+          REPAK=$(find "$RUNNER_TEMP/repak" \
+            -type f -name 'repak*' -perm -111 | head -1)
+          test -n "$REPAK"
+          echo "REPAK=$REPAK" >> "$GITHUB_ENV"
+
+      - name: Download and unpack public Pavlov Nacht source
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/steamcmd/steamcmd.sh" \
+            +login anonymous \
+            +workshop_download_item 555160 2755515831 validate \
+            +quit
+          ROOT=$(find "$HOME" "$RUNNER_TEMP" -type d \
+            -path '*/steamapps/workshop/content/555160/2755515831' \
+            -print -quit 2>/dev/null)
+          test -n "$ROOT"
+          test -f "$ROOT/WindowsNoEditor.pak"
+          mkdir -p "$RUNNER_TEMP/nacht-unpacked"
+          "$REPAK" unpack "$ROOT/WindowsNoEditor.pak" \
+            -o "$RUNNER_TEMP/nacht-unpacked"
+          echo "UNPACKED=$RUNNER_TEMP/nacht-unpacked" >> "$GITHUB_ENV"
+
+      - name: Build CUE4Parse full-level census
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/level-census"
+          cd "$RUNNER_TEMP/level-census"
+          dotnet new console --framework net10.0 --force
+          dotnet add package CUE4Parse --version 1.2.2.202609
+          cat > Program.cs <<'CS'
+          using CUE4Parse.FileProvider;
+          using CUE4Parse.UE4.Assets;
+          using CUE4Parse.UE4.Assets.Exports.StaticMesh;
+          using CUE4Parse.UE4.Objects.Core.Math;
+          using CUE4Parse.UE4.Objects.UObject;
+          using CUE4Parse.UE4.Versions;
+          using System.Text.Json;
+
+          if (args.Length != 3)
+              return 2;
+
+          var root = args[0];
+          var output = args[1];
+          var snapshotPath = args[2];
+
+          using var snapshotDocument =
+              JsonDocument.Parse(
+                  File.ReadAllText(snapshotPath));
+
+          var persistedComponentExportIndices =
+              new HashSet<int>();
+
+          foreach (
+              var row
+              in snapshotDocument.RootElement
+                  .GetProperty("instances")
+                  .EnumerateArray())
+          {
+              persistedComponentExportIndices.Add(
+                  row.GetProperty(
+                      "componentExportIndex")
+                     .GetInt32());
+          }
+
+          PropertyUtil.SearchPropertyInTemplate = true;
+
+          var provider =
+              new DefaultFileProvider(
+                  root,
+                  SearchOption.AllDirectories,
+                  true,
+                  new VersionContainer(EGame.GAME_UE4_21));
+
+          provider.Initialize();
+          provider.PostMount();
+          provider.LoadVirtualPaths();
+
+          var mapCandidates =
+              provider.Files.Values
+                  .Where(
+                      f =>
+                          f.Path.EndsWith(
+                              "/Nacht_de_Untoten.umap",
+                              StringComparison.OrdinalIgnoreCase)
+                          || f.Path.EndsWith(
+                              "\\Nacht_de_Untoten.umap",
+                              StringComparison.OrdinalIgnoreCase)
+                          || Path.GetFileName(f.Path).Equals(
+                              "Nacht_de_Untoten.umap",
+                              StringComparison.OrdinalIgnoreCase))
+                  .Select(f => f.Path)
+                  .Distinct(StringComparer.OrdinalIgnoreCase)
+                  .OrderBy(x => x)
+                  .ToArray();
+
+          if (mapCandidates.Length != 1)
+          {
+              Console.Error.WriteLine(
+                  $"expected exactly one Nacht_de_Untoten.umap, got {mapCandidates.Length}");
+              foreach (var candidate in mapCandidates)
+                  Console.Error.WriteLine(candidate);
+              return 3;
+          }
+
+          var package =
+              provider.LoadPackage(mapCandidates[0]);
+
+          var exports =
+              package.GetExports().ToArray();
+
+          var typeCounts =
+              new SortedDictionary<string, int>(
+                  StringComparer.OrdinalIgnoreCase);
+
+          var keywordCounts =
+              new SortedDictionary<string, int>(
+                  StringComparer.OrdinalIgnoreCase);
+
+          var keywords =
+              new[] {
+                  "Brush",
+                  "Model",
+                  "BSP",
+                  "StaticMesh",
+                  "InstancedStaticMesh",
+                  "HierarchicalInstancedStaticMesh",
+                  "SplineMesh",
+                  "ProceduralMesh",
+                  "Landscape",
+                  "Decal",
+                  "Volume",
+                  "Blocking",
+                  "Collision",
+                  "Light",
+                  "Fog",
+                  "Sky",
+                  "Emitter",
+                  "Particle"
+              };
+
+          var structuralCandidates =
+              new List<object>();
+
+          for (
+              var exportOrdinal = 0;
+              exportOrdinal < exports.Length;
+              exportOrdinal++)
+          {
+              var export = exports[exportOrdinal];
+              var type =
+                  export.GetType().FullName
+                  ?? export.GetType().Name;
+              var name = export.Name ?? "";
+              var path = export.GetPathName() ?? "";
+
+              typeCounts[type] =
+                  typeCounts.TryGetValue(type, out var typeCount)
+                      ? typeCount + 1
+                      : 1;
+
+              var haystack =
+                  $"{type}|{name}|{path}";
+
+              var hits =
+                  keywords
+                      .Where(
+                          keyword =>
+                              haystack.Contains(
+                                  keyword,
+                                  StringComparison.OrdinalIgnoreCase))
+                      .ToArray();
+
+              foreach (var hit in hits)
+              {
+                  keywordCounts[hit] =
+                      keywordCounts.TryGetValue(hit, out var keywordCount)
+                          ? keywordCount + 1
+                          : 1;
+              }
+
+              if (hits.Length > 0)
+              {
+                  structuralCandidates.Add(
+                      new {
+                          exportOrdinal,
+                          exportIndexOneBased =
+                              exportOrdinal + 1,
+                          name,
+                          type,
+                          path,
+                          keywords = hits
+                      });
+              }
+          }
+
+          var staticComponents =
+              exports
+                  .Select(
+                      (export, ordinal) =>
+                          new {
+                              export,
+                              ordinal,
+                              type =
+                                  export.GetType().FullName
+                                  ?? export.GetType().Name
+                          })
+                  .Where(
+                      row =>
+                          row.type.EndsWith(
+                              ".UStaticMeshComponent",
+                              StringComparison.Ordinal))
+                  .ToArray();
+
+          var zeroBasedMatches =
+              staticComponents.Count(
+                  row =>
+                      persistedComponentExportIndices
+                          .Contains(row.ordinal));
+
+          var oneBasedMatches =
+              staticComponents.Count(
+                  row =>
+                      persistedComponentExportIndices
+                          .Contains(row.ordinal + 1));
+
+          var componentIndexBase =
+              oneBasedMatches >= zeroBasedMatches
+                  ? 1
+                  : 0;
+
+          var missingStaticComponents =
+              staticComponents
+                  .Where(
+                      row =>
+                          !persistedComponentExportIndices
+                              .Contains(
+                                  row.ordinal
+                                  + componentIndexBase))
+                  .Select(
+                      row =>
+                          new {
+                              componentExportIndex =
+                                  row.ordinal
+                                  + componentIndexBase,
+                              exportOrdinal =
+                                  row.ordinal,
+                              name = row.export.Name,
+                              type = row.type,
+                              path =
+                                  row.export.GetPathName()
+                          })
+                  .ToArray();
+
+          Dictionary<string, object?> DescribeValue(
+              object? value)
+          {
+              var row =
+                  new Dictionary<string, object?>();
+
+              if (value is null)
+              {
+                  row["type"] = null;
+                  row["count"] = null;
+                  row["value"] = null;
+                  return row;
+              }
+
+              var valueType = value.GetType();
+              row["type"] =
+                  valueType.FullName
+                  ?? valueType.Name;
+
+              int? count = null;
+
+              if (value is Array array)
+              {
+                  count = array.Length;
+              }
+              else if (
+                  value is System.Collections.ICollection collection)
+              {
+                  count = collection.Count;
+              }
+              else
+              {
+                  var countProperty =
+                      valueType.GetProperty(
+                          "Count",
+                          System.Reflection.BindingFlags.Instance
+                          | System.Reflection.BindingFlags.Public);
+
+                  if (
+                      countProperty is not null
+                      && countProperty.GetIndexParameters().Length == 0
+                      && countProperty.PropertyType == typeof(int))
+                  {
+                      try
+                      {
+                          count =
+                              (int?)countProperty.GetValue(value);
+                      }
+                      catch
+                      {
+                      }
+                  }
+              }
+
+              row["count"] = count;
+
+              if (
+                  value is string
+                  || valueType.IsPrimitive
+                  || value is decimal
+                  || value is Enum)
+              {
+                  row["value"] = value.ToString();
+              }
+              else
+              {
+                  row["value"] = null;
+              }
+
+              return row;
+          }
+
+          SortedDictionary<
+              string,
+              Dictionary<string, object?>>
+          DescribeObjectMembers(
+              object? value)
+          {
+              var members =
+                  new SortedDictionary<
+                      string,
+                      Dictionary<string, object?>>(
+                          StringComparer.OrdinalIgnoreCase);
+
+              if (value is null)
+                  return members;
+
+              var flags =
+                  System.Reflection.BindingFlags.Instance
+                  | System.Reflection.BindingFlags.Public
+                  | System.Reflection.BindingFlags.NonPublic;
+
+              foreach (
+                  var field
+                  in value.GetType().GetFields(flags))
+              {
+                  try
+                  {
+                      members["field:" + field.Name] =
+                          DescribeValue(
+                              field.GetValue(value));
+                  }
+                  catch (Exception e)
+                  {
+                      members["field:" + field.Name] =
+                          new Dictionary<string, object?> {
+                              ["error"] = e.Message
+                          };
+                  }
+              }
+
+              foreach (
+                  var property
+                  in value.GetType().GetProperties(flags))
+              {
+                  if (
+                      property.GetIndexParameters().Length != 0
+                      || property.GetMethod is null)
+                  {
+                      continue;
+                  }
+
+                  try
+                  {
+                      members["property:" + property.Name] =
+                          DescribeValue(
+                              property.GetValue(value));
+                  }
+                  catch (Exception e)
+                  {
+                      members["property:" + property.Name] =
+                          new Dictionary<string, object?> {
+                              ["error"] = e.Message
+                          };
+                  }
+              }
+
+              return members;
+          }
+
+          var modelDetails =
+              new List<object>();
+
+          foreach (
+              var model
+              in exports.Where(
+                  x =>
+                      (x.GetType().FullName
+                       ?? x.GetType().Name)
+                      .Contains(
+                          "UModel",
+                          StringComparison.Ordinal)))
+          {
+              var flags =
+                  System.Reflection.BindingFlags.Instance
+                  | System.Reflection.BindingFlags.Public
+                  | System.Reflection.BindingFlags.NonPublic;
+
+              var members =
+                  new SortedDictionary<
+                      string,
+                      Dictionary<string, object?>>(
+                          StringComparer.OrdinalIgnoreCase);
+
+              foreach (
+                  var field
+                  in model.GetType().GetFields(flags))
+              {
+                  try
+                  {
+                      members["field:" + field.Name] =
+                          DescribeValue(
+                              field.GetValue(model));
+                  }
+                  catch (Exception e)
+                  {
+                      members["field:" + field.Name] =
+                          new Dictionary<string, object?> {
+                              ["error"] = e.Message
+                          };
+                  }
+              }
+
+              foreach (
+                  var property
+                  in model.GetType().GetProperties(flags))
+              {
+                  if (
+                      property.GetIndexParameters().Length != 0
+                      || property.GetMethod is null)
+                  {
+                      continue;
+                  }
+
+                  try
+                  {
+                      members["property:" + property.Name] =
+                          DescribeValue(
+                              property.GetValue(model));
+                  }
+                  catch (Exception e)
+                  {
+                      members["property:" + property.Name] =
+                          new Dictionary<string, object?> {
+                              ["error"] = e.Message
+                          };
+                  }
+              }
+
+              object? vertexBuffer = null;
+
+              var vertexBufferField =
+                  model.GetType().GetField(
+                      "VertexBuffer",
+                      flags);
+
+              if (vertexBufferField is not null)
+              {
+                  try
+                  {
+                      vertexBuffer =
+                          vertexBufferField.GetValue(model);
+                  }
+                  catch
+                  {
+                  }
+              }
+
+              modelDetails.Add(
+                  new {
+                      name = model.Name,
+                      type =
+                          model.GetType().FullName
+                          ?? model.GetType().Name,
+                      path = model.GetPathName(),
+                      members,
+                      vertexBufferMembers =
+                          DescribeObjectMembers(
+                              vertexBuffer)
+                  });
+          }
+
+          object? ReadNamedMember(
+              object target,
+              string name)
+          {
+              const System.Reflection.BindingFlags flags =
+                  System.Reflection.BindingFlags.Instance
+                  | System.Reflection.BindingFlags.Public
+                  | System.Reflection.BindingFlags.NonPublic;
+
+              var field =
+                  target.GetType().GetField(name, flags);
+              if (field is not null)
+              {
+                  try { return field.GetValue(target); }
+                  catch { }
+              }
+
+              var property =
+                  target.GetType().GetProperty(name, flags);
+              if (
+                  property is not null
+                  && property.GetIndexParameters().Length == 0
+                  && property.GetMethod is not null)
+              {
+                  try { return property.GetValue(target); }
+                  catch { }
+              }
+
+              return null;
+          }
+
+          string DescribeReference(object? value)
+          {
+              if (value is null)
+                  return "";
+
+              var type = value.GetType();
+
+              var resolvedProperty =
+                  type.GetProperty(
+                      "ResolvedObject",
+                      System.Reflection.BindingFlags.Instance
+                      | System.Reflection.BindingFlags.Public
+                      | System.Reflection.BindingFlags.NonPublic);
+              if (resolvedProperty is not null)
+              {
+                  try
+                  {
+                      var resolved =
+                          resolvedProperty.GetValue(value);
+                      if (resolved is not null)
+                      {
+                          var getPath =
+                              resolved.GetType().GetMethod(
+                                  "GetPathName",
+                                  Type.EmptyTypes);
+                          var pathValue =
+                              getPath?.Invoke(resolved, null)?.ToString();
+                          if (!string.IsNullOrWhiteSpace(pathValue))
+                              return pathValue!;
+                      }
+                  }
+                  catch { }
+              }
+
+              var getOwnPath =
+                  type.GetMethod(
+                      "GetPathName",
+                      Type.EmptyTypes);
+              if (getOwnPath is not null)
+              {
+                  try
+                  {
+                      var pathValue =
+                          getOwnPath.Invoke(value, null)?.ToString();
+                      if (!string.IsNullOrWhiteSpace(pathValue))
+                          return pathValue!;
+                  }
+                  catch { }
+              }
+
+              var nameMember =
+                  ReadNamedMember(value, "Name");
+              return nameMember?.ToString()
+                  ?? value.ToString()
+                  ?? "";
+          }
+
+          var exportTypeByPath =
+              exports.ToDictionary(
+                  x => x.GetPathName() ?? "",
+                  x => x.GetType().FullName
+                      ?? x.GetType().Name,
+                  StringComparer.OrdinalIgnoreCase);
+
+          var actorOwnedComponentSamples =
+              new List<object>();
+
+          var nonActorStaticMeshComponents =
+              new List<object>();
+
+          var staticMeshComponentCount = 0;
+          var staticMeshActorOwnedCount = 0;
+
+          foreach (var component in exports)
+          {
+              var type =
+                  component.GetType().FullName
+                  ?? component.GetType().Name;
+
+              if (!type.EndsWith(
+                      ".UStaticMeshComponent",
+                      StringComparison.Ordinal))
+                  continue;
+
+              staticMeshComponentCount++;
+
+              var componentPath =
+                  component.GetPathName() ?? "";
+              var lastDot =
+                  componentPath.LastIndexOf('.');
+              var parentPath =
+                  lastDot > 0
+                      ? componentPath[..lastDot]
+                      : "";
+
+              exportTypeByPath.TryGetValue(
+                  parentPath,
+                  out var parentType);
+
+              var actorOwned =
+                  parentType is not null
+                  && parentType.EndsWith(
+                      ".AStaticMeshActor",
+                      StringComparison.Ordinal);
+
+              if (actorOwned)
+              {
+                  staticMeshActorOwnedCount++;
+
+                  if (actorOwnedComponentSamples.Count < 4)
+                  {
+                      var propertyRows =
+                          new List<object>();
+
+                      var propertiesMember =
+                          ReadNamedMember(
+                              component,
+                              "Properties");
+
+                      if (
+                          propertiesMember
+                          is System.Collections.IEnumerable propertyEnumerable)
+                      {
+                          foreach (
+                              var propertyTag
+                              in propertyEnumerable)
+                          {
+                              if (propertyTag is null)
+                                  continue;
+
+                              propertyRows.Add(
+                                  new {
+                                      type =
+                                          propertyTag.GetType().FullName
+                                          ?? propertyTag.GetType().Name,
+                                      members =
+                                          DescribeObjectMembers(
+                                              propertyTag)
+                                  });
+                          }
+                      }
+
+                      actorOwnedComponentSamples.Add(
+                          new {
+                              name = component.Name,
+                              path = componentPath,
+                              parentPath,
+                              parentType = parentType ?? "",
+                              componentMembers =
+                                  DescribeObjectMembers(
+                                      component),
+                              propertyRows
+                          });
+                  }
+
+                  continue;
+              }
+
+              var staticMesh =
+                  ReadNamedMember(
+                      component,
+                      "StaticMesh");
+
+              nonActorStaticMeshComponents.Add(
+                  new {
+                      name = component.Name,
+                      path = componentPath,
+                      parentPath,
+                      parentType = parentType ?? "",
+                      staticMesh =
+                          DescribeReference(staticMesh),
+                      staticMeshValue =
+                          DescribeValue(staticMesh),
+                      relativeLocation =
+                          DescribeValue(
+                              ReadNamedMember(
+                                  component,
+                                  "RelativeLocation")),
+                      relativeRotation =
+                          DescribeValue(
+                              ReadNamedMember(
+                                  component,
+                                  "RelativeRotation")),
+                      relativeScale3D =
+                          DescribeValue(
+                              ReadNamedMember(
+                                  component,
+                                  "RelativeScale3D"))
+                  });
+          }
+
+          var report =
+              new {
+                  schemaVersion = 3,
+                  sourcePackage = mapCandidates[0],
+                  totalExports = exports.Length,
+                  typeCounts,
+                  keywordCounts,
+                  structuralCandidateCount =
+                      structuralCandidates.Count,
+                  structuralCandidates,
+                  modelDetails,
+                  staticMeshComponentCount,
+                  staticMeshActorOwnedCount,
+                  nonActorStaticMeshComponentCount =
+                      nonActorStaticMeshComponents.Count,
+                  nonActorStaticMeshComponents,
+                  actorOwnedComponentSamples
+              };
+
+          Directory.CreateDirectory(
+              Path.GetDirectoryName(output)!);
+
+          var omittedComponentRows =
+              staticComponents
+                  .Where(
+                      row =>
+                          !persistedComponentExportIndices
+                              .Contains(
+                                  row.ordinal
+                                  + componentIndexBase))
+                  .ToArray();
+
+          var omittedComponentExports =
+              omittedComponentRows
+                  .Select(row => row.export)
+                  .ToArray();
+
+          var resolvedOmittedComponents =
+              omittedComponentRows
+                  .Select(
+                      row => {
+                          var component = row.export;
+                          var meshRef =
+                              component.GetOrDefault<
+                                  FPackageIndex?>(
+                                      "StaticMesh");
+                          UStaticMesh? loadedMesh = null;
+                          if (meshRef.HasValue)
+                          {
+                              meshRef.Value.TryLoad<
+                                  UStaticMesh>(
+                                      out loadedMesh);
+                          }
+
+                          var location =
+                              component.GetOrDefault<
+                                  FVector?>(
+                                      "RelativeLocation");
+                          var rotation =
+                              component.GetOrDefault<
+                                  FRotator?>(
+                                      "RelativeRotation");
+                          var scale =
+                              component.GetOrDefault<
+                                  FVector?>(
+                                      "RelativeScale3D");
+                          var visible =
+                              component.GetOrDefault(
+                                  "bVisible",
+                                  true);
+
+                          return new {
+                              componentExportIndex =
+                                  row.ordinal
+                                  + componentIndexBase,
+                              path =
+                                  component.GetPathName(),
+                              visible,
+                              mesh =
+                                  loadedMesh?.GetPathName()
+                                  ?? DescribeReference(
+                                      meshRef),
+                              location,
+                              rotation,
+                              scale
+                          };
+                      })
+                  .ToArray();
+
+          File.WriteAllText(
+              Path.Combine(
+                  Path.GetDirectoryName(output)!,
+                  "nacht-resolved-omitted-components.json"),
+              System.Text.Json.JsonSerializer.Serialize(
+                  resolvedOmittedComponents,
+                  new System.Text.Json.JsonSerializerOptions {
+                      WriteIndented = true
+                  }));
+
+          File.WriteAllText(
+              Path.Combine(
+                  Path.GetDirectoryName(output)!,
+                  "nacht-omitted-components.json"),
+              Newtonsoft.Json.JsonConvert.SerializeObject(
+                  omittedComponentExports,
+                  Newtonsoft.Json.Formatting.Indented));
+
+          File.WriteAllText(
+              output,
+              JsonSerializer.Serialize(
+                  report,
+                  new JsonSerializerOptions {
+                      WriteIndented = true
+                  }));
+
+          Console.WriteLine(
+              "XZIEL_NACHT_FULL_LEVEL_CENSUS_OK "
+              + JsonSerializer.Serialize(
+                  new {
+                      report.totalExports,
+                      report.structuralCandidateCount,
+                      report.keywordCounts,
+                      modelCount = modelDetails.Count,
+                      report.staticMeshComponentCount,
+                      report.staticMeshActorOwnedCount,
+                      report.nonActorStaticMeshComponentCount
+                  }));
+
+          return 0;
+          CS
+
+          dotnet run --configuration Release -- \
+            "$UNPACKED" \
+            "$GITHUB_WORKSPACE/nacht-full-level-census.json" \
+            "$GITHUB_WORKSPACE/assets/nacht_reference/pavlov_scene_reference/scene_instances.json"
+
+      - name: Gate census output
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("nacht-full-level-census.json")
+          data = json.loads(path.read_text(encoding="utf-8"))
+
+          assert data["totalExports"] > 0
+          assert data["sourcePackage"].lower().endswith(
+              "nacht_de_untoten.umap"
+          )
+
+          interesting = data["keywordCounts"]
+          print("XZIEL_NACHT_LEVEL_TYPES", json.dumps(
+              interesting, sort_keys=True
+          ))
+          print("XZIEL_NACHT_TOTAL_EXPORTS", data["totalExports"])
+          print(
+              "XZIEL_NACHT_STRUCTURAL_CANDIDATES",
+              data["structuralCandidateCount"],
+          )
+          for model in data.get("modelDetails", []):
+              if "PersistentLevel.Model_0" in model.get("path", ""):
+                  print(
+                      "XZIEL_NACHT_PERSISTENT_MODEL",
+                      json.dumps(model, sort_keys=True),
+                  )
+          print(
+              "XZIEL_NACHT_NON_ACTOR_STATIC_MESH_COMPONENTS",
+              data.get("nonActorStaticMeshComponentCount"),
+          )
+          for row in data.get("nonActorStaticMeshComponents", []):
+              print(
+                  "XZIEL_NACHT_EXTRA_STATIC_COMPONENT",
+                  json.dumps(row, sort_keys=True),
+              )
+          for row in data.get("actorOwnedComponentSamples", []):
+              print(
+                  "XZIEL_NACHT_ACTOR_COMPONENT_SAMPLE",
+                  json.dumps(row, sort_keys=True),
+              )
+          PY
+
+      - name: Upload census artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nacht-full-level-census
+          path: |
+            nacht-full-level-census.json
+            nacht-omitted-components.json
+            nacht-resolved-omitted-components.json
+          if-no-files-found: error

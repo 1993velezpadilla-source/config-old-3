@@ -1,0 +1,198 @@
+name: XZIEL Nacht Scene Transform Audit
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - feature/xziel-static-scene-material-final5
+    paths:
+      - ".github/workflows/nacht-scene-transform-audit.yml"
+      - "assets/nacht_reference/pavlov_scene_reference/scene_instances.json"
+      - "tools/maps/compile_nacht_visual_scene.py"
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Audit persisted Nacht transforms
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import importlib.util
+          import json
+          import math
+          from collections import Counter
+          from pathlib import Path
+
+          root = Path(".")
+          ref = root / "assets/nacht_reference/pavlov_scene_reference"
+          scene = json.loads((ref / "scene_instances.json").read_text(encoding="utf-8"))
+          assets = json.loads((ref / "assets.json").read_text(encoding="utf-8"))
+
+          spec = importlib.util.spec_from_file_location(
+              "visual",
+              root / "tools/maps/compile_nacht_visual_scene.py",
+          )
+          visual = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(visual)
+
+          rows = scene.get("instances", [])
+          assert len(rows) == 10791
+          assert assets.get("uniqueMeshCount") == 492
+
+          mins = [float("inf")] * 3
+          maxs = [float("-inf")] * 3
+          source_cm_mismatches = 0
+          default_position = 0
+          default_rotation = 0
+          default_scale = 0
+          zero_scale = 0
+          tiny_scale = 0
+          huge_scale = 0
+          negative_scale = 0
+          nonfinite = 0
+          determinant_negative = 0
+          determinant_zero = 0
+          mesh_counts = Counter()
+          scale_tuples = Counter()
+
+          suspicious = []
+
+          for idx, row in enumerate(rows):
+              mesh = row.get("mesh", "")
+              mesh_counts[mesh] += 1
+              t = row.get("transform") or {}
+              pos = t.get("position")
+              rot = t.get("sourceRotationUE")
+              scale = t.get("sourceScale")
+              src = t.get("sourcePositionUEcm")
+
+              if not isinstance(pos, dict):
+                  default_position += 1
+                  pos = {"x": 0.0, "y": 0.0, "z": 0.0}
+              if not isinstance(rot, dict):
+                  default_rotation += 1
+              if not isinstance(scale, dict):
+                  default_scale += 1
+                  scale = {"X": 1.0, "Y": 1.0, "Z": 1.0}
+
+              xyz = [
+                  float(pos.get("x", 0.0) or 0.0),
+                  float(pos.get("y", 0.0) or 0.0),
+                  float(pos.get("z", 0.0) or 0.0),
+              ]
+              for axis in range(3):
+                  mins[axis] = min(mins[axis], xyz[axis])
+                  maxs[axis] = max(maxs[axis], xyz[axis])
+
+              if isinstance(src, dict):
+                  expected = [
+                      float(src.get("X", 0.0) or 0.0) / 100.0,
+                      -float(src.get("Y", 0.0) or 0.0) / 100.0,
+                      float(src.get("Z", 0.0) or 0.0) / 100.0,
+                  ]
+                  if max(abs(xyz[i] - expected[i]) for i in range(3)) > 1e-5:
+                      source_cm_mismatches += 1
+
+              sv = [
+                  float(scale.get("X", 1.0) or 1.0),
+                  float(scale.get("Y", 1.0) or 1.0),
+                  float(scale.get("Z", 1.0) or 1.0),
+              ]
+              scale_tuples[tuple(round(v, 6) for v in sv)] += 1
+
+              if any(not math.isfinite(v) for v in xyz + sv):
+                  nonfinite += 1
+              if any(v == 0.0 for v in sv):
+                  zero_scale += 1
+              if any(0.0 < abs(v) < 1e-3 for v in sv):
+                  tiny_scale += 1
+              if any(abs(v) > 100.0 for v in sv):
+                  huge_scale += 1
+              if any(v < 0.0 for v in sv):
+                  negative_scale += 1
+
+              matrix, defaults = visual.transform_matrix(t)
+              a,b,c,_tx,d,e,f,_ty,g,h,i,_tz,_,_,_,_ = matrix
+              det = (
+                  a*(e*i-f*h)
+                  - b*(d*i-f*g)
+                  + c*(d*h-e*g)
+              )
+              if abs(det) < 1e-8:
+                  determinant_zero += 1
+              elif det < 0.0:
+                  determinant_negative += 1
+
+              if (
+                  any(abs(v) > 100.0 for v in sv)
+                  or any(v == 0.0 for v in sv)
+                  or not all(math.isfinite(v) for v in matrix)
+              ):
+                  if len(suspicious) < 50:
+                      suspicious.append({
+                          "index": idx,
+                          "instanceId": row.get("instanceId"),
+                          "mesh": mesh,
+                          "position": xyz,
+                          "scale": sv,
+                          "rotation": rot,
+                          "determinant": det,
+                      })
+
+          wallish_terms = (
+              "wall", "floor", "ceiling", "roof", "doorframe",
+              "column", "pillar", "windowframe", "bunker",
+          )
+          wallish_meshes = {
+              row["sourcePath"]
+              for row in assets.get("meshes", [])
+              if any(term in row.get("sourcePath", "").lower()
+                     for term in wallish_terms)
+          }
+          wallish_instances = sum(
+              mesh_counts[m] for m in wallish_meshes
+          )
+
+          report = {
+              "instances": len(rows),
+              "uniqueReferencedMeshes": len(mesh_counts),
+              "positionBoundsMeters": {"min": mins, "max": maxs},
+              "sourcePositionUEcmMismatches": source_cm_mismatches,
+              "defaults": {
+                  "position": default_position,
+                  "rotation": default_rotation,
+                  "scale": default_scale,
+              },
+              "scales": {
+                  "zero": zero_scale,
+                  "tiny": tiny_scale,
+                  "huge": huge_scale,
+                  "negative": negative_scale,
+              },
+              "nonfinite": nonfinite,
+              "determinants": {
+                  "negative": determinant_negative,
+                  "zero": determinant_zero,
+              },
+              "wallishUniqueMeshes": len(wallish_meshes),
+              "wallishInstances": wallish_instances,
+              "topMeshes": mesh_counts.most_common(25),
+              "topScales": scale_tuples.most_common(25),
+              "suspicious": suspicious,
+          }
+
+          print("XZIEL_NACHT_TRANSFORM_AUDIT", json.dumps(report, sort_keys=True))
+
+          assert len(mesh_counts) == 492
+          assert source_cm_mismatches == 0
+          assert nonfinite == 0
+          assert zero_scale == 0
+          assert determinant_zero == 0
+          PY

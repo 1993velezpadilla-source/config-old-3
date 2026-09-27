@@ -2,6 +2,9 @@ name: XZIEL Nacht Static Scene Android
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches:
+      - feature/xziel-static-scene-material-final5
   push:
     branches:
       - feature/xziel-nacht-static-scene-runtime-v1

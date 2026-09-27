@@ -471,6 +471,7 @@ def main() -> int:
 
     unresolved_slots: list[dict] = []
     raw_binding_texture_paths: list[str | None] = []
+    binding_details: list[dict] = []
     mesh_reports = []
 
     for asset in rows:
@@ -609,6 +610,17 @@ def main() -> int:
                         "materialPath": str(slot.get("materialPath", "")) if slot else "",
                     })
 
+            binding_details.append({
+                "bindingIndex": len(raw_binding_texture_paths) - 1,
+                "mesh": mesh_name,
+                "glbMaterial": material_name,
+                "localMaterialIndex": local_material,
+                "slotFound": slot is not None,
+                "materialPath": material_path,
+                "aliasMaterialPath": alias_material_path,
+                "texturePath": raw_binding_texture_paths[-1],
+            })
+
         mesh_reports.append({
             "mesh": mesh_name,
             "submeshes": len(primitive_materials),
@@ -677,6 +689,22 @@ def main() -> int:
         })
         data_offset += runtime_bytes
 
+    def attach_alpha_stats(texture: dict, rgba: bytes) -> None:
+        if not rgba or len(rgba) % 4 != 0:
+            raise SystemExit("runtime texture RGBA alignment mismatch")
+        alphas = rgba[3::4]
+        if not alphas:
+            raise SystemExit("runtime texture contains no pixels")
+        below = sum(1 for value in alphas if value < 11)
+        texture["minAlpha"] = min(alphas)
+        texture["maxAlpha"] = max(alphas)
+        texture["below04Pixels"] = below
+        texture["pixelCount"] = len(alphas)
+        texture["below04Pct"] = round(
+            100.0 * below / len(alphas),
+            6,
+        )
+
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("wb") as out:
         out.write(HEADER.pack(
@@ -712,7 +740,21 @@ def main() -> int:
                 )
             if len(runtime_rgba) != texture["bytes"]:
                 raise SystemExit("runtime texture resize byte mismatch")
+            attach_alpha_stats(texture, runtime_rgba)
             out.write(runtime_rgba)
+
+    for detail, binding in zip(binding_details, bindings):
+        detail["textureIndex"] = (
+            None if binding == NO_TEXTURE else binding
+        )
+        if binding != NO_TEXTURE:
+            texture = runtime_textures[binding]
+            detail["textureName"] = texture.get("textureName", "")
+            detail["sourceKind"] = texture.get("sourceKind", "")
+            detail["kind"] = texture.get("kind", "")
+            detail["minAlpha"] = texture.get("minAlpha")
+            detail["maxAlpha"] = texture.get("maxAlpha")
+            detail["below04Pct"] = texture.get("below04Pct")
 
     mapped = sum(binding != NO_TEXTURE for binding in bindings)
     synthetic_mapped = sum(
@@ -774,6 +816,7 @@ def main() -> int:
         "runtimeMaxDimension": args.max_dimension,
         "runtimeBytes": args.output.stat().st_size,
         "unresolvedSamples": unresolved_slots,
+        "bindings": binding_details,
         "meshes": mesh_reports,
         "textures": [
             {
