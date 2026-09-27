@@ -132,8 +132,10 @@ def main():
 
     full=[]
     faces=[]
-    # Render head closeups at every azimuth. Never assume which GLB axis is the face.
-    face_indices=set(range(24))
+    # Judge v4 consumes only the front/quarter neighborhood. Keep the full
+    # 24-view body turntable, but do not waste render time on 15 face angles
+    # that are never evaluated.
+    face_indices={0,1,2,3,4,20,21,22,23}
     distance=3.2*radius
     for index in range(24):
         deg=index*15
