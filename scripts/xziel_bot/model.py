@@ -65,6 +65,7 @@ class Zombie:
     position: Vec3
     health: float = 1.0
     targeting_me: bool = False
+    visible: bool = True
     state: str = ""
 
     @classmethod
@@ -74,6 +75,7 @@ class Zombie:
             position=Vec3.from_any(data.get("position")),
             health=float(data.get("health", 1.0)),
             targeting_me=bool(data.get("targeting_me", False)),
+            visible=bool(data.get("visible", True)),
             state=str(data.get("state", "")),
         )
 
