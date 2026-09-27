@@ -156,6 +156,47 @@ def main() -> int:
             }
         )
 
+    known_indices_by_mesh: dict[str, set[int]] = defaultdict(set)
+    for record in records:
+        binding = record.get("binding")
+        if record["status"] != "mapped" or not isinstance(binding, dict):
+            continue
+        index = binding.get("lightMapCoordinateIndex", -1)
+        mesh_key = normalize_asset_path(record.get("sceneMesh"))
+        if isinstance(index, int) and index >= 0 and mesh_key:
+            known_indices_by_mesh[mesh_key].add(index)
+
+    mesh_index_conflicts = sum(
+        1 for values in known_indices_by_mesh.values()
+        if len(values) > 1
+    )
+    mesh_consensus_resolved = 0
+    unresolved_effective_uv = 0
+
+    for record in records:
+        binding = record.get("binding")
+        if record["status"] != "mapped" or not isinstance(binding, dict):
+            continue
+
+        raw_index = binding.get("lightMapCoordinateIndex", -1)
+        effective_index = raw_index
+        resolution = "authored"
+
+        if not isinstance(raw_index, int) or raw_index < 0:
+            mesh_key = normalize_asset_path(record.get("sceneMesh"))
+            candidates = known_indices_by_mesh.get(mesh_key, set())
+            if len(candidates) == 1:
+                effective_index = next(iter(candidates))
+                resolution = "meshConsensus"
+                mesh_consensus_resolved += 1
+            else:
+                effective_index = -1
+                resolution = "unresolved"
+                unresolved_effective_uv += 1
+
+        binding["effectiveLightMapCoordinateIndex"] = effective_index
+        binding["coordinateIndexResolution"] = resolution
+
     stats = {
         "instanceCount": len(instances),
         "uniqueSceneComponentCount": len(seen_scene_components),
@@ -166,6 +207,9 @@ def main() -> int:
         "ambiguousInstanceCount": ambiguous,
         "assetMismatchCount": asset_mismatch,
         "unresolvedLightMapCoordinateIndexCount": unresolved_uv,
+        "meshConsensusResolvedCoordinateIndexCount": mesh_consensus_resolved,
+        "unresolvedEffectiveCoordinateIndexCount": unresolved_effective_uv,
+        "meshCoordinateIndexConflictCount": mesh_index_conflicts,
         "nonLightMap2DCount": non_lightmap2d,
     }
 
@@ -186,7 +230,7 @@ def main() -> int:
         binding = record.get("binding")
         unresolved = (
             isinstance(binding, dict)
-            and binding.get("lightMapCoordinateIndex", -1) < 0
+            and binding.get("effectiveLightMapCoordinateIndex", -1) < 0
         )
         if record["status"] != "mapped" or unresolved:
             print(
