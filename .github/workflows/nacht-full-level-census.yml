@@ -71,6 +71,10 @@ jobs:
           dotnet add package CUE4Parse --version 1.2.2.202609
           cat > Program.cs <<'CS'
           using CUE4Parse.FileProvider;
+          using CUE4Parse.UE4.Assets;
+          using CUE4Parse.UE4.Assets.Exports.StaticMesh;
+          using CUE4Parse.UE4.Objects.Core.Math;
+          using CUE4Parse.UE4.Objects.UObject;
           using CUE4Parse.UE4.Versions;
           using System.Text.Json;
 
@@ -99,6 +103,8 @@ jobs:
                       "componentExportIndex")
                      .GetInt32());
           }
+
+          PropertyUtil.SearchPropertyInTemplate = true;
 
           var provider =
               new DefaultFileProvider(
@@ -773,7 +779,7 @@ jobs:
           Directory.CreateDirectory(
               Path.GetDirectoryName(output)!);
 
-          var omittedComponentExports =
+          var omittedComponentRows =
               staticComponents
                   .Where(
                       row =>
@@ -781,8 +787,74 @@ jobs:
                               .Contains(
                                   row.ordinal
                                   + componentIndexBase))
+                  .ToArray();
+
+          var omittedComponentExports =
+              omittedComponentRows
                   .Select(row => row.export)
                   .ToArray();
+
+          var resolvedOmittedComponents =
+              omittedComponentRows
+                  .Select(
+                      row => {
+                          var component = row.export;
+                          var meshRef =
+                              component.GetOrDefault<
+                                  FPackageIndex?>(
+                                      "StaticMesh");
+                          UStaticMesh? loadedMesh = null;
+                          if (meshRef.HasValue)
+                          {
+                              meshRef.Value.TryLoad<
+                                  UStaticMesh>(
+                                      out loadedMesh);
+                          }
+
+                          var location =
+                              component.GetOrDefault<
+                                  FVector?>(
+                                      "RelativeLocation");
+                          var rotation =
+                              component.GetOrDefault<
+                                  FRotator?>(
+                                      "RelativeRotation");
+                          var scale =
+                              component.GetOrDefault<
+                                  FVector?>(
+                                      "RelativeScale3D");
+                          var visible =
+                              component.GetOrDefault(
+                                  "bVisible",
+                                  true);
+
+                          return new {
+                              componentExportIndex =
+                                  row.ordinal
+                                  + componentIndexBase,
+                              path =
+                                  component.GetPathName(),
+                              visible,
+                              mesh =
+                                  loadedMesh?.GetPathName()
+                                  ?? DescribeReference(
+                                      meshRef),
+                              location,
+                              rotation,
+                              scale
+                          };
+                      })
+                  .ToArray();
+
+          File.WriteAllText(
+              Path.Combine(
+                  Path.GetDirectoryName(output)!,
+                  "nacht-resolved-omitted-components.json"),
+              System.Text.Json.JsonSerializer.Serialize(
+                  resolvedOmittedComponents,
+                  new System.Text.Json.JsonSerializerOptions {
+                      WriteIndented = true
+                  }));
 
           File.WriteAllText(
               Path.Combine(
@@ -874,4 +946,5 @@ jobs:
           path: |
             nacht-full-level-census.json
             nacht-omitted-components.json
+            nacht-resolved-omitted-components.json
           if-no-files-found: error
