@@ -18,6 +18,7 @@ on:
       - feature/xziel-nacht-height-fog-runtime-v1
       - feature/xziel-nacht-height-fog-shader-v1
       - feature/xziel-nacht-height-fog-shader-v2
+      - feature/xziel-nacht-pbr-scalar-census-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -264,12 +265,15 @@ jobs:
 
           var materialVectorRows =
               new List<Dictionary<string, string>>();
+          var materialScalarRows =
+              new List<Dictionary<string, string>>();
 
           var inferredAlbedoLoads = 0;
           var slotAliasMaterialLoads = 0;
           var streamingTextureCandidates = 0;
           var params2TextureCandidates = 0;
           var params2VectorCandidates = 0;
+          var params2ScalarCandidates = 0;
           var expressionExportTextureCandidates = 0;
 
           var meshMaterialRows =
@@ -925,6 +929,49 @@ jobs:
                           });
 
                       params2VectorCandidates++;
+                  }
+
+                  foreach (
+                      var pair
+                      in resolvedParams.Scalars)
+                  {
+                      var ownerPath =
+                          ownerMaterial.GetPathName();
+
+                      if (
+                          materialScalarRows.Any(
+                              row =>
+                                  row.TryGetValue(
+                                      "materialPath",
+                                      out var existingPath)
+                                  && existingPath.Equals(
+                                      ownerPath,
+                                      StringComparison.OrdinalIgnoreCase)
+                                  && row.TryGetValue(
+                                      "parameter",
+                                      out var existingParameter)
+                                  && existingParameter.Equals(
+                                      pair.Key,
+                                      StringComparison.OrdinalIgnoreCase)))
+                      {
+                          continue;
+                      }
+
+                      materialScalarRows.Add(
+                          new Dictionary<string, string> {
+                              ["materialPath"] =
+                                  ownerPath,
+                              ["materialName"] =
+                                  ownerMaterial.Name,
+                              ["parameter"] =
+                                  pair.Key,
+                              ["value"] =
+                                  pair.Value.ToString(
+                                      "R",
+                                      System.Globalization.CultureInfo.InvariantCulture),
+                          });
+
+                      params2ScalarCandidates++;
                   }
               }
               catch (Exception e)
@@ -1963,6 +2010,8 @@ jobs:
                       meshMaterialRows.Count,
                   vectorParameterCount =
                       materialVectorRows.Count,
+                  scalarParameterCount =
+                      materialScalarRows.Count,
                   inferredAlbedoLoads =
                       inferredAlbedoLoads,
                   slotAliasMaterialLoads =
@@ -1973,6 +2022,8 @@ jobs:
                       params2TextureCandidates,
                   params2VectorCandidates =
                       params2VectorCandidates,
+                  params2ScalarCandidates =
+                      params2ScalarCandidates,
                   expressionExportTextureCandidates =
                       expressionExportTextureCandidates,
                   textures =
@@ -1983,6 +2034,8 @@ jobs:
                       meshMaterialRows,
                   materialVectors =
                       materialVectorRows,
+                  materialScalars =
+                      materialScalarRows,
               };
 
           File.WriteAllText(
@@ -2005,8 +2058,10 @@ jobs:
               + $" streamingTextureCandidates={streamingTextureCandidates}"
               + $" params2TextureCandidates={params2TextureCandidates}"
               + $" params2VectorCandidates={params2VectorCandidates}"
+              + $" params2ScalarCandidates={params2ScalarCandidates}"
               + $" expressionExportTextureCandidates={expressionExportTextureCandidates}"
-              + $" vectorParameters={materialVectorRows.Count}");
+              + $" vectorParameters={materialVectorRows.Count}"
+              + $" scalarParameters={materialScalarRows.Count}");
 
           Console.WriteLine(
               $"wanted={wanted.Count} queued={queued.Count}"
