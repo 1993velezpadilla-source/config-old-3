@@ -45,6 +45,7 @@ on:
       - feature/xziel-static-scene-material-final5
       - feature/xziel-nacht-decal-environment-v1
       - feature/xziel-nacht-light-components-166-integrate-v1
+      - feature/xziel-nacht-local-light-render-v1
     paths:
       - "engine/xz/xz_environment.*"
       - "engine/xz/xz_static_scene_runtime.*"
@@ -52,6 +53,9 @@ on:
       - "engine/xz/xz_gles3_shadow.*"
       - "tools/maps/compile_nacht_environment.py"
       - "tools/maps/NachtLightExtractor/**"
+      - "tools/maps/NachtFogExtractor/**"
+      - "tools/maps/compile_nacht_height_fog.py"
+      - "engine/xz/xz_height_fog.*"
       - "scripts/patch_vril_xz_phase0.py"
       - ".github/workflows/nacht-static-scene-android.yml"
 
