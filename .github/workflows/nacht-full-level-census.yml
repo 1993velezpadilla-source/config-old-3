@@ -202,16 +202,169 @@ jobs:
               }
           }
 
+          Dictionary<string, object?> DescribeValue(
+              object? value)
+          {
+              var row =
+                  new Dictionary<string, object?>();
+
+              if (value is null)
+              {
+                  row["type"] = null;
+                  row["count"] = null;
+                  row["value"] = null;
+                  return row;
+              }
+
+              var valueType = value.GetType();
+              row["type"] =
+                  valueType.FullName
+                  ?? valueType.Name;
+
+              int? count = null;
+
+              if (value is Array array)
+              {
+                  count = array.Length;
+              }
+              else if (
+                  value is System.Collections.ICollection collection)
+              {
+                  count = collection.Count;
+              }
+              else
+              {
+                  var countProperty =
+                      valueType.GetProperty(
+                          "Count",
+                          System.Reflection.BindingFlags.Instance
+                          | System.Reflection.BindingFlags.Public);
+
+                  if (
+                      countProperty is not null
+                      && countProperty.GetIndexParameters().Length == 0
+                      && countProperty.PropertyType == typeof(int))
+                  {
+                      try
+                      {
+                          count =
+                              (int?)countProperty.GetValue(value);
+                      }
+                      catch
+                      {
+                      }
+                  }
+              }
+
+              row["count"] = count;
+
+              if (
+                  value is string
+                  || valueType.IsPrimitive
+                  || value is decimal
+                  || value is Enum)
+              {
+                  row["value"] = value.ToString();
+              }
+              else
+              {
+                  row["value"] = null;
+              }
+
+              return row;
+          }
+
+          var modelDetails =
+              new List<object>();
+
+          foreach (
+              var model
+              in exports.Where(
+                  x =>
+                      (x.GetType().FullName
+                       ?? x.GetType().Name)
+                      .Contains(
+                          "UModel",
+                          StringComparison.Ordinal)))
+          {
+              var flags =
+                  System.Reflection.BindingFlags.Instance
+                  | System.Reflection.BindingFlags.Public
+                  | System.Reflection.BindingFlags.NonPublic;
+
+              var members =
+                  new SortedDictionary<
+                      string,
+                      Dictionary<string, object?>>(
+                          StringComparer.OrdinalIgnoreCase);
+
+              foreach (
+                  var field
+                  in model.GetType().GetFields(flags))
+              {
+                  try
+                  {
+                      members["field:" + field.Name] =
+                          DescribeValue(
+                              field.GetValue(model));
+                  }
+                  catch (Exception e)
+                  {
+                      members["field:" + field.Name] =
+                          new Dictionary<string, object?> {
+                              ["error"] = e.Message
+                          };
+                  }
+              }
+
+              foreach (
+                  var property
+                  in model.GetType().GetProperties(flags))
+              {
+                  if (
+                      property.GetIndexParameters().Length != 0
+                      || property.GetMethod is null)
+                  {
+                      continue;
+                  }
+
+                  try
+                  {
+                      members["property:" + property.Name] =
+                          DescribeValue(
+                              property.GetValue(model));
+                  }
+                  catch (Exception e)
+                  {
+                      members["property:" + property.Name] =
+                          new Dictionary<string, object?> {
+                              ["error"] = e.Message
+                          };
+                  }
+              }
+
+              modelDetails.Add(
+                  new {
+                      name = model.Name,
+                      type =
+                          model.GetType().FullName
+                          ?? model.GetType().Name,
+                      path = model.GetPathName(),
+                      members
+                  });
+          }
+
           var report =
               new {
-                  schemaVersion = 1,
+                  schemaVersion = 2,
                   sourcePackage = mapCandidates[0],
                   totalExports = exports.Length,
                   typeCounts,
                   keywordCounts,
                   structuralCandidateCount =
                       structuralCandidates.Count,
-                  structuralCandidates
+                  structuralCandidates,
+                  modelDetails
               };
 
           Directory.CreateDirectory(
@@ -231,7 +384,8 @@ jobs:
                   new {
                       report.totalExports,
                       report.structuralCandidateCount,
-                      report.keywordCounts
+                      report.keywordCounts,
+                      modelCount = modelDetails.Count
                   }));
 
           return 0;
