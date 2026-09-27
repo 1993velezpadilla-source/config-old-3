@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "benchmark": "Stained Shade / Tripo observed model",
+  "observedOn": "2026-09-27",
+  "modelUrl": "https://studio.tripo3d.ai/es/3d-model/spectral-hooded-figure-with-tattered-veil-and-ornate-robes-stained-sh-da39b7ef-9ee9-4755-a138-c35db7238628",
+  "modelId": "da39b7ef-9ee9-4755-a138-c35db7238628",
+  "evidenceType": "user-visible Tripo viewer screenshots; no exported GLB audited yet",
+  "visibleMeshStats": {
+    "topology": "Triangle",
+    "faces": 1950061,
+    "vertices": 1054710
+  },
+  "observedStrengths": [
+    "overall silhouette reads clearly as Stained Shade",
+    "tattered veil and layered cloth have strong surface breakup",
+    "robe texture/material read is convincing at normal viewing distance"
+  ],
+  "observedWeaknesses": [
+    "facial geometry degrades strongly at close range",
+    "eye region is soft/deformed",
+    "nose and central facial structure show distortion",
+    "cloth quality is materially stronger than face fidelity"
+  ],
+  "hayuyaLesson": [
+    "split face refinement from whole-body reconstruction",
+    "split cloth/thin-surface refinement from face refinement",
+    "retain a high-resolution reconstruction master before game retopology",
+    "evaluate texture alignment independently for face and garments"
+  ],
+  "notYetVerified": [
+    "actual exported GLB structure",
+    "UV layout",
+    "PBR channel files",
+    "texture resolution",
+    "rig/skeleton",
+    "animation data",
+    "whether the visible face count maps 1:1 to exported geometry"
+  ]
+}
