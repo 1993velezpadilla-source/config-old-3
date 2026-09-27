@@ -1,0 +1,170 @@
+name: XZIEL Emulator AI Android Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/emulator-ai-nacht-v1
+    paths:
+      - ".github/workflows/xziel-emulator-ai-smoke.yml"
+      - "scripts/xziel_bot/**"
+      - "scripts/patch_quakec_emulator_bot_telemetry.py"
+      - "scripts/prepare_android.sh"
+      - "android/NZPActivity.java"
+
+permissions:
+  contents: read
+
+jobs:
+  android-bot-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      ANDROID_AVD_HOME: ${{ runner.temp }}/xziel-bot-avd-home
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android SDK, NDK and emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER"             "platform-tools"             "platforms;android-35"             "build-tools;35.0.0"             "ndk;27.2.12479018"             "emulator"             "system-images;android-35;google_apis;x86_64"
+
+      - name: Prepare native project with bot telemetry
+        shell: bash
+        run: bash scripts/prepare_android.sh
+
+      - name: Build debug APK
+        working-directory: build/android-project
+        shell: bash
+        run: ./gradlew --no-daemon assembleDebug --stacktrace
+
+      - name: Collect APK
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp build/android-project/app/build/outputs/apk/debug/app-debug.apk dist/Xziel-bot-debug.apk
+          ls -lh dist/Xziel-bot-debug.apk
+
+      - name: Boot Android and run Nacht bot
+        id: bot_smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$ANDROID_AVD_HOME" dist
+          ADB="${ANDROID_HOME}/platform-tools/adb"
+          EMULATOR="${ANDROID_HOME}/emulator/emulator"
+          AVDMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name avdmanager | sort | tail -n 1)"
+
+          printf 'no\n' | "$AVDMANAGER" create avd             --force             --name xziel-bot-ci             --package "system-images;android-35;google_apis;x86_64"             --device "pixel_6"
+
+          if [[ -e /dev/kvm ]]; then
+            sudo chmod 666 /dev/kvm || true
+          fi
+
+          nohup "$EMULATOR"             @xziel-bot-ci             -no-window             -no-audio             -no-boot-anim             -no-snapshot             -gpu swiftshader_indirect             -memory 2048             > dist/emulator-stdout.txt 2>&1 &
+          EMU_PID=$!
+
+          sleep 5
+          kill -0 "$EMU_PID"
+
+          timeout 120 "$ADB" wait-for-device
+          BOOTED=0
+          for i in $(seq 1 60); do
+            if [[ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; then
+              BOOTED=1
+              break
+            fi
+            sleep 2
+          done
+          test "$BOOTED" = "1"
+
+          "$ADB" install -r dist/Xziel-bot-debug.apk
+          "$ADB" shell settings put secure immersive_mode_confirmations confirmed || true
+          "$ADB" logcat -c
+          "$ADB" shell am force-stop com.xziel.nzp || true
+
+          "$ADB" shell am start -W             -n com.xziel.nzp/org.libsdl.app.NZPActivity             --ez xziel_ci_bot_mode true             --es xziel_ci_map ndu             > dist/am-start-bot.txt 2>&1
+
+          # Give native extraction + map startup enough room to create the local
+          # player, first wave and the 4 Hz server-authoritative telemetry feed.
+          sleep 35
+
+          "$ADB" logcat -d -v raw > dist/xziel-bot-logcat.txt
+          "$ADB" exec-out screencap -p > dist/xziel-bot-before.png || true
+
+          grep -F "XzielBotState" dist/xziel-bot-logcat.txt             | tail -n 80             > dist/xziel-bot-telemetry.txt
+
+          TELEMETRY_COUNT="$(wc -l < dist/xziel-bot-telemetry.txt | tr -d ' ')"
+          echo "telemetry_count=$TELEMETRY_COUNT" | tee dist/xziel-bot-smoke-report.txt
+          if [[ "$TELEMETRY_COUNT" -lt 2 ]]; then
+            echo "Missing XzielBotState telemetry in Android logcat" >&2
+            tail -n 250 dist/xziel-bot-logcat.txt >&2 || true
+            exit 1
+          fi
+
+          # Prove the policy can parse the actual device stream first without
+          # touching controls.
+          python3 -m scripts.xziel_bot.agent             --source file             --input dist/xziel-bot-telemetry.txt             --prefix XzielBotState             --dry-run             --max-steps 8             --decision-log dist/xziel-bot-decisions-dry.jsonl             > dist/xziel-bot-agent-dry.txt
+
+          test -s dist/xziel-bot-decisions-dry.jsonl
+
+          # Then run a bounded live-input pass against the exact same HUD a
+          # human player uses. No privileged engine movement calls are used.
+          set +e
+          timeout 25s bash -c '
+            adb logcat -v raw               | python3 -m scripts.xziel_bot.agent                   --source stdin                   --prefix XzielBotState                   --adb                   --max-steps 20                   --decision-log dist/xziel-bot-decisions-live.jsonl
+          ' > dist/xziel-bot-agent-live.txt 2>&1
+          AGENT_RC=$?
+          set -e
+
+          # timeout(124) is acceptable only if actions were actually produced.
+          if [[ ! -s dist/xziel-bot-decisions-live.jsonl ]]; then
+            echo "Live agent produced no actions (rc=$AGENT_RC)" >&2
+            cat dist/xziel-bot-agent-live.txt >&2 || true
+            exit 1
+          fi
+
+          LIVE_COUNT="$(wc -l < dist/xziel-bot-decisions-live.jsonl | tr -d ' ')"
+          echo "live_action_count=$LIVE_COUNT" | tee -a dist/xziel-bot-smoke-report.txt
+
+          "$ADB" exec-out screencap -p > dist/xziel-bot-after.png || true
+          "$ADB" logcat -d -v threadtime > dist/xziel-bot-logcat-final.txt || true
+
+          # Fatal/native crash gate.
+          if grep -Eqi 'FATAL EXCEPTION|Fatal signal|SIGSEGV|SIGABRT|tombstone' dist/xziel-bot-logcat-final.txt; then
+            echo "Fatal Android/native crash signature detected" >&2
+            grep -Ein 'FATAL EXCEPTION|Fatal signal|SIGSEGV|SIGABRT|tombstone' dist/xziel-bot-logcat-final.txt >&2 || true
+            exit 1
+          fi
+
+      - name: Upload emulator AI evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xziel-emulator-ai-smoke-${{ github.run_number }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            dist/xziel-bot-smoke-report.txt
+            dist/xziel-bot-telemetry.txt
+            dist/xziel-bot-decisions-dry.jsonl
+            dist/xziel-bot-decisions-live.jsonl
+            dist/xziel-bot-agent-dry.txt
+            dist/xziel-bot-agent-live.txt
+            dist/xziel-bot-before.png
+            dist/xziel-bot-after.png
+            dist/xziel-bot-logcat.txt
+            dist/xziel-bot-logcat-final.txt
+            dist/am-start-bot.txt
+            dist/emulator-stdout.txt
