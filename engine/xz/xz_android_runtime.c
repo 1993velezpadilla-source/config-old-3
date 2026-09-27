@@ -1658,7 +1658,10 @@ int XzAndroidRuntime_CompositeVisibleWorld(void)
             " fboPixels=%u surfacePixels=%u"
             " postRestorePixels=%u"
             " readback=%ux%u"
-            " localLights=%u active=%u affecting=%u dropped=%u",
+            " localLights=%u active=%u affecting=%u dropped=%u"
+            " preRGBA=%u,%u,%u,%u"
+            " postRGBA=%u,%u,%u,%u"
+            " surfaceRGBA=%u,%u,%u,%u",
             xz_runtime.gles3_shadow.static_scene_gpu_meshes,
             xz_runtime.gles3_shadow.static_scene_last_instances,
             xz_runtime.gles3_shadow.static_scene_last_draw_calls,
@@ -1672,7 +1675,19 @@ int XzAndroidRuntime_CompositeVisibleWorld(void)
             xz_runtime.gles3_shadow.static_scene_local_light_count,
             xz_runtime.gles3_shadow.static_scene_local_light_active,
             xz_runtime.gles3_shadow.static_scene_local_light_camera_affecting,
-            xz_runtime.gles3_shadow.static_scene_local_light_dropped_affecting);
+            xz_runtime.gles3_shadow.static_scene_local_light_dropped_affecting,
+            xz_runtime.gles3_shadow.static_scene_preoverlay_mean_rgba[0],
+            xz_runtime.gles3_shadow.static_scene_preoverlay_mean_rgba[1],
+            xz_runtime.gles3_shadow.static_scene_preoverlay_mean_rgba[2],
+            xz_runtime.gles3_shadow.static_scene_preoverlay_mean_rgba[3],
+            xz_runtime.gles3_shadow.static_scene_postoverlay_mean_rgba[0],
+            xz_runtime.gles3_shadow.static_scene_postoverlay_mean_rgba[1],
+            xz_runtime.gles3_shadow.static_scene_postoverlay_mean_rgba[2],
+            xz_runtime.gles3_shadow.static_scene_postoverlay_mean_rgba[3],
+            xz_runtime.gles3_shadow.static_scene_surface_mean_rgba[0],
+            xz_runtime.gles3_shadow.static_scene_surface_mean_rgba[1],
+            xz_runtime.gles3_shadow.static_scene_surface_mean_rgba[2],
+            xz_runtime.gles3_shadow.static_scene_surface_mean_rgba[3]);
     }
 
     return presented;
