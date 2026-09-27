@@ -15,12 +15,14 @@ on:
       - feature/xziel-nacht-light-components-166-v1
       - feature/xziel-nacht-light-components-166-integrate-v1
       - feature/xziel-nacht-local-light-render-v1
+      - feature/xziel-nacht-clustered-local-light-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
       - "engine/xz/xz_xzscene.*"
       - "engine/xz/xz_static_scene_runtime.*"
       - "engine/xz/xz_static_scene_draw_plan.*"
+      - "engine/xz/xz_static_light_grid.*"
       - "engine/xz/xz_environment.*"
       - "engine/xz/xz_android_runtime.*"
       - "engine/xz/xz_gles3_shadow.*"
@@ -41,11 +43,13 @@ on:
       - feature/xziel-static-scene-material-final5
       - feature/xziel-nacht-decal-environment-v1
       - feature/xziel-nacht-light-components-166-integrate-v1
+      - feature/xziel-nacht-local-light-render-v1
     paths:
       - "engine/xz/xz_environment.*"
       - "engine/xz/xz_static_scene_runtime.*"
       - "engine/xz/xz_android_runtime.*"
       - "engine/xz/xz_gles3_shadow.*"
+      - "engine/xz/xz_static_light_grid.*"
       - "tools/maps/compile_nacht_environment.py"
       - "tools/maps/NachtLightExtractor/**"
       - "scripts/patch_vril_xz_phase0.py"
@@ -2784,12 +2788,50 @@ jobs:
             dist/static-scene-logcat.txt
 
           grep -E \
-            "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*localLights=163.*localReady=1 error=''" \
+            "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*localLights=163.*localReady=1 clusterReady=1 gridCells=[1-9][0-9]* gridMax=[1-9][0-9]* gridBytes=[1-9][0-9]* error=''" \
             dist/static-scene-logcat.txt
 
           grep -E \
-            "XZIEL-XZ.*static_scene_draw ready=1.*localLights=163 active=64 affecting=[1-9][0-9]* dropped=0" \
+            "XZIEL-XZ.*static_scene_draw ready=1.*localLights=163 active=163 affecting=[1-9][0-9]* dropped=0 clusterReady=1 gridCells=[1-9][0-9]* gridMax=[1-9][0-9]* gridBytes=[1-9][0-9]*" \
             dist/static-scene-logcat.txt
+
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          text = Path("dist/static-scene-logcat.txt").read_text(
+              encoding="utf-8",
+              errors="replace",
+          )
+
+          matches = re.findall(
+              r"static_scene_draw ready=1[^\n]*"
+              r"localLights=163 active=163 "
+              r"affecting=(\d+) dropped=0 "
+              r"clusterReady=1 gridCells=(\d+) "
+              r"gridMax=(\d+) gridBytes=(\d+)",
+              text,
+          )
+          assert matches, "no clustered local-light draw evidence"
+
+          affecting, cells, grid_max, grid_bytes = map(
+              int,
+              matches[-1],
+          )
+
+          assert affecting > 0
+          assert cells > 0
+          assert 1 <= grid_max <= 96, grid_max
+          assert grid_bytes > 0
+
+          print(
+              "XZIEL_NACHT_CLUSTER_GRID_GATE_OK",
+              f"cells={cells}",
+              f"max={grid_max}",
+              f"bytes={grid_bytes}",
+              f"cameraAffecting={affecting}",
+          )
+          PY
 
           grep -E \
             "XZIEL-XZ.*legacy3d worldTransition.*map='xziel_nacht_bo3'.*mapRuntime=NACHT_BO3" \
@@ -2813,7 +2855,10 @@ jobs:
             "XZIEL_NACHT_ENVIRONMENT_GREEN lights=166 point=144 spot=19 directional=2 sky=1 bytes=14636"
 
           echo \
-            "XZIEL_NACHT_LOCAL_LIGHTING_GREEN local=163 active=64 dropped=0"
+            "XZIEL_NACHT_LOCAL_LIGHTING_GREEN local=163 active=163 dropped=0 mode=CLUSTERED"
+
+          echo \
+            "XZIEL_NACHT_CLUSTERED_LIGHTING_GREEN capacity=96"
 
           echo \
             "XZIEL_NACHT_ANDROID_STATIC_SCENE_GREEN meshes=492 instances=10791 xzms=492 vertices=1067383 indices=3608148 submeshes=1063 gpuBytes=48588848"
