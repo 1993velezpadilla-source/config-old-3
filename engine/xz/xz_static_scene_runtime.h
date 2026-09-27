@@ -5,6 +5,7 @@
 #include "xz_xzscene.h"
 #include "xz_environment.h"
 #include "xz_height_fog.h"
+#include "xz_pbr_material.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -55,6 +56,10 @@ typedef struct {
     size_t material_texture_table_offset;
     size_t material_binding_offset;
 
+    unsigned char *pbr_material_data;
+    size_t pbr_material_bytes;
+    XzPbrMaterialView pbr_material;
+
     unsigned char *environment_data;
     size_t environment_bytes;
     XzEnvironmentView environment;
@@ -72,6 +77,7 @@ typedef struct {
     char map_id[64];
     char scene_path[256];
     char material_path[256];
+    char pbr_material_path[256];
     char environment_path[256];
     char height_fog_path[256];
     char error[128];
@@ -110,6 +116,11 @@ int XzStaticSceneRuntime_Texture(
     const XzStaticSceneRuntimeState *state,
     uint32_t texture_index,
     XzStaticTextureView *texture);
+
+int XzStaticSceneRuntime_PbrBinding(
+    const XzStaticSceneRuntimeState *state,
+    uint32_t binding_index,
+    XzPbrMaterialBinding *binding);
 
 const XzEnvironmentView *
 XzStaticSceneRuntime_Environment(
