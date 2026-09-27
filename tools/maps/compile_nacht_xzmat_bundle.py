@@ -402,6 +402,62 @@ def main() -> int:
         }
         synthetic_by_material[material_path] = key
 
+    # Final deterministic fallback for cooked UE4 TextureStreamingData.
+    # Only touch materials that are STILL unresolved after explicit texture
+    # semantics and constant-color fallbacks. This preserves all existing
+    # mappings. Reject obvious normal/mask/roughness maps. Prefer an exact
+    # canonical material-name match; otherwise accept a single remaining
+    # non-normal streaming texture (e.g. shader-default White on water).
+    streaming_fallback_bindings = 0
+    streaming_rejected_tokens = (
+        "normal", "_n", "mrs", "rough", "metal", "spec",
+        "opacity", "mask", "_ao", "ambientocclusion",
+    )
+    for material_path, candidates in bindings_by_material.items():
+        if (
+            material_path in selected_by_material
+            or material_path in synthetic_by_material
+        ):
+            continue
+
+        streaming_candidates = []
+        for row in candidates:
+            source = str(row.get("source", "")).lower()
+            name = str(row.get("textureName", "")).lower()
+            if not source.startswith("streaming:"):
+                continue
+            if any(token in name for token in streaming_rejected_tokens):
+                continue
+            texture_path = str(row.get("texturePath", "")).lower()
+            if texture_path not in textures_by_path:
+                continue
+            streaming_candidates.append(row)
+
+        if not streaming_candidates:
+            continue
+
+        exact_name_matches = [
+            row for row in streaming_candidates
+            if (
+                canonical(str(row.get("textureName", "")))
+                == canonical(str(row.get("materialName", "")))
+            )
+        ]
+
+        selected = None
+        if len(exact_name_matches) == 1:
+            selected = exact_name_matches[0]
+        elif len(streaming_candidates) == 1:
+            selected = streaming_candidates[0]
+
+        if selected is None:
+            continue
+
+        selected_by_material[material_path] = str(
+            selected["texturePath"]
+        ).lower()
+        streaming_fallback_bindings += 1
+
     mesh_slots: dict[str, list[dict]] = {}
     for row in mesh_material_rows:
         mesh_slots.setdefault(str(row["meshName"]).lower(), []).append(row)
@@ -714,6 +770,7 @@ def main() -> int:
         "transparentMappedBindings": transparent_mapped,
         "vectorColorMappedBindings": vector_mapped,
         "glbBaseColorMappedBindings": glb_base_color_mapped,
+        "streamingFallbackBindings": streaming_fallback_bindings,
         "runtimeMaxDimension": args.max_dimension,
         "runtimeBytes": args.output.stat().st_size,
         "unresolvedSamples": unresolved_slots,
@@ -748,6 +805,7 @@ def main() -> int:
         f"transparent={transparent_mapped}",
         f"vectorColor={vector_mapped}",
         f"glbBaseColor={glb_base_color_mapped}",
+        f"streamingFallback={streaming_fallback_bindings}",
         f"maxDim={args.max_dimension}",
         f"bytes={args.output.stat().st_size}",
     )
