@@ -1151,7 +1151,9 @@ static int XzStaticSceneSourceLighting(
     float *ambient_weight,
     float *directional_weight,
     float directional_color[3],
-    float directional_direction[3])
+    float directional_direction[3],
+    float *directional_specular_scale,
+    int *directional_specular_authored)
 {
     const XzEnvironmentView *environment;
     XzEnvironmentLight sky;
@@ -1164,6 +1166,7 @@ static int XzStaticSceneSourceLighting(
     float cp;
     float length;
     uint32_t i;
+    uint32_t directional_index = 0u;
     int have_sky = 0;
     int have_directional = 0;
 
@@ -1171,7 +1174,9 @@ static int XzStaticSceneSourceLighting(
         !ambient_weight ||
         !directional_weight ||
         !directional_color ||
-        !directional_direction)
+        !directional_direction ||
+        !directional_specular_scale ||
+        !directional_specular_authored)
         return 0;
 
     environment =
@@ -1214,6 +1219,7 @@ static int XzStaticSceneSourceLighting(
             light.intensity > 0.0f &&
             light.intensity > directional_intensity) {
             directional = light;
+            directional_index = i;
             directional_intensity =
                 light.intensity;
             have_directional = 1;
@@ -1277,6 +1283,28 @@ static int XzStaticSceneSourceLighting(
 
     for (i = 0u; i < 3u; ++i)
         directional_direction[i] /= length;
+
+    {
+        XzStaticLightSpecular source_specular;
+
+        if (!XzStaticSceneRuntime_LightSpecular(
+                scene,
+                directional_index,
+                &source_specular))
+            return 0;
+
+        *directional_specular_authored =
+            (source_specular.flags &
+             XZ_STATIC_LIGHT_SPECULAR_HAS_SCALE) != 0u;
+        *directional_specular_scale =
+            *directional_specular_authored
+                ? source_specular.specular_scale
+                : 1.0f;
+
+        if (!isfinite(*directional_specular_scale) ||
+            *directional_specular_scale < 0.0f)
+            return 0;
+    }
 
     return
         isfinite(*ambient_weight) &&
