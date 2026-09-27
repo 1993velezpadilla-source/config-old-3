@@ -117,6 +117,17 @@ public class NZPActivity extends SDLActivity {
                 }
             }, 5000);
         }
+        boolean ciMultiplayerMenuPreview = getIntent() != null
+            && getIntent().getBooleanExtra(
+                "xziel_ci_multiplayer_menu_preview", false);
+        if (ciMultiplayerMenuPreview) {
+            getWindow().getDecorView().postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    if (multiplayer != null) multiplayer.openMultiplayerMenu();
+                }
+            }, 5000);
+        }
         getWindow().getDecorView().postDelayed(new Runnable() {
             @Override
             public void run() {
