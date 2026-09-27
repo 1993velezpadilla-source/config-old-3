@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compile Unreal FullHDR reflection capture bytes into XZIEL XZRC v1.
+"""Compile Unreal FullHDR reflection capture bytes into XZIEL XZRC v2.
 
 The payload is copied byte-for-byte. Unreal stores FullHDRCapturedData mip-major,
 with six ECubeFace faces (+X,-X,+Y,-Y,+Z,-Z) consecutively inside each mip.
@@ -16,12 +16,17 @@ import re
 import struct
 
 MAGIC = b"XZRC"
-VERSION = 1
+VERSION = 2
 FORMAT_RGBA16F = 1
 FACE_COUNT = 6
 BYTES_PER_TEXEL = 8
-HEADER = struct.Struct("<4sIIIIIIIIff16sI")
+# v1 base (64 bytes) is preserved verbatim. v2 appends exact capture-shape
+# metadata so the runtime can reproduce UE sphere projection without map
+# hardcoding: XZIEL-space position/radius/offset in meters + shape id.
+HEADER = struct.Struct("<4sIIIIIIIIff16sI7fI")
 HEADER_BYTES = HEADER.size
+SHAPE_SPHERE = 1
+DEFAULT_UE_SPHERE_RADIUS_CM = 3000.0
 
 EXPECTED_NACHT_SIZE = 128
 EXPECTED_NACHT_BYTES = 1_048_560
@@ -70,6 +75,82 @@ def main() -> int:
         )
 
     row = linked[0]
+
+    captures = [
+        capture
+        for capture in census.get("reflectionCaptures", [])
+        if capture.get("isComponent")
+        and capture.get("captureKind") == "sphere"
+        and normalize_guid(capture.get("mapBuildDataId"))
+        == normalize_guid(row["mapBuildDataId"])
+    ]
+    if len(captures) != 1:
+        raise SystemExit(
+            "expected exactly one linked sphere reflection component, "
+            f"got {len(captures)}"
+        )
+
+    capture = captures[0]
+    hierarchy = capture.get("hierarchy") or []
+    if len(hierarchy) != 1:
+        raise SystemExit(
+            "expected Nacht sphere capture to be an unattached root "
+            f"component, hierarchy={len(hierarchy)}"
+        )
+
+    location = hierarchy[0].get("locationUEcm") or {}
+    try:
+        ue_x_cm = float(location["X"])
+        ue_y_cm = float(location["Y"])
+        ue_z_cm = float(location["Z"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise SystemExit(
+            f"invalid Nacht reflection location: {location!r}"
+        ) from exc
+
+    properties = capture.get("properties") or {}
+    raw_radius_cm = properties.get("influenceRadiusCm")
+    radius_cm = (
+        DEFAULT_UE_SPHERE_RADIUS_CM
+        if raw_radius_cm is None
+        else float(raw_radius_cm)
+    )
+
+    raw_offset = properties.get("captureOffsetCm")
+    if raw_offset is None:
+        offset_x_cm = 0.0
+        offset_y_cm = 0.0
+        offset_z_cm = 0.0
+        radius_source = "UE4 sphere default"
+        offset_source = "UE4 FVector default zero"
+    else:
+        offset_x_cm = float(raw_offset["X"])
+        offset_y_cm = float(raw_offset["Y"])
+        offset_z_cm = float(raw_offset["Z"])
+        radius_source = (
+            "serialized"
+            if raw_radius_cm is not None
+            else "UE4 sphere default"
+        )
+        offset_source = "serialized"
+
+    if not (0.0 < radius_cm < 1_000_000.0):
+        raise SystemExit(f"invalid reflection influence radius: {radius_cm}")
+
+    # Match the established XZIEL world transform used by static-scene
+    # instances/lights: UE (X,Y,Z) cm -> XZIEL (X,-Y,Z) meters.
+    capture_position_m = (
+        ue_x_cm / 100.0,
+        -ue_y_cm / 100.0,
+        ue_z_cm / 100.0,
+    )
+    influence_radius_m = radius_cm / 100.0
+    capture_offset_m = (
+        offset_x_cm / 100.0,
+        -offset_y_cm / 100.0,
+        offset_z_cm / 100.0,
+    )
+
     size = int(row["cubemapSize"])
     mip_count, expected_bytes = expected_payload_bytes(size)
     average_brightness = float(row["averageBrightness"])
@@ -108,8 +189,16 @@ def main() -> int:
         brightness,
         bytes.fromhex(guid),
         0,
+        capture_position_m[0],
+        capture_position_m[1],
+        capture_position_m[2],
+        influence_radius_m,
+        capture_offset_m[0],
+        capture_offset_m[1],
+        capture_offset_m[2],
+        SHAPE_SPHERE,
     )
-    assert len(header) == 64
+    assert len(header) == 96
 
     asset = header + payload
     args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -135,6 +224,19 @@ def main() -> int:
         "payloadSha256": payload_sha.upper(),
         "assetSha256": hashlib.sha256(asset).hexdigest().upper(),
         "sourcePreservedByteForByte": True,
+        "captureShape": "sphere",
+        "capturePositionUeCm": [ue_x_cm, ue_y_cm, ue_z_cm],
+        "capturePositionXzielMeters": list(capture_position_m),
+        "influenceRadiusCm": radius_cm,
+        "influenceRadiusMeters": influence_radius_m,
+        "influenceRadiusSource": radius_source,
+        "captureOffsetUeCm": [
+            offset_x_cm,
+            offset_y_cm,
+            offset_z_cm,
+        ],
+        "captureOffsetXzielMeters": list(capture_offset_m),
+        "captureOffsetSource": offset_source,
         "runtimeDirectionTransform": "XZIEL(X,-Y,Z)->UE(X,Y,Z): flip sample Y",
     }
     args.report.parent.mkdir(parents=True, exist_ok=True)
