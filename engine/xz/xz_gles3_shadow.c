@@ -1234,7 +1234,7 @@ static int XzCreateProgramAndBuffer(void)
 
     static const char *fs_source =
         "#version 300 es\n"
-        "precision mediump float;\n"
+        "precision highp float;\n"
         "in vec4 vColor;\n"
         "out vec4 outColor;\n"
         "void main(){\n"
