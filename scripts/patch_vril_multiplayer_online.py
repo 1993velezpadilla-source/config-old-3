@@ -739,13 +739,16 @@ pause_draw = r'''void Menu_Pause_Draw (void)
 		showscoreboard = old_scoreboard;
 
 		if (menu_paus_submenu == 0) {
-			Menu_DrawButton (1, 0, "SETTINGS",
+			Menu_DrawButton (1, 0, "RESUME MATCH",
+				"Return to the online match.", Menu_Resume);
+			Menu_DrawButton (2, 1, "SETTINGS",
 				"Adjust controls, audio and video.", Menu_Configuration);
-			Menu_DrawButton (2, 1, "QUIT MATCH",
+			Menu_DrawButton (3, 2, "QUIT MATCH",
 				"Leave this online match.", Menu_Pause_OnlineQuitConfirm);
 		} else {
-			Menu_DrawGreyButton (1, "SETTINGS");
-			Menu_DrawGreyButton (2, "QUIT MATCH");
+			Menu_DrawGreyButton (1, "RESUME MATCH");
+			Menu_DrawGreyButton (2, "SETTINGS");
+			Menu_DrawGreyButton (3, "QUIT MATCH");
 			Menu_DrawSubMenu("Leave online match?",
 				"The other players will keep playing.");
 			Menu_DrawButton (7, 0, "QUIT MATCH", "", Menu_Pause_Yes);
