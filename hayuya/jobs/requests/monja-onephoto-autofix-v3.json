@@ -16,5 +16,5 @@
   "portable_target": "high",
   "gpu_vram": 24,
   "backends": "trellis2,triposr",
-  "retry_token": "onephoto-autofix-v14-faithful-judge-20260927"
+  "retry_token": "onephoto-autofix-v15-faithful-judge-feather-20260927"
 }
