@@ -1444,7 +1444,8 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             " envDirectional=%u envSky=%u envBytes=%zu"
             " localLights=%u localActive=%u"
             " localCameraAffecting=%u localDropped=%u"
-            " localReady=%d"
+            " localReady=%d clusterReady=%d"
+            " gridCells=%u gridMax=%u gridBytes=%" PRIu64
             " error='%s'",
             XzStaticSceneRuntime_StatusName(
                 static_status),
@@ -1494,6 +1495,10 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             xz_runtime.gles3_shadow.static_scene_local_light_camera_affecting,
             xz_runtime.gles3_shadow.static_scene_local_light_dropped_affecting,
             xz_runtime.gles3_shadow.static_scene_local_lighting_ready,
+            xz_runtime.gles3_shadow.static_scene_clustered_lighting_ready,
+            xz_runtime.gles3_shadow.static_scene_light_grid_cells,
+            xz_runtime.gles3_shadow.static_scene_light_grid_max_per_cell,
+            xz_runtime.gles3_shadow.static_scene_light_grid_bytes,
             xz_runtime.static_scene.error);
     }
 
@@ -1658,7 +1663,8 @@ int XzAndroidRuntime_CompositeVisibleWorld(void)
             " fboPixels=%u surfacePixels=%u"
             " postRestorePixels=%u"
             " readback=%ux%u"
-            " localLights=%u active=%u affecting=%u dropped=%u",
+            " localLights=%u active=%u affecting=%u dropped=%u"
+            " clusterReady=%d gridCells=%u gridMax=%u gridBytes=%" PRIu64,
             xz_runtime.gles3_shadow.static_scene_gpu_meshes,
             xz_runtime.gles3_shadow.static_scene_last_instances,
             xz_runtime.gles3_shadow.static_scene_last_draw_calls,
@@ -1672,7 +1678,11 @@ int XzAndroidRuntime_CompositeVisibleWorld(void)
             xz_runtime.gles3_shadow.static_scene_local_light_count,
             xz_runtime.gles3_shadow.static_scene_local_light_active,
             xz_runtime.gles3_shadow.static_scene_local_light_camera_affecting,
-            xz_runtime.gles3_shadow.static_scene_local_light_dropped_affecting);
+            xz_runtime.gles3_shadow.static_scene_local_light_dropped_affecting,
+            xz_runtime.gles3_shadow.static_scene_clustered_lighting_ready,
+            xz_runtime.gles3_shadow.static_scene_light_grid_cells,
+            xz_runtime.gles3_shadow.static_scene_light_grid_max_per_cell,
+            xz_runtime.gles3_shadow.static_scene_light_grid_bytes);
     }
 
     return presented;
