@@ -235,7 +235,7 @@ jobs:
             "$ADB" shell uiautomator dump /sdcard/xziel-multiplayer-menu.xml >/dev/null 2>&1
             "$ADB" pull /sdcard/xziel-multiplayer-menu.xml dist/xziel-multiplayer-menu.xml >/dev/null 2>&1
             "$ADB" exec-out screencap -p > dist/xziel-multiplayer-menu.png || true
-            grep -q 'text="NACHT DER UNTOTEN"' dist/xziel-multiplayer-menu.xml
+            grep -q 'text="Nacht der Untoten"' dist/xziel-multiplayer-menu.xml
             grep -q 'text="PRIVATE ROOM"' dist/xziel-multiplayer-menu.xml
             grep -q 'text="PUBLIC MATCH"' dist/xziel-multiplayer-menu.xml
           fi
