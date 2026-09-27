@@ -1315,7 +1315,12 @@ if "XZ_PRESENT_LUMA_PRESWAP" not in screen:
         "\t/* XZ_PRESENT_LUMA_PRESWAP */\n"
         "\tXzAndroidRuntime_AuditLegacyPresentBeforeSwap(\n"
         "\t\t(unsigned int)glwidth,\n"
-        "\t\t(unsigned int)glheight);\n"
+        "\t\t(unsigned int)glheight,\n"
+        "\t\tscreenflash_color,\n"
+        "\t\tscreenflash_type,\n"
+        "\t\tscreenflash_duration,\n"
+        "\t\tscreenflash_starttime,\n"
+        "\t\tscreenflash_worktime);\n"
         "#endif\n"
         "\tGL_EndRendering ();\n"
     )
