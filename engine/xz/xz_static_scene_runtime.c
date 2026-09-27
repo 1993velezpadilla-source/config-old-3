@@ -14,6 +14,11 @@
 #define XZ_STATIC_SCENE_MAX_MATERIAL_BYTES \
     (384u * 1024u * 1024u)
 
+#define XZ_STATIC_SCENE_MAX_LIGHTING_BYTES 4096u
+
+#define XZ_XZLT_BYTES 40u
+#define XZ_XZLT_VERSION 1u
+
 #define XZ_XZMT_HEADER_BYTES 24u
 #define XZ_XZMT_TEXTURE_BYTES 20u
 #define XZ_XZMT_VERSION 1u
@@ -46,6 +51,15 @@ static uint32_t XzStaticReadU32Le(
            ((uint32_t)p[1] << 8) |
            ((uint32_t)p[2] << 16) |
            ((uint32_t)p[3] << 24);
+}
+
+static float XzStaticReadF32Le(
+    const unsigned char *p)
+{
+    uint32_t bits = XzStaticReadU32Le(p);
+    float value = 0.0f;
+    memcpy(&value, &bits, sizeof(value));
+    return value;
 }
 
 static int XzValidateMaterialPack(
@@ -157,6 +171,80 @@ static int XzValidateMaterialPack(
     *texture_table_offset =
         XZ_XZMT_HEADER_BYTES;
     *binding_offset = (size_t)table_end;
+    return 1;
+}
+
+static int XzValidateLightingPack(
+    const unsigned char *data,
+    size_t size,
+    XzStaticLightingView *lighting)
+{
+    float ambient;
+    float directional;
+    float length;
+    unsigned int i;
+
+    if (!data ||
+        !lighting ||
+        size != XZ_XZLT_BYTES)
+        return 0;
+
+    if (data[0] != 'X' ||
+        data[1] != 'Z' ||
+        data[2] != 'L' ||
+        data[3] != 'T' ||
+        XzStaticReadU32Le(data + 4u) !=
+            XZ_XZLT_VERSION)
+        return 0;
+
+    ambient = XzStaticReadF32Le(data + 8u);
+    directional = XzStaticReadF32Le(data + 12u);
+
+    if (!isfinite(ambient) ||
+        !isfinite(directional) ||
+        ambient < 0.0f ||
+        directional < 0.0f ||
+        ambient > 1.0f ||
+        directional > 1.0f ||
+        fabsf((ambient + directional) - 1.0f) > 0.001f)
+        return 0;
+
+    memset(lighting, 0, sizeof(*lighting));
+    lighting->ambient_weight = ambient;
+    lighting->directional_weight = directional;
+
+    for (i = 0u; i < 3u; ++i) {
+        float color =
+            XzStaticReadF32Le(
+                data + 16u + i * 4u);
+        float direction =
+            XzStaticReadF32Le(
+                data + 28u + i * 4u);
+
+        if (!isfinite(color) ||
+            color < 0.0f ||
+            color > 1.0f ||
+            !isfinite(direction))
+            return 0;
+
+        lighting->directional_color[i] =
+            color;
+        lighting->directional_direction[i] =
+            direction;
+    }
+
+    length = sqrtf(
+        lighting->directional_direction[0] *
+            lighting->directional_direction[0] +
+        lighting->directional_direction[1] *
+            lighting->directional_direction[1] +
+        lighting->directional_direction[2] *
+            lighting->directional_direction[2]);
+
+    if (!isfinite(length) ||
+        fabsf(length - 1.0f) > 0.001f)
+        return 0;
+
     return 1;
 }
 
@@ -325,6 +413,9 @@ void XzStaticSceneRuntime_Reset(
     if (state->material_data)
         free(state->material_data);
 
+    if (state->lighting_data)
+        free(state->lighting_data);
+
     memset(state, 0, sizeof(*state));
     state->status = XZ_STATIC_SCENE_IDLE;
 }
@@ -337,11 +428,15 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
     size_t scene_bytes = 0u;
     unsigned char *material_data = NULL;
     size_t material_bytes = 0u;
+    unsigned char *lighting_data = NULL;
+    size_t lighting_bytes = 0u;
+    XzStaticLightingView lighting;
     XzXzsceneView scene;
     XzXzsceneStatus scene_status;
     XzStaticMeshResource *resources = NULL;
     char scene_path[256];
     char material_path[256];
+    char lighting_path[256];
     char mesh_prefix[160];
     char failure[128] = "";
     uint32_t material_texture_count = 0u;
@@ -647,6 +742,54 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
         goto invalid;
     }
 
+    if (snprintf(
+            lighting_path,
+            sizeof(lighting_path),
+            "xziel/maps/%s/lighting.xzlt",
+            map_id) <= 0 ||
+        strlen(lighting_path) >=
+            sizeof(lighting_path) - 1u) {
+        snprintf(
+            failure,
+            sizeof(failure),
+            "%s",
+            "lighting_path_overflow");
+        goto invalid;
+    }
+
+    read_status = XzReadVfsFile(
+        lighting_path,
+        XZ_STATIC_SCENE_MAX_LIGHTING_BYTES,
+        &lighting_data,
+        &lighting_bytes);
+
+    if (read_status < 0 ||
+        (read_status == 0 &&
+         strcmp(map_id, "xziel_nacht_bo3") == 0)) {
+        snprintf(
+            failure,
+            sizeof(failure),
+            "%s",
+            read_status == 0
+                ? "lighting_pack_missing"
+                : "lighting_pack_read_failed");
+        goto invalid;
+    }
+
+    memset(&lighting, 0, sizeof(lighting));
+    if (read_status > 0 &&
+        !XzValidateLightingPack(
+            lighting_data,
+            lighting_bytes,
+            &lighting)) {
+        snprintf(
+            failure,
+            sizeof(failure),
+            "%s",
+            "lighting_pack_invalid");
+        goto invalid;
+    }
+
     state->scene_data = scene_data;
     state->scene_bytes = scene_bytes;
     state->scene = scene;
@@ -670,6 +813,18 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
             "%s",
             material_path);
     }
+    state->lighting_data = lighting_data;
+    state->lighting_bytes = lighting_bytes;
+    state->lighting = lighting;
+    state->lighting_ready =
+        lighting_data != NULL;
+    if (lighting_data) {
+        snprintf(
+            state->lighting_path,
+            sizeof(state->lighting_path),
+            "%s",
+            lighting_path);
+    }
     state->mesh_files_validated =
         scene.mesh_count;
     state->mesh_bytes_validated =
@@ -692,6 +847,7 @@ invalid:
         scene.mesh_count);
     free(scene_data);
     free(material_data);
+    free(lighting_data);
 
     state->status =
         XZ_STATIC_SCENE_INVALID;
@@ -810,6 +966,19 @@ int XzStaticSceneRuntime_Texture(
         state->material_data + offset;
     texture->rgba_bytes = (size_t)bytes;
     return 1;
+}
+
+const XzStaticLightingView *
+XzStaticSceneRuntime_Lighting(
+    const XzStaticSceneRuntimeState *state)
+{
+    if (!state ||
+        state->status != XZ_STATIC_SCENE_READY ||
+        !state->lighting_ready ||
+        !state->lighting_data)
+        return NULL;
+
+    return &state->lighting;
 }
 
 const char *XzStaticSceneRuntime_StatusName(
