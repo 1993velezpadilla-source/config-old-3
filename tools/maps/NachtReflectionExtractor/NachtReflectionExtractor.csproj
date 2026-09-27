@@ -5,7 +5,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
-  <ItemGroup>
+  <ItemGroup Condition="'$(CUE4ParseProject)' == ''">
     <PackageReference Include="CUE4Parse" Version="1.2.2.202609" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(CUE4ParseProject)' != ''">
+    <ProjectReference Include="$(CUE4ParseProject)" />
   </ItemGroup>
 </Project>
