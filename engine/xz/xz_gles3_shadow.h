@@ -114,6 +114,13 @@ typedef struct {
     int static_scene_pbr_ready;
     int static_scene_specular_response_ready;
     unsigned int static_scene_last_specular_local_lights;
+    int static_scene_reflection_ready;
+    uint64_t static_scene_reflection_gpu_bytes;
+    unsigned int static_scene_reflection_size;
+    unsigned int static_scene_reflection_mips;
+    float static_scene_reflection_average_brightness;
+    float static_scene_reflection_brightness;
+    int static_scene_reflection_ibl_ready;
     int static_scene_lighting_ready;
     unsigned int static_scene_local_light_count;
     unsigned int static_scene_local_light_active;
