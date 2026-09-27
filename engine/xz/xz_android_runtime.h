@@ -39,7 +39,8 @@ void XzAndroidRuntime_AuditLegacyPresentBeforeSwap(
     int screenflash_type,
     double screenflash_duration,
     double screenflash_starttime,
-    double screenflash_worktime);
+    double screenflash_worktime,
+    double server_time);
 void XzAndroidRuntime_EndFrame(double now_seconds);
 void XzAndroidRuntime_Shutdown(void);
 
