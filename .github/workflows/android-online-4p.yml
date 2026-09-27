@@ -202,6 +202,12 @@ jobs:
             "$ADB" logcat -d -v brief > "evidence/logcat-${{ matrix.runner }}.txt" || true
             LOG="evidence/logcat-${{ matrix.runner }}.txt"
 
+            # Preserve the bounded renderer trace before logcat rotation can
+            # evict it during the later pause/voice/mute interaction checks.
+            if grep -q "XzielScene" "$LOG"; then
+              grep -E "Xziel(Scene|Render)" "$LOG" >                 "evidence/scene-player-${{ matrix.runner }}.txt" || true
+            fi
+
             if grep -q "Xziel.*stage=SYS_ERROR" "$LOG" || \
                grep -q "SDL_CreateWindow: Could not fetch native window" "$LOG"; then
               echo "Native startup lost the Android Surface."
@@ -370,6 +376,31 @@ jobs:
             "$ADB" exec-out screencap -p > "evidence/online-pause-muted-${{ matrix.runner }}.png" || true
           fi
 
+          # The per-player mute is the final real interaction in this job.
+          # Xziel emits CI_EVIDENCE_DONE over the existing authenticated room
+          # WebSocket when that mute succeeds. Keep every emulator (especially
+          # slot 1, the listen server) alive until all four jobs have reached
+          # the same point, instead of letting GitHub tear the host down early.
+          EVIDENCE_BARRIER=0
+          for i in $(seq 1 90); do
+            "$ADB" logcat -d -v brief > "evidence/barrier-logcat-${{ matrix.runner }}.txt" || true
+            BARRIER_LOG="evidence/barrier-logcat-${{ matrix.runner }}.txt"
+            REMOTE_DONE="$(awk '/XzielOnline.*CI_REMOTE_ACTION/ && /action=CI_EVIDENCE_DONE/ { if (match($0, / remote=[1-4]/)) print substr($0, RSTART + 8, 1) }' "$BARRIER_LOG" | sort -u | wc -l | tr -d ' ')"
+            if grep -q "XzielOnline.*CI_EVIDENCE_DONE slot=" "$BARRIER_LOG" &&                [[ "$REMOTE_DONE" -ge 3 ]]; then
+              EVIDENCE_BARRIER=1
+              break
+            fi
+            if ! "$ADB" shell pidof com.xziel.nzp >/dev/null 2>&1; then
+              break
+            fi
+            sleep 2
+          done
+
+          if [[ "$EVIDENCE_BARRIER" != "1" ]]; then
+            echo "CI evidence barrier did not complete."
+            grep -E "XzielOnline.*(CI_EVIDENCE_DONE|CI_REMOTE_ACTION|PLAYER_LEFT)|Host_Error|Program error|lost server connection"               "evidence/barrier-logcat-${{ matrix.runner }}.txt" | tail -n 120 || true
+          fi
+
           "$ADB" logcat -d -v threadtime > "evidence/logcat-${{ matrix.runner }}.txt" || true
 
           {
@@ -382,6 +413,7 @@ jobs:
           PID="$("$ADB" shell pidof com.xziel.nzp 2>/dev/null | tr -d '\r' || true)"
           test -n "$PID"
           test "$SUCCESS" = "1"
+          test "$EVIDENCE_BARRIER" = "1"
           test -s "evidence/hud-taps-${{ matrix.runner }}.txt"
           test -s "evidence/player-mute-tap-${{ matrix.runner }}.txt"
           grep -q "XzielVoice.*PLAYER_MUTE" "evidence/logcat-${{ matrix.runner }}.txt"
