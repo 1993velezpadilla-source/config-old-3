@@ -99,9 +99,11 @@ class NachtPolicy:
         if current and current.magazine <= 1 and current.reserve > 0 and not near_danger and not p.reloading:
             return Action(ActionKind.RELOAD, "empty/near-empty magazine with safe reload window", duration_ms=900, utility=900)
 
-        # 4) Fight visible/known threat. Aim/attack is deliberately not perfect.
-        if obs.zombies:
-            target = min(obs.zombies, key=lambda z: p.position.distance2d(z.position))
+        # 4) Fight only a threat the player actually has line-of-sight to.
+        # Hidden zombies still influence danger/evade decisions but never aim/fire.
+        visible_zombies = [z for z in obs.zombies if z.visible]
+        if visible_zombies:
+            target = min(visible_zombies, key=lambda z: p.position.distance2d(z.position))
             distance = p.position.distance2d(target.position)
             if distance <= 520:
                 reaction = self.rng.randint(self.cfg.reaction_min_ms, self.cfg.reaction_max_ms)
