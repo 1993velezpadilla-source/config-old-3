@@ -1411,6 +1411,9 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
         const XzXzsceneView *static_scene =
             XzStaticSceneRuntime_Scene(
                 &xz_runtime.static_scene);
+        const XzEnvironmentView *environment =
+            XzStaticSceneRuntime_Environment(
+                &xz_runtime.static_scene);
         int static_gpu_ready = 0;
 
         if (static_status ==
@@ -1437,6 +1440,11 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             " materialReady=%d gpuTextures=%u"
             " gpuTextureBytes=%" PRIu64
             " materialBindings=%u mappedBindings=%u"
+            " envLights=%u envPoint=%u envSpot=%u"
+            " envDirectional=%u envSky=%u envBytes=%zu"
+            " localLights=%u localActive=%u"
+            " localCameraAffecting=%u localDropped=%u"
+            " localReady=%d"
             " error='%s'",
             XzStaticSceneRuntime_StatusName(
                 static_status),
@@ -1465,6 +1473,27 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             xz_runtime.gles3_shadow.static_scene_gpu_texture_bytes,
             xz_runtime.gles3_shadow.static_scene_material_bindings,
             xz_runtime.gles3_shadow.static_scene_material_mapped_bindings,
+            environment
+                ? environment->light_count
+                : 0u,
+            environment
+                ? environment->point_count
+                : 0u,
+            environment
+                ? environment->spot_count
+                : 0u,
+            environment
+                ? environment->directional_count
+                : 0u,
+            environment
+                ? environment->sky_count
+                : 0u,
+            xz_runtime.static_scene.environment_bytes,
+            xz_runtime.gles3_shadow.static_scene_local_light_count,
+            xz_runtime.gles3_shadow.static_scene_local_light_active,
+            xz_runtime.gles3_shadow.static_scene_local_light_camera_affecting,
+            xz_runtime.gles3_shadow.static_scene_local_light_dropped_affecting,
+            xz_runtime.gles3_shadow.static_scene_local_lighting_ready,
             xz_runtime.static_scene.error);
     }
 
@@ -1628,7 +1657,8 @@ int XzAndroidRuntime_CompositeVisibleWorld(void)
             " failures=%" PRIu64
             " fboPixels=%u surfacePixels=%u"
             " postRestorePixels=%u"
-            " readback=%ux%u",
+            " readback=%ux%u"
+            " localLights=%u active=%u affecting=%u dropped=%u",
             xz_runtime.gles3_shadow.static_scene_gpu_meshes,
             xz_runtime.gles3_shadow.static_scene_last_instances,
             xz_runtime.gles3_shadow.static_scene_last_draw_calls,
@@ -1638,7 +1668,11 @@ int XzAndroidRuntime_CompositeVisibleWorld(void)
             xz_runtime.gles3_shadow.static_scene_surface_nonblack_pixels,
             xz_runtime.gles3_shadow.static_scene_postrestore_nonblack_pixels,
             xz_runtime.gles3_shadow.static_scene_readback_width,
-            xz_runtime.gles3_shadow.static_scene_readback_height);
+            xz_runtime.gles3_shadow.static_scene_readback_height,
+            xz_runtime.gles3_shadow.static_scene_local_light_count,
+            xz_runtime.gles3_shadow.static_scene_local_light_active,
+            xz_runtime.gles3_shadow.static_scene_local_light_camera_affecting,
+            xz_runtime.gles3_shadow.static_scene_local_light_dropped_affecting);
     }
 
     return presented;

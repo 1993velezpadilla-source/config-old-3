@@ -24,6 +24,19 @@
 #define XZ_VERTEX_FLOATS 7u
 #define XZ_VERTICES_PER_PACKET 3u
 #define XZ_G3_RESOURCE_PROXY_MAX 128u
+#define XZ_STATIC_LOCAL_LIGHT_SOURCE_MAX 163u
+#define XZ_STATIC_LOCAL_LIGHT_ACTIVE_MAX 64u
+#define XZ_STATIC_GAMEPLAY_UNITS_PER_METER 39.3700787402f
+#define XZ_STATIC_CENTIMETERS_PER_GAMEPLAY_UNIT 2.54f
+#define XZ_STATIC_PI 3.14159265358979323846f
+
+enum {
+    XZ_STATIC_LIGHT_UNIT_UNKNOWN = 0u,
+    XZ_STATIC_LIGHT_UNIT_CANDELAS = 1u,
+    XZ_STATIC_LIGHT_UNIT_LUMENS = 2u,
+    XZ_STATIC_LIGHT_UNIT_UNITLESS = 3u,
+    XZ_STATIC_LIGHT_UNIT_EV100 = 4u
+};
 
 enum {
     XZ_G3_STAGE_NONE = 0u,
@@ -223,6 +236,17 @@ typedef struct {
 } XzGles3StaticTexture;
 
 typedef struct {
+    float position_game[3];
+    float radius_game;
+    float inv_radius_cm;
+    float color_brightness[3];
+    float direction[3];
+    float cos_outer;
+    float inv_cos_difference;
+    uint32_t type;
+} XzGles3StaticLocalLight;
+
+typedef struct {
     int ready;
 
     EGLDisplay display;
@@ -275,10 +299,17 @@ typedef struct {
     GLint static_directional_weight_loc;
     GLint static_directional_color_loc;
     GLint static_directional_direction_loc;
+    GLint static_local_light_count_loc;
+    GLint static_local_pos_inv_radius_loc;
+    GLint static_local_color_cone_loc;
+    GLint static_local_dir_cos_outer_loc;
     float static_ambient_weight;
     float static_directional_weight;
     float static_directional_color[3];
     float static_directional_direction[3];
+    XzGles3StaticLocalLight
+        static_local_lights[XZ_STATIC_LOCAL_LIGHT_SOURCE_MAX];
+    uint32_t static_local_light_count;
     GLuint static_instance_vbo;
     XzStaticSceneDrawPlan static_draw_plan;
     int static_draw_plan_ready;
@@ -408,6 +439,508 @@ static float XzSrgbToLinear(float value)
     return powf(
         (value + 0.055f) / 1.055f,
         2.4f);
+}
+
+static void XzColorTemperature(
+    float temperature_kelvin,
+    float rgb[3])
+{
+    float t = temperature_kelvin;
+    float u;
+    float v;
+    float denominator;
+    float x;
+    float y;
+    float z;
+    float X;
+    float Y = 1.0f;
+    float Z;
+
+    if (t < 1000.0f)
+        t = 1000.0f;
+    if (t > 15000.0f)
+        t = 15000.0f;
+
+    u =
+        (0.860117757f +
+         1.54118254e-4f * t +
+         1.28641212e-7f * t * t) /
+        (1.0f +
+         8.42420235e-4f * t +
+         7.08145163e-7f * t * t);
+
+    v =
+        (0.317398726f +
+         4.22806245e-5f * t +
+         4.20481691e-8f * t * t) /
+        (1.0f -
+         2.89741816e-5f * t +
+         1.61456053e-7f * t * t);
+
+    denominator =
+        2.0f * u -
+        8.0f * v +
+        4.0f;
+
+    x = 3.0f * u / denominator;
+    y = 2.0f * v / denominator;
+    z = 1.0f - x - y;
+
+    X = Y / y * x;
+    Z = Y / y * z;
+
+    rgb[0] =
+        3.2404542f * X -
+        1.5371385f * Y -
+        0.4985314f * Z;
+    rgb[1] =
+        -0.9692660f * X +
+        1.8760108f * Y +
+        0.0415560f * Z;
+    rgb[2] =
+        0.0556434f * X -
+        0.2040259f * Y +
+        1.0572252f * Z;
+}
+
+static float XzStaticLocalBrightness(
+    const XzEnvironmentLight *light,
+    float cos_outer)
+{
+    float intensity;
+
+    if (!light ||
+        !isfinite(light->intensity) ||
+        light->intensity < 0.0f)
+        return -1.0f;
+
+    intensity = light->intensity;
+
+    if ((light->behavior_flags &
+         XZ_ENV_BEHAVIOR_INVERSE_SQUARED) == 0u)
+        return -1.0f;
+
+    switch (light->units) {
+    case XZ_STATIC_LIGHT_UNIT_CANDELAS:
+        return intensity * 10000.0f;
+
+    case XZ_STATIC_LIGHT_UNIT_LUMENS:
+        if (light->type == XZ_ENV_LIGHT_SPOT) {
+            float denominator =
+                2.0f *
+                XZ_STATIC_PI *
+                (1.0f - cos_outer);
+            if (!isfinite(denominator) ||
+                denominator <= 1.0e-8f)
+                return -1.0f;
+            return
+                intensity *
+                10000.0f /
+                denominator;
+        }
+        return
+            intensity *
+            10000.0f /
+            (4.0f * XZ_STATIC_PI);
+
+    case XZ_STATIC_LIGHT_UNIT_UNITLESS:
+        return intensity * 16.0f;
+
+    default:
+        return -1.0f;
+    }
+}
+
+static int XzStaticScenePrepareLocalLights(
+    const XzStaticSceneRuntimeState *scene)
+{
+    const XzEnvironmentView *environment;
+    uint32_t i;
+    uint32_t count = 0u;
+
+    if (!scene)
+        return 0;
+
+    environment =
+        XzStaticSceneRuntime_Environment(scene);
+    if (!environment)
+        return 0;
+
+    memset(
+        xz_shadow.static_local_lights,
+        0,
+        sizeof(xz_shadow.static_local_lights));
+    xz_shadow.static_local_light_count = 0u;
+
+    for (i = 0u;
+         i < environment->light_count;
+         ++i) {
+        XzEnvironmentLight source;
+        XzGles3StaticLocalLight *dest;
+        float pitch;
+        float yaw;
+        float cp;
+        float inner_radians = 0.0f;
+        float outer_radians = 0.0f;
+        float cos_inner = 1.0f;
+        float cos_outer = -1.0f;
+        float brightness;
+        float temperature[3] = {
+            1.0f, 1.0f, 1.0f
+        };
+        uint32_t channel;
+
+        if (!XzStaticSceneRuntime_EnvironmentLight(
+                scene, i, &source))
+            return 0;
+
+        if (source.type != XZ_ENV_LIGHT_POINT &&
+            source.type != XZ_ENV_LIGHT_SPOT)
+            continue;
+
+        if (count >=
+            XZ_STATIC_LOCAL_LIGHT_SOURCE_MAX)
+            return 0;
+
+        if ((source.flags &
+             (XZ_ENV_HAS_POSITION |
+              XZ_ENV_HAS_ROTATION |
+              XZ_ENV_HAS_COLOR |
+              XZ_ENV_HAS_INTENSITY |
+              XZ_ENV_HAS_RADIUS |
+              XZ_ENV_HAS_UNITS)) !=
+                (XZ_ENV_HAS_POSITION |
+                 XZ_ENV_HAS_ROTATION |
+                 XZ_ENV_HAS_COLOR |
+                 XZ_ENV_HAS_INTENSITY |
+                 XZ_ENV_HAS_RADIUS |
+                 XZ_ENV_HAS_UNITS) ||
+            !isfinite(source.radius_meters) ||
+            source.radius_meters <= 0.0f)
+            return 0;
+
+        dest =
+            &xz_shadow.static_local_lights[count];
+
+        dest->position_game[0] =
+            source.position[0] *
+            XZ_STATIC_GAMEPLAY_UNITS_PER_METER;
+        dest->position_game[1] =
+            source.position[1] *
+            XZ_STATIC_GAMEPLAY_UNITS_PER_METER;
+        dest->position_game[2] =
+            source.position[2] *
+            XZ_STATIC_GAMEPLAY_UNITS_PER_METER;
+        dest->radius_game =
+            source.radius_meters *
+            XZ_STATIC_GAMEPLAY_UNITS_PER_METER;
+        dest->inv_radius_cm =
+            1.0f /
+            (source.radius_meters * 100.0f);
+        dest->type = source.type;
+
+        pitch =
+            source.rotation[0] *
+            0.01745329251994329577f;
+        yaw =
+            source.rotation[1] *
+            0.01745329251994329577f;
+        cp = cosf(pitch);
+
+        dest->direction[0] =
+            cp * cosf(yaw);
+        dest->direction[1] =
+            -(cp * sinf(yaw));
+        dest->direction[2] =
+            sinf(pitch);
+
+        if (source.type == XZ_ENV_LIGHT_SPOT) {
+            if ((source.flags &
+                 (XZ_ENV_HAS_INNER_CONE |
+                  XZ_ENV_HAS_OUTER_CONE)) !=
+                    (XZ_ENV_HAS_INNER_CONE |
+                     XZ_ENV_HAS_OUTER_CONE))
+                return 0;
+
+            inner_radians =
+                XzClamp01(
+                    source.inner_cone_degrees /
+                    89.0f) *
+                89.0f *
+                0.01745329251994329577f;
+
+            outer_radians =
+                source.outer_cone_degrees *
+                0.01745329251994329577f;
+
+            if (outer_radians <
+                inner_radians + 0.001f)
+                outer_radians =
+                    inner_radians + 0.001f;
+
+            if (outer_radians >
+                89.0f *
+                    0.01745329251994329577f +
+                    0.001f)
+                outer_radians =
+                    89.0f *
+                        0.01745329251994329577f +
+                    0.001f;
+
+            cos_inner = cosf(inner_radians);
+            cos_outer = cosf(outer_radians);
+
+            if (cos_inner <= cos_outer)
+                return 0;
+
+            dest->cos_outer = cos_outer;
+            dest->inv_cos_difference =
+                1.0f /
+                (cos_inner - cos_outer);
+        } else {
+            dest->cos_outer = -1.0f;
+            dest->inv_cos_difference = 0.0f;
+        }
+
+        brightness =
+            XzStaticLocalBrightness(
+                &source,
+                cos_outer);
+        if (!isfinite(brightness) ||
+            brightness < 0.0f)
+            return 0;
+
+        if ((source.behavior_flags &
+             XZ_ENV_BEHAVIOR_USE_TEMPERATURE) != 0u) {
+            if ((source.flags &
+                 XZ_ENV_HAS_TEMPERATURE) == 0u ||
+                !isfinite(source.temperature_kelvin))
+                return 0;
+
+            XzColorTemperature(
+                source.temperature_kelvin,
+                temperature);
+        }
+
+        for (channel = 0u;
+             channel < 3u;
+             ++channel) {
+            if (!isfinite(source.color[channel]))
+                return 0;
+
+            dest->color_brightness[channel] =
+                XzSrgbToLinear(
+                    source.color[channel]) *
+                temperature[channel] *
+                brightness;
+
+            if (!isfinite(
+                    dest->color_brightness[channel]))
+                return 0;
+        }
+
+        count++;
+    }
+
+    xz_shadow.static_local_light_count =
+        count;
+
+    if (strcmp(
+            scene->map_id,
+            "xziel_nacht_bo3") == 0 &&
+        count !=
+            XZ_STATIC_LOCAL_LIGHT_SOURCE_MAX)
+        return 0;
+
+    return 1;
+}
+
+static int XzStaticCameraOrigin(
+    const float modelview[16],
+    float origin[3])
+{
+    float x;
+    float y;
+    float z;
+
+    if (!modelview || !origin)
+        return 0;
+
+    x = -(
+        modelview[0] * modelview[12] +
+        modelview[1] * modelview[13] +
+        modelview[2] * modelview[14]);
+    y = -(
+        modelview[4] * modelview[12] +
+        modelview[5] * modelview[13] +
+        modelview[6] * modelview[14]);
+    z = -(
+        modelview[8] * modelview[12] +
+        modelview[9] * modelview[13] +
+        modelview[10] * modelview[14]);
+
+    if (!isfinite(x) ||
+        !isfinite(y) ||
+        !isfinite(z))
+        return 0;
+
+    origin[0] = x;
+    origin[1] = y;
+    origin[2] = z;
+    return 1;
+}
+
+static uint32_t XzStaticSelectLocalLights(
+    const float camera_origin[3],
+    float positions[
+        XZ_STATIC_LOCAL_LIGHT_ACTIVE_MAX * 4u],
+    float colors[
+        XZ_STATIC_LOCAL_LIGHT_ACTIVE_MAX * 4u],
+    float directions[
+        XZ_STATIC_LOCAL_LIGHT_ACTIVE_MAX * 4u],
+    XzGles3ShadowState *state)
+{
+    uint32_t selected[
+        XZ_STATIC_LOCAL_LIGHT_ACTIVE_MAX];
+    float scores[
+        XZ_STATIC_LOCAL_LIGHT_ACTIVE_MAX];
+    uint32_t selected_count = 0u;
+    uint32_t affecting_count = 0u;
+    uint32_t selected_affecting = 0u;
+    uint32_t i;
+
+    if (!camera_origin ||
+        !positions ||
+        !colors ||
+        !directions ||
+        !state)
+        return 0u;
+
+    for (i = 0u;
+         i < xz_shadow.static_local_light_count;
+         ++i) {
+        const XzGles3StaticLocalLight *light =
+            &xz_shadow.static_local_lights[i];
+        float dx =
+            light->position_game[0] -
+            camera_origin[0];
+        float dy =
+            light->position_game[1] -
+            camera_origin[1];
+        float dz =
+            light->position_game[2] -
+            camera_origin[2];
+        float distance_sq =
+            dx * dx + dy * dy + dz * dz;
+        float radius_sq =
+            light->radius_game *
+            light->radius_game;
+        float score;
+        uint32_t insert_at;
+        uint32_t j;
+
+        if (!isfinite(distance_sq) ||
+            radius_sq <= 0.0f)
+            continue;
+
+        score =
+            distance_sq /
+            radius_sq;
+
+        if (distance_sq <= radius_sq)
+            affecting_count++;
+
+        insert_at = selected_count;
+        for (j = 0u;
+             j < selected_count;
+             ++j) {
+            if (score < scores[j]) {
+                insert_at = j;
+                break;
+            }
+        }
+
+        if (insert_at >=
+                XZ_STATIC_LOCAL_LIGHT_ACTIVE_MAX &&
+            selected_count >=
+                XZ_STATIC_LOCAL_LIGHT_ACTIVE_MAX)
+            continue;
+
+        if (selected_count <
+            XZ_STATIC_LOCAL_LIGHT_ACTIVE_MAX)
+            selected_count++;
+
+        if (insert_at >= selected_count)
+            insert_at = selected_count - 1u;
+
+        for (j = selected_count - 1u;
+             j > insert_at;
+             --j) {
+            selected[j] =
+                selected[j - 1u];
+            scores[j] =
+                scores[j - 1u];
+        }
+
+        selected[insert_at] = i;
+        scores[insert_at] = score;
+    }
+
+    for (i = 0u;
+         i < selected_count;
+         ++i) {
+        const XzGles3StaticLocalLight *light =
+            &xz_shadow.static_local_lights[
+                selected[i]];
+        uint32_t base = i * 4u;
+
+        positions[base + 0u] =
+            light->position_game[0];
+        positions[base + 1u] =
+            light->position_game[1];
+        positions[base + 2u] =
+            light->position_game[2];
+        positions[base + 3u] =
+            light->type ==
+                XZ_ENV_LIGHT_SPOT
+                ? -light->inv_radius_cm
+                : light->inv_radius_cm;
+
+        colors[base + 0u] =
+            light->color_brightness[0];
+        colors[base + 1u] =
+            light->color_brightness[1];
+        colors[base + 2u] =
+            light->color_brightness[2];
+        colors[base + 3u] =
+            light->inv_cos_difference;
+
+        directions[base + 0u] =
+            light->direction[0];
+        directions[base + 1u] =
+            light->direction[1];
+        directions[base + 2u] =
+            light->direction[2];
+        directions[base + 3u] =
+            light->cos_outer;
+
+        if (scores[i] <= 1.0f)
+            selected_affecting++;
+    }
+
+    state->static_scene_local_light_active =
+        selected_count;
+    state->
+        static_scene_local_light_camera_affecting =
+            affecting_count;
+    state->
+        static_scene_local_light_dropped_affecting =
+            affecting_count > selected_affecting
+                ? affecting_count -
+                    selected_affecting
+                : 0u;
+
+    return selected_count;
 }
 
 static int XzStaticSceneSourceLighting(
@@ -701,7 +1234,7 @@ static int XzCreateProgramAndBuffer(void)
 
     static const char *fs_source =
         "#version 300 es\n"
-        "precision mediump float;\n"
+        "precision highp float;\n"
         "in vec4 vColor;\n"
         "out vec4 outColor;\n"
         "void main(){\n"
@@ -1067,11 +1600,13 @@ static int XzCreateStaticSceneProgram(void)
         "uniform mat4 uView;\n"
         "uniform mat4 uProjection;\n"
         "out vec3 vNormal;\n"
+        "out vec3 vWorldPos;\n"
         "out vec2 vUV;\n"
         "void main(){\n"
         "  vec4 world=aModel*vec4(aPos,1.0);\n"
         "  gl_Position=uProjection*uView*world;\n"
         "  vNormal=normalize(mat3(aModel)*aNormal);\n"
+        "  vWorldPos=world.xyz;\n"
         "  vUV=aUV;\n"
         "}\n";
 
@@ -1079,6 +1614,7 @@ static int XzCreateStaticSceneProgram(void)
         "#version 300 es\n"
         "precision mediump float;\n"
         "in vec3 vNormal;\n"
+        "in vec3 vWorldPos;\n"
         "in vec2 vUV;\n"
         "uniform sampler2D uBaseColor;\n"
         "uniform int uHasBaseColor;\n"
@@ -1086,6 +1622,10 @@ static int XzCreateStaticSceneProgram(void)
         "uniform float uDirectionalWeight;\n"
         "uniform vec3 uDirectionalColor;\n"
         "uniform vec3 uDirectionalDirection;\n"
+        "uniform int uLocalLightCount;\n"
+        "uniform vec4 uLocalPosInvRadius[64];\n"
+        "uniform vec4 uLocalColorCone[64];\n"
+        "uniform vec4 uLocalDirCosOuter[64];\n"
         "out vec4 outColor;\n"
         "float linearToSrgb1(float x){\n"
         "  x=clamp(x,0.0,1.0);\n"
@@ -1100,6 +1640,31 @@ static int XzCreateStaticSceneProgram(void)
         "  float neutralBaseline=uAmbientWeight+uDirectionalWeight;\n"
         "  float directionalContrast=uDirectionalWeight*(ndl-0.5);\n"
         "  vec3 light=vec3(neutralBaseline)+uDirectionalColor*directionalContrast;\n"
+        "  vec3 localLight=vec3(0.0);\n"
+        "  for(int i=0;i<64;++i){\n"
+        "    if(i>=uLocalLightCount) break;\n"
+        "    vec4 pr=uLocalPosInvRadius[i];\n"
+        "    vec3 toLightGame=pr.xyz-vWorldPos;\n"
+        "    float gameD2=max(dot(toLightGame,toLightGame),1.0e-8);\n"
+        "    vec3 L=toLightGame*inversesqrt(gameD2);\n"
+        "    vec3 toLightCm=toLightGame*2.54;\n"
+        "    float d2=max(dot(toLightCm,toLightCm),1.0e-4);\n"
+        "    float invR=abs(pr.w);\n"
+        "    float q=d2*invR*invR;\n"
+        "    float radiusMask=clamp(1.0-q*q,0.0,1.0);\n"
+        "    radiusMask*=radiusMask;\n"
+        "    float spot=1.0;\n"
+        "    if(pr.w<0.0){\n"
+        "      vec4 dc=uLocalDirCosOuter[i];\n"
+        "      float cone=dot(-L,normalize(dc.xyz));\n"
+        "      spot=clamp((cone-dc.w)*uLocalColorCone[i].w,0.0,1.0);\n"
+        "      spot*=spot;\n"
+        "    }\n"
+        "    float localNdl=max(dot(n,L),0.0);\n"
+        "    float attenuation=(1.0/(d2+1.0))*radiusMask*spot;\n"
+        "    localLight+=uLocalColorCone[i].rgb*(attenuation*localNdl*0.31830988618);\n"
+        "  }\n"
+        "  light+=localLight;\n"
         "  float uvTone=0.92+0.08*clamp(vUV.y,0.0,1.0);\n"
         "  vec4 texel=uHasBaseColor!=0?texture(uBaseColor,vUV):vec4(0.56,0.54,0.50,1.0);\n"
         "  if(uHasBaseColor!=0 && texel.a<0.04) discard;\n"
@@ -1179,6 +1744,22 @@ static int XzCreateStaticSceneProgram(void)
         gl->GetUniformLocation(
             xz_shadow.static_program,
             "uDirectionalDirection");
+    xz_shadow.static_local_light_count_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uLocalLightCount");
+    xz_shadow.static_local_pos_inv_radius_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uLocalPosInvRadius[0]");
+    xz_shadow.static_local_color_cone_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uLocalColorCone[0]");
+    xz_shadow.static_local_dir_cos_outer_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uLocalDirCosOuter[0]");
 
     if (xz_shadow.static_view_loc < 0 ||
         xz_shadow.static_projection_loc < 0 ||
@@ -1187,7 +1768,11 @@ static int XzCreateStaticSceneProgram(void)
         xz_shadow.static_ambient_weight_loc < 0 ||
         xz_shadow.static_directional_weight_loc < 0 ||
         xz_shadow.static_directional_color_loc < 0 ||
-        xz_shadow.static_directional_direction_loc < 0)
+        xz_shadow.static_directional_direction_loc < 0 ||
+        xz_shadow.static_local_light_count_loc < 0 ||
+        xz_shadow.static_local_pos_inv_radius_loc < 0 ||
+        xz_shadow.static_local_color_cone_loc < 0 ||
+        xz_shadow.static_local_dir_cos_outer_loc < 0)
         return 0;
 
     gl->UseProgram(xz_shadow.static_program);
@@ -1967,6 +2552,11 @@ static void XzDestroyStaticSceneCurrent(
         state->static_scene_material_mapped_bindings = 0u;
         state->static_scene_material_ready = 0;
         state->static_scene_lighting_ready = 0;
+        state->static_scene_local_light_count = 0u;
+        state->static_scene_local_light_active = 0u;
+        state->static_scene_local_light_camera_affecting = 0u;
+        state->static_scene_local_light_dropped_affecting = 0u;
+        state->static_scene_local_lighting_ready = 0;
         state->static_scene_gpu_ready = 0;
         state->static_scene_last_draw_calls = 0u;
         state->static_scene_last_instances = 0u;
@@ -2070,6 +2660,16 @@ int XzGles3Shadow_UploadStaticScene(
         xz_shadow.static_directional_direction[0] = 0.0f;
         xz_shadow.static_directional_direction[1] = 0.0f;
         xz_shadow.static_directional_direction[2] = 1.0f;
+    }
+
+    if (XzStaticScenePrepareLocalLights(scene)) {
+        state->static_scene_local_light_count =
+            xz_shadow.static_local_light_count;
+        state->static_scene_local_lighting_ready = 1;
+    } else if (strcmp(
+                   scene->map_id,
+                   "xziel_nacht_bo3") == 0) {
+        goto fail;
     }
 
     gpu_meshes = (XzGles3StaticMesh *)calloc(
@@ -2476,7 +3076,10 @@ int XzGles3Shadow_UploadStaticScene(
              scene->map_id,
              "xziel_nacht_bo3") != 0 ||
          (state->static_scene_material_ready &&
-          state->static_scene_lighting_ready));
+          state->static_scene_lighting_ready &&
+          state->static_scene_local_lighting_ready &&
+          state->static_scene_local_light_count ==
+              XZ_STATIC_LOCAL_LIGHT_SOURCE_MAX));
 
     if (!state->static_scene_gpu_ready)
         goto fail_current_owned;
@@ -2566,6 +3169,14 @@ static int XzDrawStaticScene(
     unsigned int draw_calls = 0u;
     unsigned int textured_draw_calls = 0u;
     unsigned int untextured_draw_calls = 0u;
+    float camera_origin[3];
+    float local_positions[
+        XZ_STATIC_LOCAL_LIGHT_ACTIVE_MAX * 4u];
+    float local_colors[
+        XZ_STATIC_LOCAL_LIGHT_ACTIVE_MAX * 4u];
+    float local_directions[
+        XZ_STATIC_LOCAL_LIGHT_ACTIVE_MAX * 4u];
+    uint32_t active_local_lights;
 
     if (!state ||
         !state->static_scene_gpu_ready ||
@@ -2576,7 +3187,25 @@ static int XzDrawStaticScene(
         return 0;
 
     camera = XzStaticSceneCamera(geometry);
-    if (!camera)
+    if (!camera ||
+        !XzStaticCameraOrigin(
+            camera->modelview,
+            camera_origin))
+        return 0;
+
+    active_local_lights =
+        XzStaticSelectLocalLights(
+            camera_origin,
+            local_positions,
+            local_colors,
+            local_directions,
+            state);
+
+    if (!state->static_scene_local_lighting_ready ||
+        active_local_lights >
+            XZ_STATIC_LOCAL_LIGHT_ACTIVE_MAX ||
+        state->
+            static_scene_local_light_dropped_affecting != 0u)
         return 0;
 
     state->static_scene_draw_attempts++;
@@ -2615,6 +3244,23 @@ static int XzDrawStaticScene(
         xz_shadow.static_directional_direction_loc,
         1,
         xz_shadow.static_directional_direction);
+    gl->Uniform1i(
+        xz_shadow.static_local_light_count_loc,
+        (GLint)active_local_lights);
+    if (active_local_lights > 0u) {
+        gl->Uniform4fv(
+            xz_shadow.static_local_pos_inv_radius_loc,
+            (GLsizei)active_local_lights,
+            local_positions);
+        gl->Uniform4fv(
+            xz_shadow.static_local_color_cone_loc,
+            (GLsizei)active_local_lights,
+            local_colors);
+        gl->Uniform4fv(
+            xz_shadow.static_local_dir_cos_outer_loc,
+            (GLsizei)active_local_lights,
+            local_directions);
+    }
 
     gl->Enable(GL_DEPTH_TEST);
     gl->DepthMask(GL_TRUE);
