@@ -917,13 +917,11 @@ if "xziel_render_pre_trace" not in rtext:
 
 render_start_old = r'''void SCR_UpdateScreen (void)
 {
-	/* Online loading must not render stale map textures. */
 	if (block_drawing)
 		return;
 '''
 render_start_new = r'''void SCR_UpdateScreen (void)
 {
-	/* Online loading must not render stale map textures. */
 #ifdef __ANDROID__
 	if (Xziel_Android_OnlineActive() && cls.signon == SIGNONS &&
 		xziel_render_pre_trace < 12) {
@@ -946,31 +944,6 @@ if "XzielRender" not in rtext:
         raise SystemExit("Could not find SCR_UpdateScreen diagnostic anchor")
     rtext = rtext.replace(render_start_old, render_start_new, 1)
 
-render_setup_old = r'''	if (!LoadingScreen_IsActive()) {
-		SCR_SetUpToDrawConsole ();
-		V_RenderView ();
-	}
-'''
-render_setup_new = r'''	if (!LoadingScreen_IsActive()) {
-		SCR_SetUpToDrawConsole ();
-#ifdef __ANDROID__
-		if (Xziel_Android_OnlineActive() && cls.signon == SIGNONS &&
-			xziel_render_post_trace < 12) {
-			__android_log_print(ANDROID_LOG_INFO, "XzielRender",
-				"POST n=%d con=%d world=%p viewentity=%d entities=%d key=%d",
-				xziel_render_post_trace, con_forcedup ? 1 : 0,
-				(void *)cl.worldmodel, cl.viewentity, cl.num_entities,
-				(int)key_dest);
-			xziel_render_post_trace++;
-		}
-#endif
-		V_RenderView ();
-	}
-'''
-if "POST n=%d con=%d" not in rtext:
-    if render_setup_old not in rtext:
-        raise SystemExit("Could not find V_RenderView diagnostic anchor")
-    rtext = rtext.replace(render_setup_old, render_setup_new, 1)
 old_loading_render = r'''	if (!LoadingScreen_IsWaiting()) {
 		SCR_SetUpToDrawConsole ();
 		V_RenderView ();
@@ -988,6 +961,17 @@ old_loading_render = r'''	if (!LoadingScreen_IsWaiting()) {
 '''
 new_loading_render = r'''	if (!LoadingScreen_IsActive()) {
 		SCR_SetUpToDrawConsole ();
+#ifdef __ANDROID__
+		if (Xziel_Android_OnlineActive() && cls.signon == SIGNONS &&
+			xziel_render_post_trace < 12) {
+			__android_log_print(ANDROID_LOG_INFO, "XzielRender",
+				"POST n=%d con=%d world=%p viewentity=%d entities=%d key=%d",
+				xziel_render_post_trace, con_forcedup ? 1 : 0,
+				(void *)cl.worldmodel, cl.viewentity, cl.num_entities,
+				(int)key_dest);
+			xziel_render_post_trace++;
+		}
+#endif
 		V_RenderView ();
 	}
 
