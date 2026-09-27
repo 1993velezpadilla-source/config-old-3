@@ -33,6 +33,7 @@ on:
       - feature/xziel-nacht-pavlov-legacy-tonemap-v1
       - feature/xziel-nacht-authored-global-lighting-v1
       - feature/xziel-nacht-lightmap-uv-v1
+      - feature/xziel-nacht-lightmap-index-resolve-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
