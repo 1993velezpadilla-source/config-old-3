@@ -444,9 +444,181 @@ jobs:
                   });
           }
 
+          object? ReadNamedMember(
+              object target,
+              string name)
+          {
+              const System.Reflection.BindingFlags flags =
+                  System.Reflection.BindingFlags.Instance
+                  | System.Reflection.BindingFlags.Public
+                  | System.Reflection.BindingFlags.NonPublic;
+
+              var field =
+                  target.GetType().GetField(name, flags);
+              if (field is not null)
+              {
+                  try { return field.GetValue(target); }
+                  catch { }
+              }
+
+              var property =
+                  target.GetType().GetProperty(name, flags);
+              if (
+                  property is not null
+                  && property.GetIndexParameters().Length == 0
+                  && property.GetMethod is not null)
+              {
+                  try { return property.GetValue(target); }
+                  catch { }
+              }
+
+              return null;
+          }
+
+          string DescribeReference(object? value)
+          {
+              if (value is null)
+                  return "";
+
+              var type = value.GetType();
+
+              var resolvedProperty =
+                  type.GetProperty(
+                      "ResolvedObject",
+                      System.Reflection.BindingFlags.Instance
+                      | System.Reflection.BindingFlags.Public
+                      | System.Reflection.BindingFlags.NonPublic);
+              if (resolvedProperty is not null)
+              {
+                  try
+                  {
+                      var resolved =
+                          resolvedProperty.GetValue(value);
+                      if (resolved is not null)
+                      {
+                          var getPath =
+                              resolved.GetType().GetMethod(
+                                  "GetPathName",
+                                  Type.EmptyTypes);
+                          var pathValue =
+                              getPath?.Invoke(resolved, null)?.ToString();
+                          if (!string.IsNullOrWhiteSpace(pathValue))
+                              return pathValue!;
+                      }
+                  }
+                  catch { }
+              }
+
+              var getOwnPath =
+                  type.GetMethod(
+                      "GetPathName",
+                      Type.EmptyTypes);
+              if (getOwnPath is not null)
+              {
+                  try
+                  {
+                      var pathValue =
+                          getOwnPath.Invoke(value, null)?.ToString();
+                      if (!string.IsNullOrWhiteSpace(pathValue))
+                          return pathValue!;
+                  }
+                  catch { }
+              }
+
+              var nameMember =
+                  ReadNamedMember(value, "Name");
+              return nameMember?.ToString()
+                  ?? value.ToString()
+                  ?? "";
+          }
+
+          var exportTypeByPath =
+              exports.ToDictionary(
+                  x => x.GetPathName() ?? "",
+                  x => x.GetType().FullName
+                      ?? x.GetType().Name,
+                  StringComparer.OrdinalIgnoreCase);
+
+          var nonActorStaticMeshComponents =
+              new List<object>();
+
+          var staticMeshComponentCount = 0;
+          var staticMeshActorOwnedCount = 0;
+
+          foreach (var component in exports)
+          {
+              var type =
+                  component.GetType().FullName
+                  ?? component.GetType().Name;
+
+              if (!type.EndsWith(
+                      ".UStaticMeshComponent",
+                      StringComparison.Ordinal))
+                  continue;
+
+              staticMeshComponentCount++;
+
+              var componentPath =
+                  component.GetPathName() ?? "";
+              var lastDot =
+                  componentPath.LastIndexOf('.');
+              var parentPath =
+                  lastDot > 0
+                      ? componentPath[..lastDot]
+                      : "";
+
+              exportTypeByPath.TryGetValue(
+                  parentPath,
+                  out var parentType);
+
+              var actorOwned =
+                  parentType is not null
+                  && parentType.EndsWith(
+                      ".AStaticMeshActor",
+                      StringComparison.Ordinal);
+
+              if (actorOwned)
+              {
+                  staticMeshActorOwnedCount++;
+                  continue;
+              }
+
+              var staticMesh =
+                  ReadNamedMember(
+                      component,
+                      "StaticMesh");
+
+              nonActorStaticMeshComponents.Add(
+                  new {
+                      name = component.Name,
+                      path = componentPath,
+                      parentPath,
+                      parentType = parentType ?? "",
+                      staticMesh =
+                          DescribeReference(staticMesh),
+                      staticMeshValue =
+                          DescribeValue(staticMesh),
+                      relativeLocation =
+                          DescribeValue(
+                              ReadNamedMember(
+                                  component,
+                                  "RelativeLocation")),
+                      relativeRotation =
+                          DescribeValue(
+                              ReadNamedMember(
+                                  component,
+                                  "RelativeRotation")),
+                      relativeScale3D =
+                          DescribeValue(
+                              ReadNamedMember(
+                                  component,
+                                  "RelativeScale3D"))
+                  });
+          }
+
           var report =
               new {
-                  schemaVersion = 2,
+                  schemaVersion = 3,
                   sourcePackage = mapCandidates[0],
                   totalExports = exports.Length,
                   typeCounts,
@@ -454,7 +626,12 @@ jobs:
                   structuralCandidateCount =
                       structuralCandidates.Count,
                   structuralCandidates,
-                  modelDetails
+                  modelDetails,
+                  staticMeshComponentCount,
+                  staticMeshActorOwnedCount,
+                  nonActorStaticMeshComponentCount =
+                      nonActorStaticMeshComponents.Count,
+                  nonActorStaticMeshComponents
               };
 
           Directory.CreateDirectory(
@@ -475,7 +652,10 @@ jobs:
                       report.totalExports,
                       report.structuralCandidateCount,
                       report.keywordCounts,
-                      modelCount = modelDetails.Count
+                      modelCount = modelDetails.Count,
+                      report.staticMeshComponentCount,
+                      report.staticMeshActorOwnedCount,
+                      report.nonActorStaticMeshComponentCount
                   }));
 
           return 0;
@@ -515,6 +695,15 @@ jobs:
                       "XZIEL_NACHT_PERSISTENT_MODEL",
                       json.dumps(model, sort_keys=True),
                   )
+          print(
+              "XZIEL_NACHT_NON_ACTOR_STATIC_MESH_COMPONENTS",
+              data.get("nonActorStaticMeshComponentCount"),
+          )
+          for row in data.get("nonActorStaticMeshComponents", []):
+              print(
+                  "XZIEL_NACHT_EXTRA_STATIC_COMPONENT",
+                  json.dumps(row, sort_keys=True),
+              )
           PY
 
       - name: Upload census artifact
