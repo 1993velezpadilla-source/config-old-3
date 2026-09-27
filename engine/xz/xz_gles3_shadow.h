@@ -120,6 +120,10 @@ typedef struct {
     unsigned int static_scene_reflection_mips;
     float static_scene_reflection_average_brightness;
     float static_scene_reflection_brightness;
+    float static_scene_reflection_position_meters[3];
+    float static_scene_reflection_radius_meters;
+    float static_scene_reflection_offset_meters[3];
+    int static_scene_reflection_sphere_ready;
     int static_scene_reflection_ibl_ready;
     int static_scene_lighting_ready;
     unsigned int static_scene_local_light_count;
