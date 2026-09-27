@@ -1,6 +1,7 @@
 using CUE4Parse.FileProvider;
 using CUE4Parse.UE4.Versions;
 using CUE4Parse.UE4.Objects.UObject;
+using CUE4Parse.UE4.Assets.Exports;
 using CUE4Parse.UE4.Assets.Exports.Component;
 using System.Reflection;
 using System.Text.Json;
@@ -322,7 +323,7 @@ foreach (var export in exports)
             ".USkyLightComponent",
             StringComparison.Ordinal))
     {
-        var hierarchy =
+        var skyHierarchy =
             export is USceneComponent
                 ? BuildHierarchy(export)
                 : new List<object>();
@@ -332,7 +333,7 @@ foreach (var export in exports)
                 componentName = export.Name.ToString(),
                 sourceType = fullType,
                 sourcePath,
-                hierarchy,
+                hierarchy = skyHierarchy,
                 properties = new {
                     intensity =
                         Number(
@@ -418,7 +419,7 @@ foreach (var export in exports)
     if (isComponent)
         captureComponentCount++;
 
-    var hierarchy =
+    var captureHierarchy =
         isComponent &&
         export is USceneComponent
             ? BuildHierarchy(export)
@@ -431,7 +432,7 @@ foreach (var export in exports)
             exportName = export.Name.ToString(),
             sourceType = fullType,
             sourcePath,
-            hierarchy,
+            hierarchy = captureHierarchy,
             properties = new {
                 brightness =
                     Number(
