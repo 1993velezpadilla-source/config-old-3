@@ -97,11 +97,28 @@ def _build_blender_evidence(final_glb:Path,out_dir:Path):
             f"Blender Judge turntable incomplete: {len(turns)}/24"
         )
     requested=(0,1,2,3,4,20,21,22,23)
-    face_frames=[
-        all_faces[index]
-        for index in requested
-        if index<len(all_faces) and all_faces[index].is_file()
+    rendered_face_indices=[
+        int(value)
+        for value in (render_manifest.get("face_indices") or [])
     ]
+    if rendered_face_indices:
+        face_by_index={
+            index:path
+            for index,path in zip(rendered_face_indices,all_faces)
+        }
+        face_frames=[
+            face_by_index[index]
+            for index in requested
+            if index in face_by_index and face_by_index[index].is_file()
+        ]
+    else:
+        # Backward compatibility with older manifests that emitted all 24
+        # face angles in turntable index order.
+        face_frames=[
+            all_faces[index]
+            for index in requested
+            if index<len(all_faces) and all_faces[index].is_file()
+        ]
     if len(face_frames)!=len(requested):
         raise RuntimeError(
             "Blender Judge dedicated face evidence incomplete: "
