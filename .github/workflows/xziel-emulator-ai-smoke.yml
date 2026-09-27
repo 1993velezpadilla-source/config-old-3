@@ -19,9 +19,6 @@ jobs:
   android-bot-smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 35
-    env:
-      ANDROID_AVD_HOME: ${{ runner.temp }}/xziel-bot-avd-home
-
     steps:
       - uses: actions/checkout@v5
 
@@ -59,6 +56,8 @@ jobs:
       - name: Boot Android and run Nacht bot
         id: bot_smoke
         shell: bash
+        env:
+          ANDROID_AVD_HOME: ${{ runner.temp }}/xziel-bot-avd-home
         run: |
           set -euo pipefail
           mkdir -p "$ANDROID_AVD_HOME" dist
