@@ -2,7 +2,9 @@ using CUE4Parse.FileProvider;
 using CUE4Parse.UE4.Versions;
 using CUE4Parse.UE4.Objects.UObject;
 using CUE4Parse.UE4.Assets.Exports;
+using CUE4Parse.UE4.Assets.Exports.BuildData;
 using CUE4Parse.UE4.Assets.Exports.Component;
+using CUE4Parse.UE4.Objects.Core.Misc;
 using System.Reflection;
 using System.Text.Json;
 
@@ -308,6 +310,8 @@ var captureCounts =
     new SortedDictionary<string, int>(
         StringComparer.Ordinal);
 var captureComponentCount = 0;
+var captureComponentBuildIds =
+    new List<string>();
 
 foreach (var export in exports)
 {
@@ -416,8 +420,38 @@ foreach (var export in exports)
             "ReflectionCaptureComponent",
             StringComparison.Ordinal);
 
+    string? mapBuildDataId = null;
+
     if (isComponent)
+    {
         captureComponentCount++;
+
+        try
+        {
+            var guid =
+                export.GetOrDefault<FGuid>(
+                    "MapBuildDataId");
+            var guidText = guid.ToString();
+
+            if (
+                !string.IsNullOrWhiteSpace(
+                    guidText) &&
+                guidText.Any(
+                    ch =>
+                        ch != '0' &&
+                        ch != '-' &&
+                        ch != '{' &&
+                        ch != '}'))
+            {
+                mapBuildDataId = guidText;
+                captureComponentBuildIds.Add(
+                    guidText);
+            }
+        }
+        catch
+        {
+        }
+    }
 
     var captureHierarchy =
         isComponent &&
@@ -432,6 +466,7 @@ foreach (var export in exports)
             exportName = export.Name.ToString(),
             sourceType = fullType,
             sourcePath,
+            mapBuildDataId,
             hierarchy = captureHierarchy,
             properties = new {
                 brightness =
@@ -494,6 +529,121 @@ foreach (var export in exports)
         });
 }
 
+var builtDataCandidates =
+    provider.Files.Values
+        .Where(f => f.IsUePackage)
+        .Select(f => f.Path)
+        .Where(
+            path =>
+                path.EndsWith(
+                    ".uasset",
+                    StringComparison.OrdinalIgnoreCase) &&
+                path.Contains(
+                    "BuiltData",
+                    StringComparison.OrdinalIgnoreCase) &&
+                (path.Contains(
+                     "UGC2755515831",
+                     StringComparison.OrdinalIgnoreCase) ||
+                 path.Contains(
+                     "Nacht",
+                     StringComparison.OrdinalIgnoreCase)))
+        .Distinct(
+            StringComparer.OrdinalIgnoreCase)
+        .OrderBy(x => x)
+        .ToArray();
+
+var registryRows = new List<object>();
+var reflectionBuildRows = new List<object>();
+var linkedBuildDataCount = 0;
+
+foreach (var candidate in builtDataCandidates)
+{
+    UObject[] candidateExports;
+
+    try
+    {
+        candidateExports =
+            provider.LoadPackage(candidate)
+                .GetExports()
+                .ToArray();
+    }
+    catch (Exception e)
+    {
+        registryRows.Add(
+            new {
+                packagePath = candidate,
+                loadError = e.Message,
+                registryCount = 0,
+                reflectionCaptureBuildDataCount = 0
+            });
+        continue;
+    }
+
+    var registryCount = 0;
+    var packageReflectionCount = 0;
+
+    foreach (var candidateExport in candidateExports)
+    {
+        if (candidateExport is not
+            UMapBuildDataRegistry registry)
+            continue;
+
+        registryCount++;
+
+        var buildData =
+            registry.ReflectionCaptureBuildData;
+
+        if (buildData is null)
+            continue;
+
+        foreach (var pair in buildData)
+        {
+            var guid = pair.Key.ToString();
+            var data = pair.Value;
+            var linked =
+                captureComponentBuildIds.Contains(
+                    guid,
+                    StringComparer.OrdinalIgnoreCase);
+
+            if (linked)
+                linkedBuildDataCount++;
+
+            packageReflectionCount++;
+
+            reflectionBuildRows.Add(
+                new {
+                    packagePath = candidate,
+                    registryPath =
+                        candidateExport.GetPathName()
+                        ?? "",
+                    mapBuildDataId = guid,
+                    linkedToCapture = linked,
+                    cubemapSize =
+                        data.CubemapSize,
+                    averageBrightness =
+                        data.AverageBrightness,
+                    brightness =
+                        data.Brightness,
+                    fullHdrCapturedBytes =
+                        data.FullHDRCapturedData?.Length
+                        ?? 0,
+                    encodedCaptureData =
+                        ReferencePath(
+                            data.EncodedCaptureData)
+                });
+        }
+    }
+
+    registryRows.Add(
+        new {
+            packagePath = candidate,
+            loadError = (string?)null,
+            registryCount,
+            reflectionCaptureBuildDataCount =
+                packageReflectionCount
+        });
+}
+
 if (skyRows.Count != 1)
 {
     Console.Error.WriteLine(
@@ -512,8 +662,26 @@ var output = new {
         captureComponentCount,
     reflectionCaptureTypeCounts =
         captureCounts,
+    reflectionCaptureComponentBuildIds =
+        captureComponentBuildIds,
+    buildDataCandidateCount =
+        builtDataCandidates.Length,
+    buildDataCandidates,
+    buildDataRegistryCount =
+        registryRows.Sum(
+            row =>
+                (int)(row.GetType()
+                    .GetProperty("registryCount")!
+                    .GetValue(row) ?? 0)),
+    reflectionCaptureBuildDataCount =
+        reflectionBuildRows.Count,
+    reflectionCaptureBuildDataLinkedCount =
+        linkedBuildDataCount,
     skyLights = skyRows,
-    reflectionCaptures = captureRows
+    reflectionCaptures = captureRows,
+    buildDataRegistries = registryRows,
+    reflectionCaptureBuildData =
+        reflectionBuildRows
 };
 
 Directory.CreateDirectory(
@@ -535,7 +703,21 @@ Console.WriteLine(
             output.skyLightCount,
             output.reflectionCaptureExportCount,
             output.reflectionCaptureComponentCount,
-            output.reflectionCaptureTypeCounts
+            output.reflectionCaptureTypeCounts,
+            output.buildDataCandidateCount,
+            output.buildDataRegistryCount,
+            output.reflectionCaptureBuildDataCount,
+            output.reflectionCaptureBuildDataLinkedCount
+        }));
+
+Console.WriteLine(
+    "XZIEL_NACHT_REFLECTION_BUILDDATA_DATA "
+    + JsonSerializer.Serialize(
+        new {
+            output.reflectionCaptureComponentBuildIds,
+            output.buildDataCandidates,
+            output.buildDataRegistries,
+            output.reflectionCaptureBuildData
         }));
 
 return 0;
