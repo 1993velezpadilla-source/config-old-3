@@ -29,6 +29,10 @@ function sanitizeTargetPlayers(value) {
   return n === 2 || n === 3 || n === 4 ? n : MAX_PLAYERS;
 }
 
+function sanitizeHostPriority(value) {
+  return Number(value) > 0 ? 1 : 0;
+}
+
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -118,6 +122,7 @@ export default {
       const queue = rawQueue.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 64) || "public-v1";
       const map = sanitizeMap(url.searchParams.get("map"));
       const targetPlayers = sanitizeTargetPlayers(url.searchParams.get("players"));
+    const hostPriority = sanitizeHostPriority(url.searchParams.get("hostPriority"));
       const id = env.MATCHMAKER.idFromName(
         "queue-" + queue + "-" + map + "-" + targetPlayers
       );
@@ -180,6 +185,7 @@ export class Matchmaker extends DurableObject {
       playerId,
       map,
       targetPlayers,
+      hostPriority,
       joinedAt: Date.now(),
     });
 
@@ -208,7 +214,11 @@ export class Matchmaker extends DurableObject {
         out.push({ socket, ...a });
       }
     }
-    out.sort((a, b) => a.joinedAt - b.joinedAt);
+    out.sort((a, b) => {
+      const priority = Number(b.hostPriority || 0) - Number(a.hostPriority || 0);
+      if (priority !== 0) return priority;
+      return a.joinedAt - b.joinedAt;
+    });
     return out;
   }
 
