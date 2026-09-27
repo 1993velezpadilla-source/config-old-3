@@ -28,33 +28,6 @@ typedef struct {
 
 #define XZ_STATIC_MATERIAL_NO_TEXTURE 0xffffffffu
 
-enum {
-    XZ_STATIC_ENV_LIGHT_POINT = 1u,
-    XZ_STATIC_ENV_LIGHT_SPOT = 2u,
-    XZ_STATIC_ENV_LIGHT_DIRECTIONAL = 3u,
-    XZ_STATIC_ENV_LIGHT_SKY = 4u
-};
-
-enum {
-    XZ_STATIC_ENV_HAS_POSITION = 1u << 0,
-    XZ_STATIC_ENV_HAS_ROTATION = 1u << 1,
-    XZ_STATIC_ENV_HAS_COLOR = 1u << 2,
-    XZ_STATIC_ENV_HAS_INTENSITY = 1u << 3,
-    XZ_STATIC_ENV_HAS_RADIUS = 1u << 4,
-    XZ_STATIC_ENV_HAS_UNITS = 1u << 5
-};
-
-typedef struct {
-    uint32_t type;
-    uint32_t flags;
-    float position[3];
-    float rotation[3];
-    float color[3];
-    float intensity;
-    float attenuation_radius_meters;
-    uint32_t intensity_units;
-} XzStaticEnvironmentLight;
-
 typedef struct {
     uint32_t width;
     uint32_t height;
@@ -76,14 +49,6 @@ typedef struct {
     unsigned char *material_data;
     size_t material_bytes;
 
-    unsigned char *environment_data;
-    size_t environment_bytes;
-    uint32_t environment_light_count;
-    uint32_t environment_point_count;
-    uint32_t environment_spot_count;
-    uint32_t environment_directional_count;
-    uint32_t environment_sky_count;
-    size_t environment_records_offset;
     uint32_t material_texture_count;
     uint32_t material_binding_count;
     size_t material_texture_table_offset;
