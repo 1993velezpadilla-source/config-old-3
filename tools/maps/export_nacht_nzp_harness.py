@@ -216,11 +216,24 @@ parts.append("}\n")
 
 # Four exact reference spawn candidates. They are explicitly reference-derived,
 # not claimed as Treyarch-authored canonical player-start identities.
+#
+# NZ:P/FTE deliberately randomizes the initial player across spawn slots. CI
+# visual comparisons need a stable camera, so an opt-in harness mode keeps all
+# four classnames but aliases their positions to the first validated spawn.
+# Normal/generated gameplay remains unchanged when the env var is absent.
+fixed_ci_spawn = os.environ.get("XZIEL_NACHT_FIXED_CI_SPAWN", "") == "1"
+ci_spawn_position = reference["playerSpawns"][0]["positionMeters"]
+
 for index, spawn in enumerate(reference["playerSpawns"][:4], start=1):
+    spawn_position = (
+        ci_spawn_position
+        if fixed_ci_spawn
+        else spawn["positionMeters"]
+    )
     parts.append(
         point_entity(
             f"info_player_{index}_spawn",
-            qv(spawn["positionMeters"]),
+            qv(spawn_position),
             {"weapon": "0", "currentmag": "0", "currentammo": "0", "angle": "0"},
         )
     )
@@ -406,6 +419,7 @@ summary = {
     "finalGeometryIncluded": False,
     "counts": {
         "playerSpawns": 4,
+        "fixedCiPlayerSpawn": fixed_ci_spawn,
         "zombieSpawns": len(reference["zombieSpawns"]),
         "startZombieSpawns": zone_counts["start_zone"],
         "boxZombieSpawns": zone_counts["box_zone"],
