@@ -180,6 +180,33 @@ def vector_rgba(row: dict) -> bytes:
     ))
 
 
+def glb_base_color_rgba(material: dict) -> bytes | None:
+    """Return an explicitly exported glTF baseColorFactor as RGBA8."""
+    if not isinstance(material, dict):
+        return None
+    pbr = material.get("pbrMetallicRoughness")
+    if not isinstance(pbr, dict) or "baseColorFactor" not in pbr:
+        return None
+    factor = pbr.get("baseColorFactor")
+    if not isinstance(factor, list) or len(factor) < 3:
+        return None
+
+    values = list(factor[:4])
+    while len(values) < 4:
+        values.append(1.0)
+
+    out = []
+    for raw in values:
+        if not isinstance(raw, (int, float)):
+            return None
+        value = float(raw)
+        if not math.isfinite(value):
+            return None
+        value = min(1.0, max(0.0, value))
+        out.append(int(round(value * 255.0)))
+    return bytes(out)
+
+
 def material_object_name(material_path: str) -> str:
     tail = str(material_path).replace("\\", "/").rsplit("/", 1)[-1]
     return tail.split(".", 1)[0].lower()
@@ -411,12 +438,18 @@ def main() -> int:
                 slot = by_index.get(local_material)
 
             texture_path: str | None = None
+            material_path = ""
+            alias_material_path = ""
             if slot is not None:
                 material_path = str(slot.get("materialPath", "")).lower()
+                alias_material_path = str(
+                    slot.get("slotAliasMaterialPath", "")
+                ).lower()
                 synthetic_path = synthetic_by_material.get(material_path)
 
                 # Invisible helper geometry wins over any inherited texture.
-                # Otherwise prefer authored real albedo, then vector fallback.
+                # Otherwise prefer authored real albedo on the actual material,
+                # then an exact original-slot material alias, then vector color.
                 if (
                     synthetic_path
                     and synthetic_textures[synthetic_path]["kind"]
@@ -424,10 +457,44 @@ def main() -> int:
                 ):
                     texture_path = synthetic_path
                 else:
-                    texture_path = (
-                        selected_by_material.get(material_path)
-                        or synthetic_path
+                    texture_path = selected_by_material.get(material_path)
+                    if texture_path is None and alias_material_path:
+                        texture_path = (
+                            selected_by_material.get(alias_material_path)
+                            or synthetic_by_material.get(alias_material_path)
+                        )
+                    if texture_path is None:
+                        texture_path = synthetic_path
+
+            # CUE4Parse's glTF exporter can preserve an authored constant
+            # base color even when the source material exposes no image/vector
+            # binding. Use that exact factor as a 1x1 residency texture rather
+            # than leaving the submesh unmapped or abusing a normal map.
+            if (
+                texture_path is None
+                and local_material != NO_TEXTURE
+                and 0 <= local_material < len(materials)
+            ):
+                rgba = glb_base_color_rgba(materials[local_material])
+                if rgba is not None:
+                    factor_key = (
+                        f"synthetic://glb-base-color/"
+                        f"{mesh_name.lower()}/{local_material}"
                     )
+                    synthetic_textures.setdefault(
+                        factor_key,
+                        {
+                            "kind": "glb_base_color",
+                            "materialPath": (
+                                alias_material_path
+                                or material_path
+                                or material_name.lower()
+                            ),
+                            "parameter": "pbrMetallicRoughness.baseColorFactor",
+                            "rgba": rgba,
+                        },
+                    )
+                    texture_path = factor_key
 
             if texture_path and (
                 texture_path in textures_by_path
@@ -570,6 +637,13 @@ def main() -> int:
             and synthetic_textures[path]["kind"] == "vector_color"
         )
     )
+    glb_base_color_mapped = sum(
+        1 for path in raw_binding_texture_paths
+        if (
+            path in synthetic_textures
+            and synthetic_textures[path]["kind"] == "glb_base_color"
+        )
+    )
     report = {
         "schemaVersion": 1,
         "format": "XZMT",
@@ -592,9 +666,14 @@ def main() -> int:
             1 for item in synthetic_textures.values()
             if item["kind"] == "vector_color"
         ),
+        "glbBaseColorMaterialCount": sum(
+            1 for item in synthetic_textures.values()
+            if item["kind"] == "glb_base_color"
+        ),
         "syntheticMappedBindings": synthetic_mapped,
         "transparentMappedBindings": transparent_mapped,
         "vectorColorMappedBindings": vector_mapped,
+        "glbBaseColorMappedBindings": glb_base_color_mapped,
         "runtimeMaxDimension": args.max_dimension,
         "runtimeBytes": args.output.stat().st_size,
         "unresolvedSamples": unresolved_slots,
@@ -628,6 +707,7 @@ def main() -> int:
         f"synthetic={synthetic_mapped}",
         f"transparent={transparent_mapped}",
         f"vectorColor={vector_mapped}",
+        f"glbBaseColor={glb_base_color_mapped}",
         f"maxDim={args.max_dimension}",
         f"bytes={args.output.stat().st_size}",
     )

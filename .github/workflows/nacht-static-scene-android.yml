@@ -206,6 +206,7 @@ jobs:
               new List<Dictionary<string, string>>();
 
           var inferredAlbedoLoads = 0;
+          var slotAliasMaterialLoads = 0;
 
           var meshMaterialRows =
               new List<Dictionary<string, string>>();
@@ -1280,6 +1281,207 @@ jobs:
               }
           }
 
+          /*
+           * Some Pavlov-converted meshes keep a proxy MaterialInterface while
+           * preserving the original BO3 material identity only in the static
+           * mesh slot name. Resolve that slot name as a real UMaterial package
+           * when the identities differ. The alias is recorded per mesh slot,
+           * so two meshes sharing one proxy can still bind different original
+           * materials without contaminating each other.
+           */
+          string CanonicalMaterialName(
+              string value)
+          {
+              var normalized =
+                  new string(
+                      (value ?? "")
+                          .ToLowerInvariant()
+                          .Where(
+                              ch =>
+                                  char.IsLetterOrDigit(
+                                      ch))
+                          .ToArray());
+
+              if (
+                  normalized.EndsWith(
+                      "mat",
+                      StringComparison.Ordinal)
+                  && normalized.Length > 3)
+              {
+                  normalized =
+                      normalized[..^3];
+              }
+
+              return normalized;
+          }
+
+          string StripMaterialMatSuffix(
+              string value)
+          {
+              if (
+                  value.EndsWith(
+                      "Mat",
+                      StringComparison.OrdinalIgnoreCase)
+                  && value.Length > 3)
+              {
+                  return value[..^3];
+              }
+
+              return value;
+          }
+
+          UMaterialInterface? TryLoadSlotAliasMaterial(
+              string slotName,
+              string currentMaterialPath)
+          {
+              var candidateNames =
+                  new[] {
+                      slotName,
+                      StripMaterialMatSuffix(
+                          slotName),
+                  }
+                  .Where(
+                      x =>
+                          !string.IsNullOrWhiteSpace(
+                              x))
+                  .Distinct(
+                      StringComparer.OrdinalIgnoreCase);
+
+              foreach (
+                  var candidateName
+                  in candidateNames)
+              {
+                  if (
+                      !packageBasenames.TryGetValue(
+                          candidateName,
+                          out var candidatePackages))
+                  {
+                      continue;
+                  }
+
+                  foreach (
+                      var candidatePackage
+                      in candidatePackages)
+                  {
+                      try
+                      {
+                          var exports =
+                              provider
+                                  .LoadPackage(
+                                      candidatePackage)
+                                  .GetExports()
+                                  .OfType<UMaterialInterface>()
+                                  .ToArray();
+
+                          var aliasMaterial =
+                              exports.FirstOrDefault(
+                                  x =>
+                                      x.Name.Equals(
+                                          candidateName,
+                                          StringComparison.OrdinalIgnoreCase))
+                              ?? exports.FirstOrDefault(
+                                  x =>
+                                      CanonicalMaterialName(
+                                          x.Name)
+                                      == CanonicalMaterialName(
+                                          candidateName));
+
+                          if (
+                              aliasMaterial is null
+                              || aliasMaterial
+                                  .GetPathName()
+                                  .Equals(
+                                      currentMaterialPath,
+                                      StringComparison.OrdinalIgnoreCase))
+                          {
+                              continue;
+                          }
+
+                          return aliasMaterial;
+                      }
+                      catch (Exception e)
+                      {
+                          Console.WriteLine(
+                              $"material-slot-alias-package-error"
+                              + $" slot={slotName}"
+                              + $" package={candidatePackage}"
+                              + $" error={e.Message}");
+                      }
+                  }
+              }
+
+              return null;
+          }
+
+          foreach (
+              var meshMaterialRow
+              in meshMaterialRows)
+          {
+              var slotName =
+                  meshMaterialRow[
+                      "slotName"];
+              var currentMaterialName =
+                  meshMaterialRow[
+                      "materialName"];
+              var currentMaterialPath =
+                  meshMaterialRow[
+                      "materialPath"];
+
+              if (
+                  CanonicalMaterialName(
+                      slotName)
+                  == CanonicalMaterialName(
+                      currentMaterialName))
+              {
+                  continue;
+              }
+
+              var aliasMaterial =
+                  TryLoadSlotAliasMaterial(
+                      slotName,
+                      currentMaterialPath);
+
+              if (aliasMaterial is null)
+              {
+                  Console.WriteLine(
+                      $"material-slot-alias-miss"
+                      + $" mesh={meshMaterialRow["meshName"]}"
+                      + $" slot={slotName}"
+                      + $" material={currentMaterialName}");
+                  continue;
+              }
+
+              var aliasPath =
+                  aliasMaterial.GetPathName();
+
+              meshMaterialRow[
+                  "slotAliasMaterialName"] =
+                  aliasMaterial.Name;
+              meshMaterialRow[
+                  "slotAliasMaterialPath"] =
+                  aliasPath;
+
+              if (
+                  materialQueued.Add(
+                      aliasPath))
+              {
+                  session.Add(
+                      aliasMaterial);
+              }
+
+              QueueMaterialTextures(
+                  aliasMaterial);
+              slotAliasMaterialLoads++;
+
+              Console.WriteLine(
+                  $"material-slot-alias-ok"
+                  + $" mesh={meshMaterialRow["meshName"]}"
+                  + $" slot={slotName}"
+                  + $" proxy={currentMaterialName}"
+                  + $" alias={aliasMaterial.Name}"
+                  + $" aliasPath={aliasPath}");
+          }
+
           var textureManifest =
               new {
                   schemaVersion = 1,
@@ -1293,6 +1495,8 @@ jobs:
                       materialVectorRows.Count,
                   inferredAlbedoLoads =
                       inferredAlbedoLoads,
+                  slotAliasMaterialLoads =
+                      slotAliasMaterialLoads,
                   textures =
                       explicitTextureRows,
                   bindings =
@@ -1319,6 +1523,7 @@ jobs:
               + $" textureXztUnsupportedFormats={explicitTextureUnsupportedFormats}"
               + $" materialTextureBindings={materialTextureRows.Count}"
               + $" inferredAlbedoLoads={inferredAlbedoLoads}"
+              + $" slotAliasMaterialLoads={slotAliasMaterialLoads}"
               + $" vectorParameters={materialVectorRows.Count}");
 
           Console.WriteLine(
