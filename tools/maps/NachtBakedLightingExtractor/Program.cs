@@ -6,6 +6,7 @@ using CUE4Parse.UE4.Assets.Exports.BuildData;
 using CUE4Parse.UE4.Assets.Exports.Component;
 using CUE4Parse.UE4.Assets.Exports.Component.StaticMesh;
 using CUE4Parse.UE4.Assets.Exports.StaticMesh;
+using CUE4Parse.UE4.Assets.Exports.Texture;
 using CUE4Parse.UE4.Assets.Exports.Component.Landscape;
 using CUE4Parse.UE4.Objects.Core.Misc;
 using System.Text.Json;
@@ -370,6 +371,10 @@ var referencedSkyOcclusionTextures =
 var referencedAoMaskTextures =
     new SortedSet<string>(StringComparer.Ordinal);
 
+var lightmapTextureMetadata =
+    new SortedDictionary<string, object>(
+        StringComparer.Ordinal);
+
 foreach (var candidate in builtDataCandidates)
 {
     UObject[] exports;
@@ -448,6 +453,47 @@ foreach (var candidate in builtDataCandidates)
                                 continue;
                             lightTextures.Add(path);
                             referencedLightmapTextures.Add(path);
+
+                            if (!lightmapTextureMetadata.ContainsKey(path))
+                            {
+                                UTexture2D? loadedTexture = null;
+                                try
+                                {
+                                    texture.TryLoad<UTexture2D>(
+                                        out loadedTexture);
+                                }
+                                catch
+                                {
+                                }
+
+                                lightmapTextureMetadata[path] =
+                                    new {
+                                        path,
+                                        resolved =
+                                            loadedTexture is not null,
+                                        width =
+                                            loadedTexture?.PlatformData.SizeX
+                                            ?? 0,
+                                        height =
+                                            loadedTexture?.PlatformData.SizeY
+                                            ?? 0,
+                                        pixelFormat =
+                                            loadedTexture?.Format.ToString()
+                                            ?? "",
+                                        srgb =
+                                            loadedTexture?.SRGB
+                                            ?? false,
+                                        compression =
+                                            loadedTexture?
+                                                .CompressionSettings
+                                                .ToString()
+                                            ?? "",
+                                        mipCount =
+                                            loadedTexture?
+                                                .PlatformData.Mips.Length
+                                            ?? 0
+                                    };
+                            }
                         }
                     }
 
@@ -744,6 +790,9 @@ var output = new {
         referencedAoMaskTextures.Count,
     lightmapTextures =
         referencedLightmapTextures.ToArray(),
+
+    lightmapTextureMetadata =
+        lightmapTextureMetadata.Values.ToArray(),
     shadowmapTextures =
         referencedShadowmapTextures.ToArray(),
     skyOcclusionTextures =
