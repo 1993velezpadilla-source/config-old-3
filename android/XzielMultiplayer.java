@@ -95,6 +95,10 @@ public final class XzielMultiplayer {
     private volatile AlertDialog matchmakingDialog;
     private volatile boolean matchmakingActive;
     private volatile String matchmakingQueue = "public-v1";
+    // Dual transport mode: keep the proven phone-host relay path as fallback,
+    // but allow all phones to become pure clients of a real Vril dedicated server.
+    private volatile String serverMode = "listen";
+    private volatile String dedicatedEndpoint = "";
 
     private volatile boolean matchStarted;
     private volatile boolean hostPreparing;
@@ -682,6 +686,8 @@ public final class XzielMultiplayer {
         hostPreparing = false;
         serverReadySent = false;
         serverReadyReceived = false;
+        serverMode = "listen";
+        dedicatedEndpoint = "";
         worldPhase = "lobby";
         worldRevision = 0;
         clientReadySent = false;
@@ -810,6 +816,11 @@ public final class XzielMultiplayer {
                     "public".equals(roomMode) ? targetPlayers : MAX_PLAYERS);
                 worldPhase = message.optString("worldPhase", "lobby");
                 worldRevision = Math.max(0, message.optInt("worldRevision", 0));
+                serverMode = sanitizeServerMode(
+                    message.optString("serverMode", serverMode));
+                String welcomeEndpoint = sanitizeServerEndpoint(
+                    message.optString("endpoint", dedicatedEndpoint));
+                if (!welcomeEndpoint.isEmpty()) dedicatedEndpoint = welcomeEndpoint;
                 connectedSlots.clear();
                 JSONArray roster = message.optJSONArray("players");
                 if (roster != null) {
@@ -1461,6 +1472,8 @@ public final class XzielMultiplayer {
         }
 
         roomCode = "";
+        serverMode = "listen";
+        dedicatedEndpoint = "";
         localSlot = 0;
         targetPlayers = MAX_PLAYERS;
         matchStarted = false;
@@ -1572,6 +1585,28 @@ public final class XzielMultiplayer {
             return "ws://" + baseUrl.substring(7);
         }
         return baseUrl;
+    }
+
+    private boolean isDedicatedMode() {
+        return "dedicated".equals(serverMode);
+    }
+
+    private static String sanitizeServerMode(String value) {
+        return "dedicated".equalsIgnoreCase(value) ? "dedicated" : "listen";
+    }
+
+    private static String sanitizeServerEndpoint(String value) {
+        if (value == null) return "";
+        String endpoint = value.trim();
+        if (!endpoint.matches("[A-Za-z0-9.-]{1,253}:[0-9]{1,5}")) return "";
+        int colon = endpoint.lastIndexOf(':');
+        try {
+            int port = Integer.parseInt(endpoint.substring(colon + 1));
+            if (port < 1 || port > 65535) return "";
+        } catch (Exception e) {
+            return "";
+        }
+        return endpoint;
     }
 
     private static String prettyMap(String map) {
