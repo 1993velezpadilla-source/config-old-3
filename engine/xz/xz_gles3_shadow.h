@@ -102,6 +102,12 @@ typedef struct {
     unsigned int static_scene_material_bindings;
     unsigned int static_scene_material_mapped_bindings;
     int static_scene_material_ready;
+    uint64_t static_scene_gpu_normal_texture_bytes;
+    unsigned int static_scene_gpu_normal_textures;
+    unsigned int static_scene_normal_bindings;
+    unsigned int static_scene_normal_mapped_bindings;
+    unsigned int static_scene_last_normal_bindings;
+    int static_scene_normal_ready;
     unsigned int static_scene_pbr_bindings;
     unsigned int static_scene_pbr_authored_bindings;
     unsigned int static_scene_last_pbr_bindings;
