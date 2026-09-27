@@ -834,12 +834,14 @@ cl_update_repl = """	CL_RelinkEntities ();
 	CL_UpdateTEnts ();
 
 #ifdef __ANDROID__
-	/* Remote clients can occasionally reach full signon while a stale loading
-	   flag remains set. At SIGNONS the world/precache is complete, so keeping
-	   LoadingScreen_IsActive() true only suppresses V_RenderView() and leaves a
-	   black framebuffer. Make the fully-connected state authoritative. */
-	if (Xziel_Android_OnlineActive() &&
-		cls.signon == SIGNONS && LoadingScreen_IsActive()) {
+	/* Remote clients can occasionally reach full signon with one piece of the
+	   loading gate still latched.  SCR_UpdateScreen() can be suppressed either
+	   by the loading screen itself, by its solo-input wait flag, or by
+	   scr_disabled_for_loading.  Once SIGNONS is reached the authoritative world
+	   and precache are complete, so none of those gates may remain active. */
+	if (Xziel_Android_OnlineActive() && cls.signon == SIGNONS &&
+		(LoadingScreen_IsActive() || LoadingScreen_IsWaiting() ||
+		 scr_disabled_for_loading)) {
 		LoadingScreen_Finish();
 		SCR_EndLoadingPlaque();
 		key_dest = key_game;
