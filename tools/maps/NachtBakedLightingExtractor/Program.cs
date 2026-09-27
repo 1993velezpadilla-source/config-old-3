@@ -162,6 +162,9 @@ var componentBuildIds =
         StringComparer.OrdinalIgnoreCase);
 var lightMapCoordinateIndexCounts =
     new SortedDictionary<int, int>();
+
+var unresolvedStaticMeshBindings =
+    new List<object>();
 var staticMeshBuildBindingCount = 0;
 
 void AddComponentBuildId(
@@ -170,7 +173,8 @@ void AddComponentBuildId(
     string bindingKind,
     int bindingIndex,
     string? assetPath,
-    int lightMapCoordinateIndex)
+    int lightMapCoordinateIndex,
+    int numTexCoords = -1)
 {
     if (!IsNonZero(guid))
         return;
@@ -195,7 +199,8 @@ void AddComponentBuildId(
             bindingKind,
             bindingIndex,
             assetPath,
-            lightMapCoordinateIndex
+            lightMapCoordinateIndex,
+            numTexCoords
         });
 }
 
@@ -214,6 +219,15 @@ foreach (var export in mapExports)
                 ResolveStaticMesh(
                     staticMeshComponent);
             var lightMapCoordinateIndex = -1;
+            var numTexCoords = -1;
+
+            if (
+                loadedStaticMesh?.RenderData?.LODs is { Length: > 0 } lods &&
+                lods[0].VertexBuffer is not null)
+            {
+                numTexCoords =
+                    lods[0].VertexBuffer.NumTexCoords;
+            }
 
             if (
                 loadedStaticMesh is not null &&
@@ -223,6 +237,15 @@ foreach (var export in mapExports)
             {
                 lightMapCoordinateIndex =
                     authoredLightMapCoordinateIndex;
+            }
+            else if (numTexCoords == 1)
+            {
+                /*
+                 * With exactly one UV set, index 0 is the only valid authored
+                 * lightmap coordinate channel. This is a data constraint, not
+                 * a guessed default.
+                 */
+                lightMapCoordinateIndex = 0;
             }
 
             for (
@@ -244,6 +267,23 @@ foreach (var export in mapExports)
                             .GetValueOrDefault(
                                 lightMapCoordinateIndex)
                         + 1;
+
+
+                    if (lightMapCoordinateIndex < 0)
+                    {
+                        unresolvedStaticMeshBindings.Add(
+                            new {
+                                componentName =
+                                    staticMeshComponent.Name,
+                                componentPath =
+                                    staticMeshComponent.GetPathName()
+                                    ?? "",
+                                staticMeshPath,
+                                loadedStaticMeshName =
+                                    loadedStaticMesh?.Name,
+                                numTexCoords
+                            });
+                    }
                 }
 
                 AddComponentBuildId(
@@ -252,7 +292,8 @@ foreach (var export in mapExports)
                     "staticMeshLOD",
                     lodIndex,
                     staticMeshPath,
-                    lightMapCoordinateIndex);
+                    lightMapCoordinateIndex,
+                    numTexCoords);
             }
         }
 
@@ -659,6 +700,10 @@ var output = new {
         componentBuildIds.Count,
     staticMeshBuildBindingCount,
     lightMapCoordinateIndexCounts,
+
+    unresolvedStaticMeshBindingCount =
+        unresolvedStaticMeshBindings.Count,
+    unresolvedStaticMeshBindings,
     buildDataCandidateCount =
         builtDataCandidates.Length,
     buildDataRegistryCount =
