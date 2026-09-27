@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "asset": "quality-contract-self-test",
+  "stages": {
+    "input_conditioned": {"width": 2048, "height": 2048, "subject_coverage": 0.72},
+    "coarse_scene": {"artifact": "coarse_scene.glb"},
+    "semantic_shape": {"artifact": "semantic_shape.glb"},
+    "surface_master": {"vertices": 1000000, "triangles": 1900000, "non_manifold_edges": 0, "holes": 0},
+    "parts": {"count": 8},
+    "uv_master": {"uv_sets": 1, "overlap_percent": 0.0},
+    "texture_pbr_master": {
+      "base_color": true, "normal": true, "roughness": true, "metallic": true, "ao": true,
+      "max_texture_dimension": 4096
+    },
+    "game_mesh": {"vertices": 70000, "triangles": 120000},
+    "baked_game_materials": {"artifact": "game_materials"},
+    "skeleton": {"joint_count": 68},
+    "skinned_asset": {"weights_normalized": true},
+    "animation_validation": {"idle": true, "walk": true}
+  },
+  "regions": {
+    "face": {"landmark_error": 0.0, "texture_alignment_error": 0.0, "geometry_preserved": true},
+    "hands": {"finger_count_preserved": true, "geometry_preserved": true},
+    "cloth": {"thin_surface_survival": 1.0, "layer_separation": true, "geometry_preserved": true},
+    "silhouette": {"reference_error": 0.0}
+  }
+}
