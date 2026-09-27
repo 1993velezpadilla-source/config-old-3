@@ -3290,7 +3290,7 @@ jobs:
             engine/xz/xz_gles3_shadow.c
 
           grep -E \
-            "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*reflectionReady=1 reflectionIblReady=1 reflectionSize=128 reflectionMips=8 reflectionBytes=1048624 reflectionGpuBytes=1048560 reflectionAvg=0\.04043579 reflectionBrightness=1\.000000" \
+            "XZIEL-XZ.*static_scene_reflection map='xziel_nacht_bo3' ready=1 iblReady=1 size=128 mips=8 assetBytes=1048624 gpuBytes=1048560 averageBrightness=0\.04043579 brightness=1\.000000" \
             dist/static-scene-logcat.txt
 
           grep -E \
