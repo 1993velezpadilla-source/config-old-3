@@ -284,7 +284,7 @@ int XzStaticLightGrid_SelfTest(void)
     lights[0].position[2] = 1.0f;
     lights[0].radius = 2.0f;
 
-    lights[1].position[0] = 7.0f;
+    lights[1].position[0] = 6.0f;
     lights[1].position[1] = 1.0f;
     lights[1].position[2] = 1.0f;
     lights[1].radius = 2.0f;
