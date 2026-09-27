@@ -419,6 +419,17 @@ jobs:
             "$UNPACKED" \
             "$GITHUB_WORKSPACE/nacht-decal-environment-audit.json"
 
+      - name: Compile XZIEL environment pack
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-environment
+          python3 tools/maps/compile_nacht_environment.py \
+            --output build/nacht-environment/environment.xzen \
+            --report build/nacht-environment/environment.xzen.report.json \
+            | tee build/nacht-environment/compile.log
+          test -s build/nacht-environment/environment.xzen
+          test -s build/nacht-environment/environment.xzen.report.json
+
       - name: Gate audit
         run: |
           set -euo pipefail
@@ -438,5 +449,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: nacht-decal-environment-audit
-          path: nacht-decal-environment-audit.json
+          path: |
+            nacht-decal-environment-audit.json
+            build/nacht-environment/
           if-no-files-found: error
