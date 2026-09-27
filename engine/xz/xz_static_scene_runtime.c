@@ -712,9 +712,9 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
         if (strcmp(
                 map_id,
                 "xziel_nacht_bo3") == 0 &&
-            (environment.light_count != 101u ||
-             environment.point_count != 86u ||
-             environment.spot_count != 12u ||
+            (environment.light_count != 166u ||
+             environment.point_count != 144u ||
+             environment.spot_count != 19u ||
              environment.directional_count != 2u ||
              environment.sky_count != 1u)) {
             snprintf(

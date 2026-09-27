@@ -11,7 +11,7 @@ extern "C" {
 #define XZ_ENV_MAGIC_BYTES 4u
 #define XZ_ENV_VERSION 2u
 #define XZ_ENV_HEADER_BYTES 28u
-#define XZ_ENV_LIGHT_BYTES 64u
+#define XZ_ENV_LIGHT_BYTES 88u
 
 enum {
     XZ_ENV_LIGHT_POINT = 1u,
@@ -27,7 +27,24 @@ enum {
     XZ_ENV_HAS_INTENSITY = 1u << 3,
     XZ_ENV_HAS_RADIUS = 1u << 4,
     XZ_ENV_HAS_UNITS = 1u << 5,
-    XZ_ENV_HAS_CONE = 1u << 6
+    XZ_ENV_HAS_INNER_CONE = 1u << 6,
+    XZ_ENV_HAS_OUTER_CONE = 1u << 7,
+    XZ_ENV_HAS_FALLOFF_EXPONENT = 1u << 8,
+    XZ_ENV_HAS_TEMPERATURE = 1u << 9,
+    XZ_ENV_HAS_SOURCE_RADIUS = 1u << 10,
+    XZ_ENV_HAS_SOFT_SOURCE_RADIUS = 1u << 11,
+    XZ_ENV_HAS_SOURCE_LENGTH = 1u << 12,
+    XZ_ENV_HAS_INVERSE_SQUARED = 1u << 13,
+    XZ_ENV_HAS_USE_TEMPERATURE = 1u << 14,
+    XZ_ENV_HAS_CAST_SHADOWS = 1u << 15,
+    XZ_ENV_HAS_VISIBLE = 1u << 16
+};
+
+enum {
+    XZ_ENV_BEHAVIOR_INVERSE_SQUARED = 1u << 0,
+    XZ_ENV_BEHAVIOR_USE_TEMPERATURE = 1u << 1,
+    XZ_ENV_BEHAVIOR_CAST_SHADOWS = 1u << 2,
+    XZ_ENV_BEHAVIOR_VISIBLE = 1u << 3
 };
 
 typedef enum {
@@ -62,7 +79,13 @@ typedef struct {
     float radius_meters;
     float inner_cone_degrees;
     float outer_cone_degrees;
+    float falloff_exponent;
+    float temperature_kelvin;
+    float source_radius_meters;
+    float soft_source_radius_meters;
+    float source_length_meters;
     uint32_t units;
+    uint32_t behavior_flags;
 } XzEnvironmentLight;
 
 XzEnvironmentStatus XzEnvironment_Parse(
