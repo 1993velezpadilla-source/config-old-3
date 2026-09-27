@@ -243,6 +243,8 @@ typedef struct {
     float direction[3];
     float cos_outer;
     float inv_cos_difference;
+    float specular_scale;
+    int specular_authored;
     uint32_t type;
 } XzGles3StaticLocalLight;
 
@@ -301,10 +303,12 @@ typedef struct {
     GLint static_directional_weight_loc;
     GLint static_directional_color_loc;
     GLint static_directional_direction_loc;
+    GLint static_directional_specular_scale_loc;
     GLint static_local_light_count_loc;
     GLint static_local_pos_inv_radius_loc;
     GLint static_local_color_cone_loc;
     GLint static_local_dir_cos_outer_loc;
+    GLint static_local_specular_loc;
     GLint static_camera_pos_loc;
     GLint static_fog_primary_loc;
     GLint static_fog_color_min_loc;
@@ -315,6 +319,8 @@ typedef struct {
     float static_directional_weight;
     float static_directional_color[3];
     float static_directional_direction[3];
+    float static_directional_specular_scale;
+    int static_directional_specular_authored;
     float static_fog_primary[4];
     float static_fog_color_min[4];
     float static_fog_cutoff_cm;
@@ -566,6 +572,67 @@ static float XzStaticLocalBrightness(
     default:
         return -1.0f;
     }
+}
+
+
+static int XzStaticSceneAuditLightSpecular(
+    const XzStaticSceneRuntimeState *scene,
+    XzGles3ShadowState *state)
+{
+    const XzEnvironmentView *environment;
+    uint32_t authored = 0u;
+    uint32_t local_authored = 0u;
+    uint32_t i;
+
+    if (!scene || !state)
+        return 0;
+
+    environment =
+        XzStaticSceneRuntime_Environment(scene);
+    if (!environment ||
+        !scene->light_specular_data ||
+        scene->light_specular_count !=
+            environment->light_count)
+        return 0;
+
+    for (i = 0u;
+         i < environment->light_count;
+         ++i) {
+        XzStaticLightSpecular specular;
+        XzEnvironmentLight light;
+
+        if (!XzStaticSceneRuntime_LightSpecular(
+                scene, i, &specular) ||
+            !XzStaticSceneRuntime_EnvironmentLight(
+                scene, i, &light))
+            return 0;
+
+        if ((specular.flags &
+             XZ_STATIC_LIGHT_SPECULAR_HAS_SCALE) != 0u) {
+            if (!isfinite(specular.specular_scale) ||
+                specular.specular_scale < 0.0f)
+                return 0;
+
+            authored++;
+
+            if (light.type == XZ_ENV_LIGHT_POINT ||
+                light.type == XZ_ENV_LIGHT_SPOT)
+                local_authored++;
+        }
+    }
+
+    state->static_scene_light_specular_bindings =
+        scene->light_specular_count;
+    state->static_scene_light_specular_authored =
+        authored;
+    state->static_scene_local_specular_authored =
+        local_authored;
+    state->static_scene_light_specular_ready =
+        scene->light_specular_count ==
+            environment->light_count &&
+        authored > 0u;
+
+    return state->static_scene_light_specular_ready;
 }
 
 static int XzStaticScenePrepareLocalLights(
