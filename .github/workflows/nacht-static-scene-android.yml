@@ -10,6 +10,7 @@ on:
       - feature/xziel-static-scene-materials-v1
       - feature/xziel-static-scene-material-coverage-v2
       - feature/xziel-static-scene-material-final5
+      - feature/xziel-static-scene-material-final5-exact-gate
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -2078,7 +2079,7 @@ jobs:
           assert scene["meshCount"] == 492
           assert scene["instanceCount"] == 10791
           assert material["bindingCount"] == 1063
-          assert material["mappedBindings"] > 0
+          assert material["mappedBindings"] == 1063
           assert material["textureCount"] > 0
 
           print(
