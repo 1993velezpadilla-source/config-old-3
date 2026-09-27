@@ -1445,6 +1445,10 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             " pbrBindings=%u pbrBytes=%zu"
             " pbrGpuReady=%d pbrAuthored=%u"
             " specularReady=%d"
+            " reflectionReady=%d reflectionIblReady=%d"
+            " reflectionSize=%u reflectionMips=%u"
+            " reflectionBytes=%zu reflectionGpuBytes=%" PRIu64
+            " reflectionAvg=%.8f reflectionBrightness=%.6f"
             " envLights=%u envPoint=%u envSpot=%u"
             " envDirectional=%u envSky=%u envBytes=%zu"
             " localLights=%u localActive=%u"
@@ -1494,6 +1498,14 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             xz_runtime.gles3_shadow.static_scene_pbr_ready,
             xz_runtime.gles3_shadow.static_scene_pbr_authored_bindings,
             xz_runtime.gles3_shadow.static_scene_specular_response_ready,
+            xz_runtime.gles3_shadow.static_scene_reflection_ready,
+            xz_runtime.gles3_shadow.static_scene_reflection_ibl_ready,
+            xz_runtime.gles3_shadow.static_scene_reflection_size,
+            xz_runtime.gles3_shadow.static_scene_reflection_mips,
+            xz_runtime.static_scene.reflection_bytes,
+            xz_runtime.gles3_shadow.static_scene_reflection_gpu_bytes,
+            xz_runtime.gles3_shadow.static_scene_reflection_average_brightness,
+            xz_runtime.gles3_shadow.static_scene_reflection_brightness,
             environment
                 ? environment->light_count
                 : 0u,
@@ -1690,6 +1702,9 @@ int XzAndroidRuntime_CompositeVisibleWorld(void)
             " normalReady=%d normalApplied=%u normalMapped=%u"
             " pbrReady=%d pbrApplied=%u pbrAuthored=%u"
             " specularReady=%d specularLocal=%u"
+            " reflectionReady=%d reflectionIblReady=%d"
+            " reflectionSize=%u reflectionMips=%u"
+            " reflectionGpuBytes=%" PRIu64
             " heightFogReady=%d directionalFog=%d"
             " fogDensity=%.6f fogFalloff=%.6f"
             " fogMaxOpacity=%.6f fogStartMeters=%.6f",
@@ -1715,6 +1730,11 @@ int XzAndroidRuntime_CompositeVisibleWorld(void)
             xz_runtime.gles3_shadow.static_scene_pbr_authored_bindings,
             xz_runtime.gles3_shadow.static_scene_specular_response_ready,
             xz_runtime.gles3_shadow.static_scene_last_specular_local_lights,
+            xz_runtime.gles3_shadow.static_scene_reflection_ready,
+            xz_runtime.gles3_shadow.static_scene_reflection_ibl_ready,
+            xz_runtime.gles3_shadow.static_scene_reflection_size,
+            xz_runtime.gles3_shadow.static_scene_reflection_mips,
+            xz_runtime.gles3_shadow.static_scene_reflection_gpu_bytes,
             xz_runtime.gles3_shadow.static_scene_height_fog_ready,
             xz_runtime.gles3_shadow.static_scene_directional_fog_enabled,
             xz_runtime.gles3_shadow.static_scene_fog_density,
