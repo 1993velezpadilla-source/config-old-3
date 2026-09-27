@@ -280,7 +280,8 @@ jobs:
                       out var material)
                   && material is not null)
               {
-                  var textures = new List<UTexture>();
+                  var textures =
+                      new List<UUnrealMaterial>();
                   material.AppendReferencedTextures(
                       textures,
                       false);
