@@ -111,6 +111,21 @@ class NachtPolicyTests(unittest.TestCase):
         action = self.policy.decide(state)
         self.assertNotEqual((action.kind, action.target_id), (ActionKind.USE, 51))
 
+    def test_hidden_zombie_is_not_shot_through_wall(self):
+        state = obs(
+            zombies=[{"id": 55, "position": [300, 0, 0], "visible": False}],
+        )
+        action = self.policy.decide(state)
+        self.assertNotEqual(action.kind, ActionKind.FIRE)
+
+    def test_visible_zombie_can_be_engaged(self):
+        state = obs(
+            zombies=[{"id": 56, "position": [300, 0, 0], "visible": True}],
+        )
+        action = self.policy.decide(state)
+        self.assertEqual(action.kind, ActionKind.FIRE)
+        self.assertEqual(action.target_id, 56)
+
     def test_box_during_safe_window_for_weak_loadout(self):
         state = obs(
             points=4000,
