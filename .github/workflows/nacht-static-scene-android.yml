@@ -2023,6 +2023,25 @@ jobs:
           MAPROOT="$OVERLAY/xziel/maps/xziel_nacht_bo3"
           mkdir -p "$MAPROOT/meshes"
 
+          # Preserve the four remaining source material exports so the exact
+          # parent/constants can be audited instead of guessed from names.
+          DIAG="build/nacht-static-scene/material-audit/source-materials"
+          mkdir -p "$DIAG"
+          for name in \
+            Atlas_39246_Mat \
+            p7_fxanim_gp_tarp_drape_beige_02_s1_smod_Mat \
+            mtl_p7_fxanim_zm_factory_flag_iron_cross \
+            t7_water_cp_bio_muddy_waterfall; do
+            found=$(find "$RUNNER_TEMP/scene-glb" -type f \
+              -name "$name.json" -print -quit)
+            if [[ -n "$found" ]]; then
+              cp "$found" "$DIAG/$name.json"
+              echo "XZIEL_MATERIAL_DIAG_SAVED $name $found"
+            else
+              echo "XZIEL_MATERIAL_DIAG_MISSING $name"
+            fi
+          done
+
           python3 tools/maps/compile_nacht_xzmesh_bundle.py \
             --glb-root "$RUNNER_TEMP/scene-glb" \
             --output-root "$MAPROOT/meshes" \
