@@ -105,8 +105,20 @@ jobs:
               grep -E "XzielOnline.*(MATCH_CONNECT|MATCH_SOCKET_OPEN|MATCH_SEARCHING|MATCH_FOUND|WELCOME|PLAYER_JOINED|SERVER_READY|HOST_SERVER_READY|SIGNON_COMPLETE)" "$LOG" | tail -n 40 || true
               "$ADB" exec-out screencap -p > "evidence/live-${{ matrix.runner }}.png" || true
             fi
-            if [[ "$FOUND" = "1" ]] && grep -q "XzielOnline.*WELCOME" "$LOG"; then
-              echo "LIVE_MATCH_JOINED runner=${{ matrix.runner }}"
+            LOCAL_SLOT="$(awk '/XzielOnline.*WELCOME/ { if (match($0, / slot=[1-4]/)) slot=substr($0, RSTART + 6, 1) } END { if (slot != "") print slot }' "$LOG")"
+            READY=0
+            if [[ "$FOUND" = "1" && -n "$LOCAL_SLOT" ]]; then
+              if [[ "$LOCAL_SLOT" = "1" ]]; then
+                if grep -q "XzielOnline.*HOST_SERVER_READY" "$LOG"; then
+                  READY=1
+                fi
+              elif grep -q "XzielOnline.*SIGNON_COMPLETE slot=$LOCAL_SLOT" "$LOG"; then
+                READY=1
+              fi
+            fi
+
+            if [[ "$READY" = "1" ]]; then
+              echo "LIVE_MATCH_JOINED runner=${{ matrix.runner }} slot=$LOCAL_SLOT signon_ready=1"
               sleep 300
               break
             fi
@@ -119,6 +131,11 @@ jobs:
           if [[ "$FOUND" != "1" ]]; then
             echo "Live public match was not filled before timeout."
             grep -E "XzielOnline.*(MATCH_CONNECT|MATCH_SOCKET_OPEN|MATCH_SEARCHING|MATCH_FOUND)" "evidence/final-logcat-${{ matrix.runner }}.txt" | tail -n 80 || true
+            exit 1
+          fi
+          if ! grep -Eq "XzielOnline.*(HOST_SERVER_READY|SIGNON_COMPLETE)" "evidence/final-logcat-${{ matrix.runner }}.txt"; then
+            echo "Room matched, but native Quake gameplay never became ready."
+            grep -E "XzielOnline.*(WELCOME|SERVER_READY|HOST_SERVER_READY|CONNECT_|SIGNON_COMPLETE|CLIENT_READY|GAME_(TX|RX|POLL))" "evidence/final-logcat-${{ matrix.runner }}.txt" | tail -n 160 || true
             exit 1
           fi
 
