@@ -5,6 +5,7 @@ using CUE4Parse.UE4.Assets.Exports;
 using CUE4Parse.UE4.Assets.Exports.BuildData;
 using CUE4Parse.UE4.Assets.Exports.Component;
 using CUE4Parse.UE4.Assets.Exports.Component.StaticMesh;
+using CUE4Parse.UE4.Assets.Exports.StaticMesh;
 using CUE4Parse.UE4.Assets.Exports.Component.Landscape;
 using CUE4Parse.UE4.Objects.Core.Misc;
 using System.Text.Json;
@@ -58,6 +59,76 @@ var provider =
 provider.Initialize();
 provider.PostMount();
 provider.LoadVirtualPaths();
+
+var packageBasenames =
+    provider.Files.Values
+        .Where(f => f.IsUePackage)
+        .Where(
+            f => f.Path.EndsWith(
+                ".uasset",
+                StringComparison.OrdinalIgnoreCase))
+        .GroupBy(
+            f => Path.GetFileNameWithoutExtension(
+                f.Path.Replace('\\', '/')),
+            StringComparer.OrdinalIgnoreCase)
+        .ToDictionary(
+            g => g.Key,
+            g => g.Select(x => x.Path).ToArray(),
+            StringComparer.OrdinalIgnoreCase);
+
+UStaticMesh? ResolveStaticMesh(
+    UStaticMeshComponent component)
+{
+    try
+    {
+        var direct = component.GetLoadedStaticMesh();
+        if (direct is not null)
+            return direct;
+    }
+    catch
+    {
+    }
+
+    var index = component.GetStaticMesh();
+    var meshName = index.Name;
+
+    if (string.IsNullOrWhiteSpace(meshName))
+        return null;
+
+    if (!packageBasenames.TryGetValue(
+            meshName,
+            out var candidates))
+        return null;
+
+    foreach (var packagePath in candidates)
+    {
+        try
+        {
+            var exports =
+                provider.LoadPackage(packagePath)
+                    .GetExports()
+                    .OfType<UStaticMesh>()
+                    .ToArray();
+
+            var exact =
+                exports.FirstOrDefault(
+                    x => x.Name.Equals(
+                        meshName,
+                        StringComparison.OrdinalIgnoreCase));
+
+            if (exact is not null)
+                return exact;
+
+            if (exports.Length == 1)
+                return exports[0];
+        }
+        catch
+        {
+        }
+    }
+
+    return null;
+}
 
 var maps =
     provider.Files.Values
@@ -140,13 +211,19 @@ foreach (var export in mapExports)
                 ReferencePath(
                     staticMeshComponent.GetStaticMesh());
             var loadedStaticMesh =
-                staticMeshComponent.GetLoadedStaticMesh();
-            var lightMapCoordinateIndex =
-                loadedStaticMesh is null
-                    ? -1
-                    : loadedStaticMesh.GetOrDefault<int>(
-                        "LightMapCoordinateIndex",
-                        1);
+                ResolveStaticMesh(
+                    staticMeshComponent);
+            var lightMapCoordinateIndex = -1;
+
+            if (
+                loadedStaticMesh is not null &&
+                loadedStaticMesh.TryGetValue(
+                    out int authoredLightMapCoordinateIndex,
+                    "LightMapCoordinateIndex"))
+            {
+                lightMapCoordinateIndex =
+                    authoredLightMapCoordinateIndex;
+            }
 
             for (
                 var lodIndex = 0;
