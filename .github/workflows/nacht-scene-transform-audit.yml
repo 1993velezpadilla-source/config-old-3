@@ -60,6 +60,7 @@ jobs:
           determinant_negative = 0
           determinant_zero = 0
           mesh_counts = Counter()
+          scale_tuples = Counter()
 
           suspicious = []
 
@@ -104,6 +105,8 @@ jobs:
                   float(scale.get("Y", 1.0) or 1.0),
                   float(scale.get("Z", 1.0) or 1.0),
               ]
+              scale_tuples[tuple(round(v, 6) for v in sv)] += 1
+
               if any(not math.isfinite(v) for v in xyz + sv):
                   nonfinite += 1
               if any(v == 0.0 for v in sv):
@@ -181,6 +184,7 @@ jobs:
               "wallishUniqueMeshes": len(wallish_meshes),
               "wallishInstances": wallish_instances,
               "topMeshes": mesh_counts.most_common(25),
+              "topScales": scale_tuples.most_common(25),
               "suspicious": suspicious,
           }
 
