@@ -1445,10 +1445,6 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             " pbrBindings=%u pbrBytes=%zu"
             " pbrGpuReady=%d pbrAuthored=%u"
             " specularReady=%d"
-            " reflectionReady=%d reflectionIblReady=%d"
-            " reflectionSize=%u reflectionMips=%u"
-            " reflectionBytes=%zu reflectionGpuBytes=%" PRIu64
-            " reflectionAvg=%.8f reflectionBrightness=%.6f"
             " envLights=%u envPoint=%u envSpot=%u"
             " envDirectional=%u envSky=%u envBytes=%zu"
             " localLights=%u localActive=%u"
@@ -1498,14 +1494,6 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             xz_runtime.gles3_shadow.static_scene_pbr_ready,
             xz_runtime.gles3_shadow.static_scene_pbr_authored_bindings,
             xz_runtime.gles3_shadow.static_scene_specular_response_ready,
-            xz_runtime.gles3_shadow.static_scene_reflection_ready,
-            xz_runtime.gles3_shadow.static_scene_reflection_ibl_ready,
-            xz_runtime.gles3_shadow.static_scene_reflection_size,
-            xz_runtime.gles3_shadow.static_scene_reflection_mips,
-            xz_runtime.static_scene.reflection_bytes,
-            xz_runtime.gles3_shadow.static_scene_reflection_gpu_bytes,
-            xz_runtime.gles3_shadow.static_scene_reflection_average_brightness,
-            xz_runtime.gles3_shadow.static_scene_reflection_brightness,
             environment
                 ? environment->light_count
                 : 0u,
@@ -1535,6 +1523,24 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             xz_runtime.gles3_shadow.static_scene_fog_start_meters,
             xz_runtime.static_scene.height_fog_bytes,
             xz_runtime.static_scene.error);
+
+        XzAndroidLog(
+            ANDROID_LOG_INFO,
+            "static_scene_reflection map='%s'"
+            " ready=%d iblReady=%d"
+            " size=%u mips=%u"
+            " assetBytes=%zu gpuBytes=%" PRIu64
+            " averageBrightness=%.8f brightness=%.6f",
+            XzMapRuntime_MapId(
+                &xz_runtime.map_runtime),
+            xz_runtime.gles3_shadow.static_scene_reflection_ready,
+            xz_runtime.gles3_shadow.static_scene_reflection_ibl_ready,
+            xz_runtime.gles3_shadow.static_scene_reflection_size,
+            xz_runtime.gles3_shadow.static_scene_reflection_mips,
+            xz_runtime.static_scene.reflection_bytes,
+            xz_runtime.gles3_shadow.static_scene_reflection_gpu_bytes,
+            xz_runtime.gles3_shadow.static_scene_reflection_average_brightness,
+            xz_runtime.gles3_shadow.static_scene_reflection_brightness);
     }
 
     XzAndroidLog(
