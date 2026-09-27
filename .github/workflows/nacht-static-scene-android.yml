@@ -209,6 +209,7 @@ jobs:
 
           var inferredAlbedoLoads = 0;
           var slotAliasMaterialLoads = 0;
+          var streamingTextureCandidates = 0;
           var params2TextureCandidates = 0;
           var params2VectorCandidates = 0;
           var expressionExportTextureCandidates = 0;
@@ -674,6 +675,81 @@ jobs:
                       textureRef,
                       ownerMaterial,
                       "append");
+              }
+
+              /*
+               * Cooked UE4 materials can retain their texture identities in
+               * TextureStreamingData even when parameter tables and expression
+               * Texture pointers are stripped. Resolve those exact serialized
+               * basenames through the mounted package index before falling
+               * back to higher-level material APIs. This is deterministic:
+               * only an existing UTexture with the exact cooked basename is
+               * accepted.
+               */
+              foreach (
+                  var streamingInfo
+                  in sourceMaterial.TextureStreamingData)
+              {
+                  var streamingName =
+                      streamingInfo.TextureName.Text;
+
+                  if (
+                      string.IsNullOrWhiteSpace(
+                          streamingName)
+                      || !packageBasenames.TryGetValue(
+                          streamingName,
+                          out var streamingPackages))
+                  {
+                      continue;
+                  }
+
+                  UTexture? streamingTexture = null;
+
+                  foreach (
+                      var streamingPackage
+                      in streamingPackages)
+                  {
+                      try
+                      {
+                          streamingTexture =
+                              provider
+                                  .LoadPackage(
+                                      streamingPackage)
+                                  .GetExports()
+                                  .OfType<UTexture>()
+                                  .FirstOrDefault(
+                                      x => x.Name.Equals(
+                                          streamingName,
+                                          StringComparison.OrdinalIgnoreCase));
+
+                          if (streamingTexture is not null)
+                              break;
+                      }
+                      catch (Exception e)
+                      {
+                          Console.WriteLine(
+                              $"material-streaming-package-error"
+                              + $" material={sourceMaterial.Name}"
+                              + $" texture={streamingName}"
+                              + $" package={streamingPackage}"
+                              + $" error={e.Message}");
+                      }
+                  }
+
+                  if (streamingTexture is null)
+                  {
+                      Console.WriteLine(
+                          $"material-streaming-texture-miss"
+                          + $" material={sourceMaterial.Name}"
+                          + $" texture={streamingName}");
+                      continue;
+                  }
+
+                  QueueTextureCandidate(
+                      streamingTexture,
+                      ownerMaterial,
+                      $"streaming:{streamingName}");
+                  streamingTextureCandidates++;
               }
 
               /*
@@ -1833,6 +1909,8 @@ jobs:
                       inferredAlbedoLoads,
                   slotAliasMaterialLoads =
                       slotAliasMaterialLoads,
+                  streamingTextureCandidates =
+                      streamingTextureCandidates,
                   params2TextureCandidates =
                       params2TextureCandidates,
                   params2VectorCandidates =
@@ -1866,6 +1944,7 @@ jobs:
               + $" materialTextureBindings={materialTextureRows.Count}"
               + $" inferredAlbedoLoads={inferredAlbedoLoads}"
               + $" slotAliasMaterialLoads={slotAliasMaterialLoads}"
+              + $" streamingTextureCandidates={streamingTextureCandidates}"
               + $" params2TextureCandidates={params2TextureCandidates}"
               + $" params2VectorCandidates={params2VectorCandidates}"
               + $" expressionExportTextureCandidates={expressionExportTextureCandidates}"
