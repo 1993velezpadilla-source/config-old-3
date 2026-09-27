@@ -108,6 +108,12 @@ typedef struct {
     unsigned int static_scene_local_light_camera_affecting;
     unsigned int static_scene_local_light_dropped_affecting;
     int static_scene_local_lighting_ready;
+    int static_scene_height_fog_ready;
+    int static_scene_directional_fog_enabled;
+    float static_scene_fog_density;
+    float static_scene_fog_height_falloff;
+    float static_scene_fog_max_opacity;
+    float static_scene_fog_start_meters;
     int static_scene_gpu_ready;
 
     uint64_t static_scene_draw_attempts;
