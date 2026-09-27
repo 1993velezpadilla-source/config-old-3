@@ -73,6 +73,7 @@ jobs:
             scripts/patch_vril_multiplayer_online.py \
             scripts/build_xziel_icons.py \
             scripts/patch_vril_sanctum_staticmesh.py \
+            scripts/patch_vril_official_touch_skins_v026.py \
             scripts/patch_quakec_mobile_v024.py \
             scripts/patch_quakec_multiplayer_v026.py \
             scripts/audit_online_world_sync.py
@@ -102,6 +103,7 @@ jobs:
           python3 scripts/patch_vril_multiplayer_hud_test.py "$AUDIT/vril"
           python3 scripts/patch_vril_multiplayer_online.py "$AUDIT/vril"
           python3 scripts/patch_vril_sanctum_staticmesh.py "$AUDIT/vril"
+          python3 scripts/patch_vril_official_touch_skins_v026.py "$AUDIT/vril"
 
           python3 scripts/patch_quakec_mobile.py "$AUDIT/quakec"
           python3 scripts/patch_quakec_combatfx.py "$AUDIT/quakec"
@@ -220,6 +222,23 @@ jobs:
             > dist/am-start-squad.txt 2>&1 || true
           sleep 8
           "$ADB" exec-out screencap -p > dist/xziel-squad-selector.png || true
+
+          # Online builds must exercise the same human menu entry point used on
+          # real phones. This catches regressions that CI public-match shortcuts
+          # would otherwise bypass.
+          if [[ -n "${XZIEL_MULTIPLAYER_URL:-}" ]]; then
+            "$ADB" shell am force-stop com.xziel.nzp || true
+            "$ADB" shell am start -W -n com.xziel.nzp/org.libsdl.app.NZPActivity \
+              --ez xziel_ci_multiplayer_menu_preview true \
+              > dist/am-start-multiplayer-menu.txt 2>&1 || true
+            sleep 8
+            "$ADB" shell uiautomator dump /sdcard/xziel-multiplayer-menu.xml >/dev/null 2>&1
+            "$ADB" pull /sdcard/xziel-multiplayer-menu.xml dist/xziel-multiplayer-menu.xml >/dev/null 2>&1
+            "$ADB" exec-out screencap -p > dist/xziel-multiplayer-menu.png || true
+            grep -q 'text="NACHT DER UNTOTEN"' dist/xziel-multiplayer-menu.xml
+            grep -q 'text="PRIVATE ROOM"' dist/xziel-multiplayer-menu.xml
+            grep -q 'text="PUBLIC MATCH"' dist/xziel-multiplayer-menu.xml
+          fi
 
           # Automated visual sanity pass: both frames must be valid, non-blank
           # landscape gameplay-sized images. We also record inter-frame change
