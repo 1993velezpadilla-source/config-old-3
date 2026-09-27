@@ -60,6 +60,13 @@ typedef struct {
     size_t pbr_material_bytes;
     XzPbrMaterialView pbr_material;
 
+    unsigned char *normal_material_data;
+    size_t normal_material_bytes;
+    uint32_t normal_texture_count;
+    uint32_t normal_binding_count;
+    size_t normal_texture_table_offset;
+    size_t normal_binding_offset;
+
     unsigned char *environment_data;
     size_t environment_bytes;
     XzEnvironmentView environment;
@@ -78,6 +85,7 @@ typedef struct {
     char scene_path[256];
     char material_path[256];
     char pbr_material_path[256];
+    char normal_material_path[256];
     char environment_path[256];
     char height_fog_path[256];
     char error[128];
@@ -121,6 +129,16 @@ int XzStaticSceneRuntime_PbrBinding(
     const XzStaticSceneRuntimeState *state,
     uint32_t binding_index,
     XzPbrMaterialBinding *binding);
+
+int XzStaticSceneRuntime_NormalBinding(
+    const XzStaticSceneRuntimeState *state,
+    uint32_t binding_index,
+    uint32_t *texture_index);
+
+int XzStaticSceneRuntime_NormalTexture(
+    const XzStaticSceneRuntimeState *state,
+    uint32_t texture_index,
+    XzStaticTextureView *texture);
 
 const XzEnvironmentView *
 XzStaticSceneRuntime_Environment(
