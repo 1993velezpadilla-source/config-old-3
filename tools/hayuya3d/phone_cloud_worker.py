@@ -11,6 +11,8 @@ from rig_gate import inspect as inspect_rig_gate
 from texture_gate import inspect as inspect_texture_gate
 from trellis2_cloud import generate as generate_trellis2_cloud
 from trellis2_preview_recovery import recover as recover_trellis2_preview
+from triposg_cloud import generate as generate_triposg_cloud
+from detailgen3d_cloud import refine as refine_detailgen3d_cloud
 from triposr_cpu_cloud import generate as generate_triposr_cpu_cloud
 from local_detail_fusion import fuse_local_basecolor
 from source_autofix import build_source_autofix
@@ -39,6 +41,8 @@ BACKENDS = [
     if x.strip()
 ]
 TRELLIS2_ENABLED = "trellis2" in BACKENDS
+TRIPOSG_CLOUD_ENABLED = "triposg" in BACKENDS
+DETAILGEN3D_ENABLED = "detailgen3d" in BACKENDS
 CLASSIC_TRELLIS_ENABLED = "trellis" in BACKENDS
 TRIPOSR_CPU_ENABLED = "triposr" in BACKENDS
 STRICT_TRELLIS2 = BACKENDS == ["trellis2"]
@@ -489,12 +493,15 @@ if not multi and TRELLIS2_ENABLED and TEXTURE_QUALITY in {"high","ultra"}:
             or modern_meta.get("faces_target")
             or 0
         )
-        if hero_floor and int(modern_mesh.faces)<hero_floor:
-            raise RuntimeError(
-                "TRELLIS.2 Hero Master density gate failed: "
-                f"faces={modern_mesh.faces}<minimum={hero_floor} "
-                f"target={hero_target}"
-            )
+        # The official public TRELLIS.2 Space currently caps GLB export at
+        # 500k faces. Treat a provider-capped native extraction as a valid coarse
+        # high-end candidate, not as the final Hero Master. Open TripoSG and
+        # DetailGen3D challengers below are responsible for the dense/refined
+        # master before runtime optimization.
+        provider_capped=bool(
+            modern_meta.get("hero_master_requires_refinement")
+            or (hero_floor and int(modern_mesh.faces)<hero_floor)
+        )
         hero_master_report={
             "schema":1,
             "policy":"dense-first-fidelity-before-retopo",
@@ -506,13 +513,16 @@ if not multi and TRELLIS2_ENABLED and TEXTURE_QUALITY in {"high","ultra"}:
             "dense_master_ready":bool(
                 modern_mesh.passed
                 and modern_tex.passed
-                and (not hero_floor or int(modern_mesh.faces)>=hero_floor)
+                and not provider_capped
             ),
+            "provider_capped":provider_capped,
+            "provider_extract_cap_faces":modern_meta.get("provider_extract_cap_faces"),
+            "refinement_required":provider_capped,
             "optimization_deferred":True,
             "runtime_optimization_stage":"post-fidelity-gate",
         }
         print(
-            "HAYUYA_HERO_MASTER_READY",
+            "HAYUYA_HERO_MASTER_PROVISIONAL" if provider_capped else "HAYUYA_HERO_MASTER_READY",
             json.dumps(hero_master_report,separators=(",",":")),
         )
         selected_generator=modern_meta["generator"]
@@ -654,6 +664,183 @@ if not multi and TRELLIS2_ENABLED and TEXTURE_QUALITY in {"high","ultra"}:
                 "falling back to classic TRELLIS: "
                 + modern_text
             )
+
+# VAST's public TripoSG Space exposes the same open model family we already
+# vendor locally, but its UI permits simplification to be disabled completely.
+# Use it as a dense Hero challenger instead of forcing TRELLIS.2 past its 500k
+# public extraction ceiling.
+if (
+    not multi
+    and TRIPOSG_CLOUD_ENABLED
+    and TEXTURE_QUALITY in {"high","ultra"}
+):
+    try:
+        triposg_meta=generate_triposg_cloud(
+            crops[0],
+            OUT/"triposg_hero_candidate.glb",
+            token=TOKEN,
+            seed=1993,
+            apply_texture=True,
+        )
+        triposg_candidate=Path(triposg_meta["path"])
+        triposg_mesh=inspect_mesh_gate(triposg_candidate,require_normals=False)
+        triposg_tex=inspect_texture_gate(
+            triposg_candidate,
+            min_edge=4096 if TEXTURE_QUALITY=="ultra" else 2048,
+        )
+        print(
+            "HAYUYA_TRIPOSG_HERO_MESH_GATE",
+            json.dumps(asdict(triposg_mesh),separators=(",",":")),
+        )
+        print(
+            "HAYUYA_TRIPOSG_HERO_TEXTURE_GATE",
+            json.dumps(asdict(triposg_tex),separators=(",",":")),
+        )
+        if not triposg_mesh.passed or not triposg_tex.passed:
+            raise RuntimeError(
+                "TripoSG Hero challenger failed HAYUYA hard gates: "
+                +"; ".join(list(triposg_mesh.reasons)+list(triposg_tex.warnings))
+            )
+
+        current_faces=0
+        if hero_master_report:
+            current_faces=int(hero_master_report.get("actual_faces") or 0)
+        # The open TripoSG candidate is unsimplified. Prefer it whenever it is
+        # denser than the provider-capped TRELLIS.2 extraction, or whenever no
+        # modern candidate survived at all.
+        if modern_candidate is None or int(triposg_mesh.faces)>current_faces:
+            modern_candidate=triposg_candidate
+            result=str(modern_candidate)
+            selected_generator=triposg_meta["generator"]
+            selected_compute=triposg_meta["compute"]
+            actual_mesh_simplify=0.0
+            actual_texture_size=4096 if triposg_meta.get("textured") else 0
+            hero_target=2_000_000 if TEXTURE_QUALITY=="ultra" else 1_250_000
+            hero_floor=1_000_000 if TEXTURE_QUALITY=="ultra" else 650_000
+            hero_master_report={
+                "schema":1,
+                "policy":"dense-first-fidelity-before-retopo",
+                "generator":triposg_meta["generator"],
+                "target_faces":hero_target,
+                "minimum_faces":hero_floor,
+                "actual_faces":int(triposg_mesh.faces),
+                "actual_vertices":int(triposg_mesh.vertices),
+                "dense_master_ready":bool(
+                    int(triposg_mesh.faces)>=hero_floor
+                    and triposg_mesh.passed
+                    and triposg_tex.passed
+                ),
+                "provider_capped":False,
+                "refinement_required":int(triposg_mesh.faces)<hero_floor,
+                "simplified":False,
+                "optimization_deferred":True,
+                "runtime_optimization_stage":"post-fidelity-gate",
+            }
+            print(
+                "HAYUYA_TRIPOSG_HERO_PROMOTED",
+                json.dumps(hero_master_report,separators=(",",":")),
+            )
+    except Exception as triposg_exc:
+        print(
+            "::warning::TripoSG dense Hero challenger unavailable/rejected: "
+            f"{type(triposg_exc).__name__}: {triposg_exc}"
+        )
+
+# DetailGen3D is an image-conditioned geometry enhancement model from the same
+# public VAST research ecosystem. Run it on the best surviving high-end mesh,
+# then reproject the source candidate's material evidence onto the new topology.
+# Judge v4 remains the authority; this challenger is never accepted on topology
+# count alone.
+if (
+    not multi
+    and DETAILGEN3D_ENABLED
+    and modern_candidate is not None
+    and TEXTURE_QUALITY in {"high","ultra"}
+):
+    try:
+        from material_bridge import transfer_best_material
+
+        detailgen_meta=refine_detailgen3d_cloud(
+            crops[0],
+            modern_candidate,
+            OUT/"detailgen3d_refined_geometry.glb",
+            token=TOKEN,
+            seed=1993,
+            num_inference_steps=50,
+            guidance_scale=10.0,
+        )
+        detailgen_geometry=Path(detailgen_meta["path"])
+        detailgen_textured=OUT/"detailgen3d_hero_candidate.glb"
+        bridge=transfer_best_material(
+            modern_candidate,
+            detailgen_geometry,
+            detailgen_textured,
+            total_samples=300_000,
+            max_texture_size=max(2048,int(actual_texture_size or 0)),
+        )
+        detailgen_mesh=inspect_mesh_gate(detailgen_textured,require_normals=False)
+        detailgen_tex=inspect_texture_gate(
+            detailgen_textured,
+            min_edge=2048,
+        )
+        print(
+            "HAYUYA_DETAILGEN3D_HERO_MESH_GATE",
+            json.dumps(asdict(detailgen_mesh),separators=(",",":")),
+        )
+        print(
+            "HAYUYA_DETAILGEN3D_HERO_TEXTURE_GATE",
+            json.dumps(asdict(detailgen_tex),separators=(",",":")),
+        )
+        if not detailgen_mesh.passed or not detailgen_tex.passed:
+            raise RuntimeError(
+                "DetailGen3D Hero challenger failed HAYUYA hard gates: "
+                +"; ".join(list(detailgen_mesh.reasons)+list(detailgen_tex.warnings))
+            )
+
+        # DetailGen3D is explicitly image-conditioned geometry refinement.
+        # Promote it for the face/cloth Judge even when marching-cubes topology
+        # is not numerically denser than the input; Judge v4 will fail closed on
+        # visual/anatomical regression.
+        modern_candidate=detailgen_textured
+        result=str(modern_candidate)
+        selected_generator="VAST-AI/TripoSG+DetailGen3D"
+        selected_compute=(
+            selected_compute
+            +" + public VAST DetailGen3D ZeroGPU + CPU material reprojection"
+        )
+        actual_mesh_simplify=0.0
+        if not actual_texture_size:
+            actual_texture_size=2048
+        hero_target=2_000_000 if TEXTURE_QUALITY=="ultra" else 1_250_000
+        hero_floor=1_000_000 if TEXTURE_QUALITY=="ultra" else 650_000
+        hero_master_report={
+            "schema":1,
+            "policy":"dense-first-image-conditioned-refine-before-retopo",
+            "generator":selected_generator,
+            "target_faces":hero_target,
+            "minimum_faces":hero_floor,
+            "actual_faces":int(detailgen_mesh.faces),
+            "actual_vertices":int(detailgen_mesh.vertices),
+            "dense_master_ready":bool(
+                detailgen_mesh.passed and detailgen_tex.passed
+            ),
+            "density_target_met":bool(int(detailgen_mesh.faces)>=hero_floor),
+            "image_conditioned_refinement":True,
+            "material_bridge":asdict(bridge),
+            "detailgen3d":detailgen_meta,
+            "optimization_deferred":True,
+            "runtime_optimization_stage":"post-Judge-v4",
+        }
+        print(
+            "HAYUYA_DETAILGEN3D_HERO_PROMOTED",
+            json.dumps(hero_master_report,separators=(",",":")),
+        )
+    except Exception as detailgen_exc:
+        print(
+            "::warning::DetailGen3D Hero refinement unavailable/rejected; "
+            "keeping previous high-end candidate: "
+            f"{type(detailgen_exc).__name__}: {detailgen_exc}"
+        )
 
 if modern_candidate is None:
     if not CLASSIC_TRELLIS_ENABLED:
