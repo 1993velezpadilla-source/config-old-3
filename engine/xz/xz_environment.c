@@ -66,18 +66,33 @@ int XzEnvironment_ReadLight(
 
     light->intensity = XzEnvReadF32Le(p + 44u);
     light->radius_meters = XzEnvReadF32Le(p + 48u);
-    light->units = XzEnvReadU32Le(p + 52u);
+    light->inner_cone_degrees = XzEnvReadF32Le(p + 52u);
+    light->outer_cone_degrees = XzEnvReadF32Le(p + 56u);
+    light->units = XzEnvReadU32Le(p + 60u);
 
     if (light->type < XZ_ENV_LIGHT_POINT ||
         light->type > XZ_ENV_LIGHT_SKY ||
-        (light->flags & ~((1u << 6) - 1u)) != 0u ||
+        (light->flags & ~((1u << 7) - 1u)) != 0u ||
         !XzEnvFinite3(light->position) ||
         !XzEnvFinite3(light->rotation) ||
         !XzEnvFinite3(light->color) ||
         !isfinite(light->intensity) ||
         !isfinite(light->radius_meters) ||
-        light->radius_meters < 0.0f)
+        light->radius_meters < 0.0f ||
+        !isfinite(light->inner_cone_degrees) ||
+        !isfinite(light->outer_cone_degrees))
         return 0;
+
+    if (light->type == XZ_ENV_LIGHT_SPOT) {
+        if ((light->flags & XZ_ENV_HAS_CONE) == 0u ||
+            light->inner_cone_degrees < 0.0f ||
+            light->outer_cone_degrees <=
+                light->inner_cone_degrees ||
+            light->outer_cone_degrees >= 90.0f)
+            return 0;
+    } else if ((light->flags & XZ_ENV_HAS_CONE) != 0u) {
+        return 0;
+    }
 
     return 1;
 }
