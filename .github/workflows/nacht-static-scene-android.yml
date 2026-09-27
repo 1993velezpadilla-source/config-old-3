@@ -210,6 +210,7 @@ jobs:
           var slotAliasMaterialLoads = 0;
           var params2TextureCandidates = 0;
           var params2VectorCandidates = 0;
+          var expressionExportTextureCandidates = 0;
 
           var meshMaterialRows =
               new List<Dictionary<string, string>>();
@@ -1174,6 +1175,164 @@ jobs:
               }
 
               /*
+               * Some cooked UE4 materials serialize texture-sample nodes as
+               * sibling package exports instead of exposing them through the
+               * UMaterialInterface.Expressions member or CMaterialParams2.
+               * Only probe those exports when the binding owner still has no
+               * plausible base-color candidate. This preserves every mapping
+               * already resolved by the stronger semantic paths above.
+               */
+              bool OwnerHasBaseColorCandidate()
+              {
+                  var ownerPath =
+                      ownerMaterial.GetPathName();
+
+                  foreach (
+                      var row
+                      in materialTextureRows)
+                  {
+                      if (
+                          !row.TryGetValue(
+                              "materialPath",
+                              out var rowPath)
+                          || !rowPath.Equals(
+                              ownerPath,
+                              StringComparison.OrdinalIgnoreCase))
+                      {
+                          continue;
+                      }
+
+                      var source =
+                          row.TryGetValue(
+                              "source",
+                              out var sourceValue)
+                              ? sourceValue.ToLowerInvariant()
+                              : "";
+
+                      var textureName =
+                          row.TryGetValue(
+                              "textureName",
+                              out var textureValue)
+                              ? textureValue.ToLowerInvariant()
+                              : "";
+
+                      var obviousNormal =
+                          textureName.EndsWith(
+                              "_n",
+                              StringComparison.Ordinal)
+                          || textureName.Contains(
+                              "_normal",
+                              StringComparison.Ordinal)
+                          || textureName.Contains(
+                              "normalmap",
+                              StringComparison.Ordinal)
+                          || source.Contains(
+                              "normal",
+                              StringComparison.Ordinal);
+
+                      if (obviousNormal)
+                          continue;
+
+                      if (
+                          source.Contains(
+                              "albedo",
+                              StringComparison.Ordinal)
+                          || source.Contains(
+                              "basecolor",
+                              StringComparison.Ordinal)
+                          || source.Contains(
+                              "diffuse",
+                              StringComparison.Ordinal)
+                          || textureName.EndsWith(
+                              "_c",
+                              StringComparison.Ordinal)
+                          || textureName.EndsWith(
+                              "_d",
+                              StringComparison.Ordinal)
+                          || textureName.Contains(
+                              "albedo",
+                              StringComparison.Ordinal)
+                          || textureName.Contains(
+                              "diffuse",
+                              StringComparison.Ordinal)
+                          || textureName.Contains(
+                              "basecolor",
+                              StringComparison.Ordinal))
+                      {
+                          return true;
+                      }
+                  }
+
+                  return false;
+              }
+
+              if (
+                  !OwnerHasBaseColorCandidate()
+                  && packageBasenames.TryGetValue(
+                      sourceMaterial.Name,
+                      out var expressionPackages))
+              {
+                  foreach (
+                      var expressionPackagePath
+                      in expressionPackages)
+                  {
+                      try
+                      {
+                          var expressionPackage =
+                              provider.LoadPackage(
+                                  expressionPackagePath);
+
+                          foreach (
+                              var expressionExport
+                              in expressionPackage.GetExports())
+                          {
+                              var textureRef =
+                                  expressionExport
+                                      .GetOrDefault<FPackageIndex?>(
+                                          "Texture");
+
+                              if (textureRef is null)
+                                  continue;
+
+                              var before =
+                                  materialTextureRows.Count;
+
+                              QueueTextureCandidate(
+                                  textureRef,
+                                  ownerMaterial,
+                                  "expression-export");
+
+                              if (
+                                  materialTextureRows.Count
+                                  > before)
+                              {
+                                  expressionExportTextureCandidates++;
+
+                                  Console.WriteLine(
+                                      $"texture-expression-export"
+                                      + $" material={sourceMaterial.Name}"
+                                      + $" owner={ownerMaterial.Name}"
+                                      + $" expression={expressionExport.Name}"
+                                      + $" texture={textureRef.Value.Name}"
+                                      + $" package={expressionPackagePath}");
+                              }
+                          }
+                      }
+                      catch (Exception e)
+                      {
+                          Console.WriteLine(
+                              $"material-expression-export-error"
+                              + $" material={sourceMaterial.Name}"
+                              + $" package={expressionPackagePath}"
+                              + $" error={e.Message}");
+                      }
+
+                      if (OwnerHasBaseColorCandidate())
+                          break;
+                  }
+              }
+
+              /*
                * Walk material-instance inheritance so textures
                * supplied by parent materials are not omitted.
                */
@@ -1662,6 +1821,8 @@ jobs:
                       params2TextureCandidates,
                   params2VectorCandidates =
                       params2VectorCandidates,
+                  expressionExportTextureCandidates =
+                      expressionExportTextureCandidates,
                   textures =
                       explicitTextureRows,
                   bindings =
@@ -1691,6 +1852,7 @@ jobs:
               + $" slotAliasMaterialLoads={slotAliasMaterialLoads}"
               + $" params2TextureCandidates={params2TextureCandidates}"
               + $" params2VectorCandidates={params2VectorCandidates}"
+              + $" expressionExportTextureCandidates={expressionExportTextureCandidates}"
               + $" vectorParameters={materialVectorRows.Count}");
 
           Console.WriteLine(
