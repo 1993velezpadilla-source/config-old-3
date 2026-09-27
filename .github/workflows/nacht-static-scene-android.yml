@@ -132,6 +132,7 @@ jobs:
           using CUE4Parse.UE4.Assets.Exports.Material;
           using CUE4Parse.UE4.Assets.Exports.Texture;
           using CUE4Parse.UE4.Objects.UObject;
+          using CUE4Parse.UE4.Objects.Engine;
           using CUE4Parse_Conversion;
           using CUE4Parse_Conversion.Options;
           using CUE4Parse_Conversion.Textures;
@@ -1313,7 +1314,7 @@ jobs:
                                       + $" material={sourceMaterial.Name}"
                                       + $" owner={ownerMaterial.Name}"
                                       + $" expression={expressionExport.Name}"
-                                      + $" texture={textureRef.Value.Name}"
+                                      + $" texture={textureRef.Name}"
                                       + $" package={expressionPackagePath}");
                               }
                           }
