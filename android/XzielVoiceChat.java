@@ -68,6 +68,7 @@ public final class XzielVoiceChat {
 
     private final Activity activity;
     private final OkHttpClient http;
+    private final Runnable ciEvidenceDoneCallback;
     private final ConcurrentHashMap<Integer, AudioTrack> remoteTracks =
         new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Integer, Boolean> playerMuted =
@@ -102,9 +103,11 @@ public final class XzielVoiceChat {
     private NoiseSuppressor noiseSuppressor;
     private AutomaticGainControl automaticGainControl;
 
-    public XzielVoiceChat(Activity activity, OkHttpClient http) {
+    public XzielVoiceChat(Activity activity, OkHttpClient http,
+                          Runnable ciEvidenceDoneCallback) {
         this.activity = activity;
         this.http = http;
+        this.ciEvidenceDoneCallback = ciEvidenceDoneCallback;
     }
 
     public void connect(String endpoint, String code, String id, int slot) {
@@ -260,6 +263,12 @@ public final class XzielVoiceChat {
         refreshPausePanel();
         toast("PLAYER " + slot + (muted ? " MUTED" : " UNMUTED"));
         Log.i(TAG, "PLAYER_MUTE slot=" + slot + " muted=" + muted);
+
+        // CI completion is tied to the last real evidence interaction: a
+        // successful per-player mute. Normal gameplay gets a no-op callback.
+        if (muted && ciEvidenceDoneCallback != null) {
+            ciEvidenceDoneCallback.run();
+        }
     }
 
     public void sendCiTestTone() {
