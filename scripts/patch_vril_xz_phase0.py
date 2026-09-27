@@ -1302,12 +1302,37 @@ if "XZ_VISIBLE_PRESENT_COMPOSITE" not in screen:
         1,
     )
 
+preswap_anchor = (
+    "\tV_UpdatePalette ();\n\n"
+    "\tGL_EndRendering ();\n"
+)
+if "XZ_PRESENT_LUMA_PRESWAP" not in screen:
+    if preswap_anchor not in screen:
+        raise SystemExit("Missing pre-swap luma audit anchor")
+    preswap_block = (
+        "\tV_UpdatePalette ();\n\n"
+        "#ifdef __ANDROID__\n"
+        "\t/* XZ_PRESENT_LUMA_PRESWAP */\n"
+        "\tXzAndroidRuntime_AuditLegacyPresentBeforeSwap(\n"
+        "\t\t(unsigned int)glwidth,\n"
+        "\t\t(unsigned int)glheight);\n"
+        "#endif\n"
+        "\tGL_EndRendering ();\n"
+    )
+    screen = screen.replace(
+        preswap_anchor,
+        preswap_block,
+        1,
+    )
+
 r_screen.write_text(screen, encoding="utf-8")
 
 if screen.count('#include "../xz_android_runtime.h"') != 1:
     raise SystemExit("Visible present header injection count mismatch")
 if screen.count("XZ_VISIBLE_PRESENT_COMPOSITE") != 1:
     raise SystemExit("Visible present composite injection count mismatch")
+if screen.count("XZ_PRESENT_LUMA_PRESWAP") != 1:
+    raise SystemExit("Pre-swap luma audit injection count mismatch")
 
 
 # Validate the expected integration exactly once. Failing here is preferable to
