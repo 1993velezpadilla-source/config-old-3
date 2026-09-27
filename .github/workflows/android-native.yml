@@ -33,6 +33,7 @@ on:
       - feature/xz-full-world-raster-retirement
       - feature/xziel-engine-nacht-runtime-v1
       - feature/xziel-nacht-weapon-runtime-v1
+      - feature/xziel-nacht-mystery-box-runtime-v1
     paths:
       - ".github/workflows/android-native.yml"
       - "android/**"
@@ -249,6 +250,18 @@ jobs:
             engine/xz/xz_nacht_reference.c \
             -lm -o /tmp/xz_nacht_weapon_bindings_test
           /tmp/xz_nacht_weapon_bindings_test
+
+      - name: Test XZIEL Nacht Mystery Box runtime
+        shell: bash
+        run: |
+          python3 tools/weapons/generate_nacht_mystery_box_runtime.py
+          git diff --exit-code -- engine/xz/xz_nacht_mystery_box_pool.generated.inc
+          cc -std=c99 -O2 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tests/xz_nacht_mystery_box_test.c \
+            engine/xz/xz_nacht_mystery_box.c \
+            -o /tmp/xz_nacht_mystery_box_test
+          /tmp/xz_nacht_mystery_box_test
 
       - name: Test XZIEL map identity runtime
         shell: bash
