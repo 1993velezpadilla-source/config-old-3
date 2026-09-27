@@ -3009,6 +3009,8 @@ static void XzDestroyStaticSceneCurrent(
         xz_shadow.static_instance_vbo = 0u;
     }
 
+    XzStaticDestroyClusterTextures();
+
     XzStaticSceneDrawPlan_Reset(
         &xz_shadow.static_draw_plan);
     xz_shadow.static_draw_plan_ready = 0;
@@ -3029,7 +3031,11 @@ static void XzDestroyStaticSceneCurrent(
         state->static_scene_local_light_active = 0u;
         state->static_scene_local_light_camera_affecting = 0u;
         state->static_scene_local_light_dropped_affecting = 0u;
+        state->static_scene_light_grid_cells = 0u;
+        state->static_scene_light_grid_max_per_cell = 0u;
+        state->static_scene_light_grid_bytes = 0u;
         state->static_scene_local_lighting_ready = 0;
+        state->static_scene_clustered_lighting_ready = 0;
         state->static_scene_gpu_ready = 0;
         state->static_scene_last_draw_calls = 0u;
         state->static_scene_last_instances = 0u;
@@ -3510,6 +3516,17 @@ int XzGles3Shadow_UploadStaticScene(
 
     xz_shadow.static_draw_plan_ready = 1;
 
+    if (state->static_scene_local_lighting_ready) {
+        if (!XzStaticUploadClusterTextures(
+                state,
+                scene))
+            goto fail;
+    } else if (strcmp(
+                   scene->map_id,
+                   "xziel_nacht_bo3") == 0) {
+        goto fail;
+    }
+
     xz_shadow.gl.BindVertexArray(0u);
     xz_shadow.gl.BindBuffer(
         GL_ARRAY_BUFFER, 0u);
@@ -3552,7 +3569,11 @@ int XzGles3Shadow_UploadStaticScene(
           state->static_scene_lighting_ready &&
           state->static_scene_local_lighting_ready &&
           state->static_scene_local_light_count ==
-              XZ_STATIC_LOCAL_LIGHT_SOURCE_MAX));
+              XZ_STATIC_LOCAL_LIGHT_SOURCE_MAX &&
+          state->static_scene_clustered_lighting_ready &&
+          state->static_scene_light_grid_cells > 0u &&
+          state->static_scene_light_grid_max_per_cell <=
+              XZ_STATIC_LIGHT_GRID_CAPACITY));
 
     if (!state->static_scene_gpu_ready)
         goto fail_current_owned;
