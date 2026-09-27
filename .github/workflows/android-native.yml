@@ -237,6 +237,19 @@ jobs:
             -lm -o /tmp/xz_bo3_weapon_runtime_test
           /tmp/xz_bo3_weapon_runtime_test
 
+      - name: Test XZIEL Nacht weapon bindings
+        shell: bash
+        run: |
+          cc -std=c99 -O2 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tests/xz_nacht_weapon_bindings_test.c \
+            engine/xz/xz_nacht_weapon_bindings.c \
+            engine/xz/xz_bo3_weapon_runtime.c \
+            engine/xz/xz_bo3_weapon_specs.c \
+            engine/xz/xz_nacht_reference.c \
+            -lm -o /tmp/xz_nacht_weapon_bindings_test
+          /tmp/xz_nacht_weapon_bindings_test
+
       - name: Test XZIEL map identity runtime
         shell: bash
         run: |

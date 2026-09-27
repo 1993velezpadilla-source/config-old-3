@@ -8,8 +8,10 @@ on:
     paths:
       - "engine/xz/xz_bo3_weapon_specs.*"
       - "engine/xz/xz_bo3_weapon_runtime.*"
+      - "engine/xz/xz_nacht_weapon_bindings.*"
       - "tests/xz_bo3_weapon_specs_test.c"
       - "tests/xz_bo3_weapon_runtime_test.c"
+      - "tests/xz_nacht_weapon_bindings_test.c"
       - "assets/weapons/**"
       - "assets/nacht_reference/runtime_reference_v1.json"
       - "tools/weapons/**"
@@ -60,6 +62,21 @@ jobs:
             -lm \
             -o /tmp/xz_bo3_weapon_runtime_test
           /tmp/xz_bo3_weapon_runtime_test
+
+      - name: Build and run Nacht wall-buy binding tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cc -std=c99 -O2 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tests/xz_nacht_weapon_bindings_test.c \
+            engine/xz/xz_nacht_weapon_bindings.c \
+            engine/xz/xz_bo3_weapon_runtime.c \
+            engine/xz/xz_bo3_weapon_specs.c \
+            engine/xz/xz_nacht_reference.c \
+            -lm \
+            -o /tmp/xz_nacht_weapon_bindings_test
+          /tmp/xz_nacht_weapon_bindings_test
 
       - name: Assert native playable gate remains conservative
         shell: bash
