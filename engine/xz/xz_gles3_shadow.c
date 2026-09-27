@@ -1871,10 +1871,12 @@ static int XzCreateStaticSceneProgram(void)
         "uniform float uDirectionalWeight;\n"
         "uniform vec3 uDirectionalColor;\n"
         "uniform vec3 uDirectionalDirection;\n"
+        "uniform float uDirectionalSpecularScale;\n"
         "uniform int uLocalLightCount;\n"
         "uniform vec4 uLocalPosInvRadius[64];\n"
         "uniform vec4 uLocalColorCone[64];\n"
         "uniform vec4 uLocalDirCosOuter[64];\n"
+        "uniform vec4 uLocalSpecular[64];\n"
         "uniform vec3 uCameraPosGame;\n"
         "uniform vec4 uFogPrimary;\n"
         "uniform vec4 uFogColorMin;\n"
@@ -1989,8 +1991,40 @@ static int XzCreateStaticSceneProgram(void)
         "    float specLobe=pow(ndh,shininess)*ndl;\n"
         "    vec3 f0=mix(vec3(0.08*specular),albedo,metallic);\n"
         "    vec3 diffuse=albedo*light*(1.0-metallic);\n"
-        "    vec3 directSpec=f0*(specLobe*uDirectionalWeight)*uDirectionalColor;\n"
-        "    lit=diffuse+directSpec+albedo*emissive;\n"
+        "    vec3 directSpec=f0*(specLobe*uDirectionalWeight*uDirectionalSpecularScale)*uDirectionalColor;\n"
+        "    vec3 localSpec=vec3(0.0);\n"
+        "    for(int i=0;i<64;++i){\n"
+        "      if(i>=uLocalLightCount) break;\n"
+        "      float lightSpecScale=uLocalSpecular[i].x;\n"
+        "      if(lightSpecScale<=0.0) continue;\n"
+        "      vec4 pr=uLocalPosInvRadius[i];\n"
+        "      vec3 toLightGame=pr.xyz-vWorldPos;\n"
+        "      float gameD2=max(dot(toLightGame,toLightGame),1.0e-8);\n"
+        "      vec3 L=toLightGame*inversesqrt(gameD2);\n"
+        "      float localNdl=max(dot(n,L),0.0);\n"
+        "      if(localNdl<=0.0) continue;\n"
+        "      vec3 toLightCm=toLightGame*2.54;\n"
+        "      float d2=max(dot(toLightCm,toLightCm),1.0e-4);\n"
+        "      float invR=abs(pr.w);\n"
+        "      float q=d2*invR*invR;\n"
+        "      float radiusMask=clamp(1.0-q*q,0.0,1.0);\n"
+        "      radiusMask*=radiusMask;\n"
+        "      float spot=1.0;\n"
+        "      if(pr.w<0.0){\n"
+        "        vec4 dc=uLocalDirCosOuter[i];\n"
+        "        float cone=dot(-L,normalize(dc.xyz));\n"
+        "        spot=clamp((cone-dc.w)*uLocalColorCone[i].w,0.0,1.0);\n"
+        "        spot*=spot;\n"
+        "      }\n"
+        "      float attenuation=(1.0/(d2+1.0))*radiusMask*spot;\n"
+        "      vec3 localHalfRaw=V+L;\n"
+        "      float localHalfLen2=dot(localHalfRaw,localHalfRaw);\n"
+        "      vec3 localH=localHalfLen2>1.0e-6?localHalfRaw*inversesqrt(localHalfLen2):n;\n"
+        "      float localNdh=max(dot(n,localH),0.0);\n"
+        "      float localSpecLobe=pow(localNdh,shininess)*localNdl;\n"
+        "      localSpec+=f0*uLocalColorCone[i].rgb*(attenuation*localSpecLobe*lightSpecScale);\n"
+        "    }\n"
+        "    lit=diffuse+directSpec+localSpec+albedo*emissive;\n"
         "  }\n"
         "  float fogT=ueFogTransmission(vWorldPos);\n"
         "  vec3 fogged=lit*fogT+uFogColorMin.rgb*(1.0-fogT);\n"
@@ -2077,6 +2111,10 @@ static int XzCreateStaticSceneProgram(void)
         gl->GetUniformLocation(
             xz_shadow.static_program,
             "uDirectionalDirection");
+    xz_shadow.static_directional_specular_scale_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uDirectionalSpecularScale");
     xz_shadow.static_local_light_count_loc =
         gl->GetUniformLocation(
             xz_shadow.static_program,
@@ -2093,6 +2131,10 @@ static int XzCreateStaticSceneProgram(void)
         gl->GetUniformLocation(
             xz_shadow.static_program,
             "uLocalDirCosOuter[0]");
+    xz_shadow.static_local_specular_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uLocalSpecular[0]");
     xz_shadow.static_camera_pos_loc =
         gl->GetUniformLocation(
             xz_shadow.static_program,
@@ -2128,10 +2170,12 @@ static int XzCreateStaticSceneProgram(void)
         xz_shadow.static_directional_weight_loc < 0 ||
         xz_shadow.static_directional_color_loc < 0 ||
         xz_shadow.static_directional_direction_loc < 0 ||
+        xz_shadow.static_directional_specular_scale_loc < 0 ||
         xz_shadow.static_local_light_count_loc < 0 ||
         xz_shadow.static_local_pos_inv_radius_loc < 0 ||
         xz_shadow.static_local_color_cone_loc < 0 ||
         xz_shadow.static_local_dir_cos_outer_loc < 0 ||
+        xz_shadow.static_local_specular_loc < 0 ||
         xz_shadow.static_camera_pos_loc < 0 ||
         xz_shadow.static_fog_primary_loc < 0 ||
         xz_shadow.static_fog_color_min_loc < 0 ||
