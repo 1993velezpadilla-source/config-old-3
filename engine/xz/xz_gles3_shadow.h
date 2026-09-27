@@ -118,6 +118,13 @@ typedef struct {
     unsigned int static_scene_local_light_camera_affecting;
     unsigned int static_scene_local_light_dropped_affecting;
     int static_scene_local_lighting_ready;
+    unsigned int static_scene_light_specular_bindings;
+    unsigned int static_scene_light_specular_authored;
+    unsigned int static_scene_local_specular_authored;
+    unsigned int static_scene_last_active_specular_lights;
+    int static_scene_directional_specular_authored;
+    float static_scene_directional_specular_scale;
+    int static_scene_light_specular_ready;
     int static_scene_height_fog_ready;
     int static_scene_directional_fog_enabled;
     float static_scene_fog_density;
