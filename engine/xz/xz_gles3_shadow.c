@@ -5049,6 +5049,63 @@ cleanup:
     return ok;
 }
 
+static int XzMeasureFramebufferMeanRgba(
+    XzNativeGles3Api *gl,
+    unsigned int width,
+    unsigned int height,
+    unsigned int out_rgba[4])
+{
+    unsigned char *pixels;
+    size_t pixel_count;
+    size_t byte_count;
+    size_t i;
+    uint64_t sums[4] = { 0u, 0u, 0u, 0u };
+
+    if (!gl || !gl->ReadPixels ||
+        !out_rgba ||
+        width == 0u || height == 0u)
+        return 0;
+
+    pixel_count = (size_t)width * (size_t)height;
+    if (pixel_count == 0u ||
+        pixel_count > ((size_t)-1) / 4u)
+        return 0;
+
+    byte_count = pixel_count * 4u;
+    pixels = (unsigned char *)malloc(byte_count);
+    if (!pixels)
+        return 0;
+
+    gl->ReadPixels(
+        0, 0,
+        (GLsizei)width,
+        (GLsizei)height,
+        GL_RGBA,
+        GL_UNSIGNED_BYTE,
+        pixels);
+
+    if (gl->GetError() != GL_NO_ERROR) {
+        free(pixels);
+        return 0;
+    }
+
+    for (i = 0u; i < pixel_count; ++i) {
+        const unsigned char *p = pixels + i * 4u;
+        sums[0] += p[0];
+        sums[1] += p[1];
+        sums[2] += p[2];
+        sums[3] += p[3];
+    }
+
+    out_rgba[0] = (unsigned int)(sums[0] / pixel_count);
+    out_rgba[1] = (unsigned int)(sums[1] / pixel_count);
+    out_rgba[2] = (unsigned int)(sums[2] / pixel_count);
+    out_rgba[3] = (unsigned int)(sums[3] / pixel_count);
+
+    free(pixels);
+    return 1;
+}
+
 static unsigned int XzCountNonBlackPixels(
     XzNativeGles3Api *gl,
     unsigned int width,
@@ -5228,8 +5285,15 @@ int XzGles3Shadow_CompositeVisibleWorld(
         state->static_scene_readback_height =
             readback_ok ? render_height : 0u;
 
-        if (!readback_ok)
+        if (!readback_ok) {
             state->readback_failures++;
+        } else if (!XzMeasureFramebufferMeanRgba(
+                       gl,
+                       render_width,
+                       render_height,
+                       state->static_scene_preoverlay_mean_rgba)) {
+            state->readback_failures++;
+        }
     }
 
     if (!XzDrawRealGeometry(
@@ -5239,6 +5303,17 @@ int XzGles3Shadow_CompositeVisibleWorld(
         state->last_geometry_drops != 0u ||
         state->last_texture_misses != 0u)
         goto fail;
+
+    if (state->static_scene_draw_successes == 1u &&
+        state->static_scene_readback_width != 0u &&
+        state->static_scene_postoverlay_mean_rgba[3] == 0u) {
+        if (!XzMeasureFramebufferMeanRgba(
+                gl,
+                render_width,
+                render_height,
+                state->static_scene_postoverlay_mean_rgba))
+            state->readback_failures++;
+    }
 
     gl->Finish();
     error = gl->GetError();
@@ -5305,8 +5380,15 @@ int XzGles3Shadow_CompositeVisibleWorld(
                 (unsigned int)surface_height,
                 &readback_ok);
 
-        if (!readback_ok)
+        if (!readback_ok) {
             state->readback_failures++;
+        } else if (!XzMeasureFramebufferMeanRgba(
+                       gl,
+                       (unsigned int)surface_width,
+                       (unsigned int)surface_height,
+                       state->static_scene_surface_mean_rgba)) {
+            state->readback_failures++;
+        }
     }
 
     error = gl->GetError();
