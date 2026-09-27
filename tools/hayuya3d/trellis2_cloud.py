@@ -360,7 +360,22 @@ def generate(
 
     extract_ep,extract_spec=_endpoint(named,"/extract_glb","extract_glb")
     texture_size=4096 if quality in {"high","ultra"} else 2048
-    faces=500000 if quality=="ultra" else 300000
+
+    # Hero Master policy: high-end reconstruction stays dense until after
+    # source/face/cloth fidelity gates. Runtime retopology happens downstream.
+    # The previous 300k/500k extraction target was effectively an early
+    # decimation step and erased exactly the facial/cloth detail we need to
+    # preserve for Monster/Ultra assets.
+    if quality=="ultra":
+        faces=2_000_000
+        hero_min_faces=1_000_000
+    elif quality=="high":
+        faces=1_250_000
+        hero_min_faces=650_000
+    else:
+        faces=500_000
+        hero_min_faces=0
+
     extract_values={
         "state":state,
         "output_buf":state,
@@ -407,5 +422,8 @@ def generate(
         "generation_checkpoint":checkpoint,
         "texture_size":texture_size,
         "faces_target":faces,
+        "hero_master_target_faces":faces,
+        "hero_master_min_faces":hero_min_faces,
+        "hero_master_policy":"dense-first-fidelity-before-retopo",
         "bytes":len(data),
     }
