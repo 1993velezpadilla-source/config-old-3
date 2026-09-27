@@ -1440,6 +1440,8 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             " materialReady=%d gpuTextures=%u"
             " gpuTextureBytes=%" PRIu64
             " materialBindings=%u mappedBindings=%u"
+            " normalBindings=%u normalMapped=%u"
+            " normalTextures=%u normalBytes=%zu normalGpuReady=%d"
             " pbrBindings=%u pbrBytes=%zu"
             " pbrGpuReady=%d pbrAuthored=%u"
             " envLights=%u envPoint=%u envSpot=%u"
@@ -1479,6 +1481,11 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             xz_runtime.gles3_shadow.static_scene_gpu_texture_bytes,
             xz_runtime.gles3_shadow.static_scene_material_bindings,
             xz_runtime.gles3_shadow.static_scene_material_mapped_bindings,
+            xz_runtime.gles3_shadow.static_scene_normal_bindings,
+            xz_runtime.gles3_shadow.static_scene_normal_mapped_bindings,
+            xz_runtime.gles3_shadow.static_scene_gpu_normal_textures,
+            xz_runtime.static_scene.normal_material_bytes,
+            xz_runtime.gles3_shadow.static_scene_normal_ready,
             xz_runtime.static_scene.pbr_material_data
                 ? xz_runtime.static_scene.pbr_material.binding_count
                 : 0u,
@@ -1678,6 +1685,7 @@ int XzAndroidRuntime_CompositeVisibleWorld(void)
             " postRestorePixels=%u"
             " readback=%ux%u"
             " localLights=%u active=%u affecting=%u dropped=%u"
+            " normalReady=%d normalApplied=%u normalMapped=%u"
             " pbrReady=%d pbrApplied=%u pbrAuthored=%u"
             " heightFogReady=%d directionalFog=%d"
             " fogDensity=%.6f fogFalloff=%.6f"
@@ -1696,6 +1704,9 @@ int XzAndroidRuntime_CompositeVisibleWorld(void)
             xz_runtime.gles3_shadow.static_scene_local_light_active,
             xz_runtime.gles3_shadow.static_scene_local_light_camera_affecting,
             xz_runtime.gles3_shadow.static_scene_local_light_dropped_affecting,
+            xz_runtime.gles3_shadow.static_scene_normal_ready,
+            xz_runtime.gles3_shadow.static_scene_last_normal_bindings,
+            xz_runtime.gles3_shadow.static_scene_normal_mapped_bindings,
             xz_runtime.gles3_shadow.static_scene_pbr_ready,
             xz_runtime.gles3_shadow.static_scene_last_pbr_bindings,
             xz_runtime.gles3_shadow.static_scene_pbr_authored_bindings,
