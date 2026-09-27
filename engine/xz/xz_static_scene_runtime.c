@@ -14,6 +14,9 @@
 #define XZ_STATIC_SCENE_MAX_MATERIAL_BYTES \
     (384u * 1024u * 1024u)
 
+#define XZ_STATIC_SCENE_MAX_PBR_MATERIAL_BYTES \
+    (64u * 1024u)
+
 #define XZ_STATIC_SCENE_MAX_ENVIRONMENT_BYTES \
     (256u * 1024u)
 
@@ -331,6 +334,9 @@ void XzStaticSceneRuntime_Reset(
     if (state->material_data)
         free(state->material_data);
 
+    if (state->pbr_material_data)
+        free(state->pbr_material_data);
+
     if (state->environment_data)
         free(state->environment_data);
 
@@ -349,6 +355,10 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
     size_t scene_bytes = 0u;
     unsigned char *material_data = NULL;
     size_t material_bytes = 0u;
+    unsigned char *pbr_material_data = NULL;
+    size_t pbr_material_bytes = 0u;
+    XzPbrMaterialView pbr_material;
+    XzPbrMaterialStatus pbr_material_status;
     unsigned char *environment_data = NULL;
     size_t environment_bytes = 0u;
     XzEnvironmentView environment;
@@ -362,6 +372,7 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
     XzStaticMeshResource *resources = NULL;
     char scene_path[256];
     char material_path[256];
+    char pbr_material_path[256];
     char environment_path[256];
     char height_fog_path[256];
     char mesh_prefix[160];
@@ -670,6 +681,69 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
     }
 
     if (snprintf(
+            pbr_material_path,
+            sizeof(pbr_material_path),
+            "xziel/maps/%s/materials.xzpb",
+            map_id) <= 0 ||
+        strlen(pbr_material_path) >=
+            sizeof(pbr_material_path) - 1u) {
+        snprintf(
+            failure,
+            sizeof(failure),
+            "%s",
+            "pbr_material_path_overflow");
+        goto invalid;
+    }
+
+    read_status = XzReadVfsFile(
+        pbr_material_path,
+        XZ_STATIC_SCENE_MAX_PBR_MATERIAL_BYTES,
+        &pbr_material_data,
+        &pbr_material_bytes);
+
+    if (read_status < 0 ||
+        (read_status == 0 &&
+         strcmp(map_id, "xziel_nacht_bo3") == 0)) {
+        snprintf(
+            failure,
+            sizeof(failure),
+            "%s",
+            read_status == 0
+                ? "pbr_material_pack_missing"
+                : "pbr_material_pack_read_failed");
+        goto invalid;
+    }
+
+    if (read_status > 0) {
+        pbr_material_status =
+            XzPbrMaterial_Parse(
+                &pbr_material,
+                pbr_material_data,
+                pbr_material_bytes);
+
+        if (pbr_material_status !=
+                XZ_PBR_MATERIAL_OK) {
+            snprintf(
+                failure,
+                sizeof(failure),
+                "pbr_material_%s",
+                XzPbrMaterial_StatusName(
+                    pbr_material_status));
+            goto invalid;
+        }
+
+        if (pbr_material.binding_count !=
+                (uint32_t)submesh_total) {
+            snprintf(
+                failure,
+                sizeof(failure),
+                "%s",
+                "pbr_material_binding_mismatch");
+            goto invalid;
+        }
+    }
+
+    if (snprintf(
             environment_path,
             sizeof(environment_path),
             "xziel/maps/%s/environment.xzen",
@@ -828,6 +902,12 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
         material_texture_table_offset;
     state->material_binding_offset =
         material_binding_offset;
+    state->pbr_material_data =
+        pbr_material_data;
+    state->pbr_material_bytes =
+        pbr_material_bytes;
+    if (pbr_material_data)
+        state->pbr_material = pbr_material;
     state->environment_data =
         environment_data;
     state->environment_bytes =
@@ -847,6 +927,13 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
             sizeof(state->material_path),
             "%s",
             material_path);
+    }
+    if (pbr_material_data) {
+        snprintf(
+            state->pbr_material_path,
+            sizeof(state->pbr_material_path),
+            "%s",
+            pbr_material_path);
     }
     if (environment_data) {
         snprintf(
@@ -884,6 +971,7 @@ invalid:
         scene.mesh_count);
     free(scene_data);
     free(material_data);
+    free(pbr_material_data);
     free(environment_data);
     free(height_fog_data);
 
@@ -1004,6 +1092,24 @@ int XzStaticSceneRuntime_Texture(
         state->material_data + offset;
     texture->rgba_bytes = (size_t)bytes;
     return 1;
+}
+
+int XzStaticSceneRuntime_PbrBinding(
+    const XzStaticSceneRuntimeState *state,
+    uint32_t binding_index,
+    XzPbrMaterialBinding *binding)
+{
+    if (!state ||
+        state->status !=
+            XZ_STATIC_SCENE_READY ||
+        !state->pbr_material_data ||
+        !binding)
+        return 0;
+
+    return XzPbrMaterial_ReadBinding(
+        &state->pbr_material,
+        binding_index,
+        binding) == XZ_PBR_MATERIAL_OK;
 }
 
 const XzEnvironmentView *
