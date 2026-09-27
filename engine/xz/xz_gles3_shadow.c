@@ -3863,6 +3863,8 @@ static int XzDrawStaticScene(
         XZ_STATIC_LOCAL_LIGHT_ACTIVE_MAX * 4u];
     float local_directions[
         XZ_STATIC_LOCAL_LIGHT_ACTIVE_MAX * 4u];
+    float local_specular[
+        XZ_STATIC_LOCAL_LIGHT_ACTIVE_MAX * 4u];
     uint32_t active_local_lights;
 
     if (!state ||
@@ -3886,6 +3888,7 @@ static int XzDrawStaticScene(
             local_positions,
             local_colors,
             local_directions,
+            local_specular,
             state);
 
     if (!state->static_scene_local_lighting_ready ||
@@ -3936,6 +3939,9 @@ static int XzDrawStaticScene(
         xz_shadow.static_directional_direction_loc,
         1,
         xz_shadow.static_directional_direction);
+    gl->Uniform1f(
+        xz_shadow.static_directional_specular_scale_loc,
+        xz_shadow.static_directional_specular_scale);
     gl->Uniform3fv(
         xz_shadow.static_camera_pos_loc,
         1,
@@ -3967,6 +3973,10 @@ static int XzDrawStaticScene(
             xz_shadow.static_local_dir_cos_outer_loc,
             (GLsizei)active_local_lights,
             local_directions);
+        gl->Uniform4fv(
+            xz_shadow.static_local_specular_loc,
+            (GLsizei)active_local_lights,
+            local_specular);
     }
 
     gl->Enable(GL_DEPTH_TEST);
