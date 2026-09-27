@@ -1,21 +1,24 @@
 #!/usr/bin/env python3
-"""Compile the persisted Pavlov Nacht environment into XZIEL XZEN v1.
+"""Compile the Pavlov Nacht environment into XZIEL XZEN v2.
 
-XZEN v1 deliberately preserves authored values and presence bits instead of
-inventing Unreal defaults. The runtime can therefore distinguish an explicitly
-serialized value from one that still needs class-default resolution.
+XZIEL consumes the persisted actor census plus a typed CUE4Parse local-light
+scan generated from the same Nacht_de_Untoten.umap. The typed scan resolves
+Point/Spot defaults that are present on ULightComponent even when the actor
+property snapshot omitted them.
 
 Header <4sIIIIII>:
-  magic='XZEN', version=1, lightCount, pointCount, spotCount,
+  magic='XZEN', version=2, lightCount, pointCount, spotCount,
   directionalCount, skyCount
 
-Light <II3f3f3fffI>:
+Light <II3f3f3ffffI>:
   type, flags,
   position.xyz meters in XZIEL basis,
-  rotation.pitch/yaw/roll degrees (only valid when HAS_ROTATION),
-  color.rgb linear 0..1 from serialized byte color (only when HAS_COLOR),
-  intensity (only valid when HAS_INTENSITY),
-  attenuationRadiusMeters (only valid when HAS_RADIUS),
+  rotation.pitch/yaw/roll degrees,
+  color.rgb sRGB 0..1,
+  intensity,
+  attenuationRadiusMeters,
+  innerConeAngleDegrees,
+  outerConeAngleDegrees,
   intensityUnits enum
 
 Flags:
@@ -25,6 +28,7 @@ Flags:
   bit3 HAS_INTENSITY
   bit4 HAS_RADIUS
   bit5 HAS_UNITS
+  bit6 HAS_CONE
 """
 
 from __future__ import annotations
@@ -38,9 +42,9 @@ ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ENV = ROOT / "assets/nacht_reference/pavlov_scene_reference/environment.json"
 
 MAGIC = b"XZEN"
-VERSION = 1
+VERSION = 2
 HEADER = struct.Struct("<4sIIIIII")
-LIGHT = struct.Struct("<II3f3f3fffI")
+LIGHT = struct.Struct("<II3f3f3ffffI")
 
 TYPE_POINT = 1
 TYPE_SPOT = 2
@@ -53,6 +57,7 @@ HAS_COLOR = 1 << 2
 HAS_INTENSITY = 1 << 3
 HAS_RADIUS = 1 << 4
 HAS_UNITS = 1 << 5
+HAS_CONE = 1 << 6
 
 UNIT_UNKNOWN = 0
 UNIT_CANDELAS = 1
@@ -76,8 +81,11 @@ CLASS_TO_TYPE = {
 
 UNIT_MAP = {
     "ELightUnits::Candelas": UNIT_CANDELAS,
+    "Candelas": UNIT_CANDELAS,
     "ELightUnits::Lumens": UNIT_LUMENS,
+    "Lumens": UNIT_LUMENS,
     "ELightUnits::Unitless": UNIT_UNIT_LESS,
+    "Unitless": UNIT_UNIT_LESS,
     "ELightUnits::EV": UNIT_EV100,
     "ELightUnits::EV100": UNIT_EV100,
 }
@@ -119,8 +127,80 @@ def _color3(value: object) -> tuple[float, float, float] | None:
     return (rgb[0], rgb[1], rgb[2])
 
 
-def compile_environment(source: Path, output: Path, report_path: Path | None) -> dict:
+def _color_hex3(value: object) -> tuple[float, float, float] | None:
+    if not isinstance(value, str):
+        return None
+    value = value.strip().lstrip("#")
+    if len(value) < 6:
+        return None
+    try:
+        return (
+            int(value[0:2], 16) / 255.0,
+            int(value[2:4], 16) / 255.0,
+            int(value[4:6], 16) / 255.0,
+        )
+    except ValueError:
+        return None
+
+
+def _typed_float(values: dict, key: str) -> float | None:
+    value = values.get(key)
+    if value in (None, ""):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _typed_rotation(values: dict) -> tuple[float, float, float] | None:
+    raw = values.get("RelativeRotation")
+    if not isinstance(raw, str):
+        return None
+    pieces = {}
+    for token in raw.split():
+        if "=" not in token:
+            continue
+        key, value = token.split("=", 1)
+        try:
+            pieces[key] = float(value)
+        except ValueError:
+            return None
+    if not all(k in pieces for k in ("P", "Y", "R")):
+        return None
+    return (pieces["P"], pieces["Y"], pieces["R"])
+
+
+def _load_typed_local_lights(path: Path | None) -> dict[str, dict]:
+    if path is None:
+        raise SystemExit("XZIEL XZEN v2 requires --typed-lights")
+    doc = json.loads(path.read_text(encoding="utf-8"))
+    rows = doc.get("rows")
+    if not isinstance(rows, list) or len(rows) != EXPECTED_POINT + EXPECTED_SPOT:
+        raise SystemExit("XZIEL XZEN rejected: typed local-light census must be 98")
+    result: dict[str, dict] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            raise SystemExit("XZIEL XZEN rejected: malformed typed local-light row")
+        actor = row.get("actor")
+        component = row.get("component")
+        values = component.get("values") if isinstance(component, dict) else None
+        if not isinstance(actor, str) or not actor or not isinstance(values, dict):
+            raise SystemExit("XZIEL XZEN rejected: malformed typed local-light component")
+        if actor in result:
+            raise SystemExit(f"XZIEL XZEN rejected: duplicate typed actor {actor}")
+        result[actor] = values
+    return result
+
+
+def compile_environment(
+    source: Path,
+    typed_lights_path: Path | None,
+    output: Path,
+    report_path: Path | None,
+) -> dict:
     doc = json.loads(source.read_text(encoding="utf-8"))
+    typed_lights = _load_typed_local_lights(typed_lights_path)
     actors = doc.get("actors")
     if not isinstance(actors, list) or len(actors) != EXPECTED_ENV_ACTORS:
         raise SystemExit(
@@ -162,6 +242,64 @@ def compile_environment(source: Path, output: Path, report_path: Path | None) ->
         unit_value = UNIT_MAP.get(units_name, UNIT_UNKNOWN)
         has_units = isinstance(units_name, str) and bool(units_name)
 
+        inner_cone = 0.0
+        outer_cone = 0.0
+        has_cone = False
+
+        if light_type in (TYPE_POINT, TYPE_SPOT):
+            name = actor.get("name")
+            typed = typed_lights.get(name) if isinstance(name, str) else None
+            if not isinstance(typed, dict):
+                raise SystemExit(
+                    f"XZIEL XZEN rejected: no typed local-light row for {name!r}"
+                )
+
+            typed_rotation = _typed_rotation(typed)
+            typed_color = _color_hex3(typed.get("LightColor"))
+            typed_intensity = _typed_float(typed, "Intensity")
+            typed_radius = _typed_float(typed, "AttenuationRadius")
+            typed_units = typed.get("IntensityUnits")
+
+            if typed_rotation is None or typed_color is None:
+                raise SystemExit(
+                    f"XZIEL XZEN rejected: typed transform/color missing for {name}"
+                )
+            if typed_intensity is None or typed_radius is None or typed_radius <= 0.0:
+                raise SystemExit(
+                    f"XZIEL XZEN rejected: typed intensity/radius missing for {name}"
+                )
+            if not isinstance(typed_units, str) or not typed_units:
+                raise SystemExit(
+                    f"XZIEL XZEN rejected: typed units missing for {name}"
+                )
+
+            rotation = typed_rotation
+            color = typed_color
+            intensity_value = typed_intensity
+            has_intensity = True
+            radius_m = typed_radius / 100.0
+            has_radius = True
+            units_name = typed_units
+            unit_value = UNIT_MAP.get(typed_units, UNIT_UNKNOWN)
+            has_units = unit_value != UNIT_UNKNOWN
+
+            if light_type == TYPE_SPOT:
+                typed_inner = _typed_float(typed, "InnerConeAngle")
+                typed_outer = _typed_float(typed, "OuterConeAngle")
+                if (
+                    typed_inner is None
+                    or typed_outer is None
+                    or typed_inner < 0.0
+                    or typed_outer <= typed_inner
+                    or typed_outer >= 90.0
+                ):
+                    raise SystemExit(
+                        f"XZIEL XZEN rejected: invalid spot cone for {name}"
+                    )
+                inner_cone = typed_inner
+                outer_cone = typed_outer
+                has_cone = True
+
         flags = 0
         if position is not None:
             flags |= HAS_POSITION
@@ -181,6 +319,8 @@ def compile_environment(source: Path, output: Path, report_path: Path | None) ->
             flags |= HAS_RADIUS
         if has_units:
             flags |= HAS_UNITS
+        if has_cone:
+            flags |= HAS_CONE
 
         rows.append((
             light_type,
@@ -190,6 +330,8 @@ def compile_environment(source: Path, output: Path, report_path: Path | None) ->
             *color,
             intensity_value,
             radius_m,
+            inner_cone,
+            outer_cone,
             unit_value,
         ))
         counts[light_type] += 1
@@ -204,6 +346,8 @@ def compile_environment(source: Path, output: Path, report_path: Path | None) ->
             "color": list(color),
             "intensity": intensity_value,
             "radiusMeters": radius_m,
+            "innerConeAngleDegrees": inner_cone,
+            "outerConeAngleDegrees": outer_cone,
             "units": units_name,
             "unitsEnum": unit_value,
         })
@@ -249,6 +393,8 @@ def compile_environment(source: Path, output: Path, report_path: Path | None) ->
         "withIntensity": sum(bool(row[1] & HAS_INTENSITY) for row in rows),
         "withRadius": sum(bool(row[1] & HAS_RADIUS) for row in rows),
         "withUnits": sum(bool(row[1] & HAS_UNITS) for row in rows),
+        "withCone": sum(bool(row[1] & HAS_CONE) for row in rows),
+        "typedLocalLightCount": len(typed_lights),
         "lights": report_rows,
     }
 
@@ -270,10 +416,16 @@ def compile_environment(source: Path, output: Path, report_path: Path | None) ->
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--source", type=Path, default=DEFAULT_ENV)
+    ap.add_argument("--typed-lights", type=Path, required=True)
     ap.add_argument("--output", type=Path, required=True)
     ap.add_argument("--report", type=Path)
     args = ap.parse_args()
-    compile_environment(args.source, args.output, args.report)
+    compile_environment(
+        args.source,
+        args.typed_lights,
+        args.output,
+        args.report,
+    )
     return 0
 
 
