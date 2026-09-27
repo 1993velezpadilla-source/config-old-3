@@ -29,8 +29,10 @@
 #define XZ_STATIC_SCENE_MAX_REFLECTION_BYTES \
     (2u * 1024u * 1024u)
 
-#define XZ_XZRC_HEADER_BYTES 64u
-#define XZ_XZRC_VERSION 1u
+#define XZ_XZRC_V1_HEADER_BYTES 64u
+#define XZ_XZRC_V2_HEADER_BYTES 96u
+#define XZ_XZRC_VERSION_MIN 1u
+#define XZ_XZRC_VERSION_MAX 2u
 #define XZ_XZRC_FACE_COUNT 6u
 #define XZ_XZRC_FORMAT_RGBA16F 1u
 #define XZ_XZRC_RGBA16F_BYTES_PER_TEXEL 8u
@@ -87,6 +89,7 @@ static int XzValidateReflectionPack(
     size_t size,
     XzReflectionCaptureView *view)
 {
+    uint32_t version;
     uint32_t cubemap_size;
     uint32_t mip_count;
     uint32_t face_count;
@@ -100,15 +103,18 @@ static int XzValidateReflectionPack(
     uint32_t mip;
 
     if (!data || !view ||
-        size < XZ_XZRC_HEADER_BYTES)
+        size < XZ_XZRC_V1_HEADER_BYTES)
         return 0;
 
     if (data[0] != 'X' ||
         data[1] != 'Z' ||
         data[2] != 'R' ||
-        data[3] != 'C' ||
-        XzStaticReadU32Le(data + 4u) !=
-            XZ_XZRC_VERSION)
+        data[3] != 'C')
+        return 0;
+
+    version = XzStaticReadU32Le(data + 4u);
+    if (version < XZ_XZRC_VERSION_MIN ||
+        version > XZ_XZRC_VERSION_MAX)
         return 0;
 
     cubemap_size = XzStaticReadU32Le(data + 8u);
@@ -125,7 +131,10 @@ static int XzValidateReflectionPack(
         pixel_format != XZ_XZRC_FORMAT_RGBA16F ||
         bytes_per_texel !=
             XZ_XZRC_RGBA16F_BYTES_PER_TEXEL ||
-        payload_offset != XZ_XZRC_HEADER_BYTES ||
+        payload_offset !=
+            (version >= 2u
+                ? XZ_XZRC_V2_HEADER_BYTES
+                : XZ_XZRC_V1_HEADER_BYTES) ||
         payload_offset > size ||
         payload_bytes > size - payload_offset ||
         (size_t)payload_offset +
@@ -162,6 +171,7 @@ static int XzValidateReflectionPack(
     view->face_count = face_count;
     view->pixel_format = pixel_format;
     view->bytes_per_texel = bytes_per_texel;
+    view->asset_version = version;
     view->average_brightness =
         XzStaticReadF32Le(data + 36u);
     view->brightness =
@@ -171,11 +181,50 @@ static int XzValidateReflectionPack(
         data + 44u,
         sizeof(view->map_build_data_id));
 
-    return
-        isfinite(view->average_brightness) &&
-        view->average_brightness > 0.0f &&
-        isfinite(view->brightness) &&
-        view->brightness > 0.0f;
+    if (version >= 2u) {
+        view->capture_position_meters[0] =
+            XzStaticReadF32Le(data + 64u);
+        view->capture_position_meters[1] =
+            XzStaticReadF32Le(data + 68u);
+        view->capture_position_meters[2] =
+            XzStaticReadF32Le(data + 72u);
+        view->influence_radius_meters =
+            XzStaticReadF32Le(data + 76u);
+        view->capture_offset_meters[0] =
+            XzStaticReadF32Le(data + 80u);
+        view->capture_offset_meters[1] =
+            XzStaticReadF32Le(data + 84u);
+        view->capture_offset_meters[2] =
+            XzStaticReadF32Le(data + 88u);
+        view->shape =
+            XzStaticReadU32Le(data + 92u);
+    }
+
+    if (!isfinite(view->average_brightness) ||
+        view->average_brightness <= 0.0f ||
+        !isfinite(view->brightness) ||
+        view->brightness <= 0.0f)
+        return 0;
+
+    if (version >= 2u) {
+        uint32_t axis;
+        if (view->shape !=
+                XZ_REFLECTION_SHAPE_SPHERE ||
+            !isfinite(
+                view->influence_radius_meters) ||
+            view->influence_radius_meters <= 0.0f)
+            return 0;
+
+        for (axis = 0u; axis < 3u; ++axis) {
+            if (!isfinite(
+                    view->capture_position_meters[axis]) ||
+                !isfinite(
+                    view->capture_offset_meters[axis]))
+                return 0;
+        }
+    }
+
+    return 1;
 }
 
 static int XzValidateMaterialPack(
@@ -1245,7 +1294,10 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
         if (strcmp(
                 map_id,
                 "xziel_nacht_bo3") == 0 &&
-            (reflection.cubemap_size != 128u ||
+            (reflection.asset_version != 2u ||
+             reflection.shape !=
+                 XZ_REFLECTION_SHAPE_SPHERE ||
+             reflection.cubemap_size != 128u ||
              reflection.mip_count != 8u ||
              reflection.face_count != 6u ||
              reflection.pixel_format !=
@@ -1258,6 +1310,27 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
              fabsf(
                  reflection.brightness -
                  1.0f) > 0.000001f ||
+             fabsf(
+                 reflection.capture_position_meters[0] -
+                 (-0.1090765381f)) > 0.000001f ||
+             fabsf(
+                 reflection.capture_position_meters[1] -
+                 0.0932865906f) > 0.000001f ||
+             fabsf(
+                 reflection.capture_position_meters[2] -
+                 2.6686132813f) > 0.000001f ||
+             fabsf(
+                 reflection.influence_radius_meters -
+                 30.0f) > 0.000001f ||
+             fabsf(
+                 reflection.capture_offset_meters[0]) >
+                 0.000001f ||
+             fabsf(
+                 reflection.capture_offset_meters[1]) >
+                 0.000001f ||
+             fabsf(
+                 reflection.capture_offset_meters[2]) >
+                 0.000001f ||
              memcmp(
                  reflection.map_build_data_id,
                  nacht_guid,
