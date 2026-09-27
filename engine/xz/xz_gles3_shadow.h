@@ -103,6 +103,11 @@ typedef struct {
     unsigned int static_scene_material_mapped_bindings;
     int static_scene_material_ready;
     int static_scene_lighting_ready;
+    unsigned int static_scene_local_light_count;
+    unsigned int static_scene_local_light_active;
+    unsigned int static_scene_local_light_camera_affecting;
+    unsigned int static_scene_local_light_dropped_affecting;
+    int static_scene_local_lighting_ready;
     int static_scene_gpu_ready;
 
     uint64_t static_scene_draw_attempts;

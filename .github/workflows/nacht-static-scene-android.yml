@@ -13,6 +13,8 @@ on:
       - feature/xziel-static-scene-material-final5-exact-gate
       - feature/xziel-nacht-decal-environment-v1
       - feature/xziel-nacht-light-components-166-v1
+      - feature/xziel-nacht-light-components-166-integrate-v1
+      - feature/xziel-nacht-local-light-render-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -38,9 +40,12 @@ on:
     branches:
       - feature/xziel-static-scene-material-final5
       - feature/xziel-nacht-decal-environment-v1
+      - feature/xziel-nacht-light-components-166-integrate-v1
     paths:
       - "engine/xz/xz_environment.*"
       - "engine/xz/xz_static_scene_runtime.*"
+      - "engine/xz/xz_android_runtime.*"
+      - "engine/xz/xz_gles3_shadow.*"
       - "tools/maps/compile_nacht_environment.py"
       - "tools/maps/NachtLightExtractor/**"
       - "scripts/patch_vril_xz_phase0.py"
@@ -2779,6 +2784,14 @@ jobs:
             dist/static-scene-logcat.txt
 
           grep -E \
+            "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*localLights=163.*localReady=1 error=''" \
+            dist/static-scene-logcat.txt
+
+          grep -E \
+            "XZIEL-XZ.*static_scene_draw ready=1.*localLights=163 active=64 affecting=[1-9][0-9]* dropped=0" \
+            dist/static-scene-logcat.txt
+
+          grep -E \
             "XZIEL-XZ.*legacy3d worldTransition.*map='xziel_nacht_bo3'.*mapRuntime=NACHT_BO3" \
             dist/static-scene-logcat.txt
 
@@ -2798,6 +2811,9 @@ jobs:
 
           echo \
             "XZIEL_NACHT_ENVIRONMENT_GREEN lights=166 point=144 spot=19 directional=2 sky=1 bytes=14636"
+
+          echo \
+            "XZIEL_NACHT_LOCAL_LIGHTING_GREEN local=163 active=64 dropped=0"
 
           echo \
             "XZIEL_NACHT_ANDROID_STATIC_SCENE_GREEN meshes=492 instances=10791 xzms=492 vertices=1067383 indices=3608148 submeshes=1063 gpuBytes=48588848"
