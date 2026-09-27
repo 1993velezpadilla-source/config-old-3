@@ -51,6 +51,7 @@ on:
       - "tools/maps/compile_nacht_environment.py"
       - "tools/maps/NachtLightExtractor/**"
       - "tools/maps/NachtReflectionExtractor/**"
+      - "tools/maps/NachtBakedLightingExtractor/**"
       - "tools/maps/compile_nacht_reflection_capture.py"
       - "tools/maps/NachtPostProcessExtractor/**"
       - "tools/maps/NachtFogExtractor/**"
@@ -77,6 +78,7 @@ on:
       - "tools/maps/compile_nacht_environment.py"
       - "tools/maps/NachtLightExtractor/**"
       - "tools/maps/NachtReflectionExtractor/**"
+      - "tools/maps/NachtBakedLightingExtractor/**"
       - "tools/maps/NachtFogExtractor/**"
       - "tools/maps/compile_nacht_height_fog.py"
       - "engine/xz/xz_height_fog.*"
@@ -315,6 +317,49 @@ jobs:
           test -f "$PROJECT"
           echo "CUE4PARSE_REFLECTION_PROJECT=$PROJECT" \
             >> "$GITHUB_ENV"
+
+      - name: Census Nacht baked lighting BuiltData
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-static-scene dist
+          CUE4PARSE_SKIP_NATIVE=true dotnet run \
+            --project tools/maps/NachtBakedLightingExtractor/NachtBakedLightingExtractor.csproj \
+            --configuration Release \
+            -p:CUE4ParseProject="$CUE4PARSE_REFLECTION_PROJECT" \
+            -- \
+            "$UNPACKED" \
+            build/nacht-static-scene/baked-lighting-census.json \
+            | tee build/nacht-static-scene/baked-lighting-census.log
+          test -s build/nacht-static-scene/baked-lighting-census.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          p = Path("build/nacht-static-scene/baked-lighting-census.json")
+          data = json.loads(p.read_text(encoding="utf-8"))
+          assert data["schemaVersion"] == 1
+          assert data["buildDataCandidateCount"] > 0
+          assert data["buildDataRegistryCount"] > 0
+          assert data["meshBuildDataCount"] > 0
+          assert data["lightMap2DCount"] > 0
+          assert data["linkedMeshBuildDataCount"] > 0
+
+          print(
+              "XZIEL_NACHT_BAKED_LIGHTING_CENSUS_GREEN",
+              {
+                  "registries": data["buildDataRegistryCount"],
+                  "meshBuildData": data["meshBuildDataCount"],
+                  "linkedMeshBuildData": data["linkedMeshBuildDataCount"],
+                  "lightMap2D": data["lightMap2DCount"],
+                  "shadowMap2D": data["shadowMap2DCount"],
+                  "lightmapTextures": data["uniqueLightmapTextureCount"],
+                  "shadowmapTextures": data["uniqueShadowmapTextureCount"],
+                  "volumetric": data["volumetricLightmapCount"],
+              },
+          )
+          PY
+          cp build/nacht-static-scene/baked-lighting-census.json \
+            dist/baked-lighting-census.json
 
       - name: Census Nacht reflection captures and SkyLight source
         run: |
