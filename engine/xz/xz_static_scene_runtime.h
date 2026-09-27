@@ -36,6 +36,13 @@ typedef struct {
 } XzStaticTextureView;
 
 typedef struct {
+    float ambient_weight;
+    float directional_weight;
+    float directional_color[3];
+    float directional_direction[3];
+} XzStaticLightingView;
+
+typedef struct {
     XzStaticSceneStatus status;
 
     unsigned char *scene_data;
@@ -52,6 +59,11 @@ typedef struct {
     size_t material_texture_table_offset;
     size_t material_binding_offset;
 
+    unsigned char *lighting_data;
+    size_t lighting_bytes;
+    XzStaticLightingView lighting;
+    int lighting_ready;
+
     uint32_t mesh_files_validated;
     uint64_t mesh_bytes_validated;
     uint64_t vertex_count;
@@ -61,6 +73,7 @@ typedef struct {
     char map_id[64];
     char scene_path[256];
     char material_path[256];
+    char lighting_path[256];
     char error[128];
 } XzStaticSceneRuntimeState;
 
@@ -97,6 +110,10 @@ int XzStaticSceneRuntime_Texture(
     const XzStaticSceneRuntimeState *state,
     uint32_t texture_index,
     XzStaticTextureView *texture);
+
+const XzStaticLightingView *
+XzStaticSceneRuntime_Lighting(
+    const XzStaticSceneRuntimeState *state);
 
 const char *XzStaticSceneRuntime_StatusName(
     XzStaticSceneStatus status);
