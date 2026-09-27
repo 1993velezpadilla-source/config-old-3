@@ -170,6 +170,9 @@ export class Matchmaker extends DurableObject {
     ).slice(0, 64);
     const map = sanitizeMap(url.searchParams.get("map"));
     const targetPlayers = sanitizeTargetPlayers(url.searchParams.get("players"));
+    const hostPriority = sanitizeHostPriority(
+      url.searchParams.get("hostPriority")
+    );
 
     // One active queue socket per player ID.
     for (const socket of this.ctx.getWebSockets()) {
