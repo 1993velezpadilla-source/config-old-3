@@ -635,6 +635,175 @@ if (
     return 4;
 }
 
+
+var reflectionCaptures =
+    new List<object>();
+var reflectionTypeCounts =
+    new SortedDictionary<string, int>(
+        StringComparer.Ordinal);
+var skyCaptureRows =
+    new List<object>();
+
+foreach (var export in exports)
+{
+    var fullType =
+        export.GetType().FullName
+        ?? export.GetType().Name;
+
+    if (
+        fullType.Contains(
+            "ReflectionCaptureComponent",
+            StringComparison.Ordinal))
+    {
+        var hierarchy =
+            BuildHierarchy(export);
+        var kind =
+            fullType.Contains(
+                "SphereReflectionCapture",
+                StringComparison.Ordinal)
+                ? "sphere"
+                : fullType.Contains(
+                    "BoxReflectionCapture",
+                    StringComparison.Ordinal)
+                    ? "box"
+                    : fullType.Contains(
+                        "PlaneReflectionCapture",
+                        StringComparison.Ordinal)
+                        ? "plane"
+                        : "other";
+
+        reflectionTypeCounts[kind] =
+            reflectionTypeCounts.TryGetValue(
+                kind,
+                out var count)
+                ? count + 1
+                : 1;
+
+        reflectionCaptures.Add(
+            new {
+                id =
+                    $"reflection_{reflectionCaptures.Count:000}",
+                componentName = export.Name,
+                captureType = kind,
+                sourceType = fullType,
+                sourcePath =
+                    export.GetPathName() ?? "",
+                hierarchy,
+                properties = new {
+                    brightness =
+                        Number(
+                            ReadMember(
+                                export,
+                                "Brightness")),
+                    captureOffset =
+                        Vector(
+                            ReadMember(
+                                export,
+                                "CaptureOffset"),
+                            new[] { "X", "Y", "Z" }),
+                    cubemap =
+                        Text(
+                            ReadMember(
+                                export,
+                                "Cubemap")),
+                    reflectionSourceType =
+                        Text(
+                            ReadMember(
+                                export,
+                                "ReflectionSourceType")),
+                    sourceCubemapAngle =
+                        Number(
+                            ReadMember(
+                                export,
+                                "SourceCubemapAngle")),
+                    mapBuildDataId =
+                        Text(
+                            ReadMember(
+                                export,
+                                "MapBuildDataId")),
+                    influenceRadiusCm =
+                        Number(
+                            ReadMember(
+                                export,
+                                "InfluenceRadius")),
+                    boxTransitionDistanceCm =
+                        Number(
+                            ReadMember(
+                                export,
+                                "BoxTransitionDistance"))
+                }
+            });
+    }
+
+    if (
+        fullType.EndsWith(
+            ".USkyLightComponent",
+            StringComparison.Ordinal))
+    {
+        skyCaptureRows.Add(
+            new {
+                componentName = export.Name,
+                sourceType = fullType,
+                sourcePath =
+                    export.GetPathName() ?? "",
+                properties = new {
+                    sourceType =
+                        Text(
+                            ReadMember(
+                                export,
+                                "SourceType")),
+                    cubemap =
+                        Text(
+                            ReadMember(
+                                export,
+                                "Cubemap")),
+                    sourceCubemapAngle =
+                        Number(
+                            ReadMember(
+                                export,
+                                "SourceCubemapAngle")),
+                    cubemapResolution =
+                        Number(
+                            ReadMember(
+                                export,
+                                "CubemapResolution")),
+                    skyDistanceThreshold =
+                        Number(
+                            ReadMember(
+                                export,
+                                "SkyDistanceThreshold")),
+                    lowerHemisphereIsBlack =
+                        Boolean(
+                            ReadMember(
+                                export,
+                                "bLowerHemisphereIsBlack")),
+                    lowerHemisphereColor =
+                        Color(
+                            ReadMember(
+                                export,
+                                "LowerHemisphereColor")),
+                    indirectLightingIntensity =
+                        Number(
+                            ReadMember(
+                                export,
+                                "IndirectLightingIntensity")),
+                    specularScale =
+                        Number(
+                            ReadMember(
+                                export,
+                                "SpecularScale"))
+                }
+            });
+    }
+}
+
+if (skyCaptureRows.Count != 1)
+{
+    Console.Error.WriteLine(
+        $"expected one SkyLight capture row, got {skyCaptureRows.Count}");
+    return 5;
+}
+
 var output = new {
     schemaVersion = 1,
     sourcePackage = maps[0],
@@ -646,7 +815,15 @@ var output = new {
     },
     lightCount = rows.Count,
     typeCounts = counts,
-    lights = rows
+    lights = rows,
+    reflectionCaptureCount =
+        reflectionCaptures.Count,
+    reflectionTypeCounts,
+    reflectionCaptures,
+    skyCaptureCount =
+        skyCaptureRows.Count,
+    skyCaptures =
+        skyCaptureRows
 };
 
 Directory.CreateDirectory(
@@ -666,7 +843,10 @@ Console.WriteLine(
     + JsonSerializer.Serialize(
         new {
             output.lightCount,
-            output.typeCounts
+            output.typeCounts,
+            output.reflectionCaptureCount,
+            output.reflectionTypeCounts,
+            output.skyCaptureCount
         }));
 
 return 0;
