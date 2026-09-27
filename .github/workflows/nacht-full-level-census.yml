@@ -773,18 +773,23 @@ jobs:
           Directory.CreateDirectory(
               Path.GetDirectoryName(output)!);
 
-          var targetComponents =
-              new[] {
-                  exports[11628],
-                  exports[22263]
-              };
+          var omittedComponentExports =
+              staticComponents
+                  .Where(
+                      row =>
+                          !persistedComponentExportIndices
+                              .Contains(
+                                  row.ordinal
+                                  + componentIndexBase))
+                  .Select(row => row.export)
+                  .ToArray();
 
           File.WriteAllText(
               Path.Combine(
                   Path.GetDirectoryName(output)!,
-                  "nacht-target-components.json"),
+                  "nacht-omitted-components.json"),
               Newtonsoft.Json.JsonConvert.SerializeObject(
-                  targetComponents,
+                  omittedComponentExports,
                   Newtonsoft.Json.Formatting.Indented));
 
           File.WriteAllText(
@@ -868,5 +873,5 @@ jobs:
           name: nacht-full-level-census
           path: |
             nacht-full-level-census.json
-            nacht-target-components.json
+            nacht-omitted-components.json
           if-no-files-found: error
