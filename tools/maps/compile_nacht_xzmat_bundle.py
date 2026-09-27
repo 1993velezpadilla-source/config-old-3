@@ -298,6 +298,24 @@ def main() -> int:
     if not texture_rows or not binding_rows or not mesh_material_rows:
         raise SystemExit("texture manifest missing textures/bindings/meshMaterials")
 
+    # A proxy material can appear on multiple meshes while only one original
+    # slot name resolves back to its authored material. Reuse that alias only
+    # when all observed aliases for the proxy collapse to one exact path.
+    alias_candidates_by_material: dict[str, set[str]] = {}
+    for row in mesh_material_rows:
+        material_path = str(row.get("materialPath", "")).lower()
+        alias_path = str(row.get("slotAliasMaterialPath", "")).lower()
+        if material_path and alias_path:
+            alias_candidates_by_material.setdefault(
+                material_path, set()
+            ).add(alias_path)
+
+    unique_alias_by_material = {
+        material_path: next(iter(alias_paths))
+        for material_path, alias_paths in alias_candidates_by_material.items()
+        if len(alias_paths) == 1
+    }
+
     textures_by_path = {
         str(row["texturePath"]).lower(): row
         for row in texture_rows
@@ -445,6 +463,10 @@ def main() -> int:
                 alias_material_path = str(
                     slot.get("slotAliasMaterialPath", "")
                 ).lower()
+                if not alias_material_path:
+                    alias_material_path = unique_alias_by_material.get(
+                        material_path, ""
+                    )
                 synthetic_path = synthetic_by_material.get(material_path)
 
                 # Invisible helper geometry wins over any inherited texture.

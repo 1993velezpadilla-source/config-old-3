@@ -800,6 +800,39 @@ jobs:
               }
 
               /*
+               * Prefer CUE4Parse's typed UMaterial expression API. UE4.21
+               * cooked Nacht materials can retain TextureSample nodes even
+               * when generic material parameter tables are empty.
+               */
+              if (sourceMaterial is UMaterial typedMaterial)
+              {
+                  foreach (
+                      var expressionIndex
+                      in typedMaterial.Expressions)
+                  {
+                      if (
+                          !expressionIndex.TryLoad(
+                              out UMaterialExpression materialExpression)
+                          || materialExpression is null)
+                      {
+                          continue;
+                      }
+
+                      if (
+                          materialExpression
+                          is UMaterialExpressionTextureBase textureExpression
+                          && textureExpression.Texture
+                              is { } typedTexture)
+                      {
+                          QueueTextureCandidate(
+                              typedTexture,
+                              ownerMaterial,
+                              $"expression:{textureExpression.SamplerType}");
+                      }
+                  }
+              }
+
+              /*
                * UE4.21 cooked base materials commonly keep the
                * actual texture links on Material Expressions.
                */
