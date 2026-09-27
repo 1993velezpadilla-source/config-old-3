@@ -1,0 +1,27 @@
+name: XZIEL Emulator AI Unit
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/emulator-ai-nacht-v1
+    paths:
+      - "scripts/xziel_bot/**"
+      - "tests/test_xziel_bot_*.py"
+      - ".github/workflows/xziel-emulator-ai-unit.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  policy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Compile bot package
+        run: python -m compileall -q scripts/xziel_bot
+      - name: Run policy tests
+        run: python -m unittest discover -s tests -p 'test_xziel_bot_*.py' -v
