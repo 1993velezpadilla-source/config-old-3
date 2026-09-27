@@ -73,11 +73,13 @@ HAS_INVERSE_SQUARED = 1 << 13
 HAS_USE_TEMPERATURE = 1 << 14
 HAS_CAST_SHADOWS = 1 << 15
 HAS_VISIBLE = 1 << 16
+HAS_ATMOSPHERE_SUN = 1 << 17
 
 BEHAVIOR_INVERSE_SQUARED = 1 << 0
 BEHAVIOR_USE_TEMPERATURE = 1 << 1
 BEHAVIOR_CAST_SHADOWS = 1 << 2
 BEHAVIOR_VISIBLE = 1 << 3
+BEHAVIOR_ATMOSPHERE_SUN = 1 << 4
 
 UNIT_UNKNOWN = 0
 UNIT_CANDELAS = 1
@@ -325,6 +327,9 @@ def compile_environment(source: Path, output: Path, report_path: Path | None) ->
         use_temp_ok, use_temp = optional_bool(props, "useTemperature")
         shadows_ok, cast_shadows = optional_bool(props, "castShadows")
         visible_ok, visible = optional_bool(props, "visible")
+        atmosphere_sun_ok, atmosphere_sun = optional_bool(
+            props, "usedAsAtmosphereSunLight"
+        )
 
         if not intensity_ok:
             raise SystemExit("XZIEL XZEN rejected: intensity missing")
@@ -374,6 +379,8 @@ def compile_environment(source: Path, output: Path, report_path: Path | None) ->
             flags |= HAS_CAST_SHADOWS
         if visible_ok:
             flags |= HAS_VISIBLE
+        if atmosphere_sun_ok:
+            flags |= HAS_ATMOSPHERE_SUN
 
         behavior = 0
         if inverse:
@@ -384,6 +391,8 @@ def compile_environment(source: Path, output: Path, report_path: Path | None) ->
             behavior |= BEHAVIOR_CAST_SHADOWS
         if visible:
             behavior |= BEHAVIOR_VISIBLE
+        if atmosphere_sun:
+            behavior |= BEHAVIOR_ATMOSPHERE_SUN
 
         row = (
             light_type,
@@ -439,6 +448,8 @@ def compile_environment(source: Path, output: Path, report_path: Path | None) ->
             "intensityUnits": units_name,
             "intensityUnitsEnum": units,
             "sourceHierarchyDepth": len(light.get("hierarchy") or []),
+            "usedAsAtmosphereSunLight":
+                atmosphere_sun if atmosphere_sun_ok else None,
         })
 
     expected_counts = {
@@ -488,6 +499,10 @@ def compile_environment(source: Path, output: Path, report_path: Path | None) ->
         ),
         "withTemperature": sum(bool(row[1] & HAS_TEMPERATURE) for row in rows),
         "withCastShadows": sum(bool(row[1] & HAS_CAST_SHADOWS) for row in rows),
+        "withAtmosphereSun": sum(bool(row[1] & HAS_ATMOSPHERE_SUN) for row in rows),
+        "atmosphereSunEnabled": sum(
+            bool(row[-1] & BEHAVIOR_ATMOSPHERE_SUN) for row in rows
+        ),
         "lights": report_rows,
     }
 
