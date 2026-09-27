@@ -11,6 +11,7 @@ on:
 permissions:
   contents: read
   actions: read
+  statuses: write
 
 concurrency:
   group: xziel-live-public-squad
