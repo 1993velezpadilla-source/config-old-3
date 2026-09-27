@@ -284,6 +284,71 @@ float(entity player) XZIEL_WunderfizzGrantLogic =
     return XZIEL_GrantPerkLogic(player, semantic_id);
 };
 
+// Gameplay-first BO3 Nacht Wunderfizz machine. This intentionally has no
+// presentation model yet: the visual/material phase owns that independently.
+// It charges only after a supported perk grant succeeds, preventing point loss
+// while Widow's Wine remains gated behind its missing native feature.
+void() XZIEL_WunderfizzTouch =
+{
+    float price;
+    float semantic_id;
+
+    if (other.classname != "player" || other.downed || other.isBuying == true || !PlayerIsLooking(other, self))
+        return;
+
+    if (Player_GetNumPerks(other) >= game_modifiers.gameplay.perksacola.perk_purchase_limit)
+        return;
+
+    price = floor(self.cost * game_modifiers.gameplay.global.all_items_cost_multiplier);
+    other.useprint_touch = self.name;
+    Player_UseprintWithWait(other, self, self.useprint_index_1, price);
+
+    if (!Player_UseButtonPressed(other, self) || (other.semi_actions & SEMIACTION_USE))
+        return;
+
+    other.semi_actions |= SEMIACTION_USE;
+
+    if (other.points < price) {
+        centerprint(other, STR_NOTENOUGHPOINTS);
+        Sound_PlaySound(other, "sounds/misc/denybuy.wav", SOUND_TYPE_ENV_CHING, SOUND_PRIORITY_PLAYALWAYS);
+        return;
+    }
+
+    semantic_id = XZIEL_WunderfizzPickSupportedPerk(other);
+    if (!semantic_id) {
+        centerprint(other, "No supported Wunderfizz perks remain");
+        Sound_PlaySound(other, "sounds/misc/denybuy.wav", SOUND_TYPE_ENV_CHING, SOUND_PRIORITY_PLAYALWAYS);
+        return;
+    }
+
+    if (!XZIEL_GrantPerkLogic(other, semantic_id))
+        return;
+
+    Player_RemoveScore(other, price);
+    Sound_PlaySound(self, "sounds/machines/vend.wav", SOUND_TYPE_ENV_CHING, SOUND_PRIORITY_PLAYALWAYS);
+};
+
+void() xziel_wunderfizz =
+{
+    if (!self.name)
+        self.name = "Der Wunderfizz";
+    if (!self.cost)
+        self.cost = 1500;
+    if (!self.useprint_string_1)
+        self.useprint_string_1 = "Hold %b for Der Wunderfizz";
+
+    precache_sound("sounds/machines/vend.wav");
+    precache_sound("sounds/misc/denybuy.wav");
+
+    self.movetype = MOVETYPE_NONE;
+    self.solid = SOLID_TRIGGER;
+    setorigin(self, self.origin);
+    setsize(self, VEC_HULL2_MIN, VEC_HULL2_MAX);
+    self.classname = "xziel_wunderfizz";
+    self.touch = XZIEL_WunderfizzTouch;
+    self.useprint_index_1 = Useprint_Register(self.useprint_string_1, self.useprint_color_1);
+};
+
 
 #define XZIEL_GOBBLEGUM_IDENTITY_COUNT 63
 #define XZIEL_GOBBLEGUM_PACK_SIZE      5
@@ -577,6 +642,8 @@ required_perk = [
     "XZIEL_WunderfizzEligiblePerkCount",
     "XZIEL_WunderfizzPickSupportedPerk",
     "XZIEL_WunderfizzGrantLogic",
+    "XZIEL_WunderfizzTouch",
+    "void() xziel_wunderfizz",
     "XZIEL_GobbleGumSecondUseBasePrice",
     "XZIEL_GobbleGumCurrentPrice",
     "XZIEL_GobbleGumConfigureLoadout",
@@ -598,4 +665,4 @@ if custom.count("// XZIEL_GOBBLEGUM_PLAYER_STATE_BEGIN") != 1 or custom.count("/
 custom_path.write_text(custom, encoding="utf-8")
 power_path.write_text(power, encoding="utf-8")
 perk_path.write_text(perk, encoding="utf-8")
-print("Applied XZIEL Zombies bridge (7 perks, 7 upstream power-ups, Fire Sale logic, PaP grant, GobbleGum economy/bag core).")
+print("Applied XZIEL Zombies bridge (7 perks, Wunderfizz trigger, 7 upstream power-ups, Fire Sale logic, PaP grant, GobbleGum economy/bag core).")

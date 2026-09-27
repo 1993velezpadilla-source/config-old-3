@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - feature/xziel-engine-nacht-runtime-v1
+      - feature/xziel-nacht-gameplay-wunderfizz-v1
     paths:
       - "assets/nacht_reference/**"
       - "assets/map_package/**"
@@ -222,6 +223,7 @@ jobs:
               "nativePurchases":1,
               "blockedBo3WeaponPurchases":8,
               "mysteryBoxes":1,
+              "wunderfizzMachines":1,
           }, c
           assert r["nativePurchase"]["weapon"] == "W_GRENADE", r
           assert r["nativePurchase"]["cost"] == 250, r
@@ -232,8 +234,10 @@ jobs:
           assert text.count('"classname" "func_door_nzp"') == 3
           assert text.count('"classname" "buy_weapon"') == 1
           assert text.count('"classname" "mystery_box"') == 1
+          assert text.count('"classname" "xziel_wunderfizz"') == 1
           assert text.count('"classname" "trigger_relay"') == 2
           assert '"cost" "950"' in text
+          assert '"cost" "1500"' in text
           assert '"weapon" "26"' in text
           assert '"cost2" "250"' in text
           assert '"targetname" "xz_upstairs_purchases"' in text
@@ -407,6 +411,8 @@ jobs:
           grep -F 'XZIEL_FireSaleLogicActive' build/deps/quakec/source/server/entities/powerups.qc
           grep -F 'XZIEL_WunderfizzPickSupportedPerk' build/deps/quakec/source/server/entities/perk_a_cola.qc
           grep -F 'XZIEL_WunderfizzGrantLogic' build/deps/quakec/source/server/entities/perk_a_cola.qc
+          grep -F 'XZIEL_WunderfizzTouch' build/deps/quakec/source/server/entities/perk_a_cola.qc
+          grep -F 'void() xziel_wunderfizz' build/deps/quakec/source/server/entities/perk_a_cola.qc
           grep -F 'XZIEL_GobbleGumCurrentPrice' build/deps/quakec/source/server/entities/perk_a_cola.qc
           grep -F 'XZIEL_GobbleGumRollIdentity' build/deps/quakec/source/server/entities/perk_a_cola.qc
           grep -F 'XZIEL_GobbleGumMappedPowerupSemantic' build/deps/quakec/source/server/entities/perk_a_cola.qc

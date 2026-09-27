@@ -136,6 +136,21 @@ mystery_box_yaw = float(
     (mystery_box_transform.get("rotationDegrees") or {}).get("yaw", 0.0)
 )
 
+wunderfizz_placements = [
+    row for row in system_placements.get("entities", [])
+    if row.get("type") == "der_wunderfizz"
+]
+assert len(wunderfizz_placements) == 1
+wunderfizz_placement = wunderfizz_placements[0]
+wunderfizz_transform = wunderfizz_placement["transform"]
+wunderfizz_position_m = [
+    wunderfizz_transform["position"]["x"],
+    wunderfizz_transform["position"]["y"],
+    wunderfizz_transform["position"]["z"],
+]
+wunderfizz_props = wunderfizz_placement.get("properties", {})
+assert int(wunderfizz_props.get("cost", 0)) == 1500
+
 assert reference["runtimePolicy"]["serverAuthoritative"] is True
 assert reference["runtimePolicy"]["maximumPlayers"] == 4
 assert reference["runtimePolicy"]["maximumActiveZombies"] == 24
@@ -161,6 +176,7 @@ all_positions: list[list[float]] = []
 for group in ("purchases", "doors", "barricades", "zombieSpawns", "playerSpawns"):
     all_positions.extend(item["positionMeters"] for item in reference[group])
 all_positions.append(mystery_box_position_m)
+all_positions.append(wunderfizz_position_m)
 
 mins_m = [min(p[i] for p in all_positions) for i in range(3)]
 maxs_m = [max(p[i] for p in all_positions) for i in range(3)]
@@ -387,6 +403,22 @@ parts.append(
     )
 )
 
+# Gameplay-first Der Wunderfizz trigger at the persisted BO3 Nacht anchor.
+# Presentation is intentionally deferred to the visual phase. The QuakeC
+# bridge only selects perks backed by currently-safe XZIEL/NZ:P primitives,
+# so Widow's Wine stays excluded until its native behavior is implemented.
+parts.append(
+    point_entity(
+        "xziel_wunderfizz",
+        qv(wunderfizz_position_m),
+        {
+            "cost": str(int(wunderfizz_props.get("cost", 1500))),
+            "targetname": "xz_upstairs_systems",
+            "useprint_string_1": "Hold %b for Der Wunderfizz",
+        },
+    )
+)
+
 # Lighting only exists to make Android smoke screenshots non-flat.
 center_x = (wx1 + wx2) // 2
 center_y = (wy1 + wy2) // 2
@@ -415,6 +447,7 @@ summary = {
         "nativePurchases": len(native_purchases),
         "blockedBo3WeaponPurchases": len(blocked_purchases),
         "mysteryBoxes": 1,
+        "wunderfizzMachines": 1,
     },
     "mysteryBox": {
         "id": mystery_box_placement["id"],
@@ -424,6 +457,13 @@ summary = {
         "runtimePoolSidecar": "maps/xziel_nacht_bo3.mb2",
         "rewardPolicy": "runtime_ready_only",
         "emptyPoolBehavior": "deny_without_charge",
+    },
+    "wunderfizz": {
+        "id": wunderfizz_placement["id"],
+        "positionMeters": wunderfizz_position_m,
+        "cost": int(wunderfizz_props.get("cost", 1500)),
+        "runtimePolicy": "supported_perks_only",
+        "presentationStatus": "deferred_to_visual_phase",
     },
     "nativePurchase": {
         "id": frag["id"],
