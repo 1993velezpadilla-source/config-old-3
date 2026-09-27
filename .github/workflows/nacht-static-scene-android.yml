@@ -29,6 +29,7 @@ on:
       - feature/xziel-nacht-reflection-cubemap-v1
       - feature/xziel-nacht-reflection-sphere-v1
       - feature/xziel-nacht-postprocess-census-v1
+      - feature/xziel-nacht-tonemap-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -187,8 +188,33 @@ jobs:
           p = Path("build/nacht-static-scene/postprocess-census.json")
           data = json.loads(p.read_text(encoding="utf-8"))
           assert data["schemaVersion"] == 1
-          assert data["candidateCount"] > 0
-          assert len(data["candidates"]) == data["candidateCount"]
+          assert data["candidateCount"] == 1
+          assert len(data["candidates"]) == 1
+          candidate = data["candidates"][0]
+          assert candidate["exportName"] == "WorldSettings"
+          assert candidate["tags"] == {}
+          assert candidate["resolvedMembers"] == {}
+
+          hits = data.get("globalPropertyHits", [])
+          assert data.get("globalPropertyHitCount") == len(hits)
+          assert len(hits) == 59
+          assert all(
+              set(row.get("tags", {})) == {"IndirectLightingIntensity"}
+              for row in hits
+          )
+          assert not any(
+              token in json.dumps(data).lower()
+              for token in (
+                  "autoexposure",
+                  "eyeadaptation",
+                  "filmslope",
+                  "filmtoe",
+                  "filmshoulder",
+                  "colorgrading",
+                  "bloomintensity",
+                  "vignetteintensity",
+              )
+          )
 
           print(
               "XZIEL_NACHT_POSTPROCESS_CENSUS_GREEN",
@@ -3359,6 +3385,25 @@ jobs:
           grep -q "vec3 ueR=normalize(vec3(projected.x,-projected.y,projected.z))" \
             engine/xz/xz_gles3_shadow.c
 
+          grep -q "vec3 ueDefaultFilmicTonemap" \
+            engine/xz/xz_gles3_shadow.c
+          grep -q "const float FilmSlope=0.88" \
+            engine/xz/xz_gles3_shadow.c
+          grep -q "const float FilmToe=0.55" \
+            engine/xz/xz_gles3_shadow.c
+          grep -q "const float FilmShoulder=0.26" \
+            engine/xz/xz_gles3_shadow.c
+          grep -q "const float FilmWhiteClip=0.04" \
+            engine/xz/xz_gles3_shadow.c
+          grep -q "colorAp1=mix(colorAp1,ueBlueCorrectAp1(colorAp1),0.6)" \
+            engine/xz/xz_gles3_shadow.c
+          grep -q "outColor=vec4(ueDefaultFilmicTonemap(fogged),texel.a)" \
+            engine/xz/xz_gles3_shadow.c
+
+          grep -E \
+            "XZIEL-XZ.*static_scene_tonemap map='xziel_nacht_bo3' ready=1 slope=0\.880000 toe=0\.550000 shoulder=0\.260000 blackClip=0\.000000 whiteClip=0\.040000 exposure=1\.000000 exposureMode=neutral" \
+            dist/static-scene-logcat.txt
+
           grep -E \
             "XZIEL-XZ.*static_scene_reflection map='xziel_nacht_bo3' ready=1 iblReady=1 sphereReady=1 size=128 mips=8 assetBytes=1048656 gpuBytes=1048560 averageBrightness=0\.04043579 brightness=1\.000000 positionMeters=\(-0\.10907654,0\.09328659,2\.668613[0-9]*\) radiusMeters=30\.000000 offsetMeters=\(0\.000000,0\.000000,0\.000000\)" \
             dist/static-scene-logcat.txt
@@ -3469,6 +3514,9 @@ jobs:
 
           echo \
             "XZIEL_NACHT_REFLECTION_SPHERE_GREEN position=(-0.10907654,0.09328659,2.66861328)m radius=30m offset=0 projection=ue4"
+
+          echo \
+            "XZIEL_NACHT_FILMIC_TONEMAP_GREEN slope=0.88 toe=0.55 shoulder=0.26 blackClip=0 whiteClip=0.04 exposure=1.0"
 
           echo \
             "XZIEL_NACHT_ENVIRONMENT_GREEN lights=166 point=144 spot=19 directional=2 sky=1 bytes=14636"
