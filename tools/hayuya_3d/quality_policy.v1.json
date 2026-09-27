@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "name": "HAYUYA 3D Quality Contract v33",
+  "principle": "Preserve evidence between stages so every quality loss is attributable.",
+  "requiredStages": [
+    "input_conditioned",
+    "coarse_scene",
+    "semantic_shape",
+    "surface_master",
+    "parts",
+    "uv_master",
+    "texture_pbr_master",
+    "game_mesh",
+    "baked_game_materials",
+    "skeleton",
+    "skinned_asset",
+    "animation_validation"
+  ],
+  "requiredRegions": ["face", "hands", "cloth", "silhouette"],
+  "requiredMetrics": {
+    "input_conditioned": ["width", "height", "subject_coverage"],
+    "surface_master": ["vertices", "triangles", "non_manifold_edges", "holes"],
+    "uv_master": ["uv_sets", "overlap_percent"],
+    "texture_pbr_master": ["base_color", "normal", "roughness", "metallic", "ao", "max_texture_dimension"],
+    "game_mesh": ["vertices", "triangles"],
+    "skeleton": ["joint_count"],
+    "skinned_asset": ["weights_normalized"],
+    "animation_validation": ["idle", "walk"]
+  },
+  "regionMetrics": {
+    "face": ["landmark_error", "texture_alignment_error", "geometry_preserved"],
+    "hands": ["finger_count_preserved", "geometry_preserved"],
+    "cloth": ["thin_surface_survival", "layer_separation", "geometry_preserved"],
+    "silhouette": ["reference_error"]
+  },
+  "hardRules": [
+    "Never overwrite surface_master with game_mesh.",
+    "Never use the game-ready triangle budget as the reconstruction budget.",
+    "Face refinement is a dedicated stage and cannot be inferred from whole-body pass/fail.",
+    "Cloth/thin-surface refinement is a dedicated stage and cannot be inferred from whole-body pass/fail.",
+    "Texture generation and retopology are separate quality decisions.",
+    "Rigging cannot silently change the approved silhouette."
+  ]
+}
