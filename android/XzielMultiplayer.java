@@ -299,13 +299,50 @@ public final class XzielMultiplayer {
         activity.runOnUiThread(() -> {
             final String[] labels = { "NACHT DER UNTOTEN" };
             final String[] maps = { "ndu" };
+
+            // There is only one online map today. Do not put the player behind
+            // an Android list dialog just to select the only valid choice.
+            // This also avoids OEM/theme-specific AlertDialog list rendering.
+            if (maps.length == 1) {
+                selectedMap = maps[0];
+                showOnlineModeSelection();
+                return;
+            }
+
+            LinearLayout root = new LinearLayout(activity);
+            root.setOrientation(LinearLayout.VERTICAL);
+            root.setPadding(dp(activity, 12), dp(activity, 8),
+                dp(activity, 12), dp(activity, 4));
+
+            for (int i = 0; i < maps.length; i++) {
+                final int which = i;
+                TextView choice = new TextView(activity);
+                choice.setText(labels[i]);
+                choice.setTextColor(Color.WHITE);
+                choice.setTextSize(18);
+                choice.setTypeface(Typeface.DEFAULT_BOLD);
+                choice.setGravity(Gravity.CENTER);
+                choice.setPadding(
+                    dp(activity, 14), dp(activity, 18),
+                    dp(activity, 14), dp(activity, 18)
+                );
+                choice.setBackgroundColor(Color.rgb(24, 28, 34));
+                choice.setContentDescription("Map " + labels[i]);
+                choice.setOnClickListener(v -> {
+                    selectedMap = maps[which];
+                    dismissTrackedDialog();
+                    showOnlineModeSelection();
+                });
+                root.addView(choice, new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ));
+            }
+
             AlertDialog dialog = new AlertDialog.Builder(activity)
                 .setTitle("SELECT MAP")
                 .setMessage("Choose the map first. Solo stays offline from the main menu.")
-                .setItems(labels, (d, which) -> {
-                    selectedMap = maps[which];
-                    showOnlineModeSelection();
-                })
+                .setView(root)
                 .setNegativeButton("CANCEL", null)
                 .create();
             showTracked(dialog);
