@@ -46,6 +46,7 @@ if [[ -f "$DEPS/quakec/build/standard/progs.lno" ]]; then
 fi
 
 echo "==> Building Vril SDL Linux binary"
+mkdir -p "$DIST/bin"
 make -C "$DEPS/vril" -f Makefile.sdl \
     BUILD="$BUILD/vril-sdl" \
     TARGET="$DIST/bin/nzportable"
