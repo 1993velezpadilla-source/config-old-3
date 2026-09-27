@@ -917,6 +917,41 @@ static int XzStaticCameraOrigin(
     return 1;
 }
 
+static int XzStaticCameraForward(
+    const float modelview[16],
+    float forward[3])
+{
+    float x;
+    float y;
+    float z;
+    float length;
+
+    if (!modelview || !forward)
+        return 0;
+
+    /*
+     * OpenGL model-view stores world->eye rotation. The camera's world-space
+     * forward vector is the negative eye-Z row, expressed from the
+     * column-major array as (-m2, -m6, -m10).
+     */
+    x = -modelview[2];
+    y = -modelview[6];
+    z = -modelview[10];
+    length = sqrtf(x * x + y * y + z * z);
+
+    if (!isfinite(length) || length <= 0.0f)
+        return 0;
+
+    forward[0] = x / length;
+    forward[1] = y / length;
+    forward[2] = z / length;
+
+    return
+        isfinite(forward[0]) &&
+        isfinite(forward[1]) &&
+        isfinite(forward[2]);
+}
+
 static uint32_t XzStaticSelectLocalLights(
     const float camera_origin[3],
     float positions[
@@ -4232,6 +4267,7 @@ static int XzDrawStaticScene(
     unsigned int textured_draw_calls = 0u;
     unsigned int untextured_draw_calls = 0u;
     float camera_origin[3];
+    float camera_forward[3];
     float local_positions[
         XZ_STATIC_LOCAL_LIGHT_ACTIVE_MAX * 4u];
     float local_colors[
@@ -4252,8 +4288,26 @@ static int XzDrawStaticScene(
     if (!camera ||
         !XzStaticCameraOrigin(
             camera->modelview,
-            camera_origin))
+            camera_origin) ||
+        !XzStaticCameraForward(
+            camera->modelview,
+            camera_forward))
         return 0;
+
+    if (!isfinite(
+            xz_shadow.static_draw_plan.gameplay_units_per_meter) ||
+        xz_shadow.static_draw_plan.gameplay_units_per_meter <= 0.0f)
+        return 0;
+
+    state->static_scene_camera_ready = 1;
+    state->static_scene_camera_origin_game[0] = camera_origin[0];
+    state->static_scene_camera_origin_game[1] = camera_origin[1];
+    state->static_scene_camera_origin_game[2] = camera_origin[2];
+    state->static_scene_camera_forward[0] = camera_forward[0];
+    state->static_scene_camera_forward[1] = camera_forward[1];
+    state->static_scene_camera_forward[2] = camera_forward[2];
+    state->static_scene_camera_units_per_meter =
+        xz_shadow.static_draw_plan.gameplay_units_per_meter;
 
     active_local_lights =
         XzStaticSelectLocalLights(

@@ -137,6 +137,10 @@ typedef struct {
     float static_scene_directional_intensity;
     float static_scene_global_ambient_radiance;
     int static_scene_lighting_ready;
+    int static_scene_camera_ready;
+    float static_scene_camera_origin_game[3];
+    float static_scene_camera_forward[3];
+    float static_scene_camera_units_per_meter;
     unsigned int static_scene_local_light_count;
     unsigned int static_scene_local_light_active;
     unsigned int static_scene_local_light_camera_affecting;

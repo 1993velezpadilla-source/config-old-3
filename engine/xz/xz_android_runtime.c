@@ -1757,7 +1757,12 @@ int XzAndroidRuntime_CompositeVisibleWorld(void)
             " reflectionGpuBytes=%" PRIu64
             " heightFogReady=%d directionalFog=%d"
             " fogDensity=%.6f fogFalloff=%.6f"
-            " fogMaxOpacity=%.6f fogStartMeters=%.6f",
+            " fogMaxOpacity=%.6f fogStartMeters=%.6f"
+            " cameraReady=%d"
+            " cameraOriginUnits=(%.6f,%.6f,%.6f)"
+            " cameraOriginMeters=(%.8f,%.8f,%.8f)"
+            " cameraForward=(%.8f,%.8f,%.8f)"
+            " cameraUnitsPerMeter=%.8f",
             xz_runtime.gles3_shadow.static_scene_gpu_meshes,
             xz_runtime.gles3_shadow.static_scene_last_instances,
             xz_runtime.gles3_shadow.static_scene_last_draw_calls,
@@ -1791,7 +1796,21 @@ int XzAndroidRuntime_CompositeVisibleWorld(void)
             xz_runtime.gles3_shadow.static_scene_fog_density,
             xz_runtime.gles3_shadow.static_scene_fog_height_falloff,
             xz_runtime.gles3_shadow.static_scene_fog_max_opacity,
-            xz_runtime.gles3_shadow.static_scene_fog_start_meters);
+            xz_runtime.gles3_shadow.static_scene_fog_start_meters,
+            xz_runtime.gles3_shadow.static_scene_camera_ready,
+            xz_runtime.gles3_shadow.static_scene_camera_origin_game[0],
+            xz_runtime.gles3_shadow.static_scene_camera_origin_game[1],
+            xz_runtime.gles3_shadow.static_scene_camera_origin_game[2],
+            xz_runtime.gles3_shadow.static_scene_camera_origin_game[0] /
+                xz_runtime.gles3_shadow.static_scene_camera_units_per_meter,
+            xz_runtime.gles3_shadow.static_scene_camera_origin_game[1] /
+                xz_runtime.gles3_shadow.static_scene_camera_units_per_meter,
+            xz_runtime.gles3_shadow.static_scene_camera_origin_game[2] /
+                xz_runtime.gles3_shadow.static_scene_camera_units_per_meter,
+            xz_runtime.gles3_shadow.static_scene_camera_forward[0],
+            xz_runtime.gles3_shadow.static_scene_camera_forward[1],
+            xz_runtime.gles3_shadow.static_scene_camera_forward[2],
+            xz_runtime.gles3_shadow.static_scene_camera_units_per_meter);
     }
 
     return presented;

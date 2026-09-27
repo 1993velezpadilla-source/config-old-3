@@ -3667,6 +3667,46 @@ jobs:
             "XZIEL-XZ.*static_scene_draw ready=1.*fboPixels=[1-9][0-9]* surfacePixels=[1-9][0-9]* postRestorePixels=[1-9][0-9]* readback=[1-9][0-9]*x[1-9][0-9]*" \
             dist/static-scene-logcat.txt
 
+          python3 - <<'PY'
+          import math
+          import re
+          from pathlib import Path
+
+          text = Path("dist/static-scene-logcat.txt").read_text(
+              encoding="utf-8",
+              errors="replace",
+          )
+          match = re.search(
+              r"static_scene_draw ready=1.*?"
+              r"cameraReady=1 "
+              r"cameraOriginUnits=\(([-+0-9.eE]+),([-+0-9.eE]+),([-+0-9.eE]+)\) "
+              r"cameraOriginMeters=\(([-+0-9.eE]+),([-+0-9.eE]+),([-+0-9.eE]+)\) "
+              r"cameraForward=\(([-+0-9.eE]+),([-+0-9.eE]+),([-+0-9.eE]+)\) "
+              r"cameraUnitsPerMeter=([-+0-9.eE]+)",
+              text,
+          )
+          assert match, "static-scene camera audit line missing"
+          values = [float(value) for value in match.groups()]
+          assert all(math.isfinite(value) for value in values), values
+          origin_units = values[0:3]
+          origin_meters = values[3:6]
+          forward = values[6:9]
+          units_per_meter = values[9]
+          assert abs(units_per_meter - 39.3700787402) < 1e-4
+          for units, meters in zip(origin_units, origin_meters):
+              assert abs(units / units_per_meter - meters) < 1e-4
+          forward_length = math.sqrt(sum(value * value for value in forward))
+          assert abs(forward_length - 1.0) < 1e-4, forward_length
+          print(
+              "XZIEL_NACHT_CAMERA_AUDIT_GREEN",
+              {
+                  "originMeters": origin_meters,
+                  "forward": forward,
+                  "unitsPerMeter": units_per_meter,
+              },
+          )
+          PY
+
           echo \
             "XZIEL_NACHT_FRAMEBUFFER_DRAW_GREEN meshes=492 instances=10791 drawCalls=1063"
 
@@ -3699,6 +3739,9 @@ jobs:
 
           echo \
             "XZIEL_NACHT_ENVIRONMENT_GREEN lights=166 point=144 spot=19 directional=2 sky=1 bytes=14636"
+
+          echo \
+            "XZIEL_NACHT_CAMERA_AUDIT_GREEN ready=1 source=gameplay_modelview"
 
           echo \
             "XZIEL_NACHT_LOCAL_LIGHTING_GREEN local=163 active=64 dropped=0"
