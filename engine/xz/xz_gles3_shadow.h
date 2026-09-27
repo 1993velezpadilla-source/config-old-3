@@ -102,6 +102,10 @@ typedef struct {
     unsigned int static_scene_material_bindings;
     unsigned int static_scene_material_mapped_bindings;
     int static_scene_material_ready;
+    unsigned int static_scene_pbr_bindings;
+    unsigned int static_scene_pbr_authored_bindings;
+    unsigned int static_scene_last_pbr_bindings;
+    int static_scene_pbr_ready;
     int static_scene_lighting_ready;
     unsigned int static_scene_local_light_count;
     unsigned int static_scene_local_light_active;
