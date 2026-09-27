@@ -64,6 +64,7 @@ python3 "$ROOT/scripts/patch_quakec_mobile_v021.py" "$DEPS/quakec"
 python3 "$ROOT/scripts/patch_quakec_mobile_v022.py" "$DEPS/quakec"
 python3 "$ROOT/scripts/patch_quakec_mobile_v024.py" "$DEPS/quakec"
 python3 "$ROOT/scripts/patch_quakec_multiplayer_v026.py" "$DEPS/quakec"
+python3 "$ROOT/scripts/patch_quakec_emulator_bot_telemetry.py" "$DEPS/quakec"
 if [[ "${XZIEL_NACHT_BENCHMARK:-0}" == "1" ]]; then
     echo "==> Enabling Nacht golden-reference stress controls"
     python3 "$ROOT/scripts/patch_quakec_nacht_benchmark.py" "$DEPS/quakec"
