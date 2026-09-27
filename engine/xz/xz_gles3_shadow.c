@@ -2095,10 +2095,12 @@ static int XzCreateStaticSceneProgram(void)
         "uniform float uDirectionalWeight;\n"
         "uniform vec3 uDirectionalColor;\n"
         "uniform vec3 uDirectionalDirection;\n"
-        "uniform int uLocalLightCount;\n"
-        "uniform vec4 uLocalPosInvRadius[64];\n"
-        "uniform vec4 uLocalColorCone[64];\n"
-        "uniform vec4 uLocalDirCosOuter[64];\n"
+        "uniform sampler2D uLocalPosRadiusTex;\n"
+        "uniform sampler2D uLocalColorConeTex;\n"
+        "uniform sampler2D uLocalDirCosTex;\n"
+        "uniform highp usampler2D uLocalGridTex;\n"
+        "uniform vec4 uLightGridMinInvCell;\n"
+        "uniform vec4 uLightGridDims;\n"
         "out vec4 outColor;\n"
         "float linearToSrgb1(float x){\n"
         "  x=clamp(x,0.0,1.0);\n"
@@ -2114,28 +2116,44 @@ static int XzCreateStaticSceneProgram(void)
         "  float directionalContrast=uDirectionalWeight*(ndl-0.5);\n"
         "  vec3 light=vec3(neutralBaseline)+uDirectionalColor*directionalContrast;\n"
         "  vec3 localLight=vec3(0.0);\n"
-        "  for(int i=0;i<64;++i){\n"
-        "    if(i>=uLocalLightCount) break;\n"
-        "    vec4 pr=uLocalPosInvRadius[i];\n"
-        "    vec3 toLightGame=pr.xyz-vWorldPos;\n"
-        "    float gameD2=max(dot(toLightGame,toLightGame),1.0e-8);\n"
-        "    vec3 L=toLightGame*inversesqrt(gameD2);\n"
-        "    vec3 toLightCm=toLightGame*2.54;\n"
-        "    float d2=max(dot(toLightCm,toLightCm),1.0e-4);\n"
-        "    float invR=abs(pr.w);\n"
-        "    float q=d2*invR*invR;\n"
-        "    float radiusMask=clamp(1.0-q*q,0.0,1.0);\n"
-        "    radiusMask*=radiusMask;\n"
-        "    float spot=1.0;\n"
-        "    if(pr.w<0.0){\n"
-        "      vec4 dc=uLocalDirCosOuter[i];\n"
-        "      float cone=dot(-L,normalize(dc.xyz));\n"
-        "      spot=clamp((cone-dc.w)*uLocalColorCone[i].w,0.0,1.0);\n"
-        "      spot*=spot;\n"
+        "  ivec3 dims=ivec3(uLightGridDims.xyz+vec3(0.5));\n"
+        "  ivec3 cell=ivec3(floor((vWorldPos-uLightGridMinInvCell.xyz)*uLightGridMinInvCell.w));\n"
+        "  bool inGrid=all(greaterThanEqual(cell,ivec3(0)))&&all(lessThan(cell,dims));\n"
+        "  if(inGrid){\n"
+        "    int cellIndex=cell.x+dims.x*(cell.y+dims.y*cell.z);\n"
+        "    int baseIndex=cellIndex*97;\n"
+        "    int gx=baseIndex&2047;\n"
+        "    int gy=baseIndex>>11;\n"
+        "    int localCount=int(texelFetch(uLocalGridTex,ivec2(gx,gy),0).r);\n"
+        "    localCount=clamp(localCount,0,96);\n"
+        "    for(int i=0;i<96;++i){\n"
+        "      if(i>=localCount) break;\n"
+        "      int linearIndex=baseIndex+1+i;\n"
+        "      int ix=linearIndex&2047;\n"
+        "      int iy=linearIndex>>11;\n"
+        "      int lightIndex=int(texelFetch(uLocalGridTex,ivec2(ix,iy),0).r);\n"
+        "      vec4 pr=texelFetch(uLocalPosRadiusTex,ivec2(lightIndex,0),0);\n"
+        "      vec4 cc=texelFetch(uLocalColorConeTex,ivec2(lightIndex,0),0);\n"
+        "      vec4 dc=texelFetch(uLocalDirCosTex,ivec2(lightIndex,0),0);\n"
+        "      vec3 toLightGame=pr.xyz-vWorldPos;\n"
+        "      float gameD2=max(dot(toLightGame,toLightGame),1.0e-8);\n"
+        "      vec3 L=toLightGame*inversesqrt(gameD2);\n"
+        "      vec3 toLightCm=toLightGame*2.54;\n"
+        "      float d2=max(dot(toLightCm,toLightCm),1.0e-4);\n"
+        "      float invR=abs(pr.w);\n"
+        "      float q=d2*invR*invR;\n"
+        "      float radiusMask=clamp(1.0-q*q,0.0,1.0);\n"
+        "      radiusMask*=radiusMask;\n"
+        "      float spot=1.0;\n"
+        "      if(pr.w<0.0){\n"
+        "        float cone=dot(-L,normalize(dc.xyz));\n"
+        "        spot=clamp((cone-dc.w)*cc.w,0.0,1.0);\n"
+        "        spot*=spot;\n"
+        "      }\n"
+        "      float localNdl=max(dot(n,L),0.0);\n"
+        "      float attenuation=(1.0/(d2+1.0))*radiusMask*spot;\n"
+        "      localLight+=cc.rgb*(attenuation*localNdl*0.31830988618);\n"
         "    }\n"
-        "    float localNdl=max(dot(n,L),0.0);\n"
-        "    float attenuation=(1.0/(d2+1.0))*radiusMask*spot;\n"
-        "    localLight+=uLocalColorCone[i].rgb*(attenuation*localNdl*0.31830988618);\n"
         "  }\n"
         "  light+=localLight;\n"
         "  float uvTone=0.92+0.08*clamp(vUV.y,0.0,1.0);\n"
@@ -2217,22 +2235,30 @@ static int XzCreateStaticSceneProgram(void)
         gl->GetUniformLocation(
             xz_shadow.static_program,
             "uDirectionalDirection");
-    xz_shadow.static_local_light_count_loc =
+    xz_shadow.static_cluster_pos_radius_loc =
         gl->GetUniformLocation(
             xz_shadow.static_program,
-            "uLocalLightCount");
-    xz_shadow.static_local_pos_inv_radius_loc =
+            "uLocalPosRadiusTex");
+    xz_shadow.static_cluster_color_cone_loc =
         gl->GetUniformLocation(
             xz_shadow.static_program,
-            "uLocalPosInvRadius[0]");
-    xz_shadow.static_local_color_cone_loc =
+            "uLocalColorConeTex");
+    xz_shadow.static_cluster_dir_cos_loc =
         gl->GetUniformLocation(
             xz_shadow.static_program,
-            "uLocalColorCone[0]");
-    xz_shadow.static_local_dir_cos_outer_loc =
+            "uLocalDirCosTex");
+    xz_shadow.static_cluster_grid_loc =
         gl->GetUniformLocation(
             xz_shadow.static_program,
-            "uLocalDirCosOuter[0]");
+            "uLocalGridTex");
+    xz_shadow.static_cluster_grid_min_cell_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uLightGridMinInvCell");
+    xz_shadow.static_cluster_grid_dims_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uLightGridDims");
 
     if (xz_shadow.static_view_loc < 0 ||
         xz_shadow.static_projection_loc < 0 ||
@@ -2242,16 +2268,30 @@ static int XzCreateStaticSceneProgram(void)
         xz_shadow.static_directional_weight_loc < 0 ||
         xz_shadow.static_directional_color_loc < 0 ||
         xz_shadow.static_directional_direction_loc < 0 ||
-        xz_shadow.static_local_light_count_loc < 0 ||
-        xz_shadow.static_local_pos_inv_radius_loc < 0 ||
-        xz_shadow.static_local_color_cone_loc < 0 ||
-        xz_shadow.static_local_dir_cos_outer_loc < 0)
+        xz_shadow.static_cluster_pos_radius_loc < 0 ||
+        xz_shadow.static_cluster_color_cone_loc < 0 ||
+        xz_shadow.static_cluster_dir_cos_loc < 0 ||
+        xz_shadow.static_cluster_grid_loc < 0 ||
+        xz_shadow.static_cluster_grid_min_cell_loc < 0 ||
+        xz_shadow.static_cluster_grid_dims_loc < 0)
         return 0;
 
     gl->UseProgram(xz_shadow.static_program);
     gl->Uniform1i(
         xz_shadow.static_texture_loc,
         0);
+    gl->Uniform1i(
+        xz_shadow.static_cluster_pos_radius_loc,
+        1);
+    gl->Uniform1i(
+        xz_shadow.static_cluster_color_cone_loc,
+        2);
+    gl->Uniform1i(
+        xz_shadow.static_cluster_dir_cos_loc,
+        3);
+    gl->Uniform1i(
+        xz_shadow.static_cluster_grid_loc,
+        4);
     gl->UseProgram(0u);
 
     return gl->GetError() == GL_NO_ERROR;
