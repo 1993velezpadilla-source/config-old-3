@@ -8,6 +8,9 @@ on:
     paths:
       - "multiplayer/cloudflare/**"
       - "android/**"
+      - "assets/xziel/official_touch_skins_v1/**"
+      - "scripts/prepare_android.sh"
+      - "scripts/patch_vril_official_touch_skins_v026.py"
       - "scripts/patch_vril_multiplayer_online.py"
       - "scripts/patch_quakec_multiplayer_v026.py"
       - ".github/workflows/android-native.yml"
