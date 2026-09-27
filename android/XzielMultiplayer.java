@@ -61,6 +61,8 @@ public final class XzielMultiplayer {
     private static final int MAX_QUEUE_PER_PORT = 256;
     private static final long CONNECT_RETRY_MS = 3000L;
     private static final String DEFAULT_MAP = "ndu";
+    private static final String CI_EVIDENCE_BARRIER_FILE =
+        "xziel-ci-evidence-barrier.txt";
     private static final MediaType JSON =
         MediaType.parse("application/json; charset=utf-8");
 
@@ -70,6 +72,7 @@ public final class XzielMultiplayer {
     private final ConcurrentHashMap<Integer, ConcurrentLinkedQueue<GamePacket>> packetsByPort =
         new ConcurrentHashMap<>();
     private final Set<Integer> connectedSlots = ConcurrentHashMap.newKeySet();
+    private final Set<Integer> ciEvidenceDoneSlots = ConcurrentHashMap.newKeySet();
     private final AtomicReference<String> pendingNativeCommand =
         new AtomicReference<>("");
     // CI-only bounded transport tracing. These counters never affect routing;
@@ -258,6 +261,7 @@ public final class XzielMultiplayer {
     public void setCiEvidenceMode(boolean enabled) {
         ciEvidenceMode = enabled;
         ciEvidenceDoneSent = false;
+        resetCiEvidenceBarrierState();
         Log.i(TAG, "CI_EVIDENCE_MODE=" + enabled);
     }
 
@@ -638,6 +642,7 @@ public final class XzielMultiplayer {
         clientReadySent = false;
         ciReadySent = false;
         ciScenarioStarted = false;
+        resetCiEvidenceBarrierState();
         for (int i = 0; i < ciRemoteSeen.length; i++) ciRemoteSeen[i] = false;
         lastConnectAttemptMs = 0;
         connectedSlots.clear();
@@ -897,6 +902,9 @@ public final class XzielMultiplayer {
                 String action = message.optString("action", "");
                 if (remoteSlot >= 1 && remoteSlot <= MAX_PLAYERS &&
                     remoteSlot != localSlot && !action.isEmpty()) {
+                    if ("CI_EVIDENCE_DONE".equals(action)) {
+                        markCiEvidenceDone(remoteSlot);
+                    }
                     Log.i(TAG, "CI_REMOTE_ACTION observer=" + localSlot +
                         " remote=" + remoteSlot + " action=" + action);
                 }
@@ -1081,6 +1089,41 @@ public final class XzielMultiplayer {
         }
     }
 
+    private void resetCiEvidenceBarrierState() {
+        ciEvidenceDoneSlots.clear();
+        try {
+            activity.deleteFile(CI_EVIDENCE_BARRIER_FILE);
+        } catch (Exception ignored) {}
+    }
+
+    private void markCiEvidenceDone(int slot) {
+        if (!ciEvidenceMode || slot < 1 || slot > MAX_PLAYERS) return;
+
+        ciEvidenceDoneSlots.add(slot);
+        int required = Math.max(1, Math.min(MAX_PLAYERS, targetPlayers));
+        Log.i(TAG, "CI_EVIDENCE_STATE local=" + localSlot +
+            " done=" + ciEvidenceDoneSlots +
+            " count=" + ciEvidenceDoneSlots.size() + "/" + required);
+
+        if (localSlot < 1 || !ciEvidenceDoneSlots.contains(localSlot) ||
+            ciEvidenceDoneSlots.size() < required) {
+            return;
+        }
+
+        String state = "complete slot=" + localSlot +
+            " count=" + ciEvidenceDoneSlots.size() + "/" + required + "\n";
+        try (java.io.FileOutputStream output =
+                 activity.openFileOutput(
+                     CI_EVIDENCE_BARRIER_FILE, Context.MODE_PRIVATE)) {
+            output.write(state.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            output.flush();
+            Log.i(TAG, "CI_EVIDENCE_BARRIER slot=" + localSlot +
+                " count=" + ciEvidenceDoneSlots.size() + "/" + required);
+        } catch (Exception e) {
+            Log.w(TAG, "CI_EVIDENCE_BARRIER_WRITE_FAILED slot=" + localSlot, e);
+        }
+    }
+
     private void sendCiEvidenceDone() {
         if (!ciEvidenceMode || ciEvidenceDoneSent || !isOnlineActive()) return;
 
@@ -1093,6 +1136,7 @@ public final class XzielMultiplayer {
             action.put("action", "CI_EVIDENCE_DONE");
             if (socket.send(action.toString())) {
                 ciEvidenceDoneSent = true;
+                markCiEvidenceDone(localSlot);
                 Log.i(TAG, "CI_EVIDENCE_DONE slot=" + localSlot);
             }
         } catch (Exception ignored) {}
@@ -1383,6 +1427,7 @@ public final class XzielMultiplayer {
         clientReadySent = false;
         ciReadySent = false;
         ciScenarioStarted = false;
+        resetCiEvidenceBarrierState();
         voiceChat.leaveRoom();
         connectedSlots.clear();
         packetsByPort.clear();
