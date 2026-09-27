@@ -14,6 +14,16 @@ class HighEndTextureContractTests(unittest.TestCase):
         self.assertEqual(hayuya.PROFILES["monster"].texture_size, 4096)
         self.assertEqual(hayuya.PROFILES["ultra"].texture_size, 4096)
 
+    def test_high_end_profiles_keep_dense_hero_master_before_runtime_retopology(self):
+        self.assertEqual(hayuya.PROFILES["monster"].faces, 250_000)
+        self.assertEqual(hayuya.PROFILES["monster"].hero_faces, 1_500_000)
+        self.assertEqual(hayuya.PROFILES["ultra"].faces, 500_000)
+        self.assertEqual(hayuya.PROFILES["ultra"].hero_faces, 2_000_000)
+        self.assertGreater(
+            hayuya.PROFILES["monster"].hero_faces,
+            hayuya.PROFILES["monster"].faces,
+        )
+
     def test_texture_superres_only_targets_high_end_under_resolved_visible_color(self):
         self.assertTrue(hayuya.needs_texture_superres("monster", 2048, 4096))
         self.assertTrue(hayuya.needs_texture_superres("ultra", 1024, 4096))
@@ -185,7 +195,7 @@ class HighEndTextureContractTests(unittest.TestCase):
                 )
             self.assertEqual(calls["texture_size"], 4096)
             self.assertEqual(calls["resolution"], 1024)
-            self.assertEqual(calls["faces"], 250000)
+            self.assertEqual(calls["faces"], 1_500_000)
         finally:
             hayuya.GENERATORS["trellis2"] = original
 
