@@ -356,6 +356,9 @@ jobs:
 
           "$ADB" shell uiautomator dump /sdcard/xziel-pause.xml >/dev/null 2>&1 || true
           "$ADB" pull /sdcard/xziel-pause.xml "evidence/pause-ui-${{ matrix.runner }}.xml" >/dev/null 2>&1 || true
+          echo "Pause accessibility controls for runner ${{ matrix.runner }}:"
+          grep -o 'content-desc="[^"]*"' "evidence/pause-ui-${{ matrix.runner }}.xml" | \
+            grep -E 'Mute|Unmute' || true
           python3 - "evidence/pause-ui-${{ matrix.runner }}.xml" "evidence/player-mute-tap-${{ matrix.runner }}.txt" <<'PY'
           import re, sys
           from pathlib import Path
@@ -398,7 +401,8 @@ jobs:
 
           if [[ "$EVIDENCE_BARRIER" != "1" ]]; then
             echo "CI evidence barrier did not complete."
-            grep -E "XzielOnline.*(CI_EVIDENCE_DONE|CI_REMOTE_ACTION|PLAYER_LEFT)|Host_Error|Program error|lost server connection"               "evidence/barrier-logcat-${{ matrix.runner }}.txt" | tail -n 120 || true
+            grep -E "XzielOnline.*(CI_EVIDENCE_DONE|CI_REMOTE_ACTION|PLAYER_LEFT|PLAYER_JOINED|WELCOME|PAUSE_VOICE|GAME_SOCKET_(OPEN|CLOSED|FAILURE)|GAME_RECONNECT)|Host_Error|Program error|lost server connection" \
+              "evidence/barrier-logcat-${{ matrix.runner }}.txt" | tail -n 180 || true
           fi
 
           "$ADB" logcat -d -v threadtime > "evidence/logcat-${{ matrix.runner }}.txt" || true
