@@ -287,6 +287,11 @@ public final class XzielMultiplayer {
             }
 
             if (isOnlineActive()) {
+                if (matchStarted && localSlot > 1 && serverReadyReceived) {
+                    beginClientConnection(true);
+                    toast("Rejoining active match...");
+                    return;
+                }
                 showLobbyDialog();
                 return;
             }
