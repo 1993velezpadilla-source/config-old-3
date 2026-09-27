@@ -661,6 +661,99 @@ final_texture_min_edge=(
     else 1024
 )
 detail_fusion_payload=None
+head_geometry_fusion_payload=None
+
+# TRELLIS.2 preview recovery is intentionally only an approximate visual hull.
+# For face-critical characters, do not rely on texture paint to hide a weak head
+# surface. Build a second full-body TripoSR hypothesis from the SAME real source
+# and use only its upper-head geometry as a seam-limited challenger on the
+# preview-recovered topology. The existing regional-fusion guard preserves the
+# base UV/material payload and limits neck/bounds drift. Judge v4 remains the
+# final authority after this worker; this stage only gives it real face geometry
+# to evaluate instead of a texture-only repair.
+if (
+    detail_views
+    and TRIPOSR_CPU_ENABLED
+    and ASSET_PROFILE in {"auto","character.humanoid","character.creature"}
+    and selected_generator=="microsoft/TRELLIS.2-preview-recovery"
+):
+    try:
+        from regional_fusion import prepare_head_wrap_challenger
+
+        geometry_donor_meta=generate_triposr_cpu_cloud(
+            crops[0],
+            OUT/"head_geometry_donor_fullbody.glb",
+            token=TOKEN,
+        )
+        geometry_donor=Path(geometry_donor_meta["path"])
+        head_wrap=prepare_head_wrap_challenger(
+            dst,
+            geometry_donor,
+            OUT/"head_geometry_wrap",
+            texture_size=max(1024,int(actual_texture_size or 0)),
+            require_rebake=True,
+            up_axis="y",
+        )
+        head_geometry_fusion_payload={
+            "attempted":True,
+            "reason":"preview_recovery_face_geometry_guard",
+            "donor":geometry_donor_meta,
+            "fusion":asdict(head_wrap),
+            "promoted":False,
+        }
+        print(
+            "HAYUYA_HEAD_GEOMETRY_FUSION",
+            json.dumps(head_geometry_fusion_payload,separators=(",",":")),
+        )
+        if head_wrap.ready_for_judge and head_wrap.output_glb:
+            wrapped=Path(head_wrap.output_glb)
+            wrapped_mesh=inspect_mesh_gate(
+                wrapped,
+                require_normals=require_final_normals,
+            )
+            wrapped_texture=inspect_texture_gate(
+                wrapped,
+                min_edge=final_texture_min_edge,
+            )
+            head_geometry_fusion_payload["mesh_gate"]=asdict(wrapped_mesh)
+            head_geometry_fusion_payload["texture_gate"]=asdict(wrapped_texture)
+            if wrapped_mesh.passed and wrapped_texture.passed:
+                shutil.copy2(wrapped,dst)
+                data=dst.read_bytes()
+                head_geometry_fusion_payload["promoted"]=True
+                selected_compute=(
+                    selected_compute
+                    +" + CPU full-body TripoSR seam-limited head geometry fusion"
+                )
+                print(
+                    "HAYUYA_HEAD_GEOMETRY_FUSION_PROMOTED",
+                    json.dumps(head_geometry_fusion_payload,separators=(",",":")),
+                )
+            else:
+                head_geometry_fusion_payload["rejected_reason"]="post_wrap_gate"
+                print(
+                    "::warning::Head-geometry fusion challenger rejected by hard gates"
+                )
+        else:
+            head_geometry_fusion_payload["rejected_reason"]=(
+                head_wrap.error or "regional_fusion_not_judge_ready"
+            )
+            print(
+                "::warning::Head-geometry fusion not Judge-ready: "
+                +str(head_geometry_fusion_payload["rejected_reason"])
+            )
+    except Exception as head_geometry_exc:
+        head_geometry_fusion_payload={
+            "attempted":True,
+            "reason":"preview_recovery_face_geometry_guard",
+            "promoted":False,
+            "error":f"{type(head_geometry_exc).__name__}: {head_geometry_exc}",
+        }
+        print(
+            "::warning::HAYUYA head-geometry fusion unavailable; "
+            "keeping preview-recovered base for downstream Judge v4: "
+            +head_geometry_fusion_payload["error"]
+        )
 
 # Real head/detail evidence must affect the final character instead of only
 # being written to the manifest. Build a CPU TripoSR donor from the tight
@@ -822,6 +915,7 @@ manifest={
     "source":str(GEOMETRY),
     "prepared_views":[p.name for p in crops],
     "prepared_detail_views":[p.name for p in detail_views],
+    "head_geometry_fusion":head_geometry_fusion_payload,
     "detail_fusion":detail_fusion_payload,
     "source_autofix":(
         asdict(source_autofix_result)
