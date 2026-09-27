@@ -29,6 +29,8 @@ typedef struct {
 } XzStaticMeshResource;
 
 #define XZ_STATIC_MATERIAL_NO_TEXTURE 0xffffffffu
+#define XZ_STATIC_TEXTURE_FLAG_RGBA8 1u
+#define XZ_STATIC_TEXTURE_FLAG_SRGB 2u
 
 typedef struct {
     uint32_t width;

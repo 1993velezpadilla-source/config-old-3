@@ -3616,6 +3616,7 @@ int XzGles3Shadow_UploadStaticScene(
                 scene->material_texture_count;
              ++texture_index) {
             XzStaticTextureView source_texture;
+            GLint internal_format;
             XzGles3StaticTexture *dest_texture =
                 &xz_shadow.static_textures[
                     texture_index];
@@ -3632,6 +3633,12 @@ int XzGles3Shadow_UploadStaticScene(
                     (size_t)source_texture.height *
                     4u)
                 goto fail;
+
+            internal_format =
+                (source_texture.flags &
+                    XZ_STATIC_TEXTURE_FLAG_SRGB) != 0u
+                    ? GL_SRGB8_ALPHA8
+                    : GL_RGBA8;
 
             xz_shadow.gl.GenTextures(
                 1,
@@ -3662,7 +3669,7 @@ int XzGles3Shadow_UploadStaticScene(
             xz_shadow.gl.TexImage2D(
                 GL_TEXTURE_2D,
                 0,
-                GL_RGBA8,
+                internal_format,
                 (GLsizei)source_texture.width,
                 (GLsizei)source_texture.height,
                 0,

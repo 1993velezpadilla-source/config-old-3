@@ -24,6 +24,8 @@ NO_TEXTURE = 0xFFFFFFFF
 EXPECTED_MESHES = 492
 EXPECTED_SUBMESHES = 1063
 XZTX_HEADER = struct.Struct("<4sIIIII")
+TEXTURE_FLAG_RGBA8 = 1
+TEXTURE_FLAG_SRGB = 2
 
 
 def parse_glb_json(path: Path) -> dict:
@@ -664,6 +666,8 @@ def main() -> int:
                 "offset": data_offset,
                 "bytes": 4,
                 "rgba": synthetic["rgba"],
+                "flags": TEXTURE_FLAG_RGBA8,
+                "srgb": False,
             })
             data_offset += 4
             continue
@@ -675,6 +679,12 @@ def main() -> int:
             width, height, args.max_dimension
         )
         runtime_bytes = runtime_width * runtime_height * 4
+        srgb_raw = str(row.get("srgb", "")).strip().lower()
+        if srgb_raw not in {"true", "false"}:
+            raise SystemExit(
+                f"texture manifest missing exact sRGB state for {path}"
+            )
+        srgb = srgb_raw == "true"
         runtime_textures.append({
             "texturePath": path,
             "textureName": row.get("textureName", ""),
@@ -686,6 +696,11 @@ def main() -> int:
             "height": runtime_height,
             "offset": data_offset,
             "bytes": runtime_bytes,
+            "flags": (
+                TEXTURE_FLAG_RGBA8
+                | (TEXTURE_FLAG_SRGB if srgb else 0)
+            ),
+            "srgb": srgb,
         })
         data_offset += runtime_bytes
 
@@ -705,7 +720,7 @@ def main() -> int:
                 texture["height"],
                 texture["offset"],
                 texture["bytes"],
-                1,
+                texture["flags"],
             ))
         for binding in bindings:
             out.write(struct.pack("<I", binding))
@@ -762,6 +777,14 @@ def main() -> int:
         "mappedBindings": mapped,
         "unmappedBindings": len(bindings) - mapped,
         "textureCount": len(runtime_textures),
+        "srgbTextureCount": sum(
+            1 for texture in runtime_textures
+            if texture["srgb"]
+        ),
+        "linearTextureCount": sum(
+            1 for texture in runtime_textures
+            if not texture["srgb"]
+        ),
         "syntheticTextureCount": sum(
             1 for texture in runtime_textures
             if texture.get("sourceKind") == "synthetic"
@@ -811,6 +834,8 @@ def main() -> int:
     print(
         "XZIEL_NACHT_XZMT_OK",
         f"textures={len(runtime_textures)}",
+        f"srgb={sum(1 for texture in runtime_textures if texture['srgb'])}",
+        f"linear={sum(1 for texture in runtime_textures if not texture['srgb'])}",
         f"bindings={len(bindings)}",
         f"mapped={mapped}",
         f"unmapped={len(bindings)-mapped}",

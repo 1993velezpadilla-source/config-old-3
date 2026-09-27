@@ -1042,6 +1042,10 @@ jobs:
                                   decoded.PixelFormat.ToString(),
                               ["runtimeFormat"] =
                                   "RGBA8",
+                              ["srgb"] =
+                                  texture.SRGB ? "true" : "false",
+                              ["compressionSettings"] =
+                                  texture.CompressionSettings.ToString(),
                           });
 
                       Console.WriteLine(
@@ -1050,7 +1054,9 @@ jobs:
                           + $" file={fileName}"
                           + $" size={decoded.Width}x{decoded.Height}"
                           + $" sourceFormat={decoded.PixelFormat}"
-                          + $" rgbaBytes={rgba.Length}");
+                          + $" rgbaBytes={rgba.Length}"
+                          + $" srgb={texture.SRGB}"
+                          + $" compression={texture.CompressionSettings}");
                   }
                   catch (Exception e)
                   {
@@ -2956,6 +2962,21 @@ jobs:
                   "build/nacht-static-scene/xziel.xzmat.report.json"
               ).read_text()
           )
+          assert material["srgbTextureCount"] > 0
+          assert material["linearTextureCount"] > 0
+          assert (
+              material["srgbTextureCount"]
+              + material["linearTextureCount"]
+              == material["textureCount"]
+          )
+          print(
+              "XZIEL_NACHT_TEXTURE_COLORSPACE_GREEN",
+              {
+                  "srgb": material["srgbTextureCount"],
+                  "linear": material["linearTextureCount"],
+                  "textures": material["textureCount"],
+              },
+          )
 
           environment = json.loads(
               pathlib.Path(
@@ -3092,6 +3113,10 @@ jobs:
             build/deps/vril/source/xz_android_runtime.c
           grep -F 'static_scene_gpu_ready' \
             build/deps/vril/source/xz_gles3_shadow.c
+          grep -F 'GL_SRGB8_ALPHA8' \
+            build/deps/vril/source/xz_gles3_shadow.c
+          grep -F 'XZ_STATIC_TEXTURE_FLAG_SRGB' \
+            build/deps/vril/source/xz_static_scene_runtime.h
 
           ZIP=build/android-project/app/src/main/assets/nzp-data.zip
 

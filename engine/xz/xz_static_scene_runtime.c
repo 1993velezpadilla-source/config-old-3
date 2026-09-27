@@ -40,7 +40,7 @@
 #define XZ_XZMT_HEADER_BYTES 24u
 #define XZ_XZMT_TEXTURE_BYTES 20u
 #define XZ_XZMT_VERSION 1u
-#define XZ_XZMT_FLAG_RGBA8 1u
+#define XZ_XZMT_HEADER_FLAG_RGBA8 1u
 #define XZ_XZMN_HEADER_BYTES 24u
 #define XZ_XZMN_TEXTURE_BYTES 20u
 #define XZ_XZMN_VERSION 1u
@@ -271,7 +271,7 @@ static int XzValidateMaterialPack(
         bindings == 0u ||
         bindings != expected_bindings ||
         entry_bytes != XZ_XZMT_TEXTURE_BYTES ||
-        flags != XZ_XZMT_FLAG_RGBA8)
+        flags != XZ_XZMT_HEADER_FLAG_RGBA8)
         return 0;
 
     table_end =
@@ -313,7 +313,11 @@ static int XzValidateMaterialPack(
             width > 4096u ||
             height > 4096u ||
             expected_bytes != (uint64_t)bytes ||
-            texture_flags != XZ_XZMT_FLAG_RGBA8 ||
+            (texture_flags &
+                XZ_STATIC_TEXTURE_FLAG_RGBA8) == 0u ||
+            (texture_flags &
+                ~(XZ_STATIC_TEXTURE_FLAG_RGBA8 |
+                  XZ_STATIC_TEXTURE_FLAG_SRGB)) != 0u ||
             (uint64_t)offset < bindings_end ||
             end > (uint64_t)size)
             return 0;
