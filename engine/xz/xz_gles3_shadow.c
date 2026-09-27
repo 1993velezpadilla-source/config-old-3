@@ -4,6 +4,7 @@
 #include "xz_pass_inputs.h"
 #include "xz_texture_tap.h"
 #include "xz_static_scene_draw_plan.h"
+#include "xz_static_light_grid.h"
 
 #include <EGL/egl.h>
 #include <GLES3/gl3.h>
@@ -26,6 +27,8 @@
 #define XZ_G3_RESOURCE_PROXY_MAX 128u
 #define XZ_STATIC_LOCAL_LIGHT_SOURCE_MAX 163u
 #define XZ_STATIC_LOCAL_LIGHT_ACTIVE_MAX 64u
+#define XZ_STATIC_LIGHT_GRID_CELL_METERS 4.0f
+#define XZ_STATIC_LIGHT_GRID_TEXTURE_WIDTH 2048u
 #define XZ_STATIC_GAMEPLAY_UNITS_PER_METER 39.3700787402f
 #define XZ_STATIC_CENTIMETERS_PER_GAMEPLAY_UNIT 2.54f
 #define XZ_STATIC_PI 3.14159265358979323846f
@@ -303,6 +306,12 @@ typedef struct {
     GLint static_local_pos_inv_radius_loc;
     GLint static_local_color_cone_loc;
     GLint static_local_dir_cos_outer_loc;
+    GLint static_cluster_pos_radius_loc;
+    GLint static_cluster_color_cone_loc;
+    GLint static_cluster_dir_cos_loc;
+    GLint static_cluster_grid_loc;
+    GLint static_cluster_grid_min_cell_loc;
+    GLint static_cluster_grid_dims_loc;
     float static_ambient_weight;
     float static_directional_weight;
     float static_directional_color[3];
@@ -310,6 +319,12 @@ typedef struct {
     XzGles3StaticLocalLight
         static_local_lights[XZ_STATIC_LOCAL_LIGHT_SOURCE_MAX];
     uint32_t static_local_light_count;
+    GLuint static_local_pos_radius_texture;
+    GLuint static_local_color_cone_texture;
+    GLuint static_local_dir_cos_texture;
+    GLuint static_local_grid_texture;
+    uint32_t static_local_grid_texture_height;
+    XzStaticLightGrid static_light_grid;
     GLuint static_instance_vbo;
     XzStaticSceneDrawPlan static_draw_plan;
     int static_draw_plan_ready;
