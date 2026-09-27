@@ -89,13 +89,17 @@ var mapExports =
 var componentBuildIds =
     new Dictionary<string, List<object>>(
         StringComparer.OrdinalIgnoreCase);
+var lightMapCoordinateIndexCounts =
+    new SortedDictionary<int, int>();
+var staticMeshBuildBindingCount = 0;
 
 void AddComponentBuildId(
     UObject export,
     FGuid guid,
     string bindingKind,
     int bindingIndex,
-    string? assetPath)
+    string? assetPath,
+    int lightMapCoordinateIndex)
 {
     if (!IsNonZero(guid))
         return;
@@ -119,7 +123,8 @@ void AddComponentBuildId(
                 ?? "",
             bindingKind,
             bindingIndex,
-            assetPath
+            assetPath,
+            lightMapCoordinateIndex
         });
 }
 
@@ -134,20 +139,43 @@ foreach (var export in mapExports)
             var staticMeshPath =
                 ReferencePath(
                     staticMeshComponent.GetStaticMesh());
+            var loadedStaticMesh =
+                staticMeshComponent.GetLoadedStaticMesh();
+            var lightMapCoordinateIndex =
+                loadedStaticMesh is null
+                    ? -1
+                    : loadedStaticMesh.GetOrDefault<int>(
+                        "LightMapCoordinateIndex",
+                        1);
 
             for (
                 var lodIndex = 0;
                 lodIndex < staticMeshComponent.LODData.Length;
                 ++lodIndex)
             {
-                AddComponentBuildId(
-                    export,
+                var buildId =
                     staticMeshComponent
                         .LODData[lodIndex]
-                        .MapBuildDataId,
+                        .MapBuildDataId;
+
+                if (IsNonZero(buildId))
+                {
+                    staticMeshBuildBindingCount++;
+                    lightMapCoordinateIndexCounts[
+                        lightMapCoordinateIndex] =
+                        lightMapCoordinateIndexCounts
+                            .GetValueOrDefault(
+                                lightMapCoordinateIndex)
+                        + 1;
+                }
+
+                AddComponentBuildId(
+                    export,
+                    buildId,
                     "staticMeshLOD",
                     lodIndex,
-                    staticMeshPath);
+                    staticMeshPath,
+                    lightMapCoordinateIndex);
             }
         }
 
@@ -174,7 +202,8 @@ foreach (var export in mapExports)
                     ReferencePath(
                         modelComponent
                             .Elements[elementIndex]
-                            .Material));
+                            .Material),
+                    -1);
             }
         }
 
@@ -185,7 +214,8 @@ foreach (var export in mapExports)
                 landscapeComponent.MapBuildDataId,
                 "landscape",
                 0,
-                null);
+                null,
+                -1);
         }
 
         /*
@@ -202,7 +232,8 @@ foreach (var export in mapExports)
             propertyGuid,
             "property",
             0,
-            null);
+            null,
+            -1);
     }
     catch
     {
@@ -549,6 +580,8 @@ var output = new {
     mapExportCount = mapExports.Length,
     mapComponentBuildIdCount =
         componentBuildIds.Count,
+    staticMeshBuildBindingCount,
+    lightMapCoordinateIndexCounts,
     buildDataCandidateCount =
         builtDataCandidates.Length,
     buildDataRegistryCount =
@@ -610,6 +643,8 @@ Console.WriteLine(
             output.buildDataRegistryCount,
             output.meshBuildDataCount,
             output.linkedMeshBuildDataCount,
+            output.staticMeshBuildBindingCount,
+            output.lightMapCoordinateIndexCounts,
             output.lightMap1DCount,
             output.lightMap2DCount,
             output.shadowMap2DCount,
