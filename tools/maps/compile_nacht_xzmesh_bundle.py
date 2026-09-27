@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compile all 492 BO3 Nacht reference GLBs into XZMS v1 and emit a bundle manifest.
+"""Compile all 492 BO3 Nacht reference GLBs into XZMS v2 and emit a bundle manifest.
 
 Runtime filenames are deliberately compact ordinals (m0000.xzm ... m0491.xzm).
 Vril inherits Quake's 64-byte MAX_QPATH and 128-byte MAX_OSPATH constraints;
@@ -70,7 +70,8 @@ def main()->int:
     output_rows=[]
     totals={
         "meshes":0,"vertices":0,"indices":0,"triangles":0,"submeshes":0,
-        "submeshesWithoutNormals":0,"submeshesWithoutUv0":0,"bytes":0,
+        "submeshesWithoutNormals":0,"submeshesWithoutUv0":0,
+        "submeshesWithoutTangents":0,"bytes":0,
     }
     args.output_root.mkdir(parents=True,exist_ok=True)
 
@@ -100,6 +101,7 @@ def main()->int:
         totals["submeshes"]+=stats["submeshCount"]
         totals["submeshesWithoutNormals"]+=stats["submeshesWithoutNormals"]
         totals["submeshesWithoutUv0"]+=stats["submeshesWithoutUv0"]
+        totals["submeshesWithoutTangents"]+=stats["submeshesWithoutTangents"]
         totals["bytes"]+=stats["bytes"]
 
     if totals["meshes"]!=EXPECTED:
@@ -111,12 +113,12 @@ def main()->int:
 
     manifest={
         "schemaVersion":1,
-        "format":"xziel_xzmesh_bundle_v1",
+        "format":"xziel_xzmesh_bundle_v2",
         "mapId":"bo3_nacht_reference",
         "meshFormat":{
             "magic":"XZMS",
-            "version":1,
-            "vertexLayout":"position3f_normal3f_uv2f",
+            "version":2,
+            "vertexLayout":"position3f_normal3f_uv2f_tangent4f",
             "indexType":"uint32",
             "coordinateBasis":"XZIEL_Z_UP",
             "sourceBasisConversion":"glTF_Y_UP -> XZIEL_Z_UP: (x,-z,y)",
@@ -142,6 +144,7 @@ def main()->int:
             "submeshCount":totals["submeshes"],
             "submeshesWithoutNormals":totals["submeshesWithoutNormals"],
             "submeshesWithoutUv0":totals["submeshesWithoutUv0"],
+            "submeshesWithoutTangents":totals["submeshesWithoutTangents"],
             "runtimeMeshBytes":totals["bytes"],
             "geometryRuntimeFormatReady":True,
             "materialBindingReady":False,

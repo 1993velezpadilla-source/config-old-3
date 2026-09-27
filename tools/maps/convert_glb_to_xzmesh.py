@@ -1,20 +1,21 @@
 #!/usr/bin/env python3
-"""Convert one static glTF 2.0 GLB into XZIEL's compact XZMS v1 mesh format.
+"""Convert one static glTF 2.0 GLB into XZIEL's compact XZMS v2 mesh format.
 
-XZMS v1 is intentionally small and boring so Android runtime code does not need
-a full glTF parser. Geometry is flattened from the GLB scene graph, converted
-from glTF Y-up coordinates to XZIEL Z-up coordinates, and stored as:
+XZMS v2 preserves glTF tangent-space data so authored normal maps can use the
+same basis on Android without shipping a full glTF parser. Geometry is flattened
+from the GLB scene graph, converted from glTF Y-up to XZIEL Z-up, and stored as:
 
   header: <4sIIIIIII6f
-    magic='XZMS', version=1, vertexCount, indexCount, submeshCount,
+    magic='XZMS', version=2, vertexCount, indexCount, submeshCount,
     flags, vertexStrideBytes, submeshStrideBytes, boundsMinXYZ, boundsMaxXYZ
-  vertices: vertexCount * <8f> = position.xyz, normal.xyz, uv.xy
+  vertices: vertexCount * <12f> =
+    position.xyz, normal.xyz, uv.xy, tangent.xyzw
   indices:  indexCount * <I>
   submeshes: submeshCount * <IIII>
     firstIndex, indexCount, materialIndex (0xffffffff if none), attributeFlags
 
-attributeFlags: bit0 POSITION, bit1 NORMAL, bit2 TEXCOORD_0.
-Missing NORMAL/UV are explicit in the submesh flags; their fixed vertex fields
+attributeFlags: bit0 POSITION, bit1 NORMAL, bit2 TEXCOORD_0, bit3 TANGENT.
+Missing NORMAL/UV/TANGENT are explicit in the submesh flags; fixed vertex fields
 are zero-filled only so the binary stride stays constant.
 """
 
@@ -27,15 +28,16 @@ from pathlib import Path
 import struct
 
 MAGIC = b"XZMS"
-VERSION = 1
+VERSION = 2
 HEADER = struct.Struct("<4sIIIIIII6f")
-VERTEX = struct.Struct("<8f")
+VERTEX = struct.Struct("<12f")
 SUBMESH = struct.Struct("<IIII")
 FLAG_GLTF_TO_XZIEL = 1 << 0
 FLAG_INDEX_U32 = 1 << 1
 ATTR_POSITION = 1 << 0
 ATTR_NORMAL = 1 << 1
 ATTR_UV0 = 1 << 2
+ATTR_TANGENT = 1 << 3
 NO_MATERIAL = 0xFFFFFFFF
 JSON_CHUNK = 0x4E4F534A
 BIN_CHUNK = 0x004E4942
@@ -197,6 +199,33 @@ def normal_matrix(m: list[float]) -> list[list[float]]:
     return [[inv[c][r] for c in range(3)] for r in range(3)]
 
 
+def determinant3(a: list[list[float]]) -> float:
+    return (
+        a[0][0] * (a[1][1] * a[2][2] - a[1][2] * a[2][1])
+        - a[0][1] * (a[1][0] * a[2][2] - a[1][2] * a[2][0])
+        + a[0][2] * (a[1][0] * a[2][1] - a[1][1] * a[2][0])
+    )
+
+
+def transform_direction(
+    rows: list[list[float]],
+    v: tuple[float, float, float],
+) -> tuple[float, float, float]:
+    x, y, z = v
+    return (
+        rows[0][0] * x + rows[0][1] * y + rows[0][2] * z,
+        rows[1][0] * x + rows[1][1] * y + rows[1][2] * z,
+        rows[2][0] * x + rows[2][1] * y + rows[2][2] * z,
+    )
+
+
+def normalize3(v: tuple[float, float, float]) -> tuple[float, float, float]:
+    length = math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2])
+    if length <= 1e-20:
+        raise ValueError("zero-length tangent basis vector")
+    return (v[0] / length, v[1] / length, v[2] / length)
+
+
 def transform_normal(nm: list[list[float]], n: tuple[float,float,float]) -> tuple[float,float,float]:
     x,y,z=n
     out=(
@@ -283,6 +312,19 @@ def primitive_vertices(doc: dict, binary: bytes, primitive: dict, world: list[fl
             raise ValueError("NORMAL count mismatch")
         attr_flags |= ATTR_NORMAL
 
+    tangents = None
+    tangent_index = attrs.get("TANGENT")
+    if isinstance(tangent_index, int):
+        tangents = accessor_values(doc, binary, tangent_index)
+        tangent_accessor = doc["accessors"][tangent_index]
+        if tangent_accessor.get("componentType") != 5126:
+            raise ValueError("TANGENT must use FLOAT componentType")
+        if tangent_accessor.get("type") != "VEC4":
+            raise ValueError("TANGENT must be VEC4")
+        if len(tangents) != len(positions):
+            raise ValueError("TANGENT count mismatch")
+        attr_flags |= ATTR_TANGENT
+
     uvs = None
     uv_index = attrs.get("TEXCOORD_0")
     if isinstance(uv_index, int):
@@ -313,18 +355,62 @@ def primitive_vertices(doc: dict, binary: bytes, primitive: dict, world: list[fl
         raise ValueError("index references vertex outside POSITION accessor")
 
     nm = normal_matrix(world) if normals is not None else None
+    linear = upper_rows(world)
+    world_handedness = -1.0 if determinant3(linear) < 0.0 else 1.0
+
     vertices = []
     for i, pos in enumerate(positions):
         p = gltf_to_xziel(transform_point(world, tuple(float(v) for v in pos)))
+        n_world = None
         if normals is not None and nm is not None:
-            n = gltf_to_xziel(transform_normal(nm, tuple(float(v) for v in normals[i])))
-            nlen=math.sqrt(n[0]*n[0]+n[1]*n[1]+n[2]*n[2])
-            if nlen > 1e-20:
-                n=(n[0]/nlen,n[1]/nlen,n[2]/nlen)
+            n_world = transform_normal(
+                nm,
+                tuple(float(v) for v in normals[i]),
+            )
+            n = normalize3(gltf_to_xziel(n_world))
         else:
-            n=(0.0,0.0,0.0)
+            n = (0.0, 0.0, 0.0)
+
+        tangent = (0.0, 0.0, 0.0, 0.0)
+        if tangents is not None:
+            raw = tuple(float(v) for v in tangents[i])
+            if not all(math.isfinite(v) for v in raw):
+                raise ValueError("non-finite TANGENT")
+            if abs(abs(raw[3]) - 1.0) > 1.0e-4:
+                raise ValueError(
+                    f"TANGENT handedness must be +/-1, got {raw[3]}"
+                )
+
+            t_world = transform_direction(
+                linear,
+                (raw[0], raw[1], raw[2]),
+            )
+            if n_world is not None:
+                dot_nt = (
+                    n_world[0] * t_world[0]
+                    + n_world[1] * t_world[1]
+                    + n_world[2] * t_world[2]
+                )
+                t_world = (
+                    t_world[0] - n_world[0] * dot_nt,
+                    t_world[1] - n_world[1] * dot_nt,
+                    t_world[2] - n_world[2] * dot_nt,
+                )
+            t_world = normalize3(t_world)
+            t = normalize3(gltf_to_xziel(t_world))
+            handedness = (
+                (1.0 if raw[3] >= 0.0 else -1.0)
+                * world_handedness
+            )
+            tangent = (t[0], t[1], t[2], handedness)
+
         uv = tuple(float(v) for v in uvs[i]) if uvs is not None else (0.0,0.0)
-        vertices.append((p[0],p[1],p[2],n[0],n[1],n[2],uv[0],uv[1]))
+        vertices.append((
+            p[0], p[1], p[2],
+            n[0], n[1], n[2],
+            uv[0], uv[1],
+            tangent[0], tangent[1], tangent[2], tangent[3],
+        ))
     return vertices, indices, attr_flags
 
 
@@ -417,6 +503,7 @@ def convert(path: Path, output: Path) -> dict:
         "submeshCount":len(submeshes),
         "submeshesWithoutNormals":sum((r["attributeFlags"] & ATTR_NORMAL)==0 for r in submeshes),
         "submeshesWithoutUv0":sum((r["attributeFlags"] & ATTR_UV0)==0 for r in submeshes),
+        "submeshesWithoutTangents":sum((r["attributeFlags"] & ATTR_TANGENT)==0 for r in submeshes),
         "bounds":{"min":mins,"max":maxs},
         "bytes":output.stat().st_size,
     }

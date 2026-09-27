@@ -904,7 +904,8 @@ static int XzCreateStaticSceneProgram(void)
         "layout(location=0) in vec3 aPos;\n"
         "layout(location=1) in vec2 aUV;\n"
         "layout(location=2) in vec3 aNormal;\n"
-        "layout(location=3) in mat4 aModel;\n"
+        "layout(location=3) in vec4 aTangent;\n"
+        "layout(location=4) in mat4 aModel;\n"
         "uniform mat4 uView;\n"
         "uniform mat4 uProjection;\n"
         "out vec3 vNormal;\n"
@@ -1951,8 +1952,8 @@ int XzGles3Shadow_UploadStaticScene(
          *   location 0: position.xyz
          *   location 1: uv.xy
          *   location 2: normal.xyz
-         * Location 2 is staged now even though the current parity shader does
-         * not consume it yet; the material/lighting static shader will.
+         *   location 3: tangent.xyzw
+         * Locations 4-7 are reserved for the instanced model matrix.
          */
         xz_shadow.gl.EnableVertexAttribArray(0u);
         xz_shadow.gl.VertexAttribPointer(
@@ -1980,6 +1981,15 @@ int XzGles3Shadow_UploadStaticScene(
             GL_FALSE,
             (GLsizei)XZ_XZMS_VERTEX_BYTES,
             (const void *)(uintptr_t)12u);
+
+        xz_shadow.gl.EnableVertexAttribArray(3u);
+        xz_shadow.gl.VertexAttribPointer(
+            3u,
+            4,
+            GL_FLOAT,
+            GL_FALSE,
+            (GLsizei)XZ_XZMS_VERTEX_BYTES,
+            (const void *)(uintptr_t)32u);
 
         if (xz_shadow.gl.GetError() !=
                 GL_NO_ERROR)
@@ -2197,7 +2207,7 @@ int XzGles3Shadow_UploadStaticScene(
              column < 4u;
              ++column) {
             const GLuint location =
-                (GLuint)(3u + column);
+                (GLuint)(4u + column);
             const uintptr_t byte_offset =
                 (uintptr_t)(
                     ((uint64_t)span->first_instance * 16u +

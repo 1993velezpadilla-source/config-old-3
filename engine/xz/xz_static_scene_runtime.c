@@ -556,8 +556,8 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
         }
 
         /*
-         * The source conversion proved all 492 Nacht submeshes carry normals
-         * and UV0. Preserve that as a runtime requirement instead of silently
+         * The source conversion proved all 492 Nacht submeshes carry normals,
+         * UV0 and tangents. Preserve that as a runtime requirement instead of
          * accepting a downgraded geometry payload.
          */
         for (submesh_index = 0u;
@@ -573,10 +573,12 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
                 (submesh.attribute_flags &
                  (XZ_XZMS_ATTR_POSITION |
                   XZ_XZMS_ATTR_NORMAL |
-                  XZ_XZMS_ATTR_UV0)) !=
+                  XZ_XZMS_ATTR_UV0 |
+                  XZ_XZMS_ATTR_TANGENT)) !=
                     (XZ_XZMS_ATTR_POSITION |
                      XZ_XZMS_ATTR_NORMAL |
-                     XZ_XZMS_ATTR_UV0)) {
+                     XZ_XZMS_ATTR_UV0 |
+                     XZ_XZMS_ATTR_TANGENT)) {
                 snprintf(
                     failure,
                     sizeof(failure),

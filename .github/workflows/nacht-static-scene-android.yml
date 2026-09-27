@@ -13,6 +13,7 @@ on:
       - feature/xziel-static-scene-material-final5-exact-gate
       - feature/xziel-static-scene-material-fidelity-v1
       - feature/xziel-static-scene-normalmap-audit-v1
+      - feature/xziel-static-scene-normalmap-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -2708,7 +2709,13 @@ jobs:
           assert mesh["summary"]["vertexCount"] == 1067383
           assert mesh["summary"]["indexCount"] == 3608148
           assert mesh["summary"]["submeshCount"] == 1063
-          assert mesh["summary"]["runtimeMeshBytes"] == 48633408
+          assert mesh["meshFormat"]["version"] == 2
+          assert (
+              mesh["meshFormat"]["vertexLayout"]
+              == "position3f_normal3f_uv2f_tangent4f"
+          )
+          assert mesh["summary"]["submeshesWithoutTangents"] == 0
+          assert mesh["summary"]["runtimeMeshBytes"] == 65711536
 
           assert scene["meshCount"] == 492
           assert scene["instanceCount"] == 10791
