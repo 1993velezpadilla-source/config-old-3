@@ -15,6 +15,7 @@ on:
       - feature/xziel-nacht-light-components-166-v1
       - feature/xziel-nacht-light-components-166-integrate-v1
       - feature/xziel-nacht-local-light-render-v1
+      - feature/xziel-nacht-height-fog-runtime-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -31,6 +32,9 @@ on:
       - "tools/maps/compile_nacht_xzmat_bundle.py"
       - "tools/maps/compile_nacht_environment.py"
       - "tools/maps/NachtLightExtractor/**"
+      - "tools/maps/NachtFogExtractor/**"
+      - "tools/maps/compile_nacht_height_fog.py"
+      - "engine/xz/xz_height_fog.*"
       - "tools/maps/export_nacht_nzp_harness.py"
       - "scripts/patch_vril_xz_phase0.py"
       - "scripts/prepare_android.sh"
@@ -151,6 +155,18 @@ jobs:
             build/nacht-static-scene/light-components.json \
             | tee build/nacht-static-scene/light-extract.log
           test -s build/nacht-static-scene/light-components.json
+
+      - name: Extract exact Nacht exponential height fog
+        run: |
+          set -euo pipefail
+          dotnet run \
+            --project tools/maps/NachtFogExtractor/NachtFogExtractor.csproj \
+            --configuration Release \
+            -- \
+            "$UNPACKED" \
+            build/nacht-static-scene/height-fog-resolved.json \
+            | tee build/nacht-static-scene/height-fog-extract.log
+          test -s build/nacht-static-scene/height-fog-resolved.json
 
       - name: Build exact 492-mesh CUE4Parse exporter
         run: |
@@ -2401,12 +2417,19 @@ jobs:
             --report build/nacht-static-scene/xziel.xzen.report.json \
             | tee build/nacht-static-scene/xzen-compile.log
 
+          python3 tools/maps/compile_nacht_height_fog.py \
+            --source build/nacht-static-scene/height-fog-resolved.json \
+            --output "$MAPROOT/fog.xzfg" \
+            --report build/nacht-static-scene/xziel.xzfg.report.json \
+            | tee build/nacht-static-scene/xzfg-compile.log
+
           test "$(find "$MAPROOT/meshes" \
             -maxdepth 1 -type f -name '*.xzm' | wc -l)" \
             -eq 492
           test -s "$MAPROOT/scene.xzsc"
           test -s "$MAPROOT/materials.xzmt"
           test -s "$MAPROOT/environment.xzen"
+          test -s "$MAPROOT/fog.xzfg"
 
           python3 - <<'PY'
           import json
@@ -2432,6 +2455,11 @@ jobs:
           environment = json.loads(
               pathlib.Path(
                   "build/nacht-static-scene/xziel.xzen.report.json"
+              ).read_text()
+          )
+          fog = json.loads(
+              pathlib.Path(
+                  "build/nacht-static-scene/xziel.xzfg.report.json"
               ).read_text()
           )
 
@@ -2469,6 +2497,23 @@ jobs:
           assert environment["withCone"] == 19
           assert environment["withTemperature"] == 165
           assert environment["withCastShadows"] == 166
+          assert environment["withAtmosphereSun"] == 2
+          assert fog["format"] == "XZFG"
+          assert fog["version"] == 1
+          assert fog["bytes"] == 92
+          assert fog["flags"] == 0
+          assert abs(fog["resolved"]["fogDensity"] - 0.1) < 1e-7
+          assert abs(fog["resolved"]["fogHeightFalloff"] - 2.0) < 1e-7
+          assert abs(fog["resolved"]["fogMaxOpacity"] - 0.2) < 1e-7
+          assert abs(fog["resolved"]["startDistanceMeters"] - 3.0) < 1e-7
+
+          print(
+              "XZIEL_NACHT_ATMOSPHERE_SUN_CENSUS",
+              {
+                  "serialized": environment["withAtmosphereSun"],
+                  "enabled": environment["atmosphereSunEnabled"],
+              },
+          )
 
           print(
               "XZIEL_NACHT_STATIC_OVERLAY_READY",
@@ -2530,6 +2575,7 @@ jobs:
           test -f build/deps/vril/source/xz_static_scene_runtime.c
           test -f build/deps/vril/source/xz_static_scene_draw_plan.c
           test -f build/deps/vril/source/xz_environment.c
+          test -f build/deps/vril/source/xz_height_fog.c
 
           grep -F 'static_scene status=%s' \
             build/deps/vril/source/xz_android_runtime.c
@@ -2550,6 +2596,9 @@ jobs:
 
           unzip -l "$ZIP" \
             | grep -F 'nzp/xziel/maps/xziel_nacht_bo3/environment.xzen'
+
+          unzip -l "$ZIP" \
+            | grep -F 'nzp/xziel/maps/xziel_nacht_bo3/fog.xzfg'
 
           test "$(unzip -Z1 "$ZIP" \
             | grep -E '^nzp/xziel/maps/xziel_nacht_bo3/meshes/.*\.xzm$' \
@@ -2829,6 +2878,10 @@ jobs:
             build/nacht-static-scene/xziel.xzscene.report.json
             build/nacht-static-scene/xziel.xzmat.report.json
             build/nacht-static-scene/xziel.xzen.report.json
+            build/nacht-static-scene/xziel.xzfg.report.json
+            build/nacht-static-scene/height-fog-resolved.json
+            build/nacht-static-scene/height-fog-extract.log
+            build/nacht-static-scene/xzfg-compile.log
             build/nacht-static-scene/light-components.json
             build/nacht-static-scene/light-extract.log
             build/nacht-static-scene/xzen-compile.log
