@@ -111,6 +111,7 @@ public final class XzielMultiplayer {
     private volatile boolean gameSocketConnecting;
 
     private volatile boolean ciEvidenceMode;
+    private volatile boolean ciClient;
     private volatile boolean ciEvidenceDoneSent;
     private volatile boolean ciReadySent;
     private volatile boolean ciScenarioStarted;
@@ -254,6 +255,7 @@ public final class XzielMultiplayer {
         if (!clean.isEmpty() && clean.length() <= 64 &&
             gameSocket == null && matchSocket == null) {
             playerId = clean;
+            ciClient = true;
             Log.i(TAG, "CI_PLAYER_ID=" + playerId);
         }
     }
@@ -578,7 +580,8 @@ public final class XzielMultiplayer {
 
         String wsUrl = websocketBase() + "/matchmake?playerId=" + playerId +
             "&map=" + selectedMap + "&players=" + targetPlayers +
-            "&queue=" + matchmakingQueue;
+            "&queue=" + matchmakingQueue +
+            "&hostPriority=" + (ciClient ? "0" : "1");
         Request request = new Request.Builder().url(wsUrl).build();
 
         Log.i(TAG, "MATCH_CONNECT queue=" + matchmakingQueue +
