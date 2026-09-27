@@ -451,6 +451,7 @@ modern_candidate=None
 preview_recovery_candidate=None
 preview_recovery_face_rescue_required=False
 preview_recovery_face_rescue_reason=None
+hero_master_report=None
 
 # Modern single-image authority. TRELLIS.2 is deliberately not used to replace
 # classic TRELLIS native multi-image fusion: with 2+ real geometry views the
@@ -478,6 +479,42 @@ if not multi and TRELLIS2_ENABLED and TEXTURE_QUALITY in {"high","ultra"}:
                 "TRELLIS.2 challenger failed HAYUYA hard gates: "
                 +"; ".join(list(modern_mesh.reasons)+list(modern_tex.warnings))
             )
+
+        # Dense-first contract. A syntactically healthy 300k/500k mesh is no
+        # longer enough for high-end characters: preserve a Hero Master first,
+        # then let later HAYUYA stages retopologize/LOD it for runtime.
+        hero_floor=int(modern_meta.get("hero_master_min_faces",0) or 0)
+        hero_target=int(
+            modern_meta.get("hero_master_target_faces")
+            or modern_meta.get("faces_target")
+            or 0
+        )
+        if hero_floor and int(modern_mesh.faces)<hero_floor:
+            raise RuntimeError(
+                "TRELLIS.2 Hero Master density gate failed: "
+                f"faces={modern_mesh.faces}<minimum={hero_floor} "
+                f"target={hero_target}"
+            )
+        hero_master_report={
+            "schema":1,
+            "policy":"dense-first-fidelity-before-retopo",
+            "generator":modern_meta.get("generator"),
+            "target_faces":hero_target,
+            "minimum_faces":hero_floor,
+            "actual_faces":int(modern_mesh.faces),
+            "actual_vertices":int(modern_mesh.vertices),
+            "dense_master_ready":bool(
+                modern_mesh.passed
+                and modern_tex.passed
+                and (not hero_floor or int(modern_mesh.faces)>=hero_floor)
+            ),
+            "optimization_deferred":True,
+            "runtime_optimization_stage":"post-fidelity-gate",
+        }
+        print(
+            "HAYUYA_HERO_MASTER_READY",
+            json.dumps(hero_master_report,separators=(",",":")),
+        )
         selected_generator=modern_meta["generator"]
         selected_compute="GitHub-hosted CPU controller + official public TRELLIS.2 GPU Space"
         actual_mesh_simplify=None
@@ -976,6 +1013,7 @@ manifest={
     ),
     "preview_recovery_face_rescue_required":preview_recovery_face_rescue_required,
     "preview_recovery_face_rescue_reason":preview_recovery_face_rescue_reason,
+    "hero_master":hero_master_report,
     "preview_recovery_promoted":bool(
         selected_generator=="microsoft/TRELLIS.2-preview-recovery"
         and (
