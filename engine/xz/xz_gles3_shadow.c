@@ -660,6 +660,7 @@ static int XzStaticScenePrepareLocalLights(
          i < environment->light_count;
          ++i) {
         XzEnvironmentLight source;
+        XzStaticLightSpecular source_specular;
         XzGles3StaticLocalLight *dest;
         float pitch;
         float yaw;
@@ -675,7 +676,9 @@ static int XzStaticScenePrepareLocalLights(
         uint32_t channel;
 
         if (!XzStaticSceneRuntime_EnvironmentLight(
-                scene, i, &source))
+                scene, i, &source) ||
+            !XzStaticSceneRuntime_LightSpecular(
+                scene, i, &source_specular))
             return 0;
 
         if (source.type != XZ_ENV_LIGHT_POINT &&
@@ -722,6 +725,17 @@ static int XzStaticScenePrepareLocalLights(
             1.0f /
             (source.radius_meters * 100.0f);
         dest->type = source.type;
+        dest->specular_authored =
+            (source_specular.flags &
+             XZ_STATIC_LIGHT_SPECULAR_HAS_SCALE) != 0u;
+        dest->specular_scale =
+            dest->specular_authored
+                ? source_specular.specular_scale
+                : 0.0f;
+
+        if (!isfinite(dest->specular_scale) ||
+            dest->specular_scale < 0.0f)
+            return 0;
 
         pitch =
             source.rotation[0] *
