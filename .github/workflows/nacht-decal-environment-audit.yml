@@ -80,6 +80,7 @@ jobs:
           using CUE4Parse.UE4.Objects.UObject;
           using CUE4Parse.UE4.Assets.Exports.Material;
           using CUE4Parse.UE4.Assets.Exports.Texture;
+          using CUE4Parse.UE4.Assets.Exports.Component;
           using CUE4Parse.UE4.Objects.Engine;
           using CUE4Parse_Conversion.Textures;
           using System.Security.Cryptography;
@@ -178,8 +179,94 @@ jobs:
               return value.ToString() ?? "";
           }
 
+          List<object> AttachChain(object start)
+          {
+              var rows = new List<object>();
+              var seen = new HashSet<string>(
+                  StringComparer.OrdinalIgnoreCase);
+              object? current = start;
+
+              for (
+                  var depth = 0;
+                  current is not null && depth < 16;
+                  ++depth)
+              {
+                  var path =
+                      current.GetType()
+                          .GetMethod(
+                              "GetPathName",
+                              Type.EmptyTypes)
+                          ?.Invoke(current, null)
+                          ?.ToString()
+                      ?? "";
+
+                  if (
+                      path.Length > 0
+                      && !seen.Add(path))
+                  {
+                      break;
+                  }
+
+                  var attachParent =
+                      ReadMember(
+                          current,
+                          "AttachParent");
+
+                  rows.Add(
+                      new {
+                          depth,
+                          name =
+                              ReadMember(
+                                  current,
+                                  "Name")?.ToString()
+                              ?? current.GetType().Name,
+                          path,
+                          type =
+                              current.GetType().FullName
+                              ?? current.GetType().Name,
+                          attachParent =
+                              RefPath(attachParent),
+                          relativeLocation =
+                              Describe(
+                                  ReadMember(
+                                      current,
+                                      "RelativeLocation")),
+                          relativeRotation =
+                              Describe(
+                                  ReadMember(
+                                      current,
+                                      "RelativeRotation")),
+                          relativeScale3D =
+                              Describe(
+                                  ReadMember(
+                                      current,
+                                      "RelativeScale3D"))
+                      });
+
+                  if (
+                      attachParent
+                      is FPackageIndex parentIndex
+                      && parentIndex.TryLoad<USceneComponent>(
+                          out var parent)
+                      && parent is not null)
+                  {
+                      current = parent;
+                  }
+                  else
+                  {
+                      current = null;
+                  }
+              }
+
+              return rows;
+          }
+
           var decalRows = new List<object>();
           var envRows = new List<object>();
+          var lightComponentRows = new List<object>();
+          var lightComponentTypeCounts =
+              new SortedDictionary<string,int>(
+                  StringComparer.OrdinalIgnoreCase);
           var typeCounts = new SortedDictionary<string,int>(
               StringComparer.OrdinalIgnoreCase);
 
@@ -225,6 +312,118 @@ jobs:
                       type,
                       path
                   });
+              }
+
+              if (
+                  type.EndsWith(
+                      ".UPointLightComponent",
+                      StringComparison.Ordinal)
+                  || type.EndsWith(
+                      ".USpotLightComponent",
+                      StringComparison.Ordinal)
+                  || type.EndsWith(
+                      ".UDirectionalLightComponent",
+                      StringComparison.Ordinal)
+                  || type.EndsWith(
+                      ".USkyLightComponent",
+                      StringComparison.Ordinal))
+              {
+                  var shortType =
+                      type.Split('.').Last();
+
+                  lightComponentTypeCounts[shortType] =
+                      lightComponentTypeCounts.TryGetValue(
+                          shortType,
+                          out var lightTypeCount)
+                          ? lightTypeCount + 1
+                          : 1;
+
+                  lightComponentRows.Add(
+                      new {
+                          name,
+                          type,
+                          path,
+                          parentPath =
+                              path.Contains('.')
+                                  ? path[..path.LastIndexOf('.')]
+                                  : "",
+                          hierarchy = AttachChain(export),
+                          intensity =
+                              Describe(
+                                  ReadMember(
+                                      export,
+                                      "Intensity")),
+                          lightColor =
+                              Describe(
+                                  ReadMember(
+                                      export,
+                                      "LightColor")),
+                          attenuationRadius =
+                              Describe(
+                                  ReadMember(
+                                      export,
+                                      "AttenuationRadius")),
+                          innerConeAngle =
+                              Describe(
+                                  ReadMember(
+                                      export,
+                                      "InnerConeAngle")),
+                          outerConeAngle =
+                              Describe(
+                                  ReadMember(
+                                      export,
+                                      "OuterConeAngle")),
+                          intensityUnits =
+                              Describe(
+                                  ReadMember(
+                                      export,
+                                      "IntensityUnits")),
+                          useInverseSquaredFalloff =
+                              Describe(
+                                  ReadMember(
+                                      export,
+                                      "bUseInverseSquaredFalloff")),
+                          lightFalloffExponent =
+                              Describe(
+                                  ReadMember(
+                                      export,
+                                      "LightFalloffExponent")),
+                          sourceRadius =
+                              Describe(
+                                  ReadMember(
+                                      export,
+                                      "SourceRadius")),
+                          softSourceRadius =
+                              Describe(
+                                  ReadMember(
+                                      export,
+                                      "SoftSourceRadius")),
+                          sourceLength =
+                              Describe(
+                                  ReadMember(
+                                      export,
+                                      "SourceLength")),
+                          temperature =
+                              Describe(
+                                  ReadMember(
+                                      export,
+                                      "Temperature")),
+                          useTemperature =
+                              Describe(
+                                  ReadMember(
+                                      export,
+                                      "bUseTemperature")),
+                          visible =
+                              Describe(
+                                  ReadMember(
+                                      export,
+                                      "bVisible")),
+                          castShadows =
+                              Describe(
+                                  ReadMember(
+                                      export,
+                                      "CastShadows"))
+                      });
               }
           }
 
@@ -554,6 +753,11 @@ jobs:
               decalExportCount = decalRows.Count,
               decalTypeCounts = typeCounts,
               environmentExportCount = envRows.Count,
+              lightComponentCount =
+                  lightComponentRows.Count,
+              lightComponentTypeCounts,
+              lightComponents =
+                  lightComponentRows,
               exactDecal,
               decals = decalRows,
               environment = envRows
@@ -571,7 +775,9 @@ jobs:
               JsonSerializer.Serialize(new {
                   report.decalExportCount,
                   report.decalTypeCounts,
-                  report.environmentExportCount
+                  report.environmentExportCount,
+                  report.lightComponentCount,
+                  report.lightComponentTypeCounts
               }));
 
           Console.WriteLine(
@@ -615,6 +821,20 @@ jobs:
           d=json.loads(p.read_text(encoding="utf-8"))
           assert d["decalExportCount"] > 0
           assert d["environmentExportCount"] > 0
+          assert d["lightComponentCount"] == 166
+          assert d["lightComponentTypeCounts"] == {
+              "UDirectionalLightComponent": 2,
+              "UPointLightComponent": 144,
+              "USkyLightComponent": 1,
+              "USpotLightComponent": 19,
+          }
+          print(
+              "XZIEL_LIGHT_COMPONENTS",
+              json.dumps(
+                  d["lightComponentTypeCounts"],
+                  sort_keys=True,
+              ),
+          )
           print("XZIEL_DECAL_COUNT", d["decalExportCount"])
           print("XZIEL_ENV_EXPORT_COUNT", d["environmentExportCount"])
           print("XZIEL_DECAL_TYPES", json.dumps(d["decalTypeCounts"], sort_keys=True))
