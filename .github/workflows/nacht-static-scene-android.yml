@@ -19,6 +19,7 @@ on:
       - feature/xziel-nacht-height-fog-shader-v1
       - feature/xziel-nacht-height-fog-shader-v2
       - feature/xziel-nacht-pbr-scalar-census-v1
+      - feature/xziel-nacht-pbr-scalar-pack-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -33,11 +34,13 @@ on:
       - "tools/maps/convert_glb_to_xzmesh.py"
       - "tools/maps/compile_nacht_xzmesh_bundle.py"
       - "tools/maps/compile_nacht_xzmat_bundle.py"
+      - "tools/maps/compile_nacht_pbr_scalars.py"
       - "tools/maps/compile_nacht_environment.py"
       - "tools/maps/NachtLightExtractor/**"
       - "tools/maps/NachtFogExtractor/**"
       - "tools/maps/compile_nacht_height_fog.py"
       - "engine/xz/xz_height_fog.*"
+      - "engine/xz/xz_pbr_material.*"
       - "tools/maps/export_nacht_nzp_harness.py"
       - "scripts/patch_vril_xz_phase0.py"
       - "scripts/prepare_android.sh"
@@ -2473,6 +2476,35 @@ jobs:
             --max-dimension 256 \
             | tee build/nacht-static-scene/xzmat-compile.log
 
+          python3 tools/maps/compile_nacht_pbr_scalars.py \
+            --manifest "$RUNNER_TEMP/scene-glb/xziel-texture-manifest.json" \
+            --materials-report build/nacht-static-scene/xziel.xzmat.report.json \
+            --output "$MAPROOT/materials.xzpb" \
+            --report build/nacht-static-scene/xziel.xzpb.report.json \
+            | tee build/nacht-static-scene/xzpb-compile.log
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          pbr = json.loads(
+              Path(
+                  "build/nacht-static-scene/xziel.xzpb.report.json"
+              ).read_text()
+          )
+          assert pbr["format"] == "XZPB"
+          assert pbr["version"] == 1
+          assert pbr["bindingCount"] == 1063
+          assert pbr["recordBytes"] == 20
+          assert pbr["bytes"] == 21280
+          assert pbr["authoredBindingCount"] > 0
+          assert pbr["validCounts"]["roughness"] > 0
+          assert pbr["validCounts"]["metallic"] > 0
+          assert pbr["validCounts"]["specular"] > 0
+          assert pbr["validCounts"]["emissive"] > 0
+          print("XZIEL_NACHT_XZPB_REPORT_GREEN", pbr["validCounts"])
+          PY
+
           python3 tools/maps/compile_nacht_environment.py \
             --source build/nacht-static-scene/light-components.json \
             --output "$MAPROOT/environment.xzen" \
@@ -2490,6 +2522,7 @@ jobs:
             -eq 492
           test -s "$MAPROOT/scene.xzsc"
           test -s "$MAPROOT/materials.xzmt"
+          test -s "$MAPROOT/materials.xzpb"
           test -s "$MAPROOT/environment.xzen"
           test -s "$MAPROOT/fog.xzfg"
 
@@ -2639,6 +2672,7 @@ jobs:
           test -f build/deps/vril/source/xz_static_scene_draw_plan.c
           test -f build/deps/vril/source/xz_environment.c
           test -f build/deps/vril/source/xz_height_fog.c
+          test -f build/deps/vril/source/xz_pbr_material.c
 
           grep -F 'static_scene status=%s' \
             build/deps/vril/source/xz_android_runtime.c
@@ -2656,6 +2690,9 @@ jobs:
 
           unzip -l "$ZIP" \
             | grep -F 'nzp/xziel/maps/xziel_nacht_bo3/materials.xzmt'
+
+          unzip -l "$ZIP" \
+            | grep -F 'nzp/xziel/maps/xziel_nacht_bo3/materials.xzpb'
 
           unzip -l "$ZIP" \
             | grep -F 'nzp/xziel/maps/xziel_nacht_bo3/environment.xzen'
@@ -2903,6 +2940,10 @@ jobs:
             dist/static-scene-logcat.txt
 
           grep -E \
+            "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*pbrBindings=1063 pbrBytes=21280" \
+            dist/static-scene-logcat.txt
+
+          grep -E \
             "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*envLights=166 envPoint=144 envSpot=19 envDirectional=2 envSky=1 envBytes=14636" \
             dist/static-scene-logcat.txt
 
@@ -2941,6 +2982,9 @@ jobs:
             "XZIEL_NACHT_MATERIAL_GPU_GREEN bindings=1063"
 
           echo \
+            "XZIEL_NACHT_PBR_SCALAR_PACK_GREEN bindings=1063 bytes=21280"
+
+          echo \
             "XZIEL_NACHT_ENVIRONMENT_GREEN lights=166 point=144 spot=19 directional=2 sky=1 bytes=14636"
 
           echo \
@@ -2962,6 +3006,8 @@ jobs:
             build/nacht-static-scene/xziel.xzmesh.bundle.json
             build/nacht-static-scene/xziel.xzscene.report.json
             build/nacht-static-scene/xziel.xzmat.report.json
+            build/nacht-static-scene/xziel.xzpb.report.json
+            build/nacht-static-scene/xzpb-compile.log
             build/nacht-static-scene/xziel.xzen.report.json
             build/nacht-static-scene/xziel.xzfg.report.json
             build/nacht-static-scene/height-fog-resolved.json
