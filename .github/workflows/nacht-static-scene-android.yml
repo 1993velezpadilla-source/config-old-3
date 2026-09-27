@@ -24,6 +24,7 @@ on:
       - feature/xziel-nacht-normal-map-shader-v1
       - feature/xziel-nacht-specular-response-v1
       - feature/xziel-nacht-reflection-capture-census-v1
+      - feature/xziel-nacht-reflection-builtdata-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -193,9 +194,12 @@ jobs:
           data = json.loads(p.read_text(encoding="utf-8"))
           assert data["schemaVersion"] == 1
           assert data["skyLightCount"] == 1
-          assert "reflectionCaptureExportCount" in data
-          assert "reflectionCaptureComponentCount" in data
+          assert data["reflectionCaptureComponentCount"] == 1
           assert len(data["skyLights"]) == 1
+          assert data["buildDataCandidateCount"] > 0
+          assert data["buildDataRegistryCount"] > 0
+          assert data["reflectionCaptureBuildDataCount"] > 0
+          assert data["reflectionCaptureBuildDataLinkedCount"] == 1
           print(
               "XZIEL_NACHT_REFLECTION_CENSUS_GREEN",
               {
@@ -205,7 +209,19 @@ jobs:
                   "types": data["reflectionCaptureTypeCounts"],
               },
           )
+          print(
+              "XZIEL_NACHT_REFLECTION_BUILDDATA_GREEN",
+              {
+                  "candidates": data["buildDataCandidateCount"],
+                  "registries": data["buildDataRegistryCount"],
+                  "buildEntries": data["reflectionCaptureBuildDataCount"],
+                  "linked": data["reflectionCaptureBuildDataLinkedCount"],
+              },
+          )
           PY
+          mkdir -p dist
+          cp build/nacht-static-scene/reflection-census.json \
+            dist/reflection-census.json
 
       - name: Extract exact Nacht exponential height fog
         run: |
