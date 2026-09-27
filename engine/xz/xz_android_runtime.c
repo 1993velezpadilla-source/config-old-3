@@ -1700,48 +1700,90 @@ void XzAndroidRuntime_AuditLegacyPresentBeforeSwap(
     int screenflash_type,
     double screenflash_duration,
     double screenflash_starttime,
-    double screenflash_worktime)
+    double screenflash_worktime,
+    double server_time)
 {
-    unsigned int *rgba;
+    XzGles3ShadowState *shadow;
+    int screenflash_active;
 
     if (!xz_runtime.initialized ||
-        !xz_runtime.gles3_shadow.static_scene_frame_ready ||
-        xz_runtime.gles3_shadow.static_scene_draw_successes != 1u)
+        !xz_runtime.gles3_shadow.static_scene_frame_ready)
         return;
 
-    rgba =
-        xz_runtime.gles3_shadow.static_scene_preswap_mean_rgba;
+    shadow = &xz_runtime.gles3_shadow;
+    screenflash_active =
+        screenflash_duration > server_time;
 
-    if (!XzGles3Shadow_AuditCurrentFramebuffer(
-            &xz_runtime.gles3_shadow,
-            width,
-            height,
-            rgba))
-        return;
+    if (!shadow->static_scene_preswap_intro_sampled) {
+        unsigned int *rgba =
+            shadow->static_scene_preswap_mean_rgba;
 
-    XzAndroidLog(
-        ANDROID_LOG_INFO,
-        "present_luma"
-        " postRestoreRGBA=%u,%u,%u,%u"
-        " preSwapRGBA=%u,%u,%u,%u"
-        " screenflashColor=%d"
-        " screenflashType=%d"
-        " screenflashDuration=%.6f"
-        " screenflashStart=%.6f"
-        " screenflashWork=%.6f",
-        xz_runtime.gles3_shadow.static_scene_postrestore_mean_rgba[0],
-        xz_runtime.gles3_shadow.static_scene_postrestore_mean_rgba[1],
-        xz_runtime.gles3_shadow.static_scene_postrestore_mean_rgba[2],
-        xz_runtime.gles3_shadow.static_scene_postrestore_mean_rgba[3],
-        rgba[0],
-        rgba[1],
-        rgba[2],
-        rgba[3],
-        screenflash_color,
-        screenflash_type,
-        screenflash_duration,
-        screenflash_starttime,
-        screenflash_worktime);
+        if (!XzGles3Shadow_AuditCurrentFramebuffer(
+                shadow,
+                width,
+                height,
+                rgba))
+            return;
+
+        shadow->static_scene_preswap_intro_sampled = 1;
+
+        XzAndroidLog(
+            ANDROID_LOG_INFO,
+            "present_luma"
+            " postRestoreRGBA=%u,%u,%u,%u"
+            " preSwapRGBA=%u,%u,%u,%u"
+            " screenflashColor=%d"
+            " screenflashType=%d"
+            " screenflashDuration=%.6f"
+            " screenflashStart=%.6f"
+            " screenflashWork=%.6f"
+            " serverTime=%.6f"
+            " screenflashActive=%d",
+            shadow->static_scene_postrestore_mean_rgba[0],
+            shadow->static_scene_postrestore_mean_rgba[1],
+            shadow->static_scene_postrestore_mean_rgba[2],
+            shadow->static_scene_postrestore_mean_rgba[3],
+            rgba[0],
+            rgba[1],
+            rgba[2],
+            rgba[3],
+            screenflash_color,
+            screenflash_type,
+            screenflash_duration,
+            screenflash_starttime,
+            screenflash_worktime,
+            server_time,
+            screenflash_active);
+    }
+
+    if (!screenflash_active &&
+        !shadow->static_scene_preswap_clear_sampled) {
+        unsigned int *rgba =
+            shadow->static_scene_preswap_clear_mean_rgba;
+
+        if (!XzGles3Shadow_AuditCurrentFramebuffer(
+                shadow,
+                width,
+                height,
+                rgba))
+            return;
+
+        shadow->static_scene_preswap_clear_sampled = 1;
+
+        XzAndroidLog(
+            ANDROID_LOG_INFO,
+            "present_luma_clear"
+            " preSwapRGBA=%u,%u,%u,%u"
+            " serverTime=%.6f"
+            " screenflashDuration=%.6f"
+            " screenflashActive=0",
+            rgba[0],
+            rgba[1],
+            rgba[2],
+            rgba[3],
+            server_time,
+            screenflash_duration);
+    }
 }
 
 void XzAndroidRuntime_EndFrame(double now_seconds)
