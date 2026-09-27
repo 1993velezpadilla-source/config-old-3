@@ -2922,6 +2922,113 @@ jobs:
             --report build/nacht-static-scene/xziel.xzen.report.json \
             | tee build/nacht-static-scene/xzen-compile.log
 
+          # Preserve and print the exact three global-light records before
+          # changing XZIEL's current Sky + Directional approximation. These
+          # values come directly from Nacht_de_Untoten.umap and from the
+          # deterministic XZEN compiler; they are evidence, not tuning knobs.
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          raw_path = Path(
+              "build/nacht-static-scene/light-components.json"
+          )
+          compiled_path = Path(
+              "build/nacht-static-scene/xziel.xzen.report.json"
+          )
+
+          raw = json.loads(raw_path.read_text(encoding="utf-8"))
+          compiled = json.loads(
+              compiled_path.read_text(encoding="utf-8")
+          )
+
+          raw_global = [
+              row for row in raw["lights"]
+              if row["componentType"] in {"sky", "directional"}
+          ]
+          compiled_global = [
+              row for row in compiled["lights"]
+              if row["componentType"] in {"sky", "directional"}
+          ]
+
+          assert len(raw_global) == 3, len(raw_global)
+          assert (
+              sum(row["componentType"] == "sky"
+                  for row in raw_global) == 1
+          )
+          assert (
+              sum(row["componentType"] == "directional"
+                  for row in raw_global) == 2
+          )
+          assert len(compiled_global) == 3, len(compiled_global)
+
+          for row in raw_global:
+              props = row["properties"]
+              print(
+                  "XZIEL_NACHT_GLOBAL_LIGHT_RAW",
+                  json.dumps(
+                      {
+                          "id": row["id"],
+                          "actorName": row["actorName"],
+                          "componentName": row["componentName"],
+                          "type": row["componentType"],
+                          "intensity": props["intensity"],
+                          "lightColor": props["lightColor"],
+                          "intensityUnits": props["intensityUnits"],
+                          "temperatureKelvin":
+                              props["temperatureKelvin"],
+                          "useTemperature": props["useTemperature"],
+                          "visible": props["visible"],
+                          "castShadows": props["castShadows"],
+                          "usedAsAtmosphereSunLight":
+                              props["usedAsAtmosphereSunLight"],
+                          "optional": props["optional"],
+                          "hierarchy": row["hierarchy"],
+                      },
+                      sort_keys=True,
+                      separators=(",", ":"),
+                  ),
+              )
+
+          for row in compiled_global:
+              print(
+                  "XZIEL_NACHT_GLOBAL_LIGHT_COMPILED",
+                  json.dumps(
+                      row,
+                      sort_keys=True,
+                      separators=(",", ":"),
+                  ),
+              )
+
+          Path("dist").mkdir(parents=True, exist_ok=True)
+          Path("dist/nacht-global-lights.json").write_text(
+              json.dumps(
+                  {
+                      "raw": raw_global,
+                      "compiled": compiled_global,
+                  },
+                  indent=2,
+              ) + "\n",
+              encoding="utf-8",
+          )
+          Path("dist/light-components.json").write_bytes(
+              raw_path.read_bytes()
+          )
+          Path("dist/xziel.xzen.report.json").write_bytes(
+              compiled_path.read_bytes()
+          )
+
+          print(
+              "XZIEL_NACHT_GLOBAL_LIGHT_CENSUS_GREEN",
+              {
+                  "raw": len(raw_global),
+                  "compiled": len(compiled_global),
+                  "sky": 1,
+                  "directional": 2,
+              },
+          )
+          PY
+
           python3 tools/maps/compile_nacht_height_fog.py \
             --source build/nacht-static-scene/height-fog-resolved.json \
             --output "$MAPROOT/fog.xzfg" \
