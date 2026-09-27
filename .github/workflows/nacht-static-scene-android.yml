@@ -35,6 +35,7 @@ on:
       - feature/xziel-nacht-lightmap-uv-v1
       - feature/xziel-nacht-lightmap-index-resolve-v1
       - feature/xziel-nacht-lightmap-payload-v1
+      - feature/xziel-nacht-lightmap-texture-census-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -348,6 +349,25 @@ jobs:
           assert data["linkedMeshBuildDataCount"] > 0
           assert data["staticMeshBuildBindingCount"] > 0
           assert data["lightMapCoordinateIndexCounts"]
+
+          metadata = data["lightmapTextureMetadata"]
+          assert len(metadata) == data["uniqueLightmapTextureCount"]
+          resolved = [row for row in metadata if row["resolved"]]
+          shapes = {}
+          for row in resolved:
+              key = (
+                  f'{row["width"]}x{row["height"]}:'
+                  f'{row["pixelFormat"]}:srgb={int(row["srgb"])}'
+              )
+              shapes[key] = shapes.get(key, 0) + 1
+          print(
+              "XZIEL_NACHT_LIGHTMAP_TEXTURE_CENSUS_GREEN",
+              {
+                  "total": len(metadata),
+                  "resolved": len(resolved),
+                  "shapes": dict(sorted(shapes.items())),
+              },
+          )
 
           print(
               "XZIEL_NACHT_BAKED_LIGHTING_CENSUS_GREEN",
