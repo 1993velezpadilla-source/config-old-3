@@ -3561,8 +3561,23 @@ jobs:
           ! grep -q "outColor=vec4(ueDefaultFilmicTonemap(fogged),texel.a)" \
             engine/xz/xz_gles3_shadow.c
 
+          grep -q \
+            "vec3 light=vec3(uAmbientWeight)+uDirectionalColor*(uDirectionalWeight*ndl*0.31830988618)" \
+            engine/xz/xz_gles3_shadow.c
+          grep -q \
+            "vec3 directRadiance=uDirectionalColor*uDirectionalWeight;" \
+            engine/xz/xz_gles3_shadow.c
+          ! grep -q "neutralBaseline" \
+            engine/xz/xz_gles3_shadow.c
+          ! grep -q "directionalContrast" \
+            engine/xz/xz_gles3_shadow.c
+
           grep -E \
             "XZIEL-XZ.*static_scene_tonemap map='xziel_nacht_bo3' ready=1 tonemapMode=pavlov_legacy autoExposure=0 tonemapperFilm=0 contrast=0\.030000 dynamicRange=4\.000000 toeAmount=1\.000000 healAmount=1\.000000 exposure=1\.000000 exposureMode=fixed" \
+            dist/static-scene-logcat.txt
+
+          grep -E \
+            "XZIEL-XZ.*static_scene_global_lighting map='xziel_nacht_bo3' ready=1 model=source_physical skyIntensity=1\.500000 directionalIntensity=2\.500000 ambientRadiance=0\.0606536[0-9] diffuseLambert=1" \
             dist/static-scene-logcat.txt
 
           grep -E \
@@ -3678,6 +3693,9 @@ jobs:
 
           echo \
             "XZIEL_NACHT_PAVLOV_LEGACY_TONEMAP_GREEN autoExposure=0 tonemapperFilm=0 contrast=0.03 dynamicRange=4 toeAmount=1 healAmount=1 exposure=1.0"
+
+          echo \
+            "XZIEL_NACHT_SOURCE_GLOBAL_LIGHTING_GREEN skyIntensity=1.5 directionalIntensity=2.5 ambientRadiance=0.06065369 model=source_physical"
 
           echo \
             "XZIEL_NACHT_ENVIRONMENT_GREEN lights=166 point=144 spot=19 directional=2 sky=1 bytes=14636"

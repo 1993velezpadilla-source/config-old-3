@@ -1526,6 +1526,19 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
 
         XzAndroidLog(
             ANDROID_LOG_INFO,
+            "static_scene_global_lighting map='%s'"
+            " ready=%d model=source_physical"
+            " skyIntensity=%.6f directionalIntensity=%.6f"
+            " ambientRadiance=%.8f diffuseLambert=1",
+            XzMapRuntime_MapId(
+                &xz_runtime.map_runtime),
+            xz_runtime.gles3_shadow.static_scene_lighting_ready,
+            xz_runtime.gles3_shadow.static_scene_sky_intensity,
+            xz_runtime.gles3_shadow.static_scene_directional_intensity,
+            xz_runtime.gles3_shadow.static_scene_global_ambient_radiance);
+
+        XzAndroidLog(
+            ANDROID_LOG_INFO,
             "static_scene_reflection map='%s'"
             " ready=%d iblReady=%d sphereReady=%d"
             " size=%u mips=%u"

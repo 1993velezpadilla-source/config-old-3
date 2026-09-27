@@ -1074,15 +1074,16 @@ static int XzStaticSceneSourceLighting(
     const XzStaticSceneRuntimeState *scene,
     float *ambient_weight,
     float *directional_weight,
+    float *sky_intensity_out,
     float directional_color[3],
     float directional_direction[3])
 {
     const XzEnvironmentView *environment;
     XzEnvironmentLight sky;
     XzEnvironmentLight directional;
+    const XzReflectionCaptureView *reflection;
     float sky_intensity = -1.0f;
     float directional_intensity = -1.0f;
-    float total;
     float pitch;
     float yaw;
     float cp;
@@ -1094,6 +1095,7 @@ static int XzStaticSceneSourceLighting(
     if (!scene ||
         !ambient_weight ||
         !directional_weight ||
+        !sky_intensity_out ||
         !directional_color ||
         !directional_direction)
         return 0;
@@ -1147,16 +1149,38 @@ static int XzStaticSceneSourceLighting(
     if (!have_sky || !have_directional)
         return 0;
 
-    total =
-        sky_intensity +
-        directional_intensity;
-    if (!isfinite(total) || total <= 0.0f)
-        return 0;
+    /*
+     * Keep the serialized UE light intensities intact. The previous path
+     * normalized Sky + Directional to 1.0 and then applied a half-Lambert
+     * baseline, which made dark Nacht surfaces render near raw albedo.
+     *
+     * Nacht's SkyLight is white, so its diffuse ambient radiance can be
+     * derived from the linked HDR reflection capture's measured average
+     * brightness. Directional intensity remains the exact serialized 2.5;
+     * the shader applies the Lambert 1/pi term to diffuse only, matching the
+     * local-light path while leaving specular radiance unnormalized.
+     */
+    reflection =
+        XzStaticSceneRuntime_ReflectionCapture(scene);
 
-    *ambient_weight =
-        sky_intensity / total;
-    *directional_weight =
-        directional_intensity / total;
+    *sky_intensity_out = sky_intensity;
+    *directional_weight = directional_intensity;
+
+    if (strcmp(scene->map_id, "xziel_nacht_bo3") == 0) {
+        if (!reflection ||
+            !isfinite(reflection->average_brightness) ||
+            reflection->average_brightness < 0.0f ||
+            !isfinite(reflection->brightness) ||
+            reflection->brightness < 0.0f)
+            return 0;
+
+        *ambient_weight =
+            sky_intensity *
+            reflection->brightness *
+            reflection->average_brightness;
+    } else {
+        *ambient_weight = sky_intensity;
+    }
 
     for (i = 0u; i < 3u; ++i) {
         if (!isfinite(directional.color[i]))
@@ -2090,9 +2114,7 @@ static int XzCreateStaticSceneProgram(void)
         "  vec3 f0=mix(vec3(0.08*specular),albedo,metallic);\n"
         "  vec3 Ld=normalize(uDirectionalDirection);\n"
         "  float ndl=max(dot(n,Ld),0.0);\n"
-        "  float neutralBaseline=uAmbientWeight+uDirectionalWeight;\n"
-        "  float directionalContrast=uDirectionalWeight*(ndl-0.5);\n"
-        "  vec3 light=vec3(neutralBaseline)+uDirectionalColor*directionalContrast;\n"
+        "  vec3 light=vec3(uAmbientWeight)+uDirectionalColor*(uDirectionalWeight*ndl*0.31830988618);\n"
         "  vec3 localLight=vec3(0.0);\n"
         "  vec3 localSpec=vec3(0.0);\n"
         "  for(int i=0;i<64;++i){\n"
@@ -3298,6 +3320,9 @@ static void XzDestroyStaticSceneCurrent(
         state->static_scene_legacy_film_toe_amount = 0.0f;
         state->static_scene_legacy_film_heal_amount = 0.0f;
         state->static_scene_exposure_multiplier = 0.0f;
+        state->static_scene_sky_intensity = 0.0f;
+        state->static_scene_directional_intensity = 0.0f;
+        state->static_scene_global_ambient_radiance = 0.0f;
         state->static_scene_lighting_ready = 0;
         state->static_scene_local_light_count = 0u;
         state->static_scene_local_light_active = 0u;
@@ -3397,8 +3422,13 @@ int XzGles3Shadow_UploadStaticScene(
             scene,
             &xz_shadow.static_ambient_weight,
             &xz_shadow.static_directional_weight,
+            &state->static_scene_sky_intensity,
             xz_shadow.static_directional_color,
             xz_shadow.static_directional_direction)) {
+        state->static_scene_directional_intensity =
+            xz_shadow.static_directional_weight;
+        state->static_scene_global_ambient_radiance =
+            xz_shadow.static_ambient_weight;
         state->static_scene_lighting_ready = 1;
     } else if (strcmp(
                    scene->map_id,
@@ -3413,6 +3443,9 @@ int XzGles3Shadow_UploadStaticScene(
         xz_shadow.static_directional_direction[0] = 0.0f;
         xz_shadow.static_directional_direction[1] = 0.0f;
         xz_shadow.static_directional_direction[2] = 1.0f;
+        state->static_scene_sky_intensity = 1.0f;
+        state->static_scene_directional_intensity = 0.0f;
+        state->static_scene_global_ambient_radiance = 1.0f;
     }
 
     if (XzStaticScenePrepareLocalLights(scene)) {

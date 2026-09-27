@@ -133,6 +133,9 @@ typedef struct {
     float static_scene_legacy_film_toe_amount;
     float static_scene_legacy_film_heal_amount;
     float static_scene_exposure_multiplier;
+    float static_scene_sky_intensity;
+    float static_scene_directional_intensity;
+    float static_scene_global_ambient_radiance;
     int static_scene_lighting_ready;
     unsigned int static_scene_local_light_count;
     unsigned int static_scene_local_light_active;
