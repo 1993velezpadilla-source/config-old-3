@@ -12,6 +12,9 @@ on:
       - feature/xziel-static-scene-material-final5
       - feature/xziel-static-scene-material-final5-exact-gate
       - feature/xziel-nacht-decal-environment-v1
+      - feature/xziel-nacht-light-components-166-v1
+      - feature/xziel-nacht-light-components-166-integrate-v1
+      - feature/xziel-nacht-local-light-render-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -27,6 +30,7 @@ on:
       - "tools/maps/compile_nacht_xzmesh_bundle.py"
       - "tools/maps/compile_nacht_xzmat_bundle.py"
       - "tools/maps/compile_nacht_environment.py"
+      - "tools/maps/NachtLightExtractor/**"
       - "tools/maps/export_nacht_nzp_harness.py"
       - "scripts/patch_vril_xz_phase0.py"
       - "scripts/prepare_android.sh"
@@ -35,10 +39,16 @@ on:
   pull_request:
     branches:
       - feature/xziel-static-scene-material-final5
+      - feature/xziel-nacht-decal-environment-v1
+      - feature/xziel-nacht-light-components-166-integrate-v1
+      - feature/xziel-nacht-local-light-render-v1
     paths:
       - "engine/xz/xz_environment.*"
       - "engine/xz/xz_static_scene_runtime.*"
+      - "engine/xz/xz_android_runtime.*"
+      - "engine/xz/xz_gles3_shadow.*"
       - "tools/maps/compile_nacht_environment.py"
+      - "tools/maps/NachtLightExtractor/**"
       - "scripts/patch_vril_xz_phase0.py"
       - ".github/workflows/nacht-static-scene-android.yml"
 
@@ -130,231 +140,18 @@ jobs:
           echo "UNPACKED=$RUNNER_TEMP/nacht-unpacked" \
             >> "$GITHUB_ENV"
 
-      - name: Extract typed 98-light CUE4Parse census
+      - name: Extract exact 166 Nacht light components
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/local-lights"
-          cd "$RUNNER_TEMP/local-lights"
-          dotnet new console --framework net10.0 --force
-          dotnet add package CUE4Parse --version 1.2.2.202609
-          cat > Program.cs <<'CS'
-          using CUE4Parse.FileProvider;
-          using CUE4Parse.UE4.Versions;
-          using System.Reflection;
-          using System.Text.Json;
-
-          if (args.Length != 3) return 2;
-
-          using var environmentDoc =
-              JsonDocument.Parse(
-                  File.ReadAllText(args[1]));
-
-          var targetActors = new HashSet<string>(
-              StringComparer.OrdinalIgnoreCase);
-
-          foreach (
-              var actor
-              in environmentDoc.RootElement
-                  .GetProperty("actors")
-                  .EnumerateArray())
-          {
-              var actorClass =
-                  actor.GetProperty("class").GetString()
-                  ?? "";
-              if (
-                  actorClass != "/Script/Engine/PointLight"
-                  && actorClass != "/Script/Engine/SpotLight")
-                  continue;
-
-              var name =
-                  actor.GetProperty("name").GetString();
-              if (!string.IsNullOrWhiteSpace(name))
-                  targetActors.Add(name);
-          }
-
-          if (targetActors.Count != 98)
-              return 3;
-
-          var provider = new DefaultFileProvider(
-              args[0],
-              SearchOption.AllDirectories,
-              true,
-              new VersionContainer(EGame.GAME_UE4_21));
-          provider.Initialize();
-          provider.PostMount();
-          provider.LoadVirtualPaths();
-
-          var maps = provider.Files.Values
-              .Where(
-                  file =>
-                      Path.GetFileName(file.Path).Equals(
-                          "Nacht_de_Untoten.umap",
-                          StringComparison.OrdinalIgnoreCase))
-              .Select(file => file.Path)
-              .Distinct(StringComparer.OrdinalIgnoreCase)
-              .ToArray();
-
-          if (maps.Length != 1)
-              return 4;
-
-          var exports =
-              provider.LoadPackage(maps[0])
-                  .GetExports()
-                  .ToArray();
-
-          const BindingFlags flags =
-              BindingFlags.Instance
-              | BindingFlags.Public
-              | BindingFlags.NonPublic;
-
-          object? Read(
-              object target,
-              string name)
-          {
-              var field =
-                  target.GetType().GetField(
-                      name,
-                      flags);
-              if (field is not null)
-              {
-                  try {
-                      return field.GetValue(target);
-                  } catch { }
-              }
-
-              var property =
-                  target.GetType().GetProperty(
-                      name,
-                      flags);
-              if (
-                  property is not null
-                  && property.GetIndexParameters().Length == 0
-                  && property.GetMethod is not null)
-              {
-                  try {
-                      return property.GetValue(target);
-                  } catch { }
-              }
-
-              return null;
-          }
-
-          string Value(object? value)
-          {
-              if (value is null)
-                  return "";
-              try {
-                  return value.ToString() ?? "";
-              } catch {
-                  return "";
-              }
-          }
-
-          object Snapshot(object target)
-          {
-              string[] wanted = {
-                  "AttenuationRadius",
-                  "Intensity",
-                  "IntensityUnits",
-                  "LightColor",
-                  "InnerConeAngle",
-                  "OuterConeAngle",
-                  "SourceRadius",
-                  "SoftSourceRadius",
-                  "SourceLength",
-                  "RelativeLocation",
-                  "RelativeRotation",
-                  "RelativeScale3D",
-                  "bUseInverseSquaredFalloff",
-                  "LightFalloffExponent"
-              };
-
-              var values =
-                  new SortedDictionary<string,string>(
-                      StringComparer.OrdinalIgnoreCase);
-
-              foreach (var name in wanted)
-                  values[name] =
-                      Value(Read(target, name));
-
-              return new {
-                  type =
-                      target.GetType().FullName
-                      ?? target.GetType().Name,
-                  values
-              };
-          }
-
-          var rows = new List<object>();
-
-          foreach (var export in exports)
-          {
-              var type =
-                  export.GetType().FullName
-                  ?? export.GetType().Name;
-
-              if (
-                  !type.Contains(
-                      "PointLightComponent",
-                      StringComparison.OrdinalIgnoreCase)
-                  && !type.Contains(
-                      "SpotLightComponent",
-                      StringComparison.OrdinalIgnoreCase))
-                  continue;
-
-              var path =
-                  export.GetPathName()
-                  ?? "";
-
-              var actor =
-                  targetActors.FirstOrDefault(
-                      name =>
-                          path.Contains(
-                              "." + name + ".",
-                              StringComparison.OrdinalIgnoreCase));
-
-              if (actor is null)
-                  continue;
-
-              rows.Add(new {
-                  actor,
-                  name = export.Name,
-                  path,
-                  component = Snapshot(export)
-              });
-          }
-
-          if (rows.Count != targetActors.Count)
-              return 5;
-
-          File.WriteAllText(
-              args[2],
-              JsonSerializer.Serialize(
-                  new {
-                      schemaVersion = 1,
-                      targetCount =
-                          targetActors.Count,
-                      componentCount =
-                          rows.Count,
-                      rows
-                  },
-                  new JsonSerializerOptions {
-                      WriteIndented = true
-                  }));
-
-          Console.WriteLine(
-              "XZIEL_NACHT_TYPED_LOCAL_LIGHTS_OK"
-              + $" point=86 spot=12 total={rows.Count}");
-
-          return 0;
-          CS
-
-          dotnet run --configuration Release -- \
+          mkdir -p build/nacht-static-scene
+          dotnet run \
+            --project tools/maps/NachtLightExtractor/NachtLightExtractor.csproj \
+            --configuration Release \
+            -- \
             "$UNPACKED" \
-            "$GITHUB_WORKSPACE/assets/nacht_reference/pavlov_scene_reference/environment.json" \
-            "$RUNNER_TEMP/nacht-local-lights.json"
-
-          test -s "$RUNNER_TEMP/nacht-local-lights.json"
+            build/nacht-static-scene/light-components.json \
+            | tee build/nacht-static-scene/light-extract.log
+          test -s build/nacht-static-scene/light-components.json
 
       - name: Build exact 492-mesh CUE4Parse exporter
         run: |
@@ -2600,7 +2397,7 @@ jobs:
             | tee build/nacht-static-scene/xzmat-compile.log
 
           python3 tools/maps/compile_nacht_environment.py \
-            --typed-lights "$RUNNER_TEMP/nacht-local-lights.json" \
+            --source build/nacht-static-scene/light-components.json \
             --output "$MAPROOT/environment.xzen" \
             --report build/nacht-static-scene/xziel.xzen.report.json \
             | tee build/nacht-static-scene/xzen-compile.log
@@ -2659,22 +2456,20 @@ jobs:
           assert material["bindingCount"] == 1063
           assert material["mappedBindings"] == 1063
           assert material["textureCount"] > 0
-          assert environment["lightCount"] == 101
-          assert environment["pointCount"] == 86
-          assert environment["spotCount"] == 12
           assert environment["version"] == 2
-          assert environment["recordBytes"] == 64
-          assert environment["bytes"] == 6492
+          assert environment["lightCount"] == 166
+          assert environment["pointCount"] == 144
+          assert environment["spotCount"] == 19
           assert environment["directionalCount"] == 2
           assert environment["skyCount"] == 1
-          assert environment["typedLocalLightCount"] == 98
-          assert environment["withPosition"] == 101
-          assert environment["withRotation"] == 100
-          assert environment["withColor"] == 99
-          assert environment["withIntensity"] == 101
-          assert environment["withRadius"] == 98
-          assert environment["withUnits"] == 98
-          assert environment["withCone"] == 12
+          assert environment["withPosition"] == 166
+          assert environment["withRotation"] == 166
+          assert environment["withColor"] == 166
+          assert environment["withIntensity"] == 166
+          assert environment["withRadius"] == 163
+          assert environment["withCone"] == 19
+          assert environment["withTemperature"] == 165
+          assert environment["withCastShadows"] == 166
 
           print(
               "XZIEL_NACHT_STATIC_OVERLAY_READY",
@@ -2924,6 +2719,36 @@ jobs:
           echo "CUTOVER_READY=$CUTOVER_READY" \
             | tee -a dist/static-scene-status.txt
 
+          # Nacht intentionally holds a black 90-second FADE_OUT message
+          # during its ~3s pre-game phase, replacing it with a 1-second
+          # FADE_OUT when InitRounds() starts. On the software Android
+          # emulator, in-game time advances much more slowly than wall time,
+          # so a screenshot taken as soon as MODERN cutover is ready can
+          # capture that intentional blackout and falsely look like a renderer
+          # luma failure. Wait for the HUD probe to prove the screenflash has
+          # actually expired before taking front-buffer evidence.
+          FADE_CLEAR_READY=0
+          for i in $(seq 1 180); do
+            if "$ADB" logcat -d -v threadtime 2>/dev/null \
+                | grep -Eq \
+                  "XZIEL-XZ.*present_luma_clear preSwapRGBA=[0-9]+,[0-9]+,[0-9]+,[1-9][0-9]*.*screenflashActive=0"; then
+              FADE_CLEAR_READY=1
+              break
+            fi
+            if ! "$ADB" shell pidof com.xziel.engine >/dev/null 2>&1; then
+              break
+            fi
+            sleep 1
+          done
+
+          echo "FADE_CLEAR_READY=$FADE_CLEAR_READY" \
+            | tee -a dist/static-scene-status.txt
+
+          if [[ "$FADE_CLEAR_READY" == "1" ]]; then
+            echo "XZIEL_NACHT_INTRO_BLACKOUT_CLEARED" \
+              | tee -a dist/static-scene-status.txt
+          fi
+
           "$ADB" logcat -d -v threadtime \
             > dist/static-scene-logcat-late.txt || true
           cat \
@@ -2972,6 +2797,7 @@ jobs:
 
           test "$DRAW_READY" = "1"
           test "$CUTOVER_READY" = "1"
+          test "$FADE_CLEAR_READY" = "1"
 
           grep -E \
             "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*meshes=492 instances=10791 xzms=492.*vertices=1067383 indices=3608148 submeshes=1063 meshBytes=48633408" \
@@ -2984,6 +2810,111 @@ jobs:
           grep -E \
             "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*materialReady=1 gpuTextures=[1-9][0-9]* gpuTextureBytes=[1-9][0-9]* materialBindings=1063 mappedBindings=[1-9][0-9]*" \
             dist/static-scene-logcat.txt
+
+          grep -E \
+            "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*envLights=166 envPoint=144 envSpot=19 envDirectional=2 envSky=1 envBytes=14636" \
+            dist/static-scene-logcat.txt
+
+          grep -E \
+            "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*localLights=163.*localReady=1 error=''" \
+            dist/static-scene-logcat.txt
+
+          grep -E \
+            "XZIEL-XZ.*static_scene_draw ready=1.*localLights=163 active=64 affecting=[1-9][0-9]* dropped=0" \
+            dist/static-scene-logcat.txt
+
+          grep -E \
+            "XZIEL-XZ.*static_scene_draw ready=1.*preRGBA=[0-9]+,[0-9]+,[0-9]+,[1-9][0-9]*.*postRGBA=[0-9]+,[0-9]+,[0-9]+,[1-9][0-9]*.*surfaceRGBA=[0-9]+,[0-9]+,[0-9]+,[1-9][0-9]*" \
+            dist/static-scene-logcat.txt
+
+          grep -E \
+            "XZIEL-XZ.*present_luma postRestoreRGBA=[0-9]+,[0-9]+,[0-9]+,[1-9][0-9]* preSwapRGBA=[0-9]+,[0-9]+,[0-9]+,[1-9][0-9]* screenflashColor=-?[0-9]+ screenflashType=-?[0-9]+ screenflashDuration=[0-9.-]+ screenflashStart=[0-9.-]+ screenflashWork=[0-9.-]+" \
+            dist/static-scene-logcat.txt
+
+          grep -E \
+            "XZIEL-XZ.*present_luma_clear preSwapRGBA=[0-9]+,[0-9]+,[0-9]+,[1-9][0-9]*.*screenflashActive=0" \
+            dist/static-scene-logcat.txt
+
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          text=Path("dist/static-scene-logcat.txt").read_text(
+              encoding="utf-8",
+              errors="replace",
+          )
+
+          active_rows=re.findall(
+              r"present_luma postRestoreRGBA=(\d+),(\d+),(\d+),(\d+) "
+              r"preSwapRGBA=(\d+),(\d+),(\d+),(\d+) "
+              r"screenflashColor=(-?\d+) screenflashType=(-?\d+) "
+              r"screenflashDuration=([0-9.-]+) screenflashStart=([0-9.-]+) "
+              r"screenflashWork=([0-9.-]+) serverTime=([0-9.-]+) "
+              r"screenflashActive=(\d+)",
+              text,
+          )
+          assert active_rows, "missing active present_luma sample"
+
+          clear_rows=re.findall(
+              r"present_luma_clear preSwapRGBA=(\d+),(\d+),(\d+),(\d+) "
+              r"serverTime=([0-9.-]+) screenflashDuration=([0-9.-]+) "
+              r"screenflashActive=0",
+              text,
+          )
+          assert clear_rows, "missing post-fade present_luma_clear sample"
+
+          row=active_rows[-1]
+          rgba=tuple(map(int, row[:8]))
+          post=rgba[:4]
+          active=rgba[4:]
+          color=int(row[8])
+          flash_type=int(row[9])
+          duration=float(row[10])
+          start=float(row[11])
+          work=float(row[12])
+          server_time=float(row[13])
+          active_flag=int(row[14])
+
+          clear_row=clear_rows[-1]
+          clear=tuple(map(int, clear_row[:4]))
+          clear_server_time=float(clear_row[4])
+          clear_duration=float(clear_row[5])
+
+          post_rgb=sum(post[:3])/3.0
+          active_rgb=sum(active[:3])/3.0
+          clear_rgb=sum(clear[:3])/3.0
+
+          flash_span=duration-start
+          progress=(work/flash_span) if flash_span > 0 else 0.0
+          fade_out_alpha=max(0.0,min(1.0,1.0-progress))
+          expected_black_ratio=1.0-fade_out_alpha
+          active_ratio=active_rgb/post_rgb if post_rgb else 0.0
+          clear_ratio=clear_rgb/post_rgb if post_rgb else 0.0
+
+          assert post[3] > 0 and active[3] > 0 and clear[3] > 0
+          assert post_rgb > 0 and clear_rgb > 0
+          assert color == 1, (color, "expected BLACK screenflash")
+          assert flash_type == 2, (flash_type, "expected FADE_OUT")
+          assert active_flag == 1
+          assert active_rgb < post_rgb * 0.25, (active_rgb, post_rgb)
+          assert clear_rgb > post_rgb * 0.65, (clear_rgb, post_rgb)
+          assert clear_server_time >= clear_duration
+
+          print(
+              "XZIEL_NACHT_PRESENT_LUMA_PROVEN",
+              f"postRestore={post}",
+              f"activePreSwap={active}",
+              f"clearPreSwap={clear}",
+              f"activeRatio={active_ratio:.6f}",
+              f"clearRatio={clear_ratio:.6f}",
+              f"screenflashColor={color}",
+              f"screenflashType={flash_type}",
+              f"flashProgress={progress:.6f}",
+              f"expectedBlackRatio={expected_black_ratio:.6f}",
+              f"activeServerTime={server_time:.6f}",
+              f"clearServerTime={clear_server_time:.6f}",
+          )
+          PY
 
           grep -E \
             "XZIEL-XZ.*legacy3d worldTransition.*map='xziel_nacht_bo3'.*mapRuntime=NACHT_BO3" \
@@ -3004,6 +2935,12 @@ jobs:
             "XZIEL_NACHT_MATERIAL_GPU_GREEN bindings=1063"
 
           echo \
+            "XZIEL_NACHT_ENVIRONMENT_GREEN lights=166 point=144 spot=19 directional=2 sky=1 bytes=14636"
+
+          echo \
+            "XZIEL_NACHT_LOCAL_LIGHTING_GREEN local=163 active=64 dropped=0"
+
+          echo \
             "XZIEL_NACHT_ANDROID_STATIC_SCENE_GREEN meshes=492 instances=10791 xzms=492 vertices=1067383 indices=3608148 submeshes=1063 gpuBytes=48588848"
 
       - name: Upload Android static-scene evidence
@@ -3017,6 +2954,8 @@ jobs:
             build/nacht-static-scene/xziel.xzscene.report.json
             build/nacht-static-scene/xziel.xzmat.report.json
             build/nacht-static-scene/xziel.xzen.report.json
+            build/nacht-static-scene/light-components.json
+            build/nacht-static-scene/light-extract.log
             build/nacht-static-scene/xzen-compile.log
             build/nacht-static-scene/xzmat-compile.log
             ${{ runner.temp }}/xziel-material-evidence/

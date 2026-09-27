@@ -103,6 +103,11 @@ typedef struct {
     unsigned int static_scene_material_mapped_bindings;
     int static_scene_material_ready;
     int static_scene_lighting_ready;
+    unsigned int static_scene_local_light_count;
+    unsigned int static_scene_local_light_active;
+    unsigned int static_scene_local_light_camera_affecting;
+    unsigned int static_scene_local_light_dropped_affecting;
+    int static_scene_local_lighting_ready;
     int static_scene_gpu_ready;
 
     uint64_t static_scene_draw_attempts;
@@ -115,6 +120,14 @@ typedef struct {
     unsigned int static_scene_fbo_nonblack_pixels;
     unsigned int static_scene_surface_nonblack_pixels;
     unsigned int static_scene_postrestore_nonblack_pixels;
+    unsigned int static_scene_preoverlay_mean_rgba[4];
+    unsigned int static_scene_postoverlay_mean_rgba[4];
+    unsigned int static_scene_surface_mean_rgba[4];
+    unsigned int static_scene_postrestore_mean_rgba[4];
+    unsigned int static_scene_preswap_mean_rgba[4];
+    unsigned int static_scene_preswap_clear_mean_rgba[4];
+    int static_scene_preswap_intro_sampled;
+    int static_scene_preswap_clear_sampled;
     unsigned int static_scene_readback_width;
     unsigned int static_scene_readback_height;
     int static_scene_frame_ready;
@@ -199,6 +212,12 @@ int XzGles3Shadow_CompositeVisibleWorld(
     const XzGeometryFrame *geometry,
     unsigned int render_width,
     unsigned int render_height);
+
+int XzGles3Shadow_AuditCurrentFramebuffer(
+    XzGles3ShadowState *state,
+    unsigned int width,
+    unsigned int height,
+    unsigned int out_rgba[4]);
 
 void XzGles3Shadow_Shutdown(
     XzGles3ShadowState *state);
