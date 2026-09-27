@@ -88,6 +88,8 @@ for name in (
     "xz_static_scene_draw_plan.c",
     "xz_environment.h",
     "xz_environment.c",
+    "xz_height_fog.h",
+    "xz_height_fog.c",
     "xz_world_transform.h",
     "xz_world_transform.c",
     "xz_bo3_weapon_specs.h",
