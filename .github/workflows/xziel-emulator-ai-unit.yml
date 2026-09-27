@@ -7,6 +7,9 @@ on:
       - feature/emulator-ai-nacht-v1
     paths:
       - "scripts/xziel_bot/**"
+      - "scripts/patch_quakec_emulator_bot_telemetry.py"
+      - "scripts/prepare_android.sh"
+      - "android/NZPActivity.java"
       - "tests/test_xziel_bot_*.py"
       - ".github/workflows/xziel-emulator-ai-unit.yml"
 
@@ -25,3 +28,19 @@ jobs:
         run: python -m compileall -q scripts/xziel_bot
       - name: Run policy tests
         run: python -m unittest discover -s tests -p 'test_xziel_bot_*.py' -v
+
+  quakec-telemetry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Clone NZ:P QuakeC
+        run: git clone --depth 1 https://github.com/nzp-team/quakec.git build/quakec
+      - name: Apply emulator telemetry patch
+        run: python3 scripts/patch_quakec_emulator_bot_telemetry.py build/quakec
+      - name: Compile patched QuakeC
+        run: |
+          chmod +x build/quakec/bin/fteqcc-cli-lin build/quakec/tools/qc-compiler-gnu.sh
+          cd build/quakec
+          bash tools/qc-compiler-gnu.sh
+      - name: Verify bytecode
+        run: test -s build/quakec/build/standard/progs.dat
