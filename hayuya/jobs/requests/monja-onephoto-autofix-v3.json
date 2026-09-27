@@ -1,8 +1,8 @@
 {
   "schema": 2,
-  "job_id": "monja-onephoto-autofix-v3",
+  "job_id": "monja-hero-master-v1",
   "owner": "HAYUYA_AUDIT",
-  "title": "Monja One Photo AutoFix V3",
+  "title": "Monja Hero Master V1",
   "geometry_input": "hayuya/assets/monja-mugfwln6/geometry/primary.webp",
   "reference_dir": "",
   "detail_dir": "",
@@ -16,5 +16,5 @@
   "portable_target": "high",
   "gpu_vram": 24,
   "backends": "trellis2,triposr",
-  "retry_token": "onephoto-autofix-v19-dense-hero-master-20260927"
+  "retry_token": "hero-master-v1-dense-first-20260927"
 }
