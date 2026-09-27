@@ -780,7 +780,8 @@ public final class XzielMultiplayer {
                 Log.i(TAG, "WELCOME room=" + roomCode + " mode=" + roomMode +
                     " slot=" + slot + " map=" + selectedMap +
                     " targetPlayers=" + targetPlayers +
-                    " world=" + worldRevision + "/" + worldPhase);
+                    " world=" + worldRevision + "/" + worldPhase +
+                    " roster=" + connectedSlots);
                 toast(("public".equals(roomMode) ? "Public match" : "Room " + roomCode) +
                     " - Player " + slot);
 
@@ -795,7 +796,9 @@ public final class XzielMultiplayer {
                 if (slot >= 1 && slot <= MAX_PLAYERS) {
                     connectedSlots.add(slot);
                     voiceChat.setPlayerConnected(slot, true);
-                    Log.i(TAG, "PLAYER_JOINED slot=" + slot + " count=" + connectedSlots.size());
+                    Log.i(TAG, "PLAYER_JOINED slot=" + slot +
+                        " count=" + connectedSlots.size() +
+                        " roster=" + connectedSlots);
                     toast("Player " + slot + " connected");
                 }
                 return;
@@ -805,6 +808,9 @@ public final class XzielMultiplayer {
                 int slot = message.optInt("slot", 0);
                 connectedSlots.remove(slot);
                 voiceChat.setPlayerConnected(slot, false);
+                Log.i(TAG, "PLAYER_LEFT slot=" + slot +
+                    " local=" + localSlot +
+                    " roster=" + connectedSlots);
                 toast("Player " + slot + " left");
                 return;
             }
@@ -991,6 +997,12 @@ public final class XzielMultiplayer {
     }
 
     public void showVoicePausePanel(boolean visible) {
+        Log.i(TAG, "PAUSE_VOICE visible=" + visible +
+            " online=" + isOnlineActive() +
+            " socket=" + (gameSocket != null) +
+            " connecting=" + gameSocketConnecting +
+            " local=" + localSlot +
+            " roster=" + connectedSlots);
         if (visible) voiceChat.showPausePanel();
         else voiceChat.hidePausePanel();
     }
