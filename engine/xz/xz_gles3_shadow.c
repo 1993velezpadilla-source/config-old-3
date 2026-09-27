@@ -2943,6 +2943,13 @@ static void XzDestroyStaticSceneCurrent(
         state->static_scene_local_light_camera_affecting = 0u;
         state->static_scene_local_light_dropped_affecting = 0u;
         state->static_scene_local_lighting_ready = 0;
+        state->static_scene_light_specular_bindings = 0u;
+        state->static_scene_light_specular_authored = 0u;
+        state->static_scene_local_specular_authored = 0u;
+        state->static_scene_last_active_specular_lights = 0u;
+        state->static_scene_directional_specular_authored = 0;
+        state->static_scene_directional_specular_scale = 0.0f;
+        state->static_scene_light_specular_ready = 0;
         state->static_scene_height_fog_ready = 0;
         state->static_scene_directional_fog_enabled = 0;
         state->static_scene_fog_density = 0.0f;
@@ -3032,13 +3039,27 @@ int XzGles3Shadow_UploadStaticScene(
     XzDrainErrors(state);
     XzDestroyStaticSceneCurrent(state);
 
+    if (!XzStaticSceneAuditLightSpecular(
+            scene,
+            state) &&
+        strcmp(
+            scene->map_id,
+            "xziel_nacht_bo3") == 0)
+        goto fail;
+
     if (XzStaticSceneSourceLighting(
             scene,
             &xz_shadow.static_ambient_weight,
             &xz_shadow.static_directional_weight,
             xz_shadow.static_directional_color,
-            xz_shadow.static_directional_direction)) {
+            xz_shadow.static_directional_direction,
+            &xz_shadow.static_directional_specular_scale,
+            &xz_shadow.static_directional_specular_authored)) {
         state->static_scene_lighting_ready = 1;
+        state->static_scene_directional_specular_scale =
+            xz_shadow.static_directional_specular_scale;
+        state->static_scene_directional_specular_authored =
+            xz_shadow.static_directional_specular_authored;
     } else if (strcmp(
                    scene->map_id,
                    "xziel_nacht_bo3") == 0) {
@@ -3052,6 +3073,10 @@ int XzGles3Shadow_UploadStaticScene(
         xz_shadow.static_directional_direction[0] = 0.0f;
         xz_shadow.static_directional_direction[1] = 0.0f;
         xz_shadow.static_directional_direction[2] = 1.0f;
+        xz_shadow.static_directional_specular_scale = 1.0f;
+        xz_shadow.static_directional_specular_authored = 0;
+        state->static_scene_directional_specular_scale = 1.0f;
+        state->static_scene_directional_specular_authored = 0;
     }
 
     if (XzStaticScenePrepareLocalLights(scene)) {
@@ -3672,6 +3697,7 @@ int XzGles3Shadow_UploadStaticScene(
              "xziel_nacht_bo3") != 0 ||
          (state->static_scene_material_ready &&
           state->static_scene_normal_ready &&
+          state->static_scene_light_specular_ready &&
           state->static_scene_lighting_ready &&
           state->static_scene_local_lighting_ready &&
           state->static_scene_local_light_count ==
