@@ -303,10 +303,17 @@ typedef struct {
     GLint static_local_pos_inv_radius_loc;
     GLint static_local_color_cone_loc;
     GLint static_local_dir_cos_outer_loc;
+    GLint static_camera_pos_loc;
+    GLint static_fog_primary_loc;
+    GLint static_fog_color_min_loc;
+    GLint static_fog_cutoff_loc;
     float static_ambient_weight;
     float static_directional_weight;
     float static_directional_color[3];
     float static_directional_direction[3];
+    float static_fog_primary[4];
+    float static_fog_color_min[4];
+    float static_fog_cutoff_cm;
     XzGles3StaticLocalLight
         static_local_lights[XZ_STATIC_LOCAL_LIGHT_SOURCE_MAX];
     uint32_t static_local_light_count;
@@ -751,6 +758,111 @@ static int XzStaticScenePrepareLocalLights(
         count !=
             XZ_STATIC_LOCAL_LIGHT_SOURCE_MAX)
         return 0;
+
+    return 1;
+}
+
+static int XzStaticScenePrepareHeightFog(
+    const XzStaticSceneRuntimeState *scene,
+    XzGles3ShadowState *state)
+{
+    const XzHeightFogView *fog;
+
+    if (!scene || !state)
+        return 0;
+
+    fog =
+        XzStaticSceneRuntime_HeightFog(scene);
+
+    if (!fog) {
+        xz_shadow.static_fog_primary[0] = 0.0f;
+        xz_shadow.static_fog_primary[1] = 0.0f;
+        xz_shadow.static_fog_primary[2] = 0.0f;
+        xz_shadow.static_fog_primary[3] = 0.0f;
+        xz_shadow.static_fog_color_min[0] = 0.0f;
+        xz_shadow.static_fog_color_min[1] = 0.0f;
+        xz_shadow.static_fog_color_min[2] = 0.0f;
+        xz_shadow.static_fog_color_min[3] = 1.0f;
+        xz_shadow.static_fog_cutoff_cm = 0.0f;
+        state->static_scene_height_fog_ready = 0;
+        state->static_scene_directional_fog_enabled = 0;
+        state->static_scene_fog_density = 0.0f;
+        state->static_scene_fog_height_falloff = 0.0f;
+        state->static_scene_fog_max_opacity = 0.0f;
+        state->static_scene_fog_start_meters = 0.0f;
+        return strcmp(
+            scene->map_id,
+            "xziel_nacht_bo3") != 0;
+    }
+
+    if (!isfinite(fog->fog_height_meters) ||
+        !isfinite(fog->density) ||
+        !isfinite(fog->height_falloff) ||
+        !isfinite(fog->max_opacity) ||
+        !isfinite(fog->start_distance_meters) ||
+        !isfinite(fog->cutoff_distance_meters) ||
+        fog->density < 0.0f ||
+        fog->height_falloff < 0.0f ||
+        fog->max_opacity < 0.0f ||
+        fog->max_opacity > 1.0f ||
+        fog->start_distance_meters < 0.0f ||
+        fog->cutoff_distance_meters < 0.0f)
+        return 0;
+
+    if ((fog->flags &
+         (XZ_HEIGHT_FOG_FLAG_VOLUMETRIC |
+          XZ_HEIGHT_FOG_FLAG_CUBEMAP |
+          XZ_HEIGHT_FOG_FLAG_SECOND_FOG)) != 0u)
+        return 0;
+
+    xz_shadow.static_fog_primary[0] =
+        fog->density / 1000.0f;
+    xz_shadow.static_fog_primary[1] =
+        fog->height_falloff / 1000.0f;
+    xz_shadow.static_fog_primary[2] =
+        fog->fog_height_meters * 100.0f;
+    xz_shadow.static_fog_primary[3] =
+        fog->start_distance_meters * 100.0f;
+
+    xz_shadow.static_fog_color_min[0] =
+        fog->fog_color_linear[0];
+    xz_shadow.static_fog_color_min[1] =
+        fog->fog_color_linear[1];
+    xz_shadow.static_fog_color_min[2] =
+        fog->fog_color_linear[2];
+    xz_shadow.static_fog_color_min[3] =
+        1.0f - fog->max_opacity;
+
+    xz_shadow.static_fog_cutoff_cm =
+        fog->cutoff_distance_meters * 100.0f;
+
+    if (!isfinite(xz_shadow.static_fog_primary[0]) ||
+        !isfinite(xz_shadow.static_fog_primary[1]) ||
+        !isfinite(xz_shadow.static_fog_primary[2]) ||
+        !isfinite(xz_shadow.static_fog_primary[3]) ||
+        !isfinite(xz_shadow.static_fog_color_min[0]) ||
+        !isfinite(xz_shadow.static_fog_color_min[1]) ||
+        !isfinite(xz_shadow.static_fog_color_min[2]) ||
+        !isfinite(xz_shadow.static_fog_color_min[3]) ||
+        !isfinite(xz_shadow.static_fog_cutoff_cm))
+        return 0;
+
+    /*
+     * Nacht's two DirectionalLight components do not serialize
+     * bUsedAsAtmosphereSunLight. UE4's default is false, so the map does not
+     * enable directional fog inscattering. Preserve that distinction instead
+     * of borrowing the ordinary directional-light shader state.
+     */
+    state->static_scene_directional_fog_enabled = 0;
+    state->static_scene_fog_density =
+        fog->density;
+    state->static_scene_fog_height_falloff =
+        fog->height_falloff;
+    state->static_scene_fog_max_opacity =
+        fog->max_opacity;
+    state->static_scene_fog_start_meters =
+        fog->start_distance_meters;
+    state->static_scene_height_fog_ready = 1;
 
     return 1;
 }
@@ -1626,6 +1738,10 @@ static int XzCreateStaticSceneProgram(void)
         "uniform vec4 uLocalPosInvRadius[64];\n"
         "uniform vec4 uLocalColorCone[64];\n"
         "uniform vec4 uLocalDirCosOuter[64];\n"
+        "uniform vec3 uCameraPosGame;\n"
+        "uniform vec4 uFogPrimary;\n"
+        "uniform vec4 uFogColorMin;\n"
+        "uniform float uFogCutoffCm;\n"
         "out vec4 outColor;\n"
         "float linearToSrgb1(float x){\n"
         "  x=clamp(x,0.0,1.0);\n"
@@ -1633,6 +1749,32 @@ static int XzCreateStaticSceneProgram(void)
         "}\n"
         "vec3 linearToSrgb(vec3 v){\n"
         "  return vec3(linearToSrgb1(v.r),linearToSrgb1(v.g),linearToSrgb1(v.b));\n"
+        "}\n"
+        "float ueFogTransmission(vec3 worldPosGame){\n"
+        "  vec3 rayCm=(worldPosGame-uCameraPosGame)*2.54;\n"
+        "  float originalLength=length(rayCm);\n"
+        "  if(originalLength<=1.0e-5 || originalLength<=uFogPrimary.w || uFogPrimary.x<=0.0) return 1.0;\n"
+        "  float cameraZ=uCameraPosGame.z*2.54;\n"
+        "  float rayLength=originalLength;\n"
+        "  float rayDirectionZ=rayCm.z;\n"
+        "  float collapsedPower=clamp(-uFogPrimary.y*(cameraZ-uFogPrimary.z),-125.0,126.0);\n"
+        "  float rayOriginTerms=uFogPrimary.x*exp2(collapsedPower);\n"
+        "  if(uFogPrimary.w>0.0){\n"
+        "    float excludeT=clamp(uFogPrimary.w/originalLength,0.0,1.0);\n"
+        "    float exclusionZ=cameraZ+excludeT*rayCm.z;\n"
+        "    rayLength=(1.0-excludeT)*originalLength;\n"
+        "    rayDirectionZ=(1.0-excludeT)*rayCm.z;\n"
+        "    float exponent=max(-127.0,uFogPrimary.y*(exclusionZ-uFogPrimary.z));\n"
+        "    rayOriginTerms=uFogPrimary.x*exp2(-exponent);\n"
+        "  }\n"
+        "  float falloff=max(-127.0,uFogPrimary.y*rayDirectionZ);\n"
+        "  float lineIntegral=(abs(falloff)>0.01)\n"
+        "    ?(1.0-exp2(-falloff))/falloff\n"
+        "    :(0.69314718056-0.24022650696*falloff);\n"
+        "  float shared=rayOriginTerms*lineIntegral;\n"
+        "  float transmission=max(clamp(exp2(-(shared*rayLength)),0.0,1.0),uFogColorMin.a);\n"
+        "  if(uFogCutoffCm>0.0 && originalLength>uFogCutoffCm) transmission=1.0;\n"
+        "  return transmission;\n"
         "}\n"
         "void main(){\n"
         "  vec3 n=normalize(vNormal);\n"
@@ -1669,7 +1811,9 @@ static int XzCreateStaticSceneProgram(void)
         "  vec4 texel=uHasBaseColor!=0?texture(uBaseColor,vUV):vec4(0.56,0.54,0.50,1.0);\n"
         "  if(uHasBaseColor!=0 && texel.a<0.04) discard;\n"
         "  vec3 lit=texel.rgb*uvTone*light;\n"
-        "  outColor=vec4(linearToSrgb(lit),texel.a);\n"
+        "  float fogT=ueFogTransmission(vWorldPos);\n"
+        "  vec3 fogged=lit*fogT+uFogColorMin.rgb*(1.0-fogT);\n"
+        "  outColor=vec4(linearToSrgb(fogged),texel.a);\n"
         "}\n";
 
     XzNativeGles3Api *gl = &xz_shadow.gl;
@@ -1760,6 +1904,22 @@ static int XzCreateStaticSceneProgram(void)
         gl->GetUniformLocation(
             xz_shadow.static_program,
             "uLocalDirCosOuter[0]");
+    xz_shadow.static_camera_pos_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uCameraPosGame");
+    xz_shadow.static_fog_primary_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uFogPrimary");
+    xz_shadow.static_fog_color_min_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uFogColorMin");
+    xz_shadow.static_fog_cutoff_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uFogCutoffCm");
 
     if (xz_shadow.static_view_loc < 0 ||
         xz_shadow.static_projection_loc < 0 ||
@@ -1772,7 +1932,11 @@ static int XzCreateStaticSceneProgram(void)
         xz_shadow.static_local_light_count_loc < 0 ||
         xz_shadow.static_local_pos_inv_radius_loc < 0 ||
         xz_shadow.static_local_color_cone_loc < 0 ||
-        xz_shadow.static_local_dir_cos_outer_loc < 0)
+        xz_shadow.static_local_dir_cos_outer_loc < 0 ||
+        xz_shadow.static_camera_pos_loc < 0 ||
+        xz_shadow.static_fog_primary_loc < 0 ||
+        xz_shadow.static_fog_color_min_loc < 0 ||
+        xz_shadow.static_fog_cutoff_loc < 0)
         return 0;
 
     gl->UseProgram(xz_shadow.static_program);
@@ -2557,6 +2721,12 @@ static void XzDestroyStaticSceneCurrent(
         state->static_scene_local_light_camera_affecting = 0u;
         state->static_scene_local_light_dropped_affecting = 0u;
         state->static_scene_local_lighting_ready = 0;
+        state->static_scene_height_fog_ready = 0;
+        state->static_scene_directional_fog_enabled = 0;
+        state->static_scene_fog_density = 0.0f;
+        state->static_scene_fog_height_falloff = 0.0f;
+        state->static_scene_fog_max_opacity = 0.0f;
+        state->static_scene_fog_start_meters = 0.0f;
         state->static_scene_gpu_ready = 0;
         state->static_scene_last_draw_calls = 0u;
         state->static_scene_last_instances = 0u;
@@ -2671,6 +2841,14 @@ int XzGles3Shadow_UploadStaticScene(
                    "xziel_nacht_bo3") == 0) {
         goto fail;
     }
+
+    if (!XzStaticScenePrepareHeightFog(
+            scene,
+            state) &&
+        strcmp(
+            scene->map_id,
+            "xziel_nacht_bo3") == 0)
+        goto fail;
 
     gpu_meshes = (XzGles3StaticMesh *)calloc(
         (size_t)scene->mesh_resource_count,
@@ -3079,7 +3257,9 @@ int XzGles3Shadow_UploadStaticScene(
           state->static_scene_lighting_ready &&
           state->static_scene_local_lighting_ready &&
           state->static_scene_local_light_count ==
-              XZ_STATIC_LOCAL_LIGHT_SOURCE_MAX));
+              XZ_STATIC_LOCAL_LIGHT_SOURCE_MAX &&
+          state->static_scene_height_fog_ready &&
+          !state->static_scene_directional_fog_enabled));
 
     if (!state->static_scene_gpu_ready)
         goto fail_current_owned;
@@ -3244,6 +3424,21 @@ static int XzDrawStaticScene(
         xz_shadow.static_directional_direction_loc,
         1,
         xz_shadow.static_directional_direction);
+    gl->Uniform3fv(
+        xz_shadow.static_camera_pos_loc,
+        1,
+        camera_origin);
+    gl->Uniform4fv(
+        xz_shadow.static_fog_primary_loc,
+        1,
+        xz_shadow.static_fog_primary);
+    gl->Uniform4fv(
+        xz_shadow.static_fog_color_min_loc,
+        1,
+        xz_shadow.static_fog_color_min);
+    gl->Uniform1f(
+        xz_shadow.static_fog_cutoff_loc,
+        xz_shadow.static_fog_cutoff_cm);
     gl->Uniform1i(
         xz_shadow.static_local_light_count_loc,
         (GLint)active_local_lights);
