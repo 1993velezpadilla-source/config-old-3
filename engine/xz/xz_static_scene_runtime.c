@@ -17,6 +17,9 @@
 #define XZ_STATIC_SCENE_MAX_ENVIRONMENT_BYTES \
     (256u * 1024u)
 
+#define XZ_STATIC_SCENE_MAX_HEIGHT_FOG_BYTES \
+    (4u * 1024u)
+
 #define XZ_XZMT_HEADER_BYTES 24u
 #define XZ_XZMT_TEXTURE_BYTES 20u
 #define XZ_XZMT_VERSION 1u
@@ -331,6 +334,9 @@ void XzStaticSceneRuntime_Reset(
     if (state->environment_data)
         free(state->environment_data);
 
+    if (state->height_fog_data)
+        free(state->height_fog_data);
+
     memset(state, 0, sizeof(*state));
     state->status = XZ_STATIC_SCENE_IDLE;
 }
@@ -347,12 +353,17 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
     size_t environment_bytes = 0u;
     XzEnvironmentView environment;
     XzEnvironmentStatus environment_status;
+    unsigned char *height_fog_data = NULL;
+    size_t height_fog_bytes = 0u;
+    XzHeightFogView height_fog;
+    XzHeightFogStatus height_fog_status;
     XzXzsceneView scene;
     XzXzsceneStatus scene_status;
     XzStaticMeshResource *resources = NULL;
     char scene_path[256];
     char material_path[256];
     char environment_path[256];
+    char height_fog_path[256];
     char mesh_prefix[160];
     char failure[128] = "";
     uint32_t material_texture_count = 0u;
@@ -726,6 +737,81 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
         }
     }
 
+    if (snprintf(
+            height_fog_path,
+            sizeof(height_fog_path),
+            "xziel/maps/%s/fog.xzfg",
+            map_id) <= 0 ||
+        strlen(height_fog_path) >=
+            sizeof(height_fog_path) - 1u) {
+        snprintf(
+            failure,
+            sizeof(failure),
+            "%s",
+            "height_fog_path_overflow");
+        goto invalid;
+    }
+
+    read_status = XzReadVfsFile(
+        height_fog_path,
+        XZ_STATIC_SCENE_MAX_HEIGHT_FOG_BYTES,
+        &height_fog_data,
+        &height_fog_bytes);
+
+    if (read_status < 0 ||
+        (read_status == 0 &&
+         strcmp(map_id, "xziel_nacht_bo3") == 0)) {
+        snprintf(
+            failure,
+            sizeof(failure),
+            "%s",
+            read_status == 0
+                ? "height_fog_pack_missing"
+                : "height_fog_pack_read_failed");
+        goto invalid;
+    }
+
+    if (read_status > 0) {
+        height_fog_status =
+            XzHeightFog_Parse(
+                &height_fog,
+                height_fog_data,
+                height_fog_bytes);
+
+        if (height_fog_status !=
+            XZ_HEIGHT_FOG_OK) {
+            snprintf(
+                failure,
+                sizeof(failure),
+                "height_fog_%s",
+                XzHeightFog_StatusName(
+                    height_fog_status));
+            goto invalid;
+        }
+
+        if (strcmp(
+                map_id,
+                "xziel_nacht_bo3") == 0 &&
+            (height_fog_bytes !=
+                 XZ_HEIGHT_FOG_BYTES ||
+             fabsf(height_fog.density - 0.1f) >
+                 0.000001f ||
+             fabsf(height_fog.height_falloff - 2.0f) >
+                 0.000001f ||
+             fabsf(height_fog.max_opacity - 0.2f) >
+                 0.000001f ||
+             fabsf(height_fog.start_distance_meters - 3.0f) >
+                 0.000001f ||
+             height_fog.flags != 0u)) {
+            snprintf(
+                failure,
+                sizeof(failure),
+                "%s",
+                "nacht_height_fog_mismatch");
+            goto invalid;
+        }
+    }
+
     state->scene_data = scene_data;
     state->scene_bytes = scene_bytes;
     state->scene = scene;
@@ -748,6 +834,13 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
         environment_bytes;
     if (environment_data)
         state->environment = environment;
+
+    state->height_fog_data =
+        height_fog_data;
+    state->height_fog_bytes =
+        height_fog_bytes;
+    if (height_fog_data)
+        state->height_fog = height_fog;
     if (material_data) {
         snprintf(
             state->material_path,
@@ -761,6 +854,13 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
             sizeof(state->environment_path),
             "%s",
             environment_path);
+    }
+    if (height_fog_data) {
+        snprintf(
+            state->height_fog_path,
+            sizeof(state->height_fog_path),
+            "%s",
+            height_fog_path);
     }
     state->mesh_files_validated =
         scene.mesh_count;
@@ -785,6 +885,7 @@ invalid:
     free(scene_data);
     free(material_data);
     free(environment_data);
+    free(height_fog_data);
 
     state->status =
         XZ_STATIC_SCENE_INVALID;
@@ -933,6 +1034,19 @@ int XzStaticSceneRuntime_EnvironmentLight(
         &state->environment,
         light_index,
         light);
+}
+
+const XzHeightFogView *
+XzStaticSceneRuntime_HeightFog(
+    const XzStaticSceneRuntimeState *state)
+{
+    if (!state ||
+        state->status !=
+            XZ_STATIC_SCENE_READY ||
+        !state->height_fog_data)
+        return NULL;
+
+    return &state->height_fog;
 }
 
 const char *XzStaticSceneRuntime_StatusName(
