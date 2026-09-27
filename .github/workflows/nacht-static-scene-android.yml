@@ -2501,7 +2501,8 @@ jobs:
           assert environment["withCone"] == 19
           assert environment["withTemperature"] == 165
           assert environment["withCastShadows"] == 166
-          assert environment["withAtmosphereSun"] == 2
+          assert environment["withAtmosphereSun"] == 0
+          assert environment["atmosphereSunEnabled"] == 0
           assert fog["format"] == "XZFG"
           assert fog["version"] == 1
           assert fog["bytes"] == 92
