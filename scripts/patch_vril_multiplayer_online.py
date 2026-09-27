@@ -994,6 +994,80 @@ if "Online loading must not render stale map textures" not in rtext:
         1)
 r_screen.write_text(rtext, encoding="utf-8")
 
+# Bounded scene-pipeline diagnostics. This does not change rendering; it records
+# the actual camera/PVS/world-draw state so a black remote framebuffer can be
+# compared directly with a visible remote client from the same build.
+gl_rmain = source / "platform" / "sdl" / "gl" / "gl_rmain.c"
+gtext = gl_rmain.read_text(encoding="utf-8")
+g_include = '#include "../../../nzportable_def.h"\n'
+g_diag = r'''#ifdef __ANDROID__
+#include <android/log.h>
+extern int Xziel_Android_OnlineActive(void);
+static int xziel_scene_trace;
+#endif
+'''
+if "xziel_scene_trace" not in gtext:
+    gtext = replace_once(gtext, g_include, g_include + g_diag,
+                         "Android scene diagnostic declarations")
+
+g_leaf_old = '''\tr_oldviewleaf = r_viewleaf;
+\tr_viewleaf = Mod_PointInLeaf (r_origin, cl.worldmodel);
+
+\tV_SetContentsColor (r_viewleaf->contents);
+'''
+g_leaf_new = '''\tr_oldviewleaf = r_viewleaf;
+\tr_viewleaf = Mod_PointInLeaf (r_origin, cl.worldmodel);
+
+#ifdef __ANDROID__
+\tif (Xziel_Android_OnlineActive() && cls.signon == SIGNONS &&
+\t\txziel_scene_trace < 12) {
+\t\tentity_t *xziel_view = &cl_entities[cl.viewentity];
+\t\tint xziel_leaf = r_viewleaf ? (int)(r_viewleaf - cl.worldmodel->leafs) : -1;
+\t\t__android_log_print(ANDROID_LOG_INFO, "XzielScene",
+\t\t\t"FRAME n=%d viewentity=%d ent=%.3f,%.3f,%.3f ref=%.3f,%.3f,%.3f origin=%.3f,%.3f,%.3f angles=%.3f,%.3f,%.3f leaf=%d contents=%d fov=%.3f,%.3f vrect=%d,%d,%d,%d",
+\t\t\txziel_scene_trace, cl.viewentity,
+\t\t\txziel_view->origin[0], xziel_view->origin[1], xziel_view->origin[2],
+\t\t\tr_refdef.vieworg[0], r_refdef.vieworg[1], r_refdef.vieworg[2],
+\t\t\tr_origin[0], r_origin[1], r_origin[2],
+\t\t\tr_refdef.viewangles[0], r_refdef.viewangles[1], r_refdef.viewangles[2],
+\t\t\txziel_leaf, r_viewleaf ? r_viewleaf->contents : 9999,
+\t\t\tr_refdef.fov_x, r_refdef.fov_y,
+\t\t\tr_refdef.vrect.x, r_refdef.vrect.y,
+\t\t\tr_refdef.vrect.width, r_refdef.vrect.height);
+\t}
+#endif
+
+\tV_SetContentsColor (r_viewleaf->contents);
+'''
+if "XzielScene" not in gtext:
+    gtext = replace_once(gtext, g_leaf_old, g_leaf_new,
+                         "scene camera and viewleaf diagnostics")
+
+g_world_old = '''\tR_DrawWorld ();\t\t// adds static entities to the list
+
+\tS_ExtraUpdate ();\t// don't let sound get messed up if going slow
+'''
+g_world_new = '''\tR_DrawWorld ();\t\t// adds static entities to the list
+
+#ifdef __ANDROID__
+\tif (Xziel_Android_OnlineActive() && cls.signon == SIGNONS &&
+\t\txziel_scene_trace < 12) {
+\t\t__android_log_print(ANDROID_LOG_INFO, "XzielScene",
+\t\t\t"WORLD n=%d brush=%d visedicts=%d visframe=%d frame=%d worldmodel=%p",
+\t\t\txziel_scene_trace, c_brush_polys, cl_numvisedicts,
+\t\t\tr_visframecount, r_framecount, (void *)r_worldentity.model);
+\t\txziel_scene_trace++;
+\t}
+#endif
+
+\tS_ExtraUpdate ();\t// don't let sound get messed up if going slow
+'''
+if "WORLD n=%d brush=%d" not in gtext:
+    gtext = replace_once(gtext, g_world_old, g_world_new,
+                         "scene world-draw diagnostics")
+
+gl_rmain.write_text(gtext, encoding="utf-8")
+
 # ---------------------------------------------------------------------------
 # SDL UDP: virtual internet peers are 10.77.0.<slot>. OS UDP remains untouched
 # for normal solo/LAN operation and for local socket allocation/port identity.
