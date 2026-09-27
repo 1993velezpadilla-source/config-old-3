@@ -21,6 +21,7 @@ on:
       - feature/xziel-nacht-pbr-scalar-census-v1
       - feature/xziel-nacht-pbr-scalar-pack-v1
       - feature/xziel-nacht-pbr-scalar-shader-v1
+      - feature/xziel-nacht-normal-map-shader-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -36,6 +37,7 @@ on:
       - "tools/maps/compile_nacht_xzmesh_bundle.py"
       - "tools/maps/compile_nacht_xzmat_bundle.py"
       - "tools/maps/compile_nacht_pbr_scalars.py"
+      - "tools/maps/compile_nacht_normal_maps.py"
       - "tools/maps/compile_nacht_environment.py"
       - "tools/maps/NachtLightExtractor/**"
       - "tools/maps/NachtFogExtractor/**"
@@ -2506,6 +2508,41 @@ jobs:
           print("XZIEL_NACHT_XZPB_REPORT_GREEN", pbr["validCounts"])
           PY
 
+          python3 tools/maps/compile_nacht_normal_maps.py \
+            --manifest "$RUNNER_TEMP/scene-glb/xziel-texture-manifest.json" \
+            --materials-report build/nacht-static-scene/xziel.xzmat.report.json \
+            --texture-root "$RUNNER_TEMP/scene-glb" \
+            --output "$MAPROOT/materials.xzmn" \
+            --report build/nacht-static-scene/xziel.xzmn.report.json \
+            --max-dimension 256 \
+            | tee build/nacht-static-scene/xzmn-compile.log
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          normal = json.loads(
+              Path(
+                  "build/nacht-static-scene/xziel.xzmn.report.json"
+              ).read_text()
+          )
+          assert normal["format"] == "XZMN"
+          assert normal["version"] == 1
+          assert normal["bindingCount"] == 1063
+          assert normal["mappedBindings"] > 0
+          assert normal["textureCount"] > 0
+          assert normal["runtimeBytes"] > 0
+          print(
+              "XZIEL_NACHT_XZMN_REPORT_GREEN",
+              {
+                  "bindings": normal["bindingCount"],
+                  "mapped": normal["mappedBindings"],
+                  "textures": normal["textureCount"],
+                  "bytes": normal["runtimeBytes"],
+              },
+          )
+          PY
+
           python3 tools/maps/compile_nacht_environment.py \
             --source build/nacht-static-scene/light-components.json \
             --output "$MAPROOT/environment.xzen" \
@@ -2524,6 +2561,7 @@ jobs:
           test -s "$MAPROOT/scene.xzsc"
           test -s "$MAPROOT/materials.xzmt"
           test -s "$MAPROOT/materials.xzpb"
+          test -s "$MAPROOT/materials.xzmn"
           test -s "$MAPROOT/environment.xzen"
           test -s "$MAPROOT/fog.xzfg"
 
@@ -2694,6 +2732,9 @@ jobs:
 
           unzip -l "$ZIP" \
             | grep -F 'nzp/xziel/maps/xziel_nacht_bo3/materials.xzpb'
+
+          unzip -l "$ZIP" \
+            | grep -F 'nzp/xziel/maps/xziel_nacht_bo3/materials.xzmn'
 
           unzip -l "$ZIP" \
             | grep -F 'nzp/xziel/maps/xziel_nacht_bo3/environment.xzen'
@@ -2945,6 +2986,10 @@ jobs:
             dist/static-scene-logcat.txt
 
           grep -E \
+            "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*normalBindings=1063 normalMapped=[1-9][0-9]* normalTextures=[1-9][0-9]* normalBytes=[1-9][0-9]* normalGpuReady=1" \
+            dist/static-scene-logcat.txt
+
+          grep -E \
             "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*envLights=166 envPoint=144 envSpot=19 envDirectional=2 envSky=1 envBytes=14636" \
             dist/static-scene-logcat.txt
 
@@ -2963,6 +3008,36 @@ jobs:
           grep -E \
             "XZIEL-XZ.*static_scene_draw ready=1.*localLights=163 active=64 affecting=[1-9][0-9]* dropped=0.*pbrReady=1 pbrApplied=1063 pbrAuthored=91.*heightFogReady=1 directionalFog=0 fogDensity=0\.100000 fogFalloff=2\.000000 fogMaxOpacity=0\.200000 fogStartMeters=3\.000000" \
             dist/static-scene-logcat.txt
+
+          grep -E \
+            "XZIEL-XZ.*static_scene_draw ready=1.*normalReady=1 normalApplied=[1-9][0-9]* normalMapped=[1-9][0-9]*.*pbrReady=1 pbrApplied=1063 pbrAuthored=91" \
+            dist/static-scene-logcat.txt
+
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          text = Path("dist/static-scene-logcat.txt").read_text(
+              encoding="utf-8",
+              errors="replace",
+          )
+          match = re.search(
+              r"static_scene_draw ready=1.*?"
+              r"normalReady=1 normalApplied=(\d+) normalMapped=(\d+)",
+              text,
+          )
+          assert match, "normal-map draw audit line missing"
+          applied = int(match.group(1))
+          mapped = int(match.group(2))
+          assert mapped > 0, "normal-map pack resolved zero authored bindings"
+          assert applied == mapped, (
+              f"normal-map draw mismatch applied={applied} mapped={mapped}"
+          )
+          print(
+              "XZIEL_NACHT_NORMAL_DRAW_MATCH_GREEN",
+              {"applied": applied, "mapped": mapped},
+          )
+          PY
 
           grep -E \
             "XZIEL-XZ.*legacy3d worldTransition.*map='xziel_nacht_bo3'.*mapRuntime=NACHT_BO3" \
@@ -2989,6 +3064,9 @@ jobs:
             "XZIEL_NACHT_PBR_SHADER_GREEN bindings=1063 authored=91"
 
           echo \
+            "XZIEL_NACHT_NORMAL_MAP_SHADER_GREEN bindings=1063 applied_equals_mapped=1"
+
+          echo \
             "XZIEL_NACHT_ENVIRONMENT_GREEN lights=166 point=144 spot=19 directional=2 sky=1 bytes=14636"
 
           echo \
@@ -3012,6 +3090,8 @@ jobs:
             build/nacht-static-scene/xziel.xzmat.report.json
             build/nacht-static-scene/xziel.xzpb.report.json
             build/nacht-static-scene/xzpb-compile.log
+            build/nacht-static-scene/xziel.xzmn.report.json
+            build/nacht-static-scene/xzmn-compile.log
             build/nacht-static-scene/xziel.xzen.report.json
             build/nacht-static-scene/xziel.xzfg.report.json
             build/nacht-static-scene/height-fog-resolved.json
