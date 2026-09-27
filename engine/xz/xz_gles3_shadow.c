@@ -311,6 +311,8 @@ typedef struct {
     GLint static_fog_cutoff_loc;
     GLint static_pbr_params_loc;
     GLint static_pbr_flags_loc;
+    GLint static_reflection_texture_loc;
+    GLint static_reflection_params_loc;
     float static_ambient_weight;
     float static_directional_weight;
     float static_directional_color[3];
@@ -337,6 +339,7 @@ typedef struct {
     uint32_t static_normal_binding_count;
     XzPbrMaterialBinding *static_pbr_bindings;
     uint32_t static_pbr_binding_count;
+    GLuint static_reflection_cubemap;
 
     GLuint scratch_fbo;
 
@@ -1756,6 +1759,8 @@ static int XzCreateStaticSceneProgram(void)
         "uniform float uFogCutoffCm;\n"
         "uniform vec4 uPbrParams;\n"
         "uniform int uPbrFlags;\n"
+        "uniform samplerCube uReflectionCapture;\n"
+        "uniform vec4 uReflectionParams;\n"
         "out vec4 outColor;\n"
         "float linearToSrgb1(float x){\n"
         "  x=clamp(x,0.0,1.0);\n"
@@ -1821,6 +1826,28 @@ static int XzCreateStaticSceneProgram(void)
         "  float G=geometrySmith(N,V,L,roughness);\n"
         "  vec3 F=fresnelSchlick(max(dot(H,V),0.0),f0);\n"
         "  return (D*G*F)/max(4.0*ndv*ndl,1.0e-4);\n"
+        "}\n"
+        "float ueReflectionMip(float roughness){\n"
+        "  float levelFrom1x1=1.0-1.2*log2(max(roughness,1.0e-4));\n"
+        "  return clamp(uReflectionParams.x-1.0-levelFrom1x1,0.0,uReflectionParams.x);\n"
+        "}\n"
+        "vec3 ueEnvBRDFApprox(vec3 f0,float roughness,float ndv){\n"
+        "  const vec4 c0=vec4(-1.0,-0.0275,-0.572,0.022);\n"
+        "  const vec4 c1=vec4(1.0,0.0425,1.04,-0.04);\n"
+        "  vec4 r=roughness*c0+c1;\n"
+        "  float a004=min(r.x*r.x,exp2(-9.28*ndv))*r.x+r.y;\n"
+        "  vec2 ab=vec2(-1.04,1.04)*a004+r.zw;\n"
+        "  ab.y*=clamp(50.0*f0.g,0.0,1.0);\n"
+        "  return f0*ab.x+vec3(ab.y);\n"
+        "}\n"
+        "vec3 ueReflectionIBL(vec3 N,vec3 V,float roughness,vec3 f0){\n"
+        "  if(uReflectionParams.w<0.5) return vec3(0.0);\n"
+        "  vec3 R=reflect(-V,N);\n"
+        "  vec3 ueR=normalize(vec3(R.x,-R.y,R.z));\n"
+        "  float mip=ueReflectionMip(roughness);\n"
+        "  vec3 radiance=textureLod(uReflectionCapture,ueR,mip).rgb*uReflectionParams.y;\n"
+        "  float ndv=max(dot(N,V),0.0);\n"
+        "  return radiance*ueEnvBRDFApprox(f0,roughness,ndv);\n"
         "}\n"
         "float ueFogTransmission(vec3 worldPosGame){\n"
         "  vec3 rayCm=(worldPosGame-uCameraPosGame)*2.54;\n"
@@ -1905,6 +1932,7 @@ static int XzCreateStaticSceneProgram(void)
         "    vec3 directSpec=cookTorranceSpec(n,V,Ld,roughness,f0)*directRadiance*ndl;\n"
         "    lit=diffuse+directSpec+localSpec+albedo*emissive;\n"
         "  }\n"
+        "  lit+=ueReflectionIBL(n,V,roughness,f0);\n"
         "  float fogT=ueFogTransmission(vWorldPos);\n"
         "  vec3 fogged=lit*fogT+uFogColorMin.rgb*(1.0-fogT);\n"
         "  outColor=vec4(linearToSrgb(fogged),texel.a);\n"
@@ -2030,6 +2058,14 @@ static int XzCreateStaticSceneProgram(void)
         gl->GetUniformLocation(
             xz_shadow.static_program,
             "uPbrFlags");
+    xz_shadow.static_reflection_texture_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uReflectionCapture");
+    xz_shadow.static_reflection_params_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uReflectionParams");
 
     if (xz_shadow.static_view_loc < 0 ||
         xz_shadow.static_projection_loc < 0 ||
@@ -2050,7 +2086,9 @@ static int XzCreateStaticSceneProgram(void)
         xz_shadow.static_fog_color_min_loc < 0 ||
         xz_shadow.static_fog_cutoff_loc < 0 ||
         xz_shadow.static_pbr_params_loc < 0 ||
-        xz_shadow.static_pbr_flags_loc < 0)
+        xz_shadow.static_pbr_flags_loc < 0 ||
+        xz_shadow.static_reflection_texture_loc < 0 ||
+        xz_shadow.static_reflection_params_loc < 0)
         return 0;
 
     gl->UseProgram(xz_shadow.static_program);
@@ -2060,6 +2098,9 @@ static int XzCreateStaticSceneProgram(void)
     gl->Uniform1i(
         xz_shadow.static_normal_texture_loc,
         1);
+    gl->Uniform1i(
+        xz_shadow.static_reflection_texture_loc,
+        2);
     gl->UseProgram(0u);
 
     return gl->GetError() == GL_NO_ERROR;
@@ -2760,10 +2801,151 @@ static int XzRestorePrevious(
 }
 
 
+static int XzUploadStaticReflection(
+    const XzStaticSceneRuntimeState *scene,
+    XzGles3ShadowState *state)
+{
+    const XzReflectionCaptureView *capture;
+    size_t offset = 0u;
+    uint32_t mip;
+
+    if (!scene || !state)
+        return 0;
+
+    capture =
+        XzStaticSceneRuntime_ReflectionCapture(scene);
+
+    if (!capture)
+        return strcmp(
+            scene->map_id,
+            "xziel_nacht_bo3") != 0;
+
+    if (!capture->payload ||
+        capture->cubemap_size == 0u ||
+        capture->mip_count == 0u ||
+        capture->face_count != 6u ||
+        capture->pixel_format !=
+            XZ_REFLECTION_FORMAT_RGBA16F ||
+        capture->bytes_per_texel != 8u)
+        return 0;
+
+    xz_shadow.gl.GenTextures(
+        1,
+        &xz_shadow.static_reflection_cubemap);
+    if (!xz_shadow.static_reflection_cubemap)
+        return 0;
+
+    xz_shadow.gl.ActiveTexture(GL_TEXTURE2);
+    xz_shadow.gl.BindTexture(
+        GL_TEXTURE_CUBE_MAP,
+        xz_shadow.static_reflection_cubemap);
+    xz_shadow.gl.TexParameteri(
+        GL_TEXTURE_CUBE_MAP,
+        GL_TEXTURE_MIN_FILTER,
+        GL_LINEAR_MIPMAP_LINEAR);
+    xz_shadow.gl.TexParameteri(
+        GL_TEXTURE_CUBE_MAP,
+        GL_TEXTURE_MAG_FILTER,
+        GL_LINEAR);
+    xz_shadow.gl.TexParameteri(
+        GL_TEXTURE_CUBE_MAP,
+        GL_TEXTURE_WRAP_S,
+        GL_CLAMP_TO_EDGE);
+    xz_shadow.gl.TexParameteri(
+        GL_TEXTURE_CUBE_MAP,
+        GL_TEXTURE_WRAP_T,
+        GL_CLAMP_TO_EDGE);
+    xz_shadow.gl.TexParameteri(
+        GL_TEXTURE_CUBE_MAP,
+        GL_TEXTURE_WRAP_R,
+        GL_CLAMP_TO_EDGE);
+
+    for (mip = 0u;
+         mip < capture->mip_count;
+         ++mip) {
+        uint32_t edge =
+            capture->cubemap_size >> mip;
+        size_t face_bytes =
+            (size_t)edge *
+            (size_t)edge *
+            (size_t)capture->bytes_per_texel;
+        uint32_t face;
+
+        if (edge == 0u ||
+            face_bytes == 0u)
+            return 0;
+
+        for (face = 0u;
+             face < capture->face_count;
+             ++face) {
+            size_t face_offset =
+                offset +
+                (size_t)face * face_bytes;
+
+            if (face_offset >
+                    capture->payload_bytes ||
+                face_bytes >
+                    capture->payload_bytes -
+                        face_offset)
+                return 0;
+
+            xz_shadow.gl.TexImage2D(
+                GL_TEXTURE_CUBE_MAP_POSITIVE_X +
+                    (GLenum)face,
+                (GLint)mip,
+                GL_RGBA16F,
+                (GLsizei)edge,
+                (GLsizei)edge,
+                0,
+                GL_RGBA,
+                GL_HALF_FLOAT,
+                capture->payload + face_offset);
+        }
+
+        offset +=
+            face_bytes *
+            (size_t)capture->face_count;
+
+        if (xz_shadow.gl.GetError() !=
+                GL_NO_ERROR)
+            return 0;
+    }
+
+    xz_shadow.gl.BindTexture(
+        GL_TEXTURE_CUBE_MAP,
+        0u);
+    xz_shadow.gl.ActiveTexture(GL_TEXTURE0);
+
+    if (offset != capture->payload_bytes ||
+        xz_shadow.gl.GetError() != GL_NO_ERROR)
+        return 0;
+
+    state->static_scene_reflection_gpu_bytes =
+        (uint64_t)capture->payload_bytes;
+    state->static_scene_reflection_size =
+        capture->cubemap_size;
+    state->static_scene_reflection_mips =
+        capture->mip_count;
+    state->static_scene_reflection_average_brightness =
+        capture->average_brightness;
+    state->static_scene_reflection_brightness =
+        capture->brightness;
+    state->static_scene_reflection_ready = 1;
+    return 1;
+}
+
+
 static void XzDestroyStaticSceneCurrent(
     XzGles3ShadowState *state)
 {
     uint32_t i;
+
+    if (xz_shadow.static_reflection_cubemap) {
+        xz_shadow.gl.DeleteTextures(
+            1,
+            &xz_shadow.static_reflection_cubemap);
+        xz_shadow.static_reflection_cubemap = 0u;
+    }
 
     if (xz_shadow.static_textures) {
         for (i = 0u;
@@ -2868,6 +3050,13 @@ static void XzDestroyStaticSceneCurrent(
         state->static_scene_pbr_ready = 0;
         state->static_scene_specular_response_ready = 0;
         state->static_scene_last_specular_local_lights = 0u;
+        state->static_scene_reflection_ready = 0;
+        state->static_scene_reflection_gpu_bytes = 0u;
+        state->static_scene_reflection_size = 0u;
+        state->static_scene_reflection_mips = 0u;
+        state->static_scene_reflection_average_brightness = 0.0f;
+        state->static_scene_reflection_brightness = 0.0f;
+        state->static_scene_reflection_ibl_ready = 0;
         state->static_scene_lighting_ready = 0;
         state->static_scene_local_light_count = 0u;
         state->static_scene_local_light_active = 0u;
@@ -3001,6 +3190,17 @@ int XzGles3Shadow_UploadStaticScene(
         strcmp(
             scene->map_id,
             "xziel_nacht_bo3") == 0)
+        goto fail;
+
+    if (!XzUploadStaticReflection(
+            scene,
+            state))
+        goto fail;
+
+    if (strcmp(
+            scene->map_id,
+            "xziel_nacht_bo3") == 0 &&
+        !state->static_scene_reflection_ready)
         goto fail;
 
     gpu_meshes = (XzGles3StaticMesh *)calloc(
@@ -3489,6 +3689,16 @@ int XzGles3Shadow_UploadStaticScene(
                 (unsigned int)submeshes;
     }
 
+    state->static_scene_reflection_ibl_ready =
+        state->static_scene_reflection_ready &&
+        state->static_scene_pbr_ready;
+
+    if (strcmp(
+            scene->map_id,
+            "xziel_nacht_bo3") == 0 &&
+        !state->static_scene_reflection_ibl_ready)
+        goto fail;
+
     state->static_scene_specular_response_ready =
         state->static_scene_pbr_ready &&
         state->static_scene_pbr_authored_bindings > 0u &&
@@ -3777,6 +3987,29 @@ static int XzDrawStaticScene(
     gl->Uniform1i(
         xz_shadow.static_normal_texture_loc,
         1);
+    gl->Uniform1i(
+        xz_shadow.static_reflection_texture_loc,
+        2);
+    {
+        float reflection_params[4] = {
+            state->static_scene_reflection_mips > 0u
+                ? (float)(
+                    state->static_scene_reflection_mips - 1u)
+                : 0.0f,
+            state->static_scene_reflection_brightness,
+            state->static_scene_reflection_average_brightness,
+            state->static_scene_reflection_ibl_ready
+                ? 1.0f : 0.0f
+        };
+        gl->Uniform4fv(
+            xz_shadow.static_reflection_params_loc,
+            1,
+            reflection_params);
+    }
+    gl->ActiveTexture(GL_TEXTURE2);
+    gl->BindTexture(
+        GL_TEXTURE_CUBE_MAP,
+        xz_shadow.static_reflection_cubemap);
     gl->ActiveTexture(GL_TEXTURE0);
     gl->UniformMatrix4fv(
         xz_shadow.static_view_loc,
