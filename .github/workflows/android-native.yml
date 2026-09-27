@@ -32,6 +32,7 @@ on:
       - feature/xz-special-raster-suppress
       - feature/xz-full-world-raster-retirement
       - feature/xziel-engine-nacht-runtime-v1
+      - feature/xziel-nacht-weapon-runtime-v1
     paths:
       - ".github/workflows/android-native.yml"
       - "android/**"
@@ -224,6 +225,17 @@ jobs:
             engine/xz/xz_bo3_weapon_specs.c \
             -lm -o /tmp/xz_bo3_weapon_specs_test
           /tmp/xz_bo3_weapon_specs_test
+
+      - name: Test XZIEL BO3 weapon runtime
+        shell: bash
+        run: |
+          cc -std=c99 -O2 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tests/xz_bo3_weapon_runtime_test.c \
+            engine/xz/xz_bo3_weapon_runtime.c \
+            engine/xz/xz_bo3_weapon_specs.c \
+            -lm -o /tmp/xz_bo3_weapon_runtime_test
+          /tmp/xz_bo3_weapon_runtime_test
 
       - name: Test XZIEL map identity runtime
         shell: bash
