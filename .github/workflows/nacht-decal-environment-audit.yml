@@ -57,6 +57,15 @@ jobs:
           "$REPAK" unpack "$ROOT/WindowsNoEditor.pak" -o "$RUNNER_TEMP/nacht-unpacked"
           echo "UNPACKED=$RUNNER_TEMP/nacht-unpacked" >> "$GITHUB_ENV"
 
+      - name: Find projected decal source files
+        run: |
+          set -euo pipefail
+          echo "XZIEL_DECAL_SOURCE_FILES_BEGIN"
+          find "$UNPACKED" -type f \
+            \( -iname '*chalk*help*' -o -iname '*help*r*' -o -iname '*i_t7_zm_der_chalk_help*' \) \
+            -print | sort
+          echo "XZIEL_DECAL_SOURCE_FILES_END"
+
       - name: Build decal environment scanner
         run: |
           set -euo pipefail
