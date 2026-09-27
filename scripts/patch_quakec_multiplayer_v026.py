@@ -186,6 +186,25 @@ if "Classic Vril has no late-join spectator path here" not in text:
         raise SystemExit("Could not find PutClientInServer late-join anchor")
     text = text.replace(late_join_fte_tail, late_join_vril_tail, 1)
 
+# Upstream DamageHandler has an operator-precedence bug:
+#   player && style != OTHER && BO4 || !lethal
+# allows every non-lethal hit through even when attacker is not a player.
+# That reaches nzp_hitmarker(attacker), sets MSG_ONE to a non-client entity,
+# and Vril aborts with "WriteDest: not a client". Preserve the intended rule:
+# only player attackers can enter this scoring/hitmarker block.
+damage_path = root / "source" / "server" / "damage.qc"
+damage_text = damage_path.read_text(encoding="utf-8")
+damage_bad = '''\t\tif (attacker.classname == "player" && d_style != DMG_TYPE_OTHER && game_modifiers.gameplay.ai.score_system == SCORE_SYSTEM_BO4 || !lethal) {
+'''
+damage_good = '''\t\tif (attacker.classname == "player" && d_style != DMG_TYPE_OTHER &&
+\t\t\t(game_modifiers.gameplay.ai.score_system == SCORE_SYSTEM_BO4 || !lethal)) {
+'''
+if "only player attackers can enter this scoring/hitmarker block" not in damage_text:
+    if damage_bad not in damage_text:
+        raise SystemExit("Could not find DamageHandler hitmarker precedence anchor")
+    damage_text = damage_text.replace(damage_bad, damage_good, 1)
+    damage_path.write_text(damage_text, encoding="utf-8")
+
 # The sound must be in the precache table on non-FTE too. Make the five player
 # footsteps unconditional; FTE continues to precache the same assets once.
 main_path = root / "source" / "server" / "main.qc"
