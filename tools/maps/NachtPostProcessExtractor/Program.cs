@@ -46,6 +46,32 @@ string Text(object? value)
     catch { return ""; }
 }
 
+bool IsStrongPostProcessName(string name)
+{
+    var probes = new[] {
+        "AutoExposure",
+        "EyeAdaptation",
+        "FilmSlope",
+        "FilmToe",
+        "FilmShoulder",
+        "FilmBlackClip",
+        "FilmWhiteClip",
+        "ColorGrading",
+        "SceneColorTint",
+        "WhiteTemp",
+        "WhiteTint",
+        "VignetteIntensity",
+        "BloomIntensity",
+        "IndirectLightingIntensity",
+        "AmbientCubemapIntensity"
+    };
+
+    return probes.Any(
+        probe => name.Contains(
+            probe,
+            StringComparison.OrdinalIgnoreCase));
+}
+
 bool IsInterestingName(string name)
 {
     var probes = new[] {
@@ -238,6 +264,7 @@ var exports =
         .ToArray();
 
 var rows = new List<object>();
+var globalPropertyHits = new List<object>();
 
 foreach (var export in exports)
 {
@@ -258,10 +285,10 @@ foreach (var export in exports)
             "PostProcess",
             StringComparison.OrdinalIgnoreCase);
 
-    if (!candidate)
-        continue;
-
     var tags =
+        new SortedDictionary<string, string>(
+            StringComparer.OrdinalIgnoreCase);
+    var strongTags =
         new SortedDictionary<string, string>(
             StringComparer.OrdinalIgnoreCase);
 
@@ -278,17 +305,39 @@ foreach (var export in exports)
             if (string.IsNullOrWhiteSpace(name))
                 continue;
 
-            if (!IsInterestingName(name) &&
-                !name.Equals(
-                    "Settings",
-                    StringComparison.OrdinalIgnoreCase))
-                continue;
-
             var tagValue =
                 Text(Read(tag, "Tag"));
-            tags[name] = tagValue;
+
+            if (IsStrongPostProcessName(name) ||
+                IsStrongPostProcessName(tagValue))
+            {
+                strongTags[name] = tagValue;
+            }
+
+            if (candidate &&
+                (IsInterestingName(name) ||
+                 name.Equals(
+                    "Settings",
+                    StringComparison.OrdinalIgnoreCase)))
+            {
+                tags[name] = tagValue;
+            }
         }
     }
+
+    if (strongTags.Count > 0)
+    {
+        globalPropertyHits.Add(
+            new {
+                exportName = export.Name.ToString(),
+                sourceType = fullType,
+                sourcePath = path,
+                tags = strongTags
+            });
+    }
+
+    if (!candidate)
+        continue;
 
     var settings =
         Read(export, "Settings")
@@ -314,7 +363,9 @@ var report = new {
     sourcePackage = maps[0],
     exportCount = exports.Length,
     candidateCount = rows.Count,
-    candidates = rows
+    globalPropertyHitCount = globalPropertyHits.Count,
+    candidates = rows,
+    globalPropertyHits
 };
 
 Directory.CreateDirectory(
@@ -334,7 +385,8 @@ Console.WriteLine(
     JsonSerializer.Serialize(
         new {
             report.exportCount,
-            report.candidateCount
+            report.candidateCount,
+            report.globalPropertyHitCount
         }));
 
 return rows.Count > 0 ? 0 : 4;
