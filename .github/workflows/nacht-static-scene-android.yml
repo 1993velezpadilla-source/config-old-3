@@ -32,6 +32,7 @@ on:
       - feature/xziel-nacht-tonemap-v1
       - feature/xziel-nacht-pavlov-legacy-tonemap-v1
       - feature/xziel-nacht-authored-global-lighting-v1
+      - feature/xziel-nacht-lightmap-uv-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -343,6 +344,8 @@ jobs:
           assert data["meshBuildDataCount"] > 0
           assert data["lightMap2DCount"] > 0
           assert data["linkedMeshBuildDataCount"] > 0
+          assert data["staticMeshBuildBindingCount"] > 0
+          assert data["lightMapCoordinateIndexCounts"]
 
           print(
               "XZIEL_NACHT_BAKED_LIGHTING_CENSUS_GREEN",
@@ -350,6 +353,9 @@ jobs:
                   "registries": data["buildDataRegistryCount"],
                   "meshBuildData": data["meshBuildDataCount"],
                   "linkedMeshBuildData": data["linkedMeshBuildDataCount"],
+                  "staticMeshBindings": data["staticMeshBuildBindingCount"],
+                  "lightMapCoordinateIndexCounts":
+                      data["lightMapCoordinateIndexCounts"],
                   "lightMap2D": data["lightMap2DCount"],
                   "shadowMap2D": data["shadowMap2DCount"],
                   "lightmapTextures": data["uniqueLightmapTextureCount"],
@@ -2708,6 +2714,10 @@ jobs:
               "normalTextures": 0,
               "metallicRoughnessTextures": 0,
               "emissiveTextures": 0,
+              "primitives": 0,
+              "texcoord0Primitives": 0,
+              "texcoord1Primitives": 0,
+              "maxTexcoordSet": -1,
           }
           glb_samples = []
 
@@ -2736,6 +2746,32 @@ jobs:
                   if isinstance(image, dict)
                   and "uri" in image
               )
+
+              for mesh in doc.get("meshes", []):
+                  if not isinstance(mesh, dict):
+                      continue
+                  for primitive in mesh.get("primitives", []):
+                      if not isinstance(primitive, dict):
+                          continue
+                      attrs = primitive.get("attributes", {})
+                      if not isinstance(attrs, dict):
+                          continue
+                      glb_stats["primitives"] += 1
+                      if "TEXCOORD_0" in attrs:
+                          glb_stats["texcoord0Primitives"] += 1
+                      if "TEXCOORD_1" in attrs:
+                          glb_stats["texcoord1Primitives"] += 1
+                      for key in attrs:
+                          if not key.startswith("TEXCOORD_"):
+                              continue
+                          try:
+                              index = int(key.split("_", 1)[1])
+                          except ValueError:
+                              continue
+                          glb_stats["maxTexcoordSet"] = max(
+                              glb_stats["maxTexcoordSet"],
+                              index,
+                          )
 
               for material in materials:
                   if not isinstance(material, dict):
@@ -2824,8 +2860,18 @@ jobs:
               f"embeddedImages={glb_stats['embeddedImages']}",
               f"baseColor={glb_stats['baseColorTextures']}",
               f"normal={glb_stats['normalTextures']}",
+              f"primitives={glb_stats['primitives']}",
+              f"texcoord0={glb_stats['texcoord0Primitives']}",
+              f"texcoord1={glb_stats['texcoord1Primitives']}",
+              f"maxTexcoordSet={glb_stats['maxTexcoordSet']}",
               f"suffixes={dict(sorted(suffixes.items()))}",
           )
+
+          if glb_stats["texcoord1Primitives"] <= 0:
+              raise SystemExit(
+                  "CUE4Parse GLBs exposed no TEXCOORD_1; "
+                  "cannot preserve authored lightmap UVs"
+              )
 
           if not material_json:
               raise SystemExit(
