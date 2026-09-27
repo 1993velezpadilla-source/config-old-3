@@ -101,6 +101,24 @@ def binding_score(row: dict) -> int:
     if re.search(r"(?:^|_)d$", name):
         score += 3600
 
+    # Cooked texture streaming can preserve the exact authored texture even
+    # when semantic parameter names are stripped. Prefer an exact
+    # material-name/texture-name match (e.g. Atlas_39246_Mat -> Atlas_39246).
+    material_name = str(row.get("materialName", "")).lower()
+    if canonical(name) and canonical(name) == canonical(material_name):
+        score += 8000
+
+    # The Nacht muddy-water material serializes a neutral White base texture
+    # plus an explicitly named NormalTexture. The runtime's current XZMT tier
+    # is base-color only, so select White only for water materials; keeping
+    # this scoped avoids overriding authored vector/alias fallbacks elsewhere.
+    if (
+        source.startswith("streaming:")
+        and name == "white"
+        and "water" in material_name
+    ):
+        score += 500
+
     negative = (
         "normal", "_n", "mrs", "rough", "metal", "spec",
         "opacity", "mask", "_ao", "ambientocclusion",
