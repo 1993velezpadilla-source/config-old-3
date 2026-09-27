@@ -219,12 +219,13 @@ foreach (var export in mapExports)
             export is UStaticMeshComponent staticMeshComponent &&
             staticMeshComponent.LODData is not null)
         {
-            var staticMeshPath =
-                ReferencePath(
-                    staticMeshComponent.GetStaticMesh());
             var loadedStaticMesh =
                 ResolveStaticMesh(
                     staticMeshComponent);
+            var staticMeshPath =
+                loadedStaticMesh?.GetPathName()
+                ?? ReferencePath(
+                    staticMeshComponent.GetStaticMesh());
             var lightMapCoordinateIndex = -1;
             var numTexCoords = -1;
 
