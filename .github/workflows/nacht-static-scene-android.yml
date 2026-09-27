@@ -2603,6 +2603,15 @@ jobs:
           test "$("$ADB" shell getprop sys.boot_completed \
             2>/dev/null | tr -d '\r')" = "1"
 
+          # This CI path can run for ~10 minutes before the final screencap.
+          # Keep the headless emulator display awake so a valid rendered
+          # backbuffer is not mistaken for a black-frame regression.
+          "$ADB" shell svc power stayon true || true
+          "$ADB" shell settings put system \
+            screen_off_timeout 2147483647 || true
+          "$ADB" shell input keyevent KEYCODE_WAKEUP || true
+          "$ADB" shell wm dismiss-keyguard || true
+
           # Suppress Android's one-time immersive-mode education overlay so the
           # captured framebuffer is the game itself rather than the system
           # "Viewing full screen / Got it" tutorial.
