@@ -9,6 +9,7 @@ on:
       - feature/xziel-static-scene-framebuffer-v1
       - feature/xziel-static-scene-materials-v1
       - feature/xziel-static-scene-material-coverage-v2
+      - feature/xziel-static-scene-material-final5
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -633,12 +634,21 @@ jobs:
           }
 
           void QueueMaterialTextures(
-              UMaterialInterface sourceMaterial)
+              UMaterialInterface sourceMaterial,
+              UMaterialInterface? bindingOwner = null)
           {
+              var ownerMaterial =
+                  bindingOwner ?? sourceMaterial;
+
               var materialKey =
                   sourceMaterial.GetPathName();
 
-              if (!materialTextureWalkVisited.Add(materialKey))
+              var walkKey =
+                  materialKey
+                  + "=>"
+                  + ownerMaterial.GetPathName();
+
+              if (!materialTextureWalkVisited.Add(walkKey))
                   return;
 
               /*
@@ -656,7 +666,7 @@ jobs:
               {
                   QueueTextureCandidate(
                       textureRef,
-                      sourceMaterial,
+                      ownerMaterial,
                       "append");
               }
 
@@ -693,7 +703,7 @@ jobs:
 
                       QueueTextureCandidate(
                           expressionTexture,
-                          sourceMaterial,
+                          ownerMaterial,
                           "expression");
                   }
               }
@@ -754,7 +764,7 @@ jobs:
 
                       QueueTextureCandidate(
                           parameterValue,
-                          sourceMaterial,
+                          ownerMaterial,
                           $"parameter:{parameterName}");
                   }
               }
@@ -898,7 +908,7 @@ jobs:
 
                       QueueTextureCandidate(
                           inferredTexture,
-                          sourceMaterial,
+                          ownerMaterial,
                           "inferred:AlbedoSibling");
 
                       Console.WriteLine(
@@ -941,9 +951,9 @@ jobs:
                       var vectorRow =
                           new Dictionary<string, string> {
                               ["materialPath"] =
-                                  sourceMaterial.GetPathName(),
+                                  ownerMaterial.GetPathName(),
                               ["materialName"] =
-                                  sourceMaterial.Name,
+                                  ownerMaterial.Name,
                               ["parameter"] =
                                   parameterName,
                               ["r"] =
@@ -996,7 +1006,7 @@ jobs:
                   {
                       QueueTextureCandidate(
                           textureRef,
-                          sourceMaterial,
+                          ownerMaterial,
                           "referenced");
                   }
               }
@@ -1020,7 +1030,8 @@ jobs:
                       sourceMaterial))
               {
                   QueueMaterialTextures(
-                      parentMaterial);
+                      parentMaterial,
+                      ownerMaterial);
               }
           }
 
