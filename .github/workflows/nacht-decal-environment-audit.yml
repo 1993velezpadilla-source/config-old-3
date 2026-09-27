@@ -67,6 +67,9 @@ jobs:
           cat > Program.cs <<'CS'
           using CUE4Parse.FileProvider;
           using CUE4Parse.UE4.Versions;
+          using CUE4Parse.UE4.Objects.UObject;
+          using CUE4Parse.UE4.Assets.Exports.Material;
+          using CUE4Parse.UE4.Assets.Exports.Texture;
           using System.Text.Json;
           using System.Reflection;
           using System.Collections;
@@ -212,12 +215,118 @@ jobs:
               }
           }
 
+          object DescribeMembers(object target)
+          {
+              var rows = new SortedDictionary<string, object?>(
+                  StringComparer.OrdinalIgnoreCase);
+
+              foreach (var field in target.GetType().GetFields(flags))
+              {
+                  try {
+                      var value = field.GetValue(target);
+                      rows["field:" + field.Name] = new {
+                          summary = Describe(value),
+                          reference = RefPath(value)
+                      };
+                  } catch { }
+              }
+
+              foreach (var property in target.GetType().GetProperties(flags))
+              {
+                  if (property.GetIndexParameters().Length != 0 || property.GetMethod is null)
+                      continue;
+                  try {
+                      var value = property.GetValue(target);
+                      rows["property:" + property.Name] = new {
+                          summary = Describe(value),
+                          reference = RefPath(value)
+                      };
+                  } catch { }
+              }
+
+              return rows;
+          }
+
+          var exactDecalActor =
+              exports.FirstOrDefault(
+                  x => string.Equals(
+                      x.Name,
+                      "DecalActor_19",
+                      StringComparison.OrdinalIgnoreCase));
+
+          var exactDecalComponent =
+              exports.FirstOrDefault(
+                  x => string.Equals(
+                      x.Name,
+                      "NewDecalComponent",
+                      StringComparison.OrdinalIgnoreCase)
+                      && (x.GetType().FullName ?? "")
+                          .Contains(
+                              "UDecalComponent",
+                              StringComparison.Ordinal));
+
+          var decalTextureRefs = new List<object>();
+
+          if (exactDecalComponent is not null)
+          {
+              var decalMaterial =
+                  ReadMember(
+                      exactDecalComponent,
+                      "DecalMaterial");
+
+              if (
+                  decalMaterial is FPackageIndex materialIndex
+                  && materialIndex.TryLoad<UMaterialInterface>(
+                      out var material)
+                  && material is not null)
+              {
+                  var textures = new List<UTexture>();
+                  material.AppendReferencedTextures(
+                      textures,
+                      false);
+
+                  foreach (var texture in textures)
+                  {
+                      decalTextureRefs.Add(
+                          new {
+                              name = texture.Name,
+                              path = texture.GetPathName(),
+                              type = texture.GetType().FullName
+                                  ?? texture.GetType().Name
+                          });
+                  }
+              }
+          }
+
+          var exactDecal = new {
+              actor = exactDecalActor is null
+                  ? null
+                  : new {
+                      name = exactDecalActor.Name,
+                      path = exactDecalActor.GetPathName(),
+                      type = exactDecalActor.GetType().FullName
+                          ?? exactDecalActor.GetType().Name,
+                      members = DescribeMembers(exactDecalActor)
+                  },
+              component = exactDecalComponent is null
+                  ? null
+                  : new {
+                      name = exactDecalComponent.Name,
+                      path = exactDecalComponent.GetPathName(),
+                      type = exactDecalComponent.GetType().FullName
+                          ?? exactDecalComponent.GetType().Name,
+                      members = DescribeMembers(exactDecalComponent)
+                  },
+              textureRefs = decalTextureRefs
+          };
+
           var report = new {
               schemaVersion = 1,
               sourcePackage = maps[0],
               decalExportCount = decalRows.Count,
               decalTypeCounts = typeCounts,
               environmentExportCount = envRows.Count,
+              exactDecal,
               decals = decalRows,
               environment = envRows
           };
@@ -236,6 +345,10 @@ jobs:
                   report.decalTypeCounts,
                   report.environmentExportCount
               }));
+
+          Console.WriteLine(
+              "XZIEL_NACHT_EXACT_DECAL " +
+              JsonSerializer.Serialize(exactDecal));
 
           foreach (var row in decalRows.Take(12))
               Console.WriteLine(
