@@ -34,7 +34,12 @@ int XzAndroidRuntime_ShouldSuppressLegacyWorldDraw(
 int XzAndroidRuntime_CompositeVisibleWorld(void);
 void XzAndroidRuntime_AuditLegacyPresentBeforeSwap(
     unsigned int width,
-    unsigned int height);
+    unsigned int height,
+    int screenflash_color,
+    int screenflash_type,
+    double screenflash_duration,
+    double screenflash_starttime,
+    double screenflash_worktime);
 void XzAndroidRuntime_EndFrame(double now_seconds);
 void XzAndroidRuntime_Shutdown(void);
 
