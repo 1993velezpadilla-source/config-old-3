@@ -274,7 +274,22 @@ jobs:
                               "UDecalComponent",
                               StringComparison.Ordinal));
 
+          var exactDecalParentRoot =
+              exports.FirstOrDefault(
+                  x =>
+                      (x.GetPathName() ?? "").EndsWith(
+                          "PersistentLevel.BuyableDoor_2.DefaultSceneRoot",
+                          StringComparison.OrdinalIgnoreCase));
+
+          var exactDecalParentActor =
+              exports.FirstOrDefault(
+                  x => string.Equals(
+                      x.Name,
+                      "BuyableDoor_2",
+                      StringComparison.OrdinalIgnoreCase));
+
           var decalTextureRefs = new List<object>();
+          var decalStreamingTextures = new List<object>();
 
           if (exactDecalComponent is not null)
           {
@@ -305,6 +320,19 @@ jobs:
                                   ?? texture.GetType().Name
                           });
                   }
+
+                  foreach (
+                      var streamingInfo
+                      in material.TextureStreamingData)
+                  {
+                      decalStreamingTextures.Add(
+                          new {
+                              textureName =
+                                  streamingInfo.TextureName.Text,
+                              members =
+                                  DescribeMembers(streamingInfo)
+                          });
+                  }
               }
           }
 
@@ -327,7 +355,26 @@ jobs:
                           ?? exactDecalComponent.GetType().Name,
                       members = DescribeMembers(exactDecalComponent)
                   },
-              textureRefs = decalTextureRefs
+              parentRoot = exactDecalParentRoot is null
+                  ? null
+                  : new {
+                      name = exactDecalParentRoot.Name,
+                      path = exactDecalParentRoot.GetPathName(),
+                      type = exactDecalParentRoot.GetType().FullName
+                          ?? exactDecalParentRoot.GetType().Name,
+                      members = DescribeMembers(exactDecalParentRoot)
+                  },
+              parentActor = exactDecalParentActor is null
+                  ? null
+                  : new {
+                      name = exactDecalParentActor.Name,
+                      path = exactDecalParentActor.GetPathName(),
+                      type = exactDecalParentActor.GetType().FullName
+                          ?? exactDecalParentActor.GetType().Name,
+                      members = DescribeMembers(exactDecalParentActor)
+                  },
+              textureRefs = decalTextureRefs,
+              streamingTextures = decalStreamingTextures
           };
 
           var report = new {
