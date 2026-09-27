@@ -274,6 +274,74 @@ jobs:
               return row;
           }
 
+          SortedDictionary<
+              string,
+              Dictionary<string, object?>>
+          DescribeObjectMembers(
+              object? value)
+          {
+              var members =
+                  new SortedDictionary<
+                      string,
+                      Dictionary<string, object?>>(
+                          StringComparer.OrdinalIgnoreCase);
+
+              if (value is null)
+                  return members;
+
+              var flags =
+                  System.Reflection.BindingFlags.Instance
+                  | System.Reflection.BindingFlags.Public
+                  | System.Reflection.BindingFlags.NonPublic;
+
+              foreach (
+                  var field
+                  in value.GetType().GetFields(flags))
+              {
+                  try
+                  {
+                      members["field:" + field.Name] =
+                          DescribeValue(
+                              field.GetValue(value));
+                  }
+                  catch (Exception e)
+                  {
+                      members["field:" + field.Name] =
+                          new Dictionary<string, object?> {
+                              ["error"] = e.Message
+                          };
+                  }
+              }
+
+              foreach (
+                  var property
+                  in value.GetType().GetProperties(flags))
+              {
+                  if (
+                      property.GetIndexParameters().Length != 0
+                      || property.GetMethod is null)
+                  {
+                      continue;
+                  }
+
+                  try
+                  {
+                      members["property:" + property.Name] =
+                          DescribeValue(
+                              property.GetValue(value));
+                  }
+                  catch (Exception e)
+                  {
+                      members["property:" + property.Name] =
+                          new Dictionary<string, object?> {
+                              ["error"] = e.Message
+                          };
+                  }
+              }
+
+              return members;
+          }
+
           var modelDetails =
               new List<object>();
 
@@ -343,6 +411,25 @@ jobs:
                   }
               }
 
+              object? vertexBuffer = null;
+
+              var vertexBufferField =
+                  model.GetType().GetField(
+                      "VertexBuffer",
+                      flags);
+
+              if (vertexBufferField is not null)
+              {
+                  try
+                  {
+                      vertexBuffer =
+                          vertexBufferField.GetValue(model);
+                  }
+                  catch
+                  {
+                  }
+              }
+
               modelDetails.Add(
                   new {
                       name = model.Name,
@@ -350,7 +437,10 @@ jobs:
                           model.GetType().FullName
                           ?? model.GetType().Name,
                       path = model.GetPathName(),
-                      members
+                      members,
+                      vertexBufferMembers =
+                          DescribeObjectMembers(
+                              vertexBuffer)
                   });
           }
 
