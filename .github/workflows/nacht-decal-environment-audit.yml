@@ -57,6 +57,206 @@ jobs:
           "$REPAK" unpack "$ROOT/WindowsNoEditor.pak" -o "$RUNNER_TEMP/nacht-unpacked"
           echo "UNPACKED=$RUNNER_TEMP/nacht-unpacked" >> "$GITHUB_ENV"
 
+      - name: Extract typed 98-light census
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/local-lights"
+          cd "$RUNNER_TEMP/local-lights"
+          dotnet new console --framework net10.0 --force
+          dotnet add package CUE4Parse --version 1.2.2.202609
+          cat > Program.cs <<'CS'
+          using CUE4Parse.FileProvider;
+          using CUE4Parse.UE4.Versions;
+          using System.Reflection;
+          using System.Text.Json;
+
+          if (args.Length != 3) return 2;
+
+          using var environmentDoc =
+              JsonDocument.Parse(
+                  File.ReadAllText(args[1]));
+
+          var targets =
+              new HashSet<string>(
+                  StringComparer.OrdinalIgnoreCase);
+
+          foreach (
+              var actor
+              in environmentDoc.RootElement
+                  .GetProperty("actors")
+                  .EnumerateArray())
+          {
+              var cls =
+                  actor.GetProperty("class").GetString()
+                  ?? "";
+              if (
+                  cls != "/Script/Engine/PointLight"
+                  && cls != "/Script/Engine/SpotLight")
+                  continue;
+              var name =
+                  actor.GetProperty("name").GetString();
+              if (!string.IsNullOrWhiteSpace(name))
+                  targets.Add(name);
+          }
+
+          if (targets.Count != 98)
+              return 3;
+
+          var provider = new DefaultFileProvider(
+              args[0],
+              SearchOption.AllDirectories,
+              true,
+              new VersionContainer(EGame.GAME_UE4_21));
+          provider.Initialize();
+          provider.PostMount();
+          provider.LoadVirtualPaths();
+
+          var map =
+              provider.Files.Values
+                  .Single(
+                      file =>
+                          Path.GetFileName(file.Path)
+                              .Equals(
+                                  "Nacht_de_Untoten.umap",
+                                  StringComparison.OrdinalIgnoreCase))
+                  .Path;
+
+          var exports =
+              provider.LoadPackage(map)
+                  .GetExports()
+                  .ToArray();
+
+          const BindingFlags flags =
+              BindingFlags.Instance
+              | BindingFlags.Public
+              | BindingFlags.NonPublic;
+
+          object? Read(object target, string name)
+          {
+              var field =
+                  target.GetType().GetField(name, flags);
+              if (field is not null) {
+                  try { return field.GetValue(target); }
+                  catch { }
+              }
+              var property =
+                  target.GetType().GetProperty(name, flags);
+              if (
+                  property is not null
+                  && property.GetIndexParameters().Length == 0
+                  && property.GetMethod is not null) {
+                  try { return property.GetValue(target); }
+                  catch { }
+              }
+              return null;
+          }
+
+          string Value(object? value)
+          {
+              if (value is null) return "";
+              try { return value.ToString() ?? ""; }
+              catch { return ""; }
+          }
+
+          object Snapshot(object target)
+          {
+              string[] wanted = {
+                  "AttenuationRadius",
+                  "Intensity",
+                  "IntensityUnits",
+                  "LightColor",
+                  "InnerConeAngle",
+                  "OuterConeAngle",
+                  "SourceRadius",
+                  "SoftSourceRadius",
+                  "SourceLength",
+                  "RelativeLocation",
+                  "RelativeRotation",
+                  "RelativeScale3D",
+                  "bUseInverseSquaredFalloff",
+                  "LightFalloffExponent"
+              };
+
+              var values =
+                  new SortedDictionary<string,string>(
+                      StringComparer.OrdinalIgnoreCase);
+              foreach (var name in wanted)
+                  values[name] =
+                      Value(Read(target, name));
+
+              return new {
+                  type =
+                      target.GetType().FullName
+                      ?? target.GetType().Name,
+                  values
+              };
+          }
+
+          var rows = new List<object>();
+
+          foreach (var export in exports)
+          {
+              var type =
+                  export.GetType().FullName
+                  ?? export.GetType().Name;
+              if (
+                  !type.Contains(
+                      "PointLightComponent",
+                      StringComparison.OrdinalIgnoreCase)
+                  && !type.Contains(
+                      "SpotLightComponent",
+                      StringComparison.OrdinalIgnoreCase))
+                  continue;
+
+              var path =
+                  export.GetPathName()
+                  ?? "";
+              var actor =
+                  targets.FirstOrDefault(
+                      name =>
+                          path.Contains(
+                              "." + name + ".",
+                              StringComparison.OrdinalIgnoreCase));
+              if (actor is null)
+                  continue;
+
+              rows.Add(new {
+                  actor,
+                  name = export.Name,
+                  path,
+                  component = Snapshot(export)
+              });
+          }
+
+          if (rows.Count != 98)
+              return 4;
+
+          File.WriteAllText(
+              args[2],
+              JsonSerializer.Serialize(
+                  new {
+                      schemaVersion = 1,
+                      targetCount = 98,
+                      componentCount = rows.Count,
+                      rows
+                  },
+                  new JsonSerializerOptions {
+                      WriteIndented = true
+                  }));
+
+          Console.WriteLine(
+              "XZIEL_NACHT_TYPED_LOCAL_LIGHTS_OK"
+              + $" total={rows.Count}");
+          return 0;
+          CS
+
+          dotnet run --configuration Release -- \
+            "$UNPACKED" \
+            "$GITHUB_WORKSPACE/assets/nacht_reference/pavlov_scene_reference/environment.json" \
+            "$RUNNER_TEMP/nacht-local-lights.json"
+
+          test -s "$RUNNER_TEMP/nacht-local-lights.json"
+
       - name: Find projected decal source files
         run: |
           set -euo pipefail
@@ -805,6 +1005,7 @@ jobs:
           set -euo pipefail
           mkdir -p build/nacht-environment
           python3 tools/maps/compile_nacht_environment.py \
+            --typed-lights "$RUNNER_TEMP/nacht-local-lights.json" \
             --output build/nacht-environment/environment.xzen \
             --report build/nacht-environment/environment.xzen.report.json \
             | tee build/nacht-environment/compile.log
