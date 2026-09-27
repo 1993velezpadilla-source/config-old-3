@@ -175,6 +175,16 @@ def vector_binding_score(row: dict) -> int:
     return score
 
 
+def linear_to_srgb_byte(value: float) -> int:
+    """Encode a clamped linear color component as IEC sRGB8."""
+    value = min(1.0, max(0.0, value))
+    if value <= 0.0031308:
+        encoded = 12.92 * value
+    else:
+        encoded = 1.055 * (value ** (1.0 / 2.4)) - 0.055
+    return int(round(min(1.0, max(0.0, encoded)) * 255.0))
+
+
 def vector_rgba(row: dict) -> bytes:
     def component(key: str, default: float) -> int:
         raw = str(row.get(key, "")).strip()
@@ -184,8 +194,7 @@ def vector_rgba(row: dict) -> bytes:
             value = default
         if not math.isfinite(value):
             value = default
-        value = min(1.0, max(0.0, value))
-        return int(round(value * 255.0))
+        return linear_to_srgb_byte(value)
 
     return bytes((
         component("r", 1.0),
@@ -214,14 +223,17 @@ def glb_base_color_rgba(material: dict) -> bytes | None:
         values.append(1.0)
 
     out = []
-    for raw in values:
+    for index, raw in enumerate(values):
         if not isinstance(raw, (int, float)):
             return None
         value = float(raw)
         if not math.isfinite(value):
             return None
         value = min(1.0, max(0.0, value))
-        out.append(int(round(value * 255.0)))
+        if index < 3:
+            out.append(linear_to_srgb_byte(value))
+        else:
+            out.append(int(round(value * 255.0)))
     return bytes(out)
 
 
