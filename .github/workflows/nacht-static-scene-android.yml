@@ -23,6 +23,7 @@ on:
       - feature/xziel-nacht-pbr-scalar-shader-v1
       - feature/xziel-nacht-normal-map-shader-v1
       - feature/xziel-nacht-specular-response-v1
+      - feature/xziel-nacht-reflection-capture-census-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -41,6 +42,7 @@ on:
       - "tools/maps/compile_nacht_normal_maps.py"
       - "tools/maps/compile_nacht_environment.py"
       - "tools/maps/NachtLightExtractor/**"
+      - "tools/maps/NachtReflectionExtractor/**"
       - "tools/maps/NachtFogExtractor/**"
       - "tools/maps/compile_nacht_height_fog.py"
       - "engine/xz/xz_height_fog.*"
@@ -64,6 +66,7 @@ on:
       - "engine/xz/xz_gles3_shadow.*"
       - "tools/maps/compile_nacht_environment.py"
       - "tools/maps/NachtLightExtractor/**"
+      - "tools/maps/NachtReflectionExtractor/**"
       - "tools/maps/NachtFogExtractor/**"
       - "tools/maps/compile_nacht_height_fog.py"
       - "engine/xz/xz_height_fog.*"
@@ -170,6 +173,39 @@ jobs:
             build/nacht-static-scene/light-components.json \
             | tee build/nacht-static-scene/light-extract.log
           test -s build/nacht-static-scene/light-components.json
+
+      - name: Census Nacht reflection captures and SkyLight source
+        run: |
+          set -euo pipefail
+          dotnet run \
+            --project tools/maps/NachtReflectionExtractor/NachtReflectionExtractor.csproj \
+            --configuration Release \
+            -- \
+            "$UNPACKED" \
+            build/nacht-static-scene/reflection-census.json \
+            | tee build/nacht-static-scene/reflection-census.log
+          test -s build/nacht-static-scene/reflection-census.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          p = Path("build/nacht-static-scene/reflection-census.json")
+          data = json.loads(p.read_text(encoding="utf-8"))
+          assert data["schemaVersion"] == 1
+          assert data["skyLightCount"] == 1
+          assert "reflectionCaptureExportCount" in data
+          assert "reflectionCaptureComponentCount" in data
+          assert len(data["skyLights"]) == 1
+          print(
+              "XZIEL_NACHT_REFLECTION_CENSUS_GREEN",
+              {
+                  "sky": data["skyLightCount"],
+                  "captureExports": data["reflectionCaptureExportCount"],
+                  "captureComponents": data["reflectionCaptureComponentCount"],
+                  "types": data["reflectionCaptureTypeCounts"],
+              },
+          )
+          PY
 
       - name: Extract exact Nacht exponential height fog
         run: |
@@ -3121,6 +3157,8 @@ jobs:
             build/nacht-static-scene/xzfg-compile.log
             build/nacht-static-scene/light-components.json
             build/nacht-static-scene/light-extract.log
+            build/nacht-static-scene/reflection-census.json
+            build/nacht-static-scene/reflection-census.log
             build/nacht-static-scene/xzen-compile.log
             build/nacht-static-scene/xzmat-compile.log
             ${{ runner.temp }}/xziel-material-evidence/
