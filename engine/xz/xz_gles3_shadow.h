@@ -126,11 +126,12 @@ typedef struct {
     int static_scene_reflection_sphere_ready;
     int static_scene_reflection_ibl_ready;
     int static_scene_tonemap_ready;
-    float static_scene_film_slope;
-    float static_scene_film_toe;
-    float static_scene_film_shoulder;
-    float static_scene_film_black_clip;
-    float static_scene_film_white_clip;
+    int static_scene_auto_exposure_enabled;
+    int static_scene_tonemapper_film_enabled;
+    float static_scene_legacy_film_contrast;
+    float static_scene_legacy_film_dynamic_range;
+    float static_scene_legacy_film_toe_amount;
+    float static_scene_legacy_film_heal_amount;
     float static_scene_exposure_multiplier;
     int static_scene_lighting_ready;
     unsigned int static_scene_local_light_count;

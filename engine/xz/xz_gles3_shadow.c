@@ -1903,6 +1903,47 @@ static int XzCreateStaticSceneProgram(void)
         "  vec3 filmLinear=max(ueAp1ToSrgb(colorAp1),vec3(0.0));\n"
         "  return clamp(ueLinearToSrgb(filmLinear)/1.05,0.0,1.0);\n"
         "}\n"
+        "vec3 uePavlovLegacyTonemap(vec3 linearSrgb){\n"
+        "  const float FilmContrast=0.03;\n"
+        "  const float FilmDynamicRange=4.0;\n"
+        "  const float FilmToeAmount=1.0;\n"
+        "  const float FilmHealAmount=1.0;\n"
+        "  float inContrast=clamp(FilmContrast,0.0,1.0)+1.0;\n"
+        "  float inDynamicRange=exp2(clamp(FilmDynamicRange,1.0,4.0));\n"
+        "  float inToe=(1.0-clamp(FilmToeAmount,0.0,1.0))*0.18;\n"
+        "  inToe=clamp(inToe,0.18/8.0,0.18*(15.0/16.0));\n"
+        "  float inHeal=1.0-(max(1.0/32.0,1.0-clamp(FilmHealAmount,0.0,1.0))*(1.0-0.18));\n"
+        "  float filmLineOffset=0.18-0.18*inContrast;\n"
+        "  float filmXAtY0=-filmLineOffset/inContrast;\n"
+        "  float filmXAtY1=(1.0-filmLineOffset)/inContrast;\n"
+        "  float filmXS=filmXAtY1-filmXAtY0;\n"
+        "  float filmHiX=filmXAtY0+inHeal*filmXS;\n"
+        "  float filmHiY=filmHiX*inContrast+filmLineOffset;\n"
+        "  float filmLoX=filmXAtY0+inToe*filmXS;\n"
+        "  float filmLoY=filmLoX*inContrast+filmLineOffset;\n"
+        "  float filmHeal=inDynamicRange-filmHiX;\n"
+        "  float filmSlope=(filmHiY-filmLoY)/(filmHiX-filmLoX);\n"
+        "  float filmHiYS=1.0-filmHiY;\n"
+        "  float filmLoYS=filmLoY;\n"
+        "  float filmHiG=(-filmHiYS+filmSlope*filmHeal)/(filmSlope*filmHeal);\n"
+        "  float filmLoG=(-filmLoYS+filmSlope*filmLoX)/(filmSlope*filmLoX);\n"
+        "  float ch1=filmHiYS/filmHiG;\n"
+        "  float ch2=-filmHiX*ch1;\n"
+        "  float ch3=filmHiYS/(filmSlope*filmHiG)-filmHiX;\n"
+        "  float cd1=filmLoG!=0.0?-filmLoYS/filmLoG:0.0;\n"
+        "  float cd2=filmLoG!=0.0?filmLoYS/(filmSlope*filmLoG):1.0;\n"
+        "  float cm0=filmLoG!=0.0?filmLoX:0.0;\n"
+        "  float cd3=filmLoG!=0.0?filmLoY-filmLoX*filmSlope:0.0;\n"
+        "  vec3 matrixColor=max(linearSrgb,vec3(0.0));\n"
+        "  vec3 matrixColorD=max(vec3(0.0),vec3(cm0)-matrixColor);\n"
+        "  vec3 matrixColorH=max(matrixColor,vec3(filmHiX));\n"
+        "  vec3 matrixColorM=clamp(matrixColor,vec3(cm0),vec3(filmHiX));\n"
+        "  vec3 curveColor=(matrixColorH*ch1+vec3(ch2))/(matrixColorH+vec3(ch3));\n"
+        "  curveColor+=matrixColorM*filmSlope;\n"
+        "  curveColor+=(matrixColorD*cd1)/(matrixColorD+vec3(cd2))+vec3(cd3);\n"
+        "  curveColor-=vec3(0.002);\n"
+        "  return clamp(ueLinearToSrgb(max(curveColor,vec3(0.0)))/1.05,0.0,1.0);\n"
+        "}\n"
         "vec3 surfaceNormal(vec3 geometricNormal){\n"
         "  if(uHasNormalMap==0) return geometricNormal;\n"
         "  vec3 mapN=texture(uNormalMap,vUV).xyz*2.0-1.0;\n"
@@ -2092,7 +2133,7 @@ static int XzCreateStaticSceneProgram(void)
         "  lit+=ueReflectionIBL(n,V,roughness,f0);\n"
         "  float fogT=ueFogTransmission(vWorldPos);\n"
         "  vec3 fogged=lit*fogT+uFogColorMin.rgb*(1.0-fogT);\n"
-        "  outColor=vec4(ueDefaultFilmicTonemap(fogged),texel.a);\n"
+        "  outColor=vec4(uePavlovLegacyTonemap(fogged),texel.a);\n"
         "}\n";
 
     XzNativeGles3Api *gl = &xz_shadow.gl;
@@ -3250,11 +3291,12 @@ static void XzDestroyStaticSceneCurrent(
         state->static_scene_reflection_sphere_ready = 0;
         state->static_scene_reflection_ibl_ready = 0;
         state->static_scene_tonemap_ready = 0;
-        state->static_scene_film_slope = 0.0f;
-        state->static_scene_film_toe = 0.0f;
-        state->static_scene_film_shoulder = 0.0f;
-        state->static_scene_film_black_clip = 0.0f;
-        state->static_scene_film_white_clip = 0.0f;
+        state->static_scene_auto_exposure_enabled = 0;
+        state->static_scene_tonemapper_film_enabled = 0;
+        state->static_scene_legacy_film_contrast = 0.0f;
+        state->static_scene_legacy_film_dynamic_range = 0.0f;
+        state->static_scene_legacy_film_toe_amount = 0.0f;
+        state->static_scene_legacy_film_heal_amount = 0.0f;
         state->static_scene_exposure_multiplier = 0.0f;
         state->static_scene_lighting_ready = 0;
         state->static_scene_local_light_count = 0u;
@@ -3896,12 +3938,20 @@ int XzGles3Shadow_UploadStaticScene(
              "xziel_nacht_bo3") != 0 ||
          state->static_scene_reflection_sphere_ready);
 
+    /*
+     * Pavlov-Legacy project renderer settings:
+     *   r.DefaultFeature.AutoExposure=False
+     *   r.TonemapperFilm=0
+     * The map census contains no post-process override, so Nacht inherits
+     * the UE4 legacy film-stock defaults below with fixed exposure 1.0.
+     */
     state->static_scene_tonemap_ready = 1;
-    state->static_scene_film_slope = 0.88f;
-    state->static_scene_film_toe = 0.55f;
-    state->static_scene_film_shoulder = 0.26f;
-    state->static_scene_film_black_clip = 0.0f;
-    state->static_scene_film_white_clip = 0.04f;
+    state->static_scene_auto_exposure_enabled = 0;
+    state->static_scene_tonemapper_film_enabled = 0;
+    state->static_scene_legacy_film_contrast = 0.03f;
+    state->static_scene_legacy_film_dynamic_range = 4.0f;
+    state->static_scene_legacy_film_toe_amount = 1.0f;
+    state->static_scene_legacy_film_heal_amount = 1.0f;
     state->static_scene_exposure_multiplier = 1.0f;
 
     if (strcmp(

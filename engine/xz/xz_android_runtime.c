@@ -1556,18 +1556,20 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
         XzAndroidLog(
             ANDROID_LOG_INFO,
             "static_scene_tonemap map='%s'"
-            " ready=%d"
-            " slope=%.6f toe=%.6f shoulder=%.6f"
-            " blackClip=%.6f whiteClip=%.6f"
-            " exposure=%.6f exposureMode=neutral",
+            " ready=%d tonemapMode=pavlov_legacy"
+            " autoExposure=%d tonemapperFilm=%d"
+            " contrast=%.6f dynamicRange=%.6f"
+            " toeAmount=%.6f healAmount=%.6f"
+            " exposure=%.6f exposureMode=fixed",
             XzMapRuntime_MapId(
                 &xz_runtime.map_runtime),
             xz_runtime.gles3_shadow.static_scene_tonemap_ready,
-            xz_runtime.gles3_shadow.static_scene_film_slope,
-            xz_runtime.gles3_shadow.static_scene_film_toe,
-            xz_runtime.gles3_shadow.static_scene_film_shoulder,
-            xz_runtime.gles3_shadow.static_scene_film_black_clip,
-            xz_runtime.gles3_shadow.static_scene_film_white_clip,
+            xz_runtime.gles3_shadow.static_scene_auto_exposure_enabled,
+            xz_runtime.gles3_shadow.static_scene_tonemapper_film_enabled,
+            xz_runtime.gles3_shadow.static_scene_legacy_film_contrast,
+            xz_runtime.gles3_shadow.static_scene_legacy_film_dynamic_range,
+            xz_runtime.gles3_shadow.static_scene_legacy_film_toe_amount,
+            xz_runtime.gles3_shadow.static_scene_legacy_film_heal_amount,
             xz_runtime.gles3_shadow.static_scene_exposure_multiplier);
     }
 
