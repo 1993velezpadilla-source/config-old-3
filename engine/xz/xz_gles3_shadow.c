@@ -303,10 +303,17 @@ typedef struct {
     GLint static_local_pos_inv_radius_loc;
     GLint static_local_color_cone_loc;
     GLint static_local_dir_cos_outer_loc;
+    GLint static_camera_pos_loc;
+    GLint static_fog_primary_loc;
+    GLint static_fog_color_min_loc;
+    GLint static_fog_cutoff_loc;
     float static_ambient_weight;
     float static_directional_weight;
     float static_directional_color[3];
     float static_directional_direction[3];
+    float static_fog_primary[4];
+    float static_fog_color_min[4];
+    float static_fog_cutoff_cm;
     XzGles3StaticLocalLight
         static_local_lights[XZ_STATIC_LOCAL_LIGHT_SOURCE_MAX];
     uint32_t static_local_light_count;
@@ -751,6 +758,111 @@ static int XzStaticScenePrepareLocalLights(
         count !=
             XZ_STATIC_LOCAL_LIGHT_SOURCE_MAX)
         return 0;
+
+    return 1;
+}
+
+static int XzStaticScenePrepareHeightFog(
+    const XzStaticSceneRuntimeState *scene,
+    XzGles3ShadowState *state)
+{
+    const XzHeightFogView *fog;
+
+    if (!scene || !state)
+        return 0;
+
+    fog =
+        XzStaticSceneRuntime_HeightFog(scene);
+
+    if (!fog) {
+        xz_shadow.static_fog_primary[0] = 0.0f;
+        xz_shadow.static_fog_primary[1] = 0.0f;
+        xz_shadow.static_fog_primary[2] = 0.0f;
+        xz_shadow.static_fog_primary[3] = 0.0f;
+        xz_shadow.static_fog_color_min[0] = 0.0f;
+        xz_shadow.static_fog_color_min[1] = 0.0f;
+        xz_shadow.static_fog_color_min[2] = 0.0f;
+        xz_shadow.static_fog_color_min[3] = 1.0f;
+        xz_shadow.static_fog_cutoff_cm = 0.0f;
+        state->static_scene_height_fog_ready = 0;
+        state->static_scene_directional_fog_enabled = 0;
+        state->static_scene_fog_density = 0.0f;
+        state->static_scene_fog_height_falloff = 0.0f;
+        state->static_scene_fog_max_opacity = 0.0f;
+        state->static_scene_fog_start_meters = 0.0f;
+        return strcmp(
+            scene->map_id,
+            "xziel_nacht_bo3") != 0;
+    }
+
+    if (!isfinite(fog->fog_height_meters) ||
+        !isfinite(fog->density) ||
+        !isfinite(fog->height_falloff) ||
+        !isfinite(fog->max_opacity) ||
+        !isfinite(fog->start_distance_meters) ||
+        !isfinite(fog->cutoff_distance_meters) ||
+        fog->density < 0.0f ||
+        fog->height_falloff < 0.0f ||
+        fog->max_opacity < 0.0f ||
+        fog->max_opacity > 1.0f ||
+        fog->start_distance_meters < 0.0f ||
+        fog->cutoff_distance_meters < 0.0f)
+        return 0;
+
+    if ((fog->flags &
+         (XZ_HEIGHT_FOG_FLAG_VOLUMETRIC |
+          XZ_HEIGHT_FOG_FLAG_CUBEMAP |
+          XZ_HEIGHT_FOG_FLAG_SECOND_FOG)) != 0u)
+        return 0;
+
+    xz_shadow.static_fog_primary[0] =
+        fog->density / 1000.0f;
+    xz_shadow.static_fog_primary[1] =
+        fog->height_falloff / 1000.0f;
+    xz_shadow.static_fog_primary[2] =
+        fog->fog_height_meters * 100.0f;
+    xz_shadow.static_fog_primary[3] =
+        fog->start_distance_meters * 100.0f;
+
+    xz_shadow.static_fog_color_min[0] =
+        fog->fog_color_linear[0];
+    xz_shadow.static_fog_color_min[1] =
+        fog->fog_color_linear[1];
+    xz_shadow.static_fog_color_min[2] =
+        fog->fog_color_linear[2];
+    xz_shadow.static_fog_color_min[3] =
+        1.0f - fog->max_opacity;
+
+    xz_shadow.static_fog_cutoff_cm =
+        fog->cutoff_distance_meters * 100.0f;
+
+    if (!isfinite(xz_shadow.static_fog_primary[0]) ||
+        !isfinite(xz_shadow.static_fog_primary[1]) ||
+        !isfinite(xz_shadow.static_fog_primary[2]) ||
+        !isfinite(xz_shadow.static_fog_primary[3]) ||
+        !isfinite(xz_shadow.static_fog_color_min[0]) ||
+        !isfinite(xz_shadow.static_fog_color_min[1]) ||
+        !isfinite(xz_shadow.static_fog_color_min[2]) ||
+        !isfinite(xz_shadow.static_fog_color_min[3]) ||
+        !isfinite(xz_shadow.static_fog_cutoff_cm))
+        return 0;
+
+    /*
+     * Nacht's two DirectionalLight components do not serialize
+     * bUsedAsAtmosphereSunLight. UE4's default is false, so the map does not
+     * enable directional fog inscattering. Preserve that distinction instead
+     * of borrowing the ordinary directional-light shader state.
+     */
+    state->static_scene_directional_fog_enabled = 0;
+    state->static_scene_fog_density =
+        fog->density;
+    state->static_scene_fog_height_falloff =
+        fog->height_falloff;
+    state->static_scene_fog_max_opacity =
+        fog->max_opacity;
+    state->static_scene_fog_start_meters =
+        fog->start_distance_meters;
+    state->static_scene_height_fog_ready = 1;
 
     return 1;
 }
