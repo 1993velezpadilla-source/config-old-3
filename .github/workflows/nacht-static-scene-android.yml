@@ -32,6 +32,16 @@ on:
       - "scripts/prepare_android.sh"
       - ".github/workflows/nacht-static-scene-android.yml"
 
+  pull_request:
+    branches:
+      - feature/xziel-static-scene-material-final5
+    paths:
+      - "engine/xz/xz_environment.*"
+      - "engine/xz/xz_static_scene_runtime.*"
+      - "tools/maps/compile_nacht_environment.py"
+      - "scripts/patch_vril_xz_phase0.py"
+      - ".github/workflows/nacht-static-scene-android.yml"
+
 permissions:
   contents: read
 
