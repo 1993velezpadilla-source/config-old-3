@@ -26,6 +26,15 @@
 #define XZ_STATIC_SCENE_MAX_HEIGHT_FOG_BYTES \
     (4u * 1024u)
 
+#define XZ_STATIC_SCENE_MAX_REFLECTION_BYTES \
+    (2u * 1024u * 1024u)
+
+#define XZ_XZRC_HEADER_BYTES 64u
+#define XZ_XZRC_VERSION 1u
+#define XZ_XZRC_FACE_COUNT 6u
+#define XZ_XZRC_FORMAT_RGBA16F 1u
+#define XZ_XZRC_RGBA16F_BYTES_PER_TEXEL 8u
+
 #define XZ_XZMT_HEADER_BYTES 24u
 #define XZ_XZMT_TEXTURE_BYTES 20u
 #define XZ_XZMT_VERSION 1u
@@ -62,6 +71,111 @@ static uint32_t XzStaticReadU32Le(
            ((uint32_t)p[1] << 8) |
            ((uint32_t)p[2] << 16) |
            ((uint32_t)p[3] << 24);
+}
+
+static float XzStaticReadF32Le(
+    const unsigned char *p)
+{
+    uint32_t bits = XzStaticReadU32Le(p);
+    float value = 0.0f;
+    memcpy(&value, &bits, sizeof(value));
+    return value;
+}
+
+static int XzValidateReflectionPack(
+    const unsigned char *data,
+    size_t size,
+    XzReflectionCaptureView *view)
+{
+    uint32_t cubemap_size;
+    uint32_t mip_count;
+    uint32_t face_count;
+    uint32_t pixel_format;
+    uint32_t bytes_per_texel;
+    uint32_t payload_offset;
+    uint32_t payload_bytes;
+    uint32_t expected_mips = 0u;
+    uint32_t mip_size;
+    uint64_t expected_payload = 0u;
+    uint32_t mip;
+
+    if (!data || !view ||
+        size < XZ_XZRC_HEADER_BYTES)
+        return 0;
+
+    if (data[0] != 'X' ||
+        data[1] != 'Z' ||
+        data[2] != 'R' ||
+        data[3] != 'C' ||
+        XzStaticReadU32Le(data + 4u) !=
+            XZ_XZRC_VERSION)
+        return 0;
+
+    cubemap_size = XzStaticReadU32Le(data + 8u);
+    mip_count = XzStaticReadU32Le(data + 12u);
+    face_count = XzStaticReadU32Le(data + 16u);
+    pixel_format = XzStaticReadU32Le(data + 20u);
+    bytes_per_texel = XzStaticReadU32Le(data + 24u);
+    payload_offset = XzStaticReadU32Le(data + 28u);
+    payload_bytes = XzStaticReadU32Le(data + 32u);
+
+    if (cubemap_size == 0u ||
+        (cubemap_size & (cubemap_size - 1u)) != 0u ||
+        face_count != XZ_XZRC_FACE_COUNT ||
+        pixel_format != XZ_XZRC_FORMAT_RGBA16F ||
+        bytes_per_texel !=
+            XZ_XZRC_RGBA16F_BYTES_PER_TEXEL ||
+        payload_offset != XZ_XZRC_HEADER_BYTES ||
+        payload_offset > size ||
+        payload_bytes > size - payload_offset ||
+        (size_t)payload_offset +
+            (size_t)payload_bytes != size)
+        return 0;
+
+    mip_size = cubemap_size;
+    while (mip_size > 0u) {
+        expected_mips++;
+        mip_size >>= 1u;
+    }
+
+    if (mip_count != expected_mips)
+        return 0;
+
+    for (mip = 0u; mip < mip_count; ++mip) {
+        uint32_t edge = cubemap_size >> mip;
+        expected_payload +=
+            (uint64_t)edge *
+            (uint64_t)edge *
+            (uint64_t)face_count *
+            (uint64_t)bytes_per_texel;
+    }
+
+    if (expected_payload !=
+            (uint64_t)payload_bytes)
+        return 0;
+
+    memset(view, 0, sizeof(*view));
+    view->payload = data + payload_offset;
+    view->payload_bytes = payload_bytes;
+    view->cubemap_size = cubemap_size;
+    view->mip_count = mip_count;
+    view->face_count = face_count;
+    view->pixel_format = pixel_format;
+    view->bytes_per_texel = bytes_per_texel;
+    view->average_brightness =
+        XzStaticReadF32Le(data + 36u);
+    view->brightness =
+        XzStaticReadF32Le(data + 40u);
+    memcpy(
+        view->map_build_data_id,
+        data + 44u,
+        sizeof(view->map_build_data_id));
+
+    return
+        isfinite(view->average_brightness) &&
+        view->average_brightness > 0.0f &&
+        isfinite(view->brightness) &&
+        view->brightness > 0.0f;
 }
 
 static int XzValidateMaterialPack(
@@ -466,6 +580,9 @@ void XzStaticSceneRuntime_Reset(
     if (state->height_fog_data)
         free(state->height_fog_data);
 
+    if (state->reflection_data)
+        free(state->reflection_data);
+
     memset(state, 0, sizeof(*state));
     state->status = XZ_STATIC_SCENE_IDLE;
 }
@@ -492,6 +609,9 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
     size_t height_fog_bytes = 0u;
     XzHeightFogView height_fog;
     XzHeightFogStatus height_fog_status;
+    unsigned char *reflection_data = NULL;
+    size_t reflection_bytes = 0u;
+    XzReflectionCaptureView reflection;
     XzXzsceneView scene;
     XzXzsceneStatus scene_status;
     XzStaticMeshResource *resources = NULL;
@@ -501,6 +621,7 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
     char normal_material_path[256];
     char environment_path[256];
     char height_fog_path[256];
+    char reflection_path[256];
     char mesh_prefix[160];
     char failure[128] = "";
     uint32_t material_texture_count = 0u;
@@ -1067,6 +1188,89 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
         }
     }
 
+    if (snprintf(
+            reflection_path,
+            sizeof(reflection_path),
+            "xziel/maps/%s/reflection.xzrc",
+            map_id) <= 0 ||
+        strlen(reflection_path) >=
+            sizeof(reflection_path) - 1u) {
+        snprintf(
+            failure,
+            sizeof(failure),
+            "%s",
+            "reflection_path_overflow");
+        goto invalid;
+    }
+
+    read_status = XzReadVfsFile(
+        reflection_path,
+        XZ_STATIC_SCENE_MAX_REFLECTION_BYTES,
+        &reflection_data,
+        &reflection_bytes);
+
+    if (read_status < 0 ||
+        (read_status == 0 &&
+         strcmp(map_id, "xziel_nacht_bo3") == 0)) {
+        snprintf(
+            failure,
+            sizeof(failure),
+            "%s",
+            read_status == 0
+                ? "reflection_pack_missing"
+                : "reflection_pack_read_failed");
+        goto invalid;
+    }
+
+    if (read_status > 0) {
+        static const unsigned char nacht_guid[16] = {
+            0x26, 0xae, 0xb6, 0xb5,
+            0x44, 0xe0, 0xc5, 0x52,
+            0xb1, 0xf0, 0x51, 0x92,
+            0x79, 0xa3, 0xbf, 0x2d
+        };
+
+        if (!XzValidateReflectionPack(
+                reflection_data,
+                reflection_bytes,
+                &reflection)) {
+            snprintf(
+                failure,
+                sizeof(failure),
+                "%s",
+                "reflection_pack_invalid");
+            goto invalid;
+        }
+
+        if (strcmp(
+                map_id,
+                "xziel_nacht_bo3") == 0 &&
+            (reflection.cubemap_size != 128u ||
+             reflection.mip_count != 8u ||
+             reflection.face_count != 6u ||
+             reflection.pixel_format !=
+                 XZ_REFLECTION_FORMAT_RGBA16F ||
+             reflection.bytes_per_texel != 8u ||
+             reflection.payload_bytes != 1048560u ||
+             fabsf(
+                 reflection.average_brightness -
+                 0.04043579f) > 0.000001f ||
+             fabsf(
+                 reflection.brightness -
+                 1.0f) > 0.000001f ||
+             memcmp(
+                 reflection.map_build_data_id,
+                 nacht_guid,
+                 sizeof(nacht_guid)) != 0)) {
+            snprintf(
+                failure,
+                sizeof(failure),
+                "%s",
+                "nacht_reflection_mismatch");
+            goto invalid;
+        }
+    }
+
     state->scene_data = scene_data;
     state->scene_bytes = scene_bytes;
     state->scene = scene;
@@ -1114,6 +1318,13 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
         height_fog_bytes;
     if (height_fog_data)
         state->height_fog = height_fog;
+
+    state->reflection_data =
+        reflection_data;
+    state->reflection_bytes =
+        reflection_bytes;
+    if (reflection_data)
+        state->reflection = reflection;
     if (material_data) {
         snprintf(
             state->material_path,
@@ -1149,6 +1360,13 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
             "%s",
             height_fog_path);
     }
+    if (reflection_data) {
+        snprintf(
+            state->reflection_path,
+            sizeof(state->reflection_path),
+            "%s",
+            reflection_path);
+    }
     state->mesh_files_validated =
         scene.mesh_count;
     state->mesh_bytes_validated =
@@ -1175,6 +1393,7 @@ invalid:
     free(normal_material_data);
     free(environment_data);
     free(height_fog_data);
+    free(reflection_data);
 
     state->status =
         XZ_STATIC_SCENE_INVALID;
@@ -1418,6 +1637,19 @@ XzStaticSceneRuntime_HeightFog(
         return NULL;
 
     return &state->height_fog;
+}
+
+const XzReflectionCaptureView *
+XzStaticSceneRuntime_ReflectionCapture(
+    const XzStaticSceneRuntimeState *state)
+{
+    if (!state ||
+        state->status !=
+            XZ_STATIC_SCENE_READY ||
+        !state->reflection_data)
+        return NULL;
+
+    return &state->reflection;
 }
 
 const char *XzStaticSceneRuntime_StatusName(
