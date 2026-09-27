@@ -2852,7 +2852,7 @@ jobs:
             dist/static-scene-logcat.txt
 
           grep -E \
-            "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*localLights=163.*localReady=1 error=''" \
+            "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*localLights=163.*localReady=1.*error=''" \
             dist/static-scene-logcat.txt
 
           grep -E \
