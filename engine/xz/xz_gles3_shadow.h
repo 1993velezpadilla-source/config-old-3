@@ -107,7 +107,11 @@ typedef struct {
     unsigned int static_scene_local_light_active;
     unsigned int static_scene_local_light_camera_affecting;
     unsigned int static_scene_local_light_dropped_affecting;
+    unsigned int static_scene_light_grid_cells;
+    unsigned int static_scene_light_grid_max_per_cell;
+    uint64_t static_scene_light_grid_bytes;
     int static_scene_local_lighting_ready;
+    int static_scene_clustered_lighting_ready;
     int static_scene_gpu_ready;
 
     uint64_t static_scene_draw_attempts;
