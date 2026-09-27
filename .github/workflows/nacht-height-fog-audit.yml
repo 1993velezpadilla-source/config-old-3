@@ -51,6 +51,55 @@ jobs:
           "$REPAK" unpack "$ROOT/WindowsNoEditor.pak" -o "$RUNNER_TEMP/nacht-unpacked"
           echo "UNPACKED=$RUNNER_TEMP/nacht-unpacked" >> "$GITHUB_ENV"
 
+      - name: Resolve exact Nacht height fog payload
+        run: |
+          set -euo pipefail
+          dotnet run --configuration Release \
+            --project tools/maps/NachtFogExtractor/NachtFogExtractor.csproj \
+            -- \
+            "$UNPACKED" \
+            "$GITHUB_WORKSPACE/nacht-height-fog-resolved.json" \
+            | tee "$GITHUB_WORKSPACE/nacht-height-fog-resolve.log"
+
+          mkdir -p "$GITHUB_WORKSPACE/build/nacht-fog"
+          python3 tools/maps/compile_nacht_height_fog.py \
+            --source "$GITHUB_WORKSPACE/nacht-height-fog-resolved.json" \
+            --output "$GITHUB_WORKSPACE/build/nacht-fog/fog.xzfg" \
+            --report "$GITHUB_WORKSPACE/build/nacht-fog/fog.xzfg.report.json" \
+            | tee "$GITHUB_WORKSPACE/build/nacht-fog/compile.log"
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          report=json.loads(
+              Path("build/nacht-fog/fog.xzfg.report.json")
+              .read_text(encoding="utf-8")
+          )
+          r=report["resolved"]
+          assert report["format"] == "XZFG"
+          assert report["version"] == 1
+          assert report["bytes"] == 92
+          assert report["flags"] == 0
+          assert abs(r["fogDensity"] - 0.1) < 1e-7
+          assert abs(r["fogHeightFalloff"] - 2.0) < 1e-7
+          assert abs(r["fogMaxOpacity"] - 0.2) < 1e-7
+          assert abs(r["startDistanceMeters"] - 3.0) < 1e-7
+          assert r["volumetricFogEnabled"] is False
+          assert r["inscatteringColorCubemap"] is None
+          assert abs(r["secondFogDensity"]) < 1e-7
+          print(
+              "XZIEL_NACHT_XZFG_GATE_OK",
+              json.dumps({
+                  "bytes": report["bytes"],
+                  "density": r["fogDensity"],
+                  "falloff": r["fogHeightFalloff"],
+                  "maxOpacity": r["fogMaxOpacity"],
+                  "startMeters": r["startDistanceMeters"],
+              }, sort_keys=True),
+          )
+          PY
+
       - name: Extract typed ExponentialHeightFog
         run: |
           set -euo pipefail
@@ -282,5 +331,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: nacht-height-fog-audit
-          path: nacht-height-fog-audit.json
+          path: |
+            nacht-height-fog-audit.json
+            nacht-height-fog-resolved.json
+            nacht-height-fog-resolve.log
+            build/nacht-fog/
           if-no-files-found: error
