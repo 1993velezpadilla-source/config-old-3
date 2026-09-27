@@ -27,6 +27,7 @@ on:
       - feature/xziel-nacht-reflection-builtdata-v1
       - feature/xziel-nacht-reflection-payload-v1
       - feature/xziel-nacht-reflection-cubemap-v1
+      - feature/xziel-nacht-reflection-sphere-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -378,9 +379,9 @@ jobs:
           asset = Path(
               "build/nacht-static-scene/reflection.xzrc"
           ).read_bytes()
-          header = struct.Struct("<4sIIIIIIIIff16sI")
-          assert header.size == 64
-          assert len(asset) == 1_048_624
+          header = struct.Struct("<4sIIIIIIIIff16sI7fI")
+          assert header.size == 96
+          assert len(asset) == 1_048_656
 
           (
               magic,
@@ -396,16 +397,24 @@ jobs:
               brightness,
               guid,
               flags,
+              capture_x,
+              capture_y,
+              capture_z,
+              influence_radius_m,
+              offset_x,
+              offset_y,
+              offset_z,
+              shape,
           ) = header.unpack_from(asset)
 
           assert magic == b"XZRC"
-          assert version == 1
+          assert version == 2
           assert size == 128
           assert mips == 8
           assert faces == 6
           assert pixel_format == 1
           assert bytes_per_texel == 8
-          assert payload_offset == 64
+          assert payload_offset == 96
           assert payload_bytes == 1_048_560
           assert flags == 0
           assert abs(average_brightness - 0.04043579) < 1e-6
@@ -413,6 +422,15 @@ jobs:
           assert guid.hex().upper() == (
               "26AEB6B544E0C552B1F0519279A3BF2D"
           )
+          assert flags == 0
+          assert shape == 1
+          assert abs(capture_x - (-0.1090765381)) < 1e-6
+          assert abs(capture_y - 0.0932865906) < 1e-6
+          assert abs(capture_z - 2.6686132813) < 1e-6
+          assert abs(influence_radius_m - 30.0) < 1e-6
+          assert abs(offset_x) < 1e-6
+          assert abs(offset_y) < 1e-6
+          assert abs(offset_z) < 1e-6
 
           payload = asset[payload_offset:]
           assert len(payload) == payload_bytes
@@ -434,6 +452,12 @@ jobs:
           assert report["pixelFormat"] == "RGBA16F"
           assert report["payloadLayout"] == "mip-major-face-minor"
           assert report["sourcePreservedByteForByte"] is True
+          assert report["version"] == 2
+          assert report["headerBytes"] == 96
+          assert report["captureShape"] == "sphere"
+          assert report["influenceRadiusMeters"] == 30.0
+          assert report["influenceRadiusSource"] == "UE4 sphere default"
+          assert report["captureOffsetSource"] == "UE4 FVector default zero"
 
           print(
               "XZIEL_NACHT_XZRC_GREEN",
@@ -3286,11 +3310,21 @@ jobs:
             engine/xz/xz_gles3_shadow.c
           grep -q "textureLod(uReflectionCapture,ueR,mip)" \
             engine/xz/xz_gles3_shadow.c
-          grep -q "vec3 ueR=normalize(vec3(R.x,-R.y,R.z))" \
+          grep -q "vec4 ueSphereReflectionVector" \
+            engine/xz/xz_gles3_shadow.c
+          grep -q "float determinant=quadraticY\*quadraticY-(localPositionSqr-radiusSqr)" \
+            engine/xz/xz_gles3_shadow.c
+          grep -q "float farIntersection=sqrt(determinant)-quadraticY" \
+            engine/xz/xz_gles3_shadow.c
+          grep -q "float x=clamp(2.5\*normalizedDistance-1.5,0.0,1.0)" \
+            engine/xz/xz_gles3_shadow.c
+          grep -q "distanceAlpha=1.0-x\*x\*(3.0-2.0\*x)" \
+            engine/xz/xz_gles3_shadow.c
+          grep -q "vec3 ueR=normalize(vec3(projected.x,-projected.y,projected.z))" \
             engine/xz/xz_gles3_shadow.c
 
           grep -E \
-            "XZIEL-XZ.*static_scene_reflection map='xziel_nacht_bo3' ready=1 iblReady=1 size=128 mips=8 assetBytes=1048624 gpuBytes=1048560 averageBrightness=0\.04043579 brightness=1\.000000" \
+            "XZIEL-XZ.*static_scene_reflection map='xziel_nacht_bo3' ready=1 iblReady=1 sphereReady=1 size=128 mips=8 assetBytes=1048656 gpuBytes=1048560 averageBrightness=0\.04043579 brightness=1\.000000 positionMeters=\(-0\.10907654,0\.09328659,2\.668613[0-9]*\) radiusMeters=30\.000000 offsetMeters=\(0\.000000,0\.000000,0\.000000\)" \
             dist/static-scene-logcat.txt
 
           grep -E \
@@ -3322,7 +3356,7 @@ jobs:
             dist/static-scene-logcat.txt
 
           grep -E \
-            "XZIEL-XZ.*static_scene_draw ready=1.*reflectionReady=1 reflectionIblReady=1 reflectionSize=128 reflectionMips=8 reflectionGpuBytes=1048560" \
+            "XZIEL-XZ.*static_scene_draw ready=1.*reflectionReady=1 reflectionIblReady=1 reflectionSphereReady=1 reflectionSize=128 reflectionMips=8 reflectionGpuBytes=1048560" \
             dist/static-scene-logcat.txt
 
           python3 - <<'PY'
@@ -3396,6 +3430,9 @@ jobs:
 
           echo \
             "XZIEL_NACHT_REFLECTION_CUBEMAP_GREEN size=128 mips=8 faces=6 rgba16f=1 gpuBytes=1048560 ibl=1"
+
+          echo \
+            "XZIEL_NACHT_REFLECTION_SPHERE_GREEN position=(-0.10907654,0.09328659,2.66861328)m radius=30m offset=0 projection=ue4"
 
           echo \
             "XZIEL_NACHT_ENVIRONMENT_GREEN lights=166 point=144 spot=19 directional=2 sky=1 bytes=14636"
