@@ -73,12 +73,16 @@ jobs:
           cd "$RUNNER_TEMP/decal-audit"
           dotnet new console --framework net10.0 --force
           dotnet add package CUE4Parse --version 1.2.2.202609
+          dotnet add package CUE4Parse-Conversion --version 1.2.2.202609
           cat > Program.cs <<'CS'
           using CUE4Parse.FileProvider;
           using CUE4Parse.UE4.Versions;
           using CUE4Parse.UE4.Objects.UObject;
           using CUE4Parse.UE4.Assets.Exports.Material;
           using CUE4Parse.UE4.Assets.Exports.Texture;
+          using CUE4Parse.UE4.Objects.Engine;
+          using CUE4Parse_Conversion.Textures;
+          using System.Security.Cryptography;
           using System.Text.Json;
           using System.Reflection;
           using System.Collections;
@@ -336,6 +340,172 @@ jobs:
               }
           }
 
+          object? exactTexture = null;
+          string exactTextureRuntimeFile = "";
+          object? exactTextureInfo = null;
+
+          var exactTextureFile =
+              provider.Files.Values
+                  .FirstOrDefault(
+                      file =>
+                          Path.GetFileName(file.Path)
+                              .Equals(
+                                  "i_t7_zm_der_chalk_help_r.uasset",
+                                  StringComparison.OrdinalIgnoreCase));
+
+          if (exactTextureFile is not null)
+          {
+              var exactTexturePackage =
+                  provider.LoadPackage(
+                      exactTextureFile.Path);
+
+              var texture =
+                  exactTexturePackage
+                      .GetExports()
+                      .OfType<UTexture>()
+                      .FirstOrDefault(
+                          x => x.Name.Equals(
+                              "i_t7_zm_der_chalk_help_r",
+                              StringComparison.OrdinalIgnoreCase))
+                  ?? exactTexturePackage
+                      .GetExports()
+                      .OfType<UTexture>()
+                      .FirstOrDefault();
+
+              if (texture is not null)
+              {
+                  var decoded = texture.Decode();
+                  if (decoded is not null)
+                  {
+                      byte[] rgba;
+
+                      if (
+                          decoded.PixelFormat ==
+                              EPixelFormat.PF_R8G8B8A8)
+                      {
+                          rgba =
+                              decoded.Data.ToArray();
+                      }
+                      else if (
+                          decoded.PixelFormat ==
+                              EPixelFormat.PF_B8G8R8A8
+                          || decoded.PixelFormat ==
+                              EPixelFormat.PF_A8R8G8B8)
+                      {
+                          rgba = new byte[
+                              decoded.Width *
+                              decoded.Height * 4];
+
+                          for (
+                              var pixel = 0;
+                              pixel <
+                                  decoded.Width *
+                                  decoded.Height;
+                              ++pixel)
+                          {
+                              var at = pixel * 4;
+                              rgba[at + 0] =
+                                  decoded.Data[at + 2];
+                              rgba[at + 1] =
+                                  decoded.Data[at + 1];
+                              rgba[at + 2] =
+                                  decoded.Data[at + 0];
+                              rgba[at + 3] =
+                                  decoded.Data[at + 3];
+                          }
+                      }
+                      else if (
+                          decoded.PixelFormat ==
+                              EPixelFormat.PF_G8)
+                      {
+                          rgba = new byte[
+                              decoded.Width *
+                              decoded.Height * 4];
+
+                          for (
+                              var pixel = 0;
+                              pixel <
+                                  decoded.Width *
+                                  decoded.Height;
+                              ++pixel)
+                          {
+                              var v = decoded.Data[pixel];
+                              var at = pixel * 4;
+                              rgba[at + 0] = v;
+                              rgba[at + 1] = v;
+                              rgba[at + 2] = v;
+                              rgba[at + 3] = 255;
+                          }
+                      }
+                      else
+                      {
+                          throw new Exception(
+                              "unsupported exact decal texture format: "
+                              + decoded.PixelFormat);
+                      }
+
+                      exactTextureRuntimeFile =
+                          Path.Combine(
+                              Directory.GetCurrentDirectory(),
+                              "i_t7_zm_der_chalk_help_r.xzt");
+
+                      using (
+                          var stream =
+                              File.Create(
+                                  exactTextureRuntimeFile))
+                      using (
+                          var writer =
+                              new BinaryWriter(stream))
+                      {
+                          writer.Write(
+                              new byte[] {
+                                  (byte)'X',
+                                  (byte)'Z',
+                                  (byte)'T',
+                                  (byte)'X'
+                              });
+                          writer.Write((uint)1);
+                          writer.Write(
+                              (uint)decoded.Width);
+                          writer.Write(
+                              (uint)decoded.Height);
+                          writer.Write((uint)1);
+                          writer.Write(
+                              (uint)rgba.Length);
+                          writer.Write(rgba);
+                      }
+
+                      var rgbaSha256 =
+                          Convert.ToHexString(
+                              SHA256.HashData(rgba))
+                              .ToLowerInvariant();
+
+                      exactTextureInfo =
+                          new {
+                              name = texture.Name,
+                              path =
+                                  texture.GetPathName(),
+                              sourcePackage =
+                                  exactTextureFile.Path,
+                              width = decoded.Width,
+                              height = decoded.Height,
+                              sourceFormat =
+                                  decoded.PixelFormat
+                                      .ToString(),
+                              runtimeFormat = "RGBA8",
+                              rgbaBytes = rgba.Length,
+                              rgbaSha256,
+                              runtimeFile =
+                                  Path.GetFileName(
+                                      exactTextureRuntimeFile)
+                          };
+
+                      exactTexture =
+                          exactTextureInfo;
+                  }
+              }
+          }
+
           var exactDecal = new {
               actor = exactDecalActor is null
                   ? null
@@ -374,7 +544,8 @@ jobs:
                       members = DescribeMembers(exactDecalParentActor)
                   },
               textureRefs = decalTextureRefs,
-              streamingTextures = decalStreamingTextures
+              streamingTextures = decalStreamingTextures,
+              exactTexture
           };
 
           var report = new {
@@ -418,6 +589,10 @@ jobs:
           dotnet run --configuration Release -- \
             "$UNPACKED" \
             "$GITHUB_WORKSPACE/nacht-decal-environment-audit.json"
+
+          test -s i_t7_zm_der_chalk_help_r.xzt
+          cp i_t7_zm_der_chalk_help_r.xzt \
+            "$GITHUB_WORKSPACE/i_t7_zm_der_chalk_help_r.xzt"
 
       - name: Compile XZIEL environment pack
         run: |
