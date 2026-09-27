@@ -1440,6 +1440,7 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             " materialReady=%d gpuTextures=%u"
             " gpuTextureBytes=%" PRIu64
             " materialBindings=%u mappedBindings=%u"
+            " pbrBindings=%u pbrBytes=%zu"
             " envLights=%u envPoint=%u envSpot=%u"
             " envDirectional=%u envSky=%u envBytes=%zu"
             " localLights=%u localActive=%u"
@@ -1477,6 +1478,10 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             xz_runtime.gles3_shadow.static_scene_gpu_texture_bytes,
             xz_runtime.gles3_shadow.static_scene_material_bindings,
             xz_runtime.gles3_shadow.static_scene_material_mapped_bindings,
+            xz_runtime.static_scene.pbr_material_data
+                ? xz_runtime.static_scene.pbr_material.binding_count
+                : 0u,
+            xz_runtime.static_scene.pbr_material_bytes,
             environment
                 ? environment->light_count
                 : 0u,
