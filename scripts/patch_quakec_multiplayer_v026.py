@@ -131,6 +131,61 @@ if "Networked player footsteps for Vril/classic protocol builds" not in text:
         raise SystemExit("Could not find non-FTE footstep insertion anchor")
     text = text.replace(footstep_anchor, footstep_insert, 1)
 
+# Vril/classic co-op late join.
+# Upstream only handles the "round already started" branch under FTE, where a
+# late client becomes a spectator.  In a non-FTE/Vril build the same client
+# increments player_count but never calls PlayerSpawn or SpectatorSpawn, leaving
+# a signed-on network client without a valid gameplay entity/camera.  Xziel's
+# four matched Android clients can finish precache after round 1 has already
+# started, so make that classic-protocol co-op path enter the live world.
+late_join_old = '''\tif (spawn_time > time || !rounds)
+\t\tPlayerSpawn();
+
+#ifdef FTE
+
+\telse 
+\t\tSpectatorSpawn();
+
+\t// Force the client to always be networked to other clients, even when
+'''
+late_join_new = '''\tif (spawn_time > time || !rounds)
+\t\tPlayerSpawn();
+
+#ifdef FTE
+
+\telse 
+\t\tSpectatorSpawn();
+
+\t// Force the client to always be networked to other clients, even when
+'''
+# Insert the Vril fallback immediately before the FTE networking-only block.
+late_join_fte_tail = '''\telse 
+\t\tSpectatorSpawn();
+
+\t// Force the client to always be networked to other clients, even when
+'''
+late_join_vril_tail = '''\telse 
+\t\tSpectatorSpawn();
+
+#else
+
+\t// Classic Vril has no late-join spectator path here.  A matched co-op
+\t// client that finishes signon after round start must still receive a real
+\t// player entity instead of remaining connected at an uninitialized origin.
+\telse if (coop)
+\t\tPlayerSpawn();
+
+#endif // FTE
+
+#ifdef FTE
+
+\t// Force the client to always be networked to other clients, even when
+'''
+if "Classic Vril has no late-join spectator path here" not in text:
+    if late_join_fte_tail not in text:
+        raise SystemExit("Could not find PutClientInServer late-join anchor")
+    text = text.replace(late_join_fte_tail, late_join_vril_tail, 1)
+
 # The sound must be in the precache table on non-FTE too. Make the five player
 # footsteps unconditional; FTE continues to precache the same assets once.
 main_path = root / "source" / "server" / "main.qc"
