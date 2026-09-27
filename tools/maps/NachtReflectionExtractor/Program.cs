@@ -306,6 +306,7 @@ var captureRows = new List<object>();
 var captureCounts =
     new SortedDictionary<string, int>(
         StringComparer.Ordinal);
+var captureComponentCount = 0;
 
 foreach (var export in exports)
 {
@@ -414,6 +415,9 @@ foreach (var export in exports)
             "ReflectionCaptureComponent",
             StringComparison.Ordinal);
 
+    if (isComponent)
+        captureComponentCount++;
+
     var hierarchy =
         isComponent &&
         export is USceneComponent
@@ -489,17 +493,6 @@ foreach (var export in exports)
         });
 }
 
-var componentCount =
-    captureRows.Count(
-        row =>
-        {
-            var prop =
-                row.GetType().GetProperty("isComponent");
-            return prop is not null &&
-                prop.GetValue(row) is bool b &&
-                b;
-        });
-
 if (skyRows.Count != 1)
 {
     Console.Error.WriteLine(
@@ -515,7 +508,7 @@ var output = new {
     reflectionCaptureExportCount =
         captureRows.Count,
     reflectionCaptureComponentCount =
-        componentCount,
+        captureComponentCount,
     reflectionCaptureTypeCounts =
         captureCounts,
     skyLights = skyRows,
