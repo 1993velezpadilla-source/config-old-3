@@ -17,6 +17,7 @@ on:
       - feature/xziel-nacht-local-light-render-v1
       - feature/xziel-nacht-height-fog-runtime-v1
       - feature/xziel-nacht-height-fog-shader-v1
+      - feature/xziel-nacht-height-fog-shader-v2
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -2739,11 +2740,17 @@ jobs:
           # replace the legacy BSP world. Keep the app alive until the first
           # complete Nacht instanced framebuffer draw is observed.
           DRAW_READY=0
+          : > dist/static-scene-logcat-draw.txt
           for i in $(seq 1 90); do
             if "$ADB" logcat -d -v threadtime 2>/dev/null \
                 | grep -Eq \
                   "XZIEL-XZ.*static_scene_draw ready=1 meshes=492 instances=10791 drawCalls=1063 attempts=[1-9][0-9]* failures=0"; then
               DRAW_READY=1
+              # Snapshot the exact draw evidence immediately. Height-fog
+              # diagnostics are verbose enough to rotate this one-shot line
+              # out of logcat before the final gate runs.
+              "$ADB" logcat -d -v threadtime \
+                > dist/static-scene-logcat-draw.txt || true
               break
             fi
 
@@ -2778,6 +2785,7 @@ jobs:
             > dist/static-scene-logcat-late.txt || true
           cat \
             dist/static-scene-logcat-early.txt \
+            dist/static-scene-logcat-draw.txt \
             dist/static-scene-logcat-late.txt \
             > dist/static-scene-logcat.txt
 
