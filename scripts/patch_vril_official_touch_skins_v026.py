@@ -64,8 +64,14 @@ text = inp.read_text(encoding="utf-8")
 cvar_anchor = 'cvar_t xziel_hud_slide_opacity = {"xziel_hud_slide_opacity", "0.82", true};\n'
 cvars = r'''cvar_t xziel_hud_crouch_x = {"xziel_hud_crouch_x", "0.635", true};
 cvar_t xziel_hud_crouch_y = {"xziel_hud_crouch_y", "0.875", true};
+cvar_t xziel_hud_crouch_scale = {"xziel_hud_crouch_scale", "1.00", true};
+cvar_t xziel_hud_crouch_opacity = {"xziel_hud_crouch_opacity", "0.82", true};
 cvar_t xziel_hud_prone_x = {"xziel_hud_prone_x", "0.555", true};
 cvar_t xziel_hud_prone_y = {"xziel_hud_prone_y", "0.875", true};
+cvar_t xziel_hud_prone_scale = {"xziel_hud_prone_scale", "1.00", true};
+cvar_t xziel_hud_prone_opacity = {"xziel_hud_prone_opacity", "0.82", true};
+cvar_t xziel_hud_switch_scale = {"xziel_hud_switch_scale", "1.00", true};
+cvar_t xziel_hud_switch_opacity = {"xziel_hud_switch_opacity", "0.82", true};
 '''
 if "cvar_t xziel_hud_crouch_x" not in text:
     text = add_after(text, cvar_anchor, cvars, "official stance HUD cvars")
@@ -73,8 +79,14 @@ if "cvar_t xziel_hud_crouch_x" not in text:
 reg_anchor = "\tCvar_RegisterVariable(&xziel_hud_slide_opacity);\n"
 regs = r'''	Cvar_RegisterVariable(&xziel_hud_crouch_x);
 	Cvar_RegisterVariable(&xziel_hud_crouch_y);
+	Cvar_RegisterVariable(&xziel_hud_crouch_scale);
+	Cvar_RegisterVariable(&xziel_hud_crouch_opacity);
 	Cvar_RegisterVariable(&xziel_hud_prone_x);
 	Cvar_RegisterVariable(&xziel_hud_prone_y);
+	Cvar_RegisterVariable(&xziel_hud_prone_scale);
+	Cvar_RegisterVariable(&xziel_hud_prone_opacity);
+	Cvar_RegisterVariable(&xziel_hud_switch_scale);
+	Cvar_RegisterVariable(&xziel_hud_switch_opacity);
 '''
 if "Cvar_RegisterVariable(&xziel_hud_crouch_x);" not in text:
     text = add_after(text, reg_anchor, regs, "official stance HUD cvar registrations")
@@ -91,8 +103,14 @@ text = sdl.read_text(encoding="utf-8")
 extern_anchor = "extern cvar_t xziel_hud_slide_opacity;\n"
 externs = r'''extern cvar_t xziel_hud_crouch_x;
 extern cvar_t xziel_hud_crouch_y;
+extern cvar_t xziel_hud_crouch_scale;
+extern cvar_t xziel_hud_crouch_opacity;
 extern cvar_t xziel_hud_prone_x;
 extern cvar_t xziel_hud_prone_y;
+extern cvar_t xziel_hud_prone_scale;
+extern cvar_t xziel_hud_prone_opacity;
+extern cvar_t xziel_hud_switch_scale;
+extern cvar_t xziel_hud_switch_opacity;
 '''
 if "extern cvar_t xziel_hud_crouch_x;" not in text:
     text = add_after(text, extern_anchor, externs, "official stance HUD externs")
@@ -127,11 +145,11 @@ role_func = r'''static xziel_touch_role_t Xziel_RoleForPoint(float x, float y)
 	if (Xziel_IsInside(x, y, xziel_hud_grenade_x.value, xziel_hud_grenade_y.value, 0.041f * hs * xziel_hud_grenade_scale.value)) return XZ_TOUCH_GRENADE;
 	if (Xziel_IsInside(x, y, xziel_hud_jump_x.value, xziel_hud_jump_y.value, 0.044f * hs * xziel_hud_jump_scale.value)) return XZ_TOUCH_JUMP;
 	if (Xziel_IsInside(x, y, xziel_hud_slide_x.value, xziel_hud_slide_y.value, 0.044f * hs * xziel_hud_slide_scale.value)) return XZ_TOUCH_SLIDE;
-	if (Xziel_IsInside(x, y, xziel_hud_crouch_x.value, xziel_hud_crouch_y.value, 0.044f * hs * xziel_hud_slide_scale.value)) return XZ_TOUCH_CROUCH;
-	if (Xziel_IsInside(x, y, xziel_hud_prone_x.value, xziel_hud_prone_y.value, 0.044f * hs * xziel_hud_slide_scale.value)) return XZ_TOUCH_PRONE;
+	if (Xziel_IsInside(x, y, xziel_hud_crouch_x.value, xziel_hud_crouch_y.value, 0.044f * hs * xziel_hud_crouch_scale.value)) return XZ_TOUCH_CROUCH;
+	if (Xziel_IsInside(x, y, xziel_hud_prone_x.value, xziel_hud_prone_y.value, 0.044f * hs * xziel_hud_prone_scale.value)) return XZ_TOUCH_PRONE;
 	if ((!xziel_mobile_knife_range_only.value || xziel_mobile_knife_target_near) &&
 		Xziel_IsInside(x, y, xziel_hud_knife_x.value, xziel_hud_knife_y.value, 0.044f * hs * xziel_hud_knife_scale.value)) return XZ_TOUCH_KNIFE;
-	if (Xziel_IsInside(x, y, xziel_hud_switch_x.value, xziel_hud_switch_y.value, 0.041f * hs)) return XZ_TOUCH_SWITCH;
+	if (Xziel_IsInside(x, y, xziel_hud_switch_x.value, xziel_hud_switch_y.value, 0.041f * hs * xziel_hud_switch_scale.value)) return XZ_TOUCH_SWITCH;
 	if (x < 0.45f && y > 0.30f) return XZ_TOUCH_MOVE;
 	return XZ_TOUCH_LOOK;
 }'''
@@ -150,11 +168,11 @@ editor_role = r'''static xziel_touch_role_t Xziel_HudEditorRole(float x, float y
 	if (Xziel_IsInside(x, y, xziel_hud_pause_x.value, xziel_hud_pause_y.value, 0.055f * hs * xziel_hud_pause_scale.value)) return XZ_TOUCH_PAUSE;
 	if (Xziel_IsInside(x, y, xziel_hud_grenade_x.value, xziel_hud_grenade_y.value, 0.057f * hs * xziel_hud_grenade_scale.value)) return XZ_TOUCH_GRENADE;
 	if (Xziel_IsInside(x, y, xziel_hud_slide_x.value, xziel_hud_slide_y.value, 0.060f * hs * xziel_hud_slide_scale.value)) return XZ_TOUCH_SLIDE;
-	if (Xziel_IsInside(x, y, xziel_hud_crouch_x.value, xziel_hud_crouch_y.value, 0.060f * hs * xziel_hud_slide_scale.value)) return XZ_TOUCH_CROUCH;
-	if (Xziel_IsInside(x, y, xziel_hud_prone_x.value, xziel_hud_prone_y.value, 0.060f * hs * xziel_hud_slide_scale.value)) return XZ_TOUCH_PRONE;
+	if (Xziel_IsInside(x, y, xziel_hud_crouch_x.value, xziel_hud_crouch_y.value, 0.060f * hs * xziel_hud_crouch_scale.value)) return XZ_TOUCH_CROUCH;
+	if (Xziel_IsInside(x, y, xziel_hud_prone_x.value, xziel_hud_prone_y.value, 0.060f * hs * xziel_hud_prone_scale.value)) return XZ_TOUCH_PRONE;
 	if (Xziel_IsInside(x, y, xziel_hud_jump_x.value, xziel_hud_jump_y.value, 0.060f * hs * xziel_hud_jump_scale.value)) return XZ_TOUCH_JUMP;
 	if (Xziel_IsInside(x, y, xziel_hud_knife_x.value, xziel_hud_knife_y.value, 0.060f * hs * xziel_hud_knife_scale.value)) return XZ_TOUCH_KNIFE;
-	if (Xziel_IsInside(x, y, xziel_hud_switch_x.value, xziel_hud_switch_y.value, 0.057f * hs)) return XZ_TOUCH_SWITCH;
+	if (Xziel_IsInside(x, y, xziel_hud_switch_x.value, xziel_hud_switch_y.value, 0.057f * hs * xziel_hud_switch_scale.value)) return XZ_TOUCH_SWITCH;
 	if (Xziel_IsInside(x, y, xziel_hud_joy_x.value, xziel_hud_joy_y.value, 0.120f * hs * xziel_hud_joy_scale.value)) return XZ_TOUCH_MOVE;
 	return XZ_TOUCH_NONE;
 }'''
@@ -235,8 +253,14 @@ text = hud.read_text(encoding="utf-8")
 hud_extern_anchor = "extern cvar_t xziel_hud_slide_opacity;\n"
 hud_externs = r'''extern cvar_t xziel_hud_crouch_x;
 extern cvar_t xziel_hud_crouch_y;
+extern cvar_t xziel_hud_crouch_scale;
+extern cvar_t xziel_hud_crouch_opacity;
 extern cvar_t xziel_hud_prone_x;
 extern cvar_t xziel_hud_prone_y;
+extern cvar_t xziel_hud_prone_scale;
+extern cvar_t xziel_hud_prone_opacity;
+extern cvar_t xziel_hud_switch_scale;
+extern cvar_t xziel_hud_switch_opacity;
 extern qboolean xziel_mobile_crouch_pressed;
 extern qboolean xziel_mobile_prone_pressed;
 '''
@@ -270,7 +294,10 @@ control_style = r'''static void Xziel_ControlStyle(const char *label1, const cha
 	else if (!strcmp(label1, "JUMP")) { *scale = xziel_hud_jump_scale.value; *opacity = xziel_hud_jump_opacity.value; }
 	else if (!strcmp(label1, "KNIFE")) { *scale = xziel_hud_knife_scale.value; *opacity = xziel_hud_knife_opacity.value; }
 	else if (!strcmp(label1, "NADE")) { *scale = xziel_hud_grenade_scale.value; *opacity = xziel_hud_grenade_opacity.value; }
-	else if (!strcmp(label1, "SLIDE") || !strcmp(label1, "CROUCH") || !strcmp(label1, "PRONE")) { *scale = xziel_hud_slide_scale.value; *opacity = xziel_hud_slide_opacity.value; }
+	else if (!strcmp(label1, "SLIDE")) { *scale = xziel_hud_slide_scale.value; *opacity = xziel_hud_slide_opacity.value; }
+	else if (!strcmp(label1, "CROUCH")) { *scale = xziel_hud_crouch_scale.value; *opacity = xziel_hud_crouch_opacity.value; }
+	else if (!strcmp(label1, "PRONE")) { *scale = xziel_hud_prone_scale.value; *opacity = xziel_hud_prone_opacity.value; }
+	else if (!strcmp(label1, "SWAP")) { *scale = xziel_hud_switch_scale.value; *opacity = xziel_hud_switch_opacity.value; }
 	else if (!strcmp(label1, "II")) { *scale = xziel_hud_pause_scale.value; *opacity = xziel_hud_pause_opacity.value; }
 	if (*scale < 0.20f) *scale = 0.20f;
 	if (*scale > 4.00f) *scale = 4.00f;
@@ -398,5 +425,72 @@ if '"SWAP"' not in mobile:
     text = text[:m0] + mobile + text[m1:]
 
 hud.write_text(text, encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# Custom HUD editor: role 10 is SWAP, not FIRE. Give SWAP/crouch/prone their
+# own scale/opacity controls and use the requested HIP FIRE label.
+# ---------------------------------------------------------------------------
+controls = source / "menu" / "menu_controls.c"
+text = controls.read_text(encoding="utf-8")
+
+menu_extern_anchor = "extern int xziel_hud_editor_selected;\n"
+menu_externs = r'''extern cvar_t xziel_hud_switch_scale;
+extern cvar_t xziel_hud_switch_opacity;
+extern cvar_t xziel_hud_crouch_scale;
+extern cvar_t xziel_hud_crouch_opacity;
+extern cvar_t xziel_hud_prone_scale;
+extern cvar_t xziel_hud_prone_opacity;
+'''
+if "extern cvar_t xziel_hud_switch_scale;" not in text:
+    text = add_after(text, menu_extern_anchor, menu_externs, "official HUD editor externs")
+
+e0, e1 = find_function_end(text, "void Menu_HudEdit_Draw(void)")
+editor = text[e0:e1]
+editor = editor.replace('case 3: name="FIRE"; break;', 'case 3: name="HIP FIRE"; break;')
+editor = editor.replace('case 16: name="CROUCH / SLIDE"; break;', 'case 16: name="SLIDE"; break;')
+if 'case 10: name="WEAPON SWAP"; break;' not in editor:
+    editor = editor.replace(
+        'case 9: name="KNIFE"; break;\n',
+        'case 9: name="KNIFE"; break;\n\tcase 10: name="WEAPON SWAP"; break;\n',
+        1
+    )
+if 'case 18: name="CROUCH"; break;' not in editor:
+    editor = editor.replace(
+        'case 17: name="MINIMAP"; break;\n',
+        'case 17: name="MINIMAP"; break;\n\tcase 18: name="CROUCH"; break;\n\tcase 19: name="PRONE"; break;\n',
+        1
+    )
+if 'case 10: DRAW_STYLE(xziel_hud_switch_scale' not in editor:
+    editor = editor.replace(
+        'case 9: DRAW_STYLE(xziel_hud_knife_scale, xziel_hud_knife_opacity); break;\n',
+        'case 9: DRAW_STYLE(xziel_hud_knife_scale, xziel_hud_knife_opacity); break;\n'
+        '\tcase 10: DRAW_STYLE(xziel_hud_switch_scale, xziel_hud_switch_opacity); break;\n',
+        1
+    )
+editor = editor.replace(
+    'case 16: DRAW_STYLE(xziel_hud_slide_scale, xziel_hud_slide_opacity); break;\n',
+    'case 16: DRAW_STYLE(xziel_hud_slide_scale, xziel_hud_slide_opacity); break;\n'
+    '\tcase 18: DRAW_STYLE(xziel_hud_crouch_scale, xziel_hud_crouch_opacity); break;\n'
+    '\tcase 19: DRAW_STYLE(xziel_hud_prone_scale, xziel_hud_prone_opacity); break;\n',
+    1
+)
+text = text[:e0] + editor + text[e1:]
+
+r0, r1 = find_function_end(text, "static void Menu_HudEdit_Reset(void)")
+reset = text[r0:r1]
+reset_anchor = '\tCvar_SetValue("xziel_hud_slide_scale", 1.0f); Cvar_SetValue("xziel_hud_slide_opacity", 0.82f);\n'
+reset_payload = reset_anchor + (
+    '\tCvar_SetValue("xziel_hud_crouch_scale", 1.0f); Cvar_SetValue("xziel_hud_crouch_opacity", 0.82f);\n'
+    '\tCvar_SetValue("xziel_hud_prone_scale", 1.0f); Cvar_SetValue("xziel_hud_prone_opacity", 0.82f);\n'
+    '\tCvar_SetValue("xziel_hud_switch_scale", 1.0f); Cvar_SetValue("xziel_hud_switch_opacity", 0.82f);\n'
+)
+if 'xziel_hud_switch_scale' not in reset:
+    if reset_anchor not in reset:
+        raise SystemExit("Could not find final HUD editor reset style anchor")
+    reset = reset.replace(reset_anchor, reset_payload, 1)
+    text = text[:r0] + reset + text[r1:]
+
+controls.write_text(text, encoding="utf-8")
 
 print("Applied Xziel v0.26 official touch skins, dedicated crouch/prone and SWAP-only weapon UI.")
