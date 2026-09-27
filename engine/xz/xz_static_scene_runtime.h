@@ -39,6 +39,8 @@ typedef struct {
 } XzStaticTextureView;
 
 #define XZ_REFLECTION_FORMAT_RGBA16F 1u
+#define XZ_REFLECTION_SHAPE_NONE 0u
+#define XZ_REFLECTION_SHAPE_SPHERE 1u
 
 typedef struct {
     const unsigned char *payload;
@@ -51,6 +53,11 @@ typedef struct {
     float average_brightness;
     float brightness;
     unsigned char map_build_data_id[16];
+    uint32_t asset_version;
+    uint32_t shape;
+    float capture_position_meters[3];
+    float influence_radius_meters;
+    float capture_offset_meters[3];
 } XzReflectionCaptureView;
 
 typedef struct {
