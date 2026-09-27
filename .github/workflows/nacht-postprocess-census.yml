@@ -58,6 +58,28 @@ jobs:
             -o "$RUNNER_TEMP/nacht-unpacked"
           echo "UNPACKED=$RUNNER_TEMP/nacht-unpacked" >> "$GITHUB_ENV"
 
+      - name: Census packaged renderer config
+        run: |
+          set -euo pipefail
+          mkdir -p build/postprocess
+          find "$UNPACKED" -type f \
+            \( -iname '*.ini' -o -iname '*.cfg' \) \
+            -print | sort \
+            > build/postprocess/config-files.txt
+
+          : > build/postprocess/renderer-config-hits.txt
+          while IFS= read -r file; do
+            grep -Ein \
+              'r\.DefaultFeature|AutoExposure|EyeAdaptation|Tonemap|ToneMapper|FilmSlope|FilmToe|FilmShoulder|FilmBlackClip|FilmWhiteClip|ColorGrading|Bloom|Vignette' \
+              "$file" \
+              >> build/postprocess/renderer-config-hits.txt || true
+          done < build/postprocess/config-files.txt
+
+          echo "XZIEL_NACHT_CONFIG_FILE_COUNT $(wc -l < build/postprocess/config-files.txt)"
+          echo "XZIEL_NACHT_RENDERER_CONFIG_HITS_BEGIN"
+          cat build/postprocess/renderer-config-hits.txt
+          echo "XZIEL_NACHT_RENDERER_CONFIG_HITS_END"
+
       - name: Extract Nacht PostProcess settings
         run: |
           set -euo pipefail
