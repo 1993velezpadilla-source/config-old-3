@@ -50,7 +50,10 @@ python3 "$ROOT/scripts/patch_vril_animation_feel.py" "$DEPS/vril"
 python3 "$ROOT/scripts/patch_vril_mobile_v021.py" "$DEPS/vril"
 python3 "$ROOT/scripts/patch_vril_mobile_v022.py" "$DEPS/vril"
 python3 "$ROOT/scripts/patch_vril_mobile_v024.py" "$DEPS/vril"
+python3 "$ROOT/scripts/patch_vril_multiplayer_hud_test.py" "$DEPS/vril"
+python3 "$ROOT/scripts/patch_vril_multiplayer_online.py" "$DEPS/vril"
 python3 "$ROOT/scripts/patch_vril_sanctum_staticmesh.py" "$DEPS/vril"
+python3 "$ROOT/scripts/patch_vril_official_touch_skins_v026.py" "$DEPS/vril"
 
 echo "==> Patching and compiling Xziel mobile QuakeC"
 python3 -m pip install --quiet colorama==0.4.6 fastcrc==0.3.0 pandas==2.1.4 cairosvg==2.8.2
@@ -60,6 +63,7 @@ python3 "$ROOT/scripts/patch_quakec_modern_movement.py" "$DEPS/quakec"
 python3 "$ROOT/scripts/patch_quakec_mobile_v021.py" "$DEPS/quakec"
 python3 "$ROOT/scripts/patch_quakec_mobile_v022.py" "$DEPS/quakec"
 python3 "$ROOT/scripts/patch_quakec_mobile_v024.py" "$DEPS/quakec"
+python3 "$ROOT/scripts/patch_quakec_multiplayer_v026.py" "$DEPS/quakec"
 if [[ "${XZIEL_NACHT_BENCHMARK:-0}" == "1" ]]; then
     echo "==> Enabling Nacht golden-reference stress controls"
     python3 "$ROOT/scripts/patch_quakec_nacht_benchmark.py" "$DEPS/quakec"
@@ -96,6 +100,7 @@ cp "$ROOT/android/jni/Android.mk" "$APP/jni/Android.mk"
 cp "$ROOT/android/jni/Application.mk" "$APP/jni/Application.mk"
 mkdir -p "$APP/jni/src"
 cp "$ROOT/android/jni/src/Android.mk" "$APP/jni/src/Android.mk"
+cp "$ROOT/android/jni/src/xziel_android_bridge.c" "$APP/jni/src/xziel_android_bridge.c"
 python3 - "$APP/jni/src/Android.mk" "$XZIEL_MAX_AI_COUNT" <<'PY'
 from pathlib import Path
 import sys
@@ -117,6 +122,8 @@ cp "$ROOT/android/app-build.gradle" "$APP/build.gradle"
 cp "$ROOT/android/AndroidManifest.xml" "$APP/src/main/AndroidManifest.xml"
 cp "$ROOT/android/strings.xml" "$APP/src/main/res/values/strings.xml"
 cp "$ROOT/android/NZPActivity.java"    "$APP/src/main/java/org/libsdl/app/NZPActivity.java"
+cp "$ROOT/android/XzielMultiplayer.java" "$APP/src/main/java/org/libsdl/app/XzielMultiplayer.java"
+cp "$ROOT/android/XzielVoiceChat.java" "$APP/src/main/java/org/libsdl/app/XzielVoiceChat.java"
 
 echo "==> Assembling official NZ:P game data for the APK"
 ASSET_WORK="$BUILD/nzp-data"
@@ -135,6 +142,24 @@ unzip -q "$DOWNLOADS/standard-nzp-qc.zip" -d "$ASSET_WORK/nzp"
 # build time. This keeps the repository text-only while packaging professional
 # touch-control art into the APK.
 python3 "$ROOT/scripts/build_xziel_icons.py" "$ASSET_WORK/nzp/gfx/xziel"
+
+# Approved Xziel zombie touch skins. Keep source names semantic and map them
+# onto the legacy Vril HUD image names only at package time.
+OFFICIAL_TOUCH="$ROOT/assets/xziel/official_touch_skins_v1"
+test -f "$OFFICIAL_TOUCH/manifest.json"
+cp "$OFFICIAL_TOUCH/fire.png"        "$ASSET_WORK/nzp/gfx/xziel/fire.png"
+cp "$OFFICIAL_TOUCH/aim.png"         "$ASSET_WORK/nzp/gfx/xziel/ads.png"
+cp "$OFFICIAL_TOUCH/aim_fire.png"    "$ASSET_WORK/nzp/gfx/xziel/adsfire.png"
+cp "$OFFICIAL_TOUCH/reload.png"      "$ASSET_WORK/nzp/gfx/xziel/reload.png"
+cp "$OFFICIAL_TOUCH/interact.png"    "$ASSET_WORK/nzp/gfx/xziel/use.png"
+cp "$OFFICIAL_TOUCH/grenade.png"     "$ASSET_WORK/nzp/gfx/xziel/grenade.png"
+cp "$OFFICIAL_TOUCH/vault_jump.png"  "$ASSET_WORK/nzp/gfx/xziel/jump.png"
+cp "$OFFICIAL_TOUCH/slide.png"       "$ASSET_WORK/nzp/gfx/xziel/slide.png"
+cp "$OFFICIAL_TOUCH/knife.png"       "$ASSET_WORK/nzp/gfx/xziel/knife.png"
+cp "$OFFICIAL_TOUCH/weapon_swap.png" "$ASSET_WORK/nzp/gfx/xziel/switch.png"
+cp "$OFFICIAL_TOUCH/crouch.png"      "$ASSET_WORK/nzp/gfx/xziel/crouch.png"
+cp "$OFFICIAL_TOUCH/prone.png"       "$ASSET_WORK/nzp/gfx/xziel/prone.png"
+echo "==> Installed 12 official Xziel touch skins for Quake/Vril"
 
 # Replace the stock gameplay bytecode with our GPL QuakeC build. All other
 # release-side data stays from the official NZ:P package.

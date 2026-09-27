@@ -15,7 +15,7 @@ VRIL_ENGINE_SOURCES :=     $(wildcard $(LOCAL_PATH)/$(VRIL_PATH)/source/*.c)    
 
 VRIL_SDL_SOURCES :=     $(wildcard $(LOCAL_PATH)/$(VRIL_PATH)/source/platform/sdl/*.c)     $(wildcard $(LOCAL_PATH)/$(VRIL_PATH)/source/platform/sdl/gl/*.c)
 
-LOCAL_SRC_FILES :=     $(subst $(LOCAL_PATH)/,,$(VRIL_ENGINE_SOURCES))     $(subst $(LOCAL_PATH)/,,$(VRIL_SDL_SOURCES))
+LOCAL_SRC_FILES :=     $(subst $(LOCAL_PATH)/,,$(VRIL_ENGINE_SOURCES))     $(subst $(LOCAL_PATH)/,,$(VRIL_SDL_SOURCES))     xziel_android_bridge.c
 
 # Normal builds keep NZ:P's classic 24-AI ceiling. Benchmark builds can
 # override this at prepare/build time without changing release behavior.

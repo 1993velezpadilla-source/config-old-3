@@ -1,0 +1,45 @@
+name: Deploy Cloudflare Multiplayer Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  statuses: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    outputs:
+      deployment_url: ${{ steps.cloudflare.outputs.deployment-url }}
+    defaults:
+      run:
+        working-directory: multiplayer/cloudflare
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      - name: Install Worker tooling
+        run: npm install
+
+      - name: Validate Worker
+        run: npm run check
+
+      - name: Deploy multiplayer Worker
+        id: cloudflare
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: "875d032435bc62d73bb9f98c439b69dc"
+          workingDirectory: multiplayer/cloudflare
+          command: deploy
+
+  build-online-apk:
+    needs: deploy
+    uses: ./.github/workflows/android-native.yml
+    with:
+      multiplayer_url: ${{ needs.deploy.outputs.deployment_url }}

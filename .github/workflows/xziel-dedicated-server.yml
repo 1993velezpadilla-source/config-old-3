@@ -1,0 +1,109 @@
+name: Xziel Dedicated Server
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/multiplayer-online-tunnel-test
+    paths:
+      - "multiplayer/xziel-server/**"
+      - "scripts/prepare_dedicated.sh"
+      - "scripts/patch_quakec_*.py"
+      - ".github/workflows/xziel-dedicated-server.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  linux-dedicated:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.x"
+          cache-dependency-path: multiplayer/xziel-server/go.mod
+
+      - name: Install native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential pkg-config \
+            libsdl2-dev libsdl2-mixer-dev \
+            libgl1-mesa-dev libglu1-mesa-dev \
+            unzip curl iproute2
+
+      - name: Test and build Xziel control plane
+        working-directory: multiplayer/xziel-server
+        run: |
+          go mod tidy
+          go test ./...
+          mkdir -p ../../dist
+          go build -trimpath -o ../../dist/xziel-server ./cmd/xziel-server
+
+      - name: Build and smoke-test Vril dedicated
+        run: bash scripts/prepare_dedicated.sh
+
+      - name: Smoke-test Xziel control API
+        run: |
+          set -euo pipefail
+          ./dist/xziel-server \
+            --listen 127.0.0.1:18080 \
+            --public-host 127.0.0.1 \
+            --vril-bin "$PWD/dist/xziel-dedicated/bin/nzportable" \
+            --data-dir "$PWD/dist/xziel-dedicated/data" \
+            --log-dir "$PWD/build/control-smoke-logs" \
+            --port-min 27000 \
+            --port-max 27010 \
+            > build/xziel-control-smoke.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+
+          for _ in $(seq 1 50); do
+            if curl -fsS http://127.0.0.1:18080/health > build/health.json; then
+              break
+            fi
+            sleep 0.1
+          done
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("build/health.json").read_text())
+          assert data["ok"] is True
+          assert data["transport"] == "native-udp-dedicated"
+          assert data["gameplayRelay"] is False
+          print("XZIEL_CONTROL_PLANE_GREEN")
+          PY
+
+          curl -fsS -X POST \
+            -H 'content-type: application/json' \
+            -d '{"playerId":"ci-human","map":"ndu"}' \
+            http://127.0.0.1:18080/api/rooms/create \
+            > build/private-room.json
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("build/private-room.json").read_text())
+          assert len(data["roomCode"]) == 6
+          assert data["map"] == "ndu"
+          assert data["serverMode"] == "dedicated"
+          print("XZIEL_PRIVATE_ROOM_GREEN", data["roomCode"])
+          PY
+
+      - name: Upload dedicated server bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xziel-dedicated-linux
+          path: |
+            dist/xziel-server
+            dist/xziel-dedicated/
+            build/dedicated/dedicated-smoke.log
+            build/health.json
+            build/private-room.json
+            build/xziel-control-smoke.log
+          retention-days: 7

@@ -8,15 +8,15 @@ if len(sys.argv) != 2:
 
 root = Path(sys.argv[1])
 
-# Standard protocol: 58 is the next unused server->client message after
-# SVC_REGISTERUSEPRINT (57) in current NZ:P/Vril.
+# Standard protocol: current Vril uses svc_hudconfig=58, so Xziel damage
+# feedback lives at 59 to avoid colliding with the upstream HUD packet.
 defs = root / "source/server/defs/standard.qc"
 text = defs.read_text(encoding="utf-8")
 anchor = "#define \tSVC_ACHIEVEMENT \t\t\t52\n"
 if "SVC_XZIELDAMAGE" not in text:
     if anchor not in text:
         raise SystemExit("Could not find SVC_ACHIEVEMENT protocol anchor")
-    text = text.replace(anchor, anchor + "#define     SVC_XZIELDAMAGE             58\n", 1)
+    text = text.replace(anchor, anchor + "#define     SVC_XZIELDAMAGE             59\n", 1)
 defs.write_text(text, encoding="utf-8")
 
 # Reliable one-client damage number event. FTE is intentionally a no-op here;
@@ -58,8 +58,8 @@ if "void(entity who, float damage, float critical) nzp_damage_number;" not in te
         "void(entity who, float damage, float critical) nzp_damage_number;\n\n"
     ) + text[insert_at:]
 
-hit_anchor = '''\tif (victim.classname == "ai_zombie" || victim.classname == "ai_dog") {\n\n'''
-hit_repl = '''\tif (victim.classname == "ai_zombie" || victim.classname == "ai_dog") {\n\n\t\t/* Mobile COD-style floating damage numbers. Report the actual weapon\n\t\t   damage request for every legitimate player hit, including the fatal\n\t\t   shot. The client owns presentation/timing only. */\n\t\tif (attacker.classname == "player" && d_style != DMG_TYPE_OTHER && damage > 0)\n\t\t\tnzp_damage_number(attacker, damage, d_style == DMG_TYPE_HEADSHOT);\n\n'''
+hit_anchor = '''\tif (victim.classname == "ai_zombie" || victim.classname == "ai_dog") {\n'''
+hit_repl = '''\tif (victim.classname == "ai_zombie" || victim.classname == "ai_dog") {\n\t\t/* Mobile COD-style floating damage numbers. Report the actual weapon\n\t\t   damage request for every legitimate player hit, including the fatal\n\t\t   shot. The client owns presentation/timing only. */\n\t\tif (attacker.classname == "player" && d_style != DMG_TYPE_OTHER && damage > 0)\n\t\t\tnzp_damage_number(attacker, damage, d_style == DMG_TYPE_HEADSHOT);\n\n'''
 if "nzp_damage_number(attacker" not in text:
     if hit_anchor not in text:
         raise SystemExit("Could not find zombie damage branch")

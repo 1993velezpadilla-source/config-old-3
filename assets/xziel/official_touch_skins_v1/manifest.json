@@ -1,0 +1,39 @@
+{
+  "set_name": "xziel_official_button_skins_v1",
+  "status": "official-approved",
+  "engines": ["xziel engine", "quake engine"],
+  "quake_engine_scope_now": [
+    "crouch",
+    "prone",
+    "fire",
+    "aim",
+    "aim_fire",
+    "reload",
+    "interact",
+    "grenade",
+    "vault_jump",
+    "slide",
+    "knife",
+    "weapon_swap"
+  ],
+  "notes": [
+    "Use these 12 PNGs as the official button skin set.",
+    "No gun cards. Use only the weapon_swap button for changing between the two weapon slots.",
+    "Implement now only in the Quake engine build for online testing.",
+    "Keep the same official set reserved for future Xziel engine use as well."
+  ],
+  "files": {
+    "crouch": "crouch.png",
+    "prone": "prone.png",
+    "fire": "fire.png",
+    "aim": "aim.png",
+    "aim_fire": "aim_fire.png",
+    "reload": "reload.png",
+    "interact": "interact.png",
+    "grenade": "grenade.png",
+    "vault_jump": "vault_jump.png",
+    "slide": "slide.png",
+    "knife": "knife.png",
+    "weapon_swap": "weapon_swap.png"
+  }
+}

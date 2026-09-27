@@ -1,6 +1,13 @@
 name: Native Android APK
 
 on:
+  workflow_call:
+    inputs:
+      multiplayer_url:
+        description: Cloudflare multiplayer deployment URL to bake into the APK
+        required: false
+        type: string
+        default: ""
   workflow_dispatch:
   pull_request:
     branches:
@@ -22,7 +29,10 @@ on:
       - "README.md"
 
 concurrency:
-  group: xziel-android-${{ github.ref }}
+  # Keep stale runs of the same workflow from wasting runners, but do not let
+  # the PR build, Cloudflare deploy build and 4-player integration build cancel
+  # each other merely because they share the same branch.
+  group: xziel-android-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -33,6 +43,8 @@ jobs:
   build-and-smoke-test:
     name: Build native APK + Android smoke test
     runs-on: ubuntu-latest
+    env:
+      XZIEL_MULTIPLAYER_URL: ${{ inputs.multiplayer_url }}
     timeout-minutes: 25
 
     steps:
@@ -57,9 +69,54 @@ jobs:
         run: |
           python3 -m py_compile \
             scripts/patch_vril_mobile_v024.py \
+            scripts/patch_vril_multiplayer_hud_test.py \
+            scripts/patch_vril_multiplayer_online.py \
+            scripts/build_xziel_icons.py \
             scripts/patch_vril_sanctum_staticmesh.py \
-            scripts/patch_quakec_mobile_v024.py
+            scripts/patch_vril_official_touch_skins_v026.py \
+            scripts/patch_quakec_mobile_v024.py \
+            scripts/patch_quakec_multiplayer_v026.py \
+            scripts/audit_online_world_sync.py
 
+
+      - name: Audit full Vril and QuakeC patch chain
+        shell: bash
+        run: |
+          set -euo pipefail
+          AUDIT="${RUNNER_TEMP}/xziel-patch-audit"
+          rm -rf "$AUDIT"
+          mkdir -p "$AUDIT"
+          git clone --depth 1 https://github.com/nzp-team/vril-engine.git "$AUDIT/vril"
+          git clone --depth 1 https://github.com/nzp-team/quakec.git "$AUDIT/quakec"
+
+          python3 scripts/patch_vril_android.py "$AUDIT/vril"
+          python3 scripts/patch_vril_weaponhud.py "$AUDIT/vril"
+          python3 scripts/patch_vril_mobile_v018.py "$AUDIT/vril"
+          python3 scripts/patch_vril_weaponhud_v020.py "$AUDIT/vril"
+          python3 scripts/patch_vril_combatfx.py "$AUDIT/vril"
+          python3 scripts/patch_vril_modern_movement.py "$AUDIT/vril"
+          python3 scripts/patch_vril_camera_feel.py "$AUDIT/vril"
+          python3 scripts/patch_vril_animation_feel.py "$AUDIT/vril"
+          python3 scripts/patch_vril_mobile_v021.py "$AUDIT/vril"
+          python3 scripts/patch_vril_mobile_v022.py "$AUDIT/vril"
+          python3 scripts/patch_vril_mobile_v024.py "$AUDIT/vril"
+          python3 scripts/patch_vril_multiplayer_hud_test.py "$AUDIT/vril"
+          python3 scripts/patch_vril_multiplayer_online.py "$AUDIT/vril"
+          python3 scripts/patch_vril_sanctum_staticmesh.py "$AUDIT/vril"
+          python3 scripts/patch_vril_official_touch_skins_v026.py "$AUDIT/vril"
+
+          python3 scripts/patch_quakec_mobile.py "$AUDIT/quakec"
+          python3 scripts/patch_quakec_combatfx.py "$AUDIT/quakec"
+          python3 scripts/patch_quakec_modern_movement.py "$AUDIT/quakec"
+          python3 scripts/patch_quakec_mobile_v021.py "$AUDIT/quakec"
+          python3 scripts/patch_quakec_mobile_v022.py "$AUDIT/quakec"
+          python3 scripts/patch_quakec_mobile_v024.py "$AUDIT/quakec"
+          python3 scripts/patch_quakec_multiplayer_v026.py "$AUDIT/quakec"
+
+          python3 scripts/audit_online_world_sync.py "$AUDIT/quakec" \
+            | tee "$AUDIT/online-world-sync-report.json"
+
+          echo "Full upstream patch chain and online world-sync contract passed."
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
@@ -158,6 +215,31 @@ jobs:
           "$ADB" exec-out screencap -p > dist/xziel-hud-preview-b.png || true
           cp dist/xziel-hud-preview-a.png dist/xziel-screen.png || true
 
+          # Visual QA for the new map -> public -> Duo/Trio/Quad selector.
+          "$ADB" shell am force-stop com.xziel.nzp || true
+          "$ADB" shell am start -W -n com.xziel.nzp/org.libsdl.app.NZPActivity \
+            --ez xziel_ci_squad_preview true \
+            > dist/am-start-squad.txt 2>&1 || true
+          sleep 8
+          "$ADB" exec-out screencap -p > dist/xziel-squad-selector.png || true
+
+          # Online builds must exercise the same human menu entry point used on
+          # real phones. This catches regressions that CI public-match shortcuts
+          # would otherwise bypass.
+          if [[ -n "${XZIEL_MULTIPLAYER_URL:-}" ]]; then
+            "$ADB" shell am force-stop com.xziel.nzp || true
+            "$ADB" shell am start -W -n com.xziel.nzp/org.libsdl.app.NZPActivity \
+              --ez xziel_ci_multiplayer_menu_preview true \
+              > dist/am-start-multiplayer-menu.txt 2>&1 || true
+            sleep 8
+            "$ADB" shell uiautomator dump /sdcard/xziel-multiplayer-menu.xml >/dev/null 2>&1
+            "$ADB" pull /sdcard/xziel-multiplayer-menu.xml dist/xziel-multiplayer-menu.xml >/dev/null 2>&1
+            "$ADB" exec-out screencap -p > dist/xziel-multiplayer-menu.png || true
+            grep -q 'text="Nacht der Untoten"' dist/xziel-multiplayer-menu.xml
+            grep -q 'text="PRIVATE ROOM"' dist/xziel-multiplayer-menu.xml
+            grep -q 'text="PUBLIC MATCH"' dist/xziel-multiplayer-menu.xml
+          fi
+
           # Automated visual sanity pass: both frames must be valid, non-blank
           # landscape gameplay-sized images. We also record inter-frame change
           # as evidence the renderer is live rather than frozen.
@@ -183,6 +265,23 @@ jobs:
           diff = ImageChops.difference(images[0], images[1]).convert("L")
           dstat = ImageStat.Stat(diff)
           print(f"frame_delta_mean={dstat.mean[0]:.3f} frame_delta_std={dstat.stddev[0]:.3f}")
+
+          selector_path = Path("dist/xziel-squad-selector.png")
+          selector = Image.open(selector_path).convert("RGB")
+          if selector.width < 1000 or selector.height < 500 or selector.width <= selector.height:
+              raise SystemExit(f"squad selector has invalid dimensions: {selector.size}")
+          selector_gray = selector.convert("L")
+          selector_stat = ImageStat.Stat(selector_gray)
+          if selector_stat.stddev[0] < 8:
+              raise SystemExit(f"squad selector appears blank: std={selector_stat.stddev[0]:.2f}")
+          hsv = selector.convert("HSV")
+          colorful = sum(
+              1 for h, s, v in hsv.getdata()
+              if s >= 80 and v >= 80
+          )
+          if colorful < 1500:
+              raise SystemExit(f"squad selector missing colored icon rings: pixels={colorful}")
+          print(f"squad_selector: size={selector.size} colorful_pixels={colorful}")
           PY
           cat dist/hud-visual-report.txt
           "$ADB" logcat -d -v threadtime > dist/xziel-logcat.txt || true
@@ -227,9 +326,11 @@ jobs:
             dist/xziel-screen.png
             dist/xziel-hud-preview-a.png
             dist/xziel-hud-preview-b.png
+            dist/xziel-squad-selector.png
             dist/hud-visual-report.txt
             dist/emulator-stdout.txt
             dist/am-start.txt
+            dist/am-start-squad.txt
             dist/activity-processes.txt
           if-no-files-found: warn
           retention-days: 14

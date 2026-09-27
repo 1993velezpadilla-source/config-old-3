@@ -30,6 +30,7 @@ import java.util.zip.ZipInputStream;
 public class NZPActivity extends SDLActivity {
     private static final String DATA_ARCHIVE = "nzp-data.zip";
     private static final String DATA_VERSION = "nzp-data.version";
+    private XzielMultiplayer multiplayer;
 
     /**
      * Keep SDL/Vril locked to sensor-landscape. Without this override SDL2
@@ -75,7 +76,58 @@ public class NZPActivity extends SDLActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        multiplayer = new XzielMultiplayer(this, BuildConfig.XZIEL_MULTIPLAYER_URL);
         applyImmersiveMode();
+
+        boolean ciPublicMatch = getIntent() != null
+            && getIntent().getBooleanExtra("xziel_ci_public_match", false);
+        final String ciMatchQueue = getIntent() != null
+            ? getIntent().getStringExtra("xziel_ci_match_queue")
+            : null;
+        final String ciPlayerId = getIntent() != null
+            ? getIntent().getStringExtra("xziel_ci_player_id")
+            : null;
+        if (ciPlayerId != null && multiplayer != null) {
+            multiplayer.setCiPlayerId(ciPlayerId);
+        }
+        boolean ciEvidenceMode = getIntent() != null
+            && getIntent().getBooleanExtra("xziel_ci_evidence_mode", false);
+        if (multiplayer != null) {
+            multiplayer.setCiEvidenceMode(ciEvidenceMode);
+        }
+        if (ciPublicMatch) {
+            getWindow().getDecorView().postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    if (multiplayer != null) {
+                        multiplayer.findPublicMatch(
+                            ciMatchQueue == null ? "public-v1" : ciMatchQueue
+                        );
+                    }
+                }
+            }, 5000);
+        }
+        boolean ciSquadPreview = getIntent() != null
+            && getIntent().getBooleanExtra("xziel_ci_squad_preview", false);
+        if (ciSquadPreview) {
+            getWindow().getDecorView().postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    if (multiplayer != null) multiplayer.showCiSquadPreview();
+                }
+            }, 5000);
+        }
+        boolean ciMultiplayerMenuPreview = getIntent() != null
+            && getIntent().getBooleanExtra(
+                "xziel_ci_multiplayer_menu_preview", false);
+        if (ciMultiplayerMenuPreview) {
+            getWindow().getDecorView().postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    if (multiplayer != null) multiplayer.openMultiplayerMenu();
+                }
+            }, 5000);
+        }
         getWindow().getDecorView().postDelayed(new Runnable() {
             @Override
             public void run() {
@@ -109,6 +161,87 @@ public class NZPActivity extends SDLActivity {
         if (hasFocus) {
             applyImmersiveMode();
         }
+    }
+
+    public void xzielOpenMultiplayer() {
+        if (multiplayer != null) multiplayer.openMultiplayerMenu();
+    }
+
+    public boolean xzielOnlineActive() {
+        return multiplayer != null && multiplayer.isOnlineActive();
+    }
+
+    public boolean xzielGameSend(byte[] data, int destinationSlot,
+                                 int sourcePort, int destinationPort) {
+        return multiplayer != null &&
+            multiplayer.sendGameDatagram(data, destinationSlot, sourcePort, destinationPort);
+    }
+
+    public byte[] xzielGamePoll(int localPort) {
+        return multiplayer != null ? multiplayer.pollGameDatagram(localPort) : null;
+    }
+
+    public boolean xzielGameHasPacket(int localPort) {
+        return multiplayer != null && multiplayer.hasGameDatagram(localPort);
+    }
+
+    public String xzielOnlinePollCommand() {
+        return multiplayer != null ? multiplayer.pollNativeCommand() : "";
+    }
+
+    public void xzielOnlineEngineState(boolean serverActive, boolean clientConnected,
+                                       int signon, String map) {
+        if (multiplayer != null) {
+            multiplayer.onEngineState(serverActive, clientConnected, signon, map);
+        }
+    }
+
+    public void xzielLeaveMultiplayer() {
+        if (multiplayer != null) multiplayer.leaveRoom();
+    }
+
+    public void xzielVoiceUpdatePosition(float x, float y, float z) {
+        if (multiplayer != null) multiplayer.updateVoicePosition(x, y, z);
+    }
+
+    public void xzielCiRemoteEntity(int slot, float x, float y, float z,
+                                    int frame, float yaw) {
+        if (multiplayer != null) {
+            multiplayer.onCiRemoteEntity(slot, x, y, z, frame, yaw);
+        }
+    }
+
+    public void xzielCiSoundEvent(int entity, int channel, String name,
+                                  float x, float y, float z) {
+        if (multiplayer != null) {
+            multiplayer.onCiSoundEvent(entity, channel, name, x, y, z);
+        }
+    }
+
+    public void xzielOnlinePauseVoice(boolean visible) {
+        if (multiplayer != null) multiplayer.showVoicePausePanel(visible);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                                           int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == XzielVoiceChat.MIC_PERMISSION_REQUEST &&
+            multiplayer != null) {
+            boolean granted = grantResults != null && grantResults.length > 0
+                && grantResults[0] ==
+                    android.content.pm.PackageManager.PERMISSION_GRANTED;
+            multiplayer.onMicrophonePermissionResult(granted);
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (multiplayer != null) {
+            multiplayer.shutdown();
+            multiplayer = null;
+        }
+        super.onDestroy();
     }
 
     @Override

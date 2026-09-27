@@ -12,13 +12,13 @@ source = root / "source"
 # Protocol extension.
 protocol = source / "protocol.h"
 text = protocol.read_text(encoding="utf-8")
-anchor = "#define svc_registeruseprint 57"
+anchor = "#define svc_hudconfig"
 if "svc_xzieldamage" not in text:
     idx = text.find(anchor)
     if idx < 0:
-        raise SystemExit("Could not find svc_registeruseprint")
+        raise SystemExit("Could not find svc_hudconfig")
     end = text.find("\n", idx)
-    text = text[:end+1] + "#define svc_xzieldamage       58\t// [long] damage [byte] critical\n" + text[end+1:]
+    text = text[:end+1] + "#define svc_xzieldamage       59\t// [long] damage [byte] critical\n" + text[end+1:]
 protocol.write_text(text, encoding="utf-8")
 
 # Client parser.
@@ -34,13 +34,13 @@ if "HUD_XzielDamageNumber" not in text:
         1,
     )
 
-strings_anchor = '\t"svc_registeruseprint"\n};'
+strings_anchor = '\t"svc_hudconfig"\n};'
 if '"svc_xzieldamage"' not in text:
     if strings_anchor not in text:
         raise SystemExit("Could not find svc_strings tail")
     text = text.replace(
         strings_anchor,
-        '\t"svc_registeruseprint",\n\t"svc_xzieldamage"\n};',
+        '\t"svc_hudconfig",\n\t"svc_xzieldamage"\n};',
         1,
     )
 

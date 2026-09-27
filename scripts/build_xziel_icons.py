@@ -231,10 +231,10 @@ def build_xziel_v023_surfaces(out: Path) -> None:
     """Original Xziel mobile FPS surfaces inspired by modern touch shooters."""
     # A clean cartridge icon for the right-fire control.
     fire = '''
-      <g transform="rotate(-38 256 256)" fill="#FFFFFF">
-        <path d="M220 74h72v62l-12 18v210l-24 78-24-78V154l-12-18z"/>
-        <rect x="213" y="74" width="86" height="34" rx="5"/>
-        <path d="M232 364h48l-8 40-16 48-16-48z"/>
+      <g transform="rotate(-36 256 256)" fill="#FFFFFF">
+        <path d="M218 58h76v70l-12 20v214l-26 86-26-86V148l-12-20z"/>
+        <rect x="210" y="58" width="92" height="36" rx="6"/>
+        <path d="M230 362h52l-9 44-17 54-17-54z"/>
       </g>
     '''
     # Crisp optic reticle for dedicated ADS.
@@ -248,18 +248,30 @@ def build_xziel_v023_surfaces(out: Path) -> None:
     # ADS+fire is deliberately distinct: optic with a small cartridge mark.
     adsfire = '''
       <g fill="none" stroke="#FFFFFF" stroke-linecap="round">
-        <circle cx="236" cy="242" r="105" stroke-width="23"/>
-        <path d="M236 72v70M236 342v70M66 242h70M336 242h70" stroke-width="21"/>
-        <circle cx="236" cy="242" r="11" fill="#FFFFFF" stroke="none"/>
+        <circle cx="228" cy="228" r="108" stroke-width="22"/>
+        <path d="M228 52v72M228 332v72M52 228h72M332 228h72" stroke-width="21"/>
+        <circle cx="228" cy="228" r="11" fill="#FFFFFF" stroke="none"/>
       </g>
-      <g transform="rotate(-35 373 385)" fill="#F4C83D">
-        <path d="M351 298h44v45l-8 14v82l-14 38-14-38v-82l-8-14z"/>
-        <rect x="346" y="298" width="54" height="24" rx="3"/>
+      <!-- Large cartridge sits clearly in front of the reticle. -->
+      <g transform="rotate(-36 346 354)" fill="#FFFFFF">
+        <path d="M320 250h54v52l-9 16v108l-18 50-18-50V318l-9-16z"/>
+        <rect x="314" y="250" width="66" height="28" rx="4"/>
+      </g>
+    '''
+    reload = '''
+      <g fill="none" stroke="#FFFFFF" stroke-width="22" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M385 182a154 154 0 1 1-35-54"/>
+        <path d="M351 83l46 97-104-18"/>
+      </g>
+      <g fill="#FFFFFF">
+        <path d="M180 207h34v122h-34z"/><path d="M176 191h42v22h-42z"/>
+        <path d="M239 184h34v145h-34z"/><path d="M235 168h42v22h-42z"/>
+        <path d="M298 207h34v122h-34z"/><path d="M294 191h42v22h-42z"/>
       </g>
     '''
     small_idle = '''
-      <circle cx="256" cy="256" r="218" fill="#05080B" fill-opacity=".34"/>
-      <circle cx="256" cy="256" r="218" fill="none" stroke="#EAF0F4" stroke-opacity=".48" stroke-width="12"/>
+      <circle cx="256" cy="256" r="218" fill="#05080B" fill-opacity=".44"/>
+      <circle cx="256" cy="256" r="218" fill="none" stroke="#EEEB24" stroke-opacity=".88" stroke-width="13"/>
       <circle cx="256" cy="256" r="188" fill="none" stroke="#EAF0F4" stroke-opacity=".08" stroke-width="3"/>
     '''
     small_pressed = '''
@@ -268,8 +280,8 @@ def build_xziel_v023_surfaces(out: Path) -> None:
       <circle cx="256" cy="256" r="184" fill="none" stroke="#F4C83D" stroke-opacity=".18" stroke-width="5"/>
     '''
     fire_idle = '''
-      <circle cx="256" cy="256" r="226" fill="#050607" fill-opacity=".42"/>
-      <circle cx="256" cy="256" r="222" fill="none" stroke="#F4F6F7" stroke-opacity=".66" stroke-width="14"/>
+      <circle cx="256" cy="256" r="226" fill="#050607" fill-opacity=".48"/>
+      <circle cx="256" cy="256" r="222" fill="none" stroke="#EEEB24" stroke-opacity=".94" stroke-width="15"/>
       <circle cx="256" cy="256" r="188" fill="none" stroke="#F4F6F7" stroke-opacity=".10" stroke-width="4"/>
     '''
     fire_pressed = '''
@@ -278,8 +290,8 @@ def build_xziel_v023_surfaces(out: Path) -> None:
       <circle cx="256" cy="256" r="184" fill="none" stroke="#F4C83D" stroke-opacity=".24" stroke-width="7"/>
     '''
     ads_idle = '''
-      <circle cx="256" cy="256" r="218" fill="#05080B" fill-opacity=".28"/>
-      <circle cx="256" cy="256" r="216" fill="none" stroke="#EEF3F6" stroke-opacity=".50" stroke-width="11"/>
+      <circle cx="256" cy="256" r="218" fill="#05080B" fill-opacity=".40"/>
+      <circle cx="256" cy="256" r="216" fill="none" stroke="#EEEB24" stroke-opacity=".88" stroke-width="12"/>
       <path d="M256 25v46M256 441v46M25 256h46M441 256h46" stroke="#EEF3F6" stroke-opacity=".56" stroke-width="9" stroke-linecap="round"/>
     '''
     ads_pressed = '''
@@ -288,8 +300,8 @@ def build_xziel_v023_surfaces(out: Path) -> None:
       <path d="M256 22v50M256 440v50M22 256h50M440 256h50" stroke="#FFF5C9" stroke-width="10" stroke-linecap="round"/>
     '''
     adsfire_idle = '''
-      <circle cx="256" cy="256" r="226" fill="#050607" fill-opacity=".40"/>
-      <circle cx="256" cy="256" r="222" fill="none" stroke="#F1F5F7" stroke-opacity=".64" stroke-width="14"/>
+      <circle cx="256" cy="256" r="226" fill="#050607" fill-opacity=".47"/>
+      <circle cx="256" cy="256" r="222" fill="none" stroke="#EEEB24" stroke-opacity=".94" stroke-width="15"/>
       <circle cx="256" cy="256" r="184" fill="none" stroke="#F1F5F7" stroke-opacity=".08" stroke-width="4"/>
       <path d="M256 20v33M256 459v33M20 256h33M459 256h33" stroke="#F4C83D" stroke-opacity=".70" stroke-width="8" stroke-linecap="round"/>
     '''
@@ -312,6 +324,7 @@ def build_xziel_v023_surfaces(out: Path) -> None:
         "fire": fire,
         "ads": ads,
         "adsfire": adsfire,
+        "reload": reload,
         "touch_small_idle": small_idle,
         "touch_small_pressed": small_pressed,
         "touch_fire_idle": fire_idle,

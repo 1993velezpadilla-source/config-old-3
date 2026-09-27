@@ -1,5 +1,8 @@
 apply plugin: 'com.android.application'
 
+def xzielMultiplayerUrl = System.getenv("XZIEL_MULTIPLAYER_URL") ?: ""
+def xzielMultiplayerUrlEscaped = xzielMultiplayerUrl.replace("\\", "\\\\").replace("\"", "\\\"")
+
 android {
     namespace "org.libsdl.app"
     compileSdkVersion 35
@@ -9,8 +12,9 @@ android {
         applicationId "com.xziel.nzp"
         minSdkVersion 23
         targetSdkVersion 35
-        versionCode 18
-        versionName "0.18-hud-polish"
+        versionCode 26
+        versionName "0.26-online-social-test"
+        buildConfigField "String", "XZIEL_MULTIPLAYER_URL", "\"${xzielMultiplayerUrlEscaped}\""
 
         externalNativeBuild {
             ndkBuild {
@@ -46,6 +50,10 @@ android {
         }
     }
 
+    buildFeatures {
+        buildConfig true
+    }
+
     lint {
         abortOnError false
     }
@@ -53,4 +61,5 @@ android {
 
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
 }

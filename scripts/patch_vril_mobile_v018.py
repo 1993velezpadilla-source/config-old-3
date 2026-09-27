@@ -506,7 +506,7 @@ static image_t xziel_icon_threat;
 if "xziel_icon_fire" not in htext:
     htext = must_replace(htext, image_anchor, image_anchor + image_defs, "Xziel icon handles")
 
-load_anchor = '    hud_hitmarker    = Image_LoadImage("gfx/hud/hit_marker", IMAGE_TGA, 0, true, false);\n'
+load_anchor = '    hud_hitmarker = Image_LoadImage("gfx/hud/hit_marker", IMAGE_TGA, 0, true, false);\n'
 load_code = r'''    xziel_icon_fire    = Image_LoadImage("gfx/xziel/fire", IMAGE_PNG, 0, true, false);
     xziel_icon_ads     = Image_LoadImage("gfx/xziel/ads", IMAGE_PNG, 0, true, false);
     xziel_icon_reload  = Image_LoadImage("gfx/xziel/reload", IMAGE_PNG, 0, true, false);

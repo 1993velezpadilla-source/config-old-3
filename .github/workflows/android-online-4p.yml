@@ -1,0 +1,655 @@
+name: Android Online 4P Integration
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/multiplayer-online-tunnel-test
+    paths:
+      - "multiplayer/cloudflare/**"
+      - "android/**"
+      - "assets/xziel/official_touch_skins_v1/**"
+      - "scripts/prepare_android.sh"
+      - "scripts/patch_vril_official_touch_skins_v026.py"
+      - "scripts/patch_vril_multiplayer_online.py"
+      - "scripts/patch_quakec_multiplayer_v026.py"
+      - ".github/workflows/android-native.yml"
+      - ".github/workflows/android-online-4p.yml"
+
+permissions:
+  contents: read
+  statuses: write
+
+concurrency:
+  group: xziel-online-4p-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    outputs:
+      deployment_url: ${{ steps.cloudflare.outputs.deployment-url }}
+    defaults:
+      run:
+        working-directory: multiplayer/cloudflare
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      - name: Install Worker tooling
+        run: npm install
+
+      - name: Validate Worker
+        run: npm run check
+
+      - name: Deploy multiplayer Worker
+        id: cloudflare
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: "875d032435bc62d73bb9f98c439b69dc"
+          workingDirectory: multiplayer/cloudflare
+          command: deploy
+
+  build-online-apk:
+    needs: deploy
+    uses: ./.github/workflows/android-native.yml
+    with:
+      multiplayer_url: ${{ needs.deploy.outputs.deployment_url }}
+
+  four-player:
+    name: Player ${{ matrix.runner }} online emulator
+    needs: build-online-apk
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        runner: [1, 2, 3, 4]
+
+    steps:
+      - name: Download online APK
+        uses: actions/download-artifact@v5
+        with:
+          name: Xziel-NZP-native-universal-debug
+          path: apk
+
+      - name: Install Android emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+
+          PACKAGES=(
+            "platform-tools"
+            "system-images;android-35;google_apis;x86_64"
+          )
+          if [[ ! -x "${ANDROID_HOME}/emulator/emulator" ]]; then
+            PACKAGES+=("emulator")
+          fi
+
+          INSTALLED=0
+          for attempt in 1 2 3; do
+            echo "SDK install attempt $attempt/3"
+            if "$SDKMANAGER" "${PACKAGES[@]}"; then
+              INSTALLED=1
+              break
+            fi
+
+            echo "SDK download failed; clearing temporary package cache before retry."
+            rm -rf "${HOME}/.android/cache" || true
+            rm -rf "${ANDROID_HOME}/.temp" || true
+            find "${ANDROID_HOME}" -maxdepth 1 -type d -name "temp*" -exec rm -rf {} + 2>/dev/null || true
+            sleep $((attempt * 4))
+          done
+
+          test "$INSTALLED" = "1"
+          test -x "${ANDROID_HOME}/emulator/emulator"
+
+      - name: Boot player emulator
+        shell: bash
+        env:
+          ANDROID_AVD_HOME: ${{ runner.temp }}/xziel-4p-avd
+        run: |
+          set -euo pipefail
+          mkdir -p "$ANDROID_AVD_HOME" evidence
+          ADB="${ANDROID_HOME}/platform-tools/adb"
+          EMULATOR="${ANDROID_HOME}/emulator/emulator"
+          AVDMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name avdmanager | sort | tail -n 1)"
+
+          printf 'no\n' | "$AVDMANAGER" create avd \
+            --force \
+            --name "xziel-4p-${{ matrix.runner }}" \
+            --package "system-images;android-35;google_apis;x86_64" \
+            --device "pixel_6"
+
+          if [[ -e /dev/kvm ]]; then
+            sudo chmod 666 /dev/kvm || true
+          fi
+
+          nohup "$EMULATOR" \
+            @"xziel-4p-${{ matrix.runner }}" \
+            -no-window \
+            -no-audio \
+            -no-boot-anim \
+            -no-snapshot \
+            -gpu swiftshader_indirect \
+            -memory 2048 \
+            > "evidence/emulator-${{ matrix.runner }}.txt" 2>&1 &
+
+          timeout 180 "$ADB" wait-for-device
+
+          BOOTED=0
+          for i in $(seq 1 90); do
+            if [[ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; then
+              BOOTED=1
+              break
+            fi
+            sleep 2
+          done
+          test "$BOOTED" = "1"
+
+          "$ADB" install -r apk/Xziel-NZP-native-universal-debug.apk
+          "$ADB" shell pm grant com.xziel.nzp android.permission.RECORD_AUDIO || true
+          "$ADB" shell settings put secure immersive_mode_confirmations confirmed || true
+
+          # Give PackageManager/configuration broadcasts time to settle before
+          # SDL binds to its native Surface. Without this, API 35 occasionally
+          # recreates NZPActivity immediately after launch and VID_Init sees a
+          # destroyed window.
+          sleep 8
+
+          # Xziel is landscape-only. Lock the emulator before launch so no
+          # rotation/configuration relaunch can race SDL_CreateWindow.
+          "$ADB" shell settings put system accelerometer_rotation 0 || true
+          "$ADB" shell settings put system user_rotation 1 || true
+          "$ADB" shell wm dismiss-keyguard || true
+          sleep 3
+
+          "$ADB" logcat -c
+
+      - name: Enter isolated public matchmaking
+        shell: bash
+        env:
+          ANDROID_AVD_HOME: ${{ runner.temp }}/xziel-4p-avd
+        run: |
+          set -euo pipefail
+          ADB="${ANDROID_HOME}/platform-tools/adb"
+          QUEUE="ci-${GITHUB_RUN_ID}"
+
+          "$ADB" shell am force-stop com.xziel.nzp || true
+          "$ADB" shell am start -W \
+            -n com.xziel.nzp/org.libsdl.app.NZPActivity \
+            --ez xziel_ci_public_match true \
+            --ez xziel_ci_evidence_mode true \
+            --es xziel_ci_match_queue "$QUEUE" \
+            --es xziel_ci_player_id "ci-${GITHUB_RUN_ID}-p${{ matrix.runner }}" \
+            > "evidence/am-start-${{ matrix.runner }}.txt" 2>&1
+
+          # Evidence mode waits for the synchronized gameplay sequence, not just
+          # the lobby handshake. Slot 1 automatically moves away from spawn,
+          # turns back toward the group, and observes walk/sprint/ADS/fire.
+          SUCCESS=0
+          CAMERA_SHOT=0
+          SPRINT_SHOT=0
+          AIM_SHOT=0
+          FIRE_SHOT=0
+
+          for i in $(seq 1 180); do
+            "$ADB" logcat -d -v brief > "evidence/logcat-${{ matrix.runner }}.txt" || true
+            LOG="evidence/logcat-${{ matrix.runner }}.txt"
+
+            # Preserve the bounded renderer trace before logcat rotation can
+            # evict it during the later pause/voice/mute interaction checks.
+            if grep -q "XzielScene" "$LOG"; then
+              grep -E "Xziel(Scene|Render)" "$LOG" >                 "evidence/scene-player-${{ matrix.runner }}.txt" || true
+            fi
+
+            if grep -q "Xziel.*stage=SYS_ERROR" "$LOG" || \
+               grep -q "SDL_CreateWindow: Could not fetch native window" "$LOG"; then
+              echo "Native startup lost the Android Surface."
+              break
+            fi
+
+            if [[ "$CAMERA_SHOT" = "0" ]] && grep -q "XzielOnline.*CI_CAMERA_READY" "$LOG"; then
+              "$ADB" exec-out screencap -p > "evidence/ci-camera-player-${{ matrix.runner }}.png" || true
+              CAMERA_SHOT=1
+            fi
+
+            if [[ "$CAMERA_SHOT" = "1" && "$SPRINT_SHOT" = "0" ]] && \
+               grep -q "XzielOnline.*CI_REMOTE_ACTION.*CI_P3_SPRINT_START" "$LOG"; then
+              "$ADB" exec-out screencap -p > "evidence/ci-sprint-player-${{ matrix.runner }}.png" || true
+              SPRINT_SHOT=1
+            fi
+
+            if [[ "$CAMERA_SHOT" = "1" && "$AIM_SHOT" = "0" ]] && \
+               grep -q "XzielOnline.*CI_REMOTE_ACTION.*CI_P2_AIM_START" "$LOG"; then
+              "$ADB" exec-out screencap -p > "evidence/ci-aim-player-${{ matrix.runner }}.png" || true
+              AIM_SHOT=1
+            fi
+
+            if [[ "$CAMERA_SHOT" = "1" && "$FIRE_SHOT" = "0" ]] && \
+               grep -q "XzielOnline.*CI_REMOTE_ACTION.*CI_P4_FIRE_START" "$LOG"; then
+              "$ADB" exec-out screencap -p > "evidence/ci-fire-player-${{ matrix.runner }}.png" || true
+              FIRE_SHOT=1
+            fi
+
+            REMOTE_SEEN="$(awk '/XzielOnline.*CI_REMOTE_SEEN/ { if (match($0, / remote=[1-4]/)) print substr($0, RSTART + 8, 1) }' "$LOG" | sort -u | wc -l | tr -d ' ')"
+            REMOTE_FRAMES="$(awk '/XzielOnline.*CI_REMOTE_FRAME/ { if (match($0, / remote=[1-4]/)) print substr($0, RSTART + 8, 1) }' "$LOG" | sort -u | wc -l | tr -d ' ')"
+            VOICE_SENDERS="$(awk '/XzielVoice.*CI_VOICE_PLAY/ { if (match($0, / sender=[1-4]/)) print substr($0, RSTART + 8, 1) }' "$LOG" | sort -u | wc -l | tr -d ' ')"
+            LOCAL_SLOT="$(awk '/XzielOnline.*WELCOME/ { if (match($0, / slot=[1-4]/)) slot=substr($0, RSTART + 6, 1) } END { if (slot != "") print slot }' "$LOG")"
+
+            # A Quake control handshake over the XZD1 tunnel should complete
+            # quickly once SERVER_READY is received. During CI, fail fast with
+            # bounded transport evidence instead of burning the full scenario
+            # timeout when the native UDP <-> WebSocket bridge is broken.
+            if [[ "$i" -ge 35 && -n "$LOCAL_SLOT" && "$LOCAL_SLOT" != "1" ]] &&                grep -q "XzielOnline.*SERVER_READY" "$LOG" &&                ! grep -q "XzielOnline.*SIGNON_COMPLETE" "$LOG"; then
+              echo "Client signon did not complete after tunnel diagnostic window."
+              grep -E "XzielOnline.*(WELCOME|SERVER_READY|CONNECT_|GAME_(TX|RX|POLL)|SIGNON_COMPLETE)" "$LOG" | tail -n 120 || true
+              break
+            fi
+
+            if [[ "$i" -ge 50 && "$LOCAL_SLOT" = "1" ]] &&                grep -q "XzielOnline.*HOST_SERVER_READY" "$LOG" &&                ! grep -q "XzielOnline.*CLIENT_READY" "$LOG"; then
+              echo "Host received no ready client after tunnel diagnostic window."
+              grep -E "XzielOnline.*(WELCOME|HOST_SERVER_READY|GAME_(TX|RX|POLL)|CLIENT_READY)" "$LOG" | tail -n 120 || true
+              break
+            fi
+
+            SOUND_OK=1
+
+            # Player 2 walks long enough to emit native SSQC footsteps.
+            if [[ -n "$LOCAL_SLOT" && "$LOCAL_SLOT" != "2" ]]; then
+              if ! grep -q "XzielOnline.*CI_REMOTE_SOUND.*source=2.*sound=sounds/player/footstep" "$LOG"; then
+                SOUND_OK=0
+              fi
+            fi
+
+            # Player 3 primes/releases a real server grenade. All remote
+            # observers must hear the player-side grenade sound, and everybody
+            # must receive the eventual grenade explosion sound packet.
+            if [[ -n "$LOCAL_SLOT" && "$LOCAL_SLOT" != "3" ]]; then
+              if ! grep -Eq "XzielOnline.*CI_REMOTE_SOUND.*source=3.*sound=sounds/weapons/grenade/(prime|throw)\.wav" "$LOG"; then
+                SOUND_OK=0
+              fi
+            fi
+            if ! grep -q "XzielOnline.*CI_REMOTE_SOUND.*sound=sounds/weapons/grenade/explode.wav" "$LOG"; then
+              SOUND_OK=0
+            fi
+
+            # Player 4 fires after ADS. Remote observers must receive at least
+            # one weapon-family sound from that player entity.
+            if [[ -n "$LOCAL_SLOT" && "$LOCAL_SLOT" != "4" ]]; then
+              if ! grep -q "XzielOnline.*CI_REMOTE_SOUND.*source=4.*sound=sounds/weapons/" "$LOG"; then
+                SOUND_OK=0
+              fi
+            fi
+
+            if grep -q "XzielOnline.*CI_SCENARIO_DONE" "$LOG" && \
+               [[ "$REMOTE_SEEN" -ge 3 ]] && \
+               [[ "$REMOTE_FRAMES" -ge 2 ]] && \
+               [[ "$VOICE_SENDERS" -ge 3 ]] && \
+               [[ "$SOUND_OK" = "1" ]]; then
+              SUCCESS=1
+              break
+            fi
+            sleep 2
+          done
+
+          # A hosted Android emulator can transiently leave ADB in "offline"
+          # state while QEMU and the game process are still healthy. Run #93
+          # proved that exact case: the client had live XZD1 traffic/rendering,
+          # but one empty screencap made the job exit and GitHub then killed the
+          # emulator, cascading PLAYER_LEFT into the other three jobs.
+          #
+          # Recover the ADB transport and require a real PNG before using its
+          # dimensions for the pause tap. This is CI-only; game/runtime behavior
+          # is unchanged.
+          adb_recover() {
+            local attempt
+            for attempt in 1 2 3 4 5 6; do
+              if timeout 5 "$ADB" get-state 2>/dev/null | grep -qx "device" && \
+                 timeout 5 "$ADB" shell true >/dev/null 2>&1; then
+                return 0
+              fi
+
+              echo "ADB transport attempt ${attempt}/6 is not ready; recovering."
+              "$ADB" reconnect offline >/dev/null 2>&1 || true
+              timeout 12 "$ADB" wait-for-device >/dev/null 2>&1 || true
+
+              if timeout 5 "$ADB" get-state 2>/dev/null | grep -qx "device" && \
+                 timeout 5 "$ADB" shell true >/dev/null 2>&1; then
+                return 0
+              fi
+
+              # One emulator lives on each isolated GitHub runner, so restarting
+              # that runner's adb server cannot disturb any of the other players.
+              "$ADB" kill-server >/dev/null 2>&1 || true
+              "$ADB" start-server >/dev/null 2>&1 || true
+              timeout 20 "$ADB" wait-for-device >/dev/null 2>&1 || true
+              sleep 2
+            done
+            return 1
+          }
+
+          adb_shell_retry() {
+            local attempt
+            for attempt in 1 2 3 4 5; do
+              if adb_recover && timeout 15 "$ADB" shell "$@"; then
+                return 0
+              fi
+              echo "ADB shell attempt ${attempt}/5 failed: $*"
+              sleep 2
+            done
+            return 1
+          }
+
+          adb_logcat_snapshot() {
+            local out="$1"
+            local format="$2"
+            local tmp="${out}.tmp"
+            local attempt
+            for attempt in 1 2 3 4 5; do
+              rm -f "$tmp"
+              if adb_recover && \
+                 timeout 20 "$ADB" logcat -d -v "$format" > "$tmp" 2>/dev/null; then
+                mv "$tmp" "$out"
+                return 0
+              fi
+              echo "ADB logcat attempt ${attempt}/5 failed; preserving the last snapshot."
+              sleep 2
+            done
+            rm -f "$tmp"
+            return 1
+          }
+
+          adb_ui_dump() {
+            local remote="$1"
+            local out="$2"
+            local tmp="${out}.tmp"
+            local attempt
+            for attempt in 1 2 3 4 5; do
+              rm -f "$tmp"
+              if adb_recover && \
+                 timeout 20 "$ADB" shell uiautomator dump "$remote" >/dev/null 2>&1 && \
+                 timeout 15 "$ADB" pull "$remote" "$tmp" >/dev/null 2>&1 && \
+                 [[ -s "$tmp" ]]; then
+                mv "$tmp" "$out"
+                return 0
+              fi
+              echo "ADB UI dump attempt ${attempt}/5 failed; reconnecting."
+              sleep 2
+            done
+            rm -f "$tmp"
+            return 1
+          }
+
+          capture_framebuffer() {
+            local out="$1"
+            local tmp="${out}.tmp"
+            local attempt
+            for attempt in 1 2 3 4 5; do
+              rm -f "$tmp"
+              if adb_recover && \
+                 timeout 20 "$ADB" exec-out screencap -p > "$tmp" 2>/dev/null && \
+                 python3 - "$tmp" <<'PY'
+          import struct, sys
+          from pathlib import Path
+          data = Path(sys.argv[1]).read_bytes()
+          ok = len(data) >= 24 and data[:8] == b"\x89PNG\r\n\x1a\n"
+          if ok:
+              width, height = struct.unpack(">II", data[16:24])
+              ok = width > 0 and height > 0
+          raise SystemExit(0 if ok else 1)
+          PY
+              then
+                mv "$tmp" "$out"
+                return 0
+              fi
+
+              echo "ADB framebuffer attempt ${attempt}/5 failed; reconnecting transport."
+              sleep 2
+            done
+            rm -f "$tmp"
+            echo "Could not recover a valid framebuffer from the emulator."
+            return 1
+          }
+
+          capture_framebuffer "evidence/player-${{ matrix.runner }}.png"
+
+          # Prove the two small HUD voice controls are interactive.
+          adb_ui_dump /sdcard/xziel-hud.xml "evidence/hud-ui-${{ matrix.runner }}.xml" || true
+          python3 - "evidence/hud-ui-${{ matrix.runner }}.xml" "evidence/hud-taps-${{ matrix.runner }}.txt" <<'PY'
+          import re, sys
+          from pathlib import Path
+          src, out = map(Path, sys.argv[1:3])
+          text = src.read_text(errors="ignore") if src.exists() else ""
+          coords = []
+          for label in ("Mute microphone", "Mute voice audio"):
+              m = re.search(r'content-desc="' + re.escape(label) + r'"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', text)
+              if m:
+                  x1,y1,x2,y2 = map(int,m.groups())
+                  coords.append((label,(x1+x2)//2,(y1+y2)//2))
+          out.write_text("\n".join(f"{label}|{x}|{y}" for label,x,y in coords))
+          PY
+
+          while IFS='|' read -r LABEL X Y; do
+            [[ -n "$X" && -n "$Y" ]] || continue
+            adb_shell_retry input tap "$X" "$Y"
+            sleep 1
+          done < "evidence/hud-taps-${{ matrix.runner }}.txt"
+          capture_framebuffer "evidence/hud-voice-muted-${{ matrix.runner }}.png" || true
+
+          # Restore the global HUD voice toggles so the pause mixer starts live.
+          while IFS='|' read -r LABEL X Y; do
+            [[ -n "$X" && -n "$Y" ]] || continue
+            adb_shell_retry input tap "$X" "$Y"
+            sleep 1
+          done < "evidence/hud-taps-${{ matrix.runner }}.txt"
+
+          # Press the real in-game pause control. Online gameplay must continue;
+          # the menu shows the native scoreboard plus the per-player voice grid.
+          # Android's physical wm size can remain portrait even while SDL is
+          # locked/rendering landscape. Read the dimensions from the actual
+          # framebuffer screenshot we just captured so the tap lands on the
+          # same normalized HUD coordinate that Vril rendered.
+          read -r WIDTH HEIGHT < <(python3 - "evidence/player-${{ matrix.runner }}.png" <<'PY'
+          import struct, sys
+          from pathlib import Path
+          data = Path(sys.argv[1]).read_bytes()
+          if len(data) < 24 or data[:8] != b"\x89PNG\r\n\x1a\n":
+              raise SystemExit("invalid framebuffer PNG")
+          width, height = struct.unpack(">II", data[16:24])
+          print(width, height)
+          PY
+          )
+          PAUSE_X=$((WIDTH * 965 / 1000))
+          PAUSE_Y=$((HEIGHT * 75 / 1000))
+          echo "Pause HUD tap framebuffer=${WIDTH}x${HEIGHT} at ${PAUSE_X},${PAUSE_Y}"
+          adb_shell_retry input tap "$PAUSE_X" "$PAUSE_Y"
+          sleep 2
+          capture_framebuffer "evidence/online-pause-${{ matrix.runner }}.png" || true
+
+          adb_ui_dump /sdcard/xziel-pause.xml "evidence/pause-ui-${{ matrix.runner }}.xml" || true
+          echo "Pause accessibility controls for runner ${{ matrix.runner }}:"
+          grep -o 'content-desc="[^"]*"' "evidence/pause-ui-${{ matrix.runner }}.xml" | \
+            grep -E 'Mute|Unmute' || true
+          python3 - "evidence/pause-ui-${{ matrix.runner }}.xml" "evidence/player-mute-tap-${{ matrix.runner }}.txt" <<'PY'
+          import re, sys
+          from pathlib import Path
+          src, out = map(Path, sys.argv[1:3])
+          text = src.read_text(errors="ignore") if src.exists() else ""
+          m = re.search(r'content-desc="Mute Player ([1-4])"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', text)
+          if m:
+              slot,x1,y1,x2,y2 = map(int,m.groups())
+              out.write_text(f"{slot} {(x1+x2)//2} {(y1+y2)//2}\n")
+          else:
+              out.write_text("")
+          PY
+
+          if [[ -s "evidence/player-mute-tap-${{ matrix.runner }}.txt" ]]; then
+            read -r MUTED_SLOT MX MY < "evidence/player-mute-tap-${{ matrix.runner }}.txt"
+            adb_shell_retry input tap "$MX" "$MY"
+            sleep 1
+            capture_framebuffer "evidence/online-pause-muted-${{ matrix.runner }}.png" || true
+          fi
+
+          # The per-player mute is the final real interaction in this job.
+          # Xziel emits CI_EVIDENCE_DONE over the existing authenticated room
+          # WebSocket when that mute succeeds. Keep every emulator (especially
+          # slot 1, the listen server) alive until all four jobs have reached
+          # the same point, instead of letting GitHub tear the host down early.
+          EVIDENCE_BARRIER=0
+          BARRIER_ADB_MISSES=0
+          BARRIER_LOG="evidence/barrier-logcat-${{ matrix.runner }}.txt"
+          for i in $(seq 1 90); do
+            # CI_EVIDENCE_DONE is now accumulated inside XzielMultiplayer.
+            # Once the local client has observed every required slot, it writes
+            # a private marker file. Read that persistent state instead of
+            # requiring four old logcat lines to coexist in Android's noisy
+            # ring buffer.
+            if ! adb_recover; then
+              BARRIER_ADB_MISSES=$((BARRIER_ADB_MISSES + 1))
+              echo "Barrier ADB transport unavailable (${BARRIER_ADB_MISSES}/6)."
+              if [[ "$BARRIER_ADB_MISSES" -ge 6 ]]; then
+                echo "ADB could not be recovered during the evidence barrier."
+                break
+              fi
+              sleep 2
+              continue
+            fi
+            BARRIER_ADB_MISSES=0
+
+            BARRIER_STATE="$(timeout 10 "$ADB" shell run-as com.xziel.nzp \
+              cat files/xziel-ci-evidence-barrier.txt 2>/dev/null | tr -d '\r' || true)"
+            if [[ "$BARRIER_STATE" == complete* ]]; then
+              echo "CI evidence barrier complete: $BARRIER_STATE"
+              EVIDENCE_BARRIER=1
+              break
+            fi
+
+            PID_NOW="$(timeout 10 "$ADB" shell pidof com.xziel.nzp 2>/dev/null | tr -d '\r' || true)"
+            if [[ -z "$PID_NOW" ]]; then
+              echo "NZP process is no longer running after healthy ADB recovery."
+              break
+            fi
+            sleep 2
+          done
+
+          # Capture one diagnostic snapshot after the barrier. The barrier
+          # itself no longer rereads tens of megabytes of logcat every loop.
+          adb_logcat_snapshot "$BARRIER_LOG" brief || true
+
+          if [[ "$EVIDENCE_BARRIER" != "1" ]]; then
+            echo "CI evidence barrier did not complete."
+            grep -E "XzielOnline.*(CI_EVIDENCE_(DONE|STATE|BARRIER)|CI_REMOTE_ACTION|PLAYER_LEFT|PLAYER_JOINED|WELCOME|PAUSE_VOICE|GAME_SOCKET_(OPEN|CLOSED|FAILURE)|GAME_RECONNECT)|Host_Error|Program error|lost server connection" \
+              "$BARRIER_LOG" | tail -n 180 || true
+          fi
+
+          adb_logcat_snapshot "evidence/logcat-${{ matrix.runner }}.txt" threadtime || true
+
+          {
+            echo "runner=${{ matrix.runner }}"
+            echo "queue=$QUEUE"
+            grep -E "(XzielOnline.*(WELCOME|PLAYER_JOINED|HOST_PREPARE|HOST_SERVER_READY|SERVER_READY|CONNECT_START|CONNECT_RETRY|SIGNON_COMPLETE|CLIENT_READY|GAME_(TX|RX|POLL)|CI_)|XzielVoice.*(VOICE_OPEN|CAPTURE_STARTED|CI_TONE_SENT|CI_VOICE_PLAY|CI_VOICE_OUT_OF_RANGE|MIC_MUTED|SPEAKER_MUTED|PLAYER_MUTE))" \
+              "evidence/logcat-${{ matrix.runner }}.txt" || true
+          } > "evidence/online-summary-${{ matrix.runner }}.txt"
+
+          adb_recover || true
+          PID="$(timeout 10 "$ADB" shell pidof com.xziel.nzp 2>/dev/null | tr -d '\r' || true)"
+          test -n "$PID"
+          test "$SUCCESS" = "1"
+          test "$EVIDENCE_BARRIER" = "1"
+          test -s "evidence/hud-taps-${{ matrix.runner }}.txt"
+          test -s "evidence/player-mute-tap-${{ matrix.runner }}.txt"
+          grep -q "XzielVoice.*PLAYER_MUTE" "evidence/logcat-${{ matrix.runner }}.txt"
+
+      - name: Validate screenshot
+        shell: bash
+        run: |
+          python3 -m pip install --quiet pillow==11.3.0
+          python3 - <<'PY'
+          from PIL import Image, ImageStat
+          from pathlib import Path
+          p = next(Path("evidence").glob("player-*.png"))
+          im = Image.open(p).convert("RGB")
+          if im.width < 1000 or im.height < 500 or im.width <= im.height:
+              raise SystemExit(f"invalid screenshot dimensions: {im.size}")
+          # Validate the actual game framebuffer, not the Android voice
+          # overlay. The old whole-image stddev check let a black 3D frame pass
+          # because the yellow mic/speaker icons added enough variance.
+          w, h = im.size
+          game = im.crop((
+              int(w * 0.15), int(h * 0.12),
+              int(w * 0.95), int(h * 0.92)
+          )).convert("L")
+          stat = ImageStat.Stat(game)
+          if stat.stddev[0] < 8:
+              raise SystemExit(
+                  f"game framebuffer appears blank: center_std={stat.stddev[0]:.2f}"
+              )
+          print(p, im.size, "center_std", stat.stddev[0])
+          PY
+
+      - name: Upload player evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xziel-online-4p-player-${{ matrix.runner }}
+          path: evidence/
+          if-no-files-found: warn
+          retention-days: 14
+
+  collect-evidence:
+    name: Collect four-player evidence
+    if: always()
+    needs: four-player
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all player evidence
+        uses: actions/download-artifact@v5
+        with:
+          pattern: Xziel-online-4p-player-*
+          path: four-player-evidence
+          merge-multiple: false
+
+      - name: Build 2x2 screenshot contact sheet
+        shell: bash
+        run: |
+          python3 -m pip install --quiet pillow==11.3.0
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image, ImageOps, ImageDraw
+
+          paths = sorted(Path("four-player-evidence").glob("*/player-*.png"))
+          if len(paths) != 4:
+              raise SystemExit(f"expected four screenshots, found {len(paths)}")
+
+          images = [Image.open(p).convert("RGB") for p in paths]
+          target_w = max(im.width for im in images)
+          target_h = max(im.height for im in images)
+          sheet = Image.new("RGB", (target_w * 2, target_h * 2))
+
+          for i, (path, im) in enumerate(zip(paths, images)):
+              canvas = ImageOps.pad(im, (target_w, target_h))
+              draw = ImageDraw.Draw(canvas)
+              draw.rectangle((8, 8, 190, 42), fill="black")
+              draw.text((16, 16), f"PLAYER RUNNER {i + 1}", fill="white")
+              sheet.paste(canvas, ((i % 2) * target_w, (i // 2) * target_h))
+
+          out = Path("four-player-evidence") / "xziel-online-4p-contact-sheet.png"
+          sheet.save(out)
+          print(out)
+          PY
+
+      - name: Upload combined evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xziel-online-4p-combined-evidence
+          path: four-player-evidence/
+          retention-days: 14
