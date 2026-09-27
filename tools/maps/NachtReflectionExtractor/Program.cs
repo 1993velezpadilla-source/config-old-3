@@ -6,6 +6,7 @@ using CUE4Parse.UE4.Assets.Exports.BuildData;
 using CUE4Parse.UE4.Assets.Exports.Component;
 using CUE4Parse.UE4.Objects.Core.Misc;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text.Json;
 
 if (args.Length != 2)
@@ -85,6 +86,15 @@ string? Text(object? value)
     return string.IsNullOrWhiteSpace(text)
         ? null
         : text;
+}
+
+string? Sha256Hex(byte[]? data)
+{
+    if (data is null || data.Length == 0)
+        return null;
+
+    return Convert.ToHexString(
+        SHA256.HashData(data));
 }
 
 string? ReferencePath(object? value)
@@ -556,6 +566,8 @@ var registryRows = new List<object>();
 var reflectionBuildRows = new List<object>();
 var buildDataRegistryCount = 0;
 var linkedBuildDataCount = 0;
+byte[]? linkedFullHdrCapturedData = null;
+byte[]? linkedEncodedHdrCapturedData = null;
 
 foreach (var candidate in builtDataCandidates)
 {
@@ -607,8 +619,20 @@ foreach (var candidate in builtDataCandidates)
                     guid,
                     StringComparer.OrdinalIgnoreCase);
 
+            var encodedHdrCapturedData =
+                ReadMember(
+                    data,
+                    "EncodedHDRCapturedData")
+                as byte[];
+
             if (linked)
+            {
                 linkedBuildDataCount++;
+                linkedFullHdrCapturedData =
+                    data.FullHDRCapturedData;
+                linkedEncodedHdrCapturedData =
+                    encodedHdrCapturedData;
+            }
 
             packageReflectionCount++;
 
@@ -629,6 +653,15 @@ foreach (var candidate in builtDataCandidates)
                     fullHdrCapturedBytes =
                         data.FullHDRCapturedData?.Length
                         ?? 0,
+                    fullHdrSha256 =
+                        Sha256Hex(
+                            data.FullHDRCapturedData),
+                    encodedHdrCapturedBytes =
+                        encodedHdrCapturedData?.Length
+                        ?? 0,
+                    encodedHdrSha256 =
+                        Sha256Hex(
+                            encodedHdrCapturedData),
                     encodedCaptureData =
                         ReferencePath(
                             data.EncodedCaptureData)
@@ -676,6 +709,18 @@ var output = new {
         reflectionBuildRows.Count,
     reflectionCaptureBuildDataLinkedCount =
         linkedBuildDataCount,
+    linkedFullHdrCapturedBytes =
+        linkedFullHdrCapturedData?.Length
+        ?? 0,
+    linkedFullHdrSha256 =
+        Sha256Hex(
+            linkedFullHdrCapturedData),
+    linkedEncodedHdrCapturedBytes =
+        linkedEncodedHdrCapturedData?.Length
+        ?? 0,
+    linkedEncodedHdrSha256 =
+        Sha256Hex(
+            linkedEncodedHdrCapturedData),
     skyLights = skyRows,
     reflectionCaptures = captureRows,
     buildDataRegistries = registryRows,
@@ -683,9 +728,34 @@ var output = new {
         reflectionBuildRows
 };
 
-Directory.CreateDirectory(
+var outputDirectory =
     Path.GetDirectoryName(
-        Path.GetFullPath(args[1]))!);
+        Path.GetFullPath(args[1]))!;
+
+Directory.CreateDirectory(
+    outputDirectory);
+
+if (
+    linkedFullHdrCapturedData is not null &&
+    linkedFullHdrCapturedData.Length > 0)
+{
+    File.WriteAllBytes(
+        Path.Combine(
+            outputDirectory,
+            "reflection-fullhdr.bin"),
+        linkedFullHdrCapturedData);
+}
+
+if (
+    linkedEncodedHdrCapturedData is not null &&
+    linkedEncodedHdrCapturedData.Length > 0)
+{
+    File.WriteAllBytes(
+        Path.Combine(
+            outputDirectory,
+            "reflection-encodedhdr.bin"),
+        linkedEncodedHdrCapturedData);
+}
 
 File.WriteAllText(
     args[1],
@@ -706,7 +776,11 @@ Console.WriteLine(
             output.buildDataCandidateCount,
             output.buildDataRegistryCount,
             output.reflectionCaptureBuildDataCount,
-            output.reflectionCaptureBuildDataLinkedCount
+            output.reflectionCaptureBuildDataLinkedCount,
+            output.linkedFullHdrCapturedBytes,
+            output.linkedFullHdrSha256,
+            output.linkedEncodedHdrCapturedBytes,
+            output.linkedEncodedHdrSha256
         }));
 
 Console.WriteLine(
@@ -716,7 +790,21 @@ Console.WriteLine(
             output.reflectionCaptureComponentBuildIds,
             output.buildDataCandidates,
             output.buildDataRegistries,
-            output.reflectionCaptureBuildData
+            output.reflectionCaptureBuildData,
+            output.linkedFullHdrCapturedBytes,
+            output.linkedFullHdrSha256,
+            output.linkedEncodedHdrCapturedBytes,
+            output.linkedEncodedHdrSha256
+        }));
+
+Console.WriteLine(
+    "XZIEL_NACHT_REFLECTION_PAYLOAD "
+    + JsonSerializer.Serialize(
+        new {
+            output.linkedFullHdrCapturedBytes,
+            output.linkedFullHdrSha256,
+            output.linkedEncodedHdrCapturedBytes,
+            output.linkedEncodedHdrSha256
         }));
 
 return 0;
