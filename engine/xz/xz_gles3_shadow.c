@@ -1229,12 +1229,22 @@ static int XzDrawRealGeometry(
     state->last_lightmap_batches = 0u;
     state->last_alpha_test_batches = 0u;
     state->last_modulate_batches = 0u;
-    state->real_material_state_ready = 0;
+    /*
+     * Once the static scene owns world surfaces, this pass only draws the
+     * remaining dynamic overlay batches. Material/raster parity for the
+     * world was already proven by the full legacy capture before takeover,
+     * so do not erase that evidence merely because those world batches are
+     * intentionally skipped. Any real draw/texture/geometry failure below
+     * still fails the frame and prevents a clean visible-present cutover.
+     */
+    if (!skip_world_batches)
+        state->real_material_state_ready = 0;
     state->last_fog_batches = 0u;
     state->last_cull_batches = 0u;
     state->last_depth_range_batches = 0u;
     state->last_polygon_offset_batches = 0u;
-    state->real_raster_state_ready = 0;
+    if (!skip_world_batches)
+        state->real_raster_state_ready = 0;
 
     gl->UseProgram(xz_shadow.real_program);
     gl->Uniform1i(xz_shadow.real_texture_loc, 0);
