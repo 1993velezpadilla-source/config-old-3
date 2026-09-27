@@ -9,6 +9,7 @@ on:
       - ".github/workflows/xziel-emulator-ai-smoke.yml"
       - "scripts/xziel_bot/**"
       - "scripts/patch_quakec_emulator_bot_telemetry.py"
+      - "scripts/patch_vril_android.py"
       - "scripts/prepare_android.sh"
       - "android/NZPActivity.java"
 
