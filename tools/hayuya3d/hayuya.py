@@ -22,7 +22,12 @@ from mobile_portability import build_portability_plan
 
 @dataclass(frozen=True)
 class Profile:
+    # Runtime triangle budget used only after the fidelity-approved Hero Master
+    # exists. Never feed this value into high-end reconstruction backends.
     faces: int
+    # Dense reconstruction target. Monster/Ultra intentionally preserve a
+    # Tripo-class Hero Master before retopology/LOD generation.
+    hero_faces: int
     texture_size: int
     trellis2_resolution: int
     backends: tuple[str, ...]
@@ -33,6 +38,7 @@ class Profile:
 PROFILES = {
     "preview": Profile(
         faces=30_000,
+        hero_faces=30_000,
         texture_size=1024,
         trellis2_resolution=512,
         backends=("triposr", "triposg"),
@@ -41,6 +47,7 @@ PROFILES = {
     ),
     "mobile": Profile(
         faces=35_000,
+        hero_faces=120_000,
         texture_size=2048,
         trellis2_resolution=512,
         backends=("trellis", "triposg", "triposr"),
@@ -49,6 +56,7 @@ PROFILES = {
     ),
     "game": Profile(
         faces=80_000,
+        hero_faces=400_000,
         texture_size=2048,
         trellis2_resolution=1024,
         backends=("triposg", "trellis", "instantmesh", "triposr"),
@@ -57,6 +65,7 @@ PROFILES = {
     ),
     "monster": Profile(
         faces=250_000,
+        hero_faces=1_500_000,
         texture_size=4096,
         trellis2_resolution=1024,
         backends=("trellis2", "triposg", "trellis", "instantmesh", "triposr"),
@@ -65,6 +74,7 @@ PROFILES = {
     ),
     "ultra": Profile(
         faces=500_000,
+        hero_faces=2_000_000,
         texture_size=4096,
         trellis2_resolution=1536,
         backends=("trellis2", "triposg", "trellis", "instantmesh", "triposr"),
@@ -588,8 +598,17 @@ def make_job_plan(
         "seed": seed,
         "targets": {
             "faces": profile.faces,
+            "runtime_faces": profile.faces,
+            "hero_faces": profile.hero_faces,
             "texture_size": profile.texture_size,
             "trellis2_resolution": profile.trellis2_resolution,
+        },
+        "hero_master": {
+            "enabled": profile.hero_faces > profile.faces,
+            "policy": "reconstruct dense first; fidelity-gate the Hero Master before retopology, LODs, rigging or mobile optimization",
+            "runtime_faces": profile.faces,
+            "hero_faces": profile.hero_faces,
+            "preserve_regions": ["face", "hands", "cloth_edges", "accessories"],
         },
         "source_autofix": {
             "mode": source_autofix_mode,
@@ -782,7 +801,7 @@ def run_single_backend(
             out_dir,
             seed=seed,
             resolution=profile.trellis2_resolution,
-            faces=profile.faces,
+            faces=profile.hero_faces,
             texture_size=profile.texture_size,
             model_root=model_root,
         )
@@ -790,7 +809,7 @@ def run_single_backend(
         return GENERATORS[backend](
             image,
             out_dir,
-            faces=profile.faces,
+            faces=profile.hero_faces,
             seed=seed,
             model_root=model_root,
         )
@@ -820,7 +839,7 @@ def run_single_backend(
             image,
             out_dir,
             texture_size=profile.texture_size,
-            faces=profile.faces,
+            faces=profile.hero_faces,
             model_root=model_root,
         )
     raise ValueError(f"unsupported single-image backend: {backend}")
@@ -1337,7 +1356,7 @@ def main() -> int:
                 preliminary = rank_candidates(
                     candidates,
                     mode=mode,
-                    target_faces=profile.faces,
+                    target_faces=profile.hero_faces,
                     target_texture_size=profile.texture_size,
                     source_images=geometry_inputs,
                     visual_weight=0.55,
@@ -1383,7 +1402,7 @@ def main() -> int:
                     restored,
                     sources=geometry_inputs,
                     mode=mode,
-                    target_faces=profile.faces,
+                    target_faces=profile.hero_faces,
                     normal_support_images=normal_support_images,
                 )
                 write_decision(
@@ -1444,7 +1463,7 @@ def main() -> int:
         result = rank_candidates(
             candidates,
             mode=mode,
-            target_faces=profile.faces,
+            target_faces=profile.hero_faces,
             target_texture_size=profile.texture_size,
             source_images=geometry_inputs,
             detail_images=detail_inputs,
@@ -2619,7 +2638,7 @@ def main() -> int:
             source_images=geometry_inputs,
             detail_images=detail_inputs,
             gameprep=gameprep_result,
-            target_faces=profile.faces,
+            target_faces=profile.hero_faces,
             target_texture_size=profile.texture_size,
         )
         print(
