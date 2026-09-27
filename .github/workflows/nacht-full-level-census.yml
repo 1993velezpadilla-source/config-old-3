@@ -1,0 +1,270 @@
+name: XZIEL Nacht Full Level Census
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/xziel-nacht-full-level-census-v1
+    paths:
+      - ".github/workflows/nacht-full-level-census.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  census:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout XZIEL Engine
+        uses: actions/checkout@v5
+
+      - name: Install SteamCMD and repak
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/steamcmd" "$RUNNER_TEMP/repak"
+          curl -fL --retry 6 --retry-delay 2 --retry-all-errors \
+            https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz \
+            -o "$RUNNER_TEMP/steamcmd.tgz"
+          tar -xzf "$RUNNER_TEMP/steamcmd.tgz" \
+            -C "$RUNNER_TEMP/steamcmd"
+          "$RUNNER_TEMP/steamcmd/steamcmd.sh" +quit || true
+          curl -fL --retry 5 \
+            https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-unknown-linux-gnu.tar.xz \
+            -o "$RUNNER_TEMP/repak.tar.xz"
+          tar -xJf "$RUNNER_TEMP/repak.tar.xz" \
+            -C "$RUNNER_TEMP/repak"
+          REPAK=$(find "$RUNNER_TEMP/repak" \
+            -type f -name 'repak*' -perm -111 | head -1)
+          test -n "$REPAK"
+          echo "REPAK=$REPAK" >> "$GITHUB_ENV"
+
+      - name: Download and unpack public Pavlov Nacht source
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/steamcmd/steamcmd.sh" \
+            +login anonymous \
+            +workshop_download_item 555160 2755515831 validate \
+            +quit
+          ROOT=$(find "$HOME" "$RUNNER_TEMP" -type d \
+            -path '*/steamapps/workshop/content/555160/2755515831' \
+            -print -quit 2>/dev/null)
+          test -n "$ROOT"
+          test -f "$ROOT/WindowsNoEditor.pak"
+          mkdir -p "$RUNNER_TEMP/nacht-unpacked"
+          "$REPAK" unpack "$ROOT/WindowsNoEditor.pak" \
+            -o "$RUNNER_TEMP/nacht-unpacked"
+          echo "UNPACKED=$RUNNER_TEMP/nacht-unpacked" >> "$GITHUB_ENV"
+
+      - name: Build CUE4Parse full-level census
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/level-census"
+          cd "$RUNNER_TEMP/level-census"
+          dotnet new console --framework net10.0 --force
+          dotnet add package CUE4Parse --version 1.2.2.202609
+          cat > Program.cs <<'CS'
+          using CUE4Parse.FileProvider;
+          using CUE4Parse.UE4.Versions;
+          using System.Text.Json;
+
+          if (args.Length != 2)
+              return 2;
+
+          var root = args[0];
+          var output = args[1];
+
+          var provider =
+              new DefaultFileProvider(
+                  root,
+                  SearchOption.AllDirectories,
+                  true,
+                  new VersionContainer(EGame.GAME_UE4_21));
+
+          provider.Initialize();
+          provider.PostMount();
+          provider.LoadVirtualPaths();
+
+          var mapCandidates =
+              provider.Files.Values
+                  .Where(
+                      f =>
+                          f.Path.EndsWith(
+                              "/Nacht_de_Untoten.umap",
+                              StringComparison.OrdinalIgnoreCase)
+                          || f.Path.EndsWith(
+                              "\\Nacht_de_Untoten.umap",
+                              StringComparison.OrdinalIgnoreCase)
+                          || Path.GetFileName(f.Path).Equals(
+                              "Nacht_de_Untoten.umap",
+                              StringComparison.OrdinalIgnoreCase))
+                  .Select(f => f.Path)
+                  .Distinct(StringComparer.OrdinalIgnoreCase)
+                  .OrderBy(x => x)
+                  .ToArray();
+
+          if (mapCandidates.Length != 1)
+          {
+              Console.Error.WriteLine(
+                  $"expected exactly one Nacht_de_Untoten.umap, got {mapCandidates.Length}");
+              foreach (var candidate in mapCandidates)
+                  Console.Error.WriteLine(candidate);
+              return 3;
+          }
+
+          var package =
+              provider.LoadPackage(mapCandidates[0]);
+
+          var exports =
+              package.GetExports().ToArray();
+
+          var typeCounts =
+              new SortedDictionary<string, int>(
+                  StringComparer.OrdinalIgnoreCase);
+
+          var keywordCounts =
+              new SortedDictionary<string, int>(
+                  StringComparer.OrdinalIgnoreCase);
+
+          var keywords =
+              new[] {
+                  "Brush",
+                  "Model",
+                  "BSP",
+                  "StaticMesh",
+                  "InstancedStaticMesh",
+                  "HierarchicalInstancedStaticMesh",
+                  "SplineMesh",
+                  "ProceduralMesh",
+                  "Landscape",
+                  "Decal",
+                  "Volume",
+                  "Blocking",
+                  "Collision",
+                  "Light",
+                  "Fog",
+                  "Sky",
+                  "Emitter",
+                  "Particle"
+              };
+
+          var structuralCandidates =
+              new List<object>();
+
+          foreach (var export in exports)
+          {
+              var type =
+                  export.GetType().FullName
+                  ?? export.GetType().Name;
+              var name = export.Name ?? "";
+              var path = export.GetPathName() ?? "";
+
+              typeCounts[type] =
+                  typeCounts.TryGetValue(type, out var count)
+                      ? count + 1
+                      : 1;
+
+              var haystack =
+                  $"{type}|{name}|{path}";
+
+              var hits =
+                  keywords
+                      .Where(
+                          keyword =>
+                              haystack.Contains(
+                                  keyword,
+                                  StringComparison.OrdinalIgnoreCase))
+                      .ToArray();
+
+              foreach (var hit in hits)
+              {
+                  keywordCounts[hit] =
+                      keywordCounts.TryGetValue(hit, out var count)
+                          ? count + 1
+                          : 1;
+              }
+
+              if (hits.Length > 0)
+              {
+                  structuralCandidates.Add(
+                      new {
+                          name,
+                          type,
+                          path,
+                          keywords = hits
+                      });
+              }
+          }
+
+          var report =
+              new {
+                  schemaVersion = 1,
+                  sourcePackage = mapCandidates[0],
+                  totalExports = exports.Length,
+                  typeCounts,
+                  keywordCounts,
+                  structuralCandidateCount =
+                      structuralCandidates.Count,
+                  structuralCandidates
+              };
+
+          Directory.CreateDirectory(
+              Path.GetDirectoryName(output)!);
+
+          File.WriteAllText(
+              output,
+              JsonSerializer.Serialize(
+                  report,
+                  new JsonSerializerOptions {
+                      WriteIndented = true
+                  }));
+
+          Console.WriteLine(
+              "XZIEL_NACHT_FULL_LEVEL_CENSUS_OK "
+              + JsonSerializer.Serialize(
+                  new {
+                      report.totalExports,
+                      report.structuralCandidateCount,
+                      report.keywordCounts
+                  }));
+
+          return 0;
+          CS
+
+          dotnet run --configuration Release -- \
+            "$UNPACKED" \
+            "$GITHUB_WORKSPACE/nacht-full-level-census.json"
+
+      - name: Gate census output
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("nacht-full-level-census.json")
+          data = json.loads(path.read_text(encoding="utf-8"))
+
+          assert data["totalExports"] > 0
+          assert data["sourcePackage"].lower().endswith(
+              "nacht_de_untoten.umap"
+          )
+
+          interesting = data["keywordCounts"]
+          print("XZIEL_NACHT_LEVEL_TYPES", json.dumps(
+              interesting, sort_keys=True
+          ))
+          print("XZIEL_NACHT_TOTAL_EXPORTS", data["totalExports"])
+          print(
+              "XZIEL_NACHT_STRUCTURAL_CANDIDATES",
+              data["structuralCandidateCount"],
+          )
+          PY
+
+      - name: Upload census artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nacht-full-level-census
+          path: nacht-full-level-census.json
+          if-no-files-found: error
