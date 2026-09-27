@@ -2721,6 +2721,12 @@ static void XzDestroyStaticSceneCurrent(
         state->static_scene_local_light_camera_affecting = 0u;
         state->static_scene_local_light_dropped_affecting = 0u;
         state->static_scene_local_lighting_ready = 0;
+        state->static_scene_height_fog_ready = 0;
+        state->static_scene_directional_fog_enabled = 0;
+        state->static_scene_fog_density = 0.0f;
+        state->static_scene_fog_height_falloff = 0.0f;
+        state->static_scene_fog_max_opacity = 0.0f;
+        state->static_scene_fog_start_meters = 0.0f;
         state->static_scene_gpu_ready = 0;
         state->static_scene_last_draw_calls = 0u;
         state->static_scene_last_instances = 0u;
@@ -2835,6 +2841,14 @@ int XzGles3Shadow_UploadStaticScene(
                    "xziel_nacht_bo3") == 0) {
         goto fail;
     }
+
+    if (!XzStaticScenePrepareHeightFog(
+            scene,
+            state) &&
+        strcmp(
+            scene->map_id,
+            "xziel_nacht_bo3") == 0)
+        goto fail;
 
     gpu_meshes = (XzGles3StaticMesh *)calloc(
         (size_t)scene->mesh_resource_count,
@@ -3243,7 +3257,9 @@ int XzGles3Shadow_UploadStaticScene(
           state->static_scene_lighting_ready &&
           state->static_scene_local_lighting_ready &&
           state->static_scene_local_light_count ==
-              XZ_STATIC_LOCAL_LIGHT_SOURCE_MAX));
+              XZ_STATIC_LOCAL_LIGHT_SOURCE_MAX &&
+          state->static_scene_height_fog_ready &&
+          !state->static_scene_directional_fog_enabled));
 
     if (!state->static_scene_gpu_ready)
         goto fail_current_owned;
@@ -3408,6 +3424,21 @@ static int XzDrawStaticScene(
         xz_shadow.static_directional_direction_loc,
         1,
         xz_shadow.static_directional_direction);
+    gl->Uniform3fv(
+        xz_shadow.static_camera_pos_loc,
+        1,
+        camera_origin);
+    gl->Uniform4fv(
+        xz_shadow.static_fog_primary_loc,
+        1,
+        xz_shadow.static_fog_primary);
+    gl->Uniform4fv(
+        xz_shadow.static_fog_color_min_loc,
+        1,
+        xz_shadow.static_fog_color_min);
+    gl->Uniform1f(
+        xz_shadow.static_fog_cutoff_loc,
+        xz_shadow.static_fog_cutoff_cm);
     gl->Uniform1i(
         xz_shadow.static_local_light_count_loc,
         (GLint)active_local_lights);
