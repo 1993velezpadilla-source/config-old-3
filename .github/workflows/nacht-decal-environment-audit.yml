@@ -1,0 +1,272 @@
+name: XZIEL Nacht Decal Environment Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/xziel-nacht-decal-environment-v1
+    paths:
+      - ".github/workflows/nacht-decal-environment-audit.yml"
+  pull_request:
+    branches:
+      - feature/xziel-static-scene-material-final5
+    paths:
+      - ".github/workflows/nacht-decal-environment-audit.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install SteamCMD and repak
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/steamcmd" "$RUNNER_TEMP/repak"
+          curl -fL --retry 6 --retry-delay 2 --retry-all-errors \
+            https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz \
+            -o "$RUNNER_TEMP/steamcmd.tgz"
+          tar -xzf "$RUNNER_TEMP/steamcmd.tgz" -C "$RUNNER_TEMP/steamcmd"
+          "$RUNNER_TEMP/steamcmd/steamcmd.sh" +quit || true
+          curl -fL --retry 5 \
+            https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-unknown-linux-gnu.tar.xz \
+            -o "$RUNNER_TEMP/repak.tar.xz"
+          tar -xJf "$RUNNER_TEMP/repak.tar.xz" -C "$RUNNER_TEMP/repak"
+          REPAK=$(find "$RUNNER_TEMP/repak" -type f -name 'repak*' -perm -111 | head -1)
+          test -n "$REPAK"
+          echo "REPAK=$REPAK" >> "$GITHUB_ENV"
+
+      - name: Download Nacht source
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/steamcmd/steamcmd.sh" \
+            +login anonymous \
+            +workshop_download_item 555160 2755515831 validate \
+            +quit
+          ROOT=$(find "$HOME" "$RUNNER_TEMP" -type d \
+            -path '*/steamapps/workshop/content/555160/2755515831' \
+            -print -quit 2>/dev/null)
+          test -n "$ROOT"
+          mkdir -p "$RUNNER_TEMP/nacht-unpacked"
+          "$REPAK" unpack "$ROOT/WindowsNoEditor.pak" -o "$RUNNER_TEMP/nacht-unpacked"
+          echo "UNPACKED=$RUNNER_TEMP/nacht-unpacked" >> "$GITHUB_ENV"
+
+      - name: Build decal environment scanner
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/decal-audit"
+          cd "$RUNNER_TEMP/decal-audit"
+          dotnet new console --framework net10.0 --force
+          dotnet add package CUE4Parse --version 1.2.2.202609
+          cat > Program.cs <<'CS'
+          using CUE4Parse.FileProvider;
+          using CUE4Parse.UE4.Versions;
+          using System.Text.Json;
+          using System.Reflection;
+          using System.Collections;
+
+          if (args.Length != 2) return 2;
+
+          var provider = new DefaultFileProvider(
+              args[0],
+              SearchOption.AllDirectories,
+              true,
+              new VersionContainer(EGame.GAME_UE4_21));
+          provider.Initialize();
+          provider.PostMount();
+          provider.LoadVirtualPaths();
+
+          var maps = provider.Files.Values
+              .Where(f => f.Path.EndsWith(
+                  "/Nacht_de_Untoten.umap",
+                  StringComparison.OrdinalIgnoreCase)
+                  || Path.GetFileName(f.Path).Equals(
+                      "Nacht_de_Untoten.umap",
+                      StringComparison.OrdinalIgnoreCase))
+              .Select(f => f.Path)
+              .Distinct(StringComparer.OrdinalIgnoreCase)
+              .ToArray();
+
+          if (maps.Length != 1) return 3;
+
+          var exports = provider.LoadPackage(maps[0]).GetExports().ToArray();
+          const BindingFlags flags =
+              BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+
+          object? ReadMember(object target, string name)
+          {
+              var f = target.GetType().GetField(name, flags);
+              if (f is not null) {
+                  try { return f.GetValue(target); } catch { }
+              }
+              var p = target.GetType().GetProperty(name, flags);
+              if (p is not null && p.GetIndexParameters().Length == 0 && p.GetMethod is not null) {
+                  try { return p.GetValue(target); } catch { }
+              }
+              return null;
+          }
+
+          object Describe(object? value)
+          {
+              if (value is null)
+                  return new { type=(string?)null, value=(string?)null, count=(int?)null };
+
+              var type = value.GetType();
+              int? count = null;
+              if (value is Array a) count = a.Length;
+              else if (value is ICollection c) count = c.Count;
+
+              string? scalar = null;
+              if (value is string || type.IsPrimitive || type.IsEnum || value is decimal)
+                  scalar = value.ToString();
+              else {
+                  var s = value.ToString();
+                  if (!string.IsNullOrWhiteSpace(s) && s != type.FullName)
+                      scalar = s;
+              }
+
+              return new {
+                  type = type.FullName ?? type.Name,
+                  value = scalar,
+                  count
+              };
+          }
+
+          string RefPath(object? value)
+          {
+              if (value is null) return "";
+              var rp = value.GetType().GetProperty("ResolvedObject", flags);
+              if (rp is not null) {
+                  try {
+                      var resolved = rp.GetValue(value);
+                      if (resolved is not null) {
+                          var m = resolved.GetType().GetMethod("GetPathName", Type.EmptyTypes);
+                          var s = m?.Invoke(resolved, null)?.ToString();
+                          if (!string.IsNullOrWhiteSpace(s)) return s!;
+                      }
+                  } catch { }
+              }
+              var own = value.GetType().GetMethod("GetPathName", Type.EmptyTypes);
+              if (own is not null) {
+                  try {
+                      var s = own.Invoke(value, null)?.ToString();
+                      if (!string.IsNullOrWhiteSpace(s)) return s!;
+                  } catch { }
+              }
+              return value.ToString() ?? "";
+          }
+
+          var decalRows = new List<object>();
+          var envRows = new List<object>();
+          var typeCounts = new SortedDictionary<string,int>(
+              StringComparer.OrdinalIgnoreCase);
+
+          foreach (var export in exports)
+          {
+              var type = export.GetType().FullName ?? export.GetType().Name;
+              var name = export.Name ?? "";
+              var path = export.GetPathName() ?? "";
+
+              if (
+                  type.Contains("Decal", StringComparison.OrdinalIgnoreCase)
+                  || name.Contains("Decal", StringComparison.OrdinalIgnoreCase))
+              {
+                  typeCounts[type] = typeCounts.TryGetValue(type, out var n) ? n + 1 : 1;
+
+                  var decalMaterial = ReadMember(export, "DecalMaterial");
+                  decalRows.Add(new {
+                      name,
+                      type,
+                      path,
+                      parentPath = path.Contains('.') ? path[..path.LastIndexOf('.')] : "",
+                      decalMaterial = RefPath(decalMaterial),
+                      decalMaterialInfo = Describe(decalMaterial),
+                      decalSize = Describe(ReadMember(export, "DecalSize")),
+                      relativeLocation = Describe(ReadMember(export, "RelativeLocation")),
+                      relativeRotation = Describe(ReadMember(export, "RelativeRotation")),
+                      relativeScale3D = Describe(ReadMember(export, "RelativeScale3D")),
+                      sortOrder = Describe(ReadMember(export, "SortOrder")),
+                      fadeScreenSize = Describe(ReadMember(export, "FadeScreenSize"))
+                  });
+              }
+
+              if (
+                  type.Contains("Light", StringComparison.OrdinalIgnoreCase)
+                  || type.Contains("Fog", StringComparison.OrdinalIgnoreCase)
+                  || type.Contains("Sky", StringComparison.OrdinalIgnoreCase)
+                  || type.Contains("Emitter", StringComparison.OrdinalIgnoreCase)
+                  || type.Contains("Particle", StringComparison.OrdinalIgnoreCase)
+                  || type.Contains("ReflectionCapture", StringComparison.OrdinalIgnoreCase))
+              {
+                  envRows.Add(new {
+                      name,
+                      type,
+                      path
+                  });
+              }
+          }
+
+          var report = new {
+              schemaVersion = 1,
+              sourcePackage = maps[0],
+              decalExportCount = decalRows.Count,
+              decalTypeCounts = typeCounts,
+              environmentExportCount = envRows.Count,
+              decals = decalRows,
+              environment = envRows
+          };
+
+          Directory.CreateDirectory(Path.GetDirectoryName(args[1])!);
+          File.WriteAllText(
+              args[1],
+              JsonSerializer.Serialize(
+                  report,
+                  new JsonSerializerOptions { WriteIndented = true }));
+
+          Console.WriteLine(
+              "XZIEL_NACHT_DECAL_ENV_AUDIT " +
+              JsonSerializer.Serialize(new {
+                  report.decalExportCount,
+                  report.decalTypeCounts,
+                  report.environmentExportCount
+              }));
+
+          foreach (var row in decalRows.Take(12))
+              Console.WriteLine(
+                  "XZIEL_NACHT_DECAL_SAMPLE " +
+                  JsonSerializer.Serialize(row));
+
+          return decalRows.Count > 0 ? 0 : 4;
+          CS
+
+          dotnet run --configuration Release -- \
+            "$UNPACKED" \
+            "$GITHUB_WORKSPACE/nacht-decal-environment-audit.json"
+
+      - name: Gate audit
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("nacht-decal-environment-audit.json")
+          d=json.loads(p.read_text(encoding="utf-8"))
+          assert d["decalExportCount"] > 0
+          assert d["environmentExportCount"] > 0
+          print("XZIEL_DECAL_COUNT", d["decalExportCount"])
+          print("XZIEL_ENV_EXPORT_COUNT", d["environmentExportCount"])
+          print("XZIEL_DECAL_TYPES", json.dumps(d["decalTypeCounts"], sort_keys=True))
+          PY
+
+      - name: Upload audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: nacht-decal-environment-audit
+          path: nacht-decal-environment-audit.json
+          if-no-files-found: error
