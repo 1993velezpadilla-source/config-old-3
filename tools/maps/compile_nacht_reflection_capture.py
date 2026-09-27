@@ -145,10 +145,13 @@ def main() -> int:
         ue_z_cm / 100.0,
     )
     influence_radius_m = radius_cm / 100.0
-    capture_offset_m = (
-        offset_x_cm / 100.0,
-        -offset_y_cm / 100.0,
-        offset_z_cm / 100.0,
+    capture_offset_m = tuple(
+        0.0 if value == 0.0 else value
+        for value in (
+            offset_x_cm / 100.0,
+            -offset_y_cm / 100.0,
+            offset_z_cm / 100.0,
+        )
     )
 
     size = int(row["cubemapSize"])
