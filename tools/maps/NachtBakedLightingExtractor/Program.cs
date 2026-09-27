@@ -3,6 +3,9 @@ using CUE4Parse.UE4.Versions;
 using CUE4Parse.UE4.Objects.UObject;
 using CUE4Parse.UE4.Assets.Exports;
 using CUE4Parse.UE4.Assets.Exports.BuildData;
+using CUE4Parse.UE4.Assets.Exports.Component;
+using CUE4Parse.UE4.Assets.Exports.Component.StaticMesh;
+using CUE4Parse.UE4.Assets.Exports.Component.Landscape;
 using CUE4Parse.UE4.Objects.Core.Misc;
 using System.Text.Json;
 
@@ -87,35 +90,119 @@ var componentBuildIds =
     new Dictionary<string, List<object>>(
         StringComparer.OrdinalIgnoreCase);
 
+void AddComponentBuildId(
+    UObject export,
+    FGuid guid,
+    string bindingKind,
+    int bindingIndex,
+    string? assetPath)
+{
+    if (!IsNonZero(guid))
+        return;
+
+    var key = guid.ToString();
+
+    if (!componentBuildIds.TryGetValue(key, out var rows))
+    {
+        rows = new List<object>();
+        componentBuildIds[key] = rows;
+    }
+
+    rows.Add(
+        new {
+            exportName = export.Name.ToString(),
+            sourceType =
+                export.GetType().FullName
+                ?? export.GetType().Name,
+            sourcePath =
+                export.GetPathName()
+                ?? "",
+            bindingKind,
+            bindingIndex,
+            assetPath
+        });
+}
+
 foreach (var export in mapExports)
 {
     try
     {
-        var guid =
+        if (
+            export is UStaticMeshComponent staticMeshComponent &&
+            staticMeshComponent.LODData is not null)
+        {
+            var staticMeshPath =
+                ReferencePath(
+                    staticMeshComponent.GetStaticMesh());
+
+            for (
+                var lodIndex = 0;
+                lodIndex < staticMeshComponent.LODData.Length;
+                ++lodIndex)
+            {
+                AddComponentBuildId(
+                    export,
+                    staticMeshComponent
+                        .LODData[lodIndex]
+                        .MapBuildDataId,
+                    "staticMeshLOD",
+                    lodIndex,
+                    staticMeshPath);
+            }
+        }
+
+        if (export is UModelComponent modelComponent)
+        {
+            for (
+                var elementIndex = 0;
+                elementIndex < modelComponent.Elements.Length;
+                ++elementIndex)
+            {
+                var buildId =
+                    modelComponent
+                        .Elements[elementIndex]
+                        .MapBuildDataId;
+
+                if (!buildId.HasValue)
+                    continue;
+
+                AddComponentBuildId(
+                    export,
+                    buildId.Value,
+                    "modelElement",
+                    elementIndex,
+                    ReferencePath(
+                        modelComponent
+                            .Elements[elementIndex]
+                            .Material));
+            }
+        }
+
+        if (export is ULandscapeComponent landscapeComponent)
+        {
+            AddComponentBuildId(
+                export,
+                landscapeComponent.MapBuildDataId,
+                "landscape",
+                0,
+                null);
+        }
+
+        /*
+         * Preserve the generic property path for component classes whose
+         * build-data GUID is exposed as a regular tagged property rather than
+         * native serialized LOD/model data.
+         */
+        var propertyGuid =
             export.GetOrDefault<FGuid>(
                 "MapBuildDataId");
 
-        if (!IsNonZero(guid))
-            continue;
-
-        var key = guid.ToString();
-
-        if (!componentBuildIds.TryGetValue(key, out var rows))
-        {
-            rows = new List<object>();
-            componentBuildIds[key] = rows;
-        }
-
-        rows.Add(
-            new {
-                exportName = export.Name.ToString(),
-                sourceType =
-                    export.GetType().FullName
-                    ?? export.GetType().Name,
-                sourcePath =
-                    export.GetPathName()
-                    ?? ""
-            });
+        AddComponentBuildId(
+            export,
+            propertyGuid,
+            "property",
+            0,
+            null);
     }
     catch
     {
