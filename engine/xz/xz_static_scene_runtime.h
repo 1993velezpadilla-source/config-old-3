@@ -38,6 +38,21 @@ typedef struct {
     size_t rgba_bytes;
 } XzStaticTextureView;
 
+#define XZ_REFLECTION_FORMAT_RGBA16F 1u
+
+typedef struct {
+    const unsigned char *payload;
+    size_t payload_bytes;
+    uint32_t cubemap_size;
+    uint32_t mip_count;
+    uint32_t face_count;
+    uint32_t pixel_format;
+    uint32_t bytes_per_texel;
+    float average_brightness;
+    float brightness;
+    unsigned char map_build_data_id[16];
+} XzReflectionCaptureView;
+
 typedef struct {
     XzStaticSceneStatus status;
 
@@ -75,6 +90,10 @@ typedef struct {
     size_t height_fog_bytes;
     XzHeightFogView height_fog;
 
+    unsigned char *reflection_data;
+    size_t reflection_bytes;
+    XzReflectionCaptureView reflection;
+
     uint32_t mesh_files_validated;
     uint64_t mesh_bytes_validated;
     uint64_t vertex_count;
@@ -88,6 +107,7 @@ typedef struct {
     char normal_material_path[256];
     char environment_path[256];
     char height_fog_path[256];
+    char reflection_path[256];
     char error[128];
 } XzStaticSceneRuntimeState;
 
@@ -151,6 +171,10 @@ int XzStaticSceneRuntime_EnvironmentLight(
 
 const XzHeightFogView *
 XzStaticSceneRuntime_HeightFog(
+    const XzStaticSceneRuntimeState *state);
+
+const XzReflectionCaptureView *
+XzStaticSceneRuntime_ReflectionCapture(
     const XzStaticSceneRuntimeState *state);
 
 const char *XzStaticSceneRuntime_StatusName(
