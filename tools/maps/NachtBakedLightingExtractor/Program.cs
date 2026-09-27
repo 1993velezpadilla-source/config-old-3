@@ -157,6 +157,11 @@ var mapExports =
         .GetExports()
         .ToArray();
 
+var mapExportIndexByObject =
+    mapExports
+        .Select((value, index) => new { value, index })
+        .ToDictionary(x => x.value, x => x.index);
+
 var componentBuildIds =
     new Dictionary<string, List<object>>(
         StringComparer.OrdinalIgnoreCase);
@@ -196,6 +201,8 @@ void AddComponentBuildId(
             sourcePath =
                 export.GetPathName()
                 ?? "",
+            componentExportIndex =
+                mapExportIndexByObject[export],
             bindingKind,
             bindingIndex,
             assetPath,
