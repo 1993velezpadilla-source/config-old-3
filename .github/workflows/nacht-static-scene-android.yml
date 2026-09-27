@@ -3561,10 +3561,10 @@ jobs:
           ! grep -q "outColor=vec4(ueDefaultFilmicTonemap(fogged),texel.a)" \
             engine/xz/xz_gles3_shadow.c
 
-          grep -q \
+          grep -Fq \
             "vec3 light=vec3(uAmbientWeight)+uDirectionalColor*(uDirectionalWeight*ndl*0.31830988618)" \
             engine/xz/xz_gles3_shadow.c
-          grep -q \
+          grep -Fq \
             "vec3 directRadiance=uDirectionalColor*uDirectionalWeight;" \
             engine/xz/xz_gles3_shadow.c
           ! grep -q "neutralBaseline" \
