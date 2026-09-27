@@ -924,13 +924,21 @@ static int XzCreateStaticSceneProgram(void)
         "uniform sampler2D uBaseColor;\n"
         "uniform int uHasBaseColor;\n"
         "out vec4 outColor;\n"
+        "float linearToSrgb1(float x){\n"
+        "  x=clamp(x,0.0,1.0);\n"
+        "  return x<=0.0031308?12.92*x:1.055*pow(x,1.0/2.4)-0.055;\n"
+        "}\n"
+        "vec3 linearToSrgb(vec3 c){\n"
+        "  return vec3(linearToSrgb1(c.r),linearToSrgb1(c.g),linearToSrgb1(c.b));\n"
+        "}\n"
         "void main(){\n"
         "  vec3 n=normalize(vNormal);\n"
         "  float light=0.38+0.62*abs(n.z);\n"
         "  float uvTone=0.92+0.08*clamp(vUV.y,0.0,1.0);\n"
         "  vec4 texel=uHasBaseColor!=0?texture(uBaseColor,vUV):vec4(0.56,0.54,0.50,1.0);\n"
         "  if(uHasBaseColor!=0 && texel.a<0.04) discard;\n"
-        "  outColor=vec4(texel.rgb*uvTone*light,texel.a);\n"
+        "  vec3 lit=texel.rgb*uvTone*light;\n"
+        "  outColor=vec4(linearToSrgb(lit),texel.a);\n"
         "}\n";
 
     XzNativeGles3Api *gl = &xz_shadow.gl;
@@ -2073,7 +2081,7 @@ int XzGles3Shadow_UploadStaticScene(
             xz_shadow.gl.TexImage2D(
                 GL_TEXTURE_2D,
                 0,
-                GL_RGBA8,
+                GL_SRGB8_ALPHA8,
                 (GLsizei)source_texture.width,
                 (GLsizei)source_texture.height,
                 0,
