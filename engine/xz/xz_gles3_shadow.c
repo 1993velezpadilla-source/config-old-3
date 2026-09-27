@@ -295,6 +295,8 @@ typedef struct {
     GLint static_projection_loc;
     GLint static_texture_loc;
     GLint static_texture_enabled_loc;
+    GLint static_normal_texture_loc;
+    GLint static_normal_texture_enabled_loc;
     GLint static_ambient_weight_loc;
     GLint static_directional_weight_loc;
     GLint static_directional_color_loc;
@@ -329,6 +331,10 @@ typedef struct {
     uint32_t static_texture_count;
     uint32_t *static_material_bindings;
     uint32_t static_material_binding_count;
+    XzGles3StaticTexture *static_normal_textures;
+    uint32_t static_normal_texture_count;
+    uint32_t *static_normal_bindings;
+    uint32_t static_normal_binding_count;
     XzPbrMaterialBinding *static_pbr_bindings;
     uint32_t static_pbr_binding_count;
 
@@ -1734,6 +1740,8 @@ static int XzCreateStaticSceneProgram(void)
         "in vec2 vUV;\n"
         "uniform sampler2D uBaseColor;\n"
         "uniform int uHasBaseColor;\n"
+        "uniform sampler2D uNormalMap;\n"
+        "uniform int uHasNormalMap;\n"
         "uniform float uAmbientWeight;\n"
         "uniform float uDirectionalWeight;\n"
         "uniform vec3 uDirectionalColor;\n"
@@ -1755,6 +1763,28 @@ static int XzCreateStaticSceneProgram(void)
         "}\n"
         "vec3 linearToSrgb(vec3 v){\n"
         "  return vec3(linearToSrgb1(v.r),linearToSrgb1(v.g),linearToSrgb1(v.b));\n"
+        "}\n"
+        "vec3 surfaceNormal(vec3 geometricNormal){\n"
+        "  if(uHasNormalMap==0) return geometricNormal;\n"
+        "  vec3 mapN=texture(uNormalMap,vUV).xyz*2.0-1.0;\n"
+        "  mapN.y=-mapN.y;\n"
+        "  float mapLen2=dot(mapN,mapN);\n"
+        "  if(mapLen2<1.0e-6) return geometricNormal;\n"
+        "  mapN*=inversesqrt(mapLen2);\n"
+        "  vec3 dp1=dFdx(vWorldPos);\n"
+        "  vec3 dp2=dFdy(vWorldPos);\n"
+        "  vec2 duv1=dFdx(vUV);\n"
+        "  vec2 duv2=dFdy(vUV);\n"
+        "  float det=duv1.x*duv2.y-duv1.y*duv2.x;\n"
+        "  if(abs(det)<1.0e-8) return geometricNormal;\n"
+        "  vec3 tangentRaw=dp1*duv2.y-dp2*duv1.y;\n"
+        "  tangentRaw-=geometricNormal*dot(geometricNormal,tangentRaw);\n"
+        "  float tangentLen2=dot(tangentRaw,tangentRaw);\n"
+        "  if(tangentLen2<1.0e-8) return geometricNormal;\n"
+        "  vec3 T=tangentRaw*inversesqrt(tangentLen2);\n"
+        "  vec3 B=normalize(cross(geometricNormal,T));\n"
+        "  if(det<0.0) B=-B;\n"
+        "  return normalize(mat3(T,B,geometricNormal)*mapN);\n"
         "}\n"
         "float ueFogTransmission(vec3 worldPosGame){\n"
         "  vec3 rayCm=(worldPosGame-uCameraPosGame)*2.54;\n"
@@ -1783,7 +1813,7 @@ static int XzCreateStaticSceneProgram(void)
         "  return transmission;\n"
         "}\n"
         "void main(){\n"
-        "  vec3 n=normalize(vNormal);\n"
+        "  vec3 n=surfaceNormal(normalize(vNormal));\n"
         "  float ndl=max(dot(n,normalize(uDirectionalDirection)),0.0);\n"
         "  float neutralBaseline=uAmbientWeight+uDirectionalWeight;\n"
         "  float directionalContrast=uDirectionalWeight*(ndl-0.5);\n"
@@ -1898,6 +1928,14 @@ static int XzCreateStaticSceneProgram(void)
         gl->GetUniformLocation(
             xz_shadow.static_program,
             "uHasBaseColor");
+    xz_shadow.static_normal_texture_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uNormalMap");
+    xz_shadow.static_normal_texture_enabled_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uHasNormalMap");
     xz_shadow.static_ambient_weight_loc =
         gl->GetUniformLocation(
             xz_shadow.static_program,
@@ -1959,6 +1997,8 @@ static int XzCreateStaticSceneProgram(void)
         xz_shadow.static_projection_loc < 0 ||
         xz_shadow.static_texture_loc < 0 ||
         xz_shadow.static_texture_enabled_loc < 0 ||
+        xz_shadow.static_normal_texture_loc < 0 ||
+        xz_shadow.static_normal_texture_enabled_loc < 0 ||
         xz_shadow.static_ambient_weight_loc < 0 ||
         xz_shadow.static_directional_weight_loc < 0 ||
         xz_shadow.static_directional_color_loc < 0 ||
@@ -1979,6 +2019,9 @@ static int XzCreateStaticSceneProgram(void)
     gl->Uniform1i(
         xz_shadow.static_texture_loc,
         0);
+    gl->Uniform1i(
+        xz_shadow.static_normal_texture_loc,
+        1);
     gl->UseProgram(0u);
 
     return gl->GetError() == GL_NO_ERROR;
