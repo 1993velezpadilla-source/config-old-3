@@ -1600,11 +1600,13 @@ static int XzCreateStaticSceneProgram(void)
         "uniform mat4 uView;\n"
         "uniform mat4 uProjection;\n"
         "out vec3 vNormal;\n"
+        "out vec3 vWorldPos;\n"
         "out vec2 vUV;\n"
         "void main(){\n"
         "  vec4 world=aModel*vec4(aPos,1.0);\n"
         "  gl_Position=uProjection*uView*world;\n"
         "  vNormal=normalize(mat3(aModel)*aNormal);\n"
+        "  vWorldPos=world.xyz;\n"
         "  vUV=aUV;\n"
         "}\n";
 
@@ -1612,6 +1614,7 @@ static int XzCreateStaticSceneProgram(void)
         "#version 300 es\n"
         "precision mediump float;\n"
         "in vec3 vNormal;\n"
+        "in vec3 vWorldPos;\n"
         "in vec2 vUV;\n"
         "uniform sampler2D uBaseColor;\n"
         "uniform int uHasBaseColor;\n"
@@ -1619,6 +1622,10 @@ static int XzCreateStaticSceneProgram(void)
         "uniform float uDirectionalWeight;\n"
         "uniform vec3 uDirectionalColor;\n"
         "uniform vec3 uDirectionalDirection;\n"
+        "uniform int uLocalLightCount;\n"
+        "uniform vec4 uLocalPosInvRadius[64];\n"
+        "uniform vec4 uLocalColorCone[64];\n"
+        "uniform vec4 uLocalDirCosOuter[64];\n"
         "out vec4 outColor;\n"
         "float linearToSrgb1(float x){\n"
         "  x=clamp(x,0.0,1.0);\n"
@@ -1633,6 +1640,31 @@ static int XzCreateStaticSceneProgram(void)
         "  float neutralBaseline=uAmbientWeight+uDirectionalWeight;\n"
         "  float directionalContrast=uDirectionalWeight*(ndl-0.5);\n"
         "  vec3 light=vec3(neutralBaseline)+uDirectionalColor*directionalContrast;\n"
+        "  vec3 localLight=vec3(0.0);\n"
+        "  for(int i=0;i<64;++i){\n"
+        "    if(i>=uLocalLightCount) break;\n"
+        "    vec4 pr=uLocalPosInvRadius[i];\n"
+        "    vec3 toLightGame=pr.xyz-vWorldPos;\n"
+        "    float gameD2=max(dot(toLightGame,toLightGame),1.0e-8);\n"
+        "    vec3 L=toLightGame*inversesqrt(gameD2);\n"
+        "    vec3 toLightCm=toLightGame*2.54;\n"
+        "    float d2=max(dot(toLightCm,toLightCm),1.0e-4);\n"
+        "    float invR=abs(pr.w);\n"
+        "    float q=d2*invR*invR;\n"
+        "    float radiusMask=clamp(1.0-q*q,0.0,1.0);\n"
+        "    radiusMask*=radiusMask;\n"
+        "    float spot=1.0;\n"
+        "    if(pr.w<0.0){\n"
+        "      vec4 dc=uLocalDirCosOuter[i];\n"
+        "      float cone=dot(-L,normalize(dc.xyz));\n"
+        "      spot=clamp((cone-dc.w)*uLocalColorCone[i].w,0.0,1.0);\n"
+        "      spot*=spot;\n"
+        "    }\n"
+        "    float localNdl=max(dot(n,L),0.0);\n"
+        "    float attenuation=(1.0/(d2+1.0))*radiusMask*spot;\n"
+        "    localLight+=uLocalColorCone[i].rgb*(attenuation*localNdl*0.31830988618);\n"
+        "  }\n"
+        "  light+=localLight;\n"
         "  float uvTone=0.92+0.08*clamp(vUV.y,0.0,1.0);\n"
         "  vec4 texel=uHasBaseColor!=0?texture(uBaseColor,vUV):vec4(0.56,0.54,0.50,1.0);\n"
         "  if(uHasBaseColor!=0 && texel.a<0.04) discard;\n"
@@ -1712,6 +1744,22 @@ static int XzCreateStaticSceneProgram(void)
         gl->GetUniformLocation(
             xz_shadow.static_program,
             "uDirectionalDirection");
+    xz_shadow.static_local_light_count_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uLocalLightCount");
+    xz_shadow.static_local_pos_inv_radius_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uLocalPosInvRadius[0]");
+    xz_shadow.static_local_color_cone_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uLocalColorCone[0]");
+    xz_shadow.static_local_dir_cos_outer_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uLocalDirCosOuter[0]");
 
     if (xz_shadow.static_view_loc < 0 ||
         xz_shadow.static_projection_loc < 0 ||
@@ -1720,7 +1768,11 @@ static int XzCreateStaticSceneProgram(void)
         xz_shadow.static_ambient_weight_loc < 0 ||
         xz_shadow.static_directional_weight_loc < 0 ||
         xz_shadow.static_directional_color_loc < 0 ||
-        xz_shadow.static_directional_direction_loc < 0)
+        xz_shadow.static_directional_direction_loc < 0 ||
+        xz_shadow.static_local_light_count_loc < 0 ||
+        xz_shadow.static_local_pos_inv_radius_loc < 0 ||
+        xz_shadow.static_local_color_cone_loc < 0 ||
+        xz_shadow.static_local_dir_cos_outer_loc < 0)
         return 0;
 
     gl->UseProgram(xz_shadow.static_program);
