@@ -22,6 +22,7 @@ on:
       - feature/xziel-nacht-pbr-scalar-pack-v1
       - feature/xziel-nacht-pbr-scalar-shader-v1
       - feature/xziel-nacht-normal-map-shader-v1
+      - feature/xziel-nacht-specular-response-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -2982,8 +2983,13 @@ jobs:
             dist/static-scene-logcat.txt
 
           grep -E \
-            "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*pbrBindings=1063 pbrBytes=21280 pbrGpuReady=1 pbrAuthored=91" \
+            "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*pbrBindings=1063 pbrBytes=21280 pbrGpuReady=1 pbrAuthored=91 specularReady=1" \
             dist/static-scene-logcat.txt
+
+          grep -q "vec3 fresnelSchlick" engine/xz/xz_gles3_shadow.c
+          grep -q "float distributionGGX" engine/xz/xz_gles3_shadow.c
+          grep -q "vec3 cookTorranceSpec" engine/xz/xz_gles3_shadow.c
+          grep -q "localSpec+=cookTorranceSpec" engine/xz/xz_gles3_shadow.c
 
           grep -E \
             "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*normalBindings=1063 normalMapped=[1-9][0-9]* normalTextures=[1-9][0-9]* normalBytes=[1-9][0-9]* normalGpuReady=1" \
@@ -3010,7 +3016,7 @@ jobs:
             dist/static-scene-logcat.txt
 
           grep -E \
-            "XZIEL-XZ.*static_scene_draw ready=1.*normalReady=1 normalApplied=[1-9][0-9]* normalMapped=[1-9][0-9]*.*pbrReady=1 pbrApplied=1063 pbrAuthored=91" \
+            "XZIEL-XZ.*static_scene_draw ready=1.*normalReady=1 normalApplied=[1-9][0-9]* normalMapped=[1-9][0-9]*.*pbrReady=1 pbrApplied=1063 pbrAuthored=91 specularReady=1 specularLocal=64" \
             dist/static-scene-logcat.txt
 
           python3 - <<'PY'
@@ -3036,6 +3042,19 @@ jobs:
           print(
               "XZIEL_NACHT_NORMAL_DRAW_MATCH_GREEN",
               {"applied": applied, "mapped": mapped},
+          )
+
+          specular = re.search(
+              r"static_scene_draw ready=1.*?"
+              r"specularReady=1 specularLocal=(\d+)",
+              text,
+          )
+          assert specular, "GGX specular draw audit line missing"
+          local = int(specular.group(1))
+          assert local == 64, f"GGX specular local-light set drifted: {local}"
+          print(
+              "XZIEL_NACHT_SPECULAR_DRAW_GREEN",
+              {"ggx": 1, "fresnel": 1, "local": local},
           )
           PY
 
@@ -3065,6 +3084,9 @@ jobs:
 
           echo \
             "XZIEL_NACHT_NORMAL_MAP_SHADER_GREEN bindings=1063 applied_equals_mapped=1"
+
+          echo \
+            "XZIEL_NACHT_SPECULAR_RESPONSE_GREEN ggx=1 fresnel=1 local=64 pbrAuthored=91"
 
           echo \
             "XZIEL_NACHT_ENVIRONMENT_GREEN lights=166 point=144 spot=19 directional=2 sky=1 bytes=14636"
