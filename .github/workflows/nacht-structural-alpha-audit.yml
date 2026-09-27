@@ -1,0 +1,514 @@
+name: XZIEL Nacht Structural Alpha Audit
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - feature/xziel-static-scene-material-final5
+    paths:
+      - ".github/workflows/nacht-structural-alpha-audit.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install SteamCMD and repak
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/steamcmd" "$RUNNER_TEMP/repak"
+          curl -fL --retry 6 --retry-delay 2 --retry-all-errors \
+            https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz \
+            -o "$RUNNER_TEMP/steamcmd.tgz"
+          tar -xzf "$RUNNER_TEMP/steamcmd.tgz" -C "$RUNNER_TEMP/steamcmd"
+          "$RUNNER_TEMP/steamcmd/steamcmd.sh" +quit || true
+          curl -fL --retry 5 \
+            https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-unknown-linux-gnu.tar.xz \
+            -o "$RUNNER_TEMP/repak.tar.xz"
+          tar -xJf "$RUNNER_TEMP/repak.tar.xz" -C "$RUNNER_TEMP/repak"
+          REPAK=$(find "$RUNNER_TEMP/repak" -type f -name 'repak*' -perm -111 | head -1)
+          test -n "$REPAK"
+          echo "REPAK=$REPAK" >> "$GITHUB_ENV"
+
+      - name: Download Nacht source
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/steamcmd/steamcmd.sh" \
+            +login anonymous \
+            +workshop_download_item 555160 2755515831 validate \
+            +quit
+          ROOT=$(find "$HOME" "$RUNNER_TEMP" -type d \
+            -path '*/steamapps/workshop/content/555160/2755515831' \
+            -print -quit 2>/dev/null)
+          test -n "$ROOT"
+          test -f "$ROOT/WindowsNoEditor.pak"
+          mkdir -p "$RUNNER_TEMP/nacht-unpacked"
+          "$REPAK" unpack "$ROOT/WindowsNoEditor.pak" -o "$RUNNER_TEMP/nacht-unpacked"
+          echo "UNPACKED=$RUNNER_TEMP/nacht-unpacked" >> "$GITHUB_ENV"
+
+      - name: Build structural alpha scanner
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/alpha-scanner"
+          cd "$RUNNER_TEMP/alpha-scanner"
+          dotnet new console --framework net10.0 --force
+          dotnet add package CUE4Parse --version 1.2.2.202609
+          dotnet add package CUE4Parse-Conversion --version 1.2.2.202609
+
+          cat > Program.cs <<'CS'
+          using CUE4Parse.FileProvider;
+          using CUE4Parse.UE4.Versions;
+          using CUE4Parse.UE4.Assets.Exports.StaticMesh;
+          using CUE4Parse.UE4.Assets.Exports.Material;
+          using CUE4Parse.UE4.Assets.Exports.Texture;
+          using CUE4Parse.UE4.Objects.Engine;
+          using CUE4Parse_Conversion;
+          using CUE4Parse_Conversion.Textures;
+          using System.Text.Json;
+
+          if (args.Length != 2)
+              return 2;
+
+          var wanted = new HashSet<string>(
+              new[] {
+                  "zm_prototype_part1_t7_concrete_wall_damaged_01_bare",
+                  "zm_prototype_part1_t7_concrete_wall_weathered_01",
+                  "zm_prototype_part1_t7_concrete_floor_sealed_01",
+                  "zm_prototype_part3_t7_metal_rust_ceiling_01",
+                  "zm_prototype_part1_t7_concrete_poured_bunker_dirty_01"
+              },
+              StringComparer.OrdinalIgnoreCase);
+
+          var provider = new DefaultFileProvider(
+              args[0],
+              SearchOption.AllDirectories,
+              true,
+              new VersionContainer(EGame.GAME_UE4_21));
+          provider.Initialize();
+          provider.PostMount();
+          provider.LoadVirtualPaths();
+
+          var packageBasenames =
+              provider.Files.Values
+                  .Where(f => f.IsUePackage)
+                  .Where(f => f.Path.EndsWith(
+                      ".uasset",
+                      StringComparison.OrdinalIgnoreCase))
+                  .GroupBy(
+                      f => Path.GetFileNameWithoutExtension(
+                          f.Path.Replace('\\', '/')),
+                      StringComparer.OrdinalIgnoreCase)
+                  .ToDictionary(
+                      g => g.Key,
+                      g => g.Select(x => x.Path).ToArray(),
+                      StringComparer.OrdinalIgnoreCase);
+
+          UTexture? LoadTextureByName(string textureName)
+          {
+              if (string.IsNullOrWhiteSpace(textureName))
+                  return null;
+
+              if (!packageBasenames.TryGetValue(
+                      textureName,
+                      out var candidates))
+                  return null;
+
+              foreach (var packagePath in candidates)
+              {
+                  try
+                  {
+                      var texture =
+                          provider.LoadPackage(packagePath)
+                              .GetExports()
+                              .OfType<UTexture>()
+                              .FirstOrDefault(
+                                  x => x.Name.Equals(
+                                      textureName,
+                                      StringComparison.OrdinalIgnoreCase))
+                          ?? provider.LoadPackage(packagePath)
+                              .GetExports()
+                              .OfType<UTexture>()
+                              .FirstOrDefault();
+
+                      if (texture is not null)
+                          return texture;
+                  }
+                  catch
+                  {
+                  }
+              }
+
+              return null;
+          }
+
+          object AlphaStats(UTexture texture)
+          {
+              var decoded = texture.Decode();
+              if (decoded is null)
+              {
+                  return new {
+                      texture = texture.Name,
+                      path = texture.GetPathName(),
+                      decoded = false,
+                      format = "null",
+                      width = 0,
+                      height = 0,
+                      minAlpha = -1,
+                      maxAlpha = -1,
+                      below04 = -1L,
+                      total = -1L,
+                      below04Pct = -1.0
+                  };
+              }
+
+              long total =
+                  (long)decoded.Width *
+                  (long)decoded.Height;
+              long below = 0;
+              int minAlpha = 255;
+              int maxAlpha = 0;
+
+              if (
+                  decoded.PixelFormat ==
+                      EPixelFormat.PF_R8G8B8A8
+                  || decoded.PixelFormat ==
+                      EPixelFormat.PF_B8G8R8A8
+                  || decoded.PixelFormat ==
+                      EPixelFormat.PF_A8R8G8B8)
+              {
+                  var expected = total * 4L;
+                  if (decoded.Data.Length != expected)
+                      throw new Exception(
+                          $"RGBA byte mismatch for {texture.Name}");
+
+                  for (long pixel = 0; pixel < total; ++pixel)
+                  {
+                      var alpha =
+                          decoded.Data[(int)(pixel * 4L + 3L)];
+                      if (alpha < minAlpha) minAlpha = alpha;
+                      if (alpha > maxAlpha) maxAlpha = alpha;
+                      if (alpha < 11) below++;
+                  }
+              }
+              else if (decoded.PixelFormat == EPixelFormat.PF_G8)
+              {
+                  minAlpha = 255;
+                  maxAlpha = 255;
+                  below = 0;
+              }
+              else
+              {
+                  return new {
+                      texture = texture.Name,
+                      path = texture.GetPathName(),
+                      decoded = false,
+                      format = decoded.PixelFormat.ToString(),
+                      width = decoded.Width,
+                      height = decoded.Height,
+                      minAlpha = -1,
+                      maxAlpha = -1,
+                      below04 = -1L,
+                      total,
+                      below04Pct = -1.0
+                  };
+              }
+
+              return new {
+                  texture = texture.Name,
+                  path = texture.GetPathName(),
+                  decoded = true,
+                  format = decoded.PixelFormat.ToString(),
+                  width = decoded.Width,
+                  height = decoded.Height,
+                  minAlpha,
+                  maxAlpha,
+                  below04 = below,
+                  total,
+                  below04Pct =
+                      total > 0
+                          ? 100.0 * below / total
+                          : 0.0
+              };
+          }
+
+          var rows = new List<object>();
+          var foundMeshes =
+              new HashSet<string>(
+                  StringComparer.OrdinalIgnoreCase);
+
+          foreach (var file in provider.Files.Values
+              .Where(f => f.IsUePackage)
+              .Where(f => f.Path.Contains(
+                  "/CoD_nacht/",
+                  StringComparison.OrdinalIgnoreCase))
+              .Where(f => f.Path.EndsWith(
+                  ".uasset",
+                  StringComparison.OrdinalIgnoreCase)))
+          {
+              try
+              {
+                  foreach (var mesh in provider.LoadPackage(file.Path)
+                      .GetExports()
+                      .OfType<UStaticMesh>())
+                  {
+                      if (!wanted.Contains(mesh.Name))
+                          continue;
+                      if (!foundMeshes.Add(mesh.Name))
+                          continue;
+
+                      for (
+                          var slotIndex = 0;
+                          slotIndex < mesh.StaticMaterials.Length;
+                          ++slotIndex)
+                      {
+                          var slot = mesh.StaticMaterials[slotIndex];
+                          var slotName =
+                              slot.ImportedMaterialSlotName?.Text
+                              ?? slot.MaterialSlotName.Text;
+
+                          if (slot.MaterialInterface is not { } materialRef)
+                          {
+                              rows.Add(new {
+                                  mesh = mesh.Name,
+                                  slotIndex,
+                                  slotName,
+                                  material = "",
+                                  materialPath = "",
+                                  source = "missing-material-ref",
+                                  semantic = "",
+                                  texture = "",
+                                  alpha = (object?)null
+                              });
+                              continue;
+                          }
+
+                          if (!materialRef.TryLoad<UMaterialInterface>(
+                                  out var material)
+                              || material is null)
+                          {
+                              rows.Add(new {
+                                  mesh = mesh.Name,
+                                  slotIndex,
+                                  slotName,
+                                  material = materialRef.Name,
+                                  materialPath =
+                                      materialRef.ResolvedObject?.GetPathName()
+                                      ?? "",
+                                  source = "material-load-fail",
+                                  semantic = "",
+                                  texture = "",
+                                  alpha = (object?)null
+                              });
+                              continue;
+                          }
+
+                          var semanticFound = false;
+
+                          try
+                          {
+                              var resolvedParams =
+                                  new CMaterialParams2();
+                              material.GetParams(
+                                  resolvedParams,
+                                  EMaterialDepth.AllLayers);
+
+                              foreach (var pair in resolvedParams.Textures)
+                              {
+                                  var semantic = pair.Key ?? "";
+                                  var lower =
+                                      semantic.ToLowerInvariant();
+
+                                  if (!(
+                                      lower.Contains("diffuse")
+                                      || lower.Contains("basecolor")
+                                      || lower.Contains("albedo")
+                                      || semantic.Equals(
+                                          CMaterialParams2.FallbackDiffuse,
+                                          StringComparison.OrdinalIgnoreCase)))
+                                  {
+                                      continue;
+                                  }
+
+                                  var textureName =
+                                      pair.Value?.Name ?? "";
+                                  var texture =
+                                      LoadTextureByName(textureName);
+
+                                  rows.Add(new {
+                                      mesh = mesh.Name,
+                                      slotIndex,
+                                      slotName,
+                                      material = material.Name,
+                                      materialPath = material.GetPathName(),
+                                      source = "params2",
+                                      semantic,
+                                      texture = textureName,
+                                      alpha =
+                                          texture is not null
+                                              ? AlphaStats(texture)
+                                              : null
+                                  });
+
+                                  semanticFound = true;
+                              }
+                          }
+                          catch (Exception e)
+                          {
+                              rows.Add(new {
+                                  mesh = mesh.Name,
+                                  slotIndex,
+                                  slotName,
+                                  material = material.Name,
+                                  materialPath = material.GetPathName(),
+                                  source = "params2-error",
+                                  semantic = e.Message,
+                                  texture = "",
+                                  alpha = (object?)null
+                              });
+                          }
+
+                          if (!semanticFound)
+                          {
+                              foreach (var streaming in material.TextureStreamingData)
+                              {
+                                  var textureName =
+                                      streaming.TextureName.Text;
+
+                                  if (string.IsNullOrWhiteSpace(textureName))
+                                      continue;
+
+                                  var lower =
+                                      textureName.ToLowerInvariant();
+
+                                  if (
+                                      lower.Contains("normal")
+                                      || lower.EndsWith("_n")
+                                      || lower.Contains("rough")
+                                      || lower.Contains("metal")
+                                      || lower.Contains("spec")
+                                      || lower.Contains("mask")
+                                      || lower.Contains("_ao"))
+                                  {
+                                      continue;
+                                  }
+
+                                  var texture =
+                                      LoadTextureByName(textureName);
+
+                                  rows.Add(new {
+                                      mesh = mesh.Name,
+                                      slotIndex,
+                                      slotName,
+                                      material = material.Name,
+                                      materialPath = material.GetPathName(),
+                                      source = "streaming-fallback-candidate",
+                                      semantic = "",
+                                      texture = textureName,
+                                      alpha =
+                                          texture is not null
+                                              ? AlphaStats(texture)
+                                              : null
+                                  });
+                              }
+                          }
+                      }
+                  }
+              }
+              catch
+              {
+              }
+          }
+
+          if (foundMeshes.Count != wanted.Count)
+          {
+              foreach (var miss in wanted.Except(foundMeshes))
+                  Console.Error.WriteLine("MISSING_MESH " + miss);
+              return 3;
+          }
+
+          var report = new {
+              schemaVersion = 1,
+              meshCount = foundMeshes.Count,
+              rowCount = rows.Count,
+              rows
+          };
+
+          File.WriteAllText(
+              args[1],
+              JsonSerializer.Serialize(
+                  report,
+                  new JsonSerializerOptions {
+                      WriteIndented = true
+                  }));
+
+          Console.WriteLine(
+              "XZIEL_STRUCTURAL_ALPHA_AUDIT "
+              + JsonSerializer.Serialize(report));
+
+          return 0;
+          CS
+
+      - name: Run structural alpha audit
+        run: |
+          set -euo pipefail
+          dotnet run \
+            --project "$RUNNER_TEMP/alpha-scanner" \
+            --configuration Release \
+            -- \
+            "$UNPACKED" \
+            "$GITHUB_WORKSPACE/nacht-structural-alpha.json" \
+            | tee nacht-structural-alpha.log
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          data=json.loads(
+              Path("nacht-structural-alpha.json")
+                  .read_text(encoding="utf-8")
+          )
+
+          print(
+              "XZIEL_STRUCTURAL_ALPHA_SUMMARY",
+              "meshes",data["meshCount"],
+              "rows",data["rowCount"],
+          )
+
+          risky=[]
+          for row in data["rows"]:
+              alpha=row.get("alpha")
+              if not isinstance(alpha,dict):
+                  continue
+              pct=alpha.get("below04Pct",-1)
+              if isinstance(pct,(int,float)) and pct>0:
+                  risky.append({
+                      "mesh":row["mesh"],
+                      "material":row["material"],
+                      "semantic":row["semantic"],
+                      "texture":row["texture"],
+                      "below04Pct":pct,
+                      "minAlpha":alpha.get("minAlpha"),
+                      "maxAlpha":alpha.get("maxAlpha"),
+                  })
+
+          print(
+              "XZIEL_STRUCTURAL_ALPHA_RISK",
+              json.dumps(risky,sort_keys=True),
+          )
+          PY
+
+      - name: Upload alpha audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: nacht-structural-alpha-audit
+          path: |
+            nacht-structural-alpha.json
+            nacht-structural-alpha.log
+          if-no-files-found: error
