@@ -58,6 +58,13 @@ def main() -> int:
             f"expected {EXPECTED_INSTANCES} scene instances, got {len(instances)}"
         )
 
+    static_component_metadata = {
+        row["componentExportIndex"]: row
+        for row in census.get("staticMeshComponents", [])
+        if isinstance(row, dict)
+        and isinstance(row.get("componentExportIndex"), int)
+    }
+
     by_component: dict[int, list[dict]] = defaultdict(list)
     for mesh_build in census.get("meshBuildData", []):
         if not isinstance(mesh_build, dict):
@@ -152,6 +159,8 @@ def main() -> int:
                 "sceneMesh": scene_mesh,
                 "status": status,
                 "assetMatchesSceneMesh": asset_matches,
+                "componentMetadata":
+                    static_component_metadata.get(component_index),
                 "binding": chosen,
             }
         )
@@ -202,6 +211,8 @@ def main() -> int:
         "uniqueSceneComponentCount": len(seen_scene_components),
         "duplicateSceneComponentCount": duplicate_scene_components,
         "bakedStaticComponentCount": len(by_component),
+        "staticComponentMetadataCount":
+            len(static_component_metadata),
         "mappedInstanceCount": mapped,
         "missingInstanceCount": missing,
         "ambiguousInstanceCount": ambiguous,
