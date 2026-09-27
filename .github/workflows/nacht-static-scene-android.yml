@@ -11,12 +11,14 @@ on:
       - feature/xziel-static-scene-material-coverage-v2
       - feature/xziel-static-scene-material-final5
       - feature/xziel-static-scene-material-final5-exact-gate
+      - feature/xziel-nacht-decal-environment-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
       - "engine/xz/xz_xzscene.*"
       - "engine/xz/xz_static_scene_runtime.*"
       - "engine/xz/xz_static_scene_draw_plan.*"
+      - "engine/xz/xz_environment.*"
       - "engine/xz/xz_android_runtime.*"
       - "engine/xz/xz_gles3_shadow.*"
       - "tools/maps/compile_xziel_static_scene.py"
@@ -24,9 +26,20 @@ on:
       - "tools/maps/convert_glb_to_xzmesh.py"
       - "tools/maps/compile_nacht_xzmesh_bundle.py"
       - "tools/maps/compile_nacht_xzmat_bundle.py"
+      - "tools/maps/compile_nacht_environment.py"
       - "tools/maps/export_nacht_nzp_harness.py"
       - "scripts/patch_vril_xz_phase0.py"
       - "scripts/prepare_android.sh"
+      - ".github/workflows/nacht-static-scene-android.yml"
+
+  pull_request:
+    branches:
+      - feature/xziel-static-scene-material-final5
+    paths:
+      - "engine/xz/xz_environment.*"
+      - "engine/xz/xz_static_scene_runtime.*"
+      - "tools/maps/compile_nacht_environment.py"
+      - "scripts/patch_vril_xz_phase0.py"
       - ".github/workflows/nacht-static-scene-android.yml"
 
 permissions:
@@ -116,6 +129,232 @@ jobs:
             -o "$RUNNER_TEMP/nacht-unpacked"
           echo "UNPACKED=$RUNNER_TEMP/nacht-unpacked" \
             >> "$GITHUB_ENV"
+
+      - name: Extract typed 98-light CUE4Parse census
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/local-lights"
+          cd "$RUNNER_TEMP/local-lights"
+          dotnet new console --framework net10.0 --force
+          dotnet add package CUE4Parse --version 1.2.2.202609
+          cat > Program.cs <<'CS'
+          using CUE4Parse.FileProvider;
+          using CUE4Parse.UE4.Versions;
+          using System.Reflection;
+          using System.Text.Json;
+
+          if (args.Length != 3) return 2;
+
+          using var environmentDoc =
+              JsonDocument.Parse(
+                  File.ReadAllText(args[1]));
+
+          var targetActors = new HashSet<string>(
+              StringComparer.OrdinalIgnoreCase);
+
+          foreach (
+              var actor
+              in environmentDoc.RootElement
+                  .GetProperty("actors")
+                  .EnumerateArray())
+          {
+              var actorClass =
+                  actor.GetProperty("class").GetString()
+                  ?? "";
+              if (
+                  actorClass != "/Script/Engine/PointLight"
+                  && actorClass != "/Script/Engine/SpotLight")
+                  continue;
+
+              var name =
+                  actor.GetProperty("name").GetString();
+              if (!string.IsNullOrWhiteSpace(name))
+                  targetActors.Add(name);
+          }
+
+          if (targetActors.Count != 98)
+              return 3;
+
+          var provider = new DefaultFileProvider(
+              args[0],
+              SearchOption.AllDirectories,
+              true,
+              new VersionContainer(EGame.GAME_UE4_21));
+          provider.Initialize();
+          provider.PostMount();
+          provider.LoadVirtualPaths();
+
+          var maps = provider.Files.Values
+              .Where(
+                  file =>
+                      Path.GetFileName(file.Path).Equals(
+                          "Nacht_de_Untoten.umap",
+                          StringComparison.OrdinalIgnoreCase))
+              .Select(file => file.Path)
+              .Distinct(StringComparer.OrdinalIgnoreCase)
+              .ToArray();
+
+          if (maps.Length != 1)
+              return 4;
+
+          var exports =
+              provider.LoadPackage(maps[0])
+                  .GetExports()
+                  .ToArray();
+
+          const BindingFlags flags =
+              BindingFlags.Instance
+              | BindingFlags.Public
+              | BindingFlags.NonPublic;
+
+          object? Read(
+              object target,
+              string name)
+          {
+              var field =
+                  target.GetType().GetField(
+                      name,
+                      flags);
+              if (field is not null)
+              {
+                  try {
+                      return field.GetValue(target);
+                  } catch { }
+              }
+
+              var property =
+                  target.GetType().GetProperty(
+                      name,
+                      flags);
+              if (
+                  property is not null
+                  && property.GetIndexParameters().Length == 0
+                  && property.GetMethod is not null)
+              {
+                  try {
+                      return property.GetValue(target);
+                  } catch { }
+              }
+
+              return null;
+          }
+
+          string Value(object? value)
+          {
+              if (value is null)
+                  return "";
+              try {
+                  return value.ToString() ?? "";
+              } catch {
+                  return "";
+              }
+          }
+
+          object Snapshot(object target)
+          {
+              string[] wanted = {
+                  "AttenuationRadius",
+                  "Intensity",
+                  "IntensityUnits",
+                  "LightColor",
+                  "InnerConeAngle",
+                  "OuterConeAngle",
+                  "SourceRadius",
+                  "SoftSourceRadius",
+                  "SourceLength",
+                  "RelativeLocation",
+                  "RelativeRotation",
+                  "RelativeScale3D",
+                  "bUseInverseSquaredFalloff",
+                  "LightFalloffExponent"
+              };
+
+              var values =
+                  new SortedDictionary<string,string>(
+                      StringComparer.OrdinalIgnoreCase);
+
+              foreach (var name in wanted)
+                  values[name] =
+                      Value(Read(target, name));
+
+              return new {
+                  type =
+                      target.GetType().FullName
+                      ?? target.GetType().Name,
+                  values
+              };
+          }
+
+          var rows = new List<object>();
+
+          foreach (var export in exports)
+          {
+              var type =
+                  export.GetType().FullName
+                  ?? export.GetType().Name;
+
+              if (
+                  !type.Contains(
+                      "PointLightComponent",
+                      StringComparison.OrdinalIgnoreCase)
+                  && !type.Contains(
+                      "SpotLightComponent",
+                      StringComparison.OrdinalIgnoreCase))
+                  continue;
+
+              var path =
+                  export.GetPathName()
+                  ?? "";
+
+              var actor =
+                  targetActors.FirstOrDefault(
+                      name =>
+                          path.Contains(
+                              "." + name + ".",
+                              StringComparison.OrdinalIgnoreCase));
+
+              if (actor is null)
+                  continue;
+
+              rows.Add(new {
+                  actor,
+                  name = export.Name,
+                  path,
+                  component = Snapshot(export)
+              });
+          }
+
+          if (rows.Count != targetActors.Count)
+              return 5;
+
+          File.WriteAllText(
+              args[2],
+              JsonSerializer.Serialize(
+                  new {
+                      schemaVersion = 1,
+                      targetCount =
+                          targetActors.Count,
+                      componentCount =
+                          rows.Count,
+                      rows
+                  },
+                  new JsonSerializerOptions {
+                      WriteIndented = true
+                  }));
+
+          Console.WriteLine(
+              "XZIEL_NACHT_TYPED_LOCAL_LIGHTS_OK"
+              + $" point=86 spot=12 total={rows.Count}");
+
+          return 0;
+          CS
+
+          dotnet run --configuration Release -- \
+            "$UNPACKED" \
+            "$GITHUB_WORKSPACE/assets/nacht_reference/pavlov_scene_reference/environment.json" \
+            "$RUNNER_TEMP/nacht-local-lights.json"
+
+          test -s "$RUNNER_TEMP/nacht-local-lights.json"
 
       - name: Build exact 492-mesh CUE4Parse exporter
         run: |
@@ -2360,11 +2599,18 @@ jobs:
             --max-dimension 256 \
             | tee build/nacht-static-scene/xzmat-compile.log
 
+          python3 tools/maps/compile_nacht_environment.py \
+            --typed-lights "$RUNNER_TEMP/nacht-local-lights.json" \
+            --output "$MAPROOT/environment.xzen" \
+            --report build/nacht-static-scene/xziel.xzen.report.json \
+            | tee build/nacht-static-scene/xzen-compile.log
+
           test "$(find "$MAPROOT/meshes" \
             -maxdepth 1 -type f -name '*.xzm' | wc -l)" \
             -eq 492
           test -s "$MAPROOT/scene.xzsc"
           test -s "$MAPROOT/materials.xzmt"
+          test -s "$MAPROOT/environment.xzen"
 
           python3 - <<'PY'
           import json
@@ -2384,6 +2630,12 @@ jobs:
           material = json.loads(
               pathlib.Path(
                   "build/nacht-static-scene/xziel.xzmat.report.json"
+              ).read_text()
+          )
+
+          environment = json.loads(
+              pathlib.Path(
+                  "build/nacht-static-scene/xziel.xzen.report.json"
               ).read_text()
           )
 
@@ -2407,6 +2659,22 @@ jobs:
           assert material["bindingCount"] == 1063
           assert material["mappedBindings"] == 1063
           assert material["textureCount"] > 0
+          assert environment["lightCount"] == 101
+          assert environment["pointCount"] == 86
+          assert environment["spotCount"] == 12
+          assert environment["version"] == 2
+          assert environment["recordBytes"] == 64
+          assert environment["bytes"] == 6492
+          assert environment["directionalCount"] == 2
+          assert environment["skyCount"] == 1
+          assert environment["typedLocalLightCount"] == 98
+          assert environment["withPosition"] == 101
+          assert environment["withRotation"] == 100
+          assert environment["withColor"] == 99
+          assert environment["withIntensity"] == 101
+          assert environment["withRadius"] == 98
+          assert environment["withUnits"] == 98
+          assert environment["withCone"] == 12
 
           print(
               "XZIEL_NACHT_STATIC_OVERLAY_READY",
@@ -2467,6 +2735,7 @@ jobs:
           test -f build/deps/vril/source/xz_xzscene.c
           test -f build/deps/vril/source/xz_static_scene_runtime.c
           test -f build/deps/vril/source/xz_static_scene_draw_plan.c
+          test -f build/deps/vril/source/xz_environment.c
 
           grep -F 'static_scene status=%s' \
             build/deps/vril/source/xz_android_runtime.c
@@ -2484,6 +2753,9 @@ jobs:
 
           unzip -l "$ZIP" \
             | grep -F 'nzp/xziel/maps/xziel_nacht_bo3/materials.xzmt'
+
+          unzip -l "$ZIP" \
+            | grep -F 'nzp/xziel/maps/xziel_nacht_bo3/environment.xzen'
 
           test "$(unzip -Z1 "$ZIP" \
             | grep -E '^nzp/xziel/maps/xziel_nacht_bo3/meshes/.*\.xzm$' \
@@ -2744,6 +3016,8 @@ jobs:
             build/nacht-static-scene/xziel.xzmesh.bundle.json
             build/nacht-static-scene/xziel.xzscene.report.json
             build/nacht-static-scene/xziel.xzmat.report.json
+            build/nacht-static-scene/xziel.xzen.report.json
+            build/nacht-static-scene/xzen-compile.log
             build/nacht-static-scene/xzmat-compile.log
             ${{ runner.temp }}/xziel-material-evidence/
             build/nacht-static-scene/material-audit/

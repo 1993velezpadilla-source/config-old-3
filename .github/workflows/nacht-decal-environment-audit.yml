@@ -1,0 +1,1051 @@
+name: XZIEL Nacht Decal Environment Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/xziel-nacht-decal-environment-v1
+    paths:
+      - ".github/workflows/nacht-decal-environment-audit.yml"
+  pull_request:
+    branches:
+      - feature/xziel-static-scene-material-final5
+    paths:
+      - ".github/workflows/nacht-decal-environment-audit.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install SteamCMD and repak
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/steamcmd" "$RUNNER_TEMP/repak"
+          curl -fL --retry 6 --retry-delay 2 --retry-all-errors \
+            https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz \
+            -o "$RUNNER_TEMP/steamcmd.tgz"
+          tar -xzf "$RUNNER_TEMP/steamcmd.tgz" -C "$RUNNER_TEMP/steamcmd"
+          "$RUNNER_TEMP/steamcmd/steamcmd.sh" +quit || true
+          curl -fL --retry 5 \
+            https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-unknown-linux-gnu.tar.xz \
+            -o "$RUNNER_TEMP/repak.tar.xz"
+          tar -xJf "$RUNNER_TEMP/repak.tar.xz" -C "$RUNNER_TEMP/repak"
+          REPAK=$(find "$RUNNER_TEMP/repak" -type f -name 'repak*' -perm -111 | head -1)
+          test -n "$REPAK"
+          echo "REPAK=$REPAK" >> "$GITHUB_ENV"
+
+      - name: Download Nacht source
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/steamcmd/steamcmd.sh" \
+            +login anonymous \
+            +workshop_download_item 555160 2755515831 validate \
+            +quit
+          ROOT=$(find "$HOME" "$RUNNER_TEMP" -type d \
+            -path '*/steamapps/workshop/content/555160/2755515831' \
+            -print -quit 2>/dev/null)
+          test -n "$ROOT"
+          mkdir -p "$RUNNER_TEMP/nacht-unpacked"
+          "$REPAK" unpack "$ROOT/WindowsNoEditor.pak" -o "$RUNNER_TEMP/nacht-unpacked"
+          echo "UNPACKED=$RUNNER_TEMP/nacht-unpacked" >> "$GITHUB_ENV"
+
+      - name: Extract typed 98-light census
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/local-lights"
+          cd "$RUNNER_TEMP/local-lights"
+          dotnet new console --framework net10.0 --force
+          dotnet add package CUE4Parse --version 1.2.2.202609
+          cat > Program.cs <<'CS'
+          using CUE4Parse.FileProvider;
+          using CUE4Parse.UE4.Versions;
+          using System.Reflection;
+          using System.Text.Json;
+
+          if (args.Length != 3) return 2;
+
+          using var environmentDoc =
+              JsonDocument.Parse(
+                  File.ReadAllText(args[1]));
+
+          var targets =
+              new HashSet<string>(
+                  StringComparer.OrdinalIgnoreCase);
+
+          foreach (
+              var actor
+              in environmentDoc.RootElement
+                  .GetProperty("actors")
+                  .EnumerateArray())
+          {
+              var cls =
+                  actor.GetProperty("class").GetString()
+                  ?? "";
+              if (
+                  cls != "/Script/Engine/PointLight"
+                  && cls != "/Script/Engine/SpotLight")
+                  continue;
+              var name =
+                  actor.GetProperty("name").GetString();
+              if (!string.IsNullOrWhiteSpace(name))
+                  targets.Add(name);
+          }
+
+          if (targets.Count != 98)
+              return 3;
+
+          var provider = new DefaultFileProvider(
+              args[0],
+              SearchOption.AllDirectories,
+              true,
+              new VersionContainer(EGame.GAME_UE4_21));
+          provider.Initialize();
+          provider.PostMount();
+          provider.LoadVirtualPaths();
+
+          var map =
+              provider.Files.Values
+                  .Single(
+                      file =>
+                          Path.GetFileName(file.Path)
+                              .Equals(
+                                  "Nacht_de_Untoten.umap",
+                                  StringComparison.OrdinalIgnoreCase))
+                  .Path;
+
+          var exports =
+              provider.LoadPackage(map)
+                  .GetExports()
+                  .ToArray();
+
+          const BindingFlags flags =
+              BindingFlags.Instance
+              | BindingFlags.Public
+              | BindingFlags.NonPublic;
+
+          object? Read(object target, string name)
+          {
+              var field =
+                  target.GetType().GetField(name, flags);
+              if (field is not null) {
+                  try { return field.GetValue(target); }
+                  catch { }
+              }
+              var property =
+                  target.GetType().GetProperty(name, flags);
+              if (
+                  property is not null
+                  && property.GetIndexParameters().Length == 0
+                  && property.GetMethod is not null) {
+                  try { return property.GetValue(target); }
+                  catch { }
+              }
+              return null;
+          }
+
+          string Value(object? value)
+          {
+              if (value is null) return "";
+              try { return value.ToString() ?? ""; }
+              catch { return ""; }
+          }
+
+          object Snapshot(object target)
+          {
+              string[] wanted = {
+                  "AttenuationRadius",
+                  "Intensity",
+                  "IntensityUnits",
+                  "LightColor",
+                  "InnerConeAngle",
+                  "OuterConeAngle",
+                  "SourceRadius",
+                  "SoftSourceRadius",
+                  "SourceLength",
+                  "RelativeLocation",
+                  "RelativeRotation",
+                  "RelativeScale3D",
+                  "bUseInverseSquaredFalloff",
+                  "LightFalloffExponent"
+              };
+
+              var values =
+                  new SortedDictionary<string,string>(
+                      StringComparer.OrdinalIgnoreCase);
+              foreach (var name in wanted)
+                  values[name] =
+                      Value(Read(target, name));
+
+              return new {
+                  type =
+                      target.GetType().FullName
+                      ?? target.GetType().Name,
+                  values
+              };
+          }
+
+          var rows = new List<object>();
+
+          foreach (var export in exports)
+          {
+              var type =
+                  export.GetType().FullName
+                  ?? export.GetType().Name;
+              if (
+                  !type.Contains(
+                      "PointLightComponent",
+                      StringComparison.OrdinalIgnoreCase)
+                  && !type.Contains(
+                      "SpotLightComponent",
+                      StringComparison.OrdinalIgnoreCase))
+                  continue;
+
+              var path =
+                  export.GetPathName()
+                  ?? "";
+              var actor =
+                  targets.FirstOrDefault(
+                      name =>
+                          path.Contains(
+                              "." + name + ".",
+                              StringComparison.OrdinalIgnoreCase));
+              if (actor is null)
+                  continue;
+
+              rows.Add(new {
+                  actor,
+                  name = export.Name,
+                  path,
+                  component = Snapshot(export)
+              });
+          }
+
+          if (rows.Count != 98)
+              return 4;
+
+          File.WriteAllText(
+              args[2],
+              JsonSerializer.Serialize(
+                  new {
+                      schemaVersion = 1,
+                      targetCount = 98,
+                      componentCount = rows.Count,
+                      rows
+                  },
+                  new JsonSerializerOptions {
+                      WriteIndented = true
+                  }));
+
+          Console.WriteLine(
+              "XZIEL_NACHT_TYPED_LOCAL_LIGHTS_OK"
+              + $" total={rows.Count}");
+          return 0;
+          CS
+
+          dotnet run --configuration Release -- \
+            "$UNPACKED" \
+            "$GITHUB_WORKSPACE/assets/nacht_reference/pavlov_scene_reference/environment.json" \
+            "$RUNNER_TEMP/nacht-local-lights.json"
+
+          test -s "$RUNNER_TEMP/nacht-local-lights.json"
+
+      - name: Find projected decal source files
+        run: |
+          set -euo pipefail
+          echo "XZIEL_DECAL_SOURCE_FILES_BEGIN"
+          find "$UNPACKED" -type f \
+            \( -iname '*chalk*help*' -o -iname '*help*r*' -o -iname '*i_t7_zm_der_chalk_help*' \) \
+            -print | sort
+          echo "XZIEL_DECAL_SOURCE_FILES_END"
+
+      - name: Build decal environment scanner
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/decal-audit"
+          cd "$RUNNER_TEMP/decal-audit"
+          dotnet new console --framework net10.0 --force
+          dotnet add package CUE4Parse --version 1.2.2.202609
+          dotnet add package CUE4Parse-Conversion --version 1.2.2.202609
+          cat > Program.cs <<'CS'
+          using CUE4Parse.FileProvider;
+          using CUE4Parse.UE4.Versions;
+          using CUE4Parse.UE4.Objects.UObject;
+          using CUE4Parse.UE4.Assets.Exports.Material;
+          using CUE4Parse.UE4.Assets.Exports.Texture;
+          using CUE4Parse.UE4.Assets.Exports.Component;
+          using CUE4Parse.UE4.Objects.Engine;
+          using CUE4Parse_Conversion.Textures;
+          using System.Security.Cryptography;
+          using System.Text.Json;
+          using System.Reflection;
+          using System.Collections;
+
+          if (args.Length != 2) return 2;
+
+          var provider = new DefaultFileProvider(
+              args[0],
+              SearchOption.AllDirectories,
+              true,
+              new VersionContainer(EGame.GAME_UE4_21));
+          provider.Initialize();
+          provider.PostMount();
+          provider.LoadVirtualPaths();
+
+          var maps = provider.Files.Values
+              .Where(f => f.Path.EndsWith(
+                  "/Nacht_de_Untoten.umap",
+                  StringComparison.OrdinalIgnoreCase)
+                  || Path.GetFileName(f.Path).Equals(
+                      "Nacht_de_Untoten.umap",
+                      StringComparison.OrdinalIgnoreCase))
+              .Select(f => f.Path)
+              .Distinct(StringComparer.OrdinalIgnoreCase)
+              .ToArray();
+
+          if (maps.Length != 1) return 3;
+
+          var exports = provider.LoadPackage(maps[0]).GetExports().ToArray();
+          const BindingFlags flags =
+              BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+
+          object? ReadMember(object target, string name)
+          {
+              var f = target.GetType().GetField(name, flags);
+              if (f is not null) {
+                  try { return f.GetValue(target); } catch { }
+              }
+              var p = target.GetType().GetProperty(name, flags);
+              if (p is not null && p.GetIndexParameters().Length == 0 && p.GetMethod is not null) {
+                  try { return p.GetValue(target); } catch { }
+              }
+              return null;
+          }
+
+          object Describe(object? value)
+          {
+              if (value is null)
+                  return new { type=(string?)null, value=(string?)null, count=(int?)null };
+
+              var type = value.GetType();
+              int? count = null;
+              if (value is Array a) count = a.Length;
+              else if (value is ICollection c) count = c.Count;
+
+              string? scalar = null;
+              if (value is string || type.IsPrimitive || type.IsEnum || value is decimal)
+                  scalar = value.ToString();
+              else {
+                  var s = value.ToString();
+                  if (!string.IsNullOrWhiteSpace(s) && s != type.FullName)
+                      scalar = s;
+              }
+
+              return new {
+                  type = type.FullName ?? type.Name,
+                  value = scalar,
+                  count
+              };
+          }
+
+          string RefPath(object? value)
+          {
+              if (value is null) return "";
+              var rp = value.GetType().GetProperty("ResolvedObject", flags);
+              if (rp is not null) {
+                  try {
+                      var resolved = rp.GetValue(value);
+                      if (resolved is not null) {
+                          var m = resolved.GetType().GetMethod("GetPathName", Type.EmptyTypes);
+                          var s = m?.Invoke(resolved, null)?.ToString();
+                          if (!string.IsNullOrWhiteSpace(s)) return s!;
+                      }
+                  } catch { }
+              }
+              var own = value.GetType().GetMethod("GetPathName", Type.EmptyTypes);
+              if (own is not null) {
+                  try {
+                      var s = own.Invoke(value, null)?.ToString();
+                      if (!string.IsNullOrWhiteSpace(s)) return s!;
+                  } catch { }
+              }
+              return value.ToString() ?? "";
+          }
+
+          List<object> AttachChain(object start)
+          {
+              var rows = new List<object>();
+              var seen = new HashSet<string>(
+                  StringComparer.OrdinalIgnoreCase);
+              object? current = start;
+
+              for (
+                  var depth = 0;
+                  current is not null && depth < 16;
+                  ++depth)
+              {
+                  var path =
+                      current.GetType()
+                          .GetMethod(
+                              "GetPathName",
+                              Type.EmptyTypes)
+                          ?.Invoke(current, null)
+                          ?.ToString()
+                      ?? "";
+
+                  if (
+                      path.Length > 0
+                      && !seen.Add(path))
+                  {
+                      break;
+                  }
+
+                  var attachParent =
+                      ReadMember(
+                          current,
+                          "AttachParent");
+
+                  rows.Add(
+                      new {
+                          depth,
+                          name =
+                              ReadMember(
+                                  current,
+                                  "Name")?.ToString()
+                              ?? current.GetType().Name,
+                          path,
+                          type =
+                              current.GetType().FullName
+                              ?? current.GetType().Name,
+                          attachParent =
+                              RefPath(attachParent),
+                          relativeLocation =
+                              Describe(
+                                  ReadMember(
+                                      current,
+                                      "RelativeLocation")),
+                          relativeRotation =
+                              Describe(
+                                  ReadMember(
+                                      current,
+                                      "RelativeRotation")),
+                          relativeScale3D =
+                              Describe(
+                                  ReadMember(
+                                      current,
+                                      "RelativeScale3D"))
+                      });
+
+                  if (
+                      attachParent
+                      is FPackageIndex parentIndex
+                      && parentIndex.TryLoad<USceneComponent>(
+                          out var parent)
+                      && parent is not null)
+                  {
+                      current = parent;
+                  }
+                  else
+                  {
+                      current = null;
+                  }
+              }
+
+              return rows;
+          }
+
+          var decalRows = new List<object>();
+          var envRows = new List<object>();
+          var lightComponentRows = new List<object>();
+          var lightComponentTypeCounts =
+              new SortedDictionary<string,int>(
+                  StringComparer.OrdinalIgnoreCase);
+          var typeCounts = new SortedDictionary<string,int>(
+              StringComparer.OrdinalIgnoreCase);
+
+          foreach (var export in exports)
+          {
+              var type = export.GetType().FullName ?? export.GetType().Name;
+              var name = export.Name ?? "";
+              var path = export.GetPathName() ?? "";
+
+              if (
+                  type.Contains("Decal", StringComparison.OrdinalIgnoreCase)
+                  || name.Contains("Decal", StringComparison.OrdinalIgnoreCase))
+              {
+                  typeCounts[type] = typeCounts.TryGetValue(type, out var n) ? n + 1 : 1;
+
+                  var decalMaterial = ReadMember(export, "DecalMaterial");
+                  decalRows.Add(new {
+                      name,
+                      type,
+                      path,
+                      parentPath = path.Contains('.') ? path[..path.LastIndexOf('.')] : "",
+                      decalMaterial = RefPath(decalMaterial),
+                      decalMaterialInfo = Describe(decalMaterial),
+                      decalSize = Describe(ReadMember(export, "DecalSize")),
+                      relativeLocation = Describe(ReadMember(export, "RelativeLocation")),
+                      relativeRotation = Describe(ReadMember(export, "RelativeRotation")),
+                      relativeScale3D = Describe(ReadMember(export, "RelativeScale3D")),
+                      sortOrder = Describe(ReadMember(export, "SortOrder")),
+                      fadeScreenSize = Describe(ReadMember(export, "FadeScreenSize"))
+                  });
+              }
+
+              if (
+                  type.Contains("Light", StringComparison.OrdinalIgnoreCase)
+                  || type.Contains("Fog", StringComparison.OrdinalIgnoreCase)
+                  || type.Contains("Sky", StringComparison.OrdinalIgnoreCase)
+                  || type.Contains("Emitter", StringComparison.OrdinalIgnoreCase)
+                  || type.Contains("Particle", StringComparison.OrdinalIgnoreCase)
+                  || type.Contains("ReflectionCapture", StringComparison.OrdinalIgnoreCase))
+              {
+                  envRows.Add(new {
+                      name,
+                      type,
+                      path
+                  });
+              }
+
+              if (
+                  type.EndsWith(
+                      ".UPointLightComponent",
+                      StringComparison.Ordinal)
+                  || type.EndsWith(
+                      ".USpotLightComponent",
+                      StringComparison.Ordinal)
+                  || type.EndsWith(
+                      ".UDirectionalLightComponent",
+                      StringComparison.Ordinal)
+                  || type.EndsWith(
+                      ".USkyLightComponent",
+                      StringComparison.Ordinal))
+              {
+                  var shortType =
+                      type.Split('.').Last();
+
+                  lightComponentTypeCounts[shortType] =
+                      lightComponentTypeCounts.TryGetValue(
+                          shortType,
+                          out var lightTypeCount)
+                          ? lightTypeCount + 1
+                          : 1;
+
+                  lightComponentRows.Add(
+                      new {
+                          name,
+                          type,
+                          path,
+                          parentPath =
+                              path.Contains('.')
+                                  ? path[..path.LastIndexOf('.')]
+                                  : "",
+                          hierarchy = AttachChain(export),
+                          intensity =
+                              Describe(
+                                  ReadMember(
+                                      export,
+                                      "Intensity")),
+                          lightColor =
+                              Describe(
+                                  ReadMember(
+                                      export,
+                                      "LightColor")),
+                          attenuationRadius =
+                              Describe(
+                                  ReadMember(
+                                      export,
+                                      "AttenuationRadius")),
+                          innerConeAngle =
+                              Describe(
+                                  ReadMember(
+                                      export,
+                                      "InnerConeAngle")),
+                          outerConeAngle =
+                              Describe(
+                                  ReadMember(
+                                      export,
+                                      "OuterConeAngle")),
+                          intensityUnits =
+                              Describe(
+                                  ReadMember(
+                                      export,
+                                      "IntensityUnits")),
+                          useInverseSquaredFalloff =
+                              Describe(
+                                  ReadMember(
+                                      export,
+                                      "bUseInverseSquaredFalloff")),
+                          lightFalloffExponent =
+                              Describe(
+                                  ReadMember(
+                                      export,
+                                      "LightFalloffExponent")),
+                          sourceRadius =
+                              Describe(
+                                  ReadMember(
+                                      export,
+                                      "SourceRadius")),
+                          softSourceRadius =
+                              Describe(
+                                  ReadMember(
+                                      export,
+                                      "SoftSourceRadius")),
+                          sourceLength =
+                              Describe(
+                                  ReadMember(
+                                      export,
+                                      "SourceLength")),
+                          temperature =
+                              Describe(
+                                  ReadMember(
+                                      export,
+                                      "Temperature")),
+                          useTemperature =
+                              Describe(
+                                  ReadMember(
+                                      export,
+                                      "bUseTemperature")),
+                          visible =
+                              Describe(
+                                  ReadMember(
+                                      export,
+                                      "bVisible")),
+                          castShadows =
+                              Describe(
+                                  ReadMember(
+                                      export,
+                                      "CastShadows"))
+                      });
+              }
+          }
+
+          object DescribeMembers(object target)
+          {
+              var rows = new SortedDictionary<string, object?>(
+                  StringComparer.OrdinalIgnoreCase);
+
+              foreach (var field in target.GetType().GetFields(flags))
+              {
+                  try {
+                      var value = field.GetValue(target);
+                      rows["field:" + field.Name] = new {
+                          summary = Describe(value),
+                          reference = RefPath(value)
+                      };
+                  } catch { }
+              }
+
+              foreach (var property in target.GetType().GetProperties(flags))
+              {
+                  if (property.GetIndexParameters().Length != 0 || property.GetMethod is null)
+                      continue;
+                  try {
+                      var value = property.GetValue(target);
+                      rows["property:" + property.Name] = new {
+                          summary = Describe(value),
+                          reference = RefPath(value)
+                      };
+                  } catch { }
+              }
+
+              return rows;
+          }
+
+          var exactDecalActor =
+              exports.FirstOrDefault(
+                  x => string.Equals(
+                      x.Name,
+                      "DecalActor_19",
+                      StringComparison.OrdinalIgnoreCase));
+
+          var exactDecalComponent =
+              exports.FirstOrDefault(
+                  x => string.Equals(
+                      x.Name,
+                      "NewDecalComponent",
+                      StringComparison.OrdinalIgnoreCase)
+                      && (x.GetType().FullName ?? "")
+                          .Contains(
+                              "UDecalComponent",
+                              StringComparison.Ordinal));
+
+          var exactDecalParentRoot =
+              exports.FirstOrDefault(
+                  x =>
+                      (x.GetPathName() ?? "").EndsWith(
+                          "PersistentLevel.BuyableDoor_2.DefaultSceneRoot",
+                          StringComparison.OrdinalIgnoreCase));
+
+          var exactDecalParentActor =
+              exports.FirstOrDefault(
+                  x => string.Equals(
+                      x.Name,
+                      "BuyableDoor_2",
+                      StringComparison.OrdinalIgnoreCase));
+
+          var decalTextureRefs = new List<object>();
+          var decalStreamingTextures = new List<object>();
+
+          if (exactDecalComponent is not null)
+          {
+              var decalMaterial =
+                  ReadMember(
+                      exactDecalComponent,
+                      "DecalMaterial");
+
+              if (
+                  decalMaterial is FPackageIndex materialIndex
+                  && materialIndex.TryLoad<UMaterialInterface>(
+                      out var material)
+                  && material is not null)
+              {
+                  var textures =
+                      new List<UUnrealMaterial>();
+                  material.AppendReferencedTextures(
+                      textures,
+                      false);
+
+                  foreach (var texture in textures)
+                  {
+                      decalTextureRefs.Add(
+                          new {
+                              name = texture.Name,
+                              path = texture.GetPathName(),
+                              type = texture.GetType().FullName
+                                  ?? texture.GetType().Name
+                          });
+                  }
+
+                  foreach (
+                      var streamingInfo
+                      in material.TextureStreamingData)
+                  {
+                      decalStreamingTextures.Add(
+                          new {
+                              textureName =
+                                  streamingInfo.TextureName.Text,
+                              members =
+                                  DescribeMembers(streamingInfo)
+                          });
+                  }
+              }
+          }
+
+          object? exactTexture = null;
+          string exactTextureRuntimeFile = "";
+          object? exactTextureInfo = null;
+
+          var exactTextureFile =
+              provider.Files.Values
+                  .FirstOrDefault(
+                      file =>
+                          Path.GetFileName(file.Path)
+                              .Equals(
+                                  "i_t7_zm_der_chalk_help_r.uasset",
+                                  StringComparison.OrdinalIgnoreCase));
+
+          if (exactTextureFile is not null)
+          {
+              var exactTexturePackage =
+                  provider.LoadPackage(
+                      exactTextureFile.Path);
+
+              var texture =
+                  exactTexturePackage
+                      .GetExports()
+                      .OfType<UTexture>()
+                      .FirstOrDefault(
+                          x => x.Name.Equals(
+                              "i_t7_zm_der_chalk_help_r",
+                              StringComparison.OrdinalIgnoreCase))
+                  ?? exactTexturePackage
+                      .GetExports()
+                      .OfType<UTexture>()
+                      .FirstOrDefault();
+
+              if (texture is not null)
+              {
+                  var decoded = texture.Decode();
+                  if (decoded is not null)
+                  {
+                      byte[] rgba;
+
+                      if (
+                          decoded.PixelFormat ==
+                              EPixelFormat.PF_R8G8B8A8)
+                      {
+                          rgba =
+                              decoded.Data.ToArray();
+                      }
+                      else if (
+                          decoded.PixelFormat ==
+                              EPixelFormat.PF_B8G8R8A8
+                          || decoded.PixelFormat ==
+                              EPixelFormat.PF_A8R8G8B8)
+                      {
+                          rgba = new byte[
+                              decoded.Width *
+                              decoded.Height * 4];
+
+                          for (
+                              var pixel = 0;
+                              pixel <
+                                  decoded.Width *
+                                  decoded.Height;
+                              ++pixel)
+                          {
+                              var at = pixel * 4;
+                              rgba[at + 0] =
+                                  decoded.Data[at + 2];
+                              rgba[at + 1] =
+                                  decoded.Data[at + 1];
+                              rgba[at + 2] =
+                                  decoded.Data[at + 0];
+                              rgba[at + 3] =
+                                  decoded.Data[at + 3];
+                          }
+                      }
+                      else if (
+                          decoded.PixelFormat ==
+                              EPixelFormat.PF_G8)
+                      {
+                          rgba = new byte[
+                              decoded.Width *
+                              decoded.Height * 4];
+
+                          for (
+                              var pixel = 0;
+                              pixel <
+                                  decoded.Width *
+                                  decoded.Height;
+                              ++pixel)
+                          {
+                              var v = decoded.Data[pixel];
+                              var at = pixel * 4;
+                              rgba[at + 0] = v;
+                              rgba[at + 1] = v;
+                              rgba[at + 2] = v;
+                              rgba[at + 3] = 255;
+                          }
+                      }
+                      else
+                      {
+                          throw new Exception(
+                              "unsupported exact decal texture format: "
+                              + decoded.PixelFormat);
+                      }
+
+                      exactTextureRuntimeFile =
+                          Path.Combine(
+                              Directory.GetCurrentDirectory(),
+                              "i_t7_zm_der_chalk_help_r.xzt");
+
+                      using (
+                          var stream =
+                              File.Create(
+                                  exactTextureRuntimeFile))
+                      using (
+                          var writer =
+                              new BinaryWriter(stream))
+                      {
+                          writer.Write(
+                              new byte[] {
+                                  (byte)'X',
+                                  (byte)'Z',
+                                  (byte)'T',
+                                  (byte)'X'
+                              });
+                          writer.Write((uint)1);
+                          writer.Write(
+                              (uint)decoded.Width);
+                          writer.Write(
+                              (uint)decoded.Height);
+                          writer.Write((uint)1);
+                          writer.Write(
+                              (uint)rgba.Length);
+                          writer.Write(rgba);
+                      }
+
+                      var rgbaSha256 =
+                          Convert.ToHexString(
+                              SHA256.HashData(rgba))
+                              .ToLowerInvariant();
+
+                      exactTextureInfo =
+                          new {
+                              name = texture.Name,
+                              path =
+                                  texture.GetPathName(),
+                              sourcePackage =
+                                  exactTextureFile.Path,
+                              width = decoded.Width,
+                              height = decoded.Height,
+                              sourceFormat =
+                                  decoded.PixelFormat
+                                      .ToString(),
+                              runtimeFormat = "RGBA8",
+                              rgbaBytes = rgba.Length,
+                              rgbaSha256,
+                              runtimeFile =
+                                  Path.GetFileName(
+                                      exactTextureRuntimeFile)
+                          };
+
+                      exactTexture =
+                          exactTextureInfo;
+                  }
+              }
+          }
+
+          var exactDecal = new {
+              actor = exactDecalActor is null
+                  ? null
+                  : new {
+                      name = exactDecalActor.Name,
+                      path = exactDecalActor.GetPathName(),
+                      type = exactDecalActor.GetType().FullName
+                          ?? exactDecalActor.GetType().Name,
+                      members = DescribeMembers(exactDecalActor)
+                  },
+              component = exactDecalComponent is null
+                  ? null
+                  : new {
+                      name = exactDecalComponent.Name,
+                      path = exactDecalComponent.GetPathName(),
+                      type = exactDecalComponent.GetType().FullName
+                          ?? exactDecalComponent.GetType().Name,
+                      members = DescribeMembers(exactDecalComponent)
+                  },
+              parentRoot = exactDecalParentRoot is null
+                  ? null
+                  : new {
+                      name = exactDecalParentRoot.Name,
+                      path = exactDecalParentRoot.GetPathName(),
+                      type = exactDecalParentRoot.GetType().FullName
+                          ?? exactDecalParentRoot.GetType().Name,
+                      members = DescribeMembers(exactDecalParentRoot)
+                  },
+              parentActor = exactDecalParentActor is null
+                  ? null
+                  : new {
+                      name = exactDecalParentActor.Name,
+                      path = exactDecalParentActor.GetPathName(),
+                      type = exactDecalParentActor.GetType().FullName
+                          ?? exactDecalParentActor.GetType().Name,
+                      members = DescribeMembers(exactDecalParentActor)
+                  },
+              textureRefs = decalTextureRefs,
+              streamingTextures = decalStreamingTextures,
+              exactTexture
+          };
+
+          var report = new {
+              schemaVersion = 1,
+              sourcePackage = maps[0],
+              decalExportCount = decalRows.Count,
+              decalTypeCounts = typeCounts,
+              environmentExportCount = envRows.Count,
+              lightComponentCount =
+                  lightComponentRows.Count,
+              lightComponentTypeCounts,
+              lightComponents =
+                  lightComponentRows,
+              exactDecal,
+              decals = decalRows,
+              environment = envRows
+          };
+
+          Directory.CreateDirectory(Path.GetDirectoryName(args[1])!);
+          File.WriteAllText(
+              args[1],
+              JsonSerializer.Serialize(
+                  report,
+                  new JsonSerializerOptions { WriteIndented = true }));
+
+          Console.WriteLine(
+              "XZIEL_NACHT_DECAL_ENV_AUDIT " +
+              JsonSerializer.Serialize(new {
+                  report.decalExportCount,
+                  report.decalTypeCounts,
+                  report.environmentExportCount,
+                  report.lightComponentCount,
+                  report.lightComponentTypeCounts
+              }));
+
+          Console.WriteLine(
+              "XZIEL_NACHT_EXACT_DECAL " +
+              JsonSerializer.Serialize(exactDecal));
+
+          foreach (var row in decalRows.Take(12))
+              Console.WriteLine(
+                  "XZIEL_NACHT_DECAL_SAMPLE " +
+                  JsonSerializer.Serialize(row));
+
+          return decalRows.Count > 0 ? 0 : 4;
+          CS
+
+          dotnet run --configuration Release -- \
+            "$UNPACKED" \
+            "$GITHUB_WORKSPACE/nacht-decal-environment-audit.json"
+
+          test -s i_t7_zm_der_chalk_help_r.xzt
+          cp i_t7_zm_der_chalk_help_r.xzt \
+            "$GITHUB_WORKSPACE/i_t7_zm_der_chalk_help_r.xzt"
+
+      - name: Compile XZIEL environment pack
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-environment
+          python3 tools/maps/compile_nacht_environment.py \
+            --typed-lights "$RUNNER_TEMP/nacht-local-lights.json" \
+            --output build/nacht-environment/environment.xzen \
+            --report build/nacht-environment/environment.xzen.report.json \
+            | tee build/nacht-environment/compile.log
+          test -s build/nacht-environment/environment.xzen
+          test -s build/nacht-environment/environment.xzen.report.json
+
+      - name: Gate audit
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("nacht-decal-environment-audit.json")
+          d=json.loads(p.read_text(encoding="utf-8"))
+          assert d["decalExportCount"] > 0
+          assert d["environmentExportCount"] > 0
+          assert d["lightComponentCount"] == 166
+          assert d["lightComponentTypeCounts"] == {
+              "UDirectionalLightComponent": 2,
+              "UPointLightComponent": 144,
+              "USkyLightComponent": 1,
+              "USpotLightComponent": 19,
+          }
+          print(
+              "XZIEL_LIGHT_COMPONENTS",
+              json.dumps(
+                  d["lightComponentTypeCounts"],
+                  sort_keys=True,
+              ),
+          )
+          print("XZIEL_DECAL_COUNT", d["decalExportCount"])
+          print("XZIEL_ENV_EXPORT_COUNT", d["environmentExportCount"])
+          print("XZIEL_DECAL_TYPES", json.dumps(d["decalTypeCounts"], sort_keys=True))
+          PY
+
+      - name: Upload audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: nacht-decal-environment-audit
+          path: |
+            nacht-decal-environment-audit.json
+            build/nacht-environment/
+          if-no-files-found: error

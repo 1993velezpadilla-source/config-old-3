@@ -3,6 +3,7 @@
 
 #include "xz_xzmesh.h"
 #include "xz_xzscene.h"
+#include "xz_environment.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -47,10 +48,15 @@ typedef struct {
 
     unsigned char *material_data;
     size_t material_bytes;
+
     uint32_t material_texture_count;
     uint32_t material_binding_count;
     size_t material_texture_table_offset;
     size_t material_binding_offset;
+
+    unsigned char *environment_data;
+    size_t environment_bytes;
+    XzEnvironmentView environment;
 
     uint32_t mesh_files_validated;
     uint64_t mesh_bytes_validated;
@@ -61,6 +67,7 @@ typedef struct {
     char map_id[64];
     char scene_path[256];
     char material_path[256];
+    char environment_path[256];
     char error[128];
 } XzStaticSceneRuntimeState;
 
@@ -97,6 +104,15 @@ int XzStaticSceneRuntime_Texture(
     const XzStaticSceneRuntimeState *state,
     uint32_t texture_index,
     XzStaticTextureView *texture);
+
+const XzEnvironmentView *
+XzStaticSceneRuntime_Environment(
+    const XzStaticSceneRuntimeState *state);
+
+int XzStaticSceneRuntime_EnvironmentLight(
+    const XzStaticSceneRuntimeState *state,
+    uint32_t light_index,
+    XzEnvironmentLight *light);
 
 const char *XzStaticSceneRuntime_StatusName(
     XzStaticSceneStatus status);

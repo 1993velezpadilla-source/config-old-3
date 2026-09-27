@@ -9,6 +9,7 @@
 #include <GLES3/gl3.h>
 
 #include <dlfcn.h>
+#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -86,6 +87,7 @@ typedef void (*XzGlActiveTextureFn)(GLenum);
 typedef GLint (*XzGlGetUniformLocationFn)(GLuint, const GLchar *);
 typedef void (*XzGlUniform1iFn)(GLint, GLint);
 typedef void (*XzGlUniform1fFn)(GLint, GLfloat);
+typedef void (*XzGlUniform3fvFn)(GLint, GLsizei, const GLfloat *);
 typedef void (*XzGlUniform4fvFn)(GLint, GLsizei, const GLfloat *);
 typedef void (*XzGlUniformMatrix4fvFn)(
     GLint, GLsizei, GLboolean, const GLfloat *);
@@ -161,6 +163,7 @@ typedef struct {
     XzGlGetUniformLocationFn GetUniformLocation;
     XzGlUniform1iFn Uniform1i;
     XzGlUniform1fFn Uniform1f;
+    XzGlUniform3fvFn Uniform3fv;
     XzGlUniform4fvFn Uniform4fv;
     XzGlUniformMatrix4fvFn UniformMatrix4fv;
     XzGlViewportFn Viewport;
@@ -268,6 +271,14 @@ typedef struct {
     GLint static_projection_loc;
     GLint static_texture_loc;
     GLint static_texture_enabled_loc;
+    GLint static_ambient_weight_loc;
+    GLint static_directional_weight_loc;
+    GLint static_directional_color_loc;
+    GLint static_directional_direction_loc;
+    float static_ambient_weight;
+    float static_directional_weight;
+    float static_directional_color[3];
+    float static_directional_direction[3];
     GLuint static_instance_vbo;
     XzStaticSceneDrawPlan static_draw_plan;
     int static_draw_plan_ready;
@@ -389,6 +400,153 @@ static float XzClamp01(float value)
     return value;
 }
 
+static float XzSrgbToLinear(float value)
+{
+    value = XzClamp01(value);
+    if (value <= 0.04045f)
+        return value / 12.92f;
+    return powf(
+        (value + 0.055f) / 1.055f,
+        2.4f);
+}
+
+static int XzStaticSceneSourceLighting(
+    const XzStaticSceneRuntimeState *scene,
+    float *ambient_weight,
+    float *directional_weight,
+    float directional_color[3],
+    float directional_direction[3])
+{
+    const XzEnvironmentView *environment;
+    XzEnvironmentLight sky;
+    XzEnvironmentLight directional;
+    float sky_intensity = -1.0f;
+    float directional_intensity = -1.0f;
+    float total;
+    float pitch;
+    float yaw;
+    float cp;
+    float length;
+    uint32_t i;
+    int have_sky = 0;
+    int have_directional = 0;
+
+    if (!scene ||
+        !ambient_weight ||
+        !directional_weight ||
+        !directional_color ||
+        !directional_direction)
+        return 0;
+
+    environment =
+        XzStaticSceneRuntime_Environment(scene);
+    if (!environment ||
+        environment->light_count == 0u)
+        return 0;
+
+    memset(&sky, 0, sizeof(sky));
+    memset(&directional, 0, sizeof(directional));
+
+    for (i = 0u;
+         i < environment->light_count;
+         ++i) {
+        XzEnvironmentLight light;
+
+        if (!XzStaticSceneRuntime_EnvironmentLight(
+                scene, i, &light))
+            return 0;
+
+        if (light.type == XZ_ENV_LIGHT_SKY &&
+            (light.flags & XZ_ENV_HAS_INTENSITY) != 0u &&
+            isfinite(light.intensity) &&
+            light.intensity > 0.0f &&
+            light.intensity > sky_intensity) {
+            sky = light;
+            sky_intensity = light.intensity;
+            have_sky = 1;
+        }
+
+        if (light.type == XZ_ENV_LIGHT_DIRECTIONAL &&
+            (light.flags &
+             (XZ_ENV_HAS_ROTATION |
+              XZ_ENV_HAS_COLOR |
+              XZ_ENV_HAS_INTENSITY)) ==
+                (XZ_ENV_HAS_ROTATION |
+                 XZ_ENV_HAS_COLOR |
+                 XZ_ENV_HAS_INTENSITY) &&
+            isfinite(light.intensity) &&
+            light.intensity > 0.0f &&
+            light.intensity > directional_intensity) {
+            directional = light;
+            directional_intensity =
+                light.intensity;
+            have_directional = 1;
+        }
+    }
+
+    if (!have_sky || !have_directional)
+        return 0;
+
+    total =
+        sky_intensity +
+        directional_intensity;
+    if (!isfinite(total) || total <= 0.0f)
+        return 0;
+
+    *ambient_weight =
+        sky_intensity / total;
+    *directional_weight =
+        directional_intensity / total;
+
+    for (i = 0u; i < 3u; ++i) {
+        if (!isfinite(directional.color[i]))
+            return 0;
+        directional_color[i] =
+            XzSrgbToLinear(
+                directional.color[i]);
+    }
+
+    pitch =
+        directional.rotation[0] *
+        0.01745329251994329577f;
+    yaw =
+        directional.rotation[1] *
+        0.01745329251994329577f;
+    cp = cosf(pitch);
+
+    /*
+     * UE forward is
+     * (cp*cos(yaw), cp*sin(yaw), sin(pitch)).
+     * XZIEL flips UE Y; Lambert wants surface->light,
+     * the opposite of DirectionalLight travel.
+     */
+    directional_direction[0] =
+        -(cp * cosf(yaw));
+    directional_direction[1] =
+        cp * sinf(yaw);
+    directional_direction[2] =
+        -sinf(pitch);
+
+    length = sqrtf(
+        directional_direction[0] *
+            directional_direction[0] +
+        directional_direction[1] *
+            directional_direction[1] +
+        directional_direction[2] *
+            directional_direction[2]);
+
+    if (!isfinite(length) ||
+        length <= 1.0e-8f)
+        return 0;
+
+    for (i = 0u; i < 3u; ++i)
+        directional_direction[i] /= length;
+
+    return
+        isfinite(*ambient_weight) &&
+        isfinite(*directional_weight);
+}
+
 static int XzLoadApi(XzNativeGles3Api *api)
 {
 #define XZ_GL_LOAD(field, symbol)                                      \
@@ -459,6 +617,7 @@ static int XzLoadApi(XzNativeGles3Api *api)
     XZ_GL_LOAD(GetUniformLocation, "glGetUniformLocation");
     XZ_GL_LOAD(Uniform1i, "glUniform1i");
     XZ_GL_LOAD(Uniform1f, "glUniform1f");
+    XZ_GL_LOAD(Uniform3fv, "glUniform3fv");
     XZ_GL_LOAD(Uniform4fv, "glUniform4fv");
     XZ_GL_LOAD(UniformMatrix4fv, "glUniformMatrix4fv");
     XZ_GL_LOAD(Viewport, "glViewport");
@@ -923,14 +1082,29 @@ static int XzCreateStaticSceneProgram(void)
         "in vec2 vUV;\n"
         "uniform sampler2D uBaseColor;\n"
         "uniform int uHasBaseColor;\n"
+        "uniform float uAmbientWeight;\n"
+        "uniform float uDirectionalWeight;\n"
+        "uniform vec3 uDirectionalColor;\n"
+        "uniform vec3 uDirectionalDirection;\n"
         "out vec4 outColor;\n"
+        "float linearToSrgb1(float x){\n"
+        "  x=clamp(x,0.0,1.0);\n"
+        "  return x<=0.0031308?12.92*x:1.055*pow(x,1.0/2.4)-0.055;\n"
+        "}\n"
+        "vec3 linearToSrgb(vec3 v){\n"
+        "  return vec3(linearToSrgb1(v.r),linearToSrgb1(v.g),linearToSrgb1(v.b));\n"
+        "}\n"
         "void main(){\n"
         "  vec3 n=normalize(vNormal);\n"
-        "  float light=0.38+0.62*abs(n.z);\n"
+        "  float ndl=max(dot(n,normalize(uDirectionalDirection)),0.0);\n"
+        "  float neutralBaseline=uAmbientWeight+uDirectionalWeight;\n"
+        "  float directionalContrast=uDirectionalWeight*(ndl-0.5);\n"
+        "  vec3 light=vec3(neutralBaseline)+uDirectionalColor*directionalContrast;\n"
         "  float uvTone=0.92+0.08*clamp(vUV.y,0.0,1.0);\n"
         "  vec4 texel=uHasBaseColor!=0?texture(uBaseColor,vUV):vec4(0.56,0.54,0.50,1.0);\n"
         "  if(uHasBaseColor!=0 && texel.a<0.04) discard;\n"
-        "  outColor=vec4(texel.rgb*uvTone*light,texel.a);\n"
+        "  vec3 lit=texel.rgb*uvTone*light;\n"
+        "  outColor=vec4(linearToSrgb(lit),texel.a);\n"
         "}\n";
 
     XzNativeGles3Api *gl = &xz_shadow.gl;
@@ -989,11 +1163,31 @@ static int XzCreateStaticSceneProgram(void)
         gl->GetUniformLocation(
             xz_shadow.static_program,
             "uHasBaseColor");
+    xz_shadow.static_ambient_weight_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uAmbientWeight");
+    xz_shadow.static_directional_weight_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uDirectionalWeight");
+    xz_shadow.static_directional_color_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uDirectionalColor");
+    xz_shadow.static_directional_direction_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uDirectionalDirection");
 
     if (xz_shadow.static_view_loc < 0 ||
         xz_shadow.static_projection_loc < 0 ||
         xz_shadow.static_texture_loc < 0 ||
-        xz_shadow.static_texture_enabled_loc < 0)
+        xz_shadow.static_texture_enabled_loc < 0 ||
+        xz_shadow.static_ambient_weight_loc < 0 ||
+        xz_shadow.static_directional_weight_loc < 0 ||
+        xz_shadow.static_directional_color_loc < 0 ||
+        xz_shadow.static_directional_direction_loc < 0)
         return 0;
 
     gl->UseProgram(xz_shadow.static_program);
@@ -1772,6 +1966,7 @@ static void XzDestroyStaticSceneCurrent(
         state->static_scene_material_bindings = 0u;
         state->static_scene_material_mapped_bindings = 0u;
         state->static_scene_material_ready = 0;
+        state->static_scene_lighting_ready = 0;
         state->static_scene_gpu_ready = 0;
         state->static_scene_last_draw_calls = 0u;
         state->static_scene_last_instances = 0u;
@@ -1854,6 +2049,28 @@ int XzGles3Shadow_UploadStaticScene(
 
     XzDrainErrors(state);
     XzDestroyStaticSceneCurrent(state);
+
+    if (XzStaticSceneSourceLighting(
+            scene,
+            &xz_shadow.static_ambient_weight,
+            &xz_shadow.static_directional_weight,
+            xz_shadow.static_directional_color,
+            xz_shadow.static_directional_direction)) {
+        state->static_scene_lighting_ready = 1;
+    } else if (strcmp(
+                   scene->map_id,
+                   "xziel_nacht_bo3") == 0) {
+        goto fail;
+    } else {
+        xz_shadow.static_ambient_weight = 1.0f;
+        xz_shadow.static_directional_weight = 0.0f;
+        xz_shadow.static_directional_color[0] = 1.0f;
+        xz_shadow.static_directional_color[1] = 1.0f;
+        xz_shadow.static_directional_color[2] = 1.0f;
+        xz_shadow.static_directional_direction[0] = 0.0f;
+        xz_shadow.static_directional_direction[1] = 0.0f;
+        xz_shadow.static_directional_direction[2] = 1.0f;
+    }
 
     gpu_meshes = (XzGles3StaticMesh *)calloc(
         (size_t)scene->mesh_resource_count,
@@ -2258,7 +2475,8 @@ int XzGles3Shadow_UploadStaticScene(
         (strcmp(
              scene->map_id,
              "xziel_nacht_bo3") != 0 ||
-         state->static_scene_material_ready);
+         (state->static_scene_material_ready &&
+          state->static_scene_lighting_ready));
 
     if (!state->static_scene_gpu_ready)
         goto fail_current_owned;
@@ -2383,6 +2601,20 @@ static int XzDrawStaticScene(
         1,
         GL_FALSE,
         camera->projection);
+    gl->Uniform1f(
+        xz_shadow.static_ambient_weight_loc,
+        xz_shadow.static_ambient_weight);
+    gl->Uniform1f(
+        xz_shadow.static_directional_weight_loc,
+        xz_shadow.static_directional_weight);
+    gl->Uniform3fv(
+        xz_shadow.static_directional_color_loc,
+        1,
+        xz_shadow.static_directional_color);
+    gl->Uniform3fv(
+        xz_shadow.static_directional_direction_loc,
+        1,
+        xz_shadow.static_directional_direction);
 
     gl->Enable(GL_DEPTH_TEST);
     gl->DepthMask(GL_TRUE);
