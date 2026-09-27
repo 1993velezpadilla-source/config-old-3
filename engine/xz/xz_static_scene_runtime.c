@@ -1101,6 +1101,55 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
     }
 
     if (snprintf(
+            light_specular_path,
+            sizeof(light_specular_path),
+            "xziel/maps/%s/lights.xzls",
+            map_id) <= 0 ||
+        strlen(light_specular_path) >=
+            sizeof(light_specular_path) - 1u) {
+        snprintf(
+            failure,
+            sizeof(failure),
+            "%s",
+            "light_specular_path_overflow");
+        goto invalid;
+    }
+
+    read_status = XzReadVfsFile(
+        light_specular_path,
+        XZ_STATIC_SCENE_MAX_LIGHT_SPECULAR_BYTES,
+        &light_specular_data,
+        &light_specular_bytes);
+
+    if (read_status < 0 ||
+        (read_status == 0 &&
+         strcmp(map_id, "xziel_nacht_bo3") == 0)) {
+        snprintf(
+            failure,
+            sizeof(failure),
+            "%s",
+            read_status == 0
+                ? "light_specular_pack_missing"
+                : "light_specular_pack_read_failed");
+        goto invalid;
+    }
+
+    if (read_status > 0 &&
+        !XzValidateLightSpecularPack(
+            light_specular_data,
+            light_specular_bytes,
+            environment.light_count,
+            &light_specular_count,
+            &light_specular_records_offset)) {
+        snprintf(
+            failure,
+            sizeof(failure),
+            "%s",
+            "light_specular_pack_invalid");
+        goto invalid;
+    }
+
+    if (snprintf(
             height_fog_path,
             sizeof(height_fog_path),
             "xziel/maps/%s/fog.xzfg",
@@ -1216,6 +1265,15 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
     if (environment_data)
         state->environment = environment;
 
+    state->light_specular_data =
+        light_specular_data;
+    state->light_specular_bytes =
+        light_specular_bytes;
+    state->light_specular_count =
+        light_specular_count;
+    state->light_specular_records_offset =
+        light_specular_records_offset;
+
     state->height_fog_data =
         height_fog_data;
     state->height_fog_bytes =
@@ -1250,6 +1308,13 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
             "%s",
             environment_path);
     }
+    if (light_specular_data) {
+        snprintf(
+            state->light_specular_path,
+            sizeof(state->light_specular_path),
+            "%s",
+            light_specular_path);
+    }
     if (height_fog_data) {
         snprintf(
             state->height_fog_path,
@@ -1282,6 +1347,7 @@ invalid:
     free(pbr_material_data);
     free(normal_material_data);
     free(environment_data);
+    free(light_specular_data);
     free(height_fog_data);
 
     state->status =
@@ -1513,6 +1579,38 @@ int XzStaticSceneRuntime_EnvironmentLight(
         &state->environment,
         light_index,
         light);
+}
+
+
+int XzStaticSceneRuntime_LightSpecular(
+    const XzStaticSceneRuntimeState *state,
+    uint32_t light_index,
+    XzStaticLightSpecular *specular)
+{
+    const unsigned char *record;
+
+    if (!state ||
+        state->status !=
+            XZ_STATIC_SCENE_READY ||
+        !state->light_specular_data ||
+        !specular ||
+        light_index >=
+            state->light_specular_count)
+        return 0;
+
+    record =
+        state->light_specular_data +
+        state->light_specular_records_offset +
+        (size_t)light_index *
+            XZ_XZLS_RECORD_BYTES;
+
+    specular->flags =
+        XzStaticReadU32Le(record + 0u);
+    specular->specular_scale =
+        XzStaticReadF32Le(record + 4u);
+    specular->indirect_lighting_intensity =
+        XzStaticReadF32Le(record + 8u);
+    return 1;
 }
 
 const XzHeightFogView *
