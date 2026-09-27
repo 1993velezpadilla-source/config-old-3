@@ -1095,6 +1095,464 @@ static int XzStaticSceneSourceLighting(
         isfinite(*directional_weight);
 }
 
+static void XzStaticTransformPoint(
+    const float matrix[16],
+    float x,
+    float y,
+    float z,
+    float output[3])
+{
+    output[0] =
+        matrix[0] * x +
+        matrix[4] * y +
+        matrix[8] * z +
+        matrix[12];
+    output[1] =
+        matrix[1] * x +
+        matrix[5] * y +
+        matrix[9] * z +
+        matrix[13];
+    output[2] =
+        matrix[2] * x +
+        matrix[6] * y +
+        matrix[10] * z +
+        matrix[14];
+}
+
+static int XzStaticSceneWorldBounds(
+    const XzStaticSceneRuntimeState *scene,
+    const XzStaticSceneDrawPlan *plan,
+    float minimum[3],
+    float maximum[3])
+{
+    uint32_t mesh_index;
+    uint32_t points = 0u;
+    unsigned int axis;
+
+    if (!scene ||
+        !plan ||
+        !minimum ||
+        !maximum ||
+        !plan->mesh_spans ||
+        !plan->instance_matrices)
+        return 0;
+
+    for (axis = 0u; axis < 3u; ++axis) {
+        minimum[axis] = INFINITY;
+        maximum[axis] = -INFINITY;
+    }
+
+    for (mesh_index = 0u;
+         mesh_index < scene->mesh_resource_count;
+         ++mesh_index) {
+        const XzStaticMeshResource *mesh =
+            XzStaticSceneRuntime_Mesh(
+                scene,
+                mesh_index);
+        const XzStaticSceneDrawSpan *span =
+            XzStaticSceneDrawPlan_Span(
+                plan,
+                mesh_index);
+        uint32_t instance_offset;
+
+        if (!mesh ||
+            !span ||
+            span->instance_count == 0u)
+            return 0;
+
+        for (instance_offset = 0u;
+             instance_offset < span->instance_count;
+             ++instance_offset) {
+            const float *matrix =
+                XzStaticSceneDrawPlan_InstanceMatrix(
+                    plan,
+                    span->first_instance +
+                        instance_offset);
+            unsigned int corner;
+
+            if (!matrix)
+                return 0;
+
+            for (corner = 0u;
+                 corner < 8u;
+                 ++corner) {
+                const float x =
+                    (corner & 1u)
+                        ? mesh->mesh.bounds_max[0]
+                        : mesh->mesh.bounds_min[0];
+                const float y =
+                    (corner & 2u)
+                        ? mesh->mesh.bounds_max[1]
+                        : mesh->mesh.bounds_min[1];
+                const float z =
+                    (corner & 4u)
+                        ? mesh->mesh.bounds_max[2]
+                        : mesh->mesh.bounds_min[2];
+                float world[3];
+
+                XzStaticTransformPoint(
+                    matrix,
+                    x,
+                    y,
+                    z,
+                    world);
+
+                for (axis = 0u;
+                     axis < 3u;
+                     ++axis) {
+                    if (!isfinite(world[axis]))
+                        return 0;
+                    if (world[axis] <
+                        minimum[axis])
+                        minimum[axis] =
+                            world[axis];
+                    if (world[axis] >
+                        maximum[axis])
+                        maximum[axis] =
+                            world[axis];
+                }
+
+                points++;
+            }
+        }
+    }
+
+    return
+        points > 0u &&
+        isfinite(minimum[0]) &&
+        isfinite(minimum[1]) &&
+        isfinite(minimum[2]) &&
+        isfinite(maximum[0]) &&
+        isfinite(maximum[1]) &&
+        isfinite(maximum[2]);
+}
+
+static int XzStaticConfigureNearestTexture(
+    XzNativeGles3Api *gl,
+    GLenum unit,
+    GLuint texture)
+{
+    if (!gl || !texture)
+        return 0;
+
+    gl->ActiveTexture(unit);
+    gl->BindTexture(
+        GL_TEXTURE_2D,
+        texture);
+    gl->TexParameteri(
+        GL_TEXTURE_2D,
+        GL_TEXTURE_MIN_FILTER,
+        GL_NEAREST);
+    gl->TexParameteri(
+        GL_TEXTURE_2D,
+        GL_TEXTURE_MAG_FILTER,
+        GL_NEAREST);
+    gl->TexParameteri(
+        GL_TEXTURE_2D,
+        GL_TEXTURE_WRAP_S,
+        GL_CLAMP_TO_EDGE);
+    gl->TexParameteri(
+        GL_TEXTURE_2D,
+        GL_TEXTURE_WRAP_T,
+        GL_CLAMP_TO_EDGE);
+
+    return
+        gl->GetError() ==
+        GL_NO_ERROR;
+}
+
+static void XzStaticDestroyClusterTextures(void)
+{
+    XzNativeGles3Api *gl = &xz_shadow.gl;
+
+    if (xz_shadow.static_local_pos_radius_texture)
+        gl->DeleteTextures(
+            1,
+            &xz_shadow.static_local_pos_radius_texture);
+    if (xz_shadow.static_local_color_cone_texture)
+        gl->DeleteTextures(
+            1,
+            &xz_shadow.static_local_color_cone_texture);
+    if (xz_shadow.static_local_dir_cos_texture)
+        gl->DeleteTextures(
+            1,
+            &xz_shadow.static_local_dir_cos_texture);
+    if (xz_shadow.static_local_grid_texture)
+        gl->DeleteTextures(
+            1,
+            &xz_shadow.static_local_grid_texture);
+
+    xz_shadow.static_local_pos_radius_texture = 0u;
+    xz_shadow.static_local_color_cone_texture = 0u;
+    xz_shadow.static_local_dir_cos_texture = 0u;
+    xz_shadow.static_local_grid_texture = 0u;
+    xz_shadow.static_local_grid_texture_height = 0u;
+
+    XzStaticLightGrid_Reset(
+        &xz_shadow.static_light_grid);
+}
+
+static int XzStaticUploadClusterTextures(
+    XzGles3ShadowState *state,
+    const XzStaticSceneRuntimeState *scene)
+{
+    XzNativeGles3Api *gl = &xz_shadow.gl;
+    XzStaticLightSphere
+        spheres[XZ_STATIC_LOCAL_LIGHT_SOURCE_MAX];
+    float
+        positions[XZ_STATIC_LOCAL_LIGHT_SOURCE_MAX * 4u];
+    float
+        colors[XZ_STATIC_LOCAL_LIGHT_SOURCE_MAX * 4u];
+    float
+        directions[XZ_STATIC_LOCAL_LIGHT_SOURCE_MAX * 4u];
+    float scene_minimum[3];
+    float scene_maximum[3];
+    unsigned char *grid_texture_data = NULL;
+    uint64_t padded_grid_bytes;
+    uint32_t grid_height;
+    uint32_t i;
+
+    if (!state ||
+        !scene ||
+        xz_shadow.static_local_light_count !=
+            XZ_STATIC_LOCAL_LIGHT_SOURCE_MAX ||
+        !xz_shadow.static_draw_plan_ready)
+        return 0;
+
+    if (!XzStaticLightGrid_SelfTest())
+        return 0;
+
+    if (!XzStaticSceneWorldBounds(
+            scene,
+            &xz_shadow.static_draw_plan,
+            scene_minimum,
+            scene_maximum))
+        return 0;
+
+    for (i = 0u;
+         i < xz_shadow.static_local_light_count;
+         ++i) {
+        const XzGles3StaticLocalLight *light =
+            &xz_shadow.static_local_lights[i];
+        const uint32_t base = i * 4u;
+
+        spheres[i].position[0] =
+            light->position_game[0];
+        spheres[i].position[1] =
+            light->position_game[1];
+        spheres[i].position[2] =
+            light->position_game[2];
+        spheres[i].radius =
+            light->radius_game;
+
+        positions[base + 0u] =
+            light->position_game[0];
+        positions[base + 1u] =
+            light->position_game[1];
+        positions[base + 2u] =
+            light->position_game[2];
+        positions[base + 3u] =
+            light->type ==
+                XZ_ENV_LIGHT_SPOT
+                ? -light->inv_radius_cm
+                : light->inv_radius_cm;
+
+        colors[base + 0u] =
+            light->color_brightness[0];
+        colors[base + 1u] =
+            light->color_brightness[1];
+        colors[base + 2u] =
+            light->color_brightness[2];
+        colors[base + 3u] =
+            light->inv_cos_difference;
+
+        directions[base + 0u] =
+            light->direction[0];
+        directions[base + 1u] =
+            light->direction[1];
+        directions[base + 2u] =
+            light->direction[2];
+        directions[base + 3u] =
+            light->cos_outer;
+    }
+
+    if (!XzStaticLightGrid_Build(
+            &xz_shadow.static_light_grid,
+            scene_minimum,
+            scene_maximum,
+            XZ_STATIC_LIGHT_GRID_CELL_METERS *
+                XZ_STATIC_GAMEPLAY_UNITS_PER_METER,
+            spheres,
+            xz_shadow.static_local_light_count))
+        return 0;
+
+    grid_height =
+        (uint32_t)(
+            (xz_shadow.static_light_grid.cell_bytes +
+             XZ_STATIC_LIGHT_GRID_TEXTURE_WIDTH - 1u) /
+            XZ_STATIC_LIGHT_GRID_TEXTURE_WIDTH);
+
+    /*
+     * GLES 3.0 guarantees at least 2048x2048 2D textures. Keep the
+     * clustered-light index texture inside that portable minimum.
+     */
+    if (grid_height == 0u ||
+        grid_height > 2048u) {
+        XzStaticLightGrid_Reset(
+            &xz_shadow.static_light_grid);
+        return 0;
+    }
+
+    padded_grid_bytes =
+        (uint64_t)XZ_STATIC_LIGHT_GRID_TEXTURE_WIDTH *
+        (uint64_t)grid_height;
+
+    if (padded_grid_bytes >
+        (uint64_t)SIZE_MAX) {
+        XzStaticLightGrid_Reset(
+            &xz_shadow.static_light_grid);
+        return 0;
+    }
+
+    grid_texture_data =
+        (unsigned char *)calloc(
+            (size_t)padded_grid_bytes,
+            1u);
+    if (!grid_texture_data) {
+        XzStaticLightGrid_Reset(
+            &xz_shadow.static_light_grid);
+        return 0;
+    }
+
+    memcpy(
+        grid_texture_data,
+        xz_shadow.static_light_grid.cells,
+        xz_shadow.static_light_grid.cell_bytes);
+
+    gl->GenTextures(
+        1,
+        &xz_shadow.static_local_pos_radius_texture);
+    gl->GenTextures(
+        1,
+        &xz_shadow.static_local_color_cone_texture);
+    gl->GenTextures(
+        1,
+        &xz_shadow.static_local_dir_cos_texture);
+    gl->GenTextures(
+        1,
+        &xz_shadow.static_local_grid_texture);
+
+    if (!xz_shadow.static_local_pos_radius_texture ||
+        !xz_shadow.static_local_color_cone_texture ||
+        !xz_shadow.static_local_dir_cos_texture ||
+        !xz_shadow.static_local_grid_texture)
+        goto fail;
+
+    if (!XzStaticConfigureNearestTexture(
+            gl,
+            GL_TEXTURE1,
+            xz_shadow.static_local_pos_radius_texture))
+        goto fail;
+    gl->TexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        GL_RGBA32F,
+        XZ_STATIC_LOCAL_LIGHT_SOURCE_MAX,
+        1,
+        0,
+        GL_RGBA,
+        GL_FLOAT,
+        positions);
+    if (gl->GetError() != GL_NO_ERROR)
+        goto fail;
+
+    if (!XzStaticConfigureNearestTexture(
+            gl,
+            GL_TEXTURE2,
+            xz_shadow.static_local_color_cone_texture))
+        goto fail;
+    gl->TexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        GL_RGBA32F,
+        XZ_STATIC_LOCAL_LIGHT_SOURCE_MAX,
+        1,
+        0,
+        GL_RGBA,
+        GL_FLOAT,
+        colors);
+    if (gl->GetError() != GL_NO_ERROR)
+        goto fail;
+
+    if (!XzStaticConfigureNearestTexture(
+            gl,
+            GL_TEXTURE3,
+            xz_shadow.static_local_dir_cos_texture))
+        goto fail;
+    gl->TexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        GL_RGBA32F,
+        XZ_STATIC_LOCAL_LIGHT_SOURCE_MAX,
+        1,
+        0,
+        GL_RGBA,
+        GL_FLOAT,
+        directions);
+    if (gl->GetError() != GL_NO_ERROR)
+        goto fail;
+
+    if (!XzStaticConfigureNearestTexture(
+            gl,
+            GL_TEXTURE4,
+            xz_shadow.static_local_grid_texture))
+        goto fail;
+    gl->TexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        GL_R8UI,
+        XZ_STATIC_LIGHT_GRID_TEXTURE_WIDTH,
+        (GLsizei)grid_height,
+        0,
+        GL_RED_INTEGER,
+        GL_UNSIGNED_BYTE,
+        grid_texture_data);
+    if (gl->GetError() != GL_NO_ERROR)
+        goto fail;
+
+    gl->ActiveTexture(GL_TEXTURE0);
+    gl->BindTexture(GL_TEXTURE_2D, 0u);
+
+    free(grid_texture_data);
+    grid_texture_data = NULL;
+
+    xz_shadow.static_local_grid_texture_height =
+        grid_height;
+
+    state->static_scene_light_grid_cells =
+        xz_shadow.static_light_grid.cell_count;
+    state->static_scene_light_grid_max_per_cell =
+        xz_shadow.static_light_grid.max_lights_per_cell;
+    state->static_scene_light_grid_bytes =
+        (uint64_t)padded_grid_bytes +
+        3u *
+        (uint64_t)XZ_STATIC_LOCAL_LIGHT_SOURCE_MAX *
+        4u *
+        sizeof(float);
+    state->static_scene_clustered_lighting_ready =
+        xz_shadow.static_light_grid.max_lights_per_cell <=
+            XZ_STATIC_LIGHT_GRID_CAPACITY;
+
+    return
+        state->static_scene_clustered_lighting_ready;
+
+fail:
+    free(grid_texture_data);
+    XzStaticDestroyClusterTextures();
+    state->static_scene_clustered_lighting_ready = 0;
+    return 0;
+}
+
 static int XzLoadApi(XzNativeGles3Api *api)
 {
 #define XZ_GL_LOAD(field, symbol)                                      \
