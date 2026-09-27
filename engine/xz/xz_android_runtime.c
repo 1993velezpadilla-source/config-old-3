@@ -1700,7 +1700,8 @@ void XzAndroidRuntime_AuditLegacyPresentBeforeSwap(
     int screenflash_type,
     double screenflash_duration,
     double screenflash_starttime,
-    double screenflash_worktime)
+    double screenflash_worktime,
+    double server_time)
 {
     static int postfade_logged = 0;
     unsigned int *rgba;
@@ -1712,7 +1713,7 @@ void XzAndroidRuntime_AuditLegacyPresentBeforeSwap(
         screenflash_color == 1 &&
         screenflash_type == 2 &&
         flash_span > 0.0 &&
-        screenflash_worktime >= flash_span;
+        server_time >= screenflash_duration;
 
     if (!xz_runtime.initialized ||
         !xz_runtime.gles3_shadow.static_scene_frame_ready ||
@@ -1754,7 +1755,8 @@ void XzAndroidRuntime_AuditLegacyPresentBeforeSwap(
             screenflash_type,
             screenflash_duration,
             screenflash_starttime,
-            screenflash_worktime);
+            screenflash_worktime,
+            server_time);
     }
 
     if (!postfade_logged &&
@@ -1767,7 +1769,8 @@ void XzAndroidRuntime_AuditLegacyPresentBeforeSwap(
             " screenflashType=%d"
             " screenflashDuration=%.6f"
             " screenflashStart=%.6f"
-            " screenflashWork=%.6f",
+            " screenflashWork=%.6f"
+            " serverTime=%.6f",
             rgba[0],
             rgba[1],
             rgba[2],
@@ -1776,7 +1779,8 @@ void XzAndroidRuntime_AuditLegacyPresentBeforeSwap(
             screenflash_type,
             screenflash_duration,
             screenflash_starttime,
-            screenflash_worktime);
+            screenflash_worktime,
+            server_time);
         postfade_logged = 1;
     }
 }
