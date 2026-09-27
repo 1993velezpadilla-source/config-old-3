@@ -2552,6 +2552,11 @@ static void XzDestroyStaticSceneCurrent(
         state->static_scene_material_mapped_bindings = 0u;
         state->static_scene_material_ready = 0;
         state->static_scene_lighting_ready = 0;
+        state->static_scene_local_light_count = 0u;
+        state->static_scene_local_light_active = 0u;
+        state->static_scene_local_light_camera_affecting = 0u;
+        state->static_scene_local_light_dropped_affecting = 0u;
+        state->static_scene_local_lighting_ready = 0;
         state->static_scene_gpu_ready = 0;
         state->static_scene_last_draw_calls = 0u;
         state->static_scene_last_instances = 0u;
@@ -2655,6 +2660,16 @@ int XzGles3Shadow_UploadStaticScene(
         xz_shadow.static_directional_direction[0] = 0.0f;
         xz_shadow.static_directional_direction[1] = 0.0f;
         xz_shadow.static_directional_direction[2] = 1.0f;
+    }
+
+    if (XzStaticScenePrepareLocalLights(scene)) {
+        state->static_scene_local_light_count =
+            xz_shadow.static_local_light_count;
+        state->static_scene_local_lighting_ready = 1;
+    } else if (strcmp(
+                   scene->map_id,
+                   "xziel_nacht_bo3") == 0) {
+        goto fail;
     }
 
     gpu_meshes = (XzGles3StaticMesh *)calloc(
@@ -3061,7 +3076,10 @@ int XzGles3Shadow_UploadStaticScene(
              scene->map_id,
              "xziel_nacht_bo3") != 0 ||
          (state->static_scene_material_ready &&
-          state->static_scene_lighting_ready));
+          state->static_scene_lighting_ready &&
+          state->static_scene_local_lighting_ready &&
+          state->static_scene_local_light_count ==
+              XZ_STATIC_LOCAL_LIGHT_SOURCE_MAX));
 
     if (!state->static_scene_gpu_ready)
         goto fail_current_owned;
@@ -3151,6 +3169,14 @@ static int XzDrawStaticScene(
     unsigned int draw_calls = 0u;
     unsigned int textured_draw_calls = 0u;
     unsigned int untextured_draw_calls = 0u;
+    float camera_origin[3];
+    float local_positions[
+        XZ_STATIC_LOCAL_LIGHT_ACTIVE_MAX * 4u];
+    float local_colors[
+        XZ_STATIC_LOCAL_LIGHT_ACTIVE_MAX * 4u];
+    float local_directions[
+        XZ_STATIC_LOCAL_LIGHT_ACTIVE_MAX * 4u];
+    uint32_t active_local_lights;
 
     if (!state ||
         !state->static_scene_gpu_ready ||
@@ -3161,7 +3187,25 @@ static int XzDrawStaticScene(
         return 0;
 
     camera = XzStaticSceneCamera(geometry);
-    if (!camera)
+    if (!camera ||
+        !XzStaticCameraOrigin(
+            camera->modelview,
+            camera_origin))
+        return 0;
+
+    active_local_lights =
+        XzStaticSelectLocalLights(
+            camera_origin,
+            local_positions,
+            local_colors,
+            local_directions,
+            state);
+
+    if (!state->static_scene_local_lighting_ready ||
+        active_local_lights >
+            XZ_STATIC_LOCAL_LIGHT_ACTIVE_MAX ||
+        state->
+            static_scene_local_light_dropped_affecting != 0u)
         return 0;
 
     state->static_scene_draw_attempts++;
@@ -3200,6 +3244,23 @@ static int XzDrawStaticScene(
         xz_shadow.static_directional_direction_loc,
         1,
         xz_shadow.static_directional_direction);
+    gl->Uniform1i(
+        xz_shadow.static_local_light_count_loc,
+        (GLint)active_local_lights);
+    if (active_local_lights > 0u) {
+        gl->Uniform4fv(
+            xz_shadow.static_local_pos_inv_radius_loc,
+            (GLsizei)active_local_lights,
+            local_positions);
+        gl->Uniform4fv(
+            xz_shadow.static_local_color_cone_loc,
+            (GLsizei)active_local_lights,
+            local_colors);
+        gl->Uniform4fv(
+            xz_shadow.static_local_dir_cos_outer_loc,
+            (GLsizei)active_local_lights,
+            local_directions);
+    }
 
     gl->Enable(GL_DEPTH_TEST);
     gl->DepthMask(GL_TRUE);
