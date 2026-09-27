@@ -2285,6 +2285,15 @@ jobs:
               ).read_text()
           )
 
+          print(
+              "XZIEL_NACHT_MATERIAL_UNRESOLVED",
+              {
+                  "mappedBindings": material["mappedBindings"],
+                  "unmappedBindings": material["unmappedBindings"],
+                  "unresolvedSamples": material.get("unresolvedSamples", []),
+              },
+          )
+
           assert mesh["summary"]["meshCount"] == 492
           assert mesh["summary"]["vertexCount"] == 1067383
           assert mesh["summary"]["indexCount"] == 3608148
