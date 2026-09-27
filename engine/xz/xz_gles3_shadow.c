@@ -3438,6 +3438,7 @@ static int XzDrawStaticScene(
     const XzGeometryBatch *camera;
     uint32_t mesh_index;
     uint32_t binding_cursor = 0u;
+    uint32_t pbr_cursor = 0u;
     unsigned int draw_calls = 0u;
     unsigned int textured_draw_calls = 0u;
     unsigned int untextured_draw_calls = 0u;
@@ -3486,6 +3487,7 @@ static int XzDrawStaticScene(
     state->static_scene_last_instances = 0u;
     state->static_scene_last_textured_draw_calls = 0u;
     state->static_scene_last_untextured_draw_calls = 0u;
+    state->static_scene_last_pbr_bindings = 0u;
 
     gl->UseProgram(xz_shadow.static_program);
     gl->Uniform1i(
@@ -3585,6 +3587,12 @@ static int XzDrawStaticScene(
 
             uint32_t texture_index =
                 XZ_STATIC_MATERIAL_NO_TEXTURE;
+            XzPbrMaterialBinding pbr_binding = {
+                0u, 0.75f, 0.0f, 0.5f, 0.0f
+            };
+            float pbr_params[4] = {
+                0.75f, 0.0f, 0.5f, 0.0f
+            };
             int has_texture = 0;
 
             if (submesh->index_count == 0u ||
@@ -3633,9 +3641,30 @@ static int XzDrawStaticScene(
                 untextured_draw_calls++;
             }
 
+            if (state->static_scene_pbr_ready) {
+                if (pbr_cursor >=
+                        xz_shadow.static_pbr_binding_count)
+                    goto fail;
+
+                pbr_binding =
+                    xz_shadow.static_pbr_bindings[
+                        pbr_cursor++];
+                pbr_params[0] = pbr_binding.roughness;
+                pbr_params[1] = pbr_binding.metallic;
+                pbr_params[2] = pbr_binding.specular;
+                pbr_params[3] = pbr_binding.emissive;
+            }
+
             gl->Uniform1i(
                 xz_shadow.static_texture_enabled_loc,
                 has_texture);
+            gl->Uniform4fv(
+                xz_shadow.static_pbr_params_loc,
+                1,
+                pbr_params);
+            gl->Uniform1i(
+                xz_shadow.static_pbr_flags_loc,
+                (GLint)pbr_binding.flags);
 
             gl->DrawElementsInstanced(
                 GL_TRIANGLES,
@@ -3663,6 +3692,8 @@ static int XzDrawStaticScene(
         textured_draw_calls;
     state->static_scene_last_untextured_draw_calls =
         untextured_draw_calls;
+    state->static_scene_last_pbr_bindings =
+        pbr_cursor;
     state->static_scene_frame_ready =
         draw_calls ==
             state->static_scene_gpu_submeshes &&
@@ -3670,7 +3701,10 @@ static int XzDrawStaticScene(
             xz_shadow.static_draw_plan.instance_count &&
         (!state->static_scene_material_ready ||
          binding_cursor ==
-            xz_shadow.static_material_binding_count);
+            xz_shadow.static_material_binding_count) &&
+        (!state->static_scene_pbr_ready ||
+         pbr_cursor ==
+            xz_shadow.static_pbr_binding_count);
 
     if (!state->static_scene_frame_ready)
         goto fail_no_state_reset;
