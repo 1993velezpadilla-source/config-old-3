@@ -288,6 +288,7 @@ def run_judge_v4(
     detail_images: list[Path],
     turntable_frames: list[Path],
     out_dir: Path,
+    candidate_face_frames: list[Path] | None = None,
     policy: str = "required",
     python_executable: str | None = None,
     thresholds: JudgeV4Thresholds | None = None,
@@ -311,6 +312,10 @@ def run_judge_v4(
     sources = [Path(p) for p in source_images if Path(p).is_file()]
     details = [Path(p) for p in detail_images if Path(p).is_file()]
     turns = [Path(p) for p in turntable_frames if Path(p).is_file()]
+    provided_face_frames = [
+        Path(p) for p in (candidate_face_frames or [])
+        if Path(p).is_file()
+    ]
 
     if not final_glb.is_file():
         failures.append("final_glb_missing")
@@ -329,18 +334,33 @@ def run_judge_v4(
         for i, path in enumerate(turns[:24])
     ]
 
-    candidate_face_indices = [
-        index
-        for index in (0, 1, 2, 3, 4, 20, 21, 22, 23)
-        if index < len(turns)
-    ]
-    candidate_faces = [
-        _face_crop(
-            turns[index],
-            evidence_dir / "candidate_face" / f"{index:02d}.png",
-        )
-        for index in candidate_face_indices
-    ]
+    requested_face_indices = (0, 1, 2, 3, 4, 20, 21, 22, 23)
+    if provided_face_frames:
+        # A material-faithful renderer may provide dedicated head closeups.
+        # Keep the canonical front/quarter ordering so all face metrics remain
+        # directly comparable with the historical turntable path.
+        selected = list(provided_face_frames[:len(requested_face_indices)])
+        candidate_face_indices = list(requested_face_indices[:len(selected)])
+        candidate_faces = [
+            _normalized_subject(
+                path,
+                evidence_dir / "candidate_face" / f"{index:02d}.png",
+            )
+            for index, path in zip(candidate_face_indices, selected)
+        ]
+    else:
+        candidate_face_indices = [
+            index
+            for index in requested_face_indices
+            if index < len(turns)
+        ]
+        candidate_faces = [
+            _face_crop(
+                turns[index],
+                evidence_dir / "candidate_face" / f"{index:02d}.png",
+            )
+            for index in candidate_face_indices
+        ]
 
     source_faces: list[Path] = []
     for index, path in enumerate(details[:8]):
@@ -401,6 +421,7 @@ def run_judge_v4(
         "source_images": [str(x) for x in sources],
         "detail_images": [str(x) for x in details],
         "turntable_frames": [str(x) for x in turns[:24]],
+        "candidate_face_render_inputs": [str(x) for x in provided_face_frames],
         "candidate_face_crops": [str(x) for x in candidate_faces],
         "source_face_crops": [str(x) for x in source_faces],
         "source_sheet": str(source_sheet),
