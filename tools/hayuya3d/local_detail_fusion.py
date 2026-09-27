@@ -230,6 +230,27 @@ def _barycentric_grid(tri_xy,min_x,max_x,min_y,max_y):
     return bary,inside
 
 
+def _feather_fusion_boundary(before_rgb,after_rgb,support_mask,*,radius_px:float):
+    """Fade only the UV-island/paint boundary; preserve interior donor detail."""
+    np,_,_=_deps()
+    from scipy.ndimage import distance_transform_edt
+
+    before=np.asarray(before_rgb,dtype=np.float64)
+    after=np.asarray(after_rgb,dtype=np.float64)
+    support=np.asarray(support_mask,dtype=bool)
+    if not np.any(support):
+        return np.asarray(after_rgb,dtype=np.uint8),support
+
+    distance=distance_transform_edt(support)
+    radius=max(1.0,float(radius_px))
+    feather=_smoothstep(np.clip(distance/radius,0.0,1.0))
+    delta=after-before
+    blended=before+delta*feather[...,None]
+    out=np.clip(np.rint(blended),0,255).astype(np.uint8)
+    changed=np.any(out!=np.asarray(before_rgb,dtype=np.uint8),axis=-1)
+    return out,changed
+
+
 def _seam_added_delta(before_rgb,after_rgb,changed_mask):
     np,_,_=_deps()
     before=np.asarray(before_rgb,dtype=np.float64)
@@ -398,18 +419,31 @@ def fuse_local_basecolor(
                 alpha[active],
             )
 
-        actual_changed=np.any(
-            pixels[:,:,:3]!=original_pixels[:,:,:3],
-            axis=-1,
+        # UV islands can end in the middle of a strongly painted semantic
+        # region. Height-space alpha alone therefore cannot guarantee a soft
+        # texture boundary. Feather only the *visible delta* for a few texels
+        # inward from each painted island edge; the interior donor evidence is
+        # untouched. At 2K this is ~8 px, small enough to preserve face detail.
+        raw_support=blend_alpha>1e-4
+        seam_feather_px=max(
+            2.0,
+            min(12.0,float(min(h,w))*0.004),
         )
+        feathered_rgb,actual_changed=_feather_fusion_boundary(
+            original_pixels[:,:,:3],
+            pixels[:,:,:3],
+            raw_support,
+            radius_px=seam_feather_px,
+        )
+        pixels[:,:,:3]=feathered_rgb
+
         changed=int(np.count_nonzero(actual_changed))
         total=int(h*w)
         unchanged=total-changed
-        seam_support=blend_alpha>1e-4
         seam_pairs,seam_p95,seam_max=_seam_added_delta(
             original_pixels[:,:,:3],
             pixels[:,:,:3],
-            seam_support,
+            actual_changed,
         )
         seam_ready=bool(seam_p95<=12.0)
         if changed<=0:
