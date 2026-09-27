@@ -41,6 +41,7 @@ on:
       - feature/xziel-static-scene-material-final5
       - feature/xziel-nacht-decal-environment-v1
       - feature/xziel-nacht-light-components-166-integrate-v1
+      - feature/xziel-nacht-local-light-render-v1
     paths:
       - "engine/xz/xz_environment.*"
       - "engine/xz/xz_static_scene_runtime.*"
@@ -2718,6 +2719,29 @@ jobs:
           echo "CUTOVER_READY=$CUTOVER_READY" \
             | tee -a dist/static-scene-status.txt
 
+          # The stock NZ:P round start intentionally keeps a black
+          # SCREENFLASH_FADE_OUT active during the ~3 second pre-game window,
+          # then replaces it with a final 1 second fade. Never judge the
+          # renderer from that transitional frame. Wait for the first native
+          # pre-swap sample after the authored black fade has completed.
+          POSTFADE_READY=0
+          for i in $(seq 1 30); do
+            if "$ADB" logcat -d -v threadtime 2>/dev/null \
+                | grep -Eq \
+                  "XZIEL-XZ.*present_luma_postfade preSwapRGBA=[0-9]+,[0-9]+,[0-9]+,[1-9][0-9]*"; then
+              POSTFADE_READY=1
+              break
+            fi
+            if ! "$ADB" shell pidof com.xziel.engine >/dev/null 2>&1; then
+              break
+            fi
+            sleep 1
+          done
+
+          echo "POSTFADE_READY=$POSTFADE_READY" \
+            | tee -a dist/static-scene-status.txt
+          test "$POSTFADE_READY" = "1"
+
           "$ADB" logcat -d -v threadtime \
             > dist/static-scene-logcat-late.txt || true
           cat \
@@ -2790,6 +2814,114 @@ jobs:
           grep -E \
             "XZIEL-XZ.*static_scene_draw ready=1.*localLights=163 active=64 affecting=[1-9][0-9]* dropped=0" \
             dist/static-scene-logcat.txt
+
+          grep -E \
+            "XZIEL-XZ.*static_scene_draw ready=1.*preRGBA=[0-9]+,[0-9]+,[0-9]+,[1-9][0-9]*.*postRGBA=[0-9]+,[0-9]+,[0-9]+,[1-9][0-9]*.*surfaceRGBA=[0-9]+,[0-9]+,[0-9]+,[1-9][0-9]*" \
+            dist/static-scene-logcat.txt
+
+          grep -E \
+            "XZIEL-XZ.*present_luma postRestoreRGBA=[0-9]+,[0-9]+,[0-9]+,[1-9][0-9]* preSwapRGBA=[0-9]+,[0-9]+,[0-9]+,[1-9][0-9]* screenflashColor=-?[0-9]+ screenflashType=-?[0-9]+ screenflashDuration=[0-9.-]+ screenflashStart=[0-9.-]+ screenflashWork=[0-9.-]+" \
+            dist/static-scene-logcat.txt
+
+          grep -E \
+            "XZIEL-XZ.*present_luma_postfade preSwapRGBA=[0-9]+,[0-9]+,[0-9]+,[1-9][0-9]* screenflashColor=1 screenflashType=2" \
+            dist/static-scene-logcat.txt
+
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          text=Path("dist/static-scene-logcat.txt").read_text(
+              encoding="utf-8",
+              errors="replace",
+          )
+          rows=re.findall(
+              r"present_luma_postfade preSwapRGBA=(\d+),(\d+),(\d+),(\d+) "
+              r"screenflashColor=(\d+) screenflashType=(\d+) "
+              r"screenflashDuration=([0-9.-]+) screenflashStart=([0-9.-]+) "
+              r"screenflashWork=([0-9.-]+) serverTime=([0-9.-]+)",
+              text,
+          )
+          assert rows, "missing post-fade pre-swap sample"
+          row=rows[-1]
+          rgba=tuple(map(int,row[:4]))
+          color=int(row[4])
+          flash_type=int(row[5])
+          duration=float(row[6])
+          start=float(row[7])
+          work=float(row[8])
+          server_time=float(row[9])
+          span=duration-start
+          mean=sum(rgba[:3])/3.0
+          assert color == 1 and flash_type == 2
+          assert span > 0 and server_time >= duration
+          assert rgba[3] > 0
+          assert mean > 80, rgba
+          print(
+              "XZIEL_NACHT_POSTFADE_PRESENT_GREEN",
+              f"rgba={rgba}",
+              f"meanRGB={mean:.3f}",
+              f"flashSpan={span:.6f}",
+              f"flashWork={work:.6f}",
+              f"serverTime={server_time:.6f}",
+          )
+          PY
+
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          text=Path("dist/static-scene-logcat.txt").read_text(
+              encoding="utf-8",
+              errors="replace",
+          )
+          rows=re.findall(
+              r"present_luma postRestoreRGBA=(\d+),(\d+),(\d+),(\d+) "
+              r"preSwapRGBA=(\d+),(\d+),(\d+),(\d+) "
+              r"screenflashColor=(-?\d+) screenflashType=(-?\d+) "
+              r"screenflashDuration=([0-9.-]+) screenflashStart=([0-9.-]+) "
+              r"screenflashWork=([0-9.-]+)",
+              text,
+          )
+          assert rows, "missing present_luma + screenflash samples"
+          row=rows[-1]
+          rgba=tuple(map(int, row[:8]))
+          post=rgba[:4]
+          preswap=rgba[4:]
+          color=int(row[8])
+          flash_type=int(row[9])
+          duration=float(row[10])
+          start=float(row[11])
+          work=float(row[12])
+          post_rgb=sum(post[:3])/3.0
+          preswap_rgb=sum(preswap[:3])/3.0
+          ratio=preswap_rgb/post_rgb if post_rgb else 0.0
+          flash_span=duration-start
+          progress=(work/flash_span) if flash_span > 0 else 0.0
+          fade_out_alpha=max(0.0,min(1.0,1.0-progress))
+          expected_black_ratio=1.0-fade_out_alpha
+          assert post[3] > 0 and preswap[3] > 0
+          assert post_rgb > 0
+          # A zero RGB pre-swap sample is valid during the stock NZ:P
+          # 90-second black FADE_OUT that is repeatedly re-issued during
+          # the short pre-game window. Quantization can make the expected
+          # first-frame ratio effectively zero.
+          if color == 1 and flash_type == 2:
+              assert abs(ratio - expected_black_ratio) <= 0.03, (
+                  ratio,
+                  expected_black_ratio,
+              )
+          print(
+              "XZIEL_NACHT_PRESENT_LUMA_STAGE",
+              f"postRestore={post}",
+              f"preSwap={preswap}",
+              f"rgbRatio={ratio:.6f}",
+              f"screenflashColor={color}",
+              f"screenflashType={flash_type}",
+              f"flashProgress={progress:.6f}",
+              f"expectedBlackRatio={expected_black_ratio:.6f}",
+          )
+          PY
 
           grep -E \
             "XZIEL-XZ.*legacy3d worldTransition.*map='xziel_nacht_bo3'.*mapRuntime=NACHT_BO3" \
