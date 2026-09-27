@@ -1320,7 +1320,8 @@ if "XZ_PRESENT_LUMA_PRESWAP" not in screen:
         "\t\tscreenflash_type,\n"
         "\t\tscreenflash_duration,\n"
         "\t\tscreenflash_starttime,\n"
-        "\t\tscreenflash_worktime);\n"
+        "\t\tscreenflash_worktime,\n"
+        "\t\tsv.time);\n"
         "#endif\n"
         "\tGL_EndRendering ();\n"
     )
