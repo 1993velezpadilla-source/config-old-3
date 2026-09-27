@@ -74,11 +74,31 @@ jobs:
           using CUE4Parse.UE4.Versions;
           using System.Text.Json;
 
-          if (args.Length != 2)
+          if (args.Length != 3)
               return 2;
 
           var root = args[0];
           var output = args[1];
+          var snapshotPath = args[2];
+
+          using var snapshotDocument =
+              JsonDocument.Parse(
+                  File.ReadAllText(snapshotPath));
+
+          var persistedComponentExportIndices =
+              new HashSet<int>();
+
+          foreach (
+              var row
+              in snapshotDocument.RootElement
+                  .GetProperty("instances")
+                  .EnumerateArray())
+          {
+              persistedComponentExportIndices.Add(
+                  row.GetProperty(
+                      "componentExportIndex")
+                     .GetInt32());
+          }
 
           var provider =
               new DefaultFileProvider(
@@ -157,8 +177,12 @@ jobs:
           var structuralCandidates =
               new List<object>();
 
-          foreach (var export in exports)
+          for (
+              var exportOrdinal = 0;
+              exportOrdinal < exports.Length;
+              exportOrdinal++)
           {
+              var export = exports[exportOrdinal];
               var type =
                   export.GetType().FullName
                   ?? export.GetType().Name;
@@ -194,6 +218,9 @@ jobs:
               {
                   structuralCandidates.Add(
                       new {
+                          exportOrdinal,
+                          exportIndexOneBased =
+                              exportOrdinal + 1,
                           name,
                           type,
                           path,
@@ -201,6 +228,64 @@ jobs:
                       });
               }
           }
+
+          var staticComponents =
+              exports
+                  .Select(
+                      (export, ordinal) =>
+                          new {
+                              export,
+                              ordinal,
+                              type =
+                                  export.GetType().FullName
+                                  ?? export.GetType().Name
+                          })
+                  .Where(
+                      row =>
+                          row.type.EndsWith(
+                              ".UStaticMeshComponent",
+                              StringComparison.Ordinal))
+                  .ToArray();
+
+          var zeroBasedMatches =
+              staticComponents.Count(
+                  row =>
+                      persistedComponentExportIndices
+                          .Contains(row.ordinal));
+
+          var oneBasedMatches =
+              staticComponents.Count(
+                  row =>
+                      persistedComponentExportIndices
+                          .Contains(row.ordinal + 1));
+
+          var componentIndexBase =
+              oneBasedMatches >= zeroBasedMatches
+                  ? 1
+                  : 0;
+
+          var missingStaticComponents =
+              staticComponents
+                  .Where(
+                      row =>
+                          !persistedComponentExportIndices
+                              .Contains(
+                                  row.ordinal
+                                  + componentIndexBase))
+                  .Select(
+                      row =>
+                          new {
+                              componentExportIndex =
+                                  row.ordinal
+                                  + componentIndexBase,
+                              exportOrdinal =
+                                  row.ordinal,
+                              name = row.export.Name,
+                              type = row.type,
+                              path =
+                                  row.export.GetPathName()
+                          })
+                  .ToArray();
 
           Dictionary<string, object?> DescribeValue(
               object? value)
@@ -663,7 +748,8 @@ jobs:
 
           dotnet run --configuration Release -- \
             "$UNPACKED" \
-            "$GITHUB_WORKSPACE/nacht-full-level-census.json"
+            "$GITHUB_WORKSPACE/nacht-full-level-census.json" \
+            "$GITHUB_WORKSPACE/assets/nacht_reference/pavlov_scene_reference/scene_instances.json"
 
       - name: Gate census output
         run: |
