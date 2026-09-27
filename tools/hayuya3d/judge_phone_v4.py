@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
+import subprocess
 import sys
 from dataclasses import asdict
 from pathlib import Path
@@ -33,6 +35,79 @@ def _is_character(manifest: dict) -> bool:
     return any(token in text for token in (
         "character","humanoid","creature","monster","zombie","undead","human"
     ))
+
+
+def _resolved_render_path(value:str)->Path:
+    path=Path(value)
+    return path if path.is_absolute() else (Path.cwd()/path).resolve()
+
+
+def _build_blender_evidence(final_glb:Path,out_dir:Path):
+    blender=shutil.which("blender")
+    if not blender:
+        return None
+
+    script=Path(__file__).with_name("blender_judge_turntable_24.py")
+    render_root=out_dir/"blender_evidence"
+    log_path=out_dir/"blender_evidence.log"
+    render_root.mkdir(parents=True,exist_ok=True)
+    cmd=[
+        blender,
+        "--python-exit-code","1",
+        "-b",
+        "--python",str(script),
+        "--",
+        "--input",str(final_glb),
+        "--output-dir",str(render_root),
+        "--size","640",
+        "--face-size","768",
+    ]
+    proc=subprocess.run(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        timeout=1200,
+        check=False,
+    )
+    log_path.parent.mkdir(parents=True,exist_ok=True)
+    log_path.write_text(proc.stdout or "",encoding="utf-8")
+    if proc.returncode!=0:
+        raise RuntimeError(
+            "Blender Judge evidence render failed; see "
+            +str(log_path)
+        )
+
+    manifest_path=render_root/"blender_manifest.json"
+    if not manifest_path.is_file():
+        raise RuntimeError("Blender Judge evidence manifest missing")
+    render_manifest=json.loads(
+        manifest_path.read_text(encoding="utf-8")
+    )
+    turns=[
+        _resolved_render_path(str(value))
+        for value in (render_manifest.get("turntable") or [])
+    ]
+    all_faces=[
+        _resolved_render_path(str(value))
+        for value in (render_manifest.get("faces") or [])
+    ]
+    if len(turns)!=24 or not all(path.is_file() for path in turns):
+        raise RuntimeError(
+            f"Blender Judge turntable incomplete: {len(turns)}/24"
+        )
+    requested=(0,1,2,3,4,20,21,22,23)
+    face_frames=[
+        all_faces[index]
+        for index in requested
+        if index<len(all_faces) and all_faces[index].is_file()
+    ]
+    if len(face_frames)!=len(requested):
+        raise RuntimeError(
+            "Blender Judge dedicated face evidence incomplete: "
+            f"{len(face_frames)}/{len(requested)}"
+        )
+    return turns,face_frames,render_manifest
 
 
 def main()->int:
@@ -73,20 +148,39 @@ def main()->int:
     if not source_images:
         raise SystemExit("Judge v4 core requires prepared source images")
 
-    turntable_dir=root/"judge_v4_core"/"turntable"
-    turntable=[
-        Path(path) for path in build_turntable(
-            final_glb,
-            turntable_dir,
-            anchor_view=None,
+    judge_root=root/"judge_v4_core"
+    faithful=_build_blender_evidence(final_glb,judge_root)
+    face_frames=[]
+    if faithful is not None:
+        turntable,face_frames,render_manifest=faithful
+        print(
+            "HAYUYA_JUDGE_V4_RENDERER "
+            +str(render_manifest.get("renderer") or "blender")
+            +" full=24 face="+str(len(face_frames))
         )
-    ]
+    else:
+        # Portable developer fallback only. CI installs Blender before Judge so
+        # production character acceptance never relies on sparse face sampling.
+        turntable_dir=judge_root/"turntable_cpu_fallback"
+        turntable=[
+            Path(path) for path in build_turntable(
+                final_glb,
+                turntable_dir,
+                anchor_view=None,
+            )
+        ]
+        print(
+            "::warning::Blender unavailable; using legacy CPU Judge renderer. "
+            "This path may reject dense meshes but can never production-approve."
+        )
+
     report=run_judge_v4(
         final_glb=final_glb,
         source_images=source_images,
         detail_images=detail_images,
         turntable_frames=turntable,
-        out_dir=root/"judge_v4_core",
+        candidate_face_frames=face_frames,
+        out_dir=judge_root,
         policy="required",
         python_executable=a.python,
         tier="core",
