@@ -12,6 +12,7 @@ on:
       - feature/xziel-static-scene-material-final5
       - feature/xziel-static-scene-material-final5-exact-gate
       - feature/xziel-static-scene-material-fidelity-v1
+      - feature/xziel-static-scene-normalmap-audit-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -2074,6 +2075,7 @@ jobs:
 
           python3 - <<'PY'
           import json
+          import math
           import os
           import pathlib
           import struct
@@ -2130,10 +2132,10 @@ jobs:
               if p.suffix.lower() in texture_exts:
                   texture_files.append(p)
 
-          def read_glb_json(path):
+          def read_glb(path):
               raw = path.read_bytes()
               if len(raw) < 20:
-                  return None
+                  return None, None
               magic, version, declared = struct.unpack_from(
                   "<III", raw, 0
               )
@@ -2142,23 +2144,135 @@ jobs:
                   or version != 2
                   or declared != len(raw)
               ):
-                  return None
+                  return None, None
 
+              doc = None
+              bin_chunk = None
               offset = 12
               while offset + 8 <= len(raw):
                   length, kind = struct.unpack_from(
                       "<II", raw, offset
                   )
                   offset += 8
-                  chunk = raw[offset:offset + length]
-                  offset += length
+                  end = offset + length
+                  if end > len(raw):
+                      return None, None
+                  chunk = raw[offset:end]
+                  offset = end
                   if kind == 0x4E4F534A:
-                      return json.loads(
+                      doc = json.loads(
                           chunk.rstrip(
                               b" \t\r\n\x00"
                           ).decode("utf-8")
                       )
-              return None
+                  elif kind == 0x004E4942:
+                      bin_chunk = chunk
+
+              return doc, bin_chunk
+
+          def accessor_count(doc, index):
+              accessors = doc.get("accessors", [])
+              if (
+                  not isinstance(index, int)
+                  or index < 0
+                  or index >= len(accessors)
+              ):
+                  raise ValueError(
+                      f"invalid accessor index {index}"
+                  )
+              accessor = accessors[index]
+              if not isinstance(accessor, dict):
+                  raise ValueError(
+                      f"invalid accessor object {index}"
+                  )
+              return int(accessor.get("count", 0))
+
+          def read_tangent_accessor(doc, binary, index):
+              accessors = doc.get("accessors", [])
+              views = doc.get("bufferViews", [])
+
+              if (
+                  not isinstance(index, int)
+                  or index < 0
+                  or index >= len(accessors)
+              ):
+                  raise ValueError(
+                      f"invalid tangent accessor {index}"
+                  )
+
+              accessor = accessors[index]
+              if (
+                  not isinstance(accessor, dict)
+                  or accessor.get("componentType") != 5126
+                  or accessor.get("type") != "VEC4"
+                  or "sparse" in accessor
+              ):
+                  raise ValueError(
+                      "TANGENT must be non-sparse FLOAT VEC4"
+                  )
+
+              view_index = accessor.get("bufferView")
+              if (
+                  not isinstance(view_index, int)
+                  or view_index < 0
+                  or view_index >= len(views)
+              ):
+                  raise ValueError(
+                      "TANGENT has no valid bufferView"
+                  )
+
+              view = views[view_index]
+              if (
+                  not isinstance(view, dict)
+                  or int(view.get("buffer", 0)) != 0
+              ):
+                  raise ValueError(
+                      "TANGENT is not in GLB buffer 0"
+                  )
+
+              count = int(accessor.get("count", 0))
+              if count <= 0:
+                  raise ValueError(
+                      "TANGENT accessor is empty"
+                  )
+
+              packed = 16
+              stride = int(
+                  view.get("byteStride", packed)
+              )
+              if stride < packed:
+                  raise ValueError(
+                      f"invalid TANGENT byteStride {stride}"
+                  )
+
+              start = (
+                  int(view.get("byteOffset", 0))
+                  + int(accessor.get("byteOffset", 0))
+              )
+              view_start = int(
+                  view.get("byteOffset", 0)
+              )
+              view_end = (
+                  view_start
+                  + int(view.get("byteLength", 0))
+              )
+
+              values = []
+              for i in range(count):
+                  at = start + i * stride
+                  end = at + packed
+                  if (
+                      at < view_start
+                      or end > view_end
+                      or end > len(binary)
+                  ):
+                      raise ValueError(
+                          "TANGENT accessor exceeds BIN bounds"
+                      )
+                  values.append(
+                      struct.unpack_from("<4f", binary, at)
+                  )
+              return values
 
           glb_stats = {
               "files": 0,
@@ -2171,14 +2285,26 @@ jobs:
               "normalTextures": 0,
               "metallicRoughnessTextures": 0,
               "emissiveTextures": 0,
+              "primitives": 0,
+              "primitivesWithTangents": 0,
+              "primitivesMissingTangents": 0,
+              "tangentVertices": 0,
+              "invalidTangentVertices": 0,
+              "tangentWMinAbs": None,
+              "tangentWMaxAbs": None,
+              "tangentXYZLengthMin": None,
+              "tangentXYZLengthMax": None,
           }
           glb_samples = []
 
           for p in files:
               if p.suffix.lower() != ".glb":
                   continue
-              doc = read_glb_json(p)
-              if not isinstance(doc, dict):
+              doc, binary = read_glb(p)
+              if (
+                  not isinstance(doc, dict)
+                  or not isinstance(binary, bytes)
+              ):
                   continue
 
               materials = doc.get("materials", [])
@@ -2199,6 +2325,129 @@ jobs:
                   if isinstance(image, dict)
                   and "uri" in image
               )
+
+              for mesh in doc.get("meshes", []):
+                  if not isinstance(mesh, dict):
+                      continue
+                  for primitive in mesh.get(
+                      "primitives", []
+                  ):
+                      if not isinstance(primitive, dict):
+                          continue
+
+                      glb_stats["primitives"] += 1
+                      attrs = primitive.get(
+                          "attributes", {}
+                      )
+                      if not isinstance(attrs, dict):
+                          attrs = {}
+
+                      position_accessor = attrs.get(
+                          "POSITION"
+                      )
+                      tangent_accessor = attrs.get(
+                          "TANGENT"
+                      )
+                      position_count = accessor_count(
+                          doc,
+                          position_accessor,
+                      )
+
+                      if not isinstance(
+                          tangent_accessor,
+                          int,
+                      ):
+                          glb_stats[
+                              "primitivesMissingTangents"
+                          ] += 1
+                          continue
+
+                      tangents = read_tangent_accessor(
+                          doc,
+                          binary,
+                          tangent_accessor,
+                      )
+                      if len(tangents) != position_count:
+                          raise ValueError(
+                              "TANGENT/POSITION count mismatch "
+                              f"in {p}"
+                          )
+
+                      glb_stats[
+                          "primitivesWithTangents"
+                      ] += 1
+
+                      for tangent in tangents:
+                          x, y, z, w = tangent
+                          glb_stats[
+                              "tangentVertices"
+                          ] += 1
+
+                          finite = all(
+                              math.isfinite(v)
+                              for v in tangent
+                          )
+                          xyz_len = (
+                              math.sqrt(
+                                  x * x
+                                  + y * y
+                                  + z * z
+                              )
+                              if finite
+                              else float("nan")
+                          )
+                          abs_w = (
+                              abs(w)
+                              if finite
+                              else float("nan")
+                          )
+
+                          invalid = (
+                              not finite
+                              or abs(xyz_len - 1.0)
+                                  > 1.0e-3
+                              or abs(abs_w - 1.0)
+                                  > 1.0e-4
+                          )
+                          if invalid:
+                              glb_stats[
+                                  "invalidTangentVertices"
+                              ] += 1
+
+                          if finite:
+                              for key, value in (
+                                  (
+                                      "tangentWMinAbs",
+                                      abs_w,
+                                  ),
+                                  (
+                                      "tangentXYZLengthMin",
+                                      xyz_len,
+                                  ),
+                              ):
+                                  current = glb_stats[key]
+                                  if (
+                                      current is None
+                                      or value < current
+                                  ):
+                                      glb_stats[key] = value
+
+                              for key, value in (
+                                  (
+                                      "tangentWMaxAbs",
+                                      abs_w,
+                                  ),
+                                  (
+                                      "tangentXYZLengthMax",
+                                      xyz_len,
+                                  ),
+                              ):
+                                  current = glb_stats[key]
+                                  if (
+                                      current is None
+                                      or value > current
+                                  ):
+                                      glb_stats[key] = value
 
               for material in materials:
                   if not isinstance(material, dict):
@@ -2289,6 +2538,63 @@ jobs:
               f"normal={glb_stats['normalTextures']}",
               f"suffixes={dict(sorted(suffixes.items()))}",
           )
+
+          print(
+              "XZIEL_NACHT_TANGENT_AUDIT",
+              f"primitives={glb_stats['primitives']}",
+              (
+                  "withTangents="
+                  f"{glb_stats['primitivesWithTangents']}"
+              ),
+              (
+                  "missingTangents="
+                  f"{glb_stats['primitivesMissingTangents']}"
+              ),
+              (
+                  "vertices="
+                  f"{glb_stats['tangentVertices']}"
+              ),
+              (
+                  "invalidVertices="
+                  f"{glb_stats['invalidTangentVertices']}"
+              ),
+              f"absWMin={glb_stats['tangentWMinAbs']}",
+              f"absWMax={glb_stats['tangentWMaxAbs']}",
+              (
+                  "xyzLenMin="
+                  f"{glb_stats['tangentXYZLengthMin']}"
+              ),
+              (
+                  "xyzLenMax="
+                  f"{glb_stats['tangentXYZLengthMax']}"
+              ),
+          )
+
+          if glb_stats["files"] != 492:
+              raise SystemExit(
+                  "expected exactly 492 GLBs, got "
+                  f"{glb_stats['files']}"
+              )
+
+          if glb_stats["primitives"] == 0:
+              raise SystemExit(
+                  "no GLB primitives were audited"
+              )
+
+          if (
+              glb_stats["primitivesMissingTangents"]
+              != 0
+          ):
+              raise SystemExit(
+                  "serialized GLBs contain primitives "
+                  "without TANGENT"
+              )
+
+          if glb_stats["invalidTangentVertices"] != 0:
+              raise SystemExit(
+                  "serialized GLBs contain invalid "
+                  "glTF tangent xyz/w values"
+              )
 
           if not material_json:
               raise SystemExit(
