@@ -110,6 +110,44 @@ jobs:
                       g => g.Select(x => x.Path).ToArray(),
                       StringComparer.OrdinalIgnoreCase);
 
+          UMaterialInterface? LoadMaterialByName(string materialName)
+          {
+              if (string.IsNullOrWhiteSpace(materialName))
+                  return null;
+
+              if (!packageBasenames.TryGetValue(
+                      materialName,
+                      out var candidates))
+                  return null;
+
+              foreach (var packagePath in candidates)
+              {
+                  try
+                  {
+                      var exports =
+                          provider.LoadPackage(packagePath)
+                              .GetExports()
+                              .OfType<UMaterialInterface>()
+                              .ToArray();
+
+                      var material =
+                          exports.FirstOrDefault(
+                              x => x.Name.Equals(
+                                  materialName,
+                                  StringComparison.OrdinalIgnoreCase))
+                          ?? exports.FirstOrDefault();
+
+                      if (material is not null)
+                          return material;
+                  }
+                  catch
+                  {
+                  }
+              }
+
+              return null;
+          }
+
           UTexture? LoadTextureByName(string textureName)
           {
               if (string.IsNullOrWhiteSpace(textureName))
@@ -289,9 +327,21 @@ jobs:
                               continue;
                           }
 
+                          UMaterialInterface? material = null;
+                          var materialSource = "tryload";
+
                           if (!materialRef.TryLoad<UMaterialInterface>(
-                                  out var material)
+                                  out material)
                               || material is null)
+                          {
+                              material =
+                                  LoadMaterialByName(
+                                      materialRef.Name);
+                              materialSource =
+                                  "direct-package-fallback";
+                          }
+
+                          if (material is null)
                           {
                               rows.Add(new {
                                   mesh = mesh.Name,
@@ -347,7 +397,7 @@ jobs:
                                       slotName,
                                       material = material.Name,
                                       materialPath = material.GetPathName(),
-                                      source = "params2",
+                                      source = $"params2:{materialSource}",
                                       semantic,
                                       texture = textureName,
                                       alpha =
@@ -408,7 +458,7 @@ jobs:
                                       slotName,
                                       material = material.Name,
                                       materialPath = material.GetPathName(),
-                                      source = "streaming-fallback-candidate",
+                                      source = $"streaming-fallback-candidate:{materialSource}",
                                       semantic = "",
                                       texture = textureName,
                                       alpha =
