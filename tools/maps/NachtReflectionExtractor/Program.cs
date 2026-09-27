@@ -668,8 +668,10 @@ var output = new {
         captureComponentBuildIds,
     buildDataCandidateCount =
         builtDataCandidates.Length,
-    buildDataCandidates,
-    buildDataRegistryCount,
+    buildDataCandidates =
+        builtDataCandidates,
+    buildDataRegistryCount =
+        buildDataRegistryCount,
     reflectionCaptureBuildDataCount =
         reflectionBuildRows.Count,
     reflectionCaptureBuildDataLinkedCount =
