@@ -263,6 +263,9 @@ public class NZPActivity extends SDLActivity {
             throw new RuntimeException("Unable to prepare bundled NZ:P game data", e);
         }
 
+        boolean botMode = getIntent() != null
+            && getIntent().getBooleanExtra("xziel_ci_bot_mode", false);
+
         String ciMap = getIntent() != null
             ? getIntent().getStringExtra("xziel_ci_map")
             : null;
@@ -273,6 +276,13 @@ public class NZPActivity extends SDLActivity {
             // CI/development map validation path. This does not affect normal
             // launches and lets map workflows boot a freshly bundled BSP
             // directly on the Android emulator/device.
+            if (botMode) {
+                return new String[] {
+                    "-basedir", dataRoot.getAbsolutePath(),
+                    "+xziel_bot_telemetry", "1",
+                    "+map", ciMap
+                };
+            }
             return new String[] {
                 "-basedir", dataRoot.getAbsolutePath(),
                 "+map", ciMap
@@ -289,6 +299,13 @@ public class NZPActivity extends SDLActivity {
             return new String[] {
                 "-basedir", dataRoot.getAbsolutePath(),
                 "+map", "ndu"
+            };
+        }
+
+        if (botMode) {
+            return new String[] {
+                "-basedir", dataRoot.getAbsolutePath(),
+                "+xziel_bot_telemetry", "1"
             };
         }
 
