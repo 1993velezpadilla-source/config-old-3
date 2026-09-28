@@ -14,10 +14,6 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: hayuya-gpu-e2e-${{ github.ref }}
-  cancel-in-progress: false
-
 jobs:
   validate:
     if: github.event_name == 'push'
@@ -35,6 +31,9 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[gpu-e2e]')
     runs-on: [self-hosted, linux, x64, hayuya-gpu]
     timeout-minutes: 360
+    concurrency:
+      group: hayuya-gpu-direct-${{ github.ref }}
+      cancel-in-progress: true
     env:
       HAYUYA_JOB_ID: monja-ultra-2m-direct
       HAYUYA_GEOMETRY_INPUT: hayuya/assets/monja-mugfwln6/geometry/primary.webp
