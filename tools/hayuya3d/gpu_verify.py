@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 
@@ -14,9 +15,16 @@ def validate_glb(path: Path) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Verify HAYUYA GPU E2E output package.")
+    parser = argparse.ArgumentParser(
+        description="Verify HAYUYA 3D direct-GPU AAA Hero Master output."
+    )
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--profile",
+        choices=["preview", "mobile", "game", "monster", "ultra"],
+        default="ultra",
+    )
     args = parser.parse_args()
 
     manifests = list(args.root.rglob("manifest.json"))
@@ -29,25 +37,44 @@ def main() -> int:
     final_glb = Path(data["final_glb"])
     validate_glb(final_glb)
 
-    gameprep = data.get("gameprep")
-    if not gameprep:
-        raise SystemExit("GamePrep required but missing from manifest")
+    # HAYUYA 3D is geometry/material generation only. Do not require GamePrep,
+    # LODs, rigging or animation here; those belong to downstream products.
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from mesh_gate import inspect as inspect_mesh_gate
 
-    lods = gameprep.get("lods", [])
-    rig_audit = gameprep.get("rig_audit") or {}
-    has_skin = int(rig_audit.get("skin_count", 0)) > 0
-    expected_lods = 1 if has_skin else 4
-    if len(lods) != expected_lods:
+    mesh = inspect_mesh_gate(final_glb, require_normals=False)
+    if not mesh.passed:
         raise SystemExit(
-            f"expected {expected_lods} LOD entries for "
-            f"{'skinned' if has_skin else 'unrigged'} asset, found {len(lods)}"
+            "Hero Master mesh gate failed: " + ";".join(mesh.reasons[:16])
         )
-    for lod in lods:
-        validate_glb(Path(lod["path"]))
 
-    frames = [Path(p) for p in gameprep.get("turntable_frames", [])]
-    if len(frames) != 24 or not all(p.is_file() for p in frames):
-        raise SystemExit("expected 24 valid turntable frames")
+    floors = {
+        "preview": 0,
+        "mobile": 0,
+        "game": 0,
+        "monster": 650_000,
+        "ultra": 1_000_000,
+    }
+    ceilings = {
+        "preview": 30_000,
+        "mobile": 120_000,
+        "game": 400_000,
+        "monster": 1_500_000,
+        "ultra": 2_000_000,
+    }
+    floor = floors[args.profile]
+    ceiling = ceilings[args.profile]
+
+    if floor and int(mesh.faces) < floor:
+        raise SystemExit(
+            f"{args.profile} Hero Master density too low: "
+            f"{mesh.faces}<{floor} triangles"
+        )
+    if int(mesh.faces) > ceiling:
+        raise SystemExit(
+            f"{args.profile} Hero Master exceeded production ceiling: "
+            f"{mesh.faces}>{ceiling} triangles"
+        )
 
     judge_v4 = data.get("judge_v4") or {}
     if judge_v4.get("passed") is not True:
@@ -84,18 +111,23 @@ def main() -> int:
 
     report = {
         "status": "PASS",
+        "product": "HAYUYA 3D",
+        "profile": args.profile,
         "manifest": str(manifest_path),
         "final_glb": str(final_glb),
         "champion": data.get("champion", {}).get("backend"),
         "score": data.get("champion", {}).get("score"),
+        "hero_master": {
+            "triangles": int(mesh.faces),
+            "vertices": int(mesh.vertices),
+            "minimum_triangles": int(floor),
+            "production_ceiling_triangles": int(ceiling),
+            "runtime_optimization_applied": False,
+            "immutable_source": True,
+        },
         "viewforge": bool(data.get("viewforge")),
         "geometry_refinement": data.get("geometry_refinement"),
         "material_bridge": data.get("material_bridge"),
-        "gameprep_lods": len(lods),
-        "rig_ready": bool(rig_audit.get("rig_ready")),
-        "skin_count": int(rig_audit.get("skin_count", 0)),
-        "lod_policy": gameprep.get("lod_policy"),
-        "turntable_frames": len(frames),
         "judge_v4_passed": True,
         "judge_v4_hard_failures": len(judge_v4.get("hard_fail_reasons") or []),
         "judge_v5_passed": True,
@@ -104,10 +136,17 @@ def main() -> int:
         "aaa_visual_v4_ready": (
             bool(visual_gate.get("ready")) if visual_gate is not None else None
         ),
+        "downstream": {
+            "rigging": "HAYUYA Motions",
+            "animation": "HAYUYA Motions",
+            "runtime_lods": "downstream/XZIEL",
+            "map_assembly": "HAYUYA Map",
+        },
     }
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    print("HAYUYA_GPU_HERO_VERIFY_PASS")
     print(json.dumps(report, indent=2))
     return 0
 
