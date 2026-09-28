@@ -269,12 +269,22 @@ def _foreground_head_zoom(source: Path, out_path: Path):
     if right - left < 24 or bottom - top < 24:
         return None
 
-    crop = image.convert("RGB").crop((left, top, right, bottom))
+    # Preserve transparency instead of baking the crop onto a black square.
+    # Hunyuan/other image-to-3D backends can otherwise reconstruct that square
+    # as a large background shell, which later poisons head-surface fusion.
+    if int(alpha.min()) < 245:
+        detail_rgba=image.copy()
+    else:
+        detail_arr=np.asarray(image).copy()
+        detail_arr[:, :, 3]=np.where(mask,255,0).astype(np.uint8)
+        detail_rgba=Image.fromarray(detail_arr,mode="RGBA")
+
+    crop = detail_rgba.crop((left, top, right, bottom))
     crop = ImageOps.pad(
         crop,
         (1024, 1024),
         method=Image.Resampling.LANCZOS,
-        color=(0, 0, 0),
+        color=(0, 0, 0, 0),
         centering=(0.5, 0.5),
     )
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -286,6 +296,7 @@ def _foreground_head_zoom(source: Path, out_path: Path):
         "used_zoom_probe": True,
         "face_box_fraction": round((side * side) / float(max(1, w * h)), 8),
         "output_size": [crop.width, crop.height],
+        "alpha_preserved": True,
         "semantic_face_or_head_confirmed": False,
     }
 
