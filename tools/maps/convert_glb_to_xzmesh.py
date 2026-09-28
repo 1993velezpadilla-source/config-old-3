@@ -1,23 +1,24 @@
 #!/usr/bin/env python3
-"""Convert one static glTF 2.0 GLB into XZIEL's compact XZMS v2 mesh format.
+"""Convert one static glTF 2.0 GLB into XZIEL's compact XZMS v3 mesh format.
 
-XZMS v2 stays intentionally small so Android runtime code does not need
+XZMS v3 stays intentionally small so Android runtime code does not need
 a full glTF parser. Geometry is flattened from the GLB scene graph, converted
 from glTF Y-up coordinates to XZIEL Z-up coordinates, and stored as:
 
   header: <4sIIIIIII6f
-    magic='XZMS', version=2, vertexCount, indexCount, submeshCount,
+    magic='XZMS', version=3, vertexCount, indexCount, submeshCount,
     flags, vertexStrideBytes, submeshStrideBytes, boundsMinXYZ, boundsMaxXYZ
-  vertices: vertexCount * <14f> =
-    position.xyz, normal.xyz, uv0.xy, uv1.xy, uv2.xy, uv3.xy
+  vertices: vertexCount * <18f> =
+    position.xyz, normal.xyz, tangent.xyzw,
+    uv0.xy, uv1.xy, uv2.xy, uv3.xy
   indices:  indexCount * <I>
   submeshes: submeshCount * <IIII>
     firstIndex, indexCount, materialIndex (0xffffffff if none), attributeFlags
 
 attributeFlags:
   bit0 POSITION, bit1 NORMAL, bit2 TEXCOORD_0, bit3 TEXCOORD_1,
-  bit4 TEXCOORD_2, bit5 TEXCOORD_3.
-Missing NORMAL/UV sets are explicit in the submesh flags; their fixed vertex
+  bit4 TEXCOORD_2, bit5 TEXCOORD_3, bit6 TANGENT.
+Missing NORMAL/TANGENT/UV sets are explicit in the submesh flags; their fixed vertex
 fields are zero-filled only so the binary stride stays constant.
 """
 
@@ -30,9 +31,9 @@ from pathlib import Path
 import struct
 
 MAGIC = b"XZMS"
-VERSION = 2
+VERSION = 3
 HEADER = struct.Struct("<4sIIIIIII6f")
-VERTEX = struct.Struct("<14f")
+VERTEX = struct.Struct("<18f")
 SUBMESH = struct.Struct("<IIII")
 FLAG_GLTF_TO_XZIEL = 1 << 0
 FLAG_INDEX_U32 = 1 << 1
@@ -42,6 +43,7 @@ ATTR_UV0 = 1 << 2
 ATTR_UV1 = 1 << 3
 ATTR_UV2 = 1 << 4
 ATTR_UV3 = 1 << 5
+ATTR_TANGENT = 1 << 6
 ATTR_UVS = (ATTR_UV0, ATTR_UV1, ATTR_UV2, ATTR_UV3)
 NO_MATERIAL = 0xFFFFFFFF
 JSON_CHUNK = 0x4E4F534A
@@ -93,7 +95,7 @@ def parse_glb(path: Path) -> tuple[dict, bytes]:
         binary = b""
     buffers = doc.get("buffers", [])
     if len(buffers) > 1:
-        raise ValueError(f"XZMS v2 supports one GLB buffer, got {len(buffers)}: {path}")
+        raise ValueError(f"XZMS v3 supports one GLB buffer, got {len(buffers)}: {path}")
     if buffers:
         declared_bytes = int(buffers[0].get("byteLength", 0))
         if declared_bytes > len(binary):
@@ -217,6 +219,23 @@ def transform_normal(nm: list[list[float]], n: tuple[float,float,float]) -> tupl
     return (out[0]/length,out[1]/length,out[2]/length)
 
 
+def determinant3(a: list[list[float]]) -> float:
+    return (
+        a[0][0] * (a[1][1] * a[2][2] - a[1][2] * a[2][1])
+        - a[0][1] * (a[1][0] * a[2][2] - a[1][2] * a[2][0])
+        + a[0][2] * (a[1][0] * a[2][1] - a[1][1] * a[2][0])
+    )
+
+
+def transform_vector(m: list[list[float]], v: tuple[float,float,float]) -> tuple[float,float,float]:
+    x,y,z=v
+    return (
+        m[0][0]*x + m[0][1]*y + m[0][2]*z,
+        m[1][0]*x + m[1][1]*y + m[1][2]*z,
+        m[2][0]*x + m[2][1]*y + m[2][2]*z,
+    )
+
+
 def gltf_to_xziel(v: tuple[float,float,float]) -> tuple[float,float,float]:
     # glTF Y-up -> XZIEL/Blender Z-up.
     return (v[0], -v[2], v[1])
@@ -229,7 +248,7 @@ def accessor_values(doc: dict, binary: bytes, index: int) -> list[tuple]:
         raise ValueError(f"invalid accessor index {index}")
     acc = accessors[index]
     if "sparse" in acc:
-        raise ValueError("XZMS v2 does not accept sparse accessors")
+        raise ValueError("XZMS v3 does not accept sparse accessors")
     view_index = acc.get("bufferView")
     if not isinstance(view_index, int) or not (0 <= view_index < len(views)):
         raise ValueError(f"accessor {index} has no valid bufferView")
@@ -290,6 +309,18 @@ def primitive_vertices(doc: dict, binary: bytes, primitive: dict, world: list[fl
             raise ValueError("NORMAL count mismatch")
         attr_flags |= ATTR_NORMAL
 
+    tangents = None
+    tangent_index = attrs.get("TANGENT")
+    if isinstance(tangent_index, int):
+        tangents = accessor_values(doc, binary, tangent_index)
+        if doc["accessors"][tangent_index].get("componentType") != 5126:
+            raise ValueError("TANGENT must use FLOAT componentType")
+        if not tangents or len(tangents[0]) != 4:
+            raise ValueError("TANGENT accessor must be VEC4")
+        if len(tangents) != len(positions):
+            raise ValueError("TANGENT count mismatch")
+        attr_flags |= ATTR_TANGENT
+
     uv_sets: list[list[tuple] | None] = [None, None, None, None]
     for uv_set in range(4):
         uv_index = attrs.get(f"TEXCOORD_{uv_set}")
@@ -309,7 +340,7 @@ def primitive_vertices(doc: dict, binary: bytes, primitive: dict, world: list[fl
 
     mode = int(primitive.get("mode", 4))
     if mode != 4:
-        raise ValueError(f"XZMS v2 only accepts TRIANGLES (mode 4), got {mode}")
+        raise ValueError(f"XZMS v3 only accepts TRIANGLES (mode 4), got {mode}")
 
     if isinstance(primitive.get("indices"), int):
         idx_accessor = primitive["indices"]
@@ -327,6 +358,8 @@ def primitive_vertices(doc: dict, binary: bytes, primitive: dict, world: list[fl
         raise ValueError("index references vertex outside POSITION accessor")
 
     nm = normal_matrix(world) if normals is not None else None
+    linear = upper_rows(world)
+    handedness = -1.0 if determinant3(linear) < 0.0 else 1.0
     vertices = []
     for i, pos in enumerate(positions):
         p = gltf_to_xziel(transform_point(world, tuple(float(v) for v in pos)))
@@ -337,6 +370,33 @@ def primitive_vertices(doc: dict, binary: bytes, primitive: dict, world: list[fl
                 n=(n[0]/nlen,n[1]/nlen,n[2]/nlen)
         else:
             n=(0.0,0.0,0.0)
+
+        if tangents is not None:
+            raw_t = tangents[i]
+            t = gltf_to_xziel(
+                transform_vector(
+                    linear,
+                    (float(raw_t[0]), float(raw_t[1]), float(raw_t[2])),
+                )
+            )
+            dot_nt = n[0]*t[0] + n[1]*t[1] + n[2]*t[2]
+            t = (
+                t[0] - n[0]*dot_nt,
+                t[1] - n[1]*dot_nt,
+                t[2] - n[2]*dot_nt,
+            )
+            tlen = math.sqrt(t[0]*t[0] + t[1]*t[1] + t[2]*t[2])
+            if tlen > 1e-20:
+                t = (t[0]/tlen, t[1]/tlen, t[2]/tlen)
+            else:
+                t = (0.0, 0.0, 0.0)
+            tangent = (
+                t[0], t[1], t[2],
+                (1.0 if float(raw_t[3]) >= 0.0 else -1.0) * handedness,
+            )
+        else:
+            tangent = (0.0, 0.0, 0.0, 1.0)
+
         packed_uvs: list[float] = []
         for uv_set in uv_sets:
             uv = (
@@ -349,6 +409,7 @@ def primitive_vertices(doc: dict, binary: bytes, primitive: dict, world: list[fl
             (
                 p[0], p[1], p[2],
                 n[0], n[1], n[2],
+                tangent[0], tangent[1], tangent[2], tangent[3],
                 *packed_uvs,
             )
         )
@@ -443,6 +504,7 @@ def convert(path: Path, output: Path) -> dict:
         "triangleCount":len(indices)//3,
         "submeshCount":len(submeshes),
         "submeshesWithoutNormals":sum((r["attributeFlags"] & ATTR_NORMAL)==0 for r in submeshes),
+        "submeshesWithoutTangents":sum((r["attributeFlags"] & ATTR_TANGENT)==0 for r in submeshes),
         "submeshesWithoutUv0":sum((r["attributeFlags"] & ATTR_UV0)==0 for r in submeshes),
         "submeshesWithoutUv1":sum((r["attributeFlags"] & ATTR_UV1)==0 for r in submeshes),
         "submeshesWithoutUv2":sum((r["attributeFlags"] & ATTR_UV2)==0 for r in submeshes),
