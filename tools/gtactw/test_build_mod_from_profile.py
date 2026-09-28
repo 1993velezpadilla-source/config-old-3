@@ -35,11 +35,12 @@ def make_profile(*, advanced_target: str | None = None) -> dict:
             "code_prefix_hex": "aa" * 16,
         }
         profile["abi_verification"][key] = {
-            "status": "pending",
-            "prototype": None,
+            "status": "verified",
+            "prototype": f"void {key}(void)",
             "calling_convention": "aarch64_aapcs64",
-            "adapter": None,
-            "evidence": [],
+            "adapter": f"ctw_{key}_adapter_v1",
+            "verified_rva": rva,
+            "evidence": [{"method": "fixture", "detail": f"ABI {key}"}],
             "candidates": [
                 {
                     "rva": rva,
@@ -50,6 +51,27 @@ def make_profile(*, advanced_target: str | None = None) -> dict:
             ],
         }
     return profile
+
+
+
+def write_adapter_catalog(root: Path) -> Path:
+    path = root / "adapter_catalog.json"
+    path.write_text(
+        json.dumps({
+            "schema": 1,
+            "adapters": [
+                {
+                    "name": f"ctw_{key}_adapter_v1",
+                    "target": key,
+                    "native_symbol": f"ctw_{key}_adapter_v1",
+                    "implemented": True,
+                }
+                for key in profile_template.TARGET_KEYS
+            ],
+        }),
+        encoding="utf-8",
+    )
+    return path
 
 
 def apk_bytes(entries: dict[str, bytes]) -> bytes:
@@ -75,6 +97,7 @@ class BuildModFromProfileTests(unittest.TestCase):
             output = root / "ctw_mod.apk"
             profile_path = root / "profile.json"
             minimal, advanced = self.loaders(root)
+            catalog = write_adapter_catalog(root)
 
             with zipfile.ZipFile(source, "w") as zf:
                 zf.writestr(GAME_SO, b"\x7fELForiginal")
@@ -90,6 +113,7 @@ class BuildModFromProfileTests(unittest.TestCase):
                 minimal,
                 advanced,
                 output,
+                adapter_catalog_path=catalog,
             )
 
             self.assertEqual(report["source_mode"], "apk")
@@ -105,6 +129,7 @@ class BuildModFromProfileTests(unittest.TestCase):
             profile_path = root / "profile.json"
             config = root / "ctw_modhub.ini"
             minimal, advanced = self.loaders(root)
+            catalog = write_adapter_catalog(root)
             config.write_text("[Camera]\nFOV=72\n", encoding="utf-8")
 
             with zipfile.ZipFile(source, "w") as outer:
@@ -133,6 +158,7 @@ class BuildModFromProfileTests(unittest.TestCase):
                 advanced,
                 out,
                 config,
+                catalog,
             )
 
             self.assertEqual(report["source_mode"], "apkset")
@@ -150,6 +176,7 @@ class BuildModFromProfileTests(unittest.TestCase):
             output = root / "out.apk"
             profile_path = root / "profile.json"
             minimal, advanced = self.loaders(root)
+            catalog = write_adapter_catalog(root)
 
             with zipfile.ZipFile(source, "w") as zf:
                 zf.writestr(GAME_SO, b"\x7fELForiginal")
@@ -165,6 +192,40 @@ class BuildModFromProfileTests(unittest.TestCase):
                     minimal,
                     advanced,
                     output,
+                    adapter_catalog_path=catalog,
+                )
+
+
+    def test_missing_native_adapter_is_rejected(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            source = root / "ctw.apk"
+            output = root / "out.apk"
+            profile_path = root / "profile.json"
+            minimal, advanced = self.loaders(root)
+            catalog = write_adapter_catalog(root)
+
+            with zipfile.ZipFile(source, "w") as zf:
+                zf.writestr(GAME_SO, b"\x7fELForiginal")
+
+            profile = make_profile()
+            profile_path.write_text(json.dumps(profile), encoding="utf-8")
+
+            obj = json.loads(catalog.read_text(encoding="utf-8"))
+            obj["adapters"][0]["implemented"] = False
+            catalog.write_text(json.dumps(obj), encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                ValueError,
+                "native hook adapters are not ready for: camera_update",
+            ):
+                build_mod_from_profile.build_from_profile(
+                    source,
+                    profile_path,
+                    minimal,
+                    advanced,
+                    output,
+                    adapter_catalog_path=catalog,
                 )
 
 
