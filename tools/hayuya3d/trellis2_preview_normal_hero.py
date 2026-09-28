@@ -392,6 +392,37 @@ def _refine_vertices(
     return stage_reports
 
 
+
+def _ensure_basecolor_delivery(mesh, target_edge: int) -> dict:
+    material = getattr(mesh.visual, "material", None)
+    image = getattr(material, "baseColorTexture", None) if material is not None else None
+    if image is None:
+        return {
+            "present": False,
+            "source_edge": 0,
+            "delivery_edge": 0,
+            "resized": False,
+        }
+    source_edge = int(min(image.size))
+    resized = False
+    if source_edge < int(target_edge):
+        image = image.resize(
+            (int(target_edge), int(target_edge)),
+            Image.Resampling.LANCZOS,
+        )
+        material.baseColorTexture = image
+        resized = True
+    return {
+        "present": True,
+        "source_edge": source_edge,
+        "delivery_edge": int(min(image.size)),
+        "resized": resized,
+        "policy": (
+            "delivery-resolution-only; source preview fidelity remains bounded "
+            "by TRELLIS.2 static render evidence"
+        ),
+    }
+
 def _subdivide_textured(mesh):
     import trimesh
 
@@ -515,6 +546,7 @@ def build_normal_informed_hero(
         np.asarray(mesh.vertices, dtype=np.float64)
         @ ROT_ZUP_TO_GLTF_YUP
     )
+    texture_delivery = _ensure_basecolor_delivery(mesh, 4096)
 
     output_glb.parent.mkdir(parents=True, exist_ok=True)
     output_glb.write_bytes(
@@ -556,6 +588,7 @@ def build_normal_informed_hero(
         "face_ceiling": int(max_faces),
         "normal_guides": guide_report,
         "refinement": refinement,
+        "texture_delivery": texture_delivery,
         "native_latent_extraction": False,
         "optimization_deferred": True,
         "approximation": (
