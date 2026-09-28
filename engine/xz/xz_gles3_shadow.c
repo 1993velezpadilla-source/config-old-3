@@ -5018,7 +5018,11 @@ static int XzDrawStaticScene(
             XzStaticSceneDrawPlan_Span(
                 &xz_shadow.static_draw_plan,
                 mesh_index);
+        uint32_t first_lightmap_batch = 0u;
+        uint32_t lightmap_batch_count = 0u;
         uint32_t submesh_index;
+        const int use_baked_lightmap =
+            state->static_scene_lightmap_shader_ready;
 
         if (!mesh->alive ||
             !mesh->vao ||
@@ -5026,6 +5030,23 @@ static int XzDrawStaticScene(
             !span ||
             span->instance_count == 0u)
             goto fail;
+
+        if (use_baked_lightmap) {
+            if (!XzStaticSceneLightmapDrawPlan_MeshBatches(
+                    &xz_shadow.static_lightmap_draw_plan,
+                    mesh_index,
+                    &first_lightmap_batch,
+                    &lightmap_batch_count) ||
+                lightmap_batch_count == 0u)
+                goto fail;
+
+            expected_draw_calls +=
+                mesh->submesh_count *
+                lightmap_batch_count;
+        } else {
+            expected_draw_calls +=
+                mesh->submesh_count;
+        }
 
         gl->BindVertexArray(mesh->vao);
 
@@ -5080,12 +5101,10 @@ static int XzDrawStaticScene(
                         xz_shadow.static_textures[
                             texture_index].object);
                     has_texture = 1;
-                    textured_draw_calls++;
                 } else {
                     gl->BindTexture(
                         GL_TEXTURE_2D,
                         0u);
-                    untextured_draw_calls++;
                 }
 
                 binding_cursor++;
@@ -5093,7 +5112,6 @@ static int XzDrawStaticScene(
                 gl->BindTexture(
                     GL_TEXTURE_2D,
                     0u);
-                untextured_draw_calls++;
             }
 
             if (state->static_scene_normal_ready) {
@@ -5158,15 +5176,94 @@ static int XzDrawStaticScene(
                 xz_shadow.static_pbr_flags_loc,
                 (GLint)pbr_binding.flags);
 
-            gl->DrawElementsInstanced(
-                GL_TRIANGLES,
-                (GLsizei)submesh->index_count,
-                GL_UNSIGNED_INT,
-                (const void *)(uintptr_t)(
-                    (uint64_t)submesh->first_index *
-                    sizeof(uint32_t)),
-                (GLsizei)span->instance_count);
-            draw_calls++;
+            if (use_baked_lightmap) {
+                uint32_t lightmap_batch_offset;
+
+                for (lightmap_batch_offset = 0u;
+                     lightmap_batch_offset <
+                        lightmap_batch_count;
+                     ++lightmap_batch_offset) {
+                    const XzStaticSceneLightmapBatch *batch =
+                        XzStaticSceneLightmapDrawPlan_Batch(
+                            &xz_shadow.static_lightmap_draw_plan,
+                            first_lightmap_batch +
+                                lightmap_batch_offset);
+                    int has_lightmap = 0;
+
+                    if (!batch ||
+                        batch->mesh_index != mesh_index ||
+                        batch->instance_count == 0u ||
+                        !XzBindStaticInstanceRange(
+                            mesh,
+                            batch->first_grouped_instance))
+                        goto fail;
+
+                    gl->ActiveTexture(GL_TEXTURE3);
+                    if (batch->mapped) {
+                        const uint32_t lightmap_texture_index =
+                            batch->light_texture[0];
+
+                        if (lightmap_texture_index >=
+                                xz_shadow.static_lightmap_texture_count ||
+                            !xz_shadow.static_lightmap_textures ||
+                            !xz_shadow.static_lightmap_textures[
+                                lightmap_texture_index].alive ||
+                            !xz_shadow.static_lightmap_textures[
+                                lightmap_texture_index].object)
+                            goto fail;
+
+                        gl->BindTexture(
+                            GL_TEXTURE_2D,
+                            xz_shadow.static_lightmap_textures[
+                                lightmap_texture_index].object);
+                        has_lightmap = 1;
+                        baked_lightmap_draw_calls++;
+                    } else {
+                        gl->BindTexture(
+                            GL_TEXTURE_2D,
+                            0u);
+                    }
+
+                    gl->Uniform1i(
+                        xz_shadow.static_lightmap_enabled_loc,
+                        has_lightmap);
+                    gl->ActiveTexture(GL_TEXTURE0);
+
+                    if (has_texture)
+                        textured_draw_calls++;
+                    else
+                        untextured_draw_calls++;
+
+                    gl->DrawElementsInstanced(
+                        GL_TRIANGLES,
+                        (GLsizei)submesh->index_count,
+                        GL_UNSIGNED_INT,
+                        (const void *)(uintptr_t)(
+                            (uint64_t)submesh->first_index *
+                            sizeof(uint32_t)),
+                        (GLsizei)batch->instance_count);
+                    draw_calls++;
+                }
+            } else {
+                gl->Uniform1i(
+                    xz_shadow.static_lightmap_enabled_loc,
+                    0);
+
+                if (has_texture)
+                    textured_draw_calls++;
+                else
+                    untextured_draw_calls++;
+
+                gl->DrawElementsInstanced(
+                    GL_TRIANGLES,
+                    (GLsizei)submesh->index_count,
+                    GL_UNSIGNED_INT,
+                    (const void *)(uintptr_t)(
+                        (uint64_t)submesh->first_index *
+                        sizeof(uint32_t)),
+                    (GLsizei)span->instance_count);
+                draw_calls++;
+            }
         }
     }
 
@@ -5179,7 +5276,11 @@ static int XzDrawStaticScene(
     state->static_scene_last_draw_calls =
         draw_calls;
     state->static_scene_last_instances =
-        xz_shadow.static_draw_plan.instance_count;
+        state->static_scene_lightmap_shader_ready
+            ? xz_shadow.static_lightmap_draw_plan.instance_count
+            : xz_shadow.static_draw_plan.instance_count;
+    state->static_scene_last_baked_lightmap_draw_calls =
+        baked_lightmap_draw_calls;
     state->static_scene_last_textured_draw_calls =
         textured_draw_calls;
     state->static_scene_last_untextured_draw_calls =
@@ -5189,10 +5290,12 @@ static int XzDrawStaticScene(
     state->static_scene_last_pbr_bindings =
         pbr_cursor;
     state->static_scene_frame_ready =
-        draw_calls ==
-            state->static_scene_gpu_submeshes &&
+        expected_draw_calls > 0u &&
+        draw_calls == expected_draw_calls &&
         state->static_scene_last_instances ==
             xz_shadow.static_draw_plan.instance_count &&
+        (!state->static_scene_lightmap_shader_ready ||
+         baked_lightmap_draw_calls > 0u) &&
         (!state->static_scene_material_ready ||
          binding_cursor ==
             xz_shadow.static_material_binding_count) &&
