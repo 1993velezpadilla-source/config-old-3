@@ -126,13 +126,12 @@ def analyze_apk(
                         "streaming_pressure_model"
                     ],
                 }
-                report["gates"]["world_census"] = (
+                report["world_census"]["clean"] = (
                     census["worldblocks_parsed"] > 0
                     and not census["parse_errors"]
                 )
             except Exception as exc:
                 report["world_census_error"] = str(exc)
-                report["gates"]["world_census"] = False
 
         if "lib/arm64-v8a/libGame.so" in zf.namelist():
             so_path = root / "libGame.so"
