@@ -404,21 +404,20 @@ def sister_mouth_pose(body,h):
 
 
 def sister_fitted_wimple(body,h,mats):
-    """Pass 35: continuous anatomy-following wimple from actual head/neck surface."""
+    """Pass 36: fitted side/chin wimple; crown/coif supplies the forehead cloth without a pasted patch."""
     ivory=mats["dirty_ivory"]; fy=face_front_y(body,h); out=[]
-    # Single connected facial border selected from the body surface: brow + temples + under-chin.
+    # Pass 35 exposed a rectangular forehead island. Remove that copied-skin band entirely.
+    # Keep only anatomy-following temple/jaw cloth, joined visually into the under-wimple.
     frame=body_region_shell(body,"NunFittedWimple",ivory,
         lambda q: (
-            (.938<q.z/h<.972 and abs(q.x/h)<.061 and q.y<fy+.024*h) or
-            (.838<q.z/h<.948 and .047<abs(q.x/h)<.069 and q.y<fy+.030*h) or
-            (.817<q.z/h<.850 and abs(q.x/h)<.071 and q.y<fy+.030*h)
-        ),.0022*h)
+            (.838<q.z/h<.946 and .050<abs(q.x/h)<.068 and q.y<fy+.026*h) or
+            (.810<q.z/h<.850 and abs(q.x/h)<.070 and q.y<fy+.028*h)
+        ),.0018*h)
     if frame:
-        bev=frame.modifiers.new("WimpleEdgeSoft","BEVEL"); bev.width=.0008*h; bev.segments=2
+        bev=frame.modifiers.new("WimpleEdgeSoft","BEVEL"); bev.width=.0006*h; bev.segments=2
         out.append(frame)
-    # One continuous under-wimple around neck/upper chest; no isolated shoulder plates.
     under=body_region_shell(body,"NunUnderWimple",ivory,
-        lambda q:.705<q.z/h<.822 and abs(q.x/h)<.145 and q.y/h<.120,.0030*h)
+        lambda q:.705<q.z/h<.822 and abs(q.x/h)<.138 and q.y/h<.112,.0026*h)
     if under: out.append(under)
     return out
 
@@ -579,10 +578,10 @@ def sister_boot_pair(body,rig,h,mats):
             cx=sum(p.x for p in pts)/len(pts); cy=sum(p.y for p in pts)/len(pts)
         else:
             cx=sign*.045*h; cy=-.015*h
-        # Fixed human-scale half-extents prevent body-bbox inflation and hide all toes.
-        upper=cube('SisterShoe_'+label,(cx,cy-.014*h,.026*h),(.034*h,.061*h,.022*h),leather,.011*h)
+        # Pass 36: slimmer closed low shoe, pulled over the anatomical foot instead of sitting outside it.
+        upper=cube('SisterShoe_'+label,(cx,cy-.004*h,.030*h),(.030*h,.052*h,.026*h),leather,.010*h)
         out.append(upper)
-        sol=cube('SisterSole_'+label,(cx,cy-.016*h,.008*h),(.036*h,.064*h,.0055*h),sole_mat,.0035*h)
+        sol=cube('SisterSole_'+label,(cx,cy-.006*h,.008*h),(.032*h,.055*h,.0050*h),sole_mat,.0030*h)
         out.append(sol)
     return out
 
@@ -1828,7 +1827,8 @@ def make_character(ch,assets_root,outroot,HumanService,ObjectService,TargetServi
     if style=="sister_of_ash":
         sister_mouth_pose(body,h)
         sister_mouth_slit(body,h,mats)
-        # Pass 30: scars stay in skin shading/displacement; no floating curve marks.
+        # Paint any residual underlying foot polygons as leather so no bare toes can leak around the closed upper.
+        sister_paint_footwear(body,h)
         sister_boot_pair(body,rig,h,mats)
     veilmat=mats.get("spectral_ivory") or mats.get("dirty_ivory")
     if style in ("lost_child","waterbound_child","bell_ringer","choir_wretch","penitent_deacon","censer_brute","reliquary_horror"):
