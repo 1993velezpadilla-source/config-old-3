@@ -134,6 +134,14 @@ class ElfProbeTests(unittest.TestCase):
             1,
         )
 
+    def test_public_4243_anchor_set_includes_verified_ui_gamepad_symbols(self):
+        self.assertIn(
+            "_ZN10cIPhonePad8SetAlphaEf",
+            elf_probe.KNOWN_4243_ENGINE_SYMBOLS,
+        )
+        self.assertIn("gIPhonePad", elf_probe.KNOWN_4243_ENGINE_SYMBOLS)
+        self.assertIn("gOSWGamepad", elf_probe.KNOWN_4243_ENGINE_SYMBOLS)
+
     def test_rejects_non_elf(self):
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / "bad.so"
