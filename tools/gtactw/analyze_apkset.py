@@ -14,6 +14,7 @@ import apkset_probe
 import elf_probe
 import pak_inventory
 import profile_template
+import world_census
 
 
 def _merged_split_identity(source: Path, temp_root: Path, aapt: Path | None) -> dict:
@@ -93,6 +94,8 @@ def analyze_apkset(
         "source": str(source),
         "split_report": None,
         "pak_inventory": None,
+        "world_census": None,
+        "world_census_error": None,
         "libgame": None,
         "arm64_xrefs": None,
         "profile_template": None,
@@ -130,6 +133,30 @@ def analyze_apkset(
                 ][:256],
             }
             report["gates"]["pak_inventory"] = True
+            try:
+                census = world_census.census_pak(pak_path)
+                report["world_census"] = {
+                    "worldblocks_named": census["worldblocks_named"],
+                    "worldblocks_parsed": census["worldblocks_parsed"],
+                    "parse_error_count": len(census["parse_errors"]),
+                    "totals": census["totals"],
+                    "instance_stats_per_worldblock": census[
+                        "instance_stats_per_worldblock"
+                    ],
+                    "level_stats_per_worldblock": census[
+                        "level_stats_per_worldblock"
+                    ],
+                    "densest_worldblocks": census["densest_worldblocks"][:16],
+                    "streaming_pressure_model": census[
+                        "streaming_pressure_model"
+                    ],
+                    "clean": (
+                        census["worldblocks_parsed"] > 0
+                        and not census["parse_errors"]
+                    ),
+                }
+            except Exception as exc:
+                report["world_census_error"] = str(exc)
 
         if so_path.is_file():
             elf = elf_probe.inspect_elf(so_path)
