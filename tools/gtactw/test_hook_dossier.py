@@ -90,6 +90,34 @@ class HookDossierTests(unittest.TestCase):
                 "trampoline_strategy_hint": (
                     "advanced_relocator_required"
                 ),
+                "caller_abi_evidence": {
+                    "direct_call_site_count": 2,
+                    "callers_analyzed": 1,
+                    "callers": [
+                        {
+                            "caller": "WorldRender",
+                            "caller_rva": 0x4800,
+                            "call_site_rva": 0x4820,
+                            "context": {
+                                "locally_prepared_argument_registers": [
+                                    "x0", "v0"
+                                ],
+                                "possible_passthrough_argument_registers": [
+                                    "x1"
+                                ],
+                                "return_use": {
+                                    "x0": {
+                                        "status": "consumed",
+                                        "mnemonic": "cbz",
+                                    },
+                                    "v0": {
+                                        "status": "not_observed_in_window",
+                                    },
+                                },
+                            },
+                        }
+                    ],
+                },
                 "abi_evidence": {
                     "stack_frame_bytes_hint": 64,
                     "argument_register_hints": {
@@ -205,6 +233,18 @@ class HookDossierTests(unittest.TestCase):
         self.assertEqual(
             candidate["return_value_hints"]["paths"][0]["kind_hint"],
             "boolean_like",
+        )
+        self.assertEqual(candidate["direct_call_site_count"], 2)
+        self.assertEqual(candidate["callers_analyzed"], 1)
+        caller = candidate["caller_abi_evidence"]["callers"][0]
+        self.assertEqual(caller["caller"], "WorldRender")
+        self.assertIn(
+            "x0",
+            caller["context"]["locally_prepared_argument_registers"],
+        )
+        self.assertEqual(
+            caller["context"]["return_use"]["x0"]["status"],
+            "consumed",
         )
 
         self.assertEqual(report["summary"]["targets_verified"], 0)
