@@ -22,6 +22,8 @@
 #include "xz_texture_tap.h"
 #include "xz_map_runtime.h"
 #include "xz_package_boot.h"
+#include "xz_zone_db.h"
+#include "xz_runtime_readiness.h"
 #include "xz_static_scene_runtime.h"
 
 #include <SDL.h>
@@ -59,6 +61,8 @@ typedef struct {
     XzCutoverState cutover;
     XzMapRuntimeState map_runtime;
     XzPackageBootState package_boot;
+    XzZoneDb zone_db;
+    XzRuntimeReadiness runtime_readiness;
     XzStaticSceneRuntimeState static_scene;
     uint64_t command_encode_failures;
     uint64_t graph_rebuild_failures;
@@ -1086,6 +1090,8 @@ void XzAndroidRuntime_Init(size_t engine_heap_bytes)
 
     XzMapRuntime_Init(&xz_runtime.map_runtime);
     XzPackageBoot_Init(&xz_runtime.package_boot);
+    XzZoneDb_Init(&xz_runtime.zone_db);
+    XzRuntimeReadiness_Init(&xz_runtime.runtime_readiness);
     XzStaticSceneRuntime_Init(&xz_runtime.static_scene);
 
     xz_runtime.initialized = 1;
@@ -1395,6 +1401,12 @@ void XzAndroidRuntime_SetVerifiedMapPackageMode(int enabled)
      * principle: resolve the complete declared asset set before activating
      * the runtime map.
      */
+    XzRuntimeReadiness_SetGate(
+        &xz_runtime.runtime_readiness,
+        XZ_GATE_PACKAGE_VISIBLE,
+        enabled && preflight_ok,
+        enabled && !preflight_ok);
+
     XzMapRuntime_SetVerifiedPackageMode(
         &xz_runtime.map_runtime,
         enabled && preflight_ok);
@@ -1409,6 +1421,17 @@ void XzAndroidRuntime_SetVerifiedMapPackageMode(int enabled)
         XzMapRuntime_KindName(
             XzMapRuntime_Kind(&xz_runtime.map_runtime)),
         XzMapRuntime_MapId(&xz_runtime.map_runtime));
+
+    XzAndroidLog(
+        ANDROID_LOG_INFO,
+        "runtime readiness matchReady=%d roundStartAllowed=%d"
+        " readyMask=0x%08x failedMask=0x%08x requiredMask=0x%08x",
+        XzRuntimeReadiness_MatchReady(
+            &xz_runtime.runtime_readiness),
+        xz_runtime.runtime_readiness.round_start_allowed,
+        xz_runtime.runtime_readiness.ready_mask,
+        xz_runtime.runtime_readiness.failed_mask,
+        xz_runtime.runtime_readiness.required_mask);
 }
 
 void XzAndroidRuntime_BeginFrame(double now_seconds)
