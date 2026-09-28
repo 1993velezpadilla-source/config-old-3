@@ -164,6 +164,20 @@ int ctw_mod_init(void *original_game_handle) {
     }
 
     LOGI("matched verified CTW build profile: %s", profile->name);
+
+    const int signature_rc = ctw_profile_verify_target_prefixes(
+        profile,
+        &targets
+    );
+    if (signature_rc != 0) {
+        LOGE(
+            "CTW target byte signature mismatch rc=%d; game remains unmodified",
+            signature_rc
+        );
+        return signature_rc;
+    }
+    LOGI("CTW target byte signatures verified");
+
     const int apply_rc = ctw_apply_profile(&targets);
     if (apply_rc != 0) {
         LOGE("verified profile is incomplete rc=%d; game remains unmodified", apply_rc);
