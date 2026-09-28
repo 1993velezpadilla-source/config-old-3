@@ -299,8 +299,7 @@ XzLightmapBindingStatus XzLightmapBinding_Open(
             XZ_XZLB_FLAG_AO_MASK |
             XZ_XZLB_FLAG_SHADOW_PARAMS |
             XZ_XZLB_FLAG_MESH_CONSENSUS;
-        const int mapped =
-            (record.flags & XZ_XZLB_FLAG_MAPPED) != 0u;
+        int mapped;
 
         if (!XzBindingRecordAt(
                 view,
@@ -309,6 +308,9 @@ XzLightmapBindingStatus XzLightmapBinding_Open(
             status = XZ_XZLB_ERR_RECORD;
             goto fail_view;
         }
+
+        mapped =
+            (record.flags & XZ_XZLB_FLAG_MAPPED) != 0u;
 
         if ((record.flags & ~known_flags) != 0u) {
             status = XZ_XZLB_ERR_RECORD;
