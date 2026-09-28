@@ -3853,16 +3853,16 @@ jobs:
             dist/static-scene-logcat.txt
 
           grep -Fq \
-            '"layout(location=3) in vec2 aUV1;\\n"' \
+            '"layout(location=3) in vec2 aUV1;\n"' \
             engine/xz/xz_gles3_shadow.c
           grep -Fq \
-            '"layout(location=4) in vec2 aUV2;\\n"' \
+            '"layout(location=4) in vec2 aUV2;\n"' \
             engine/xz/xz_gles3_shadow.c
           grep -Fq \
-            '"layout(location=5) in vec2 aUV3;\\n"' \
+            '"layout(location=5) in vec2 aUV3;\n"' \
             engine/xz/xz_gles3_shadow.c
           grep -Fq \
-            '"layout(location=6) in mat4 aModel;\\n"' \
+            '"layout(location=6) in mat4 aModel;\n"' \
             engine/xz/xz_gles3_shadow.c
           grep -Fq \
             '(GLuint)(6u + column)' \
