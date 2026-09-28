@@ -18,6 +18,7 @@ import shutil
 import tempfile
 import zipfile
 
+import aarch64_xref
 import apk_identity
 import ctw_probe
 import elf_probe
@@ -42,6 +43,8 @@ def analyze_apk(apk: Path, reference: Path | None = None, aapt: Path | None = No
         "libgame": None,
         "profile_template": None,
         "profile_template_error": None,
+        "arm64_xrefs": None,
+        "arm64_xrefs_error": None,
         "apk_identity": None,
         "apk_identity_error": None,
         "reference_validation": None,
@@ -92,6 +95,10 @@ def analyze_apk(apk: Path, reference: Path | None = None, aapt: Path | None = No
             report["libgame"] = elf
             report["gates"]["arm64_elf"] = elf["elf"]["machine"] == "AArch64"
             report["gates"]["known_jni"] = elf["symbols"]["known_jni_present"] > 0
+            try:
+                report["arm64_xrefs"] = aarch64_xref.scan_libgame(so_path)
+            except Exception as exc:
+                report["arm64_xrefs_error"] = str(exc)
             try:
                 report["profile_template"] = profile_template.make_profile(elf)
             except Exception as exc:
