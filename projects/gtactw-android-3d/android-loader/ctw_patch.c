@@ -135,11 +135,18 @@ int ctw_apply_profile(const CtwPatchTargets *targets) {
         !targets->lod_test ||
         !targets->player_render) {
         LOGI("profile incomplete; CTW remains unmodified");
-        return 1;
+        return CTW_PATCH_PROFILE_INCOMPLETE;
     }
 
-    LOGI("complete CTW patch target profile present");
-    return 0;
+    /*
+     * Target RVAs and signatures can be verified before their exact function
+     * ABIs are known. Do not install branch hooks until each ABI adapter has
+     * been reverse-engineered and gated for this exact build.
+     */
+    LOGI(
+        "complete CTW target set verified; runtime ABI adapters still pending"
+    );
+    return CTW_PATCH_ADAPTERS_PENDING;
 }
 
 int ctw_mod_init(void *original_game_handle) {
@@ -182,12 +189,22 @@ int ctw_mod_init(void *original_game_handle) {
     LOGI("CTW target byte signatures verified");
 
     const int apply_rc = ctw_apply_profile(&targets);
-    if (apply_rc != 0) {
-        LOGE("verified profile is incomplete rc=%d; game remains unmodified", apply_rc);
+    if (apply_rc == CTW_PATCH_ADAPTERS_PENDING) {
+        LOGI(
+            "CTW target profile verified; hooks intentionally not installed "
+            "until ABI adapters are verified"
+        );
+        return 0;
+    }
+    if (apply_rc != CTW_PATCH_APPLIED) {
+        LOGE(
+            "verified profile cannot be applied rc=%d; game remains unmodified",
+            apply_rc
+        );
         return apply_rc;
     }
 
-    LOGI("CTW patch target set verified and ready");
+    LOGI("CTW runtime hooks installed");
     return 0;
 }
 
