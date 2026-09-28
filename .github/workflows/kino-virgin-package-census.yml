@@ -178,6 +178,7 @@ jobs:
             dotnet "$APP" \
               "kino-shards/shard-$i" \
               "kino-download/class-shards/shard-$i.json" \
+              ue5.1 \
               | tee "kino-download/class-shards/shard-$i.log"
             test -s "kino-download/class-shards/shard-$i.json"
             echo "XZIEL_KINO_CLASS_SHARD_GREEN $i/$SHARDS"
