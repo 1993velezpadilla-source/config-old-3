@@ -141,6 +141,9 @@ def rank_target_evidence(
                     "function": item.get("caller"),
                     "imports": [],
                     "call_sites": [],
+                    "draw_frame_hops": None,
+                    "draw_frame_path_rvas": [],
+                    "draw_frame_path_functions": [],
                 })
                 symbol = item.get("import_symbol")
                 if symbol and symbol not in grouped["imports"]:
@@ -148,6 +151,21 @@ def rank_target_evidence(
                 pc = item.get("call_site_rva")
                 if pc is not None and pc not in grouped["call_sites"]:
                     grouped["call_sites"].append(pc)
+
+                hops = item.get("draw_frame_hops")
+                if isinstance(hops, int) and (
+                    grouped["draw_frame_hops"] is None
+                    or hops < grouped["draw_frame_hops"]
+                ):
+                    grouped["draw_frame_hops"] = hops
+                    grouped["draw_frame_path_rvas"] = item.get(
+                        "draw_frame_path_rvas",
+                        [],
+                    )
+                    grouped["draw_frame_path_functions"] = item.get(
+                        "draw_frame_path_functions",
+                        [],
+                    )
 
             for rva, item in by_caller.items():
                 entry = merged.setdefault(rva, {
@@ -164,6 +182,29 @@ def rank_target_evidence(
                     if pc not in entry["call_sites"]:
                         entry["call_sites"].append(pc)
                 entry["plt_imports"] = item["imports"]
+
+                hops = item.get("draw_frame_hops")
+                if isinstance(hops, int):
+                    entry["draw_frame_hops"] = hops
+                    entry["draw_frame_path_rvas"] = item.get(
+                        "draw_frame_path_rvas",
+                        [],
+                    )
+                    entry["draw_frame_path_functions"] = item.get(
+                        "draw_frame_path_functions",
+                        [],
+                    )
+                    if hops <= 1:
+                        entry["score"] += 12
+                    elif hops == 2:
+                        entry["score"] += 8
+                    elif hops <= 4:
+                        entry["score"] += 5
+                    else:
+                        entry["score"] += 2
+                    entry["reasons"].append(
+                        f"reachable from implOnDrawFrame in {hops} symbol hop(s)"
+                    )
 
                 imports = set(item["imports"])
                 if "glUniformMatrix4fv" in imports:
