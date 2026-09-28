@@ -48,6 +48,7 @@ KNOWN_JNI_EXPORTS = (
 # Public 4.4.243 anchors confirmed by the NaGaa95 Switch port against the
 # exact Android libGame.so build.  They are fingerprint evidence only.
 KNOWN_4243_ENGINE_SYMBOLS = (
+    "_Z12NVThreadInitP7_JavaVM",
     "_Z24NVThreadGetCurrentJNIEnvv",
     "_Z22NVThreadSpawnJNIThreadPlPK14pthread_attr_tPKcPFPvS5_ES5_",
     "_Z15OS_ThreadLaunchPFjPvES_jPKci16OSThreadPriority",
