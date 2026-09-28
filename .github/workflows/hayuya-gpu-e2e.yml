@@ -32,9 +32,19 @@ jobs:
           python -m py_compile tools/hayuya3d/gpu_doctor.py tools/hayuya3d/gpu_verify.py
 
   e2e:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[gpu-e2e]')
     runs-on: [self-hosted, linux, x64, hayuya-gpu]
     timeout-minutes: 360
+    env:
+      HAYUYA_JOB_ID: monja-ultra-2m-direct
+      HAYUYA_GEOMETRY_INPUT: hayuya/assets/monja-mugfwln6/geometry/primary.webp
+      HAYUYA_PROFILE: ultra
+      HAYUYA_MODE: character
+      HAYUYA_PORTABLE_TARGET: high
+      HAYUYA_GPU_VRAM: "24"
+      HAYUYA_BACKENDS: trellis2,triposg
+      HAYUYA_OUTPUT_ROOT: out/hayuya-jobs/monja-ultra-2m-direct/outputs
+      HAYUYA_EVIDENCE_ROOT: out/gpu-e2e/monja-ultra-2m-direct
     steps:
       - name: Checkout
         uses: actions/checkout@v4
