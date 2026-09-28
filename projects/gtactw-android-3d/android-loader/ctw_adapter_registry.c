@@ -3,13 +3,16 @@
 
 #include <string.h>
 
-static void *find_adapter(const char *name) {
-    if (!name || !name[0])
+static void *find_adapter(
+    const char *name,
+    const CtwAdapterBinding *bindings,
+    size_t binding_count
+) {
+    if (!name || !name[0] || (!bindings && binding_count != 0))
         return NULL;
 
-    for (size_t i = 0; i < g_ctw_adapter_bindings_count; ++i) {
-        const CtwGeneratedAdapterBinding *binding =
-            &g_ctw_adapter_bindings_storage[i];
+    for (size_t i = 0; i < binding_count; ++i) {
+        const CtwAdapterBinding *binding = &bindings[i];
         if (binding->name && binding->replacement &&
             strcmp(binding->name, name) == 0) {
             return binding->replacement;
@@ -18,11 +21,13 @@ static void *find_adapter(const char *name) {
     return NULL;
 }
 
-int ctw_adapter_registry_resolve(
+int ctw_adapter_registry_resolve_from(
     const CtwBuildProfile *profile,
-    CtwHookReplacements *out
+    CtwHookReplacements *out,
+    const CtwAdapterBinding *bindings,
+    size_t binding_count
 ) {
-    if (!profile || !out)
+    if (!profile || !out || (!bindings && binding_count != 0))
         return -1;
 
     *out = (CtwHookReplacements){0};
@@ -45,7 +50,11 @@ int ctw_adapter_registry_resolve(
     };
 
     for (size_t i = 0; i < CTW_HOOK_COUNT; ++i) {
-        void *replacement = find_adapter(names[i]);
+        void *replacement = find_adapter(
+            names[i],
+            bindings,
+            binding_count
+        );
         if (!replacement) {
             *out = (CtwHookReplacements){0};
             return 1;
@@ -54,4 +63,16 @@ int ctw_adapter_registry_resolve(
     }
 
     return 0;
+}
+
+int ctw_adapter_registry_resolve(
+    const CtwBuildProfile *profile,
+    CtwHookReplacements *out
+) {
+    return ctw_adapter_registry_resolve_from(
+        profile,
+        out,
+        g_ctw_adapter_bindings_storage,
+        g_ctw_adapter_bindings_count
+    );
 }
