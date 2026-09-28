@@ -223,6 +223,105 @@ def rank_target_evidence(
                         "calls glUseProgram through PLT mapping"
                     )
 
+        if target in ("sector_visibility", "player_render"):
+            plt_group = (
+                "visibility"
+                if target == "sector_visibility"
+                else "render"
+            )
+            by_caller = {}
+            for item in plt_groups.get(plt_group, []):
+                rva = item.get("caller_rva")
+                if rva is None or int(rva) not in merged:
+                    continue
+                key = int(rva)
+                grouped = by_caller.setdefault(key, {
+                    "imports": [],
+                    "call_sites": [],
+                    "draw_frame_hops": None,
+                    "draw_frame_path_rvas": [],
+                    "draw_frame_path_functions": [],
+                })
+                symbol = item.get("import_symbol")
+                if symbol and symbol not in grouped["imports"]:
+                    grouped["imports"].append(symbol)
+                pc = item.get("call_site_rva")
+                if pc is not None and pc not in grouped["call_sites"]:
+                    grouped["call_sites"].append(pc)
+                hops = item.get("draw_frame_hops")
+                if isinstance(hops, int) and (
+                    grouped["draw_frame_hops"] is None
+                    or hops < grouped["draw_frame_hops"]
+                ):
+                    grouped["draw_frame_hops"] = hops
+                    grouped["draw_frame_path_rvas"] = item.get(
+                        "draw_frame_path_rvas",
+                        [],
+                    )
+                    grouped["draw_frame_path_functions"] = item.get(
+                        "draw_frame_path_functions",
+                        [],
+                    )
+
+            for rva, item in by_caller.items():
+                entry = merged[rva]
+                existing = entry.setdefault("plt_imports", [])
+                for symbol in item["imports"]:
+                    if symbol not in existing:
+                        existing.append(symbol)
+                for pc in item["call_sites"]:
+                    if pc not in entry["call_sites"]:
+                        entry["call_sites"].append(pc)
+
+                hops = item.get("draw_frame_hops")
+                if isinstance(hops, int):
+                    entry["draw_frame_hops"] = hops
+                    entry["draw_frame_path_rvas"] = item.get(
+                        "draw_frame_path_rvas",
+                        [],
+                    )
+                    entry["draw_frame_path_functions"] = item.get(
+                        "draw_frame_path_functions",
+                        [],
+                    )
+                    if hops <= 2:
+                        entry["score"] += 4
+                    elif hops <= 4:
+                        entry["score"] += 2
+                    entry["reasons"].append(
+                        f"{plt_group} GL caller reachable from implOnDrawFrame "
+                        f"in {hops} symbol hop(s)"
+                    )
+
+                imports = set(item["imports"])
+                if target == "sector_visibility":
+                    if "glScissor" in imports:
+                        entry["score"] += 6
+                        entry["reasons"].append(
+                            "visibility candidate also calls glScissor"
+                        )
+                    if "glCullFace" in imports:
+                        entry["score"] += 5
+                        entry["reasons"].append(
+                            "visibility candidate also calls glCullFace"
+                        )
+                    if "glDepthMask" in imports:
+                        entry["score"] += 2
+                        entry["reasons"].append(
+                            "visibility candidate also calls glDepthMask"
+                        )
+                else:
+                    if "glDrawElements" in imports:
+                        entry["score"] += 5
+                        entry["reasons"].append(
+                            "player-render candidate also calls glDrawElements"
+                        )
+                    if "glDrawArrays" in imports:
+                        entry["score"] += 4
+                        entry["reasons"].append(
+                            "player-render candidate also calls glDrawArrays"
+                        )
+
         strong_terms = tuple(x.lower() for x in rule["strong_terms"])
         weak_terms = tuple(x.lower() for x in rule["weak_terms"])
         for entry in merged.values():
