@@ -302,11 +302,14 @@ python tools/gtactw/adb_collect.py \
   --analysis-out ./local_ctw/ctw_analysis.json \
   --profile-out ./local_ctw/ctw_profile.json \
   --abi-out ./local_ctw/ctw_abi_evidence.json \
-  --abi-profile-out ./local_ctw/ctw_profile_with_abi_evidence.json
+  --abi-profile-out ./local_ctw/ctw_profile_with_abi_evidence.json \
+  --status-out ./local_ctw/ctw_profile_status.json
 ```
 
 The ABI probe uses Android-NDK `llvm-objdump` when available. It demangles C++
 symbols, summarizes AArch64 stack/prologue behavior, x0-x7/v0-v7 argument
 register hints, calls, branches, and returns. These are evidence only: the
 profile deliberately remains `status=pending` until the prototype and adapter
-for each hook have been explicitly verified.
+for each hook have been explicitly verified. The optional status output reports
+the current gate, verified target/ABI counts, and public 4.4.243 engine-anchor
+coverage in the same one-pass run.
