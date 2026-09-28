@@ -3932,10 +3932,10 @@ jobs:
             dist/static-scene-logcat.txt
 
           grep -Fq \
-            '"uniform sampler2D uLightmapHQ;\\n"' \
+            '"uniform sampler2D uLightmapHQ;\n"' \
             engine/xz/xz_gles3_shadow.c
           grep -Fq \
-            '"  float logL=lm0.a+lm1.a*(1.0/255.0)-(0.5/255.0);\\n"' \
+            '"  float logL=lm0.a+lm1.a*(1.0/255.0)-(0.5/255.0);\n"' \
             engine/xz/xz_gles3_shadow.c
           grep -Fq \
             "GL_COMPRESSED_RGBA_S3TC_DXT5_EXT" \
