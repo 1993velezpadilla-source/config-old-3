@@ -48,6 +48,36 @@ def _initialize_gradio_session(client: Client) -> dict:
             return report
     return report
 
+
+def _prepare_local_segmented_image(image: Path, work_dir: Path) -> tuple[Path | None, dict]:
+    """Reuse a trustworthy alpha matte locally and avoid a redundant ZeroGPU call."""
+    try:
+        from PIL import Image
+        im=Image.open(image).convert("RGBA")
+        alpha=im.getchannel("A")
+        lo, hi=alpha.getextrema()
+        hist=alpha.histogram()
+        total=max(1,sum(hist))
+        nonopaque=sum(hist[:250])
+        fraction=float(nonopaque)/float(total)
+        useful=bool(lo < 250 and hi > 5 and fraction >= 0.0001)
+        report={
+            "mode":"RGBA",
+            "size":[int(im.width),int(im.height)],
+            "alpha_min":int(lo),
+            "alpha_max":int(hi),
+            "nonopaque_fraction":fraction,
+            "useful_alpha":useful,
+        }
+        if not useful:
+            return None, report
+        work_dir.mkdir(parents=True, exist_ok=True)
+        out=work_dir/"triposg_local_segmented.png"
+        im.save(out, format="PNG")
+        return out, report
+    except Exception as exc:
+        return None, {"useful_alpha":False,"error":f"{type(exc).__name__}: {exc}"}
+
 def _parameter_names(spec: dict) -> list[str]:
     return [str(p.get("parameter_name") or "") for p in spec.get("parameters", [])]
 
@@ -160,19 +190,32 @@ def generate(
             +session_init["error"]
         )
 
-    seg_ep, seg_spec = _pick_endpoint(
-        named, "/run_segmentation", "segmentation"
+    local_segmented, local_segmentation = _prepare_local_segmented_image(
+        image,
+        output.parent,
     )
-    seg_params = _parameter_names(seg_spec)
-    if len(seg_params) != 1:
-        raise RuntimeError(
-            f"Unexpected TripoSG segmentation signature: {seg_params}"
+    if local_segmented is not None:
+        segmented_input=handle_file(str(local_segmented.resolve()))
+        segmentation_mode="local_alpha_reuse"
+        print(
+            "HAYUYA_TRIPOSG_LOCAL_SEGMENTATION_REUSE",
+            local_segmentation,
         )
-    segmented = client.predict(
-        handle_file(str(image.resolve())),
-        api_name=seg_ep,
-    )
-    segmented_input = _as_file_input(segmented)
+    else:
+        seg_ep, seg_spec = _pick_endpoint(
+            named, "/run_segmentation", "segmentation"
+        )
+        seg_params = _parameter_names(seg_spec)
+        if len(seg_params) != 1:
+            raise RuntimeError(
+                f"Unexpected TripoSG segmentation signature: {seg_params}"
+            )
+        segmented = client.predict(
+            handle_file(str(image.resolve())),
+            api_name=seg_ep,
+        )
+        segmented_input = _as_file_input(segmented)
+        segmentation_mode="public_space_rmbg"
 
     gen_ep, gen_spec = _pick_endpoint(named, "/image_to_3d", "image_to_3d")
     gen_values = {
@@ -231,6 +274,8 @@ def generate(
         "bytes": len(blob),
         "quality_role": "dense_hero_candidate",
         "session_init": session_init,
+        "segmentation_mode": segmentation_mode,
+        "local_segmentation": local_segmentation,
     }
     print("HAYUYA_TRIPOSG_CLOUD_PASS", payload)
     return payload
