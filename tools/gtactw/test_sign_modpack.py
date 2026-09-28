@@ -145,13 +145,15 @@ class SignModpackTests(unittest.TestCase):
                     zipalign_path=zipalign,
                     apksigner_path=apksigner,
                 )
+                base_exists = (output / "base.apk").is_file()
+                arm64_exists = (
+                    output / "split_config.arm64_v8a.apk"
+                ).is_file()
 
         self.assertEqual(report["mode"], "apkset")
         self.assertEqual(report["apk_count"], 2)
-        self.assertTrue((output / "base.apk").is_file())
-        self.assertTrue(
-            (output / "split_config.arm64_v8a.apk").is_file()
-        )
+        self.assertTrue(base_exists)
+        self.assertTrue(arm64_exists)
 
     def test_split_certificate_mismatch_is_rejected(self):
         with tempfile.TemporaryDirectory() as td:
