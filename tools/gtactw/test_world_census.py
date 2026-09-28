@@ -50,6 +50,51 @@ class WorldCensusTests(unittest.TestCase):
         self.assertEqual(report["totals"]["levels"], 1)
         self.assertEqual(report["densest_worldblocks"][0]["name"], "worldblock0.wbl")
         self.assertEqual(report["densest_worldblocks"][0]["sector_instance_counts"], [2, 0, 0, 0])
+        self.assertFalse(report["streaming_pressure_model"]["available"])
+
+
+    def test_streaming_pressure_model(self):
+        blocks = [
+            {
+                "name": "a",
+                "resource_id": 1,
+                "origin": [0.0, 0.0, 0.0],
+                "instances": 10,
+            },
+            {
+                "name": "b",
+                "resource_id": 2,
+                "origin": [10.0, 0.0, 0.0],
+                "instances": 20,
+            },
+            {
+                "name": "c",
+                "resource_id": 3,
+                "origin": [20.0, 0.0, 0.0],
+                "instances": 30,
+            },
+        ]
+        model = world_census.streaming_pressure_model(
+            blocks,
+            multipliers=(1.0, 2.0),
+        )
+
+        self.assertTrue(model["available"])
+        self.assertEqual(
+            model["baseline_nearest_neighbor_world_units"],
+            10.0,
+        )
+
+        one_x, two_x = model["scenarios"]
+        self.assertEqual(one_x["multiplier"], 1.0)
+        self.assertEqual(one_x["loaded_blocks"]["max"], 3)
+        self.assertEqual(one_x["loaded_instances"]["max"], 60)
+        self.assertEqual(one_x["loaded_blocks"]["min"], 2)
+
+        self.assertEqual(two_x["multiplier"], 2.0)
+        self.assertEqual(two_x["loaded_blocks"]["min"], 3)
+        self.assertEqual(two_x["loaded_blocks"]["max"], 3)
+        self.assertEqual(two_x["loaded_instances"]["max"], 60)
 
 
 if __name__ == "__main__":
