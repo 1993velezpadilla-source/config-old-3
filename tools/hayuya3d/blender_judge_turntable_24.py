@@ -19,6 +19,11 @@ def parse_args():
     p.add_argument("--output-dir",required=True,type=Path)
     p.add_argument("--size",type=int,default=768)
     p.add_argument("--face-size",type=int,default=768)
+    p.add_argument(
+        "--preflight-only",
+        action="store_true",
+        help="Render only semantic-front body + face evidence for fast AAA rejection.",
+    )
     return p.parse_args(argv)
 
 
@@ -138,7 +143,11 @@ def main():
     # immediately and preserve the highest-value frames even if a runner dies.
     face_indices={8,9,10,11,12,13,14,15,16}
     priority=[12,13,14,15,16,8,9,10,11]
-    render_order=priority+[i for i in range(24) if i not in set(priority)]
+    render_order=(
+        [12]
+        if a.preflight_only
+        else priority+[i for i in range(24) if i not in set(priority)]
+    )
     distance=3.2*radius
     full_by_index={}
     face_by_index={}
@@ -157,9 +166,16 @@ def main():
             render(scene,cam,hp,head_target,offset,head_scale,a.face_size)
             face_by_index[index]=str(hp)
 
-    # Manifest remains canonical turntable order regardless of render order.
-    full=[full_by_index[i] for i in range(24)]
-    faces=[face_by_index[i] for i in sorted(face_indices)]
+    # Manifest remains canonical turntable order for full Judge evidence.
+    # Preflight intentionally emits only semantic front.
+    if a.preflight_only:
+        full=[full_by_index[12]]
+        faces=[face_by_index[12]]
+        manifest_face_indices=[12]
+    else:
+        full=[full_by_index[i] for i in range(24)]
+        faces=[face_by_index[i] for i in sorted(face_indices)]
+        manifest_face_indices=sorted(face_indices)
 
     manifest={
         "schema":1,
@@ -173,10 +189,14 @@ def main():
         },
         "turntable":full,
         "faces":faces,
-        "face_indices":sorted(face_indices),
+        "face_indices":manifest_face_indices,
+        "preflight_only":bool(a.preflight_only),
     }
     (out/"blender_manifest.json").write_text(json.dumps(manifest,indent=2)+"\n",encoding="utf-8")
-    print("HAYUYA_BLENDER_24VIEW",json.dumps(manifest))
+    print(
+        "HAYUYA_BLENDER_PREFLIGHT" if a.preflight_only else "HAYUYA_BLENDER_24VIEW",
+        json.dumps(manifest),
+    )
 
 
 if __name__=="__main__":
