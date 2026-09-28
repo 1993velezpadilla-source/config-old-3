@@ -726,23 +726,20 @@ def sister_fitted_face_wimple(body,h,mats):
     return out
 
 def sister_closed_shoes(body,h,mats):
-    """Pass 30: fitted low-profile closed shoes, no sphere/toe proxies."""
-    leather=mat("M_SisterClosedShoes","#171516",.82,0,noise=True)
+    """Pass 36: compact closed leather shoes; no anatomical toe silhouette or platform blocks."""
+    leather=mat("M_SisterClosedShoes","#171516",.84,0,noise=True)
     sole_mat=mat("M_SisterSole","#0D0C0D",.90,0,noise=True)
     out=[]
     for sign,label in ((-1,"L"),(1,"R")):
-        # Build a shallow closed upper from the actual foot surface so scale follows anatomy.
-        upper=body_region_shell(body,"SisterShoeUpper_"+label,leather,
-            lambda q,sign=sign: q.x*sign>.012*h and q.z/h<.075,.0045*h)
-        if upper: out.append(upper)
-        pts=[v.co for v in body.data.vertices if v.co.x*sign>.012*h and v.co.z/h<.075]
-        if pts:
-            minx,maxx=min(q.x for q in pts),max(q.x for q in pts)
-            miny,maxy=min(q.y for q in pts),max(q.y for q in pts)
-            minz=min(q.z for q in pts)
-            sole=cube("SisterSole_"+label,((minx+maxx)/2,(miny+maxy)/2,minz+.004*h),
-                ((maxx-minx)*.54,(maxy-miny)*.54,.005*h),sole_mat,.002*h)
-            out.append(sole)
+        pts=[v.co.copy() for v in body.data.vertices if v.co.z/h<.070 and v.co.x*sign>.012*h]
+        cx=(sum(p.x for p in pts)/len(pts)) if pts else sign*.047*h
+        cy=(sum(p.y for p in pts)/len(pts)) if pts else -.018*h
+        upper=uv_sphere("SisterClosedShoe_"+label,(cx,cy-.003*h,.023*h),
+            (.029*h,.050*h,.019*h),leather)
+        upper.scale.y=1.05; apply_obj(upper); out.append(upper)
+        sole=cube("SisterClosedSole_"+label,(cx,cy-.005*h,.007*h),
+            (.030*h,.052*h,.0042*h),sole_mat,.002*h)
+        out.append(sole)
     return out
 
 def sister_face_scars(body,h,mats):
