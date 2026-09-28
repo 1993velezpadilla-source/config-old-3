@@ -81,11 +81,10 @@ def generate_shape(
     named = _named_endpoints(client)
     endpoint = _pick_shape_endpoint(named)
 
-    # Official Space signature:
-    # caption, image, mv front/back/left/right, steps, guidance, seed,
+    # Current official Space signature discovered at runtime:
+    # image, mv front/back/left/right, steps, guidance, seed,
     # octree resolution, remove-background, chunks, randomize-seed.
     result = client.predict(
-        None,
         handle_file(str(image.resolve())),
         None,
         None,
