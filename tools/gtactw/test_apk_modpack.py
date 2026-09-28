@@ -39,6 +39,28 @@ class ApkModpackTests(unittest.TestCase):
                 self.assertNotIn("META-INF/MANIFEST.MF", zf.namelist())
                 self.assertNotIn("META-INF/CERT.RSA", zf.namelist())
 
+    def test_embeds_modhub_config(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            src = root / "ctw.apk"
+            loader = root / "libGame.so"
+            config = root / "ctw_modhub.ini"
+            out = root / "ctw3d-unsigned.apk"
+
+            loader.write_bytes(b"\x7fELF" + b"L" * 64)
+            config.write_text("[Camera]\nFOV=72\n", encoding="utf-8")
+            with zipfile.ZipFile(src, "w") as zf:
+                zf.writestr(apk_modpack.GAME_SO, b"\x7fELF" + b"ORIGINAL")
+                zf.writestr(apk_modpack.CONFIG_ASSET, b"old")
+
+            report = apk_modpack.build_mod_apk(src, loader, out, config)
+            self.assertEqual(report["config_asset"], apk_modpack.CONFIG_ASSET)
+            with zipfile.ZipFile(out, "r") as zf:
+                self.assertEqual(
+                    zf.read(apk_modpack.CONFIG_ASSET),
+                    config.read_bytes(),
+                )
+
     def test_rejects_non_elf_loader(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
