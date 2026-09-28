@@ -26,7 +26,12 @@ import pak_inventory
 import profile_template
 
 
-def analyze_apk(apk: Path, reference: Path | None = None, aapt: Path | None = None) -> dict:
+def analyze_apk(
+    apk: Path,
+    reference: Path | None = None,
+    aapt: Path | None = None,
+    apksigner: Path | None = None,
+) -> dict:
     if not apk.is_file():
         raise FileNotFoundError(apk)
 
@@ -46,6 +51,7 @@ def analyze_apk(apk: Path, reference: Path | None = None, aapt: Path | None = No
         "arm64_xrefs": None,
         "arm64_xrefs_error": None,
         "apk_identity": None,
+        "apk_certificate": None,
         "apk_identity_error": None,
         "reference_validation": None,
         "gates": {
@@ -60,8 +66,21 @@ def analyze_apk(apk: Path, reference: Path | None = None, aapt: Path | None = No
         try:
             identity = apk_identity.inspect_apk_identity(apk, aapt)
             ref_obj = json.loads(reference.read_text(encoding="utf-8"))
-            validation = apk_identity.validate_reference(identity, ref_obj)
+            certificate = None
+            if ref_obj.get("verification", {}).get(
+                "require_signing_certificate_match"
+            ):
+                certificate = apk_identity.inspect_apk_certificate(
+                    apk,
+                    apksigner,
+                )
+            validation = apk_identity.validate_reference(
+                identity,
+                ref_obj,
+                certificate,
+            )
             report["apk_identity"] = identity
+            report["apk_certificate"] = certificate
             report["reference_validation"] = validation
             report["gates"]["reference_build"] = validation["ok"]
         except Exception as exc:
@@ -117,6 +136,7 @@ def main() -> int:
     ap.add_argument("--out", type=Path, help="Write full JSON analysis here")
     ap.add_argument("--reference", type=Path, help="Pinned CTW reference-build JSON")
     ap.add_argument("--aapt", type=Path, help="Optional explicit Android aapt/aapt2 path")
+    ap.add_argument("--apksigner", type=Path, help="Optional explicit Android apksigner path")
     ap.add_argument(
         "--allow-partial",
         action="store_true",
@@ -125,7 +145,12 @@ def main() -> int:
     args = ap.parse_args()
 
     try:
-        report = analyze_apk(args.apk, args.reference, args.aapt)
+        report = analyze_apk(
+            args.apk,
+            args.reference,
+            args.aapt,
+            args.apksigner,
+        )
     except Exception as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, indent=2))
         return 2
