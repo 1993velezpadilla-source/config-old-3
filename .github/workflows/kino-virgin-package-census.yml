@@ -116,13 +116,68 @@ jobs:
           APP="tools/maps/UEAssetClassCensus/bin/Release/net10.0/UEAssetClassCensus.dll"
           test -s "$APP"
 
-          SHARDS=32
+          SHARDS=64
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+
+          source = Path("kino-pak-unpacked").resolve()
+          out = Path("kino-shards").resolve()
+          out.mkdir(parents=True, exist_ok=True)
+
+          packages = sorted(
+              [
+                  p for p in source.rglob("*")
+                  if p.is_file() and p.suffix.lower() in {".uasset", ".umap"}
+              ],
+              key=lambda p: p.relative_to(source).as_posix().lower(),
+          )
+
+          shards = 64
+          companion_exts = [".uasset", ".umap", ".uexp", ".ubulk"]
+
+          for index, package in enumerate(packages):
+              shard = index % shards
+              rel = package.relative_to(source)
+              base = package.with_suffix("")
+              shard_root = out / f"shard-{shard}"
+              shard_root.mkdir(parents=True, exist_ok=True)
+
+              for ext in companion_exts:
+                  candidate = Path(str(base) + ext)
+                  if not candidate.is_file():
+                      continue
+                  candidate_rel = candidate.relative_to(source)
+                  target = shard_root / candidate_rel
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  if not target.exists():
+                      os.symlink(candidate, target)
+
+          counts = []
+          for i in range(shards):
+              root = out / f"shard-{i}"
+              count = sum(
+                  1 for p in root.rglob("*")
+                  if p.is_file() or p.is_symlink()
+              ) if root.exists() else 0
+              counts.append(count)
+
+          assert min(counts) > 0, counts
+          print("XZIEL_KINO_PHYSICAL_SHARDS_GREEN", {
+              "packages": len(packages),
+              "shards": shards,
+              "minFiles": min(counts),
+              "maxFiles": max(counts),
+              "totalLinkedFiles": sum(counts),
+          })
+          PY
+
           for i in $(seq 0 $((SHARDS - 1))); do
             echo "XZIEL_KINO_CLASS_SHARD_START $i/$SHARDS"
             dotnet "$APP" \
-              kino-pak-unpacked \
+              "kino-shards/shard-$i" \
               "kino-download/class-shards/shard-$i.json" \
-              "$i" "$SHARDS" \
               | tee "kino-download/class-shards/shard-$i.log"
             test -s "kino-download/class-shards/shard-$i.json"
             echo "XZIEL_KINO_CLASS_SHARD_GREEN $i/$SHARDS"
@@ -141,7 +196,7 @@ jobs:
                   key=lambda p: int(p.stem.split("-")[1]),
               )
           ]
-          assert len(reports) == 32, len(reports)
+          assert len(reports) == 64, len(reports)
 
           classes = Counter()
           package_exts = Counter()
@@ -155,7 +210,7 @@ jobs:
 
           out = {
               "schemaVersion": 1,
-              "shardCount": 32,
+              "shardCount": 64,
               "packageCount": sum(r["packageCount"] for r in reports),
               "packagesLoaded": sum(r["packagesLoaded"] for r in reports),
               "packageLoadFailureCount": len(failures),
