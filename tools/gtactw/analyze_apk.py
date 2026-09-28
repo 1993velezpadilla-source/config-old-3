@@ -100,7 +100,10 @@ def analyze_apk(apk: Path, reference: Path | None = None, aapt: Path | None = No
             except Exception as exc:
                 report["arm64_xrefs_error"] = str(exc)
             try:
-                report["profile_template"] = profile_template.make_profile(elf)
+                report["profile_template"] = profile_template.make_profile(
+                    elf,
+                    report["arm64_xrefs"],
+                )
             except Exception as exc:
                 report["profile_template_error"] = str(exc)
 
