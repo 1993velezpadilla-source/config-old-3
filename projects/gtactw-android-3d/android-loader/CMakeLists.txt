@@ -4,6 +4,7 @@ project(ctw3d_loader C CXX ASM)
 add_library(Game SHARED
     ctw_loader.c
     ctw_patch.c
+    ctw_mod_runtime.c
     ctw_runtime_boot.c
     ctw_camera.c
     ctw_camera_pose.c
