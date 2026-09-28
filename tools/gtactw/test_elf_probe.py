@@ -20,18 +20,28 @@ def make_fixture(path: Path):
 
     jni = b"Java_com_rockstargames_oswrapper_GameNative_implOnDrawFrame"
     setup = b"Java_com_rockstargames_oswrapper_GameNative_implOnInitialSetup"
+    axes = b"Java_com_rockstargames_oswrapper_GameNative_implOnGamepadAxesChanged"
     cam = b"CameraFarClipDistance"
-    dynstr = b"\0" + jni + b"\0" + setup + b"\0" + cam + b"\0"
+    dynstr = (
+        b"\0" + jni + b"\0" + setup + b"\0" + axes + b"\0" + cam + b"\0"
+    )
     jni_off = dynstr.index(jni)
     setup_off = dynstr.index(setup)
+    axes_off = dynstr.index(axes)
     cam_off = dynstr.index(cam)
 
     sym0 = b"\0" * elf_probe.ELF64_SYM.size
     sym1 = elf_probe.ELF64_SYM.pack(jni_off, 0x12, 0, 4, 0x1000, 4)
     sym2 = elf_probe.ELF64_SYM.pack(cam_off, 0x12, 0, 4, 0x1004, 4)
     sym3 = elf_probe.ELF64_SYM.pack(setup_off, 0x12, 0, 4, 0x1008, 4)
-    dynsym = sym0 + sym1 + sym2 + sym3
-    text = b"\x1f\x20\x03\xd5\xc0\x03\x5f\xd6\x1f\x20\x03\xd5"
+    sym4 = elf_probe.ELF64_SYM.pack(axes_off, 0x12, 0, 4, 0x100C, 4)
+    dynsym = sym0 + sym1 + sym2 + sym3 + sym4
+    text = (
+        b"\x1f\x20\x03\xd5"
+        b"\xc0\x03\x5f\xd6"
+        b"\x1f\x20\x03\xd5"
+        b"\xc0\x03\x5f\xd6"
+    )
     build_id_bytes = bytes(range(1, 21))
     note = struct.pack("<III", 4, len(build_id_bytes), 3) + b"GNU\0" + build_id_bytes
 
@@ -108,7 +118,7 @@ class ElfProbeTests(unittest.TestCase):
             if x["source"] == "symbol"
         }
         self.assertIn("CameraFarClipDistance", names)
-        self.assertEqual(report["text"]["size"], 12)
+        self.assertEqual(report["text"]["size"], 16)
 
     def test_rejects_non_elf(self):
         with tempfile.TemporaryDirectory() as td:
