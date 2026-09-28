@@ -244,5 +244,5 @@
     "present_count": 6,
     "total_count": 6
   },
-  "note": "Exact profile for the user-owned 4.4.243 ARM64 libGame.so. Camera/FOV is implemented; forward streaming bias is guarded; the character hook now operates on common cPedSprite::Render so player and all in-world NPCs receive the low-angle camera-facing billboard correction. FPS head/face BodyType filtering is next."
+  "note": "Exact profile for the user-owned 4.4.243 ARM64 libGame.so. Camera/FOV is implemented; cBaseCam near/far projection fields are wired from verified stock values (0.4/150) to NearClip/FarClipMultiplier; forward streaming bias is guarded; all cPedSprite instances use the low-angle directional billboard correction; FPS head filtering remains local-player-only."
 }
