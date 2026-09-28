@@ -1,21 +1,24 @@
 #!/usr/bin/env python3
-"""Convert one static glTF 2.0 GLB into XZIEL's compact XZMS v1 mesh format.
+"""Convert one static glTF 2.0 GLB into XZIEL's compact XZMS v2 mesh format.
 
-XZMS v1 is intentionally small and boring so Android runtime code does not need
+XZMS v2 stays intentionally small so Android runtime code does not need
 a full glTF parser. Geometry is flattened from the GLB scene graph, converted
 from glTF Y-up coordinates to XZIEL Z-up coordinates, and stored as:
 
   header: <4sIIIIIII6f
-    magic='XZMS', version=1, vertexCount, indexCount, submeshCount,
+    magic='XZMS', version=2, vertexCount, indexCount, submeshCount,
     flags, vertexStrideBytes, submeshStrideBytes, boundsMinXYZ, boundsMaxXYZ
-  vertices: vertexCount * <8f> = position.xyz, normal.xyz, uv.xy
+  vertices: vertexCount * <14f> =
+    position.xyz, normal.xyz, uv0.xy, uv1.xy, uv2.xy, uv3.xy
   indices:  indexCount * <I>
   submeshes: submeshCount * <IIII>
     firstIndex, indexCount, materialIndex (0xffffffff if none), attributeFlags
 
-attributeFlags: bit0 POSITION, bit1 NORMAL, bit2 TEXCOORD_0.
-Missing NORMAL/UV are explicit in the submesh flags; their fixed vertex fields
-are zero-filled only so the binary stride stays constant.
+attributeFlags:
+  bit0 POSITION, bit1 NORMAL, bit2 TEXCOORD_0, bit3 TEXCOORD_1,
+  bit4 TEXCOORD_2, bit5 TEXCOORD_3.
+Missing NORMAL/UV sets are explicit in the submesh flags; their fixed vertex
+fields are zero-filled only so the binary stride stays constant.
 """
 
 from __future__ import annotations
@@ -27,15 +30,19 @@ from pathlib import Path
 import struct
 
 MAGIC = b"XZMS"
-VERSION = 1
+VERSION = 2
 HEADER = struct.Struct("<4sIIIIIII6f")
-VERTEX = struct.Struct("<8f")
+VERTEX = struct.Struct("<14f")
 SUBMESH = struct.Struct("<IIII")
 FLAG_GLTF_TO_XZIEL = 1 << 0
 FLAG_INDEX_U32 = 1 << 1
 ATTR_POSITION = 1 << 0
 ATTR_NORMAL = 1 << 1
 ATTR_UV0 = 1 << 2
+ATTR_UV1 = 1 << 3
+ATTR_UV2 = 1 << 4
+ATTR_UV3 = 1 << 5
+ATTR_UVS = (ATTR_UV0, ATTR_UV1, ATTR_UV2, ATTR_UV3)
 NO_MATERIAL = 0xFFFFFFFF
 JSON_CHUNK = 0x4E4F534A
 BIN_CHUNK = 0x004E4942
@@ -86,7 +93,7 @@ def parse_glb(path: Path) -> tuple[dict, bytes]:
         binary = b""
     buffers = doc.get("buffers", [])
     if len(buffers) > 1:
-        raise ValueError(f"XZMS v1 supports one GLB buffer, got {len(buffers)}: {path}")
+        raise ValueError(f"XZMS v2 supports one GLB buffer, got {len(buffers)}: {path}")
     if buffers:
         declared_bytes = int(buffers[0].get("byteLength", 0))
         if declared_bytes > len(binary):
@@ -222,7 +229,7 @@ def accessor_values(doc: dict, binary: bytes, index: int) -> list[tuple]:
         raise ValueError(f"invalid accessor index {index}")
     acc = accessors[index]
     if "sparse" in acc:
-        raise ValueError("XZMS v1 does not accept sparse accessors")
+        raise ValueError("XZMS v2 does not accept sparse accessors")
     view_index = acc.get("bufferView")
     if not isinstance(view_index, int) or not (0 <= view_index < len(views)):
         raise ValueError(f"accessor {index} has no valid bufferView")
@@ -283,19 +290,26 @@ def primitive_vertices(doc: dict, binary: bytes, primitive: dict, world: list[fl
             raise ValueError("NORMAL count mismatch")
         attr_flags |= ATTR_NORMAL
 
-    uvs = None
-    uv_index = attrs.get("TEXCOORD_0")
-    if isinstance(uv_index, int):
-        uvs = accessor_values(doc, binary, uv_index)
+    uv_sets: list[list[tuple] | None] = [None, None, None, None]
+    for uv_set in range(4):
+        uv_index = attrs.get(f"TEXCOORD_{uv_set}")
+        if not isinstance(uv_index, int):
+            continue
+        values = accessor_values(doc, binary, uv_index)
         if doc["accessors"][uv_index].get("componentType") != 5126:
-            raise ValueError("TEXCOORD_0 must use FLOAT componentType")
-        if len(uvs) != len(positions):
-            raise ValueError("TEXCOORD_0 count mismatch")
-        attr_flags |= ATTR_UV0
+            raise ValueError(
+                f"TEXCOORD_{uv_set} must use FLOAT componentType"
+            )
+        if len(values) != len(positions):
+            raise ValueError(
+                f"TEXCOORD_{uv_set} count mismatch"
+            )
+        uv_sets[uv_set] = values
+        attr_flags |= ATTR_UVS[uv_set]
 
     mode = int(primitive.get("mode", 4))
     if mode != 4:
-        raise ValueError(f"XZMS v1 only accepts TRIANGLES (mode 4), got {mode}")
+        raise ValueError(f"XZMS v2 only accepts TRIANGLES (mode 4), got {mode}")
 
     if isinstance(primitive.get("indices"), int):
         idx_accessor = primitive["indices"]
@@ -323,8 +337,21 @@ def primitive_vertices(doc: dict, binary: bytes, primitive: dict, world: list[fl
                 n=(n[0]/nlen,n[1]/nlen,n[2]/nlen)
         else:
             n=(0.0,0.0,0.0)
-        uv = tuple(float(v) for v in uvs[i]) if uvs is not None else (0.0,0.0)
-        vertices.append((p[0],p[1],p[2],n[0],n[1],n[2],uv[0],uv[1]))
+        packed_uvs: list[float] = []
+        for uv_set in uv_sets:
+            uv = (
+                tuple(float(v) for v in uv_set[i])
+                if uv_set is not None
+                else (0.0, 0.0)
+            )
+            packed_uvs.extend((uv[0], uv[1]))
+        vertices.append(
+            (
+                p[0], p[1], p[2],
+                n[0], n[1], n[2],
+                *packed_uvs,
+            )
+        )
     return vertices, indices, attr_flags
 
 
@@ -417,6 +444,9 @@ def convert(path: Path, output: Path) -> dict:
         "submeshCount":len(submeshes),
         "submeshesWithoutNormals":sum((r["attributeFlags"] & ATTR_NORMAL)==0 for r in submeshes),
         "submeshesWithoutUv0":sum((r["attributeFlags"] & ATTR_UV0)==0 for r in submeshes),
+        "submeshesWithoutUv1":sum((r["attributeFlags"] & ATTR_UV1)==0 for r in submeshes),
+        "submeshesWithoutUv2":sum((r["attributeFlags"] & ATTR_UV2)==0 for r in submeshes),
+        "submeshesWithoutUv3":sum((r["attributeFlags"] & ATTR_UV3)==0 for r in submeshes),
         "bounds":{"min":mins,"max":maxs},
         "bytes":output.stat().st_size,
     }
