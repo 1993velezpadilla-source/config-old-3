@@ -53,6 +53,12 @@ typedef struct {
     uintptr_t player_render;
 } CtwPatchTargets;
 
+enum {
+    CTW_PATCH_APPLIED = 0,
+    CTW_PATCH_PROFILE_INCOMPLETE = 1,
+    CTW_PATCH_ADAPTERS_PENDING = 2,
+};
+
 extern Ctw3DConfig g_ctw3d_config;
 
 int ctw_mod_init(void *original_game_handle);
