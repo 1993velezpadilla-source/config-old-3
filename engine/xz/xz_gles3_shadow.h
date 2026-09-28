@@ -103,6 +103,10 @@ typedef struct {
     unsigned int static_scene_lightmap_mapped_batches;
     unsigned int static_scene_lightmap_missing_batches;
     int static_scene_lightmap_batch_ready;
+    uint64_t static_scene_gpu_lightmap_bytes;
+    unsigned int static_scene_gpu_lightmap_textures;
+    unsigned int static_scene_last_baked_lightmap_draw_calls;
+    int static_scene_lightmap_shader_ready;
     uint64_t static_scene_gpu_texture_bytes;
     unsigned int static_scene_gpu_textures;
     unsigned int static_scene_material_bindings;
