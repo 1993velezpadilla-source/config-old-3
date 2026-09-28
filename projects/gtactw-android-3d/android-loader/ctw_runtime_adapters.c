@@ -52,7 +52,7 @@ typedef void (*CtwRecalculateMatrixFn)(void *camera);
 typedef void (*CtwSetFovFn)(void *camera, int16_t fov);
 typedef void (*CtwRenderWorldProcessFn)(void *world);
 typedef void (*CtwProcessVisibilityFn)(void *world);
-typedef int (*CtwFarDistanceFn)(void *position, const void *reference);
+typedef void (*CtwWorldSectorVisibilityFn)(void *sector);
 typedef void (*CtwPedSpriteRenderFn)(
     void *sprite,
     const void *position,
@@ -852,13 +852,11 @@ void ctw_world_visibility_bias_guard_v1(void *world) {
     write_i32(camera, CTW_BASECAM_POS_Y, g_stream_bias.biased_y);
 }
 
-int ctw_lod_test_passthrough_v1(
-    void *position,
-    const void *reference
-) {
-    CtwFarDistanceFn original = (CtwFarDistanceFn)
+void ctw_world_sector_visibility_passthrough_v1(void *sector) {
+    CtwWorldSectorVisibilityFn original = (CtwWorldSectorVisibilityFn)
         ctw_mod_original_for_hook(CTW_HOOK_LOD_TEST);
-    return original ? original(position, reference) : 0;
+    if (original)
+        original(sector);
 }
 
 void ctw_ped_sprite_render_adapter_v1(
