@@ -62,6 +62,34 @@ class SourceAutofixReport:
     manifest: str
 
 
+def _has_useful_alpha(image: Image.Image) -> bool:
+    if "A" not in image.getbands():
+        return False
+    lo, _ = image.getchannel("A").getextrema()
+    return int(lo) < 245
+
+
+def _crop_pad_real_pixels(
+    image: Image.Image,
+    box: tuple[int, int, int, int],
+    output_edge: int = 1024,
+) -> tuple[Image.Image, bool]:
+    # Keep source transparency when it exists. Baking an RGBA source onto an
+    # opaque black square makes image-to-3D backends reconstruct the padding
+    # as a large planar/background shell.
+    preserve_alpha = _has_useful_alpha(image)
+    work = image.convert("RGBA") if preserve_alpha else image.convert("RGB")
+    crop = work.crop(box)
+    crop = ImageOps.pad(
+        crop,
+        (output_edge, output_edge),
+        method=Image.Resampling.LANCZOS,
+        color=(0, 0, 0, 0) if preserve_alpha else (0, 0, 0),
+        centering=(0.5, 0.5),
+    )
+    return crop, preserve_alpha
+
+
 def _face_crop_from_landmarks(image: Image.Image, landmarks, output_edge: int = 1024):
     w, h = image.size
     xs = [float(p.x) for p in landmarks]
@@ -82,16 +110,11 @@ def _face_crop_from_landmarks(image: Image.Image, landmarks, output_edge: int = 
     top = max(0, int(round(cy - side * 0.52)))
     right = min(w, int(round(cx + side * 0.5)))
     bottom = min(h, int(round(cy + side * 0.48)))
-    crop = image.crop((left, top, right, bottom)).convert("RGB")
-    crop = ImageOps.pad(
-        crop,
-        (output_edge, output_edge),
-        method=Image.Resampling.LANCZOS,
-        color=(0, 0, 0),
-        centering=(0.5, 0.5),
+    crop, alpha_preserved = _crop_pad_real_pixels(
+        image, (left, top, right, bottom), output_edge
     )
     frac = ((x1 - x0) * (y1 - y0))
-    return crop, float(frac)
+    return crop, float(frac), alpha_preserved
 
 
 def _mediapipe_face(source: Path, out_path: Path, cache_path: Path):
@@ -107,20 +130,27 @@ def _mediapipe_face(source: Path, out_path: Path, cache_path: Path):
         output_face_blendshapes=False,
     )
 
-    original = Image.open(source).convert("RGB")
+    source_image = Image.open(source)
+    if _has_useful_alpha(source_image):
+        original = source_image.convert("RGBA")
+    else:
+        original = source_image.convert("RGB")
     attempts = [
         ("direct", original),
         ("zoom_probe", _crop_top_subject(original)),
     ]
     with mp.tasks.vision.FaceLandmarker.create_from_options(options) as detector:
         for label, pil in attempts:
-            arr = np.asarray(pil, dtype=np.uint8)
+            # MediaPipe receives RGB, while the matching source crop keeps RGBA.
+            arr = np.asarray(pil.convert("RGB"), dtype=np.uint8)
             result = detector.detect(
                 mp.Image(image_format=mp.ImageFormat.SRGB, data=arr)
             )
             if not result.face_landmarks:
                 continue
-            crop, frac = _face_crop_from_landmarks(pil, result.face_landmarks[0])
+            crop, frac, alpha_preserved = _face_crop_from_landmarks(
+                pil, result.face_landmarks[0]
+            )
             out_path.parent.mkdir(parents=True, exist_ok=True)
             crop.save(out_path, optimize=True)
             return {
@@ -130,6 +160,7 @@ def _mediapipe_face(source: Path, out_path: Path, cache_path: Path):
                 "used_zoom_probe": label != "direct",
                 "face_box_fraction": round(frac, 8),
                 "output_size": [crop.width, crop.height],
+                "alpha_preserved": alpha_preserved,
                 "semantic_face_or_head_confirmed": True,
             }
     return None
@@ -149,14 +180,18 @@ def _mediapipe_pose_head(source: Path, out_path: Path, cache_path: Path):
         min_pose_presence_confidence=0.25,
         output_segmentation_masks=False,
     )
-    image = Image.open(source).convert("RGB")
+    source_image = Image.open(source)
+    if _has_useful_alpha(source_image):
+        image = source_image.convert("RGBA")
+    else:
+        image = source_image.convert("RGB")
     attempts = [
         ("direct", image),
         ("subject_zoom", _crop_top_subject(image)),
     ]
     with mp.tasks.vision.PoseLandmarker.create_from_options(options) as detector:
         for label, pil in attempts:
-            arr = np.asarray(pil, dtype=np.uint8)
+            arr = np.asarray(pil.convert("RGB"), dtype=np.uint8)
             result = detector.detect(
                 mp.Image(image_format=mp.ImageFormat.SRGB, data=arr)
             )
@@ -189,13 +224,8 @@ def _mediapipe_pose_head(source: Path, out_path: Path, cache_path: Path):
             bottom = min(h, int(round(cy + side * 0.48)))
             if right - left < 24 or bottom - top < 24:
                 continue
-            crop = pil.crop((left, top, right, bottom)).convert("RGB")
-            crop = ImageOps.pad(
-                crop,
-                (1024, 1024),
-                method=Image.Resampling.LANCZOS,
-                color=(0, 0, 0),
-                centering=(0.5, 0.5),
+            crop, alpha_preserved = _crop_pad_real_pixels(
+                pil, (left, top, right, bottom), 1024
             )
             out_path.parent.mkdir(parents=True, exist_ok=True)
             crop.save(out_path, optimize=True)
@@ -210,6 +240,7 @@ def _mediapipe_pose_head(source: Path, out_path: Path, cache_path: Path):
                 "used_zoom_probe": label != "direct",
                 "face_box_fraction": round((side * side) / float(max(1, w * h)), 8),
                 "output_size": [crop.width, crop.height],
+                "alpha_preserved": alpha_preserved,
                 "semantic_face_or_head_confirmed": True,
             }
     return None
