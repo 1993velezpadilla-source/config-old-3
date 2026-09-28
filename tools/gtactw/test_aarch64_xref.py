@@ -160,6 +160,11 @@ class Aarch64XrefTests(unittest.TestCase):
             neighborhood["incoming"][0]["callee"],
             "RenderWorldFrame",
         )
+        fp = report["candidate_function_fingerprints"]["0x1000"]
+        self.assertEqual(fp["function"], "RenderWorldFrame")
+        self.assertEqual(fp["size"], 16)
+        self.assertEqual(len(fp["sha256"]), 64)
+        self.assertEqual(len(fp["prefix_hex"]), 32)
 
     def test_decoder_rejects_other_instructions(self):
         self.assertIsNone(aarch64_xref.decode_adrp(0xD503201F, 0x1000))
