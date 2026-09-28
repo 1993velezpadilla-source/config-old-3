@@ -1,0 +1,30 @@
+name: Publish Nacht 255 Capture
+
+on:
+  push:
+    branches:
+      - feature/xziel-nacht-lightmap-hq-gpu-v1
+    paths:
+      - ".github/workflows/publish-nacht255-capture.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Decode runtime capture
+        run: |
+          set -euo pipefail
+          base64 -d .tmp-captures/nacht255-runtime.png.b64 > nacht255-runtime.png
+          test -s nacht255-runtime.png
+          file nacht255-runtime.png
+      - name: Upload runtime capture
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Nacht-255-Runtime-Capture
+          path: nacht255-runtime.png
+          compression-level: 0
+          retention-days: 7
