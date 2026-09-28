@@ -48,15 +48,21 @@ static int XzAssetCache_ReserveEntries(
         new_capacity *= 2u;
     }
 
-    if ((size_t)new_capacity >
-        SIZE_MAX / sizeof(*cache->entries))
-        return 0;
-
-    grown =
-        (XzAssetCacheEntry *)realloc(
-            cache->entries,
+    {
+        size_t bytes =
             (size_t)new_capacity *
-                sizeof(*cache->entries));
+            sizeof(*cache->entries);
+
+        if (new_capacity != 0u &&
+            bytes / sizeof(*cache->entries) !=
+                (size_t)new_capacity)
+            return 0;
+
+        grown =
+            (XzAssetCacheEntry *)realloc(
+                cache->entries,
+                bytes);
+    }
 
     if (!grown)
         return 0;
