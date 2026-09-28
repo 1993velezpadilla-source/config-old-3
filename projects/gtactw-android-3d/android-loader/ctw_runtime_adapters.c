@@ -40,6 +40,7 @@ typedef int (*CtwFarDistanceFn)(void *position, const void *reference);
 typedef void (*CtwPlayerRenderFn)(const void *player);
 
 static CtwSetCameraBehindTargetFn g_set_camera_behind_target;
+static CtwSetFovFn g_set_fov;
 static CtwRecalculateMatrixFn g_recalculate_matrix;
 
 static int32_t read_i32(const void *base, size_t offset) {
@@ -194,13 +195,24 @@ int ctw_runtime_adapters_bind(void *original_game_handle) {
         return -2;
 
     dlerror();
+    g_set_fov = (CtwSetFovFn)dlsym(
+        original_game_handle,
+        "_ZN8cBaseCam6SetFovEs"
+    );
+    if (dlerror() != NULL || !g_set_fov) {
+        g_set_camera_behind_target = NULL;
+        return -3;
+    }
+
+    dlerror();
     g_recalculate_matrix = (CtwRecalculateMatrixFn)dlsym(
         original_game_handle,
         "_ZN8cBaseCam17RecalculateMatrixEv"
     );
     if (dlerror() != NULL || !g_recalculate_matrix) {
         g_set_camera_behind_target = NULL;
-        return -3;
+        g_set_fov = NULL;
+        return -4;
     }
 
     return 0;
@@ -249,20 +261,16 @@ void ctw_camera_update_adapter_v1(void *camera, const void *yoke) {
     }
 
     apply_pitch(camera, orbit.pitch_degrees);
+    if (g_set_fov)
+        g_set_fov(camera, fov_from_degrees(g_ctw3d_config.fov_degrees));
     g_recalculate_matrix(camera);
 }
 
-void ctw_projection_setup_adapter_v1(void *camera, int16_t fov) {
-    CtwSetFovFn original = (CtwSetFovFn)
+void ctw_projection_setup_adapter_v1(void *camera) {
+    CtwRecalculateMatrixFn original = (CtwRecalculateMatrixFn)
         ctw_mod_original_for_hook(CTW_HOOK_PROJECTION_SETUP);
-    if (!original)
-        return;
-
-    const CtwCameraInputSnapshot input = ctw_camera_snapshot();
-    if (g_ctw3d_config.camera_enabled && input.mode != CTW_CAMERA_STOCK)
-        fov = fov_from_degrees(g_ctw3d_config.fov_degrees);
-
-    original(camera, fov);
+    if (original)
+        original(camera);
 }
 
 int ctw_world_stream_update_passthrough_v1(void *world) {
