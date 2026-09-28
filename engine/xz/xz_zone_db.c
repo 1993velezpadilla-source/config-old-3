@@ -63,6 +63,18 @@ void XzZoneDb_Init(XzZoneDb *db)
         return;
 
     memset(db, 0, sizeof(*db));
+    db->transition_allowed = 1;
+}
+
+void XzZoneDb_SetDatabaseReady(
+    XzZoneDb *db,
+    int ready)
+{
+    if (!db)
+        return;
+
+    db->transition_allowed = ready ? 1 : 0;
+    XzZoneDb_RecomputeReady(db);
 }
 
 int XzZoneDb_BeginZone(
@@ -76,6 +88,7 @@ int XzZoneDb_BeginZone(
     uint32_t index;
 
     if (!db || !name || !name[0] ||
+        !db->transition_allowed ||
         db->zone_count >= XZ_ZONE_DB_MAX_ZONES)
         return 0;
 
@@ -98,6 +111,21 @@ int XzZoneDb_BeginZone(
     if (out_zone_id)
         *out_zone_id = zone->id;
 
+    XzZoneDb_RecomputeReady(db);
+    return 1;
+}
+
+int XzZoneDb_FinishZoneLoad(
+    XzZoneDb *db,
+    uint16_t zone_id)
+{
+    if (!XzZoneDb_ValidZoneId(db, zone_id))
+        return 0;
+
+    if (db->zones[zone_id - 1u].state != XZ_ZONE_LOADED)
+        return 0;
+
+    db->zones[zone_id - 1u].state = XZ_ZONE_COMPLETE;
     XzZoneDb_RecomputeReady(db);
     return 1;
 }
@@ -337,8 +365,10 @@ int XzZoneDb_SelfTest(void)
 
     XzZoneDb_Init(&db);
 
+    XzZoneDb_SetDatabaseReady(&db, 1);
+
     if (!XzZoneDb_BeginZone(
-            &db, "zm_common", 1u, 0, &zone_a))
+            &db, "zm_common", XZ_ZONE_FLAG_DYNAMIC_CUSTOM, 0, &zone_a))
         return 0;
 
     if (!XzZoneDb_BeginZone(
@@ -375,10 +405,8 @@ int XzZoneDb_SelfTest(void)
     if (XzZoneDb_IsReady(&db))
         return 0;
 
-    if (!XzZoneDb_SetZoneState(
-            &db, zone_a, XZ_ZONE_COMPLETE) ||
-        !XzZoneDb_SetZoneState(
-            &db, zone_b, XZ_ZONE_COMPLETE))
+    if (!XzZoneDb_FinishZoneLoad(&db, zone_a) ||
+        !XzZoneDb_FinishZoneLoad(&db, zone_b))
         return 0;
 
     if (!XzZoneDb_IsReady(&db))
