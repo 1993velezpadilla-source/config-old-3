@@ -59,6 +59,10 @@ jobs:
           git -C pichy-ai/android/vendor/llama.cpp fetch --depth 1 origin f916130d00a4b25ad41597c3e826298c357f1d15
           git -C pichy-ai/android/vendor/llama.cpp checkout --detach FETCH_HEAD
           test "$(git -C pichy-ai/android/vendor/llama.cpp rev-parse HEAD)" = "f916130d00a4b25ad41597c3e826298c357f1d15"
+          rm -rf pichy-ai/android/local-llama/src/main/kotlin
+          mkdir -p pichy-ai/android/local-llama/src/main/kotlin
+          cp -R pichy-ai/android/vendor/llama.cpp/examples/llama.android/lib/src/main/java/com \
+            pichy-ai/android/local-llama/src/main/kotlin/
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "9.6.0"
