@@ -23,6 +23,9 @@
 #ifndef GL_COMPRESSED_RGBA_S3TC_DXT5_EXT
 #define GL_COMPRESSED_RGBA_S3TC_DXT5_EXT 0x83F3
 #endif
+#ifndef GL_COMPRESSED_RGBA8_ETC2_EAC
+#define GL_COMPRESSED_RGBA8_ETC2_EAC 0x9278
+#endif
 
 #define XZ_STATIC_LIGHTMAP_INSTANCE_FLOATS 24u
 #define XZ_SHADOW_WIDTH 64
@@ -3316,7 +3319,8 @@ static int XzUploadStaticHQLightmaps(
                 lightmaps,
                 texture_index,
                 &texture) ||
-            texture.format != XZ_XZLT_FORMAT_BC3 ||
+            (texture.format != XZ_XZLT_FORMAT_BC3 &&
+             texture.format != XZ_XZLT_FORMAT_ETC2_RGBA8) ||
             texture.width == 0u ||
             texture.height == 0u ||
             texture.mip_count == 0u)
@@ -3396,7 +3400,9 @@ static int XzUploadStaticHQLightmaps(
             xz_shadow.gl.CompressedTexImage2D(
                 GL_TEXTURE_2D,
                 (GLint)relative_mip,
-                GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
+                texture.format == XZ_XZLT_FORMAT_ETC2_RGBA8
+                    ? GL_COMPRESSED_RGBA8_ETC2_EAC
+                    : GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
                 (GLsizei)mip.width,
                 (GLsizei)mip.height,
                 0,
