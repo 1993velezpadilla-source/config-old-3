@@ -41,6 +41,7 @@ on:
       - feature/xziel-nacht-lightmap-missing-mobility-v1
       - feature/xziel-nacht-lightmap-instance-payload-v1
       - feature/xziel-nacht-xzms-multi-uv-v1
+      - feature/xziel-nacht-lightmap-texture-pack-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -61,6 +62,7 @@ on:
       - "tools/maps/NachtLightExtractor/**"
       - "tools/maps/NachtReflectionExtractor/**"
       - "tools/maps/NachtBakedLightingExtractor/**"
+      - "tools/maps/NachtLightmapTextureExtractor/**"
       - "tools/maps/compile_nacht_reflection_capture.py"
       - "tools/maps/NachtPostProcessExtractor/**"
       - "tools/maps/NachtFogExtractor/**"
@@ -374,6 +376,63 @@ jobs:
           PY
           cp build/nacht-static-scene/baked-lighting-census.json \
             dist/baked-lighting-census.json
+
+      - name: Extract exact compressed Nacht lightmap texture pack
+        run: |
+          set -euo pipefail
+          CUE4PARSE_SKIP_NATIVE=true dotnet run \
+            --project tools/maps/NachtLightmapTextureExtractor/NachtLightmapTextureExtractor.csproj \
+            --configuration Release \
+            -- \
+            "$UNPACKED" \
+            build/nacht-static-scene/baked-lighting-census.json \
+            build/nacht-static-scene/lightmaps.xzlt \
+            build/nacht-static-scene/xziel.xzlt.report.json \
+            | tee build/nacht-static-scene/xzlt-compile.log
+
+          test -s build/nacht-static-scene/lightmaps.xzlt
+          test -s build/nacht-static-scene/xziel.xzlt.report.json
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(
+              Path(
+                  "build/nacht-static-scene/xziel.xzlt.report.json"
+              ).read_text(encoding="utf-8")
+          )
+          assert report["schemaVersion"] == 1
+          assert report["format"] == "XZLT"
+          assert report["version"] == 1
+          assert report["sourceCompressionPreserved"] is True
+          assert report["textureCount"] == 188
+          assert report["mipCount"] > report["textureCount"]
+          assert report["formatCounts"] == {
+              "PF_DXT1": 94,
+              "PF_DXT5": 94,
+          }
+          assert report["srgbTextureCount"] == 0
+          assert report["linearTextureCount"] == 188
+          assert report["payloadBytes"] > 0
+          assert report["fileBytes"] > report["payloadBytes"]
+          assert len(report["textures"]) == 188
+          assert all(row["mipCount"] > 0 for row in report["textures"])
+          print(
+              "XZIEL_NACHT_XZLT_GREEN",
+              {
+                  "textures": report["textureCount"],
+                  "mips": report["mipCount"],
+                  "payloadBytes": report["payloadBytes"],
+                  "fileBytes": report["fileBytes"],
+                  "formats": report["formatCounts"],
+                  "sha256": report["sha256"],
+              },
+          )
+          PY
+
+          cp build/nacht-static-scene/xziel.xzlt.report.json \
+            dist/xziel.xzlt.report.json
 
       - name: Join Nacht scene instances to baked lighting
         run: |
@@ -2932,6 +2991,8 @@ jobs:
           OVERLAY="$RUNNER_TEMP/nacht-overlay"
           MAPROOT="$OVERLAY/xziel/maps/xziel_nacht_bo3"
           mkdir -p "$MAPROOT/meshes"
+          cp build/nacht-static-scene/lightmaps.xzlt \
+            "$MAPROOT/lightmaps.xzlt"
 
           # Preserve the four remaining source material exports so the exact
           # parent/constants can be audited instead of guessed from names.
@@ -3176,6 +3237,7 @@ jobs:
           test -s "$MAPROOT/environment.xzen"
           test -s "$MAPROOT/fog.xzfg"
           test -s "$MAPROOT/reflection.xzrc"
+          test -s "$MAPROOT/lightmaps.xzlt"
 
           python3 - <<'PY'
           import json
