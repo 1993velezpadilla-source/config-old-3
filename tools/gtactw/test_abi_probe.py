@@ -152,6 +152,10 @@ class AbiProbeTests(unittest.TestCase):
                             "argument_register_hints": {
                                 "likely_gpr_inputs_x0_x7": [0, 1],
                             },
+                            "prologue_relocation": {
+                                "simple_copy_trampoline_safe": True,
+                                "instructions": [],
+                            },
                         },
                     }
                 ]
@@ -170,7 +174,62 @@ class AbiProbeTests(unittest.TestCase):
             item["candidates"][0]["abi_evidence"]["verification_status"],
             "abi_hint_only",
         )
+        self.assertEqual(
+            item["candidates"][0]["trampoline_strategy_hint"],
+            "simple_copy_trampoline_candidate",
+        )
         self.assertIsNone(profile["abi_verification"]["camera_update"].get("candidates"))
+
+
+    def test_attach_abi_marks_unsafe_prologue_for_advanced_relocator(self):
+        profile = {
+            "patch_targets_rva": {
+                key: None for key in abi_probe.profile_template.TARGET_KEYS
+            },
+            "abi_verification": {
+                key: {
+                    "status": "pending",
+                    "prototype": None,
+                    "calling_convention": "aarch64_aapcs64",
+                    "adapter": None,
+                    "evidence": [],
+                }
+                for key in abi_probe.profile_template.TARGET_KEYS
+            },
+        }
+        report = {
+            "targets": {
+                "projection_setup": [
+                    {
+                        "rva": 0x5000,
+                        "source": "evidence_ranking",
+                        "function": "ProjectionSetup",
+                        "score": 20,
+                        "reasons": ["fixture"],
+                        "abi_evidence": {
+                            "verification_status": "abi_hint_only",
+                            "prologue_relocation": {
+                                "simple_copy_trampoline_safe": False,
+                                "instructions": [
+                                    {
+                                        "kind": "adrp",
+                                        "relocatable_for_simple_copy": False,
+                                    }
+                                ],
+                            },
+                        },
+                    }
+                ]
+            }
+        }
+        updated = abi_probe.attach_abi_evidence(profile, report)
+        candidate = updated["abi_verification"]["projection_setup"][
+            "candidates"
+        ][0]
+        self.assertEqual(
+            candidate["trampoline_strategy_hint"],
+            "advanced_relocator_required",
+        )
 
     def test_rejects_empty_disassembly(self):
         with self.assertRaises(ValueError):
