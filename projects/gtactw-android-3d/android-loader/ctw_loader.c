@@ -233,11 +233,16 @@ EXPORT void JNI_NAME(implOnGamepadResume)(void *env, void *cls, void *ids) {
 EXPORT void JNI_NAME(implOnGamepadButtonDown)(void *env, void *cls, int id, int keycode) {
     typedef void (*Fn)(void *, void *, int, int);
 
-    /* Android GameNative mapping used by CTW: 13 = right-thumb click. */
-    if (keycode == 13) {
-        ctw_camera_cycle_mode();
+    const CtwCameraButtonAction camera_action =
+        ctw_camera_handle_gamepad_button_down(
+            keycode,
+            &g_ctw3d_config
+        );
+    if (camera_action == CTW_CAMERA_BUTTON_MODE_CYCLED) {
         const CtwCameraInputSnapshot s = ctw_camera_snapshot();
         LOGI("camera mode -> %d", (int)s.mode);
+    } else if (camera_action == CTW_CAMERA_BUTTON_ORBIT_RESET) {
+        LOGI("camera orbit reset");
     }
 
     Fn fn = RESOLVE(implOnGamepadButtonDown, Fn);
