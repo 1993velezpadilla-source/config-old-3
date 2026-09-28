@@ -1,5 +1,6 @@
 #include "xz_static_scene_runtime.h"
 
+#include <limits.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
