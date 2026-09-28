@@ -46,6 +46,12 @@ android {
         }
     }
 
+    // nzp-data.zip is already compressed. Keep its bytes verbatim so Gradle
+    // does not inflate the full-resolution Nacht payload into Java heap.
+    androidResources {
+        noCompress += ['zip']
+    }
+
     lint {
         abortOnError false
     }
