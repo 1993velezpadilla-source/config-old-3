@@ -34,6 +34,8 @@ typedef struct {
     int draw_distance_enabled;
     float far_clip_multiplier;
     float stream_radius_multiplier;
+    int forward_streaming_bias_enabled;
+    float forward_streaming_bias_sectors;
     float lod_distance_multiplier;
     float vehicle_distance_multiplier;
     float ped_distance_multiplier;

@@ -15,7 +15,7 @@
   "patch_targets_rva": {
     "camera_update": 7528384,
     "projection_setup": 7498968,
-    "world_stream_update": 9028756,
+    "world_stream_update": 9030188,
     "sector_visibility": 9031440,
     "lod_test": 7401300,
     "player_render": 8948768
@@ -53,12 +53,12 @@
     },
     "world_stream_update": {
       "status": "verified",
-      "rva": 9028756,
-      "code_prefix_hex": "fd7bbba9fa6701a9f85f02a9f65703a9",
+      "rva": 9030188,
+      "code_prefix_hex": "ff0303d1fd7b06a9fc6f07a9fa6708a9",
       "evidence": [
         {
           "method": "exact-binary-symbol-and-manual-aarch64-disassembly",
-          "detail": "cRenderWorld::ProcessLoading(): x0=this and boolean result in w0 verified by callers branching on the returned value."
+          "detail": "cRenderWorld::Process(): x0=this, void return. It calls ProcessVisibility first, then derives sector center from cBaseCam::msActiveCamera and loads/recycles the fixed 3x3 sector cache."
         },
         {
           "method": "exact-libgame-prefix",
@@ -157,20 +157,20 @@
     },
     "world_stream_update": {
       "status": "verified",
-      "prototype": "bool cRenderWorld::ProcessLoading()",
+      "prototype": "void cRenderWorld::Process()",
       "calling_convention": "aarch64_aapcs64",
-      "adapter": "ctw_world_stream_update_passthrough_v1",
-      "verified_rva": 9028756,
+      "adapter": "ctw_world_stream_bias_adapter_v1",
+      "verified_rva": 9030188,
       "evidence": [
         {
           "method": "manual-aarch64-abi-review",
-          "detail": "x0=this and boolean result in w0 verified by callers branching on the returned value."
+          "detail": "x0=this, void return. Full disassembly confirms ProcessVisibility() precedes the active-camera sector-index calculation and LoadSector() calls."
         }
       ],
       "candidates": [
         {
-          "rva": 9028756,
-          "function": "cRenderWorld::ProcessLoading()",
+          "rva": 9030188,
+          "function": "cRenderWorld::Process()",
           "source": "exact-dynsym-plus-manual-disassembly",
           "trampoline_strategy_hint": "simple_copy_trampoline_candidate"
         }
@@ -180,7 +180,7 @@
       "status": "verified",
       "prototype": "void cRenderWorld::ProcessVisibility()",
       "calling_convention": "aarch64_aapcs64",
-      "adapter": "ctw_world_visibility_passthrough_v1",
+      "adapter": "ctw_world_visibility_bias_guard_v1",
       "verified_rva": 9031440,
       "evidence": [
         {
@@ -244,5 +244,5 @@
     "present_count": 6,
     "total_count": 6
   },
-  "note": "Exact profile for the user-owned 4.4.243 ARM64 libGame.so. Camera and FOV behavior are implemented in the first runtime pass; world loading, visibility, LOD and player render adapters intentionally remain pass-through until Android camera capture is green."
+  "note": "Exact profile for the user-owned 4.4.243 ARM64 libGame.so. Camera/FOV behavior is implemented. Forward streaming bias is implemented behind ForwardBias=0 by default; LOD and player-render changes remain pass-through until Android visual capture gates are green."
 }

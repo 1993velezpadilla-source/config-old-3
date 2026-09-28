@@ -100,6 +100,8 @@ void ctw_config_set_defaults(Ctw3DConfig *config) {
         .draw_distance_enabled = 1,
         .far_clip_multiplier = 2.5f,
         .stream_radius_multiplier = 2.5f,
+        .forward_streaming_bias_enabled = 0,
+        .forward_streaming_bias_sectors = 1.0f,
         .lod_distance_multiplier = 2.0f,
         .vehicle_distance_multiplier = 2.0f,
         .ped_distance_multiplier = 2.0f,
@@ -191,6 +193,16 @@ static int apply_pair(
         }
         if (equal_ci(key, "StreamRadius") && parse_float_value(value, &f)) {
             config->stream_radius_multiplier = clampf_local(f, 1.0f, 5.0f);
+            return 1;
+        }
+        if (equal_ci(key, "ForwardBias") && parse_bool(value, &b)) {
+            config->forward_streaming_bias_enabled = b;
+            return 1;
+        }
+        if (equal_ci(key, "ForwardBiasSectors") &&
+            parse_float_value(value, &f)) {
+            config->forward_streaming_bias_sectors =
+                clampf_local(f, 0.0f, 1.0f);
             return 1;
         }
         if (equal_ci(key, "LODDistance") && parse_float_value(value, &f)) {

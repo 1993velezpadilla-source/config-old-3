@@ -19,17 +19,17 @@
       "calling_convention": "aarch64_aapcs64"
     },
     {
-      "name": "ctw_world_stream_update_passthrough_v1",
+      "name": "ctw_world_stream_bias_adapter_v1",
       "target": "world_stream_update",
-      "native_symbol": "ctw_world_stream_update_passthrough_v1",
+      "native_symbol": "ctw_world_stream_bias_adapter_v1",
       "implemented": true,
-      "prototype": "bool cRenderWorld::ProcessLoading()",
+      "prototype": "void cRenderWorld::Process()",
       "calling_convention": "aarch64_aapcs64"
     },
     {
-      "name": "ctw_world_visibility_passthrough_v1",
+      "name": "ctw_world_visibility_bias_guard_v1",
       "target": "sector_visibility",
-      "native_symbol": "ctw_world_visibility_passthrough_v1",
+      "native_symbol": "ctw_world_visibility_bias_guard_v1",
       "implemented": true,
       "prototype": "void cRenderWorld::ProcessVisibility()",
       "calling_convention": "aarch64_aapcs64"
@@ -51,5 +51,5 @@
       "calling_convention": "aarch64_aapcs64"
     }
   ],
-  "note": "Exact 4.4.243 ARM64 adapters. Camera/FOV alter behavior; projection/world/visibility/LOD/player adapters are deliberate pass-through gates for the first runtime camera capture."
+  "note": "Exact 4.4.243 ARM64 adapters. Camera/FOV behavior is active; forward sector bias is compiled but disabled by default until camera-only Android capture is green. LOD and player-render adapters remain pass-through."
 }

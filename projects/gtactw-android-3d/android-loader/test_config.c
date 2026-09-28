@@ -24,6 +24,8 @@ int main(void) {
     assert(feq(cfg.camera_collision_margin, 0.18f));
     assert(feq(cfg.fov_degrees, 72.0f));
     assert(feq(cfg.far_clip_multiplier, 2.5f));
+    assert(cfg.forward_streaming_bias_enabled == 0);
+    assert(feq(cfg.forward_streaming_bias_sectors, 1.0f));
     assert(feq(cfg.vehicle_distance_multiplier, 2.0f));
     assert(feq(cfg.ped_distance_multiplier, 2.0f));
 
@@ -46,6 +48,8 @@ int main(void) {
         "[World]\n"
         "Enabled=1\n"
         "DrawDistance=3.2\n"
+        "ForwardBias=1\n"
+        "ForwardBiasSectors=0.75\n"
         "VehicleDistance=5.0\n"
         "PedDistance=1.5\n"
         "\n"
@@ -56,7 +60,7 @@ int main(void) {
         "HideHeadFirstPerson=0\n";
 
     const int applied = ctw_config_parse_text(&cfg, ini);
-    assert(applied == 21);
+    assert(applied == 23);
     assert(feq(cfg.camera_height, 4.0f)); /* clamped */
     assert(feq(cfg.camera_distance, 7.25f));
     assert(feq(cfg.camera_pitch_degrees, -12.0f));
@@ -72,6 +76,8 @@ int main(void) {
     assert(feq(cfg.far_clip_multiplier, 3.2f));
     assert(feq(cfg.stream_radius_multiplier, 3.2f));
     assert(feq(cfg.lod_distance_multiplier, 3.2f));
+    assert(cfg.forward_streaming_bias_enabled == 1);
+    assert(feq(cfg.forward_streaming_bias_sectors, 0.75f));
     assert(feq(cfg.vehicle_distance_multiplier, 4.0f)); /* clamped */
     assert(feq(cfg.ped_distance_multiplier, 1.5f));
     assert(cfg.character_fix == 0);
