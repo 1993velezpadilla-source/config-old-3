@@ -1,0 +1,49 @@
+name: Extract Nacht 260 Lightmap Diagnostics
+
+on:
+  push:
+    branches:
+      - feature/xziel-nacht-lightmap-hq-gpu-v1
+    paths:
+      - ".github/workflows/extract-nacht260-lightmap-diag.yml"
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Nacht 260 evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: XZIEL-Nacht-Static-Scene-Android-Evidence
+          path: evidence
+          repository: 1993velezpadilla-source/config-old-3
+          run-id: 36464715053
+          github-token: ${{ github.token }}
+
+      - name: Isolate lightmap diagnostics
+        run: |
+          set -euo pipefail
+          mkdir -p lightmap-diag
+          for name in             nacht-instance-lightmap-bindings.json             baked-lighting-census.json             xziel.xzlb.report.json             xziel.xzlt.report.json             xziel.xzscene.report.json; do
+            p=$(find evidence -type f -name "$name" -print -quit)
+            if [[ -n "$p" ]]; then
+              cp "$p" "lightmap-diag/$name"
+            fi
+          done
+          find lightmap-diag -type f -maxdepth 1 -print
+          test -s lightmap-diag/nacht-instance-lightmap-bindings.json
+          test -s lightmap-diag/baked-lighting-census.json
+
+      - name: Upload diagnostics only
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Nacht-260-Lightmap-Diagnostics
+          path: lightmap-diag/
+          compression-level: 6
+          retention-days: 7
