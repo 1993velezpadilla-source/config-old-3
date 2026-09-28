@@ -262,6 +262,10 @@ def read_xzt_rgba(path: Path) -> tuple[int, int, bytes]:
 
 
 def runtime_size(width: int, height: int, max_dimension: int) -> tuple[int, int]:
+    # Source-fidelity mode is the Nacht production default. A non-positive
+    # maximum means preserve the authored source dimensions exactly.
+    if max_dimension <= 0:
+        return width, height
     longest = max(width, height)
     if longest <= max_dimension:
         return width, height
@@ -302,7 +306,12 @@ def main() -> int:
     ap.add_argument("--texture-manifest", type=Path, required=True)
     ap.add_argument("--output", type=Path, required=True)
     ap.add_argument("--report", type=Path, required=True)
-    ap.add_argument("--max-dimension", type=int, default=256)
+    ap.add_argument(
+        "--max-dimension",
+        type=int,
+        default=0,
+        help="0 preserves authored source dimensions; positive values are diagnostic-only caps",
+    )
     args = ap.parse_args()
 
     assets = json.loads(args.assets.read_text(encoding="utf-8"))

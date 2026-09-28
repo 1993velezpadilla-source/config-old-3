@@ -101,7 +101,12 @@ def main() -> int:
     ap.add_argument("--texture-root", type=Path, required=True)
     ap.add_argument("--output", type=Path, required=True)
     ap.add_argument("--report", type=Path, required=True)
-    ap.add_argument("--max-dimension", type=int, default=256)
+    ap.add_argument(
+        "--max-dimension",
+        type=int,
+        default=0,
+        help="0 preserves authored source dimensions; positive values are diagnostic-only caps",
+    )
     args = ap.parse_args()
 
     manifest = json.loads(args.manifest.read_text(encoding="utf-8"))

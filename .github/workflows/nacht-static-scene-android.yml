@@ -3103,8 +3103,43 @@ jobs:
             --texture-manifest "$RUNNER_TEMP/scene-glb/xziel-texture-manifest.json" \
             --output "$MAPROOT/materials.xzmt" \
             --report build/nacht-static-scene/xziel.xzmat.report.json \
-            --max-dimension 256 \
             | tee build/nacht-static-scene/xzmat-compile.log
+
+          # Hard source-fidelity gate: Nacht production assets may not be
+          # silently downscaled. Performance work must happen through
+          # streaming/residency/culling rather than quality reduction.
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(
+              Path(
+                  "build/nacht-static-scene/xziel.xzmat.report.json"
+              ).read_text()
+          )
+          assert report["runtimeMaxDimension"] == 0
+          authored = [
+              row for row in report["textures"]
+              if row.get("sourceKind") == "xzt"
+          ]
+          downscaled = [
+              {
+                  "name": row.get("textureName"),
+                  "source": [row["sourceWidth"], row["sourceHeight"]],
+                  "runtime": [row["width"], row["height"]],
+              }
+              for row in authored
+              if (
+                  row["sourceWidth"] != row["width"]
+                  or row["sourceHeight"] != row["height"]
+              )
+          ]
+          assert not downscaled, downscaled[:20]
+          print(
+              "XZIEL_NACHT_SOURCE_BASECOLOR_FIDELITY_GREEN",
+              {"textures": len(authored), "downscaled": 0},
+          )
+          PY
 
           python3 tools/maps/compile_nacht_pbr_scalars.py \
             --manifest "$RUNNER_TEMP/scene-glb/xziel-texture-manifest.json" \
@@ -3141,7 +3176,6 @@ jobs:
             --texture-root "$RUNNER_TEMP/scene-glb" \
             --output "$MAPROOT/materials.xzmn" \
             --report build/nacht-static-scene/xziel.xzmn.report.json \
-            --max-dimension 256 \
             | tee build/nacht-static-scene/xzmn-compile.log
 
           python3 - <<'PY'
@@ -3159,6 +3193,24 @@ jobs:
           assert normal["mappedBindings"] > 0
           assert normal["textureCount"] > 0
           assert normal["runtimeBytes"] > 0
+          assert normal["runtimeMaxDimension"] == 0
+          downscaled = [
+              {
+                  "name": row.get("textureName"),
+                  "source": [row["sourceWidth"], row["sourceHeight"]],
+                  "runtime": [row["width"], row["height"]],
+              }
+              for row in normal["textures"]
+              if (
+                  row["sourceWidth"] != row["width"]
+                  or row["sourceHeight"] != row["height"]
+              )
+          ]
+          assert not downscaled, downscaled[:20]
+          print(
+              "XZIEL_NACHT_SOURCE_NORMAL_FIDELITY_GREEN",
+              {"textures": normal["textureCount"], "downscaled": 0},
+          )
           print(
               "XZIEL_NACHT_XZMN_REPORT_GREEN",
               {
