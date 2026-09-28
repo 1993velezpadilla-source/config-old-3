@@ -4,6 +4,7 @@
 
 static const char *const gate_names[XZ_GATE_COUNT] = {
     "package_visible",
+    "source_conversion",
     "zone_db",
     "zone_dependencies",
     "world",
