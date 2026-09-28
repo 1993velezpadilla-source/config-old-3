@@ -150,7 +150,8 @@ static int XzExpectedCompressedBytes(
 
     if (format == XZ_XZLT_FORMAT_BC1)
         block_bytes = 8u;
-    else if (format == XZ_XZLT_FORMAT_BC3)
+    else if (format == XZ_XZLT_FORMAT_BC3 ||
+             format == XZ_XZLT_FORMAT_ETC2_RGBA8)
         block_bytes = 16u;
     else
         return 0;
@@ -225,6 +226,7 @@ XzLightmapTextureStatus XzLightmapTexture_Open(
     uint32_t mip_index;
     uint32_t bc1_count = 0u;
     uint32_t bc3_count = 0u;
+    uint32_t etc2_rgba8_count = 0u;
     uint32_t srgb_count = 0u;
     uint32_t linear_count = 0u;
     XzLightmapTextureStatus status =
@@ -280,7 +282,8 @@ XzLightmapTextureStatus XzLightmapTexture_Open(
     mip_table_offset =
         XzReadU32Le(header + 28u);
 
-    if (version != XZ_XZLT_VERSION) {
+    if (version != XZ_XZLT_VERSION_V1 &&
+        version != XZ_XZLT_VERSION) {
         status = XZ_XZLT_ERR_VERSION;
         goto fail;
     }
@@ -375,6 +378,7 @@ XzLightmapTextureStatus XzLightmapTexture_Open(
         (uint32_t)file_bytes;
     view->table_data = tables;
     view->table_bytes = table_bytes;
+    view->version = version;
     view->texture_count = texture_count;
     view->mip_count = mip_count;
     view->texture_table_offset =
@@ -406,6 +410,9 @@ XzLightmapTextureStatus XzLightmapTexture_Open(
         else if (texture.format ==
                  XZ_XZLT_FORMAT_BC3)
             bc3_count++;
+        else if (texture.format ==
+                 XZ_XZLT_FORMAT_ETC2_RGBA8)
+            etc2_rgba8_count++;
         else {
             status = XZ_XZLT_ERR_TEXTURE;
             goto fail_view;
@@ -502,6 +509,8 @@ XzLightmapTextureStatus XzLightmapTexture_Open(
         bc1_count;
     view->bc3_texture_count =
         bc3_count;
+    view->etc2_rgba8_texture_count =
+        etc2_rgba8_count;
     view->srgb_texture_count =
         srgb_count;
     view->linear_texture_count =
