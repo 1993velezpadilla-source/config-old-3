@@ -33,22 +33,29 @@ def encode_add(rd: int, rn: int, imm: int) -> int:
     return 0x91000000 | ((imm & 0xFFF) << 10) | (rn << 5) | rd
 
 
+def encode_ldr_x(rt: int, rn: int, imm: int) -> int:
+    assert imm % 8 == 0
+    return 0xF9400000 | (((imm // 8) & 0xFFF) << 10) | (rn << 5) | rt
+
+
 def encode_bl(pc: int, target: int) -> int:
     imm26 = ((target - pc) >> 2) & 0x03FFFFFF
     return 0x94000000 | imm26
 
 
 def make_xref_fixture(path: Path):
-    shstr = b"\0.shstrtab\0.dynstr\0.dynsym\0.text\0.rodata\0"
+    shstr = b"\0.shstrtab\0.dynstr\0.dynsym\0.text\0.rodata\0.data\0"
 
     def sno(name: bytes):
         return shstr.index(name)
 
     func = b"RenderWorldFrame"
     caller = b"MainLoopCaller"
-    dynstr = b"\0" + func + b"\0" + caller + b"\0"
+    anchor = b"gOSWGamepad"
+    dynstr = b"\0" + func + b"\0" + caller + b"\0" + anchor + b"\0"
     func_off = dynstr.index(func)
     caller_off = dynstr.index(caller)
+    anchor_off = dynstr.index(anchor)
 
     cam = b"CameraFarClipDistance"
     world = b"WorldBlockStreamer"
@@ -56,6 +63,7 @@ def make_xref_fixture(path: Path):
     cam_va = 0x4000
     world_va = 0x4000 + len(cam) + 1
 
+    gamepad_va = 0x5008
     text_words = [
         encode_adrp(0, 0x1000, cam_va),
         0xD503201F,  # nop: exercise non-adjacent ADRP+ADD recovery
@@ -63,17 +71,23 @@ def make_xref_fixture(path: Path):
         encode_adr(1, 0x100C, world_va),
         encode_bl(0x1010, 0x1000),
         0xD65F03C0,  # ret
+        encode_adrp(2, 0x1018, gamepad_va),
+        encode_ldr_x(3, 2, gamepad_va & 0xFFF),
+        0xD65F03C0,
     ]
-    text = struct.pack("<6I", *text_words)
+    text = struct.pack("<9I", *text_words)
 
     sym0 = b"\0" * elf_probe.ELF64_SYM.size
     sym1 = elf_probe.ELF64_SYM.pack(
         func_off, 0x12, 0, 4, 0x1000, 16
     )
     sym2 = elf_probe.ELF64_SYM.pack(
-        caller_off, 0x12, 0, 4, 0x1010, 8
+        caller_off, 0x12, 0, 4, 0x1010, 20
     )
-    dynsym = sym0 + sym1 + sym2
+    sym3 = elf_probe.ELF64_SYM.pack(
+        anchor_off, 0x11, 0, 6, gamepad_va, 16
+    )
+    dynsym = sym0 + sym1 + sym2 + sym3
 
     cursor = elf_probe.ELF64_EHDR.size
     parts = {}
@@ -83,13 +97,14 @@ def make_xref_fixture(path: Path):
         (".dynsym", dynsym, 8),
         (".text", text, 4),
         (".rodata", rodata, 1),
+        (".data", b"\0" * 32, 8),
     ):
         cursor = align(cursor, al)
         parts[name] = (cursor, payload)
         cursor += len(payload)
 
     shoff = align(cursor, 8)
-    sections = 6
+    sections = 7
     blob = bytearray(shoff + sections * elf_probe.ELF64_SHDR.size)
 
     ident = bytearray(16)
@@ -116,6 +131,7 @@ def make_xref_fixture(path: Path):
         (sno(b".dynsym"), 11, 0, 0, parts[".dynsym"][0], len(dynsym), 2, 1, 8, elf_probe.ELF64_SYM.size),
         (sno(b".text"), 1, 0x6, 0x1000, parts[".text"][0], len(text), 0, 0, 4, 0),
         (sno(b".rodata"), 1, 0x2, 0x4000, parts[".rodata"][0], len(rodata), 0, 0, 1, 0),
+        (sno(b".data"), 1, 0x3, 0x5000, parts[".data"][0], 32, 0, 0, 8, 0),
     ]
     for i, sec in enumerate(shdrs):
         off = shoff + i * elf_probe.ELF64_SHDR.size
@@ -132,6 +148,13 @@ class Aarch64XrefTests(unittest.TestCase):
             report = aarch64_xref.scan_libgame(path)
 
         self.assertEqual(report["xref_count"], 2)
+        self.assertEqual(report["public_anchor_symbol_count"], 1)
+        self.assertEqual(report["public_anchor_xref_count"], 1)
+        anchor = report["public_anchor_xrefs"][0]
+        self.assertEqual(anchor["anchor"], "gOSWGamepad")
+        self.assertEqual(anchor["anchor_rva"], 0x5008)
+        self.assertEqual(anchor["form"], "adrp+ldr_x(+1)")
+        self.assertEqual(anchor["function"], "MainLoopCaller")
         self.assertEqual(len(report["groups"]["camera"]), 1)
         self.assertEqual(len(report["groups"]["streaming"]), 1)
         self.assertEqual(
@@ -171,6 +194,11 @@ class Aarch64XrefTests(unittest.TestCase):
         self.assertIsNone(aarch64_xref.decode_adr(0xD503201F, 0x1000))
         self.assertIsNone(aarch64_xref.decode_add_imm64(0xD65F03C0))
         self.assertIsNone(aarch64_xref.decode_bl(0xD65F03C0, 0x1000))
+        self.assertIsNone(aarch64_xref.decode_mem_unsigned(0xD503201F))
+        self.assertEqual(
+            aarch64_xref.decode_mem_unsigned(encode_ldr_x(3, 2, 8)),
+            ("ldr_x", 3, 2, 8),
+        )
         self.assertEqual(
             aarch64_xref.decode_bl(encode_bl(0x1010, 0x1000), 0x1010),
             0x1000,
