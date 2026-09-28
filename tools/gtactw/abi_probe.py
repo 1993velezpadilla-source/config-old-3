@@ -332,6 +332,7 @@ def disassemble_window(
         [
             objdump,
             "-d",
+            "-C",
             "--no-show-raw-insn",
             f"--start-address=0x{rva:X}",
             f"--stop-address=0x{stop:X}",
