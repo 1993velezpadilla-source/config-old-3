@@ -79,6 +79,8 @@ for name in (
     "xz_nacht_reference.c",
     "xz_map_runtime.h",
     "xz_map_runtime.c",
+    "xz_package_boot.h",
+    "xz_package_boot.c",
     "xz_xzmesh.h",
     "xz_xzmesh.c",
     "xz_xzscene.h",
