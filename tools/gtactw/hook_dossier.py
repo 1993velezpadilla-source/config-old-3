@@ -280,6 +280,112 @@ def _abi_review_card(abi_evidence: dict, caller_evidence: dict) -> dict:
     }
 
 
+def _manual_review_readiness(
+    abi_evidence: dict,
+    caller_evidence: dict,
+    review_card: dict,
+    trampoline_strategy_hint: str | None,
+) -> dict:
+    """Summarize whether a candidate has enough evidence for human ABI review."""
+    blockers = []
+    cautions = []
+    supports = []
+
+    if not isinstance(abi_evidence, dict) or not abi_evidence:
+        blockers.append("missing_callee_abi_evidence")
+
+    direct_calls = review_card.get("direct_call_site_count")
+    callers_analyzed = review_card.get("callers_analyzed", 0)
+    if isinstance(direct_calls, int):
+        if direct_calls == 0:
+            blockers.append("no_direct_call_sites")
+            cautions.append(
+                "candidate may be reached indirectly; inspect register/function-pointer call paths"
+            )
+        elif callers_analyzed == 0:
+            blockers.append("direct_callers_not_analyzed")
+        else:
+            supports.append("caller_side_abi_evidence")
+            if callers_analyzed < direct_calls:
+                cautions.append("caller_analysis_is_partial")
+
+    shape_review = review_card.get("argument_shape_review", {})
+    conflicts = sorted(
+        reg
+        for reg, item in shape_review.items()
+        if isinstance(item, dict) and item.get("status") == "conflict"
+    )
+    if conflicts:
+        blockers.append("argument_shape_conflict")
+        cautions.append(
+            "callee/caller kind hints conflict for " + ",".join(conflicts)
+        )
+    elif shape_review:
+        supported = sorted(
+            reg
+            for reg, item in shape_review.items()
+            if isinstance(item, dict) and item.get("status") == "supported"
+        )
+        if supported:
+            supports.append("callee_caller_argument_shape_agreement")
+
+    consensus = review_card.get("caller_argument_consensus", {})
+    consensus_all = sorted(
+        reg
+        for reg, item in consensus.items()
+        if isinstance(item, dict)
+        and item.get("status") in {
+            "locally_prepared_by_all_callers",
+            "passthrough_in_all_callers",
+            "mixed_but_present_in_all_callers",
+        }
+    )
+    if consensus_all:
+        supports.append("multi_caller_argument_consensus")
+
+    if trampoline_strategy_hint:
+        supports.append("trampoline_strategy_available")
+    else:
+        blockers.append("missing_trampoline_strategy")
+
+    return_counts = review_card.get("caller_return_use_counts", {})
+    consumed_return_classes = sorted(
+        reg
+        for reg, counts in return_counts.items()
+        if isinstance(counts, dict) and counts.get("consumed", 0) > 0
+    )
+    if consumed_return_classes:
+        supports.append("caller_return_use_observed")
+
+    if "argument_shape_conflict" in blockers:
+        status = "shape_conflict"
+    elif "missing_callee_abi_evidence" in blockers:
+        status = "needs_callee_abi_evidence"
+    elif (
+        "no_direct_call_sites" in blockers
+        or "direct_callers_not_analyzed" in blockers
+    ):
+        status = "needs_caller_path_review"
+    elif "missing_trampoline_strategy" in blockers:
+        status = "needs_trampoline_review"
+    else:
+        status = "manual_review_ready"
+
+    return {
+        "status": status,
+        "blockers": blockers,
+        "cautions": cautions,
+        "supports": sorted(set(supports)),
+        "consensus_registers": consensus_all,
+        "consumed_return_classes": consumed_return_classes,
+        "note": (
+            "Readiness means enough static evidence is present for focused "
+            "human review. It never verifies an RVA, prototype, adapter, or "
+            "hook automatically."
+        ),
+    }
+
+
 def build_dossier(profile: dict, top: int = 5) -> dict:
     if top < 1 or top > 16:
         raise ValueError("top must be between 1 and 16")
@@ -313,6 +419,17 @@ def build_dossier(profile: dict, top: int = 5) -> dict:
                 abi_evidence.get("prologue_relocation", {})
                 if isinstance(abi_evidence, dict)
                 else {}
+            )
+
+            review_card = _abi_review_card(
+                abi_evidence,
+                caller_evidence,
+            )
+            manual_review = _manual_review_readiness(
+                abi_evidence,
+                caller_evidence,
+                review_card,
+                abi_candidate.get("trampoline_strategy_hint"),
             )
 
             entries.append({
@@ -377,10 +494,8 @@ def build_dossier(profile: dict, top: int = 5) -> dict:
                     if isinstance(caller_evidence, dict)
                     else {}
                 ),
-                "abi_review_card": _abi_review_card(
-                    abi_evidence,
-                    caller_evidence,
-                ),
+                "abi_review_card": review_card,
+                "manual_review": manual_review,
                 "direct_call_site_count": (
                     caller_evidence.get("direct_call_site_count")
                     if isinstance(caller_evidence, dict)
