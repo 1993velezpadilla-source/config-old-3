@@ -307,8 +307,11 @@ def make_profile(
     setup_rva = _jni_rva(report, SETUP)
     axes_rva = _jni_rva(report, AXES)
 
-    if draw_rva is None or setup_rva is None:
-        raise ValueError("report is missing required CTW GameNative JNI RVAs")
+    if draw_rva is None or setup_rva is None or axes_rva is None:
+        raise ValueError(
+            "report is missing required CTW GameNative JNI RVAs "
+            "(draw/setup/gamepad-axes)"
+        )
 
     candidates = report.get("symbols", {}).get("candidate_groups", {})
     candidate_summary = {}
