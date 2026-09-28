@@ -43,6 +43,21 @@ KNOWN_JNI_EXPORTS = (
     "Java_com_rockstargames_oswrapper_GameNative_implOnTouchEnd",
 )
 
+
+
+# Public 4.4.243 anchors confirmed by the NaGaa95 Switch port against the
+# exact Android libGame.so build.  They are fingerprint evidence only.
+KNOWN_4243_ENGINE_SYMBOLS = (
+    "_Z24NVThreadGetCurrentJNIEnvv",
+    "_Z22NVThreadSpawnJNIThreadPlPK14pthread_attr_tPKcPFPvS5_ES5_",
+    "_Z15OS_ThreadLaunchPFjPvES_jPKci16OSThreadPriority",
+    "_Z13OS_ThreadWaitPv",
+    "_Z14OS_ThreadClosePv",
+    "_Z18OS_ThreadIsRunningPv",
+    "_Z17OS_ScreenGetWidthv",
+    "_Z18OS_ScreenGetHeightv",
+)
+
 CANDIDATE_TERMS = {
     "camera": (
         "camera", "cam", "view", "fov", "nearclip", "farclip",
@@ -229,6 +244,19 @@ def inspect_elf(path: Path) -> dict:
         for name in KNOWN_JNI_EXPORTS
     }
 
+    known_4243_engine_symbols = {
+        name: (
+            {
+                "present": True,
+                "value": sym_by_name[name]["value"],
+                "size": sym_by_name[name]["size"],
+            }
+            if name in sym_by_name
+            else {"present": False, "value": None, "size": None}
+        )
+        for name in KNOWN_4243_ENGINE_SYMBOLS
+    }
+
     candidates = {key: [] for key in CANDIDATE_TERMS}
     for sym in symbols:
         cats = classify(sym["name"])
@@ -274,6 +302,12 @@ def inspect_elf(path: Path) -> dict:
             "known_jni": known_jni,
             "known_jni_details": known_jni_details,
             "known_jni_present": sum(1 for x in known_jni.values() if x),
+            "known_4243_engine_symbols": known_4243_engine_symbols,
+            "known_4243_engine_symbols_present": sum(
+                1
+                for item in known_4243_engine_symbols.values()
+                if item["present"]
+            ),
             "candidate_groups": candidates,
         },
         "strings": {
