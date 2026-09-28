@@ -126,6 +126,18 @@ def parse_wbl_bytes(blob: bytes) -> dict:
         totals["unknown20"] += count6
         totals["texture_refs"] += num_textures
 
+        level_positions = [item["position"] for item in levels]
+        if level_positions:
+            xs = [p[0] for p in level_positions]
+            ys = [p[1] for p in level_positions]
+            zs = [p[2] for p in level_positions]
+            level_bounds = {
+                "min": [min(xs), min(ys), min(zs)],
+                "max": [max(xs), max(ys), max(zs)],
+            }
+        else:
+            level_bounds = None
+
         sectors.append({
             "sector": sector_id,
             "relative_offset": rel,
@@ -143,7 +155,27 @@ def parse_wbl_bytes(blob: bytes) -> dict:
             "lights": lights,
             "unknown20": unknown20,
             "texture_ids": texture_ids,
+            "level_bounds": level_bounds,
+            "instance_density_per_level": (
+                (num_instances / num_levels) if num_levels else 0.0
+            ),
         })
+
+    all_positions = [
+        level["position"]
+        for sector in sectors
+        for level in sector["levels"]
+    ]
+    if all_positions:
+        xs = [p[0] for p in all_positions]
+        ys = [p[1] for p in all_positions]
+        zs = [p[2] for p in all_positions]
+        overall_level_bounds = {
+            "min": [min(xs), min(ys), min(zs)],
+            "max": [max(xs), max(ys), max(zs)],
+        }
+    else:
+        overall_level_bounds = None
 
     return {
         "file_size": len(blob),
@@ -153,6 +185,9 @@ def parse_wbl_bytes(blob: bytes) -> dict:
         "totals": totals,
         "unique_model_resource_ids": sorted(unique_resources),
         "unique_texture_ids": sorted(unique_textures),
+        "overall_level_bounds": overall_level_bounds,
+        "sector_instance_counts": [s["num_instances"] for s in sectors],
+        "sector_level_counts": [s["num_levels"] for s in sectors],
     }
 
 
