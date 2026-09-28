@@ -173,5 +173,26 @@ class AnalyzeApkSetTests(unittest.TestCase):
                     )
 
 
+    def test_persists_selected_runtime_files(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            bundle = self.make_bundle(root)
+            runtime = root / "runtime"
+            report = analyze_apkset.analyze_apkset(
+                bundle,
+                runtime_out=runtime,
+            )
+
+            self.assertTrue(report["ok"])
+            self.assertEqual(report["runtime_dir"], str(runtime))
+            self.assertTrue((runtime / "assets/game.pak").is_file())
+            self.assertTrue(
+                (runtime / "lib/arm64-v8a/libGame.so").is_file()
+            )
+            self.assertTrue(
+                (runtime / "lib/arm64-v8a/libopenal.so").is_file()
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
