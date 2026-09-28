@@ -24,10 +24,12 @@ def make_pak_with_worldblock() -> bytes:
     ids[0] = 1
     struct.pack_into("<23h", blob, 1 * 4096, *ids)
 
-    # Resource 1: first worldblock id = resource 2.
-    struct.pack_into("<h", blob, 2 * 4096 + 8, 2)
-    for i in range(1, 32):
-        struct.pack_into("<h", blob, 2 * 4096 + 8 + i * 2, -1)
+    # Resource 1: first worldblock id = resource 2, all remaining slots empty.
+    world_table_start = 2 * 4096 + 8
+    world_table_slots = (4096 - 8) // 2
+    for i in range(world_table_slots):
+        struct.pack_into("<h", blob, world_table_start + i * 2, -1)
+    struct.pack_into("<h", blob, world_table_start, 2)
 
     wbl = make_wbl()
     blob[3 * 4096:3 * 4096 + len(wbl)] = wbl
