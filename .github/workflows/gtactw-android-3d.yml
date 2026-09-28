@@ -177,6 +177,7 @@ jobs:
             | grep -q "Java_com_rockstargames_oswrapper_GameNative_implOnDrawFrame"
           echo "GTACTW_ANDROID_ARM64_LOADER_GREEN=1"
           echo "GTACTW_ARM64_ARTIFACT_GREEN=1"
+          echo "GTACTW_SHADOWHOOK_ARTIFACT_GREEN=1"
 
       - name: Build CTW ARM64 with pinned ShadowHook fallback
         shell: bash
@@ -216,6 +217,32 @@ jobs:
         with:
           name: ctw3d-arm64-proxy
           path: /tmp/ctw-artifact/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Stage CTW ARM64 ShadowHook proxy artifact
+        shell: bash
+        run: |
+          rm -rf /tmp/ctw-shadowhook-artifact
+          mkdir -p /tmp/ctw-shadowhook-artifact
+          cp /tmp/ctw-android-arm64-shadowhook/libGame.so \
+            /tmp/ctw-shadowhook-artifact/libGame.so
+          cp projects/gtactw-android-3d/ctw_modhub.example.ini \
+            /tmp/ctw-shadowhook-artifact/ctw_modhub.ini
+          cp projects/gtactw-android-3d/THIRD_PARTY_NOTICES.md \
+            /tmp/ctw-shadowhook-artifact/THIRD_PARTY_NOTICES.md
+          printf '%s\n' \
+            'shadowhook_commit=593f491be68799f03ee3bab71ce5908846437147' \
+            > /tmp/ctw-shadowhook-artifact/BUILD_INFO.txt
+          sha256sum /tmp/ctw-shadowhook-artifact/libGame.so \
+            > /tmp/ctw-shadowhook-artifact/SHA256SUMS.txt
+          echo "GTACTW_SHADOWHOOK_ARTIFACT_STAGED=1"
+
+      - name: Upload CTW ARM64 ShadowHook proxy artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ctw3d-arm64-proxy-shadowhook
+          path: /tmp/ctw-shadowhook-artifact/
           if-no-files-found: error
           retention-days: 14
 
