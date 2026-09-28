@@ -23,6 +23,7 @@ import apk_identity
 import ctw_probe
 import elf_probe
 import pak_inventory
+import ped_probe
 import profile_template
 import plt_calls
 import world_census
@@ -47,6 +48,8 @@ def analyze_apk(
         "missing_required": base["missing_required"],
         "pak_header": base["pak"],
         "pak_inventory": None,
+        "ped_models": None,
+        "ped_models_error": None,
         "world_census": None,
         "world_census_error": None,
         "libgame": None,
@@ -111,6 +114,22 @@ def analyze_apk(
                 ][:256],
             }
             report["gates"]["pak_inventory"] = True
+            try:
+                ped = ped_probe.inspect_ped_models(pak_path)
+                report["ped_models"] = {
+                    "pedinfos_resource_id": ped["pedinfos_resource_id"],
+                    "pedinfos_size": ped["pedinfos_size"],
+                    "model_resource_count": ped["model_resource_count"],
+                    "layout_confidence": ped["layout_inference"]["confidence"],
+                    "layout_best": ped["layout_inference"]["best"],
+                    "linked_model_count": ped["linked_model_count"],
+                    "linked_models_by_skeleton_complexity": ped[
+                        "linked_models_by_skeleton_complexity"
+                    ][:64],
+                    "note": ped["note"],
+                }
+            except Exception as exc:
+                report["ped_models_error"] = str(exc)
             try:
                 census = world_census.census_pak(pak_path)
                 report["world_census"] = {
