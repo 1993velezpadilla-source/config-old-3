@@ -198,6 +198,41 @@ class ProfileTemplateTests(unittest.TestCase):
             "CameraUpdate",
         )
 
+
+    def test_projection_ranking_uses_gl_matrix_plt_call(self):
+        report = self.make_report()
+        xrefs = {
+            "groups": {
+                "camera": [],
+                "streaming": [],
+                "lod_culling": [],
+                "player_render": [],
+            }
+        }
+        plt = {
+            "groups": {
+                "projection": [
+                    {
+                        "caller": "UploadProjection",
+                        "caller_rva": 0x5500,
+                        "call_site_rva": 0x5510,
+                        "import_symbol": "glUniformMatrix4fv",
+                    }
+                ],
+                "render": [],
+                "visibility": [],
+            }
+        }
+        profile = profile_template.make_profile(report, xrefs, plt)
+        ranked = profile["target_evidence_rankings"]["projection_setup"]
+        self.assertEqual(ranked[0]["rva"], 0x5500)
+        self.assertIn("glUniformMatrix4fv", ranked[0]["plt_imports"])
+        self.assertIn(
+            "calls glUniformMatrix4fv through verified PLT mapping",
+            ranked[0]["reasons"],
+        )
+        self.assertIsNone(profile["patch_targets_rva"]["projection_setup"])
+
     def test_rejects_missing_required_jni(self):
         report = self.make_report()
         p = "Java_com_rockstargames_oswrapper_GameNative_"
