@@ -161,6 +161,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("apk", type=Path, help="Path to a user-owned CTW Android APK")
     ap.add_argument("--out", type=Path, help="Write full JSON analysis here")
+    ap.add_argument("--profile-out", type=Path, help="Write patch profile template here")
     ap.add_argument("--reference", type=Path, help="Pinned CTW reference-build JSON")
     ap.add_argument("--aapt", type=Path, help="Optional explicit Android aapt/aapt2 path")
     ap.add_argument("--apksigner", type=Path, help="Optional explicit Android apksigner path")
@@ -186,6 +187,12 @@ def main() -> int:
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(payload + "\n", encoding="utf-8")
+    if args.profile_out and report.get("profile_template") is not None:
+        args.profile_out.parent.mkdir(parents=True, exist_ok=True)
+        args.profile_out.write_text(
+            json.dumps(report["profile_template"], indent=2) + "\n",
+            encoding="utf-8",
+        )
     print(payload)
 
     if report["ok"] or args.allow_partial:
