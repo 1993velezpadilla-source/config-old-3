@@ -181,6 +181,18 @@ def build_split_modpack(
         if GAME_SO not in names or ORIGINAL_SO not in names:
             raise RuntimeError("patched native split lacks proxy/original pair")
 
+    if config_bytes is not None:
+        config_holders = []
+        for item in outputs:
+            with zipfile.ZipFile(Path(item["output_apk"]), "r") as zf:
+                if CONFIG_ASSET in zf.namelist():
+                    config_holders.append(item["input_split"])
+        if config_holders != [asset_split]:
+            raise RuntimeError(
+                "CTW Mod Hub config must exist exactly once in the selected "
+                f"asset split; got {config_holders}, expected {[asset_split]}"
+            )
+
     return {
         "source": str(source),
         "out_dir": str(out_dir),
