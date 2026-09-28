@@ -23,6 +23,116 @@ def _candidate_abi_by_rva(profile: dict, target: str) -> dict[int, dict]:
     return out
 
 
+
+def _abi_review_card(abi_evidence: dict, caller_evidence: dict) -> dict:
+    arg = (
+        abi_evidence.get("argument_register_hints", {})
+        if isinstance(abi_evidence, dict)
+        else {}
+    )
+    callee_gpr = {
+        f"x{n}" for n in arg.get("likely_gpr_inputs_x0_x7", [])
+        if isinstance(n, int)
+    }
+    callee_fp = {
+        f"v{n}" for n in arg.get("likely_fp_inputs_v0_v7", [])
+        if isinstance(n, int)
+    }
+
+    locally_prepared = set()
+    passthrough = set()
+    return_counts = {
+        "x0": {
+            "consumed": 0,
+            "overwritten_without_read": 0,
+            "not_observed_in_window": 0,
+        },
+        "v0": {
+            "consumed": 0,
+            "overwritten_without_read": 0,
+            "not_observed_in_window": 0,
+        },
+    }
+
+    callers = (
+        caller_evidence.get("callers", [])
+        if isinstance(caller_evidence, dict)
+        else []
+    )
+    for caller in callers:
+        if not isinstance(caller, dict):
+            continue
+        context = caller.get("context", {})
+        if not isinstance(context, dict):
+            continue
+        locally_prepared.update(
+            x
+            for x in context.get(
+                "locally_prepared_argument_registers",
+                [],
+            )
+            if isinstance(x, str)
+        )
+        passthrough.update(
+            x
+            for x in context.get(
+                "possible_passthrough_argument_registers",
+                [],
+            )
+            if isinstance(x, str)
+        )
+        return_use = context.get("return_use", {})
+        if isinstance(return_use, dict):
+            for reg in ("x0", "v0"):
+                item = return_use.get(reg, {})
+                status = item.get("status") if isinstance(item, dict) else None
+                if status in return_counts[reg]:
+                    return_counts[reg][status] += 1
+
+    return_hints = (
+        abi_evidence.get("return_value_hints", {})
+        if isinstance(abi_evidence, dict)
+        else {}
+    )
+
+    return {
+        "callee_gpr_inputs": sorted(callee_gpr),
+        "callee_fp_inputs": sorted(callee_fp),
+        "caller_locally_prepared": sorted(locally_prepared),
+        "caller_possible_passthrough": sorted(passthrough),
+        "gpr_supported_by_callee_and_callers": sorted(
+            callee_gpr & (locally_prepared | passthrough)
+        ),
+        "fp_supported_by_callee_and_callers": sorted(
+            callee_fp & (locally_prepared | passthrough)
+        ),
+        "callee_only_argument_hints": sorted(
+            (callee_gpr | callee_fp)
+            - (locally_prepared | passthrough)
+        ),
+        "caller_only_argument_hints": sorted(
+            (locally_prepared | passthrough)
+            - (callee_gpr | callee_fp)
+        ),
+        "caller_return_use_counts": return_counts,
+        "callee_return_register_classes": return_hints.get(
+            "register_classes_seen",
+            [],
+        ),
+        "direct_call_site_count": (
+            caller_evidence.get("direct_call_site_count")
+            if isinstance(caller_evidence, dict)
+            else None
+        ),
+        "callers_analyzed": len(callers),
+        "note": (
+            "This card summarizes agreement between callee dataflow and "
+            "direct-call-site evidence. It is review evidence only and never "
+            "declares a prototype verified."
+        ),
+    }
+
+
 def build_dossier(profile: dict, top: int = 5) -> dict:
     if top < 1 or top > 16:
         raise ValueError("top must be between 1 and 16")
@@ -119,6 +229,10 @@ def build_dossier(profile: dict, top: int = 5) -> dict:
                     caller_evidence
                     if isinstance(caller_evidence, dict)
                     else {}
+                ),
+                "abi_review_card": _abi_review_card(
+                    abi_evidence,
+                    caller_evidence,
                 ),
                 "direct_call_site_count": (
                     caller_evidence.get("direct_call_site_count")
