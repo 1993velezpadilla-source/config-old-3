@@ -166,6 +166,7 @@ int ctw_mod_init(void *original_game_handle) {
     LOGI("matched verified CTW build profile: %s", profile->name);
 
     const int signature_rc = ctw_profile_verify_target_prefixes(
+        original_game_handle,
         profile,
         &targets
     );
