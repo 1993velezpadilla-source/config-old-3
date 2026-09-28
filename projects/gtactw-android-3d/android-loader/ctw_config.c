@@ -91,6 +91,8 @@ void ctw_config_set_defaults(Ctw3DConfig *config) {
         .camera_invert_y = 0,
         .camera_min_pitch_degrees = -70.0f,
         .camera_max_pitch_degrees = 35.0f,
+        .camera_collision_enabled = 1,
+        .camera_collision_margin = 0.18f,
         .fov_degrees = 72.0f,
         .near_clip = 0.05f,
         .disable_cinematic_camera = 1,
@@ -153,6 +155,14 @@ static int apply_pair(
         }
         if (equal_ci(key, "MaxPitch") && parse_float_value(value, &f)) {
             config->camera_max_pitch_degrees = clampf_local(f, -89.0f, 89.0f);
+            return 1;
+        }
+        if (equal_ci(key, "Collision") && parse_bool(value, &b)) {
+            config->camera_collision_enabled = b;
+            return 1;
+        }
+        if (equal_ci(key, "CollisionMargin") && parse_float_value(value, &f)) {
+            config->camera_collision_margin = clampf_local(f, 0.0f, 2.0f);
             return 1;
         }
         if (equal_ci(key, "FOV") && parse_float_value(value, &f)) {
