@@ -1,0 +1,79 @@
+{
+  "schema": 1,
+  "product": "HAYUYA 3D",
+  "scope": "AAA geometry + materials only",
+  "product_boundary": {
+    "includes": [
+      "reference conditioning",
+      "image/multiview to 3D geometry",
+      "high-density Hero Master",
+      "geometry/material refinement",
+      "PBR preservation",
+      "visual/anatomy fidelity QA",
+      "GLB/OBJ export"
+    ],
+    "excludes": [
+      "skeleton generation",
+      "skinning",
+      "animation authoring",
+      "motion banks",
+      "runtime/game LOD authoring",
+      "map assembly"
+    ],
+    "downstream_products": {
+      "motions": "HAYUYA Motions",
+      "maps": "HAYUYA Map"
+    }
+  },
+  "tripo_parity_reference": {
+    "documented_triangle_face_limit_ultra": 2000000,
+    "documented_vertex_limit": null,
+    "observed_benchmark": {
+      "triangles": 1938984,
+      "vertices": 1023652,
+      "note": "Observed on the nun benchmark result; this is an observed output, not a documented Tripo vertex maximum."
+    }
+  },
+  "hayuya_aaa_contract": {
+    "hero_triangle_target": 2000000,
+    "hero_triangle_hard_ceiling": 2000000,
+    "vertex_hard_ceiling": null,
+    "vertex_quality_reference": 1023652,
+    "vertex_policy": "Do not decimate to hit a vertex number. Preserve source-faithful geometry; report actual vertices and require visual/anatomy QA.",
+    "texture_target_px": 4096,
+    "extreme_texture_target_px": 8192,
+    "runtime_optimization": "forbidden inside HAYUYA 3D; hand off the approved Hero Master unchanged"
+  },
+  "backend_limits": {
+    "trellis2_public_hf_space": {
+      "extraction_face_ceiling": 500000,
+      "resolution_max": 1536,
+      "texture_max_px": 4096,
+      "note": "Current microsoft/TRELLIS.2 Hugging Face Space UI/server contract."
+    },
+    "trellis2_open_source_direct": {
+      "requested_face_ceiling": 2000000,
+      "internal_preview_safety_face_count": 16777216,
+      "note": "HAYUYA direct CUDA adapter uses the open-source pipeline and targets Tripo-parity 2M output. The 16,777,216 value is the upstream nvdiffrast preview safety simplification, not a HAYUYA production target."
+    },
+    "triposg_open_source": {
+      "simplify": false,
+      "configured_face_limit": null,
+      "note": "Upstream CLI default is faces=-1; no simplification is applied unless explicitly requested."
+    },
+    "triposf_open_source": {
+      "voxel_resolution_max": 1024,
+      "configured_face_limit": null,
+      "min_vram_gb": 12,
+      "note": "High-resolution refinement stage; output topology is adaptive rather than a documented fixed face ceiling."
+    }
+  },
+  "acceptance": {
+    "triangle_target_is_quality_budget_not_sufficient_condition": true,
+    "require_face_fidelity": true,
+    "require_material_fidelity": true,
+    "require_silhouette_fidelity": true,
+    "require_no_catastrophic_fragmentation": true,
+    "judge_after_hero_master": true
+  }
+}
