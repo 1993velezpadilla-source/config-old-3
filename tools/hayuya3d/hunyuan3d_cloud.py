@@ -178,3 +178,103 @@ def generate_shape(
     )
     print("HAYUYA_HUNYUAN3D_NATIVE_PASS", json.dumps(meta, separators=(",", ":")))
     return meta
+
+
+def generate_textured_material_donor(
+    image: Path,
+    output: Path,
+    *,
+    token: str | None = None,
+    seed: int = 1993,
+    steps: int = 20,
+    guidance_scale: float = 5.0,
+    octree_resolution: int = 256,
+    num_chunks: int = 8000,
+) -> dict[str, Any]:
+    """Generate Hunyuan's own textured mesh for use as material evidence only.
+
+    The public generation_all route face-reduces before texture painting, so this
+    output must never replace the Ultra native shape. HAYUYA uses it strictly as
+    a material donor for the separately generated 512 native geometry.
+    """
+    if not image.is_file():
+        raise FileNotFoundError(image)
+
+    kwargs = {"verbose": True, "httpx_kwargs": {"timeout": 240.0}}
+    if token:
+        kwargs["token"] = token
+    client = Client(SPACE_ID, **kwargs)
+    named = _named_endpoints(client)
+    endpoint = "/generation_all"
+    if endpoint not in named:
+        raise RuntimeError(
+            "Hunyuan3D public Space exposes no generation_all endpoint; "
+            f"available={sorted(named)}"
+        )
+
+    result = client.predict(
+        handle_file(str(image.resolve())),
+        None,
+        None,
+        None,
+        None,
+        int(steps),
+        float(guidance_scale),
+        int(seed),
+        int(octree_resolution),
+        False,
+        int(num_chunks),
+        False,
+        api_name=endpoint,
+    )
+
+    if not isinstance(result, (list, tuple)) or len(result) < 2:
+        raise RuntimeError(
+            "Hunyuan3D generation_all returned unexpected payload: "
+            + repr(result)[:1600]
+        )
+
+    textured = _as_path(result[1])
+    if textured is None:
+        raise RuntimeError(
+            "Hunyuan3D generation_all returned no downloadable textured GLB: "
+            + repr(result)[:1600]
+        )
+
+    output.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(textured, output)
+    blob = output.read_bytes()
+    if len(blob) < 1024 or blob[:4] != b"glTF":
+        raise RuntimeError(
+            f"Hunyuan3D textured donor is not a valid GLB: bytes={len(blob)}"
+        )
+
+    meta = {
+        "schema": 1,
+        "generator": "tencent/Hunyuan3D-2.1",
+        "space": SPACE_ID,
+        "endpoint": endpoint,
+        "seed": int(seed),
+        "steps": int(steps),
+        "guidance_scale": float(guidance_scale),
+        "octree_resolution": int(octree_resolution),
+        "num_chunks": int(num_chunks),
+        "native_model_generated_material": True,
+        "geometry_authority": False,
+        "purpose": "material-donor-only",
+        "license_policy": (
+            "research/benchmark opt-in only; Hunyuan3D 2.1 Community License "
+            "must be reviewed before production distribution"
+        ),
+        "path": str(output),
+        "bytes": len(blob),
+    }
+    output.with_suffix(".generation.json").write_text(
+        json.dumps(meta, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    print(
+        "HAYUYA_HUNYUAN3D_TEXTURED_DONOR_PASS",
+        json.dumps(meta, separators=(",", ":")),
+    )
+    return meta
