@@ -41,6 +41,21 @@ DATAFLOW_OBJDUMP = """
 """
 
 
+BOOL_RETURN_OBJDUMP = """
+0000000000007000 <VisibilityTest>:
+    7000: ldr w8, [x0, #0x14]
+    7004: cmp w8, w1
+    7008: cset w0, ne
+    700c: ret
+"""
+
+FP_RETURN_OBJDUMP = """
+0000000000007100 <DistanceScale>:
+    7100: fmul s0, s0, s1
+    7104: ret
+"""
+
+
 class AbiProbeTests(unittest.TestCase):
     def test_camera_evidence_parser(self):
         report = abi_probe.parse_objdump(
@@ -65,6 +80,18 @@ class AbiProbeTests(unittest.TestCase):
         self.assertEqual(report["calls"][0]["symbol"], "RaycastWorld")
         self.assertEqual(report["returns"], [0x401C])
         self.assertEqual(report["verification_status"], "abi_hint_only")
+        self.assertEqual(
+            report["argument_shape_hints"]["gpr"]["x0"]["kind_hint"],
+            "pointer_like",
+        )
+        self.assertEqual(
+            report["argument_shape_hints"]["gpr"]["x1"]["kind_hint"],
+            "pointer_like",
+        )
+        self.assertEqual(
+            report["return_value_hints"]["paths"][0]["kind_hint"],
+            "callee_return_passthrough",
+        )
 
     def test_projection_fp_register_evidence(self):
         report = abi_probe.parse_objdump(
@@ -105,6 +132,46 @@ class AbiProbeTests(unittest.TestCase):
         self.assertEqual(hints["first_access"]["x1"]["mode"], "read")
         self.assertEqual(hints["first_access"]["v0"]["mode"], "write")
         self.assertEqual(hints["first_access"]["v1"]["mode"], "read")
+
+
+    def test_return_and_argument_shape_hints(self):
+        boolean = abi_probe.parse_objdump(
+            BOOL_RETURN_OBJDUMP,
+            requested_rva=0x7000,
+        )
+        self.assertEqual(
+            boolean["argument_shape_hints"]["gpr"]["x0"]["kind_hint"],
+            "pointer_like",
+        )
+        self.assertEqual(
+            boolean["argument_shape_hints"]["gpr"]["x1"]["kind_hint"],
+            "scalar_32_like",
+        )
+        self.assertEqual(
+            boolean["return_value_hints"]["paths"][0]["register_class"],
+            "gpr",
+        )
+        self.assertEqual(
+            boolean["return_value_hints"]["paths"][0]["kind_hint"],
+            "boolean_like",
+        )
+
+        floating = abi_probe.parse_objdump(
+            FP_RETURN_OBJDUMP,
+            requested_rva=0x7100,
+        )
+        self.assertEqual(
+            floating["argument_shape_hints"]["fp"]["v0"]["kind_hint"],
+            "float32_like",
+        )
+        self.assertEqual(
+            floating["return_value_hints"]["paths"][0]["register_class"],
+            "fp",
+        )
+        self.assertEqual(
+            floating["return_value_hints"]["paths"][0]["kind_hint"],
+            "floating_or_vector",
+        )
 
     def test_candidate_selection_prefers_verified_target(self):
         profile = {
