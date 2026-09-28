@@ -20,6 +20,11 @@ typedef struct {
     float camera_height;
     float camera_distance;
     float camera_pitch_degrees;
+    float camera_look_sensitivity_x;
+    float camera_look_sensitivity_y;
+    int camera_invert_y;
+    float camera_min_pitch_degrees;
+    float camera_max_pitch_degrees;
     float fov_degrees;
     float near_clip;
     int disable_cinematic_camera;
