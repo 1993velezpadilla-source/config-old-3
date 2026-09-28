@@ -105,13 +105,13 @@ jobs:
           set -euxo pipefail
           mkdir -p kino-download/class-shards
 
+          dotnet restore \
+            tools/maps/UEAssetClassCensus/UEAssetClassCensus.csproj
+
           dotnet build \
             tools/maps/UEAssetClassCensus/UEAssetClassCensus.csproj \
             --configuration Release \
-            --no-restore || \
-          dotnet build \
-            tools/maps/UEAssetClassCensus/UEAssetClassCensus.csproj \
-            --configuration Release
+            --no-restore
 
           APP="tools/maps/UEAssetClassCensus/bin/Release/net10.0/UEAssetClassCensus.dll"
           test -s "$APP"
