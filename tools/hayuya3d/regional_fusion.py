@@ -176,6 +176,26 @@ def build_head_wrap_geometry(
         if donor_scope not in {"fullbody","head"}:
             raise ValueError(f"invalid donor_scope: {donor_scope}")
 
+        if donor_scope=="head":
+            # Fail closed when a cropped RGB detail was reconstructed together
+            # with its rectangular background. That failure mode creates a
+            # nearly box-shaped shell with an abnormally large population of
+            # vertices pinned to the donor bounding-box faces; nearest-surface
+            # wrapping then turns the base hood/face into large folded spikes.
+            donor_span=np.maximum(donor_extent,1e-9)
+            donor_edge_distance=np.minimum(
+                donor_vertices-donor_lo,
+                donor_hi-donor_vertices,
+            )/donor_span
+            donor_bbox_face_fraction=float(np.mean(
+                np.any(donor_edge_distance<0.005,axis=1)
+            ))
+            if donor_bbox_face_fraction>0.18:
+                raise RuntimeError(
+                    "head_donor_background_shell:"
+                    f"bbox_face_fraction={donor_bbox_face_fraction:.6f}>0.180000"
+                )
+
         diagonal=max(float(np.linalg.norm(base_extent)),1e-9)
         base_norm_h=(
             base_vertices[:,resolved_up_axis]-base_lo[resolved_up_axis]
