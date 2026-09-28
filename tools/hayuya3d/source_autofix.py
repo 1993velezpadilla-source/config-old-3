@@ -45,6 +45,7 @@ class SourceAutofixItem:
     source_size: list[int]
     output_size: list[int] | None
     semantic_face_or_head_confirmed: bool
+    alpha_preserved: bool = False
     warning: str | None = None
 
 
@@ -467,6 +468,7 @@ def build_source_autofix(
                 source_size=[image.width, image.height],
                 output_size=result["output_size"],
                 semantic_face_or_head_confirmed=bool(result.get("semantic_face_or_head_confirmed")),
+                alpha_preserved=bool(result.get("alpha_preserved", False)),
                 warning=warning,
             )
         else:
@@ -480,6 +482,7 @@ def build_source_autofix(
                 source_size=[image.width, image.height],
                 output_size=None,
                 semantic_face_or_head_confirmed=False,
+                alpha_preserved=False,
                 warning=warning or "no_face_or_head_detected",
             )
         items.append(item)
