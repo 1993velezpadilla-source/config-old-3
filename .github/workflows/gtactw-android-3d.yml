@@ -40,6 +40,8 @@ jobs:
             tools/gtactw/test_pak_inventory.py \
             tools/gtactw/analyze_apk.py \
             tools/gtactw/test_analyze_apk.py \
+            tools/gtactw/analyze_apkset.py \
+            tools/gtactw/test_analyze_apkset.py \
             tools/gtactw/apk_identity.py \
             tools/gtactw/test_apk_identity.py \
             tools/gtactw/aarch64_xref.py \
@@ -171,6 +173,9 @@ jobs:
       - name: Run synthetic CTW end-to-end APK gate
         run: python -m unittest -v tools/gtactw/test_analyze_apk.py
 
+      - name: Run CTW split end-to-end analysis gate
+        run: python -m unittest -v tools/gtactw/test_analyze_apkset.py
+
       - name: Gate marker
         run: |
           echo "GTACTW_ANDROID_PAK_PROBE_GREEN=1"
@@ -179,6 +184,7 @@ jobs:
           echo "GTACTW_ANDROID_ELF_PROBE_GREEN=1"
           echo "GTACTW_ANDROID_PAK_INVENTORY_GREEN=1"
           echo "GTACTW_ANDROID_ANALYZER_GREEN=1"
+          echo "GTACTW_ANDROID_SPLIT_ANALYZER_GREEN=1"
           echo "GTACTW_ANDROID_IDENTITY_GREEN=1"
           echo "GTACTW_ANDROID_XREF_GREEN=1"
           echo "GTACTW_ANDROID_APK_MODPACK_GREEN=1"
