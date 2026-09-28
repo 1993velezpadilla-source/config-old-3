@@ -94,6 +94,102 @@ def _abi_review_card(abi_evidence: dict, caller_evidence: dict) -> dict:
         if isinstance(abi_evidence, dict)
         else {}
     )
+    callee_shapes = (
+        abi_evidence.get("argument_shape_hints", {})
+        if isinstance(abi_evidence, dict)
+        else {}
+    )
+
+    caller_kinds = {}
+    for caller in callers:
+        if not isinstance(caller, dict):
+            continue
+        context = caller.get("context", {})
+        prepared_map = (
+            context.get("prepared_registers", {})
+            if isinstance(context, dict)
+            else {}
+        )
+        if not isinstance(prepared_map, dict):
+            continue
+        for reg, item in prepared_map.items():
+            if not isinstance(item, dict):
+                continue
+            kind = item.get("kind_hint")
+            if not isinstance(kind, str) or not kind:
+                continue
+            caller_kinds.setdefault(reg, set()).add(kind)
+
+    def shape_compatible(callee_kind: str, caller_kind: str) -> bool:
+        pointer_like = {
+            "pointer_like",
+            "address_like",
+            "stack_address_like",
+            "scalar_or_pointer_64",
+        }
+        scalar32 = {
+            "scalar_32_like",
+            "boolean_like",
+            "integer_or_pointer",
+        }
+        if callee_kind == "pointer_like":
+            return caller_kind in pointer_like
+        if callee_kind == "scalar_32_like":
+            return caller_kind in scalar32
+        if callee_kind == "scalar_or_pointer_64":
+            return caller_kind in pointer_like | {"loaded_64_value"}
+        if callee_kind == "float32_like":
+            return caller_kind == "float32_like"
+        if callee_kind == "float64_like":
+            return caller_kind == "float64_like"
+        if callee_kind == "vector_or_aggregate":
+            return caller_kind == "vector_or_aggregate"
+        return True
+
+    shape_review = {}
+    callee_gpr_shapes = (
+        callee_shapes.get("gpr", {})
+        if isinstance(callee_shapes, dict)
+        else {}
+    )
+    callee_fp_shapes = (
+        callee_shapes.get("fp", {})
+        if isinstance(callee_shapes, dict)
+        else {}
+    )
+    for reg, item in {
+        **(callee_gpr_shapes if isinstance(callee_gpr_shapes, dict) else {}),
+        **(callee_fp_shapes if isinstance(callee_fp_shapes, dict) else {}),
+    }.items():
+        if not isinstance(item, dict):
+            continue
+        callee_kind = item.get("kind_hint")
+        caller_values = sorted(caller_kinds.get(reg, set()))
+        compatible = [
+            value
+            for value in caller_values
+            if isinstance(callee_kind, str)
+            and shape_compatible(callee_kind, value)
+        ]
+        incompatible = [
+            value
+            for value in caller_values
+            if isinstance(callee_kind, str)
+            and not shape_compatible(callee_kind, value)
+        ]
+        shape_review[reg] = {
+            "callee_kind_hint": callee_kind,
+            "caller_kind_hints": caller_values,
+            "compatible_caller_hints": compatible,
+            "incompatible_caller_hints": incompatible,
+            "status": (
+                "conflict"
+                if incompatible
+                else "supported"
+                if compatible
+                else "no_direct_caller_shape"
+            ),
+        }
 
     return {
         "callee_gpr_inputs": sorted(callee_gpr),
@@ -115,6 +211,7 @@ def _abi_review_card(abi_evidence: dict, caller_evidence: dict) -> dict:
             - (callee_gpr | callee_fp)
         ),
         "caller_return_use_counts": return_counts,
+        "argument_shape_review": shape_review,
         "callee_return_register_classes": return_hints.get(
             "register_classes_seen",
             [],
