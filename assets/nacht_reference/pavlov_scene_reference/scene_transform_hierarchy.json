@@ -1,0 +1,230 @@
+{
+  "schemaVersion": 1,
+  "format": "xziel_nacht_scene_transform_hierarchy_v1",
+  "source": {
+    "workflowRunId": 36228086203,
+    "workflowHeadSha": "eff3b684e9c613892c285ee43b83b0a9699f4e1c",
+    "map": "Nacht_de_Untoten.umap",
+    "engine": "UE4.21",
+    "uassetApiJsonSha256": "06175cc44fd81dffd8fb149f785969d18671d483c968075818540d6ba616856b"
+  },
+  "expected": {
+    "sceneInstanceCount": 10791,
+    "attachedInstanceCount": 10703,
+    "worldTransformChangedInstanceCount": 10659,
+    "unattachedInstanceCount": 84,
+    "parentNodeCount": 10,
+    "maxAttachmentDepth": 2
+  },
+  "attachmentRanges": [
+    {
+      "componentExportStart": 11590,
+      "componentExportEnd": 11590,
+      "attachParentExportIndex": 521
+    },
+    {
+      "componentExportStart": 11591,
+      "componentExportEnd": 11591,
+      "attachParentExportIndex": 523
+    },
+    {
+      "componentExportStart": 11592,
+      "componentExportEnd": 11592,
+      "attachParentExportIndex": 525
+    },
+    {
+      "componentExportStart": 11593,
+      "componentExportEnd": 11593,
+      "attachParentExportIndex": 527
+    },
+    {
+      "componentExportStart": 11594,
+      "componentExportEnd": 11604,
+      "attachParentExportIndex": 22264
+    },
+    {
+      "componentExportStart": 11634,
+      "componentExportEnd": 17553,
+      "attachParentExportIndex": 22264
+    },
+    {
+      "componentExportStart": 17564,
+      "componentExportEnd": 19766,
+      "attachParentExportIndex": 22264
+    },
+    {
+      "componentExportStart": 19768,
+      "componentExportEnd": 22260,
+      "attachParentExportIndex": 22264
+    },
+    {
+      "componentExportStart": 22267,
+      "componentExportEnd": 22272,
+      "attachParentExportIndex": 22264
+    },
+    {
+      "componentExportStart": 22274,
+      "componentExportEnd": 22295,
+      "attachParentExportIndex": 22264
+    },
+    {
+      "componentExportStart": 22303,
+      "componentExportEnd": 22350,
+      "attachParentExportIndex": 11629
+    }
+  ],
+  "parentNodes": {
+    "520": {
+      "name": "DefaultSceneRoot",
+      "attachParentExportIndex": null,
+      "transform": {
+        "position": {
+          "x": -4.724400024414063,
+          "y": -3.238500061035156,
+          "z": 5.042835083007812
+        },
+        "sourcePositionUEcm": {
+          "X": -472.44000244140625,
+          "Y": 323.8500061035156,
+          "Z": 504.28350830078125
+        },
+        "sourceRotationUE": {
+          "Pitch": 0,
+          "Yaw": 89.99998474121094,
+          "Roll": 0.000003999998625658918
+        },
+        "sourceScale": null
+      }
+    },
+    "521": {
+      "name": "Root",
+      "attachParentExportIndex": 520,
+      "transform": {
+        "position": null,
+        "sourcePositionUEcm": null,
+        "sourceRotationUE": null,
+        "sourceScale": null
+      }
+    },
+    "522": {
+      "name": "DefaultSceneRoot",
+      "attachParentExportIndex": null,
+      "transform": {
+        "position": {
+          "x": 4.343399963378906,
+          "y": 14.884400634765624,
+          "z": 1.2446000671386719
+        },
+        "sourcePositionUEcm": {
+          "X": 434.3399963378906,
+          "Y": -1488.4400634765625,
+          "Z": 124.46000671386719
+        },
+        "sourceRotationUE": {
+          "Pitch": 0,
+          "Yaw": -90,
+          "Roll": 0
+        },
+        "sourceScale": {
+          "X": 1,
+          "Y": 1,
+          "Z": 1.0099999904632568
+        }
+      }
+    },
+    "523": {
+      "name": "Root",
+      "attachParentExportIndex": 522,
+      "transform": {
+        "position": null,
+        "sourcePositionUEcm": null,
+        "sourceRotationUE": null,
+        "sourceScale": null
+      }
+    },
+    "524": {
+      "name": "DefaultSceneRoot",
+      "attachParentExportIndex": null,
+      "transform": {
+        "position": {
+          "x": 4.290648193359375,
+          "y": 2.219196472167969,
+          "z": 4.073595886230469
+        },
+        "sourcePositionUEcm": {
+          "X": 429.0648193359375,
+          "Y": -221.91964721679688,
+          "Z": 407.3595886230469
+        },
+        "sourceRotationUE": {
+          "Pitch": 0,
+          "Yaw": 90.00001525878906,
+          "Roll": 0
+        },
+        "sourceScale": null
+      }
+    },
+    "525": {
+      "name": "Root",
+      "attachParentExportIndex": 524,
+      "transform": {
+        "position": null,
+        "sourcePositionUEcm": null,
+        "sourceRotationUE": null,
+        "sourceScale": null
+      }
+    },
+    "526": {
+      "name": "DefaultSceneRoot",
+      "attachParentExportIndex": null,
+      "transform": {
+        "position": {
+          "x": -1.1531600952148438,
+          "y": 26.81067138671875,
+          "z": 4.003040161132812
+        },
+        "sourcePositionUEcm": {
+          "X": -115.31600952148438,
+          "Y": -2681.067138671875,
+          "Z": 400.30401611328125
+        },
+        "sourceRotationUE": null,
+        "sourceScale": null
+      }
+    },
+    "527": {
+      "name": "Root",
+      "attachParentExportIndex": 526,
+      "transform": {
+        "position": null,
+        "sourcePositionUEcm": null,
+        "sourceRotationUE": null,
+        "sourceScale": null
+      }
+    },
+    "11629": {
+      "name": "StaticMeshComponent0",
+      "attachParentExportIndex": null,
+      "transform": {
+        "position": null,
+        "sourcePositionUEcm": null,
+        "sourceRotationUE": null,
+        "sourceScale": null
+      }
+    },
+    "22264": {
+      "name": "StaticMeshComponent0",
+      "attachParentExportIndex": null,
+      "transform": {
+        "position": null,
+        "sourcePositionUEcm": null,
+        "sourceRotationUE": null,
+        "sourceScale": {
+          "X": 2.5399999618530273,
+          "Y": -2.5399999618530273,
+          "Z": 2.5399999618530273
+        }
+      }
+    }
+  }
+}
