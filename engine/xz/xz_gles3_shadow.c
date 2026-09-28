@@ -4817,6 +4817,8 @@ static int XzDrawStaticScene(
     uint32_t normal_cursor = 0u;
     uint32_t pbr_cursor = 0u;
     unsigned int draw_calls = 0u;
+    unsigned int expected_draw_calls = 0u;
+    unsigned int baked_lightmap_draw_calls = 0u;
     unsigned int normal_applied = 0u;
     unsigned int textured_draw_calls = 0u;
     unsigned int untextured_draw_calls = 0u;
@@ -4834,7 +4836,10 @@ static int XzDrawStaticScene(
         !xz_shadow.static_program ||
         !xz_shadow.static_draw_plan_ready ||
         !xz_shadow.static_meshes ||
-        !xz_shadow.static_instance_vbo)
+        !xz_shadow.static_instance_vbo ||
+        (state->static_scene_lightmap_shader_ready &&
+         (!xz_shadow.static_lightmap_draw_plan_ready ||
+          !xz_shadow.static_lightmap_instance_vbo)))
         return 0;
 
     camera = XzStaticSceneCamera(geometry);
@@ -4868,6 +4873,7 @@ static int XzDrawStaticScene(
     state->static_scene_last_normal_bindings = 0u;
     state->static_scene_last_pbr_bindings = 0u;
     state->static_scene_last_specular_local_lights = 0u;
+    state->static_scene_last_baked_lightmap_draw_calls = 0u;
 
     if (state->static_scene_specular_response_ready)
         state->static_scene_last_specular_local_lights =
@@ -4883,6 +4889,12 @@ static int XzDrawStaticScene(
     gl->Uniform1i(
         xz_shadow.static_reflection_texture_loc,
         2);
+    gl->Uniform1i(
+        xz_shadow.static_lightmap_texture_loc,
+        3);
+    gl->Uniform1i(
+        xz_shadow.static_lightmap_enabled_loc,
+        0);
     {
         float reflection_params[4] = {
             state->static_scene_reflection_mips > 0u
