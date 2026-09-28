@@ -578,10 +578,10 @@ def sister_boot_pair(body,rig,h,mats):
             cx=sum(p.x for p in pts)/len(pts); cy=sum(p.y for p in pts)/len(pts)
         else:
             cx=sign*.045*h; cy=-.015*h
-        # Pass 36: slimmer closed low shoe, pulled over the anatomical foot instead of sitting outside it.
-        upper=cube('SisterShoe_'+label,(cx,cy-.004*h,.030*h),(.030*h,.052*h,.026*h),leather,.010*h)
+        # Fixed human-scale half-extents prevent body-bbox inflation and hide all toes.
+        upper=cube('SisterShoe_'+label,(cx,cy-.014*h,.026*h),(.034*h,.061*h,.022*h),leather,.011*h)
         out.append(upper)
-        sol=cube('SisterSole_'+label,(cx,cy-.006*h,.008*h),(.032*h,.055*h,.0050*h),sole_mat,.0030*h)
+        sol=cube('SisterSole_'+label,(cx,cy-.016*h,.008*h),(.036*h,.064*h,.0055*h),sole_mat,.0035*h)
         out.append(sol)
     return out
 
