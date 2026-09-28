@@ -121,6 +121,57 @@ class AbiProbeTests(unittest.TestCase):
             "evidence_ranking",
         )
 
+
+    def test_attach_abi_evidence_keeps_status_pending(self):
+        profile = {
+            "patch_targets_rva": {
+                key: None for key in abi_probe.profile_template.TARGET_KEYS
+            },
+            "abi_verification": {
+                key: {
+                    "status": "pending",
+                    "prototype": None,
+                    "calling_convention": "aarch64_aapcs64",
+                    "adapter": None,
+                    "evidence": [],
+                }
+                for key in abi_probe.profile_template.TARGET_KEYS
+            },
+        }
+        report = {
+            "targets": {
+                "camera_update": [
+                    {
+                        "rva": 0x4000,
+                        "source": "evidence_ranking",
+                        "function": "CameraUpdate",
+                        "score": 42,
+                        "reasons": ["fixture"],
+                        "abi_evidence": {
+                            "verification_status": "abi_hint_only",
+                            "argument_register_hints": {
+                                "likely_gpr_inputs_x0_x7": [0, 1],
+                            },
+                        },
+                    }
+                ]
+            },
+            "note": "fixture evidence only",
+        }
+
+        updated = abi_probe.attach_abi_evidence(profile, report)
+        item = updated["abi_verification"]["camera_update"]
+        self.assertEqual(item["status"], "pending")
+        self.assertIsNone(item["prototype"])
+        self.assertIsNone(item["adapter"])
+        self.assertEqual(item["last_probe_status"], "evidence_collected")
+        self.assertEqual(item["candidates"][0]["rva"], 0x4000)
+        self.assertEqual(
+            item["candidates"][0]["abi_evidence"]["verification_status"],
+            "abi_hint_only",
+        )
+        self.assertIsNone(profile["abi_verification"]["camera_update"].get("candidates"))
+
     def test_rejects_empty_disassembly(self):
         with self.assertRaises(ValueError):
             abi_probe.parse_objdump("nothing here")
