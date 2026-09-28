@@ -17,6 +17,7 @@ from detailgen3d_cloud import refine as refine_detailgen3d_cloud
 from triposr_cpu_cloud import generate as generate_triposr_cpu_cloud
 from local_detail_fusion import fuse_local_basecolor
 from source_autofix import build_source_autofix
+from aaa_policy import assess_aaa_candidate
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -685,6 +686,7 @@ if not multi and TRELLIS2_ENABLED and TEXTURE_QUALITY in {"high","ultra"}:
                                     "actual_vertices":int(normal_mesh.vertices),
                                     "dense_master_ready":False,
                                     "candidate_ready_for_judge":True,
+                                    "production_eligible":False,
                                     "normal_informed":True,
                                     "native_latent_extraction":False,
                                     "approximation":preview_normal_hero_report.get("approximation"),
@@ -770,11 +772,17 @@ if not multi and TRELLIS2_ENABLED and TEXTURE_QUALITY in {"high","ultra"}:
                 + modern_text
             )
 
-hosted_refinement_needed = not bool(
-    hero_master_report
-    and hero_master_report.get("candidate_ready_for_judge")
+current_aaa_eligibility = assess_aaa_candidate(
+    generator=selected_generator,
+    hero_master=hero_master_report,
+    texture_quality=TEXTURE_QUALITY,
 )
-hosted_vast_allowed = bool(TOKEN) or hosted_refinement_needed
+hosted_refinement_needed = not current_aaa_eligibility.eligible
+# Ultra/High hosted refinement without an authenticated HF identity has proven
+# unreliable (ZeroGPU quota / duration failures). Never wait on anonymous
+# hosted retries once a diagnostic candidate already exists; either an
+# authenticated native/model candidate replaces it or HAYUYA fails closed.
+hosted_vast_allowed = bool(TOKEN)
 if not hosted_vast_allowed and (
     TRIPOSG_CLOUD_ENABLED or DETAILGEN3D_ENABLED
 ):
@@ -994,6 +1002,52 @@ if (
             "keeping previous high-end candidate: "
             f"{type(detailgen_exc).__name__}: {detailgen_exc}"
         )
+
+aaa_eligibility = assess_aaa_candidate(
+    generator=selected_generator,
+    hero_master=hero_master_report,
+    texture_quality=TEXTURE_QUALITY,
+)
+if modern_candidate is not None and not aaa_eligibility.eligible:
+    diagnostic_glb=OUT/"hayuya_diagnostic_candidate.glb"
+    shutil.copy2(modern_candidate,diagnostic_glb)
+    diagnostic_payload={
+        "schema":1,
+        "generator":selected_generator,
+        "texture_quality":TEXTURE_QUALITY,
+        "reasons":list(aaa_eligibility.reasons),
+        "diagnostic_only":bool(aaa_eligibility.diagnostic_only),
+        "hero_master":hero_master_report,
+    "aaa_eligibility":(
+        {
+            "eligible":aaa_eligibility.eligible,
+            "generator":aaa_eligibility.generator,
+            "reasons":list(aaa_eligibility.reasons),
+            "diagnostic_only":aaa_eligibility.diagnostic_only,
+        }
+        if "aaa_eligibility" in globals() else None
+    ),
+        "glb":diagnostic_glb.name,
+        "user_facing_result":False,
+        "note":(
+            "This mesh is preserved for engineering evidence only. HAYUYA 3D "
+            "must replace it with native/model-generated geometry before Judge "
+            "or Hub result promotion."
+        ),
+    }
+    (OUT/"aaa_candidate_rejection.json").write_text(
+        json.dumps(diagnostic_payload,indent=2)+"\n",
+        encoding="utf-8",
+    )
+    print(
+        "HAYUYA_AAA_CANDIDATE_REJECTED",
+        json.dumps(diagnostic_payload,separators=(",",":")),
+    )
+    fail(
+        "HAYUYA AAA native/model-generated geometry required; diagnostic "
+        "preview reconstruction was preserved but cannot become a Hero Master. "
+        +"reasons="+",".join(aaa_eligibility.reasons)
+    )
 
 if modern_candidate is None:
     if not CLASSIC_TRELLIS_ENABLED:
