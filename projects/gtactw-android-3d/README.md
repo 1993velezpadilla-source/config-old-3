@@ -229,3 +229,31 @@ The analyzer resolves the asset split and ARM64 native split, fingerprints the
 actual `libGame.so`, runs ARM64 xref evidence recovery, generates per-target
 candidate rankings, and keeps the six runtime patch RVAs pending until each one
 has explicit verification evidence.
+
+
+## Exact-binary profile verification
+
+A runtime profile is not considered ready merely because its RVAs look
+plausible. After each of the six targets is manually verified, record the
+target's first 16 bytes in `target_verification[*].code_prefix_hex` and bind
+the profile to the exact `libGame.so`:
+
+```bash
+python tools/gtactw/profile_verify_binary.py \
+  ./local_ctw/lib/arm64-v8a/libGame.so \
+  ./local_ctw/ctw_4.4.243_profile.json \
+  --out ./local_ctw/profile_binary_verification.json
+```
+
+The verifier checks the full library SHA-256, `.text` SHA-256, GNU build-id,
+three GameNative JNI RVAs, executable placement of all six targets, and their
+16-byte code signatures. The native proxy repeats the byte-signature check at
+runtime before accepting the patch target set.
+
+
+## Streaming pressure model
+
+The world census includes a 2D worldblock-origin pressure estimate for
+1x/1.5x/2x/2.5x/3x/4x/5x radii. It reports estimated simultaneously loaded
+worldblocks and instance counts, including the worst center. This is a tuning
+heuristic, not a claim about the engine's exact streaming-radius formula.
