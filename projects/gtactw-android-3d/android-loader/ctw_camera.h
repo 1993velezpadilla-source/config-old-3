@@ -13,6 +13,7 @@ typedef struct {
 } CtwCameraInputSnapshot;
 
 void ctw_camera_set_look(float x, float y);
+void ctw_camera_set_mode(CtwCameraMode mode);
 void ctw_camera_cycle_mode(void);
 CtwCameraInputSnapshot ctw_camera_snapshot(void);
 
