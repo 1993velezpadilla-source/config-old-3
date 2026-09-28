@@ -70,6 +70,7 @@ def generate_shape(
     guidance_scale: float = 5.0,
     octree_resolution: int = 384,
     num_chunks: int = 8000,
+    remove_background: bool = False,
 ) -> dict[str, Any]:
     if not image.is_file():
         raise FileNotFoundError(image)
@@ -94,7 +95,7 @@ def generate_shape(
         float(guidance_scale),
         int(seed),
         int(octree_resolution),
-        False,
+        bool(remove_background),
         int(num_chunks),
         False,
         api_name=endpoint,
@@ -123,6 +124,7 @@ def generate_shape(
         "guidance_scale": float(guidance_scale),
         "octree_resolution": int(octree_resolution),
         "num_chunks": int(num_chunks),
+        "remove_background": bool(remove_background),
         "native_model_generated_geometry": True,
         "textured": False,
         "production_default": False,
