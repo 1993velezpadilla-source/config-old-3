@@ -168,6 +168,27 @@ jobs:
             -D --defined-only /tmp/ctw-android-arm64/libGame.so \
             | grep -q "Java_com_rockstargames_oswrapper_GameNative_implOnDrawFrame"
           echo "GTACTW_ANDROID_ARM64_LOADER_GREEN=1"
+          echo "GTACTW_ARM64_ARTIFACT_GREEN=1"
+
+      - name: Stage CTW ARM64 proxy artifact
+        shell: bash
+        run: |
+          rm -rf /tmp/ctw-artifact
+          mkdir -p /tmp/ctw-artifact
+          cp /tmp/ctw-android-arm64/libGame.so /tmp/ctw-artifact/libGame.so
+          cp projects/gtactw-android-3d/ctw_modhub.example.ini \
+            /tmp/ctw-artifact/ctw_modhub.ini
+          sha256sum /tmp/ctw-artifact/libGame.so \
+            > /tmp/ctw-artifact/SHA256SUMS.txt
+          echo "GTACTW_ARM64_ARTIFACT_STAGED=1"
+
+      - name: Upload CTW ARM64 proxy artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ctw3d-arm64-proxy
+          path: /tmp/ctw-artifact/
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Run CTW camera input state gate
         run: |
