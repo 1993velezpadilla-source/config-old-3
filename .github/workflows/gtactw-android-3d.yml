@@ -34,6 +34,8 @@ jobs:
             tools/gtactw/test_apk_modpack.py \
             tools/gtactw/apkset_probe.py \
             tools/gtactw/test_apkset_probe.py \
+            tools/gtactw/apkset_modpack.py \
+            tools/gtactw/test_apkset_modpack.py \
             tools/gtactw/profile_template.py \
             tools/gtactw/test_profile_template.py \
             tools/gtactw/profile_emit_c.py \
@@ -48,6 +50,9 @@ jobs:
 
       - name: Run CTW split-APK resolver gate
         run: python -m unittest -v tools/gtactw/test_apkset_probe.py
+
+      - name: Run CTW split-APK modpack gate
+        run: python -m unittest -v tools/gtactw/test_apkset_modpack.py
 
       - name: Run synthetic CTW ARM64 ELF gate
         run: python -m unittest -v tools/gtactw/test_elf_probe.py
@@ -112,6 +117,7 @@ jobs:
         run: |
           echo "GTACTW_ANDROID_PAK_PROBE_GREEN=1"
           echo "GTACTW_ANDROID_SPLIT_APK_GREEN=1"
+          echo "GTACTW_ANDROID_SPLIT_MODPACK_GREEN=1"
           echo "GTACTW_ANDROID_ELF_PROBE_GREEN=1"
           echo "GTACTW_ANDROID_PAK_INVENTORY_GREEN=1"
           echo "GTACTW_ANDROID_APK_MODPACK_GREEN=1"
