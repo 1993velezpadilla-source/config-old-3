@@ -709,18 +709,46 @@ def prepare_head_wrap_challenger(
         base_rig=audit_glb(base_mesh)
     except Exception:
         base_rig=None
-    if base_rig is not None and base_rig.skin_count>0:
-        result=build_rig_preserving_head_wrap_geometry(
+    def _build_geometry(target:Path,max_displacement_fraction:float)->HeadWrapResult:
+        if base_rig is not None and base_rig.skin_count>0:
+            return build_rig_preserving_head_wrap_geometry(
+                base_mesh,
+                donor_mesh,
+                target,
+                max_displacement_fraction=max_displacement_fraction,
+                up_axis=up_axis,
+                donor_scope=donor_scope,
+            )
+        return build_head_wrap_geometry(
             base_mesh,
             donor_mesh,
-            raw,
+            target,
+            max_displacement_fraction=max_displacement_fraction,
             up_axis=up_axis,
             donor_scope=donor_scope,
         )
-    else:
-        result=build_head_wrap_geometry(
-            base_mesh,donor_mesh,raw,up_axis=up_axis,donor_scope=donor_scope
-        )
+
+    result=_build_geometry(raw,0.055)
+
+    # Cropped single-photo head donors can be geometrically valid yet have a
+    # very different local tessellation from the full-body source. A direct
+    # nearest-surface transfer may then fold/collapse the hood and face even
+    # though the global bbox and neck seam remain stable. Keep the strict
+    # deformation gates; when they reject a head-only donor, retry with a
+    # micro-displacement pass that preserves the base topology while still
+    # allowing donor-guided facial refinement.
+    if not result.geometry_ready and str(donor_scope).lower().strip()=="head":
+        conservative=out_dir/"head_wrap_conservative_raw.glb"
+        fallback=_build_geometry(conservative,0.0015)
+        if fallback.geometry_ready:
+            result=fallback
+            result.method="hayuya-head-wrap-regional-fusion-v3-conservative-head"
+        else:
+            prior=result.error or "aggressive_head_wrap_rejected"
+            retry=fallback.error or "conservative_head_wrap_rejected"
+            fallback.error=f"{prior};conservative_retry={retry}"
+            result=fallback
+
     if not result.geometry_ready:
         return result
 
