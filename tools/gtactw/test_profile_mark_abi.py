@@ -39,9 +39,55 @@ class ProfileMarkAbiTests(unittest.TestCase):
                         "trampoline_strategy_hint": loader_variant.SIMPLE,
                         "abi_evidence": {
                             "verification_status": "abi_hint_only",
+                            "argument_register_hints": {
+                                "likely_gpr_inputs_x0_x7": [0],
+                                "likely_fp_inputs_v0_v7": [],
+                            },
+                            "argument_shape_hints": {
+                                "gpr": {
+                                    "x0": {
+                                        "kind_hint": "pointer_like",
+                                    },
+                                },
+                                "fp": {},
+                            },
+                            "return_value_hints": {
+                                "register_classes_seen": [],
+                            },
                             "prologue_relocation": {
                                 "simple_copy_trampoline_safe": True,
                             },
+                        },
+                        "caller_abi_evidence": {
+                            "direct_call_site_count": 1,
+                            "callers_analyzed": 1,
+                            "callers": [
+                                {
+                                    "caller": "fixture_caller",
+                                    "caller_rva": rva - 0x40,
+                                    "call_site_rva": rva - 0x10,
+                                    "context": {
+                                        "locally_prepared_argument_registers": [
+                                            "x0",
+                                        ],
+                                        "possible_passthrough_argument_registers": [],
+                                        "prepared_registers": {
+                                            "x0": {
+                                                "mode": "write",
+                                                "kind_hint": "address_like",
+                                            },
+                                        },
+                                        "return_use": {
+                                            "x0": {
+                                                "status": "not_observed_in_window",
+                                            },
+                                            "v0": {
+                                                "status": "not_observed_in_window",
+                                            },
+                                        },
+                                    },
+                                },
+                            ],
                         },
                     }
                 ],
@@ -76,9 +122,35 @@ class ProfileMarkAbiTests(unittest.TestCase):
             loader_variant.SIMPLE,
         )
         self.assertEqual(
+            item["evidence"][0]["static_review_status"],
+            "manual_review_ready",
+        )
+        self.assertIn(
+            "caller_side_abi_evidence",
+            item["evidence"][0]["static_review_supports"],
+        )
+        self.assertEqual(
             profile["abi_verification"]["camera_update"]["status"],
             "pending",
         )
+
+    def test_rejects_caller_callee_shape_conflict_by_default(self):
+        profile = self.fixture()
+        candidate = profile["abi_verification"]["camera_update"]["candidates"][0]
+        candidate["caller_abi_evidence"]["callers"][0]["context"][
+            "prepared_registers"
+        ]["x0"]["kind_hint"] = "scalar_32_like"
+
+        with self.assertRaises(ValueError) as ctx:
+            profile_mark_abi.mark_abi_verified(
+                profile,
+                target="camera_update",
+                prototype="void camera_update(void *camera)",
+                adapter="ctw_camera_update_adapter_v1",
+                method="manual-disassembly",
+                detail="fixture",
+            )
+        self.assertIn("shape_conflict", str(ctx.exception))
 
     def test_requires_verified_target_first(self):
         profile = self.fixture()
