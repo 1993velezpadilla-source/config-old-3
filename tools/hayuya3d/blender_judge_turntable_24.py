@@ -133,24 +133,33 @@ def main():
 
     full=[]
     faces=[]
-    # Judge v4 consumes only the front/quarter neighborhood. Keep the full
-    # 24-view body turntable, but do not waste render time on 15 face angles
-    # that are never evaluated.
-    # Nine closeups centered on the real semantic front (180 deg).
+    # Judge v4 consumes only the front/quarter neighborhood for face evidence.
+    # Render those angles FIRST so dense 2M Hero runs expose useful evidence
+    # immediately and preserve the highest-value frames even if a runner dies.
     face_indices={8,9,10,11,12,13,14,15,16}
+    priority=[12,13,14,15,16,8,9,10,11]
+    render_order=priority+[i for i in range(24) if i not in set(priority)]
     distance=3.2*radius
-    for index in range(24):
+    full_by_index={}
+    face_by_index={}
+    for index in render_order:
         deg=index*15
         rad=math.radians(deg)
         # 0 deg = +Y rear, 90 = +X side, 180 = -Y semantic front.
         offset=Vector((math.sin(rad)*distance,math.cos(rad)*distance,0.02*radius))
         fp=full_dir/f"{index:02d}_{deg:03d}.png"
+        print(f"HAYUYA_BLENDER_RENDER full index={index} deg={deg}",flush=True)
         render(scene,cam,fp,center,offset,full_scale,a.size)
-        full.append(str(fp))
+        full_by_index[index]=str(fp)
         if index in face_indices:
             hp=face_dir/f"{index:02d}_{deg:03d}.png"
+            print(f"HAYUYA_BLENDER_RENDER face index={index} deg={deg}",flush=True)
             render(scene,cam,hp,head_target,offset,head_scale,a.face_size)
-            faces.append(str(hp))
+            face_by_index[index]=str(hp)
+
+    # Manifest remains canonical turntable order regardless of render order.
+    full=[full_by_index[i] for i in range(24)]
+    faces=[face_by_index[i] for i in sorted(face_indices)]
 
     manifest={
         "schema":1,
