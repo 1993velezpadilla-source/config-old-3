@@ -1,0 +1,44 @@
+name: Extract Nacht 260 Capture
+
+on:
+  push:
+    branches:
+      - feature/xziel-nacht-lightmap-hq-gpu-v1
+    paths:
+      - ".github/workflows/extract-nacht260-capture.yml"
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Nacht 260 evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: XZIEL-Nacht-Static-Scene-Android-Evidence
+          path: evidence
+          repository: 1993velezpadilla-source/config-old-3
+          run-id: 36464715053
+          github-token: ${{ github.token }}
+
+      - name: Isolate runtime capture
+        run: |
+          set -euo pipefail
+          capture=$(find evidence -type f -name 'static-scene-runtime.png' -print -quit)
+          test -n "$capture"
+          cp "$capture" nacht260-runtime.png
+          test -s nacht260-runtime.png
+          file nacht260-runtime.png
+
+      - name: Upload runtime capture only
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Nacht-260-Runtime-Capture
+          path: nacht260-runtime.png
+          compression-level: 0
+          retention-days: 7
