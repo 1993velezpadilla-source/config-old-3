@@ -1618,7 +1618,8 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             ANDROID_LOG_INFO,
             "static_scene_baked_lightmaps map='%s'"
             " ready=%d textures=%u gpuBytes=%" PRIu64
-            " batches=%u mappedBatches=%u",
+            " batches=%u mappedBatches=%u"
+            " uploadMode=bc3_rgba8_authored_mip512",
             XzMapRuntime_MapId(
                 &xz_runtime.map_runtime),
             xz_runtime.gles3_shadow.static_scene_lightmap_shader_ready,
