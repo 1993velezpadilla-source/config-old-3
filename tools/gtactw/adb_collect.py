@@ -20,6 +20,7 @@ import sys
 import abi_probe
 import adapter_catalog
 import analyze_apkset
+import caller_abi_probe
 import hook_dossier
 import profile_status
 
@@ -208,8 +209,14 @@ def build_enriched_profile_status(
     profile: dict,
     abi_report: dict,
     native_adapter_catalog: dict | None = None,
+    caller_report: dict | None = None,
 ) -> tuple[dict, dict]:
     enriched = abi_probe.attach_abi_evidence(profile, abi_report)
+    if caller_report is not None:
+        enriched = caller_abi_probe.attach_caller_abi_evidence(
+            enriched,
+            caller_report,
+        )
     status = profile_status.profile_status(
         enriched,
         native_adapter_catalog,
@@ -238,6 +245,11 @@ def main() -> int:
         help="Persist selected game.pak/libGame.so runtime files",
     )
     ap.add_argument("--abi-out", type=Path)
+    ap.add_argument(
+        "--caller-abi-out",
+        type=Path,
+        help="Write caller-side ABI evidence JSON",
+    )
     ap.add_argument(
         "--status-out",
         type=Path,
@@ -291,6 +303,7 @@ def main() -> int:
 
         need_abi = (
             args.abi_out is not None
+            or args.caller_abi_out is not None
             or args.abi_profile_out is not None
             or args.status_out is not None
             or args.dossier_out is not None
@@ -365,6 +378,27 @@ def main() -> int:
                         encoding="utf-8",
                     )
 
+                caller_abi = caller_abi_probe.probe_profile_callers(
+                    libgame,
+                    profile_path,
+                    objdump_path=args.objdump,
+                    top=args.abi_top,
+                )
+                result["caller_abi_evidence"] = caller_abi
+                result["ok"] = result["ok"] and bool(
+                    caller_abi.get("ok")
+                )
+
+                if args.caller_abi_out:
+                    args.caller_abi_out.parent.mkdir(
+                        parents=True,
+                        exist_ok=True,
+                    )
+                    args.caller_abi_out.write_text(
+                        json.dumps(caller_abi, indent=2) + "\n",
+                        encoding="utf-8",
+                    )
+
                 native_catalog = adapter_catalog.load_catalog(
                     args.adapter_catalog
                 )
@@ -372,6 +406,7 @@ def main() -> int:
                     analysis["profile_template"],
                     abi,
                     native_catalog,
+                    caller_abi,
                 )
                 result["profile_status"] = readiness
 
