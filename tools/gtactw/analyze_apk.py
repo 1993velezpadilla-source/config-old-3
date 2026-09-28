@@ -24,6 +24,7 @@ import ctw_probe
 import elf_probe
 import pak_inventory
 import profile_template
+import plt_calls
 import world_census
 
 
@@ -52,6 +53,8 @@ def analyze_apk(
         "profile_template": None,
         "profile_template_error": None,
         "arm64_xrefs": None,
+        "plt_calls": None,
+        "plt_calls_error": None,
         "arm64_xrefs_error": None,
         "apk_identity": None,
         "apk_certificate": None,
@@ -146,9 +149,14 @@ def analyze_apk(
             except Exception as exc:
                 report["arm64_xrefs_error"] = str(exc)
             try:
+                report["plt_calls"] = plt_calls.scan_plt_calls(so_path)
+            except Exception as exc:
+                report["plt_calls_error"] = str(exc)
+            try:
                 report["profile_template"] = profile_template.make_profile(
                     elf,
                     report["arm64_xrefs"],
+                    report["plt_calls"],
                 )
             except Exception as exc:
                 report["profile_template_error"] = str(exc)
