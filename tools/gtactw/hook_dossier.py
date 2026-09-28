@@ -101,6 +101,16 @@ def build_dossier(profile: dict, top: int = 5) -> dict:
                     "overwritten_fp_before_read_v0_v7",
                     [],
                 ),
+                "argument_shape_hints": (
+                    abi_evidence.get("argument_shape_hints", {})
+                    if isinstance(abi_evidence, dict)
+                    else {}
+                ),
+                "return_value_hints": (
+                    abi_evidence.get("return_value_hints", {})
+                    if isinstance(abi_evidence, dict)
+                    else {}
+                ),
                 "calls": (
                     abi_evidence.get("calls", [])
                     if isinstance(abi_evidence, dict)
