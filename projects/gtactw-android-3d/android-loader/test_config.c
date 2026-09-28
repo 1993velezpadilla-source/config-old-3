@@ -15,6 +15,11 @@ int main(void) {
     assert(feq(cfg.camera_height, 1.35f));
     assert(feq(cfg.camera_distance, 5.8f));
     assert(feq(cfg.camera_pitch_degrees, -7.0f));
+    assert(feq(cfg.camera_look_sensitivity_x, 110.0f));
+    assert(feq(cfg.camera_look_sensitivity_y, 90.0f));
+    assert(cfg.camera_invert_y == 0);
+    assert(feq(cfg.camera_min_pitch_degrees, -70.0f));
+    assert(feq(cfg.camera_max_pitch_degrees, 35.0f));
     assert(feq(cfg.fov_degrees, 72.0f));
     assert(feq(cfg.far_clip_multiplier, 2.5f));
     assert(feq(cfg.vehicle_distance_multiplier, 2.0f));
@@ -26,6 +31,11 @@ int main(void) {
         "Height=9.0\n"
         "Distance=7.25\n"
         "Pitch=-12\n"
+        "LookSensitivityX=150\n"
+        "LookSensitivityY=75\n"
+        "InvertY=1\n"
+        "MinPitch=-55\n"
+        "MaxPitch=25\n"
         "FOV=85\n"
         "DisableCineCam=0\n"
         "\n"
@@ -42,10 +52,15 @@ int main(void) {
         "HideHeadFirstPerson=0\n";
 
     const int applied = ctw_config_parse_text(&cfg, ini);
-    assert(applied == 14);
+    assert(applied == 19);
     assert(feq(cfg.camera_height, 4.0f)); /* clamped */
     assert(feq(cfg.camera_distance, 7.25f));
     assert(feq(cfg.camera_pitch_degrees, -12.0f));
+    assert(feq(cfg.camera_look_sensitivity_x, 150.0f));
+    assert(feq(cfg.camera_look_sensitivity_y, 75.0f));
+    assert(cfg.camera_invert_y == 1);
+    assert(feq(cfg.camera_min_pitch_degrees, -55.0f));
+    assert(feq(cfg.camera_max_pitch_degrees, 25.0f));
     assert(feq(cfg.fov_degrees, 85.0f));
     assert(cfg.disable_cinematic_camera == 0);
     assert(feq(cfg.far_clip_multiplier, 3.2f));
