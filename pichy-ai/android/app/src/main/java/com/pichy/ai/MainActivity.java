@@ -20,6 +20,9 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.pichy.ai.local.LocalLlamaBridge;
+import com.pichy.ai.local.LocalModelManager;
+
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -54,6 +57,8 @@ public class MainActivity extends Activity {
     private Button mapButton;
     private Button createButton;
     private Button attachButton;
+    private Button localBrainButton;
+    private Button localModeButton;
     private LinearLayout createMenu;
     private TextView status;
     private TextView attachmentStatus;
@@ -61,6 +66,9 @@ public class MainActivity extends Activity {
     private String sessionId;
     private String pendingAttachmentId = "";
     private String pendingAttachmentName = "";
+    private LocalModelManager localModelManager;
+    private LocalLlamaBridge localLlamaBridge;
+    private boolean localModeEnabled = true;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -70,9 +78,19 @@ public class MainActivity extends Activity {
             sessionId = UUID.randomUUID().toString().replace("-", "");
             getPreferences(MODE_PRIVATE).edit().putString("sessionId", sessionId).apply();
         }
+        localModeEnabled = getPreferences(MODE_PRIVATE).getBoolean("localModeEnabled", true);
+        localModelManager = new LocalModelManager(this);
+        localLlamaBridge = new LocalLlamaBridge(this);
+
         getWindow().setStatusBarColor(Color.rgb(13, 13, 16));
         getWindow().setNavigationBarColor(Color.rgb(13, 13, 16));
         setContentView(buildUi());
+
+        if (localModelManager.isInstalled()) {
+            loadLocalBrain();
+        } else {
+            status.setText("LOCAL • install free brain in Settings");
+        }
     }
 
     private View buildUi() {
@@ -104,7 +122,7 @@ public class MainActivity extends Activity {
         root.addView(header);
 
         status = new TextView(this);
-        status.setText("LAB v0.4.1 • Render cloud connected");
+        status.setText("LAB v0.5.0 • local-first • no paid API required");
         status.setTextColor(Color.rgb(155, 155, 170));
         status.setPadding(0, 0, 0, dp(6));
         root.addView(status);
@@ -230,6 +248,30 @@ public class MainActivity extends Activity {
             checkHealth();
         });
 
+        localModeButton = makeButton(localModeEnabled ? "Mode: Local (free)" : "Mode: Cloud (optional)");
+        localModeButton.setOnClickListener(v -> {
+            localModeEnabled = !localModeEnabled;
+            getPreferences(MODE_PRIVATE).edit()
+                    .putBoolean("localModeEnabled", localModeEnabled)
+                    .apply();
+            localModeButton.setText(localModeEnabled ? "Mode: Local (free)" : "Mode: Cloud (optional)");
+            if (localModeEnabled) {
+                if (localModelManager.isInstalled() && !localLlamaBridge.getReady()) {
+                    loadLocalBrain();
+                } else if (!localModelManager.isInstalled()) {
+                    status.setText("LOCAL • model not installed");
+                }
+            } else {
+                checkHealth();
+            }
+        });
+
+        localBrainButton = makeButton(
+                localModelManager.isInstalled()
+                        ? "Load Local Brain • " + LocalModelManager.MODEL_NAME
+                        : "Install Local Brain • 1.28 GB");
+        localBrainButton.setOnClickListener(v -> installOrLoadLocalBrain());
+
         Button checkBrain = makeButton("Check brain");
         checkBrain.setOnClickListener(v -> checkBrain());
 
@@ -242,6 +284,8 @@ public class MainActivity extends Activity {
             addBubble("Pichy", "New conversation started.");
         });
 
+        box.addView(localModeButton);
+        box.addView(localBrainButton);
         box.addView(endpoint);
         box.addView(serverToken);
         box.addView(save);
@@ -254,6 +298,12 @@ public class MainActivity extends Activity {
         String rawText = value(prompt);
         if (rawText.isEmpty() && pendingAttachmentId.isEmpty()) return;
         String text = rawText.isEmpty() ? "Analyze the attached file." : rawText;
+
+        if (localModeEnabled) {
+            sendLocalChat(route, text);
+            return;
+        }
+
         if (value(endpoint).isEmpty()) {
             Toast.makeText(this, "Set the server URL first.", Toast.LENGTH_SHORT).show();
             settingsPanel.setVisibility(View.VISIBLE);
@@ -445,6 +495,141 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void installOrLoadLocalBrain() {
+        if (localModelManager.isInstalled()) {
+            loadLocalBrain();
+            return;
+        }
+
+        localBrainButton.setEnabled(false);
+        status.setText("LOCAL • downloading " + LocalModelManager.MODEL_NAME);
+        localModelManager.download(new LocalModelManager.DownloadCallback() {
+            @Override
+            public void onProgress(long downloaded, long total) {
+                int pct = total <= 0 ? 0 : (int) ((downloaded * 100L) / total);
+                status.setText("LOCAL • downloading " + pct + "%");
+                localBrainButton.setText("Downloading • " + pct + "%");
+            }
+
+            @Override
+            public void onComplete(String path) {
+                localBrainButton.setEnabled(true);
+                localBrainButton.setText("Load Local Brain • " + LocalModelManager.MODEL_NAME);
+                status.setText("LOCAL • verified • loading...");
+                loadLocalBrain();
+            }
+
+            @Override
+            public void onError(String message) {
+                localBrainButton.setEnabled(true);
+                localBrainButton.setText("Retry Local Brain • 1.28 GB");
+                status.setText("LOCAL download failed");
+                addBubble("Error", message);
+            }
+        });
+    }
+
+    private void loadLocalBrain() {
+        if (!localModelManager.isInstalled()) {
+            status.setText("LOCAL • model not installed");
+            return;
+        }
+
+        status.setText("LOCAL • loading " + LocalModelManager.MODEL_NAME + "...");
+        if (localBrainButton != null) localBrainButton.setEnabled(false);
+
+        String systemPrompt =
+                "You are Pichy AI running fully on-device. Be useful, direct, multilingual, and honest. "
+                        + "Do not claim to have internet or tools unless context was explicitly supplied. "
+                        + "For coding, give executable engineering help. For map modeling, think in production "
+                        + "game-level terms: scale, zones, traversal, lighting, collision, navmesh, streaming, "
+                        + "optimization and asset manifests. Do not output private chain-of-thought.";
+
+        localLlamaBridge.load(
+                localModelManager.getModelFile().getAbsolutePath(),
+                systemPrompt,
+                new LocalLlamaBridge.Callback() {
+                    @Override
+                    public void onReady() {
+                        if (localBrainButton != null) {
+                            localBrainButton.setEnabled(true);
+                            localBrainButton.setText("Local Brain Ready • " + LocalModelManager.MODEL_NAME);
+                        }
+                        status.setText("LOCAL READY • " + LocalModelManager.MODEL_NAME);
+                    }
+
+                    @Override
+                    public void onComplete(String text) {
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        if (localBrainButton != null) localBrainButton.setEnabled(true);
+                        status.setText("LOCAL load failed");
+                        addBubble("Error", message);
+                    }
+                });
+    }
+
+    private void sendLocalChat(String route, String text) {
+        if (!pendingAttachmentId.isEmpty()) {
+            Toast.makeText(
+                    this,
+                    "Local attachment analysis is the next step. Clear the attachment or switch to optional cloud mode.",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        if (!localModelManager.isInstalled()) {
+            settingsPanel.setVisibility(View.VISIBLE);
+            status.setText("LOCAL • install the free model first");
+            Toast.makeText(this, "Install Local Brain in Settings first.", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        if (!localLlamaBridge.getReady()) {
+            loadLocalBrain();
+            Toast.makeText(this, "Local brain is loading. Try again when it says LOCAL READY.", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        prompt.setText("");
+        addBubble("You", text);
+        setBusy(true, "local " + route);
+
+        String routed = localRoutePrompt(route, text);
+        localLlamaBridge.generate(routed, 768, new LocalLlamaBridge.Callback() {
+            @Override
+            public void onReady() {
+            }
+
+            @Override
+            public void onComplete(String answer) {
+                addBubble("Pichy • LOCAL • " + route, answer);
+                setBusy(false, "");
+            }
+
+            @Override
+            public void onError(String message) {
+                addBubble("Error", message);
+                setBusy(false, "");
+            }
+        });
+    }
+
+    private String localRoutePrompt(String route, String text) {
+        switch (route) {
+            case "coding":
+                return "[CODING MODE] Inspect the problem carefully. Give concrete code/commands and validation steps.\n\n" + text;
+            case "research":
+                return "[RESEARCH MODE] Analyze carefully. You are offline unless sources are included, so clearly separate known background from anything that would require current web verification.\n\n" + text;
+            case "map_modeling":
+                return "[MAP MODELING MODE] Produce a production-oriented 3D game map plan. Cover scale, zones, connectivity, traversal, combat spaces, lighting, collision, navmesh, streaming, LOD/occlusion, props and asset manifest. Use stable IDs when useful.\n\n" + text;
+            default:
+                return text;
+        }
+    }
+
     private void checkHealth() {
         String base = value(endpoint);
         if (base.isEmpty()) return;
@@ -466,6 +651,18 @@ public class MainActivity extends Activity {
     }
 
     private void checkBrain() {
+        if (localModeEnabled) {
+            String installed = localModelManager.isInstalled() ? "installed" : "not installed";
+            String ready = localLlamaBridge.getReady() ? "ready" : "not loaded";
+            status.setText("LOCAL • " + installed + " • " + ready);
+            addBubble("Pichy • Brain Check",
+                    "Local model: " + LocalModelManager.MODEL_NAME + "\n"
+                            + "Model file: " + installed + "\n"
+                            + "Inference engine: " + ready + "\n"
+                            + "API key required: no");
+            return;
+        }
+
         if (value(endpoint).isEmpty()) {
             Toast.makeText(this, "Set the server URL first.", Toast.LENGTH_SHORT).show();
             return;
@@ -620,7 +817,13 @@ public class MainActivity extends Activity {
         createButton.setEnabled(!busy);
         attachButton.setEnabled(!busy);
         if (busy) createMenu.setVisibility(View.GONE);
-        status.setText(busy ? "Working • " + mode : "Ready • session " + sessionId.substring(0, 8));
+        if (busy) {
+            status.setText("Working • " + mode);
+        } else if (localModeEnabled && localLlamaBridge.getReady()) {
+            status.setText("LOCAL READY • " + LocalModelManager.MODEL_NAME);
+        } else {
+            status.setText("Ready • session " + sessionId.substring(0, 8));
+        }
     }
 
     private String message(Exception e) {
@@ -635,6 +838,8 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         io.shutdownNow();
+        if (localModelManager != null) localModelManager.close();
+        if (localLlamaBridge != null) localLlamaBridge.close();
         super.onDestroy();
     }
 }
