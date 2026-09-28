@@ -1743,23 +1743,23 @@ static int XzCreateStaticSceneProgram(void)
     static const char *vs_source =
         "#version 300 es\n"
         "layout(location=0) in vec3 aPos;\n"
-        "layout(location=1) in vec2 aUV;\n"
+        "layout(location=1) in vec4 aUV01;\n"
         "layout(location=2) in vec3 aNormal;\n"
-        "layout(location=3) in vec2 aUV1;\n"
-        "layout(location=4) in vec2 aUV2;\n"
-        "layout(location=5) in vec2 aUV3;\n"
-        "layout(location=6) in mat4 aModel;\n"
-        "layout(location=10) in vec4 aLightmapCoord;\n"
-        "layout(location=11) in vec4 aLightmapScale0;\n"
-        "layout(location=12) in vec4 aLightmapAdd0;\n"
-        "layout(location=13) in vec4 aLightmapScale1;\n"
-        "layout(location=14) in vec4 aLightmapAdd1;\n"
-        "layout(location=15) in vec4 aLightmapMeta;\n"
+        "layout(location=3) in vec4 aUV23;\n"
+        "layout(location=4) in vec4 aTangent;\n"
+        "layout(location=5) in mat4 aModel;\n"
+        "layout(location=9) in vec4 aLightmapCoord;\n"
+        "layout(location=10) in vec4 aLightmapScale0;\n"
+        "layout(location=11) in vec4 aLightmapAdd0;\n"
+        "layout(location=12) in vec4 aLightmapScale1;\n"
+        "layout(location=13) in vec4 aLightmapAdd1;\n"
+        "layout(location=14) in vec4 aLightmapMeta;\n"
         "uniform mat4 uView;\n"
         "uniform mat4 uProjection;\n"
         "out vec3 vNormal;\n"
         "out vec3 vWorldPos;\n"
         "out vec2 vUV;\n"
+        "out vec4 vTangent;\n"
         "out vec2 vLightmapUV0;\n"
         "out vec2 vLightmapUV1;\n"
         "flat out vec4 vLightmapScale0;\n"
@@ -1770,9 +1770,21 @@ static int XzCreateStaticSceneProgram(void)
         "void main(){\n"
         "  vec4 world=aModel*vec4(aPos,1.0);\n"
         "  gl_Position=uProjection*uView*world;\n"
-        "  mat3 normalMatrix=transpose(inverse(mat3(aModel)));\n"
+        "  mat3 model3=mat3(aModel);\n"
+        "  mat3 normalMatrix=transpose(inverse(model3));\n"
         "  vNormal=normalize(normalMatrix*aNormal);\n"
+        "  vec3 tangentWorld=model3*aTangent.xyz;\n"
+        "  tangentWorld-=vNormal*dot(vNormal,tangentWorld);\n"
+        "  float tangentLen2=dot(tangentWorld,tangentWorld);\n"
+        "  if(tangentLen2>1.0e-8) tangentWorld*=inversesqrt(tangentLen2);\n"
+        "  else tangentWorld=vec3(0.0);\n"
+        "  float mirrorSign=determinant(model3)<0.0?-1.0:1.0;\n"
+        "  vTangent=vec4(tangentWorld,aTangent.w*mirrorSign);\n"
         "  vWorldPos=world.xyz;\n"
+        "  vec2 aUV=aUV01.xy;\n"
+        "  vec2 aUV1=aUV01.zw;\n"
+        "  vec2 aUV2=aUV23.xy;\n"
+        "  vec2 aUV3=aUV23.zw;\n"
         "  vUV=aUV;\n"
         "  int lmChannel=int(floor(aLightmapMeta.x+0.5));\n"
         "  vec2 lmUV=aUV;\n"
@@ -1796,6 +1808,7 @@ static int XzCreateStaticSceneProgram(void)
         "in vec3 vNormal;\n"
         "in vec3 vWorldPos;\n"
         "in vec2 vUV;\n"
+        "in vec4 vTangent;\n"
         "in vec2 vLightmapUV0;\n"
         "in vec2 vLightmapUV1;\n"
         "flat in vec4 vLightmapScale0;\n"
@@ -2013,19 +2026,24 @@ static int XzCreateStaticSceneProgram(void)
         "  float mapLen2=dot(mapN,mapN);\n"
         "  if(mapLen2<1.0e-6) return geometricNormal;\n"
         "  mapN*=inversesqrt(mapLen2);\n"
-        "  vec3 dp1=dFdx(vWorldPos);\n"
-        "  vec3 dp2=dFdy(vWorldPos);\n"
-        "  vec2 duv1=dFdx(vUV);\n"
-        "  vec2 duv2=dFdy(vUV);\n"
-        "  float det=duv1.x*duv2.y-duv1.y*duv2.x;\n"
-        "  if(abs(det)<1.0e-8) return geometricNormal;\n"
-        "  vec3 tangentRaw=dp1*duv2.y-dp2*duv1.y;\n"
-        "  tangentRaw-=geometricNormal*dot(geometricNormal,tangentRaw);\n"
+        "  vec3 tangentRaw=vTangent.xyz;\n"
         "  float tangentLen2=dot(tangentRaw,tangentRaw);\n"
+        "  float tangentSign=vTangent.w>=0.0?1.0:-1.0;\n"
+        "  if(tangentLen2<1.0e-8){\n"
+        "    vec3 dp1=dFdx(vWorldPos);\n"
+        "    vec3 dp2=dFdy(vWorldPos);\n"
+        "    vec2 duv1=dFdx(vUV);\n"
+        "    vec2 duv2=dFdy(vUV);\n"
+        "    float det=duv1.x*duv2.y-duv1.y*duv2.x;\n"
+        "    if(abs(det)<1.0e-8) return geometricNormal;\n"
+        "    tangentRaw=dp1*duv2.y-dp2*duv1.y;\n"
+        "    tangentSign=det<0.0?-1.0:1.0;\n"
+        "  }\n"
+        "  tangentRaw-=geometricNormal*dot(geometricNormal,tangentRaw);\n"
+        "  tangentLen2=dot(tangentRaw,tangentRaw);\n"
         "  if(tangentLen2<1.0e-8) return geometricNormal;\n"
         "  vec3 T=tangentRaw*inversesqrt(tangentLen2);\n"
-        "  vec3 B=normalize(cross(geometricNormal,T));\n"
-        "  if(det<0.0) B=-B;\n"
+        "  vec3 B=normalize(cross(geometricNormal,T))*tangentSign;\n"
         "  return normalize(mat3(T,B,geometricNormal)*mapN);\n"
         "}\n"
         "vec3 fresnelSchlick(float cosTheta,vec3 f0){\n"
@@ -3897,7 +3915,7 @@ static int XzBindStaticInstanceRange(
          column < 4u;
          ++column) {
         const GLuint location =
-            (GLuint)(6u + column);
+            (GLuint)(5u + column);
         const uintptr_t byte_offset =
             (uintptr_t)(
                 ((uint64_t)first_grouped_instance *
@@ -3927,7 +3945,7 @@ static int XzBindStaticInstanceRange(
          slot < 6u;
          ++slot) {
         const GLuint location =
-            (GLuint)(10u + slot);
+            (GLuint)(9u + slot);
         const uintptr_t byte_offset =
             (uintptr_t)(
                 ((uint64_t)first_grouped_instance *
@@ -4398,73 +4416,63 @@ int XzGles3Shadow_UploadStaticScene(
             GL_STATIC_DRAW);
 
         /*
-         * XZMS vertex layout:
-         *   location 0: position.xyz
-         *   location 1: uv0.xy
-         *   location 2: normal.xyz
-         *   location 3: uv1.xy (XZMS v2)
-         *   location 4: uv2.xy (XZMS v2)
-         *   location 5: uv3.xy (XZMS v2)
+         * XZMS v3 packs UV0+UV1 and UV2+UV3 into two vec4 attributes so the
+         * authored tangent fits inside GLES3's 16 attribute locations with
+         * every baked-lightmap UV channel preserved.
          *
-         * v1 remains accepted for non-Nacht compatibility.  Nacht's runtime
-         * gate requires v2 UV0..UV3 so authored baked-lightmap coordinate
-         * channels survive all the way to GLES3.
+         *   0 position.xyz
+         *   1 uv0.xy + uv1.xy
+         *   2 normal.xyz
+         *   3 uv2.xy + uv3.xy
+         *   4 tangent.xyzw
+         *   5..8 instanced model matrix
+         *   9..14 instanced lightmap data
          */
         xz_shadow.gl.EnableVertexAttribArray(0u);
         xz_shadow.gl.VertexAttribPointer(
-            0u,
-            3,
-            GL_FLOAT,
-            GL_FALSE,
+            0u, 3, GL_FLOAT, GL_FALSE,
             (GLsizei)source->mesh.vertex_stride,
             (const void *)0);
 
-        xz_shadow.gl.EnableVertexAttribArray(1u);
-        xz_shadow.gl.VertexAttribPointer(
-            1u,
-            2,
-            GL_FLOAT,
-            GL_FALSE,
-            (GLsizei)source->mesh.vertex_stride,
-            (const void *)(uintptr_t)24u);
-
         xz_shadow.gl.EnableVertexAttribArray(2u);
         xz_shadow.gl.VertexAttribPointer(
-            2u,
-            3,
-            GL_FLOAT,
-            GL_FALSE,
+            2u, 3, GL_FLOAT, GL_FALSE,
             (GLsizei)source->mesh.vertex_stride,
             (const void *)(uintptr_t)12u);
 
+        xz_shadow.gl.EnableVertexAttribArray(1u);
         if (source->mesh.version >= XZ_XZMS_VERSION) {
-            xz_shadow.gl.EnableVertexAttribArray(3u);
             xz_shadow.gl.VertexAttribPointer(
-                3u,
-                2,
-                GL_FLOAT,
-                GL_FALSE,
-                (GLsizei)source->mesh.vertex_stride,
-                (const void *)(uintptr_t)32u);
-
-            xz_shadow.gl.EnableVertexAttribArray(4u);
-            xz_shadow.gl.VertexAttribPointer(
-                4u,
-                2,
-                GL_FLOAT,
-                GL_FALSE,
+                1u, 4, GL_FLOAT, GL_FALSE,
                 (GLsizei)source->mesh.vertex_stride,
                 (const void *)(uintptr_t)40u);
-
-            xz_shadow.gl.EnableVertexAttribArray(5u);
+            xz_shadow.gl.EnableVertexAttribArray(3u);
             xz_shadow.gl.VertexAttribPointer(
-                5u,
-                2,
-                GL_FLOAT,
-                GL_FALSE,
+                3u, 4, GL_FLOAT, GL_FALSE,
                 (GLsizei)source->mesh.vertex_stride,
-                (const void *)(uintptr_t)48u);
+                (const void *)(uintptr_t)56u);
+            xz_shadow.gl.EnableVertexAttribArray(4u);
+            xz_shadow.gl.VertexAttribPointer(
+                4u, 4, GL_FLOAT, GL_FALSE,
+                (GLsizei)source->mesh.vertex_stride,
+                (const void *)(uintptr_t)24u);
             multi_uv_meshes++;
+        } else if (source->mesh.version >= XZ_XZMS_VERSION_V2) {
+            xz_shadow.gl.VertexAttribPointer(
+                1u, 4, GL_FLOAT, GL_FALSE,
+                (GLsizei)source->mesh.vertex_stride,
+                (const void *)(uintptr_t)24u);
+            xz_shadow.gl.EnableVertexAttribArray(3u);
+            xz_shadow.gl.VertexAttribPointer(
+                3u, 4, GL_FLOAT, GL_FALSE,
+                (GLsizei)source->mesh.vertex_stride,
+                (const void *)(uintptr_t)40u);
+            multi_uv_meshes++;
+        } else {
+            xz_shadow.gl.VertexAttribPointer(
+                1u, 2, GL_FLOAT, GL_FALSE,
+                (GLsizei)source->mesh.vertex_stride,
+                (const void *)(uintptr_t)24u);
         }
 
         if (xz_shadow.gl.GetError() !=
@@ -5018,11 +5026,11 @@ int XzGles3Shadow_UploadStaticScene(
              column < 4u;
              ++column) {
             /*
-             * Locations 3..5 are reserved for authored UV1..UV3.
-             * Keep the instanced mat4 at 6..9 so it cannot overwrite them.
+             * Locations 1..4 carry packed UVs, normal and authored tangent.
+             * Keep the instanced mat4 at 5..8; lightmap data stays at 9..14.
              */
             const GLuint location =
-                (GLuint)(6u + column);
+                (GLuint)(5u + column);
             const uintptr_t byte_offset =
                 (uintptr_t)(
                     ((uint64_t)span->first_instance * 16u +
