@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import re
 import struct
 
 import aarch64_xref
@@ -65,6 +66,67 @@ def _parsed_window(
     )["instructions"]
 
 
+
+def _prepared_value_kind(
+    reg: str,
+    mnemonic: str,
+    operands: str,
+) -> str:
+    ops = abi_probe._split_operands(operands)
+    first = ops[0].lower() if ops else ""
+    m = mnemonic.lower()
+
+    if reg.startswith("v"):
+        n = reg[1:]
+        if re.search(rf"\bs{n}\b", first):
+            return "float32_like"
+        if re.search(rf"\bd{n}\b", first):
+            return "float64_like"
+        if re.search(rf"\b[qv]{n}\b", first):
+            return "vector_or_aggregate"
+        return "fp_value"
+
+    n = reg[1:]
+    if re.search(rf"\bw{n}\b", first):
+        return "scalar_32_like"
+
+    if m in {"adr", "adrp"}:
+        return "address_like"
+    if m == "add" and len(ops) >= 2 and ops[1].strip().lower() == "sp":
+        return "stack_address_like"
+    if m == "mov" and len(ops) >= 2 and ops[1].strip().lower() == "sp":
+        return "stack_address_like"
+    if m.startswith("ldr") or m.startswith("ldur"):
+        return "loaded_64_value"
+    if m in {"mov", "movz", "movn", "movk"}:
+        return "scalar_or_pointer_64"
+    return "scalar_or_pointer_64"
+
+
+def _return_consumption_kind(
+    reg: str,
+    mnemonic: str,
+    operands: str,
+) -> str:
+    m = mnemonic.lower()
+    if reg == "x0":
+        if m in {"cbz", "cbnz", "tbz", "tbnz"}:
+            return "branch_condition_integer_or_bool"
+        if m in {"cmp", "cmn", "tst"}:
+            return "integer_compare"
+        if m.startswith("str"):
+            return "stored_gpr_value"
+        if "[" in operands and re.search(r"\bx0\b", operands, re.IGNORECASE):
+            return "possible_pointer_use"
+        return "gpr_value_use"
+
+    if m.startswith("f"):
+        return "floating_value_use"
+    if m.startswith("str"):
+        return "stored_fp_or_vector_value"
+    return "fp_or_vector_use"
+
+
 def _call_context(
     instructions: list[dict],
     call_site: int,
@@ -107,6 +169,11 @@ def _call_context(
                     "address": ins["address"],
                     "mnemonic": ins["mnemonic"],
                     "operands": ins["operands"],
+                    "kind_hint": _prepared_value_kind(
+                        reg,
+                        ins["mnemonic"],
+                        ins["operands"],
+                    ) if mode in {"write", "read_write"} else None,
                 }
 
     prepared_local = sorted(
@@ -142,6 +209,11 @@ def _call_context(
                     "address": ins["address"],
                     "mnemonic": mnemonic,
                     "operands": ins["operands"],
+                    "kind_hint": _return_consumption_kind(
+                        reg,
+                        mnemonic,
+                        ins["operands"],
+                    ),
                 }
                 unresolved.remove(reg)
             elif reg in writes:
