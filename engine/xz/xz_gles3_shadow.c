@@ -3463,8 +3463,10 @@ int XzGles3Shadow_UploadStaticScene(
 
         if (!source ||
             !source->data ||
-            source->mesh.vertex_stride !=
-                XZ_XZMS_VERTEX_BYTES ||
+            (source->mesh.vertex_stride !=
+                 XZ_XZMS_VERTEX_BYTES_V1 &&
+             source->mesh.vertex_stride !=
+                 XZ_XZMS_VERTEX_BYTES_V2) ||
             source->mesh.vertex_count == 0u ||
             source->mesh.index_count == 0u ||
             source->mesh.submesh_count == 0u)
@@ -3537,10 +3539,15 @@ int XzGles3Shadow_UploadStaticScene(
         /*
          * XZMS vertex layout:
          *   location 0: position.xyz
-         *   location 1: uv.xy
+         *   location 1: uv0.xy
          *   location 2: normal.xyz
-         * Location 2 is staged now even though the current parity shader does
-         * not consume it yet; the material/lighting static shader will.
+         *   location 3: uv1.xy (XZMS v2)
+         *   location 4: uv2.xy (XZMS v2)
+         *   location 5: uv3.xy (XZMS v2)
+         *
+         * v1 remains accepted for non-Nacht compatibility.  Nacht's runtime
+         * gate requires v2 UV0..UV3 so authored baked-lightmap coordinate
+         * channels survive all the way to GLES3.
          */
         xz_shadow.gl.EnableVertexAttribArray(0u);
         xz_shadow.gl.VertexAttribPointer(
@@ -3548,7 +3555,7 @@ int XzGles3Shadow_UploadStaticScene(
             3,
             GL_FLOAT,
             GL_FALSE,
-            (GLsizei)XZ_XZMS_VERTEX_BYTES,
+            (GLsizei)source->mesh.vertex_stride,
             (const void *)0);
 
         xz_shadow.gl.EnableVertexAttribArray(1u);
@@ -3557,7 +3564,7 @@ int XzGles3Shadow_UploadStaticScene(
             2,
             GL_FLOAT,
             GL_FALSE,
-            (GLsizei)XZ_XZMS_VERTEX_BYTES,
+            (GLsizei)source->mesh.vertex_stride,
             (const void *)(uintptr_t)24u);
 
         xz_shadow.gl.EnableVertexAttribArray(2u);
@@ -3566,8 +3573,37 @@ int XzGles3Shadow_UploadStaticScene(
             3,
             GL_FLOAT,
             GL_FALSE,
-            (GLsizei)XZ_XZMS_VERTEX_BYTES,
+            (GLsizei)source->mesh.vertex_stride,
             (const void *)(uintptr_t)12u);
+
+        if (source->mesh.version >= XZ_XZMS_VERSION) {
+            xz_shadow.gl.EnableVertexAttribArray(3u);
+            xz_shadow.gl.VertexAttribPointer(
+                3u,
+                2,
+                GL_FLOAT,
+                GL_FALSE,
+                (GLsizei)source->mesh.vertex_stride,
+                (const void *)(uintptr_t)32u);
+
+            xz_shadow.gl.EnableVertexAttribArray(4u);
+            xz_shadow.gl.VertexAttribPointer(
+                4u,
+                2,
+                GL_FLOAT,
+                GL_FALSE,
+                (GLsizei)source->mesh.vertex_stride,
+                (const void *)(uintptr_t)40u);
+
+            xz_shadow.gl.EnableVertexAttribArray(5u);
+            xz_shadow.gl.VertexAttribPointer(
+                5u,
+                2,
+                GL_FLOAT,
+                GL_FALSE,
+                (GLsizei)source->mesh.vertex_stride,
+                (const void *)(uintptr_t)48u);
+        }
 
         if (xz_shadow.gl.GetError() !=
                 GL_NO_ERROR)
