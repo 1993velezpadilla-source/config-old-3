@@ -1,0 +1,57 @@
+name: CTW 3D Toolchain
+
+on:
+  push:
+    branches:
+      - feature/ctw-android-3d-v1
+    paths:
+      - 'mini-projects/ctw-android-3d/**'
+      - '.github/workflows/ctw3d-toolchain.yml'
+  workflow_dispatch:
+
+jobs:
+  toolchain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Syntax gate
+        run: |
+          python -m py_compile \
+            mini-projects/ctw-android-3d/tools/extract_owned_apk.py \
+            mini-projects/ctw-android-3d/tools/ctw_pak_probe.py \
+            mini-projects/ctw-android-3d/tools/scan_libgame.py
+
+      - name: Build synthetic CTW fixture
+        run: |
+          python - <<'PY'
+          import struct, zipfile
+          from pathlib import Path
+
+          root = Path('ctw-fixture')
+          (root/'assets').mkdir(parents=True)
+          (root/'lib/arm64-v8a').mkdir(parents=True)
+
+          data = bytearray(16384)
+          struct.pack_into('<6I', data, 0, 0x12345678, 4, 4, 4, 4, 1)
+          struct.pack_into('<4H', data, 24, 1, 2, 3, 3)
+          (root/'assets/game.pak').write_bytes(data)
+          (root/'assets/dxt.bin').write_bytes(b'DXT')
+          (root/'lib/arm64-v8a/libGame.so').write_bytes(b'ELF-fixture-camera-stream-sector-player')
+          (root/'lib/arm64-v8a/libopenal.so').write_bytes(b'ELF-fixture-openal')
+
+          with zipfile.ZipFile('ctw-fixture.apk', 'w') as z:
+              for p in root.rglob('*'):
+                  if p.is_file():
+                      z.write(p, p.relative_to(root).as_posix())
+          PY
+
+      - name: INPUT_GREEN
+        run: |
+          python mini-projects/ctw-android-3d/tools/extract_owned_apk.py \
+            ctw-fixture.apk out/ctw
+
+      - name: PAK_GREEN
+        run: |
+          python mini-projects/ctw-android-3d/tools/ctw_pak_probe.py \
+            out/ctw/game.pak out/pak-report.json
