@@ -65,6 +65,10 @@ int ctw_character_hide_body_type(
  * Render() input vector. Pre-rotate by the inverse so the final billboard
  * remains camera-facing without discarding the selected directional frame.
  */
+int16_t ctw_character_quantize_forward_adjustment(
+    int16_t engine_adjustment
+);
+
 void ctw_character_precompensate_forward(
     int16_t forward[3],
     int16_t engine_adjustment
