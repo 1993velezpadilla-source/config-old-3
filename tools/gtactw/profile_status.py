@@ -99,6 +99,10 @@ def profile_status(profile: dict) -> dict:
             "candidate_count": len(candidates) if isinstance(candidates, list) else 0,
         }
 
+    anchors = profile.get("public_4243_engine_anchors", {})
+    anchor_present = anchors.get("present_count")
+    anchor_total = anchors.get("total_count")
+
     all_targets = target_verified == len(profile_template.TARGET_KEYS)
     all_abis = abi_verified == len(profile_template.TARGET_KEYS)
 
@@ -119,6 +123,15 @@ def profile_status(profile: dict) -> dict:
         "targets_total": len(profile_template.TARGET_KEYS),
         "abis_verified": abi_verified,
         "abis_total": len(profile_template.TARGET_KEYS),
+        "public_4243_engine_anchors": {
+            "present_count": anchor_present,
+            "total_count": anchor_total,
+            "available": (
+                isinstance(anchor_present, int)
+                and isinstance(anchor_total, int)
+                and anchor_total > 0
+            ),
+        },
         "runtime_hooks_installed": False,
         "playable_3d_mod_ready": False,
         "target_status": target_status,
