@@ -120,6 +120,7 @@ jobs:
               root/"head_wrap",
               texture_size=4096,
               require_rebake=False,
+              donor_scope="head",
           )
           write_head_wrap_result(result,root/"head_wrap_result.json")
           print("HAYUYA_HUNYUAN_HEAD_WRAP",json.dumps(asdict(result),separators=(",",":")))
