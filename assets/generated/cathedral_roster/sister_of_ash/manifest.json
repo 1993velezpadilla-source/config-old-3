@@ -6,7 +6,7 @@
   "height_m": 1.8,
   "rig": "game_engine",
   "bones": 53,
-  "triangles_estimate": 81216,
+  "triangles_estimate": 84088,
   "animations": [
     "idle",
     "walk",
@@ -36,5 +36,5 @@
     "preview_back.png",
     "preview_face.png"
   ],
-  "production_status": "Sister of Ash pass 34 \u2014 continuous fitted U-wimple, compact closed shoes without toe spheres, full crown coverage and layered habit retained"
+  "production_status": "Sister of Ash pass 35 \u2014 continuous fitted U-wimple, compact closed shoes without toe spheres, full crown coverage and layered habit retained"
 }
