@@ -93,8 +93,25 @@ class HookDossierTests(unittest.TestCase):
                 "abi_evidence": {
                     "stack_frame_bytes_hint": 64,
                     "argument_register_hints": {
+                        "analysis": "read_before_write",
                         "likely_gpr_inputs_x0_x7": [0, 1],
+                        "overwritten_gpr_early_x0_x7": [2],
                         "likely_fp_inputs_v0_v7": [0, 1, 2],
+                        "overwritten_fp_before_read_v0_v7": [3],
+                        "first_access": {
+                            "x0": {
+                                "mode": "read",
+                                "address": 0x5004,
+                                "mnemonic": "ldr",
+                                "operands": "x8, [x0]",
+                            },
+                            "x2": {
+                                "mode": "write",
+                                "address": 0x5008,
+                                "mnemonic": "mov",
+                                "operands": "x2, x9",
+                            },
+                        },
                     },
                     "calls": [
                         {
@@ -134,6 +151,19 @@ class HookDossierTests(unittest.TestCase):
         self.assertEqual(candidate["stack_frame_bytes_hint"], 64)
         self.assertEqual(candidate["likely_gpr_inputs_x0_x7"], [0, 1])
         self.assertEqual(candidate["likely_fp_inputs_v0_v7"], [0, 1, 2])
+        self.assertEqual(candidate["argument_analysis"], "read_before_write")
+        self.assertEqual(
+            candidate["argument_first_access"]["x0"]["mode"],
+            "read",
+        )
+        self.assertEqual(
+            candidate["overwritten_gpr_before_read_x0_x7"],
+            [2],
+        )
+        self.assertEqual(
+            candidate["overwritten_fp_before_read_v0_v7"],
+            [3],
+        )
 
         self.assertEqual(report["summary"]["targets_verified"], 0)
         self.assertEqual(report["summary"]["targets_with_candidates"], 1)
