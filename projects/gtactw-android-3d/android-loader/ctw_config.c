@@ -171,6 +171,10 @@ static int apply_pair(
             config->fov_degrees = clampf_local(f, 40.0f, 110.0f);
             return 1;
         }
+        if (equal_ci(key, "NearClip") && parse_float_value(value, &f)) {
+            config->near_clip = clampf_local(f, 0.01f, 1.0f);
+            return 1;
+        }
         if (equal_ci(key, "DisableCineCam") && parse_bool(value, &b)) {
             config->disable_cinematic_camera = b;
             return 1;
