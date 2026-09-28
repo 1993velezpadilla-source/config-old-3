@@ -24,6 +24,9 @@
 #include "xz_package_boot.h"
 #include "xz_zone_db.h"
 #include "xz_runtime_readiness.h"
+#include "xz_asset_loader_registry.h"
+#include "xz_bulk_store.h"
+#include "xz_asset_pool.h"
 #include "xz_static_scene_runtime.h"
 
 #include <SDL.h>
@@ -63,6 +66,9 @@ typedef struct {
     XzPackageBootState package_boot;
     XzZoneDb zone_db;
     XzRuntimeReadiness runtime_readiness;
+    XzAssetPoolState asset_pools;
+    XzBulkStore bulk_store;
+    XzAssetLoaderRegistry asset_loaders;
     XzStaticSceneRuntimeState static_scene;
     uint64_t command_encode_failures;
     uint64_t graph_rebuild_failures;
@@ -1092,6 +1098,9 @@ void XzAndroidRuntime_Init(size_t engine_heap_bytes)
     XzPackageBoot_Init(&xz_runtime.package_boot);
     XzZoneDb_Init(&xz_runtime.zone_db);
     XzRuntimeReadiness_Init(&xz_runtime.runtime_readiness);
+    XzAssetPool_Init(&xz_runtime.asset_pools);
+    XzBulkStore_Init(&xz_runtime.bulk_store);
+    XzAssetLoaderRegistry_Init(&xz_runtime.asset_loaders);
     XzStaticSceneRuntime_Init(&xz_runtime.static_scene);
 
     xz_runtime.initialized = 1;
@@ -1432,6 +1441,25 @@ void XzAndroidRuntime_SetVerifiedMapPackageMode(int enabled)
         xz_runtime.runtime_readiness.ready_mask,
         xz_runtime.runtime_readiness.failed_mask,
         xz_runtime.runtime_readiness.required_mask);
+
+    XzAndroidLog(
+        ANDROID_LOG_INFO,
+        "asset database poolsReady=%d poolCapacity=%u poolUsed=%u"
+        " bulkReady=%d bulkPackages=%u bulkEntries=%u"
+        " loaderRegistryReady=%d loaders=%u fixups=%u"
+        " missingLoaders=%u missingFixups=%u",
+        XzAssetPool_IsReady(&xz_runtime.asset_pools),
+        xz_runtime.asset_pools.total_capacity,
+        xz_runtime.asset_pools.total_used,
+        XzBulkStore_IsReady(&xz_runtime.bulk_store),
+        xz_runtime.bulk_store.package_count,
+        xz_runtime.bulk_store.entry_count,
+        XzAssetLoaderRegistry_IsReady(
+            &xz_runtime.asset_loaders),
+        xz_runtime.asset_loaders.registered_loaders,
+        xz_runtime.asset_loaders.registered_fixups,
+        xz_runtime.asset_loaders.missing_loaders,
+        xz_runtime.asset_loaders.missing_fixups);
 }
 
 void XzAndroidRuntime_BeginFrame(double now_seconds)
