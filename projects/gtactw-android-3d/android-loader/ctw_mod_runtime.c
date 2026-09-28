@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "ctw_patch.h"
+#include "ctw_mod_runtime.h"
 
 #include "ctw_adapter_registry.h"
 #include "ctw_hook_session.h"
@@ -141,4 +142,19 @@ void ctw_mod_shutdown(void) {
 
     g_ctw_hook_session_active = 0;
     LOGI("CTW runtime hooks removed");
+}
+
+
+void *ctw_mod_original_for_hook(size_t hook_index) {
+    if (!g_ctw_hook_session_active)
+        return NULL;
+    return ctw_hook_session_original(
+        &g_ctw_hook_session,
+        hook_index
+    );
+}
+
+int ctw_mod_hooks_active(void) {
+    return g_ctw_hook_session_active &&
+        g_ctw_hook_session.installed_count == CTW_HOOK_COUNT;
 }
