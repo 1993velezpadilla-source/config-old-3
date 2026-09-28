@@ -29,12 +29,12 @@ class ProfileEmitCTests(unittest.TestCase):
                 "player_render": 0x8000,
             },
             "target_verification": {
-                "camera_update": {"status": "verified", "rva": 0x3000, "evidence": [{"method": "xref+disassembly", "detail": "fixture camera"}]},
-                "projection_setup": {"status": "verified", "rva": 0x4000, "evidence": [{"method": "xref+disassembly", "detail": "fixture projection"}]},
-                "world_stream_update": {"status": "verified", "rva": 0x5000, "evidence": [{"method": "xref+disassembly", "detail": "fixture streaming"}]},
-                "sector_visibility": {"status": "verified", "rva": 0x6000, "evidence": [{"method": "xref+disassembly", "detail": "fixture sector"}]},
-                "lod_test": {"status": "verified", "rva": 0x7000, "evidence": [{"method": "xref+disassembly", "detail": "fixture lod"}]},
-                "player_render": {"status": "verified", "rva": 0x8000, "evidence": [{"method": "xref+disassembly", "detail": "fixture player"}]},
+                "camera_update": {"status": "verified", "rva": 0x3000, "evidence": [{"method": "xref+disassembly", "detail": "fixture camera"}], "code_prefix_hex": "00" * 16},
+                "projection_setup": {"status": "verified", "rva": 0x4000, "evidence": [{"method": "xref+disassembly", "detail": "fixture projection"}], "code_prefix_hex": "11" * 16},
+                "world_stream_update": {"status": "verified", "rva": 0x5000, "evidence": [{"method": "xref+disassembly", "detail": "fixture streaming"}], "code_prefix_hex": "22" * 16},
+                "sector_visibility": {"status": "verified", "rva": 0x6000, "evidence": [{"method": "xref+disassembly", "detail": "fixture sector"}], "code_prefix_hex": "33" * 16},
+                "lod_test": {"status": "verified", "rva": 0x7000, "evidence": [{"method": "xref+disassembly", "detail": "fixture lod"}], "code_prefix_hex": "44" * 16},
+                "player_render": {"status": "verified", "rva": 0x8000, "evidence": [{"method": "xref+disassembly", "detail": "fixture player"}], "code_prefix_hex": "55" * 16},
             },
         }
 
@@ -48,6 +48,8 @@ class ProfileEmitCTests(unittest.TestCase):
         self.assertIn(".expected_draw_frame_rva = 0x1000u", header)
         self.assertIn(".expected_gamepad_axes_rva = 0x2500u", header)
         self.assertIn(".camera_update = 0x3000u", header)
+        self.assertIn(".target_prefixes = {", header)
+        self.assertIn("0x11, 0x11, 0x11, 0x11", header)
         self.assertIn("g_ctw_profiles_count", header)
 
     def test_rejects_unverified_missing_target(self):
@@ -74,6 +76,16 @@ class ProfileEmitCTests(unittest.TestCase):
             obj = self.fixture()
             obj["target_verification"]["lod_test"]["rva"] = 0x9999
             path = Path(td) / "bad-rva.json"
+            path.write_text(json.dumps(obj), encoding="utf-8")
+            with self.assertRaises(ValueError):
+                profile_emit_c.load_verified_profile(path)
+
+
+    def test_rejects_missing_code_prefix(self):
+        with tempfile.TemporaryDirectory() as td:
+            obj = self.fixture()
+            obj["target_verification"]["camera_update"]["code_prefix_hex"] = None
+            path = Path(td) / "bad-prefix.json"
             path.write_text(json.dumps(obj), encoding="utf-8")
             with self.assertRaises(ValueError):
                 profile_emit_c.load_verified_profile(path)
