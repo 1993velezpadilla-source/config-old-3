@@ -3944,11 +3944,11 @@ jobs:
             dist/static-scene-logcat.txt
 
           grep -E \
-            "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*meshes=492 instances=10791 xzms=492.*vertices=1067383 indices=3608148 submeshes=1063 meshBytes=74250600" \
+            "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*meshes=492 instances=10791 xzms=492.*vertices=1067383 indices=3608148 submeshes=1063 meshBytes=91328728" \
             dist/static-scene-logcat.txt
 
           grep -E \
-            "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*gpuReady=1 gpuMeshes=492 gpuVertices=1067383 gpuIndices=3608148 gpuBytes=74206040" \
+            "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*gpuReady=1 gpuMeshes=492 gpuVertices=1067383 gpuIndices=3608148 gpuBytes=91284168" \
             dist/static-scene-logcat.txt
 
           grep -E \
@@ -4049,7 +4049,7 @@ jobs:
             dist/static-scene-logcat.txt
 
           grep -E \
-            "XZIEL-XZ.*static_scene_multi_uv map='xziel_nacht_bo3' ready=1 meshes=492 uv1Loc=3 uv2Loc=4 uv3Loc=5 modelLoc=6" \
+            "XZIEL-XZ.*static_scene_multi_uv map='xziel_nacht_bo3' ready=1 meshes=492 uv01Loc=1 normalLoc=2 uv23Loc=3 tangentLoc=4 modelLoc=5" \
             dist/static-scene-logcat.txt
 
           grep -E \
