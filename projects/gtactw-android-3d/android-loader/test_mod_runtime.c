@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "ctw_patch.h"
+#include "ctw_mod_runtime.h"
 
 #include <assert.h>
 #include <dlfcn.h>
@@ -23,7 +24,13 @@ int main(void) {
      * explicit no-profile status instead of leaving unresolved hooks.
      */
     assert(ctw_mod_init(self) == CTW_PATCH_PROFILE_NOT_FOUND);
+    assert(ctw_mod_hooks_active() == 0);
+    assert(
+        ctw_mod_original_for_hook(CTW_HOOK_CAMERA_UPDATE) == NULL
+    );
+    assert(ctw_mod_original_for_hook(CTW_HOOK_COUNT) == NULL);
     ctw_mod_shutdown();
+    assert(ctw_mod_hooks_active() == 0);
 
     dlclose(self);
     return 0;
