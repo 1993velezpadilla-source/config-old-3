@@ -581,6 +581,60 @@
         -7.530911865234375,
         1.0938642883300782
       ]
+    },
+    {
+      "id": "player_spawn_pavlov_spawn5",
+      "source": "pavlov_port_spatial_reference",
+      "positionMeters": [
+        0.3255146026611328,
+        -9.684246826171876,
+        1.1685306549072265
+      ]
+    },
+    {
+      "id": "player_spawn_pavlov_spawn6",
+      "source": "pavlov_port_spatial_reference",
+      "positionMeters": [
+        0.3255146026611328,
+        -11.618629150390625,
+        1.1803909301757813
+      ]
+    },
+    {
+      "id": "player_spawn_pavlov_spawn7",
+      "source": "pavlov_port_spatial_reference",
+      "positionMeters": [
+        -2.175964660644531,
+        -15.280321044921875,
+        0.9685158538818359
+      ]
+    },
+    {
+      "id": "player_spawn_pavlov_spawn8",
+      "source": "pavlov_port_spatial_reference",
+      "positionMeters": [
+        0.7505819702148437,
+        -17.433656005859376,
+        1.321099853515625
+      ]
+    },
+    {
+      "id": "player_spawn_pavlov_spawn9",
+      "source": "pavlov_port_spatial_reference",
+      "positionMeters": [
+        -2.185772705078125,
+        -19.368038330078125,
+        1.015989990234375
+      ]
+    },
+    {
+      "id": "player_spawn_pavlov_spawn10",
+      "source": "pavlov_port_spatial_reference",
+      "positionMeters": [
+        1.924321746826172,
+        10.51,
+        1.1046920013427735
+      ]
     }
   ],
   "weaponRuntime": {
