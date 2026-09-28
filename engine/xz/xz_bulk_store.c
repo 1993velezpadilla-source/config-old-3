@@ -44,15 +44,21 @@ static int XzBulkStore_ReservePackages(
         capacity *= 2u;
     }
 
-    if ((size_t)capacity >
-        SIZE_MAX / sizeof(*store->packages))
-        return 0;
-
-    grown =
-        (XzBulkPackage *)realloc(
-            store->packages,
+    {
+        size_t bytes =
             (size_t)capacity *
-                sizeof(*store->packages));
+            sizeof(*store->packages);
+
+        if (capacity != 0u &&
+            bytes / sizeof(*store->packages) !=
+                (size_t)capacity)
+            return 0;
+
+        grown =
+            (XzBulkPackage *)realloc(
+                store->packages,
+                bytes);
+    }
 
     if (!grown)
         return 0;
@@ -95,15 +101,21 @@ static int XzBulkStore_ReserveEntries(
         capacity *= 2u;
     }
 
-    if ((size_t)capacity >
-        SIZE_MAX / sizeof(*store->entries))
-        return 0;
-
-    grown =
-        (XzBulkEntry *)realloc(
-            store->entries,
+    {
+        size_t bytes =
             (size_t)capacity *
-                sizeof(*store->entries));
+            sizeof(*store->entries);
+
+        if (capacity != 0u &&
+            bytes / sizeof(*store->entries) !=
+                (size_t)capacity)
+            return 0;
+
+        grown =
+            (XzBulkEntry *)realloc(
+                store->entries,
+                bytes);
+    }
 
     if (!grown)
         return 0;
