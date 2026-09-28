@@ -155,7 +155,7 @@ jobs:
     timeout-minutes: 360
     concurrency:
       group: hayuya-phone-cloud-${{ matrix.job_id }}
-      cancel-in-progress: false
+      cancel-in-progress: true
     env:
       HAYUYA_JOB_ID: ${{ matrix.job_id }}
       HAYUYA_GEOMETRY_INPUT: ${{ matrix.geometry_input }}
