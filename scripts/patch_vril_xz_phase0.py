@@ -95,6 +95,8 @@ for name in (
     "xz_asset_loader_registry.c",
     "xz_asset_cache.h",
     "xz_asset_cache.c",
+    "xz_source_asset_pipeline.h",
+    "xz_source_asset_pipeline.c",
     "xz_xzmesh.h",
     "xz_xzmesh.c",
     "xz_xzscene.h",
