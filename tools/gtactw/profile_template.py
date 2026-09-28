@@ -63,7 +63,7 @@ TARGET_EVIDENCE_RULES = {
 }
 
 
-def rank_target_evidence(report: dict, xref_report: dict | None) -> dict:
+def rank_target_evidence(\n    report: dict,\n    xref_report: dict | None,\n    plt_report: dict | None = None,\n) -> dict:
     """Rank evidence for each patch target without selecting a target RVA.
 
     Scores are intentionally evidence-only. They are useful for narrowing the
@@ -71,6 +71,7 @@ def rank_target_evidence(report: dict, xref_report: dict | None) -> dict:
     """
     xref_groups = summarize_xrefs(xref_report)
     symbol_groups = report.get("symbols", {}).get("candidate_groups", {})
+    plt_groups = (plt_report or {}).get("groups", {})
     out = {}
 
     for target, rule in TARGET_EVIDENCE_RULES.items():
@@ -124,6 +125,58 @@ def rank_target_evidence(report: dict, xref_report: dict | None) -> dict:
                     entry["symbol_names"].append(name)
                 entry["score"] += 3
                 entry["reasons"].append(f"{group} symbol candidate")
+
+        if target == "projection_setup":
+            by_caller = {}
+            for item in plt_groups.get("projection", []):
+                rva = item.get("caller_rva")
+                if rva is None:
+                    continue
+                key = int(rva)
+                grouped = by_caller.setdefault(key, {
+                    "function": item.get("caller"),
+                    "imports": [],
+                    "call_sites": [],
+                })
+                symbol = item.get("import_symbol")
+                if symbol and symbol not in grouped["imports"]:
+                    grouped["imports"].append(symbol)
+                pc = item.get("call_site_rva")
+                if pc is not None and pc not in grouped["call_sites"]:
+                    grouped["call_sites"].append(pc)
+
+            for rva, item in by_caller.items():
+                entry = merged.setdefault(rva, {
+                    "rva": rva,
+                    "function": item.get("function"),
+                    "score": 0,
+                    "reasons": [],
+                    "xref_hits": 0,
+                    "strings": [],
+                    "symbol_names": [],
+                    "call_sites": [],
+                })
+                for pc in item["call_sites"]:
+                    if pc not in entry["call_sites"]:
+                        entry["call_sites"].append(pc)
+                entry["plt_imports"] = item["imports"]
+
+                imports = set(item["imports"])
+                if "glUniformMatrix4fv" in imports:
+                    entry["score"] += 14
+                    entry["reasons"].append(
+                        "calls glUniformMatrix4fv through verified PLT mapping"
+                    )
+                if "glGetUniformLocation" in imports:
+                    entry["score"] += 4
+                    entry["reasons"].append(
+                        "calls glGetUniformLocation through PLT mapping"
+                    )
+                if "glUseProgram" in imports:
+                    entry["score"] += 2
+                    entry["reasons"].append(
+                        "calls glUseProgram through PLT mapping"
+                    )
 
         strong_terms = tuple(x.lower() for x in rule["strong_terms"])
         weak_terms = tuple(x.lower() for x in rule["weak_terms"])
@@ -238,7 +291,7 @@ def summarize_xrefs(xref_report: dict | None) -> dict:
     return out
 
 
-def make_profile(report: dict, xref_report: dict | None = None) -> dict:
+def make_profile(\n    report: dict,\n    xref_report: dict | None = None,\n    plt_report: dict | None = None,\n) -> dict:
     if report.get("elf", {}).get("machine") != "AArch64":
         raise ValueError("report is not for an AArch64 libGame.so")
 
@@ -303,7 +356,12 @@ def make_profile(report: dict, xref_report: dict | None = None) -> dict:
         },
         "candidate_symbols": candidate_summary,
         "candidate_xref_functions": summarize_xrefs(xref_report),
-        "target_evidence_rankings": rank_target_evidence(report, xref_report),
+        "candidate_plt_calls": plt_report or {},
+        "target_evidence_rankings": rank_target_evidence(
+            report,
+            xref_report,
+            plt_report,
+        ),
         "status": "template_needs_verified_internal_rvas",
     }
 
@@ -313,6 +371,7 @@ def main() -> int:
     ap.add_argument("elf_report", type=Path)
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--xrefs", type=Path, help="Optional aarch64_xref JSON report")
+    ap.add_argument("--plt-calls", type=Path, help="Optional PLT-call evidence JSON report")
     args = ap.parse_args()
 
     try:
@@ -321,7 +380,11 @@ def main() -> int:
             json.loads(args.xrefs.read_text(encoding="utf-8"))
             if args.xrefs is not None else None
         )
-        profile = make_profile(report, xrefs)
+        plt_report = (
+            json.loads(args.plt_calls.read_text(encoding="utf-8"))
+            if args.plt_calls is not None else None
+        )
+        profile = make_profile(report, xrefs, plt_report)
     except Exception as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, indent=2))
         return 2
