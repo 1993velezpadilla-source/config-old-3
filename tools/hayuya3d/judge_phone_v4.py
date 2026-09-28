@@ -10,7 +10,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 from gameprep import build_turntable
-from judge_v4 import run_judge_v4
+from judge_v4 import JudgeV4Thresholds, run_judge_v4
 
 
 IMAGE_EXTS={".png",".jpg",".jpeg",".webp"}
@@ -40,6 +40,168 @@ def _is_character(manifest: dict) -> bool:
 def _resolved_render_path(value:str)->Path:
     path=Path(value)
     return path if path.is_absolute() else (Path.cwd()/path).resolve()
+
+
+def _run_front_preflight(
+    final_glb:Path,
+    out_dir:Path,
+    source_images:list[Path],
+    detail_images:list[Path],
+    python_executable:str,
+)->dict|None:
+    blender=shutil.which("blender")
+    if not blender:
+        return None
+
+    script=Path(__file__).with_name("blender_judge_turntable_24.py")
+    face_worker=Path(__file__).with_name("judge_v4_face_worker.py")
+    root=out_dir/"front_preflight"
+    render_root=root/"blender"
+    render_root.mkdir(parents=True,exist_ok=True)
+    log_path=root/"blender.log"
+    cmd=[
+        blender,
+        "--python-exit-code","1",
+        "-b",
+        "--python",str(script),
+        "--",
+        "--input",str(final_glb),
+        "--output-dir",str(render_root),
+        "--size","512",
+        "--face-size","768",
+        "--preflight-only",
+    ]
+    try:
+        proc=subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            timeout=900,
+            check=False,
+        )
+        output=proc.stdout or ""
+    except subprocess.TimeoutExpired as exc:
+        output=exc.stdout or ""
+        if isinstance(output,bytes):
+            output=output.decode("utf-8","replace")
+        log_path.write_text(output,encoding="utf-8")
+        return {
+            "schema":1,
+            "passed":False,
+            "reasons":["front_preflight_blender_timeout"],
+            "render_root":str(render_root),
+        }
+    log_path.write_text(output,encoding="utf-8")
+    if proc.returncode!=0:
+        return {
+            "schema":1,
+            "passed":False,
+            "reasons":[f"front_preflight_blender_exit:{proc.returncode}"],
+            "render_root":str(render_root),
+        }
+
+    manifest_path=render_root/"blender_manifest.json"
+    if not manifest_path.is_file():
+        return {
+            "schema":1,
+            "passed":False,
+            "reasons":["front_preflight_manifest_missing"],
+            "render_root":str(render_root),
+        }
+    render_manifest=json.loads(manifest_path.read_text(encoding="utf-8"))
+    faces=[
+        _resolved_render_path(str(x))
+        for x in (render_manifest.get("faces") or [])
+    ]
+    if len(faces)!=1 or not faces[0].is_file():
+        return {
+            "schema":1,
+            "passed":False,
+            "reasons":[f"front_preflight_face_count:{len(faces)}!=1"],
+            "render_root":str(render_root),
+        }
+
+    face_json=root/"face_landmarks.json"
+    face_log=root/"face_landmarks.log"
+    worker=[
+        python_executable,
+        str(face_worker),
+    ]
+    for src in [*source_images,*detail_images]:
+        worker.extend(["--source",str(src)])
+    worker.extend(["--candidate",str(faces[0]),"--output",str(face_json)])
+    try:
+        face_proc=subprocess.run(
+            worker,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            timeout=300,
+            check=False,
+        )
+        face_log.write_text(face_proc.stdout or "",encoding="utf-8")
+    except subprocess.TimeoutExpired:
+        return {
+            "schema":1,
+            "passed":False,
+            "reasons":["front_preflight_face_worker_timeout"],
+            "render_root":str(render_root),
+            "front_face":str(faces[0]),
+        }
+    if face_proc.returncode!=0 or not face_json.is_file():
+        return {
+            "schema":1,
+            "passed":False,
+            "reasons":[f"front_preflight_face_worker_exit:{face_proc.returncode}"],
+            "render_root":str(render_root),
+            "front_face":str(faces[0]),
+        }
+
+    face_report=json.loads(face_json.read_text(encoding="utf-8"))
+    thresholds=JudgeV4Thresholds()
+    reasons=[]
+    if face_report.get("face_expected_from_source"):
+        detected=int(face_report.get("candidate_detected") or 0)
+        total=max(1,int(face_report.get("candidate_total") or 0))
+        if detected<1:
+            reasons.append("front_face_not_detected")
+        fraction=detected/total
+        if fraction<thresholds.face_candidate_detection_fraction_min:
+            reasons.append(
+                f"front_face_detection_coverage:{fraction:.3f}<"
+                f"{thresholds.face_candidate_detection_fraction_min:.3f}"
+            )
+        med=face_report.get("median_profile_error")
+        if med is None or float(med)>thresholds.face_profile_median_error_max:
+            reasons.append(
+                f"front_face_geometry_median_error:{med}>"
+                f"{thresholds.face_profile_median_error_max}"
+            )
+        p90=face_report.get("p90_profile_error")
+        if p90 is None or float(p90)>thresholds.face_profile_p90_error_max:
+            reasons.append(
+                f"front_face_geometry_p90_error:{p90}>"
+                f"{thresholds.face_profile_p90_error_max}"
+            )
+
+    report={
+        "schema":1,
+        "passed":not reasons,
+        "reasons":reasons,
+        "front_face":str(faces[0]),
+        "renderer":render_manifest.get("renderer"),
+        "face_landmarks":face_report,
+    }
+    (root/"preflight.json").write_text(
+        json.dumps(report,indent=2)+"\n",
+        encoding="utf-8",
+    )
+    print(
+        "HAYUYA_JUDGE_V4_FRONT_PREFLIGHT "
+        +json.dumps(report,separators=(",",":"))
+    )
+    return report
 
 
 def _build_blender_evidence(final_glb:Path,out_dir:Path):
@@ -180,6 +342,44 @@ def main()->int:
         raise SystemExit("Judge v4 core requires prepared source images")
 
     judge_root=root/"judge_v4_core"
+
+    # Render semantic front first and reject obvious face/anatomy failures
+    # before spending tens of minutes on a 24-view 2M-triangle turntable.
+    preflight=_run_front_preflight(
+        final_glb,
+        judge_root,
+        source_images,
+        detail_images,
+        a.python,
+    )
+    if preflight is not None:
+        manifest["judge_v4_front_preflight"]=preflight
+        if not preflight.get("passed",False):
+            reasons=list(preflight.get("reasons") or ["front_preflight_failed"])
+            manifest["visual_approval"]={
+                "schema":1,
+                "state":"rejected",
+                "production_approved":False,
+                "core_passed":False,
+                "pro_required":True,
+                "hard_fail_reasons":reasons,
+                "note":(
+                    "Fast semantic-front gate rejected the candidate before "
+                    "full 24-view evidence. This prevents visibly melted or "
+                    "anatomically invalid Hero candidates from reaching Hub."
+                ),
+            }
+            manifest_path.write_text(
+                json.dumps(manifest,indent=2)+"\n",
+                encoding="utf-8",
+            )
+            print(
+                "HAYUYA_JUDGE_V4_FRONT_PREFLIGHT_REJECT "
+                +json.dumps(reasons,separators=(",",":")),
+                file=sys.stderr,
+            )
+            return 2
+
     faithful=_build_blender_evidence(final_glb,judge_root)
     face_frames=[]
     if faithful is not None:
