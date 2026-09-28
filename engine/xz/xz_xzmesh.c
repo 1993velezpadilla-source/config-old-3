@@ -460,11 +460,18 @@ int XzXzmesh_SelfTest(void)
     XzWriteF32Le(data + 48u, 1.0f);
     XzWriteF32Le(data + 52u, 0.0f);
 
-    /* Vertex 0. */
+    /* Vertex 0: normal z=1, tangent x=1, handedness=1. */
     XzWriteF32Le(
         data + XZ_XZMS_HEADER_BYTES + 20u,
         1.0f);
-    /* Vertex 1 position x=1, normal z=1, uv=(1,0). */
+    XzWriteF32Le(
+        data + XZ_XZMS_HEADER_BYTES + 24u,
+        1.0f);
+    XzWriteF32Le(
+        data + XZ_XZMS_HEADER_BYTES + 36u,
+        1.0f);
+
+    /* Vertex 1: position x=1, normal z=1, tangent x=1, uv0=(1,0). */
     XzWriteF32Le(
         data + XZ_XZMS_HEADER_BYTES +
             XZ_XZMS_VERTEX_BYTES + 0u,
@@ -477,7 +484,16 @@ int XzXzmesh_SelfTest(void)
         data + XZ_XZMS_HEADER_BYTES +
             XZ_XZMS_VERTEX_BYTES + 24u,
         1.0f);
-    /* Vertex 2 position y=1, normal z=1, uv=(0,1). */
+    XzWriteF32Le(
+        data + XZ_XZMS_HEADER_BYTES +
+            XZ_XZMS_VERTEX_BYTES + 36u,
+        1.0f);
+    XzWriteF32Le(
+        data + XZ_XZMS_HEADER_BYTES +
+            XZ_XZMS_VERTEX_BYTES + 40u,
+        1.0f);
+
+    /* Vertex 2: position y=1, normal z=1, tangent x=1, uv0=(0,1). */
     XzWriteF32Le(
         data + XZ_XZMS_HEADER_BYTES +
             2u * XZ_XZMS_VERTEX_BYTES + 4u,
@@ -488,7 +504,15 @@ int XzXzmesh_SelfTest(void)
         1.0f);
     XzWriteF32Le(
         data + XZ_XZMS_HEADER_BYTES +
-            2u * XZ_XZMS_VERTEX_BYTES + 28u,
+            2u * XZ_XZMS_VERTEX_BYTES + 24u,
+        1.0f);
+    XzWriteF32Le(
+        data + XZ_XZMS_HEADER_BYTES +
+            2u * XZ_XZMS_VERTEX_BYTES + 36u,
+        1.0f);
+    XzWriteF32Le(
+        data + XZ_XZMS_HEADER_BYTES +
+            2u * XZ_XZMS_VERTEX_BYTES + 44u,
         1.0f);
 
     XzWriteU32Le(data + indices_at + 0u, 0u);
@@ -502,7 +526,8 @@ int XzXzmesh_SelfTest(void)
         data + submesh_at + 12u,
         XZ_XZMS_ATTR_POSITION |
         XZ_XZMS_ATTR_NORMAL |
-        XZ_XZMS_ATTR_UV0);
+        XZ_XZMS_ATTR_UV0 |
+        XZ_XZMS_ATTR_TANGENT);
 
     status = XzXzmesh_Parse(
         &view, data, sizeof(data));
@@ -518,6 +543,8 @@ int XzXzmesh_SelfTest(void)
             &view, 1u, &vertex) ||
         vertex.position[0] != 1.0f ||
         vertex.normal[2] != 1.0f ||
+        vertex.tangent[0] != 1.0f ||
+        vertex.tangent[3] != 1.0f ||
         vertex.uv[0] != 1.0f ||
         vertex.uv1[0] != 0.0f)
         return 0;
