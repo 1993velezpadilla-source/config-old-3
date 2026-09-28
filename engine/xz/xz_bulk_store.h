@@ -7,8 +7,9 @@
 extern "C" {
 #endif
 
-#define XZ_BULK_STORE_MAX_PACKAGES 64u
-#define XZ_BULK_STORE_MAX_ENTRIES 32768u
+#define XZ_BULK_STORE_INITIAL_PACKAGES 8u
+#define XZ_BULK_STORE_INITIAL_ENTRIES 4096u
+#define XZ_BULK_STORE_INITIAL_BUCKETS 8192u
 #define XZ_BULK_STORE_PATH_MAX 192u
 
 typedef enum XzBulkCodec {
@@ -28,21 +29,28 @@ typedef struct XzBulkEntry {
     uint64_t compressed_bytes;
     uint64_t uncompressed_bytes;
     uint32_t package_id;
+    uint32_t next_hash;
     uint8_t codec;
     uint8_t resident;
 } XzBulkEntry;
 
 typedef struct XzBulkStore {
-    XzBulkPackage packages[XZ_BULK_STORE_MAX_PACKAGES];
-    XzBulkEntry entries[XZ_BULK_STORE_MAX_ENTRIES];
+    XzBulkPackage *packages;
+    XzBulkEntry *entries;
+    uint32_t *buckets;
     uint32_t package_count;
+    uint32_t package_capacity;
     uint32_t entry_count;
+    uint32_t entry_capacity;
+    uint32_t bucket_count;
     uint64_t indexed_compressed_bytes;
     uint64_t indexed_uncompressed_bytes;
     int ready;
 } XzBulkStore;
 
 void XzBulkStore_Init(XzBulkStore *store);
+
+void XzBulkStore_Destroy(XzBulkStore *store);
 
 int XzBulkStore_AddPackage(
     XzBulkStore *store,
