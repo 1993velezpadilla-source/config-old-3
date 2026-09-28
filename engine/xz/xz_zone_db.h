@@ -9,6 +9,7 @@ extern "C" {
 
 #define XZ_ZONE_DB_MAX_ZONES 64u
 #define XZ_ZONE_DB_MAX_ASSETS 8192u
+#define XZ_ZONE_DB_MAX_DEPENDENCIES 256u
 #define XZ_ZONE_DB_NAME_MAX 96u
 
 typedef enum XzZoneState {
@@ -53,11 +54,18 @@ typedef struct XzAssetRecord {
     uint8_t resident;
 } XzAssetRecord;
 
+typedef struct XzZoneDependency {
+    uint16_t zone_id;
+    uint16_t depends_on_zone_id;
+} XzZoneDependency;
+
 typedef struct XzZoneDb {
     XzZoneRecord zones[XZ_ZONE_DB_MAX_ZONES];
     XzAssetRecord assets[XZ_ZONE_DB_MAX_ASSETS];
+    XzZoneDependency dependencies[XZ_ZONE_DB_MAX_DEPENDENCIES];
     uint32_t zone_count;
     uint32_t asset_count;
+    uint32_t dependency_count;
     uint32_t complete_zones;
     uint32_t failed_zones;
     int database_ready;
@@ -76,6 +84,11 @@ int XzZoneDb_SetZoneState(
     XzZoneDb *db,
     uint16_t zone_id,
     XzZoneState state);
+
+int XzZoneDb_AddDependency(
+    XzZoneDb *db,
+    uint16_t zone_id,
+    uint16_t depends_on_zone_id);
 
 int XzZoneDb_SetZoneMemoryBytes(
     XzZoneDb *db,
