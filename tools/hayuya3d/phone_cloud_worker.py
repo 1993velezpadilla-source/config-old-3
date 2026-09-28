@@ -32,6 +32,10 @@ ANIMATION_REQUESTED = os.environ.get("HAYUYA_ANIMATION_REQUESTED","false").strip
 MOTION_PROFILE = os.environ.get("HAYUYA_MOTION_PROFILE","auto").strip() or "auto"
 TEXTURE_QUALITY = os.environ.get("HAYUYA_TEXTURE_QUALITY","standard").strip() or "standard"
 TOKEN = os.environ.get("HF_TOKEN","").strip() or None
+print(
+    "HAYUYA_HF_AUTH",
+    json.dumps({"token_present": bool(TOKEN)}, separators=(",",":")),
+)
 BACKENDS = [
     x.strip().lower()
     for x in os.environ.get(
