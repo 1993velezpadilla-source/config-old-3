@@ -140,6 +140,54 @@ class ProfileTemplateTests(unittest.TestCase):
         )
 
 
+    def test_camera_ranking_uses_public_gamepad_global_xref_as_cross_signal(self):
+        report = self.make_report()
+        report["symbols"]["candidate_groups"]["camera"] = []
+        xrefs = {
+            "groups": {
+                "camera": [],
+                "streaming": [],
+                "lod_culling": [],
+                "player_render": [],
+            },
+            "public_anchor_xrefs": [
+                {
+                    "pc_rva": 0x4410,
+                    "anchor": "gOSWGamepad",
+                    "anchor_rva": 0x9000,
+                    "form": "adrp+ldr_b(+1)",
+                    "function": "UpdateCameraInput",
+                    "function_rva": 0x4400,
+                },
+                {
+                    "pc_rva": 0x4420,
+                    "anchor": "gOSWGamepad",
+                    "anchor_rva": 0x9000,
+                    "form": "adrp+str_b(+1)",
+                    "function": "UpdateCameraInput",
+                    "function_rva": 0x4400,
+                },
+            ],
+        }
+
+        profile = profile_template.make_profile(report, xrefs)
+        ranked = profile["target_evidence_rankings"]["camera_update"]
+        self.assertEqual(ranked[0]["rva"], 0x4400)
+        self.assertEqual(
+            ranked[0]["public_anchor_xrefs"]["anchors"],
+            ["gOSWGamepad"],
+        )
+        self.assertEqual(
+            ranked[0]["public_anchor_xrefs"]["call_sites"],
+            [0x4410, 0x4420],
+        )
+        self.assertIn(
+            "references verified 4.4.243 gOSWGamepad global",
+            ranked[0]["reasons"],
+        )
+        self.assertEqual(len(profile["public_anchor_xrefs"]), 2)
+        self.assertIsNone(profile["patch_targets_rva"]["camera_update"])
+
     def test_target_evidence_separates_camera_and_projection(self):
         report = self.make_report()
         report["symbols"]["candidate_groups"]["camera"] = [
