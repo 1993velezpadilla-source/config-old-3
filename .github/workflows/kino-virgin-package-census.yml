@@ -9,6 +9,9 @@ on:
       - .github/workflows/kino-virgin-package-census.yml
       - tools/maps/audit_virgin_ue_package.py
       - tools/maps/UEAssetClassCensus/**
+      - tools/maps/xz_source_class_gate.c
+      - engine/xz/xz_source_class_registry.c
+      - engine/xz/xz_source_class_registry.h
       - tools/maps/audit_ue_class_requirements.py
 
 jobs:
@@ -257,6 +260,24 @@ jobs:
             --output kino-download/kino-class-requirements.json
           test -s kino-download/kino-class-requirements.json
 
+      - name: Fail closed on unknown source classes
+        run: |
+          set -euxo pipefail
+          mkdir -p build/source-class-gate
+          cc -std=gnu11 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tools/maps/xz_source_class_gate.c \
+            engine/xz/xz_source_class_registry.c \
+            -o build/source-class-gate/xz-source-class-gate
+
+          jq -r '.classCounts | keys[]' \
+            kino-download/kino-class-census.json \
+            | build/source-class-gate/xz-source-class-gate \
+            | tee kino-download/source-class-gate.log
+
+          grep -q 'XZIEL_SOURCE_CLASS_GATE_GREEN' \
+            kino-download/source-class-gate.log
+
       - name: Virgin-loader anti-hardcode gate
         run: |
           set -euxo pipefail
@@ -278,5 +299,6 @@ jobs:
             kino-download/kino-pak-census.json
             kino-download/kino-class-census.json
             kino-download/kino-class-census.log
+            kino-download/source-class-gate.log
             kino-download/class-shards/
           retention-days: 7
