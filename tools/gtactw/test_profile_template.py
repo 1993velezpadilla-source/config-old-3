@@ -404,6 +404,68 @@ class ProfileTemplateTests(unittest.TestCase):
         )
         self.assertNotIn(0xA000, [x["rva"] for x in player])
 
+
+    def test_projection_scores_depthrange_and_viewport_as_secondary_evidence(self):
+        report = self.make_report()
+        xrefs = {
+            "groups": {
+                "camera": [],
+                "streaming": [],
+                "lod_culling": [],
+                "player_render": [],
+            }
+        }
+        plt = {
+            "groups": {
+                "projection": [
+                    {
+                        "caller": "ProjectionState",
+                        "caller_rva": 0x6600,
+                        "call_site_rva": 0x6610,
+                        "import_symbol": "glDepthRangef",
+                        "draw_frame_reachable": True,
+                        "draw_frame_hops": 2,
+                        "draw_frame_path_rvas": [0x1000, 0x6500, 0x6600],
+                        "draw_frame_path_functions": [
+                            profile_template.DRAW,
+                            "WorldRender",
+                            "ProjectionState",
+                        ],
+                    },
+                    {
+                        "caller": "ProjectionState",
+                        "caller_rva": 0x6600,
+                        "call_site_rva": 0x6614,
+                        "import_symbol": "glViewport",
+                        "draw_frame_reachable": True,
+                        "draw_frame_hops": 2,
+                        "draw_frame_path_rvas": [0x1000, 0x6500, 0x6600],
+                        "draw_frame_path_functions": [
+                            profile_template.DRAW,
+                            "WorldRender",
+                            "ProjectionState",
+                        ],
+                    },
+                ],
+                "render": [],
+                "visibility": [],
+            }
+        }
+
+        profile = profile_template.make_profile(report, xrefs, plt)
+        ranked = profile["target_evidence_rankings"]["projection_setup"]
+        self.assertEqual(ranked[0]["rva"], 0x6600)
+        self.assertIn("glDepthRangef", ranked[0]["plt_imports"])
+        self.assertIn("glViewport", ranked[0]["plt_imports"])
+        self.assertIn(
+            "calls glDepthRangef through PLT mapping",
+            ranked[0]["reasons"],
+        )
+        self.assertIn(
+            "calls glViewport through PLT mapping",
+            ranked[0]["reasons"],
+        )
+
     def test_rejects_missing_required_jni(self):
         report = self.make_report()
         p = "Java_com_rockstargames_oswrapper_GameNative_"
