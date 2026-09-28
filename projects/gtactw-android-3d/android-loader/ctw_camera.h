@@ -12,10 +12,25 @@ typedef struct {
     float look_y;
 } CtwCameraInputSnapshot;
 
+typedef struct {
+    float yaw_degrees;
+    float pitch_degrees;
+} CtwCameraOrbitState;
+
 void ctw_camera_set_look(float x, float y);
 void ctw_camera_set_mode(CtwCameraMode mode);
 void ctw_camera_cycle_mode(void);
 CtwCameraInputSnapshot ctw_camera_snapshot(void);
+void ctw_camera_orbit_reset(
+    CtwCameraOrbitState *state,
+    const Ctw3DConfig *config
+);
+void ctw_camera_orbit_step(
+    CtwCameraOrbitState *state,
+    const Ctw3DConfig *config,
+    CtwCameraInputSnapshot input,
+    float dt_seconds
+);
 
 #ifdef __cplusplus
 }
