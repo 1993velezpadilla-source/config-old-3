@@ -1,5 +1,11 @@
 #include "ctw_config.h"
 
+#if defined(__ANDROID__)
+#include <android/asset_manager.h>
+#include <android/asset_manager_jni.h>
+#include <jni.h>
+#endif
+
 #include <ctype.h>
 #include <errno.h>
 #include <stdio.h>
@@ -260,4 +266,59 @@ int ctw_config_load_file(Ctw3DConfig *config, const char *path) {
     const int rc = ctw_config_parse_text(config, buffer);
     free(buffer);
     return rc;
+}
+
+
+int ctw_config_load_android_asset(
+    Ctw3DConfig *config,
+    void *jni_env,
+    void *asset_manager_object
+) {
+#if defined(__ANDROID__)
+    if (!config || !jni_env || !asset_manager_object)
+        return -1;
+
+    JNIEnv *env = (JNIEnv *)jni_env;
+    jobject asset_object = (jobject)asset_manager_object;
+    AAssetManager *manager = AAssetManager_fromJava(env, asset_object);
+    if (!manager)
+        return -2;
+
+    AAsset *asset = AAssetManager_open(
+        manager,
+        "ctw_modhub.ini",
+        AASSET_MODE_BUFFER
+    );
+    if (!asset)
+        return 0; /* Optional asset: defaults remain active. */
+
+    const off_t length = AAsset_getLength(asset);
+    if (length < 0 || length > 1024 * 1024) {
+        AAsset_close(asset);
+        return -3;
+    }
+
+    char *buffer = (char *)malloc((size_t)length + 1);
+    if (!buffer) {
+        AAsset_close(asset);
+        return -4;
+    }
+
+    const int got = AAsset_read(asset, buffer, (size_t)length);
+    AAsset_close(asset);
+    if (got < 0 || (off_t)got != length) {
+        free(buffer);
+        return -5;
+    }
+
+    buffer[length] = '\0';
+    const int rc = ctw_config_parse_text(config, buffer);
+    free(buffer);
+    return rc;
+#else
+    (void)config;
+    (void)jni_env;
+    (void)asset_manager_object;
+    return 0;
+#endif
 }
