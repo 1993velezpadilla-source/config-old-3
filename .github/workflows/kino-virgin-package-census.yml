@@ -299,6 +299,7 @@ jobs:
             kino-download/kino-pak-census.json
             kino-download/kino-class-census.json
             kino-download/kino-class-census.log
+            kino-download/kino-class-requirements.json
             kino-download/source-class-gate.log
             kino-download/class-shards/
           retention-days: 7
