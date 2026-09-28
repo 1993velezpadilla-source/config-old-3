@@ -154,20 +154,32 @@ EXPORT void JNI_NAME(implOnGamepadResume)(void *env, void *cls, void *ids) {
     if (fn) fn(env, cls, ids);
 }
 
-#define GAMEPAD_BUTTON_FORWARD(name) \
-EXPORT void JNI_NAME(name)(void *env, void *cls, int id, int keycode) { \
-    typedef void (*Fn)(void *, void *, int, int); \
-    Fn fn = RESOLVE(name, Fn); \
-    if (fn) fn(env, cls, id, keycode); \
+EXPORT void JNI_NAME(implOnGamepadButtonDown)(void *env, void *cls, int id, int keycode) {
+    typedef void (*Fn)(void *, void *, int, int);
+
+    /* Android GameNative mapping used by CTW: 13 = right-thumb click. */
+    if (keycode == 13) {
+        ctw_camera_cycle_mode();
+        const CtwCameraInputSnapshot s = ctw_camera_snapshot();
+        LOGI("camera mode -> %d", (int)s.mode);
+    }
+
+    Fn fn = RESOLVE(implOnGamepadButtonDown, Fn);
+    if (fn) fn(env, cls, id, keycode);
 }
 
-GAMEPAD_BUTTON_FORWARD(implOnGamepadButtonDown)
-GAMEPAD_BUTTON_FORWARD(implOnGamepadButtonUp)
+EXPORT void JNI_NAME(implOnGamepadButtonUp)(void *env, void *cls, int id, int keycode) {
+    typedef void (*Fn)(void *, void *, int, int);
+    Fn fn = RESOLVE(implOnGamepadButtonUp, Fn);
+    if (fn) fn(env, cls, id, keycode);
+}
 
 EXPORT void JNI_NAME(implOnGamepadAxesChanged)(
     void *env, void *cls, int id,
     float lx, float ly, float rx, float ry, float lt, float rt
 ) {
+    ctw_camera_set_look(rx, ry);
+
     typedef void (*Fn)(void *, void *, int, float, float, float, float, float, float);
     Fn fn = RESOLVE(implOnGamepadAxesChanged, Fn);
     if (fn) fn(env, cls, id, lx, ly, rx, ry, lt, rt);
