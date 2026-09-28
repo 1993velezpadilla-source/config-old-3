@@ -11,6 +11,7 @@ add_library(Game SHARED
     ctw_hooks.c
     ctw_trampoline.c
     ctw_hook_backend.c
+    ctw_hook_session.c
     ctw_profile.c
     ctw_config.c
 )
