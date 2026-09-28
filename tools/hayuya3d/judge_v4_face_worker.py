@@ -188,8 +188,11 @@ def main() -> int:
         base_options=mp.tasks.BaseOptions(model_asset_path=str(model)),
         running_mode=mp.tasks.vision.RunningMode.IMAGE,
         num_faces=1,
-        min_face_detection_confidence=0.45,
-        min_face_presence_confidence=0.45,
+        # Keep Judge aligned with the source-autofix detector. Stylized
+        # character faces (white eyes / heavy makeup) can be valid source
+        # evidence while scoring below the old 0.45 detector threshold.
+        min_face_detection_confidence=0.30,
+        min_face_presence_confidence=0.30,
         output_face_blendshapes=True,
         output_facial_transformation_matrixes=True,
     )

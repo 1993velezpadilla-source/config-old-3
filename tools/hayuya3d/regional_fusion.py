@@ -733,20 +733,37 @@ def prepare_head_wrap_challenger(
     # Cropped single-photo head donors can be geometrically valid yet have a
     # very different local tessellation from the full-body source. A direct
     # nearest-surface transfer may then fold/collapse the hood and face even
-    # though the global bbox and neck seam remain stable. Keep the strict
-    # deformation gates; when they reject a head-only donor, retry with a
-    # micro-displacement pass that preserves the base topology while still
-    # allowing donor-guided facial refinement.
+    # though the global bbox and neck seam remain stable. Keep every existing
+    # deformation gate, but search downward for the strongest displacement
+    # that actually passes instead of jumping straight from 5.5% to 0.15%.
+    # This preserves seams/topology while allowing materially stronger facial
+    # refinement whenever the donor geometry can support it safely.
     if not result.geometry_ready and str(donor_scope).lower().strip()=="head":
-        conservative=out_dir/"head_wrap_conservative_raw.glb"
-        fallback=_build_geometry(conservative,0.0015)
-        if fallback.geometry_ready:
-            result=fallback
-            result.method="hayuya-head-wrap-regional-fusion-v3-conservative-head"
+        prior=result.error or "aggressive_head_wrap_rejected"
+        attempts=[]
+        fallback=None
+        for fraction in (0.010,0.006,0.004,0.0025,0.0015):
+            tag=str(fraction).replace(".","p")
+            candidate=out_dir/f"head_wrap_adaptive_{tag}_raw.glb"
+            trial=_build_geometry(candidate,fraction)
+            attempts.append(
+                f"{fraction:.4f}:"
+                + ("pass" if trial.geometry_ready else (trial.error or "rejected"))
+            )
+            fallback=trial
+            if trial.geometry_ready:
+                result=trial
+                raw=candidate
+                result.method=(
+                    "hayuya-head-wrap-regional-fusion-v4-adaptive-head-"
+                    f"{fraction:.4f}"
+                )
+                break
         else:
-            prior=result.error or "aggressive_head_wrap_rejected"
-            retry=fallback.error or "conservative_head_wrap_rejected"
-            fallback.error=f"{prior};conservative_retry={retry}"
+            assert fallback is not None
+            fallback.error=(
+                f"{prior};adaptive_retries=" + "|".join(attempts)
+            )
             result=fallback
 
     if not result.geometry_ready:
