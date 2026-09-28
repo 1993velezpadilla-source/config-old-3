@@ -104,6 +104,7 @@ EXPORT void JNI_NAME(implOnInitialSetup)(void *env, void *cls, void *device_info
     } else if (config_rc < 0) {
         LOGE("failed to load CTW Mod Hub asset config rc=%d", config_rc);
     }
+    ctw_camera_runtime_reset(&g_ctw3d_config);
 
     typedef void (*Fn)(void *, void *, void *, void *, void *, void *);
     Fn fn = RESOLVE(implOnInitialSetup, Fn);
@@ -147,6 +148,8 @@ EXPORT void JNI_NAME(implOnBackButtonPressed)(void *env, void *cls) {
 }
 
 EXPORT void JNI_NAME(implOnDrawFrame)(void *env, void *cls, float dt) {
+    ctw_camera_runtime_step(&g_ctw3d_config, dt);
+
     typedef void (*Fn)(void *, void *, float);
     Fn fn = RESOLVE(implOnDrawFrame, Fn);
     if (fn) fn(env, cls, dt);
