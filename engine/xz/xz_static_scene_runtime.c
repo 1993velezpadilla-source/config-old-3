@@ -894,8 +894,8 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
 
         /*
          * The source conversion proved all 492 Nacht submeshes carry normals
-         * and UV0. Preserve that as a runtime requirement instead of silently
-         * accepting a downgraded geometry payload.
+         * plus UV0..UV3. Preserve those authored channels as a runtime
+         * requirement so baked lightmaps can select their exact coordinate set.
          */
         for (submesh_index = 0u;
              submesh_index <
@@ -910,10 +910,16 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
                 (submesh.attribute_flags &
                  (XZ_XZMS_ATTR_POSITION |
                   XZ_XZMS_ATTR_NORMAL |
-                  XZ_XZMS_ATTR_UV0)) !=
+                  XZ_XZMS_ATTR_UV0 |
+                  XZ_XZMS_ATTR_UV1 |
+                  XZ_XZMS_ATTR_UV2 |
+                  XZ_XZMS_ATTR_UV3)) !=
                     (XZ_XZMS_ATTR_POSITION |
                      XZ_XZMS_ATTR_NORMAL |
-                     XZ_XZMS_ATTR_UV0)) {
+                     XZ_XZMS_ATTR_UV0 |
+                     XZ_XZMS_ATTR_UV1 |
+                     XZ_XZMS_ATTR_UV2 |
+                     XZ_XZMS_ATTR_UV3)) {
                 snprintf(
                     failure,
                     sizeof(failure),
