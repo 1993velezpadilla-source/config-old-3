@@ -1968,7 +1968,7 @@ static int XzCreateStaticSceneProgram(void)
         "  const float FilmContrast=0.03;\n"
         "  const float FilmDynamicRange=4.0;\n"
         "  const float FilmToeAmount=1.0;\n"
-        "  const float FilmHealAmount=1.0;\n"
+        "  const float FilmHealAmount=0.18;\n"
         "  float inContrast=clamp(FilmContrast,0.0,1.0)+1.0;\n"
         "  float inDynamicRange=exp2(clamp(FilmDynamicRange,1.0,4.0));\n"
         "  float inToe=(1.0-clamp(FilmToeAmount,0.0,1.0))*0.18;\n"
@@ -4862,7 +4862,7 @@ int XzGles3Shadow_UploadStaticScene(
     state->static_scene_legacy_film_contrast = 0.03f;
     state->static_scene_legacy_film_dynamic_range = 4.0f;
     state->static_scene_legacy_film_toe_amount = 1.0f;
-    state->static_scene_legacy_film_heal_amount = 1.0f;
+    state->static_scene_legacy_film_heal_amount = 0.18f;
     state->static_scene_exposure_multiplier = 1.0f;
 
     if (strcmp(
