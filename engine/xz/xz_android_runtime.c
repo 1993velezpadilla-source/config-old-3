@@ -1596,7 +1596,7 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             ANDROID_LOG_INFO,
             "static_scene_multi_uv map='%s'"
             " ready=%d meshes=%u"
-            " uv1Loc=3 uv2Loc=4 uv3Loc=5 modelLoc=6",
+            " uv01Loc=1 normalLoc=2 uv23Loc=3 tangentLoc=4 modelLoc=5",
             XzMapRuntime_MapId(
                 &xz_runtime.map_runtime),
             xz_runtime.gles3_shadow.static_scene_multi_uv_ready,
