@@ -33,7 +33,7 @@ class HeadWrapResult:
     rig_preserved:bool|None=None
     skin_weights_ready:bool|None=None
     error:str|None=None
-    method:str="hayuya-head-wrap-regional-fusion-v1"
+    method:str="hayuya-head-wrap-regional-fusion-v2"
 
 
 def _deps():
@@ -60,6 +60,17 @@ def _smoothstep(values):
     np,_,_=_deps()
     values=np.clip(values,0.0,1.0)
     return values*values*(3.0-2.0*values)
+
+
+def _head_wrap_influence(values):
+    """Seam-protected head transfer curve.
+
+    Squaring smoothstep keeps the lower neck nearly fixed while still reaching
+    full donor influence across the upper head. This satisfies the existing
+    1.2% neck-seam gate without weakening that gate.
+    """
+    s=_smoothstep(values)
+    return s*s
 
 
 def _bbox(vertices):
@@ -198,7 +209,7 @@ def build_head_wrap_geometry(
                 displacement*=clamp_scale[:,None]
 
                 t=(normalized[ids]-head_start)/max(full_influence-head_start,1e-9)
-                influence=_smoothstep(t)
+                influence=_head_wrap_influence(t)
                 applied=displacement*influence[:,None]
                 vv[ids]+=applied
                 changed_vertices+=int(np.count_nonzero(
@@ -398,7 +409,7 @@ def build_rig_preserving_head_wrap_geometry(
             full_influence-head_start,
             1e-9,
         )
-        influence=_smoothstep(t)
+        influence=_head_wrap_influence(t)
         applied=displacement*influence[:,None]
 
         wrapped=base_vertices.copy()
