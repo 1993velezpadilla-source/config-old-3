@@ -149,6 +149,18 @@ class PltCallsTests(unittest.TestCase):
             "render",
             plt_calls._import_category("glDrawElements"),
         )
+        self.assertIn(
+            "projection",
+            plt_calls._import_category("glDepthRangef"),
+        )
+        self.assertIn(
+            "projection",
+            plt_calls._import_category("glViewport"),
+        )
+        self.assertIn(
+            "visibility",
+            plt_calls._import_category("glCullFace"),
+        )
         self.assertEqual(
             plt_calls._import_category("malloc"),
             [],
