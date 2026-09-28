@@ -22,6 +22,13 @@ def encode_adrp(rd: int, pc: int, target: int) -> int:
     return 0x90000000 | (immlo << 29) | (immhi << 5) | rd
 
 
+def encode_adr(rd: int, pc: int, target: int) -> int:
+    imm21 = (target - pc) & ((1 << 21) - 1)
+    immlo = imm21 & 0x3
+    immhi = (imm21 >> 2) & 0x7FFFF
+    return 0x10000000 | (immlo << 29) | (immhi << 5) | rd
+
+
 def encode_add(rd: int, rn: int, imm: int) -> int:
     return 0x91000000 | ((imm & 0xFFF) << 10) | (rn << 5) | rd
 
@@ -44,9 +51,9 @@ def make_xref_fixture(path: Path):
 
     text_words = [
         encode_adrp(0, 0x1000, cam_va),
+        0xD503201F,  # nop: exercise non-adjacent ADRP+ADD recovery
         encode_add(0, 0, cam_va & 0xFFF),
-        encode_adrp(1, 0x1008, world_va),
-        encode_add(1, 1, world_va & 0xFFF),
+        encode_adr(1, 0x100C, world_va),
     ]
     text = struct.pack("<4I", *text_words)
 
@@ -123,9 +130,18 @@ class Aarch64XrefTests(unittest.TestCase):
             report["groups"]["streaming"][0]["function_rva"],
             0x1000,
         )
+        self.assertEqual(
+            report["groups"]["camera"][0]["form"],
+            "adrp+add(+2)",
+        )
+        self.assertEqual(
+            report["groups"]["streaming"][0]["form"],
+            "adr",
+        )
 
     def test_decoder_rejects_other_instructions(self):
         self.assertIsNone(aarch64_xref.decode_adrp(0xD503201F, 0x1000))
+        self.assertIsNone(aarch64_xref.decode_adr(0xD503201F, 0x1000))
         self.assertIsNone(aarch64_xref.decode_add_imm64(0xD65F03C0))
 
 
