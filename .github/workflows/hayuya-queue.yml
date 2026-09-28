@@ -437,6 +437,37 @@ jobs:
           esac
           python tools/hayuya3d/part_map.py             "$HAYUYA_OUTPUT_ROOT/hayuya_final.glb"             --mode "$pmode"             --output "$HAYUYA_OUTPUT_ROOT/part_map.json"
 
+      - name: Emit HAYUYA Motions handoff
+        if: success()
+        shell: bash
+        env:
+          HAYUYA_ANIMATION_REQUESTED: ${{ matrix.animation_requested }}
+          HAYUYA_ASSET_PROFILE: ${{ matrix.asset_profile }}
+          HAYUYA_MOTION_PROFILE: ${{ matrix.motion_profile }}
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          root=Path(os.environ["HAYUYA_OUTPUT_ROOT"])
+          payload={
+            "schema":1,
+            "source_product":"HAYUYA 3D",
+            "downstream_product":"HAYUYA Motions",
+            "hero_model":str(root/"hayuya_final.glb"),
+            "asset_profile":os.environ.get("HAYUYA_ASSET_PROFILE","auto"),
+            "motion_profile":os.environ.get("HAYUYA_MOTION_PROFILE","auto"),
+            "motion_requested":os.environ.get("HAYUYA_ANIMATION_REQUESTED","false").lower()=="true",
+            "geometry_is_immutable_source":True,
+            "instructions":[
+              "Do not modify the approved HAYUYA 3D Hero Master in place.",
+              "Rig, skin, animation and motion QA belong to HAYUYA Motions.",
+              "Write derived animated assets as separate outputs."
+            ],
+          }
+          (root/"hayuya_motions_handoff.json").write_text(json.dumps(payload,indent=2)+"\n")
+          print("HAYUYA_MOTIONS_HANDOFF",json.dumps(payload,separators=(",",":")))
+          PY
+
       - name: Legacy motion planning disabled — moved to HAYUYA Motions
         if: ${{ false }}
         env:
