@@ -683,6 +683,29 @@ if (
             apply_texture=True,
         )
         triposg_candidate=Path(triposg_meta["path"])
+        if not triposg_meta.get("textured") and modern_candidate is not None:
+            try:
+                from material_bridge import transfer_best_material
+                bridged=OUT/"triposg_hero_candidate_material_bridge.glb"
+                bridge=transfer_best_material(
+                    modern_candidate,
+                    triposg_candidate,
+                    bridged,
+                    total_samples=300_000,
+                    max_texture_size=4096 if TEXTURE_QUALITY=="ultra" else 2048,
+                )
+                triposg_candidate=bridged
+                triposg_meta["hayuya_material_bridge"]=asdict(bridge)
+                triposg_meta["textured_via_hayuya_bridge"]=True
+                print(
+                    "HAYUYA_TRIPOSG_MATERIAL_BRIDGE_PASS",
+                    json.dumps(triposg_meta["hayuya_material_bridge"],separators=(",",":")),
+                )
+            except Exception as bridge_exc:
+                print(
+                    "::warning::TripoSG raw Hero material bridge unavailable: "
+                    f"{type(bridge_exc).__name__}: {bridge_exc}"
+                )
         triposg_mesh=inspect_mesh_gate(triposg_candidate,require_normals=False)
         triposg_tex=inspect_texture_gate(
             triposg_candidate,
@@ -714,7 +737,10 @@ if (
             selected_generator=triposg_meta["generator"]
             selected_compute=triposg_meta["compute"]
             actual_mesh_simplify=0.0
-            actual_texture_size=4096 if triposg_meta.get("textured") else 0
+            actual_texture_size=(
+                4096 if triposg_meta.get("textured") or triposg_meta.get("textured_via_hayuya_bridge")
+                else 0
+            )
             hero_target=2_000_000 if TEXTURE_QUALITY=="ultra" else 1_250_000
             hero_floor=1_000_000 if TEXTURE_QUALITY=="ultra" else 650_000
             hero_master_report={
