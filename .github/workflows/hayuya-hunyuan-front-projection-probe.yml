@@ -109,7 +109,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python tools/hayuya3d/source_autofix.py             --source hayuya/assets/monja-mugfwln6/geometry/primary.webp             --out out/hunyuan-front-projection/source_autofix             --policy required
+          python tools/hayuya3d/source_autofix.py             --input hayuya/assets/monja-mugfwln6/geometry/primary.webp             --out out/hunyuan-front-projection/source_autofix             --policy required
           python tools/hayuya3d/judge_v4_face_worker.py             --source out/hunyuan-front-projection/source_autofix/details/000-face_detail-auto.png             --candidate out/hunyuan-front-projection/front_evidence/faces/12_180.png             --output out/hunyuan-front-projection/face_gate.json
           python - <<'PY'
           import json
