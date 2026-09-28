@@ -32,93 +32,119 @@ class AdapterEmitCTests(unittest.TestCase):
                 "calling_convention": "aarch64_aapcs64",
                 "adapter": f"ctw_{key}_adapter_v1",
                 "verified_rva": rva,
-                "trampoline_strategy": (
-                    "simple_copy_trampoline_candidate"
-                ),
-                "evidence": [
-                    {
-                        "method": "fixture",
-                        "detail": f"ABI {key}",
-                    }
-                ],
+                "trampoline_strategy": "simple_copy_trampoline_candidate",
+                "evidence": [{"method": "fixture", "detail": f"ABI {key}"}],
             }
         return obj
 
+    def catalog(self, *, implemented=True):
+        return {
+            "schema": 1,
+            "adapters": [
+                {
+                    "name": f"ctw_{key}_adapter_v1",
+                    "target": key,
+                    "native_symbol": f"ctw_{key}_native_v1",
+                    "implemented": implemented,
+                }
+                for key in profile_template.TARGET_KEYS
+            ],
+        }
+
     def test_emits_verified_adapter_symbols(self):
         with tempfile.TemporaryDirectory() as td:
-            root = Path(td)
-            path = root / "profile.json"
-            path.write_text(
-                json.dumps(self.fixture()),
-                encoding="utf-8",
+            path = Path(td) / "profile.json"
+            path.write_text(json.dumps(self.fixture()), encoding="utf-8")
+            bindings = adapter_emit_c.adapters_from_profile(
+                path, self.catalog()
             )
-            bindings = adapter_emit_c.adapters_from_profile(path)
             header = adapter_emit_c.emit_header(bindings)
 
         self.assertEqual(len(bindings), 6)
         self.assertIn(
-            "extern void ctw_camera_update_adapter_v1(void);",
+            "extern void ctw_camera_update_native_v1(void);",
             header,
         )
         self.assertIn(
             '{ "ctw_projection_setup_adapter_v1", '
-            '(void *)&ctw_projection_setup_adapter_v1 },',
+            '(void *)&ctw_projection_setup_native_v1 },',
             header,
         )
-        self.assertIn("g_ctw_adapter_bindings_count", header)
 
     def test_rejects_pending_abi(self):
         with tempfile.TemporaryDirectory() as td:
-            root = Path(td)
             obj = self.fixture()
             obj["abi_verification"]["lod_test"]["status"] = "pending"
-            path = root / "profile.json"
+            path = Path(td) / "profile.json"
             path.write_text(json.dumps(obj), encoding="utf-8")
             with self.assertRaises(ValueError):
-                adapter_emit_c.adapters_from_profile(path)
+                adapter_emit_c.adapters_from_profile(
+                    path, self.catalog()
+                )
 
-    def test_rejects_invalid_c_identifier(self):
+    def test_rejects_invalid_native_symbol(self):
         with tempfile.TemporaryDirectory() as td:
-            root = Path(td)
-            obj = self.fixture()
-            obj["abi_verification"]["player_render"]["adapter"] = (
-                "bad-adapter-name"
-            )
-            path = root / "profile.json"
-            path.write_text(json.dumps(obj), encoding="utf-8")
+            path = Path(td) / "profile.json"
+            path.write_text(json.dumps(self.fixture()), encoding="utf-8")
+            catalog = self.catalog()
+            catalog["adapters"][5]["native_symbol"] = "bad-native-symbol"
             with self.assertRaises(ValueError):
-                adapter_emit_c.adapters_from_profile(path)
+                adapter_emit_c.adapters_from_profile(path, catalog)
 
     def test_rejects_abi_rva_mismatch(self):
         with tempfile.TemporaryDirectory() as td:
-            root = Path(td)
             obj = self.fixture()
             obj["abi_verification"]["camera_update"]["verified_rva"] = 0x9999
-            path = root / "profile.json"
+            path = Path(td) / "profile.json"
             path.write_text(json.dumps(obj), encoding="utf-8")
             with self.assertRaises(ValueError):
-                adapter_emit_c.adapters_from_profile(path)
+                adapter_emit_c.adapters_from_profile(
+                    path, self.catalog()
+                )
 
-    def test_deduplicates_adapter_symbols(self):
+    def test_rejects_catalog_adapter_not_implemented(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "profile.json"
+            path.write_text(json.dumps(self.fixture()), encoding="utf-8")
+            with self.assertRaisesRegex(
+                ValueError,
+                "native adapters not ready",
+            ):
+                adapter_emit_c.adapters_from_profile(
+                    path,
+                    self.catalog(implemented=False),
+                )
+
+    def test_deduplicates_shared_adapter_binding(self):
         obj = self.fixture()
         shared = "ctw_shared_adapter_v1"
         obj["abi_verification"]["camera_update"]["adapter"] = shared
         obj["abi_verification"]["projection_setup"]["adapter"] = shared
+        catalog = self.catalog()
+        catalog["adapters"][0].update({
+            "name": shared,
+            "native_symbol": "ctw_shared_native_v1",
+        })
+        catalog["adapters"][1].update({
+            "name": shared,
+            "native_symbol": "ctw_shared_native_v1",
+        })
 
         with tempfile.TemporaryDirectory() as td:
-            root = Path(td)
-            path = root / "profile.json"
+            path = Path(td) / "profile.json"
             path.write_text(json.dumps(obj), encoding="utf-8")
             header = adapter_emit_c.emit_header(
-                adapter_emit_c.adapters_from_profile(path)
+                adapter_emit_c.adapters_from_profile(path, catalog)
             )
 
         self.assertEqual(
-            header.count(f"extern void {shared}(void);"),
+            header.count("extern void ctw_shared_native_v1(void);"),
             1,
         )
         self.assertEqual(
-            header.count(f'{{ "{shared}", (void *)&{shared} }}'),
+            header.count(
+                '{ "ctw_shared_adapter_v1", (void *)&ctw_shared_native_v1 }'
+            ),
             1,
         )
 
