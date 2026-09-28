@@ -17,6 +17,7 @@ class ProfileEmitCTests(unittest.TestCase):
                 "jni_rvas": {
                     "implOnDrawFrame": 0x1000,
                     "implOnInitialSetup": 0x2000,
+                    "implOnGamepadAxesChanged": 0x2500,
                 },
             },
             "patch_targets_rva": {
@@ -45,6 +46,7 @@ class ProfileEmitCTests(unittest.TestCase):
             header = profile_emit_c.emit_header([p])
 
         self.assertIn(".expected_draw_frame_rva = 0x1000u", header)
+        self.assertIn(".expected_gamepad_axes_rva = 0x2500u", header)
         self.assertIn(".camera_update = 0x3000u", header)
         self.assertIn("g_ctw_profiles_count", header)
 
@@ -81,6 +83,7 @@ class ProfileEmitCTests(unittest.TestCase):
             "name": "a",
             "draw": 0x1000,
             "setup": 0x2000,
+            "axes": 0x2500,
             "targets": {key: 0x3000 for key in profile_emit_c.TARGET_KEYS},
         }
         with self.assertRaises(ValueError):
