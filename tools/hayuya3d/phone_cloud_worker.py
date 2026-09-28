@@ -11,6 +11,7 @@ from rig_gate import inspect as inspect_rig_gate
 from texture_gate import inspect as inspect_texture_gate
 from trellis2_cloud import generate as generate_trellis2_cloud
 from trellis2_preview_recovery import recover as recover_trellis2_preview
+from trellis2_preview_normal_hero import build_normal_informed_hero
 from triposg_cloud import generate as generate_triposg_cloud
 from detailgen3d_cloud import refine as refine_detailgen3d_cloud
 from triposr_cpu_cloud import generate as generate_triposr_cpu_cloud
@@ -457,6 +458,7 @@ selected_generator="trellis-community/TRELLIS"
 selected_compute="GitHub-hosted CPU controller + public TRELLIS ZeroGPU"
 modern_candidate=None
 preview_recovery_candidate=None
+preview_normal_hero_report=None
 preview_recovery_face_rescue_required=False
 preview_recovery_face_rescue_reason=None
 hero_master_report=None
@@ -557,7 +559,7 @@ if not multi and TRELLIS2_ENABLED and TEXTURE_QUALITY in {"high","ultra"}:
                         OUT/"trellis2_preview_recovered.glb",
                         grid_resolution=224 if TEXTURE_QUALITY in {"high","ultra"} else 192,
                         texture_size=2048 if TEXTURE_QUALITY in {"high","ultra"} else 1024,
-                        face_target=140000 if TEXTURE_QUALITY=="ultra" else 120000,
+                        face_target=125000 if TEXTURE_QUALITY=="ultra" else 120000,
                     )
                     recovered_candidate=Path(recovered_meta["path"])
                     recovered_mesh_report=inspect_mesh_gate(
@@ -608,6 +610,105 @@ if not multi and TRELLIS2_ENABLED and TEXTURE_QUALITY in {"high","ultra"}:
                                 "detail_views":len(detail_views),
                             },separators=(",",":")),
                         )
+
+                        # Ultra characters can recover substantially more of the
+                        # native TRELLIS.2 surface than a silhouette hull because
+                        # the preserved preview also contains eight exact
+                        # camera-space normal renders. Integrate those normals into
+                        # visible-surface depth, refine the textured hull, and
+                        # subdivide the refined topology to the 2M Hero ceiling.
+                        # This remains explicitly non-native and must still pass
+                        # downstream visual/anatomy Judge gates.
+                        if TEXTURE_QUALITY=="ultra":
+                            try:
+                                preview_normal_hero_report=build_normal_informed_hero(
+                                    preview_html,
+                                    recovered_candidate,
+                                    OUT/"trellis2_preview_normal_hero.glb",
+                                    normal_resolution=256,
+                                    subdivision_levels=2,
+                                    max_faces=2_000_000,
+                                )
+                                normal_candidate=Path(
+                                    preview_normal_hero_report["path"]
+                                )
+                                normal_mesh=inspect_mesh_gate(
+                                    normal_candidate,
+                                    require_normals=False,
+                                )
+                                normal_texture=inspect_texture_gate(
+                                    normal_candidate,
+                                    min_edge=4096,
+                                    min_base_color_edge=4096,
+                                )
+                                print(
+                                    "HAYUYA_TRELLIS2_PREVIEW_NORMAL_HERO_MESH_GATE",
+                                    json.dumps(asdict(normal_mesh),separators=(",",":")),
+                                )
+                                print(
+                                    "HAYUYA_TRELLIS2_PREVIEW_NORMAL_HERO_TEXTURE_GATE",
+                                    json.dumps(asdict(normal_texture),separators=(",",":")),
+                                )
+                                if (
+                                    not normal_mesh.passed
+                                    or not normal_texture.passed
+                                    or int(normal_mesh.faces)<1_000_000
+                                    or int(normal_mesh.faces)>2_000_000
+                                ):
+                                    raise RuntimeError(
+                                        "normal-informed Hero failed hard gates: "
+                                        +json.dumps({
+                                            "mesh":asdict(normal_mesh),
+                                            "texture":asdict(normal_texture),
+                                        },separators=(",",":"))
+                                    )
+
+                                modern_candidate=normal_candidate
+                                preview_recovery_candidate=normal_candidate
+                                selected_generator=preview_normal_hero_report["generator"]
+                                selected_compute=preview_normal_hero_report["compute"]
+                                actual_mesh_simplify=0.0
+                                actual_texture_size=4096
+                                result=str(modern_candidate)
+                                preview_recovery_face_rescue_required=False
+                                preview_recovery_face_rescue_reason=(
+                                    "visible_surface_geometry_recovered_from_exact_"
+                                    "trellis2_camera_space_normals"
+                                )
+                                hero_master_report={
+                                    "schema":1,
+                                    "policy":"dense-normal-informed-preview-before-retopo",
+                                    "generator":selected_generator,
+                                    "target_faces":2_000_000,
+                                    "minimum_faces":1_000_000,
+                                    "actual_faces":int(normal_mesh.faces),
+                                    "actual_vertices":int(normal_mesh.vertices),
+                                    "dense_master_ready":False,
+                                    "candidate_ready_for_judge":True,
+                                    "normal_informed":True,
+                                    "native_latent_extraction":False,
+                                    "approximation":preview_normal_hero_report.get("approximation"),
+                                    "optimization_deferred":True,
+                                    "runtime_optimization_stage":"post-Judge-v4",
+                                }
+                                print(
+                                    "HAYUYA_TRELLIS2_PREVIEW_NORMAL_HERO_PROMOTED",
+                                    json.dumps(hero_master_report,separators=(",",":")),
+                                )
+                            except Exception as normal_hero_exc:
+                                preview_normal_hero_report={
+                                    "passed":False,
+                                    "error":(
+                                        f"{type(normal_hero_exc).__name__}: "
+                                        f"{normal_hero_exc}"
+                                    ),
+                                }
+                                print(
+                                    "::warning::TRELLIS.2 normal-informed Hero "
+                                    "challenger unavailable/rejected; retaining "
+                                    "mandatory face-geometry rescue: "
+                                    +preview_normal_hero_report["error"]
+                                )
                     else:
                         print(
                             "HAYUYA_TRELLIS2_PREVIEW_RECOVERY_PROMOTED",
@@ -1230,9 +1331,13 @@ manifest={
     ),
     "preview_recovery_face_rescue_required":preview_recovery_face_rescue_required,
     "preview_recovery_face_rescue_reason":preview_recovery_face_rescue_reason,
+    "preview_normal_hero":preview_normal_hero_report,
     "hero_master":hero_master_report,
     "preview_recovery_promoted":bool(
-        selected_generator=="microsoft/TRELLIS.2-preview-recovery"
+        selected_generator in {
+            "microsoft/TRELLIS.2-preview-recovery",
+            "microsoft/TRELLIS.2-preview-normal-hero",
+        }
         and (
             not preview_recovery_face_rescue_required
             or bool(
