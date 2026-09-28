@@ -56,6 +56,8 @@ jobs:
             tools/gtactw/test_profile_template.py \
             tools/gtactw/profile_emit_c.py \
             tools/gtactw/test_profile_emit_c.py \
+            tools/gtactw/profile_verify_binary.py \
+            tools/gtactw/test_profile_verify_binary.py \
             tools/gtactw/mdl_probe.py \
             tools/gtactw/test_mdl_probe.py \
             tools/gtactw/wbl_probe.py \
@@ -92,6 +94,9 @@ jobs:
 
       - name: Run CTW verified profile emitter gate
         run: python -m unittest -v tools/gtactw/test_profile_emit_c.py
+
+      - name: Run CTW exact-binary profile verification gate
+        run: python -m unittest -v tools/gtactw/test_profile_verify_binary.py
 
       - name: Run CTW mobile model parser gate
         run: python -m unittest -v tools/gtactw/test_mdl_probe.py
@@ -202,6 +207,7 @@ jobs:
           echo "GTACTW_ANDROID_APK_MODPACK_GREEN=1"
           echo "GTACTW_ANDROID_PROFILE_TEMPLATE_GREEN=1"
           echo "GTACTW_ANDROID_PROFILE_EMITTER_GREEN=1"
+          echo "GTACTW_ANDROID_PROFILE_BINARY_VERIFY_GREEN=1"
           echo "GTACTW_ANDROID_MDL_PROBE_GREEN=1"
           echo "GTACTW_ANDROID_WBL_PROBE_GREEN=1"
           echo "GTACTW_ANDROID_WORLD_CENSUS_GREEN=1"
