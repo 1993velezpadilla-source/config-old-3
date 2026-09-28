@@ -1604,6 +1604,18 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
 
         XzAndroidLog(
             ANDROID_LOG_INFO,
+            "static_scene_lightmap_batches map='%s'"
+            " ready=%d batches=%u mappedBatches=%u missingBatches=%u"
+            " mappedInstances=10786 missingInstances=5",
+            XzMapRuntime_MapId(
+                &xz_runtime.map_runtime),
+            xz_runtime.gles3_shadow.static_scene_lightmap_batch_ready,
+            xz_runtime.gles3_shadow.static_scene_lightmap_batch_count,
+            xz_runtime.gles3_shadow.static_scene_lightmap_mapped_batches,
+            xz_runtime.gles3_shadow.static_scene_lightmap_missing_batches);
+
+        XzAndroidLog(
+            ANDROID_LOG_INFO,
             "static_scene_tonemap map='%s'"
             " ready=%d tonemapMode=pavlov_legacy"
             " autoExposure=%d tonemapperFilm=%d"
