@@ -65,22 +65,35 @@ def _abi_review_card(abi_evidence: dict, caller_evidence: dict) -> dict:
         context = caller.get("context", {})
         if not isinstance(context, dict):
             continue
-        locally_prepared.update(
+        local_regs = {
             x
             for x in context.get(
                 "locally_prepared_argument_registers",
                 [],
             )
             if isinstance(x, str)
-        )
-        passthrough.update(
+        }
+        pass_regs = {
             x
             for x in context.get(
                 "possible_passthrough_argument_registers",
                 [],
             )
             if isinstance(x, str)
-        )
+        }
+        locally_prepared.update(local_regs)
+        passthrough.update(pass_regs)
+
+        for reg in sorted(local_regs | pass_regs):
+            stats = caller_reg_stats.setdefault(reg, {
+                "locally_prepared_count": 0,
+                "passthrough_count": 0,
+                "kind_counts": {},
+            })
+            if reg in local_regs:
+                stats["locally_prepared_count"] += 1
+            if reg in pass_regs:
+                stats["passthrough_count"] += 1
         return_use = context.get("return_use", {})
         if isinstance(return_use, dict):
             for reg in ("x0", "v0"):
@@ -101,6 +114,7 @@ def _abi_review_card(abi_evidence: dict, caller_evidence: dict) -> dict:
     )
 
     caller_kinds = {}
+    caller_reg_stats = {}
     for caller in callers:
         if not isinstance(caller, dict):
             continue
@@ -119,6 +133,14 @@ def _abi_review_card(abi_evidence: dict, caller_evidence: dict) -> dict:
             if not isinstance(kind, str) or not kind:
                 continue
             caller_kinds.setdefault(reg, set()).add(kind)
+            stats = caller_reg_stats.setdefault(reg, {
+                "locally_prepared_count": 0,
+                "passthrough_count": 0,
+                "kind_counts": {},
+            })
+            stats["kind_counts"][kind] = (
+                stats["kind_counts"].get(kind, 0) + 1
+            )
 
     def shape_compatible(callee_kind: str, caller_kind: str) -> bool:
         pointer_like = {
@@ -191,11 +213,39 @@ def _abi_review_card(abi_evidence: dict, caller_evidence: dict) -> dict:
             ),
         }
 
+    caller_count = len(callers)
+    caller_argument_consensus = {}
+    for reg, stats in sorted(caller_reg_stats.items()):
+        local_count = stats["locally_prepared_count"]
+        pass_count = stats["passthrough_count"]
+        seen_count = min(caller_count, local_count + pass_count)
+        absent_count = max(0, caller_count - seen_count)
+
+        if caller_count == 0:
+            status = "no_callers"
+        elif local_count == caller_count:
+            status = "locally_prepared_by_all_callers"
+        elif pass_count == caller_count:
+            status = "passthrough_in_all_callers"
+        elif seen_count == caller_count:
+            status = "mixed_but_present_in_all_callers"
+        else:
+            status = "present_in_subset_of_callers"
+
+        caller_argument_consensus[reg] = {
+            **stats,
+            "caller_count": caller_count,
+            "seen_count": seen_count,
+            "absent_count": absent_count,
+            "status": status,
+        }
+
     return {
         "callee_gpr_inputs": sorted(callee_gpr),
         "callee_fp_inputs": sorted(callee_fp),
         "caller_locally_prepared": sorted(locally_prepared),
         "caller_possible_passthrough": sorted(passthrough),
+        "caller_argument_consensus": caller_argument_consensus,
         "gpr_supported_by_callee_and_callers": sorted(
             callee_gpr & (locally_prepared | passthrough)
         ),
