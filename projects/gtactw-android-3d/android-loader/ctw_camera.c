@@ -7,6 +7,7 @@
 static atomic_uint g_look_x_bits;
 static atomic_uint g_look_y_bits;
 static atomic_int g_mode = ATOMIC_VAR_INIT(CTW_CAMERA_THIRD_PERSON);
+static CtwCameraOrbitState g_runtime_orbit;
 
 static uint32_t float_bits(float v) {
     uint32_t bits;
@@ -128,4 +129,22 @@ void ctw_camera_orbit_step(
         config->camera_min_pitch_degrees,
         config->camera_max_pitch_degrees
     );
+}
+
+
+void ctw_camera_runtime_reset(const Ctw3DConfig *config) {
+    ctw_camera_orbit_reset(&g_runtime_orbit, config);
+}
+
+void ctw_camera_runtime_step(const Ctw3DConfig *config, float dt_seconds) {
+    ctw_camera_orbit_step(
+        &g_runtime_orbit,
+        config,
+        ctw_camera_snapshot(),
+        dt_seconds
+    );
+}
+
+CtwCameraOrbitState ctw_camera_orbit_snapshot(void) {
+    return g_runtime_orbit;
 }
