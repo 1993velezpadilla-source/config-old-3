@@ -5,15 +5,42 @@ using CUE4Parse.UE4.Objects.UObject;
 using CUE4Parse.UE4.Versions;
 using System.Text.Json;
 
-if (args.Length < 2 || args.Length > 4)
+if (args.Length < 2 || args.Length > 5)
 {
     Console.Error.WriteLine(
-        "usage: UEAssetClassCensus <unpacked-root> <output-json> [shard-index] [shard-count]");
+        "usage: UEAssetClassCensus <unpacked-root> <output-json> [source-game | shard-index shard-count [source-game]]");
     return 2;
 }
 
-var shardIndex = args.Length >= 3 ? int.Parse(args[2]) : 0;
-var shardCount = args.Length >= 4 ? int.Parse(args[3]) : 1;
+var shardIndex = 0;
+var shardCount = 1;
+var sourceGameName = "ue4.21";
+
+if (args.Length >= 3)
+{
+    if (int.TryParse(args[2], out shardIndex))
+    {
+        if (args.Length < 4 || !int.TryParse(args[3], out shardCount))
+        {
+            Console.Error.WriteLine("shard-count required after shard-index");
+            return 2;
+        }
+
+        if (args.Length >= 5)
+            sourceGameName = args[4];
+    }
+    else
+    {
+        if (args.Length != 3)
+        {
+            Console.Error.WriteLine(
+                "source-game alone must be the only optional argument");
+            return 2;
+        }
+
+        sourceGameName = args[2];
+    }
+}
 
 if (shardCount <= 0 || shardIndex < 0 || shardIndex >= shardCount)
 {
@@ -21,12 +48,23 @@ if (shardCount <= 0 || shardIndex < 0 || shardIndex >= shardCount)
     return 2;
 }
 
+EGame sourceGame =
+    sourceGameName.Trim().ToLowerInvariant() switch
+    {
+        "ue4.21" or "ue4_21" or "ue421" =>
+            EGame.GAME_UE4_21,
+        "ue5.1" or "ue5_1" or "ue51" =>
+            EGame.GAME_UE5_1,
+        _ => throw new ArgumentException(
+            "unsupported source-game: " + sourceGameName)
+    };
+
 var provider =
     new DefaultFileProvider(
         args[0],
         SearchOption.AllDirectories,
         true,
-        new VersionContainer(EGame.GAME_UE4_21));
+        new VersionContainer(sourceGame));
 
 provider.Initialize();
 provider.PostMount();
@@ -52,6 +90,10 @@ var packageRows =
 
 var totalExports = 0;
 var packagesLoaded = 0;
+var savedEngineVersionCounts =
+    new SortedDictionary<string, int>(StringComparer.Ordinal);
+var fileVersionCounts =
+    new SortedDictionary<string, int>(StringComparer.Ordinal);
 
 foreach (var packagePath in packages)
 {
@@ -86,6 +128,17 @@ foreach (var packagePath in packages)
 
         packagesLoaded++;
         totalExports += package.ExportMap.Length;
+
+        var savedEngine =
+            package.Summary.SavedByEngineVersion?.ToString()
+            ?? "<none>";
+        savedEngineVersionCounts[savedEngine] =
+            savedEngineVersionCounts.GetValueOrDefault(savedEngine) + 1;
+
+        var fileVersion =
+            package.Summary.FileVersionUE.ToString();
+        fileVersionCounts[fileVersion] =
+            fileVersionCounts.GetValueOrDefault(fileVersion) + 1;
 
         var localClasses =
             new SortedDictionary<string, int>(StringComparer.Ordinal);
@@ -132,11 +185,15 @@ var report = new {
     root = Path.GetFullPath(args[0]),
     shardIndex,
     shardCount,
+    sourceGame = sourceGame.ToString(),
+    sourceGameName,
     packageCount = packages.Length,
     packagesLoaded,
     packageLoadFailureCount = packageLoadFailures.Count,
     totalExports,
     uniqueExportClassCount = classCounts.Count,
+    savedEngineVersionCounts,
+    fileVersionCounts,
     packageExtensionCounts,
     classCounts,
     packageLoadFailures,
@@ -163,7 +220,8 @@ Console.WriteLine(
             report.packagesLoaded,
             report.packageLoadFailureCount,
             report.totalExports,
-            report.uniqueExportClassCount
+            report.uniqueExportClassCount,
+            report.sourceGameName
         }));
 
 foreach (var pair in classCounts
