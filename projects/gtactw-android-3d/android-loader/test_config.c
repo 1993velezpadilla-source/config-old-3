@@ -65,12 +65,27 @@ int main(void) {
     assert(cfg.disable_cinematic_camera == 0);
     assert(feq(cfg.far_clip_multiplier, 3.2f));
     assert(feq(cfg.stream_radius_multiplier, 3.2f));
+    assert(feq(cfg.lod_distance_multiplier, 3.2f));
     assert(feq(cfg.vehicle_distance_multiplier, 4.0f)); /* clamped */
     assert(feq(cfg.ped_distance_multiplier, 1.5f));
     assert(cfg.character_fix == 0);
     assert(cfg.extended_character_lod == 1);
     assert(cfg.keep_full_player_body == 0);
     assert(cfg.hide_head_in_first_person == 0);
+
+
+    Ctw3DConfig advanced;
+    ctw_config_set_defaults(&advanced);
+    const char *advanced_world =
+        "[World]\n"
+        "DrawDistance=3.0\n"
+        "FarClip=4.1\n"
+        "StreamRadius=3.8\n"
+        "LODDistance=2.7\n";
+    assert(ctw_config_parse_text(&advanced, advanced_world) == 4);
+    assert(feq(advanced.far_clip_multiplier, 4.1f));
+    assert(feq(advanced.stream_radius_multiplier, 3.8f));
+    assert(feq(advanced.lod_distance_multiplier, 2.7f));
 
     const char *disable = "[Camera]\nEnabled=0\n";
     assert(ctw_config_parse_text(&cfg, disable) == 1);
