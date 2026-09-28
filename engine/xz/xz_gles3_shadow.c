@@ -3249,6 +3249,7 @@ static int XzUploadStaticHQLightmaps(
     const XzStaticSceneRuntimeState *scene,
     XzGles3ShadowState *state)
 {
+    GLenum gl_error = GL_NO_ERROR;
     const XzLightmapTextureView *lightmaps =
         XzStaticSceneRuntime_Lightmaps(scene);
     unsigned char *used = NULL;
@@ -3259,6 +3260,11 @@ static int XzUploadStaticHQLightmaps(
     uint32_t uploaded = 0u;
     uint64_t uploaded_bytes = 0u;
 
+    if (state) {
+        state->static_scene_lightmap_upload_stage = 1u;
+        state->static_scene_lightmap_gl_error = 0u;
+    }
+
     if (!scene ||
         !state ||
         !lightmaps ||
@@ -3267,6 +3273,8 @@ static int XzUploadStaticHQLightmaps(
         !xz_shadow.static_lightmap_draw_plan.batches ||
         lightmaps->texture_count == 0u)
         return 0;
+
+    state->static_scene_lightmap_upload_stage = 2u;
 
     used = (unsigned char *)calloc(
         lightmaps->texture_count,
@@ -3302,6 +3310,8 @@ static int XzUploadStaticHQLightmaps(
         used[batch->light_texture[0]] = 1u;
     }
 
+    state->static_scene_lightmap_upload_stage = 3u;
+
     for (texture_index = 0u;
          texture_index < lightmaps->texture_count;
          ++texture_index) {
@@ -3325,6 +3335,8 @@ static int XzUploadStaticHQLightmaps(
         dest =
             &xz_shadow.static_lightmap_textures[
                 texture_index];
+
+        state->static_scene_lightmap_upload_stage = 4u;
 
         xz_shadow.gl.GenTextures(
             1,
@@ -3393,6 +3405,8 @@ static int XzUploadStaticHQLightmaps(
             if (read_status != XZ_XZLT_OK)
                 goto fail;
 
+            state->static_scene_lightmap_upload_stage = 5u;
+
             xz_shadow.gl.CompressedTexImage2D(
                 GL_TEXTURE_2D,
                 (GLint)relative_mip,
@@ -3403,9 +3417,12 @@ static int XzUploadStaticHQLightmaps(
                 (GLsizei)mip.bytes,
                 scratch);
 
-            if (xz_shadow.gl.GetError() !=
-                GL_NO_ERROR)
+            gl_error = xz_shadow.gl.GetError();
+            if (gl_error != GL_NO_ERROR) {
+                state->static_scene_lightmap_gl_error =
+                    (unsigned int)gl_error;
                 goto fail;
+            }
 
             uploaded_bytes +=
                 (uint64_t)mip.bytes;
@@ -3439,6 +3456,8 @@ static int XzUploadStaticHQLightmaps(
     free(scratch);
     free(used);
 
+    state->static_scene_lightmap_upload_stage = 6u;
+
     state->static_scene_gpu_lightmap_textures =
         uploaded;
     state->static_scene_gpu_lightmap_bytes =
@@ -3452,6 +3471,12 @@ static int XzUploadStaticHQLightmaps(
         xz_shadow.gl.GetError() == GL_NO_ERROR;
 
 fail:
+    if (state &&
+        state->static_scene_lightmap_gl_error == 0u) {
+        gl_error = xz_shadow.gl.GetError();
+        state->static_scene_lightmap_gl_error =
+            (unsigned int)gl_error;
+    }
     free(scratch);
     free(used);
     xz_shadow.gl.ActiveTexture(GL_TEXTURE0);
