@@ -290,6 +290,16 @@ class HookDossierTests(unittest.TestCase):
             card["caller_argument_consensus"]["x1"]["status"],
             "passthrough_in_all_callers",
         )
+        manual = candidate["manual_review"]
+        self.assertEqual(manual["status"], "manual_review_ready")
+        self.assertIn(
+            "callee_caller_argument_shape_agreement",
+            manual["supports"],
+        )
+        self.assertIn("caller_side_abi_evidence", manual["supports"])
+        self.assertIn("trampoline_strategy_available", manual["supports"])
+        self.assertIn("x0", manual["consensus_registers"])
+        self.assertIn("caller_analysis_is_partial", manual["cautions"])
 
         self.assertEqual(report["summary"]["targets_verified"], 0)
         self.assertEqual(report["summary"]["targets_with_candidates"], 1)
@@ -361,6 +371,52 @@ class HookDossierTests(unittest.TestCase):
             card["caller_argument_consensus"]["x2"]["absent_count"],
             1,
         )
+
+    def test_manual_review_readiness_blocks_shape_conflict(self):
+        card = {
+            "direct_call_site_count": 2,
+            "callers_analyzed": 2,
+            "argument_shape_review": {
+                "x0": {"status": "conflict"},
+            },
+            "caller_argument_consensus": {
+                "x0": {
+                    "status": "locally_prepared_by_all_callers",
+                },
+            },
+            "caller_return_use_counts": {
+                "x0": {"consumed": 1},
+                "v0": {"consumed": 0},
+            },
+        }
+        result = hook_dossier._manual_review_readiness(
+            {"argument_register_hints": {"likely_gpr_inputs_x0_x7": [0]}},
+            {"direct_call_site_count": 2},
+            card,
+            "simple_copy",
+        )
+        self.assertEqual(result["status"], "shape_conflict")
+        self.assertIn("argument_shape_conflict", result["blockers"])
+
+    def test_manual_review_readiness_flags_missing_direct_call_path(self):
+        card = {
+            "direct_call_site_count": 0,
+            "callers_analyzed": 0,
+            "argument_shape_review": {},
+            "caller_argument_consensus": {},
+            "caller_return_use_counts": {
+                "x0": {"consumed": 0},
+                "v0": {"consumed": 0},
+            },
+        }
+        result = hook_dossier._manual_review_readiness(
+            {"argument_register_hints": {}},
+            {"direct_call_site_count": 0},
+            card,
+            "advanced_relocator_required",
+        )
+        self.assertEqual(result["status"], "needs_caller_path_review")
+        self.assertIn("no_direct_call_sites", result["blockers"])
 
     def test_verified_target_is_reported_without_auto_promotion(self):
         profile = self.fixture()
