@@ -430,6 +430,7 @@ jobs:
             projects/gtactw-android-3d/android-loader/ctw_runtime_adapters.c \
             projects/gtactw-android-3d/android-loader/ctw_camera.c \
             projects/gtactw-android-3d/android-loader/ctw_character.c \
+            projects/gtactw-android-3d/android-loader/ctw_runtime_policy.c \
             projects/gtactw-android-3d/android-loader/ctw_profile.c \
             projects/gtactw-android-3d/android-loader/ctw_adapter_registry.c \
             projects/gtactw-android-3d/android-loader/ctw_hook_session.c \
