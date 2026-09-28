@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "game": "GTA Chinatown Wars",
+  "package": "com.rockstargames.gtactw",
+  "reference_build": {
+    "version_name": "4.4.243",
+    "version_code": 4277603,
+    "release_date": "2026-03-09",
+    "min_android": "9",
+    "min_api": 28,
+    "architectures_seen_publicly": [
+      "arm64-v8a",
+      "x86_64"
+    ],
+    "distribution_note": "Current Google Play build is offered as a free trial with one-time in-app purchase for the full game."
+  },
+  "android_mod_target": {
+    "preferred_abi": "arm64-v8a",
+    "game_library": "lib/arm64-v8a/libGame.so",
+    "original_library_name_after_repack": "lib/arm64-v8a/libGame_orig.so"
+  },
+  "verification": {
+    "require_package_match": true,
+    "require_version_name_match": true,
+    "require_version_code_match": true,
+    "require_arm64_libgame": true
+  }
+}
