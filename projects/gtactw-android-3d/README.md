@@ -183,3 +183,29 @@ The census reports per-worldblock instance/level density, sector counts,
 origins and local level bounds. This is intended to guide coordinated
 stream-radius/LOD/far-clip tuning rather than blindly increasing a single
 draw-distance constant.
+
+
+## Pinned Android target verification
+
+Before generating or applying a runtime patch profile, validate the user-owned
+APK against the pinned Android target:
+
+```bash
+python tools/gtactw/apk_identity.py \
+  ./local_ctw/GTA_CTW.apk \
+  --reference projects/gtactw-android-3d/reference_build_4.4.243.json \
+  --out ./local_ctw/apk_identity.json
+```
+
+Then run the full analyzer with the same reference gate:
+
+```bash
+python tools/gtactw/analyze_apk.py \
+  ./local_ctw/GTA_CTW.apk \
+  --reference projects/gtactw-android-3d/reference_build_4.4.243.json \
+  --out ./local_ctw/ctw_analysis.json
+```
+
+A mismatch in package name, version name, version code, or ARM64 ABI keeps the
+reference-build gate red. This prevents applying verified internal RVAs to an
+unknown binary build.
