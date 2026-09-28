@@ -31,6 +31,10 @@ def load_verified_profile(path: Path) -> dict:
 
     draw = require_rva(jni.get("implOnDrawFrame"), "implOnDrawFrame RVA")
     setup = require_rva(jni.get("implOnInitialSetup"), "implOnInitialSetup RVA")
+    axes = require_rva(
+        jni.get("implOnGamepadAxesChanged"),
+        "implOnGamepadAxesChanged RVA",
+    )
     clean_targets = {
         key: require_rva(targets.get(key), f"{key} RVA")
         for key in TARGET_KEYS
@@ -69,6 +73,7 @@ def load_verified_profile(path: Path) -> dict:
         "name": f"{path.stem}:{sha[:12]}",
         "draw": draw,
         "setup": setup,
+        "axes": axes,
         "targets": clean_targets,
     }
 
@@ -79,11 +84,11 @@ def emit_header(profiles: list[dict]) -> str:
 
     seen = set()
     for p in profiles:
-        key = (p["draw"], p["setup"])
+        key = (p["draw"], p["setup"], p["axes"])
         if key in seen:
             raise ValueError(
                 "duplicate runtime fingerprint: "
-                f"draw=0x{key[0]:X} setup=0x{key[1]:X}"
+                f"draw=0x{key[0]:X} setup=0x{key[1]:X} axes=0x{key[2]:X}"
             )
         seen.add(key)
 
@@ -103,6 +108,7 @@ def emit_header(profiles: list[dict]) -> str:
             f'        .name = "{p["name"]}",',
             f'        .expected_draw_frame_rva = 0x{p["draw"]:X}u,',
             f'        .expected_initial_setup_rva = 0x{p["setup"]:X}u,',
+            f'        .expected_gamepad_axes_rva = 0x{p["axes"]:X}u,',
             "        .target_rvas = {",
             f'            .camera_update = 0x{t["camera_update"]:X}u,',
             f'            .projection_setup = 0x{t["projection_setup"]:X}u,',
