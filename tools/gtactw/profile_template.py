@@ -264,6 +264,14 @@ def make_profile(report: dict, xref_report: dict | None = None) -> dict:
             },
         },
         "patch_targets_rva": {key: None for key in TARGET_KEYS},
+        "target_verification": {
+            key: {
+                "status": "pending",
+                "rva": None,
+                "evidence": [],
+            }
+            for key in TARGET_KEYS
+        },
         "camera_defaults": {
             "initial_mode": "third_person",
             "toggle_button": 13,
