@@ -38,6 +38,8 @@ jobs:
             tools/gtactw/test_elf_probe.py \
             tools/gtactw/pak_inventory.py \
             tools/gtactw/test_pak_inventory.py \
+            tools/gtactw/analyze_apk.py \
+            tools/gtactw/test_analyze_apk.py \
             tools/gtactw/apk_modpack.py \
             tools/gtactw/test_apk_modpack.py \
             tools/gtactw/apkset_probe.py \
@@ -151,6 +153,9 @@ jobs:
           /tmp/ctw_profile_test
           echo "GTACTW_RUNTIME_PROFILE_MATCH_GREEN=1"
 
+      - name: Run synthetic CTW end-to-end APK gate
+        run: python -m unittest -v tools/gtactw/test_analyze_apk.py
+
       - name: Gate marker
         run: |
           echo "GTACTW_ANDROID_PAK_PROBE_GREEN=1"
@@ -158,6 +163,7 @@ jobs:
           echo "GTACTW_ANDROID_SPLIT_MODPACK_GREEN=1"
           echo "GTACTW_ANDROID_ELF_PROBE_GREEN=1"
           echo "GTACTW_ANDROID_PAK_INVENTORY_GREEN=1"
+          echo "GTACTW_ANDROID_ANALYZER_GREEN=1"
           echo "GTACTW_ANDROID_APK_MODPACK_GREEN=1"
           echo "GTACTW_ANDROID_PROFILE_TEMPLATE_GREEN=1"
           echo "GTACTW_ANDROID_PROFILE_EMITTER_GREEN=1"
