@@ -8,8 +8,13 @@
 #include <unistd.h>
 
 #define LOG_TAG "CTW3D"
+#if defined(__ANDROID__)
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+#else
+#define LOGI(...) do { fprintf(stderr, LOG_TAG ": "); fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\\n"); } while (0)
+#define LOGE(...) LOGI(__VA_ARGS__)
+#endif
 
 Ctw3DConfig g_ctw3d_config = {
     .mode = CTW_CAMERA_THIRD_PERSON,
