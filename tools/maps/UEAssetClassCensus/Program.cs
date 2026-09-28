@@ -118,12 +118,24 @@ foreach (var packagePath in packages)
          * which live in .uasset/.umap.
          */
         using var uassetReader = gameFile.CreateReader();
+        /*
+         * Header-only census must not let CUE4Parse resolve imports through
+         * the provider. FObjectExport eagerly touches ClassIndex.Name while
+         * parsing the export table; with a provider that can recursively
+         * load imported packages and trigger unversioned-property
+         * deserialization, which requires mappings and defeats this census.
+         *
+         * The reader already carries the selected UE version. Passing a null
+         * provider keeps Package construction limited to this package's
+         * header tables. We resolve class names from ImportMap/ExportMap
+         * directly below.
+         */
         var package = new Package(
             uassetReader,
             (FArchive?) null,
             (FArchive?) null,
             (FArchive?) null,
-            provider,
+            null,
             true);
 
         packagesLoaded++;
@@ -146,17 +158,29 @@ foreach (var packagePath in packages)
         foreach (var export in package.ExportMap)
         {
             string type;
-            try
+            var classIndex = export.ClassIndex;
+
+            if (classIndex.IsImport)
             {
+                var importIndex = -classIndex.Index - 1;
                 type =
-                    package
-                        .ResolvePackageIndex(export.ClassIndex)?
-                        .Name.Text
-                    ?? "<unresolved-class>";
+                    importIndex >= 0 &&
+                    importIndex < package.ImportMap.Length
+                        ? package.ImportMap[importIndex].ObjectName.Text
+                        : "<invalid-import-class-index>";
             }
-            catch
+            else if (classIndex.IsExport)
             {
-                type = "<unresolved-class>";
+                var exportIndex = classIndex.Index - 1;
+                type =
+                    exportIndex >= 0 &&
+                    exportIndex < package.ExportMap.Length
+                        ? package.ExportMap[exportIndex].ObjectName.Text
+                        : "<invalid-export-class-index>";
+            }
+            else
+            {
+                type = "<null-class>";
             }
 
             classCounts[type] =
