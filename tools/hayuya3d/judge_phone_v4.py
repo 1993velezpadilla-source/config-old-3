@@ -62,16 +62,28 @@ def _build_blender_evidence(final_glb:Path,out_dir:Path):
         "--size","640",
         "--face-size","768",
     ]
-    proc=subprocess.run(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        timeout=1200,
-        check=False,
-    )
+    try:
+        proc=subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            timeout=4200,
+            check=False,
+        )
+        output=proc.stdout or ""
+    except subprocess.TimeoutExpired as exc:
+        output=exc.stdout or ""
+        if isinstance(output,bytes):
+            output=output.decode("utf-8","replace")
+        log_path.parent.mkdir(parents=True,exist_ok=True)
+        log_path.write_text(output,encoding="utf-8")
+        raise RuntimeError(
+            "Blender Judge evidence render timed out after 4200s; "
+            "partial evidence preserved at "+str(render_root)
+        ) from exc
     log_path.parent.mkdir(parents=True,exist_ok=True)
-    log_path.write_text(proc.stdout or "",encoding="utf-8")
+    log_path.write_text(output,encoding="utf-8")
     if proc.returncode!=0:
         raise RuntimeError(
             "Blender Judge evidence render failed; see "
