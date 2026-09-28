@@ -922,8 +922,8 @@ def main() -> int:
     parser.add_argument(
         "--retopo",
         choices=["off", "auto", "required"],
-        default="auto",
-        help="Instant Meshes deterministic quad retopology challenger; auto runs only when the optional native binary is ready and the provisional champion is unrigged",
+        default="off",
+        help="Downstream topology conversion. HAYUYA 3D keeps this off by default to preserve the approved AAA Hero Master.",
     )
     parser.add_argument(
         "--texture-superres",
@@ -940,20 +940,20 @@ def main() -> int:
     parser.add_argument(
         "--gameprep",
         choices=["off", "auto", "required"],
-        default="auto",
-        help="build selected-tier master/LOD/collision/turntable pack after the final champion",
+        default="off",
+        help="Downstream runtime preparation; disabled by default in HAYUYA 3D.",
     )
     parser.add_argument(
         "--portable-pack",
         choices=["off", "auto", "required"],
-        default="auto",
-        help="derive Flagship/High/Balanced/Compatibility runtime packs independently from the preserved Hero Master",
+        default="off",
+        help="Downstream runtime LOD packs; disabled by default in HAYUYA 3D.",
     )
     parser.add_argument(
         "--texture-delivery",
         choices=["off", "auto", "required"],
-        default="auto",
-        help="physical KTX2/BasisU delivery policy for portable runtime LOD GLBs",
+        default="off",
+        help="Runtime texture delivery belongs to downstream products; disabled by default in HAYUYA 3D.",
     )
     parser.add_argument(
         "--appearance-judge",
