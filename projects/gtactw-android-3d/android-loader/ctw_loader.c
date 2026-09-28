@@ -1,15 +1,24 @@
 #include "ctw_patch.h"
 
+#if defined(__ANDROID__)
 #include <android/log.h>
+#else
+#include <stdio.h>
+#endif
 #include <dlfcn.h>
 #include <pthread.h>
 #include <stdint.h>
-#include <stdlib.h>
 
 #define EXPORT __attribute__((visibility("default")))
 #define LOG_TAG "CTW3D"
+
+#if defined(__ANDROID__)
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+#else
+#define LOGI(...) do { fprintf(stderr, LOG_TAG ": "); fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n"); } while (0)
+#define LOGE(...) LOGI(__VA_ARGS__)
+#endif
 
 static pthread_once_t g_once = PTHREAD_ONCE_INIT;
 static void *g_game = NULL;
@@ -28,6 +37,7 @@ static void *game_symbol(const char *name) {
     pthread_once(&g_once, load_original_once);
     if (!g_game)
         return NULL;
+
     dlerror();
     void *p = dlsym(g_game, name);
     const char *err = dlerror();
@@ -56,8 +66,7 @@ EXPORT int JNI_OnLoad(void *vm, void *reserved) {
     if (original)
         return original(vm, reserved);
 
-    /* JNI_VERSION_1_6 */
-    return 0x00010006;
+    return 0x00010006; /* JNI_VERSION_1_6 */
 }
 
 EXPORT void JNI_OnUnload(void *vm, void *reserved) {
@@ -70,10 +79,10 @@ EXPORT void JNI_OnUnload(void *vm, void *reserved) {
     ctw_mod_shutdown();
 }
 
-EXPORT void JNI_NAME(implOnActivityCreated)(void *env, void *cls, void *services, int is_first_run) {
+EXPORT void JNI_NAME(implOnActivityCreated)(void *env, void *cls, void *services, int first_run) {
     typedef void (*Fn)(void *, void *, void *, int);
     Fn fn = RESOLVE(implOnActivityCreated, Fn);
-    if (fn) fn(env, cls, services, is_first_run);
+    if (fn) fn(env, cls, services, first_run);
 }
 
 EXPORT void JNI_NAME(implOnActivityDestroyed)(void *env, void *cls) {
@@ -129,17 +138,15 @@ EXPORT void JNI_NAME(implOnDrawFrame)(void *env, void *cls, float dt) {
     if (fn) fn(env, cls, dt);
 }
 
-EXPORT void JNI_NAME(implOnGamepadConnected)(void *env, void *cls, int id) {
-    typedef void (*Fn)(void *, void *, int);
-    Fn fn = RESOLVE(implOnGamepadConnected, Fn);
-    if (fn) fn(env, cls, id);
+#define GAMEPAD_ID_FORWARD(name) \
+EXPORT void JNI_NAME(name)(void *env, void *cls, int id) { \
+    typedef void (*Fn)(void *, void *, int); \
+    Fn fn = RESOLVE(name, Fn); \
+    if (fn) fn(env, cls, id); \
 }
 
-EXPORT void JNI_NAME(implOnGamepadDisconnected)(void *env, void *cls, int id) {
-    typedef void (*Fn)(void *, void *, int);
-    Fn fn = RESOLVE(implOnGamepadDisconnected, Fn);
-    if (fn) fn(env, cls, id);
-}
+GAMEPAD_ID_FORWARD(implOnGamepadConnected)
+GAMEPAD_ID_FORWARD(implOnGamepadDisconnected)
 
 EXPORT void JNI_NAME(implOnGamepadResume)(void *env, void *cls, void *ids) {
     typedef void (*Fn)(void *, void *, void *);
@@ -147,19 +154,17 @@ EXPORT void JNI_NAME(implOnGamepadResume)(void *env, void *cls, void *ids) {
     if (fn) fn(env, cls, ids);
 }
 
-EXPORT void JNI_NAME(implOnGamepadButtonDown)(void *env, void *cls, int id, int keycode) {
-    typedef void (*Fn)(void *, void *, int, int);
-    Fn fn = RESOLVE(implOnGamepadButtonDown, Fn);
-    if (fn) fn(env, cls, id, keycode);
+#define GAMEPAD_BUTTON_FORWARD(name) \
+EXPORT void JNI_NAME(name)(void *env, void *cls, int id, int keycode) { \
+    typedef void (*Fn)(void *, void *, int, int); \
+    Fn fn = RESOLVE(name, Fn); \
+    if (fn) fn(env, cls, id, keycode); \
 }
 
-EXPORT void JNI_NAME(implOnGamepadButtonUp)(void *env, void *cls, int id, int keycode) {
-    typedef void (*Fn)(void *, void *, int, int);
-    Fn fn = RESOLVE(implOnGamepadButtonUp, Fn);
-    if (fn) fn(env, cls, id, keycode);
-}
+GAMEPAD_BUTTON_FORWARD(implOnGamepadButtonDown)
+GAMEPAD_BUTTON_FORWARD(implOnGamepadButtonUp)
 
-EXPORT void JNI_NAME(implOnGamepadAxesChanged(
+EXPORT void JNI_NAME(implOnGamepadAxesChanged)(
     void *env, void *cls, int id,
     float lx, float ly, float rx, float ry, float lt, float rt
 ) {
@@ -208,11 +213,14 @@ EXPORT void JNI_NAME(implOnRockstarGateComplete)(void *env, void *cls, int accep
     if (fn) fn(env, cls, accepted);
 }
 
-EXPORT void JNI_NAME(implOnRockstarIdChanged)(void *env, void *cls, void *id) {
-    typedef void (*Fn)(void *, void *, void *);
-    Fn fn = RESOLVE(implOnRockstarIdChanged, Fn);
-    if (fn) fn(env, cls, id);
+#define PTR_FORWARD(name) \
+EXPORT void JNI_NAME(name)(void *env, void *cls, void *value) { \
+    typedef void (*Fn)(void *, void *, void *); \
+    Fn fn = RESOLVE(name, Fn); \
+    if (fn) fn(env, cls, value); \
 }
+
+PTR_FORWARD(implOnRockstarIdChanged)
 
 EXPORT void JNI_NAME(implOnRockstarInitialComplete)(void *env, void *cls) {
     FnVV fn = RESOLVE(implOnRockstarInitialComplete, FnVV);
@@ -241,11 +249,7 @@ EXPORT void JNI_NAME(implOnRockstarStateChanged)(void *env, void *cls, int signe
     if (fn) fn(env, cls, signed_in);
 }
 
-EXPORT void JNI_NAME(implOnRockstarTicketChanged)(void *env, void *cls, void *ticket) {
-    typedef void (*Fn)(void *, void *, void *);
-    Fn fn = RESOLVE(implOnRockstarTicketChanged, Fn);
-    if (fn) fn(env, cls, ticket);
-}
+PTR_FORWARD(implOnRockstarTicketChanged)
 
 EXPORT int JNI_NAME(implIsInitialized)(void *env, void *cls) {
     FnIVV fn = RESOLVE(implIsInitialized, FnIVV);
