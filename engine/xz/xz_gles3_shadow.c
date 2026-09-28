@@ -3663,6 +3663,20 @@ static void XzDestroyStaticSceneCurrent(
         xz_shadow.static_reflection_cubemap = 0u;
     }
 
+    if (xz_shadow.static_lightmap_textures) {
+        for (i = 0u;
+             i < xz_shadow.static_lightmap_texture_count;
+             ++i) {
+            if (xz_shadow.static_lightmap_textures[i].object)
+                xz_shadow.gl.DeleteTextures(
+                    1,
+                    &xz_shadow.static_lightmap_textures[i].object);
+        }
+        free(xz_shadow.static_lightmap_textures);
+    }
+    xz_shadow.static_lightmap_textures = NULL;
+    xz_shadow.static_lightmap_texture_count = 0u;
+
     if (xz_shadow.static_textures) {
         for (i = 0u;
              i < xz_shadow.static_texture_count;
@@ -3738,6 +3752,11 @@ static void XzDestroyStaticSceneCurrent(
             1, &xz_shadow.static_instance_vbo);
         xz_shadow.static_instance_vbo = 0u;
     }
+    if (xz_shadow.static_lightmap_instance_vbo) {
+        xz_shadow.gl.DeleteBuffers(
+            1, &xz_shadow.static_lightmap_instance_vbo);
+        xz_shadow.static_lightmap_instance_vbo = 0u;
+    }
 
     XzStaticSceneDrawPlan_Reset(
         &xz_shadow.static_draw_plan);
@@ -3758,6 +3777,10 @@ static void XzDestroyStaticSceneCurrent(
         state->static_scene_lightmap_mapped_batches = 0u;
         state->static_scene_lightmap_missing_batches = 0u;
         state->static_scene_lightmap_batch_ready = 0;
+        state->static_scene_gpu_lightmap_bytes = 0u;
+        state->static_scene_gpu_lightmap_textures = 0u;
+        state->static_scene_last_baked_lightmap_draw_calls = 0u;
+        state->static_scene_lightmap_shader_ready = 0;
         state->static_scene_gpu_texture_bytes = 0u;
         state->static_scene_gpu_textures = 0u;
         state->static_scene_material_bindings = 0u;
