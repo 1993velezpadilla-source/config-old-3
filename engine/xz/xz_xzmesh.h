@@ -9,11 +9,13 @@ extern "C" {
 #endif
 
 #define XZ_XZMS_VERSION_V1 1u
-#define XZ_XZMS_VERSION 2u
+#define XZ_XZMS_VERSION_V2 2u
+#define XZ_XZMS_VERSION 3u
 #define XZ_XZMS_HEADER_BYTES 56u
 #define XZ_XZMS_VERTEX_BYTES_V1 32u
 #define XZ_XZMS_VERTEX_BYTES_V2 56u
-#define XZ_XZMS_VERTEX_BYTES XZ_XZMS_VERTEX_BYTES_V2
+#define XZ_XZMS_VERTEX_BYTES_V3 72u
+#define XZ_XZMS_VERTEX_BYTES XZ_XZMS_VERTEX_BYTES_V3
 #define XZ_XZMS_SUBMESH_BYTES 16u
 #define XZ_XZMS_NO_MATERIAL 0xffffffffu
 
@@ -28,7 +30,8 @@ enum {
     XZ_XZMS_ATTR_UV0      = 1u << 2,
     XZ_XZMS_ATTR_UV1      = 1u << 3,
     XZ_XZMS_ATTR_UV2      = 1u << 4,
-    XZ_XZMS_ATTR_UV3      = 1u << 5
+    XZ_XZMS_ATTR_UV3      = 1u << 5,
+    XZ_XZMS_ATTR_TANGENT  = 1u << 6
 };
 
 typedef enum {
@@ -52,6 +55,7 @@ typedef enum {
 typedef struct {
     float position[3];
     float normal[3];
+    float tangent[4];
     float uv[2];
     float uv1[2];
     float uv2[2];
