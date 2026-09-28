@@ -63,7 +63,11 @@ TARGET_EVIDENCE_RULES = {
 }
 
 
-def rank_target_evidence(\n    report: dict,\n    xref_report: dict | None,\n    plt_report: dict | None = None,\n) -> dict:
+def rank_target_evidence(
+    report: dict,
+    xref_report: dict | None,
+    plt_report: dict | None = None,
+) -> dict:
     """Rank evidence for each patch target without selecting a target RVA.
 
     Scores are intentionally evidence-only. They are useful for narrowing the
@@ -291,7 +295,11 @@ def summarize_xrefs(xref_report: dict | None) -> dict:
     return out
 
 
-def make_profile(\n    report: dict,\n    xref_report: dict | None = None,\n    plt_report: dict | None = None,\n) -> dict:
+def make_profile(
+    report: dict,
+    xref_report: dict | None = None,
+    plt_report: dict | None = None,
+) -> dict:
     if report.get("elf", {}).get("machine") != "AArch64":
         raise ValueError("report is not for an AArch64 libGame.so")
 
