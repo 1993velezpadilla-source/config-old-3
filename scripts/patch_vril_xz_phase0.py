@@ -83,6 +83,8 @@ for name in (
     "xz_package_boot.c",
     "xz_zone_db.h",
     "xz_zone_db.c",
+    "xz_runtime_readiness.h",
+    "xz_runtime_readiness.c",
     "xz_xzmesh.h",
     "xz_xzmesh.c",
     "xz_xzscene.h",
