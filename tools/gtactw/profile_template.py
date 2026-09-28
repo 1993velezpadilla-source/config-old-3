@@ -284,6 +284,7 @@ def make_profile(report: dict, xref_report: dict | None = None) -> dict:
                 "status": "pending",
                 "rva": None,
                 "evidence": [],
+                "code_prefix_hex": None,
             }
             for key in TARGET_KEYS
         },
