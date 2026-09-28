@@ -95,6 +95,8 @@ for name in (
     "xz_pbr_material.c",
     "xz_lightmap_texture.h",
     "xz_lightmap_texture.c",
+    "xz_lightmap_binding.h",
+    "xz_lightmap_binding.c",
     "xz_world_transform.h",
     "xz_world_transform.c",
     "xz_bo3_weapon_specs.h",
