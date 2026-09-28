@@ -3698,6 +3698,28 @@ jobs:
             sleep 2
           done
 
+          echo "DRAW_READY=$DRAW_READY" \
+            | tee -a dist/static-scene-status.txt
+
+          # Preserve and print the exact renderer state immediately after the
+          # draw probe. If the scene never reaches DRAW_READY, do not burn the
+          # remaining cutover/fade timeout; report whether HQ lightmaps,
+          # batching, GPU publication, or the first static-scene draw stalled.
+          "$ADB" logcat -d -v threadtime \
+            > dist/static-scene-logcat-post-draw.txt || true
+
+          echo "XZIEL_NACHT_POST_DRAW_DIAG_BEGIN"
+          grep -E \
+            "XZIEL-XZ.*(static_scene status=READY|static_scene_lightmap_batches|static_scene_baked_lightmaps|static_scene_draw)" \
+            dist/static-scene-logcat-post-draw.txt \
+            | tail -n 120 || true
+          echo "XZIEL_NACHT_POST_DRAW_DIAG_END"
+
+          if [[ "$DRAW_READY" != "1" ]]; then
+            echo "XZIEL_NACHT_DRAW_READY_DIAG_FAIL"
+            exit 1
+          fi
+
           # One successful native present is not enough to promote the
           # cutover. Let XZIEL complete the required consecutive presents and
           # prove that legacy world suppression has actually reached MODERN
@@ -3783,9 +3805,6 @@ jobs:
 
           "$ADB" exec-out screencap -p \
             > dist/static-scene-runtime.png || true
-
-          echo "DRAW_READY=$DRAW_READY" \
-            | tee -a dist/static-scene-status.txt
 
           test "$DRAW_READY" = "1"
           test "$CUTOVER_READY" = "1"
