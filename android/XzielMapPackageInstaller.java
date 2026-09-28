@@ -44,33 +44,38 @@ public final class XzielMapPackageInstaller {
     private static final String RUNTIME_FORMAT = "xziel_runtime_manifest_v1";
     private static final int REQUIRED_FAMILY_COUNT = 24;
 
+    private static final String[] RUNTIME_FAMILY_ORDER = {
+        "world_geometry",
+        "collision",
+        "navigation_pathing",
+        "materials_textures",
+        "static_models_props",
+        "animated_models_rigs",
+        "animations",
+        "weapons_equipment",
+        "pack_a_punch_variants",
+        "audio_sfx",
+        "ambient_music_vo",
+        "vfx_particles",
+        "lighting_postfx",
+        "gameplay_scripts",
+        "interactables",
+        "perks_wunderfizz",
+        "powerups",
+        "gobblegum",
+        "mystery_box",
+        "spawns_rounds_ai",
+        "hud_ui_prompts",
+        "multiplayer_replication",
+        "platform_packaging",
+        "soak_release_quality"
+    };
+
     private static final Set<String> REQUIRED_RUNTIME_FAMILIES =
-        new HashSet<>(Arrays.asList(
-            "world_geometry",
-            "collision",
-            "navigation_pathing",
-            "materials_textures",
-            "static_models_props",
-            "animated_models_rigs",
-            "animations",
-            "weapons_equipment",
-            "pack_a_punch_variants",
-            "audio_sfx",
-            "ambient_music_vo",
-            "vfx_particles",
-            "lighting_postfx",
-            "gameplay_scripts",
-            "interactables",
-            "perks_wunderfizz",
-            "powerups",
-            "gobblegum",
-            "mystery_box",
-            "spawns_rounds_ai",
-            "hud_ui_prompts",
-            "multiplayer_replication",
-            "platform_packaging",
-            "soak_release_quality"
-        ));
+        new HashSet<>(Arrays.asList(RUNTIME_FAMILY_ORDER));
+
+    private static final String GENERATED_BOOT_PLAN = ".xziel-boot.plan";
+    private static final String GENERATED_PACKAGE_META = ".xziel-package.json";
 
     private static final String[] REQUIRED_RUNTIME_GLOBALS = {
         "sourceInventoryStrictReady",
@@ -240,6 +245,11 @@ public final class XzielMapPackageInstaller {
                 }
 
                 String archiveName = "payload/" + rel;
+                if (GENERATED_BOOT_PLAN.equals(rel)
+                        || GENERATED_PACKAGE_META.equals(rel)) {
+                    throw new IOException(
+                        "Payload uses reserved generated runtime path: " + rel);
+                }
                 if (expected.put(
                         archiveName,
                         new ExpectedFile(rel, bytes, digest)) != null) {
@@ -358,7 +368,9 @@ public final class XzielMapPackageInstaller {
                     }
                 }
 
-                File installedManifest = new File(temp, ".xziel-package.json");
+                writeBootPlan(temp, runtimeManifest);
+
+                File installedManifest = new File(temp, GENERATED_PACKAGE_META);
                 try (BufferedOutputStream output =
                          new BufferedOutputStream(
                              new FileOutputStream(installedManifest))) {
@@ -382,6 +394,127 @@ public final class XzielMapPackageInstaller {
                 entryWorld,
                 "xziel-import/" + mapId,
                 target);
+        }
+    }
+
+    private static int bootPhase(String familyId) throws IOException {
+        switch (familyId) {
+        case "world_geometry":
+        case "collision":
+        case "navigation_pathing":
+            return 1;
+
+        case "materials_textures":
+        case "static_models_props":
+        case "lighting_postfx":
+        case "vfx_particles":
+            return 2;
+
+        case "animated_models_rigs":
+        case "animations":
+            return 3;
+
+        case "weapons_equipment":
+        case "pack_a_punch_variants":
+        case "gameplay_scripts":
+        case "interactables":
+        case "perks_wunderfizz":
+        case "powerups":
+        case "gobblegum":
+        case "mystery_box":
+        case "spawns_rounds_ai":
+            return 4;
+
+        case "audio_sfx":
+        case "ambient_music_vo":
+            return 5;
+
+        case "hud_ui_prompts":
+        case "multiplayer_replication":
+            return 6;
+
+        case "platform_packaging":
+        case "soak_release_quality":
+            return 7;
+
+        default:
+            throw new IOException("Unknown boot family " + familyId);
+        }
+    }
+
+    private static void writeBootPlan(
+            File root,
+            JSONObject runtime) throws IOException {
+        JSONArray families = runtime.optJSONArray("families");
+        if (families == null
+                || families.length() != REQUIRED_FAMILY_COUNT) {
+            throw new IOException("Cannot generate package boot plan");
+        }
+
+        Map<String, JSONObject> byId = new HashMap<>();
+        int artifactTotal = 0;
+        for (int i = 0; i < families.length(); ++i) {
+            JSONObject family = families.optJSONObject(i);
+            if (family == null) {
+                throw new IOException("Invalid runtime family during boot-plan build");
+            }
+            String familyId = family.optString("id", "");
+            if (!REQUIRED_RUNTIME_FAMILIES.contains(familyId)
+                    || byId.put(familyId, family) != null) {
+                throw new IOException(
+                    "Invalid/duplicate boot family " + familyId);
+            }
+            JSONArray artifacts = family.optJSONArray("runtimeArtifacts");
+            if (artifacts == null || artifacts.length() == 0) {
+                throw new IOException(
+                    "No runtime artifacts for boot family " + familyId);
+            }
+            artifactTotal += artifacts.length();
+        }
+
+        StringBuilder plan = new StringBuilder();
+        plan.append("XZBP1|")
+            .append(REQUIRED_FAMILY_COUNT)
+            .append('|')
+            .append(artifactTotal)
+            .append('\n');
+
+        for (String familyId : RUNTIME_FAMILY_ORDER) {
+            JSONObject family = byId.get(familyId);
+            if (family == null) {
+                throw new IOException(
+                    "Missing boot family " + familyId);
+            }
+            JSONArray artifacts = family.getJSONArray("runtimeArtifacts");
+            plan.append("F|")
+                .append(bootPhase(familyId))
+                .append('|')
+                .append(familyId)
+                .append('|')
+                .append(artifacts.length())
+                .append('\n');
+
+            for (int j = 0; j < artifacts.length(); ++j) {
+                String artifact = normalize(artifacts.getString(j));
+                validateSafeRelativePath(artifact);
+                if (artifact.indexOf('|') >= 0
+                        || artifact.indexOf('\n') >= 0
+                        || artifact.indexOf('\r') >= 0) {
+                    throw new IOException(
+                        "Boot artifact contains reserved delimiter: " + artifact);
+                }
+                plan.append("A|")
+                    .append(familyId)
+                    .append('|')
+                    .append(artifact)
+                    .append('\n');
+            }
+        }
+
+        File bootPlan = new File(root, GENERATED_BOOT_PLAN);
+        try (BufferedOutputStream output =
+                 new BufferedOutputStream(new FileOutputStream(bootPlan))) {
+            output.write(plan.toString().getBytes(StandardCharsets.UTF_8));
         }
     }
 
