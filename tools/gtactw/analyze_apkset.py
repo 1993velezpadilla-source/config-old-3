@@ -87,6 +87,7 @@ def analyze_apkset(
     reference: Path | None = None,
     aapt: Path | None = None,
     apksigner: Path | None = None,
+    runtime_out: Path | None = None,
 ) -> dict:
     if not source.exists():
         raise FileNotFoundError(source)
@@ -94,6 +95,7 @@ def analyze_apkset(
     report = {
         "ok": False,
         "source": str(source),
+        "runtime_dir": str(runtime_out) if runtime_out is not None else None,
         "split_report": None,
         "pak_inventory": None,
         "ped_models": None,
@@ -119,7 +121,7 @@ def analyze_apkset(
 
     with tempfile.TemporaryDirectory(prefix="gtactw_apkset_analysis_") as td:
         root = Path(td)
-        runtime = root / "runtime"
+        runtime = runtime_out if runtime_out is not None else root / "runtime"
         set_report = apkset_probe.inspect_set(source, runtime)
         report["split_report"] = set_report
         report["gates"]["split_runtime"] = set_report["ok"]
@@ -237,6 +239,11 @@ def main() -> int:
     ap.add_argument("--reference", type=Path)
     ap.add_argument("--aapt", type=Path)
     ap.add_argument("--apksigner", type=Path)
+    ap.add_argument(
+        "--runtime-out",
+        type=Path,
+        help="Persist selected CTW runtime files for later ABI/runtime work",
+    )
     ap.add_argument("--out", type=Path)
     ap.add_argument("--profile-out", type=Path)
     ap.add_argument("--allow-partial", action="store_true")
@@ -248,6 +255,7 @@ def main() -> int:
             args.reference,
             args.aapt,
             args.apksigner,
+            args.runtime_out,
         )
     except Exception as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, indent=2))
