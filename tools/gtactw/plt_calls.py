@@ -27,6 +27,8 @@ INTERESTING_IMPORTS = {
         "glUniformMatrix4fv",
         "glGetUniformLocation",
         "glUseProgram",
+        "glDepthRangef",
+        "glViewport",
     },
     "render": {
         "glDrawArrays",
