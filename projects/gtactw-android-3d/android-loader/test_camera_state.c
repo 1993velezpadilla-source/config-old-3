@@ -56,5 +56,13 @@ int main(void) {
     ctw_camera_orbit_step(&orbit, &cfg, input, 0.05f);
     assert(orbit.yaw_degrees == frozen_yaw);
 
+    ctw_camera_set_mode(CTW_CAMERA_THIRD_PERSON);
+    ctw_camera_set_look(1.0f, 0.0f);
+    ctw_camera_runtime_reset(&cfg);
+    ctw_camera_runtime_step(&cfg, 0.05f);
+    CtwCameraOrbitState runtime = ctw_camera_orbit_snapshot();
+    assert(fabsf(runtime.yaw_degrees - 5.5f) < 0.0001f);
+    assert(fabsf(runtime.pitch_degrees + 7.0f) < 0.0001f);
+
     return 0;
 }
