@@ -70,6 +70,41 @@ class ProfileTemplateTests(unittest.TestCase):
             "template_needs_verified_internal_rvas",
         )
 
+    def test_profile_ranks_xref_evidence_without_filling_targets(self):
+        xrefs = {
+            "groups": {
+                "camera": [
+                    {
+                        "function": "CameraUpdate",
+                        "function_rva": 0x4000,
+                        "pc_rva": 0x4010,
+                        "string": "CameraFarClipDistance",
+                    },
+                    {
+                        "function": "CameraUpdate",
+                        "function_rva": 0x4000,
+                        "pc_rva": 0x4020,
+                        "string": "CameraFov",
+                    },
+                ],
+                "streaming": [],
+                "lod_culling": [],
+                "player_render": [],
+            }
+        }
+        profile = profile_template.make_profile(self.make_report(), xrefs)
+        ranked = profile["candidate_xref_functions"]["camera"]
+        self.assertEqual(ranked[0]["function"], "CameraUpdate")
+        self.assertEqual(ranked[0]["rva"], 0x4000)
+        self.assertEqual(ranked[0]["hits"], 2)
+        self.assertEqual(
+            ranked[0]["call_sites"],
+            [0x4010, 0x4020],
+        )
+        self.assertTrue(
+            all(v is None for v in profile["patch_targets_rva"].values())
+        )
+
     def test_rejects_missing_required_jni(self):
         report = self.make_report()
         p = "Java_com_rockstargames_oswrapper_GameNative_"
