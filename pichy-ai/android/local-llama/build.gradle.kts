@@ -34,7 +34,6 @@ android {
 
     sourceSets {
         getByName("main") {
-            java.srcDir("../vendor/llama.cpp/examples/llama.android/lib/src/main/java")
             manifest.srcFile("../vendor/llama.cpp/examples/llama.android/lib/src/main/AndroidManifest.xml")
         }
     }
