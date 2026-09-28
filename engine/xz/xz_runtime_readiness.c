@@ -16,11 +16,13 @@ static const char *const gate_names[XZ_GATE_COUNT] = {
     "ai_behavior",
     "script_module_db",
     "precache",
+    "game_systems",
     "weapon_gameplay_db",
     "audio",
     "fx",
     "hud_ui",
     "replication",
+    "critical_streaming",
     "render_frame"
 };
 
