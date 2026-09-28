@@ -39,7 +39,18 @@ def normalize_asset_path(value: object) -> str:
             tail = package
 
     text = f"{head}/{tail}" if head else tail
-    return text.lower()
+
+    # Scene reference paths can repeat the asset basename as
+    # .../Foo/Foo/Foo while CUE4Parse reports .../Foo/Foo.Foo.
+    # Collapse repeated trailing basename segments to one canonical package.
+    parts = text.split("/")
+    while (
+        len(parts) >= 2
+        and parts[-1].lower() == parts[-2].lower()
+    ):
+        parts.pop()
+
+    return "/".join(parts).lower()
 
 
 def main() -> int:
@@ -128,6 +139,15 @@ def main() -> int:
             raise SystemExit(
                 f"instance {instance_index} has no integer componentExportIndex"
             )
+        if component_index <= 0:
+            raise SystemExit(
+                f"instance {instance_index} has invalid 1-based componentExportIndex"
+            )
+
+        # scene_instances.json persists UE FPackageIndex values (1-based).
+        # The baked-lighting census records the CUE4Parse export-array index
+        # (0-based). They refer to the same component with a fixed -1 offset.
+        census_component_index = component_index - 1
 
         if component_index in seen_scene_components:
             duplicate_scene_components += 1
@@ -135,7 +155,7 @@ def main() -> int:
 
         candidates = [
             row
-            for row in by_component.get(component_index, [])
+            for row in by_component.get(census_component_index, [])
             if row.get("bindingIndex") == 0
         ]
 
@@ -173,6 +193,7 @@ def main() -> int:
                 "instanceIndex": instance_index,
                 "instanceId": instance.get("instanceId"),
                 "componentExportIndex": component_index,
+                "censusComponentExportIndex": census_component_index,
                 "actorExportIndex": instance.get("actorExportIndex"),
                 "actorName": instance.get("actorName"),
                 "componentName": instance.get("componentName"),
@@ -180,7 +201,7 @@ def main() -> int:
                 "status": status,
                 "assetMatchesSceneMesh": asset_matches,
                 "componentMetadata":
-                    static_component_metadata.get(component_index),
+                    static_component_metadata.get(census_component_index),
                 "binding": chosen,
             }
         )
