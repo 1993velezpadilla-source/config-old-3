@@ -174,4 +174,16 @@ foreach (var pair in classCounts
         $"XZIEL_UE_CLASS {pair.Value} {pair.Key}");
 }
 
-return packageLoadFailures.Count == 0 ? 0 : 5;
+foreach (var failure in packageLoadFailures.Take(20))
+{
+    Console.WriteLine(
+        "XZIEL_UE_PACKAGE_FAILURE " +
+        JsonSerializer.Serialize(failure));
+}
+
+/*
+ * A shard must always finish and emit its report. The workflow merges every
+ * shard and applies the zero-failure gate globally so diagnostics are never
+ * lost just because one package failed.
+ */
+return 0;
