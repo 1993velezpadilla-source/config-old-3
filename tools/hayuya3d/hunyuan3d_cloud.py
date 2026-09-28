@@ -61,6 +61,72 @@ def _pick_shape_endpoint(named: dict[str, dict[str, Any]]) -> str:
     )
 
 
+def _connect_client(
+    *,
+    token: str | None,
+    timeout: float,
+    attempts: int = 5,
+) -> tuple[Client, dict[str, dict[str, Any]]]:
+    """Connect to the public Hunyuan Space with retries that include config fetch.
+
+    Gradio Client fetches the Space config during construction. Treating only
+    predict() as retryable left HAYUYA vulnerable to short Hugging Face/ZeroGPU
+    outages before generation even started.
+    """
+    kwargs = {"verbose": True, "httpx_kwargs": {"timeout": float(timeout)}}
+    if token:
+        kwargs["token"] = token
+
+    last_error: Exception | None = None
+    for attempt in range(1, int(attempts) + 1):
+        try:
+            client = Client(SPACE_ID, **kwargs)
+            named = _named_endpoints(client)
+            return client, named
+        except Exception as exc:
+            last_error = exc
+            message = f"{type(exc).__name__}: {exc}"
+            lower = message.lower()
+            transient = any(
+                marker in lower
+                for marker in (
+                    "could not fetch config",
+                    "502 bad gateway",
+                    "503 service unavailable",
+                    "504 gateway timeout",
+                    "server disconnected",
+                    "connection reset",
+                    "connection refused",
+                    "remoteprotocolerror",
+                    "readtimeout",
+                    "connecttimeout",
+                    "timed out",
+                    "temporarily unavailable",
+                )
+            )
+            if not transient or attempt >= int(attempts):
+                raise
+            delay = min(20, 3 * attempt)
+            print(
+                "HAYUYA_HUNYUAN_CONNECT_RETRY",
+                json.dumps(
+                    {
+                        "attempt": attempt,
+                        "max_attempts": int(attempts),
+                        "delay_seconds": delay,
+                        "error": message[:500],
+                    },
+                    separators=(",", ":"),
+                ),
+            )
+            time.sleep(delay)
+
+    raise RuntimeError(
+        "Hunyuan3D Space connection returned no client after retries: "
+        + repr(last_error)
+    )
+
+
 def generate_shape(
     image: Path,
     output: Path,
@@ -76,11 +142,7 @@ def generate_shape(
     if not image.is_file():
         raise FileNotFoundError(image)
 
-    kwargs = {"verbose": True, "httpx_kwargs": {"timeout": 180.0}}
-    if token:
-        kwargs["token"] = token
-    client = Client(SPACE_ID, **kwargs)
-    named = _named_endpoints(client)
+    client, named = _connect_client(token=token, timeout=180.0)
     endpoint = _pick_shape_endpoint(named)
 
     # Current official Space signature discovered at runtime:
@@ -200,11 +262,7 @@ def generate_textured_material_donor(
     if not image.is_file():
         raise FileNotFoundError(image)
 
-    kwargs = {"verbose": True, "httpx_kwargs": {"timeout": 240.0}}
-    if token:
-        kwargs["token"] = token
-    client = Client(SPACE_ID, **kwargs)
-    named = _named_endpoints(client)
+    client, named = _connect_client(token=token, timeout=240.0)
     endpoint = "/generation_all"
     if endpoint not in named:
         raise RuntimeError(
