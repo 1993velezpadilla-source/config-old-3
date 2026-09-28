@@ -895,7 +895,6 @@ if (
                 "density_target_met":bool(int(hunyuan_mesh.faces)>=hero_floor),
                 "provider_capped":False,
                 "refinement_required":False,
-                "native_latent_extraction":True,
                 "native_model_generated_geometry":True,
                 "material_bridge":material_bridge_report,
                 "optimization_deferred":True,
