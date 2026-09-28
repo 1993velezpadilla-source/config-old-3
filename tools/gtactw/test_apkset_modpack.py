@@ -61,6 +61,7 @@ class ApkSetModpackTests(unittest.TestCase):
                 self.assertEqual(zf.read(ORIGINAL_SO), b"\x7fELForiginal")
                 self.assertNotIn("META-INF/MANIFEST.MF", zf.namelist())
                 self.assertNotIn("META-INF/CERT.RSA", zf.namelist())
+                self.assertNotIn("assets/ctw_modhub.ini", zf.namelist())
 
             with zipfile.ZipFile(out / "base.apk", "r") as zf:
                 self.assertEqual(zf.read("assets/game.pak"), b"pak")
