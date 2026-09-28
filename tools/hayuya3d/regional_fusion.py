@@ -35,6 +35,9 @@ class HeadWrapResult:
     error:str|None=None
     method:str="hayuya-head-wrap-regional-fusion-v3"
     donor_scope:str="fullbody"
+    collapsed_face_fraction:float|None=None
+    stretched_edge_fraction:float|None=None
+    flipped_face_fraction:float|None=None
 
 
 def _deps():
@@ -230,6 +233,11 @@ def build_head_wrap_geometry(
         head_vertices=0
         changed_vertices=0
         clamped_vertices=0
+        deform_affected_faces=0
+        deform_collapsed_faces=0
+        deform_flipped_faces=0
+        deform_affected_edges=0
+        deform_stretched_edges=0
 
         for original in base_meshes:
             mesh=original.copy()
@@ -253,11 +261,59 @@ def build_head_wrap_geometry(
                 t=(normalized[ids]-head_start)/max(full_influence-head_start,1e-9)
                 influence=_head_wrap_influence(t)
                 applied=displacement*influence[:,None]
+                before_v=np.asarray(original.vertices,dtype=np.float64)
                 vv[ids]+=applied
-                changed_vertices+=int(np.count_nonzero(
-                    np.linalg.norm(applied,axis=1)>1e-10
-                ))
+                changed_local=np.linalg.norm(applied,axis=1)>1e-10
+                changed_vertices+=int(np.count_nonzero(changed_local))
                 all_applied.append(applied)
+
+                # Fail closed on fold/collapse artifacts that a simple bounds
+                # gate cannot see. Nearest-surface wrapping can preserve the
+                # bbox while turning the face/hood into spikes.
+                if len(getattr(original,"faces",[])):
+                    moved_vertex=np.zeros(len(vv),dtype=bool)
+                    moved_vertex[ids[changed_local]]=True
+                    faces=np.asarray(original.faces,dtype=np.int64)
+                    affected=moved_vertex[faces].any(axis=1)
+                    ff=faces[affected]
+                    if len(ff):
+                        def _tri_stats(vertices,triangles):
+                            a=vertices[triangles[:,1]]-vertices[triangles[:,0]]
+                            b=vertices[triangles[:,2]]-vertices[triangles[:,0]]
+                            cross=np.cross(a,b)
+                            lengths=np.linalg.norm(cross,axis=1)
+                            areas=0.5*lengths
+                            normals=cross/np.maximum(lengths[:,None],1e-12)
+                            return areas,normals
+                        base_area,base_normals=_tri_stats(before_v,ff)
+                        cand_area,cand_normals=_tri_stats(vv,ff)
+                        valid_area=base_area>1e-12
+                        area_ratio=cand_area[valid_area]/base_area[valid_area]
+                        deform_affected_faces+=int(np.count_nonzero(valid_area))
+                        deform_collapsed_faces+=int(np.count_nonzero(area_ratio<0.25))
+                        if np.any(valid_area):
+                            dots=np.sum(
+                                base_normals[valid_area]*cand_normals[valid_area],
+                                axis=1,
+                            )
+                            deform_flipped_faces+=int(np.count_nonzero(dots<0.0))
+
+                        edges=np.stack(
+                            [ff[:,[0,1]],ff[:,[1,2]],ff[:,[2,0]]],
+                            axis=1,
+                        ).reshape(-1,2)
+                        base_edge=np.linalg.norm(
+                            before_v[edges[:,1]]-before_v[edges[:,0]],
+                            axis=1,
+                        )
+                        cand_edge=np.linalg.norm(
+                            vv[edges[:,1]]-vv[edges[:,0]],
+                            axis=1,
+                        )
+                        valid_edge=base_edge>1e-9
+                        edge_ratio=cand_edge[valid_edge]/base_edge[valid_edge]
+                        deform_affected_edges+=int(np.count_nonzero(valid_edge))
+                        deform_stretched_edges+=int(np.count_nonzero(edge_ratio>3.0))
 
                 seam_mask=normalized[ids]<(head_start+(full_influence-head_start)*0.35)
                 if np.any(seam_mask):
@@ -290,9 +346,24 @@ def build_head_wrap_geometry(
         max_disp_norm=float(np.max(moved_norm)) if len(moved_norm) else 0.0
         mean_disp_norm=float(np.mean(moved_norm)) if len(moved_norm) else 0.0
 
+        collapsed_face_fraction=(
+            float(deform_collapsed_faces)/float(deform_affected_faces)
+            if deform_affected_faces else 0.0
+        )
+        stretched_edge_fraction=(
+            float(deform_stretched_edges)/float(deform_affected_edges)
+            if deform_affected_edges else 0.0
+        )
+        flipped_face_fraction=(
+            float(deform_flipped_faces)/float(deform_affected_faces)
+            if deform_affected_faces else 0.0
+        )
         geometry_ready=bool(
             seam_max<=seam_limit_fraction
             and bbox_drift<=bbox_drift_limit
+            and collapsed_face_fraction<=0.08
+            and stretched_edge_fraction<=0.03
+            and flipped_face_fraction<=0.01
             and math.isfinite(max_disp_norm)
         )
         error=None
@@ -305,6 +376,18 @@ def build_head_wrap_geometry(
             if bbox_drift>bbox_drift_limit:
                 reasons.append(
                     f"bbox_drift={bbox_drift:.6f}>{bbox_drift_limit:.6f}"
+                )
+            if collapsed_face_fraction>0.08:
+                reasons.append(
+                    f"head_face_collapse_fraction={collapsed_face_fraction:.6f}>0.080000"
+                )
+            if stretched_edge_fraction>0.03:
+                reasons.append(
+                    f"head_edge_stretch_fraction={stretched_edge_fraction:.6f}>0.030000"
+                )
+            if flipped_face_fraction>0.01:
+                reasons.append(
+                    f"head_face_flip_fraction={flipped_face_fraction:.6f}>0.010000"
                 )
             error=";".join(reasons)
 
@@ -330,6 +413,9 @@ def build_head_wrap_geometry(
             rebake_resolved=[],
             error=error,
             donor_scope=donor_scope,
+            collapsed_face_fraction=round(collapsed_face_fraction,8),
+            stretched_edge_fraction=round(stretched_edge_fraction,8),
+            flipped_face_fraction=round(flipped_face_fraction,8),
         )
     except Exception as exc:
         return HeadWrapResult(
