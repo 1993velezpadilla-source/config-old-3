@@ -1,5 +1,6 @@
 #include "xz_zone_db.h"
 
+#include <stdio.h>
 #include <string.h>
 
 static int XzZoneDb_ValidZoneId(
