@@ -46,6 +46,12 @@ if(CTW_USE_SHADOWHOOK)
         "${CTW_SHADOWHOOK_CPP}/common/*.c"
         "${CTW_SHADOWHOOK_CPP}/third_party/*/*.c"
     )
+    # ShadowHook's sh_jni.c exports JNI_OnLoad for its Java wrapper.
+    # CTW's proxy owns JNI_OnLoad, so only embed the native hook core.
+    list(
+        FILTER CTW_SHADOWHOOK_SOURCES
+        EXCLUDE REGEX ".*/sh_jni\\.c$"
+    )
 
     add_library(ctw_shadowhook STATIC ${CTW_SHADOWHOOK_SOURCES})
     set_target_properties(
