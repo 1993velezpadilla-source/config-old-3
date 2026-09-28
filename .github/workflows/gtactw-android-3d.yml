@@ -349,7 +349,8 @@ jobs:
             -Iprojects/gtactw-android-3d/android-loader \
             -o /tmp/ctw_character_test \
             projects/gtactw-android-3d/android-loader/test_character_policy.c \
-            projects/gtactw-android-3d/android-loader/ctw_character.c
+            projects/gtactw-android-3d/android-loader/ctw_character.c \
+            -lm
           /tmp/ctw_character_test
           echo "GTACTW_CAMERA_POSE_GREEN=1"
           echo "GTACTW_CHARACTER_POLICY_GREEN=1"
