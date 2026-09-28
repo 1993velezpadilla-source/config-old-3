@@ -164,7 +164,7 @@ def generate_shape(
     )
     result = None
     last_error: Exception | None = None
-    for attempt in range(1, 4):
+    for attempt in range(1, 6):
         try:
             result = client.predict(*args, api_name=endpoint)
             break
@@ -174,26 +174,40 @@ def generate_shape(
             lower = message.lower()
             if "zerogpu quota" in lower or "exceeded your zerogpu quota" in lower:
                 raise
-            transient = any(token in lower for token in (
+            transient = any(marker in lower for marker in (
+                "cancellederror",
+                "cancellederror",
+                "queue",
                 "502 bad gateway",
                 "503 service unavailable",
                 "504 gateway timeout",
                 "server disconnected",
                 "connection reset",
+                "connection refused",
                 "remoteprotocolerror",
+                "readtimeout",
+                "connecttimeout",
+                "timed out",
+                "temporarily unavailable",
             ))
-            if not transient or attempt >= 3:
+            if not transient or attempt >= 5:
                 raise
-            delay = 4 * attempt
+            delay = min(24, 4 * attempt)
             print(
                 "HAYUYA_HUNYUAN_TRANSIENT_RETRY",
                 json.dumps({
                     "attempt": attempt,
+                    "max_attempts": 5,
                     "delay_seconds": delay,
                     "error": message[:500],
+                    "reconnect_before_retry": True,
                 }, separators=(",", ":")),
             )
             time.sleep(delay)
+            # A cancelled Gradio SSE job can leave the client bound to a dead
+            # queue/event. Reconnect and rediscover the endpoint before retrying.
+            client, named = _connect_client(token=token, timeout=180.0)
+            endpoint = _pick_shape_endpoint(named)
     if result is None:
         raise RuntimeError(
             "Hunyuan3D generation returned no result after retries: "
