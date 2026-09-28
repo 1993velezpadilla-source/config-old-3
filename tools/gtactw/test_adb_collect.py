@@ -75,6 +75,96 @@ noise
             "B",
         )
 
+
+    def test_one_pass_builds_readiness_status_from_abi_evidence(self):
+        targets = (
+            "camera_update",
+            "projection_setup",
+            "world_stream_update",
+            "sector_visibility",
+            "lod_test",
+            "player_render",
+        )
+        profile = {
+            "fingerprint": {
+                "sha256": "a" * 64,
+                "text_sha256": "b" * 64,
+                "gnu_build_id": "0123456789abcdef",
+                "jni_rvas": {
+                    "implOnDrawFrame": 0x1000,
+                    "implOnInitialSetup": 0x2000,
+                    "implOnGamepadAxesChanged": 0x3000,
+                },
+            },
+            "public_4243_engine_anchors": {
+                "present_count": 5,
+                "total_count": 9,
+                "present": [],
+            },
+            "patch_targets_rva": {key: None for key in targets},
+            "target_verification": {
+                key: {
+                    "status": "pending",
+                    "rva": None,
+                    "evidence": [],
+                    "code_prefix_hex": None,
+                }
+                for key in targets
+            },
+            "abi_verification": {
+                key: {
+                    "status": "pending",
+                    "prototype": None,
+                    "calling_convention": "aarch64_aapcs64",
+                    "adapter": None,
+                    "evidence": [],
+                }
+                for key in targets
+            },
+        }
+        abi = {
+            "targets": {
+                "camera_update": [
+                    {
+                        "rva": 0x4000,
+                        "source": "evidence_ranking",
+                        "function": "CameraUpdate",
+                        "score": 10,
+                        "reasons": ["fixture"],
+                        "abi_evidence": {
+                            "verification_status": "abi_hint_only",
+                            "instruction_count": 12,
+                        },
+                    }
+                ]
+            },
+            "note": "fixture ABI evidence only",
+        }
+
+        enriched, status = adb_collect.build_enriched_profile_status(
+            profile,
+            abi,
+        )
+        self.assertEqual(
+            enriched["abi_verification"]["camera_update"][
+                "last_probe_status"
+            ],
+            "evidence_collected",
+        )
+        self.assertEqual(
+            len(
+                enriched["abi_verification"]["camera_update"][
+                    "candidates"
+                ]
+            ),
+            1,
+        )
+        self.assertEqual(status["phase"], "needs_verified_target_rvas")
+        self.assertEqual(
+            status["public_4243_engine_anchors"]["present_count"],
+            5,
+        )
+
     @mock.patch.object(adb_collect.subprocess, "run")
     def test_connected_devices_parser(self, run):
         run.return_value = subprocess.CompletedProcess(
