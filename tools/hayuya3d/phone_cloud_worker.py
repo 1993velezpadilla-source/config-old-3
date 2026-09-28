@@ -770,6 +770,26 @@ if not multi and TRELLIS2_ENABLED and TEXTURE_QUALITY in {"high","ultra"}:
                 + modern_text
             )
 
+hosted_refinement_needed = not bool(
+    hero_master_report
+    and hero_master_report.get("candidate_ready_for_judge")
+)
+hosted_vast_allowed = bool(TOKEN) or hosted_refinement_needed
+if not hosted_vast_allowed and (
+    TRIPOSG_CLOUD_ENABLED or DETAILGEN3D_ENABLED
+):
+    print(
+        "HAYUYA_HOSTED_VAST_SKIPPED",
+        json.dumps(
+            {
+                "reason":"2m_judge_candidate_ready_and_hf_token_absent",
+                "triposg_requested":TRIPOSG_CLOUD_ENABLED,
+                "detailgen3d_requested":DETAILGEN3D_ENABLED,
+            },
+            separators=(",",":"),
+        ),
+    )
+
 # VAST's public TripoSG Space exposes the same open model family we already
 # vendor locally, but its UI permits simplification to be disabled completely.
 # Use it as a dense Hero challenger instead of forcing TRELLIS.2 past its 500k
@@ -777,6 +797,7 @@ if not multi and TRELLIS2_ENABLED and TEXTURE_QUALITY in {"high","ultra"}:
 if (
     not multi
     and TRIPOSG_CLOUD_ENABLED
+    and hosted_vast_allowed
     and TEXTURE_QUALITY in {"high","ultra"}
 ):
     try:
@@ -885,6 +906,7 @@ if (
 if (
     not multi
     and DETAILGEN3D_ENABLED
+    and hosted_vast_allowed
     and modern_candidate is not None
     and TEXTURE_QUALITY in {"high","ultra"}
 ):
