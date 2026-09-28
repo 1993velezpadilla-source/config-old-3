@@ -14,7 +14,7 @@ import struct
 
 HEADER = struct.Struct("<2sHBBHII8I")
 VERTEX = struct.Struct("<8h")
-MATRIX = struct.Struct("<9hbb2x3i")
+MATRIX = struct.Struct("<9hbb3i")
 MATERIAL = struct.Struct("<hHBB2xI")
 
 assert HEADER.size == 48
