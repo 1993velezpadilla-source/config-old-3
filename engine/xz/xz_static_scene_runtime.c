@@ -1466,15 +1466,15 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
 
         if (lightmap_bindings.instance_count != 10791u ||
             lightmap_bindings.record_bytes != 256u ||
-            lightmap_bindings.mapped_count != 10786u ||
-            lightmap_bindings.missing_count != 5u ||
-            lightmap_bindings.runtime_ready_count != 10786u ||
+            lightmap_bindings.mapped_count != 10787u ||
+            lightmap_bindings.missing_count != 4u ||
+            lightmap_bindings.runtime_ready_count != 10787u ||
             lightmap_bindings.texture_count !=
                 lightmaps.texture_count ||
             lightmap_bindings.header_flags != 1u ||
             lightmap_bindings.bytes != 2762528u ||
             lightmap_bindings.uv_channel_count[0] != 0u ||
-            lightmap_bindings.uv_channel_count[1] != 10398u ||
+            lightmap_bindings.uv_channel_count[1] != 10399u ||
             lightmap_bindings.uv_channel_count[2] != 1u ||
             lightmap_bindings.uv_channel_count[3] != 387u) {
             snprintf(

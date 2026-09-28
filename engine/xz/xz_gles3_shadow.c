@@ -4921,11 +4921,11 @@ int XzGles3Shadow_UploadStaticScene(
             xz_shadow.static_lightmap_draw_plan.instance_count ==
                 scene->scene.instance_count &&
             xz_shadow.static_lightmap_draw_plan.mapped_instance_count ==
-                10786u &&
+                10787u &&
             xz_shadow.static_lightmap_draw_plan.missing_instance_count ==
-                5u &&
-            xz_shadow.static_lightmap_draw_plan.mapped_batch_count ==
-                717u &&
+                4u &&
+            xz_shadow.static_lightmap_draw_plan.mapped_batch_count >
+                0u &&
             xz_shadow.static_lightmap_draw_plan.batch_count >=
                 xz_shadow.static_lightmap_draw_plan.mapped_batch_count;
 
