@@ -1,17 +1,12 @@
 #pragma once
 
-#include <stddef.h>
+#include "ctw_adapter_registry.h"
 
 /*
  * Generated adapter bindings live here.
  * Keep count=0 until verified ABI adapter functions are implemented.
  */
-typedef struct {
-    const char *name;
-    void *replacement;
-} CtwGeneratedAdapterBinding;
-
-static const CtwGeneratedAdapterBinding g_ctw_adapter_bindings_storage[1] = {
+static const CtwAdapterBinding g_ctw_adapter_bindings_storage[1] = {
     {0, 0},
 };
 
