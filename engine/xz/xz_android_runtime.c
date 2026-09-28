@@ -1022,6 +1022,9 @@ void XzAndroidRuntime_Init(size_t engine_heap_bytes)
     char api[PROP_VALUE_MAX];
     char gles[PROP_VALUE_MAX];
 
+    if (xz_runtime.initialized)
+        XzAndroidRuntime_Shutdown();
+
     memset(&xz_runtime, 0, sizeof(xz_runtime));
 
     xz_runtime.cpu_cores = SDL_GetCPUCount();
@@ -2258,6 +2261,9 @@ void XzAndroidRuntime_Shutdown(void)
     XzDestroyGraphResourceHandles();
     XzStaticSceneRuntime_Shutdown(
         &xz_runtime.static_scene);
+    XzAssetCache_Destroy(&xz_runtime.asset_cache);
+    XzBulkStore_Destroy(&xz_runtime.bulk_store);
+    XzZoneDb_Destroy(&xz_runtime.zone_db);
     XzTextureTap_Shutdown();
     XzAndroidLog(
         ANDROID_LOG_INFO,
