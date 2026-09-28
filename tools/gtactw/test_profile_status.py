@@ -52,6 +52,56 @@ class ProfileStatusTests(unittest.TestCase):
         }
         return profile
 
+
+    def fully_verified_profile(self):
+        profile = self.fixture()
+        for index, key in enumerate(profile_template.TARGET_KEYS, start=1):
+            rva = 0x7000 + index * 0x100
+            profile["patch_targets_rva"][key] = rva
+            profile["target_verification"][key] = {
+                "status": "verified",
+                "rva": rva,
+                "evidence": [
+                    {"method": "fixture", "detail": f"verified {key}"}
+                ],
+                "code_prefix_hex": "cc" * 16,
+            }
+            profile["abi_verification"][key] = {
+                "status": "verified",
+                "prototype": f"void {key}(void)",
+                "calling_convention": "aarch64_aapcs64",
+                "adapter": f"ctw_{key}_adapter_v1",
+                "verified_rva": rva,
+                "evidence": [
+                    {"method": "fixture", "detail": f"ABI {key}"}
+                ],
+                "candidates": [
+                    {
+                        "rva": rva,
+                        "function": key,
+                        "source": "verified_target",
+                        "trampoline_strategy_hint": (
+                            "simple_copy_trampoline_candidate"
+                        ),
+                    }
+                ],
+            }
+        return profile
+
+    def adapter_catalog(self, *, implemented=True):
+        return {
+            "schema": 1,
+            "adapters": [
+                {
+                    "name": f"ctw_{key}_adapter_v1",
+                    "target": key,
+                    "native_symbol": f"ctw_{key}_native_v1",
+                    "implemented": implemented,
+                }
+                for key in profile_template.TARGET_KEYS
+            ],
+        }
+
     def test_pending_targets_and_anchor_coverage(self):
         status = profile_status.profile_status(self.fixture())
         self.assertTrue(status["fingerprint_ready"])
@@ -112,6 +162,29 @@ class ProfileStatusTests(unittest.TestCase):
         self.assertEqual(status["abis_verified"], 0)
         self.assertEqual(status["phase"], "needs_verified_hook_abis")
 
+
+
+    def test_verified_profile_waits_for_native_adapters(self):
+        status = profile_status.profile_status(
+            self.fully_verified_profile(),
+            self.adapter_catalog(implemented=False),
+        )
+        self.assertEqual(status["targets_verified"], 6)
+        self.assertEqual(status["abis_verified"], 6)
+        self.assertEqual(status["phase"], "needs_native_hook_adapters")
+        self.assertFalse(status["runtime_bundle_ready"])
+        self.assertFalse(status["native_adapter_plan"]["ready"])
+
+    def test_verified_profile_with_native_adapters_is_bundle_ready(self):
+        status = profile_status.profile_status(
+            self.fully_verified_profile(),
+            self.adapter_catalog(implemented=True),
+        )
+        self.assertEqual(status["phase"], "runtime_bundle_ready")
+        self.assertTrue(status["runtime_bundle_ready"])
+        self.assertTrue(status["native_adapter_plan"]["ready"])
+        self.assertFalse(status["runtime_hooks_installed"])
+        self.assertFalse(status["playable_3d_mod_ready"])
 
     def test_full_abi_without_strategy_stops_before_adapter_gate(self):
         profile = self.fixture()
