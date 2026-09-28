@@ -9,12 +9,139 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
 import statistics
 
 import pak_inventory
 import wbl_probe
 
+
+
+def streaming_pressure_model(
+    blocks: list[dict],
+    multipliers=(1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0),
+) -> dict:
+    """Estimate spatial load growth from worldblock origins.
+
+    This is intentionally a geometry heuristic, not a claim about CTW's exact
+    engine streaming radius. It uses the median nearest-neighbor block spacing
+    as a baseline and reports how many blocks/instances fall inside larger
+    2D radii.
+    """
+    usable = []
+    for block in blocks:
+        origin = block.get("origin")
+        if not isinstance(origin, list) or len(origin) < 2:
+            continue
+        try:
+            x = float(origin[0])
+            y = float(origin[1])
+        except (TypeError, ValueError):
+            continue
+        if not (math.isfinite(x) and math.isfinite(y)):
+            continue
+        usable.append({
+            "name": block.get("name"),
+            "resource_id": block.get("resource_id"),
+            "x": x,
+            "y": y,
+            "instances": int(block.get("instances") or 0),
+        })
+
+    if len(usable) < 2:
+        return {
+            "available": False,
+            "reason": "need at least two worldblock origins",
+        }
+
+    nearest = []
+    for i, a in enumerate(usable):
+        distances = []
+        for j, b in enumerate(usable):
+            if i == j:
+                continue
+            d = math.hypot(a["x"] - b["x"], a["y"] - b["y"])
+            if d > 1e-6:
+                distances.append(d)
+        if distances:
+            nearest.append(min(distances))
+
+    if not nearest:
+        return {
+            "available": False,
+            "reason": "worldblock origins do not have distinct 2D positions",
+        }
+
+    baseline = float(statistics.median(nearest))
+    scenarios = []
+
+    for multiplier in multipliers:
+        m = float(multiplier)
+        radius = baseline * m
+        loaded_counts = []
+        instance_counts = []
+        worst = None
+
+        for center in usable:
+            count = 0
+            instances = 0
+            names = []
+            for block in usable:
+                d = math.hypot(
+                    center["x"] - block["x"],
+                    center["y"] - block["y"],
+                )
+                if d <= radius + 1e-6:
+                    count += 1
+                    instances += block["instances"]
+                    names.append(block["name"])
+
+            loaded_counts.append(count)
+            instance_counts.append(instances)
+            if worst is None or (instances, count) > (
+                worst["instances"],
+                worst["blocks"],
+            ):
+                worst = {
+                    "center": center["name"],
+                    "center_resource_id": center["resource_id"],
+                    "blocks": count,
+                    "instances": instances,
+                    "block_names": names[:64],
+                }
+
+        scenarios.append({
+            "multiplier": m,
+            "radius_world_units": radius,
+            "loaded_blocks": {
+                "min": min(loaded_counts),
+                "max": max(loaded_counts),
+                "mean": statistics.fmean(loaded_counts),
+                "median": statistics.median(loaded_counts),
+            },
+            "loaded_instances": {
+                "min": min(instance_counts),
+                "max": max(instance_counts),
+                "mean": statistics.fmean(instance_counts),
+                "median": statistics.median(instance_counts),
+            },
+            "worst_center": worst,
+        })
+
+    return {
+        "available": True,
+        "model": "2D origin-radius heuristic; not the engine's exact streaming radius",
+        "worldblocks_used": len(usable),
+        "baseline_nearest_neighbor_world_units": baseline,
+        "nearest_neighbor_stats": {
+            "min": min(nearest),
+            "max": max(nearest),
+            "mean": statistics.fmean(nearest),
+            "median": statistics.median(nearest),
+        },
+        "scenarios": scenarios,
+    }
 
 def census_pak(path: Path) -> dict:
     with path.open("rb") as fp:
@@ -94,6 +221,7 @@ def census_pak(path: Path) -> dict:
         "instance_stats_per_worldblock": stat(instance_counts),
         "level_stats_per_worldblock": stat(level_counts),
         "densest_worldblocks": dense,
+        "streaming_pressure_model": streaming_pressure_model(blocks),
         "worldblocks": blocks,
     }
 
