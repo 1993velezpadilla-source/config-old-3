@@ -28,32 +28,41 @@ def make_fixture(path: Path):
     def sno(name: bytes):
         return shstr.index(name)
 
+    draw = plt_calls.DRAW_FRAME_SYMBOL.encode()
     caller = b"UploadProjection"
     imported = b"glUniformMatrix4fv"
-    dynstr = b"\0" + caller + b"\0" + imported + b"\0"
+    dynstr = b"\0" + draw + b"\0" + caller + b"\0" + imported + b"\0"
+    draw_off = dynstr.index(draw)
     caller_off = dynstr.index(caller)
     import_off = dynstr.index(imported)
 
     sym0 = b"\0" * elf_probe.ELF64_SYM.size
     sym1 = elf_probe.ELF64_SYM.pack(
-        caller_off, 0x12, 0, 4, 0x1000, 8
+        draw_off, 0x12, 0, 4, 0x1000, 8
     )
     sym2 = elf_probe.ELF64_SYM.pack(
+        caller_off, 0x12, 0, 4, 0x1010, 8
+    )
+    sym3 = elf_probe.ELF64_SYM.pack(
         import_off, 0x12, 0, 0, 0, 0
     )
-    dynsym = sym0 + sym1 + sym2
+    dynsym = sym0 + sym1 + sym2 + sym3
 
     plt_addr = 0x3000
     plt_entry = plt_addr + 32
     text = struct.pack(
-        "<II",
-        encode_bl(0x1000, plt_entry),
+        "<IIIIII",
+        encode_bl(0x1000, 0x1010),
+        0xD65F03C0,
+        0xD503201F,
+        0xD503201F,
+        encode_bl(0x1010, plt_entry),
         0xD65F03C0,
     )
     plt = b"\x00" * 48
 
-    # Symbol index 2, relocation type 1026 (R_AARCH64_JUMP_SLOT).
-    r_info = (2 << 32) | 1026
+    # Symbol index 3, relocation type 1026 (R_AARCH64_JUMP_SLOT).
+    r_info = (3 << 32) | 1026
     rela = plt_calls.ELF64_RELA.pack(0x5000, r_info, 0)
 
     cursor = elf_probe.ELF64_EHDR.size
@@ -120,10 +129,16 @@ class PltCallsTests(unittest.TestCase):
         self.assertEqual(report["call_count"], 1)
         item = report["groups"]["projection"][0]
         self.assertEqual(item["caller"], "UploadProjection")
-        self.assertEqual(item["caller_rva"], 0x1000)
+        self.assertEqual(item["caller_rva"], 0x1010)
         self.assertEqual(item["import_symbol"], "glUniformMatrix4fv")
         self.assertEqual(item["plt_rva"], 0x3020)
         self.assertEqual(item["got_rva"], 0x5000)
+        self.assertTrue(item["draw_frame_reachable"])
+        self.assertEqual(item["draw_frame_hops"], 1)
+        self.assertEqual(
+            item["draw_frame_path_functions"],
+            [plt_calls.DRAW_FRAME_SYMBOL, "UploadProjection"],
+        )
 
     def test_import_categories(self):
         self.assertIn(
