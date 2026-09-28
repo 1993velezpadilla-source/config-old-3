@@ -41,7 +41,7 @@ target_include_directories(
 
 target_compile_features(Game PRIVATE c_std_11)
 target_compile_options(Game PRIVATE -Wall -Wextra -Werror -fvisibility=hidden)
-target_link_libraries(Game PRIVATE dl log android)
+target_link_libraries(Game PRIVATE dl log android m)
 
 option(CTW_USE_SHADOWHOOK "Enable ShadowHook fallback for advanced ARM64 relocation" OFF)
 set(CTW_SHADOWHOOK_DIR "" CACHE PATH "Path to pinned ShadowHook source checkout")
