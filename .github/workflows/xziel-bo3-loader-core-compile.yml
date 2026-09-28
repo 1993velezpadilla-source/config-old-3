@@ -127,6 +127,7 @@ jobs:
             engine/xz/xz_bulk_store.c \
             engine/xz/xz_asset_loader_registry.c \
             engine/xz/xz_asset_cache.c \
+            engine/xz/xz_source_class_registry.c \
             engine/xz/xz_package_boot.c \
             -o build/xziel-bo3-loader-core/selftest
 
