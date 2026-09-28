@@ -18,13 +18,14 @@ import shutil
 import tempfile
 import zipfile
 
+import apk_identity
 import ctw_probe
 import elf_probe
 import pak_inventory
 import profile_template
 
 
-def analyze_apk(apk: Path) -> dict:
+def analyze_apk(apk: Path, reference: Path | None = None, aapt: Path | None = None) -> dict:
     if not apk.is_file():
         raise FileNotFoundError(apk)
 
@@ -41,6 +42,9 @@ def analyze_apk(apk: Path) -> dict:
         "libgame": None,
         "profile_template": None,
         "profile_template_error": None,
+        "apk_identity": None,
+        "apk_identity_error": None,
+        "reference_validation": None,
         "gates": {
             "apk_inventory": not base["missing_required"],
             "pak_inventory": False,
@@ -48,6 +52,18 @@ def analyze_apk(apk: Path) -> dict:
             "known_jni": False,
         },
     }
+
+    if reference is not None:
+        try:
+            identity = apk_identity.inspect_apk_identity(apk, aapt)
+            ref_obj = json.loads(reference.read_text(encoding="utf-8"))
+            validation = apk_identity.validate_reference(identity, ref_obj)
+            report["apk_identity"] = identity
+            report["reference_validation"] = validation
+            report["gates"]["reference_build"] = validation["ok"]
+        except Exception as exc:
+            report["apk_identity_error"] = str(exc)
+            report["gates"]["reference_build"] = False
 
     with zipfile.ZipFile(apk, "r") as zf, tempfile.TemporaryDirectory(prefix="gtactw_analyze_") as td:
         root = Path(td)
@@ -89,6 +105,8 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("apk", type=Path, help="Path to a user-owned CTW Android APK")
     ap.add_argument("--out", type=Path, help="Write full JSON analysis here")
+    ap.add_argument("--reference", type=Path, help="Pinned CTW reference-build JSON")
+    ap.add_argument("--aapt", type=Path, help="Optional explicit Android aapt/aapt2 path")
     ap.add_argument(
         "--allow-partial",
         action="store_true",
@@ -97,7 +115,7 @@ def main() -> int:
     args = ap.parse_args()
 
     try:
-        report = analyze_apk(args.apk)
+        report = analyze_apk(args.apk, args.reference, args.aapt)
     except Exception as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, indent=2))
         return 2
