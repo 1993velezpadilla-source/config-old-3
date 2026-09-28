@@ -87,6 +87,8 @@ for name in (
     "xz_runtime_readiness.c",
     "xz_game_system_registry.h",
     "xz_game_system_registry.c",
+    "xz_critical_streaming.h",
+    "xz_critical_streaming.c",
     "xz_t7_asset_types.h",
     "xz_t7_asset_types.c",
     "xz_asset_pool.h",
