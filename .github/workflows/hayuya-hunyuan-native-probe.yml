@@ -1,0 +1,110 @@
+name: HAYUYA Hunyuan Native Probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - tools/hayuya3d/hunyuan3d_cloud.py
+      - .github/workflows/hayuya-hunyuan-native-probe.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hayuya-hunyuan-native-probe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  monja:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install probe dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "gradio_client>=1.10,<2" trimesh numpy pillow scipy
+
+      - name: Generate native Monja shape with Hunyuan3D 2.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out/hunyuan-native-probe
+          python - <<'PY'
+          import json, sys
+          from pathlib import Path
+
+          sys.path.insert(0, "tools/hayuya3d")
+          from hunyuan3d_cloud import generate_shape
+
+          meta=generate_shape(
+              Path("hayuya/assets/monja-mugfwln6/geometry/primary.webp"),
+              Path("out/hunyuan-native-probe/monja_hunyuan_native.glb"),
+              seed=1993,
+              steps=30,
+              guidance_scale=5.0,
+              octree_resolution=384,
+              num_chunks=8000,
+          )
+          print("HAYUYA_HUNYUAN_PROBE_META", json.dumps(meta,separators=(",",":")))
+          PY
+
+      - name: Inspect native geometry
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, sys
+          from pathlib import Path
+          sys.path.insert(0, "tools/hayuya3d")
+          from mesh_gate import inspect
+          p=Path("out/hunyuan-native-probe/monja_hunyuan_native.glb")
+          report=inspect(p,require_normals=False)
+          payload={
+              "schema":1,
+              "generator":"tencent/Hunyuan3D-2.1",
+              "native_model_generated_geometry":True,
+              "faces":int(report.faces),
+              "vertices":int(report.vertices),
+              "components":int(report.components),
+              "largest_component_fraction":float(report.largest_component_fraction),
+              "passed":bool(report.passed),
+              "reasons":list(report.reasons),
+              "warnings":list(report.warnings),
+          }
+          Path("out/hunyuan-native-probe/mesh_gate.json").write_text(
+              json.dumps(payload,indent=2)+"\n",encoding="utf-8"
+          )
+          print("HAYUYA_HUNYUAN_NATIVE_MESH",json.dumps(payload,separators=(",",":")))
+          if not report.passed:
+              raise SystemExit(2)
+          PY
+
+      - name: Install Blender for front evidence
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender
+
+      - name: Render semantic front evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          blender --python-exit-code 1 -b             --python tools/hayuya3d/blender_judge_turntable_24.py --             --input out/hunyuan-native-probe/monja_hunyuan_native.glb             --output-dir out/hunyuan-native-probe/front_evidence             --size 768             --face-size 768             --preflight-only
+
+      - name: Upload probe artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hayuya-hunyuan-native-probe
+          path: out/hunyuan-native-probe/**
+          if-no-files-found: warn
+          retention-days: 3
