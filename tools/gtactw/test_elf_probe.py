@@ -93,10 +93,11 @@ class ElfProbeTests(unittest.TestCase):
 
         self.assertEqual(report["elf"]["machine"], "AArch64")
         self.assertEqual(report["elf"]["build_id"], expected_build_id)
-        self.assertTrue(
-            report["symbols"]["known_jni"][
-                "Java_com_rockstargames_oswrapper_GameNative_implOnDrawFrame"
-            ]
+        draw_name = "Java_com_rockstargames_oswrapper_GameNative_implOnDrawFrame"
+        self.assertTrue(report["symbols"]["known_jni"][draw_name])
+        self.assertEqual(
+            report["symbols"]["known_jni_details"][draw_name]["value"],
+            0x1000,
         )
         names = {
             x["name"]
