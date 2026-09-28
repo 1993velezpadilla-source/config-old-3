@@ -19,6 +19,7 @@ import re
 import shutil
 import subprocess
 
+import aarch64_prologue
 import elf_probe
 import profile_template
 
@@ -426,6 +427,11 @@ def probe_profile(
                     text,
                     requested_rva=int(item["rva"]),
                 )
+                prologue = aarch64_prologue.analyze_target(
+                    libgame,
+                    int(item["rva"]),
+                )
+                evidence["prologue_relocation"] = prologue
                 target_entries.append({
                     **item,
                     "abi_evidence": evidence,
@@ -448,8 +454,10 @@ def probe_profile(
         "targets": targets,
         "errors": errors,
         "note": (
-            "ABI evidence is heuristic. Do not install a runtime hook until "
-            "the target function prototype/adapter is explicitly verified."
+            "ABI evidence is heuristic. Prologue relocation safety only "
+            "indicates whether the first 16 bytes are suitable for a simple "
+            "copy trampoline. Do not install a runtime hook until the target "
+            "function prototype/adapter is explicitly verified."
         ),
     }
 
