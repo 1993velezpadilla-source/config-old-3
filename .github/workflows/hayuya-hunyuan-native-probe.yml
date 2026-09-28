@@ -92,7 +92,7 @@ jobs:
       - name: Install Blender for front evidence
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq blender python3-numpy
+          sudo apt-get install -y -qq blender python3-numpy libegl1 libgl1-mesa-dri xvfb
           blender -b --python-expr "import numpy; print('HAYUYA_BLENDER_NUMPY_READY', numpy.__version__)"
 
       - name: Render semantic front evidence
