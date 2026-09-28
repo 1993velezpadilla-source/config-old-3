@@ -13,6 +13,7 @@ typedef struct {
     const char *name;
     uintptr_t expected_draw_frame_rva;
     uintptr_t expected_initial_setup_rva;
+    uintptr_t expected_gamepad_axes_rva;
     CtwPatchTargets target_rvas;
 } CtwBuildProfile;
 
@@ -20,6 +21,7 @@ int ctw_profile_match(
     uintptr_t library_base,
     uintptr_t draw_frame_addr,
     uintptr_t initial_setup_addr,
+    uintptr_t gamepad_axes_addr,
     const CtwBuildProfile *profiles,
     size_t profile_count,
     CtwPatchTargets *absolute_targets,
