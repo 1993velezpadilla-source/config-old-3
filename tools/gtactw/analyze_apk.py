@@ -21,6 +21,7 @@ import zipfile
 import ctw_probe
 import elf_probe
 import pak_inventory
+import profile_template
 
 
 def analyze_apk(apk: Path) -> dict:
@@ -38,6 +39,8 @@ def analyze_apk(apk: Path) -> dict:
         "pak_header": base["pak"],
         "pak_inventory": None,
         "libgame": None,
+        "profile_template": None,
+        "profile_template_error": None,
         "gates": {
             "apk_inventory": not base["missing_required"],
             "pak_inventory": False,
@@ -73,6 +76,10 @@ def analyze_apk(apk: Path) -> dict:
             report["libgame"] = elf
             report["gates"]["arm64_elf"] = elf["elf"]["machine"] == "AArch64"
             report["gates"]["known_jni"] = elf["symbols"]["known_jni_present"] > 0
+            try:
+                report["profile_template"] = profile_template.make_profile(elf)
+            except Exception as exc:
+                report["profile_template_error"] = str(exc)
 
     report["ok"] = all(report["gates"].values())
     return report
