@@ -8,7 +8,7 @@ android {
 
     defaultConfig {
         applicationId = "com.pichy.ai"
-        minSdk = 28
+        minSdk = 33
         targetSdk = 36
         versionCode = 10
         versionName = "0.5.0-local-lab"
