@@ -113,6 +113,36 @@ class HookDossierTests(unittest.TestCase):
                             },
                         },
                     },
+                    "argument_shape_hints": {
+                        "gpr": {
+                            "x0": {
+                                "kind_hint": "pointer_like",
+                                "x64_uses": [0x5004],
+                                "w32_uses": [],
+                                "memory_base_uses": [0x5004],
+                            }
+                        },
+                        "fp": {
+                            "v0": {
+                                "kind_hint": "float32_like",
+                                "forms": {"s": [0x5008]},
+                            }
+                        },
+                    },
+                    "return_value_hints": {
+                        "paths": [
+                            {
+                                "ret_address": 0x507C,
+                                "register_class": "gpr",
+                                "register": "x0",
+                                "kind_hint": "boolean_like",
+                                "address": 0x5078,
+                                "mnemonic": "cset",
+                                "operands": "w0, ne",
+                            }
+                        ],
+                        "register_classes_seen": ["gpr"],
+                    },
                     "calls": [
                         {
                             "symbol": "glUniformMatrix4fv@plt",
@@ -163,6 +193,18 @@ class HookDossierTests(unittest.TestCase):
         self.assertEqual(
             candidate["overwritten_fp_before_read_v0_v7"],
             [3],
+        )
+        self.assertEqual(
+            candidate["argument_shape_hints"]["gpr"]["x0"]["kind_hint"],
+            "pointer_like",
+        )
+        self.assertEqual(
+            candidate["argument_shape_hints"]["fp"]["v0"]["kind_hint"],
+            "float32_like",
+        )
+        self.assertEqual(
+            candidate["return_value_hints"]["paths"][0]["kind_hint"],
+            "boolean_like",
         )
 
         self.assertEqual(report["summary"]["targets_verified"], 0)
