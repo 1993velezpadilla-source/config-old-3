@@ -69,6 +69,16 @@ class ProfileTemplateTests(unittest.TestCase):
             profile["status"],
             "template_needs_verified_internal_rvas",
         )
+        self.assertEqual(
+            set(profile["abi_verification"]),
+            set(profile_template.TARGET_KEYS),
+        )
+        self.assertTrue(
+            all(
+                item["status"] == "pending"
+                for item in profile["abi_verification"].values()
+            )
+        )
 
     def test_profile_ranks_xref_evidence_without_filling_targets(self):
         xrefs = {
