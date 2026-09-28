@@ -81,6 +81,8 @@ for name in (
     "xz_map_runtime.c",
     "xz_package_boot.h",
     "xz_package_boot.c",
+    "xz_zone_db.h",
+    "xz_zone_db.c",
     "xz_xzmesh.h",
     "xz_xzmesh.c",
     "xz_xzscene.h",
