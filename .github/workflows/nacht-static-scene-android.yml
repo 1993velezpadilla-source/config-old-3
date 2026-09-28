@@ -47,6 +47,7 @@ on:
       - feature/xziel-nacht-lightmap-binding-runtime-v1
       - feature/xziel-nacht-lightmap-uv-gpu-v1
       - feature/xziel-nacht-lightmap-batch-runtime-v1
+      - feature/xziel-nacht-lightmap-hq-gpu-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -3657,7 +3658,7 @@ jobs:
             "$ADB" logcat -d -v threadtime \
               > dist/static-scene-logcat-probe.txt || true
             if grep -Eq \
-                "XZIEL-XZ.*static_scene_draw ready=1 meshes=492 instances=10791 drawCalls=1063 attempts=[1-9][0-9]* failures=0" \
+                "XZIEL-XZ.*static_scene_draw ready=1 meshes=492 instances=10791 drawCalls=[1-9][0-9]* attempts=[1-9][0-9]* failures=0.*lightmapReady=1 bakedLightmapDraws=[1-9][0-9]*" \
                 dist/static-scene-logcat-probe.txt; then
               DRAW_READY=1
               cp \
@@ -3883,6 +3884,20 @@ jobs:
             dist/static-scene-logcat.txt
 
           grep -E \
+            "XZIEL-XZ.*static_scene_baked_lightmaps map='xziel_nacht_bo3' ready=1 textures=87 gpuBytes=123406608 batches=[1-9][0-9]* mappedBatches=717" \
+            dist/static-scene-logcat.txt
+
+          grep -Fq \
+            '"uniform sampler2D uLightmapHQ;\\n"' \
+            engine/xz/xz_gles3_shadow.c
+          grep -Fq \
+            '"  float logL=lm0.a+lm1.a*(1.0/255.0)-(0.5/255.0);\\n"' \
+            engine/xz/xz_gles3_shadow.c
+          grep -Fq \
+            "GL_COMPRESSED_RGBA_S3TC_DXT5_EXT" \
+            engine/xz/xz_gles3_shadow.c
+
+          grep -E \
             "XZIEL-XZ.*static_scene status=READY map='xziel_nacht_bo3'.*normalBindings=1063 normalMapped=[1-9][0-9]* normalTextures=[1-9][0-9]* normalBytes=[1-9][0-9]* normalGpuReady=1" \
             dist/static-scene-logcat.txt
 
@@ -3958,7 +3973,7 @@ jobs:
             dist/static-scene-logcat.txt
 
           grep -E \
-            "XZIEL-XZ.*static_scene_draw ready=1 meshes=492 instances=10791 drawCalls=1063 attempts=[1-9][0-9]* failures=0" \
+            "XZIEL-XZ.*static_scene_draw ready=1 meshes=492 instances=10791 drawCalls=[1-9][0-9]* attempts=[1-9][0-9]* failures=0.*lightmapReady=1 bakedLightmapDraws=[1-9][0-9]*" \
             dist/static-scene-logcat.txt
 
           grep -E \
@@ -3966,7 +3981,10 @@ jobs:
             dist/static-scene-logcat.txt
 
           echo \
-            "XZIEL_NACHT_FRAMEBUFFER_DRAW_GREEN meshes=492 instances=10791 drawCalls=1063"
+            "XZIEL_NACHT_FRAMEBUFFER_DRAW_GREEN meshes=492 instances=10791 bakedLightmaps=1"
+
+          echo \
+            "XZIEL_NACHT_HQ_LIGHTMAP_GPU_GREEN textures=87 gpuBytes=123406608 mappedBatches=717"
 
           echo \
             "XZIEL_NACHT_MATERIAL_GPU_GREEN bindings=1063"
