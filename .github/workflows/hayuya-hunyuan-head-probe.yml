@@ -94,6 +94,7 @@ jobs:
               guidance_scale=5.0,
               octree_resolution=384,
               num_chunks=8000,
+              remove_background=True,
           )
           print("HAYUYA_HUNYUAN_BODY_AND_HEAD_NATIVE",json.dumps({
               "body":body,"head":head
