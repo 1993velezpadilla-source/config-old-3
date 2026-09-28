@@ -106,6 +106,7 @@ fi
 
 .hayuya/control/bin/python tools/hayuya3d/gpu_verify.py \
   --root "${OUTPUT_ROOT}" \
+  --profile "${PROFILE}" \
   --output "${EVIDENCE_ROOT}/GPU_E2E_PASS.json"
 
 if [[ "${PROFILE}" == "ultra" ]]; then
