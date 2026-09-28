@@ -104,15 +104,28 @@ jobs:
         run: |
           set -euxo pipefail
           mkdir -p kino-download/class-shards
-          for i in $(seq 0 7); do
-            dotnet run \
-              --project tools/maps/UEAssetClassCensus/UEAssetClassCensus.csproj \
-              --configuration Release \
-              -- \
+
+          dotnet build \
+            tools/maps/UEAssetClassCensus/UEAssetClassCensus.csproj \
+            --configuration Release \
+            --no-restore || \
+          dotnet build \
+            tools/maps/UEAssetClassCensus/UEAssetClassCensus.csproj \
+            --configuration Release
+
+          APP="tools/maps/UEAssetClassCensus/bin/Release/net10.0/UEAssetClassCensus.dll"
+          test -s "$APP"
+
+          SHARDS=32
+          for i in $(seq 0 $((SHARDS - 1))); do
+            echo "XZIEL_KINO_CLASS_SHARD_START $i/$SHARDS"
+            dotnet "$APP" \
               kino-pak-unpacked \
               "kino-download/class-shards/shard-$i.json" \
-              "$i" 8 \
+              "$i" "$SHARDS" \
               | tee "kino-download/class-shards/shard-$i.log"
+            test -s "kino-download/class-shards/shard-$i.json"
+            echo "XZIEL_KINO_CLASS_SHARD_GREEN $i/$SHARDS"
           done
 
           python3 - <<'PY'
@@ -123,9 +136,12 @@ jobs:
           root = Path("kino-download/class-shards")
           reports = [
               json.loads(p.read_text(encoding="utf-8"))
-              for p in sorted(root.glob("shard-*.json"))
+              for p in sorted(
+                  root.glob("shard-*.json"),
+                  key=lambda p: int(p.stem.split("-")[1]),
+              )
           ]
-          assert len(reports) == 8, len(reports)
+          assert len(reports) == 32, len(reports)
 
           classes = Counter()
           package_exts = Counter()
@@ -139,7 +155,7 @@ jobs:
 
           out = {
               "schemaVersion": 1,
-              "shardCount": 8,
+              "shardCount": 32,
               "packageCount": sum(r["packageCount"] for r in reports),
               "packagesLoaded": sum(r["packagesLoaded"] for r in reports),
               "packageLoadFailureCount": len(failures),
@@ -161,7 +177,7 @@ jobs:
               "exports": out["totalExports"],
               "classes": out["uniqueExportClassCount"],
           })
-          for name, count in classes.most_common(80):
+          for name, count in classes.most_common(100):
               print("XZIEL_KINO_CLASS", count, name)
           PY
 
