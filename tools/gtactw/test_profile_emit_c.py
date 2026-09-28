@@ -27,6 +27,14 @@ class ProfileEmitCTests(unittest.TestCase):
                 "lod_test": 0x7000,
                 "player_render": 0x8000,
             },
+            "target_verification": {
+                "camera_update": {"status": "verified", "rva": 0x3000, "evidence": [{"method": "xref+disassembly", "detail": "fixture camera"}]},
+                "projection_setup": {"status": "verified", "rva": 0x4000, "evidence": [{"method": "xref+disassembly", "detail": "fixture projection"}]},
+                "world_stream_update": {"status": "verified", "rva": 0x5000, "evidence": [{"method": "xref+disassembly", "detail": "fixture streaming"}]},
+                "sector_visibility": {"status": "verified", "rva": 0x6000, "evidence": [{"method": "xref+disassembly", "detail": "fixture sector"}]},
+                "lod_test": {"status": "verified", "rva": 0x7000, "evidence": [{"method": "xref+disassembly", "detail": "fixture lod"}]},
+                "player_render": {"status": "verified", "rva": 0x8000, "evidence": [{"method": "xref+disassembly", "detail": "fixture player"}]},
+            },
         }
 
     def test_emit_verified_profile_header(self):
@@ -45,6 +53,25 @@ class ProfileEmitCTests(unittest.TestCase):
             obj = self.fixture()
             obj["patch_targets_rva"]["player_render"] = None
             path = Path(td) / "bad.json"
+            path.write_text(json.dumps(obj), encoding="utf-8")
+            with self.assertRaises(ValueError):
+                profile_emit_c.load_verified_profile(path)
+
+
+    def test_rejects_target_without_evidence(self):
+        with tempfile.TemporaryDirectory() as td:
+            obj = self.fixture()
+            obj["target_verification"]["camera_update"]["evidence"] = []
+            path = Path(td) / "bad-evidence.json"
+            path.write_text(json.dumps(obj), encoding="utf-8")
+            with self.assertRaises(ValueError):
+                profile_emit_c.load_verified_profile(path)
+
+    def test_rejects_verification_rva_mismatch(self):
+        with tempfile.TemporaryDirectory() as td:
+            obj = self.fixture()
+            obj["target_verification"]["lod_test"]["rva"] = 0x9999
+            path = Path(td) / "bad-rva.json"
             path.write_text(json.dumps(obj), encoding="utf-8")
             with self.assertRaises(ValueError):
                 profile_emit_c.load_verified_profile(path)
