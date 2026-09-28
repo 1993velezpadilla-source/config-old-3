@@ -93,6 +93,8 @@ for name in (
     "xz_bulk_store.c",
     "xz_asset_loader_registry.h",
     "xz_asset_loader_registry.c",
+    "xz_asset_cache.h",
+    "xz_asset_cache.c",
     "xz_xzmesh.h",
     "xz_xzmesh.c",
     "xz_xzscene.h",
