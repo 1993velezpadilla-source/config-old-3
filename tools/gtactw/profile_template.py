@@ -463,7 +463,19 @@ def make_profile(
             "(draw/setup/gamepad-axes)"
         )
 
-    candidates = report.get("symbols", {}).get("candidate_groups", {})
+    symbols_report = report.get("symbols", {})
+    anchors = symbols_report.get("known_4243_engine_symbols", {})
+    present_anchors = [
+        {
+            "name": name,
+            "rva": item.get("value"),
+            "size": item.get("size"),
+        }
+        for name, item in anchors.items()
+        if isinstance(item, dict) and item.get("present")
+    ]
+
+    candidates = symbols_report.get("candidate_groups", {})
     candidate_summary = {}
     for group in ("camera", "streaming", "lod_culling", "player_render"):
         entries = candidates.get(group, [])
@@ -491,6 +503,15 @@ def make_profile(
                 "implOnInitialSetup": setup_rva,
                 "implOnGamepadAxesChanged": axes_rva,
             },
+        },
+        "public_4243_engine_anchors": {
+            "present_count": len(present_anchors),
+            "total_count": len(anchors),
+            "present": present_anchors,
+            "note": (
+                "Secondary build evidence from public 4.4.243 port symbols; "
+                "not a substitute for SHA/build-id/JNI fingerprint checks."
+            ),
         },
         "patch_targets_rva": {key: None for key in TARGET_KEYS},
         "target_verification": {
