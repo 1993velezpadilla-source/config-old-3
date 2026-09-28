@@ -1,5 +1,13 @@
 # GTA Chinatown Wars Android 3D Mod Lab
 
+## Project isolation
+
+This is a standalone for-fun modding project. It must not depend on, import,
+or modify Nacht/XZIEL/ZOMBIESSSSSSS PORTABLE code, assets, workflows, runtime
+profiles, or engine assumptions. Shared repository hosting is organizational
+only; CTW work stays inside this branch/path and has its own CI gates.
+
+
 Experimental, clean-room modding workspace for **GTA: Chinatown Wars Android**.
 
 This project does **not** contain Rockstar game data. Bring a legally obtained APK/game install.
@@ -160,3 +168,18 @@ python tools/gtactw/profile_emit_c.py \
 
 The runtime also compares stable JNI RVAs before accepting a profile, so
 offsets from one CTW build are not silently applied to another build.
+
+
+## World streaming census
+
+After extracting or locating `game.pak`, build a metadata-only census of every
+named CTW worldblock:
+
+```bash
+python tools/gtactw/world_census.py ./local_ctw/assets/game.pak --out ./local_ctw/world_census.json --require-clean
+```
+
+The census reports per-worldblock instance/level density, sector counts,
+origins and local level bounds. This is intended to guide coordinated
+stream-radius/LOD/far-clip tuning rather than blindly increasing a single
+draw-distance constant.
