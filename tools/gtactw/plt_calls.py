@@ -38,6 +38,7 @@ INTERESTING_IMPORTS = {
         "glDisable",
         "glDepthMask",
         "glScissor",
+        "glCullFace",
     },
 }
 
