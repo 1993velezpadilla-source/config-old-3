@@ -1,4 +1,5 @@
 using CUE4Parse.FileProvider;
+using CUE4Parse.MappingsProvider;
 using CUE4Parse.UE4.Assets;
 using CUE4Parse.UE4.Readers;
 using CUE4Parse.UE4.Objects.UObject;
@@ -66,6 +67,16 @@ var provider =
         true,
         new VersionContainer(sourceGame));
 
+/*
+ * Cooked UE5 packages commonly use PKG_UnversionedProperties.
+ * CUE4Parse refuses to construct those packages unless a mappings
+ * container exists, even when we only need header tables and never
+ * deserialize an export payload. Supply an empty, non-null mapping set
+ * for this metadata-only census. This is source-format infrastructure,
+ * not map-specific schema or a Kino special case.
+ */
+provider.MappingsContainer = new HeaderOnlyMappingsProvider();
+
 provider.Initialize();
 provider.PostMount();
 provider.LoadVirtualPaths();
@@ -119,23 +130,19 @@ foreach (var packagePath in packages)
          */
         using var uassetReader = gameFile.CreateReader();
         /*
-         * Header-only census must not let CUE4Parse resolve imports through
-         * the provider. FObjectExport eagerly touches ClassIndex.Name while
-         * parsing the export table; with a provider that can recursively
-         * load imported packages and trigger unversioned-property
-         * deserialization, which requires mappings and defeats this census.
-         *
-         * The reader already carries the selected UE version. Passing a null
-         * provider keeps Package construction limited to this package's
-         * header tables. We resolve class names from ImportMap/ExportMap
-         * directly below.
+         * Keep export inspection metadata-only. CUE4Parse still needs the
+         * provider here because its Package.CanDeserialize gate checks for a
+         * non-null mappings container on unversioned cooked packages. The
+         * provider carries an intentionally empty mapping set; no export
+         * payload is dereferenced by this census. Class names are resolved
+         * directly from ImportMap/ExportMap below.
          */
         var package = new Package(
             uassetReader,
             (FArchive?) null,
             (FArchive?) null,
             (FArchive?) null,
-            null,
+            provider,
             true);
 
         packagesLoaded++;
@@ -269,3 +276,22 @@ foreach (var failure in packageLoadFailures.Take(20))
  * lost just because one package failed.
  */
 return 0;
+
+
+sealed class HeaderOnlyMappingsProvider : ITypeMappingsProvider
+{
+    public TypeMappings? MappingsForGame { get; } = new TypeMappings();
+
+    public void Load(string path, StringComparer? comparer = null)
+        => throw new NotSupportedException(
+            "header-only census does not load schema mappings");
+
+    public void Load(byte[] bytes, StringComparer? comparer = null)
+        => throw new NotSupportedException(
+            "header-only census does not load schema mappings");
+
+    public void Reload()
+    {
+        // Intentionally empty: this provider only satisfies the metadata gate.
+    }
+}
