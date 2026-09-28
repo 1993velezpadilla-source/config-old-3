@@ -282,6 +282,174 @@ def _argument_read_before_write(instructions: list[dict]) -> dict:
     }
 
 
+
+def _argument_shape_hints(instructions: list[dict]) -> dict:
+    gpr = {}
+    fp = {}
+
+    for n in range(8):
+        x_pat = re.compile(rf"\bx{n}\b", re.IGNORECASE)
+        w_pat = re.compile(rf"\bw{n}\b", re.IGNORECASE)
+        base_pat = re.compile(
+            rf"\[[^\]]*\bx{n}\b",
+            re.IGNORECASE,
+        )
+        x_uses = []
+        w_uses = []
+        pointer_base_uses = []
+
+        for ins in instructions:
+            operands = ins["operands"]
+            if x_pat.search(operands):
+                x_uses.append(ins["address"])
+            if w_pat.search(operands):
+                w_uses.append(ins["address"])
+            if base_pat.search(operands):
+                pointer_base_uses.append(ins["address"])
+
+        if x_uses or w_uses:
+            if pointer_base_uses:
+                kind = "pointer_like"
+            elif w_uses and not x_uses:
+                kind = "scalar_32_like"
+            elif x_uses and not w_uses:
+                kind = "scalar_or_pointer_64"
+            else:
+                kind = "mixed_width"
+            gpr[f"x{n}"] = {
+                "kind_hint": kind,
+                "x64_uses": x_uses,
+                "w32_uses": w_uses,
+                "memory_base_uses": pointer_base_uses,
+            }
+
+        forms = {}
+        for prefix in ("s", "d", "q", "v"):
+            pat = re.compile(rf"\b{prefix}{n}\b", re.IGNORECASE)
+            addrs = [
+                ins["address"]
+                for ins in instructions
+                if pat.search(ins["operands"])
+            ]
+            if addrs:
+                forms[prefix] = addrs
+        if forms:
+            if "s" in forms and not any(k in forms for k in ("d", "q", "v")):
+                kind = "float32_like"
+            elif "d" in forms and not any(k in forms for k in ("s", "q", "v")):
+                kind = "float64_like"
+            elif "q" in forms or "v" in forms:
+                kind = "vector_or_aggregate"
+            else:
+                kind = "mixed_fp_width"
+            fp[f"v{n}"] = {
+                "kind_hint": kind,
+                "forms": forms,
+            }
+
+    return {
+        "gpr": gpr,
+        "fp": fp,
+        "note": (
+            "Shape hints come from register width and memory-base use only; "
+            "they do not establish a C/C++ type."
+        ),
+    }
+
+
+def _return_value_hints(instructions: list[dict]) -> dict:
+    paths = []
+
+    for ret_index, ret_ins in enumerate(instructions):
+        if ret_ins["mnemonic"] not in RETURN_MNEMONICS:
+            continue
+
+        evidence = None
+        start = max(0, ret_index - 12)
+        for index in range(ret_index - 1, start - 1, -1):
+            ins = instructions[index]
+            mnemonic = ins["mnemonic"]
+            operands = ins["operands"]
+            reads, writes = _instruction_arg_reads_writes(
+                mnemonic,
+                operands,
+            )
+
+            if "v0" in writes:
+                evidence = {
+                    "register_class": "fp",
+                    "register": "v0",
+                    "kind_hint": "floating_or_vector",
+                    "address": ins["address"],
+                    "mnemonic": mnemonic,
+                    "operands": operands,
+                }
+                break
+
+            if "x0" in writes:
+                if mnemonic == "cset":
+                    kind = "boolean_like"
+                elif mnemonic in {"mov", "movz", "movn"}:
+                    im = IMM_RE.search(operands)
+                    if im and int(im.group(1), 16) in (0, 1):
+                        kind = "boolean_or_small_integer"
+                    else:
+                        kind = "integer_or_pointer"
+                elif mnemonic.startswith("ldr") or mnemonic in {"adr", "adrp"}:
+                    kind = "pointer_or_integer"
+                else:
+                    kind = "integer_or_pointer"
+
+                evidence = {
+                    "register_class": "gpr",
+                    "register": "x0",
+                    "kind_hint": kind,
+                    "address": ins["address"],
+                    "mnemonic": mnemonic,
+                    "operands": operands,
+                }
+                break
+
+            if mnemonic in CALL_MNEMONICS:
+                evidence = {
+                    "register_class": "call_passthrough",
+                    "register": None,
+                    "kind_hint": "callee_return_passthrough",
+                    "address": ins["address"],
+                    "mnemonic": mnemonic,
+                    "operands": operands,
+                }
+                break
+
+        if evidence is None:
+            evidence = {
+                "register_class": "unknown",
+                "register": None,
+                "kind_hint": "no_local_return_write_seen",
+                "address": None,
+                "mnemonic": None,
+                "operands": None,
+            }
+
+        paths.append({
+            "ret_address": ret_ins["address"],
+            **evidence,
+        })
+
+    classes = sorted({
+        item["register_class"]
+        for item in paths
+    })
+    return {
+        "paths": paths,
+        "register_classes_seen": classes,
+        "note": (
+            "Return hints inspect the nearest local x0/v0 write or call before "
+            "each ret. They are ABI evidence only, not a verified return type."
+        ),
+    }
+
+
 def parse_objdump(text: str, *, requested_rva: int | None = None) -> dict:
     instructions = []
     for raw in text.splitlines():
@@ -438,6 +606,8 @@ def parse_objdump(text: str, *, requested_rva: int | None = None) -> dict:
             likely_fp_inputs.append(n)
 
     dataflow = _argument_read_before_write(instructions)
+    shape_hints = _argument_shape_hints(instructions)
+    return_hints = _return_value_hints(instructions)
     likely_gpr_inputs = dataflow["likely_gpr_inputs_x0_x7"]
     overwritten_gpr_early = dataflow[
         "overwritten_gpr_before_read_x0_x7"
@@ -478,6 +648,8 @@ def parse_objdump(text: str, *, requested_rva: int | None = None) -> dict:
                 if addrs
             },
         },
+        "argument_shape_hints": shape_hints,
+        "return_value_hints": return_hints,
         "calls": calls,
         "branches": branches,
         "returns": returns,
