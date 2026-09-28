@@ -24,6 +24,12 @@ SDK_RE = re.compile(r"^sdkVersion:'([^']+)'", re.MULTILINE)
 TARGET_SDK_RE = re.compile(r"^targetSdkVersion:'([^']+)'", re.MULTILINE)
 NATIVE_RE = re.compile(r"^native-code:\s+(.+)$", re.MULTILINE)
 QUOTED_RE = re.compile(r"'([^']+)'")
+CERT_SHA1_RE = re.compile(
+    r"Signer #\\d+ certificate SHA-1 digest:\\s*([0-9a-fA-F:]+)"
+)
+CERT_SHA256_RE = re.compile(
+    r"Signer #\\d+ certificate SHA-256 digest:\\s*([0-9a-fA-F:]+)"
+)
 
 
 def parse_badging(text: str) -> dict:
@@ -52,7 +58,7 @@ def parse_badging(text: str) -> dict:
     }
 
 
-def _sdk_candidates() -> list[Path]:
+def _sdk_candidates(names: tuple[str, ...] = ("aapt2", "aapt")) -> list[Path]:
     roots = []
     for key in ("ANDROID_HOME", "ANDROID_SDK_ROOT"):
         value = os.environ.get(key)
@@ -68,7 +74,7 @@ def _sdk_candidates() -> list[Path]:
                 reverse=True,
             )
             for version in versions:
-                candidates += [version / "aapt2", version / "aapt"]
+                candidates += [version / name for name in names]
     return candidates
 
 
@@ -83,7 +89,7 @@ def find_aapt(explicit: Path | None = None) -> str:
         if found:
             return found
 
-    for candidate in _sdk_candidates():
+    for candidate in _sdk_candidates(("aapt2", "aapt")):
         if candidate.is_file():
             return str(candidate)
 
@@ -91,6 +97,64 @@ def find_aapt(explicit: Path | None = None) -> str:
         "Android aapt/aapt2 not found; install Android SDK build-tools"
     )
 
+
+
+def find_apksigner(explicit: Path | None = None) -> str:
+    if explicit is not None:
+        if explicit.is_file():
+            return str(explicit)
+        raise FileNotFoundError(explicit)
+
+    found = shutil.which("apksigner")
+    if found:
+        return found
+
+    for candidate in _sdk_candidates(("apksigner",)):
+        if candidate.is_file():
+            return str(candidate)
+
+    raise FileNotFoundError(
+        "Android apksigner not found; install Android SDK build-tools"
+    )
+
+
+def _normalize_digest(value: str) -> str:
+    return value.replace(":", "").strip().lower()
+
+
+def parse_apksigner_certs(text: str) -> dict:
+    sha1 = CERT_SHA1_RE.search(text)
+    sha256 = CERT_SHA256_RE.search(text)
+    if not sha1 or not sha256:
+        raise ValueError("apksigner output is missing certificate digests")
+    return {
+        "sha1": _normalize_digest(sha1.group(1)),
+        "sha256": _normalize_digest(sha256.group(1)),
+    }
+
+
+def inspect_apk_certificate(
+    apk: Path,
+    apksigner: Path | None = None,
+) -> dict:
+    if not apk.is_file():
+        raise FileNotFoundError(apk)
+
+    tool = find_apksigner(apksigner)
+    proc = subprocess.run(
+        [tool, "verify", "--print-certs", str(apk)],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        detail = proc.stderr.strip() or proc.stdout.strip()
+        raise RuntimeError(f"apksigner verify failed: {detail}")
+
+    out = parse_apksigner_certs(proc.stdout)
+    out["apksigner"] = tool
+    return out
 
 def inspect_apk_identity(apk: Path, aapt: Path | None = None) -> dict:
     if not apk.is_file():
@@ -113,7 +177,11 @@ def inspect_apk_identity(apk: Path, aapt: Path | None = None) -> dict:
     return out
 
 
-def validate_reference(identity: dict, reference: dict) -> dict:
+def validate_reference(
+    identity: dict,
+    reference: dict,
+    certificate: dict | None = None,
+) -> dict:
     ref = reference["reference_build"]
     target = reference["android_mod_target"]
     expected_package = reference["package"]
@@ -124,6 +192,18 @@ def validate_reference(identity: dict, reference: dict) -> dict:
         "version_code": identity.get("version_code") == ref["version_code"],
         "arm64": target["preferred_abi"] in identity.get("native_code", []),
     }
+
+    verification = reference.get("verification", {})
+    expected_cert = ref.get("signing_certificate")
+    if verification.get("require_signing_certificate_match"):
+        checks["signing_certificate"] = bool(
+            certificate
+            and expected_cert
+            and certificate.get("sha1", "").lower()
+                == expected_cert.get("sha1", "").lower()
+            and certificate.get("sha256", "").lower()
+                == expected_cert.get("sha256", "").lower()
+        )
     return {
         "ok": all(checks.values()),
         "checks": checks,
@@ -132,8 +212,10 @@ def validate_reference(identity: dict, reference: dict) -> dict:
             "version_name": ref["version_name"],
             "version_code": ref["version_code"],
             "preferred_abi": target["preferred_abi"],
+            "signing_certificate": expected_cert,
         },
         "actual": identity,
+        "certificate": certificate,
     }
 
 
@@ -142,6 +224,7 @@ def main() -> int:
     ap.add_argument("apk", type=Path)
     ap.add_argument("--reference", type=Path, required=True)
     ap.add_argument("--aapt", type=Path)
+    ap.add_argument("--apksigner", type=Path)
     ap.add_argument("--out", type=Path)
     ap.add_argument("--allow-mismatch", action="store_true")
     args = ap.parse_args()
@@ -149,7 +232,12 @@ def main() -> int:
     try:
         identity = inspect_apk_identity(args.apk, args.aapt)
         reference = json.loads(args.reference.read_text(encoding="utf-8"))
-        report = validate_reference(identity, reference)
+        certificate = None
+        if reference.get("verification", {}).get(
+            "require_signing_certificate_match"
+        ):
+            certificate = inspect_apk_certificate(args.apk, args.apksigner)
+        report = validate_reference(identity, reference, certificate)
     except Exception as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, indent=2))
         return 2
