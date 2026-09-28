@@ -31,6 +31,9 @@ void ctw_camera_orbit_step(
     CtwCameraInputSnapshot input,
     float dt_seconds
 );
+void ctw_camera_runtime_reset(const Ctw3DConfig *config);
+void ctw_camera_runtime_step(const Ctw3DConfig *config, float dt_seconds);
+CtwCameraOrbitState ctw_camera_orbit_snapshot(void);
 
 #ifdef __cplusplus
 }
