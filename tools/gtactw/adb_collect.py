@@ -19,6 +19,7 @@ import sys
 
 import abi_probe
 import analyze_apkset
+import profile_status
 
 
 DEFAULT_PACKAGE = "com.rockstargames.gtactw"
@@ -200,6 +201,15 @@ def collect_package_apks(
     }
 
 
+
+def build_enriched_profile_status(
+    profile: dict,
+    abi_report: dict,
+) -> tuple[dict, dict]:
+    enriched = abi_probe.attach_abi_evidence(profile, abi_report)
+    status = profile_status.profile_status(enriched)
+    return enriched, status
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--package", default=DEFAULT_PACKAGE)
@@ -222,6 +232,11 @@ def main() -> int:
         help="Persist selected game.pak/libGame.so runtime files",
     )
     ap.add_argument("--abi-out", type=Path)
+    ap.add_argument(
+        "--status-out",
+        type=Path,
+        help="Write runtime-profile readiness/status JSON",
+    )
     ap.add_argument(
         "--abi-profile-out",
         type=Path,
@@ -249,9 +264,14 @@ def main() -> int:
             "collection": manifest,
             "analysis": None,
             "abi_evidence": None,
+            "profile_status": None,
         }
 
-        need_abi = args.abi_out is not None or args.abi_profile_out is not None
+        need_abi = (
+            args.abi_out is not None
+            or args.abi_profile_out is not None
+            or args.status_out is not None
+        )
         do_analyze = args.analyze or need_abi
 
         if do_analyze:
@@ -322,17 +342,29 @@ def main() -> int:
                         encoding="utf-8",
                     )
 
+                enriched, readiness = build_enriched_profile_status(
+                    analysis["profile_template"],
+                    abi,
+                )
+                result["profile_status"] = readiness
+
                 if args.abi_profile_out:
-                    enriched = abi_probe.attach_abi_evidence(
-                        analysis["profile_template"],
-                        abi,
-                    )
                     args.abi_profile_out.parent.mkdir(
                         parents=True,
                         exist_ok=True,
                     )
                     args.abi_profile_out.write_text(
                         json.dumps(enriched, indent=2) + "\n",
+                        encoding="utf-8",
+                    )
+
+                if args.status_out:
+                    args.status_out.parent.mkdir(
+                        parents=True,
+                        exist_ok=True,
+                    )
+                    args.status_out.write_text(
+                        json.dumps(readiness, indent=2) + "\n",
                         encoding="utf-8",
                     )
 
