@@ -20,6 +20,11 @@
 #define EGL_OPENGL_ES3_BIT_KHR 0x00000040
 #endif
 
+#ifndef GL_COMPRESSED_RGBA_S3TC_DXT5_EXT
+#define GL_COMPRESSED_RGBA_S3TC_DXT5_EXT 0x83F3
+#endif
+
+#define XZ_STATIC_LIGHTMAP_INSTANCE_FLOATS 24u
 #define XZ_SHADOW_WIDTH 64
 #define XZ_SHADOW_HEIGHT 64
 #define XZ_VERTEX_FLOATS 7u
@@ -76,6 +81,9 @@ typedef void (*XzGlTexParameteriFn)(GLenum, GLenum, GLint);
 typedef void (*XzGlTexImage2DFn)(
     GLenum, GLint, GLint, GLsizei, GLsizei, GLint,
     GLenum, GLenum, const void *);
+typedef void (*XzGlCompressedTexImage2DFn)(
+    GLenum, GLint, GLenum, GLsizei, GLsizei, GLint,
+    GLsizei, const void *);
 typedef void (*XzGlGenRenderbuffersFn)(GLsizei, GLuint *);
 typedef void (*XzGlDeleteRenderbuffersFn)(GLsizei, const GLuint *);
 typedef void (*XzGlBindRenderbufferFn)(GLenum, GLuint);
@@ -152,6 +160,7 @@ typedef struct {
     XzGlBindTextureFn BindTexture;
     XzGlTexParameteriFn TexParameteri;
     XzGlTexImage2DFn TexImage2D;
+    XzGlCompressedTexImage2DFn CompressedTexImage2D;
 
     XzGlGenRenderbuffersFn GenRenderbuffers;
     XzGlDeleteRenderbuffersFn DeleteRenderbuffers;
@@ -316,6 +325,8 @@ typedef struct {
     GLint static_reflection_params_loc;
     GLint static_reflection_sphere_loc;
     GLint static_reflection_offset_loc;
+    GLint static_lightmap_texture_loc;
+    GLint static_lightmap_enabled_loc;
     float static_ambient_weight;
     float static_directional_weight;
     float static_directional_color[3];
@@ -327,6 +338,7 @@ typedef struct {
         static_local_lights[XZ_STATIC_LOCAL_LIGHT_SOURCE_MAX];
     uint32_t static_local_light_count;
     GLuint static_instance_vbo;
+    GLuint static_lightmap_instance_vbo;
     XzStaticSceneDrawPlan static_draw_plan;
     int static_draw_plan_ready;
     XzStaticSceneLightmapDrawPlan static_lightmap_draw_plan;
@@ -344,6 +356,8 @@ typedef struct {
     uint32_t static_normal_binding_count;
     XzPbrMaterialBinding *static_pbr_bindings;
     uint32_t static_pbr_binding_count;
+    XzGles3StaticTexture *static_lightmap_textures;
+    uint32_t static_lightmap_texture_count;
     GLuint static_reflection_cubemap;
 
     GLuint scratch_fbo;
@@ -1249,6 +1263,9 @@ static int XzLoadApi(XzNativeGles3Api *api)
     XZ_GL_LOAD(BindTexture, "glBindTexture");
     XZ_GL_LOAD(TexParameteri, "glTexParameteri");
     XZ_GL_LOAD(TexImage2D, "glTexImage2D");
+    XZ_GL_LOAD(
+        CompressedTexImage2D,
+        "glCompressedTexImage2D");
 
     XZ_GL_LOAD(GenRenderbuffers, "glGenRenderbuffers");
     XZ_GL_LOAD(DeleteRenderbuffers, "glDeleteRenderbuffers");
