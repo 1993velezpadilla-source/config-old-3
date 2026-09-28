@@ -9,6 +9,7 @@ add_library(Game SHARED
     ctw_character.c
     ctw_runtime_policy.c
     ctw_hooks.c
+    ctw_trampoline.c
     ctw_profile.c
     ctw_config.c
 )
