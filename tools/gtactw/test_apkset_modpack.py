@@ -28,7 +28,9 @@ class ApkSetModpackTests(unittest.TestCase):
             bundle = root / "ctw.apkm"
             loader = root / "loader.so"
             out = root / "out"
+            config = root / "ctw_modhub.ini"
             loader.write_bytes(b"\x7fELF" + b"loader")
+            config.write_text("[Camera]\nFOV=72\n", encoding="utf-8")
 
             with zipfile.ZipFile(bundle, "w") as outer:
                 outer.writestr(
@@ -46,12 +48,13 @@ class ApkSetModpackTests(unittest.TestCase):
                     }),
                 )
 
-            report = apkset_modpack.build_split_modpack(bundle, loader, out)
+            report = apkset_modpack.build_split_modpack(bundle, loader, out, config)
             self.assertEqual(report["split_count"], 2)
             self.assertEqual(
                 report["patched_split"],
                 "split_config.arm64_v8a.apk",
             )
+            self.assertEqual(report["config_split"], "base.apk")
 
             with zipfile.ZipFile(out / "split_config.arm64_v8a.apk", "r") as zf:
                 self.assertEqual(zf.read(GAME_SO), loader.read_bytes())
@@ -61,6 +64,10 @@ class ApkSetModpackTests(unittest.TestCase):
 
             with zipfile.ZipFile(out / "base.apk", "r") as zf:
                 self.assertEqual(zf.read("assets/game.pak"), b"pak")
+                self.assertEqual(
+                    zf.read("assets/ctw_modhub.ini"),
+                    config.read_bytes(),
+                )
                 self.assertNotIn("META-INF/MANIFEST.MF", zf.namelist())
 
     def test_rejects_multiple_arm64_game_splits(self):
