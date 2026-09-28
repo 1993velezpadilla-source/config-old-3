@@ -101,5 +101,77 @@ class AnalyzeApkSetTests(unittest.TestCase):
         self.assertTrue(report["ok"])
 
 
+    def test_split_reference_certificate_gate(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            bundle = self.make_bundle(root)
+            ref = root / "reference.json"
+            ref.write_text(json.dumps({
+                "package": "com.rockstargames.gtactw",
+                "reference_build": {
+                    "version_name": "4.4.243",
+                    "version_code": 4277603,
+                    "signing_certificate": {
+                        "sha1": "3083fe168bede44d5202b90447cd47a49a7e228d",
+                        "sha256": "e8c76284d4d652f1881525853ce0aa9fe82b89e276f6204f1a7a53aef67fce19",
+                    },
+                },
+                "android_mod_target": {
+                    "preferred_abi": "arm64-v8a",
+                },
+                "verification": {
+                    "require_signing_certificate_match": True,
+                },
+            }), encoding="utf-8")
+
+            identity = {
+                "package": "com.rockstargames.gtactw",
+                "version_code": 4277603,
+                "version_name": "4.4.243",
+                "min_sdk": "28",
+                "target_sdk": "35",
+                "native_code": [],
+            }
+            cert = {
+                "sha1": "3083fe168bede44d5202b90447cd47a49a7e228d",
+                "sha256": "e8c76284d4d652f1881525853ce0aa9fe82b89e276f6204f1a7a53aef67fce19",
+            }
+
+            with mock.patch.object(
+                analyze_apkset.apk_identity,
+                "inspect_apk_identity",
+                return_value=identity,
+            ), mock.patch.object(
+                analyze_apkset.apk_identity,
+                "inspect_apk_certificate",
+                return_value=cert,
+            ):
+                report = analyze_apkset.analyze_apkset(bundle, ref)
+
+        self.assertTrue(report["gates"]["reference_build"])
+        self.assertTrue(
+            report["reference_validation"]["checks"]["signing_certificate"]
+        )
+        self.assertEqual(report["apk_certificate"]["sha256"], cert["sha256"])
+
+    def test_split_certificate_mismatch_rejected(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            bundle = self.make_bundle(root)
+            cert_a = {"sha1": "a" * 40, "sha256": "b" * 64}
+            cert_b = {"sha1": "c" * 40, "sha256": "d" * 64}
+            with mock.patch.object(
+                analyze_apkset.apk_identity,
+                "inspect_apk_certificate",
+                side_effect=[cert_a, cert_b],
+            ):
+                with self.assertRaises(ValueError):
+                    analyze_apkset._merged_split_certificate(
+                        bundle,
+                        root / "certs",
+                        None,
+                    )
+
+
 if __name__ == "__main__":
     unittest.main()
