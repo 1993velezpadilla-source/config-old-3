@@ -25,10 +25,10 @@ TARGET_SDK_RE = re.compile(r"^targetSdkVersion:'([^']+)'", re.MULTILINE)
 NATIVE_RE = re.compile(r"^native-code:\s+(.+)$", re.MULTILINE)
 QUOTED_RE = re.compile(r"'([^']+)'")
 CERT_SHA1_RE = re.compile(
-    r"Signer #\\d+ certificate SHA-1 digest:\\s*([0-9a-fA-F:]+)"
+    r"Signer #\d+ certificate SHA-1 digest:\s*([0-9a-fA-F:]+)"
 )
 CERT_SHA256_RE = re.compile(
-    r"Signer #\\d+ certificate SHA-256 digest:\\s*([0-9a-fA-F:]+)"
+    r"Signer #\d+ certificate SHA-256 digest:\s*([0-9a-fA-F:]+)"
 )
 
 
