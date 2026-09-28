@@ -87,6 +87,8 @@ for name in (
     "xz_static_scene_runtime.c",
     "xz_static_scene_draw_plan.h",
     "xz_static_scene_draw_plan.c",
+    "xz_static_scene_lightmap_draw_plan.h",
+    "xz_static_scene_lightmap_draw_plan.c",
     "xz_environment.h",
     "xz_environment.c",
     "xz_height_fog.h",
