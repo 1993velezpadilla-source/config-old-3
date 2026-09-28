@@ -222,6 +222,16 @@ def rank_target_evidence(
                     entry["reasons"].append(
                         "calls glUseProgram through PLT mapping"
                     )
+                if "glDepthRangef" in imports:
+                    entry["score"] += 5
+                    entry["reasons"].append(
+                        "calls glDepthRangef through PLT mapping"
+                    )
+                if "glViewport" in imports:
+                    entry["score"] += 3
+                    entry["reasons"].append(
+                        "calls glViewport through PLT mapping"
+                    )
 
         if target in ("sector_visibility", "player_render"):
             plt_group = (
