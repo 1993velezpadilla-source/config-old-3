@@ -1616,6 +1616,19 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
 
         XzAndroidLog(
             ANDROID_LOG_INFO,
+            "static_scene_baked_lightmaps map='%s'"
+            " ready=%d textures=%u gpuBytes=%" PRIu64
+            " batches=%u mappedBatches=%u",
+            XzMapRuntime_MapId(
+                &xz_runtime.map_runtime),
+            xz_runtime.gles3_shadow.static_scene_lightmap_shader_ready,
+            xz_runtime.gles3_shadow.static_scene_gpu_lightmap_textures,
+            xz_runtime.gles3_shadow.static_scene_gpu_lightmap_bytes,
+            xz_runtime.gles3_shadow.static_scene_lightmap_batch_count,
+            xz_runtime.gles3_shadow.static_scene_lightmap_mapped_batches);
+
+        XzAndroidLog(
+            ANDROID_LOG_INFO,
             "static_scene_tonemap map='%s'"
             " ready=%d tonemapMode=pavlov_legacy"
             " autoExposure=%d tonemapperFilm=%d"
@@ -1805,7 +1818,8 @@ int XzAndroidRuntime_CompositeVisibleWorld(void)
             " reflectionGpuBytes=%" PRIu64
             " heightFogReady=%d directionalFog=%d"
             " fogDensity=%.6f fogFalloff=%.6f"
-            " fogMaxOpacity=%.6f fogStartMeters=%.6f",
+            " fogMaxOpacity=%.6f fogStartMeters=%.6f"
+            " lightmapReady=%d bakedLightmapDraws=%u",
             xz_runtime.gles3_shadow.static_scene_gpu_meshes,
             xz_runtime.gles3_shadow.static_scene_last_instances,
             xz_runtime.gles3_shadow.static_scene_last_draw_calls,
@@ -1839,7 +1853,9 @@ int XzAndroidRuntime_CompositeVisibleWorld(void)
             xz_runtime.gles3_shadow.static_scene_fog_density,
             xz_runtime.gles3_shadow.static_scene_fog_height_falloff,
             xz_runtime.gles3_shadow.static_scene_fog_max_opacity,
-            xz_runtime.gles3_shadow.static_scene_fog_start_meters);
+            xz_runtime.gles3_shadow.static_scene_fog_start_meters,
+            xz_runtime.gles3_shadow.static_scene_lightmap_shader_ready,
+            xz_runtime.gles3_shadow.static_scene_last_baked_lightmap_draw_calls);
     }
 
     return presented;
