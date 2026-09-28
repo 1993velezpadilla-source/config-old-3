@@ -9,6 +9,7 @@ extern "C" {
 
 typedef enum XzRuntimeGate {
     XZ_GATE_PACKAGE_VISIBLE = 0,
+    XZ_GATE_SOURCE_CONVERSION,
     XZ_GATE_ZONE_DB,
     XZ_GATE_ZONE_DEPENDENCIES,
     XZ_GATE_WORLD,
