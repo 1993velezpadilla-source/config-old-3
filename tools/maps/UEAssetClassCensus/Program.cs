@@ -1,4 +1,6 @@
 using CUE4Parse.FileProvider;
+using CUE4Parse.UE4.Assets;
+using CUE4Parse.UE4.Objects.UObject;
 using CUE4Parse.UE4.Versions;
 using System.Text.Json;
 
@@ -60,22 +62,43 @@ foreach (var packagePath in packages)
 
     try
     {
-        var exports =
-            provider.LoadPackage(packagePath)
-                .GetExports()
-                .ToArray();
+        if (!provider.TryLoadPackage(packagePath, out var package) ||
+            package is not AbstractUePackage uePackage)
+        {
+            throw new InvalidOperationException(
+                "provider could not load package metadata");
+        }
 
         packagesLoaded++;
-        totalExports += exports.Length;
+        totalExports += package.ExportMapLength;
 
         var localClasses =
             new SortedDictionary<string, int>(StringComparer.Ordinal);
 
-        foreach (var export in exports)
+        /*
+         * Do not call GetExports() here. The official CUE4Parse exporter
+         * demonstrates this metadata-only path specifically to inspect export
+         * types without deserializing heavy texture/mesh/sound payloads.
+         */
+        for (var exportIndex = 0;
+             exportIndex < package.ExportMapLength;
+             ++exportIndex)
         {
+            var pointer =
+                new FPackageIndex(package, exportIndex + 1)
+                    .ResolvedObject;
+
+            if (pointer?.Class is null)
+                continue;
+
+            var dummy =
+                uePackage.ConstructObject(
+                    pointer.Class,
+                    package);
+
             var type =
-                export.GetType().FullName
-                ?? export.GetType().Name;
+                dummy.GetType().FullName
+                ?? dummy.GetType().Name;
 
             classCounts[type] =
                 classCounts.GetValueOrDefault(type) + 1;
@@ -85,7 +108,7 @@ foreach (var packagePath in packages)
 
         packageRows.Add(new {
             packagePath,
-            exportCount = exports.Length,
+            exportCount = package.ExportMapLength,
             classes = localClasses
         });
     }
