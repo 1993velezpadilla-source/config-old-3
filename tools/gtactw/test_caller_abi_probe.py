@@ -65,8 +65,67 @@ class CallerAbiProbeTests(unittest.TestCase):
             "cbz",
         )
         self.assertEqual(
+            context["return_use"]["x0"]["kind_hint"],
+            "branch_condition_integer_or_bool",
+        )
+        self.assertEqual(
+            context["prepared_registers"]["x0"]["kind_hint"],
+            "scalar_or_pointer_64",
+        )
+        self.assertEqual(
+            context["prepared_registers"]["x1"]["kind_hint"],
+            "stack_address_like",
+        )
+        self.assertEqual(
+            context["prepared_registers"]["v0"]["kind_hint"],
+            "float32_like",
+        )
+        self.assertEqual(
             context["return_use"]["v0"]["status"],
             "overwritten_without_read",
+        )
+
+
+    def test_caller_shape_helpers(self):
+        self.assertEqual(
+            caller_abi_probe._prepared_value_kind(
+                "x2",
+                "mov",
+                "w2, #1",
+            ),
+            "scalar_32_like",
+        )
+        self.assertEqual(
+            caller_abi_probe._prepared_value_kind(
+                "x3",
+                "adrp",
+                "x3, 0x10000",
+            ),
+            "address_like",
+        )
+        self.assertEqual(
+            caller_abi_probe._prepared_value_kind(
+                "v1",
+                "fmov",
+                "d1, d8",
+            ),
+            "float64_like",
+        )
+        self.assertEqual(
+            caller_abi_probe._return_consumption_kind(
+                "x0",
+                "cmp",
+                "w0, #0",
+            ),
+            "integer_compare",
+        )
+        self.assertEqual(
+            caller_abi_probe._return_consumption_kind(
+                "v0",
+                "fmul",
+                "s1, s0, s2",
+            ),
+            "floating_value_use",
         )
 
     def test_call_context_keeps_passthrough_registers_separate(self):
