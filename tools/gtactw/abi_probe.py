@@ -482,12 +482,22 @@ def attach_abi_evidence(profile: dict, report: dict) -> dict:
             evidence = candidate.get("abi_evidence")
             if not isinstance(evidence, dict):
                 continue
+            prologue = evidence.get("prologue_relocation", {})
+            simple_safe = bool(
+                isinstance(prologue, dict)
+                and prologue.get("simple_copy_trampoline_safe")
+            )
             candidates.append({
                 "rva": candidate.get("rva"),
                 "source": candidate.get("source"),
                 "function": candidate.get("function"),
                 "score": candidate.get("score"),
                 "reasons": candidate.get("reasons", []),
+                "trampoline_strategy_hint": (
+                    "simple_copy_trampoline_candidate"
+                    if simple_safe
+                    else "advanced_relocator_required"
+                ),
                 "abi_evidence": evidence,
             })
         item["candidates"] = candidates
