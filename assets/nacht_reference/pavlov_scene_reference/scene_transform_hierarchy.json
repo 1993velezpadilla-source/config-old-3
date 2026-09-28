@@ -10,7 +10,7 @@
   },
   "expected": {
     "sceneInstanceCount": 10791,
-    "attachedInstanceCount": 10703,
+    "attachedInstanceCount": 10707,
     "worldTransformChangedInstanceCount": 10659,
     "unattachedInstanceCount": 84,
     "parentNodeCount": 10,

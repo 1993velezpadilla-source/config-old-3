@@ -62,6 +62,8 @@ on:
       - "engine/xz/xz_gles3_shadow.*"
       - "tools/maps/compile_xziel_static_scene.py"
       - "tools/maps/compile_nacht_xzscene.py"
+      - "tools/maps/compile_nacht_visual_scene.py"
+      - "assets/nacht_reference/pavlov_scene_reference/scene_transform_hierarchy.json"
       - "tools/maps/convert_glb_to_xzmesh.py"
       - "tools/maps/compile_nacht_xzmesh_bundle.py"
       - "tools/maps/compile_nacht_xzmat_bundle.py"
@@ -3386,6 +3388,14 @@ jobs:
 
           assert scene["meshCount"] == 492
           assert scene["instanceCount"] == 10791
+          hierarchy = scene["transformHierarchy"]
+          assert hierarchy["applied"] is True
+          assert hierarchy["attachedInstanceCount"] == 10707
+          assert hierarchy["worldTransformChangedInstanceCount"] == 10659
+          assert hierarchy["unattachedInstanceCount"] == 84
+          assert hierarchy["parentNodeCount"] == 10
+          assert hierarchy["maxAttachmentDepth"] == 2
+          print("XZIEL_NACHT_TRANSFORM_HIERARCHY_GREEN", hierarchy)
           assert material["bindingCount"] == 1063
           assert material["mappedBindings"] == 1063
           assert material["textureCount"] > 0

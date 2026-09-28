@@ -100,17 +100,23 @@ def main() -> int:
     }
     referenced: set[int] = set()
     compiled_instances: list[dict] = []
+    resolved_transforms, hierarchy_stats = (
+        visual.resolve_instance_transforms(
+            REFERENCE,
+            instances,
+        )
+    )
 
-    for index, row in enumerate(instances):
+    for index, (row, resolved) in enumerate(
+        zip(instances, resolved_transforms)
+    ):
         source = row.get("mesh")
         if source not in mesh_index:
             raise SystemExit(
                 f"instance {index} references unknown mesh: {source!r}"
             )
 
-        matrix, defaults = visual.transform_matrix(
-            row.get("transform")
-        )
+        matrix, defaults = resolved
         for key, used in defaults.items():
             if used:
                 default_counts[key] += 1
@@ -165,6 +171,7 @@ def main() -> int:
         "sceneBytes": len(payload),
         "gameplayUnitsPerMeter": 39.3700787402,
         "defaultTransformFields": default_counts,
+        "transformHierarchy": hierarchy_stats,
         "allMeshesReferenced": True,
         "runtimeNaming": {
             "scheme": "compact_ordinal_v1",

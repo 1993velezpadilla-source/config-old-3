@@ -150,6 +150,152 @@ def transform_matrix(transform: dict | None) -> tuple[list[float], dict[str, boo
     return matrix, defaults
 
 
+def matmul4(left: list[float], right: list[float]) -> list[float]:
+    return [
+        sum(left[r * 4 + k] * right[k * 4 + c] for k in range(4))
+        for r in range(4)
+        for c in range(4)
+    ]
+
+
+def matrix_changed(
+    left: list[float],
+    right: list[float],
+    tolerance: float = 1.0e-7,
+) -> bool:
+    return any(abs(a - b) > tolerance for a, b in zip(left, right))
+
+
+def resolve_instance_transforms(
+    reference_root: Path,
+    instances: list[dict],
+) -> tuple[list[tuple[list[float], dict[str, bool]]], dict]:
+    hierarchy_path = reference_root / "scene_transform_hierarchy.json"
+    if not hierarchy_path.is_file():
+        raise SystemExit(
+            f"XZIEL visual scene rejected: missing transform hierarchy: {hierarchy_path}"
+        )
+
+    hierarchy = json.loads(hierarchy_path.read_text(encoding="utf-8"))
+    if hierarchy.get("schemaVersion") != 1 or hierarchy.get("format") != (
+        "xziel_nacht_scene_transform_hierarchy_v1"
+    ):
+        raise SystemExit("XZIEL visual scene rejected: invalid transform hierarchy")
+
+    parent_nodes_raw = hierarchy.get("parentNodes", {})
+    parent_nodes = {
+        int(key): value
+        for key, value in parent_nodes_raw.items()
+    }
+    parent_for_component: dict[int, int] = {}
+
+    for row in hierarchy.get("attachmentRanges", []):
+        start = int(row["componentExportStart"])
+        end = int(row["componentExportEnd"])
+        parent = int(row["attachParentExportIndex"])
+        if start > end:
+            raise SystemExit("XZIEL visual scene rejected: invalid attachment range")
+        if parent not in parent_nodes:
+            raise SystemExit(
+                f"XZIEL visual scene rejected: missing parent node {parent}"
+            )
+        for component in range(start, end + 1):
+            if component in parent_for_component:
+                raise SystemExit(
+                    f"XZIEL visual scene rejected: duplicate attachment {component}"
+                )
+            parent_for_component[component] = parent
+
+    parent_cache: dict[int, tuple[list[float], int]] = {}
+    visiting: set[int] = set()
+
+    def resolve_parent(parent_index: int) -> tuple[list[float], int]:
+        cached = parent_cache.get(parent_index)
+        if cached is not None:
+            return cached
+        if parent_index in visiting:
+            raise SystemExit(
+                f"XZIEL visual scene rejected: attachment cycle at {parent_index}"
+            )
+        node = parent_nodes.get(parent_index)
+        if node is None:
+            raise SystemExit(
+                f"XZIEL visual scene rejected: missing parent node {parent_index}"
+            )
+
+        visiting.add(parent_index)
+        local, _ = transform_matrix(node.get("transform"))
+        ancestor = node.get("attachParentExportIndex")
+        if ancestor is None:
+            world = local
+            depth = 1
+        else:
+            ancestor_world, ancestor_depth = resolve_parent(int(ancestor))
+            world = matmul4(ancestor_world, local)
+            depth = ancestor_depth + 1
+        visiting.remove(parent_index)
+        parent_cache[parent_index] = (world, depth)
+        return world, depth
+
+    resolved: list[tuple[list[float], dict[str, bool]]] = []
+    attached = 0
+    changed = 0
+    unattached = 0
+    max_depth = 0
+
+    for index, row in enumerate(instances):
+        local, defaults = transform_matrix(row.get("transform"))
+        component = row.get("componentExportIndex")
+        if not isinstance(component, int):
+            raise SystemExit(
+                f"XZIEL visual scene rejected: instance {index} missing componentExportIndex"
+            )
+
+        parent_index = parent_for_component.get(component)
+        if parent_index is None:
+            world = local
+            unattached += 1
+        else:
+            parent_world, depth = resolve_parent(parent_index)
+            world = matmul4(parent_world, local)
+            attached += 1
+            max_depth = max(max_depth, depth)
+            if matrix_changed(world, local):
+                changed += 1
+
+        resolved.append((world, defaults))
+
+    stats = {
+        "applied": True,
+        "attachedInstanceCount": attached,
+        "worldTransformChangedInstanceCount": changed,
+        "unattachedInstanceCount": unattached,
+        "parentNodeCount": len(parent_nodes),
+        "maxAttachmentDepth": max_depth,
+    }
+
+    expected = hierarchy.get("expected", {})
+    checks = {
+        "sceneInstanceCount": len(instances),
+        **stats,
+    }
+    for key in (
+        "sceneInstanceCount",
+        "attachedInstanceCount",
+        "worldTransformChangedInstanceCount",
+        "unattachedInstanceCount",
+        "parentNodeCount",
+        "maxAttachmentDepth",
+    ):
+        if key in expected and checks[key] != int(expected[key]):
+            raise SystemExit(
+                "XZIEL visual scene rejected: hierarchy "
+                f"{key} expected {expected[key]} got {checks[key]}"
+            )
+
+    return resolved, stats
+
+
 def index_glbs(root: Path) -> dict[str, Path]:
     by_stem: dict[str, list[Path]] = {}
     for path in root.rglob("*.glb"):
@@ -228,13 +374,17 @@ def compile_scene(reference_root: Path, mesh_root: Path) -> dict:
     compiled_instances = []
     referenced = set()
     default_counts = {"position": 0, "rotation": 0, "scale": 0}
-    for index, row in enumerate(instances):
+    resolved_transforms, hierarchy_stats = resolve_instance_transforms(
+        reference_root,
+        instances,
+    )
+    for index, (row, resolved) in enumerate(zip(instances, resolved_transforms)):
         source = row.get("mesh")
         if source not in mesh_index:
             raise SystemExit(
                 f"XZIEL visual scene rejected: instance {index} references unknown mesh {source!r}"
             )
-        matrix, defaults = transform_matrix(row.get("transform"))
+        matrix, defaults = resolved
         for key, used in defaults.items():
             if used:
                 default_counts[key] += 1
@@ -277,6 +427,7 @@ def compile_scene(reference_root: Path, mesh_root: Path) -> dict:
             "totalPrimitives": primitive_count,
             "environmentActorReferenceCount": len(env_rows),
             "defaultTransformFields": default_counts,
+            "transformHierarchy": hierarchy_stats,
             "geometryReady": True,
             "visualParityReady": False,
         },
