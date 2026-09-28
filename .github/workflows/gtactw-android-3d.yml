@@ -67,7 +67,12 @@ jobs:
             tools/gtactw/wbl_probe.py \
             tools/gtactw/test_wbl_probe.py \
             tools/gtactw/world_census.py \
-            tools/gtactw/test_world_census.py
+            tools/gtactw/test_world_census.py \
+            tools/gtactw/adb_collect.py \
+            tools/gtactw/test_adb_collect.py
+
+      - name: Run CTW ADB collector gate
+        run: python -m unittest -v tools/gtactw/test_adb_collect.py
 
       - name: Run synthetic CTW PAK gate
         run: python -m unittest -v tools/gtactw/test_ctw_probe.py
@@ -244,6 +249,7 @@ jobs:
 
       - name: Gate marker
         run: |
+          echo "GTACTW_ADB_COLLECTOR_GREEN=1"
           echo "GTACTW_ANDROID_PAK_PROBE_GREEN=1"
           echo "GTACTW_ANDROID_SPLIT_APK_GREEN=1"
           echo "GTACTW_ANDROID_SPLIT_MODPACK_GREEN=1"
