@@ -1,5 +1,5 @@
 #include "ctw_adapter_registry.h"
-#include "ctw_adapters_generated.h"
+#include <ctw_adapters_generated.h>
 
 #include <string.h>
 
