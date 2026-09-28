@@ -14,6 +14,68 @@ static uintptr_t absolute_from_rva(uintptr_t base, uintptr_t rva) {
     return rva ? base + rva : 0;
 }
 
+
+int ctw_profile_compare_prefix(
+    const void *address,
+    const uint8_t expected[CTW_TARGET_PREFIX_BYTES]
+) {
+    if (!address || !expected)
+        return -1;
+    return memcmp(address, expected, CTW_TARGET_PREFIX_BYTES) == 0 ? 0 : 1;
+}
+
+static int verify_one_target(
+    const void *address,
+    const uint8_t expected[CTW_TARGET_PREFIX_BYTES],
+    void **library_base
+) {
+    if (!address || !expected || !library_base)
+        return -1;
+
+    Dl_info info;
+    if (dladdr(address, &info) == 0 || !info.dli_fbase)
+        return -2;
+
+    if (*library_base == NULL)
+        *library_base = info.dli_fbase;
+    else if (*library_base != info.dli_fbase)
+        return -3;
+
+    return ctw_profile_compare_prefix(address, expected);
+}
+
+int ctw_profile_verify_target_prefixes(
+    const CtwBuildProfile *profile,
+    const CtwPatchTargets *targets
+) {
+    if (!profile || !targets)
+        return -1;
+
+    void *base = NULL;
+    int rc = 0;
+
+#define VERIFY_TARGET(field) \
+    do { \
+        rc = verify_one_target( \
+            (const void *)(uintptr_t)targets->field, \
+            profile->target_prefixes.field, \
+            &base \
+        ); \
+        if (rc != 0) \
+            return rc; \
+    } while (0)
+
+    VERIFY_TARGET(camera_update);
+    VERIFY_TARGET(projection_setup);
+    VERIFY_TARGET(world_stream_update);
+    VERIFY_TARGET(sector_visibility);
+    VERIFY_TARGET(lod_test);
+    VERIFY_TARGET(player_render);
+
+#undef VERIFY_TARGET
+    return 0;
+}
+
 int ctw_profile_match(
     uintptr_t library_base,
     uintptr_t draw_frame_addr,
