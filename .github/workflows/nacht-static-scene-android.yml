@@ -81,6 +81,7 @@ on:
       - "engine/xz/xz_height_fog.*"
       - "engine/xz/xz_pbr_material.*"
       - "tools/maps/export_nacht_nzp_harness.py"
+      - "assets/nacht_reference/runtime_reference_v1.json"
       - "scripts/patch_vril_xz_phase0.py"
       - "scripts/prepare_android.sh"
       - ".github/workflows/nacht-static-scene-android.yml"
