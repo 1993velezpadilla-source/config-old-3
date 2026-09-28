@@ -15,11 +15,24 @@ typedef enum {
 
 typedef struct {
     CtwCameraMode mode;
+
+    int camera_enabled;
+    float camera_height;
+    float camera_distance;
+    float camera_pitch_degrees;
     float fov_degrees;
     float near_clip;
+    int disable_cinematic_camera;
+
+    int draw_distance_enabled;
     float far_clip_multiplier;
     float stream_radius_multiplier;
     float lod_distance_multiplier;
+    float vehicle_distance_multiplier;
+    float ped_distance_multiplier;
+
+    int character_fix;
+    int extended_character_lod;
     int keep_full_player_body;
     int hide_head_in_first_person;
 } Ctw3DConfig;
