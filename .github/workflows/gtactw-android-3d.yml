@@ -40,6 +40,18 @@ jobs:
       - name: Run synthetic CTW PAK inventory gate
         run: python -m unittest -v tools/gtactw/test_pak_inventory.py
 
+      - name: Host-compile native CTW loader
+        run: |
+          cc -shared -fPIC -std=c11 -Wall -Wextra -Werror \
+            -o /tmp/libGame.so \
+            projects/gtactw-android-3d/android-loader/ctw_loader.c \
+            projects/gtactw-android-3d/android-loader/ctw_patch.c \
+            -ldl -lpthread
+          nm -D --defined-only /tmp/libGame.so | grep -q "Java_com_rockstargames_oswrapper_GameNative_implOnDrawFrame"
+          nm -D --defined-only /tmp/libGame.so | grep -q "Java_com_rockstargames_oswrapper_GameNative_implOnGamepadAxesChanged"
+          nm -D --defined-only /tmp/libGame.so | grep -q "Java_com_rockstargames_oswrapper_GameNative_implIsInitialized"
+          echo "GTACTW_ANDROID_PROXY_LOADER_GREEN=1"
+
       - name: Gate marker
         run: |
           echo "GTACTW_ANDROID_PAK_PROBE_GREEN=1"
