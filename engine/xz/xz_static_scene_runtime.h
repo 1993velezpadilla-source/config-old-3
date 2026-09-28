@@ -6,6 +6,7 @@
 #include "xz_environment.h"
 #include "xz_height_fog.h"
 #include "xz_pbr_material.h"
+#include "xz_lightmap_texture.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -103,6 +104,8 @@ typedef struct {
     size_t reflection_bytes;
     XzReflectionCaptureView reflection;
 
+    XzLightmapTextureView lightmaps;
+
     uint32_t mesh_files_validated;
     uint64_t mesh_bytes_validated;
     uint64_t vertex_count;
@@ -117,6 +120,7 @@ typedef struct {
     char environment_path[256];
     char height_fog_path[256];
     char reflection_path[256];
+    char lightmap_path[256];
     char error[128];
 } XzStaticSceneRuntimeState;
 
@@ -184,6 +188,10 @@ XzStaticSceneRuntime_HeightFog(
 
 const XzReflectionCaptureView *
 XzStaticSceneRuntime_ReflectionCapture(
+    const XzStaticSceneRuntimeState *state);
+
+const XzLightmapTextureView *
+XzStaticSceneRuntime_Lightmaps(
     const XzStaticSceneRuntimeState *state);
 
 const char *XzStaticSceneRuntime_StatusName(
