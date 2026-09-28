@@ -172,6 +172,19 @@ static int apply_pair(
             f = clampf_local(f, 1.0f, 5.0f);
             config->far_clip_multiplier = f;
             config->stream_radius_multiplier = f;
+            config->lod_distance_multiplier = f;
+            return 1;
+        }
+        if (equal_ci(key, "FarClip") && parse_float_value(value, &f)) {
+            config->far_clip_multiplier = clampf_local(f, 1.0f, 5.0f);
+            return 1;
+        }
+        if (equal_ci(key, "StreamRadius") && parse_float_value(value, &f)) {
+            config->stream_radius_multiplier = clampf_local(f, 1.0f, 5.0f);
+            return 1;
+        }
+        if (equal_ci(key, "LODDistance") && parse_float_value(value, &f)) {
+            config->lod_distance_multiplier = clampf_local(f, 1.0f, 5.0f);
             return 1;
         }
         if (equal_ci(key, "VehicleDistance") && parse_float_value(value, &f)) {
