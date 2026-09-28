@@ -43,6 +43,10 @@ def build_dossier(profile: dict, top: int = 5) -> dict:
 
             abi_candidate = abi_by_rva.get(rva, {})
             abi_evidence = abi_candidate.get("abi_evidence", {})
+            caller_evidence = abi_candidate.get(
+                "caller_abi_evidence",
+                {},
+            )
             arg_hints = (
                 abi_evidence.get("argument_register_hints", {})
                 if isinstance(abi_evidence, dict)
@@ -110,6 +114,21 @@ def build_dossier(profile: dict, top: int = 5) -> dict:
                     abi_evidence.get("return_value_hints", {})
                     if isinstance(abi_evidence, dict)
                     else {}
+                ),
+                "caller_abi_evidence": (
+                    caller_evidence
+                    if isinstance(caller_evidence, dict)
+                    else {}
+                ),
+                "direct_call_site_count": (
+                    caller_evidence.get("direct_call_site_count")
+                    if isinstance(caller_evidence, dict)
+                    else None
+                ),
+                "callers_analyzed": (
+                    caller_evidence.get("callers_analyzed")
+                    if isinstance(caller_evidence, dict)
+                    else None
                 ),
                 "calls": (
                     abi_evidence.get("calls", [])
