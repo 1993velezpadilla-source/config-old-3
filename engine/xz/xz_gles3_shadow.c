@@ -3602,9 +3602,21 @@ static int XzUploadStaticHQLightmaps(
             state->static_scene_lightmap_upload_mip_bytes =
                 mip.bytes;
 
+            /*
+             * BC-compressed mip tails can retain block-aligned physical
+             * dimensions (minimum 4x4) even after the logical GLES mip has
+             * reached 2x2 or 1x1. The payload is still one valid BC3 block.
+             * Validate that the stored record covers the logical mip, but
+             * decode/upload only the logical dimensions so GLES receives a
+             * complete halving mip chain.
+             */
             if (mip.bytes == 0u ||
-                mip.width != expected_width ||
-                mip.height != expected_height ||
+                mip.width < expected_width ||
+                mip.height < expected_height ||
+                mip.width >
+                    (expected_width < 4u ? 4u : expected_width) ||
+                mip.height >
+                    (expected_height < 4u ? 4u : expected_height) ||
                 decoded_bytes > SIZE_MAX) {
                 state->static_scene_lightmap_upload_reason = 2u;
                 goto fail;
@@ -3658,8 +3670,8 @@ static int XzUploadStaticHQLightmaps(
             if (!XzDecodeBc3Rgba8(
                     compressed,
                     (size_t)mip.bytes,
-                    mip.width,
-                    mip.height,
+                    expected_width,
+                    expected_height,
                     rgba,
                     (size_t)decoded_bytes)) {
                 state->static_scene_lightmap_upload_reason = 6u;
@@ -3672,8 +3684,8 @@ static int XzUploadStaticHQLightmaps(
                 GL_TEXTURE_2D,
                 (GLint)gpu_level,
                 GL_RGBA8,
-                (GLsizei)mip.width,
-                (GLsizei)mip.height,
+                (GLsizei)expected_width,
+                (GLsizei)expected_height,
                 0,
                 GL_RGBA,
                 GL_UNSIGNED_BYTE,
@@ -3695,8 +3707,8 @@ static int XzUploadStaticHQLightmaps(
                 decoded_bytes;
 
             if (gpu_level == 0u) {
-                dest->width = mip.width;
-                dest->height = mip.height;
+                dest->width = expected_width;
+                dest->height = expected_height;
             }
         }
 
