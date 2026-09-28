@@ -211,6 +211,86 @@ var staticMeshComponents =
     new List<object>();
 var staticMeshBuildBindingCount = 0;
 
+var sceneComponents = new List<object>();
+foreach (var export in mapExports)
+{
+    if (export is not USceneComponent sceneComponent)
+        continue;
+
+    int? attachParentExportIndex = null;
+    string? attachParentPath = null;
+    var attachParentAuthored = false;
+
+    if (
+        sceneComponent.TryGetValue(
+            out FPackageIndex attachParent,
+            "AttachParent"))
+    {
+        attachParentAuthored = true;
+        if (
+            attachParent.TryLoad<UObject>(out var parentObject) &&
+            parentObject is not null)
+        {
+            attachParentPath =
+                parentObject.GetPathName();
+            if (
+                mapExportIndexByObject.TryGetValue(
+                    parentObject,
+                    out var parentIndex))
+            {
+                attachParentExportIndex = parentIndex;
+            }
+        }
+    }
+
+    float[]? relativeLocation = null;
+    float[]? relativeRotation = null;
+    float[]? relativeScale = null;
+
+    if (
+        sceneComponent.TryGetValue(
+            out FVector location,
+            "RelativeLocation"))
+    {
+        relativeLocation =
+            new[] { location.X, location.Y, location.Z };
+    }
+
+    if (
+        sceneComponent.TryGetValue(
+            out FRotator rotation,
+            "RelativeRotation"))
+    {
+        relativeRotation =
+            new[] { rotation.Pitch, rotation.Yaw, rotation.Roll };
+    }
+
+    if (
+        sceneComponent.TryGetValue(
+            out FVector scale,
+            "RelativeScale3D"))
+    {
+        relativeScale =
+            new[] { scale.X, scale.Y, scale.Z };
+    }
+
+    sceneComponents.Add(
+        new {
+            componentExportIndex =
+                mapExportIndexByObject[export],
+            componentName = sceneComponent.Name,
+            componentPath =
+                sceneComponent.GetPathName()
+                ?? "",
+            attachParentAuthored,
+            attachParentExportIndex,
+            attachParentPath,
+            relativeLocation,
+            relativeRotation,
+            relativeScale
+        });
+}
+
 void AddComponentBuildId(
     UObject export,
     FGuid guid,
@@ -868,6 +948,10 @@ var output = new {
         staticMeshComponents.Count,
     staticMeshComponents,
 
+    sceneComponentCount =
+        sceneComponents.Count,
+    sceneComponents,
+
     unresolvedStaticMeshBindingCount =
         unresolvedStaticMeshBindings.Count,
     unresolvedStaticMeshBindings,
@@ -933,6 +1017,7 @@ Console.WriteLine(
             output.meshBuildDataCount,
             output.linkedMeshBuildDataCount,
             output.staticMeshBuildBindingCount,
+            output.sceneComponentCount,
             output.lightMapCoordinateIndexCounts,
             output.lightMap1DCount,
             output.lightMap2DCount,
