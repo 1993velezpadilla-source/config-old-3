@@ -410,7 +410,9 @@ File.WriteAllText(
     JsonSerializer.Serialize(
         report,
         new JsonSerializerOptions {
-            WriteIndented = true
+            WriteIndented = true,
+            PropertyNamingPolicy =
+                JsonNamingPolicy.CamelCase
         }));
 
 Console.WriteLine(
