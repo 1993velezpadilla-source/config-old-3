@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import time
 from pathlib import Path
 from typing import Any
 
@@ -85,7 +86,7 @@ def generate_shape(
     # Current official Space signature discovered at runtime:
     # image, mv front/back/left/right, steps, guidance, seed,
     # octree resolution, remove-background, chunks, randomize-seed.
-    result = client.predict(
+    args = (
         handle_file(str(image.resolve())),
         None,
         None,
@@ -98,8 +99,44 @@ def generate_shape(
         bool(remove_background),
         int(num_chunks),
         False,
-        api_name=endpoint,
     )
+    result = None
+    last_error: Exception | None = None
+    for attempt in range(1, 4):
+        try:
+            result = client.predict(*args, api_name=endpoint)
+            break
+        except Exception as exc:
+            last_error = exc
+            message = f"{type(exc).__name__}: {exc}"
+            lower = message.lower()
+            if "zerogpu quota" in lower or "exceeded your zerogpu quota" in lower:
+                raise
+            transient = any(token in lower for token in (
+                "502 bad gateway",
+                "503 service unavailable",
+                "504 gateway timeout",
+                "server disconnected",
+                "connection reset",
+                "remoteprotocolerror",
+            ))
+            if not transient or attempt >= 3:
+                raise
+            delay = 4 * attempt
+            print(
+                "HAYUYA_HUNYUAN_TRANSIENT_RETRY",
+                json.dumps({
+                    "attempt": attempt,
+                    "delay_seconds": delay,
+                    "error": message[:500],
+                }, separators=(",", ":")),
+            )
+            time.sleep(delay)
+    if result is None:
+        raise RuntimeError(
+            "Hunyuan3D generation returned no result after retries: "
+            + repr(last_error)
+        )
 
     src = _as_path(result)
     if src is None:
