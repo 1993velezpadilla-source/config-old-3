@@ -9,6 +9,7 @@ on:
       - .github/workflows/kino-virgin-package-census.yml
       - tools/maps/audit_virgin_ue_package.py
       - tools/maps/UEAssetClassCensus/**
+      - tools/maps/audit_ue_class_requirements.py
 
 jobs:
   kino-census:
@@ -247,6 +248,14 @@ jobs:
           cat kino-download/class-shards/shard-*.log \
             > kino-download/kino-class-census.log
           test -s kino-download/kino-class-census.json
+
+      - name: Audit every source class against XZIEL readiness
+        run: |
+          set -euxo pipefail
+          python3 tools/maps/audit_ue_class_requirements.py \
+            --input kino-download/kino-class-census.json \
+            --output kino-download/kino-class-requirements.json
+          test -s kino-download/kino-class-requirements.json
 
       - name: Virgin-loader anti-hardcode gate
         run: |
