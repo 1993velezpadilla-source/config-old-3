@@ -2,10 +2,19 @@ using CUE4Parse.FileProvider;
 using CUE4Parse.UE4.Versions;
 using System.Text.Json;
 
-if (args.Length != 2)
+if (args.Length < 2 || args.Length > 4)
 {
     Console.Error.WriteLine(
-        "usage: UEAssetClassCensus <unpacked-root> <output-json>");
+        "usage: UEAssetClassCensus <unpacked-root> <output-json> [shard-index] [shard-count]");
+    return 2;
+}
+
+var shardIndex = args.Length >= 3 ? int.Parse(args[2]) : 0;
+var shardCount = args.Length >= 4 ? int.Parse(args[3]) : 1;
+
+if (shardCount <= 0 || shardIndex < 0 || shardIndex >= shardCount)
+{
+    Console.Error.WriteLine("invalid shard arguments");
     return 2;
 }
 
@@ -26,6 +35,7 @@ var packages =
         .Select(f => f.Path)
         .Distinct(StringComparer.OrdinalIgnoreCase)
         .OrderBy(x => x)
+        .Where((_, index) => index % shardCount == shardIndex)
         .ToArray();
 
 var classCounts =
@@ -91,6 +101,8 @@ foreach (var packagePath in packages)
 var report = new {
     schemaVersion = 1,
     root = Path.GetFullPath(args[0]),
+    shardIndex,
+    shardCount,
     packageCount = packages.Length,
     packagesLoaded,
     packageLoadFailureCount = packageLoadFailures.Count,
