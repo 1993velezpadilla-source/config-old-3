@@ -56,6 +56,8 @@ jobs:
             tools/gtactw/test_apkset_modpack.py \
             tools/gtactw/profile_template.py \
             tools/gtactw/test_profile_template.py \
+            tools/gtactw/profile_status.py \
+            tools/gtactw/test_profile_status.py \
             tools/gtactw/profile_emit_c.py \
             tools/gtactw/test_profile_emit_c.py \
             tools/gtactw/profile_verify_binary.py \
@@ -108,6 +110,9 @@ jobs:
 
       - name: Run CTW patch-profile template gate
         run: python -m unittest -v tools/gtactw/test_profile_template.py
+
+      - name: Run CTW runtime profile readiness gate
+        run: python -m unittest -v tools/gtactw/test_profile_status.py
 
       - name: Run CTW verified profile emitter gate
         run: python -m unittest -v tools/gtactw/test_profile_emit_c.py
@@ -280,6 +285,7 @@ jobs:
           echo "GTACTW_ANDROID_PLT_CALLS_GREEN=1"
           echo "GTACTW_ANDROID_APK_MODPACK_GREEN=1"
           echo "GTACTW_ANDROID_PROFILE_TEMPLATE_GREEN=1"
+          echo "GTACTW_RUNTIME_PROFILE_STATUS_GREEN=1"
           echo "GTACTW_ANDROID_PROFILE_EMITTER_GREEN=1"
           echo "GTACTW_ANDROID_PROFILE_BINARY_VERIFY_GREEN=1"
           echo "GTACTW_ANDROID_MDL_PROBE_GREEN=1"
