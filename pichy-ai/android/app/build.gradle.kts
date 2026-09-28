@@ -10,8 +10,8 @@ android {
         applicationId = "com.pichy.ai"
         minSdk = 28
         targetSdk = 36
-        versionCode = 9
-        versionName = "0.4.1-lab"
+        versionCode = 10
+        versionName = "0.5.0-local-lab"
     }
 
     buildTypes {
@@ -24,4 +24,10 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+}
+
+
+dependencies {
+    implementation(project(":local-llama"))
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 }
