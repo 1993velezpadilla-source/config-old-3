@@ -85,6 +85,8 @@ for name in (
     "xz_zone_db.c",
     "xz_runtime_readiness.h",
     "xz_runtime_readiness.c",
+    "xz_game_system_registry.h",
+    "xz_game_system_registry.c",
     "xz_t7_asset_types.h",
     "xz_t7_asset_types.c",
     "xz_asset_pool.h",
