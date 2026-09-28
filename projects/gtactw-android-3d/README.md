@@ -209,3 +209,23 @@ python tools/gtactw/analyze_apk.py \
 A mismatch in package name, version name, version code, or ARM64 ABI keeps the
 reference-build gate red. This prevents applying verified internal RVAs to an
 unknown binary build.
+
+
+## Split APK end-to-end analysis
+
+Google Play installs may arrive as a base APK plus configuration/ABI splits.
+Analyze a user-owned APKM/XAPK/APKS, ZIP container, or directory of APK splits
+without manually merging them first:
+
+```bash
+python tools/gtactw/analyze_apkset.py \
+  ./local_ctw/ctw.apkm \
+  --reference projects/gtactw-android-3d/reference_build_4.4.243.json \
+  --out ./local_ctw/ctw_split_analysis.json \
+  --profile-out ./local_ctw/ctw_4.4.243_profile.json
+```
+
+The analyzer resolves the asset split and ARM64 native split, fingerprints the
+actual `libGame.so`, runs ARM64 xref evidence recovery, generates per-target
+candidate rankings, and keeps the six runtime patch RVAs pending until each one
+has explicit verification evidence.
