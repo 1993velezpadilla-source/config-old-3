@@ -2343,6 +2343,14 @@ static int XzCreateStaticSceneProgram(void)
         gl->GetUniformLocation(
             xz_shadow.static_program,
             "uReflectionCaptureOffset");
+    xz_shadow.static_lightmap_texture_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uLightmapHQ");
+    xz_shadow.static_lightmap_enabled_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uHasLightmap");
 
     if (xz_shadow.static_view_loc < 0 ||
         xz_shadow.static_projection_loc < 0 ||
@@ -2367,7 +2375,9 @@ static int XzCreateStaticSceneProgram(void)
         xz_shadow.static_reflection_texture_loc < 0 ||
         xz_shadow.static_reflection_params_loc < 0 ||
         xz_shadow.static_reflection_sphere_loc < 0 ||
-        xz_shadow.static_reflection_offset_loc < 0)
+        xz_shadow.static_reflection_offset_loc < 0 ||
+        xz_shadow.static_lightmap_texture_loc < 0 ||
+        xz_shadow.static_lightmap_enabled_loc < 0)
         return 0;
 
     gl->UseProgram(xz_shadow.static_program);
@@ -2380,6 +2390,9 @@ static int XzCreateStaticSceneProgram(void)
     gl->Uniform1i(
         xz_shadow.static_reflection_texture_loc,
         2);
+    gl->Uniform1i(
+        xz_shadow.static_lightmap_texture_loc,
+        3);
     gl->UseProgram(0u);
 
     return gl->GetError() == GL_NO_ERROR;
