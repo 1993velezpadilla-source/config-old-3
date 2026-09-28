@@ -39,6 +39,16 @@ class AnalyzeApkTests(unittest.TestCase):
         self.assertTrue(report["ok"])
         self.assertEqual(report["pak_inventory"]["resource_count"], 4)
         self.assertEqual(report["libgame"]["elf"]["machine"], "AArch64")
+        self.assertIsNone(report["profile_template_error"])
+        self.assertIsNotNone(report["profile_template"])
+        self.assertEqual(
+            report["profile_template"]["fingerprint"]["jni_rvas"]["implOnDrawFrame"],
+            0x1000,
+        )
+        self.assertEqual(
+            report["profile_template"]["fingerprint"]["jni_rvas"]["implOnInitialSetup"],
+            0x1008,
+        )
 
 
 if __name__ == "__main__":
