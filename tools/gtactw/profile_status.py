@@ -7,6 +7,7 @@ import argparse
 import json
 from pathlib import Path
 
+import loader_variant
 import profile_template
 
 
@@ -117,6 +118,8 @@ def profile_status(profile: dict) -> dict:
     anchor_present = anchors.get("present_count")
     anchor_total = anchors.get("total_count")
 
+    variant_plan = loader_variant.select_loader_variant(profile)
+
     all_targets = target_verified == len(profile_template.TARGET_KEYS)
     all_abis = abi_verified == len(profile_template.TARGET_KEYS)
 
@@ -146,6 +149,7 @@ def profile_status(profile: dict) -> dict:
                 and anchor_total > 0
             ),
         },
+        "loader_variant_plan": variant_plan,
         "runtime_hooks_installed": False,
         "playable_3d_mod_ready": False,
         "target_status": target_status,
