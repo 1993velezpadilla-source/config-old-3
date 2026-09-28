@@ -86,6 +86,7 @@ on:
       - "assets/nacht_reference/runtime_reference_v1.json"
       - "scripts/patch_vril_xz_phase0.py"
       - "scripts/prepare_android.sh"
+      - "android/app-build.gradle"
       - ".github/workflows/nacht-static-scene-android.yml"
 
   pull_request:
