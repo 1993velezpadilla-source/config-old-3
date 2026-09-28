@@ -64,6 +64,35 @@ CtwCameraInputSnapshot ctw_camera_snapshot(void) {
 }
 
 
+CtwCameraButtonAction ctw_camera_handle_gamepad_button_down(
+    int keycode,
+    const Ctw3DConfig *config
+) {
+    /*
+     * CTW Android GameNative mapping confirmed by the public 4.4.243 port:
+     * 13 = right-thumb click, 8 = D-pad Up.
+     *
+     * The PSP Fusion Fix used a dedicated toggle plus D-pad Up to reset its
+     * custom camera.  We mirror that behavior without consuming the button;
+     * the JNI proxy still forwards the original event to the game.
+     */
+    if (keycode == 13) {
+        ctw_camera_cycle_mode();
+        return CTW_CAMERA_BUTTON_MODE_CYCLED;
+    }
+
+    if (keycode == 8) {
+        const CtwCameraInputSnapshot input = ctw_camera_snapshot();
+        if (input.mode != CTW_CAMERA_STOCK) {
+            ctw_camera_runtime_reset(config);
+            return CTW_CAMERA_BUTTON_ORBIT_RESET;
+        }
+    }
+
+    return CTW_CAMERA_BUTTON_NONE;
+}
+
+
 static float clampf_camera(float v, float lo, float hi) {
     if (v < lo)
         return lo;
