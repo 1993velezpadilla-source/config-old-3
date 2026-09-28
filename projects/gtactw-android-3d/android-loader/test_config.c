@@ -23,6 +23,7 @@ int main(void) {
     assert(cfg.camera_collision_enabled == 1);
     assert(feq(cfg.camera_collision_margin, 0.18f));
     assert(feq(cfg.fov_degrees, 72.0f));
+    assert(feq(cfg.near_clip, 0.05f));
     assert(feq(cfg.far_clip_multiplier, 2.5f));
     assert(cfg.forward_streaming_bias_enabled == 0);
     assert(feq(cfg.forward_streaming_bias_sectors, 1.0f));
@@ -43,6 +44,7 @@ int main(void) {
         "Collision=0\n"
         "CollisionMargin=0.35\n"
         "FOV=85\n"
+        "NearClip=0.08\n"
         "DisableCineCam=0\n"
         "\n"
         "[World]\n"
@@ -60,7 +62,7 @@ int main(void) {
         "HideHeadFirstPerson=0\n";
 
     const int applied = ctw_config_parse_text(&cfg, ini);
-    assert(applied == 23);
+    assert(applied == 24);
     assert(feq(cfg.camera_height, 4.0f)); /* clamped */
     assert(feq(cfg.camera_distance, 7.25f));
     assert(feq(cfg.camera_pitch_degrees, -12.0f));
@@ -72,6 +74,7 @@ int main(void) {
     assert(cfg.camera_collision_enabled == 0);
     assert(feq(cfg.camera_collision_margin, 0.35f));
     assert(feq(cfg.fov_degrees, 85.0f));
+    assert(feq(cfg.near_clip, 0.08f));
     assert(cfg.disable_cinematic_camera == 0);
     assert(feq(cfg.far_clip_multiplier, 3.2f));
     assert(feq(cfg.stream_radius_multiplier, 3.2f));
