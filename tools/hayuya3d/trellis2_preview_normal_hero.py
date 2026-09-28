@@ -423,40 +423,22 @@ def _ensure_basecolor_delivery(mesh, target_edge: int) -> dict:
         ),
     }
 
-def _subdivide_textured(mesh):
+def _subdivide_geometry(mesh):
     import trimesh
 
-    uv = getattr(mesh.visual, "uv", None)
-    material = getattr(mesh.visual, "material", None)
-    attributes = None
-    if uv is not None and len(uv) == len(mesh.vertices):
-        attributes = {"uv": np.asarray(uv, dtype=np.float64)}
-
-    if attributes is None:
-        vertices, faces = trimesh.remesh.subdivide(
-            np.asarray(mesh.vertices),
-            np.asarray(mesh.faces),
-        )
-        result = trimesh.Trimesh(
-            vertices=vertices,
-            faces=faces,
-            process=False,
-        )
-    else:
-        vertices, faces, new_attributes = trimesh.remesh.subdivide(
-            np.asarray(mesh.vertices),
-            np.asarray(mesh.faces),
-            vertex_attributes=attributes,
-        )
-        result = trimesh.Trimesh(
-            vertices=vertices,
-            faces=faces,
-            process=False,
-            visual=trimesh.visual.TextureVisuals(
-                uv=new_attributes["uv"],
-                material=material,
-            ),
-        )
+    vertices, faces = trimesh.remesh.subdivide(
+        np.asarray(mesh.vertices),
+        np.asarray(mesh.faces),
+    )
+    result = trimesh.Trimesh(
+        vertices=vertices,
+        faces=faces,
+        process=False,
+    )
+    try:
+        result.fix_normals(multibody=True)
+    except TypeError:
+        result.fix_normals()
     return result
 
 
@@ -488,7 +470,36 @@ def build_normal_informed_hero(
             "normal Hero recovery expects one recovered textured mesh; "
             f"found={len(geometries)}"
         )
-    mesh = geometries[0].copy()
+
+    # Preserve an immutable textured source for final material reprojection.
+    # Geometry refinement must NOT run on UV-split vertices: moving duplicate
+    # seam vertices independently turns one body surface into thousands of
+    # disconnected islands after subdivision.
+    material_source = geometries[0].copy()
+    texture_delivery = _ensure_basecolor_delivery(material_source, 4096)
+    material_source_glb = output_glb.with_name(
+        output_glb.stem + "_material_source_4k.glb"
+    )
+    material_source_glb.write_bytes(
+        trimesh.exchange.gltf.export_glb(
+            trimesh.Scene(material_source),
+            include_normals=True,
+        )
+    )
+
+    mesh = trimesh.Trimesh(
+        vertices=np.asarray(material_source.vertices, dtype=np.float64).copy(),
+        faces=np.asarray(material_source.faces, dtype=np.int64).copy(),
+        process=False,
+    )
+    before_weld_vertices = int(len(mesh.vertices))
+    mesh.merge_vertices()
+    mesh.remove_unreferenced_vertices()
+    try:
+        mesh.fix_normals(multibody=True)
+    except TypeError:
+        mesh.fix_normals()
+    after_weld_vertices = int(len(mesh.vertices))
 
     # Recovery GLB is already Y-up; TRELLIS preview cameras are Z-up.
     mesh.vertices = (
@@ -523,7 +534,7 @@ def build_normal_informed_hero(
     )
 
     for level_index in range(int(subdivision_levels)):
-        mesh = _subdivide_textured(mesh)
+        mesh = _subdivide_geometry(mesh)
         stage = {
             "stage": f"subdivision_{level_index + 1}",
             "faces": int(len(mesh.faces)),
@@ -546,14 +557,30 @@ def build_normal_informed_hero(
         np.asarray(mesh.vertices, dtype=np.float64)
         @ ROT_ZUP_TO_GLTF_YUP
     )
-    texture_delivery = _ensure_basecolor_delivery(mesh, 4096)
 
-    output_glb.parent.mkdir(parents=True, exist_ok=True)
-    output_glb.write_bytes(
+    # Export connected dense geometry first, then project the preserved 4K
+    # material evidence onto it. The material bridge assigns UVs after all
+    # geometry movement is finished, so seam duplicates remain coincident and
+    # geometric connectivity is not destroyed by per-seam refinement.
+    dense_geometry_glb = output_glb.with_name(
+        output_glb.stem + "_dense_geometry.glb"
+    )
+    dense_geometry_glb.parent.mkdir(parents=True, exist_ok=True)
+    dense_geometry_glb.write_bytes(
         trimesh.exchange.gltf.export_glb(
-            trimesh.Scene(mesh)
+            trimesh.Scene(mesh),
+            include_normals=True,
         )
     )
+    from material_bridge import transfer_best_material
+    material_bridge = transfer_best_material(
+        material_source_glb,
+        dense_geometry_glb,
+        output_glb,
+        total_samples=500_000,
+        max_texture_size=4096,
+    )
+
     blob = output_glb.read_bytes()
     if blob[:4] != b"glTF" or len(blob) < 1024:
         raise RuntimeError(
@@ -589,6 +616,21 @@ def build_normal_informed_hero(
         "normal_guides": guide_report,
         "refinement": refinement,
         "texture_delivery": texture_delivery,
+        "welded_geometry": {
+            "vertices_before": before_weld_vertices,
+            "vertices_after": after_weld_vertices,
+            "merged_vertices": before_weld_vertices - after_weld_vertices,
+        },
+        "material_source_glb": str(material_source_glb),
+        "dense_geometry_glb": str(dense_geometry_glb),
+        "material_bridge": {
+            "method": material_bridge.method,
+            "sample_count": int(material_bridge.sample_count),
+            "refined_vertices": int(material_bridge.refined_vertices),
+            "channels": list(material_bridge.channels or []),
+            "dropped_channels": list(material_bridge.dropped_channels or []),
+            "fallback_used": bool(material_bridge.fallback_used),
+        },
         "native_latent_extraction": False,
         "optimization_deferred": True,
         "approximation": (
