@@ -14,6 +14,7 @@ from trellis2_preview_recovery import recover as recover_trellis2_preview
 from trellis2_preview_normal_hero import build_normal_informed_hero
 from triposg_cloud import generate as generate_triposg_cloud
 from detailgen3d_cloud import refine as refine_detailgen3d_cloud
+from hunyuan3d_cloud import generate_shape as generate_hunyuan3d_shape
 from triposr_cpu_cloud import generate as generate_triposr_cpu_cloud
 from local_detail_fusion import fuse_local_basecolor
 from source_autofix import build_source_autofix
@@ -49,6 +50,7 @@ BACKENDS = [
 TRELLIS2_ENABLED = "trellis2" in BACKENDS
 TRIPOSG_CLOUD_ENABLED = "triposg" in BACKENDS
 DETAILGEN3D_ENABLED = "detailgen3d" in BACKENDS
+HUNYUAN3D_ENABLED = "hunyuan3d" in BACKENDS
 CLASSIC_TRELLIS_ENABLED = "trellis" in BACKENDS
 TRIPOSR_CPU_ENABLED = "triposr" in BACKENDS
 STRICT_TRELLIS2 = BACKENDS == ["trellis2"]
@@ -797,6 +799,123 @@ if not hosted_vast_allowed and (
             separators=(",",":"),
         ),
     )
+
+# Hunyuan3D-2.1 is a true model-generated shape candidate. It may enter
+# fidelity/anatomy Judge even when below the nominal 2M Ultra density target;
+# polygon count is telemetry, not a substitute for shape quality. For now its
+# public model license remains a separate distribution gate, so technical Judge
+# success does not automatically imply production redistribution approval.
+if (
+    not multi
+    and HUNYUAN3D_ENABLED
+    and TEXTURE_QUALITY in {"high","ultra"}
+):
+    try:
+        hunyuan_meta=generate_hunyuan3d_shape(
+            crops[0],
+            OUT/"hunyuan3d_native_geometry.glb",
+            token=TOKEN,
+            seed=1993,
+            steps=30,
+            guidance_scale=5.0,
+            octree_resolution=384,
+            num_chunks=8000,
+        )
+        hunyuan_geometry=Path(hunyuan_meta["path"])
+        hunyuan_candidate=hunyuan_geometry
+        material_bridge_report=None
+
+        # Hunyuan's public shape endpoint is geometry-only. Reuse trustworthy
+        # material evidence from the best existing source-derived candidate
+        # without altering Hunyuan geometry.
+        if modern_candidate is not None:
+            from material_bridge import transfer_best_material
+            bridged=OUT/"hunyuan3d_native_candidate.glb"
+            bridge=transfer_best_material(
+                modern_candidate,
+                hunyuan_geometry,
+                bridged,
+                total_samples=500_000,
+                max_texture_size=4096 if TEXTURE_QUALITY=="ultra" else 2048,
+            )
+            hunyuan_candidate=bridged
+            material_bridge_report=asdict(bridge)
+            print(
+                "HAYUYA_HUNYUAN3D_MATERIAL_BRIDGE_PASS",
+                json.dumps(material_bridge_report,separators=(",",":")),
+            )
+
+        hunyuan_mesh=inspect_mesh_gate(hunyuan_candidate,require_normals=False)
+        print(
+            "HAYUYA_HUNYUAN3D_NATIVE_MESH_GATE",
+            json.dumps(asdict(hunyuan_mesh),separators=(",",":")),
+        )
+        if not hunyuan_mesh.passed:
+            raise RuntimeError(
+                "Hunyuan3D native candidate failed mesh gate: "
+                +"; ".join(hunyuan_mesh.reasons)
+            )
+
+        hunyuan_tex=None
+        if material_bridge_report is not None:
+            hunyuan_tex=inspect_texture_gate(
+                hunyuan_candidate,
+                min_edge=4096 if TEXTURE_QUALITY=="ultra" else 2048,
+            )
+            print(
+                "HAYUYA_HUNYUAN3D_NATIVE_TEXTURE_GATE",
+                json.dumps(asdict(hunyuan_tex),separators=(",",":")),
+            )
+            if not hunyuan_tex.passed:
+                raise RuntimeError(
+                    "Hunyuan3D native material bridge failed texture gate: "
+                    +"; ".join(hunyuan_tex.warnings)
+                )
+
+        if material_bridge_report is not None:
+            modern_candidate=hunyuan_candidate
+            result=str(modern_candidate)
+            selected_generator="tencent/Hunyuan3D-2.1"
+            selected_compute="public Hunyuan3D-2.1 model-generated geometry + HAYUYA material bridge"
+            actual_mesh_simplify=0.0
+            actual_texture_size=4096 if TEXTURE_QUALITY=="ultra" else 2048
+            hero_target=2_000_000 if TEXTURE_QUALITY=="ultra" else 1_250_000
+            hero_floor=1_000_000 if TEXTURE_QUALITY=="ultra" else 650_000
+            hero_master_report={
+                "schema":1,
+                "policy":"native-model-generated-fidelity-before-density",
+                "generator":selected_generator,
+                "target_faces":hero_target,
+                "minimum_faces":hero_floor,
+                "actual_faces":int(hunyuan_mesh.faces),
+                "actual_vertices":int(hunyuan_mesh.vertices),
+                "dense_master_ready":True,
+                "density_target_met":bool(int(hunyuan_mesh.faces)>=hero_floor),
+                "provider_capped":False,
+                "refinement_required":False,
+                "native_latent_extraction":True,
+                "native_model_generated_geometry":True,
+                "material_bridge":material_bridge_report,
+                "optimization_deferred":True,
+                "runtime_optimization_stage":"post-Judge-v4",
+                "license_review_required":True,
+                "distribution_eligible":False,
+                "license_note":hunyuan_meta.get("license_policy"),
+            }
+            print(
+                "HAYUYA_HUNYUAN3D_NATIVE_PROMOTED_TO_JUDGE",
+                json.dumps(hero_master_report,separators=(",",":")),
+            )
+        else:
+            print(
+                "::warning::Hunyuan3D native geometry generated but no material "
+                "source was available; preserving it as geometry evidence only."
+            )
+    except Exception as hunyuan_exc:
+        print(
+            "::warning::Hunyuan3D native challenger unavailable/rejected: "
+            f"{type(hunyuan_exc).__name__}: {hunyuan_exc}"
+        )
 
 # VAST's public TripoSG Space exposes the same open model family we already
 # vendor locally, but its UI permits simplification to be disabled completely.
