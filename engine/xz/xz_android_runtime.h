@@ -4,6 +4,7 @@
 #include "xz_nacht_reference.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -11,6 +12,39 @@ extern "C" {
 
 void XzAndroidRuntime_Init(size_t engine_heap_bytes);
 void XzAndroidRuntime_SetVerifiedMapPackageMode(int enabled);
+
+int XzAndroidRuntime_RegisterGameSystem(const char *name);
+int XzAndroidRuntime_AddGameSystemDependency(
+    const char *system_name,
+    const char *required_name);
+int XzAndroidRuntime_SetGameSystemIgnored(
+    const char *name,
+    int ignored);
+int XzAndroidRuntime_MarkGameSystemPreDone(
+    const char *name);
+int XzAndroidRuntime_MarkGameSystemPostDone(
+    const char *name);
+int XzAndroidRuntime_MarkGameSystemFailed(
+    const char *name);
+int XzAndroidRuntime_FinalizeGameSystems(void);
+int XzAndroidRuntime_GameSystemsReady(void);
+
+int XzAndroidRuntime_RequireCriticalAsset(
+    uint64_t content_key,
+    uint32_t asset_type);
+int XzAndroidRuntime_SetCriticalAssetNativeReady(
+    uint64_t content_key,
+    uint32_t asset_type,
+    int ready);
+int XzAndroidRuntime_SetCriticalAssetResident(
+    uint64_t content_key,
+    uint32_t asset_type,
+    int resident);
+int XzAndroidRuntime_SetCriticalAssetFailed(
+    uint64_t content_key,
+    uint32_t asset_type,
+    int failed);
+int XzAndroidRuntime_CriticalStreamingReady(void);
 typedef enum {
     XZ_LEGACY_DRAW_ALIAS = 0,
     XZ_LEGACY_DRAW_SURFACE,
