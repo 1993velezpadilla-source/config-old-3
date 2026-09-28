@@ -15,7 +15,7 @@
       "target": "projection_setup",
       "native_symbol": "ctw_projection_setup_adapter_v1",
       "implemented": true,
-      "prototype": "void cBaseCam::SetFov(short)",
+      "prototype": "void cBaseCam::RecalculateMatrix()",
       "calling_convention": "aarch64_aapcs64"
     },
     {
@@ -51,5 +51,5 @@
       "calling_convention": "aarch64_aapcs64"
     }
   ],
-  "note": "Exact 4.4.243 ARM64 adapters. Camera/FOV alter behavior; world/visibility/LOD/player adapters are deliberate pass-through gates for the first runtime camera capture."
+  "note": "Exact 4.4.243 ARM64 adapters. Camera/FOV alter behavior; projection/world/visibility/LOD/player adapters are deliberate pass-through gates for the first runtime camera capture."
 }
