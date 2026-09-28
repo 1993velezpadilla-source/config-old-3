@@ -88,6 +88,18 @@ def profile_status(profile: dict) -> dict:
             abi_verified += 1
 
         candidates = abi.get("candidates") if isinstance(abi, dict) else None
+        simple_trampoline_candidates = 0
+        advanced_relocator_candidates = 0
+        if isinstance(candidates, list):
+            for candidate in candidates:
+                if not isinstance(candidate, dict):
+                    continue
+                strategy = candidate.get("trampoline_strategy_hint")
+                if strategy == "simple_copy_trampoline_candidate":
+                    simple_trampoline_candidates += 1
+                elif strategy == "advanced_relocator_required":
+                    advanced_relocator_candidates += 1
+
         abi_status[key] = {
             "verified": abi_ok,
             "status": abi.get("status") if isinstance(abi, dict) else None,
@@ -97,6 +109,8 @@ def profile_status(profile: dict) -> dict:
                 len(abi_evidence) if isinstance(abi_evidence, list) else 0
             ),
             "candidate_count": len(candidates) if isinstance(candidates, list) else 0,
+            "simple_copy_trampoline_candidates": simple_trampoline_candidates,
+            "advanced_relocator_candidates": advanced_relocator_candidates,
         }
 
     anchors = profile.get("public_4243_engine_anchors", {})
