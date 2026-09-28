@@ -6,7 +6,6 @@ on:
       - art/cathedral-production-models
     paths:
       - "tools/blender/build_cathedral_roster.py"
-      - "tools/blender/apply_sister_pass34.py"
       - "tools/blender/cathedral_roster.json"
       - ".github/workflows/cathedral-production-models.yml"
   workflow_dispatch:
@@ -79,12 +78,6 @@ jobs:
           curl -fL --retry 4 https://files2.makehumancommunity.org/asset_packs/makehuman_system_assets/makehuman_system_assets_cc0.zip -o /tmp/makehuman_system_assets_cc0.zip
           unzip -q /tmp/makehuman_system_assets_cc0.zip -d /tmp/mhassets
 
-      - name: Apply Sister of Ash pass 34 fidelity source patch
-        shell: bash
-        run: |
-          set -euxo pipefail
-          python3 tools/blender/apply_sister_pass34.py
-
       - name: Build Sister of Ash
         shell: bash
         env:
@@ -132,7 +125,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "No generated asset changes."
           else
-            git commit -m "art: generate Sister of Ash fidelity pass 34"
+            git commit -m "art: generate Sister of Ash fidelity pass 37 clean source"
             git pull --rebase origin art/cathedral-production-models
             git push origin HEAD:art/cathedral-production-models
           fi
@@ -140,7 +133,7 @@ jobs:
       - name: Upload full production artifact
         uses: actions/upload-artifact@v4
         with:
-          name: cathedral-sister-of-ash-pass34
+          name: cathedral-sister-of-ash-pass37
           path: assets/generated/cathedral_roster/
           if-no-files-found: error
           retention-days: 14
