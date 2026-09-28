@@ -246,6 +246,14 @@ class HookDossierTests(unittest.TestCase):
             caller["context"]["return_use"]["x0"]["status"],
             "consumed",
         )
+        card = candidate["abi_review_card"]
+        self.assertIn("x0", card["gpr_supported_by_callee_and_callers"])
+        self.assertIn("v0", card["fp_supported_by_callee_and_callers"])
+        self.assertEqual(
+            card["caller_return_use_counts"]["x0"]["consumed"],
+            1,
+        )
+        self.assertIn("gpr", card["callee_return_register_classes"])
 
         self.assertEqual(report["summary"]["targets_verified"], 0)
         self.assertEqual(report["summary"]["targets_with_candidates"], 1)
