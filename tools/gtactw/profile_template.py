@@ -22,6 +22,138 @@ TARGET_KEYS = (
 )
 
 
+
+TARGET_EVIDENCE_RULES = {
+    "camera_update": {
+        "groups": ("camera",),
+        "terms": ("camera", "cam", "view", "look", "aim"),
+    },
+    "projection_setup": {
+        "groups": ("camera",),
+        "terms": ("projection", "proj", "perspective", "fov", "nearclip", "farclip", "clip"),
+    },
+    "world_stream_update": {
+        "groups": ("streaming",),
+        "terms": ("stream", "worldblock", "world_block", "resident"),
+    },
+    "sector_visibility": {
+        "groups": ("streaming", "lod_culling"),
+        "terms": ("sector", "visibility", "visible", "frustum", "cull"),
+    },
+    "lod_test": {
+        "groups": ("lod_culling",),
+        "terms": ("lod", "distance", "cull", "visible"),
+    },
+    "player_render": {
+        "groups": ("player_render",),
+        "terms": ("player", "ped", "skin", "skeleton", "body", "weapon", "render"),
+    },
+}
+
+
+def rank_target_evidence(report: dict, xref_report: dict | None) -> dict:
+    """Rank evidence for each patch target without selecting a target RVA.
+
+    Scores are intentionally evidence-only. They are useful for narrowing the
+    reverse-engineering search, but never populate patch_targets_rva.
+    """
+    xref_groups = summarize_xrefs(xref_report)
+    symbol_groups = report.get("symbols", {}).get("candidate_groups", {})
+    out = {}
+
+    for target, rule in TARGET_EVIDENCE_RULES.items():
+        merged = {}
+
+        for group in rule["groups"]:
+            for item in xref_groups.get(group, []):
+                rva = item.get("rva")
+                if rva is None:
+                    continue
+                entry = merged.setdefault(int(rva), {
+                    "rva": int(rva),
+                    "function": item.get("function"),
+                    "score": 0,
+                    "reasons": [],
+                    "xref_hits": 0,
+                    "strings": [],
+                    "symbol_names": [],
+                    "call_sites": [],
+                })
+                hits = int(item.get("hits") or 0)
+                entry["xref_hits"] += hits
+                entry["score"] += min(hits, 6) * 3
+                if hits:
+                    entry["reasons"].append(f"{hits} {group} string xref hit(s)")
+
+                for text in item.get("strings", []):
+                    if text not in entry["strings"]:
+                        entry["strings"].append(text)
+                for pc in item.get("call_sites", []):
+                    if pc not in entry["call_sites"]:
+                        entry["call_sites"].append(pc)
+
+        for group in rule["groups"]:
+            for sym in symbol_groups.get(group, []):
+                if sym.get("source") != "symbol" or sym.get("value") is None:
+                    continue
+                rva = int(sym["value"])
+                entry = merged.setdefault(rva, {
+                    "rva": rva,
+                    "function": sym.get("name"),
+                    "score": 0,
+                    "reasons": [],
+                    "xref_hits": 0,
+                    "strings": [],
+                    "symbol_names": [],
+                    "call_sites": [],
+                })
+                name = sym.get("name") or ""
+                if name not in entry["symbol_names"]:
+                    entry["symbol_names"].append(name)
+                entry["score"] += 4
+                entry["reasons"].append(f"{group} symbol candidate")
+
+        terms = tuple(x.lower() for x in rule["terms"])
+        for entry in merged.values():
+            haystack_parts = []
+            if entry.get("function"):
+                haystack_parts.append(entry["function"])
+            haystack_parts += entry["symbol_names"]
+            haystack_parts += entry["strings"]
+            haystack = " ".join(haystack_parts).lower()
+            matched_terms = sorted({term for term in terms if term in haystack})
+            if matched_terms:
+                bonus = min(len(matched_terms), 4) * 2
+                entry["score"] += bonus
+                entry["reasons"].append(
+                    "target keyword match: " + ", ".join(matched_terms)
+                )
+
+            # Distinct strings are a stronger signal than repeated references
+            # to the same literal.
+            distinct = len(entry["strings"])
+            if distinct > 1:
+                bonus = min(distinct - 1, 4)
+                entry["score"] += bonus
+                entry["reasons"].append(
+                    f"{distinct} distinct evidence strings"
+                )
+
+            # Same RVA seen both as a symbol candidate and an xref owner is a
+            # useful cross-signal.
+            if entry["xref_hits"] and entry["symbol_names"]:
+                entry["score"] += 6
+                entry["reasons"].append("symbol + xref cross-signal")
+
+        ranked = sorted(
+            merged.values(),
+            key=lambda x: (-x["score"], -x["xref_hits"], x["rva"]),
+        )
+        out[target] = ranked[:16]
+
+    return out
+
+
 def _jni_rva(report: dict, name: str) -> int | None:
     details = report.get("symbols", {}).get("known_jni_details", {})
     item = details.get(name)
@@ -121,6 +253,7 @@ def make_profile(report: dict, xref_report: dict | None = None) -> dict:
         },
         "candidate_symbols": candidate_summary,
         "candidate_xref_functions": summarize_xrefs(xref_report),
+        "target_evidence_rankings": rank_target_evidence(report, xref_report),
         "status": "template_needs_verified_internal_rvas",
     }
 
