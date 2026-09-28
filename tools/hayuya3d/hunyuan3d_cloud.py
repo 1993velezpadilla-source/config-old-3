@@ -74,7 +74,10 @@ def generate_shape(
     if not image.is_file():
         raise FileNotFoundError(image)
 
-    client = Client(SPACE_ID, token=token)
+    kwargs = {"verbose": True, "httpx_kwargs": {"timeout": 180.0}}
+    if token:
+        kwargs["token"] = token
+    client = Client(SPACE_ID, **kwargs)
     named = _named_endpoints(client)
     endpoint = _pick_shape_endpoint(named)
 
