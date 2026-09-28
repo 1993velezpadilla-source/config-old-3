@@ -130,10 +130,21 @@ class ProfileMarkAbiTests(unittest.TestCase):
             allow_unprobed=True,
             strategy=loader_variant.ADVANCED,
         )
+        item = updated["abi_verification"]["player_render"]
         self.assertEqual(
-            updated["abi_verification"]["player_render"][
-                "trampoline_strategy"
-            ],
+            item["trampoline_strategy"],
+            loader_variant.ADVANCED,
+        )
+        self.assertEqual(
+            item["candidates"][0]["source"],
+            "manual_abi_verification",
+        )
+        self.assertEqual(
+            item["candidates"][0]["rva"],
+            updated["patch_targets_rva"]["player_render"],
+        )
+        self.assertEqual(
+            item["candidates"][0]["trampoline_strategy_hint"],
             loader_variant.ADVANCED,
         )
 
