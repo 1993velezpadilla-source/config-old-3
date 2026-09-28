@@ -1,0 +1,94 @@
+name: XZIEL BO3 Loader Core Compile
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/xziel-bo3-style-map-loader-v1
+    paths:
+      - engine/xz/xz_zone_db.c
+      - engine/xz/xz_zone_db.h
+      - engine/xz/xz_runtime_readiness.c
+      - engine/xz/xz_runtime_readiness.h
+      - engine/xz/xz_t7_asset_types.c
+      - engine/xz/xz_t7_asset_types.h
+      - engine/xz/xz_asset_pool.c
+      - engine/xz/xz_asset_pool.h
+      - engine/xz/xz_bulk_store.c
+      - engine/xz/xz_bulk_store.h
+      - engine/xz/xz_asset_loader_registry.c
+      - engine/xz/xz_asset_loader_registry.h
+      - engine/xz/xz_asset_cache.c
+      - engine/xz/xz_asset_cache.h
+      - engine/xz/xz_package_boot.c
+      - engine/xz/xz_package_boot.h
+      - .github/workflows/xziel-bo3-loader-core-compile.yml
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compile loader core with warnings as errors
+        run: |
+          set -euxo pipefail
+          mkdir -p build/xziel-bo3-loader-core
+          for src in \
+            engine/xz/xz_zone_db.c \
+            engine/xz/xz_runtime_readiness.c \
+            engine/xz/xz_t7_asset_types.c \
+            engine/xz/xz_asset_pool.c \
+            engine/xz/xz_bulk_store.c \
+            engine/xz/xz_asset_loader_registry.c \
+            engine/xz/xz_asset_cache.c \
+            engine/xz/xz_package_boot.c
+          do
+            cc -std=gnu11 -Wall -Wextra -Werror \
+              -Iengine/xz \
+              -c "$src" \
+              -o "build/xziel-bo3-loader-core/$(basename "$src" .c).o"
+          done
+          echo "XZIEL_BO3_LOADER_CORE_COMPILE_GREEN"
+
+      - name: Build and run self-tests
+        run: |
+          set -euxo pipefail
+          cat > build/xziel-bo3-loader-core/selftest.c <<'EOF'
+          #include "xz_zone_db.h"
+          #include "xz_runtime_readiness.h"
+          #include "xz_t7_asset_types.h"
+          #include "xz_asset_pool.h"
+          #include "xz_bulk_store.h"
+          #include "xz_asset_loader_registry.h"
+          #include "xz_asset_cache.h"
+
+          int main(void)
+          {
+              return
+                  XzZoneDb_SelfTest() &&
+                  XzRuntimeReadiness_SelfTest() &&
+                  XzT7AssetType_SelfTest() &&
+                  XzAssetPool_SelfTest() &&
+                  XzBulkStore_SelfTest() &&
+                  XzAssetLoaderRegistry_SelfTest() &&
+                  XzAssetCache_SelfTest()
+                      ? 0
+                      : 1;
+          }
+          EOF
+
+          cc -std=gnu11 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            build/xziel-bo3-loader-core/selftest.c \
+            engine/xz/xz_zone_db.c \
+            engine/xz/xz_runtime_readiness.c \
+            engine/xz/xz_t7_asset_types.c \
+            engine/xz/xz_asset_pool.c \
+            engine/xz/xz_bulk_store.c \
+            engine/xz/xz_asset_loader_registry.c \
+            engine/xz/xz_asset_cache.c \
+            -o build/xziel-bo3-loader-core/selftest
+
+          build/xziel-bo3-loader-core/selftest
+          echo "XZIEL_BO3_LOADER_CORE_SELFTEST_GREEN"
