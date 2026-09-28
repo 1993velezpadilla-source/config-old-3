@@ -403,6 +403,25 @@ def sister_mouth_pose(body,h):
 
 
 
+def sister_fitted_wimple(body,h,mats):
+    """Pass 35: continuous anatomy-following wimple from actual head/neck surface."""
+    ivory=mats["dirty_ivory"]; fy=face_front_y(body,h); out=[]
+    # Single connected facial border selected from the body surface: brow + temples + under-chin.
+    frame=body_region_shell(body,"NunFittedWimple",ivory,
+        lambda q: (
+            (.938<q.z/h<.972 and abs(q.x/h)<.061 and q.y<fy+.024*h) or
+            (.838<q.z/h<.948 and .047<abs(q.x/h)<.069 and q.y<fy+.030*h) or
+            (.817<q.z/h<.850 and abs(q.x/h)<.071 and q.y<fy+.030*h)
+        ),.0022*h)
+    if frame:
+        bev=frame.modifiers.new("WimpleEdgeSoft","BEVEL"); bev.width=.0008*h; bev.segments=2
+        out.append(frame)
+    # One continuous under-wimple around neck/upper chest; no isolated shoulder plates.
+    under=body_region_shell(body,"NunUnderWimple",ivory,
+        lambda q:.705<q.z/h<.822 and abs(q.x/h)<.145 and q.y/h<.120,.0030*h)
+    if under: out.append(under)
+    return out
+
 def sister_mouth_slit(body,h,mats):
     """Clearly readable but narrow undead mouth opening on the visible facial surface."""
     fy=face_front_y(body,h)
@@ -780,7 +799,7 @@ def priority_head_cover(body,h,style,mats):
         ivory=mats["dirty_ivory"]; blue=mats["ash_blue"]
         out.append(nun_coif_cap("NunInnerCoif",h,ivory,.069,.059,.108,.899,.10))
         out.append(nun_coif_cap("NunOuterHood",h,blue,.078,.067,.119,.898,.60))
-        out.append(sister_wimple_frame(body,h,ivory))
+        out.extend(sister_fitted_wimple(body,h,mats))
         # soft neck cloth closes the throat transition without a flat bib
         neck=body_region_shell(body,"NunNeckWimple",ivory,
             lambda q:.742<q.z/h<.835 and abs(q.x/h)<.120 and q.y/h<.145,.0030*h)
@@ -1860,7 +1879,7 @@ def make_character(ch,assets_root,outroot,HumanService,ObjectService,TargetServi
     bpy.context.view_layer.update()
     png=preview(body,folder,style)
     tri=sum(sum(max(1,len(p.vertices)-2) for p in o.data.polygons) for o in objs if o.type=="MESH")
-    manifest={"id":ch["id"],"name":ch["name"],"category":ch["category"],"style":style,"height_m":ch["height_m"],"rig":"game_engine","bones":len(rig.data.bones),"triangles_estimate":tri,"animations":ch["animations"],"materials":ch["palette"],"outputs":[glb.name,fbx.name,blend.name,png.name,"preview_side.png","preview_back.png","preview_face.png"],"production_status":"Sister of Ash pass 34 — continuous fitted U-wimple, compact closed shoes without toe spheres, full crown coverage and layered habit retained"}
+    manifest={"id":ch["id"],"name":ch["name"],"category":ch["category"],"style":style,"height_m":ch["height_m"],"rig":"game_engine","bones":len(rig.data.bones),"triangles_estimate":tri,"animations":ch["animations"],"materials":ch["palette"],"outputs":[glb.name,fbx.name,blend.name,png.name,"preview_side.png","preview_back.png","preview_face.png"],"production_status":"Sister of Ash pass 35 — continuous fitted U-wimple, compact closed shoes without toe spheres, full crown coverage and layered habit retained"}
     (folder/"manifest.json").write_text(json.dumps(manifest,indent=2),encoding="utf-8")
     return manifest
 
