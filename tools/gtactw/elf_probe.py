@@ -57,6 +57,9 @@ KNOWN_4243_ENGINE_SYMBOLS = (
     "_Z18OS_ThreadIsRunningPv",
     "_Z17OS_ScreenGetWidthv",
     "_Z18OS_ScreenGetHeightv",
+    "_ZN10cIPhonePad8SetAlphaEf",
+    "gIPhonePad",
+    "gOSWGamepad",
 )
 
 CANDIDATE_TERMS = {
