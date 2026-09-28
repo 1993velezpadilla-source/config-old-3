@@ -188,6 +188,7 @@ jobs:
       - name: Host-compile native CTW loader
         run: |
           cc -shared -fPIC -std=c11 -Wall -Wextra -Werror \
+            -Iprojects/gtactw-android-3d/android-loader \
             -o /tmp/libGame.so \
             projects/gtactw-android-3d/android-loader/ctw_loader.c \
             projects/gtactw-android-3d/android-loader/ctw_patch.c \
@@ -200,6 +201,7 @@ jobs:
             projects/gtactw-android-3d/android-loader/ctw_trampoline.c \
             projects/gtactw-android-3d/android-loader/ctw_hook_backend.c \
             projects/gtactw-android-3d/android-loader/ctw_hook_session.c \
+            projects/gtactw-android-3d/android-loader/ctw_adapter_registry.c \
             projects/gtactw-android-3d/android-loader/ctw_profile.c \
             projects/gtactw-android-3d/android-loader/ctw_config.c \
             -ldl -lpthread
