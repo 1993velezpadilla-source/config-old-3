@@ -1,4 +1,5 @@
 #include "ctw_patch.h"
+#include "ctw_camera.h"
 
 #if defined(__ANDROID__)
 #include <android/log.h>
