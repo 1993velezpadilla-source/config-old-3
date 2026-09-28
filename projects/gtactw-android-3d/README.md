@@ -282,3 +282,31 @@ GL PLT-call evidence, ped/model census, world streaming census, and profile
 template generation.
 
 If more than one Android device is connected, pass `--serial <adb-serial>`.
+
+
+## ADB one-pass reverse-engineering capture
+
+With the legitimate Play build installed and USB debugging enabled, one command
+can collect the installed APK set, persist only the required runtime files,
+validate the pinned build, generate the target-evidence profile, disassemble the
+top ARM64 candidates, and attach ABI evidence while leaving every ABI status
+`pending`:
+
+```bash
+python tools/gtactw/adb_collect.py \
+  --analyze \
+  --reference projects/gtactw-android-3d/reference_build_4.4.243.json \
+  --out-dir ./local_ctw/adb_apks \
+  --runtime-out ./local_ctw/runtime \
+  --manifest ./local_ctw/adb_manifest.json \
+  --analysis-out ./local_ctw/ctw_analysis.json \
+  --profile-out ./local_ctw/ctw_profile.json \
+  --abi-out ./local_ctw/ctw_abi_evidence.json \
+  --abi-profile-out ./local_ctw/ctw_profile_with_abi_evidence.json
+```
+
+The ABI probe uses Android-NDK `llvm-objdump` when available. It demangles C++
+symbols, summarizes AArch64 stack/prologue behavior, x0-x7/v0-v7 argument
+register hints, calls, branches, and returns. These are evidence only: the
+profile deliberately remains `status=pending` until the prototype and adapter
+for each hook have been explicitly verified.
