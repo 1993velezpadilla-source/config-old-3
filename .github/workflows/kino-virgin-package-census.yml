@@ -1,0 +1,80 @@
+name: XZIEL Kino Virgin Package Census
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/xziel-bo3-style-map-loader-v1
+    paths:
+      - .github/workflows/kino-virgin-package-census.yml
+      - tools/maps/audit_virgin_ue_package.py
+
+jobs:
+  kino-census:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout XZIEL Engine
+        uses: actions/checkout@v4
+
+      - name: Install archive tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y p7zip-full unzip jq
+
+      - name: Download public Kino Der Toten CODz v109
+        run: |
+          set -euxo pipefail
+          mkdir -p kino-download
+          curl -fL --retry 8 --retry-delay 3 --retry-all-errors \
+            -o kino-download/kino-v109.zip \
+            "https://g-3959.modapi.io/v1/games/3959/mods/2809826/files/5245723/download"
+          test -s kino-download/kino-v109.zip
+          sha256sum kino-download/kino-v109.zip | tee kino-download/sha256.txt
+          ls -lh kino-download/kino-v109.zip
+
+      - name: Inventory archive without assumptions
+        run: |
+          set -euxo pipefail
+          7z l -slt kino-download/kino-v109.zip > kino-download/archive-list.txt
+          python3 tools/maps/audit_virgin_ue_package.py \
+            --archive kino-download/kino-v109.zip \
+            --report kino-download/kino-census.json
+          cat kino-download/kino-census.json
+
+      - name: Extract package
+        run: |
+          set -euxo pipefail
+          mkdir -p kino-unpacked
+          7z x -y kino-download/kino-v109.zip -okino-unpacked >/dev/null
+          du -sh kino-unpacked
+          find kino-unpacked -type f | sort > kino-download/extracted-files.txt
+          echo "files=$(wc -l < kino-download/extracted-files.txt)"
+
+      - name: Census Unreal containers and assets
+        run: |
+          set -euxo pipefail
+          python3 tools/maps/audit_virgin_ue_package.py \
+            --root kino-unpacked \
+            --report kino-download/kino-extracted-census.json
+          cat kino-download/kino-extracted-census.json
+
+      - name: Virgin-loader anti-hardcode gate
+        run: |
+          set -euxo pipefail
+          ! grep -RniE "kino|kinodertoten|2809826|5245723" engine/xz \
+            --include='*.c' --include='*.h'
+          echo "XZIEL_KINO_VIRGIN_NO_ENGINE_HARDCODE_GREEN"
+
+      - name: Upload Kino census
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: XZIEL-Kino-Virgin-Package-Census
+          path: |
+            kino-download/sha256.txt
+            kino-download/archive-list.txt
+            kino-download/extracted-files.txt
+            kino-download/kino-census.json
+            kino-download/kino-extracted-census.json
+          retention-days: 7
