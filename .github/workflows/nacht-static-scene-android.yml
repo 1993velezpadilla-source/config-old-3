@@ -45,6 +45,7 @@ on:
       - feature/xziel-nacht-lightmap-stream-v1
       - feature/xziel-nacht-lightmap-binding-pack-v1
       - feature/xziel-nacht-lightmap-binding-runtime-v1
+      - feature/xziel-nacht-lightmap-batch-census-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -66,6 +67,7 @@ on:
       - "tools/maps/compile_nacht_environment.py"
       - "tools/maps/compile_nacht_lightmap_instance_bindings.py"
       - "tools/maps/compile_nacht_lightmap_runtime_bindings.py"
+      - "tools/maps/census_nacht_lightmap_batches.py"
       - "tools/maps/NachtLightExtractor/**"
       - "tools/maps/NachtReflectionExtractor/**"
       - "tools/maps/NachtBakedLightingExtractor/**"
@@ -512,6 +514,42 @@ jobs:
 
           cp build/nacht-static-scene/xziel.xzlb.report.json \
             dist/xziel.xzlb.report.json
+
+      - name: Census Nacht lightmap batch groups
+        run: |
+          set -euo pipefail
+          python3 tools/maps/census_nacht_lightmap_batches.py \
+            --assets assets/nacht_reference/pavlov_scene_reference/assets.json \
+            --scene assets/nacht_reference/pavlov_scene_reference/scene_instances.json \
+            --bindings dist/nacht-instance-lightmap-bindings.json \
+            --output build/nacht-static-scene/xziel.lightmap-batch-census.json \
+            | tee build/nacht-static-scene/lightmap-batch-census.log
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(
+              Path(
+                  "build/nacht-static-scene/xziel.lightmap-batch-census.json"
+              ).read_text(encoding="utf-8")
+          )
+          assert report["schemaVersion"] == 1
+          assert report["format"] == "xziel_nacht_lightmap_batch_census_v1"
+          assert report["meshCount"] == 492
+          assert report["instanceCount"] == 10791
+          assert report["mappedInstanceCount"] == 10786
+          assert report["missingInstanceCount"] == 5
+          assert report["uniqueLightmapPairCount"] > 0
+          assert report["meshLightmapPairGroupCount"] > 0
+          assert report["meshLightmapPairGroupCount"] <= report["mappedInstanceCount"]
+          assert report["maxPairsPerMesh"] > 0
+          assert report["averageInstancesPerMeshPairGroup"] > 0.0
+          print("XZIEL_NACHT_LIGHTMAP_BATCH_CENSUS_GREEN", report)
+          PY
+
+          cp build/nacht-static-scene/xziel.lightmap-batch-census.json \
+            dist/xziel.lightmap-batch-census.json
 
       - name: Census Nacht reflection captures and SkyLight source
         run: |
