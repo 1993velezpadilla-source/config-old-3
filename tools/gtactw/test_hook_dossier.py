@@ -99,6 +99,16 @@ class HookDossierTests(unittest.TestCase):
                             "caller_rva": 0x4800,
                             "call_site_rva": 0x4820,
                             "context": {
+                                "prepared_registers": {
+                                    "x0": {
+                                        "mode": "write",
+                                        "kind_hint": "stack_address_like",
+                                    },
+                                    "v0": {
+                                        "mode": "write",
+                                        "kind_hint": "float32_like",
+                                    },
+                                },
                                 "locally_prepared_argument_registers": [
                                     "x0", "v0"
                                 ],
@@ -254,6 +264,20 @@ class HookDossierTests(unittest.TestCase):
             1,
         )
         self.assertIn("gpr", card["callee_return_register_classes"])
+        self.assertEqual(
+            card["argument_shape_review"]["x0"]["status"],
+            "supported",
+        )
+        self.assertEqual(
+            card["argument_shape_review"]["v0"]["status"],
+            "supported",
+        )
+        self.assertEqual(
+            card["argument_shape_review"]["x0"][
+                "compatible_caller_hints"
+            ],
+            ["stack_address_like"],
+        )
 
         self.assertEqual(report["summary"]["targets_verified"], 0)
         self.assertEqual(report["summary"]["targets_with_candidates"], 1)
