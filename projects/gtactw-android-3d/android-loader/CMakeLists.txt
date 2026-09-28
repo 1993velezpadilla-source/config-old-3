@@ -6,6 +6,7 @@ add_library(Game SHARED
     ctw_patch.c
     ctw_camera.c
     ctw_profile.c
+    ctw_config.c
 )
 
 target_compile_features(Game PRIVATE c_std_11)
