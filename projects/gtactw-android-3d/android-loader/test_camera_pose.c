@@ -59,6 +59,37 @@ int main(void) {
     assert(feq(pose.target.y, 21.0f));
     assert(feq(pose.target.z, 4.5f));
 
+    cfg.camera_collision_enabled = 1;
+    cfg.camera_collision_margin = 0.2f;
+    assert(
+        ctw_camera_build_pose(
+            &cfg,
+            orbit,
+            CTW_CAMERA_THIRD_PERSON,
+            &p,
+            &pose
+        ) == 1
+    );
+    assert(
+        ctw_camera_apply_collision(
+            &cfg,
+            CTW_CAMERA_THIRD_PERSON,
+            0.5f,
+            &pose
+        ) == 1
+    );
+    assert(feq(pose.position.y, 17.7f));
+    assert(feq(pose.position.z, 4.5f));
+
+    assert(
+        ctw_camera_apply_collision(
+            &cfg,
+            CTW_CAMERA_FIRST_PERSON,
+            0.1f,
+            &pose
+        ) == 0
+    );
+
     orbit.yaw_degrees = 90.0f;
     orbit.pitch_degrees = 0.0f;
     assert(
