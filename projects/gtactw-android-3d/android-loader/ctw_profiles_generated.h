@@ -19,7 +19,7 @@ static const CtwBuildProfile g_ctw_profiles_storage[] = {
             .projection_setup = 0x726CD8u,
             .world_stream_update = 0x89CA2Cu,
             .sector_visibility = 0x89CF10u,
-            .lod_test = 0x70EF54u,
+            .lod_test = 0x918C84u,
             .player_render = 0x89A770u,
         },
         .target_prefixes = {
@@ -40,8 +40,8 @@ static const CtwBuildProfile g_ctw_profiles_storage[] = {
                 0xFD, 0x7B, 0x04, 0xA9, 0xFC, 0x6F, 0x05, 0xA9,
             },
             .lod_test = {
-                0xFF, 0x03, 0x01, 0xD1, 0xFD, 0x7B, 0x01, 0xA9,
-                0xF5, 0x13, 0x00, 0xF9, 0xF4, 0x4F, 0x03, 0xA9,
+                0xFD, 0x7B, 0xBB, 0xA9, 0xFA, 0x67, 0x01, 0xA9,
+                0xF8, 0x5F, 0x02, 0xA9, 0xF6, 0x57, 0x03, 0xA9,
             },
             .player_render = {
                 0xFF, 0xC3, 0x02, 0xD1, 0xFD, 0x7B, 0x05, 0xA9,
@@ -53,7 +53,7 @@ static const CtwBuildProfile g_ctw_profiles_storage[] = {
             .projection_setup = "ctw_projection_setup_adapter_v1",
             .world_stream_update = "ctw_world_stream_bias_adapter_v1",
             .sector_visibility = "ctw_world_visibility_bias_guard_v1",
-            .lod_test = "ctw_lod_test_passthrough_v1",
+            .lod_test = "ctw_world_sector_visibility_passthrough_v1",
             .player_render = "ctw_ped_sprite_render_adapter_v1",
         },
     },
