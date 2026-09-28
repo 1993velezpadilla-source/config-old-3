@@ -130,6 +130,158 @@ def _registers(text: str) -> list[str]:
     return seen
 
 
+
+def _canonical_arg_registers(text: str) -> set[str]:
+    out = set()
+    for reg in _registers(text):
+        m = re.fullmatch(r"[xw]([0-7])", reg)
+        if m:
+            out.add(f"x{int(m.group(1))}")
+            continue
+        m = re.fullmatch(r"[vqds]([0-7])", reg)
+        if m:
+            out.add(f"v{int(m.group(1))}")
+    return out
+
+
+def _instruction_arg_reads_writes(
+    mnemonic: str,
+    operands: str,
+) -> tuple[set[str], set[str]]:
+    """Approximate AArch64 argument-register reads/writes for dataflow hints."""
+    ops = _split_operands(operands)
+    op_regs = [_canonical_arg_registers(op) for op in ops]
+    all_regs = set().union(*op_regs) if op_regs else set()
+    reads: set[str] = set()
+    writes: set[str] = set()
+
+    m = mnemonic.lower()
+
+    # Stores consume value registers and address/base registers.
+    if m.startswith("st"):
+        reads |= all_regs
+        return reads, writes
+
+    # Pair loads write the first two register operands and read the address.
+    if m.startswith("ldp") or m.startswith("ldnp"):
+        if len(op_regs) >= 1:
+            writes |= op_regs[0]
+        if len(op_regs) >= 2:
+            writes |= op_regs[1]
+        for regs in op_regs[2:]:
+            reads |= regs
+        return reads, writes
+
+    # Scalar/vector loads write the first operand and read address operands.
+    if m.startswith("ldr") or m.startswith("ldur") or m in {
+        "ldxr", "ldaxr", "ldar", "ldapr",
+    }:
+        if op_regs:
+            writes |= op_regs[0]
+        for regs in op_regs[1:]:
+            reads |= regs
+        return reads, writes
+
+    # Compare/test and register-controlled branches only consume registers.
+    if m in {
+        "cmp", "cmn", "tst",
+        "cbz", "cbnz", "tbz", "tbnz",
+        "br", "blr", "ret",
+    }:
+        reads |= all_regs
+        return reads, writes
+
+    # No destination register.
+    if m in {"b", "bl", "nop", "dmb", "dsb", "isb"}:
+        return reads, writes
+
+    # System register read/write forms.
+    if m == "mrs":
+        if op_regs:
+            writes |= op_regs[0]
+        return reads, writes
+    if m == "msr":
+        reads |= all_regs
+        return reads, writes
+
+    # Common AArch64 ALU/move/FP forms write operand 0 and consume the rest.
+    if ops and (
+        m in WRITE_FIRST_MNEMONICS
+        or m.startswith("csel")
+        or m.startswith("cs")
+        or m.startswith("madd")
+        or m.startswith("msub")
+        or m.startswith("mul")
+        or m.startswith("sdiv")
+        or m.startswith("udiv")
+        or m.startswith("neg")
+        or m.startswith("f")
+    ):
+        writes |= op_regs[0]
+        for regs in op_regs[1:]:
+            reads |= regs
+        return reads, writes
+
+    # Conservative fallback: unknown instructions are treated as reads. This
+    # avoids falsely declaring an incoming argument overwritten.
+    reads |= all_regs
+    return reads, writes
+
+
+def _argument_read_before_write(instructions: list[dict]) -> dict:
+    first_access: dict[str, dict] = {}
+
+    for ins in instructions:
+        reads, writes = _instruction_arg_reads_writes(
+            ins["mnemonic"],
+            ins["operands"],
+        )
+        for reg in sorted(reads | writes):
+            if reg in first_access:
+                continue
+            if reg in reads and reg in writes:
+                mode = "read_write"
+            elif reg in reads:
+                mode = "read"
+            else:
+                mode = "write"
+            first_access[reg] = {
+                "mode": mode,
+                "address": ins["address"],
+                "mnemonic": ins["mnemonic"],
+                "operands": ins["operands"],
+            }
+
+    gpr_inputs = sorted(
+        int(reg[1:])
+        for reg, item in first_access.items()
+        if reg.startswith("x") and item["mode"] in {"read", "read_write"}
+    )
+    gpr_overwritten = sorted(
+        int(reg[1:])
+        for reg, item in first_access.items()
+        if reg.startswith("x") and item["mode"] == "write"
+    )
+    fp_inputs = sorted(
+        int(reg[1:])
+        for reg, item in first_access.items()
+        if reg.startswith("v") and item["mode"] in {"read", "read_write"}
+    )
+    fp_overwritten = sorted(
+        int(reg[1:])
+        for reg, item in first_access.items()
+        if reg.startswith("v") and item["mode"] == "write"
+    )
+
+    return {
+        "first_access": first_access,
+        "likely_gpr_inputs_x0_x7": gpr_inputs,
+        "overwritten_gpr_before_read_x0_x7": gpr_overwritten,
+        "likely_fp_inputs_v0_v7": fp_inputs,
+        "overwritten_fp_before_read_v0_v7": fp_overwritten,
+    }
+
+
 def parse_objdump(text: str, *, requested_rva: int | None = None) -> dict:
     instructions = []
     for raw in text.splitlines():
@@ -285,6 +437,13 @@ def parse_objdump(text: str, *, requested_rva: int | None = None) -> dict:
         if not writes_first:
             likely_fp_inputs.append(n)
 
+    dataflow = _argument_read_before_write(instructions)
+    likely_gpr_inputs = dataflow["likely_gpr_inputs_x0_x7"]
+    overwritten_gpr_early = dataflow[
+        "overwritten_gpr_before_read_x0_x7"
+    ]
+    likely_fp_inputs = dataflow["likely_fp_inputs_v0_v7"]
+
     stack_hint = max(
         (x["bytes"] for x in stack_allocations),
         default=None,
@@ -303,6 +462,11 @@ def parse_objdump(text: str, *, requested_rva: int | None = None) -> dict:
             "likely_gpr_inputs_x0_x7": likely_gpr_inputs,
             "overwritten_gpr_early_x0_x7": overwritten_gpr_early,
             "likely_fp_inputs_v0_v7": likely_fp_inputs,
+            "overwritten_fp_before_read_v0_v7": dataflow[
+                "overwritten_fp_before_read_v0_v7"
+            ],
+            "first_access": dataflow["first_access"],
+            "analysis": "read_before_write",
             "gpr_mentions": {
                 f"x{n}": addrs
                 for n, addrs in gpr_mentions.items()
