@@ -36,6 +36,31 @@ def load_verified_profile(path: Path) -> dict:
         for key in TARGET_KEYS
     }
 
+    verification = obj.get("target_verification", {})
+    for key in TARGET_KEYS:
+        item = verification.get(key)
+        if not isinstance(item, dict):
+            raise ValueError(f"{key} verification record is required")
+        if item.get("status") != "verified":
+            raise ValueError(f"{key} must have status=verified")
+        verified_rva = require_rva(item.get("rva"), f"{key} verified RVA")
+        if verified_rva != clean_targets[key]:
+            raise ValueError(
+                f"{key} verification RVA does not match patch_targets_rva"
+            )
+        evidence = item.get("evidence")
+        if not isinstance(evidence, list) or not evidence:
+            raise ValueError(f"{key} must contain at least one evidence record")
+        for index, ev in enumerate(evidence):
+            if not isinstance(ev, dict):
+                raise ValueError(f"{key} evidence[{index}] must be an object")
+            method = ev.get("method")
+            detail = ev.get("detail")
+            if not isinstance(method, str) or not method.strip():
+                raise ValueError(f"{key} evidence[{index}] needs method")
+            if not isinstance(detail, str) or not detail.strip():
+                raise ValueError(f"{key} evidence[{index}] needs detail")
+
     sha = fp.get("sha256")
     if not isinstance(sha, str) or len(sha) != 64:
         raise ValueError("profile must contain a 64-character libGame SHA-256")
