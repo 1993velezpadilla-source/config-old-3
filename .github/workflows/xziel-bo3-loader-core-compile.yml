@@ -12,6 +12,8 @@ on:
       - engine/xz/xz_runtime_readiness.h
       - engine/xz/xz_game_system_registry.c
       - engine/xz/xz_game_system_registry.h
+      - engine/xz/xz_critical_streaming.c
+      - engine/xz/xz_critical_streaming.h
       - engine/xz/xz_t7_asset_types.c
       - engine/xz/xz_t7_asset_types.h
       - engine/xz/xz_asset_pool.c
@@ -40,6 +42,7 @@ jobs:
             engine/xz/xz_zone_db.c \
             engine/xz/xz_runtime_readiness.c \
             engine/xz/xz_game_system_registry.c \
+            engine/xz/xz_critical_streaming.c \
             engine/xz/xz_t7_asset_types.c \
             engine/xz/xz_asset_pool.c \
             engine/xz/xz_bulk_store.c \
@@ -61,6 +64,7 @@ jobs:
           #include "xz_zone_db.h"
           #include "xz_runtime_readiness.h"
           #include "xz_game_system_registry.h"
+          #include "xz_critical_streaming.h"
           #include "xz_t7_asset_types.h"
           #include "xz_asset_pool.h"
           #include "xz_bulk_store.h"
@@ -94,6 +98,7 @@ jobs:
                   XzZoneDb_SelfTest() &&
                   XzRuntimeReadiness_SelfTest() &&
                   XzGameSystemRegistry_SelfTest() &&
+                  XzCriticalStreaming_SelfTest() &&
                   XzT7AssetType_SelfTest() &&
                   XzAssetPool_SelfTest() &&
                   XzBulkStore_SelfTest() &&
