@@ -1,4 +1,5 @@
 #include "ctw_patch.h"
+#include "ctw_profile.h"
 
 #if defined(__ANDROID__)
 #include <android/log.h>
@@ -126,7 +127,32 @@ int ctw_mod_init(void *original_game_handle) {
         return -1;
 
     LOGI("CTW3D loader active; camera mode=%d", (int)g_ctw3d_config.mode);
-    LOGI("waiting for fingerprint-matched patch targets; no blind offsets");
+
+    CtwPatchTargets targets = {0};
+    const CtwBuildProfile *profile = NULL;
+    const int match_rc = ctw_profile_resolve(
+        original_game_handle,
+        &targets,
+        &profile
+    );
+
+    if (match_rc == 1) {
+        LOGI("no verified CTW build profile matched; game remains unmodified");
+        return 0;
+    }
+    if (match_rc != 0) {
+        LOGE("failed to fingerprint CTW runtime build rc=%d", match_rc);
+        return match_rc;
+    }
+
+    LOGI("matched verified CTW build profile: %s", profile->name);
+    const int apply_rc = ctw_apply_profile(&targets);
+    if (apply_rc != 0) {
+        LOGE("verified profile is incomplete rc=%d; game remains unmodified", apply_rc);
+        return apply_rc;
+    }
+
+    LOGI("CTW patch target set verified and ready");
     return 0;
 }
 
