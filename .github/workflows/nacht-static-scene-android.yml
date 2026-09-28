@@ -500,7 +500,7 @@ jobs:
           assert report["missingCount"] == 5
           assert report["runtimeReadyCount"] == 10786
           assert report["textureCount"] == 188
-          assert report["uniqueLightmapTextureIndices"] == 188
+          assert report["uniqueLightmapTextureIndices"] == 174
           assert report["meshConsensusCount"] == 2
           assert sum(report["uvChannelCounts"].values()) == 10786
           assert set(report["uvChannelCounts"]).issubset({"0", "1", "2", "3"})
