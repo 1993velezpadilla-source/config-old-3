@@ -45,6 +45,9 @@ jobs:
       - name: Run Hayuya unit tests
         run: python -m unittest discover -s tools/hayuya3d/tests -v
 
+      - name: Audit HAYUYA 3D AAA geometry limits
+        run: python tools/hayuya3d/limits_audit.py
+
       - name: Validate real single-photo automatic face zoom
         run: |
           set -euo pipefail
