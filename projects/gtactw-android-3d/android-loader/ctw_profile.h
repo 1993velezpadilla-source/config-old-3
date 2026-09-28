@@ -21,12 +21,22 @@ typedef struct {
 } CtwPatchPrefixes;
 
 typedef struct {
+    const char *camera_update;
+    const char *projection_setup;
+    const char *world_stream_update;
+    const char *sector_visibility;
+    const char *lod_test;
+    const char *player_render;
+} CtwAdapterNames;
+
+typedef struct {
     const char *name;
     uintptr_t expected_draw_frame_rva;
     uintptr_t expected_initial_setup_rva;
     uintptr_t expected_gamepad_axes_rva;
     CtwPatchTargets target_rvas;
     CtwPatchPrefixes target_prefixes;
+    CtwAdapterNames adapter_names;
 } CtwBuildProfile;
 
 int ctw_profile_match(
