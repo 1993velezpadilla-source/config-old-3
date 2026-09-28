@@ -94,6 +94,8 @@ jobs:
             tools/gtactw/test_emit_runtime_bundle.py \
             tools/gtactw/build_verified_loader.py \
             tools/gtactw/test_build_verified_loader.py \
+            tools/gtactw/finish_verified_modpack.py \
+            tools/gtactw/test_finish_verified_modpack.py \
             tools/gtactw/hook_dossier.py \
             tools/gtactw/test_hook_dossier.py \
             tools/gtactw/profile_mark_target.py \
@@ -482,6 +484,7 @@ jobs:
           echo "GTACTW_ADAPTER_EMIT_GREEN=1"
           echo "GTACTW_RUNTIME_BUNDLE_GREEN=1"
           echo "GTACTW_VERIFIED_LOADER_BUILD_GREEN=1"
+          echo "GTACTW_VERIFIED_FINAL_PACKAGING_GREEN=1"
           echo "GTACTW_RUNTIME_PROFILE_STATUS_GREEN=1"
           echo "GTACTW_LOADER_VARIANT_GREEN=1"
           echo "GTACTW_PROFILE_MODPACK_GREEN=1"
