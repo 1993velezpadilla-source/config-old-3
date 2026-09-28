@@ -302,6 +302,108 @@ class ProfileTemplateTests(unittest.TestCase):
         self.assertEqual(ranked[0]["draw_frame_hops"], 1)
         self.assertEqual(ranked[1]["rva"], 0x6100)
 
+
+    def test_visibility_and_player_gl_calls_are_cross_signals_only(self):
+        report = self.make_report()
+        xrefs = {
+            "groups": {
+                "camera": [],
+                "streaming": [
+                    {
+                        "function": "SectorCull",
+                        "function_rva": 0x7000,
+                        "pc_rva": 0x7010,
+                        "string": "SectorVisibility",
+                    }
+                ],
+                "lod_culling": [
+                    {
+                        "function": "SectorCull",
+                        "function_rva": 0x7000,
+                        "pc_rva": 0x7014,
+                        "string": "FrustumCull",
+                    }
+                ],
+                "player_render": [
+                    {
+                        "function": "PlayerRender",
+                        "function_rva": 0x8000,
+                        "pc_rva": 0x8010,
+                        "string": "PlayerSkeletonRender",
+                    }
+                ],
+            }
+        }
+        plt = {
+            "groups": {
+                "projection": [],
+                "visibility": [
+                    {
+                        "caller": "SectorCull",
+                        "caller_rva": 0x7000,
+                        "call_site_rva": 0x7020,
+                        "import_symbol": "glScissor",
+                        "draw_frame_hops": 2,
+                        "draw_frame_path_rvas": [0x1000, 0x6800, 0x7000],
+                        "draw_frame_path_functions": [
+                            profile_template.DRAW,
+                            "WorldRender",
+                            "SectorCull",
+                        ],
+                    },
+                    {
+                        "caller": "UnrelatedScissor",
+                        "caller_rva": 0x9000,
+                        "call_site_rva": 0x9010,
+                        "import_symbol": "glScissor",
+                        "draw_frame_hops": 1,
+                    },
+                ],
+                "render": [
+                    {
+                        "caller": "PlayerRender",
+                        "caller_rva": 0x8000,
+                        "call_site_rva": 0x8020,
+                        "import_symbol": "glDrawElements",
+                        "draw_frame_hops": 2,
+                        "draw_frame_path_rvas": [0x1000, 0x7800, 0x8000],
+                        "draw_frame_path_functions": [
+                            profile_template.DRAW,
+                            "WorldRender",
+                            "PlayerRender",
+                        ],
+                    },
+                    {
+                        "caller": "UnrelatedDraw",
+                        "caller_rva": 0xA000,
+                        "call_site_rva": 0xA010,
+                        "import_symbol": "glDrawElements",
+                        "draw_frame_hops": 1,
+                    },
+                ],
+            }
+        }
+
+        profile = profile_template.make_profile(report, xrefs, plt)
+        visibility = profile["target_evidence_rankings"]["sector_visibility"]
+        player = profile["target_evidence_rankings"]["player_render"]
+
+        self.assertEqual(visibility[0]["rva"], 0x7000)
+        self.assertIn("glScissor", visibility[0]["plt_imports"])
+        self.assertIn(
+            "visibility candidate also calls glScissor",
+            visibility[0]["reasons"],
+        )
+        self.assertNotIn(0x9000, [x["rva"] for x in visibility])
+
+        self.assertEqual(player[0]["rva"], 0x8000)
+        self.assertIn("glDrawElements", player[0]["plt_imports"])
+        self.assertIn(
+            "player-render candidate also calls glDrawElements",
+            player[0]["reasons"],
+        )
+        self.assertNotIn(0xA000, [x["rva"] for x in player])
+
     def test_rejects_missing_required_jni(self):
         report = self.make_report()
         p = "Java_com_rockstargames_oswrapper_GameNative_"
