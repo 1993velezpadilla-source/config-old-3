@@ -6,6 +6,7 @@
 #include "ctw_hooks.h"
 #include "ctw_mod_runtime.h"
 #include "ctw_patch.h"
+#include "ctw_runtime_policy.h"
 
 #include <dlfcn.h>
 #include <math.h>
@@ -18,6 +19,8 @@
 #define CTW_FIXED_ONE 4096.0f
 #define CTW_PI 3.14159265358979323846f
 #define CTW_WORLD_SECTOR_SIZE_FIXED (60.0f * CTW_FIXED_ONE)
+#define CTW_STOCK_NEAR_CLIP_FIXED 1638
+#define CTW_STOCK_FAR_CLIP_FIXED 614400
 #define CTW_PED_BUCKET_BIND_GOT_RVA 0xDF0AC0u
 #define CTW_PLAYER_HANDLE_AIMING_VTABLE_RVA 0xD81960u
 #define CTW_YOKE_AIM_ANGLE_OFFSET 0x22u
@@ -33,6 +36,9 @@ enum {
     CTW_BASECAM_TARGET_X = 0x128,
     CTW_BASECAM_TARGET_Y = 0x12C,
     CTW_BASECAM_TARGET_Z = 0x130,
+    CTW_BASECAM_NEAR_CLIP = 0x14,
+    CTW_BASECAM_FAR_CLIP = 0x18,
+    CTW_BASECAM_PROJECTION_DIRTY = 0x22,
 };
 
 typedef void (*CtwFollowPedUpdateFn)(void *camera, const void *yoke);
@@ -198,6 +204,85 @@ static int16_t fov_from_degrees(float degrees) {
     if (degrees > 179.0f)
         degrees = 179.0f;
     return angle_from_degrees(degrees);
+}
+
+static int32_t fixed_from_float(float value) {
+    if (!isfinite(value))
+        return 0;
+    const double scaled = (double)value * (double)CTW_FIXED_ONE;
+    if (scaled > (double)INT32_MAX)
+        return INT32_MAX;
+    if (scaled < (double)INT32_MIN)
+        return INT32_MIN;
+    return (int32_t)(scaled >= 0.0 ? scaled + 0.5 : scaled - 0.5);
+}
+
+static void apply_projection_clip_policy(
+    void *camera,
+    CtwCameraMode mode
+) {
+    if (!camera)
+        return;
+
+    if (!g_ctw3d_config.camera_enabled ||
+        mode == CTW_CAMERA_STOCK) {
+        const int32_t current_near = read_i32(
+            camera,
+            CTW_BASECAM_NEAR_CLIP
+        );
+        const int32_t current_far = read_i32(
+            camera,
+            CTW_BASECAM_FAR_CLIP
+        );
+        if (current_near != CTW_STOCK_NEAR_CLIP_FIXED ||
+            current_far != CTW_STOCK_FAR_CLIP_FIXED) {
+            write_i32(
+                camera,
+                CTW_BASECAM_NEAR_CLIP,
+                CTW_STOCK_NEAR_CLIP_FIXED
+            );
+            write_i32(
+                camera,
+                CTW_BASECAM_FAR_CLIP,
+                CTW_STOCK_FAR_CLIP_FIXED
+            );
+            write_u8(
+                camera,
+                CTW_BASECAM_PROJECTION_DIRTY,
+                1u
+            );
+        }
+        return;
+    }
+
+    const CtwProjectionState stock = {
+        .fov_degrees = 30.0f,
+        .near_clip =
+            (float)CTW_STOCK_NEAR_CLIP_FIXED / CTW_FIXED_ONE,
+        .far_clip =
+            (float)CTW_STOCK_FAR_CLIP_FIXED / CTW_FIXED_ONE,
+    };
+    CtwProjectionState desired;
+    const int rc = ctw_projection_apply_policy(
+        &g_ctw3d_config,
+        mode,
+        &stock,
+        &desired
+    );
+    if (rc < 0)
+        return;
+
+    const int32_t near_fixed = fixed_from_float(desired.near_clip);
+    const int32_t far_fixed = fixed_from_float(desired.far_clip);
+    if (near_fixed <= 0 || far_fixed <= near_fixed)
+        return;
+
+    if (read_i32(camera, CTW_BASECAM_NEAR_CLIP) != near_fixed ||
+        read_i32(camera, CTW_BASECAM_FAR_CLIP) != far_fixed) {
+        write_i32(camera, CTW_BASECAM_NEAR_CLIP, near_fixed);
+        write_i32(camera, CTW_BASECAM_FAR_CLIP, far_fixed);
+        write_u8(camera, CTW_BASECAM_PROJECTION_DIRTY, 1u);
+    }
 }
 
 static void apply_pitch(void *camera, float view_pitch_degrees) {
@@ -656,6 +741,8 @@ void ctw_camera_update_adapter_v1(void *camera, const void *yoke) {
     original(camera, yoke);
 
     const CtwCameraInputSnapshot input = ctw_camera_snapshot();
+    apply_projection_clip_policy(camera, input.mode);
+
     if (!g_ctw3d_config.camera_enabled ||
         input.mode == CTW_CAMERA_STOCK ||
         !g_set_camera_behind_target ||
