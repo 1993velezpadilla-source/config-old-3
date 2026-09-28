@@ -20,6 +20,7 @@ import zipfile
 
 GAME_SO = "lib/arm64-v8a/libGame.so"
 ORIGINAL_SO = "lib/arm64-v8a/libGame_orig.so"
+CONFIG_ASSET = "assets/ctw_modhub.ini"
 
 SIGNATURE_SUFFIXES = (
     ".SF", ".RSA", ".DSA", ".EC",
@@ -49,7 +50,7 @@ def clone_info(info: zipfile.ZipInfo, *, filename: str | None = None) -> zipfile
     return out
 
 
-def build_mod_apk(source_apk: Path, loader_so: Path, output_apk: Path) -> dict:
+def build_mod_apk(source_apk: Path, loader_so: Path, output_apk: Path, config_ini: Path | None = None) -> dict:
     if not source_apk.is_file():
         raise FileNotFoundError(source_apk)
     if not loader_so.is_file():
@@ -58,6 +59,14 @@ def build_mod_apk(source_apk: Path, loader_so: Path, output_apk: Path) -> dict:
     loader_bytes = loader_so.read_bytes()
     if not loader_bytes.startswith(b"\x7fELF"):
         raise ValueError("loader is not an ELF shared object")
+
+    config_bytes = None
+    if config_ini is not None:
+        if not config_ini.is_file():
+            raise FileNotFoundError(config_ini)
+        config_bytes = config_ini.read_bytes()
+        if len(config_bytes) > 1024 * 1024:
+            raise ValueError("CTW Mod Hub config is larger than 1 MiB")
 
     output_apk.parent.mkdir(parents=True, exist_ok=True)
 
@@ -79,6 +88,8 @@ def build_mod_apk(source_apk: Path, loader_so: Path, output_apk: Path) -> dict:
             if is_signature_entry(name):
                 removed_signatures += 1
                 continue
+            if config_bytes is not None and name == CONFIG_ASSET:
+                continue
 
             data = src.read(name)
             if name == GAME_SO:
@@ -96,6 +107,12 @@ def build_mod_apk(source_apk: Path, loader_so: Path, output_apk: Path) -> dict:
         loader_info.external_attr = 0o100755 << 16
         dst.writestr(loader_info, loader_bytes)
 
+        if config_bytes is not None:
+            config_info = zipfile.ZipInfo(CONFIG_ASSET)
+            config_info.compress_type = zipfile.ZIP_DEFLATED
+            config_info.external_attr = 0o100644 << 16
+            dst.writestr(config_info, config_bytes)
+
     if not found_game:
         raise RuntimeError("internal error: original libGame.so was not copied")
 
@@ -105,11 +122,14 @@ def build_mod_apk(source_apk: Path, loader_so: Path, output_apk: Path) -> dict:
             raise RuntimeError("repacked APK failed native-library layout verification")
         if any(is_signature_entry(n) for n in names):
             raise RuntimeError("repacked APK still contains stale signature metadata")
+        if config_bytes is not None and CONFIG_ASSET not in names:
+            raise RuntimeError("repacked APK is missing CTW Mod Hub config asset")
 
     return {
         "source_apk": str(source_apk),
         "output_apk": str(output_apk),
         "loader_size": len(loader_bytes),
+        "config_asset": CONFIG_ASSET if config_bytes is not None else None,
         "removed_signature_entries": removed_signatures,
         "native_layout": {
             "proxy": GAME_SO,
@@ -128,10 +148,11 @@ def main() -> int:
     ap.add_argument("apk", type=Path, help="User-owned GTA CTW Android APK")
     ap.add_argument("--loader-so", type=Path, required=True, help="Built CTW3D libGame.so proxy")
     ap.add_argument("--out", type=Path, required=True, help="Unsigned repacked APK")
+    ap.add_argument("--config", type=Path, help="Optional CTW Mod Hub INI to embed")
     args = ap.parse_args()
 
     try:
-        report = build_mod_apk(args.apk, args.loader_so, args.out)
+        report = build_mod_apk(args.apk, args.loader_so, args.out, args.config)
     except Exception as exc:
         print(f"error: {exc}")
         return 2
