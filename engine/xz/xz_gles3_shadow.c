@@ -4345,7 +4345,9 @@ int XzGles3Shadow_UploadStaticScene(
             (source->mesh.vertex_stride !=
                  XZ_XZMS_VERTEX_BYTES_V1 &&
              source->mesh.vertex_stride !=
-                 XZ_XZMS_VERTEX_BYTES_V2) ||
+                 XZ_XZMS_VERTEX_BYTES_V2 &&
+             source->mesh.vertex_stride !=
+                 XZ_XZMS_VERTEX_BYTES_V3) ||
             source->mesh.vertex_count == 0u ||
             source->mesh.index_count == 0u ||
             source->mesh.submesh_count == 0u)
