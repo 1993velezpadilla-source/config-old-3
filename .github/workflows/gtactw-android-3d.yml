@@ -1,0 +1,31 @@
+name: GTA CTW Android 3D
+
+on:
+  push:
+    branches:
+      - "feature/gtactw-android-3d-*"
+    paths:
+      - "projects/gtactw-android-3d/**"
+      - "tools/gtactw/**"
+      - ".github/workflows/gtactw-android-3d.yml"
+  workflow_dispatch:
+
+jobs:
+  probe-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compile probe
+        run: python -m py_compile tools/gtactw/ctw_probe.py tools/gtactw/test_ctw_probe.py
+
+      - name: Run synthetic CTW PAK/APK gate
+        run: python -m unittest -v tools/gtactw/test_ctw_probe.py
+
+      - name: Gate marker
+        run: echo "GTACTW_ANDROID_PAK_PROBE_GREEN=1"
