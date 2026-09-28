@@ -112,6 +112,39 @@ class ProfileStatusTests(unittest.TestCase):
         self.assertEqual(status["abis_verified"], 0)
         self.assertEqual(status["phase"], "needs_verified_hook_abis")
 
+
+    def test_full_abi_without_strategy_stops_before_adapter_gate(self):
+        profile = self.fixture()
+        for index, key in enumerate(profile_template.TARGET_KEYS, start=1):
+            rva = 0x5000 + index * 0x100
+            profile["patch_targets_rva"][key] = rva
+            profile["target_verification"][key] = {
+                "status": "verified",
+                "rva": rva,
+                "evidence": [
+                    {"method": "fixture", "detail": f"verified {key}"}
+                ],
+                "code_prefix_hex": "bb" * 16,
+            }
+            profile["abi_verification"][key] = {
+                "status": "verified",
+                "prototype": f"void {key}(void)",
+                "calling_convention": "aarch64_aapcs64",
+                "adapter": f"{key}_adapter_v1",
+                "evidence": [
+                    {"method": "fixture", "detail": f"ABI {key}"}
+                ],
+                "candidates": [],
+            }
+
+        status = profile_status.profile_status(profile)
+        self.assertEqual(status["abis_verified"], 6)
+        self.assertEqual(
+            status["phase"],
+            "needs_verified_hook_backend_strategy",
+        )
+        self.assertFalse(status["loader_variant_plan"]["ready"])
+
     def test_full_abi_ledger_reaches_adapter_gate_only(self):
         profile = self.fixture()
         for index, key in enumerate(profile_template.TARGET_KEYS, start=1):
@@ -132,6 +165,16 @@ class ProfileStatusTests(unittest.TestCase):
                 "adapter": f"{key}_adapter_v1",
                 "evidence": [
                     {"method": "fixture", "detail": f"ABI {key}"}
+                ],
+                "candidates": [
+                    {
+                        "rva": rva,
+                        "function": key,
+                        "source": "verified_target",
+                        "trampoline_strategy_hint": (
+                            "simple_copy_trampoline_candidate"
+                        ),
+                    }
                 ],
             }
 
