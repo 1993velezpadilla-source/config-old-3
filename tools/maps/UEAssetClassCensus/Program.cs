@@ -62,12 +62,26 @@ foreach (var packagePath in packages)
 
     try
     {
-        if (!provider.TryLoadPackage(packagePath, out var loaded) ||
-            loaded is not Package package)
+        if (!provider.TryGetGameFile(packagePath, out var gameFile))
         {
             throw new InvalidOperationException(
-                "provider could not load classic cooked package metadata");
+                "provider could not resolve package file");
         }
+
+        /*
+         * Critical: do NOT use provider.LoadPackage() here. CUE4Parse's
+         * LoadPackage opens the companion .uexp reader even in lazy mode.
+         * For class census we only need the cooked package header tables,
+         * which live in .uasset/.umap.
+         */
+        using var uassetReader = gameFile.CreateReader();
+        var package = new Package(
+            uassetReader,
+            null,
+            null,
+            null,
+            provider,
+            true);
 
         packagesLoaded++;
         totalExports += package.ExportMap.Length;
@@ -75,11 +89,6 @@ foreach (var packagePath in packages)
         var localClasses =
             new SortedDictionary<string, int>(StringComparer.Ordinal);
 
-        /*
-         * Metadata-only census: inspect FObjectExport.ClassIndex and resolve
-         * the class name without constructing or serializing the UObject.
-         * This deliberately avoids .ubulk texture/mesh/audio payloads.
-         */
         foreach (var export in package.ExportMap)
         {
             string type;
