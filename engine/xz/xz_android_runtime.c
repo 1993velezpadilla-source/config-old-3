@@ -1574,6 +1574,26 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
 
         XzAndroidLog(
             ANDROID_LOG_INFO,
+            "static_scene_lightmap_bindings map='%s'"
+            " ready=%d instances=%u mapped=%u missing=%u"
+            " runtimeReady=%u textures=%u bytes=%zu"
+            " uv0=%u uv1=%u uv2=%u uv3=%u",
+            XzMapRuntime_MapId(
+                &xz_runtime.map_runtime),
+            xz_runtime.static_scene.lightmap_bindings.data != NULL,
+            xz_runtime.static_scene.lightmap_bindings.instance_count,
+            xz_runtime.static_scene.lightmap_bindings.mapped_count,
+            xz_runtime.static_scene.lightmap_bindings.missing_count,
+            xz_runtime.static_scene.lightmap_bindings.runtime_ready_count,
+            xz_runtime.static_scene.lightmap_bindings.texture_count,
+            xz_runtime.static_scene.lightmap_bindings.bytes,
+            xz_runtime.static_scene.lightmap_bindings.uv_channel_count[0],
+            xz_runtime.static_scene.lightmap_bindings.uv_channel_count[1],
+            xz_runtime.static_scene.lightmap_bindings.uv_channel_count[2],
+            xz_runtime.static_scene.lightmap_bindings.uv_channel_count[3]);
+
+        XzAndroidLog(
+            ANDROID_LOG_INFO,
             "static_scene_tonemap map='%s'"
             " ready=%d tonemapMode=pavlov_legacy"
             " autoExposure=%d tonemapperFilm=%d"
