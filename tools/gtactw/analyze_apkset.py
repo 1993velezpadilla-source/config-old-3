@@ -14,6 +14,7 @@ import apkset_probe
 import elf_probe
 import pak_inventory
 import profile_template
+import plt_calls
 import world_census
 
 
@@ -98,6 +99,8 @@ def analyze_apkset(
         "world_census_error": None,
         "libgame": None,
         "arm64_xrefs": None,
+        "plt_calls": None,
+        "plt_calls_error": None,
         "profile_template": None,
         "apk_identity": None,
         "apk_certificate": None,
@@ -165,7 +168,13 @@ def analyze_apkset(
             report["gates"]["known_jni"] = elf["symbols"]["known_jni_present"] > 0
             xrefs = aarch64_xref.scan_libgame(so_path)
             report["arm64_xrefs"] = xrefs
-            report["profile_template"] = profile_template.make_profile(elf, xrefs)
+            plt_report = plt_calls.scan_plt_calls(so_path)
+            report["plt_calls"] = plt_report
+            report["profile_template"] = profile_template.make_profile(
+                elf,
+                xrefs,
+                plt_report,
+            )
 
         if reference is not None:
             try:
