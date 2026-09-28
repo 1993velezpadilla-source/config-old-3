@@ -18,6 +18,27 @@ add_library(Game SHARED
     ctw_config.c
 )
 
+set(
+    CTW_GENERATED_DIR
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+    CACHE PATH
+    "Directory containing generated CTW runtime headers"
+)
+
+if(NOT EXISTS "${CTW_GENERATED_DIR}/ctw_profiles_generated.h")
+    message(FATAL_ERROR "missing ctw_profiles_generated.h in CTW_GENERATED_DIR")
+endif()
+if(NOT EXISTS "${CTW_GENERATED_DIR}/ctw_adapters_generated.h")
+    message(FATAL_ERROR "missing ctw_adapters_generated.h in CTW_GENERATED_DIR")
+endif()
+
+target_include_directories(
+    Game
+    BEFORE PRIVATE
+        "${CTW_GENERATED_DIR}"
+        "${CMAKE_CURRENT_SOURCE_DIR}"
+)
+
 target_compile_features(Game PRIVATE c_std_11)
 target_compile_options(Game PRIVATE -Wall -Wextra -Werror -fvisibility=hidden)
 target_link_libraries(Game PRIVATE dl log android)
