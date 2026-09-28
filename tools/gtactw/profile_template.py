@@ -26,27 +26,39 @@ TARGET_KEYS = (
 TARGET_EVIDENCE_RULES = {
     "camera_update": {
         "groups": ("camera",),
-        "terms": ("camera", "cam", "view", "look", "aim"),
+        "strong_terms": ("cameraupdate", "camera_update", "view", "look", "aim"),
+        "weak_terms": ("camera", "cam"),
     },
     "projection_setup": {
         "groups": ("camera",),
-        "terms": ("projection", "proj", "perspective", "fov", "nearclip", "farclip", "clip"),
+        "strong_terms": (
+            "projection", "proj", "perspective", "fov", "nearclip",
+            "farclip", "matproj", "clip",
+        ),
+        "weak_terms": ("camera", "matmodelview"),
     },
     "world_stream_update": {
         "groups": ("streaming",),
-        "terms": ("stream", "worldblock", "world_block", "resident"),
+        "strong_terms": ("worldblock", "world_block", "streamradius", "stream_radius"),
+        "weak_terms": ("stream", "resident"),
     },
     "sector_visibility": {
         "groups": ("streaming", "lod_culling"),
-        "terms": ("sector", "visibility", "visible", "frustum", "cull"),
+        "strong_terms": ("sector", "visibility", "visible", "frustum"),
+        "weak_terms": ("cull", "stream"),
     },
     "lod_test": {
         "groups": ("lod_culling",),
-        "terms": ("lod", "distance", "cull", "visible"),
+        "strong_terms": ("lod", "drawdistance", "draw_distance", "culldistance", "cull_distance"),
+        "weak_terms": ("distance", "cull", "visible"),
     },
     "player_render": {
         "groups": ("player_render",),
-        "terms": ("player", "ped", "skin", "skeleton", "body", "weapon", "render"),
+        "strong_terms": (
+            "player", "ped", "skin", "skeleton", "body", "character",
+            "modelrender", "model_render",
+        ),
+        "weak_terms": ("weapon", "render"),
     },
 }
 
@@ -81,7 +93,7 @@ def rank_target_evidence(report: dict, xref_report: dict | None) -> dict:
                 })
                 hits = int(item.get("hits") or 0)
                 entry["xref_hits"] += hits
-                entry["score"] += min(hits, 6) * 3
+                entry["score"] += min(hits, 6)
                 if hits:
                     entry["reasons"].append(f"{hits} {group} string xref hit(s)")
 
@@ -110,10 +122,11 @@ def rank_target_evidence(report: dict, xref_report: dict | None) -> dict:
                 name = sym.get("name") or ""
                 if name not in entry["symbol_names"]:
                     entry["symbol_names"].append(name)
-                entry["score"] += 4
+                entry["score"] += 3
                 entry["reasons"].append(f"{group} symbol candidate")
 
-        terms = tuple(x.lower() for x in rule["terms"])
+        strong_terms = tuple(x.lower() for x in rule["strong_terms"])
+        weak_terms = tuple(x.lower() for x in rule["weak_terms"])
         for entry in merged.values():
             haystack_parts = []
             if entry.get("function"):
@@ -121,12 +134,25 @@ def rank_target_evidence(report: dict, xref_report: dict | None) -> dict:
             haystack_parts += entry["symbol_names"]
             haystack_parts += entry["strings"]
             haystack = " ".join(haystack_parts).lower()
-            matched_terms = sorted({term for term in terms if term in haystack})
-            if matched_terms:
-                bonus = min(len(matched_terms), 4) * 2
+
+            strong_matches = sorted({
+                term for term in strong_terms if term in haystack
+            })
+            weak_matches = sorted({
+                term for term in weak_terms if term in haystack
+            })
+
+            if strong_matches:
+                bonus = min(len(strong_matches), 4) * 4
                 entry["score"] += bonus
                 entry["reasons"].append(
-                    "target keyword match: " + ", ".join(matched_terms)
+                    "strong target match: " + ", ".join(strong_matches)
+                )
+            if weak_matches:
+                bonus = min(len(weak_matches), 3)
+                entry["score"] += bonus
+                entry["reasons"].append(
+                    "weak target match: " + ", ".join(weak_matches)
                 )
 
             # Distinct strings are a stronger signal than repeated references
@@ -142,7 +168,7 @@ def rank_target_evidence(report: dict, xref_report: dict | None) -> dict:
             # Same RVA seen both as a symbol candidate and an xref owner is a
             # useful cross-signal.
             if entry["xref_hits"] and entry["symbol_names"]:
-                entry["score"] += 6
+                entry["score"] += 4
                 entry["reasons"].append("symbol + xref cross-signal")
 
         ranked = sorted(
