@@ -503,3 +503,51 @@ jobs:
           echo "GTACTW_MODHUB_CONFIG_GREEN=1"
           echo "GTACTW_ANDROID_ARM64_LOADER_GREEN=1"
           echo "GTACTW_RUNTIME_PROFILE_MATCH_GREEN=1"
+
+
+  build-capture-apk:
+    name: Build CTW Capture APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Android SDK 35
+        shell: bash
+        run: |
+          SDKMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Build CTW Capture debug APK
+        run: |
+          gradle \
+            -p projects/gtactw-android-3d/capture-app \
+            --no-daemon \
+            :app:assembleDebug
+
+      - name: Verify CTW Capture APK
+        shell: bash
+        run: |
+          APK="projects/gtactw-android-3d/capture-app/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          "${ANDROID_HOME}/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "package: name='dev.ctw.capture'"
+          sha256sum "$APK"
+
+      - name: Upload CTW Capture APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: CTW-Capture-debug
+          path: projects/gtactw-android-3d/capture-app/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
