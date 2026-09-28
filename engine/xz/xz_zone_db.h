@@ -12,6 +12,9 @@ extern "C" {
 #define XZ_ZONE_DB_MAX_DEPENDENCIES 256u
 #define XZ_ZONE_DB_NAME_MAX 96u
 
+/* Verified directly in public T7 ZoneTool: dynamically loaded tool/custom zones use this alloc flag. */
+#define XZ_ZONE_FLAG_DYNAMIC_CUSTOM 0x00010000u
+
 typedef enum XzZoneState {
     XZ_ZONE_UNLOADING = -1,
     XZ_ZONE_EMPTY = 0,
@@ -69,9 +72,14 @@ typedef struct XzZoneDb {
     uint32_t complete_zones;
     uint32_t failed_zones;
     int database_ready;
+    int transition_allowed;
 } XzZoneDb;
 
 void XzZoneDb_Init(XzZoneDb *db);
+
+void XzZoneDb_SetDatabaseReady(
+    XzZoneDb *db,
+    int ready);
 
 int XzZoneDb_BeginZone(
     XzZoneDb *db,
@@ -79,6 +87,10 @@ int XzZoneDb_BeginZone(
     uint32_t flags,
     int32_t slot,
     uint16_t *out_zone_id);
+
+int XzZoneDb_FinishZoneLoad(
+    XzZoneDb *db,
+    uint16_t zone_id);
 
 int XzZoneDb_SetZoneState(
     XzZoneDb *db,
