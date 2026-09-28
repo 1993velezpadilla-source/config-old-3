@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "target": {
+    "game": "GTA Chinatown Wars Android",
+    "preferred_build": "4.4.243",
+    "abi": "arm64-v8a",
+    "binary": "libGame.so"
+  },
+  "camera": {
+    "goal_modes": ["stock_top_down", "third_person", "first_person"],
+    "reference_behavior": {
+      "project": "ThirteenAG/WidescreenFixesPack",
+      "component": "GTACTW.PPSSPP.FusionFix",
+      "notes": [
+        "Use the PSP implementation only as behavioral/reference evidence.",
+        "Do not reuse PSP absolute addresses on Android.",
+        "Locate Android camera state and call sites independently in libGame.so."
+      ]
+    },
+    "android_probe_terms": ["camera", "cam", "view", "fov", "nearclip", "farclip"]
+  },
+  "player_render": {
+    "goals": [
+      "keep complete Huang/player body available to third-person camera",
+      "separate first-person head/near-camera hiding from missing geometry",
+      "preserve weapon and animation visibility",
+      "fix camera-intersection clipping without globally disabling culling"
+    ],
+    "android_probe_terms": ["ped", "player", "skin", "skeleton", "body", "weapon"]
+  },
+  "world_distance": {
+    "rule": "Do not patch far clip alone.",
+    "subsystems": [
+      "projection/far clip",
+      "world sector visibility",
+      "worldblock streaming radius",
+      "LOD thresholds",
+      "entity/building culling",
+      "vehicle/ped population distance"
+    ],
+    "android_probe_terms": ["stream", "sector", "worldblock", "lod", "cull", "frustum", "distance"]
+  },
+  "required_gates": {
+    "A": "APK/PAK inventory and format sanity",
+    "B": "ARM64 ELF fingerprint + symbol/string candidate map",
+    "C": "camera hook with stock fallback",
+    "D": "full-body/near-clip repair",
+    "E": "coordinated extended world distance",
+    "F": "Android runtime capture proving no close-range world pop-in"
+  }
+}
