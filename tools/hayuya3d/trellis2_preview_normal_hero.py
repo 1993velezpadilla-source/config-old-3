@@ -493,6 +493,7 @@ def build_normal_informed_hero(
         process=False,
     )
     before_weld_vertices = int(len(mesh.vertices))
+    before_weld_components = int(mesh.body_count)
     mesh.merge_vertices()
     mesh.remove_unreferenced_vertices()
     try:
@@ -500,6 +501,24 @@ def build_normal_informed_hero(
     except TypeError:
         mesh.fix_normals()
     after_weld_vertices = int(len(mesh.vertices))
+    after_weld_components = int(mesh.body_count)
+    if after_weld_components > 1024:
+        raise RuntimeError(
+            "normal Hero base remains catastrophically fragmented after "
+            f"geometry-only weld: components={after_weld_components}"
+        )
+    print(
+        "HAYUYA_NORMAL_HERO_WELD",
+        json.dumps(
+            {
+                "vertices_before": before_weld_vertices,
+                "vertices_after": after_weld_vertices,
+                "components_before": before_weld_components,
+                "components_after": after_weld_components,
+            },
+            separators=(",", ":"),
+        ),
+    )
 
     # Recovery GLB is already Y-up; TRELLIS preview cameras are Z-up.
     mesh.vertices = (
@@ -620,6 +639,8 @@ def build_normal_informed_hero(
             "vertices_before": before_weld_vertices,
             "vertices_after": after_weld_vertices,
             "merged_vertices": before_weld_vertices - after_weld_vertices,
+            "components_before": before_weld_components,
+            "components_after": after_weld_components,
         },
         "material_source_glb": str(material_source_glb),
         "dense_geometry_glb": str(dense_geometry_glb),
