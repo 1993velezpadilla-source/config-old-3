@@ -66,7 +66,7 @@ int ctw_profile_verify_target_prefixes(
         rc = verify_one_target( \
             (const void *)(uintptr_t)targets->field, \
             profile->target_prefixes.field, \
-            &base \
+            base \
         ); \
         if (rc != 0) \
             return rc; \
