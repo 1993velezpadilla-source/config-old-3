@@ -17,6 +17,7 @@ import profile_template
 
 
 def _merged_split_identity(source: Path, temp_root: Path, aapt: Path | None) -> dict:
+    temp_root.mkdir(parents=True, exist_ok=True)
     apks = apkset_probe.collect_apks(source, temp_root)
     identities = []
     for display, path in apks:
