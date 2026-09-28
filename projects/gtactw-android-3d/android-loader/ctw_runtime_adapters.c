@@ -443,7 +443,9 @@ static int16_t sprite_total_forward_adjustment(const void *sprite) {
     else if (rotation == 3u)
         adjustment ^= 0x8000u;
 
-    return (int16_t)adjustment;
+    return ctw_character_quantize_forward_adjustment(
+        (int16_t)adjustment
+    );
 }
 
 static int sprite_is_local_player(const void *sprite) {
