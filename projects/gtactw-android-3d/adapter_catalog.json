@@ -1,0 +1,6 @@
+{
+  "schema": 1,
+  "project": "gtactw-android-3d",
+  "adapters": [],
+  "note": "Fail-closed production catalog. Add an entry only after the native adapter is implemented, compiled into the proxy, and reviewed against the verified CTW 4.4.243 ABI."
+}
