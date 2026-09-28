@@ -348,3 +348,68 @@ For Play split installs, pass the split directory/APKM/XAPK/APKS source instead
 of a monolithic APK. The same command selects the correct loader, repacks all
 required splits, signs every output with one certificate, and can use
 `adb install-multiple` when `--install` is explicitly requested.
+
+
+## Six-hook verification workflow
+
+The runtime profile stays fail-closed until every target and ABI is explicitly
+approved. The intended 4.4.243 workflow is:
+
+1. Run the one-pass ADB collector and emit the enriched profile plus dossier:
+
+```bash
+python tools/gtactw/adb_collect.py \
+  --reference projects/gtactw-android-3d/reference_build_4.4.243.json \
+  --out-dir ./local_ctw/device_capture \
+  --analysis-out ./local_ctw/ctw_analysis.json \
+  --abi-out ./local_ctw/ctw_abi_evidence.json \
+  --abi-profile-out ./local_ctw/ctw_profile_working.json \
+  --status-out ./local_ctw/ctw_profile_status.json \
+  --dossier-out ./local_ctw/ctw_hook_dossier.json
+```
+
+2. After manually reviewing one candidate, explicitly approve its exact RVA.
+The helper confirms that the RVA is executable and captures its real 16-byte
+code signature from the same `libGame.so`:
+
+```bash
+python tools/gtactw/profile_mark_target.py \
+  ./local_ctw/lib/arm64-v8a/libGame.so \
+  ./local_ctw/ctw_profile_working.json \
+  --target projection_setup \
+  --rva 0xREVIEWED_RVA \
+  --method manual-disassembly \
+  --detail "projection matrix path verified from DrawFrame and GL upload" \
+  --out ./local_ctw/ctw_profile_working.json
+```
+
+3. After the target prototype/calling behavior is manually verified, approve
+its ABI and named adapter. The helper requires ABI/prologue evidence for that
+same RVA unless `--allow-unprobed` and an explicit trampoline strategy are
+supplied:
+
+```bash
+python tools/gtactw/profile_mark_abi.py \
+  ./local_ctw/ctw_profile_working.json \
+  --target projection_setup \
+  --prototype "REVIEWED_PROTOTYPE" \
+  --adapter ctw_projection_setup_adapter_v1 \
+  --method manual-disassembly-runtime-trace \
+  --detail "argument/return behavior verified" \
+  --out ./local_ctw/ctw_profile_working.json
+```
+
+Repeat those two approval steps for:
+`camera_update`, `projection_setup`, `world_stream_update`,
+`sector_visibility`, `lod_test`, and `player_render`.
+
+4. Verify the completed profile against the exact binary before emitting C:
+
+```bash
+python tools/gtactw/profile_verify_binary.py \
+  ./local_ctw/lib/arm64-v8a/libGame.so \
+  ./local_ctw/ctw_profile_working.json
+```
+
+No ranking score, string xref, GL call, ABI hint, or trampoline probe promotes a
+target automatically. Approval remains explicit.
