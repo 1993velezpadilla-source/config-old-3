@@ -3414,9 +3414,9 @@ jobs:
               },
           )
 
-          assert mesh["schemaVersion"] == 2
-          assert mesh["format"] == "xziel_xzmesh_bundle_v2"
-          assert mesh["meshFormat"]["version"] == 2
+          assert mesh["schemaVersion"] == 3
+          assert mesh["format"] == "xziel_xzmesh_bundle_v3"
+          assert mesh["meshFormat"]["version"] == 3
           assert mesh["summary"]["meshCount"] == 492
           assert mesh["summary"]["vertexCount"] == 1067383
           assert mesh["summary"]["indexCount"] == 3608148
@@ -3425,9 +3425,10 @@ jobs:
           assert mesh["summary"]["submeshesWithoutUv1"] == 0
           assert mesh["summary"]["submeshesWithoutUv2"] == 0
           assert mesh["summary"]["submeshesWithoutUv3"] == 0
-          assert mesh["summary"]["runtimeMeshBytes"] == 74250600
+          assert mesh["summary"]["submeshesWithoutTangents"] == 0
+          assert mesh["summary"]["runtimeMeshBytes"] == 91328728
           print(
-              "XZIEL_NACHT_XZMS_V2_MULTI_UV_GREEN",
+              "XZIEL_NACHT_XZMS_V3_TANGENT_MULTI_UV_GREEN",
               {
                   "meshes": mesh["summary"]["meshCount"],
                   "submeshes": mesh["summary"]["submeshCount"],
@@ -3436,6 +3437,7 @@ jobs:
                   "uv1Missing": mesh["summary"]["submeshesWithoutUv1"],
                   "uv2Missing": mesh["summary"]["submeshesWithoutUv2"],
                   "uv3Missing": mesh["summary"]["submeshesWithoutUv3"],
+                  "tangentMissing": mesh["summary"]["submeshesWithoutTangents"],
               },
           )
 
