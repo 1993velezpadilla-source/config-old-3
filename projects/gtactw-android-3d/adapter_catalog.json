@@ -35,11 +35,11 @@
       "calling_convention": "aarch64_aapcs64"
     },
     {
-      "name": "ctw_lod_test_passthrough_v1",
+      "name": "ctw_world_sector_visibility_passthrough_v1",
       "target": "lod_test",
-      "native_symbol": "ctw_lod_test_passthrough_v1",
+      "native_symbol": "ctw_world_sector_visibility_passthrough_v1",
       "implemented": true,
-      "prototype": "bool HandleFarDistance(tv3d<cFixed<20,12>>&, tv3d<cFixed<20,12>> const&)",
+      "prototype": "void cWorldSector::UpdateObjectVisibility()",
       "calling_convention": "aarch64_aapcs64"
     },
     {
@@ -51,5 +51,5 @@
       "calling_convention": "aarch64_aapcs64"
     }
   ],
-  "note": "Exact 4.4.243 ARM64 adapters. Character hook now targets the common cPedSprite::Render path, so camera-facing low-angle correction applies to player and all in-world NPC peds. FPS head/face filtering remains a separate BodyType gate."
+  "note": "Exact 4.4.243 ARM64 adapters. The legacy lod_test slot now targets cWorldSector::UpdateObjectVisibility, the real dynamic-entity camera visibility pass; HandleFarDistance was removed because disassembly proved it is unrelated world-position logic."
 }
