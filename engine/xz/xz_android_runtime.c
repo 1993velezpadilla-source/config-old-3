@@ -25,6 +25,7 @@
 #include "xz_zone_db.h"
 #include "xz_runtime_readiness.h"
 #include "xz_asset_loader_registry.h"
+#include "xz_asset_cache.h"
 #include "xz_bulk_store.h"
 #include "xz_asset_pool.h"
 #include "xz_static_scene_runtime.h"
@@ -69,6 +70,7 @@ typedef struct {
     XzAssetPoolState asset_pools;
     XzBulkStore bulk_store;
     XzAssetLoaderRegistry asset_loaders;
+    XzAssetCache asset_cache;
     XzStaticSceneRuntimeState static_scene;
     uint64_t command_encode_failures;
     uint64_t graph_rebuild_failures;
@@ -1101,6 +1103,7 @@ void XzAndroidRuntime_Init(size_t engine_heap_bytes)
     XzAssetPool_Init(&xz_runtime.asset_pools);
     XzBulkStore_Init(&xz_runtime.bulk_store);
     XzAssetLoaderRegistry_Init(&xz_runtime.asset_loaders);
+    XzAssetCache_Init(&xz_runtime.asset_cache);
     XzStaticSceneRuntime_Init(&xz_runtime.static_scene);
 
     xz_runtime.initialized = 1;
@@ -1460,6 +1463,17 @@ void XzAndroidRuntime_SetVerifiedMapPackageMode(int enabled)
         xz_runtime.asset_loaders.registered_fixups,
         xz_runtime.asset_loaders.missing_loaders,
         xz_runtime.asset_loaders.missing_fixups);
+
+    XzAndroidLog(
+        ANDROID_LOG_INFO,
+        "asset cache generation=%u entries=%u hits=%u misses=%u"
+        " resumed=%u failed=%u",
+        xz_runtime.asset_cache.generation,
+        xz_runtime.asset_cache.count,
+        xz_runtime.asset_cache.hits,
+        xz_runtime.asset_cache.misses,
+        xz_runtime.asset_cache.resumed,
+        xz_runtime.asset_cache.failed);
 }
 
 void XzAndroidRuntime_BeginFrame(double now_seconds)
