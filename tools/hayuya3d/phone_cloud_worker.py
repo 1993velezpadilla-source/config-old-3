@@ -820,7 +820,10 @@ if (
             seed=1993,
             steps=30,
             guidance_scale=5.0,
-            octree_resolution=384,
+            # Native Hunyuan 512 is validated on Monja at ~1.58M faces and
+            # preserves coherent topology. Ultra uses the model's real decode
+            # resolution instead of manufacturing density by subdivision.
+            octree_resolution=512 if TEXTURE_QUALITY=="ultra" else 384,
             num_chunks=8000,
         )
         hunyuan_geometry=Path(hunyuan_meta["path"])
