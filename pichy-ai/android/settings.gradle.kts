@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "PichyAI"
 include(":app")
+include(":local-llama")
