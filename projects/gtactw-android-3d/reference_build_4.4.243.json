@@ -12,7 +12,15 @@
       "arm64-v8a",
       "x86_64"
     ],
-    "distribution_note": "Current Google Play build is offered as a free trial with one-time in-app purchase for the full game."
+    "distribution_note": "Current Google Play build is offered as a free trial with one-time in-app purchase for the full game.",
+    "signing_certificate": {
+      "sha1": "3083fe168bede44d5202b90447cd47a49a7e228d",
+      "sha256": "e8c76284d4d652f1881525853ce0aa9fe82b89e276f6204f1a7a53aef67fce19"
+    },
+    "public_split_hints": {
+      "arm64": "config.arm64_v8a",
+      "game_data": "data_main"
+    }
   },
   "android_mod_target": {
     "preferred_abi": "arm64-v8a",
@@ -23,6 +31,7 @@
     "require_package_match": true,
     "require_version_name_match": true,
     "require_version_code_match": true,
-    "require_arm64_libgame": true
+    "require_arm64_libgame": true,
+    "require_signing_certificate_match": true
   }
 }
