@@ -234,6 +234,13 @@ jobs:
           })
           for name, count in classes.most_common(100):
               print("XZIEL_KINO_CLASS", count, name)
+
+          if out["packageLoadFailureCount"] != 0:
+              print("XZIEL_KINO_CLASS_CENSUS_FAILURES",
+                    out["packageLoadFailureCount"])
+              for row in failures[:100]:
+                  print("XZIEL_KINO_CLASS_FAILURE", row)
+              raise SystemExit(5)
           PY
 
           cat kino-download/class-shards/shard-*.log \
@@ -261,4 +268,5 @@ jobs:
             kino-download/kino-pak-census.json
             kino-download/kino-class-census.json
             kino-download/kino-class-census.log
+            kino-download/class-shards/
           retention-days: 7
