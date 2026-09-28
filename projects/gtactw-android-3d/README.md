@@ -313,3 +313,38 @@ profile deliberately remains `status=pending` until the prototype and adapter
 for each hook have been explicitly verified. The optional status output reports
 the current gate, verified target/ABI counts, and public 4.4.243 engine-anchor
 coverage in the same one-pass run.
+
+
+## End-to-end build, sign, and optional install
+
+Once the exact 4.4.243 profile has all six target RVAs and trampoline strategy
+evidence verified, the complete packaging flow can run as one command. It
+selects the minimal proxy when every verified hook supports the simple
+trampoline, or the ShadowHook proxy when any verified target requires advanced
+instruction relocation.
+
+```bash
+export CTW_KEYSTORE_PASS='...'
+export CTW_KEY_PASS='...'
+
+python tools/gtactw/finish_modpack.py \
+  ./local_ctw/GTA_CTW.apk \
+  --profile ./local_ctw/ctw_4.4.243_profile.json \
+  --minimal-loader ./artifacts/minimal/libGame.so \
+  --shadowhook-loader ./artifacts/shadowhook/libGame.so \
+  --work-dir ./local_ctw/final \
+  --config projects/gtactw-android-3d/ctw_modhub.example.ini \
+  --keystore ./local_ctw/ctw3d.keystore \
+  --alias ctw3d \
+  --report ./local_ctw/final/report.json
+```
+
+Add `--install` only when you explicitly want the signed result installed over
+ADB. The installer never uninstalls the existing CTW app or deletes its data
+automatically. If Android reports a signing-certificate conflict, the process
+stops and reports it.
+
+For Play split installs, pass the split directory/APKM/XAPK/APKS source instead
+of a monolithic APK. The same command selects the correct loader, repacks all
+required splits, signs every output with one certificate, and can use
+`adb install-multiple` when `--install` is explicitly requested.
