@@ -298,12 +298,25 @@ class RegionalFusionTests(unittest.TestCase):
                 float(result.max_displacement_normalized),
                 0.055001,
             )
-            self.assertTrue(result.geometry_ready,result.error)
-            self.assertIsNotNone(result.seam_max_displacement_normalized)
-            self.assertLessEqual(
-                float(result.seam_max_displacement_normalized),
-                0.012,
+            # Clamp alone is not enough: an extreme donor can still fold
+            # or collapse the head while staying inside displacement/bbox limits.
+            # The deformation-quality gate must now fail closed.
+            self.assertFalse(result.geometry_ready)
+            self.assertFalse(result.ready_for_judge)
+            self.assertTrue(
+                any(
+                    token in (result.error or "")
+                    for token in (
+                        "head_face_collapse_fraction",
+                        "head_edge_stretch_fraction",
+                        "head_face_flip_fraction",
+                    )
+                ),
+                result.error,
             )
+            self.assertIsNotNone(result.collapsed_face_fraction)
+            self.assertIsNotNone(result.stretched_edge_fraction)
+            self.assertIsNotNone(result.flipped_face_fraction)
 
 
 if __name__=="__main__":
