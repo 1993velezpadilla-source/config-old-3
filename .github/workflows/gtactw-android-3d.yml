@@ -212,6 +212,18 @@ jobs:
           echo "GTACTW_CHARACTER_POLICY_GREEN=1"
           echo "GTACTW_MODHUB_CONFIG_GREEN=1"
 
+      - name: Run CTW patch-state gate
+        run: |
+          cc -std=c11 -Wall -Wextra -Werror \
+            -Iprojects/gtactw-android-3d/android-loader \
+            -o /tmp/ctw_patch_state_test \
+            projects/gtactw-android-3d/android-loader/test_patch_state.c \
+            projects/gtactw-android-3d/android-loader/ctw_patch.c \
+            projects/gtactw-android-3d/android-loader/ctw_profile.c \
+            -ldl
+          /tmp/ctw_patch_state_test
+          echo "GTACTW_PATCH_STATE_GREEN=1"
+
       - name: Run CTW runtime profile matcher gate
         run: |
           cc -std=c11 -Wall -Wextra -Werror \
@@ -221,6 +233,7 @@ jobs:
             projects/gtactw-android-3d/android-loader/ctw_profile.c \
             -ldl
           /tmp/ctw_profile_test
+          echo "GTACTW_PATCH_STATE_GREEN=1"
           echo "GTACTW_RUNTIME_PROFILE_MATCH_GREEN=1"
 
       - name: Run synthetic CTW end-to-end APK gate
