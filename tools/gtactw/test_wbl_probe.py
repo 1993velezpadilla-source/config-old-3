@@ -56,6 +56,12 @@ class WblProbeTests(unittest.TestCase):
         self.assertEqual(report["unique_model_resource_ids"], [100, 101])
         self.assertEqual(report["unique_texture_ids"], [10, 11])
         self.assertEqual(report["sectors"][0]["levels"][0]["position"], [1.0, 2.0, 0.0])
+        self.assertEqual(report["sectors"][0]["level_bounds"]["min"], [1.0, 2.0, 0.0])
+        self.assertEqual(report["sectors"][0]["level_bounds"]["max"], [1.0, 2.0, 0.0])
+        self.assertEqual(report["overall_level_bounds"]["min"], [1.0, 2.0, 0.0])
+        self.assertEqual(report["overall_level_bounds"]["max"], [1.0, 2.0, 0.0])
+        self.assertEqual(report["sector_instance_counts"], [2, 0, 0, 0])
+        self.assertEqual(report["sectors"][0]["instance_density_per_level"], 2.0)
 
     def test_truncated_sector_rejected(self):
         blob = make_wbl()[:-1]
