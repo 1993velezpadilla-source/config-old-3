@@ -15,6 +15,6 @@
   "texture_quality": "ultra",
   "portable_target": "high",
   "gpu_vram": 24,
-  "backends": "trellis2,triposg,detailgen3d,triposr",
-  "retry_token": "ultra-native-only-front-preflight-20260928-v1"
+  "backends": "trellis2,hunyuan3d,triposg,detailgen3d,triposr",
+  "retry_token": "ultra-hunyuan-native-judge-20260928-v2"
 }
