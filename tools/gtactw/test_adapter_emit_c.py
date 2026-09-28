@@ -115,20 +115,11 @@ class AdapterEmitCTests(unittest.TestCase):
                     self.catalog(implemented=False),
                 )
 
-    def test_deduplicates_shared_adapter_binding(self):
+    def test_deduplicates_shared_native_symbol_declaration(self):
         obj = self.fixture()
-        shared = "ctw_shared_adapter_v1"
-        obj["abi_verification"]["camera_update"]["adapter"] = shared
-        obj["abi_verification"]["projection_setup"]["adapter"] = shared
         catalog = self.catalog()
-        catalog["adapters"][0].update({
-            "name": shared,
-            "native_symbol": "ctw_shared_native_v1",
-        })
-        catalog["adapters"][1].update({
-            "name": shared,
-            "native_symbol": "ctw_shared_native_v1",
-        })
+        catalog["adapters"][0]["native_symbol"] = "ctw_shared_native_v1"
+        catalog["adapters"][1]["native_symbol"] = "ctw_shared_native_v1"
 
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / "profile.json"
@@ -141,11 +132,15 @@ class AdapterEmitCTests(unittest.TestCase):
             header.count("extern void ctw_shared_native_v1(void);"),
             1,
         )
-        self.assertEqual(
-            header.count(
-                '{ "ctw_shared_adapter_v1", (void *)&ctw_shared_native_v1 }'
-            ),
-            1,
+        self.assertIn(
+            '{ "ctw_camera_update_adapter_v1", '
+            '(void *)&ctw_shared_native_v1 },',
+            header,
+        )
+        self.assertIn(
+            '{ "ctw_projection_setup_adapter_v1", '
+            '(void *)&ctw_shared_native_v1 },',
+            header,
         )
 
 
