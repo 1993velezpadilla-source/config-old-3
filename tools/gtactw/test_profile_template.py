@@ -105,6 +105,65 @@ class ProfileTemplateTests(unittest.TestCase):
             all(v is None for v in profile["patch_targets_rva"].values())
         )
 
+
+    def test_target_evidence_separates_camera_and_projection(self):
+        report = self.make_report()
+        report["symbols"]["candidate_groups"]["camera"] = [
+            {
+                "source": "symbol",
+                "name": "CameraUpdate",
+                "value": 0x4000,
+                "size": 64,
+            },
+            {
+                "source": "symbol",
+                "name": "ProjectionSetup",
+                "value": 0x5000,
+                "size": 64,
+            },
+        ]
+        xrefs = {
+            "groups": {
+                "camera": [
+                    {
+                        "function": "CameraUpdate",
+                        "function_rva": 0x4000,
+                        "pc_rva": 0x4010,
+                        "string": "CameraViewLook",
+                    },
+                    {
+                        "function": "ProjectionSetup",
+                        "function_rva": 0x5000,
+                        "pc_rva": 0x5010,
+                        "string": "CameraFarClipDistance",
+                    },
+                    {
+                        "function": "ProjectionSetup",
+                        "function_rva": 0x5000,
+                        "pc_rva": 0x5020,
+                        "string": "CameraFov",
+                    },
+                ],
+                "streaming": [],
+                "lod_culling": [],
+                "player_render": [],
+            }
+        }
+
+        profile = profile_template.make_profile(report, xrefs)
+        camera = profile["target_evidence_rankings"]["camera_update"]
+        projection = profile["target_evidence_rankings"]["projection_setup"]
+
+        self.assertEqual(camera[0]["rva"], 0x4000)
+        self.assertEqual(projection[0]["rva"], 0x5000)
+        self.assertTrue(
+            all(v is None for v in profile["patch_targets_rva"].values())
+        )
+        self.assertIn(
+            "symbol + xref cross-signal",
+            projection[0]["reasons"],
+        )
+
     def test_rejects_missing_required_jni(self):
         report = self.make_report()
         p = "Java_com_rockstargames_oswrapper_GameNative_"
