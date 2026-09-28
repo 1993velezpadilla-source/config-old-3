@@ -93,13 +93,31 @@ def project_source_front(
 
     lo=vertices.min(axis=0)
     hi=vertices.max(axis=0)
-    dx=max(float(hi[0]-lo[0]),1e-8)
-    dz=max(float(hi[2]-lo[2]),1e-8)
+    ext=hi-lo
 
-    # Hunyuan native output is Z-up. HAYUYA's Blender evidence defines front as
-    # -Y after glTF import, so x/z is the stable front projection plane.
-    u=np.clip((vertices[:,0]-lo[0])/dx,0.0,1.0)
-    v=np.clip((vertices[:,2]-lo[2])/dz,0.0,1.0)
+    # Hunyuan3D's raw GLB is Y-up. The earlier diagnostic incorrectly treated
+    # raw Z as height, which projected source pixels across depth and produced
+    # the obvious vertical smearing seen on the Monja. Detect the dominant
+    # body-height axis defensively and project the source onto the two image
+    # axes. For current Hunyuan output this resolves to X/Y.
+    up_axis=int(np.argmax(ext))
+    if up_axis!=1:
+        raise RuntimeError(
+            "unexpected Hunyuan orientation for source projection: "
+            f"extents={ext.tolist()} up_axis={up_axis}"
+        )
+    horizontal_axis=0
+    depth_axis=2
+    du=max(float(ext[horizontal_axis]),1e-8)
+    dv=max(float(ext[up_axis]),1e-8)
+    u=np.clip(
+        (vertices[:,horizontal_axis]-lo[horizontal_axis])/du,
+        0.0,1.0,
+    )
+    v=np.clip(
+        (vertices[:,up_axis]-lo[up_axis])/dv,
+        0.0,1.0,
+    )
     uv=np.stack([u,v],axis=1)
 
     texture,tex_meta=_delivery_texture(source_image,int(texture_edge))
@@ -127,14 +145,16 @@ def project_source_front(
 
     report={
         "schema":1,
-        "method":"hayuya-native-source-front-projection-v1",
+        "method":"hayuya-native-source-front-projection-v2-y-up",
         "source_image":str(source_image),
         "native_mesh":str(native_mesh),
         "output_glb":str(output_glb),
         "faces":int(len(mesh.faces)),
         "vertices":int(len(mesh.vertices)),
-        "front_axis":"-Y",
-        "projection_plane":"XZ",
+        "source_mesh_up_axis":"Y",
+        "source_mesh_front_axis":"+Z",
+        "blender_evidence_front_axis":"-Y",
+        "projection_plane":"XY",
         "texture":tex_meta,
         "geometry_preserved":True,
         "diagnostic_only":True,
