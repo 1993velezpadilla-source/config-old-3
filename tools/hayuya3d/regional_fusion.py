@@ -33,7 +33,8 @@ class HeadWrapResult:
     rig_preserved:bool|None=None
     skin_weights_ready:bool|None=None
     error:str|None=None
-    method:str="hayuya-head-wrap-regional-fusion-v2"
+    method:str="hayuya-head-wrap-regional-fusion-v3"
+    donor_scope:str="fullbody"
 
 
 def _deps():
@@ -108,6 +109,7 @@ def build_head_wrap_geometry(
     seam_limit_fraction:float=0.012,
     bbox_drift_limit:float=0.08,
     up_axis:str|int|None=None,
+    donor_scope:str="fullbody",
 )->HeadWrapResult:
     """Create an unskinned head-shape challenger on the base topology.
 
@@ -130,6 +132,7 @@ def build_head_wrap_geometry(
                     seam_limit_fraction=seam_limit_fraction,
                     bbox_drift_limit=bbox_drift_limit,
                     up_axis=up_axis,
+                    donor_scope=donor_scope,
                 )
         except Exception as exc:
             return HeadWrapResult(
@@ -169,11 +172,30 @@ def build_head_wrap_geometry(
         if base_height<=1e-9 or donor_height<=1e-9:
             raise ValueError("collapsed character bounds")
 
-        scale=base_height/donor_height
-        aligned=(donor_vertices-donor_center)*scale+base_center
-        aligned_lo,aligned_hi,_,aligned_extent=_bbox(aligned)
+        donor_scope=str(donor_scope).lower().strip()
+        if donor_scope not in {"fullbody","head"}:
+            raise ValueError(f"invalid donor_scope: {donor_scope}")
 
         diagonal=max(float(np.linalg.norm(base_extent)),1e-9)
+        base_norm_h=(
+            base_vertices[:,resolved_up_axis]-base_lo[resolved_up_axis]
+        )/base_height
+
+        if donor_scope=="head":
+            base_head=base_vertices[base_norm_h>=head_start]
+            if len(base_head)<16:
+                raise RuntimeError("base head region too sparse for head donor")
+            _,_,base_head_center,base_head_extent=_bbox(base_head)
+            target_height=float(base_head_extent[resolved_up_axis])
+            if target_height<=1e-9:
+                raise RuntimeError("collapsed base head bounds")
+            scale=target_height/donor_height
+            aligned=(donor_vertices-donor_center)*scale+base_head_center
+        else:
+            scale=base_height/donor_height
+            aligned=(donor_vertices-donor_center)*scale+base_center
+
+        aligned_lo,aligned_hi,_,aligned_extent=_bbox(aligned)
         donor_norm_h=(aligned[:,resolved_up_axis]-base_lo[resolved_up_axis])/base_height
         donor_head=aligned[donor_norm_h>=max(0.68,head_start-0.04)]
         if len(donor_head)<16:
@@ -287,6 +309,7 @@ def build_head_wrap_geometry(
             rebake_required=["normal","occlusion"],
             rebake_resolved=[],
             error=error,
+            donor_scope=donor_scope,
         )
     except Exception as exc:
         return HeadWrapResult(
@@ -313,6 +336,7 @@ def build_rig_preserving_head_wrap_geometry(
     seam_limit_fraction:float=0.012,
     bbox_drift_limit:float=0.08,
     up_axis:str|int|None=None,
+    donor_scope:str="fullbody",
 )->HeadWrapResult:
     """Patch only skinned POSITION accessors and preserve JOINTS/WEIGHTS bytes."""
     np,_,cKDTree=_deps()
@@ -371,8 +395,27 @@ def build_rig_preserving_head_wrap_geometry(
         if base_height<=1e-9 or donor_height<=1e-9:
             raise ValueError("collapsed character bounds")
 
-        scale=base_height/donor_height
-        aligned=(donor_vertices-donor_center)*scale+base_center
+        donor_scope=str(donor_scope).lower().strip()
+        if donor_scope not in {"fullbody","head"}:
+            raise ValueError(f"invalid donor_scope: {donor_scope}")
+
+        base_norm_h=(
+            base_vertices[:,resolved_up_axis]-base_lo[resolved_up_axis]
+        )/base_height
+        if donor_scope=="head":
+            base_head=base_vertices[base_norm_h>=head_start]
+            if len(base_head)<16:
+                raise RuntimeError("base head region too sparse for head donor")
+            _,_,base_head_center,base_head_extent=_bbox(base_head)
+            target_height=float(base_head_extent[resolved_up_axis])
+            if target_height<=1e-9:
+                raise RuntimeError("collapsed base head bounds")
+            scale=target_height/donor_height
+            aligned=(donor_vertices-donor_center)*scale+base_head_center
+        else:
+            scale=base_height/donor_height
+            aligned=(donor_vertices-donor_center)*scale+base_center
+
         donor_norm_h=(
             aligned[:,resolved_up_axis]-base_lo[resolved_up_axis]
         )/base_height
@@ -511,6 +554,7 @@ def build_rig_preserving_head_wrap_geometry(
             rig_preserved=True,
             skin_weights_ready=True,
             error=None,
+            donor_scope=donor_scope,
         )
     except Exception as exc:
         return HeadWrapResult(
@@ -550,6 +594,7 @@ def prepare_head_wrap_challenger(
     blender:str|Path|None=None,
     require_rebake:bool=True,
     up_axis:str|int|None=None,
+    donor_scope:str="fullbody",
 )->HeadWrapResult:
     out_dir.mkdir(parents=True,exist_ok=True)
     raw=out_dir/"head_wrap_raw.glb"
@@ -564,10 +609,11 @@ def prepare_head_wrap_challenger(
             donor_mesh,
             raw,
             up_axis=up_axis,
+            donor_scope=donor_scope,
         )
     else:
         result=build_head_wrap_geometry(
-            base_mesh,donor_mesh,raw,up_axis=up_axis
+            base_mesh,donor_mesh,raw,up_axis=up_axis,donor_scope=donor_scope
         )
     if not result.geometry_ready:
         return result
@@ -657,12 +703,14 @@ def main()->int:
     parser.add_argument("--texture-size",type=int,default=4096)
     parser.add_argument("--blender")
     parser.add_argument("--allow-unrebaked",action="store_true")
+    parser.add_argument("--donor-scope",choices=["fullbody","head"],default="fullbody")
     args=parser.parse_args()
     result=prepare_head_wrap_challenger(
         args.base,args.donor,args.output_dir,
         texture_size=args.texture_size,
         blender=args.blender,
         require_rebake=not args.allow_unrebaked,
+        donor_scope=args.donor_scope,
     )
     write_head_wrap_result(result,args.output_dir/"head_wrap_result.json")
     print(json.dumps(asdict(result),indent=2))
