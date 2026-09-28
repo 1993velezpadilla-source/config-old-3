@@ -139,7 +139,6 @@ jobs:
             -lm
           /tmp/ctw_config_test
           echo "GTACTW_MODHUB_CONFIG_GREEN=1"
-          echo "GTACTW_ANDROID_ARM64_LOADER_GREEN=1"
 
       - name: Run CTW runtime profile matcher gate
         run: |
@@ -165,4 +164,5 @@ jobs:
           echo "GTACTW_ANDROID_MDL_PROBE_GREEN=1"
           echo "GTACTW_ANDROID_WBL_PROBE_GREEN=1"
           echo "GTACTW_MODHUB_CONFIG_GREEN=1"
+          echo "GTACTW_ANDROID_ARM64_LOADER_GREEN=1"
           echo "GTACTW_RUNTIME_PROFILE_MATCH_GREEN=1"
