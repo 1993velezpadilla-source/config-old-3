@@ -43,6 +43,7 @@ on:
       - feature/xziel-nacht-xzms-multi-uv-v1
       - feature/xziel-nacht-lightmap-texture-pack-v1
       - feature/xziel-nacht-lightmap-stream-v1
+      - feature/xziel-nacht-lightmap-binding-pack-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -61,6 +62,8 @@ on:
       - "tools/maps/compile_nacht_pbr_scalars.py"
       - "tools/maps/compile_nacht_normal_maps.py"
       - "tools/maps/compile_nacht_environment.py"
+      - "tools/maps/compile_nacht_lightmap_instance_bindings.py"
+      - "tools/maps/compile_nacht_lightmap_runtime_bindings.py"
       - "tools/maps/NachtLightExtractor/**"
       - "tools/maps/NachtReflectionExtractor/**"
       - "tools/maps/NachtBakedLightingExtractor/**"
@@ -464,6 +467,49 @@ jobs:
           assert stats["unresolvedEffectiveCoordinateIndexCount"] == 0
           print("XZIEL_NACHT_LIGHTMAP_INSTANCE_PAYLOAD_GREEN", stats)
           PY
+
+      - name: Compile O(1) Nacht lightmap runtime binding pack
+        run: |
+          set -euo pipefail
+          python3 tools/maps/compile_nacht_lightmap_runtime_bindings.py \
+            --bindings dist/nacht-instance-lightmap-bindings.json \
+            --textures build/nacht-static-scene/xziel.xzlt.report.json \
+            --output build/nacht-static-scene/lightmap-bindings.xzlb \
+            --report build/nacht-static-scene/xziel.xzlb.report.json \
+            | tee build/nacht-static-scene/xzlb-compile.log
+
+          test -s build/nacht-static-scene/lightmap-bindings.xzlb
+          test -s build/nacht-static-scene/xziel.xzlb.report.json
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(
+              Path(
+                  "build/nacht-static-scene/xziel.xzlb.report.json"
+              ).read_text(encoding="utf-8")
+          )
+          assert report["schemaVersion"] == 1
+          assert report["format"] == "XZLB"
+          assert report["version"] == 1
+          assert report["instanceCount"] == 10791
+          assert report["recordBytes"] == 256
+          assert report["fileBytes"] == 2762528
+          assert report["mappedCount"] == 10786
+          assert report["missingCount"] == 5
+          assert report["runtimeReadyCount"] == 10786
+          assert report["textureCount"] == 188
+          assert report["uniqueLightmapTextureIndices"] == 188
+          assert report["meshConsensusCount"] == 2
+          assert sum(report["uvChannelCounts"].values()) == 10786
+          assert set(report["uvChannelCounts"]).issubset({"0", "1", "2", "3"})
+          assert report["instanceAligned"] is True
+          print("XZIEL_NACHT_XZLB_GREEN", report)
+          PY
+
+          cp build/nacht-static-scene/xziel.xzlb.report.json \
+            dist/xziel.xzlb.report.json
 
       - name: Census Nacht reflection captures and SkyLight source
         run: |
@@ -2996,6 +3042,8 @@ jobs:
           mkdir -p "$MAPROOT/meshes"
           cp build/nacht-static-scene/lightmaps.xzlt \
             "$MAPROOT/lightmaps.xzlt"
+          cp build/nacht-static-scene/lightmap-bindings.xzlb \
+            "$MAPROOT/lightmap-bindings.xzlb"
 
           # Preserve the four remaining source material exports so the exact
           # parent/constants can be audited instead of guessed from names.
@@ -3241,6 +3289,7 @@ jobs:
           test -s "$MAPROOT/fog.xzfg"
           test -s "$MAPROOT/reflection.xzrc"
           test -s "$MAPROOT/lightmaps.xzlt"
+          test -s "$MAPROOT/lightmap-bindings.xzlb"
 
           python3 - <<'PY'
           import json
