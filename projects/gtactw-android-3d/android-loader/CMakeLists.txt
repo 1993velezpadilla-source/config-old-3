@@ -5,6 +5,7 @@ add_library(Game SHARED
     ctw_loader.c
     ctw_patch.c
     ctw_camera.c
+    ctw_camera_pose.c
     ctw_character.c
     ctw_profile.c
     ctw_config.c
