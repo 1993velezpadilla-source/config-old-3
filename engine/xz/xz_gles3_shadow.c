@@ -4,6 +4,7 @@
 #include "xz_pass_inputs.h"
 #include "xz_texture_tap.h"
 #include "xz_static_scene_draw_plan.h"
+#include "xz_static_scene_lightmap_draw_plan.h"
 
 #include <EGL/egl.h>
 #include <GLES3/gl3.h>
@@ -328,6 +329,8 @@ typedef struct {
     GLuint static_instance_vbo;
     XzStaticSceneDrawPlan static_draw_plan;
     int static_draw_plan_ready;
+    XzStaticSceneLightmapDrawPlan static_lightmap_draw_plan;
+    int static_lightmap_draw_plan_ready;
 
     XzGles3StaticMesh *static_meshes;
     uint32_t static_mesh_count;
@@ -3253,6 +3256,9 @@ static void XzDestroyStaticSceneCurrent(
     XzStaticSceneDrawPlan_Reset(
         &xz_shadow.static_draw_plan);
     xz_shadow.static_draw_plan_ready = 0;
+    XzStaticSceneLightmapDrawPlan_Reset(
+        &xz_shadow.static_lightmap_draw_plan);
+    xz_shadow.static_lightmap_draw_plan_ready = 0;
 
     if (state) {
         state->static_scene_gpu_bytes = 0u;
@@ -3262,6 +3268,10 @@ static void XzDestroyStaticSceneCurrent(
         state->static_scene_gpu_submeshes = 0u;
         state->static_scene_gpu_multi_uv_meshes = 0u;
         state->static_scene_multi_uv_ready = 0;
+        state->static_scene_lightmap_batch_count = 0u;
+        state->static_scene_lightmap_mapped_batches = 0u;
+        state->static_scene_lightmap_missing_batches = 0u;
+        state->static_scene_lightmap_batch_ready = 0;
         state->static_scene_gpu_texture_bytes = 0u;
         state->static_scene_gpu_textures = 0u;
         state->static_scene_material_bindings = 0u;
@@ -4034,6 +4044,45 @@ int XzGles3Shadow_UploadStaticScene(
             scene->scene.instance_count)
         goto fail;
 
+    if (strcmp(
+            scene->map_id,
+            "xziel_nacht_bo3") == 0) {
+        const XzLightmapBindingView *lightmap_bindings =
+            XzStaticSceneRuntime_LightmapBindings(scene);
+
+        if (!lightmap_bindings ||
+            !XzStaticSceneLightmapDrawPlan_Build(
+                &xz_shadow.static_lightmap_draw_plan,
+                XzStaticSceneRuntime_Scene(scene),
+                lightmap_bindings))
+            goto fail;
+
+        state->static_scene_lightmap_batch_count =
+            xz_shadow.static_lightmap_draw_plan.batch_count;
+        state->static_scene_lightmap_mapped_batches =
+            xz_shadow.static_lightmap_draw_plan.mapped_batch_count;
+        state->static_scene_lightmap_missing_batches =
+            xz_shadow.static_lightmap_draw_plan.missing_batch_count;
+        state->static_scene_lightmap_batch_ready =
+            xz_shadow.static_lightmap_draw_plan.mesh_count ==
+                scene->mesh_resource_count &&
+            xz_shadow.static_lightmap_draw_plan.instance_count ==
+                scene->scene.instance_count &&
+            xz_shadow.static_lightmap_draw_plan.mapped_instance_count ==
+                10786u &&
+            xz_shadow.static_lightmap_draw_plan.missing_instance_count ==
+                5u &&
+            xz_shadow.static_lightmap_draw_plan.mapped_batch_count ==
+                717u &&
+            xz_shadow.static_lightmap_draw_plan.batch_count >=
+                xz_shadow.static_lightmap_draw_plan.mapped_batch_count;
+
+        if (!state->static_scene_lightmap_batch_ready)
+            goto fail;
+
+        xz_shadow.static_lightmap_draw_plan_ready = 1;
+    }
+
     xz_shadow.gl.GenBuffers(
         1, &xz_shadow.static_instance_vbo);
     if (!xz_shadow.static_instance_vbo)
@@ -4148,6 +4197,7 @@ int XzGles3Shadow_UploadStaticScene(
              scene->map_id,
              "xziel_nacht_bo3") != 0 ||
          (state->static_scene_multi_uv_ready &&
+          state->static_scene_lightmap_batch_ready &&
           state->static_scene_material_ready &&
           state->static_scene_normal_ready &&
           state->static_scene_pbr_ready &&
@@ -5569,6 +5619,8 @@ int XzGles3Shadow_Init(
     memset(&xz_shadow, 0, sizeof(xz_shadow));
     XzStaticSceneDrawPlan_Init(
         &xz_shadow.static_draw_plan);
+    XzStaticSceneLightmapDrawPlan_Init(
+        &xz_shadow.static_lightmap_draw_plan);
 
     state->submit_stride =
         submit_stride > 0u ? submit_stride : 8u;
