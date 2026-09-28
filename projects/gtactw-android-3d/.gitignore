@@ -1,0 +1,24 @@
+# User-owned GTA CTW runtime data: never commit.
+local_ctw/
+input/
+output/
+captures/
+reports/
+
+*.apk
+*.apkm
+*.xapk
+*.apks
+*.obb
+
+game.pak
+dxt.bin
+libGame_orig.so
+
+# Generated local analysis/mod outputs.
+*_report.json
+*profile*.json
+world_census.json
+unsigned-*.apk
+aligned-*.apk
+signed-*.apk
