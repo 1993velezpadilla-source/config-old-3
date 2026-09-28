@@ -284,7 +284,7 @@ def generate_textured_material_donor(
             f"available={sorted(named)}"
         )
 
-    result = client.predict(
+    args = (
         handle_file(str(image.resolve())),
         None,
         None,
@@ -297,8 +297,60 @@ def generate_textured_material_donor(
         False,
         int(num_chunks),
         False,
-        api_name=endpoint,
     )
+    result = None
+    last_error: Exception | None = None
+    for attempt in range(1, 6):
+        try:
+            result = client.predict(*args, api_name=endpoint)
+            break
+        except Exception as exc:
+            last_error = exc
+            message = f"{type(exc).__name__}: {exc}"
+            lower = message.lower()
+            if "zerogpu quota" in lower or "exceeded your zerogpu quota" in lower:
+                raise
+            transient = any(marker in lower for marker in (
+                "cancellederror",
+                "queue",
+                "502 bad gateway",
+                "503 service unavailable",
+                "504 gateway timeout",
+                "server disconnected",
+                "connection reset",
+                "connection refused",
+                "remoteprotocolerror",
+                "readtimeout",
+                "connecttimeout",
+                "timed out",
+                "temporarily unavailable",
+                "unexpected sse line",
+            ))
+            if not transient or attempt >= 5:
+                raise
+            delay = min(24, 4 * attempt)
+            print(
+                "HAYUYA_HUNYUAN_TEXTURE_TRANSIENT_RETRY",
+                json.dumps({
+                    "attempt": attempt,
+                    "max_attempts": 5,
+                    "delay_seconds": delay,
+                    "error": message[:500],
+                    "reconnect_before_retry": True,
+                }, separators=(",", ":")),
+            )
+            time.sleep(delay)
+            client, named = _connect_client(token=token, timeout=240.0)
+            if endpoint not in named:
+                raise RuntimeError(
+                    "Hunyuan3D public Space lost generation_all endpoint after reconnect; "
+                    f"available={sorted(named)}"
+                )
+    if result is None:
+        raise RuntimeError(
+            "Hunyuan3D textured donor returned no result after retries: "
+            + repr(last_error)
+        )
 
     if not isinstance(result, (list, tuple)) or len(result) < 2:
         raise RuntimeError(

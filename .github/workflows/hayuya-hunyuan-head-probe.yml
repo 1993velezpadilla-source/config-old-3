@@ -10,6 +10,7 @@ on:
       - tools/hayuya3d/regional_fusion.py
       - tools/hayuya3d/source_autofix.py
       - tools/hayuya3d/source_front_projection.py
+      - tools/hayuya3d/material_bridge.py
       - tools/hayuya3d/judge_v4_face_worker.py
       - .github/workflows/hayuya-hunyuan-head-probe.yml
 
@@ -81,7 +82,7 @@ jobs:
           from pathlib import Path
 
           sys.path.insert(0, "tools/hayuya3d")
-          from hunyuan3d_cloud import generate_shape
+          from hunyuan3d_cloud import generate_shape, generate_textured_material_donor
 
           root=Path("out/hunyuan-head-probe")
           body=generate_shape(
@@ -103,8 +104,17 @@ jobs:
               num_chunks=8000,
               remove_background=True,
           )
-          print("HAYUYA_HUNYUAN_BODY_AND_HEAD_NATIVE",json.dumps({
-              "body":body,"head":head
+          material=generate_textured_material_donor(
+              Path("hayuya/assets/monja-mugfwln6/geometry/primary.webp"),
+              root/"body_textured_material_donor.glb",
+              seed=1993,
+              steps=20,
+              guidance_scale=5.0,
+              octree_resolution=384,
+              num_chunks=8000,
+          )
+          print("HAYUYA_HUNYUAN_BODY_HEAD_AND_MATERIAL_NATIVE",json.dumps({
+              "body":body,"head":head,"material":material
           },separators=(",",":")))
           PY
 
@@ -156,15 +166,36 @@ jobs:
               raise SystemExit(2)
           PY
 
-      - name: Project real source pixels onto refined native head
+      - name: Transfer native Hunyuan material donor onto refined native head
         shell: bash
         run: |
           set -euo pipefail
-          python tools/hayuya3d/source_front_projection.py \
-            --source hayuya/assets/monja-mugfwln6/geometry/primary.webp \
-            --mesh out/hunyuan-head-probe/body_headwrap_native.glb \
-            --output out/hunyuan-head-probe/body_headwrap_source_projected.glb \
-            --texture-edge 4096
+          python - <<'PY'
+          import json, sys
+          from dataclasses import asdict
+          from pathlib import Path
+
+          sys.path.insert(0, "tools/hayuya3d")
+          from material_bridge import transfer_best_material
+
+          root=Path("out/hunyuan-head-probe")
+          result=transfer_best_material(
+              root/"body_textured_material_donor.glb",
+              root/"body_headwrap_native.glb",
+              root/"body_headwrap_material_native.glb",
+              total_samples=350000,
+              max_texture_size=4096,
+          )
+          (root/"material_transfer_result.json").write_text(
+              json.dumps(asdict(result),indent=2)+"\n",encoding="utf-8"
+          )
+          print("HAYUYA_HUNYUAN_NATIVE_MATERIAL_TRANSFER",json.dumps(
+              asdict(result),separators=(",",":")
+          ))
+          target=root/"body_headwrap_material_native.glb"
+          if not target.is_file() or target.read_bytes()[:4] != b"glTF":
+              raise SystemExit("native material transfer produced invalid GLB")
+          PY
 
       - name: Install Blender for evidence
         run: |
@@ -187,7 +218,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          xvfb-run -a blender --python-exit-code 1 -b             --python tools/hayuya3d/blender_judge_turntable_24.py --             --input out/hunyuan-head-probe/body_headwrap_source_projected.glb             --output-dir out/hunyuan-head-probe/headwrap_textured_front             --size 768             --face-size 768             --preflight-only
+          xvfb-run -a blender --python-exit-code 1 -b             --python tools/hayuya3d/blender_judge_turntable_24.py --             --input out/hunyuan-head-probe/body_headwrap_material_native.glb             --output-dir out/hunyuan-head-probe/headwrap_textured_front             --size 768             --face-size 768             --preflight-only
 
       - name: Validate refined face and nose proportions
         shell: bash
