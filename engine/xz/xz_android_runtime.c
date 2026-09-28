@@ -1870,6 +1870,64 @@ int XzAndroidRuntime_CompositeVisibleWorld(void)
             xz_runtime.gles3_shadow.static_scene_fog_start_meters,
             xz_runtime.gles3_shadow.static_scene_lightmap_shader_ready,
             xz_runtime.gles3_shadow.static_scene_last_baked_lightmap_draw_calls);
+
+        {
+            unsigned int probe_index;
+
+            for (probe_index = 0u;
+                 probe_index <
+                    xz_runtime.gles3_shadow.
+                        static_scene_camera_probe_count;
+                 ++probe_index) {
+                const unsigned int mesh_index =
+                    xz_runtime.gles3_shadow.
+                        static_scene_camera_probe_mesh[probe_index];
+                const XzStaticMeshResource *mesh =
+                    XzStaticSceneRuntime_Mesh(
+                        &xz_runtime.static_scene,
+                        mesh_index);
+
+                XzAndroidLog(
+                    ANDROID_LOG_INFO,
+                    "static_scene_camera_probe rank=%u"
+                    " camera=(%.3f,%.3f,%.3f)"
+                    " insideCount=%u"
+                    " mesh=%u instance=%u"
+                    " distance=%.3f inside=%u"
+                    " boundsMin=(%.3f,%.3f,%.3f)"
+                    " boundsMax=(%.3f,%.3f,%.3f)"
+                    " path='%s'",
+                    probe_index,
+                    xz_runtime.gles3_shadow.
+                        static_scene_camera_origin[0],
+                    xz_runtime.gles3_shadow.
+                        static_scene_camera_origin[1],
+                    xz_runtime.gles3_shadow.
+                        static_scene_camera_origin[2],
+                    xz_runtime.gles3_shadow.
+                        static_scene_camera_probe_inside_count,
+                    mesh_index,
+                    xz_runtime.gles3_shadow.
+                        static_scene_camera_probe_instance[probe_index],
+                    xz_runtime.gles3_shadow.
+                        static_scene_camera_probe_distance[probe_index],
+                    xz_runtime.gles3_shadow.
+                        static_scene_camera_probe_inside[probe_index],
+                    xz_runtime.gles3_shadow.
+                        static_scene_camera_probe_bounds_min[probe_index][0],
+                    xz_runtime.gles3_shadow.
+                        static_scene_camera_probe_bounds_min[probe_index][1],
+                    xz_runtime.gles3_shadow.
+                        static_scene_camera_probe_bounds_min[probe_index][2],
+                    xz_runtime.gles3_shadow.
+                        static_scene_camera_probe_bounds_max[probe_index][0],
+                    xz_runtime.gles3_shadow.
+                        static_scene_camera_probe_bounds_max[probe_index][1],
+                    xz_runtime.gles3_shadow.
+                        static_scene_camera_probe_bounds_max[probe_index][2],
+                    mesh ? mesh->path : "");
+            }
+        }
     }
 
     return presented;

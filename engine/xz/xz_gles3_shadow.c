@@ -234,6 +234,8 @@ typedef struct {
     uint32_t submesh_count;
     XzXzmeshSubmesh *submeshes;
     uint64_t gpu_bytes;
+    float bounds_min[3];
+    float bounds_max[3];
     int alive;
 } XzGles3StaticMesh;
 
@@ -4206,6 +4208,36 @@ int XzGles3Shadow_UploadStaticScene(
         return 0;
 
     state->static_scene_upload_attempts++;
+    memset(
+        state->static_scene_camera_origin,
+        0,
+        sizeof(state->static_scene_camera_origin));
+    state->static_scene_camera_probe_count = 0u;
+    state->static_scene_camera_probe_inside_count = 0u;
+    memset(
+        state->static_scene_camera_probe_mesh,
+        0,
+        sizeof(state->static_scene_camera_probe_mesh));
+    memset(
+        state->static_scene_camera_probe_instance,
+        0,
+        sizeof(state->static_scene_camera_probe_instance));
+    memset(
+        state->static_scene_camera_probe_inside,
+        0,
+        sizeof(state->static_scene_camera_probe_inside));
+    memset(
+        state->static_scene_camera_probe_distance,
+        0,
+        sizeof(state->static_scene_camera_probe_distance));
+    memset(
+        state->static_scene_camera_probe_bounds_min,
+        0,
+        sizeof(state->static_scene_camera_probe_bounds_min));
+    memset(
+        state->static_scene_camera_probe_bounds_max,
+        0,
+        sizeof(state->static_scene_camera_probe_bounds_max));
 
     if (!XzMakeShadowCurrent(
             &previous_display,
@@ -4446,6 +4478,14 @@ int XzGles3Shadow_UploadStaticScene(
             source->mesh.submesh_count;
         dest->gpu_bytes =
             vertex_bytes + index_bytes;
+        memcpy(
+            dest->bounds_min,
+            source->mesh.bounds_min,
+            sizeof(dest->bounds_min));
+        memcpy(
+            dest->bounds_max,
+            source->mesh.bounds_max,
+            sizeof(dest->bounds_max));
         dest->alive = 1;
 
         gpu_bytes += dest->gpu_bytes;
@@ -5109,6 +5149,252 @@ static const XzGeometryBatch *XzStaticSceneCamera(
         : NULL;
 }
 
+
+static void XzTransformStaticBounds(
+    const float matrix[16],
+    const float local_min[3],
+    const float local_max[3],
+    float world_min[3],
+    float world_max[3])
+{
+    unsigned int corner;
+
+    world_min[0] = world_min[1] = world_min[2] = 1.0e30f;
+    world_max[0] = world_max[1] = world_max[2] = -1.0e30f;
+
+    for (corner = 0u; corner < 8u; ++corner) {
+        const float x =
+            (corner & 1u) ? local_max[0] : local_min[0];
+        const float y =
+            (corner & 2u) ? local_max[1] : local_min[1];
+        const float z =
+            (corner & 4u) ? local_max[2] : local_min[2];
+        const float p[3] = {
+            matrix[0] * x +
+                matrix[4] * y +
+                matrix[8] * z +
+                matrix[12],
+            matrix[1] * x +
+                matrix[5] * y +
+                matrix[9] * z +
+                matrix[13],
+            matrix[2] * x +
+                matrix[6] * y +
+                matrix[10] * z +
+                matrix[14]
+        };
+        unsigned int axis;
+
+        for (axis = 0u; axis < 3u; ++axis) {
+            if (p[axis] < world_min[axis])
+                world_min[axis] = p[axis];
+            if (p[axis] > world_max[axis])
+                world_max[axis] = p[axis];
+        }
+    }
+}
+
+static float XzPointStaticBoundsDistance(
+    const float point[3],
+    const float world_min[3],
+    const float world_max[3],
+    int *inside)
+{
+    float squared = 0.0f;
+    unsigned int axis;
+    int contained = 1;
+
+    for (axis = 0u; axis < 3u; ++axis) {
+        float delta = 0.0f;
+
+        if (point[axis] < world_min[axis]) {
+            delta = world_min[axis] - point[axis];
+            contained = 0;
+        } else if (point[axis] > world_max[axis]) {
+            delta = point[axis] - world_max[axis];
+            contained = 0;
+        }
+
+        squared += delta * delta;
+    }
+
+    if (inside)
+        *inside = contained;
+
+    return sqrtf(squared);
+}
+
+static void XzProbeStaticSceneCamera(
+    XzGles3ShadowState *state,
+    const float camera_origin[3])
+{
+    uint32_t mesh_index;
+
+    if (!state ||
+        !camera_origin ||
+        !xz_shadow.static_draw_plan_ready ||
+        !xz_shadow.static_meshes)
+        return;
+
+    memcpy(
+        state->static_scene_camera_origin,
+        camera_origin,
+        sizeof(state->static_scene_camera_origin));
+    state->static_scene_camera_probe_count = 0u;
+    state->static_scene_camera_probe_inside_count = 0u;
+
+    for (mesh_index = 0u;
+         mesh_index < xz_shadow.static_mesh_count;
+         ++mesh_index) {
+        const XzGles3StaticMesh *mesh =
+            &xz_shadow.static_meshes[mesh_index];
+        const XzStaticSceneDrawSpan *span =
+            XzStaticSceneDrawPlan_Span(
+                &xz_shadow.static_draw_plan,
+                mesh_index);
+        uint32_t local_instance;
+
+        if (!mesh->alive ||
+            !span)
+            continue;
+
+        for (local_instance = 0u;
+             local_instance < span->instance_count;
+             ++local_instance) {
+            const uint32_t grouped_instance =
+                span->first_instance + local_instance;
+            const float *matrix =
+                XzStaticSceneDrawPlan_InstanceMatrix(
+                    &xz_shadow.static_draw_plan,
+                    grouped_instance);
+            float world_min[3];
+            float world_max[3];
+            float distance;
+            int inside = 0;
+            unsigned int slot =
+                XZ_STATIC_CAMERA_PROBE_MAX;
+            unsigned int i;
+
+            if (!matrix)
+                continue;
+
+            XzTransformStaticBounds(
+                matrix,
+                mesh->bounds_min,
+                mesh->bounds_max,
+                world_min,
+                world_max);
+            distance =
+                XzPointStaticBoundsDistance(
+                    camera_origin,
+                    world_min,
+                    world_max,
+                    &inside);
+
+            if (inside)
+                state->
+                    static_scene_camera_probe_inside_count++;
+
+            for (i = 0u;
+                 i < state->
+                    static_scene_camera_probe_count;
+                 ++i) {
+                if (distance <
+                    state->
+                        static_scene_camera_probe_distance[i]) {
+                    slot = i;
+                    break;
+                }
+            }
+
+            if (slot == XZ_STATIC_CAMERA_PROBE_MAX &&
+                state->
+                    static_scene_camera_probe_count <
+                    XZ_STATIC_CAMERA_PROBE_MAX) {
+                slot =
+                    state->
+                        static_scene_camera_probe_count;
+            }
+
+            if (slot < XZ_STATIC_CAMERA_PROBE_MAX) {
+                unsigned int move_from =
+                    state->
+                        static_scene_camera_probe_count <
+                            XZ_STATIC_CAMERA_PROBE_MAX
+                        ? state->
+                            static_scene_camera_probe_count
+                        : XZ_STATIC_CAMERA_PROBE_MAX - 1u;
+
+                while (move_from > slot) {
+                    const unsigned int from =
+                        move_from - 1u;
+                    unsigned int axis;
+
+                    state->
+                        static_scene_camera_probe_mesh[move_from] =
+                        state->
+                            static_scene_camera_probe_mesh[from];
+                    state->
+                        static_scene_camera_probe_instance[move_from] =
+                        state->
+                            static_scene_camera_probe_instance[from];
+                    state->
+                        static_scene_camera_probe_inside[move_from] =
+                        state->
+                            static_scene_camera_probe_inside[from];
+                    state->
+                        static_scene_camera_probe_distance[move_from] =
+                        state->
+                            static_scene_camera_probe_distance[from];
+
+                    for (axis = 0u; axis < 3u; ++axis) {
+                        state->
+                            static_scene_camera_probe_bounds_min[move_from][axis] =
+                            state->
+                                static_scene_camera_probe_bounds_min[from][axis];
+                        state->
+                            static_scene_camera_probe_bounds_max[move_from][axis] =
+                            state->
+                                static_scene_camera_probe_bounds_max[from][axis];
+                    }
+
+                    move_from--;
+                }
+
+                state->
+                    static_scene_camera_probe_mesh[slot] =
+                    mesh_index;
+                state->
+                    static_scene_camera_probe_instance[slot] =
+                    grouped_instance;
+                state->
+                    static_scene_camera_probe_inside[slot] =
+                    inside ? 1u : 0u;
+                state->
+                    static_scene_camera_probe_distance[slot] =
+                    distance;
+                memcpy(
+                    state->
+                        static_scene_camera_probe_bounds_min[slot],
+                    world_min,
+                    sizeof(world_min));
+                memcpy(
+                    state->
+                        static_scene_camera_probe_bounds_max[slot],
+                    world_max,
+                    sizeof(world_max));
+
+                if (state->
+                        static_scene_camera_probe_count <
+                    XZ_STATIC_CAMERA_PROBE_MAX) {
+                    state->
+                        static_scene_camera_probe_count++;
+                }
+            }
+        }
+    }
+}
+
 static int XzDrawStaticScene(
     XzGles3ShadowState *state,
     const XzGeometryFrame *geometry)
@@ -5168,6 +5454,10 @@ static int XzDrawStaticScene(
         return 0;
 
     state->static_scene_draw_attempts++;
+    if (state->static_scene_draw_attempts == 1u)
+        XzProbeStaticSceneCamera(
+            state,
+            camera_origin);
     state->static_scene_frame_ready = 0;
     state->static_scene_last_draw_calls = 0u;
     state->static_scene_last_instances = 0u;

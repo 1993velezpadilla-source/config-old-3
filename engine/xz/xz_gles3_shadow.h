@@ -12,6 +12,8 @@
 extern "C" {
 #endif
 
+#define XZ_STATIC_CAMERA_PROBE_MAX 4u
+
 typedef struct {
     int initialized;
     int available;
@@ -185,6 +187,16 @@ typedef struct {
     unsigned int static_scene_readback_width;
     unsigned int static_scene_readback_height;
     int static_scene_frame_ready;
+
+    float static_scene_camera_origin[3];
+    unsigned int static_scene_camera_probe_count;
+    unsigned int static_scene_camera_probe_inside_count;
+    unsigned int static_scene_camera_probe_mesh[XZ_STATIC_CAMERA_PROBE_MAX];
+    unsigned int static_scene_camera_probe_instance[XZ_STATIC_CAMERA_PROBE_MAX];
+    unsigned int static_scene_camera_probe_inside[XZ_STATIC_CAMERA_PROBE_MAX];
+    float static_scene_camera_probe_distance[XZ_STATIC_CAMERA_PROBE_MAX];
+    float static_scene_camera_probe_bounds_min[XZ_STATIC_CAMERA_PROBE_MAX][3];
+    float static_scene_camera_probe_bounds_max[XZ_STATIC_CAMERA_PROBE_MAX][3];
 
     uint64_t real_texture_uploads;
     uint64_t real_texture_binds;
