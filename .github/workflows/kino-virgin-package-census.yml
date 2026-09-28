@@ -99,6 +99,18 @@ jobs:
           })
           PY
 
+      - name: Census real Unreal export classes
+        run: |
+          set -euxo pipefail
+          dotnet run \
+            --project tools/maps/UEAssetClassCensus/UEAssetClassCensus.csproj \
+            --configuration Release \
+            -- \
+            kino-pak-unpacked \
+            kino-download/kino-class-census.json \
+            | tee kino-download/kino-class-census.log
+          test -s kino-download/kino-class-census.json
+
       - name: Virgin-loader anti-hardcode gate
         run: |
           set -euxo pipefail
@@ -118,4 +130,6 @@ jobs:
             kino-download/kino-census.json
             kino-download/pak-files.txt
             kino-download/kino-pak-census.json
+            kino-download/kino-class-census.json
+            kino-download/kino-class-census.log
           retention-days: 7
