@@ -25,6 +25,8 @@ echo "gpu_vram=${GPU_VRAM}"
 echo "backends=${BACKENDS}"
 echo "job_id=${JOB_ID}"
 echo "evidence_root=${EVIDENCE_ROOT}"
+echo "product=HAYUYA 3D"
+echo "hero_policy=AAA static master only; no rig, animation, retopo, gameprep or runtime LODs"
 
 nvidia-smi
 python3 --version
@@ -70,20 +72,22 @@ ARGS=(
   --profile "${PROFILE}"
   --mode "${MODE}"
   --portable-target "${PORTABLE_TARGET}"
-  --portable-pack required
-  --texture-delivery auto
   --gpu-vram "${GPU_VRAM}"
   --backends "${BACKENDS}"
   --model-root "${MODEL_ROOT}"
   --output-root "${OUTPUT_ROOT}"
   --execute
+  --source-autofix required
   --viewforge required
   --appearance-judge required
   --judge-v4 required
   --judge-v5 required
   --geometry-refine required
   --mesh-doctor required
-  --gameprep required
+  --retopo off
+  --gameprep off
+  --portable-pack off
+  --texture-delivery off
 )
 
 if [[ -n "${REFERENCE_DIR}" ]]; then
@@ -104,4 +108,9 @@ fi
   --root "${OUTPUT_ROOT}" \
   --output "${EVIDENCE_ROOT}/GPU_E2E_PASS.json"
 
-echo "HAYUYA_GPU_E2E_PASS"
+if [[ "${PROFILE}" == "ultra" ]]; then
+  .hayuya/control/bin/python tools/hayuya3d/limits_audit.py > "${EVIDENCE_ROOT}/limits_audit.txt"
+  grep -q "HAYUYA_LIMIT_AUDIT_GREEN" "${EVIDENCE_ROOT}/limits_audit.txt"
+fi
+
+echo "HAYUYA_GPU_E2E_PASS product=HAYUYA_3D profile=${PROFILE}"
