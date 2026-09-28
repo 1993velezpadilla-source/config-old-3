@@ -48,7 +48,9 @@ public final class MainActivity extends Activity {
 
     private TextView statusView;
     private Button exportButton;
+    private Button shareLibGameButton;
     private CaptureInfo captureInfo;
+    private Uri lastLibGameUri;
 
     private static final class CaptureInfo {
         boolean installed;
@@ -81,19 +83,22 @@ public final class MainActivity extends Activity {
         final String zipEntry;
         final long bytes;
         final String sha256;
+        final Uri documentUri;
 
         ArtifactResult(
                 String logicalName,
                 String sourceApk,
                 String zipEntry,
                 long bytes,
-                String sha256
+                String sha256,
+                Uri documentUri
         ) {
             this.logicalName = logicalName;
             this.sourceApk = sourceApk;
             this.zipEntry = zipEntry;
             this.bytes = bytes;
             this.sha256 = sha256;
+            this.documentUri = documentUri;
         }
     }
 
@@ -143,6 +148,17 @@ public final class MainActivity extends Activity {
         );
         buttonParams.topMargin = dp(18);
         root.addView(exportButton, buttonParams);
+
+        shareLibGameButton = new Button(this);
+        shareLibGameButton.setText("SHARE libGame.so");
+        shareLibGameButton.setEnabled(false);
+        shareLibGameButton.setOnClickListener(v -> shareLastLibGame());
+        LinearLayout.LayoutParams shareParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        shareParams.topMargin = dp(8);
+        root.addView(shareLibGameButton, shareParams);
 
         TextView note = new TextView(this);
         note.setText(
@@ -284,6 +300,8 @@ public final class MainActivity extends Activity {
         }
 
         exportButton.setEnabled(false);
+        shareLibGameButton.setEnabled(false);
+        lastLibGameUri = null;
         statusView.setText("Exporting CTW installation…");
         new Thread(() -> exportCapture(treeUri), "ctw-capture-export").start();
     }
@@ -387,6 +405,15 @@ public final class MainActivity extends Activity {
                 copyToDocument(in, manifestFile);
             }
 
+            Uri libGameUri = null;
+            for (ArtifactResult artifact : artifacts) {
+                if ("libGame.so".equals(artifact.logicalName)) {
+                    libGameUri = artifact.documentUri;
+                    break;
+                }
+            }
+            final Uri shareUri = libGameUri;
+
             String result =
                     "CTW capture complete.\n\n" +
                     "Exact target match: " + (info.exactTarget() ? "YES" : "NO") + "\n" +
@@ -396,8 +423,10 @@ public final class MainActivity extends Activity {
                     artifactSummary(artifacts);
 
             runOnUiThread(() -> {
+                lastLibGameUri = shareUri;
                 statusView.setText(result);
                 exportButton.setEnabled(true);
+                shareLibGameButton.setEnabled(shareUri != null);
             });
         } catch (Throwable error) {
             runOnUiThread(() -> {
@@ -407,8 +436,21 @@ public final class MainActivity extends Activity {
                         (error.getMessage() == null ? "(no message)" : error.getMessage())
                 );
                 exportButton.setEnabled(true);
+                shareLibGameButton.setEnabled(false);
             });
         }
+    }
+
+    private void shareLastLibGame() {
+        if (lastLibGameUri == null) {
+            return;
+        }
+
+        Intent send = new Intent(Intent.ACTION_SEND);
+        send.setType("application/octet-stream");
+        send.putExtra(Intent.EXTRA_STREAM, lastLibGameUri);
+        send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        startActivity(Intent.createChooser(send, "Share CTW libGame.so"));
     }
 
     private void scanArtifacts(
@@ -446,7 +488,8 @@ public final class MainActivity extends Activity {
                         apk.getName(),
                         entry.getName(),
                         copied.bytes,
-                        copied.sha256
+                        copied.sha256,
+                        dst.getUri()
                 ));
                 extracted.add(logical);
             }
