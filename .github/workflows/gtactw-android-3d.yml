@@ -39,7 +39,9 @@ jobs:
             tools/gtactw/profile_emit_c.py \
             tools/gtactw/test_profile_emit_c.py \
             tools/gtactw/mdl_probe.py \
-            tools/gtactw/test_mdl_probe.py
+            tools/gtactw/test_mdl_probe.py \
+            tools/gtactw/wbl_probe.py \
+            tools/gtactw/test_wbl_probe.py
 
       - name: Run synthetic CTW PAK gate
         run: python -m unittest -v tools/gtactw/test_ctw_probe.py
@@ -64,6 +66,9 @@ jobs:
 
       - name: Run CTW mobile model parser gate
         run: python -m unittest -v tools/gtactw/test_mdl_probe.py
+
+      - name: Run CTW worldblock streaming census gate
+        run: python -m unittest -v tools/gtactw/test_wbl_probe.py
 
       - name: Host-compile native CTW loader
         run: |
@@ -113,4 +118,5 @@ jobs:
           echo "GTACTW_ANDROID_PROFILE_TEMPLATE_GREEN=1"
           echo "GTACTW_ANDROID_PROFILE_EMITTER_GREEN=1"
           echo "GTACTW_ANDROID_MDL_PROBE_GREEN=1"
+          echo "GTACTW_ANDROID_WBL_PROBE_GREEN=1"
           echo "GTACTW_RUNTIME_PROFILE_MATCH_GREEN=1"
