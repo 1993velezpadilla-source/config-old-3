@@ -147,5 +147,16 @@ int main(void) {
         ) == 0
     );
 
+    {
+        int16_t forward[3] = { 0, 4096, 77 };
+        ctw_character_precompensate_forward(
+            forward,
+            (int16_t)0x4000
+        );
+        assert(forward[0] <= -4095);
+        assert(abs(forward[1]) <= 1);
+        assert(forward[2] == 77);
+    }
+
     return 0;
 }

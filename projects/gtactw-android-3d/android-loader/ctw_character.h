@@ -60,6 +60,16 @@ int ctw_character_hide_body_type(
     unsigned body_type
 );
 
+/*
+ * cPedSprite::ModifyForward applies the animation's angle/rotation after the
+ * Render() input vector. Pre-rotate by the inverse so the final billboard
+ * remains camera-facing without discarding the selected directional frame.
+ */
+void ctw_character_precompensate_forward(
+    int16_t forward[3],
+    int16_t engine_adjustment
+);
+
 #ifdef __cplusplus
 }
 #endif

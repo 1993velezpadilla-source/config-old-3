@@ -72,6 +72,10 @@ typedef void (*CtwPlayerHandleAimingFn)(
     void *yoke,
     const void **target
 );
+typedef uint16_t (*CtwAnimAngleAdjustmentFn)(
+    const void *frame_manager,
+    uint16_t anim_id
+);
 
 typedef struct {
     int active;
@@ -92,6 +96,8 @@ static CtwPedBucketBindFn g_ped_bucket_bind_original;
 static void **g_ped_bucket_bind_got;
 static CtwPlayerHandleAimingFn g_player_handle_aiming_original;
 static void **g_player_handle_aiming_vtable;
+static void *g_sprite_frame_manager;
+static CtwAnimAngleAdjustmentFn g_anim_angle_adjustment;
 static int g_aux_hooks_installed;
 static _Thread_local int g_rendering_local_player_sprite;
 
@@ -324,6 +330,37 @@ static void stream_bias_end(void) {
     memset(&g_stream_bias, 0, sizeof(g_stream_bias));
 }
 
+static int16_t sprite_total_forward_adjustment(const void *sprite) {
+    if (!sprite || !g_sprite_frame_manager || !g_anim_angle_adjustment)
+        return 0;
+
+    uint16_t anim_id = 0;
+    uint8_t rotation = 0;
+    memcpy(
+        &anim_id,
+        (const uint8_t *)sprite + 0x38u,
+        sizeof(anim_id)
+    );
+    memcpy(
+        &rotation,
+        (const uint8_t *)sprite + 0x45u,
+        sizeof(rotation)
+    );
+
+    uint16_t adjustment = g_anim_angle_adjustment(
+        g_sprite_frame_manager,
+        anim_id
+    );
+    if (rotation == 1u)
+        adjustment = (uint16_t)(adjustment + 0x4000u);
+    else if (rotation == 2u)
+        adjustment = (uint16_t)(adjustment - 0x4000u);
+    else if (rotation == 3u)
+        adjustment ^= 0x8000u;
+
+    return (int16_t)adjustment;
+}
+
 static int sprite_is_local_player(const void *sprite) {
     if (!sprite || !g_players || !g_local_player_id)
         return 0;
@@ -511,6 +548,23 @@ int ctw_runtime_adapters_bind(void *original_game_handle) {
         uintptr_t)info.dli_fbase +
         CTW_PLAYER_HANDLE_AIMING_VTABLE_RVA
     );
+
+    dlerror();
+    g_sprite_frame_manager = dlsym(
+        original_game_handle,
+        "gSpriteFrameManager"
+    );
+    if (dlerror() != NULL || !g_sprite_frame_manager)
+        return -11;
+
+    dlerror();
+    g_anim_angle_adjustment = (CtwAnimAngleAdjustmentFn)dlsym(
+        original_game_handle,
+        "_ZNK19cSpriteFrameManager18AnimAngleAjustmentE13eSpriteAnimId"
+    );
+    if (dlerror() != NULL || !g_anim_angle_adjustment)
+        return -12;
+
     return 0;
 }
 
@@ -778,6 +832,10 @@ void ctw_ped_sprite_render_adapter_v1(
             stock_forward,
             camera_forward
         )) {
+        ctw_character_precompensate_forward(
+            camera_forward,
+            sprite_total_forward_adjustment(sprite)
+        );
         forward_to_use = camera_forward;
     }
 

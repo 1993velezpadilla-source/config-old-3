@@ -99,3 +99,23 @@ int ctw_character_hide_body_type(
 
     return body_type == 0u;
 }
+
+void ctw_character_precompensate_forward(
+    int16_t forward[3],
+    int16_t engine_adjustment
+) {
+    if (!forward || engine_adjustment == 0)
+        return;
+
+    const float pi = 3.14159265358979323846f;
+    const float desired = atan2f(
+        (float)forward[0],
+        (float)forward[1]
+    );
+    const float adjustment =
+        (float)engine_adjustment * (pi / 32768.0f);
+    const float pre = desired - adjustment;
+
+    forward[0] = (int16_t)lrintf(sinf(pre) * 4096.0f);
+    forward[1] = (int16_t)lrintf(cosf(pre) * 4096.0f);
+}
