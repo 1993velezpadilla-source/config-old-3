@@ -89,6 +89,21 @@ def load_verified_profile(path: Path) -> dict:
             f"{key} code_prefix_hex",
         )
 
+    adapters = {}
+    abi_ledger = obj.get("abi_verification", {})
+    for key in TARGET_KEYS:
+        abi = abi_ledger.get(key)
+        adapter = (
+            abi.get("adapter")
+            if isinstance(abi, dict) and abi.get("status") == "verified"
+            else None
+        )
+        adapters[key] = (
+            adapter.strip()
+            if isinstance(adapter, str) and adapter.strip()
+            else None
+        )
+
     sha = fp.get("sha256")
     if not isinstance(sha, str) or len(sha) != 64:
         raise ValueError("profile must contain a 64-character libGame SHA-256")
@@ -100,6 +115,7 @@ def load_verified_profile(path: Path) -> dict:
         "axes": axes,
         "targets": clean_targets,
         "prefixes": prefixes,
+        "adapters": adapters,
     }
 
 
@@ -129,6 +145,7 @@ def emit_header(profiles: list[dict]) -> str:
     for p in profiles:
         t = p["targets"]
         prefixes = p["prefixes"]
+        adapters = p["adapters"]
 
         def bytes_c(key):
             return ", ".join(f"0x{x:02X}" for x in prefixes[key])
@@ -154,6 +171,38 @@ def emit_header(profiles: list[dict]) -> str:
             f'            .sector_visibility = {{ {bytes_c("sector_visibility")} }},',
             f'            .lod_test = {{ {bytes_c("lod_test")} }},',
             f'            .player_render = {{ {bytes_c("player_render")} }},',
+            "        },",
+            "        .adapter_names = {",
+            (
+                f'            .camera_update = "{adapters["camera_update"]}",'
+                if adapters["camera_update"]
+                else "            .camera_update = 0,"
+            ),
+            (
+                f'            .projection_setup = "{adapters["projection_setup"]}",'
+                if adapters["projection_setup"]
+                else "            .projection_setup = 0,"
+            ),
+            (
+                f'            .world_stream_update = "{adapters["world_stream_update"]}",'
+                if adapters["world_stream_update"]
+                else "            .world_stream_update = 0,"
+            ),
+            (
+                f'            .sector_visibility = "{adapters["sector_visibility"]}",'
+                if adapters["sector_visibility"]
+                else "            .sector_visibility = 0,"
+            ),
+            (
+                f'            .lod_test = "{adapters["lod_test"]}",'
+                if adapters["lod_test"]
+                else "            .lod_test = 0,"
+            ),
+            (
+                f'            .player_render = "{adapters["player_render"]}",'
+                if adapters["player_render"]
+                else "            .player_render = 0,"
+            ),
             "        },",
             "    },",
         ]
