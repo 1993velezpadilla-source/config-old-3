@@ -31,6 +31,16 @@ PROJECTION_OBJDUMP = """
 """
 
 
+DATAFLOW_OBJDUMP = """
+0000000000006000 <DataflowProbe>:
+    6000: mov x0, x9
+    6004: str x1, [sp, #0x10]
+    6008: ldr s0, [x2, #0x20]
+    600c: fadd s3, s1, s2
+    6010: ret
+"""
+
+
 class AbiProbeTests(unittest.TestCase):
     def test_camera_evidence_parser(self):
         report = abi_probe.parse_objdump(
@@ -71,6 +81,30 @@ class AbiProbeTests(unittest.TestCase):
             report["calls"][0]["symbol"],
             "glUniformMatrix4fv@plt",
         )
+
+
+    def test_argument_read_before_write_dataflow(self):
+        report = abi_probe.parse_objdump(
+            DATAFLOW_OBJDUMP,
+            requested_rva=0x6000,
+        )
+        hints = report["argument_register_hints"]
+
+        self.assertEqual(hints["analysis"], "read_before_write")
+        self.assertNotIn(0, hints["likely_gpr_inputs_x0_x7"])
+        self.assertIn(0, hints["overwritten_gpr_early_x0_x7"])
+        self.assertIn(1, hints["likely_gpr_inputs_x0_x7"])
+        self.assertIn(2, hints["likely_gpr_inputs_x0_x7"])
+
+        self.assertNotIn(0, hints["likely_fp_inputs_v0_v7"])
+        self.assertIn(0, hints["overwritten_fp_before_read_v0_v7"])
+        self.assertIn(1, hints["likely_fp_inputs_v0_v7"])
+        self.assertIn(2, hints["likely_fp_inputs_v0_v7"])
+
+        self.assertEqual(hints["first_access"]["x0"]["mode"], "write")
+        self.assertEqual(hints["first_access"]["x1"]["mode"], "read")
+        self.assertEqual(hints["first_access"]["v0"]["mode"], "write")
+        self.assertEqual(hints["first_access"]["v1"]["mode"], "read")
 
     def test_candidate_selection_prefers_verified_target(self):
         profile = {
