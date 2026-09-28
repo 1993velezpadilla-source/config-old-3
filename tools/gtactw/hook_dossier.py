@@ -88,6 +88,19 @@ def build_dossier(profile: dict, top: int = 5) -> dict:
                     "likely_fp_inputs_v0_v7",
                     [],
                 ),
+                "argument_analysis": arg_hints.get("analysis"),
+                "argument_first_access": arg_hints.get(
+                    "first_access",
+                    {},
+                ),
+                "overwritten_gpr_before_read_x0_x7": arg_hints.get(
+                    "overwritten_gpr_early_x0_x7",
+                    [],
+                ),
+                "overwritten_fp_before_read_v0_v7": arg_hints.get(
+                    "overwritten_fp_before_read_v0_v7",
+                    [],
+                ),
                 "calls": (
                     abi_evidence.get("calls", [])
                     if isinstance(abi_evidence, dict)
