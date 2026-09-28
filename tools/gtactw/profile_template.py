@@ -76,6 +76,7 @@ def rank_target_evidence(
     xref_groups = summarize_xrefs(xref_report)
     symbol_groups = report.get("symbols", {}).get("candidate_groups", {})
     plt_groups = (plt_report or {}).get("groups", {})
+    public_anchor_xrefs = (xref_report or {}).get("public_anchor_xrefs", [])
     out = {}
 
     for target, rule in TARGET_EVIDENCE_RULES.items():
@@ -129,6 +130,53 @@ def rank_target_evidence(
                     entry["symbol_names"].append(name)
                 entry["score"] += 3
                 entry["reasons"].append(f"{group} symbol candidate")
+
+        if target == "camera_update":
+            by_function = {}
+            for item in public_anchor_xrefs:
+                if item.get("anchor") != "gOSWGamepad":
+                    continue
+                rva = item.get("function_rva")
+                if rva is None:
+                    continue
+                key = int(rva)
+                grouped = by_function.setdefault(key, {
+                    "function": item.get("function"),
+                    "anchors": [],
+                    "forms": [],
+                    "call_sites": [],
+                })
+                if item.get("anchor") not in grouped["anchors"]:
+                    grouped["anchors"].append(item.get("anchor"))
+                if item.get("form") not in grouped["forms"]:
+                    grouped["forms"].append(item.get("form"))
+                pc = item.get("pc_rva")
+                if pc is not None and pc not in grouped["call_sites"]:
+                    grouped["call_sites"].append(pc)
+
+            for rva, item in by_function.items():
+                entry = merged.setdefault(rva, {
+                    "rva": rva,
+                    "function": item.get("function"),
+                    "score": 0,
+                    "reasons": [],
+                    "xref_hits": 0,
+                    "strings": [],
+                    "symbol_names": [],
+                    "call_sites": [],
+                })
+                entry["public_anchor_xrefs"] = {
+                    "anchors": item["anchors"],
+                    "forms": item["forms"],
+                    "call_sites": item["call_sites"],
+                }
+                for pc in item["call_sites"]:
+                    if pc not in entry["call_sites"]:
+                        entry["call_sites"].append(pc)
+                entry["score"] += min(len(item["call_sites"]), 2) * 3
+                entry["reasons"].append(
+                    "references verified 4.4.243 gOSWGamepad global"
+                )
 
         if target == "projection_setup":
             by_caller = {}
@@ -548,6 +596,10 @@ def make_profile(
         },
         "candidate_symbols": candidate_summary,
         "candidate_xref_functions": summarize_xrefs(xref_report),
+        "public_anchor_xrefs": (xref_report or {}).get(
+            "public_anchor_xrefs",
+            [],
+        ),
         "candidate_plt_calls": plt_report or {},
         "target_evidence_rankings": rank_target_evidence(
             report,
