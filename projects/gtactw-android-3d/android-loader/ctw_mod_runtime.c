@@ -82,6 +82,15 @@ int ctw_mod_init(void *original_game_handle) {
         return CTW_PATCH_SIGNATURE_MISMATCH;
     }
 
+    const int bind_rc = ctw_runtime_adapters_bind(original_game_handle);
+    if (bind_rc != 0) {
+        LOGE(
+            "CTW runtime helper binding failed rc=%d; game remains unmodified",
+            bind_rc
+        );
+        return CTW_PATCH_ADAPTER_BIND_FAILED;
+    }
+
     CtwHookReplacements replacements;
     memset(&replacements, 0, sizeof(replacements));
     const int adapters_rc = ctw_adapter_registry_resolve(
