@@ -57,6 +57,7 @@ jobs:
             projects/gtactw-android-3d/android-loader/ctw_loader.c \
             projects/gtactw-android-3d/android-loader/ctw_patch.c \
             projects/gtactw-android-3d/android-loader/ctw_camera.c \
+            projects/gtactw-android-3d/android-loader/ctw_profile.c \
             -ldl -lpthread
           nm -D --defined-only /tmp/libGame.so | grep -q "Java_com_rockstargames_oswrapper_GameNative_implOnDrawFrame"
           nm -D --defined-only /tmp/libGame.so | grep -q "Java_com_rockstargames_oswrapper_GameNative_implOnGamepadAxesChanged"
@@ -71,9 +72,21 @@ jobs:
             projects/gtactw-android-3d/android-loader/test_camera_state.c \
             projects/gtactw-android-3d/android-loader/ctw_camera.c \
             projects/gtactw-android-3d/android-loader/ctw_patch.c \
-            -lm
+            projects/gtactw-android-3d/android-loader/ctw_profile.c \
+            -ldl -lm
           /tmp/ctw_camera_test
           echo "GTACTW_CAMERA_INPUT_GREEN=1"
+
+      - name: Run CTW runtime profile matcher gate
+        run: |
+          cc -std=c11 -Wall -Wextra -Werror \
+            -Iprojects/gtactw-android-3d/android-loader \
+            -o /tmp/ctw_profile_test \
+            projects/gtactw-android-3d/android-loader/test_profile_match.c \
+            projects/gtactw-android-3d/android-loader/ctw_profile.c \
+            -ldl
+          /tmp/ctw_profile_test
+          echo "GTACTW_RUNTIME_PROFILE_MATCH_GREEN=1"
 
       - name: Gate marker
         run: |
@@ -82,3 +95,4 @@ jobs:
           echo "GTACTW_ANDROID_PAK_INVENTORY_GREEN=1"
           echo "GTACTW_ANDROID_APK_MODPACK_GREEN=1"
           echo "GTACTW_ANDROID_PROFILE_TEMPLATE_GREEN=1"
+          echo "GTACTW_RUNTIME_PROFILE_MATCH_GREEN=1"
