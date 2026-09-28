@@ -7,6 +7,7 @@ import argparse
 import json
 from pathlib import Path
 
+import hook_dossier
 import loader_variant
 import profile_template
 
@@ -72,8 +73,30 @@ def mark_abi_verified(
     ]
 
     selected_strategy = None
+    review_readiness = None
     if len(matches) == 1:
-        selected_strategy = matches[0]["trampoline_strategy_hint"]
+        selected = matches[0]
+        selected_strategy = selected["trampoline_strategy_hint"]
+        review_card = hook_dossier._abi_review_card(
+            selected.get("abi_evidence", {}),
+            selected.get("caller_abi_evidence", {}),
+        )
+        review_readiness = hook_dossier._manual_review_readiness(
+            selected.get("abi_evidence", {}),
+            selected.get("caller_abi_evidence", {}),
+            review_card,
+            selected_strategy,
+        )
+        if (
+            not allow_unprobed
+            and review_readiness.get("status") != "manual_review_ready"
+        ):
+            blockers = ",".join(review_readiness.get("blockers", []))
+            raise ValueError(
+                f"{target} ABI evidence is not ready for manual approval "
+                f"at RVA 0x{rva:X}: {review_readiness.get('status')} "
+                f"blockers={blockers or 'none'}"
+            )
     elif not allow_unprobed:
         reason = "missing" if not matches else "ambiguous"
         raise ValueError(
@@ -124,6 +147,16 @@ def mark_abi_verified(
         "detail": detail.strip(),
         "rva": rva,
         "trampoline_strategy": selected_strategy,
+        "static_review_status": (
+            review_readiness.get("status")
+            if isinstance(review_readiness, dict)
+            else "manual_override"
+        ),
+        "static_review_supports": (
+            review_readiness.get("supports", [])
+            if isinstance(review_readiness, dict)
+            else []
+        ),
     }
     if record not in evidence:
         evidence.append(record)
