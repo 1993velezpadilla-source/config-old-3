@@ -147,7 +147,33 @@ class ProfileTemplateTests(unittest.TestCase):
                 "streaming": [],
                 "lod_culling": [],
                 "player_render": [],
-            }
+            },
+            "candidate_function_fingerprints": {
+                "0x4000": {
+                    "function": "CameraUpdate",
+                    "rva": 0x4000,
+                    "size": 64,
+                    "sha256": "c" * 64,
+                    "prefix_hex": "aa" * 16,
+                },
+                "0x5000": {
+                    "function": "ProjectionSetup",
+                    "rva": 0x5000,
+                    "size": 64,
+                    "sha256": "d" * 64,
+                    "prefix_hex": "bb" * 16,
+                },
+            },
+            "candidate_call_neighborhoods": {
+                "0x4000": {
+                    "incoming": [{"caller": "FrameUpdate", "caller_rva": 0x3500}],
+                    "outgoing": [],
+                },
+                "0x5000": {
+                    "incoming": [{"caller": "CameraUpdate", "caller_rva": 0x4000}],
+                    "outgoing": [],
+                },
+            },
         }
 
         profile = profile_template.make_profile(report, xrefs)
@@ -162,6 +188,14 @@ class ProfileTemplateTests(unittest.TestCase):
         self.assertIn(
             "symbol + xref cross-signal",
             projection[0]["reasons"],
+        )
+        self.assertEqual(
+            camera[0]["function_fingerprint"]["sha256"],
+            "c" * 64,
+        )
+        self.assertEqual(
+            projection[0]["call_neighborhood"]["incoming"][0]["caller"],
+            "CameraUpdate",
         )
 
     def test_rejects_missing_required_jni(self):
