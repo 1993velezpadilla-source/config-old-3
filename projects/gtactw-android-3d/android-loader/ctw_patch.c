@@ -23,11 +23,24 @@
 
 Ctw3DConfig g_ctw3d_config = {
     .mode = CTW_CAMERA_THIRD_PERSON,
-    .fov_degrees = 70.0f,
+
+    .camera_enabled = 1,
+    .camera_height = 1.35f,
+    .camera_distance = 5.8f,
+    .camera_pitch_degrees = -7.0f,
+    .fov_degrees = 72.0f,
     .near_clip = 0.05f,
-    .far_clip_multiplier = 2.0f,
-    .stream_radius_multiplier = 2.0f,
+    .disable_cinematic_camera = 1,
+
+    .draw_distance_enabled = 1,
+    .far_clip_multiplier = 2.5f,
+    .stream_radius_multiplier = 2.5f,
     .lod_distance_multiplier = 2.0f,
+    .vehicle_distance_multiplier = 2.0f,
+    .ped_distance_multiplier = 2.0f,
+
+    .character_fix = 1,
+    .extended_character_lod = 1,
     .keep_full_player_body = 1,
     .hide_head_in_first_person = 1,
 };
