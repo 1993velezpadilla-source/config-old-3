@@ -96,6 +96,26 @@ def mark_abi_verified(
             "explicit strategy is required when allow_unprobed is used"
         )
 
+    if not matches and allow_unprobed:
+        if not isinstance(candidates, list):
+            candidates = []
+            item["candidates"] = candidates
+        candidates.append({
+            "rva": rva,
+            "source": "manual_abi_verification",
+            "function": None,
+            "score": None,
+            "reasons": [
+                "explicit manual ABI/prologue verification override",
+            ],
+            "trampoline_strategy_hint": selected_strategy,
+            "abi_evidence": {
+                "verification_status": "manual_verified",
+                "manual_method": method.strip(),
+                "manual_detail": detail.strip(),
+            },
+        })
+
     evidence = item.get("evidence")
     if not isinstance(evidence, list):
         evidence = []
