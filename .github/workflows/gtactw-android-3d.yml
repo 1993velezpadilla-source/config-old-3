@@ -21,11 +21,21 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Compile probe
-        run: python -m py_compile tools/gtactw/ctw_probe.py tools/gtactw/test_ctw_probe.py
+      - name: Compile probes
+        run: |
+          python -m py_compile \
+            tools/gtactw/ctw_probe.py \
+            tools/gtactw/test_ctw_probe.py \
+            tools/gtactw/elf_probe.py \
+            tools/gtactw/test_elf_probe.py
 
-      - name: Run synthetic CTW PAK/APK gate
+      - name: Run synthetic CTW PAK gate
         run: python -m unittest -v tools/gtactw/test_ctw_probe.py
 
+      - name: Run synthetic CTW ARM64 ELF gate
+        run: python -m unittest -v tools/gtactw/test_elf_probe.py
+
       - name: Gate marker
-        run: echo "GTACTW_ANDROID_PAK_PROBE_GREEN=1"
+        run: |
+          echo "GTACTW_ANDROID_PAK_PROBE_GREEN=1"
+          echo "GTACTW_ANDROID_ELF_PROBE_GREEN=1"
