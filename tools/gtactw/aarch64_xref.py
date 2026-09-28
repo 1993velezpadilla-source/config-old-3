@@ -33,6 +33,16 @@ def decode_adrp(insn: int, pc: int):
     return rd, target_page
 
 
+def decode_adr(insn: int, pc: int):
+    if (insn & 0x9F000000) != 0x10000000:
+        return None
+    rd = insn & 0x1F
+    immlo = (insn >> 29) & 0x3
+    immhi = (insn >> 5) & 0x7FFFF
+    imm21 = sign_extend((immhi << 2) | immlo, 21)
+    return rd, pc + imm21
+
+
 def decode_add_imm64(insn: int):
     # ADD (immediate), 64-bit, without flags.
     if (insn & 0xFF000000) != 0x91000000:
@@ -164,20 +174,7 @@ def scan_libgame(path: Path) -> dict:
     text_blob = blob[text["offset"]:text["offset"] + text["size"]]
     xrefs = []
 
-    for rel in range(0, max(0, len(text_blob) - 7), 4):
-        insn1, insn2 = struct.unpack_from("<II", text_blob, rel)
-        pc = text["addr"] + rel
-        adrp = decode_adrp(insn1, pc)
-        add = decode_add_imm64(insn2)
-        if not adrp or not add:
-            continue
-
-        adrp_rd, page = adrp
-        add_rd, add_rn, imm = add
-        if add_rd != adrp_rd or add_rn != adrp_rd:
-            continue
-        target = page + imm
-
+    def add_xref(pc: int, target: int, reg: int, form: str):
         hit = None
         for s in by_va:
             start = s["va"]
@@ -186,20 +183,60 @@ def scan_libgame(path: Path) -> dict:
                 hit = s
                 break
         if not hit:
-            continue
+            return
 
         owner = _owner_function(pc, funcs)
-        xrefs.append({
+        item = {
             "pc_rva": pc,
             "target_va": target,
-            "register": adrp_rd,
+            "register": reg,
+            "form": form,
             "string": hit["text"],
             "string_va": hit["va"],
             "categories": hit["categories"],
             "function": owner["name"] if owner else None,
             "function_rva": owner["value"] if owner else None,
             "function_size": owner["size"] if owner else None,
-        })
+        }
+        key = (item["pc_rva"], item["target_va"], item["form"])
+        if not any(
+            (x["pc_rva"], x["target_va"], x.get("form")) == key
+            for x in xrefs
+        ):
+            xrefs.append(item)
+
+    word_count = len(text_blob) // 4
+    for word_index in range(word_count):
+        rel = word_index * 4
+        pc = text["addr"] + rel
+        insn = struct.unpack_from("<I", text_blob, rel)[0]
+
+        adr = decode_adr(insn, pc)
+        if adr:
+            rd, target = adr
+            add_xref(pc, target, rd, "adr")
+
+        adrp = decode_adrp(insn, pc)
+        if not adrp:
+            continue
+
+        adrp_rd, page = adrp
+        # Optimized AArch64 commonly schedules unrelated instructions between
+        # ADRP and the matching ADD. Search a short basic-block window.
+        for lookahead in range(1, 5):
+            next_index = word_index + lookahead
+            if next_index >= word_count:
+                break
+            insn2 = struct.unpack_from(
+                "<I", text_blob, next_index * 4
+            )[0]
+            add = decode_add_imm64(insn2)
+            if not add:
+                continue
+            add_rd, add_rn, imm = add
+            if add_rd == adrp_rd and add_rn == adrp_rd:
+                add_xref(pc, page + imm, adrp_rd, f"adrp+add(+{lookahead})")
+                break
 
     grouped = {k: [] for k in elf_probe.CANDIDATE_TERMS}
     for x in xrefs:
