@@ -36,6 +36,19 @@ static void XzZoneDb_RecomputeReady(XzZoneDb *db)
             failed++;
     }
 
+    if (failed == 0u && complete == active) {
+        for (i = 0u; i < db->dependency_count; ++i) {
+            const XzZoneDependency *dep = &db->dependencies[i];
+            if (!XzZoneDb_ValidZoneId(db, dep->zone_id) ||
+                !XzZoneDb_ValidZoneId(db, dep->depends_on_zone_id) ||
+                db->zones[dep->depends_on_zone_id - 1u].state !=
+                    XZ_ZONE_COMPLETE) {
+                failed++;
+                break;
+            }
+        }
+    }
+
     db->complete_zones = complete;
     db->failed_zones = failed;
     db->database_ready =
@@ -129,6 +142,33 @@ int XzZoneDb_SetZoneState(
     }
 
     zone->state = state;
+    XzZoneDb_RecomputeReady(db);
+    return 1;
+}
+
+int XzZoneDb_AddDependency(
+    XzZoneDb *db,
+    uint16_t zone_id,
+    uint16_t depends_on_zone_id)
+{
+    uint32_t i;
+
+    if (!XzZoneDb_ValidZoneId(db, zone_id) ||
+        !XzZoneDb_ValidZoneId(db, depends_on_zone_id) ||
+        zone_id == depends_on_zone_id ||
+        db->dependency_count >= XZ_ZONE_DB_MAX_DEPENDENCIES)
+        return 0;
+
+    for (i = 0u; i < db->dependency_count; ++i) {
+        if (db->dependencies[i].zone_id == zone_id &&
+            db->dependencies[i].depends_on_zone_id == depends_on_zone_id)
+            return 0;
+    }
+
+    db->dependencies[db->dependency_count].zone_id = zone_id;
+    db->dependencies[db->dependency_count].depends_on_zone_id =
+        depends_on_zone_id;
+    db->dependency_count++;
     XzZoneDb_RecomputeReady(db);
     return 1;
 }
@@ -254,6 +294,21 @@ int XzZoneDb_UnloadZone(
         }
     }
 
+    /*
+     * Fail closed if any active zone still depends on the zone being removed.
+     * A higher-level transition must unload dependents first, matching the
+     * dependency-first discipline exposed by T7 XAssetList::depends.
+     */
+    for (i = 0u; i < db->dependency_count; ++i) {
+        if (db->dependencies[i].depends_on_zone_id == zone_id &&
+            XzZoneDb_ValidZoneId(
+                db,
+                db->dependencies[i].zone_id)) {
+            db->zones[db->dependencies[i].zone_id - 1u].state =
+                XZ_ZONE_FAILED;
+        }
+    }
+
     memset(
         db->zones[zone_id - 1u].bytes,
         0,
@@ -288,6 +343,9 @@ int XzZoneDb_SelfTest(void)
 
     if (!XzZoneDb_BeginZone(
             &db, "zm_test", 2u, 1, &zone_b))
+        return 0;
+
+    if (!XzZoneDb_AddDependency(&db, zone_b, zone_a))
         return 0;
 
     if (!XzZoneDb_AddAsset(
