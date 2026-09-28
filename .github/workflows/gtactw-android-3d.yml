@@ -103,7 +103,12 @@ jobs:
             tools/gtactw/profile_mark_target.py \
             tools/gtactw/test_profile_mark_target.py \
             tools/gtactw/profile_mark_abi.py \
-            tools/gtactw/test_profile_mark_abi.py
+            tools/gtactw/test_profile_mark_abi.py \
+            tools/gtactw/capture_import.py \
+            tools/gtactw/test_capture_import.py
+
+      - name: Run CTW Capture ingest gate
+        run: python -m unittest -v tools/gtactw/test_capture_import.py
 
       - name: Run CTW six-hook dossier gate
         run: python -m unittest -v tools/gtactw/test_hook_dossier.py
