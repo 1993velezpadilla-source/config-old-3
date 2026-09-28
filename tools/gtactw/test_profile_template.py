@@ -36,6 +36,18 @@ class ProfileTemplateTests(unittest.TestCase):
                         "size": 16,
                     },
                 },
+                "known_4243_engine_symbols": {
+                    "_Z17OS_ScreenGetWidthv": {
+                        "present": True,
+                        "value": 0x3500,
+                        "size": 12,
+                    },
+                    "_Z18OS_ScreenGetHeightv": {
+                        "present": False,
+                        "value": None,
+                        "size": None,
+                    },
+                },
                 "candidate_groups": {
                     "camera": [
                         {
@@ -68,6 +80,18 @@ class ProfileTemplateTests(unittest.TestCase):
         self.assertEqual(
             profile["status"],
             "template_needs_verified_internal_rvas",
+        )
+        self.assertEqual(
+            profile["public_4243_engine_anchors"]["present_count"],
+            1,
+        )
+        self.assertEqual(
+            profile["public_4243_engine_anchors"]["total_count"],
+            2,
+        )
+        self.assertEqual(
+            profile["public_4243_engine_anchors"]["present"][0]["rva"],
+            0x3500,
         )
         self.assertEqual(
             set(profile["abi_verification"]),
