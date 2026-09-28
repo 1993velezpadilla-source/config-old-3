@@ -7,9 +7,9 @@
 extern "C" {
 #endif
 
-#define XZ_ZONE_DB_MAX_ZONES 64u
-#define XZ_ZONE_DB_MAX_ASSETS 8192u
-#define XZ_ZONE_DB_MAX_DEPENDENCIES 256u
+#define XZ_ZONE_DB_INITIAL_ZONES 16u
+#define XZ_ZONE_DB_INITIAL_ASSETS 4096u
+#define XZ_ZONE_DB_INITIAL_DEPENDENCIES 64u
 #define XZ_ZONE_DB_NAME_MAX 96u
 
 /* Verified directly in public T7 ZoneTool: dynamically loaded tool/custom zones use this alloc flag. */
@@ -52,7 +52,7 @@ typedef struct XzAssetRecord {
     uint32_t type;
     uint32_t name_hash;
     uint16_t zone_id;
-    uint16_t override_of;
+    uint32_t override_of;
     uint8_t in_use;
     uint8_t resident;
 } XzAssetRecord;
@@ -63,12 +63,15 @@ typedef struct XzZoneDependency {
 } XzZoneDependency;
 
 typedef struct XzZoneDb {
-    XzZoneRecord zones[XZ_ZONE_DB_MAX_ZONES];
-    XzAssetRecord assets[XZ_ZONE_DB_MAX_ASSETS];
-    XzZoneDependency dependencies[XZ_ZONE_DB_MAX_DEPENDENCIES];
+    XzZoneRecord *zones;
+    XzAssetRecord *assets;
+    XzZoneDependency *dependencies;
     uint32_t zone_count;
+    uint32_t zone_capacity;
     uint32_t asset_count;
+    uint32_t asset_capacity;
     uint32_t dependency_count;
+    uint32_t dependency_capacity;
     uint32_t complete_zones;
     uint32_t failed_zones;
     int database_ready;
@@ -76,6 +79,8 @@ typedef struct XzZoneDb {
 } XzZoneDb;
 
 void XzZoneDb_Init(XzZoneDb *db);
+
+void XzZoneDb_Destroy(XzZoneDb *db);
 
 void XzZoneDb_SetDatabaseReady(
     XzZoneDb *db,
@@ -113,7 +118,7 @@ int XzZoneDb_AddAsset(
     uint16_t zone_id,
     uint32_t type,
     uint32_t name_hash,
-    uint16_t override_of,
+    uint32_t override_of,
     uint32_t *out_asset_index);
 
 int XzZoneDb_FindAsset(
