@@ -35,8 +35,8 @@ RULES = [
         r"Material", r"Texture", r"FontFace", r"^Font$",
     ]),
     ("world_geometry", ["world"], [
-        r"StaticMesh", r"Model", r"Brush", r"Landscape",
-        r"^World$", r"WorldSettings", r"^Level$",
+        r"StaticMesh", r"Model", r"Brush", r"Landscape", r"Foliage",
+        r"BillboardComponent", r"^World$", r"WorldSettings", r"^Level$",
         r"SceneComponent", r"Pavlov_Map",
     ]),
     ("hud_ui", ["hud_ui"], [
@@ -58,7 +58,7 @@ RULES = [
     ("script_gameplay", ["script_module_db", "game_systems"], [
         r"_C$", r"Blueprint", r"^Function$", r"Script", r"Struct$",
         r"Enum$", r"Timeline", r"Delegate", r"SCS_Node",
-        r"InheritableComponentHandler", r"^Actor$", r"^Component$",
+        r"InheritableComponentHandler", r"Actor$", r"Component$",
         r"Pavlov_InteractBox", r"Object$",
     ]),
     ("data_curves", ["precache", "script_module_db"], [
