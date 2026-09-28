@@ -25,6 +25,8 @@ typedef struct {
     int camera_invert_y;
     float camera_min_pitch_degrees;
     float camera_max_pitch_degrees;
+    int camera_collision_enabled;
+    float camera_collision_margin;
     float fov_degrees;
     float near_clip;
     int disable_cinematic_camera;
