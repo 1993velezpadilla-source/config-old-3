@@ -1,6 +1,7 @@
 #include "ctw_character.h"
 
 #include <assert.h>
+#include <stdlib.h>
 
 int main(void) {
     Ctw3DConfig cfg = {0};
