@@ -36,6 +36,14 @@ void ctw_camera_set_look(float x, float y) {
     atomic_store_explicit(&g_look_y_bits, float_bits(clamp_axis(y)), memory_order_relaxed);
 }
 
+void ctw_camera_set_mode(CtwCameraMode mode) {
+    if (mode < CTW_CAMERA_STOCK || mode > CTW_CAMERA_FIRST_PERSON)
+        mode = CTW_CAMERA_STOCK;
+
+    atomic_store_explicit(&g_mode, (int)mode, memory_order_relaxed);
+    g_ctw3d_config.mode = mode;
+}
+
 void ctw_camera_cycle_mode(void) {
     int current = atomic_load_explicit(&g_mode, memory_order_relaxed);
     int next = current + 1;
