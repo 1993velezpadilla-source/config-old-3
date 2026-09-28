@@ -1,5 +1,6 @@
 #include "ctw_patch.h"
 #include "ctw_camera.h"
+#include "ctw_config.h"
 
 #if defined(__ANDROID__)
 #include <android/log.h>
@@ -92,6 +93,18 @@ EXPORT void JNI_NAME(implOnActivityDestroyed)(void *env, void *cls) {
 }
 
 EXPORT void JNI_NAME(implOnInitialSetup)(void *env, void *cls, void *device_info, void *asset_mgr, void *paths, void *args) {
+    const int config_rc = ctw_config_load_android_asset(
+        &g_ctw3d_config,
+        env,
+        asset_mgr
+    );
+    if (config_rc > 0) {
+        ctw_camera_set_mode(g_ctw3d_config.mode);
+        LOGI("loaded CTW Mod Hub asset config values=%d", config_rc);
+    } else if (config_rc < 0) {
+        LOGE("failed to load CTW Mod Hub asset config rc=%d", config_rc);
+    }
+
     typedef void (*Fn)(void *, void *, void *, void *, void *, void *);
     Fn fn = RESOLVE(implOnInitialSetup, Fn);
     if (fn) fn(env, cls, device_info, asset_mgr, paths, args);
