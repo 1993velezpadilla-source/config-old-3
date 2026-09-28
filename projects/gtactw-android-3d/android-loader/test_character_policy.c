@@ -147,6 +147,17 @@ int main(void) {
         ) == 0
     );
 
+    assert(
+        ctw_character_quantize_forward_adjustment(
+            (int16_t)0x3000
+        ) == (int16_t)0x2000
+    );
+    assert(
+        (uint16_t)ctw_character_quantize_forward_adjustment(
+            (int16_t)0xF123
+        ) == 0xE000u
+    );
+
     {
         int16_t forward[3] = { 0, 4096, 77 };
         ctw_character_precompensate_forward(
