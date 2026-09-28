@@ -46,6 +46,23 @@ class AAAPolicyTests(unittest.TestCase):
             result.reasons,
         )
 
+
+    def test_native_hunyuan_below_nominal_density_can_reach_judge(self):
+        result = assess_aaa_candidate(
+            generator="tencent/Hunyuan3D-2.1",
+            hero_master={
+                "dense_master_ready": True,
+                "provider_capped": False,
+                "refinement_required": False,
+                "native_model_generated_geometry": True,
+                "actual_faces": 888742,
+            },
+            texture_quality="ultra",
+        )
+        self.assertTrue(result.eligible)
+        self.assertFalse(result.diagnostic_only)
+        self.assertEqual(result.reasons, ())
+
     def test_native_dense_triposg_can_reach_judge(self):
         result = assess_aaa_candidate(
             generator="VAST-AI/TripoSG",
