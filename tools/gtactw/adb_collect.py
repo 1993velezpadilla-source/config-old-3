@@ -17,6 +17,7 @@ import shutil
 import subprocess
 import sys
 
+import abi_probe
 import analyze_apkset
 
 
@@ -214,6 +215,21 @@ def main() -> int:
     ap.add_argument("--reference", type=Path)
     ap.add_argument("--analysis-out", type=Path)
     ap.add_argument("--profile-out", type=Path)
+    ap.add_argument(
+        "--runtime-out",
+        type=Path,
+        default=Path("./local_ctw/runtime"),
+        help="Persist selected game.pak/libGame.so runtime files",
+    )
+    ap.add_argument("--abi-out", type=Path)
+    ap.add_argument(
+        "--abi-profile-out",
+        type=Path,
+        help="Write profile with pending ABI candidate evidence attached",
+    )
+    ap.add_argument("--objdump", type=Path)
+    ap.add_argument("--abi-top", type=int, default=3)
+    ap.add_argument("--abi-window", type=int, default=256)
     ap.add_argument("--aapt", type=Path)
     ap.add_argument("--apksigner", type=Path)
     args = ap.parse_args()
@@ -232,14 +248,19 @@ def main() -> int:
             "ok": True,
             "collection": manifest,
             "analysis": None,
+            "abi_evidence": None,
         }
 
-        if args.analyze:
+        need_abi = args.abi_out is not None or args.abi_profile_out is not None
+        do_analyze = args.analyze or need_abi
+
+        if do_analyze:
             analysis = analyze_apkset.analyze_apkset(
                 args.out_dir,
                 args.reference,
                 args.aapt,
                 args.apksigner,
+                args.runtime_out,
             )
             result["analysis"] = analysis
             result["ok"] = bool(analysis.get("ok"))
@@ -251,15 +272,69 @@ def main() -> int:
                     encoding="utf-8",
                 )
 
-            if args.profile_out and analysis.get("profile_template") is not None:
-                args.profile_out.parent.mkdir(parents=True, exist_ok=True)
-                args.profile_out.write_text(
+            profile_path = args.profile_out
+            if need_abi and profile_path is None:
+                profile_path = args.runtime_out.parent / "ctw_profile.json"
+
+            if profile_path and analysis.get("profile_template") is not None:
+                profile_path.parent.mkdir(parents=True, exist_ok=True)
+                profile_path.write_text(
                     json.dumps(
                         analysis["profile_template"],
                         indent=2,
                     ) + "\n",
                     encoding="utf-8",
                 )
+
+            if need_abi:
+                if not analysis.get("ok"):
+                    raise RuntimeError(
+                        "ABI probe requires a successful CTW build analysis"
+                    )
+                if profile_path is None or not profile_path.is_file():
+                    raise RuntimeError(
+                        "ABI probe requires a generated CTW profile"
+                    )
+
+                libgame = (
+                    args.runtime_out /
+                    "lib/arm64-v8a/libGame.so"
+                )
+                if not libgame.is_file():
+                    raise RuntimeError(
+                        "persistent runtime is missing arm64 libGame.so"
+                    )
+
+                abi = abi_probe.probe_profile(
+                    libgame,
+                    profile_path,
+                    objdump_path=args.objdump,
+                    top=args.abi_top,
+                    window=args.abi_window,
+                )
+                result["abi_evidence"] = abi
+                result["ok"] = result["ok"] and bool(abi.get("ok"))
+
+                if args.abi_out:
+                    args.abi_out.parent.mkdir(parents=True, exist_ok=True)
+                    args.abi_out.write_text(
+                        json.dumps(abi, indent=2) + "\n",
+                        encoding="utf-8",
+                    )
+
+                if args.abi_profile_out:
+                    enriched = abi_probe.attach_abi_evidence(
+                        analysis["profile_template"],
+                        abi,
+                    )
+                    args.abi_profile_out.parent.mkdir(
+                        parents=True,
+                        exist_ok=True,
+                    )
+                    args.abi_profile_out.write_text(
+                        json.dumps(enriched, indent=2) + "\n",
+                        encoding="utf-8",
+                    )
 
         if args.manifest:
             args.manifest.parent.mkdir(parents=True, exist_ok=True)
