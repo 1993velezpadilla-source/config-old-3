@@ -55,6 +55,13 @@ def decode_add_imm64(insn: int):
     return rd, rn, imm
 
 
+def decode_bl(insn: int, pc: int):
+    if (insn & 0xFC000000) != 0x94000000:
+        return None
+    imm26 = sign_extend(insn & 0x03FFFFFF, 26)
+    return pc + (imm26 << 2)
+
+
 def _read_sections(blob: bytes):
     if len(blob) < elf_probe.ELF64_EHDR.size:
         raise ValueError("file too small")
@@ -243,6 +250,48 @@ def scan_libgame(path: Path) -> dict:
         for cat in x["categories"]:
             grouped[cat].append(x)
 
+    candidate_rvas = {
+        int(x["function_rva"])
+        for x in xrefs
+        if x.get("function_rva") is not None
+    }
+    call_neighborhoods = {
+        rva: {"incoming": [], "outgoing": []}
+        for rva in candidate_rvas
+    }
+    exact_funcs = {int(s["value"]): s for s in funcs}
+
+    for word_index in range(word_count):
+        pc = text["addr"] + word_index * 4
+        insn = struct.unpack_from("<I", text_blob, word_index * 4)[0]
+        target = decode_bl(insn, pc)
+        if target is None:
+            continue
+
+        caller = _owner_function(pc, funcs)
+        callee = exact_funcs.get(int(target)) or _owner_function(int(target), funcs)
+        caller_rva = int(caller["value"]) if caller else None
+        callee_rva = int(callee["value"]) if callee else None
+
+        edge = {
+            "call_site_rva": pc,
+            "caller": caller["name"] if caller else None,
+            "caller_rva": caller_rva,
+            "target_rva": int(target),
+            "callee": callee["name"] if callee else None,
+            "callee_rva": callee_rva,
+        }
+
+        if caller_rva in call_neighborhoods:
+            call_neighborhoods[caller_rva]["outgoing"].append(edge)
+        if callee_rva in call_neighborhoods:
+            call_neighborhoods[callee_rva]["incoming"].append(edge)
+
+    call_neighborhoods_json = {
+        f"0x{rva:X}": value
+        for rva, value in sorted(call_neighborhoods.items())
+    }
+
     return {
         "path": str(path),
         "text": {
@@ -253,6 +302,7 @@ def scan_libgame(path: Path) -> dict:
         "xref_count": len(xrefs),
         "groups": grouped,
         "xrefs": xrefs,
+        "candidate_call_neighborhoods": call_neighborhoods_json,
     }
 
 
