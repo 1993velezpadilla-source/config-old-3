@@ -69,7 +69,12 @@ jobs:
             tools/gtactw/world_census.py \
             tools/gtactw/test_world_census.py \
             tools/gtactw/adb_collect.py \
-            tools/gtactw/test_adb_collect.py
+            tools/gtactw/test_adb_collect.py \
+            tools/gtactw/abi_probe.py \
+            tools/gtactw/test_abi_probe.py
+
+      - name: Run CTW ARM64 ABI evidence gate
+        run: python -m unittest -v tools/gtactw/test_abi_probe.py
 
       - name: Run CTW ADB collector gate
         run: python -m unittest -v tools/gtactw/test_adb_collect.py
@@ -249,6 +254,7 @@ jobs:
 
       - name: Gate marker
         run: |
+          echo "GTACTW_ABI_EVIDENCE_GREEN=1"
           echo "GTACTW_ADB_COLLECTOR_GREEN=1"
           echo "GTACTW_ANDROID_PAK_PROBE_GREEN=1"
           echo "GTACTW_ANDROID_SPLIT_APK_GREEN=1"
