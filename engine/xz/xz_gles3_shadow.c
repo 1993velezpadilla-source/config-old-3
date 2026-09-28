@@ -3245,6 +3245,168 @@ static int XzUploadStaticReflection(
 
 
 
+static unsigned char XzBcExpand5(uint32_t value)
+{
+    return (unsigned char)((value << 3u) | (value >> 2u));
+}
+
+static unsigned char XzBcExpand6(uint32_t value)
+{
+    return (unsigned char)((value << 2u) | (value >> 4u));
+}
+
+static int XzDecodeBc3Rgba8(
+    const unsigned char *source,
+    size_t source_bytes,
+    uint32_t width,
+    uint32_t height,
+    unsigned char *rgba,
+    size_t rgba_bytes)
+{
+    const uint32_t blocks_x =
+        (width + 3u) / 4u;
+    const uint32_t blocks_y =
+        (height + 3u) / 4u;
+    const uint64_t expected_source =
+        (uint64_t)blocks_x *
+        (uint64_t)blocks_y *
+        16u;
+    const uint64_t expected_rgba =
+        (uint64_t)width *
+        (uint64_t)height *
+        4u;
+    uint32_t by;
+
+    if (!source ||
+        !rgba ||
+        width == 0u ||
+        height == 0u ||
+        expected_source > source_bytes ||
+        expected_rgba > rgba_bytes)
+        return 0;
+
+    for (by = 0u; by < blocks_y; ++by) {
+        uint32_t bx;
+
+        for (bx = 0u; bx < blocks_x; ++bx) {
+            const unsigned char *block =
+                source +
+                ((size_t)by * blocks_x + bx) * 16u;
+            unsigned char alpha[8];
+            unsigned char color[4][3];
+            uint64_t alpha_bits = 0u;
+            uint32_t color_bits;
+            uint16_t c0;
+            uint16_t c1;
+            uint32_t i;
+
+            alpha[0] = block[0];
+            alpha[1] = block[1];
+
+            if (alpha[0] > alpha[1]) {
+                alpha[2] = (unsigned char)(
+                    (6u * alpha[0] + 1u * alpha[1]) / 7u);
+                alpha[3] = (unsigned char)(
+                    (5u * alpha[0] + 2u * alpha[1]) / 7u);
+                alpha[4] = (unsigned char)(
+                    (4u * alpha[0] + 3u * alpha[1]) / 7u);
+                alpha[5] = (unsigned char)(
+                    (3u * alpha[0] + 4u * alpha[1]) / 7u);
+                alpha[6] = (unsigned char)(
+                    (2u * alpha[0] + 5u * alpha[1]) / 7u);
+                alpha[7] = (unsigned char)(
+                    (1u * alpha[0] + 6u * alpha[1]) / 7u);
+            } else {
+                alpha[2] = (unsigned char)(
+                    (4u * alpha[0] + 1u * alpha[1]) / 5u);
+                alpha[3] = (unsigned char)(
+                    (3u * alpha[0] + 2u * alpha[1]) / 5u);
+                alpha[4] = (unsigned char)(
+                    (2u * alpha[0] + 3u * alpha[1]) / 5u);
+                alpha[5] = (unsigned char)(
+                    (1u * alpha[0] + 4u * alpha[1]) / 5u);
+                alpha[6] = 0u;
+                alpha[7] = 255u;
+            }
+
+            for (i = 0u; i < 6u; ++i)
+                alpha_bits |=
+                    (uint64_t)block[2u + i] <<
+                    (8u * i);
+
+            c0 =
+                (uint16_t)(
+                    (uint16_t)block[8] |
+                    ((uint16_t)block[9] << 8u));
+            c1 =
+                (uint16_t)(
+                    (uint16_t)block[10] |
+                    ((uint16_t)block[11] << 8u));
+
+            color[0][0] =
+                XzBcExpand5((c0 >> 11u) & 31u);
+            color[0][1] =
+                XzBcExpand6((c0 >> 5u) & 63u);
+            color[0][2] =
+                XzBcExpand5(c0 & 31u);
+            color[1][0] =
+                XzBcExpand5((c1 >> 11u) & 31u);
+            color[1][1] =
+                XzBcExpand6((c1 >> 5u) & 63u);
+            color[1][2] =
+                XzBcExpand5(c1 & 31u);
+
+            for (i = 0u; i < 3u; ++i) {
+                color[2][i] = (unsigned char)(
+                    (2u * color[0][i] +
+                     color[1][i]) / 3u);
+                color[3][i] = (unsigned char)(
+                    (color[0][i] +
+                     2u * color[1][i]) / 3u);
+            }
+
+            color_bits =
+                ((uint32_t)block[12]) |
+                ((uint32_t)block[13] << 8u) |
+                ((uint32_t)block[14] << 16u) |
+                ((uint32_t)block[15] << 24u);
+
+            for (i = 0u; i < 16u; ++i) {
+                const uint32_t local_x =
+                    i & 3u;
+                const uint32_t local_y =
+                    i >> 2u;
+                const uint32_t x =
+                    bx * 4u + local_x;
+                const uint32_t y =
+                    by * 4u + local_y;
+                const uint32_t color_index =
+                    (color_bits >> (2u * i)) & 3u;
+                const uint32_t alpha_index =
+                    (uint32_t)(
+                        (alpha_bits >> (3u * i)) &
+                        7u);
+
+                if (x < width && y < height) {
+                    unsigned char *pixel =
+                        rgba +
+                        ((size_t)y * width + x) * 4u;
+                    pixel[0] =
+                        color[color_index][0];
+                    pixel[1] =
+                        color[color_index][1];
+                    pixel[2] =
+                        color[color_index][2];
+                    pixel[3] =
+                        alpha[alpha_index];
+                }
+            }
+        }
+    }
+
+    return 1;
+}
+
 static int XzUploadStaticHQLightmaps(
     const XzStaticSceneRuntimeState *scene,
     XzGles3ShadowState *state)
@@ -3252,8 +3414,10 @@ static int XzUploadStaticHQLightmaps(
     const XzLightmapTextureView *lightmaps =
         XzStaticSceneRuntime_Lightmaps(scene);
     unsigned char *used = NULL;
-    unsigned char *scratch = NULL;
-    size_t scratch_bytes = 0u;
+    unsigned char *compressed = NULL;
+    unsigned char *rgba = NULL;
+    size_t compressed_bytes = 0u;
+    size_t rgba_bytes = 0u;
     uint32_t texture_index;
     uint32_t batch_index;
     uint32_t uploaded = 0u;
@@ -3307,7 +3471,9 @@ static int XzUploadStaticHQLightmaps(
          ++texture_index) {
         XzLightmapTextureRecord texture;
         XzGles3StaticTexture *dest;
+        uint32_t start_mip = 0u;
         uint32_t relative_mip;
+        uint32_t gpu_level = 0u;
 
         if (!used[texture_index])
             continue;
@@ -3321,6 +3487,12 @@ static int XzUploadStaticHQLightmaps(
             texture.height == 0u ||
             texture.mip_count == 0u)
             goto fail;
+
+        while (start_mip + 1u <
+                   texture.mip_count &&
+               ((texture.width >> start_mip) > 512u ||
+                (texture.height >> start_mip) > 512u))
+            start_mip++;
 
         dest =
             &xz_shadow.static_lightmap_textures[
@@ -3353,11 +3525,32 @@ static int XzUploadStaticHQLightmaps(
             GL_TEXTURE_WRAP_T,
             GL_CLAMP_TO_EDGE);
 
-        for (relative_mip = 0u;
+        dest->gpu_bytes = 0u;
+
+        for (relative_mip = start_mip;
              relative_mip < texture.mip_count;
-             ++relative_mip) {
+             ++relative_mip, ++gpu_level) {
             XzLightmapMipRecord mip;
             XzLightmapTextureStatus read_status;
+            const uint64_t decoded_bytes =
+                (uint64_t)(
+                    (texture.width >> relative_mip)
+                        ? (texture.width >> relative_mip)
+                        : 1u) *
+                (uint64_t)(
+                    (texture.height >> relative_mip)
+                        ? (texture.height >> relative_mip)
+                        : 1u) *
+                4u;
+            uint32_t expected_width =
+                texture.width >> relative_mip;
+            uint32_t expected_height =
+                texture.height >> relative_mip;
+
+            if (expected_width == 0u)
+                expected_width = 1u;
+            if (expected_height == 0u)
+                expected_height = 1u;
 
             if (!XzLightmapTexture_Mip(
                     lightmaps,
@@ -3365,21 +3558,35 @@ static int XzUploadStaticHQLightmaps(
                         relative_mip,
                     &mip) ||
                 mip.bytes == 0u ||
-                mip.width == 0u ||
-                mip.height == 0u)
+                mip.width != expected_width ||
+                mip.height != expected_height ||
+                decoded_bytes > SIZE_MAX)
                 goto fail;
 
             if ((size_t)mip.bytes >
-                scratch_bytes) {
+                compressed_bytes) {
                 unsigned char *grown =
                     (unsigned char *)realloc(
-                        scratch,
+                        compressed,
                         (size_t)mip.bytes);
                 if (!grown)
                     goto fail;
-                scratch = grown;
-                scratch_bytes =
+                compressed = grown;
+                compressed_bytes =
                     (size_t)mip.bytes;
+            }
+
+            if ((size_t)decoded_bytes >
+                rgba_bytes) {
+                unsigned char *grown =
+                    (unsigned char *)realloc(
+                        rgba,
+                        (size_t)decoded_bytes);
+                if (!grown)
+                    goto fail;
+                rgba = grown;
+                rgba_bytes =
+                    (size_t)decoded_bytes;
             }
 
             read_status =
@@ -3387,46 +3594,45 @@ static int XzUploadStaticHQLightmaps(
                     (XzLightmapTextureView *)lightmaps,
                     texture_index,
                     relative_mip,
-                    scratch,
-                    scratch_bytes,
+                    compressed,
+                    compressed_bytes,
                     NULL);
-            if (read_status != XZ_XZLT_OK)
+            if (read_status != XZ_XZLT_OK ||
+                !XzDecodeBc3Rgba8(
+                    compressed,
+                    (size_t)mip.bytes,
+                    mip.width,
+                    mip.height,
+                    rgba,
+                    (size_t)decoded_bytes))
                 goto fail;
 
-            xz_shadow.gl.CompressedTexImage2D(
+            xz_shadow.gl.TexImage2D(
                 GL_TEXTURE_2D,
-                (GLint)relative_mip,
-                GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
+                (GLint)gpu_level,
+                GL_RGBA8,
                 (GLsizei)mip.width,
                 (GLsizei)mip.height,
                 0,
-                (GLsizei)mip.bytes,
-                scratch);
+                GL_RGBA,
+                GL_UNSIGNED_BYTE,
+                rgba);
 
             if (xz_shadow.gl.GetError() !=
                 GL_NO_ERROR)
                 goto fail;
 
+            dest->gpu_bytes +=
+                decoded_bytes;
             uploaded_bytes +=
-                (uint64_t)mip.bytes;
+                decoded_bytes;
+
+            if (gpu_level == 0u) {
+                dest->width = mip.width;
+                dest->height = mip.height;
+            }
         }
 
-        dest->width = texture.width;
-        dest->height = texture.height;
-        dest->gpu_bytes = 0u;
-        for (relative_mip = 0u;
-             relative_mip < texture.mip_count;
-             ++relative_mip) {
-            XzLightmapMipRecord mip;
-            if (!XzLightmapTexture_Mip(
-                    lightmaps,
-                    texture.first_mip +
-                        relative_mip,
-                    &mip))
-                goto fail;
-            dest->gpu_bytes +=
-                (uint64_t)mip.bytes;
-        }
         dest->alive = 1;
         uploaded++;
     }
@@ -3436,7 +3642,8 @@ static int XzUploadStaticHQLightmaps(
         0u);
     xz_shadow.gl.ActiveTexture(GL_TEXTURE0);
 
-    free(scratch);
+    free(compressed);
+    free(rgba);
     free(used);
 
     state->static_scene_gpu_lightmap_textures =
@@ -3445,14 +3652,15 @@ static int XzUploadStaticHQLightmaps(
         uploaded_bytes;
     state->static_scene_lightmap_shader_ready =
         uploaded == 87u &&
-        uploaded_bytes == 123406608u;
+        uploaded_bytes == 120323980u;
 
     return
         state->static_scene_lightmap_shader_ready &&
         xz_shadow.gl.GetError() == GL_NO_ERROR;
 
 fail:
-    free(scratch);
+    free(compressed);
+    free(rgba);
     free(used);
     xz_shadow.gl.ActiveTexture(GL_TEXTURE0);
     return 0;
