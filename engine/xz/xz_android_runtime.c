@@ -24,6 +24,8 @@
 #include "xz_package_boot.h"
 #include "xz_zone_db.h"
 #include "xz_runtime_readiness.h"
+#include "xz_game_system_registry.h"
+#include "xz_critical_streaming.h"
 #include "xz_asset_loader_registry.h"
 #include "xz_asset_cache.h"
 #include "xz_bulk_store.h"
@@ -67,6 +69,8 @@ typedef struct {
     XzPackageBootState package_boot;
     XzZoneDb zone_db;
     XzRuntimeReadiness runtime_readiness;
+    XzGameSystemRegistry game_systems;
+    XzCriticalStreamingState critical_streaming;
     XzAssetPoolState asset_pools;
     XzBulkStore bulk_store;
     XzAssetLoaderRegistry asset_loaders;
@@ -1103,6 +1107,8 @@ void XzAndroidRuntime_Init(size_t engine_heap_bytes)
     XzPackageBoot_Init(&xz_runtime.package_boot);
     XzZoneDb_Init(&xz_runtime.zone_db);
     XzRuntimeReadiness_Init(&xz_runtime.runtime_readiness);
+    XzGameSystemRegistry_Init(&xz_runtime.game_systems);
+    XzCriticalStreaming_Init(&xz_runtime.critical_streaming);
     XzAssetPool_Init(&xz_runtime.asset_pools);
     XzBulkStore_Init(&xz_runtime.bulk_store);
     XzAssetLoaderRegistry_Init(&xz_runtime.asset_loaders);
@@ -1501,6 +1507,300 @@ void XzAndroidRuntime_NotifyWorldTransition(void)
     XzAndroidRuntime_NotifyWorldTransitionNamed(NULL);
 }
 
+static void XzAndroidRuntime_RefreshDynamicReadiness(void)
+{
+    int systems_ready;
+    int systems_failed;
+    int streaming_ready;
+    int streaming_failed;
+
+    systems_ready =
+        XzGameSystemRegistry_IsReady(
+            &xz_runtime.game_systems);
+    systems_failed =
+        xz_runtime.game_systems.finalized &&
+        !systems_ready;
+
+    streaming_ready =
+        XzCriticalStreaming_IsReady(
+            &xz_runtime.critical_streaming);
+    streaming_failed =
+        xz_runtime.critical_streaming.failed_count > 0u;
+
+    XzRuntimeReadiness_SetGate(
+        &xz_runtime.runtime_readiness,
+        XZ_GATE_GAME_SYSTEMS,
+        systems_ready,
+        systems_failed);
+
+    XzRuntimeReadiness_SetGate(
+        &xz_runtime.runtime_readiness,
+        XZ_GATE_CRITICAL_STREAMING,
+        streaming_ready,
+        streaming_failed);
+}
+
+static int XzAndroidRuntime_FindGameSystem(
+    const char *name,
+    uint32_t *out_index)
+{
+    if (!xz_runtime.initialized)
+        return 0;
+
+    return XzGameSystemRegistry_Find(
+        &xz_runtime.game_systems,
+        name,
+        out_index);
+}
+
+int XzAndroidRuntime_RegisterGameSystem(const char *name)
+{
+    int ok;
+
+    if (!xz_runtime.initialized)
+        return 0;
+
+    ok =
+        XzGameSystemRegistry_Register(
+            &xz_runtime.game_systems,
+            name,
+            NULL);
+
+    XzAndroidRuntime_RefreshDynamicReadiness();
+    return ok;
+}
+
+int XzAndroidRuntime_AddGameSystemDependency(
+    const char *system_name,
+    const char *required_name)
+{
+    uint32_t system_index = 0u;
+    uint32_t required_index = 0u;
+    int ok;
+
+    if (!XzAndroidRuntime_FindGameSystem(
+            system_name,
+            &system_index) ||
+        !XzAndroidRuntime_FindGameSystem(
+            required_name,
+            &required_index))
+        return 0;
+
+    ok =
+        XzGameSystemRegistry_AddDependency(
+            &xz_runtime.game_systems,
+            system_index,
+            required_index);
+
+    XzAndroidRuntime_RefreshDynamicReadiness();
+    return ok;
+}
+
+int XzAndroidRuntime_SetGameSystemIgnored(
+    const char *name,
+    int ignored)
+{
+    uint32_t index = 0u;
+    int ok;
+
+    if (!XzAndroidRuntime_FindGameSystem(name, &index))
+        return 0;
+
+    ok =
+        XzGameSystemRegistry_SetIgnored(
+            &xz_runtime.game_systems,
+            index,
+            ignored);
+
+    XzAndroidRuntime_RefreshDynamicReadiness();
+    return ok;
+}
+
+int XzAndroidRuntime_MarkGameSystemPreDone(
+    const char *name)
+{
+    uint32_t index = 0u;
+    int ok;
+
+    if (!XzAndroidRuntime_FindGameSystem(name, &index))
+        return 0;
+
+    ok =
+        XzGameSystemRegistry_MarkPreDone(
+            &xz_runtime.game_systems,
+            index);
+
+    XzAndroidRuntime_RefreshDynamicReadiness();
+    return ok;
+}
+
+int XzAndroidRuntime_MarkGameSystemPostDone(
+    const char *name)
+{
+    uint32_t index = 0u;
+    int ok;
+
+    if (!XzAndroidRuntime_FindGameSystem(name, &index))
+        return 0;
+
+    ok =
+        XzGameSystemRegistry_MarkPostDone(
+            &xz_runtime.game_systems,
+            index);
+
+    XzAndroidRuntime_RefreshDynamicReadiness();
+    return ok;
+}
+
+int XzAndroidRuntime_MarkGameSystemFailed(
+    const char *name)
+{
+    uint32_t index = 0u;
+    int ok;
+
+    if (!XzAndroidRuntime_FindGameSystem(name, &index))
+        return 0;
+
+    ok =
+        XzGameSystemRegistry_MarkFailed(
+            &xz_runtime.game_systems,
+            index);
+
+    XzAndroidRuntime_RefreshDynamicReadiness();
+    return ok;
+}
+
+int XzAndroidRuntime_FinalizeGameSystems(void)
+{
+    int ready;
+
+    if (!xz_runtime.initialized)
+        return 0;
+
+    ready =
+        XzGameSystemRegistry_Finalize(
+            &xz_runtime.game_systems);
+
+    XzAndroidRuntime_RefreshDynamicReadiness();
+
+    XzAndroidLog(
+        ready ? ANDROID_LOG_INFO : ANDROID_LOG_ERROR,
+        "game_systems ready=%d total=%u active=%u"
+        " preDone=%u postDone=%u ignored=%u failed=%u"
+        " unresolvedDeps=%u",
+        ready,
+        xz_runtime.game_systems.system_count,
+        xz_runtime.game_systems.active_count,
+        xz_runtime.game_systems.pre_done_count,
+        xz_runtime.game_systems.post_done_count,
+        xz_runtime.game_systems.ignored_count,
+        xz_runtime.game_systems.failed_count,
+        xz_runtime.game_systems.unresolved_dependency_count);
+
+    return ready;
+}
+
+int XzAndroidRuntime_GameSystemsReady(void)
+{
+    if (!xz_runtime.initialized)
+        return 0;
+
+    return XzGameSystemRegistry_IsReady(
+        &xz_runtime.game_systems);
+}
+
+int XzAndroidRuntime_RequireCriticalAsset(
+    uint64_t content_key,
+    uint32_t asset_type)
+{
+    int ok;
+
+    if (!xz_runtime.initialized)
+        return 0;
+
+    ok =
+        XzCriticalStreaming_Require(
+            &xz_runtime.critical_streaming,
+            content_key,
+            asset_type,
+            NULL);
+
+    XzAndroidRuntime_RefreshDynamicReadiness();
+    return ok;
+}
+
+int XzAndroidRuntime_SetCriticalAssetNativeReady(
+    uint64_t content_key,
+    uint32_t asset_type,
+    int ready)
+{
+    int ok;
+
+    if (!xz_runtime.initialized)
+        return 0;
+
+    ok =
+        XzCriticalStreaming_SetNativeReady(
+            &xz_runtime.critical_streaming,
+            content_key,
+            asset_type,
+            ready);
+
+    XzAndroidRuntime_RefreshDynamicReadiness();
+    return ok;
+}
+
+int XzAndroidRuntime_SetCriticalAssetResident(
+    uint64_t content_key,
+    uint32_t asset_type,
+    int resident)
+{
+    int ok;
+
+    if (!xz_runtime.initialized)
+        return 0;
+
+    ok =
+        XzCriticalStreaming_SetResident(
+            &xz_runtime.critical_streaming,
+            content_key,
+            asset_type,
+            resident);
+
+    XzAndroidRuntime_RefreshDynamicReadiness();
+    return ok;
+}
+
+int XzAndroidRuntime_SetCriticalAssetFailed(
+    uint64_t content_key,
+    uint32_t asset_type,
+    int failed)
+{
+    int ok;
+
+    if (!xz_runtime.initialized)
+        return 0;
+
+    ok =
+        XzCriticalStreaming_SetFailed(
+            &xz_runtime.critical_streaming,
+            content_key,
+            asset_type,
+            failed);
+
+    XzAndroidRuntime_RefreshDynamicReadiness();
+    return ok;
+}
+
+int XzAndroidRuntime_CriticalStreamingReady(void)
+{
+    if (!xz_runtime.initialized)
+        return 0;
+
+    return XzCriticalStreaming_IsReady(
+        &xz_runtime.critical_streaming);
+}
+
 void XzAndroidRuntime_NotifyWorldTransitionNamed(
     const char *world_model_name)
 {
@@ -1509,6 +1809,26 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
 
     xz_runtime.legacy_world_suppression_armed = 0;
     xz_runtime.legacy_world_transitions++;
+
+    /*
+     * Every world transition gets a fresh BO3-style system-init and critical
+     * streaming barrier. READY state from a previous map must never leak into
+     * a new map.
+     */
+    XzGameSystemRegistry_Destroy(&xz_runtime.game_systems);
+    XzGameSystemRegistry_Init(&xz_runtime.game_systems);
+    XzCriticalStreaming_Destroy(&xz_runtime.critical_streaming);
+    XzCriticalStreaming_Init(&xz_runtime.critical_streaming);
+    XzRuntimeReadiness_SetGate(
+        &xz_runtime.runtime_readiness,
+        XZ_GATE_GAME_SYSTEMS,
+        0,
+        0);
+    XzRuntimeReadiness_SetGate(
+        &xz_runtime.runtime_readiness,
+        XZ_GATE_CRITICAL_STREAMING,
+        0,
+        0);
 
     XzMapRuntime_SetWorldModel(
         &xz_runtime.map_runtime,
@@ -2261,6 +2581,10 @@ void XzAndroidRuntime_Shutdown(void)
     XzDestroyGraphResourceHandles();
     XzStaticSceneRuntime_Shutdown(
         &xz_runtime.static_scene);
+    XzCriticalStreaming_Destroy(
+        &xz_runtime.critical_streaming);
+    XzGameSystemRegistry_Destroy(
+        &xz_runtime.game_systems);
     XzAssetCache_Destroy(&xz_runtime.asset_cache);
     XzBulkStore_Destroy(&xz_runtime.bulk_store);
     XzZoneDb_Destroy(&xz_runtime.zone_db);
