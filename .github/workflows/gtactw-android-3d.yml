@@ -137,6 +137,7 @@ jobs:
             projects/gtactw-android-3d/android-loader/ctw_camera_pose.c \
             projects/gtactw-android-3d/android-loader/ctw_character.c \
             projects/gtactw-android-3d/android-loader/ctw_runtime_policy.c \
+            projects/gtactw-android-3d/android-loader/ctw_hooks.c \
             projects/gtactw-android-3d/android-loader/ctw_profile.c \
             projects/gtactw-android-3d/android-loader/ctw_config.c \
             -ldl -lpthread
@@ -222,6 +223,16 @@ jobs:
           echo "GTACTW_CHARACTER_POLICY_GREEN=1"
           echo "GTACTW_MODHUB_CONFIG_GREEN=1"
 
+      - name: Run CTW transactional hook rollback gate
+        run: |
+          cc -std=c11 -Wall -Wextra -Werror \
+            -Iprojects/gtactw-android-3d/android-loader \
+            -o /tmp/ctw_hook_transaction_test \
+            projects/gtactw-android-3d/android-loader/test_hook_transaction.c \
+            projects/gtactw-android-3d/android-loader/ctw_hooks.c
+          /tmp/ctw_hook_transaction_test
+          echo "GTACTW_HOOK_TRANSACTION_GREEN=1"
+
       - name: Run CTW patch-state gate
         run: |
           cc -std=c11 -Wall -Wextra -Werror \
@@ -245,6 +256,7 @@ jobs:
           /tmp/ctw_profile_test
           echo "GTACTW_PATCH_STATE_GREEN=1"
           echo "GTACTW_RUNTIME_PROFILE_MATCH_GREEN=1"
+          echo "GTACTW_HOOK_TRANSACTION_GREEN=1"
 
       - name: Run synthetic CTW end-to-end APK gate
         run: python -m unittest -v tools/gtactw/test_analyze_apk.py
