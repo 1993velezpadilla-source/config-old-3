@@ -602,6 +602,8 @@ void XzStaticSceneRuntime_Init(
         return;
 
     memset(state, 0, sizeof(*state));
+    XzLightmapTexture_Init(
+        &state->lightmaps);
     state->status = XZ_STATIC_SCENE_IDLE;
 }
 
@@ -636,7 +638,12 @@ void XzStaticSceneRuntime_Reset(
     if (state->reflection_data)
         free(state->reflection_data);
 
+    XzLightmapTexture_Close(
+        &state->lightmaps);
+
     memset(state, 0, sizeof(*state));
+    XzLightmapTexture_Init(
+        &state->lightmaps);
     state->status = XZ_STATIC_SCENE_IDLE;
 }
 
@@ -665,6 +672,8 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
     unsigned char *reflection_data = NULL;
     size_t reflection_bytes = 0u;
     XzReflectionCaptureView reflection;
+    XzLightmapTextureView lightmaps;
+    XzLightmapTextureStatus lightmap_status;
     XzXzsceneView scene;
     XzXzsceneStatus scene_status;
     XzStaticMeshResource *resources = NULL;
@@ -675,6 +684,7 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
     char environment_path[256];
     char height_fog_path[256];
     char reflection_path[256];
+    char lightmap_path[256];
     char mesh_prefix[160];
     char failure[128] = "";
     uint32_t material_texture_count = 0u;
@@ -691,6 +701,9 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
     uint64_t index_total = 0u;
     uint64_t submesh_total = 0u;
     int read_status;
+
+    XzLightmapTexture_Init(
+        &lightmaps);
 
     if (!state)
         return XZ_STATIC_SCENE_INVALID;
@@ -1354,6 +1367,58 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
         }
     }
 
+    if (snprintf(
+            lightmap_path,
+            sizeof(lightmap_path),
+            "xziel/maps/%s/lightmaps.xzlt",
+            map_id) <= 0 ||
+        strlen(lightmap_path) >=
+            sizeof(lightmap_path) - 1u) {
+        snprintf(
+            failure,
+            sizeof(failure),
+            "%s",
+            "lightmap_path_overflow");
+        goto invalid;
+    }
+
+    if (strcmp(
+            map_id,
+            "xziel_nacht_bo3") == 0) {
+        lightmap_status =
+            XzLightmapTexture_Open(
+                &lightmaps,
+                lightmap_path);
+
+        if (lightmap_status !=
+                XZ_XZLT_OK) {
+            snprintf(
+                failure,
+                sizeof(failure),
+                "lightmap_pack_%s",
+                XzLightmapTexture_StatusName(
+                    lightmap_status));
+            goto invalid;
+        }
+
+        if (lightmaps.texture_count != 188u ||
+            lightmaps.mip_count != 2066u ||
+            lightmaps.bc1_texture_count != 94u ||
+            lightmaps.bc3_texture_count != 94u ||
+            lightmaps.srgb_texture_count != 0u ||
+            lightmaps.linear_texture_count != 188u ||
+            lightmaps.payload_offset != 37600u ||
+            lightmaps.payload_bytes != 235450032u ||
+            lightmaps.file_bytes != 235487632u) {
+            snprintf(
+                failure,
+                sizeof(failure),
+                "%s",
+                "nacht_lightmap_pack_mismatch");
+            goto invalid;
+        }
+    }
+
     state->scene_data = scene_data;
     state->scene_bytes = scene_bytes;
     state->scene = scene;
@@ -1408,6 +1473,12 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
         reflection_bytes;
     if (reflection_data)
         state->reflection = reflection;
+
+    if (lightmaps.file_open) {
+        state->lightmaps = lightmaps;
+        XzLightmapTexture_Init(
+            &lightmaps);
+    }
     if (material_data) {
         snprintf(
             state->material_path,
@@ -1450,6 +1521,13 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
             "%s",
             reflection_path);
     }
+    if (state->lightmaps.file_open) {
+        snprintf(
+            state->lightmap_path,
+            sizeof(state->lightmap_path),
+            "%s",
+            lightmap_path);
+    }
     state->mesh_files_validated =
         scene.mesh_count;
     state->mesh_bytes_validated =
@@ -1477,6 +1555,8 @@ invalid:
     free(environment_data);
     free(height_fog_data);
     free(reflection_data);
+    XzLightmapTexture_Close(
+        &lightmaps);
 
     state->status =
         XZ_STATIC_SCENE_INVALID;
@@ -1733,6 +1813,19 @@ XzStaticSceneRuntime_ReflectionCapture(
         return NULL;
 
     return &state->reflection;
+}
+
+const XzLightmapTextureView *
+XzStaticSceneRuntime_Lightmaps(
+    const XzStaticSceneRuntimeState *state)
+{
+    if (!state ||
+        state->status !=
+            XZ_STATIC_SCENE_READY ||
+        !state->lightmaps.file_open)
+        return NULL;
+
+    return &state->lightmaps;
 }
 
 const char *XzStaticSceneRuntime_StatusName(
