@@ -264,91 +264,135 @@ def generate_textured_material_donor(
     seed: int = 1993,
     steps: int = 20,
     guidance_scale: float = 5.0,
-    octree_resolution: int = 256,
+    octree_resolution: int = 384,
     num_chunks: int = 8000,
 ) -> dict[str, Any]:
-    """Generate Hunyuan's own textured mesh for use as material evidence only.
+    """Generate Hunyuan's textured helper mesh for material transfer only.
 
-    The public generation_all route face-reduces before texture painting, so this
-    output must never replace the Ultra native shape. HAYUYA uses it strictly as
-    a material donor for the separately generated 512 native geometry.
+    The helper geometry is never authoritative. If Hugging Face ZeroGPU rejects
+    the requested duration, automatically step down only the helper geometry
+    workload while preserving the final native HAYUYA geometry and 4K material
+    transfer target.
     """
     if not image.is_file():
         raise FileNotFoundError(image)
 
-    client, named = _connect_client(token=token, timeout=240.0)
-    endpoint = "/generation_all"
-    if endpoint not in named:
-        raise RuntimeError(
-            "Hunyuan3D public Space exposes no generation_all endpoint; "
-            f"available={sorted(named)}"
+    # Try the requested quality first. ZeroGPU currently rejects some
+    # generation_all requests above its per-job duration cap, so only the
+    # non-authoritative donor workload may step down.
+    profiles = []
+    for profile in (
+        (int(steps), int(octree_resolution), int(num_chunks)),
+        (int(steps), 320, min(int(num_chunks), 7000)),
+        (int(steps), 256, min(int(num_chunks), 6000)),
+        (max(14, int(steps) - 4), 256, min(int(num_chunks), 5000)),
+    ):
+        if profile not in profiles:
+            profiles.append(profile)
+
+    last_error: Exception | None = None
+    chosen = None
+    result = None
+
+    for profile_index, (profile_steps, profile_octree, profile_chunks) in enumerate(profiles, start=1):
+        client, named = _connect_client(token=token, timeout=240.0)
+        endpoint = "/generation_all"
+        if endpoint not in named:
+            raise RuntimeError(
+                "Hunyuan3D public Space exposes no generation_all endpoint; "
+                f"available={sorted(named)}"
+            )
+
+        args = (
+            handle_file(str(image.resolve())),
+            None,
+            None,
+            None,
+            None,
+            int(profile_steps),
+            float(guidance_scale),
+            int(seed),
+            int(profile_octree),
+            False,
+            int(profile_chunks),
+            False,
         )
 
-    args = (
-        handle_file(str(image.resolve())),
-        None,
-        None,
-        None,
-        None,
-        int(steps),
-        float(guidance_scale),
-        int(seed),
-        int(octree_resolution),
-        False,
-        int(num_chunks),
-        False,
-    )
-    result = None
-    last_error: Exception | None = None
-    for attempt in range(1, 6):
-        try:
-            result = client.predict(*args, api_name=endpoint)
-            break
-        except Exception as exc:
-            last_error = exc
-            message = f"{type(exc).__name__}: {exc}"
-            lower = message.lower()
-            if "zerogpu quota" in lower or "exceeded your zerogpu quota" in lower:
-                raise
-            transient = any(marker in lower for marker in (
-                "cancellederror",
-                "queue",
-                "502 bad gateway",
-                "503 service unavailable",
-                "504 gateway timeout",
-                "server disconnected",
-                "connection reset",
-                "connection refused",
-                "remoteprotocolerror",
-                "readtimeout",
-                "connecttimeout",
-                "timed out",
-                "temporarily unavailable",
-                "unexpected sse line",
-            ))
-            if not transient or attempt >= 5:
-                raise
-            delay = min(24, 4 * attempt)
-            print(
-                "HAYUYA_HUNYUAN_TEXTURE_TRANSIENT_RETRY",
-                json.dumps({
-                    "attempt": attempt,
-                    "max_attempts": 5,
-                    "delay_seconds": delay,
-                    "error": message[:500],
-                    "reconnect_before_retry": True,
-                }, separators=(",", ":")),
-            )
-            time.sleep(delay)
-            client, named = _connect_client(token=token, timeout=240.0)
-            if endpoint not in named:
-                raise RuntimeError(
-                    "Hunyuan3D public Space lost generation_all endpoint after reconnect; "
-                    f"available={sorted(named)}"
+        for attempt in range(1, 6):
+            try:
+                result = client.predict(*args, api_name=endpoint)
+                chosen = (profile_steps, profile_octree, profile_chunks)
+                break
+            except Exception as exc:
+                last_error = exc
+                message = f"{type(exc).__name__}: {exc}"
+                lower = message.lower()
+
+                # This is not a transient outage: the requested ZeroGPU budget
+                # is too large. Move to the next donor-only workload profile.
+                if "requested gpu duration" in lower and "larger than the maximum allowed" in lower:
+                    print(
+                        "HAYUYA_HUNYUAN_TEXTURE_BUDGET_FALLBACK",
+                        json.dumps({
+                            "profile_index": profile_index,
+                            "steps": profile_steps,
+                            "octree_resolution": profile_octree,
+                            "num_chunks": profile_chunks,
+                            "error": message[:500],
+                            "final_geometry_unchanged": True,
+                        }, separators=(",", ":")),
+                    )
+                    break
+
+                if "zerogpu quota" in lower or "exceeded your zerogpu quota" in lower:
+                    raise
+
+                transient = any(marker in lower for marker in (
+                    "cancellederror",
+                    "queue",
+                    "502 bad gateway",
+                    "503 service unavailable",
+                    "504 gateway timeout",
+                    "server disconnected",
+                    "connection reset",
+                    "connection refused",
+                    "remoteprotocolerror",
+                    "readtimeout",
+                    "connecttimeout",
+                    "timed out",
+                    "temporarily unavailable",
+                    "unexpected sse line",
+                ))
+                if not transient or attempt >= 5:
+                    raise
+                delay = min(24, 4 * attempt)
+                print(
+                    "HAYUYA_HUNYUAN_TEXTURE_TRANSIENT_RETRY",
+                    json.dumps({
+                        "attempt": attempt,
+                        "max_attempts": 5,
+                        "delay_seconds": delay,
+                        "steps": profile_steps,
+                        "octree_resolution": profile_octree,
+                        "num_chunks": profile_chunks,
+                        "error": message[:500],
+                        "reconnect_before_retry": True,
+                    }, separators=(",", ":")),
                 )
-    if result is None:
+                time.sleep(delay)
+                client, named = _connect_client(token=token, timeout=240.0)
+                if endpoint not in named:
+                    raise RuntimeError(
+                        "Hunyuan3D public Space lost generation_all endpoint after reconnect; "
+                        f"available={sorted(named)}"
+                    )
+
+        if result is not None:
+            break
+
+    if result is None or chosen is None:
         raise RuntimeError(
-            "Hunyuan3D textured donor returned no result after retries: "
+            "Hunyuan3D textured donor returned no result after adaptive ZeroGPU profiles: "
             + repr(last_error)
         )
 
@@ -373,19 +417,25 @@ def generate_textured_material_donor(
             f"Hunyuan3D textured donor is not a valid GLB: bytes={len(blob)}"
         )
 
+    chosen_steps, chosen_octree, chosen_chunks = chosen
     meta = {
         "schema": 1,
         "generator": "tencent/Hunyuan3D-2.1",
         "space": SPACE_ID,
-        "endpoint": endpoint,
+        "endpoint": "/generation_all",
         "seed": int(seed),
-        "steps": int(steps),
+        "requested_steps": int(steps),
+        "requested_octree_resolution": int(octree_resolution),
+        "requested_num_chunks": int(num_chunks),
+        "steps": int(chosen_steps),
+        "octree_resolution": int(chosen_octree),
+        "num_chunks": int(chosen_chunks),
         "guidance_scale": float(guidance_scale),
-        "octree_resolution": int(octree_resolution),
-        "num_chunks": int(num_chunks),
         "native_model_generated_material": True,
         "geometry_authority": False,
         "purpose": "material-donor-only",
+        "final_geometry_unchanged": True,
+        "material_transfer_target_texture_size": 4096,
         "license_policy": (
             "research/benchmark opt-in only; Hunyuan3D 2.1 Community License "
             "must be reviewed before production distribution"
