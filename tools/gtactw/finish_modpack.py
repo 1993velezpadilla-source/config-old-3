@@ -30,6 +30,7 @@ def finish_modpack(
     adb: Path | None = None,
     serial: str | None = None,
     grant_permissions: bool = False,
+    adapter_catalog: Path | None = None,
 ) -> dict:
     mode = build_mod_from_profile._source_mode(source)
     work_dir.mkdir(parents=True, exist_ok=True)
@@ -48,6 +49,7 @@ def finish_modpack(
         shadowhook_loader,
         unsigned_output,
         config,
+        adapter_catalog,
     )
 
     sign_report = sign_modpack.sign_modpack(
@@ -107,6 +109,11 @@ def main() -> int:
     ap.add_argument("--adb", type=Path)
     ap.add_argument("--serial")
     ap.add_argument("--grant-permissions", action="store_true")
+    ap.add_argument(
+        "--adapter-catalog",
+        type=Path,
+        default=build_mod_from_profile.DEFAULT_ADAPTER_CATALOG,
+    )
     ap.add_argument("--report", type=Path)
     args = ap.parse_args()
 
@@ -128,6 +135,7 @@ def main() -> int:
             adb=args.adb,
             serial=args.serial,
             grant_permissions=args.grant_permissions,
+            adapter_catalog=args.adapter_catalog,
         )
     except install_modpack.InstallError as exc:
         payload = {
