@@ -250,3 +250,30 @@ BO3-style DB/zone/package/render foundation, but collision/nav, animation/AI,
 script-module/precache, audio, FX, UI/clientfield and replication registries
 must become first-class readiness-gated runtime systems before claiming
 functional engine-level parity for complete map loading.
+
+## Imported-engine sidecars and conversion readiness
+
+A complete imported map can contain runtime artifacts that belong to the source
+engine rather than XZIEL itself (for example Unreal .ushaderbytecode, cooked
+Blueprint bytecode, bulk .ubulk payloads, source-engine package metadata, or
+platform-specific shader libraries).
+
+These artifacts MUST NOT make an XZIEL subsystem READY merely because they are
+present. They are conversion inputs.
+
+For every source-engine artifact class, XZIEL must distinguish:
+
+SOURCE_PRESENT
+-> SOURCE_PARSED
+-> DEPENDENCIES_RESOLVED
+-> XZIEL_NATIVE_ARTIFACT_BUILT
+-> XZIEL_NATIVE_ARTIFACT_VERIFIED
+-> SUBSYSTEM_READY
+
+Source-engine shader libraries specifically require material/shader
+reconstruction or native XZIEL shader compilation. Source .ushaderbytecode
+must never be executed or counted as a native shader-ready gate.
+
+The same rule applies to Blueprint/script bytecode, source physics/nav blobs,
+audio containers and source-engine bulk data: presence is inventory evidence,
+not runtime readiness.
