@@ -12,6 +12,7 @@ static const CtwBuildProfile g_ctw_profiles_storage[1] = {
         .name = "placeholder-no-runtime-profile",
         .expected_draw_frame_rva = 0,
         .expected_initial_setup_rva = 0,
+        .expected_gamepad_axes_rva = 0,
         .target_rvas = {0, 0, 0, 0, 0, 0},
     },
 };
