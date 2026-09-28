@@ -1594,6 +1594,16 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
 
         XzAndroidLog(
             ANDROID_LOG_INFO,
+            "static_scene_multi_uv map='%s'"
+            " ready=%d meshes=%u"
+            " uv1Loc=3 uv2Loc=4 uv3Loc=5 modelLoc=6",
+            XzMapRuntime_MapId(
+                &xz_runtime.map_runtime),
+            xz_runtime.gles3_shadow.static_scene_multi_uv_ready,
+            xz_runtime.gles3_shadow.static_scene_gpu_multi_uv_meshes);
+
+        XzAndroidLog(
+            ANDROID_LOG_INFO,
             "static_scene_tonemap map='%s'"
             " ready=%d tonemapMode=pavlov_legacy"
             " autoExposure=%d tonemapperFilm=%d"
