@@ -124,6 +124,7 @@ jobs:
             projects/gtactw-android-3d/android-loader/ctw_loader.c \
             projects/gtactw-android-3d/android-loader/ctw_patch.c \
             projects/gtactw-android-3d/android-loader/ctw_camera.c \
+            projects/gtactw-android-3d/android-loader/ctw_camera_pose.c \
             projects/gtactw-android-3d/android-loader/ctw_character.c \
             projects/gtactw-android-3d/android-loader/ctw_profile.c \
             projects/gtactw-android-3d/android-loader/ctw_config.c \
@@ -164,6 +165,17 @@ jobs:
           /tmp/ctw_camera_test
           echo "GTACTW_CAMERA_INPUT_GREEN=1"
 
+      - name: Run CTW camera pose math gate
+        run: |
+          cc -std=c11 -Wall -Wextra -Werror \
+            -Iprojects/gtactw-android-3d/android-loader \
+            -o /tmp/ctw_camera_pose_test \
+            projects/gtactw-android-3d/android-loader/test_camera_pose.c \
+            projects/gtactw-android-3d/android-loader/ctw_camera_pose.c \
+            -lm
+          /tmp/ctw_camera_pose_test
+          echo "GTACTW_CAMERA_POSE_GREEN=1"
+
       - name: Run CTW character visibility policy gate
         run: |
           cc -std=c11 -Wall -Wextra -Werror \
@@ -172,6 +184,7 @@ jobs:
             projects/gtactw-android-3d/android-loader/test_character_policy.c \
             projects/gtactw-android-3d/android-loader/ctw_character.c
           /tmp/ctw_character_test
+          echo "GTACTW_CAMERA_POSE_GREEN=1"
           echo "GTACTW_CHARACTER_POLICY_GREEN=1"
 
       - name: Run CTW Mod Hub config parser gate
