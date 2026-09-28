@@ -1723,7 +1723,10 @@ static int XzCreateStaticSceneProgram(void)
         "layout(location=0) in vec3 aPos;\n"
         "layout(location=1) in vec2 aUV;\n"
         "layout(location=2) in vec3 aNormal;\n"
-        "layout(location=3) in mat4 aModel;\n"
+        "layout(location=3) in vec2 aUV1;\n"
+        "layout(location=4) in vec2 aUV2;\n"
+        "layout(location=5) in vec2 aUV3;\n"
+        "layout(location=6) in mat4 aModel;\n"
         "uniform mat4 uView;\n"
         "uniform mat4 uProjection;\n"
         "out vec3 vNormal;\n"
@@ -3257,6 +3260,8 @@ static void XzDestroyStaticSceneCurrent(
         state->static_scene_gpu_indices = 0u;
         state->static_scene_gpu_meshes = 0u;
         state->static_scene_gpu_submeshes = 0u;
+        state->static_scene_gpu_multi_uv_meshes = 0u;
+        state->static_scene_multi_uv_ready = 0;
         state->static_scene_gpu_texture_bytes = 0u;
         state->static_scene_gpu_textures = 0u;
         state->static_scene_material_bindings = 0u;
@@ -3365,6 +3370,7 @@ int XzGles3Shadow_UploadStaticScene(
     uint64_t vertices = 0u;
     uint64_t indices = 0u;
     uint64_t submeshes = 0u;
+    uint32_t multi_uv_meshes = 0u;
     uint32_t mesh_index;
     uint32_t material_binding_index;
     int restored = 0;
@@ -3603,6 +3609,7 @@ int XzGles3Shadow_UploadStaticScene(
                 GL_FALSE,
                 (GLsizei)source->mesh.vertex_stride,
                 (const void *)(uintptr_t)48u);
+            multi_uv_meshes++;
         }
 
         if (xz_shadow.gl.GetError() !=
@@ -4068,8 +4075,12 @@ int XzGles3Shadow_UploadStaticScene(
         for (column = 0u;
              column < 4u;
              ++column) {
+            /*
+             * Locations 3..5 are reserved for authored UV1..UV3.
+             * Keep the instanced mat4 at 6..9 so it cannot overwrite them.
+             */
             const GLuint location =
-                (GLuint)(3u + column);
+                (GLuint)(6u + column);
             const uintptr_t byte_offset =
                 (uintptr_t)(
                     ((uint64_t)span->first_instance * 16u +
@@ -4116,6 +4127,12 @@ int XzGles3Shadow_UploadStaticScene(
         xz_shadow.static_mesh_count;
     state->static_scene_gpu_submeshes =
         (unsigned int)submeshes;
+    state->static_scene_gpu_multi_uv_meshes =
+        multi_uv_meshes;
+    state->static_scene_multi_uv_ready =
+        multi_uv_meshes ==
+            scene->mesh_resource_count &&
+        scene->mesh_resource_count > 0u;
     state->static_scene_gpu_ready =
         state->static_scene_gpu_meshes ==
             scene->mesh_resource_count &&
@@ -4130,7 +4147,8 @@ int XzGles3Shadow_UploadStaticScene(
         (strcmp(
              scene->map_id,
              "xziel_nacht_bo3") != 0 ||
-         (state->static_scene_material_ready &&
+         (state->static_scene_multi_uv_ready &&
+          state->static_scene_material_ready &&
           state->static_scene_normal_ready &&
           state->static_scene_pbr_ready &&
           state->static_scene_specular_response_ready &&
