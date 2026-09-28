@@ -45,6 +45,7 @@ class ProfileStatusTests(unittest.TestCase):
                     "calling_convention": "aarch64_aapcs64",
                     "adapter": None,
                     "evidence": [],
+                    "candidates": [],
                 }
                 for key in profile_template.TARGET_KEYS
             },
@@ -67,6 +68,30 @@ class ProfileStatusTests(unittest.TestCase):
         self.assertTrue(
             status["public_4243_engine_anchors"]["available"]
         )
+
+
+    def test_reports_trampoline_strategy_candidate_counts(self):
+        profile = self.fixture()
+        profile["abi_verification"]["camera_update"]["candidates"] = [
+            {
+                "rva": 0x4000,
+                "trampoline_strategy_hint": "simple_copy_trampoline_candidate",
+            },
+            {
+                "rva": 0x4100,
+                "trampoline_strategy_hint": "advanced_relocator_required",
+            },
+            {
+                "rva": 0x4200,
+                "trampoline_strategy_hint": "advanced_relocator_required",
+            },
+        ]
+
+        status = profile_status.profile_status(profile)
+        camera = status["abi_status"]["camera_update"]
+        self.assertEqual(camera["candidate_count"], 3)
+        self.assertEqual(camera["simple_copy_trampoline_candidates"], 1)
+        self.assertEqual(camera["advanced_relocator_candidates"], 2)
 
     def test_verified_targets_still_require_abis(self):
         profile = self.fixture()
