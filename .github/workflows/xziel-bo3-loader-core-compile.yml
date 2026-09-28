@@ -116,6 +116,7 @@ jobs:
             engine/xz/xz_zone_db.c \
             engine/xz/xz_runtime_readiness.c \
             engine/xz/xz_game_system_registry.c \
+            engine/xz/xz_critical_streaming.c \
             engine/xz/xz_t7_asset_types.c \
             engine/xz/xz_asset_pool.c \
             engine/xz/xz_bulk_store.c \
