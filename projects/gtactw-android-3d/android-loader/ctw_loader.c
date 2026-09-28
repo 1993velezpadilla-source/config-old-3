@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include "ctw_patch.h"
 #include "ctw_camera.h"
 #include "ctw_config.h"
@@ -10,6 +11,7 @@
 #include <dlfcn.h>
 #include <pthread.h>
 #include <stdint.h>
+#include <string.h>
 
 #define EXPORT __attribute__((visibility("default")))
 #define LOG_TAG "CTW3D"
@@ -25,12 +27,69 @@
 static pthread_once_t g_once = PTHREAD_ONCE_INIT;
 static void *g_game = NULL;
 
+static void loader_location_anchor(void) {
+}
+
+static int build_original_same_dir_path(char *out, size_t capacity) {
+    if (!out || capacity == 0)
+        return -1;
+
+    Dl_info info;
+    if (dladdr((void *)&loader_location_anchor, &info) == 0 ||
+        !info.dli_fname || !info.dli_fname[0]) {
+        return -2;
+    }
+
+    const char *slash = strrchr(info.dli_fname, '/');
+    if (!slash)
+        return -3;
+
+    static const char leaf[] = "libGame_orig.so";
+    const size_t dir_len = (size_t)(slash - info.dli_fname) + 1u;
+    if (dir_len + sizeof(leaf) > capacity)
+        return -4;
+
+    memcpy(out, info.dli_fname, dir_len);
+    memcpy(out + dir_len, leaf, sizeof(leaf));
+    return 0;
+}
+
 static void load_original_once(void) {
     g_game = dlopen("libGame_orig.so", RTLD_NOW | RTLD_LOCAL);
     if (!g_game) {
-        LOGE("failed to load libGame_orig.so: %s", dlerror());
+        const char *first_error = dlerror();
+        LOGI(
+            "basename dlopen for libGame_orig.so failed: %s; "
+            "trying proxy directory",
+            first_error ? first_error : "(unknown)"
+        );
+
+        char path[4096];
+        const int path_rc = build_original_same_dir_path(
+            path,
+            sizeof(path)
+        );
+        if (path_rc == 0) {
+            g_game = dlopen(path, RTLD_NOW | RTLD_LOCAL);
+            if (g_game)
+                LOGI("loaded original CTW from proxy directory");
+        } else {
+            LOGE(
+                "failed to derive proxy directory for libGame_orig.so rc=%d",
+                path_rc
+            );
+        }
+    }
+
+    if (!g_game) {
+        const char *error = dlerror();
+        LOGE(
+            "failed to load original libGame_orig.so: %s",
+            error ? error : "(unknown)"
+        );
         return;
     }
+
     LOGI("loaded original CTW libGame_orig.so");
     ctw_mod_init(g_game);
 }
