@@ -34,13 +34,13 @@ int main(void) {
     );
     assert(
         ctw_hook_backend_choose(unsafe, 1)
-        == CTW_HOOK_BACKEND_DOBBY
+        == CTW_HOOK_BACKEND_SHADOWHOOK
     );
 
     assert(ctw_hook_backend_choose(NULL, 1) == CTW_HOOK_BACKEND_NONE);
 
-#if !defined(CTW_HAVE_DOBBY)
-    assert(ctw_hook_backend_dobby_available() == 0);
+#if !defined(CTW_HAVE_SHADOWHOOK)
+    assert(ctw_hook_backend_advanced_available() == 0);
 #endif
 
     CtwHookBackendState state;
