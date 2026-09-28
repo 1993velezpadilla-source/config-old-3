@@ -164,6 +164,9 @@ noise
             status["public_4243_engine_anchors"]["present_count"],
             5,
         )
+        dossier = adb_collect.hook_dossier.build_dossier(enriched)
+        self.assertEqual(dossier["summary"]["targets_verified"], 0)
+        self.assertEqual(dossier["summary"]["targets_total"], 6)
 
     @mock.patch.object(adb_collect.subprocess, "run")
     def test_connected_devices_parser(self, run):
