@@ -11,7 +11,7 @@ add_library(Game SHARED
 
 target_compile_features(Game PRIVATE c_std_11)
 target_compile_options(Game PRIVATE -Wall -Wextra -Werror -fvisibility=hidden)
-target_link_libraries(Game PRIVATE dl log)
+target_link_libraries(Game PRIVATE dl log android)
 
 set_target_properties(Game PROPERTIES
     OUTPUT_NAME "Game"
