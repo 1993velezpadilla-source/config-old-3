@@ -291,6 +291,48 @@ def probe_profile_callers(
     }
 
 
+
+
+def attach_caller_abi_evidence(profile: dict, report: dict) -> dict:
+    """Attach caller-side evidence to matching ABI candidates by exact RVA."""
+    out = json.loads(json.dumps(profile))
+    ledger = out.setdefault("abi_verification", {})
+
+    by_target = {}
+    for key in profile_template.TARGET_KEYS:
+        mapping = {}
+        for item in report.get("targets", {}).get(key, []):
+            if not isinstance(item, dict):
+                continue
+            rva = item.get("rva")
+            evidence = item.get("caller_abi_evidence")
+            if (
+                isinstance(rva, int)
+                and rva > 0
+                and isinstance(evidence, dict)
+            ):
+                mapping[rva] = evidence
+        by_target[key] = mapping
+
+    for key in profile_template.TARGET_KEYS:
+        item = ledger.get(key)
+        if not isinstance(item, dict):
+            continue
+        candidates = item.get("candidates")
+        if not isinstance(candidates, list):
+            continue
+        for candidate in candidates:
+            if not isinstance(candidate, dict):
+                continue
+            rva = candidate.get("rva")
+            evidence = by_target.get(key, {}).get(rva)
+            if evidence is not None:
+                candidate["caller_abi_evidence"] = evidence
+
+    out["caller_abi_probe_note"] = report.get("note")
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("libgame", type=Path)
