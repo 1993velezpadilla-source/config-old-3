@@ -74,5 +74,21 @@ int main(void) {
     assert(out.camera_update == 0);
     assert(matched == 0);
 
+
+    {
+        const uint8_t actual[CTW_TARGET_PREFIX_BYTES] = {
+            0, 1, 2, 3, 4, 5, 6, 7,
+            8, 9, 10, 11, 12, 13, 14, 15
+        };
+        uint8_t expected[CTW_TARGET_PREFIX_BYTES];
+        for (int i = 0; i < CTW_TARGET_PREFIX_BYTES; ++i)
+            expected[i] = actual[i];
+
+        assert(ctw_profile_compare_prefix(actual, expected) == 0);
+        expected[7] ^= 0xFFu;
+        assert(ctw_profile_compare_prefix(actual, expected) == 1);
+        assert(ctw_profile_compare_prefix(0, expected) == -1);
+    }
+
     return 0;
 }
