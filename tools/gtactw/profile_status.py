@@ -129,6 +129,8 @@ def profile_status(profile: dict) -> dict:
         phase = "needs_verified_target_rvas"
     elif not all_abis:
         phase = "needs_verified_hook_abis"
+    elif not variant_plan["ready"]:
+        phase = "needs_verified_hook_backend_strategy"
     else:
         phase = "abi_verified_ready_for_hook_adapter_gate"
 
