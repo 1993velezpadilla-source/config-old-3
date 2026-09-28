@@ -98,3 +98,65 @@ python tools/gtactw/elf_probe.py ./local_ctw/lib/arm64-v8a/libGame.so --out ./lo
 ```
 
 Patch goals and required gates are machine-readable in `android_patch_targets.json`.
+
+
+## Native proxy loader
+
+The Android mod uses a separate native proxy instead of permanently editing the
+Rockstar binary:
+
+- the original `libGame.so` becomes `libGame_orig.so`;
+- CTW3D builds a new proxy named `libGame.so`;
+- every known `GameNative` JNI entry is forwarded to the original library;
+- right-stick state is captured for the custom camera;
+- right-stick click (Android gamepad code 13) cycles stock / third-person /
+  first-person camera state while still forwarding the button to the game;
+- internal patches are refused unless the runtime build matches a verified
+  profile.
+
+The local APK repacker is:
+
+```bash
+python tools/gtactw/apk_modpack.py GTACW.apk \
+  --loader-so path/to/libGame.so \
+  --out GTACW-3D-unsigned.apk
+```
+
+Then use Android build-tools to align and sign the local APK:
+
+```bash
+zipalign -P 16 -f 4 GTACW-3D-unsigned.apk GTACW-3D-aligned.apk
+apksigner sign --ks YOUR_KEYSTORE --out GTACW-3D.apk GTACW-3D-aligned.apk
+apksigner verify --verbose GTACW-3D.apk
+```
+
+## Version-safe patch profiles
+
+Generate a template from a real `libGame.so` report:
+
+```bash
+python tools/gtactw/profile_template.py \
+  ./local_ctw/libGame_report.json \
+  --out ./local_ctw/ctw-profile.json
+```
+
+The template intentionally leaves all six internal patch targets empty until
+they are reverse-engineered and verified:
+
+- `camera_update`
+- `projection_setup`
+- `world_stream_update`
+- `sector_visibility`
+- `lod_test`
+- `player_render`
+
+Once all six are verified, generate the native table:
+
+```bash
+python tools/gtactw/profile_emit_c.py \
+  ./local_ctw/ctw-profile.json \
+  --out projects/gtactw-android-3d/android-loader/ctw_profiles_generated.h
+```
+
+The runtime also compares stable JNI RVAs before accepting a profile, so
+offsets from one CTW build are not silently applied to another build.
