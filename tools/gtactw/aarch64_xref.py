@@ -63,6 +63,33 @@ def decode_bl(insn: int, pc: int):
     return pc + (imm26 << 2)
 
 
+def decode_mem_unsigned(insn: int):
+    """Decode common AArch64 unsigned-offset LDR/STR forms."""
+    opcode = insn & 0xFFC00000
+    forms = {
+        0xF9400000: ("ldr_x", 8),
+        0xF9000000: ("str_x", 8),
+        0xB9400000: ("ldr_w", 4),
+        0xB9000000: ("str_w", 4),
+        0x79400000: ("ldr_h", 2),
+        0x79000000: ("str_h", 2),
+        0x39400000: ("ldr_b", 1),
+        0x39000000: ("str_b", 1),
+        0xFD400000: ("ldr_d", 8),
+        0xFD000000: ("str_d", 8),
+        0xBD400000: ("ldr_s", 4),
+        0xBD000000: ("str_s", 4),
+    }
+    form = forms.get(opcode)
+    if form is None:
+        return None
+    name, scale = form
+    imm12 = (insn >> 10) & 0xFFF
+    rn = (insn >> 5) & 0x1F
+    rt = insn & 0x1F
+    return name, rt, rn, imm12 * scale
+
+
 def _read_sections(blob: bytes):
     if len(blob) < elf_probe.ELF64_EHDR.size:
         raise ValueError("file too small")
@@ -99,7 +126,11 @@ def _read_sections(blob: bytes):
     return sections
 
 
-def _symbols(blob: bytes, sections: list[dict]) -> list[dict]:
+def _symbols_by_type(
+    blob: bytes,
+    sections: list[dict],
+    accepted_types: set[int],
+) -> list[dict]:
     out = []
     seen = set()
     for sec in sections:
@@ -118,14 +149,29 @@ def _symbols(blob: bytes, sections: list[dict]) -> list[dict]:
             if not name or name in seen:
                 continue
             seen.add(name)
-            if (st_info & 0xF) == 2 and st_value:
+            symbol_type = st_info & 0xF
+            if symbol_type in accepted_types and st_value:
                 out.append({
                     "name": name,
                     "value": st_value,
                     "size": st_size,
                     "section_index": st_shndx,
+                    "symbol_type": symbol_type,
                 })
     return sorted(out, key=lambda x: x["value"])
+
+
+def _symbols(blob: bytes, sections: list[dict]) -> list[dict]:
+    return _symbols_by_type(blob, sections, {2})
+
+
+def _public_anchor_symbols(blob: bytes, sections: list[dict]) -> list[dict]:
+    known = set(elf_probe.KNOWN_4243_ENGINE_SYMBOLS)
+    return [
+        sym
+        for sym in _symbols_by_type(blob, sections, {1, 2})
+        if sym["name"] in known
+    ]
 
 
 def _candidate_strings(blob: bytes, sections: list[dict]) -> list[dict]:
@@ -178,9 +224,11 @@ def scan_libgame(path: Path) -> dict:
     strings = _candidate_strings(blob, sections)
     by_va = sorted(strings, key=lambda x: x["va"])
     funcs = _symbols(blob, sections)
+    public_anchors = _public_anchor_symbols(blob, sections)
 
     text_blob = blob[text["offset"]:text["offset"] + text["size"]]
     xrefs = []
+    public_anchor_xrefs = []
 
     def add_xref(pc: int, target: int, reg: int, form: str):
         hit = None
@@ -213,6 +261,37 @@ def scan_libgame(path: Path) -> dict:
         ):
             xrefs.append(item)
 
+    def add_anchor_xref(pc: int, target: int, reg: int, form: str):
+        hit = None
+        for sym in public_anchors:
+            start = int(sym["value"])
+            size = max(1, int(sym.get("size") or 0))
+            if start <= target < start + size:
+                hit = sym
+                break
+        if hit is None:
+            return
+
+        owner = _owner_function(pc, funcs)
+        item = {
+            "pc_rva": pc,
+            "target_va": target,
+            "register": reg,
+            "form": form,
+            "anchor": hit["name"],
+            "anchor_rva": int(hit["value"]),
+            "anchor_size": int(hit.get("size") or 0),
+            "function": owner["name"] if owner else None,
+            "function_rva": owner["value"] if owner else None,
+            "function_size": owner["size"] if owner else None,
+        }
+        key = (item["pc_rva"], item["anchor_rva"], item["form"])
+        if not any(
+            (x["pc_rva"], x["anchor_rva"], x.get("form")) == key
+            for x in public_anchor_xrefs
+        ):
+            public_anchor_xrefs.append(item)
+
     word_count = len(text_blob) // 4
     for word_index in range(word_count):
         rel = word_index * 4
@@ -223,6 +302,7 @@ def scan_libgame(path: Path) -> dict:
         if adr:
             rd, target = adr
             add_xref(pc, target, rd, "adr")
+            add_anchor_xref(pc, target, rd, "adr")
 
         adrp = decode_adrp(insn, pc)
         if not adrp:
@@ -239,12 +319,30 @@ def scan_libgame(path: Path) -> dict:
                 "<I", text_blob, next_index * 4
             )[0]
             add = decode_add_imm64(insn2)
-            if not add:
-                continue
-            add_rd, add_rn, imm = add
-            if add_rd == adrp_rd and add_rn == adrp_rd:
-                add_xref(pc, page + imm, adrp_rd, f"adrp+add(+{lookahead})")
-                break
+            if add:
+                add_rd, add_rn, imm = add
+                if add_rd == adrp_rd and add_rn == adrp_rd:
+                    target = page + imm
+                    add_xref(pc, target, adrp_rd, f"adrp+add(+{lookahead})")
+                    add_anchor_xref(
+                        pc,
+                        target,
+                        adrp_rd,
+                        f"adrp+add(+{lookahead})",
+                    )
+                    break
+
+            mem = decode_mem_unsigned(insn2)
+            if mem:
+                mem_form, _, mem_rn, imm = mem
+                if mem_rn == adrp_rd:
+                    add_anchor_xref(
+                        pc,
+                        page + imm,
+                        adrp_rd,
+                        f"adrp+{mem_form}(+{lookahead})",
+                    )
+                    break
 
     grouped = {k: [] for k in elf_probe.CANDIDATE_TERMS}
     for x in xrefs:
@@ -331,6 +429,9 @@ def scan_libgame(path: Path) -> dict:
         },
         "candidate_string_count": len(strings),
         "xref_count": len(xrefs),
+        "public_anchor_symbol_count": len(public_anchors),
+        "public_anchor_xref_count": len(public_anchor_xrefs),
+        "public_anchor_xrefs": public_anchor_xrefs,
         "groups": grouped,
         "xrefs": xrefs,
         "candidate_call_neighborhoods": call_neighborhoods_json,
