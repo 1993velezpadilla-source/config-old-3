@@ -44,10 +44,23 @@ KNOWN_JNI_EXPORTS = (
 )
 
 CANDIDATE_TERMS = {
-    "camera": ("camera", "cam", "view", "fov", "nearclip", "farclip"),
-    "streaming": ("stream", "sector", "worldblock", "world_block", "resident"),
-    "lod_culling": ("lod", "cull", "frustum", "visibility", "visible", "distance"),
-    "player_render": ("ped", "player", "skin", "skeleton", "body", "weapon"),
+    "camera": (
+        "camera", "cam", "view", "fov", "nearclip", "farclip",
+        "projection", "perspective", "matproj", "matmodelview",
+    ),
+    "streaming": (
+        "stream", "sector", "worldblock", "world_block", "resident",
+        "streamradius", "stream_radius",
+    ),
+    "lod_culling": (
+        "lod", "cull", "frustum", "visibility", "visible", "distance",
+        "drawdistance", "draw_distance", "culldistance", "cull_distance",
+        "fade_distance", "fadedistance",
+    ),
+    "player_render": (
+        "ped", "player", "skin", "skeleton", "body", "weapon",
+        "character", "modelrender", "model_render",
+    ),
 }
 
 
