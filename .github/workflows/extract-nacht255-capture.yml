@@ -1,0 +1,43 @@
+name: Extract Nacht 255 Capture
+
+on:
+  push:
+    branches:
+      - feature/xziel-nacht-lightmap-hq-gpu-v1
+    paths:
+      - ".github/workflows/extract-nacht255-capture.yml"
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/xziel-nacht-lightmap-hq-gpu-v1
+      - name: Extract runtime capture
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl -fL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/10980862917/zip" \
+            -o /tmp/nacht255-evidence.zip
+          mkdir -p /tmp/nacht255-evidence
+          unzip -q /tmp/nacht255-evidence.zip -d /tmp/nacht255-evidence
+          capture="$(find /tmp/nacht255-evidence -type f -name 'static-scene-runtime.png' | head -n 1)"
+          test -n "$capture"
+          mkdir -p .tmp-captures
+          base64 -w0 "$capture" > .tmp-captures/nacht255-runtime.png.b64
+          printf '\n' >> .tmp-captures/nacht255-runtime.png.b64
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .tmp-captures/nacht255-runtime.png.b64
+          git commit -m "chore: expose Nacht 255 runtime capture"
+          git push origin "HEAD:$GITHUB_REF_NAME"
