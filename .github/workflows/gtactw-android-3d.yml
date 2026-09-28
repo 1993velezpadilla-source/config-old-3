@@ -148,6 +148,7 @@ jobs:
             projects/gtactw-android-3d/android-loader/ctw_character.c \
             projects/gtactw-android-3d/android-loader/ctw_runtime_policy.c \
             projects/gtactw-android-3d/android-loader/ctw_hooks.c \
+            projects/gtactw-android-3d/android-loader/ctw_trampoline.c \
             projects/gtactw-android-3d/android-loader/ctw_profile.c \
             projects/gtactw-android-3d/android-loader/ctw_config.c \
             -ldl -lpthread
@@ -254,6 +255,16 @@ jobs:
           echo "GTACTW_CHARACTER_POLICY_GREEN=1"
           echo "GTACTW_MODHUB_CONFIG_GREEN=1"
 
+      - name: Run CTW ARM64 trampoline image gate
+        run: |
+          cc -std=c11 -Wall -Wextra -Werror \
+            -Iprojects/gtactw-android-3d/android-loader \
+            -o /tmp/ctw_trampoline_test \
+            projects/gtactw-android-3d/android-loader/test_trampoline.c \
+            projects/gtactw-android-3d/android-loader/ctw_trampoline.c
+          /tmp/ctw_trampoline_test
+          echo "GTACTW_TRAMPOLINE_GREEN=1"
+
       - name: Run CTW transactional hook rollback gate
         run: |
           cc -std=c11 -Wall -Wextra -Werror \
@@ -263,6 +274,7 @@ jobs:
             projects/gtactw-android-3d/android-loader/ctw_hooks.c
           /tmp/ctw_hook_transaction_test
           echo "GTACTW_HOOK_TRANSACTION_GREEN=1"
+          echo "GTACTW_TRAMPOLINE_GREEN=1"
 
       - name: Run CTW patch-state gate
         run: |
