@@ -39,6 +39,13 @@ int ctw_camera_build_pose(
     CtwCameraPose *out
 );
 
+int ctw_camera_apply_collision(
+    const Ctw3DConfig *config,
+    CtwCameraMode mode,
+    float hit_fraction,
+    CtwCameraPose *pose
+);
+
 #ifdef __cplusplus
 }
 #endif
