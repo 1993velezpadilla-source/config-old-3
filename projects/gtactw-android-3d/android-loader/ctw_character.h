@@ -2,6 +2,8 @@
 
 #include "ctw_patch.h"
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -30,6 +32,20 @@ CtwVisibilityOverride ctw_character_visibility_override(
     const Ctw3DConfig *config,
     CtwCameraMode mode,
     CtwCharacterPart part
+);
+
+/*
+ * Build a horizontal fixed-point forward vector that faces an in-world ped
+ * sprite toward the active 3D camera. Returns 1 when adjusted, 0 when the
+ * camera is too close and the stock forward vector should be preserved.
+ */
+int ctw_character_camera_facing_forward(
+    int32_t ped_x,
+    int32_t ped_y,
+    int32_t camera_x,
+    int32_t camera_y,
+    const int16_t original_forward[3],
+    int16_t out_forward[3]
 );
 
 #ifdef __cplusplus

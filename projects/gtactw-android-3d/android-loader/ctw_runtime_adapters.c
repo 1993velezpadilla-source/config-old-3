@@ -2,6 +2,7 @@
 #include "ctw_runtime_adapters.h"
 
 #include "ctw_camera.h"
+#include "ctw_character.h"
 #include "ctw_hooks.h"
 #include "ctw_mod_runtime.h"
 #include "ctw_patch.h"
@@ -38,7 +39,17 @@ typedef void (*CtwSetFovFn)(void *camera, int16_t fov);
 typedef void (*CtwRenderWorldProcessFn)(void *world);
 typedef void (*CtwProcessVisibilityFn)(void *world);
 typedef int (*CtwFarDistanceFn)(void *position, const void *reference);
-typedef void (*CtwPlayerRenderFn)(const void *player);
+typedef void (*CtwPedSpriteRenderFn)(
+    void *sprite,
+    const void *position,
+    const void *forward,
+    uintptr_t arg3,
+    uintptr_t arg4,
+    uintptr_t arg5,
+    uintptr_t arg6,
+    uintptr_t arg7,
+    uintptr_t arg8
+);
 
 typedef struct {
     int active;
@@ -423,9 +434,75 @@ int ctw_lod_test_passthrough_v1(
     return original ? original(position, reference) : 0;
 }
 
-void ctw_player_render_passthrough_v1(const void *player) {
-    CtwPlayerRenderFn original = (CtwPlayerRenderFn)
+void ctw_ped_sprite_render_adapter_v1(
+    void *sprite,
+    const void *position,
+    const void *forward,
+    uintptr_t arg3,
+    uintptr_t arg4,
+    uintptr_t arg5,
+    uintptr_t arg6,
+    uintptr_t arg7,
+    uintptr_t arg8
+) {
+    CtwPedSpriteRenderFn original = (CtwPedSpriteRenderFn)
         ctw_mod_original_for_hook(CTW_HOOK_PLAYER_RENDER);
-    if (original)
-        original(player);
+    if (!original)
+        return;
+
+    const CtwCameraInputSnapshot input = ctw_camera_snapshot();
+    if (!g_ctw3d_config.character_fix ||
+        input.mode == CTW_CAMERA_STOCK ||
+        !g_active_camera_slot ||
+        !position ||
+        !forward) {
+        original(
+            sprite, position, forward,
+            arg3, arg4, arg5, arg6, arg7, arg8
+        );
+        return;
+    }
+
+    void *camera = *g_active_camera_slot;
+    if (!camera) {
+        original(
+            sprite, position, forward,
+            arg3, arg4, arg5, arg6, arg7, arg8
+        );
+        return;
+    }
+
+    const int32_t *ped_pos = (const int32_t *)position;
+    const int16_t *stock_forward = (const int16_t *)forward;
+    int16_t camera_forward[3];
+
+    int32_t camera_x = read_i32(camera, CTW_BASECAM_POS_X);
+    int32_t camera_y = read_i32(camera, CTW_BASECAM_POS_Y);
+    if (g_stream_bias.active && g_stream_bias.camera == camera) {
+        camera_x = g_stream_bias.true_x;
+        camera_y = g_stream_bias.true_y;
+    }
+
+    const void *forward_to_use = forward;
+    if (ctw_character_camera_facing_forward(
+            ped_pos[0],
+            ped_pos[1],
+            camera_x,
+            camera_y,
+            stock_forward,
+            camera_forward
+        )) {
+        forward_to_use = camera_forward;
+    }
+
+    /*
+     * This hook sits below cPed::Render(), so it covers the player plus every
+     * world NPC that uses cPedSprite. Classic mode is a byte-for-byte
+     * pass-through. FPS head/face suppression is intentionally handled later
+     * at cPedBucketRenderer::Bind(), where BodyType is available.
+     */
+    original(
+        sprite, position, forward_to_use,
+        arg3, arg4, arg5, arg6, arg7, arg8
+    );
 }

@@ -43,13 +43,13 @@
       "calling_convention": "aarch64_aapcs64"
     },
     {
-      "name": "ctw_player_render_passthrough_v1",
+      "name": "ctw_ped_sprite_render_adapter_v1",
       "target": "player_render",
-      "native_symbol": "ctw_player_render_passthrough_v1",
+      "native_symbol": "ctw_ped_sprite_render_adapter_v1",
       "implemented": true,
-      "prototype": "void cPlayer::Render() const",
+      "prototype": "void cPedSprite::Render(tv3d<cFixed<20,12>> const&, tv3d<cFixed<4,12>> const&, cFixed<20,12>, cFixed<20,12>, bool, cFixed<20,12>, bool, cFixed<4,12>)",
       "calling_convention": "aarch64_aapcs64"
     }
   ],
-  "note": "Exact 4.4.243 ARM64 adapters. Camera/FOV behavior is active; forward sector bias is compiled but disabled by default until camera-only Android capture is green. LOD and player-render adapters remain pass-through."
+  "note": "Exact 4.4.243 ARM64 adapters. Character hook now targets the common cPedSprite::Render path, so camera-facing low-angle correction applies to player and all in-world NPC peds. FPS head/face filtering remains a separate BodyType gate."
 }

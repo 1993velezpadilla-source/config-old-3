@@ -1,5 +1,7 @@
 #include "ctw_character.h"
 
+#include <math.h>
+
 static int is_body_part(CtwCharacterPart part) {
     return part == CTW_CHARACTER_PART_HEAD ||
            part == CTW_CHARACTER_PART_FACE ||
@@ -42,4 +44,40 @@ CtwVisibilityOverride ctw_character_visibility_override(
     }
 
     return CTW_VISIBILITY_PRESERVE;
+}
+
+int ctw_character_camera_facing_forward(
+    int32_t ped_x,
+    int32_t ped_y,
+    int32_t camera_x,
+    int32_t camera_y,
+    const int16_t original_forward[3],
+    int16_t out_forward[3]
+) {
+    if (!original_forward || !out_forward)
+        return 0;
+
+    const float dx = (float)(camera_x - ped_x);
+    const float dy = (float)(camera_y - ped_y);
+    const float length = sqrtf(dx * dx + dy * dy);
+
+    if (!isfinite(length) || length < 1.0f) {
+        out_forward[0] = original_forward[0];
+        out_forward[1] = original_forward[1];
+        out_forward[2] = original_forward[2];
+        return 0;
+    }
+
+    const float scale = 4096.0f / length;
+    float fx = dx * scale;
+    float fy = dy * scale;
+    if (fx > 4096.0f) fx = 4096.0f;
+    if (fx < -4096.0f) fx = -4096.0f;
+    if (fy > 4096.0f) fy = 4096.0f;
+    if (fy < -4096.0f) fy = -4096.0f;
+
+    out_forward[0] = (int16_t)lrintf(fx);
+    out_forward[1] = (int16_t)lrintf(fy);
+    out_forward[2] = original_forward[2];
+    return 1;
 }

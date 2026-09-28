@@ -101,5 +101,27 @@ int main(void) {
         ) == CTW_VISIBILITY_PRESERVE
     );
 
+    {
+        const int16_t original[3] = { 4096, 0, 321 };
+        int16_t out[3] = { 0, 0, 0 };
+        assert(
+            ctw_character_camera_facing_forward(
+                0, 0, 0, 4096, original, out
+            ) == 1
+        );
+        assert(abs(out[0]) <= 1);
+        assert(out[1] >= 4095);
+        assert(out[2] == 321);
+
+        assert(
+            ctw_character_camera_facing_forward(
+                100, 200, 100, 200, original, out
+            ) == 0
+        );
+        assert(out[0] == original[0]);
+        assert(out[1] == original[1]);
+        assert(out[2] == original[2]);
+    }
+
     return 0;
 }

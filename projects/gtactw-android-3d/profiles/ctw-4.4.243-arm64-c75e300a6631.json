@@ -18,7 +18,7 @@
     "world_stream_update": 9030188,
     "sector_visibility": 9031440,
     "lod_test": 7401300,
-    "player_render": 8948768
+    "player_render": 9021296
   },
   "target_verification": {
     "camera_update": {
@@ -98,12 +98,12 @@
     },
     "player_render": {
       "status": "verified",
-      "rva": 8948768,
-      "code_prefix_hex": "fd7bbea9f30b00f9fd030091f30300aa",
+      "rva": 9021296,
+      "code_prefix_hex": "ffc302d1fd7b05a9fc6f06a9fa6707a9",
       "evidence": [
         {
           "method": "exact-binary-symbol-and-manual-aarch64-disassembly",
-          "detail": "cPlayer::Render() const: x0=const this and void return; function immediately forwards to cPed::Render before player-specific rendering."
+          "detail": "cPedSprite::Render is called by cPed::Render for both embedded ped sprite layers and is therefore shared by the local player and all world NPC peds."
         },
         {
           "method": "exact-libgame-prefix",
@@ -220,20 +220,20 @@
     },
     "player_render": {
       "status": "verified",
-      "prototype": "void cPlayer::Render() const",
+      "prototype": "void cPedSprite::Render(tv3d<cFixed<20,12>> const&, tv3d<cFixed<4,12>> const&, cFixed<20,12>, cFixed<20,12>, bool, cFixed<20,12>, bool, cFixed<4,12>)",
       "calling_convention": "aarch64_aapcs64",
-      "adapter": "ctw_player_render_passthrough_v1",
-      "verified_rva": 8948768,
+      "adapter": "ctw_ped_sprite_render_adapter_v1",
+      "verified_rva": 9021296,
       "evidence": [
         {
           "method": "manual-aarch64-abi-review",
-          "detail": "x0=const this and void return; function immediately forwards to cPed::Render before player-specific rendering."
+          "detail": "Disassembly preserves the first eight integer-class arguments in x0-x7 and reads the ninth argument from the caller stack; a uintptr_t-preserving adapter forwards the exact register/stack payload while substituting only the forward-vector pointer."
         }
       ],
       "candidates": [
         {
-          "rva": 8948768,
-          "function": "cPlayer::Render() const",
+          "rva": 9021296,
+          "function": "cPedSprite::Render(...)",
           "source": "exact-dynsym-plus-manual-disassembly",
           "trampoline_strategy_hint": "simple_copy_trampoline_candidate"
         }
@@ -244,5 +244,5 @@
     "present_count": 6,
     "total_count": 6
   },
-  "note": "Exact profile for the user-owned 4.4.243 ARM64 libGame.so. Camera/FOV behavior is implemented. Forward streaming bias is implemented behind ForwardBias=0 by default; LOD and player-render changes remain pass-through until Android visual capture gates are green."
+  "note": "Exact profile for the user-owned 4.4.243 ARM64 libGame.so. Camera/FOV is implemented; forward streaming bias is guarded; the character hook now operates on common cPedSprite::Render so player and all in-world NPCs receive the low-angle camera-facing billboard correction. FPS head/face BodyType filtering is next."
 }
