@@ -24,6 +24,8 @@ on:
       - engine/xz/xz_asset_loader_registry.h
       - engine/xz/xz_asset_cache.c
       - engine/xz/xz_asset_cache.h
+      - engine/xz/xz_source_class_registry.c
+      - engine/xz/xz_source_class_registry.h
       - engine/xz/xz_package_boot.c
       - engine/xz/xz_package_boot.h
       - .github/workflows/xziel-bo3-loader-core-compile.yml
@@ -48,6 +50,7 @@ jobs:
             engine/xz/xz_bulk_store.c \
             engine/xz/xz_asset_loader_registry.c \
             engine/xz/xz_asset_cache.c \
+            engine/xz/xz_source_class_registry.c \
             engine/xz/xz_package_boot.c
           do
             cc -std=gnu11 -Wall -Wextra -Werror \
@@ -70,6 +73,7 @@ jobs:
           #include "xz_bulk_store.h"
           #include "xz_asset_loader_registry.h"
           #include "xz_asset_cache.h"
+          #include "xz_source_class_registry.h"
           #include "xz_package_boot.h"
 
           int COM_OpenFile(char *filename, int *handle)
@@ -104,6 +108,7 @@ jobs:
                   XzBulkStore_SelfTest() &&
                   XzAssetLoaderRegistry_SelfTest() &&
                   XzAssetCache_SelfTest() &&
+                  XzSourceClassRegistry_SelfTest() &&
                   XzPackageBoot_SelfTest()
                       ? 0
                       : 1;
