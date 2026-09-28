@@ -13,6 +13,41 @@ def _named_endpoints(client: Client) -> dict:
     return api.get("named_endpoints", {}) if isinstance(api, dict) else {}
 
 
+
+def _initialize_gradio_session(client: Client) -> dict:
+    """Run the Space load/start_session hook even when Gradio hides it as unnamed.
+
+    The public TripoSG app creates TMP_DIR/<session_hash> only from demo.load().
+    API clients do not reliably execute that browser load event, so direct calls
+    to image_to_3d can fail while trying to export into a missing session dir.
+    """
+    report={"attempted":False,"method":None,"fn_index":None,"ok":False}
+    named=_named_endpoints(client)
+    if "/start_session" in named:
+        report.update(attempted=True,method="named",fn_index=None)
+        client.predict(api_name="/start_session")
+        report["ok"]=True
+        return report
+
+    endpoints=getattr(client,"endpoints",[]) or []
+    for ep in endpoints:
+        dep=getattr(ep,"dependency",{}) or {}
+        targets=dep.get("targets") or []
+        is_load=any(
+            isinstance(t,(list,tuple)) and len(t)>=2 and str(t[1]).lower()=="load"
+            for t in targets
+        )
+        if is_load and not dep.get("inputs") and not dep.get("outputs"):
+            report.update(
+                attempted=True,
+                method="unnamed_load_fn_index",
+                fn_index=int(getattr(ep,"fn_index")),
+            )
+            client.predict(fn_index=int(getattr(ep,"fn_index")))
+            report["ok"]=True
+            return report
+    return report
+
 def _parameter_names(spec: dict) -> list[str]:
     return [str(p.get("parameter_name") or "") for p in spec.get("parameters", [])]
 
@@ -115,14 +150,15 @@ def generate(
     client = Client(space, **kwargs)
     named = _named_endpoints(client)
 
-    if "/start_session" in named:
-        try:
-            client.predict(api_name="/start_session")
-        except Exception as exc:
-            print(
-                "::warning::TripoSG start_session failed; continuing with "
-                f"Gradio session: {type(exc).__name__}: {exc}"
-            )
+    try:
+        session_init=_initialize_gradio_session(client)
+        print("HAYUYA_TRIPOSG_SESSION_INIT", session_init)
+    except Exception as exc:
+        session_init={"attempted":True,"ok":False,"error":f"{type(exc).__name__}: {exc}"}
+        print(
+            "::warning::TripoSG session initialization failed: "
+            +session_init["error"]
+        )
 
     seg_ep, seg_spec = _pick_endpoint(
         named, "/run_segmentation", "segmentation"
@@ -194,6 +230,7 @@ def generate(
         "texture_error": texture_error,
         "bytes": len(blob),
         "quality_role": "dense_hero_candidate",
+        "session_init": session_init,
     }
     print("HAYUYA_TRIPOSG_CLOUD_PASS", payload)
     return payload
