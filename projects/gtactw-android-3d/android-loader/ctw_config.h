@@ -20,6 +20,16 @@ int ctw_config_parse_text(Ctw3DConfig *config, const char *text);
 /* Load and parse a local INI file. Returns applied key count or a negative error. */
 int ctw_config_load_file(Ctw3DConfig *config, const char *path);
 
+/*
+ * Android only: read assets/ctw_modhub.ini through the Java AssetManager
+ * passed to GameNative implOnInitialSetup. Host builds return 0.
+ */
+int ctw_config_load_android_asset(
+    Ctw3DConfig *config,
+    void *jni_env,
+    void *asset_manager_object
+);
+
 #ifdef __cplusplus
 }
 #endif
