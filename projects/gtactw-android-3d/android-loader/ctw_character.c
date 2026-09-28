@@ -100,6 +100,13 @@ int ctw_character_hide_body_type(
     return body_type == 0u;
 }
 
+int16_t ctw_character_quantize_forward_adjustment(
+    int16_t engine_adjustment
+) {
+    const uint16_t raw = (uint16_t)engine_adjustment;
+    return (int16_t)((raw >> 13) << 13);
+}
+
 void ctw_character_precompensate_forward(
     int16_t forward[3],
     int16_t engine_adjustment
