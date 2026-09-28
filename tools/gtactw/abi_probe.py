@@ -453,6 +453,43 @@ def probe_profile(
     }
 
 
+
+def attach_abi_evidence(profile: dict, report: dict) -> dict:
+    """Attach ABI candidate evidence without changing verification status."""
+    out = json.loads(json.dumps(profile))
+    ledger = out.setdefault("abi_verification", {})
+
+    for key in profile_template.TARGET_KEYS:
+        item = ledger.setdefault(key, {
+            "status": "pending",
+            "prototype": None,
+            "calling_convention": "aarch64_aapcs64",
+            "adapter": None,
+            "evidence": [],
+        })
+        # Never promote status/prototype/adapter automatically.
+        candidates = []
+        for candidate in report.get("targets", {}).get(key, []):
+            evidence = candidate.get("abi_evidence")
+            if not isinstance(evidence, dict):
+                continue
+            candidates.append({
+                "rva": candidate.get("rva"),
+                "source": candidate.get("source"),
+                "function": candidate.get("function"),
+                "score": candidate.get("score"),
+                "reasons": candidate.get("reasons", []),
+                "abi_evidence": evidence,
+            })
+        item["candidates"] = candidates
+        item["last_probe_status"] = (
+            "evidence_collected" if candidates else "no_candidate_evidence"
+        )
+
+    out["abi_probe_note"] = report.get("note")
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("libgame", type=Path)
@@ -461,6 +498,11 @@ def main() -> int:
     ap.add_argument("--top", type=int, default=3)
     ap.add_argument("--window", type=int, default=256)
     ap.add_argument("--out", type=Path)
+    ap.add_argument(
+        "--updated-profile-out",
+        type=Path,
+        help="Write profile with ABI candidate evidence attached (still pending)",
+    )
     args = ap.parse_args()
 
     try:
@@ -479,6 +521,14 @@ def main() -> int:
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(payload + "\n", encoding="utf-8")
+    if args.updated_profile_out:
+        profile = json.loads(args.profile.read_text(encoding="utf-8"))
+        updated = attach_abi_evidence(profile, report)
+        args.updated_profile_out.parent.mkdir(parents=True, exist_ok=True)
+        args.updated_profile_out.write_text(
+            json.dumps(updated, indent=2) + "\n",
+            encoding="utf-8",
+        )
     print(payload)
     return 0 if report["ok"] else 1
 
