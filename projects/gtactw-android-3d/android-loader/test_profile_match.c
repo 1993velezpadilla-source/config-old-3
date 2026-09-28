@@ -11,6 +11,7 @@ int main(void) {
             .name = "fixture-build",
             .expected_draw_frame_rva = 0x1000,
             .expected_initial_setup_rva = 0x2000,
+            .expected_gamepad_axes_rva = 0x2500,
             .target_rvas = {
                 .camera_update = 0x3000,
                 .projection_setup = 0x4000,
@@ -29,6 +30,7 @@ int main(void) {
         base,
         base + 0x1000,
         base + 0x2000,
+        base + 0x2500,
         profiles,
         1,
         &out,
@@ -45,6 +47,24 @@ int main(void) {
         base,
         base + 0x1111,
         base + 0x2000,
+        base + 0x2500,
+        profiles,
+        1,
+        &out,
+        &matched
+    );
+    assert(rc == 1);
+    assert(out.camera_update == 0);
+    assert(matched == 0);
+
+
+    out.camera_update = 123;
+    matched = (const CtwBuildProfile *)1;
+    rc = ctw_profile_match(
+        base,
+        base + 0x1000,
+        base + 0x2000,
+        base + 0x2555,
         profiles,
         1,
         &out,
