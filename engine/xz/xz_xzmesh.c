@@ -8,7 +8,8 @@
 #define XZ_XZMS_REQUIRED_FLAGS XZ_XZMS_KNOWN_FLAGS
 #define XZ_XZMS_KNOWN_ATTRS \
     (XZ_XZMS_ATTR_POSITION | XZ_XZMS_ATTR_NORMAL | XZ_XZMS_ATTR_UV0 | \
-     XZ_XZMS_ATTR_UV1 | XZ_XZMS_ATTR_UV2 | XZ_XZMS_ATTR_UV3)
+     XZ_XZMS_ATTR_UV1 | XZ_XZMS_ATTR_UV2 | XZ_XZMS_ATTR_UV3 | \
+     XZ_XZMS_ATTR_TANGENT)
 
 static uint32_t XzReadU32Le(const unsigned char *p)
 {
@@ -60,6 +61,11 @@ static int XzFiniteVertex(
             return 0;
     }
 
+    for (i = 0u; i < 4u; ++i) {
+        if (!isfinite(vertex->tangent[i]))
+            return 0;
+    }
+
     return isfinite(vertex->uv[0]) &&
            isfinite(vertex->uv[1]) &&
            isfinite(vertex->uv1[0]) &&
@@ -94,9 +100,12 @@ int XzXzmesh_ReadVertex(
         vertex->normal[i] =
             XzReadF32Le(p + 12u + i * 4u);
 
-    vertex->uv[0] = XzReadF32Le(p + 24u);
-    vertex->uv[1] = XzReadF32Le(p + 28u);
-
+    vertex->tangent[0] = 0.0f;
+    vertex->tangent[1] = 0.0f;
+    vertex->tangent[2] = 0.0f;
+    vertex->tangent[3] = 1.0f;
+    vertex->uv[0] = 0.0f;
+    vertex->uv[1] = 0.0f;
     vertex->uv1[0] = 0.0f;
     vertex->uv1[1] = 0.0f;
     vertex->uv2[0] = 0.0f;
@@ -105,12 +114,28 @@ int XzXzmesh_ReadVertex(
     vertex->uv3[1] = 0.0f;
 
     if (view->version >= XZ_XZMS_VERSION) {
-        vertex->uv1[0] = XzReadF32Le(p + 32u);
-        vertex->uv1[1] = XzReadF32Le(p + 36u);
-        vertex->uv2[0] = XzReadF32Le(p + 40u);
-        vertex->uv2[1] = XzReadF32Le(p + 44u);
-        vertex->uv3[0] = XzReadF32Le(p + 48u);
-        vertex->uv3[1] = XzReadF32Le(p + 52u);
+        for (i = 0u; i < 4u; ++i)
+            vertex->tangent[i] =
+                XzReadF32Le(p + 24u + i * 4u);
+        vertex->uv[0] = XzReadF32Le(p + 40u);
+        vertex->uv[1] = XzReadF32Le(p + 44u);
+        vertex->uv1[0] = XzReadF32Le(p + 48u);
+        vertex->uv1[1] = XzReadF32Le(p + 52u);
+        vertex->uv2[0] = XzReadF32Le(p + 56u);
+        vertex->uv2[1] = XzReadF32Le(p + 60u);
+        vertex->uv3[0] = XzReadF32Le(p + 64u);
+        vertex->uv3[1] = XzReadF32Le(p + 68u);
+    } else {
+        vertex->uv[0] = XzReadF32Le(p + 24u);
+        vertex->uv[1] = XzReadF32Le(p + 28u);
+        if (view->version >= XZ_XZMS_VERSION_V2) {
+            vertex->uv1[0] = XzReadF32Le(p + 32u);
+            vertex->uv1[1] = XzReadF32Le(p + 36u);
+            vertex->uv2[0] = XzReadF32Le(p + 40u);
+            vertex->uv2[1] = XzReadF32Le(p + 44u);
+            vertex->uv3[0] = XzReadF32Le(p + 48u);
+            vertex->uv3[1] = XzReadF32Le(p + 52u);
+        }
     }
 
     return 1;
@@ -187,6 +212,7 @@ XzXzmeshStatus XzXzmesh_Parse(
 
     version = XzReadU32Le(bytes + 4u);
     if (version != XZ_XZMS_VERSION_V1 &&
+        version != XZ_XZMS_VERSION_V2 &&
         version != XZ_XZMS_VERSION)
         return XZ_XZMS_ERR_VERSION;
 
@@ -205,8 +231,10 @@ XzXzmeshStatus XzXzmesh_Parse(
 
     if (((version == XZ_XZMS_VERSION_V1) &&
          view->vertex_stride != XZ_XZMS_VERTEX_BYTES_V1) ||
-        ((version == XZ_XZMS_VERSION) &&
+        ((version == XZ_XZMS_VERSION_V2) &&
          view->vertex_stride != XZ_XZMS_VERTEX_BYTES_V2) ||
+        ((version == XZ_XZMS_VERSION) &&
+         view->vertex_stride != XZ_XZMS_VERTEX_BYTES_V3) ||
         view->submesh_stride != XZ_XZMS_SUBMESH_BYTES)
         return XZ_XZMS_ERR_STRIDE;
 
