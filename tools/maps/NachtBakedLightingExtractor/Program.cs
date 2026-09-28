@@ -9,6 +9,7 @@ using CUE4Parse.UE4.Assets.Exports.StaticMesh;
 using CUE4Parse.UE4.Assets.Exports.FastGeoStreaming;
 using CUE4Parse.UE4.Assets.Exports.Component.Landscape;
 using CUE4Parse.UE4.Objects.Core.Misc;
+using CUE4Parse.UE4.Objects.Core.Math;
 using System.Text.Json;
 
 if (args.Length != 2)
@@ -538,6 +539,16 @@ foreach (var candidate in builtDataCandidates)
                 string? skyOcclusionTexture = null;
                 string? aoMaskTexture = null;
                 string? shadowTexture = null;
+                float[]? lightMapCoordinateScale = null;
+                float[]? lightMapCoordinateBias = null;
+                float[][]? lightMapScaleVectors = null;
+                float[][]? lightMapAddVectors = null;
+                bool[]? lightMapShadowChannelValid = null;
+                float[]? lightMapInvUniformPenumbraSize = null;
+                float[]? shadowMapCoordinateScale = null;
+                float[]? shadowMapCoordinateBias = null;
+                bool[]? shadowMapChannelValid = null;
+                float[]? shadowMapInvUniformPenumbraSize = null;
 
                 if (data.LightMap is FLegacyLightMap1D)
                 {
@@ -581,6 +592,53 @@ foreach (var candidate in builtDataCandidates)
                     if (shadowTexture is not null)
                         referencedShadowmapTextures.Add(
                             shadowTexture);
+
+                    if (lm2d.CoordinateScale.HasValue)
+                    {
+                        var v = lm2d.CoordinateScale.Value;
+                        lightMapCoordinateScale =
+                            new[] { v.X, v.Y };
+                    }
+                    if (lm2d.CoordinateBias.HasValue)
+                    {
+                        var v = lm2d.CoordinateBias.Value;
+                        lightMapCoordinateBias =
+                            new[] { v.X, v.Y };
+                    }
+                    if (lm2d.ScaleVectors is not null)
+                    {
+                        lightMapScaleVectors =
+                            lm2d.ScaleVectors
+                                .Select(
+                                    v => new[] {
+                                        v.X, v.Y, v.Z, v.W
+                                    })
+                                .ToArray();
+                    }
+                    if (lm2d.AddVectors is not null)
+                    {
+                        lightMapAddVectors =
+                            lm2d.AddVectors
+                                .Select(
+                                    v => new[] {
+                                        v.X, v.Y, v.Z, v.W
+                                    })
+                                .ToArray();
+                    }
+                    if (lm2d.bShadowChannelValid is not null)
+                    {
+                        lightMapShadowChannelValid =
+                            lm2d.bShadowChannelValid.ToArray();
+                    }
+                    if (lm2d.InvUniformPenumbraSize.HasValue)
+                    {
+                        var v =
+                            lm2d.InvUniformPenumbraSize.Value;
+                        lightMapInvUniformPenumbraSize =
+                            new[] {
+                                v.X, v.Y, v.Z, v.W
+                            };
+                    }
                 }
                 else
                 {
@@ -597,6 +655,26 @@ foreach (var candidate in builtDataCandidates)
                         shadowTexture ??= path;
                         referencedShadowmapTextures.Add(path);
                     }
+
+                    shadowMapCoordinateScale =
+                        new[] {
+                            sm2d.CoordinateScale.X,
+                            sm2d.CoordinateScale.Y
+                        };
+                    shadowMapCoordinateBias =
+                        new[] {
+                            sm2d.CoordinateBias.X,
+                            sm2d.CoordinateBias.Y
+                        };
+                    shadowMapChannelValid =
+                        sm2d.bChannelValid.ToArray();
+                    shadowMapInvUniformPenumbraSize =
+                        new[] {
+                            sm2d.InvUniformPenumbraSize.X,
+                            sm2d.InvUniformPenumbraSize.Y,
+                            sm2d.InvUniformPenumbraSize.Z,
+                            sm2d.InvUniformPenumbraSize.W
+                        };
                 }
                 else
                 {
@@ -627,6 +705,16 @@ foreach (var candidate in builtDataCandidates)
                         skyOcclusionTexture,
                         aoMaskTexture,
                         shadowTexture,
+                        lightMapCoordinateScale,
+                        lightMapCoordinateBias,
+                        lightMapScaleVectors,
+                        lightMapAddVectors,
+                        lightMapShadowChannelValid,
+                        lightMapInvUniformPenumbraSize,
+                        shadowMapCoordinateScale,
+                        shadowMapCoordinateBias,
+                        shadowMapChannelValid,
+                        shadowMapInvUniformPenumbraSize,
                         lightGuids =
                             data.LightMap?.LightGuids
                                 .Select(x => x.ToString())
