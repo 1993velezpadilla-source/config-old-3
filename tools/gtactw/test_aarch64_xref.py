@@ -33,6 +33,11 @@ def encode_add(rd: int, rn: int, imm: int) -> int:
     return 0x91000000 | ((imm & 0xFFF) << 10) | (rn << 5) | rd
 
 
+def encode_bl(pc: int, target: int) -> int:
+    imm26 = ((target - pc) >> 2) & 0x03FFFFFF
+    return 0x94000000 | imm26
+
+
 def make_xref_fixture(path: Path):
     shstr = b"\0.shstrtab\0.dynstr\0.dynsym\0.text\0.rodata\0"
 
@@ -40,8 +45,10 @@ def make_xref_fixture(path: Path):
         return shstr.index(name)
 
     func = b"RenderWorldFrame"
-    dynstr = b"\0" + func + b"\0"
+    caller = b"MainLoopCaller"
+    dynstr = b"\0" + func + b"\0" + caller + b"\0"
     func_off = dynstr.index(func)
+    caller_off = dynstr.index(caller)
 
     cam = b"CameraFarClipDistance"
     world = b"WorldBlockStreamer"
@@ -54,14 +61,19 @@ def make_xref_fixture(path: Path):
         0xD503201F,  # nop: exercise non-adjacent ADRP+ADD recovery
         encode_add(0, 0, cam_va & 0xFFF),
         encode_adr(1, 0x100C, world_va),
+        encode_bl(0x1010, 0x1000),
+        0xD65F03C0,  # ret
     ]
-    text = struct.pack("<4I", *text_words)
+    text = struct.pack("<6I", *text_words)
 
     sym0 = b"\0" * elf_probe.ELF64_SYM.size
     sym1 = elf_probe.ELF64_SYM.pack(
-        func_off, 0x12, 0, 4, 0x1000, len(text)
+        func_off, 0x12, 0, 4, 0x1000, 16
     )
-    dynsym = sym0 + sym1
+    sym2 = elf_probe.ELF64_SYM.pack(
+        caller_off, 0x12, 0, 4, 0x1010, 8
+    )
+    dynsym = sym0 + sym1 + sym2
 
     cursor = elf_probe.ELF64_EHDR.size
     parts = {}
@@ -138,11 +150,26 @@ class Aarch64XrefTests(unittest.TestCase):
             report["groups"]["streaming"][0]["form"],
             "adr",
         )
+        neighborhood = report["candidate_call_neighborhoods"]["0x1000"]
+        self.assertEqual(len(neighborhood["incoming"]), 1)
+        self.assertEqual(
+            neighborhood["incoming"][0]["caller"],
+            "MainLoopCaller",
+        )
+        self.assertEqual(
+            neighborhood["incoming"][0]["callee"],
+            "RenderWorldFrame",
+        )
 
     def test_decoder_rejects_other_instructions(self):
         self.assertIsNone(aarch64_xref.decode_adrp(0xD503201F, 0x1000))
         self.assertIsNone(aarch64_xref.decode_adr(0xD503201F, 0x1000))
         self.assertIsNone(aarch64_xref.decode_add_imm64(0xD65F03C0))
+        self.assertIsNone(aarch64_xref.decode_bl(0xD65F03C0, 0x1000))
+        self.assertEqual(
+            aarch64_xref.decode_bl(encode_bl(0x1010, 0x1000), 0x1010),
+            0x1000,
+        )
 
 
 if __name__ == "__main__":
