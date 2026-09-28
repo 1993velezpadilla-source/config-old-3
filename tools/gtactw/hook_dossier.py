@@ -41,6 +41,7 @@ def _abi_review_card(abi_evidence: dict, caller_evidence: dict) -> dict:
 
     locally_prepared = set()
     passthrough = set()
+    caller_reg_stats = {}
     return_counts = {
         "x0": {
             "consumed": 0,
@@ -114,7 +115,6 @@ def _abi_review_card(abi_evidence: dict, caller_evidence: dict) -> dict:
     )
 
     caller_kinds = {}
-    caller_reg_stats = {}
     for caller in callers:
         if not isinstance(caller, dict):
             continue
