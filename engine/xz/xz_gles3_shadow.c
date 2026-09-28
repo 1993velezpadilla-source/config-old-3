@@ -3430,6 +3430,10 @@ static int XzUploadStaticHQLightmaps(
         state->static_scene_lightmap_upload_width = 0u;
         state->static_scene_lightmap_upload_height = 0u;
         state->static_scene_lightmap_upload_gl_error = GL_NO_ERROR;
+        state->static_scene_lightmap_upload_reason = 0u;
+        state->static_scene_lightmap_upload_read_status = 0u;
+        state->static_scene_lightmap_upload_mip_bytes = 0u;
+        state->static_scene_lightmap_upload_decoded_bytes = 0u;
     }
 
     if (!scene ||
@@ -3580,17 +3584,31 @@ static int XzUploadStaticHQLightmaps(
                 expected_width;
             state->static_scene_lightmap_upload_height =
                 expected_height;
+            state->static_scene_lightmap_upload_reason = 0u;
+            state->static_scene_lightmap_upload_read_status = 0u;
+            state->static_scene_lightmap_upload_mip_bytes = 0u;
+            state->static_scene_lightmap_upload_decoded_bytes =
+                decoded_bytes;
 
             if (!XzLightmapTexture_Mip(
                     lightmaps,
                     texture.first_mip +
                         relative_mip,
-                    &mip) ||
-                mip.bytes == 0u ||
+                    &mip)) {
+                state->static_scene_lightmap_upload_reason = 1u;
+                goto fail;
+            }
+
+            state->static_scene_lightmap_upload_mip_bytes =
+                mip.bytes;
+
+            if (mip.bytes == 0u ||
                 mip.width != expected_width ||
                 mip.height != expected_height ||
-                decoded_bytes > SIZE_MAX)
+                decoded_bytes > SIZE_MAX) {
+                state->static_scene_lightmap_upload_reason = 2u;
                 goto fail;
+            }
 
             if ((size_t)mip.bytes >
                 compressed_bytes) {
@@ -3598,8 +3616,10 @@ static int XzUploadStaticHQLightmaps(
                     (unsigned char *)realloc(
                         compressed,
                         (size_t)mip.bytes);
-                if (!grown)
+                if (!grown) {
+                    state->static_scene_lightmap_upload_reason = 3u;
                     goto fail;
+                }
                 compressed = grown;
                 compressed_bytes =
                     (size_t)mip.bytes;
@@ -3611,8 +3631,10 @@ static int XzUploadStaticHQLightmaps(
                     (unsigned char *)realloc(
                         rgba,
                         (size_t)decoded_bytes);
-                if (!grown)
+                if (!grown) {
+                    state->static_scene_lightmap_upload_reason = 4u;
                     goto fail;
+                }
                 rgba = grown;
                 rgba_bytes =
                     (size_t)decoded_bytes;
@@ -3626,15 +3648,23 @@ static int XzUploadStaticHQLightmaps(
                     compressed,
                     compressed_bytes,
                     NULL);
-            if (read_status != XZ_XZLT_OK ||
-                !XzDecodeBc3Rgba8(
+            state->static_scene_lightmap_upload_read_status =
+                (unsigned int)read_status;
+            if (read_status != XZ_XZLT_OK) {
+                state->static_scene_lightmap_upload_reason = 5u;
+                goto fail;
+            }
+
+            if (!XzDecodeBc3Rgba8(
                     compressed,
                     (size_t)mip.bytes,
                     mip.width,
                     mip.height,
                     rgba,
-                    (size_t)decoded_bytes))
+                    (size_t)decoded_bytes)) {
+                state->static_scene_lightmap_upload_reason = 6u;
                 goto fail;
+            }
 
             state->static_scene_lightmap_upload_stage = 6u;
 
