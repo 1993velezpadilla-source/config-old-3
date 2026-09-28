@@ -37,10 +37,12 @@ int main(void) {
         "\n"
         "[Characters]\n"
         "FixBillboards=0\n"
-        "ExtendedLOD=1\n";
+        "ExtendedLOD=1\n"
+        "KeepFullBody=0\n"
+        "HideHeadFirstPerson=0\n";
 
     const int applied = ctw_config_parse_text(&cfg, ini);
-    assert(applied == 12);
+    assert(applied == 14);
     assert(feq(cfg.camera_height, 4.0f)); /* clamped */
     assert(feq(cfg.camera_distance, 7.25f));
     assert(feq(cfg.camera_pitch_degrees, -12.0f));
@@ -52,6 +54,8 @@ int main(void) {
     assert(feq(cfg.ped_distance_multiplier, 1.5f));
     assert(cfg.character_fix == 0);
     assert(cfg.extended_character_lod == 1);
+    assert(cfg.keep_full_player_body == 0);
+    assert(cfg.hide_head_in_first_person == 0);
 
     const char *disable = "[Camera]\nEnabled=0\n";
     assert(ctw_config_parse_text(&cfg, disable) == 1);
