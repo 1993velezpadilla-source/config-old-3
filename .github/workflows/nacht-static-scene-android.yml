@@ -3469,13 +3469,40 @@ jobs:
             -type f -name sdkmanager | sort | tail -n 1)
           test -n "$SDKMANAGER"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER" \
-            "platform-tools" \
-            "platforms;android-35" \
-            "build-tools;35.0.0" \
-            "ndk;27.2.12479018" \
-            "emulator" \
-            "system-images;android-35;google_apis;x86_64"
+
+          install_android_packages() {
+            "$SDKMANAGER" \
+              "platform-tools" \
+              "platforms;android-35" \
+              "build-tools;35.0.0" \
+              "ndk;27.2.12479018" \
+              "emulator" \
+              "system-images;android-35;google_apis;x86_64"
+          }
+
+          for attempt in 1 2 3; do
+            if install_android_packages; then
+              echo "XZIEL_ANDROID_SDK_INSTALL_GREEN attempt=$attempt"
+              break
+            fi
+
+            if [[ "$attempt" -eq 3 ]]; then
+              echo "XZIEL_ANDROID_SDK_INSTALL_FAIL attempts=$attempt" >&2
+              exit 1
+            fi
+
+            echo "::warning::Android SDK package install failed on attempt $attempt; clearing partial emulator downloads and retrying"
+            rm -rf \
+              "${ANDROID_HOME}/emulator" \
+              "${ANDROID_HOME}/system-images/android-35/google_apis/x86_64" \
+              "${ANDROID_HOME}/.temp" \
+              "${HOME}/.android/cache" || true
+            sleep $((attempt * 3))
+          done
+
+          test -x "${ANDROID_HOME}/emulator/emulator"
+          test -x "${ANDROID_HOME}/platform-tools/adb"
+          test -d "${ANDROID_HOME}/system-images/android-35/google_apis/x86_64"
 
       - name: Prepare Android project with real static scene overlay
         env:
