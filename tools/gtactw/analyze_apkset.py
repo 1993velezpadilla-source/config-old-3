@@ -50,10 +50,40 @@ def _merged_split_identity(source: Path, temp_root: Path, aapt: Path | None) -> 
     }
 
 
+
+def _merged_split_certificate(
+    source: Path,
+    temp_root: Path,
+    apksigner: Path | None,
+) -> dict:
+    temp_root.mkdir(parents=True, exist_ok=True)
+    apks = apkset_probe.collect_apks(source, temp_root)
+    certs = []
+    for display, path in apks:
+        cert = apk_identity.inspect_apk_certificate(path, apksigner)
+        cert = dict(cert)
+        cert["split"] = display
+        certs.append(cert)
+
+    if not certs:
+        raise ValueError("split set contains no APK certificates")
+
+    sha1s = {x["sha1"] for x in certs}
+    sha256s = {x["sha256"] for x in certs}
+    if len(sha1s) != 1 or len(sha256s) != 1:
+        raise ValueError("split APK signatures disagree")
+
+    return {
+        "sha1": certs[0]["sha1"],
+        "sha256": certs[0]["sha256"],
+        "splits": certs,
+    }
+
 def analyze_apkset(
     source: Path,
     reference: Path | None = None,
     aapt: Path | None = None,
+    apksigner: Path | None = None,
 ) -> dict:
     if not source.exists():
         raise FileNotFoundError(source)
@@ -67,6 +97,7 @@ def analyze_apkset(
         "arm64_xrefs": None,
         "profile_template": None,
         "apk_identity": None,
+        "apk_certificate": None,
         "reference_validation": None,
         "errors": [],
         "gates": {
@@ -119,8 +150,22 @@ def analyze_apkset(
                     native.add("arm64-v8a")
                     identity["native_code"] = sorted(native)
                 ref_obj = json.loads(reference.read_text(encoding="utf-8"))
-                validation = apk_identity.validate_reference(identity, ref_obj)
+                certificate = None
+                if ref_obj.get("verification", {}).get(
+                    "require_signing_certificate_match"
+                ):
+                    certificate = _merged_split_certificate(
+                        source,
+                        root / "certificate_apks",
+                        apksigner,
+                    )
+                validation = apk_identity.validate_reference(
+                    identity,
+                    ref_obj,
+                    certificate,
+                )
                 report["apk_identity"] = identity
+                report["apk_certificate"] = certificate
                 report["reference_validation"] = validation
                 report["gates"]["reference_build"] = validation["ok"]
             except Exception as exc:
@@ -136,13 +181,19 @@ def main() -> int:
     ap.add_argument("source", type=Path)
     ap.add_argument("--reference", type=Path)
     ap.add_argument("--aapt", type=Path)
+    ap.add_argument("--apksigner", type=Path)
     ap.add_argument("--out", type=Path)
     ap.add_argument("--profile-out", type=Path)
     ap.add_argument("--allow-partial", action="store_true")
     args = ap.parse_args()
 
     try:
-        report = analyze_apkset(args.source, args.reference, args.aapt)
+        report = analyze_apkset(
+            args.source,
+            args.reference,
+            args.aapt,
+            args.apksigner,
+        )
     except Exception as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, indent=2))
         return 2
