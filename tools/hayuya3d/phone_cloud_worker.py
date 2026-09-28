@@ -836,8 +836,27 @@ if (
         if modern_candidate is not None:
             from material_bridge import transfer_best_material
             bridged=OUT/"hunyuan3d_native_candidate.glb"
+
+            # Never force the Material Bridge to repack the 2M diagnostic Hero
+            # merely to reuse its atlas. The normal-informed builder already
+            # emits a compact material-source GLB carrying the exact same 4K
+            # source-derived material evidence. Using that donor preserves the
+            # texture evidence while avoiding million-vertex atlas packing.
+            material_donor=modern_candidate
+            if isinstance(preview_normal_hero_report,dict):
+                compact_source=preview_normal_hero_report.get("material_source_glb")
+                if compact_source and Path(compact_source).is_file():
+                    material_donor=Path(compact_source)
+            print(
+                "HAYUYA_HUNYUAN3D_MATERIAL_DONOR",
+                json.dumps({
+                    "path":str(material_donor),
+                    "bytes":int(Path(material_donor).stat().st_size),
+                    "compact":bool(Path(material_donor)!=Path(modern_candidate)),
+                },separators=(",",":")),
+            )
             bridge=transfer_best_material(
-                modern_candidate,
+                material_donor,
                 hunyuan_geometry,
                 bridged,
                 total_samples=500_000,
