@@ -109,18 +109,34 @@ def score_layout(
 def infer_layout(blob: bytes, model_ids: set[int]) -> dict:
     candidates = []
 
-    # Strong hypothesis: u32 record count followed by a tightly packed table.
+    # Strong hypothesis: u32 record count followed by a fixed-stride table.
+    # Resources are block-aligned in the PAK, so trailing zero padding is
+    # allowed and must not be mistaken for record bytes.
     if len(blob) >= 4:
         count = struct.unpack_from("<I", blob, 0)[0]
         payload = len(blob) - 4
-        if (
-            MIN_RECORDS <= count <= 4096
-            and payload >= count * 2
-            and payload % count == 0
-        ):
-            record_size = payload // count
-            if 2 <= record_size <= MAX_RECORD_SIZE:
-                for field in range(0, min(record_size, MAX_FIELD_SCAN), 2):
+        if MIN_RECORDS <= count <= 4096 and payload >= count * 2:
+            for record_size in range(8, MAX_RECORD_SIZE + 1, 2):
+                used = count * record_size
+                if used > payload:
+                    break
+                tail = blob[4 + used:]
+                if tail:
+                    nonzero = sum(1 for b in tail if b)
+                    zero_ratio = 1.0 - (nonzero / len(tail))
+                else:
+                    zero_ratio = 1.0
+
+                # A large non-zero tail means this stride probably truncated
+                # real records/data. Padding-heavy tails are acceptable.
+                if len(tail) > 32 and zero_ratio < 0.95:
+                    continue
+
+                for field in range(
+                    0,
+                    min(record_size, MAX_FIELD_SCAN),
+                    2,
+                ):
                     item = score_layout(
                         blob,
                         model_ids,
@@ -130,8 +146,10 @@ def infer_layout(blob: bytes, model_ids: set[int]) -> dict:
                         field_offset=field,
                     )
                     if item:
-                        item["layout_source"] = "u32_count_exact_stride"
-                        item["score"] += 20.0
+                        item["layout_source"] = "u32_count_fixed_stride"
+                        item["padding_bytes"] = len(tail)
+                        item["padding_zero_ratio"] = zero_ratio
+                        item["score"] += 20.0 + zero_ratio * 5.0
                         candidates.append(item)
 
     # Conservative fallback for builds with a small fixed header or padding.
