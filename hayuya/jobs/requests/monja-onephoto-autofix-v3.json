@@ -16,5 +16,5 @@
   "portable_target": "high",
   "gpu_vram": 24,
   "backends": "trellis2,triposg,detailgen3d,triposr",
-  "retry_token": "ultra-2m-geometry-only-audit-20260927"
+  "retry_token": "ultra-2m-triposg-session-fix-20260927"
 }
