@@ -8,14 +8,16 @@
 extern "C" {
 #endif
 
-#define XZ_XZLT_VERSION 1u
+#define XZ_XZLT_VERSION_V1 1u
+#define XZ_XZLT_VERSION 2u
 #define XZ_XZLT_HEADER_BYTES 32u
 #define XZ_XZLT_TEXTURE_RECORD_BYTES 24u
 #define XZ_XZLT_MIP_RECORD_BYTES 16u
 
 enum {
     XZ_XZLT_FORMAT_BC1 = 1u,
-    XZ_XZLT_FORMAT_BC3 = 2u
+    XZ_XZLT_FORMAT_BC3 = 2u,
+    XZ_XZLT_FORMAT_ETC2_RGBA8 = 3u
 };
 
 typedef enum {
@@ -58,6 +60,7 @@ typedef struct {
     unsigned char *table_data;
     size_t table_bytes;
 
+    uint32_t version;
     uint32_t texture_count;
     uint32_t mip_count;
     uint32_t texture_table_offset;
@@ -67,6 +70,7 @@ typedef struct {
 
     uint32_t bc1_texture_count;
     uint32_t bc3_texture_count;
+    uint32_t etc2_rgba8_texture_count;
     uint32_t srgb_texture_count;
     uint32_t linear_texture_count;
 } XzLightmapTextureView;
