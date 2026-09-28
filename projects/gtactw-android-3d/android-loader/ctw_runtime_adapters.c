@@ -19,6 +19,9 @@
 #define CTW_PI 3.14159265358979323846f
 #define CTW_WORLD_SECTOR_SIZE_FIXED (60.0f * CTW_FIXED_ONE)
 #define CTW_PED_BUCKET_BIND_GOT_RVA 0xDF0AC0u
+#define CTW_PLAYER_HANDLE_AIMING_VTABLE_RVA 0xD81960u
+#define CTW_YOKE_AIM_ANGLE_OFFSET 0x22u
+#define CTW_YOKE_EXPLICIT_AIM_OFFSET 0xB0u
 #define CTW_PED_SPRITE_PRIMARY_OFFSET 0x224u
 #define CTW_PED_SPRITE_SECONDARY_OFFSET 0x26Cu
 
@@ -64,6 +67,11 @@ typedef void (*CtwPedBucketBindFn)(
     const void *sprite,
     uint32_t body_type
 );
+typedef void (*CtwPlayerHandleAimingFn)(
+    void *player,
+    void *yoke,
+    const void **target
+);
 
 typedef struct {
     int active;
@@ -82,7 +90,9 @@ static void **g_players;
 static int *g_local_player_id;
 static CtwPedBucketBindFn g_ped_bucket_bind_original;
 static void **g_ped_bucket_bind_got;
-static int g_ped_bucket_bind_aux_installed;
+static CtwPlayerHandleAimingFn g_player_handle_aiming_original;
+static void **g_player_handle_aiming_vtable;
+static int g_aux_hooks_installed;
 static _Thread_local int g_rendering_local_player_sprite;
 
 static atomic_int g_stream_heading = ATOMIC_VAR_INIT(0);
@@ -106,6 +116,22 @@ static int runtime_restore_data_readonly(void *address) {
     const uintptr_t start =
         (uintptr_t)address & ~(uintptr_t)(page - 1u);
     return mprotect((void *)start, page, PROT_READ);
+}
+
+static int16_t read_i16(const void *base, size_t offset) {
+    int16_t value = 0;
+    memcpy(&value, (const uint8_t *)base + offset, sizeof(value));
+    return value;
+}
+
+static uint8_t read_u8(const void *base, size_t offset) {
+    uint8_t value = 0;
+    memcpy(&value, (const uint8_t *)base + offset, sizeof(value));
+    return value;
+}
+
+static void write_u8(void *base, size_t offset, uint8_t value) {
+    memcpy((uint8_t *)base + offset, &value, sizeof(value));
 }
 
 static int32_t read_i32(const void *base, size_t offset) {
@@ -316,6 +342,53 @@ static int sprite_is_local_player(const void *sprite) {
            value == base + CTW_PED_SPRITE_SECONDARY_OFFSET;
 }
 
+static void ctw_player_handle_aiming_aux(
+    void *player,
+    void *yoke,
+    const void **target
+) {
+    if (!g_player_handle_aiming_original)
+        return;
+
+    const CtwCameraInputSnapshot input = ctw_camera_snapshot();
+    if (!yoke ||
+        !g_ctw3d_config.camera_enabled ||
+        input.mode == CTW_CAMERA_STOCK ||
+        !atomic_load_explicit(
+            &g_stream_heading_valid,
+            memory_order_relaxed
+        )) {
+        g_player_handle_aiming_original(player, yoke, target);
+        return;
+    }
+
+    const uint8_t old_explicit = read_u8(
+        yoke,
+        CTW_YOKE_EXPLICIT_AIM_OFFSET
+    );
+    const int16_t old_angle = read_i16(
+        yoke,
+        CTW_YOKE_AIM_ANGLE_OFFSET
+    );
+    const int16_t camera_heading = (int16_t)atomic_load_explicit(
+        &g_stream_heading,
+        memory_order_relaxed
+    );
+
+    /*
+     * HandleAiming already has a native explicit-angle path. Feed it the
+     * camera heading only for this call, preserving scripted targets,
+     * sensor-cone auto-target and all weapon logic inside Rockstar code.
+     */
+    write_u8(yoke, CTW_YOKE_EXPLICIT_AIM_OFFSET, 1u);
+    write_i16(yoke, CTW_YOKE_AIM_ANGLE_OFFSET, camera_heading);
+
+    g_player_handle_aiming_original(player, yoke, target);
+
+    write_i16(yoke, CTW_YOKE_AIM_ANGLE_OFFSET, old_angle);
+    write_u8(yoke, CTW_YOKE_EXPLICIT_AIM_OFFSET, old_explicit);
+}
+
 static void ctw_ped_bucket_bind_aux(
     void *renderer,
     void *depth,
@@ -424,55 +497,100 @@ int ctw_runtime_adapters_bind(void *original_game_handle) {
     g_ped_bucket_bind_got = (void **)((
         uintptr_t)info.dli_fbase + CTW_PED_BUCKET_BIND_GOT_RVA
     );
+
+    dlerror();
+    g_player_handle_aiming_original =
+        (CtwPlayerHandleAimingFn)dlsym(
+            original_game_handle,
+            "_ZN7cPlayer12HandleAimingER9sVirtYokeRPK7cEntity"
+        );
+    if (dlerror() != NULL || !g_player_handle_aiming_original)
+        return -10;
+
+    g_player_handle_aiming_vtable = (void **)((
+        uintptr_t)info.dli_fbase +
+        CTW_PLAYER_HANDLE_AIMING_VTABLE_RVA
+    );
+    return 0;
+}
+
+static int runtime_swap_pointer(
+    void **slot,
+    void *expected,
+    void *replacement
+) {
+    if (!slot || !expected || !replacement)
+        return -1;
+    if (*slot != expected)
+        return -2;
+    if (runtime_make_data_writable(slot) != 0)
+        return -3;
+
+    *slot = replacement;
+
+    if (runtime_restore_data_readonly(slot) != 0) {
+        if (runtime_make_data_writable(slot) == 0) {
+            *slot = expected;
+            (void)runtime_restore_data_readonly(slot);
+        }
+        return -4;
+    }
     return 0;
 }
 
 int ctw_runtime_adapters_install_aux(void) {
-    if (g_ped_bucket_bind_aux_installed)
+    if (g_aux_hooks_installed)
         return 0;
-    if (!g_ped_bucket_bind_got || !g_ped_bucket_bind_original)
-        return -1;
 
-    if (*g_ped_bucket_bind_got != (void *)g_ped_bucket_bind_original)
-        return -2;
+    int rc = runtime_swap_pointer(
+        g_ped_bucket_bind_got,
+        (void *)g_ped_bucket_bind_original,
+        (void *)&ctw_ped_bucket_bind_aux
+    );
+    if (rc != 0)
+        return -10 + rc;
 
-    if (runtime_make_data_writable(g_ped_bucket_bind_got) != 0)
-        return -3;
-
-    *g_ped_bucket_bind_got = (void *)&ctw_ped_bucket_bind_aux;
-
-    if (runtime_restore_data_readonly(g_ped_bucket_bind_got) != 0) {
-        if (runtime_make_data_writable(g_ped_bucket_bind_got) == 0) {
-            *g_ped_bucket_bind_got =
-                (void *)g_ped_bucket_bind_original;
-            (void)runtime_restore_data_readonly(g_ped_bucket_bind_got);
-        }
-        return -4;
+    rc = runtime_swap_pointer(
+        g_player_handle_aiming_vtable,
+        (void *)g_player_handle_aiming_original,
+        (void *)&ctw_player_handle_aiming_aux
+    );
+    if (rc != 0) {
+        (void)runtime_swap_pointer(
+            g_ped_bucket_bind_got,
+            (void *)&ctw_ped_bucket_bind_aux,
+            (void *)g_ped_bucket_bind_original
+        );
+        return -20 + rc;
     }
 
-    g_ped_bucket_bind_aux_installed = 1;
+    g_aux_hooks_installed = 1;
     return 0;
 }
 
 int ctw_runtime_adapters_uninstall_aux(void) {
-    if (!g_ped_bucket_bind_aux_installed)
+    if (!g_aux_hooks_installed)
         return 0;
-    if (!g_ped_bucket_bind_got || !g_ped_bucket_bind_original)
-        return -1;
 
-    if (*g_ped_bucket_bind_got != (void *)&ctw_ped_bucket_bind_aux)
-        return -2;
+    const int aim_rc = runtime_swap_pointer(
+        g_player_handle_aiming_vtable,
+        (void *)&ctw_player_handle_aiming_aux,
+        (void *)g_player_handle_aiming_original
+    );
+    const int ped_rc = runtime_swap_pointer(
+        g_ped_bucket_bind_got,
+        (void *)&ctw_ped_bucket_bind_aux,
+        (void *)g_ped_bucket_bind_original
+    );
 
-    if (runtime_make_data_writable(g_ped_bucket_bind_got) != 0)
-        return -3;
+    if (aim_rc == 0 && ped_rc == 0) {
+        g_aux_hooks_installed = 0;
+        return 0;
+    }
 
-    *g_ped_bucket_bind_got = (void *)g_ped_bucket_bind_original;
-
-    if (runtime_restore_data_readonly(g_ped_bucket_bind_got) != 0)
-        return -4;
-
-    g_ped_bucket_bind_aux_installed = 0;
-    return 0;
+    if (aim_rc != 0)
+        return -20 + aim_rc;
+    return -10 + ped_rc;
 }
 
 void ctw_camera_update_adapter_v1(void *camera, const void *yoke) {
