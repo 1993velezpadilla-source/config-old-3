@@ -1,6 +1,10 @@
 #include "ctw_patch.h"
 
+#if defined(__ANDROID__)
 #include <android/log.h>
+#else
+#include <stdio.h>
+#endif
 #include <errno.h>
 #include <stdint.h>
 #include <string.h>
@@ -12,7 +16,7 @@
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 #else
-#define LOGI(...) do { fprintf(stderr, LOG_TAG ": "); fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\\n"); } while (0)
+#define LOGI(...) do { fprintf(stderr, LOG_TAG ": "); fprintf(stderr, __VA_ARGS__); fputc('\n', stderr); } while (0)
 #define LOGE(...) LOGI(__VA_ARGS__)
 #endif
 
@@ -27,10 +31,11 @@ Ctw3DConfig g_ctw3d_config = {
     .hide_head_in_first_person = 1,
 };
 
+#if defined(__aarch64__)
 static size_t page_size(void) {
     static size_t size = 0;
     if (!size) {
-        long v = sysconf(_SC_PAGESIZE);
+        const long v = sysconf(_SC_PAGESIZE);
         size = v > 0 ? (size_t)v : 4096u;
     }
     return size;
@@ -38,10 +43,12 @@ static size_t page_size(void) {
 
 static int make_writable(void *address, size_t length, int prot) {
     const size_t page = page_size();
-    uintptr_t start = (uintptr_t)address & ~(uintptr_t)(page - 1u);
-    uintptr_t end = ((uintptr_t)address + length + page - 1u) & ~(uintptr_t)(page - 1u);
+    const uintptr_t start = (uintptr_t)address & ~(uintptr_t)(page - 1u);
+    const uintptr_t end =
+        ((uintptr_t)address + length + page - 1u) & ~(uintptr_t)(page - 1u);
     return mprotect((void *)start, end - start, prot);
 }
+#endif
 
 int ctw_arm64_install_abs_jump(void *target, void *replacement, uint8_t saved[16]) {
 #if defined(__aarch64__)
@@ -50,11 +57,7 @@ int ctw_arm64_install_abs_jump(void *target, void *replacement, uint8_t saved[16
 
     memcpy(saved, target, 16);
 
-    /*
-     * ldr x16, #8
-     * br  x16
-     * .quad replacement
-     */
+    /* ldr x16, #8 ; br x16 ; .quad replacement */
     uint32_t patch[4];
     patch[0] = 0x58000050u;
     patch[1] = 0xD61F0200u;
@@ -104,10 +107,6 @@ int ctw_apply_profile(const CtwPatchTargets *targets) {
     if (!targets)
         return -1;
 
-    /*
-     * No guessed addresses are accepted here.
-     * The real libGame.so fingerprint/profile must populate these first.
-     */
     if (!targets->camera_update ||
         !targets->projection_setup ||
         !targets->world_stream_update ||
