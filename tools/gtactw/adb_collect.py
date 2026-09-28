@@ -18,6 +18,7 @@ import subprocess
 import sys
 
 import abi_probe
+import adapter_catalog
 import analyze_apkset
 import hook_dossier
 import profile_status
@@ -206,9 +207,13 @@ def collect_package_apks(
 def build_enriched_profile_status(
     profile: dict,
     abi_report: dict,
+    native_adapter_catalog: dict | None = None,
 ) -> tuple[dict, dict]:
     enriched = abi_probe.attach_abi_evidence(profile, abi_report)
-    status = profile_status.profile_status(enriched)
+    status = profile_status.profile_status(
+        enriched,
+        native_adapter_catalog,
+    )
     return enriched, status
 
 def main() -> int:
@@ -253,6 +258,16 @@ def main() -> int:
     ap.add_argument("--abi-window", type=int, default=256)
     ap.add_argument("--aapt", type=Path)
     ap.add_argument("--apksigner", type=Path)
+    ap.add_argument(
+        "--adapter-catalog",
+        type=Path,
+        default=(
+            Path(__file__).resolve().parents[2]
+            / "projects"
+            / "gtactw-android-3d"
+            / "adapter_catalog.json"
+        ),
+    )
     args = ap.parse_args()
 
     try:
@@ -350,9 +365,13 @@ def main() -> int:
                         encoding="utf-8",
                     )
 
+                native_catalog = adapter_catalog.load_catalog(
+                    args.adapter_catalog
+                )
                 enriched, readiness = build_enriched_profile_status(
                     analysis["profile_template"],
                     abi,
+                    native_catalog,
                 )
                 result["profile_status"] = readiness
 
