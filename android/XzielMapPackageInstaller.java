@@ -485,7 +485,11 @@ public final class XzielMapPackageInstaller {
                 throw new IOException(
                     "Missing boot family " + familyId);
             }
-            JSONArray artifacts = family.getJSONArray("runtimeArtifacts");
+            JSONArray artifacts = family.optJSONArray("runtimeArtifacts");
+            if (artifacts == null || artifacts.length() == 0) {
+                throw new IOException(
+                    "No runtime artifacts for boot family " + familyId);
+            }
             plan.append("F|")
                 .append(bootPhase(familyId))
                 .append('|')
@@ -495,7 +499,7 @@ public final class XzielMapPackageInstaller {
                 .append('\n');
 
             for (int j = 0; j < artifacts.length(); ++j) {
-                String artifact = normalize(artifacts.getString(j));
+                String artifact = normalize(artifacts.optString(j, ""));
                 validateSafeRelativePath(artifact);
                 if (artifact.indexOf('|') >= 0
                         || artifact.indexOf('\n') >= 0
