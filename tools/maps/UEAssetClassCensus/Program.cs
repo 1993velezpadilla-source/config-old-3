@@ -62,43 +62,39 @@ foreach (var packagePath in packages)
 
     try
     {
-        if (!provider.TryLoadPackage(packagePath, out var package) ||
-            package is not AbstractUePackage uePackage)
+        if (!provider.TryLoadPackage(packagePath, out var loaded) ||
+            loaded is not Package package)
         {
             throw new InvalidOperationException(
-                "provider could not load package metadata");
+                "provider could not load classic cooked package metadata");
         }
 
         packagesLoaded++;
-        totalExports += package.ExportMapLength;
+        totalExports += package.ExportMap.Length;
 
         var localClasses =
             new SortedDictionary<string, int>(StringComparer.Ordinal);
 
         /*
-         * Do not call GetExports() here. The official CUE4Parse exporter
-         * demonstrates this metadata-only path specifically to inspect export
-         * types without deserializing heavy texture/mesh/sound payloads.
+         * Metadata-only census: inspect FObjectExport.ClassIndex and resolve
+         * the class name without constructing or serializing the UObject.
+         * This deliberately avoids .ubulk texture/mesh/audio payloads.
          */
-        for (var exportIndex = 0;
-             exportIndex < package.ExportMapLength;
-             ++exportIndex)
+        foreach (var export in package.ExportMap)
         {
-            var pointer =
-                new FPackageIndex(package, exportIndex + 1)
-                    .ResolvedObject;
-
-            if (pointer?.Class is null)
-                continue;
-
-            var dummy =
-                uePackage.ConstructObject(
-                    pointer.Class,
-                    package);
-
-            var type =
-                dummy.GetType().FullName
-                ?? dummy.GetType().Name;
+            string type;
+            try
+            {
+                type =
+                    package
+                        .ResolvePackageIndex(export.ClassIndex)?
+                        .Name.Text
+                    ?? "<unresolved-class>";
+            }
+            catch
+            {
+                type = "<unresolved-class>";
+            }
 
             classCounts[type] =
                 classCounts.GetValueOrDefault(type) + 1;
@@ -108,7 +104,7 @@ foreach (var packagePath in packages)
 
         packageRows.Add(new {
             packagePath,
-            exportCount = package.ExportMapLength,
+            exportCount = package.ExportMap.Length,
             classes = localClasses
         });
     }
