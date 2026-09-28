@@ -64,5 +64,25 @@ int main(void) {
     assert(fabsf(runtime.yaw_degrees - 5.5f) < 0.0001f);
     assert(fabsf(runtime.pitch_degrees + 7.0f) < 0.0001f);
 
+    assert(
+        ctw_camera_handle_gamepad_button_down(8, &cfg)
+        == CTW_CAMERA_BUTTON_ORBIT_RESET
+    );
+    runtime = ctw_camera_orbit_snapshot();
+    assert(fabsf(runtime.yaw_degrees) < 0.0001f);
+    assert(fabsf(runtime.pitch_degrees + 7.0f) < 0.0001f);
+
+    assert(
+        ctw_camera_handle_gamepad_button_down(13, &cfg)
+        == CTW_CAMERA_BUTTON_MODE_CYCLED
+    );
+    assert(ctw_camera_snapshot().mode == CTW_CAMERA_FIRST_PERSON);
+
+    ctw_camera_set_mode(CTW_CAMERA_STOCK);
+    assert(
+        ctw_camera_handle_gamepad_button_down(8, &cfg)
+        == CTW_CAMERA_BUTTON_NONE
+    );
+
     return 0;
 }
