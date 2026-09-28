@@ -1,0 +1,248 @@
+{
+  "schema": 1,
+  "project": "gtactw-android-3d",
+  "target_build": "Android 4.4.243 arm64-v8a",
+  "fingerprint": {
+    "sha256": "c75e300a66317291c6afbeb4df6e0e0f9d8aef5d6ecd7bd43804a4e675d10936",
+    "text_sha256": "8e2e64c52b86525a0aa3453074db72f43a3c62095bad982765081ccab9222aff",
+    "gnu_build_id": "a4c441f4943abbcc72e8270ec18248e4358a89e2",
+    "jni_rvas": {
+      "implOnDrawFrame": 13598512,
+      "implOnInitialSetup": 13597992,
+      "implOnGamepadAxesChanged": 13591448
+    }
+  },
+  "patch_targets_rva": {
+    "camera_update": 7528384,
+    "projection_setup": 7498968,
+    "world_stream_update": 9028756,
+    "sector_visibility": 9031440,
+    "lod_test": 7401300,
+    "player_render": 8948768
+  },
+  "target_verification": {
+    "camera_update": {
+      "status": "verified",
+      "rva": 7528384,
+      "code_prefix_hex": "ffc302d1e82b00fdfd7b06a9fa6707a9",
+      "evidence": [
+        {
+          "method": "exact-binary-symbol-and-manual-aarch64-disassembly",
+          "detail": "cFollowPedCam::Update(sVirtYoke const&): x0=this and x1=&sVirtYoke verified from the function prologue/callers; stock Update is preserved before CTW3D post-processing."
+        },
+        {
+          "method": "exact-libgame-prefix",
+          "detail": "First 16 executable bytes matched user-owned libGame.so SHA-256 c75e300a66317291c6afbeb4df6e0e0f9d8aef5d6ecd7bd43804a4e675d10936."
+        }
+      ]
+    },
+    "projection_setup": {
+      "status": "verified",
+      "rva": 7498968,
+      "code_prefix_hex": "ff4302d1fd7b07a9f44f08a9fdc30191",
+      "evidence": [
+        {
+          "method": "exact-binary-symbol-and-manual-aarch64-disassembly",
+          "detail": "cBaseCam::RecalculateMatrix(): x0=this, void return. Chosen instead of SetFov because its first 16 bytes contain no PC-relative control flow, allowing a simple-copy trampoline."
+        },
+        {
+          "method": "exact-libgame-prefix",
+          "detail": "First 16 executable bytes matched user-owned libGame.so SHA-256 c75e300a66317291c6afbeb4df6e0e0f9d8aef5d6ecd7bd43804a4e675d10936."
+        }
+      ]
+    },
+    "world_stream_update": {
+      "status": "verified",
+      "rva": 9028756,
+      "code_prefix_hex": "fd7bbba9fa6701a9f85f02a9f65703a9",
+      "evidence": [
+        {
+          "method": "exact-binary-symbol-and-manual-aarch64-disassembly",
+          "detail": "cRenderWorld::ProcessLoading(): x0=this and boolean result in w0 verified by callers branching on the returned value."
+        },
+        {
+          "method": "exact-libgame-prefix",
+          "detail": "First 16 executable bytes matched user-owned libGame.so SHA-256 c75e300a66317291c6afbeb4df6e0e0f9d8aef5d6ecd7bd43804a4e675d10936."
+        }
+      ]
+    },
+    "sector_visibility": {
+      "status": "verified",
+      "rva": 9031440,
+      "code_prefix_hex": "ff8302d1e81b00fdfd7b04a9fc6f05a9",
+      "evidence": [
+        {
+          "method": "exact-binary-symbol-and-manual-aarch64-disassembly",
+          "detail": "cRenderWorld::ProcessVisibility(): x0=this, void return. Top-level visibility function selected to avoid the lower sector helper's hidden x8 structure-return ABI."
+        },
+        {
+          "method": "exact-libgame-prefix",
+          "detail": "First 16 executable bytes matched user-owned libGame.so SHA-256 c75e300a66317291c6afbeb4df6e0e0f9d8aef5d6ecd7bd43804a4e675d10936."
+        }
+      ]
+    },
+    "lod_test": {
+      "status": "verified",
+      "rva": 7401300,
+      "code_prefix_hex": "ff0301d1fd7b01a9f51300f9f44f03a9",
+      "evidence": [
+        {
+          "method": "exact-binary-symbol-and-manual-aarch64-disassembly",
+          "detail": "HandleFarDistance(tv3d<cFixed<20,12>>&, tv3d<cFixed<20,12>> const&): x0=mutable position, x1=reference position and boolean result in w0 verified from arithmetic and return paths."
+        },
+        {
+          "method": "exact-libgame-prefix",
+          "detail": "First 16 executable bytes matched user-owned libGame.so SHA-256 c75e300a66317291c6afbeb4df6e0e0f9d8aef5d6ecd7bd43804a4e675d10936."
+        }
+      ]
+    },
+    "player_render": {
+      "status": "verified",
+      "rva": 8948768,
+      "code_prefix_hex": "fd7bbea9f30b00f9fd030091f30300aa",
+      "evidence": [
+        {
+          "method": "exact-binary-symbol-and-manual-aarch64-disassembly",
+          "detail": "cPlayer::Render() const: x0=const this and void return; function immediately forwards to cPed::Render before player-specific rendering."
+        },
+        {
+          "method": "exact-libgame-prefix",
+          "detail": "First 16 executable bytes matched user-owned libGame.so SHA-256 c75e300a66317291c6afbeb4df6e0e0f9d8aef5d6ecd7bd43804a4e675d10936."
+        }
+      ]
+    }
+  },
+  "abi_verification": {
+    "camera_update": {
+      "status": "verified",
+      "prototype": "void cFollowPedCam::Update(sVirtYoke const&)",
+      "calling_convention": "aarch64_aapcs64",
+      "adapter": "ctw_camera_update_adapter_v1",
+      "verified_rva": 7528384,
+      "evidence": [
+        {
+          "method": "manual-aarch64-abi-review",
+          "detail": "x0=this and x1=&sVirtYoke verified from the function prologue/callers; stock Update is preserved before CTW3D post-processing."
+        }
+      ],
+      "candidates": [
+        {
+          "rva": 7528384,
+          "function": "cFollowPedCam::Update(sVirtYoke const&)",
+          "source": "exact-dynsym-plus-manual-disassembly",
+          "trampoline_strategy_hint": "simple_copy_trampoline_candidate"
+        }
+      ]
+    },
+    "projection_setup": {
+      "status": "verified",
+      "prototype": "void cBaseCam::RecalculateMatrix()",
+      "calling_convention": "aarch64_aapcs64",
+      "adapter": "ctw_projection_setup_adapter_v1",
+      "verified_rva": 7498968,
+      "evidence": [
+        {
+          "method": "manual-aarch64-abi-review",
+          "detail": "x0=this, void return. Chosen instead of SetFov because its first 16 bytes contain no PC-relative control flow, allowing a simple-copy trampoline."
+        }
+      ],
+      "candidates": [
+        {
+          "rva": 7498968,
+          "function": "cBaseCam::RecalculateMatrix()",
+          "source": "exact-dynsym-plus-manual-disassembly",
+          "trampoline_strategy_hint": "simple_copy_trampoline_candidate"
+        }
+      ]
+    },
+    "world_stream_update": {
+      "status": "verified",
+      "prototype": "bool cRenderWorld::ProcessLoading()",
+      "calling_convention": "aarch64_aapcs64",
+      "adapter": "ctw_world_stream_update_passthrough_v1",
+      "verified_rva": 9028756,
+      "evidence": [
+        {
+          "method": "manual-aarch64-abi-review",
+          "detail": "x0=this and boolean result in w0 verified by callers branching on the returned value."
+        }
+      ],
+      "candidates": [
+        {
+          "rva": 9028756,
+          "function": "cRenderWorld::ProcessLoading()",
+          "source": "exact-dynsym-plus-manual-disassembly",
+          "trampoline_strategy_hint": "simple_copy_trampoline_candidate"
+        }
+      ]
+    },
+    "sector_visibility": {
+      "status": "verified",
+      "prototype": "void cRenderWorld::ProcessVisibility()",
+      "calling_convention": "aarch64_aapcs64",
+      "adapter": "ctw_world_visibility_passthrough_v1",
+      "verified_rva": 9031440,
+      "evidence": [
+        {
+          "method": "manual-aarch64-abi-review",
+          "detail": "x0=this, void return. Top-level visibility function selected to avoid the lower sector helper's hidden x8 structure-return ABI."
+        }
+      ],
+      "candidates": [
+        {
+          "rva": 9031440,
+          "function": "cRenderWorld::ProcessVisibility()",
+          "source": "exact-dynsym-plus-manual-disassembly",
+          "trampoline_strategy_hint": "simple_copy_trampoline_candidate"
+        }
+      ]
+    },
+    "lod_test": {
+      "status": "verified",
+      "prototype": "bool HandleFarDistance(tv3d<cFixed<20,12>>&, tv3d<cFixed<20,12>> const&)",
+      "calling_convention": "aarch64_aapcs64",
+      "adapter": "ctw_lod_test_passthrough_v1",
+      "verified_rva": 7401300,
+      "evidence": [
+        {
+          "method": "manual-aarch64-abi-review",
+          "detail": "x0=mutable position, x1=reference position and boolean result in w0 verified from arithmetic and return paths."
+        }
+      ],
+      "candidates": [
+        {
+          "rva": 7401300,
+          "function": "HandleFarDistance(tv3d<cFixed<20,12>>&, tv3d<cFixed<20,12>> const&)",
+          "source": "exact-dynsym-plus-manual-disassembly",
+          "trampoline_strategy_hint": "simple_copy_trampoline_candidate"
+        }
+      ]
+    },
+    "player_render": {
+      "status": "verified",
+      "prototype": "void cPlayer::Render() const",
+      "calling_convention": "aarch64_aapcs64",
+      "adapter": "ctw_player_render_passthrough_v1",
+      "verified_rva": 8948768,
+      "evidence": [
+        {
+          "method": "manual-aarch64-abi-review",
+          "detail": "x0=const this and void return; function immediately forwards to cPed::Render before player-specific rendering."
+        }
+      ],
+      "candidates": [
+        {
+          "rva": 8948768,
+          "function": "cPlayer::Render() const",
+          "source": "exact-dynsym-plus-manual-disassembly",
+          "trampoline_strategy_hint": "simple_copy_trampoline_candidate"
+        }
+      ]
+    }
+  },
+  "public_4243_engine_anchors": {
+    "present_count": 6,
+    "total_count": 6
+  },
+  "note": "Exact profile for the user-owned 4.4.243 ARM64 libGame.so. Camera and FOV behavior are implemented in the first runtime pass; world loading, visibility, LOD and player render adapters intentionally remain pass-through until Android camera capture is green."
+}
