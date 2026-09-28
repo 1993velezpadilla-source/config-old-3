@@ -97,6 +97,8 @@ typedef struct {
     uint64_t static_scene_gpu_indices;
     unsigned int static_scene_gpu_meshes;
     unsigned int static_scene_gpu_submeshes;
+    unsigned int static_scene_gpu_multi_uv_meshes;
+    int static_scene_multi_uv_ready;
     uint64_t static_scene_gpu_texture_bytes;
     unsigned int static_scene_gpu_textures;
     unsigned int static_scene_material_bindings;
