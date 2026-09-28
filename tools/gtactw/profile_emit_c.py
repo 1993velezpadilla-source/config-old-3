@@ -23,6 +23,24 @@ def require_rva(value, label: str) -> int:
     return value
 
 
+
+def require_prefix_hex(value, label: str) -> list[int]:
+    if not isinstance(value, str):
+        raise ValueError(f"{label} must be a hex string")
+    clean = value.strip().lower()
+    if clean.startswith("0x"):
+        clean = clean[2:]
+    if len(clean) < 32:
+        raise ValueError(f"{label} must contain at least 16 bytes")
+    clean = clean[:32]
+    try:
+        raw = bytes.fromhex(clean)
+    except ValueError as exc:
+        raise ValueError(f"{label} is not valid hex") from exc
+    if len(raw) != 16:
+        raise ValueError(f"{label} must decode to 16 bytes")
+    return list(raw)
+
 def load_verified_profile(path: Path) -> dict:
     obj = json.loads(path.read_text(encoding="utf-8"))
     fp = obj.get("fingerprint", {})
@@ -41,6 +59,7 @@ def load_verified_profile(path: Path) -> dict:
     }
 
     verification = obj.get("target_verification", {})
+    prefixes = {}
     for key in TARGET_KEYS:
         item = verification.get(key)
         if not isinstance(item, dict):
@@ -65,6 +84,11 @@ def load_verified_profile(path: Path) -> dict:
             if not isinstance(detail, str) or not detail.strip():
                 raise ValueError(f"{key} evidence[{index}] needs detail")
 
+        prefixes[key] = require_prefix_hex(
+            item.get("code_prefix_hex"),
+            f"{key} code_prefix_hex",
+        )
+
     sha = fp.get("sha256")
     if not isinstance(sha, str) or len(sha) != 64:
         raise ValueError("profile must contain a 64-character libGame SHA-256")
@@ -75,6 +99,7 @@ def load_verified_profile(path: Path) -> dict:
         "setup": setup,
         "axes": axes,
         "targets": clean_targets,
+        "prefixes": prefixes,
     }
 
 
@@ -103,6 +128,11 @@ def emit_header(profiles: list[dict]) -> str:
 
     for p in profiles:
         t = p["targets"]
+        prefixes = p["prefixes"]
+
+        def bytes_c(key):
+            return ", ".join(f"0x{x:02X}" for x in prefixes[key])
+
         lines += [
             "    {",
             f'        .name = "{p["name"]}",',
@@ -116,6 +146,14 @@ def emit_header(profiles: list[dict]) -> str:
             f'            .sector_visibility = 0x{t["sector_visibility"]:X}u,',
             f'            .lod_test = 0x{t["lod_test"]:X}u,',
             f'            .player_render = 0x{t["player_render"]:X}u,',
+            "        },",
+            "        .target_prefixes = {",
+            f'            .camera_update = {{ {bytes_c("camera_update")} }},',
+            f'            .projection_setup = {{ {bytes_c("projection_setup")} }},',
+            f'            .world_stream_update = {{ {bytes_c("world_stream_update")} }},',
+            f'            .sector_visibility = {{ {bytes_c("sector_visibility")} }},',
+            f'            .lod_test = {{ {bytes_c("lod_test")} }},',
+            f'            .player_render = {{ {bytes_c("player_render")} }},',
             "        },",
             "    },",
         ]
