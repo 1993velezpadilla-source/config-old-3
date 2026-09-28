@@ -298,6 +298,12 @@ class RegionalFusionTests(unittest.TestCase):
                 float(result.max_displacement_normalized),
                 0.055001,
             )
+            self.assertTrue(result.geometry_ready,result.error)
+            self.assertIsNotNone(result.seam_max_displacement_normalized)
+            self.assertLessEqual(
+                float(result.seam_max_displacement_normalized),
+                0.012,
+            )
 
 
 if __name__=="__main__":
