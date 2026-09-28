@@ -68,6 +68,8 @@ jobs:
             tools/gtactw/test_sign_modpack.py \
             tools/gtactw/install_modpack.py \
             tools/gtactw/test_install_modpack.py \
+            tools/gtactw/finish_modpack.py \
+            tools/gtactw/test_finish_modpack.py \
             tools/gtactw/profile_emit_c.py \
             tools/gtactw/test_profile_emit_c.py \
             tools/gtactw/profile_verify_binary.py \
@@ -138,6 +140,9 @@ jobs:
 
       - name: Run CTW ADB install safety gate
         run: python -m unittest -v tools/gtactw/test_install_modpack.py
+
+      - name: Run CTW end-to-end packaging orchestration gate
+        run: python -m unittest -v tools/gtactw/test_finish_modpack.py
 
       - name: Run CTW verified profile emitter gate
         run: python -m unittest -v tools/gtactw/test_profile_emit_c.py
@@ -431,6 +436,7 @@ jobs:
           echo "GTACTW_PROFILE_MODPACK_GREEN=1"
           echo "GTACTW_SIGNING_PIPELINE_GREEN=1"
           echo "GTACTW_INSTALL_PIPELINE_GREEN=1"
+          echo "GTACTW_FINISH_MODPACK_GREEN=1"
           echo "GTACTW_ANDROID_PROFILE_EMITTER_GREEN=1"
           echo "GTACTW_ANDROID_PROFILE_BINARY_VERIFY_GREEN=1"
           echo "GTACTW_ANDROID_MDL_PROBE_GREEN=1"
