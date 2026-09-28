@@ -21,6 +21,7 @@
 #include "xz_geometry_tap.h"
 #include "xz_texture_tap.h"
 #include "xz_map_runtime.h"
+#include "xz_package_boot.h"
 #include "xz_static_scene_runtime.h"
 
 #include <SDL.h>
@@ -57,6 +58,7 @@ typedef struct {
     XzStreamResidency stream_residency;
     XzCutoverState cutover;
     XzMapRuntimeState map_runtime;
+    XzPackageBootState package_boot;
     XzStaticSceneRuntimeState static_scene;
     uint64_t command_encode_failures;
     uint64_t graph_rebuild_failures;
@@ -1083,6 +1085,7 @@ void XzAndroidRuntime_Init(size_t engine_heap_bytes)
         &xz_runtime.gpu_resources);
 
     XzMapRuntime_Init(&xz_runtime.map_runtime);
+    XzPackageBoot_Init(&xz_runtime.package_boot);
     XzStaticSceneRuntime_Init(&xz_runtime.static_scene);
 
     xz_runtime.initialized = 1;
@@ -1348,16 +1351,60 @@ void XzAndroidRuntime_Init(size_t engine_heap_bytes)
 
 void XzAndroidRuntime_SetVerifiedMapPackageMode(int enabled)
 {
+    int preflight_ok = 1;
+
     if (!xz_runtime.initialized)
         return;
 
+    XzPackageBoot_Init(&xz_runtime.package_boot);
+
+    if (enabled) {
+        preflight_ok =
+            XzPackageBoot_LoadAndPreflightVfs(
+                &xz_runtime.package_boot,
+                ".xziel-boot.plan");
+
+        XzAndroidLog(
+            preflight_ok ? ANDROID_LOG_INFO : ANDROID_LOG_ERROR,
+            "package boot preflight ready=%d plan=%d"
+            " familiesVisible=%u/%u artifactsVisible=%u/%u"
+            " missing=%u failedMask=0x%08x error='%s'",
+            XzPackageBoot_IsReady(&xz_runtime.package_boot),
+            xz_runtime.package_boot.plan_present,
+            (unsigned int)__builtin_popcount(
+                xz_runtime.package_boot.visible_family_mask),
+            XZ_PACKAGE_BOOT_FAMILY_COUNT,
+            xz_runtime.package_boot.visible_artifacts,
+            xz_runtime.package_boot.declared_artifacts,
+            xz_runtime.package_boot.missing_artifacts,
+            xz_runtime.package_boot.failed_family_mask,
+            xz_runtime.package_boot.error);
+
+        XzAndroidLog(
+            XzPackageBoot_SelfTest()
+                ? ANDROID_LOG_INFO
+                : ANDROID_LOG_WARN,
+            "package boot selftest=%s contractFamilies=%u",
+            XzPackageBoot_SelfTest() ? "PASS" : "FAIL",
+            XZ_PACKAGE_BOOT_FAMILY_COUNT);
+    }
+
+    /*
+     * A package is promoted only after both the installer verification and
+     * the mounted VFS preflight succeed. This mirrors BO3's zone/database
+     * principle: resolve the complete declared asset set before activating
+     * the runtime map.
+     */
     XzMapRuntime_SetVerifiedPackageMode(
         &xz_runtime.map_runtime,
-        enabled);
+        enabled && preflight_ok);
 
     XzAndroidLog(
-        ANDROID_LOG_INFO,
-        "map package promotion verified=%d kind=%s map='%s'",
+        (enabled && !preflight_ok)
+            ? ANDROID_LOG_ERROR
+            : ANDROID_LOG_INFO,
+        "map package promotion requested=%d verified=%d kind=%s map='%s'",
+        enabled ? 1 : 0,
         XzMapRuntime_IsVerifiedPackage(&xz_runtime.map_runtime),
         XzMapRuntime_KindName(
             XzMapRuntime_Kind(&xz_runtime.map_runtime)),
