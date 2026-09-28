@@ -19,6 +19,7 @@ import sys
 
 import abi_probe
 import analyze_apkset
+import hook_dossier
 import profile_status
 
 
@@ -238,6 +239,11 @@ def main() -> int:
         help="Write runtime-profile readiness/status JSON",
     )
     ap.add_argument(
+        "--dossier-out",
+        type=Path,
+        help="Write six-hook candidate evidence dossier JSON",
+    )
+    ap.add_argument(
         "--abi-profile-out",
         type=Path,
         help="Write profile with pending ABI candidate evidence attached",
@@ -265,12 +271,14 @@ def main() -> int:
             "analysis": None,
             "abi_evidence": None,
             "profile_status": None,
+            "hook_dossier": None,
         }
 
         need_abi = (
             args.abi_out is not None
             or args.abi_profile_out is not None
             or args.status_out is not None
+            or args.dossier_out is not None
         )
         do_analyze = args.analyze or need_abi
 
@@ -365,6 +373,18 @@ def main() -> int:
                     )
                     args.status_out.write_text(
                         json.dumps(readiness, indent=2) + "\n",
+                        encoding="utf-8",
+                    )
+
+                dossier = hook_dossier.build_dossier(enriched)
+                result["hook_dossier"] = dossier
+                if args.dossier_out:
+                    args.dossier_out.parent.mkdir(
+                        parents=True,
+                        exist_ok=True,
+                    )
+                    args.dossier_out.write_text(
+                        json.dumps(dossier, indent=2) + "\n",
                         encoding="utf-8",
                     )
 
