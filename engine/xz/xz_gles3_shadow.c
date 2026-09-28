@@ -3423,6 +3423,15 @@ static int XzUploadStaticHQLightmaps(
     uint32_t uploaded = 0u;
     uint64_t uploaded_bytes = 0u;
 
+    if (state) {
+        state->static_scene_lightmap_upload_stage = 1u;
+        state->static_scene_lightmap_upload_texture_index = 0xffffffffu;
+        state->static_scene_lightmap_upload_mip = 0xffffffffu;
+        state->static_scene_lightmap_upload_width = 0u;
+        state->static_scene_lightmap_upload_height = 0u;
+        state->static_scene_lightmap_upload_gl_error = GL_NO_ERROR;
+    }
+
     if (!scene ||
         !state ||
         !lightmaps ||
@@ -3445,6 +3454,7 @@ static int XzUploadStaticHQLightmaps(
 
     xz_shadow.static_lightmap_texture_count =
         lightmaps->texture_count;
+    state->static_scene_lightmap_upload_stage = 2u;
 
     for (batch_index = 0u;
          batch_index <
@@ -3466,6 +3476,8 @@ static int XzUploadStaticHQLightmaps(
         used[batch->light_texture[0]] = 1u;
     }
 
+    state->static_scene_lightmap_upload_stage = 3u;
+
     for (texture_index = 0u;
          texture_index < lightmaps->texture_count;
          ++texture_index) {
@@ -3477,6 +3489,13 @@ static int XzUploadStaticHQLightmaps(
 
         if (!used[texture_index])
             continue;
+
+        state->static_scene_lightmap_upload_stage = 4u;
+        state->static_scene_lightmap_upload_texture_index =
+            texture_index;
+        state->static_scene_lightmap_upload_mip = 0xffffffffu;
+        state->static_scene_lightmap_upload_width = 0u;
+        state->static_scene_lightmap_upload_height = 0u;
 
         if (!XzLightmapTexture_Texture(
                 lightmaps,
@@ -3552,6 +3571,16 @@ static int XzUploadStaticHQLightmaps(
             if (expected_height == 0u)
                 expected_height = 1u;
 
+            state->static_scene_lightmap_upload_stage = 5u;
+            state->static_scene_lightmap_upload_texture_index =
+                texture_index;
+            state->static_scene_lightmap_upload_mip =
+                relative_mip;
+            state->static_scene_lightmap_upload_width =
+                expected_width;
+            state->static_scene_lightmap_upload_height =
+                expected_height;
+
             if (!XzLightmapTexture_Mip(
                     lightmaps,
                     texture.first_mip +
@@ -3607,6 +3636,8 @@ static int XzUploadStaticHQLightmaps(
                     (size_t)decoded_bytes))
                 goto fail;
 
+            state->static_scene_lightmap_upload_stage = 6u;
+
             xz_shadow.gl.TexImage2D(
                 GL_TEXTURE_2D,
                 (GLint)gpu_level,
@@ -3618,9 +3649,15 @@ static int XzUploadStaticHQLightmaps(
                 GL_UNSIGNED_BYTE,
                 rgba);
 
-            if (xz_shadow.gl.GetError() !=
-                GL_NO_ERROR)
-                goto fail;
+            {
+                const GLenum upload_error =
+                    xz_shadow.gl.GetError();
+                state->static_scene_lightmap_upload_stage = 7u;
+                state->static_scene_lightmap_upload_gl_error =
+                    (unsigned int)upload_error;
+                if (upload_error != GL_NO_ERROR)
+                    goto fail;
+            }
 
             dest->gpu_bytes +=
                 decoded_bytes;
@@ -3636,6 +3673,8 @@ static int XzUploadStaticHQLightmaps(
         dest->alive = 1;
         uploaded++;
     }
+
+    state->static_scene_lightmap_upload_stage = 8u;
 
     xz_shadow.gl.BindTexture(
         GL_TEXTURE_2D,
@@ -3654,11 +3693,25 @@ static int XzUploadStaticHQLightmaps(
         uploaded == 87u &&
         uploaded_bytes == 120323980u;
 
-    return
-        state->static_scene_lightmap_shader_ready &&
-        xz_shadow.gl.GetError() == GL_NO_ERROR;
+    {
+        const GLenum final_error =
+            xz_shadow.gl.GetError();
+        state->static_scene_lightmap_upload_gl_error =
+            (unsigned int)final_error;
+        if (state->static_scene_lightmap_shader_ready &&
+            final_error == GL_NO_ERROR) {
+            state->static_scene_lightmap_upload_stage = 9u;
+            return 1;
+        }
+    }
 
 fail:
+    if (state &&
+        state->static_scene_lightmap_upload_gl_error ==
+            GL_NO_ERROR) {
+        state->static_scene_lightmap_upload_gl_error =
+            (unsigned int)xz_shadow.gl.GetError();
+    }
     free(compressed);
     free(rgba);
     free(used);

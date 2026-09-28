@@ -107,6 +107,12 @@ typedef struct {
     unsigned int static_scene_gpu_lightmap_textures;
     unsigned int static_scene_last_baked_lightmap_draw_calls;
     int static_scene_lightmap_shader_ready;
+    unsigned int static_scene_lightmap_upload_stage;
+    unsigned int static_scene_lightmap_upload_texture_index;
+    unsigned int static_scene_lightmap_upload_mip;
+    unsigned int static_scene_lightmap_upload_width;
+    unsigned int static_scene_lightmap_upload_height;
+    unsigned int static_scene_lightmap_upload_gl_error;
     uint64_t static_scene_gpu_texture_bytes;
     unsigned int static_scene_gpu_textures;
     unsigned int static_scene_material_bindings;
