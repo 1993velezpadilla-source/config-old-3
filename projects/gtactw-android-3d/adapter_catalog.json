@@ -1,6 +1,55 @@
 {
   "schema": 1,
   "project": "gtactw-android-3d",
-  "adapters": [],
-  "note": "Fail-closed production catalog. Add an entry only after the native adapter is implemented, compiled into the proxy, and reviewed against the verified CTW 4.4.243 ABI."
+  "adapters": [
+    {
+      "name": "ctw_camera_update_adapter_v1",
+      "target": "camera_update",
+      "native_symbol": "ctw_camera_update_adapter_v1",
+      "implemented": true,
+      "prototype": "void cFollowPedCam::Update(sVirtYoke const&)",
+      "calling_convention": "aarch64_aapcs64"
+    },
+    {
+      "name": "ctw_projection_setup_adapter_v1",
+      "target": "projection_setup",
+      "native_symbol": "ctw_projection_setup_adapter_v1",
+      "implemented": true,
+      "prototype": "void cBaseCam::SetFov(short)",
+      "calling_convention": "aarch64_aapcs64"
+    },
+    {
+      "name": "ctw_world_stream_update_passthrough_v1",
+      "target": "world_stream_update",
+      "native_symbol": "ctw_world_stream_update_passthrough_v1",
+      "implemented": true,
+      "prototype": "bool cRenderWorld::ProcessLoading()",
+      "calling_convention": "aarch64_aapcs64"
+    },
+    {
+      "name": "ctw_world_visibility_passthrough_v1",
+      "target": "sector_visibility",
+      "native_symbol": "ctw_world_visibility_passthrough_v1",
+      "implemented": true,
+      "prototype": "void cRenderWorld::ProcessVisibility()",
+      "calling_convention": "aarch64_aapcs64"
+    },
+    {
+      "name": "ctw_lod_test_passthrough_v1",
+      "target": "lod_test",
+      "native_symbol": "ctw_lod_test_passthrough_v1",
+      "implemented": true,
+      "prototype": "bool HandleFarDistance(tv3d<cFixed<20,12>>&, tv3d<cFixed<20,12>> const&)",
+      "calling_convention": "aarch64_aapcs64"
+    },
+    {
+      "name": "ctw_player_render_passthrough_v1",
+      "target": "player_render",
+      "native_symbol": "ctw_player_render_passthrough_v1",
+      "implemented": true,
+      "prototype": "void cPlayer::Render() const",
+      "calling_convention": "aarch64_aapcs64"
+    }
+  ],
+  "note": "Exact 4.4.243 ARM64 adapters. Camera/FOV alter behavior; world/visibility/LOD/player adapters are deliberate pass-through gates for the first runtime camera capture."
 }
