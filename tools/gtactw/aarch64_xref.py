@@ -10,6 +10,7 @@ patch the binary and does not guess function addresses.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import struct
@@ -292,6 +293,36 @@ def scan_libgame(path: Path) -> dict:
         for rva, value in sorted(call_neighborhoods.items())
     }
 
+    function_fingerprints = {}
+    funcs_by_rva = {int(s["value"]): s for s in funcs}
+    func_values = sorted(funcs_by_rva)
+    text_start = int(text["addr"])
+    text_end = text_start + int(text["size"])
+    for rva in sorted(candidate_rvas):
+        if rva < text_start or rva >= text_end:
+            continue
+        sym = funcs_by_rva.get(rva)
+        size = int(sym["size"]) if sym and sym.get("size") else 0
+        if size <= 0:
+            next_values = [v for v in func_values if v > rva]
+            inferred_end = next_values[0] if next_values else text_end
+            size = max(0, inferred_end - rva)
+        size = min(size, 4096)
+        if size <= 0:
+            continue
+
+        rel = rva - text_start
+        raw = text_blob[rel:rel + size]
+        if not raw:
+            continue
+        function_fingerprints[f"0x{rva:X}"] = {
+            "function": sym["name"] if sym else None,
+            "rva": rva,
+            "size": len(raw),
+            "sha256": hashlib.sha256(raw).hexdigest(),
+            "prefix_hex": raw[:32].hex(),
+        }
+
     return {
         "path": str(path),
         "text": {
@@ -303,6 +334,7 @@ def scan_libgame(path: Path) -> dict:
         "groups": grouped,
         "xrefs": xrefs,
         "candidate_call_neighborhoods": call_neighborhoods_json,
+        "candidate_function_fingerprints": function_fingerprints,
     }
 
 
