@@ -3244,6 +3244,413 @@ static int XzUploadStaticReflection(
 }
 
 
+
+static int XzUploadStaticHQLightmaps(
+    const XzStaticSceneRuntimeState *scene,
+    XzGles3ShadowState *state)
+{
+    const XzLightmapTextureView *lightmaps =
+        XzStaticSceneRuntime_Lightmaps(scene);
+    unsigned char *used = NULL;
+    unsigned char *scratch = NULL;
+    size_t scratch_bytes = 0u;
+    uint32_t texture_index;
+    uint32_t batch_index;
+    uint32_t uploaded = 0u;
+    uint64_t uploaded_bytes = 0u;
+
+    if (!scene ||
+        !state ||
+        !lightmaps ||
+        !lightmaps->file_open ||
+        !xz_shadow.static_lightmap_draw_plan_ready ||
+        !xz_shadow.static_lightmap_draw_plan.batches ||
+        lightmaps->texture_count == 0u)
+        return 0;
+
+    used = (unsigned char *)calloc(
+        lightmaps->texture_count,
+        1u);
+    xz_shadow.static_lightmap_textures =
+        (XzGles3StaticTexture *)calloc(
+            lightmaps->texture_count,
+            sizeof(*xz_shadow.static_lightmap_textures));
+    if (!used ||
+        !xz_shadow.static_lightmap_textures)
+        goto fail;
+
+    xz_shadow.static_lightmap_texture_count =
+        lightmaps->texture_count;
+
+    for (batch_index = 0u;
+         batch_index <
+            xz_shadow.static_lightmap_draw_plan.batch_count;
+         ++batch_index) {
+        const XzStaticSceneLightmapBatch *batch =
+            XzStaticSceneLightmapDrawPlan_Batch(
+                &xz_shadow.static_lightmap_draw_plan,
+                batch_index);
+
+        if (!batch)
+            goto fail;
+        if (!batch->mapped)
+            continue;
+        if (batch->light_texture[0] >=
+            lightmaps->texture_count)
+            goto fail;
+
+        used[batch->light_texture[0]] = 1u;
+    }
+
+    for (texture_index = 0u;
+         texture_index < lightmaps->texture_count;
+         ++texture_index) {
+        XzLightmapTextureRecord texture;
+        XzGles3StaticTexture *dest;
+        uint32_t relative_mip;
+
+        if (!used[texture_index])
+            continue;
+
+        if (!XzLightmapTexture_Texture(
+                lightmaps,
+                texture_index,
+                &texture) ||
+            texture.format != XZ_XZLT_FORMAT_BC3 ||
+            texture.width == 0u ||
+            texture.height == 0u ||
+            texture.mip_count == 0u)
+            goto fail;
+
+        dest =
+            &xz_shadow.static_lightmap_textures[
+                texture_index];
+
+        xz_shadow.gl.GenTextures(
+            1,
+            &dest->object);
+        if (!dest->object)
+            goto fail;
+
+        xz_shadow.gl.ActiveTexture(GL_TEXTURE3);
+        xz_shadow.gl.BindTexture(
+            GL_TEXTURE_2D,
+            dest->object);
+        xz_shadow.gl.TexParameteri(
+            GL_TEXTURE_2D,
+            GL_TEXTURE_MIN_FILTER,
+            GL_LINEAR_MIPMAP_LINEAR);
+        xz_shadow.gl.TexParameteri(
+            GL_TEXTURE_2D,
+            GL_TEXTURE_MAG_FILTER,
+            GL_LINEAR);
+        xz_shadow.gl.TexParameteri(
+            GL_TEXTURE_2D,
+            GL_TEXTURE_WRAP_S,
+            GL_CLAMP_TO_EDGE);
+        xz_shadow.gl.TexParameteri(
+            GL_TEXTURE_2D,
+            GL_TEXTURE_WRAP_T,
+            GL_CLAMP_TO_EDGE);
+
+        for (relative_mip = 0u;
+             relative_mip < texture.mip_count;
+             ++relative_mip) {
+            XzLightmapMipRecord mip;
+            XzLightmapTextureStatus read_status;
+
+            if (!XzLightmapTexture_Mip(
+                    lightmaps,
+                    texture.first_mip +
+                        relative_mip,
+                    &mip) ||
+                mip.bytes == 0u ||
+                mip.width == 0u ||
+                mip.height == 0u)
+                goto fail;
+
+            if ((size_t)mip.bytes >
+                scratch_bytes) {
+                unsigned char *grown =
+                    (unsigned char *)realloc(
+                        scratch,
+                        (size_t)mip.bytes);
+                if (!grown)
+                    goto fail;
+                scratch = grown;
+                scratch_bytes =
+                    (size_t)mip.bytes;
+            }
+
+            read_status =
+                XzLightmapTexture_ReadMip(
+                    (XzLightmapTextureView *)lightmaps,
+                    texture_index,
+                    relative_mip,
+                    scratch,
+                    scratch_bytes,
+                    NULL);
+            if (read_status != XZ_XZLT_OK)
+                goto fail;
+
+            xz_shadow.gl.CompressedTexImage2D(
+                GL_TEXTURE_2D,
+                (GLint)relative_mip,
+                GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
+                (GLsizei)mip.width,
+                (GLsizei)mip.height,
+                0,
+                (GLsizei)mip.bytes,
+                scratch);
+
+            if (xz_shadow.gl.GetError() !=
+                GL_NO_ERROR)
+                goto fail;
+
+            uploaded_bytes +=
+                (uint64_t)mip.bytes;
+        }
+
+        dest->width = texture.width;
+        dest->height = texture.height;
+        dest->gpu_bytes = 0u;
+        for (relative_mip = 0u;
+             relative_mip < texture.mip_count;
+             ++relative_mip) {
+            XzLightmapMipRecord mip;
+            if (!XzLightmapTexture_Mip(
+                    lightmaps,
+                    texture.first_mip +
+                        relative_mip,
+                    &mip))
+                goto fail;
+            dest->gpu_bytes +=
+                (uint64_t)mip.bytes;
+        }
+        dest->alive = 1;
+        uploaded++;
+    }
+
+    xz_shadow.gl.BindTexture(
+        GL_TEXTURE_2D,
+        0u);
+    xz_shadow.gl.ActiveTexture(GL_TEXTURE0);
+
+    free(scratch);
+    free(used);
+
+    state->static_scene_gpu_lightmap_textures =
+        uploaded;
+    state->static_scene_gpu_lightmap_bytes =
+        uploaded_bytes;
+    state->static_scene_lightmap_shader_ready =
+        uploaded == 87u &&
+        uploaded_bytes == 123406608u;
+
+    return
+        state->static_scene_lightmap_shader_ready &&
+        xz_shadow.gl.GetError() == GL_NO_ERROR;
+
+fail:
+    free(scratch);
+    free(used);
+    xz_shadow.gl.ActiveTexture(GL_TEXTURE0);
+    return 0;
+}
+
+static int XzBuildStaticLightmapInstanceVbo(
+    const XzStaticSceneRuntimeState *scene)
+{
+    const XzLightmapBindingView *bindings =
+        XzStaticSceneRuntime_LightmapBindings(scene);
+    float *params = NULL;
+    uint64_t float_count;
+    uint32_t grouped_index;
+
+    if (!scene ||
+        !bindings ||
+        !bindings->data ||
+        !xz_shadow.static_lightmap_draw_plan_ready ||
+        xz_shadow.static_lightmap_draw_plan.instance_count !=
+            bindings->instance_count)
+        return 0;
+
+    float_count =
+        (uint64_t)bindings->instance_count *
+        XZ_STATIC_LIGHTMAP_INSTANCE_FLOATS;
+    if (float_count >
+        (uint64_t)(SIZE_MAX / sizeof(float)))
+        return 0;
+
+    params = (float *)calloc(
+        (size_t)float_count,
+        sizeof(float));
+    if (!params)
+        return 0;
+
+    for (grouped_index = 0u;
+         grouped_index < bindings->instance_count;
+         ++grouped_index) {
+        const uint32_t source_index =
+            XzStaticSceneLightmapDrawPlan_SourceInstance(
+                &xz_shadow.static_lightmap_draw_plan,
+                grouped_index);
+        XzLightmapBindingRecord binding;
+        float *out =
+            params +
+            (size_t)grouped_index *
+                XZ_STATIC_LIGHTMAP_INSTANCE_FLOATS;
+        unsigned int i;
+
+        if (source_index == UINT32_MAX ||
+            !XzLightmapBinding_Record(
+                bindings,
+                source_index,
+                &binding))
+            goto fail;
+
+        if ((binding.flags &
+             XZ_XZLB_FLAG_MAPPED) != 0u) {
+            out[0] =
+                binding.lightmap_coordinate_scale[0];
+            out[1] =
+                binding.lightmap_coordinate_scale[1];
+            out[2] =
+                binding.lightmap_coordinate_bias[0];
+            out[3] =
+                binding.lightmap_coordinate_bias[1];
+
+            for (i = 0u; i < 4u; ++i) {
+                out[4u + i] =
+                    binding.lightmap_scale_vectors[i];
+                out[8u + i] =
+                    binding.lightmap_add_vectors[i];
+                out[12u + i] =
+                    binding.lightmap_scale_vectors[4u + i];
+                out[16u + i] =
+                    binding.lightmap_add_vectors[4u + i];
+            }
+
+            out[20] =
+                (float)binding.uv_channel;
+            out[21] = 1.0f;
+        } else {
+            out[20] = 0.0f;
+            out[21] = 0.0f;
+        }
+    }
+
+    xz_shadow.gl.GenBuffers(
+        1,
+        &xz_shadow.static_lightmap_instance_vbo);
+    if (!xz_shadow.static_lightmap_instance_vbo)
+        goto fail;
+
+    xz_shadow.gl.BindBuffer(
+        GL_ARRAY_BUFFER,
+        xz_shadow.static_lightmap_instance_vbo);
+    xz_shadow.gl.BufferData(
+        GL_ARRAY_BUFFER,
+        (GLsizeiptr)(
+            float_count *
+            sizeof(float)),
+        params,
+        GL_STATIC_DRAW);
+
+    free(params);
+    return
+        xz_shadow.gl.GetError() ==
+            GL_NO_ERROR;
+
+fail:
+    free(params);
+    return 0;
+}
+
+static int XzBindStaticInstanceRange(
+    XzGles3StaticMesh *mesh,
+    uint32_t first_grouped_instance)
+{
+    uint32_t column;
+    uint32_t slot;
+
+    if (!mesh ||
+        !mesh->vao ||
+        !xz_shadow.static_instance_vbo ||
+        !xz_shadow.static_lightmap_instance_vbo)
+        return 0;
+
+    xz_shadow.gl.BindVertexArray(
+        mesh->vao);
+
+    xz_shadow.gl.BindBuffer(
+        GL_ARRAY_BUFFER,
+        xz_shadow.static_instance_vbo);
+
+    for (column = 0u;
+         column < 4u;
+         ++column) {
+        const GLuint location =
+            (GLuint)(6u + column);
+        const uintptr_t byte_offset =
+            (uintptr_t)(
+                ((uint64_t)first_grouped_instance *
+                     16u +
+                 (uint64_t)column * 4u) *
+                sizeof(float));
+
+        xz_shadow.gl.EnableVertexAttribArray(
+            location);
+        xz_shadow.gl.VertexAttribPointer(
+            location,
+            4,
+            GL_FLOAT,
+            GL_FALSE,
+            (GLsizei)(16u * sizeof(float)),
+            (const void *)byte_offset);
+        xz_shadow.gl.VertexAttribDivisor(
+            location,
+            1u);
+    }
+
+    xz_shadow.gl.BindBuffer(
+        GL_ARRAY_BUFFER,
+        xz_shadow.static_lightmap_instance_vbo);
+
+    for (slot = 0u;
+         slot < 6u;
+         ++slot) {
+        const GLuint location =
+            (GLuint)(10u + slot);
+        const uintptr_t byte_offset =
+            (uintptr_t)(
+                ((uint64_t)first_grouped_instance *
+                     XZ_STATIC_LIGHTMAP_INSTANCE_FLOATS +
+                 (uint64_t)slot * 4u) *
+                sizeof(float));
+
+        xz_shadow.gl.EnableVertexAttribArray(
+            location);
+        xz_shadow.gl.VertexAttribPointer(
+            location,
+            4,
+            GL_FLOAT,
+            GL_FALSE,
+            (GLsizei)(
+                XZ_STATIC_LIGHTMAP_INSTANCE_FLOATS *
+                sizeof(float)),
+            (const void *)byte_offset);
+        xz_shadow.gl.VertexAttribDivisor(
+            location,
+            1u);
+    }
+
+    return
+        xz_shadow.gl.GetError() ==
+            GL_NO_ERROR;
+}
+
+
 static void XzDestroyStaticSceneCurrent(
     XzGles3ShadowState *state)
 {
