@@ -113,9 +113,9 @@ typedef enum XzT7AssetType {
     XZ_T7_STREAMER_HINT = 0x66,
     XZ_T7_RUNTIME_TYPE_COUNT = 0x67,
     XZ_T7_STRING = 0x68,
+    XZ_T7_DEPEND = 0x68,
     XZ_T7_ASSETLIST = 0x69,
     XZ_T7_REPORT = 0x6A,
-    XZ_T7_DEPEND = 0x6B,
     XZ_T7_FULL_TYPE_COUNT = 0x6C
 } XzT7AssetType;
 
