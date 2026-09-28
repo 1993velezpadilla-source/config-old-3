@@ -525,6 +525,12 @@ def build_dossier(profile: dict, top: int = 5) -> dict:
 
         verified = verification.get(target, {})
         verified_rva = targets.get(target)
+        review_ready = [
+            entry
+            for entry in entries
+            if entry.get("manual_review", {}).get("status")
+            == "manual_review_ready"
+        ]
         result[target] = {
             "verified": bool(
                 isinstance(verified, dict)
@@ -535,6 +541,17 @@ def build_dossier(profile: dict, top: int = 5) -> dict:
             ),
             "verified_rva": verified_rva,
             "candidate_count_shown": len(entries),
+            "manual_review_ready_count": len(review_ready),
+            "first_manual_review_ready_candidate": (
+                {
+                    "rank": review_ready[0]["rank"],
+                    "rva": review_ready[0]["rva"],
+                    "rva_hex": review_ready[0]["rva_hex"],
+                    "function": review_ready[0].get("function"),
+                }
+                if review_ready
+                else None
+            ),
             "candidates": entries,
         }
 
@@ -550,6 +567,15 @@ def build_dossier(profile: dict, top: int = 5) -> dict:
             "targets_total": len(profile_template.TARGET_KEYS),
             "targets_with_candidates": sum(
                 1 for item in result.values() if item["candidates"]
+            ),
+            "targets_with_manual_review_ready_candidate": sum(
+                1
+                for item in result.values()
+                if item["manual_review_ready_count"] > 0
+            ),
+            "manual_review_ready_candidates": sum(
+                item["manual_review_ready_count"]
+                for item in result.values()
             ),
             "top_candidates_per_target": top,
         },
