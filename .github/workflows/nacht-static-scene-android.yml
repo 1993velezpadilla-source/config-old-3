@@ -3878,7 +3878,7 @@ jobs:
             "float skyDiffuse=uAmbientWeight*uReflectionParams.z*uReflectionParams.w" \
             engine/xz/xz_gles3_shadow.c
           grep -Fq \
-            "vec3 light=vec3(skyDiffuse)+uDirectionalColor*(uDirectionalWeight*ndl)" \
+            "vec3 dynamicLight=vec3(skyDiffuse)+uDirectionalColor*(uDirectionalWeight*ndl)" \
             engine/xz/xz_gles3_shadow.c
           ! grep -Fq \
             "float neutralBaseline=uAmbientWeight+uDirectionalWeight" \
