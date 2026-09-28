@@ -66,6 +66,10 @@ extern int Sys_FileRead(
     void *dest,
     int count);
 
+extern void Sys_FileSeek(
+    int handle,
+    int position);
+
 static uint32_t XzStaticReadU32Le(
     const unsigned char *p)
 {
@@ -456,6 +460,252 @@ static int XzValidateNormalPack(
     return 1;
 }
 
+
+static int XzReadExactHandle(
+    int handle,
+    void *destination,
+    size_t bytes)
+{
+    unsigned char *out =
+        (unsigned char *)destination;
+    size_t cursor = 0u;
+
+    while (cursor < bytes) {
+        size_t remaining = bytes - cursor;
+        int request =
+            remaining > (size_t)INT_MAX
+                ? INT_MAX
+                : (int)remaining;
+        int got = Sys_FileRead(
+            handle,
+            out + cursor,
+            request);
+
+        if (got <= 0 || got > request)
+            return 0;
+
+        cursor += (size_t)got;
+    }
+
+    return 1;
+}
+
+static int XzOpenStreamedTexturePack(
+    const char *path,
+    const char magic[4],
+    uint32_t expected_header_flags,
+    uint32_t expected_texture_flags,
+    uint32_t expected_bindings,
+    int *out_handle,
+    unsigned char **out_table_data,
+    size_t *out_file_bytes,
+    uint32_t *out_texture_count,
+    uint32_t *out_binding_count,
+    size_t *out_texture_table_offset,
+    size_t *out_binding_offset)
+{
+    unsigned char header[24];
+    int handle = -1;
+    int length;
+    uint32_t textures;
+    uint32_t bindings;
+    uint32_t entry_bytes;
+    uint32_t flags;
+    uint64_t table_end;
+    uint64_t bindings_end;
+    unsigned char *table_data = NULL;
+    uint32_t i;
+
+    if (!path || !magic ||
+        !out_handle || !out_table_data ||
+        !out_file_bytes ||
+        !out_texture_count ||
+        !out_binding_count ||
+        !out_texture_table_offset ||
+        !out_binding_offset)
+        return -1;
+
+    *out_handle = -1;
+    *out_table_data = NULL;
+    *out_file_bytes = 0u;
+
+    length = COM_OpenFile(
+        (char *)path,
+        &handle);
+
+    if (length < 0 || handle < 0)
+        return 0;
+
+    if (length < (int)sizeof(header) ||
+        !XzReadExactHandle(
+            handle,
+            header,
+            sizeof(header))) {
+        COM_CloseFile(handle);
+        return -1;
+    }
+
+    if (memcmp(header, magic, 4u) != 0 ||
+        XzStaticReadU32Le(header + 4u) != 1u) {
+        COM_CloseFile(handle);
+        return -1;
+    }
+
+    textures = XzStaticReadU32Le(header + 8u);
+    bindings = XzStaticReadU32Le(header + 12u);
+    entry_bytes = XzStaticReadU32Le(header + 16u);
+    flags = XzStaticReadU32Le(header + 20u);
+
+    if (textures == 0u ||
+        bindings == 0u ||
+        bindings != expected_bindings ||
+        entry_bytes != 20u ||
+        flags != expected_header_flags) {
+        COM_CloseFile(handle);
+        return -1;
+    }
+
+    table_end =
+        24u +
+        (uint64_t)textures * 20u;
+    bindings_end =
+        table_end +
+        (uint64_t)bindings * 4u;
+
+    if (bindings_end > (uint64_t)length ||
+        bindings_end > (uint64_t)SIZE_MAX) {
+        COM_CloseFile(handle);
+        return -1;
+    }
+
+    table_data =
+        (unsigned char *)malloc(
+            (size_t)bindings_end);
+    if (!table_data) {
+        COM_CloseFile(handle);
+        return -1;
+    }
+
+    memcpy(table_data, header, sizeof(header));
+
+    if (!XzReadExactHandle(
+            handle,
+            table_data + sizeof(header),
+            (size_t)bindings_end -
+                sizeof(header))) {
+        free(table_data);
+        COM_CloseFile(handle);
+        return -1;
+    }
+
+    for (i = 0u; i < textures; ++i) {
+        const unsigned char *entry =
+            table_data + 24u +
+            (size_t)i * 20u;
+        uint32_t width =
+            XzStaticReadU32Le(entry + 0u);
+        uint32_t height =
+            XzStaticReadU32Le(entry + 4u);
+        uint32_t offset =
+            XzStaticReadU32Le(entry + 8u);
+        uint32_t bytes =
+            XzStaticReadU32Le(entry + 12u);
+        uint32_t texture_flags =
+            XzStaticReadU32Le(entry + 16u);
+        uint64_t expected_bytes =
+            (uint64_t)width *
+            (uint64_t)height * 4u;
+        uint64_t end =
+            (uint64_t)offset +
+            (uint64_t)bytes;
+
+        if (width == 0u ||
+            height == 0u ||
+            width > 4096u ||
+            height > 4096u ||
+            expected_bytes != (uint64_t)bytes ||
+            (texture_flags &
+                expected_texture_flags) !=
+                expected_texture_flags ||
+            (expected_header_flags == 2u &&
+                texture_flags !=
+                    expected_texture_flags) ||
+            (expected_header_flags == 1u &&
+                (texture_flags & ~3u) != 0u) ||
+            (uint64_t)offset < bindings_end ||
+            end > (uint64_t)length ||
+            offset > (uint32_t)INT_MAX) {
+            free(table_data);
+            COM_CloseFile(handle);
+            return -1;
+        }
+    }
+
+    for (i = 0u; i < bindings; ++i) {
+        uint32_t value =
+            XzStaticReadU32Le(
+                table_data +
+                (size_t)table_end +
+                (size_t)i * 4u);
+
+        if (value !=
+                XZ_STATIC_MATERIAL_NO_TEXTURE &&
+            value >= textures) {
+            free(table_data);
+            COM_CloseFile(handle);
+            return -1;
+        }
+    }
+
+    *out_handle = handle;
+    *out_table_data = table_data;
+    *out_file_bytes = (size_t)length;
+    *out_texture_count = textures;
+    *out_binding_count = bindings;
+    *out_texture_table_offset = 24u;
+    *out_binding_offset = (size_t)table_end;
+    return 1;
+}
+
+static int XzReadStreamedTexture(
+    int handle,
+    const unsigned char *table_data,
+    size_t texture_table_offset,
+    uint32_t texture_count,
+    uint32_t texture_index,
+    void *destination,
+    size_t destination_bytes)
+{
+    const unsigned char *entry;
+    uint32_t offset;
+    uint32_t bytes;
+
+    if (handle < 0 ||
+        !table_data ||
+        !destination ||
+        texture_index >= texture_count)
+        return 0;
+
+    entry =
+        table_data +
+        texture_table_offset +
+        (size_t)texture_index * 20u;
+    offset =
+        XzStaticReadU32Le(entry + 8u);
+    bytes =
+        XzStaticReadU32Le(entry + 12u);
+
+    if (destination_bytes < (size_t)bytes ||
+        offset > (uint32_t)INT_MAX)
+        return 0;
+
+    Sys_FileSeek(handle, (int)offset);
+    return XzReadExactHandle(
+        handle,
+        destination,
+        (size_t)bytes);
+}
+
 static int XzSafeMapId(
     const char *map_id)
 {
@@ -602,6 +852,8 @@ void XzStaticSceneRuntime_Init(
         return;
 
     memset(state, 0, sizeof(*state));
+    state->material_file_handle = -1;
+    state->normal_material_file_handle = -1;
     XzLightmapTexture_Init(
         &state->lightmaps);
     XzLightmapBinding_Init(
@@ -622,12 +874,18 @@ void XzStaticSceneRuntime_Reset(
     if (state->scene_data)
         free(state->scene_data);
 
+    if (state->material_file_handle >= 0)
+        COM_CloseFile(
+            state->material_file_handle);
     if (state->material_data)
         free(state->material_data);
 
     if (state->pbr_material_data)
         free(state->pbr_material_data);
 
+    if (state->normal_material_file_handle >= 0)
+        COM_CloseFile(
+            state->normal_material_file_handle);
     if (state->normal_material_data)
         free(state->normal_material_data);
 
@@ -646,6 +904,8 @@ void XzStaticSceneRuntime_Reset(
         &state->lightmap_bindings);
 
     memset(state, 0, sizeof(*state));
+    state->material_file_handle = -1;
+    state->normal_material_file_handle = -1;
     XzLightmapTexture_Init(
         &state->lightmaps);
     XzLightmapBinding_Init(
@@ -661,12 +921,14 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
     size_t scene_bytes = 0u;
     unsigned char *material_data = NULL;
     size_t material_bytes = 0u;
+    int material_file_handle = -1;
     unsigned char *pbr_material_data = NULL;
     size_t pbr_material_bytes = 0u;
     XzPbrMaterialView pbr_material;
     XzPbrMaterialStatus pbr_material_status;
     unsigned char *normal_material_data = NULL;
     size_t normal_material_bytes = 0u;
+    int normal_material_file_handle = -1;
     unsigned char *environment_data = NULL;
     size_t environment_bytes = 0u;
     XzEnvironmentView environment;
@@ -978,39 +1240,33 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
         goto invalid;
     }
 
-    read_status = XzReadVfsFile(
-        material_path,
-        XZ_STATIC_SCENE_MAX_MATERIAL_BYTES,
-        &material_data,
-        &material_bytes);
+    read_status =
+        XzOpenStreamedTexturePack(
+            material_path,
+            "XZMT",
+            XZ_XZMT_HEADER_FLAG_RGBA8,
+            XZ_STATIC_TEXTURE_FLAG_RGBA8,
+            (uint32_t)submesh_total,
+            &material_file_handle,
+            &material_data,
+            &material_bytes,
+            &material_texture_count,
+            &material_binding_count,
+            &material_texture_table_offset,
+            &material_binding_offset);
 
     if (read_status < 0 ||
         (read_status == 0 &&
-         strcmp(map_id, "xziel_nacht_bo3") == 0)) {
+         strcmp(
+             map_id,
+             "xziel_nacht_bo3") == 0)) {
         snprintf(
             failure,
             sizeof(failure),
             "%s",
             read_status == 0
                 ? "material_pack_missing"
-                : "material_pack_read_failed");
-        goto invalid;
-    }
-
-    if (read_status > 0 &&
-        !XzValidateMaterialPack(
-            material_data,
-            material_bytes,
-            (uint32_t)submesh_total,
-            &material_texture_count,
-            &material_binding_count,
-            &material_texture_table_offset,
-            &material_binding_offset)) {
-        snprintf(
-            failure,
-            sizeof(failure),
-            "%s",
-            "material_pack_invalid");
+                : "material_pack_stream_open_failed");
         goto invalid;
     }
 
@@ -1092,39 +1348,33 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
         goto invalid;
     }
 
-    read_status = XzReadVfsFile(
-        normal_material_path,
-        XZ_STATIC_SCENE_MAX_NORMAL_MATERIAL_BYTES,
-        &normal_material_data,
-        &normal_material_bytes);
+    read_status =
+        XzOpenStreamedTexturePack(
+            normal_material_path,
+            "XZMN",
+            XZ_XZMN_FLAG_RGBA8_NORMAL,
+            XZ_XZMN_FLAG_RGBA8_NORMAL,
+            (uint32_t)submesh_total,
+            &normal_material_file_handle,
+            &normal_material_data,
+            &normal_material_bytes,
+            &normal_texture_count,
+            &normal_binding_count,
+            &normal_texture_table_offset,
+            &normal_binding_offset);
 
     if (read_status < 0 ||
         (read_status == 0 &&
-         strcmp(map_id, "xziel_nacht_bo3") == 0)) {
+         strcmp(
+             map_id,
+             "xziel_nacht_bo3") == 0)) {
         snprintf(
             failure,
             sizeof(failure),
             "%s",
             read_status == 0
                 ? "normal_material_pack_missing"
-                : "normal_material_pack_read_failed");
-        goto invalid;
-    }
-
-    if (read_status > 0 &&
-        !XzValidateNormalPack(
-            normal_material_data,
-            normal_material_bytes,
-            (uint32_t)submesh_total,
-            &normal_texture_count,
-            &normal_binding_count,
-            &normal_texture_table_offset,
-            &normal_binding_offset)) {
-        snprintf(
-            failure,
-            sizeof(failure),
-            "%s",
-            "normal_material_pack_invalid");
+                : "normal_material_pack_stream_open_failed");
         goto invalid;
     }
 
@@ -1494,6 +1744,9 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
         scene.mesh_count;
     state->material_data = material_data;
     state->material_bytes = material_bytes;
+    state->material_file_handle =
+        material_file_handle;
+    material_file_handle = -1;
     state->material_texture_count =
         material_texture_count;
     state->material_binding_count =
@@ -1512,6 +1765,9 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
         normal_material_data;
     state->normal_material_bytes =
         normal_material_bytes;
+    state->normal_material_file_handle =
+        normal_material_file_handle;
+    normal_material_file_handle = -1;
     state->normal_texture_count =
         normal_texture_count;
     state->normal_binding_count =
@@ -1629,8 +1885,12 @@ invalid:
         resources,
         scene.mesh_count);
     free(scene_data);
+    if (material_file_handle >= 0)
+        COM_CloseFile(material_file_handle);
     free(material_data);
     free(pbr_material_data);
+    if (normal_material_file_handle >= 0)
+        COM_CloseFile(normal_material_file_handle);
     free(normal_material_data);
     free(environment_data);
     free(height_fog_data);
@@ -1725,13 +1985,13 @@ int XzStaticSceneRuntime_Texture(
     XzStaticTextureView *texture)
 {
     const unsigned char *entry;
-    uint32_t offset;
     uint32_t bytes;
 
     if (!state ||
         state->status !=
             XZ_STATIC_SCENE_READY ||
         !state->material_data ||
+        state->material_file_handle < 0 ||
         !texture ||
         texture_index >=
             state->material_texture_count)
@@ -1747,16 +2007,34 @@ int XzStaticSceneRuntime_Texture(
         XzStaticReadU32Le(entry + 0u);
     texture->height =
         XzStaticReadU32Le(entry + 4u);
-    offset =
-        XzStaticReadU32Le(entry + 8u);
     bytes =
         XzStaticReadU32Le(entry + 12u);
     texture->flags =
         XzStaticReadU32Le(entry + 16u);
-    texture->rgba =
-        state->material_data + offset;
+    texture->rgba = NULL;
     texture->rgba_bytes = (size_t)bytes;
     return 1;
+}
+
+int XzStaticSceneRuntime_ReadTexture(
+    const XzStaticSceneRuntimeState *state,
+    uint32_t texture_index,
+    void *destination,
+    size_t destination_bytes)
+{
+    if (!state ||
+        state->status !=
+            XZ_STATIC_SCENE_READY)
+        return 0;
+
+    return XzReadStreamedTexture(
+        state->material_file_handle,
+        state->material_data,
+        state->material_texture_table_offset,
+        state->material_texture_count,
+        texture_index,
+        destination,
+        destination_bytes);
 }
 
 int XzStaticSceneRuntime_PbrBinding(
@@ -1807,13 +2085,13 @@ int XzStaticSceneRuntime_NormalTexture(
     XzStaticTextureView *texture)
 {
     const unsigned char *entry;
-    uint32_t offset;
     uint32_t bytes;
 
     if (!state ||
         state->status !=
             XZ_STATIC_SCENE_READY ||
         !state->normal_material_data ||
+        state->normal_material_file_handle < 0 ||
         !texture ||
         texture_index >=
             state->normal_texture_count)
@@ -1829,16 +2107,34 @@ int XzStaticSceneRuntime_NormalTexture(
         XzStaticReadU32Le(entry + 0u);
     texture->height =
         XzStaticReadU32Le(entry + 4u);
-    offset =
-        XzStaticReadU32Le(entry + 8u);
     bytes =
         XzStaticReadU32Le(entry + 12u);
     texture->flags =
         XzStaticReadU32Le(entry + 16u);
-    texture->rgba =
-        state->normal_material_data + offset;
+    texture->rgba = NULL;
     texture->rgba_bytes = (size_t)bytes;
     return 1;
+}
+
+int XzStaticSceneRuntime_ReadNormalTexture(
+    const XzStaticSceneRuntimeState *state,
+    uint32_t texture_index,
+    void *destination,
+    size_t destination_bytes)
+{
+    if (!state ||
+        state->status !=
+            XZ_STATIC_SCENE_READY)
+        return 0;
+
+    return XzReadStreamedTexture(
+        state->normal_material_file_handle,
+        state->normal_material_data,
+        state->normal_texture_table_offset,
+        state->normal_texture_count,
+        texture_index,
+        destination,
+        destination_bytes);
 }
 
 const XzEnvironmentView *

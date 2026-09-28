@@ -76,6 +76,7 @@ typedef struct {
 
     unsigned char *material_data;
     size_t material_bytes;
+    int material_file_handle;
 
     uint32_t material_texture_count;
     uint32_t material_binding_count;
@@ -88,6 +89,7 @@ typedef struct {
 
     unsigned char *normal_material_data;
     size_t normal_material_bytes;
+    int normal_material_file_handle;
     uint32_t normal_texture_count;
     uint32_t normal_binding_count;
     size_t normal_texture_table_offset;
@@ -161,6 +163,12 @@ int XzStaticSceneRuntime_Texture(
     uint32_t texture_index,
     XzStaticTextureView *texture);
 
+int XzStaticSceneRuntime_ReadTexture(
+    const XzStaticSceneRuntimeState *state,
+    uint32_t texture_index,
+    void *destination,
+    size_t destination_bytes);
+
 int XzStaticSceneRuntime_PbrBinding(
     const XzStaticSceneRuntimeState *state,
     uint32_t binding_index,
@@ -175,6 +183,12 @@ int XzStaticSceneRuntime_NormalTexture(
     const XzStaticSceneRuntimeState *state,
     uint32_t texture_index,
     XzStaticTextureView *texture);
+
+int XzStaticSceneRuntime_ReadNormalTexture(
+    const XzStaticSceneRuntimeState *state,
+    uint32_t texture_index,
+    void *destination,
+    size_t destination_bytes);
 
 const XzEnvironmentView *
 XzStaticSceneRuntime_Environment(

@@ -4530,7 +4530,6 @@ int XzGles3Shadow_UploadStaticScene(
                     scene,
                     texture_index,
                     &source_texture) ||
-                !source_texture.rgba ||
                 source_texture.width == 0u ||
                 source_texture.height == 0u ||
                 source_texture.rgba_bytes !=
@@ -4571,16 +4570,33 @@ int XzGles3Shadow_UploadStaticScene(
                 GL_TEXTURE_2D,
                 GL_TEXTURE_WRAP_T,
                 GL_REPEAT);
-            xz_shadow.gl.TexImage2D(
-                GL_TEXTURE_2D,
-                0,
-                internal_format,
-                (GLsizei)source_texture.width,
-                (GLsizei)source_texture.height,
-                0,
-                GL_RGBA,
-                GL_UNSIGNED_BYTE,
-                source_texture.rgba);
+            {
+                unsigned char *upload_rgba =
+                    (unsigned char *)malloc(
+                        source_texture.rgba_bytes);
+                if (!upload_rgba)
+                    goto fail;
+                if (!XzStaticSceneRuntime_ReadTexture(
+                        scene,
+                        texture_index,
+                        upload_rgba,
+                        source_texture.rgba_bytes)) {
+                    free(upload_rgba);
+                    goto fail;
+                }
+
+                xz_shadow.gl.TexImage2D(
+                    GL_TEXTURE_2D,
+                    0,
+                    internal_format,
+                    (GLsizei)source_texture.width,
+                    (GLsizei)source_texture.height,
+                    0,
+                    GL_RGBA,
+                    GL_UNSIGNED_BYTE,
+                    upload_rgba);
+                free(upload_rgba);
+            }
 
             if (xz_shadow.gl.GetError() !=
                     GL_NO_ERROR)
@@ -4681,7 +4697,6 @@ int XzGles3Shadow_UploadStaticScene(
                     scene,
                     texture_index,
                     &source_texture) ||
-                !source_texture.rgba ||
                 source_texture.width == 0u ||
                 source_texture.height == 0u ||
                 source_texture.rgba_bytes !=
@@ -4716,16 +4731,33 @@ int XzGles3Shadow_UploadStaticScene(
                 GL_TEXTURE_2D,
                 GL_TEXTURE_WRAP_T,
                 GL_REPEAT);
-            xz_shadow.gl.TexImage2D(
-                GL_TEXTURE_2D,
-                0,
-                GL_RGBA8,
-                (GLsizei)source_texture.width,
-                (GLsizei)source_texture.height,
-                0,
-                GL_RGBA,
-                GL_UNSIGNED_BYTE,
-                source_texture.rgba);
+            {
+                unsigned char *upload_rgba =
+                    (unsigned char *)malloc(
+                        source_texture.rgba_bytes);
+                if (!upload_rgba)
+                    goto fail;
+                if (!XzStaticSceneRuntime_ReadNormalTexture(
+                        scene,
+                        texture_index,
+                        upload_rgba,
+                        source_texture.rgba_bytes)) {
+                    free(upload_rgba);
+                    goto fail;
+                }
+
+                xz_shadow.gl.TexImage2D(
+                    GL_TEXTURE_2D,
+                    0,
+                    GL_RGBA8,
+                    (GLsizei)source_texture.width,
+                    (GLsizei)source_texture.height,
+                    0,
+                    GL_RGBA,
+                    GL_UNSIGNED_BYTE,
+                    upload_rgba);
+                free(upload_rgba);
+            }
 
             if (xz_shadow.gl.GetError() !=
                     GL_NO_ERROR)
