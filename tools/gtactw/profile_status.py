@@ -7,11 +7,15 @@ import argparse
 import json
 from pathlib import Path
 
+import adapter_catalog
 import loader_variant
 import profile_template
 
 
-def profile_status(profile: dict) -> dict:
+def profile_status(
+    profile: dict,
+    native_adapter_catalog: dict | None = None,
+) -> dict:
     fp = profile.get("fingerprint", {})
     jni = fp.get("jni_rvas", {})
 
@@ -119,6 +123,12 @@ def profile_status(profile: dict) -> dict:
     anchor_total = anchors.get("total_count")
 
     variant_plan = loader_variant.select_loader_variant(profile)
+    adapter_plan = None
+    if native_adapter_catalog is not None:
+        adapter_plan = adapter_catalog.validate_profile_adapters(
+            profile,
+            native_adapter_catalog,
+        )
 
     all_targets = target_verified == len(profile_template.TARGET_KEYS)
     all_abis = abi_verified == len(profile_template.TARGET_KEYS)
@@ -131,8 +141,12 @@ def profile_status(profile: dict) -> dict:
         phase = "needs_verified_hook_abis"
     elif not variant_plan["ready"]:
         phase = "needs_verified_hook_backend_strategy"
-    else:
+    elif adapter_plan is None:
         phase = "abi_verified_ready_for_hook_adapter_gate"
+    elif not adapter_plan["ready"]:
+        phase = "needs_native_hook_adapters"
+    else:
+        phase = "runtime_bundle_ready"
 
     return {
         "phase": phase,
@@ -152,6 +166,15 @@ def profile_status(profile: dict) -> dict:
             ),
         },
         "loader_variant_plan": variant_plan,
+        "native_adapter_plan": adapter_plan,
+        "runtime_bundle_ready": bool(
+            adapter_plan is not None
+            and adapter_plan.get("ready")
+            and variant_plan.get("ready")
+            and all_targets
+            and all_abis
+            and fingerprint_ready
+        ),
         "runtime_hooks_installed": False,
         "playable_3d_mod_ready": False,
         "target_status": target_status,
@@ -166,12 +189,23 @@ def profile_status(profile: dict) -> dict:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("profile", type=Path)
+    ap.add_argument(
+        "--adapter-catalog",
+        type=Path,
+        default=(
+            Path(__file__).resolve().parents[2]
+            / "projects"
+            / "gtactw-android-3d"
+            / "adapter_catalog.json"
+        ),
+    )
     ap.add_argument("--out", type=Path)
     args = ap.parse_args()
 
     try:
         profile = json.loads(args.profile.read_text(encoding="utf-8"))
-        report = profile_status(profile)
+        catalog = adapter_catalog.load_catalog(args.adapter_catalog)
+        report = profile_status(profile, catalog)
     except Exception as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, indent=2))
         return 2
