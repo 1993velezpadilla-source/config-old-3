@@ -19,7 +19,7 @@ static const char *const names[XZ_T7_FULL_TYPE_COUNT] = {
     "texture_combo","flametable","bitfield","attachment_cosmetic_variant","maptable",
     "maptable_loading_images","medal","medaltable","objective","objective_list","umbra_tome",
     "navmesh","navvolume","binaryhtml","laser","beam","streamer_hint","string","assetlist",
-    "report","depend"
+    "report","reserved_6b"
 };
 
 const char *XzT7AssetType_Name(XzT7AssetType type)
@@ -153,7 +153,6 @@ XzPackageBootFamily XzT7AssetType_Family(XzT7AssetType type)
     case XZ_T7_STRING:
     case XZ_T7_ASSETLIST:
     case XZ_T7_REPORT:
-    case XZ_T7_DEPEND:
         return XZ_PACKAGE_BOOT_GAMEPLAY_SCRIPTS;
 
     case XZ_T7_OBJECTIVE:
