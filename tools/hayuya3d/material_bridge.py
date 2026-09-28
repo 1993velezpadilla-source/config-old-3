@@ -404,7 +404,10 @@ def transfer_material_from_context(
 
     output_glb.parent.mkdir(parents=True, exist_ok=True)
     output_glb.write_bytes(
-        trimesh.exchange.gltf.export_glb(trimesh.Scene(refined))
+        trimesh.exchange.gltf.export_glb(
+            trimesh.Scene(refined),
+            include_normals=True,
+        )
     )
     if output_glb.read_bytes()[:4] != b"glTF":
         raise RuntimeError("Material Bridge produced invalid GLB")
@@ -482,7 +485,10 @@ def transfer_base_color_from_cloud(
 
     output_glb.parent.mkdir(parents=True, exist_ok=True)
     output_glb.write_bytes(
-        trimesh.exchange.gltf.export_glb(trimesh.Scene(refined))
+        trimesh.exchange.gltf.export_glb(
+            trimesh.Scene(refined),
+            include_normals=True,
+        )
     )
     if output_glb.read_bytes()[:4] != b"glTF":
         raise RuntimeError("Material Bridge produced invalid GLB")
