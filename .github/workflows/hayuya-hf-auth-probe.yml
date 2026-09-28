@@ -1,0 +1,48 @@
+name: HAYUYA HF Auth Probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - .github/workflows/hayuya-hf-auth-probe.yml
+
+permissions:
+  contents: read
+
+jobs:
+  auth:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+    steps:
+      - name: Check Hugging Face token presence and validity
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, os, urllib.request, urllib.error
+          token=os.environ.get("HF_TOKEN","").strip()
+          report={"token_present":bool(token),"token_valid":False,"identity":None}
+          if token:
+              req=urllib.request.Request(
+                  "https://huggingface.co/api/whoami-v2",
+                  headers={"Authorization":"Bearer "+token,"User-Agent":"HAYUYA/1"},
+              )
+              try:
+                  with urllib.request.urlopen(req,timeout=20) as r:
+                      data=json.loads(r.read().decode("utf-8"))
+                  report["token_valid"]=True
+                  report["identity_type"]=data.get("type")
+                  report["is_pro"]=bool(data.get("isPro") or data.get("is_pro"))
+              except urllib.error.HTTPError as exc:
+                  report["http_status"]=exc.code
+              except Exception as exc:
+                  report["error"]=type(exc).__name__
+          print("HAYUYA_HF_AUTH_PROBE",json.dumps(report,separators=(",",":")))
+          if not report["token_present"]:
+              raise SystemExit(3)
+          if not report["token_valid"]:
+              raise SystemExit(4)
+          PY
