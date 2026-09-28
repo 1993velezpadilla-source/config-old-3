@@ -43,7 +43,16 @@ These projects remain under their respective licenses.
 - emits JSON suitable for CI logs.
 
 ### Gate B — Android symbol/pattern map
-Next: fingerprint `libGame.so`, exported JNI entry points, camera candidates, renderer/streamer candidates.
+Infrastructure is now in place via `tools/gtactw/elf_probe.py`:
+
+- validates ELF64 little-endian AArch64;
+- fingerprints the full binary and `.text`;
+- extracts GNU build-id when present;
+- enumerates static/dynamic symbols;
+- verifies known `GameNative` JNI exports;
+- groups camera, streaming, LOD/culling and player-render candidates from symbols and strings.
+
+The real Android addresses are intentionally not guessed. They are populated only after probing the user's own `libGame.so`.
 
 ### Gate C — 3D camera
 Port the behavior of the PSP camera mod without copying PSP addresses. Android symbols/patterns must be found independently.
@@ -69,3 +78,23 @@ python tools/gtactw/ctw_probe.py path/to/GTACW.apk --extract ./local_ctw
 ```
 
 The local extraction directory must not be committed.
+
+Inventory the complete local PAK without dumping it into Git:
+
+```bash
+python tools/gtactw/pak_inventory.py ./local_ctw/assets/game.pak --manifest ./local_ctw/pak_manifest.json
+```
+
+Extract only selected resource IDs:
+
+```bash
+python tools/gtactw/pak_inventory.py ./local_ctw/assets/game.pak --extract ./local_ctw/resources --ids 12,42,900
+```
+
+Fingerprint/map the Android runtime:
+
+```bash
+python tools/gtactw/elf_probe.py ./local_ctw/lib/arm64-v8a/libGame.so --out ./local_ctw/libGame_report.json --require-jni
+```
+
+Patch goals and required gates are machine-readable in `android_patch_targets.json`.
