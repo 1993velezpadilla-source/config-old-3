@@ -1,0 +1,131 @@
+#include "ctw_patch.h"
+
+#include <android/log.h>
+#include <errno.h>
+#include <stdint.h>
+#include <string.h>
+#include <sys/mman.h>
+#include <unistd.h>
+
+#define LOG_TAG "CTW3D"
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+
+Ctw3DConfig g_ctw3d_config = {
+    .mode = CTW_CAMERA_THIRD_PERSON,
+    .fov_degrees = 70.0f,
+    .near_clip = 0.05f,
+    .far_clip_multiplier = 2.0f,
+    .stream_radius_multiplier = 2.0f,
+    .lod_distance_multiplier = 2.0f,
+    .keep_full_player_body = 1,
+    .hide_head_in_first_person = 1,
+};
+
+static size_t page_size(void) {
+    static size_t size = 0;
+    if (!size) {
+        long v = sysconf(_SC_PAGESIZE);
+        size = v > 0 ? (size_t)v : 4096u;
+    }
+    return size;
+}
+
+static int make_writable(void *address, size_t length, int prot) {
+    const size_t page = page_size();
+    uintptr_t start = (uintptr_t)address & ~(uintptr_t)(page - 1u);
+    uintptr_t end = ((uintptr_t)address + length + page - 1u) & ~(uintptr_t)(page - 1u);
+    return mprotect((void *)start, end - start, prot);
+}
+
+int ctw_arm64_install_abs_jump(void *target, void *replacement, uint8_t saved[16]) {
+#if defined(__aarch64__)
+    if (!target || !replacement || !saved)
+        return -1;
+
+    memcpy(saved, target, 16);
+
+    /*
+     * ldr x16, #8
+     * br  x16
+     * .quad replacement
+     */
+    uint32_t patch[4];
+    patch[0] = 0x58000050u;
+    patch[1] = 0xD61F0200u;
+    const uint64_t dst = (uint64_t)(uintptr_t)replacement;
+    memcpy(&patch[2], &dst, sizeof(dst));
+
+    if (make_writable(target, 16, PROT_READ | PROT_WRITE | PROT_EXEC) != 0) {
+        LOGE("mprotect RWX failed errno=%d", errno);
+        return -2;
+    }
+
+    memcpy(target, patch, sizeof(patch));
+    __builtin___clear_cache((char *)target, (char *)target + 16);
+
+    if (make_writable(target, 16, PROT_READ | PROT_EXEC) != 0) {
+        LOGE("mprotect RX restore failed errno=%d", errno);
+        return -3;
+    }
+    return 0;
+#else
+    (void)target;
+    (void)replacement;
+    (void)saved;
+    return -100;
+#endif
+}
+
+int ctw_arm64_restore_16(void *target, const uint8_t saved[16]) {
+#if defined(__aarch64__)
+    if (!target || !saved)
+        return -1;
+
+    if (make_writable(target, 16, PROT_READ | PROT_WRITE | PROT_EXEC) != 0)
+        return -2;
+
+    memcpy(target, saved, 16);
+    __builtin___clear_cache((char *)target, (char *)target + 16);
+    return make_writable(target, 16, PROT_READ | PROT_EXEC) == 0 ? 0 : -3;
+#else
+    (void)target;
+    (void)saved;
+    return -100;
+#endif
+}
+
+int ctw_apply_profile(const CtwPatchTargets *targets) {
+    if (!targets)
+        return -1;
+
+    /*
+     * No guessed addresses are accepted here.
+     * The real libGame.so fingerprint/profile must populate these first.
+     */
+    if (!targets->camera_update ||
+        !targets->projection_setup ||
+        !targets->world_stream_update ||
+        !targets->sector_visibility ||
+        !targets->lod_test ||
+        !targets->player_render) {
+        LOGI("profile incomplete; CTW remains unmodified");
+        return 1;
+    }
+
+    LOGI("complete CTW patch target profile present");
+    return 0;
+}
+
+int ctw_mod_init(void *original_game_handle) {
+    if (!original_game_handle)
+        return -1;
+
+    LOGI("CTW3D loader active; camera mode=%d", (int)g_ctw3d_config.mode);
+    LOGI("waiting for fingerprint-matched patch targets; no blind offsets");
+    return 0;
+}
+
+void ctw_mod_shutdown(void) {
+    LOGI("CTW3D loader shutdown");
+}
