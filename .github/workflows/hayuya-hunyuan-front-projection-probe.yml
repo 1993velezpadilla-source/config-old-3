@@ -1,0 +1,138 @@
+name: HAYUYA Hunyuan Front Projection Probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - tools/hayuya3d/source_front_projection.py
+      - .github/workflows/hayuya-hunyuan-front-projection-probe.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hayuya-hunyuan-front-projection-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  monja-front:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "gradio_client>=1.10,<2" trimesh numpy pillow scipy "mediapipe==1.0.1"
+
+      - name: Generate native Ultra 512
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out/hunyuan-front-projection
+          python - <<'PY'
+          import sys
+          from pathlib import Path
+          sys.path.insert(0,"tools/hayuya3d")
+          from hunyuan3d_cloud import generate_shape
+          generate_shape(
+              Path("hayuya/assets/monja-mugfwln6/geometry/primary.webp"),
+              Path("out/hunyuan-front-projection/monja_hunyuan_512.glb"),
+              seed=1993,
+              steps=30,
+              guidance_scale=5.0,
+              octree_resolution=512,
+              num_chunks=8000,
+          )
+          PY
+
+      - name: Project exact source pixels to native front
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/hayuya3d/source_front_projection.py             --source hayuya/assets/monja-mugfwln6/geometry/primary.webp             --mesh out/hunyuan-front-projection/monja_hunyuan_512.glb             --output out/hunyuan-front-projection/monja_source_projected.glb             --texture-edge 4096
+
+      - name: Inspect projected candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json,sys
+          from pathlib import Path
+          sys.path.insert(0,"tools/hayuya3d")
+          from mesh_gate import inspect as inspect_mesh
+          from texture_gate import inspect as inspect_texture
+          p=Path("out/hunyuan-front-projection/monja_source_projected.glb")
+          mesh=inspect_mesh(p,require_normals=False)
+          tex=inspect_texture(p,min_edge=4096,min_base_color_edge=4096)
+          payload={
+              "faces":int(mesh.faces),
+              "vertices":int(mesh.vertices),
+              "mesh_passed":bool(mesh.passed),
+              "texture_passed":bool(tex.passed),
+              "texture_max_edge":int(tex.max_edge),
+              "base_color_max_edge":int(tex.base_color_max_edge),
+              "components":int(mesh.components),
+              "largest_component_fraction":float(mesh.largest_component_fraction),
+              "warnings":list(tex.warnings),
+          }
+          Path("out/hunyuan-front-projection/gate.json").write_text(
+              json.dumps(payload,indent=2)+"\n",encoding="utf-8"
+          )
+          print("HAYUYA_SOURCE_FRONT_PROJECTION_GATE",json.dumps(payload,separators=(",",":")))
+          if not mesh.passed or not tex.passed:
+              raise SystemExit(2)
+          PY
+
+      - name: Install Blender
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender python3-numpy xvfb libegl1 libgl1-mesa-dri libgles2
+
+      - name: Render front evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          xvfb-run -a blender --python-exit-code 1 -b             --python tools/hayuya3d/blender_judge_turntable_24.py --             --input out/hunyuan-front-projection/monja_source_projected.glb             --output-dir out/hunyuan-front-projection/front_evidence             --size 768             --face-size 768             --preflight-only
+
+      - name: Validate face detection and profile
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/hayuya3d/source_autofix.py             --source hayuya/assets/monja-mugfwln6/geometry/primary.webp             --out out/hunyuan-front-projection/source_autofix             --policy required
+          python tools/hayuya3d/judge_v4_face_worker.py             --source out/hunyuan-front-projection/source_autofix/details/000-face_detail-auto.png             --candidate out/hunyuan-front-projection/front_evidence/faces/12_180.png             --output out/hunyuan-front-projection/face_gate.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("out/hunyuan-front-projection/face_gate.json")
+          d=json.loads(p.read_text())
+          coverage=d["candidate_detected"]/max(1,d["candidate_total"])
+          payload={
+              "candidate_detected":d["candidate_detected"],
+              "candidate_total":d["candidate_total"],
+              "coverage":coverage,
+              "median_profile_error":d["median_profile_error"],
+              "p90_profile_error":d["p90_profile_error"],
+          }
+          print("HAYUYA_SOURCE_FRONT_FACE_GATE",json.dumps(payload,separators=(",",":")))
+          if coverage < 1.0:
+              raise SystemExit(3)
+          PY
+
+      - name: Upload front projection artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hayuya-hunyuan-front-projection
+          path: out/hunyuan-front-projection/**
+          if-no-files-found: warn
+          retention-days: 3
