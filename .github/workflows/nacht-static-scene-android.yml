@@ -3884,7 +3884,7 @@ jobs:
             dist/static-scene-logcat.txt
 
           grep -E \
-            "XZIEL-XZ.*static_scene_baked_lightmaps map='xziel_nacht_bo3' ready=1 textures=87 gpuBytes=123406608 batches=[1-9][0-9]* mappedBatches=717" \
+            "XZIEL-XZ.*static_scene_baked_lightmaps map='xziel_nacht_bo3' ready=1 textures=87 gpuBytes=120323980 batches=[1-9][0-9]* mappedBatches=717 uploadMode=bc3_rgba8_authored_mip512" \
             dist/static-scene-logcat.txt
 
           grep -Fq \
@@ -3984,7 +3984,7 @@ jobs:
             "XZIEL_NACHT_FRAMEBUFFER_DRAW_GREEN meshes=492 instances=10791 bakedLightmaps=1"
 
           echo \
-            "XZIEL_NACHT_HQ_LIGHTMAP_GPU_GREEN textures=87 gpuBytes=123406608 mappedBatches=717"
+            "XZIEL_NACHT_HQ_LIGHTMAP_GPU_GREEN textures=87 gpuBytes=120323980 mappedBatches=717 mode=bc3_rgba8_authored_mip512"
 
           echo \
             "XZIEL_NACHT_MATERIAL_GPU_GREEN bindings=1063"
