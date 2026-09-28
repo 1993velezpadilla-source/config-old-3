@@ -4590,6 +4590,12 @@ int XzGles3Shadow_UploadStaticScene(
             goto fail;
 
         xz_shadow.static_lightmap_draw_plan_ready = 1;
+
+        if (!XzBuildStaticLightmapInstanceVbo(scene) ||
+            !XzUploadStaticHQLightmaps(
+                scene,
+                state))
+            goto fail;
     }
 
     xz_shadow.gl.GenBuffers(
@@ -4605,7 +4611,9 @@ int XzGles3Shadow_UploadStaticScene(
         (GLsizeiptr)(
             (uint64_t)xz_shadow.static_draw_plan.instance_count *
             16u * sizeof(float)),
-        xz_shadow.static_draw_plan.instance_matrices,
+        xz_shadow.static_lightmap_draw_plan_ready
+            ? xz_shadow.static_lightmap_draw_plan.instance_matrices
+            : xz_shadow.static_draw_plan.instance_matrices,
         GL_STATIC_DRAW);
 
     for (mesh_index = 0u;
