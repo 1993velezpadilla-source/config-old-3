@@ -31,7 +31,41 @@ def _jni_rva(report: dict, name: str) -> int | None:
     return int(value) if value is not None else None
 
 
-def make_profile(report: dict) -> dict:
+def summarize_xrefs(xref_report: dict | None) -> dict:
+    groups = (xref_report or {}).get("groups", {})
+    out = {}
+    for group in ("camera", "streaming", "lod_culling", "player_render"):
+        by_func = {}
+        for item in groups.get(group, []):
+            rva = item.get("function_rva")
+            name = item.get("function")
+            if rva is None:
+                continue
+            key = (name, int(rva))
+            entry = by_func.setdefault(key, {
+                "function": name,
+                "rva": int(rva),
+                "hits": 0,
+                "strings": [],
+                "call_sites": [],
+            })
+            entry["hits"] += 1
+            text = item.get("string")
+            if text and text not in entry["strings"]:
+                entry["strings"].append(text)
+            pc = item.get("pc_rva")
+            if pc is not None and pc not in entry["call_sites"]:
+                entry["call_sites"].append(pc)
+
+        ranked = sorted(
+            by_func.values(),
+            key=lambda x: (-x["hits"], x["rva"]),
+        )
+        out[group] = ranked[:32]
+    return out
+
+
+def make_profile(report: dict, xref_report: dict | None = None) -> dict:
     if report.get("elf", {}).get("machine") != "AArch64":
         raise ValueError("report is not for an AArch64 libGame.so")
 
@@ -86,6 +120,7 @@ def make_profile(report: dict) -> dict:
             "requires_coordinated_patch": True,
         },
         "candidate_symbols": candidate_summary,
+        "candidate_xref_functions": summarize_xrefs(xref_report),
         "status": "template_needs_verified_internal_rvas",
     }
 
@@ -94,11 +129,16 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("elf_report", type=Path)
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--xrefs", type=Path, help="Optional aarch64_xref JSON report")
     args = ap.parse_args()
 
     try:
         report = json.loads(args.elf_report.read_text(encoding="utf-8"))
-        profile = make_profile(report)
+        xrefs = (
+            json.loads(args.xrefs.read_text(encoding="utf-8"))
+            if args.xrefs is not None else None
+        )
+        profile = make_profile(report, xrefs)
     except Exception as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, indent=2))
         return 2
