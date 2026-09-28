@@ -1,5 +1,6 @@
 using CUE4Parse.FileProvider;
 using CUE4Parse.UE4.Assets;
+using CUE4Parse.UE4.Readers;
 using CUE4Parse.UE4.Objects.UObject;
 using CUE4Parse.UE4.Versions;
 using System.Text.Json;
@@ -77,9 +78,9 @@ foreach (var packagePath in packages)
         using var uassetReader = gameFile.CreateReader();
         var package = new Package(
             uassetReader,
-            null,
-            null,
-            null,
+            (FArchive?) null,
+            (FArchive?) null,
+            (FArchive?) null,
             provider,
             true);
 
