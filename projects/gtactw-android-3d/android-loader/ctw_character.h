@@ -48,6 +48,18 @@ int ctw_character_camera_facing_forward(
     int16_t out_forward[3]
 );
 
+/*
+ * CTW's four ped BodyType buckets have fixed Z anchors 2.0, 1.5, 1.0, 0.5.
+ * BodyType 0 is therefore the highest/head layer. Only suppress it for the
+ * local player in first-person; never suppress it for world NPCs.
+ */
+int ctw_character_hide_body_type(
+    const Ctw3DConfig *config,
+    CtwCameraMode mode,
+    int is_local_player_sprite,
+    unsigned body_type
+);
+
 #ifdef __cplusplus
 }
 #endif

@@ -81,3 +81,21 @@ int ctw_character_camera_facing_forward(
     out_forward[2] = original_forward[2];
     return 1;
 }
+
+int ctw_character_hide_body_type(
+    const Ctw3DConfig *config,
+    CtwCameraMode mode,
+    int is_local_player_sprite,
+    unsigned body_type
+) {
+    if (!config || !config->character_fix)
+        return 0;
+    if (!is_local_player_sprite)
+        return 0;
+    if (mode != CTW_CAMERA_FIRST_PERSON)
+        return 0;
+    if (!config->hide_head_in_first_person)
+        return 0;
+
+    return body_type == 0u;
+}

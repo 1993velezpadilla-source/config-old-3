@@ -124,5 +124,28 @@ int main(void) {
         assert(out[2] == original[2]);
     }
 
+    cfg.character_fix = 1;
+    cfg.hide_head_in_first_person = 1;
+    assert(
+        ctw_character_hide_body_type(
+            &cfg, CTW_CAMERA_FIRST_PERSON, 1, 0
+        ) == 1
+    );
+    assert(
+        ctw_character_hide_body_type(
+            &cfg, CTW_CAMERA_FIRST_PERSON, 1, 1
+        ) == 0
+    );
+    assert(
+        ctw_character_hide_body_type(
+            &cfg, CTW_CAMERA_FIRST_PERSON, 0, 0
+        ) == 0
+    );
+    assert(
+        ctw_character_hide_body_type(
+            &cfg, CTW_CAMERA_THIRD_PERSON, 1, 0
+        ) == 0
+    );
+
     return 0;
 }

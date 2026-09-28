@@ -9,6 +9,8 @@ extern "C" {
  * before any runtime hook is installed.
  */
 int ctw_runtime_adapters_bind(void *original_game_handle);
+int ctw_runtime_adapters_install_aux(void);
+int ctw_runtime_adapters_uninstall_aux(void);
 
 #ifdef __cplusplus
 }

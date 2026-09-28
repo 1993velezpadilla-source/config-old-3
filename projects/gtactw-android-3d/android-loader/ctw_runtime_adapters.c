@@ -12,10 +12,15 @@
 #include <stdatomic.h>
 #include <stdint.h>
 #include <string.h>
+#include <sys/mman.h>
+#include <unistd.h>
 
 #define CTW_FIXED_ONE 4096.0f
 #define CTW_PI 3.14159265358979323846f
 #define CTW_WORLD_SECTOR_SIZE_FIXED (60.0f * CTW_FIXED_ONE)
+#define CTW_PED_BUCKET_BIND_GOT_RVA 0xDF0AC0u
+#define CTW_PED_SPRITE_PRIMARY_OFFSET 0x224u
+#define CTW_PED_SPRITE_SECONDARY_OFFSET 0x26Cu
 
 enum {
     CTW_BASECAM_POS_X = 0xB8,
@@ -50,6 +55,15 @@ typedef void (*CtwPedSpriteRenderFn)(
     uintptr_t arg7,
     uintptr_t arg8
 );
+typedef void (*CtwPedBucketBindFn)(
+    void *renderer,
+    void *depth,
+    uint32_t color,
+    uint32_t component,
+    const void *anim_frame,
+    const void *sprite,
+    uint32_t body_type
+);
 
 typedef struct {
     int active;
@@ -64,10 +78,35 @@ static CtwSetCameraBehindTargetFn g_set_camera_behind_target;
 static CtwSetFovFn g_set_fov;
 static CtwRecalculateMatrixFn g_recalculate_matrix;
 static void **g_active_camera_slot;
+static void **g_players;
+static int *g_local_player_id;
+static CtwPedBucketBindFn g_ped_bucket_bind_original;
+static void **g_ped_bucket_bind_got;
+static int g_ped_bucket_bind_aux_installed;
+static _Thread_local int g_rendering_local_player_sprite;
 
 static atomic_int g_stream_heading = ATOMIC_VAR_INIT(0);
 static atomic_int g_stream_heading_valid = ATOMIC_VAR_INIT(0);
 static _Thread_local CtwStreamBiasState g_stream_bias;
+
+static size_t runtime_page_size(void) {
+    const long value = sysconf(_SC_PAGESIZE);
+    return value > 0 ? (size_t)value : 4096u;
+}
+
+static int runtime_make_data_writable(void *address) {
+    const size_t page = runtime_page_size();
+    const uintptr_t start =
+        (uintptr_t)address & ~(uintptr_t)(page - 1u);
+    return mprotect((void *)start, page, PROT_READ | PROT_WRITE);
+}
+
+static int runtime_restore_data_readonly(void *address) {
+    const size_t page = runtime_page_size();
+    const uintptr_t start =
+        (uintptr_t)address & ~(uintptr_t)(page - 1u);
+    return mprotect((void *)start, page, PROT_READ);
+}
 
 static int32_t read_i32(const void *base, size_t offset) {
     int32_t value = 0;
@@ -259,6 +298,57 @@ static void stream_bias_end(void) {
     memset(&g_stream_bias, 0, sizeof(g_stream_bias));
 }
 
+static int sprite_is_local_player(const void *sprite) {
+    if (!sprite || !g_players || !g_local_player_id)
+        return 0;
+
+    const int player_id = *g_local_player_id;
+    if (player_id < 0 || player_id > 1)
+        return 0;
+
+    void *player = g_players[player_id];
+    if (!player)
+        return 0;
+
+    const uintptr_t base = (uintptr_t)player;
+    const uintptr_t value = (uintptr_t)sprite;
+    return value == base + CTW_PED_SPRITE_PRIMARY_OFFSET ||
+           value == base + CTW_PED_SPRITE_SECONDARY_OFFSET;
+}
+
+static void ctw_ped_bucket_bind_aux(
+    void *renderer,
+    void *depth,
+    uint32_t color,
+    uint32_t component,
+    const void *anim_frame,
+    const void *sprite,
+    uint32_t body_type
+) {
+    if (!g_ped_bucket_bind_original)
+        return;
+
+    const CtwCameraMode mode = ctw_camera_snapshot().mode;
+    if (ctw_character_hide_body_type(
+            &g_ctw3d_config,
+            mode,
+            g_rendering_local_player_sprite,
+            body_type
+        )) {
+        return;
+    }
+
+    g_ped_bucket_bind_original(
+        renderer,
+        depth,
+        color,
+        component,
+        anim_frame,
+        sprite,
+        body_type
+    );
+}
+
 int ctw_runtime_adapters_bind(void *original_game_handle) {
     if (!original_game_handle)
         return -1;
@@ -304,6 +394,84 @@ int ctw_runtime_adapters_bind(void *original_game_handle) {
         return -5;
     }
 
+    dlerror();
+    g_players = (void **)dlsym(original_game_handle, "gPlayers");
+    if (dlerror() != NULL || !g_players)
+        return -6;
+
+    dlerror();
+    g_local_player_id = (int *)dlsym(
+        original_game_handle,
+        "gLocalPlayerId"
+    );
+    if (dlerror() != NULL || !g_local_player_id)
+        return -7;
+
+    dlerror();
+    g_ped_bucket_bind_original = (CtwPedBucketBindFn)dlsym(
+        original_game_handle,
+        "_ZN18cPedBucketRenderer4BindE6cFixedILj4ELj12EEjjPK10sAnimFramePK10cPedSpriteN19cSpriteFrameManager9eBodyTypeE"
+    );
+    if (dlerror() != NULL || !g_ped_bucket_bind_original)
+        return -8;
+
+    Dl_info info;
+    if (dladdr((void *)g_ped_bucket_bind_original, &info) == 0 ||
+        !info.dli_fbase) {
+        return -9;
+    }
+
+    g_ped_bucket_bind_got = (void **)((
+        uintptr_t)info.dli_fbase + CTW_PED_BUCKET_BIND_GOT_RVA
+    );
+    return 0;
+}
+
+int ctw_runtime_adapters_install_aux(void) {
+    if (g_ped_bucket_bind_aux_installed)
+        return 0;
+    if (!g_ped_bucket_bind_got || !g_ped_bucket_bind_original)
+        return -1;
+
+    if (*g_ped_bucket_bind_got != (void *)g_ped_bucket_bind_original)
+        return -2;
+
+    if (runtime_make_data_writable(g_ped_bucket_bind_got) != 0)
+        return -3;
+
+    *g_ped_bucket_bind_got = (void *)&ctw_ped_bucket_bind_aux;
+
+    if (runtime_restore_data_readonly(g_ped_bucket_bind_got) != 0) {
+        if (runtime_make_data_writable(g_ped_bucket_bind_got) == 0) {
+            *g_ped_bucket_bind_got =
+                (void *)g_ped_bucket_bind_original;
+            (void)runtime_restore_data_readonly(g_ped_bucket_bind_got);
+        }
+        return -4;
+    }
+
+    g_ped_bucket_bind_aux_installed = 1;
+    return 0;
+}
+
+int ctw_runtime_adapters_uninstall_aux(void) {
+    if (!g_ped_bucket_bind_aux_installed)
+        return 0;
+    if (!g_ped_bucket_bind_got || !g_ped_bucket_bind_original)
+        return -1;
+
+    if (*g_ped_bucket_bind_got != (void *)&ctw_ped_bucket_bind_aux)
+        return -2;
+
+    if (runtime_make_data_writable(g_ped_bucket_bind_got) != 0)
+        return -3;
+
+    *g_ped_bucket_bind_got = (void *)g_ped_bucket_bind_original;
+
+    if (runtime_restore_data_readonly(g_ped_bucket_bind_got) != 0)
+        return -4;
+
+    g_ped_bucket_bind_aux_installed = 0;
     return 0;
 }
 
@@ -501,8 +669,13 @@ void ctw_ped_sprite_render_adapter_v1(
      * pass-through. FPS head/face suppression is intentionally handled later
      * at cPedBucketRenderer::Bind(), where BodyType is available.
      */
+    const int previous_local = g_rendering_local_player_sprite;
+    g_rendering_local_player_sprite = sprite_is_local_player(sprite);
+
     original(
         sprite, position, forward_to_use,
         arg3, arg4, arg5, arg6, arg7, arg8
     );
+
+    g_rendering_local_player_sprite = previous_local;
 }

@@ -131,14 +131,32 @@ int ctw_mod_init(void *original_game_handle) {
         return CTW_PATCH_HOOK_INSTALL_FAILED;
     }
 
+    const int aux_rc = ctw_runtime_adapters_install_aux();
+    if (aux_rc != 0) {
+        LOGE(
+            "CTW auxiliary ped BodyType hook failed rc=%d; rolling back",
+            aux_rc
+        );
+        (void)ctw_hook_session_uninstall(&g_ctw_hook_session);
+        return CTW_PATCH_HOOK_INSTALL_FAILED;
+    }
+
     g_ctw_hook_session_active = 1;
-    LOGI("CTW 3D runtime hooks installed atomically: %d/%d", CTW_HOOK_COUNT, CTW_HOOK_COUNT);
+    LOGI(
+        "CTW 3D runtime hooks installed atomically: %d/%d + ped BodyType GOT",
+        CTW_HOOK_COUNT,
+        CTW_HOOK_COUNT
+    );
     return CTW_PATCH_APPLIED;
 }
 
 void ctw_mod_shutdown(void) {
     if (!g_ctw_hook_session_active)
         return;
+
+    const int aux_rc = ctw_runtime_adapters_uninstall_aux();
+    if (aux_rc != 0)
+        LOGE("CTW auxiliary ped BodyType hook restore failed rc=%d", aux_rc);
 
     const int rc = ctw_hook_session_uninstall(&g_ctw_hook_session);
     if (rc != 0 || g_ctw_hook_session.installed_count != 0) {
