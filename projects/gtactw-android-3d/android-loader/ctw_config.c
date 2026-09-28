@@ -86,6 +86,11 @@ void ctw_config_set_defaults(Ctw3DConfig *config) {
         .camera_height = 1.35f,
         .camera_distance = 5.8f,
         .camera_pitch_degrees = -7.0f,
+        .camera_look_sensitivity_x = 110.0f,
+        .camera_look_sensitivity_y = 90.0f,
+        .camera_invert_y = 0,
+        .camera_min_pitch_degrees = -70.0f,
+        .camera_max_pitch_degrees = 35.0f,
         .fov_degrees = 72.0f,
         .near_clip = 0.05f,
         .disable_cinematic_camera = 1,
@@ -127,7 +132,27 @@ static int apply_pair(
             return 1;
         }
         if (equal_ci(key, "Pitch") && parse_float_value(value, &f)) {
-            config->camera_pitch_degrees = clampf_local(f, -45.0f, 45.0f);
+            config->camera_pitch_degrees = clampf_local(f, -85.0f, 85.0f);
+            return 1;
+        }
+        if (equal_ci(key, "LookSensitivityX") && parse_float_value(value, &f)) {
+            config->camera_look_sensitivity_x = clampf_local(f, 10.0f, 720.0f);
+            return 1;
+        }
+        if (equal_ci(key, "LookSensitivityY") && parse_float_value(value, &f)) {
+            config->camera_look_sensitivity_y = clampf_local(f, 10.0f, 720.0f);
+            return 1;
+        }
+        if (equal_ci(key, "InvertY") && parse_bool(value, &b)) {
+            config->camera_invert_y = b;
+            return 1;
+        }
+        if (equal_ci(key, "MinPitch") && parse_float_value(value, &f)) {
+            config->camera_min_pitch_degrees = clampf_local(f, -89.0f, 89.0f);
+            return 1;
+        }
+        if (equal_ci(key, "MaxPitch") && parse_float_value(value, &f)) {
+            config->camera_max_pitch_degrees = clampf_local(f, -89.0f, 89.0f);
             return 1;
         }
         if (equal_ci(key, "FOV") && parse_float_value(value, &f)) {
@@ -230,6 +255,17 @@ int ctw_config_parse_text(Ctw3DConfig *config, const char *text) {
         char *value = trim(eq + 1);
         applied += apply_pair(config, section, key, value);
     }
+
+    if (config->camera_min_pitch_degrees > config->camera_max_pitch_degrees) {
+        const float tmp = config->camera_min_pitch_degrees;
+        config->camera_min_pitch_degrees = config->camera_max_pitch_degrees;
+        config->camera_max_pitch_degrees = tmp;
+    }
+    config->camera_pitch_degrees = clampf_local(
+        config->camera_pitch_degrees,
+        config->camera_min_pitch_degrees,
+        config->camera_max_pitch_degrees
+    );
 
     if (!config->camera_enabled)
         config->mode = CTW_CAMERA_STOCK;
