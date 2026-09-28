@@ -8,9 +8,12 @@
 extern "C" {
 #endif
 
-#define XZ_XZMS_VERSION 1u
+#define XZ_XZMS_VERSION_V1 1u
+#define XZ_XZMS_VERSION 2u
 #define XZ_XZMS_HEADER_BYTES 56u
-#define XZ_XZMS_VERTEX_BYTES 32u
+#define XZ_XZMS_VERTEX_BYTES_V1 32u
+#define XZ_XZMS_VERTEX_BYTES_V2 56u
+#define XZ_XZMS_VERTEX_BYTES XZ_XZMS_VERTEX_BYTES_V2
 #define XZ_XZMS_SUBMESH_BYTES 16u
 #define XZ_XZMS_NO_MATERIAL 0xffffffffu
 
@@ -22,7 +25,10 @@ enum {
 enum {
     XZ_XZMS_ATTR_POSITION = 1u << 0,
     XZ_XZMS_ATTR_NORMAL   = 1u << 1,
-    XZ_XZMS_ATTR_UV0      = 1u << 2
+    XZ_XZMS_ATTR_UV0      = 1u << 2,
+    XZ_XZMS_ATTR_UV1      = 1u << 3,
+    XZ_XZMS_ATTR_UV2      = 1u << 4,
+    XZ_XZMS_ATTR_UV3      = 1u << 5
 };
 
 typedef enum {
@@ -47,6 +53,9 @@ typedef struct {
     float position[3];
     float normal[3];
     float uv[2];
+    float uv1[2];
+    float uv2[2];
+    float uv3[2];
 } XzXzmeshVertex;
 
 typedef struct {
@@ -60,6 +69,7 @@ typedef struct {
     const unsigned char *data;
     size_t size;
 
+    uint32_t version;
     uint32_t vertex_count;
     uint32_t index_count;
     uint32_t submesh_count;
