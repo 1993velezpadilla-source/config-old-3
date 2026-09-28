@@ -16,5 +16,5 @@
   "portable_target": "high",
   "gpu_vram": 24,
   "backends": "trellis2,triposg,detailgen3d,triposr",
-  "retry_token": "ultra-2m-judge-70m-front-first-20260928"
+  "retry_token": "ultra-native-only-front-preflight-20260928-v1"
 }
