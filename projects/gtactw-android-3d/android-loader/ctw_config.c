@@ -166,6 +166,14 @@ static int apply_pair(
             config->extended_character_lod = b;
             return 1;
         }
+        if (equal_ci(key, "KeepFullBody") && parse_bool(value, &b)) {
+            config->keep_full_player_body = b;
+            return 1;
+        }
+        if (equal_ci(key, "HideHeadFirstPerson") && parse_bool(value, &b)) {
+            config->hide_head_in_first_person = b;
+            return 1;
+        }
     }
 
     return 0;
