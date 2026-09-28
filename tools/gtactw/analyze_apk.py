@@ -24,6 +24,7 @@ import ctw_probe
 import elf_probe
 import pak_inventory
 import profile_template
+import world_census
 
 
 def analyze_apk(
@@ -45,6 +46,8 @@ def analyze_apk(
         "missing_required": base["missing_required"],
         "pak_header": base["pak"],
         "pak_inventory": None,
+        "world_census": None,
+        "world_census_error": None,
         "libgame": None,
         "profile_template": None,
         "profile_template_error": None,
@@ -105,6 +108,31 @@ def analyze_apk(
                 ][:256],
             }
             report["gates"]["pak_inventory"] = True
+            try:
+                census = world_census.census_pak(pak_path)
+                report["world_census"] = {
+                    "worldblocks_named": census["worldblocks_named"],
+                    "worldblocks_parsed": census["worldblocks_parsed"],
+                    "parse_error_count": len(census["parse_errors"]),
+                    "totals": census["totals"],
+                    "instance_stats_per_worldblock": census[
+                        "instance_stats_per_worldblock"
+                    ],
+                    "level_stats_per_worldblock": census[
+                        "level_stats_per_worldblock"
+                    ],
+                    "densest_worldblocks": census["densest_worldblocks"][:16],
+                    "streaming_pressure_model": census[
+                        "streaming_pressure_model"
+                    ],
+                }
+                report["gates"]["world_census"] = (
+                    census["worldblocks_parsed"] > 0
+                    and not census["parse_errors"]
+                )
+            except Exception as exc:
+                report["world_census_error"] = str(exc)
+                report["gates"]["world_census"] = False
 
         if "lib/arm64-v8a/libGame.so" in zf.namelist():
             so_path = root / "libGame.so"
