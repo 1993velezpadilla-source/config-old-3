@@ -227,6 +227,13 @@ class ProfileTemplateTests(unittest.TestCase):
                         "caller_rva": 0x5500,
                         "call_site_rva": 0x5510,
                         "import_symbol": "glUniformMatrix4fv",
+                        "draw_frame_reachable": True,
+                        "draw_frame_hops": 1,
+                        "draw_frame_path_rvas": [0x1000, 0x5500],
+                        "draw_frame_path_functions": [
+                            profile_template.DRAW,
+                            "UploadProjection",
+                        ],
                     }
                 ],
                 "render": [],
@@ -241,7 +248,59 @@ class ProfileTemplateTests(unittest.TestCase):
             "calls glUniformMatrix4fv through verified PLT mapping",
             ranked[0]["reasons"],
         )
+        self.assertEqual(ranked[0]["draw_frame_hops"], 1)
+        self.assertIn(
+            "reachable from implOnDrawFrame in 1 symbol hop(s)",
+            ranked[0]["reasons"],
+        )
         self.assertIsNone(profile["patch_targets_rva"]["projection_setup"])
+
+
+    def test_projection_prefers_drawframe_reachable_matrix_uploader(self):
+        report = self.make_report()
+        xrefs = {
+            "groups": {
+                "camera": [],
+                "streaming": [],
+                "lod_culling": [],
+                "player_render": [],
+            }
+        }
+        plt = {
+            "groups": {
+                "projection": [
+                    {
+                        "caller": "InitMatrices",
+                        "caller_rva": 0x6100,
+                        "call_site_rva": 0x6110,
+                        "import_symbol": "glUniformMatrix4fv",
+                        "draw_frame_reachable": False,
+                        "draw_frame_hops": None,
+                    },
+                    {
+                        "caller": "FrameProjection",
+                        "caller_rva": 0x6200,
+                        "call_site_rva": 0x6210,
+                        "import_symbol": "glUniformMatrix4fv",
+                        "draw_frame_reachable": True,
+                        "draw_frame_hops": 1,
+                        "draw_frame_path_rvas": [0x1000, 0x6200],
+                        "draw_frame_path_functions": [
+                            profile_template.DRAW,
+                            "FrameProjection",
+                        ],
+                    },
+                ],
+                "render": [],
+                "visibility": [],
+            }
+        }
+
+        profile = profile_template.make_profile(report, xrefs, plt)
+        ranked = profile["target_evidence_rankings"]["projection_setup"]
+        self.assertEqual(ranked[0]["rva"], 0x6200)
+        self.assertEqual(ranked[0]["draw_frame_hops"], 1)
+        self.assertEqual(ranked[1]["rva"], 0x6100)
 
     def test_rejects_missing_required_jni(self):
         report = self.make_report()
