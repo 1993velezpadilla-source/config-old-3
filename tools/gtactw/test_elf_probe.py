@@ -120,6 +120,9 @@ class ElfProbeTests(unittest.TestCase):
     def test_classify_streaming_and_player(self):
         self.assertIn("streaming", elf_probe.classify("WorldBlockStreamer"))
         self.assertIn("player_render", elf_probe.classify("PlayerSkeletonRender"))
+        self.assertIn("camera", elf_probe.classify("uniform matProj"))
+        self.assertIn("lod_culling", elf_probe.classify("DrawDistanceCull"))
+        self.assertIn("player_render", elf_probe.classify("CharacterModelRender"))
 
 
 if __name__ == "__main__":
