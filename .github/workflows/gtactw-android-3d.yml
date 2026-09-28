@@ -27,8 +27,8 @@ jobs:
             tools/gtactw/ctw_probe.py \
             tools/gtactw/test_ctw_probe.py \
             tools/gtactw/elf_probe.py \
-            tools/gtactw/test_elf_probe.py \\
-            tools/gtactw/pak_inventory.py \\
+            tools/gtactw/test_elf_probe.py \
+            tools/gtactw/pak_inventory.py \
             tools/gtactw/test_pak_inventory.py
 
       - name: Run synthetic CTW PAK gate
@@ -43,4 +43,5 @@ jobs:
       - name: Gate marker
         run: |
           echo "GTACTW_ANDROID_PAK_PROBE_GREEN=1"
-          echo "GTACTW_ANDROID_ELF_PROBE_GREEN=1"\n          echo "GTACTW_ANDROID_PAK_INVENTORY_GREEN=1"
+          echo "GTACTW_ANDROID_ELF_PROBE_GREEN=1"
+          echo "GTACTW_ANDROID_PAK_INVENTORY_GREEN=1"
