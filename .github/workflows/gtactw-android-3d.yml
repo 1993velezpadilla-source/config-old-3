@@ -126,6 +126,7 @@ jobs:
             projects/gtactw-android-3d/android-loader/ctw_camera.c \
             projects/gtactw-android-3d/android-loader/ctw_camera_pose.c \
             projects/gtactw-android-3d/android-loader/ctw_character.c \
+            projects/gtactw-android-3d/android-loader/ctw_runtime_policy.c \
             projects/gtactw-android-3d/android-loader/ctw_profile.c \
             projects/gtactw-android-3d/android-loader/ctw_config.c \
             -ldl -lpthread
@@ -175,6 +176,18 @@ jobs:
             -lm
           /tmp/ctw_camera_pose_test
           echo "GTACTW_CAMERA_POSE_GREEN=1"
+          echo "GTACTW_RUNTIME_POLICY_GREEN=1"
+
+      - name: Run CTW projection-distance policy gate
+        run: |
+          cc -std=c11 -Wall -Wextra -Werror \
+            -Iprojects/gtactw-android-3d/android-loader \
+            -o /tmp/ctw_runtime_policy_test \
+            projects/gtactw-android-3d/android-loader/test_runtime_policy.c \
+            projects/gtactw-android-3d/android-loader/ctw_runtime_policy.c \
+            -lm
+          /tmp/ctw_runtime_policy_test
+          echo "GTACTW_RUNTIME_POLICY_GREEN=1"
 
       - name: Run CTW character visibility policy gate
         run: |
