@@ -85,6 +85,26 @@ def main() -> int:
                 "shadowTexture": mesh_build.get("shadowTexture"),
                 "skyOcclusionTexture": mesh_build.get("skyOcclusionTexture"),
                 "aoMaskTexture": mesh_build.get("aoMaskTexture"),
+                "lightMapCoordinateScale":
+                    mesh_build.get("lightMapCoordinateScale"),
+                "lightMapCoordinateBias":
+                    mesh_build.get("lightMapCoordinateBias"),
+                "lightMapScaleVectors":
+                    mesh_build.get("lightMapScaleVectors"),
+                "lightMapAddVectors":
+                    mesh_build.get("lightMapAddVectors"),
+                "lightMapShadowChannelValid":
+                    mesh_build.get("lightMapShadowChannelValid"),
+                "lightMapInvUniformPenumbraSize":
+                    mesh_build.get("lightMapInvUniformPenumbraSize"),
+                "shadowMapCoordinateScale":
+                    mesh_build.get("shadowMapCoordinateScale"),
+                "shadowMapCoordinateBias":
+                    mesh_build.get("shadowMapCoordinateBias"),
+                "shadowMapChannelValid":
+                    mesh_build.get("shadowMapChannelValid"),
+                "shadowMapInvUniformPenumbraSize":
+                    mesh_build.get("shadowMapInvUniformPenumbraSize"),
                 "bindingIndex": link.get("bindingIndex"),
                 "assetPath": link.get("assetPath"),
                 "lightMapCoordinateIndex": link.get("lightMapCoordinateIndex", -1),
@@ -181,6 +201,8 @@ def main() -> int:
     )
     mesh_consensus_resolved = 0
     unresolved_effective_uv = 0
+    runtime_payload_ready = 0
+    runtime_payload_missing = 0
 
     for record in records:
         binding = record.get("binding")
@@ -206,6 +228,42 @@ def main() -> int:
         binding["effectiveLightMapCoordinateIndex"] = effective_index
         binding["coordinateIndexResolution"] = resolution
 
+        light_textures = binding.get("lightTextures")
+        coord_scale = binding.get("lightMapCoordinateScale")
+        coord_bias = binding.get("lightMapCoordinateBias")
+        scale_vectors = binding.get("lightMapScaleVectors")
+        add_vectors = binding.get("lightMapAddVectors")
+
+        payload_ready = (
+            isinstance(effective_index, int)
+            and effective_index >= 0
+            and isinstance(light_textures, list)
+            and len(light_textures) == 2
+            and all(isinstance(x, str) and x for x in light_textures)
+            and isinstance(coord_scale, list)
+            and len(coord_scale) == 2
+            and isinstance(coord_bias, list)
+            and len(coord_bias) == 2
+            and isinstance(scale_vectors, list)
+            and len(scale_vectors) == 4
+            and all(
+                isinstance(v, list) and len(v) == 4
+                for v in scale_vectors
+            )
+            and isinstance(add_vectors, list)
+            and len(add_vectors) == 4
+            and all(
+                isinstance(v, list) and len(v) == 4
+                for v in add_vectors
+            )
+        )
+
+        binding["runtimePayloadReady"] = payload_ready
+        if payload_ready:
+            runtime_payload_ready += 1
+        else:
+            runtime_payload_missing += 1
+
     stats = {
         "instanceCount": len(instances),
         "uniqueSceneComponentCount": len(seen_scene_components),
@@ -222,11 +280,13 @@ def main() -> int:
         "unresolvedEffectiveCoordinateIndexCount": unresolved_effective_uv,
         "meshCoordinateIndexConflictCount": mesh_index_conflicts,
         "nonLightMap2DCount": non_lightmap2d,
+        "runtimePayloadReadyCount": runtime_payload_ready,
+        "runtimePayloadMissingCount": runtime_payload_missing,
     }
 
     output = {
-        "schemaVersion": 1,
-        "format": "xziel_nacht_lightmap_instance_bindings_audit_v1",
+        "schemaVersion": 2,
+        "format": "xziel_nacht_lightmap_instance_payload_v2",
         "stats": stats,
         "instanceBindings": records,
     }
