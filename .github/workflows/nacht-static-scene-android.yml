@@ -3939,7 +3939,7 @@ jobs:
             engine/xz/xz_gles3_shadow.c
           grep -q "const float FilmToeAmount=1.0" \
             engine/xz/xz_gles3_shadow.c
-          grep -q "const float FilmHealAmount=1.0" \
+          grep -q "const float FilmHealAmount=0.18" \
             engine/xz/xz_gles3_shadow.c
           grep -q "curveColor-=vec3(0.002)" \
             engine/xz/xz_gles3_shadow.c
@@ -3962,7 +3962,7 @@ jobs:
             engine/xz/xz_gles3_shadow.c
 
           grep -E \
-            "XZIEL-XZ.*static_scene_tonemap map='xziel_nacht_bo3' ready=1 tonemapMode=pavlov_legacy autoExposure=0 tonemapperFilm=0 contrast=0\.030000 dynamicRange=4\.000000 toeAmount=1\.000000 healAmount=1\.000000 exposure=1\.000000 exposureMode=fixed" \
+            "XZIEL-XZ.*static_scene_tonemap map='xziel_nacht_bo3' ready=1 tonemapMode=pavlov_legacy autoExposure=0 tonemapperFilm=0 contrast=0\.030000 dynamicRange=4\.000000 toeAmount=1\.000000 healAmount=0\.180000 exposure=1\.000000 exposureMode=fixed" \
             dist/static-scene-logcat.txt
 
           grep -E \
@@ -4126,7 +4126,7 @@ jobs:
             "XZIEL_NACHT_REFLECTION_SPHERE_GREEN position=(-0.10907654,0.09328659,2.66861328)m radius=30m offset=0 projection=ue4"
 
           echo \
-            "XZIEL_NACHT_PAVLOV_LEGACY_TONEMAP_GREEN autoExposure=0 tonemapperFilm=0 contrast=0.03 dynamicRange=4 toeAmount=1 healAmount=1 exposure=1.0"
+            "XZIEL_NACHT_PAVLOV_LEGACY_TONEMAP_GREEN autoExposure=0 tonemapperFilm=0 contrast=0.03 dynamicRange=4 toeAmount=1 healAmount=0.18 exposure=1.0"
 
           echo \
             "XZIEL_NACHT_AUTHORED_GLOBAL_LIGHTING_GREEN skyIntensity=1.5 reflectionAverageBrightness=0.04043579 skyDiffuse=0.060653685 directionalIntensity=2.5 normalized=0"
