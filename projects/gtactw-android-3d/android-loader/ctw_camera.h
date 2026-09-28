@@ -17,10 +17,20 @@ typedef struct {
     float pitch_degrees;
 } CtwCameraOrbitState;
 
+typedef enum {
+    CTW_CAMERA_BUTTON_NONE = 0,
+    CTW_CAMERA_BUTTON_MODE_CYCLED = 1,
+    CTW_CAMERA_BUTTON_ORBIT_RESET = 2,
+} CtwCameraButtonAction;
+
 void ctw_camera_set_look(float x, float y);
 void ctw_camera_set_mode(CtwCameraMode mode);
 void ctw_camera_cycle_mode(void);
 CtwCameraInputSnapshot ctw_camera_snapshot(void);
+CtwCameraButtonAction ctw_camera_handle_gamepad_button_down(
+    int keycode,
+    const Ctw3DConfig *config
+);
 void ctw_camera_orbit_reset(
     CtwCameraOrbitState *state,
     const Ctw3DConfig *config
