@@ -27,31 +27,38 @@ int ctw_profile_compare_prefix(
 static int verify_one_target(
     const void *address,
     const uint8_t expected[CTW_TARGET_PREFIX_BYTES],
-    void **library_base
+    void *expected_library_base
 ) {
-    if (!address || !expected || !library_base)
+    if (!address || !expected || !expected_library_base)
         return -1;
 
     Dl_info info;
     if (dladdr(address, &info) == 0 || !info.dli_fbase)
         return -2;
 
-    if (*library_base == NULL)
-        *library_base = info.dli_fbase;
-    else if (*library_base != info.dli_fbase)
+    if (info.dli_fbase != expected_library_base)
         return -3;
 
     return ctw_profile_compare_prefix(address, expected);
 }
 
 int ctw_profile_verify_target_prefixes(
+    void *game_handle,
     const CtwBuildProfile *profile,
     const CtwPatchTargets *targets
 ) {
-    if (!profile || !targets)
+    if (!game_handle || !profile || !targets)
         return -1;
 
-    void *base = NULL;
+    void *draw = dlsym(game_handle, DRAW_FRAME_SYMBOL);
+    if (!draw)
+        return -2;
+
+    Dl_info game_info;
+    if (dladdr(draw, &game_info) == 0 || !game_info.dli_fbase)
+        return -3;
+
+    void *base = game_info.dli_fbase;
     int rc = 0;
 
 #define VERIFY_TARGET(field) \
