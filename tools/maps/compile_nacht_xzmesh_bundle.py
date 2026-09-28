@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compile all 492 BO3 Nacht reference GLBs into XZMS v2 and emit a bundle manifest.
+"""Compile all 492 BO3 Nacht reference GLBs into XZMS v3 and emit a bundle manifest.
 
 Runtime filenames are deliberately compact ordinals (m0000.xzm ... m0491.xzm).
 Vril inherits Quake's 64-byte MAX_QPATH and 128-byte MAX_OSPATH constraints;
@@ -75,6 +75,7 @@ def main()->int:
         "submeshesWithoutUv1":0,
         "submeshesWithoutUv2":0,
         "submeshesWithoutUv3":0,
+        "submeshesWithoutTangents":0,
         "bytes":0,
     }
     args.output_root.mkdir(parents=True,exist_ok=True)
@@ -108,6 +109,7 @@ def main()->int:
         totals["submeshesWithoutUv1"]+=stats["submeshesWithoutUv1"]
         totals["submeshesWithoutUv2"]+=stats["submeshesWithoutUv2"]
         totals["submeshesWithoutUv3"]+=stats["submeshesWithoutUv3"]
+        totals["submeshesWithoutTangents"]+=stats["submeshesWithoutTangents"]
         totals["bytes"]+=stats["bytes"]
 
     if totals["meshes"]!=EXPECTED:
@@ -118,13 +120,13 @@ def main()->int:
         raise SystemExit("runtime mesh filenames are not unique")
 
     manifest={
-        "schemaVersion":2,
-        "format":"xziel_xzmesh_bundle_v2",
+        "schemaVersion":3,
+        "format":"xziel_xzmesh_bundle_v3",
         "mapId":"bo3_nacht_reference",
         "meshFormat":{
             "magic":"XZMS",
-            "version":2,
-            "vertexLayout":"position3f_normal3f_uv0_2f_uv1_2f_uv2_2f_uv3_2f",
+            "version":3,
+            "vertexLayout":"position3f_normal3f_tangent4f_uv0_2f_uv1_2f_uv2_2f_uv3_2f",
             "indexType":"uint32",
             "coordinateBasis":"XZIEL_Z_UP",
             "sourceBasisConversion":"glTF_Y_UP -> XZIEL_Z_UP: (x,-z,y)",
@@ -139,7 +141,7 @@ def main()->int:
             "requiredMeshCount":EXPECTED,
             "zeroOmission":True,
             "noSilentFallbacks":True,
-            "missingNormalOrUvIsExplicitPerSubmesh":True,
+            "missingNormalTangentOrUvIsExplicitPerSubmesh":True,
             "thirdPartyMeshBytesCommittedToRepository":False,
         },
         "summary":{
@@ -153,6 +155,7 @@ def main()->int:
             "submeshesWithoutUv1":totals["submeshesWithoutUv1"],
             "submeshesWithoutUv2":totals["submeshesWithoutUv2"],
             "submeshesWithoutUv3":totals["submeshesWithoutUv3"],
+            "submeshesWithoutTangents":totals["submeshesWithoutTangents"],
             "runtimeMeshBytes":totals["bytes"],
             "geometryRuntimeFormatReady":True,
             "materialBindingReady":False,
