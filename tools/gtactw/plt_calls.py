@@ -42,6 +42,67 @@ INTERESTING_IMPORTS = {
 }
 
 
+
+DRAW_FRAME_SYMBOL = (
+    "Java_com_rockstargames_oswrapper_GameNative_implOnDrawFrame"
+)
+
+
+def _symbol_call_hops(
+    text_blob: bytes,
+    text_addr: int,
+    funcs: list[dict],
+    root_name: str = DRAW_FRAME_SYMBOL,
+) -> dict[int, dict]:
+    """Return shortest symbol-to-symbol BL paths from the frame entrypoint."""
+    exact = {int(f["value"]): f for f in funcs}
+    by_name = {f["name"]: f for f in funcs}
+    root = by_name.get(root_name)
+    if root is None:
+        return {}
+
+    adjacency: dict[int, set[int]] = {}
+    for rel in range(0, len(text_blob) - 3, 4):
+        pc = text_addr + rel
+        insn = struct.unpack_from("<I", text_blob, rel)[0]
+        target = aarch64_xref.decode_bl(insn, pc)
+        if target is None or int(target) not in exact:
+            continue
+        owner = aarch64_xref._owner_function(pc, funcs)
+        if owner is None:
+            continue
+        src = int(owner["value"])
+        dst = int(target)
+        if src == dst:
+            continue
+        adjacency.setdefault(src, set()).add(dst)
+
+    root_rva = int(root["value"])
+    result = {
+        root_rva: {
+            "hops": 0,
+            "path_rvas": [root_rva],
+            "path_functions": [root["name"]],
+        }
+    }
+    queue = [root_rva]
+    while queue:
+        src = queue.pop(0)
+        src_item = result[src]
+        for dst in sorted(adjacency.get(src, ())):
+            if dst in result:
+                continue
+            sym = exact[dst]
+            result[dst] = {
+                "hops": src_item["hops"] + 1,
+                "path_rvas": src_item["path_rvas"] + [dst],
+                "path_functions": (
+                    src_item["path_functions"] + [sym["name"]]
+                ),
+            }
+            queue.append(dst)
+    return result
+
 def _dynsym_with_indices(blob: bytes, sections: list[dict]) -> tuple[list[dict], bytes]:
     dyn = next((s for s in sections if s["name"] == ".dynsym"), None)
     if dyn is None:
@@ -171,6 +232,11 @@ def scan_plt_calls(path: Path) -> dict:
     funcs = aarch64_xref._symbols(blob, sections)
 
     text_blob = blob[text["offset"]:text["offset"] + text["size"]]
+    reachability = _symbol_call_hops(
+        text_blob,
+        int(text["addr"]),
+        funcs,
+    )
     callers = []
     grouped = {key: [] for key in INTERESTING_IMPORTS}
 
@@ -185,15 +251,23 @@ def scan_plt_calls(path: Path) -> dict:
             continue
 
         owner = aarch64_xref._owner_function(pc, funcs)
+        caller_rva = int(owner["value"]) if owner else None
+        reachable = reachability.get(caller_rva) if caller_rva is not None else None
         item = {
             "call_site_rva": pc,
             "caller": owner["name"] if owner else None,
-            "caller_rva": int(owner["value"]) if owner else None,
+            "caller_rva": caller_rva,
             "caller_size": int(owner["size"]) if owner else None,
             "import_symbol": imp["symbol"],
             "plt_rva": imp["plt_rva"],
             "got_rva": imp["got_rva"],
             "categories": imp["categories"],
+            "draw_frame_reachable": reachable is not None,
+            "draw_frame_hops": reachable["hops"] if reachable else None,
+            "draw_frame_path_rvas": reachable["path_rvas"] if reachable else [],
+            "draw_frame_path_functions": (
+                reachable["path_functions"] if reachable else []
+            ),
         }
         callers.append(item)
         for category in imp["categories"]:
@@ -204,6 +278,8 @@ def scan_plt_calls(path: Path) -> dict:
         "imports": imports,
         "interesting_import_count": sum(1 for x in imports if x["categories"]),
         "call_count": len(callers),
+        "draw_frame_symbol": DRAW_FRAME_SYMBOL,
+        "draw_frame_reachable_symbol_count": len(reachability),
         "groups": grouped,
         "calls": callers,
         "note": (
