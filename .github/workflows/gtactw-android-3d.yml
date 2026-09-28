@@ -86,6 +86,8 @@ jobs:
             tools/gtactw/test_adb_collect.py \
             tools/gtactw/abi_probe.py \
             tools/gtactw/test_abi_probe.py \
+            tools/gtactw/adapter_catalog.py \
+            tools/gtactw/test_adapter_catalog.py \
             tools/gtactw/hook_dossier.py \
             tools/gtactw/test_hook_dossier.py \
             tools/gtactw/profile_mark_target.py \
@@ -449,6 +451,7 @@ jobs:
           echo "GTACTW_ANDROID_PLT_CALLS_GREEN=1"
           echo "GTACTW_ANDROID_APK_MODPACK_GREEN=1"
           echo "GTACTW_ANDROID_PROFILE_TEMPLATE_GREEN=1"
+          echo "GTACTW_ADAPTER_CATALOG_GREEN=1"
           echo "GTACTW_RUNTIME_PROFILE_STATUS_GREEN=1"
           echo "GTACTW_LOADER_VARIANT_GREEN=1"
           echo "GTACTW_PROFILE_MODPACK_GREEN=1"
