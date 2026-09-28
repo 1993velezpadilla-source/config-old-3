@@ -1,6 +1,6 @@
 #define _GNU_SOURCE
 #include "ctw_profile.h"
-#include "ctw_profiles_generated.h"
+#include <ctw_profiles_generated.h>
 
 #include <dlfcn.h>
 #include <stdint.h>
