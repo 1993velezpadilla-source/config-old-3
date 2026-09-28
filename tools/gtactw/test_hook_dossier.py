@@ -278,12 +278,88 @@ class HookDossierTests(unittest.TestCase):
             ],
             ["stack_address_like"],
         )
+        self.assertEqual(
+            card["caller_argument_consensus"]["x0"]["status"],
+            "locally_prepared_by_all_callers",
+        )
+        self.assertEqual(
+            card["caller_argument_consensus"]["v0"]["status"],
+            "locally_prepared_by_all_callers",
+        )
+        self.assertEqual(
+            card["caller_argument_consensus"]["x1"]["status"],
+            "passthrough_in_all_callers",
+        )
 
         self.assertEqual(report["summary"]["targets_verified"], 0)
         self.assertEqual(report["summary"]["targets_with_candidates"], 1)
         self.assertEqual(
             report["public_4243_engine_anchors"]["present_count"],
             8,
+        )
+
+
+    def test_multi_caller_consensus_marks_mixed_and_subset_registers(self):
+        abi = {
+            "argument_register_hints": {
+                "likely_gpr_inputs_x0_x7": [0, 1, 2],
+                "likely_fp_inputs_v0_v7": [],
+            },
+            "argument_shape_hints": {"gpr": {}, "fp": {}},
+            "return_value_hints": {"register_classes_seen": []},
+        }
+        callers = {
+            "direct_call_site_count": 2,
+            "callers": [
+                {
+                    "context": {
+                        "locally_prepared_argument_registers": ["x0", "x2"],
+                        "possible_passthrough_argument_registers": ["x1"],
+                        "prepared_registers": {
+                            "x0": {
+                                "mode": "write",
+                                "kind_hint": "scalar_or_pointer_64",
+                            },
+                            "x2": {
+                                "mode": "write",
+                                "kind_hint": "scalar_32_like",
+                            },
+                        },
+                        "return_use": {},
+                    }
+                },
+                {
+                    "context": {
+                        "locally_prepared_argument_registers": ["x1"],
+                        "possible_passthrough_argument_registers": ["x0"],
+                        "prepared_registers": {
+                            "x1": {
+                                "mode": "write",
+                                "kind_hint": "scalar_or_pointer_64",
+                            },
+                        },
+                        "return_use": {},
+                    }
+                },
+            ],
+        }
+
+        card = hook_dossier._abi_review_card(abi, callers)
+        self.assertEqual(
+            card["caller_argument_consensus"]["x0"]["status"],
+            "mixed_but_present_in_all_callers",
+        )
+        self.assertEqual(
+            card["caller_argument_consensus"]["x1"]["status"],
+            "mixed_but_present_in_all_callers",
+        )
+        self.assertEqual(
+            card["caller_argument_consensus"]["x2"]["status"],
+            "present_in_subset_of_callers",
+        )
+        self.assertEqual(
+            card["caller_argument_consensus"]["x2"]["absent_count"],
+            1,
         )
 
     def test_verified_target_is_reported_without_auto_promotion(self):
