@@ -4715,6 +4715,8 @@ int XzGles3Shadow_UploadStaticScene(
              "xziel_nacht_bo3") != 0 ||
          (state->static_scene_multi_uv_ready &&
           state->static_scene_lightmap_batch_ready &&
+          state->static_scene_lightmap_shader_ready &&
+          xz_shadow.static_lightmap_instance_vbo != 0u &&
           state->static_scene_material_ready &&
           state->static_scene_normal_ready &&
           state->static_scene_pbr_ready &&
