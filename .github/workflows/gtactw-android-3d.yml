@@ -150,6 +150,7 @@ jobs:
             projects/gtactw-android-3d/android-loader/ctw_hooks.c \
             projects/gtactw-android-3d/android-loader/ctw_trampoline.c \
             projects/gtactw-android-3d/android-loader/ctw_hook_backend.c \
+            projects/gtactw-android-3d/android-loader/ctw_hook_session.c \
             projects/gtactw-android-3d/android-loader/ctw_profile.c \
             projects/gtactw-android-3d/android-loader/ctw_config.c \
             -ldl -lpthread
@@ -277,6 +278,21 @@ jobs:
           echo "GTACTW_CHARACTER_POLICY_GREEN=1"
           echo "GTACTW_MODHUB_CONFIG_GREEN=1"
 
+      - name: Run CTW adaptive hook session gate
+        run: |
+          cc -std=c11 -Wall -Wextra -Werror \
+            -Iprojects/gtactw-android-3d/android-loader \
+            -o /tmp/ctw_hook_session_test \
+            projects/gtactw-android-3d/android-loader/test_hook_session.c \
+            projects/gtactw-android-3d/android-loader/ctw_hook_session.c \
+            projects/gtactw-android-3d/android-loader/ctw_hook_backend.c \
+            projects/gtactw-android-3d/android-loader/ctw_trampoline.c \
+            projects/gtactw-android-3d/android-loader/ctw_patch.c \
+            projects/gtactw-android-3d/android-loader/ctw_profile.c \
+            -ldl
+          /tmp/ctw_hook_session_test
+          echo "GTACTW_HOOK_SESSION_GREEN=1"
+
       - name: Run CTW adaptive hook backend gate
         run: |
           cc -std=c11 -Wall -Wextra -Werror \
@@ -290,6 +306,7 @@ jobs:
             -ldl
           /tmp/ctw_hook_backend_test
           echo "GTACTW_HOOK_BACKEND_GREEN=1"
+          echo "GTACTW_HOOK_SESSION_GREEN=1"
 
       - name: Run CTW ARM64 trampoline image gate
         run: |
