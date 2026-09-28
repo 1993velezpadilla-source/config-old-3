@@ -14,6 +14,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: hayuya-hunyuan-front-projection-${{ github.ref }}
@@ -37,12 +38,29 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install "gradio_client>=1.10,<2" trimesh numpy pillow scipy "mediapipe==1.0.1"
 
+      - name: Restore validated Ultra 512 geometry checkpoint
+        id: restore-ultra512
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: hayuya-hunyuan-ultra-512
+          path: out/hunyuan-front-projection/checkpoint
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: 36440311323
+
       - name: Generate native Ultra 512
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p out/hunyuan-front-projection
-          python - <<'PY'
+          checkpoint="out/hunyuan-front-projection/checkpoint/monja_hunyuan_512.glb"
+          output="out/hunyuan-front-projection/monja_hunyuan_512.glb"
+          if [[ -s "$checkpoint" ]]; then
+            cp "$checkpoint" "$output"
+            echo "HAYUYA_HUNYUAN512_CHECKPOINT_RESTORED run=36440311323 bytes=$(wc -c < "$output")"
+          else
+            python - <<'PY'
           import sys
           from pathlib import Path
           sys.path.insert(0,"tools/hayuya3d")
@@ -57,6 +75,7 @@ jobs:
               num_chunks=8000,
           )
           PY
+          fi
 
       - name: Project exact source pixels to native front
         shell: bash
