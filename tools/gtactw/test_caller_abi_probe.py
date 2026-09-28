@@ -96,5 +96,55 @@ class CallerAbiProbeTests(unittest.TestCase):
         )
 
 
+    def test_attach_caller_evidence_matches_exact_candidate_rva(self):
+        profile = {
+            "abi_verification": {
+                key: {
+                    "status": "pending",
+                    "prototype": None,
+                    "adapter": None,
+                    "candidates": [],
+                }
+                for key in caller_abi_probe.profile_template.TARGET_KEYS
+            }
+        }
+        profile["abi_verification"]["camera_update"]["candidates"] = [
+            {"rva": 0x4000, "function": "CameraUpdate"},
+            {"rva": 0x4100, "function": "OtherCamera"},
+        ]
+        report = {
+            "targets": {
+                "camera_update": [
+                    {
+                        "rva": 0x4000,
+                        "caller_abi_evidence": {
+                            "direct_call_site_count": 2,
+                            "callers_analyzed": 2,
+                            "callers": [{"caller": "FrameUpdate"}],
+                        },
+                    }
+                ]
+            },
+            "note": "fixture",
+        }
+
+        updated = caller_abi_probe.attach_caller_abi_evidence(
+            profile,
+            report,
+        )
+        first, second = updated["abi_verification"]["camera_update"][
+            "candidates"
+        ]
+        self.assertEqual(
+            first["caller_abi_evidence"]["direct_call_site_count"],
+            2,
+        )
+        self.assertNotIn("caller_abi_evidence", second)
+        self.assertNotIn(
+            "caller_abi_evidence",
+            profile["abi_verification"]["camera_update"]["candidates"][0],
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
