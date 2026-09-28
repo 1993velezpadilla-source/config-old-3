@@ -5,6 +5,7 @@
 #include "ctw_adapter_registry.h"
 #include "ctw_hook_session.h"
 #include "ctw_profile.h"
+#include "ctw_runtime_adapters.h"
 
 #if defined(__ANDROID__)
 #include <android/log.h>
