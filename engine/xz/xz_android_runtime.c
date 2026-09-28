@@ -1606,7 +1606,7 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             ANDROID_LOG_INFO,
             "static_scene_lightmap_batches map='%s'"
             " ready=%d batches=%u mappedBatches=%u missingBatches=%u"
-            " mappedInstances=10786 missingInstances=5",
+            " mappedInstances=10787 missingInstances=4",
             XzMapRuntime_MapId(
                 &xz_runtime.map_runtime),
             xz_runtime.gles3_shadow.static_scene_lightmap_batch_ready,
