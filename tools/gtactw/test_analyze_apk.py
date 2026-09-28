@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
+import json
 import tempfile
 import unittest
+from unittest import mock
 import zipfile
 from pathlib import Path
 import sys
@@ -49,6 +51,53 @@ class AnalyzeApkTests(unittest.TestCase):
             report["profile_template"]["fingerprint"]["jni_rvas"]["implOnInitialSetup"],
             0x1008,
         )
+
+    def test_reference_build_gate(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            apk = root / "ctw-test.apk"
+            so = root / "libGame.so"
+            ref = root / "reference.json"
+            make_fixture(so)
+            ref.write_text(json.dumps({
+                "package": "com.rockstargames.gtactw",
+                "reference_build": {
+                    "version_name": "4.4.243",
+                    "version_code": 4277603,
+                },
+                "android_mod_target": {
+                    "preferred_abi": "arm64-v8a",
+                },
+            }), encoding="utf-8")
+
+            with zipfile.ZipFile(apk, "w") as zf:
+                for name in ctw_probe.REQUIRED_APK_FILES:
+                    if name == "assets/game.pak":
+                        payload = make_small_pak()
+                    elif name == "lib/arm64-v8a/libGame.so":
+                        payload = so.read_bytes()
+                    else:
+                        payload = b"fixture"
+                    zf.writestr(name, payload)
+
+            identity = {
+                "package": "com.rockstargames.gtactw",
+                "version_code": 4277603,
+                "version_name": "4.4.243",
+                "min_sdk": "28",
+                "target_sdk": "35",
+                "native_code": ["arm64-v8a"],
+            }
+            with mock.patch.object(
+                analyze_apk.apk_identity,
+                "inspect_apk_identity",
+                return_value=identity,
+            ):
+                report = analyze_apk.analyze_apk(apk, ref)
+
+        self.assertTrue(report["gates"]["reference_build"])
+        self.assertTrue(report["reference_validation"]["ok"])
+        self.assertTrue(report["ok"])
 
 
 if __name__ == "__main__":
