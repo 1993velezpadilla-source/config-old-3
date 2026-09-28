@@ -46,6 +46,7 @@ int ctw_profile_compare_prefix(
 );
 
 int ctw_profile_verify_target_prefixes(
+    void *game_handle,
     const CtwBuildProfile *profile,
     const CtwPatchTargets *targets
 );
