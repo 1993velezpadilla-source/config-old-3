@@ -17,7 +17,7 @@
     "projection_setup": 7498968,
     "world_stream_update": 9030188,
     "sector_visibility": 9031440,
-    "lod_test": 7401300,
+    "lod_test": 9538692,
     "player_render": 9021296
   },
   "target_verification": {
@@ -83,16 +83,16 @@
     },
     "lod_test": {
       "status": "verified",
-      "rva": 7401300,
-      "code_prefix_hex": "ff0301d1fd7b01a9f51300f9f44f03a9",
+      "rva": 9538692,
+      "code_prefix_hex": "fd7bbba9fa6701a9f85f02a9f65703a9",
       "evidence": [
         {
           "method": "exact-binary-symbol-and-manual-aarch64-disassembly",
-          "detail": "HandleFarDistance(tv3d<cFixed<20,12>>&, tv3d<cFixed<20,12>> const&): x0=mutable position, x1=reference position and boolean result in w0 verified from arithmetic and return paths."
+          "detail": "cWorldSector::UpdateObjectVisibility(): x0=this, void return. It iterates dynamic sector entities and calls cBaseCam::CanSee(cEntity const&) before setting the visible flag."
         },
         {
-          "method": "exact-libgame-prefix",
-          "detail": "First 16 executable bytes matched user-owned libGame.so SHA-256 c75e300a66317291c6afbeb4df6e0e0f9d8aef5d6ecd7bd43804a4e675d10936."
+          "method": "negative-control-disassembly",
+          "detail": "Previous HandleFarDistance target was removed after disassembly showed nearest-world-position/wrap behavior rather than renderer LOD/culling."
         }
       ]
     },
@@ -199,20 +199,20 @@
     },
     "lod_test": {
       "status": "verified",
-      "prototype": "bool HandleFarDistance(tv3d<cFixed<20,12>>&, tv3d<cFixed<20,12>> const&)",
+      "prototype": "void cWorldSector::UpdateObjectVisibility()",
       "calling_convention": "aarch64_aapcs64",
-      "adapter": "ctw_lod_test_passthrough_v1",
-      "verified_rva": 7401300,
+      "adapter": "ctw_world_sector_visibility_passthrough_v1",
+      "verified_rva": 9538692,
       "evidence": [
         {
           "method": "manual-aarch64-abi-review",
-          "detail": "x0=mutable position, x1=reference position and boolean result in w0 verified from arithmetic and return paths."
+          "detail": "x0=this, void return; direct cBaseCam::CanSee(cEntity const&) calls verify this as the dynamic entity visibility path."
         }
       ],
       "candidates": [
         {
-          "rva": 7401300,
-          "function": "HandleFarDistance(tv3d<cFixed<20,12>>&, tv3d<cFixed<20,12>> const&)",
+          "rva": 9538692,
+          "function": "cWorldSector::UpdateObjectVisibility()",
           "source": "exact-dynsym-plus-manual-disassembly",
           "trampoline_strategy_hint": "simple_copy_trampoline_candidate"
         }
@@ -244,5 +244,5 @@
     "present_count": 6,
     "total_count": 6
   },
-  "note": "Exact profile for the user-owned 4.4.243 ARM64 libGame.so. Camera/FOV is implemented; cBaseCam near/far projection fields are wired from verified stock values (0.4/150) to NearClip/FarClipMultiplier; forward streaming bias is guarded; all cPedSprite instances use the low-angle directional billboard correction; FPS head filtering remains local-player-only."
+  "note": "Exact profile for user-owned 4.4.243 ARM64 libGame.so. Camera/FOV plus verified near/far clip control are wired; streaming is guarded; player and all NPC cPedSprite layers receive low-angle directional correction; local-player-only FPS head filtering and camera-relative horizontal aim are active. The legacy lod_test slot now tracks the real dynamic entity visibility pass."
 }
