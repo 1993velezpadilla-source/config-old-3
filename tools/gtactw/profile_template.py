@@ -349,6 +349,16 @@ def make_profile(
             }
             for key in TARGET_KEYS
         },
+        "abi_verification": {
+            key: {
+                "status": "pending",
+                "prototype": None,
+                "calling_convention": "aarch64_aapcs64",
+                "adapter": None,
+                "evidence": [],
+            }
+            for key in TARGET_KEYS
+        },
         "camera_defaults": {
             "initial_mode": "third_person",
             "toggle_button": 13,
