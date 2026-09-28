@@ -171,6 +171,21 @@ def rank_target_evidence(report: dict, xref_report: dict | None) -> dict:
                 entry["score"] += 4
                 entry["reasons"].append("symbol + xref cross-signal")
 
+        fingerprints = (xref_report or {}).get(
+            "candidate_function_fingerprints",
+            {},
+        )
+        neighborhoods = (xref_report or {}).get(
+            "candidate_call_neighborhoods",
+            {},
+        )
+        for entry in merged.values():
+            key = f"0x{entry['rva']:X}"
+            if key in fingerprints:
+                entry["function_fingerprint"] = fingerprints[key]
+            if key in neighborhoods:
+                entry["call_neighborhood"] = neighborhoods[key]
+
         ranked = sorted(
             merged.values(),
             key=lambda x: (-x["score"], -x["xref_hits"], x["rva"]),
