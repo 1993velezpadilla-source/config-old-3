@@ -48,6 +48,7 @@ on:
       - feature/xziel-nacht-lightmap-uv-gpu-v1
       - feature/xziel-nacht-lightmap-batch-runtime-v1
       - feature/xziel-nacht-lightmap-hq-gpu-v1
+      - feature/xziel-nacht-lightmap-hq-gpu-diag-v1
       - feature/xziel-engine-nacht-runtime-v1
     paths:
       - "engine/xz/xz_xzmesh.*"
@@ -3642,6 +3643,17 @@ jobs:
           # can rotate it out of logcat while we wait for MODERN cutover.
           "$ADB" logcat -d -v threadtime \
             > dist/static-scene-logcat-early.txt || true
+
+          grep -E \
+            "XZIEL-XZ.*static_scene_baked_lightmaps map='xziel_nacht_bo3'.*uploadStage=[0-9]+ glError=0x[0-9a-fA-F]+" \
+            dist/static-scene-logcat-early.txt || true
+
+          if grep -Eq \
+              "XZIEL-XZ.*static_scene_baked_lightmaps map='xziel_nacht_bo3' ready=0.*uploadStage=[1-9][0-9]* glError=0x[1-9a-fA-F][0-9a-fA-F]*" \
+              dist/static-scene-logcat-early.txt; then
+            echo "XZIEL_NACHT_HQ_LIGHTMAP_UPLOAD_DIAG_FAIL"
+            exit 1
+          fi
 
           # FIRST_FRAME_OK only proves Vril completed its first host frame.
           # The modern cutover intentionally needs several real geometry frames
