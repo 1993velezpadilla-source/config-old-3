@@ -304,6 +304,20 @@ class HookDossierTests(unittest.TestCase):
         self.assertEqual(report["summary"]["targets_verified"], 0)
         self.assertEqual(report["summary"]["targets_with_candidates"], 1)
         self.assertEqual(
+            report["summary"]["targets_with_manual_review_ready_candidate"],
+            1,
+        )
+        self.assertEqual(
+            report["summary"]["manual_review_ready_candidates"],
+            1,
+        )
+        self.assertEqual(
+            report["targets"]["projection_setup"][
+                "first_manual_review_ready_candidate"
+            ]["rva"],
+            0x5000,
+        )
+        self.assertEqual(
             report["public_4243_engine_anchors"]["present_count"],
             8,
         )
