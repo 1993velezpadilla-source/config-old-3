@@ -257,3 +257,28 @@ The world census includes a 2D worldblock-origin pressure estimate for
 1x/1.5x/2x/2.5x/3x/4x/5x radii. It reports estimated simultaneously loaded
 worldblocks and instance counts, including the worst center. This is a tuning
 heuristic, not a claim about the engine's exact streaming-radius formula.
+
+
+## ADB installed-copy collection
+
+If GTA CTW is installed legitimately on an Android device, the project can
+collect the installed base APK and configuration/data splits without root and
+run the complete local analyzer in one step:
+
+```bash
+python tools/gtactw/adb_collect.py \
+  --analyze \
+  --reference projects/gtactw-android-3d/reference_build_4.4.243.json \
+  --out-dir ./local_ctw/adb_apks \
+  --manifest ./local_ctw/adb_manifest.json \
+  --analysis-out ./local_ctw/ctw_analysis.json \
+  --profile-out ./local_ctw/ctw_4.4.243_profile.json
+```
+
+The collector uses `adb shell pm path com.rockstargames.gtactw`, pulls only
+the installed APK files to the local ignored workspace, then routes the set
+through package/version/ABI/signing-certificate validation, PAK/ELF analysis,
+GL PLT-call evidence, ped/model census, world streaming census, and profile
+template generation.
+
+If more than one Android device is connected, pass `--serial <adb-serial>`.
