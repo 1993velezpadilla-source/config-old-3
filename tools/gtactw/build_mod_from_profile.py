@@ -7,9 +7,18 @@ import argparse
 import json
 from pathlib import Path
 
+import adapter_catalog
 import apk_modpack
 import apkset_modpack
 import loader_variant
+
+
+DEFAULT_ADAPTER_CATALOG = (
+    Path(__file__).resolve().parents[2]
+    / "projects"
+    / "gtactw-android-3d"
+    / "adapter_catalog.json"
+)
 
 
 def _source_mode(source: Path) -> str:
@@ -29,8 +38,27 @@ def build_from_profile(
     shadowhook_loader: Path,
     output: Path,
     config_ini: Path | None = None,
+    adapter_catalog_path: Path | None = None,
 ) -> dict:
     profile = json.loads(profile_path.read_text(encoding="utf-8"))
+
+    catalog_path = adapter_catalog_path or DEFAULT_ADAPTER_CATALOG
+    catalog = adapter_catalog.load_catalog(catalog_path)
+    adapter_plan = adapter_catalog.validate_profile_adapters(
+        profile,
+        catalog,
+    )
+    if not adapter_plan["ready"]:
+        missing = [
+            key
+            for key, item in adapter_plan["targets"].items()
+            if not item["ready"]
+        ]
+        raise ValueError(
+            "native hook adapters are not ready for: "
+            + ", ".join(missing)
+        )
+
     plan = loader_variant.select_loader_variant(profile)
     if not plan["ready"]:
         raise ValueError(
@@ -73,6 +101,8 @@ def build_from_profile(
         "loader_variant": variant,
         "selected_loader": str(loader),
         "variant_plan": plan,
+        "adapter_catalog": str(catalog_path),
+        "adapter_plan": adapter_plan,
         "repack": repack,
         "note": (
             "Output is unsigned. Align/sign with one key before installation. "
@@ -94,6 +124,11 @@ def main() -> int:
         help="Output APK for monolithic input, or output directory for split input",
     )
     ap.add_argument("--config", type=Path)
+    ap.add_argument(
+        "--adapter-catalog",
+        type=Path,
+        default=DEFAULT_ADAPTER_CATALOG,
+    )
     ap.add_argument("--report", type=Path)
     args = ap.parse_args()
 
@@ -105,6 +140,7 @@ def main() -> int:
             args.shadowhook_loader,
             args.out,
             args.config,
+            args.adapter_catalog,
         )
     except Exception as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, indent=2))
