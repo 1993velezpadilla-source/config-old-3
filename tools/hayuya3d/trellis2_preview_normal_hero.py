@@ -502,10 +502,20 @@ def build_normal_informed_hero(
         mesh.fix_normals()
     after_weld_vertices = int(len(mesh.vertices))
     after_weld_components = int(mesh.body_count)
-    if after_weld_components > 1024:
+    pieces = mesh.split(only_watertight=False)
+    largest_face_fraction = (
+        max((len(piece.faces) for piece in pieces), default=0)
+        / max(1, len(mesh.faces))
+    )
+    if (
+        after_weld_components > 1024
+        or largest_face_fraction < 0.90
+    ):
         raise RuntimeError(
             "normal Hero base remains catastrophically fragmented after "
-            f"geometry-only weld: components={after_weld_components}"
+            "geometry-only weld: "
+            f"components={after_weld_components} "
+            f"largest_face_fraction={largest_face_fraction:.6f}"
         )
     print(
         "HAYUYA_NORMAL_HERO_WELD",
@@ -515,6 +525,7 @@ def build_normal_informed_hero(
                 "vertices_after": after_weld_vertices,
                 "components_before": before_weld_components,
                 "components_after": after_weld_components,
+                "largest_face_fraction": largest_face_fraction,
             },
             separators=(",", ":"),
         ),
@@ -641,6 +652,7 @@ def build_normal_informed_hero(
             "merged_vertices": before_weld_vertices - after_weld_vertices,
             "components_before": before_weld_components,
             "components_after": after_weld_components,
+            "largest_face_fraction": largest_face_fraction,
         },
         "material_source_glb": str(material_source_glb),
         "dense_geometry_glb": str(dense_geometry_glb),
