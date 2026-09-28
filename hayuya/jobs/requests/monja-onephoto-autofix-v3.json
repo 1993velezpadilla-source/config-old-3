@@ -16,5 +16,5 @@
   "portable_target": "high",
   "gpu_vram": 24,
   "backends": "trellis2,triposg,detailgen3d,triposr",
-  "retry_token": "ultra-2m-welded-skip-hosted-vast-20260928"
+  "retry_token": "ultra-2m-welded-preempt-stale-20260928-v2"
 }
