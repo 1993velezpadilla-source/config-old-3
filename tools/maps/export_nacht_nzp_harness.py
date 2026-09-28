@@ -41,6 +41,19 @@ W_GRENADE = 26
 WORLD_PAD_M = 6.0
 WORLD_WALL_UNITS = 16
 
+# The Pavlov port exposes ten generic player-spawn candidates.  The first
+# candidate sits directly inside a tall-grass card in the BO3 static scene,
+# which is useful evidence but a terrible Android smoke-test camera.  Keep all
+# ten candidates in the persisted reference; the gameplay harness selects four
+# exact source positions with measured static-geometry clearance so first-frame
+# visual validation starts inside the playable structure instead of foliage.
+HARNESS_PLAYER_SPAWN_IDS = (
+    "player_spawn_pavlov_spawn4",
+    "player_spawn_pavlov_spawn5",
+    "player_spawn_pavlov_spawn6",
+    "player_spawn_pavlov_spawn7",
+)
+
 
 def quote(value: object) -> str:
     return str(value).replace("\\", "/").replace('"', "'")
@@ -146,6 +159,25 @@ assert len(reference["barricades"]) == 12
 assert len(reference["zombieSpawns"]) == 21
 assert len(reference["playerSpawns"]) >= 4
 
+player_spawns_by_id = {
+    spawn["id"]: spawn
+    for spawn in reference["playerSpawns"]
+}
+missing_harness_spawns = [
+    spawn_id
+    for spawn_id in HARNESS_PLAYER_SPAWN_IDS
+    if spawn_id not in player_spawns_by_id
+]
+if missing_harness_spawns:
+    raise SystemExit(
+        "missing harness player spawns: "
+        + ", ".join(missing_harness_spawns)
+    )
+harness_player_spawns = [
+    player_spawns_by_id[spawn_id]
+    for spawn_id in HARNESS_PLAYER_SPAWN_IDS
+]
+
 native_purchases = [
     p for p in reference["purchases"]
     if p["logicalItemId"] == "frag_grenade"
@@ -214,9 +246,10 @@ parts.append(
 )
 parts.append("}\n")
 
-# Four exact reference spawn candidates. They are explicitly reference-derived,
-# not claimed as Treyarch-authored canonical player-start identities.
-for index, spawn in enumerate(reference["playerSpawns"][:4], start=1):
+# Four exact reference spawn candidates. They remain Pavlov-port spatial
+# references, not claimed as Treyarch-authored canonical player-start
+# identities.  Selection is explicit instead of extraction-order-dependent.
+for index, spawn in enumerate(harness_player_spawns, start=1):
     parts.append(
         point_entity(
             f"info_player_{index}_spawn",
@@ -404,6 +437,11 @@ summary = {
     "scaleUnitsPerMeter": SCALE,
     "harnessGeometryOnly": True,
     "finalGeometryIncluded": False,
+    "playerSpawnSelection": {
+        "source": "pavlov_port_spatial_reference",
+        "reason": "first_frame_static_geometry_clearance",
+        "ids": list(HARNESS_PLAYER_SPAWN_IDS),
+    },
     "counts": {
         "playerSpawns": 4,
         "zombieSpawns": len(reference["zombieSpawns"]),
