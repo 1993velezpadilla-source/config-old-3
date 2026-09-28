@@ -109,3 +109,47 @@ int ctw_camera_build_pose(
 
     return 0;
 }
+
+
+int ctw_camera_apply_collision(
+    const Ctw3DConfig *config,
+    CtwCameraMode mode,
+    float hit_fraction,
+    CtwCameraPose *pose
+) {
+    if (!config || !pose)
+        return -1;
+    if (!config->camera_collision_enabled ||
+        mode != CTW_CAMERA_THIRD_PERSON ||
+        !pose->override_camera) {
+        return 0;
+    }
+
+    if (!isfinite(hit_fraction))
+        return -2;
+
+    if (hit_fraction >= 1.0f)
+        return 0;
+    if (hit_fraction < 0.0f)
+        hit_fraction = 0.0f;
+
+    CtwVec3 delta = {
+        pose->position.x - pose->target.x,
+        pose->position.y - pose->target.y,
+        pose->position.z - pose->target.z,
+    };
+    const float distance = sqrtf(vdot(delta, delta));
+    if (distance <= 0.0001f)
+        return 0;
+
+    const CtwVec3 dir = vscale(delta, 1.0f / distance);
+    float safe_distance = distance * hit_fraction - config->camera_collision_margin;
+    if (safe_distance < 0.0f)
+        safe_distance = 0.0f;
+
+    pose->position = vadd(
+        pose->target,
+        vscale(dir, safe_distance)
+    );
+    return 1;
+}
