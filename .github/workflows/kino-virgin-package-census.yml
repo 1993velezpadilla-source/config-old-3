@@ -17,10 +17,21 @@ jobs:
       - name: Checkout XZIEL Engine
         uses: actions/checkout@v4
 
-      - name: Install archive tools
+      - name: Install archive tools and repak
         run: |
+          set -euxo pipefail
           sudo apt-get update
           sudo apt-get install -y p7zip-full unzip jq
+          mkdir -p "$RUNNER_TEMP/repak"
+          curl -fL --retry 5 \
+            https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-unknown-linux-gnu.tar.xz \
+            -o "$RUNNER_TEMP/repak.tar.xz"
+          tar -xJf "$RUNNER_TEMP/repak.tar.xz" \
+            -C "$RUNNER_TEMP/repak"
+          REPAK=$(find "$RUNNER_TEMP/repak" \
+            -type f -name 'repak*' -perm -111 | head -1)
+          test -n "$REPAK"
+          echo "REPAK=$REPAK" >> "$GITHUB_ENV"
 
       - name: Download public Kino Der Toten CODz v109
         run: |
@@ -51,13 +62,42 @@ jobs:
           find kino-unpacked -type f | sort > kino-download/extracted-files.txt
           echo "files=$(wc -l < kino-download/extracted-files.txt)"
 
-      - name: Census Unreal containers and assets
+      - name: Unpack inner Unreal pak generically
+        run: |
+          set -euxo pipefail
+          PAK=$(find kino-unpacked -type f -name '*.pak' -print -quit)
+          test -n "$PAK"
+          mkdir -p kino-pak-unpacked
+          "$REPAK" unpack "$PAK" -o kino-pak-unpacked
+          find kino-pak-unpacked -type f | sort > kino-download/pak-files.txt
+          echo "pakFiles=$(wc -l < kino-download/pak-files.txt)"
+          du -sh kino-pak-unpacked
+
+      - name: Census Unreal package payload
         run: |
           set -euxo pipefail
           python3 tools/maps/audit_virgin_ue_package.py \
-            --root kino-unpacked \
-            --report kino-download/kino-extracted-census.json
-          cat kino-download/kino-extracted-census.json
+            --root kino-pak-unpacked \
+            --report kino-download/kino-pak-census.json
+          cat kino-download/kino-pak-census.json
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          p = Path("kino-download/kino-pak-census.json")
+          data = json.loads(p.read_text(encoding="utf-8"))
+          assert data["fileCount"] > 100
+          assert data["uassetCount"] > 0
+          assert len(data["mapFiles"]) > 0
+          print("XZIEL_KINO_INNER_PAK_CENSUS_GREEN", {
+              "files": data["fileCount"],
+              "uassets": data["uassetCount"],
+              "maps": len(data["mapFiles"]),
+              "audio": data["audioFileCount"],
+              "localization": data["localizationFileCount"],
+          })
+          PY
 
       - name: Virgin-loader anti-hardcode gate
         run: |
@@ -76,5 +116,6 @@ jobs:
             kino-download/archive-list.txt
             kino-download/extracted-files.txt
             kino-download/kino-census.json
-            kino-download/kino-extracted-census.json
+            kino-download/pak-files.txt
+            kino-download/kino-pak-census.json
           retention-days: 7
