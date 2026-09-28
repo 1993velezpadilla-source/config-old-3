@@ -4,6 +4,7 @@ project(ctw3d_loader C)
 add_library(Game SHARED
     ctw_loader.c
     ctw_patch.c
+    ctw_camera.c
 )
 
 target_compile_features(Game PRIVATE c_std_11)
