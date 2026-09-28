@@ -8,6 +8,7 @@ on:
     paths:
       - .github/workflows/kino-virgin-package-census.yml
       - tools/maps/audit_virgin_ue_package.py
+      - tools/maps/UEAssetClassCensus/**
 
 jobs:
   kino-census:
@@ -102,13 +103,70 @@ jobs:
       - name: Census real Unreal export classes
         run: |
           set -euxo pipefail
-          dotnet run \
-            --project tools/maps/UEAssetClassCensus/UEAssetClassCensus.csproj \
-            --configuration Release \
-            -- \
-            kino-pak-unpacked \
-            kino-download/kino-class-census.json \
-            | tee kino-download/kino-class-census.log
+          mkdir -p kino-download/class-shards
+          for i in $(seq 0 7); do
+            dotnet run \
+              --project tools/maps/UEAssetClassCensus/UEAssetClassCensus.csproj \
+              --configuration Release \
+              -- \
+              kino-pak-unpacked \
+              "kino-download/class-shards/shard-$i.json" \
+              "$i" 8 \
+              | tee "kino-download/class-shards/shard-$i.log"
+          done
+
+          python3 - <<'PY'
+          import json
+          from collections import Counter
+          from pathlib import Path
+
+          root = Path("kino-download/class-shards")
+          reports = [
+              json.loads(p.read_text(encoding="utf-8"))
+              for p in sorted(root.glob("shard-*.json"))
+          ]
+          assert len(reports) == 8, len(reports)
+
+          classes = Counter()
+          package_exts = Counter()
+          failures = []
+          packages = []
+          for r in reports:
+              classes.update(r["classCounts"])
+              package_exts.update(r["packageExtensionCounts"])
+              failures.extend(r["packageLoadFailures"])
+              packages.extend(r["packages"])
+
+          out = {
+              "schemaVersion": 1,
+              "shardCount": 8,
+              "packageCount": sum(r["packageCount"] for r in reports),
+              "packagesLoaded": sum(r["packagesLoaded"] for r in reports),
+              "packageLoadFailureCount": len(failures),
+              "totalExports": sum(r["totalExports"] for r in reports),
+              "uniqueExportClassCount": len(classes),
+              "packageExtensionCounts": dict(sorted(package_exts.items())),
+              "classCounts": dict(sorted(classes.items())),
+              "packageLoadFailures": failures,
+              "packages": packages,
+          }
+          Path("kino-download/kino-class-census.json").write_text(
+              json.dumps(out, indent=2, sort_keys=True),
+              encoding="utf-8",
+          )
+          print("XZIEL_KINO_CLASS_CENSUS_MERGED", {
+              "packages": out["packageCount"],
+              "loaded": out["packagesLoaded"],
+              "failures": out["packageLoadFailureCount"],
+              "exports": out["totalExports"],
+              "classes": out["uniqueExportClassCount"],
+          })
+          for name, count in classes.most_common(80):
+              print("XZIEL_KINO_CLASS", count, name)
+          PY
+
+          cat kino-download/class-shards/shard-*.log \
+            > kino-download/kino-class-census.log
           test -s kino-download/kino-class-census.json
 
       - name: Virgin-loader anti-hardcode gate
