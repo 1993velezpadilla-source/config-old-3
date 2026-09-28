@@ -149,6 +149,7 @@ jobs:
             projects/gtactw-android-3d/android-loader/ctw_runtime_policy.c \
             projects/gtactw-android-3d/android-loader/ctw_hooks.c \
             projects/gtactw-android-3d/android-loader/ctw_trampoline.c \
+            projects/gtactw-android-3d/android-loader/ctw_hook_backend.c \
             projects/gtactw-android-3d/android-loader/ctw_profile.c \
             projects/gtactw-android-3d/android-loader/ctw_config.c \
             -ldl -lpthread
@@ -175,6 +176,27 @@ jobs:
             | grep -q "Java_com_rockstargames_oswrapper_GameNative_implOnDrawFrame"
           echo "GTACTW_ANDROID_ARM64_LOADER_GREEN=1"
           echo "GTACTW_ARM64_ARTIFACT_GREEN=1"
+
+      - name: Build CTW ARM64 with pinned Dobby fallback
+        shell: bash
+        run: |
+          rm -rf /tmp/dobby /tmp/ctw-android-arm64-dobby
+          git clone --filter=blob:none https://github.com/jmpews/Dobby.git /tmp/dobby
+          git -C /tmp/dobby checkout --detach 5dfc8546954ce3b3198132ab13fddb89ee92cdd7
+          test "$(git -C /tmp/dobby rev-parse HEAD)" = "5dfc8546954ce3b3198132ab13fddb89ee92cdd7"
+          cmake \
+            -S projects/gtactw-android-3d/android-loader \
+            -B /tmp/ctw-android-arm64-dobby \
+            -DCMAKE_TOOLCHAIN_FILE="${ANDROID_HOME}/ndk/27.2.12479018/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM=android-28 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCTW_USE_DOBBY=ON \
+            -DCTW_DOBBY_DIR=/tmp/dobby
+          cmake --build /tmp/ctw-android-arm64-dobby --parallel
+          test -f /tmp/ctw-android-arm64-dobby/libGame.so
+          file /tmp/ctw-android-arm64-dobby/libGame.so | grep -q "ARM aarch64"
+          echo "GTACTW_DOBBY_BACKEND_GREEN=1"
 
       - name: Stage CTW ARM64 proxy artifact
         shell: bash
@@ -255,6 +277,20 @@ jobs:
           echo "GTACTW_CHARACTER_POLICY_GREEN=1"
           echo "GTACTW_MODHUB_CONFIG_GREEN=1"
 
+      - name: Run CTW adaptive hook backend gate
+        run: |
+          cc -std=c11 -Wall -Wextra -Werror \
+            -Iprojects/gtactw-android-3d/android-loader \
+            -o /tmp/ctw_hook_backend_test \
+            projects/gtactw-android-3d/android-loader/test_hook_backend.c \
+            projects/gtactw-android-3d/android-loader/ctw_hook_backend.c \
+            projects/gtactw-android-3d/android-loader/ctw_trampoline.c \
+            projects/gtactw-android-3d/android-loader/ctw_patch.c \
+            projects/gtactw-android-3d/android-loader/ctw_profile.c \
+            -ldl
+          /tmp/ctw_hook_backend_test
+          echo "GTACTW_HOOK_BACKEND_GREEN=1"
+
       - name: Run CTW ARM64 trampoline image gate
         run: |
           cc -std=c11 -Wall -Wextra -Werror \
@@ -264,6 +300,8 @@ jobs:
             projects/gtactw-android-3d/android-loader/ctw_trampoline.c
           /tmp/ctw_trampoline_test
           echo "GTACTW_TRAMPOLINE_GREEN=1"
+          echo "GTACTW_HOOK_BACKEND_GREEN=1"
+          echo "GTACTW_DOBBY_BACKEND_GREEN=1"
 
       - name: Run CTW transactional hook rollback gate
         run: |
