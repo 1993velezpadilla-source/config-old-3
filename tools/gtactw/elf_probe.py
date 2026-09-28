@@ -201,8 +201,20 @@ def inspect_elf(path: Path) -> dict:
         text_sha256 = hashlib.sha256(text_blob).hexdigest()
         text_size = len(text_blob)
 
-    sym_names = {s["name"] for s in symbols}
-    known_jni = {name: (name in sym_names) for name in KNOWN_JNI_EXPORTS}
+    sym_by_name = {s["name"]: s for s in symbols}
+    known_jni = {name: (name in sym_by_name) for name in KNOWN_JNI_EXPORTS}
+    known_jni_details = {
+        name: (
+            {
+                "present": True,
+                "value": sym_by_name[name]["value"],
+                "size": sym_by_name[name]["size"],
+            }
+            if name in sym_by_name
+            else {"present": False, "value": None, "size": None}
+        )
+        for name in KNOWN_JNI_EXPORTS
+    }
 
     candidates = {key: [] for key in CANDIDATE_TERMS}
     for sym in symbols:
@@ -247,6 +259,7 @@ def inspect_elf(path: Path) -> dict:
         "symbols": {
             "count": len(symbols),
             "known_jni": known_jni,
+            "known_jni_details": known_jni_details,
             "known_jni_present": sum(1 for x in known_jni.values() if x),
             "candidate_groups": candidates,
         },
