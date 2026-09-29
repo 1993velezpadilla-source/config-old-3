@@ -7,5 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="CUE4Parse" Version="1.2.2.202609" />
+    <!-- Override vulnerable transitive Microsoft.Bcl.Memory 9.0.0. -->
+    <PackageReference Include="Microsoft.Bcl.Memory" Version="10.0.12" />
   </ItemGroup>
 </Project>
