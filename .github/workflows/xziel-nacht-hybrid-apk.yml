@@ -17,26 +17,44 @@ jobs:
       - name: Checkout XZIEL
         uses: actions/checkout@v5
 
-      - name: Download final GREEN Nacht one-file EXE
+      - name: Download current GREEN Nacht one-file EXE
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          ONEFILE_RUN=36644822493
+
+          # This run is the first one-file build that includes the Win64
+          # keyboard/mouse bridge consumed by the Android touch+gyro overlay.
+          gh run watch "$ONEFILE_RUN" \
+            --repo "${{ github.repository }}" \
+            --exit-status
+
           mkdir -p input/nacht-exe
-          gh run download 36643574456 \
+          gh run download "$ONEFILE_RUN" \
             --repo "${{ github.repository }}" \
             --name "XZIEL-Nacht-Windows-OneFile-Fast" \
             --dir input/nacht-exe
+
           EXE="$(find input/nacht-exe -type f -name 'Nacht-Chronicles-XZIEL.exe' -print -quit)"
+          SHA_FILE="$(find input/nacht-exe -type f -name 'Nacht-Chronicles-XZIEL.exe.sha256' -print -quit)"
           test -n "$EXE"
           test -s "$EXE"
-          echo "XZIEL_NACHT_EXE=$EXE" >> "$GITHUB_ENV"
+          test -n "$SHA_FILE"
+          test -s "$SHA_FILE"
+
           bytes="$(wc -c < "$EXE" | tr -d '[:space:]')"
           sha="$(sha256sum "$EXE" | awk '{print $1}')"
-          test "$bytes" = "887735046"
-          test "$sha" = "2cc8876fc79d50c3731f8f0681e3bfeb2e2cef084b87bf1b8a87c8c43a430d02"
-          echo "XZIEL_FINAL_EXE_REUSE_GREEN bytes=$bytes sha256=$sha"
+          artifact_sha="$(awk '{print $1}' "$SHA_FILE")"
+
+          test "$bytes" -gt 800000000
+          test "$sha" = "$artifact_sha"
+
+          echo "XZIEL_NACHT_EXE=$EXE" >> "$GITHUB_ENV"
+          echo "XZIEL_NACHT_EXPECTED_SHA256=$sha" >> "$GITHUB_ENV"
+          echo "XZIEL_ONEFILE_SOURCE_RUN=$ONEFILE_RUN" >> "$GITHUB_ENV"
+          echo "XZIEL_CURRENT_EXE_REUSE_GREEN run=$ONEFILE_RUN bytes=$bytes sha256=$sha"
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
