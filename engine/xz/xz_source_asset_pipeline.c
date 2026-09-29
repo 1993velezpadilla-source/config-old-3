@@ -26,6 +26,42 @@ int XzSourceAsset_BindNativeAdapter(
     return 1;
 }
 
+int XzSourceAsset_VerifyNativePayload(
+    XzSourceAssetState *asset,
+    const char *source_class,
+    const void *data,
+    size_t size)
+{
+    const XzSourceNativeAdapter *adapter;
+
+    if (!asset ||
+        !source_class ||
+        !source_class[0] ||
+        !data ||
+        size == 0u ||
+        asset->stage != XZ_SOURCE_ASSET_NATIVE_BUILT)
+        return 0;
+
+    adapter =
+        XzSourceNativeRegistry_Find(
+            source_class);
+
+    if (!adapter ||
+        asset->native_type !=
+            (uint32_t)adapter->native_type ||
+        !XzSourceNativeRegistry_ValidatePayload(
+            adapter,
+            data,
+            size)) {
+        XzSourceAsset_Fail(asset);
+        return 0;
+    }
+
+    return XzSourceAsset_Advance(
+        asset,
+        XZ_SOURCE_ASSET_NATIVE_VERIFIED);
+}
+
 int XzSourceAsset_Advance(
     XzSourceAssetState *asset,
     XzSourceAssetStage next_stage)
@@ -72,6 +108,10 @@ int XzSourceAsset_IsReady(
 int XzSourceAsset_SelfTest(void)
 {
     XzSourceAssetState asset = {0};
+    XzSourceAssetState invalid = {0};
+    static const unsigned char bad_payload[4] = {
+        'B', 'A', 'D', '!'
+    };
 
     asset.content_key = 0x1234ull;
     asset.required = 1u;
@@ -115,5 +155,36 @@ int XzSourceAsset_SelfTest(void)
             XZ_SOURCE_ASSET_READY))
         return 0;
 
-    return XzSourceAsset_IsReady(&asset);
+    if (!XzSourceAsset_IsReady(&asset))
+        return 0;
+
+    invalid.content_key = 0x5678ull;
+    invalid.required = 1u;
+
+    if (!XzSourceAsset_BindNativeAdapter(
+            &invalid,
+            "SoundWave") ||
+        !XzSourceAsset_Advance(
+            &invalid,
+            XZ_SOURCE_ASSET_PRESENT) ||
+        !XzSourceAsset_Advance(
+            &invalid,
+            XZ_SOURCE_ASSET_PARSED) ||
+        !XzSourceAsset_Advance(
+            &invalid,
+            XZ_SOURCE_ASSET_DEPENDENCIES_RESOLVED) ||
+        !XzSourceAsset_Advance(
+            &invalid,
+            XZ_SOURCE_ASSET_NATIVE_BUILT))
+        return 0;
+
+    if (XzSourceAsset_VerifyNativePayload(
+            &invalid,
+            "SoundWave",
+            bad_payload,
+            sizeof(bad_payload)) ||
+        invalid.stage != XZ_SOURCE_ASSET_FAILED)
+        return 0;
+
+    return 1;
 }
