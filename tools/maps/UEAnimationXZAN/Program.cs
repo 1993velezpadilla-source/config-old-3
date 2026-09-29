@@ -421,10 +421,10 @@ static (
         var track =
             sequence.Tracks[trackIndex];
 
-        if (!track.HasKeys())
-            throw new InvalidDataException(
-                $"animation track {trackIndex} has zero transform keys");
-
+        // CUE4Parse emits one track per skeleton bone. A bone can have no
+        // authored transform keys; Unreal then evaluates that bone from the
+        // skeleton reference pose. Preserve that as a zero-count XZAN track
+        // rather than fabricating keys or rejecting a valid animation.
         var posOffset =
             checked((uint)payload.Position);
         foreach (var key in track.KeyPos)
