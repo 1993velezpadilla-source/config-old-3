@@ -7064,6 +7064,7 @@ static int XzDrawStaticScene(
         (!state->static_scene_lightmap_shader_ready ||
          baked_lightmap_draw_calls > 0u) &&
         (!state->static_scene_material_ready ||
+         scene->material_library_data != NULL ||
          binding_cursor ==
             xz_shadow.static_material_binding_count) &&
         (!state->static_scene_normal_ready ||
