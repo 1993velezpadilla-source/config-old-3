@@ -24,7 +24,7 @@ jobs:
       - name: Download already GREEN self-contained Nacht APK
         shell: pwsh
         env:
-          GH_TOKEN: \${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           $ErrorActionPreference = "Stop"
           New-Item -ItemType Directory -Force input, dist | Out-Null
