@@ -14,6 +14,7 @@ extern "C" {
 typedef struct XzSourceClassCoverage {
     uint32_t source_class_count;
     uint32_t classified_class_count;
+    uint32_t ignored_class_count;
     uint32_t unclassified_class_count;
     uint32_t family_class_count[XZ_PACKAGE_BOOT_FAMILY_COUNT];
     uint32_t family_mask;
