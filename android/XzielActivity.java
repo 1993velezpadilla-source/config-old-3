@@ -58,6 +58,9 @@ public final class XzielActivity extends SDLActivity {
         String mapId = getIntent() != null
             ? getIntent().getStringExtra("xziel_map")
             : null;
+        if (mapId == null || mapId.isEmpty()) {
+            mapId = "xziel_nacht_bo3";
+        }
         String eye = getIntent() != null
             ? getIntent().getStringExtra("xziel_camera_eye")
             : null;
