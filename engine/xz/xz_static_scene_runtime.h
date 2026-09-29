@@ -3,6 +3,7 @@
 
 #include "xz_xzmesh.h"
 #include "xz_xzscene.h"
+#include "xz_xztexture.h"
 #include "xz_environment.h"
 #include "xz_height_fog.h"
 #include "xz_pbr_material.h"
@@ -43,6 +44,13 @@ typedef struct {
     const unsigned char *rgba;
     size_t rgba_bytes;
 } XzStaticTextureView;
+
+typedef struct {
+    unsigned char *data;
+    size_t bytes;
+    XzXztextureView texture;
+    char path[256];
+} XzStaticNativeTextureResource;
 
 #define XZ_REFLECTION_FORMAT_RGBA16F 1u
 #define XZ_REFLECTION_SHAPE_NONE 0u
@@ -188,6 +196,14 @@ int XzStaticSceneRuntime_Material(
     const XzStaticSceneRuntimeState *state,
     uint32_t material_index,
     XzMaterialLibraryMaterial *material);
+
+int XzStaticSceneRuntime_LoadMaterialTexture(
+    const XzStaticSceneRuntimeState *state,
+    uint32_t texture_index,
+    XzStaticNativeTextureResource *resource);
+
+void XzStaticSceneRuntime_ReleaseMaterialTexture(
+    XzStaticNativeTextureResource *resource);
 
 int XzStaticSceneRuntime_Texture(
     const XzStaticSceneRuntimeState *state,
