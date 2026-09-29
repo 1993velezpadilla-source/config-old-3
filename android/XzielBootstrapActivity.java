@@ -57,8 +57,8 @@ public final class XzielBootstrapActivity extends Activity {
         super.onCreate(savedInstanceState);
         setRequestedOrientation(
             ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
-        applyImmersiveMode();
         buildSplash();
+        applyImmersiveMode();
 
         if (isContentReady()) {
             Log.i(TAG, "XZIEL_BOOT_CONTENT_READY");
@@ -98,6 +98,13 @@ public final class XzielBootstrapActivity extends Activity {
     protected void onResume() {
         super.onResume();
         applyImmersiveMode();
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus)
+            applyImmersiveMode();
     }
 
     @Override
@@ -338,10 +345,15 @@ public final class XzielBootstrapActivity extends Activity {
     private void applyImmersiveMode() {
         getWindow().addFlags(
             WindowManager.LayoutParams.FLAG_FULLSCREEN);
+
+        View decorView = getWindow().getDecorView();
+        if (decorView == null)
+            return;
+
         if (android.os.Build.VERSION.SDK_INT >= 30) {
             getWindow().setDecorFitsSystemWindows(false);
             WindowInsetsController controller =
-                getWindow().getInsetsController();
+                decorView.getWindowInsetsController();
             if (controller != null) {
                 controller.hide(
                     WindowInsets.Type.statusBars() |
@@ -351,7 +363,7 @@ public final class XzielBootstrapActivity extends Activity {
                         BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
             }
         } else {
-            getWindow().getDecorView().setSystemUiVisibility(
+            decorView.setSystemUiVisibility(
                 View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |
                 View.SYSTEM_UI_FLAG_FULLSCREEN |
                 View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
