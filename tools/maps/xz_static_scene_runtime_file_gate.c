@@ -116,22 +116,11 @@ int main(int argc, char **argv)
     }
 
     /*
-     * Legacy presentation packs remain absent in this geometry gate.
-     * XZMI is checked explicitly when the caller supplies an expected
-     * per-instance binding count.
+     * Optional modern presentation packs are valid generic runtime state.
+     * XzStaticSceneRuntime_LoadMap has already parsed and validated any pack
+     * that is present. This gate must not reject future XZEN/XZFG/PBR/normal
+     * payloads merely because an earlier geometry-only test did not use them.
      */
-    if (state.material_data ||
-        state.pbr_material_data ||
-        state.normal_material_data ||
-        state.environment_data ||
-        state.height_fog_data ||
-        state.reflection_data) {
-        fprintf(
-            stderr,
-            "XZIEL_STATIC_SCENE_RUNTIME_FILE_GATE_FAIL unexpected_optional_pack\n");
-        XzStaticSceneRuntime_Shutdown(&state);
-        return 5;
-    }
 
     {
         const XzMaterialInstanceBindingView *material_instances =
@@ -248,7 +237,8 @@ int main(int argc, char **argv)
         "XZIEL_STATIC_SCENE_RUNTIME_FILE_GATE_GREEN "
         "meshes=%u instances=%u meshBytes=%llu vertices=%llu "
         "indices=%llu submeshes=%llu xzmi=%d materialBindings=%u "
-        "xzml=%d materials=%u textures=%u\n",
+        "xzml=%d materials=%u textures=%u env=%d envLights=%u "
+        "fog=%d pbr=%d normal=%d reflection=%d\n",
         state.scene.mesh_count,
         state.scene.instance_count,
         (unsigned long long)state.mesh_bytes_validated,
@@ -265,7 +255,15 @@ int main(int argc, char **argv)
             : 0u,
         expect_material_library
             ? expected_textures
-            : 0u);
+            : 0u,
+        state.environment_data != NULL,
+        state.environment_data
+            ? state.environment.light_count
+            : 0u,
+        state.height_fog_data != NULL,
+        state.pbr_material_data != NULL,
+        state.normal_material_data != NULL,
+        state.reflection_data != NULL);
 
     XzStaticSceneRuntime_Shutdown(&state);
     return 0;
