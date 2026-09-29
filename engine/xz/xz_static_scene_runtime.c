@@ -1180,33 +1180,31 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
         }
 
         /*
-         * The source conversion proved all 492 Nacht submeshes carry normals
-         * plus UV0..UV3. Preserve those authored channels as a runtime
-         * requirement so baked lightmaps can select their exact coordinate set.
+         * Static-scene geometry has one source-agnostic baseline: positions,
+         * normals, tangents and UV0. Additional UV channels are capabilities,
+         * not a map-wide requirement. Systems that consume an authored extra
+         * UV set (for example baked lightmaps) must validate that requirement
+         * at their own binding boundary instead of rejecting otherwise valid
+         * meshes during generic scene load.
          */
         for (submesh_index = 0u;
              submesh_index <
                  resource->mesh.submesh_count;
              ++submesh_index) {
             XzXzmeshSubmesh submesh;
+            const uint32_t required_attributes =
+                XZ_XZMS_ATTR_POSITION |
+                XZ_XZMS_ATTR_NORMAL |
+                XZ_XZMS_ATTR_TANGENT |
+                XZ_XZMS_ATTR_UV0;
 
             if (!XzXzmesh_ReadSubmesh(
                     &resource->mesh,
                     submesh_index,
                     &submesh) ||
                 (submesh.attribute_flags &
-                 (XZ_XZMS_ATTR_POSITION |
-                  XZ_XZMS_ATTR_NORMAL |
-                  XZ_XZMS_ATTR_UV0 |
-                  XZ_XZMS_ATTR_UV1 |
-                  XZ_XZMS_ATTR_UV2 |
-                  XZ_XZMS_ATTR_UV3)) !=
-                    (XZ_XZMS_ATTR_POSITION |
-                     XZ_XZMS_ATTR_NORMAL |
-                     XZ_XZMS_ATTR_UV0 |
-                     XZ_XZMS_ATTR_UV1 |
-                     XZ_XZMS_ATTR_UV2 |
-                     XZ_XZMS_ATTR_UV3)) {
+                 required_attributes) !=
+                    required_attributes) {
                 snprintf(
                     failure,
                     sizeof(failure),
