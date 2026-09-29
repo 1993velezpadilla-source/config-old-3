@@ -515,6 +515,8 @@ void AuditAnimSequences(PackageRow row, UAnimSequence[] animations)
             string? boneCompressionSettingsPackage = null;
             string? boneCompressionSettingsClass = null;
             bool? boneCompressionSettingsLoads = null;
+            string? resolvedCodecType = null;
+            string? codecProbeError = null;
 
             try
             {
@@ -526,13 +528,34 @@ void AuditAnimSequences(PackageRow row, UAnimSequence[] animations)
                     animation.BoneCompressionSettings?.Class?.Name.Text;
 
                 if (animation.BoneCompressionSettings is not null)
-                    boneCompressionSettingsLoads =
+                {
+                    var loadedSettings =
                         animation.BoneCompressionSettings
-                            .Load<UAnimBoneCompressionSettings>() is not null;
+                            .Load<UAnimBoneCompressionSettings>();
+
+                    boneCompressionSettingsLoads =
+                        loadedSettings is not null;
+
+                    if (loadedSettings is not null &&
+                        !string.IsNullOrWhiteSpace(
+                            animation.BoneCodecDDCHandle))
+                    {
+                        resolvedCodecType =
+                            loadedSettings
+                                .GetCodec(
+                                    animation.BoneCodecDDCHandle!)
+                                ?.GetType()
+                                .FullName;
+                    }
+                }
             }
-            catch
+            catch (Exception codecException)
             {
                 boneCompressionSettingsLoads = false;
+                codecProbeError =
+                    codecException.GetType().FullName +
+                    ": " +
+                    codecException.Message;
             }
 
             failures.Add(new {
@@ -548,6 +571,8 @@ void AuditAnimSequences(PackageRow row, UAnimSequence[] animations)
                 boneCompressionSettingsClass,
                 boneCompressionSettingsLoads,
                 boneCodecDDCHandle = animation.BoneCodecDDCHandle,
+                resolvedCodecType,
+                codecProbeError,
                 compressedDataType =
                     animation.CompressedDataStructure?
                         .GetType().FullName,
