@@ -669,12 +669,11 @@ static int XzNativeMaterialDecode(
         }
     }
 
-    if (out->blend_mode == XZ_NATIVE_BLEND_MASKED &&
-        out->is_masked == 0u)
-        return 0;
-    if (out->blend_mode != XZ_NATIVE_BLEND_MASKED &&
-        out->is_masked != 0u)
-        return 0;
+    /*
+     * BlendMode is the authoritative render state. UE's cooked bIsMasked
+     * cache is preserved for diagnostics but is not equivalent to
+     * BLEND_Masked in this source corpus.
+     */
 
     /*
      * Unlit is a real UE shading model, not a weakly-lit PBR material.
