@@ -1,0 +1,276 @@
+name: XZWin WAW EXE Probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      installer_page:
+        description: "Public WAW custom-map installer page or direct EXE URL"
+        required: false
+        default: "https://www.mediafire.com/file/okwcwp21eg8ihhg/MW2RustZombies_1.0.exe/file"
+  push:
+    branches:
+      - experiment/xzwin-waw-exe-probe
+    paths:
+      - "android/XzWinRuntime.java"
+      - "tools/xzwin/**"
+      - "docs/xzwin/**"
+      - ".github/workflows/xzwin-waw-exe-probe.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  android-host-compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install pinned Android toolchain
+        shell: bash
+        run: |
+          set -euxo pipefail
+          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "ndk;27.2.12479018" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Fetch SDL platform layer
+        shell: bash
+        run: |
+          set -euxo pipefail
+          git clone --depth=1 --branch release-2.30.x \
+            https://github.com/libsdl-org/SDL.git "$RUNNER_TEMP/sdl2"
+
+      - name: Assemble experimental XZIEL Android project
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cp -a "$RUNNER_TEMP/sdl2/android-project" "$RUNNER_TEMP/xziel-android"
+
+          rm -rf "$RUNNER_TEMP/xziel-android/app/jni/SDL"
+          ln -s "$RUNNER_TEMP/sdl2" "$RUNNER_TEMP/xziel-android/app/jni/SDL"
+
+          rm -rf "$RUNNER_TEMP/xziel-android/app/jni/xz"
+          cp -a engine/xz "$RUNNER_TEMP/xziel-android/app/jni/xz"
+
+          mkdir -p "$RUNNER_TEMP/xziel-android/app/jni/src"
+          cp android/jni/Android.mk "$RUNNER_TEMP/xziel-android/app/jni/Android.mk"
+          cp android/jni/Application.mk "$RUNNER_TEMP/xziel-android/app/jni/Application.mk"
+          cp android/jni/src/Android.mk "$RUNNER_TEMP/xziel-android/app/jni/src/Android.mk"
+
+          cp android/app-build.gradle "$RUNNER_TEMP/xziel-android/app/build.gradle"
+          cp android/AndroidManifest.xml "$RUNNER_TEMP/xziel-android/app/src/main/AndroidManifest.xml"
+
+          mkdir -p "$RUNNER_TEMP/xziel-android/app/src/main/java/org/libsdl/app"
+          cp android/XzielActivity.java \
+            "$RUNNER_TEMP/xziel-android/app/src/main/java/org/libsdl/app/XzielActivity.java"
+          cp android/XzWinRuntime.java \
+            "$RUNNER_TEMP/xziel-android/app/src/main/java/org/libsdl/app/XzWinRuntime.java"
+
+          grep -q 'targetSdkVersion 35' android/app-build.gradle
+          grep -q 'nativeLibraryDir' android/XzWinRuntime.java
+          grep -q 'libxzbox64.so' android/XzWinRuntime.java
+          echo "XZWIN_ANDROID_HOST_CONTRACT_READY"
+
+      - name: Build targetSdk 35 APK
+        working-directory: ${{ runner.temp }}/xziel-android
+        shell: bash
+        run: |
+          set -euxo pipefail
+          chmod +x gradlew
+          ./gradlew --no-daemon --stacktrace assembleDebug
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          echo "XZWIN_ANDROID_HOST_COMPILE_GREEN"
+
+  wine-installer-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Install Wine and inspection tools
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo dpkg --add-architecture i386
+          sudo apt-get update
+          sudo apt-get install -y wine64 wine32:i386 xvfb p7zip-full file
+          wine --version
+          7z | head -n 3 || true
+
+      - name: Resolve and download public MW2 Rust installer
+        env:
+          INSTALLER_PAGE: ${{ github.event.inputs.installer_page || 'https://www.mediafire.com/file/okwcwp21eg8ihhg/MW2RustZombies_1.0.exe/file' }}
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p probe
+          python3 - <<'PY'
+          import html
+          import os
+          import pathlib
+          import re
+          import urllib.request
+
+          source = os.environ["INSTALLER_PAGE"]
+          out = pathlib.Path("probe/MW2RustZombies.exe")
+
+          def fetch(url):
+              req = urllib.request.Request(
+                  url,
+                  headers={
+                      "User-Agent":
+                          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"
+                  },
+              )
+              with urllib.request.urlopen(req, timeout=60) as r:
+                  return r.read(), r.geturl(), r.headers.get("Content-Type", "")
+
+          body, final_url, content_type = fetch(source)
+          if body[:2] == b"MZ":
+              out.write_bytes(body)
+              pathlib.Path("probe/resolved-url.txt").write_text(
+                  final_url + "\n", encoding="utf-8"
+              )
+              raise SystemExit(0)
+
+          text = body.decode("utf-8", "replace")
+          text = html.unescape(text).replace("\\/", "/")
+          candidates = re.findall(
+              r'https://download[^"\'<> ]+mediafire\.com/[^"\'<> ]+?\.exe',
+              text,
+              flags=re.I,
+          )
+          if not candidates:
+              candidates = re.findall(
+                  r'https://download[^"\'<> ]+?\.exe',
+                  text,
+                  flags=re.I,
+              )
+          if not candidates:
+              raise SystemExit("Could not resolve MediaFire direct EXE URL")
+
+          direct = candidates[0]
+          payload, resolved, ctype = fetch(direct)
+          if payload[:2] != b"MZ":
+              raise SystemExit(
+                  f"Resolved payload is not PE/MZ: type={ctype!r} url={resolved}"
+              )
+          out.write_bytes(payload)
+          pathlib.Path("probe/resolved-url.txt").write_text(
+              resolved + "\n", encoding="utf-8"
+          )
+          PY
+
+          test -s probe/MW2RustZombies.exe
+          file probe/MW2RustZombies.exe | tee probe/file.txt
+          sha256sum probe/MW2RustZombies.exe | tee probe/sha256.txt
+          BYTES="$(stat -c %s probe/MW2RustZombies.exe)"
+          test "$BYTES" -gt 1000000
+          echo "XZWIN_WAW_EXE_DOWNLOAD_GREEN bytes=$BYTES"
+
+      - name: Static PE and embedded-payload census
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 tools/xzwin/inspect_waw_map_installer.py \
+            probe/MW2RustZombies.exe \
+            --out probe/static-report.json | tee probe/static-report.stdout.txt
+
+          python3 - <<'PY'
+          import json
+          p = json.load(open("probe/static-report.json", encoding="utf-8"))
+          assert p["pe"]["isPE"], p
+          print("XZWIN_WAW_PE_GREEN", p["pe"]["machine"])
+          print("XZWIN_WAW_ARCHIVE_MEMBERS", p["archive"]["memberCount"])
+          print("XZWIN_WAW_PAYLOAD_COUNTS", p["payload"]["counts"])
+          PY
+
+      - name: Execute installer through Wine
+        shell: bash
+        run: |
+          set -uo pipefail
+          export WINEPREFIX="$RUNNER_TEMP/xzwin-waw-prefix"
+          export WINEDEBUG=-all
+          mkdir -p "$WINEPREFIX"
+
+          timeout 90s xvfb-run -a wineboot -u \
+            >probe/wineboot.log 2>&1
+          WINEBOOT_STATUS=$?
+
+          timeout 240s xvfb-run -a wine probe/MW2RustZombies.exe /S \
+            >probe/wine-installer.log 2>&1
+          WINE_STATUS=$?
+
+          echo "$WINEBOOT_STATUS" > probe/wineboot-exit.txt
+          echo "$WINE_STATUS" > probe/wine-installer-exit.txt
+
+          find "$WINEPREFIX" -type f -printf '%P\n' 2>/dev/null \
+            | sort > probe/wine-prefix-files.txt
+
+          grep -Ei '\.(ff|iwd|bsp|gsc|csc|cfg)$' \
+            probe/wine-prefix-files.txt \
+            > probe/waw-payload-files.txt || true
+
+          python3 - <<'PY'
+          import json
+          import pathlib
+
+          root = pathlib.Path("probe")
+          files = [
+              line.strip()
+              for line in (root / "wine-prefix-files.txt").read_text(
+                  encoding="utf-8", errors="replace"
+              ).splitlines()
+              if line.strip()
+          ]
+          payload = [
+              line.strip()
+              for line in (root / "waw-payload-files.txt").read_text(
+                  encoding="utf-8", errors="replace"
+              ).splitlines()
+              if line.strip()
+          ]
+          report = {
+              "format": "xziel_waw_wine_probe_v1",
+              "winebootExit": int((root / "wineboot-exit.txt").read_text().strip()),
+              "installerExit": int((root / "wine-installer-exit.txt").read_text().strip()),
+              "prefixFileCount": len(files),
+              "wawPayloadCount": len(payload),
+              "wawPayloadFiles": payload[:500],
+              "payloadTruncated": len(payload) > 500,
+          }
+          (root / "wine-report.json").write_text(
+              json.dumps(report, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          print(json.dumps(report, indent=2, sort_keys=True))
+          if payload:
+              print("XZWIN_WINE_INSTALLER_PAYLOAD_FOUND")
+          else:
+              print("XZWIN_WINE_INSTALLER_RAN_NO_WAW_PAYLOAD")
+          PY
+
+          # The execution attempt is evidence even when a third-party installer
+          # has no silent switch. Static PE validation remains the hard gate.
+          exit 0
+
+      - name: Upload reports only
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZWin-WAW-EXE-Probe-Reports
+          path: |
+            probe/*.json
+            probe/*.txt
+            probe/*.log
+          if-no-files-found: error
