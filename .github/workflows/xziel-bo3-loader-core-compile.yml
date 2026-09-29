@@ -32,6 +32,8 @@ on:
       - engine/xz/xz_source_asset_pipeline.h
       - engine/xz/xz_package_boot.c
       - engine/xz/xz_package_boot.h
+      - engine/xz/xz_xztexture.h
+      - engine/xz/xz_xztexture.c
       - .github/workflows/xziel-bo3-loader-core-compile.yml
 
 jobs:
@@ -57,6 +59,7 @@ jobs:
             engine/xz/xz_source_class_registry.c \
             engine/xz/xz_source_adapter_registry.c \
             engine/xz/xz_source_asset_pipeline.c \
+            engine/xz/xz_xztexture.c \
             engine/xz/xz_package_boot.c
           do
             cc -std=gnu11 -Wall -Wextra -Werror \
@@ -82,6 +85,7 @@ jobs:
           #include "xz_source_class_registry.h"
           #include "xz_source_adapter_registry.h"
           #include "xz_source_asset_pipeline.h"
+          #include "xz_xztexture.h"
           #include "xz_package_boot.h"
 
           int COM_OpenFile(char *filename, int *handle)
@@ -119,6 +123,7 @@ jobs:
                   XzSourceClassRegistry_SelfTest() &&
                   XzSourceAdapterRegistry_SelfTest() &&
                   XzSourceAsset_SelfTest() &&
+                  XzXztexture_SelfTest() &&
                   XzPackageBoot_SelfTest()
                       ? 0
                       : 1;
@@ -140,6 +145,7 @@ jobs:
             engine/xz/xz_source_class_registry.c \
             engine/xz/xz_source_adapter_registry.c \
             engine/xz/xz_source_asset_pipeline.c \
+            engine/xz/xz_xztexture.c \
             engine/xz/xz_package_boot.c \
             -o build/xziel-bo3-loader-core/selftest
 
