@@ -328,6 +328,9 @@ gradle.write_text(text, encoding="utf-8")
         "org.gradle.jvmargs=-Xmx5g -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8",
         "org.gradle.parallel=false",
         "android.useAndroidX=true",
+        "android.enableJetifier=true",
+        "android.nonFinalResIds=false",
+        "android.nonTransitiveRClass=false",
     ]) + chr(10),
     encoding="utf-8",
 )
