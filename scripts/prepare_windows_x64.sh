@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# CI probe: validates the self-contained Windows x64 package intended for Winlator.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
