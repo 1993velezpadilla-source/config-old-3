@@ -312,7 +312,23 @@ text = gradle.read_text(encoding="utf-8")
 text = text.replace("applicationId 'com.winlator'", "applicationId 'com.xziel.hybrid'")
 text = text.replace('versionCode 33', 'versionCode 1')
 text = text.replace('versionName "11.2"', 'versionName "0.1-hybrid"')
+# Guest ZIP and compatibility-layer TZST payloads are already compressed.
+# Keep AAPT from recompressing them (saves heap and first-build time).
+android_anchor = "    lintOptions {\n"
+if android_anchor in text and "aaptOptions" not in text:
+    text = text.replace(
+        android_anchor,
+        "    aaptOptions {\n        noCompress 'zip', 'tzst'\n    }\n\n" + android_anchor,
+        1,
+    )
 gradle.write_text(text, encoding="utf-8")
+
+(root / "gradle.properties").write_text(
+    "org.gradle.jvmargs=-Xmx5g -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8\\n"
+    "org.gradle.parallel=false\\n"
+    "android.useAndroidX=true\\n",
+    encoding="utf-8",
+)
 
 licenses = assets / "licenses"
 licenses.mkdir(parents=True, exist_ok=True)
