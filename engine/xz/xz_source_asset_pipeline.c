@@ -1,4 +1,30 @@
 #include "xz_source_asset_pipeline.h"
+#include "xz_source_native_registry.h"
+
+int XzSourceAsset_BindNativeAdapter(
+    XzSourceAssetState *asset,
+    const char *source_class)
+{
+    const XzSourceNativeAdapter *adapter;
+
+    if (!asset ||
+        !source_class ||
+        !source_class[0] ||
+        asset->stage >= XZ_SOURCE_ASSET_NATIVE_BUILT)
+        return 0;
+
+    adapter =
+        XzSourceNativeRegistry_Find(
+            source_class);
+
+    if (!adapter)
+        return 0;
+
+    asset->native_type =
+        (uint32_t)adapter->native_type;
+
+    return 1;
+}
 
 int XzSourceAsset_Advance(
     XzSourceAssetState *asset,
@@ -49,6 +75,18 @@ int XzSourceAsset_SelfTest(void)
 
     asset.content_key = 0x1234ull;
     asset.required = 1u;
+
+    if (!XzSourceAsset_BindNativeAdapter(
+            &asset,
+            "Texture2D") ||
+        asset.native_type !=
+            (uint32_t)XZ_NATIVE_PAYLOAD_XZTX)
+        return 0;
+
+    if (XzSourceAsset_BindNativeAdapter(
+            &asset,
+            "Material"))
+        return 0;
 
     if (!XzSourceAsset_Advance(
             &asset,
