@@ -8,6 +8,7 @@ on:
     paths:
       - .github/workflows/xziel-ue-staticmesh-converter-compile.yml
       - tools/maps/UEStaticMeshXZMS/**
+      - tools/maps/UESceneTransformAudit/**
       - tools/maps/xz_xzmesh_file_gate.c
       - engine/xz/xz_xzmesh.c
       - engine/xz/xz_xzmesh.h
@@ -24,6 +25,15 @@ jobs:
           set -euxo pipefail
           dotnet restore tools/maps/UEStaticMeshXZMS/UEStaticMeshXZMS.csproj
           dotnet build tools/maps/UEStaticMeshXZMS/UEStaticMeshXZMS.csproj \
+            --configuration Release \
+            --no-restore \
+            -warnaserror
+
+      - name: Compile UE scene transform audit
+        run: |
+          set -euxo pipefail
+          dotnet restore tools/maps/UESceneTransformAudit/UESceneTransformAudit.csproj
+          dotnet build tools/maps/UESceneTransformAudit/UESceneTransformAudit.csproj \
             --configuration Release \
             --no-restore \
             -warnaserror
