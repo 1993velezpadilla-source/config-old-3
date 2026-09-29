@@ -37,7 +37,7 @@ public final class XzWinRuntime {
         UNSUPPORTED_ABI,
         MISSING_BOX64_HOST,
         MISSING_ROOTFS,
-        MISSING_WINE64
+        MISSING_WINE_GUEST
     }
 
     public static final class Layout {
@@ -47,7 +47,7 @@ public final class XzWinRuntime {
         public final File imports;
         public final File logs;
         public final File box64Host;
-        public final File wine64;
+        public final File wineGuest;
 
         Layout(Context context) {
             runtimeRoot = new File(context.getFilesDir(), "xzwin");
@@ -58,7 +58,7 @@ public final class XzWinRuntime {
 
             String nativeDir = context.getApplicationInfo().nativeLibraryDir;
             box64Host = new File(nativeDir, BOX64_HOST_NAME);
-            wine64 = new File(rootfs, "opt/wine/bin/wine64");
+            wineGuest = new File(rootfs, "opt/wine/bin/wine");
         }
 
         public void ensureWritableDirs() throws IOException {
@@ -152,13 +152,13 @@ public final class XzWinRuntime {
                 "Expected XZWin rootfs at " + layout.rootfs,
                 layout);
         }
-        if (!layout.wine64.isFile()) {
+        if (!layout.wineGuest.isFile()) {
             return new Probe(
-                ProbeState.MISSING_WINE64,
-                "Expected Wine64 guest at " + layout.wine64,
+                ProbeState.MISSING_WINE_GUEST,
+                "Expected Wine guest at " + layout.wineGuest,
                 layout);
         }
-        return new Probe(ProbeState.READY, "Box64 + Wine64 launch path ready", layout);
+        return new Probe(ProbeState.READY, "Box64 + Wine launch path ready", layout);
     }
 
     public static LaunchSpec buildWineLaunch(
@@ -178,7 +178,7 @@ public final class XzWinRuntime {
 
         List<String> argv = new ArrayList<>();
         argv.add(layout.box64Host.getAbsolutePath());
-        argv.add(layout.wine64.getAbsolutePath());
+        argv.add(layout.wineGuest.getAbsolutePath());
         argv.add(windowsExe.getAbsolutePath());
         if (args != null) argv.addAll(args);
 
