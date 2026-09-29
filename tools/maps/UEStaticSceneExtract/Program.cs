@@ -129,11 +129,16 @@ foreach (var logicalPackage in mapPackages)
         var package = provider.LoadPackage(resolved);
         packagesLoaded++;
 
-        foreach (var component in package.GetExports()
-                     .OfType<UStaticMeshComponent>()
-                     .OrderBy(
-                         value => value.GetPathName(),
-                         StringComparer.Ordinal))
+        var components = Enumerable
+            .Range(0, package.ExportMapLength)
+            .Select(index => package.GetExport(index))
+            .OfType<UStaticMeshComponent>()
+            .OrderBy(
+                value => value.GetPathName(),
+                StringComparer.Ordinal)
+            .ToArray();
+
+        foreach (var component in components)
         {
             staticComponents++;
 
