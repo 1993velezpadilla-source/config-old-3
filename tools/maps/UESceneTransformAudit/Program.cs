@@ -151,10 +151,14 @@ foreach (var packageRow in packageRows)
     }
 }
 
+/*
+ * A shard is valid even when it contains no SceneComponents. Sharding is a
+ * transport detail; the merged map-level gate is responsible for asserting
+ * that the complete source contains scene transforms when expected.
+ */
 var ready =
     packagesLoaded == packageRows.Length &&
     failures.Count == 0 &&
-    sceneComponents > 0 &&
     nonFiniteTransform == 0;
 
 var report = new {
