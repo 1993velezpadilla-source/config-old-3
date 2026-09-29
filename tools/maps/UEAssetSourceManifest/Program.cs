@@ -179,7 +179,7 @@ foreach (var censusPackage in logicalPackages)
         {
             try
             {
-                var obj = package.GetExport(exportIndex);
+                var obj = loaded.GetExport(exportIndex);
                 if (obj is null)
                     throw new InvalidDataException("null export");
 
