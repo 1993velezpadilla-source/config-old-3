@@ -3526,11 +3526,18 @@ jobs:
           test "$("$ADB" shell getprop sys.boot_completed | tr -d '\r')" = "1"
 
           "$ADB" install -r dist/XZIEL-Nacht-Standalone-debug.apk
-          "$ADB" push dist/xziel-nacht-vfs.tar /data/local/tmp/xziel-nacht-vfs.tar
+          "$ADB" shell df -h /data | tee dist/data-space-before.txt
           "$ADB" shell run-as com.xziel.engine mkdir -p files
           "$ADB" shell run-as com.xziel.engine mkdir -p files/xziel-runtime
-          "$ADB" shell run-as com.xziel.engine sh -c \
-            "'cd files && tar -xf /data/local/tmp/xziel-nacht-vfs.tar'"
+
+          # Stream the 2.4+ GB VFS directly into the app sandbox. Keeping a
+          # second tar copy under /data/local/tmp doubles userdata pressure and
+          # caused the first standalone Nacht run to fail before engine boot.
+          cat dist/xziel-nacht-vfs.tar | \
+            "$ADB" exec-in run-as com.xziel.engine sh -c \
+              "'cd files && tar -xf -'"
+
+          "$ADB" shell df -h /data | tee dist/data-space-after.txt
 
           "$ADB" shell run-as com.xziel.engine test -s \
             files/xziel/maps/xziel_nacht_bo3/scene.xzsc
@@ -3638,6 +3645,8 @@ jobs:
             dist/xziel-logcat-*.txt
             dist/am-start-*.txt
             dist/emulator-stdout.txt
+            dist/data-space-before.txt
+            dist/data-space-after.txt
             build/nacht-static-scene/xziel.xzscene.report.json
             build/nacht-static-scene/xziel.xzmat.report.json
             build/nacht-static-scene/xziel.xzpb.report.json
