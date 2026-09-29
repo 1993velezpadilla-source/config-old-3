@@ -1,0 +1,63 @@
+name: Publish XZIEL Nacht Mobile Playtest
+
+on:
+  push:
+    branches:
+      - feature/xziel-bo3-style-map-loader-v1
+    paths:
+      - ".github/workflows/publish-xziel-mobile-playtest.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Download GREEN mobile playtest artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p dist
+          gh run download 36620287941 \
+            --repo "$GITHUB_REPOSITORY" \
+            --name XZIEL-Nacht-Mobile-Playtest-APK \
+            --dir dist
+          test -s dist/XZIEL-Nacht-Mobile-Playtest.apk
+          test -s dist/XZIEL-Nacht-Mobile-Playtest.apk.sha256
+          ls -lh dist/XZIEL-Nacht-Mobile-Playtest.apk
+
+      - name: Publish public GitHub release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: xziel-nacht-mobile-playtest-2026-09-29
+        shell: bash
+        run: |
+          set -euxo pipefail
+          if ! gh release view "$TAG" \
+              --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "feature/xziel-bo3-style-map-loader-v1" \
+              --title "XZIEL Nacht Mobile Playtest" \
+              --notes "Android touch playtest build. Self-contained Nacht content. First launch extracts the bundled XZIEL VFS into app-private storage."
+          fi
+
+          gh release upload "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            dist/XZIEL-Nacht-Mobile-Playtest.apk \
+            dist/XZIEL-Nacht-Mobile-Playtest.apk.sha256 \
+            --clobber
+
+          gh release view "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json url,tagName,name \
+            --jq '{url:.url,tag:.tagName,name:.name}'
