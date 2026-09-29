@@ -3507,8 +3507,41 @@ jobs:
           test -s dist/xziel-nacht-vfs.tar
           gzip -1 -c dist/xziel-nacht-vfs.tar > dist/xziel-nacht-vfs.tar.gz
           test -s dist/xziel-nacht-vfs.tar.gz
-          ls -lh dist/xziel-nacht-vfs.tar dist/xziel-nacht-vfs.tar.gz
-          python3 -c 'from pathlib import Path; raw=Path("dist/xziel-nacht-vfs.tar").stat().st_size; gz=Path("dist/xziel-nacht-vfs.tar.gz").stat().st_size; print("XZIEL_NACHT_VFS_COMPRESSION", {"tarBytes":raw,"gzipBytes":gz,"ratio":round(gz/raw,4)})'
+
+          python3 - <<'PY'
+          import os
+          import zipfile
+          from pathlib import Path
+
+          root = Path(os.environ["RUNNER_TEMP"]) / "nacht-overlay"
+          output = Path("dist/xziel-nacht-vfs.zip")
+          if output.exists():
+              output.unlink()
+
+          with zipfile.ZipFile(
+              output,
+              "w",
+              compression=zipfile.ZIP_DEFLATED,
+              compresslevel=1,
+              allowZip64=False,
+          ) as archive:
+              for path in sorted((root / "xziel").rglob("*")):
+                  if path.is_file():
+                      archive.write(
+                          path,
+                          path.relative_to(root).as_posix(),
+                      )
+
+          assert output.stat().st_size > 0
+          print(
+              "XZIEL_NACHT_VFS_ZIP_READY",
+              {"bytes": output.stat().st_size},
+          )
+          PY
+
+          test -s dist/xziel-nacht-vfs.zip
+          ls -lh dist/xziel-nacht-vfs.tar dist/xziel-nacht-vfs.tar.gz dist/xziel-nacht-vfs.zip
+          python3 -c 'from pathlib import Path; raw=Path("dist/xziel-nacht-vfs.tar").stat().st_size; gz=Path("dist/xziel-nacht-vfs.tar.gz").stat().st_size; zp=Path("dist/xziel-nacht-vfs.zip").stat().st_size; print("XZIEL_NACHT_VFS_COMPRESSION", {"tarBytes":raw,"gzipBytes":gz,"zipBytes":zp,"gzipRatio":round(gz/raw,4),"zipRatio":round(zp/raw,4)})'
 
           python3 - <<'PY'
           import json
@@ -3727,6 +3760,129 @@ jobs:
           fi
 
           echo "XZIEL_NACHT_STANDALONE_VISUAL_GREEN"
+
+      - name: Build self-contained Nacht mobile playtest APK
+        shell: bash
+        run: |
+          set -euxo pipefail
+          BASE="dist/XZIEL-Nacht-Standalone-debug.apk"
+          VFS="dist/xziel-nacht-vfs.zip"
+          UNSIGNED="dist/XZIEL-Nacht-Mobile-Playtest-unsigned.apk"
+          ALIGNED="dist/XZIEL-Nacht-Mobile-Playtest-aligned.apk"
+          FINAL="dist/XZIEL-Nacht-Mobile-Playtest.apk"
+
+          test -s "$BASE"
+          test -s "$VFS"
+
+          python3 - "$BASE" "$VFS" "$UNSIGNED" <<'PY'
+          import shutil
+          import sys
+          import zipfile
+          from pathlib import Path
+
+          base = Path(sys.argv[1])
+          vfs = Path(sys.argv[2])
+          output = Path(sys.argv[3])
+          signature_suffixes = (
+              ".SF",
+              ".RSA",
+              ".DSA",
+              ".EC",
+          )
+
+          with zipfile.ZipFile(base, "r") as src, zipfile.ZipFile(
+              output,
+              "w",
+              allowZip64=False,
+          ) as dst:
+              for info in src.infolist():
+                  name = info.filename
+                  upper = name.upper()
+                  if name == "assets/xziel-nacht-vfs.zip":
+                      continue
+                  if upper.startswith("META-INF/") and (
+                      upper.endswith(signature_suffixes)
+                      or upper == "META-INF/MANIFEST.MF"
+                  ):
+                      continue
+
+                  clone = zipfile.ZipInfo(
+                      filename=name,
+                      date_time=info.date_time,
+                  )
+                  clone.compress_type = info.compress_type
+                  clone.comment = info.comment
+                  clone.extra = info.extra
+                  clone.internal_attr = info.internal_attr
+                  clone.external_attr = info.external_attr
+                  clone.create_system = info.create_system
+
+                  with src.open(info, "r") as source, dst.open(clone, "w") as target:
+                      shutil.copyfileobj(
+                          source,
+                          target,
+                          length=1024 * 1024,
+                      )
+
+              asset = zipfile.ZipInfo(
+                  "assets/xziel-nacht-vfs.zip"
+              )
+              asset.compress_type = zipfile.ZIP_STORED
+              asset.external_attr = 0o644 << 16
+              asset.file_size = vfs.stat().st_size
+
+              with vfs.open("rb") as source, dst.open(
+                  asset,
+                  "w",
+                  force_zip64=False,
+              ) as target:
+                  shutil.copyfileobj(
+                      source,
+                      target,
+                      length=4 * 1024 * 1024,
+                  )
+
+          print(
+              "XZIEL_SELF_CONTAINED_APK_UNSIGNED",
+              {
+                  "baseBytes": base.stat().st_size,
+                  "vfsBytes": vfs.stat().st_size,
+                  "apkBytes": output.stat().st_size,
+              },
+          )
+          PY
+
+          BUILD_TOOLS="$ANDROID_SDK_ROOT/build-tools/35.0.0"
+          test -x "$BUILD_TOOLS/zipalign"
+          test -x "$BUILD_TOOLS/apksigner"
+
+          "$BUILD_TOOLS/zipalign" -f -p 4 "$UNSIGNED" "$ALIGNED"
+
+          KEYSTORE="dist/xziel-debug.keystore"
+          rm -f "$KEYSTORE"
+          keytool -genkeypair             -keystore "$KEYSTORE"             -storepass android             -alias androiddebugkey             -keypass android             -dname "CN=XZIEL Debug,O=XZIEL,C=US"             -keyalg RSA             -keysize 2048             -validity 10000             -noprompt
+
+          "$BUILD_TOOLS/apksigner" sign             --ks "$KEYSTORE"             --ks-key-alias androiddebugkey             --ks-pass pass:android             --key-pass pass:android             --out "$FINAL"             "$ALIGNED"
+
+          "$BUILD_TOOLS/apksigner" verify             --verbose             --print-certs             "$FINAL"
+
+          unzip -l "$FINAL"             | grep -F 'assets/xziel-nacht-vfs.zip'
+
+          test -s "$FINAL"
+          sha256sum "$FINAL"             | tee dist/XZIEL-Nacht-Mobile-Playtest.apk.sha256
+          ls -lh "$FINAL" dist/XZIEL-Nacht-Mobile-Playtest.apk.sha256
+          echo "XZIEL_NACHT_MOBILE_PLAYTEST_APK_GREEN"
+
+      - name: Upload self-contained Nacht mobile playtest APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Nacht-Mobile-Playtest-APK
+          path: |
+            dist/XZIEL-Nacht-Mobile-Playtest.apk
+            dist/XZIEL-Nacht-Mobile-Playtest.apk.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
 
       - name: Upload Nacht standalone visual proof
         if: always()
