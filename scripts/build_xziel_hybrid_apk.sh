@@ -38,7 +38,20 @@ echo "Guest payload: $(du -h "$ASSETS/xziel-game.zip" | awk '{print $1}')"
 echo "==> Building XZIEL hybrid APK"
 cd "$WINLATOR"
 chmod +x gradlew
-./gradlew --no-daemon :app:assembleDebug
+
+# GitHub-hosted runners may carry a user-level Gradle configuration from
+# unrelated Android jobs. Isolate this build so only valid JVM options reach
+# the daemon.
+export GRADLE_USER_HOME="$BUILD/gradle-home"
+mkdir -p "$GRADLE_USER_HOME"
+cat > "$GRADLE_USER_HOME/gradle.properties" <<'GRADLE'
+org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8
+org.gradle.parallel=false
+org.gradle.daemon=false
+GRADLE
+unset GRADLE_OPTS || true
+unset JAVA_OPTS || true
+./gradlew --no-daemon --stacktrace :app:assembleDebug
 
 APK="$WINLATOR/app/build/outputs/apk/debug/app-debug.apk"
 test -s "$APK"
