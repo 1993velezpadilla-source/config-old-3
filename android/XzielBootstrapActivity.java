@@ -343,33 +343,57 @@ public final class XzielBootstrapActivity extends Activity {
     }
 
     private void applyImmersiveMode() {
-        getWindow().addFlags(
+        final android.view.Window window = getWindow();
+        if (window == null)
+            return;
+
+        window.addFlags(
             WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
-        View decorView = getWindow().getDecorView();
+        final View decorView = window.getDecorView();
         if (decorView == null)
             return;
 
-        if (android.os.Build.VERSION.SDK_INT >= 30) {
-            getWindow().setDecorFitsSystemWindows(false);
-            WindowInsetsController controller =
-                decorView.getWindowInsetsController();
-            if (controller != null) {
-                controller.hide(
-                    WindowInsets.Type.statusBars() |
-                    WindowInsets.Type.navigationBars());
-                controller.setSystemBarsBehavior(
-                    WindowInsetsController.
-                        BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
-            }
-        } else {
-            decorView.setSystemUiVisibility(
-                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |
-                View.SYSTEM_UI_FLAG_FULLSCREEN |
-                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
-                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
-                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
-        }
+        final int legacyFlags =
+            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |
+            View.SYSTEM_UI_FLAG_FULLSCREEN |
+            View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
+            View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
+            View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
+            View.SYSTEM_UI_FLAG_LAYOUT_STABLE;
+
+        // Safe immediately on every supported Android version.  This also
+        // avoids touching PhoneWindow's insets controller before its DecorView
+        // has been attached during Activity.onCreate().
+        decorView.setSystemUiVisibility(legacyFlags);
+
+        if (android.os.Build.VERSION.SDK_INT < 30)
+            return;
+
+        decorView.post(() -> {
+            if (isFinishing() || isDestroyed())
+                return;
+
+            final android.view.Window liveWindow = getWindow();
+            if (liveWindow == null)
+                return;
+
+            final View liveDecor = liveWindow.getDecorView();
+            if (liveDecor == null || !liveDecor.isAttachedToWindow())
+                return;
+
+            liveWindow.setDecorFitsSystemWindows(false);
+            final WindowInsetsController controller =
+                liveDecor.getWindowInsetsController();
+            if (controller == null)
+                return;
+
+            controller.hide(
+                WindowInsets.Type.statusBars() |
+                WindowInsets.Type.navigationBars());
+            controller.setSystemBarsBehavior(
+                WindowInsetsController.
+                    BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+        });
     }
 }
