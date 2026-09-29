@@ -674,6 +674,81 @@ jobs:
           grep -q "XZIEL_XZMS_NATIVE_FILES_GREEN count=$EXPECTED" \
             shadows-download/ue-xzms-native-gate.log
 
+      - name: Build 1-to-1 source export dependency manifest
+        run: |
+          set -euxo pipefail
+          dotnet restore tools/maps/UEAssetSourceManifest/UEAssetSourceManifest.csproj
+          dotnet build tools/maps/UEAssetSourceManifest/UEAssetSourceManifest.csproj \
+            --configuration Release --no-restore
+          APP="tools/maps/UEAssetSourceManifest/bin/Release/net10.0/UEAssetSourceManifest.dll"
+          test -s "$APP"
+
+          dotnet "$APP" \
+            shadows-pak-unpacked \
+            shadows-download/PavMappings.usmap \
+            shadows-download/shadows-class-requirements.json \
+            shadows-download/shadows-class-census.json \
+            shadows-download/shadows-source-manifest.json \
+            0 1 ue5.1 \
+            | tee shadows-download/shadows-source-manifest.log
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("shadows-download/shadows-source-manifest.json").read_text())
+          census=json.loads(Path("shadows-download/shadows-class-census.json").read_text())
+          sweep=json.loads(Path("shadows-download/shadows-property-sweep.json").read_text())
+          req=json.loads(Path("shadows-download/shadows-class-requirements.json").read_text())
+          assert r["ready"] is True
+          assert r["packageCount"] == census["packageCount"]
+          assert r["packagesLoaded"] == census["packageCount"]
+          assert r["expectedExports"] == census["totalExports"]
+          assert r["exportsDecoded"] == census["totalExports"]
+          assert r["nodeCount"] == census["totalExports"]
+          assert r["uniqueContentKeyCount"] == census["totalExports"]
+          assert r["propertyTags"] == sweep["propertyTagCount"]
+          assert r["kindCounts"] == req["categoryExportCounts"]
+          assert r["ignoredMetadataExports"] == req["ignoredExportCount"]
+          assert r["packageFailureCount"] == 0
+          assert r["exportFailureCount"] == 0
+          assert r["unclassifiedCount"] == 0
+          assert r["invalidDependencyCount"] == 0
+          assert (
+              r["structuralEdges"] +
+              r["dependsMapEdges"] +
+              r["preloadEdges"]
+          ) > 0
+          Path("shadows-download/shadows-source-adapter-requirements.txt").write_text(
+              "".join(
+                  f"{kind}|{count}\n"
+                  for kind,count in sorted(req["categoryExportCounts"].items())
+              )
+          )
+          print("XZIEL_SHADOWS_SOURCE_MANIFEST_GREEN", {
+              "exports": r["exportsDecoded"],
+              "nodes": r["nodeCount"],
+              "ignoredMetadata": r["ignoredMetadataExports"],
+              "structuralEdges": r["structuralEdges"],
+              "dependsMapEdges": r["dependsMapEdges"],
+              "preloadEdges": r["preloadEdges"],
+          })
+          PY
+
+      - name: Prove source conversion remains fail closed
+        run: |
+          set -euxo pipefail
+          mkdir -p build/shadows-source-adapter-gate
+          cc -std=gnu11 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tools/maps/xz_source_adapter_blocker_gate.c \
+            engine/xz/xz_source_adapter_registry.c \
+            -o build/shadows-source-adapter-gate/gate
+          build/shadows-source-adapter-gate/gate \
+            < shadows-download/shadows-source-adapter-requirements.txt \
+            | tee shadows-download/source-adapter-blockers.log
+          grep -q 'XZIEL_SOURCE_CONVERSION_FAIL_CLOSED_GREEN' \
+            shadows-download/source-adapter-blockers.log
+
       - name: Fail closed on unknown source classes
         run: |
           set -euxo pipefail
