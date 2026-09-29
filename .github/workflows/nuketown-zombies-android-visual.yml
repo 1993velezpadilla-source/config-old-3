@@ -168,7 +168,7 @@ jobs:
           GPU_FAIL=0
           for i in $(seq 1 90); do
             "$ADB" logcat -d -v threadtime > dist/xziel-logcat-nuketown.txt || true
-            if grep -Eq "XZIEL-XZ.*static_scene status=READY map='xziel_nuketown_zombies'.*meshes=52 instances=124.*gpuReady=1.*xzmi=1 xzml=1 xzmlMaterials=198 xzmlGpuReady=1 xztxTextures=221 xztxAstc=221" dist/xziel-logcat-nuketown.txt               && grep -Eq "XZIEL-XZ.*phase16 heartbeat requested=MODERN active=MODERN candidate=1 allowed=1 caps=0xff blockers=0x0 .*legacyVisible=0" dist/xziel-logcat-nuketown.txt; then
+            if grep -Eq "XZIEL-XZ.*static_scene status=READY map='xziel_nuketown_zombies'.*meshes=52 instances=124.*gpuReady=1.*xzmi=1 xzml=1 xzmlMaterials=198 xzmlGpuReady=1 xztxTextures=221 xztxAstc=221" dist/xziel-logcat-nuketown.txt               && grep -Eq "XZIEL-XZ.*parity present.*staticSuccess=[1-9][0-9]*.*staticDraws=[1-9][0-9]*.*staticFboNonblack=[1-9][0-9]*.*staticFrame=1" dist/xziel-logcat-nuketown.txt               && grep -Eq "XZIEL-XZ.*phase16 heartbeat requested=MODERN active=MODERN candidate=1 allowed=1 caps=0xff blockers=0x0 .*legacyVisible=0" dist/xziel-logcat-nuketown.txt; then
               READY=1
               break
             fi
@@ -188,8 +188,31 @@ jobs:
           sleep 4
           python3 -m pip install --quiet pillow==11.3.0
 
-          VISUAL_OK=0
+          "$ADB" exec-out run-as com.xziel.engine cat files/nzp-runtime/static-scene-fbo.ppm             > dist/xziel-nuketown-static-scene.ppm || true
+          test -s dist/xziel-nuketown-static-scene.ppm
           : > dist/nuketown-visual-report.txt
+          python3 - <<'PY' >> dist/nuketown-visual-report.txt 2>&1
+          from pathlib import Path
+          from PIL import Image, ImageStat
+          src = Path("dist/xziel-nuketown-static-scene.ppm")
+          out = Path("dist/xziel-nuketown-static-scene.png")
+          im = Image.open(src).convert("RGB")
+          gray = im.convert("L")
+          stat = ImageStat.Stat(gray)
+          lo, hi = gray.getextrema()
+          if im.width < 1000 or im.height < 500 or hi - lo < 24 or stat.stddev[0] < 8:
+              raise SystemExit(
+                  f"invalid static scene capture size={im.size} "
+                  f"mean={stat.mean[0]:.2f} std={stat.stddev[0]:.2f} extrema={(lo, hi)}"
+              )
+          im.save(out)
+          print(
+              f"{out.name} size={im.size} mean={stat.mean[0]:.2f} "
+              f"std={stat.stddev[0]:.2f} extrema={(lo, hi)}"
+          )
+          PY
+
+          VISUAL_OK=0
           for attempt in $(seq 1 8); do
             "$ADB" exec-out screencap -p > dist/xziel-nuketown-a.png || true
             sleep 3
@@ -241,6 +264,8 @@ jobs:
           name: XZIEL-Nuketown-Android-Visual-Proof
           path: |
             dist/xziel-nuketown-screen.png
+            dist/xziel-nuketown-static-scene.png
+            dist/xziel-nuketown-static-scene.ppm
             dist/xziel-nuketown-a.png
             dist/xziel-nuketown-b.png
             dist/xziel-logcat-nuketown.txt
