@@ -191,14 +191,20 @@ foreach (var selectedPackage in selected.Values
     var rowTypes = new SortedSet<string>(StringComparer.Ordinal);
     var rowError = "";
 
+    var resolvedPackagePath =
+        ResolveProviderPackagePath(
+            provider,
+            selectedPackage.PackagePath);
+
     try
     {
-        if (!provider.TryLoadPackage(
-                selectedPackage.PackagePath,
+        if (resolvedPackagePath is null ||
+            !provider.TryLoadPackage(
+                resolvedPackagePath,
                 out var package))
         {
             throw new InvalidOperationException(
-                "provider.TryLoadPackage returned false");
+                "provider could not resolve census package path");
         }
 
         packageSuccesses++;
@@ -274,7 +280,8 @@ foreach (var selectedPackage in selected.Values
 
     rows.Add(new
     {
-        packagePath = selectedPackage.PackagePath,
+        censusPackagePath = selectedPackage.PackagePath,
+        resolvedPackagePath,
         categories = selectedPackage.Categories.OrderBy(x => x).ToArray(),
         expectedClasses = selectedPackage.ExpectedClasses.OrderBy(x => x).ToArray(),
         exportSuccesses = rowExportSuccesses,
@@ -370,6 +377,55 @@ if (!ready)
 
 Console.WriteLine("XZIEL_UE_PROPERTY_PROBE_GREEN");
 return 0;
+
+static string? ResolveProviderPackagePath(
+    DefaultFileProvider provider,
+    string censusPath)
+{
+    if (provider.TryGetGameFile(censusPath, out _))
+        return censusPath;
+
+    var normalized = censusPath.Replace('\\', '/');
+
+    if (normalized.StartsWith("shard-", StringComparison.OrdinalIgnoreCase))
+    {
+        var slash = normalized.IndexOf('/');
+        if (slash >= 0 && slash + 1 < normalized.Length)
+        {
+            var withoutShard = normalized[(slash + 1)..];
+            if (provider.TryGetGameFile(withoutShard, out _))
+                return withoutShard;
+            normalized = withoutShard;
+        }
+    }
+
+    var roots = new[] { provider.ProjectName, "Engine" };
+    foreach (var root in roots)
+    {
+        if (string.IsNullOrWhiteSpace(root))
+            continue;
+
+        var marker = root + "/";
+        var index = normalized.IndexOf(
+            marker,
+            StringComparison.OrdinalIgnoreCase);
+
+        if (index >= 0)
+        {
+            var candidate = normalized[index..];
+            if (provider.TryGetGameFile(candidate, out _))
+                return candidate;
+        }
+    }
+
+    var suffixMatch = provider.Files.Keys
+        .FirstOrDefault(
+            key => normalized.EndsWith(
+                key,
+                StringComparison.OrdinalIgnoreCase));
+
+    return suffixMatch;
+}
 
 sealed record ProbeCategory(
     string Name,
