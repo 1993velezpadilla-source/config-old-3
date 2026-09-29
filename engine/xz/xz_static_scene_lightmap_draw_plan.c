@@ -73,7 +73,7 @@ static int XzValidGameplayScale(float value)
         value <= 10000.0f;
 }
 
-static void XzMatrixMetersRowMajorToQuakeColumnMajor(
+static void XzMatrixMetersRowMajorToRuntimeColumnMajor(
     const float input[16],
     float units_per_meter,
     float output[16])
@@ -341,7 +341,7 @@ int XzStaticSceneLightmapDrawPlan_Build(
                 entry->mesh_index)
             goto fail;
 
-        XzMatrixMetersRowMajorToQuakeColumnMajor(
+        XzMatrixMetersRowMajorToRuntimeColumnMajor(
             instance.matrix,
             scene->gameplay_units_per_meter,
             instance_matrices +

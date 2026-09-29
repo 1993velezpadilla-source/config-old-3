@@ -27,7 +27,7 @@ import java.util.zip.ZipFile;
 /**
  * Strict installer for XZIEL .xzp map packages.
  *
- * The package is verified before it is made visible to Vril:
+ * The package is verified before it is made visible to the XZIEL runtime:
  * - xziel.package.json must be unique and source-inventory strictReady;
  * - map metadata must match the portable descriptor contract;
  * - xziel.runtime.json must promote all 24 universal families to ready;

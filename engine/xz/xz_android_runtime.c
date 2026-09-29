@@ -1338,7 +1338,7 @@ void XzAndroidRuntime_Init(size_t engine_heap_bytes)
                 XzVisibility_SelfTest()
                     ? ANDROID_LOG_INFO
                     : ANDROID_LOG_WARN,
-                "phase13 visibility selftest=%s source=VRIL_PVS camera=VPN_FOV"
+                "phase13 visibility selftest=%s source=XZIEL_VISIBILITY camera=XZIEL_CAMERA"
                 " conservative=1",
                 XzVisibility_SelfTest()
                     ? "PASS" : "FAIL");
@@ -1347,7 +1347,7 @@ void XzAndroidRuntime_Init(size_t engine_heap_bytes)
                 XzMaterialLighting_SelfTest()
                     ? ANDROID_LOG_INFO
                     : ANDROID_LOG_WARN,
-                "phase14 materials_lighting selftest=%s source=VRIL"
+                "phase14 materials_lighting selftest=%s source=XZIEL"
                 " modes=COLOR/TEXTURE/GLOW/SOLID/ADDITIVE/LMPOINT lights=DLIGHT",
                 XzMaterialLighting_SelfTest()
                     ? "PASS" : "FAIL");

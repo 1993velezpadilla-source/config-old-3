@@ -11,7 +11,7 @@ static int XzValidScale(float value)
         value <= 10000.0f;
 }
 
-static void XzMatrixMetersRowMajorToQuakeColumnMajor(
+static void XzMatrixMetersRowMajorToRuntimeColumnMajor(
     const float input[16],
     float units_per_meter,
     float output[16])
@@ -25,8 +25,8 @@ static void XzMatrixMetersRowMajorToQuakeColumnMajor(
      *   [ R*S  T ]
      *   [ 0     1 ]
      *
-     * Mesh vertices are in meters. The legacy gameplay camera operates in
-     * Quake units, so the complete XYZ rows (basis + translation) are scaled
+     * Mesh vertices are in meters. The XZIEL gameplay camera operates in
+     * XZIEL runtime units, so the complete XYZ rows (basis + translation) are scaled
      * by units_per_meter. GLES consumes column-major matrices with transpose
      * disabled, so transpose while packing.
      */
@@ -170,7 +170,7 @@ int XzStaticSceneDrawPlan_Build(
             scene->instance_count)
             goto fail;
 
-        XzMatrixMetersRowMajorToQuakeColumnMajor(
+        XzMatrixMetersRowMajorToRuntimeColumnMajor(
             instance.matrix,
             scene->gameplay_units_per_meter,
             matrices +
@@ -427,7 +427,7 @@ int XzStaticSceneDrawPlan_SelfTest(void)
         goto fail;
 
     /*
-     * Local 1m basis becomes 10 Quake units.
+     * Local 1m basis becomes 10 XZIEL runtime units.
      * Translation 1m becomes x=10 for the grouped mesh0 instance.
      * Column-major translation is [12..14].
      */
@@ -438,7 +438,7 @@ int XzStaticSceneDrawPlan_SelfTest(void)
         fabsf(m0[15] - 1.0f) > 0.001f)
         goto fail;
 
-    /* Last grouped mesh1 instance was source tx=3m -> 30 Quake units. */
+    /* Last grouped mesh1 instance was source tx=3m -> 30 XZIEL runtime units. */
     if (fabsf(m2[12] - 30.0f) > 0.001f)
         goto fail;
 

@@ -34,9 +34,9 @@ static void XzMapRuntime_CopyMapId(
     base = XzMapRuntime_BaseName(world_model_name);
     length = strlen(base);
 
-    if (length >= 4u &&
-        strcmp(base + length - 4u, ".bsp") == 0) {
-        length -= 4u;
+    if (length >= 6u &&
+        strcmp(base + length - 6u, ".xzmap") == 0) {
+        length -= 6u;
     }
 
     if (length >= destination_size)
@@ -117,8 +117,8 @@ void XzMapRuntime_SetWorldModel(
     XzWorldTransform_Init(&state->world_transform);
 
     /*
-     * This function is called from Vril R_NewMap, so every invocation is a
-     * real world load. Reloading the same map must start a fresh match too.
+     * Every invocation represents a real XZIEL world load. Reloading the same
+     * map must start a fresh match too.
      */
     XzNacht_Reset(&state->nacht);
 }
@@ -447,20 +447,13 @@ int XzMapRuntime_SelfTest(void)
         state.nacht.active_zone_mask != XZ_NACHT_ZONE_START)
         return 0;
 
-    /* Old Quake/NZ:P Nacht must never alias the XZIEL BO3 runtime. */
-    XzMapRuntime_SetWorldModel(&state, "maps/ndu.bsp");
-    if (state.kind != XZ_MAP_RUNTIME_NONE ||
-        strcmp(state.map_id, "ndu") != 0 ||
-        XzMapRuntime_Nacht(&state) != NULL)
-        return 0;
-
     /*
      * Arbitrary maps do not become trusted XZIEL runtimes by filename.
      * Package verification is an explicit promotion signal.
      */
     XzMapRuntime_SetWorldModel(
         &state,
-        "maps/community_test.bsp");
+        "maps/community_test.xzmap");
     if (state.kind != XZ_MAP_RUNTIME_NONE ||
         XzMapRuntime_IsVerifiedPackage(&state) != 0)
         return 0;
@@ -482,7 +475,7 @@ int XzMapRuntime_SelfTest(void)
 
     XzMapRuntime_SetWorldModel(
         &state,
-        "maps/xziel_nacht_bo3.bsp");
+        "maps/xziel_nacht_bo3.xzmap");
 
     if (state.kind != XZ_MAP_RUNTIME_NACHT_BO3 ||
         strcmp(state.map_id, "xziel_nacht_bo3") != 0 ||
@@ -500,17 +493,10 @@ int XzMapRuntime_SelfTest(void)
     generation = state.generation;
     XzMapRuntime_SetWorldModel(
         &state,
-        "maps/xziel_nacht_bo3.bsp");
+        "maps/xziel_nacht_bo3.xzmap");
     if (state.generation != generation + 1u ||
         state.nacht.points != 500u ||
         XzNacht_ActiveSpawnCount(&state.nacht) != 10u)
-        return 0;
-
-    generation = state.generation;
-    XzMapRuntime_SetWorldModel(&state, "maps/ndu.bsp");
-    if (state.kind != XZ_MAP_RUNTIME_NONE ||
-        state.nacht.points != 500u ||
-        state.generation != generation + 1u)
         return 0;
 
     return 1;

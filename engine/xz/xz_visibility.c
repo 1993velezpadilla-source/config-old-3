@@ -89,10 +89,10 @@ void XzVisibility_Classify(
             XZ_VISIBILITY_NEAR_KEEP_SQ;
 
     /*
-     * Vril already produced cl_visedicts via BSP/PVS. This second stage is
-     * deliberately conservative: critical/effect/near entities are never
-     * removed, while clearly-behind or well-outside-frustum background
-     * entities can be rejected from the modern presentation path.
+     * The source visibility set has already passed XZIEL spatial visibility.
+     * This stage remains deliberately conservative: critical/effect/near
+     * entities are never removed, while clearly-behind or well-outside-frustum
+     * background entities can be rejected from presentation.
      */
     if (critical) {
         result->admitted = 1;
