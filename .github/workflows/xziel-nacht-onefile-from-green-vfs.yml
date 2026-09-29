@@ -1,0 +1,204 @@
+name: XZIEL Nacht OneFile From GREEN VFS
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - experiment/xziel-nacht-win64-exe-v1
+    paths:
+      - ".github/workflows/xziel-nacht-onefile-from-green-vfs.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  onefile:
+    runs-on: windows-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout modern XZIEL runtime
+        uses: actions/checkout@v5
+
+      - name: Download already GREEN self-contained Nacht APK
+        shell: pwsh
+        env:
+          GH_TOKEN: \${{ github.token }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force input, dist | Out-Null
+          gh run download 36639779572 --repo "$env:GITHUB_REPOSITORY" --name "XZIEL-Nacht-Mobile-Playtest-APK" --dir input
+          $apk = Get-ChildItem input -Recurse -Filter *.apk | Select-Object -First 1
+          if (-not $apk) { throw "GREEN Nacht APK artifact not found" }
+          Copy-Item $apk.FullName dist\XZIEL-Nacht-Mobile-Playtest-GREEN.apk
+          Write-Host "GREEN_APK_BYTES=$($apk.Length)"
+
+      - name: Extract complete xziel-nacht-vfs.zip from GREEN APK
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $apk = (Resolve-Path "dist\XZIEL-Nacht-Mobile-Playtest-GREEN.apk").Path
+          $out = (Join-Path (Resolve-Path "dist").Path "xziel-nacht-vfs.zip")
+          $zip = [System.IO.Compression.ZipFile]::OpenRead($apk)
+          try {
+            $entry = $zip.GetEntry("assets/xziel-nacht-vfs.zip")
+            if (-not $entry) { throw "assets/xziel-nacht-vfs.zip missing from GREEN APK" }
+            $src = $entry.Open()
+            $dst = [System.IO.File]::Create($out)
+            try { $src.CopyTo($dst) } finally { $dst.Dispose(); $src.Dispose() }
+          } finally {
+            $zip.Dispose()
+          }
+          $vfs = Get-Item $out
+          if ($vfs.Length -lt 500MB) { throw "VFS unexpectedly small: $($vfs.Length)" }
+          $sha = (Get-FileHash $out -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$sha  xziel-nacht-vfs.zip" | Set-Content "dist\xziel-nacht-vfs.zip.sha256"
+          Write-Host "XZIEL_NACHT_GREEN_VFS_READY bytes=$($vfs.Length) sha256=$sha"
+
+      - name: Validate and extract every Nacht VFS file
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $vfs = (Resolve-Path "dist\xziel-nacht-vfs.zip").Path
+          $zip = [System.IO.Compression.ZipFile]::OpenRead($vfs)
+          try {
+            $entries = $zip.Entries
+            $scene = $entries | Where-Object { $_.FullName -eq "xziel/maps/xziel_nacht_bo3/scene.xzsc" }
+            if (-not $scene) { throw "scene.xzsc missing" }
+            $meshes = @($entries | Where-Object { $_.FullName -match '^xziel/maps/xziel_nacht_bo3/meshes/[^/]+\.xzm$' })
+            if ($meshes.Count -ne 492) { throw "Expected 492 meshes, found $($meshes.Count)" }
+            $required = @(
+              "xziel/maps/xziel_nacht_bo3/materials.xzmt",
+              "xziel/maps/xziel_nacht_bo3/materials.xzpb",
+              "xziel/maps/xziel_nacht_bo3/materials.xzmn",
+              "xziel/maps/xziel_nacht_bo3/environment.xzen",
+              "xziel/maps/xziel_nacht_bo3/fog.xzfg",
+              "xziel/maps/xziel_nacht_bo3/reflection.xzrc",
+              "xziel/maps/xziel_nacht_bo3/lightmaps.xzlt",
+              "xziel/maps/xziel_nacht_bo3/lightmap-bindings.xzlb"
+            )
+            foreach ($name in $required) {
+              if (-not ($entries | Where-Object FullName -eq $name)) { throw "Required Nacht VFS file missing: $name" }
+            }
+            $fileEntries = @($entries | Where-Object { $_.Name.Length -gt 0 })
+            @(
+              "XZIEL_NACHT_GREEN_VFS"
+              "map=xziel_nacht_bo3"
+              "expected_meshes=492"
+              "meshes=$($meshes.Count)"
+              "expected_instances=10791"
+              "vfs_files=$($fileEntries.Count)"
+              "vfs_bytes=$((Get-Item $vfs).Length)"
+            ) | Set-Content "dist\pack-report.txt"
+            Write-Host "XZIEL_NACHT_VFS_VALIDATED files=$($fileEntries.Count) meshes=$($meshes.Count)"
+          } finally {
+            $zip.Dispose()
+          }
+          New-Item -ItemType Directory -Force "dist\win64\bundle" | Out-Null
+          [System.IO.Compression.ZipFile]::ExtractToDirectory($vfs,(Resolve-Path "dist\win64\bundle").Path)
+          if (-not (Test-Path "dist\win64\bundle\xziel\maps\xziel_nacht_bo3\scene.xzsc")) { throw "Extracted scene.xzsc missing" }
+          $meshCount = @(Get-ChildItem "dist\win64\bundle\xziel\maps\xziel_nacht_bo3\meshes" -Filter *.xzm -File).Count
+          if ($meshCount -ne 492) { throw "Extracted mesh count mismatch: $meshCount" }
+
+      - name: Install MinGW64 SDL2 and ANGLE
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-binutils
+            mingw-w64-x86_64-pkgconf
+            mingw-w64-x86_64-SDL2
+            mingw-w64-x86_64-angleproject
+
+      - name: Compile modern XZIEL Win64 runtime
+        shell: msys2 {0}
+        run: |
+          set -euxo pipefail
+          mkdir -p dist/win64/runtime
+          mapfile -t SOURCES < <(find engine/xz -maxdepth 1 -type f -name '*.c' | sort)
+          test "\${#SOURCES[@]}" -gt 20
+          CFLAGS=( -O2 -std=gnu99 -Wall -Wno-unused-variable -Wno-unused-but-set-variable -DXZIEL_WINDOWS_STANDALONE=1 -DPROP_VALUE_MAX=92 )
+          read -r -a SDL_CFLAGS <<< "\$(pkg-config --cflags sdl2)"
+          read -r -a SDL_LIBS <<< "\$(pkg-config --libs sdl2)"
+          gcc "\${CFLAGS[@]}" "\${SDL_CFLAGS[@]}" "\${SOURCES[@]}" -o dist/win64/runtime/Xziel-Nacht.exe "\${SDL_LIBS[@]}" -lGLESv2 -lEGL -lm
+          test -s dist/win64/runtime/Xziel-Nacht.exe
+          objdump -f dist/win64/runtime/Xziel-Nacht.exe | tee dist/win64/pe-runtime-header.txt
+          objdump -p dist/win64/runtime/Xziel-Nacht.exe | tee dist/win64/pe-runtime-imports.txt
+          grep -Eiq 'pei-x86-64|i386:x86-64' dist/win64/pe-runtime-header.txt
+          cp dist/win64/runtime/Xziel-Nacht.exe dist/win64/bundle/
+          for dll in SDL2.dll libEGL.dll libGLESv2.dll libgcc_s_seh-1.dll libwinpthread-1.dll; do
+            if [[ -s "/mingw64/bin/$dll" ]]; then cp "/mingw64/bin/$dll" dist/win64/bundle/; fi
+          done
+          test -s dist/win64/bundle/SDL2.dll
+          test -s dist/win64/bundle/libEGL.dll
+          test -s dist/win64/bundle/libGLESv2.dll
+          sha256sum dist/win64/bundle/Xziel-Nacht.exe | tee dist/win64/Xziel-Nacht.exe.sha256
+          echo "XZIEL_NACHT_WIN64_RUNTIME_GREEN"
+
+      - name: Install NSIS
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          choco install nsis -y --no-progress
+          $makensis = @("C:\Program Files (x86)\NSIS\makensis.exe","C:\Program Files\NSIS\makensis.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $makensis) { throw "makensis.exe not found" }
+          "MAKENSIS=$makensis" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Build one self-extracting Nacht executable
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $script = @'
+          Unicode true
+          Name "XZIEL Nacht"
+          OutFile "Nacht-Chronicles-XZIEL.exe"
+          RequestExecutionLevel user
+          SilentInstall silent
+          AutoCloseWindow true
+          SetCompressor /SOLID lzma
+          SetDatablockOptimize on
+          CRCCheck force
+          ShowInstDetails nevershow
+
+          Section "Run XZIEL Nacht"
+            InitPluginsDir
+            SetOutPath "$PLUGINSDIR\game"
+            File /r "bundle\*"
+            ExecWait '"$PLUGINSDIR\game\Xziel-Nacht.exe" --xziel-root "$PLUGINSDIR\game" --xziel-map xziel_nacht_bo3' $0
+            SetErrorLevel $0
+          SectionEnd
+          '@
+          $script | Set-Content "dist\win64\nacht-onefile.nsi" -Encoding UTF8
+          Push-Location "dist\win64"
+          try {
+            & "$env:MAKENSIS" "nacht-onefile.nsi"
+            if ($LASTEXITCODE -ne 0) { throw "makensis failed with exit code $LASTEXITCODE" }
+          } finally { Pop-Location }
+          $exe = Get-Item "dist\win64\Nacht-Chronicles-XZIEL.exe"
+          if ($exe.Length -lt 500MB) { throw "One-file EXE unexpectedly small: $($exe.Length)" }
+          $sha = (Get-FileHash $exe.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$sha  Nacht-Chronicles-XZIEL.exe" | Set-Content "dist\win64\Nacht-Chronicles-XZIEL.exe.sha256"
+          Get-Content "dist\pack-report.txt" | Add-Content "dist\win64\pack-report.txt"
+          "onefile_exe_bytes=$($exe.Length)" | Add-Content "dist\win64\pack-report.txt"
+          "onefile_exe_sha256=$sha" | Add-Content "dist\win64\pack-report.txt"
+          Write-Host "XZIEL_NACHT_ONEFILE_EXE_GREEN bytes=$($exe.Length) sha256=$sha"
+
+      - name: Upload complete Nacht Windows EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Nacht-Windows-OneFile
+          path: |
+            dist/win64/Nacht-Chronicles-XZIEL.exe
+            dist/win64/Nacht-Chronicles-XZIEL.exe.sha256
+            dist/win64/pack-report.txt
+            dist/win64/pe-runtime-header.txt
+            dist/win64/pe-runtime-imports.txt
+            dist/xziel-nacht-vfs.zip.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
