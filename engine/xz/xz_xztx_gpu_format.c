@@ -1,6 +1,7 @@
 #include "xz_xztx_gpu_format.h"
 
 #include <limits.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
