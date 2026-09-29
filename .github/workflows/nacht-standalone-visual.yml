@@ -1,5 +1,5 @@
 name: XZIEL Nacht Standalone Visual
-# trigger-token: nacht-win64-onefile-v1
+# trigger-token: nacht-win64-onefile-v2-fast
 
 on:
   workflow_dispatch:
@@ -3464,6 +3464,7 @@ jobs:
 
 
       - name: Download current GREEN standalone APK
+        if: ${{ github.ref_name != 'experiment/xziel-nacht-win64-exe-v1' }}
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -3504,10 +3505,12 @@ jobs:
           test -s "$MAPROOT/lightmaps.xzlt"
           test -s "$MAPROOT/lightmap-bindings.xzlb"
 
-          tar -C "$OVERLAY" -cf dist/xziel-nacht-vfs.tar xziel
-          test -s dist/xziel-nacht-vfs.tar
-          gzip -1 -c dist/xziel-nacht-vfs.tar > dist/xziel-nacht-vfs.tar.gz
-          test -s dist/xziel-nacht-vfs.tar.gz
+          if [[ "$GITHUB_REF_NAME" != "experiment/xziel-nacht-win64-exe-v1" ]]; then
+            tar -C "$OVERLAY" -cf dist/xziel-nacht-vfs.tar xziel
+            test -s dist/xziel-nacht-vfs.tar
+            gzip -1 -c dist/xziel-nacht-vfs.tar > dist/xziel-nacht-vfs.tar.gz
+            test -s dist/xziel-nacht-vfs.tar.gz
+          fi
 
           python3 - <<'PY'
           import os
@@ -3541,8 +3544,11 @@ jobs:
           PY
 
           test -s dist/xziel-nacht-vfs.zip
-          ls -lh dist/xziel-nacht-vfs.tar dist/xziel-nacht-vfs.tar.gz dist/xziel-nacht-vfs.zip
-          python3 -c 'from pathlib import Path; raw=Path("dist/xziel-nacht-vfs.tar").stat().st_size; gz=Path("dist/xziel-nacht-vfs.tar.gz").stat().st_size; zp=Path("dist/xziel-nacht-vfs.zip").stat().st_size; print("XZIEL_NACHT_VFS_COMPRESSION", {"tarBytes":raw,"gzipBytes":gz,"zipBytes":zp,"gzipRatio":round(gz/raw,4),"zipRatio":round(zp/raw,4)})'
+          ls -lh dist/xziel-nacht-vfs.zip
+          if [[ "$GITHUB_REF_NAME" != "experiment/xziel-nacht-win64-exe-v1" ]]; then
+            ls -lh dist/xziel-nacht-vfs.tar dist/xziel-nacht-vfs.tar.gz
+            python3 -c 'from pathlib import Path; raw=Path("dist/xziel-nacht-vfs.tar").stat().st_size; gz=Path("dist/xziel-nacht-vfs.tar.gz").stat().st_size; zp=Path("dist/xziel-nacht-vfs.zip").stat().st_size; print("XZIEL_NACHT_VFS_COMPRESSION", {"tarBytes":raw,"gzipBytes":gz,"zipBytes":zp,"gzipRatio":round(gz/raw,4),"zipRatio":round(zp/raw,4)})'
+          fi
 
           python3 - <<'PY'
           import json
@@ -3569,6 +3575,7 @@ jobs:
           retention-days: 14
 
       - name: Derive four native camera probes from Nacht spawn
+        if: ${{ github.ref_name != 'experiment/xziel-nacht-win64-exe-v1' }}
         shell: bash
         run: |
           set -euxo pipefail
@@ -3612,6 +3619,7 @@ jobs:
           PY
 
       - name: Install Android emulator
+        if: ${{ github.ref_name != 'experiment/xziel-nacht-win64-exe-v1' }}
         shell: bash
         run: |
           set -euxo pipefail
@@ -3624,6 +3632,7 @@ jobs:
             "system-images;android-35;google_apis;x86_64"
 
       - name: Boot Nacht on pure XZIEL and capture four directions
+        if: ${{ github.ref_name != 'experiment/xziel-nacht-win64-exe-v1' }}
         shell: bash
         env:
           ANDROID_AVD_HOME: ${{ runner.temp }}/xziel-nacht-avd
@@ -3772,6 +3781,7 @@ jobs:
           echo "XZIEL_NACHT_STANDALONE_VISUAL_GREEN"
 
       - name: Build self-contained Nacht mobile playtest APK
+        if: ${{ github.ref_name != 'experiment/xziel-nacht-win64-exe-v1' }}
         shell: bash
         run: |
           set -euxo pipefail
@@ -3884,6 +3894,7 @@ jobs:
           echo "XZIEL_NACHT_MOBILE_PLAYTEST_APK_GREEN"
 
       - name: Fresh-install and boot self-contained mobile playtest APK
+        if: ${{ github.ref_name != 'experiment/xziel-nacht-win64-exe-v1' }}
         shell: bash
         run: |
           set -euxo pipefail
@@ -3965,6 +3976,7 @@ jobs:
           echo "XZIEL_NACHT_SELF_CONTAINED_FRESH_BOOT_GREEN"
 
       - name: Upload self-contained Nacht mobile playtest APK
+        if: ${{ github.ref_name != 'experiment/xziel-nacht-win64-exe-v1' }}
         uses: actions/upload-artifact@v4
         with:
           name: XZIEL-Nacht-Mobile-Playtest-APK
@@ -3976,7 +3988,7 @@ jobs:
           retention-days: 14
 
       - name: Upload Nacht standalone visual proof
-        if: always()
+        if: ${{ always() && github.ref_name != 'experiment/xziel-nacht-win64-exe-v1' }}
         uses: actions/upload-artifact@v4
         with:
           name: XZIEL-Nacht-Standalone-Visual-Proof
