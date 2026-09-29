@@ -46,6 +46,11 @@ on:
       - tools/maps/UEDeepPayloadAudit/**
       - tools/maps/patch_cue4parse_animation_fallback.py
       - tools/maps/UESceneTransformAudit/**
+      - tools/maps/UEStaticSceneExtract/**
+      - tools/maps/compile_xziel_static_scene.py
+      - tools/maps/xz_xzscene_file_gate.c
+      - engine/xz/xz_xzscene.h
+      - engine/xz/xz_xzscene.c
       - tools/maps/UEAssetSourceManifest/**
       - tools/maps/xz_source_class_gate.c
       - tools/maps/xz_source_adapter_blocker_gate.c
@@ -1559,6 +1564,110 @@ jobs:
           grep -q "XZIEL_XZMS_NATIVE_FILES_GREEN count=$EXPECTED_XZMS" \
             nuketown-download/ue-xzms-native-gate.log
 
+      - name: Build native XZSC from cooked UE static placements
+        run: |
+          set -euxo pipefail
+
+          dotnet restore \
+            tools/maps/UEStaticSceneExtract/UEStaticSceneExtract.csproj
+
+          dotnet build \
+            tools/maps/UEStaticSceneExtract/UEStaticSceneExtract.csproj \
+            --configuration Release \
+            --no-restore
+
+          APP="tools/maps/UEStaticSceneExtract/bin/Release/net10.0/UEStaticSceneExtract.dll"
+          test -s "$APP"
+
+          mkdir -p nuketown-download/runtime-static-scene
+
+          dotnet "$APP" \
+            nuketown-pak-unpacked \
+            nuketown-download/PavMappings.usmap \
+            nuketown-download/nuketown-class-census.json \
+            nuketown-download/ue-xzms-probe/report.json \
+            nuketown-download/runtime-static-scene/visual-scene.json \
+            ue5.1 \
+            | tee nuketown-download/runtime-static-scene/extract.log
+
+          grep -q 'XZIEL_UE_STATIC_SCENE_EXTRACT_GREEN' \
+            nuketown-download/runtime-static-scene/extract.log
+
+          RUNTIME_MAP_ID="xziel_nuketown_zombies"
+          RUNTIME_ROOT="nuketown-download/runtime-static-scene/vfs/xziel/maps/$RUNTIME_MAP_ID"
+          mkdir -p "$RUNTIME_ROOT/meshes"
+
+          python3 - <<'PY'
+          import json
+          import shutil
+          from pathlib import Path
+
+          scene = json.loads(
+              Path(
+                  "nuketown-download/runtime-static-scene/visual-scene.json"
+              ).read_text(encoding="utf-8")
+          )
+          assert scene["summary"]["ready"] is True, scene["summary"]
+          assert scene["summary"]["referencedNativeMeshCount"] > 0
+          assert scene["summary"]["sceneInstanceCount"] > 0
+
+          source = Path("nuketown-download/ue-xzms-probe")
+          target = Path(
+              "nuketown-download/runtime-static-scene/vfs/"
+              "xziel/maps/xziel_nuketown_zombies/meshes"
+          )
+
+          copied = 0
+          for mesh in scene["meshes"]:
+              name = mesh["runtimeFile"]
+              src = source / name
+              dst = target / name
+              assert src.is_file(), src
+              shutil.copy2(src, dst)
+              copied += 1
+
+          assert copied == scene["summary"]["referencedNativeMeshCount"]
+          print("XZIEL_UE_STATIC_SCENE_MESH_STAGE_GREEN", {
+              "meshes": copied,
+              "instances": scene["summary"]["sceneInstanceCount"],
+          })
+          PY
+
+          python3 tools/maps/compile_xziel_static_scene.py \
+            nuketown-download/runtime-static-scene/visual-scene.json \
+            "$RUNTIME_ROOT/scene.xzsc" \
+            --runtime-map-id "$RUNTIME_MAP_ID" \
+            --report nuketown-download/runtime-static-scene/xzsc-report.json \
+            | tee nuketown-download/runtime-static-scene/xzsc-build.log
+
+          test -s "$RUNTIME_ROOT/scene.xzsc"
+          grep -q 'XZIEL_STATIC_SCENE_OK' \
+            nuketown-download/runtime-static-scene/xzsc-build.log
+
+          EXPECTED_SCENE_MESHES=$(jq -r \
+            '.summary.referencedNativeMeshCount' \
+            nuketown-download/runtime-static-scene/visual-scene.json)
+          EXPECTED_SCENE_INSTANCES=$(jq -r \
+            '.summary.sceneInstanceCount' \
+            nuketown-download/runtime-static-scene/visual-scene.json)
+
+          mkdir -p build/xzsc-native-gate
+          cc -std=c99 -O2 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tools/maps/xz_xzscene_file_gate.c \
+            engine/xz/xz_xzscene.c \
+            -lm \
+            -o build/xzsc-native-gate/xz-xzscene-file-gate
+
+          build/xzsc-native-gate/xz-xzscene-file-gate \
+            "$RUNTIME_ROOT/scene.xzsc" \
+            "$EXPECTED_SCENE_MESHES" \
+            "$EXPECTED_SCENE_INSTANCES" \
+            | tee nuketown-download/runtime-static-scene/xzsc-native-gate.log
+
+          grep -q 'XZIEL_XZSC_FILE_GATE_GREEN' \
+            nuketown-download/runtime-static-scene/xzsc-native-gate.log
+
       - name: Build 1-to-1 source export dependency manifest
         run: |
           set -euxo pipefail
@@ -1811,6 +1920,7 @@ jobs:
             nuketown-download/ue-xzms-probe/
             nuketown-download/ue-xzms-probe.log
             nuketown-download/ue-xzms-native-gate.log
+            nuketown-download/runtime-static-scene/
             nuketown-download/deep-payload-shards/
             nuketown-download/nuketown-source-export-manifest-summary.json
             nuketown-download/nuketown-source-adapter-requirements.txt
