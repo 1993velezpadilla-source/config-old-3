@@ -101,6 +101,8 @@ for name in (
     "xz_asset_cache.c",
     "xz_source_asset_pipeline.h",
     "xz_source_asset_pipeline.c",
+    "xz_source_adapter_registry.h",
+    "xz_source_adapter_registry.c",
     "xz_source_native_registry.h",
     "xz_source_native_registry.c",
     "xz_xzaudio.h",
