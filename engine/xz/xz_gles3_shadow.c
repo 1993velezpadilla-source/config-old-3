@@ -2868,7 +2868,8 @@ static int XzCreateStaticSceneProgram(void)
         "  float uvTone=0.92+0.08*clamp(vUV.y,0.0,1.0);\n"
         "  vec4 texel=uHasBaseColor!=0?texture(uBaseColor,vUV):vec4(0.56,0.54,0.50,1.0);\n"
         "  float materialAlpha=clamp(texel.a*uMaterialOpacity,0.0,1.0);\n"
-        "  if(uMaterialBlendMode<0){ if(uHasBaseColor!=0 && texel.a<0.04) discard; }\n"
+        "  if(uMaterialBlendMode==-2){ discard; }\n"
+        "  else if(uMaterialBlendMode<0){ if(uHasBaseColor!=0 && texel.a<0.04) discard; }\n"
         "  else if(uMaterialBlendMode==1 && materialAlpha<uOpacityMaskClip) discard;\n"
         "  else if(uMaterialBlendMode==0) materialAlpha=1.0;\n"
         "  vec3 albedo=texel.rgb*(uMaterialShadingMode<0?uvTone:1.0);\n"
@@ -7002,12 +7003,16 @@ static int XzDrawStaticScene(
             gl->Uniform1i(
                 xz_shadow.static_material_blend_mode_loc,
                 (GLint)(
-                    pbr_binding.blend_mode ==
-                        XZ_PBR_BLEND_MASKED &&
                     (pbr_binding.material_flags &
-                        XZ_PBR_MATERIAL_FLAG_ALPHA_TEST_ENABLED) == 0u
-                        ? XZ_PBR_BLEND_OPAQUE
-                        : pbr_binding.blend_mode));
+                        XZ_PBR_MATERIAL_FLAG_MASK_CONSTANT_REJECT) != 0u
+                        ? -2
+                        : (
+                            pbr_binding.blend_mode ==
+                                XZ_PBR_BLEND_MASKED &&
+                            (pbr_binding.material_flags &
+                                XZ_PBR_MATERIAL_FLAG_ALPHA_TEST_ENABLED) == 0u
+                                ? XZ_PBR_BLEND_OPAQUE
+                                : (GLint)pbr_binding.blend_mode)));
             gl->Uniform1f(
                 xz_shadow.static_material_opacity_loc,
                 1.0f);
