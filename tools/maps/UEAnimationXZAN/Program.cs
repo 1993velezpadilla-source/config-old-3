@@ -162,7 +162,7 @@ foreach (var logicalPackage in candidatePackages)
                     new SkeletonDto(skeleton);
 
                 var skeletonHash =
-                    XzielSkeletonIdentity.HashBones(
+                    XzielSkeletonIdentity.HashTopology(
                         skeletonDto.Bones);
 
                 var convertedSet =
