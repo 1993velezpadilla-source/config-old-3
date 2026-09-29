@@ -54,6 +54,28 @@ var classToKind =
                 ?? throw new InvalidDataException("category missing"),
             StringComparer.Ordinal);
 
+var ignoredClassReasons =
+    new Dictionary<string, string>(StringComparer.Ordinal);
+
+if (requirementsDoc.RootElement.TryGetProperty(
+        "ignored",
+        out var ignoredRows))
+{
+    foreach (var row in ignoredRows.EnumerateArray())
+    {
+        var className =
+            row.GetProperty("class").GetString()
+            ?? throw new InvalidDataException(
+                "ignored class missing");
+        var reason =
+            row.TryGetProperty("reason", out var reasonValue)
+                ? reasonValue.GetString() ?? "ignored"
+                : "ignored";
+
+        ignoredClassReasons[className] = reason;
+    }
+}
+
 var expectedKindCounts =
     requirementsDoc.RootElement
         .GetProperty("categoryExportCounts")
@@ -136,6 +158,7 @@ long preloadEdges = 0;
 long localDependencyEdges = 0;
 long externalImportEdges = 0;
 long scriptImportEdges = 0;
+long ignoredMetadataExports = 0;
 
 foreach (var censusPackage in logicalPackages)
 {
@@ -186,9 +209,26 @@ foreach (var censusPackage in logicalPackages)
                 exportsDecoded++;
                 propertyTags += obj.Properties.Count;
 
-                if (!classToKind.TryGetValue(
+                var isIgnored =
+                    ignoredClassReasons.TryGetValue(
                         obj.ExportType,
-                        out var sourceKind))
+                        out var ignoreReason);
+
+                string sourceKind;
+                if (classToKind.TryGetValue(
+                        obj.ExportType,
+                        out var runtimeKind))
+                {
+                    sourceKind = runtimeKind;
+                    kindCounts[sourceKind] =
+                        kindCounts.GetValueOrDefault(sourceKind) + 1;
+                }
+                else if (isIgnored)
+                {
+                    sourceKind = "editor_metadata";
+                    ignoredMetadataExports++;
+                }
+                else
                 {
                     unclassified.Add(new
                     {
@@ -198,9 +238,6 @@ foreach (var censusPackage in logicalPackages)
                     });
                     continue;
                 }
-
-                kindCounts[sourceKind] =
-                    kindCounts.GetValueOrDefault(sourceKind) + 1;
 
                 var exportMeta = package.ExportMap[exportIndex];
                 var localDeps = new SortedSet<int>();
@@ -355,6 +392,10 @@ foreach (var censusPackage in logicalPackages)
                     objectName = obj.Name,
                     className = obj.ExportType,
                     sourceKind,
+                    sourceDisposition =
+                        isIgnored ? "ignored" : "runtime",
+                    ignoreReason =
+                        isIgnored ? ignoreReason : null,
                     propertyCount = obj.Properties.Count,
                     serialSize = exportMeta.SerialSize,
                     localExportDependencies = localDeps.ToArray(),
@@ -421,6 +462,7 @@ var report = new
     localDependencyEdges,
     externalImportEdges,
     scriptImportEdges,
+    ignoredMetadataExports,
     uniqueContentKeyCount = keys.Count,
     kindCounts,
     expectedGlobalKindCounts = expectedKindCounts,
@@ -461,6 +503,7 @@ Console.WriteLine(
         localDependencyEdges,
         externalImportEdges,
         scriptImportEdges,
+        ignoredMetadataExports,
         report.packageFailureCount,
         report.exportFailureCount,
         report.unclassifiedCount,
