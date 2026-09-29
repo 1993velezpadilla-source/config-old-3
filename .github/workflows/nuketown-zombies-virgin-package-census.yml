@@ -1524,14 +1524,20 @@ jobs:
               )
           )
           expected = int(census["classCounts"]["StaticMesh"])
-          assert report["requested"] == expected, (report["requested"], expected)
-          assert report["converted"] == expected, (report["converted"], expected)
-          assert report["failures"] == 0, report["failures"]
+          assert report["requestedMeshes"] == expected, (
+              report["requestedMeshes"],
+              expected,
+          )
+          assert report["convertedMeshes"] == expected, (
+              report["convertedMeshes"],
+              expected,
+          )
+          assert report["failureCount"] == 0, report["failureCount"]
           assert report["ready"] is True
           print("XZIEL_UE_XZMS_FULL_COVERAGE_GREEN", {
               "expected": expected,
-              "converted": report["converted"],
-              "failures": report["failures"],
+              "converted": report["convertedMeshes"],
+              "failures": report["failureCount"],
           })
           PY
 
