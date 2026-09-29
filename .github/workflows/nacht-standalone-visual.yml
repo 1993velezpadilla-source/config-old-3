@@ -1,5 +1,5 @@
 name: XZIEL Nacht Standalone Visual
-# trigger-token: self-contained-fresh-boot-v1
+# trigger-token: android35-immersive-fresh-boot-v2
 
 on:
   workflow_dispatch:
@@ -3911,12 +3911,13 @@ jobs:
 
           "$ADB" shell df -h /data             | tee dist/self-contained-data-after.txt
 
-          "$ADB" shell run-as com.xziel.engine test -s             files/.xziel-nacht-vfs-complete-v1
-          "$ADB" shell run-as com.xziel.engine test -s             files/xziel/maps/xziel_nacht_bo3/scene.xzsc
-          MESHES="$("$ADB" shell run-as com.xziel.engine sh -c             'find files/xziel/maps/xziel_nacht_bo3/meshes -maxdepth 1 -type f -name "*.xzm" | wc -l'             | tr -d '\r')"
-          test "$MESHES" = "492"
+          content_ok=1
+          "$ADB" shell run-as com.xziel.engine test -s             files/.xziel-nacht-vfs-complete-v1 || content_ok=0
+          "$ADB" shell run-as com.xziel.engine test -s             files/xziel/maps/xziel_nacht_bo3/scene.xzsc || content_ok=0
+          MESHES="$("$ADB" shell run-as com.xziel.engine sh -c             'find files/xziel/maps/xziel_nacht_bo3/meshes -maxdepth 1 -type f -name "*.xzm" 2>/dev/null | wc -l'             2>/dev/null | tr -d '\r' || true)"
 
-          if [[ "$failed" == "1" || "$ready" != "1" ]]; then
+          if [[ "$failed" == "1" || "$ready" != "1" || "$content_ok" != "1" || "$MESHES" != "492" ]]; then
+            echo "XZIEL_SELF_CONTAINED_GATE failed=$failed ready=$ready content_ok=$content_ok meshes=$MESHES"
             grep -E               'XZIEL-BOOT|XZIEL-XZ|static_scene|standalone_static_present|FATAL|Fatal signal|SIGSEGV|SIGABRT|Exception'               dist/self-contained-logcat.txt               | tail -n 1200 || true
             "$ADB" shell dumpsys activity processes               > dist/self-contained-processes.txt || true
             exit 93
