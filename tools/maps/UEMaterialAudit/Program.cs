@@ -257,6 +257,30 @@ foreach (var logicalPackage in candidatePackages)
                             .ToArray()
                         : Array.Empty<object>();
 
+                object[] packageExpressionGraph =
+                    material is UMaterial
+                        ? package.GetExports()
+                            .Where(export =>
+                                export.ExportType.StartsWith(
+                                    "MaterialExpression",
+                                    StringComparison.Ordinal) &&
+                                export.GetPathName().StartsWith(
+                                    material.GetPathName() + ":",
+                                    StringComparison.OrdinalIgnoreCase))
+                            .OrderBy(
+                                export => export.GetPathName(),
+                                StringComparer.Ordinal)
+                            .Select(export => (object)new
+                            {
+                                exportType = export.ExportType,
+                                objectPath = export.GetPathName(),
+                                properties =
+                                    DescribePropertyHolder(
+                                        export.Properties)
+                            })
+                            .ToArray()
+                        : Array.Empty<object>();
+
                 var textures = new List<object>();
                 foreach (var textureEntry in parameters.Textures
                              .OrderBy(
@@ -419,7 +443,10 @@ foreach (var logicalPackage in candidatePackages)
                         material is UMaterial graphMaterial
                             ? DescribeMaterialExpressions(
                                 graphMaterial)
-                            : Array.Empty<object>()
+                            : Array.Empty<object>(),
+                    packageExpressionCount =
+                        packageExpressionGraph.Length,
+                    packageExpressionGraph
                 });
             }
             catch (Exception e)
