@@ -11,6 +11,7 @@ on:
       - tools/maps/UEStaticMeshAudit/**
       - tools/maps/UESceneTransformAudit/**
       - tools/maps/UEDeepPayloadAudit/**
+      - tools/maps/patch_cue4parse_animation_fallback.py
       - tools/maps/xz_xzmesh_file_gate.c
       - engine/xz/xz_xzmesh.c
       - engine/xz/xz_xzmesh.h
@@ -49,14 +50,34 @@ jobs:
             --no-restore \
             -warnaserror
 
+      - name: Prepare pinned CUE4Parse animation fallback
+        run: |
+          set -euxo pipefail
+          CUE4PARSE_ROOT="$RUNNER_TEMP/CUE4Parse"
+          git init "$CUE4PARSE_ROOT"
+          git -C "$CUE4PARSE_ROOT" remote add origin \
+            https://github.com/FabianFG/CUE4Parse.git
+          git -C "$CUE4PARSE_ROOT" fetch --depth=1 origin \
+            28f385e622468c4ab84997d596b46bb1c3adfcfa
+          git -C "$CUE4PARSE_ROOT" checkout --detach FETCH_HEAD
+          test "$(git -C "$CUE4PARSE_ROOT" rev-parse HEAD)" = \
+            "28f385e622468c4ab84997d596b46bb1c3adfcfa"
+          python3 tools/maps/patch_cue4parse_animation_fallback.py \
+            --root "$CUE4PARSE_ROOT"
+          echo "CUE4PARSE_SOURCE_ROOT=$CUE4PARSE_ROOT" >> "$GITHUB_ENV"
+
       - name: Compile deep UE payload audit
         run: |
           set -euxo pipefail
-          dotnet restore tools/maps/UEDeepPayloadAudit/UEDeepPayloadAudit.csproj
+          dotnet restore tools/maps/UEDeepPayloadAudit/UEDeepPayloadAudit.csproj \
+            -p:CUE4ParseSourceRoot="$CUE4PARSE_SOURCE_ROOT" \
+            -p:CUE4PARSE_SKIP_NATIVE=true
           dotnet build tools/maps/UEDeepPayloadAudit/UEDeepPayloadAudit.csproj \
             --configuration Release \
             --no-restore \
-            -warnaserror
+            -warnaserror \
+            -p:CUE4ParseSourceRoot="$CUE4PARSE_SOURCE_ROOT" \
+            -p:CUE4PARSE_SKIP_NATIVE=true
 
       - name: Compile native XZMS file validator
         run: |
