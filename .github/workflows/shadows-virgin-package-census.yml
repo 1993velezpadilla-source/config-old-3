@@ -138,7 +138,7 @@ jobs:
             ue5.1 \
             | tee shadows-download/shadows-class-census.log
           test -s shadows-download/shadows-class-census.json
-          grep -q 'XZIEL_UE_CLASS_CENSUS_GREEN' \
+          grep -q 'XZIEL_UE_ASSET_CLASS_CENSUS_OK' \
             shadows-download/shadows-class-census.log
 
       - name: Audit every source class against XZIEL readiness
