@@ -70,13 +70,15 @@ static int validate_file(
     }
 
     printf(
-        "XZIEL_XZSK_FILE_GATE_OK %s bones=%u vertices=%u indices=%u sections=%u skeleton=%016llx\n",
+        "XZIEL_XZSK_FILE_GATE_OK %s bones=%u skeletonBones=%u vertices=%u indices=%u sections=%u skeleton=%016llx meshLayout=%016llx\n",
         path,
         view.bone_count,
+        view.skeleton_bone_count,
         view.vertex_count,
         view.index_count,
         view.section_count,
-        (unsigned long long)view.skeleton_hash);
+        (unsigned long long)view.skeleton_hash,
+        (unsigned long long)view.mesh_layout_hash);
 
     free(data);
     return 1;
