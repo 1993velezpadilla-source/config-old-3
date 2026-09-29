@@ -511,6 +511,30 @@ void AuditAnimSequences(PackageRow row, UAnimSequence[] animations)
                 // Preserve the primary animation failure unchanged.
             }
 
+            string? boneCompressionSettingsPath = null;
+            string? boneCompressionSettingsPackage = null;
+            string? boneCompressionSettingsClass = null;
+            bool? boneCompressionSettingsLoads = null;
+
+            try
+            {
+                boneCompressionSettingsPath =
+                    animation.BoneCompressionSettings?.GetPathName();
+                boneCompressionSettingsPackage =
+                    animation.BoneCompressionSettings?.Package.Name;
+                boneCompressionSettingsClass =
+                    animation.BoneCompressionSettings?.Class?.Name.Text;
+
+                if (animation.BoneCompressionSettings is not null)
+                    boneCompressionSettingsLoads =
+                        animation.BoneCompressionSettings
+                            .Load<UAnimBoneCompressionSettings>() is not null;
+            }
+            catch
+            {
+                boneCompressionSettingsLoads = false;
+            }
+
             failures.Add(new {
                 family = "animation",
                 packagePath = row.Path,
@@ -519,6 +543,18 @@ void AuditAnimSequences(PackageRow row, UAnimSequence[] animations)
                 skeletonPath,
                 skeletonPackage,
                 skeletonClass,
+                boneCompressionSettingsPath,
+                boneCompressionSettingsPackage,
+                boneCompressionSettingsClass,
+                boneCompressionSettingsLoads,
+                boneCodecDDCHandle = animation.BoneCodecDDCHandle,
+                compressedDataType =
+                    animation.CompressedDataStructure?
+                        .GetType().FullName,
+                compressedRawDataSize =
+                    animation.CompressedRawDataSize,
+                compressedTracks =
+                    animation.CompressedTrackToSkeletonMapTable.Length,
                 error = e.GetType().FullName + ": " + e.Message
             });
         }
