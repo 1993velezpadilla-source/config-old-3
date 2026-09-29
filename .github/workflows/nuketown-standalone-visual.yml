@@ -233,15 +233,15 @@ jobs:
           "$ADB" pull /sdcard/xziel-ui.xml dist/xziel-ui.xml >/dev/null 2>&1 || true
           if grep -q 'text="Got it"' dist/xziel-ui.xml 2>/dev/null; then
             python3 - <<'PY' > "$RUNNER_TEMP/immersive-tap.txt"
-import re
-from pathlib import Path
-text=Path("dist/xziel-ui.xml").read_text(errors="ignore")
-m=re.search(r'text="Got it"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', text)
-if not m:
-    raise SystemExit(1)
-x1,y1,x2,y2=map(int,m.groups())
-print((x1+x2)//2, (y1+y2)//2)
-PY
+            import re
+            from pathlib import Path
+            text=Path("dist/xziel-ui.xml").read_text(errors="ignore")
+            m=re.search(r'text="Got it"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', text)
+            if not m:
+                raise SystemExit(1)
+            x1,y1,x2,y2=map(int,m.groups())
+            print((x1+x2)//2, (y1+y2)//2)
+            PY
             read TAP_X TAP_Y < "$RUNNER_TEMP/immersive-tap.txt"
             "$ADB" shell input tap "$TAP_X" "$TAP_Y"
             sleep 2
