@@ -1,0 +1,196 @@
+name: XZIEL Nuketown v49 Mac vs Oculus Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/xziel-bo3-style-map-loader-v1
+    paths:
+      - ".github/workflows/nuketown-v49-platform-audit.yml"
+      - "tools/maps/audit_virgin_ue_package.py"
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Install archive tools and repak
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y p7zip-full unzip jq file
+          mkdir -p "$RUNNER_TEMP/repak"
+          curl -fL --retry 5             https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-unknown-linux-gnu.tar.xz             -o "$RUNNER_TEMP/repak.tar.xz"
+          tar -xJf "$RUNNER_TEMP/repak.tar.xz" -C "$RUNNER_TEMP/repak"
+          REPAK="$(find "$RUNNER_TEMP/repak" -type f -name 'repak*' -perm -111 | head -1)"
+          test -n "$REPAK"
+          echo "REPAK=$REPAK" >> "$GITHUB_ENV"
+
+      - name: Download v49 Mac and Oculus
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p audit/download
+          curl -fL --retry 8 --retry-delay 3 --retry-all-errors             -o audit/download/mac.zip             "https://g-3959.modapi.io/v1/games/3959/mods/5097941/files/7509512/download"
+          curl -fL --retry 8 --retry-delay 3 --retry-all-errors             -o audit/download/oculus.zip             "https://g-3959.modapi.io/v1/games/3959/mods/5097941/files/7509509/download"
+          test -s audit/download/mac.zip
+          test -s audit/download/oculus.zip
+          sha256sum audit/download/*.zip | tee audit/sha256.txt
+          stat -c '%n %s bytes' audit/download/*.zip | tee audit/zip-sizes.txt
+
+      - name: Extract and inventory both packages
+        shell: bash
+        run: |
+          set -euxo pipefail
+          for platform in mac oculus; do
+            mkdir -p "audit/$platform/outer" "audit/$platform/pak"
+            7z l -slt "audit/download/$platform.zip" > "audit/$platform/outer-list.txt"
+            7z x -y "audit/download/$platform.zip" -o"audit/$platform/outer" >/dev/null
+            find "audit/$platform/outer" -type f -printf '%P\t%s\n' | sort > "audit/$platform/outer-files.tsv"
+
+            PAK="$(find "audit/$platform/outer" -type f -name '*.pak' -print -quit)"
+            test -n "$PAK"
+            echo "$PAK" > "audit/$platform/pak-path.txt"
+            "$REPAK" info "$PAK" > "audit/$platform/pak-info.txt"
+            "$REPAK" list "$PAK" > "audit/$platform/pak-list.txt"
+            "$REPAK" unpack "$PAK" -o "audit/$platform/pak"
+
+            python3 tools/maps/audit_virgin_ue_package.py               --root "audit/$platform/pak"               --report "audit/$platform/census.json"
+
+            find "audit/$platform/pak" -type f -printf '%P\t%s\n' | sort > "audit/$platform/pak-files.tsv"
+            du -sb "audit/$platform/pak" | tee "audit/$platform/unpacked-bytes.txt"
+          done
+
+      - name: Compare package structure and likely texture payload
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, hashlib
+          from collections import Counter
+
+          root = Path("audit")
+          out = {"schemaVersion": 1, "platforms": {}, "comparison": {}}
+
+          def scan(platform):
+              base = root / platform / "pak"
+              files = [p for p in base.rglob("*") if p.is_file()]
+              ext = Counter((p.suffix.lower() or "<none>") for p in files)
+              total = sum(p.stat().st_size for p in files)
+              texture_named = [
+                  p for p in files
+                  if any(k in p.name.lower() for k in ("texture", "tex_", "_d.", "_n.", "_m.", "_orm.", "_rma."))
+              ]
+              uasset = [p for p in files if p.suffix.lower() in {".uasset", ".umap"}]
+              ubulk = [p for p in files if p.suffix.lower() == ".ubulk"]
+              uexp = [p for p in files if p.suffix.lower() == ".uexp"]
+
+              fmt_hits = Counter()
+              format_tokens = [
+                  b"PF_ASTC_6x6", b"PF_ASTC_4x4", b"PF_BC7",
+                  b"PF_DXT1", b"PF_DXT5", b"PF_B8G8R8A8",
+                  b"PF_R8G8B8A8"
+              ]
+              for p in files:
+                  if p.stat().st_size > 128 * 1024 * 1024:
+                      continue
+                  try:
+                      data = p.read_bytes()
+                  except Exception:
+                      continue
+                  for tok in format_tokens:
+                      n = data.count(tok)
+                      if n:
+                          fmt_hits[tok.decode()] += n
+
+              census = json.loads((root/platform/"census.json").read_text())
+              return {
+                  "fileCount": len(files),
+                  "totalBytes": total,
+                  "extensionCounts": dict(sorted(ext.items())),
+                  "uassetOrUmapCount": len(uasset),
+                  "uexpCount": len(uexp),
+                  "ubulkCount": len(ubulk),
+                  "textureNamedFileCount": len(texture_named),
+                  "pixelFormatStringHits": dict(sorted(fmt_hits.items())),
+                  "census": census,
+              }
+
+          mac = scan("mac")
+          oculus = scan("oculus")
+          out["platforms"]["mac"] = mac
+          out["platforms"]["oculus"] = oculus
+
+          mac_list = set((root/"mac"/"pak-list.txt").read_text(errors="ignore").splitlines())
+          occ_list = set((root/"oculus"/"pak-list.txt").read_text(errors="ignore").splitlines())
+
+          out["comparison"] = {
+              "pakPathIntersection": len(mac_list & occ_list),
+              "macOnlyPaths": len(mac_list - occ_list),
+              "oculusOnlyPaths": len(occ_list - mac_list),
+              "samePathSet": mac_list == occ_list,
+              "macVsOculusUnpackedByteRatio":
+                  (mac["totalBytes"] / oculus["totalBytes"]) if oculus["totalBytes"] else None,
+              "macHasSubstantialTexturePayload":
+                  mac["ubulkCount"] > 0 or mac["totalBytes"] > 0.5 * oculus["totalBytes"],
+          }
+
+          (root/"platform-comparison.json").write_text(
+              json.dumps(out, indent=2, sort_keys=True),
+              encoding="utf-8"
+          )
+          print(json.dumps(out, indent=2, sort_keys=True))
+          PY
+
+      - name: Produce concise verdict
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 - <<'PY' | tee audit/verdict.txt
+          import json
+          from pathlib import Path
+          d=json.loads(Path("audit/platform-comparison.json").read_text())
+          m=d["platforms"]["mac"]
+          o=d["platforms"]["oculus"]
+          c=d["comparison"]
+          print("NUKETOWN_V49_PLATFORM_AUDIT")
+          print(f"mac_files={m['fileCount']} mac_bytes={m['totalBytes']}")
+          print(f"oculus_files={o['fileCount']} oculus_bytes={o['totalBytes']}")
+          print(f"same_path_set={c['samePathSet']}")
+          print(f"intersection={c['pakPathIntersection']} mac_only={c['macOnlyPaths']} oculus_only={c['oculusOnlyPaths']}")
+          print(f"mac_ratio={c['macVsOculusUnpackedByteRatio']}")
+          print("mac_pixel_formats="+json.dumps(m["pixelFormatStringHits"], sort_keys=True))
+          print("oculus_pixel_formats="+json.dumps(o["pixelFormatStringHits"], sort_keys=True))
+          if c["macHasSubstantialTexturePayload"]:
+              print("VERDICT=MAC_MAY_CONTAIN_USABLE_VISUAL_SOURCE")
+          else:
+              print("VERDICT=MAC_IS_NOT_A_SUBSTANTIAL_VISUAL_SOURCE")
+          PY
+
+      - name: Upload audit evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Nuketown-v49-Platform-Audit
+          path: |
+            audit/platform-comparison.json
+            audit/verdict.txt
+            audit/zip-sizes.txt
+            audit/sha256.txt
+            audit/mac/census.json
+            audit/oculus/census.json
+            audit/mac/pak-info.txt
+            audit/oculus/pak-info.txt
+            audit/mac/pak-list.txt
+            audit/oculus/pak-list.txt
+            audit/mac/outer-files.tsv
+            audit/oculus/outer-files.tsv
+          retention-days: 14
+          if-no-files-found: error
