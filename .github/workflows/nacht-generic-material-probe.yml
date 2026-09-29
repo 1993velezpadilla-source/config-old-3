@@ -1,0 +1,169 @@
+name: XZIEL Nacht Generic Material Probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/xziel-bo3-style-map-loader-v1
+    paths:
+      - ".github/workflows/nacht-generic-material-probe.yml"
+      - "tools/maps/UEMaterialAudit/**"
+      - "tools/maps/UEAssetClassCensus/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xziel-nacht-generic-material-probe
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Install SteamCMD and repak
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p "$RUNNER_TEMP/steamcmd" "$RUNNER_TEMP/repak"
+          curl -fL --retry 6 --retry-delay 2 --retry-all-errors \
+            https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz \
+            -o "$RUNNER_TEMP/steamcmd.tgz"
+          tar -xzf "$RUNNER_TEMP/steamcmd.tgz" -C "$RUNNER_TEMP/steamcmd"
+          "$RUNNER_TEMP/steamcmd/steamcmd.sh" +quit || true
+
+          curl -fL --retry 5 \
+            https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-unknown-linux-gnu.tar.xz \
+            -o "$RUNNER_TEMP/repak.tar.xz"
+          tar -xJf "$RUNNER_TEMP/repak.tar.xz" -C "$RUNNER_TEMP/repak"
+          REPAK="$(find "$RUNNER_TEMP/repak" -type f -name 'repak*' -perm -111 | head -1)"
+          test -n "$REPAK"
+          echo "REPAK=$REPAK" >> "$GITHUB_ENV"
+
+      - name: Download and unpack public Pavlov Nacht source
+        shell: bash
+        run: |
+          set -euxo pipefail
+          "$RUNNER_TEMP/steamcmd/steamcmd.sh" \
+            +login anonymous \
+            +workshop_download_item 555160 2755515831 validate \
+            +quit
+          ROOT="$(find "$HOME" "$RUNNER_TEMP" -type d \
+            -path '*/steamapps/workshop/content/555160/2755515831' \
+            -print -quit 2>/dev/null)"
+          test -n "$ROOT"
+          test -f "$ROOT/WindowsNoEditor.pak"
+          mkdir -p "$RUNNER_TEMP/nacht-unpacked"
+          "$REPAK" unpack "$ROOT/WindowsNoEditor.pak" \
+            -o "$RUNNER_TEMP/nacht-unpacked"
+          echo "UNPACKED=$RUNNER_TEMP/nacht-unpacked" >> "$GITHUB_ENV"
+
+      - name: Build UE4.21 class census
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p build/nacht-material-probe
+          dotnet restore tools/maps/UEAssetClassCensus/UEAssetClassCensus.csproj
+          dotnet build tools/maps/UEAssetClassCensus/UEAssetClassCensus.csproj \
+            --configuration Release --no-restore
+          APP="tools/maps/UEAssetClassCensus/bin/Release/net10.0/UEAssetClassCensus.dll"
+          test -s "$APP"
+          dotnet "$APP" \
+            "$UNPACKED" \
+            build/nacht-material-probe/class-census.json \
+            ue4.21 \
+            | tee build/nacht-material-probe/class-census.log
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("build/nacht-material-probe/class-census.json").read_text())
+          assert d["packageLoadFailureCount"] == 0, d["packageLoadFailures"][:20]
+          assert d["packagesLoaded"] == d["packageCount"]
+          assert d["totalExports"] > 0
+          mats=sum(v for k,v in d["classCounts"].items() if "Material" in k)
+          print("XZIEL_NACHT_UE421_CLASS_CENSUS_GREEN", {
+              "packages":d["packageCount"],
+              "exports":d["totalExports"],
+              "classes":d["uniqueExportClassCount"],
+              "materialLikeExports":mats,
+          })
+          PY
+
+      - name: Pin Pavlov property mappings
+        shell: bash
+        run: |
+          set -euxo pipefail
+          curl -fL --retry 5 --retry-delay 2 \
+            -o build/nacht-material-probe/PavMappings.usmap \
+            "https://raw.githubusercontent.com/THW-Reaper/PavlovVRMappings/4976647b4f3a209042460bc55a7a3122662d05b7/PavMappings.usmap"
+          test -s build/nacht-material-probe/PavMappings.usmap
+          echo "6d19f9731cc3fbaba34ca8e0833e81e4ffdf1b407edf24de48b1ccb5c63b060c  build/nacht-material-probe/PavMappings.usmap" \
+            | sha256sum -c -
+
+      - name: Audit Nacht UE4.21 materials with generic pipeline
+        shell: bash
+        run: |
+          set -euxo pipefail
+          dotnet restore tools/maps/UEMaterialAudit/UEMaterialAudit.csproj
+          dotnet build tools/maps/UEMaterialAudit/UEMaterialAudit.csproj \
+            --configuration Release --no-restore
+          APP="tools/maps/UEMaterialAudit/bin/Release/net10.0/UEMaterialAudit.dll"
+          test -s "$APP"
+
+          set +e
+          dotnet "$APP" \
+            "$UNPACKED" \
+            build/nacht-material-probe/PavMappings.usmap \
+            build/nacht-material-probe/class-census.json \
+            build/nacht-material-probe/material-audit.json \
+            ue4.21 \
+            | tee build/nacht-material-probe/material-audit.log
+          STATUS=${PIPESTATUS[0]}
+          set -e
+
+          test -s build/nacht-material-probe/material-audit.json
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("build/nacht-material-probe/material-audit.json").read_text())
+          s=d["summary"]
+          print("XZIEL_NACHT_GENERIC_MATERIAL_RESULT", s)
+          print("XZIEL_NACHT_GENERIC_MATERIAL_BLEND_MODES", {
+              k:sum(1 for m in d["materials"] if m["blendMode"]==k)
+              for k in sorted({m["blendMode"] for m in d["materials"]})
+          })
+          print("XZIEL_NACHT_GENERIC_MATERIAL_MASKED", sum(
+              1 for m in d["materials"] if m.get("isMasked") is True
+          ))
+          print("XZIEL_NACHT_GENERIC_MATERIAL_TWOSIDED", sum(
+              1 for m in d["materials"] if m.get("twoSided") is True
+          ))
+          PY
+
+          if [[ "$STATUS" -ne 0 ]]; then
+            echo "XZIEL_NACHT_GENERIC_MATERIAL_PROBE_FAILED status=$STATUS"
+            exit "$STATUS"
+          fi
+
+          grep -q 'XZIEL_UE_MATERIAL_AUDIT_GREEN' \
+            build/nacht-material-probe/material-audit.log
+          echo "XZIEL_NACHT_GENERIC_MATERIAL_PROBE_GREEN"
+
+      - name: Upload generic material evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Nacht-Generic-Material-Probe
+          path: |
+            build/nacht-material-probe/class-census.json
+            build/nacht-material-probe/class-census.log
+            build/nacht-material-probe/material-audit.json
+            build/nacht-material-probe/material-audit.log
+          if-no-files-found: warn
+          retention-days: 14
