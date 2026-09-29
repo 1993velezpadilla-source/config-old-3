@@ -36,7 +36,7 @@ typedef struct {
     float uv[2];
 } XzGeometryVertex;
 
-/* Exact legacy fixed-function state at the corresponding Vril draw call.
+/* Exact captured fixed-function state at the corresponding source draw call.
  * Numeric enum values are preserved verbatim so the GLES3 replay can map
  * blend/depth/alpha semantics without linking the tap core to GL headers. */
 typedef struct {

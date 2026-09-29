@@ -105,8 +105,8 @@
       ],
       "nativeIdentityRegistry": {
         "mode": "dedicated_pack_a_punch_id",
-        "quakecId": 160,
-        "quakecDefine": "W_XZ_PAP_PISTOL_STANDARD_UPGRADED",
+        "nativeId": 160,
+        "nativeSymbol": "W_XZ_PAP_PISTOL_STANDARD_UPGRADED",
         "mboxToken": "xz_pap_pistol_standard_upgraded"
       }
     },
@@ -176,8 +176,8 @@
       ],
       "nativeIdentityRegistry": {
         "mode": "dedicated_pack_a_punch_id",
-        "quakecId": 161,
-        "quakecDefine": "W_XZ_PAP_PISTOL_M1911_UPGRADED",
+        "nativeId": 161,
+        "nativeSymbol": "W_XZ_PAP_PISTOL_M1911_UPGRADED",
         "mboxToken": "xz_pap_pistol_m1911_upgraded"
       }
     },
@@ -234,8 +234,8 @@
       ],
       "nativeIdentityRegistry": {
         "mode": "reused_catalog_identity",
-        "quakecId": 92,
-        "quakecDefine": "W_XZ_CYMBAL_MONKEY_UPGRADED",
+        "nativeId": 92,
+        "nativeSymbol": "W_XZ_CYMBAL_MONKEY_UPGRADED",
         "mboxToken": "xz_cymbal_monkey_upgraded"
       }
     },
@@ -292,8 +292,8 @@
       ],
       "nativeIdentityRegistry": {
         "mode": "dedicated_pack_a_punch_id",
-        "quakecId": 162,
-        "quakecDefine": "W_XZ_PAP_RAY_GUN_UPGRADED",
+        "nativeId": 162,
+        "nativeSymbol": "W_XZ_PAP_RAY_GUN_UPGRADED",
         "mboxToken": "xz_pap_ray_gun_upgraded"
       }
     },
@@ -346,8 +346,8 @@
       ],
       "nativeIdentityRegistry": {
         "mode": "dedicated_pack_a_punch_id",
-        "quakecId": 163,
-        "quakecDefine": "W_XZ_PAP_THUNDERGUN_UPGRADED",
+        "nativeId": 163,
+        "nativeSymbol": "W_XZ_PAP_THUNDERGUN_UPGRADED",
         "mboxToken": "xz_pap_thundergun_upgraded"
       }
     },
@@ -438,8 +438,8 @@
       ],
       "nativeIdentityRegistry": {
         "mode": "dedicated_pack_a_punch_id",
-        "quakecId": 164,
-        "quakecDefine": "W_XZ_PAP_AR_ACCURATE_UPGRADED",
+        "nativeId": 164,
+        "nativeSymbol": "W_XZ_PAP_AR_ACCURATE_UPGRADED",
         "mboxToken": "xz_pap_ar_accurate_upgraded"
       }
     },
@@ -530,8 +530,8 @@
       ],
       "nativeIdentityRegistry": {
         "mode": "dedicated_pack_a_punch_id",
-        "quakecId": 165,
-        "quakecDefine": "W_XZ_PAP_AR_CQB_UPGRADED",
+        "nativeId": 165,
+        "nativeSymbol": "W_XZ_PAP_AR_CQB_UPGRADED",
         "mboxToken": "xz_pap_ar_cqb_upgraded"
       }
     },
@@ -622,8 +622,8 @@
       ],
       "nativeIdentityRegistry": {
         "mode": "dedicated_pack_a_punch_id",
-        "quakecId": 166,
-        "quakecDefine": "W_XZ_PAP_AR_DAMAGE_UPGRADED",
+        "nativeId": 166,
+        "nativeSymbol": "W_XZ_PAP_AR_DAMAGE_UPGRADED",
         "mboxToken": "xz_pap_ar_damage_upgraded"
       }
     },
@@ -714,8 +714,8 @@
       ],
       "nativeIdentityRegistry": {
         "mode": "dedicated_pack_a_punch_id",
-        "quakecId": 167,
-        "quakecDefine": "W_XZ_PAP_AR_LONGBURST_UPGRADED",
+        "nativeId": 167,
+        "nativeSymbol": "W_XZ_PAP_AR_LONGBURST_UPGRADED",
         "mboxToken": "xz_pap_ar_longburst_upgraded"
       }
     },
@@ -806,8 +806,8 @@
       ],
       "nativeIdentityRegistry": {
         "mode": "dedicated_pack_a_punch_id",
-        "quakecId": 168,
-        "quakecDefine": "W_XZ_PAP_AR_MARKSMAN_UPGRADED",
+        "nativeId": 168,
+        "nativeSymbol": "W_XZ_PAP_AR_MARKSMAN_UPGRADED",
         "mboxToken": "xz_pap_ar_marksman_upgraded"
       }
     },
@@ -898,8 +898,8 @@
       ],
       "nativeIdentityRegistry": {
         "mode": "dedicated_pack_a_punch_id",
-        "quakecId": 169,
-        "quakecDefine": "W_XZ_PAP_AR_STANDARD_UPGRADED",
+        "nativeId": 169,
+        "nativeSymbol": "W_XZ_PAP_AR_STANDARD_UPGRADED",
         "mboxToken": "xz_pap_ar_standard_upgraded"
       }
     },
@@ -990,8 +990,8 @@
       ],
       "nativeIdentityRegistry": {
         "mode": "dedicated_pack_a_punch_id",
-        "quakecId": 170,
-        "quakecDefine": "W_XZ_PAP_AR_GARAND_UPGRADED",
+        "nativeId": 170,
+        "nativeSymbol": "W_XZ_PAP_AR_GARAND_UPGRADED",
         "mboxToken": "xz_pap_ar_garand_upgraded"
       }
     },
@@ -1044,8 +1044,8 @@
       ],
       "nativeIdentityRegistry": {
         "mode": "dedicated_pack_a_punch_id",
-        "quakecId": 171,
-        "quakecDefine": "W_XZ_PAP_AR_STG44_UPGRADED",
+        "nativeId": 171,
+        "nativeSymbol": "W_XZ_PAP_AR_STG44_UPGRADED",
         "mboxToken": "xz_pap_ar_stg44_upgraded"
       }
     },
@@ -1134,8 +1134,8 @@
       ],
       "nativeIdentityRegistry": {
         "mode": "dedicated_pack_a_punch_id",
-        "quakecId": 172,
-        "quakecDefine": "W_XZ_PAP_LMG_CQB_UPGRADED",
+        "nativeId": 172,
+        "nativeSymbol": "W_XZ_PAP_LMG_CQB_UPGRADED",
         "mboxToken": "xz_pap_lmg_cqb_upgraded"
       }
     },
@@ -1224,8 +1224,8 @@
       ],
       "nativeIdentityRegistry": {
         "mode": "dedicated_pack_a_punch_id",
-        "quakecId": 173,
-        "quakecDefine": "W_XZ_PAP_LMG_HEAVY_UPGRADED",
+        "nativeId": 173,
+        "nativeSymbol": "W_XZ_PAP_LMG_HEAVY_UPGRADED",
         "mboxToken": "xz_pap_lmg_heavy_upgraded"
       }
     },
@@ -1314,8 +1314,8 @@
       ],
       "nativeIdentityRegistry": {
         "mode": "dedicated_pack_a_punch_id",
-        "quakecId": 174,
-        "quakecDefine": "W_XZ_PAP_LMG_LIGHT_UPGRADED",
+        "nativeId": 174,
+        "nativeSymbol": "W_XZ_PAP_LMG_LIGHT_UPGRADED",
         "mboxToken": "xz_pap_lmg_light_upgraded"
       }
     },
@@ -1404,8 +1404,8 @@
       ],
       "nativeIdentityRegistry": {
         "mode": "dedicated_pack_a_punch_id",
-        "quakecId": 175,
-        "quakecDefine": "W_XZ_PAP_LMG_SLOWFIRE_UPGRADED",
+        "nativeId": 175,
+        "nativeSymbol": "W_XZ_PAP_LMG_SLOWFIRE_UPGRADED",
         "mboxToken": "xz_pap_lmg_slowfire_upgraded"
       }
     },
@@ -1490,8 +1490,8 @@
       ],
       "nativeIdentityRegistry": {
         "mode": "dedicated_pack_a_punch_id",
-        "quakecId": 176,
-        "quakecDefine": "W_XZ_PAP_PISTOL_BURST_UPGRADED",
+        "nativeId": 176,
+        "nativeSymbol": "W_XZ_PAP_PISTOL_BURST_UPGRADED",
         "mboxToken": "xz_pap_pistol_burst_upgraded"
       }
     },
@@ -1576,8 +1576,8 @@
       ],
       "nativeIdentityRegistry": {
         "mode": "dedicated_pack_a_punch_id",
-        "quakecId": 177,
-        "quakecDefine": "W_XZ_PAP_PISTOL_FULLAUTO_UPGRADED",
+        "nativeId": 177,
+        "nativeSymbol": "W_XZ_PAP_PISTOL_FULLAUTO_UPGRADED",
         "mboxToken": "xz_pap_pistol_fullauto_upgraded"
       }
     },
@@ -1662,8 +1662,8 @@
       ],
       "nativeIdentityRegistry": {
         "mode": "dedicated_pack_a_punch_id",
-        "quakecId": 178,
-        "quakecDefine": "W_XZ_PAP_SHOTGUN_FULLAUTO_UPGRADED",
+        "nativeId": 178,
+        "nativeSymbol": "W_XZ_PAP_SHOTGUN_FULLAUTO_UPGRADED",
         "mboxToken": "xz_pap_shotgun_fullauto_upgraded"
       }
     },
@@ -1748,8 +1748,8 @@
       ],
       "nativeIdentityRegistry": {
         "mode": "dedicated_pack_a_punch_id",
-        "quakecId": 179,
-        "quakecDefine": "W_XZ_PAP_SHOTGUN_PRECISION_UPGRADED",
+        "nativeId": 179,
+        "nativeSymbol": "W_XZ_PAP_SHOTGUN_PRECISION_UPGRADED",
         "mboxToken": "xz_pap_shotgun_precision_upgraded"
       }
     },
@@ -1834,8 +1834,8 @@
       ],
       "nativeIdentityRegistry": {
         "mode": "dedicated_pack_a_punch_id",
-        "quakecId": 180,
-        "quakecDefine": "W_XZ_PAP_SHOTGUN_PUMP_UPGRADED",
+        "nativeId": 180,
+        "nativeSymbol": "W_XZ_PAP_SHOTGUN_PUMP_UPGRADED",
         "mboxToken": "xz_pap_shotgun_pump_upgraded"
       }
     },
@@ -1920,8 +1920,8 @@
       ],
       "nativeIdentityRegistry": {
         "mode": "dedicated_pack_a_punch_id",
-        "quakecId": 181,
-        "quakecDefine": "W_XZ_PAP_SHOTGUN_SEMIAUTO_UPGRADED",
+        "nativeId": 181,
+        "nativeSymbol": "W_XZ_PAP_SHOTGUN_SEMIAUTO_UPGRADED",
         "mboxToken": "xz_pap_shotgun_semiauto_upgraded"
       }
     },
@@ -1991,8 +1991,8 @@
       ],
       "nativeIdentityRegistry": {
         "mode": "dedicated_pack_a_punch_id",
-        "quakecId": 182,
-        "quakecDefine": "W_XZ_PAP_LAUNCHER_STANDARD_UPGRADED",
+        "nativeId": 182,
+        "nativeSymbol": "W_XZ_PAP_LAUNCHER_STANDARD_UPGRADED",
         "mboxToken": "xz_pap_launcher_standard_upgraded"
       }
     },
@@ -2081,8 +2081,8 @@
       ],
       "nativeIdentityRegistry": {
         "mode": "dedicated_pack_a_punch_id",
-        "quakecId": 183,
-        "quakecDefine": "W_XZ_PAP_SMG_BURST_UPGRADED",
+        "nativeId": 183,
+        "nativeSymbol": "W_XZ_PAP_SMG_BURST_UPGRADED",
         "mboxToken": "xz_pap_smg_burst_upgraded"
       }
     },
@@ -2171,8 +2171,8 @@
       ],
       "nativeIdentityRegistry": {
         "mode": "dedicated_pack_a_punch_id",
-        "quakecId": 184,
-        "quakecDefine": "W_XZ_PAP_SMG_CAPACITY_UPGRADED",
+        "nativeId": 184,
+        "nativeSymbol": "W_XZ_PAP_SMG_CAPACITY_UPGRADED",
         "mboxToken": "xz_pap_smg_capacity_upgraded"
       }
     },
@@ -2261,8 +2261,8 @@
       ],
       "nativeIdentityRegistry": {
         "mode": "dedicated_pack_a_punch_id",
-        "quakecId": 185,
-        "quakecDefine": "W_XZ_PAP_SMG_FASTFIRE_UPGRADED",
+        "nativeId": 185,
+        "nativeSymbol": "W_XZ_PAP_SMG_FASTFIRE_UPGRADED",
         "mboxToken": "xz_pap_smg_fastfire_upgraded"
       }
     },
@@ -2351,8 +2351,8 @@
       ],
       "nativeIdentityRegistry": {
         "mode": "dedicated_pack_a_punch_id",
-        "quakecId": 186,
-        "quakecDefine": "W_XZ_PAP_SMG_STANDARD_UPGRADED",
+        "nativeId": 186,
+        "nativeSymbol": "W_XZ_PAP_SMG_STANDARD_UPGRADED",
         "mboxToken": "xz_pap_smg_standard_upgraded"
       }
     },
@@ -2441,8 +2441,8 @@
       ],
       "nativeIdentityRegistry": {
         "mode": "dedicated_pack_a_punch_id",
-        "quakecId": 187,
-        "quakecDefine": "W_XZ_PAP_SMG_VERSATILE_UPGRADED",
+        "nativeId": 187,
+        "nativeSymbol": "W_XZ_PAP_SMG_VERSATILE_UPGRADED",
         "mboxToken": "xz_pap_smg_versatile_upgraded"
       }
     },
@@ -2495,8 +2495,8 @@
       ],
       "nativeIdentityRegistry": {
         "mode": "dedicated_pack_a_punch_id",
-        "quakecId": 188,
-        "quakecDefine": "W_XZ_PAP_SMG_MP40_1940_UPGRADED",
+        "nativeId": 188,
+        "nativeSymbol": "W_XZ_PAP_SMG_MP40_1940_UPGRADED",
         "mboxToken": "xz_pap_smg_mp40_1940_upgraded"
       }
     },
@@ -2566,8 +2566,8 @@
       ],
       "nativeIdentityRegistry": {
         "mode": "dedicated_pack_a_punch_id",
-        "quakecId": 189,
-        "quakecDefine": "W_XZ_PAP_SMG_STEN_UPGRADED",
+        "nativeId": 189,
+        "nativeSymbol": "W_XZ_PAP_SMG_STEN_UPGRADED",
         "mboxToken": "xz_pap_smg_sten_upgraded"
       }
     },
@@ -2658,8 +2658,8 @@
       ],
       "nativeIdentityRegistry": {
         "mode": "dedicated_pack_a_punch_id",
-        "quakecId": 190,
-        "quakecDefine": "W_XZ_PAP_SMG_AK74U_UPGRADED",
+        "nativeId": 190,
+        "nativeSymbol": "W_XZ_PAP_SMG_AK74U_UPGRADED",
         "mboxToken": "xz_pap_smg_ak74u_upgraded"
       }
     },
@@ -2744,8 +2744,8 @@
       ],
       "nativeIdentityRegistry": {
         "mode": "dedicated_pack_a_punch_id",
-        "quakecId": 191,
-        "quakecDefine": "W_XZ_PAP_SNIPER_FASTBOLT_UPGRADED",
+        "nativeId": 191,
+        "nativeSymbol": "W_XZ_PAP_SNIPER_FASTBOLT_UPGRADED",
         "mboxToken": "xz_pap_sniper_fastbolt_upgraded"
       }
     },
@@ -2830,8 +2830,8 @@
       ],
       "nativeIdentityRegistry": {
         "mode": "dedicated_pack_a_punch_id",
-        "quakecId": 192,
-        "quakecDefine": "W_XZ_PAP_SNIPER_POWERBOLT_UPGRADED",
+        "nativeId": 192,
+        "nativeSymbol": "W_XZ_PAP_SNIPER_POWERBOLT_UPGRADED",
         "mboxToken": "xz_pap_sniper_powerbolt_upgraded"
       }
     },
@@ -2888,8 +2888,8 @@
       ],
       "nativeIdentityRegistry": {
         "mode": "dedicated_pack_a_punch_id",
-        "quakecId": 193,
-        "quakecDefine": "W_XZ_PAP_RAYGUN_MARK2_UPGRADED",
+        "nativeId": 193,
+        "nativeSymbol": "W_XZ_PAP_RAYGUN_MARK2_UPGRADED",
         "mboxToken": "xz_pap_raygun_mark2_upgraded"
       }
     },
@@ -2980,8 +2980,8 @@
       ],
       "nativeIdentityRegistry": {
         "mode": "dedicated_pack_a_punch_id",
-        "quakecId": 194,
-        "quakecDefine": "W_XZ_PAP_LMG_RPK_UPGRADED",
+        "nativeId": 194,
+        "nativeSymbol": "W_XZ_PAP_LMG_RPK_UPGRADED",
         "mboxToken": "xz_pap_lmg_rpk_upgraded"
       }
     }

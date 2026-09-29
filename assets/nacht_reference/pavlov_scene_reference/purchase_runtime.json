@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "adapter": "xziel_nzp_purchase_bridge",
+  "adapter": "xziel_native_purchase_runtime",
   "purchases": [
     {
       "id": "purchase_arak",
@@ -35,13 +35,13 @@
         "nativeWeaponSymbol": null,
         "adapterStatus": "awaiting_native_weapon_definition"
       },
-      "nzpAdapter": {
+      "nativeAdapter": {
         "triggerClass": "buy_weapon",
         "visualClass": "weapon_wall",
         "costField": "cost",
         "chalkSequence": null,
         "requiresNativeWeaponDefinition": true,
-        "note": "Grenades map directly to NZ:P W_GRENADE. BO3 firearms intentionally remain unmapped until their native XZIEL/QuakeC weapon definitions exist."
+        "note": "Grenades map directly to XZIEL native grenade identity. BO3 firearms intentionally remain unmapped until their native XZIEL weapon definitions exist."
       },
       "source": "pavlov_functional_actor"
     },
@@ -78,13 +78,13 @@
         "nativeWeaponSymbol": null,
         "adapterStatus": "awaiting_native_weapon_definition"
       },
-      "nzpAdapter": {
+      "nativeAdapter": {
         "triggerClass": "buy_weapon",
         "visualClass": "weapon_wall",
         "costField": "cost",
         "chalkSequence": null,
         "requiresNativeWeaponDefinition": true,
-        "note": "Grenades map directly to NZ:P W_GRENADE. BO3 firearms intentionally remain unmapped until their native XZIEL/QuakeC weapon definitions exist."
+        "note": "Grenades map directly to XZIEL native grenade identity. BO3 firearms intentionally remain unmapped until their native XZIEL weapon definitions exist."
       },
       "source": "bo3_derived_chalk_geometry_reconstruction"
     },
@@ -121,13 +121,13 @@
         "nativeWeaponSymbol": "W_GRENADE",
         "adapterStatus": "native_ready"
       },
-      "nzpAdapter": {
+      "nativeAdapter": {
         "triggerClass": "buy_weapon",
         "visualClass": "weapon_wall",
         "costField": "cost2",
         "chalkSequence": 25,
         "requiresNativeWeaponDefinition": false,
-        "note": "Grenades map directly to NZ:P W_GRENADE. BO3 firearms intentionally remain unmapped until their native XZIEL/QuakeC weapon definitions exist."
+        "note": "Grenades map directly to XZIEL native grenade identity. BO3 firearms intentionally remain unmapped until their native XZIEL weapon definitions exist."
       },
       "source": "bo3_derived_chalk_geometry_reconstruction"
     },
@@ -164,13 +164,13 @@
         "nativeWeaponSymbol": null,
         "adapterStatus": "awaiting_native_weapon_definition"
       },
-      "nzpAdapter": {
+      "nativeAdapter": {
         "triggerClass": "buy_weapon",
         "visualClass": "weapon_wall",
         "costField": "cost",
         "chalkSequence": null,
         "requiresNativeWeaponDefinition": true,
-        "note": "Grenades map directly to NZ:P W_GRENADE. BO3 firearms intentionally remain unmapped until their native XZIEL/QuakeC weapon definitions exist."
+        "note": "Grenades map directly to XZIEL native grenade identity. BO3 firearms intentionally remain unmapped until their native XZIEL weapon definitions exist."
       },
       "source": "bo3_derived_chalk_geometry_reconstruction"
     },
@@ -207,13 +207,13 @@
         "nativeWeaponSymbol": null,
         "adapterStatus": "awaiting_native_weapon_definition"
       },
-      "nzpAdapter": {
+      "nativeAdapter": {
         "triggerClass": "buy_weapon",
         "visualClass": "weapon_wall",
         "costField": "cost",
         "chalkSequence": null,
         "requiresNativeWeaponDefinition": true,
-        "note": "Grenades map directly to NZ:P W_GRENADE. BO3 firearms intentionally remain unmapped until their native XZIEL/QuakeC weapon definitions exist."
+        "note": "Grenades map directly to XZIEL native grenade identity. BO3 firearms intentionally remain unmapped until their native XZIEL weapon definitions exist."
       },
       "source": "pavlov_functional_actor"
     },
@@ -250,13 +250,13 @@
         "nativeWeaponSymbol": null,
         "adapterStatus": "awaiting_native_weapon_definition"
       },
-      "nzpAdapter": {
+      "nativeAdapter": {
         "triggerClass": "buy_weapon",
         "visualClass": null,
         "costField": "cost",
         "chalkSequence": null,
         "requiresNativeWeaponDefinition": true,
-        "note": "Grenades map directly to NZ:P W_GRENADE. BO3 firearms intentionally remain unmapped until their native XZIEL/QuakeC weapon definitions exist."
+        "note": "Grenades map directly to XZIEL native grenade identity. BO3 firearms intentionally remain unmapped until their native XZIEL weapon definitions exist."
       },
       "source": "bo3_derived_chalk_geometry_reconstruction"
     },
@@ -293,13 +293,13 @@
         "nativeWeaponSymbol": null,
         "adapterStatus": "awaiting_native_weapon_definition"
       },
-      "nzpAdapter": {
+      "nativeAdapter": {
         "triggerClass": "buy_weapon",
         "visualClass": "weapon_wall",
         "costField": "cost",
         "chalkSequence": null,
         "requiresNativeWeaponDefinition": true,
-        "note": "Grenades map directly to NZ:P W_GRENADE. BO3 firearms intentionally remain unmapped until their native XZIEL/QuakeC weapon definitions exist."
+        "note": "Grenades map directly to XZIEL native grenade identity. BO3 firearms intentionally remain unmapped until their native XZIEL weapon definitions exist."
       },
       "source": "bo3_derived_chalk_geometry_reconstruction"
     },
@@ -336,13 +336,13 @@
         "nativeWeaponSymbol": null,
         "adapterStatus": "awaiting_native_weapon_definition"
       },
-      "nzpAdapter": {
+      "nativeAdapter": {
         "triggerClass": "buy_weapon",
         "visualClass": "weapon_wall",
         "costField": "cost",
         "chalkSequence": null,
         "requiresNativeWeaponDefinition": true,
-        "note": "Grenades map directly to NZ:P W_GRENADE. BO3 firearms intentionally remain unmapped until their native XZIEL/QuakeC weapon definitions exist."
+        "note": "Grenades map directly to XZIEL native grenade identity. BO3 firearms intentionally remain unmapped until their native XZIEL weapon definitions exist."
       },
       "source": "bo3_derived_chalk_geometry_reconstruction"
     },
@@ -379,13 +379,13 @@
         "nativeWeaponSymbol": null,
         "adapterStatus": "awaiting_native_weapon_definition"
       },
-      "nzpAdapter": {
+      "nativeAdapter": {
         "triggerClass": "buy_weapon",
         "visualClass": "weapon_wall",
         "costField": "cost",
         "chalkSequence": null,
         "requiresNativeWeaponDefinition": true,
-        "note": "Grenades map directly to NZ:P W_GRENADE. BO3 firearms intentionally remain unmapped until their native XZIEL/QuakeC weapon definitions exist."
+        "note": "Grenades map directly to XZIEL native grenade identity. BO3 firearms intentionally remain unmapped until their native XZIEL weapon definitions exist."
       },
       "source": "pavlov_functional_actor"
     }

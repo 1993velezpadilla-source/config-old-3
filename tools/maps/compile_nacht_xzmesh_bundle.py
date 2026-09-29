@@ -2,9 +2,9 @@
 """Compile all 492 BO3 Nacht reference GLBs into XZMS v3 and emit a bundle manifest.
 
 Runtime filenames are deliberately compact ordinals (m0000.xzm ... m0491.xzm).
-Vril inherits Quake's 64-byte MAX_QPATH and 128-byte MAX_OSPATH constraints;
+XZIEL uses compact runtime-relative paths for deterministic portable packages;
 source asset names remain in the manifest for identity/provenance and are never
-used as runtime VFS filenames.
+used as runtime filenames.
 """
 
 from __future__ import annotations
@@ -134,7 +134,7 @@ def main()->int:
         "runtimeNaming":{
             "scheme":"compact_ordinal_v1",
             "pattern":"m%04d.xzm",
-            "quakeMaxQpathBytes":63,
+            "runtimePathLimitBytes":63,
             "sourceIdentityPreservedInManifest":True,
         },
         "policy":{

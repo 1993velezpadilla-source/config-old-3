@@ -1,4 +1,5 @@
 #include "xz_static_scene_runtime.h"
+#include "xz_file_io.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -9,73 +10,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-
-static char g_vfs_root[1024];
-
-int COM_OpenFile(char *filename, int *handle)
-{
-    char path[2048];
-    struct stat st;
-    int fd;
-
-    if (!filename || !handle ||
-        snprintf(
-            path,
-            sizeof(path),
-            "%s/%s",
-            g_vfs_root,
-            filename) <= 0 ||
-        strlen(path) >= sizeof(path) - 1u) {
-        if (handle)
-            *handle = -1;
-        return -1;
-    }
-
-    fd = open(path, O_RDONLY);
-    if (fd < 0) {
-        *handle = -1;
-        return -1;
-    }
-
-    if (fstat(fd, &st) != 0 ||
-        st.st_size < 0 ||
-        st.st_size > 0x7fffffffLL) {
-        close(fd);
-        *handle = -1;
-        return -1;
-    }
-
-    *handle = fd;
-    return (int)st.st_size;
-}
-
-void COM_CloseFile(int handle)
-{
-    if (handle >= 0)
-        close(handle);
-}
-
-int Sys_FileRead(int handle, void *dest, int count)
-{
-    ssize_t got;
-
-    if (handle < 0 || !dest || count < 0)
-        return -1;
-
-    do {
-        got = read(handle, dest, (size_t)count);
-    } while (got < 0 && errno == EINTR);
-
-    if (got < 0 || got > 0x7fffffffL)
-        return -1;
-    return (int)got;
-}
-
-void Sys_FileSeek(int handle, int position)
-{
-    if (handle >= 0 && position >= 0)
-        (void)lseek(handle, (off_t)position, SEEK_SET);
-}
 
 static int ParseU32(const char *text, uint32_t *value)
 {
@@ -108,7 +42,7 @@ int main(int argc, char **argv)
     int expect_material_library = 0;
 
     if ((argc != 5 && argc != 6 && argc != 8) ||
-        strlen(argv[1]) >= sizeof(g_vfs_root) ||
+        strlen(argv[1]) >= 1024u ||
         !ParseU32(argv[3], &expected_meshes) ||
         !ParseU32(argv[4], &expected_instances) ||
         ((argc == 6 || argc == 8) &&
@@ -136,8 +70,8 @@ int main(int argc, char **argv)
         argc == 8;
 
     snprintf(
-        g_vfs_root,
-        sizeof(g_vfs_root),
+        argv[1],
+        1024u,
         "%s",
         argv[1]);
 

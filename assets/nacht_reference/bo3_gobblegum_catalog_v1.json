@@ -142,7 +142,7 @@
       },
       "runtimePrimitive": {
         "status": "logic_ready",
-        "quakecFunction": "XZIEL_GobbleGumSpawnMappedPowerup",
+        "nativeFunction": "XZIEL_GobbleGumSpawnMappedPowerup",
         "powerupSemantic": "XZIEL_PU_MAXAMMO",
         "activationCountFunction": "XZIEL_GobbleGumMappedActivationCount",
         "dispatchStatus": "logic_ready",
@@ -229,7 +229,7 @@
       },
       "runtimePrimitive": {
         "status": "logic_ready",
-        "quakecFunction": "XZIEL_GobbleGumSpawnMappedPowerup",
+        "nativeFunction": "XZIEL_GobbleGumSpawnMappedPowerup",
         "powerupSemantic": "XZIEL_PU_NUKE",
         "activationCountFunction": "XZIEL_GobbleGumMappedActivationCount",
         "dispatchStatus": "logic_ready",
@@ -478,7 +478,7 @@
       },
       "runtimePrimitive": {
         "status": "logic_ready",
-        "quakecFunction": "XZIEL_GobbleGumSpawnMappedPowerup",
+        "nativeFunction": "XZIEL_GobbleGumSpawnMappedPowerup",
         "powerupSemantic": "XZIEL_PU_INSTAKILL",
         "activationCountFunction": "XZIEL_GobbleGumMappedActivationCount",
         "dispatchStatus": "logic_ready",
@@ -511,7 +511,7 @@
       },
       "runtimePrimitive": {
         "status": "logic_ready",
-        "quakecFunction": "XZIEL_GobbleGumSpawnMappedPowerup",
+        "nativeFunction": "XZIEL_GobbleGumSpawnMappedPowerup",
         "powerupSemantic": "XZIEL_PU_CARPENTER",
         "activationCountFunction": "XZIEL_GobbleGumMappedActivationCount",
         "dispatchStatus": "logic_ready",
@@ -584,7 +584,7 @@
       },
       "runtimePrimitive": {
         "status": "logic_ready",
-        "quakecFunction": "XZIEL_GobbleGumSpawnMappedPowerup",
+        "nativeFunction": "XZIEL_GobbleGumSpawnMappedPowerup",
         "powerupSemantic": "XZIEL_PU_RANDOMPERK",
         "activationCountFunction": "XZIEL_GobbleGumMappedActivationCount",
         "dispatchStatus": "logic_ready",
@@ -851,7 +851,7 @@
       },
       "runtimePrimitive": {
         "status": "logic_ready",
-        "quakecFunction": "XZIEL_GobbleGumSpawnMappedPowerup",
+        "nativeFunction": "XZIEL_GobbleGumSpawnMappedPowerup",
         "powerupSemantic": "XZIEL_PU_DOUBLEPOINTS",
         "activationCountFunction": "XZIEL_GobbleGumMappedActivationCount",
         "dispatchStatus": "logic_ready",

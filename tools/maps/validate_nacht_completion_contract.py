@@ -671,19 +671,19 @@ def main() -> int:
         fail("weapon ID registry must cover the complete weapon catalog")
 
     all_registry_rows = registry_entries + upgrade_registry_entries
-    quakec_ids = [row.get("quakecId") for row in all_registry_rows]
+    native_ids = [row.get("nativeId") for row in all_registry_rows]
     mbox_tokens = [row.get("mboxToken") for row in all_registry_rows]
-    defines = [row.get("quakecDefine") for row in all_registry_rows]
-    if len(quakec_ids) != len(set(quakec_ids)):
-        fail("base + PaP registry contains duplicate QuakeC IDs")
+    defines = [row.get("nativeSymbol") for row in all_registry_rows]
+    if len(native_ids) != len(set(native_ids)):
+        fail("base + PaP registry contains duplicate native IDs")
     if len(mbox_tokens) != len(set(mbox_tokens)):
         fail("base + PaP registry contains duplicate tokens")
     if len(defines) != len(set(defines)):
-        fail("base + PaP registry contains duplicate QuakeC defines")
+        fail("base + PaP registry contains duplicate native symbols")
 
     registry_by_id = {row["weaponId"]: row for row in registry_entries}
-    if registry_by_id.get("pistol_burst", {}).get("quakecId") != 70:
-        fail("RK5 stable QuakeC ID must remain pinned to 70")
+    if registry_by_id.get("pistol_burst", {}).get("nativeId") != 70:
+        fail("RK5 stable XZIEL native ID must remain pinned to 70")
     if baseline.get("weaponIdRegistryCount") != len(registry_entries):
         fail("weaponIdRegistryCount drift")
 
@@ -697,9 +697,9 @@ def main() -> int:
     }
     if set(dedicated_upgrade_ids) != expected_dedicated_upgrades:
         fail("dedicated PaP registry identity set drift")
-    dedicated_qids = sorted(row.get("quakecId") for row in upgrade_registry_entries)
-    if dedicated_qids != list(range(160, 195)):
-        fail(f"dedicated PaP registry ID range drift: {dedicated_qids}")
+    dedicated_native_ids = sorted(row.get("nativeId") for row in upgrade_registry_entries)
+    if dedicated_native_ids != list(range(160, 195)):
+        fail(f"dedicated PaP registry ID range drift: {dedicated_native_ids}")
     if baseline.get("packAPunchDedicatedNativeIdCount") != 35:
         fail("packAPunchDedicatedNativeIdCount drift")
     if baseline.get("packAPunchReusedCatalogIdCount") != 1:

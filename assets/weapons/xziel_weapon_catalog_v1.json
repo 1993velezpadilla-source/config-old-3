@@ -582,7 +582,7 @@
         "wallBuyAutospawn": true
       },
       "nativeBindingNotes": [
-        "QuakeC identity uses reserved custom slot W_CUSTOM1 (numeric 70) via W_XZ_RK5 alias.",
+        "XZIEL native identity is pinned to stable native ID 70 with symbol W_XZ_RK5.",
         "Core server behavior is wired for verified Zombies values: 15-round magazine, 120 reserve, 100 base damage, x2 head multiplier, 3-round burst, and 200-751 unit linear falloff.",
         "Wall buy, Mystery Box spawn, model, audio, recoil, spread, penetration, animations, and Pack-a-Punch remain blocked/pending."
       ]

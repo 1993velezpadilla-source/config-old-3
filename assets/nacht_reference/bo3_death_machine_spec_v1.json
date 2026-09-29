@@ -106,7 +106,7 @@
     ],
     "damageHook": {
       "status": "logic_ready_dormant_until_weapon_binding",
-      "quakecFunction": "XZIEL_DeathMachineAdjustDamage",
+      "nativeFunction": "XZIEL_DeathMachineAdjustDamage",
       "formula": "baseDamage + victimCurrentHealth * (0.34 + random() * 0.41)"
     },
     "refreshTo30Seconds": true,

@@ -9240,7 +9240,7 @@ int XzGles3Shadow_CompositeVisibleWorld(
                 render_width,
                 render_height,
                 "/data/data/com.xziel.engine/files/"
-                "nzp-runtime/static-scene-fbo.ppm");
+                "xziel-runtime/static-scene-fbo.ppm");
         }
 
         state->static_scene_readback_width =

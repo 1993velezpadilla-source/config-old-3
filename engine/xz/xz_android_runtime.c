@@ -1372,7 +1372,7 @@ void XzAndroidRuntime_Init(size_t engine_heap_bytes)
                     ? ANDROID_LOG_INFO
                     : ANDROID_LOG_WARN,
                 "phase16 cutover selftest=%s requested=MODERN safety=STRICT"
-                " geometry=REAL textures=RGBA_TAP visible=GLES3_PREHUD_GL4ES_UI",
+                " geometry=REAL textures=RGBA_TAP visible=GLES3_PREHUD_XZIEL_UI",
                 XzCutover_SelfTest()
                     ? "PASS" : "FAIL");
 
@@ -2210,7 +2210,7 @@ int XzAndroidRuntime_ShouldSuppressLegacyWorldDraw(
      * armed across subsequent frames of that same map. R_NewMap explicitly
      * disarms it before any geometry from the next world can be submitted.
      * This removes the old early-frame legacy guard-band while preserving
-     * immediate GL4ES fallback across map transitions.
+     * immediate compatibility fallback across map transitions.
      */
     if (xz_runtime.legacy_world_suppression_armed) {
         suppress =

@@ -5,8 +5,7 @@ XZSC does not contain third-party mesh bytes. It binds a map's instance matrices
 to safe VFS-relative XZMS mesh paths so the native runtime can validate and later
 stream the scene without parsing JSON or glTF on Android.
 
-Vril inherits Quake's 64-byte MAX_QPATH, so every runtime VFS path emitted here
-must fit in 63 bytes plus the terminating NUL. Long source asset names therefore
+XZIEL keeps runtime-relative paths bounded to 63 bytes plus the terminating NUL. Long source asset names therefore
 stay in metadata; runtime mesh files use compact stable ordinals.
 """
 
@@ -21,7 +20,7 @@ from pathlib import Path
 
 MAGIC = b"XZSC"
 VERSION = 1
-MAX_RUNTIME_QPATH_BYTES = 63
+MAX_RUNTIME_PATH_BYTES = 63
 
 FLAG_XZIEL_Z_UP = 1 << 0
 FLAG_METERS = 1 << 1
@@ -49,7 +48,7 @@ def safe_relative_path(value: str) -> bool:
 
     if (
         not value
-        or len(encoded) > MAX_RUNTIME_QPATH_BYTES
+        or len(encoded) > MAX_RUNTIME_PATH_BYTES
         or value.startswith("/")
         or "\\" in value
         or ":" in value
@@ -118,8 +117,8 @@ def compile_scene(
         )
         if not safe_relative_path(runtime_path):
             raise ValueError(
-                "runtime mesh path exceeds Quake/Vril MAX_QPATH "
-                f"({MAX_RUNTIME_QPATH_BYTES} bytes): {runtime_path!r}"
+                "runtime mesh path exceeds XZIEL runtime path limit "
+                f"({MAX_RUNTIME_PATH_BYTES} bytes): {runtime_path!r}"
             )
         paths.append(runtime_path)
 
@@ -253,7 +252,7 @@ def main() -> int:
         ),
         "runtimeNaming": {
             "scheme": "compact_ordinal_v1",
-            "maxQpathBytes": MAX_RUNTIME_QPATH_BYTES,
+            "maxQpathBytes": MAX_RUNTIME_PATH_BYTES,
             "longestPathBytes": max(
                 len(path.encode("ascii"))
                 for path in paths
