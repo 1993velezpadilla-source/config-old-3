@@ -315,6 +315,7 @@ int main(int argc, char **argv)
     float fov_y = 75.0f;
     float yaw = 0.0f;
     float pitch = 0.0f;
+    float standing_eye_z = 1.70f;
     double previous_now = 0.0;
     int camera_ready = 1;
     XzMobileControls mobile_controls;
@@ -387,6 +388,7 @@ int main(int argc, char **argv)
             fov_y = 75.0f;
     }
 
+    standing_eye_z = eye[2];
     XzAnglesFromForward(forward, &yaw, &pitch);
     mobile_controls_ready =
         XzMobileControls_Init(&mobile_controls);
@@ -475,9 +477,9 @@ int main(int argc, char **argv)
             if (XzMobileControls_ButtonDown(
                     &mobile_controls,
                     XZ_MOBILE_CROUCH))
-                eye[2] = 1.30f;
+                eye[2] = standing_eye_z - 0.40f;
             else
-                eye[2] = 1.70f;
+                eye[2] = standing_eye_z;
 
             if (XzMobileControls_ButtonDown(
                     &mobile_controls,
