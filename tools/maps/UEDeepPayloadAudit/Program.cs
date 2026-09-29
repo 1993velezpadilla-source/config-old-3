@@ -437,7 +437,12 @@ void AuditAnimSequences(PackageRow row, UAnimSequence[] animations)
     {
         try
         {
-            var converted = animation.ConvertAnims();
+            var skeleton = ResolveAnimationSkeleton(
+                provider,
+                animation,
+                out var skeletonSourcePath);
+
+            var converted = skeleton.ConvertAnims(animation);
 
             if (converted.Sequences.Count != 1)
                 throw new InvalidDataException(
@@ -504,6 +509,121 @@ void AuditAnimSequences(PackageRow row, UAnimSequence[] animations)
             });
         }
     }
+}
+
+
+static USkeleton ResolveAnimationSkeleton(
+    DefaultFileProvider provider,
+    UAnimSequence animation,
+    out string sourcePackagePath)
+{
+    var resolved =
+        animation.Skeleton?.ResolvedObjectNoCache
+        ?? throw new InvalidDataException(
+            "animation has no resolvable Skeleton object reference");
+
+    var objectPath = resolved.GetPathName();
+    if (string.IsNullOrWhiteSpace(objectPath))
+        throw new InvalidDataException(
+            "animation Skeleton reference has no object path");
+
+    var dot = objectPath.LastIndexOf('.');
+    var virtualPackagePath =
+        (dot > 0 ? objectPath[..dot] : objectPath)
+        .Replace('\\', '/')
+        .Trim();
+
+    var objectName =
+        dot > 0 && dot + 1 < objectPath.Length
+            ? objectPath[(dot + 1)..]
+            : virtualPackagePath.Split('/').Last();
+
+    var normalizedVirtual =
+        virtualPackagePath.TrimStart('/');
+
+    var candidates = new List<string>
+    {
+        normalizedVirtual + ".uasset"
+    };
+
+    var firstSlash = normalizedVirtual.IndexOf('/');
+    if (firstSlash > 0 && firstSlash + 1 < normalizedVirtual.Length)
+    {
+        var pluginName = normalizedVirtual[..firstSlash];
+        var pluginRelative = normalizedVirtual[(firstSlash + 1)..];
+
+        /*
+         * Generic Unreal plugin mount:
+         *   /PluginName/Folder/Asset.Asset
+         * maps to a physical package under:
+         *   .../Plugins/PluginName/Content/Folder/Asset.uasset
+         */
+        candidates.Add(
+            $"Plugins/{pluginName}/Content/{pluginRelative}.uasset");
+    }
+
+    string? providerKey = null;
+    foreach (var suffix in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
+    {
+        var matches = provider.Files.Keys
+            .Where(key =>
+                key.EndsWith(
+                    suffix,
+                    StringComparison.OrdinalIgnoreCase))
+            .OrderBy(key => key.Length)
+            .ThenBy(key => key, StringComparer.OrdinalIgnoreCase)
+            .Take(2)
+            .ToArray();
+
+        if (matches.Length == 1)
+        {
+            providerKey = matches[0];
+            break;
+        }
+
+        if (matches.Length > 1)
+        {
+            throw new InvalidDataException(
+                $"ambiguous Skeleton package resolution for {objectPath}: " +
+                string.Join(", ", matches));
+        }
+    }
+
+    if (providerKey is null)
+    {
+        throw new FileNotFoundException(
+            $"Skeleton package unresolved for {objectPath}; tried " +
+            string.Join(", ", candidates));
+    }
+
+    sourcePackagePath = providerKey;
+    var package = provider.LoadPackage(providerKey);
+
+    var skeletons = package.GetExports()
+        .OfType<USkeleton>()
+        .ToArray();
+
+    var exact = skeletons
+        .Where(s =>
+            string.Equals(
+                s.Name,
+                objectName,
+                StringComparison.OrdinalIgnoreCase))
+        .ToArray();
+
+    if (exact.Length == 1)
+        return exact[0];
+
+    if (exact.Length > 1)
+        throw new InvalidDataException(
+            $"multiple Skeleton exports named {objectName} in {providerKey}");
+
+    if (skeletons.Length == 1)
+        return skeletons[0];
+
+    throw new InvalidDataException(
+        $"Skeleton export {objectName} unresolved in {providerKey}; " +
+        $"decoded skeleton exports={skeletons.Length}");
 }
 
 static int GetClassCount(JsonElement classes, string className)
