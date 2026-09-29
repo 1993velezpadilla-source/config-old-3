@@ -49,6 +49,7 @@ on:
       - tools/maps/UESceneTransformAudit/**
       - tools/maps/UEStaticSceneExtract/**
       - tools/maps/compile_xziel_static_scene.py
+      - tools/maps/compile_ue_material_bindings.py
       - tools/maps/xz_xzscene_file_gate.c
       - tools/maps/xz_static_scene_runtime_file_gate.c
       - engine/xz/xz_static_scene_runtime.h
@@ -1722,6 +1723,23 @@ jobs:
 
           grep -q 'XZIEL_STATIC_SCENE_RUNTIME_FILE_GATE_GREEN' \
             nuketown-download/runtime-static-scene/runtime-file-gate.log
+
+      - name: Resolve UE material bindings against native XZTX
+        run: |
+          set -euxo pipefail
+
+          python3 tools/maps/compile_ue_material_bindings.py \
+            --scene nuketown-download/runtime-static-scene/visual-scene.json \
+            --xzms nuketown-download/ue-xzms-probe/report.json \
+            --materials nuketown-download/nuketown-material-audit.json \
+            --xztx nuketown-download/ue-xztx-probe/report.json \
+            --output nuketown-download/runtime-static-scene/material-binding-manifest.json \
+            | tee nuketown-download/runtime-static-scene/material-binding.log
+
+          test -s \
+            nuketown-download/runtime-static-scene/material-binding-manifest.json
+          grep -q 'XZIEL_UE_MATERIAL_BINDING_MANIFEST_GREEN' \
+            nuketown-download/runtime-static-scene/material-binding.log
 
       - name: Build 1-to-1 source export dependency manifest
         run: |
