@@ -68,16 +68,25 @@ var packageRows = censusDoc.RootElement.GetProperty("packages")
 
 var providerRoot = DetectUnrealProjectRoot(root);
 var providerExtras = DetectUnrealExtraRoots(root, providerRoot);
+var versions = new VersionContainer(sourceGame);
 var provider = new DefaultFileProvider(
-    new DirectoryInfo(providerRoot),
-    providerExtras.Select(path => new DirectoryInfo(path)).ToArray(),
+    providerRoot,
     SearchOption.AllDirectories,
-    new VersionContainer(sourceGame),
+    versions,
     StringComparer.OrdinalIgnoreCase)
 {
     MappingsContainer = new FileUsmapTypeMappingsProvider(mappingsPath)
 };
 provider.Initialize();
+
+/*
+ * Cache the actual project mount before adding Engine/ or other extra roots.
+ * CUE4Parse derives /Game from ProjectName, so Engine must never win this
+ * discovery race.
+ */
+_ = provider.ProjectName;
+
+MountLooseExtraRoots(provider, providerExtras, versions);
 provider.PostMount();
 provider.LoadVirtualPaths();
 RegisterLooseCookedVirtualMounts(provider);
@@ -517,6 +526,47 @@ void AuditAnimSequences(PackageRow row, UAnimSequence[] animations)
 }
 
 
+
+static void MountLooseExtraRoots(
+    DefaultFileProvider provider,
+    IEnumerable<string> extraRoots,
+    VersionContainer versions)
+{
+    var mounted = new List<object>();
+
+    foreach (var root in extraRoots)
+    {
+        var extra = new DefaultFileProvider(
+            root,
+            SearchOption.AllDirectories,
+            versions,
+            StringComparer.OrdinalIgnoreCase);
+
+        extra.Initialize();
+
+        /*
+         * Each extra provider computes its own mount point from its own root.
+         * For an Engine directory this yields exact Engine/... keys rather
+         * than sibling-relative ../Engine paths.
+         */
+        provider.Files.AddFiles(
+            extra.Files,
+            readOrder: -100);
+
+        mounted.Add(new {
+            root = Path.GetFullPath(root),
+            files = extra.Files.Count,
+            mount = extra.ProjectName
+        });
+    }
+
+    Console.WriteLine(
+        "XZIEL_UE_MOUNTED_EXTRA_ROOTS " +
+        JsonSerializer.Serialize(new {
+            count = mounted.Count,
+            mounted
+        }));
+}
 
 static string[] DetectUnrealExtraRoots(
     string root,
