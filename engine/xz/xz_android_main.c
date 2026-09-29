@@ -248,7 +248,7 @@ int main(int argc, char **argv)
             argc,
             argv,
             "--xziel-map",
-            "xziel_nuketown_zombies");
+            NULL);
     const char *eye_text =
         XzArgValue(
             argc,
@@ -351,8 +351,9 @@ int main(int argc, char **argv)
     XzAndroidRuntime_Init(
         256u * 1024u * 1024u);
     XzAndroidRuntime_SetVerifiedMapPackageMode(1);
-    XzAndroidRuntime_NotifyWorldTransitionNamed(
-        map_id);
+    if (map_id && map_id[0])
+        XzAndroidRuntime_NotifyWorldTransitionNamed(
+            map_id);
 
     while (running) {
         SDL_Event event;
