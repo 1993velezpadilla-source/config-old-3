@@ -5459,6 +5459,12 @@ int XzGles3Shadow_UploadStaticScene(
             scene->submesh_count &&
         xz_shadow.static_draw_plan_ready &&
         xz_shadow.static_instance_vbo != 0u &&
+        (!scene->material_library_data ||
+         (state->static_scene_material_ready &&
+          state->static_scene_material_batch_ready &&
+          xz_shadow.static_material_draw_plan_ready &&
+          xz_shadow.static_texture_count ==
+              scene->material_library.texture_asset_count)) &&
         (strcmp(
              scene->map_id,
              "xziel_nacht_bo3") != 0 ||
@@ -6027,6 +6033,9 @@ static int XzDrawStaticScene(
         const int use_material_batches =
             !use_baked_lightmap &&
             xz_shadow.static_material_draw_plan_ready;
+        const int use_native_materials =
+            use_material_batches &&
+            scene->material_library_data != NULL;
 
         if (!mesh->alive ||
             !mesh->vao ||
@@ -6093,7 +6102,8 @@ static int XzDrawStaticScene(
 
             gl->ActiveTexture(GL_TEXTURE0);
 
-            if (state->static_scene_material_ready) {
+            if (state->static_scene_material_ready &&
+                !use_native_materials) {
                 if (binding_cursor >=
                         xz_shadow.static_material_binding_count)
                     goto fail;
@@ -6130,7 +6140,8 @@ static int XzDrawStaticScene(
                     0u);
             }
 
-            if (state->static_scene_normal_ready) {
+            if (state->static_scene_normal_ready &&
+                !use_native_materials) {
                 if (normal_cursor >=
                         xz_shadow.static_normal_binding_count)
                     goto fail;
@@ -6284,6 +6295,89 @@ static int XzDrawStaticScene(
                             mesh,
                             batch->first_grouped_instance))
                         goto fail;
+
+                    if (use_native_materials) {
+                        uint32_t material_index;
+                        XzMaterialLibraryMaterial material;
+
+                        has_texture = 0;
+                        has_normal = 0;
+                        texture_index =
+                            XZ_STATIC_MATERIAL_NO_TEXTURE;
+                        normal_texture_index =
+                            XZ_STATIC_MATERIAL_NO_TEXTURE;
+
+                        if (!XzStaticSceneRuntime_InstanceMaterial(
+                                scene,
+                                batch->representative_source_instance,
+                                submesh_index,
+                                &material_index) ||
+                            !XzStaticSceneRuntime_Material(
+                                scene,
+                                material_index,
+                                &material))
+                            goto fail;
+
+                        texture_index =
+                            material.canonical_texture[0];
+                        normal_texture_index =
+                            material.canonical_texture[1];
+
+                        gl->ActiveTexture(GL_TEXTURE0);
+                        if (texture_index !=
+                                XZ_XZML_NO_TEXTURE) {
+                            if (texture_index >=
+                                    xz_shadow.static_texture_count ||
+                                !xz_shadow.static_textures ||
+                                !xz_shadow.static_textures[
+                                    texture_index].alive ||
+                                !xz_shadow.static_textures[
+                                    texture_index].object)
+                                goto fail;
+
+                            gl->BindTexture(
+                                GL_TEXTURE_2D,
+                                xz_shadow.static_textures[
+                                    texture_index].object);
+                            has_texture = 1;
+                        } else {
+                            gl->BindTexture(
+                                GL_TEXTURE_2D,
+                                0u);
+                        }
+
+                        gl->ActiveTexture(GL_TEXTURE1);
+                        if (normal_texture_index !=
+                                XZ_XZML_NO_TEXTURE) {
+                            if (normal_texture_index >=
+                                    xz_shadow.static_texture_count ||
+                                !xz_shadow.static_textures ||
+                                !xz_shadow.static_textures[
+                                    normal_texture_index].alive ||
+                                !xz_shadow.static_textures[
+                                    normal_texture_index].object)
+                                goto fail;
+
+                            gl->BindTexture(
+                                GL_TEXTURE_2D,
+                                xz_shadow.static_textures[
+                                    normal_texture_index].object);
+                            has_normal = 1;
+                            normal_applied++;
+                        } else {
+                            gl->BindTexture(
+                                GL_TEXTURE_2D,
+                                0u);
+                        }
+
+                        gl->ActiveTexture(GL_TEXTURE0);
+                        gl->Uniform1i(
+                            xz_shadow.static_texture_enabled_loc,
+                            has_texture);
+                        gl->Uniform1i(
+                            xz_shadow.static_normal_texture_enabled_loc,
+                            has_normal);
+                    }
 
                     if (has_texture)
                         textured_draw_calls++;
