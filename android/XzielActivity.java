@@ -71,15 +71,14 @@ public final class XzielActivity extends SDLActivity {
             ? getIntent().getStringExtra("xziel_camera_fov_y")
             : null;
 
-        if (mapId == null || mapId.isEmpty()) {
-            mapId = "xziel_nuketown_zombies";
-        }
-
         ArrayList<String> args = new ArrayList<>();
         args.add("--xziel-root");
         args.add(getFilesDir().getAbsolutePath());
-        args.add("--xziel-map");
-        args.add(mapId);
+
+        if (mapId != null && !mapId.isEmpty()) {
+            args.add("--xziel-map");
+            args.add(mapId);
+        }
 
         if (eye != null && !eye.isEmpty()
                 && forward != null && !forward.isEmpty()
