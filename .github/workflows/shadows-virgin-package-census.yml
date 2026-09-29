@@ -567,6 +567,76 @@ jobs:
           build/shadows-xzan-gate/file-gate "${FILES[@]}" \
             | tee shadows-download/ue-xzan-native-gate.log
 
+      - name: Audit complete UE scene transform semantics
+        run: |
+          set -euxo pipefail
+          dotnet restore tools/maps/UESceneTransformAudit/UESceneTransformAudit.csproj
+          dotnet build tools/maps/UESceneTransformAudit/UESceneTransformAudit.csproj \
+            --configuration Release --no-restore
+          APP="tools/maps/UESceneTransformAudit/bin/Release/net10.0/UESceneTransformAudit.dll"
+          test -s "$APP"
+
+          dotnet "$APP" \
+            shadows-pak-unpacked \
+            shadows-download/PavMappings.usmap \
+            shadows-download/shadows-class-census.json \
+            shadows-download/shadows-scene-transform-audit.json \
+            0 1 ue5.1 \
+            | tee shadows-download/shadows-scene-transform-audit.log
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("shadows-download/shadows-scene-transform-audit.json").read_text())
+          assert r["ready"] is True
+          assert r["failureCount"] == 0
+          assert r["packagesLoaded"] == r["packageCount"]
+          assert r["sceneComponents"] > 0
+          assert r["nonFiniteTransform"] == 0
+          print("XZIEL_SHADOWS_SCENE_TRANSFORM_GREEN", {
+              "components": r["sceneComponents"],
+              "attached": r["attachedComponents"],
+              "absolute": r["anyAbsolute"],
+              "negativeScale": r["negativeScale"],
+          })
+          PY
+
+      - name: Audit every cooked UE StaticMesh
+        run: |
+          set -euxo pipefail
+          dotnet restore tools/maps/UEStaticMeshAudit/UEStaticMeshAudit.csproj
+          dotnet build tools/maps/UEStaticMeshAudit/UEStaticMeshAudit.csproj \
+            --configuration Release --no-restore
+          APP="tools/maps/UEStaticMeshAudit/bin/Release/net10.0/UEStaticMeshAudit.dll"
+          test -s "$APP"
+
+          dotnet "$APP" \
+            shadows-pak-unpacked \
+            shadows-download/PavMappings.usmap \
+            shadows-download/shadows-class-census.json \
+            shadows-download/shadows-static-mesh-audit.json \
+            0 1 ue5.1 \
+            | tee shadows-download/shadows-static-mesh-audit.log
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("shadows-download/shadows-static-mesh-audit.json").read_text())
+          census=json.loads(Path("shadows-download/shadows-class-census.json").read_text())
+          expected=census["classCounts"].get("StaticMesh",0)
+          assert r["ready"] is True
+          assert r["failureCount"] == 0
+          assert r["expectedMeshes"] == expected
+          assert r["meshesDecoded"] == expected
+          assert 1 <= r["maxUvChannels"] <= 8
+          print("XZIEL_SHADOWS_STATIC_MESH_AUDIT_GREEN", {
+              "meshes": r["meshesDecoded"],
+              "vertices": r["vertices"],
+              "triangles": r["triangles"],
+              "maxUvChannels": r["maxUvChannels"],
+          })
+          PY
+
       - name: Convert every cooked StaticMesh to native XZMS
         run: |
           set -euxo pipefail
