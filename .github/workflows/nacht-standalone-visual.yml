@@ -1,0 +1,3644 @@
+name: XZIEL Nacht Standalone Visual
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xziel-nacht-standalone-visual
+  cancel-in-progress: true
+
+jobs:
+  visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+      - name: Install SteamCMD and repak
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/steamcmd" "$RUNNER_TEMP/repak"
+          curl -fL --retry 6 --retry-delay 2 --retry-all-errors \
+            https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz \
+            -o "$RUNNER_TEMP/steamcmd.tgz"
+          tar -xzf "$RUNNER_TEMP/steamcmd.tgz" \
+            -C "$RUNNER_TEMP/steamcmd"
+          "$RUNNER_TEMP/steamcmd/steamcmd.sh" +quit || true
+          curl -fL --retry 5 \
+            https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-unknown-linux-gnu.tar.xz \
+            -o "$RUNNER_TEMP/repak.tar.xz"
+          tar -xJf "$RUNNER_TEMP/repak.tar.xz" \
+            -C "$RUNNER_TEMP/repak"
+          REPAK=$(find "$RUNNER_TEMP/repak" \
+            -type f -name 'repak*' -perm -111 | head -1)
+          test -n "$REPAK"
+          echo "REPAK=$REPAK" >> "$GITHUB_ENV"
+
+      - name: Download and unpack public Pavlov Nacht source
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/steamcmd/steamcmd.sh" \
+            +login anonymous \
+            +workshop_download_item 555160 2755515831 validate \
+            +quit
+          ROOT=$(find "$HOME" "$RUNNER_TEMP" -type d \
+            -path '*/steamapps/workshop/content/555160/2755515831' \
+            -print -quit 2>/dev/null)
+          test -n "$ROOT"
+          test -f "$ROOT/WindowsNoEditor.pak"
+          mkdir -p "$RUNNER_TEMP/nacht-unpacked"
+          "$REPAK" unpack "$ROOT/WindowsNoEditor.pak" \
+            -o "$RUNNER_TEMP/nacht-unpacked"
+          echo "UNPACKED=$RUNNER_TEMP/nacht-unpacked" \
+            >> "$GITHUB_ENV"
+
+      - name: Census exact Nacht post-process settings
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-static-scene
+          dotnet run \
+            --project tools/maps/NachtPostProcessExtractor/NachtPostProcessExtractor.csproj \
+            --configuration Release \
+            -- \
+            "$UNPACKED" \
+            build/nacht-static-scene/postprocess-census.json \
+            | tee build/nacht-static-scene/postprocess-census.log
+          test -s build/nacht-static-scene/postprocess-census.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          p = Path("build/nacht-static-scene/postprocess-census.json")
+          data = json.loads(p.read_text(encoding="utf-8"))
+          assert data["schemaVersion"] == 1
+          assert data["candidateCount"] == 1
+          assert len(data["candidates"]) == 1
+          candidate = data["candidates"][0]
+          assert candidate["exportName"] == "WorldSettings"
+          assert candidate["tags"] == {}
+          assert candidate["resolvedMembers"] == {}
+
+          hits = data.get("globalPropertyHits", [])
+          assert data.get("globalPropertyHitCount") == len(hits)
+          assert len(hits) == 59
+          assert all(
+              set(row.get("tags", {})) == {"IndirectLightingIntensity"}
+              for row in hits
+          )
+          assert not any(
+              token in json.dumps(data).lower()
+              for token in (
+                  "autoexposure",
+                  "eyeadaptation",
+                  "filmslope",
+                  "filmtoe",
+                  "filmshoulder",
+                  "colorgrading",
+                  "bloomintensity",
+                  "vignetteintensity",
+              )
+          )
+
+          print(
+              "XZIEL_NACHT_POSTPROCESS_CENSUS_GREEN",
+              {
+                  "exports": data["exportCount"],
+                  "candidates": data["candidateCount"],
+              },
+          )
+          PY
+          mkdir -p dist
+          cp build/nacht-static-scene/postprocess-census.json \
+            dist/postprocess-census.json
+
+      - name: Extract exact 166 Nacht light components
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-static-scene
+          dotnet run \
+            --project tools/maps/NachtLightExtractor/NachtLightExtractor.csproj \
+            --configuration Release \
+            -- \
+            "$UNPACKED" \
+            build/nacht-static-scene/light-components.json \
+            | tee build/nacht-static-scene/light-extract.log
+          test -s build/nacht-static-scene/light-components.json
+
+      - name: Build exact UE4 reflection payload reader
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/cue4parse-reflection"
+          rm -rf "$ROOT"
+          mkdir -p "$ROOT"
+          git -C "$ROOT" init
+          git -C "$ROOT" remote add origin \
+            https://github.com/FabianFG/CUE4Parse.git
+          git -C "$ROOT" fetch --depth 1 origin \
+            eecbd416f358460e8552de93b4f6157ddd673a85
+          git -C "$ROOT" checkout --detach FETCH_HEAD
+          test "$(git -C "$ROOT" rev-parse HEAD)" = \
+            eecbd416f358460e8552de93b4f6157ddd673a85
+
+          python3 - \
+            "$ROOT/CUE4Parse/UE4/Assets/Exports/BuildData/UMapBuildDataRegistry.cs" \
+            <<'PY'
+          from pathlib import Path
+          import sys
+
+          p = Path(sys.argv[1])
+          s = p.read_text(encoding="utf-8-sig")
+
+          field_old = """    [JsonIgnore] public byte[]? FullHDRCapturedData;
+              public FPackageIndex? EncodedCaptureData;"""
+          field_new = """    [JsonIgnore] public byte[]? FullHDRCapturedData;
+              [JsonIgnore] public byte[]? EncodedHDRCapturedData;
+              public FPackageIndex? EncodedCaptureData;"""
+
+          full_old = """        //FullHDRCapturedData = Ar.ReadArray<byte>(); // Can also be stripped, but still a byte[]
+                  Ar.SkipFixedArray(1); // Skip for now"""
+          full_new = """        FullHDRCapturedData = Ar.ReadArray<byte>();"""
+
+          encoded_old = """        if (FMobileObjectVersion.Get(Ar) >= FMobileObjectVersion.Type.StoreReflectionCaptureCompressedMobile &&
+                      FUE5ReleaseStreamObjectVersion.Get(Ar) < FUE5ReleaseStreamObjectVersion.Type.StoreReflectionCaptureEncodedHDRDataInRG11B10Format)
+                  {
+                      EncodedCaptureData = new FPackageIndex(Ar);
+                  }
+                  else
+                  {
+                      Ar.SkipFixedArray(1);
+                  }"""
+          encoded_new = """        if (FMobileObjectVersion.Get(Ar) >= FMobileObjectVersion.Type.StoreReflectionCaptureCompressedMobile &&
+                      FUE5ReleaseStreamObjectVersion.Get(Ar) < FUE5ReleaseStreamObjectVersion.Type.StoreReflectionCaptureEncodedHDRDataInRG11B10Format)
+                  {
+                      EncodedCaptureData = new FPackageIndex(Ar);
+                  }
+                  else
+                  {
+                      EncodedHDRCapturedData = Ar.ReadArray<byte>();
+                  }"""
+
+          for old, new, name in (
+              (field_old, field_new, "field"),
+              (full_old, full_new, "FullHDR"),
+              (encoded_old, encoded_new, "EncodedHDR"),
+          ):
+              if s.count(old) != 1:
+                  raise SystemExit(
+                      f"expected exactly one {name} patch anchor, got {s.count(old)}"
+                  )
+              s = s.replace(old, new)
+
+          p.write_text(s, encoding="utf-8")
+          print("XZIEL_REFLECTION_READER_PATCHED")
+          PY
+
+          PROJECT="$ROOT/CUE4Parse/CUE4Parse.csproj"
+          test -f "$PROJECT"
+          echo "CUE4PARSE_REFLECTION_PROJECT=$PROJECT" \
+            >> "$GITHUB_ENV"
+
+      - name: Census Nacht baked lighting BuiltData
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-static-scene dist
+          CUE4PARSE_SKIP_NATIVE=true dotnet run \
+            --project tools/maps/NachtBakedLightingExtractor/NachtBakedLightingExtractor.csproj \
+            --configuration Release \
+            -p:CUE4ParseProject="$CUE4PARSE_REFLECTION_PROJECT" \
+            -- \
+            "$UNPACKED" \
+            build/nacht-static-scene/baked-lighting-census.json \
+            | tee build/nacht-static-scene/baked-lighting-census.log
+          test -s build/nacht-static-scene/baked-lighting-census.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          p = Path("build/nacht-static-scene/baked-lighting-census.json")
+          data = json.loads(p.read_text(encoding="utf-8"))
+          assert data["schemaVersion"] == 1
+          assert data["buildDataCandidateCount"] > 0
+          assert data["buildDataRegistryCount"] > 0
+          assert data["meshBuildDataCount"] > 0
+          assert data["lightMap2DCount"] > 0
+          assert data["linkedMeshBuildDataCount"] > 0
+          assert data["staticMeshBuildBindingCount"] > 0
+          assert data["lightMapCoordinateIndexCounts"]
+
+          print(
+              "XZIEL_NACHT_BAKED_LIGHTING_CENSUS_GREEN",
+              {
+                  "registries": data["buildDataRegistryCount"],
+                  "meshBuildData": data["meshBuildDataCount"],
+                  "linkedMeshBuildData": data["linkedMeshBuildDataCount"],
+                  "staticMeshBindings": data["staticMeshBuildBindingCount"],
+                  "lightMapCoordinateIndexCounts":
+                      data["lightMapCoordinateIndexCounts"],
+                  "lightMap2D": data["lightMap2DCount"],
+                  "shadowMap2D": data["shadowMap2DCount"],
+                  "lightmapTextures": data["uniqueLightmapTextureCount"],
+                  "shadowmapTextures": data["uniqueShadowmapTextureCount"],
+                  "volumetric": data["volumetricLightmapCount"],
+              },
+          )
+          PY
+          cp build/nacht-static-scene/baked-lighting-census.json \
+            dist/baked-lighting-census.json
+
+      - name: Extract exact compressed Nacht lightmap texture pack
+        run: |
+          set -euo pipefail
+          CUE4PARSE_SKIP_NATIVE=true dotnet run \
+            --project tools/maps/NachtLightmapTextureExtractor/NachtLightmapTextureExtractor.csproj \
+            --configuration Release \
+            -- \
+            "$UNPACKED" \
+            build/nacht-static-scene/baked-lighting-census.json \
+            build/nacht-static-scene/lightmaps.xzlt \
+            build/nacht-static-scene/xziel.xzlt.report.json \
+            | tee build/nacht-static-scene/xzlt-compile.log
+
+          test -s build/nacht-static-scene/lightmaps.xzlt
+          test -s build/nacht-static-scene/xziel.xzlt.report.json
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(
+              Path(
+                  "build/nacht-static-scene/xziel.xzlt.report.json"
+              ).read_text(encoding="utf-8")
+          )
+          assert report["schemaVersion"] == 1
+          assert report["format"] == "XZLT"
+          assert report["version"] == 1
+          assert report["sourceCompressionPreserved"] is True
+          assert report["textureCount"] == 188
+          assert report["mipCount"] > report["textureCount"]
+          assert report["formatCounts"] == {
+              "PF_DXT1": 94,
+              "PF_DXT5": 94,
+          }
+          assert report["srgbTextureCount"] == 0
+          assert report["linearTextureCount"] == 188
+          assert report["payloadBytes"] > 0
+          assert report["fileBytes"] > report["payloadBytes"]
+          assert len(report["textures"]) == 188
+          assert all(row["mipCount"] > 0 for row in report["textures"])
+          print(
+              "XZIEL_NACHT_XZLT_GREEN",
+              {
+                  "textures": report["textureCount"],
+                  "mips": report["mipCount"],
+                  "payloadBytes": report["payloadBytes"],
+                  "fileBytes": report["fileBytes"],
+                  "formats": report["formatCounts"],
+                  "sha256": report["sha256"],
+              },
+          )
+          PY
+
+          cp build/nacht-static-scene/xziel.xzlt.report.json \
+            dist/xziel.xzlt.report.json
+
+      - name: Join Nacht scene instances to baked lighting
+        run: |
+          set -euo pipefail
+          python3 tools/maps/compile_nacht_lightmap_instance_bindings.py \
+            --scene assets/nacht_reference/pavlov_scene_reference/scene_instances.json \
+            --census build/nacht-static-scene/baked-lighting-census.json \
+            --output dist/nacht-instance-lightmap-bindings.json \
+            | tee build/nacht-static-scene/lightmap-instance-bindings.log
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          p = Path("dist/nacht-instance-lightmap-bindings.json")
+          data = json.loads(p.read_text(encoding="utf-8"))
+          stats = data["stats"]
+          assert data["schemaVersion"] == 2
+          assert data["format"] == "xziel_nacht_lightmap_instance_payload_v2"
+          assert stats["instanceCount"] == 10791
+          assert stats["mappedInstanceCount"] == 10787
+          assert stats["missingInstanceCount"] == 4
+          assert stats["ambiguousInstanceCount"] == 0
+          assert stats["assetMismatchCount"] == 0
+          assert stats["staticComponentMetadataCount"] > 0
+          assert stats["runtimePayloadReadyCount"] == 10787
+          assert stats["runtimePayloadMissingCount"] == 0
+          assert stats["unresolvedLightMapCoordinateIndexCount"] == 0
+          assert stats["meshConsensusResolvedCoordinateIndexCount"] == 0
+          assert stats["unresolvedEffectiveCoordinateIndexCount"] == 0
+          assert stats["meshCoordinateIndexConflictCount"] == 0
+          print("XZIEL_NACHT_LIGHTMAP_INSTANCE_PAYLOAD_GREEN", stats)
+          PY
+
+      - name: Compile O(1) Nacht lightmap runtime binding pack
+        run: |
+          set -euo pipefail
+          python3 tools/maps/compile_nacht_lightmap_runtime_bindings.py \
+            --bindings dist/nacht-instance-lightmap-bindings.json \
+            --textures build/nacht-static-scene/xziel.xzlt.report.json \
+            --output build/nacht-static-scene/lightmap-bindings.xzlb \
+            --report build/nacht-static-scene/xziel.xzlb.report.json \
+            | tee build/nacht-static-scene/xzlb-compile.log
+
+          test -s build/nacht-static-scene/lightmap-bindings.xzlb
+          test -s build/nacht-static-scene/xziel.xzlb.report.json
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(
+              Path(
+                  "build/nacht-static-scene/xziel.xzlb.report.json"
+              ).read_text(encoding="utf-8")
+          )
+          assert report["schemaVersion"] == 1
+          assert report["format"] == "XZLB"
+          assert report["version"] == 1
+          assert report["instanceCount"] == 10791
+          assert report["recordBytes"] == 256
+          assert report["fileBytes"] == 2762528
+          assert report["mappedCount"] == 10787
+          assert report["missingCount"] == 4
+          assert report["runtimeReadyCount"] == 10787
+          assert report["textureCount"] == 188
+          assert report["uniqueLightmapTextureIndices"] == 174
+          assert report["meshConsensusCount"] == 0
+          assert sum(report["uvChannelCounts"].values()) == 10787
+          assert set(report["uvChannelCounts"]).issubset({"0", "1", "2", "3"})
+          assert report["instanceAligned"] is True
+          print("XZIEL_NACHT_XZLB_GREEN", report)
+          PY
+
+          cp build/nacht-static-scene/xziel.xzlb.report.json \
+            dist/xziel.xzlb.report.json
+
+      - name: Census Nacht reflection captures and SkyLight source
+        run: |
+          set -euo pipefail
+          CUE4PARSE_SKIP_NATIVE=true dotnet run \
+            --project tools/maps/NachtReflectionExtractor/NachtReflectionExtractor.csproj \
+            --configuration Release \
+            -p:CUE4ParseProject="$CUE4PARSE_REFLECTION_PROJECT" \
+            -- \
+            "$UNPACKED" \
+            build/nacht-static-scene/reflection-census.json \
+            | tee build/nacht-static-scene/reflection-census.log
+          test -s build/nacht-static-scene/reflection-census.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          p = Path("build/nacht-static-scene/reflection-census.json")
+          data = json.loads(p.read_text(encoding="utf-8"))
+          assert data["schemaVersion"] == 1
+          assert data["skyLightCount"] == 1
+          assert data["reflectionCaptureComponentCount"] == 1
+          assert len(data["skyLights"]) == 1
+          assert data["buildDataCandidateCount"] > 0
+          assert data["buildDataRegistryCount"] > 0
+          assert data["reflectionCaptureBuildDataCount"] > 0
+          assert data["reflectionCaptureBuildDataLinkedCount"] == 1
+
+          linked = [
+              row for row in data["reflectionCaptureBuildData"]
+              if row["linkedToCapture"]
+          ]
+          assert len(linked) == 1
+          entry = linked[0]
+          size = entry["cubemapSize"]
+          assert size == 128
+          assert size > 0 and size & (size - 1) == 0
+
+          texels_per_face = sum(
+              (size >> mip) ** 2
+              for mip in range(size.bit_length())
+          )
+          expected_full = texels_per_face * 6 * 8
+          expected_encoded = texels_per_face * 6 * 4
+
+          full_bytes = data["linkedFullHdrCapturedBytes"]
+          encoded_bytes = data["linkedEncodedHdrCapturedBytes"]
+          assert full_bytes > 0 or encoded_bytes > 0
+
+          if full_bytes:
+              assert full_bytes == expected_full, (
+                  full_bytes,
+                  expected_full,
+              )
+              assert Path(
+                  "build/nacht-static-scene/reflection-fullhdr.bin"
+              ).stat().st_size == full_bytes
+
+          if encoded_bytes:
+              assert encoded_bytes == expected_encoded, (
+                  encoded_bytes,
+                  expected_encoded,
+              )
+              assert Path(
+                  "build/nacht-static-scene/reflection-encodedhdr.bin"
+              ).stat().st_size == encoded_bytes
+
+          print(
+              "XZIEL_NACHT_REFLECTION_CENSUS_GREEN",
+              {
+                  "sky": data["skyLightCount"],
+                  "captureExports": data["reflectionCaptureExportCount"],
+                  "captureComponents": data["reflectionCaptureComponentCount"],
+                  "types": data["reflectionCaptureTypeCounts"],
+              },
+          )
+          print(
+              "XZIEL_NACHT_REFLECTION_BUILDDATA_GREEN",
+              {
+                  "candidates": data["buildDataCandidateCount"],
+                  "registries": data["buildDataRegistryCount"],
+                  "buildEntries": data["reflectionCaptureBuildDataCount"],
+                  "linked": data["reflectionCaptureBuildDataLinkedCount"],
+              },
+          )
+          print(
+              "XZIEL_NACHT_REFLECTION_PAYLOAD_GREEN",
+              {
+                  "cubemapSize": size,
+                  "fullHDR": full_bytes,
+                  "encodedHDR": encoded_bytes,
+                  "fullSHA256": data["linkedFullHdrSha256"],
+                  "encodedSHA256": data["linkedEncodedHdrSha256"],
+              },
+          )
+          PY
+          mkdir -p dist
+          cp build/nacht-static-scene/reflection-census.json \
+            dist/reflection-census.json
+          test ! -f build/nacht-static-scene/reflection-fullhdr.bin || \
+            cp build/nacht-static-scene/reflection-fullhdr.bin \
+              dist/reflection-fullhdr.bin
+          test ! -f build/nacht-static-scene/reflection-encodedhdr.bin || \
+            cp build/nacht-static-scene/reflection-encodedhdr.bin \
+              dist/reflection-encodedhdr.bin
+
+      - name: Compile exact Nacht XZRC reflection cubemap
+        run: |
+          set -euo pipefail
+          python3 tools/maps/compile_nacht_reflection_capture.py \
+            --payload build/nacht-static-scene/reflection-fullhdr.bin \
+            --census build/nacht-static-scene/reflection-census.json \
+            --output build/nacht-static-scene/reflection.xzrc \
+            --report build/nacht-static-scene/xziel.xzrc.report.json \
+            | tee build/nacht-static-scene/xzrc-compile.log
+
+          test -s build/nacht-static-scene/reflection.xzrc
+          test -s build/nacht-static-scene/xziel.xzrc.report.json
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          import json
+          import struct
+
+          asset = Path(
+              "build/nacht-static-scene/reflection.xzrc"
+          ).read_bytes()
+          header = struct.Struct("<4sIIIIIIIIff16sI7fI")
+          assert header.size == 96
+          assert len(asset) == 1_048_656
+
+          (
+              magic,
+              version,
+              size,
+              mips,
+              faces,
+              pixel_format,
+              bytes_per_texel,
+              payload_offset,
+              payload_bytes,
+              average_brightness,
+              brightness,
+              guid,
+              flags,
+              capture_x,
+              capture_y,
+              capture_z,
+              influence_radius_m,
+              offset_x,
+              offset_y,
+              offset_z,
+              shape,
+          ) = header.unpack_from(asset)
+
+          assert magic == b"XZRC"
+          assert version == 2
+          assert size == 128
+          assert mips == 8
+          assert faces == 6
+          assert pixel_format == 1
+          assert bytes_per_texel == 8
+          assert payload_offset == 96
+          assert payload_bytes == 1_048_560
+          assert flags == 0
+          assert abs(average_brightness - 0.04043579) < 1e-6
+          assert abs(brightness - 1.0) < 1e-6
+          assert guid.hex().upper() == (
+              "26AEB6B544E0C552B1F0519279A3BF2D"
+          )
+          assert flags == 0
+          assert shape == 1
+          assert abs(capture_x - (-0.1090765381)) < 1e-6
+          assert abs(capture_y - 0.0932865906) < 1e-6
+          assert abs(capture_z - 2.6686132813) < 1e-6
+          assert abs(influence_radius_m - 30.0) < 1e-6
+          assert abs(offset_x) < 1e-6
+          assert abs(offset_y) < 1e-6
+          assert abs(offset_z) < 1e-6
+
+          payload = asset[payload_offset:]
+          assert len(payload) == payload_bytes
+          sha = hashlib.sha256(payload).hexdigest().upper()
+          assert sha == (
+              "B371451EE1E0AAD877125B4F36EAE584"
+              "3A5009CB8E23143206BD54683D6B8843"
+          )
+
+          report = json.loads(
+              Path(
+                  "build/nacht-static-scene/xziel.xzrc.report.json"
+              ).read_text(encoding="utf-8")
+          )
+          assert report["format"] == "XZRC"
+          assert report["cubemapSize"] == 128
+          assert report["mipCount"] == 8
+          assert report["faceCount"] == 6
+          assert report["pixelFormat"] == "RGBA16F"
+          assert report["payloadLayout"] == "mip-major-face-minor"
+          assert report["sourcePreservedByteForByte"] is True
+          assert report["version"] == 2
+          assert report["headerBytes"] == 96
+          assert report["captureShape"] == "sphere"
+          assert report["influenceRadiusMeters"] == 30.0
+          assert report["influenceRadiusSource"] == "UE4 sphere default"
+          assert report["captureOffsetSource"] == "UE4 FVector default zero"
+
+          print(
+              "XZIEL_NACHT_XZRC_GREEN",
+              {
+                  "size": size,
+                  "mips": mips,
+                  "faces": faces,
+                  "payloadBytes": payload_bytes,
+                  "sha256": sha,
+              },
+          )
+          PY
+
+          cp build/nacht-static-scene/reflection.xzrc \
+            dist/reflection.xzrc
+
+      - name: Extract exact Nacht exponential height fog
+        run: |
+          set -euo pipefail
+          dotnet run \
+            --project tools/maps/NachtFogExtractor/NachtFogExtractor.csproj \
+            --configuration Release \
+            -- \
+            "$UNPACKED" \
+            build/nacht-static-scene/height-fog-resolved.json \
+            | tee build/nacht-static-scene/height-fog-extract.log
+          test -s build/nacht-static-scene/height-fog-resolved.json
+
+      - name: Build exact 492-mesh CUE4Parse exporter
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/exporter"
+          cd "$RUNNER_TEMP/exporter"
+          dotnet new console --framework net10.0 --force
+          dotnet add package CUE4Parse --version 1.2.2.202609
+          dotnet add package CUE4Parse-Conversion --version 1.2.2.202609
+          cat > Program.cs <<'CS'
+          using CUE4Parse.FileProvider;
+          using CUE4Parse.UE4.Versions;
+          using CUE4Parse.UE4.Assets.Exports.StaticMesh;
+          using CUE4Parse.UE4.Assets.Exports.Material;
+          using CUE4Parse.UE4.Assets.Exports.Texture;
+          using CUE4Parse.UE4.Objects.UObject;
+          using CUE4Parse.UE4.Objects.Engine;
+          using CUE4Parse_Conversion;
+          using CUE4Parse_Conversion.Options;
+          using CUE4Parse_Conversion.Textures;
+          using System.Security.Cryptography;
+          using System.Text;
+          using System.Text.Json;
+
+          if (args.Length < 3) return 2;
+
+          using var doc =
+              JsonDocument.Parse(File.ReadAllText(args[2]));
+
+          var wanted =
+              new HashSet<string>(
+                  StringComparer.OrdinalIgnoreCase);
+
+          foreach (
+              var row in doc.RootElement
+                  .GetProperty("meshes")
+                  .EnumerateArray())
+          {
+              var source =
+                  row.GetProperty("sourcePath")
+                      .GetString() ?? "";
+              var name =
+                  source.Replace('\\', '/')
+                      .TrimEnd('/')
+                      .Split('/')
+                      .Last();
+
+              if (!string.IsNullOrWhiteSpace(name))
+                  wanted.Add(name);
+          }
+
+          if (wanted.Count != 492)
+              return 3;
+
+          var provider =
+              new DefaultFileProvider(
+                  args[0],
+                  SearchOption.AllDirectories,
+                  true,
+                  new VersionContainer(
+                      EGame.GAME_UE4_21));
+
+          provider.Initialize();
+          provider.PostMount();
+          provider.LoadVirtualPaths();
+
+          var session =
+              new ExportSession {
+                  MaxDegreeOfParallelism =
+                      Math.Max(
+                          1,
+                          Environment.ProcessorCount / 2)
+              };
+
+          Directory.CreateDirectory(args[1]);
+          var explicitTextureDir =
+              Path.Combine(args[1], "textures");
+          Directory.CreateDirectory(
+              explicitTextureDir);
+
+          var explicitTextureFiles = 0;
+          var explicitTextureDecodeFailures = 0;
+          var explicitTextureUnsupportedFormats = 0;
+          var explicitTextureRows =
+              new List<Dictionary<string, string>>();
+          var materialTextureRows =
+              new List<Dictionary<string, string>>();
+
+          var materialVectorRows =
+              new List<Dictionary<string, string>>();
+          var materialScalarRows =
+              new List<Dictionary<string, string>>();
+
+          var inferredAlbedoLoads = 0;
+          var slotAliasMaterialLoads = 0;
+          var streamingTextureCandidates = 0;
+          var params2TextureCandidates = 0;
+          var params2VectorCandidates = 0;
+          var params2ScalarCandidates = 0;
+          var expressionExportTextureCandidates = 0;
+
+          var meshMaterialRows =
+              new List<Dictionary<string, string>>();
+
+          var queued =
+              new HashSet<string>(
+                  StringComparer.OrdinalIgnoreCase);
+
+          var materialRefs = 0;
+          var materialLoads = 0;
+          var materialQueued =
+              new HashSet<string>(
+                  StringComparer.OrdinalIgnoreCase);
+
+          var packageBasenames =
+              provider.Files.Values
+                  .Where(f => f.IsUePackage)
+                  .Where(
+                      f => f.Path.EndsWith(
+                          ".uasset",
+                          StringComparison.OrdinalIgnoreCase))
+                  .GroupBy(
+                      f => Path.GetFileNameWithoutExtension(
+                          f.Path.Replace('\\', '/')),
+                      StringComparer.OrdinalIgnoreCase)
+                  .ToDictionary(
+                      g => g.Key,
+                      g => g.Select(x => x.Path).ToArray(),
+                      StringComparer.OrdinalIgnoreCase);
+
+          var refResolved = 0;
+          var exactPackageMatches = 0;
+          var normalizedPackageMatches = 0;
+          var directMaterialLoads = 0;
+          var directMaterialLoadFailures = 0;
+
+          var textureRefs = 0;
+          var textureLoads = 0;
+          var directTextureLoads = 0;
+          var directTextureLoadFailures = 0;
+          var exactTexturePackageMatches = 0;
+          var textureQueued =
+              new HashSet<string>(
+                  StringComparer.OrdinalIgnoreCase);
+
+          var seenTextureRefs =
+              new HashSet<string>(
+                  StringComparer.OrdinalIgnoreCase);
+
+          object? ReadMember(
+              object target,
+              string name)
+          {
+              const System.Reflection.BindingFlags flags =
+                  System.Reflection.BindingFlags.Instance
+                  | System.Reflection.BindingFlags.Public
+                  | System.Reflection.BindingFlags.NonPublic;
+
+              var type = target.GetType();
+
+              var property =
+                  type.GetProperty(name, flags);
+              if (property is not null)
+                  return property.GetValue(target);
+
+              var field =
+                  type.GetField(name, flags);
+              return field?.GetValue(target);
+          }
+
+          var materialTextureWalkVisited =
+              new HashSet<string>(
+                  StringComparer.OrdinalIgnoreCase);
+
+          void QueueTextureCandidate(
+              object? candidate,
+              UMaterialInterface sourceMaterial,
+              string sourceKind)
+          {
+              if (candidate is null)
+                  return;
+
+              UTexture? texture =
+                  candidate as UTexture;
+              string textureName = "";
+              string refPath = "";
+              string texturePackage = "";
+
+              if (candidate is FPackageIndex packageIndex)
+              {
+                  textureName =
+                      packageIndex.Name;
+
+                  refPath =
+                      packageIndex.ResolvedObject?.GetPathName()
+                      ?? $"{packageIndex.Name}#{packageIndex.Index}";
+
+                  if (
+                      packageIndex.TryLoad<UTexture>(
+                          out var loadedTexture)
+                      && loadedTexture is not null)
+                  {
+                      texture = loadedTexture;
+                  }
+              }
+              else if (candidate is UUnrealMaterial unrealMaterial)
+              {
+                  textureName =
+                      unrealMaterial.Name;
+                  refPath =
+                      unrealMaterial.GetPathName();
+              }
+              else
+              {
+                  var reflectedName =
+                      ReadMember(candidate, "Name");
+                  textureName =
+                      reflectedName?.ToString()
+                      ?? candidate.GetType().Name;
+                  refPath =
+                      textureName;
+              }
+
+              var refKey =
+                  $"{sourceMaterial.GetPathName()}|{sourceKind}:{refPath}";
+
+              if (!seenTextureRefs.Add(refKey))
+                  return;
+
+              textureRefs++;
+
+              if (texture is null)
+              {
+                  if (
+                      packageBasenames.TryGetValue(
+                          textureName,
+                          out var candidates))
+                  {
+                      exactTexturePackageMatches++;
+
+                      foreach (
+                          var packagePath in candidates)
+                      {
+                          try
+                          {
+                              var package =
+                                  provider.LoadPackage(
+                                      packagePath);
+
+                              texture =
+                                  package
+                                      .GetExports()
+                                      .OfType<UTexture>()
+                                      .FirstOrDefault(
+                                          x => x.Name.Equals(
+                                              textureName,
+                                              StringComparison.OrdinalIgnoreCase))
+                                  ?? package
+                                      .GetExports()
+                                      .OfType<UTexture>()
+                                      .FirstOrDefault();
+
+                              if (texture is not null)
+                              {
+                                  texturePackage =
+                                      packagePath;
+                                  directTextureLoads++;
+                                  break;
+                              }
+                          }
+                          catch (Exception e)
+                          {
+                              Console.WriteLine(
+                                  $"texture-direct-package-error"
+                                  + $" material={sourceMaterial.Name}"
+                                  + $" source={sourceKind}"
+                                  + $" type={candidate.GetType().Name}"
+                                  + $" path={packagePath}"
+                                  + $" error={e.Message}");
+                          }
+                      }
+                  }
+              }
+
+              if (texture is null)
+              {
+                  directTextureLoadFailures++;
+                  Console.WriteLine(
+                      $"texture-load-fail"
+                      + $" material={sourceMaterial.Name}"
+                      + $" source={sourceKind}"
+                      + $" type={candidate.GetType().Name}"
+                      + $" texture={textureName}"
+                      + $" refPath={refPath}");
+                  return;
+              }
+
+              textureLoads++;
+
+              var textureKey =
+                  texture.GetPathName();
+
+              materialTextureRows.Add(
+                  new Dictionary<string, string> {
+                      ["materialPath"] =
+                          sourceMaterial.GetPathName(),
+                      ["materialName"] =
+                          sourceMaterial.Name,
+                      ["source"] = sourceKind,
+                      ["texturePath"] = textureKey,
+                      ["textureName"] = texture.Name,
+                  });
+
+              if (textureQueued.Add(textureKey))
+              {
+                  session.Add(texture);
+
+                  try
+                  {
+                      var decoded =
+                          texture.Decode();
+
+                      if (decoded is null)
+                      {
+                          throw new Exception(
+                              "Decode returned null");
+                      }
+
+                      byte[] rgba;
+
+                      if (
+                          decoded.PixelFormat ==
+                              EPixelFormat.PF_R8G8B8A8)
+                      {
+                          rgba =
+                              decoded.Data.ToArray();
+                      }
+                      else if (
+                          decoded.PixelFormat ==
+                              EPixelFormat.PF_B8G8R8A8
+                          || decoded.PixelFormat ==
+                              EPixelFormat.PF_A8R8G8B8)
+                      {
+                          if (
+                              decoded.Data.Length !=
+                              decoded.Width *
+                              decoded.Height * 4)
+                          {
+                              throw new Exception(
+                                  "BGRA byte count mismatch");
+                          }
+
+                          rgba =
+                              new byte[
+                                  decoded.Data.Length];
+
+                          for (
+                              var pixel = 0;
+                              pixel <
+                                  decoded.Width *
+                                  decoded.Height;
+                              pixel++)
+                          {
+                              var at = pixel * 4;
+                              rgba[at + 0] =
+                                  decoded.Data[at + 2];
+                              rgba[at + 1] =
+                                  decoded.Data[at + 1];
+                              rgba[at + 2] =
+                                  decoded.Data[at + 0];
+                              rgba[at + 3] =
+                                  decoded.Data[at + 3];
+                          }
+                      }
+                      else if (
+                          decoded.PixelFormat ==
+                              EPixelFormat.PF_G8)
+                      {
+                          if (
+                              decoded.Data.Length !=
+                              decoded.Width *
+                              decoded.Height)
+                          {
+                              throw new Exception(
+                                  "G8 byte count mismatch");
+                          }
+
+                          rgba =
+                              new byte[
+                                  decoded.Width *
+                                  decoded.Height * 4];
+
+                          for (
+                              var pixel = 0;
+                              pixel <
+                                  decoded.Width *
+                                  decoded.Height;
+                              pixel++)
+                          {
+                              var value =
+                                  decoded.Data[pixel];
+                              var at = pixel * 4;
+                              rgba[at + 0] = value;
+                              rgba[at + 1] = value;
+                              rgba[at + 2] = value;
+                              rgba[at + 3] = 255;
+                          }
+                      }
+                      else
+                      {
+                          explicitTextureUnsupportedFormats++;
+                          throw new Exception(
+                              $"unsupported decoded format "
+                              + $"{decoded.PixelFormat}");
+                      }
+
+                      if (
+                          decoded.Width <= 0
+                          || decoded.Height <= 0
+                          || rgba.Length !=
+                              decoded.Width *
+                              decoded.Height * 4)
+                      {
+                          throw new Exception(
+                              "decoded RGBA size mismatch");
+                      }
+
+                      var digest =
+                          Convert.ToHexString(
+                              SHA256.HashData(
+                                  Encoding.UTF8.GetBytes(
+                                      textureKey)))
+                              .ToLowerInvariant()
+                              [..16];
+
+                      var safeName =
+                          string.Concat(
+                              texture.Name.Select(
+                                  ch =>
+                                      char.IsLetterOrDigit(ch)
+                                      || ch == '_'
+                                      || ch == '-'
+                                          ? ch
+                                          : '_'));
+
+                      var fileName =
+                          $"{safeName}_{digest}.xzt";
+
+                      var outputPath =
+                          Path.Combine(
+                              explicitTextureDir,
+                              fileName);
+
+                      using (
+                          var stream =
+                              File.Create(outputPath))
+                      using (
+                          var writer =
+                              new BinaryWriter(stream))
+                      {
+                          writer.Write(
+                              new byte[] {
+                                  (byte)'X',
+                                  (byte)'Z',
+                                  (byte)'T',
+                                  (byte)'X'
+                              });
+                          writer.Write((uint)1);
+                          writer.Write(
+                              (uint)decoded.Width);
+                          writer.Write(
+                              (uint)decoded.Height);
+                          writer.Write((uint)1);
+                          writer.Write(
+                              (uint)rgba.Length);
+                          writer.Write(rgba);
+                      }
+
+                      explicitTextureFiles++;
+
+                      explicitTextureRows.Add(
+                          new Dictionary<string, string> {
+                              ["texturePath"] = textureKey,
+                              ["textureName"] = texture.Name,
+                              ["file"] =
+                                  $"textures/{fileName}",
+                              ["width"] =
+                                  decoded.Width.ToString(),
+                              ["height"] =
+                                  decoded.Height.ToString(),
+                              ["decodedFormat"] =
+                                  decoded.PixelFormat.ToString(),
+                              ["runtimeFormat"] =
+                                  "RGBA8",
+                              ["srgb"] =
+                                  texture.SRGB ? "true" : "false",
+                              ["compressionSettings"] =
+                                  texture.CompressionSettings.ToString(),
+                          });
+
+                      Console.WriteLine(
+                          $"texture-xzt-ok"
+                          + $" texture={texture.Name}"
+                          + $" file={fileName}"
+                          + $" size={decoded.Width}x{decoded.Height}"
+                          + $" sourceFormat={decoded.PixelFormat}"
+                          + $" rgbaBytes={rgba.Length}"
+                          + $" srgb={texture.SRGB}"
+                          + $" compression={texture.CompressionSettings}");
+                  }
+                  catch (Exception e)
+                  {
+                      explicitTextureDecodeFailures++;
+                      Console.WriteLine(
+                          $"texture-xzt-fail"
+                          + $" texture={texture.Name}"
+                          + $" path={textureKey}"
+                          + $" error={e.Message}");
+                  }
+
+                  Console.WriteLine(
+                      $"texture-direct-ok"
+                      + $" material={sourceMaterial.Name}"
+                      + $" source={sourceKind}"
+                      + $" type={candidate.GetType().Name}"
+                      + $" texture={texture.Name}"
+                      + $" path={textureKey}"
+                      + (texturePackage.Length > 0
+                          ? $" package={texturePackage}"
+                          : ""));
+              }
+          }
+
+          void QueueMaterialTextures(
+              UMaterialInterface sourceMaterial,
+              UMaterialInterface? bindingOwner = null)
+          {
+              var ownerMaterial =
+                  bindingOwner ?? sourceMaterial;
+
+              var materialKey =
+                  sourceMaterial.GetPathName();
+
+              var walkKey =
+                  materialKey
+                  + "=>"
+                  + ownerMaterial.GetPathName();
+
+              if (!materialTextureWalkVisited.Add(walkKey))
+                  return;
+
+              /*
+               * First use the pinned NuGet's public API. It is
+               * known to return UUnrealMaterial objects in CI.
+               */
+              var publicRefs =
+                  new List<UUnrealMaterial>();
+
+              sourceMaterial.AppendReferencedTextures(
+                  publicRefs,
+                  false);
+
+              foreach (var textureRef in publicRefs)
+              {
+                  QueueTextureCandidate(
+                      textureRef,
+                      ownerMaterial,
+                      "append");
+              }
+
+              /*
+               * Cooked UE4 materials can retain their texture identities in
+               * TextureStreamingData even when parameter tables and expression
+               * Texture pointers are stripped. Resolve those exact serialized
+               * basenames through the mounted package index before falling
+               * back to higher-level material APIs. This is deterministic:
+               * only an existing UTexture with the exact cooked basename is
+               * accepted.
+               */
+              foreach (
+                  var streamingInfo
+                  in sourceMaterial.TextureStreamingData)
+              {
+                  var streamingName =
+                      streamingInfo.TextureName.Text;
+
+                  if (
+                      string.IsNullOrWhiteSpace(
+                          streamingName)
+                      || !packageBasenames.TryGetValue(
+                          streamingName,
+                          out var streamingPackages))
+                  {
+                      continue;
+                  }
+
+                  UTexture? streamingTexture = null;
+
+                  foreach (
+                      var streamingPackage
+                      in streamingPackages)
+                  {
+                      try
+                      {
+                          streamingTexture =
+                              provider
+                                  .LoadPackage(
+                                      streamingPackage)
+                                  .GetExports()
+                                  .OfType<UTexture>()
+                                  .FirstOrDefault(
+                                      x => x.Name.Equals(
+                                          streamingName,
+                                          StringComparison.OrdinalIgnoreCase));
+
+                          if (streamingTexture is not null)
+                              break;
+                      }
+                      catch (Exception e)
+                      {
+                          Console.WriteLine(
+                              $"material-streaming-package-error"
+                              + $" material={sourceMaterial.Name}"
+                              + $" texture={streamingName}"
+                              + $" package={streamingPackage}"
+                              + $" error={e.Message}");
+                      }
+                  }
+
+                  if (streamingTexture is null)
+                  {
+                      Console.WriteLine(
+                          $"material-streaming-texture-miss"
+                          + $" material={sourceMaterial.Name}"
+                          + $" texture={streamingName}");
+                      continue;
+                  }
+
+                  QueueTextureCandidate(
+                      streamingTexture,
+                      ownerMaterial,
+                      $"streaming:{streamingName}");
+                  streamingTextureCandidates++;
+              }
+
+              /*
+               * Let the pinned CUE4Parse material resolver walk the complete
+               * material stack as well. CMaterialParams2 understands parent
+               * instances, expression semantics, referenced textures and
+               * cached parameter data that are easy to miss with ad-hoc
+               * reflection. Keep obvious normal maps out of PM_Diffuse when a
+               * one-texture material triggers CUE4Parse's generic fallback.
+               */
+              try
+              {
+                  var resolvedParams =
+                      new CMaterialParams2();
+
+                  sourceMaterial.GetParams(
+                      resolvedParams,
+                      EMaterialDepth.AllLayers);
+
+                  foreach (
+                      var pair
+                      in resolvedParams.Textures)
+                  {
+                      var semantic =
+                          pair.Key ?? "";
+                      var textureName =
+                          pair.Value?.Name ?? "";
+                      var lowerTextureName =
+                          textureName.ToLowerInvariant();
+
+                      var obviousNormal =
+                          lowerTextureName.EndsWith(
+                              "_n",
+                              StringComparison.Ordinal)
+                          || lowerTextureName.Contains(
+                              "_normal",
+                              StringComparison.Ordinal)
+                          || lowerTextureName.Contains(
+                              "normalmap",
+                              StringComparison.Ordinal);
+
+                      if (
+                          semantic.Equals(
+                              CMaterialParams2.FallbackDiffuse,
+                              StringComparison.OrdinalIgnoreCase)
+                          && obviousNormal)
+                      {
+                          Console.WriteLine(
+                              $"material-params2-skip-normal-fallback"
+                              + $" material={sourceMaterial.Name}"
+                              + $" texture={textureName}");
+                          continue;
+                      }
+
+                      QueueTextureCandidate(
+                          pair.Value,
+                          ownerMaterial,
+                          $"params2:{semantic}");
+                      params2TextureCandidates++;
+                  }
+
+                  foreach (
+                      var pair
+                      in resolvedParams.Colors)
+                  {
+                      var ownerPath =
+                          ownerMaterial.GetPathName();
+
+                      if (
+                          materialVectorRows.Any(
+                              row =>
+                                  row.TryGetValue(
+                                      "materialPath",
+                                      out var existingPath)
+                                  && existingPath.Equals(
+                                      ownerPath,
+                                      StringComparison.OrdinalIgnoreCase)
+                                  && row.TryGetValue(
+                                      "parameter",
+                                      out var existingParameter)
+                                  && existingParameter.Equals(
+                                      pair.Key,
+                                      StringComparison.OrdinalIgnoreCase)))
+                      {
+                          continue;
+                      }
+
+                      var value =
+                          pair.Value;
+
+                      materialVectorRows.Add(
+                          new Dictionary<string, string> {
+                              ["materialPath"] =
+                                  ownerPath,
+                              ["materialName"] =
+                                  ownerMaterial.Name,
+                              ["parameter"] =
+                                  pair.Key,
+                              ["r"] =
+                                  value.R.ToString(
+                                      "R",
+                                      System.Globalization.CultureInfo.InvariantCulture),
+                              ["g"] =
+                                  value.G.ToString(
+                                      "R",
+                                      System.Globalization.CultureInfo.InvariantCulture),
+                              ["b"] =
+                                  value.B.ToString(
+                                      "R",
+                                      System.Globalization.CultureInfo.InvariantCulture),
+                              ["a"] =
+                                  value.A.ToString(
+                                      "R",
+                                      System.Globalization.CultureInfo.InvariantCulture),
+                          });
+
+                      params2VectorCandidates++;
+                  }
+
+                  foreach (
+                      var pair
+                      in resolvedParams.Scalars)
+                  {
+                      var ownerPath =
+                          ownerMaterial.GetPathName();
+
+                      if (
+                          materialScalarRows.Any(
+                              row =>
+                                  row.TryGetValue(
+                                      "materialPath",
+                                      out var existingPath)
+                                  && existingPath.Equals(
+                                      ownerPath,
+                                      StringComparison.OrdinalIgnoreCase)
+                                  && row.TryGetValue(
+                                      "parameter",
+                                      out var existingParameter)
+                                  && existingParameter.Equals(
+                                      pair.Key,
+                                      StringComparison.OrdinalIgnoreCase)))
+                      {
+                          continue;
+                      }
+
+                      materialScalarRows.Add(
+                          new Dictionary<string, string> {
+                              ["materialPath"] =
+                                  ownerPath,
+                              ["materialName"] =
+                                  ownerMaterial.Name,
+                              ["parameter"] =
+                                  pair.Key,
+                              ["value"] =
+                                  pair.Value.ToString(
+                                      "R",
+                                      System.Globalization.CultureInfo.InvariantCulture),
+                          });
+
+                      params2ScalarCandidates++;
+                  }
+              }
+              catch (Exception e)
+              {
+                  Console.WriteLine(
+                      $"material-params2-error"
+                      + $" material={sourceMaterial.Name}"
+                      + $" error={e.Message}");
+              }
+
+              /*
+               * Prefer CUE4Parse's typed UMaterial expression API. UE4.21
+               * cooked Nacht materials can retain TextureSample nodes even
+               * when generic material parameter tables are empty.
+               */
+              if (sourceMaterial is UMaterial typedMaterial)
+              {
+                  foreach (
+                      var expressionIndex
+                      in typedMaterial.Expressions)
+                  {
+                      if (
+                          !expressionIndex.TryLoad(
+                              out UMaterialExpression materialExpression)
+                          || materialExpression is null)
+                      {
+                          continue;
+                      }
+
+                      if (
+                          materialExpression
+                          is UMaterialExpressionTextureBase textureExpression
+                          && textureExpression.Texture
+                              is { } typedTexture)
+                      {
+                          QueueTextureCandidate(
+                              typedTexture,
+                              ownerMaterial,
+                              $"expression:{textureExpression.SamplerType}");
+                      }
+                  }
+              }
+
+              /*
+               * UE4.21 cooked base materials commonly keep the
+               * actual texture links on Material Expressions.
+               */
+              if (
+                  ReadMember(
+                      sourceMaterial,
+                      "Expressions")
+                  is System.Collections.IEnumerable expressions)
+              {
+                  foreach (var expressionRef in expressions)
+                  {
+                      object? expression =
+                          expressionRef;
+
+                      if (
+                          expressionRef
+                          is FPackageIndex expressionIndex)
+                      {
+                          expression =
+                              expressionIndex.Load();
+                      }
+
+                      if (expression is null)
+                          continue;
+
+                      var expressionTexture =
+                          ReadMember(
+                              expression,
+                              "Texture");
+
+                      QueueTextureCandidate(
+                          expressionTexture,
+                          ownerMaterial,
+                          "expression");
+                  }
+              }
+
+              /*
+               * Material instances override textures through
+               * TextureParameterValues. Track albedo/normal semantics so
+               * normal-only instances can probe an exact cooked sibling
+               * diffuse texture instead of remaining flat gray.
+               */
+              var hasExplicitAlbedo = false;
+              string? normalTextureName = null;
+
+              if (
+                  ReadMember(
+                      sourceMaterial,
+                      "TextureParameterValues")
+                  is System.Collections.IEnumerable textureParameters)
+              {
+                  foreach (
+                      var textureParameter
+                      in textureParameters)
+                  {
+                      if (textureParameter is null)
+                          continue;
+
+                      var parameterValue =
+                          ReadMember(
+                              textureParameter,
+                              "ParameterValue");
+
+                      var parameterName =
+                          ReadMember(
+                              textureParameter,
+                              "Name")?.ToString()
+                          ?? "unknown";
+
+                      if (
+                          parameterName.Equals(
+                              "AlbedoTexture",
+                              StringComparison.OrdinalIgnoreCase))
+                      {
+                          hasExplicitAlbedo = true;
+                      }
+
+                      if (
+                          parameterName.Equals(
+                              "NormalTexture",
+                              StringComparison.OrdinalIgnoreCase))
+                      {
+                          normalTextureName =
+                              parameterValue is FPackageIndex normalIndex
+                                  ? normalIndex.Name
+                                  : ReadMember(
+                                      parameterValue!,
+                                      "Name")?.ToString();
+                      }
+
+                      QueueTextureCandidate(
+                          parameterValue,
+                          ownerMaterial,
+                          $"parameter:{parameterName}");
+                  }
+              }
+
+              if (!hasExplicitAlbedo)
+              {
+                  var inferredNames =
+                      new List<string>();
+
+                  void AddInferred(string value)
+                  {
+                      if (
+                          value.Length > 0
+                          && !inferredNames.Contains(
+                              value,
+                              StringComparer.OrdinalIgnoreCase))
+                      {
+                          inferredNames.Add(value);
+                      }
+                  }
+
+                  /*
+                   * BO3/Pavlov material names often preserve the cooked image
+                   * basename more reliably than the material's normal override.
+                   * Probe only exact package basenames; this never fabricates a
+                   * texture and therefore cannot bind a non-existent sibling.
+                   */
+                  var materialName =
+                      sourceMaterial.Name ?? "";
+
+                  AddInferred(
+                      "i_" + materialName + "_c");
+                  AddInferred(
+                      "i_" + materialName + "_d");
+                  AddInferred(
+                      materialName + "_c");
+                  AddInferred(
+                      materialName + "_d");
+
+                  if (
+                      materialName.StartsWith(
+                          "mtl_",
+                          StringComparison.OrdinalIgnoreCase)
+                      && materialName.Length > 4)
+                  {
+                      var materialStem =
+                          materialName[4..];
+
+                      AddInferred(
+                          "i_" + materialStem + "_c");
+                      AddInferred(
+                          "i_" + materialStem + "_d");
+                      AddInferred(
+                          materialStem + "_c");
+                      AddInferred(
+                          materialStem + "_d");
+                  }
+
+                  var normalName =
+                      normalTextureName ?? "";
+
+                  if (
+                      !string.IsNullOrWhiteSpace(
+                          normalName)
+                      && !normalName.Contains(
+                          "identitynormalmap",
+                          StringComparison.OrdinalIgnoreCase))
+                  {
+                      if (
+                          normalName.EndsWith(
+                              "_n",
+                              StringComparison.OrdinalIgnoreCase))
+                      {
+                          var stem =
+                              normalName[..^2];
+                          AddInferred(stem + "_c");
+                          AddInferred(stem + "_d");
+                          AddInferred(stem + "_diffuse");
+                          AddInferred(stem + "_albedo");
+                      }
+
+                      if (
+                          normalName.EndsWith(
+                              "_normal",
+                              StringComparison.OrdinalIgnoreCase))
+                      {
+                          var stem =
+                              normalName[..^7];
+                          AddInferred(stem + "_c");
+                          AddInferred(stem + "_diffuse");
+                          AddInferred(stem + "_albedo");
+                      }
+                  }
+
+                  foreach (
+                      var inferredName
+                      in inferredNames)
+                  {
+                      if (
+                          !packageBasenames.TryGetValue(
+                              inferredName,
+                              out var inferredPackages))
+                      {
+                          continue;
+                      }
+
+                      UTexture? inferredTexture =
+                          null;
+
+                      foreach (
+                          var inferredPackagePath
+                          in inferredPackages)
+                      {
+                          try
+                          {
+                              var inferredPackage =
+                                  provider.LoadPackage(
+                                      inferredPackagePath);
+
+                              inferredTexture =
+                                  inferredPackage
+                                      .GetExports()
+                                      .OfType<UTexture>()
+                                      .FirstOrDefault(
+                                          x => x.Name.Equals(
+                                              inferredName,
+                                              StringComparison.OrdinalIgnoreCase));
+
+                              if (inferredTexture is not null)
+                                  break;
+                          }
+                          catch
+                          {
+                          }
+                      }
+
+                      if (inferredTexture is null)
+                          continue;
+
+                      inferredAlbedoLoads++;
+
+                      QueueTextureCandidate(
+                          inferredTexture,
+                          ownerMaterial,
+                          "inferred:AlbedoSibling");
+
+                      Console.WriteLine(
+                          $"texture-inferred-albedo"
+                          + $" material={sourceMaterial.Name}"
+                          + $" normal={(normalName.Length > 0 ? normalName : "none")}"
+                          + $" albedo={inferredTexture.Name}");
+
+                      break;
+                  }
+              }
+
+              if (
+                  ReadMember(
+                      sourceMaterial,
+                      "VectorParameterValues")
+                  is System.Collections.IEnumerable vectorParameters)
+              {
+                  foreach (
+                      var vectorParameter
+                      in vectorParameters)
+                  {
+                      if (vectorParameter is null)
+                          continue;
+
+                      var parameterName =
+                          ReadMember(
+                              vectorParameter,
+                              "Name")?.ToString()
+                          ?? "unknown";
+
+                      var parameterValue =
+                          ReadMember(
+                              vectorParameter,
+                              "ParameterValue");
+
+                      if (parameterValue is null)
+                          continue;
+
+                      var vectorRow =
+                          new Dictionary<string, string> {
+                              ["materialPath"] =
+                                  ownerMaterial.GetPathName(),
+                              ["materialName"] =
+                                  ownerMaterial.Name,
+                              ["parameter"] =
+                                  parameterName,
+                              ["r"] =
+                                  ReadMember(
+                                      parameterValue,
+                                      "R")?.ToString()
+                                  ?? "",
+                              ["g"] =
+                                  ReadMember(
+                                      parameterValue,
+                                      "G")?.ToString()
+                                  ?? "",
+                              ["b"] =
+                                  ReadMember(
+                                      parameterValue,
+                                      "B")?.ToString()
+                                  ?? "",
+                              ["a"] =
+                                  ReadMember(
+                                      parameterValue,
+                                      "A")?.ToString()
+                                  ?? "",
+                          };
+
+                      materialVectorRows.Add(
+                          vectorRow);
+
+                      Console.WriteLine(
+                          $"material-vector"
+                          + $" material={sourceMaterial.Name}"
+                          + $" parameter={parameterName}"
+                          + $" rgba={vectorRow["r"]},{vectorRow["g"]},{vectorRow["b"]},{vectorRow["a"]}");
+                  }
+              }
+
+              /*
+               * Some CUE4Parse builds expose an explicit
+               * ReferencedTextures collection even when the
+               * public append helper returns nothing.
+               */
+              if (
+                  ReadMember(
+                      sourceMaterial,
+                      "ReferencedTextures")
+                  is System.Collections.IEnumerable referencedTextures)
+              {
+                  foreach (
+                      var textureRef
+                      in referencedTextures)
+                  {
+                      QueueTextureCandidate(
+                          textureRef,
+                          ownerMaterial,
+                          "referenced");
+                  }
+              }
+
+              /*
+               * Some cooked UE4 materials serialize texture-sample nodes as
+               * sibling package exports instead of exposing them through the
+               * UMaterialInterface.Expressions member or CMaterialParams2.
+               * Only probe those exports when the binding owner still has no
+               * plausible base-color candidate. This preserves every mapping
+               * already resolved by the stronger semantic paths above.
+               */
+              bool OwnerHasBaseColorCandidate()
+              {
+                  var ownerPath =
+                      ownerMaterial.GetPathName();
+
+                  foreach (
+                      var row
+                      in materialTextureRows)
+                  {
+                      if (
+                          !row.TryGetValue(
+                              "materialPath",
+                              out var rowPath)
+                          || !rowPath.Equals(
+                              ownerPath,
+                              StringComparison.OrdinalIgnoreCase))
+                      {
+                          continue;
+                      }
+
+                      var source =
+                          row.TryGetValue(
+                              "source",
+                              out var sourceValue)
+                              ? sourceValue.ToLowerInvariant()
+                              : "";
+
+                      var textureName =
+                          row.TryGetValue(
+                              "textureName",
+                              out var textureValue)
+                              ? textureValue.ToLowerInvariant()
+                              : "";
+
+                      var obviousNormal =
+                          textureName.EndsWith(
+                              "_n",
+                              StringComparison.Ordinal)
+                          || textureName.Contains(
+                              "_normal",
+                              StringComparison.Ordinal)
+                          || textureName.Contains(
+                              "normalmap",
+                              StringComparison.Ordinal)
+                          || source.Contains(
+                              "normal",
+                              StringComparison.Ordinal);
+
+                      if (obviousNormal)
+                          continue;
+
+                      if (
+                          source.Contains(
+                              "albedo",
+                              StringComparison.Ordinal)
+                          || source.Contains(
+                              "basecolor",
+                              StringComparison.Ordinal)
+                          || source.Contains(
+                              "diffuse",
+                              StringComparison.Ordinal)
+                          || textureName.EndsWith(
+                              "_c",
+                              StringComparison.Ordinal)
+                          || textureName.EndsWith(
+                              "_d",
+                              StringComparison.Ordinal)
+                          || textureName.Contains(
+                              "albedo",
+                              StringComparison.Ordinal)
+                          || textureName.Contains(
+                              "diffuse",
+                              StringComparison.Ordinal)
+                          || textureName.Contains(
+                              "basecolor",
+                              StringComparison.Ordinal))
+                      {
+                          return true;
+                      }
+                  }
+
+                  return false;
+              }
+
+              if (
+                  !OwnerHasBaseColorCandidate()
+                  && packageBasenames.TryGetValue(
+                      sourceMaterial.Name,
+                      out var expressionPackages))
+              {
+                  foreach (
+                      var expressionPackagePath
+                      in expressionPackages)
+                  {
+                      try
+                      {
+                          var expressionPackage =
+                              provider.LoadPackage(
+                                  expressionPackagePath);
+
+                          foreach (
+                              var expressionExport
+                              in expressionPackage.GetExports())
+                          {
+                              /*
+                               * Prefer CUE4Parse's typed material-expression
+                               * object when available. Cooked UE4.21 materials
+                               * can expose Texture on UMaterialExpressionTextureBase
+                               * even when the generic property bag reports null.
+                               */
+                              object? textureRef =
+                                  expressionExport
+                                  is UMaterialExpressionTextureBase typedTextureExpression
+                                      ? typedTextureExpression.Texture
+                                      : expressionExport
+                                          .GetOrDefault<FPackageIndex?>(
+                                              "Texture");
+
+                              if (textureRef is null)
+                                  continue;
+
+                              var before =
+                                  materialTextureRows.Count;
+
+                              QueueTextureCandidate(
+                                  textureRef,
+                                  ownerMaterial,
+                                  "expression-export-typed");
+
+                              if (
+                                  materialTextureRows.Count
+                                  > before)
+                              {
+                                  expressionExportTextureCandidates++;
+
+                                  Console.WriteLine(
+                                      $"texture-expression-export"
+                                      + $" material={sourceMaterial.Name}"
+                                      + $" owner={ownerMaterial.Name}"
+                                      + $" expression={expressionExport.Name}"
+                                      + $" texture={(
+                                          textureRef is FPackageIndex loggedIndex
+                                              ? loggedIndex.Name
+                                              : ReadMember(
+                                                  textureRef,
+                                                  "Name")?.ToString()
+                                                ?? "unknown")}"
+                                      + $" package={expressionPackagePath}");
+                              }
+                          }
+                      }
+                      catch (Exception e)
+                      {
+                          Console.WriteLine(
+                              $"material-expression-export-error"
+                              + $" material={sourceMaterial.Name}"
+                              + $" package={expressionPackagePath}"
+                              + $" error={e.Message}");
+                      }
+
+                      if (OwnerHasBaseColorCandidate())
+                          break;
+                  }
+              }
+
+              /*
+               * Walk material-instance inheritance so textures
+               * supplied by parent materials are not omitted.
+               */
+              var parentRef =
+                  ReadMember(
+                      sourceMaterial,
+                      "Parent");
+
+              if (
+                  parentRef is FPackageIndex parentIndex
+                  && parentIndex.TryLoad<UMaterialInterface>(
+                      out var parentMaterial)
+                  && parentMaterial is not null
+                  && !ReferenceEquals(
+                      parentMaterial,
+                      sourceMaterial))
+              {
+                  QueueMaterialTextures(
+                      parentMaterial,
+                      ownerMaterial);
+              }
+          }
+
+          foreach (
+              var file in provider.Files.Values
+                  .Where(f => f.IsUePackage)
+                  .Where(
+                      f => f.Path.Contains(
+                          "/CoD_nacht/",
+                          StringComparison.OrdinalIgnoreCase))
+                  .Where(
+                      f => f.Path.EndsWith(
+                          ".uasset",
+                          StringComparison.OrdinalIgnoreCase)))
+          {
+              try
+              {
+                  foreach (
+                      var mesh in provider
+                          .LoadPackage(file.Path)
+                          .GetExports()
+                          .OfType<UStaticMesh>())
+                  {
+                      if (
+                          wanted.Contains(mesh.Name)
+                          && queued.Add(mesh.Name))
+                      {
+                          session.Add(mesh);
+
+                          Console.WriteLine(
+                              $"mesh={mesh.Name}"
+                              + $" staticMaterials={mesh.StaticMaterials.Length}"
+                              + $" materials={mesh.Materials.Length}");
+
+                          for (
+                              var slotIndex = 0;
+                              slotIndex < mesh.StaticMaterials.Length;
+                              slotIndex++)
+                          {
+                              var slot =
+                                  mesh.StaticMaterials[slotIndex];
+
+                              var slotName =
+                                  slot.ImportedMaterialSlotName?.Text
+                                  ?? slot.MaterialSlotName.Text;
+
+                              if (slot.MaterialInterface is not { } materialRef)
+                              {
+                                  Console.WriteLine(
+                                      $"material-ref-missing"
+                                      + $" mesh={mesh.Name}"
+                                      + $" slot={slotName}");
+                                  continue;
+                              }
+
+                              materialRefs++;
+
+                              if (
+                                  materialRef.TryLoad<UMaterialInterface>(
+                                      out var material)
+                                  && material is not null)
+                              {
+                                  materialLoads++;
+
+                                  if (
+                                      materialQueued.Add(
+                                          material.GetPathName()))
+                                  {
+                                      session.Add(material);
+                                      QueueMaterialTextures(material);
+                                  }
+
+                                  meshMaterialRows.Add(
+                                      new Dictionary<string, string> {
+                                          ["meshName"] = mesh.Name,
+                                          ["slotIndex"] =
+                                              slotIndex.ToString(),
+                                          ["slotName"] = slotName,
+                                          ["materialSlotName"] =
+                                              slot.MaterialSlotName.Text,
+                                          ["importedSlotName"] =
+                                              slot.ImportedMaterialSlotName?.Text
+                                              ?? "",
+                                          ["materialName"] =
+                                              material.Name,
+                                          ["materialPath"] =
+                                              material.GetPathName(),
+                                      });
+
+                                  Console.WriteLine(
+                                      $"material-ok"
+                                      + $" mesh={mesh.Name}"
+                                      + $" slot={slotName}"
+                                      + $" material={material.Name}");
+                              }
+                              else
+                              {
+                                  var resolved =
+                                      materialRef.ResolvedObject;
+                                  var refName =
+                                      materialRef.Name;
+                                  var refPath =
+                                      resolved?.GetPathName()
+                                      ?? "";
+                                  var refClass =
+                                      resolved?.Class?.Name.Text
+                                      ?? "";
+
+                                  if (resolved is not null)
+                                      refResolved++;
+
+                                  string NormalizeCandidate(
+                                      string value)
+                                  {
+                                      if (
+                                          value.EndsWith(
+                                              "Mat",
+                                              StringComparison.OrdinalIgnoreCase))
+                                          return value[..^3];
+                                      return value;
+                                  }
+
+                                  var exactMatches =
+                                      packageBasenames.TryGetValue(
+                                          refName,
+                                          out var exact)
+                                          ? exact
+                                          : [];
+
+                                  var normalized =
+                                      NormalizeCandidate(refName);
+                                  var normalizedMatches =
+                                      packageBasenames.TryGetValue(
+                                          normalized,
+                                          out var norm)
+                                          ? norm
+                                          : [];
+
+                                  if (exactMatches.Length > 0)
+                                      exactPackageMatches++;
+                                  if (normalizedMatches.Length > 0)
+                                      normalizedPackageMatches++;
+
+                                  UMaterialInterface? directMaterial = null;
+                                  string directPackage = "";
+
+                                  foreach (
+                                      var candidate in exactMatches)
+                                  {
+                                      try
+                                      {
+                                          directMaterial =
+                                              provider
+                                                  .LoadPackage(candidate)
+                                                  .GetExports()
+                                                  .OfType<UMaterialInterface>()
+                                                  .FirstOrDefault(
+                                                      x => x.Name.Equals(
+                                                          refName,
+                                                          StringComparison.OrdinalIgnoreCase))
+                                              ?? provider
+                                                  .LoadPackage(candidate)
+                                                  .GetExports()
+                                                  .OfType<UMaterialInterface>()
+                                                  .FirstOrDefault();
+
+                                          if (directMaterial is not null)
+                                          {
+                                              directPackage = candidate;
+                                              break;
+                                          }
+                                      }
+                                      catch (Exception e)
+                                      {
+                                          Console.WriteLine(
+                                              $"material-direct-package-error"
+                                              + $" path={candidate}"
+                                              + $" error={e.Message}");
+                                      }
+                                  }
+
+                                  if (directMaterial is not null)
+                                  {
+                                      materialLoads++;
+                                      directMaterialLoads++;
+
+                                      var materialKey =
+                                          directMaterial.GetPathName();
+
+                                      if (materialQueued.Add(materialKey))
+                                      {
+                                          session.Add(directMaterial);
+                                          QueueMaterialTextures(
+                                              directMaterial);
+                                      }
+
+                                      meshMaterialRows.Add(
+                                          new Dictionary<string, string> {
+                                              ["meshName"] = mesh.Name,
+                                              ["slotIndex"] =
+                                                  slotIndex.ToString(),
+                                              ["slotName"] = slotName,
+                                              ["materialSlotName"] =
+                                                  slot.MaterialSlotName.Text,
+                                              ["importedSlotName"] =
+                                                  slot.ImportedMaterialSlotName?.Text
+                                                  ?? "",
+                                              ["materialName"] =
+                                                  directMaterial.Name,
+                                              ["materialPath"] =
+                                                  materialKey,
+                                          });
+
+                                      Console.WriteLine(
+                                          $"material-direct-ok"
+                                          + $" mesh={mesh.Name}"
+                                          + $" slot={slotName}"
+                                          + $" material={directMaterial.Name}"
+                                          + $" path={materialKey}"
+                                          + $" package={directPackage}");
+                                  }
+                                  else
+                                  {
+                                      directMaterialLoadFailures++;
+                                      Console.WriteLine(
+                                          $"material-load-fail"
+                                          + $" mesh={mesh.Name}"
+                                          + $" slot={slotName}"
+                                          + $" refIndex={materialRef.Index}"
+                                          + $" refName={refName}"
+                                          + $" refClass={refClass}"
+                                          + $" refPath={refPath}"
+                                          + $" exactPackages={string.Join('|', exactMatches)}"
+                                          + $" normalizedPackages={string.Join('|', normalizedMatches)}");
+                                  }
+                              }
+                          }
+                      }
+                  }
+              }
+              catch (Exception e)
+              {
+                  Console.WriteLine(
+                      "skip=" + file.Path
+                      + " :: " + e.Message);
+              }
+          }
+
+          /*
+           * Some Pavlov-converted meshes keep a proxy MaterialInterface while
+           * preserving the original BO3 material identity only in the static
+           * mesh slot name. Resolve that slot name as a real UMaterial package
+           * when the identities differ. The alias is recorded per mesh slot,
+           * so two meshes sharing one proxy can still bind different original
+           * materials without contaminating each other.
+           */
+          string CanonicalMaterialName(
+              string value)
+          {
+              var normalized =
+                  new string(
+                      (value ?? "")
+                          .ToLowerInvariant()
+                          .Where(
+                              ch =>
+                                  char.IsLetterOrDigit(
+                                      ch))
+                          .ToArray());
+
+              if (
+                  normalized.EndsWith(
+                      "mat",
+                      StringComparison.Ordinal)
+                  && normalized.Length > 3)
+              {
+                  normalized =
+                      normalized[..^3];
+              }
+
+              return normalized;
+          }
+
+          string StripMaterialMatSuffix(
+              string value)
+          {
+              if (
+                  value.EndsWith(
+                      "Mat",
+                      StringComparison.OrdinalIgnoreCase)
+                  && value.Length > 3)
+              {
+                  return value[..^3];
+              }
+
+              return value;
+          }
+
+          UMaterialInterface? TryLoadSlotAliasMaterial(
+              string slotName,
+              string currentMaterialPath)
+          {
+              var candidateNames =
+                  new[] {
+                      slotName,
+                      StripMaterialMatSuffix(
+                          slotName),
+                  }
+                  .Where(
+                      x =>
+                          !string.IsNullOrWhiteSpace(
+                              x))
+                  .Distinct(
+                      StringComparer.OrdinalIgnoreCase);
+
+              foreach (
+                  var candidateName
+                  in candidateNames)
+              {
+                  if (
+                      !packageBasenames.TryGetValue(
+                          candidateName,
+                          out var candidatePackages))
+                  {
+                      continue;
+                  }
+
+                  foreach (
+                      var candidatePackage
+                      in candidatePackages)
+                  {
+                      try
+                      {
+                          var exports =
+                              provider
+                                  .LoadPackage(
+                                      candidatePackage)
+                                  .GetExports()
+                                  .OfType<UMaterialInterface>()
+                                  .ToArray();
+
+                          var aliasMaterial =
+                              exports.FirstOrDefault(
+                                  x =>
+                                      x.Name.Equals(
+                                          candidateName,
+                                          StringComparison.OrdinalIgnoreCase))
+                              ?? exports.FirstOrDefault(
+                                  x =>
+                                      CanonicalMaterialName(
+                                          x.Name)
+                                      == CanonicalMaterialName(
+                                          candidateName));
+
+                          if (
+                              aliasMaterial is null
+                              || aliasMaterial
+                                  .GetPathName()
+                                  .Equals(
+                                      currentMaterialPath,
+                                      StringComparison.OrdinalIgnoreCase))
+                          {
+                              continue;
+                          }
+
+                          return aliasMaterial;
+                      }
+                      catch (Exception e)
+                      {
+                          Console.WriteLine(
+                              $"material-slot-alias-package-error"
+                              + $" slot={slotName}"
+                              + $" package={candidatePackage}"
+                              + $" error={e.Message}");
+                      }
+                  }
+              }
+
+              return null;
+          }
+
+          foreach (
+              var meshMaterialRow
+              in meshMaterialRows)
+          {
+              var slotName =
+                  meshMaterialRow[
+                      "slotName"];
+              var currentMaterialName =
+                  meshMaterialRow[
+                      "materialName"];
+              var currentMaterialPath =
+                  meshMaterialRow[
+                      "materialPath"];
+
+              if (
+                  CanonicalMaterialName(
+                      slotName)
+                  == CanonicalMaterialName(
+                      currentMaterialName))
+              {
+                  continue;
+              }
+
+              var aliasMaterial =
+                  TryLoadSlotAliasMaterial(
+                      slotName,
+                      currentMaterialPath);
+
+              if (aliasMaterial is null)
+              {
+                  Console.WriteLine(
+                      $"material-slot-alias-miss"
+                      + $" mesh={meshMaterialRow["meshName"]}"
+                      + $" slot={slotName}"
+                      + $" material={currentMaterialName}");
+                  continue;
+              }
+
+              var aliasPath =
+                  aliasMaterial.GetPathName();
+
+              meshMaterialRow[
+                  "slotAliasMaterialName"] =
+                  aliasMaterial.Name;
+              meshMaterialRow[
+                  "slotAliasMaterialPath"] =
+                  aliasPath;
+
+              if (
+                  materialQueued.Add(
+                      aliasPath))
+              {
+                  session.Add(
+                      aliasMaterial);
+              }
+
+              QueueMaterialTextures(
+                  aliasMaterial);
+              slotAliasMaterialLoads++;
+
+              Console.WriteLine(
+                  $"material-slot-alias-ok"
+                  + $" mesh={meshMaterialRow["meshName"]}"
+                  + $" slot={slotName}"
+                  + $" proxy={currentMaterialName}"
+                  + $" alias={aliasMaterial.Name}"
+                  + $" aliasPath={aliasPath}");
+          }
+
+          var textureManifest =
+              new {
+                  schemaVersion = 1,
+                  textureCount =
+                      explicitTextureRows.Count,
+                  bindingCount =
+                      materialTextureRows.Count,
+                  meshMaterialCount =
+                      meshMaterialRows.Count,
+                  vectorParameterCount =
+                      materialVectorRows.Count,
+                  scalarParameterCount =
+                      materialScalarRows.Count,
+                  inferredAlbedoLoads =
+                      inferredAlbedoLoads,
+                  slotAliasMaterialLoads =
+                      slotAliasMaterialLoads,
+                  streamingTextureCandidates =
+                      streamingTextureCandidates,
+                  params2TextureCandidates =
+                      params2TextureCandidates,
+                  params2VectorCandidates =
+                      params2VectorCandidates,
+                  params2ScalarCandidates =
+                      params2ScalarCandidates,
+                  expressionExportTextureCandidates =
+                      expressionExportTextureCandidates,
+                  textures =
+                      explicitTextureRows,
+                  bindings =
+                      materialTextureRows,
+                  meshMaterials =
+                      meshMaterialRows,
+                  materialVectors =
+                      materialVectorRows,
+                  materialScalars =
+                      materialScalarRows,
+              };
+
+          File.WriteAllText(
+              Path.Combine(
+                  args[1],
+                  "xziel-texture-manifest.json"),
+              JsonSerializer.Serialize(
+                  textureManifest,
+                  new JsonSerializerOptions {
+                      WriteIndented = true
+                  }));
+
+          Console.WriteLine(
+              $"textureXztFiles={explicitTextureFiles}"
+              + $" textureXztDecodeFailures={explicitTextureDecodeFailures}"
+              + $" textureXztUnsupportedFormats={explicitTextureUnsupportedFormats}"
+              + $" materialTextureBindings={materialTextureRows.Count}"
+              + $" inferredAlbedoLoads={inferredAlbedoLoads}"
+              + $" slotAliasMaterialLoads={slotAliasMaterialLoads}"
+              + $" streamingTextureCandidates={streamingTextureCandidates}"
+              + $" params2TextureCandidates={params2TextureCandidates}"
+              + $" params2VectorCandidates={params2VectorCandidates}"
+              + $" params2ScalarCandidates={params2ScalarCandidates}"
+              + $" expressionExportTextureCandidates={expressionExportTextureCandidates}"
+              + $" vectorParameters={materialVectorRows.Count}"
+              + $" scalarParameters={materialScalarRows.Count}");
+
+          Console.WriteLine(
+              $"wanted={wanted.Count} queued={queued.Count}"
+              + $" materialRefs={materialRefs}"
+              + $" materialLoads={materialLoads}"
+              + $" materialQueued={materialQueued.Count}"
+              + $" refResolved={refResolved}"
+              + $" exactPackageMatches={exactPackageMatches}"
+              + $" normalizedPackageMatches={normalizedPackageMatches}"
+              + $" directMaterialLoads={directMaterialLoads}"
+              + $" directMaterialLoadFailures={directMaterialLoadFailures}"
+              + $" textureRefs={textureRefs}"
+              + $" textureLoads={textureLoads}"
+              + $" textureQueued={textureQueued.Count}"
+              + $" exactTexturePackageMatches={exactTexturePackageMatches}"
+              + $" directTextureLoads={directTextureLoads}"
+              + $" directTextureLoadFailures={directTextureLoadFailures}");
+
+          if (queued.Count != wanted.Count)
+              return 4;
+          if (materialRefs == 0 || materialLoads == 0)
+              return 6;
+          if (textureRefs == 0 || textureLoads == 0)
+              return 7;
+          if (
+              explicitTextureFiles == 0
+              || explicitTextureDecodeFailures != 0)
+              return 8;
+
+          var result =
+              await session.RunAsync(
+                  args[1],
+                  new ExportOptions(
+                      meshFormat: EMeshFormat.Gltf2,
+                      exportMaterials: true));
+
+          Console.WriteLine(
+              $"exportResults={result.Count}"
+              + $" minimumExpected={wanted.Count + materialQueued.Count + textureQueued.Count}");
+
+          return result.Count >=
+              wanted.Count + materialQueued.Count + textureQueued.Count
+              ? 0
+              : 5;
+          CS
+          dotnet build -c Release
+
+      - name: Export all 492 referenced GLBs
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/scene-glb" \
+            build/nacht-static-scene
+
+          dotnet \
+            "$RUNNER_TEMP/exporter/bin/Release/net10.0/exporter.dll" \
+            "$UNPACKED" \
+            "$RUNNER_TEMP/scene-glb" \
+            "$GITHUB_WORKSPACE/assets/nacht_reference/pavlov_scene_reference/assets.json" \
+            2>&1 | tee build/nacht-static-scene/export.log
+
+          python3 - <<'PY'
+          import os
+          import pathlib
+          import shutil
+
+          root = (
+              pathlib.Path(os.environ["RUNNER_TEMP"])
+              / "scene-glb"
+          )
+          root.mkdir(parents=True, exist_ok=True)
+
+          normalized_outputs = 0
+          for p in list(pathlib.Path.cwd().iterdir()):
+              if not (p.is_file() and "\\" in p.name):
+                  continue
+
+              normalized = p.name.replace("\\", "/")
+              marker = "/scene-glb/"
+              if marker in normalized:
+                  rel = normalized.split(marker, 1)[1]
+              else:
+                  rel = normalized.split("/")[-1]
+
+              target = root / rel
+              target.parent.mkdir(
+                  parents=True,
+                  exist_ok=True,
+              )
+
+              if target.exists():
+                  raise SystemExit(
+                      f"duplicate normalized export {rel}"
+                  )
+
+              shutil.move(
+                  str(p),
+                  str(target),
+              )
+              normalized_outputs += 1
+
+          print(
+              "XZIEL_CUE4PARSE_OUTPUTS_NORMALIZED",
+              normalized_outputs,
+          )
+
+          glbs = list(root.rglob("*.glb"))
+          assert len(glbs) == 492, len(glbs)
+          assert len(
+              {p.stem.lower() for p in glbs}
+          ) == 492
+
+          print(
+              "XZIEL_NACHT_GLBS_READY",
+              len(glbs),
+          )
+          PY
+
+      - name: Audit exported Nacht materials and textures
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-static-scene/material-audit
+
+          python3 - <<'PY'
+          import json
+          import os
+          import pathlib
+          import struct
+          from collections import Counter
+
+          roots = [
+              pathlib.Path(os.environ["RUNNER_TEMP"]) / "scene-glb",
+              pathlib.Path(os.environ["RUNNER_TEMP"]) / "exporter",
+              pathlib.Path.cwd(),
+          ]
+
+          files = []
+          seen = set()
+          for root in roots:
+              if not root.exists():
+                  continue
+              for p in root.rglob("*"):
+                  if not p.is_file():
+                      continue
+                  rp = str(p.resolve())
+                  if rp in seen:
+                      continue
+                  seen.add(rp)
+                  files.append(p)
+
+          suffixes = Counter(p.suffix.lower() for p in files)
+          material_json = []
+          texture_files = []
+
+          texture_exts = {
+              ".png", ".tga", ".jpg", ".jpeg",
+              ".bmp", ".dds", ".hdr", ".exr",
+              ".xzt"
+          }
+
+          for p in files:
+              if p.suffix.lower() == ".json":
+                  try:
+                      doc = json.loads(
+                          p.read_text(encoding="utf-8")
+                      )
+                  except Exception:
+                      continue
+                  keys = (
+                      set(doc)
+                      if isinstance(doc, dict)
+                      else set()
+                  )
+                  if {
+                      "Textures", "Scalars", "Vectors"
+                  } & keys:
+                      material_json.append(p)
+
+              if p.suffix.lower() in texture_exts:
+                  texture_files.append(p)
+
+          def read_glb_json(path):
+              raw = path.read_bytes()
+              if len(raw) < 20:
+                  return None
+              magic, version, declared = struct.unpack_from(
+                  "<III", raw, 0
+              )
+              if (
+                  magic != 0x46546C67
+                  or version != 2
+                  or declared != len(raw)
+              ):
+                  return None
+
+              offset = 12
+              while offset + 8 <= len(raw):
+                  length, kind = struct.unpack_from(
+                      "<II", raw, offset
+                  )
+                  offset += 8
+                  chunk = raw[offset:offset + length]
+                  offset += length
+                  if kind == 0x4E4F534A:
+                      return json.loads(
+                          chunk.rstrip(
+                              b" \t\r\n\x00"
+                          ).decode("utf-8")
+                      )
+              return None
+
+          glb_stats = {
+              "files": 0,
+              "materials": 0,
+              "textures": 0,
+              "images": 0,
+              "embeddedImages": 0,
+              "uriImages": 0,
+              "baseColorTextures": 0,
+              "normalTextures": 0,
+              "metallicRoughnessTextures": 0,
+              "emissiveTextures": 0,
+              "primitives": 0,
+              "texcoord0Primitives": 0,
+              "texcoord1Primitives": 0,
+              "maxTexcoordSet": -1,
+          }
+          glb_samples = []
+
+          for p in files:
+              if p.suffix.lower() != ".glb":
+                  continue
+              doc = read_glb_json(p)
+              if not isinstance(doc, dict):
+                  continue
+
+              materials = doc.get("materials", [])
+              textures = doc.get("textures", [])
+              images = doc.get("images", [])
+
+              glb_stats["files"] += 1
+              glb_stats["materials"] += len(materials)
+              glb_stats["textures"] += len(textures)
+              glb_stats["images"] += len(images)
+              glb_stats["embeddedImages"] += sum(
+                  1 for image in images
+                  if isinstance(image, dict)
+                  and "bufferView" in image
+              )
+              glb_stats["uriImages"] += sum(
+                  1 for image in images
+                  if isinstance(image, dict)
+                  and "uri" in image
+              )
+
+              for mesh in doc.get("meshes", []):
+                  if not isinstance(mesh, dict):
+                      continue
+                  for primitive in mesh.get("primitives", []):
+                      if not isinstance(primitive, dict):
+                          continue
+                      attrs = primitive.get("attributes", {})
+                      if not isinstance(attrs, dict):
+                          continue
+                      glb_stats["primitives"] += 1
+                      if "TEXCOORD_0" in attrs:
+                          glb_stats["texcoord0Primitives"] += 1
+                      if "TEXCOORD_1" in attrs:
+                          glb_stats["texcoord1Primitives"] += 1
+                      for key in attrs:
+                          if not key.startswith("TEXCOORD_"):
+                              continue
+                          try:
+                              index = int(key.split("_", 1)[1])
+                          except ValueError:
+                              continue
+                          glb_stats["maxTexcoordSet"] = max(
+                              glb_stats["maxTexcoordSet"],
+                              index,
+                          )
+
+              for material in materials:
+                  if not isinstance(material, dict):
+                      continue
+                  pbr = material.get(
+                      "pbrMetallicRoughness", {}
+                  )
+                  if isinstance(pbr, dict):
+                      if isinstance(
+                          pbr.get("baseColorTexture"),
+                          dict,
+                      ):
+                          glb_stats[
+                              "baseColorTextures"
+                          ] += 1
+                      if isinstance(
+                          pbr.get(
+                              "metallicRoughnessTexture"
+                          ),
+                          dict,
+                      ):
+                          glb_stats[
+                              "metallicRoughnessTextures"
+                          ] += 1
+                  if isinstance(
+                      material.get("normalTexture"),
+                      dict,
+                  ):
+                      glb_stats["normalTextures"] += 1
+                  if isinstance(
+                      material.get("emissiveTexture"),
+                      dict,
+                  ):
+                      glb_stats["emissiveTextures"] += 1
+
+              if (
+                  len(glb_samples) < 20
+                  and (
+                      materials
+                      or textures
+                      or images
+                  )
+              ):
+                  glb_samples.append({
+                      "path": str(p),
+                      "materials": len(materials),
+                      "textures": len(textures),
+                      "images": len(images),
+                  })
+
+          report = {
+              "allFiles": len(files),
+              "suffixCounts": dict(
+                  sorted(suffixes.items())
+              ),
+              "materialJsonCount":
+                  len(material_json),
+              "textureFileCount":
+                  len(texture_files),
+              "glb": glb_stats,
+              "materialJsonSamples": [
+                  str(p) for p in material_json[:40]
+              ],
+              "textureSamples": [
+                  str(p) for p in texture_files[:40]
+              ],
+              "glbSamples": glb_samples,
+          }
+
+          out = pathlib.Path(
+              "build/nacht-static-scene/material-audit/"
+              "material-export-audit.json"
+          )
+          out.write_text(
+              json.dumps(report, indent=2),
+              encoding="utf-8",
+          )
+
+          print(
+              "XZIEL_NACHT_MATERIAL_EXPORT_AUDIT",
+              f"materials={len(material_json)}",
+              f"textureFiles={len(texture_files)}",
+              f"glbMaterials={glb_stats['materials']}",
+              f"glbTextures={glb_stats['textures']}",
+              f"glbImages={glb_stats['images']}",
+              f"embeddedImages={glb_stats['embeddedImages']}",
+              f"baseColor={glb_stats['baseColorTextures']}",
+              f"normal={glb_stats['normalTextures']}",
+              f"primitives={glb_stats['primitives']}",
+              f"texcoord0={glb_stats['texcoord0Primitives']}",
+              f"texcoord1={glb_stats['texcoord1Primitives']}",
+              f"maxTexcoordSet={glb_stats['maxTexcoordSet']}",
+              f"suffixes={dict(sorted(suffixes.items()))}",
+          )
+
+          if glb_stats["texcoord1Primitives"] <= 0:
+              raise SystemExit(
+                  "CUE4Parse GLBs exposed no TEXCOORD_1; "
+                  "cannot preserve authored lightmap UVs"
+              )
+
+          if not material_json:
+              raise SystemExit(
+                  "CUE4Parse material export produced "
+                  "no material JSON"
+              )
+
+          if (
+              not texture_files
+              and glb_stats["images"] == 0
+          ):
+              raise SystemExit(
+                  "CUE4Parse produced neither external "
+                  "texture files nor GLB images"
+              )
+          PY
+
+      - name: Build XZMS + XZSC Android overlay
+        run: |
+          set -euo pipefail
+
+          OVERLAY="$RUNNER_TEMP/nacht-overlay"
+          MAPROOT="$OVERLAY/xziel/maps/xziel_nacht_bo3"
+          mkdir -p "$MAPROOT/meshes"
+          cp build/nacht-static-scene/lightmaps.xzlt \
+            "$MAPROOT/lightmaps.xzlt"
+          cp build/nacht-static-scene/lightmap-bindings.xzlb \
+            "$MAPROOT/lightmap-bindings.xzlb"
+
+          # Preserve the four remaining source material exports so the exact
+          # parent/constants can be audited instead of guessed from names.
+          DIAG="build/nacht-static-scene/material-audit/source-materials"
+          mkdir -p "$DIAG"
+
+          # Preserve the complete resolver manifest before the strict 1063/1063
+          # gate so a failed run still contains every candidate/binding needed
+          # for deterministic diagnosis.
+          cp \
+            "$RUNNER_TEMP/scene-glb/xziel-texture-manifest.json" \
+            "build/nacht-static-scene/material-audit/xziel-texture-manifest.json"
+
+          for name in \
+            Atlas_39246_Mat \
+            p7_fxanim_gp_tarp_drape_beige_02_s1_smod_Mat \
+            mtl_p7_fxanim_zm_factory_flag_iron_cross \
+            t7_water_cp_bio_muddy_waterfall; do
+            found=$(find "$RUNNER_TEMP/scene-glb" -type f \
+              -name "$name.json" -print -quit)
+            if [[ -n "$found" ]]; then
+              cp "$found" "$DIAG/$name.json"
+              echo "XZIEL_MATERIAL_DIAG_SAVED $name $found"
+            else
+              echo "XZIEL_MATERIAL_DIAG_MISSING $name"
+            fi
+          done
+
+          python3 tools/maps/compile_nacht_xzmesh_bundle.py \
+            --glb-root "$RUNNER_TEMP/scene-glb" \
+            --output-root "$MAPROOT/meshes" \
+            --manifest build/nacht-static-scene/xziel.xzmesh.bundle.json \
+            | tee build/nacht-static-scene/xzmesh-compile.log
+
+          python3 tools/maps/compile_nacht_xzscene.py \
+            --output "$MAPROOT/scene.xzsc" \
+            --report build/nacht-static-scene/xziel.xzscene.report.json \
+            | tee build/nacht-static-scene/xzscene-compile.log
+
+          python3 tools/maps/compile_nacht_xzmat_bundle.py \
+            --assets assets/nacht_reference/pavlov_scene_reference/assets.json \
+            --glb-root "$RUNNER_TEMP/scene-glb" \
+            --texture-manifest "$RUNNER_TEMP/scene-glb/xziel-texture-manifest.json" \
+            --output "$MAPROOT/materials.xzmt" \
+            --report build/nacht-static-scene/xziel.xzmat.report.json \
+            | tee build/nacht-static-scene/xzmat-compile.log
+
+          # Hard source-fidelity gate: Nacht production assets may not be
+          # silently downscaled. Performance work must happen through
+          # streaming/residency/culling rather than quality reduction.
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(
+              Path(
+                  "build/nacht-static-scene/xziel.xzmat.report.json"
+              ).read_text()
+          )
+          assert report["runtimeMaxDimension"] == 0
+          authored = [
+              row for row in report["textures"]
+              if row.get("sourceKind") == "xzt"
+          ]
+          downscaled = [
+              {
+                  "name": row.get("textureName"),
+                  "source": [row["sourceWidth"], row["sourceHeight"]],
+                  "runtime": [row["width"], row["height"]],
+              }
+              for row in authored
+              if (
+                  row["sourceWidth"] != row["width"]
+                  or row["sourceHeight"] != row["height"]
+              )
+          ]
+          assert not downscaled, downscaled[:20]
+          print(
+              "XZIEL_NACHT_SOURCE_BASECOLOR_FIDELITY_GREEN",
+              {"textures": len(authored), "downscaled": 0},
+          )
+          PY
+
+          python3 tools/maps/compile_nacht_pbr_scalars.py \
+            --manifest "$RUNNER_TEMP/scene-glb/xziel-texture-manifest.json" \
+            --materials-report build/nacht-static-scene/xziel.xzmat.report.json \
+            --output "$MAPROOT/materials.xzpb" \
+            --report build/nacht-static-scene/xziel.xzpb.report.json \
+            | tee build/nacht-static-scene/xzpb-compile.log
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          pbr = json.loads(
+              Path(
+                  "build/nacht-static-scene/xziel.xzpb.report.json"
+              ).read_text()
+          )
+          assert pbr["format"] == "XZPB"
+          assert pbr["version"] == 1
+          assert pbr["bindingCount"] == 1063
+          assert pbr["recordBytes"] == 20
+          assert pbr["bytes"] == 21280
+          assert pbr["authoredBindingCount"] > 0
+          assert pbr["validCounts"]["roughness"] > 0
+          assert pbr["validCounts"]["metallic"] > 0
+          assert pbr["validCounts"]["specular"] > 0
+          assert pbr["validCounts"]["emissive"] > 0
+          print("XZIEL_NACHT_XZPB_REPORT_GREEN", pbr["validCounts"])
+          PY
+
+          python3 tools/maps/compile_nacht_normal_maps.py \
+            --manifest "$RUNNER_TEMP/scene-glb/xziel-texture-manifest.json" \
+            --materials-report build/nacht-static-scene/xziel.xzmat.report.json \
+            --texture-root "$RUNNER_TEMP/scene-glb" \
+            --output "$MAPROOT/materials.xzmn" \
+            --report build/nacht-static-scene/xziel.xzmn.report.json \
+            | tee build/nacht-static-scene/xzmn-compile.log
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          normal = json.loads(
+              Path(
+                  "build/nacht-static-scene/xziel.xzmn.report.json"
+              ).read_text()
+          )
+          assert normal["format"] == "XZMN"
+          assert normal["version"] == 1
+          assert normal["bindingCount"] == 1063
+          assert normal["mappedBindings"] > 0
+          assert normal["textureCount"] > 0
+          assert normal["runtimeBytes"] > 0
+          assert normal["runtimeMaxDimension"] == 0
+          downscaled = [
+              {
+                  "name": row.get("textureName"),
+                  "source": [row["sourceWidth"], row["sourceHeight"]],
+                  "runtime": [row["width"], row["height"]],
+              }
+              for row in normal["textures"]
+              if (
+                  row["sourceWidth"] != row["width"]
+                  or row["sourceHeight"] != row["height"]
+              )
+          ]
+          assert not downscaled, downscaled[:20]
+          print(
+              "XZIEL_NACHT_SOURCE_NORMAL_FIDELITY_GREEN",
+              {"textures": normal["textureCount"], "downscaled": 0},
+          )
+          print(
+              "XZIEL_NACHT_XZMN_REPORT_GREEN",
+              {
+                  "bindings": normal["bindingCount"],
+                  "mapped": normal["mappedBindings"],
+                  "textures": normal["textureCount"],
+                  "bytes": normal["runtimeBytes"],
+              },
+          )
+          PY
+
+          python3 tools/maps/compile_nacht_environment.py \
+            --source build/nacht-static-scene/light-components.json \
+            --output "$MAPROOT/environment.xzen" \
+            --report build/nacht-static-scene/xziel.xzen.report.json \
+            | tee build/nacht-static-scene/xzen-compile.log
+
+          # Preserve and print the exact three global-light records before
+          # changing XZIEL's current Sky + Directional approximation. These
+          # values come directly from Nacht_de_Untoten.umap and from the
+          # deterministic XZEN compiler; they are evidence, not tuning knobs.
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          raw_path = Path(
+              "build/nacht-static-scene/light-components.json"
+          )
+          compiled_path = Path(
+              "build/nacht-static-scene/xziel.xzen.report.json"
+          )
+
+          raw = json.loads(raw_path.read_text(encoding="utf-8"))
+          compiled = json.loads(
+              compiled_path.read_text(encoding="utf-8")
+          )
+
+          raw_global = [
+              row for row in raw["lights"]
+              if row["componentType"] in {"sky", "directional"}
+          ]
+          compiled_global = [
+              row for row in compiled["lights"]
+              if row["componentType"] in {"sky", "directional"}
+          ]
+
+          assert len(raw_global) == 3, len(raw_global)
+          assert (
+              sum(row["componentType"] == "sky"
+                  for row in raw_global) == 1
+          )
+          assert (
+              sum(row["componentType"] == "directional"
+                  for row in raw_global) == 2
+          )
+          assert len(compiled_global) == 3, len(compiled_global)
+
+          for row in raw_global:
+              props = row["properties"]
+              print(
+                  "XZIEL_NACHT_GLOBAL_LIGHT_RAW",
+                  json.dumps(
+                      {
+                          "id": row["id"],
+                          "actorName": row["actorName"],
+                          "componentName": row["componentName"],
+                          "type": row["componentType"],
+                          "intensity": props["intensity"],
+                          "lightColor": props["lightColor"],
+                          "intensityUnits": props["intensityUnits"],
+                          "temperatureKelvin":
+                              props["temperatureKelvin"],
+                          "useTemperature": props["useTemperature"],
+                          "visible": props["visible"],
+                          "castShadows": props["castShadows"],
+                          "usedAsAtmosphereSunLight":
+                              props["usedAsAtmosphereSunLight"],
+                          "optional": props["optional"],
+                          "hierarchy": row["hierarchy"],
+                      },
+                      sort_keys=True,
+                      separators=(",", ":"),
+                  ),
+              )
+
+          for row in compiled_global:
+              print(
+                  "XZIEL_NACHT_GLOBAL_LIGHT_COMPILED",
+                  json.dumps(
+                      row,
+                      sort_keys=True,
+                      separators=(",", ":"),
+                  ),
+              )
+
+          Path("dist").mkdir(parents=True, exist_ok=True)
+          Path("dist/nacht-global-lights.json").write_text(
+              json.dumps(
+                  {
+                      "raw": raw_global,
+                      "compiled": compiled_global,
+                  },
+                  indent=2,
+              ) + "\n",
+              encoding="utf-8",
+          )
+          Path("dist/light-components.json").write_bytes(
+              raw_path.read_bytes()
+          )
+          Path("dist/xziel.xzen.report.json").write_bytes(
+              compiled_path.read_bytes()
+          )
+
+          print(
+              "XZIEL_NACHT_GLOBAL_LIGHT_CENSUS_GREEN",
+              {
+                  "raw": len(raw_global),
+                  "compiled": len(compiled_global),
+                  "sky": 1,
+                  "directional": 2,
+              },
+          )
+          PY
+
+          python3 tools/maps/compile_nacht_height_fog.py \
+            --source build/nacht-static-scene/height-fog-resolved.json \
+            --output "$MAPROOT/fog.xzfg" \
+            --report build/nacht-static-scene/xziel.xzfg.report.json \
+            | tee build/nacht-static-scene/xzfg-compile.log
+
+          cp build/nacht-static-scene/reflection.xzrc \
+            "$MAPROOT/reflection.xzrc"
+
+          test "$(find "$MAPROOT/meshes" \
+            -maxdepth 1 -type f -name '*.xzm' | wc -l)" \
+            -eq 492
+          test -s "$MAPROOT/scene.xzsc"
+          test -s "$MAPROOT/materials.xzmt"
+          test -s "$MAPROOT/materials.xzpb"
+          test -s "$MAPROOT/materials.xzmn"
+          test -s "$MAPROOT/environment.xzen"
+          test -s "$MAPROOT/fog.xzfg"
+          test -s "$MAPROOT/reflection.xzrc"
+          test -s "$MAPROOT/lightmaps.xzlt"
+          test -s "$MAPROOT/lightmap-bindings.xzlb"
+
+          python3 - <<'PY'
+          import json
+          import pathlib
+
+          mesh = json.loads(
+              pathlib.Path(
+                  "build/nacht-static-scene/xziel.xzmesh.bundle.json"
+              ).read_text()
+          )
+          scene = json.loads(
+              pathlib.Path(
+                  "build/nacht-static-scene/xziel.xzscene.report.json"
+              ).read_text()
+          )
+
+          material = json.loads(
+              pathlib.Path(
+                  "build/nacht-static-scene/xziel.xzmat.report.json"
+              ).read_text()
+          )
+          assert material["srgbTextureCount"] > 0
+          assert material["linearTextureCount"] > 0
+          assert (
+              material["srgbTextureCount"]
+              + material["linearTextureCount"]
+              == material["textureCount"]
+          )
+          print(
+              "XZIEL_NACHT_TEXTURE_COLORSPACE_GREEN",
+              {
+                  "srgb": material["srgbTextureCount"],
+                  "linear": material["linearTextureCount"],
+                  "textures": material["textureCount"],
+              },
+          )
+
+          environment = json.loads(
+              pathlib.Path(
+                  "build/nacht-static-scene/xziel.xzen.report.json"
+              ).read_text()
+          )
+          fog = json.loads(
+              pathlib.Path(
+                  "build/nacht-static-scene/xziel.xzfg.report.json"
+              ).read_text()
+          )
+
+          print(
+              "XZIEL_NACHT_MATERIAL_UNRESOLVED",
+              {
+                  "mappedBindings": material["mappedBindings"],
+                  "unmappedBindings": material["unmappedBindings"],
+                  "unresolvedSamples": material.get("unresolvedSamples", []),
+              },
+          )
+
+          assert mesh["schemaVersion"] == 3
+          assert mesh["format"] == "xziel_xzmesh_bundle_v3"
+          assert mesh["meshFormat"]["version"] == 3
+          assert mesh["summary"]["meshCount"] == 492
+          assert mesh["summary"]["vertexCount"] == 1067383
+          assert mesh["summary"]["indexCount"] == 3608148
+          assert mesh["summary"]["submeshCount"] == 1063
+          assert mesh["summary"]["submeshesWithoutUv0"] == 0
+          assert mesh["summary"]["submeshesWithoutUv1"] == 0
+          assert mesh["summary"]["submeshesWithoutUv2"] == 0
+          assert mesh["summary"]["submeshesWithoutUv3"] == 0
+          assert mesh["summary"]["submeshesWithoutTangents"] == 0
+          assert mesh["summary"]["runtimeMeshBytes"] == 91328728
+          print(
+              "XZIEL_NACHT_XZMS_V3_TANGENT_MULTI_UV_GREEN",
+              {
+                  "meshes": mesh["summary"]["meshCount"],
+                  "submeshes": mesh["summary"]["submeshCount"],
+                  "bytes": mesh["summary"]["runtimeMeshBytes"],
+                  "uv0Missing": mesh["summary"]["submeshesWithoutUv0"],
+                  "uv1Missing": mesh["summary"]["submeshesWithoutUv1"],
+                  "uv2Missing": mesh["summary"]["submeshesWithoutUv2"],
+                  "uv3Missing": mesh["summary"]["submeshesWithoutUv3"],
+                  "tangentMissing": mesh["summary"]["submeshesWithoutTangents"],
+              },
+          )
+
+          assert scene["meshCount"] == 492
+          assert scene["instanceCount"] == 10791
+          hierarchy = scene["transformHierarchy"]
+          assert hierarchy["applied"] is True
+          assert hierarchy["attachedInstanceCount"] == 10707
+          assert hierarchy["worldTransformChangedInstanceCount"] == 10659
+          assert hierarchy["unattachedInstanceCount"] == 84
+          assert hierarchy["parentNodeCount"] == 10
+          assert hierarchy["maxAttachmentDepth"] == 2
+          print("XZIEL_NACHT_TRANSFORM_HIERARCHY_GREEN", hierarchy)
+          assert material["bindingCount"] == 1063
+          assert material["mappedBindings"] == 1063
+          assert material["textureCount"] > 0
+          assert environment["version"] == 2
+          assert environment["lightCount"] == 166
+          assert environment["pointCount"] == 144
+          assert environment["spotCount"] == 19
+          assert environment["directionalCount"] == 2
+          assert environment["skyCount"] == 1
+          assert environment["withPosition"] == 166
+          assert environment["withRotation"] == 166
+          assert environment["withColor"] == 166
+          assert environment["withIntensity"] == 166
+          assert environment["withRadius"] == 163
+          assert environment["withCone"] == 19
+          assert environment["withTemperature"] == 165
+          assert environment["withCastShadows"] == 166
+          assert environment["withAtmosphereSun"] == 0
+          assert environment["atmosphereSunEnabled"] == 0
+          assert fog["format"] == "XZFG"
+          assert fog["version"] == 1
+          assert fog["bytes"] == 92
+          assert fog["flags"] == 0
+          assert abs(fog["resolved"]["fogDensity"] - 0.1) < 1e-7
+          assert abs(fog["resolved"]["fogHeightFalloff"] - 2.0) < 1e-7
+          assert abs(fog["resolved"]["fogMaxOpacity"] - 0.2) < 1e-7
+          assert abs(fog["resolved"]["startDistanceMeters"] - 3.0) < 1e-7
+
+          print(
+              "XZIEL_NACHT_ATMOSPHERE_SUN_CENSUS",
+              {
+                  "serialized": environment["withAtmosphereSun"],
+                  "enabled": environment["atmosphereSunEnabled"],
+              },
+          )
+
+          print(
+              "XZIEL_NACHT_STATIC_OVERLAY_READY",
+              {
+                  "meshes": 492,
+                  "instances": 10791,
+                  "vertices": 1067383,
+                  "indices": 3608148,
+                  "submeshes": 1063,
+                  "meshBytes": 48633408,
+              },
+          )
+          PY
+
+          mkdir -p "$RUNNER_TEMP/xziel-material-evidence"
+          cp \
+            build/nacht-static-scene/xziel.xzmat.report.json \
+            "$RUNNER_TEMP/xziel-material-evidence/xziel.xzmat.report.json"
+          cp \
+            "$RUNNER_TEMP/scene-glb/xziel-texture-manifest.json" \
+            "$RUNNER_TEMP/xziel-material-evidence/xziel-texture-manifest.json"
+
+          echo "XZIEL_EXTRA_ASSET_DIR=$OVERLAY" \
+            >> "$GITHUB_ENV"
+
+
+
+      - name: Download current GREEN standalone APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p input/apk dist
+          RUN_ID="$(gh run list \
+            --workflow xziel-android-standalone.yml \
+            --branch feature/xziel-bo3-style-map-loader-v1 \
+            --status success \
+            --limit 1 \
+            --json databaseId \
+            --jq '.[0].databaseId')"
+          test -n "$RUN_ID"
+          gh run download "$RUN_ID" \
+            --name XZIEL-Android-Standalone \
+            --dir input/apk
+          APK="$(find input/apk -type f -name '*.apk' -print -quit)"
+          test -s "$APK"
+          cp "$APK" dist/XZIEL-Nacht-Standalone-debug.apk
+          echo "STANDALONE_RUN=$RUN_ID" >> "$GITHUB_ENV"
+
+      - name: Package full Nacht XZIEL VFS
+        shell: bash
+        run: |
+          set -euxo pipefail
+          OVERLAY="$RUNNER_TEMP/nacht-overlay"
+          MAPROOT="$OVERLAY/xziel/maps/xziel_nacht_bo3"
+
+          test -s "$MAPROOT/scene.xzsc"
+          test "$(find "$MAPROOT/meshes" -maxdepth 1 -type f -name '*.xzm' | wc -l)" -eq 492
+          test -s "$MAPROOT/materials.xzmt"
+          test -s "$MAPROOT/materials.xzpb"
+          test -s "$MAPROOT/materials.xzmn"
+          test -s "$MAPROOT/environment.xzen"
+          test -s "$MAPROOT/fog.xzfg"
+          test -s "$MAPROOT/reflection.xzrc"
+          test -s "$MAPROOT/lightmaps.xzlt"
+          test -s "$MAPROOT/lightmap-bindings.xzlb"
+
+          tar -C "$OVERLAY" -cf dist/xziel-nacht-vfs.tar xziel
+          test -s dist/xziel-nacht-vfs.tar
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(
+              Path("build/nacht-static-scene/xziel.xzscene.report.json")
+              .read_text(encoding="utf-8")
+          )
+          assert d["meshCount"] == 492
+          assert d["instanceCount"] == 10791
+          print("XZIEL_NACHT_STANDALONE_VFS_READY", {
+              "meshes": d["meshCount"],
+              "instances": d["instanceCount"],
+          })
+          PY
+
+      - name: Derive four native camera probes from Nacht spawn
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          d=json.loads(
+              Path("assets/nacht_reference/pavlov_scene_reference/spawns.json")
+              .read_text(encoding="utf-8")
+          )
+          spawn=next(
+              row for row in d["spawns"]
+              if row["id"] == "player_spawn_pavlov_spawn_1"
+          )
+          p=spawn["transform"]["position"]
+
+          # Spawn transform is the gameplay actor root/capsule reference.
+          # Raise only the diagnostic camera, not the world transform.
+          eye=[float(p["x"]), float(p["y"]), float(p["z"]) + 0.60]
+
+          out={
+              "source": spawn["id"],
+              "rootMeters": [p["x"],p["y"],p["z"]],
+              "eyeMeters": eye,
+              "eyeOffsetMeters": [0.0,0.0,0.60],
+              "up": [0.0,0.0,1.0],
+              "fovY": 75,
+              "directions": {
+                  "east": [1.0,0.0,0.0],
+                  "west": [-1.0,0.0,0.0],
+                  "north": [0.0,1.0,0.0],
+                  "south": [0.0,-1.0,0.0],
+              },
+          }
+          Path("dist/nacht-camera-probes.json").write_text(
+              json.dumps(out,indent=2)+"\n",
+              encoding="utf-8"
+          )
+          print("XZIEL_NACHT_CAMERA_PROBES",out)
+          PY
+
+      - name: Install Android emulator
+        shell: bash
+        run: |
+          set -euxo pipefail
+          SDKMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" \
+            "platform-tools" \
+            "emulator" \
+            "system-images;android-35;google_apis;x86_64"
+
+      - name: Boot Nacht on pure XZIEL and capture four directions
+        shell: bash
+        env:
+          ANDROID_AVD_HOME: ${{ runner.temp }}/xziel-nacht-avd
+        run: |
+          set -euxo pipefail
+          mkdir -p "$ANDROID_AVD_HOME" dist
+
+          ADB="${ANDROID_HOME}/platform-tools/adb"
+          EMULATOR="${ANDROID_HOME}/emulator/emulator"
+          AVDMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name avdmanager | sort | tail -n 1)"
+
+          printf 'no\n' | "$AVDMANAGER" create avd \
+            --force \
+            --name xziel-nacht-ci \
+            --package "system-images;android-35;google_apis;x86_64" \
+            --device "pixel_6"
+
+          if [[ -e /dev/kvm ]]; then
+            sudo chmod 666 /dev/kvm || true
+          fi
+
+          nohup "$EMULATOR" \
+            @xziel-nacht-ci \
+            -no-window -no-audio -no-boot-anim -no-snapshot \
+            -gpu swiftshader_indirect -memory 6144 \
+            > dist/emulator-stdout.txt 2>&1 &
+
+          timeout 180 "$ADB" wait-for-device
+          for _ in $(seq 1 90); do
+            if [[ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; then
+              break
+            fi
+            sleep 2
+          done
+          test "$("$ADB" shell getprop sys.boot_completed | tr -d '\r')" = "1"
+
+          "$ADB" install -r dist/XZIEL-Nacht-Standalone-debug.apk
+          "$ADB" push dist/xziel-nacht-vfs.tar /data/local/tmp/xziel-nacht-vfs.tar
+          "$ADB" shell run-as com.xziel.engine mkdir -p files
+          "$ADB" shell run-as com.xziel.engine mkdir -p files/xziel-runtime
+          "$ADB" shell run-as com.xziel.engine sh -c \
+            "'cd files && tar -xf /data/local/tmp/xziel-nacht-vfs.tar'"
+
+          "$ADB" shell run-as com.xziel.engine test -s \
+            files/xziel/maps/xziel_nacht_bo3/scene.xzsc
+          "$ADB" shell run-as com.xziel.engine test -s \
+            files/xziel/maps/xziel_nacht_bo3/lightmaps.xzlt
+
+          "$ADB" shell settings put secure immersive_mode_confirmations confirmed || true
+
+          EYE="$(python3 -c 'import json;d=json.load(open("dist/nacht-camera-probes.json"));print(",".join(map(str,d["eyeMeters"])))')"
+          UP="0,0,1"
+
+          capture_direction () {
+            local label="$1"
+            local forward="$2"
+            local ready=0
+
+            "$ADB" logcat -c
+            "$ADB" shell am force-stop com.xziel.engine || true
+            "$ADB" shell am start -W \
+              -n com.xziel.engine/org.libsdl.app.XzielActivity \
+              --es xziel_map xziel_nacht_bo3 \
+              --es xziel_camera_eye "$EYE" \
+              --es xziel_camera_forward "$forward" \
+              --es xziel_camera_up "$UP" \
+              --es xziel_camera_fov_y 75 \
+              > "dist/am-start-$label.txt" 2>&1
+
+            for _ in $(seq 1 180); do
+              "$ADB" logcat -d -v threadtime > "dist/xziel-logcat-$label.txt" || true
+              if grep -Eq \
+                "static_scene status=READY map='xziel_nacht_bo3'.*meshes=492 instances=10791.*gpuReady=1" \
+                "dist/xziel-logcat-$label.txt" \
+                && grep -q \
+                "standalone_static_present ready=1 map='xziel_nacht_bo3'" \
+                "dist/xziel-logcat-$label.txt"; then
+                ready=1
+                break
+              fi
+              sleep 2
+            done
+
+            if [[ "$ready" != "1" ]]; then
+              grep -E \
+                "XZIEL-XZ.*static_scene|standalone_static_present|uploadFail|fatal|FATAL|SIG" \
+                "dist/xziel-logcat-$label.txt" | tail -n 500 || true
+              return 1
+            fi
+
+            sleep 3
+            "$ADB" exec-out screencap -p > "dist/nacht-$label.png"
+          }
+
+          capture_direction east "1,0,0"
+          capture_direction west "-1,0,0"
+          capture_direction north "0,1,0"
+          capture_direction south "0,-1,0"
+
+          python3 -m pip install --quiet pillow==11.3.0
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image,ImageStat
+          for p in sorted(Path("dist").glob("nacht-*.png")):
+              im=Image.open(p).convert("RGB")
+              if im.height > im.width:
+                  im=im.transpose(Image.Transpose.ROTATE_90)
+                  im.save(p)
+              gray=im.convert("L")
+              stat=ImageStat.Stat(gray)
+              lo,hi=gray.getextrema()
+              if im.width < 1000 or im.height < 500:
+                  raise SystemExit(f"{p}: bad dimensions {im.size}")
+              if hi-lo < 20 or stat.stddev[0] < 6:
+                  raise SystemExit(
+                      f"{p}: flat capture extrema={(lo,hi)} std={stat.stddev[0]:.2f}"
+                  )
+              print(
+                  "XZIEL_NACHT_CAPTURE_GREEN",
+                  p.name, im.size,
+                  "mean", round(stat.mean[0],2),
+                  "std", round(stat.stddev[0],2),
+                  "extrema", (lo,hi),
+              )
+          PY
+
+          if grep -Eiq \
+            'NZPActivity|ndu\.bsp|nzp-data\.zip|gl4es|quakec|vril' \
+            dist/xziel-logcat-*.txt; then
+            echo "LEGACY_RUNTIME_CONTAMINATION"
+            exit 92
+          fi
+
+          echo "XZIEL_NACHT_STANDALONE_VISUAL_GREEN"
+
+      - name: Upload Nacht standalone visual proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Nacht-Standalone-Visual-Proof
+          path: |
+            dist/nacht-east.png
+            dist/nacht-west.png
+            dist/nacht-north.png
+            dist/nacht-south.png
+            dist/nacht-camera-probes.json
+            dist/xziel-logcat-*.txt
+            dist/am-start-*.txt
+            dist/emulator-stdout.txt
+            build/nacht-static-scene/xziel.xzscene.report.json
+            build/nacht-static-scene/xziel.xzmat.report.json
+            build/nacht-static-scene/xziel.xzpb.report.json
+            build/nacht-static-scene/xziel.xzmn.report.json
+            build/nacht-static-scene/xziel.xzen.report.json
+            build/nacht-static-scene/xziel.xzfg.report.json
+            build/nacht-static-scene/xziel.xzlt.report.json
+          if-no-files-found: warn
+          retention-days: 14
