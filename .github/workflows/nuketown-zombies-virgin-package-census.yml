@@ -49,6 +49,11 @@ on:
       - tools/maps/patch_cue4parse_animation_fallback.py
       - tools/maps/UESceneTransformAudit/**
       - tools/maps/UEStaticSceneExtract/**
+      - tools/maps/UELightExtract/**
+      - tools/maps/compile_xziel_environment.py
+      - tools/maps/xz_environment_file_gate.c
+      - engine/xz/xz_environment.h
+      - engine/xz/xz_environment.c
       - tools/maps/compile_xziel_static_scene.py
       - tools/maps/compile_ue_material_bindings.py
       - tools/maps/compile_xziel_material_instance_bindings.py
@@ -1737,6 +1742,89 @@ jobs:
 
           grep -q 'XZIEL_STATIC_SCENE_RUNTIME_FILE_GATE_GREEN' \
             nuketown-download/runtime-static-scene/runtime-file-gate.log
+
+      - name: Convert cooked UE lights to generic native XZEN
+        run: |
+          set -euxo pipefail
+
+          dotnet restore \
+            tools/maps/UELightExtract/UELightExtract.csproj
+
+          dotnet build \
+            tools/maps/UELightExtract/UELightExtract.csproj \
+            --configuration Release \
+            --no-restore
+
+          APP="tools/maps/UELightExtract/bin/Release/net10.0/UELightExtract.dll"
+          test -s "$APP"
+
+          RUNTIME_MAP_ID="xziel_nuketown_zombies"
+          RUNTIME_ROOT="nuketown-download/runtime-static-scene/vfs/xziel/maps/$RUNTIME_MAP_ID"
+
+          dotnet "$APP" \
+            nuketown-pak-unpacked \
+            nuketown-download/PavMappings.usmap \
+            nuketown-download/nuketown-class-census.json \
+            nuketown-download/runtime-static-scene/ue-lights.json \
+            ue5.1 \
+            | tee nuketown-download/runtime-static-scene/ue-lights.log
+
+          grep -q 'XZIEL_UE_LIGHT_EXTRACT_GREEN' \
+            nuketown-download/runtime-static-scene/ue-lights.log
+
+          python3 tools/maps/compile_xziel_environment.py \
+            --source nuketown-download/runtime-static-scene/ue-lights.json \
+            --output "$RUNTIME_ROOT/environment.xzen" \
+            --report nuketown-download/runtime-static-scene/xzen-report.json \
+            | tee nuketown-download/runtime-static-scene/xzen-build.log
+
+          test -s "$RUNTIME_ROOT/environment.xzen"
+          grep -q 'XZIEL_UE_XZEN_GREEN' \
+            nuketown-download/runtime-static-scene/xzen-build.log
+
+          EXPECTED_LIGHTS=$(jq -r '.lightCount' \
+            nuketown-download/runtime-static-scene/xzen-report.json)
+          EXPECTED_POINT=$(jq -r '.pointCount' \
+            nuketown-download/runtime-static-scene/xzen-report.json)
+          EXPECTED_SPOT=$(jq -r '.spotCount' \
+            nuketown-download/runtime-static-scene/xzen-report.json)
+          EXPECTED_DIRECTIONAL=$(jq -r '.directionalCount' \
+            nuketown-download/runtime-static-scene/xzen-report.json)
+          EXPECTED_SKY=$(jq -r '.skyCount' \
+            nuketown-download/runtime-static-scene/xzen-report.json)
+
+          test "$EXPECTED_LIGHTS" -gt 0
+          test "$EXPECTED_POINT" -eq \
+            "$(jq -r '.classCounts.PointLightComponent // 0' \
+              nuketown-download/nuketown-class-census.json)"
+          test "$EXPECTED_DIRECTIONAL" -eq \
+            "$(jq -r '.classCounts.DirectionalLightComponent // 0' \
+              nuketown-download/nuketown-class-census.json)"
+          test "$EXPECTED_SKY" -eq \
+            "$(jq -r '.classCounts.SkyLightComponent // 0' \
+              nuketown-download/nuketown-class-census.json)"
+
+          mkdir -p build/xzen-native-gate
+          cc -std=c99 -O2 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tools/maps/xz_environment_file_gate.c \
+            engine/xz/xz_environment.c \
+            -lm \
+            -o build/xzen-native-gate/xz-environment-file-gate
+
+          build/xzen-native-gate/xz-environment-file-gate \
+            "$RUNTIME_ROOT/environment.xzen" \
+            "$EXPECTED_LIGHTS" \
+            "$EXPECTED_POINT" \
+            "$EXPECTED_SPOT" \
+            "$EXPECTED_DIRECTIONAL" \
+            "$EXPECTED_SKY" \
+            | tee nuketown-download/runtime-static-scene/xzen-native-gate.log
+
+          grep -q 'XZIEL_XZEN_FILE_GATE_GREEN' \
+            nuketown-download/runtime-static-scene/xzen-native-gate.log
+
+          echo "XZIEL_NUKETOWN_ENVIRONMENT_GREEN lights=$EXPECTED_LIGHTS point=$EXPECTED_POINT spot=$EXPECTED_SPOT directional=$EXPECTED_DIRECTIONAL sky=$EXPECTED_SKY"
 
       - name: Resolve UE material bindings against native XZTX
         run: |
