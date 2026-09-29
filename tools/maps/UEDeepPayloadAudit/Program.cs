@@ -1,4 +1,10 @@
 using CUE4Parse.FileProvider;
+using CUE4Parse.UE4.Assets;
+using CUE4Parse.UE4.Assets.Exports;
+using CUE4Parse.UE4.Assets.Readers;
+using CUE4Parse.UE4.Readers;
+using System.Buffers.Binary;
+using System.Text;
 using CUE4Parse.MappingsProvider.Usmap;
 using CUE4Parse.UE4.Assets.Exports.Animation;
 using CUE4Parse.UE4.Assets.Exports.SkeletalMesh;
@@ -123,6 +129,7 @@ long skeletalTriangles = 0;
 var maxSkeletalUvChannels = 0;
 
 var animSequencesDecoded = 0;
+var animationLegacyStreamsRecovered = 0;
 long animationFrames = 0;
 long animationTracks = 0;
 long animationPositionKeys = 0;
@@ -151,7 +158,12 @@ foreach (var row in packageRows)
         AuditTextures(row, exports.OfType<UTexture2D>().ToArray());
         AuditSoundWaves(row, exports.OfType<USoundWave>().ToArray());
         AuditSkeletalMeshes(row, exports.OfType<USkeletalMesh>().ToArray());
-        AuditAnimSequences(row, exports.OfType<UAnimSequence>().ToArray());
+        AuditAnimSequences(
+            row,
+            resolved,
+            package,
+            exports,
+            exports.OfType<UAnimSequence>().ToArray());
     }
     catch (Exception e)
     {
@@ -202,6 +214,7 @@ var report = new {
     maxSkeletalUvChannels,
     expectedAnimSequences,
     animSequencesDecoded,
+    animationLegacyStreamsRecovered,
     animationFrames,
     animationTracks,
     animationPositionKeys,
@@ -240,6 +253,7 @@ Console.WriteLine(
         skeletalTriangles,
         expectedAnimSequences,
         animSequencesDecoded,
+        animationLegacyStreamsRecovered,
         animationFrames,
         animationTracks,
         failures = failures.Count,
@@ -438,7 +452,12 @@ void AuditSkeletalMeshes(PackageRow row, USkeletalMesh[] meshes)
     }
 }
 
-void AuditAnimSequences(PackageRow row, UAnimSequence[] animations)
+void AuditAnimSequences(
+    PackageRow row,
+    string resolvedPackagePath,
+    IPackage packageBase,
+    UObject[] packageExports,
+    UAnimSequence[] animations)
 {
     if (animations.Length != row.AnimSequenceCount)
     {
@@ -454,6 +473,26 @@ void AuditAnimSequences(PackageRow row, UAnimSequence[] animations)
     {
         try
         {
+            if (animation.CompressedDataStructure is null &&
+                IsRecoverableLegacyAnimationHandle(
+                    animation.BoneCodecDDCHandle))
+            {
+                if (packageBase is not Package package)
+                {
+                    throw new InvalidDataException(
+                        "legacy animation raw recovery requires a loose Package");
+                }
+
+                RecoverLegacyAnimationCompression(
+                    provider,
+                    resolvedPackagePath,
+                    package,
+                    packageExports,
+                    animation);
+
+                animationLegacyStreamsRecovered++;
+            }
+
             var skeleton = ResolveAnimationSkeleton(
                 provider,
                 animation,
@@ -590,6 +629,466 @@ void AuditAnimSequences(PackageRow row, UAnimSequence[] animations)
 }
 
 
+
+
+static bool IsRecoverableLegacyAnimationHandle(string? handle)
+{
+    if (string.IsNullOrWhiteSpace(handle))
+        return false;
+
+    return
+        handle.StartsWith(
+            "AnimCompress_PerTrackCompression_",
+            StringComparison.Ordinal) ||
+        handle.StartsWith(
+            "AnimCompress_RemoveLinearKeys_",
+            StringComparison.Ordinal);
+}
+
+static void RecoverLegacyAnimationCompression(
+    DefaultFileProvider provider,
+    string resolvedPackagePath,
+    Package package,
+    UObject[] packageExports,
+    UAnimSequence animation)
+{
+    var handle = animation.BoneCodecDDCHandle;
+    if (!IsRecoverableLegacyAnimationHandle(handle))
+    {
+        throw new InvalidDataException(
+            $"unsupported legacy animation recovery handle {handle}");
+    }
+
+    var exportIndex = Array.FindIndex(
+        packageExports,
+        export => ReferenceEquals(export, animation));
+    if (exportIndex < 0 || exportIndex >= package.ExportMap.Length)
+    {
+        throw new InvalidDataException(
+            $"animation export index unresolved for {animation.GetPathName()}");
+    }
+
+    var rawExport = ReadRawExportBytes(
+        provider,
+        resolvedPackagePath,
+        package,
+        exportIndex);
+
+    var handleNeedle = EncodeAnsiFString(handle!);
+    var handleOffsets = FindAll(
+        rawExport,
+        handleNeedle);
+
+    var validCandidates =
+        new List<LegacyAnimationRecoveryCandidate>();
+
+    foreach (var handleOffset in handleOffsets)
+    {
+        try
+        {
+            var pos = handleOffset;
+            var decodedHandle = ReadRawFString(rawExport, ref pos);
+            if (!string.Equals(
+                    decodedHandle,
+                    handle,
+                    StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var curveCodecPath = ReadRawFString(
+                rawExport,
+                ref pos);
+
+            if (!string.Equals(
+                    curveCodecPath,
+                    animation.CurveCodecPath ?? string.Empty,
+                    StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (pos + sizeof(int) > rawExport.Length)
+                continue;
+
+            var curveBytes = BinaryPrimitives.ReadInt32LittleEndian(
+                rawExport.AsSpan(pos, sizeof(int)));
+            pos += sizeof(int);
+
+            var expectedCurveBytes =
+                animation.CompressedCurveByteStream?.Length ?? 0;
+
+            if (curveBytes != expectedCurveBytes ||
+                curveBytes < 0 ||
+                pos + curveBytes > rawExport.Length)
+            {
+                continue;
+            }
+
+            if (curveBytes > 0 &&
+                !rawExport
+                    .AsSpan(pos, curveBytes)
+                    .SequenceEqual(
+                        animation.CompressedCurveByteStream))
+            {
+                continue;
+            }
+
+            pos += curveBytes;
+            var metadataOffset = pos;
+
+            var streamHeaders = FindInlineSerializedStreamHeaders(
+                rawExport,
+                handleOffset);
+
+            foreach (var streamHeader in streamHeaders)
+            {
+                var streamLength =
+                    BinaryPrimitives.ReadInt32LittleEndian(
+                        rawExport.AsSpan(
+                            streamHeader,
+                            sizeof(int)));
+
+                var stream = rawExport
+                    .AsSpan(
+                        streamHeader + sizeof(int) * 2,
+                        streamLength)
+                    .ToArray();
+
+                var metadata = new FUECompressedAnimData();
+
+                using var byteArchive = new FByteArchive(
+                    "XZIEL_AnimCompressionMetadata",
+                    rawExport.AsSpan(metadataOffset).ToArray(),
+                    provider.Versions);
+                using var assetArchive = new FAssetArchive(
+                    byteArchive,
+                    package);
+
+                metadata.SerializeCompressedData(assetArchive);
+                metadata.Bind(stream);
+
+                var expectedStreamLength =
+                    checked(
+                        metadata.CompressedTrackOffsets.Length *
+                            sizeof(int) +
+                        metadata.CompressedScaleOffsets.OffsetData.Length *
+                            sizeof(int) +
+                        metadata.CompressedByteStream.Length);
+
+                if (expectedStreamLength != stream.Length)
+                    continue;
+
+                if (metadata.CompressedNumberOfFrames <= 0)
+                    continue;
+
+                if (metadata.CompressedTrackOffsets.Length <= 0)
+                    continue;
+
+                if (metadata.CompressedByteStream.Length <= 0)
+                    continue;
+
+                validCandidates.Add(
+                    new LegacyAnimationRecoveryCandidate(
+                        streamHeader,
+                        handleOffset,
+                        metadataOffset,
+                        stream.Length,
+                        metadata));
+            }
+        }
+        catch
+        {
+            // Candidate validation is intentionally fail-closed below.
+        }
+    }
+
+    if (validCandidates.Count != 1)
+    {
+        throw new InvalidDataException(
+            $"legacy animation stream recovery expected exactly one candidate " +
+            $"for {animation.GetPathName()}, got {validCandidates.Count}");
+    }
+
+    var candidate = validCandidates[0];
+
+    animation.CompressedDataStructure =
+        candidate.CompressedData;
+    animation.NumFrames =
+        candidate.CompressedData.CompressedNumberOfFrames;
+
+    Console.WriteLine(
+        "XZIEL_UE_ANIM_LEGACY_STREAM_RECOVERED " +
+        JsonSerializer.Serialize(new {
+            objectPath = animation.GetPathName(),
+            boneCodecDDCHandle = handle,
+            streamHeader = candidate.StreamHeader,
+            handleOffset = candidate.HandleOffset,
+            metadataOffset = candidate.MetadataOffset,
+            streamBytes = candidate.StreamBytes,
+            frames = candidate.CompressedData.CompressedNumberOfFrames,
+            keyEncoding =
+                candidate.CompressedData.KeyEncodingFormat.ToString(),
+            translation =
+                candidate.CompressedData
+                    .TranslationCompressionFormat.ToString(),
+            rotation =
+                candidate.CompressedData
+                    .RotationCompressionFormat.ToString(),
+            scale =
+                candidate.CompressedData
+                    .ScaleCompressionFormat.ToString(),
+            trackOffsetCount =
+                candidate.CompressedData
+                    .CompressedTrackOffsets.Length,
+            scaleOffsetCount =
+                candidate.CompressedData
+                    .CompressedScaleOffsets.OffsetData.Length,
+            keyBytes =
+                candidate.CompressedData
+                    .CompressedByteStream.Length
+        }));
+}
+
+static byte[] ReadRawExportBytes(
+    DefaultFileProvider provider,
+    string resolvedPackagePath,
+    Package package,
+    int exportIndex)
+{
+    var parts = provider.SavePackage(
+        resolvedPackagePath);
+
+    var uassetCandidates = parts
+        .Where(pair =>
+            pair.Key.EndsWith(
+                ".uasset",
+                StringComparison.OrdinalIgnoreCase) ||
+            pair.Key.EndsWith(
+                ".umap",
+                StringComparison.OrdinalIgnoreCase))
+        .ToArray();
+
+    if (uassetCandidates.Length != 1)
+    {
+        throw new InvalidDataException(
+            $"expected one package header for {resolvedPackagePath}, " +
+            $"got {uassetCandidates.Length}");
+    }
+
+    var uasset = uassetCandidates[0].Value;
+    var uexpCandidates = parts
+        .Where(pair =>
+            pair.Key.EndsWith(
+                ".uexp",
+                StringComparison.OrdinalIgnoreCase))
+        .ToArray();
+
+    if (uexpCandidates.Length > 1)
+    {
+        throw new InvalidDataException(
+            $"expected at most one uexp for {resolvedPackagePath}, " +
+            $"got {uexpCandidates.Length}");
+    }
+
+    var export = package.ExportMap[exportIndex];
+    if (export.SerialSize <= 0 ||
+        export.SerialSize > int.MaxValue)
+    {
+        throw new InvalidDataException(
+            $"invalid export serial size {export.SerialSize}");
+    }
+
+    byte[] source;
+    long sourceOffset;
+
+    if (uexpCandidates.Length == 1)
+    {
+        source = uexpCandidates[0].Value;
+
+        /*
+         * Package.cs constructs the uexp FAssetArchive with an absolute
+         * offset equal to the complete uasset archive length.
+         */
+        sourceOffset =
+            export.SerialOffset - uasset.LongLength;
+    }
+    else
+    {
+        source = uasset;
+        sourceOffset = export.SerialOffset;
+    }
+
+    if (sourceOffset < 0 ||
+        sourceOffset + export.SerialSize > source.LongLength ||
+        sourceOffset > int.MaxValue)
+    {
+        throw new InvalidDataException(
+            $"export serial range is outside package payload: " +
+            $"offset={sourceOffset} size={export.SerialSize} " +
+            $"payload={source.LongLength}");
+    }
+
+    return source
+        .AsSpan(
+            (int) sourceOffset,
+            (int) export.SerialSize)
+        .ToArray();
+}
+
+static byte[] EncodeAnsiFString(string value)
+{
+    if (!value.All(c => c <= 0x7f))
+        throw new InvalidDataException(
+            "animation codec handle is not ASCII");
+
+    var text = Encoding.ASCII.GetBytes(value);
+    var result = new byte[
+        sizeof(int) + text.Length + 1];
+
+    BinaryPrimitives.WriteInt32LittleEndian(
+        result.AsSpan(0, sizeof(int)),
+        text.Length + 1);
+
+    text.CopyTo(
+        result.AsSpan(sizeof(int)));
+    result[^1] = 0;
+    return result;
+}
+
+static string ReadRawFString(
+    byte[] data,
+    ref int offset)
+{
+    if (offset < 0 ||
+        offset + sizeof(int) > data.Length)
+    {
+        throw new EndOfStreamException(
+            "FString length outside export");
+    }
+
+    var length = BinaryPrimitives.ReadInt32LittleEndian(
+        data.AsSpan(offset, sizeof(int)));
+    offset += sizeof(int);
+
+    if (length == 0)
+        return string.Empty;
+
+    if (length > 0)
+    {
+        if (offset + length > data.Length)
+            throw new EndOfStreamException(
+                "ANSI FString outside export");
+
+        var payload = data.AsSpan(
+            offset,
+            length);
+        offset += length;
+
+        if (payload[^1] != 0)
+            throw new InvalidDataException(
+                "ANSI FString missing null terminator");
+
+        return Encoding.ASCII.GetString(
+            payload[..^1]);
+    }
+
+    var charCount = checked(-length);
+    var byteCount = checked(charCount * 2);
+
+    if (offset + byteCount > data.Length)
+        throw new EndOfStreamException(
+            "UTF16 FString outside export");
+
+    var utf16 = data.AsSpan(
+        offset,
+        byteCount);
+    offset += byteCount;
+
+    if (utf16.Length < 2 ||
+        utf16[^1] != 0 ||
+        utf16[^2] != 0)
+    {
+        throw new InvalidDataException(
+            "UTF16 FString missing null terminator");
+    }
+
+    return Encoding.Unicode.GetString(
+        utf16[..^2]);
+}
+
+static List<int> FindAll(
+    byte[] haystack,
+    byte[] needle)
+{
+    var result = new List<int>();
+    if (needle.Length == 0 ||
+        needle.Length > haystack.Length)
+        return result;
+
+    for (var i = 0;
+         i <= haystack.Length - needle.Length;
+         ++i)
+    {
+        if (haystack.AsSpan(i, needle.Length)
+            .SequenceEqual(needle))
+        {
+            result.Add(i);
+        }
+    }
+
+    return result;
+}
+
+static List<int> FindInlineSerializedStreamHeaders(
+    byte[] rawExport,
+    int streamEnd)
+{
+    var result = new List<int>();
+
+    if (streamEnd < sizeof(int) * 2)
+        return result;
+
+    for (var start = 0;
+         start <= streamEnd - sizeof(int) * 2;
+         ++start)
+    {
+        var boolValue =
+            BinaryPrimitives.ReadInt32LittleEndian(
+                rawExport.AsSpan(
+                    start + sizeof(int),
+                    sizeof(int)));
+
+        if (boolValue != 0)
+            continue;
+
+        var numBytes =
+            BinaryPrimitives.ReadInt32LittleEndian(
+                rawExport.AsSpan(
+                    start,
+                    sizeof(int)));
+
+        if (numBytes <= 0)
+            continue;
+
+        if ((long) start +
+            sizeof(int) * 2 +
+            numBytes ==
+            streamEnd)
+        {
+            result.Add(start);
+        }
+    }
+
+    return result;
+}
+
+sealed record LegacyAnimationRecoveryCandidate(
+    int StreamHeader,
+    int HandleOffset,
+    int MetadataOffset,
+    int StreamBytes,
+    FUECompressedAnimData CompressedData);
 
 static void ProbeVirtualPackageResolution(
     DefaultFileProvider provider,
