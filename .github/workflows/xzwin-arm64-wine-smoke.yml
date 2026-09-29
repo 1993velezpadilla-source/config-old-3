@@ -7,6 +7,7 @@ on:
       - experiment/xzwin-waw-exe-probe
     paths:
       - ".github/workflows/xzwin-arm64-wine-smoke.yml"
+      - "tools/xzwin/download_mediafire_exe.py"
       - "android/XzWinRuntime.java"
       - "android/XzWinRuntimeInstaller.java"
 
@@ -85,30 +86,7 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          mkdir -p probe
-          python3 - <<'PY'
-import html
-import pathlib
-import re
-import urllib.request
-page="https://www.mediafire.com/file/okwcwp21eg8ihhg/MW2RustZombies_1.0.exe/file"
-req=urllib.request.Request(page,headers={"User-Agent":"Mozilla/5.0"})
-with urllib.request.urlopen(req,timeout=60) as r:
-    body=r.read()
-text=html.unescape(body.decode("utf-8","replace")).replace("\\/","/")
-urls=re.findall(r'https://download[^"\\\'<> ]+mediafire\\.com/[^"\\\'<> ]+?\\.exe',text,re.I)
-if not urls:
-    urls=re.findall(r'https://download[^"\\\'<> ]+?\\.exe',text,re.I)
-if not urls:
-    raise SystemExit("MediaFire direct EXE URL not found")
-req=urllib.request.Request(urls[0],headers={"User-Agent":"Mozilla/5.0"})
-with urllib.request.urlopen(req,timeout=120) as r:
-    payload=r.read()
-if payload[:2] != b"MZ":
-    raise SystemExit("download is not PE/MZ")
-pathlib.Path("probe/MW2RustZombies.exe").write_bytes(payload)
-print("bytes",len(payload))
-PY
+          python3 tools/xzwin/download_mediafire_exe.py "https://www.mediafire.com/file/okwcwp21eg8ihhg/MW2RustZombies_1.0.exe/file" probe/MW2RustZombies.exe
           test -s probe/MW2RustZombies.exe
           file probe/MW2RustZombies.exe | tee probe/file.txt
           echo XZWIN_RUST_EXE_READY
