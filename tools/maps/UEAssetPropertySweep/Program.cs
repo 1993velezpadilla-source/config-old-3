@@ -44,12 +44,38 @@ if (!File.Exists(mappingsPath))
 using var censusDoc = JsonDocument.Parse(File.ReadAllText(censusPath));
 var allRows = censusDoc.RootElement.GetProperty("packages");
 
-var logicalPackages = allRows
+var censusPackages = allRows
     .EnumerateArray()
-    .Select(row => row.GetProperty("packagePath").GetString())
-    .Where(path => !string.IsNullOrWhiteSpace(path))
-    .Select(path => NormalizeMergedShardPath(path!))
-    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .Select(row => new
+    {
+        Path = NormalizeMergedShardPath(
+            row.GetProperty("packagePath").GetString()
+            ?? throw new InvalidDataException("census packagePath missing")),
+        ExportCount = row.GetProperty("exportCount").GetInt32()
+    })
+    .ToArray();
+
+var duplicateCensusPaths = censusPackages
+    .GroupBy(row => row.Path, StringComparer.OrdinalIgnoreCase)
+    .Where(group => group.Count() != 1)
+    .Select(group => group.Key)
+    .Take(20)
+    .ToArray();
+
+if (duplicateCensusPaths.Length != 0)
+{
+    throw new InvalidDataException(
+        "duplicate logical package paths in merged class census: " +
+        string.Join(", ", duplicateCensusPaths));
+}
+
+var expectedExportCounts = censusPackages.ToDictionary(
+    row => row.Path,
+    row => row.ExportCount,
+    StringComparer.OrdinalIgnoreCase);
+
+var logicalPackages = censusPackages
+    .Select(row => row.Path)
     .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
     .Where((_, index) => index % shardCount == shardIndex)
     .ToArray();
@@ -106,6 +132,20 @@ foreach (var logicalPath in logicalPackages)
          * exhaustive gate exists to expose.
          */
         var package = provider.LoadPackage(resolvedPath);
+
+        if (!expectedExportCounts.TryGetValue(
+                logicalPath,
+                out var expectedExportCount))
+        {
+            throw new InvalidDataException(
+                "class census has no export count for resolved package");
+        }
+
+        if (package.ExportMapLength != expectedExportCount)
+        {
+            throw new InvalidDataException(
+                $"export-map mismatch: census={expectedExportCount} payload={package.ExportMapLength}");
+        }
 
         packageSuccesses++;
 
