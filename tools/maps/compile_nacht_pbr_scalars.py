@@ -32,6 +32,7 @@ BLEND_MODES = {
 MATERIAL_FLAG_TWO_SIDED = 1 << 0
 MATERIAL_FLAG_DISABLE_DEPTH_TEST = 1 << 1
 MATERIAL_FLAG_ALPHA_TEST_ENABLED = 1 << 2
+MATERIAL_FLAG_MASK_CONSTANT_REJECT = 1 << 3
 
 FLAG_ROUGHNESS = 1 << 0
 FLAG_METALLIC = 1 << 1
@@ -76,6 +77,23 @@ def material_switch_value(row: dict | None, name: str) -> bool | None:
             return value
         if value in (0, 1):
             return bool(value)
+    return None
+
+
+def material_scalar_value(row: dict | None, name: str) -> float | None:
+    if not isinstance(row, dict):
+        return None
+    target = canonical_parameter(name)
+    for item in row.get("scalars", []):
+        if not isinstance(item, dict):
+            continue
+        if canonical_parameter(str(item.get("name", ""))) != target:
+            continue
+        try:
+            value = float(item.get("value"))
+        except (TypeError, ValueError):
+            return None
+        return value if math.isfinite(value) else None
     return None
 
 
@@ -170,6 +188,9 @@ def main() -> int:
         "disableDepthTest": 0,
         "alphaTestEnabled": 0,
         "maskedWithoutAlphaTest": 0,
+        "maskedConstantPass": 0,
+        "maskedConstantReject": 0,
+        "alphaScaledBindings": 0,
     }
     unresolved_semantics = []
 
@@ -249,6 +270,9 @@ def main() -> int:
             blend_mode = BLEND_MODES["BLEND_Opaque"]
             material_flags = 0
             opacity_mask_clip = 0.333
+            authored_opacity_mask_clip = 0.333
+            mask_source = "unresolved"
+            alpha_scalar = 1.0
         else:
             blend_name = str(semantic.get("blendMode", "BLEND_Opaque"))
             if blend_name not in BLEND_MODES:
@@ -258,42 +282,114 @@ def main() -> int:
                 )
             blend_mode = BLEND_MODES[blend_name]
             material_flags = 0
+            authored_opacity_mask_clip = semantic.get(
+                "opacityMaskClipValue"
+            )
+            if authored_opacity_mask_clip is None:
+                authored_opacity_mask_clip = 0.333
+            authored_opacity_mask_clip = float(
+                authored_opacity_mask_clip
+            )
+            if (
+                not math.isfinite(authored_opacity_mask_clip)
+                or not 0.0 <= authored_opacity_mask_clip <= 1.0
+            ):
+                raise SystemExit(
+                    f"invalid opacity mask clip "
+                    f"{authored_opacity_mask_clip!r} for {primary}"
+                )
+            opacity_mask_clip = authored_opacity_mask_clip
+            mask_source = "not_masked"
+            alpha_scalar = 1.0
 
-            # UE may keep a master material in BLEND_Masked while a static
-            # switch makes OpacityMask a constant 1 for an instance. Preserve
-            # the authored BlendMode and carry the graph-effective alpha-test
-            # state separately so the renderer does not discard pixels from
-            # opaque-looking instances such as barrels, rubble, and crates.
+            # MasterMat's authored graph is:
+            #   Alpha switch TRUE  -> AlbedoTexture.A
+            #   Alpha switch FALSE -> constant 1
+            # followed by the authored scalar parameter Alpha.  Reconstruct
+            # that compiled mask without changing XZPB's authored BlendMode:
+            # texture branch folds the scalar into the clip threshold;
+            # constant branch becomes either an unconditional pass or reject.
             if blend_mode == BLEND_MODES["BLEND_Masked"]:
-                alpha_test_enabled = True
                 base_path = str(
                     semantic.get("semanticBaseMaterialPath", "")
                 ).strip().lower()
                 base_semantic = audit_by_material.get(base_path)
-                base_alpha = material_switch_value(
-                    base_semantic,
-                    "Alpha",
-                )
-                local_alpha = material_switch_value(
+
+                alpha_switch = material_switch_value(
                     semantic,
                     "Alpha",
                 )
-                if base_alpha is not None:
-                    alpha_test_enabled = (
-                        local_alpha
-                        if local_alpha is not None
-                        else base_alpha
+                if alpha_switch is None:
+                    alpha_switch = material_switch_value(
+                        base_semantic,
+                        "Alpha",
                     )
+                if alpha_switch is None:
+                    alpha_switch = True
 
-                if alpha_test_enabled:
-                    material_flags |= (
-                        MATERIAL_FLAG_ALPHA_TEST_ENABLED
+                local_alpha_scalar = material_scalar_value(
+                    semantic,
+                    "Alpha",
+                )
+                base_alpha_scalar = material_scalar_value(
+                    base_semantic,
+                    "Alpha",
+                )
+                alpha_scalar = (
+                    local_alpha_scalar
+                    if local_alpha_scalar is not None
+                    else (
+                        base_alpha_scalar
+                        if base_alpha_scalar is not None
+                        else 1.0
                     )
-                    semantic_counts["alphaTestEnabled"] += 1
+                )
+
+                if alpha_switch:
+                    if alpha_scalar <= 0.0:
+                        material_flags |= (
+                            MATERIAL_FLAG_MASK_CONSTANT_REJECT
+                        )
+                        mask_source = "constant_reject"
+                        semantic_counts["maskedConstantReject"] += 1
+                    else:
+                        effective_clip = (
+                            authored_opacity_mask_clip
+                            / alpha_scalar
+                        )
+                        if effective_clip > 1.0:
+                            material_flags |= (
+                                MATERIAL_FLAG_MASK_CONSTANT_REJECT
+                            )
+                            mask_source = "constant_reject"
+                            semantic_counts["maskedConstantReject"] += 1
+                        elif effective_clip <= 0.0:
+                            mask_source = "constant_pass"
+                            semantic_counts["maskedConstantPass"] += 1
+                        else:
+                            opacity_mask_clip = effective_clip
+                            material_flags |= (
+                                MATERIAL_FLAG_ALPHA_TEST_ENABLED
+                            )
+                            mask_source = "albedo_alpha"
+                            semantic_counts["alphaTestEnabled"] += 1
+                            if abs(alpha_scalar - 1.0) > 1.0e-6:
+                                semantic_counts[
+                                    "alphaScaledBindings"
+                                ] += 1
                 else:
                     semantic_counts[
                         "maskedWithoutAlphaTest"
                     ] += 1
+                    if alpha_scalar < authored_opacity_mask_clip:
+                        material_flags |= (
+                            MATERIAL_FLAG_MASK_CONSTANT_REJECT
+                        )
+                        mask_source = "constant_reject"
+                        semantic_counts["maskedConstantReject"] += 1
+                    else:
+                        mask_source = "constant_pass"
+                        semantic_counts["maskedConstantPass"] += 1
 
             if semantic.get("twoSided") is True:
                 material_flags |= MATERIAL_FLAG_TWO_SIDED
@@ -301,15 +397,6 @@ def main() -> int:
             if semantic.get("disableDepthTest") is True:
                 material_flags |= MATERIAL_FLAG_DISABLE_DEPTH_TEST
                 semantic_counts["disableDepthTest"] += 1
-            opacity_mask_clip = semantic.get("opacityMaskClipValue")
-            if opacity_mask_clip is None:
-                opacity_mask_clip = 0.333
-            opacity_mask_clip = float(opacity_mask_clip)
-            if not math.isfinite(opacity_mask_clip) or not 0.0 <= opacity_mask_clip <= 1.0:
-                raise SystemExit(
-                    f"invalid opacity mask clip {opacity_mask_clip!r} "
-                    f"for {primary}"
-                )
             semantic_counts[{
                 0: "opaque",
                 1: "masked",
@@ -344,6 +431,14 @@ def main() -> int:
                     material_flags
                     & MATERIAL_FLAG_ALPHA_TEST_ENABLED
                 ),
+                "constantMaskReject": bool(
+                    material_flags
+                    & MATERIAL_FLAG_MASK_CONSTANT_REJECT
+                ),
+                "maskSource": mask_source,
+                "alphaScalar": alpha_scalar,
+                "authoredOpacityMaskClip":
+                    authored_opacity_mask_clip,
                 "opacityMaskClip": opacity_mask_clip,
                 "sources": sources,
             })
@@ -418,6 +513,9 @@ def main() -> int:
         f" additive={semantic_counts['additive']}"
         f" alphaTest={semantic_counts['alphaTestEnabled']}"
         f" maskedNoAlpha={semantic_counts['maskedWithoutAlphaTest']}"
+        f" constantPass={semantic_counts['maskedConstantPass']}"
+        f" constantReject={semantic_counts['maskedConstantReject']}"
+        f" alphaScaled={semantic_counts['alphaScaledBindings']}"
         f" bytes={actual_bytes}"
     )
     return 0
