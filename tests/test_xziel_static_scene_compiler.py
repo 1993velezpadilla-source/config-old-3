@@ -153,9 +153,9 @@ with tempfile.TemporaryDirectory() as td:
         check=False,
     )
     assert long_result.returncode != 0
-    assert "MAX_QPATH" in long_result.stdout,long_result.stdout
+    assert "XZIEL runtime path limit" in long_result.stdout,long_result.stdout
 
 print(
     "XZIEL_STATIC_SCENE_COMPILER_TEST_OK "
-    "mesh_paths=SAFE quake_qpath=PASS zero_omission=PASS"
+    "mesh_paths=SAFE runtime_path_limit=PASS zero_omission=PASS"
 )
