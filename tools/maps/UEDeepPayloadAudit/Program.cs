@@ -549,17 +549,42 @@ static USkeleton ResolveAnimationSkeleton(
     var firstSlash = normalizedVirtual.IndexOf('/');
     if (firstSlash > 0 && firstSlash + 1 < normalizedVirtual.Length)
     {
-        var pluginName = normalizedVirtual[..firstSlash];
-        var pluginRelative = normalizedVirtual[(firstSlash + 1)..];
+        var mountName = normalizedVirtual[..firstSlash];
+        var mountRelative = normalizedVirtual[(firstSlash + 1)..];
 
-        /*
-         * Generic Unreal plugin mount:
-         *   /PluginName/Folder/Asset.Asset
-         * maps to a physical package under:
-         *   .../Plugins/PluginName/Content/Folder/Asset.uasset
-         */
-        candidates.Add(
-            $"Plugins/{pluginName}/Content/{pluginRelative}.uasset");
+        if (mountName.Equals("Game", StringComparison.OrdinalIgnoreCase))
+        {
+            /*
+             * Standard Unreal project mount:
+             *   /Game/Folder/Asset.Asset
+             * maps to:
+             *   <Project>/Content/Folder/Asset.uasset
+             */
+            candidates.Add(
+                $"Content/{mountRelative}.uasset");
+        }
+        else if (mountName.Equals("Engine", StringComparison.OrdinalIgnoreCase))
+        {
+            /*
+             * Standard Unreal engine mount:
+             *   /Engine/Folder/Asset.Asset
+             * maps to:
+             *   Engine/Content/Folder/Asset.uasset
+             */
+            candidates.Add(
+                $"Engine/Content/{mountRelative}.uasset");
+        }
+        else
+        {
+            /*
+             * Generic Unreal plugin mount:
+             *   /PluginName/Folder/Asset.Asset
+             * maps to:
+             *   .../Plugins/PluginName/Content/Folder/Asset.uasset
+             */
+            candidates.Add(
+                $"Plugins/{mountName}/Content/{mountRelative}.uasset");
+        }
     }
 
     string? providerKey = null;
