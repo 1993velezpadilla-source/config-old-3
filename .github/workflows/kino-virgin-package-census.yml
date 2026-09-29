@@ -15,6 +15,7 @@ on:
       - engine/xz/xz_xzmesh.c
       - tools/maps/xz_xzmesh_file_gate.c
       - tools/maps/UEStaticMeshXZMS/**
+      - tools/maps/UESceneTransformAudit/**
       - tools/maps/UEAssetSourceManifest/**
       - tools/maps/xz_source_class_gate.c
       - tools/maps/xz_source_adapter_blocker_gate.c
@@ -433,6 +434,107 @@ jobs:
               raise SystemExit(5)
 
           print("XZIEL_KINO_PROPERTY_SWEEP_GREEN")
+          PY
+
+      - name: Audit complete UE scene transform semantics
+        run: |
+          set -euxo pipefail
+          dotnet restore \
+            tools/maps/UESceneTransformAudit/UESceneTransformAudit.csproj
+          dotnet build \
+            tools/maps/UESceneTransformAudit/UESceneTransformAudit.csproj \
+            --configuration Release \
+            --no-restore
+
+          APP="tools/maps/UESceneTransformAudit/bin/Release/net10.0/UESceneTransformAudit.dll"
+          test -s "$APP"
+
+          mkdir -p kino-download/scene-transform-shards
+          SHARDS=16
+          for i in $(seq 0 $((SHARDS - 1))); do
+            dotnet "$APP" \
+              kino-pak-unpacked \
+              kino-download/PavMappings.usmap \
+              kino-download/kino-class-census.json \
+              "kino-download/scene-transform-shards/shard-$i.json" \
+              "$i" "$SHARDS" ue5.1 \
+              | tee "kino-download/scene-transform-shards/shard-$i.log"
+          done
+
+          python3 - <<'PY'
+          import json
+          from collections import Counter
+          from pathlib import Path
+
+          reports = [
+              json.loads(p.read_text(encoding="utf-8"))
+              for p in sorted(
+                  Path("kino-download/scene-transform-shards").glob("shard-*.json"),
+                  key=lambda p: int(p.stem.split("-")[1]),
+              )
+          ]
+          assert len(reports) == 16, len(reports)
+
+          census = json.loads(
+              Path("kino-download/kino-class-census.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+
+          types = Counter()
+          failures = []
+          for r in reports:
+              assert r["ready"], r["shardIndex"]
+              types.update(r["typeCounts"])
+              failures.extend(r["failures"])
+
+          out = {
+              "schemaVersion": 1,
+              "shardCount": 16,
+              "packageCount": sum(r["packageCount"] for r in reports),
+              "packagesLoaded": sum(r["packagesLoaded"] for r in reports),
+              "failureCount": len(failures),
+              "sceneComponents": sum(r["sceneComponents"] for r in reports),
+              "attachedComponents": sum(r["attachedComponents"] for r in reports),
+              "absoluteLocation": sum(r["absoluteLocation"] for r in reports),
+              "absoluteRotation": sum(r["absoluteRotation"] for r in reports),
+              "absoluteScale": sum(r["absoluteScale"] for r in reports),
+              "anyAbsolute": sum(r["anyAbsolute"] for r in reports),
+              "negativeScale": sum(r["negativeScale"] for r in reports),
+              "zeroScale": sum(r["zeroScale"] for r in reports),
+              "nonFiniteTransform": sum(r["nonFiniteTransform"] for r in reports),
+              "typeCounts": dict(sorted(types.items())),
+              "failures": failures,
+          }
+          out["ready"] = (
+              out["packageCount"] == census["packageCount"]
+              and out["packagesLoaded"] == census["packageCount"]
+              and out["failureCount"] == 0
+              and out["sceneComponents"] > 0
+              and out["nonFiniteTransform"] == 0
+          )
+
+          Path("kino-download/kino-scene-transform-audit.json").write_text(
+              json.dumps(out, indent=2, sort_keys=True),
+              encoding="utf-8",
+          )
+
+          print("XZIEL_KINO_SCENE_TRANSFORM_AUDIT", {
+              "packages": out["packageCount"],
+              "sceneComponents": out["sceneComponents"],
+              "attached": out["attachedComponents"],
+              "absoluteLocation": out["absoluteLocation"],
+              "absoluteRotation": out["absoluteRotation"],
+              "absoluteScale": out["absoluteScale"],
+              "anyAbsolute": out["anyAbsolute"],
+              "negativeScale": out["negativeScale"],
+              "zeroScale": out["zeroScale"],
+              "nonFinite": out["nonFiniteTransform"],
+              "ready": out["ready"],
+          })
+          if not out["ready"]:
+              raise SystemExit(5)
+          print("XZIEL_KINO_SCENE_TRANSFORM_AUDIT_GREEN")
           PY
 
       - name: Convert cooked UE static meshes directly to native XZMS
