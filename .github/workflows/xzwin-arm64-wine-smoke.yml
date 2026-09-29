@@ -1,0 +1,153 @@
+name: XZWin ARM64 Wine Smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  arm64-wine-rust:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 35
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Install ARM64 host tools
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y zstd patchelf file xvfb curl p7zip-full
+          uname -m | tee arm64-host.txt
+          grep -Eq 'aarch64|arm64' arm64-host.txt
+          echo XZWIN_ARM64_HOST_GREEN
+
+      - name: Install pinned XZWin rootfs and Box64
+        shell: bash
+        run: |
+          set -euxo pipefail
+          ROOT=/data/data/com.xziel.engine/files/xzwin/rootfs
+          UPSTREAM=3981d86efa4f333b2a34a7da8b6521476cd8c8b9
+          BASE="https://raw.githubusercontent.com/brunodev85/winlator-app/$UPSTREAM/app/src/main/assets"
+          mkdir -p "$RUNNER_TEMP/upstream" "$RUNNER_TEMP/box64"
+          curl --fail --location --retry 3 "$BASE/rootfs.tzst" -o "$RUNNER_TEMP/upstream/rootfs.tzst"
+          curl --fail --location --retry 3 "$BASE/box64/box64-0.4.4.tzst" -o "$RUNNER_TEMP/upstream/box64.tzst"
+          curl --fail --location --retry 3 "$BASE/box64/default.box64rc" -o "$RUNNER_TEMP/upstream/default.box64rc"
+          sudo mkdir -p "$ROOT"
+          sudo tar --zstd -xf "$RUNNER_TEMP/upstream/rootfs.tzst" -C "$ROOT"
+          sudo mkdir -p "$ROOT/etc" "$ROOT/home/xuser/.wine" "$ROOT/tmp/shm"
+          sudo cp "$RUNNER_TEMP/upstream/default.box64rc" "$ROOT/etc/config.box64rc"
+          sudo chown -R "$USER:$USER" /data/data/com.xziel.engine
+          tar --zstd -xf "$RUNNER_TEMP/upstream/box64.tzst" -C "$RUNNER_TEMP/box64"
+          BOX64="$(find "$RUNNER_TEMP/box64" -type f -name box64 -print -quit)"
+          test -n "$BOX64"
+          test -f "$ROOT/usr/lib/ld-linux-aarch64.so.1"
+          patchelf --set-interpreter "$ROOT/usr/lib/ld-linux-aarch64.so.1" "$BOX64"
+          cp "$BOX64" "$RUNNER_TEMP/libxzbox64.so"
+          chmod 0755 "$RUNNER_TEMP/libxzbox64.so"
+          patchelf --print-interpreter "$RUNNER_TEMP/libxzbox64.so" | tee arm64-box64-interpreter.txt
+          grep -Fxq "$ROOT/usr/lib/ld-linux-aarch64.so.1" arm64-box64-interpreter.txt
+          echo XZWIN_ARM64_ROOTFS_GREEN
+
+      - name: Box64 and Wine CLI smoke
+        shell: bash
+        run: |
+          set -euxo pipefail
+          ROOT=/data/data/com.xziel.engine/files/xzwin/rootfs
+          BOX64="$RUNNER_TEMP/libxzbox64.so"
+          export HOME="$ROOT/home/xuser"
+          export USER=xuser
+          export TMPDIR="$ROOT/tmp"
+          export WINEPREFIX="$ROOT/home/xuser/.wine"
+          export PATH="$ROOT/opt/wine/bin:$ROOT/usr/local/bin:$ROOT/usr/bin:$PATH"
+          export LD_LIBRARY_PATH="$ROOT/usr/lib"
+          export BOX64_LD_LIBRARY_PATH="$ROOT/lib/x86_64-linux-gnu"
+          export BOX64_RCFILE="$ROOT/etc/config.box64rc"
+          export BOX64_NOBANNER=0
+          export BOX64_DYNAREC=1
+          export WINEDEBUG=-all
+          "$BOX64" "$ROOT/opt/wine/bin/wine" cmd /c ver 2>&1 | tee arm64-wine-ver.txt
+          grep -Ei 'Windows|Wine|Microsoft' arm64-wine-ver.txt
+          "$BOX64" "$ROOT/opt/wine/bin/wine" cmd /c "echo XZWIN_ARM64_WINE_OK" 2>&1 | tee arm64-wine-echo.txt
+          grep -q XZWIN_ARM64_WINE_OK arm64-wine-echo.txt
+          echo XZWIN_ARM64_WINE_CLI_GREEN
+
+      - name: Download public MW2 Rust map installer
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p probe
+          python3 - <<'PY'
+import html
+import pathlib
+import re
+import urllib.request
+page="https://www.mediafire.com/file/okwcwp21eg8ihhg/MW2RustZombies_1.0.exe/file"
+req=urllib.request.Request(page,headers={"User-Agent":"Mozilla/5.0"})
+with urllib.request.urlopen(req,timeout=60) as r:
+    body=r.read()
+text=html.unescape(body.decode("utf-8","replace")).replace("\\/","/")
+urls=re.findall(r'https://download[^"\\\'<> ]+mediafire\\.com/[^"\\\'<> ]+?\\.exe',text,re.I)
+if not urls:
+    urls=re.findall(r'https://download[^"\\\'<> ]+?\\.exe',text,re.I)
+if not urls:
+    raise SystemExit("MediaFire direct EXE URL not found")
+req=urllib.request.Request(urls[0],headers={"User-Agent":"Mozilla/5.0"})
+with urllib.request.urlopen(req,timeout=120) as r:
+    payload=r.read()
+if payload[:2] != b"MZ":
+    raise SystemExit("download is not PE/MZ")
+pathlib.Path("probe/MW2RustZombies.exe").write_bytes(payload)
+print("bytes",len(payload))
+PY
+          test -s probe/MW2RustZombies.exe
+          file probe/MW2RustZombies.exe | tee probe/file.txt
+          echo XZWIN_RUST_EXE_READY
+
+      - name: Run Rust installer through Box64 Wine on ARM64
+        shell: bash
+        run: |
+          set -uxo pipefail
+          ROOT=/data/data/com.xziel.engine/files/xzwin/rootfs
+          BOX64="$RUNNER_TEMP/libxzbox64.so"
+          export HOME="$ROOT/home/xuser"
+          export USER=xuser
+          export TMPDIR="$ROOT/tmp"
+          export WINEPREFIX="$ROOT/home/xuser/.wine"
+          export PATH="$ROOT/opt/wine/bin:$ROOT/usr/local/bin:$ROOT/usr/bin:$PATH"
+          export LD_LIBRARY_PATH="$ROOT/usr/lib"
+          export BOX64_LD_LIBRARY_PATH="$ROOT/lib/x86_64-linux-gnu"
+          export BOX64_RCFILE="$ROOT/etc/config.box64rc"
+          export BOX64_NOBANNER=0
+          export BOX64_DYNAREC=1
+          export WINEDEBUG=-all
+          mkdir -p "$WINEPREFIX/drive_c/xziel-maps/mw2rust"
+          timeout 240s xvfb-run -a "$BOX64" "$ROOT/opt/wine/bin/wine" "$GITHUB_WORKSPACE/probe/MW2RustZombies.exe" /S '/D=C:\xziel-maps\mw2rust' > probe/arm64-rust-wine.log 2>&1
+          STATUS=$?
+          echo "$STATUS" | tee probe/arm64-rust-exit.txt
+          find "$WINEPREFIX" -type f -printf '%P\n' | sort > probe/arm64-prefix-files.txt
+          grep -Ei '\.(ff|iwd)$' probe/arm64-prefix-files.txt | tee probe/arm64-waw-payload-files.txt || true
+          COUNT="$(wc -l < probe/arm64-waw-payload-files.txt)"
+          echo "payload_count=$COUNT" | tee probe/arm64-payload-count.txt
+          test "$STATUS" -eq 0
+          test "$COUNT" -eq 8
+          grep -q 'mw2rust.ff' probe/arm64-waw-payload-files.txt
+          grep -q 'mod.ff' probe/arm64-waw-payload-files.txt
+          grep -q 'mw2rust.iwd' probe/arm64-waw-payload-files.txt
+          echo XZWIN_ARM64_RUST_PAYLOAD_GREEN
+
+      - name: Upload ARM64 smoke reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZWin-ARM64-Wine-Smoke
+          path: |
+            arm64-host.txt
+            arm64-box64-interpreter.txt
+            arm64-wine-ver.txt
+            arm64-wine-echo.txt
+            probe/*.txt
+            probe/*.log
+          if-no-files-found: warn
