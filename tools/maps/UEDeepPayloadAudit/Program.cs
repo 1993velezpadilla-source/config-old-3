@@ -1565,19 +1565,40 @@ static string? ResolveProviderPackagePath(
     DefaultFileProvider provider,
     string logicalPath)
 {
-    var normalized = logicalPath.Replace('\\', '/').TrimStart('/');
+    var normalized =
+        logicalPath
+            .Replace('\\', '/')
+            .TrimStart('/');
 
     if (provider.Files.ContainsKey(normalized))
         return normalized;
 
-    var matches = provider.Files.Keys
-        .Where(key => key.EndsWith(normalized, StringComparison.OrdinalIgnoreCase))
-        .OrderBy(key => key.Length)
-        .ThenBy(key => key, StringComparer.OrdinalIgnoreCase)
-        .Take(2)
-        .ToArray();
+    /*
+     * Census paths may be rooted at a CI extraction directory while a
+     * provider is mounted at the detected Unreal project root. Resolve
+     * strictly by unique suffix in either direction instead of assuming
+     * the census root and provider root are identical. This is generic
+     * mount normalization, not a map-name special case.
+     */
+    var matches =
+        provider.Files.Keys
+            .Where(key =>
+                key.EndsWith(
+                    normalized,
+                    StringComparison.OrdinalIgnoreCase) ||
+                normalized.EndsWith(
+                    key.Replace('\\', '/').TrimStart('/'),
+                    StringComparison.OrdinalIgnoreCase))
+            .OrderBy(key => key.Length)
+            .ThenBy(
+                key => key,
+                StringComparer.OrdinalIgnoreCase)
+            .Take(2)
+            .ToArray();
 
-    return matches.Length == 1 ? matches[0] : null;
+    return matches.Length == 1
+        ? matches[0]
+        : null;
 }
 
 sealed record PackageRow(
