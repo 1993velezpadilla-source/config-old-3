@@ -38,6 +38,8 @@ on:
       - engine/xz/xz_xztexture.c
       - engine/xz/xz_xzaudio.h
       - engine/xz/xz_xzaudio.c
+      - engine/xz/xz_xzrig.h
+      - engine/xz/xz_xzrig.c
       - engine/xz/xz_xzskel.h
       - engine/xz/xz_xzskel.c
       - engine/xz/xz_xzanim.h
@@ -71,6 +73,7 @@ jobs:
             engine/xz/xz_xzmesh.c \
             engine/xz/xz_xztexture.c \
             engine/xz/xz_xzaudio.c \
+            engine/xz/xz_xzrig.c \
             engine/xz/xz_xzskel.c \
             engine/xz/xz_xzanim.c \
             engine/xz/xz_package_boot.c
@@ -101,6 +104,7 @@ jobs:
           #include "xz_source_asset_pipeline.h"
           #include "xz_xztexture.h"
           #include "xz_xzaudio.h"
+          #include "xz_xzrig.h"
           #include "xz_xzskel.h"
           #include "xz_xzanim.h"
           #include "xz_package_boot.h"
@@ -143,6 +147,7 @@ jobs:
                   XzSourceAsset_SelfTest() &&
                   XzXztexture_SelfTest() &&
                   XzXzaudio_SelfTest() &&
+                  XzXzrig_SelfTest() &&
                   XzXzskel_SelfTest() &&
                   XzXzanim_SelfTest() &&
                   XzPackageBoot_SelfTest()
