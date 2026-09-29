@@ -168,7 +168,7 @@ jobs:
           GPU_FAIL=0
           for i in $(seq 1 90); do
             "$ADB" logcat -d -v threadtime > dist/xziel-logcat-nuketown.txt || true
-            if grep -Eq "XZIEL-XZ.*static_scene status=READY map='xziel_nuketown_zombies'.*meshes=52 instances=124.*gpuReady=1.*xzmi=1 xzml=1 xzmlMaterials=198 xzmlGpuReady=1 xztxTextures=221 xztxAstc=221" dist/xziel-logcat-nuketown.txt               && grep -Eq "XZIEL-XZ.*parity present.*staticSuccess=[1-9][0-9]*.*staticDraws=[1-9][0-9]*.*staticFboNonblack=[1-9][0-9]*.*staticFrame=1" dist/xziel-logcat-nuketown.txt               && grep -Eq "XZIEL-XZ.*phase16 heartbeat requested=MODERN active=MODERN candidate=1 allowed=1 caps=0xff blockers=0x0 .*legacyVisible=0" dist/xziel-logcat-nuketown.txt; then
+            if grep -Eq "XZIEL-XZ.*static_scene status=READY map='xziel_nuketown_zombies'.*meshes=52 instances=124.*gpuReady=1.*xzmi=1 xzml=1 xzmlMaterials=198.*xzmlGpuReady=1 xztxTextures=221 xztxAstc=221" dist/xziel-logcat-nuketown.txt               && grep -Eq "XZIEL-XZ.*parity present.*staticSuccess=[1-9][0-9]*.*staticDraws=[1-9][0-9]*.*staticFboNonblack=[1-9][0-9]*.*staticFrame=1" dist/xziel-logcat-nuketown.txt               && grep -Eq "XZIEL-XZ.*phase16 heartbeat requested=MODERN active=MODERN candidate=1 allowed=1 caps=0xff blockers=0x0 .*legacyVisible=0" dist/xziel-logcat-nuketown.txt; then
               READY=1
               break
             fi
