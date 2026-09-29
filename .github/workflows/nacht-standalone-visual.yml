@@ -62,6 +62,76 @@ jobs:
           echo "UNPACKED=$RUNNER_TEMP/nacht-unpacked" \
             >> "$GITHUB_ENV"
 
+      - name: Extract generic UE4.21 surface semantics
+        run: |
+          set -euxo pipefail
+          mkdir -p build/nacht-static-scene/material-semantics
+
+          dotnet restore tools/maps/UEAssetClassCensus/UEAssetClassCensus.csproj
+          dotnet build tools/maps/UEAssetClassCensus/UEAssetClassCensus.csproj \
+            --configuration Release --no-restore
+          CENSUS_APP="tools/maps/UEAssetClassCensus/bin/Release/net10.0/UEAssetClassCensus.dll"
+          dotnet "$CENSUS_APP" \
+            "$UNPACKED" \
+            build/nacht-static-scene/material-semantics/class-census.json \
+            ue4.21 \
+            | tee build/nacht-static-scene/material-semantics/class-census.log
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("build/nacht-static-scene/material-semantics/class-census.json")
+          d=json.loads(p.read_text())
+          assert d["packageLoadFailureCount"] == 0, d["packageLoadFailures"][:20]
+          assert d["packagesLoaded"] == d["packageCount"]
+          assert d["totalExports"] == 48054
+          print("XZIEL_NACHT_UE421_CLASS_CENSUS_GREEN", {
+              "packages": d["packageCount"],
+              "exports": d["totalExports"],
+              "classes": d["uniqueExportClassCount"],
+          })
+          PY
+
+          curl -fL --retry 5 --retry-delay 2 \
+            -o build/nacht-static-scene/material-semantics/PavMappings.usmap \
+            "https://raw.githubusercontent.com/THW-Reaper/PavlovVRMappings/4976647b4f3a209042460bc55a7a3122662d05b7/PavMappings.usmap"
+          echo "6d19f9731cc3fbaba34ca8e0833e81e4ffdf1b407edf24de48b1ccb5c63b060c  build/nacht-static-scene/material-semantics/PavMappings.usmap" \
+            | sha256sum -c -
+
+          dotnet restore tools/maps/UEMaterialAudit/UEMaterialAudit.csproj
+          dotnet build tools/maps/UEMaterialAudit/UEMaterialAudit.csproj \
+            --configuration Release --no-restore
+          MATERIAL_APP="tools/maps/UEMaterialAudit/bin/Release/net10.0/UEMaterialAudit.dll"
+          dotnet "$MATERIAL_APP" \
+            "$UNPACKED" \
+            build/nacht-static-scene/material-semantics/PavMappings.usmap \
+            build/nacht-static-scene/material-semantics/class-census.json \
+            build/nacht-static-scene/material-semantics/material-audit.json \
+            ue4.21 \
+            | tee build/nacht-static-scene/material-semantics/material-audit.log
+
+          grep -q 'XZIEL_UE_MATERIAL_AUDIT_GREEN' \
+            build/nacht-static-scene/material-semantics/material-audit.log
+
+          python3 - <<'PY'
+          import json
+          from collections import Counter
+          from pathlib import Path
+          d=json.loads(
+              Path("build/nacht-static-scene/material-semantics/material-audit.json")
+              .read_text()
+          )
+          assert d["summary"]["ready"] is True
+          assert d["summary"]["materialExportsDecoded"] == 997
+          assert d["summary"]["packageFailureCount"] == 0
+          assert d["summary"]["materialFailureCount"] == 0
+          modes=Counter(row["blendMode"] for row in d["materials"])
+          print("XZIEL_NACHT_UE421_MATERIAL_SEMANTICS_GREEN", {
+              "materials": d["summary"]["materialExportsDecoded"],
+              "blendModes": dict(sorted(modes.items())),
+          })
+          PY
+
       - name: Census exact Nacht post-process settings
         run: |
           set -euo pipefail
@@ -3007,6 +3077,7 @@ jobs:
           python3 tools/maps/compile_nacht_pbr_scalars.py \
             --manifest "$RUNNER_TEMP/scene-glb/xziel-texture-manifest.json" \
             --materials-report build/nacht-static-scene/xziel.xzmat.report.json \
+            --material-audit build/nacht-static-scene/material-semantics/material-audit.json \
             --output "$MAPROOT/materials.xzpb" \
             --report build/nacht-static-scene/xziel.xzpb.report.json \
             | tee build/nacht-static-scene/xzpb-compile.log
@@ -3021,10 +3092,19 @@ jobs:
               ).read_text()
           )
           assert pbr["format"] == "XZPB"
-          assert pbr["version"] == 1
+          assert pbr["version"] == 2
           assert pbr["bindingCount"] == 1063
-          assert pbr["recordBytes"] == 20
-          assert pbr["bytes"] == 21280
+          assert pbr["recordBytes"] == 32
+          assert pbr["bytes"] == 34036
+          assert pbr["surfaceSemantics"] == {
+              "opaque": 740,
+              "masked": 323,
+              "translucent": 0,
+              "additive": 0,
+              "twoSided": 2,
+              "disableDepthTest": 0,
+          }
+          assert pbr["unresolvedSurfaceSemantics"] == []
           assert pbr["authoredBindingCount"] > 0
           assert pbr["validCounts"]["roughness"] > 0
           assert pbr["validCounts"]["metallic"] > 0
@@ -3661,6 +3741,8 @@ jobs:
             build/nacht-static-scene/xziel.xzscene.report.json
             build/nacht-static-scene/xziel.xzmat.report.json
             build/nacht-static-scene/xziel.xzpb.report.json
+            build/nacht-static-scene/material-semantics/material-audit.json
+            build/nacht-static-scene/material-semantics/class-census.json
             build/nacht-static-scene/xziel.xzmn.report.json
             build/nacht-static-scene/xziel.xzen.report.json
             build/nacht-static-scene/xziel.xzfg.report.json
