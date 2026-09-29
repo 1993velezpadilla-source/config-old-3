@@ -207,6 +207,55 @@ foreach (var logicalPackage in candidatePackages)
                     });
                 }
 
+                object[] rawExpressions =
+                    material is UMaterial concreteMaterial
+                        ? concreteMaterial.Expressions
+                            .Select((expression, index) =>
+                            {
+                                if (
+                                    expression.TryLoad(
+                                        out UMaterialExpression loadedExpression) &&
+                                    loadedExpression is not null)
+                                {
+                                    return (object)new
+                                    {
+                                        index,
+                                        resolved = true,
+                                        objectPath =
+                                            loadedExpression.GetPathName(),
+                                        exportType =
+                                            loadedExpression.ExportType,
+                                        properties =
+                                            loadedExpression.Properties
+                                                .OrderBy(
+                                                    p => p.Name.Text,
+                                                    StringComparer.Ordinal)
+                                                .Select(p => new
+                                                {
+                                                    name = p.Name.Text,
+                                                    valueType =
+                                                        p.Tag?.GenericValue
+                                                            ?.GetType()
+                                                            .FullName,
+                                                    value =
+                                                        p.Tag?.GenericValue
+                                                            ?.ToString()
+                                                })
+                                                .ToArray()
+                                    };
+                                }
+
+                                return (object)new
+                                {
+                                    index,
+                                    resolved = false,
+                                    reference =
+                                        expression.ToString()
+                                };
+                            })
+                            .ToArray()
+                        : Array.Empty<object>();
+
                 var textures = new List<object>();
                 foreach (var textureEntry in parameters.Textures
                              .OrderBy(
@@ -353,6 +402,8 @@ foreach (var logicalPackage in candidatePackages)
                     colorCount = colors.Length,
                     switchCount = switches.Length,
                     rawPropertyKeyCount = propertyKeys.Length,
+                    rawExpressionCount = rawExpressions.Length,
+                    rawExpressions,
                     textures,
                     scalars,
                     colors,
