@@ -156,7 +156,9 @@ foreach (var logicalPackage in candidatePackages)
                     EMaterialDepth.AllLayers);
 
                 var semantics =
-                    ResolveMaterialSemantics(material);
+                    ResolveMaterialSemantics(
+                        material,
+                        provider);
 
                 var rawParentProperty =
                     material.Properties.FirstOrDefault(
@@ -580,6 +582,7 @@ static (
     string baseMaterialPath)
 ResolveMaterialSemantics(
     UUnrealMaterial material,
+    DefaultFileProvider provider,
     HashSet<string>? visiting = null)
 {
     visiting ??=
@@ -652,12 +655,22 @@ ResolveMaterialSemantics(
 
             if (
                 rawParentProperty?.Tag?.GenericValue
-                    is FPackageIndex rawParent &&
-                rawParent.TryLoad<UUnrealMaterial>(
-                    out var loadedParent) &&
-                loadedParent is not null)
+                    is FPackageIndex rawParent)
             {
-                parent = loadedParent;
+                if (
+                    rawParent.TryLoad<UUnrealMaterial>(
+                        out var loadedParent) &&
+                    loadedParent is not null)
+                {
+                    parent = loadedParent;
+                }
+                else
+                {
+                    parent =
+                        ResolveMaterialByRawReference(
+                            provider,
+                            rawParent.ToString());
+                }
             }
         }
 
@@ -681,6 +694,7 @@ ResolveMaterialSemantics(
         var inherited =
             ResolveMaterialSemantics(
                 parent,
+                provider,
                 visiting);
 
         if (!inherited.resolved)
@@ -769,5 +783,88 @@ ResolveMaterialSemantics(
     finally
     {
         visiting.Remove(path);
+    }
+}
+
+
+static UUnrealMaterial? ResolveMaterialByRawReference(
+    DefaultFileProvider provider,
+    string rawReference)
+{
+    if (string.IsNullOrWhiteSpace(rawReference))
+        return null;
+
+    var firstQuote = rawReference.IndexOf('\'');
+    var lastQuote = rawReference.LastIndexOf('\'');
+    var objectPath =
+        firstQuote >= 0 &&
+        lastQuote > firstQuote
+            ? rawReference.Substring(
+                firstQuote + 1,
+                lastQuote - firstQuote - 1)
+            : rawReference;
+
+    objectPath =
+        objectPath.Replace('\\', '/');
+
+    if (objectPath.StartsWith(
+            "/Game/",
+            StringComparison.OrdinalIgnoreCase))
+    {
+        objectPath =
+            objectPath.Substring("/Game/".Length);
+    }
+    else
+    {
+        objectPath =
+            objectPath.TrimStart('/');
+    }
+
+    var slash = objectPath.LastIndexOf('/');
+    var dot = objectPath.LastIndexOf('.');
+    string objectName;
+    string packageStem;
+
+    if (dot > slash)
+    {
+        objectName =
+            objectPath.Substring(dot + 1);
+        packageStem =
+            objectPath.Substring(0, dot);
+    }
+    else
+    {
+        packageStem = objectPath;
+        objectName =
+            slash >= 0
+                ? objectPath.Substring(slash + 1)
+                : objectPath;
+    }
+
+    var logicalPackage =
+        packageStem + ".uasset";
+    var resolvedPath =
+        ResolveProviderPackagePath(
+            provider,
+            logicalPackage);
+
+    if (resolvedPath is null)
+        return null;
+
+    try
+    {
+        return provider
+            .LoadPackage(resolvedPath)
+            .GetExports()
+            .OfType<UUnrealMaterial>()
+            .FirstOrDefault(
+                material =>
+                    material.GetPathName().EndsWith(
+                        "." + objectName,
+                        StringComparison.OrdinalIgnoreCase));
+    }
+    catch
+    {
+        return null;
     }
 }
