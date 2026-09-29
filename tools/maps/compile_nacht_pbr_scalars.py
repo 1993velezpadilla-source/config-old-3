@@ -31,6 +31,7 @@ BLEND_MODES = {
 }
 MATERIAL_FLAG_TWO_SIDED = 1 << 0
 MATERIAL_FLAG_DISABLE_DEPTH_TEST = 1 << 1
+MATERIAL_FLAG_ALPHA_TEST_ENABLED = 1 << 2
 
 FLAG_ROUGHNESS = 1 << 0
 FLAG_METALLIC = 1 << 1
@@ -59,6 +60,23 @@ def parse_scalar(row: dict) -> float | None:
     except (TypeError, ValueError):
         return None
     return value if math.isfinite(value) else None
+
+
+def material_switch_value(row: dict | None, name: str) -> bool | None:
+    if not isinstance(row, dict):
+        return None
+    target = canonical_parameter(name)
+    for item in row.get("switches", []):
+        if not isinstance(item, dict):
+            continue
+        if canonical_parameter(str(item.get("name", ""))) != target:
+            continue
+        value = item.get("value")
+        if isinstance(value, bool):
+            return value
+        if value in (0, 1):
+            return bool(value)
+    return None
 
 
 def main() -> int:
@@ -150,6 +168,8 @@ def main() -> int:
         "additive": 0,
         "twoSided": 0,
         "disableDepthTest": 0,
+        "alphaTestEnabled": 0,
+        "maskedWithoutAlphaTest": 0,
     }
     unresolved_semantics = []
 
@@ -238,6 +258,43 @@ def main() -> int:
                 )
             blend_mode = BLEND_MODES[blend_name]
             material_flags = 0
+
+            # UE may keep a master material in BLEND_Masked while a static
+            # switch makes OpacityMask a constant 1 for an instance. Preserve
+            # the authored BlendMode and carry the graph-effective alpha-test
+            # state separately so the renderer does not discard pixels from
+            # opaque-looking instances such as barrels, rubble, and crates.
+            if blend_mode == BLEND_MODES["BLEND_Masked"]:
+                alpha_test_enabled = True
+                base_path = str(
+                    semantic.get("semanticBaseMaterialPath", "")
+                ).strip().lower()
+                base_semantic = audit_by_material.get(base_path)
+                base_alpha = material_switch_value(
+                    base_semantic,
+                    "Alpha",
+                )
+                local_alpha = material_switch_value(
+                    semantic,
+                    "Alpha",
+                )
+                if base_alpha is not None:
+                    alpha_test_enabled = (
+                        local_alpha
+                        if local_alpha is not None
+                        else base_alpha
+                    )
+
+                if alpha_test_enabled:
+                    material_flags |= (
+                        MATERIAL_FLAG_ALPHA_TEST_ENABLED
+                    )
+                    semantic_counts["alphaTestEnabled"] += 1
+                else:
+                    semantic_counts[
+                        "maskedWithoutAlphaTest"
+                    ] += 1
+
             if semantic.get("twoSided") is True:
                 material_flags |= MATERIAL_FLAG_TWO_SIDED
                 semantic_counts["twoSided"] += 1
@@ -283,6 +340,10 @@ def main() -> int:
                 "emissive": values["emissive"],
                 "blendMode": blend_mode,
                 "materialFlags": material_flags,
+                "alphaTestEnabled": bool(
+                    material_flags
+                    & MATERIAL_FLAG_ALPHA_TEST_ENABLED
+                ),
                 "opacityMaskClip": opacity_mask_clip,
                 "sources": sources,
             })
@@ -355,6 +416,8 @@ def main() -> int:
         f" masked={semantic_counts['masked']}"
         f" translucent={semantic_counts['translucent']}"
         f" additive={semantic_counts['additive']}"
+        f" alphaTest={semantic_counts['alphaTestEnabled']}"
+        f" maskedNoAlpha={semantic_counts['maskedWithoutAlphaTest']}"
         f" bytes={actual_bytes}"
     )
     return 0
