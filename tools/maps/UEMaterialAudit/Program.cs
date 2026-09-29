@@ -95,6 +95,7 @@ provider.LoadVirtualPaths();
 var rows = new List<object>();
 var packageFailures = new List<object>();
 var materialFailures = new List<object>();
+var semanticResolutionFailures = new List<object>();
 var unresolvedTextureRefs = new List<object>();
 var observedClassCounts = new Dictionary<string, int>(
     StringComparer.Ordinal);
@@ -155,11 +156,52 @@ foreach (var logicalPackage in candidatePackages)
 
                 var semantics =
                     ResolveMaterialSemantics(material);
+
+                var rawParentProperty =
+                    material.Properties.FirstOrDefault(
+                        p => p.Name.Text.Equals(
+                            "Parent",
+                            StringComparison.Ordinal));
+                var rawParent =
+                    rawParentProperty?.Tag?.GenericValue;
+
                 if (!semantics.resolved)
                 {
-                    throw new InvalidDataException(
-                        "could not resolve authoritative material base properties for "
-                        + material.GetPathName());
+                    semanticResolutionFailures.Add(new
+                    {
+                        packagePath = logicalPackage,
+                        materialPath = material.GetPathName(),
+                        exportType = material.ExportType,
+                        parentRuntimeType =
+                            material is UMaterialInstance mi &&
+                            mi.Parent is not null
+                                ? mi.Parent.GetType().FullName
+                                : null,
+                        parentPath =
+                            material is UMaterialInstance mi2 &&
+                            mi2.Parent is not null
+                                ? mi2.Parent.GetPathName()
+                                : null,
+                        rawParentType =
+                            rawParent?.GetType().FullName,
+                        rawParentValue =
+                            rawParent?.ToString(),
+                        rawBasePropertyOverrides =
+                            material is UMaterialInstance
+                                ? parameters.Properties
+                                    .Where(x =>
+                                        x.Key.Contains(
+                                            "Override",
+                                            StringComparison.OrdinalIgnoreCase) ||
+                                        x.Key.Contains(
+                                            "BaseProperty",
+                                            StringComparison.OrdinalIgnoreCase))
+                                    .OrderBy(x => x.Key)
+                                    .ToDictionary(
+                                        x => x.Key,
+                                        x => x.Value?.ToString())
+                                : null
+                    });
                 }
 
                 var textures = new List<object>();
@@ -260,19 +302,33 @@ foreach (var logicalPackage in candidatePackages)
                     exportType = material.ExportType,
                     packagePath = logicalPackage,
                     resolvedPackagePath = resolvedPath,
+                    semanticResolved =
+                        semantics.resolved,
                     blendMode =
-                        semantics.blendMode.ToString(),
+                        (semantics.resolved
+                            ? semantics.blendMode
+                            : parameters.BlendMode).ToString(),
                     shadingModel =
-                        semantics.shadingModel.ToString(),
+                        (semantics.resolved
+                            ? semantics.shadingModel
+                            : parameters.ShadingModel).ToString(),
                     opacityMaskClipValue =
-                        semantics.opacityMaskClipValue,
+                        semantics.resolved
+                            ? semantics.opacityMaskClipValue
+                            : 0.333f,
                     twoSided =
-                        semantics.twoSided,
+                        semantics.resolved
+                            ? semantics.twoSided
+                            : (bool?)null,
                     disableDepthTest =
-                        semantics.disableDepthTest,
+                        semantics.resolved
+                            ? semantics.disableDepthTest
+                            : (bool?)null,
                     isMasked =
-                        semantics.blendMode ==
-                            EBlendMode.BLEND_Masked,
+                        (semantics.resolved
+                            ? semantics.blendMode
+                            : parameters.BlendMode) ==
+                                EBlendMode.BLEND_Masked,
                     semanticParentDepth =
                         semantics.parentDepth,
                     semanticBlendOverride =
@@ -362,6 +418,7 @@ var ready =
         materialExportsDecoded == expectedMaterialInterfaces) &&
     packageFailures.Count == 0 &&
     materialFailures.Count == 0 &&
+    semanticResolutionFailures.Count == 0 &&
     unresolvedTextureRefs.Count == 0 &&
     classCoverageFailures.Count == 0;
 
@@ -397,6 +454,7 @@ var output = new
     classCoverageFailures,
     packageFailures,
     materialFailures,
+    semanticResolutionFailures,
     unresolvedTextureRefs,
     materials = rows
 };
