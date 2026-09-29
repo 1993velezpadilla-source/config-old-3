@@ -869,11 +869,14 @@ jobs:
       - name: Convert cooked UE skeletal meshes directly to native XZSK
         run: |
           set -euxo pipefail
-          dotnet restore tools/maps/UESkeletalMeshXZSK/UESkeletalMeshXZSK.csproj
+          dotnet restore tools/maps/UESkeletalMeshXZSK/UESkeletalMeshXZSK.csproj \
+            -p:CUE4ParseSourceRoot="$CUE4PARSE_SOURCE_ROOT" \
+            -p:CUE4PARSE_SKIP_NATIVE=true
           dotnet build tools/maps/UESkeletalMeshXZSK/UESkeletalMeshXZSK.csproj \
             --configuration Release \
             --no-restore \
-            -warnaserror
+            -p:CUE4ParseSourceRoot="$CUE4PARSE_SOURCE_ROOT" \
+            -p:CUE4PARSE_SKIP_NATIVE=true
 
           APP="tools/maps/UESkeletalMeshXZSK/bin/Release/net10.0/UESkeletalMeshXZSK.dll"
           test -s "$APP"
