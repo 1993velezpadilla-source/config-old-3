@@ -115,6 +115,7 @@ long totalSections = 0;
 long totalFileBytes = 0;
 var maxUvChannels = 0;
 var maxInfluences = 0;
+var selfRigFallbackCount = 0;
 
 foreach (var logicalPackage in candidatePackages)
 {
@@ -156,11 +157,30 @@ foreach (var logicalPackage in candidatePackages)
 
             try
             {
-                var animationSkeleton =
-                    ResolveMeshSkeleton(
-                        provider,
-                        mesh,
-                        out var skeletonPackagePath);
+                USkeleton? animationSkeleton = null;
+                string skeletonPackagePath;
+                string skeletonPath;
+                var selfRig =
+                    mesh.Skeleton.IsNull;
+
+                if (selfRig)
+                {
+                    skeletonPackagePath =
+                        resolvedPath;
+                    skeletonPath =
+                        mesh.GetPathName() +
+                        "#ReferenceSkeleton";
+                }
+                else
+                {
+                    animationSkeleton =
+                        ResolveMeshSkeleton(
+                            provider,
+                            mesh,
+                            out skeletonPackagePath);
+                    skeletonPath =
+                        animationSkeleton.GetPathName();
+                }
 
                 using var dto =
                     new SkeletalMeshDto(
@@ -198,8 +218,8 @@ foreach (var logicalPackage in candidatePackages)
                     result.uvChannels,
                     result.maxVertexInfluences,
                     skeletonPackagePath,
-                    skeletonPath =
-                        animationSkeleton.GetPathName(),
+                    skeletonPath,
+                    selfRig,
                     skeletonHash =
                         result.skeletonHash
                             .ToString("x16"),
@@ -211,6 +231,8 @@ foreach (var logicalPackage in candidatePackages)
                 });
 
                 converted++;
+                if (selfRig)
+                    selfRigFallbackCount++;
                 totalBones += result.bones;
                 totalVertices += result.vertices;
                 totalIndices += result.indices;
@@ -290,6 +312,7 @@ var report = new {
     totalSections,
     maxUvChannels,
     maxInfluences,
+    selfRigFallbackCount,
     skeletonHashCounts = hashes,
     meshLayoutHashCounts = meshLayoutHashes,
     totalFileBytes,
@@ -321,6 +344,7 @@ Console.WriteLine(
         totalSections,
         maxUvChannels,
         maxInfluences,
+        selfRigFallbackCount,
         skeletons = hashes.Count,
         meshLayouts = meshLayoutHashes.Count,
         totalFileBytes,
@@ -361,7 +385,7 @@ static (
 ) WriteXzsk(
     string outputPath,
     SkeletalMeshDto dto,
-    USkeleton animationSkeleton)
+    USkeleton? animationSkeleton)
 {
     if (dto.Bones.Length == 0)
         throw new InvalidDataException(
@@ -409,21 +433,27 @@ static (
         throw new InvalidDataException(
             "skeletal mesh has no valid sections");
 
-    using var skeletonDto =
-        new SkeletonDto(
-            animationSkeleton);
+    using SkeletonDto? skeletonDto =
+        animationSkeleton is null
+            ? null
+            : new SkeletonDto(
+                animationSkeleton);
 
-    if (skeletonDto.Bones.Length == 0)
-        throw new InvalidDataException(
-            "linked USkeleton has no bones");
+    var skeletonBones =
+        skeletonDto?.Bones ??
+        dto.Bones;
 
-    if (skeletonDto.Bones.Length > ushort.MaxValue)
+    if (skeletonBones.Length == 0)
         throw new InvalidDataException(
-            $"linked USkeleton has too many bones: {skeletonDto.Bones.Length}");
+            "linked skeleton has no bones");
+
+    if (skeletonBones.Length > ushort.MaxValue)
+        throw new InvalidDataException(
+            $"linked skeleton has too many bones: {skeletonBones.Length}");
 
     var skeletonHash =
         XzielSkeletonIdentity.HashBones(
-            skeletonDto.Bones);
+            skeletonBones);
     var meshLayoutHash =
         XzielSkeletonIdentity.HashBones(
             dto.Bones);
@@ -433,11 +463,11 @@ static (
             StringComparer.OrdinalIgnoreCase);
 
     for (var i = 0;
-         i < skeletonDto.Bones.Length;
+         i < skeletonBones.Length;
          ++i)
     {
         var name =
-            skeletonDto.Bones[i].Name;
+            skeletonBones[i].Name;
 
         if (!skeletonByName.TryAdd(
                 name,
@@ -467,7 +497,7 @@ static (
         }
 
         var skeletonBone =
-            skeletonDto.Bones[skeletonIndex];
+            skeletonBones[skeletonIndex];
 
         if (meshBone.ParentIndex < 0)
         {
@@ -680,7 +710,7 @@ static (
     writer.Write(maxY);
     writer.Write(maxZ);
     writer.Write(
-        checked((uint)skeletonDto.Bones.Length));
+        checked((uint)skeletonBones.Length));
     writer.Write(0u);
     writer.Write(meshLayoutHash);
 
@@ -843,7 +873,7 @@ static (
         maxVertexInfluences,
         skeletonHash,
         meshLayoutHash,
-        skeletonDto.Bones.Length,
+        skeletonBones.Length,
         fileBytes);
 }
 
