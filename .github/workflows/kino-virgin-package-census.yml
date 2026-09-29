@@ -352,6 +352,7 @@ jobs:
               "packageCount": sum(r["packageCount"] for r in reports),
               "packageSuccesses": sum(r["packageSuccesses"] for r in reports),
               "packageLoadFailureCount": len(package_failures),
+              "exportsAttempted": sum(r["exportsAttempted"] for r in reports),
               "exportSuccesses": sum(r["exportSuccesses"] for r in reports),
               "exportLoadFailureCount": len(export_failures),
               "exportsWithProperties": sum(r["exportsWithProperties"] for r in reports),
@@ -368,6 +369,28 @@ jobs:
               out["packageCount"],
               census["packageCount"],
           )
+          assert out["packageSuccesses"] == census["packageCount"], (
+              out["packageSuccesses"],
+              census["packageCount"],
+          )
+          assert out["exportsAttempted"] == census["totalExports"], (
+              out["exportsAttempted"],
+              census["totalExports"],
+          )
+          assert out["exportSuccesses"] == census["totalExports"], (
+              out["exportSuccesses"],
+              census["totalExports"],
+          )
+
+          mapping_type_counts = {r["mappingTypes"] for r in reports}
+          mapping_enum_counts = {r["mappingEnums"] for r in reports}
+          assert len(mapping_type_counts) == 1, mapping_type_counts
+          assert len(mapping_enum_counts) == 1, mapping_enum_counts
+          assert next(iter(mapping_type_counts)) > 100
+          assert next(iter(mapping_enum_counts)) > 0
+
+          out["mappingTypes"] = next(iter(mapping_type_counts))
+          out["mappingEnums"] = next(iter(mapping_enum_counts))
 
           Path("kino-download/kino-property-sweep.json").write_text(
               json.dumps(out, indent=2, sort_keys=True),
@@ -377,6 +400,7 @@ jobs:
           print("XZIEL_KINO_PROPERTY_SWEEP_MERGED", {
               "packages": out["packageCount"],
               "packageFailures": out["packageLoadFailureCount"],
+              "exportsAttempted": out["exportsAttempted"],
               "exports": out["exportSuccesses"],
               "exportFailures": out["exportLoadFailureCount"],
               "exportsWithProperties": out["exportsWithProperties"],
