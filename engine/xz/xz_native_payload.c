@@ -3,7 +3,6 @@
 #include <math.h>
 #include <string.h>
 
-#define XZ_XZTX_KNOWN_FLAGS XZ_XZTX_FLAG_SRGB
 #define XZ_XZSK_REQUIRED_FLAGS \
     (XZ_XZSK_FLAG_XZIEL_BASIS | XZ_XZSK_FLAG_INDEX_U32)
 #define XZ_XZSK_KNOWN_FLAGS XZ_XZSK_REQUIRED_FLAGS
@@ -88,191 +87,6 @@ static int XzFiniteFloats(
             return 0;
     }
     return 1;
-}
-
-int XzNativeTexture_Mip(
-    const XzNativeTextureView *view,
-    uint32_t mip_index,
-    XzNativeTextureMip *mip)
-{
-    const unsigned char *p;
-
-    if (!view || !view->data || !mip ||
-        mip_index >= view->mip_count)
-        return 0;
-
-    p = view->data +
-        XZ_XZTX_HEADER_BYTES +
-        (size_t)mip_index *
-            XZ_XZTX_MIP_BYTES;
-
-    mip->payload_offset = XzReadU32Le(p + 0u);
-    mip->bytes = XzReadU32Le(p + 4u);
-    mip->width = XzReadU32Le(p + 8u);
-    mip->height = XzReadU32Le(p + 12u);
-    mip->depth = XzReadU32Le(p + 16u);
-    return 1;
-}
-
-XzNativePayloadStatus XzNativeTexture_Parse(
-    XzNativeTextureView *view,
-    const void *data,
-    size_t size)
-{
-    const unsigned char *p =
-        (const unsigned char *)data;
-    uint32_t mip_record_bytes;
-    uint32_t mip_table_offset;
-    uint32_t expected_payload_offset;
-    uint32_t previous_end = 0u;
-    uint32_t previous_width = 0u;
-    uint32_t previous_height = 0u;
-    uint32_t i;
-
-    if (!view || !data)
-        return XZ_NATIVE_ERR_ARGUMENT;
-    memset(view, 0, sizeof(*view));
-
-    if (size < XZ_XZTX_HEADER_BYTES)
-        return XZ_NATIVE_ERR_TRUNCATED;
-    if (memcmp(p, "XZTX", 4u) != 0)
-        return XZ_NATIVE_ERR_MAGIC;
-    if (XzReadU32Le(p + 4u) != XZ_NATIVE_VERSION)
-        return XZ_NATIVE_ERR_VERSION;
-
-    view->flags = XzReadU32Le(p + 8u);
-    view->width = XzReadU32Le(p + 12u);
-    view->height = XzReadU32Le(p + 16u);
-    view->mip_count = XzReadU32Le(p + 20u);
-    mip_record_bytes = XzReadU32Le(p + 24u);
-    mip_table_offset = XzReadU32Le(p + 28u);
-    view->payload_offset = XzReadU32Le(p + 32u);
-    view->payload_bytes = XzReadU32Le(p + 36u);
-    view->format_tag = XzReadU64Le(p + 40u);
-
-    if ((view->flags & ~XZ_XZTX_KNOWN_FLAGS) != 0u)
-        return XZ_NATIVE_ERR_FLAGS;
-    if (view->width == 0u ||
-        view->height == 0u ||
-        view->mip_count == 0u ||
-        view->format_tag == 0u)
-        return XZ_NATIVE_ERR_COUNT;
-    if (mip_record_bytes != XZ_XZTX_MIP_BYTES ||
-        mip_table_offset != XZ_XZTX_HEADER_BYTES)
-        return XZ_NATIVE_ERR_HEADER;
-    if (!XzMulAddU32(
-            mip_table_offset,
-            view->mip_count,
-            mip_record_bytes,
-            &expected_payload_offset))
-        return XZ_NATIVE_ERR_SIZE_OVERFLOW;
-    if (view->payload_offset != expected_payload_offset)
-        return XZ_NATIVE_ERR_HEADER;
-    if (!XzRangeFits(
-            size,
-            view->payload_offset,
-            view->payload_bytes))
-        return XZ_NATIVE_ERR_RANGE;
-    if ((uint64_t)view->payload_offset +
-            (uint64_t)view->payload_bytes !=
-        (uint64_t)size)
-        return XZ_NATIVE_ERR_SIZE_MISMATCH;
-
-    view->data = p;
-    view->size = size;
-
-    for (i = 0u; i < view->mip_count; ++i) {
-        XzNativeTextureMip mip;
-        uint64_t end;
-
-        if (!XzNativeTexture_Mip(view, i, &mip))
-            return XZ_NATIVE_ERR_RANGE;
-        if (mip.bytes == 0u ||
-            mip.width == 0u ||
-            mip.height == 0u ||
-            mip.depth == 0u)
-            return XZ_NATIVE_ERR_COUNT;
-        if (i == 0u &&
-            (mip.width != view->width ||
-             mip.height != view->height))
-            return XZ_NATIVE_ERR_HEADER;
-        if (i > 0u &&
-            (mip.width > previous_width ||
-             mip.height > previous_height))
-            return XZ_NATIVE_ERR_RANGE;
-        if (mip.payload_offset != previous_end)
-            return XZ_NATIVE_ERR_RANGE;
-
-        end =
-            (uint64_t)mip.payload_offset +
-            (uint64_t)mip.bytes;
-        if (end > view->payload_bytes ||
-            end > UINT32_MAX)
-            return XZ_NATIVE_ERR_RANGE;
-
-        previous_end = (uint32_t)end;
-        previous_width = mip.width;
-        previous_height = mip.height;
-    }
-
-    if (previous_end != view->payload_bytes)
-        return XZ_NATIVE_ERR_SIZE_MISMATCH;
-
-    return XZ_NATIVE_OK;
-}
-
-XzNativePayloadStatus XzNativeAudio_Parse(
-    XzNativeAudioView *view,
-    const void *data,
-    size_t size)
-{
-    const unsigned char *p =
-        (const unsigned char *)data;
-
-    if (!view || !data)
-        return XZ_NATIVE_ERR_ARGUMENT;
-    memset(view, 0, sizeof(*view));
-
-    if (size < XZ_XZAU_HEADER_BYTES)
-        return XZ_NATIVE_ERR_TRUNCATED;
-    if (memcmp(p, "XZAU", 4u) != 0)
-        return XZ_NATIVE_ERR_MAGIC;
-    if (XzReadU32Le(p + 4u) != XZ_NATIVE_VERSION)
-        return XZ_NATIVE_ERR_VERSION;
-
-    view->flags = XzReadU32Le(p + 8u);
-    view->channels = XzReadU32Le(p + 12u);
-    view->sample_rate = XzReadU32Le(p + 16u);
-    view->duration_seconds = XzReadF32Le(p + 20u);
-    view->codec_tag = XzReadU64Le(p + 24u);
-    view->payload_offset = XzReadU32Le(p + 32u);
-    view->payload_bytes = XzReadU32Le(p + 36u);
-
-    if (view->flags != 0u)
-        return XZ_NATIVE_ERR_FLAGS;
-    if (view->channels == 0u ||
-        view->channels > 32u ||
-        view->sample_rate == 0u ||
-        !isfinite(view->duration_seconds) ||
-        view->duration_seconds <= 0.0f ||
-        view->codec_tag == 0u ||
-        view->payload_bytes == 0u)
-        return XZ_NATIVE_ERR_COUNT;
-    if (view->payload_offset != XZ_XZAU_HEADER_BYTES)
-        return XZ_NATIVE_ERR_HEADER;
-    if (!XzRangeFits(
-            size,
-            view->payload_offset,
-            view->payload_bytes))
-        return XZ_NATIVE_ERR_RANGE;
-    if ((uint64_t)view->payload_offset +
-            (uint64_t)view->payload_bytes !=
-        (uint64_t)size)
-        return XZ_NATIVE_ERR_SIZE_MISMATCH;
-
-    view->data = p;
-    view->size = size;
-    return XZ_NATIVE_OK;
 }
 
 XzNativePayloadStatus XzNativeSkinnedMesh_Parse(
@@ -772,61 +586,6 @@ static void XzWriteF32Le(
     XzWriteU32Le(p, bits);
 }
 
-static int XzNativeTexture_SelfTest(void)
-{
-    unsigned char data[
-        XZ_XZTX_HEADER_BYTES +
-        XZ_XZTX_MIP_BYTES +
-        8u];
-    XzNativeTextureView view;
-
-    memset(data, 0, sizeof(data));
-    memcpy(data, "XZTX", 4u);
-    XzWriteU32Le(data + 4u, XZ_NATIVE_VERSION);
-    XzWriteU32Le(data + 8u, XZ_XZTX_FLAG_SRGB);
-    XzWriteU32Le(data + 12u, 4u);
-    XzWriteU32Le(data + 16u, 4u);
-    XzWriteU32Le(data + 20u, 1u);
-    XzWriteU32Le(data + 24u, XZ_XZTX_MIP_BYTES);
-    XzWriteU32Le(data + 28u, XZ_XZTX_HEADER_BYTES);
-    XzWriteU32Le(
-        data + 32u,
-        XZ_XZTX_HEADER_BYTES + XZ_XZTX_MIP_BYTES);
-    XzWriteU32Le(data + 36u, 8u);
-    XzWriteU64Le(data + 40u, 0x12345678ull);
-    XzWriteU32Le(data + 48u, 0u);
-    XzWriteU32Le(data + 52u, 8u);
-    XzWriteU32Le(data + 56u, 4u);
-    XzWriteU32Le(data + 60u, 4u);
-    XzWriteU32Le(data + 64u, 1u);
-
-    return XzNativeTexture_Parse(
-        &view,
-        data,
-        sizeof(data)) == XZ_NATIVE_OK;
-}
-
-static int XzNativeAudio_SelfTest(void)
-{
-    unsigned char data[XZ_XZAU_HEADER_BYTES + 4u];
-    XzNativeAudioView view;
-
-    memset(data, 0, sizeof(data));
-    memcpy(data, "XZAU", 4u);
-    XzWriteU32Le(data + 4u, XZ_NATIVE_VERSION);
-    XzWriteU32Le(data + 12u, 2u);
-    XzWriteU32Le(data + 16u, 48000u);
-    XzWriteF32Le(data + 20u, 1.0f);
-    XzWriteU64Le(data + 24u, 0x98765432ull);
-    XzWriteU32Le(data + 32u, XZ_XZAU_HEADER_BYTES);
-    XzWriteU32Le(data + 36u, 4u);
-
-    return XzNativeAudio_Parse(
-        &view,
-        data,
-        sizeof(data)) == XZ_NATIVE_OK;
-}
-
 static int XzNativeSkinnedMesh_SelfTest(void)
 {
     enum {
@@ -986,8 +745,6 @@ static int XzNativeAnimation_SelfTest(void)
 int XzNativePayload_SelfTest(void)
 {
     return
-        XzNativeTexture_SelfTest() &&
-        XzNativeAudio_SelfTest() &&
         XzNativeSkinnedMesh_SelfTest() &&
         XzNativeAnimation_SelfTest();
 }
