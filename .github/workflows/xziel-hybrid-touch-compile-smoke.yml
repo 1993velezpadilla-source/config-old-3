@@ -1,0 +1,63 @@
+name: XZIEL Hybrid Touch Gyro Compile Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - experiment/xziel-nacht-win64-exe-v1
+    paths:
+      - ".github/workflows/xziel-hybrid-touch-compile-smoke.yml"
+      - "scripts/patch_winlator_xziel_nacht_direct.py"
+
+permissions:
+  contents: read
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Android NDK and CMake
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [[ ! -x "$SDKMANAGER" ]]; then
+            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n1)"
+          fi
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "ndk;24.0.8215888" "cmake;3.22.1"
+
+      - name: Clone pinned compatibility layer and apply touch gyro patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone https://github.com/brunodev85/winlator-app.git winlator
+          git -C winlator checkout --detach 3981d86efa4f333b2a34a7da8b6521476cd8c8b9
+          python3 scripts/patch_winlator_xziel_nacht_direct.py             winlator 800000001 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          test -s winlator/app/src/main/java/com/winlator/XzielMobileOverlay.java
+          grep -q 'ROLE_ADSFIRE' winlator/app/src/main/java/com/winlator/XzielMobileOverlay.java
+          grep -q 'TYPE_GYROSCOPE' winlator/app/src/main/java/com/winlator/XzielMobileOverlay.java
+          grep -q 'transparent' winlator/app/src/main/java/com/winlator/XzielMobileOverlay.java || true
+
+      - name: Compile patched Android app
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd winlator
+          chmod +x gradlew
+          export GRADLE_USER_HOME="$PWD/.gradle-ci"
+          ./gradlew --no-daemon --stacktrace             -Pandroid.nonFinalResIds=false             -Pandroid.nonTransitiveRClass=false             :app:compileDebugJavaWithJavac
+          echo "XZIEL_TOUCH_GYRO_JAVA_COMPILE_GREEN"
