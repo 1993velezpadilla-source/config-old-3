@@ -132,6 +132,25 @@ foreach (var logicalPackage in candidatePackages)
                 var outPath = Path.Combine(outputDir, fileName);
                 var result = WriteXzms(outPath, lod);
 
+                var sourceMaterials = dto.Materials
+                    .Select((material, materialIndex) => new {
+                        index = materialIndex,
+                        slotName = material.SlotName,
+                        objectPath =
+                            material.Material is { IsNull: false } materialRef
+                                ? materialRef.ResolvedObject?.GetPathName()
+                                : null,
+                        referenceName =
+                            material.Material is { IsNull: false } namedRef
+                                ? namedRef.Name
+                                : null
+                    })
+                    .ToArray();
+
+                var sourceSectionMaterialIndices = lod.Sections
+                    .Select(section => section.MaterialIndex)
+                    .ToArray();
+
                 rows.Add(new {
                     index = converted,
                     file = fileName,
@@ -142,6 +161,8 @@ foreach (var logicalPackage in candidatePackages)
                     sourceMaterialCount = dto.Materials.Length,
                     sourceSectionCount = lod.Sections.Length,
                     sourceUvChannelCount = 1 + lod.ExtraUvs.Length,
+                    sourceMaterials,
+                    sourceSectionMaterialIndices,
                     result.vertexCount,
                     result.indexCount,
                     result.triangleCount,
