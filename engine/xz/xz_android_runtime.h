@@ -66,6 +66,11 @@ const XzNachtGameplayState *XzAndroidRuntime_NachtState(void);
 int XzAndroidRuntime_ShouldSuppressLegacyWorldDraw(
     XzLegacyWorldDrawKind kind);
 int XzAndroidRuntime_CompositeVisibleWorld(void);
+int XzAndroidRuntime_PresentStaticScene(
+    const float modelview[16],
+    const float projection[16],
+    unsigned int width,
+    unsigned int height);
 void XzAndroidRuntime_AuditLegacyPresentBeforeSwap(
     unsigned int width,
     unsigned int height,
