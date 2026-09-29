@@ -64,8 +64,8 @@ jobs:
 
           tar --zstd -tf "$RUNNER_TEMP/xzwin-upstream/rootfs.tzst" \
             | tee "$RUNNER_TEMP/rootfs-files.txt" >/dev/null
-          grep -Eq '(^|\./)opt/wine/bin/wine64$' "$RUNNER_TEMP/rootfs-files.txt"
-          echo "XZWIN_ROOTFS_WINE64_FOUND"
+          grep -Eq '(^|\./)opt/wine/bin/wine$' "$RUNNER_TEMP/rootfs-files.txt"
+          echo "XZWIN_ROOTFS_WINE_GUEST_FOUND"
 
           mkdir -p "$RUNNER_TEMP/box64"
           tar --zstd -xf "$RUNNER_TEMP/xzwin-upstream/box64.tzst" \
