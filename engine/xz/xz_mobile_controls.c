@@ -201,9 +201,16 @@ static void XzReleaseFinger(
     float x,
     float y)
 {
-    int button = XzHitButton(controls, x, y);
-    if (button >= 0)
-        XzSetButton(controls, button, 0);
+    int button;
+    (void)x;
+    (void)y;
+
+    for (button = 0; button < XZ_MOBILE_BUTTON_COUNT; ++button) {
+        if (controls->button_fingers[button] == finger) {
+            XzSetButton(controls, button, 0);
+            controls->button_fingers[button] = (SDL_FingerID)-1;
+        }
+    }
 
     if (controls->move_active && controls->move_finger == finger) {
         controls->move_active = 0;
@@ -228,8 +235,13 @@ int XzMobileControls_Init(XzMobileControls *controls)
         return 0;
 
     memset(controls, 0, sizeof(*controls));
-    controls->move_finger = (SDL_FingerID)-1;
-    controls->look_finger = (SDL_FingerID)-1;
+    {
+        int i;
+        controls->move_finger = (SDL_FingerID)-1;
+        controls->look_finger = (SDL_FingerID)-1;
+        for (i = 0; i < XZ_MOBILE_BUTTON_COUNT; ++i)
+            controls->button_fingers[i] = (SDL_FingerID)-1;
+    }
 
     if (!XzBuildProgram(controls))
         return 0;
@@ -297,6 +309,7 @@ void XzMobileControls_HandleEvent(
     if (event->type == SDL_FINGERDOWN) {
         button = XzHitButton(controls, x, y);
         if (button >= 0) {
+            controls->button_fingers[button] = finger;
             XzSetButton(controls, button, 1);
             return;
         }
