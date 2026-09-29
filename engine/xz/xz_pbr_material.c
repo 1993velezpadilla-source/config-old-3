@@ -25,6 +25,8 @@ static float XzPbrMaterial_ReadF32Le(
 
 static XzPbrMaterialStatus XzPbrMaterial_DecodeBinding(
     const unsigned char *record,
+    uint32_t version,
+    uint32_t record_bytes,
     XzPbrMaterialBinding *binding)
 {
     const uint32_t known_flags =
@@ -37,6 +39,15 @@ static XzPbrMaterialStatus XzPbrMaterial_DecodeBinding(
         return XZ_PBR_MATERIAL_NULL;
 
     memset(binding, 0, sizeof(*binding));
+    binding->blend_mode = XZ_PBR_BLEND_OPAQUE;
+    binding->opacity_mask_clip = 0.333f;
+
+    if ((version == XZ_PBR_MATERIAL_LEGACY_VERSION &&
+         record_bytes != XZ_PBR_MATERIAL_RECORD_BYTES_V1) ||
+        (version == XZ_PBR_MATERIAL_VERSION &&
+         record_bytes != XZ_PBR_MATERIAL_RECORD_BYTES))
+        return XZ_PBR_MATERIAL_BAD_HEADER;
+
     binding->flags =
         XzPbrMaterial_ReadU32Le(record + 0u);
     binding->roughness =
@@ -48,7 +59,19 @@ static XzPbrMaterialStatus XzPbrMaterial_DecodeBinding(
     binding->emissive =
         XzPbrMaterial_ReadF32Le(record + 16u);
 
-    if ((binding->flags & ~known_flags) != 0u)
+    if (version == XZ_PBR_MATERIAL_VERSION) {
+        binding->blend_mode =
+            XzPbrMaterial_ReadU32Le(record + 20u);
+        binding->material_flags =
+            XzPbrMaterial_ReadU32Le(record + 24u);
+        binding->opacity_mask_clip =
+            XzPbrMaterial_ReadF32Le(record + 28u);
+    }
+
+    if ((binding->flags & ~known_flags) != 0u ||
+        (binding->material_flags &
+            ~(XZ_PBR_MATERIAL_FLAG_TWO_SIDED |
+              XZ_PBR_MATERIAL_FLAG_DISABLE_DEPTH_TEST)) != 0u)
         return XZ_PBR_MATERIAL_BAD_FLAGS;
 
     if (!isfinite(binding->roughness) ||
@@ -62,7 +85,11 @@ static XzPbrMaterialStatus XzPbrMaterial_DecodeBinding(
         binding->specular < 0.0f ||
         binding->specular > 1.0f ||
         binding->emissive < 0.0f ||
-        binding->emissive > 16.0f)
+        binding->emissive > 16.0f ||
+        binding->blend_mode > XZ_PBR_BLEND_ADDITIVE ||
+        !isfinite(binding->opacity_mask_clip) ||
+        binding->opacity_mask_clip < 0.0f ||
+        binding->opacity_mask_clip > 1.0f)
         return XZ_PBR_MATERIAL_BAD_VALUE;
 
     return XZ_PBR_MATERIAL_OK;
@@ -73,6 +100,7 @@ XzPbrMaterialStatus XzPbrMaterial_Parse(
     const unsigned char *data,
     size_t bytes)
 {
+    uint32_t version;
     uint32_t binding_count;
     uint32_t record_bytes;
     uint32_t header_flags;
@@ -93,8 +121,10 @@ XzPbrMaterialStatus XzPbrMaterial_Parse(
         data[3] != 'B')
         return XZ_PBR_MATERIAL_BAD_MAGIC;
 
-    if (XzPbrMaterial_ReadU32Le(data + 4u) !=
-            XZ_PBR_MATERIAL_VERSION)
+    version =
+        XzPbrMaterial_ReadU32Le(data + 4u);
+    if (version != XZ_PBR_MATERIAL_LEGACY_VERSION &&
+        version != XZ_PBR_MATERIAL_VERSION)
         return XZ_PBR_MATERIAL_BAD_VERSION;
 
     binding_count =
@@ -106,7 +136,10 @@ XzPbrMaterialStatus XzPbrMaterial_Parse(
 
     if (binding_count == 0u ||
         binding_count > 65536u ||
-        record_bytes != XZ_PBR_MATERIAL_RECORD_BYTES ||
+        (version == XZ_PBR_MATERIAL_LEGACY_VERSION &&
+         record_bytes != XZ_PBR_MATERIAL_RECORD_BYTES_V1) ||
+        (version == XZ_PBR_MATERIAL_VERSION &&
+         record_bytes != XZ_PBR_MATERIAL_RECORD_BYTES) ||
         header_flags != 0u)
         return XZ_PBR_MATERIAL_BAD_HEADER;
 
@@ -125,6 +158,8 @@ XzPbrMaterialStatus XzPbrMaterial_Parse(
                 data +
                     XZ_PBR_MATERIAL_HEADER_BYTES +
                     (size_t)i * record_bytes,
+                version,
+                record_bytes,
                 &binding);
 
         if (status != XZ_PBR_MATERIAL_OK)
@@ -154,6 +189,8 @@ XzPbrMaterialStatus XzPbrMaterial_ReadBinding(
             XZ_PBR_MATERIAL_HEADER_BYTES +
             (size_t)binding_index *
                 view->record_bytes,
+        XzPbrMaterial_ReadU32Le(view->data + 4u),
+        view->record_bytes,
         binding);
 }
 
