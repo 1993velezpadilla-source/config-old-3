@@ -21,6 +21,9 @@
 #define XZ_STATIC_SCENE_MAX_MATERIAL_LIBRARY_BYTES \
     (64u * 1024u * 1024u)
 
+#define XZ_STATIC_SCENE_MAX_NATIVE_TEXTURE_BYTES \
+    (128u * 1024u * 1024u)
+
 #define XZ_STATIC_SCENE_MAX_PBR_MATERIAL_BYTES \
     (64u * 1024u)
 
@@ -481,6 +484,33 @@ static int XzReadStreamedTexture(
         handle,
         destination,
         (size_t)bytes);
+}
+
+static int XzSafeAssetLeaf(
+    const char *name,
+    size_t length)
+{
+    size_t i;
+
+    if (!name ||
+        length == 0u ||
+        length >= 128u)
+        return 0;
+
+    for (i = 0u; i < length; ++i) {
+        const unsigned char c =
+            (unsigned char)name[i];
+
+        if (!((c >= 'a' && c <= 'z') ||
+              (c >= 'A' && c <= 'Z') ||
+              (c >= '0' && c <= '9') ||
+              c == '_' ||
+              c == '-' ||
+              c == '.'))
+            return 0;
+    }
+
+    return 1;
 }
 
 static int XzSafeMapId(
@@ -2017,6 +2047,106 @@ int XzStaticSceneRuntime_Material(
         &state->material_library,
         material_index,
         material) == XZ_XZML_OK;
+}
+
+int XzStaticSceneRuntime_LoadMaterialTexture(
+    const XzStaticSceneRuntimeState *state,
+    uint32_t texture_index,
+    XzStaticNativeTextureResource *resource)
+{
+    XzMaterialLibraryTextureAsset asset;
+    const char *runtime_file;
+    unsigned char *data = NULL;
+    size_t bytes = 0u;
+    size_t runtime_file_bytes;
+    char leaf[128];
+    char path[256];
+    int read_status;
+    XzXztextureStatus texture_status;
+
+    if (!state ||
+        state->status != XZ_STATIC_SCENE_READY ||
+        !state->material_library_data ||
+        !resource)
+        return 0;
+
+    memset(resource, 0, sizeof(*resource));
+
+    if (XzMaterialLibrary_TextureAsset(
+            &state->material_library,
+            texture_index,
+            &asset) != XZ_XZML_OK ||
+        !XzMaterialLibrary_String(
+            &state->material_library,
+            asset.runtime_file_offset,
+            asset.runtime_file_bytes,
+            &runtime_file))
+        return 0;
+
+    runtime_file_bytes =
+        (size_t)asset.runtime_file_bytes;
+
+    if (!XzSafeAssetLeaf(
+            runtime_file,
+            runtime_file_bytes) ||
+        runtime_file_bytes >= sizeof(leaf))
+        return 0;
+
+    memcpy(
+        leaf,
+        runtime_file,
+        runtime_file_bytes);
+    leaf[runtime_file_bytes] = '\0';
+
+    if (snprintf(
+            path,
+            sizeof(path),
+            "xziel/maps/%s/textures/%s",
+            state->map_id,
+            leaf) <= 0 ||
+        strlen(path) >= sizeof(path) - 1u)
+        return 0;
+
+    read_status =
+        XzReadVfsFile(
+            path,
+            XZ_STATIC_SCENE_MAX_NATIVE_TEXTURE_BYTES,
+            &data,
+            &bytes);
+
+    if (read_status <= 0)
+        return 0;
+
+    texture_status =
+        XzXztexture_Parse(
+            &resource->texture,
+            data,
+            bytes);
+
+    if (texture_status != XZ_XZTX_OK) {
+        free(data);
+        memset(resource, 0, sizeof(*resource));
+        return 0;
+    }
+
+    resource->data = data;
+    resource->bytes = bytes;
+    snprintf(
+        resource->path,
+        sizeof(resource->path),
+        "%s",
+        path);
+    return 1;
+}
+
+void XzStaticSceneRuntime_ReleaseMaterialTexture(
+    XzStaticNativeTextureResource *resource)
+{
+    if (!resource)
+        return;
+
+    free(resource->data);
+    memset(resource, 0, sizeof(*resource));
 }
 
 int XzStaticSceneRuntime_Texture(
