@@ -140,7 +140,7 @@ def main() -> int:
     effective_override_submeshes = 0
 
     scene_mesh_by_index = {
-        int(row["index"]): row
+        int(row["sceneMeshIndex"]): row
         for row in scene_mesh_bindings
     }
 
