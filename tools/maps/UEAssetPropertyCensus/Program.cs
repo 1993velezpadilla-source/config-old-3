@@ -3,10 +3,10 @@ using CUE4Parse.MappingsProvider.Usmap;
 using CUE4Parse.UE4.Versions;
 using System.Text.Json;
 
-if (args.Length < 3 || args.Length > 4)
+if (args.Length is not (3 or 4 or 6))
 {
     Console.Error.WriteLine(
-        "usage: UEAssetPropertyCensus <shard-root> <mappings.usmap> <output-json> [source-game]");
+        "usage: UEAssetPropertyCensus <root> <mappings.usmap> <output-json> [source-game [shard-index shard-count]]");
     return 2;
 }
 
@@ -14,6 +14,14 @@ var root = args[0];
 var mappingsPath = args[1];
 var outputPath = args[2];
 var sourceGameName = args.Length >= 4 ? args[3] : "ue5.1";
+var shardIndex = args.Length == 6 ? int.Parse(args[4]) : 0;
+var shardCount = args.Length == 6 ? int.Parse(args[5]) : 1;
+
+if (shardCount <= 0 || shardIndex < 0 || shardIndex >= shardCount)
+{
+    Console.Error.WriteLine("invalid shard arguments");
+    return 2;
+}
 
 EGame sourceGame =
     sourceGameName.Trim().ToLowerInvariant() switch
@@ -43,6 +51,7 @@ var packages = provider.Files.Values
     .Select(f => f.Path)
     .Distinct(StringComparer.OrdinalIgnoreCase)
     .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
+    .Where((_, index) => index % shardCount == shardIndex)
     .ToArray();
 
 var packageFailures = new List<object>();
@@ -166,6 +175,8 @@ var report = new
     schemaVersion = 1,
     root = Path.GetFullPath(root),
     sourceGameName,
+    shardIndex,
+    shardCount,
     mappingTypes,
     mappingEnums,
     packageCount = packages.Length,
@@ -200,6 +211,8 @@ Console.WriteLine(
     "XZIEL_UE_PROPERTY_CENSUS " +
     JsonSerializer.Serialize(new
     {
+        report.shardIndex,
+        report.shardCount,
         report.packageCount,
         report.packagesLoaded,
         report.packageFailureCount,
