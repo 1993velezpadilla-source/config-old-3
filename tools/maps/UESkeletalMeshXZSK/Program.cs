@@ -452,7 +452,7 @@ static (
             $"linked skeleton has too many bones: {skeletonBones.Length}");
 
     var skeletonHash =
-        XzielSkeletonIdentity.HashBones(
+        XzielSkeletonIdentity.HashTopology(
             skeletonBones);
     var meshLayoutHash =
         XzielSkeletonIdentity.HashBones(
