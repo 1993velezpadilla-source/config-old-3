@@ -15,6 +15,9 @@
 #define XZ_STATIC_SCENE_MAX_MATERIAL_BYTES \
     (384u * 1024u * 1024u)
 
+#define XZ_STATIC_SCENE_MAX_MATERIAL_INSTANCE_BYTES \
+    (16u * 1024u * 1024u)
+
 #define XZ_STATIC_SCENE_MAX_PBR_MATERIAL_BYTES \
     (64u * 1024u)
 
@@ -651,6 +654,9 @@ void XzStaticSceneRuntime_Reset(
     if (state->material_data)
         free(state->material_data);
 
+    if (state->material_instance_data)
+        free(state->material_instance_data);
+
     if (state->pbr_material_data)
         free(state->pbr_material_data);
 
@@ -693,6 +699,9 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
     unsigned char *material_data = NULL;
     size_t material_bytes = 0u;
     int material_file_handle = -1;
+    unsigned char *material_instance_data = NULL;
+    size_t material_instance_bytes = 0u;
+    XzMaterialInstanceBindingView material_instances;
     unsigned char *pbr_material_data = NULL;
     size_t pbr_material_bytes = 0u;
     XzPbrMaterialView pbr_material;
@@ -720,6 +729,7 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
     XzStaticMeshResource *resources = NULL;
     char scene_path[256];
     char material_path[256];
+    char material_instance_path[256];
     char pbr_material_path[256];
     char normal_material_path[256];
     char environment_path[256];
@@ -992,6 +1002,94 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
             (uint64_t)resource->mesh.index_count;
         submesh_total +=
             (uint64_t)resource->mesh.submesh_count;
+    }
+
+    if (snprintf(
+            material_instance_path,
+            sizeof(material_instance_path),
+            "xziel/maps/%s/materials.xzmi",
+            map_id) <= 0 ||
+        strlen(material_instance_path) >=
+            sizeof(material_instance_path) - 1u) {
+        snprintf(
+            failure,
+            sizeof(failure),
+            "%s",
+            "material_instance_path_overflow");
+        goto invalid;
+    }
+
+    read_status = XzReadVfsFile(
+        material_instance_path,
+        XZ_STATIC_SCENE_MAX_MATERIAL_INSTANCE_BYTES,
+        &material_instance_data,
+        &material_instance_bytes);
+
+    if (read_status < 0) {
+        snprintf(
+            failure,
+            sizeof(failure),
+            "%s",
+            "material_instance_read_failed");
+        goto invalid;
+    }
+
+    if (read_status > 0) {
+        XzMaterialInstanceBindingStatus material_instance_status;
+        uint32_t instance_index;
+
+        material_instance_status =
+            XzMaterialInstanceBinding_Parse(
+                &material_instances,
+                material_instance_data,
+                material_instance_bytes);
+
+        if (material_instance_status != XZ_XZMI_OK) {
+            snprintf(
+                failure,
+                sizeof(failure),
+                "material_instance_%s",
+                XzMaterialInstanceBinding_StatusName(
+                    material_instance_status));
+            goto invalid;
+        }
+
+        if (material_instances.instance_count !=
+                scene.instance_count) {
+            snprintf(
+                failure,
+                sizeof(failure),
+                "%s",
+                "material_instance_count_mismatch");
+            goto invalid;
+        }
+
+        for (instance_index = 0u;
+             instance_index < scene.instance_count;
+             ++instance_index) {
+            XzXzsceneInstance instance;
+            XzMaterialInstanceRecord binding_record;
+
+            if (!XzXzscene_ReadInstance(
+                    &scene,
+                    instance_index,
+                    &instance) ||
+                instance.mesh_index >= scene.mesh_count ||
+                XzMaterialInstanceBinding_Instance(
+                    &material_instances,
+                    instance_index,
+                    &binding_record) != XZ_XZMI_OK ||
+                binding_record.binding_count !=
+                    resources[instance.mesh_index]
+                        .mesh.submesh_count) {
+                snprintf(
+                    failure,
+                    sizeof(failure),
+                    "%s",
+                    "material_instance_submesh_mismatch");
+                goto invalid;
+            }
+        }
     }
 
     if (snprintf(
@@ -1515,6 +1613,13 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
     state->material_bytes = material_bytes;
     state->material_file_handle =
         material_file_handle;
+    state->material_instance_data =
+        material_instance_data;
+    state->material_instance_bytes =
+        material_instance_bytes;
+    if (material_instance_data)
+        state->material_instances =
+            material_instances;
     material_file_handle = -1;
     state->material_texture_count =
         material_texture_count;
@@ -1583,6 +1688,13 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
             sizeof(state->material_path),
             "%s",
             material_path);
+    }
+    if (material_instance_data) {
+        snprintf(
+            state->material_instance_path,
+            sizeof(state->material_instance_path),
+            "%s",
+            material_instance_path);
     }
     if (pbr_material_data) {
         snprintf(
@@ -1657,6 +1769,7 @@ invalid:
     if (material_file_handle >= 0)
         COM_CloseFile(material_file_handle);
     free(material_data);
+    free(material_instance_data);
     free(pbr_material_data);
     if (normal_material_file_handle >= 0)
         COM_CloseFile(normal_material_file_handle);
@@ -1746,6 +1859,39 @@ int XzStaticSceneRuntime_MaterialBinding(
             (size_t)binding_index *
                 sizeof(uint32_t));
     return 1;
+}
+
+const XzMaterialInstanceBindingView *
+XzStaticSceneRuntime_MaterialInstances(
+    const XzStaticSceneRuntimeState *state)
+{
+    if (!state ||
+        state->status !=
+            XZ_STATIC_SCENE_READY ||
+        !state->material_instance_data)
+        return NULL;
+
+    return &state->material_instances;
+}
+
+int XzStaticSceneRuntime_InstanceMaterial(
+    const XzStaticSceneRuntimeState *state,
+    uint32_t instance_index,
+    uint32_t submesh_index,
+    uint32_t *material_index)
+{
+    if (!state ||
+        state->status !=
+            XZ_STATIC_SCENE_READY ||
+        !state->material_instance_data ||
+        !material_index)
+        return 0;
+
+    return XzMaterialInstanceBinding_Material(
+        &state->material_instances,
+        instance_index,
+        submesh_index,
+        material_index) == XZ_XZMI_OK;
 }
 
 int XzStaticSceneRuntime_Texture(
