@@ -8,6 +8,7 @@ on:
     paths:
       - ".github/workflows/xzwin-arm64-wine-smoke.yml"
       - "tools/xzwin/download_mediafire_exe.py"
+      - "tools/xzwin/rebase_embedded_paths.py"
       - "android/XzWinRuntime.java"
       - "android/XzWinRuntimeInstaller.java"
 
@@ -58,6 +59,23 @@ jobs:
           patchelf --print-interpreter "$RUNNER_TEMP/libxzbox64.so" | tee arm64-box64-interpreter.txt
           grep -Fxq "$ROOT/usr/lib/ld-linux-aarch64.so.1" arm64-box64-interpreter.txt
           echo XZWIN_ARM64_ROOTFS_GREEN
+
+      - name: Rebase Winlator-compiled Wine paths onto XZIEL
+        shell: bash
+        run: |
+          set -euxo pipefail
+          ROOT=/data/data/com.xziel.engine/files/xzwin/rootfs
+          OLD=/data/data/com.winlator/files/rootfs
+          ALIAS=/data/data/com.xziel.engine/xr
+          python3 tools/xzwin/rebase_embedded_paths.py "$ROOT/opt/wine" "$OLD" "$ALIAS" | tee xzwin-wine-rebase.txt
+          rm -f "$ALIAS"
+          ln -s "$ROOT" "$ALIAS"
+          test "$(readlink "$ALIAS")" = "$ROOT"
+          if grep -R -a -l -F "$OLD" "$ROOT/opt/wine/bin" "$ROOT/opt/wine/lib/wine/x86_64-unix" > xzwin-rebase-leftovers.txt; then
+            cat xzwin-rebase-leftovers.txt
+            exit 1
+          fi
+          echo XZWIN_WINE_REBASE_GREEN
 
       - name: Audit upstream com.winlator hardcodes
         shell: bash
@@ -155,6 +173,8 @@ jobs:
           path: |
             arm64-host.txt
             arm64-box64-interpreter.txt
+            xzwin-wine-rebase.txt
+            xzwin-rebase-leftovers.txt
             xzwin-hardcode-audit.txt
             arm64-wine-ver.txt
             arm64-wine-echo.txt
