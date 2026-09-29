@@ -165,6 +165,40 @@ if [[ -n "${XZIEL_EXTRA_MAP_BSP:-}" ]]; then
     fi
 fi
 
+# Optional static-scene visual harness. This deliberately reuses only a
+# known-good Quake BSP for camera/spawn/input while giving the world model the
+# target XZIEL map id. XzStaticSceneRuntime then resolves the visible world from
+# xziel/maps/<map-id>/scene.xzsc and its native XZMS/XZMI/XZML/XZTX payload.
+# No target-map geometry, materials or textures come from the harness BSP.
+if [[ -n "${XZIEL_STATIC_SCENE_MAP_ID:-}" ]]; then
+    STATIC_SCENE_MAP_ID="${XZIEL_STATIC_SCENE_MAP_ID}"
+    STATIC_SCENE_HARNESS_MAP="${XZIEL_STATIC_SCENE_HARNESS_MAP:-ndu}"
+
+    if [[ ! "$STATIC_SCENE_MAP_ID" =~ ^[a-z0-9][a-z0-9_]{0,62}$ ]]; then
+        echo "Invalid XZIEL_STATIC_SCENE_MAP_ID: $STATIC_SCENE_MAP_ID" >&2
+        exit 1
+    fi
+    if [[ ! "$STATIC_SCENE_HARNESS_MAP" =~ ^[A-Za-z0-9_][A-Za-z0-9_-]{0,62}$ ]]; then
+        echo "Invalid XZIEL_STATIC_SCENE_HARNESS_MAP: $STATIC_SCENE_HARNESS_MAP" >&2
+        exit 1
+    fi
+
+    HARNESS_BSP="$ASSET_WORK/nzp/maps/${STATIC_SCENE_HARNESS_MAP}.bsp"
+    TARGET_BSP="$ASSET_WORK/nzp/maps/${STATIC_SCENE_MAP_ID}.bsp"
+    test -s "$HARNESS_BSP"
+    cp "$HARNESS_BSP" "$TARGET_BSP"
+
+    # Preserve optional engine-side companions when the source map provides
+    # them. These are harness-only and never replace XZIEL native scene data.
+    for ext in lit ent vis nsz; do
+        if [[ -s "$ASSET_WORK/nzp/maps/${STATIC_SCENE_HARNESS_MAP}.${ext}" ]]; then
+            cp "$ASSET_WORK/nzp/maps/${STATIC_SCENE_HARNESS_MAP}.${ext}"                "$ASSET_WORK/nzp/maps/${STATIC_SCENE_MAP_ID}.${ext}"
+        fi
+    done
+
+    echo "==> Bundled static-scene harness: ${STATIC_SCENE_MAP_ID}.bsp <- ${STATIC_SCENE_HARNESS_MAP}.bsp"
+fi
+
 # Optional transformed/owned visual asset overlay (models, textures, etc.).
 # The directory mirrors the NZ:P data root and is only included when supplied.
 if [[ -n "${XZIEL_EXTRA_ASSET_DIR:-}" ]]; then
