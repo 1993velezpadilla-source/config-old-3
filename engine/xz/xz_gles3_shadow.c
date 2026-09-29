@@ -269,9 +269,13 @@ typedef struct {
     float specular;
     float emissive;
     float opacity;
+    float opacity_mask_clip;
     uint32_t pbr_flags;
     uint32_t shading_mode;
     uint32_t blend_mode;
+    uint32_t two_sided;
+    uint32_t disable_depth_test;
+    uint32_t is_masked;
 } XzGles3NativeMaterial;
 
 typedef struct {
@@ -457,6 +461,7 @@ static int XzNativeMaterialDecode(
     const XzMaterialLibraryView *library;
     XzMaterialLibraryMaterial source;
     uint32_t scalar_offset;
+    uint32_t switch_offset;
 
     if (!scene || !out)
         return 0;
@@ -482,6 +487,7 @@ static int XzNativeMaterialDecode(
     out->specular = 0.5f;
     out->emissive = 0.0f;
     out->opacity = 1.0f;
+    out->opacity_mask_clip = 0.333f;
     out->shading_mode =
         XZ_NATIVE_SHADING_DEFAULT_LIT;
     out->blend_mode =
@@ -608,8 +614,63 @@ static int XzNativeMaterialDecode(
                     : (scalar.value > 1.0f
                         ? 1.0f
                         : scalar.value);
+        } else if (
+            XzRangeStringEquals(
+                library,
+                scalar.name_offset,
+                scalar.name_bytes,
+                "__XZ_OpacityMaskClipValue")) {
+            out->opacity_mask_clip =
+                scalar.value < 0.0f
+                    ? 0.0f
+                    : (scalar.value > 1.0f
+                        ? 1.0f
+                        : scalar.value);
         }
     }
+
+    for (switch_offset = 0u;
+         switch_offset < source.switch_count;
+         ++switch_offset) {
+        XzMaterialLibrarySwitch value;
+
+        if (XzMaterialLibrary_Switch(
+                library,
+                source.first_switch +
+                    switch_offset,
+                &value) != XZ_XZML_OK ||
+            value.value > 1u)
+            return 0;
+
+        if (XzRangeStringEquals(
+                library,
+                value.name_offset,
+                value.name_bytes,
+                "__XZ_TwoSided")) {
+            out->two_sided = value.value;
+        } else if (
+            XzRangeStringEquals(
+                library,
+                value.name_offset,
+                value.name_bytes,
+                "__XZ_DisableDepthTest")) {
+            out->disable_depth_test = value.value;
+        } else if (
+            XzRangeStringEquals(
+                library,
+                value.name_offset,
+                value.name_bytes,
+                "__XZ_IsMasked")) {
+            out->is_masked = value.value;
+        }
+    }
+
+    if (out->blend_mode == XZ_NATIVE_BLEND_MASKED &&
+        out->is_masked == 0u)
+        return 0;
+    if (out->blend_mode != XZ_NATIVE_BLEND_MASKED &&
+        out->is_masked != 0u)
+        return 0;
 
     /*
      * Unlit is a real UE shading model, not a weakly-lit PBR material.
@@ -625,7 +686,8 @@ static int XzNativeMaterialDecode(
         isfinite(out->metallic) &&
         isfinite(out->specular) &&
         isfinite(out->emissive) &&
-        isfinite(out->opacity);
+        isfinite(out->opacity) &&
+        isfinite(out->opacity_mask_clip);
 }
 
 static int XzPrepareNativeMaterials(
