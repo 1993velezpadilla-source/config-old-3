@@ -216,6 +216,9 @@ XzXztextureStatus XzXztexture_Parse(
             ? XZ_XZTX_ERR_TRUNCATED
             : XZ_XZTX_ERR_SIZE_MISMATCH;
 
+    view->data = bytes;
+    view->size = size;
+
     next_payload_offset =
         view->payload_offset;
 
