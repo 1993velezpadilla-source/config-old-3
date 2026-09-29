@@ -59,6 +59,30 @@ jobs:
           grep -Fxq "$ROOT/usr/lib/ld-linux-aarch64.so.1" arm64-box64-interpreter.txt
           echo XZWIN_ARM64_ROOTFS_GREEN
 
+      - name: Audit upstream com.winlator hardcodes
+        shell: bash
+        run: |
+          set -uo pipefail
+          ROOT=/data/data/com.xziel.engine/files/xzwin/rootfs
+          {
+            echo "=== symlinks containing com.winlator ==="
+            find "$ROOT" -type l -printf '%p -> %l\n' 2>/dev/null | grep -F 'com.winlator' || true
+            echo "=== tmp identity ==="
+            ls -ld "$ROOT/tmp" || true
+            readlink "$ROOT/tmp" || true
+            echo "=== Wine launchers containing com.winlator ==="
+            for f in "$ROOT"/opt/wine/bin/*; do
+              if test -f "$f"; then
+                strings "$f" 2>/dev/null | grep -F '/data/data/com.winlator' && echo "SOURCE_FILE=$f" || true
+              fi
+            done
+            echo "=== Wine unix libs containing com.winlator ==="
+            find "$ROOT/opt/wine" -type f \( -name '*.so' -o -name '*.so.*' \) -print0 2>/dev/null | while IFS= read -r -d '' f; do
+              strings "$f" 2>/dev/null | grep -F '/data/data/com.winlator' && echo "SOURCE_FILE=$f" || true
+            done
+          } | tee xzwin-hardcode-audit.txt
+          echo XZWIN_HARDCODE_AUDIT_DONE
+
       - name: Box64 and Wine CLI smoke
         shell: bash
         run: |
@@ -131,6 +155,7 @@ jobs:
           path: |
             arm64-host.txt
             arm64-box64-interpreter.txt
+            xzwin-hardcode-audit.txt
             arm64-wine-ver.txt
             arm64-wine-echo.txt
             probe/*.txt
