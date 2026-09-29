@@ -16,6 +16,7 @@ on:
       - tools/maps/xz_xzmesh_file_gate.c
       - tools/maps/UEStaticMeshXZMS/**
       - tools/maps/UEStaticMeshAudit/**
+      - tools/maps/UEDeepPayloadAudit/**
       - tools/maps/UESceneTransformAudit/**
       - tools/maps/UEAssetSourceManifest/**
       - tools/maps/xz_source_class_gate.c
@@ -634,6 +635,166 @@ jobs:
           print("XZIEL_KINO_STATIC_MESH_AUDIT_GREEN")
           PY
 
+      - name: Audit deep cooked UE payloads
+        run: |
+          set -euxo pipefail
+          dotnet restore tools/maps/UEDeepPayloadAudit/UEDeepPayloadAudit.csproj
+          dotnet build tools/maps/UEDeepPayloadAudit/UEDeepPayloadAudit.csproj \
+            --configuration Release \
+            --no-restore \
+            -warnaserror
+
+          APP="tools/maps/UEDeepPayloadAudit/bin/Release/net10.0/UEDeepPayloadAudit.dll"
+          test -s "$APP"
+
+          mkdir -p kino-download/deep-payload-shards
+          SHARDS=16
+          for i in $(seq 0 $((SHARDS - 1))); do
+            echo "XZIEL_KINO_DEEP_PAYLOAD_START $i/$SHARDS"
+            dotnet "$APP" \
+              kino-pak-unpacked \
+              kino-download/PavMappings.usmap \
+              kino-download/kino-class-census.json \
+              "kino-download/deep-payload-shards/shard-$i.json" \
+              "$i" "$SHARDS" ue5.1 \
+              | tee "kino-download/deep-payload-shards/shard-$i.log"
+            test -s "kino-download/deep-payload-shards/shard-$i.json"
+            echo "XZIEL_KINO_DEEP_PAYLOAD_DONE $i/$SHARDS"
+          done
+
+          python3 - <<'PY'
+          import json
+          from collections import Counter
+          from pathlib import Path
+
+          root = Path("kino-download/deep-payload-shards")
+          reports = [
+              json.loads(p.read_text(encoding="utf-8"))
+              for p in sorted(
+                  root.glob("shard-*.json"),
+                  key=lambda p: int(p.stem.split("-")[1]),
+              )
+          ]
+          assert len(reports) == 16, len(reports)
+
+          census = json.loads(
+              Path("kino-download/kino-class-census.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+
+          classes = census["classCounts"]
+          expected_textures = sum(
+              count
+              for name, count in classes.items()
+              if name.endswith("Texture2D")
+          )
+          expected_audio = classes.get("SoundWave", 0)
+          expected_skeletal = classes.get("SkeletalMesh", 0)
+          expected_anims = classes.get("AnimSequence", 0)
+
+          texture_formats = Counter()
+          audio_formats = Counter()
+          failures = []
+          for report in reports:
+              texture_formats.update(report["textureFormats"])
+              audio_formats.update(report["audioFormats"])
+              failures.extend(report["failures"])
+
+          out = {
+              "schemaVersion": 1,
+              "shardCount": 16,
+              "packageCount": sum(r["packageCount"] for r in reports),
+              "packagesLoaded": sum(r["packagesLoaded"] for r in reports),
+              "expectedTextures": sum(r["expectedTextures"] for r in reports),
+              "texturesDecoded": sum(r["texturesDecoded"] for r in reports),
+              "textureMips": sum(r["textureMips"] for r in reports),
+              "textureBytes": sum(r["textureBytes"] for r in reports),
+              "textureFormats": dict(sorted(texture_formats.items())),
+              "maxTextureWidth": max(r["maxTextureWidth"] for r in reports),
+              "maxTextureHeight": max(r["maxTextureHeight"] for r in reports),
+              "expectedSoundWaves": sum(r["expectedSoundWaves"] for r in reports),
+              "soundWavesDecoded": sum(r["soundWavesDecoded"] for r in reports),
+              "audioBytes": sum(r["audioBytes"] for r in reports),
+              "audioFormats": dict(sorted(audio_formats.items())),
+              "expectedSkeletalMeshes": sum(r["expectedSkeletalMeshes"] for r in reports),
+              "skeletalMeshesDecoded": sum(r["skeletalMeshesDecoded"] for r in reports),
+              "skeletalBones": sum(r["skeletalBones"] for r in reports),
+              "skeletalVertices": sum(r["skeletalVertices"] for r in reports),
+              "skeletalIndices": sum(r["skeletalIndices"] for r in reports),
+              "skeletalTriangles": sum(r["skeletalTriangles"] for r in reports),
+              "maxSkeletalUvChannels": max(r["maxSkeletalUvChannels"] for r in reports),
+              "expectedAnimSequences": sum(r["expectedAnimSequences"] for r in reports),
+              "animSequencesDecoded": sum(r["animSequencesDecoded"] for r in reports),
+              "animationFrames": sum(r["animationFrames"] for r in reports),
+              "animationTracks": sum(r["animationTracks"] for r in reports),
+              "animationPositionKeys": sum(r["animationPositionKeys"] for r in reports),
+              "animationRotationKeys": sum(r["animationRotationKeys"] for r in reports),
+              "animationScaleKeys": sum(r["animationScaleKeys"] for r in reports),
+              "failureCount": len(failures),
+              "failures": failures,
+          }
+
+          out["ready"] = (
+              all(r["ready"] for r in reports)
+              and out["expectedTextures"] == expected_textures
+              and out["texturesDecoded"] == expected_textures
+              and out["expectedSoundWaves"] == expected_audio
+              and out["soundWavesDecoded"] == expected_audio
+              and out["expectedSkeletalMeshes"] == expected_skeletal
+              and out["skeletalMeshesDecoded"] == expected_skeletal
+              and out["expectedAnimSequences"] == expected_anims
+              and out["animSequencesDecoded"] == expected_anims
+              and out["failureCount"] == 0
+              and (expected_textures == 0 or (
+                  out["textureMips"] > 0 and out["textureBytes"] > 0
+              ))
+              and (expected_audio == 0 or out["audioBytes"] > 0)
+              and (expected_skeletal == 0 or (
+                  out["skeletalBones"] > 0
+                  and out["skeletalVertices"] > 0
+                  and out["skeletalIndices"] > 0
+              ))
+              and (expected_anims == 0 or (
+                  out["animationFrames"] > 0
+                  and out["animationTracks"] > 0
+                  and (
+                      out["animationPositionKeys"]
+                      + out["animationRotationKeys"]
+                      + out["animationScaleKeys"]
+                  ) > 0
+              ))
+          )
+
+          Path("kino-download/kino-deep-payload-audit.json").write_text(
+              json.dumps(out, indent=2, sort_keys=True),
+              encoding="utf-8",
+          )
+
+          print("XZIEL_KINO_DEEP_PAYLOAD_AUDIT", {
+              "textures": f'{out["texturesDecoded"]}/{expected_textures}',
+              "textureMips": out["textureMips"],
+              "textureBytes": out["textureBytes"],
+              "soundWaves": f'{out["soundWavesDecoded"]}/{expected_audio}',
+              "audioBytes": out["audioBytes"],
+              "skeletalMeshes": f'{out["skeletalMeshesDecoded"]}/{expected_skeletal}',
+              "skeletalBones": out["skeletalBones"],
+              "skeletalVertices": out["skeletalVertices"],
+              "animSequences": f'{out["animSequencesDecoded"]}/{expected_anims}',
+              "animationFrames": out["animationFrames"],
+              "animationTracks": out["animationTracks"],
+              "failures": out["failureCount"],
+              "ready": out["ready"],
+          })
+
+          if not out["ready"]:
+              for row in failures[:300]:
+                  print("XZIEL_KINO_DEEP_PAYLOAD_FAILURE", row)
+              raise SystemExit(5)
+
+          print("XZIEL_KINO_DEEP_PAYLOAD_AUDIT_GREEN")
+          PY
+
       - name: Convert cooked UE static meshes directly to native XZMS
         run: |
           set -euxo pipefail
@@ -918,6 +1079,8 @@ jobs:
             kino-download/kino-property-sweep.json
             kino-download/property-sweep-shards/
             kino-download/kino-class-requirements.json
+            kino-download/kino-deep-payload-audit.json
+            kino-download/deep-payload-shards/
             kino-download/kino-source-export-manifest-summary.json
             kino-download/kino-source-adapter-requirements.txt
             kino-download/source-adapter-blockers.log
