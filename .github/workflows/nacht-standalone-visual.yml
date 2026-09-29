@@ -4087,15 +4087,56 @@ jobs:
           grep -Eiq 'pei-x86-64|i386:x86-64' \
             dist/win64/pe-runtime-header.txt
 
-          for dll in SDL2.dll libEGL.dll libGLESv2.dll libgcc_s_seh-1.dll libwinpthread-1.dll; do
-            if [[ -s "/mingw64/bin/$dll" ]]; then
-              cp "/mingw64/bin/$dll" dist/win64/runtime/
-            fi
+          for dll in SDL2.dll libEGL.dll libGLESv2.dll; do
+            test -s "/mingw64/bin/$dll"
+            cp "/mingw64/bin/$dll" dist/win64/runtime/
           done
+
+          # Resolve the full MinGW dependency closure instead of trusting a
+          # hand-maintained DLL list. ANGLE currently pulls libstdc++ + zlib.
+          : > dist/win64/pe-runtime-dependency-closure.txt
+          changed=1
+          while [[ "$changed" == "1" ]]; do
+            changed=0
+            mapfile -t bins < <(
+              find dist/win64/runtime -maxdepth 1 -type f \
+                \( -iname '*.exe' -o -iname '*.dll' \) | sort
+            )
+            for bin in "${bins[@]}"; do
+              while IFS= read -r dep; do
+                [[ -z "$dep" ]] && continue
+                if [[ -s "/mingw64/bin/$dep" && ! -s "dist/win64/runtime/$dep" ]]; then
+                  echo "$(basename "$bin") -> $dep" \
+                    | tee -a dist/win64/pe-runtime-dependency-closure.txt
+                  cp "/mingw64/bin/$dep" dist/win64/runtime/
+                  changed=1
+                fi
+              done < <(objdump -p "$bin" | awk '/DLL Name:/{print $3}')
+            done
+          done
+
+          missing=0
+          mapfile -t bins < <(
+            find dist/win64/runtime -maxdepth 1 -type f \
+              \( -iname '*.exe' -o -iname '*.dll' \) | sort
+          )
+          for bin in "${bins[@]}"; do
+            while IFS= read -r dep; do
+              [[ -z "$dep" ]] && continue
+              if [[ -s "/mingw64/bin/$dep" && ! -s "dist/win64/runtime/$dep" ]]; then
+                echo "MISSING_MINGW_DLL $(basename "$bin") -> $dep"
+                missing=1
+              fi
+            done < <(objdump -p "$bin" | awk '/DLL Name:/{print $3}')
+          done
+          test "$missing" = "0"
 
           test -s dist/win64/runtime/SDL2.dll
           test -s dist/win64/runtime/libEGL.dll
           test -s dist/win64/runtime/libGLESv2.dll
+          test -s dist/win64/runtime/libstdc++-6.dll
+          test -s dist/win64/runtime/zlib1.dll
+          echo "XZIEL_NACHT_WIN64_RUNTIME_DEPENDENCIES_GREEN"
           echo "XZIEL_NACHT_WIN64_RUNTIME_GREEN"
 
       - name: Preserve every VFS file in portable Win64 bundle
@@ -4187,6 +4228,7 @@ jobs:
             dist/win64/pack-report.txt
             dist/win64/pe-runtime-header.txt
             dist/win64/pe-runtime-imports.txt
+            dist/win64/pe-runtime-dependency-closure.txt
             dist/win64/pe-onefile-header.txt
           if-no-files-found: error
           compression-level: 0
