@@ -1,4 +1,5 @@
 name: XZIEL Nuketown Zombies Virgin Package Census
+# XZIEL generic-map anti-hardcode cleanup verified before this census.
 
 on:
   workflow_dispatch:
