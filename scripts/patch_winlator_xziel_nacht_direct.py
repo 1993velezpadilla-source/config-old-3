@@ -20,6 +20,7 @@ import android.content.Intent;
 import android.content.res.AssetManager;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
@@ -48,6 +49,7 @@ import java.util.ArrayList;
 import java.util.concurrent.Executors;
 
 public class XzielBootActivity extends AppCompatActivity {
+    private static final String TAG = "XZIEL-HYBRID";
     private TextView status;
 
     private static final String GAME_ASSET = "nacht-onefile.exe";
@@ -61,6 +63,7 @@ public class XzielBootActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Log.i(TAG, "BOOT_ACTIVITY_START");
         getWindow().getDecorView().setSystemUiVisibility(
             android.view.View.SYSTEM_UI_FLAG_FULLSCREEN |
             android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
@@ -99,6 +102,7 @@ public class XzielBootActivity extends AppCompatActivity {
                 if (!ok) throw new RuntimeException("runtime extraction failed");
                 rootFS.createRFSVersionFile(RootFSInstaller.LATEST_VERSION);
             }
+            Log.i(TAG, "ROOTFS_READY version=" + rootFS.getVersion());
 
             runOnUiThread(this::ensureContainer);
         }
@@ -112,6 +116,7 @@ public class XzielBootActivity extends AppCompatActivity {
             ContainerManager manager = new ContainerManager(this);
             ArrayList<Container> containers = manager.getContainers();
             if (!containers.isEmpty()) {
+                Log.i(TAG, "CONTAINER_READY id=" + containers.get(0).id + " reused=1");
                 prepareGameAndLaunch(manager, containers.get(0));
                 return;
             }
@@ -135,6 +140,7 @@ public class XzielBootActivity extends AppCompatActivity {
                     fail("XZIEL container setup failed");
                     return;
                 }
+                Log.i(TAG, "CONTAINER_READY id=" + container.id + " reused=0");
                 prepareGameAndLaunch(manager, container);
             });
         }
@@ -159,6 +165,7 @@ public class XzielBootActivity extends AppCompatActivity {
                     GAME_SHA256.equals(FileUtils.readString(marker).trim());
 
                 if (!ready) {
+                    Log.i(TAG, "EXE_INSTALL_BEGIN");
                     FileUtils.delete(gameDir);
                     if (!gameDir.mkdirs() && !gameDir.isDirectory()) {
                         throw new RuntimeException("could not create game directory");
@@ -170,6 +177,10 @@ public class XzielBootActivity extends AppCompatActivity {
                         throw new RuntimeException("installed EXE size mismatch");
                     }
                     FileUtils.writeString(marker, GAME_SHA256 + "\n");
+                    Log.i(TAG, "EXE_INSTALL_GREEN bytes=" + exe.length());
+                }
+                else {
+                    Log.i(TAG, "EXE_ALREADY_READY bytes=" + exe.length());
                 }
 
                 runOnUiThread(() -> launchGame(container, exe));
@@ -224,6 +235,7 @@ public class XzielBootActivity extends AppCompatActivity {
     }
 
     private void launchGame(Container container, File exe) {
+        Log.i(TAG, "LAUNCH_XSERVER exe=" + exe.getName() + " bytes=" + exe.length());
         Intent intent = new Intent(this, XServerDisplayActivity.class);
         intent.putExtra("container_id", container.id);
         intent.putExtra("exec_path", exe.getAbsolutePath());
@@ -241,6 +253,49 @@ public class XzielBootActivity extends AppCompatActivity {
 
 xserver = java / "XServerDisplayActivity.java"
 text = xserver.read_text(encoding="utf-8")
+
+if "import android.util.Log;" not in text:
+    text = text.replace("import android.os.Bundle;\n", "import android.os.Bundle;\nimport android.util.Log;\n", 1)
+
+activity_anchor = '''        ForegroundService.startSession(this);
+'''
+activity_insert = '''        ForegroundService.startSession(this);
+        if (getIntent().getBooleanExtra("xziel_direct_boot", false)) {
+            Log.i("XZIEL-HYBRID", "XSERVER_ACTIVITY_START");
+        }
+'''
+if activity_anchor not in text:
+    raise SystemExit("Could not find XServer activity boot anchor")
+text = text.replace(activity_anchor, activity_insert, 1)
+
+env_anchor = '''            setupXEnvironment();
+        });
+'''
+env_insert = '''            if (getIntent().getBooleanExtra("xziel_direct_boot", false)) {
+                Log.i("XZIEL-HYBRID", "XSERVER_ENV_SETUP_BEGIN");
+            }
+            setupXEnvironment();
+            if (getIntent().getBooleanExtra("xziel_direct_boot", false)) {
+                Log.i("XZIEL-HYBRID", "XSERVER_ENVIRONMENT_STARTED");
+            }
+        });
+'''
+if env_anchor not in text:
+    raise SystemExit("Could not find XServer environment anchor")
+text = text.replace(env_anchor, env_insert, 1)
+
+window_anchor = '''                if (!flags[0] && window.isRenderable() && !window.getClassName().isEmpty()) {
+                    xServerView.getRenderer().setCursorVisible(true);
+'''
+window_insert = '''                if (!flags[0] && window.isRenderable() && !window.getClassName().isEmpty()) {
+                    if (getIntent().getBooleanExtra("xziel_direct_boot", false)) {
+                        Log.i("XZIEL-HYBRID", "FIRST_RENDERABLE_WINDOW class=" + window.getClassName());
+                    }
+                    xServerView.getRenderer().setCursorVisible(true);
+'''
+if window_anchor not in text:
+    raise SystemExit("Could not find XServer first-window anchor")
+text = text.replace(window_anchor, window_insert, 1)
 
 old_back = '''    @Override
     public void onBackPressed() {
