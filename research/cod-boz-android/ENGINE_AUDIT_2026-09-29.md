@@ -360,3 +360,24 @@ XZPlatformExtensions
 ```
 
 The design principle is reusable; the proprietary BOZ implementation/data is not.
+
+
+## Android shell confirmation and ARM64 clarification
+
+Inspection of the public partial-decomp Android project confirms that the Java entrypoint is extremely thin:
+
+- `com.activision.boz.Main` only extends `IsDeviceActivity`.
+- `IsDeviceActivity` extends Marmalade's `LoaderActivity`.
+- Device-specific Java handles lifecycle, fullscreen/cutout behavior, storage paths, display metrics and callbacks.
+- The manifest declares Marmalade's `VFSProvider` and the expected Android/network/audio permissions.
+
+The project tree contains both an `armeabi-v7a/libs3e_android.so` and an `arm64-v8a/libs3e_android.so`, but this must not be interpreted as proof that BOZ game code itself has been ported to ARM64.
+
+The project's own Gradle configuration currently filters builds to `armeabi-v7a`; the `arm64-v8a` ABI line is commented out. The native `boz.s3e` payload remains the key game executable boundary.
+
+Conclusion:
+- an ARM64 Marmalade/runtime library can exist independently;
+- the Java shell can be modernized independently;
+- neither one converts the original ARM32 BOZ payload into ARM64 game code.
+
+For XZIEL this reinforces the clean-room direction: keep Android platform integration thin and make the actual game/runtime modules native to our own ARM64/Vulkan architecture rather than depending on BOZ binaries.
