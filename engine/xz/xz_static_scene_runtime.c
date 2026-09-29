@@ -18,6 +18,9 @@
 #define XZ_STATIC_SCENE_MAX_MATERIAL_INSTANCE_BYTES \
     (16u * 1024u * 1024u)
 
+#define XZ_STATIC_SCENE_MAX_MATERIAL_LIBRARY_BYTES \
+    (64u * 1024u * 1024u)
+
 #define XZ_STATIC_SCENE_MAX_PBR_MATERIAL_BYTES \
     (64u * 1024u)
 
@@ -657,6 +660,9 @@ void XzStaticSceneRuntime_Reset(
     if (state->material_instance_data)
         free(state->material_instance_data);
 
+    if (state->material_library_data)
+        free(state->material_library_data);
+
     if (state->pbr_material_data)
         free(state->pbr_material_data);
 
@@ -702,6 +708,9 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
     unsigned char *material_instance_data = NULL;
     size_t material_instance_bytes = 0u;
     XzMaterialInstanceBindingView material_instances;
+    unsigned char *material_library_data = NULL;
+    size_t material_library_bytes = 0u;
+    XzMaterialLibraryView material_library;
     unsigned char *pbr_material_data = NULL;
     size_t pbr_material_bytes = 0u;
     XzPbrMaterialView pbr_material;
@@ -730,6 +739,7 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
     char scene_path[256];
     char material_path[256];
     char material_instance_path[256];
+    char material_library_path[256];
     char pbr_material_path[256];
     char normal_material_path[256];
     char environment_path[256];
@@ -1089,6 +1099,73 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
                     "material_instance_submesh_mismatch");
                 goto invalid;
             }
+        }
+    }
+
+    if (snprintf(
+            material_library_path,
+            sizeof(material_library_path),
+            "xziel/maps/%s/materials.xzml",
+            map_id) <= 0 ||
+        strlen(material_library_path) >=
+            sizeof(material_library_path) - 1u) {
+        snprintf(
+            failure,
+            sizeof(failure),
+            "%s",
+            "material_library_path_overflow");
+        goto invalid;
+    }
+
+    read_status = XzReadVfsFile(
+        material_library_path,
+        XZ_STATIC_SCENE_MAX_MATERIAL_LIBRARY_BYTES,
+        &material_library_data,
+        &material_library_bytes);
+
+    if (read_status < 0) {
+        snprintf(
+            failure,
+            sizeof(failure),
+            "%s",
+            "material_library_read_failed");
+        goto invalid;
+    }
+
+    if (read_status > 0) {
+        XzMaterialLibraryStatus material_library_status =
+            XzMaterialLibrary_Parse(
+                &material_library,
+                material_library_data,
+                material_library_bytes);
+
+        if (material_library_status != XZ_XZML_OK) {
+            snprintf(
+                failure,
+                sizeof(failure),
+                "material_library_%s",
+                XzMaterialLibrary_StatusName(
+                    material_library_status));
+            goto invalid;
+        }
+
+        if (!material_instance_data) {
+            snprintf(
+                failure,
+                sizeof(failure),
+                "%s",
+                "material_library_without_instances");
+            goto invalid;
+        }
+
+        if (material_library.material_count !=
+                material_instances.material_count) {
+            snprintf(
+                failure,
+                sizeof(failure),
+                "%s",
+                "material_library_count_mismatch");
+            goto invalid;
         }
     }
 
@@ -1620,6 +1697,15 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
     if (material_instance_data)
         state->material_instances =
             material_instances;
+
+    state->material_library_data =
+        material_library_data;
+    state->material_library_bytes =
+        material_library_bytes;
+    if (material_library_data)
+        state->material_library =
+            material_library;
+
     material_file_handle = -1;
     state->material_texture_count =
         material_texture_count;
@@ -1696,6 +1782,13 @@ XzStaticSceneStatus XzStaticSceneRuntime_LoadMap(
             "%s",
             material_instance_path);
     }
+    if (material_library_data) {
+        snprintf(
+            state->material_library_path,
+            sizeof(state->material_library_path),
+            "%s",
+            material_library_path);
+    }
     if (pbr_material_data) {
         snprintf(
             state->pbr_material_path,
@@ -1770,6 +1863,7 @@ invalid:
         COM_CloseFile(material_file_handle);
     free(material_data);
     free(material_instance_data);
+    free(material_library_data);
     free(pbr_material_data);
     if (normal_material_file_handle >= 0)
         COM_CloseFile(normal_material_file_handle);
@@ -1892,6 +1986,37 @@ int XzStaticSceneRuntime_InstanceMaterial(
         instance_index,
         submesh_index,
         material_index) == XZ_XZMI_OK;
+}
+
+const XzMaterialLibraryView *
+XzStaticSceneRuntime_MaterialLibrary(
+    const XzStaticSceneRuntimeState *state)
+{
+    if (!state ||
+        state->status !=
+            XZ_STATIC_SCENE_READY ||
+        !state->material_library_data)
+        return NULL;
+
+    return &state->material_library;
+}
+
+int XzStaticSceneRuntime_Material(
+    const XzStaticSceneRuntimeState *state,
+    uint32_t material_index,
+    XzMaterialLibraryMaterial *material)
+{
+    if (!state ||
+        state->status !=
+            XZ_STATIC_SCENE_READY ||
+        !state->material_library_data ||
+        !material)
+        return 0;
+
+    return XzMaterialLibrary_Material(
+        &state->material_library,
+        material_index,
+        material) == XZ_XZML_OK;
 }
 
 int XzStaticSceneRuntime_Texture(
