@@ -67,8 +67,10 @@ var packageRows = censusDoc.RootElement.GetProperty("packages")
     .ToArray();
 
 var providerRoot = DetectUnrealProjectRoot(root);
+var providerExtras = DetectUnrealExtraRoots(root, providerRoot);
 var provider = new DefaultFileProvider(
-    providerRoot,
+    new DirectoryInfo(providerRoot),
+    providerExtras.Select(path => new DirectoryInfo(path)).ToArray(),
     SearchOption.AllDirectories,
     new VersionContainer(sourceGame),
     StringComparer.OrdinalIgnoreCase)
@@ -515,6 +517,37 @@ void AuditAnimSequences(PackageRow row, UAnimSequence[] animations)
 }
 
 
+
+static string[] DetectUnrealExtraRoots(
+    string root,
+    string projectRoot)
+{
+    var fullRoot = Path.GetFullPath(root);
+    var extras = Directory.EnumerateDirectories(
+            fullRoot,
+            "*",
+            SearchOption.TopDirectoryOnly)
+        .Where(dir =>
+            !Path.GetFullPath(dir).Equals(
+                Path.GetFullPath(projectRoot),
+                StringComparison.OrdinalIgnoreCase))
+        .Where(dir =>
+            Path.GetFileName(dir).Equals(
+                "Engine",
+                StringComparison.OrdinalIgnoreCase))
+        .Where(dir => Directory.Exists(Path.Combine(dir, "Content")))
+        .OrderBy(dir => dir, StringComparer.OrdinalIgnoreCase)
+        .ToArray();
+
+    Console.WriteLine(
+        "XZIEL_UE_EXTRA_ROOTS " +
+        JsonSerializer.Serialize(new {
+            projectRoot,
+            extras
+        }));
+
+    return extras;
+}
 
 static string DetectUnrealProjectRoot(string root)
 {
