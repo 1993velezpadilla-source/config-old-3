@@ -52,8 +52,12 @@ on:
       - tools/maps/compile_ue_material_bindings.py
       - tools/maps/compile_xziel_material_instance_bindings.py
       - tools/maps/xz_material_instance_binding_file_gate.c
+      - tools/maps/compile_xziel_material_library.py
+      - tools/maps/xz_material_library_file_gate.c
       - engine/xz/xz_material_instance_binding.h
       - engine/xz/xz_material_instance_binding.c
+      - engine/xz/xz_material_library.h
+      - engine/xz/xz_material_library.c
       - tools/maps/xz_xzscene_file_gate.c
       - tools/maps/xz_static_scene_runtime_file_gate.c
       - engine/xz/xz_static_scene_runtime.h
@@ -804,10 +808,8 @@ jobs:
 
           echo "XZIEL_KINO_UE_XZTX_NATIVE_ALL_GREEN count=$EXPECTED_TEXTURES"
 
-          # Keep reports/logs, but release the ~source-payload-sized native files
-          # before the remaining scene audits to avoid unnecessary runner pressure.
-          find nuketown-download/ue-xztx-probe \
-            -maxdepth 1 -type f -name '*.xzt' -delete
+          # Keep native XZTX payloads until the final visible material library
+          # has selected and staged only the texture assets the scene actually uses.
 
       - name: Convert cooked UE audio directly to native XZAW
         run: |
@@ -1806,6 +1808,114 @@ jobs:
             nuketown-download/runtime-static-scene/runtime-xzmi-gate.log
           grep -q 'xzmi=1' \
             nuketown-download/runtime-static-scene/runtime-xzmi-gate.log
+
+          python3 tools/maps/compile_xziel_material_library.py \
+            --manifest nuketown-download/runtime-static-scene/material-binding-manifest.json \
+            --xzmi-report nuketown-download/runtime-static-scene/xzmi-report.json \
+            --output nuketown-download/runtime-static-scene/materials.xzml \
+            --report nuketown-download/runtime-static-scene/xzml-report.json \
+            | tee nuketown-download/runtime-static-scene/xzml-build.log
+
+          test -s nuketown-download/runtime-static-scene/materials.xzml
+          test -s nuketown-download/runtime-static-scene/xzml-report.json
+          grep -q 'XZIEL_XZML_BUILD_GREEN' \
+            nuketown-download/runtime-static-scene/xzml-build.log
+
+          EXPECTED_XZML_MATERIALS=$(jq -r '.materialCount' \
+            nuketown-download/runtime-static-scene/xzml-report.json)
+          EXPECTED_XZML_TEXTURES=$(jq -r '.textureAssetCount' \
+            nuketown-download/runtime-static-scene/xzml-report.json)
+
+          test "$EXPECTED_XZML_MATERIALS" -eq "$EXPECTED_XZMI_MATERIALS"
+          test "$EXPECTED_XZML_TEXTURES" -gt 0
+
+          mkdir -p build/xzml-native-gate
+          cc -std=c99 -O2 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tools/maps/xz_material_library_file_gate.c \
+            engine/xz/xz_material_library.c \
+            -lm \
+            -o build/xzml-native-gate/xz-material-library-file-gate
+
+          build/xzml-native-gate/xz-material-library-file-gate \
+            nuketown-download/runtime-static-scene/materials.xzml \
+            "$EXPECTED_XZML_MATERIALS" \
+            "$EXPECTED_XZML_TEXTURES" \
+            | tee nuketown-download/runtime-static-scene/xzml-native-gate.log
+
+          grep -q 'XZIEL_XZML_FILE_GATE_GREEN' \
+            nuketown-download/runtime-static-scene/xzml-native-gate.log
+
+          cp nuketown-download/runtime-static-scene/materials.xzml \
+            "$RUNTIME_ROOT/materials.xzml"
+          mkdir -p "$RUNTIME_ROOT/textures"
+
+          python3 - <<'PY'
+          import json
+          import shutil
+          from pathlib import Path
+
+          report = json.loads(
+              Path(
+                  "nuketown-download/runtime-static-scene/xzml-report.json"
+              ).read_text(encoding="utf-8")
+          )
+          source = Path("nuketown-download/ue-xztx-probe")
+          target = Path(
+              "nuketown-download/runtime-static-scene/vfs/"
+              "xziel/maps/xziel_nuketown_zombies/textures"
+          )
+
+          copied = 0
+          copied_bytes = 0
+          names = set()
+
+          for texture in report["textureAssets"]:
+              name = texture["runtimeFile"]
+              assert name not in names, name
+              names.add(name)
+
+              src = source / name
+              dst = target / name
+              assert src.is_file(), src
+              shutil.copy2(src, dst)
+              assert dst.stat().st_size == src.stat().st_size
+              copied += 1
+              copied_bytes += dst.stat().st_size
+
+          assert copied == report["textureAssetCount"], (
+              copied,
+              report["textureAssetCount"],
+          )
+
+          print("XZIEL_XZML_TEXTURE_STAGE_GREEN", {
+              "textures": copied,
+              "bytes": copied_bytes,
+              "formats": report["formatCounts"],
+              "mips": report["totalTextureMips"],
+          })
+          PY
+
+          mapfile -t STAGED_TEXTURES < <(find "$RUNTIME_ROOT/textures" \
+            -maxdepth 1 -type f -name '*.xzt' | sort)
+          test "${#STAGED_TEXTURES[@]}" -eq "$EXPECTED_XZML_TEXTURES"
+
+          : > nuketown-download/runtime-static-scene/xzml-texture-native-gate.log
+          printf '%s\0' "${STAGED_TEXTURES[@]}" \
+            | xargs -0 -r -n 128 \
+                build/xztx-native-gate/xz-xztexture-file-gate \
+            | tee nuketown-download/runtime-static-scene/xzml-texture-native-gate.log
+
+          test "$(grep -c '^XZIEL_XZTX_FILE_GATE_OK ' \
+            nuketown-download/runtime-static-scene/xzml-texture-native-gate.log)" \
+            -eq "$EXPECTED_XZML_TEXTURES"
+
+          echo "XZIEL_XZML_RUNTIME_PAYLOAD_GREEN materials=$EXPECTED_XZML_MATERIALS textures=$EXPECTED_XZML_TEXTURES"
+
+          # The complete 321-texture source conversion was already validated.
+          # Keep only the final visible runtime texture subset in the artifact.
+          find nuketown-download/ue-xztx-probe \
+            -maxdepth 1 -type f -name '*.xzt' -delete
 
       - name: Build 1-to-1 source export dependency manifest
         run: |
