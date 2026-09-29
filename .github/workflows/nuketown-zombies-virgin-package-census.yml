@@ -6,7 +6,7 @@ on:
     branches:
       - feature/xziel-bo3-style-map-loader-v1
     paths:
-      - .github/workflows/nuketown-virgin-package-census.yml
+      - .github/workflows/nuketown-zombies-virgin-package-census.yml
       - tools/maps/audit_virgin_ue_package.py
       - tools/maps/UEAssetClassCensus/**
       - tools/maps/UEAssetPropertyProbe/**
