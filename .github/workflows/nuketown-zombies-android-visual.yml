@@ -1,0 +1,261 @@
+name: XZIEL Nuketown Android Visual
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/xziel-bo3-style-map-loader-v1
+    paths:
+      - ".github/workflows/nuketown-zombies-android-visual.yml"
+      - "scripts/prepare_android.sh"
+      - "scripts/patch_vril_xz_phase0.py"
+      - "engine/xz/**"
+      - "android/**"
+
+concurrency:
+  group: xziel-nuketown-android-visual-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  android-visual:
+    name: Render virgin Nuketown static scene on Android
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Fetch latest GREEN Nuketown virgin runtime payload
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUN_ID="$(gh run list             --workflow nuketown-zombies-virgin-package-census.yml             --branch feature/xziel-bo3-style-map-loader-v1             --status success             --limit 1             --json databaseId             --jq '.[0].databaseId')"
+          test -n "$RUN_ID"
+          echo "Using virgin census run: $RUN_ID"
+          rm -rf nuketown-artifact
+          mkdir -p nuketown-artifact
+          gh run download "$RUN_ID"             --name XZIEL-Nuketown-Zombies-Virgin-Package-Census             --dir nuketown-artifact
+
+          VFS="$PWD/nuketown-artifact/runtime-static-scene/vfs"
+          ROOT="$VFS/xziel/maps/xziel_nuketown_zombies"
+          test -s "$ROOT/scene.xzsc"
+          test -s "$ROOT/materials.xzmi"
+          test -s "$ROOT/materials.xzml"
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("nuketown-artifact/runtime-static-scene")
+          xzsc = json.loads((root / "xzsc-report.json").read_text())
+          xzmi = json.loads((root / "xzmi-report.json").read_text())
+          xzml = json.loads((root / "xzml-report.json").read_text())
+          vfs = root / "vfs/xziel/maps/xziel_nuketown_zombies"
+          meshes = list((vfs / "meshes").glob("*.xzm"))
+          textures = list((vfs / "textures").glob("*.xzt"))
+          assert xzsc["runtimeMapId"] == "xziel_nuketown_zombies"
+          assert len(meshes) == xzsc["meshCount"] == 52
+          assert xzsc["instanceCount"] == 124
+          assert xzmi["materialCount"] == 198
+          assert xzmi["bindingCount"] == 659
+          assert len(textures) == xzml["textureAssetCount"] == 221
+          assert xzml["materialCount"] == 198
+          assert xzml["formatCounts"] == {"PF_ASTC_6x6": 221}
+          print(
+              "NUKETOWN_PAYLOAD_OK"
+              f" meshes={len(meshes)} instances={xzsc['instanceCount']}"
+              f" materials={xzml['materialCount']}"
+              f" bindings={xzmi['bindingCount']}"
+              f" textures={len(textures)}"
+          )
+          PY
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android SDK, NDK and emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER"             "platform-tools"             "platforms;android-35"             "build-tools;35.0.0"             "ndk;27.2.12479018"             "emulator"             "system-images;android-35;google_apis;x86_64"
+
+      - name: Prepare Android project with virgin Nuketown VFS
+        shell: bash
+        env:
+          XZIEL_STATIC_SCENE_MAP_ID: xziel_nuketown_zombies
+          XZIEL_STATIC_SCENE_HARNESS_MAP: ndu
+          XZIEL_EXTRA_ASSET_DIR: ${{ github.workspace }}/nuketown-artifact/runtime-static-scene/vfs
+        run: |
+          set -euo pipefail
+          bash scripts/prepare_android.sh
+          ZIP=build/android-project/app/src/main/assets/nzp-data.zip
+          unzip -l "$ZIP" | grep -F "nzp/maps/xziel_nuketown_zombies.bsp"
+          unzip -l "$ZIP" | grep -F "nzp/xziel/maps/xziel_nuketown_zombies/scene.xzsc"
+          unzip -l "$ZIP" | grep -F "nzp/xziel/maps/xziel_nuketown_zombies/materials.xzmi"
+          unzip -l "$ZIP" | grep -F "nzp/xziel/maps/xziel_nuketown_zombies/materials.xzml"
+          test "$(unzip -Z1 "$ZIP" | grep -c '^nzp/xziel/maps/xziel_nuketown_zombies/meshes/.*\.xzm$')" -eq 52
+          test "$(unzip -Z1 "$ZIP" | grep -c '^nzp/xziel/maps/xziel_nuketown_zombies/textures/.*\.xzt$')" -eq 221
+
+      - name: Build debug APK
+        working-directory: build/android-project
+        shell: bash
+        run: ./gradlew --no-daemon assembleDebug --stacktrace
+
+      - name: Collect APK
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp build/android-project/app/build/outputs/apk/debug/app-debug.apk             dist/XZIEL-Nuketown-Android-debug.apk
+
+      - name: Boot Nuketown native static scene and capture
+        id: visual
+        shell: bash
+        continue-on-error: true
+        env:
+          ANDROID_AVD_HOME: ${{ runner.temp }}/xziel-nuketown-avd
+        run: |
+          set -euo pipefail
+          mkdir -p "$ANDROID_AVD_HOME" dist
+          ADB="${ANDROID_HOME}/platform-tools/adb"
+          EMULATOR="${ANDROID_HOME}/emulator/emulator"
+          AVDMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name avdmanager | sort | tail -n 1)"
+
+          printf 'no\n' | "$AVDMANAGER" create avd             --force             --name xziel-nuketown-ci             --package "system-images;android-35;google_apis;x86_64"             --device "pixel_6"
+
+          if [[ -e /dev/kvm ]]; then
+            sudo chmod 666 /dev/kvm || true
+          fi
+
+          nohup "$EMULATOR"             @xziel-nuketown-ci             -no-window -no-audio -no-boot-anim -no-snapshot             -gpu swiftshader_indirect -memory 4096             > dist/emulator-stdout.txt 2>&1 &
+
+          timeout 120 "$ADB" wait-for-device
+          for i in $(seq 1 60); do
+            [[ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]] && break
+            sleep 2
+          done
+          test "$("$ADB" shell getprop sys.boot_completed | tr -d '\r')" = "1"
+
+          "$ADB" install -r dist/XZIEL-Nuketown-Android-debug.apk
+          "$ADB" shell settings put system accelerometer_rotation 0 || true
+          "$ADB" shell settings put system user_rotation 1 || true
+          "$ADB" shell settings put secure immersive_mode_confirmations confirmed || true
+          "$ADB" logcat -c
+          "$ADB" shell am force-stop com.xziel.engine || true
+          "$ADB" shell am start -W             -n com.xziel.engine/org.libsdl.app.NZPActivity             --ez xziel_ci_hud_preview true             --es xziel_ci_map xziel_nuketown_zombies             > dist/am-start-nuketown.txt 2>&1 || true
+
+          STAGE=""
+          for i in $(seq 1 45); do
+            STAGE="$("$ADB" shell run-as com.xziel.engine cat files/nzp-runtime/.xziel-stage 2>/dev/null | tr -d '\r' || true)"
+            [[ "$STAGE" == "FIRST_FRAME_OK" ]] && break
+            sleep 2
+          done
+          echo "stage=$STAGE"
+          test "$STAGE" = "FIRST_FRAME_OK"
+
+          READY=0
+          for i in $(seq 1 90); do
+            "$ADB" logcat -d -v threadtime > dist/xziel-logcat-nuketown.txt || true
+            if grep -Eq "XZIEL-XZ.*static_scene status=READY map='xziel_nuketown_zombies'.*meshes=52 instances=124.*gpuReady=1.*xzmi=1 xzml=1 xzmlMaterials=198 xzmlGpuReady=1 xztxTextures=221 xztxAstc=221" dist/xziel-logcat-nuketown.txt               && grep -Eq "XZIEL-XZ.*phase16 heartbeat requested=MODERN active=MODERN candidate=1 allowed=1 caps=0xff blockers=0x0 .*legacyVisible=0" dist/xziel-logcat-nuketown.txt; then
+              READY=1
+              break
+            fi
+            sleep 2
+          done
+
+          if [[ "$READY" != "1" ]]; then
+            echo "Nuketown native static scene did not reach full MODERN readiness."
+            grep -E "XZIEL-XZ.*static_scene|XZIEL-XZ.*phase16 heartbeat|XZIEL-XZ.*parity present"               dist/xziel-logcat-nuketown.txt | tail -n 320 || true
+            exit 1
+          fi
+
+          sleep 4
+          python3 -m pip install --quiet pillow==11.3.0
+
+          VISUAL_OK=0
+          : > dist/nuketown-visual-report.txt
+          for attempt in $(seq 1 8); do
+            "$ADB" exec-out screencap -p > dist/xziel-nuketown-a.png || true
+            sleep 3
+            "$ADB" exec-out screencap -p > dist/xziel-nuketown-b.png || true
+            if ATTEMPT="$attempt" python3 - <<'PY' >> dist/nuketown-visual-report.txt 2>&1
+          import os
+          from pathlib import Path
+          from PIL import Image, ImageChops, ImageStat
+
+          imgs = []
+          for p in [Path("dist/xziel-nuketown-a.png"), Path("dist/xziel-nuketown-b.png")]:
+              im = Image.open(p).convert("RGB")
+              if im.height > im.width:
+                  im = im.transpose(Image.Transpose.ROTATE_90)
+              if im.width < 1000 or im.height < 500 or im.width <= im.height:
+                  raise SystemExit(f"invalid dimensions {p}: {im.size}")
+              gray = im.convert("L")
+              stat = ImageStat.Stat(gray)
+              lo, hi = gray.getextrema()
+              if hi - lo < 24 or stat.stddev[0] < 8:
+                  raise SystemExit(
+                      f"blank/flat {p}: extrema={(lo, hi)} std={stat.stddev[0]:.2f}"
+                  )
+              imgs.append(im)
+              print(
+                  f"{p.name} size={im.size} mean={stat.mean[0]:.2f} "
+                  f"std={stat.stddev[0]:.2f} extrema={(lo, hi)}"
+              )
+          diff = ImageChops.difference(imgs[0], imgs[1]).convert("L")
+          print(f"deltaMean={ImageStat.Stat(diff).mean[0]:.3f}")
+          PY
+            then
+              VISUAL_OK=1
+              cp dist/xziel-nuketown-a.png dist/xziel-nuketown-screen.png
+              break
+            fi
+            sleep 4
+          done
+
+          cat dist/nuketown-visual-report.txt
+          test "$VISUAL_OK" = "1"
+
+          grep -E "XZIEL-XZ.*static_scene|XZIEL-XZ.*phase16 heartbeat|XZIEL-XZ.*parity present"             dist/xziel-logcat-nuketown.txt | tail -n 320             > dist/nuketown-runtime-proof.txt || true
+
+      - name: Upload Nuketown runtime proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Nuketown-Android-Visual-Proof
+          path: |
+            dist/xziel-nuketown-screen.png
+            dist/xziel-nuketown-a.png
+            dist/xziel-nuketown-b.png
+            dist/xziel-logcat-nuketown.txt
+            dist/nuketown-runtime-proof.txt
+            dist/nuketown-visual-report.txt
+            dist/emulator-stdout.txt
+            dist/am-start-nuketown.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Nuketown-Android-debug
+          path: dist/XZIEL-Nuketown-Android-debug.apk
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Fail if Nuketown visual probe failed
+        if: steps.visual.outcome == 'failure'
+        shell: bash
+        run: exit 1
