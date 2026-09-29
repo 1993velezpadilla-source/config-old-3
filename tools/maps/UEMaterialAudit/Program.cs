@@ -214,7 +214,8 @@ foreach (var logicalPackage in candidatePackages)
                             {
                                 if (
                                     expression.TryLoad(
-                                        out UMaterialExpression loadedExpression) &&
+                                        out CUE4Parse.UE4.Assets.Exports.UObject
+                                            loadedExpression) &&
                                     loadedExpression is not null)
                                 {
                                     return (object)new
@@ -704,6 +705,7 @@ ResolveMaterialSemantics(
                 0.333f,
                 false,
                 false,
+                false,
                 0,
                 false,
                 false,
@@ -750,6 +752,7 @@ ResolveMaterialSemantics(
                 EBlendMode.BLEND_Opaque,
                 EMaterialShadingModel.MSM_Unlit,
                 0.333f,
+                false,
                 false,
                 false,
                 0,
@@ -941,7 +944,7 @@ static UUnrealMaterial? ResolveMaterialByRawReference(
 
 
 static object[] DescribePropertyHolder(
-    IEnumerable<CUE4Parse.UE4.Assets.Objects.Properties.FPropertyTag>
+    IEnumerable<CUE4Parse.UE4.Assets.Objects.FPropertyTag>
         properties)
 {
     return properties
