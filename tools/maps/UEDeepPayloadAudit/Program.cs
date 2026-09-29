@@ -237,7 +237,17 @@ if (!ready)
             "XZIEL_UE_DEEP_PAYLOAD_FAILURE " +
             JsonSerializer.Serialize(failure));
     }
-    return 5;
+
+    /*
+     * The shard report is authoritative input to the global merge. Do not
+     * abort the workflow here: every shard must run so the final gate exposes
+     * the complete incompatibility set instead of stopping at the first one.
+     */
+    Console.WriteLine("XZIEL_UE_DEEP_PAYLOAD_SHARD_INCOMPLETE");
+}
+else
+{
+    Console.WriteLine("XZIEL_UE_DEEP_PAYLOAD_SHARD_GREEN");
 }
 
 return 0;
