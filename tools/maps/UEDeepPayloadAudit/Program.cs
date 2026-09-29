@@ -471,10 +471,35 @@ void AuditAnimSequences(PackageRow row, UAnimSequence[] animations)
         }
         catch (Exception e)
         {
+            string? skeletonPath = null;
+            string? skeletonPackage = null;
+            string? skeletonClass = null;
+            var skeletonIndex = animation.Skeleton?.Index;
+
+            try
+            {
+                var resolvedSkeleton =
+                    animation.Skeleton?.ResolvedObjectNoCache;
+                skeletonPath =
+                    resolvedSkeleton?.GetPathName();
+                skeletonPackage =
+                    resolvedSkeleton?.Package.Name;
+                skeletonClass =
+                    resolvedSkeleton?.Class?.Name.Text;
+            }
+            catch
+            {
+                // Preserve the primary animation failure unchanged.
+            }
+
             failures.Add(new {
                 family = "animation",
                 packagePath = row.Path,
                 objectPath = animation.GetPathName(),
+                skeletonIndex,
+                skeletonPath,
+                skeletonPackage,
+                skeletonClass,
                 error = e.GetType().FullName + ": " + e.Message
             });
         }
