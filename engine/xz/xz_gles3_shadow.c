@@ -4,6 +4,7 @@
 #include "xz_pass_inputs.h"
 #include "xz_texture_tap.h"
 #include "xz_static_scene_draw_plan.h"
+#include "xz_static_scene_material_draw_plan.h"
 #include "xz_static_scene_lightmap_draw_plan.h"
 
 #include <EGL/egl.h>
@@ -343,6 +344,8 @@ typedef struct {
     GLuint static_lightmap_instance_vbo;
     XzStaticSceneDrawPlan static_draw_plan;
     int static_draw_plan_ready;
+    XzStaticSceneMaterialDrawPlan static_material_draw_plan;
+    int static_material_draw_plan_ready;
     XzStaticSceneLightmapDrawPlan static_lightmap_draw_plan;
     int static_lightmap_draw_plan_ready;
 
@@ -3891,17 +3894,15 @@ fail:
     return 0;
 }
 
-static int XzBindStaticInstanceRange(
+static int XzBindStaticMatrixInstanceRange(
     XzGles3StaticMesh *mesh,
     uint32_t first_grouped_instance)
 {
     uint32_t column;
-    uint32_t slot;
 
     if (!mesh ||
         !mesh->vao ||
-        !xz_shadow.static_instance_vbo ||
-        !xz_shadow.static_lightmap_instance_vbo)
+        !xz_shadow.static_instance_vbo)
         return 0;
 
     xz_shadow.gl.BindVertexArray(
@@ -3936,6 +3937,23 @@ static int XzBindStaticInstanceRange(
             location,
             1u);
     }
+
+    return
+        xz_shadow.gl.GetError() ==
+            GL_NO_ERROR;
+}
+
+static int XzBindStaticInstanceRange(
+    XzGles3StaticMesh *mesh,
+    uint32_t first_grouped_instance)
+{
+    uint32_t slot;
+
+    if (!xz_shadow.static_lightmap_instance_vbo ||
+        !XzBindStaticMatrixInstanceRange(
+            mesh,
+            first_grouped_instance))
+        return 0;
 
     xz_shadow.gl.BindBuffer(
         GL_ARRAY_BUFFER,
@@ -3973,7 +3991,6 @@ static int XzBindStaticInstanceRange(
         xz_shadow.gl.GetError() ==
             GL_NO_ERROR;
 }
-
 
 static void XzDestroyStaticSceneCurrent(
     XzGles3ShadowState *state)
@@ -4085,6 +4102,9 @@ static void XzDestroyStaticSceneCurrent(
     XzStaticSceneDrawPlan_Reset(
         &xz_shadow.static_draw_plan);
     xz_shadow.static_draw_plan_ready = 0;
+    XzStaticSceneMaterialDrawPlan_Reset(
+        &xz_shadow.static_material_draw_plan);
+    xz_shadow.static_material_draw_plan_ready = 0;
     XzStaticSceneLightmapDrawPlan_Reset(
         &xz_shadow.static_lightmap_draw_plan);
     xz_shadow.static_lightmap_draw_plan_ready = 0;
@@ -4097,6 +4117,9 @@ static void XzDestroyStaticSceneCurrent(
         state->static_scene_gpu_submeshes = 0u;
         state->static_scene_gpu_multi_uv_meshes = 0u;
         state->static_scene_multi_uv_ready = 0;
+        state->static_scene_material_set_count = 0u;
+        state->static_scene_material_batch_count = 0u;
+        state->static_scene_material_batch_ready = 0;
         state->static_scene_lightmap_batch_count = 0u;
         state->static_scene_lightmap_mapped_batches = 0u;
         state->static_scene_lightmap_missing_batches = 0u;
@@ -4939,6 +4962,32 @@ int XzGles3Shadow_UploadStaticScene(
             scene->scene.instance_count)
         goto fail;
 
+    {
+        const XzMaterialInstanceBindingView *material_instances =
+            XzStaticSceneRuntime_MaterialInstances(scene);
+
+        if (material_instances) {
+            if (!XzStaticSceneMaterialDrawPlan_Build(
+                    &xz_shadow.static_material_draw_plan,
+                    XzStaticSceneRuntime_Scene(scene),
+                    material_instances) ||
+                xz_shadow.static_material_draw_plan.mesh_count !=
+                    scene->mesh_resource_count ||
+                xz_shadow.static_material_draw_plan.instance_count !=
+                    scene->scene.instance_count ||
+                xz_shadow.static_material_draw_plan.batch_count == 0u ||
+                xz_shadow.static_material_draw_plan.material_set_count == 0u)
+                goto fail;
+
+            state->static_scene_material_set_count =
+                xz_shadow.static_material_draw_plan.material_set_count;
+            state->static_scene_material_batch_count =
+                xz_shadow.static_material_draw_plan.batch_count;
+            state->static_scene_material_batch_ready = 1;
+            xz_shadow.static_material_draw_plan_ready = 1;
+        }
+    }
+
     if (strcmp(
             scene->map_id,
             "xziel_nacht_bo3") == 0) {
@@ -4999,7 +5048,9 @@ int XzGles3Shadow_UploadStaticScene(
             16u * sizeof(float)),
         xz_shadow.static_lightmap_draw_plan_ready
             ? xz_shadow.static_lightmap_draw_plan.instance_matrices
-            : xz_shadow.static_draw_plan.instance_matrices,
+            : (xz_shadow.static_material_draw_plan_ready
+                ? xz_shadow.static_material_draw_plan.instance_matrices
+                : xz_shadow.static_draw_plan.instance_matrices),
         GL_STATIC_DRAW);
 
     for (mesh_index = 0u;
@@ -6889,6 +6940,8 @@ int XzGles3Shadow_Init(
     memset(&xz_shadow, 0, sizeof(xz_shadow));
     XzStaticSceneDrawPlan_Init(
         &xz_shadow.static_draw_plan);
+    XzStaticSceneMaterialDrawPlan_Init(
+        &xz_shadow.static_material_draw_plan);
     XzStaticSceneLightmapDrawPlan_Init(
         &xz_shadow.static_lightmap_draw_plan);
 
