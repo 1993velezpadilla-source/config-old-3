@@ -124,6 +124,11 @@ public final class XzWinRuntime {
         }
     }
 
+    public static Probe prepare(Context context) throws IOException {
+        XzWinRuntimeInstaller.installIfNeeded(context);
+        return probe(context);
+    }
+
     public static Probe probe(Context context) {
         Layout layout = new Layout(context);
 
