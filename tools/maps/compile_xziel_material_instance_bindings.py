@@ -38,13 +38,9 @@ def main():
     if manifest.get("format") != "xziel_ue_material_binding_manifest_v1":
         raise SystemExit("unsupported material binding manifest format")
 
-    material_paths = sorted(
+    available_material_paths = {
         row["materialPath"]
         for row in manifest["materials"]
-    )
-    material_index = {
-        path: index
-        for index, path in enumerate(material_paths)
     }
 
     mesh_rows = {
@@ -65,8 +61,7 @@ def main():
             for item in row.get("slotOverrides", [])
         }
 
-    instance_records = []
-    bindings = []
+    resolved_instance_paths = []
     no_material_count = 0
     overridden_binding_count = 0
     referenced_materials = set()
@@ -85,8 +80,7 @@ def main():
             {},
         )
 
-        first_binding = len(bindings)
-
+        resolved = []
         for section in mesh["sections"]:
             slot_index = int(section["slotIndex"])
             material_path = section.get("baseMaterialPath")
@@ -96,27 +90,45 @@ def main():
                 overridden_binding_count += 1
 
             if material_path is None:
-                bindings.append(NO_MATERIAL)
+                resolved.append(None)
                 no_material_count += 1
                 continue
 
-            index = material_index.get(material_path)
-            if index is None:
+            if material_path not in available_material_paths:
                 raise SystemExit(
                     f"material {material_path!r} missing from library"
                 )
 
-            bindings.append(index)
+            resolved.append(material_path)
             referenced_materials.add(material_path)
 
-        binding_count = len(bindings) - first_binding
-        if binding_count <= 0:
+        if not resolved:
             raise SystemExit(
                 f"instance {source_instance_index} has no submesh bindings"
             )
 
+        resolved_instance_paths.append(resolved)
+
+    material_paths = sorted(referenced_materials)
+    material_index = {
+        path: index
+        for index, path in enumerate(material_paths)
+    }
+
+    instance_records = []
+    bindings = []
+
+    for resolved in resolved_instance_paths:
+        first_binding = len(bindings)
+
+        for material_path in resolved:
+            if material_path is None:
+                bindings.append(NO_MATERIAL)
+            else:
+                bindings.append(material_index[material_path])
+
         instance_records.append(
-            (first_binding, binding_count)
+            (first_binding, len(resolved))
         )
 
     expected_override_bindings = int(
@@ -133,7 +145,7 @@ def main():
         raise SystemExit("instance record count mismatch")
 
     if not material_paths:
-        raise SystemExit("material library is empty")
+        raise SystemExit("runtime material library is empty")
 
     binding_table_offset = (
         HEADER_BYTES
@@ -199,6 +211,10 @@ def main():
         "noMaterialBindingCount": no_material_count,
         "overriddenBindingCount": overridden_binding_count,
         "referencedMaterialCount": len(unique_material_indices),
+        "sourceMaterialCount":
+            len(available_material_paths),
+        "unreferencedSourceMaterialCount":
+            len(available_material_paths) - len(material_paths),
         "unreferencedMaterialCount":
             len(material_paths) - len(unique_material_indices),
         "materialPaths": material_paths,
