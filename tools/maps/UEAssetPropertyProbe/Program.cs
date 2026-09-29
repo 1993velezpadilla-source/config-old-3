@@ -132,9 +132,16 @@ foreach (var row in packageRows.EnumerateArray())
         break;
 }
 
-var missingCategories = categorySelections
+var presentCategories = categorySelections
+    .Where(x => x.Value.Count > 0)
+    .Select(x => x.Key)
+    .OrderBy(x => x, StringComparer.Ordinal)
+    .ToArray();
+
+var absentCategories = categorySelections
     .Where(x => x.Value.Count == 0)
     .Select(x => x.Key)
+    .OrderBy(x => x, StringComparer.Ordinal)
     .ToArray();
 
 var provider =
@@ -302,19 +309,42 @@ foreach (var selectedPackage in selected.Values
 var mappingTypes = provider.MappingsForGame?.Types.Count ?? 0;
 var mappingEnums = provider.MappingsForGame?.Enums.Count ?? 0;
 
+var missingCategories =
+    presentCategories
+        .Where(name =>
+            !decodedCategorySet.Contains(name))
+        .ToArray();
+
+var requiresGeneratedGameplay =
+    presentCategories.Contains(
+        "generated_gameplay",
+        StringComparer.Ordinal);
+
+var requiresTransforms =
+    presentCategories.Any(name =>
+        name is "world_geometry"
+            or "lighting"
+            or "generated_gameplay"
+            or "spawn_ai"
+            or "interactables");
+
 var ready =
+    presentCategories.Length > 0 &&
     missingCategories.Length == 0 &&
-    selected.Count >= categories.Length &&
+    selected.Count > 0 &&
     mappingTypes > 100 &&
     packageFailures == 0 &&
     exportFailures == 0 &&
     exportSuccesses > 0 &&
     exportsWithProperties > 0 &&
     propertyTagCount > 0 &&
-    generatedExports > 0 &&
-    generatedExportsWithProperties > 0 &&
-    transformPropertyHits > 0 &&
-    decodedCategorySet.Count == categories.Length;
+    (!requiresGeneratedGameplay ||
+        (generatedExports > 0 &&
+         generatedExportsWithProperties > 0)) &&
+    (!requiresTransforms ||
+        transformPropertyHits > 0) &&
+    decodedCategorySet.Count ==
+        presentCategories.Length;
 
 var report = new
 {
@@ -324,6 +354,8 @@ var report = new
     mappingTypes,
     mappingEnums,
     requestedCategories = categories.Select(x => x.Name).ToArray(),
+    presentCategories,
+    absentCategories,
     missingCategories,
     selectedPackageCount = selected.Count,
     packageSuccesses,
