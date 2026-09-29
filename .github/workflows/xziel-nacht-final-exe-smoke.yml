@@ -1,0 +1,72 @@
+name: XZIEL Nacht Final EXE Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - experiment/xziel-nacht-win64-exe-v1
+    paths:
+      - ".github/workflows/xziel-nacht-final-exe-smoke.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  smoke:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Download corrected one-file EXE
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          gh run download 36643416220 --repo "${{ github.repository }}" --name "XZIEL-Nacht-Windows-OneFile-ZIP-Payload" --dir dist
+          $exe=Get-ChildItem dist -Recurse -Filter Nacht-Chronicles-XZIEL.exe | Select-Object -First 1
+          if (-not $exe) { throw "Corrected one-file EXE not found" }
+          if ($exe.Length -lt 800MB) { throw "One-file EXE unexpectedly small: $($exe.Length)" }
+          Write-Host "XZIEL_FINAL_EXE_FOUND bytes=$($exe.Length)"
+
+      - name: Launch final EXE and detect XZIEL child
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $exe=(Get-ChildItem dist -Recurse -Filter Nacht-Chronicles-XZIEL.exe | Select-Object -First 1).FullName
+          Get-Process "Xziel-Nacht" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+
+          $wrapper=Start-Process -FilePath $exe -PassThru
+          $child=$null
+          for ($i=0; $i -lt 120; $i++) {
+            Start-Sleep -Seconds 1
+            $child=Get-Process "Xziel-Nacht" -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($child) { break }
+            if ($wrapper.HasExited -and $wrapper.ExitCode -ne 0) {
+              throw "Wrapper exited before XZIEL launch, code=$($wrapper.ExitCode)"
+            }
+          }
+
+          if (-not $child) {
+            if (-not $wrapper.HasExited) { Stop-Process -Id $wrapper.Id -Force -ErrorAction SilentlyContinue }
+            throw "Final one-file EXE never launched Xziel-Nacht.exe"
+          }
+
+          Write-Host "XZIEL_FINAL_EXE_CHILD_LAUNCHED pid=$($child.Id)"
+          Start-Sleep -Seconds 10
+          if ($child.HasExited) { throw "Xziel-Nacht child exited during stability gate, code=$($child.ExitCode)" }
+
+          Stop-Process -Id $child.Id -Force -ErrorAction SilentlyContinue
+          if (-not $wrapper.HasExited) { Stop-Process -Id $wrapper.Id -Force -ErrorAction SilentlyContinue }
+
+          "XZIEL_NACHT_FINAL_ONEFILE_BOOT_GREEN" | Set-Content dist/final-onefile-smoke.txt
+          Write-Host "XZIEL_NACHT_FINAL_ONEFILE_BOOT_GREEN"
+
+      - name: Upload final smoke proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Nacht-Final-OneFile-Smoke-Proof
+          path: dist/final-onefile-smoke.txt
+          if-no-files-found: error
+          retention-days: 14
