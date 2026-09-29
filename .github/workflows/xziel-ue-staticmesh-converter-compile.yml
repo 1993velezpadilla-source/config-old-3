@@ -23,8 +23,10 @@ on:
       - tools/maps/xz_xzaudio_selftest.c
       - tools/maps/xz_xzaudio_file_gate.c
       - tools/maps/UEAudioXZAW/**
-      - engine/xz/xz_native_payload.h
-      - engine/xz/xz_native_payload.c
+      - engine/xz/xz_xzskel.h
+      - engine/xz/xz_xzskel.c
+      - engine/xz/xz_xzanim.h
+      - engine/xz/xz_xzanim.c
       - tools/maps/xz_native_payload_selftest.c
       - engine/xz/xz_xzmesh.c
       - engine/xz/xz_xzmesh.h
@@ -154,7 +156,8 @@ jobs:
           cc -std=gnu11 -Wall -Wextra -Werror \
             -Iengine/xz \
             tools/maps/xz_native_payload_selftest.c \
-            engine/xz/xz_native_payload.c \
+            engine/xz/xz_xzskel.c \
+            engine/xz/xz_xzanim.c \
             -lm \
             -o build/native-payload-gate/xz-native-payload-selftest
           build/native-payload-gate/xz-native-payload-selftest
