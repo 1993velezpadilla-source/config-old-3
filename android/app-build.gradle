@@ -49,7 +49,7 @@ android {
 
     // XZIEL package payloads remain compressed in the APK.
     androidResources {
-        noCompress += ['xzp', 'xzt', 'xzlt']
+        noCompress += ['xzp', 'xzt', 'xzlt', 'tzst']
     }
 
     lint {
