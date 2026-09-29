@@ -1878,6 +1878,8 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             " xzmi=%d xzml=%d xzmlMaterials=%u"
             " xzmlGpuReady=%d xztxTextures=%u"
             " xztxAstc=%u xztxBytes=%" PRIu64
+            " uploadFailStage=%u uploadGl=0x%x"
+            " astcSupported=%u failTex=%u failMip=%u"
             " normalBindings=%u normalMapped=%u"
             " normalTextures=%u normalBytes=%zu normalGpuReady=%d"
             " pbrBindings=%u pbrBytes=%zu"
@@ -1929,6 +1931,11 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             xz_runtime.gles3_shadow.static_scene_xztx_gpu_textures,
             xz_runtime.gles3_shadow.static_scene_xztx_astc_textures,
             (uint64_t)xz_runtime.gles3_shadow.static_scene_xztx_gpu_bytes,
+            xz_runtime.gles3_shadow.static_scene_upload_failure_stage,
+            xz_runtime.gles3_shadow.static_scene_upload_failure_gl_error,
+            xz_runtime.gles3_shadow.static_scene_astc_supported,
+            xz_runtime.gles3_shadow.static_scene_upload_failure_texture_index,
+            xz_runtime.gles3_shadow.static_scene_upload_failure_mip_index,
             xz_runtime.gles3_shadow.static_scene_normal_bindings,
             xz_runtime.gles3_shadow.static_scene_normal_mapped_bindings,
             xz_runtime.gles3_shadow.static_scene_gpu_normal_textures,
