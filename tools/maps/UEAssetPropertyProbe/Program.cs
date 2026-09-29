@@ -84,7 +84,7 @@ var categories = new[]
         "hud_ui",
         name =>
             name.Contains("Widget", StringComparison.OrdinalIgnoreCase) ||
-            name.StartsWith("Text", StringComparison.OrdinalIgnoreCase) ||
+            name is "TextBlock" or "TextRenderComponent" ||
             name.StartsWith("Canvas", StringComparison.OrdinalIgnoreCase))
 };
 
@@ -100,6 +100,8 @@ foreach (var row in packageRows.EnumerateArray())
     var packagePath = row.GetProperty("packagePath").GetString();
     if (string.IsNullOrWhiteSpace(packagePath))
         continue;
+
+    packagePath = NormalizeMergedShardPath(packagePath);
 
     var classes = row.GetProperty("classes");
     var classNames = classes.EnumerateObject().Select(x => x.Name).ToArray();
@@ -385,4 +387,31 @@ sealed class SelectedPackage
     {
         PackagePath = packagePath;
     }
+}
+
+
+static string NormalizeMergedShardPath(string path)
+{
+    /*
+     * Kino class census is intentionally sharded for CI memory/runtime.
+     * Each shard is mounted from its own temporary root, so shard reports
+     * carry a synthetic "shard-N/" prefix. The merged census must not leak
+     * that CI transport prefix into source-package identity.
+     */
+    var normalized = path.Replace('\\', '/');
+    if (!normalized.StartsWith("shard-", StringComparison.OrdinalIgnoreCase))
+        return normalized;
+
+    var slash = normalized.IndexOf('/');
+    if (slash <= 6)
+        return normalized;
+
+    var shardNumber = normalized.AsSpan(6, slash - 6);
+    for (var i = 0; i < shardNumber.Length; ++i)
+    {
+        if (!char.IsDigit(shardNumber[i]))
+            return normalized;
+    }
+
+    return normalized[(slash + 1)..];
 }
