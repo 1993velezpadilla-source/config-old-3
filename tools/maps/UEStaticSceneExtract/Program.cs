@@ -62,10 +62,22 @@ foreach (var row in xzmsDoc.RootElement
         ?? throw new InvalidDataException(
             "XZMS report mesh file missing");
     var sourceIndex = row.GetProperty("index").GetInt32();
+    var sourceMaterialCount =
+        row.GetProperty("sourceMaterialCount").GetInt32();
+    var sourceSectionMaterialIndices =
+        row.GetProperty("sourceSectionMaterialIndices")
+            .EnumerateArray()
+            .Select(value => value.GetInt32())
+            .ToArray();
 
     if (!nativeMeshes.TryAdd(
             objectPath,
-            new NativeMesh(objectPath, file, sourceIndex)))
+            new NativeMesh(
+                objectPath,
+                file,
+                sourceIndex,
+                sourceMaterialCount,
+                sourceSectionMaterialIndices)))
     {
         throw new InvalidDataException(
             "duplicate XZMS objectPath: " + objectPath);
@@ -111,6 +123,9 @@ var nonFiniteMatrices = 0;
 var componentsWithMaterialOverrides = 0;
 var overrideMaterialSlotCount = 0;
 var nonNullOverrideMaterialSlotCount = 0;
+var componentsWithEffectiveMaterialOverrides = 0;
+var effectiveOverrideMaterialSlotCount = 0;
+var effectiveOverrideSubmeshCount = 0;
 
 foreach (var logicalPackage in mapPackages)
 {
@@ -196,6 +211,39 @@ foreach (var logicalPackage in mapPackages)
                         nonNullOverrides;
                 }
 
+                var effectiveMaterialOverrides =
+                    nativeMesh.SourceSectionMaterialIndices
+                        .Where(slot =>
+                            slot >= 0 &&
+                            slot < nativeMesh.SourceMaterialCount)
+                        .Distinct()
+                        .Where(slot =>
+                            slot < materialOverrides.Length &&
+                            !string.IsNullOrWhiteSpace(
+                                materialOverrides[slot]))
+                        .OrderBy(slot => slot)
+                        .Select(slot =>
+                            new MaterialOverride(
+                                slot,
+                                materialOverrides[slot]!))
+                        .ToArray();
+
+                if (effectiveMaterialOverrides.Length > 0)
+                {
+                    componentsWithEffectiveMaterialOverrides++;
+                    effectiveOverrideMaterialSlotCount +=
+                        effectiveMaterialOverrides.Length;
+
+                    var effectiveSlots =
+                        effectiveMaterialOverrides
+                            .Select(row => row.SlotIndex)
+                            .ToHashSet();
+
+                    effectiveOverrideSubmeshCount +=
+                        nativeMesh.SourceSectionMaterialIndices.Count(
+                            slot => effectiveSlots.Contains(slot));
+                }
+
                 var componentWorld = ResolveWorldTransform(
                     component,
                     worldCache,
@@ -235,7 +283,7 @@ foreach (var logicalPackage in mapPackages)
                             component.GetPathName(),
                             instanceIndex,
                             matrix,
-                            materialOverrides));
+                            effectiveMaterialOverrides));
                         instancedRows++;
                     }
                 }
@@ -255,7 +303,7 @@ foreach (var logicalPackage in mapPackages)
                         component.GetPathName(),
                         null,
                         matrix,
-                        materialOverrides));
+                        effectiveMaterialOverrides));
                 }
             }
             catch (Exception e)
@@ -352,6 +400,9 @@ var output = new
         componentsWithMaterialOverrides,
         overrideMaterialSlotCount,
         nonNullOverrideMaterialSlotCount,
+        componentsWithEffectiveMaterialOverrides,
+        effectiveOverrideMaterialSlotCount,
+        effectiveOverrideSubmeshCount,
         sourceNativeMeshCount = nativeMeshes.Count,
         referencedNativeMeshCount = meshRows.Length,
         sceneInstanceCount = instanceRows.Length,
@@ -551,11 +602,17 @@ static string? ResolveProviderPackagePath(
 sealed record NativeMesh(
     string ObjectPath,
     string File,
-    int SourceIndex);
+    int SourceIndex,
+    int SourceMaterialCount,
+    int[] SourceSectionMaterialIndices);
+
+sealed record MaterialOverride(
+    int SlotIndex,
+    string ObjectPath);
 
 sealed record SceneCandidate(
     NativeMesh Mesh,
     string ComponentPath,
     int? InstanceIndex,
     float[] Matrix,
-    string?[] MaterialOverrides);
+    MaterialOverride[] MaterialOverrides);
