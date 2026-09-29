@@ -58,17 +58,20 @@ jobs:
             mingw-w64-tools \
             make git pkg-config wget curl tar unzip zip file python3-pip
 
-      - name: Set up Android SDK command-line tools
-        uses: android-actions/setup-android@v3
-
       - name: Install Android NDK/CMake required by compatibility layer
         shell: bash
         run: |
           set -euo pipefail
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [[ ! -x "$SDKMANAGER" ]]; then
+            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n1)"
+          fi
           test -x "$SDKMANAGER"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "ndk;24.0.8215888" "cmake;3.22.1"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
 
       - name: Build one-click hybrid APK
         shell: bash
