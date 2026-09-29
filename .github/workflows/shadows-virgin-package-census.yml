@@ -220,6 +220,34 @@ jobs:
             | tee shadows-download/shadows-deep-payload-audit.log
           test -s shadows-download/shadows-deep-payload-audit.json
 
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(
+              Path("shadows-download/shadows-deep-payload-audit.json")
+              .read_text(encoding="utf-8")
+          )
+
+          assert report["ready"] is True, {
+              "failureCount": report["failureCount"],
+              "failures": report["failures"][:20],
+          }
+          assert report["failureCount"] == 0
+          assert report["packagesLoaded"] == report["packageCount"]
+          assert report["texturesDecoded"] == report["expectedTextures"]
+          assert report["soundWavesDecoded"] == report["expectedSoundWaves"]
+          assert report["skeletalMeshesDecoded"] == report["expectedSkeletalMeshes"]
+          assert report["animSequencesDecoded"] == report["expectedAnimSequences"]
+
+          print("XZIEL_SHADOWS_DEEP_PAYLOAD_GREEN", {
+              "textures": report["texturesDecoded"],
+              "soundWaves": report["soundWavesDecoded"],
+              "skeletalMeshes": report["skeletalMeshesDecoded"],
+              "animations": report["animSequencesDecoded"],
+          })
+          PY
+
       - name: Fail closed on unknown source classes
         run: |
           set -euxo pipefail
