@@ -23,6 +23,5 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Bcl.Memory" Version="10.0.12" />
-    <PackageReference Include="Lib.Harmony" Version="2.4.2" />
   </ItemGroup>
 </Project>
