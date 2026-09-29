@@ -1,0 +1,95 @@
+name: XZIEL Nacht Win64 Runtime
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - experiment/xziel-nacht-win64-exe-v1
+    paths:
+      - "engine/xz/**"
+      - ".github/workflows/xziel-nacht-win64-runtime.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-win64-runtime:
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout modern XZIEL runtime
+        uses: actions/checkout@v5
+
+      - name: Install MinGW64 SDL2 + ANGLE
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-binutils
+            mingw-w64-x86_64-pkgconf
+            mingw-w64-x86_64-SDL2
+            mingw-w64-x86_64-angleproject
+
+      - name: Compile modern XZIEL Win64 runtime
+        shell: msys2 {0}
+        run: |
+          set -euxo pipefail
+          mkdir -p dist/win64
+
+          mapfile -t SOURCES < <(find engine/xz -maxdepth 1 -type f -name '*.c' | sort)
+          test "${#SOURCES[@]}" -gt 20
+
+          CFLAGS=( -O2 -std=gnu99 -Wall
+            -Wno-unused-variable
+            -Wno-unused-but-set-variable
+            -DXZIEL_WINDOWS_STANDALONE=1
+            -DPROP_VALUE_MAX=92
+          )
+
+          read -r -a SDL_CFLAGS <<< "$(pkg-config --cflags sdl2)"
+          read -r -a SDL_LIBS <<< "$(pkg-config --libs sdl2)"
+
+          gcc "${CFLAGS[@]}" "${SDL_CFLAGS[@]}" \
+            "${SOURCES[@]}" \
+            -o dist/win64/Xziel-Nacht.exe \
+            "${SDL_LIBS[@]}" \
+            -lGLESv2 -lEGL -lm
+
+          test -s dist/win64/Xziel-Nacht.exe
+          objdump -f dist/win64/Xziel-Nacht.exe | tee dist/win64/pe-header.txt
+          objdump -p dist/win64/Xziel-Nacht.exe | tee dist/win64/pe-imports.txt
+          grep -Eiq 'pei-x86-64|i386:x86-64' dist/win64/pe-header.txt
+
+      - name: Stage Win64 runtime DLLs
+        shell: msys2 {0}
+        run: |
+          set -euxo pipefail
+          for dll in SDL2.dll libEGL.dll libGLESv2.dll libgcc_s_seh-1.dll libwinpthread-1.dll; do
+            if [[ -s "/mingw64/bin/$dll" ]]; then
+              cp "/mingw64/bin/$dll" dist/win64/
+            fi
+          done
+
+          test -s dist/win64/SDL2.dll
+          test -s dist/win64/libEGL.dll
+          test -s dist/win64/libGLESv2.dll
+          sha256sum dist/win64/Xziel-Nacht.exe | tee dist/win64/Xziel-Nacht.exe.sha256
+
+          cat > dist/win64/RUN_NACHT.cmd <<'EOF'
+          @echo off
+          cd /d "%~dp0"
+          Xziel-Nacht.exe --xziel-root . --xziel-map xziel_nacht_bo3
+          EOF
+
+          echo "XZIEL_NACHT_WIN64_RUNTIME_GREEN"
+
+      - name: Upload Win64 runtime probe
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Nacht-Win64-Runtime
+          path: dist/win64/
+          if-no-files-found: error
+          retention-days: 14
