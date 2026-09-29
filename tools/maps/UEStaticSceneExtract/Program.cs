@@ -3,6 +3,7 @@ using CUE4Parse.MappingsProvider.Usmap;
 using CUE4Parse.UE4.Assets.Exports.Component;
 using CUE4Parse.UE4.Assets.Exports.Component.StaticMesh;
 using CUE4Parse.UE4.Objects.Core.Math;
+using CUE4Parse.UE4.Objects.UObject;
 using CUE4Parse.UE4.Versions;
 using System.Text.Json;
 
@@ -108,6 +109,7 @@ var componentFailures = new List<object>();
 var unresolvedMeshes = new SortedSet<string>(
     StringComparer.OrdinalIgnoreCase);
 var candidates = new List<SceneCandidate>();
+var actorAnchors = new List<object>();
 var worldCache = new Dictionary<string, FTransform>(
     StringComparer.Ordinal);
 var visiting = new HashSet<string>(
@@ -146,6 +148,66 @@ foreach (var logicalPackage in mapPackages)
     {
         var package = provider.LoadPackage(resolved);
         packagesLoaded++;
+
+        for (var exportIndex = 0;
+             exportIndex < package.ExportMapLength;
+             ++exportIndex)
+        {
+            var sourceObject =
+                package.GetExport(exportIndex);
+            FPackageIndex? rootReference;
+
+            try
+            {
+                rootReference =
+                    sourceObject.GetOrDefault<FPackageIndex>(
+                        "RootComponent");
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (rootReference is null ||
+                rootReference.IsNull)
+                continue;
+
+            var rootComponent =
+                rootReference.Load<USceneComponent>();
+            if (rootComponent is null)
+                continue;
+
+            var world =
+                ResolveWorldTransform(
+                    rootComponent,
+                    worldCache,
+                    visiting);
+            var matrix =
+                ToXzielMatrix(world);
+
+            if (!FiniteMatrix(matrix))
+                throw new InvalidDataException(
+                    "non-finite actor anchor transform");
+
+            actorAnchors.Add(new
+            {
+                packagePath = logicalPackage,
+                exportIndex,
+                objectPath =
+                    sourceObject.GetPathName(),
+                className =
+                    sourceObject.ExportType,
+                rootComponentPath =
+                    rootComponent.GetPathName(),
+                matrixRowMajor = matrix,
+                positionMeters = new[]
+                {
+                    matrix[3],
+                    matrix[7],
+                    matrix[11]
+                }
+            });
+        }
 
         var components = Enumerable
             .Range(0, package.ExportMapLength)
@@ -404,6 +466,7 @@ var output = new
         effectiveOverrideMaterialSlotCount,
         effectiveOverrideSubmeshCount,
         sourceNativeMeshCount = nativeMeshes.Count,
+        actorAnchorCount = actorAnchors.Count,
         referencedNativeMeshCount = meshRows.Length,
         sceneInstanceCount = instanceRows.Length,
         unresolvedMeshCount = unresolvedMeshes.Count,
@@ -414,6 +477,11 @@ var output = new
         ready
     },
     mapPackages,
+    actorAnchors = actorAnchors
+        .OrderBy(
+            row => JsonSerializer.Serialize(row),
+            StringComparer.Ordinal)
+        .ToArray(),
     unresolvedMeshes = unresolvedMeshes.ToArray(),
     packageFailures,
     componentFailures,
