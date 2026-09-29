@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# CI probe for the direct-boot XZIEL hybrid APK.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
