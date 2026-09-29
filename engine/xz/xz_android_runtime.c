@@ -1087,8 +1087,8 @@ void XzAndroidRuntime_Init(size_t engine_heap_bytes)
     XzMemoryBudget_Init(&xz_runtime.memory, soft_bytes, hard_bytes);
 
     /*
-     * Phase 15 activates the governor for the modern shadow path. Legacy GL4ES
-     * remains the visible renderer until Phase 16, but Xz render scale, scene
+     * Phase 15 activates the governor for the modern shadow path. The compatibility presentation
+     * remains visible until Phase 16, while XZIEL render scale, scene
      * budgets and asset residency now follow measured recommendations.
      */
     XzPerformanceGovernor_Init(

@@ -901,7 +901,7 @@
     "thirdRollMultiplier": 2,
     "fireSalePriceReduction": 490,
     "selectionPolicy": "five_entry_shuffle_bag_before_repeat",
-    "quakecSymbols": [
+    "nativeSymbols": [
       "XZIEL_GobbleGumCurrentPrice",
       "XZIEL_GobbleGumConfigureLoadout",
       "XZIEL_GobbleGumRollIdentity",
