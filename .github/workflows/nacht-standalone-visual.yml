@@ -3417,6 +3417,19 @@ jobs:
 
           tar -C "$OVERLAY" -cf dist/xziel-nacht-vfs.tar xziel
           test -s dist/xziel-nacht-vfs.tar
+          gzip -1 -c dist/xziel-nacht-vfs.tar > dist/xziel-nacht-vfs.tar.gz
+          test -s dist/xziel-nacht-vfs.tar.gz
+          ls -lh dist/xziel-nacht-vfs.tar dist/xziel-nacht-vfs.tar.gz
+          python3 - <<'PY'
+from pathlib import Path
+raw=Path("dist/xziel-nacht-vfs.tar").stat().st_size
+gz=Path("dist/xziel-nacht-vfs.tar.gz").stat().st_size
+print("XZIEL_NACHT_VFS_COMPRESSION", {
+    "tarBytes": raw,
+    "gzipBytes": gz,
+    "ratio": round(gz/raw,4),
+})
+PY
 
           python3 - <<'PY'
           import json
@@ -3530,13 +3543,18 @@ jobs:
           "$ADB" shell run-as com.xziel.engine mkdir -p files
           "$ADB" shell run-as com.xziel.engine mkdir -p files/xziel-runtime
 
-          # Stream the 2.4+ GB VFS directly into the app sandbox. Keeping a
-          # second tar copy under /data/local/tmp doubles userdata pressure and
-          # caused the first standalone Nacht run to fail before engine boot.
-          cat dist/xziel-nacht-vfs.tar | \
-            "$ADB" exec-in run-as com.xziel.engine sh -c \
-              "'cd files && tar -xf -'"
+          # Push the compressed archive instead of duplicating the 2.4+ GB
+          # uncompressed tar. Then extract from /data/local/tmp into the app
+          # sandbox with a single local pipe on Android.
+          "$ADB" push dist/xziel-nacht-vfs.tar.gz \
+            /data/local/tmp/xziel-nacht-vfs.tar.gz
+          "$ADB" shell run-as com.xziel.engine sh -c \
+            "'cd files && gzip -dc /data/local/tmp/xziel-nacht-vfs.tar.gz | tar -xf -'"
+          "$ADB" shell rm -f /data/local/tmp/xziel-nacht-vfs.tar.gz
 
+          "$ADB" shell run-as com.xziel.engine find \
+            files/xziel/maps/xziel_nacht_bo3 -maxdepth 2 -type f \
+            | head -n 40 | tee dist/nacht-vfs-device-sample.txt
           "$ADB" shell df -h /data | tee dist/data-space-after.txt
 
           "$ADB" shell run-as com.xziel.engine test -s \
@@ -3647,6 +3665,7 @@ jobs:
             dist/emulator-stdout.txt
             dist/data-space-before.txt
             dist/data-space-after.txt
+            dist/nacht-vfs-device-sample.txt
             build/nacht-static-scene/xziel.xzscene.report.json
             build/nacht-static-scene/xziel.xzmat.report.json
             build/nacht-static-scene/xziel.xzpb.report.json
