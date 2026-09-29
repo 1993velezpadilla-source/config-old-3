@@ -58,6 +58,9 @@ on:
       - engine/xz/xz_material_instance_binding.c
       - engine/xz/xz_material_library.h
       - engine/xz/xz_material_library.c
+      - engine/xz/xz_xztx_gpu_format.h
+      - engine/xz/xz_xztx_gpu_format.c
+      - tools/maps/xz_xztx_gpu_file_gate.c
       - tools/maps/xz_xzscene_file_gate.c
       - tools/maps/xz_static_scene_runtime_file_gate.c
       - engine/xz/xz_static_scene_runtime.h
@@ -1910,6 +1913,29 @@ jobs:
           test "$(grep -c '^XZIEL_XZTX_FILE_GATE_OK ' \
             nuketown-download/runtime-static-scene/xzml-texture-native-gate.log)" \
             -eq "$EXPECTED_XZML_TEXTURES"
+
+          mkdir -p build/xztx-gpu-gate
+          cc -std=c99 -O2 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tools/maps/xz_xztx_gpu_file_gate.c \
+            engine/xz/xz_xztexture.c \
+            engine/xz/xz_xztx_gpu_format.c \
+            -o build/xztx-gpu-gate/xz-xztx-gpu-file-gate
+
+          : > nuketown-download/runtime-static-scene/xztx-gpu-gate.log
+          printf '%s\0' "${STAGED_TEXTURES[@]}" \
+            | xargs -0 -r -n 64 \
+                build/xztx-gpu-gate/xz-xztx-gpu-file-gate \
+            | tee nuketown-download/runtime-static-scene/xztx-gpu-gate.log
+
+          test "$(grep -c '^XZIEL_XZTX_GPU_FILE_GREEN ' \
+            nuketown-download/runtime-static-scene/xztx-gpu-gate.log)" \
+            -eq "$EXPECTED_XZML_TEXTURES"
+
+          grep -q 'XZIEL_XZTX_GPU_SELFTEST_GREEN' \
+            nuketown-download/runtime-static-scene/xztx-gpu-gate.log
+
+          echo "XZIEL_XZTX_GPU_PAYLOAD_GREEN textures=$EXPECTED_XZML_TEXTURES"
 
           echo "XZIEL_XZML_RUNTIME_PAYLOAD_GREEN materials=$EXPECTED_XZML_MATERIALS textures=$EXPECTED_XZML_TEXTURES"
 
