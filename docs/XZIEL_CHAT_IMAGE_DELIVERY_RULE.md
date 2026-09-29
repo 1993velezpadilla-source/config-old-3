@@ -4,18 +4,19 @@
 
 Whenever showing Christian any project screenshot, render, emulator capture, visual proof, generated concept, map screenshot, engine output, or other useful image:
 
-- The image MUST be displayed directly inline in the ChatGPT conversation.
-- It must appear as a normal visible image in the chat, the same way a newly generated image is shown.
-- Do NOT make the user download a ZIP, artifact, attachment, or separate file just to see the image.
-- Do NOT provide only a download link.
-- Do NOT provide only a file card.
-- If a full-resolution image exists, use that exact full-resolution image inline so the user can tap it and zoom from the chat UI.
-- GitHub Actions artifacts may be used as the source, but the final delivery to the user must still be the actual extracted image rendered inline in chat.
-- If multiple relevant captures exist, show each useful new capture inline.
-- Do not resend previously reviewed captures unless Christian explicitly asks to see them again.
+- The image must use ChatGPT's native image-viewer presentation whenever available so Christian can tap it and zoom it directly in the app.
+- A Markdown image such as `![...](sandbox:/...)` is NOT considered acceptable delivery for this user.
+- A sandbox download link is NOT considered acceptable delivery for this user.
+- A ZIP, GitHub Actions artifact, attachment card, or file link is NOT a substitute for the native zoomable image viewer.
+- GitHub Actions artifacts may be used as the source, but the final user-facing presentation must be a native tappable/zoomable image when the product supports it.
+- If the current tool surface cannot present an existing screenshot through the native zoomable image viewer, say that clearly instead of pretending a Markdown embed satisfies the requirement.
+- Never regenerate or recreate a project screenshot just to force native image UI, because that could alter the visual evidence. Preserve the exact original screenshot.
+- If a full-resolution original exists, preserve that exact resolution.
+- If multiple relevant captures exist, show each useful new capture through the native image viewer when supported.
+- Do not resend previously reviewed captures unless Christian explicitly asks.
 
-This rule applies to Nuketown, Nacht, Kino, Hayuya, GTA CTW, XZIEL Engine, and every other project unless Christian explicitly requests a different delivery format.
+This applies to Nuketown, Nacht, Kino, Hayuya, GTA CTW, XZIEL Engine, and every other project unless Christian explicitly asks for another format.
 
 ## User intent
 
-The user does not want project images delivered primarily as downloads. He wants them visually embedded in the conversation itself for immediate viewing and zooming.
+Christian specifically wants to tap a project screenshot in the ChatGPT Android app and open the same zoomable image viewer used for native/generated images. Merely embedding a sandbox image in Markdown does not satisfy this requirement.
