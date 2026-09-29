@@ -2,17 +2,6 @@ name: XZIEL Nacht Hybrid EXE-in-APK
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - experiment/xziel-nacht-win64-exe-v1
-    paths:
-      - ".github/workflows/xziel-nacht-hybrid-apk.yml"
-      - "scripts/build_xziel_nacht_hybrid_apk.sh"
-      - "scripts/patch_winlator_xziel_nacht_direct.py"
-
-permissions:
-  contents: read
-  actions: read
 
 concurrency:
   group: xziel-nacht-hybrid-${{ github.ref }}
