@@ -250,6 +250,9 @@ int main(int argc, char **argv)
             }
         } else {
             XzMaterialLibraryMaterial first_material;
+            uint32_t texture_index;
+            uint64_t native_texture_bytes = 0u;
+            uint64_t native_texture_mips = 0u;
 
             if (!material_library ||
                 material_library->material_count !=
@@ -266,6 +269,45 @@ int main(int argc, char **argv)
                 XzStaticSceneRuntime_Shutdown(&state);
                 return 9;
             }
+
+            for (texture_index = 0u;
+                 texture_index < expected_textures;
+                 ++texture_index) {
+                XzStaticNativeTextureResource texture;
+
+                if (!XzStaticSceneRuntime_LoadMaterialTexture(
+                        &state,
+                        texture_index,
+                        &texture) ||
+                    !texture.data ||
+                    texture.bytes == 0u ||
+                    texture.texture.mip_count == 0u) {
+                    fprintf(
+                        stderr,
+                        "XZIEL_STATIC_SCENE_RUNTIME_FILE_GATE_FAIL "
+                        "xztx_runtime_load texture=%u\n",
+                        texture_index);
+                    XzStaticSceneRuntime_ReleaseMaterialTexture(
+                        &texture);
+                    XzStaticSceneRuntime_Shutdown(&state);
+                    return 10;
+                }
+
+                native_texture_bytes +=
+                    (uint64_t)texture.bytes;
+                native_texture_mips +=
+                    (uint64_t)texture.texture.mip_count;
+
+                XzStaticSceneRuntime_ReleaseMaterialTexture(
+                    &texture);
+            }
+
+            printf(
+                "XZIEL_STATIC_SCENE_RUNTIME_XZTX_GREEN "
+                "textures=%u filesBytes=%llu mips=%llu\n",
+                expected_textures,
+                (unsigned long long)native_texture_bytes,
+                (unsigned long long)native_texture_mips);
         }
     }
 
