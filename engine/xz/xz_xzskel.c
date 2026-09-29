@@ -4,7 +4,9 @@
 #include <string.h>
 
 #define XZ_XZSK_REQUIRED_FLAGS \
-    (XZ_XZSK_FLAG_XZIEL_BASIS | XZ_XZSK_FLAG_INDEX_U32)
+    (XZ_XZSK_FLAG_XZIEL_BASIS | \
+     XZ_XZSK_FLAG_INDEX_U32 | \
+     XZ_XZSK_FLAG_SKELETON_REMAP)
 #define XZ_XZSK_KNOWN_FLAGS XZ_XZSK_REQUIRED_FLAGS
 
 static uint32_t XzReadU32Le(const unsigned char *p)
@@ -139,6 +141,13 @@ XzXzskelStatus XzXzskel_Parse(
             return XZ_XZSK_ERR_RANGE;
     }
 
+    view->skeleton_bone_count =
+        XzReadU32Le(p + 96u);
+    if (XzReadU32Le(p + 100u) != 0u)
+        return XZ_XZSK_ERR_HEADER;
+    view->mesh_layout_hash =
+        XzReadU64Le(p + 104u);
+
     if ((view->flags & ~XZ_XZSK_KNOWN_FLAGS) != 0u ||
         (view->flags & XZ_XZSK_REQUIRED_FLAGS) !=
             XZ_XZSK_REQUIRED_FLAGS)
@@ -151,7 +160,10 @@ XzXzskelStatus XzXzskel_Parse(
         (view->index_count % 3u) != 0u ||
         view->section_count == 0u ||
         view->string_bytes == 0u ||
-        view->skeleton_hash == 0u)
+        view->skeleton_hash == 0u ||
+        view->mesh_layout_hash == 0u ||
+        view->skeleton_bone_count == 0u ||
+        view->skeleton_bone_count > 65535u)
         return XZ_XZSK_ERR_COUNT;
 
     if (bone_stride != XZ_XZSK_BONE_BYTES ||
@@ -204,9 +216,12 @@ XzXzskelStatus XzXzskel_Parse(
         int32_t parent = XzReadI32Le(b + 0u);
         uint32_t name_offset = XzReadU32Le(b + 4u);
         uint32_t name_bytes = XzReadU32Le(b + 8u);
+        uint32_t skeleton_index =
+            XzReadU32Le(b + 12u);
 
-        if (XzReadU32Le(b + 12u) != 0u)
-            return XZ_XZSK_ERR_HEADER;
+        if (skeleton_index >=
+            view->skeleton_bone_count)
+            return XZ_XZSK_ERR_HIERARCHY;
 
         if (parent < -1 ||
             (parent >= 0 && (uint32_t)parent >= i))
@@ -381,7 +396,8 @@ int XzXzskel_SelfTest(void)
     XzWriteU32Le(
         data + 8u,
         XZ_XZSK_FLAG_XZIEL_BASIS |
-        XZ_XZSK_FLAG_INDEX_U32);
+        XZ_XZSK_FLAG_INDEX_U32 |
+        XZ_XZSK_FLAG_SKELETON_REMAP);
     XzWriteU32Le(data + 12u, Bones);
     XzWriteU32Le(data + 16u, Vertices);
     XzWriteU32Le(data + 20u, Indices);
@@ -398,10 +414,14 @@ int XzXzskel_SelfTest(void)
     XzWriteU64Le(data + 64u, 0x1111222233334444ull);
     XzWriteF32Le(data + 84u, 1.0f);
     XzWriteF32Le(data + 88u, 1.0f);
+    XzWriteU32Le(data + 96u, Bones);
+    XzWriteU32Le(data + 100u, 0u);
+    XzWriteU64Le(data + 104u, 0x5555666677778888ull);
 
     XzWriteI32Le(data + bone_offset + 0u, -1);
     XzWriteU32Le(data + bone_offset + 4u, 0u);
     XzWriteU32Le(data + bone_offset + 8u, NameBytes);
+    XzWriteU32Le(data + bone_offset + 12u, 0u);
     XzWriteF32Le(data + bone_offset + 28u, 1.0f);
     XzWriteF32Le(data + bone_offset + 44u, 1.0f);
     XzWriteF32Le(data + bone_offset + 48u, 1.0f);
