@@ -12,6 +12,9 @@ on:
       - "tools/maps/compile_nacht_xzscene.py"
       - "engine/xz/xz_xzscene.*"
       - "engine/xz/xz_static_scene_runtime.*"
+      - "engine/xz/xz_static_scene_material_draw_plan.*"
+      - "engine/xz/xz_material_instance_binding.*"
+      - "tests/xz_static_scene_material_draw_plan_test.c"
       - "tests/test_xziel_static_scene_compiler.py"
       - "tests/xz_xzscene_test.c"
       - "scripts/patch_vril_xz_phase0.py"
@@ -76,6 +79,19 @@ jobs:
             -o /tmp/xz_xzscene_test
           /tmp/xz_xzscene_test \
             build/nacht-xzscene/scene.xzsc
+
+      - name: Test material-set draw plan
+        run: |
+          set -euo pipefail
+          cc -std=c99 -O2 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tests/xz_static_scene_material_draw_plan_test.c \
+            engine/xz/xz_static_scene_material_draw_plan.c \
+            engine/xz/xz_material_instance_binding.c \
+            engine/xz/xz_xzscene.c \
+            -lm \
+            -o /tmp/xz_static_scene_material_draw_plan_test
+          /tmp/xz_static_scene_material_draw_plan_test
 
       - name: Compile static-scene VFS bridge
         run: |
