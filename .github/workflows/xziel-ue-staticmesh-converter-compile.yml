@@ -23,6 +23,9 @@ on:
       - tools/maps/xz_xzaudio_selftest.c
       - tools/maps/xz_xzaudio_file_gate.c
       - tools/maps/UEAudioXZAW/**
+      - engine/xz/xz_native_payload.h
+      - engine/xz/xz_native_payload.c
+      - tools/maps/xz_native_payload_selftest.c
       - engine/xz/xz_xzmesh.c
       - engine/xz/xz_xzmesh.h
 
@@ -143,6 +146,18 @@ jobs:
             -o build/xzaw-native-gate/xz-xzaudio-file-gate
           test -x build/xzaw-native-gate/xz-xzaudio-file-gate
           echo XZIEL_UE_XZAW_CONVERTER_COMPILE_GREEN
+
+      - name: Compile native rig and animation payload validator
+        run: |
+          set -euxo pipefail
+          mkdir -p build/native-payload-gate
+          cc -std=gnu11 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tools/maps/xz_native_payload_selftest.c \
+            engine/xz/xz_native_payload.c \
+            -lm \
+            -o build/native-payload-gate/xz-native-payload-selftest
+          build/native-payload-gate/xz-native-payload-selftest
 
       - name: Compile native XZMS file validator
         run: |
