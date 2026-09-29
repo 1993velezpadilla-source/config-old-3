@@ -5707,9 +5707,14 @@ static int XzDrawStaticScene(
                 mesh_index);
         uint32_t first_lightmap_batch = 0u;
         uint32_t lightmap_batch_count = 0u;
+        uint32_t first_material_batch = 0u;
+        uint32_t material_batch_count = 0u;
         uint32_t submesh_index;
         const int use_baked_lightmap =
             state->static_scene_lightmap_shader_ready;
+        const int use_material_batches =
+            !use_baked_lightmap &&
+            xz_shadow.static_material_draw_plan_ready;
 
         if (!mesh->alive ||
             !mesh->vao ||
@@ -5730,6 +5735,18 @@ static int XzDrawStaticScene(
             expected_draw_calls +=
                 mesh->submesh_count *
                 lightmap_batch_count;
+        } else if (use_material_batches) {
+            if (!XzStaticSceneMaterialDrawPlan_MeshBatches(
+                    &xz_shadow.static_material_draw_plan,
+                    mesh_index,
+                    &first_material_batch,
+                    &material_batch_count) ||
+                material_batch_count == 0u)
+                goto fail;
+
+            expected_draw_calls +=
+                mesh->submesh_count *
+                material_batch_count;
         } else {
             expected_draw_calls +=
                 mesh->submesh_count;
@@ -5931,6 +5948,46 @@ static int XzDrawStaticScene(
                         (GLsizei)batch->instance_count);
                     draw_calls++;
                 }
+            } else if (use_material_batches) {
+                uint32_t material_batch_offset;
+
+                gl->Uniform1i(
+                    xz_shadow.static_lightmap_enabled_loc,
+                    0);
+
+                for (material_batch_offset = 0u;
+                     material_batch_offset <
+                        material_batch_count;
+                     ++material_batch_offset) {
+                    const XzStaticSceneMaterialBatch *batch =
+                        XzStaticSceneMaterialDrawPlan_Batch(
+                            &xz_shadow.static_material_draw_plan,
+                            first_material_batch +
+                                material_batch_offset);
+
+                    if (!batch ||
+                        batch->mesh_index != mesh_index ||
+                        batch->instance_count == 0u ||
+                        !XzBindStaticMatrixInstanceRange(
+                            mesh,
+                            batch->first_grouped_instance))
+                        goto fail;
+
+                    if (has_texture)
+                        textured_draw_calls++;
+                    else
+                        untextured_draw_calls++;
+
+                    gl->DrawElementsInstanced(
+                        GL_TRIANGLES,
+                        (GLsizei)submesh->index_count,
+                        GL_UNSIGNED_INT,
+                        (const void *)(uintptr_t)(
+                            (uint64_t)submesh->first_index *
+                            sizeof(uint32_t)),
+                        (GLsizei)batch->instance_count);
+                    draw_calls++;
+                }
             } else {
                 gl->Uniform1i(
                     xz_shadow.static_lightmap_enabled_loc,
@@ -5965,7 +6022,9 @@ static int XzDrawStaticScene(
     state->static_scene_last_instances =
         state->static_scene_lightmap_shader_ready
             ? xz_shadow.static_lightmap_draw_plan.instance_count
-            : xz_shadow.static_draw_plan.instance_count;
+            : (xz_shadow.static_material_draw_plan_ready
+                ? xz_shadow.static_material_draw_plan.instance_count
+                : xz_shadow.static_draw_plan.instance_count);
     state->static_scene_last_baked_lightmap_draw_calls =
         baked_lightmap_draw_calls;
     state->static_scene_last_textured_draw_calls =
