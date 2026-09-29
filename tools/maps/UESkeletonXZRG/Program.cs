@@ -395,7 +395,6 @@ static (
     writer.Write(boneOffset);
     writer.Write(stringOffset);
     writer.Write(stringBytes);
-    writer.Write(0u);
     writer.Write(skeletonHash);
     writer.Write(poseHash);
 
