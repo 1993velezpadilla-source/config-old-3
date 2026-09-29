@@ -1,5 +1,6 @@
 using CUE4Parse.FileProvider;
 using CUE4Parse.MappingsProvider.Usmap;
+using CUE4Parse.UE4.Assets.Exports;
 using CUE4Parse.UE4.Assets.Exports.Component;
 using CUE4Parse.UE4.Assets.Exports.Component.StaticMesh;
 using CUE4Parse.UE4.Objects.Core.Math;
@@ -149,13 +150,27 @@ foreach (var logicalPackage in mapPackages)
         var package = provider.LoadPackage(resolved);
         packagesLoaded++;
 
+        var packageExports = Enumerable
+            .Range(0, package.ExportMapLength)
+            .Select(index => package.GetExport(index))
+            .ToArray();
+
+        var sceneComponents = packageExports
+            .OfType<USceneComponent>()
+            .OrderBy(
+                value => value.GetPathName(),
+                StringComparer.Ordinal)
+            .ToArray();
+
         for (var exportIndex = 0;
              exportIndex < package.ExportMapLength;
              ++exportIndex)
         {
             var sourceObject =
-                package.GetExport(exportIndex);
-            FPackageIndex? rootReference;
+                packageExports[exportIndex];
+            FPackageIndex? rootReference = null;
+            USceneComponent? rootComponent = null;
+            var anchorSource = "";
 
             try
             {
@@ -165,15 +180,55 @@ foreach (var logicalPackage in mapPackages)
             }
             catch
             {
-                continue;
+                rootReference = null;
             }
 
-            if (rootReference is null ||
-                rootReference.IsNull)
-                continue;
+            if (rootReference is { IsNull: false })
+            {
+                rootComponent =
+                    rootReference.Load<USceneComponent>();
+                if (rootComponent is not null)
+                    anchorSource =
+                        "RootComponentProperty";
+            }
 
-            var rootComponent =
-                rootReference.Load<USceneComponent>();
+            /*
+             * Blueprint actor instances can inherit their root component from
+             * class/SCS data, so the RootComponent property may be omitted
+             * from the cooked instance. In that case use the actual scene
+             * component exported under the actor's Outer chain. This preserves
+             * UE ownership semantics instead of guessing from class names.
+             */
+            if (rootComponent is null)
+            {
+                var actorPath =
+                    sourceObject.GetPathName();
+
+                rootComponent = sceneComponents
+                    .Where(component =>
+                        ObjectOwnedBy(
+                            component,
+                            actorPath))
+                    .Where(component =>
+                    {
+                        var parent =
+                            component.GetAttachParent();
+                        return parent is null ||
+                            !ObjectOwnedBy(
+                                parent,
+                                actorPath);
+                    })
+                    .OrderBy(
+                        component =>
+                            component.GetPathName(),
+                        StringComparer.Ordinal)
+                    .FirstOrDefault();
+
+                if (rootComponent is not null)
+                    anchorSource =
+                        "OwnedSceneComponent";
+            }
+
             if (rootComponent is null)
                 continue;
 
@@ -199,6 +254,7 @@ foreach (var logicalPackage in mapPackages)
                     sourceObject.ExportType,
                 rootComponentPath =
                     rootComponent.GetPathName(),
+                anchorSource,
                 matrixRowMajor = matrix,
                 positionMeters = new[]
                 {
@@ -209,9 +265,7 @@ foreach (var logicalPackage in mapPackages)
             });
         }
 
-        var components = Enumerable
-            .Range(0, package.ExportMapLength)
-            .Select(index => package.GetExport(index))
+        var components = packageExports
             .OfType<UStaticMeshComponent>()
             .OrderBy(
                 value => value.GetPathName(),
@@ -525,6 +579,35 @@ if (!ready)
 Console.WriteLine(
     "XZIEL_UE_STATIC_SCENE_EXTRACT_GREEN");
 return 0;
+
+static bool ObjectOwnedBy(
+    UObject source,
+    string ownerPath)
+{
+    if (source is null ||
+        string.IsNullOrWhiteSpace(ownerPath))
+        return false;
+
+    var outer = source.Outer;
+    var depth = 0;
+
+    while (outer is not null && depth++ < 64)
+    {
+        if (!outer.TryLoad(out var loaded) ||
+            loaded is null)
+            return false;
+
+        if (string.Equals(
+                loaded.GetPathName(),
+                ownerPath,
+                StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        outer = loaded.Outer;
+    }
+
+    return false;
+}
 
 static FTransform ResolveWorldTransform(
     USceneComponent component,
