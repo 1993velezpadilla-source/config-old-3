@@ -1,3 +1,4 @@
+#include "xz_xzrig.h"
 #include "xz_xzskel.h"
 #include "xz_xzanim.h"
 
@@ -5,6 +6,11 @@
 
 int main(void)
 {
+    if (!XzXzrig_SelfTest()) {
+        fprintf(stderr, "XZIEL_XZRG_SELFTEST_FAILURE\n");
+        return 4;
+    }
+
     if (!XzXzskel_SelfTest()) {
         fprintf(stderr, "XZIEL_XZSK_SELFTEST_FAILURE\n");
         return 5;
