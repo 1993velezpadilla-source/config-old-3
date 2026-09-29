@@ -1,0 +1,25 @@
+name: XZIEL No Legacy Runtime Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/xziel-bo3-style-map-loader-v1
+    paths:
+      - "engine/xz/**"
+      - "android/**"
+      - "scripts/**"
+      - "tools/maps/**"
+      - "assets/**"
+      - ".github/workflows/xziel-no-legacy-runtime.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  no-legacy-runtime:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Reject legacy runtime dependencies
+        run: python3 scripts/check_no_legacy_runtime.py
