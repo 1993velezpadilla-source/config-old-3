@@ -848,6 +848,111 @@ jobs:
           find kino-download/ue-xzaw-probe \
             -maxdepth 1 -type f -name '*.xaw' -delete
 
+      - name: Convert cooked UE skeletal meshes directly to native XZSK
+        run: |
+          set -euxo pipefail
+          dotnet restore tools/maps/UESkeletalMeshXZSK/UESkeletalMeshXZSK.csproj
+          dotnet build tools/maps/UESkeletalMeshXZSK/UESkeletalMeshXZSK.csproj \
+            --configuration Release \
+            --no-restore \
+            -warnaserror
+
+          APP="tools/maps/UESkeletalMeshXZSK/bin/Release/net10.0/UESkeletalMeshXZSK.dll"
+          test -s "$APP"
+
+          rm -rf kino-download/ue-xzsk-probe
+          mkdir -p kino-download/ue-xzsk-probe
+
+          EXPECTED_SKELETAL="$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(
+              Path("kino-download/kino-deep-payload-audit.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          print(report["expectedSkeletalMeshes"])
+          PY
+          )"
+          test "$EXPECTED_SKELETAL" -gt 0
+
+          dotnet "$APP" \
+            kino-pak-unpacked \
+            kino-download/PavMappings.usmap \
+            kino-download/kino-class-census.json \
+            kino-download/ue-xzsk-probe \
+            "$EXPECTED_SKELETAL" \
+            ue5.1 \
+            | tee kino-download/ue-xzsk-probe.log
+
+          test -s kino-download/ue-xzsk-probe/report.json
+          grep -q 'XZIEL_UE_XZSK_PROBE_GREEN' \
+            kino-download/ue-xzsk-probe.log
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          deep = json.loads(
+              Path("kino-download/kino-deep-payload-audit.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          native = json.loads(
+              Path("kino-download/ue-xzsk-probe/report.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+
+          assert native["ready"] is True
+          assert native["failureCount"] == 0
+          assert native["requestedMeshes"] == deep["expectedSkeletalMeshes"]
+          assert native["convertedMeshes"] == deep["skeletalMeshesDecoded"]
+          assert native["totalBones"] == deep["skeletalBones"]
+          assert native["totalVertices"] == deep["skeletalVertices"]
+          assert native["totalIndices"] == deep["skeletalIndices"]
+          assert native["totalTriangles"] == deep["skeletalTriangles"]
+          assert native["maxUvChannels"] == deep["maxSkeletalUvChannels"]
+          assert 1 <= native["maxInfluences"] <= 8
+          assert len(native["skeletonHashCounts"]) > 0
+
+          print("XZIEL_KINO_UE_XZSK_PAYLOAD_PARITY_GREEN", {
+              "meshes": native["convertedMeshes"],
+              "bones": native["totalBones"],
+              "vertices": native["totalVertices"],
+              "indices": native["totalIndices"],
+              "triangles": native["totalTriangles"],
+              "sections": native["totalSections"],
+              "maxUvChannels": native["maxUvChannels"],
+              "maxInfluences": native["maxInfluences"],
+              "skeletons": len(native["skeletonHashCounts"]),
+          })
+          PY
+
+          mkdir -p build/xzsk-native-gate
+          cc -std=gnu11 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tools/maps/xz_xzskel_file_gate.c \
+            engine/xz/xz_xzskel.c \
+            -lm \
+            -o build/xzsk-native-gate/xz-xzskel-file-gate
+
+          mapfile -t SKELS < <(find kino-download/ue-xzsk-probe \
+            -maxdepth 1 -type f -name '*.xsk' | sort)
+          test "${#SKELS[@]}" -eq "$EXPECTED_SKELETAL"
+
+          build/xzsk-native-gate/xz-xzskel-file-gate "${SKELS[@]}" \
+            | tee kino-download/ue-xzsk-native-gate.log
+
+          test "$(grep -c '^XZIEL_XZSK_FILE_GATE_OK ' \
+            kino-download/ue-xzsk-native-gate.log)" \
+            -eq "$EXPECTED_SKELETAL"
+
+          echo "XZIEL_KINO_UE_XZSK_NATIVE_ALL_GREEN count=$EXPECTED_SKELETAL"
+
+          find kino-download/ue-xzsk-probe \
+            -maxdepth 1 -type f -name '*.xsk' -delete
+
       - name: Audit complete UE scene transform semantics
         run: |
           set -euxo pipefail
