@@ -815,4 +815,14 @@ jobs:
             shadows-download/ue-xzms-probe/report.json
             shadows-download/ue-xzms-probe.log
             shadows-download/ue-xzms-native-gate.log
+            shadows-download/shadows-property-sweep.json
+            shadows-download/shadows-property-sweep.log
+            shadows-download/shadows-scene-transform-audit.json
+            shadows-download/shadows-scene-transform-audit.log
+            shadows-download/shadows-static-mesh-audit.json
+            shadows-download/shadows-static-mesh-audit.log
+            shadows-download/shadows-source-manifest.json
+            shadows-download/shadows-source-manifest.log
+            shadows-download/shadows-source-adapter-requirements.txt
+            shadows-download/source-adapter-blockers.log
           retention-days: 7
