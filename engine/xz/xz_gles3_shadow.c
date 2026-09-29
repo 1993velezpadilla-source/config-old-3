@@ -3763,6 +3763,8 @@ static int XzUploadStaticNativeMaterialTextures(
          texture_index < library->texture_asset_count;
          ++texture_index) {
         XzStaticNativeTextureResource source;
+        state->static_scene_upload_failure_texture_index =
+            texture_index;
         XzXztxGpuFormat format;
         XzXztxGpuStatus gpu_status;
         XzGles3StaticTexture *dest =
@@ -3827,6 +3829,8 @@ static int XzUploadStaticNativeMaterialTextures(
              mip_index < source.texture.mip_count;
              ++mip_index) {
             XzXztextureMip mip;
+            state->static_scene_upload_failure_mip_index =
+                mip_index;
             size_t mip_bytes = 0u;
             const void *payload =
                 XzXztexture_MipData(
@@ -3885,6 +3889,10 @@ fail_source:
         0u);
     xz_shadow.gl.ActiveTexture(GL_TEXTURE0);
 
+    state->static_scene_upload_failure_texture_index =
+        0xffffffffu;
+    state->static_scene_upload_failure_mip_index =
+        0xffffffffu;
     state->static_scene_gpu_texture_bytes =
         gpu_bytes;
     state->static_scene_gpu_textures =
@@ -5049,6 +5057,8 @@ int XzGles3Shadow_UploadStaticScene(
     uint32_t multi_uv_meshes = 0u;
     uint32_t mesh_index;
     uint32_t material_binding_index;
+    unsigned int failure_stage = 0u;
+    GLenum failure_gl_error = GL_NO_ERROR;
     int restored = 0;
 
     if (!state || !scene ||
@@ -5060,6 +5070,11 @@ int XzGles3Shadow_UploadStaticScene(
         return 0;
 
     state->static_scene_upload_attempts++;
+    state->static_scene_upload_failure_stage = 0u;
+    state->static_scene_upload_failure_gl_error = 0u;
+    state->static_scene_upload_failure_texture_index = 0xffffffffu;
+    state->static_scene_upload_failure_mip_index = 0xffffffffu;
+    state->static_scene_astc_supported = 0u;
     memset(
         state->static_scene_camera_origin,
         0,
@@ -5103,7 +5118,10 @@ int XzGles3Shadow_UploadStaticScene(
 
     XzDrainErrors(state);
     XzDestroyStaticSceneCurrent(state);
+    state->static_scene_astc_supported =
+        XzStaticAstcSupported() ? 1u : 0u;
 
+    failure_stage = 10u; /* source lighting */
     if (XzStaticSceneSourceLighting(
             scene,
             &xz_shadow.static_ambient_weight,
@@ -5126,6 +5144,7 @@ int XzGles3Shadow_UploadStaticScene(
         xz_shadow.static_directional_direction[2] = 1.0f;
     }
 
+    failure_stage = 20u; /* local lights */
     if (XzStaticScenePrepareLocalLights(scene)) {
         state->static_scene_local_light_count =
             xz_shadow.static_local_light_count;
@@ -5136,6 +5155,7 @@ int XzGles3Shadow_UploadStaticScene(
         goto fail;
     }
 
+    failure_stage = 30u; /* height fog */
     if (!XzStaticScenePrepareHeightFog(
             scene,
             state) &&
@@ -5144,6 +5164,7 @@ int XzGles3Shadow_UploadStaticScene(
             "xziel_nacht_bo3") == 0)
         goto fail;
 
+    failure_stage = 40u; /* reflection */
     if (!XzUploadStaticReflection(
             scene,
             state))
@@ -5155,6 +5176,7 @@ int XzGles3Shadow_UploadStaticScene(
         !state->static_scene_reflection_ready)
         goto fail;
 
+    failure_stage = 50u; /* mesh GPU upload */
     gpu_meshes = (XzGles3StaticMesh *)calloc(
         (size_t)scene->mesh_resource_count,
         sizeof(*gpu_meshes));
@@ -5506,6 +5528,7 @@ int XzGles3Shadow_UploadStaticScene(
             mapped_bindings > 0u;
     }
 
+    failure_stage = 70u; /* native XZTX upload */
     if (scene->material_library_data) {
         if (!XzUploadStaticNativeMaterialTextures(
                 scene,
@@ -5513,6 +5536,7 @@ int XzGles3Shadow_UploadStaticScene(
             goto fail;
     }
 
+    failure_stage = 80u; /* legacy normal material upload */
     if (scene->normal_material_data &&
         scene->normal_texture_count > 0u &&
         scene->normal_binding_count > 0u) {
@@ -5676,6 +5700,7 @@ int XzGles3Shadow_UploadStaticScene(
             mapped_bindings > 0u;
     }
 
+    failure_stage = 90u; /* PBR bindings */
     if (scene->pbr_material_data &&
         scene->pbr_material.binding_count > 0u) {
         uint32_t pbr_index;
@@ -5770,6 +5795,7 @@ int XzGles3Shadow_UploadStaticScene(
         !state->static_scene_specular_response_ready)
         goto fail;
 
+    failure_stage = 100u; /* scene draw plan */
     if (!XzStaticSceneDrawPlan_Build(
             &xz_shadow.static_draw_plan,
             XzStaticSceneRuntime_Scene(scene)) ||
@@ -5779,6 +5805,7 @@ int XzGles3Shadow_UploadStaticScene(
             scene->scene.instance_count)
         goto fail;
 
+    failure_stage = 110u; /* material batching/native binding */
     {
         const XzMaterialInstanceBindingView *material_instances =
             XzStaticSceneRuntime_MaterialInstances(scene);
@@ -5817,6 +5844,7 @@ int XzGles3Shadow_UploadStaticScene(
         }
     }
 
+    failure_stage = 120u; /* Nacht-only baked lightmaps */
     if (strcmp(
             scene->map_id,
             "xziel_nacht_bo3") == 0) {
@@ -5862,6 +5890,7 @@ int XzGles3Shadow_UploadStaticScene(
             goto fail;
     }
 
+    failure_stage = 130u; /* instance VBO */
     xz_shadow.gl.GenBuffers(
         1, &xz_shadow.static_instance_vbo);
     if (!xz_shadow.static_instance_vbo)
@@ -5882,6 +5911,7 @@ int XzGles3Shadow_UploadStaticScene(
                 : xz_shadow.static_draw_plan.instance_matrices),
         GL_STATIC_DRAW);
 
+    failure_stage = 140u; /* instance attributes */
     for (mesh_index = 0u;
          mesh_index < scene->mesh_resource_count;
          ++mesh_index) {
@@ -5965,6 +5995,7 @@ int XzGles3Shadow_UploadStaticScene(
         multi_uv_meshes ==
             scene->mesh_resource_count &&
         scene->mesh_resource_count > 0u;
+    failure_stage = 150u; /* final readiness */
     state->static_scene_gpu_ready =
         state->static_scene_gpu_meshes ==
             scene->mesh_resource_count &&
@@ -6026,6 +6057,7 @@ int XzGles3Shadow_UploadStaticScene(
     return 1;
 
 fail:
+    failure_gl_error = xz_shadow.gl.GetError();
     if (gpu_meshes) {
         /*
          * Temporarily publish so the single cleanup path can delete objects
@@ -6055,6 +6087,9 @@ fail_current_owned:
     }
 
     state->static_scene_upload_failures++;
+    state->static_scene_upload_failure_stage = failure_stage;
+    state->static_scene_upload_failure_gl_error =
+        (unsigned int)failure_gl_error;
     state->static_scene_gpu_ready = 0;
     return 0;
 }
