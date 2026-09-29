@@ -6,7 +6,7 @@ using CUE4Parse_Conversion.Dto;
 using CUE4Parse_Conversion.Options;
 using System.Text.Json;
 
-const uint XzmsVersion = 3;
+const uint XzmsVersion = 4;
 const uint XzmsFlagXzielBasis = 1u << 0;
 const uint XzmsFlagIndexU32 = 1u << 1;
 const uint AttrPosition = 1u << 0;
@@ -16,7 +16,11 @@ const uint AttrUv1 = 1u << 3;
 const uint AttrUv2 = 1u << 4;
 const uint AttrUv3 = 1u << 5;
 const uint AttrTangent = 1u << 6;
-const uint VertexStride = 72;
+const uint AttrUv4 = 1u << 7;
+const uint AttrUv5 = 1u << 8;
+const uint AttrUv6 = 1u << 9;
+const uint AttrUv7 = 1u << 10;
+const uint VertexStride = 104;
 const uint SubmeshStride = 16;
 const float UnrealCentimetersToMeters = 0.01f;
 
@@ -256,9 +260,9 @@ static (
         throw new InvalidDataException("LOD has no vertices");
     if (lod.Indices.Length == 0)
         throw new InvalidDataException("LOD has no indices");
-    if (lod.ExtraUvs.Length > 3)
+    if (lod.ExtraUvs.Length > 7)
         throw new InvalidDataException(
-            $"XZMS v3 supports 4 UV channels total; source has {1 + lod.ExtraUvs.Length}");
+            $"XZMS v4 supports 8 UV channels total; source has {1 + lod.ExtraUvs.Length}");
 
     var sections = lod.Sections
         .Where(section => section.IsValid && section.NumFaces > 0)
@@ -274,6 +278,10 @@ static (
     if (lod.ExtraUvs.Length >= 1) attrs |= AttrUv1;
     if (lod.ExtraUvs.Length >= 2) attrs |= AttrUv2;
     if (lod.ExtraUvs.Length >= 3) attrs |= AttrUv3;
+    if (lod.ExtraUvs.Length >= 4) attrs |= AttrUv4;
+    if (lod.ExtraUvs.Length >= 5) attrs |= AttrUv5;
+    if (lod.ExtraUvs.Length >= 6) attrs |= AttrUv6;
+    if (lod.ExtraUvs.Length >= 7) attrs |= AttrUv7;
 
     foreach (var section in sections)
     {
@@ -381,7 +389,7 @@ static (
 
         writer.Write(v.Uv.U); writer.Write(v.Uv.V);
 
-        for (var uvChannel = 0; uvChannel < 3; ++uvChannel)
+        for (var uvChannel = 0; uvChannel < 7; ++uvChannel)
         {
             if (uvChannel < lod.ExtraUvs.Length)
             {
