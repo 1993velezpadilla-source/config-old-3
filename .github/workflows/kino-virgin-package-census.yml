@@ -13,6 +13,9 @@ on:
       - tools/maps/UEAssetPropertySweep/**
       - tools/maps/UEAssetSourceManifest/**
       - tools/maps/xz_source_class_gate.c
+      - tools/maps/xz_source_adapter_blocker_gate.c
+      - engine/xz/xz_source_adapter_registry.c
+      - engine/xz/xz_source_adapter_registry.h
       - engine/xz/xz_source_class_registry.c
       - engine/xz/xz_source_class_registry.h
       - tools/maps/audit_ue_class_requirements.py
@@ -599,6 +602,23 @@ jobs:
           print("XZIEL_KINO_SOURCE_MANIFEST_GREEN")
           PY
 
+      - name: Prove native source conversion remains fail closed
+        run: |
+          set -euxo pipefail
+          mkdir -p build/source-adapter-gate
+          cc -std=gnu11 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tools/maps/xz_source_adapter_blocker_gate.c \
+            engine/xz/xz_source_adapter_registry.c \
+            -o build/source-adapter-gate/xz-source-adapter-blocker-gate
+
+          build/source-adapter-gate/xz-source-adapter-blocker-gate \
+            < kino-download/kino-source-adapter-requirements.txt \
+            | tee kino-download/source-adapter-blockers.log
+
+          grep -q 'XZIEL_SOURCE_CONVERSION_FAIL_CLOSED_GREEN' \
+            kino-download/source-adapter-blockers.log
+
       - name: Fail closed on unknown source classes
         run: |
           set -euxo pipefail
@@ -649,6 +669,7 @@ jobs:
             kino-download/kino-class-requirements.json
             kino-download/kino-source-export-manifest-summary.json
             kino-download/kino-source-adapter-requirements.txt
+            kino-download/source-adapter-blockers.log
             kino-download/source-manifest-shards/
             kino-download/source-class-gate.log
             kino-download/class-shards/
