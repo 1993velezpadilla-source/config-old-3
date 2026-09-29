@@ -79,6 +79,21 @@ static int XzSourceClass_IsAny(
     return 0;
 }
 
+static int XzSourceClass_IsIgnorable(
+    const char *class_name)
+{
+    static const char *const names[] = {
+        "BookMark",
+        "BookMark2D"
+    };
+
+    return class_name &&
+           XzSourceClass_IsAny(
+               class_name,
+               names,
+               sizeof(names) / sizeof(names[0]));
+}
+
 static XzPackageBootFamily XzSourceClass_ClassifyGenerated(
     const char *class_name)
 {
@@ -274,7 +289,8 @@ int XzSourceClass_Classify(
                XzSourceClass_StartsWith(class_name, "MovieScene") ||
                XzSourceClass_StartsWith(class_name, "LevelSequence") ||
                XzSourceClass_StartsWith(class_name, "Media") ||
-               XzSourceClass_StartsWith(class_name, "ImgMediaSource")) {
+               XzSourceClass_StartsWith(class_name, "ImgMediaSource") ||
+               strcmp(class_name, "Pavlov_GameLogic") == 0) {
         family = XZ_PACKAGE_BOOT_GAMEPLAY_SCRIPTS;
     } else if (XzSourceClass_IsAny(
                    class_name,
@@ -316,6 +332,11 @@ int XzSourceClassCoverage_Record(
     coverage->source_class_count++;
     coverage->ready = 0;
 
+    if (XzSourceClass_IsIgnorable(class_name)) {
+        coverage->ignored_class_count++;
+        return 1;
+    }
+
     if (!XzSourceClass_Classify(class_name, &family)) {
         coverage->unclassified_class_count++;
         if (!coverage->first_unclassified[0]) {
@@ -342,7 +363,9 @@ int XzSourceClassCoverage_Finalize(
 
     coverage->ready =
         coverage->source_class_count > 0u &&
-        coverage->classified_class_count == coverage->source_class_count &&
+        coverage->classified_class_count +
+            coverage->ignored_class_count ==
+            coverage->source_class_count &&
         coverage->unclassified_class_count == 0u;
 
     return coverage->ready;
@@ -369,6 +392,10 @@ int XzSourceClassRegistry_SelfTest(void)
         family != XZ_PACKAGE_BOOT_MYSTERY_BOX)
         return 0;
 
+    if (!XzSourceClass_Classify("Pavlov_GameLogic", &family) ||
+        family != XZ_PACKAGE_BOOT_GAMEPLAY_SCRIPTS)
+        return 0;
+
     if (XzSourceClass_Classify("UnknownNativeRuntimeThing", &family))
         return 0;
 
@@ -376,11 +403,13 @@ int XzSourceClassRegistry_SelfTest(void)
     if (!XzSourceClassCoverage_Record(&coverage, "Texture2D") ||
         !XzSourceClassCoverage_Record(&coverage, "AnimSequence") ||
         !XzSourceClassCoverage_Record(&coverage, "GenericBlueprint_C") ||
+        !XzSourceClassCoverage_Record(&coverage, "BookMark") ||
         !XzSourceClassCoverage_Finalize(&coverage))
         return 0;
 
     if (!coverage.ready ||
         coverage.classified_class_count != 3u ||
+        coverage.ignored_class_count != 1u ||
         coverage.unclassified_class_count != 0u)
         return 0;
 
