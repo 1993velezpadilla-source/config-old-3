@@ -1084,16 +1084,24 @@ static int XzStaticScenePrepareLocalLights(
     if (!scene)
         return 0;
 
-    environment =
-        XzStaticSceneRuntime_Environment(scene);
-    if (!environment)
-        return 0;
-
+    /*
+     * Zero local lights is a valid generic scene state. Clear previous-map
+     * light state before probing the optional environment payload so a map
+     * without authored point/spot lights can still draw with its global
+     * fallback/unlit material semantics. Nacht keeps its strict parity gate.
+     */
     memset(
         xz_shadow.static_local_lights,
         0,
         sizeof(xz_shadow.static_local_lights));
     xz_shadow.static_local_light_count = 0u;
+
+    environment =
+        XzStaticSceneRuntime_Environment(scene);
+    if (!environment)
+        return strcmp(
+            scene->map_id,
+            "xziel_nacht_bo3") != 0;
 
     for (i = 0u;
          i < environment->light_count;
