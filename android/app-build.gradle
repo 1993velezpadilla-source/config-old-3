@@ -43,6 +43,7 @@ android {
     packagingOptions {
         jniLibs {
             useLegacyPackaging true
+            keepDebugSymbols += ['**/libxzbox64.so']
         }
     }
 
@@ -58,4 +59,6 @@ android {
 
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation 'com.github.luben:zstd-jni:1.5.2-3@aar'
+    implementation 'org.apache.commons:commons-compress:1.20'
 }
