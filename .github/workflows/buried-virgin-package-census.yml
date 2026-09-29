@@ -1,0 +1,1782 @@
+name: XZIEL Buried Virgin Package Census
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/xziel-bo3-style-map-loader-v1
+    paths:
+      - .github/workflows/buried-virgin-package-census.yml
+      - tools/maps/audit_virgin_ue_package.py
+      - tools/maps/UEAssetClassCensus/**
+      - tools/maps/UEAssetPropertyProbe/**
+      - tools/maps/UEAssetPropertySweep/**
+      - engine/xz/xz_xzmesh.h
+      - engine/xz/xz_xzmesh.c
+      - tools/maps/xz_xzmesh_file_gate.c
+      - tools/maps/UEStaticMeshXZMS/**
+      - engine/xz/xz_xztexture.h
+      - engine/xz/xz_xztexture.c
+      - tools/maps/xz_xztexture_selftest.c
+      - tools/maps/xz_xztexture_file_gate.c
+      - tools/maps/UETextureXZTX/**
+      - engine/xz/xz_xzaudio.h
+      - engine/xz/xz_xzaudio.c
+      - tools/maps/xz_xzaudio_selftest.c
+      - tools/maps/xz_xzaudio_file_gate.c
+      - tools/maps/UEAudioXZAW/**
+      - engine/xz/xz_xzrig.h
+      - engine/xz/xz_xzrig.c
+      - tools/maps/xz_xzrig_file_gate.c
+      - tools/maps/UESkeletonXZRG/**
+      - engine/xz/xz_xzskel.h
+      - engine/xz/xz_xzskel.c
+      - tools/maps/xz_xzskel_file_gate.c
+      - tools/maps/UESkeletalMeshXZSK/**
+      - engine/xz/xz_xzanim.h
+      - engine/xz/xz_xzanim.c
+      - tools/maps/xz_xzanim_file_gate.c
+      - tools/maps/UEAnimationXZAN/**
+      - tools/maps/common/XzielSkeletonIdentity.cs
+      - engine/xz/xz_source_native_registry.c
+      - engine/xz/xz_source_native_registry.h
+      - engine/xz/xz_source_asset_pipeline.c
+      - engine/xz/xz_source_asset_pipeline.h
+      - tools/maps/UEStaticMeshAudit/**
+      - tools/maps/UEDeepPayloadAudit/**
+      - tools/maps/patch_cue4parse_animation_fallback.py
+      - tools/maps/UESceneTransformAudit/**
+      - tools/maps/UEAssetSourceManifest/**
+      - tools/maps/xz_source_class_gate.c
+      - tools/maps/xz_source_adapter_blocker_gate.c
+      - engine/xz/xz_source_adapter_registry.c
+      - engine/xz/xz_source_adapter_registry.h
+      - engine/xz/xz_source_class_registry.c
+      - engine/xz/xz_source_class_registry.h
+      - tools/maps/audit_ue_class_requirements.py
+
+jobs:
+  buried-census:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout XZIEL Engine
+        uses: actions/checkout@v4
+
+      - name: Install archive tools and repak
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y p7zip-full unzip jq
+          mkdir -p "$RUNNER_TEMP/repak"
+          curl -fL --retry 5 \
+            https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-unknown-linux-gnu.tar.xz \
+            -o "$RUNNER_TEMP/repak.tar.xz"
+          tar -xJf "$RUNNER_TEMP/repak.tar.xz" \
+            -C "$RUNNER_TEMP/repak"
+          REPAK=$(find "$RUNNER_TEMP/repak" \
+            -type f -name 'repak*' -perm -111 | head -1)
+          test -n "$REPAK"
+          echo "REPAK=$REPAK" >> "$GITHUB_ENV"
+
+      - name: Download public Buried Black Ops 2 v64 Oculus
+        run: |
+          set -euxo pipefail
+          mkdir -p buried-download
+          curl -fL --retry 8 --retry-delay 3 --retry-all-errors \
+            -o buried-download/buried-v64-oculus.zip \
+            "https://g-3959.modapi.io/v1/games/3959/mods/5184808/files/7169979/download"
+          test -s buried-download/buried-v64-oculus.zip
+          sha256sum buried-download/buried-v64-oculus.zip | tee buried-download/sha256.txt
+          ls -lh buried-download/buried-v64-oculus.zip
+
+      - name: Inventory archive without assumptions
+        run: |
+          set -euxo pipefail
+          7z l -slt buried-download/buried-v64-oculus.zip > buried-download/archive-list.txt
+          python3 tools/maps/audit_virgin_ue_package.py \
+            --archive buried-download/buried-v64-oculus.zip \
+            --report buried-download/buried-census.json
+          cat buried-download/buried-census.json
+
+      - name: Extract package
+        run: |
+          set -euxo pipefail
+          mkdir -p buried-unpacked
+          7z x -y buried-download/buried-v64-oculus.zip -oburied-unpacked >/dev/null
+          du -sh buried-unpacked
+          find buried-unpacked -type f | sort > buried-download/extracted-files.txt
+          echo "files=$(wc -l < buried-download/extracted-files.txt)"
+
+      - name: Unpack inner Unreal pak generically
+        run: |
+          set -euxo pipefail
+          PAK=$(find buried-unpacked -type f -name '*.pak' -print -quit)
+          test -n "$PAK"
+          mkdir -p buried-pak-unpacked
+          "$REPAK" unpack "$PAK" -o buried-pak-unpacked
+          find buried-pak-unpacked -type f | sort > buried-download/pak-files.txt
+          echo "pakFiles=$(wc -l < buried-download/pak-files.txt)"
+          du -sh buried-pak-unpacked
+
+      - name: Census Unreal package payload
+        run: |
+          set -euxo pipefail
+          python3 tools/maps/audit_virgin_ue_package.py \
+            --root buried-pak-unpacked \
+            --report buried-download/buried-pak-census.json
+          cat buried-download/buried-pak-census.json
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          p = Path("buried-download/buried-pak-census.json")
+          data = json.loads(p.read_text(encoding="utf-8"))
+          assert data["fileCount"] > 100
+          assert data["uassetCount"] > 0
+          assert len(data["mapFiles"]) > 0
+          print("XZIEL_KINO_INNER_PAK_CENSUS_GREEN", {
+              "files": data["fileCount"],
+              "uassets": data["uassetCount"],
+              "maps": len(data["mapFiles"]),
+              "audio": data["audioFileCount"],
+              "localization": data["localizationFileCount"],
+          })
+          PY
+
+      - name: Census real Unreal export classes
+        run: |
+          set -euxo pipefail
+          mkdir -p buried-download/class-shards
+
+          dotnet restore \
+            tools/maps/UEAssetClassCensus/UEAssetClassCensus.csproj
+
+          dotnet build \
+            tools/maps/UEAssetClassCensus/UEAssetClassCensus.csproj \
+            --configuration Release \
+            --no-restore
+
+          APP="tools/maps/UEAssetClassCensus/bin/Release/net10.0/UEAssetClassCensus.dll"
+          test -s "$APP"
+
+          SHARDS=64
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+
+          source = Path("buried-pak-unpacked").resolve()
+          out = Path("buried-shards").resolve()
+          out.mkdir(parents=True, exist_ok=True)
+
+          packages = sorted(
+              [
+                  p for p in source.rglob("*")
+                  if p.is_file() and p.suffix.lower() in {".uasset", ".umap"}
+              ],
+              key=lambda p: p.relative_to(source).as_posix().lower(),
+          )
+
+          shards = 64
+          companion_exts = [".uasset", ".umap", ".uexp", ".ubulk"]
+
+          for index, package in enumerate(packages):
+              shard = index % shards
+              rel = package.relative_to(source)
+              base = package.with_suffix("")
+              shard_root = out / f"shard-{shard}"
+              shard_root.mkdir(parents=True, exist_ok=True)
+
+              for ext in companion_exts:
+                  candidate = Path(str(base) + ext)
+                  if not candidate.is_file():
+                      continue
+                  candidate_rel = candidate.relative_to(source)
+                  target = shard_root / candidate_rel
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  if not target.exists():
+                      os.symlink(candidate, target)
+
+          counts = []
+          for i in range(shards):
+              root = out / f"shard-{i}"
+              count = sum(
+                  1 for p in root.rglob("*")
+                  if p.is_file() or p.is_symlink()
+              ) if root.exists() else 0
+              counts.append(count)
+
+          assert min(counts) > 0, counts
+          print("XZIEL_KINO_PHYSICAL_SHARDS_GREEN", {
+              "packages": len(packages),
+              "shards": shards,
+              "minFiles": min(counts),
+              "maxFiles": max(counts),
+              "totalLinkedFiles": sum(counts),
+          })
+          PY
+
+          for i in $(seq 0 $((SHARDS - 1))); do
+            echo "XZIEL_KINO_CLASS_SHARD_START $i/$SHARDS"
+            dotnet "$APP" \
+              "buried-shards/shard-$i" \
+              "buried-download/class-shards/shard-$i.json" \
+              ue5.1 \
+              | tee "buried-download/class-shards/shard-$i.log"
+            test -s "buried-download/class-shards/shard-$i.json"
+            echo "XZIEL_KINO_CLASS_SHARD_GREEN $i/$SHARDS"
+          done
+
+          python3 - <<'PY'
+          import json
+          from collections import Counter
+          from pathlib import Path
+
+          root = Path("buried-download/class-shards")
+          reports = [
+              json.loads(p.read_text(encoding="utf-8"))
+              for p in sorted(
+                  root.glob("shard-*.json"),
+                  key=lambda p: int(p.stem.split("-")[1]),
+              )
+          ]
+          assert len(reports) == 64, len(reports)
+
+          classes = Counter()
+          package_exts = Counter()
+          failures = []
+          packages = []
+          for r in reports:
+              classes.update(r["classCounts"])
+              package_exts.update(r["packageExtensionCounts"])
+              failures.extend(r["packageLoadFailures"])
+              packages.extend(r["packages"])
+
+          out = {
+              "schemaVersion": 1,
+              "shardCount": 64,
+              "packageCount": sum(r["packageCount"] for r in reports),
+              "packagesLoaded": sum(r["packagesLoaded"] for r in reports),
+              "packageLoadFailureCount": len(failures),
+              "totalExports": sum(r["totalExports"] for r in reports),
+              "uniqueExportClassCount": len(classes),
+              "packageExtensionCounts": dict(sorted(package_exts.items())),
+              "classCounts": dict(sorted(classes.items())),
+              "packageLoadFailures": failures,
+              "packages": packages,
+          }
+          Path("buried-download/buried-class-census.json").write_text(
+              json.dumps(out, indent=2, sort_keys=True),
+              encoding="utf-8",
+          )
+          print("XZIEL_KINO_CLASS_CENSUS_MERGED", {
+              "packages": out["packageCount"],
+              "loaded": out["packagesLoaded"],
+              "failures": out["packageLoadFailureCount"],
+              "exports": out["totalExports"],
+              "classes": out["uniqueExportClassCount"],
+          })
+          for name, count in classes.most_common(100):
+              print("XZIEL_KINO_CLASS", count, name)
+
+          if out["packageLoadFailureCount"] != 0:
+              print("XZIEL_KINO_CLASS_CENSUS_FAILURES",
+                    out["packageLoadFailureCount"])
+              for row in failures[:100]:
+                  print("XZIEL_KINO_CLASS_FAILURE", row)
+              raise SystemExit(5)
+          PY
+
+          cat buried-download/class-shards/shard-*.log \
+            > buried-download/buried-class-census.log
+          test -s buried-download/buried-class-census.json
+
+      - name: Audit every source class against XZIEL readiness
+        run: |
+          set -euxo pipefail
+          python3 tools/maps/audit_ue_class_requirements.py \
+            --input buried-download/buried-class-census.json \
+            --output buried-download/buried-class-requirements.json
+          test -s buried-download/buried-class-requirements.json
+
+      - name: Pin Pavlov UE5 property mappings
+        run: |
+          set -euxo pipefail
+          curl -fL --retry 5 --retry-delay 2 \
+            -o buried-download/PavMappings.usmap \
+            "https://raw.githubusercontent.com/THW-Reaper/PavlovVRMappings/4976647b4f3a209042460bc55a7a3122662d05b7/PavMappings.usmap"
+          test -s buried-download/PavMappings.usmap
+          echo "6d19f9731cc3fbaba34ca8e0833e81e4ffdf1b407edf24de48b1ccb5c63b060c  buried-download/PavMappings.usmap" \
+            | tee buried-download/PavMappings.sha256 \
+            | sha256sum -c -
+
+      - name: Probe real UE5 unversioned properties
+        run: |
+          set -euxo pipefail
+          dotnet restore \
+            tools/maps/UEAssetPropertyProbe/UEAssetPropertyProbe.csproj
+
+          dotnet build \
+            tools/maps/UEAssetPropertyProbe/UEAssetPropertyProbe.csproj \
+            --configuration Release \
+            --no-restore
+
+          APP="tools/maps/UEAssetPropertyProbe/bin/Release/net10.0/UEAssetPropertyProbe.dll"
+          test -s "$APP"
+
+          dotnet "$APP" \
+            buried-pak-unpacked \
+            buried-download/PavMappings.usmap \
+            buried-download/buried-class-census.json \
+            buried-download/buried-property-probe.json \
+            ue5.1 \
+            | tee buried-download/buried-property-probe.log
+
+          test -s buried-download/buried-property-probe.json
+          grep -q 'XZIEL_UE_PROPERTY_PROBE_GREEN' \
+            buried-download/buried-property-probe.log
+
+      - name: Sweep every UE5 package export with real mappings
+        run: |
+          set -euxo pipefail
+          dotnet restore \
+            tools/maps/UEAssetPropertySweep/UEAssetPropertySweep.csproj
+
+          dotnet build \
+            tools/maps/UEAssetPropertySweep/UEAssetPropertySweep.csproj \
+            --configuration Release \
+            --no-restore
+
+          APP="tools/maps/UEAssetPropertySweep/bin/Release/net10.0/UEAssetPropertySweep.dll"
+          test -s "$APP"
+
+          mkdir -p buried-download/property-sweep-shards
+          SHARDS=16
+
+          for i in $(seq 0 $((SHARDS - 1))); do
+            echo "XZIEL_KINO_PROPERTY_SWEEP_START $i/$SHARDS"
+            dotnet "$APP" \
+              buried-pak-unpacked \
+              buried-download/PavMappings.usmap \
+              buried-download/buried-class-census.json \
+              "buried-download/property-sweep-shards/shard-$i.json" \
+              "$i" "$SHARDS" ue5.1 \
+              | tee "buried-download/property-sweep-shards/shard-$i.log"
+            test -s "buried-download/property-sweep-shards/shard-$i.json"
+            echo "XZIEL_KINO_PROPERTY_SWEEP_DONE $i/$SHARDS"
+          done
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path("buried-download/property-sweep-shards")
+          reports = [
+              json.loads(p.read_text(encoding="utf-8"))
+              for p in sorted(
+                  root.glob("shard-*.json"),
+                  key=lambda p: int(p.stem.split("-")[1]),
+              )
+          ]
+          assert len(reports) == 16, len(reports)
+
+          census = json.loads(
+              Path("buried-download/buried-class-census.json")
+              .read_text(encoding="utf-8")
+          )
+
+          package_failures = []
+          export_failures = []
+          for report in reports:
+              package_failures.extend(report["packageLoadFailures"])
+              export_failures.extend(report["exportLoadFailures"])
+
+          out = {
+              "schemaVersion": 1,
+              "shardCount": 16,
+              "packageCount": sum(r["packageCount"] for r in reports),
+              "packageSuccesses": sum(r["packageSuccesses"] for r in reports),
+              "packageLoadFailureCount": len(package_failures),
+              "exportsAttempted": sum(r["exportsAttempted"] for r in reports),
+              "exportSuccesses": sum(r["exportSuccesses"] for r in reports),
+              "exportLoadFailureCount": len(export_failures),
+              "exportsWithProperties": sum(r["exportsWithProperties"] for r in reports),
+              "propertyTagCount": sum(r["propertyTagCount"] for r in reports),
+              "generatedExports": sum(r["generatedExports"] for r in reports),
+              "generatedExportsWithProperties": sum(
+                  r["generatedExportsWithProperties"] for r in reports
+              ),
+              "packageLoadFailures": package_failures,
+              "exportLoadFailures": export_failures,
+          }
+
+          assert out["packageCount"] == census["packageCount"], (
+              out["packageCount"],
+              census["packageCount"],
+          )
+          assert out["packageSuccesses"] == census["packageCount"], (
+              out["packageSuccesses"],
+              census["packageCount"],
+          )
+          assert out["exportsAttempted"] == census["totalExports"], (
+              out["exportsAttempted"],
+              census["totalExports"],
+          )
+          assert out["exportSuccesses"] == census["totalExports"], (
+              out["exportSuccesses"],
+              census["totalExports"],
+          )
+
+          mapping_type_counts = {r["mappingTypes"] for r in reports}
+          mapping_enum_counts = {r["mappingEnums"] for r in reports}
+          assert len(mapping_type_counts) == 1, mapping_type_counts
+          assert len(mapping_enum_counts) == 1, mapping_enum_counts
+          assert next(iter(mapping_type_counts)) > 100
+          assert next(iter(mapping_enum_counts)) > 0
+
+          out["mappingTypes"] = next(iter(mapping_type_counts))
+          out["mappingEnums"] = next(iter(mapping_enum_counts))
+
+          Path("buried-download/buried-property-sweep.json").write_text(
+              json.dumps(out, indent=2, sort_keys=True),
+              encoding="utf-8",
+          )
+
+          print("XZIEL_KINO_PROPERTY_SWEEP_MERGED", {
+              "packages": out["packageCount"],
+              "packageFailures": out["packageLoadFailureCount"],
+              "exportsAttempted": out["exportsAttempted"],
+              "exports": out["exportSuccesses"],
+              "exportFailures": out["exportLoadFailureCount"],
+              "exportsWithProperties": out["exportsWithProperties"],
+              "propertyTags": out["propertyTagCount"],
+              "generatedExports": out["generatedExports"],
+              "generatedWithProperties": out["generatedExportsWithProperties"],
+          })
+
+          if out["packageLoadFailureCount"] or out["exportLoadFailureCount"]:
+              for row in package_failures[:100]:
+                  print("XZIEL_KINO_PROPERTY_PACKAGE_FAILURE", row)
+              for row in export_failures[:200]:
+                  print("XZIEL_KINO_PROPERTY_EXPORT_FAILURE", row)
+              raise SystemExit(5)
+
+          print("XZIEL_KINO_PROPERTY_SWEEP_GREEN")
+          PY
+
+      - name: Prepare pinned CUE4Parse animation fallback
+        run: |
+          set -euxo pipefail
+          CUE4PARSE_ROOT="$RUNNER_TEMP/CUE4Parse"
+          git init "$CUE4PARSE_ROOT"
+          git -C "$CUE4PARSE_ROOT" remote add origin \
+            https://github.com/FabianFG/CUE4Parse.git
+          git -C "$CUE4PARSE_ROOT" fetch --depth=1 origin \
+            28f385e622468c4ab84997d596b46bb1c3adfcfa
+          git -C "$CUE4PARSE_ROOT" checkout --detach FETCH_HEAD
+          test "$(git -C "$CUE4PARSE_ROOT" rev-parse HEAD)" = \
+            "28f385e622468c4ab84997d596b46bb1c3adfcfa"
+          python3 tools/maps/patch_cue4parse_animation_fallback.py \
+            --root "$CUE4PARSE_ROOT"
+          echo "CUE4PARSE_SOURCE_ROOT=$CUE4PARSE_ROOT" >> "$GITHUB_ENV"
+
+      - name: Layer pinned public Pavlov base dependencies
+        run: |
+          set -euxo pipefail
+          MODKIT_COMMIT="612c8d43c3dba7701b8de63e373e13487917b985"
+          HAND_BLOB_SHA="178d724fcd113eeda970762e96d01d38e938e957"
+          TARGET="buried-pak-unpacked/Pavlov/Content/Hands/Mesh/SK_Hand_Skeleton.uasset"
+
+          mkdir -p "$(dirname "$TARGET")"
+          curl -fL --retry 5 \
+            "https://raw.githubusercontent.com/vankruptgames/PavlovVR-ModKit/$MODKIT_COMMIT/Content/Hands/Mesh/SK_Hand_Skeleton.uasset" \
+            -o "$TARGET"
+
+          test -s "$TARGET"
+          test "$(git hash-object "$TARGET")" = "$HAND_BLOB_SHA"
+
+          echo "XZIEL_PAVLOV_BASE_HAND_SKELETON_GREEN"
+
+      - name: Audit deep cooked UE payloads
+        run: |
+          set -euxo pipefail
+          dotnet restore tools/maps/UEDeepPayloadAudit/UEDeepPayloadAudit.csproj \
+            -p:CUE4ParseSourceRoot="$CUE4PARSE_SOURCE_ROOT" \
+            -p:CUE4PARSE_SKIP_NATIVE=true
+          dotnet build tools/maps/UEDeepPayloadAudit/UEDeepPayloadAudit.csproj \
+            --configuration Release \
+            --no-restore \
+            -p:CUE4ParseSourceRoot="$CUE4PARSE_SOURCE_ROOT" \
+            -p:CUE4PARSE_SKIP_NATIVE=true
+
+          APP="tools/maps/UEDeepPayloadAudit/bin/Release/net10.0/UEDeepPayloadAudit.dll"
+          test -s "$APP"
+
+          mkdir -p buried-download/deep-payload-shards
+          SHARDS=16
+          for i in $(seq 0 $((SHARDS - 1))); do
+            echo "XZIEL_KINO_DEEP_PAYLOAD_START $i/$SHARDS"
+            dotnet "$APP" \
+              buried-pak-unpacked \
+              buried-download/PavMappings.usmap \
+              buried-download/buried-class-census.json \
+              "buried-download/deep-payload-shards/shard-$i.json" \
+              "$i" "$SHARDS" ue5.1 \
+              | tee "buried-download/deep-payload-shards/shard-$i.log"
+            test -s "buried-download/deep-payload-shards/shard-$i.json"
+            echo "XZIEL_KINO_DEEP_PAYLOAD_DONE $i/$SHARDS"
+          done
+
+          python3 - <<'PY'
+          import json
+          from collections import Counter
+          from pathlib import Path
+
+          root = Path("buried-download/deep-payload-shards")
+          reports = [
+              json.loads(p.read_text(encoding="utf-8"))
+              for p in sorted(
+                  root.glob("shard-*.json"),
+                  key=lambda p: int(p.stem.split("-")[1]),
+              )
+          ]
+          assert len(reports) == 16, len(reports)
+
+          census = json.loads(
+              Path("buried-download/buried-class-census.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+
+          classes = census["classCounts"]
+          expected_textures = sum(
+              count
+              for name, count in classes.items()
+              if name.endswith("Texture2D")
+          )
+          expected_audio = classes.get("SoundWave", 0)
+          expected_skeletal = classes.get("SkeletalMesh", 0)
+          expected_anims = classes.get("AnimSequence", 0)
+
+          texture_formats = Counter()
+          audio_formats = Counter()
+          failures = []
+          for report in reports:
+              texture_formats.update(report["textureFormats"])
+              audio_formats.update(report["audioFormats"])
+              failures.extend(report["failures"])
+
+          out = {
+              "schemaVersion": 1,
+              "shardCount": 16,
+              "packageCount": sum(r["packageCount"] for r in reports),
+              "packagesLoaded": sum(r["packagesLoaded"] for r in reports),
+              "expectedTextures": sum(r["expectedTextures"] for r in reports),
+              "texturesDecoded": sum(r["texturesDecoded"] for r in reports),
+              "textureMips": sum(r["textureMips"] for r in reports),
+              "textureBytes": sum(r["textureBytes"] for r in reports),
+              "textureFormats": dict(sorted(texture_formats.items())),
+              "maxTextureWidth": max(r["maxTextureWidth"] for r in reports),
+              "maxTextureHeight": max(r["maxTextureHeight"] for r in reports),
+              "expectedSoundWaves": sum(r["expectedSoundWaves"] for r in reports),
+              "soundWavesDecoded": sum(r["soundWavesDecoded"] for r in reports),
+              "audioBytes": sum(r["audioBytes"] for r in reports),
+              "audioFormats": dict(sorted(audio_formats.items())),
+              "expectedSkeletalMeshes": sum(r["expectedSkeletalMeshes"] for r in reports),
+              "skeletalMeshesDecoded": sum(r["skeletalMeshesDecoded"] for r in reports),
+              "skeletalBones": sum(r["skeletalBones"] for r in reports),
+              "skeletalVertices": sum(r["skeletalVertices"] for r in reports),
+              "skeletalIndices": sum(r["skeletalIndices"] for r in reports),
+              "skeletalTriangles": sum(r["skeletalTriangles"] for r in reports),
+              "maxSkeletalUvChannels": max(r["maxSkeletalUvChannels"] for r in reports),
+              "expectedAnimSequences": sum(r["expectedAnimSequences"] for r in reports),
+              "animSequencesDecoded": sum(r["animSequencesDecoded"] for r in reports),
+              "animationFrames": sum(r["animationFrames"] for r in reports),
+              "animationTracks": sum(r["animationTracks"] for r in reports),
+              "animationPositionKeys": sum(r["animationPositionKeys"] for r in reports),
+              "animationRotationKeys": sum(r["animationRotationKeys"] for r in reports),
+              "animationScaleKeys": sum(r["animationScaleKeys"] for r in reports),
+              "failureCount": len(failures),
+              "failures": failures,
+          }
+
+          out["ready"] = (
+              all(r["ready"] for r in reports)
+              and out["expectedTextures"] == expected_textures
+              and out["texturesDecoded"] == expected_textures
+              and out["expectedSoundWaves"] == expected_audio
+              and out["soundWavesDecoded"] == expected_audio
+              and out["expectedSkeletalMeshes"] == expected_skeletal
+              and out["skeletalMeshesDecoded"] == expected_skeletal
+              and out["expectedAnimSequences"] == expected_anims
+              and out["animSequencesDecoded"] == expected_anims
+              and out["failureCount"] == 0
+              and (expected_textures == 0 or (
+                  out["textureMips"] > 0 and out["textureBytes"] > 0
+              ))
+              and (expected_audio == 0 or out["audioBytes"] > 0)
+              and (expected_skeletal == 0 or (
+                  out["skeletalBones"] > 0
+                  and out["skeletalVertices"] > 0
+                  and out["skeletalIndices"] > 0
+              ))
+              and (expected_anims == 0 or (
+                  out["animationFrames"] > 0
+                  and out["animationTracks"] > 0
+                  and (
+                      out["animationPositionKeys"]
+                      + out["animationRotationKeys"]
+                      + out["animationScaleKeys"]
+                  ) > 0
+              ))
+          )
+
+          Path("buried-download/buried-deep-payload-audit.json").write_text(
+              json.dumps(out, indent=2, sort_keys=True),
+              encoding="utf-8",
+          )
+
+          print("XZIEL_KINO_DEEP_PAYLOAD_AUDIT", {
+              "textures": f'{out["texturesDecoded"]}/{expected_textures}',
+              "textureMips": out["textureMips"],
+              "textureBytes": out["textureBytes"],
+              "soundWaves": f'{out["soundWavesDecoded"]}/{expected_audio}',
+              "audioBytes": out["audioBytes"],
+              "skeletalMeshes": f'{out["skeletalMeshesDecoded"]}/{expected_skeletal}',
+              "skeletalBones": out["skeletalBones"],
+              "skeletalVertices": out["skeletalVertices"],
+              "animSequences": f'{out["animSequencesDecoded"]}/{expected_anims}',
+              "animationFrames": out["animationFrames"],
+              "animationTracks": out["animationTracks"],
+              "failures": out["failureCount"],
+              "ready": out["ready"],
+          })
+
+          if not out["ready"]:
+              for row in failures[:300]:
+                  print("XZIEL_KINO_DEEP_PAYLOAD_FAILURE", row)
+              raise SystemExit(5)
+
+          print("XZIEL_KINO_DEEP_PAYLOAD_AUDIT_GREEN")
+          PY
+
+      - name: Convert cooked UE textures directly to native XZTX
+        run: |
+          set -euxo pipefail
+          dotnet restore tools/maps/UETextureXZTX/UETextureXZTX.csproj
+          dotnet build tools/maps/UETextureXZTX/UETextureXZTX.csproj \
+            --configuration Release \
+            --no-restore \
+            -warnaserror
+
+          APP="tools/maps/UETextureXZTX/bin/Release/net10.0/UETextureXZTX.dll"
+          test -s "$APP"
+
+          rm -rf buried-download/ue-xztx-probe
+          mkdir -p buried-download/ue-xztx-probe
+
+          EXPECTED_TEXTURES="$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(
+              Path("buried-download/buried-deep-payload-audit.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          print(report["expectedTextures"])
+          PY
+          )"
+          test "$EXPECTED_TEXTURES" -gt 0
+
+          dotnet "$APP" \
+            buried-pak-unpacked \
+            buried-download/PavMappings.usmap \
+            buried-download/buried-class-census.json \
+            buried-download/ue-xztx-probe \
+            "$EXPECTED_TEXTURES" \
+            ue5.1 \
+            | tee buried-download/ue-xztx-probe.log
+
+          test -s buried-download/ue-xztx-probe/report.json
+          grep -q 'XZIEL_UE_XZTX_PROBE_GREEN' \
+            buried-download/ue-xztx-probe.log
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          deep = json.loads(
+              Path("buried-download/buried-deep-payload-audit.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          native = json.loads(
+              Path("buried-download/ue-xztx-probe/report.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+
+          assert native["ready"] is True
+          assert native["failureCount"] == 0
+          assert native["requestedTextures"] == deep["expectedTextures"]
+          assert native["convertedTextures"] == deep["texturesDecoded"]
+          assert native["totalMips"] == deep["textureMips"]
+          assert native["totalPayloadBytes"] == deep["textureBytes"]
+
+          print("XZIEL_KINO_UE_XZTX_PAYLOAD_PARITY_GREEN", {
+              "textures": native["convertedTextures"],
+              "mips": native["totalMips"],
+              "payloadBytes": native["totalPayloadBytes"],
+              "formats": native["formatCounts"],
+          })
+          PY
+
+          mkdir -p build/xztx-native-gate
+          cc -std=gnu11 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tools/maps/xz_xztexture_selftest.c \
+            engine/xz/xz_xztexture.c \
+            -o build/xztx-native-gate/xz-xztexture-selftest
+          build/xztx-native-gate/xz-xztexture-selftest
+
+          cc -std=gnu11 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tools/maps/xz_xztexture_file_gate.c \
+            engine/xz/xz_xztexture.c \
+            -o build/xztx-native-gate/xz-xztexture-file-gate
+
+          mapfile -t TEXTURES < <(find buried-download/ue-xztx-probe \
+            -maxdepth 1 -type f -name '*.xzt' | sort)
+          test "${#TEXTURES[@]}" -eq "$EXPECTED_TEXTURES"
+
+          : > buried-download/ue-xztx-native-gate.log
+          printf '%s\0' "${TEXTURES[@]}" \
+            | xargs -0 -r -n 128 \
+                build/xztx-native-gate/xz-xztexture-file-gate \
+            | tee buried-download/ue-xztx-native-gate.log
+
+          test "$(grep -c '^XZIEL_XZTX_FILE_GATE_OK ' \
+            buried-download/ue-xztx-native-gate.log)" \
+            -eq "$EXPECTED_TEXTURES"
+
+          echo "XZIEL_KINO_UE_XZTX_NATIVE_ALL_GREEN count=$EXPECTED_TEXTURES"
+
+          # Keep reports/logs, but release the ~source-payload-sized native files
+          # before the remaining scene audits to avoid unnecessary runner pressure.
+          find buried-download/ue-xztx-probe \
+            -maxdepth 1 -type f -name '*.xzt' -delete
+
+      - name: Convert cooked UE audio directly to native XZAW
+        run: |
+          set -euxo pipefail
+          dotnet restore tools/maps/UEAudioXZAW/UEAudioXZAW.csproj
+          dotnet build tools/maps/UEAudioXZAW/UEAudioXZAW.csproj \
+            --configuration Release \
+            --no-restore \
+            -warnaserror
+
+          APP="tools/maps/UEAudioXZAW/bin/Release/net10.0/UEAudioXZAW.dll"
+          test -s "$APP"
+
+          rm -rf buried-download/ue-xzaw-probe
+          mkdir -p buried-download/ue-xzaw-probe
+
+          EXPECTED_AUDIO="$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(
+              Path("buried-download/buried-deep-payload-audit.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          print(report["expectedSoundWaves"])
+          PY
+          )"
+          test "$EXPECTED_AUDIO" -gt 0
+
+          dotnet "$APP" \
+            buried-pak-unpacked \
+            buried-download/PavMappings.usmap \
+            buried-download/buried-class-census.json \
+            buried-download/ue-xzaw-probe \
+            "$EXPECTED_AUDIO" \
+            ue5.1 \
+            | tee buried-download/ue-xzaw-probe.log
+
+          test -s buried-download/ue-xzaw-probe/report.json
+          grep -q 'XZIEL_UE_XZAW_PROBE_GREEN' \
+            buried-download/ue-xzaw-probe.log
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          deep = json.loads(
+              Path("buried-download/buried-deep-payload-audit.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          native = json.loads(
+              Path("buried-download/ue-xzaw-probe/report.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+
+          assert native["ready"] is True
+          assert native["failureCount"] == 0
+          assert native["requestedSoundWaves"] == deep["expectedSoundWaves"]
+          assert native["convertedSoundWaves"] == deep["soundWavesDecoded"]
+          assert native["totalPayloadBytes"] == deep["audioBytes"]
+
+          print("XZIEL_KINO_UE_XZAW_PAYLOAD_PARITY_GREEN", {
+              "soundWaves": native["convertedSoundWaves"],
+              "payloadBytes": native["totalPayloadBytes"],
+              "formats": native["formatCounts"],
+          })
+          PY
+
+          mkdir -p build/xzaw-native-gate
+          cc -std=gnu11 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tools/maps/xz_xzaudio_selftest.c \
+            engine/xz/xz_xzaudio.c \
+            -o build/xzaw-native-gate/xz-xzaudio-selftest
+          build/xzaw-native-gate/xz-xzaudio-selftest
+
+          cc -std=gnu11 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tools/maps/xz_xzaudio_file_gate.c \
+            engine/xz/xz_xzaudio.c \
+            -o build/xzaw-native-gate/xz-xzaudio-file-gate
+
+          mapfile -t AUDIO < <(find buried-download/ue-xzaw-probe \
+            -maxdepth 1 -type f -name '*.xaw' | sort)
+          test "${#AUDIO[@]}" -eq "$EXPECTED_AUDIO"
+
+          : > buried-download/ue-xzaw-native-gate.log
+          printf '%s\0' "${AUDIO[@]}" \
+            | xargs -0 -r -n 128 \
+                build/xzaw-native-gate/xz-xzaudio-file-gate \
+            | tee buried-download/ue-xzaw-native-gate.log
+
+          test "$(grep -c '^XZIEL_XZAW_FILE_GATE_OK ' \
+            buried-download/ue-xzaw-native-gate.log)" \
+            -eq "$EXPECTED_AUDIO"
+
+          echo "XZIEL_KINO_UE_XZAW_NATIVE_ALL_GREEN count=$EXPECTED_AUDIO"
+
+          find buried-download/ue-xzaw-probe \
+            -maxdepth 1 -type f -name '*.xaw' -delete
+
+      - name: Convert cooked UE skeletons directly to native XZRG
+        run: |
+          set -euxo pipefail
+          dotnet restore tools/maps/UESkeletonXZRG/UESkeletonXZRG.csproj \
+            -p:CUE4ParseSourceRoot="$CUE4PARSE_SOURCE_ROOT" \
+            -p:CUE4PARSE_SKIP_NATIVE=true
+          dotnet build tools/maps/UESkeletonXZRG/UESkeletonXZRG.csproj \
+            --configuration Release \
+            --no-restore \
+            -p:CUE4ParseSourceRoot="$CUE4PARSE_SOURCE_ROOT" \
+            -p:CUE4PARSE_SKIP_NATIVE=true
+
+          APP="tools/maps/UESkeletonXZRG/bin/Release/net10.0/UESkeletonXZRG.dll"
+          test -s "$APP"
+
+          rm -rf buried-download/ue-xzrg-probe buried-download/ue-xzrg-base-hand
+          mkdir -p buried-download/ue-xzrg-probe buried-download/ue-xzrg-base-hand
+
+          EXPECTED_RIGS="$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          census = json.loads(
+              Path("buried-download/buried-class-census.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          print(census["classCounts"].get("Skeleton", 0))
+          PY
+          )"
+          test "$EXPECTED_RIGS" -gt 0
+
+          dotnet "$APP" \
+            buried-pak-unpacked \
+            buried-download/PavMappings.usmap \
+            buried-download/buried-class-census.json \
+            buried-download/ue-xzrg-probe \
+            "$EXPECTED_RIGS" \
+            ue5.1 \
+            | tee buried-download/ue-xzrg-probe.log
+
+          test -s buried-download/ue-xzrg-probe/report.json
+          grep -q 'XZIEL_UE_XZRG_PROBE_GREEN' \
+            buried-download/ue-xzrg-probe.log
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(
+              Path("buried-download/ue-xzrg-probe/report.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          census = json.loads(
+              Path("buried-download/buried-class-census.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          expected = census["classCounts"].get("Skeleton", 0)
+
+          assert report["ready"] is True
+          assert report["failureCount"] == 0
+          assert report["requestedSkeletons"] == expected
+          assert report["convertedSkeletons"] == expected
+          assert report["totalBones"] > 0
+          assert len(report["skeletonHashCounts"]) > 0
+
+          print("XZIEL_KINO_UE_XZRG_PAYLOAD_PARITY_GREEN", {
+              "skeletons": report["convertedSkeletons"],
+              "bones": report["totalBones"],
+              "topologies": len(report["skeletonHashCounts"]),
+              "poses": len(report["poseHashCounts"]),
+          })
+          PY
+
+          cat > buried-download/base-hand-skeleton-census.json <<'JSON'
+          {
+            "packages": [
+              {
+                "packagePath": "Pavlov/Content/Hands/Mesh/SK_Hand_Skeleton.uasset",
+                "classes": {
+                  "Skeleton": 1
+                }
+              }
+            ]
+          }
+          JSON
+
+          dotnet "$APP" \
+            buried-pak-unpacked \
+            buried-download/PavMappings.usmap \
+            buried-download/base-hand-skeleton-census.json \
+            buried-download/ue-xzrg-base-hand \
+            1 \
+            ue5.1 \
+            | tee buried-download/ue-xzrg-base-hand.log
+
+          test -s buried-download/ue-xzrg-base-hand/report.json
+          grep -q 'XZIEL_UE_XZRG_PROBE_GREEN' \
+            buried-download/ue-xzrg-base-hand.log
+
+          mkdir -p build/xzrg-native-gate
+          cc -std=gnu11 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tools/maps/xz_xzrig_file_gate.c \
+            engine/xz/xz_xzrig.c \
+            -lm \
+            -o build/xzrg-native-gate/xz-xzrig-file-gate
+
+          mapfile -t RIGS < <(find buried-download/ue-xzrg-probe \
+            -maxdepth 1 -type f -name '*.xrg' | sort)
+          test "${#RIGS[@]}" -eq "$EXPECTED_RIGS"
+
+          build/xzrg-native-gate/xz-xzrig-file-gate "${RIGS[@]}" \
+            | tee buried-download/ue-xzrg-native-gate.log
+
+          test "$(grep -c '^XZIEL_XZRG_FILE_GATE_OK ' \
+            buried-download/ue-xzrg-native-gate.log)" \
+            -eq "$EXPECTED_RIGS"
+
+          mapfile -t BASE_HAND_RIGS < <(find buried-download/ue-xzrg-base-hand \
+            -maxdepth 1 -type f -name '*.xrg' | sort)
+          test "${#BASE_HAND_RIGS[@]}" -eq 1
+
+          build/xzrg-native-gate/xz-xzrig-file-gate "${BASE_HAND_RIGS[@]}" \
+            | tee buried-download/ue-xzrg-base-hand-native-gate.log
+
+          echo "XZIEL_KINO_UE_XZRG_NATIVE_ALL_GREEN map=$EXPECTED_RIGS baseHand=1"
+
+      - name: Convert cooked UE skeletal meshes directly to native XZSK
+        run: |
+          set -euxo pipefail
+          dotnet restore tools/maps/UESkeletalMeshXZSK/UESkeletalMeshXZSK.csproj \
+            -p:CUE4ParseSourceRoot="$CUE4PARSE_SOURCE_ROOT" \
+            -p:CUE4PARSE_SKIP_NATIVE=true
+          dotnet build tools/maps/UESkeletalMeshXZSK/UESkeletalMeshXZSK.csproj \
+            --configuration Release \
+            --no-restore \
+            -p:CUE4ParseSourceRoot="$CUE4PARSE_SOURCE_ROOT" \
+            -p:CUE4PARSE_SKIP_NATIVE=true
+
+          APP="tools/maps/UESkeletalMeshXZSK/bin/Release/net10.0/UESkeletalMeshXZSK.dll"
+          test -s "$APP"
+
+          rm -rf buried-download/ue-xzsk-probe
+          mkdir -p buried-download/ue-xzsk-probe
+
+          EXPECTED_SKELETAL="$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(
+              Path("buried-download/buried-deep-payload-audit.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          print(report["expectedSkeletalMeshes"])
+          PY
+          )"
+          test "$EXPECTED_SKELETAL" -gt 0
+
+          dotnet "$APP" \
+            buried-pak-unpacked \
+            buried-download/PavMappings.usmap \
+            buried-download/buried-class-census.json \
+            buried-download/ue-xzsk-probe \
+            "$EXPECTED_SKELETAL" \
+            ue5.1 \
+            | tee buried-download/ue-xzsk-probe.log
+
+          test -s buried-download/ue-xzsk-probe/report.json
+          grep -q 'XZIEL_UE_XZSK_PROBE_GREEN' \
+            buried-download/ue-xzsk-probe.log
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          deep = json.loads(
+              Path("buried-download/buried-deep-payload-audit.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          native = json.loads(
+              Path("buried-download/ue-xzsk-probe/report.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+
+          assert native["ready"] is True
+          assert native["failureCount"] == 0
+          assert native["requestedMeshes"] == deep["expectedSkeletalMeshes"]
+          assert native["convertedMeshes"] == deep["skeletalMeshesDecoded"]
+          assert native["totalBones"] == deep["skeletalBones"]
+          assert native["totalVertices"] == deep["skeletalVertices"]
+          assert native["totalIndices"] == deep["skeletalIndices"]
+          assert native["totalTriangles"] == deep["skeletalTriangles"]
+          assert native["maxUvChannels"] == deep["maxSkeletalUvChannels"]
+          assert 1 <= native["maxInfluences"] <= 8
+          assert len(native["skeletonHashCounts"]) > 0
+
+          source_rigs = json.loads(
+              Path("buried-download/ue-xzrg-probe/report.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          base_hand_rig = json.loads(
+              Path("buried-download/ue-xzrg-base-hand/report.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          canonical_rig_hashes = (
+              set(source_rigs["skeletonHashCounts"])
+              | set(base_hand_rig["skeletonHashCounts"])
+          )
+          linked_mesh_hashes = {
+              row["skeletonHash"]
+              for row in native["meshes"]
+              if not row["selfRig"]
+          }
+          missing_mesh_rigs = sorted(
+              linked_mesh_hashes - canonical_rig_hashes
+          )
+          assert not missing_mesh_rigs, {
+              "meshSkeletonsWithoutXZRG": missing_mesh_rigs,
+              "linkedMeshSkeletons": len(linked_mesh_hashes),
+              "canonicalRigs": len(canonical_rig_hashes),
+          }
+
+          print("XZIEL_KINO_UE_XZSK_RIG_LINK_GREEN", {
+              "linkedMeshSkeletons": len(linked_mesh_hashes),
+              "canonicalRigs": len(canonical_rig_hashes),
+              "selfRigs": native["selfRigFallbackCount"],
+          })
+
+          print("XZIEL_KINO_UE_XZSK_PAYLOAD_PARITY_GREEN", {
+              "meshes": native["convertedMeshes"],
+              "bones": native["totalBones"],
+              "vertices": native["totalVertices"],
+              "indices": native["totalIndices"],
+              "triangles": native["totalTriangles"],
+              "sections": native["totalSections"],
+              "maxUvChannels": native["maxUvChannels"],
+              "maxInfluences": native["maxInfluences"],
+              "skeletons": len(native["skeletonHashCounts"]),
+          })
+          PY
+
+          mkdir -p build/xzsk-native-gate
+          cc -std=gnu11 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tools/maps/xz_xzskel_file_gate.c \
+            engine/xz/xz_xzskel.c \
+            -lm \
+            -o build/xzsk-native-gate/xz-xzskel-file-gate
+
+          mapfile -t SKELS < <(find buried-download/ue-xzsk-probe \
+            -maxdepth 1 -type f -name '*.xsk' | sort)
+          test "${#SKELS[@]}" -eq "$EXPECTED_SKELETAL"
+
+          build/xzsk-native-gate/xz-xzskel-file-gate "${SKELS[@]}" \
+            | tee buried-download/ue-xzsk-native-gate.log
+
+          test "$(grep -c '^XZIEL_XZSK_FILE_GATE_OK ' \
+            buried-download/ue-xzsk-native-gate.log)" \
+            -eq "$EXPECTED_SKELETAL"
+
+          echo "XZIEL_KINO_UE_XZSK_NATIVE_ALL_GREEN count=$EXPECTED_SKELETAL"
+
+          find buried-download/ue-xzsk-probe \
+            -maxdepth 1 -type f -name '*.xsk' -delete
+
+      - name: Convert decoded UE animations directly to native XZAN
+        run: |
+          set -euxo pipefail
+          dotnet restore tools/maps/UEAnimationXZAN/UEAnimationXZAN.csproj \
+            -p:CUE4ParseSourceRoot="$CUE4PARSE_SOURCE_ROOT" \
+            -p:CUE4PARSE_SKIP_NATIVE=true
+          dotnet build tools/maps/UEAnimationXZAN/UEAnimationXZAN.csproj \
+            --configuration Release \
+            --no-restore \
+            -p:CUE4ParseSourceRoot="$CUE4PARSE_SOURCE_ROOT" \
+            -p:CUE4PARSE_SKIP_NATIVE=true
+
+          APP="tools/maps/UEAnimationXZAN/bin/Release/net10.0/UEAnimationXZAN.dll"
+          test -s "$APP"
+
+          rm -rf buried-download/ue-xzan-probe
+          mkdir -p buried-download/ue-xzan-probe
+
+          EXPECTED_ANIMS="$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(
+              Path("buried-download/buried-deep-payload-audit.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          print(report["expectedAnimSequences"])
+          PY
+          )"
+          test "$EXPECTED_ANIMS" -gt 0
+
+          dotnet "$APP" \
+            buried-pak-unpacked \
+            buried-download/PavMappings.usmap \
+            buried-download/buried-class-census.json \
+            buried-download/ue-xzan-probe \
+            "$EXPECTED_ANIMS" \
+            ue5.1 \
+            | tee buried-download/ue-xzan-probe.log
+
+          test -s buried-download/ue-xzan-probe/report.json
+          grep -q 'XZIEL_UE_XZAN_PROBE_GREEN' \
+            buried-download/ue-xzan-probe.log
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          deep = json.loads(
+              Path("buried-download/buried-deep-payload-audit.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          native = json.loads(
+              Path("buried-download/ue-xzan-probe/report.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+
+          assert native["ready"] is True
+          assert native["failureCount"] == 0
+          assert native["requestedAnimations"] == deep["expectedAnimSequences"]
+          assert native["convertedAnimations"] == deep["animSequencesDecoded"]
+          assert native["totalFrames"] == deep["animationFrames"]
+          assert native["totalTracks"] == deep["animationTracks"]
+          assert native["positionKeys"] == deep["animationPositionKeys"]
+          assert native["rotationKeys"] == deep["animationRotationKeys"]
+          assert native["scaleKeys"] == deep["animationScaleKeys"]
+          assert len(native["skeletonHashCounts"]) > 0
+
+          source_rigs = json.loads(
+              Path("buried-download/ue-xzrg-probe/report.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          base_hand_rig = json.loads(
+              Path("buried-download/ue-xzrg-base-hand/report.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          rig_hashes = (
+              set(source_rigs["skeletonHashCounts"])
+              | set(base_hand_rig["skeletonHashCounts"])
+          )
+          anim_hashes = set(native["skeletonHashCounts"])
+          overlap = rig_hashes & anim_hashes
+          missing_rigs = sorted(anim_hashes - rig_hashes)
+
+          assert not missing_rigs, {
+              "animationSkeletonsWithoutNativeRig": missing_rigs,
+              "animationSkeletonCount": len(anim_hashes),
+              "rigSkeletonCount": len(rig_hashes),
+          }
+
+          print("XZIEL_KINO_UE_XZAN_PAYLOAD_PARITY_GREEN", {
+              "animations": native["convertedAnimations"],
+              "frames": native["totalFrames"],
+              "tracks": native["totalTracks"],
+              "positionKeys": native["positionKeys"],
+              "rotationKeys": native["rotationKeys"],
+              "scaleKeys": native["scaleKeys"],
+              "sharedTimeKeys": native["sharedTimeKeys"],
+              "positionTimeKeys": native["positionTimeKeys"],
+              "rotationTimeKeys": native["rotationTimeKeys"],
+              "scaleTimeKeys": native["scaleTimeKeys"],
+              "additive": native["additiveCount"],
+              "animationSkeletons": len(anim_hashes),
+              "rigSkeletons": len(rig_hashes),
+              "linkedSkeletons": len(overlap),
+              "missingNativeRigs": len(missing_rigs),
+          })
+          PY
+
+          mkdir -p build/xzan-native-gate
+          cc -std=gnu11 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tools/maps/xz_xzanim_file_gate.c \
+            engine/xz/xz_xzanim.c \
+            -lm \
+            -o build/xzan-native-gate/xz-xzanim-file-gate
+
+          mapfile -t ANIMS < <(find buried-download/ue-xzan-probe \
+            -maxdepth 1 -type f -name '*.xan' | sort)
+          test "${#ANIMS[@]}" -eq "$EXPECTED_ANIMS"
+
+          build/xzan-native-gate/xz-xzanim-file-gate "${ANIMS[@]}" \
+            | tee buried-download/ue-xzan-native-gate.log
+
+          test "$(grep -c '^XZIEL_XZAN_FILE_GATE_OK ' \
+            buried-download/ue-xzan-native-gate.log)" \
+            -eq "$EXPECTED_ANIMS"
+
+          echo "XZIEL_KINO_UE_XZAN_NATIVE_ALL_GREEN count=$EXPECTED_ANIMS"
+
+          find buried-download/ue-xzan-probe \
+            -maxdepth 1 -type f -name '*.xan' -delete
+
+      - name: Audit complete UE scene transform semantics
+        run: |
+          set -euxo pipefail
+          dotnet restore \
+            tools/maps/UESceneTransformAudit/UESceneTransformAudit.csproj
+          dotnet build \
+            tools/maps/UESceneTransformAudit/UESceneTransformAudit.csproj \
+            --configuration Release \
+            --no-restore
+
+          APP="tools/maps/UESceneTransformAudit/bin/Release/net10.0/UESceneTransformAudit.dll"
+          test -s "$APP"
+
+          mkdir -p buried-download/scene-transform-shards
+          SHARDS=16
+          for i in $(seq 0 $((SHARDS - 1))); do
+            dotnet "$APP" \
+              buried-pak-unpacked \
+              buried-download/PavMappings.usmap \
+              buried-download/buried-class-census.json \
+              "buried-download/scene-transform-shards/shard-$i.json" \
+              "$i" "$SHARDS" ue5.1 \
+              | tee "buried-download/scene-transform-shards/shard-$i.log"
+          done
+
+          python3 - <<'PY'
+          import json
+          from collections import Counter
+          from pathlib import Path
+
+          reports = [
+              json.loads(p.read_text(encoding="utf-8"))
+              for p in sorted(
+                  Path("buried-download/scene-transform-shards").glob("shard-*.json"),
+                  key=lambda p: int(p.stem.split("-")[1]),
+              )
+          ]
+          assert len(reports) == 16, len(reports)
+
+          census = json.loads(
+              Path("buried-download/buried-class-census.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+
+          types = Counter()
+          failures = []
+          for r in reports:
+              assert r["ready"], r["shardIndex"]
+              types.update(r["typeCounts"])
+              failures.extend(r["failures"])
+
+          out = {
+              "schemaVersion": 1,
+              "shardCount": 16,
+              "packageCount": sum(r["packageCount"] for r in reports),
+              "packagesLoaded": sum(r["packagesLoaded"] for r in reports),
+              "failureCount": len(failures),
+              "sceneComponents": sum(r["sceneComponents"] for r in reports),
+              "attachedComponents": sum(r["attachedComponents"] for r in reports),
+              "absoluteLocation": sum(r["absoluteLocation"] for r in reports),
+              "absoluteRotation": sum(r["absoluteRotation"] for r in reports),
+              "absoluteScale": sum(r["absoluteScale"] for r in reports),
+              "anyAbsolute": sum(r["anyAbsolute"] for r in reports),
+              "negativeScale": sum(r["negativeScale"] for r in reports),
+              "zeroScale": sum(r["zeroScale"] for r in reports),
+              "nonFiniteTransform": sum(r["nonFiniteTransform"] for r in reports),
+              "typeCounts": dict(sorted(types.items())),
+              "failures": failures,
+          }
+          out["ready"] = (
+              out["packageCount"] == census["packageCount"]
+              and out["packagesLoaded"] == census["packageCount"]
+              and out["failureCount"] == 0
+              and out["sceneComponents"] > 0
+              and out["nonFiniteTransform"] == 0
+          )
+
+          Path("buried-download/buried-scene-transform-audit.json").write_text(
+              json.dumps(out, indent=2, sort_keys=True),
+              encoding="utf-8",
+          )
+
+          print("XZIEL_KINO_SCENE_TRANSFORM_AUDIT", {
+              "packages": out["packageCount"],
+              "sceneComponents": out["sceneComponents"],
+              "attached": out["attachedComponents"],
+              "absoluteLocation": out["absoluteLocation"],
+              "absoluteRotation": out["absoluteRotation"],
+              "absoluteScale": out["absoluteScale"],
+              "anyAbsolute": out["anyAbsolute"],
+              "negativeScale": out["negativeScale"],
+              "zeroScale": out["zeroScale"],
+              "nonFinite": out["nonFiniteTransform"],
+              "ready": out["ready"],
+          })
+          if not out["ready"]:
+              raise SystemExit(5)
+          print("XZIEL_KINO_SCENE_TRANSFORM_AUDIT_GREEN")
+          PY
+
+      - name: Audit every cooked UE static mesh
+        run: |
+          set -euxo pipefail
+          dotnet restore tools/maps/UEStaticMeshAudit/UEStaticMeshAudit.csproj
+          dotnet build tools/maps/UEStaticMeshAudit/UEStaticMeshAudit.csproj \
+            --configuration Release \
+            --no-restore
+
+          APP="tools/maps/UEStaticMeshAudit/bin/Release/net10.0/UEStaticMeshAudit.dll"
+          test -s "$APP"
+
+          mkdir -p buried-download/static-mesh-audit-shards
+          SHARDS=16
+          for i in $(seq 0 $((SHARDS - 1))); do
+            dotnet "$APP" \
+              buried-pak-unpacked \
+              buried-download/PavMappings.usmap \
+              buried-download/buried-class-census.json \
+              "buried-download/static-mesh-audit-shards/shard-$i.json" \
+              "$i" "$SHARDS" ue5.1 \
+              | tee "buried-download/static-mesh-audit-shards/shard-$i.log"
+          done
+
+          python3 - <<'PY'
+          import json
+          from collections import Counter
+          from pathlib import Path
+
+          reports = [
+              json.loads(p.read_text(encoding="utf-8"))
+              for p in sorted(
+                  Path("buried-download/static-mesh-audit-shards").glob("shard-*.json"),
+                  key=lambda p: int(p.stem.split("-")[1]),
+              )
+          ]
+          assert len(reports) == 16, len(reports)
+
+          census = json.loads(
+              Path("buried-download/buried-class-census.json").read_text(encoding="utf-8")
+          )
+          expected_meshes = census["classCounts"]["StaticMesh"]
+
+          uv_counts = Counter()
+          failures = []
+          for r in reports:
+              assert r["ready"], r["shardIndex"]
+              uv_counts.update({int(k): v for k, v in r["uvChannelCounts"].items()})
+              failures.extend(r["failures"])
+
+          out = {
+              "schemaVersion": 1,
+              "shardCount": 16,
+              "packageCount": sum(r["packageCount"] for r in reports),
+              "packagesLoaded": sum(r["packagesLoaded"] for r in reports),
+              "expectedMeshes": sum(r["expectedMeshes"] for r in reports),
+              "meshesDecoded": sum(r["meshesDecoded"] for r in reports),
+              "failureCount": len(failures),
+              "vertices": sum(r["vertices"] for r in reports),
+              "indices": sum(r["indices"] for r in reports),
+              "triangles": sum(r["triangles"] for r in reports),
+              "sections": sum(r["sections"] for r in reports),
+              "materials": sum(r["materials"] for r in reports),
+              "maxUvChannels": max(r["maxUvChannels"] for r in reports),
+              "uvChannelCounts": dict(sorted(uv_counts.items())),
+              "maxVertices": max(r["maxVertices"] for r in reports),
+              "maxTriangles": max(r["maxTriangles"] for r in reports),
+              "failures": failures,
+          }
+          out["ready"] = (
+              out["expectedMeshes"] == expected_meshes
+              and out["meshesDecoded"] == expected_meshes
+              and out["failureCount"] == 0
+              and 1 <= out["maxUvChannels"] <= 8
+          )
+
+          Path("buried-download/buried-static-mesh-audit.json").write_text(
+              json.dumps(out, indent=2, sort_keys=True),
+              encoding="utf-8",
+          )
+
+          print("XZIEL_KINO_STATIC_MESH_AUDIT", {
+              "expected": expected_meshes,
+              "decoded": out["meshesDecoded"],
+              "failures": out["failureCount"],
+              "vertices": out["vertices"],
+              "triangles": out["triangles"],
+              "sections": out["sections"],
+              "maxUvChannels": out["maxUvChannels"],
+              "uvChannelCounts": out["uvChannelCounts"],
+              "ready": out["ready"],
+          })
+          if not out["ready"]:
+              raise SystemExit(5)
+          print("XZIEL_KINO_STATIC_MESH_AUDIT_GREEN")
+          PY
+
+      - name: Convert cooked UE static meshes directly to native XZMS
+        run: |
+          set -euxo pipefail
+          dotnet restore \
+            tools/maps/UEStaticMeshXZMS/UEStaticMeshXZMS.csproj
+
+          dotnet build \
+            tools/maps/UEStaticMeshXZMS/UEStaticMeshXZMS.csproj \
+            --configuration Release \
+            --no-restore
+
+          APP="tools/maps/UEStaticMeshXZMS/bin/Release/net10.0/UEStaticMeshXZMS.dll"
+          test -s "$APP"
+
+          rm -rf buried-download/ue-xzms-probe
+          mkdir -p buried-download/ue-xzms-probe
+
+          dotnet "$APP" \
+            buried-pak-unpacked \
+            buried-download/PavMappings.usmap \
+            buried-download/buried-class-census.json \
+            buried-download/ue-xzms-probe \
+            8 \
+            ue5.1 \
+            | tee buried-download/ue-xzms-probe.log
+
+          test -s buried-download/ue-xzms-probe/report.json
+          grep -q 'XZIEL_UE_XZMS_PROBE_GREEN' \
+            buried-download/ue-xzms-probe.log
+
+          mkdir -p build/xzms-native-gate
+          cc -std=gnu11 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tools/maps/xz_xzmesh_file_gate.c \
+            engine/xz/xz_xzmesh.c \
+            -lm \
+            -o build/xzms-native-gate/xz-xzmesh-file-gate
+
+          mapfile -t MESHES < <(find buried-download/ue-xzms-probe \
+            -maxdepth 1 -type f -name '*.xzm' | sort)
+          test "${#MESHES[@]}" -eq 8
+
+          build/xzms-native-gate/xz-xzmesh-file-gate "${MESHES[@]}" \
+            | tee buried-download/ue-xzms-native-gate.log
+
+          grep -q 'XZIEL_XZMS_NATIVE_FILES_GREEN count=8' \
+            buried-download/ue-xzms-native-gate.log
+
+      - name: Build 1-to-1 source export dependency manifest
+        run: |
+          set -euxo pipefail
+          dotnet restore \
+            tools/maps/UEAssetSourceManifest/UEAssetSourceManifest.csproj
+
+          dotnet build \
+            tools/maps/UEAssetSourceManifest/UEAssetSourceManifest.csproj \
+            --configuration Release \
+            --no-restore
+
+          APP="tools/maps/UEAssetSourceManifest/bin/Release/net10.0/UEAssetSourceManifest.dll"
+          test -s "$APP"
+
+          mkdir -p buried-download/source-manifest-shards
+          SHARDS=16
+
+          for i in $(seq 0 $((SHARDS - 1))); do
+            echo "XZIEL_KINO_SOURCE_MANIFEST_START $i/$SHARDS"
+            dotnet "$APP" \
+              buried-pak-unpacked \
+              buried-download/PavMappings.usmap \
+              buried-download/buried-class-requirements.json \
+              buried-download/buried-class-census.json \
+              "buried-download/source-manifest-shards/shard-$i.json" \
+              "$i" "$SHARDS" ue5.1 \
+              | tee "buried-download/source-manifest-shards/shard-$i.log"
+            test -s "buried-download/source-manifest-shards/shard-$i.json"
+            echo "XZIEL_KINO_SOURCE_MANIFEST_GREEN $i/$SHARDS"
+          done
+
+          python3 - <<'PY'
+          import json
+          from collections import Counter
+          from pathlib import Path
+
+          root = Path("buried-download/source-manifest-shards")
+          reports = [
+              json.loads(p.read_text(encoding="utf-8"))
+              for p in sorted(
+                  root.glob("shard-*.json"),
+                  key=lambda p: int(p.stem.split("-")[1]),
+              )
+          ]
+          assert len(reports) == 16, len(reports)
+
+          census = json.loads(
+              Path("buried-download/buried-class-census.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          sweep = json.loads(
+              Path("buried-download/buried-property-sweep.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          requirements = json.loads(
+              Path("buried-download/buried-class-requirements.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+
+          keys = set()
+          duplicate_keys = []
+          kinds = Counter()
+          package_failures = []
+          export_failures = []
+          unclassified = []
+          invalid_dependencies = []
+
+          for report in reports:
+              assert report["ready"], report["shardIndex"]
+              kinds.update(report["kindCounts"])
+              package_failures.extend(report["packageFailures"])
+              export_failures.extend(report["exportFailures"])
+              unclassified.extend(report["unclassified"])
+              invalid_dependencies.extend(report["invalidDependencies"])
+
+              for node in report["nodes"]:
+                  key = node["contentKey"]
+                  if key in keys:
+                      duplicate_keys.append(key)
+                  keys.add(key)
+
+          summary = {
+              "schemaVersion": 1,
+              "shardCount": len(reports),
+              "packageCount": sum(r["packageCount"] for r in reports),
+              "packagesLoaded": sum(r["packagesLoaded"] for r in reports),
+              "expectedExports": sum(r["expectedExports"] for r in reports),
+              "exportsDecoded": sum(r["exportsDecoded"] for r in reports),
+              "nodeCount": sum(r["nodeCount"] for r in reports),
+              "uniqueContentKeyCount": len(keys),
+              "duplicateContentKeyCount": len(duplicate_keys),
+              "propertyTags": sum(r["propertyTags"] for r in reports),
+              "structuralEdges": sum(r["structuralEdges"] for r in reports),
+              "dependsMapEdges": sum(r["dependsMapEdges"] for r in reports),
+              "preloadEdges": sum(r["preloadEdges"] for r in reports),
+              "localDependencyEdges": sum(r["localDependencyEdges"] for r in reports),
+              "externalImportEdges": sum(r["externalImportEdges"] for r in reports),
+              "scriptImportEdges": sum(r["scriptImportEdges"] for r in reports),
+              "kindCounts": dict(sorted(kinds.items())),
+              "packageFailureCount": len(package_failures),
+              "exportFailureCount": len(export_failures),
+              "unclassifiedCount": len(unclassified),
+              "invalidDependencyCount": len(invalid_dependencies),
+              "packageFailures": package_failures,
+              "exportFailures": export_failures,
+              "unclassified": unclassified,
+              "invalidDependencies": invalid_dependencies,
+          }
+
+          expected_kinds = requirements["categoryExportCounts"]
+
+          summary["ready"] = (
+              summary["packageCount"] == census["packageCount"]
+              and summary["packagesLoaded"] == census["packageCount"]
+              and summary["expectedExports"] == census["totalExports"]
+              and summary["exportsDecoded"] == census["totalExports"]
+              and summary["nodeCount"] == census["totalExports"]
+              and summary["uniqueContentKeyCount"] == census["totalExports"]
+              and summary["duplicateContentKeyCount"] == 0
+              and summary["propertyTags"] == sweep["propertyTagCount"]
+              and summary["kindCounts"] == expected_kinds
+              and summary["packageFailureCount"] == 0
+              and summary["exportFailureCount"] == 0
+              and summary["unclassifiedCount"] == 0
+              and summary["invalidDependencyCount"] == 0
+              and (
+                  summary["structuralEdges"]
+                  + summary["dependsMapEdges"]
+                  + summary["preloadEdges"]
+              ) > 0
+          )
+
+          Path("buried-download/buried-source-export-manifest-summary.json").write_text(
+              json.dumps(summary, indent=2, sort_keys=True),
+              encoding="utf-8",
+          )
+
+          Path("buried-download/buried-source-adapter-requirements.txt").write_text(
+              "".join(
+                  f"{kind}|{count}\n"
+                  for kind, count in sorted(expected_kinds.items())
+              ),
+              encoding="utf-8",
+          )
+
+          print("XZIEL_KINO_SOURCE_MANIFEST_MERGED", {
+              "packages": summary["packageCount"],
+              "exports": summary["exportsDecoded"],
+              "nodes": summary["nodeCount"],
+              "uniqueKeys": summary["uniqueContentKeyCount"],
+              "propertyTags": summary["propertyTags"],
+              "structuralEdges": summary["structuralEdges"],
+              "dependsMapEdges": summary["dependsMapEdges"],
+              "preloadEdges": summary["preloadEdges"],
+              "localEdges": summary["localDependencyEdges"],
+              "externalEdges": summary["externalImportEdges"],
+              "scriptEdges": summary["scriptImportEdges"],
+              "kinds": summary["kindCounts"],
+              "invalidDependencies": summary["invalidDependencyCount"],
+              "ready": summary["ready"],
+          })
+
+          if not summary["ready"]:
+              raise SystemExit(5)
+
+          print("XZIEL_KINO_SOURCE_MANIFEST_GREEN")
+          PY
+
+      - name: Prove native source conversion remains fail closed
+        run: |
+          set -euxo pipefail
+          mkdir -p build/source-adapter-gate
+          cc -std=gnu11 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tools/maps/xz_source_adapter_blocker_gate.c \
+            engine/xz/xz_source_adapter_registry.c \
+            -o build/source-adapter-gate/xz-source-adapter-blocker-gate
+
+          build/source-adapter-gate/xz-source-adapter-blocker-gate \
+            < buried-download/buried-source-adapter-requirements.txt \
+            | tee buried-download/source-adapter-blockers.log
+
+          grep -q 'XZIEL_SOURCE_CONVERSION_FAIL_CLOSED_GREEN' \
+            buried-download/source-adapter-blockers.log
+
+      - name: Fail closed on unknown source classes
+        run: |
+          set -euxo pipefail
+          mkdir -p build/source-class-gate
+          cc -std=gnu11 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tools/maps/xz_source_class_gate.c \
+            engine/xz/xz_source_class_registry.c \
+            -o build/source-class-gate/xz-source-class-gate
+
+          jq -r '.classCounts | keys[]' \
+            buried-download/buried-class-census.json \
+            | build/source-class-gate/xz-source-class-gate \
+            | tee buried-download/source-class-gate.log
+
+          grep -q 'XZIEL_SOURCE_CLASS_GATE_GREEN' \
+            buried-download/source-class-gate.log
+
+      - name: Virgin-loader anti-hardcode gate
+        run: |
+          set -euxo pipefail
+          if grep -RniE "buried|burieddertoten|5184808|7169979" engine/xz \
+            --include='*.c' --include='*.h'; then
+            echo "XZIEL_KINO_VIRGIN_NO_ENGINE_HARDCODE_FAILURE"
+            exit 9
+          fi
+          echo "XZIEL_KINO_VIRGIN_NO_ENGINE_HARDCODE_GREEN"
+
+      - name: Upload Buried census
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: XZIEL-Buried-Virgin-Package-Census
+          path: |
+            buried-download/sha256.txt
+            buried-download/archive-list.txt
+            buried-download/extracted-files.txt
+            buried-download/buried-census.json
+            buried-download/pak-files.txt
+            buried-download/buried-pak-census.json
+            buried-download/buried-class-census.json
+            buried-download/buried-class-census.log
+            buried-download/PavMappings.sha256
+            buried-download/buried-property-probe.json
+            buried-download/buried-property-probe.log
+            buried-download/buried-property-sweep.json
+            buried-download/property-sweep-shards/
+            buried-download/buried-class-requirements.json
+            buried-download/buried-deep-payload-audit.json
+            buried-download/ue-xztx-probe/
+            buried-download/ue-xztx-probe.log
+            buried-download/ue-xztx-native-gate.log
+            buried-download/ue-xzaw-probe/
+            buried-download/ue-xzaw-probe.log
+            buried-download/ue-xzaw-native-gate.log
+            buried-download/ue-xzsk-probe/
+            buried-download/ue-xzsk-probe.log
+            buried-download/ue-xzsk-native-gate.log
+            buried-download/ue-xzan-probe/
+            buried-download/ue-xzan-probe.log
+            buried-download/ue-xzan-native-gate.log
+            buried-download/deep-payload-shards/
+            buried-download/buried-source-export-manifest-summary.json
+            buried-download/buried-source-adapter-requirements.txt
+            buried-download/source-adapter-blockers.log
+            buried-download/source-manifest-shards/
+            buried-download/source-class-gate.log
+            buried-download/class-shards/
+          retention-days: 7
