@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# CI probe: validates the self-contained Windows x64 package intended for Winlator.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -20,9 +21,13 @@ echo "==> XZIEL-WIN64: cloning engine/gameplay sources"
 git clone --depth 1 https://github.com/nzp-team/vril-engine.git "$DEPS/vril"
 git clone --depth 1 https://github.com/nzp-team/quakec.git "$DEPS/quakec"
 
-echo "==> XZIEL-WIN64: applying platform-neutral Xziel engine patches"
+echo "==> XZIEL-WIN64: applying the proven Xziel engine patch chain"
+# The Android-only sections are compile-time guarded; using the same patch
+# dependency order keeps the shared gameplay/data ABI aligned. Android-only
+# versioned touch-HUD patches are intentionally omitted for the first Winlator
+# gate; Winlator provides input mapping until the EXE runtime is proven.
+python3 "$ROOT/scripts/patch_vril_android.py" "$DEPS/vril"
 python3 "$ROOT/scripts/patch_vril_weaponhud.py" "$DEPS/vril"
-python3 "$ROOT/scripts/patch_vril_combatfx.py" "$DEPS/vril"
 python3 "$ROOT/scripts/patch_vril_modern_movement.py" "$DEPS/vril"
 python3 "$ROOT/scripts/patch_vril_camera_feel.py" "$DEPS/vril"
 python3 "$ROOT/scripts/patch_vril_animation_feel.py" "$DEPS/vril"
@@ -31,7 +36,6 @@ python3 "$ROOT/scripts/patch_vril_sanctum_staticmesh.py" "$DEPS/vril"
 echo "==> XZIEL-WIN64: applying Xziel gameplay patches"
 python3 -m pip install --quiet colorama==0.4.6 fastcrc==0.3.0 pandas==2.1.4 cairosvg==2.8.2
 python3 "$ROOT/scripts/patch_quakec_mobile.py" "$DEPS/quakec"
-python3 "$ROOT/scripts/patch_quakec_combatfx.py" "$DEPS/quakec"
 python3 "$ROOT/scripts/patch_quakec_modern_movement.py" "$DEPS/quakec"
 python3 "$ROOT/scripts/patch_quakec_mobile_v021.py" "$DEPS/quakec"
 python3 "$ROOT/scripts/patch_quakec_mobile_v022.py" "$DEPS/quakec"
