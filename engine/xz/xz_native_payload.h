@@ -10,11 +10,6 @@ extern "C" {
 
 #define XZ_NATIVE_VERSION 1u
 
-#define XZ_XZTX_HEADER_BYTES 48u
-#define XZ_XZTX_MIP_BYTES 20u
-
-#define XZ_XZAU_HEADER_BYTES 40u
-
 #define XZ_XZSK_HEADER_BYTES 96u
 #define XZ_XZSK_BONE_BYTES 56u
 #define XZ_XZSK_VERTEX_BYTES 136u
@@ -24,10 +19,6 @@ extern "C" {
 
 #define XZ_XZAN_HEADER_BYTES 56u
 #define XZ_XZAN_TRACK_BYTES 56u
-
-enum {
-    XZ_XZTX_FLAG_SRGB = 1u << 0
-};
 
 enum {
     XZ_XZSK_FLAG_XZIEL_BASIS = 1u << 0,
@@ -58,38 +49,6 @@ typedef enum XzNativePayloadStatus {
     XZ_NATIVE_ERR_NAME_RANGE,
     XZ_NATIVE_ERR_TIME_RANGE
 } XzNativePayloadStatus;
-
-typedef struct XzNativeTextureMip {
-    uint32_t payload_offset;
-    uint32_t bytes;
-    uint32_t width;
-    uint32_t height;
-    uint32_t depth;
-} XzNativeTextureMip;
-
-typedef struct XzNativeTextureView {
-    const unsigned char *data;
-    size_t size;
-    uint32_t flags;
-    uint32_t width;
-    uint32_t height;
-    uint32_t mip_count;
-    uint32_t payload_offset;
-    uint32_t payload_bytes;
-    uint64_t format_tag;
-} XzNativeTextureView;
-
-typedef struct XzNativeAudioView {
-    const unsigned char *data;
-    size_t size;
-    uint32_t flags;
-    uint32_t channels;
-    uint32_t sample_rate;
-    float duration_seconds;
-    uint64_t codec_tag;
-    uint32_t payload_offset;
-    uint32_t payload_bytes;
-} XzNativeAudioView;
 
 typedef struct XzNativeSkinnedMeshView {
     const unsigned char *data;
@@ -123,21 +82,6 @@ typedef struct XzNativeAnimationView {
     uint32_t payload_bytes;
     uint64_t skeleton_hash;
 } XzNativeAnimationView;
-
-XzNativePayloadStatus XzNativeTexture_Parse(
-    XzNativeTextureView *view,
-    const void *data,
-    size_t size);
-
-int XzNativeTexture_Mip(
-    const XzNativeTextureView *view,
-    uint32_t mip_index,
-    XzNativeTextureMip *mip);
-
-XzNativePayloadStatus XzNativeAudio_Parse(
-    XzNativeAudioView *view,
-    const void *data,
-    size_t size);
 
 XzNativePayloadStatus XzNativeSkinnedMesh_Parse(
     XzNativeSkinnedMeshView *view,
