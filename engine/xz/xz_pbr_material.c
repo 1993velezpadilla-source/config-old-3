@@ -74,7 +74,8 @@ static XzPbrMaterialStatus XzPbrMaterial_DecodeBinding(
     if ((binding->flags & ~known_flags) != 0u ||
         (binding->material_flags &
             ~(XZ_PBR_MATERIAL_FLAG_TWO_SIDED |
-              XZ_PBR_MATERIAL_FLAG_DISABLE_DEPTH_TEST)) != 0u)
+              XZ_PBR_MATERIAL_FLAG_DISABLE_DEPTH_TEST |
+              XZ_PBR_MATERIAL_FLAG_ALPHA_TEST_ENABLED)) != 0u)
         return XZ_PBR_MATERIAL_BAD_FLAGS;
 
     if (!isfinite(binding->roughness) ||
