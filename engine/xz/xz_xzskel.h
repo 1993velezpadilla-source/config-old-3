@@ -8,8 +8,8 @@
 extern "C" {
 #endif
 
-#define XZ_XZSK_VERSION 1u
-#define XZ_XZSK_HEADER_BYTES 96u
+#define XZ_XZSK_VERSION 2u
+#define XZ_XZSK_HEADER_BYTES 112u
 #define XZ_XZSK_BONE_BYTES 56u
 #define XZ_XZSK_VERTEX_BYTES 136u
 #define XZ_XZSK_SECTION_BYTES 16u
@@ -18,7 +18,8 @@ extern "C" {
 
 enum {
     XZ_XZSK_FLAG_XZIEL_BASIS = 1u << 0,
-    XZ_XZSK_FLAG_INDEX_U32 = 1u << 1
+    XZ_XZSK_FLAG_INDEX_U32 = 1u << 1,
+    XZ_XZSK_FLAG_SKELETON_REMAP = 1u << 2
 };
 
 typedef enum XzXzskelStatus {
@@ -57,6 +58,8 @@ typedef struct XzXzskelView {
     uint64_t skeleton_hash;
     float bounds_min[3];
     float bounds_max[3];
+    uint32_t skeleton_bone_count;
+    uint64_t mesh_layout_hash;
 } XzXzskelView;
 
 XzXzskelStatus XzXzskel_Parse(
