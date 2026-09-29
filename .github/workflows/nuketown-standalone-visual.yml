@@ -200,6 +200,7 @@ jobs:
           "$ADB" install -r dist/XZIEL-Nuketown-Standalone-debug.apk
 
           "$ADB" push dist/xziel-nuketown-vfs.tar /data/local/tmp/xziel-nuketown-vfs.tar
+          "$ADB" shell run-as com.xziel.engine mkdir -p files
           "$ADB" shell run-as com.xziel.engine sh -c             "'cd files && tar -xf /data/local/tmp/xziel-nuketown-vfs.tar'"
           "$ADB" shell run-as com.xziel.engine test -s             files/xziel/maps/xziel_nuketown_zombies/scene.xzsc
           "$ADB" shell run-as com.xziel.engine test -s             files/xziel/maps/xziel_nuketown_zombies/materials.xzmi
