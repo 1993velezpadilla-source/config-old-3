@@ -389,8 +389,6 @@ typedef struct {
     uint32_t static_pbr_binding_count;
     XzGles3StaticTexture *static_lightmap_textures;
     uint32_t static_lightmap_texture_count;
-    XzGles3StaticTexture *static_native_material_textures;
-    uint32_t static_native_material_texture_count;
     XzGles3NativeMaterial *static_native_materials;
     uint32_t static_native_material_count;
     uint32_t *static_material_batch_offsets;
@@ -449,44 +447,6 @@ static int XzRangeStringEquals(
     literal_bytes = strlen(literal);
     return literal_bytes == (size_t)bytes &&
         memcmp(text, literal, bytes) == 0;
-}
-
-static int XzGlExtensionPresent(
-    const char *name)
-{
-    const char *extensions;
-    const char *at;
-    size_t name_bytes;
-
-    if (!name || !name[0] ||
-        !xz_shadow.gl.GetString)
-        return 0;
-
-    extensions =
-        (const char *)xz_shadow.gl.GetString(
-            GL_EXTENSIONS);
-    if (!extensions)
-        return 0;
-
-    name_bytes = strlen(name);
-    at = extensions;
-
-    while ((at = strstr(at, name)) != NULL) {
-        const char before =
-            at == extensions ? ' ' : at[-1];
-        const char after =
-            at[name_bytes];
-
-        if ((before == ' ' || before == '\t') &&
-            (after == '\0' ||
-             after == ' ' ||
-             after == '\t'))
-            return 1;
-
-        at += name_bytes;
-    }
-
-    return 0;
 }
 
 static int XzNativeMaterialDecode(
@@ -668,202 +628,39 @@ static int XzNativeMaterialDecode(
         isfinite(out->opacity);
 }
 
-static int XzUploadNativeMaterialLibrary(
+static int XzPrepareNativeMaterials(
     const XzStaticSceneRuntimeState *scene,
     XzGles3ShadowState *state)
 {
     const XzMaterialLibraryView *library;
-    uint32_t texture_index;
     uint32_t material_index;
-    uint64_t gpu_bytes = 0u;
-    uint32_t astc_textures = 0u;
 
     if (!scene || !state)
         return 0;
 
     library =
-        XzStaticSceneRuntime_MaterialLibrary(
-            scene);
+        XzStaticSceneRuntime_MaterialLibrary(scene);
+
     if (!library)
         return 1;
 
-    if (!XzStaticSceneRuntime_MaterialInstances(
-            scene) ||
-        library->material_count == 0u ||
-        library->texture_asset_count == 0u ||
-        !XzGlExtensionPresent(
-            "GL_KHR_texture_compression_astc_ldr"))
+    if (!scene->material_library_data ||
+        !state->static_scene_material_ready ||
+        xz_shadow.static_texture_count !=
+            library->texture_asset_count ||
+        library->material_count == 0u)
         return 0;
 
-    xz_shadow.static_native_material_textures =
-        (XzGles3StaticTexture *)calloc(
-            library->texture_asset_count,
-            sizeof(
-                *xz_shadow
-                    .static_native_material_textures));
     xz_shadow.static_native_materials =
         (XzGles3NativeMaterial *)calloc(
             library->material_count,
-            sizeof(
-                *xz_shadow.static_native_materials));
+            sizeof(*xz_shadow.static_native_materials));
 
-    if (!xz_shadow.static_native_material_textures ||
-        !xz_shadow.static_native_materials)
+    if (!xz_shadow.static_native_materials)
         return 0;
 
-    xz_shadow.static_native_material_texture_count =
-        library->texture_asset_count;
     xz_shadow.static_native_material_count =
         library->material_count;
-
-    for (texture_index = 0u;
-         texture_index <
-            library->texture_asset_count;
-         ++texture_index) {
-        XzStaticNativeTextureResource source;
-        XzXztxGpuFormat format;
-        XzXztxGpuStatus gpu_status;
-        XzGles3StaticTexture *dest =
-            &xz_shadow.static_native_material_textures[
-                texture_index];
-        uint64_t expected_payload = 0u;
-        uint32_t mip_index;
-
-        if (!XzStaticSceneRuntime_LoadMaterialTexture(
-                scene,
-                texture_index,
-                &source))
-            return 0;
-
-        gpu_status =
-            XzXztxGpuFormat_Resolve(
-                &source.texture,
-                &format);
-        if (gpu_status != XZ_XZTX_GPU_OK) {
-            XzStaticSceneRuntime_ReleaseMaterialTexture(
-                &source);
-            return 0;
-        }
-
-        gpu_status =
-            XzXztxGpuFormat_ValidatePayload(
-                &source.texture,
-                &format,
-                &expected_payload);
-        if (gpu_status != XZ_XZTX_GPU_OK ||
-            !format.compressed ||
-            expected_payload == 0u) {
-            XzStaticSceneRuntime_ReleaseMaterialTexture(
-                &source);
-            return 0;
-        }
-
-        xz_shadow.gl.GenTextures(
-            1,
-            &dest->object);
-        if (!dest->object) {
-            XzStaticSceneRuntime_ReleaseMaterialTexture(
-                &source);
-            return 0;
-        }
-
-        xz_shadow.gl.ActiveTexture(GL_TEXTURE0);
-        xz_shadow.gl.BindTexture(
-            GL_TEXTURE_2D,
-            dest->object);
-        xz_shadow.gl.TexParameteri(
-            GL_TEXTURE_2D,
-            GL_TEXTURE_MIN_FILTER,
-            source.texture.mip_count > 1u
-                ? GL_LINEAR_MIPMAP_LINEAR
-                : GL_LINEAR);
-        xz_shadow.gl.TexParameteri(
-            GL_TEXTURE_2D,
-            GL_TEXTURE_MAG_FILTER,
-            GL_LINEAR);
-        xz_shadow.gl.TexParameteri(
-            GL_TEXTURE_2D,
-            GL_TEXTURE_WRAP_S,
-            GL_REPEAT);
-        xz_shadow.gl.TexParameteri(
-            GL_TEXTURE_2D,
-            GL_TEXTURE_WRAP_T,
-            GL_REPEAT);
-        xz_shadow.gl.TexParameteri(
-            GL_TEXTURE_2D,
-            GL_TEXTURE_BASE_LEVEL,
-            0);
-        xz_shadow.gl.TexParameteri(
-            GL_TEXTURE_2D,
-            GL_TEXTURE_MAX_LEVEL,
-            (GLint)(
-                source.texture.mip_count - 1u));
-
-        for (mip_index = 0u;
-             mip_index < source.texture.mip_count;
-             ++mip_index) {
-            XzXztextureMip mip;
-            size_t payload_bytes = 0u;
-            const void *payload;
-
-            if (!XzXztexture_Mip(
-                    &source.texture,
-                    mip_index,
-                    &mip) ||
-                mip.payload_bytes >
-                    (uint32_t)INT32_MAX) {
-                XzStaticSceneRuntime_ReleaseMaterialTexture(
-                    &source);
-                return 0;
-            }
-
-            payload =
-                XzXztexture_MipData(
-                    &source.texture,
-                    mip_index,
-                    &payload_bytes);
-
-            if (!payload ||
-                payload_bytes !=
-                    (size_t)mip.payload_bytes) {
-                XzStaticSceneRuntime_ReleaseMaterialTexture(
-                    &source);
-                return 0;
-            }
-
-            xz_shadow.gl.CompressedTexImage2D(
-                GL_TEXTURE_2D,
-                (GLint)mip_index,
-                (GLenum)format.gl_internal_format,
-                (GLsizei)mip.width,
-                (GLsizei)mip.height,
-                0,
-                (GLsizei)mip.payload_bytes,
-                payload);
-        }
-
-        if (xz_shadow.gl.GetError() !=
-                GL_NO_ERROR) {
-            XzStaticSceneRuntime_ReleaseMaterialTexture(
-                &source);
-            return 0;
-        }
-
-        dest->width = source.texture.width;
-        dest->height = source.texture.height;
-        dest->gpu_bytes = expected_payload;
-        dest->alive = 1;
-
-        gpu_bytes += expected_payload;
-        astc_textures++;
-
-        XzStaticSceneRuntime_ReleaseMaterialTexture(
-            &source);
-    }
-
-    xz_shadow.gl.BindTexture(
-        GL_TEXTURE_2D,
-        0u);
 
     for (material_index = 0u;
          material_index < library->material_count;
@@ -877,19 +674,20 @@ static int XzUploadNativeMaterialLibrary(
     }
 
     xz_shadow.static_native_material_ready = 1;
+
     state->static_scene_xzml_materials =
         library->material_count;
     state->static_scene_xztx_gpu_textures =
-        library->texture_asset_count;
+        xz_shadow.static_texture_count;
     state->static_scene_xztx_astc_textures =
-        astc_textures;
+        xz_shadow.static_texture_count;
     state->static_scene_xztx_gpu_bytes =
-        gpu_bytes;
+        state->static_scene_gpu_texture_bytes;
     state->static_scene_xzml_gpu_ready =
-        astc_textures ==
+        state->static_scene_xztx_gpu_textures ==
             library->texture_asset_count &&
-        library->material_count ==
-            xz_shadow.static_native_material_count;
+        state->static_scene_xzml_materials ==
+            library->material_count;
 
     return state->static_scene_xzml_gpu_ready;
 }
