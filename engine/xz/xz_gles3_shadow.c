@@ -354,6 +354,10 @@ typedef struct {
     GLint static_fog_cutoff_loc;
     GLint static_pbr_params_loc;
     GLint static_pbr_flags_loc;
+    GLint static_material_shading_mode_loc;
+    GLint static_material_blend_mode_loc;
+    GLint static_material_opacity_loc;
+    GLint static_opacity_mask_clip_loc;
     GLint static_reflection_texture_loc;
     GLint static_reflection_params_loc;
     GLint static_reflection_sphere_loc;
@@ -2316,6 +2320,10 @@ static int XzCreateStaticSceneProgram(void)
         "uniform float uFogCutoffCm;\n"
         "uniform vec4 uPbrParams;\n"
         "uniform int uPbrFlags;\n"
+        "uniform int uMaterialShadingMode;\n"
+        "uniform int uMaterialBlendMode;\n"
+        "uniform float uMaterialOpacity;\n"
+        "uniform float uOpacityMaskClip;\n"
         "uniform samplerCube uReflectionCapture;\n"
         "uniform vec4 uReflectionParams;\n"
         "uniform vec4 uReflectionSphere;\n"
@@ -2649,8 +2657,11 @@ static int XzCreateStaticSceneProgram(void)
         "  vec3 n=surfaceNormal(normalize(vNormal));\n"
         "  float uvTone=0.92+0.08*clamp(vUV.y,0.0,1.0);\n"
         "  vec4 texel=uHasBaseColor!=0?texture(uBaseColor,vUV):vec4(0.56,0.54,0.50,1.0);\n"
-        "  if(uHasBaseColor!=0 && texel.a<0.04) discard;\n"
-        "  vec3 albedo=texel.rgb*uvTone;\n"
+        "  float materialAlpha=clamp(texel.a*uMaterialOpacity,0.0,1.0);\n"
+        "  if(uMaterialBlendMode<0){ if(uHasBaseColor!=0 && texel.a<0.04) discard; }\n"
+        "  else if(uMaterialBlendMode==1 && materialAlpha<uOpacityMaskClip) discard;\n"
+        "  else if(uMaterialBlendMode==0) materialAlpha=1.0;\n"
+        "  vec3 albedo=texel.rgb*(uMaterialShadingMode<0?uvTone:1.0);\n"
         "  int pbrEnabled=uPbrFlags!=0?1:0;\n"
         "  float roughness=clamp(uPbrParams.x,0.04,1.0);\n"
         "  float metallic=clamp(uPbrParams.y,0.0,1.0);\n"
@@ -2694,18 +2705,23 @@ static int XzCreateStaticSceneProgram(void)
         "    }\n"
         "  }\n"
         "  dynamicLight+=localLight;\n"
-        "  vec3 diffuseLight=(uHasLightmap!=0&&vLightmapEnabled>0.5)?ueDecodeHQLightmap(n):dynamicLight;\n"
-        "  vec3 lit=albedo*diffuseLight;\n"
-        "  if(pbrEnabled!=0){\n"
-        "    vec3 diffuse=albedo*diffuseLight*(1.0-metallic);\n"
-        "    vec3 directRadiance=uDirectionalColor*uDirectionalWeight;\n"
-        "    vec3 directSpec=cookTorranceSpec(n,V,Ld,roughness,f0)*directRadiance*ndl;\n"
-        "    lit=diffuse+directSpec+localSpec+albedo*emissive;\n"
+        "  vec3 lit;\n"
+        "  if(uMaterialShadingMode==1){\n"
+        "    lit=albedo;\n"
+        "  }else{\n"
+        "    vec3 diffuseLight=(uHasLightmap!=0&&vLightmapEnabled>0.5)?ueDecodeHQLightmap(n):dynamicLight;\n"
+        "    lit=albedo*diffuseLight;\n"
+        "    if(pbrEnabled!=0){\n"
+        "      vec3 diffuse=albedo*diffuseLight*(1.0-metallic);\n"
+        "      vec3 directRadiance=uDirectionalColor*uDirectionalWeight;\n"
+        "      vec3 directSpec=cookTorranceSpec(n,V,Ld,roughness,f0)*directRadiance*ndl;\n"
+        "      lit=diffuse+directSpec+localSpec+albedo*emissive;\n"
+        "    }\n"
+        "    lit+=ueReflectionIBL(n,V,roughness,f0);\n"
         "  }\n"
-        "  lit+=ueReflectionIBL(n,V,roughness,f0);\n"
         "  float fogT=ueFogTransmission(vWorldPos);\n"
         "  vec3 fogged=lit*fogT+uFogColorMin.rgb*(1.0-fogT);\n"
-        "  outColor=vec4(uePavlovLegacyTonemap(fogged),texel.a);\n"
+        "  outColor=vec4(uePavlovLegacyTonemap(fogged),materialAlpha);\n"
         "}\n";
 
     XzNativeGles3Api *gl = &xz_shadow.gl;
@@ -2828,6 +2844,22 @@ static int XzCreateStaticSceneProgram(void)
         gl->GetUniformLocation(
             xz_shadow.static_program,
             "uPbrFlags");
+    xz_shadow.static_material_shading_mode_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uMaterialShadingMode");
+    xz_shadow.static_material_blend_mode_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uMaterialBlendMode");
+    xz_shadow.static_material_opacity_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uMaterialOpacity");
+    xz_shadow.static_opacity_mask_clip_loc =
+        gl->GetUniformLocation(
+            xz_shadow.static_program,
+            "uOpacityMaskClip");
     xz_shadow.static_reflection_texture_loc =
         gl->GetUniformLocation(
             xz_shadow.static_program,
@@ -2873,6 +2905,10 @@ static int XzCreateStaticSceneProgram(void)
         xz_shadow.static_fog_cutoff_loc < 0 ||
         xz_shadow.static_pbr_params_loc < 0 ||
         xz_shadow.static_pbr_flags_loc < 0 ||
+        xz_shadow.static_material_shading_mode_loc < 0 ||
+        xz_shadow.static_material_blend_mode_loc < 0 ||
+        xz_shadow.static_material_opacity_loc < 0 ||
+        xz_shadow.static_opacity_mask_clip_loc < 0 ||
         xz_shadow.static_reflection_texture_loc < 0 ||
         xz_shadow.static_reflection_params_loc < 0 ||
         xz_shadow.static_reflection_sphere_loc < 0 ||
@@ -2894,6 +2930,18 @@ static int XzCreateStaticSceneProgram(void)
     gl->Uniform1i(
         xz_shadow.static_lightmap_texture_loc,
         3);
+    gl->Uniform1i(
+        xz_shadow.static_material_shading_mode_loc,
+        -1);
+    gl->Uniform1i(
+        xz_shadow.static_material_blend_mode_loc,
+        -1);
+    gl->Uniform1f(
+        xz_shadow.static_material_opacity_loc,
+        1.0f);
+    gl->Uniform1f(
+        xz_shadow.static_opacity_mask_clip_loc,
+        0.333f);
     gl->UseProgram(0u);
 
     return gl->GetError() == GL_NO_ERROR;
