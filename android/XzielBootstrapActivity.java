@@ -5,6 +5,8 @@ import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.os.StatFs;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowInsets;
@@ -36,6 +38,15 @@ public final class XzielBootstrapActivity extends Activity {
     private static final String NACHT_ASSET = "xziel-nacht-vfs.zip";
     private static final String NACHT_SCENE =
         "xziel/maps/xziel_nacht_bo3/scene.xzsc";
+    private static final String NACHT_MAP_ROOT =
+        "xziel/maps/xziel_nacht_bo3";
+    private static final String COMPLETE_MARKER =
+        ".xziel-nacht-vfs-complete-v1";
+    private static final String STAGING_DIR =
+        ".xziel-nacht-staging";
+    private static final long MIN_FREE_BYTES =
+        2_700_000_000L;
+    private static final String TAG = "XZIEL-BOOT";
 
     private final ExecutorService executor =
         Executors.newSingleThreadExecutor();
@@ -49,7 +60,8 @@ public final class XzielBootstrapActivity extends Activity {
         applyImmersiveMode();
         buildSplash();
 
-        if (new File(getFilesDir(), NACHT_SCENE).isFile()) {
+        if (isContentReady()) {
+            Log.i(TAG, "XZIEL_BOOT_CONTENT_READY");
             launchXziel();
             return;
         }
@@ -71,6 +83,7 @@ public final class XzielBootstrapActivity extends Activity {
 
                 runOnUiThread(this::launchXziel);
             } catch (Exception error) {
+                Log.e(TAG, "XZIEL_BOOT_CONTENT_SETUP_FAILED", error);
                 runOnUiThread(() -> {
                     if (statusView != null) {
                         statusView.setText(
@@ -119,16 +132,39 @@ public final class XzielBootstrapActivity extends Activity {
     }
 
     private void extractBundledVfs() throws IOException {
-        File root = getFilesDir();
-        String canonicalRoot =
-            root.getCanonicalPath() + File.separator;
+        File filesRoot = getFilesDir();
+        StatFs stat = new StatFs(filesRoot.getAbsolutePath());
+        long available = stat.getAvailableBytes();
+        Log.i(
+            TAG,
+            "XZIEL_BOOT_STORAGE available=" + available
+                + " required=" + MIN_FREE_BYTES);
+        if (available < MIN_FREE_BYTES) {
+            throw new IOException(
+                "Not enough free storage for Nacht content: "
+                    + available + " bytes available");
+        }
 
-        byte[] buffer = new byte[1024 * 1024];
+        File stagingRoot = new File(filesRoot, STAGING_DIR);
+        deleteRecursively(stagingRoot);
+        if (!stagingRoot.mkdirs() && !stagingRoot.isDirectory()) {
+            throw new IOException(
+                "Could not create staging directory");
+        }
+
+        String canonicalRoot =
+            stagingRoot.getCanonicalPath() + File.separator;
+        byte[] buffer = new byte[256 * 1024];
+        long extractedBytes = 0L;
+        long nextProgress = 128L * 1024L * 1024L;
+
+        Log.i(TAG, "XZIEL_BOOT_EXTRACT_BEGIN");
+
         try (ZipInputStream zip =
                  new ZipInputStream(
                      new BufferedInputStream(
                          getAssets().open(NACHT_ASSET),
-                         1024 * 1024))) {
+                         256 * 1024))) {
             ZipEntry entry;
             while ((entry = zip.getNextEntry()) != null) {
                 String name =
@@ -140,7 +176,7 @@ public final class XzielBootstrapActivity extends Activity {
                         "Unsafe bundled XZIEL path");
                 }
 
-                File output = new File(root, name);
+                File output = new File(stagingRoot, name);
                 String canonicalOutput =
                     output.getCanonicalPath();
                 if (!canonicalOutput.startsWith(canonicalRoot)) {
@@ -169,19 +205,125 @@ public final class XzielBootstrapActivity extends Activity {
                 try (BufferedOutputStream out =
                          new BufferedOutputStream(
                              new FileOutputStream(output),
-                             1024 * 1024)) {
+                             256 * 1024)) {
                     int count;
-                    while ((count = zip.read(buffer)) != -1)
+                    while ((count = zip.read(buffer)) != -1) {
                         out.write(buffer, 0, count);
+                        extractedBytes += count;
+                        if (extractedBytes >= nextProgress) {
+                            Log.i(
+                                TAG,
+                                "XZIEL_BOOT_EXTRACT_PROGRESS bytes="
+                                    + extractedBytes);
+                            nextProgress +=
+                                128L * 1024L * 1024L;
+                        }
+                    }
                 }
                 zip.closeEntry();
             }
+        } catch (IOException error) {
+            deleteRecursively(stagingRoot);
+            throw error;
         }
 
-        File scene = new File(root, NACHT_SCENE);
-        if (!scene.isFile() || scene.length() <= 0L) {
+        File stagedMap = new File(stagingRoot, NACHT_MAP_ROOT);
+        validateExtractedContent(stagedMap);
+
+        File stagedXziel = new File(stagingRoot, "xziel");
+        File liveXziel = new File(filesRoot, "xziel");
+        deleteRecursively(liveXziel);
+        if (!stagedXziel.renameTo(liveXziel)) {
+            deleteRecursively(stagingRoot);
             throw new IOException(
-                "Bundled Nacht scene missing after extraction");
+                "Could not activate extracted XZIEL VFS");
+        }
+        deleteRecursively(stagingRoot);
+
+        File marker = new File(filesRoot, COMPLETE_MARKER);
+        try (FileOutputStream out =
+                 new FileOutputStream(marker, false)) {
+            out.write(
+                ("ready\nbytes=" + extractedBytes + "\n")
+                    .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            out.getFD().sync();
+        }
+
+        Log.i(
+            TAG,
+            "XZIEL_BOOT_EXTRACT_COMPLETE bytes="
+                + extractedBytes);
+    }
+
+    private boolean isContentReady() {
+        File marker =
+            new File(getFilesDir(), COMPLETE_MARKER);
+        if (!marker.isFile())
+            return false;
+
+        try {
+            validateExtractedContent(
+                new File(getFilesDir(), NACHT_MAP_ROOT));
+            return true;
+        } catch (IOException invalid) {
+            Log.w(
+                TAG,
+                "XZIEL_BOOT_MARKER_INVALID",
+                invalid);
+            if (!marker.delete()) {
+                Log.w(
+                    TAG,
+                    "Could not delete invalid marker");
+            }
+            return false;
+        }
+    }
+
+    private void validateExtractedContent(File mapRoot)
+        throws IOException {
+        String[] required = {
+            "scene.xzsc",
+            "materials.xzmt",
+            "materials.xzpb",
+            "materials.xzmn",
+            "environment.xzen",
+            "fog.xzfg",
+            "reflection.xzrc",
+            "lightmaps.xzlt",
+            "lightmap-bindings.xzlb"
+        };
+        for (String name : required) {
+            File file = new File(mapRoot, name);
+            if (!file.isFile() || file.length() <= 0L) {
+                throw new IOException(
+                    "Bundled Nacht file missing: " + name);
+            }
+        }
+
+        File meshDir = new File(mapRoot, "meshes");
+        File[] meshes = meshDir.listFiles(
+            (dir, name) -> name.endsWith(".xzm"));
+        if (meshes == null || meshes.length != 492) {
+            throw new IOException(
+                "Bundled Nacht mesh count mismatch: "
+                    + (meshes == null ? 0 : meshes.length));
+        }
+    }
+
+    private static void deleteRecursively(File file)
+        throws IOException {
+        if (file == null || !file.exists())
+            return;
+        if (file.isDirectory()) {
+            File[] children = file.listFiles();
+            if (children != null) {
+                for (File child : children)
+                    deleteRecursively(child);
+            }
+        }
+        if (!file.delete() && file.exists()) {
+            throw new IOException(
+                "Could not delete " + file);
         }
     }
 
