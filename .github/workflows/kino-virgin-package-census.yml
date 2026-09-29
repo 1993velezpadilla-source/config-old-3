@@ -1559,6 +1559,15 @@ jobs:
             kino-download/ue-xztx-probe/
             kino-download/ue-xztx-probe.log
             kino-download/ue-xztx-native-gate.log
+            kino-download/ue-xzaw-probe/
+            kino-download/ue-xzaw-probe.log
+            kino-download/ue-xzaw-native-gate.log
+            kino-download/ue-xzsk-probe/
+            kino-download/ue-xzsk-probe.log
+            kino-download/ue-xzsk-native-gate.log
+            kino-download/ue-xzan-probe/
+            kino-download/ue-xzan-probe.log
+            kino-download/ue-xzan-native-gate.log
             kino-download/deep-payload-shards/
             kino-download/kino-source-export-manifest-summary.json
             kino-download/kino-source-adapter-requirements.txt
