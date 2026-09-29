@@ -65,8 +65,8 @@ var candidatePackages = censusDoc.RootElement
 var provider = new DefaultFileProvider(
     root,
     SearchOption.AllDirectories,
-    true,
-    new VersionContainer(sourceGame))
+    new VersionContainer(sourceGame),
+    StringComparer.OrdinalIgnoreCase)
 {
     MappingsContainer = new FileUsmapTypeMappingsProvider(mappingsPath)
 };
