@@ -1,0 +1,216 @@
+name: XZIEL Nacht OneFile Fast
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - experiment/xziel-nacht-win64-exe-v1
+    paths:
+      - ".github/workflows/xziel-nacht-onefile-fast.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  onefile:
+    name: Repack validated Nacht VFS into Win64 EXE
+    runs-on: windows-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Reuse validated run-19 VFS
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force -Path dist/vfs | Out-Null
+          gh run download 36642428359 --repo "${{ github.repository }}" --name "XZIEL-Nacht-VFS-Complete" --dir dist/vfs
+          if (!(Test-Path "dist/vfs/xziel-nacht-vfs.zip")) { throw "Validated VFS archive was not downloaded" }
+          $bytes=(Get-Item "dist/vfs/xziel-nacht-vfs.zip").Length
+          if ($bytes -lt 800000000) { throw "Validated VFS unexpectedly small: $bytes" }
+          Write-Host "XZIEL_VALIDATED_VFS_REUSED bytes=$bytes source_run=36642428359"
+
+      - name: Install Win64 toolchain
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-binutils
+            mingw-w64-x86_64-pkgconf
+            mingw-w64-x86_64-SDL2
+            mingw-w64-x86_64-angleproject
+            mingw-w64-x86_64-7zip
+            mingw-w64-x86_64-nsis
+
+      - name: Compile XZIEL Win64 and close DLL graph
+        shell: msys2 {0}
+        run: |
+          set -euxo pipefail
+          mkdir -p dist/win64/runtime dist/win64/bundle
+
+          mapfile -t SOURCES < <(find engine/xz -maxdepth 1 -type f -name '*.c' | sort)
+          test "${#SOURCES[@]}" -gt 20
+
+          CFLAGS=( -O2 -std=gnu99 -Wall
+            -Wno-unused-variable
+            -Wno-unused-but-set-variable
+            -DXZIEL_WINDOWS_STANDALONE=1
+            -DPROP_VALUE_MAX=92
+          )
+          read -r -a SDL_CFLAGS <<< "$(pkg-config --cflags sdl2)"
+          read -r -a SDL_LIBS <<< "$(pkg-config --libs sdl2)"
+
+          gcc "${CFLAGS[@]}" "${SDL_CFLAGS[@]}" \
+            "${SOURCES[@]}" \
+            -o dist/win64/runtime/Xziel-Nacht.exe \
+            "${SDL_LIBS[@]}" \
+            -lGLESv2 -lEGL -lm
+
+          objdump -f dist/win64/runtime/Xziel-Nacht.exe | tee dist/win64/pe-runtime-header.txt
+          objdump -p dist/win64/runtime/Xziel-Nacht.exe | tee dist/win64/pe-runtime-imports.txt
+          grep -Eiq 'pei-x86-64|i386:x86-64' dist/win64/pe-runtime-header.txt
+
+          for dll in SDL2.dll libEGL.dll libGLESv2.dll; do
+            test -s "/mingw64/bin/$dll"
+            cp "/mingw64/bin/$dll" dist/win64/runtime/
+          done
+
+          : > dist/win64/pe-runtime-dependency-closure.txt
+          changed=1
+          while [[ "$changed" == "1" ]]; do
+            changed=0
+            mapfile -t bins < <(find dist/win64/runtime -maxdepth 1 -type f \( -iname '*.exe' -o -iname '*.dll' \) | sort)
+            for bin in "${bins[@]}"; do
+              while IFS= read -r dep; do
+                [[ -z "$dep" ]] && continue
+                if [[ -s "/mingw64/bin/$dep" && ! -s "dist/win64/runtime/$dep" ]]; then
+                  echo "$(basename "$bin") -> $dep" | tee -a dist/win64/pe-runtime-dependency-closure.txt
+                  cp "/mingw64/bin/$dep" dist/win64/runtime/
+                  changed=1
+                fi
+              done < <(objdump -p "$bin" | awk '/DLL Name:/{print $3}')
+            done
+          done
+
+          missing=0
+          mapfile -t bins < <(find dist/win64/runtime -maxdepth 1 -type f \( -iname '*.exe' -o -iname '*.dll' \) | sort)
+          for bin in "${bins[@]}"; do
+            while IFS= read -r dep; do
+              [[ -z "$dep" ]] && continue
+              if [[ -s "/mingw64/bin/$dep" && ! -s "dist/win64/runtime/$dep" ]]; then
+                echo "MISSING_MINGW_DLL $(basename "$bin") -> $dep"
+                missing=1
+              fi
+            done < <(objdump -p "$bin" | awk '/DLL Name:/{print $3}')
+          done
+          test "$missing" = "0"
+          test -s dist/win64/runtime/libstdc++-6.dll
+          test -s dist/win64/runtime/zlib1.dll
+          echo "XZIEL_WIN64_DEPENDENCY_CLOSURE_GREEN"
+
+      - name: Expand exact VFS and verify Nacht payload
+        shell: msys2 {0}
+        run: |
+          set -euxo pipefail
+          VFS=dist/vfs/xziel-nacht-vfs.zip
+          test -s "$VFS"
+
+          7z x -y "$VFS" -odist/win64/bundle
+          cp -a dist/win64/runtime/. dist/win64/bundle/
+
+          test -s dist/win64/bundle/Xziel-Nacht.exe
+          test -s dist/win64/bundle/xziel/maps/xziel_nacht_bo3/scene.xzsc
+
+          mesh_count=$(find dist/win64/bundle/xziel/maps/xziel_nacht_bo3/meshes -maxdepth 1 -type f -name '*.xzm' | wc -l | tr -d '[:space:]')
+          test "$mesh_count" = "492"
+
+          vfs_bytes=$(wc -c < "$VFS" | tr -d '[:space:]')
+          bundle_files=$(find dist/win64/bundle -type f | wc -l | tr -d '[:space:]')
+          {
+            echo "XZIEL_NACHT_WIN64_PACKAGE"
+            echo "source_run=36642428359"
+            echo "map=xziel_nacht_bo3"
+            echo "meshes=$mesh_count"
+            echo "expected_instances=10791"
+            echo "vfs_archive_bytes=$vfs_bytes"
+            echo "bundle_files_including_runtime=$bundle_files"
+          } | tee dist/win64/pack-report.txt
+          sha256sum "$VFS" | tee dist/win64/xziel-nacht-vfs.zip.sha256
+          echo "XZIEL_VALIDATED_NACHT_PAYLOAD_GREEN"
+
+      - name: Native Windows boot smoke
+        shell: pwsh
+        run: |
+          $root=(Resolve-Path "dist/win64/bundle").Path
+          $exe=Join-Path $root "Xziel-Nacht.exe"
+          $stdout="dist/win64/native-smoke.stdout.txt"
+          $stderr="dist/win64/native-smoke.stderr.txt"
+          $p=Start-Process -FilePath $exe -ArgumentList @("--xziel-root",$root,"--xziel-map","xziel_nacht_bo3") -WorkingDirectory $root -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
+          Start-Sleep -Seconds 15
+          if ($p.HasExited) {
+            Write-Host "XZIEL_NATIVE_SMOKE_EARLY_EXIT code=$($p.ExitCode)"
+            if (Test-Path $stdout) { Get-Content $stdout -Tail 300 }
+            if (Test-Path $stderr) { Get-Content $stderr -Tail 300 }
+            throw "XZIEL runtime exited before the native Windows smoke gate"
+          }
+          Stop-Process -Id $p.Id -Force
+          Write-Host "XZIEL_NACHT_NATIVE_WINDOWS_BOOT_SMOKE_GREEN"
+
+      - name: Build one-file executable
+        shell: msys2 {0}
+        run: |
+          set -euxo pipefail
+          cat > dist/win64/nacht-onefile.nsi <<'NSI'
+          Unicode true
+          Name "XZIEL Nacht"
+          OutFile "Nacht-Chronicles-XZIEL.exe"
+          RequestExecutionLevel user
+          SilentInstall silent
+          AutoCloseWindow true
+          SetCompressor /SOLID lzma
+          SetDatablockOptimize on
+          CRCCheck force
+          ShowInstDetails nevershow
+
+          Section "Run XZIEL Nacht"
+            InitPluginsDir
+            SetOutPath "$PLUGINSDIR\game"
+            File /r "bundle\*.*"
+            ExecWait '"$PLUGINSDIR\game\Xziel-Nacht.exe" --xziel-root "$PLUGINSDIR\game" --xziel-map xziel_nacht_bo3' $0
+            SetErrorLevel $0
+          SectionEnd
+          NSI
+
+          (cd dist/win64 && makensis nacht-onefile.nsi)
+
+          test -s dist/win64/Nacht-Chronicles-XZIEL.exe
+          objdump -f dist/win64/Nacht-Chronicles-XZIEL.exe | tee dist/win64/pe-onefile-header.txt
+          grep -Eiq 'pei-i386|pei-x86-64|i386' dist/win64/pe-onefile-header.txt
+          sha256sum dist/win64/Nacht-Chronicles-XZIEL.exe | tee dist/win64/Nacht-Chronicles-XZIEL.exe.sha256
+          ls -lh dist/win64/Nacht-Chronicles-XZIEL.exe
+          echo "XZIEL_NACHT_ONEFILE_EXE_GREEN"
+
+      - name: Upload final one-file EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Nacht-Windows-OneFile-Fast
+          path: |
+            dist/win64/Nacht-Chronicles-XZIEL.exe
+            dist/win64/Nacht-Chronicles-XZIEL.exe.sha256
+            dist/win64/pack-report.txt
+            dist/win64/xziel-nacht-vfs.zip.sha256
+            dist/win64/native-smoke.stdout.txt
+            dist/win64/native-smoke.stderr.txt
+            dist/win64/pe-runtime-header.txt
+            dist/win64/pe-runtime-imports.txt
+            dist/win64/pe-runtime-dependency-closure.txt
+            dist/win64/pe-onefile-header.txt
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
