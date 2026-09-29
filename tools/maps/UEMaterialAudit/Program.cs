@@ -408,7 +408,17 @@ foreach (var logicalPackage in candidatePackages)
                     scalars,
                     colors,
                     switches,
-                    rawPropertyKeys = propertyKeys
+                    rawPropertyKeys = propertyKeys,
+                    rawMaterialProperties =
+                        material is UMaterial concreteGraphMaterial
+                            ? DescribePropertyHolder(
+                                concreteGraphMaterial.Properties)
+                            : Array.Empty<object>(),
+                    expressionGraph =
+                        material is UMaterial graphMaterial
+                            ? DescribeMaterialExpressions(
+                                graphMaterial)
+                            : Array.Empty<object>()
                 });
             }
             catch (Exception e)
@@ -927,4 +937,125 @@ static UUnrealMaterial? ResolveMaterialByRawReference(
     {
         return null;
     }
+}
+
+
+static object[] DescribePropertyHolder(
+    IEnumerable<CUE4Parse.UE4.Assets.Objects.Properties.FPropertyTag>
+        properties)
+{
+    return properties
+        .Select(
+            property => new {
+                name = property.Name.Text,
+                valueType =
+                    property.Tag?.GenericValue?
+                        .GetType().FullName,
+                value =
+                    DescribeDiagnosticValue(
+                        property.Tag?.GenericValue)
+            })
+        .Cast<object>()
+        .ToArray();
+}
+
+static object? DescribeDiagnosticValue(
+    object? value,
+    int depth = 0)
+{
+    if (value is null)
+        return null;
+
+    if (depth >= 4)
+        return value.ToString();
+
+    if (value is FPackageIndex packageIndex)
+    {
+        return new {
+            kind = "FPackageIndex",
+            index = packageIndex.Index,
+            path = packageIndex.ToString()
+        };
+    }
+
+    if (value is FStructFallback fallback)
+    {
+        return new {
+            kind = "FStructFallback",
+            properties = fallback.Properties
+                .Select(
+                    property => new {
+                        name = property.Name.Text,
+                        valueType =
+                            property.Tag?.GenericValue?
+                                .GetType().FullName,
+                        value =
+                            DescribeDiagnosticValue(
+                                property.Tag?.GenericValue,
+                                depth + 1)
+                    })
+                .ToArray()
+        };
+    }
+
+    if (
+        value is System.Collections.IEnumerable enumerable &&
+        value is not string)
+    {
+        var values = new List<object?>();
+        foreach (var item in enumerable)
+        {
+            if (values.Count >= 64)
+                break;
+            values.Add(
+                DescribeDiagnosticValue(
+                    item,
+                    depth + 1));
+        }
+        return values.ToArray();
+    }
+
+    return value.ToString();
+}
+
+static object[] DescribeMaterialExpressions(
+    UMaterial material)
+{
+    var rows = new List<object>();
+
+    for (
+        var expressionIndex = 0;
+        expressionIndex < material.Expressions.Length;
+        ++expressionIndex)
+    {
+        var reference =
+            material.Expressions[expressionIndex];
+
+        if (
+            !reference.TryLoad(
+                out CUE4Parse.UE4.Assets.Exports.UObject
+                    expression) ||
+            expression is null)
+        {
+            rows.Add(new {
+                expressionIndex,
+                reference = reference.ToString(),
+                loaded = false
+            });
+            continue;
+        }
+
+        rows.Add(new {
+            expressionIndex,
+            reference = reference.ToString(),
+            loaded = true,
+            exportType = expression.ExportType,
+            objectPath = expression.GetPathName(),
+            properties =
+                DescribePropertyHolder(
+                    expression.Properties)
+        });
+    }
+
+    return rows.ToArray();
 }
