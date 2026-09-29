@@ -3420,16 +3420,7 @@ jobs:
           gzip -1 -c dist/xziel-nacht-vfs.tar > dist/xziel-nacht-vfs.tar.gz
           test -s dist/xziel-nacht-vfs.tar.gz
           ls -lh dist/xziel-nacht-vfs.tar dist/xziel-nacht-vfs.tar.gz
-          python3 - <<'PY'
-from pathlib import Path
-raw=Path("dist/xziel-nacht-vfs.tar").stat().st_size
-gz=Path("dist/xziel-nacht-vfs.tar.gz").stat().st_size
-print("XZIEL_NACHT_VFS_COMPRESSION", {
-    "tarBytes": raw,
-    "gzipBytes": gz,
-    "ratio": round(gz/raw,4),
-})
-PY
+          python3 -c 'from pathlib import Path; raw=Path("dist/xziel-nacht-vfs.tar").stat().st_size; gz=Path("dist/xziel-nacht-vfs.tar.gz").stat().st_size; print("XZIEL_NACHT_VFS_COMPRESSION", {"tarBytes":raw,"gzipBytes":gz,"ratio":round(gz/raw,4)})'
 
           python3 - <<'PY'
           import json
@@ -3548,8 +3539,8 @@ PY
           # sandbox with a single local pipe on Android.
           "$ADB" push dist/xziel-nacht-vfs.tar.gz \
             /data/local/tmp/xziel-nacht-vfs.tar.gz
-          "$ADB" shell run-as com.xziel.engine sh -c \
-            "'cd files && gzip -dc /data/local/tmp/xziel-nacht-vfs.tar.gz | tar -xf -'"
+          "$ADB" shell chmod 644 /data/local/tmp/xziel-nacht-vfs.tar.gz
+          "$ADB" shell "run-as com.xziel.engine sh -c 'cd files && gzip -dc /data/local/tmp/xziel-nacht-vfs.tar.gz | tar -xf -'"
           "$ADB" shell rm -f /data/local/tmp/xziel-nacht-vfs.tar.gz
 
           "$ADB" shell run-as com.xziel.engine find \
