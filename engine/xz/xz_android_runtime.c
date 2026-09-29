@@ -200,6 +200,7 @@ static void XzReadProperty(
 }
 #define ANDROID_LOG_INFO 4
 #define ANDROID_LOG_WARN 5
+#define ANDROID_LOG_ERROR 6
 #endif
 
 static uint64_t XzReadProcessRssBytes(void)
