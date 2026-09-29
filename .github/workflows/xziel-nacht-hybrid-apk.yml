@@ -1,0 +1,99 @@
+name: XZIEL Nacht Hybrid EXE-in-APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - experiment/xziel-nacht-win64-exe-v1
+    paths:
+      - ".github/workflows/xziel-nacht-hybrid-apk.yml"
+      - "scripts/build_xziel_nacht_hybrid_apk.sh"
+      - "scripts/patch_winlator_xziel_nacht_direct.py"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xziel-nacht-hybrid-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build direct-boot Nacht hybrid APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Download final GREEN Nacht one-file EXE
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p input/nacht-exe
+          gh run download 36643574456 \
+            --repo "${{ github.repository }}" \
+            --name "XZIEL-Nacht-Windows-OneFile-Fast" \
+            --dir input/nacht-exe
+          EXE="$(find input/nacht-exe -type f -name 'Nacht-Chronicles-XZIEL.exe' -print -quit)"
+          test -n "$EXE"
+          test -s "$EXE"
+          echo "XZIEL_NACHT_EXE=$EXE" >> "$GITHUB_ENV"
+          bytes="$(wc -c < "$EXE" | tr -d '[:space:]')"
+          sha="$(sha256sum "$EXE" | awk '{print $1}')"
+          test "$bytes" = "887735046"
+          test "$sha" = "2cc8876fc79d50c3731f8f0681e3bfeb2e2cef084b87bf1b8a87c8c43a430d02"
+          echo "XZIEL_FINAL_EXE_REUSE_GREEN bytes=$bytes sha256=$sha"
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install host build tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y \
+            git unzip zip python3
+
+      - name: Install Android NDK and CMake
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [[ ! -x "$SDKMANAGER" ]]; then
+            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n1)"
+          fi
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "ndk;24.0.8215888" "cmake;3.22.1"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+
+      - name: Build XZIEL Nacht hybrid APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x scripts/build_xziel_nacht_hybrid_apk.sh
+          bash scripts/build_xziel_nacht_hybrid_apk.sh
+
+      - name: Upload hybrid APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Nacht-Hybrid-PixelFold
+          path: |
+            build/xziel-nacht-hybrid/dist/XZIEL-Nacht-Hybrid-PixelFold-debug.apk
+            build/xziel-nacht-hybrid/dist/XZIEL-Nacht-Hybrid-PixelFold-debug.apk.sha256
+            build/xziel-nacht-hybrid/dist/apk-contents.txt
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
