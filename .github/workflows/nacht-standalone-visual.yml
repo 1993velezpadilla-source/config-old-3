@@ -1,4 +1,5 @@
 name: XZIEL Nacht Standalone Visual
+# trigger-token: compressed-vfs-v1
 
 on:
   workflow_dispatch:
