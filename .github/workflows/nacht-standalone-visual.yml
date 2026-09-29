@@ -1,5 +1,5 @@
 name: XZIEL Nacht Standalone Visual
-# trigger-token: effective-alpha-test-v1
+# trigger-token: effective-alpha-test-v2
 
 on:
   workflow_dispatch:
@@ -3105,8 +3105,8 @@ jobs:
               == 1063
           ), semantics
           assert semantics["masked"] == 1063, semantics
-          assert semantics["alphaTestEnabled"] == 1001, semantics
-          assert semantics["maskedWithoutAlphaTest"] == 62, semantics
+          assert semantics["alphaTestEnabled"] == 1006, semantics
+          assert semantics["maskedWithoutAlphaTest"] == 57, semantics
           assert semantics["twoSided"] == 1060, semantics
           assert pbr["unresolvedSurfaceSemantics"] == []
           assert pbr["authoredBindingCount"] > 0
