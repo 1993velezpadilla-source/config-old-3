@@ -327,6 +327,10 @@ foreach (var logicalPackage in candidatePackages)
                         semantics.resolved
                             ? semantics.disableDepthTest
                             : (bool?)null,
+                    canMaskedBeAssumedOpaque =
+                        semantics.resolved
+                            ? semantics.canMaskedBeAssumedOpaque
+                            : (bool?)null,
                     isMasked =
                         (semantics.resolved
                             ? semantics.blendMode
@@ -574,6 +578,7 @@ static (
     float opacityMaskClipValue,
     bool twoSided,
     bool disableDepthTest,
+    bool canMaskedBeAssumedOpaque,
     int parentDepth,
     bool blendOverridden,
     bool shadingOverridden,
@@ -599,6 +604,7 @@ ResolveMaterialSemantics(
             0.333f,
             false,
             false,
+            false,
             0,
             false,
             false,
@@ -618,6 +624,8 @@ ResolveMaterialSemantics(
                 concrete.OpacityMaskClipValue,
                 concrete.TwoSided,
                 concrete.bDisableDepthTest,
+                concrete.GetOrDefault<bool>(
+                    "bCanMaskedBeAssumedOpaque"),
                 0,
                 false,
                 false,
@@ -773,6 +781,7 @@ ResolveMaterialSemantics(
             opacityMaskClipValue,
             twoSided,
             inherited.disableDepthTest,
+            inherited.canMaskedBeAssumedOpaque,
             inherited.parentDepth + 1,
             blendOverridden,
             shadingOverridden,
