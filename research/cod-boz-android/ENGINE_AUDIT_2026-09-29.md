@@ -495,3 +495,111 @@ We should not copy BOZ game assets, but this architecture gives XZIEL a strong r
 
 - `knot126/Marmalade-Modding`: S3E/DZ/group reverse-engineering utilities.
 - `Tatsh/dade`: current open Marmalade decoders for Derbh, IwResGroup, CIwTexture, CIwMaterial and CIwModel.
+
+
+## Multiplayer architecture: matchmaking server + P2P gameplay
+
+Public `Producdevity/cod-boz-online` code now gives a concrete picture of the original BOZ online split.
+
+### Transport split
+
+- TCP 3074: account/login, lobby, matchmaking, room lifecycle, peer signaling
+- UDP 3478: public-endpoint discovery / STUN-style binding
+- direct UDP between players: gameplay traffic and voice chat
+
+Therefore the central backend is primarily a **control plane**. The actual match is peer-to-peer.
+
+### Lobby / service model
+
+The reconstructed backend routes authenticated lobby requests by service ID.
+
+Observed service IDs include:
+- LSG/login service: `0x07`
+- messaging/peer-signal service: `0x06`
+- matchmaking service: `0x15`
+
+Matchmaking task IDs:
+- create: `0x01`
+- update: `0x02`
+- delete: `0x03`
+- find: `0x05`
+
+A hosted session carries:
+- host address blob
+- 8-byte session ID
+- game type
+- maximum players
+- current player count
+- a small set of game-specific attributes
+
+The public server deliberately names several attributes by their offsets because their exact gameplay meanings remain partly unknown. This is useful evidence: matchmaking metadata was compact and game-specific, but the networking framework itself was generic.
+
+### Room lifecycle
+
+The reconstructed flow is:
+
+```
+client
+  -> authenticate / obtain session
+  -> connect lobby
+  -> create matchmaking session
+      -> host endpoint + max players + mode attributes
+  -> other clients FIND
+  -> join/signaling through lobby messaging
+  -> peers learn each other's connectivity data
+  -> gameplay/voice move to direct UDP
+  -> host updates/deletes advertised room
+```
+
+The public backend supports:
+- account creation/login
+- Single Map room creation/search
+- Map Vote room creation/search
+- joining/leaving
+- concurrent rooms
+- host/client signaling
+
+### Matchmaking details
+
+The open implementation confirms:
+- session IDs are 8 bytes
+- maximum players is an explicit field (BOZ uses 4-player rooms)
+- find requests support pagination/limits
+- a wildcard matchmaking key is `5381`
+- room ownership is tied to the authenticated lobby connection
+- hosted sessions are automatically removed when the owner disconnects
+
+### Signaling
+
+The lobby messaging service carries instant messages between authenticated connection IDs. In the reconstructed server these messages are used as peer signaling, not as the gameplay stream itself.
+
+This is the key architectural separation:
+
+```
+MATCHMAKING SERVER
+  identity + rooms + discovery + peer signaling
+                 |
+                 v
+         PLAYER A <---- UDP ----> PLAYER B
+            |                     |
+         gameplay              gameplay
+         voice                 voice
+```
+
+### Original protocol/security note
+
+The compatibility backend reproduces the old Demonware-era transport closely enough for legacy clients. It uses a 24-byte session key and legacy Triple-DES/CBC style encrypted envelopes in parts of the reconstructed protocol.
+
+XZIEL should **not** copy this obsolete cryptography. The reusable idea is the service split and room/signaling architecture. XZIEL should use a modern authenticated transport/security design.
+
+### XZIEL implication
+
+For our 4-player target, the BOZ pattern suggests a practical split:
+
+- XZ Match Service: public/private rooms, map + party size filters
+- XZ Presence/Signaling: player IDs, endpoints, NAT traversal negotiation
+- XZ Session Transport: gameplay replication
+- XZ Voice Transport: proximity/group voice, mute state
+- optional relay fallback when direct P2P cannot be established
+
+Unlike original BOZ, XZIEL should include a relay/server fallback for players behind incompatible NATs so Internet play is not dependent on successful direct peer reachability.
