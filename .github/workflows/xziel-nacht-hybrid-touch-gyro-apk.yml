@@ -1,0 +1,131 @@
+name: XZIEL Nacht Hybrid Touch Gyro APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - experiment/xziel-nacht-win64-exe-v1
+    paths:
+      - ".github/workflows/xziel-nacht-hybrid-touch-gyro-apk.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xziel-nacht-hybrid-touch-gyro-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Pixel Fold touch gyro APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Wait for and download input-bridge GREEN EXE
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          SOURCE_RUN=36644822493
+          mkdir -p input
+
+          ok=0
+          for attempt in $(seq 1 80); do
+            rm -rf input/exe
+            mkdir -p input/exe
+            if gh run download "$SOURCE_RUN"               --repo "${{ github.repository }}"               --name "XZIEL-Nacht-Windows-OneFile-Fast"               --dir input/exe 2>/tmp/xziel-gh.err; then
+              ok=1
+              break
+            fi
+
+            status="$(gh run view "$SOURCE_RUN" --repo "${{ github.repository }}" --json status,conclusion --jq '.status + ":" + (.conclusion // "")')"
+            echo "source_run=$SOURCE_RUN attempt=$attempt status=$status"
+            if [[ "$status" == "completed:failure" || "$status" == "completed:cancelled" ]]; then
+              cat /tmp/xziel-gh.err || true
+              exit 1
+            fi
+            sleep 10
+          done
+
+          test "$ok" = "1"
+          EXE="$(find input/exe -type f -name 'Nacht-Chronicles-XZIEL.exe' -print -quit)"
+          test -n "$EXE"
+          test -s "$EXE"
+
+          bytes="$(wc -c < "$EXE" | tr -d '[:space:]')"
+          sha="$(sha256sum "$EXE" | awk '{print $1}')"
+          test "$bytes" -gt 800000000
+          test "${#sha}" = "64"
+
+          echo "XZIEL_NACHT_EXE=$EXE" >> "$GITHUB_ENV"
+          echo "XZIEL_SOURCE_EXE_BYTES=$bytes" >> "$GITHUB_ENV"
+          echo "XZIEL_SOURCE_EXE_SHA256=$sha" >> "$GITHUB_ENV"
+          echo "XZIEL_TOUCH_GYRO_SOURCE_EXE_GREEN bytes=$bytes sha256=$sha"
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install host tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y git unzip zip python3
+
+      - name: Install Android NDK and CMake
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [[ ! -x "$SDKMANAGER" ]]; then
+            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n1)"
+          fi
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "ndk;24.0.8215888" "cmake;3.22.1"
+
+      - name: Build touch gyro hybrid APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x scripts/build_xziel_nacht_hybrid_touch_apk.sh
+          bash scripts/build_xziel_nacht_hybrid_touch_apk.sh
+
+      - name: Verify touch gyro contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          CONTRACT=build/xziel-nacht-hybrid-touch/dist/control-contract.txt
+          APK=build/xziel-nacht-hybrid-touch/dist/XZIEL-Nacht-Hybrid-TouchGyro-PixelFold-debug.apk
+          test -s "$CONTRACT"
+          test -s "$APK"
+          grep -q '^gyro=enabled$' "$CONTRACT"
+          grep -q '^hip_fire=mouse_left$' "$CONTRACT"
+          grep -q '^ads_fire=mouse_right+mouse_left$' "$CONTRACT"
+          grep -q '^skin=transparent_black_hand_smear$' "$CONTRACT"
+          grep -q '^winlator_ui=hidden$' "$CONTRACT"
+          echo "XZIEL_TOUCH_GYRO_CONTRACT_GREEN"
+
+      - name: Upload Pixel Fold APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Nacht-Hybrid-TouchGyro-PixelFold
+          path: |
+            build/xziel-nacht-hybrid-touch/dist/XZIEL-Nacht-Hybrid-TouchGyro-PixelFold-debug.apk
+            build/xziel-nacht-hybrid-touch/dist/XZIEL-Nacht-Hybrid-TouchGyro-PixelFold-debug.apk.sha256
+            build/xziel-nacht-hybrid-touch/dist/apk-contents.txt
+            build/xziel-nacht-hybrid-touch/dist/control-contract.txt
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
