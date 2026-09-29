@@ -7,6 +7,7 @@
 #include "xz_height_fog.h"
 #include "xz_pbr_material.h"
 #include "xz_material_instance_binding.h"
+#include "xz_material_library.h"
 #include "xz_lightmap_texture.h"
 #include "xz_lightmap_binding.h"
 
@@ -83,6 +84,10 @@ typedef struct {
     size_t material_instance_bytes;
     XzMaterialInstanceBindingView material_instances;
 
+    unsigned char *material_library_data;
+    size_t material_library_bytes;
+    XzMaterialLibraryView material_library;
+
     uint32_t material_texture_count;
     uint32_t material_binding_count;
     size_t material_texture_table_offset;
@@ -125,6 +130,7 @@ typedef struct {
     char scene_path[256];
     char material_path[256];
     char material_instance_path[256];
+    char material_library_path[256];
     char pbr_material_path[256];
     char normal_material_path[256];
     char environment_path[256];
@@ -173,6 +179,15 @@ int XzStaticSceneRuntime_InstanceMaterial(
     uint32_t instance_index,
     uint32_t submesh_index,
     uint32_t *material_index);
+
+const XzMaterialLibraryView *
+XzStaticSceneRuntime_MaterialLibrary(
+    const XzStaticSceneRuntimeState *state);
+
+int XzStaticSceneRuntime_Material(
+    const XzStaticSceneRuntimeState *state,
+    uint32_t material_index,
+    XzMaterialLibraryMaterial *material);
 
 int XzStaticSceneRuntime_Texture(
     const XzStaticSceneRuntimeState *state,
