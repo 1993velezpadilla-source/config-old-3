@@ -108,6 +108,9 @@ var instancedRows = 0;
 var absoluteTransformComponents = 0;
 var nullMeshComponents = 0;
 var nonFiniteMatrices = 0;
+var componentsWithMaterialOverrides = 0;
+var overrideMaterialSlotCount = 0;
+var nonNullOverrideMaterialSlotCount = 0;
 
 foreach (var logicalPackage in mapPackages)
 {
@@ -172,6 +175,27 @@ foreach (var logicalPackage in mapPackages)
                     continue;
                 }
 
+                var materialOverrides = component.OverrideMaterials
+                    .Select(material =>
+                        material is { IsNull: false }
+                            ? material.ResolvedObject?.GetPathName()
+                                ?? material.Name
+                            : null)
+                    .ToArray();
+
+                var nonNullOverrides =
+                    materialOverrides.Count(path =>
+                        !string.IsNullOrWhiteSpace(path));
+
+                if (materialOverrides.Length > 0)
+                {
+                    componentsWithMaterialOverrides++;
+                    overrideMaterialSlotCount +=
+                        materialOverrides.Length;
+                    nonNullOverrideMaterialSlotCount +=
+                        nonNullOverrides;
+                }
+
                 var componentWorld = ResolveWorldTransform(
                     component,
                     worldCache,
@@ -210,7 +234,8 @@ foreach (var logicalPackage in mapPackages)
                             nativeMesh,
                             component.GetPathName(),
                             instanceIndex,
-                            matrix));
+                            matrix,
+                            materialOverrides));
                         instancedRows++;
                     }
                 }
@@ -229,7 +254,8 @@ foreach (var logicalPackage in mapPackages)
                         nativeMesh,
                         component.GetPathName(),
                         null,
-                        matrix));
+                        matrix,
+                        materialOverrides));
                 }
             }
             catch (Exception e)
@@ -287,6 +313,7 @@ var instanceRows = candidates
         meshIndex = sceneMeshIndex[row.Mesh.ObjectPath],
         sourceComponentPath = row.ComponentPath,
         sourceInstanceIndex = row.InstanceIndex,
+        materialOverrides = row.MaterialOverrides,
         matrixRowMajor = row.Matrix
     })
     .ToArray();
@@ -322,6 +349,9 @@ var output = new
         instancedComponents,
         instancedRows,
         nullMeshComponents,
+        componentsWithMaterialOverrides,
+        overrideMaterialSlotCount,
+        nonNullOverrideMaterialSlotCount,
         sourceNativeMeshCount = nativeMeshes.Count,
         referencedNativeMeshCount = meshRows.Length,
         sceneInstanceCount = instanceRows.Length,
@@ -527,4 +557,5 @@ sealed record SceneCandidate(
     NativeMesh Mesh,
     string ComponentPath,
     int? InstanceIndex,
-    float[] Matrix);
+    float[] Matrix,
+    string?[] MaterialOverrides);
