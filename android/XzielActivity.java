@@ -6,6 +6,7 @@ import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.WindowManager;
+import java.util.ArrayList;
 
 /** Native XZIEL Android launcher. */
 public final class XzielActivity extends SDLActivity {
@@ -57,13 +58,45 @@ public final class XzielActivity extends SDLActivity {
         String mapId = getIntent() != null
             ? getIntent().getStringExtra("xziel_map")
             : null;
+        String eye = getIntent() != null
+            ? getIntent().getStringExtra("xziel_camera_eye")
+            : null;
+        String forward = getIntent() != null
+            ? getIntent().getStringExtra("xziel_camera_forward")
+            : null;
+        String up = getIntent() != null
+            ? getIntent().getStringExtra("xziel_camera_up")
+            : null;
+        String fovY = getIntent() != null
+            ? getIntent().getStringExtra("xziel_camera_fov_y")
+            : null;
+
         if (mapId == null || mapId.isEmpty()) {
             mapId = "xziel_nuketown_zombies";
         }
 
-        return new String[] {
-            "--xziel-root", getFilesDir().getAbsolutePath(),
-            "--xziel-map", mapId
-        };
+        ArrayList<String> args = new ArrayList<>();
+        args.add("--xziel-root");
+        args.add(getFilesDir().getAbsolutePath());
+        args.add("--xziel-map");
+        args.add(mapId);
+
+        if (eye != null && !eye.isEmpty()
+                && forward != null && !forward.isEmpty()
+                && up != null && !up.isEmpty()) {
+            args.add("--xziel-camera-eye");
+            args.add(eye);
+            args.add("--xziel-camera-forward");
+            args.add(forward);
+            args.add("--xziel-camera-up");
+            args.add(up);
+            args.add("--xziel-camera-fov-y");
+            args.add(
+                fovY != null && !fovY.isEmpty()
+                    ? fovY
+                    : "75");
+        }
+
+        return args.toArray(new String[0]);
     }
 }
