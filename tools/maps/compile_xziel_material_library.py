@@ -193,6 +193,22 @@ def main():
             native_texture_bindings += 1
 
         first_scalar = len(scalar_records)
+
+        opacity_mask_clip = material.get(
+            "opacityMaskClipValue"
+        )
+        if opacity_mask_clip is not None:
+            name_ref = strings.add(
+                "__XZ_OpacityMaskClipValue"
+            )
+            scalar_records.append(
+                (
+                    name_ref[0],
+                    name_ref[1],
+                    float(opacity_mask_clip),
+                )
+            )
+
         for scalar in material.get("scalars", []):
             name_ref = strings.add(scalar["name"])
             scalar_records.append(
@@ -214,6 +230,23 @@ def main():
             )
 
         first_switch = len(switch_records)
+
+        for synthetic_name, source_key in (
+            ("__XZ_TwoSided", "twoSided"),
+            ("__XZ_DisableDepthTest", "disableDepthTest"),
+            ("__XZ_IsMasked", "isMasked"),
+        ):
+            synthetic_value = material.get(source_key)
+            if synthetic_value is not None:
+                name_ref = strings.add(synthetic_name)
+                switch_records.append(
+                    (
+                        name_ref[0],
+                        name_ref[1],
+                        1 if bool(synthetic_value) else 0,
+                    )
+                )
+
         for switch in material.get("switches", []):
             name_ref = strings.add(switch["name"])
             value = switch["value"]
