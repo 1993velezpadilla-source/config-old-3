@@ -11,6 +11,15 @@ on:
       - "scripts/patch_vril_*.py"
       - "scripts/patch_quakec_*.py"
       - "scripts/build_xziel_icons.py"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/xziel-win64.yml"
+      - "scripts/prepare_windows_x64.sh"
+      - "scripts/patch_vril_*.py"
+      - "scripts/patch_quakec_*.py"
+      - "scripts/build_xziel_icons.py"
 
 concurrency:
   group: xziel-win64-${{ github.ref }}
