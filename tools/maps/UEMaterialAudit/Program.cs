@@ -520,7 +520,7 @@ static (
     bool twoSidedOverridden,
     string baseMaterialPath)
 ResolveMaterialSemantics(
-    UMaterialInterface material,
+    UUnrealMaterial material,
     HashSet<string>? visiting = null)
 {
     visiting ??=
@@ -565,7 +565,7 @@ ResolveMaterialSemantics(
         }
 
         if (material is not UMaterialInstance instance ||
-            instance.Parent is not UMaterialInterface parent)
+            instance.Parent is not UUnrealMaterial parent)
         {
             return (
                 false,
