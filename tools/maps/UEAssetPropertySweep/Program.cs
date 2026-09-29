@@ -74,6 +74,7 @@ var providerIndex = BuildProviderIndex(provider);
 var packageLoadFailures = new List<object>();
 var exportLoadFailures = new List<object>();
 var packageSuccesses = 0;
+var exportsAttempted = 0;
 var exportSuccesses = 0;
 var exportsWithProperties = 0;
 var propertyTagCount = 0;
@@ -99,16 +100,12 @@ foreach (var logicalPath in logicalPackages)
 
     try
     {
-        if (!provider.TryLoadPackage(resolvedPath, out var package))
-        {
-            packageLoadFailures.Add(new
-            {
-                packagePath = logicalPath,
-                resolvedPath,
-                error = "provider.TryLoadPackage returned false"
-            });
-            continue;
-        }
+        /*
+         * LoadPackage is intentional here. TryLoadPackage suppresses parser
+         * exceptions, which would hide the exact schema/property failure this
+         * exhaustive gate exists to expose.
+         */
+        var package = provider.LoadPackage(resolvedPath);
 
         packageSuccesses++;
 
@@ -116,11 +113,22 @@ foreach (var logicalPath in logicalPackages)
              exportIndex < package.ExportMapLength;
              ++exportIndex)
         {
+            exportsAttempted++;
+
             try
             {
                 var export = package.GetExport(exportIndex);
                 if (export is null)
+                {
+                    exportLoadFailures.Add(new
+                    {
+                        packagePath = logicalPath,
+                        resolvedPath,
+                        exportIndex,
+                        error = "null export"
+                    });
                     continue;
+                }
 
                 exportSuccesses++;
 
@@ -178,6 +186,7 @@ var report = new
     packageCount = logicalPackages.Length,
     packageSuccesses,
     packageLoadFailureCount = packageLoadFailures.Count,
+    exportsAttempted,
     exportSuccesses,
     exportLoadFailureCount = exportLoadFailures.Count,
     exportsWithProperties,
@@ -206,6 +215,7 @@ Console.WriteLine(
         report.packageCount,
         packageSuccesses,
         report.packageLoadFailureCount,
+        exportsAttempted,
         exportSuccesses,
         report.exportLoadFailureCount,
         exportsWithProperties,
