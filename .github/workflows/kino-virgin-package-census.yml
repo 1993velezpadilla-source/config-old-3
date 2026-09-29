@@ -11,6 +11,7 @@ on:
       - tools/maps/UEAssetClassCensus/**
       - tools/maps/UEAssetPropertyProbe/**
       - tools/maps/UEAssetPropertySweep/**
+      - tools/maps/UEAssetSourceManifest/**
       - tools/maps/xz_source_class_gate.c
       - engine/xz/xz_source_class_registry.c
       - engine/xz/xz_source_class_registry.h
@@ -254,6 +255,14 @@ jobs:
             > kino-download/kino-class-census.log
           test -s kino-download/kino-class-census.json
 
+      - name: Audit every source class against XZIEL readiness
+        run: |
+          set -euxo pipefail
+          python3 tools/maps/audit_ue_class_requirements.py \
+            --input kino-download/kino-class-census.json \
+            --output kino-download/kino-class-requirements.json
+          test -s kino-download/kino-class-requirements.json
+
       - name: Pin Pavlov UE5 property mappings
         run: |
           set -euxo pipefail
@@ -419,13 +428,176 @@ jobs:
           print("XZIEL_KINO_PROPERTY_SWEEP_GREEN")
           PY
 
-      - name: Audit every source class against XZIEL readiness
+      - name: Build 1-to-1 source export dependency manifest
         run: |
           set -euxo pipefail
-          python3 tools/maps/audit_ue_class_requirements.py \
-            --input kino-download/kino-class-census.json \
-            --output kino-download/kino-class-requirements.json
-          test -s kino-download/kino-class-requirements.json
+          dotnet restore \
+            tools/maps/UEAssetSourceManifest/UEAssetSourceManifest.csproj
+
+          dotnet build \
+            tools/maps/UEAssetSourceManifest/UEAssetSourceManifest.csproj \
+            --configuration Release \
+            --no-restore
+
+          APP="tools/maps/UEAssetSourceManifest/bin/Release/net10.0/UEAssetSourceManifest.dll"
+          test -s "$APP"
+
+          mkdir -p kino-download/source-manifest-shards
+          SHARDS=16
+
+          for i in $(seq 0 $((SHARDS - 1))); do
+            echo "XZIEL_KINO_SOURCE_MANIFEST_START $i/$SHARDS"
+            dotnet "$APP" \
+              kino-pak-unpacked \
+              kino-download/PavMappings.usmap \
+              kino-download/kino-class-requirements.json \
+              kino-download/kino-class-census.json \
+              "kino-download/source-manifest-shards/shard-$i.json" \
+              "$i" "$SHARDS" ue5.1 \
+              | tee "kino-download/source-manifest-shards/shard-$i.log"
+            test -s "kino-download/source-manifest-shards/shard-$i.json"
+            echo "XZIEL_KINO_SOURCE_MANIFEST_GREEN $i/$SHARDS"
+          done
+
+          python3 - <<'PY'
+          import json
+          from collections import Counter
+          from pathlib import Path
+
+          root = Path("kino-download/source-manifest-shards")
+          reports = [
+              json.loads(p.read_text(encoding="utf-8"))
+              for p in sorted(
+                  root.glob("shard-*.json"),
+                  key=lambda p: int(p.stem.split("-")[1]),
+              )
+          ]
+          assert len(reports) == 16, len(reports)
+
+          census = json.loads(
+              Path("kino-download/kino-class-census.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          sweep = json.loads(
+              Path("kino-download/kino-property-sweep.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          requirements = json.loads(
+              Path("kino-download/kino-class-requirements.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+
+          keys = set()
+          duplicate_keys = []
+          kinds = Counter()
+          package_failures = []
+          export_failures = []
+          unclassified = []
+          invalid_dependencies = []
+
+          for report in reports:
+              assert report["ready"], report["shardIndex"]
+              kinds.update(report["kindCounts"])
+              package_failures.extend(report["packageFailures"])
+              export_failures.extend(report["exportFailures"])
+              unclassified.extend(report["unclassified"])
+              invalid_dependencies.extend(report["invalidDependencies"])
+
+              for node in report["nodes"]:
+                  key = node["contentKey"]
+                  if key in keys:
+                      duplicate_keys.append(key)
+                  keys.add(key)
+
+          summary = {
+              "schemaVersion": 1,
+              "shardCount": len(reports),
+              "packageCount": sum(r["packageCount"] for r in reports),
+              "packagesLoaded": sum(r["packagesLoaded"] for r in reports),
+              "expectedExports": sum(r["expectedExports"] for r in reports),
+              "exportsDecoded": sum(r["exportsDecoded"] for r in reports),
+              "nodeCount": sum(r["nodeCount"] for r in reports),
+              "uniqueContentKeyCount": len(keys),
+              "duplicateContentKeyCount": len(duplicate_keys),
+              "propertyTags": sum(r["propertyTags"] for r in reports),
+              "structuralEdges": sum(r["structuralEdges"] for r in reports),
+              "dependsMapEdges": sum(r["dependsMapEdges"] for r in reports),
+              "preloadEdges": sum(r["preloadEdges"] for r in reports),
+              "localDependencyEdges": sum(r["localDependencyEdges"] for r in reports),
+              "externalImportEdges": sum(r["externalImportEdges"] for r in reports),
+              "scriptImportEdges": sum(r["scriptImportEdges"] for r in reports),
+              "kindCounts": dict(sorted(kinds.items())),
+              "packageFailureCount": len(package_failures),
+              "exportFailureCount": len(export_failures),
+              "unclassifiedCount": len(unclassified),
+              "invalidDependencyCount": len(invalid_dependencies),
+              "packageFailures": package_failures,
+              "exportFailures": export_failures,
+              "unclassified": unclassified,
+              "invalidDependencies": invalid_dependencies,
+          }
+
+          expected_kinds = requirements["categoryExportCounts"]
+
+          summary["ready"] = (
+              summary["packageCount"] == census["packageCount"]
+              and summary["packagesLoaded"] == census["packageCount"]
+              and summary["expectedExports"] == census["totalExports"]
+              and summary["exportsDecoded"] == census["totalExports"]
+              and summary["nodeCount"] == census["totalExports"]
+              and summary["uniqueContentKeyCount"] == census["totalExports"]
+              and summary["duplicateContentKeyCount"] == 0
+              and summary["propertyTags"] == sweep["propertyTagCount"]
+              and summary["kindCounts"] == expected_kinds
+              and summary["packageFailureCount"] == 0
+              and summary["exportFailureCount"] == 0
+              and summary["unclassifiedCount"] == 0
+              and summary["invalidDependencyCount"] == 0
+              and (
+                  summary["structuralEdges"]
+                  + summary["dependsMapEdges"]
+                  + summary["preloadEdges"]
+              ) > 0
+          )
+
+          Path("kino-download/kino-source-export-manifest-summary.json").write_text(
+              json.dumps(summary, indent=2, sort_keys=True),
+              encoding="utf-8",
+          )
+
+          Path("kino-download/kino-source-adapter-requirements.txt").write_text(
+              "".join(
+                  f"{kind}|{count}\n"
+                  for kind, count in sorted(expected_kinds.items())
+              ),
+              encoding="utf-8",
+          )
+
+          print("XZIEL_KINO_SOURCE_MANIFEST_MERGED", {
+              "packages": summary["packageCount"],
+              "exports": summary["exportsDecoded"],
+              "nodes": summary["nodeCount"],
+              "uniqueKeys": summary["uniqueContentKeyCount"],
+              "propertyTags": summary["propertyTags"],
+              "structuralEdges": summary["structuralEdges"],
+              "dependsMapEdges": summary["dependsMapEdges"],
+              "preloadEdges": summary["preloadEdges"],
+              "localEdges": summary["localDependencyEdges"],
+              "externalEdges": summary["externalImportEdges"],
+              "scriptEdges": summary["scriptImportEdges"],
+              "kinds": summary["kindCounts"],
+              "invalidDependencies": summary["invalidDependencyCount"],
+              "ready": summary["ready"],
+          })
+
+          if not summary["ready"]:
+              raise SystemExit(5)
+
+          print("XZIEL_KINO_SOURCE_MANIFEST_GREEN")
+          PY
 
       - name: Fail closed on unknown source classes
         run: |
@@ -475,6 +647,9 @@ jobs:
             kino-download/kino-property-sweep.json
             kino-download/property-sweep-shards/
             kino-download/kino-class-requirements.json
+            kino-download/kino-source-export-manifest-summary.json
+            kino-download/kino-source-adapter-requirements.txt
+            kino-download/source-manifest-shards/
             kino-download/source-class-gate.log
             kino-download/class-shards/
           retention-days: 7
