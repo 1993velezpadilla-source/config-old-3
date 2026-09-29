@@ -20,6 +20,24 @@ on:
       - tools/maps/xz_xztexture_selftest.c
       - tools/maps/xz_xztexture_file_gate.c
       - tools/maps/UETextureXZTX/**
+      - engine/xz/xz_xzaudio.h
+      - engine/xz/xz_xzaudio.c
+      - tools/maps/xz_xzaudio_selftest.c
+      - tools/maps/xz_xzaudio_file_gate.c
+      - tools/maps/UEAudioXZAW/**
+      - engine/xz/xz_xzskel.h
+      - engine/xz/xz_xzskel.c
+      - tools/maps/xz_xzskel_file_gate.c
+      - tools/maps/UESkeletalMeshXZSK/**
+      - engine/xz/xz_xzanim.h
+      - engine/xz/xz_xzanim.c
+      - tools/maps/xz_xzanim_file_gate.c
+      - tools/maps/UEAnimationXZAN/**
+      - tools/maps/common/XzielSkeletonIdentity.cs
+      - engine/xz/xz_source_native_registry.c
+      - engine/xz/xz_source_native_registry.h
+      - engine/xz/xz_source_asset_pipeline.c
+      - engine/xz/xz_source_asset_pipeline.h
       - tools/maps/UEStaticMeshAudit/**
       - tools/maps/UEDeepPayloadAudit/**
       - tools/maps/patch_cue4parse_animation_fallback.py
