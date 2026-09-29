@@ -1713,6 +1713,7 @@ jobs:
             -Iengine/xz \
             tools/maps/xz_static_scene_runtime_file_gate.c \
             engine/xz/xz_static_scene_runtime.c \
+            engine/xz/xz_file_io.c \
             engine/xz/xz_material_instance_binding.c \
             engine/xz/xz_material_library.c \
             engine/xz/xz_xztexture.c \
