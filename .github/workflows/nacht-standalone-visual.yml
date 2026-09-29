@@ -2,6 +2,11 @@ name: XZIEL Nacht Standalone Visual
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feature/xziel-bo3-style-map-loader-v1
+    paths:
+      - ".github/workflows/nacht-standalone-visual.yml"
 
 permissions:
   contents: read
