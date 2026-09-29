@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
+import re
 import sys
 
 ROOTS = [
@@ -67,8 +68,11 @@ for root in ROOTS:
             continue
 
         lower = text.lower()
+        compact = re.sub(r"[^a-z0-9]+", "", lower)
         for token in BANNED_TEXT:
-            if token in lower:
+            token_lower = token.lower()
+            token_compact = re.sub(r"[^a-z0-9]+", "", token_lower)
+            if token_lower in lower or (token_compact and token_compact in compact):
                 failures.append(f"TEXT {path}: contains forbidden token {token!r}")
 
 if failures:

@@ -1,0 +1,102 @@
+name: XZIEL Android Standalone
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/xziel-bo3-style-map-loader-v1
+    paths:
+      - "engine/xz/**"
+      - "android/**"
+      - ".github/workflows/xziel-android-standalone.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install pinned NDK
+        shell: bash
+        run: |
+          set -euxo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "ndk;27.2.12479018" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Fetch SDL platform layer
+        shell: bash
+        run: |
+          set -euxo pipefail
+          git clone --depth=1 --branch release-2.30.x             https://github.com/libsdl-org/SDL.git             "$RUNNER_TEMP/sdl2"
+          git -C "$RUNNER_TEMP/sdl2" rev-parse HEAD | tee sdl2-commit.txt
+          test -d "$RUNNER_TEMP/sdl2/android-project"
+
+      - name: Assemble standalone Android project
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cp -a "$RUNNER_TEMP/sdl2/android-project" "$RUNNER_TEMP/xziel-android"
+
+          rm -rf "$RUNNER_TEMP/xziel-android/app/jni/SDL"
+          ln -s "$RUNNER_TEMP/sdl2" "$RUNNER_TEMP/xziel-android/app/jni/SDL"
+
+          rm -rf "$RUNNER_TEMP/xziel-android/app/jni/xz"
+          cp -a engine/xz "$RUNNER_TEMP/xziel-android/app/jni/xz"
+
+          mkdir -p "$RUNNER_TEMP/xziel-android/app/jni/src"
+          cp android/jni/Android.mk             "$RUNNER_TEMP/xziel-android/app/jni/Android.mk"
+          cp android/jni/Application.mk             "$RUNNER_TEMP/xziel-android/app/jni/Application.mk"
+          cp android/jni/src/Android.mk             "$RUNNER_TEMP/xziel-android/app/jni/src/Android.mk"
+
+          cp android/app-build.gradle             "$RUNNER_TEMP/xziel-android/app/build.gradle"
+          cp android/AndroidManifest.xml             "$RUNNER_TEMP/xziel-android/app/src/main/AndroidManifest.xml"
+
+          mkdir -p             "$RUNNER_TEMP/xziel-android/app/src/main/java/org/libsdl/app"
+          cp android/XzielActivity.java             "$RUNNER_TEMP/xziel-android/app/src/main/java/org/libsdl/app/XzielActivity.java"
+
+          grep -RniE             'quake|vril|gl4es|nz:p|nzportable|quakec|ndu\.bsp|progs\.dat'             "$RUNNER_TEMP/xziel-android/app/jni/xz"             "$RUNNER_TEMP/xziel-android/app/jni/src"             "$RUNNER_TEMP/xziel-android/app/src/main/AndroidManifest.xml"             "$RUNNER_TEMP/xziel-android/app/src/main/java/org/libsdl/app/XzielActivity.java"             && exit 91 || true
+
+          echo "XZIEL_ANDROID_PROJECT_ASSEMBLED"
+
+      - name: Build standalone APK
+        working-directory: ${{ runner.temp }}/xziel-android
+        shell: bash
+        run: |
+          set -euxo pipefail
+          chmod +x gradlew
+          ./gradlew --no-daemon --stacktrace assembleDebug
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          cp app/build/outputs/apk/debug/app-debug.apk             "$GITHUB_WORKSPACE/XZIEL-standalone-debug.apk"
+          echo "XZIEL_ANDROID_STANDALONE_GREEN"
+
+      - name: Verify APK native contents
+        shell: bash
+        run: |
+          set -euxo pipefail
+          unzip -l XZIEL-standalone-debug.apk | tee apk-files.txt
+          grep -q 'lib/arm64-v8a/libxziel.so' apk-files.txt
+          grep -q 'lib/x86_64/libxziel.so' apk-files.txt
+          ! grep -Eiq 'vril|gl4es|quake|nzp|nzportable' apk-files.txt
+          echo "XZIEL_APK_NO_LEGACY_RUNTIME_GREEN"
+
+      - name: Upload standalone APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Android-Standalone
+          path: XZIEL-standalone-debug.apk
+          if-no-files-found: error
