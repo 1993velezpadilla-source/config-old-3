@@ -217,9 +217,11 @@ XzXzanimStatus XzXzanim_Parse(
         uint32_t rot_time_offset = XzReadU32Le(t + 48u);
         uint32_t scale_time_offset = XzReadU32Le(t + 52u);
 
-        if (pos_count + rot_count + scale_count == 0u)
-            return XZ_XZAN_ERR_COUNT;
-
+        /*
+         * Zero-key tracks are valid: Unreal evaluates those bones from the
+         * linked skeleton reference pose. Keep the record so track index
+         * remains identical to skeleton bone index.
+         */
         if (!XzArrayRange(
                 view->payload_bytes,
                 pos_offset,
