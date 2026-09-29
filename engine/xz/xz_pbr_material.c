@@ -39,7 +39,10 @@ static XzPbrMaterialStatus XzPbrMaterial_DecodeBinding(
         return XZ_PBR_MATERIAL_NULL;
 
     memset(binding, 0, sizeof(*binding));
-    binding->blend_mode = XZ_PBR_BLEND_OPAQUE;
+    binding->blend_mode =
+        version == XZ_PBR_MATERIAL_LEGACY_VERSION
+            ? UINT32_MAX
+            : XZ_PBR_BLEND_OPAQUE;
     binding->opacity_mask_clip = 0.333f;
 
     if ((version == XZ_PBR_MATERIAL_LEGACY_VERSION &&
@@ -86,7 +89,8 @@ static XzPbrMaterialStatus XzPbrMaterial_DecodeBinding(
         binding->specular > 1.0f ||
         binding->emissive < 0.0f ||
         binding->emissive > 16.0f ||
-        binding->blend_mode > XZ_PBR_BLEND_ADDITIVE ||
+        (version == XZ_PBR_MATERIAL_VERSION &&
+         binding->blend_mode > XZ_PBR_BLEND_ADDITIVE) ||
         !isfinite(binding->opacity_mask_clip) ||
         binding->opacity_mask_clip < 0.0f ||
         binding->opacity_mask_clip > 1.0f)
