@@ -293,6 +293,13 @@ int XzGles3Shadow_CompositeVisibleWorld(
     unsigned int render_width,
     unsigned int render_height);
 
+int XzGles3Shadow_CompositeStaticScene(
+    XzGles3ShadowState *state,
+    const float modelview[16],
+    const float projection[16],
+    unsigned int render_width,
+    unsigned int render_height);
+
 int XzGles3Shadow_AuditCurrentFramebuffer(
     XzGles3ShadowState *state,
     unsigned int width,
