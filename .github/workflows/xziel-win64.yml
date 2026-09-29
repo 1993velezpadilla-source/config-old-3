@@ -1,0 +1,85 @@
+name: XZIEL Windows x64 / Winlator Prototype
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/xziel-win64.yml"
+      - "scripts/prepare_windows_x64.sh"
+      - "scripts/patch_vril_*.py"
+      - "scripts/patch_quakec_*.py"
+      - "scripts/build_xziel_icons.py"
+
+concurrency:
+  group: xziel-win64-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-win64:
+    name: Build Xziel.exe + complete game package
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Install Win64 cross-build tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc-mingw-w64-x86-64 \
+            mingw-w64-tools \
+            make \
+            git \
+            pkg-config \
+            wget \
+            curl \
+            tar \
+            unzip \
+            zip \
+            file \
+            python3-pip
+
+      - name: Build XZIEL Windows x64 prototype
+        shell: bash
+        env:
+          XZIEL_MAX_AI_COUNT: "96"
+          XZIEL_NACHT_BENCHMARK: "1"
+        run: |
+          set -euo pipefail
+          chmod +x scripts/prepare_windows_x64.sh
+          bash scripts/prepare_windows_x64.sh
+
+      - name: Verify Winlator package contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=build/xziel-win64/dist/XZIEL-WIN64
+          test -s "$ROOT/Xziel.exe"
+          test -s "$ROOT/nzp/progs.dat"
+          test -d "$ROOT/nzp/maps"
+          test -s "$ROOT/RUN_NACHT.cmd"
+          test -s build/xziel-win64/dist/XZIEL-WIN64-WINLATOR.zip
+          file "$ROOT/Xziel.exe" | tee build/xziel-win64/dist/xziel-exe-file.txt
+          grep -Eiq "PE32\+|x86-64" build/xziel-win64/dist/xziel-exe-file.txt
+          echo "XZIEL_WINLATOR_PACKAGE_GATE_OK"
+
+      - name: Upload XZIEL-WIN64 Winlator package
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-WIN64-WINLATOR
+          path: |
+            build/xziel-win64/dist/XZIEL-WIN64-WINLATOR.zip
+            build/xziel-win64/dist/XZIEL-WIN64-WINLATOR.zip.sha256
+            build/xziel-win64/dist/xziel-exe-file.txt
+            build/xziel-win64/pe-report.txt
+          if-no-files-found: error
+          retention-days: 14
