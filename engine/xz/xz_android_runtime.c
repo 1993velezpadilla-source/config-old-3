@@ -2260,6 +2260,27 @@ int XzAndroidRuntime_ShouldSuppressLegacyWorldDraw(
     return 0;
 }
 
+int XzAndroidRuntime_PresentStaticScene(
+    const float modelview[16],
+    const float projection[16],
+    unsigned int width,
+    unsigned int height)
+{
+    if (!xz_runtime.initialized ||
+        !modelview ||
+        !projection ||
+        !xz_runtime.gles3_shadow.static_scene_gpu_ready ||
+        !xz_runtime.gles3_shadow.visible_context_ready)
+        return 0;
+
+    return XzGles3Shadow_CompositeStaticScene(
+        &xz_runtime.gles3_shadow,
+        modelview,
+        projection,
+        width,
+        height);
+}
+
 int XzAndroidRuntime_CompositeVisibleWorld(void)
 {
     int presented;
