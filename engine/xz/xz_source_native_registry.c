@@ -3,6 +3,7 @@
 #include "xz_xzmesh.h"
 #include "xz_xztexture.h"
 #include "xz_xzaudio.h"
+#include "xz_xzrig.h"
 #include "xz_xzskel.h"
 #include "xz_xzanim.h"
 
@@ -38,6 +39,13 @@ static const XzSourceNativeAdapter g_adapters[] = {
         ".xaw"
     },
     {
+        "Skeleton",
+        XZ_SOURCE_ANIMATION_RIG,
+        XZ_NATIVE_PAYLOAD_XZRG,
+        "XZRG",
+        ".xrg"
+    },
+    {
         "SkeletalMesh",
         XZ_SOURCE_ANIMATION_RIG,
         XZ_NATIVE_PAYLOAD_XZSK,
@@ -59,6 +67,7 @@ static const char *const g_type_names[
     "xzms",
     "xztx",
     "xzaw",
+    "xzrg",
     "xzsk",
     "xzan"
 };
@@ -124,6 +133,13 @@ int XzSourceNativeRegistry_ValidatePayload(
             data,
             size) == XZ_XZAW_OK;
     }
+    case XZ_NATIVE_PAYLOAD_XZRG: {
+        XzXzrigView view;
+        return XzXzrig_Parse(
+            &view,
+            data,
+            size) == XZ_XZRG_OK;
+    }
     case XZ_NATIVE_PAYLOAD_XZSK: {
         XzXzskelView view;
         return XzXzskel_Parse(
@@ -184,6 +200,17 @@ int XzSourceNativeRegistry_SelfTest(void)
             XZ_NATIVE_PAYLOAD_XZAW ||
         adapter->source_kind !=
             XZ_SOURCE_AUDIO)
+        return 0;
+
+    adapter =
+        XzSourceNativeRegistry_Find(
+            "Skeleton");
+    if (!adapter ||
+        adapter->native_type !=
+            XZ_NATIVE_PAYLOAD_XZRG ||
+        adapter->source_kind !=
+            XZ_SOURCE_ANIMATION_RIG ||
+        strcmp(adapter->magic, "XZRG") != 0)
         return 0;
 
     adapter =
