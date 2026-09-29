@@ -319,8 +319,11 @@ jobs:
       - name: Virgin-loader anti-hardcode gate
         run: |
           set -euxo pipefail
-          ! grep -RniE "kino|kinodertoten|2809826|5245723" engine/xz \
-            --include='*.c' --include='*.h'
+          if grep -RniE "kino|kinodertoten|2809826|5245723" engine/xz \
+            --include='*.c' --include='*.h'; then
+            echo "XZIEL_KINO_VIRGIN_NO_ENGINE_HARDCODE_FAILURE"
+            exit 9
+          fi
           echo "XZIEL_KINO_VIRGIN_NO_ENGINE_HARDCODE_GREEN"
 
       - name: Upload Kino census
