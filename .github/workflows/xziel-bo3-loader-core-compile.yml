@@ -28,6 +28,8 @@ on:
       - engine/xz/xz_source_class_registry.h
       - engine/xz/xz_source_adapter_registry.c
       - engine/xz/xz_source_adapter_registry.h
+      - engine/xz/xz_source_native_registry.c
+      - engine/xz/xz_source_native_registry.h
       - engine/xz/xz_source_asset_pipeline.c
       - engine/xz/xz_source_asset_pipeline.h
       - engine/xz/xz_package_boot.c
@@ -64,6 +66,7 @@ jobs:
             engine/xz/xz_asset_cache.c \
             engine/xz/xz_source_class_registry.c \
             engine/xz/xz_source_adapter_registry.c \
+            engine/xz/xz_source_native_registry.c \
             engine/xz/xz_source_asset_pipeline.c \
             engine/xz/xz_xztexture.c \
             engine/xz/xz_xzaudio.c \
@@ -93,6 +96,7 @@ jobs:
           #include "xz_asset_cache.h"
           #include "xz_source_class_registry.h"
           #include "xz_source_adapter_registry.h"
+          #include "xz_source_native_registry.h"
           #include "xz_source_asset_pipeline.h"
           #include "xz_xztexture.h"
           #include "xz_xzaudio.h"
@@ -134,6 +138,7 @@ jobs:
                   XzAssetCache_SelfTest() &&
                   XzSourceClassRegistry_SelfTest() &&
                   XzSourceAdapterRegistry_SelfTest() &&
+                  XzSourceNativeRegistry_SelfTest() &&
                   XzSourceAsset_SelfTest() &&
                   XzXztexture_SelfTest() &&
                   XzXzaudio_SelfTest() &&
@@ -159,6 +164,7 @@ jobs:
             engine/xz/xz_asset_cache.c \
             engine/xz/xz_source_class_registry.c \
             engine/xz/xz_source_adapter_registry.c \
+            engine/xz/xz_source_native_registry.c \
             engine/xz/xz_source_asset_pipeline.c \
             engine/xz/xz_xztexture.c \
             engine/xz/xz_xzaudio.c \
