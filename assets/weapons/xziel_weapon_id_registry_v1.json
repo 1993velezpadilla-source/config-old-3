@@ -11,7 +11,7 @@
       160,
       210
     ],
-    "note": "Stable XZIEL IDs are reserved independently of NZ:P legacy IDs. Identity reservation does not imply native gameplay readiness.",
+    "note": "Stable XZIEL IDs are engine-owned and independent. Identity reservation does not imply native gameplay readiness.",
     "packAPunchAssignedRange": [
       160,
       194
