@@ -2266,6 +2266,8 @@ int XzAndroidRuntime_PresentStaticScene(
     unsigned int width,
     unsigned int height)
 {
+    int presented;
+
     if (!xz_runtime.initialized ||
         !modelview ||
         !projection ||
@@ -2273,12 +2275,33 @@ int XzAndroidRuntime_PresentStaticScene(
         !xz_runtime.gles3_shadow.visible_context_ready)
         return 0;
 
-    return XzGles3Shadow_CompositeStaticScene(
-        &xz_runtime.gles3_shadow,
-        modelview,
-        projection,
-        width,
-        height);
+    presented =
+        XzGles3Shadow_CompositeStaticScene(
+            &xz_runtime.gles3_shadow,
+            modelview,
+            projection,
+            width,
+            height);
+
+    if (presented &&
+        xz_runtime.gles3_shadow.static_scene_draw_successes == 1u) {
+        XzAndroidLog(
+            ANDROID_LOG_INFO,
+            "standalone_static_present ready=1"
+            " map='%s' width=%u height=%u"
+            " draws=%u instances=%u"
+            " fboPixels=%u surfacePixels=%u",
+            XzMapRuntime_MapId(
+                &xz_runtime.map_runtime),
+            width,
+            height,
+            xz_runtime.gles3_shadow.static_scene_last_draw_calls,
+            xz_runtime.gles3_shadow.static_scene_last_instances,
+            xz_runtime.gles3_shadow.static_scene_fbo_nonblack_pixels,
+            xz_runtime.gles3_shadow.static_scene_surface_nonblack_pixels);
+    }
+
+    return presented;
 }
 
 int XzAndroidRuntime_CompositeVisibleWorld(void)
