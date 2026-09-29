@@ -35,6 +35,9 @@ var sourceGameName = args[6];
 if (shardCount <= 0 || shardIndex < 0 || shardIndex >= shardCount)
     throw new ArgumentOutOfRangeException(nameof(shardIndex));
 
+new Harmony("xziel.ue.anim-sequence-legacy-codec-fallback")
+    .PatchAll(typeof(XzielAnimSequenceCompressedDataPatch).Assembly);
+
 EGame sourceGame =
     sourceGameName.Trim().ToLowerInvariant() switch
     {
@@ -1594,3 +1597,144 @@ sealed record PackageRow(
     int SoundWaveCount,
     int SkeletalMeshCount,
     int AnimSequenceCount);
+
+
+[HarmonyPatch(typeof(UAnimSequence), "SerializeCompressedData3")]
+static class XzielAnimSequenceCompressedDataPatch
+{
+    static bool Prefix(UAnimSequence __instance, FAssetArchive Ar)
+    {
+        __instance.CompressedRawDataSize = Ar.Read<int>();
+        __instance.CompressedTrackToSkeletonMapTable =
+            Ar.ReadArray<FTrackToSkeletonMap>();
+        __instance.CompressedCurveNames =
+            Ar.ReadArray(() => new FSmartName(Ar));
+
+        var serializedByteStream =
+            ReadSerializedByteStream(Ar);
+
+        __instance.BoneCodecDDCHandle = Ar.ReadFString();
+        __instance.CurveCodecPath = Ar.ReadFString();
+
+        var numCurveBytes = Ar.Read<int>();
+        __instance.CompressedCurveByteStream =
+            Ar.ReadBytes(numCurveBytes);
+
+        UAnimBoneCompressionCodec? codec =
+            __instance.BoneCompressionSettings?
+                .Load<UAnimBoneCompressionSettings>()?
+                .GetCodec(__instance.BoneCodecDDCHandle ?? string.Empty);
+
+        var usedLegacyFallback = false;
+        if (codec is null && serializedByteStream.Length > 0)
+        {
+            codec = ResolveKnownLegacyCodec(
+                __instance.BoneCodecDDCHandle);
+
+            if (codec is null)
+            {
+                throw new InvalidDataException(
+                    "unsupported unresolved UE animation codec handle: " +
+                    (__instance.BoneCodecDDCHandle ?? "<null>"));
+            }
+
+            usedLegacyFallback = true;
+        }
+
+        if (codec is not null)
+        {
+            __instance.CompressedDataStructure =
+                codec.AllocateAnimData();
+            __instance.CompressedDataStructure
+                .SerializeCompressedData(Ar);
+            __instance.CompressedDataStructure
+                .Bind(serializedByteStream);
+            __instance.NumFrames =
+                __instance.CompressedDataStructure
+                    .CompressedNumberOfFrames;
+        }
+
+        if (usedLegacyFallback)
+        {
+            Console.WriteLine(
+                "XZIEL_UE_ANIM_CODEC_FALLBACK " +
+                JsonSerializer.Serialize(new {
+                    handle = __instance.BoneCodecDDCHandle,
+                    codec = codec!.GetType().Name,
+                    bytes = serializedByteStream.Length,
+                    frames = __instance.NumFrames,
+                    tracks =
+                        __instance
+                            .CompressedTrackToSkeletonMapTable
+                            .Length
+                }));
+        }
+
+        return false;
+    }
+
+    static UAnimBoneCompressionCodec? ResolveKnownLegacyCodec(
+        string? handle)
+    {
+        if (MatchesNumberedHandle(
+                handle,
+                "AnimCompress_PerTrackCompression_"))
+            return new UAnimCompress_PerTrackCompression();
+
+        if (MatchesNumberedHandle(
+                handle,
+                "AnimCompress_RemoveLinearKeys_"))
+            return new UAnimCompress_RemoveLinearKeys();
+
+        return null;
+    }
+
+    static bool MatchesNumberedHandle(
+        string? handle,
+        string prefix)
+    {
+        if (string.IsNullOrEmpty(handle) ||
+            !handle.StartsWith(
+                prefix,
+                StringComparison.Ordinal))
+            return false;
+
+        var suffix = handle[prefix.Length..];
+        return suffix.Length > 0 &&
+            int.TryParse(
+                suffix,
+                System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out _);
+    }
+
+    static byte[] ReadSerializedByteStream(FAssetArchive Ar)
+    {
+        var numBytes = Ar.Read<int>();
+        var useBulkData = Ar.ReadBoolean();
+
+        if (Ar.Game == EGame.GAME_WorldofJadeDynasty)
+        {
+            numBytes =
+                (numBytes << 24) |
+                (numBytes & 0xFFFF00) |
+                (byte)(numBytes >> 24);
+        }
+
+        if (Ar.Game == EGame.GAME_RocoKingdomWorld)
+        {
+            Ar.Position += 16;
+            numBytes -= 16;
+        }
+
+        if (!useBulkData)
+            return Ar.ReadBytes(numBytes);
+
+        var bulkData = new FByteBulkData(Ar);
+        using var bulkAr = new FByteArchive(
+            "AnimSequenceBulkData",
+            bulkData.Data,
+            Ar.Versions);
+        return bulkAr.ReadBytes(numBytes);
+    }
+}
