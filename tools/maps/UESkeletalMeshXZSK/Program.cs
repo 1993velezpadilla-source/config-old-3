@@ -1,0 +1,794 @@
+using CUE4Parse.FileProvider;
+using CUE4Parse.MappingsProvider.Usmap;
+using CUE4Parse.UE4.Assets.Exports.SkeletalMesh;
+using CUE4Parse.UE4.Objects.Core.Math;
+using CUE4Parse.UE4.Versions;
+using CUE4Parse_Conversion.Dto;
+using CUE4Parse_Conversion.Options;
+using System.Text;
+using System.Text.Json;
+
+const uint XzskVersion = 1;
+const uint XzskHeaderBytes = 96;
+const uint XzskBoneBytes = 56;
+const uint XzskVertexBytes = 136;
+const uint XzskSectionBytes = 16;
+const uint XzskMaxUvs = 8;
+const uint XzskMaxInfluences = 8;
+const uint FlagXzielBasis = 1u << 0;
+const uint FlagIndexU32 = 1u << 1;
+
+if (args.Length is < 4 or > 6)
+{
+    Console.Error.WriteLine(
+        "usage: UESkeletalMeshXZSK <unpacked-root> <mappings.usmap> <class-census.json> <output-dir> [max-meshes] [source-game]");
+    return 2;
+}
+
+var root = args[0];
+var mappingsPath = args[1];
+var censusPath = args[2];
+var outputDir = args[3];
+var maxMeshes =
+    args.Length >= 5
+        ? int.Parse(args[4])
+        : 8;
+var sourceGameName =
+    args.Length >= 6
+        ? args[5]
+        : "ue5.1";
+
+if (maxMeshes <= 0)
+    throw new ArgumentOutOfRangeException(nameof(maxMeshes));
+
+EGame sourceGame =
+    sourceGameName.Trim().ToLowerInvariant() switch
+    {
+        "ue4.21" or "ue4_21" or "ue421" =>
+            EGame.GAME_UE4_21,
+        "ue5.1" or "ue5_1" or "ue51" =>
+            EGame.GAME_UE5_1,
+        _ => throw new ArgumentException(
+            "unsupported source-game: " +
+            sourceGameName)
+    };
+
+using var censusDoc =
+    JsonDocument.Parse(
+        File.ReadAllText(censusPath));
+
+var candidatePackages =
+    censusDoc.RootElement
+        .GetProperty("packages")
+        .EnumerateArray()
+        .Where(row =>
+            row.GetProperty("classes")
+                .TryGetProperty(
+                    "SkeletalMesh",
+                    out var count) &&
+            count.GetInt32() > 0)
+        .Select(row =>
+            NormalizeMergedShardPath(
+                row.GetProperty("packagePath")
+                    .GetString()
+                ?? throw new InvalidDataException(
+                    "packagePath missing")))
+        .Distinct(
+            StringComparer.OrdinalIgnoreCase)
+        .OrderBy(
+            x => x,
+            StringComparer.OrdinalIgnoreCase)
+        .ToArray();
+
+var provider = new DefaultFileProvider(
+    root,
+    SearchOption.AllDirectories,
+    new VersionContainer(sourceGame),
+    StringComparer.OrdinalIgnoreCase)
+{
+    MappingsContainer =
+        new FileUsmapTypeMappingsProvider(
+            mappingsPath)
+};
+
+provider.Initialize();
+provider.PostMount();
+provider.LoadVirtualPaths();
+
+Directory.CreateDirectory(outputDir);
+
+var rows = new List<object>();
+var failures = new List<object>();
+var hashes = new SortedDictionary<string, int>(
+    StringComparer.Ordinal);
+
+var converted = 0;
+long totalBones = 0;
+long totalVertices = 0;
+long totalIndices = 0;
+long totalTriangles = 0;
+long totalSections = 0;
+long totalFileBytes = 0;
+var maxUvChannels = 0;
+var maxInfluences = 0;
+
+foreach (var logicalPackage in candidatePackages)
+{
+    if (converted >= maxMeshes)
+        break;
+
+    var resolvedPath =
+        ResolveProviderPackagePath(
+            provider,
+            logicalPackage);
+
+    if (resolvedPath is null)
+    {
+        failures.Add(new {
+            packagePath = logicalPackage,
+            error = "provider path unresolved"
+        });
+        continue;
+    }
+
+    try
+    {
+        var package =
+            provider.LoadPackage(
+                resolvedPath);
+
+        var meshes =
+            package.GetExports()
+                .OfType<USkeletalMesh>()
+                .OrderBy(
+                    mesh => mesh.Name,
+                    StringComparer.Ordinal)
+                .ToArray();
+
+        foreach (var mesh in meshes)
+        {
+            if (converted >= maxMeshes)
+                break;
+
+            try
+            {
+                using var dto =
+                    new SkeletalMeshDto(
+                        mesh,
+                        EMeshQuality.Highest,
+                        ENaniteMeshFormat.NoNanite,
+                        exportMorphTarget: false);
+
+                var fileName =
+                    $"s{converted:D4}.xsk";
+                var outPath =
+                    Path.Combine(
+                        outputDir,
+                        fileName);
+
+                var result =
+                    WriteXzsk(
+                        outPath,
+                        dto);
+
+                rows.Add(new {
+                    index = converted,
+                    file = fileName,
+                    packagePath = logicalPackage,
+                    resolvedPackagePath =
+                        resolvedPath,
+                    objectPath =
+                        mesh.GetPathName(),
+                    result.bones,
+                    result.vertices,
+                    result.indices,
+                    result.triangles,
+                    result.sections,
+                    result.uvChannels,
+                    result.maxVertexInfluences,
+                    skeletonHash =
+                        result.skeletonHash
+                            .ToString("x16"),
+                    result.fileBytes
+                });
+
+                converted++;
+                totalBones += result.bones;
+                totalVertices += result.vertices;
+                totalIndices += result.indices;
+                totalTriangles += result.triangles;
+                totalSections += result.sections;
+                totalFileBytes += result.fileBytes;
+                maxUvChannels =
+                    Math.Max(
+                        maxUvChannels,
+                        result.uvChannels);
+                maxInfluences =
+                    Math.Max(
+                        maxInfluences,
+                        result.maxVertexInfluences);
+
+                var hash =
+                    result.skeletonHash
+                        .ToString("x16");
+                hashes[hash] =
+                    hashes.GetValueOrDefault(hash) + 1;
+            }
+            catch (Exception e)
+            {
+                failures.Add(new {
+                    packagePath = logicalPackage,
+                    objectPath =
+                        mesh.GetPathName(),
+                    error =
+                        e.GetType().FullName +
+                        ": " +
+                        e.Message
+                });
+            }
+        }
+    }
+    catch (Exception e)
+    {
+        failures.Add(new {
+            packagePath = logicalPackage,
+            error =
+                e.GetType().FullName +
+                ": " +
+                e.Message
+        });
+    }
+}
+
+var ready =
+    converted == maxMeshes &&
+    rows.Count == maxMeshes &&
+    failures.Count == 0 &&
+    totalBones > 0 &&
+    totalVertices > 0 &&
+    totalIndices > 0 &&
+    totalTriangles > 0 &&
+    totalSections > 0 &&
+    totalFileBytes > 0 &&
+    maxUvChannels is >= 1 and <= (int)XzskMaxUvs &&
+    maxInfluences is >= 1 and <= (int)XzskMaxInfluences;
+
+var report = new {
+    schemaVersion = 1,
+    format = "xziel_skinned_mesh_xzsk_v1",
+    sourceGameName,
+    requestedMeshes = maxMeshes,
+    convertedMeshes = converted,
+    totalBones,
+    totalVertices,
+    totalIndices,
+    totalTriangles,
+    totalSections,
+    maxUvChannels,
+    maxInfluences,
+    skeletonHashCounts = hashes,
+    totalFileBytes,
+    failureCount = failures.Count,
+    meshes = rows,
+    failures,
+    ready
+};
+
+File.WriteAllText(
+    Path.Combine(
+        outputDir,
+        "report.json"),
+    JsonSerializer.Serialize(
+        report,
+        new JsonSerializerOptions {
+            WriteIndented = true
+        }));
+
+Console.WriteLine(
+    "XZIEL_UE_XZSK_PROBE " +
+    JsonSerializer.Serialize(new {
+        requested = maxMeshes,
+        converted,
+        totalBones,
+        totalVertices,
+        totalIndices,
+        totalTriangles,
+        totalSections,
+        maxUvChannels,
+        maxInfluences,
+        skeletons = hashes.Count,
+        totalFileBytes,
+        failures = failures.Count,
+        ready
+    }));
+
+foreach (var failure in failures.Take(100))
+{
+    Console.WriteLine(
+        "XZIEL_UE_XZSK_FAILURE " +
+        JsonSerializer.Serialize(failure));
+}
+
+if (!ready)
+{
+    Console.WriteLine(
+        "XZIEL_UE_XZSK_PROBE_FAILURE");
+    return 5;
+}
+
+Console.WriteLine(
+    "XZIEL_UE_XZSK_PROBE_GREEN");
+return 0;
+
+static (
+    int bones,
+    int vertices,
+    int indices,
+    int triangles,
+    int sections,
+    int uvChannels,
+    int maxVertexInfluences,
+    ulong skeletonHash,
+    long fileBytes
+) WriteXzsk(
+    string outputPath,
+    SkeletalMeshDto dto)
+{
+    if (dto.Bones.Length == 0)
+        throw new InvalidDataException(
+            "skeletal mesh has no bones");
+
+    var lod =
+        dto.LODs.FirstOrDefault()
+        ?? throw new InvalidDataException(
+            "skeletal mesh has no usable LOD");
+
+    if (lod.Vertices.Length == 0 ||
+        lod.Indices.Length == 0 ||
+        lod.Sections.Length == 0)
+    {
+        throw new InvalidDataException(
+            "skeletal mesh highest LOD is empty");
+    }
+
+    if ((lod.Indices.Length % 3) != 0)
+        throw new InvalidDataException(
+            "skeletal mesh index count is not divisible by 3");
+
+    var uvChannels =
+        1 + lod.ExtraUvs.Length;
+
+    if (uvChannels > XzskMaxUvs)
+        throw new InvalidDataException(
+            $"skeletal mesh has {uvChannels} UV channels; max is {XzskMaxUvs}");
+
+    foreach (var extra in lod.ExtraUvs)
+    {
+        if (extra.Length != lod.Vertices.Length)
+            throw new InvalidDataException(
+                "skeletal mesh extra UV vertex count mismatch");
+    }
+
+    var sections =
+        lod.Sections
+            .Where(section =>
+                section.IsValid &&
+                section.NumFaces > 0)
+            .ToArray();
+
+    if (sections.Length == 0)
+        throw new InvalidDataException(
+            "skeletal mesh has no valid sections");
+
+    var skeletonHash =
+        XzielSkeletonIdentity.HashBones(
+            dto.Bones);
+
+    var stringData =
+        new MemoryStream();
+    var boneNames =
+        new (uint offset, uint bytes)[
+            dto.Bones.Length];
+
+    for (var i = 0;
+         i < dto.Bones.Length;
+         ++i)
+    {
+        var encoded =
+            Encoding.UTF8.GetBytes(
+                dto.Bones[i].Name);
+
+        if (encoded.Length == 0)
+            throw new InvalidDataException(
+                $"bone {i} has empty name");
+
+        boneNames[i] = (
+            checked((uint)stringData.Position),
+            checked((uint)encoded.Length));
+        stringData.Write(encoded);
+    }
+
+    var boneOffset =
+        XzskHeaderBytes;
+    var vertexOffset =
+        checked(
+            boneOffset +
+            checked((uint)dto.Bones.Length) *
+                XzskBoneBytes);
+    var indexOffset =
+        checked(
+            vertexOffset +
+            checked((uint)lod.Vertices.Length) *
+                XzskVertexBytes);
+    var sectionOffset =
+        checked(
+            indexOffset +
+            checked((uint)lod.Indices.Length) *
+                4u);
+    var stringOffset =
+        checked(
+            sectionOffset +
+            checked((uint)sections.Length) *
+                XzskSectionBytes);
+    var stringBytes =
+        checked((uint)stringData.Length);
+    var fileBytes =
+        checked(
+            (long)stringOffset +
+            stringBytes);
+
+    if (fileBytes > uint.MaxValue)
+        throw new InvalidDataException(
+            $"XZSK v1 file exceeds 32-bit offsets: {fileBytes}");
+
+    var minX = float.PositiveInfinity;
+    var minY = float.PositiveInfinity;
+    var minZ = float.PositiveInfinity;
+    var maxX = float.NegativeInfinity;
+    var maxY = float.NegativeInfinity;
+    var maxZ = float.NegativeInfinity;
+    var maxVertexInfluences = 0;
+
+    foreach (var vertex in lod.Vertices)
+    {
+        var position =
+            XzielSkeletonIdentity.PositionToXziel(
+                vertex.Position);
+
+        if (!float.IsFinite(position.X) ||
+            !float.IsFinite(position.Y) ||
+            !float.IsFinite(position.Z))
+        {
+            throw new InvalidDataException(
+                "skeletal vertex position is non-finite");
+        }
+
+        minX = Math.Min(minX, position.X);
+        minY = Math.Min(minY, position.Y);
+        minZ = Math.Min(minZ, position.Z);
+        maxX = Math.Max(maxX, position.X);
+        maxY = Math.Max(maxY, position.Y);
+        maxZ = Math.Max(maxZ, position.Z);
+
+        var influences =
+            vertex.Influences
+                .Where(x => x.RawWeight != 0)
+                .ToArray();
+
+        if (influences.Length == 0)
+            throw new InvalidDataException(
+                "skeletal vertex has zero bone influences");
+
+        if (influences.Length > XzskMaxInfluences)
+            throw new InvalidDataException(
+                $"skeletal vertex has {influences.Length} influences; max is {XzskMaxInfluences}");
+
+        maxVertexInfluences =
+            Math.Max(
+                maxVertexInfluences,
+                influences.Length);
+
+        foreach (var influence in influences)
+        {
+            if (influence.Bone >= dto.Bones.Length)
+                throw new InvalidDataException(
+                    $"skeletal vertex bone index {influence.Bone} >= {dto.Bones.Length}");
+        }
+    }
+
+    foreach (var index in lod.Indices)
+    {
+        if (index >= lod.Vertices.Length)
+            throw new InvalidDataException(
+                $"skeletal index {index} >= vertex count {lod.Vertices.Length}");
+    }
+
+    foreach (var section in sections)
+    {
+        var first =
+            checked((uint)section.FirstIndex);
+        var count =
+            checked((uint)section.NumFaces * 3u);
+
+        if ((ulong)first + count >
+            (ulong)lod.Indices.Length)
+        {
+            throw new InvalidDataException(
+                "skeletal section index range exceeds LOD index buffer");
+        }
+    }
+
+    Directory.CreateDirectory(
+        Path.GetDirectoryName(
+            Path.GetFullPath(
+                outputPath))!);
+
+    using var stream =
+        new FileStream(
+            outputPath,
+            FileMode.Create,
+            FileAccess.Write,
+            FileShare.None);
+    using var writer =
+        new BinaryWriter(
+            stream,
+            Encoding.UTF8,
+            leaveOpen: true);
+
+    writer.Write((byte)'X');
+    writer.Write((byte)'Z');
+    writer.Write((byte)'S');
+    writer.Write((byte)'K');
+    writer.Write(XzskVersion);
+    writer.Write(
+        FlagXzielBasis |
+        FlagIndexU32);
+    writer.Write(
+        checked((uint)dto.Bones.Length));
+    writer.Write(
+        checked((uint)lod.Vertices.Length));
+    writer.Write(
+        checked((uint)lod.Indices.Length));
+    writer.Write(
+        checked((uint)sections.Length));
+    writer.Write(XzskBoneBytes);
+    writer.Write(XzskVertexBytes);
+    writer.Write(XzskSectionBytes);
+    writer.Write(boneOffset);
+    writer.Write(vertexOffset);
+    writer.Write(indexOffset);
+    writer.Write(sectionOffset);
+    writer.Write(stringOffset);
+    writer.Write(stringBytes);
+    writer.Write(skeletonHash);
+    writer.Write(minX);
+    writer.Write(minY);
+    writer.Write(minZ);
+    writer.Write(maxX);
+    writer.Write(maxY);
+    writer.Write(maxZ);
+
+    if (stream.Position != XzskHeaderBytes)
+        throw new InvalidDataException(
+            $"XZSK header size mismatch: {stream.Position}");
+
+    for (var i = 0;
+         i < dto.Bones.Length;
+         ++i)
+    {
+        var bone = dto.Bones[i];
+        var rotation =
+            XzielSkeletonIdentity.RotationToXziel(
+                bone.Transform.Rotation);
+        var translation =
+            XzielSkeletonIdentity.PositionToXziel(
+                bone.Transform.Translation);
+        var scale =
+            bone.Transform.Scale3D;
+
+        writer.Write(bone.ParentIndex);
+        writer.Write(boneNames[i].offset);
+        writer.Write(boneNames[i].bytes);
+        writer.Write(0u);
+
+        writer.Write(rotation.X);
+        writer.Write(rotation.Y);
+        writer.Write(rotation.Z);
+        writer.Write(rotation.W);
+
+        writer.Write(translation.X);
+        writer.Write(translation.Y);
+        writer.Write(translation.Z);
+
+        writer.Write(scale.X);
+        writer.Write(scale.Y);
+        writer.Write(scale.Z);
+    }
+
+    foreach (var vertex in lod.Vertices)
+    {
+        var position =
+            XzielSkeletonIdentity.PositionToXziel(
+                vertex.Position);
+        var normal =
+            XzielSkeletonIdentity.DirectionToXziel(
+                new FVector(
+                    vertex.Normal.X,
+                    vertex.Normal.Y,
+                    vertex.Normal.Z));
+        var tangent =
+            XzielSkeletonIdentity.TangentToXziel(
+                vertex.Tangent);
+
+        writer.Write(position.X);
+        writer.Write(position.Y);
+        writer.Write(position.Z);
+
+        writer.Write(normal.X);
+        writer.Write(normal.Y);
+        writer.Write(normal.Z);
+
+        writer.Write(tangent.X);
+        writer.Write(tangent.Y);
+        writer.Write(tangent.Z);
+        writer.Write(tangent.W);
+
+        writer.Write(vertex.Uv.U);
+        writer.Write(vertex.Uv.V);
+
+        for (var channel = 1;
+             channel < XzskMaxUvs;
+             ++channel)
+        {
+            if (channel - 1 <
+                lod.ExtraUvs.Length)
+            {
+                var uv =
+                    lod.ExtraUvs[
+                        channel - 1][
+                        Array.IndexOf(
+                            lod.Vertices,
+                            vertex)];
+                writer.Write(uv.U);
+                writer.Write(uv.V);
+            }
+            else
+            {
+                writer.Write(0.0f);
+                writer.Write(0.0f);
+            }
+        }
+
+        var influences =
+            vertex.Influences
+                .Where(x => x.RawWeight != 0)
+                .ToArray();
+
+        for (var i = 0;
+             i < XzskMaxInfluences;
+             ++i)
+        {
+            writer.Write(
+                i < influences.Length
+                    ? influences[i].Bone
+                    : (ushort)0);
+        }
+
+        for (var i = 0;
+             i < XzskMaxInfluences;
+             ++i)
+        {
+            writer.Write(
+                i < influences.Length
+                    ? influences[i].RawWeight
+                    : (ushort)0);
+        }
+    }
+
+    for (var i = 0;
+         i < lod.Indices.Length;
+         i += 3)
+    {
+        writer.Write(lod.Indices[i]);
+        writer.Write(lod.Indices[i + 2]);
+        writer.Write(lod.Indices[i + 1]);
+    }
+
+    foreach (var section in sections)
+    {
+        writer.Write(
+            checked((uint)section.FirstIndex));
+        writer.Write(
+            checked((uint)section.NumFaces * 3u));
+        writer.Write(
+            checked((uint)section.MaterialIndex));
+        writer.Write(
+            section.CastShadow
+                ? 1u
+                : 0u);
+    }
+
+    writer.Write(stringData.ToArray());
+    writer.Flush();
+
+    if (stream.Length != fileBytes)
+        throw new InvalidDataException(
+            $"XZSK size mismatch expected={fileBytes} actual={stream.Length}");
+
+    return (
+        dto.Bones.Length,
+        lod.Vertices.Length,
+        lod.Indices.Length,
+        lod.Indices.Length / 3,
+        sections.Length,
+        uvChannels,
+        maxVertexInfluences,
+        skeletonHash,
+        fileBytes);
+}
+
+static string NormalizeMergedShardPath(
+    string path)
+{
+    var normalized =
+        path.Replace('\\', '/');
+
+    if (!normalized.StartsWith(
+            "shard-",
+            StringComparison.OrdinalIgnoreCase))
+        return normalized;
+
+    var slash =
+        normalized.IndexOf('/');
+
+    if (slash <= 6)
+        return normalized;
+
+    var shardNumber =
+        normalized.AsSpan(
+            6,
+            slash - 6);
+
+    for (var i = 0;
+         i < shardNumber.Length;
+         ++i)
+    {
+        if (!char.IsDigit(
+                shardNumber[i]))
+            return normalized;
+    }
+
+    return normalized[(slash + 1)..];
+}
+
+static string? ResolveProviderPackagePath(
+    DefaultFileProvider provider,
+    string logicalPath)
+{
+    var normalized =
+        logicalPath
+            .Replace('\\', '/')
+            .TrimStart('/');
+
+    if (provider.Files.ContainsKey(
+            normalized))
+        return normalized;
+
+    var matches =
+        provider.Files.Keys
+            .Where(key =>
+                key.EndsWith(
+                    normalized,
+                    StringComparison.OrdinalIgnoreCase))
+            .OrderBy(
+                key => key.Length)
+            .ThenBy(
+                key => key,
+                StringComparer.OrdinalIgnoreCase)
+            .Take(2)
+            .ToArray();
+
+    return matches.Length == 1
+        ? matches[0]
+        : null;
+}
