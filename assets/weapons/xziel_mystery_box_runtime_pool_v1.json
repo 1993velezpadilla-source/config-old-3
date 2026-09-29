@@ -874,7 +874,7 @@
   ],
   "notes": [
     "Identity availability is not equivalent to runtime readiness.",
-    "Only active entries are emitted to the NZ:P .mb2 allow-list.",
+    "Only active entries are emitted to the XZIEL native Mystery Box pool.",
     "An empty active list is valid during development; the patched box must refuse purchase without charging the player."
   ]
 }
