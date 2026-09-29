@@ -44,6 +44,7 @@ on:
       - engine/xz/xz_source_asset_pipeline.h
       - tools/maps/UEStaticMeshAudit/**
       - tools/maps/UEDeepPayloadAudit/**
+      - tools/maps/UEMaterialAudit/**
       - tools/maps/patch_cue4parse_animation_fallback.py
       - tools/maps/UESceneTransformAudit/**
       - tools/maps/UEStaticSceneExtract/**
@@ -506,6 +507,33 @@ jobs:
           test "$(git hash-object "$TARGET")" = "$HAND_BLOB_SHA"
 
           echo "XZIEL_PAVLOV_BASE_HAND_SKELETON_GREEN"
+
+      - name: Audit resolved cooked UE materials
+        run: |
+          set -euxo pipefail
+
+          dotnet restore \
+            tools/maps/UEMaterialAudit/UEMaterialAudit.csproj
+
+          dotnet build \
+            tools/maps/UEMaterialAudit/UEMaterialAudit.csproj \
+            --configuration Release \
+            --no-restore
+
+          APP="tools/maps/UEMaterialAudit/bin/Release/net10.0/UEMaterialAudit.dll"
+          test -s "$APP"
+
+          dotnet "$APP" \
+            nuketown-pak-unpacked \
+            nuketown-download/PavMappings.usmap \
+            nuketown-download/nuketown-class-census.json \
+            nuketown-download/nuketown-material-audit.json \
+            ue5.1 \
+            | tee nuketown-download/nuketown-material-audit.log
+
+          test -s nuketown-download/nuketown-material-audit.json
+          grep -q 'XZIEL_UE_MATERIAL_AUDIT_GREEN' \
+            nuketown-download/nuketown-material-audit.log
 
       - name: Audit deep cooked UE payloads
         run: |
@@ -1931,6 +1959,8 @@ jobs:
             nuketown-download/nuketown-property-sweep.json
             nuketown-download/property-sweep-shards/
             nuketown-download/nuketown-class-requirements.json
+            nuketown-download/nuketown-material-audit.json
+            nuketown-download/nuketown-material-audit.log
             nuketown-download/nuketown-deep-payload-audit.json
             nuketown-download/ue-xztx-probe/
             nuketown-download/ue-xztx-probe.log
