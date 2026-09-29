@@ -35,7 +35,7 @@ jobs:
         run: |
           set -euxo pipefail
           sudo apt-get update
-          sudo apt-get install -y zstd binutils file
+          sudo apt-get install -y zstd binutils file patchelf
           SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "ndk;27.2.12479018" "platforms;android-35" "build-tools;35.0.0"
@@ -64,8 +64,228 @@ jobs:
 
           tar --zstd -tf "$RUNNER_TEMP/xzwin-upstream/rootfs.tzst" \
             | tee "$RUNNER_TEMP/rootfs-files.txt" >/dev/null
-          grep -Eq '(^|\./)opt/wine/bin/wine$' "$RUNNER_TEMP/rootfs-files.txt"
+          grep -Eq '(^|\./)opt/wine/bin/wine
+          mkdir -p "$RUNNER_TEMP/box64"
+          tar --zstd -xf "$RUNNER_TEMP/xzwin-upstream/box64.tzst" \
+            -C "$RUNNER_TEMP/box64"
+
+          BOX64="$(find "$RUNNER_TEMP/box64" -type f -name box64 -print -quit)"
+          test -n "$BOX64"
+          file "$BOX64" | tee box64-file.txt
+          readelf -h "$BOX64" | tee box64-elf.txt
+          grep -q 'Machine:.*AArch64' box64-elf.txt
+
+          echo "Before patch:"
+          patchelf --print-interpreter "$BOX64" | tee box64-interpreter-before.txt
+          grep -q '/data/data/com.winlator/files/rootfs/lib/ld-linux-aarch64.so.1' \
+            box64-interpreter-before.txt
+
+          XZIEL_LOADER='/data/data/com.xziel.engine/files/xzwin/rootfs/lib/ld-linux-aarch64.so.1'
+          patchelf --set-interpreter "$XZIEL_LOADER" "$BOX64"
+          patchelf --print-interpreter "$BOX64" | tee box64-interpreter-after.txt
+          grep -Fxq "$XZIEL_LOADER" box64-interpreter-after.txt
+
+          echo "$BOX64" > "$RUNNER_TEMP/box64-path.txt"
+          echo "XZWIN_BOX64_ARM64_FOUND"
+          echo "XZWIN_BOX64_INTERPRETER_REBASED"
+
+      - name: Fetch SDL platform layer
+        shell: bash
+        run: |
+          set -euxo pipefail
+          git clone --depth=1 --branch release-2.30.x \
+            https://github.com/libsdl-org/SDL.git "$RUNNER_TEMP/sdl2"
+
+      - name: Assemble XZIEL plus XZWin runtime
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cp -a "$RUNNER_TEMP/sdl2/android-project" "$RUNNER_TEMP/xziel-android"
+
+          rm -rf "$RUNNER_TEMP/xziel-android/app/jni/SDL"
+          ln -s "$RUNNER_TEMP/sdl2" "$RUNNER_TEMP/xziel-android/app/jni/SDL"
+
+          rm -rf "$RUNNER_TEMP/xziel-android/app/jni/xz"
+          cp -a engine/xz "$RUNNER_TEMP/xziel-android/app/jni/xz"
+
+          mkdir -p "$RUNNER_TEMP/xziel-android/app/jni/src"
+          cp android/jni/Android.mk "$RUNNER_TEMP/xziel-android/app/jni/Android.mk"
+          cp android/jni/Application.mk "$RUNNER_TEMP/xziel-android/app/jni/Application.mk"
+          cp android/jni/src/Android.mk "$RUNNER_TEMP/xziel-android/app/jni/src/Android.mk"
+
+          cp android/app-build.gradle "$RUNNER_TEMP/xziel-android/app/build.gradle"
+          cp android/AndroidManifest.xml "$RUNNER_TEMP/xziel-android/app/src/main/AndroidManifest.xml"
+
+          JAVA_DIR="$RUNNER_TEMP/xziel-android/app/src/main/java/org/libsdl/app"
+          mkdir -p "$JAVA_DIR"
+          cp android/XzielActivity.java "$JAVA_DIR/XzielActivity.java"
+          cp android/XzWinRuntime.java "$JAVA_DIR/XzWinRuntime.java"
+          cp android/XzWinRuntimeInstaller.java "$JAVA_DIR/XzWinRuntimeInstaller.java"
+
+          ASSET_DIR="$RUNNER_TEMP/xziel-android/app/src/main/assets/xzwin"
+          mkdir -p "$ASSET_DIR"
+          cp "$RUNNER_TEMP/xzwin-upstream/rootfs.tzst" "$ASSET_DIR/rootfs.tzst"
+          cp "$RUNNER_TEMP/xzwin-upstream/default.box64rc" "$ASSET_DIR/default.box64rc"
+          cp docs/xzwin/THIRD_PARTY_RUNTIME.md "$ASSET_DIR/THIRD_PARTY_RUNTIME.md"
+
+          JNI_DIR="$RUNNER_TEMP/xziel-android/app/libs/arm64-v8a"
+          mkdir -p "$JNI_DIR"
+          BOX64="$(cat "$RUNNER_TEMP/box64-path.txt")"
+          cp "$BOX64" "$JNI_DIR/libxzbox64.so"
+          chmod 0755 "$JNI_DIR/libxzbox64.so"
+
+          echo "XZWIN_RUNTIME_STAGED"
+
+      - name: Build XZIEL XZWin APK
+        working-directory: ${{ runner.temp }}/xziel-android
+        shell: bash
+        run: |
+          set -euxo pipefail
+          chmod +x gradlew
+          ./gradlew --no-daemon --stacktrace assembleDebug
+
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          unzip -l "$APK" | tee "$GITHUB_WORKSPACE/xzwin-apk-files.txt"
+
+          grep -q 'lib/arm64-v8a/libxzbox64.so' "$GITHUB_WORKSPACE/xzwin-apk-files.txt"
+          grep -q 'assets/xzwin/rootfs.tzst' "$GITHUB_WORKSPACE/xzwin-apk-files.txt"
+          grep -q 'assets/xzwin/default.box64rc' "$GITHUB_WORKSPACE/xzwin-apk-files.txt"
+
+          mkdir -p "$RUNNER_TEMP/apk-check"
+          unzip -p "$APK" lib/arm64-v8a/libxzbox64.so \
+            > "$RUNNER_TEMP/apk-check/libxzbox64.so"
+          file "$RUNNER_TEMP/apk-check/libxzbox64.so" \
+            | tee "$GITHUB_WORKSPACE/xzwin-packaged-box64.txt"
+          readelf -h "$RUNNER_TEMP/apk-check/libxzbox64.so" \
+            | tee -a "$GITHUB_WORKSPACE/xzwin-packaged-box64.txt"
+          grep -q 'Machine:.*AArch64' "$GITHUB_WORKSPACE/xzwin-packaged-box64.txt"
+          patchelf --print-interpreter "$RUNNER_TEMP/apk-check/libxzbox64.so" \
+            | tee -a "$GITHUB_WORKSPACE/xzwin-packaged-box64.txt"
+          grep -q '/data/data/com.xziel.engine/files/xzwin/rootfs/lib/ld-linux-aarch64.so.1' \
+            "$GITHUB_WORKSPACE/xzwin-packaged-box64.txt"
+
+          cp "$APK" "$GITHUB_WORKSPACE/XZIEL-XZWin-experimental-debug.apk"
+          sha256sum "$GITHUB_WORKSPACE/XZIEL-XZWin-experimental-debug.apk" \
+            | tee "$GITHUB_WORKSPACE/xzwin-apk-sha256.txt"
+          echo "XZWIN_ANDROID_RUNTIME_PACK_GREEN"
+
+      - name: Upload experimental runtime APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-XZWin-Experimental
+          path: |
+            XZIEL-XZWin-experimental-debug.apk
+            xzwin-apk-files.txt
+            xzwin-packaged-box64.txt
+            xzwin-apk-sha256.txt
+            xzwin-upstream-sha256.txt
+          if-no-files-found: error
+ "$RUNNER_TEMP/rootfs-files.txt"
+          grep -Eq '(^|\./)lib/ld-linux-aarch64\.so\.1
+          mkdir -p "$RUNNER_TEMP/box64"
+          tar --zstd -xf "$RUNNER_TEMP/xzwin-upstream/box64.tzst" \
+            -C "$RUNNER_TEMP/box64"
+
+          BOX64="$(find "$RUNNER_TEMP/box64" -type f -name box64 -print -quit)"
+          test -n "$BOX64"
+          file "$BOX64" | tee box64-file.txt
+          readelf -h "$BOX64" | tee box64-elf.txt
+          grep -q 'Machine:.*AArch64' box64-elf.txt
+          echo "$BOX64" > "$RUNNER_TEMP/box64-path.txt"
+          echo "XZWIN_BOX64_ARM64_FOUND"
+
+      - name: Fetch SDL platform layer
+        shell: bash
+        run: |
+          set -euxo pipefail
+          git clone --depth=1 --branch release-2.30.x \
+            https://github.com/libsdl-org/SDL.git "$RUNNER_TEMP/sdl2"
+
+      - name: Assemble XZIEL plus XZWin runtime
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cp -a "$RUNNER_TEMP/sdl2/android-project" "$RUNNER_TEMP/xziel-android"
+
+          rm -rf "$RUNNER_TEMP/xziel-android/app/jni/SDL"
+          ln -s "$RUNNER_TEMP/sdl2" "$RUNNER_TEMP/xziel-android/app/jni/SDL"
+
+          rm -rf "$RUNNER_TEMP/xziel-android/app/jni/xz"
+          cp -a engine/xz "$RUNNER_TEMP/xziel-android/app/jni/xz"
+
+          mkdir -p "$RUNNER_TEMP/xziel-android/app/jni/src"
+          cp android/jni/Android.mk "$RUNNER_TEMP/xziel-android/app/jni/Android.mk"
+          cp android/jni/Application.mk "$RUNNER_TEMP/xziel-android/app/jni/Application.mk"
+          cp android/jni/src/Android.mk "$RUNNER_TEMP/xziel-android/app/jni/src/Android.mk"
+
+          cp android/app-build.gradle "$RUNNER_TEMP/xziel-android/app/build.gradle"
+          cp android/AndroidManifest.xml "$RUNNER_TEMP/xziel-android/app/src/main/AndroidManifest.xml"
+
+          JAVA_DIR="$RUNNER_TEMP/xziel-android/app/src/main/java/org/libsdl/app"
+          mkdir -p "$JAVA_DIR"
+          cp android/XzielActivity.java "$JAVA_DIR/XzielActivity.java"
+          cp android/XzWinRuntime.java "$JAVA_DIR/XzWinRuntime.java"
+          cp android/XzWinRuntimeInstaller.java "$JAVA_DIR/XzWinRuntimeInstaller.java"
+
+          ASSET_DIR="$RUNNER_TEMP/xziel-android/app/src/main/assets/xzwin"
+          mkdir -p "$ASSET_DIR"
+          cp "$RUNNER_TEMP/xzwin-upstream/rootfs.tzst" "$ASSET_DIR/rootfs.tzst"
+          cp "$RUNNER_TEMP/xzwin-upstream/default.box64rc" "$ASSET_DIR/default.box64rc"
+          cp docs/xzwin/THIRD_PARTY_RUNTIME.md "$ASSET_DIR/THIRD_PARTY_RUNTIME.md"
+
+          JNI_DIR="$RUNNER_TEMP/xziel-android/app/libs/arm64-v8a"
+          mkdir -p "$JNI_DIR"
+          BOX64="$(cat "$RUNNER_TEMP/box64-path.txt")"
+          cp "$BOX64" "$JNI_DIR/libxzbox64.so"
+          chmod 0755 "$JNI_DIR/libxzbox64.so"
+
+          echo "XZWIN_RUNTIME_STAGED"
+
+      - name: Build XZIEL XZWin APK
+        working-directory: ${{ runner.temp }}/xziel-android
+        shell: bash
+        run: |
+          set -euxo pipefail
+          chmod +x gradlew
+          ./gradlew --no-daemon --stacktrace assembleDebug
+
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          unzip -l "$APK" | tee "$GITHUB_WORKSPACE/xzwin-apk-files.txt"
+
+          grep -q 'lib/arm64-v8a/libxzbox64.so' "$GITHUB_WORKSPACE/xzwin-apk-files.txt"
+          grep -q 'assets/xzwin/rootfs.tzst' "$GITHUB_WORKSPACE/xzwin-apk-files.txt"
+          grep -q 'assets/xzwin/default.box64rc' "$GITHUB_WORKSPACE/xzwin-apk-files.txt"
+
+          mkdir -p "$RUNNER_TEMP/apk-check"
+          unzip -p "$APK" lib/arm64-v8a/libxzbox64.so \
+            > "$RUNNER_TEMP/apk-check/libxzbox64.so"
+          file "$RUNNER_TEMP/apk-check/libxzbox64.so" \
+            | tee "$GITHUB_WORKSPACE/xzwin-packaged-box64.txt"
+          readelf -h "$RUNNER_TEMP/apk-check/libxzbox64.so" \
+            | tee -a "$GITHUB_WORKSPACE/xzwin-packaged-box64.txt"
+          grep -q 'Machine:.*AArch64' "$GITHUB_WORKSPACE/xzwin-packaged-box64.txt"
+
+          cp "$APK" "$GITHUB_WORKSPACE/XZIEL-XZWin-experimental-debug.apk"
+          sha256sum "$GITHUB_WORKSPACE/XZIEL-XZWin-experimental-debug.apk" \
+            | tee "$GITHUB_WORKSPACE/xzwin-apk-sha256.txt"
+          echo "XZWIN_ANDROID_RUNTIME_PACK_GREEN"
+
+      - name: Upload experimental runtime APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-XZWin-Experimental
+          path: |
+            XZIEL-XZWin-experimental-debug.apk
+            xzwin-apk-files.txt
+            xzwin-packaged-box64.txt
+            xzwin-apk-sha256.txt
+            xzwin-upstream-sha256.txt
+          if-no-files-found: error
+ "$RUNNER_TEMP/rootfs-files.txt"
           echo "XZWIN_ROOTFS_WINE_GUEST_FOUND"
+          echo "XZWIN_ROOTFS_GLIBC_LOADER_FOUND"
 
           mkdir -p "$RUNNER_TEMP/box64"
           tar --zstd -xf "$RUNNER_TEMP/xzwin-upstream/box64.tzst" \
