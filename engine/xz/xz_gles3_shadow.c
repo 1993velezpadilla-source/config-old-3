@@ -247,6 +247,7 @@ typedef struct {
     GLuint object;
     uint32_t width;
     uint32_t height;
+    uint32_t flags;
     uint64_t gpu_bytes;
     int alive;
 } XzGles3StaticTexture;
@@ -264,6 +265,7 @@ enum {
 
 typedef struct {
     uint32_t canonical_texture[4];
+    uint32_t inferred_diffuse;
     float roughness;
     float metallic;
     float specular;
@@ -457,6 +459,189 @@ static int XzRangeStringEquals(
         memcmp(text, literal, bytes) == 0;
 }
 
+static unsigned char XzAsciiLower(unsigned char value)
+{
+    if (value >= (unsigned char)'A' &&
+        value <= (unsigned char)'Z')
+        return (unsigned char)(
+            value - (unsigned char)'A' +
+            (unsigned char)'a');
+    return value;
+}
+
+static int XzRangeStringContainsNoCase(
+    const XzMaterialLibraryView *library,
+    uint32_t offset,
+    uint32_t bytes,
+    const char *needle)
+{
+    const char *text;
+    size_t needle_bytes;
+    uint32_t i;
+
+    if (!library || !needle ||
+        !XzMaterialLibrary_String(
+            library,
+            offset,
+            bytes,
+            &text))
+        return 0;
+
+    needle_bytes = strlen(needle);
+    if (needle_bytes == 0u ||
+        needle_bytes > (size_t)bytes)
+        return 0;
+
+    for (i = 0u;
+         (size_t)i + needle_bytes <= (size_t)bytes;
+         ++i) {
+        size_t j;
+        int match = 1;
+        for (j = 0u; j < needle_bytes; ++j) {
+            if (XzAsciiLower(
+                    (unsigned char)text[i + (uint32_t)j]) !=
+                XzAsciiLower(
+                    (unsigned char)needle[j])) {
+                match = 0;
+                break;
+            }
+        }
+        if (match)
+            return 1;
+    }
+
+    return 0;
+}
+
+static int XzNativeBindingRejectsDiffuse(
+    const XzMaterialLibraryView *library,
+    const XzMaterialLibraryTextureBinding *binding)
+{
+    static const char *tokens[] = {
+        "normal", "nml", "spec", "rough", "rgh",
+        "metallic", "opacity", "alpha", "height",
+        "displace", "ambientocclusion", "occlusion",
+        "_ao", "emiss", "emission", "glow"
+    };
+    size_t i;
+
+    if (!library || !binding)
+        return 1;
+
+    for (i = 0u; i < sizeof(tokens) / sizeof(tokens[0]); ++i) {
+        if (XzRangeStringContainsNoCase(
+                library,
+                binding->name_offset,
+                binding->name_bytes,
+                tokens[i]))
+            return 1;
+    }
+
+    return 0;
+}
+
+static int XzNativeBindingLooksDiffuse(
+    const XzMaterialLibraryView *library,
+    const XzMaterialLibraryTextureBinding *binding)
+{
+    static const char *tokens[] = {
+        "diffuse", "albedo", "basecolor", "base_color",
+        "color", "colour", "_col", "col_", "_c-rgb",
+        "_c-r", "_c_rgb", "_co_", "_co"
+    };
+    size_t i;
+
+    if (!library || !binding)
+        return 0;
+
+    for (i = 0u; i < sizeof(tokens) / sizeof(tokens[0]); ++i) {
+        if (XzRangeStringContainsNoCase(
+                library,
+                binding->name_offset,
+                binding->name_bytes,
+                tokens[i]))
+            return 1;
+    }
+
+    return 0;
+}
+
+/*
+ * Some cooked UE materials use source texture parameter names as their only
+ * semantic label (for example "..._col" or "..._c-rgb") and therefore arrive
+ * without a canonical diffuse slot even though the exact source texture is in
+ * XZML/XZTX. Recover only from already-authored bindings. Prefer explicit
+ * color-like names and otherwise accept a single sRGB candidate; never choose
+ * obvious normal/specular/roughness/emissive/data maps.
+ */
+static uint32_t XzInferDiffuseTexture(
+    const XzMaterialLibraryView *library,
+    const XzMaterialLibraryMaterial *material)
+{
+    uint32_t binding_offset;
+    uint32_t best_texture = XZ_XZML_NO_TEXTURE;
+    int best_score = -1;
+    unsigned int eligible_count = 0u;
+    uint32_t sole_texture = XZ_XZML_NO_TEXTURE;
+
+    if (!library || !material ||
+        !xz_shadow.static_textures)
+        return XZ_XZML_NO_TEXTURE;
+
+    for (binding_offset = 0u;
+         binding_offset < material->texture_binding_count;
+         ++binding_offset) {
+        XzMaterialLibraryTextureBinding binding;
+        XzGles3StaticTexture *texture;
+        int score;
+
+        if (XzMaterialLibrary_TextureBinding(
+                library,
+                material->first_texture_binding +
+                    binding_offset,
+                &binding) != XZ_XZML_OK ||
+            binding.texture_asset_index >=
+                xz_shadow.static_texture_count)
+            continue;
+
+        texture =
+            &xz_shadow.static_textures[
+                binding.texture_asset_index];
+
+        if (!texture->alive ||
+            (texture->flags & XZ_XZTX_FLAG_SRGB) == 0u ||
+            XzNativeBindingRejectsDiffuse(
+                library,
+                &binding))
+            continue;
+
+        eligible_count++;
+        sole_texture =
+            binding.texture_asset_index;
+
+        score =
+            XzNativeBindingLooksDiffuse(
+                library,
+                &binding)
+                ? 100
+                : 10;
+
+        if (score > best_score) {
+            best_score = score;
+            best_texture =
+                binding.texture_asset_index;
+        }
+    }
+
+    if (best_score >= 100)
+        return best_texture;
+
+    if (eligible_count == 1u)
+        return sole_texture;
+
+    return XZ_XZML_NO_TEXTURE;
+}
+
 static int XzNativeMaterialDecode(
     const XzStaticSceneRuntimeState *scene,
     uint32_t material_index,
@@ -485,6 +670,19 @@ static int XzNativeMaterialDecode(
         out->canonical_texture,
         source.canonical_texture,
         sizeof(out->canonical_texture));
+
+    if (out->canonical_texture[0] ==
+            XZ_XZML_NO_TEXTURE) {
+        uint32_t inferred =
+            XzInferDiffuseTexture(
+                library,
+                &source);
+        if (inferred != XZ_XZML_NO_TEXTURE) {
+            out->canonical_texture[0] =
+                inferred;
+            out->inferred_diffuse = 1u;
+        }
+    }
 
     out->roughness = 0.75f;
     out->metallic = 0.0f;
@@ -727,6 +925,8 @@ static int XzPrepareNativeMaterials(
     xz_shadow.static_native_material_count =
         library->material_count;
 
+    state->static_scene_inferred_diffuse_materials = 0u;
+
     for (material_index = 0u;
          material_index < library->material_count;
          ++material_index) {
@@ -736,6 +936,10 @@ static int XzPrepareNativeMaterials(
                 &xz_shadow.static_native_materials[
                     material_index]))
             return 0;
+
+        if (xz_shadow.static_native_materials[
+                material_index].inferred_diffuse)
+            state->static_scene_inferred_diffuse_materials++;
     }
 
     xz_shadow.static_native_material_ready = 1;
@@ -3877,6 +4081,8 @@ static int XzUploadStaticNativeMaterialTextures(
             source.texture.width;
         dest->height =
             source.texture.height;
+        dest->flags =
+            source.texture.flags;
         dest->gpu_bytes =
             expected_payload;
         dest->alive = 1;
@@ -4944,6 +5150,7 @@ static void XzDestroyStaticSceneCurrent(
         state->static_scene_xzml_materials = 0u;
         state->static_scene_xztx_gpu_textures = 0u;
         state->static_scene_xztx_astc_textures = 0u;
+        state->static_scene_inferred_diffuse_materials = 0u;
         state->static_scene_xztx_gpu_bytes = 0u;
         state->static_scene_xzml_gpu_ready = 0;
         state->static_scene_lightmap_batch_count = 0u;
