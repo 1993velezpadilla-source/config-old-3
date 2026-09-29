@@ -565,10 +565,7 @@ ResolveMaterialSemantics(
         }
 
         if (material is not UMaterialInstance instance ||
-            instance.Parent is null ||
-            !instance.Parent.TryLoad<UMaterialInterface>(
-                out var parent) ||
-            parent is null)
+            instance.Parent is not UMaterialInterface parent)
         {
             return (
                 false,
