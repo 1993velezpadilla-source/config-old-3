@@ -154,6 +154,28 @@ jobs:
           test -x build/xzaw-native-gate/xz-xzaudio-file-gate
           echo XZIEL_UE_XZAW_CONVERTER_COMPILE_GREEN
 
+      - name: Compile UE Skeleton to XZRG converter
+        run: |
+          set -euxo pipefail
+          dotnet restore tools/maps/UESkeletonXZRG/UESkeletonXZRG.csproj
+          dotnet build tools/maps/UESkeletonXZRG/UESkeletonXZRG.csproj \
+            --configuration Release \
+            --no-restore \
+            -warnaserror
+
+      - name: Compile native XZRG file validator
+        run: |
+          set -euxo pipefail
+          mkdir -p build/xzrg-native-gate
+          cc -std=gnu11 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tools/maps/xz_xzrig_file_gate.c \
+            engine/xz/xz_xzrig.c \
+            -lm \
+            -o build/xzrg-native-gate/xz-xzrig-file-gate
+          test -x build/xzrg-native-gate/xz-xzrig-file-gate
+          echo XZIEL_UE_XZRG_CONVERTER_COMPILE_GREEN
+
       - name: Compile UE SkeletalMesh to XZSK converter
         run: |
           set -euxo pipefail
@@ -211,6 +233,7 @@ jobs:
           cc -std=gnu11 -Wall -Wextra -Werror \
             -Iengine/xz \
             tools/maps/xz_native_payload_selftest.c \
+            engine/xz/xz_xzrig.c \
             engine/xz/xz_xzskel.c \
             engine/xz/xz_xzanim.c \
             -lm \
