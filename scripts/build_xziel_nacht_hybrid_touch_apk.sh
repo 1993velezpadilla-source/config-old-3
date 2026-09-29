@@ -29,9 +29,27 @@ git clone https://github.com/brunodev85/winlator-app.git "$WINLATOR"
 git -C "$WINLATOR" checkout --detach "$WINLATOR_COMMIT"
 test "$(git -C "$WINLATOR" rev-parse HEAD)" = "$WINLATOR_COMMIT"
 
-python3 "$ROOT/scripts/patch_winlator_xziel_nacht_direct.py"   "$WINLATOR" "$actual_bytes" "$actual_sha"
+python3 "$ROOT/scripts/patch_winlator_xziel_nacht_direct.py" \
+  "$WINLATOR" "$actual_bytes" "$actual_sha"
 
 ASSETS="$WINLATOR/app/src/main/assets"
+HUD_SRC="$ROOT/assets/mobile/xziel_hud_v1"
+HUD_DST="$ASSETS/xziel_hud"
+mkdir -p "$HUD_DST"
+
+hud_count=0
+for src in "$HUD_SRC"/*.webp.b64; do
+  test -s "$src"
+  name="$(basename "$src" .b64)"
+  base64 -d "$src" > "$HUD_DST/$name"
+  test -s "$HUD_DST/$name"
+  magic="$(head -c 4 "$HUD_DST/$name")"
+  test "$magic" = "RIFF"
+  hud_count=$((hud_count + 1))
+done
+test "$hud_count" = "12"
+echo "XZIEL_HUD_ZOMBIES_MOBILE_V1_ASSETS_GREEN count=$hud_count"
+
 cp "$INPUT_EXE" "$ASSETS/nacht-onefile.exe"
 test -s "$ASSETS/nacht-onefile.exe"
 
@@ -61,6 +79,18 @@ grep -q 'assets/rootfs.tzst' "$DIST/apk-contents.txt"
 grep -q 'assets/container_pattern.tzst' "$DIST/apk-contents.txt"
 grep -q 'assets/nacht-onefile.exe' "$DIST/apk-contents.txt"
 grep -q 'assets/licenses/WINLATOR-LGPL-2.1.txt' "$DIST/apk-contents.txt"
+grep -q 'assets/xziel_hud/hud_fire.webp' "$DIST/apk-contents.txt"
+grep -q 'assets/xziel_hud/hud_ads.webp' "$DIST/apk-contents.txt"
+grep -q 'assets/xziel_hud/hud_ads_fire.webp' "$DIST/apk-contents.txt"
+grep -q 'assets/xziel_hud/hud_reload.webp' "$DIST/apk-contents.txt"
+grep -q 'assets/xziel_hud/hud_crouch.webp' "$DIST/apk-contents.txt"
+grep -q 'assets/xziel_hud/hud_prone.webp' "$DIST/apk-contents.txt"
+grep -q 'assets/xziel_hud/hud_slide.webp' "$DIST/apk-contents.txt"
+grep -q 'assets/xziel_hud/hud_sprint.webp' "$DIST/apk-contents.txt"
+grep -q 'assets/xziel_hud/hud_grenade.webp' "$DIST/apk-contents.txt"
+grep -q 'assets/xziel_hud/hud_swap.webp' "$DIST/apk-contents.txt"
+grep -q 'assets/xziel_hud/hud_knife.webp' "$DIST/apk-contents.txt"
+grep -q 'assets/xziel_hud/hud_claw.webp' "$DIST/apk-contents.txt"
 grep -q 'lib/arm64-v8a/' "$DIST/apk-contents.txt"
 
 python3 - "$APK" "$actual_bytes" <<'PY'
@@ -106,7 +136,12 @@ swap=Q
 jump=SPACE
 knife=F
 pause=ESC
-skin=transparent_black_hand_smear
+skin=xziel_hud_zombies_mobile_v1
+skin_asset_count=12
+skin_idle_alpha=210
+skin_pressed_alpha=246
+prone=C
+slide=CTRL
 winlator_ui=hidden
 EOF
 
