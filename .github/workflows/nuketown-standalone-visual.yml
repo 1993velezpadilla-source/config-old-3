@@ -201,12 +201,14 @@ jobs:
 
           "$ADB" push dist/xziel-nuketown-vfs.tar /data/local/tmp/xziel-nuketown-vfs.tar
           "$ADB" shell run-as com.xziel.engine mkdir -p files
+          "$ADB" shell run-as com.xziel.engine mkdir -p files/xziel-runtime
           "$ADB" shell run-as com.xziel.engine sh -c             "'cd files && tar -xf /data/local/tmp/xziel-nuketown-vfs.tar'"
           "$ADB" shell run-as com.xziel.engine test -s             files/xziel/maps/xziel_nuketown_zombies/scene.xzsc
           "$ADB" shell run-as com.xziel.engine test -s             files/xziel/maps/xziel_nuketown_zombies/materials.xzmi
           "$ADB" shell run-as com.xziel.engine test -s             files/xziel/maps/xziel_nuketown_zombies/materials.xzml
 
           "$ADB" logcat -c
+          "$ADB" shell settings put secure immersive_mode_confirmations confirmed || true
           "$ADB" shell am force-stop com.xziel.engine || true
           "$ADB" shell am start -W             -n com.xziel.engine/org.libsdl.app.XzielActivity             --es xziel_map xziel_nuketown_zombies             --es xziel_camera_eye "$XZIEL_CAMERA_EYE"             --es xziel_camera_forward "$XZIEL_CAMERA_FORWARD"             --es xziel_camera_up "$XZIEL_CAMERA_UP"             --es xziel_camera_fov_y "$XZIEL_CAMERA_FOV_Y"             > dist/am-start.txt 2>&1
 
@@ -225,10 +227,34 @@ jobs:
             exit 1
           fi
 
-          sleep 3
+          # Dismiss the Android immersive-mode first-run overlay if this image
+          # still exposes it despite the secure confirmation setting.
+          "$ADB" shell uiautomator dump /sdcard/xziel-ui.xml >/dev/null 2>&1 || true
+          "$ADB" pull /sdcard/xziel-ui.xml dist/xziel-ui.xml >/dev/null 2>&1 || true
+          if grep -q 'text="Got it"' dist/xziel-ui.xml 2>/dev/null; then
+            python3 - <<'PY' > "$RUNNER_TEMP/immersive-tap.txt"
+import re
+from pathlib import Path
+text=Path("dist/xziel-ui.xml").read_text(errors="ignore")
+m=re.search(r'text="Got it"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', text)
+if not m:
+    raise SystemExit(1)
+x1,y1,x2,y2=map(int,m.groups())
+print((x1+x2)//2, (y1+y2)//2)
+PY
+            read TAP_X TAP_Y < "$RUNNER_TEMP/immersive-tap.txt"
+            "$ADB" shell input tap "$TAP_X" "$TAP_Y"
+            sleep 2
+          fi
+
+          sleep 2
           "$ADB" exec-out screencap -p > dist/xziel-nuketown-native-screen.png
 
-          "$ADB" exec-out run-as com.xziel.engine cat             files/xziel-runtime/static-scene-fbo.ppm             > dist/xziel-nuketown-native-fbo.ppm || true
+          if "$ADB" shell run-as com.xziel.engine test -s             files/xziel-runtime/static-scene-fbo.ppm; then
+            "$ADB" exec-out run-as com.xziel.engine cat               files/xziel-runtime/static-scene-fbo.ppm               > dist/xziel-nuketown-native-fbo.ppm
+          else
+            : > dist/xziel-nuketown-native-fbo.ppm
+          fi
 
           python3 -m pip install --quiet pillow==11.3.0
           python3 - <<'PY'
@@ -258,9 +284,11 @@ jobs:
           )
 
           fbo = Path("dist/xziel-nuketown-native-fbo.ppm")
-          if fbo.stat().st_size > 0:
+          if fbo.stat().st_size > 2 and fbo.read_bytes()[:2] == b"P6":
               fim = Image.open(fbo).convert("RGB")
               fim.save("dist/xziel-nuketown-native-fbo.png")
+          else:
+              print("XZIEL_FBO_CAPTURE_OPTIONAL_MISSING_OR_INVALID")
           PY
 
           grep -E             "static_scene status=READY|standalone_static_present ready=1"             dist/xziel-logcat.txt             > dist/native-runtime-proof.txt
@@ -286,5 +314,6 @@ jobs:
             dist/camera-proof.json
             dist/am-start.txt
             dist/emulator-stdout.txt
+            dist/xziel-ui.xml
           if-no-files-found: warn
           retention-days: 14
