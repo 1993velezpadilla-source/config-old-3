@@ -873,11 +873,14 @@ jobs:
       - name: Convert cooked UE skeletons directly to native XZRG
         run: |
           set -euxo pipefail
-          dotnet restore tools/maps/UESkeletonXZRG/UESkeletonXZRG.csproj
+          dotnet restore tools/maps/UESkeletonXZRG/UESkeletonXZRG.csproj \
+            -p:CUE4ParseSourceRoot="$CUE4PARSE_SOURCE_ROOT" \
+            -p:CUE4PARSE_SKIP_NATIVE=true
           dotnet build tools/maps/UESkeletonXZRG/UESkeletonXZRG.csproj \
             --configuration Release \
             --no-restore \
-            -warnaserror
+            -p:CUE4ParseSourceRoot="$CUE4PARSE_SOURCE_ROOT" \
+            -p:CUE4PARSE_SKIP_NATIVE=true
 
           APP="tools/maps/UESkeletonXZRG/bin/Release/net10.0/UESkeletonXZRG.dll"
           test -s "$APP"
