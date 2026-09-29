@@ -635,6 +635,23 @@ jobs:
           print("XZIEL_KINO_STATIC_MESH_AUDIT_GREEN")
           PY
 
+      - name: Layer pinned public Pavlov base dependencies
+        run: |
+          set -euxo pipefail
+          MODKIT_COMMIT="612c8d43c3dba7701b8de63e373e13487917b985"
+          HAND_BLOB_SHA="178d724fcd113eeda970762e96d01d38e938e957"
+          TARGET="kino-pak-unpacked/Pavlov/Content/Hands/Mesh/SK_Hand_Skeleton.uasset"
+
+          mkdir -p "$(dirname "$TARGET")"
+          curl -fL --retry 5 \
+            "https://raw.githubusercontent.com/vankruptgames/PavlovVR-ModKit/$MODKIT_COMMIT/Content/Hands/Mesh/SK_Hand_Skeleton.uasset" \
+            -o "$TARGET"
+
+          test -s "$TARGET"
+          test "$(git hash-object "$TARGET")" = "$HAND_BLOB_SHA"
+
+          echo "XZIEL_PAVLOV_BASE_HAND_SKELETON_GREEN"
+
       - name: Audit deep cooked UE payloads
         run: |
           set -euxo pipefail
