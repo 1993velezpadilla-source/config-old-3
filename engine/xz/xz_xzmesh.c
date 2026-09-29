@@ -9,7 +9,8 @@
 #define XZ_XZMS_KNOWN_ATTRS \
     (XZ_XZMS_ATTR_POSITION | XZ_XZMS_ATTR_NORMAL | XZ_XZMS_ATTR_UV0 | \
      XZ_XZMS_ATTR_UV1 | XZ_XZMS_ATTR_UV2 | XZ_XZMS_ATTR_UV3 | \
-     XZ_XZMS_ATTR_TANGENT)
+     XZ_XZMS_ATTR_TANGENT | XZ_XZMS_ATTR_UV4 | XZ_XZMS_ATTR_UV5 | \
+     XZ_XZMS_ATTR_UV6 | XZ_XZMS_ATTR_UV7)
 
 static uint32_t XzReadU32Le(const unsigned char *p)
 {
@@ -73,7 +74,15 @@ static int XzFiniteVertex(
            isfinite(vertex->uv2[0]) &&
            isfinite(vertex->uv2[1]) &&
            isfinite(vertex->uv3[0]) &&
-           isfinite(vertex->uv3[1]);
+           isfinite(vertex->uv3[1]) &&
+           isfinite(vertex->uv4[0]) &&
+           isfinite(vertex->uv4[1]) &&
+           isfinite(vertex->uv5[0]) &&
+           isfinite(vertex->uv5[1]) &&
+           isfinite(vertex->uv6[0]) &&
+           isfinite(vertex->uv6[1]) &&
+           isfinite(vertex->uv7[0]) &&
+           isfinite(vertex->uv7[1]);
 }
 
 int XzXzmesh_ReadVertex(
@@ -112,8 +121,16 @@ int XzXzmesh_ReadVertex(
     vertex->uv2[1] = 0.0f;
     vertex->uv3[0] = 0.0f;
     vertex->uv3[1] = 0.0f;
+    vertex->uv4[0] = 0.0f;
+    vertex->uv4[1] = 0.0f;
+    vertex->uv5[0] = 0.0f;
+    vertex->uv5[1] = 0.0f;
+    vertex->uv6[0] = 0.0f;
+    vertex->uv6[1] = 0.0f;
+    vertex->uv7[0] = 0.0f;
+    vertex->uv7[1] = 0.0f;
 
-    if (view->version >= XZ_XZMS_VERSION) {
+    if (view->version >= XZ_XZMS_VERSION_V3) {
         for (i = 0u; i < 4u; ++i)
             vertex->tangent[i] =
                 XzReadF32Le(p + 24u + i * 4u);
@@ -125,6 +142,16 @@ int XzXzmesh_ReadVertex(
         vertex->uv2[1] = XzReadF32Le(p + 60u);
         vertex->uv3[0] = XzReadF32Le(p + 64u);
         vertex->uv3[1] = XzReadF32Le(p + 68u);
+        if (view->version >= XZ_XZMS_VERSION) {
+            vertex->uv4[0] = XzReadF32Le(p + 72u);
+            vertex->uv4[1] = XzReadF32Le(p + 76u);
+            vertex->uv5[0] = XzReadF32Le(p + 80u);
+            vertex->uv5[1] = XzReadF32Le(p + 84u);
+            vertex->uv6[0] = XzReadF32Le(p + 88u);
+            vertex->uv6[1] = XzReadF32Le(p + 92u);
+            vertex->uv7[0] = XzReadF32Le(p + 96u);
+            vertex->uv7[1] = XzReadF32Le(p + 100u);
+        }
     } else {
         vertex->uv[0] = XzReadF32Le(p + 24u);
         vertex->uv[1] = XzReadF32Le(p + 28u);
@@ -213,6 +240,7 @@ XzXzmeshStatus XzXzmesh_Parse(
     version = XzReadU32Le(bytes + 4u);
     if (version != XZ_XZMS_VERSION_V1 &&
         version != XZ_XZMS_VERSION_V2 &&
+        version != XZ_XZMS_VERSION_V3 &&
         version != XZ_XZMS_VERSION)
         return XZ_XZMS_ERR_VERSION;
 
@@ -233,8 +261,10 @@ XzXzmeshStatus XzXzmesh_Parse(
          view->vertex_stride != XZ_XZMS_VERTEX_BYTES_V1) ||
         ((version == XZ_XZMS_VERSION_V2) &&
          view->vertex_stride != XZ_XZMS_VERTEX_BYTES_V2) ||
-        ((version == XZ_XZMS_VERSION) &&
+        ((version == XZ_XZMS_VERSION_V3) &&
          view->vertex_stride != XZ_XZMS_VERTEX_BYTES_V3) ||
+        ((version == XZ_XZMS_VERSION) &&
+         view->vertex_stride != XZ_XZMS_VERTEX_BYTES_V4) ||
         view->submesh_stride != XZ_XZMS_SUBMESH_BYTES)
         return XZ_XZMS_ERR_STRIDE;
 
@@ -492,6 +522,15 @@ int XzXzmesh_SelfTest(void)
         data + XZ_XZMS_HEADER_BYTES +
             XZ_XZMS_VERTEX_BYTES + 40u,
         1.0f);
+    /* v4 UV7 verifies the extended vertex layout is actually parsed. */
+    XzWriteF32Le(
+        data + XZ_XZMS_HEADER_BYTES +
+            XZ_XZMS_VERTEX_BYTES + 96u,
+        0.25f);
+    XzWriteF32Le(
+        data + XZ_XZMS_HEADER_BYTES +
+            XZ_XZMS_VERTEX_BYTES + 100u,
+        0.75f);
 
     /* Vertex 2: position y=1, normal z=1, tangent x=1, uv0=(0,1). */
     XzWriteF32Le(
@@ -546,7 +585,9 @@ int XzXzmesh_SelfTest(void)
         vertex.tangent[0] != 1.0f ||
         vertex.tangent[3] != 1.0f ||
         vertex.uv[0] != 1.0f ||
-        vertex.uv1[0] != 0.0f)
+        vertex.uv1[0] != 0.0f ||
+        vertex.uv7[0] != 0.25f ||
+        vertex.uv7[1] != 0.75f)
         return 0;
 
     if (!XzXzmesh_ReadSubmesh(
@@ -566,7 +607,7 @@ int XzXzmesh_SelfTest(void)
     /* Unknown submesh attribute bit must fail closed. */
     XzWriteU32Le(
         data + submesh_at + 12u,
-        XZ_XZMS_ATTR_POSITION | (1u << 7));
+        XZ_XZMS_ATTR_POSITION | (1u << 15));
     if (XzXzmesh_Parse(
             &view, data, sizeof(data)) !=
         XZ_XZMS_ERR_SUBMESH_ATTRIBUTES)
