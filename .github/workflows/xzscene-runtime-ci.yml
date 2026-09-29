@@ -100,8 +100,6 @@ jobs:
             -Iengine/xz \
             -c engine/xz/xz_static_scene_runtime.c \
             -o /tmp/xz_static_scene_runtime.o
-          python3 -m py_compile \
-            scripts/patch_vril_xz_phase0.py
 
       - name: Upload XZSC contract evidence
         uses: actions/upload-artifact@v4
