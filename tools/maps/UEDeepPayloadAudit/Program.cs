@@ -76,6 +76,7 @@ var provider = new DefaultFileProvider(
     MappingsContainer = new FileUsmapTypeMappingsProvider(mappingsPath)
 };
 provider.Initialize();
+RegisterLooseCookedVirtualMounts(provider);
 provider.PostMount();
 provider.LoadVirtualPaths();
 RegisterDiscoveredPluginMounts(provider);
@@ -597,6 +598,72 @@ static void RegisterDiscoveredPluginMounts(DefaultFileProvider provider)
 
     static string providerRootForLog(DefaultFileProvider provider)
         => provider.ProjectName;
+}
+
+static void RegisterLooseCookedVirtualMounts(
+    DefaultFileProvider provider)
+{
+    var discovered =
+        new Dictionary<string, string>(
+            StringComparer.OrdinalIgnoreCase);
+
+    foreach (var key in provider.Files.Keys)
+    {
+        var normalized =
+            key.Replace('\\', '/').TrimStart('/');
+
+        const string marker = "/Plugins/";
+        var pluginsPos =
+            normalized.IndexOf(
+                marker,
+                StringComparison.OrdinalIgnoreCase);
+
+        if (pluginsPos < 0)
+            continue;
+
+        var pluginStart = pluginsPos + marker.Length;
+        var contentPos =
+            normalized.IndexOf(
+                "/Content/",
+                pluginStart,
+                StringComparison.OrdinalIgnoreCase);
+
+        if (contentPos <= pluginStart)
+            continue;
+
+        var pluginName =
+            normalized[pluginStart..contentPos];
+
+        if (pluginName.Contains('/'))
+            continue;
+
+        var pluginDirectory =
+            normalized[..contentPos];
+
+        if (discovered.TryGetValue(
+                pluginName,
+                out var previous) &&
+            !previous.Equals(
+                pluginDirectory,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException(
+                $"ambiguous loose cooked plugin mount {pluginName}: " +
+                $"{previous} vs {pluginDirectory}");
+        }
+
+        discovered[pluginName] = pluginDirectory;
+    }
+
+    foreach (var pair in discovered)
+        provider.VirtualPaths[pair.Key] = pair.Value;
+
+    Console.WriteLine(
+        "XZIEL_UE_VIRTUAL_MOUNTS " +
+        JsonSerializer.Serialize(new {
+            plugins = discovered.Count,
+            mounts = discovered
+        }));
 }
 
 static USkeleton ResolveAnimationSkeleton(
