@@ -3,8 +3,7 @@
 
 The repository intentionally stores only reference metadata. This tool proves whether
 an extracted user-owned/licensed Pavlov payload actually contains every UAsset package
-referenced by the 492-mesh Nacht scene inventory. It never silently substitutes stock
-NZ:P content for a missing source asset.
+referenced by the 492-mesh Nacht scene inventory. It never silently substitutes unrelated fallback content for a missing source asset.
 
 Unreal object paths have the form /Game/.../Package/Object. The physical cooked
 package is Pavlov/Content/.../Package.uasset; the final object segment is not a
