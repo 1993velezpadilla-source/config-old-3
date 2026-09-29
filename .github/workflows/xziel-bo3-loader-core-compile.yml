@@ -161,7 +161,11 @@ jobs:
             engine/xz/xz_source_adapter_registry.c \
             engine/xz/xz_source_asset_pipeline.c \
             engine/xz/xz_xztexture.c \
+            engine/xz/xz_xzaudio.c \
+            engine/xz/xz_xzskel.c \
+            engine/xz/xz_xzanim.c \
             engine/xz/xz_package_boot.c \
+            -lm \
             -o build/xziel-bo3-loader-core/selftest
 
           build/xziel-bo3-loader-core/selftest
