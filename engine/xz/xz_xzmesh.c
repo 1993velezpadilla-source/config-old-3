@@ -455,6 +455,11 @@ int XzXzmesh_SelfTest(void)
         3u * XZ_XZMS_VERTEX_BYTES +
         3u * 4u +
         XZ_XZMS_SUBMESH_BYTES];
+    unsigned char legacy_v3[
+        XZ_XZMS_HEADER_BYTES +
+        3u * XZ_XZMS_VERTEX_BYTES_V3 +
+        3u * 4u +
+        XZ_XZMS_SUBMESH_BYTES];
     XzXzmeshView view;
     XzXzmeshVertex vertex;
     XzXzmeshSubmesh submesh;
@@ -612,6 +617,126 @@ int XzXzmesh_SelfTest(void)
             &view, data, sizeof(data)) !=
         XZ_XZMS_ERR_SUBMESH_ATTRIBUTES)
         return 0;
+
+    /*
+     * Backward-compatibility gate: a v3 file must remain readable after
+     * extending the current vertex layout to v4.
+     */
+    {
+        size_t legacy_indices_at =
+            XZ_XZMS_HEADER_BYTES +
+            3u * XZ_XZMS_VERTEX_BYTES_V3;
+        size_t legacy_submesh_at =
+            legacy_indices_at + 3u * 4u;
+
+        memset(legacy_v3, 0, sizeof(legacy_v3));
+        legacy_v3[0] = 'X';
+        legacy_v3[1] = 'Z';
+        legacy_v3[2] = 'M';
+        legacy_v3[3] = 'S';
+
+        XzWriteU32Le(legacy_v3 + 4u, XZ_XZMS_VERSION_V3);
+        XzWriteU32Le(legacy_v3 + 8u, 3u);
+        XzWriteU32Le(legacy_v3 + 12u, 3u);
+        XzWriteU32Le(legacy_v3 + 16u, 1u);
+        XzWriteU32Le(
+            legacy_v3 + 20u,
+            XZ_XZMS_FLAG_XZIEL_BASIS |
+            XZ_XZMS_FLAG_INDEX_U32);
+        XzWriteU32Le(
+            legacy_v3 + 24u,
+            XZ_XZMS_VERTEX_BYTES_V3);
+        XzWriteU32Le(
+            legacy_v3 + 28u,
+            XZ_XZMS_SUBMESH_BYTES);
+
+        XzWriteF32Le(legacy_v3 + 44u, 1.0f);
+        XzWriteF32Le(legacy_v3 + 48u, 1.0f);
+
+        /* v0 normal/tangent. */
+        XzWriteF32Le(
+            legacy_v3 + XZ_XZMS_HEADER_BYTES + 20u,
+            1.0f);
+        XzWriteF32Le(
+            legacy_v3 + XZ_XZMS_HEADER_BYTES + 24u,
+            1.0f);
+        XzWriteF32Le(
+            legacy_v3 + XZ_XZMS_HEADER_BYTES + 36u,
+            1.0f);
+
+        /* v1 x=1, uv3=(0.125, 0.875). */
+        XzWriteF32Le(
+            legacy_v3 + XZ_XZMS_HEADER_BYTES +
+                XZ_XZMS_VERTEX_BYTES_V3,
+            1.0f);
+        XzWriteF32Le(
+            legacy_v3 + XZ_XZMS_HEADER_BYTES +
+                XZ_XZMS_VERTEX_BYTES_V3 + 20u,
+            1.0f);
+        XzWriteF32Le(
+            legacy_v3 + XZ_XZMS_HEADER_BYTES +
+                XZ_XZMS_VERTEX_BYTES_V3 + 24u,
+            1.0f);
+        XzWriteF32Le(
+            legacy_v3 + XZ_XZMS_HEADER_BYTES +
+                XZ_XZMS_VERTEX_BYTES_V3 + 36u,
+            1.0f);
+        XzWriteF32Le(
+            legacy_v3 + XZ_XZMS_HEADER_BYTES +
+                XZ_XZMS_VERTEX_BYTES_V3 + 64u,
+            0.125f);
+        XzWriteF32Le(
+            legacy_v3 + XZ_XZMS_HEADER_BYTES +
+                XZ_XZMS_VERTEX_BYTES_V3 + 68u,
+            0.875f);
+
+        /* v2 y=1. */
+        XzWriteF32Le(
+            legacy_v3 + XZ_XZMS_HEADER_BYTES +
+                2u * XZ_XZMS_VERTEX_BYTES_V3 + 4u,
+            1.0f);
+        XzWriteF32Le(
+            legacy_v3 + XZ_XZMS_HEADER_BYTES +
+                2u * XZ_XZMS_VERTEX_BYTES_V3 + 20u,
+            1.0f);
+        XzWriteF32Le(
+            legacy_v3 + XZ_XZMS_HEADER_BYTES +
+                2u * XZ_XZMS_VERTEX_BYTES_V3 + 24u,
+            1.0f);
+        XzWriteF32Le(
+            legacy_v3 + XZ_XZMS_HEADER_BYTES +
+                2u * XZ_XZMS_VERTEX_BYTES_V3 + 36u,
+            1.0f);
+
+        XzWriteU32Le(legacy_v3 + legacy_indices_at, 0u);
+        XzWriteU32Le(legacy_v3 + legacy_indices_at + 4u, 1u);
+        XzWriteU32Le(legacy_v3 + legacy_indices_at + 8u, 2u);
+
+        XzWriteU32Le(legacy_v3 + legacy_submesh_at, 0u);
+        XzWriteU32Le(legacy_v3 + legacy_submesh_at + 4u, 3u);
+        XzWriteU32Le(legacy_v3 + legacy_submesh_at + 8u, 1u);
+        XzWriteU32Le(
+            legacy_v3 + legacy_submesh_at + 12u,
+            XZ_XZMS_ATTR_POSITION |
+            XZ_XZMS_ATTR_NORMAL |
+            XZ_XZMS_ATTR_UV3 |
+            XZ_XZMS_ATTR_TANGENT);
+
+        if (XzXzmesh_Parse(
+                &view,
+                legacy_v3,
+                sizeof(legacy_v3)) != XZ_XZMS_OK)
+            return 0;
+
+        if (view.version != XZ_XZMS_VERSION_V3 ||
+            view.vertex_stride != XZ_XZMS_VERTEX_BYTES_V3 ||
+            !XzXzmesh_ReadVertex(&view, 1u, &vertex) ||
+            vertex.uv3[0] != 0.125f ||
+            vertex.uv3[1] != 0.875f ||
+            vertex.uv4[0] != 0.0f ||
+            vertex.uv7[1] != 0.0f)
+            return 0;
+    }
 
     return 1;
 }
