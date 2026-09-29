@@ -2,6 +2,7 @@ using CUE4Parse.FileProvider;
 using CUE4Parse.MappingsProvider.Usmap;
 using CUE4Parse.UE4.Assets.Exports.Material;
 using CUE4Parse.UE4.Assets.Exports.Texture;
+using CUE4Parse.UE4.Assets.Objects;
 using CUE4Parse.UE4.Versions;
 using System.Text.Json;
 
@@ -152,6 +153,15 @@ foreach (var logicalPackage in candidatePackages)
                     parameters,
                     EMaterialDepth.AllLayers);
 
+                var semantics =
+                    ResolveMaterialSemantics(material);
+                if (!semantics.resolved)
+                {
+                    throw new InvalidDataException(
+                        "could not resolve authoritative material base properties for "
+                        + material.GetPathName());
+                }
+
                 var textures = new List<object>();
                 foreach (var textureEntry in parameters.Textures
                              .OrderBy(
@@ -250,25 +260,31 @@ foreach (var logicalPackage in candidatePackages)
                     exportType = material.ExportType,
                     packagePath = logicalPackage,
                     resolvedPackagePath = resolvedPath,
-                    blendMode = parameters.BlendMode.ToString(),
+                    blendMode =
+                        semantics.blendMode.ToString(),
                     shadingModel =
-                        parameters.ShadingModel.ToString(),
+                        semantics.shadingModel.ToString(),
                     opacityMaskClipValue =
-                        material is UMaterial concreteMaterial
-                            ? concreteMaterial.OpacityMaskClipValue
-                            : (float?)null,
+                        semantics.opacityMaskClipValue,
                     twoSided =
-                        material is UMaterial twoSidedMaterial
-                            ? twoSidedMaterial.TwoSided
-                            : (bool?)null,
+                        semantics.twoSided,
                     disableDepthTest =
-                        material is UMaterial depthMaterial
-                            ? depthMaterial.bDisableDepthTest
-                            : (bool?)null,
+                        semantics.disableDepthTest,
                     isMasked =
-                        material is UMaterial maskedMaterial
-                            ? maskedMaterial.bIsMasked
-                            : (bool?)null,
+                        semantics.blendMode ==
+                            EBlendMode.BLEND_Masked,
+                    semanticParentDepth =
+                        semantics.parentDepth,
+                    semanticBlendOverride =
+                        semantics.blendOverridden,
+                    semanticShadingOverride =
+                        semantics.shadingOverridden,
+                    semanticOpacityMaskOverride =
+                        semantics.opacityMaskOverridden,
+                    semanticTwoSidedOverride =
+                        semantics.twoSidedOverridden,
+                    semanticBaseMaterialPath =
+                        semantics.baseMaterialPath,
                     textureCount = textures.Count,
                     scalarCount = scalars.Length,
                     colorCount = colors.Length,
@@ -487,4 +503,178 @@ static string? ResolveProviderPackagePath(
             key => key,
             StringComparer.OrdinalIgnoreCase)
         .FirstOrDefault();
+}
+
+
+static (
+    bool resolved,
+    EBlendMode blendMode,
+    EMaterialShadingModel shadingModel,
+    float opacityMaskClipValue,
+    bool twoSided,
+    bool disableDepthTest,
+    int parentDepth,
+    bool blendOverridden,
+    bool shadingOverridden,
+    bool opacityMaskOverridden,
+    bool twoSidedOverridden,
+    string baseMaterialPath)
+ResolveMaterialSemantics(
+    UMaterialInterface material,
+    HashSet<string>? visiting = null)
+{
+    visiting ??=
+        new HashSet<string>(
+            StringComparer.OrdinalIgnoreCase);
+
+    var path = material.GetPathName();
+    if (!visiting.Add(path))
+    {
+        return (
+            false,
+            EBlendMode.BLEND_Opaque,
+            EMaterialShadingModel.MSM_Unlit,
+            0.333f,
+            false,
+            false,
+            0,
+            false,
+            false,
+            false,
+            false,
+            "");
+    }
+
+    try
+    {
+        if (material is UMaterial concrete)
+        {
+            return (
+                true,
+                concrete.BlendMode,
+                concrete.ShadingModel,
+                concrete.OpacityMaskClipValue,
+                concrete.TwoSided,
+                concrete.bDisableDepthTest,
+                0,
+                false,
+                false,
+                false,
+                false,
+                concrete.GetPathName());
+        }
+
+        if (material is not UMaterialInstance instance ||
+            instance.Parent is null ||
+            !instance.Parent.TryLoad<UMaterialInterface>(
+                out var parent) ||
+            parent is null)
+        {
+            return (
+                false,
+                EBlendMode.BLEND_Opaque,
+                EMaterialShadingModel.MSM_Unlit,
+                0.333f,
+                false,
+                false,
+                0,
+                false,
+                false,
+                false,
+                false,
+                "");
+        }
+
+        var inherited =
+            ResolveMaterialSemantics(
+                parent,
+                visiting);
+
+        if (!inherited.resolved)
+            return inherited;
+
+        var blendMode =
+            inherited.blendMode;
+        var shadingModel =
+            inherited.shadingModel;
+        var opacityMaskClipValue =
+            inherited.opacityMaskClipValue;
+        var twoSided =
+            inherited.twoSided;
+
+        var blendOverridden = false;
+        var shadingOverridden = false;
+        var opacityMaskOverridden = false;
+        var twoSidedOverridden = false;
+
+        var rawOverrides =
+            instance.GetOrDefault<FStructFallback?>(
+                "BasePropertyOverrides");
+
+        if (rawOverrides is not null)
+        {
+            if (rawOverrides.GetOrDefault<bool>(
+                    "bOverride_BlendMode"))
+            {
+                blendMode =
+                    rawOverrides.GetOrDefault<EBlendMode>(
+                        "BlendMode",
+                        blendMode);
+                blendOverridden = true;
+            }
+
+            if (rawOverrides.GetOrDefault<bool>(
+                    "bOverride_ShadingModel"))
+            {
+                shadingModel =
+                    rawOverrides.GetOrDefault<
+                        EMaterialShadingModel>(
+                        "ShadingModel",
+                        shadingModel);
+                shadingOverridden = true;
+            }
+
+            if (rawOverrides.GetOrDefault<bool>(
+                    "bOverride_OpacityMaskClipValue"))
+            {
+                opacityMaskClipValue =
+                    rawOverrides.GetOrDefault<float>(
+                        "OpacityMaskClipValue",
+                        opacityMaskClipValue);
+                opacityMaskOverridden = true;
+            }
+
+            if (rawOverrides.GetOrDefault<bool>(
+                    "bOverride_TwoSided"))
+            {
+                if (!rawOverrides.TryGetValue<bool>(
+                        out twoSided,
+                        "TwoSided",
+                        "bTwoSided"))
+                {
+                    twoSided =
+                        inherited.twoSided;
+                }
+                twoSidedOverridden = true;
+            }
+        }
+
+        return (
+            true,
+            blendMode,
+            shadingModel,
+            opacityMaskClipValue,
+            twoSided,
+            inherited.disableDepthTest,
+            inherited.parentDepth + 1,
+            blendOverridden,
+            shadingOverridden,
+            opacityMaskOverridden,
+            twoSidedOverridden,
+            inherited.baseMaterialPath);
+    }
+    finally
+    {
+        visiting.Remove(path);
+    }
 }
