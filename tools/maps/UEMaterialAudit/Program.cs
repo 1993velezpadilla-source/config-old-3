@@ -981,6 +981,47 @@ static object? DescribeDiagnosticValue(
         };
     }
 
+    if (value is FScriptStruct scriptStruct)
+    {
+        if (
+            scriptStruct.StructType
+                is CUE4Parse.UE4.Objects.Engine.FExpressionInput
+                    input)
+        {
+            return new {
+                kind = "FExpressionInput",
+                expressionIndex =
+                    input.Expression?.Index,
+                expressionPath =
+                    input.Expression?.ToString(),
+                outputIndex = input.OutputIndex,
+                inputName = input.InputName.Text,
+                expressionName =
+                    input.ExpressionName.Text,
+                mask = input.Mask,
+                maskR = input.MaskR,
+                maskG = input.MaskG,
+                maskB = input.MaskB,
+                maskA = input.MaskA,
+                fallback =
+                    input.FallbackStruct is null
+                        ? null
+                        : DescribeDiagnosticValue(
+                            input.FallbackStruct,
+                            depth + 1)
+            };
+        }
+
+        return new {
+            kind = "FScriptStruct",
+            structType =
+                scriptStruct.StructType
+                    .GetType().FullName,
+            value =
+                scriptStruct.StructType.ToString()
+        };
+    }
+
     if (value is FStructFallback fallback)
     {
         return new {
