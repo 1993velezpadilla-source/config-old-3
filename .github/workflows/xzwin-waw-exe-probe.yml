@@ -208,11 +208,21 @@ jobs:
             >probe/wineboot.log 2>&1
           WINEBOOT_STATUS=$?
 
-          timeout 240s xvfb-run -a wine probe/MW2RustZombies.exe /S \
+          # NSIS normally auto-detects the World at War mods directory. For
+          # this isolated probe there is no commercial game installation, so
+          # force a harmless destination inside the Wine C: drive.
+          mkdir -p "$WINEPREFIX/drive_c/xziel-maps/mw2rust"
+          timeout 240s xvfb-run -a wine probe/MW2RustZombies.exe \
+            /S '/D=C:\\xziel-maps\\mw2rust' \
             >probe/wine-installer.log 2>&1
           WINE_STATUS=$?
 
+          # Wait for any detached NSIS/Wine child before scanning the prefix.
+          timeout 45s wineserver -w >>probe/wine-installer.log 2>&1
+          WINESERVER_STATUS=$?
+
           echo "$WINEBOOT_STATUS" > probe/wineboot-exit.txt
+          echo "$WINESERVER_STATUS" > probe/wineserver-exit.txt
           echo "$WINE_STATUS" > probe/wine-installer-exit.txt
 
           find "$WINEPREFIX" -type f -printf '%P\n' 2>/dev/null \
@@ -245,6 +255,7 @@ jobs:
               "format": "xziel_waw_wine_probe_v1",
               "winebootExit": int((root / "wineboot-exit.txt").read_text().strip()),
               "installerExit": int((root / "wine-installer-exit.txt").read_text().strip()),
+              "wineserverExit": int((root / "wineserver-exit.txt").read_text().strip()),
               "prefixFileCount": len(files),
               "wawPayloadCount": len(payload),
               "wawPayloadFiles": payload[:500],
