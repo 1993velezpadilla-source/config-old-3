@@ -3,9 +3,15 @@
 #include <EGL/egl.h>
 #include <GLES3/gl3.h>
 
-#include <dlfcn.h>
+#include <SDL_loadso.h>
 #include <stdio.h>
 #include <string.h>
+
+#if defined(_WIN32)
+#define XZ_GLES_LIBRARY_NAME "libGLESv2.dll"
+#else
+#define XZ_GLES_LIBRARY_NAME "libGLESv2.so"
+#endif
 
 #ifndef EGL_OPENGL_ES3_BIT_KHR
 #define EGL_OPENGL_ES3_BIT_KHR 0x00000040
@@ -67,13 +73,13 @@ static int XzLoadNativeGles3(XzNativeGles3 *api)
 {
 #define XZ_LOAD_GL(field, symbol)                                      \
     do {                                                               \
-        *(void **)(&api->field) = dlsym(api->library, symbol);         \
+        *(void **)(&api->field) = SDL_LoadFunction(api->library, symbol);         \
         if (!api->field)                                               \
             return 0;                                                  \
     } while (0)
 
     memset(api, 0, sizeof(*api));
-    api->library = dlopen("libGLESv2.so", RTLD_NOW | RTLD_LOCAL);
+    api->library = SDL_LoadObject(XZ_GLES_LIBRARY_NAME);
     if (!api->library)
         return 0;
 
@@ -100,7 +106,7 @@ static int XzLoadNativeGles3(XzNativeGles3 *api)
 static void XzUnloadNativeGles3(XzNativeGles3 *api)
 {
     if (api && api->library)
-        dlclose(api->library);
+        SDL_UnloadObject(api->library);
     if (api)
         memset(api, 0, sizeof(*api));
 }
