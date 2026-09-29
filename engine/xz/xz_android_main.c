@@ -320,6 +320,10 @@ int main(int argc, char **argv)
     int camera_ready = 1;
     XzMobileControls mobile_controls;
     int mobile_controls_ready = 0;
+    int paused = 0;
+    int interact_pressed = 0;
+    float desktop_look_dx = 0.0f;
+    float desktop_look_dy = 0.0f;
     SDL_Window *window = NULL;
     SDL_GLContext context = NULL;
     int running = 1;
@@ -390,8 +394,18 @@ int main(int argc, char **argv)
 
     standing_eye_z = eye[2];
     XzAnglesFromForward(forward, &yaw, &pitch);
+#ifdef __ANDROID__
     mobile_controls_ready =
         XzMobileControls_Init(&mobile_controls);
+#else
+    /*
+     * Win64/Wine path receives Android overlay input as ordinary
+     * keyboard + relative mouse events. Do not render the native SDL
+     * touch HUD here or the hybrid APK would show duplicate controls.
+     */
+    mobile_controls_ready = 0;
+    SDL_SetRelativeMouseMode(SDL_TRUE);
+#endif
 
     XzAndroidRuntime_Init(
         256u * 1024u * 1024u);
@@ -421,11 +435,22 @@ int main(int argc, char **argv)
                 XzMobileControls_HandleEvent(
                     &mobile_controls,
                     &event);
+
             if (event.type == SDL_QUIT)
                 running = 0;
+
             if (event.type == SDL_KEYDOWN &&
-                event.key.keysym.sym == SDLK_ESCAPE)
-                running = 0;
+                event.key.repeat == 0) {
+                if (event.key.keysym.sym == SDLK_ESCAPE)
+                    paused = !paused;
+                else if (event.key.keysym.sym == SDLK_e)
+                    interact_pressed = 1;
+            }
+
+            if (event.type == SDL_MOUSEMOTION) {
+                desktop_look_dx += (float)event.motion.xrel;
+                desktop_look_dy += (float)event.motion.yrel;
+            }
         }
 
         now =
@@ -438,28 +463,86 @@ int main(int argc, char **argv)
         if (dt > 0.050)
             dt = 0.050;
 
-        if (mobile_controls_ready) {
+        {
             float flat_forward_x;
             float flat_forward_y;
             float right_x;
             float right_y;
+            int crouched = 0;
+            int ads_down = 0;
+            int sprint_down = 0;
 
-            XzMobileControls_GetMove(
-                &mobile_controls,
-                &move_x,
-                &move_y);
-            XzMobileControls_ConsumeLook(
-                &mobile_controls,
-                &look_dx,
-                &look_dy);
+            if (mobile_controls_ready) {
+                XzMobileControls_GetMove(
+                    &mobile_controls,
+                    &move_x,
+                    &move_y);
+                XzMobileControls_ConsumeLook(
+                    &mobile_controls,
+                    &look_dx,
+                    &look_dy);
 
-            yaw += look_dx * 4.80f;
-            pitch -= look_dy * 3.80f;
+                sprint_down = XzMobileControls_ButtonDown(
+                    &mobile_controls,
+                    XZ_MOBILE_SPRINT);
+                crouched = XzMobileControls_ButtonDown(
+                    &mobile_controls,
+                    XZ_MOBILE_CROUCH);
+                ads_down = XzMobileControls_ButtonDown(
+                    &mobile_controls,
+                    XZ_MOBILE_ADS);
+
+                if (XzMobileControls_ButtonPressed(
+                        &mobile_controls,
+                        XZ_MOBILE_INTERACT))
+                    interact_pressed = 1;
+
+                yaw += look_dx * 4.80f;
+                pitch -= look_dy * 3.80f;
+            } else {
+                const Uint8 *keys = SDL_GetKeyboardState(NULL);
+                Uint32 mouse_buttons = SDL_GetMouseState(NULL, NULL);
+                float desktop_x = 0.0f;
+                float desktop_y = 0.0f;
+                float desktop_len;
+
+                if (keys[SDL_SCANCODE_A]) desktop_x -= 1.0f;
+                if (keys[SDL_SCANCODE_D]) desktop_x += 1.0f;
+                if (keys[SDL_SCANCODE_W]) desktop_y += 1.0f;
+                if (keys[SDL_SCANCODE_S]) desktop_y -= 1.0f;
+
+                desktop_len = sqrtf(
+                    desktop_x * desktop_x +
+                    desktop_y * desktop_y);
+                if (desktop_len > 1.0f) {
+                    desktop_x /= desktop_len;
+                    desktop_y /= desktop_len;
+                }
+
+                move_x = desktop_x;
+                move_y = desktop_y;
+                sprint_down =
+                    keys[SDL_SCANCODE_LSHIFT] ||
+                    keys[SDL_SCANCODE_RSHIFT];
+                crouched =
+                    keys[SDL_SCANCODE_LCTRL] ||
+                    keys[SDL_SCANCODE_RCTRL];
+                ads_down =
+                    (mouse_buttons & SDL_BUTTON(SDL_BUTTON_RIGHT)) != 0u;
+
+                /*
+                 * Android gyro + right-side drag are injected by the
+                 * compatibility overlay as X11 raw mouse deltas.
+                 */
+                yaw += desktop_look_dx * 0.00265f;
+                pitch -= desktop_look_dy * 0.00235f;
+                desktop_look_dx = 0.0f;
+                desktop_look_dy = 0.0f;
+            }
+
             pitch = XzClampF(pitch, -1.38f, 1.38f);
 
-            if (XzMobileControls_ButtonDown(
-                    &mobile_controls,
-                    XZ_MOBILE_SPRINT))
+            if (sprint_down)
                 move_speed = 5.25f;
 
             flat_forward_x = cosf(yaw);
@@ -467,33 +550,30 @@ int main(int argc, char **argv)
             right_x = -flat_forward_y;
             right_y = flat_forward_x;
 
-            eye[0] +=
-                (flat_forward_x * move_y + right_x * move_x) *
-                move_speed * (float)dt;
-            eye[1] +=
-                (flat_forward_y * move_y + right_y * move_x) *
-                move_speed * (float)dt;
+            if (!paused) {
+                eye[0] +=
+                    (flat_forward_x * move_y + right_x * move_x) *
+                    move_speed * (float)dt;
+                eye[1] +=
+                    (flat_forward_y * move_y + right_y * move_x) *
+                    move_speed * (float)dt;
+            }
 
-            if (XzMobileControls_ButtonDown(
-                    &mobile_controls,
-                    XZ_MOBILE_CROUCH))
+            if (crouched)
                 eye[2] = standing_eye_z - 0.40f;
             else
                 eye[2] = standing_eye_z;
 
-            if (XzMobileControls_ButtonDown(
-                    &mobile_controls,
-                    XZ_MOBILE_ADS))
+            if (ads_down)
                 frame_fov = fov_y > 58.0f ? 58.0f : fov_y;
 
-            if (XzMobileControls_ButtonPressed(
-                    &mobile_controls,
-                    XZ_MOBILE_INTERACT)) {
+            if (interact_pressed && !paused) {
                 (void)XzAndroidRuntime_NachtTryInteractMeters(
                     eye[0],
                     eye[1],
                     eye[2]);
             }
+            interact_pressed = 0;
         }
 
         XzForwardFromAngles(yaw, pitch, forward);
