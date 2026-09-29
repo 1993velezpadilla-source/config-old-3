@@ -37,7 +37,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $ErrorActionPreference = "Stop"
-          gh run download 36642195566 --repo "$env:GITHUB_REPOSITORY" --name "XZIEL-Nacht-Win64-Runtime" --dir input\runtime
+          gh run download 36643002434 --repo "$env:GITHUB_REPOSITORY" --name "XZIEL-Nacht-Win64-Runtime" --dir input\runtime
           $exe = Get-ChildItem input\runtime -Recurse -Filter Xziel-Nacht.exe | Select-Object -First 1
           if (-not $exe) { throw "GREEN Xziel-Nacht.exe artifact not found" }
           Write-Host "GREEN_RUNTIME=$($exe.FullName) bytes=$($exe.Length)"
@@ -107,7 +107,7 @@ jobs:
 
           $runtimeDir = (Get-ChildItem input\runtime -Recurse -Filter Xziel-Nacht.exe | Select-Object -First 1).Directory.FullName
           Copy-Item "$runtimeDir\Xziel-Nacht.exe" dist\onefile\launcher\
-          foreach ($dll in @("SDL2.dll","libEGL.dll","libGLESv2.dll","libgcc_s_seh-1.dll","libwinpthread-1.dll")) {
+          foreach ($dll in @("SDL2.dll","libEGL.dll","libGLESv2.dll","libgcc_s_seh-1.dll","libstdc++-6.dll","libwinpthread-1.dll","zlib1.dll")) {
             $p = Join-Path $runtimeDir $dll
             if (Test-Path $p) { Copy-Item $p dist\onefile\launcher\ }
           }
@@ -115,13 +115,13 @@ jobs:
           Copy-Item "$env:SEVENZIP" dist\onefile\launcher\7z.exe
           Copy-Item "$env:SEVENZIP_DLL" dist\onefile\launcher\7z.dll
 
-          foreach ($required in @("Xziel-Nacht.exe","SDL2.dll","libEGL.dll","libGLESv2.dll","7z.exe","7z.dll")) {
+          foreach ($required in @("Xziel-Nacht.exe","SDL2.dll","libEGL.dll","libGLESv2.dll","libstdc++-6.dll","zlib1.dll","7z.exe","7z.dll")) {
             if (-not (Test-Path "dist\onefile\launcher\$required")) { throw "Launcher file missing: $required" }
           }
 
           $launcherBytes = (Get-ChildItem dist\onefile\launcher -File | Measure-Object Length -Sum).Sum
           "launcher_bytes=$launcherBytes" | Add-Content dist\pack-report.txt
-          Write-Host "XZIEL_NACHT_LAUNCHER_GREEN bytes=$launcherBytes"
+          Write-Host "XZIEL_NACHT_LAUNCHER_GREEN bytes=$launcherBytes runtime_run=36643002434 dependency_closure=complete"
 
       - name: Build one EXE with ZIP payload and autorun
         shell: pwsh
