@@ -20,9 +20,17 @@ extern "C" {
 #define XZ_XZMS_NO_MATERIAL 0xffffffffu
 
 enum {
-    XZ_XZMS_FLAG_GLTF_TO_XZIEL = 1u << 0,
-    XZ_XZMS_FLAG_INDEX_U32     = 1u << 1
+    /*
+     * Bit 0 means vertex/index data is already expressed in the XZIEL
+     * runtime basis. It is source-format agnostic: GLB, Unreal and future
+     * importers may all set the same bit after performing their conversion.
+     */
+    XZ_XZMS_FLAG_XZIEL_BASIS = 1u << 0,
+    XZ_XZMS_FLAG_INDEX_U32   = 1u << 1
 };
+
+/* Binary/source compatibility for older GLB-only tooling. */
+#define XZ_XZMS_FLAG_GLTF_TO_XZIEL XZ_XZMS_FLAG_XZIEL_BASIS
 
 enum {
     XZ_XZMS_ATTR_POSITION = 1u << 0,
