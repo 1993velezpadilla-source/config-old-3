@@ -51,6 +51,15 @@ int main(int argc, char **argv)
         return 2;
     }
 
+    if (!XzMaterialInstanceBinding_SelfTest()) {
+        fprintf(
+            stderr,
+            "XZIEL_XZMI_SELFTEST_FAIL\n");
+        return 9;
+    }
+
+    printf("XZIEL_XZMI_SELFTEST_GREEN\n");
+
     file = fopen(argv[1], "rb");
     if (!file) {
         fprintf(
