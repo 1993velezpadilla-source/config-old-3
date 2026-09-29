@@ -2,6 +2,13 @@ name: XZWin ARM64 Wine Smoke
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - experiment/xzwin-waw-exe-probe
+    paths:
+      - ".github/workflows/xzwin-arm64-wine-smoke.yml"
+      - "android/XzWinRuntime.java"
+      - "android/XzWinRuntimeInstaller.java"
 
 permissions:
   contents: read
