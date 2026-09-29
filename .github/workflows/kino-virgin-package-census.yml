@@ -25,6 +25,10 @@ on:
       - tools/maps/xz_xzaudio_selftest.c
       - tools/maps/xz_xzaudio_file_gate.c
       - tools/maps/UEAudioXZAW/**
+      - engine/xz/xz_xzrig.h
+      - engine/xz/xz_xzrig.c
+      - tools/maps/xz_xzrig_file_gate.c
+      - tools/maps/UESkeletonXZRG/**
       - engine/xz/xz_xzskel.h
       - engine/xz/xz_xzskel.c
       - tools/maps/xz_xzskel_file_gate.c
@@ -866,6 +870,132 @@ jobs:
           find kino-download/ue-xzaw-probe \
             -maxdepth 1 -type f -name '*.xaw' -delete
 
+      - name: Convert cooked UE skeletons directly to native XZRG
+        run: |
+          set -euxo pipefail
+          dotnet restore tools/maps/UESkeletonXZRG/UESkeletonXZRG.csproj
+          dotnet build tools/maps/UESkeletonXZRG/UESkeletonXZRG.csproj \
+            --configuration Release \
+            --no-restore \
+            -warnaserror
+
+          APP="tools/maps/UESkeletonXZRG/bin/Release/net10.0/UESkeletonXZRG.dll"
+          test -s "$APP"
+
+          rm -rf kino-download/ue-xzrg-probe kino-download/ue-xzrg-base-hand
+          mkdir -p kino-download/ue-xzrg-probe kino-download/ue-xzrg-base-hand
+
+          EXPECTED_RIGS="$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          census = json.loads(
+              Path("kino-download/kino-class-census.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          print(census["classCounts"].get("Skeleton", 0))
+          PY
+          )"
+          test "$EXPECTED_RIGS" -gt 0
+
+          dotnet "$APP" \
+            kino-pak-unpacked \
+            kino-download/PavMappings.usmap \
+            kino-download/kino-class-census.json \
+            kino-download/ue-xzrg-probe \
+            "$EXPECTED_RIGS" \
+            ue5.1 \
+            | tee kino-download/ue-xzrg-probe.log
+
+          test -s kino-download/ue-xzrg-probe/report.json
+          grep -q 'XZIEL_UE_XZRG_PROBE_GREEN' \
+            kino-download/ue-xzrg-probe.log
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(
+              Path("kino-download/ue-xzrg-probe/report.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          census = json.loads(
+              Path("kino-download/kino-class-census.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          expected = census["classCounts"].get("Skeleton", 0)
+
+          assert report["ready"] is True
+          assert report["failureCount"] == 0
+          assert report["requestedSkeletons"] == expected
+          assert report["convertedSkeletons"] == expected
+          assert report["totalBones"] > 0
+          assert len(report["skeletonHashCounts"]) > 0
+
+          print("XZIEL_KINO_UE_XZRG_PAYLOAD_PARITY_GREEN", {
+              "skeletons": report["convertedSkeletons"],
+              "bones": report["totalBones"],
+              "topologies": len(report["skeletonHashCounts"]),
+              "poses": len(report["poseHashCounts"]),
+          })
+          PY
+
+          cat > kino-download/base-hand-skeleton-census.json <<'JSON'
+          {
+            "packages": [
+              {
+                "packagePath": "Pavlov/Content/Hands/Mesh/SK_Hand_Skeleton.uasset",
+                "classes": {
+                  "Skeleton": 1
+                }
+              }
+            ]
+          }
+          JSON
+
+          dotnet "$APP" \
+            kino-pak-unpacked \
+            kino-download/PavMappings.usmap \
+            kino-download/base-hand-skeleton-census.json \
+            kino-download/ue-xzrg-base-hand \
+            1 \
+            ue5.1 \
+            | tee kino-download/ue-xzrg-base-hand.log
+
+          test -s kino-download/ue-xzrg-base-hand/report.json
+          grep -q 'XZIEL_UE_XZRG_PROBE_GREEN' \
+            kino-download/ue-xzrg-base-hand.log
+
+          mkdir -p build/xzrg-native-gate
+          cc -std=gnu11 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tools/maps/xz_xzrig_file_gate.c \
+            engine/xz/xz_xzrig.c \
+            -lm \
+            -o build/xzrg-native-gate/xz-xzrig-file-gate
+
+          mapfile -t RIGS < <(find kino-download/ue-xzrg-probe \
+            -maxdepth 1 -type f -name '*.xrg' | sort)
+          test "${#RIGS[@]}" -eq "$EXPECTED_RIGS"
+
+          build/xzrg-native-gate/xz-xzrig-file-gate "${RIGS[@]}" \
+            | tee kino-download/ue-xzrg-native-gate.log
+
+          test "$(grep -c '^XZIEL_XZRG_FILE_GATE_OK ' \
+            kino-download/ue-xzrg-native-gate.log)" \
+            -eq "$EXPECTED_RIGS"
+
+          mapfile -t BASE_HAND_RIGS < <(find kino-download/ue-xzrg-base-hand \
+            -maxdepth 1 -type f -name '*.xrg' | sort)
+          test "${#BASE_HAND_RIGS[@]}" -eq 1
+
+          build/xzrg-native-gate/xz-xzrig-file-gate "${BASE_HAND_RIGS[@]}" \
+            | tee kino-download/ue-xzrg-base-hand-native-gate.log
+
+          echo "XZIEL_KINO_UE_XZRG_NATIVE_ALL_GREEN map=$EXPECTED_RIGS baseHand=1"
+
       - name: Convert cooked UE skeletal meshes directly to native XZSK
         run: |
           set -euxo pipefail
@@ -936,6 +1066,40 @@ jobs:
           assert native["maxUvChannels"] == deep["maxSkeletalUvChannels"]
           assert 1 <= native["maxInfluences"] <= 8
           assert len(native["skeletonHashCounts"]) > 0
+
+          source_rigs = json.loads(
+              Path("kino-download/ue-xzrg-probe/report.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          base_hand_rig = json.loads(
+              Path("kino-download/ue-xzrg-base-hand/report.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          canonical_rig_hashes = (
+              set(source_rigs["skeletonHashCounts"])
+              | set(base_hand_rig["skeletonHashCounts"])
+          )
+          linked_mesh_hashes = {
+              row["skeletonHash"]
+              for row in native["meshes"]
+              if not row["selfRig"]
+          }
+          missing_mesh_rigs = sorted(
+              linked_mesh_hashes - canonical_rig_hashes
+          )
+          assert not missing_mesh_rigs, {
+              "meshSkeletonsWithoutXZRG": missing_mesh_rigs,
+              "linkedMeshSkeletons": len(linked_mesh_hashes),
+              "canonicalRigs": len(canonical_rig_hashes),
+          }
+
+          print("XZIEL_KINO_UE_XZSK_RIG_LINK_GREEN", {
+              "linkedMeshSkeletons": len(linked_mesh_hashes),
+              "canonicalRigs": len(canonical_rig_hashes),
+              "selfRigs": native["selfRigFallbackCount"],
+          })
 
           print("XZIEL_KINO_UE_XZSK_PAYLOAD_PARITY_GREEN", {
               "meshes": native["convertedMeshes"],
@@ -1044,12 +1208,20 @@ jobs:
           assert native["scaleKeys"] == deep["animationScaleKeys"]
           assert len(native["skeletonHashCounts"]) > 0
 
-          xzsk = json.loads(
-              Path("kino-download/ue-xzsk-probe/report.json").read_text(
+          source_rigs = json.loads(
+              Path("kino-download/ue-xzrg-probe/report.json").read_text(
                   encoding="utf-8"
               )
           )
-          rig_hashes = set(xzsk["skeletonHashCounts"])
+          base_hand_rig = json.loads(
+              Path("kino-download/ue-xzrg-base-hand/report.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          rig_hashes = (
+              set(source_rigs["skeletonHashCounts"])
+              | set(base_hand_rig["skeletonHashCounts"])
+          )
           anim_hashes = set(native["skeletonHashCounts"])
           overlap = rig_hashes & anim_hashes
           missing_rigs = sorted(anim_hashes - rig_hashes)
