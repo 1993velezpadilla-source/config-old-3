@@ -6,6 +6,7 @@
 #include "xz_static_scene_draw_plan.h"
 #include "xz_static_scene_material_draw_plan.h"
 #include "xz_static_scene_lightmap_draw_plan.h"
+#include "xz_xztx_gpu_format.h"
 
 #include <EGL/egl.h>
 #include <GLES3/gl3.h>
@@ -135,6 +136,7 @@ typedef void (*XzGlReadPixelsFn)(
     GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, void *);
 typedef void (*XzGlFinishFn)(void);
 typedef GLenum (*XzGlGetErrorFn)(void);
+typedef const GLubyte *(*XzGlGetStringFn)(GLenum);
 
 typedef struct {
     void *library;
@@ -208,6 +210,7 @@ typedef struct {
     XzGlReadPixelsFn ReadPixels;
     XzGlFinishFn Finish;
     XzGlGetErrorFn GetError;
+    XzGlGetStringFn GetString;
 } XzNativeGles3Api;
 
 typedef struct {
@@ -247,6 +250,29 @@ typedef struct {
     uint64_t gpu_bytes;
     int alive;
 } XzGles3StaticTexture;
+
+enum {
+    XZ_NATIVE_SHADING_DEFAULT_LIT = 0u,
+    XZ_NATIVE_SHADING_UNLIT = 1u
+};
+
+enum {
+    XZ_NATIVE_BLEND_OPAQUE = 0u,
+    XZ_NATIVE_BLEND_MASKED = 1u,
+    XZ_NATIVE_BLEND_TRANSLUCENT = 2u
+};
+
+typedef struct {
+    uint32_t canonical_texture[4];
+    float roughness;
+    float metallic;
+    float specular;
+    float emissive;
+    float opacity;
+    uint32_t pbr_flags;
+    uint32_t shading_mode;
+    uint32_t blend_mode;
+} XzGles3NativeMaterial;
 
 typedef struct {
     float position_game[3];
@@ -363,6 +389,14 @@ typedef struct {
     uint32_t static_pbr_binding_count;
     XzGles3StaticTexture *static_lightmap_textures;
     uint32_t static_lightmap_texture_count;
+    XzGles3StaticTexture *static_native_material_textures;
+    uint32_t static_native_material_texture_count;
+    XzGles3NativeMaterial *static_native_materials;
+    uint32_t static_native_material_count;
+    uint32_t *static_material_batch_offsets;
+    uint32_t *static_material_batch_materials;
+    uint32_t static_material_batch_binding_count;
+    int static_native_material_ready;
     GLuint static_reflection_cubemap;
 
     GLuint scratch_fbo;
@@ -1325,6 +1359,7 @@ static int XzLoadApi(XzNativeGles3Api *api)
     XZ_GL_LOAD(ReadPixels, "glReadPixels");
     XZ_GL_LOAD(Finish, "glFinish");
     XZ_GL_LOAD(GetError, "glGetError");
+    XZ_GL_LOAD(GetString, "glGetString");
 
 #undef XZ_GL_LOAD
     return 1;
