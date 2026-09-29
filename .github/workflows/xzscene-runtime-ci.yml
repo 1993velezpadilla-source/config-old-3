@@ -6,6 +6,7 @@ on:
     branches:
       - feature/xziel-nacht-static-scene-runtime-v1
       - feature/xziel-engine-nacht-runtime-v1
+      - feature/xziel-bo3-style-map-loader-v1
     paths:
       - "tools/maps/compile_xziel_static_scene.py"
       - "tools/maps/compile_nacht_xzscene.py"
