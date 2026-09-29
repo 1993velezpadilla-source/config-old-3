@@ -424,8 +424,8 @@ static string? ResolveProviderPackagePath(
 
     var suffixMatch = provider.Files.Keys
         .FirstOrDefault(
-            key => normalized.EndsWith(
-                key,
+            key => key.EndsWith(
+                normalized,
                 StringComparison.OrdinalIgnoreCase));
 
     return suffixMatch;
