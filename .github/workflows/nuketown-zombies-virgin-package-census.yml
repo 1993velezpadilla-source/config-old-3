@@ -1708,6 +1708,7 @@ jobs:
             -Iengine/xz \
             tools/maps/xz_static_scene_runtime_file_gate.c \
             engine/xz/xz_static_scene_runtime.c \
+            engine/xz/xz_material_instance_binding.c \
             engine/xz/xz_xzscene.c \
             engine/xz/xz_xzmesh.c \
             engine/xz/xz_environment.c \
@@ -1780,6 +1781,31 @@ jobs:
 
           grep -q 'XZIEL_XZMI_FILE_GATE_GREEN' \
             nuketown-download/runtime-static-scene/xzmi-native-gate.log
+
+          RUNTIME_MAP_ID="xziel_nuketown_zombies"
+          RUNTIME_ROOT="nuketown-download/runtime-static-scene/vfs/xziel/maps/$RUNTIME_MAP_ID"
+          cp nuketown-download/runtime-static-scene/materials.xzmi \
+            "$RUNTIME_ROOT/materials.xzmi"
+
+          EXPECTED_SCENE_MESHES=$(jq -r \
+            '.summary.referencedNativeMeshCount' \
+            nuketown-download/runtime-static-scene/visual-scene.json)
+          EXPECTED_SCENE_INSTANCES=$(jq -r \
+            '.summary.sceneInstanceCount' \
+            nuketown-download/runtime-static-scene/visual-scene.json)
+
+          build/xzsc-native-gate/xz-static-scene-runtime-file-gate \
+            nuketown-download/runtime-static-scene/vfs \
+            "$RUNTIME_MAP_ID" \
+            "$EXPECTED_SCENE_MESHES" \
+            "$EXPECTED_SCENE_INSTANCES" \
+            "$EXPECTED_XZMI_BINDINGS" \
+            | tee nuketown-download/runtime-static-scene/runtime-xzmi-gate.log
+
+          grep -q 'XZIEL_STATIC_SCENE_RUNTIME_FILE_GATE_GREEN' \
+            nuketown-download/runtime-static-scene/runtime-xzmi-gate.log
+          grep -q 'xzmi=1' \
+            nuketown-download/runtime-static-scene/runtime-xzmi-gate.log
 
       - name: Build 1-to-1 source export dependency manifest
         run: |
