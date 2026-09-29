@@ -260,8 +260,9 @@ jobs:
             -o kino-download/PavMappings.usmap \
             "https://raw.githubusercontent.com/THW-Reaper/PavlovVRMappings/4976647b4f3a209042460bc55a7a3122662d05b7/PavMappings.usmap"
           test -s kino-download/PavMappings.usmap
-          sha256sum kino-download/PavMappings.usmap \
-            | tee kino-download/PavMappings.sha256
+          echo "6d19f9731cc3fbaba34ca8e0833e81e4ffdf1b407edf24de48b1ccb5c63b060c  kino-download/PavMappings.usmap" \
+            | tee kino-download/PavMappings.sha256 \
+            | sha256sum -c -
 
       - name: Probe real UE5 unversioned properties
         run: |
