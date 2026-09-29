@@ -459,7 +459,7 @@ static string NormalizeMergedShardPath(
     string path)
 {
     var normalized =
-        path.Replace('\', '/');
+        path.Replace('\\', '/');
 
     if (!normalized.StartsWith(
             "shard-",
@@ -495,7 +495,7 @@ static string? ResolveProviderPackagePath(
 {
     var normalized =
         logicalPath
-            .Replace('\', '/')
+            .Replace('\\', '/')
             .TrimStart('/');
 
     if (provider.Files.ContainsKey(
