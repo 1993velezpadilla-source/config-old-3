@@ -1888,6 +1888,7 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             " gpuTextureBytes=%" PRIu64
             " materialBindings=%u mappedBindings=%u"
             " xzmi=%d xzml=%d xzmlMaterials=%u"
+            " inferredDiffuse=%u"
             " xzmlGpuReady=%d xztxTextures=%u"
             " xztxAstc=%u xztxBytes=%" PRIu64
             " uploadFailStage=%u uploadGl=0x%x"
@@ -1939,6 +1940,7 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             xz_runtime.static_scene.material_library_data
                 ? xz_runtime.static_scene.material_library.material_count
                 : 0u,
+            xz_runtime.gles3_shadow.static_scene_inferred_diffuse_materials,
             xz_runtime.gles3_shadow.static_scene_xzml_gpu_ready,
             xz_runtime.gles3_shadow.static_scene_xztx_gpu_textures,
             xz_runtime.gles3_shadow.static_scene_xztx_astc_textures,
