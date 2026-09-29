@@ -3,8 +3,8 @@
 #include <math.h>
 #include <string.h>
 
-#define XZ_ENV_KNOWN_FLAGS ((1u << 17) - 1u)
-#define XZ_ENV_KNOWN_BEHAVIOR ((1u << 4) - 1u)
+#define XZ_ENV_KNOWN_FLAGS ((1u << 18) - 1u)
+#define XZ_ENV_KNOWN_BEHAVIOR ((1u << 5) - 1u)
 
 static uint32_t XzEnvReadU32Le(
     const unsigned char *p)
