@@ -67,15 +67,53 @@ jobs:
         shell: msys2 {0}
         run: |
           set -euxo pipefail
-          for dll in SDL2.dll libEGL.dll libGLESv2.dll libgcc_s_seh-1.dll libwinpthread-1.dll; do
-            if [[ -s "/mingw64/bin/$dll" ]]; then
-              cp "/mingw64/bin/$dll" dist/win64/
-            fi
+          for dll in SDL2.dll libEGL.dll libGLESv2.dll; do
+            test -s "/mingw64/bin/$dll"
+            cp "/mingw64/bin/$dll" dist/win64/
           done
+
+          : > dist/win64/pe-runtime-dependency-closure.txt
+          changed=1
+          while [[ "$changed" == "1" ]]; do
+            changed=0
+            mapfile -t bins < <(
+              find dist/win64 -maxdepth 1 -type f \
+                \( -iname '*.exe' -o -iname '*.dll' \) | sort
+            )
+            for bin in "${bins[@]}"; do
+              while IFS= read -r dep; do
+                [[ -z "$dep" ]] && continue
+                if [[ -s "/mingw64/bin/$dep" && ! -s "dist/win64/$dep" ]]; then
+                  echo "$(basename "$bin") -> $dep" \
+                    | tee -a dist/win64/pe-runtime-dependency-closure.txt
+                  cp "/mingw64/bin/$dep" dist/win64/
+                  changed=1
+                fi
+              done < <(objdump -p "$bin" | awk '/DLL Name:/{print $3}')
+            done
+          done
+
+          missing=0
+          mapfile -t bins < <(
+            find dist/win64 -maxdepth 1 -type f \
+              \( -iname '*.exe' -o -iname '*.dll' \) | sort
+          )
+          for bin in "${bins[@]}"; do
+            while IFS= read -r dep; do
+              [[ -z "$dep" ]] && continue
+              if [[ -s "/mingw64/bin/$dep" && ! -s "dist/win64/$dep" ]]; then
+                echo "MISSING_MINGW_DLL $(basename "$bin") -> $dep"
+                missing=1
+              fi
+            done < <(objdump -p "$bin" | awk '/DLL Name:/{print $3}')
+          done
+          test "$missing" = "0"
 
           test -s dist/win64/SDL2.dll
           test -s dist/win64/libEGL.dll
           test -s dist/win64/libGLESv2.dll
+          test -s dist/win64/libstdc++-6.dll
+          test -s dist/win64/zlib1.dll
           sha256sum dist/win64/Xziel-Nacht.exe | tee dist/win64/Xziel-Nacht.exe.sha256
 
           cat > dist/win64/RUN_NACHT.cmd <<'EOF'
