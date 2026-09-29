@@ -11,6 +11,10 @@ on:
       - tools/maps/UEAssetClassCensus/**
       - tools/maps/UEAssetPropertyProbe/**
       - tools/maps/UEAssetPropertySweep/**
+      - engine/xz/xz_xzmesh.h
+      - engine/xz/xz_xzmesh.c
+      - tools/maps/xz_xzmesh_file_gate.c
+      - tools/maps/UEStaticMeshXZMS/**
       - tools/maps/UEAssetSourceManifest/**
       - tools/maps/xz_source_class_gate.c
       - tools/maps/xz_source_adapter_blocker_gate.c
@@ -430,6 +434,54 @@ jobs:
 
           print("XZIEL_KINO_PROPERTY_SWEEP_GREEN")
           PY
+
+      - name: Convert cooked UE static meshes directly to native XZMS
+        run: |
+          set -euxo pipefail
+          dotnet restore \
+            tools/maps/UEStaticMeshXZMS/UEStaticMeshXZMS.csproj
+
+          dotnet build \
+            tools/maps/UEStaticMeshXZMS/UEStaticMeshXZMS.csproj \
+            --configuration Release \
+            --no-restore
+
+          APP="tools/maps/UEStaticMeshXZMS/bin/Release/net10.0/UEStaticMeshXZMS.dll"
+          test -s "$APP"
+
+          rm -rf kino-download/ue-xzms-probe
+          mkdir -p kino-download/ue-xzms-probe
+
+          dotnet "$APP" \
+            kino-pak-unpacked \
+            kino-download/PavMappings.usmap \
+            kino-download/kino-class-census.json \
+            kino-download/ue-xzms-probe \
+            8 \
+            ue5.1 \
+            | tee kino-download/ue-xzms-probe.log
+
+          test -s kino-download/ue-xzms-probe/report.json
+          grep -q 'XZIEL_UE_XZMS_PROBE_GREEN' \
+            kino-download/ue-xzms-probe.log
+
+          mkdir -p build/xzms-native-gate
+          cc -std=gnu11 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tools/maps/xz_xzmesh_file_gate.c \
+            engine/xz/xz_xzmesh.c \
+            -lm \
+            -o build/xzms-native-gate/xz-xzmesh-file-gate
+
+          mapfile -t MESHES < <(find kino-download/ue-xzms-probe \
+            -maxdepth 1 -type f -name '*.xzm' | sort)
+          test "${#MESHES[@]}" -eq 8
+
+          build/xzms-native-gate/xz-xzmesh-file-gate "${MESHES[@]}" \
+            | tee kino-download/ue-xzms-native-gate.log
+
+          grep -q 'XZIEL_XZMS_NATIVE_FILES_GREEN count=8' \
+            kino-download/ue-xzms-native-gate.log
 
       - name: Build 1-to-1 source export dependency manifest
         run: |
