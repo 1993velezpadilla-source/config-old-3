@@ -359,7 +359,7 @@ static void XzWriteF32Le(
 int XzXzanim_SelfTest(void)
 {
     enum {
-        Tracks = 1,
+        Tracks = 2,
         PayloadBytes = 40
     };
     unsigned char data[
@@ -400,6 +400,11 @@ int XzXzanim_SelfTest(void)
     XzWriteU32Le(t + 44u, 40u);
     XzWriteU32Le(t + 48u, 40u);
     XzWriteU32Le(t + 52u, 40u);
+
+    /*
+     * Track 1 stays all-zero by design. It represents a valid bone that has
+     * no authored transform keys and must evaluate from the reference pose.
+     */
 
     XzWriteF32Le(payload + 24u, 1.0f);
     XzWriteF32Le(payload + 28u, 1.0f);
