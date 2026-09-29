@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - feature/xziel-bo3-style-map-loader-v1
+      - experiment/xziel-nacht-win64-exe-v1
     paths:
       - ".github/workflows/nacht-standalone-visual.yml"
 
@@ -3558,6 +3559,15 @@ jobs:
           })
           PY
 
+      - name: Upload complete Nacht XZIEL VFS for Win64 packer
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Nacht-VFS-Complete
+          path: dist/xziel-nacht-vfs.zip
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
       - name: Derive four native camera probes from Nacht spawn
         shell: bash
         run: |
@@ -3999,4 +4009,173 @@ jobs:
             build/nacht-static-scene/xziel.xzfg.report.json
             build/nacht-static-scene/xziel.xzlt.report.json
           if-no-files-found: warn
+          retention-days: 14
+
+
+  build-nacht-onefile-win64:
+    name: Build one-file Nacht Win64 EXE
+    needs: visual
+    if: ${{ always() }}
+    runs-on: windows-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout modern XZIEL runtime
+        uses: actions/checkout@v5
+
+      - name: Download complete Nacht XZIEL VFS
+        uses: actions/download-artifact@v5
+        with:
+          name: XZIEL-Nacht-VFS-Complete
+          path: dist/vfs
+
+      - name: Install Win64 SDL2 + ANGLE + NSIS
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-binutils
+            mingw-w64-x86_64-pkgconf
+            mingw-w64-x86_64-SDL2
+            mingw-w64-x86_64-angleproject
+            mingw-w64-x86_64-7zip
+            mingw-w64-x86_64-nsis
+
+      - name: Compile XZIEL Win64 against ANGLE GLES3
+        shell: msys2 {0}
+        run: |
+          set -euxo pipefail
+          mkdir -p dist/win64/runtime dist/win64/bundle
+
+          mapfile -t SOURCES < <(find engine/xz -maxdepth 1 -type f -name '*.c' | sort)
+          test "${#SOURCES[@]}" -gt 20
+
+          CFLAGS=( -O2 -std=gnu99 -Wall
+            -Wno-unused-variable
+            -Wno-unused-but-set-variable
+            -DXZIEL_WINDOWS_STANDALONE=1
+            -DPROP_VALUE_MAX=92
+          )
+          read -r -a SDL_CFLAGS <<< "$(pkg-config --cflags sdl2)"
+          read -r -a SDL_LIBS <<< "$(pkg-config --libs sdl2)"
+
+          gcc "${CFLAGS[@]}" "${SDL_CFLAGS[@]}" \
+            "${SOURCES[@]}" \
+            -o dist/win64/runtime/Xziel-Nacht.exe \
+            "${SDL_LIBS[@]}" \
+            -lGLESv2 -lEGL -lm
+
+          test -s dist/win64/runtime/Xziel-Nacht.exe
+          objdump -f dist/win64/runtime/Xziel-Nacht.exe \
+            | tee dist/win64/pe-runtime-header.txt
+          objdump -p dist/win64/runtime/Xziel-Nacht.exe \
+            | tee dist/win64/pe-runtime-imports.txt
+          grep -Eiq 'pei-x86-64|i386:x86-64' \
+            dist/win64/pe-runtime-header.txt
+
+          for dll in SDL2.dll libEGL.dll libGLESv2.dll libgcc_s_seh-1.dll libwinpthread-1.dll; do
+            if [[ -s "/mingw64/bin/$dll" ]]; then
+              cp "/mingw64/bin/$dll" dist/win64/runtime/
+            fi
+          done
+
+          test -s dist/win64/runtime/SDL2.dll
+          test -s dist/win64/runtime/libEGL.dll
+          test -s dist/win64/runtime/libGLESv2.dll
+          echo "XZIEL_NACHT_WIN64_RUNTIME_GREEN"
+
+      - name: Preserve every VFS file in portable Win64 bundle
+        shell: msys2 {0}
+        run: |
+          set -euxo pipefail
+          VFS=dist/vfs/xziel-nacht-vfs.zip
+          test -s "$VFS"
+
+          7z x -y "$VFS" -odist/win64/bundle
+          cp -a dist/win64/runtime/. dist/win64/bundle/
+
+          test -s dist/win64/bundle/Xziel-Nacht.exe
+          test -s dist/win64/bundle/xziel/maps/xziel_nacht_bo3/scene.xzsc
+
+          mesh_count=$(find \
+            dist/win64/bundle/xziel/maps/xziel_nacht_bo3/meshes \
+            -maxdepth 1 -type f -name '*.xzm' | wc -l | tr -d '[:space:]')
+          test "$mesh_count" = "492"
+
+          vfs_files=$(7z l -ba "$VFS" | grep -vcE '[[:space:]]D[[:space:]]')
+          bundle_files=$(find dist/win64/bundle -type f | wc -l | tr -d '[:space:]')
+          vfs_bytes=$(wc -c < "$VFS" | tr -d '[:space:]')
+
+          {
+            echo "XZIEL_NACHT_WIN64_PACKAGE"
+            echo "map=xziel_nacht_bo3"
+            echo "expected_meshes=492"
+            echo "meshes=$mesh_count"
+            echo "expected_instances=10791"
+            echo "vfs_archive_bytes=$vfs_bytes"
+            echo "vfs_listing_rows=$vfs_files"
+            echo "bundle_files_including_runtime=$bundle_files"
+          } | tee dist/win64/pack-report.txt
+
+          sha256sum "$VFS" | tee dist/win64/xziel-nacht-vfs.zip.sha256
+          echo "XZIEL_NACHT_VFS_PRESERVED_GREEN"
+
+      - name: Convert complete Nacht bundle into one executable
+        shell: msys2 {0}
+        run: |
+          set -euxo pipefail
+          command -v makensis
+
+          cat > dist/win64/nacht-onefile.nsi <<'NSI'
+          Unicode true
+          Name "XZIEL Nacht"
+          OutFile "Nacht-Chronicles-XZIEL.exe"
+          RequestExecutionLevel user
+          SilentInstall silent
+          AutoCloseWindow true
+          SetCompressor /SOLID lzma
+          SetDatablockOptimize on
+          CRCCheck force
+          ShowInstDetails nevershow
+
+          Section "Run XZIEL Nacht"
+            InitPluginsDir
+            SetOutPath "$PLUGINSDIR\game"
+            File /r "bundle\*.*"
+            ExecWait '"$PLUGINSDIR\game\Xziel-Nacht.exe" --xziel-root "$PLUGINSDIR\game" --xziel-map xziel_nacht_bo3' $0
+            SetErrorLevel $0
+          SectionEnd
+          NSI
+
+          (
+            cd dist/win64
+            makensis nacht-onefile.nsi
+          )
+
+          test -s dist/win64/Nacht-Chronicles-XZIEL.exe
+          objdump -f dist/win64/Nacht-Chronicles-XZIEL.exe \
+            | tee dist/win64/pe-onefile-header.txt
+          grep -Eiq 'pei-i386|pei-x86-64|i386' \
+            dist/win64/pe-onefile-header.txt
+
+          sha256sum dist/win64/Nacht-Chronicles-XZIEL.exe \
+            | tee dist/win64/Nacht-Chronicles-XZIEL.exe.sha256
+          ls -lh dist/win64/Nacht-Chronicles-XZIEL.exe
+          echo "XZIEL_NACHT_ONEFILE_EXE_GREEN"
+
+      - name: Upload one-file Nacht Windows EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Nacht-Windows-OneFile
+          path: |
+            dist/win64/Nacht-Chronicles-XZIEL.exe
+            dist/win64/Nacht-Chronicles-XZIEL.exe.sha256
+            dist/win64/pack-report.txt
+            dist/win64/pe-runtime-header.txt
+            dist/win64/pe-runtime-imports.txt
+            dist/win64/pe-onefile-header.txt
+          if-no-files-found: error
+          compression-level: 0
           retention-days: 14
