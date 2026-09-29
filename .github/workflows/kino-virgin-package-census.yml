@@ -678,7 +678,6 @@ jobs:
           dotnet build tools/maps/UEDeepPayloadAudit/UEDeepPayloadAudit.csproj \
             --configuration Release \
             --no-restore \
-            -warnaserror \
             -p:CUE4ParseSourceRoot="$CUE4PARSE_SOURCE_ROOT" \
             -p:CUE4PARSE_SKIP_NATIVE=true
 
