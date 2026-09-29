@@ -1,6 +1,7 @@
 #ifndef XZ_SOURCE_NATIVE_REGISTRY_H
 #define XZ_SOURCE_NATIVE_REGISTRY_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include "xz_source_adapter_registry.h"
@@ -32,6 +33,11 @@ const XzSourceNativeAdapter *XzSourceNativeRegistry_Find(
 
 const char *XzSourceNativeRegistry_TypeName(
     XzNativePayloadType type);
+
+int XzSourceNativeRegistry_ValidatePayload(
+    const XzSourceNativeAdapter *adapter,
+    const void *data,
+    size_t size);
 
 int XzSourceNativeRegistry_SelfTest(void);
 
