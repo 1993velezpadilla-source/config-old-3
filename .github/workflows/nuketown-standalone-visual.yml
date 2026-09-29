@@ -1,0 +1,289 @@
+name: XZIEL Nuketown Standalone Visual
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/xziel-bo3-style-map-loader-v1
+    paths:
+      - ".github/workflows/nuketown-standalone-visual.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Resolve current GREEN standalone and census
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          wait_latest () {
+            local workflow="$1"
+            local label="$2"
+            local run_id status conclusion
+
+            run_id="$(gh run list               --workflow "$workflow"               --branch feature/xziel-bo3-style-map-loader-v1               --limit 1               --json databaseId               --jq '.[0].databaseId')"
+            test -n "$run_id"
+
+            for _ in $(seq 1 180); do
+              status="$(gh run view "$run_id" --json status --jq '.status')"
+              conclusion="$(gh run view "$run_id" --json conclusion --jq '.conclusion // ""')"
+              echo "$label run=$run_id status=$status conclusion=$conclusion"
+              if [ "$status" = "completed" ]; then
+                test "$conclusion" = "success"
+                echo "$run_id"
+                return 0
+              fi
+              sleep 5
+            done
+            echo "$label timed out"
+            return 1
+          }
+
+          STANDALONE_RUN="$(wait_latest xziel-android-standalone.yml standalone | tail -1)"
+          CENSUS_RUN="$(wait_latest nuketown-zombies-virgin-package-census.yml census | tail -1)"
+
+          echo "STANDALONE_RUN=$STANDALONE_RUN" >> "$GITHUB_ENV"
+          echo "CENSUS_RUN=$CENSUS_RUN" >> "$GITHUB_ENV"
+
+      - name: Download standalone APK and virgin Nuketown VFS
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p input/apk input/census dist
+
+          gh run download "$STANDALONE_RUN"             --name XZIEL-Android-Standalone             --dir input/apk
+
+          gh run download "$CENSUS_RUN"             --name XZIEL-Nuketown-Zombies-Virgin-Package-Census             --dir input/census
+
+          APK="$(find input/apk -type f -name '*.apk' -print -quit)"
+          test -s "$APK"
+          cp "$APK" dist/XZIEL-Nuketown-Standalone-debug.apk
+
+          VFS="input/census/runtime-static-scene/vfs"
+          ROOT="$VFS/xziel/maps/xziel_nuketown_zombies"
+          test -s "$ROOT/scene.xzsc"
+          test -s "$ROOT/materials.xzmi"
+          test -s "$ROOT/materials.xzml"
+          test "$(find "$ROOT/meshes" -type f -name '*.xzm' | wc -l)" -eq 52
+          test "$(find "$ROOT/textures" -type f -name '*.xzt' | wc -l)" -eq 221
+
+          tar -C "$VFS" -cf dist/xziel-nuketown-vfs.tar xziel
+          test -s dist/xziel-nuketown-vfs.tar
+
+      - name: Derive native camera from real Pavlov spawn
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 - <<'PY'
+          import json
+          import math
+          from pathlib import Path
+
+          scene = json.loads(
+              Path("input/census/runtime-static-scene/visual-scene.json")
+              .read_text(encoding="utf-8")
+          )
+
+          spawns = [
+              row for row in scene["actorAnchors"]
+              if row.get("className") == "Pavlov_Spawn"
+          ]
+          if len(spawns) != 3:
+              raise SystemExit(f"expected 3 Pavlov_Spawn anchors, got {len(spawns)}")
+
+          spawn = sorted(spawns, key=lambda row: row["objectPath"])[0]
+          m = [float(x) for x in spawn["matrixRowMajor"]]
+
+          eye = [m[3], m[7], m[11]]
+          forward = [m[0], m[4], m[8]]
+          up = [m[2], m[6], m[10]]
+
+          def norm(v):
+              n = math.sqrt(sum(x*x for x in v))
+              if not math.isfinite(n) or n <= 1e-6:
+                  raise SystemExit("invalid camera basis")
+              return [x/n for x in v]
+
+          forward = norm(forward)
+          up = norm(up)
+
+          def csv(v):
+              return ",".join(f"{x:.9g}" for x in v)
+
+          env = Path.home() / "camera.env"
+          env.write_text(
+              f"XZIEL_CAMERA_EYE={csv(eye)}\n"
+              f"XZIEL_CAMERA_FORWARD={csv(forward)}\n"
+              f"XZIEL_CAMERA_UP={csv(up)}\n"
+              f"XZIEL_CAMERA_FOV_Y=75\n",
+              encoding="utf-8"
+          )
+
+          Path("dist/camera-proof.json").write_text(
+              json.dumps({
+                  "source": "Pavlov_Spawn actor anchor",
+                  "objectPath": spawn["objectPath"],
+                  "rootComponentPath": spawn["rootComponentPath"],
+                  "anchorSource": spawn.get("anchorSource"),
+                  "eyeMeters": eye,
+                  "forward": forward,
+                  "up": up,
+                  "fovY": 75,
+              }, indent=2) + "\n",
+              encoding="utf-8"
+          )
+
+          print("XZIEL_NATIVE_CAMERA", {
+              "eyeMeters": eye,
+              "forward": forward,
+              "up": up,
+              "anchorSource": spawn.get("anchorSource"),
+          })
+          PY
+
+          cat "$HOME/camera.env" >> "$GITHUB_ENV"
+          cat dist/camera-proof.json
+
+      - name: Install Android emulator
+        shell: bash
+        run: |
+          set -euxo pipefail
+          SDKMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER"             "platform-tools"             "emulator"             "system-images;android-35;google_apis;x86_64"
+
+      - name: Boot native XZIEL Nuketown and capture
+        id: visual
+        shell: bash
+        env:
+          ANDROID_AVD_HOME: ${{ runner.temp }}/xziel-native-avd
+        run: |
+          set -euxo pipefail
+          mkdir -p "$ANDROID_AVD_HOME"
+
+          ADB="${ANDROID_HOME}/platform-tools/adb"
+          EMULATOR="${ANDROID_HOME}/emulator/emulator"
+          AVDMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name avdmanager | sort | tail -n 1)"
+
+          printf 'no\n' | "$AVDMANAGER" create avd             --force             --name xziel-native-ci             --package "system-images;android-35;google_apis;x86_64"             --device "pixel_6"
+
+          if [[ -e /dev/kvm ]]; then
+            sudo chmod 666 /dev/kvm || true
+          fi
+
+          nohup "$EMULATOR"             @xziel-native-ci             -no-window -no-audio -no-boot-anim -no-snapshot             -gpu swiftshader_indirect -memory 4096             > dist/emulator-stdout.txt 2>&1 &
+
+          timeout 150 "$ADB" wait-for-device
+          for _ in $(seq 1 75); do
+            if [[ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; then
+              break
+            fi
+            sleep 2
+          done
+          test "$("$ADB" shell getprop sys.boot_completed | tr -d '\r')" = "1"
+
+          "$ADB" install -r dist/XZIEL-Nuketown-Standalone-debug.apk
+
+          "$ADB" push dist/xziel-nuketown-vfs.tar /data/local/tmp/xziel-nuketown-vfs.tar
+          "$ADB" shell run-as com.xziel.engine sh -c             "'cd files && tar -xf /data/local/tmp/xziel-nuketown-vfs.tar'"
+          "$ADB" shell run-as com.xziel.engine test -s             files/xziel/maps/xziel_nuketown_zombies/scene.xzsc
+          "$ADB" shell run-as com.xziel.engine test -s             files/xziel/maps/xziel_nuketown_zombies/materials.xzmi
+          "$ADB" shell run-as com.xziel.engine test -s             files/xziel/maps/xziel_nuketown_zombies/materials.xzml
+
+          "$ADB" logcat -c
+          "$ADB" shell am force-stop com.xziel.engine || true
+          "$ADB" shell am start -W             -n com.xziel.engine/org.libsdl.app.XzielActivity             --es xziel_map xziel_nuketown_zombies             --es xziel_camera_eye "$XZIEL_CAMERA_EYE"             --es xziel_camera_forward "$XZIEL_CAMERA_FORWARD"             --es xziel_camera_up "$XZIEL_CAMERA_UP"             --es xziel_camera_fov_y "$XZIEL_CAMERA_FOV_Y"             > dist/am-start.txt 2>&1
+
+          READY=0
+          for _ in $(seq 1 120); do
+            "$ADB" logcat -d -v threadtime > dist/xziel-logcat.txt || true
+            if grep -Eq               "static_scene status=READY map='xziel_nuketown_zombies'.*meshes=52 instances=124.*gpuReady=1"               dist/xziel-logcat.txt               && grep -q               "standalone_static_present ready=1 map='xziel_nuketown_zombies'"               dist/xziel-logcat.txt; then
+              READY=1
+              break
+            fi
+            sleep 2
+          done
+
+          if [[ "$READY" != "1" ]]; then
+            grep -E               "XZIEL-XZ.*static_scene|standalone_static_present|uploadFail|fatal|FATAL|SIG"               dist/xziel-logcat.txt | tail -n 400 || true
+            exit 1
+          fi
+
+          sleep 3
+          "$ADB" exec-out screencap -p > dist/xziel-nuketown-native-screen.png
+
+          "$ADB" exec-out run-as com.xziel.engine cat             files/xziel-runtime/static-scene-fbo.ppm             > dist/xziel-nuketown-native-fbo.ppm || true
+
+          python3 -m pip install --quiet pillow==11.3.0
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image, ImageStat
+
+          screen = Path("dist/xziel-nuketown-native-screen.png")
+          im = Image.open(screen).convert("RGB")
+          if im.height > im.width:
+              im = im.transpose(Image.Transpose.ROTATE_90)
+              im.save(screen)
+          gray = im.convert("L")
+          stat = ImageStat.Stat(gray)
+          lo, hi = gray.getextrema()
+          if im.width < 1000 or im.height < 500:
+              raise SystemExit(f"bad dimensions {im.size}")
+          if hi - lo < 24 or stat.stddev[0] < 8:
+              raise SystemExit(
+                  f"flat native capture extrema={(lo,hi)} std={stat.stddev[0]:.2f}"
+              )
+          print(
+              "XZIEL_NUKETOWN_NATIVE_SCREEN_GREEN",
+              im.size,
+              "mean", round(stat.mean[0], 2),
+              "std", round(stat.stddev[0], 2),
+              "extrema", (lo, hi)
+          )
+
+          fbo = Path("dist/xziel-nuketown-native-fbo.ppm")
+          if fbo.stat().st_size > 0:
+              fim = Image.open(fbo).convert("RGB")
+              fim.save("dist/xziel-nuketown-native-fbo.png")
+          PY
+
+          grep -E             "static_scene status=READY|standalone_static_present ready=1"             dist/xziel-logcat.txt             > dist/native-runtime-proof.txt
+
+          if grep -Eiq             'NZPActivity|ndu\.bsp|nzp-data\.zip|gl4es|quakec|vril'             dist/xziel-logcat.txt; then
+            echo "LEGACY_RUNTIME_CONTAMINATION"
+            exit 92
+          fi
+
+          echo "XZIEL_NUKETOWN_STANDALONE_VISUAL_GREEN"
+
+      - name: Upload native visual proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Nuketown-Standalone-Visual-Proof
+          path: |
+            dist/xziel-nuketown-native-screen.png
+            dist/xziel-nuketown-native-fbo.png
+            dist/xziel-nuketown-native-fbo.ppm
+            dist/xziel-logcat.txt
+            dist/native-runtime-proof.txt
+            dist/camera-proof.json
+            dist/am-start.txt
+            dist/emulator-stdout.txt
+          if-no-files-found: warn
+          retention-days: 14
