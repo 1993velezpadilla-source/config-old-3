@@ -326,3 +326,37 @@ Primary host groups observed in the explicit table:
 The wrapped GL/EGL list includes state/setup calls such as viewport, scissor, framebuffer binding, fixed-function transforms/material/light/fog calls, selected uniforms, read/copy pixel paths, `eglGetProcAddress`, and `eglSwapBuffers`.
 
 This strongly supports the interpretation that the original BOZ renderer was written across the OpenGL ES fixed-function-to-GLES2 transition era and relied on the Marmalade runtime to smooth platform differences.
+
+
+## S3E extension layer
+
+The public compatibility runtime shows that BOZ does not rely only on a flat base API. It also queries extension interfaces through `s3eExtGetHash`. Reconstructed extension tables currently include:
+
+- AudioUnit-style capture/render audio interface
+- device/platform resource interface
+- Xperia Play touchpad interface
+- ZeroConf/mDNS discovery interface
+
+This is architecturally important for XZIEL. A clean equivalent would keep a small stable platform ABI and expose optional capabilities through versioned service tables instead of coupling gameplay directly to Android APIs.
+
+Suggested XZIEL analogue:
+
+```
+XZPlatformCore
+  -> MemoryService
+  -> FileService
+  -> ClockService
+  -> InputService
+  -> RenderSurfaceService
+  -> AudioService
+  -> NetworkService
+
+XZPlatformExtensions
+  -> Touchpad/Gyro
+  -> VoiceCapture
+  -> LANDiscovery
+  -> DeviceResources
+  -> future platform-specific services
+```
+
+The design principle is reusable; the proprietary BOZ implementation/data is not.
