@@ -1,5 +1,5 @@
 name: XZIEL Nacht Standalone Visual
-# trigger-token: attached-decor-visible-frame-v4
+# trigger-token: nacht-win64-onefile-v1
 
 on:
   workflow_dispatch:
