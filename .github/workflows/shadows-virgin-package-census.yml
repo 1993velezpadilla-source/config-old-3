@@ -1,0 +1,271 @@
+name: XZIEL Shadows Virgin Package Census
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/xziel-bo3-style-map-loader-v1
+    paths:
+      - .github/workflows/shadows-virgin-package-census.yml
+      - tools/maps/audit_virgin_ue_package.py
+      - tools/maps/audit_ue_class_requirements.py
+      - tools/maps/UEAssetClassCensus/**
+      - tools/maps/UEAssetPropertyProbe/**
+      - tools/maps/UEDeepPayloadAudit/**
+      - tools/maps/patch_cue4parse_animation_fallback.py
+      - tools/maps/xz_source_class_gate.c
+      - engine/xz/xz_source_class_registry.c
+      - engine/xz/xz_source_class_registry.h
+
+jobs:
+  shadows-census:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout XZIEL Engine
+        uses: actions/checkout@v4
+
+      - name: Install archive tools and repak
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y p7zip-full unzip jq
+          mkdir -p "$RUNNER_TEMP/repak"
+          curl -fL --retry 5 \
+            https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-unknown-linux-gnu.tar.xz \
+            -o "$RUNNER_TEMP/repak.tar.xz"
+          tar -xJf "$RUNNER_TEMP/repak.tar.xz" \
+            -C "$RUNNER_TEMP/repak"
+          REPAK=$(find "$RUNNER_TEMP/repak" \
+            -type f -name 'repak*' -perm -111 | head -1)
+          test -n "$REPAK"
+          echo "REPAK=$REPAK" >> "$GITHUB_ENV"
+
+      - name: Download public Shadows of Evil v6 Oculus package
+        run: |
+          set -euxo pipefail
+          mkdir -p shadows-download
+          curl -fL --retry 8 --retry-delay 3 --retry-all-errors \
+            -o shadows-download/shadows-v6-oculus.zip \
+            "https://g-3959.modapi.io/v1/games/3959/mods/5666468/files/7265037/download"
+          test -s shadows-download/shadows-v6-oculus.zip
+          sha256sum shadows-download/shadows-v6-oculus.zip \
+            | tee shadows-download/sha256.txt
+          ls -lh shadows-download/shadows-v6-oculus.zip
+
+      - name: Inventory archive without assumptions
+        run: |
+          set -euxo pipefail
+          7z l -slt shadows-download/shadows-v6-oculus.zip \
+            > shadows-download/archive-list.txt
+          python3 tools/maps/audit_virgin_ue_package.py \
+            --archive shadows-download/shadows-v6-oculus.zip \
+            --report shadows-download/shadows-census.json
+          cat shadows-download/shadows-census.json
+
+      - name: Extract package
+        run: |
+          set -euxo pipefail
+          rm -rf shadows-unpacked
+          mkdir -p shadows-unpacked
+          7z x -y shadows-download/shadows-v6-oculus.zip \
+            -oshadows-unpacked >/dev/null
+          find shadows-unpacked -type f | sort \
+            > shadows-download/extracted-files.txt
+          test "$(wc -l < shadows-download/extracted-files.txt)" -gt 0
+          du -sh shadows-unpacked
+
+      - name: Unpack every Unreal pak generically
+        run: |
+          set -euxo pipefail
+          rm -rf shadows-pak-unpacked
+          mkdir -p shadows-pak-unpacked
+          mapfile -t PAKS < <(
+            find shadows-unpacked -type f -iname '*.pak' | sort
+          )
+          test "${#PAKS[@]}" -gt 0
+          printf '%s\n' "${PAKS[@]}" \
+            > shadows-download/pak-list.txt
+          for pak in "${PAKS[@]}"; do
+            "$REPAK" unpack "$pak" -o shadows-pak-unpacked
+          done
+          find shadows-pak-unpacked -type f | sort \
+            > shadows-download/pak-files.txt
+          test "$(wc -l < shadows-download/pak-files.txt)" -gt 0
+          du -sh shadows-pak-unpacked
+
+      - name: Census Unreal package payload
+        run: |
+          set -euxo pipefail
+          python3 tools/maps/audit_virgin_ue_package.py \
+            --root shadows-pak-unpacked \
+            --report shadows-download/shadows-pak-census.json
+          cat shadows-download/shadows-pak-census.json
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          data = json.loads(
+              Path("shadows-download/shadows-pak-census.json")
+              .read_text(encoding="utf-8")
+          )
+          assert data["fileCount"] > 0
+          assert data["uassetCount"] > 0
+          assert len(data["mapFiles"]) > 0
+          print("XZIEL_SHADOWS_INNER_PAK_CENSUS_GREEN", {
+              "files": data["fileCount"],
+              "uassets": data["uassetCount"],
+              "maps": len(data["mapFiles"]),
+              "audio": data["audioFileCount"],
+          })
+          PY
+
+      - name: Census real UE5 export classes
+        run: |
+          set -euxo pipefail
+          dotnet restore \
+            tools/maps/UEAssetClassCensus/UEAssetClassCensus.csproj
+          dotnet build \
+            tools/maps/UEAssetClassCensus/UEAssetClassCensus.csproj \
+            --configuration Release \
+            --no-restore
+          APP="tools/maps/UEAssetClassCensus/bin/Release/net10.0/UEAssetClassCensus.dll"
+          test -s "$APP"
+          dotnet "$APP" \
+            shadows-pak-unpacked \
+            shadows-download/shadows-class-census.json \
+            ue5.1 \
+            | tee shadows-download/shadows-class-census.log
+          test -s shadows-download/shadows-class-census.json
+          grep -q 'XZIEL_UE_CLASS_CENSUS_GREEN' \
+            shadows-download/shadows-class-census.log
+
+      - name: Audit every source class against XZIEL readiness
+        run: |
+          set -euxo pipefail
+          python3 tools/maps/audit_ue_class_requirements.py \
+            --input shadows-download/shadows-class-census.json \
+            --output shadows-download/shadows-class-requirements.json
+          test -s shadows-download/shadows-class-requirements.json
+
+      - name: Pin Pavlov UE5 property mappings
+        run: |
+          set -euxo pipefail
+          curl -fL --retry 5 --retry-delay 2 \
+            -o shadows-download/PavMappings.usmap \
+            "https://raw.githubusercontent.com/THW-Reaper/PavlovVRMappings/4976647b4f3a209042460bc55a7a3122662d05b7/PavMappings.usmap"
+          test -s shadows-download/PavMappings.usmap
+          echo "6d19f9731cc3fbaba34ca8e0833e81e4ffdf1b407edf24de48b1ccb5c63b060c  shadows-download/PavMappings.usmap" \
+            | tee shadows-download/PavMappings.sha256 \
+            | sha256sum -c -
+
+      - name: Probe real UE5 unversioned properties
+        run: |
+          set -euxo pipefail
+          dotnet restore \
+            tools/maps/UEAssetPropertyProbe/UEAssetPropertyProbe.csproj
+          dotnet build \
+            tools/maps/UEAssetPropertyProbe/UEAssetPropertyProbe.csproj \
+            --configuration Release \
+            --no-restore
+          APP="tools/maps/UEAssetPropertyProbe/bin/Release/net10.0/UEAssetPropertyProbe.dll"
+          test -s "$APP"
+          dotnet "$APP" \
+            shadows-pak-unpacked \
+            shadows-download/PavMappings.usmap \
+            shadows-download/shadows-class-census.json \
+            shadows-download/shadows-property-probe.json \
+            ue5.1 \
+            | tee shadows-download/shadows-property-probe.log
+          test -s shadows-download/shadows-property-probe.json
+          grep -q 'XZIEL_UE_PROPERTY_PROBE_GREEN' \
+            shadows-download/shadows-property-probe.log
+
+      - name: Prepare pinned CUE4Parse animation fallback
+        run: |
+          set -euxo pipefail
+          CUE4PARSE_ROOT="$RUNNER_TEMP/CUE4Parse"
+          git init "$CUE4PARSE_ROOT"
+          git -C "$CUE4PARSE_ROOT" remote add origin \
+            https://github.com/FabianFG/CUE4Parse.git
+          git -C "$CUE4PARSE_ROOT" fetch --depth=1 origin \
+            28f385e622468c4ab84997d596b46bb1c3adfcfa
+          git -C "$CUE4PARSE_ROOT" checkout --detach FETCH_HEAD
+          test "$(git -C "$CUE4PARSE_ROOT" rev-parse HEAD)" = \
+            "28f385e622468c4ab84997d596b46bb1c3adfcfa"
+          python3 tools/maps/patch_cue4parse_animation_fallback.py \
+            --root "$CUE4PARSE_ROOT"
+          echo "CUE4PARSE_SOURCE_ROOT=$CUE4PARSE_ROOT" >> "$GITHUB_ENV"
+
+      - name: Audit deep cooked UE payloads without map assumptions
+        run: |
+          set -euxo pipefail
+          dotnet restore tools/maps/UEDeepPayloadAudit/UEDeepPayloadAudit.csproj \
+            -p:CUE4ParseSourceRoot="$CUE4PARSE_SOURCE_ROOT" \
+            -p:CUE4PARSE_SKIP_NATIVE=true
+          dotnet build tools/maps/UEDeepPayloadAudit/UEDeepPayloadAudit.csproj \
+            --configuration Release \
+            --no-restore \
+            -p:CUE4ParseSourceRoot="$CUE4PARSE_SOURCE_ROOT" \
+            -p:CUE4PARSE_SKIP_NATIVE=true
+          APP="tools/maps/UEDeepPayloadAudit/bin/Release/net10.0/UEDeepPayloadAudit.dll"
+          test -s "$APP"
+          dotnet "$APP" \
+            shadows-pak-unpacked \
+            shadows-download/PavMappings.usmap \
+            shadows-download/shadows-class-census.json \
+            shadows-download/shadows-deep-payload-audit.json \
+            0 1 ue5.1 \
+            | tee shadows-download/shadows-deep-payload-audit.log
+          test -s shadows-download/shadows-deep-payload-audit.json
+
+      - name: Fail closed on unknown source classes
+        run: |
+          set -euxo pipefail
+          mkdir -p build/shadows-source-class-gate
+          cc -std=gnu11 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tools/maps/xz_source_class_gate.c \
+            engine/xz/xz_source_class_registry.c \
+            -o build/shadows-source-class-gate/xz-source-class-gate
+          jq -r '.classCounts | keys[]' \
+            shadows-download/shadows-class-census.json \
+            | build/shadows-source-class-gate/xz-source-class-gate \
+            | tee shadows-download/source-class-gate.log
+          grep -q 'XZIEL_SOURCE_CLASS_GATE_GREEN' \
+            shadows-download/source-class-gate.log
+
+      - name: Third-map anti-hardcode gate
+        run: |
+          set -euxo pipefail
+          if grep -RniE "shadows.?of.?evil|5666468|7265037|17301" engine/xz \
+            --include='*.c' --include='*.h'; then
+            echo "XZIEL_SHADOWS_NO_ENGINE_HARDCODE_FAILURE"
+            exit 9
+          fi
+          echo "XZIEL_SHADOWS_NO_ENGINE_HARDCODE_GREEN"
+
+      - name: Upload Shadows virgin census
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: XZIEL-Shadows-Virgin-Package-Census
+          path: |
+            shadows-download/sha256.txt
+            shadows-download/archive-list.txt
+            shadows-download/extracted-files.txt
+            shadows-download/pak-list.txt
+            shadows-download/pak-files.txt
+            shadows-download/shadows-census.json
+            shadows-download/shadows-pak-census.json
+            shadows-download/shadows-class-census.json
+            shadows-download/shadows-class-census.log
+            shadows-download/shadows-class-requirements.json
+            shadows-download/PavMappings.sha256
+            shadows-download/shadows-property-probe.json
+            shadows-download/shadows-property-probe.log
+            shadows-download/shadows-deep-payload-audit.json
+            shadows-download/shadows-deep-payload-audit.log
+            shadows-download/source-class-gate.log
+          retention-days: 7
