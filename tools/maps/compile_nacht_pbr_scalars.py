@@ -18,10 +18,19 @@ import re
 import struct
 
 MAGIC = b"XZPB"
-VERSION = 1
+VERSION = 2
 EXPECTED_BINDINGS = 1063
 HEADER = struct.Struct("<4sIIII")
-RECORD = struct.Struct("<Iffff")
+RECORD = struct.Struct("<IffffIIf")
+
+BLEND_MODES = {
+    "BLEND_Opaque": 0,
+    "BLEND_Masked": 1,
+    "BLEND_Translucent": 2,
+    "BLEND_Additive": 3,
+}
+MATERIAL_FLAG_TWO_SIDED = 1 << 0
+MATERIAL_FLAG_DISABLE_DEPTH_TEST = 1 << 1
 
 FLAG_ROUGHNESS = 1 << 0
 FLAG_METALLIC = 1 << 1
@@ -56,6 +65,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--manifest", type=Path, required=True)
     ap.add_argument("--materials-report", type=Path, required=True)
+    ap.add_argument("--material-audit", type=Path, required=True)
     ap.add_argument("--output", type=Path, required=True)
     ap.add_argument("--report", type=Path, required=True)
     args = ap.parse_args()
@@ -63,6 +73,9 @@ def main() -> int:
     manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
     material_report = json.loads(
         args.materials_report.read_text(encoding="utf-8")
+    )
+    material_audit = json.loads(
+        args.material_audit.read_text(encoding="utf-8")
     )
 
     scalar_rows = manifest.get("materialScalars", [])
@@ -73,6 +86,11 @@ def main() -> int:
             f"expected {EXPECTED_BINDINGS} binding materials, "
             f"got {len(binding_materials)}"
         )
+
+    audit_by_material = {
+        str(row["objectPath"]).strip().lower(): row
+        for row in material_audit.get("materials", [])
+    }
 
     scalars_by_material: dict[str, dict[str, dict]] = {}
     for row in scalar_rows:
@@ -123,8 +141,17 @@ def main() -> int:
     valid_counts = {name: 0 for name, *_ in specs}
     invalid_counts = {name: 0 for name, *_ in specs}
     alias_counts = {name: 0 for name, *_ in specs}
-    records: list[tuple[int, float, float, float, float]] = []
+    records: list[tuple[int, float, float, float, float, int, int, float]] = []
     report_rows = []
+    semantic_counts = {
+        "opaque": 0,
+        "masked": 0,
+        "translucent": 0,
+        "additive": 0,
+        "twoSided": 0,
+        "disableDepthTest": 0,
+    }
+    unresolved_semantics = []
 
     for binding_index, binding in enumerate(binding_materials):
         primary = str(binding.get("materialPath", "")).strip().lower()
@@ -189,15 +216,62 @@ def main() -> int:
         if flags & ~KNOWN_FLAGS:
             raise SystemExit("internal XZPB flag overflow")
 
+        semantic = audit_by_material.get(primary)
+        if semantic is None and alias:
+            semantic = audit_by_material.get(alias)
+
+        if semantic is None:
+            unresolved_semantics.append({
+                "bindingIndex": binding_index,
+                "materialPath": primary,
+                "aliasMaterialPath": alias,
+            })
+            blend_mode = BLEND_MODES["BLEND_Opaque"]
+            material_flags = 0
+            opacity_mask_clip = 0.333
+        else:
+            blend_name = str(semantic.get("blendMode", "BLEND_Opaque"))
+            if blend_name not in BLEND_MODES:
+                raise SystemExit(
+                    f"unsupported UE blend mode {blend_name!r} "
+                    f"for {primary}"
+                )
+            blend_mode = BLEND_MODES[blend_name]
+            material_flags = 0
+            if semantic.get("twoSided") is True:
+                material_flags |= MATERIAL_FLAG_TWO_SIDED
+                semantic_counts["twoSided"] += 1
+            if semantic.get("disableDepthTest") is True:
+                material_flags |= MATERIAL_FLAG_DISABLE_DEPTH_TEST
+                semantic_counts["disableDepthTest"] += 1
+            opacity_mask_clip = semantic.get("opacityMaskClipValue")
+            if opacity_mask_clip is None:
+                opacity_mask_clip = 0.333
+            opacity_mask_clip = float(opacity_mask_clip)
+            if not math.isfinite(opacity_mask_clip) or not 0.0 <= opacity_mask_clip <= 1.0:
+                raise SystemExit(
+                    f"invalid opacity mask clip {opacity_mask_clip!r} "
+                    f"for {primary}"
+                )
+            semantic_counts[{
+                0: "opaque",
+                1: "masked",
+                2: "translucent",
+                3: "additive",
+            }[blend_mode]] += 1
+
         records.append((
             flags,
             values["roughness"],
             values["metallic"],
             values["specular"],
             values["emissive"],
+            blend_mode,
+            material_flags,
+            opacity_mask_clip,
         ))
 
-        if flags:
+        if flags or blend_mode != 0 or material_flags:
             report_rows.append({
                 "bindingIndex": binding_index,
                 "materialPath": primary,
@@ -207,11 +281,18 @@ def main() -> int:
                 "metallic": values["metallic"],
                 "specular": values["specular"],
                 "emissive": values["emissive"],
+                "blendMode": blend_mode,
+                "materialFlags": material_flags,
+                "opacityMaskClip": opacity_mask_clip,
                 "sources": sources,
             })
 
     if len(records) != EXPECTED_BINDINGS:
         raise SystemExit("XZPB record count mismatch")
+    if unresolved_semantics:
+        raise SystemExit(
+            f"unresolved material semantics: {unresolved_semantics[:20]}"
+        )
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("wb") as out:
@@ -241,6 +322,8 @@ def main() -> int:
         "recordBytes": RECORD.size,
         "bytes": actual_bytes,
         "authoredBindingCount": authored_bindings,
+        "surfaceSemantics": semantic_counts,
+        "unresolvedSurfaceSemantics": unresolved_semantics,
         "validCounts": valid_counts,
         "invalidRejectedCounts": invalid_counts,
         "aliasResolvedCounts": alias_counts,
@@ -268,6 +351,10 @@ def main() -> int:
         f" emissive={valid_counts['emissive']}"
         f" rejectedMetallic={invalid_counts['metallic']}"
         f" rejectedSpecular={invalid_counts['specular']}"
+        f" opaque={semantic_counts['opaque']}"
+        f" masked={semantic_counts['masked']}"
+        f" translucent={semantic_counts['translucent']}"
+        f" additive={semantic_counts['additive']}"
         f" bytes={actual_bytes}"
     )
     return 0
