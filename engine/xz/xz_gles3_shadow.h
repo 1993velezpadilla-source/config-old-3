@@ -94,6 +94,11 @@ typedef struct {
     uint64_t static_scene_upload_attempts;
     uint64_t static_scene_upload_successes;
     uint64_t static_scene_upload_failures;
+    unsigned int static_scene_upload_failure_stage;
+    unsigned int static_scene_upload_failure_gl_error;
+    unsigned int static_scene_upload_failure_texture_index;
+    unsigned int static_scene_upload_failure_mip_index;
+    unsigned int static_scene_astc_supported;
     uint64_t static_scene_gpu_bytes;
     uint64_t static_scene_gpu_vertices;
     uint64_t static_scene_gpu_indices;
