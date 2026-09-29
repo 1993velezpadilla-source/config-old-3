@@ -7,6 +7,9 @@ on:
       - experiment/xziel-nacht-win64-exe-v1
     paths:
       - ".github/workflows/xziel-nacht-hybrid-touch-gyro-apk.yml"
+      - "assets/mobile/xziel_hud_v1/**"
+      - "scripts/build_xziel_nacht_hybrid_touch_apk.sh"
+      - "scripts/patch_winlator_xziel_nacht_direct.py"
 
 permissions:
   contents: read
@@ -113,8 +116,70 @@ jobs:
           grep -q '^gyro=enabled$' "$CONTRACT"
           grep -q '^hip_fire=mouse_left$' "$CONTRACT"
           grep -q '^ads_fire=mouse_right+mouse_left$' "$CONTRACT"
-          grep -q '^skin=transparent_black_hand_smear$' "$CONTRACT"
-          grep -q '^winlator_ui=hidden$' "$CONTRACT"
+          grep -q '^skin=xziel_hud_zombies_mobile_v1
+          echo "XZIEL_TOUCH_GYRO_CONTRACT_GREEN"
+
+      - name: Upload Pixel Fold APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Nacht-Hybrid-TouchGyro-PixelFold
+          path: |
+            build/xziel-nacht-hybrid-touch/dist/XZIEL-Nacht-Hybrid-TouchGyro-PixelFold-debug.apk
+            build/xziel-nacht-hybrid-touch/dist/XZIEL-Nacht-Hybrid-TouchGyro-PixelFold-debug.apk.sha256
+            build/xziel-nacht-hybrid-touch/dist/apk-contents.txt
+            build/xziel-nacht-hybrid-touch/dist/control-contract.txt
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+ "$CONTRACT"
+          grep -q '^skin_asset_count=12
+          echo "XZIEL_TOUCH_GYRO_CONTRACT_GREEN"
+
+      - name: Upload Pixel Fold APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Nacht-Hybrid-TouchGyro-PixelFold
+          path: |
+            build/xziel-nacht-hybrid-touch/dist/XZIEL-Nacht-Hybrid-TouchGyro-PixelFold-debug.apk
+            build/xziel-nacht-hybrid-touch/dist/XZIEL-Nacht-Hybrid-TouchGyro-PixelFold-debug.apk.sha256
+            build/xziel-nacht-hybrid-touch/dist/apk-contents.txt
+            build/xziel-nacht-hybrid-touch/dist/control-contract.txt
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+ "$CONTRACT"
+          grep -q '^skin_idle_alpha=210
+          echo "XZIEL_TOUCH_GYRO_CONTRACT_GREEN"
+
+      - name: Upload Pixel Fold APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Nacht-Hybrid-TouchGyro-PixelFold
+          path: |
+            build/xziel-nacht-hybrid-touch/dist/XZIEL-Nacht-Hybrid-TouchGyro-PixelFold-debug.apk
+            build/xziel-nacht-hybrid-touch/dist/XZIEL-Nacht-Hybrid-TouchGyro-PixelFold-debug.apk.sha256
+            build/xziel-nacht-hybrid-touch/dist/apk-contents.txt
+            build/xziel-nacht-hybrid-touch/dist/control-contract.txt
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+ "$CONTRACT"
+          grep -q '^winlator_ui=hidden
+          echo "XZIEL_TOUCH_GYRO_CONTRACT_GREEN"
+
+      - name: Upload Pixel Fold APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Nacht-Hybrid-TouchGyro-PixelFold
+          path: |
+            build/xziel-nacht-hybrid-touch/dist/XZIEL-Nacht-Hybrid-TouchGyro-PixelFold-debug.apk
+            build/xziel-nacht-hybrid-touch/dist/XZIEL-Nacht-Hybrid-TouchGyro-PixelFold-debug.apk.sha256
+            build/xziel-nacht-hybrid-touch/dist/apk-contents.txt
+            build/xziel-nacht-hybrid-touch/dist/control-contract.txt
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+ "$CONTRACT"
           echo "XZIEL_TOUCH_GYRO_CONTRACT_GREEN"
 
       - name: Upload Pixel Fold APK
