@@ -48,6 +48,8 @@ cat > "$GRADLE_USER_HOME/gradle.properties" <<'GRADLE'
 org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8
 org.gradle.parallel=false
 org.gradle.daemon=false
+android.nonFinalResIds=false
+android.nonTransitiveRClass=false
 GRADLE
 unset GRADLE_OPTS || true
 unset JAVA_OPTS || true
