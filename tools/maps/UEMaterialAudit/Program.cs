@@ -253,6 +253,22 @@ foreach (var logicalPackage in candidatePackages)
                     blendMode = parameters.BlendMode.ToString(),
                     shadingModel =
                         parameters.ShadingModel.ToString(),
+                    opacityMaskClipValue =
+                        material is UMaterial concreteMaterial
+                            ? concreteMaterial.OpacityMaskClipValue
+                            : (float?)null,
+                    twoSided =
+                        material is UMaterial twoSidedMaterial
+                            ? twoSidedMaterial.TwoSided
+                            : (bool?)null,
+                    disableDepthTest =
+                        material is UMaterial depthMaterial
+                            ? depthMaterial.bDisableDepthTest
+                            : (bool?)null,
+                    isMasked =
+                        material is UMaterial maskedMaterial
+                            ? maskedMaterial.bIsMasked
+                            : (bool?)null,
                     textureCount = textures.Count,
                     scalarCount = scalars.Length,
                     colorCount = colors.Length,
