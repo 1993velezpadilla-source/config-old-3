@@ -1,0 +1,42 @@
+name: XZIEL UE StaticMesh Converter Compile
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/xziel-bo3-style-map-loader-v1
+    paths:
+      - .github/workflows/xziel-ue-staticmesh-converter-compile.yml
+      - tools/maps/UEStaticMeshXZMS/**
+      - tools/maps/xz_xzmesh_file_gate.c
+      - engine/xz/xz_xzmesh.c
+      - engine/xz/xz_xzmesh.h
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout XZIEL Engine
+        uses: actions/checkout@v4
+
+      - name: Compile direct UE to XZMS converter
+        run: |
+          set -euxo pipefail
+          dotnet restore tools/maps/UEStaticMeshXZMS/UEStaticMeshXZMS.csproj
+          dotnet build tools/maps/UEStaticMeshXZMS/UEStaticMeshXZMS.csproj \
+            --configuration Release \
+            --no-restore \
+            -warnaserror
+
+      - name: Compile native XZMS file validator
+        run: |
+          set -euxo pipefail
+          mkdir -p build/xzms-native-gate
+          cc -std=gnu11 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tools/maps/xz_xzmesh_file_gate.c \
+            engine/xz/xz_xzmesh.c \
+            -lm \
+            -o build/xzms-native-gate/xz-xzmesh-file-gate
+          test -x build/xzms-native-gate/xz-xzmesh-file-gate
+          echo XZIEL_UE_XZMS_CONVERTER_COMPILE_GREEN
