@@ -324,9 +324,11 @@ if android_anchor in text and "aaptOptions" not in text:
 gradle.write_text(text, encoding="utf-8")
 
 (root / "gradle.properties").write_text(
-    "org.gradle.jvmargs=-Xmx5g -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8\\n"
-    "org.gradle.parallel=false\\n"
-    "android.useAndroidX=true\\n",
+    chr(10).join([
+        "org.gradle.jvmargs=-Xmx5g -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8",
+        "org.gradle.parallel=false",
+        "android.useAndroidX=true",
+    ]) + chr(10),
     encoding="utf-8",
 )
 
