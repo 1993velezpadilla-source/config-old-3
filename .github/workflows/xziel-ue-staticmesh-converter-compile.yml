@@ -18,6 +18,11 @@ on:
       - tools/maps/xz_xztexture_selftest.c
       - tools/maps/xz_xztexture_file_gate.c
       - tools/maps/UETextureXZTX/**
+      - engine/xz/xz_xzaudio.h
+      - engine/xz/xz_xzaudio.c
+      - tools/maps/xz_xzaudio_selftest.c
+      - tools/maps/xz_xzaudio_file_gate.c
+      - tools/maps/UEAudioXZAW/**
       - engine/xz/xz_xzmesh.c
       - engine/xz/xz_xzmesh.h
 
@@ -110,6 +115,34 @@ jobs:
             -o build/xztx-native-gate/xz-xztexture-file-gate
           test -x build/xztx-native-gate/xz-xztexture-file-gate
           echo XZIEL_UE_XZTX_CONVERTER_COMPILE_GREEN
+
+      - name: Compile UE SoundWave to XZAW converter
+        run: |
+          set -euxo pipefail
+          dotnet restore tools/maps/UEAudioXZAW/UEAudioXZAW.csproj
+          dotnet build tools/maps/UEAudioXZAW/UEAudioXZAW.csproj \
+            --configuration Release \
+            --no-restore \
+            -warnaserror
+
+      - name: Compile and self-test native XZAW validator
+        run: |
+          set -euxo pipefail
+          mkdir -p build/xzaw-native-gate
+          cc -std=gnu11 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tools/maps/xz_xzaudio_selftest.c \
+            engine/xz/xz_xzaudio.c \
+            -o build/xzaw-native-gate/xz-xzaudio-selftest
+          build/xzaw-native-gate/xz-xzaudio-selftest
+
+          cc -std=gnu11 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tools/maps/xz_xzaudio_file_gate.c \
+            engine/xz/xz_xzaudio.c \
+            -o build/xzaw-native-gate/xz-xzaudio-file-gate
+          test -x build/xzaw-native-gate/xz-xzaudio-file-gate
+          echo XZIEL_UE_XZAW_CONVERTER_COMPILE_GREEN
 
       - name: Compile native XZMS file validator
         run: |
