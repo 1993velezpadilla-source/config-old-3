@@ -102,27 +102,38 @@ int main(int argc, char **argv)
     uint32_t expected_meshes;
     uint32_t expected_instances;
     uint32_t expected_material_bindings = 0u;
+    uint32_t expected_materials = 0u;
+    uint32_t expected_textures = 0u;
     int expect_material_instances = 0;
+    int expect_material_library = 0;
 
-    if ((argc != 5 && argc != 6) ||
+    if ((argc != 5 && argc != 6 && argc != 8) ||
         strlen(argv[1]) >= sizeof(g_vfs_root) ||
         !ParseU32(argv[3], &expected_meshes) ||
         !ParseU32(argv[4], &expected_instances) ||
-        (argc == 6 &&
+        ((argc == 6 || argc == 8) &&
          !ParseU32(argv[5], &expected_material_bindings)) ||
+        (argc == 8 &&
+         (!ParseU32(argv[6], &expected_materials) ||
+          !ParseU32(argv[7], &expected_textures))) ||
         expected_meshes == 0u ||
         expected_instances == 0u ||
-        (argc == 6 &&
-         expected_material_bindings == 0u)) {
+        ((argc == 6 || argc == 8) &&
+         expected_material_bindings == 0u) ||
+        (argc == 8 &&
+         (expected_materials == 0u ||
+          expected_textures == 0u))) {
         fprintf(
             stderr,
-            "usage: %s <vfs-root> <map-id> <expected-meshes> <expected-instances> [expected-material-bindings]\n",
+            "usage: %s <vfs-root> <map-id> <expected-meshes> <expected-instances> [expected-material-bindings [expected-materials expected-textures]]\n",
             argv[0]);
         return 2;
     }
 
     expect_material_instances =
-        argc == 6;
+        argc == 6 || argc == 8;
+    expect_material_library =
+        argc == 8;
 
     snprintf(
         g_vfs_root,
@@ -225,10 +236,44 @@ int main(int argc, char **argv)
         }
     }
 
+    {
+        const XzMaterialLibraryView *material_library =
+            XzStaticSceneRuntime_MaterialLibrary(&state);
+
+        if (!expect_material_library) {
+            if (material_library != NULL) {
+                fprintf(
+                    stderr,
+                    "XZIEL_STATIC_SCENE_RUNTIME_FILE_GATE_FAIL unexpected_xzml\n");
+                XzStaticSceneRuntime_Shutdown(&state);
+                return 8;
+            }
+        } else {
+            XzMaterialLibraryMaterial first_material;
+
+            if (!material_library ||
+                material_library->material_count !=
+                    expected_materials ||
+                material_library->texture_asset_count !=
+                    expected_textures ||
+                !XzStaticSceneRuntime_Material(
+                    &state,
+                    0u,
+                    &first_material)) {
+                fprintf(
+                    stderr,
+                    "XZIEL_STATIC_SCENE_RUNTIME_FILE_GATE_FAIL xzml_contract\n");
+                XzStaticSceneRuntime_Shutdown(&state);
+                return 9;
+            }
+        }
+    }
+
     printf(
         "XZIEL_STATIC_SCENE_RUNTIME_FILE_GATE_GREEN "
         "meshes=%u instances=%u meshBytes=%llu vertices=%llu "
-        "indices=%llu submeshes=%llu xzmi=%d materialBindings=%u\n",
+        "indices=%llu submeshes=%llu xzmi=%d materialBindings=%u "
+        "xzml=%d materials=%u textures=%u\n",
         state.scene.mesh_count,
         state.scene.instance_count,
         (unsigned long long)state.mesh_bytes_validated,
@@ -238,6 +283,13 @@ int main(int argc, char **argv)
         expect_material_instances,
         expect_material_instances
             ? expected_material_bindings
+            : 0u,
+        expect_material_library,
+        expect_material_library
+            ? expected_materials
+            : 0u,
+        expect_material_library
+            ? expected_textures
             : 0u);
 
     XzStaticSceneRuntime_Shutdown(&state);
