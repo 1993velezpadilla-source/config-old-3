@@ -101,19 +101,28 @@ int main(int argc, char **argv)
     XzStaticSceneStatus status;
     uint32_t expected_meshes;
     uint32_t expected_instances;
+    uint32_t expected_material_bindings = 0u;
+    int expect_material_instances = 0;
 
-    if (argc != 5 ||
+    if ((argc != 5 && argc != 6) ||
         strlen(argv[1]) >= sizeof(g_vfs_root) ||
         !ParseU32(argv[3], &expected_meshes) ||
         !ParseU32(argv[4], &expected_instances) ||
+        (argc == 6 &&
+         !ParseU32(argv[5], &expected_material_bindings)) ||
         expected_meshes == 0u ||
-        expected_instances == 0u) {
+        expected_instances == 0u ||
+        (argc == 6 &&
+         expected_material_bindings == 0u)) {
         fprintf(
             stderr,
-            "usage: %s <vfs-root> <map-id> <expected-meshes> <expected-instances>\n",
+            "usage: %s <vfs-root> <map-id> <expected-meshes> <expected-instances> [expected-material-bindings]\n",
             argv[0]);
         return 2;
     }
+
+    expect_material_instances =
+        argc == 6;
 
     snprintf(
         g_vfs_root,
@@ -163,9 +172,9 @@ int main(int argc, char **argv)
     }
 
     /*
-     * Material/environment packs are deliberately absent in this geometry
-     * gate. A generic non-Nacht map must still load geometry without
-     * pretending optional presentation lanes already exist.
+     * Legacy presentation packs remain absent in this geometry gate.
+     * XZMI is checked explicitly when the caller supplies an expected
+     * per-instance binding count.
      */
     if (state.material_data ||
         state.pbr_material_data ||
@@ -180,16 +189,56 @@ int main(int argc, char **argv)
         return 5;
     }
 
+    {
+        const XzMaterialInstanceBindingView *material_instances =
+            XzStaticSceneRuntime_MaterialInstances(&state);
+
+        if (!expect_material_instances) {
+            if (material_instances != NULL) {
+                fprintf(
+                    stderr,
+                    "XZIEL_STATIC_SCENE_RUNTIME_FILE_GATE_FAIL unexpected_xzmi\n");
+                XzStaticSceneRuntime_Shutdown(&state);
+                return 6;
+            }
+        } else {
+            uint32_t first_material = XZ_XZMI_NO_MATERIAL;
+
+            if (!material_instances ||
+                material_instances->instance_count !=
+                    expected_instances ||
+                material_instances->binding_count !=
+                    expected_material_bindings ||
+                material_instances->material_count == 0u ||
+                !XzStaticSceneRuntime_InstanceMaterial(
+                    &state,
+                    0u,
+                    0u,
+                    &first_material) ||
+                first_material == XZ_XZMI_NO_MATERIAL) {
+                fprintf(
+                    stderr,
+                    "XZIEL_STATIC_SCENE_RUNTIME_FILE_GATE_FAIL xzmi_contract\n");
+                XzStaticSceneRuntime_Shutdown(&state);
+                return 7;
+            }
+        }
+    }
+
     printf(
         "XZIEL_STATIC_SCENE_RUNTIME_FILE_GATE_GREEN "
         "meshes=%u instances=%u meshBytes=%llu vertices=%llu "
-        "indices=%llu submeshes=%llu\n",
+        "indices=%llu submeshes=%llu xzmi=%d materialBindings=%u\n",
         state.scene.mesh_count,
         state.scene.instance_count,
         (unsigned long long)state.mesh_bytes_validated,
         (unsigned long long)state.vertex_count,
         (unsigned long long)state.index_count,
-        (unsigned long long)state.submesh_count);
+        (unsigned long long)state.submesh_count,
+        expect_material_instances,
+        expect_material_instances
+            ? expected_material_bindings
+            : 0u);
 
     XzStaticSceneRuntime_Shutdown(&state);
     return 0;
