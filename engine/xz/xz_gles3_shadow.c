@@ -4703,6 +4703,17 @@ static void XzDestroyStaticSceneCurrent(
     xz_shadow.static_lightmap_textures = NULL;
     xz_shadow.static_lightmap_texture_count = 0u;
 
+    free(xz_shadow.static_native_materials);
+    xz_shadow.static_native_materials = NULL;
+    xz_shadow.static_native_material_count = 0u;
+
+    free(xz_shadow.static_material_batch_offsets);
+    xz_shadow.static_material_batch_offsets = NULL;
+    free(xz_shadow.static_material_batch_materials);
+    xz_shadow.static_material_batch_materials = NULL;
+    xz_shadow.static_material_batch_binding_count = 0u;
+    xz_shadow.static_native_material_ready = 0;
+
     if (xz_shadow.static_textures) {
         for (i = 0u;
              i < xz_shadow.static_texture_count;
@@ -4805,6 +4816,11 @@ static void XzDestroyStaticSceneCurrent(
         state->static_scene_material_set_count = 0u;
         state->static_scene_material_batch_count = 0u;
         state->static_scene_material_batch_ready = 0;
+        state->static_scene_xzml_materials = 0u;
+        state->static_scene_xztx_gpu_textures = 0u;
+        state->static_scene_xztx_astc_textures = 0u;
+        state->static_scene_xztx_gpu_bytes = 0u;
+        state->static_scene_xzml_gpu_ready = 0;
         state->static_scene_lightmap_batch_count = 0u;
         state->static_scene_lightmap_mapped_batches = 0u;
         state->static_scene_lightmap_missing_batches = 0u;
@@ -5677,6 +5693,18 @@ int XzGles3Shadow_UploadStaticScene(
                 xz_shadow.static_material_draw_plan.batch_count;
             state->static_scene_material_batch_ready = 1;
             xz_shadow.static_material_draw_plan_ready = 1;
+
+            if (XzStaticSceneRuntime_MaterialLibrary(scene)) {
+                if (!XzPrepareNativeMaterials(
+                        scene,
+                        state) ||
+                    !XzBuildNativeMaterialBatchBindings(
+                        scene))
+                    goto fail;
+            }
+        } else if (
+            XzStaticSceneRuntime_MaterialLibrary(scene)) {
+            goto fail;
         }
     }
 
@@ -5842,7 +5870,10 @@ int XzGles3Shadow_UploadStaticScene(
         (!scene->material_library_data ||
          (state->static_scene_material_ready &&
           state->static_scene_material_batch_ready &&
+          state->static_scene_xzml_gpu_ready &&
           xz_shadow.static_material_draw_plan_ready &&
+          xz_shadow.static_native_material_ready &&
+          xz_shadow.static_material_batch_binding_count > 0u &&
           xz_shadow.static_texture_count ==
               scene->material_library.texture_asset_count)) &&
         (strcmp(
