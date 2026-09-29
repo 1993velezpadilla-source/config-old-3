@@ -1,6 +1,7 @@
 #ifndef XZ_SOURCE_ASSET_PIPELINE_H
 #define XZ_SOURCE_ASSET_PIPELINE_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -33,6 +34,12 @@ int XzSourceAsset_BindNativeAdapter(
 int XzSourceAsset_Advance(
     XzSourceAssetState *asset,
     XzSourceAssetStage next_stage);
+
+int XzSourceAsset_VerifyNativePayload(
+    XzSourceAssetState *asset,
+    const char *source_class,
+    const void *data,
+    size_t size);
 
 int XzSourceAsset_Fail(
     XzSourceAssetState *asset);
