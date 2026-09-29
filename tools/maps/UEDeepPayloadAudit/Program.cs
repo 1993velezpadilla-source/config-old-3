@@ -1,3 +1,4 @@
+using HarmonyLib;
 using CUE4Parse.FileProvider;
 using CUE4Parse.UE4.Assets;
 using CUE4Parse.UE4.Assets.Exports;
