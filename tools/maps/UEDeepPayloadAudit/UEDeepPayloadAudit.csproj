@@ -5,9 +5,20 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
-  <ItemGroup>
+
+  <ItemGroup Condition="'$(CUE4ParseSourceRoot)' == ''">
     <PackageReference Include="CUE4Parse" Version="1.2.2.202609" />
     <PackageReference Include="CUE4Parse-Conversion" Version="1.2.2.202609" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(CUE4ParseSourceRoot)' != ''">
+    <ProjectReference Include="$(CUE4ParseSourceRoot)/CUE4Parse/CUE4Parse.csproj"
+                      AdditionalProperties="CUE4PARSE_SKIP_NATIVE=true" />
+    <ProjectReference Include="$(CUE4ParseSourceRoot)/CUE4Parse-Conversion/CUE4Parse-Conversion.csproj"
+                      AdditionalProperties="CUE4PARSE_SKIP_NATIVE=true" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.Bcl.Memory" Version="10.0.12" />
   </ItemGroup>
 </Project>
