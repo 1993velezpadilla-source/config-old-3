@@ -66,8 +66,9 @@ var packageRows = censusDoc.RootElement.GetProperty("packages")
     .Where(row => row.Index % shardCount == shardIndex)
     .ToArray();
 
+var providerRoot = DetectUnrealProjectRoot(root);
 var provider = new DefaultFileProvider(
-    root,
+    providerRoot,
     SearchOption.AllDirectories,
     new VersionContainer(sourceGame),
     StringComparer.OrdinalIgnoreCase)
@@ -77,6 +78,7 @@ var provider = new DefaultFileProvider(
 provider.Initialize();
 provider.PostMount();
 provider.LoadVirtualPaths();
+RegisterDiscoveredPluginMounts(provider);
 
 var failures = new List<object>();
 var textureFormats = new SortedDictionary<string, int>(StringComparer.Ordinal);
@@ -511,6 +513,91 @@ void AuditAnimSequences(PackageRow row, UAnimSequence[] animations)
     }
 }
 
+
+
+static string DetectUnrealProjectRoot(string root)
+{
+    var fullRoot = Path.GetFullPath(root);
+
+    var directContent = Path.Combine(fullRoot, "Content");
+    if (Directory.Exists(directContent))
+        return fullRoot;
+
+    var candidates = Directory.EnumerateDirectories(fullRoot, "*", SearchOption.TopDirectoryOnly)
+        .Where(dir => Directory.Exists(Path.Combine(dir, "Content")))
+        .OrderBy(dir => dir, StringComparer.OrdinalIgnoreCase)
+        .ToArray();
+
+    if (candidates.Length == 1)
+        return candidates[0];
+
+    if (candidates.Length == 0)
+        throw new DirectoryNotFoundException(
+            $"could not detect Unreal project root below {fullRoot}");
+
+    throw new InvalidDataException(
+        $"ambiguous Unreal project roots below {fullRoot}: " +
+        string.Join(", ", candidates));
+}
+
+static void RegisterDiscoveredPluginMounts(DefaultFileProvider provider)
+{
+    var projectPrefix = provider.ProjectName + "/Plugins/";
+    var mounts = new Dictionary<string, string>(
+        StringComparer.OrdinalIgnoreCase);
+
+    foreach (var key in provider.Files.Keys)
+    {
+        if (!key.StartsWith(projectPrefix, StringComparison.OrdinalIgnoreCase))
+            continue;
+
+        var rest = key[projectPrefix.Length..];
+        var slash = rest.IndexOf('/');
+        if (slash <= 0)
+            continue;
+
+        var pluginName = rest[..slash];
+        var contentMarker = "/" + "Content" + "/";
+        var contentIndex = rest.IndexOf(
+            contentMarker,
+            slash,
+            StringComparison.OrdinalIgnoreCase);
+
+        if (contentIndex < 0)
+            continue;
+
+        var physicalPluginRoot =
+            projectPrefix +
+            rest[..contentIndex];
+
+        if (mounts.TryGetValue(pluginName, out var existing) &&
+            !existing.Equals(
+                physicalPluginRoot,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException(
+                $"ambiguous plugin mount {pluginName}: " +
+                $"{existing} vs {physicalPluginRoot}");
+        }
+
+        mounts[pluginName] = physicalPluginRoot;
+    }
+
+    foreach (var (pluginName, physicalRoot) in mounts)
+        provider.VirtualPaths[pluginName] = physicalRoot;
+
+    Console.WriteLine(
+        "XZIEL_UE_PLUGIN_MOUNTS " +
+        JsonSerializer.Serialize(new {
+            project = provider.ProjectName,
+            providerRoot = providerRootForLog(provider),
+            mounts = mounts.Count,
+            names = mounts.Keys.OrderBy(x => x).ToArray()
+        }));
+
+    static string providerRootForLog(DefaultFileProvider provider)
+        => provider.ProjectName;
+}
 
 static USkeleton ResolveAnimationSkeleton(
     DefaultFileProvider provider,
