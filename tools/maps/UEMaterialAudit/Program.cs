@@ -160,9 +160,7 @@ foreach (var logicalPackage in candidatePackages)
                 {
                     textureReferenceCount++;
 
-                    if (textureEntry.Value.TryLoad<UTexture>(
-                            out var texture) &&
-                        texture is not null)
+                    if (textureEntry.Value is UTexture texture)
                     {
                         textureLoadCount++;
                         textures.Add(new
@@ -180,7 +178,9 @@ foreach (var logicalPackage in candidatePackages)
                             materialPath = material.GetPathName(),
                             parameter = textureEntry.Key,
                             reference =
-                                textureEntry.Value.ToString()
+                                textureEntry.Value.ToString(),
+                            referenceType =
+                                textureEntry.Value.GetType().FullName
                         };
                         unresolvedTextureRefs.Add(unresolved);
                         textures.Add(new
@@ -190,7 +190,9 @@ foreach (var logicalPackage in candidatePackages)
                             exportType = (string?)null,
                             loaded = false,
                             reference =
-                                textureEntry.Value.ToString()
+                                textureEntry.Value.ToString(),
+                            referenceType =
+                                textureEntry.Value.GetType().FullName
                         });
                     }
                 }
