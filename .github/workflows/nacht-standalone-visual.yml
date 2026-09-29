@@ -1,5 +1,5 @@
 name: XZIEL Nacht Standalone Visual
-# trigger-token: transactional-ready-authority-v3
+# trigger-token: attached-decor-visible-frame-v4
 
 on:
   workflow_dispatch:
@@ -3924,8 +3924,33 @@ jobs:
             exit 93
           fi
 
+          sleep 3
           "$ADB" exec-out screencap -p             > dist/self-contained-first-frame.png
           test -s dist/self-contained-first-frame.png
+
+          python3 - <<'PY'
+          from PIL import Image, ImageStat
+
+          path = "dist/self-contained-first-frame.png"
+          image = Image.open(path).convert("RGB")
+          gray = image.convert("L")
+          lo, hi = gray.getextrema()
+          std = ImageStat.Stat(gray).stddev[0]
+          if image.width < 1000 or image.height < 500:
+              raise SystemExit(
+                  f"{path}: bad dimensions {image.size}"
+              )
+          if hi - lo < 20 or std < 6:
+              raise SystemExit(
+                  f"{path}: flat capture extrema={(lo, hi)} std={std:.2f}"
+              )
+          print(
+              "XZIEL_NACHT_SELF_CONTAINED_VISIBLE_FRAME_GREEN",
+              image.size,
+              "std", round(std, 2),
+              "extrema", (lo, hi),
+          )
+          PY
 
           echo "XZIEL_NACHT_SELF_CONTAINED_FRESH_BOOT_GREEN"
 
