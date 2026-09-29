@@ -936,7 +936,12 @@ static void XzLogSnapshot(double now_seconds)
         "parity present context=%d attempts=%" PRIu64
         " success=%" PRIu64 " fail=%" PRIu64
         " draws=%" PRIu64 " streak=%u"
-        " render=%ux%u surface=%ux%u ready=%d",
+        " render=%ux%u surface=%ux%u ready=%d"
+        " staticAttempts=%" PRIu64
+        " staticSuccess=%" PRIu64
+        " staticFail=%" PRIu64
+        " staticDraws=%u staticInstances=%u"
+        " staticFboNonblack=%u staticFrame=%d",
         g3->visible_context_ready,
         g3->visible_present_attempts,
         g3->visible_present_successes,
@@ -947,7 +952,14 @@ static void XzLogSnapshot(double now_seconds)
         g3->visible_render_height,
         g3->visible_surface_width,
         g3->visible_surface_height,
-        g3->visible_present_ready);
+        g3->visible_present_ready,
+        g3->static_scene_draw_attempts,
+        g3->static_scene_draw_successes,
+        g3->static_scene_draw_failures,
+        g3->static_scene_last_draw_calls,
+        g3->static_scene_last_instances,
+        g3->static_scene_fbo_nonblack_pixels,
+        g3->static_scene_frame_ready);
 
     XzAndroidLog(
         ANDROID_LOG_INFO,
