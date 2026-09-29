@@ -21,12 +21,21 @@ echo "==> XZIEL-WIN64: cloning engine/gameplay sources"
 git clone --depth 1 https://github.com/nzp-team/vril-engine.git "$DEPS/vril"
 git clone --depth 1 https://github.com/nzp-team/quakec.git "$DEPS/quakec"
 
-echo "==> XZIEL-WIN64: applying platform-neutral Xziel engine patches"
+echo "==> XZIEL-WIN64: applying the proven Xziel engine patch chain"
+# The Android-only sections are compile-time guarded; using the same patch
+# dependency order keeps the Win64 prototype behavior/data ABI aligned with
+# the Android build while the desktop SDL path remains authoritative here.
+python3 "$ROOT/scripts/patch_vril_android.py" "$DEPS/vril"
 python3 "$ROOT/scripts/patch_vril_weaponhud.py" "$DEPS/vril"
+python3 "$ROOT/scripts/patch_vril_mobile_v018.py" "$DEPS/vril"
+python3 "$ROOT/scripts/patch_vril_weaponhud_v020.py" "$DEPS/vril"
 python3 "$ROOT/scripts/patch_vril_combatfx.py" "$DEPS/vril"
 python3 "$ROOT/scripts/patch_vril_modern_movement.py" "$DEPS/vril"
 python3 "$ROOT/scripts/patch_vril_camera_feel.py" "$DEPS/vril"
 python3 "$ROOT/scripts/patch_vril_animation_feel.py" "$DEPS/vril"
+python3 "$ROOT/scripts/patch_vril_mobile_v021.py" "$DEPS/vril"
+python3 "$ROOT/scripts/patch_vril_mobile_v022.py" "$DEPS/vril"
+python3 "$ROOT/scripts/patch_vril_mobile_v024.py" "$DEPS/vril"
 python3 "$ROOT/scripts/patch_vril_sanctum_staticmesh.py" "$DEPS/vril"
 
 echo "==> XZIEL-WIN64: applying Xziel gameplay patches"
