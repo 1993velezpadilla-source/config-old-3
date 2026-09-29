@@ -11,6 +11,8 @@ CANONICAL_TEXTURE_KEYS = {
     "emissive": "PM_Emissive",
 }
 
+UE_DEFAULT_SURFACE_MATERIAL = "xziel://ue/default-surface"
+
 
 def load(path: str):
     return json.loads(Path(path).read_text(encoding="utf-8"))
@@ -120,6 +122,8 @@ def main() -> int:
                     })
             else:
                 null_base_material_bindings += 1
+                material_path = UE_DEFAULT_SURFACE_MATERIAL
+                used_material_paths.add(material_path)
 
             section_rows.append({
                 "submeshIndex": submesh_index,
@@ -200,6 +204,26 @@ def main() -> int:
     native_texture_references = 0
 
     for material_path in sorted(used_material_paths):
+        if material_path == UE_DEFAULT_SURFACE_MATERIAL:
+            material_library.append({
+                "materialPath": material_path,
+                "exportType": "SyntheticDefaultSurface",
+                "blendMode": "BLEND_Opaque",
+                "shadingModel": "MSM_DefaultLit",
+                "canonicalTextures": {
+                    channel: None
+                    for channel in CANONICAL_TEXTURE_KEYS
+                },
+                "textures": [],
+                "scalars": [],
+                "colors": [],
+                "switches": [],
+                "rawPropertyKeys": [],
+                "runtimeSemantics":
+                    "UE null material -> UMaterial::GetDefaultMaterial(MD_Surface)",
+            })
+            continue
+
         material = material_by_path.get(material_path)
         if material is None:
             continue
@@ -299,6 +323,8 @@ def main() -> int:
         "expectedSceneSubmeshes": expected_scene_submeshes,
         "nullBaseMaterialBindingCount":
             null_base_material_bindings,
+        "defaultSurfaceBindingCount":
+            null_base_material_bindings,
         "instanceOverrideRecordCount":
             len(instance_override_rows),
         "effectiveOverrideSlotCount":
@@ -331,6 +357,8 @@ def main() -> int:
         "schemaVersion": 1,
         "format": "xziel_ue_material_binding_manifest_v1",
         "canonicalTextureKeys": CANONICAL_TEXTURE_KEYS,
+        "ueDefaultSurfaceMaterial":
+            UE_DEFAULT_SURFACE_MATERIAL,
         "summary": summary,
         "meshes": scene_mesh_bindings,
         "instanceOverrides": instance_override_rows,
