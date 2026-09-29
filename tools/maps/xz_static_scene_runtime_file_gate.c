@@ -69,11 +69,10 @@ int main(int argc, char **argv)
     expect_material_library =
         argc == 8;
 
-    snprintf(
-        argv[1],
-        1024u,
-        "%s",
-        argv[1]);
+    if (!XzFile_SetRoot(argv[1])) {
+        fprintf(stderr, "invalid XZIEL root\n");
+        return 2;
+    }
 
     XzStaticSceneRuntime_Init(&state);
     status =
