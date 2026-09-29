@@ -5204,7 +5204,9 @@ int XzGles3Shadow_UploadStaticScene(
              source->mesh.vertex_stride !=
                  XZ_XZMS_VERTEX_BYTES_V2 &&
              source->mesh.vertex_stride !=
-                 XZ_XZMS_VERTEX_BYTES_V3) ||
+                 XZ_XZMS_VERTEX_BYTES_V3 &&
+             source->mesh.vertex_stride !=
+                 XZ_XZMS_VERTEX_BYTES_V4) ||
             source->mesh.vertex_count == 0u ||
             source->mesh.index_count == 0u ||
             source->mesh.submesh_count == 0u)
@@ -5285,9 +5287,10 @@ int XzGles3Shadow_UploadStaticScene(
             GL_STATIC_DRAW);
 
         /*
-         * XZMS v3 packs UV0+UV1 and UV2+UV3 into two vec4 attributes so the
-         * authored tangent fits inside GLES3's 16 attribute locations with
-         * every baked-lightmap UV channel preserved.
+         * XZMS v4 preserves UV0..UV7. The current static shader consumes
+         * UV0..UV3 as two packed vec4 attributes plus the authored tangent;
+         * UV4..UV7 remain preserved in the source vertex payload for systems
+         * that opt into those channels without changing the mesh format.
          *
          *   0 position.xyz
          *   1 uv0.xy + uv1.xy
