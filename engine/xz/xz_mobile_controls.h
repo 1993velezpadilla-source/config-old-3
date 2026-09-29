@@ -38,6 +38,7 @@ typedef struct XzMobileControls {
     float look_dy;
     uint32_t buttons_down;
     uint32_t buttons_pressed;
+    SDL_FingerID button_fingers[XZ_MOBILE_BUTTON_COUNT];
     unsigned int program;
     unsigned int vao;
     unsigned int vbo;
