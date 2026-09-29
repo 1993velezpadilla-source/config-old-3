@@ -549,7 +549,7 @@ int XzZoneDb_SelfTest(void)
 
     /*
      * Exercise growth past the old 8192-asset ceiling. This is the important
-     * regression for large virgin maps such as Kino.
+     * regression for large virgin source maps.
      */
     for (i = 0u; i < 9000u; ++i) {
         if (!XzZoneDb_AddAsset(
