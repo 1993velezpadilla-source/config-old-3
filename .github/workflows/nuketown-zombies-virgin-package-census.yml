@@ -49,6 +49,9 @@ on:
       - tools/maps/UEStaticSceneExtract/**
       - tools/maps/compile_xziel_static_scene.py
       - tools/maps/xz_xzscene_file_gate.c
+      - tools/maps/xz_static_scene_runtime_file_gate.c
+      - engine/xz/xz_static_scene_runtime.h
+      - engine/xz/xz_static_scene_runtime.c
       - engine/xz/xz_xzscene.h
       - engine/xz/xz_xzscene.c
       - tools/maps/UEAssetSourceManifest/**
@@ -1667,6 +1670,30 @@ jobs:
 
           grep -q 'XZIEL_XZSC_FILE_GATE_GREEN' \
             nuketown-download/runtime-static-scene/xzsc-native-gate.log
+
+          cc -std=c99 -O2 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tools/maps/xz_static_scene_runtime_file_gate.c \
+            engine/xz/xz_static_scene_runtime.c \
+            engine/xz/xz_xzscene.c \
+            engine/xz/xz_xzmesh.c \
+            engine/xz/xz_environment.c \
+            engine/xz/xz_height_fog.c \
+            engine/xz/xz_pbr_material.c \
+            engine/xz/xz_lightmap_texture.c \
+            engine/xz/xz_lightmap_binding.c \
+            -lm \
+            -o build/xzsc-native-gate/xz-static-scene-runtime-file-gate
+
+          build/xzsc-native-gate/xz-static-scene-runtime-file-gate \
+            nuketown-download/runtime-static-scene/vfs \
+            "$RUNTIME_MAP_ID" \
+            "$EXPECTED_SCENE_MESHES" \
+            "$EXPECTED_SCENE_INSTANCES" \
+            | tee nuketown-download/runtime-static-scene/runtime-file-gate.log
+
+          grep -q 'XZIEL_STATIC_SCENE_RUNTIME_FILE_GATE_GREEN' \
+            nuketown-download/runtime-static-scene/runtime-file-gate.log
 
       - name: Build 1-to-1 source export dependency manifest
         run: |
