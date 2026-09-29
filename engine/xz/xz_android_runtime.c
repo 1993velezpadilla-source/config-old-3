@@ -2290,7 +2290,13 @@ int XzAndroidRuntime_PresentStaticScene(
             "standalone_static_present ready=1"
             " map='%s' width=%u height=%u"
             " draws=%u instances=%u"
-            " fboPixels=%u surfacePixels=%u",
+            " fboPixels=%u surfacePixels=%u"
+            " localLights=%u active=%u affecting=%u dropped=%u"
+            " normalReady=%d normalApplied=%u normalMapped=%u"
+            " pbrReady=%d pbrApplied=%u pbrAuthored=%u"
+            " specularReady=%d specularLocal=%u"
+            " lightmapReady=%d bakedLightmapDraws=%u"
+            " materialReady=%d xzmlGpuReady=%d",
             XzMapRuntime_MapId(
                 &xz_runtime.map_runtime),
             width,
@@ -2298,7 +2304,23 @@ int XzAndroidRuntime_PresentStaticScene(
             xz_runtime.gles3_shadow.static_scene_last_draw_calls,
             xz_runtime.gles3_shadow.static_scene_last_instances,
             xz_runtime.gles3_shadow.static_scene_fbo_nonblack_pixels,
-            xz_runtime.gles3_shadow.static_scene_surface_nonblack_pixels);
+            xz_runtime.gles3_shadow.static_scene_surface_nonblack_pixels,
+            xz_runtime.gles3_shadow.static_scene_local_light_count,
+            xz_runtime.gles3_shadow.static_scene_local_light_active,
+            xz_runtime.gles3_shadow.static_scene_local_light_camera_affecting,
+            xz_runtime.gles3_shadow.static_scene_local_light_dropped_affecting,
+            xz_runtime.gles3_shadow.static_scene_normal_ready,
+            xz_runtime.gles3_shadow.static_scene_last_normal_bindings,
+            xz_runtime.gles3_shadow.static_scene_normal_mapped_bindings,
+            xz_runtime.gles3_shadow.static_scene_pbr_ready,
+            xz_runtime.gles3_shadow.static_scene_last_pbr_bindings,
+            xz_runtime.gles3_shadow.static_scene_pbr_authored_bindings,
+            xz_runtime.gles3_shadow.static_scene_specular_response_ready,
+            xz_runtime.gles3_shadow.static_scene_last_specular_local_lights,
+            xz_runtime.gles3_shadow.static_scene_lightmap_shader_ready,
+            xz_runtime.gles3_shadow.static_scene_last_baked_lightmap_draw_calls,
+            xz_runtime.gles3_shadow.static_scene_material_ready,
+            xz_runtime.gles3_shadow.static_scene_xzml_gpu_ready);
     }
 
     return presented;
