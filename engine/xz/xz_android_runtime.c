@@ -2192,6 +2192,64 @@ const XzNachtGameplayState *XzAndroidRuntime_NachtState(void)
         &xz_runtime.map_runtime);
 }
 
+int XzAndroidRuntime_NachtTryInteractMeters(
+    float x_m,
+    float y_m,
+    float z_m)
+{
+    XzNachtGameplayState *state;
+    XzNachtVec3 player;
+    size_t purchase_index = 0u;
+    size_t door_index = 0u;
+    float purchase_distance = 0.0f;
+    float door_distance = 0.0f;
+    int has_purchase;
+    int has_door;
+
+    if (!xz_runtime.initialized ||
+        XzMapRuntime_Kind(&xz_runtime.map_runtime) !=
+            XZ_MAP_RUNTIME_NACHT_BO3)
+        return 0;
+
+    state = XzMapRuntime_Nacht(&xz_runtime.map_runtime);
+    if (!state)
+        return 0;
+
+    player.x = x_m;
+    player.y = y_m;
+    player.z = z_m;
+
+    has_purchase = XzNacht_FindNearestPurchase(
+        state,
+        player,
+        &purchase_index,
+        &purchase_distance);
+    has_door = XzNacht_FindNearestDoor(
+        state,
+        player,
+        &door_index,
+        &door_distance);
+
+    if (has_door &&
+        (!has_purchase || door_distance <= purchase_distance)) {
+        return XzNacht_TryOpenDoor(
+            state,
+            door_index,
+            player) == XZ_NACHT_RESULT_OK;
+    }
+
+    if (has_purchase) {
+        const char *logical_item_id = NULL;
+        return XzNacht_TryPurchase(
+            state,
+            purchase_index,
+            player,
+            &logical_item_id) == XZ_NACHT_RESULT_OK;
+    }
+
+    return 0;
+}
+
 int XzAndroidRuntime_ShouldSuppressLegacyWorldDraw(
     XzLegacyWorldDrawKind kind)
 {
