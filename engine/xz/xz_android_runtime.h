@@ -63,6 +63,10 @@ int XzAndroidRuntime_ActiveMapIsVerifiedPackage(void);
 int XzAndroidRuntime_StaticSceneReady(void);
 int XzAndroidRuntime_ActiveMapIsNachtBo3(void);
 const XzNachtGameplayState *XzAndroidRuntime_NachtState(void);
+int XzAndroidRuntime_NachtTryInteractMeters(
+    float x_m,
+    float y_m,
+    float z_m);
 int XzAndroidRuntime_ShouldSuppressLegacyWorldDraw(
     XzLegacyWorldDrawKind kind);
 int XzAndroidRuntime_CompositeVisibleWorld(void);
