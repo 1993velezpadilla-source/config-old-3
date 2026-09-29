@@ -37,11 +37,7 @@ jobs:
           set -euo pipefail
           SOURCE_RUN=36644822493
           mkdir -p input/exe
-
-          gh run download "$SOURCE_RUN" \
-            --repo "${{ github.repository }}" \
-            --name "XZIEL-Nacht-Windows-OneFile-Fast" \
-            --dir input/exe
+          gh run download "$SOURCE_RUN"             --repo "${{ github.repository }}"             --name "XZIEL-Nacht-Windows-OneFile-Fast"             --dir input/exe
 
           EXE="$(find input/exe -type f -name 'Nacht-Chronicles-XZIEL.exe' -print -quit)"
           test -n "$EXE"
@@ -84,22 +80,25 @@ jobs:
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "ndk;24.0.8215888" "cmake;3.22.1"
 
-      - name: Build official-skin touch gyro hybrid APK
+      - name: Build touch gyro hybrid APK
         shell: bash
         run: |
           set -euo pipefail
           chmod +x scripts/build_xziel_nacht_hybrid_touch_apk.sh
           bash scripts/build_xziel_nacht_hybrid_touch_apk.sh
 
-      - name: Verify touch gyro and skin contract
+      - name: Verify official 12-skin touch gyro contract
         shell: bash
         run: |
           set -euo pipefail
           CONTRACT=build/xziel-nacht-hybrid-touch/dist/control-contract.txt
+          CONTENTS=build/xziel-nacht-hybrid-touch/dist/apk-contents.txt
           APK=build/xziel-nacht-hybrid-touch/dist/XZIEL-Nacht-Hybrid-TouchGyro-PixelFold-debug.apk
 
           test -s "$CONTRACT"
+          test -s "$CONTENTS"
           test -s "$APK"
+
           grep -q '^gyro=enabled$' "$CONTRACT"
           grep -q '^hip_fire=mouse_left$' "$CONTRACT"
           grep -q '^ads_fire=mouse_right+mouse_left$' "$CONTRACT"
@@ -108,12 +107,17 @@ jobs:
           grep -q '^skin_idle_alpha=210$' "$CONTRACT"
           grep -q '^skin_pressed_alpha=246$' "$CONTRACT"
           grep -q '^winlator_ui=hidden$' "$CONTRACT"
-          echo "XZIEL_TOUCH_GYRO_OFFICIAL_SKIN_CONTRACT_GREEN"
+
+          for asset in             hud_ads.webp             hud_ads_fire.webp             hud_claw.webp             hud_crouch.webp             hud_fire.webp             hud_grenade.webp             hud_knife.webp             hud_prone.webp             hud_reload.webp             hud_slide.webp             hud_sprint.webp             hud_swap.webp; do
+            grep -q "assets/xziel_hud/$asset" "$CONTENTS"
+          done
+
+          echo "XZIEL_OFFICIAL_12_SKIN_TOUCH_GYRO_CONTRACT_GREEN"
 
       - name: Upload Pixel Fold APK
         uses: actions/upload-artifact@v4
         with:
-          name: XZIEL-Nacht-Hybrid-TouchGyro-PixelFold-OfficialHUD
+          name: XZIEL-Nacht-Hybrid-TouchGyro-PixelFold
           path: |
             build/xziel-nacht-hybrid-touch/dist/XZIEL-Nacht-Hybrid-TouchGyro-PixelFold-debug.apk
             build/xziel-nacht-hybrid-touch/dist/XZIEL-Nacht-Hybrid-TouchGyro-PixelFold-debug.apk.sha256
