@@ -291,3 +291,38 @@ Key files:
 - `src/codboz_assets.c`
 - `src/codboz_frame_interpolation.c`
 - `tools/apk_extract/codboz_apk_extract.c`
+
+
+## Host symbol inventory size
+
+From the current public `Producdevity/cod-boz-port` resolver:
+
+- 157 explicit S3E host symbols
+- 39 explicit wrapped GL/EGL symbols
+- 196 explicit compatibility entries total
+- additional `gl*` / `egl*` names may be dynamically resolved by the backend when requested
+
+This gives us a concrete compatibility-surface checklist for XZIEL rather than a vague “Marmalade-like” target.
+
+Primary host groups observed in the explicit table:
+- allocation/memory
+- file system
+- compression
+- timers
+- device/runtime/debug
+- keyboard
+- pointer/touch
+- accelerometer
+- video stubs
+- audio/stream audio
+- sound channels
+- inet helpers
+- sockets
+- software surface
+- GL bridge
+- config
+- extension hashing
+
+The wrapped GL/EGL list includes state/setup calls such as viewport, scissor, framebuffer binding, fixed-function transforms/material/light/fog calls, selected uniforms, read/copy pixel paths, `eglGetProcAddress`, and `eglSwapBuffers`.
+
+This strongly supports the interpretation that the original BOZ renderer was written across the OpenGL ES fixed-function-to-GLES2 transition era and relied on the Marmalade runtime to smooth platform differences.
