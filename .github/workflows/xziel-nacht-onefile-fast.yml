@@ -162,10 +162,25 @@ jobs:
           Stop-Process -Id $p.Id -Force
           Write-Host "XZIEL_NACHT_NATIVE_WINDOWS_BOOT_SMOKE_GREEN"
 
-      - name: Build one-file executable
+      - name: Build ZIP-payload one-file executable
         shell: msys2 {0}
         run: |
           set -euxo pipefail
+          mkdir -p dist/win64/launcher
+          cp -a dist/win64/runtime/. dist/win64/launcher/
+
+          for tool in 7z.exe 7z.dll; do
+            test -s "/mingw64/bin/$tool"
+            cp "/mingw64/bin/$tool" dist/win64/launcher/
+          done
+
+          test -s dist/vfs/xziel-nacht-vfs.zip
+          test -s dist/win64/launcher/Xziel-Nacht.exe
+          test -s dist/win64/launcher/libstdc++-6.dll
+          test -s dist/win64/launcher/zlib1.dll
+          test -s dist/win64/launcher/7z.exe
+          test -s dist/win64/launcher/7z.dll
+
           cat > dist/win64/nacht-onefile.nsi <<'NSI'
           Unicode true
           Name "XZIEL Nacht"
@@ -173,17 +188,35 @@ jobs:
           RequestExecutionLevel user
           SilentInstall silent
           AutoCloseWindow true
-          SetCompressor /SOLID lzma
-          SetDatablockOptimize on
+          SetCompress off
+          SetDatablockOptimize off
           CRCCheck force
           ShowInstDetails nevershow
 
           Section "Run XZIEL Nacht"
             InitPluginsDir
             SetOutPath "$PLUGINSDIR\game"
-            File /r "bundle\*.*"
-            ExecWait '"$PLUGINSDIR\game\Xziel-Nacht.exe" --xziel-root "$PLUGINSDIR\game" --xziel-map xziel_nacht_bo3' $0
+            File /r "launcher\*.*"
+            File /oname=xziel-nacht-vfs.zip "..\vfs\xziel-nacht-vfs.zip"
+
+            ExecWait '"$PLUGINSDIR\game\7z.exe" x -y "$PLUGINSDIR\game\xziel-nacht-vfs.zip" -o"$PLUGINSDIR\game"' $0
+            IntCmp $0 0 extract_ok extract_fail extract_fail
+
+          extract_fail:
             SetErrorLevel $0
+            Quit
+
+          extract_ok:
+            Delete "$PLUGINSDIR\game\xziel-nacht-vfs.zip"
+            IfFileExists "$PLUGINSDIR\game\xziel\maps\xziel_nacht_bo3\scene.xzsc" scene_ok scene_fail
+
+          scene_fail:
+            SetErrorLevel 94
+            Quit
+
+          scene_ok:
+            ExecWait '"$PLUGINSDIR\game\Xziel-Nacht.exe" --xziel-root "$PLUGINSDIR\game" --xziel-map xziel_nacht_bo3' $1
+            SetErrorLevel $1
           SectionEnd
           NSI
 
@@ -193,8 +226,42 @@ jobs:
           objdump -f dist/win64/Nacht-Chronicles-XZIEL.exe | tee dist/win64/pe-onefile-header.txt
           grep -Eiq 'pei-i386|pei-x86-64|i386' dist/win64/pe-onefile-header.txt
           sha256sum dist/win64/Nacht-Chronicles-XZIEL.exe | tee dist/win64/Nacht-Chronicles-XZIEL.exe.sha256
-          ls -lh dist/win64/Nacht-Chronicles-XZIEL.exe
-          echo "XZIEL_NACHT_ONEFILE_EXE_GREEN"
+          onefile_bytes=$(wc -c < dist/win64/Nacht-Chronicles-XZIEL.exe | tr -d '[:space:]')
+          test "$onefile_bytes" -gt 800000000
+          echo "XZIEL_NACHT_ONEFILE_ZIP_PAYLOAD_GREEN bytes=$onefile_bytes"
+
+      - name: Smoke final one-file until XZIEL child launches
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $exe=(Resolve-Path "dist/win64/Nacht-Chronicles-XZIEL.exe").Path
+          Get-Process "Xziel-Nacht" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+
+          $wrapper=Start-Process -FilePath $exe -PassThru
+          $child=$null
+          for ($i=0; $i -lt 90; $i++) {
+            Start-Sleep -Seconds 1
+            $child=Get-Process "Xziel-Nacht" -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($child) { break }
+            if ($wrapper.HasExited -and $wrapper.ExitCode -ne 0) {
+              throw "One-file wrapper exited before XZIEL launch, code=$($wrapper.ExitCode)"
+            }
+          }
+
+          if (-not $child) {
+            if (-not $wrapper.HasExited) { Stop-Process -Id $wrapper.Id -Force -ErrorAction SilentlyContinue }
+            throw "One-file EXE never launched Xziel-Nacht.exe"
+          }
+
+          Start-Sleep -Seconds 10
+          if ($child.HasExited) {
+            throw "Xziel-Nacht.exe exited during final one-file smoke, code=$($child.ExitCode)"
+          }
+
+          Stop-Process -Id $child.Id -Force -ErrorAction SilentlyContinue
+          if (-not $wrapper.HasExited) { Stop-Process -Id $wrapper.Id -Force -ErrorAction SilentlyContinue }
+          "XZIEL_NACHT_FINAL_ONEFILE_BOOT_GREEN" | Set-Content dist/win64/final-onefile-smoke.txt
+          Write-Host "XZIEL_NACHT_FINAL_ONEFILE_BOOT_GREEN"
 
       - name: Upload final one-file EXE
         uses: actions/upload-artifact@v4
@@ -211,6 +278,7 @@ jobs:
             dist/win64/pe-runtime-imports.txt
             dist/win64/pe-runtime-dependency-closure.txt
             dist/win64/pe-onefile-header.txt
+            dist/win64/final-onefile-smoke.txt
           if-no-files-found: error
           compression-level: 0
           retention-days: 14
