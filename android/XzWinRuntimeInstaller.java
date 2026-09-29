@@ -46,7 +46,7 @@ public final class XzWinRuntimeInstaller {
         XzWinRuntime.Layout layout = new XzWinRuntime.Layout(context);
         return new File(layout.runtimeRoot, MARKER).isFile()
             && layout.rootfs.isDirectory()
-            && layout.wine64.isFile();
+            && layout.wineGuest.isFile();
     }
 
     public static synchronized void installIfNeeded(Context context)
@@ -68,10 +68,10 @@ public final class XzWinRuntimeInstaller {
             extractRootfs(context, temp);
             installBox64Config(context, temp);
 
-            File wine64 = new File(temp, "opt/wine/bin/wine64");
-            if (!wine64.isFile()) {
+            File wineGuest = new File(temp, "opt/wine/bin/wine");
+            if (!wineGuest.isFile()) {
                 throw new IOException(
-                    "XZWin rootfs is missing opt/wine/bin/wine64");
+                    "XZWin rootfs is missing opt/wine/bin/wine");
             }
 
             deleteTree(layout.rootfs);
