@@ -59,7 +59,7 @@ RULES = [
         r"_C$", r"Blueprint", r"^Function$", r"Script", r"Struct$",
         r"Enum$", r"Timeline", r"Delegate", r"SCS_Node",
         r"InheritableComponentHandler", r"Actor$", r"Component$",
-        r"Pavlov_InteractBox", r"Object$",
+        r"^Pavlov_", r"Object$",
     ]),
     ("data_curves", ["precache", "script_module_db"], [
         r"Curve", r"Distribution", r"DataTable", r"DataAsset",
@@ -67,10 +67,17 @@ RULES = [
     ]),
 ]
 
+IGNORABLE_PATTERNS = [
+    re.compile(r"^BookMark(?:2D)?$", re.IGNORECASE),
+]
+
 COMPILED = [
     (category, gates, [re.compile(p, re.IGNORECASE) for p in patterns])
     for category, gates, patterns in RULES
 ]
+
+def is_ignorable(name):
+    return any(p.search(name) for p in IGNORABLE_PATTERNS)
 
 def classify(name):
     for category, gates, patterns in COMPILED:
@@ -90,11 +97,20 @@ def main():
         raise SystemExit("classCounts missing/empty")
 
     coverage = []
+    ignored = []
     categories = {}
     gates = {}
     unknown = []
 
     for name, count in sorted(classes.items()):
+        if is_ignorable(name):
+            ignored.append({
+                "class": name,
+                "count": count,
+                "reason": "editor_metadata",
+            })
+            continue
+
         category, required_gates = classify(name)
         if category is None:
             unknown.append({"class": name, "count": count})
@@ -116,12 +132,16 @@ def main():
         "sourcePackageCount": data.get("packageCount"),
         "sourceExportCount": data.get("totalExports"),
         "sourceClassCount": len(classes),
-        "classifiedClassCount": len(coverage),
+        "classifiedClassCount": len(coverage) + len(ignored),
+        "runtimeClassCount": len(coverage),
+        "ignoredClassCount": len(ignored),
+        "ignoredExportCount": sum(x["count"] for x in ignored),
         "unclassifiedClassCount": len(unknown),
         "unclassifiedExportCount": sum(x["count"] for x in unknown),
         "categoryExportCounts": dict(sorted(categories.items())),
         "gateExportCounts": dict(sorted(gates.items())),
         "coverage": coverage,
+        "ignored": ignored,
         "unclassified": unknown,
     }
 
@@ -134,6 +154,9 @@ def main():
     print("XZIEL_SOURCE_CLASS_REQUIREMENTS", json.dumps({
         "classes": report["sourceClassCount"],
         "classified": report["classifiedClassCount"],
+        "runtimeClasses": report["runtimeClassCount"],
+        "ignored": report["ignoredClassCount"],
+        "ignoredExports": report["ignoredExportCount"],
         "unclassified": report["unclassifiedClassCount"],
         "unclassifiedExports": report["unclassifiedExportCount"],
         "categories": report["categoryExportCounts"],
