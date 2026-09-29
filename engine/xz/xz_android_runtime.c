@@ -1875,6 +1875,9 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             " materialReady=%d gpuTextures=%u"
             " gpuTextureBytes=%" PRIu64
             " materialBindings=%u mappedBindings=%u"
+            " xzmi=%d xzml=%d xzmlMaterials=%u"
+            " xzmlGpuReady=%d xztxTextures=%u"
+            " xztxAstc=%u xztxBytes=%" PRIu64
             " normalBindings=%u normalMapped=%u"
             " normalTextures=%u normalBytes=%zu normalGpuReady=%d"
             " pbrBindings=%u pbrBytes=%zu"
@@ -1917,6 +1920,15 @@ void XzAndroidRuntime_NotifyWorldTransitionNamed(
             xz_runtime.gles3_shadow.static_scene_gpu_texture_bytes,
             xz_runtime.gles3_shadow.static_scene_material_bindings,
             xz_runtime.gles3_shadow.static_scene_material_mapped_bindings,
+            xz_runtime.static_scene.material_instance_data != NULL,
+            xz_runtime.static_scene.material_library_data != NULL,
+            xz_runtime.static_scene.material_library_data
+                ? xz_runtime.static_scene.material_library.material_count
+                : 0u,
+            xz_runtime.gles3_shadow.static_scene_xzml_gpu_ready,
+            xz_runtime.gles3_shadow.static_scene_xztx_gpu_textures,
+            xz_runtime.gles3_shadow.static_scene_xztx_astc_textures,
+            (uint64_t)xz_runtime.gles3_shadow.static_scene_xztx_gpu_bytes,
             xz_runtime.gles3_shadow.static_scene_normal_bindings,
             xz_runtime.gles3_shadow.static_scene_normal_mapped_bindings,
             xz_runtime.gles3_shadow.static_scene_gpu_normal_textures,
