@@ -953,6 +953,127 @@ jobs:
           find kino-download/ue-xzsk-probe \
             -maxdepth 1 -type f -name '*.xsk' -delete
 
+      - name: Convert decoded UE animations directly to native XZAN
+        run: |
+          set -euxo pipefail
+          dotnet restore tools/maps/UEAnimationXZAN/UEAnimationXZAN.csproj \
+            -p:CUE4ParseSourceRoot="$CUE4PARSE_SOURCE_ROOT" \
+            -p:CUE4PARSE_SKIP_NATIVE=true
+          dotnet build tools/maps/UEAnimationXZAN/UEAnimationXZAN.csproj \
+            --configuration Release \
+            --no-restore \
+            -p:CUE4ParseSourceRoot="$CUE4PARSE_SOURCE_ROOT" \
+            -p:CUE4PARSE_SKIP_NATIVE=true
+
+          APP="tools/maps/UEAnimationXZAN/bin/Release/net10.0/UEAnimationXZAN.dll"
+          test -s "$APP"
+
+          rm -rf kino-download/ue-xzan-probe
+          mkdir -p kino-download/ue-xzan-probe
+
+          EXPECTED_ANIMS="$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(
+              Path("kino-download/kino-deep-payload-audit.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          print(report["expectedAnimSequences"])
+          PY
+          )"
+          test "$EXPECTED_ANIMS" -gt 0
+
+          dotnet "$APP" \
+            kino-pak-unpacked \
+            kino-download/PavMappings.usmap \
+            kino-download/kino-class-census.json \
+            kino-download/ue-xzan-probe \
+            "$EXPECTED_ANIMS" \
+            ue5.1 \
+            | tee kino-download/ue-xzan-probe.log
+
+          test -s kino-download/ue-xzan-probe/report.json
+          grep -q 'XZIEL_UE_XZAN_PROBE_GREEN' \
+            kino-download/ue-xzan-probe.log
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          deep = json.loads(
+              Path("kino-download/kino-deep-payload-audit.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          native = json.loads(
+              Path("kino-download/ue-xzan-probe/report.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+
+          assert native["ready"] is True
+          assert native["failureCount"] == 0
+          assert native["requestedAnimations"] == deep["expectedAnimSequences"]
+          assert native["convertedAnimations"] == deep["animSequencesDecoded"]
+          assert native["totalFrames"] == deep["animationFrames"]
+          assert native["totalTracks"] == deep["animationTracks"]
+          assert native["positionKeys"] == deep["animationPositionKeys"]
+          assert native["rotationKeys"] == deep["animationRotationKeys"]
+          assert native["scaleKeys"] == deep["animationScaleKeys"]
+          assert len(native["skeletonHashCounts"]) > 0
+
+          xzsk = json.loads(
+              Path("kino-download/ue-xzsk-probe/report.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          rig_hashes = set(xzsk["skeletonHashCounts"])
+          anim_hashes = set(native["skeletonHashCounts"])
+          overlap = rig_hashes & anim_hashes
+
+          print("XZIEL_KINO_UE_XZAN_PAYLOAD_PARITY_GREEN", {
+              "animations": native["convertedAnimations"],
+              "frames": native["totalFrames"],
+              "tracks": native["totalTracks"],
+              "positionKeys": native["positionKeys"],
+              "rotationKeys": native["rotationKeys"],
+              "scaleKeys": native["scaleKeys"],
+              "sharedTimeKeys": native["sharedTimeKeys"],
+              "positionTimeKeys": native["positionTimeKeys"],
+              "rotationTimeKeys": native["rotationTimeKeys"],
+              "scaleTimeKeys": native["scaleTimeKeys"],
+              "additive": native["additiveCount"],
+              "animationSkeletons": len(anim_hashes),
+              "rigSkeletons": len(rig_hashes),
+              "linkedSkeletons": len(overlap),
+          })
+          PY
+
+          mkdir -p build/xzan-native-gate
+          cc -std=gnu11 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tools/maps/xz_xzanim_file_gate.c \
+            engine/xz/xz_xzanim.c \
+            -lm \
+            -o build/xzan-native-gate/xz-xzanim-file-gate
+
+          mapfile -t ANIMS < <(find kino-download/ue-xzan-probe \
+            -maxdepth 1 -type f -name '*.xan' | sort)
+          test "${#ANIMS[@]}" -eq "$EXPECTED_ANIMS"
+
+          build/xzan-native-gate/xz-xzanim-file-gate "${ANIMS[@]}" \
+            | tee kino-download/ue-xzan-native-gate.log
+
+          test "$(grep -c '^XZIEL_XZAN_FILE_GATE_OK ' \
+            kino-download/ue-xzan-native-gate.log)" \
+            -eq "$EXPECTED_ANIMS"
+
+          echo "XZIEL_KINO_UE_XZAN_NATIVE_ALL_GREEN count=$EXPECTED_ANIMS"
+
+          find kino-download/ue-xzan-probe \
+            -maxdepth 1 -type f -name '*.xan' -delete
+
       - name: Audit complete UE scene transform semantics
         run: |
           set -euxo pipefail
