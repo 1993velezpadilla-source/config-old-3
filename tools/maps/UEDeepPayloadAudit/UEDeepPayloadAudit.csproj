@@ -14,9 +14,11 @@
 
   <ItemGroup Condition="'$(CUE4ParseSourceRoot)' != ''">
     <ProjectReference Include="$(CUE4ParseSourceRoot)/CUE4Parse/CUE4Parse.csproj"
-                      AdditionalProperties="CUE4PARSE_SKIP_NATIVE=true" />
+                      AdditionalProperties="CUE4PARSE_SKIP_NATIVE=true;TreatWarningsAsErrors=false;WarningsAsErrors="
+                      GlobalPropertiesToRemove="TreatWarningsAsErrors;WarningsAsErrors" />
     <ProjectReference Include="$(CUE4ParseSourceRoot)/CUE4Parse-Conversion/CUE4Parse-Conversion.csproj"
-                      AdditionalProperties="CUE4PARSE_SKIP_NATIVE=true" />
+                      AdditionalProperties="CUE4PARSE_SKIP_NATIVE=true;TreatWarningsAsErrors=false;WarningsAsErrors="
+                      GlobalPropertiesToRemove="TreatWarningsAsErrors;WarningsAsErrors" />
   </ItemGroup>
 
   <ItemGroup>
