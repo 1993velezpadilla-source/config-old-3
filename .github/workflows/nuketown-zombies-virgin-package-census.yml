@@ -50,6 +50,10 @@ on:
       - tools/maps/UEStaticSceneExtract/**
       - tools/maps/compile_xziel_static_scene.py
       - tools/maps/compile_ue_material_bindings.py
+      - tools/maps/compile_xziel_material_instance_bindings.py
+      - tools/maps/xz_material_instance_binding_file_gate.c
+      - engine/xz/xz_material_instance_binding.h
+      - engine/xz/xz_material_instance_binding.c
       - tools/maps/xz_xzscene_file_gate.c
       - tools/maps/xz_static_scene_runtime_file_gate.c
       - engine/xz/xz_static_scene_runtime.h
@@ -1740,6 +1744,42 @@ jobs:
             nuketown-download/runtime-static-scene/material-binding-manifest.json
           grep -q 'XZIEL_UE_MATERIAL_BINDING_MANIFEST_GREEN' \
             nuketown-download/runtime-static-scene/material-binding.log
+
+          python3 tools/maps/compile_xziel_material_instance_bindings.py \
+            --scene nuketown-download/runtime-static-scene/visual-scene.json \
+            --manifest nuketown-download/runtime-static-scene/material-binding-manifest.json \
+            --output nuketown-download/runtime-static-scene/materials.xzmi \
+            --report nuketown-download/runtime-static-scene/xzmi-report.json \
+            | tee nuketown-download/runtime-static-scene/xzmi-build.log
+
+          test -s nuketown-download/runtime-static-scene/materials.xzmi
+          test -s nuketown-download/runtime-static-scene/xzmi-report.json
+          grep -q 'XZIEL_XZMI_BUILD_GREEN' \
+            nuketown-download/runtime-static-scene/xzmi-build.log
+
+          EXPECTED_XZMI_INSTANCES=$(jq -r '.instanceCount' \
+            nuketown-download/runtime-static-scene/xzmi-report.json)
+          EXPECTED_XZMI_MATERIALS=$(jq -r '.materialCount' \
+            nuketown-download/runtime-static-scene/xzmi-report.json)
+          EXPECTED_XZMI_BINDINGS=$(jq -r '.bindingCount' \
+            nuketown-download/runtime-static-scene/xzmi-report.json)
+
+          mkdir -p build/xzmi-native-gate
+          cc -std=c99 -O2 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tools/maps/xz_material_instance_binding_file_gate.c \
+            engine/xz/xz_material_instance_binding.c \
+            -o build/xzmi-native-gate/xz-material-instance-binding-file-gate
+
+          build/xzmi-native-gate/xz-material-instance-binding-file-gate \
+            nuketown-download/runtime-static-scene/materials.xzmi \
+            "$EXPECTED_XZMI_INSTANCES" \
+            "$EXPECTED_XZMI_MATERIALS" \
+            "$EXPECTED_XZMI_BINDINGS" \
+            | tee nuketown-download/runtime-static-scene/xzmi-native-gate.log
+
+          grep -q 'XZIEL_XZMI_FILE_GATE_GREEN' \
+            nuketown-download/runtime-static-scene/xzmi-native-gate.log
 
       - name: Build 1-to-1 source export dependency manifest
         run: |
