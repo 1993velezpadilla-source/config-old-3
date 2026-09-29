@@ -1,5 +1,6 @@
 #include "xz_android_runtime.h"
 #include "xz_file_io.h"
+#include "xz_mobile_controls.h"
 
 #include <SDL.h>
 #include <SDL_system.h>
@@ -183,6 +184,39 @@ static int XzBuildView(
     return 1;
 }
 
+static float XzClampF(float value, float lo, float hi)
+{
+    if (value < lo) return lo;
+    if (value > hi) return hi;
+    return value;
+}
+
+static void XzForwardFromAngles(
+    float yaw,
+    float pitch,
+    float forward[3])
+{
+    const float cp = cosf(pitch);
+    forward[0] = cp * cosf(yaw);
+    forward[1] = cp * sinf(yaw);
+    forward[2] = sinf(pitch);
+}
+
+static void XzAnglesFromForward(
+    const float forward[3],
+    float *yaw,
+    float *pitch)
+{
+    float temp[3] = {forward[0], forward[1], forward[2]};
+    if (!XzNormalize3(temp)) {
+        *yaw = 0.0f;
+        *pitch = 0.0f;
+        return;
+    }
+    *yaw = atan2f(temp[1], temp[0]);
+    *pitch = asinf(XzClampF(temp[2], -1.0f, 1.0f));
+}
+
 static int XzBuildPerspective(
     float fov_y_degrees,
     float aspect,
@@ -273,13 +307,18 @@ int main(int argc, char **argv)
             argv,
             "--xziel-camera-fov-y",
             "75");
-    float eye[3];
-    float forward[3];
-    float up[3];
+    float eye[3] = {-0.100192f, 11.940000f, 1.700000f};
+    float forward[3] = {1.0f, 0.0f, 0.0f};
+    float up[3] = {0.0f, 0.0f, 1.0f};
     float modelview[16];
     float projection[16];
-    float fov_y;
-    int camera_ready = 0;
+    float fov_y = 75.0f;
+    float yaw = 0.0f;
+    float pitch = 0.0f;
+    double previous_now = 0.0;
+    int camera_ready = 1;
+    XzMobileControls mobile_controls;
+    int mobile_controls_ready = 0;
     SDL_Window *window = NULL;
     SDL_GLContext context = NULL;
     int running = 1;
@@ -342,11 +381,15 @@ int main(int argc, char **argv)
         char *end = NULL;
 
         fov_y = strtof(fov_text, &end);
-        if (end != fov_text &&
-            *end == '\0' &&
-            isfinite(fov_y))
-            camera_ready = 1;
+        if (end == fov_text ||
+            *end != '\0' ||
+            !isfinite(fov_y))
+            fov_y = 75.0f;
     }
+
+    XzAnglesFromForward(forward, &yaw, &pitch);
+    mobile_controls_ready =
+        XzMobileControls_Init(&mobile_controls);
 
     XzAndroidRuntime_Init(
         256u * 1024u * 1024u);
@@ -358,10 +401,24 @@ int main(int argc, char **argv)
     while (running) {
         SDL_Event event;
         double now;
+        double dt;
         int drawable_width = 0;
         int drawable_height = 0;
+        float move_x = 0.0f;
+        float move_y = 0.0f;
+        float look_dx = 0.0f;
+        float look_dy = 0.0f;
+        float move_speed = 3.25f;
+        float frame_fov = fov_y;
+
+        if (mobile_controls_ready)
+            XzMobileControls_BeginFrame(&mobile_controls);
 
         while (SDL_PollEvent(&event)) {
+            if (mobile_controls_ready)
+                XzMobileControls_HandleEvent(
+                    &mobile_controls,
+                    &event);
             if (event.type == SDL_QUIT)
                 running = 0;
             if (event.type == SDL_KEYDOWN &&
@@ -372,6 +429,72 @@ int main(int argc, char **argv)
         now =
             (double)SDL_GetPerformanceCounter() /
             (double)SDL_GetPerformanceFrequency();
+        dt = previous_now > 0.0 ? now - previous_now : 0.0;
+        previous_now = now;
+        if (dt < 0.0)
+            dt = 0.0;
+        if (dt > 0.050)
+            dt = 0.050;
+
+        if (mobile_controls_ready) {
+            float flat_forward_x;
+            float flat_forward_y;
+            float right_x;
+            float right_y;
+
+            XzMobileControls_GetMove(
+                &mobile_controls,
+                &move_x,
+                &move_y);
+            XzMobileControls_ConsumeLook(
+                &mobile_controls,
+                &look_dx,
+                &look_dy);
+
+            yaw += look_dx * 4.80f;
+            pitch -= look_dy * 3.80f;
+            pitch = XzClampF(pitch, -1.38f, 1.38f);
+
+            if (XzMobileControls_ButtonDown(
+                    &mobile_controls,
+                    XZ_MOBILE_SPRINT))
+                move_speed = 5.25f;
+
+            flat_forward_x = cosf(yaw);
+            flat_forward_y = sinf(yaw);
+            right_x = -flat_forward_y;
+            right_y = flat_forward_x;
+
+            eye[0] +=
+                (flat_forward_x * move_y + right_x * move_x) *
+                move_speed * (float)dt;
+            eye[1] +=
+                (flat_forward_y * move_y + right_y * move_x) *
+                move_speed * (float)dt;
+
+            if (XzMobileControls_ButtonDown(
+                    &mobile_controls,
+                    XZ_MOBILE_CROUCH))
+                eye[2] = 1.30f;
+            else
+                eye[2] = 1.70f;
+
+            if (XzMobileControls_ButtonDown(
+                    &mobile_controls,
+                    XZ_MOBILE_ADS))
+                frame_fov = fov_y > 58.0f ? 58.0f : fov_y;
+
+            if (XzMobileControls_ButtonPressed(
+                    &mobile_controls,
+                    XZ_MOBILE_INTERACT)) {
+                (void)XzAndroidRuntime_NachtTryInteractMeters(
+                    eye[0],
+                    eye[1],
+                    eye[2]);
+            }
+        }
+
+        XzForwardFromAngles(yaw, pitch, forward);
 
         XzAndroidRuntime_BeginFrame(now);
         XzAndroidRuntime_EndFrame(now);
@@ -390,7 +513,7 @@ int main(int argc, char **argv)
                 up,
                 modelview) &&
             XzBuildPerspective(
-                fov_y,
+                frame_fov,
                 (float)drawable_width /
                     (float)drawable_height,
                 0.05f,
@@ -403,11 +526,22 @@ int main(int argc, char **argv)
                 (unsigned int)drawable_height);
         }
 
+        if (mobile_controls_ready &&
+            drawable_width > 0 &&
+            drawable_height > 0) {
+            XzMobileControls_Render(
+                &mobile_controls,
+                drawable_width,
+                drawable_height);
+        }
+
         SDL_GL_SwapWindow(window);
         SDL_Delay(1);
     }
 
     XzAndroidRuntime_Shutdown();
+    if (mobile_controls_ready)
+        XzMobileControls_Shutdown(&mobile_controls);
     SDL_GL_DeleteContext(context);
     SDL_DestroyWindow(window);
     SDL_Quit();
