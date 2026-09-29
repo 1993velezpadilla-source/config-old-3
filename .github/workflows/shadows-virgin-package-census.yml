@@ -248,6 +248,326 @@ jobs:
           })
           PY
 
+      - name: Convert every cooked texture to native XZTX
+        run: |
+          set -euxo pipefail
+          dotnet restore tools/maps/UETextureXZTX/UETextureXZTX.csproj
+          dotnet build tools/maps/UETextureXZTX/UETextureXZTX.csproj \
+            --configuration Release --no-restore -warnaserror
+
+          APP="tools/maps/UETextureXZTX/bin/Release/net10.0/UETextureXZTX.dll"
+          EXPECTED="$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("shadows-download/shadows-deep-payload-audit.json").read_text())
+          print(d["expectedTextures"])
+          PY
+          )"
+          test "$EXPECTED" -gt 0
+          rm -rf shadows-download/ue-xztx-probe
+          mkdir -p shadows-download/ue-xztx-probe
+          dotnet "$APP" \
+            shadows-pak-unpacked \
+            shadows-download/PavMappings.usmap \
+            shadows-download/shadows-class-census.json \
+            shadows-download/ue-xztx-probe \
+            "$EXPECTED" ue5.1 \
+            | tee shadows-download/ue-xztx-probe.log
+          grep -q 'XZIEL_UE_XZTX_PROBE_GREEN' shadows-download/ue-xztx-probe.log
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          deep=json.loads(Path("shadows-download/shadows-deep-payload-audit.json").read_text())
+          native=json.loads(Path("shadows-download/ue-xztx-probe/report.json").read_text())
+          assert native["ready"] is True
+          assert native["failureCount"] == 0
+          assert native["requestedTextures"] == deep["expectedTextures"]
+          assert native["convertedTextures"] == deep["texturesDecoded"]
+          assert native["totalMips"] == deep["textureMips"]
+          assert native["totalPayloadBytes"] == deep["textureBytes"]
+          print("XZIEL_SHADOWS_XZTX_PARITY_GREEN", native["convertedTextures"])
+          PY
+
+          mkdir -p build/shadows-xztx-gate
+          cc -std=gnu11 -Wall -Wextra -Werror -Iengine/xz \
+            tools/maps/xz_xztexture_file_gate.c engine/xz/xz_xztexture.c \
+            -o build/shadows-xztx-gate/file-gate
+          mapfile -t FILES < <(find shadows-download/ue-xztx-probe -maxdepth 1 -type f -name '*.xzt' | sort)
+          test "${#FILES[@]}" -eq "$EXPECTED"
+          : > shadows-download/ue-xztx-native-gate.log
+          printf '%s\0' "${FILES[@]}" | xargs -0 -r -n 128 \
+            build/shadows-xztx-gate/file-gate \
+            | tee shadows-download/ue-xztx-native-gate.log
+          test "$(grep -c '^XZIEL_XZTX_FILE_GATE_OK ' shadows-download/ue-xztx-native-gate.log)" -eq "$EXPECTED"
+
+      - name: Convert every cooked SoundWave to native XZAW
+        run: |
+          set -euxo pipefail
+          dotnet restore tools/maps/UEAudioXZAW/UEAudioXZAW.csproj
+          dotnet build tools/maps/UEAudioXZAW/UEAudioXZAW.csproj \
+            --configuration Release --no-restore -warnaserror
+          APP="tools/maps/UEAudioXZAW/bin/Release/net10.0/UEAudioXZAW.dll"
+          EXPECTED="$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("shadows-download/shadows-deep-payload-audit.json").read_text())
+          print(d["expectedSoundWaves"])
+          PY
+          )"
+          test "$EXPECTED" -gt 0
+          rm -rf shadows-download/ue-xzaw-probe
+          mkdir -p shadows-download/ue-xzaw-probe
+          dotnet "$APP" \
+            shadows-pak-unpacked \
+            shadows-download/PavMappings.usmap \
+            shadows-download/shadows-class-census.json \
+            shadows-download/ue-xzaw-probe \
+            "$EXPECTED" ue5.1 \
+            | tee shadows-download/ue-xzaw-probe.log
+          grep -q 'XZIEL_UE_XZAW_PROBE_GREEN' shadows-download/ue-xzaw-probe.log
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          deep=json.loads(Path("shadows-download/shadows-deep-payload-audit.json").read_text())
+          native=json.loads(Path("shadows-download/ue-xzaw-probe/report.json").read_text())
+          assert native["ready"] is True
+          assert native["failureCount"] == 0
+          assert native["requestedSoundWaves"] == deep["expectedSoundWaves"]
+          assert native["convertedSoundWaves"] == deep["soundWavesDecoded"]
+          assert native["totalPayloadBytes"] == deep["audioBytes"]
+          print("XZIEL_SHADOWS_XZAW_PARITY_GREEN", native["convertedSoundWaves"])
+          PY
+
+          mkdir -p build/shadows-xzaw-gate
+          cc -std=gnu11 -Wall -Wextra -Werror -Iengine/xz \
+            tools/maps/xz_xzaudio_file_gate.c engine/xz/xz_xzaudio.c \
+            -o build/shadows-xzaw-gate/file-gate
+          mapfile -t FILES < <(find shadows-download/ue-xzaw-probe -maxdepth 1 -type f -name '*.xaw' | sort)
+          test "${#FILES[@]}" -eq "$EXPECTED"
+          build/shadows-xzaw-gate/file-gate "${FILES[@]}" \
+            | tee shadows-download/ue-xzaw-native-gate.log
+          test "$(grep -c '^XZIEL_XZAW_FILE_GATE_OK ' shadows-download/ue-xzaw-native-gate.log)" -eq "$EXPECTED"
+
+      - name: Convert every cooked Skeleton to canonical XZRG
+        run: |
+          set -euxo pipefail
+          dotnet restore tools/maps/UESkeletonXZRG/UESkeletonXZRG.csproj \
+            -p:CUE4ParseSourceRoot="$CUE4PARSE_SOURCE_ROOT" \
+            -p:CUE4PARSE_SKIP_NATIVE=true
+          dotnet build tools/maps/UESkeletonXZRG/UESkeletonXZRG.csproj \
+            --configuration Release --no-restore \
+            -p:CUE4ParseSourceRoot="$CUE4PARSE_SOURCE_ROOT" \
+            -p:CUE4PARSE_SKIP_NATIVE=true
+          APP="tools/maps/UESkeletonXZRG/bin/Release/net10.0/UESkeletonXZRG.dll"
+          EXPECTED="$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("shadows-download/shadows-class-census.json").read_text())
+          print(d["classCounts"].get("Skeleton",0))
+          PY
+          )"
+          test "$EXPECTED" -gt 0
+          rm -rf shadows-download/ue-xzrg-probe
+          mkdir -p shadows-download/ue-xzrg-probe
+          dotnet "$APP" \
+            shadows-pak-unpacked \
+            shadows-download/PavMappings.usmap \
+            shadows-download/shadows-class-census.json \
+            shadows-download/ue-xzrg-probe \
+            "$EXPECTED" ue5.1 \
+            | tee shadows-download/ue-xzrg-probe.log
+          grep -q 'XZIEL_UE_XZRG_PROBE_GREEN' shadows-download/ue-xzrg-probe.log
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("shadows-download/ue-xzrg-probe/report.json").read_text())
+          assert d["ready"] is True
+          assert d["failureCount"] == 0
+          assert d["convertedSkeletons"] == d["requestedSkeletons"]
+          assert d["totalBones"] > 0
+          assert len(d["skeletonHashCounts"]) > 0
+          print("XZIEL_SHADOWS_XZRG_PARITY_GREEN", d["convertedSkeletons"], d["skeletonHashCounts"])
+          PY
+
+          mkdir -p build/shadows-xzrg-gate
+          cc -std=gnu11 -Wall -Wextra -Werror -Iengine/xz \
+            tools/maps/xz_xzrig_file_gate.c engine/xz/xz_xzrig.c -lm \
+            -o build/shadows-xzrg-gate/file-gate
+          mapfile -t FILES < <(find shadows-download/ue-xzrg-probe -maxdepth 1 -type f -name '*.xrg' | sort)
+          test "${#FILES[@]}" -eq "$EXPECTED"
+          build/shadows-xzrg-gate/file-gate "${FILES[@]}" \
+            | tee shadows-download/ue-xzrg-native-gate.log
+
+      - name: Convert every cooked SkeletalMesh to XZSK and link XZRG
+        run: |
+          set -euxo pipefail
+          dotnet restore tools/maps/UESkeletalMeshXZSK/UESkeletalMeshXZSK.csproj \
+            -p:CUE4ParseSourceRoot="$CUE4PARSE_SOURCE_ROOT" \
+            -p:CUE4PARSE_SKIP_NATIVE=true
+          dotnet build tools/maps/UESkeletalMeshXZSK/UESkeletalMeshXZSK.csproj \
+            --configuration Release --no-restore \
+            -p:CUE4ParseSourceRoot="$CUE4PARSE_SOURCE_ROOT" \
+            -p:CUE4PARSE_SKIP_NATIVE=true
+          APP="tools/maps/UESkeletalMeshXZSK/bin/Release/net10.0/UESkeletalMeshXZSK.dll"
+          EXPECTED="$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("shadows-download/shadows-deep-payload-audit.json").read_text())
+          print(d["expectedSkeletalMeshes"])
+          PY
+          )"
+          test "$EXPECTED" -gt 0
+          rm -rf shadows-download/ue-xzsk-probe
+          mkdir -p shadows-download/ue-xzsk-probe
+          dotnet "$APP" \
+            shadows-pak-unpacked \
+            shadows-download/PavMappings.usmap \
+            shadows-download/shadows-class-census.json \
+            shadows-download/ue-xzsk-probe \
+            "$EXPECTED" ue5.1 \
+            | tee shadows-download/ue-xzsk-probe.log
+          grep -q 'XZIEL_UE_XZSK_PROBE_GREEN' shadows-download/ue-xzsk-probe.log
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          deep=json.loads(Path("shadows-download/shadows-deep-payload-audit.json").read_text())
+          mesh=json.loads(Path("shadows-download/ue-xzsk-probe/report.json").read_text())
+          rig=json.loads(Path("shadows-download/ue-xzrg-probe/report.json").read_text())
+          assert mesh["ready"] is True
+          assert mesh["failureCount"] == 0
+          assert mesh["convertedMeshes"] == deep["skeletalMeshesDecoded"]
+          assert mesh["totalVertices"] == deep["skeletalVertices"]
+          assert mesh["totalIndices"] == deep["skeletalIndices"]
+          assert mesh["selfRigFallbackCount"] == 0
+          rig_hashes=set(rig["skeletonHashCounts"])
+          mesh_hashes={r["skeletonHash"] for r in mesh["meshes"]}
+          assert mesh_hashes
+          assert not (mesh_hashes-rig_hashes), {
+              "meshSkeletonsWithoutXZRG": sorted(mesh_hashes-rig_hashes)
+          }
+          print("XZIEL_SHADOWS_XZSK_RIG_LINK_GREEN", {
+              "meshSkeletons": sorted(mesh_hashes),
+              "rigSkeletons": sorted(rig_hashes),
+          })
+          PY
+
+          mkdir -p build/shadows-xzsk-gate
+          cc -std=gnu11 -Wall -Wextra -Werror -Iengine/xz \
+            tools/maps/xz_xzskel_file_gate.c engine/xz/xz_xzskel.c -lm \
+            -o build/shadows-xzsk-gate/file-gate
+          mapfile -t FILES < <(find shadows-download/ue-xzsk-probe -maxdepth 1 -type f -name '*.xsk' | sort)
+          test "${#FILES[@]}" -eq "$EXPECTED"
+          build/shadows-xzsk-gate/file-gate "${FILES[@]}" \
+            | tee shadows-download/ue-xzsk-native-gate.log
+
+      - name: Convert every cooked AnimSequence to XZAN and link XZRG
+        run: |
+          set -euxo pipefail
+          dotnet restore tools/maps/UEAnimationXZAN/UEAnimationXZAN.csproj \
+            -p:CUE4ParseSourceRoot="$CUE4PARSE_SOURCE_ROOT" \
+            -p:CUE4PARSE_SKIP_NATIVE=true
+          dotnet build tools/maps/UEAnimationXZAN/UEAnimationXZAN.csproj \
+            --configuration Release --no-restore \
+            -p:CUE4ParseSourceRoot="$CUE4PARSE_SOURCE_ROOT" \
+            -p:CUE4PARSE_SKIP_NATIVE=true
+          APP="tools/maps/UEAnimationXZAN/bin/Release/net10.0/UEAnimationXZAN.dll"
+          EXPECTED="$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("shadows-download/shadows-deep-payload-audit.json").read_text())
+          print(d["expectedAnimSequences"])
+          PY
+          )"
+          test "$EXPECTED" -gt 0
+          rm -rf shadows-download/ue-xzan-probe
+          mkdir -p shadows-download/ue-xzan-probe
+          dotnet "$APP" \
+            shadows-pak-unpacked \
+            shadows-download/PavMappings.usmap \
+            shadows-download/shadows-class-census.json \
+            shadows-download/ue-xzan-probe \
+            "$EXPECTED" ue5.1 \
+            | tee shadows-download/ue-xzan-probe.log
+          grep -q 'XZIEL_UE_XZAN_PROBE_GREEN' shadows-download/ue-xzan-probe.log
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          deep=json.loads(Path("shadows-download/shadows-deep-payload-audit.json").read_text())
+          anim=json.loads(Path("shadows-download/ue-xzan-probe/report.json").read_text())
+          rig=json.loads(Path("shadows-download/ue-xzrg-probe/report.json").read_text())
+          assert anim["ready"] is True
+          assert anim["failureCount"] == 0
+          assert anim["convertedAnimations"] == deep["animSequencesDecoded"]
+          assert anim["totalFrames"] == deep["animationFrames"]
+          assert anim["totalTracks"] == deep["animationTracks"]
+          assert anim["positionKeys"] == deep["animationPositionKeys"]
+          assert anim["rotationKeys"] == deep["animationRotationKeys"]
+          assert anim["scaleKeys"] == deep["animationScaleKeys"]
+          rig_hashes=set(rig["skeletonHashCounts"])
+          anim_hashes=set(anim["skeletonHashCounts"])
+          assert anim_hashes
+          assert not (anim_hashes-rig_hashes), {
+              "animationSkeletonsWithoutXZRG": sorted(anim_hashes-rig_hashes)
+          }
+          print("XZIEL_SHADOWS_XZAN_RIG_LINK_GREEN", {
+              "animations": anim["convertedAnimations"],
+              "frames": anim["totalFrames"],
+              "tracks": anim["totalTracks"],
+              "skeletons": sorted(anim_hashes),
+          })
+          PY
+
+          mkdir -p build/shadows-xzan-gate
+          cc -std=gnu11 -Wall -Wextra -Werror -Iengine/xz \
+            tools/maps/xz_xzanim_file_gate.c engine/xz/xz_xzanim.c -lm \
+            -o build/shadows-xzan-gate/file-gate
+          mapfile -t FILES < <(find shadows-download/ue-xzan-probe -maxdepth 1 -type f -name '*.xan' | sort)
+          test "${#FILES[@]}" -eq "$EXPECTED"
+          build/shadows-xzan-gate/file-gate "${FILES[@]}" \
+            | tee shadows-download/ue-xzan-native-gate.log
+
+      - name: Convert every cooked StaticMesh to native XZMS
+        run: |
+          set -euxo pipefail
+          dotnet restore tools/maps/UEStaticMeshXZMS/UEStaticMeshXZMS.csproj
+          dotnet build tools/maps/UEStaticMeshXZMS/UEStaticMeshXZMS.csproj \
+            --configuration Release --no-restore
+          APP="tools/maps/UEStaticMeshXZMS/bin/Release/net10.0/UEStaticMeshXZMS.dll"
+          EXPECTED="$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("shadows-download/shadows-class-census.json").read_text())
+          print(d["classCounts"].get("StaticMesh",0))
+          PY
+          )"
+          test "$EXPECTED" -gt 0
+          rm -rf shadows-download/ue-xzms-probe
+          mkdir -p shadows-download/ue-xzms-probe
+          dotnet "$APP" \
+            shadows-pak-unpacked \
+            shadows-download/PavMappings.usmap \
+            shadows-download/shadows-class-census.json \
+            shadows-download/ue-xzms-probe \
+            "$EXPECTED" ue5.1 \
+            | tee shadows-download/ue-xzms-probe.log
+          grep -q 'XZIEL_UE_XZMS_PROBE_GREEN' shadows-download/ue-xzms-probe.log
+
+          mkdir -p build/shadows-xzms-gate
+          cc -std=gnu11 -Wall -Wextra -Werror -Iengine/xz \
+            tools/maps/xz_xzmesh_file_gate.c engine/xz/xz_xzmesh.c -lm \
+            -o build/shadows-xzms-gate/file-gate
+          mapfile -t FILES < <(find shadows-download/ue-xzms-probe -maxdepth 1 -type f -name '*.xzm' | sort)
+          test "${#FILES[@]}" -eq "$EXPECTED"
+          build/shadows-xzms-gate/file-gate "${FILES[@]}" \
+            | tee shadows-download/ue-xzms-native-gate.log
+          grep -q "XZIEL_XZMS_NATIVE_FILES_GREEN count=$EXPECTED" \
+            shadows-download/ue-xzms-native-gate.log
+
       - name: Fail closed on unknown source classes
         run: |
           set -euxo pipefail
@@ -263,6 +583,24 @@ jobs:
             | tee shadows-download/source-class-gate.log
           grep -q 'XZIEL_SOURCE_CLASS_GATE_GREEN' \
             shadows-download/source-class-gate.log
+            shadows-download/ue-xztx-probe/report.json
+            shadows-download/ue-xztx-probe.log
+            shadows-download/ue-xztx-native-gate.log
+            shadows-download/ue-xzaw-probe/report.json
+            shadows-download/ue-xzaw-probe.log
+            shadows-download/ue-xzaw-native-gate.log
+            shadows-download/ue-xzrg-probe/report.json
+            shadows-download/ue-xzrg-probe.log
+            shadows-download/ue-xzrg-native-gate.log
+            shadows-download/ue-xzsk-probe/report.json
+            shadows-download/ue-xzsk-probe.log
+            shadows-download/ue-xzsk-native-gate.log
+            shadows-download/ue-xzan-probe/report.json
+            shadows-download/ue-xzan-probe.log
+            shadows-download/ue-xzan-native-gate.log
+            shadows-download/ue-xzms-probe/report.json
+            shadows-download/ue-xzms-probe.log
+            shadows-download/ue-xzms-native-gate.log
 
       - name: Third-map anti-hardcode gate
         run: |
