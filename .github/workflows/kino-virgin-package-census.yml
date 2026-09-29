@@ -746,6 +746,108 @@ jobs:
           find kino-download/ue-xztx-probe \
             -maxdepth 1 -type f -name '*.xzt' -delete
 
+      - name: Convert cooked UE audio directly to native XZAW
+        run: |
+          set -euxo pipefail
+          dotnet restore tools/maps/UEAudioXZAW/UEAudioXZAW.csproj
+          dotnet build tools/maps/UEAudioXZAW/UEAudioXZAW.csproj \
+            --configuration Release \
+            --no-restore \
+            -warnaserror
+
+          APP="tools/maps/UEAudioXZAW/bin/Release/net10.0/UEAudioXZAW.dll"
+          test -s "$APP"
+
+          rm -rf kino-download/ue-xzaw-probe
+          mkdir -p kino-download/ue-xzaw-probe
+
+          EXPECTED_AUDIO="$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(
+              Path("kino-download/kino-deep-payload-audit.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          print(report["expectedSoundWaves"])
+          PY
+          )"
+          test "$EXPECTED_AUDIO" -gt 0
+
+          dotnet "$APP" \
+            kino-pak-unpacked \
+            kino-download/PavMappings.usmap \
+            kino-download/kino-class-census.json \
+            kino-download/ue-xzaw-probe \
+            "$EXPECTED_AUDIO" \
+            ue5.1 \
+            | tee kino-download/ue-xzaw-probe.log
+
+          test -s kino-download/ue-xzaw-probe/report.json
+          grep -q 'XZIEL_UE_XZAW_PROBE_GREEN' \
+            kino-download/ue-xzaw-probe.log
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          deep = json.loads(
+              Path("kino-download/kino-deep-payload-audit.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          native = json.loads(
+              Path("kino-download/ue-xzaw-probe/report.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+
+          assert native["ready"] is True
+          assert native["failureCount"] == 0
+          assert native["requestedSoundWaves"] == deep["expectedSoundWaves"]
+          assert native["convertedSoundWaves"] == deep["soundWavesDecoded"]
+          assert native["totalPayloadBytes"] == deep["audioBytes"]
+
+          print("XZIEL_KINO_UE_XZAW_PAYLOAD_PARITY_GREEN", {
+              "soundWaves": native["convertedSoundWaves"],
+              "payloadBytes": native["totalPayloadBytes"],
+              "formats": native["formatCounts"],
+          })
+          PY
+
+          mkdir -p build/xzaw-native-gate
+          cc -std=gnu11 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tools/maps/xz_xzaudio_selftest.c \
+            engine/xz/xz_xzaudio.c \
+            -o build/xzaw-native-gate/xz-xzaudio-selftest
+          build/xzaw-native-gate/xz-xzaudio-selftest
+
+          cc -std=gnu11 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tools/maps/xz_xzaudio_file_gate.c \
+            engine/xz/xz_xzaudio.c \
+            -o build/xzaw-native-gate/xz-xzaudio-file-gate
+
+          mapfile -t AUDIO < <(find kino-download/ue-xzaw-probe \
+            -maxdepth 1 -type f -name '*.xaw' | sort)
+          test "${#AUDIO[@]}" -eq "$EXPECTED_AUDIO"
+
+          : > kino-download/ue-xzaw-native-gate.log
+          printf '%s\0' "${AUDIO[@]}" \
+            | xargs -0 -r -n 128 \
+                build/xzaw-native-gate/xz-xzaudio-file-gate \
+            | tee kino-download/ue-xzaw-native-gate.log
+
+          test "$(grep -c '^XZIEL_XZAW_FILE_GATE_OK ' \
+            kino-download/ue-xzaw-native-gate.log)" \
+            -eq "$EXPECTED_AUDIO"
+
+          echo "XZIEL_KINO_UE_XZAW_NATIVE_ALL_GREEN count=$EXPECTED_AUDIO"
+
+          find kino-download/ue-xzaw-probe \
+            -maxdepth 1 -type f -name '*.xaw' -delete
+
       - name: Audit complete UE scene transform semantics
         run: |
           set -euxo pipefail
