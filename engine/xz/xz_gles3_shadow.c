@@ -429,6 +429,588 @@ static unsigned int XzAbsByteDiff(
         : (unsigned int)(b - a);
 }
 
+static int XzRangeStringEquals(
+    const XzMaterialLibraryView *library,
+    uint32_t offset,
+    uint32_t bytes,
+    const char *literal)
+{
+    const char *text;
+    size_t literal_bytes;
+
+    if (!library || !literal ||
+        !XzMaterialLibrary_String(
+            library,
+            offset,
+            bytes,
+            &text))
+        return 0;
+
+    literal_bytes = strlen(literal);
+    return literal_bytes == (size_t)bytes &&
+        memcmp(text, literal, bytes) == 0;
+}
+
+static int XzGlExtensionPresent(
+    const char *name)
+{
+    const char *extensions;
+    const char *at;
+    size_t name_bytes;
+
+    if (!name || !name[0] ||
+        !xz_shadow.gl.GetString)
+        return 0;
+
+    extensions =
+        (const char *)xz_shadow.gl.GetString(
+            GL_EXTENSIONS);
+    if (!extensions)
+        return 0;
+
+    name_bytes = strlen(name);
+    at = extensions;
+
+    while ((at = strstr(at, name)) != NULL) {
+        const char before =
+            at == extensions ? ' ' : at[-1];
+        const char after =
+            at[name_bytes];
+
+        if ((before == ' ' || before == '\t') &&
+            (after == '\0' ||
+             after == ' ' ||
+             after == '\t'))
+            return 1;
+
+        at += name_bytes;
+    }
+
+    return 0;
+}
+
+static int XzNativeMaterialDecode(
+    const XzStaticSceneRuntimeState *scene,
+    uint32_t material_index,
+    XzGles3NativeMaterial *out)
+{
+    const XzMaterialLibraryView *library;
+    XzMaterialLibraryMaterial source;
+    uint32_t scalar_offset;
+
+    if (!scene || !out)
+        return 0;
+
+    library =
+        XzStaticSceneRuntime_MaterialLibrary(
+            scene);
+    if (!library ||
+        XzStaticSceneRuntime_Material(
+            scene,
+            material_index,
+            &source) == 0)
+        return 0;
+
+    memset(out, 0, sizeof(*out));
+    memcpy(
+        out->canonical_texture,
+        source.canonical_texture,
+        sizeof(out->canonical_texture));
+
+    out->roughness = 0.75f;
+    out->metallic = 0.0f;
+    out->specular = 0.5f;
+    out->emissive = 0.0f;
+    out->opacity = 1.0f;
+    out->shading_mode =
+        XZ_NATIVE_SHADING_DEFAULT_LIT;
+    out->blend_mode =
+        XZ_NATIVE_BLEND_OPAQUE;
+
+    if (XzRangeStringEquals(
+            library,
+            source.shading_model_offset,
+            source.shading_model_bytes,
+            "MSM_Unlit")) {
+        out->shading_mode =
+            XZ_NATIVE_SHADING_UNLIT;
+    } else if (!XzRangeStringEquals(
+                   library,
+                   source.shading_model_offset,
+                   source.shading_model_bytes,
+                   "MSM_DefaultLit")) {
+        return 0;
+    }
+
+    if (XzRangeStringEquals(
+            library,
+            source.blend_mode_offset,
+            source.blend_mode_bytes,
+            "BLEND_Masked")) {
+        out->blend_mode =
+            XZ_NATIVE_BLEND_MASKED;
+    } else if (XzRangeStringEquals(
+                   library,
+                   source.blend_mode_offset,
+                   source.blend_mode_bytes,
+                   "BLEND_Translucent")) {
+        out->blend_mode =
+            XZ_NATIVE_BLEND_TRANSLUCENT;
+    } else if (!XzRangeStringEquals(
+                   library,
+                   source.blend_mode_offset,
+                   source.blend_mode_bytes,
+                   "BLEND_Opaque")) {
+        return 0;
+    }
+
+    for (scalar_offset = 0u;
+         scalar_offset < source.scalar_count;
+         ++scalar_offset) {
+        XzMaterialLibraryScalar scalar;
+
+        if (XzMaterialLibrary_Scalar(
+                library,
+                source.first_scalar +
+                    scalar_offset,
+                &scalar) != XZ_XZML_OK)
+            return 0;
+
+        if (XzRangeStringEquals(
+                library,
+                scalar.name_offset,
+                scalar.name_bytes,
+                "Roughness") ||
+            XzRangeStringEquals(
+                library,
+                scalar.name_offset,
+                scalar.name_bytes,
+                "Roughness3") ||
+            XzRangeStringEquals(
+                library,
+                scalar.name_offset,
+                scalar.name_bytes,
+                "Roughness4")) {
+            out->roughness = scalar.value;
+            out->pbr_flags |=
+                XZ_PBR_FLAG_ROUGHNESS;
+        } else if (
+            XzRangeStringEquals(
+                library,
+                scalar.name_offset,
+                scalar.name_bytes,
+                "Metallic") ||
+            XzRangeStringEquals(
+                library,
+                scalar.name_offset,
+                scalar.name_bytes,
+                "Metallic2")) {
+            out->metallic = scalar.value;
+            out->pbr_flags |=
+                XZ_PBR_FLAG_METALLIC;
+        } else if (
+            XzRangeStringEquals(
+                library,
+                scalar.name_offset,
+                scalar.name_bytes,
+                "Specular") ||
+            XzRangeStringEquals(
+                library,
+                scalar.name_offset,
+                scalar.name_bytes,
+                "Specular3")) {
+            out->specular = scalar.value;
+            out->pbr_flags |=
+                XZ_PBR_FLAG_SPECULAR;
+        } else if (
+            XzRangeStringEquals(
+                library,
+                scalar.name_offset,
+                scalar.name_bytes,
+                "Emissive") ||
+            XzRangeStringEquals(
+                library,
+                scalar.name_offset,
+                scalar.name_bytes,
+                "EmissiveIntensity")) {
+            out->emissive = scalar.value;
+            out->pbr_flags |=
+                XZ_PBR_FLAG_EMISSIVE;
+        } else if (
+            XzRangeStringEquals(
+                library,
+                scalar.name_offset,
+                scalar.name_bytes,
+                "Opacity")) {
+            out->opacity =
+                scalar.value < 0.0f
+                    ? 0.0f
+                    : (scalar.value > 1.0f
+                        ? 1.0f
+                        : scalar.value);
+        }
+    }
+
+    /*
+     * Unlit is a real UE shading model, not a weakly-lit PBR material.
+     * Preserve stored parameters for diagnostics, but do not enable the
+     * Cook-Torrance branch for it.
+     */
+    if (out->shading_mode ==
+            XZ_NATIVE_SHADING_UNLIT)
+        out->pbr_flags = 0u;
+
+    return
+        isfinite(out->roughness) &&
+        isfinite(out->metallic) &&
+        isfinite(out->specular) &&
+        isfinite(out->emissive) &&
+        isfinite(out->opacity);
+}
+
+static int XzUploadNativeMaterialLibrary(
+    const XzStaticSceneRuntimeState *scene,
+    XzGles3ShadowState *state)
+{
+    const XzMaterialLibraryView *library;
+    uint32_t texture_index;
+    uint32_t material_index;
+    uint64_t gpu_bytes = 0u;
+    uint32_t astc_textures = 0u;
+
+    if (!scene || !state)
+        return 0;
+
+    library =
+        XzStaticSceneRuntime_MaterialLibrary(
+            scene);
+    if (!library)
+        return 1;
+
+    if (!XzStaticSceneRuntime_MaterialInstances(
+            scene) ||
+        library->material_count == 0u ||
+        library->texture_asset_count == 0u ||
+        !XzGlExtensionPresent(
+            "GL_KHR_texture_compression_astc_ldr"))
+        return 0;
+
+    xz_shadow.static_native_material_textures =
+        (XzGles3StaticTexture *)calloc(
+            library->texture_asset_count,
+            sizeof(
+                *xz_shadow
+                    .static_native_material_textures));
+    xz_shadow.static_native_materials =
+        (XzGles3NativeMaterial *)calloc(
+            library->material_count,
+            sizeof(
+                *xz_shadow.static_native_materials));
+
+    if (!xz_shadow.static_native_material_textures ||
+        !xz_shadow.static_native_materials)
+        return 0;
+
+    xz_shadow.static_native_material_texture_count =
+        library->texture_asset_count;
+    xz_shadow.static_native_material_count =
+        library->material_count;
+
+    for (texture_index = 0u;
+         texture_index <
+            library->texture_asset_count;
+         ++texture_index) {
+        XzStaticNativeTextureResource source;
+        XzXztxGpuFormat format;
+        XzXztxGpuStatus gpu_status;
+        XzGles3StaticTexture *dest =
+            &xz_shadow.static_native_material_textures[
+                texture_index];
+        uint64_t expected_payload = 0u;
+        uint32_t mip_index;
+
+        if (!XzStaticSceneRuntime_LoadMaterialTexture(
+                scene,
+                texture_index,
+                &source))
+            return 0;
+
+        gpu_status =
+            XzXztxGpuFormat_Resolve(
+                &source.texture,
+                &format);
+        if (gpu_status != XZ_XZTX_GPU_OK) {
+            XzStaticSceneRuntime_ReleaseMaterialTexture(
+                &source);
+            return 0;
+        }
+
+        gpu_status =
+            XzXztxGpuFormat_ValidatePayload(
+                &source.texture,
+                &format,
+                &expected_payload);
+        if (gpu_status != XZ_XZTX_GPU_OK ||
+            !format.compressed ||
+            expected_payload == 0u) {
+            XzStaticSceneRuntime_ReleaseMaterialTexture(
+                &source);
+            return 0;
+        }
+
+        xz_shadow.gl.GenTextures(
+            1,
+            &dest->object);
+        if (!dest->object) {
+            XzStaticSceneRuntime_ReleaseMaterialTexture(
+                &source);
+            return 0;
+        }
+
+        xz_shadow.gl.ActiveTexture(GL_TEXTURE0);
+        xz_shadow.gl.BindTexture(
+            GL_TEXTURE_2D,
+            dest->object);
+        xz_shadow.gl.TexParameteri(
+            GL_TEXTURE_2D,
+            GL_TEXTURE_MIN_FILTER,
+            source.texture.mip_count > 1u
+                ? GL_LINEAR_MIPMAP_LINEAR
+                : GL_LINEAR);
+        xz_shadow.gl.TexParameteri(
+            GL_TEXTURE_2D,
+            GL_TEXTURE_MAG_FILTER,
+            GL_LINEAR);
+        xz_shadow.gl.TexParameteri(
+            GL_TEXTURE_2D,
+            GL_TEXTURE_WRAP_S,
+            GL_REPEAT);
+        xz_shadow.gl.TexParameteri(
+            GL_TEXTURE_2D,
+            GL_TEXTURE_WRAP_T,
+            GL_REPEAT);
+        xz_shadow.gl.TexParameteri(
+            GL_TEXTURE_2D,
+            GL_TEXTURE_BASE_LEVEL,
+            0);
+        xz_shadow.gl.TexParameteri(
+            GL_TEXTURE_2D,
+            GL_TEXTURE_MAX_LEVEL,
+            (GLint)(
+                source.texture.mip_count - 1u));
+
+        for (mip_index = 0u;
+             mip_index < source.texture.mip_count;
+             ++mip_index) {
+            XzXztextureMip mip;
+            size_t payload_bytes = 0u;
+            const void *payload;
+
+            if (!XzXztexture_Mip(
+                    &source.texture,
+                    mip_index,
+                    &mip) ||
+                mip.payload_bytes >
+                    (uint32_t)INT32_MAX) {
+                XzStaticSceneRuntime_ReleaseMaterialTexture(
+                    &source);
+                return 0;
+            }
+
+            payload =
+                XzXztexture_MipData(
+                    &source.texture,
+                    mip_index,
+                    &payload_bytes);
+
+            if (!payload ||
+                payload_bytes !=
+                    (size_t)mip.payload_bytes) {
+                XzStaticSceneRuntime_ReleaseMaterialTexture(
+                    &source);
+                return 0;
+            }
+
+            xz_shadow.gl.CompressedTexImage2D(
+                GL_TEXTURE_2D,
+                (GLint)mip_index,
+                (GLenum)format.gl_internal_format,
+                (GLsizei)mip.width,
+                (GLsizei)mip.height,
+                0,
+                (GLsizei)mip.payload_bytes,
+                payload);
+        }
+
+        if (xz_shadow.gl.GetError() !=
+                GL_NO_ERROR) {
+            XzStaticSceneRuntime_ReleaseMaterialTexture(
+                &source);
+            return 0;
+        }
+
+        dest->width = source.texture.width;
+        dest->height = source.texture.height;
+        dest->gpu_bytes = expected_payload;
+        dest->alive = 1;
+
+        gpu_bytes += expected_payload;
+        astc_textures++;
+
+        XzStaticSceneRuntime_ReleaseMaterialTexture(
+            &source);
+    }
+
+    xz_shadow.gl.BindTexture(
+        GL_TEXTURE_2D,
+        0u);
+
+    for (material_index = 0u;
+         material_index < library->material_count;
+         ++material_index) {
+        if (!XzNativeMaterialDecode(
+                scene,
+                material_index,
+                &xz_shadow.static_native_materials[
+                    material_index]))
+            return 0;
+    }
+
+    xz_shadow.static_native_material_ready = 1;
+    state->static_scene_xzml_materials =
+        library->material_count;
+    state->static_scene_xztx_gpu_textures =
+        library->texture_asset_count;
+    state->static_scene_xztx_astc_textures =
+        astc_textures;
+    state->static_scene_xztx_gpu_bytes =
+        gpu_bytes;
+    state->static_scene_xzml_gpu_ready =
+        astc_textures ==
+            library->texture_asset_count &&
+        library->material_count ==
+            xz_shadow.static_native_material_count;
+
+    return state->static_scene_xzml_gpu_ready;
+}
+
+static int XzBuildNativeMaterialBatchBindings(
+    const XzStaticSceneRuntimeState *scene)
+{
+    uint32_t batch_index;
+    uint64_t total = 0u;
+
+    if (!scene ||
+        !xz_shadow.static_material_draw_plan_ready ||
+        !xz_shadow.static_native_material_ready ||
+        xz_shadow.static_material_draw_plan.batch_count == 0u)
+        return 0;
+
+    xz_shadow.static_material_batch_offsets =
+        (uint32_t *)calloc(
+            (size_t)xz_shadow
+                .static_material_draw_plan.batch_count + 1u,
+            sizeof(uint32_t));
+    if (!xz_shadow.static_material_batch_offsets)
+        return 0;
+
+    for (batch_index = 0u;
+         batch_index <
+            xz_shadow.static_material_draw_plan.batch_count;
+         ++batch_index) {
+        const XzStaticSceneMaterialBatch *batch =
+            XzStaticSceneMaterialDrawPlan_Batch(
+                &xz_shadow.static_material_draw_plan,
+                batch_index);
+        const XzStaticMeshResource *mesh;
+
+        if (!batch ||
+            batch->mesh_index >=
+                scene->mesh_resource_count)
+            return 0;
+
+        mesh =
+            XzStaticSceneRuntime_Mesh(
+                scene,
+                batch->mesh_index);
+        if (!mesh ||
+            mesh->mesh.submesh_count == 0u)
+            return 0;
+
+        if (total > UINT32_MAX)
+            return 0;
+
+        xz_shadow.static_material_batch_offsets[
+            batch_index] =
+                (uint32_t)total;
+
+        total +=
+            (uint64_t)mesh->mesh.submesh_count;
+
+        if (total > UINT32_MAX)
+            return 0;
+    }
+
+    xz_shadow.static_material_batch_offsets[
+        xz_shadow.static_material_draw_plan.batch_count] =
+            (uint32_t)total;
+
+    if (total == 0u ||
+        total >
+            (uint64_t)(SIZE_MAX /
+                sizeof(uint32_t)))
+        return 0;
+
+    xz_shadow.static_material_batch_materials =
+        (uint32_t *)malloc(
+            (size_t)total * sizeof(uint32_t));
+    if (!xz_shadow.static_material_batch_materials)
+        return 0;
+
+    xz_shadow.static_material_batch_binding_count =
+        (uint32_t)total;
+
+    for (batch_index = 0u;
+         batch_index <
+            xz_shadow.static_material_draw_plan.batch_count;
+         ++batch_index) {
+        const XzStaticSceneMaterialBatch *batch =
+            XzStaticSceneMaterialDrawPlan_Batch(
+                &xz_shadow.static_material_draw_plan,
+                batch_index);
+        const XzStaticMeshResource *mesh =
+            XzStaticSceneRuntime_Mesh(
+                scene,
+                batch->mesh_index);
+        uint32_t submesh_index;
+        const uint32_t first =
+            xz_shadow.static_material_batch_offsets[
+                batch_index];
+
+        for (submesh_index = 0u;
+             submesh_index <
+                mesh->mesh.submesh_count;
+             ++submesh_index) {
+            uint32_t material_index;
+
+            if (!XzStaticSceneRuntime_InstanceMaterial(
+                    scene,
+                    batch->representative_source_instance,
+                    submesh_index,
+                    &material_index) ||
+                material_index >=
+                    xz_shadow.static_native_material_count)
+                return 0;
+
+            xz_shadow.static_material_batch_materials[
+                first + submesh_index] =
+                    material_index;
+        }
+    }
+
+    return 1;
+}
+
 static GLenum XzSafeBlendFactor(unsigned int value, GLenum fallback)
 {
     switch ((GLenum)value) {
