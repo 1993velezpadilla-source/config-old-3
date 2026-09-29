@@ -1084,13 +1084,6 @@ static List<int> FindInlineSerializedStreamHeaders(
     return result;
 }
 
-sealed record LegacyAnimationRecoveryCandidate(
-    int StreamHeader,
-    int HandleOffset,
-    int MetadataOffset,
-    int StreamBytes,
-    FUECompressedAnimData CompressedData);
-
 static void ProbeVirtualPackageResolution(
     DefaultFileProvider provider,
     string virtualPath)
@@ -1595,3 +1588,11 @@ sealed record PackageRow(
     int SoundWaveCount,
     int SkeletalMeshCount,
     int AnimSequenceCount);
+
+
+sealed record LegacyAnimationRecoveryCandidate(
+    int StreamHeader,
+    int HandleOffset,
+    int MetadataOffset,
+    int StreamBytes,
+    FUECompressedAnimData CompressedData);
