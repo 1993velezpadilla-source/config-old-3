@@ -99,7 +99,7 @@ def build_xziel_modern_surfaces(out: Path) -> None:
     }.items():
         _render_svg(out, name, body)
 
-    # Recognisable, original silhouette set matched to NZ:P's actual weapon
+    # Recognisable, original silhouette set matched to XZIEL's weapon
     # families. PaP variants map back to the same physical silhouette.
     silhouettes = {
       "weapon_colt": '''
