@@ -4,6 +4,7 @@ using CUE4Parse.UE4.Assets.Exports.Material;
 using CUE4Parse.UE4.Assets.Exports.Texture;
 using CUE4Parse.UE4.Assets.Objects;
 using CUE4Parse.UE4.Versions;
+using CUE4Parse.UE4.Objects.UObject;
 using System.Text.Json;
 
 if (args.Length != 5)
@@ -622,8 +623,45 @@ ResolveMaterialSemantics(
                 concrete.GetPathName());
         }
 
-        if (material is not UMaterialInstance instance ||
-            instance.Parent is not UUnrealMaterial parent)
+        if (material is not UMaterialInstance instance)
+        {
+            return (
+                false,
+                EBlendMode.BLEND_Opaque,
+                EMaterialShadingModel.MSM_Unlit,
+                0.333f,
+                false,
+                false,
+                0,
+                false,
+                false,
+                false,
+                false,
+                "");
+        }
+
+        UUnrealMaterial? parent = instance.Parent;
+
+        if (parent is null)
+        {
+            var rawParentProperty =
+                instance.Properties.FirstOrDefault(
+                    p => p.Name.Text.Equals(
+                        "Parent",
+                        StringComparison.Ordinal));
+
+            if (
+                rawParentProperty?.Tag?.GenericValue
+                    is FPackageIndex rawParent &&
+                rawParent.TryLoad<UUnrealMaterial>(
+                    out var loadedParent) &&
+                loadedParent is not null)
+            {
+                parent = loadedParent;
+            }
+        }
+
+        if (parent is null)
         {
             return (
                 false,
