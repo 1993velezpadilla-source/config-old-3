@@ -6873,7 +6873,14 @@ static int XzDrawStaticScene(
             uint32_t normal_texture_index =
                 XZ_STATIC_MATERIAL_NO_TEXTURE;
             XzPbrMaterialBinding pbr_binding = {
-                0u, 0.75f, 0.0f, 0.5f, 0.0f
+                .flags = 0u,
+                .roughness = 0.75f,
+                .metallic = 0.0f,
+                .specular = 0.5f,
+                .emissive = 0.0f,
+                .blend_mode = UINT32_MAX,
+                .material_flags = 0u,
+                .opacity_mask_clip = 0.333f
             };
             float pbr_params[4] = {
                 0.75f, 0.0f, 0.5f, 0.0f
@@ -6995,13 +7002,38 @@ static int XzDrawStaticScene(
                 -1);
             gl->Uniform1i(
                 xz_shadow.static_material_blend_mode_loc,
-                -1);
+                (GLint)pbr_binding.blend_mode);
             gl->Uniform1f(
                 xz_shadow.static_material_opacity_loc,
                 1.0f);
             gl->Uniform1f(
                 xz_shadow.static_opacity_mask_clip_loc,
-                0.333f);
+                pbr_binding.opacity_mask_clip);
+
+            if ((pbr_binding.material_flags &
+                 XZ_PBR_MATERIAL_FLAG_DISABLE_DEPTH_TEST) != 0u)
+                gl->Disable(GL_DEPTH_TEST);
+            else
+                gl->Enable(GL_DEPTH_TEST);
+
+            if (pbr_binding.blend_mode ==
+                    XZ_PBR_BLEND_TRANSLUCENT) {
+                gl->Enable(GL_BLEND);
+                gl->BlendFunc(
+                    GL_SRC_ALPHA,
+                    GL_ONE_MINUS_SRC_ALPHA);
+                gl->DepthMask(GL_FALSE);
+            } else if (pbr_binding.blend_mode ==
+                       XZ_PBR_BLEND_ADDITIVE) {
+                gl->Enable(GL_BLEND);
+                gl->BlendFunc(
+                    GL_SRC_ALPHA,
+                    GL_ONE);
+                gl->DepthMask(GL_FALSE);
+            } else {
+                gl->Disable(GL_BLEND);
+                gl->DepthMask(GL_TRUE);
+            }
 
             if (use_baked_lightmap) {
                 uint32_t lightmap_batch_offset;
