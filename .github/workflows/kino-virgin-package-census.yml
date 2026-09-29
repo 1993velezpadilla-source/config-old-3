@@ -17,6 +17,7 @@ on:
       - tools/maps/UEStaticMeshXZMS/**
       - tools/maps/UEStaticMeshAudit/**
       - tools/maps/UEDeepPayloadAudit/**
+      - tools/maps/patch_cue4parse_animation_fallback.py
       - tools/maps/UESceneTransformAudit/**
       - tools/maps/UEAssetSourceManifest/**
       - tools/maps/xz_source_class_gate.c
@@ -635,6 +636,22 @@ jobs:
           print("XZIEL_KINO_STATIC_MESH_AUDIT_GREEN")
           PY
 
+      - name: Prepare pinned CUE4Parse animation fallback
+        run: |
+          set -euxo pipefail
+          CUE4PARSE_ROOT="$RUNNER_TEMP/CUE4Parse"
+          git init "$CUE4PARSE_ROOT"
+          git -C "$CUE4PARSE_ROOT" remote add origin \
+            https://github.com/FabianFG/CUE4Parse.git
+          git -C "$CUE4PARSE_ROOT" fetch --depth=1 origin \
+            28f385e622468c4ab84997d596b46bb1c3adfcfa
+          git -C "$CUE4PARSE_ROOT" checkout --detach FETCH_HEAD
+          test "$(git -C "$CUE4PARSE_ROOT" rev-parse HEAD)" = \
+            "28f385e622468c4ab84997d596b46bb1c3adfcfa"
+          python3 tools/maps/patch_cue4parse_animation_fallback.py \
+            --root "$CUE4PARSE_ROOT"
+          echo "CUE4PARSE_SOURCE_ROOT=$CUE4PARSE_ROOT" >> "$GITHUB_ENV"
+
       - name: Layer pinned public Pavlov base dependencies
         run: |
           set -euxo pipefail
@@ -655,11 +672,15 @@ jobs:
       - name: Audit deep cooked UE payloads
         run: |
           set -euxo pipefail
-          dotnet restore tools/maps/UEDeepPayloadAudit/UEDeepPayloadAudit.csproj
+          dotnet restore tools/maps/UEDeepPayloadAudit/UEDeepPayloadAudit.csproj \
+            -p:CUE4ParseSourceRoot="$CUE4PARSE_SOURCE_ROOT" \
+            -p:CUE4PARSE_SKIP_NATIVE=true
           dotnet build tools/maps/UEDeepPayloadAudit/UEDeepPayloadAudit.csproj \
             --configuration Release \
             --no-restore \
-            -warnaserror
+            -warnaserror \
+            -p:CUE4ParseSourceRoot="$CUE4PARSE_SOURCE_ROOT" \
+            -p:CUE4PARSE_SKIP_NATIVE=true
 
           APP="tools/maps/UEDeepPayloadAudit/bin/Release/net10.0/UEDeepPayloadAudit.dll"
           test -s "$APP"
