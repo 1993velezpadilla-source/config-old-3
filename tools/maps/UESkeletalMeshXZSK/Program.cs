@@ -358,7 +358,7 @@ static (
     var uvChannels =
         1 + lod.ExtraUvs.Length;
 
-    if (uvChannels > XzskMaxUvs)
+    if (uvChannels > (int)XzskMaxUvs)
         throw new InvalidDataException(
             $"skeletal mesh has {uvChannels} UV channels; max is {XzskMaxUvs}");
 
@@ -479,7 +479,7 @@ static (
             throw new InvalidDataException(
                 "skeletal vertex has zero bone influences");
 
-        if (influences.Length > XzskMaxInfluences)
+        if (influences.Length > (int)XzskMaxInfluences)
             throw new InvalidDataException(
                 $"skeletal vertex has {influences.Length} influences; max is {XzskMaxInfluences}");
 
@@ -605,8 +605,12 @@ static (
         writer.Write(scale.Z);
     }
 
-    foreach (var vertex in lod.Vertices)
+    for (var vertexIndex = 0;
+         vertexIndex < lod.Vertices.Length;
+         ++vertexIndex)
     {
+        var vertex =
+            lod.Vertices[vertexIndex];
         var position =
             XzielSkeletonIdentity.PositionToXziel(
                 vertex.Position);
@@ -637,7 +641,7 @@ static (
         writer.Write(vertex.Uv.V);
 
         for (var channel = 1;
-             channel < XzskMaxUvs;
+             channel < (int)XzskMaxUvs;
              ++channel)
         {
             if (channel - 1 <
@@ -646,9 +650,7 @@ static (
                 var uv =
                     lod.ExtraUvs[
                         channel - 1][
-                        Array.IndexOf(
-                            lod.Vertices,
-                            vertex)];
+                        vertexIndex];
                 writer.Write(uv.U);
                 writer.Write(uv.V);
             }
@@ -665,7 +667,7 @@ static (
                 .ToArray();
 
         for (var i = 0;
-             i < XzskMaxInfluences;
+             i < (int)XzskMaxInfluences;
              ++i)
         {
             writer.Write(
@@ -675,7 +677,7 @@ static (
         }
 
         for (var i = 0;
-             i < XzskMaxInfluences;
+             i < (int)XzskMaxInfluences;
              ++i)
         {
             writer.Write(
