@@ -91,6 +91,9 @@ provider.PostMount();
 provider.LoadVirtualPaths();
 RegisterLooseCookedVirtualMounts(provider);
 RegisterDiscoveredPluginMounts(provider);
+ProbeVirtualPackageResolution(
+    provider,
+    "/Engine/Animation/DefaultAnimBoneCompressionSettings");
 
 var failures = new List<object>();
 var textureFormats = new SortedDictionary<string, int>(StringComparer.Ordinal);
@@ -587,6 +590,71 @@ void AuditAnimSequences(PackageRow row, UAnimSequence[] animations)
 }
 
 
+
+static void ProbeVirtualPackageResolution(
+    DefaultFileProvider provider,
+    string virtualPath)
+{
+    var normalized = virtualPath.TrimStart('/');
+    var fileFound = provider.TryGetGameFile(
+        virtualPath,
+        out var gameFile);
+
+    var suffix = normalized
+        .Replace("Engine/", "Engine/Content/", StringComparison.OrdinalIgnoreCase)
+        .Replace("Game/", provider.ProjectName + "/Content/", StringComparison.OrdinalIgnoreCase)
+        + ".uasset";
+
+    var suffixMatches = provider.Files.Keys
+        .Where(key =>
+            key.EndsWith(
+                suffix,
+                StringComparison.OrdinalIgnoreCase))
+        .Take(16)
+        .ToArray();
+
+    var packageLoaded = false;
+    string? packageName = null;
+    string[] exportTypes = [];
+    string? loadError = null;
+
+    try
+    {
+        if (provider.TryLoadPackage(
+                virtualPath,
+                out var package) &&
+            package is not null)
+        {
+            packageLoaded = true;
+            packageName = package.Name;
+            exportTypes = package.GetExports()
+                .Select(x => x.GetType().Name)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(x => x, StringComparer.Ordinal)
+                .ToArray();
+        }
+    }
+    catch (Exception e)
+    {
+        loadError =
+            e.GetType().FullName + ": " + e.Message;
+    }
+
+    Console.WriteLine(
+        "XZIEL_UE_PACKAGE_RESOLUTION_PROBE " +
+        JsonSerializer.Serialize(new {
+            virtualPath,
+            fixedPath = provider.FixPath(virtualPath),
+            fileFound,
+            filePath = gameFile?.Path,
+            suffix,
+            suffixMatches,
+            packageLoaded,
+            packageName,
+            exportTypes,
+            loadError
+        }));
+}
 
 static void MountLooseExtraRoots(
     DefaultFileProvider provider,
