@@ -112,6 +112,7 @@ typedef struct {
     unsigned int static_scene_xzml_materials;
     unsigned int static_scene_xztx_gpu_textures;
     unsigned int static_scene_xztx_astc_textures;
+    unsigned int static_scene_inferred_diffuse_materials;
     unsigned long long static_scene_xztx_gpu_bytes;
     int static_scene_xzml_gpu_ready;
     unsigned int static_scene_lightmap_batch_count;
