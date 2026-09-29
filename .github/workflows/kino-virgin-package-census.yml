@@ -655,18 +655,61 @@ jobs:
           rm -rf kino-download/ue-xztx-probe
           mkdir -p kino-download/ue-xztx-probe
 
+          EXPECTED_TEXTURES="$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(
+              Path("kino-download/kino-deep-payload-audit.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          print(report["expectedTextures"])
+          PY
+          )"
+          test "$EXPECTED_TEXTURES" -gt 0
+
           dotnet "$APP" \
             kino-pak-unpacked \
             kino-download/PavMappings.usmap \
             kino-download/kino-class-census.json \
             kino-download/ue-xztx-probe \
-            16 \
+            "$EXPECTED_TEXTURES" \
             ue5.1 \
             | tee kino-download/ue-xztx-probe.log
 
           test -s kino-download/ue-xztx-probe/report.json
           grep -q 'XZIEL_UE_XZTX_PROBE_GREEN' \
             kino-download/ue-xztx-probe.log
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          deep = json.loads(
+              Path("kino-download/kino-deep-payload-audit.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          native = json.loads(
+              Path("kino-download/ue-xztx-probe/report.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+
+          assert native["ready"] is True
+          assert native["failureCount"] == 0
+          assert native["requestedTextures"] == deep["expectedTextures"]
+          assert native["convertedTextures"] == deep["texturesDecoded"]
+          assert native["totalMips"] == deep["textureMips"]
+          assert native["totalPayloadBytes"] == deep["textureBytes"]
+
+          print("XZIEL_KINO_UE_XZTX_PAYLOAD_PARITY_GREEN", {
+              "textures": native["convertedTextures"],
+              "mips": native["totalMips"],
+              "payloadBytes": native["totalPayloadBytes"],
+              "formats": native["formatCounts"],
+          })
+          PY
 
           mkdir -p build/xztx-native-gate
           cc -std=gnu11 -Wall -Wextra -Werror \
@@ -684,15 +727,24 @@ jobs:
 
           mapfile -t TEXTURES < <(find kino-download/ue-xztx-probe \
             -maxdepth 1 -type f -name '*.xzt' | sort)
-          test "${#TEXTURES[@]}" -eq 16
+          test "${#TEXTURES[@]}" -eq "$EXPECTED_TEXTURES"
 
-          build/xztx-native-gate/xz-xztexture-file-gate "${TEXTURES[@]}" \
+          : > kino-download/ue-xztx-native-gate.log
+          printf '%s\0' "${TEXTURES[@]}" \
+            | xargs -0 -r -n 128 \
+                build/xztx-native-gate/xz-xztexture-file-gate \
             | tee kino-download/ue-xztx-native-gate.log
 
-          grep -q 'XZIEL_XZTX_NATIVE_FILES_GREEN count=16' \
-            kino-download/ue-xztx-native-gate.log
+          test "$(grep -c '^XZIEL_XZTX_FILE_GATE_OK ' \
+            kino-download/ue-xztx-native-gate.log)" \
+            -eq "$EXPECTED_TEXTURES"
 
-          echo XZIEL_KINO_UE_XZTX_NATIVE_PROBE_GREEN
+          echo "XZIEL_KINO_UE_XZTX_NATIVE_ALL_GREEN count=$EXPECTED_TEXTURES"
+
+          # Keep reports/logs, but release the ~source-payload-sized native files
+          # before the remaining scene audits to avoid unnecessary runner pressure.
+          find kino-download/ue-xztx-probe \
+            -maxdepth 1 -type f -name '*.xzt' -delete
 
       - name: Audit complete UE scene transform semantics
         run: |
