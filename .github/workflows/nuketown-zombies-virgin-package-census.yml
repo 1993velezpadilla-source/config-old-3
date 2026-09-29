@@ -1492,18 +1492,48 @@ jobs:
           rm -rf nuketown-download/ue-xzms-probe
           mkdir -p nuketown-download/ue-xzms-probe
 
+          EXPECTED_XZMS=$(jq -r '.classCounts.StaticMesh // 0' \
+            nuketown-download/nuketown-class-census.json)
+          test "$EXPECTED_XZMS" -gt 0
+
           dotnet "$APP" \
             nuketown-pak-unpacked \
             nuketown-download/PavMappings.usmap \
             nuketown-download/nuketown-class-census.json \
             nuketown-download/ue-xzms-probe \
-            8 \
+            "$EXPECTED_XZMS" \
             ue5.1 \
             | tee nuketown-download/ue-xzms-probe.log
 
           test -s nuketown-download/ue-xzms-probe/report.json
           grep -q 'XZIEL_UE_XZMS_PROBE_GREEN' \
             nuketown-download/ue-xzms-probe.log
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          census = json.loads(
+              Path("nuketown-download/nuketown-class-census.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          report = json.loads(
+              Path("nuketown-download/ue-xzms-probe/report.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          expected = int(census["classCounts"]["StaticMesh"])
+          assert report["requested"] == expected, (report["requested"], expected)
+          assert report["converted"] == expected, (report["converted"], expected)
+          assert report["failures"] == 0, report["failures"]
+          assert report["ready"] is True
+          print("XZIEL_UE_XZMS_FULL_COVERAGE_GREEN", {
+              "expected": expected,
+              "converted": report["converted"],
+              "failures": report["failures"],
+          })
+          PY
 
           mkdir -p build/xzms-native-gate
           cc -std=gnu11 -Wall -Wextra -Werror \
@@ -1515,12 +1545,12 @@ jobs:
 
           mapfile -t MESHES < <(find nuketown-download/ue-xzms-probe \
             -maxdepth 1 -type f -name '*.xzm' | sort)
-          test "${#MESHES[@]}" -eq 8
+          test "${#MESHES[@]}" -eq "$EXPECTED_XZMS"
 
           build/xzms-native-gate/xz-xzmesh-file-gate "${MESHES[@]}" \
             | tee nuketown-download/ue-xzms-native-gate.log
 
-          grep -q 'XZIEL_XZMS_NATIVE_FILES_GREEN count=8' \
+          grep -q "XZIEL_XZMS_NATIVE_FILES_GREEN count=$EXPECTED_XZMS" \
             nuketown-download/ue-xzms-native-gate.log
 
       - name: Build 1-to-1 source export dependency manifest
@@ -1772,6 +1802,9 @@ jobs:
             nuketown-download/ue-xzan-probe/
             nuketown-download/ue-xzan-probe.log
             nuketown-download/ue-xzan-native-gate.log
+            nuketown-download/ue-xzms-probe/
+            nuketown-download/ue-xzms-probe.log
+            nuketown-download/ue-xzms-native-gate.log
             nuketown-download/deep-payload-shards/
             nuketown-download/nuketown-source-export-manifest-summary.json
             nuketown-download/nuketown-source-adapter-requirements.txt
