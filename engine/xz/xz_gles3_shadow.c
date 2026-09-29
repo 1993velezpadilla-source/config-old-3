@@ -6696,7 +6696,8 @@ static int XzDrawStaticScene(
                 gl->ActiveTexture(GL_TEXTURE0);
             }
 
-            if (state->static_scene_pbr_ready) {
+            if (state->static_scene_pbr_ready &&
+                !use_native_materials) {
                 if (pbr_cursor >=
                         xz_shadow.static_pbr_binding_count)
                     goto fail;
@@ -6723,6 +6724,18 @@ static int XzDrawStaticScene(
             gl->Uniform1i(
                 xz_shadow.static_pbr_flags_loc,
                 (GLint)pbr_binding.flags);
+            gl->Uniform1i(
+                xz_shadow.static_material_shading_mode_loc,
+                -1);
+            gl->Uniform1i(
+                xz_shadow.static_material_blend_mode_loc,
+                -1);
+            gl->Uniform1f(
+                xz_shadow.static_material_opacity_loc,
+                1.0f);
+            gl->Uniform1f(
+                xz_shadow.static_opacity_mask_clip_loc,
+                0.333f);
 
             if (use_baked_lightmap) {
                 uint32_t lightmap_batch_offset;
@@ -6818,31 +6831,50 @@ static int XzDrawStaticScene(
                         goto fail;
 
                     if (use_native_materials) {
+                        const uint32_t global_batch =
+                            first_material_batch +
+                            material_batch_offset;
+                        uint32_t binding_offset;
                         uint32_t material_index;
-                        XzMaterialLibraryMaterial material;
+                        const XzGles3NativeMaterial *material;
+
+                        if (!xz_shadow.static_native_material_ready ||
+                            !xz_shadow.static_native_materials ||
+                            !xz_shadow.static_material_batch_offsets ||
+                            !xz_shadow.static_material_batch_materials ||
+                            global_batch >=
+                                xz_shadow.static_material_draw_plan.batch_count)
+                            goto fail;
+
+                        binding_offset =
+                            xz_shadow.static_material_batch_offsets[
+                                global_batch];
+
+                        if ((uint64_t)binding_offset +
+                                (uint64_t)submesh_index >=
+                            (uint64_t)xz_shadow
+                                .static_material_batch_binding_count)
+                            goto fail;
+
+                        material_index =
+                            xz_shadow.static_material_batch_materials[
+                                binding_offset +
+                                    submesh_index];
+
+                        if (material_index >=
+                                xz_shadow.static_native_material_count)
+                            goto fail;
+
+                        material =
+                            &xz_shadow.static_native_materials[
+                                material_index];
 
                         has_texture = 0;
                         has_normal = 0;
                         texture_index =
-                            XZ_STATIC_MATERIAL_NO_TEXTURE;
+                            material->canonical_texture[0];
                         normal_texture_index =
-                            XZ_STATIC_MATERIAL_NO_TEXTURE;
-
-                        if (!XzStaticSceneRuntime_InstanceMaterial(
-                                scene,
-                                batch->representative_source_instance,
-                                submesh_index,
-                                &material_index) ||
-                            !XzStaticSceneRuntime_Material(
-                                scene,
-                                material_index,
-                                &material))
-                            goto fail;
-
-                        texture_index =
-                            material.canonical_texture[0];
-                        normal_texture_index =
-                            material.canonical_texture[1];
+                            material->canonical_texture[1];
 
                         gl->ActiveTexture(GL_TEXTURE0);
                         if (texture_index !=
@@ -6869,7 +6901,9 @@ static int XzDrawStaticScene(
 
                         gl->ActiveTexture(GL_TEXTURE1);
                         if (normal_texture_index !=
-                                XZ_XZML_NO_TEXTURE) {
+                                XZ_XZML_NO_TEXTURE &&
+                            material->shading_mode !=
+                                XZ_NATIVE_SHADING_UNLIT) {
                             if (normal_texture_index >=
                                     xz_shadow.static_texture_count ||
                                 !xz_shadow.static_textures ||
@@ -6891,6 +6925,11 @@ static int XzDrawStaticScene(
                                 0u);
                         }
 
+                        pbr_params[0] = material->roughness;
+                        pbr_params[1] = material->metallic;
+                        pbr_params[2] = material->specular;
+                        pbr_params[3] = material->emissive;
+
                         gl->ActiveTexture(GL_TEXTURE0);
                         gl->Uniform1i(
                             xz_shadow.static_texture_enabled_loc,
@@ -6898,6 +6937,42 @@ static int XzDrawStaticScene(
                         gl->Uniform1i(
                             xz_shadow.static_normal_texture_enabled_loc,
                             has_normal);
+                        gl->Uniform4fv(
+                            xz_shadow.static_pbr_params_loc,
+                            1,
+                            pbr_params);
+                        gl->Uniform1i(
+                            xz_shadow.static_pbr_flags_loc,
+                            (GLint)material->pbr_flags);
+                        gl->Uniform1i(
+                            xz_shadow.static_material_shading_mode_loc,
+                            (GLint)material->shading_mode);
+                        gl->Uniform1i(
+                            xz_shadow.static_material_blend_mode_loc,
+                            (GLint)material->blend_mode);
+                        gl->Uniform1f(
+                            xz_shadow.static_material_opacity_loc,
+                            material->opacity);
+                        gl->Uniform1f(
+                            xz_shadow.static_opacity_mask_clip_loc,
+                            material->opacity_mask_clip);
+
+                        if (material->disable_depth_test)
+                            gl->Disable(GL_DEPTH_TEST);
+                        else
+                            gl->Enable(GL_DEPTH_TEST);
+
+                        if (material->blend_mode ==
+                                XZ_NATIVE_BLEND_TRANSLUCENT) {
+                            gl->Enable(GL_BLEND);
+                            gl->BlendFunc(
+                                GL_SRC_ALPHA,
+                                GL_ONE_MINUS_SRC_ALPHA);
+                            gl->DepthMask(GL_FALSE);
+                        } else {
+                            gl->Disable(GL_BLEND);
+                            gl->DepthMask(GL_TRUE);
+                        }
                     }
 
                     if (has_texture)
@@ -6937,6 +7012,10 @@ static int XzDrawStaticScene(
             }
         }
     }
+
+    gl->Enable(GL_DEPTH_TEST);
+    gl->DepthMask(GL_TRUE);
+    gl->Disable(GL_BLEND);
 
     if (gl->GetError() != GL_NO_ERROR)
         goto fail;
