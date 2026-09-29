@@ -524,21 +524,48 @@ static string DetectUnrealProjectRoot(string root)
     if (Directory.Exists(directContent))
         return fullRoot;
 
-    var candidates = Directory.EnumerateDirectories(fullRoot, "*", SearchOption.TopDirectoryOnly)
+    var candidates = Directory.EnumerateDirectories(
+            fullRoot,
+            "*",
+            SearchOption.TopDirectoryOnly)
         .Where(dir => Directory.Exists(Path.Combine(dir, "Content")))
-        .OrderBy(dir => dir, StringComparer.OrdinalIgnoreCase)
+        .Where(dir =>
+            !Path.GetFileName(dir).Equals(
+                "Engine",
+                StringComparison.OrdinalIgnoreCase))
+        .Select(dir => new {
+            Path = dir,
+            HasUproject = Directory.EnumerateFiles(
+                dir,
+                "*.uproject",
+                SearchOption.TopDirectoryOnly).Any(),
+            HasPlugins = Directory.Exists(Path.Combine(dir, "Plugins")),
+            HasConfig = Directory.Exists(Path.Combine(dir, "Config")),
+        })
+        .OrderByDescending(x => x.HasUproject)
+        .ThenByDescending(x => x.HasPlugins)
+        .ThenByDescending(x => x.HasConfig)
+        .ThenBy(x => x.Path, StringComparer.OrdinalIgnoreCase)
         .ToArray();
-
-    if (candidates.Length == 1)
-        return candidates[0];
 
     if (candidates.Length == 0)
         throw new DirectoryNotFoundException(
             $"could not detect Unreal project root below {fullRoot}");
 
+    var best = candidates[0];
+    var tied = candidates
+        .Where(x =>
+            x.HasUproject == best.HasUproject &&
+            x.HasPlugins == best.HasPlugins &&
+            x.HasConfig == best.HasConfig)
+        .ToArray();
+
+    if (tied.Length == 1)
+        return best.Path;
+
     throw new InvalidDataException(
         $"ambiguous Unreal project roots below {fullRoot}: " +
-        string.Join(", ", candidates));
+        string.Join(", ", tied.Select(x => x.Path)));
 }
 
 static void RegisterDiscoveredPluginMounts(DefaultFileProvider provider)
