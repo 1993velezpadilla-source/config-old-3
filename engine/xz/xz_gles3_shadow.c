@@ -6972,6 +6972,20 @@ static int XzDrawStaticScene(
                             gl->Disable(GL_BLEND);
                             gl->DepthMask(GL_TRUE);
                         }
+
+                        if (material->two_sided) {
+                            gl->Disable(GL_CULL_FACE);
+                        } else {
+                            gl->Enable(GL_CULL_FACE);
+                            gl->CullFace(GL_BACK);
+                            /*
+                             * UE source triangles are clockwise relative to
+                             * authored outward normals. XZMS mirrors Y and
+                             * swaps B/C, preserving that source front-face
+                             * orientation exactly.
+                             */
+                            gl->FrontFace(GL_CW);
+                        }
                     }
 
                     if (has_texture)
@@ -7015,6 +7029,8 @@ static int XzDrawStaticScene(
     gl->Enable(GL_DEPTH_TEST);
     gl->DepthMask(GL_TRUE);
     gl->Disable(GL_BLEND);
+    gl->Disable(GL_CULL_FACE);
+    gl->FrontFace(GL_CCW);
 
     if (gl->GetError() != GL_NO_ERROR)
         goto fail;
