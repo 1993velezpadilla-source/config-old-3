@@ -1,5 +1,11 @@
 #include "xz_source_native_registry.h"
 
+#include "xz_xzmesh.h"
+#include "xz_xztexture.h"
+#include "xz_xzaudio.h"
+#include "xz_xzskel.h"
+#include "xz_xzanim.h"
+
 #include <string.h>
 
 static const XzSourceNativeAdapter g_adapters[] = {
@@ -88,6 +94,55 @@ const char *XzSourceNativeRegistry_TypeName(
         (unsigned int)type];
 }
 
+int XzSourceNativeRegistry_ValidatePayload(
+    const XzSourceNativeAdapter *adapter,
+    const void *data,
+    size_t size)
+{
+    if (!adapter || !data || size == 0u)
+        return 0;
+
+    switch (adapter->native_type) {
+    case XZ_NATIVE_PAYLOAD_XZMS: {
+        XzXzmeshView view;
+        return XzXzmesh_Parse(
+            &view,
+            data,
+            size) == XZ_XZMS_OK;
+    }
+    case XZ_NATIVE_PAYLOAD_XZTX: {
+        XzXztextureView view;
+        return XzXztexture_Parse(
+            &view,
+            data,
+            size) == XZ_XZTX_OK;
+    }
+    case XZ_NATIVE_PAYLOAD_XZAW: {
+        XzXzaudioView view;
+        return XzXzaudio_Parse(
+            &view,
+            data,
+            size) == XZ_XZAW_OK;
+    }
+    case XZ_NATIVE_PAYLOAD_XZSK: {
+        XzXzskelView view;
+        return XzXzskel_Parse(
+            &view,
+            data,
+            size) == XZ_XZSK_OK;
+    }
+    case XZ_NATIVE_PAYLOAD_XZAN: {
+        XzXzanimView view;
+        return XzXzanim_Parse(
+            &view,
+            data,
+            size) == XZ_XZAN_OK;
+    }
+    default:
+        return 0;
+    }
+}
+
 int XzSourceNativeRegistry_SelfTest(void)
 {
     const XzSourceNativeAdapter *adapter;
@@ -151,6 +206,12 @@ int XzSourceNativeRegistry_SelfTest(void)
 
     if (XzSourceNativeRegistry_Find(
             "Material") != NULL)
+        return 0;
+
+    if (XzSourceNativeRegistry_ValidatePayload(
+            adapter,
+            "bad",
+            3u))
         return 0;
 
     return 1;
