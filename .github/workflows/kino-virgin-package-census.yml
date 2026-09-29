@@ -1031,6 +1031,13 @@ jobs:
           rig_hashes = set(xzsk["skeletonHashCounts"])
           anim_hashes = set(native["skeletonHashCounts"])
           overlap = rig_hashes & anim_hashes
+          missing_rigs = sorted(anim_hashes - rig_hashes)
+
+          assert not missing_rigs, {
+              "animationSkeletonsWithoutNativeRig": missing_rigs,
+              "animationSkeletonCount": len(anim_hashes),
+              "rigSkeletonCount": len(rig_hashes),
+          }
 
           print("XZIEL_KINO_UE_XZAN_PAYLOAD_PARITY_GREEN", {
               "animations": native["convertedAnimations"],
@@ -1047,6 +1054,7 @@ jobs:
               "animationSkeletons": len(anim_hashes),
               "rigSkeletons": len(rig_hashes),
               "linkedSkeletons": len(overlap),
+              "missingNativeRigs": len(missing_rigs),
           })
           PY
 
