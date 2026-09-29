@@ -4,7 +4,7 @@
 #include <string.h>
 
 #define XZ_XZMS_KNOWN_FLAGS \
-    (XZ_XZMS_FLAG_GLTF_TO_XZIEL | XZ_XZMS_FLAG_INDEX_U32)
+    (XZ_XZMS_FLAG_XZIEL_BASIS | XZ_XZMS_FLAG_INDEX_U32)
 #define XZ_XZMS_REQUIRED_FLAGS XZ_XZMS_KNOWN_FLAGS
 #define XZ_XZMS_KNOWN_ATTRS \
     (XZ_XZMS_ATTR_POSITION | XZ_XZMS_ATTR_NORMAL | XZ_XZMS_ATTR_UV0 | \
@@ -448,7 +448,7 @@ int XzXzmesh_SelfTest(void)
     XzWriteU32Le(data + 16u, 1u);
     XzWriteU32Le(
         data + 20u,
-        XZ_XZMS_FLAG_GLTF_TO_XZIEL |
+        XZ_XZMS_FLAG_XZIEL_BASIS |
         XZ_XZMS_FLAG_INDEX_U32);
     XzWriteU32Le(data + 24u, XZ_XZMS_VERTEX_BYTES);
     XzWriteU32Le(data + 28u, XZ_XZMS_SUBMESH_BYTES);
