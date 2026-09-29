@@ -381,3 +381,117 @@ Conclusion:
 - neither one converts the original ARM32 BOZ payload into ARM64 game code.
 
 For XZIEL this reinforces the clean-room direction: keep Android platform integration thin and make the actual game/runtime modules native to our own ARM64/Vulkan architecture rather than depending on BOZ binaries.
+
+
+## Resource pipeline: Marmalade Derbh/DZip and IwResGroup
+
+Public Marmalade tooling confirms that the BOZ `.dz` family uses the Marmalade **Derbh/DZip** archive format.
+
+### Derbh / .dz container
+
+Verified high-level structure:
+
+```
+0x00  "DTRZ"
+0x04  u16 file_count
+0x06  u16 folder_count (includes root)
+0x08  root-folder placeholder
+      NUL-terminated file names
+      NUL-terminated folder paths
+      file attribute records
+      location-table metadata
+      per-file location records
+      compressed/stored file payloads
+```
+
+Each file has a folder index plus a location record containing an offset, size fields and a compression-method tag.
+
+Known compression methods in public tooling include:
+- `0x100` stored
+- `0x200` LZMA-alone
+- `0x008` gzip/DEFLATE-style data
+- additional method values are recognized by readers and may use fallback detection
+
+This means a DZ is not itself a monolithic opaque asset. It is an indexed virtual filesystem/archive layer.
+
+### IwResGroup / .group.bin
+
+Inside extracted DZ files, Marmalade uses serialised **IwResGroup** bundles. A group begins with magic `0x3d` and contains hash-addressed sections.
+
+The important `ResGroupResources` section groups resources by **class hash**, count and per-resource metadata/body.
+
+Public decoders currently recognize classes such as:
+
+- `CIwTexture`
+- `CIwMaterial`
+- `CIwModel`
+- `CIwGxFont`
+- `CIwResGroup`
+- `CIwResList`
+- `CIwResTemplate`
+
+Resource names and classes use Marmalade's 32-bit `IwHashString` system.
+
+### Asset hierarchy
+
+The practical pipeline is therefore:
+
+```
+blackops_*.dz
+  -> Derbh/DTRZ archive entries
+      -> *.group.bin / loose data
+          -> IwResGroup
+              -> class buckets
+                  -> CIwTexture
+                  -> CIwMaterial
+                  -> CIwModel
+                  -> CIwGxFont
+                  -> other hashed resource classes
+```
+
+This is the first concrete map of BOZ's resource-manager layers.
+
+### Geometry and materials
+
+Public Marmalade parsers show that `CIwModel` is block-based. Known geometry blocks include:
+
+- `CIwModelBlockVerts`: signed 16-bit XYZ vertices
+- `CIwModelBlockGLUVs`: signed 16-bit UVs with fixed-point scale 4096
+- `CIwModelBlockGLTriList`: unsigned 16-bit triangle indices
+
+`CIwMaterial` stores:
+- flags
+- multiple RGBA colour channels
+- references to textures by hash
+
+Therefore the material->texture relationship can be reconstructed from hashes rather than relying on filenames alone.
+
+### Textures
+
+`CIwTexture` bodies contain dimensions/pitch plus raw texel data. Public tooling supports layouts including:
+- RGBA8888
+- RGB888
+- RGB565
+- single-channel/greyscale
+
+BOZ's multiple `blackops_gles1/dxt/atitc/etc.dz` variants should therefore be treated as hardware/texture packaging variants layered above the same logical resource system.
+
+### XZIEL implication
+
+The reusable pattern is:
+
+```
+XZArchive
+  -> indexed files
+XZResourceGroup
+  -> hashed resource classes
+XZModel / XZMaterial / XZTexture / XZFont
+  -> native Vulkan-ready runtime objects
+```
+
+We should not copy BOZ game assets, but this architecture gives XZIEL a strong reference for a compact mobile resource pipeline.
+
+## Public tooling references added to audit
+
+- `knot126/Marmalade-Modding`: S3E/DZ/group reverse-engineering utilities.
+- `Tatsh/dade`: current open Marmalade decoders for Derbh, IwResGroup, CIwTexture, CIwMaterial and CIwModel.
