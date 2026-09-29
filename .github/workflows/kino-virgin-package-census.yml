@@ -15,6 +15,7 @@ on:
       - engine/xz/xz_xzmesh.c
       - tools/maps/xz_xzmesh_file_gate.c
       - tools/maps/UEStaticMeshXZMS/**
+      - tools/maps/UEStaticMeshAudit/**
       - tools/maps/UESceneTransformAudit/**
       - tools/maps/UEAssetSourceManifest/**
       - tools/maps/xz_source_class_gate.c
@@ -535,6 +536,102 @@ jobs:
           if not out["ready"]:
               raise SystemExit(5)
           print("XZIEL_KINO_SCENE_TRANSFORM_AUDIT_GREEN")
+          PY
+
+      - name: Audit every cooked UE static mesh
+        run: |
+          set -euxo pipefail
+          dotnet restore tools/maps/UEStaticMeshAudit/UEStaticMeshAudit.csproj
+          dotnet build tools/maps/UEStaticMeshAudit/UEStaticMeshAudit.csproj \
+            --configuration Release \
+            --no-restore
+
+          APP="tools/maps/UEStaticMeshAudit/bin/Release/net10.0/UEStaticMeshAudit.dll"
+          test -s "$APP"
+
+          mkdir -p kino-download/static-mesh-audit-shards
+          SHARDS=16
+          for i in $(seq 0 $((SHARDS - 1))); do
+            dotnet "$APP" \
+              kino-pak-unpacked \
+              kino-download/PavMappings.usmap \
+              kino-download/kino-class-census.json \
+              "kino-download/static-mesh-audit-shards/shard-$i.json" \
+              "$i" "$SHARDS" ue5.1 \
+              | tee "kino-download/static-mesh-audit-shards/shard-$i.log"
+          done
+
+          python3 - <<'PY'
+          import json
+          from collections import Counter
+          from pathlib import Path
+
+          reports = [
+              json.loads(p.read_text(encoding="utf-8"))
+              for p in sorted(
+                  Path("kino-download/static-mesh-audit-shards").glob("shard-*.json"),
+                  key=lambda p: int(p.stem.split("-")[1]),
+              )
+          ]
+          assert len(reports) == 16, len(reports)
+
+          census = json.loads(
+              Path("kino-download/kino-class-census.json").read_text(encoding="utf-8")
+          )
+          expected_meshes = census["classCounts"]["StaticMesh"]
+
+          uv_counts = Counter()
+          failures = []
+          for r in reports:
+              assert r["ready"], r["shardIndex"]
+              uv_counts.update({int(k): v for k, v in r["uvChannelCounts"].items()})
+              failures.extend(r["failures"])
+
+          out = {
+              "schemaVersion": 1,
+              "shardCount": 16,
+              "packageCount": sum(r["packageCount"] for r in reports),
+              "packagesLoaded": sum(r["packagesLoaded"] for r in reports),
+              "expectedMeshes": sum(r["expectedMeshes"] for r in reports),
+              "meshesDecoded": sum(r["meshesDecoded"] for r in reports),
+              "failureCount": len(failures),
+              "vertices": sum(r["vertices"] for r in reports),
+              "indices": sum(r["indices"] for r in reports),
+              "triangles": sum(r["triangles"] for r in reports),
+              "sections": sum(r["sections"] for r in reports),
+              "materials": sum(r["materials"] for r in reports),
+              "maxUvChannels": max(r["maxUvChannels"] for r in reports),
+              "uvChannelCounts": dict(sorted(uv_counts.items())),
+              "maxVertices": max(r["maxVertices"] for r in reports),
+              "maxTriangles": max(r["maxTriangles"] for r in reports),
+              "failures": failures,
+          }
+          out["ready"] = (
+              out["expectedMeshes"] == expected_meshes
+              and out["meshesDecoded"] == expected_meshes
+              and out["failureCount"] == 0
+              and 1 <= out["maxUvChannels"] <= 8
+          )
+
+          Path("kino-download/kino-static-mesh-audit.json").write_text(
+              json.dumps(out, indent=2, sort_keys=True),
+              encoding="utf-8",
+          )
+
+          print("XZIEL_KINO_STATIC_MESH_AUDIT", {
+              "expected": expected_meshes,
+              "decoded": out["meshesDecoded"],
+              "failures": out["failureCount"],
+              "vertices": out["vertices"],
+              "triangles": out["triangles"],
+              "sections": out["sections"],
+              "maxUvChannels": out["maxUvChannels"],
+              "uvChannelCounts": out["uvChannelCounts"],
+              "ready": out["ready"],
+          })
+          if not out["ready"]:
+              raise SystemExit(5)
+          print("XZIEL_KINO_STATIC_MESH_AUDIT_GREEN")
           PY
 
       - name: Convert cooked UE static meshes directly to native XZMS
