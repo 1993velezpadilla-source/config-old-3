@@ -32,6 +32,7 @@ on:
       - feature/xz-special-raster-suppress
       - feature/xz-full-world-raster-retirement
       - feature/xziel-engine-nacht-runtime-v1
+      - feature/xziel-bo3-style-map-loader-v1
     paths:
       - ".github/workflows/android-native.yml"
       - "android/**"
