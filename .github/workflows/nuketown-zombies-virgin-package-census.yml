@@ -1711,6 +1711,7 @@ jobs:
             tools/maps/xz_static_scene_runtime_file_gate.c \
             engine/xz/xz_static_scene_runtime.c \
             engine/xz/xz_material_instance_binding.c \
+            engine/xz/xz_material_library.c \
             engine/xz/xz_xzscene.c \
             engine/xz/xz_xzmesh.c \
             engine/xz/xz_environment.c \
@@ -1911,6 +1912,23 @@ jobs:
             -eq "$EXPECTED_XZML_TEXTURES"
 
           echo "XZIEL_XZML_RUNTIME_PAYLOAD_GREEN materials=$EXPECTED_XZML_MATERIALS textures=$EXPECTED_XZML_TEXTURES"
+
+          build/xzsc-native-gate/xz-static-scene-runtime-file-gate \
+            nuketown-download/runtime-static-scene/vfs \
+            "$RUNTIME_MAP_ID" \
+            "$EXPECTED_SCENE_MESHES" \
+            "$EXPECTED_SCENE_INSTANCES" \
+            "$EXPECTED_XZMI_BINDINGS" \
+            "$EXPECTED_XZML_MATERIALS" \
+            "$EXPECTED_XZML_TEXTURES" \
+            | tee nuketown-download/runtime-static-scene/runtime-xzml-gate.log
+
+          grep -q 'XZIEL_STATIC_SCENE_RUNTIME_FILE_GATE_GREEN' \
+            nuketown-download/runtime-static-scene/runtime-xzml-gate.log
+          grep -q 'xzmi=1' \
+            nuketown-download/runtime-static-scene/runtime-xzml-gate.log
+          grep -q 'xzml=1' \
+            nuketown-download/runtime-static-scene/runtime-xzml-gate.log
 
           # The complete 321-texture source conversion was already validated.
           # Keep only the final visible runtime texture subset in the artifact.
