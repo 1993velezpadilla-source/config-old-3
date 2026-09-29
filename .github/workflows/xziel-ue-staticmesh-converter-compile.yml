@@ -27,7 +27,9 @@ on:
       - engine/xz/xz_xzskel.c
       - tools/maps/xz_xzskel_file_gate.c
       - tools/maps/UESkeletalMeshXZSK/**
+      - tools/maps/UEAnimationXZAN/**
       - tools/maps/common/XzielSkeletonIdentity.cs
+      - tools/maps/xz_xzanim_file_gate.c
       - engine/xz/xz_xzanim.h
       - engine/xz/xz_xzanim.c
       - tools/maps/xz_native_payload_selftest.c
@@ -173,6 +175,31 @@ jobs:
             -o build/xzsk-native-gate/xz-xzskel-file-gate
           test -x build/xzsk-native-gate/xz-xzskel-file-gate
           echo XZIEL_UE_XZSK_CONVERTER_COMPILE_GREEN
+
+      - name: Compile UE AnimSequence to XZAN converter
+        run: |
+          set -euxo pipefail
+          dotnet restore tools/maps/UEAnimationXZAN/UEAnimationXZAN.csproj \
+            -p:CUE4ParseSourceRoot="$CUE4PARSE_SOURCE_ROOT" \
+            -p:CUE4PARSE_SKIP_NATIVE=true
+          dotnet build tools/maps/UEAnimationXZAN/UEAnimationXZAN.csproj \
+            --configuration Release \
+            --no-restore \
+            -p:CUE4ParseSourceRoot="$CUE4PARSE_SOURCE_ROOT" \
+            -p:CUE4PARSE_SKIP_NATIVE=true
+
+      - name: Compile native XZAN file validator
+        run: |
+          set -euxo pipefail
+          mkdir -p build/xzan-native-gate
+          cc -std=gnu11 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tools/maps/xz_xzanim_file_gate.c \
+            engine/xz/xz_xzanim.c \
+            -lm \
+            -o build/xzan-native-gate/xz-xzanim-file-gate
+          test -x build/xzan-native-gate/xz-xzanim-file-gate
+          echo XZIEL_UE_XZAN_CONVERTER_COMPILE_GREEN
 
       - name: Compile native rig and animation payload validator
         run: |
