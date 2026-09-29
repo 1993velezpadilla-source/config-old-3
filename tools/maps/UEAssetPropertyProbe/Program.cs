@@ -198,14 +198,18 @@ foreach (var selectedPackage in selected.Values
 
     try
     {
-        if (resolvedPackagePath is null ||
-            !provider.TryLoadPackage(
-                resolvedPackagePath,
-                out var package))
+        if (resolvedPackagePath is null)
         {
             throw new InvalidOperationException(
                 "provider could not resolve census package path");
         }
+
+        /*
+         * Do not use TryLoadPackage here: it intentionally suppresses parser
+         * exceptions. This probe exists to surface the exact missing/invalid
+         * schema when a real unversioned payload cannot be deserialized.
+         */
+        var package = provider.LoadPackage(resolvedPackagePath);
 
         packageSuccesses++;
 
