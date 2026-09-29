@@ -29,34 +29,20 @@ jobs:
       - name: Checkout XZIEL
         uses: actions/checkout@v5
 
-      - name: Wait for and download input-bridge GREEN EXE
+      - name: Download input-bridge GREEN EXE
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           SOURCE_RUN=36644822493
-          mkdir -p input
+          mkdir -p input/exe
 
-          ok=0
-          for attempt in $(seq 1 80); do
-            rm -rf input/exe
-            mkdir -p input/exe
-            if gh run download "$SOURCE_RUN"               --repo "${{ github.repository }}"               --name "XZIEL-Nacht-Windows-OneFile-Fast"               --dir input/exe 2>/tmp/xziel-gh.err; then
-              ok=1
-              break
-            fi
+          gh run download "$SOURCE_RUN" \
+            --repo "${{ github.repository }}" \
+            --name "XZIEL-Nacht-Windows-OneFile-Fast" \
+            --dir input/exe
 
-            status="$(gh run view "$SOURCE_RUN" --repo "${{ github.repository }}" --json status,conclusion --jq '.status + ":" + (.conclusion // "")')"
-            echo "source_run=$SOURCE_RUN attempt=$attempt status=$status"
-            if [[ "$status" == "completed:failure" || "$status" == "completed:cancelled" ]]; then
-              cat /tmp/xziel-gh.err || true
-              exit 1
-            fi
-            sleep 10
-          done
-
-          test "$ok" = "1"
           EXE="$(find input/exe -type f -name 'Nacht-Chronicles-XZIEL.exe' -print -quit)"
           test -n "$EXE"
           test -s "$EXE"
@@ -98,94 +84,36 @@ jobs:
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "ndk;24.0.8215888" "cmake;3.22.1"
 
-      - name: Build touch gyro hybrid APK
+      - name: Build official-skin touch gyro hybrid APK
         shell: bash
         run: |
           set -euo pipefail
           chmod +x scripts/build_xziel_nacht_hybrid_touch_apk.sh
           bash scripts/build_xziel_nacht_hybrid_touch_apk.sh
 
-      - name: Verify touch gyro contract
+      - name: Verify touch gyro and skin contract
         shell: bash
         run: |
           set -euo pipefail
           CONTRACT=build/xziel-nacht-hybrid-touch/dist/control-contract.txt
           APK=build/xziel-nacht-hybrid-touch/dist/XZIEL-Nacht-Hybrid-TouchGyro-PixelFold-debug.apk
+
           test -s "$CONTRACT"
           test -s "$APK"
           grep -q '^gyro=enabled$' "$CONTRACT"
           grep -q '^hip_fire=mouse_left$' "$CONTRACT"
           grep -q '^ads_fire=mouse_right+mouse_left$' "$CONTRACT"
-          grep -q '^skin=xziel_hud_zombies_mobile_v1
-          echo "XZIEL_TOUCH_GYRO_CONTRACT_GREEN"
+          grep -q '^skin=xziel_hud_zombies_mobile_v1$' "$CONTRACT"
+          grep -q '^skin_asset_count=12$' "$CONTRACT"
+          grep -q '^skin_idle_alpha=210$' "$CONTRACT"
+          grep -q '^skin_pressed_alpha=246$' "$CONTRACT"
+          grep -q '^winlator_ui=hidden$' "$CONTRACT"
+          echo "XZIEL_TOUCH_GYRO_OFFICIAL_SKIN_CONTRACT_GREEN"
 
       - name: Upload Pixel Fold APK
         uses: actions/upload-artifact@v4
         with:
-          name: XZIEL-Nacht-Hybrid-TouchGyro-PixelFold
-          path: |
-            build/xziel-nacht-hybrid-touch/dist/XZIEL-Nacht-Hybrid-TouchGyro-PixelFold-debug.apk
-            build/xziel-nacht-hybrid-touch/dist/XZIEL-Nacht-Hybrid-TouchGyro-PixelFold-debug.apk.sha256
-            build/xziel-nacht-hybrid-touch/dist/apk-contents.txt
-            build/xziel-nacht-hybrid-touch/dist/control-contract.txt
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 14
- "$CONTRACT"
-          grep -q '^skin_asset_count=12
-          echo "XZIEL_TOUCH_GYRO_CONTRACT_GREEN"
-
-      - name: Upload Pixel Fold APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: XZIEL-Nacht-Hybrid-TouchGyro-PixelFold
-          path: |
-            build/xziel-nacht-hybrid-touch/dist/XZIEL-Nacht-Hybrid-TouchGyro-PixelFold-debug.apk
-            build/xziel-nacht-hybrid-touch/dist/XZIEL-Nacht-Hybrid-TouchGyro-PixelFold-debug.apk.sha256
-            build/xziel-nacht-hybrid-touch/dist/apk-contents.txt
-            build/xziel-nacht-hybrid-touch/dist/control-contract.txt
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 14
- "$CONTRACT"
-          grep -q '^skin_idle_alpha=210
-          echo "XZIEL_TOUCH_GYRO_CONTRACT_GREEN"
-
-      - name: Upload Pixel Fold APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: XZIEL-Nacht-Hybrid-TouchGyro-PixelFold
-          path: |
-            build/xziel-nacht-hybrid-touch/dist/XZIEL-Nacht-Hybrid-TouchGyro-PixelFold-debug.apk
-            build/xziel-nacht-hybrid-touch/dist/XZIEL-Nacht-Hybrid-TouchGyro-PixelFold-debug.apk.sha256
-            build/xziel-nacht-hybrid-touch/dist/apk-contents.txt
-            build/xziel-nacht-hybrid-touch/dist/control-contract.txt
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 14
- "$CONTRACT"
-          grep -q '^winlator_ui=hidden
-          echo "XZIEL_TOUCH_GYRO_CONTRACT_GREEN"
-
-      - name: Upload Pixel Fold APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: XZIEL-Nacht-Hybrid-TouchGyro-PixelFold
-          path: |
-            build/xziel-nacht-hybrid-touch/dist/XZIEL-Nacht-Hybrid-TouchGyro-PixelFold-debug.apk
-            build/xziel-nacht-hybrid-touch/dist/XZIEL-Nacht-Hybrid-TouchGyro-PixelFold-debug.apk.sha256
-            build/xziel-nacht-hybrid-touch/dist/apk-contents.txt
-            build/xziel-nacht-hybrid-touch/dist/control-contract.txt
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 14
- "$CONTRACT"
-          echo "XZIEL_TOUCH_GYRO_CONTRACT_GREEN"
-
-      - name: Upload Pixel Fold APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: XZIEL-Nacht-Hybrid-TouchGyro-PixelFold
+          name: XZIEL-Nacht-Hybrid-TouchGyro-PixelFold-OfficialHUD
           path: |
             build/xziel-nacht-hybrid-touch/dist/XZIEL-Nacht-Hybrid-TouchGyro-PixelFold-debug.apk
             build/xziel-nacht-hybrid-touch/dist/XZIEL-Nacht-Hybrid-TouchGyro-PixelFold-debug.apk.sha256
