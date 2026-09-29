@@ -156,12 +156,11 @@ foreach (var logicalPackage in candidatePackages)
 
             try
             {
-                if (!mesh.Skeleton.TryLoad<USkeleton>(
-                        out var animationSkeleton))
-                {
-                    throw new InvalidDataException(
-                        "skeletal mesh has no resolvable USkeleton");
-                }
+                var animationSkeleton =
+                    ResolveMeshSkeleton(
+                        provider,
+                        mesh,
+                        out var skeletonPackagePath);
 
                 using var dto =
                     new SkeletalMeshDto(
@@ -198,6 +197,7 @@ foreach (var logicalPackage in candidatePackages)
                     result.sections,
                     result.uvChannels,
                     result.maxVertexInfluences,
+                    skeletonPackagePath,
                     skeletonPath =
                         animationSkeleton.GetPathName(),
                     skeletonHash =
@@ -845,6 +845,167 @@ static (
         meshLayoutHash,
         skeletonDto.Bones.Length,
         fileBytes);
+}
+
+static USkeleton ResolveMeshSkeleton(
+    DefaultFileProvider provider,
+    USkeletalMesh mesh,
+    out string sourcePackagePath)
+{
+    var resolved =
+        mesh.Skeleton.ResolvedObjectNoCache
+        ?? throw new InvalidDataException(
+            "skeletal mesh has no resolvable Skeleton object reference");
+
+    var objectPath =
+        resolved.GetPathName();
+
+    if (string.IsNullOrWhiteSpace(
+            objectPath))
+    {
+        throw new InvalidDataException(
+            "skeletal mesh Skeleton reference has no object path");
+    }
+
+    var dot =
+        objectPath.LastIndexOf('.');
+    var virtualPackagePath =
+        (dot > 0
+            ? objectPath[..dot]
+            : objectPath)
+        .Replace('\\', '/')
+        .Trim();
+
+    var objectName =
+        dot > 0 &&
+        dot + 1 < objectPath.Length
+            ? objectPath[(dot + 1)..]
+            : virtualPackagePath
+                .Split('/')
+                .Last();
+
+    var normalizedVirtual =
+        virtualPackagePath
+            .TrimStart('/');
+
+    var candidates =
+        new List<string>
+        {
+            normalizedVirtual + ".uasset"
+        };
+
+    var firstSlash =
+        normalizedVirtual
+            .IndexOf('/');
+
+    if (firstSlash > 0 &&
+        firstSlash + 1 <
+            normalizedVirtual.Length)
+    {
+        var mountName =
+            normalizedVirtual[
+                ..firstSlash];
+        var mountRelative =
+            normalizedVirtual[
+                (firstSlash + 1)..];
+
+        if (mountName.Equals(
+                "Game",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            candidates.Add(
+                $"Content/{mountRelative}.uasset");
+        }
+        else if (mountName.Equals(
+                     "Engine",
+                     StringComparison.OrdinalIgnoreCase))
+        {
+            candidates.Add(
+                $"Engine/Content/{mountRelative}.uasset");
+        }
+        else
+        {
+            candidates.Add(
+                $"Plugins/{mountName}/Content/{mountRelative}.uasset");
+        }
+    }
+
+    string? providerKey = null;
+
+    foreach (var suffix in
+             candidates.Distinct(
+                 StringComparer.OrdinalIgnoreCase))
+    {
+        var matches =
+            provider.Files.Keys
+                .Where(key =>
+                    key.EndsWith(
+                        suffix,
+                        StringComparison.OrdinalIgnoreCase))
+                .OrderBy(
+                    key => key.Length)
+                .ThenBy(
+                    key => key,
+                    StringComparer.OrdinalIgnoreCase)
+                .Take(2)
+                .ToArray();
+
+        if (matches.Length == 1)
+        {
+            providerKey = matches[0];
+            break;
+        }
+
+        if (matches.Length > 1)
+        {
+            throw new InvalidDataException(
+                $"ambiguous Skeleton package resolution for {objectPath}: " +
+                string.Join(", ", matches));
+        }
+    }
+
+    if (providerKey is null)
+    {
+        throw new FileNotFoundException(
+            $"Skeleton package unresolved for {objectPath}; tried " +
+            string.Join(", ", candidates));
+    }
+
+    sourcePackagePath =
+        providerKey;
+
+    var package =
+        provider.LoadPackage(
+            providerKey);
+
+    var skeletons =
+        package.GetExports()
+            .OfType<USkeleton>()
+            .ToArray();
+
+    var exact =
+        skeletons
+            .Where(skeleton =>
+                string.Equals(
+                    skeleton.Name,
+                    objectName,
+                    StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+    if (exact.Length == 1)
+        return exact[0];
+
+    if (exact.Length > 1)
+    {
+        throw new InvalidDataException(
+            $"multiple Skeleton exports named {objectName} in {providerKey}");
+    }
+
+    if (skeletons.Length == 1)
+        return skeletons[0];
+
+    throw new InvalidDataException(
+        $"Skeleton export {objectName} unresolved in {providerKey}; decoded skeleton exports={skeletons.Length}");
 }
 
 static string NormalizeMergedShardPath(
