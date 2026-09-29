@@ -7001,7 +7001,13 @@ static int XzDrawStaticScene(
                 -1);
             gl->Uniform1i(
                 xz_shadow.static_material_blend_mode_loc,
-                (GLint)pbr_binding.blend_mode);
+                (GLint)(
+                    pbr_binding.blend_mode ==
+                        XZ_PBR_BLEND_MASKED &&
+                    (pbr_binding.material_flags &
+                        XZ_PBR_MATERIAL_FLAG_ALPHA_TEST_ENABLED) == 0u
+                        ? XZ_PBR_BLEND_OPAQUE
+                        : pbr_binding.blend_mode));
             gl->Uniform1f(
                 xz_shadow.static_material_opacity_loc,
                 1.0f);
