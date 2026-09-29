@@ -53,7 +53,7 @@ android.nonTransitiveRClass=false
 GRADLE
 unset GRADLE_OPTS || true
 unset JAVA_OPTS || true
-./gradlew --no-daemon --stacktrace :app:assembleDebug
+./gradlew --no-daemon --stacktrace -Pandroid.nonFinalResIds=false -Pandroid.nonTransitiveRClass=false :app:assembleDebug
 
 APK="$WINLATOR/app/build/outputs/apk/debug/app-debug.apk"
 test -s "$APK"
