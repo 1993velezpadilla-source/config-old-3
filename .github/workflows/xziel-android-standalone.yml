@@ -67,8 +67,9 @@ jobs:
 
           mkdir -p             "$RUNNER_TEMP/xziel-android/app/src/main/java/org/libsdl/app"
           cp android/XzielActivity.java             "$RUNNER_TEMP/xziel-android/app/src/main/java/org/libsdl/app/XzielActivity.java"
+          cp android/XzielBootstrapActivity.java             "$RUNNER_TEMP/xziel-android/app/src/main/java/org/libsdl/app/XzielBootstrapActivity.java"
 
-          grep -RniE             'quake|vril|gl4es|nz:p|nzportable|quakec|ndu\.bsp|progs\.dat'             "$RUNNER_TEMP/xziel-android/app/jni/xz"             "$RUNNER_TEMP/xziel-android/app/jni/src"             "$RUNNER_TEMP/xziel-android/app/src/main/AndroidManifest.xml"             "$RUNNER_TEMP/xziel-android/app/src/main/java/org/libsdl/app/XzielActivity.java"             && exit 91 || true
+          grep -RniE             'quake|vril|gl4es|nz:p|nzportable|quakec|ndu\.bsp|progs\.dat'             "$RUNNER_TEMP/xziel-android/app/jni/xz"             "$RUNNER_TEMP/xziel-android/app/jni/src"             "$RUNNER_TEMP/xziel-android/app/src/main/AndroidManifest.xml"             "$RUNNER_TEMP/xziel-android/app/src/main/java/org/libsdl/app/XzielActivity.java"             "$RUNNER_TEMP/xziel-android/app/src/main/java/org/libsdl/app/XzielBootstrapActivity.java"             && exit 91 || true
 
           echo "XZIEL_ANDROID_PROJECT_ASSEMBLED"
 
