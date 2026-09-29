@@ -5195,6 +5195,8 @@ int XzGles3Shadow_UploadStaticScene(
         uint64_t index_bytes;
         uint32_t submesh_index;
 
+        failure_stage =
+            500000u + mesh_index * 100u + 1u;
         if (!source ||
             !source->data ||
             (source->mesh.vertex_stride !=
@@ -5208,6 +5210,8 @@ int XzGles3Shadow_UploadStaticScene(
             source->mesh.submesh_count == 0u)
             goto fail;
 
+        failure_stage =
+            500000u + mesh_index * 100u + 2u;
         dest->submeshes =
             (XzXzmeshSubmesh *)calloc(
                 source->mesh.submesh_count,
@@ -5219,6 +5223,8 @@ int XzGles3Shadow_UploadStaticScene(
              submesh_index <
                 source->mesh.submesh_count;
              ++submesh_index) {
+            failure_stage =
+                500000u + mesh_index * 100u + 3u;
             if (!XzXzmesh_ReadSubmesh(
                     &source->mesh,
                     submesh_index,
@@ -5226,6 +5232,8 @@ int XzGles3Shadow_UploadStaticScene(
                 goto fail;
         }
 
+        failure_stage =
+            500000u + mesh_index * 100u + 4u;
         vertex_bytes =
             (uint64_t)source->mesh.vertex_count *
             (uint64_t)source->mesh.vertex_stride;
@@ -5237,6 +5245,8 @@ int XzGles3Shadow_UploadStaticScene(
             index_bytes > (uint64_t)INT32_MAX)
             goto fail;
 
+        failure_stage =
+            500000u + mesh_index * 100u + 5u;
         xz_shadow.gl.GenVertexArrays(
             1, &dest->vao);
         xz_shadow.gl.GenBuffers(
@@ -5249,6 +5259,8 @@ int XzGles3Shadow_UploadStaticScene(
             !dest->ibo)
             goto fail;
 
+        failure_stage =
+            500000u + mesh_index * 100u + 6u;
         xz_shadow.gl.BindVertexArray(
             dest->vao);
 
@@ -5332,6 +5344,8 @@ int XzGles3Shadow_UploadStaticScene(
                 (const void *)(uintptr_t)24u);
         }
 
+        failure_stage =
+            500000u + mesh_index * 100u + 7u;
         if (xz_shadow.gl.GetError() !=
                 GL_NO_ERROR)
             goto fail;
