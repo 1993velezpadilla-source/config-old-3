@@ -1715,6 +1715,7 @@ jobs:
             engine/xz/xz_static_scene_runtime.c \
             engine/xz/xz_material_instance_binding.c \
             engine/xz/xz_material_library.c \
+            engine/xz/xz_xztexture.c \
             engine/xz/xz_xzscene.c \
             engine/xz/xz_xzmesh.c \
             engine/xz/xz_environment.c \
