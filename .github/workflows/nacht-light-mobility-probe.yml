@@ -1,0 +1,100 @@
+name: XZIEL Nacht Light Mobility Probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/xziel-bo3-style-map-loader-v1
+    paths:
+      - ".github/workflows/nacht-light-mobility-probe.yml"
+      - "tools/maps/NachtLightExtractor/**"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install SteamCMD and repak
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p "$RUNNER_TEMP/steamcmd" "$RUNNER_TEMP/repak"
+          curl -fL --retry 6 --retry-delay 2 --retry-all-errors             https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz             -o "$RUNNER_TEMP/steamcmd.tgz"
+          tar -xzf "$RUNNER_TEMP/steamcmd.tgz" -C "$RUNNER_TEMP/steamcmd"
+          "$RUNNER_TEMP/steamcmd/steamcmd.sh" +quit || true
+          curl -fL --retry 5             https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-unknown-linux-gnu.tar.xz             -o "$RUNNER_TEMP/repak.tar.xz"
+          tar -xJf "$RUNNER_TEMP/repak.tar.xz" -C "$RUNNER_TEMP/repak"
+          REPAK="$(find "$RUNNER_TEMP/repak" -type f -name 'repak*' -perm -111 | head -1)"
+          echo "REPAK=$REPAK" >> "$GITHUB_ENV"
+
+      - name: Download and unpack Nacht
+        shell: bash
+        run: |
+          set -euxo pipefail
+          "$RUNNER_TEMP/steamcmd/steamcmd.sh"             +login anonymous             +workshop_download_item 555160 2755515831 validate             +quit
+          ROOT="$(find "$HOME" "$RUNNER_TEMP" -type d             -path '*/steamapps/workshop/content/555160/2755515831'             -print -quit 2>/dev/null)"
+          test -f "$ROOT/WindowsNoEditor.pak"
+          mkdir -p "$RUNNER_TEMP/nacht-unpacked" build/nacht-light-mobility
+          "$REPAK" unpack "$ROOT/WindowsNoEditor.pak" -o "$RUNNER_TEMP/nacht-unpacked"
+          echo "UNPACKED=$RUNNER_TEMP/nacht-unpacked" >> "$GITHUB_ENV"
+
+      - name: Extract and census light mobility
+        shell: bash
+        run: |
+          set -euxo pipefail
+          dotnet run             --project tools/maps/NachtLightExtractor/NachtLightExtractor.csproj             --configuration Release             --             "$UNPACKED"             build/nacht-light-mobility/lights.json             | tee build/nacht-light-mobility/extract.log
+
+          python3 - <<'PY'
+          import json
+          from collections import Counter,defaultdict
+          from pathlib import Path
+          d=json.loads(Path("build/nacht-light-mobility/lights.json").read_text())
+          all_counts=Counter()
+          by_type=defaultdict(Counter)
+          missing=[]
+          rows=[]
+          for row in d["lights"]:
+              mobility=(row["properties"].get("optional") or {}).get("mobility")
+              key=str(mobility) if mobility is not None else "<missing>"
+              all_counts[key]+=1
+              by_type[row["componentType"]][key]+=1
+              if mobility is None:
+                  missing.append(row["sourcePath"])
+              rows.append({
+                  "id":row["id"],
+                  "type":row["componentType"],
+                  "mobility":mobility,
+                  "visible":row["properties"].get("visible"),
+                  "castShadows":row["properties"].get("castShadows"),
+                  "sourcePath":row["sourcePath"],
+              })
+          out={
+              "lightCount":len(rows),
+              "mobilityCounts":dict(sorted(all_counts.items())),
+              "mobilityByType":{k:dict(sorted(v.items())) for k,v in sorted(by_type.items())},
+              "missingCount":len(missing),
+              "rows":rows,
+          }
+          Path("build/nacht-light-mobility/report.json").write_text(json.dumps(out,indent=2)+"\n")
+          print("XZIEL_NACHT_LIGHT_MOBILITY",json.dumps({
+              "lightCount":out["lightCount"],
+              "mobilityCounts":out["mobilityCounts"],
+              "mobilityByType":out["mobilityByType"],
+              "missingCount":out["missingCount"],
+          },sort_keys=True))
+          if missing:
+              print("XZIEL_NACHT_LIGHT_MOBILITY_MISSING",missing[:30])
+              raise SystemExit(5)
+          PY
+
+      - name: Upload mobility evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Nacht-Light-Mobility-Probe
+          path: build/nacht-light-mobility/
+          retention-days: 14
