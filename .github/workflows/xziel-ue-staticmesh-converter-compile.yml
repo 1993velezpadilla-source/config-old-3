@@ -13,6 +13,11 @@ on:
       - tools/maps/UEDeepPayloadAudit/**
       - tools/maps/patch_cue4parse_animation_fallback.py
       - tools/maps/xz_xzmesh_file_gate.c
+      - engine/xz/xz_xztexture.h
+      - engine/xz/xz_xztexture.c
+      - tools/maps/xz_xztexture_selftest.c
+      - tools/maps/xz_xztexture_file_gate.c
+      - tools/maps/UETextureXZTX/**
       - engine/xz/xz_xzmesh.c
       - engine/xz/xz_xzmesh.h
 
@@ -77,6 +82,34 @@ jobs:
             --no-restore \
             -p:CUE4ParseSourceRoot="$CUE4PARSE_SOURCE_ROOT" \
             -p:CUE4PARSE_SKIP_NATIVE=true
+
+      - name: Compile UE Texture2D to XZTX converter
+        run: |
+          set -euxo pipefail
+          dotnet restore tools/maps/UETextureXZTX/UETextureXZTX.csproj
+          dotnet build tools/maps/UETextureXZTX/UETextureXZTX.csproj \
+            --configuration Release \
+            --no-restore \
+            -warnaserror
+
+      - name: Compile and self-test native XZTX validator
+        run: |
+          set -euxo pipefail
+          mkdir -p build/xztx-native-gate
+          cc -std=gnu11 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tools/maps/xz_xztexture_selftest.c \
+            engine/xz/xz_xztexture.c \
+            -o build/xztx-native-gate/xz-xztexture-selftest
+          build/xztx-native-gate/xz-xztexture-selftest
+
+          cc -std=gnu11 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tools/maps/xz_xztexture_file_gate.c \
+            engine/xz/xz_xztexture.c \
+            -o build/xztx-native-gate/xz-xztexture-file-gate
+          test -x build/xztx-native-gate/xz-xztexture-file-gate
+          echo XZIEL_UE_XZTX_CONVERTER_COMPILE_GREEN
 
       - name: Compile native XZMS file validator
         run: |
