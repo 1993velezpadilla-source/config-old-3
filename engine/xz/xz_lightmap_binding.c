@@ -1,20 +1,9 @@
 #include "xz_lightmap_binding.h"
+#include "xz_file_io.h"
 
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
-
-extern int COM_OpenFile(
-    char *filename,
-    int *handle);
-
-extern void COM_CloseFile(
-    int handle);
-
-extern int Sys_FileRead(
-    int handle,
-    void *dest,
-    int count);
 
 static uint32_t XzReadU32Le(
     const unsigned char *p)
@@ -50,7 +39,7 @@ static int XzReadExact(
                 ? INT_MAX
                 : (int)remaining;
         const int got =
-            Sys_FileRead(
+            XzFile_Read(
                 handle,
                 out + done,
                 request);
@@ -202,14 +191,14 @@ XzLightmapBindingStatus XzLightmapBinding_Open(
     XzLightmapBinding_Close(view);
 
     file_bytes =
-        COM_OpenFile(
+        XzFile_Open(
             (char *)path,
             &handle);
 
     if (handle < 0 ||
         file_bytes < (int)XZ_XZLB_HEADER_BYTES) {
         if (handle >= 0)
-            COM_CloseFile(handle);
+            XzFile_Close(handle);
         return XZ_XZLB_ERR_OPEN;
     }
 
@@ -217,7 +206,7 @@ XzLightmapBindingStatus XzLightmapBinding_Open(
         (unsigned char *)malloc(
             (size_t)file_bytes);
     if (!data) {
-        COM_CloseFile(handle);
+        XzFile_Close(handle);
         return XZ_XZLB_ERR_MEMORY;
     }
 
@@ -229,7 +218,7 @@ XzLightmapBindingStatus XzLightmapBinding_Open(
         goto fail;
     }
 
-    COM_CloseFile(handle);
+    XzFile_Close(handle);
     handle = -1;
 
     if (data[0] != 'X' ||
@@ -408,7 +397,7 @@ fail_view:
 
 fail:
     if (handle >= 0)
-        COM_CloseFile(handle);
+        XzFile_Close(handle);
     free(data);
     XzLightmapBinding_Init(view);
     return status;

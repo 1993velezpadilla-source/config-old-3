@@ -1,13 +1,10 @@
 #include "xz_package_boot.h"
+#include "xz_file_io.h"
 
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-extern int COM_OpenFile(char *filename, int *handle);
-extern void COM_CloseFile(int handle);
-extern int Sys_FileRead(int handle, void *dest, int count);
 
 static const char *const xz_package_boot_family_names[
     XZ_PACKAGE_BOOT_FAMILY_COUNT] = {
@@ -108,10 +105,10 @@ static int XzPackageBoot_VisibleVfs(const char *path)
         return 0;
 
     snprintf(mutable_path, sizeof(mutable_path), "%s", path);
-    bytes = COM_OpenFile(mutable_path, &handle);
+    bytes = XzFile_Open(mutable_path, &handle);
 
     if (handle >= 0)
-        COM_CloseFile(handle);
+        XzFile_Close(handle);
 
     return handle >= 0 && bytes > 0;
 }
@@ -352,24 +349,24 @@ int XzPackageBoot_LoadAndPreflightVfs(
     }
 
     snprintf(mutable_path, sizeof(mutable_path), "%s", plan_path);
-    bytes = COM_OpenFile(mutable_path, &handle);
+    bytes = XzFile_Open(mutable_path, &handle);
     if (handle < 0 || bytes <= 0 ||
         (unsigned int)bytes > XZ_PACKAGE_BOOT_MAX_PLAN_BYTES) {
         if (handle >= 0)
-            COM_CloseFile(handle);
+            XzFile_Close(handle);
         XzPackageBoot_SetError(state, "plan_not_visible");
         return 0;
     }
 
     data = (unsigned char *)malloc((size_t)bytes + 1u);
     if (!data) {
-        COM_CloseFile(handle);
+        XzFile_Close(handle);
         XzPackageBoot_SetError(state, "plan_alloc_failed");
         return 0;
     }
 
-    read_bytes = Sys_FileRead(handle, data, bytes);
-    COM_CloseFile(handle);
+    read_bytes = XzFile_Read(handle, data, bytes);
+    XzFile_Close(handle);
 
     if (read_bytes != bytes) {
         free(data);

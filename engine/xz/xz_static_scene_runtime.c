@@ -1,4 +1,5 @@
 #include "xz_static_scene_runtime.h"
+#include "xz_file_io.h"
 
 #include <limits.h>
 #include <math.h>
@@ -58,27 +59,6 @@
 
 #define XZ_STATIC_SCENE_GAMEPLAY_UNITS_PER_METER \
     39.3700787402f
-
-/*
- * These are Vril filesystem APIs. Keeping the declarations here lets this
- * XZIEL-owned module compile in isolation while using the exact Vril search
- * path at runtime after patch_vril_xz_phase0.py copies it into source/.
- */
-extern int COM_OpenFile(
-    char *filename,
-    int *handle);
-
-extern void COM_CloseFile(
-    int handle);
-
-extern int Sys_FileRead(
-    int handle,
-    void *dest,
-    int count);
-
-extern void Sys_FileSeek(
-    int handle,
-    int position);
 
 static uint32_t XzStaticReadU32Le(
     const unsigned char *p)
@@ -256,7 +236,7 @@ static int XzReadExactHandle(
             remaining > (size_t)INT_MAX
                 ? INT_MAX
                 : (int)remaining;
-        int got = Sys_FileRead(
+        int got = XzFile_Read(
             handle,
             out + cursor,
             request);
@@ -309,7 +289,7 @@ static int XzOpenStreamedTexturePack(
     *out_table_data = NULL;
     *out_file_bytes = 0u;
 
-    length = COM_OpenFile(
+    length = XzFile_Open(
         (char *)path,
         &handle);
 
@@ -321,13 +301,13 @@ static int XzOpenStreamedTexturePack(
             handle,
             header,
             sizeof(header))) {
-        COM_CloseFile(handle);
+        XzFile_Close(handle);
         return -1;
     }
 
     if (memcmp(header, magic, 4u) != 0 ||
         XzStaticReadU32Le(header + 4u) != 1u) {
-        COM_CloseFile(handle);
+        XzFile_Close(handle);
         return -1;
     }
 
@@ -341,7 +321,7 @@ static int XzOpenStreamedTexturePack(
         bindings != expected_bindings ||
         entry_bytes != 20u ||
         flags != expected_header_flags) {
-        COM_CloseFile(handle);
+        XzFile_Close(handle);
         return -1;
     }
 
@@ -354,7 +334,7 @@ static int XzOpenStreamedTexturePack(
 
     if (bindings_end > (uint64_t)length ||
         bindings_end > (uint64_t)SIZE_MAX) {
-        COM_CloseFile(handle);
+        XzFile_Close(handle);
         return -1;
     }
 
@@ -362,7 +342,7 @@ static int XzOpenStreamedTexturePack(
         (unsigned char *)malloc(
             (size_t)bindings_end);
     if (!table_data) {
-        COM_CloseFile(handle);
+        XzFile_Close(handle);
         return -1;
     }
 
@@ -374,7 +354,7 @@ static int XzOpenStreamedTexturePack(
             (size_t)bindings_end -
                 sizeof(header))) {
         free(table_data);
-        COM_CloseFile(handle);
+        XzFile_Close(handle);
         return -1;
     }
 
@@ -416,7 +396,7 @@ static int XzOpenStreamedTexturePack(
             end > (uint64_t)length ||
             offset > (uint32_t)INT_MAX) {
             free(table_data);
-            COM_CloseFile(handle);
+            XzFile_Close(handle);
             return -1;
         }
     }
@@ -432,7 +412,7 @@ static int XzOpenStreamedTexturePack(
                 XZ_STATIC_MATERIAL_NO_TEXTURE &&
             value >= textures) {
             free(table_data);
-            COM_CloseFile(handle);
+            XzFile_Close(handle);
             return -1;
         }
     }
@@ -479,7 +459,7 @@ static int XzReadStreamedTexture(
         offset > (uint32_t)INT_MAX)
         return 0;
 
-    Sys_FileSeek(handle, (int)offset);
+    XzFile_Seek(handle, (int)offset);
     return XzReadExactHandle(
         handle,
         destination,
@@ -574,7 +554,7 @@ static int XzReadVfsFile(
     *output = NULL;
     *output_bytes = 0u;
 
-    length = COM_OpenFile(
+    length = XzFile_Open(
         (char *)path,
         &handle);
 
@@ -583,28 +563,28 @@ static int XzReadVfsFile(
 
     if (length <= 0 ||
         (size_t)length > max_bytes) {
-        COM_CloseFile(handle);
+        XzFile_Close(handle);
         return -1;
     }
 
     data = (unsigned char *)malloc(
         (size_t)length);
     if (!data) {
-        COM_CloseFile(handle);
+        XzFile_Close(handle);
         return -1;
     }
 
     while (cursor < (size_t)length) {
         int remaining =
             length - (int)cursor;
-        int got = Sys_FileRead(
+        int got = XzFile_Read(
             handle,
             data + cursor,
             remaining);
 
         if (got <= 0 ||
             got > remaining) {
-            COM_CloseFile(handle);
+            XzFile_Close(handle);
             free(data);
             return -1;
         }
@@ -612,7 +592,7 @@ static int XzReadVfsFile(
         cursor += (size_t)got;
     }
 
-    COM_CloseFile(handle);
+    XzFile_Close(handle);
 
     *output = data;
     *output_bytes = cursor;
@@ -682,7 +662,7 @@ void XzStaticSceneRuntime_Reset(
         free(state->scene_data);
 
     if (state->material_file_handle >= 0)
-        COM_CloseFile(
+        XzFile_Close(
             state->material_file_handle);
     if (state->material_data)
         free(state->material_data);
@@ -697,7 +677,7 @@ void XzStaticSceneRuntime_Reset(
         free(state->pbr_material_data);
 
     if (state->normal_material_file_handle >= 0)
-        COM_CloseFile(
+        XzFile_Close(
             state->normal_material_file_handle);
     if (state->normal_material_data)
         free(state->normal_material_data);
@@ -1890,13 +1870,13 @@ invalid:
         scene.mesh_count);
     free(scene_data);
     if (material_file_handle >= 0)
-        COM_CloseFile(material_file_handle);
+        XzFile_Close(material_file_handle);
     free(material_data);
     free(material_instance_data);
     free(material_library_data);
     free(pbr_material_data);
     if (normal_material_file_handle >= 0)
-        COM_CloseFile(normal_material_file_handle);
+        XzFile_Close(normal_material_file_handle);
     free(normal_material_data);
     free(environment_data);
     free(height_fog_data);

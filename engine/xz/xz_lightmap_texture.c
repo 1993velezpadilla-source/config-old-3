@@ -1,28 +1,9 @@
 #include "xz_lightmap_texture.h"
+#include "xz_file_io.h"
 
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
-
-/*
- * Vril filesystem APIs.  Android's NZPActivity extracts nzp-data.zip to the
- * private data directory before engine boot, so XZLT is a normal seekable file.
- */
-extern int COM_OpenFile(
-    char *filename,
-    int *handle);
-
-extern void COM_CloseFile(
-    int handle);
-
-extern void Sys_FileSeek(
-    int handle,
-    int position);
-
-extern int Sys_FileRead(
-    int handle,
-    void *dest,
-    int count);
 
 static uint32_t XzReadU32Le(
     const unsigned char *p)
@@ -52,7 +33,7 @@ static int XzReadExact(
         else
             request = (int)remaining;
 
-        got = Sys_FileRead(
+        got = XzFile_Read(
             handle,
             out + done,
             request);
@@ -190,7 +171,7 @@ void XzLightmapTexture_Close(
 
     if (view->file_open &&
         view->file_handle >= 0)
-        COM_CloseFile(
+        XzFile_Close(
             view->file_handle);
 
     free(view->table_data);
@@ -238,14 +219,14 @@ XzLightmapTextureStatus XzLightmapTexture_Open(
     XzLightmapTexture_Close(view);
 
     file_bytes =
-        COM_OpenFile(
+        XzFile_Open(
             (char *)path,
             &handle);
 
     if (handle < 0 ||
         file_bytes < (int)XZ_XZLT_HEADER_BYTES) {
         if (handle >= 0)
-            COM_CloseFile(handle);
+            XzFile_Close(handle);
         return XZ_XZLT_ERR_OPEN;
     }
 
@@ -357,7 +338,7 @@ XzLightmapTextureStatus XzLightmapTexture_Open(
         goto fail;
     }
 
-    Sys_FileSeek(
+    XzFile_Seek(
         handle,
         (int)texture_table_offset);
 
@@ -519,7 +500,7 @@ fail:
     free(seen_mips);
     free(tables);
     if (handle >= 0)
-        COM_CloseFile(handle);
+        XzFile_Close(handle);
     XzLightmapTexture_Init(view);
     return status;
 }
@@ -598,7 +579,7 @@ XzLightmapTextureStatus XzLightmapTexture_ReadMip(
             (uint64_t)view->file_bytes)
         return XZ_XZLT_ERR_RANGE;
 
-    Sys_FileSeek(
+    XzFile_Seek(
         view->file_handle,
         (int)file_offset);
 
