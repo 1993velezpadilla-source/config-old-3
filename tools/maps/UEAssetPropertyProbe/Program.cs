@@ -427,25 +427,6 @@ static string? ResolveProviderPackagePath(
     return suffixMatch;
 }
 
-sealed record ProbeCategory(
-    string Name,
-    Func<string, bool> Match);
-
-sealed class SelectedPackage
-{
-    public string PackagePath { get; }
-    public HashSet<string> Categories { get; } =
-        new(StringComparer.Ordinal);
-    public HashSet<string> ExpectedClasses { get; } =
-        new(StringComparer.Ordinal);
-
-    public SelectedPackage(string packagePath)
-    {
-        PackagePath = packagePath;
-    }
-}
-
-
 static string NormalizeMergedShardPath(string path)
 {
     /*
@@ -471,3 +452,24 @@ static string NormalizeMergedShardPath(string path)
 
     return normalized[(slash + 1)..];
 }
+
+sealed record ProbeCategory(
+    string Name,
+    Func<string, bool> Match);
+
+sealed class SelectedPackage
+{
+    public string PackagePath { get; }
+    public HashSet<string> Categories { get; } =
+        new(StringComparer.Ordinal);
+    public HashSet<string> ExpectedClasses { get; } =
+        new(StringComparer.Ordinal);
+
+    public SelectedPackage(string packagePath)
+    {
+        PackagePath = packagePath;
+    }
+}
+
+
+
