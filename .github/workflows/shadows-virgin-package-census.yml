@@ -583,24 +583,6 @@ jobs:
             | tee shadows-download/source-class-gate.log
           grep -q 'XZIEL_SOURCE_CLASS_GATE_GREEN' \
             shadows-download/source-class-gate.log
-            shadows-download/ue-xztx-probe/report.json
-            shadows-download/ue-xztx-probe.log
-            shadows-download/ue-xztx-native-gate.log
-            shadows-download/ue-xzaw-probe/report.json
-            shadows-download/ue-xzaw-probe.log
-            shadows-download/ue-xzaw-native-gate.log
-            shadows-download/ue-xzrg-probe/report.json
-            shadows-download/ue-xzrg-probe.log
-            shadows-download/ue-xzrg-native-gate.log
-            shadows-download/ue-xzsk-probe/report.json
-            shadows-download/ue-xzsk-probe.log
-            shadows-download/ue-xzsk-native-gate.log
-            shadows-download/ue-xzan-probe/report.json
-            shadows-download/ue-xzan-probe.log
-            shadows-download/ue-xzan-native-gate.log
-            shadows-download/ue-xzms-probe/report.json
-            shadows-download/ue-xzms-probe.log
-            shadows-download/ue-xzms-native-gate.log
 
       - name: Third-map anti-hardcode gate
         run: |
@@ -634,4 +616,22 @@ jobs:
             shadows-download/shadows-deep-payload-audit.json
             shadows-download/shadows-deep-payload-audit.log
             shadows-download/source-class-gate.log
+            shadows-download/ue-xztx-probe/report.json
+            shadows-download/ue-xztx-probe.log
+            shadows-download/ue-xztx-native-gate.log
+            shadows-download/ue-xzaw-probe/report.json
+            shadows-download/ue-xzaw-probe.log
+            shadows-download/ue-xzaw-native-gate.log
+            shadows-download/ue-xzrg-probe/report.json
+            shadows-download/ue-xzrg-probe.log
+            shadows-download/ue-xzrg-native-gate.log
+            shadows-download/ue-xzsk-probe/report.json
+            shadows-download/ue-xzsk-probe.log
+            shadows-download/ue-xzsk-native-gate.log
+            shadows-download/ue-xzan-probe/report.json
+            shadows-download/ue-xzan-probe.log
+            shadows-download/ue-xzan-native-gate.log
+            shadows-download/ue-xzms-probe/report.json
+            shadows-download/ue-xzms-probe.log
+            shadows-download/ue-xzms-native-gate.log
           retention-days: 7
