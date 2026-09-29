@@ -1,0 +1,161 @@
+name: XZIEL Nacht Hybrid Android Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - experiment/xziel-nacht-win64-exe-v1
+    paths:
+      - ".github/workflows/xziel-nacht-hybrid-android-smoke.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  smoke:
+    name: ARM64 direct-boot smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Wait for and download touch gyro APK
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          SOURCE_RUN=36644992490
+          gh run watch "$SOURCE_RUN" \
+            --repo "${{ github.repository }}" \
+            --exit-status
+
+          mkdir -p input/hybrid-apk
+          gh run download "$SOURCE_RUN" \
+            --repo "${{ github.repository }}" \
+            --name "XZIEL-Nacht-Hybrid-TouchGyro-PixelFold" \
+            --dir input/hybrid-apk
+
+          APK="$(find input/hybrid-apk -type f -name 'XZIEL-Nacht-Hybrid-TouchGyro-PixelFold-debug.apk' -print -quit)"
+          CONTRACT="$(find input/hybrid-apk -type f -name 'control-contract.txt' -print -quit)"
+          APK_SHA="$(find input/hybrid-apk -type f -name 'XZIEL-Nacht-Hybrid-TouchGyro-PixelFold-debug.apk.sha256' -print -quit)"
+          test -n "$APK" && test -s "$APK"
+          test -n "$CONTRACT" && test -s "$CONTRACT"
+          test -n "$APK_SHA" && test -s "$APK_SHA"
+
+          echo "XZIEL_APK=$APK" >> "$GITHUB_ENV"
+          echo "XZIEL_CONTRACT=$CONTRACT" >> "$GITHUB_ENV"
+          echo "XZIEL_APK_SHA_FILE=$APK_SHA" >> "$GITHUB_ENV"
+
+      - name: Static APK integrity gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [[ ! -x "$SDKMANAGER" ]]; then
+            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n1)"
+          fi
+          "$SDKMANAGER" "build-tools;35.0.0" "platform-tools" >/dev/null
+
+          expected_apk_sha="$(awk '{print $1}' "$XZIEL_APK_SHA_FILE")"
+          actual_apk_sha="$(sha256sum "$XZIEL_APK" | awk '{print $1}')"
+          test "$actual_apk_sha" = "$expected_apk_sha"
+
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify \
+            --verbose --print-certs "$XZIEL_APK" \
+            | tee dist-apksigner.txt
+
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          if [[ -x "$AAPT" ]]; then
+            "$AAPT" dump badging "$XZIEL_APK" > dist-badging.txt
+          else
+            "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump badging "$XZIEL_APK" > dist-badging.txt
+          fi
+
+          grep -q "package: name='com.xziel.hybrid'" dist-badging.txt
+          grep -q "launchable-activity: name='com.winlator.XzielBootActivity'" dist-badging.txt
+          grep -q "native-code:.*'arm64-v8a'" dist-badging.txt
+
+          python3 - "$XZIEL_APK" "$XZIEL_CONTRACT" <<'PY'
+          import hashlib, sys, zipfile
+          apk, contract_path = sys.argv[1:3]
+          contract={}
+          for line in open(contract_path, encoding="utf-8"):
+              line=line.strip()
+              if "=" in line:
+                  k,v=line.split("=",1)
+                  contract[k]=v
+
+          expected_bytes=int(contract["source_exe_bytes"])
+          expected_sha=contract["source_exe_sha256"]
+
+          with zipfile.ZipFile(apk) as z:
+              names=set(z.namelist())
+              required=[
+                  "assets/rootfs.tzst",
+                  "assets/container_pattern.tzst",
+                  "assets/nacht-onefile.exe",
+                  "assets/licenses/WINLATOR-LGPL-2.1.txt",
+                  "assets/licenses/XZIEL-HYBRID-NOTICE.txt",
+              ]
+              for name in required:
+                  assert name in names, name
+
+              info=z.getinfo("assets/nacht-onefile.exe")
+              assert info.file_size == expected_bytes, (info.file_size, expected_bytes)
+              assert info.compress_type == zipfile.ZIP_STORED, info.compress_type
+
+              h=hashlib.sha256()
+              with z.open(info) as src:
+                  for chunk in iter(lambda: src.read(4*1024*1024), b""):
+                      h.update(chunk)
+              actual=h.hexdigest()
+              assert actual == expected_sha, (actual, expected_sha)
+              assert any(n.startswith("lib/arm64-v8a/") for n in names)
+
+          print("XZIEL_HYBRID_STATIC_APK_GREEN", {
+              "sourceExeBytes": expected_bytes,
+              "sourceExeSha256": expected_sha,
+          })
+          PY
+
+      - name: ARM64 emulator boot to first renderable window
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: default
+          arch: arm64-v8a
+          cores: 2
+          ram-size: 4096M
+          heap-size: 512M
+          disk-size: 14G
+          emulator-boot-timeout: 1800
+          disable-linux-hw-accel: true
+          disable-animations: true
+          emulator-options: >-
+            -no-window
+            -no-snapshot
+            -noaudio
+            -no-boot-anim
+            -gpu swiftshader_indirect
+            -camera-back none
+            -camera-front none
+            -memory 4096
+          script: |
+            bash scripts/smoke_xziel_nacht_hybrid_android.sh "$XZIEL_APK" dist/android-hybrid-smoke
+
+      - name: Upload Android smoke proof
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Nacht-Hybrid-Android-Smoke-Proof
+          path: |
+            dist/android-hybrid-smoke/
+            dist-apksigner.txt
+            dist-badging.txt
+          if-no-files-found: warn
+          retention-days: 14
