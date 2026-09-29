@@ -26,6 +26,10 @@ typedef struct XzSourceAssetState {
     uint8_t required;
 } XzSourceAssetState;
 
+int XzSourceAsset_BindNativeAdapter(
+    XzSourceAssetState *asset,
+    const char *source_class);
+
 int XzSourceAsset_Advance(
     XzSourceAssetState *asset,
     XzSourceAssetStage next_stage);
