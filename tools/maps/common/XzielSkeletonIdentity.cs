@@ -38,6 +38,57 @@ internal static class XzielSkeletonIdentity
             -value.Z,
             value.W);
 
+    public static ulong HashTopology(
+        IReadOnlyList<MeshBoneDto> bones)
+    {
+        if (bones.Count == 0)
+            throw new InvalidDataException(
+                "skeleton has no bones");
+
+        ulong hash = FnvOffset;
+
+        AppendU32(
+            ref hash,
+            checked((uint)bones.Count));
+
+        for (var i = 0;
+             i < bones.Count;
+             ++i)
+        {
+            var bone = bones[i];
+
+            if (bone.ParentIndex < -1 ||
+                (bone.ParentIndex >= 0 &&
+                 bone.ParentIndex >= i))
+            {
+                throw new InvalidDataException(
+                    $"invalid skeleton parent at bone {i}: {bone.ParentIndex}");
+            }
+
+            var nameBytes =
+                Encoding.UTF8.GetBytes(
+                    bone.Name ?? string.Empty);
+
+            if (nameBytes.Length == 0)
+                throw new InvalidDataException(
+                    $"bone {i} has empty name");
+
+            AppendU32(
+                ref hash,
+                checked((uint)nameBytes.Length));
+            Append(
+                ref hash,
+                nameBytes);
+            AppendI32(
+                ref hash,
+                bone.ParentIndex);
+        }
+
+        return hash == 0UL
+            ? FnvOffset
+            : hash;
+    }
+
     public static ulong HashBones(
         IReadOnlyList<MeshBoneDto> bones)
     {
