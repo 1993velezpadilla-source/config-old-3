@@ -78,9 +78,9 @@ var provider = new DefaultFileProvider(
     MappingsContainer = new FileUsmapTypeMappingsProvider(mappingsPath)
 };
 provider.Initialize();
-RegisterLooseCookedVirtualMounts(provider);
 provider.PostMount();
 provider.LoadVirtualPaths();
+RegisterLooseCookedVirtualMounts(provider);
 RegisterDiscoveredPluginMounts(provider);
 
 var failures = new List<object>();
