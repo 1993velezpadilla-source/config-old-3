@@ -210,6 +210,10 @@ def main() -> int:
                 "exportType": "SyntheticDefaultSurface",
                 "blendMode": "BLEND_Opaque",
                 "shadingModel": "MSM_DefaultLit",
+                "opacityMaskClipValue": 0.333,
+                "twoSided": False,
+                "disableDepthTest": False,
+                "isMasked": False,
                 "canonicalTextures": {
                     channel: None
                     for channel in CANONICAL_TEXTURE_KEYS
@@ -284,6 +288,12 @@ def main() -> int:
             "exportType": material["exportType"],
             "blendMode": material["blendMode"],
             "shadingModel": material["shadingModel"],
+            "opacityMaskClipValue":
+                material.get("opacityMaskClipValue"),
+            "twoSided": material.get("twoSided"),
+            "disableDepthTest":
+                material.get("disableDepthTest"),
+            "isMasked": material.get("isMasked"),
             "canonicalTextures": canonical,
             "textures": texture_rows,
             "scalars": material.get("scalars", []),
