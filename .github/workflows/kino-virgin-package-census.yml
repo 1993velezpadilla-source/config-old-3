@@ -9,6 +9,7 @@ on:
       - .github/workflows/kino-virgin-package-census.yml
       - tools/maps/audit_virgin_ue_package.py
       - tools/maps/UEAssetClassCensus/**
+      - tools/maps/UEAssetPropertyProbe/**
       - tools/maps/xz_source_class_gate.c
       - engine/xz/xz_source_class_registry.c
       - engine/xz/xz_source_class_registry.h
@@ -252,6 +253,42 @@ jobs:
             > kino-download/kino-class-census.log
           test -s kino-download/kino-class-census.json
 
+      - name: Pin Pavlov UE5 property mappings
+        run: |
+          set -euxo pipefail
+          curl -fL --retry 5 --retry-delay 2 \
+            -o kino-download/PavMappings.usmap \
+            "https://raw.githubusercontent.com/THW-Reaper/PavlovVRMappings/4976647b4f3a209042460bc55a7a3122662d05b7/PavMappings.usmap"
+          test -s kino-download/PavMappings.usmap
+          sha256sum kino-download/PavMappings.usmap \
+            | tee kino-download/PavMappings.sha256
+
+      - name: Probe real UE5 unversioned properties
+        run: |
+          set -euxo pipefail
+          dotnet restore \
+            tools/maps/UEAssetPropertyProbe/UEAssetPropertyProbe.csproj
+
+          dotnet build \
+            tools/maps/UEAssetPropertyProbe/UEAssetPropertyProbe.csproj \
+            --configuration Release \
+            --no-restore
+
+          APP="tools/maps/UEAssetPropertyProbe/bin/Release/net10.0/UEAssetPropertyProbe.dll"
+          test -s "$APP"
+
+          dotnet "$APP" \
+            kino-pak-unpacked \
+            kino-download/PavMappings.usmap \
+            kino-download/kino-class-census.json \
+            kino-download/kino-property-probe.json \
+            ue5.1 \
+            | tee kino-download/kino-property-probe.log
+
+          test -s kino-download/kino-property-probe.json
+          grep -q 'XZIEL_UE_PROPERTY_PROBE_GREEN' \
+            kino-download/kino-property-probe.log
+
       - name: Audit every source class against XZIEL readiness
         run: |
           set -euxo pipefail
@@ -299,6 +336,9 @@ jobs:
             kino-download/kino-pak-census.json
             kino-download/kino-class-census.json
             kino-download/kino-class-census.log
+            kino-download/PavMappings.sha256
+            kino-download/kino-property-probe.json
+            kino-download/kino-property-probe.log
             kino-download/kino-class-requirements.json
             kino-download/source-class-gate.log
             kino-download/class-shards/
