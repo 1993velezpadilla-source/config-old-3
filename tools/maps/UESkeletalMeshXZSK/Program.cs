@@ -1,5 +1,6 @@
 using CUE4Parse.FileProvider;
 using CUE4Parse.MappingsProvider.Usmap;
+using CUE4Parse.UE4.Assets.Exports.Animation;
 using CUE4Parse.UE4.Assets.Exports.SkeletalMesh;
 using CUE4Parse.UE4.Objects.Core.Math;
 using CUE4Parse.UE4.Versions;
@@ -8,8 +9,8 @@ using CUE4Parse_Conversion.Options;
 using System.Text;
 using System.Text.Json;
 
-const uint XzskVersion = 1;
-const uint XzskHeaderBytes = 96;
+const uint XzskVersion = 2;
+const uint XzskHeaderBytes = 112;
 const uint XzskBoneBytes = 56;
 const uint XzskVertexBytes = 136;
 const uint XzskSectionBytes = 16;
@@ -17,6 +18,7 @@ const uint XzskMaxUvs = 8;
 const uint XzskMaxInfluences = 8;
 const uint FlagXzielBasis = 1u << 0;
 const uint FlagIndexU32 = 1u << 1;
+const uint FlagSkeletonRemap = 1u << 2;
 
 if (args.Length is < 4 or > 6)
 {
@@ -101,6 +103,8 @@ var rows = new List<object>();
 var failures = new List<object>();
 var hashes = new SortedDictionary<string, int>(
     StringComparer.Ordinal);
+var meshLayoutHashes = new SortedDictionary<string, int>(
+    StringComparer.Ordinal);
 
 var converted = 0;
 long totalBones = 0;
@@ -152,6 +156,13 @@ foreach (var logicalPackage in candidatePackages)
 
             try
             {
+                if (!mesh.Skeleton.TryLoad<USkeleton>(
+                        out var animationSkeleton))
+                {
+                    throw new InvalidDataException(
+                        "skeletal mesh has no resolvable USkeleton");
+                }
+
                 using var dto =
                     new SkeletalMeshDto(
                         mesh,
@@ -169,7 +180,8 @@ foreach (var logicalPackage in candidatePackages)
                 var result =
                     WriteXzsk(
                         outPath,
-                        dto);
+                        dto,
+                        animationSkeleton);
 
                 rows.Add(new {
                     index = converted,
@@ -186,9 +198,15 @@ foreach (var logicalPackage in candidatePackages)
                     result.sections,
                     result.uvChannels,
                     result.maxVertexInfluences,
+                    skeletonPath =
+                        animationSkeleton.GetPathName(),
                     skeletonHash =
                         result.skeletonHash
                             .ToString("x16"),
+                    meshLayoutHash =
+                        result.meshLayoutHash
+                            .ToString("x16"),
+                    result.skeletonBones,
                     result.fileBytes
                 });
 
@@ -213,6 +231,12 @@ foreach (var logicalPackage in candidatePackages)
                         .ToString("x16");
                 hashes[hash] =
                     hashes.GetValueOrDefault(hash) + 1;
+
+                var meshHash =
+                    result.meshLayoutHash
+                        .ToString("x16");
+                meshLayoutHashes[meshHash] =
+                    meshLayoutHashes.GetValueOrDefault(meshHash) + 1;
             }
             catch (Exception e)
             {
@@ -255,7 +279,7 @@ var ready =
 
 var report = new {
     schemaVersion = 1,
-    format = "xziel_skinned_mesh_xzsk_v1",
+    format = "xziel_skinned_mesh_xzsk_v2",
     sourceGameName,
     requestedMeshes = maxMeshes,
     convertedMeshes = converted,
@@ -267,6 +291,7 @@ var report = new {
     maxUvChannels,
     maxInfluences,
     skeletonHashCounts = hashes,
+    meshLayoutHashCounts = meshLayoutHashes,
     totalFileBytes,
     failureCount = failures.Count,
     meshes = rows,
@@ -297,6 +322,7 @@ Console.WriteLine(
         maxUvChannels,
         maxInfluences,
         skeletons = hashes.Count,
+        meshLayouts = meshLayoutHashes.Count,
         totalFileBytes,
         failures = failures.Count,
         ready
@@ -329,10 +355,13 @@ static (
     int uvChannels,
     int maxVertexInfluences,
     ulong skeletonHash,
+    ulong meshLayoutHash,
+    int skeletonBones,
     long fileBytes
 ) WriteXzsk(
     string outputPath,
-    SkeletalMeshDto dto)
+    SkeletalMeshDto dto,
+    USkeleton animationSkeleton)
 {
     if (dto.Bones.Length == 0)
         throw new InvalidDataException(
@@ -380,9 +409,91 @@ static (
         throw new InvalidDataException(
             "skeletal mesh has no valid sections");
 
+    using var skeletonDto =
+        new SkeletonDto(
+            animationSkeleton);
+
+    if (skeletonDto.Bones.Length == 0)
+        throw new InvalidDataException(
+            "linked USkeleton has no bones");
+
+    if (skeletonDto.Bones.Length > ushort.MaxValue)
+        throw new InvalidDataException(
+            $"linked USkeleton has too many bones: {skeletonDto.Bones.Length}");
+
     var skeletonHash =
         XzielSkeletonIdentity.HashBones(
+            skeletonDto.Bones);
+    var meshLayoutHash =
+        XzielSkeletonIdentity.HashBones(
             dto.Bones);
+
+    var skeletonByName =
+        new Dictionary<string, int>(
+            StringComparer.OrdinalIgnoreCase);
+
+    for (var i = 0;
+         i < skeletonDto.Bones.Length;
+         ++i)
+    {
+        var name =
+            skeletonDto.Bones[i].Name;
+
+        if (!skeletonByName.TryAdd(
+                name,
+                i))
+        {
+            throw new InvalidDataException(
+                $"linked USkeleton contains duplicate bone name: {name}");
+        }
+    }
+
+    var meshToSkeleton =
+        new uint[dto.Bones.Length];
+
+    for (var i = 0;
+         i < dto.Bones.Length;
+         ++i)
+    {
+        var meshBone =
+            dto.Bones[i];
+
+        if (!skeletonByName.TryGetValue(
+                meshBone.Name,
+                out var skeletonIndex))
+        {
+            throw new InvalidDataException(
+                $"mesh bone {i} '{meshBone.Name}' is absent from linked USkeleton");
+        }
+
+        var skeletonBone =
+            skeletonDto.Bones[skeletonIndex];
+
+        if (meshBone.ParentIndex < 0)
+        {
+            if (skeletonBone.ParentIndex != -1)
+            {
+                throw new InvalidDataException(
+                    $"mesh root bone '{meshBone.Name}' maps to non-root skeleton bone {skeletonIndex}");
+            }
+        }
+        else
+        {
+            var mappedParent =
+                meshToSkeleton[
+                    meshBone.ParentIndex];
+
+            if (skeletonBone.ParentIndex !=
+                checked((int)mappedParent))
+            {
+                throw new InvalidDataException(
+                    $"mesh bone '{meshBone.Name}' parent remap mismatch: meshParent={meshBone.ParentIndex} skeletonParent={skeletonBone.ParentIndex} mappedParent={mappedParent}");
+            }
+        }
+
+        meshToSkeleton[i] =
+            checked((uint)skeletonIndex);
+    }
 
     var stringData =
         new MemoryStream();
@@ -439,7 +550,7 @@ static (
 
     if (fileBytes > uint.MaxValue)
         throw new InvalidDataException(
-            $"XZSK v1 file exceeds 32-bit offsets: {fileBytes}");
+            $"XZSK v2 file exceeds 32-bit offsets: {fileBytes}");
 
     var minX = float.PositiveInfinity;
     var minY = float.PositiveInfinity;
@@ -542,7 +653,8 @@ static (
     writer.Write(XzskVersion);
     writer.Write(
         FlagXzielBasis |
-        FlagIndexU32);
+        FlagIndexU32 |
+        FlagSkeletonRemap);
     writer.Write(
         checked((uint)dto.Bones.Length));
     writer.Write(
@@ -567,6 +679,10 @@ static (
     writer.Write(maxX);
     writer.Write(maxY);
     writer.Write(maxZ);
+    writer.Write(
+        checked((uint)skeletonDto.Bones.Length));
+    writer.Write(0u);
+    writer.Write(meshLayoutHash);
 
     if (stream.Position != XzskHeaderBytes)
         throw new InvalidDataException(
@@ -589,7 +705,7 @@ static (
         writer.Write(bone.ParentIndex);
         writer.Write(boneNames[i].offset);
         writer.Write(boneNames[i].bytes);
-        writer.Write(0u);
+        writer.Write(meshToSkeleton[i]);
 
         writer.Write(rotation.X);
         writer.Write(rotation.Y);
@@ -726,6 +842,8 @@ static (
         uvChannels,
         maxVertexInfluences,
         skeletonHash,
+        meshLayoutHash,
+        skeletonDto.Bones.Length,
         fileBytes);
 }
 
