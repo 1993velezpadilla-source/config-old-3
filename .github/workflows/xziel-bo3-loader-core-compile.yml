@@ -175,6 +175,7 @@ jobs:
             engine/xz/xz_xzmesh.c \
             engine/xz/xz_xztexture.c \
             engine/xz/xz_xzaudio.c \
+            engine/xz/xz_xzrig.c \
             engine/xz/xz_xzskel.c \
             engine/xz/xz_xzanim.c \
             engine/xz/xz_package_boot.c \
