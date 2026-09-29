@@ -15,6 +15,11 @@ on:
       - engine/xz/xz_xzmesh.c
       - tools/maps/xz_xzmesh_file_gate.c
       - tools/maps/UEStaticMeshXZMS/**
+      - engine/xz/xz_xztexture.h
+      - engine/xz/xz_xztexture.c
+      - tools/maps/xz_xztexture_selftest.c
+      - tools/maps/xz_xztexture_file_gate.c
+      - tools/maps/UETextureXZTX/**
       - tools/maps/UEStaticMeshAudit/**
       - tools/maps/UEDeepPayloadAudit/**
       - tools/maps/patch_cue4parse_animation_fallback.py
@@ -635,6 +640,60 @@ jobs:
           print("XZIEL_KINO_DEEP_PAYLOAD_AUDIT_GREEN")
           PY
 
+      - name: Convert cooked UE textures directly to native XZTX
+        run: |
+          set -euxo pipefail
+          dotnet restore tools/maps/UETextureXZTX/UETextureXZTX.csproj
+          dotnet build tools/maps/UETextureXZTX/UETextureXZTX.csproj \
+            --configuration Release \
+            --no-restore \
+            -warnaserror
+
+          APP="tools/maps/UETextureXZTX/bin/Release/net10.0/UETextureXZTX.dll"
+          test -s "$APP"
+
+          rm -rf kino-download/ue-xztx-probe
+          mkdir -p kino-download/ue-xztx-probe
+
+          dotnet "$APP" \
+            kino-pak-unpacked \
+            kino-download/PavMappings.usmap \
+            kino-download/kino-class-census.json \
+            kino-download/ue-xztx-probe \
+            16 \
+            ue5.1 \
+            | tee kino-download/ue-xztx-probe.log
+
+          test -s kino-download/ue-xztx-probe/report.json
+          grep -q 'XZIEL_UE_XZTX_PROBE_GREEN' \
+            kino-download/ue-xztx-probe.log
+
+          mkdir -p build/xztx-native-gate
+          cc -std=gnu11 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tools/maps/xz_xztexture_selftest.c \
+            engine/xz/xz_xztexture.c \
+            -o build/xztx-native-gate/xz-xztexture-selftest
+          build/xztx-native-gate/xz-xztexture-selftest
+
+          cc -std=gnu11 -Wall -Wextra -Werror \
+            -Iengine/xz \
+            tools/maps/xz_xztexture_file_gate.c \
+            engine/xz/xz_xztexture.c \
+            -o build/xztx-native-gate/xz-xztexture-file-gate
+
+          mapfile -t TEXTURES < <(find kino-download/ue-xztx-probe \
+            -maxdepth 1 -type f -name '*.xzt' | sort)
+          test "${#TEXTURES[@]}" -eq 16
+
+          build/xztx-native-gate/xz-xztexture-file-gate "${TEXTURES[@]}" \
+            | tee kino-download/ue-xztx-native-gate.log
+
+          grep -q 'XZIEL_XZTX_NATIVE_FILES_GREEN count=16' \
+            kino-download/ue-xztx-native-gate.log
+
+          echo XZIEL_KINO_UE_XZTX_NATIVE_PROBE_GREEN
+
       - name: Audit complete UE scene transform semantics
         run: |
           set -euxo pipefail
@@ -1117,6 +1176,9 @@ jobs:
             kino-download/property-sweep-shards/
             kino-download/kino-class-requirements.json
             kino-download/kino-deep-payload-audit.json
+            kino-download/ue-xztx-probe/
+            kino-download/ue-xztx-probe.log
+            kino-download/ue-xztx-native-gate.log
             kino-download/deep-payload-shards/
             kino-download/kino-source-export-manifest-summary.json
             kino-download/kino-source-adapter-requirements.txt
