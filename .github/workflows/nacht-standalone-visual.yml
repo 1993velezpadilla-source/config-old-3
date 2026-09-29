@@ -1,5 +1,5 @@
 name: XZIEL Nacht Standalone Visual
-# trigger-token: authored-opacity-mask-v1
+# trigger-token: self-contained-fresh-boot-v1
 
 on:
   workflow_dispatch:
@@ -3873,6 +3873,60 @@ jobs:
           ls -lh "$FINAL" dist/XZIEL-Nacht-Mobile-Playtest.apk.sha256
           echo "XZIEL_NACHT_MOBILE_PLAYTEST_APK_GREEN"
 
+      - name: Fresh-install and boot self-contained mobile playtest APK
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          ADB="${ANDROID_HOME}/platform-tools/adb"
+          FINAL="dist/XZIEL-Nacht-Mobile-Playtest.apk"
+          test -s "$FINAL"
+
+          # The published APK must prove its own bundled-content bootstrap.
+          # Uninstall first so no previously injected/extracted VFS survives.
+          "$ADB" shell am force-stop com.xziel.engine || true
+          "$ADB" uninstall com.xziel.engine || true
+          "$ADB" install "$FINAL"
+          "$ADB" shell df -h /data             | tee dist/self-contained-data-before.txt
+
+          "$ADB" logcat -c
+          "$ADB" shell am start -W             -n com.xziel.engine/org.libsdl.app.XzielBootstrapActivity             > dist/self-contained-am-start.txt 2>&1
+
+          ready=0
+          failed=0
+          for _ in $(seq 1 450); do
+            "$ADB" logcat -d -v threadtime               > dist/self-contained-logcat.txt || true
+
+            if grep -Eq               'XZIEL_BOOT_CONTENT_SETUP_FAILED|FATAL EXCEPTION|Fatal signal|SIGSEGV|SIGABRT'               dist/self-contained-logcat.txt; then
+              failed=1
+              break
+            fi
+
+            if grep -q               'XZIEL_BOOT_EXTRACT_COMPLETE'               dist/self-contained-logcat.txt               && grep -Eq               "static_scene status=READY map='xziel_nacht_bo3'.*meshes=492 instances=10791.*gpuReady=1"               dist/self-contained-logcat.txt               && grep -q               "standalone_static_present ready=1 map='xziel_nacht_bo3'"               dist/self-contained-logcat.txt; then
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+
+          "$ADB" shell df -h /data             | tee dist/self-contained-data-after.txt
+
+          "$ADB" shell run-as com.xziel.engine test -s             files/.xziel-nacht-vfs-complete-v1
+          "$ADB" shell run-as com.xziel.engine test -s             files/xziel/maps/xziel_nacht_bo3/scene.xzsc
+          MESHES="$("$ADB" shell run-as com.xziel.engine sh -c             'find files/xziel/maps/xziel_nacht_bo3/meshes -maxdepth 1 -type f -name "*.xzm" | wc -l'             | tr -d '\r')"
+          test "$MESHES" = "492"
+
+          if [[ "$failed" == "1" || "$ready" != "1" ]]; then
+            grep -E               'XZIEL-BOOT|XZIEL-XZ|static_scene|standalone_static_present|FATAL|Fatal signal|SIGSEGV|SIGABRT|Exception'               dist/self-contained-logcat.txt               | tail -n 1200 || true
+            "$ADB" shell dumpsys activity processes               > dist/self-contained-processes.txt || true
+            exit 93
+          fi
+
+          "$ADB" exec-out screencap -p             > dist/self-contained-first-frame.png
+          test -s dist/self-contained-first-frame.png
+
+          echo "XZIEL_NACHT_SELF_CONTAINED_FRESH_BOOT_GREEN"
+
       - name: Upload self-contained Nacht mobile playtest APK
         uses: actions/upload-artifact@v4
         with:
@@ -3901,6 +3955,12 @@ jobs:
             dist/data-space-before.txt
             dist/data-space-after.txt
             dist/nacht-vfs-device-sample.txt
+            dist/self-contained-logcat.txt
+            dist/self-contained-am-start.txt
+            dist/self-contained-data-before.txt
+            dist/self-contained-data-after.txt
+            dist/self-contained-processes.txt
+            dist/self-contained-first-frame.png
             build/nacht-static-scene/xziel.xzscene.report.json
             build/nacht-static-scene/xziel.xzmat.report.json
             build/nacht-static-scene/xziel.xzpb.report.json
