@@ -993,6 +993,28 @@ guest_launcher = java / "xenvironment/components/GuestProgramLauncherComponent.j
 gtext = guest_launcher.read_text(encoding="utf-8")
 if "import android.util.Log;" not in gtext:
     gtext = gtext.replace("import android.os.Process;\n", "import android.os.Process;\nimport android.util.Log;\n", 1)
+if "import android.os.Build;" not in gtext:
+    gtext = gtext.replace("import android.os.Process;\n", "import android.os.Process;\nimport android.os.Build;\n", 1)
+
+ld_anchor = '''        envVars.put("LD_LIBRARY_PATH", rootFS.getLibDir().getPath());
+        envVars.put("BOX64_LD_LIBRARY_PATH", rootDir+"/lib/x86_64-linux-gnu");
+'''
+ld_insert = '''        boolean xzielX86Bridge =
+                Build.SUPPORTED_ABIS != null &&
+                Build.SUPPORTED_ABIS.length > 0 &&
+                Build.SUPPORTED_ABIS[0].startsWith("x86");
+        if (xzielX86Bridge) {
+            envVars.put("LD_LIBRARY_PATH", "");
+            Log.i("XZIEL-HYBRID", "X86_BRIDGE_LD_LIBRARY_PATH_SANITIZED");
+        }
+        else {
+            envVars.put("LD_LIBRARY_PATH", rootFS.getLibDir().getPath());
+        }
+        envVars.put("BOX64_LD_LIBRARY_PATH", rootDir+"/lib/x86_64-linux-gnu");
+'''
+if ld_anchor not in gtext:
+    raise SystemExit("Could not find GuestProgramLauncher LD_LIBRARY_PATH anchor")
+gtext = gtext.replace(ld_anchor, ld_insert, 1)
 
 guest_exec_anchor = '''        String command = rootDir+"/usr/local/bin/box64 "+guestExecutable;
 
