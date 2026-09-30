@@ -470,6 +470,18 @@ echo "XZIEL_X86BRIDGE_GUEST_FILE_CAPTURE_BEGIN"
 tail -n 1200 "$OUT/xziel-guest-output.log" || true
 echo "XZIEL_X86BRIDGE_GUEST_FILE_CAPTURE_END"
 
+# Capture the in-APK persistent wineserver separately. APK27 starts this server
+# immediately before direct Nacht launch, so this log distinguishes server
+# startup failure from Wine/PE failure without relying only on logcat markers.
+adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-wineserver-runtime.log \
+  > "$OUT/xziel-wineserver-runtime.log" 2>/dev/null || true
+echo "XZIEL_X86BRIDGE_RUNTIME_WINESERVER_CAPTURE_BEGIN"
+tail -n 1600 "$OUT/xziel-wineserver-runtime.log" || true
+echo "XZIEL_X86BRIDGE_RUNTIME_WINESERVER_CAPTURE_END"
+adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; echo XZIEL_RUNTIME_SOCKET_CENSUS; find \$ROOT/tmp -maxdepth 3 -type s -o -type f 2>/dev/null | grep -E "(server-|xziel-wineserver-runtime)" | sort | head -n 200; ps -A | grep -E "box64|wineserver|Nacht" || true'" \
+  > "$OUT/runtime-wineserver-state.txt" 2>&1 || true
+cat "$OUT/runtime-wineserver-state.txt" || true
+
 adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ls -la files/rootfs/tmp files/rootfs/tmp/shm 2>&1; find files/rootfs/tmp/shm -maxdepth 1 -type f -ls 2>/dev/null | head -n 200'" \
   > "$OUT/shm-state.txt" 2>&1 || true
 echo "XZIEL_X86BRIDGE_SHM_STATE"
