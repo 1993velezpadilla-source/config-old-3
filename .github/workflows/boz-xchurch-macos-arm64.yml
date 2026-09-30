@@ -1,0 +1,141 @@
+name: XChurch macOS ARM64 Capture
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/boz-mod-runtime
+    paths:
+      - ".github/workflows/boz-xchurch-macos-arm64.yml"
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  capture:
+    runs-on: macos-14
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Verify Apple Silicon host
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/xchurch-capture
+          uname -a | tee /tmp/xchurch-capture/host.txt
+          ARCH="$(uname -m)"
+          echo "HOST_ARCH=$ARCH" | tee -a /tmp/xchurch-capture/host.txt
+          test "$ARCH" = "arm64"
+
+      - name: Download signed XChurch APK
+        uses: actions/download-artifact@v4
+        with:
+          name: XZIEL-BOZ-XChurch-APK
+          run-id: 36768068731
+          github-token: ${{ github.token }}
+          path: /tmp/xchurch-apk
+
+      - name: Prepare APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$(find /tmp/xchurch-apk -type f -name '*.apk' | head -n1)"
+          test -s "$APK"
+          cp "$APK" /tmp/xchurch-capture/xchurch.apk
+          shasum -a 256 /tmp/xchurch-capture/xchurch.apk             | tee /tmp/xchurch-capture/apk.sha256
+
+      - name: Boot XChurch on ARM64 Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: arm64-v8a
+          profile: pixel_4
+          disable-animations: true
+          emulator-boot-timeout: 480
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -camera-back none
+          script: |
+            set +e
+            OUT=/tmp/xchurch-capture
+            mkdir -p "$OUT/screens"
+
+            echo "=== DEVICE ===" | tee "$OUT/status.txt"
+            adb shell getprop ro.product.cpu.abi | tee -a "$OUT/status.txt"
+            adb shell getprop ro.product.cpu.abilist | tee -a "$OUT/status.txt"
+            adb shell getprop ro.build.version.release | tee -a "$OUT/status.txt"
+            adb shell getprop sys.boot_completed | tee -a "$OUT/status.txt"
+
+            adb install -r -d "$OUT/xchurch.apk" > "$OUT/install.log" 2>&1
+            INSTALL_RC=$?
+            echo "INSTALL_RC=$INSTALL_RC" | tee -a "$OUT/status.txt"
+            cat "$OUT/install.log" | tee -a "$OUT/status.txt"
+
+            if [ "$INSTALL_RC" -ne 0 ]; then
+              adb exec-out screencap -p > "$OUT/screens/install_failure.png"
+              adb logcat -d > "$OUT/logcat.txt" 2>&1
+              exit 0
+            fi
+
+            adb shell pm grant com.activision.boz android.permission.WRITE_EXTERNAL_STORAGE 2>/dev/null || true
+            adb shell pm grant com.activision.boz android.permission.READ_EXTERNAL_STORAGE 2>/dev/null || true
+            adb shell appops set com.activision.boz MANAGE_EXTERNAL_STORAGE allow 2>/dev/null || true
+
+            adb logcat -c
+            adb shell am force-stop com.activision.boz
+            adb shell am start -W -n com.activision.boz/.Main > "$OUT/launch.txt" 2>&1
+            LAUNCH_RC=$?
+            echo "LAUNCH_RC=$LAUNCH_RC" | tee -a "$OUT/status.txt"
+            cat "$OUT/launch.txt" | tee -a "$OUT/status.txt"
+
+            sleep 5
+            adb exec-out screencap -p > "$OUT/screens/boot_05s.png"
+
+            sleep 10
+            adb exec-out screencap -p > "$OUT/screens/boot_15s.png"
+
+            sleep 15
+            adb exec-out screencap -p > "$OUT/screens/boot_30s.png"
+
+            sleep 15
+            adb exec-out screencap -p > "$OUT/screens/boot_45s.png"
+
+            adb logcat -d > "$OUT/logcat.txt" 2>&1
+            adb shell dumpsys activity activities > "$OUT/activities.txt" 2>&1
+            adb shell dumpsys window windows > "$OUT/window.txt" 2>&1
+            adb shell pidof com.activision.boz > "$OUT/pid.txt" 2>&1 || true
+
+            PID="$(cat "$OUT/pid.txt" 2>/dev/null | tr -d '\r\n')"
+            echo "PID=$PID" | tee -a "$OUT/status.txt"
+
+            grep -Eai               'FATAL EXCEPTION|Fatal signal|SIGSEGV|SIGABRT|UnsatisfiedLinkError|dlopen failed|Process com.activision.boz.*died'               "$OUT/logcat.txt" > "$OUT/fatal-markers.txt" || true
+
+            if [ -n "$PID" ]; then
+              echo "XZIEL_BOZ_PROCESS_ALIVE=true" | tee -a "$OUT/status.txt"
+            else
+              echo "XZIEL_BOZ_PROCESS_ALIVE=false" | tee -a "$OUT/status.txt"
+            fi
+
+            exit 0
+
+      - name: Summarize capture
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          echo "=== STATUS ==="
+          cat /tmp/xchurch-capture/status.txt 2>/dev/null || true
+          echo "=== SCREENSHOTS ==="
+          ls -lh /tmp/xchurch-capture/screens 2>/dev/null || true
+          echo "=== FATAL MARKERS ==="
+          cat /tmp/xchurch-capture/fatal-markers.txt 2>/dev/null || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: XChurch-macOS-ARM64-Capture
+          path: /tmp/xchurch-capture/
+          if-no-files-found: error
+          retention-days: 14
