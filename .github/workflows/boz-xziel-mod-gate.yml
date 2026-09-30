@@ -314,11 +314,13 @@ jobs:
           import json
           from pathlib import Path
           import importlib.util
+          import sys
 
           root=Path('.').resolve()
           spec=importlib.util.spec_from_file_location(
               'dtrz_replace', root/'tools/boz_mod/dtrz_replace.py')
           mod=importlib.util.module_from_spec(spec)
+          sys.modules[spec.name]=mod
           spec.loader.exec_module(mod)
 
           p=Path('/tmp/boz135/blackops_gles1.dz')
