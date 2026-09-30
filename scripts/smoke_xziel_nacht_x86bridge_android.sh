@@ -119,9 +119,21 @@ for i in $(seq 1 36); do
       # glibc static-PIE has no INTERP at all and must also be launched directly.
       # Only dynamically linked glibc PIE needs the explicit rootfs loader.
       if readelf -l "$XZIEL_BOX64_PIE" 2>/dev/null | grep -q '/system/bin/linker64'; then
-        adb shell "run-as ${XZIEL_PACKAGE} sh -c 'cat > files/rootfs/usr/local/bin/box64'" < "$XZIEL_BOX64_PIE"
+        # Bionic PIE is the Android-executable Box64 path. Keep the binary as
+        # box64.real and wrap it so both the activity relaunch and CI probes
+        # always see the isolated x86_64 guest FreeType bundle.
+        adb shell "run-as ${XZIEL_PACKAGE} sh -c 'cat > files/rootfs/usr/local/bin/box64.real'" < "$XZIEL_BOX64_PIE"
+        adb shell run-as ${XZIEL_PACKAGE} chmod 700 files/rootfs/usr/local/bin/box64.real
+        cat > "$OUT/box64-bionic-wrapper.sh" <<'EOF'
+#!/system/bin/sh
+ROOT=/data/user/0/com.xzielapp/files/rootfs
+export BOX64_LD_LIBRARY_PATH="$ROOT/opt/xziel-x86_64/lib:$ROOT/lib/x86_64-linux-gnu"
+export BOX64_EMULATED_LIBS=libfreetype.so.6
+exec "$ROOT/usr/local/bin/box64.real" "$@"
+EOF
+        adb shell "run-as ${XZIEL_PACKAGE} sh -c 'cat > files/rootfs/usr/local/bin/box64'" < "$OUT/box64-bionic-wrapper.sh"
         adb shell run-as ${XZIEL_PACKAGE} chmod 700 files/rootfs/usr/local/bin/box64
-        adb shell run-as ${XZIEL_PACKAGE} ls -l files/rootfs/usr/local/bin/box64 | tee "$OUT/box64-pie-installed.txt"
+        adb shell run-as ${XZIEL_PACKAGE} ls -l files/rootfs/usr/local/bin/box64 files/rootfs/usr/local/bin/box64.real | tee "$OUT/box64-pie-installed.txt"
         echo "XZIEL_X86BRIDGE_BIONIC_PIE_BOX64_INJECTED"
       elif ! readelf -l "$XZIEL_BOX64_PIE" 2>/dev/null | grep -q 'INTERP'; then
         # glibc static-PIE Box64 can safely start under ndk_translation without
@@ -240,7 +252,7 @@ EOF
       # initialization. Keep Box64 tracing off here: per-call tracing inflated
       # the server log to tens of MB and made registry import artificially slow.
       # Give the same quiet server a bounded first-prefix warmup.
-      timeout 240s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_NOBANNER=1 BOX64_LOG=1 BOX64_DLSYM_ERROR=1 BOX64_LD_LIBRARY_PATH=\$ROOT/opt/xziel-x86_64/lib:\$ROOT/lib/x86_64-linux-gnu:\$ROOT/usr/lib BOX64_EMULATED_LIBS=libfreetype.so.6 ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEDEBUG=+font WINEESYNC=0 WINEFSYNC=0 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wine cmd /c ver; rc=\$?; echo XZIEL_PRESTARTED_CMD_STATUS=\$rc; exit \$rc'" \
+      timeout 240s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_NOBANNER=1 BOX64_LOG=1 BOX64_DLSYM_ERROR=1 BOX64_LD_LIBRARY_PATH=\$ROOT/opt/xziel-x86_64/lib:\$ROOT/lib/x86_64-linux-gnu BOX64_EMULATED_LIBS=libfreetype.so.6 ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEDEBUG=+font WINEESYNC=0 WINEFSYNC=0 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wine cmd /c ver; rc=\$?; echo XZIEL_PRESTARTED_CMD_STATUS=\$rc; exit \$rc'" \
         > "$OUT/wine-with-prestarted-server.txt" 2>&1 || true
 
       adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-wineserver-fg.log > "$OUT/wineserver-fg.log" 2>/dev/null || true
@@ -286,7 +298,7 @@ EOF
         export PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin
         export BOX64_LOG=2
         export BOX64_DLSYM_ERROR=1
-        export BOX64_LD_LIBRARY_PATH=\$ROOT/opt/xziel-x86_64/lib:\$ROOT/lib/x86_64-linux-gnu:\$ROOT/usr/lib
+        export BOX64_LD_LIBRARY_PATH=\$ROOT/opt/xziel-x86_64/lib:\$ROOT/lib/x86_64-linux-gnu
         export BOX64_EMULATED_LIBS=libfreetype.so.6
         export ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0
         export ANDROID_ALSA_SERVER=\$ROOT/tmp/.sound/AS0
