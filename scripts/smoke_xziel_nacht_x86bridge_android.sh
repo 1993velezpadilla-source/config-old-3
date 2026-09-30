@@ -149,6 +149,18 @@ EOF
       echo "XZIEL_X86BRIDGE_PREFIX_PROBE_ESYNC_OFF"
       tail -n 500 "$OUT/wine-prefix-esync-off.txt" || true
 
+      # Isolate wineserver daemonization. Wine launches wineserver with -d;
+      # if foreground (-f) survives while -d crashes, Box64's fork/daemon path
+      # is the remaining compatibility bug rather than Wine prefix/esync.
+      adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_LOG=2 BOX64_SHOWSEGV=1 BOX64_DLSYM_ERROR=1 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine timeout 6 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wineserver -f; rc=\$?; echo XZIEL_WINESERVER_FOREGROUND_STATUS=\$rc'" \
+        > "$OUT/wineserver-foreground-probe.txt" 2>&1 || true
+      adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_LOG=2 BOX64_SHOWSEGV=1 BOX64_DLSYM_ERROR=1 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine timeout 6 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wineserver -d; rc=\$?; echo XZIEL_WINESERVER_DAEMON_STATUS=\$rc'" \
+        > "$OUT/wineserver-daemon-probe.txt" 2>&1 || true
+      echo "XZIEL_X86BRIDGE_WINESERVER_FOREGROUND_PROBE"
+      tail -n 900 "$OUT/wineserver-foreground-probe.txt" || true
+      echo "XZIEL_X86BRIDGE_WINESERVER_DAEMON_PROBE"
+      tail -n 900 "$OUT/wineserver-daemon-probe.txt" || true
+
       adb logcat -c
       adb shell am start -W -n ${XZIEL_PACKAGE}/com.winlator.XzielBootActivity | tee "$OUT/am-restart-pie.txt"
       sleep 3
