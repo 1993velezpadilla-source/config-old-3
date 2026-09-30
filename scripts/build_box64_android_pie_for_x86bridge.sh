@@ -30,6 +30,38 @@ test -x "$CXX"
 
 git clone --depth 1 --branch v0.4.4 https://github.com/ptitSeb/box64.git "$SRC"
 
+# XZIEL x86-bridge compatibility:
+# Upstream Box64's ANDROID entrypoint only exports my___libc_init(), while
+# Winlator's x86_64 Wine guest is glibc-linked and requires __libc_start_main.
+# Keep the Android entrypoint and also expose the normal glibc start-main shim.
+python3 - "$SRC/src/emu/entrypoint.c" <<'PY'
+from pathlib import Path
+import re, sys
+
+p = Path(sys.argv[1])
+s = p.read_text()
+
+m = re.search(
+    r'(#else\n)(EXPORT int32_t my___libc_start_main\(.*?\n\}\n)(#ifdef BOX32)',
+    s,
+    flags=re.S,
+)
+if not m:
+    raise SystemExit("Could not locate Box64 glibc __libc_start_main implementation")
+
+glibc_start = m.group(2)
+marker = "/* XZIEL_ANDROID_GLIBC_START_MAIN */"
+if marker not in s:
+    inject = marker + "\n" + glibc_start
+    s = s[:m.start(1)] + inject + m.group(1) + s[m.start(2):]
+
+p.write_text(s)
+PY
+
+grep -q 'XZIEL_ANDROID_GLIBC_START_MAIN' "$SRC/src/emu/entrypoint.c"
+grep -q 'EXPORT int32_t my___libc_start_main' "$SRC/src/emu/entrypoint.c"
+echo "XZIEL_BOX64_ANDROID_GLIBC_START_MAIN_PATCHED"
+
 cmake -S "$SRC" -B "$BUILD/cmake" \
   -DCMAKE_C_COMPILER="$CC" \
   -DCMAKE_CXX_COMPILER="$CXX" \
