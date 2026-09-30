@@ -67,7 +67,7 @@ def patch_texels(buf: bytearray, start: int, w: int, h: int, pitch: int, bpp: in
             else:
                 buf[p] = 255 if checker == 0 else 32
 
-def parse_and_patch(data: bytes) -> tuple[bytes, list[dict]]:
+def parse_and_patch(data: bytes) -> tuple[bytes, list[dict], list[dict]]:
     out = bytearray(data)
     q = locate_resource_payload(data)
     if q + 4 > len(data):
@@ -112,6 +112,13 @@ def parse_and_patch(data: bytes) -> tuple[bytes, list[dict]]:
                 try:
                     texoff, w, h, pitch, bpp = locate_texels(body)
                 except ValueError:
+                    skipped.append({
+                        "index": index,
+                        "nameHash": f"0x{(name_hash if name_hash is not None else in_group_hash):08x}",
+                        "bodyOffset": body_start,
+                        "bodyBytes": len(body),
+                        "reason": "no raw tail texel layout",
+                    })
                     q = body_end
                     continue
                 absolute = body_start + texoff
@@ -133,7 +140,7 @@ def parse_and_patch(data: bytes) -> tuple[bytes, list[dict]]:
                 })
             q = body_end
 
-    return bytes(out), report
+    return bytes(out), report, skipped
 
 def main() -> int:
     ap = argparse.ArgumentParser()
@@ -174,6 +181,10 @@ def main() -> int:
         )
     if not textures:
         raise SystemExit("NO_RAW_TEXTURES_PATCHED")
+    if len(textures) + len(skipped) != 13:
+        raise SystemExit(
+            f"EXPECTED_13_TEXTURE_RESOURCES_GOT_{len(textures) + len(skipped)}"
+        )
     if original == patched:
         raise SystemExit("PATCH_DID_NOT_CHANGE_BYTES")
     print("XZIEL_BOZ_THEATRE_TEXTURE_PATCH_OK")
