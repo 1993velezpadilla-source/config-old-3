@@ -506,6 +506,51 @@ jobs:
           grep -q "XZIEL_BOZ_RESOURCE_INVENTORY_OK" boz_mod_out/kino_probe/resource-inventory.log
           test -s boz_mod_out/kino_probe/resource-inventory.json
 
+      - name: Test modern Marmalade resource extractor on theatre
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone https://github.com/Tatsh/dade.git /tmp/dade
+          cd /tmp/dade
+          git checkout 4b2530b1508f63b9f7df090f0dbf4030099d4ef7
+          test "$(git rev-parse HEAD)" = "4b2530b1508f63b9f7df090f0dbf4030099d4ef7"
+          python3 -m venv /tmp/dade-venv
+          /tmp/dade-venv/bin/pip install -q -e .
+          cd "$GITHUB_WORKSPACE"
+          rm -rf /tmp/theatre-extracted
+          set +e
+          /tmp/dade-venv/bin/dade marmalade extract-group \
+            /tmp/boz-kino/extracted/levels/kino/theatre_shared.group.bin \
+            /tmp/theatre-extracted \
+            --no-delete --no-html \
+            > boz_mod_out/kino_probe/dade-theatre.log 2>&1
+          rc=$?
+          set -e
+          echo "DADE_EXIT=$rc" | tee -a boz_mod_out/kino_probe/dade-theatre.log
+          if [[ $rc -eq 0 ]]; then
+            python3 - <<'PY' | tee boz_mod_out/kino_probe/dade-theatre-summary.txt
+          from pathlib import Path
+          root=Path('/tmp/theatre-extracted')
+          exts={}
+          total=0
+          for p in root.rglob('*'):
+              if p.is_file():
+                  total += 1
+                  exts[p.suffix.lower()] = exts.get(p.suffix.lower(),0)+1
+          print('DADE_THEATRE_EXTRACT_OK')
+          print('FILES', total)
+          for k,v in sorted(exts.items()):
+              print('EXT', k or '<none>', v)
+          for cls in ['CIwTexture','CIwMaterial','CIwModel']:
+              d=root/cls
+              print('CLASS',cls,'FILES',sum(1 for p in d.glob('*') if p.is_file()) if d.exists() else 0)
+          PY
+          else
+            echo "DADE_THEATRE_EXTRACT_FAILED_EXPECTED_VARIANT" | tee boz_mod_out/kino_probe/dade-theatre-summary.txt
+            tail -n 80 boz_mod_out/kino_probe/dade-theatre.log
+          fi
+          rm -rf /tmp/theatre-extracted /tmp/dade /tmp/dade-venv
+
       - name: Keep structural report only
         shell: bash
         run: |
