@@ -136,7 +136,7 @@ EOF
       # wineserver -f is healthy and creates the real prefix socket. Keep one
       # foreground server alive across the first (slow) Wine prefix warmup and
       # the Android relaunch instead of killing it after a short diagnostic.
-      timeout 10s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; rm -f \$ROOT/tmp/xziel-wineserver-fg.log \$ROOT/tmp/xziel-wineserver-fg.pid; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_NOBANNER=1 BOX64_LOG=0 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEESYNC=1 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wineserver -f > \$ROOT/tmp/xziel-wineserver-fg.log 2>&1 & echo \$! > \$ROOT/tmp/xziel-wineserver-fg.pid'" \
+      timeout 10s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; rm -f \$ROOT/tmp/xziel-wineserver-fg.log \$ROOT/tmp/xziel-wineserver-fg.pid; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_NOBANNER=1 BOX64_LOG=0 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEESYNC=0 WINEFSYNC=0 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wineserver -f > \$ROOT/tmp/xziel-wineserver-fg.log 2>&1 & echo \$! > \$ROOT/tmp/xziel-wineserver-fg.pid'" \
         > "$OUT/wineserver-fg-start.txt" 2>&1 || true
       sleep 2
       adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-wineserver-fg.pid > "$OUT/wineserver-fg.pid" 2>/dev/null || true
@@ -149,7 +149,7 @@ EOF
       # initialization. Keep Box64 tracing off here: per-call tracing inflated
       # the server log to tens of MB and made registry import artificially slow.
       # Give the same quiet server a bounded first-prefix warmup.
-      timeout 240s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_NOBANNER=1 BOX64_LOG=0 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEDEBUG=-all WINEESYNC=1 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wine cmd /c ver; rc=\$?; echo XZIEL_PRESTARTED_CMD_STATUS=\$rc; exit \$rc'" \
+      timeout 240s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_NOBANNER=1 BOX64_LOG=0 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEDEBUG=-all WINEESYNC=0 WINEFSYNC=0 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wine cmd /c ver; rc=\$?; echo XZIEL_PRESTARTED_CMD_STATUS=\$rc; exit \$rc'" \
         > "$OUT/wine-with-prestarted-server.txt" 2>&1 || true
 
       adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-wineserver-fg.log > "$OUT/wineserver-fg.log" 2>/dev/null || true
@@ -200,7 +200,8 @@ EOF
         export ANDROID_ALSA_SERVER=\$ROOT/tmp/.sound/AS0
         export VIRGL_SERVER_PATH=\$ROOT/tmp/.virgl/V0
         export GALLIUM_DRIVER=virpipe
-        export WINEESYNC=1
+        export WINEESYNC=0
+        export WINEFSYNC=0
         export WINEDEBUG=+server,+process,+module,+loaddll
         timeout 8 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wine explorer /desktop=nogui,1280x720 C:\\\\windows\\\\winhandler.exe /dir C:\\\\XZIEL \"Nacht-Chronicles-XZIEL.exe\"
       '" > "$OUT/full-launch-direct-probe.txt" 2>&1 || true
@@ -226,7 +227,8 @@ export BOX64_LOG=2
 export BOX64_DLSYM_ERROR=1
 export BOX64_SHOWSEGV=1
 export WINEPREFIX="$ROOT/home/xuser/.wine"
-export WINEESYNC=1
+export WINEESYNC=0
+        export WINEFSYNC=0
 export WINEDEBUG=+process,+server,+module,+seh
 export ANDROID_SYSVSHM_SERVER="$ROOT/tmp/.sysvshm/SM0"
 export ANDROID_ALSA_SERVER="$ROOT/tmp/.sound/AS0"
