@@ -32,7 +32,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update -qq
-          sudo apt-get install -y -qq blender xvfb libegl1 libgl1-mesa-dri libglx-mesa0
+          sudo apt-get install -y -qq blender python3-numpy xvfb libegl1 libgl1-mesa-dri libglx-mesa0
           blender --version
 
       - name: Build gameplay blockout
