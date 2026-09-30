@@ -34,7 +34,7 @@ cmake -S "$SRC" -B "$BUILD/cmake" \
   -DCMAKE_C_COMPILER="$CC" \
   -DCMAKE_CXX_COMPILER="$CXX" \
   -DANDROID=1 \
-  -DARM_DYNAREC=1 \
+  -DARM_DYNAREC=0 \
   -DBAD_SIGNAL=1 \
   -DNOLOADADDR=ON \
   -DCMAKE_BUILD_TYPE=Release \
@@ -60,4 +60,4 @@ sha256sum "$OUT/box64-pie" | tee "$DIST/box64-pie.sha256"
 grep -Eq 'Type:[[:space:]]+DYN' "$DIST/box64-pie.readelf-h.txt"
 
 echo "XZIEL_BOX64_PIE=$OUT/box64-pie" >> "$GITHUB_ENV"
-echo "XZIEL_BOX64_ANDROID_PIE_GREEN path=$OUT/box64-pie"
+echo "XZIEL_BOX64_ANDROID_PIE_INTERPRETER_GREEN path=$OUT/box64-pie"
