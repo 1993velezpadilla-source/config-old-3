@@ -42,6 +42,9 @@ jobs:
           sha256sum "$APK" | tee xchurch-smoke/apk-sha256.txt
           ls -lh "$APK"
 
+      - name: Set up Android SDK on ARM64 runner
+        uses: android-actions/setup-android@v3
+
       - name: Install emulator host dependencies
         shell: bash
         run: |
