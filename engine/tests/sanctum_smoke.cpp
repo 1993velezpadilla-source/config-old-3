@@ -22,6 +22,56 @@ int main() {
     assert(!profile.showPassivePresenceMarkers);
     assert(!profile.autoRevealSecrets);
 
+    xziel::SanctumSurvivalAnchors survivalAnchors{};
+    survivalAnchors.wallWeapon = {1.0f, 0.0f, 0.0f};
+    survivalAnchors.randomArsenal = {2.0f, 0.0f, 0.0f};
+    survivalAnchors.reliquary = {3.0f, 0.0f, 0.0f};
+    survivalAnchors.weaponUpgrade = {4.0f, 0.0f, 0.0f};
+    survivalAnchors.votive = {5.0f, 0.0f, 0.0f};
+    survivalAnchors.hasWallWeapon = true;
+    survivalAnchors.hasRandomArsenal = true;
+    survivalAnchors.hasReliquary = true;
+    survivalAnchors.hasWeaponUpgrade = true;
+    survivalAnchors.hasVotive = true;
+
+    const auto survivalContent =
+        xziel::makeSanctumSurvivalContent(
+            survivalAnchors);
+
+    assert(survivalContent.perkCount == 8U);
+    assert(survivalContent.weaponPoolCount == 7U);
+    assert(survivalContent.consumableCount == 2U);
+    assert(survivalContent.stationCount == 5U);
+
+    xziel::SurvivalRuntime survival;
+    assert(survival.load(survivalContent));
+
+    xziel::InteractionSystem survivalInteractions;
+    assert(
+        survival.registerInteractions(
+            survivalInteractions));
+    assert(
+        survivalInteractions.targetCount() ==
+        survivalContent.stationCount);
+
+    xziel::ScoreSystem verticalSliceScore{
+        profile.score};
+    assert(
+        verticalSliceScore.awardUtility(1000U).total ==
+        1500U);
+
+    const auto wallPurchase =
+        survival.purchaseWallWeapon(
+            xziel::kSanctumWallWeaponStationId,
+            verticalSliceScore);
+    assert(wallPurchase.success);
+    assert(
+        wallPurchase.contentId ==
+        xziel::kSanctumWeaponSubmachineGunId);
+    assert(
+        verticalSliceScore.frame().total ==
+        600U);
+
     xziel::PlayerVitals vulnerablePlayer{
         profile.vitals};
 
