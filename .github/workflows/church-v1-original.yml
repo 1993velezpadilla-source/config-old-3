@@ -1,0 +1,92 @@
+name: Build Original Church V1
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - feature/church-v1-original
+    paths:
+      - ".github/workflows/church-v1-original.yml"
+      - "church_v1/**"
+      - "tools/church_v1/**"
+      - "docs/CHURCH_V1_PRODUCTION_SPEC.md"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xziel-church-v1-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  blockout-and-art-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Blender
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender xvfb libegl1 libgl1-mesa-dri libglx-mesa0
+          blender --version
+
+      - name: Build gameplay blockout
+        shell: bash
+        env:
+          CHURCH_V1_SPEC: church_v1/spec/church_v1.json
+          CHURCH_V1_OUT: church_v1/out
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: |
+          set -euo pipefail
+          mkdir -p church_v1/out
+          xvfb-run -a -s "-screen 0 1600x1000x24" \
+            blender --background --python tools/church_v1/build_blockout.py \
+            2>&1 | tee church_v1/out/blockout-build.log
+          test -s church_v1/out/church_v1_blockout.glb
+          test -s church_v1/out/blockout_top_3q.png
+          test -s church_v1/out/blockout_player_nave.png
+          test -s church_v1/out/blockout_crypt.png
+          test -s church_v1/out/blockout_report.json
+
+      - name: Enforce blockout is non-shippable
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          r=json.load(open("church_v1/out/blockout_report.json", encoding="utf-8"))
+          assert r["stage"] == "BLOCKOUT_ONLY", r
+          assert r["shippingAllowed"] is False, r
+          assert len(r["zones"]) == 7, r
+          print("BLOCKOUT_NON_SHIPPABLE_GATE_OK")
+          PY
+
+      - name: Validate authored final art when present
+        shell: bash
+        env:
+          CHURCH_V1_SPEC: church_v1/spec/church_v1.json
+          CHURCH_V1_OUT: church_v1/out
+          CHURCH_FINAL_SOURCE: church_v1/source/church_final.glb
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: |
+          set -euo pipefail
+          if [[ -s church_v1/source/church_final.glb ]]; then
+            xvfb-run -a -s "-screen 0 1600x1000x24" \
+              blender --background --python tools/church_v1/validate_final_art.py \
+              2>&1 | tee church_v1/out/final-art-validation.log
+          else
+            echo "FINAL_ART_NOT_PRESENT_YET"
+            echo "Expected during blockout; the blockout GLB cannot substitute for final art."
+          fi
+
+      - name: Upload Church V1 development artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Church-V1-Blockout
+          path: church_v1/out/
+          if-no-files-found: error
+          retention-days: 14
