@@ -13,6 +13,7 @@ on:
       - ".github/workflows/xziel-nacht-hybrid-android-x86bridge-smoke.yml"
       - "scripts/smoke_xziel_nacht_x86bridge_android.sh"
       - "scripts/build_box64_android_pie_for_x86bridge.sh"
+      - "scripts/build_box64_glibc_pie_for_x86bridge.sh"
 
 permissions:
   contents: read
@@ -47,12 +48,12 @@ jobs:
           sha256sum "$APK" | tee dist/android-x86bridge-smoke/apk.sha256
           echo "XZIEL_X86BRIDGE_APK_READY"
 
-      - name: Build Android PIE Box64 for x86 bridge
+      - name: Build Winlator glibc PIE Box64 for x86 bridge
         shell: bash
         run: |
           set -euo pipefail
-          chmod +x scripts/build_box64_android_pie_for_x86bridge.sh
-          bash scripts/build_box64_android_pie_for_x86bridge.sh
+          chmod +x scripts/build_box64_glibc_pie_for_x86bridge.sh
+          bash scripts/build_box64_glibc_pie_for_x86bridge.sh
 
       - name: Enable KVM
         shell: bash
