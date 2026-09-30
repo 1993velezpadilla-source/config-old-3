@@ -1,0 +1,171 @@
+name: BOZ Stock Frontend Baseline
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/boz-mod-runtime
+    paths:
+      - ".github/workflows/boz-stock-frontend-baseline.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Enable KVM
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/boz-stock/proof/screens
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+          test -e /dev/kvm
+
+      - name: Download public stock reconstruction APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 --retry-delay 2 \
+            -o /tmp/boz-stock/stock.apk \
+            https://github.com/12brendon34/COD-BOZ-Partially-Decompiled/releases/download/1.3.5/app-release.apk
+          test -s /tmp/boz-stock/stock.apk
+          sha256sum /tmp/boz-stock/stock.apk | tee /tmp/boz-stock/proof/apk.sha256
+
+      - name: Install Android tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n1)"
+          AVDMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name avdmanager | sort -V | tail -n1)"
+          test -x "$SDKMANAGER"
+          test -x "$AVDMANAGER"
+          echo "AVDMANAGER=$AVDMANAGER" >> "$GITHUB_ENV"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" \
+            "platform-tools" "emulator" \
+            "system-images;android-30;google_apis;x86_64" >/dev/null
+
+      - name: Boot Android 11
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=/tmp/boz-stock
+          PROOF="$OUT/proof"
+          export ANDROID_AVD_HOME=/tmp/boz-stock-avd
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
+
+          printf 'no\n' | "$AVDMANAGER" create avd \
+            --force --name boz-stock \
+            --package "system-images;android-30;google_apis;x86_64" \
+            --device "pixel_4" >/dev/null 2>&1
+
+          ADB="$ANDROID_HOME/platform-tools/adb"
+          EMU="$ANDROID_HOME/emulator/emulator"
+          "$ADB" kill-server >/dev/null 2>&1 || true
+          "$ADB" start-server >/dev/null 2>&1
+          nohup "$EMU" @boz-stock \
+            -no-window -gpu swiftshader_indirect -no-snapshot \
+            -noaudio -no-boot-anim -no-metrics -camera-back none \
+            > "$PROOF/emulator.log" 2>&1 &
+          EMU_PID=$!
+          echo "EMU_PID=$EMU_PID" > "$PROOF/status.txt"
+
+          READY=0
+          for i in $(seq 1 60); do
+            [ "$("$ADB" get-state 2>/dev/null || true)" = "device" ] && READY=1 && break
+            kill -0 "$EMU_PID" 2>/dev/null || break
+            sleep 2
+          done
+          echo "ADB_READY=$READY" >> "$PROOF/status.txt"
+          test "$READY" = "1"
+
+          BOOT=0
+          for i in $(seq 1 60); do
+            [ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && BOOT=1 && break
+            sleep 2
+          done
+          echo "BOOT_COMPLETED=$BOOT" >> "$PROOF/status.txt"
+          test "$BOOT" = "1"
+
+          {
+            echo "ABI=$("$ADB" shell getprop ro.product.cpu.abi | tr -d '\r')"
+            echo "ABILIST=$("$ADB" shell getprop ro.product.cpu.abilist | tr -d '\r')"
+            echo "NATIVE_BRIDGE=$("$ADB" shell getprop ro.dalvik.vm.native.bridge | tr -d '\r')"
+            echo "NDK_TRANSLATION=$("$ADB" shell getprop ro.ndk_translation.version | tr -d '\r')"
+          } > "$PROOF/device.txt"
+
+      - name: Launch stock BOZ and tap stable title
+        shell: bash
+        run: |
+          set +e
+          OUT=/tmp/boz-stock
+          PROOF="$OUT/proof"
+          ADB="$ANDROID_HOME/platform-tools/adb"
+
+          "$ADB" install --abi arm64-v8a -r -d "$OUT/stock.apk" > "$PROOF/install.txt" 2>&1
+          RC=$?
+          echo "INSTALL_RC=$RC" | tee -a "$PROOF/status.txt"
+          if [ "$RC" -ne 0 ]; then exit 0; fi
+
+          "$ADB" shell pm grant com.activision.boz android.permission.WRITE_EXTERNAL_STORAGE 2>/dev/null || true
+          "$ADB" shell pm grant com.activision.boz android.permission.READ_EXTERNAL_STORAGE 2>/dev/null || true
+          "$ADB" shell appops set com.activision.boz MANAGE_EXTERNAL_STORAGE allow 2>/dev/null || true
+          "$ADB" shell mkdir -p /sdcard/Android/obb/com.activision.boz 2>/dev/null || true
+
+          "$ADB" logcat -c
+          "$ADB" shell am force-stop com.activision.boz >/dev/null 2>&1 || true
+          "$ADB" shell am start -W -n com.activision.boz/.Main > "$PROOF/launch.txt" 2>&1
+          echo "LAUNCH_RC=$?" | tee -a "$PROOF/status.txt"
+
+          sleep 120
+          "$ADB" exec-out screencap -p > "$PROOF/screens/before_tap_120s.png"
+          PID="$("$ADB" shell pidof com.activision.boz 2>/dev/null | tr -d '\r\n')"
+          echo "BEFORE_TAP_PID=$PID" | tee -a "$PROOF/status.txt"
+
+          "$ADB" shell input tap 1140 540
+          echo "TAP_SENT=1140,540" | tee -a "$PROOF/status.txt"
+
+          LAST=0
+          for SEC in 5 15 30 60; do
+            WAIT=$((SEC-LAST))
+            sleep "$WAIT"
+            LAST=$SEC
+            "$ADB" exec-out screencap -p > "$PROOF/screens/after_tap_${SEC}s.png"
+            PID="$("$ADB" shell pidof com.activision.boz 2>/dev/null | tr -d '\r\n')"
+            echo "AFTER_TAP_${SEC}s_PID=$PID" | tee -a "$PROOF/status.txt"
+          done
+
+          "$ADB" logcat -d -v threadtime > "$PROOF/logcat.txt" 2>&1
+          "$ADB" shell dumpsys activity activities > "$PROOF/activities.txt" 2>&1
+          sha256sum "$PROOF"/screens/*.png > "$PROOF/screen-hashes.txt"
+          exit 0
+
+      - name: Summarize baseline
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          PROOF=/tmp/boz-stock/proof
+          cat "$PROOF/status.txt" 2>/dev/null || true
+          cat "$PROOF/screen-hashes.txt" 2>/dev/null || true
+          find "$PROOF/screens" -type f -printf '%f %s bytes\n' | sort || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: BOZ-Stock-Frontend-Baseline
+          path: /tmp/boz-stock/proof/
+          if-no-files-found: error
+          retention-days: 14
