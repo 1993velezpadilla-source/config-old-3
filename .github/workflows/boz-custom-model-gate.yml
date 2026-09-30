@@ -1,0 +1,106 @@
+name: BOZ Custom CIwModel Writer Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/boz-mod-runtime
+      - main
+    paths:
+      - ".github/workflows/boz-custom-model-gate.yml"
+      - "tools/boz_mod/build_custom_ciwmodel.py"
+
+permissions:
+  contents: read
+
+jobs:
+  custom-model-roundtrip:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build original XChurch CIwModel group
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p boz_mod_out/custom_model
+          python3 tools/boz_mod/build_custom_ciwmodel.py \
+            --out boz_mod_out/custom_model/xchurch_shared.group.bin \
+            --report boz_mod_out/custom_model/writer-report.json \
+            | tee boz_mod_out/custom_model/writer.log
+          grep -q "XZIEL_BOZ_CUSTOM_MODEL_WRITTEN" boz_mod_out/custom_model/writer.log
+          test -s boz_mod_out/custom_model/xchurch_shared.group.bin
+
+      - name: Install pinned open Marmalade verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone -q https://github.com/Tatsh/dade.git /tmp/dade
+          cd /tmp/dade
+          git checkout -q 4b2530b1508f63b9f7df090f0dbf4030099d4ef7
+          test "$(git rev-parse HEAD)" = "4b2530b1508f63b9f7df090f0dbf4030099d4ef7"
+          python3 -m venv /tmp/dade-venv
+          /tmp/dade-venv/bin/pip install -q -e .
+
+      - name: Round-trip group and geometry
+        shell: bash
+        run: |
+          set -euo pipefail
+          /tmp/dade-venv/bin/python - <<'PY' | tee boz_mod_out/custom_model/roundtrip.log
+          from pathlib import Path
+          from dade.marmalade.resgroup import parse
+          from dade.marmalade.model import decode_model
+
+          p=Path("boz_mod_out/custom_model/xchurch_shared.group.bin")
+          data=p.read_bytes()
+          group=parse(data)
+          print("GROUP_NAME", group.name)
+          assert group.name == "xchurch", group.name
+          models=group.resources.get("CIwModel", [])
+          print("MODEL_COUNT", len(models))
+          assert len(models) == 1, len(models)
+          model=decode_model(models[0].body)
+          print("DECODED_VERTICES", len(model.vertices))
+          print("DECODED_TRIANGLES", len(model.triangles))
+          print("DECODED_UVS", len(model.uvs))
+          assert len(model.vertices) == 42, len(model.vertices)
+          assert len(model.triangles) == 14, len(model.triangles)
+          assert len(model.uvs) == 42, len(model.uvs)
+          obj=model.to_obj(comment="XZIEL XChurch synthetic room shell")
+          Path("boz_mod_out/custom_model/xchurch_shell.obj").write_text(obj, encoding="utf-8")
+          assert obj.count("\nv ") == 42
+          assert obj.count("\nf ") == 14
+          print("XZIEL_BOZ_CUSTOM_MODEL_ROUNDTRIP_OK")
+          PY
+          grep -q "XZIEL_BOZ_CUSTOM_MODEL_ROUNDTRIP_OK" boz_mod_out/custom_model/roundtrip.log
+
+      - name: Validate BOZ-style header and resource class
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' | tee boz_mod_out/custom_model/compat.log
+          import struct
+          from pathlib import Path
+
+          b=Path("boz_mod_out/custom_model/xchurch_shared.group.bin").read_bytes()
+          assert b[:6] == bytes.fromhex("3d0001020000"), b[:6].hex()
+          model_hash=0x89546ed9
+          hits=b.count(struct.pack("<I", model_hash))
+          print("BOZ_HEADER", b[:6].hex())
+          print("CIW_MODEL_CLASS_HASH_HITS", hits)
+          assert hits == 1, hits
+          print("XZIEL_BOZ_CUSTOM_MODEL_COMPAT_STRUCTURE_OK")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-BOZ-Custom-CIwModel-Proof
+          path: |
+            boz_mod_out/custom_model/writer-report.json
+            boz_mod_out/custom_model/writer.log
+            boz_mod_out/custom_model/roundtrip.log
+            boz_mod_out/custom_model/compat.log
+          if-no-files-found: error
+          retention-days: 14
