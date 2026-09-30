@@ -683,13 +683,39 @@ jobs:
 
           rm -rf /tmp/theatre-extracted /tmp/dade /tmp/dade-venv
 
+      - name: Prepare BOZ core runtime for class scan
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 --retry-delay 2 \
+            -o /tmp/boz-kino/runtime/boz.s3e \
+            https://raw.githubusercontent.com/eugene373/COD-BOZ-Partially-Decompiled/e723c8c1ea4fac59be990efb3edf7a09b1af7768/app/src/main/assets/boz.s3e
+          python3 - <<'PY'
+          import lzma
+          from pathlib import Path
+          src=Path('/tmp/boz-kino/runtime/boz.s3e').read_bytes()
+          props=src[0]
+          pb=props//45
+          rem=props%45
+          lp=rem//9
+          lc=rem%9
+          dec=lzma.decompress(
+              src[13:],
+              format=lzma.FORMAT_RAW,
+              filters=[{'id':lzma.FILTER_LZMA1,'lc':lc,'lp':lp,'pb':pb}],
+          )
+          Path('/tmp/boz-kino/runtime/boz.unpacked').write_bytes(dec)
+          print('BOZ_RUNTIME_UNPACKED', len(dec))
+          PY
+          test -s /tmp/boz-kino/runtime/boz.unpacked
+
       - name: Identify Marmalade runtime resource classes
         shell: bash
         run: |
           set -euo pipefail
           mapfile -t SO_FILES < <(find /tmp/boz-kino/runtime -type f -name '*.so' -print)
           test "${#SO_FILES[@]}" -gt 0
-          ARGS=()
+          ARGS=(--binary /tmp/boz-kino/runtime/boz.unpacked)
           for f in "${SO_FILES[@]}"; do
             ARGS+=(--binary "$f")
           done
