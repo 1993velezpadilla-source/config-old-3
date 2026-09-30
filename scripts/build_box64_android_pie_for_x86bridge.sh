@@ -76,6 +76,9 @@ s = libc_h.read_text()
 for old, new in (
     ("GO(__errno_location, pFv)", "GOM(__errno_location, pFEv)"),
     ("GO(__xpg_basename, pFp)", "GOM(__xpg_basename, pFEp)"),
+    ("GO(__ctype_b_loc, pFv)", "GOM(__ctype_b_loc, pFEv)"),
+    ("GO(__ctype_tolower_loc, pFv)", "GOM(__ctype_tolower_loc, pFEv)"),
+    ("GO(__ctype_toupper_loc, pFv)", "GOM(__ctype_toupper_loc, pFEv)"),
 ):
     if old not in s:
         raise SystemExit(f"Box64 libc wrapper anchor missing: {old}")
@@ -123,6 +126,92 @@ EXPORT char* my___xpg_basename(x64emu_t* emu, char* path)
 
     char* slash = strrchr(path, '/');
     return slash ? slash + 1 : path;
+}
+
+/*
+ * Bionic does not export glibc's __ctype_*_loc ABI.  Wine's Unix-side
+ * helpers use those symbols even in the C locale, so provide the glibc table
+ * shape (384 entries, pointer biased by 128) with the glibc bit layout.
+ */
+static unsigned short xziel_ctype_b_table[384];
+static int32_t xziel_ctype_tolower_table[384];
+static int32_t xziel_ctype_toupper_table[384];
+static const unsigned short* xziel_ctype_b_ptr = xziel_ctype_b_table + 128;
+static const int32_t* xziel_ctype_tolower_ptr = xziel_ctype_tolower_table + 128;
+static const int32_t* xziel_ctype_toupper_ptr = xziel_ctype_toupper_table + 128;
+static int xziel_ctype_ready = 0;
+
+static void xziel_init_ctype_tables(void)
+{
+    if(xziel_ctype_ready)
+        return;
+
+    for(int c = -128; c < 256; ++c) {
+        int idx = c + 128;
+        unsigned short f = 0;
+        int lower = c;
+        int upper = c;
+
+        if(c >= 0) {
+            unsigned int u = (unsigned int)c;
+            if(u >= 'A' && u <= 'Z') {
+                f |= 0x0100 | 0x0400 | 0x0008; /* upper|alpha|alnum */
+                lower = (int)(u - 'A' + 'a');
+            }
+            if(u >= 'a' && u <= 'z') {
+                f |= 0x0200 | 0x0400 | 0x0008; /* lower|alpha|alnum */
+                upper = (int)(u - 'a' + 'A');
+            }
+            if(u >= '0' && u <= '9')
+                f |= 0x0800 | 0x1000 | 0x0008; /* digit|xdigit|alnum */
+            if((u >= 'A' && u <= 'F') || (u >= 'a' && u <= 'f'))
+                f |= 0x1000; /* xdigit */
+
+            if(u == ' ' || u == '\t')
+                f |= 0x0001; /* blank */
+            if(u == ' ' || u == '\t' || u == '\n' || u == '\r' || u == '\v' || u == '\f')
+                f |= 0x2000; /* space */
+            if(u < 0x20 || u == 0x7f)
+                f |= 0x0002; /* cntrl */
+            if(u >= 0x20 && u <= 0x7e)
+                f |= 0x4000; /* print */
+            if(u >= 0x21 && u <= 0x7e)
+                f |= 0x8000; /* graph */
+
+            if(u >= 0x21 && u <= 0x7e &&
+               !((u >= 'A' && u <= 'Z') ||
+                 (u >= 'a' && u <= 'z') ||
+                 (u >= '0' && u <= '9')))
+                f |= 0x0004; /* punct */
+        }
+
+        xziel_ctype_b_table[idx] = f;
+        xziel_ctype_tolower_table[idx] = lower;
+        xziel_ctype_toupper_table[idx] = upper;
+    }
+
+    xziel_ctype_ready = 1;
+}
+
+EXPORT void* my___ctype_b_loc(x64emu_t* emu)
+{
+    (void)emu;
+    xziel_init_ctype_tables();
+    return &xziel_ctype_b_ptr;
+}
+
+EXPORT void* my___ctype_tolower_loc(x64emu_t* emu)
+{
+    (void)emu;
+    xziel_init_ctype_tables();
+    return &xziel_ctype_tolower_ptr;
+}
+
+EXPORT void* my___ctype_toupper_loc(x64emu_t* emu)
+{
+    (void)emu;
+    xziel_init_ctype_tables();
+    return &xziel_ctype_toupper_ptr;
 }
 
 '''
@@ -215,6 +304,13 @@ grep -q 'XZIEL_ANDROID_GLIBC_LIBC_SHIMS' "$SRC/src/wrapped/wrappedlibc.c"
 grep -q 'XZIEL_ANDROID_GLIBC_SHM_SHIMS' "$SRC/src/wrapped/wrappedlibrt.c"
 grep -q 'GOM(__errno_location, pFEv)' "$SRC/src/wrapped/wrappedlibc_private.h"
 grep -q 'GOM(__xpg_basename, pFEp)' "$SRC/src/wrapped/wrappedlibc_private.h"
+grep -q 'GOM(__ctype_b_loc, pFEv)' "$SRC/src/wrapped/wrappedlibc_private.h"
+grep -q 'GOM(__ctype_tolower_loc, pFEv)' "$SRC/src/wrapped/wrappedlibc_private.h"
+grep -q 'GOM(__ctype_toupper_loc, pFEv)' "$SRC/src/wrapped/wrappedlibc_private.h"
+grep -q 'my___ctype_b_loc' "$SRC/src/wrapped/wrappedlibc.c"
+grep -q 'my___ctype_tolower_loc' "$SRC/src/wrapped/wrappedlibc.c"
+grep -q 'my___ctype_toupper_loc' "$SRC/src/wrapped/wrappedlibc.c"
+echo "XZIEL_BOX64_ANDROID_GLIBC_CTYPE_GREEN"
 grep -q 'GOM(shm_open, iFEpOu)' "$SRC/src/wrapped/wrappedlibc_private.h"
 grep -q 'GOM(shm_unlink, iFEp)' "$SRC/src/wrapped/wrappedlibc_private.h"
 grep -q 'GOM(shm_open, iFEpOu)' "$SRC/src/wrapped/wrappedlibrt_private.h"
