@@ -456,6 +456,10 @@ jobs:
           test -n "$ENTRY"
           unzip -p /tmp/boz-kino/app-release.apk "$ENTRY" > /tmp/boz-kino/blackops_gles1.dz
           test -s /tmp/boz-kino/blackops_gles1.dz
+          mkdir -p /tmp/boz-kino/runtime
+          unzip -q /tmp/boz-kino/app-release.apk 'lib/*/*.so' -d /tmp/boz-kino/runtime
+          find /tmp/boz-kino/runtime -type f -name '*.so' -print | tee /tmp/boz-kino/runtime-so-list.txt
+          test -s /tmp/boz-kino/runtime-so-list.txt
           rm -f /tmp/boz-kino/app-release.apk
 
       - name: Build pinned native Dzip decoder
@@ -550,6 +554,24 @@ jobs:
             tail -n 80 boz_mod_out/kino_probe/dade-theatre.log
           fi
           rm -rf /tmp/theatre-extracted /tmp/dade /tmp/dade-venv
+
+      - name: Identify Marmalade runtime resource classes
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t SO_FILES < <(find /tmp/boz-kino/runtime -type f -name '*.so' -print)
+          test "${#SO_FILES[@]}" -gt 0
+          ARGS=()
+          for f in "${SO_FILES[@]}"; do
+            ARGS+=(--binary "$f")
+          done
+          python3 tools/boz_mod/scan_runtime_class_hashes.py \
+            --group-root /tmp/boz-kino/extracted \
+            "${ARGS[@]}" \
+            --out boz_mod_out/kino_probe/runtime-class-scan.json \
+            | tee boz_mod_out/kino_probe/runtime-class-scan.log
+          grep -q "XZIEL_BOZ_RUNTIME_CLASS_SCAN_OK" boz_mod_out/kino_probe/runtime-class-scan.log
+          test -s boz_mod_out/kino_probe/runtime-class-scan.json
 
       - name: Keep structural report only
         shell: bash
