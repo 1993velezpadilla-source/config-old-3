@@ -158,6 +158,14 @@ jobs:
           echo "XZIEL_DIRECT_TOUCH_APK_BUILD_OK" \
             | tee /tmp/xchurch-direct/proof/build-proof.txt
 
+      - name: Upload reusable diagnostic APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: XChurch-Diagnostic-Touch-APK
+          path: /tmp/xchurch-direct/direct-touch.apk
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Boot Android 11
         shell: bash
         run: |
@@ -275,9 +283,9 @@ jobs:
             "$ADB" shell am start -W               -n com.activision.boz/.Main               --ez xzielDirectTap true               --ei xzielX 500               --ei xzielY 145               > "$PROOF/single-player-tap-intent.txt" 2>&1
             echo "SINGLE_PLAYER_TAP_RC=$?" | tee -a "$PROOF/status.txt"
 
-            sleep 3
-            "$ADB" exec-out screencap -p > "$PROOF/screens/after_single_player_03s.png" 2>/dev/null || true
-            sleep 7
+            sleep 5
+            "$ADB" exec-out screencap -p > "$PROOF/screens/after_single_player_05s.png" 2>/dev/null || true
+            sleep 5
             "$ADB" exec-out screencap -p > "$PROOF/screens/after_single_player_10s.png" 2>/dev/null || true
             sleep 10
             "$ADB" exec-out screencap -p > "$PROOF/screens/after_single_player_20s.png" 2>/dev/null || true
