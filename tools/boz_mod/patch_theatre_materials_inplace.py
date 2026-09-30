@@ -64,12 +64,10 @@ def patch(data: bytes) -> tuple[bytes, list[dict]]:
                     # same(1), flags(4), two u16(4), then four RGBA channels.
                     color_start=body_start + 9
                     before=bytes(out[color_start:color_start+16])
-                    pattern=bytes([
-                        255,0,255,255,   # ambient
-                        64,0,64,255,     # emissive
-                        255,255,255,255, # specular
-                        255,0,255,255,   # colour4
-                    ])
+                    # Compression-safe visual marker: make all four RGBA
+                    # channels solid white. This is intentionally repetitive so
+                    # native DZ recompression is no larger than the original slot.
+                    pattern=bytes([255] * 16)
                     out[color_start:color_start+16]=pattern
                     after=bytes(out[color_start:color_start+16])
                     if before != after:
