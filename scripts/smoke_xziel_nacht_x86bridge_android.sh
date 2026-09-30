@@ -71,23 +71,30 @@ for i in $(seq 1 36); do
 
       adb shell am force-stop ${XZIEL_PACKAGE} || true
 
-      # Keep the glibc-linked PIE binary separate and invoke it through the
-      # rootfs glibc loader. Executing it directly makes Android's Bionic
-      # linker try to resolve Winlator's glibc libc.so.6.
-      adb shell "run-as ${XZIEL_PACKAGE} sh -c 'cat > files/rootfs/usr/local/bin/box64.real'" < "$XZIEL_BOX64_PIE"
-      adb shell run-as ${XZIEL_PACKAGE} chmod 700 files/rootfs/usr/local/bin/box64.real
+      # Prefer a native Android/Bionic PIE build when the CI builder provides
+      # one. It must be executed directly by Android's linker64. Older glibc
+      # PIE builds still use the explicit rootfs loader fallback.
+      if readelf -l "$XZIEL_BOX64_PIE" 2>/dev/null | grep -q '/system/bin/linker64'; then
+        adb shell "run-as ${XZIEL_PACKAGE} sh -c 'cat > files/rootfs/usr/local/bin/box64'" < "$XZIEL_BOX64_PIE"
+        adb shell run-as ${XZIEL_PACKAGE} chmod 700 files/rootfs/usr/local/bin/box64
+        adb shell run-as ${XZIEL_PACKAGE} ls -l files/rootfs/usr/local/bin/box64 | tee "$OUT/box64-pie-installed.txt"
+        echo "XZIEL_X86BRIDGE_BIONIC_PIE_BOX64_INJECTED"
+      else
+        adb shell "run-as ${XZIEL_PACKAGE} sh -c 'cat > files/rootfs/usr/local/bin/box64.real'" < "$XZIEL_BOX64_PIE"
+        adb shell run-as ${XZIEL_PACKAGE} chmod 700 files/rootfs/usr/local/bin/box64.real
 
-      cat > "$OUT/box64-glibc-wrapper.sh" <<'EOF'
+        cat > "$OUT/box64-glibc-wrapper.sh" <<'EOF'
 #!/system/bin/sh
 ROOT=/data/data/com.xzielapp/files/rootfs
 exec "$ROOT/lib/ld-linux-aarch64.so.1" \
   --library-path "$ROOT/lib:$ROOT/usr/lib" \
   "$ROOT/usr/local/bin/box64.real" "$@"
 EOF
-      adb shell "run-as ${XZIEL_PACKAGE} sh -c 'cat > files/rootfs/usr/local/bin/box64'" < "$OUT/box64-glibc-wrapper.sh"
-      adb shell run-as ${XZIEL_PACKAGE} chmod 700 files/rootfs/usr/local/bin/box64
-      adb shell run-as ${XZIEL_PACKAGE} ls -l files/rootfs/usr/local/bin/box64 files/rootfs/usr/local/bin/box64.real | tee "$OUT/box64-pie-installed.txt"
-      echo "XZIEL_X86BRIDGE_GLIBC_LOADER_WRAPPER_INJECTED"
+        adb shell "run-as ${XZIEL_PACKAGE} sh -c 'cat > files/rootfs/usr/local/bin/box64'" < "$OUT/box64-glibc-wrapper.sh"
+        adb shell run-as ${XZIEL_PACKAGE} chmod 700 files/rootfs/usr/local/bin/box64
+        adb shell run-as ${XZIEL_PACKAGE} ls -l files/rootfs/usr/local/bin/box64 files/rootfs/usr/local/bin/box64.real | tee "$OUT/box64-pie-installed.txt"
+        echo "XZIEL_X86BRIDGE_GLIBC_LOADER_WRAPPER_INJECTED"
+      fi
 
       adb logcat -c
       adb shell am start -W -n ${XZIEL_PACKAGE}/com.winlator.XzielBootActivity | tee "$OUT/am-restart-pie.txt"
