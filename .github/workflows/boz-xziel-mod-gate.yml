@@ -1075,6 +1075,8 @@ jobs:
           "$ZIPALIGN" -f -p 4 \
             /tmp/xchurch-apk/unsigned.apk \
             /tmp/xchurch-apk/aligned.apk
+          "$ZIPALIGN" -c -v -p 4 /tmp/xchurch-apk/aligned.apk \
+            | tee boz_mod_out/kino_probe/xchurch-zipalign-verify.txt
 
           keytool -genkeypair \
             -keystore /tmp/xchurch-apk/xchurch-ci.jks \
@@ -1098,7 +1100,7 @@ jobs:
 
           "$APKSIGNER" verify --verbose --print-certs "$APK" \
             | tee boz_mod_out/xchurch_apk/apksigner-verify.txt
-          "$ZIPALIGN" -c -v 4 "$APK"
+          grep -q "^Verifies$" boz_mod_out/xchurch_apk/apksigner-verify.txt
 
           FINAL_EMBED_SHA="$(unzip -p "$APK" "$ENTRY" | sha256sum | awk '{print $1}')"
           test "$DZ_SHA" = "$FINAL_EMBED_SHA"
