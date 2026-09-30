@@ -1,0 +1,143 @@
+name: XChurch Visual Smoke Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/boz-mod-runtime
+    paths:
+      - ".github/workflows/boz-xchurch-visual-smoke.yml"
+      - "tools/boz_mod/render_obj_preview.py"
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  render-from-signed-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download verified XChurch APK artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: XZIEL-BOZ-XChurch-APK
+          run-id: 36768068731
+          github-token: ${{ github.token }}
+          path: /tmp/xchurch-apk-artifact
+
+      - name: Locate APK and extract embedded DTRZ
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$(find /tmp/xchurch-apk-artifact -type f -name '*.apk' | head -n1)"
+          test -s "$APK"
+          echo "APK=$APK" >> "$GITHUB_ENV"
+          mkdir -p /tmp/xchurch-visual
+          ENTRY="$(unzip -Z1 "$APK" | grep -Fi 'blackops_gles1.dz' | head -n1)"
+          test -n "$ENTRY"
+          unzip -p "$APK" "$ENTRY" > /tmp/xchurch-visual/blackops_gles1.dz
+          test -s /tmp/xchurch-visual/blackops_gles1.dz
+          sha256sum "$APK" | tee /tmp/xchurch-visual/apk-sha256.txt
+
+      - name: Build DTRZ decoder and extract exact APK payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone -q https://github.com/CodexuRegexl/Dzip-Rust.git /tmp/dzip-rs
+          cd /tmp/dzip-rs
+          git checkout -q fb4bd41d7f749e74673cd7963ba2df7582334a69
+          cargo build --quiet --release -p dzip-cli
+          target/release/dzip-cli extract             /tmp/xchurch-visual/blackops_gles1.dz             --output /tmp/xchurch-visual/dz             > /tmp/xchurch-visual/dzip-extract.log 2>&1
+          test -s /tmp/xchurch-visual/dz/levels/kino/xchurch_shared.group.bin
+          test -s /tmp/xchurch-visual/dz/levels/kino/kino_sectors.group.bin
+
+      - name: Extract XChurch model from exact APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone -q https://github.com/Tatsh/dade.git /tmp/dade
+          cd /tmp/dade
+          git checkout -q 4b2530b1508f63b9f7df090f0dbf4030099d4ef7
+          cd "$GITHUB_WORKSPACE"
+          python3 tools/boz_mod/patch_dade_boz_resgroup.py /tmp/dade
+          python3 -m venv /tmp/dade-venv
+          /tmp/dade-venv/bin/pip install -q -e /tmp/dade
+          /tmp/dade-venv/bin/dade marmalade extract-group             /tmp/xchurch-visual/dz/levels/kino/xchurch_shared.group.bin             /tmp/xchurch-visual/open             --no-delete --no-html --no-png --no-material-json             > /tmp/xchurch-visual/dade.log 2>&1
+          OBJ="$(find /tmp/xchurch-visual/open/CIwModel -type f -name '*.obj' | sort | head -n1)"
+          test -s "$OBJ"
+          echo "OBJ=$OBJ" >> "$GITHUB_ENV"
+
+      - name: Render actual modified geometry
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install -q pillow
+          python3 tools/boz_mod/render_obj_preview.py             --obj "$OBJ"             --outdir /tmp/xchurch-visual/screens
+          test -s /tmp/xchurch-visual/screens/xchurch_model_front.png
+          test -s /tmp/xchurch-visual/screens/xchurch_model_back.png
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: XChurch-Visual-Proof
+          path: |
+            /tmp/xchurch-visual/screens/
+            /tmp/xchurch-visual/apk-sha256.txt
+          if-no-files-found: error
+          retention-days: 14
+
+  android-boot-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download verified XChurch APK artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: XZIEL-BOZ-XChurch-APK
+          run-id: 36768068731
+          github-token: ${{ github.token }}
+          path: /tmp/xchurch-apk-artifact
+
+      - name: Prepare smoke output
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/xchurch-boot
+          APK="$(find /tmp/xchurch-apk-artifact -type f -name '*.apk' | head -n1)"
+          test -s "$APK"
+          cp "$APK" /tmp/xchurch-boot/xchurch.apk
+
+      - name: Boot XChurch APK in Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            set +e
+            adb install -r /tmp/xchurch-boot/xchurch.apk > /tmp/xchurch-boot/install.log 2>&1
+            INSTALL_RC=$?
+            echo "INSTALL_RC=$INSTALL_RC" | tee /tmp/xchurch-boot/status.txt
+            adb shell pm list packages | grep -i 'activision\|boz' | tee -a /tmp/xchurch-boot/status.txt
+            if [ "$INSTALL_RC" -eq 0 ]; then
+              adb shell monkey -p com.activision.boz -c android.intent.category.LAUNCHER 1                 > /tmp/xchurch-boot/launch.log 2>&1
+              sleep 35
+            fi
+            adb exec-out screencap -p > /tmp/xchurch-boot/boot.png
+            adb shell dumpsys window windows > /tmp/xchurch-boot/window.txt 2>&1
+            adb logcat -d > /tmp/xchurch-boot/logcat.txt 2>&1
+            exit 0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: XChurch-Android-Boot-Proof
+          path: /tmp/xchurch-boot/
+          if-no-files-found: error
+          retention-days: 14
