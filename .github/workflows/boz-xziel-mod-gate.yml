@@ -701,15 +701,15 @@ jobs:
           mkdir -p /tmp/xziel_mod/levels/kino
 
           python3 tools/boz_mod/patch_theatre_textures_inplace.py \
-            /tmp/boz-kino/extracted/levels/kino/theatre_shared.group.bin \
-            /tmp/xziel_mod/levels/kino/theatre_shared.stage1.group.bin \
+            /tmp/xchurch_mod/levels/kino/xchurch_shared.group.bin \
+            /tmp/xziel_mod/levels/kino/xchurch_shared.stage1.group.bin \
             --report boz_mod_out/kino_probe/theatre-texture-patch.json \
             | tee boz_mod_out/kino_probe/theatre-texture-patch.log
           grep -q "XZIEL_BOZ_THEATRE_TEXTURE_PATCH_OK" \
             boz_mod_out/kino_probe/theatre-texture-patch.log
 
           python3 tools/boz_mod/patch_theatre_materials_inplace.py \
-            /tmp/xziel_mod/levels/kino/theatre_shared.stage1.group.bin \
+            /tmp/xziel_mod/levels/kino/xchurch_shared.stage1.group.bin \
             /tmp/xziel_mod/levels/kino/xchurch_shared.group.bin \
             --report boz_mod_out/kino_probe/theatre-material-patch.json \
             | tee boz_mod_out/kino_probe/theatre-material-patch.log
