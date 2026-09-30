@@ -3,8 +3,8 @@ name: XZIEL Nacht Hybrid Android x86 ARM-Bridge Smoke
 # xziel rootfs runtime path probe
 
 # rootfs runtime-path probe
-# glibc-static-pie rerun gate
-# static-pie-direct-exec gate
+# bionic-pie glibc-compat rerun gate
+# libc-shm symbol bridge gate
 
 on:
   workflow_dispatch:
@@ -50,12 +50,12 @@ jobs:
           sha256sum "$APK" | tee dist/android-x86bridge-smoke/apk.sha256
           echo "XZIEL_X86BRIDGE_APK_READY"
 
-      - name: Build glibc static PIE Box64 interpreter for x86 bridge
+      - name: Build Android Bionic PIE Box64 interpreter with glibc Wine shims
         shell: bash
         run: |
           set -euo pipefail
-          chmod +x scripts/build_box64_glibc_pie_for_x86bridge.sh
-          bash scripts/build_box64_glibc_pie_for_x86bridge.sh
+          chmod +x scripts/build_box64_android_pie_for_x86bridge.sh
+          bash scripts/build_box64_android_pie_for_x86bridge.sh
 
       - name: Enable KVM
         shell: bash
