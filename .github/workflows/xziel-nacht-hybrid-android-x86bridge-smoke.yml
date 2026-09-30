@@ -72,7 +72,7 @@ jobs:
             -camera-front none
             -memory 4096
           script: |
-            set -euo pipefail
+            set -eu
             OUT=dist/android-x86bridge-smoke
             mkdir -p "$OUT"
 
