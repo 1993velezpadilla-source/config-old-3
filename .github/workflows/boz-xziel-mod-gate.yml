@@ -435,3 +435,57 @@ jobs:
           path: boz_mod_out/real_manifest/
           if-no-files-found: error
           retention-days: 14
+
+
+  real-kino-group-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Fetch temporary BOZ DTRZ source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/boz-kino
+          curl -L --fail --retry 3 --retry-delay 2 \
+            -o /tmp/boz-kino/app-release.apk \
+            https://github.com/12brendon34/COD-BOZ-Partially-Decompiled/releases/download/1.3.5/app-release.apk
+          ENTRY="$(unzip -Z1 /tmp/boz-kino/app-release.apk | grep -i 'blackops_gles1\.dz$' | head -n1)"
+          test -n "$ENTRY"
+          unzip -p /tmp/boz-kino/app-release.apk "$ENTRY" > /tmp/boz-kino/blackops_gles1.dz
+          test -s /tmp/boz-kino/blackops_gles1.dz
+          rm -f /tmp/boz-kino/app-release.apk
+
+      - name: Probe real Kino group encoding
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p boz_mod_out/kino_probe
+          python3 tools/boz_mod/probe_real_group.py \
+            --root "$GITHUB_WORKSPACE" \
+            --dz /tmp/boz-kino/blackops_gles1.dz \
+            --out boz_mod_out/kino_probe/report.json \
+            | tee boz_mod_out/kino_probe/probe.log
+          grep -q "XZIEL_BOZ_GROUP_DECODE_OK" boz_mod_out/kino_probe/probe.log
+          test -s boz_mod_out/kino_probe/report.json
+
+      - name: Keep structural report only
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f /tmp/boz-kino/blackops_gles1.dz
+          printf '%s\n' \
+            "SOURCE_BINARY_RETAINED=false" \
+            "PAYLOAD_EXTRACTED_TO_ARTIFACT=false" \
+            "GATE_6=kino_group_format_probe" \
+            "STATUS=GREEN" \
+            > boz_mod_out/kino_probe/gate.env
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-BOZ-Kino-Group-Probe
+          path: boz_mod_out/kino_probe/
+          if-no-files-found: error
+          retention-days: 14
