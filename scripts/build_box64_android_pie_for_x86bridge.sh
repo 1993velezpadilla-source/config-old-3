@@ -100,6 +100,11 @@ libc_h.write_text(s)
 
 libc_c = src / "src/wrapped/wrappedlibc.c"
 s = libc_c.read_text()
+include_anchor = '#include <errno.h>\n'
+if include_anchor not in s:
+    raise SystemExit("Box64 wrappedlibc errno include anchor missing")
+if '#include <langinfo.h>\n' not in s:
+    s = s.replace(include_anchor, include_anchor + '#include <langinfo.h>\n', 1)
 anchor = "EXPORT uintptr_t my_error_print_progname = 0;\n"
 if anchor not in s:
     raise SystemExit("Box64 wrappedlibc insertion anchor missing")
