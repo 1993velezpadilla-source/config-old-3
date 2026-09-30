@@ -91,7 +91,7 @@ readelf --dyn-syms -W "$OUT/box64-pie" | tee "$DIST/box64-pie.dynsym.txt"
 sha256sum "$OUT/box64-pie" | tee "$DIST/box64-pie.sha256"
 
 grep -Eq 'Type:[[:space:]]+DYN' "$DIST/box64-pie.readelf-h.txt"
-grep -Eq '[[:space:]]my___libc_start_main "$DIST/box64-pie.dynsym.txt"
+grep -Fq 'my___libc_start_main' "$DIST/box64-pie.dynsym.txt"
 echo "XZIEL_BOX64_GLIBC_START_MAIN_DYNSYM_GREEN"
 
 echo "XZIEL_BOX64_PIE=$OUT/box64-pie" >> "$GITHUB_ENV"
