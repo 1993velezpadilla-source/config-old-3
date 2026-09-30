@@ -135,6 +135,35 @@ EOF
       continue
     fi
 
+    # If the Bionic PIE retry itself exited, reproduce the exact Wine/X11
+    # launch while XServer, VirGL and ALSA are still alive. Turn on Box64 and
+    # Wine loader/server diagnostics only for this bounded CI probe.
+    if [[ "$pie_retry" == "1" ]]; then
+      echo "XZIEL_X86BRIDGE_FULL_LAUNCH_PROBE_BEGIN"
+      adb shell "run-as ${XZIEL_PACKAGE} sh -c '
+        ROOT=/data/user/0/com.xzielapp/files/rootfs
+        export HOME=\$ROOT/home/xuser
+        export USER=xuser
+        export TMPDIR=\$ROOT/tmp
+        export DISPLAY=:0
+        export WINEPREFIX=\$ROOT/home/xuser/.wine
+        export PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin
+        export BOX64_LOG=2
+        export BOX64_DLSYM_ERROR=1
+        export BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu
+        export ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0
+        export ANDROID_ALSA_SERVER=\$ROOT/tmp/.sound/AS0
+        export VIRGL_SERVER_PATH=\$ROOT/tmp/.virgl/V0
+        export GALLIUM_DRIVER=virpipe
+        export WINEESYNC=1
+        export WINEDEBUG=+server,+process,+module,+loaddll
+        timeout 8 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wine explorer /desktop=nogui,1280x720 C:\\\\windows\\\\winhandler.exe /dir C:\\\\XZIEL \"Nacht-Chronicles-XZIEL.exe\"
+      '" > "$OUT/full-launch-direct-probe.txt" 2>&1 || true
+      echo "XZIEL_X86BRIDGE_FULL_LAUNCH_PROBE_OUTPUT"
+      tail -n 1400 "$OUT/full-launch-direct-probe.txt" || true
+      echo "XZIEL_X86BRIDGE_FULL_LAUNCH_PROBE_END"
+    fi
+
     last_marker="GUEST_EXIT"
     failed=1
     echo "XZIEL_X86BRIDGE_GUEST_EXIT_DETECTED"
