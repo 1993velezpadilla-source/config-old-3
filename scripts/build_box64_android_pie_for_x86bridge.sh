@@ -62,6 +62,109 @@ grep -q 'XZIEL_ANDROID_GLIBC_START_MAIN' "$SRC/src/emu/entrypoint.c"
 grep -q 'EXPORT int32_t my___libc_start_main' "$SRC/src/emu/entrypoint.c"
 echo "XZIEL_BOX64_ANDROID_GLIBC_START_MAIN_PATCHED"
 
+# Wine's x86_64 Unix side expects a few glibc symbols that Android/Bionic
+# does not export with glibc names. Route those through Box64 wrappers instead
+# of resolving them directly from Bionic.
+python3 - "$SRC" <<'PY'
+from pathlib import Path
+import sys
+
+src = Path(sys.argv[1])
+
+libc_h = src / "src/wrapped/wrappedlibc_private.h"
+s = libc_h.read_text()
+for old, new in (
+    ("GO(__errno_location, pFv)", "GOM(__errno_location, pFEv)"),
+    ("GO(__xpg_basename, pFp)", "GOM(__xpg_basename, pFEp)"),
+):
+    if old not in s:
+        raise SystemExit(f"Box64 libc wrapper anchor missing: {old}")
+    s = s.replace(old, new, 1)
+libc_h.write_text(s)
+
+libc_c = src / "src/wrapped/wrappedlibc.c"
+s = libc_c.read_text()
+anchor = "EXPORT uintptr_t my_error_print_progname = 0;\n"
+if anchor not in s:
+    raise SystemExit("Box64 wrappedlibc insertion anchor missing")
+shim = r'''
+/* XZIEL_ANDROID_GLIBC_LIBC_SHIMS */
+EXPORT void* my___errno_location(x64emu_t* emu)
+{
+    (void)emu;
+    return &errno;
+}
+
+EXPORT char* my___xpg_basename(x64emu_t* emu, char* path)
+{
+    (void)emu;
+    if(!path || !*path)
+        return path;
+    if(path[0]=='/' && path[1]=='\0')
+        return path;
+
+    char* end = path + strlen(path) - 1;
+    while(end > path && *end == '/') {
+        *end = '\0';
+        --end;
+    }
+
+    char* slash = strrchr(path, '/');
+    return slash ? slash + 1 : path;
+}
+
+'''
+s = s.replace(anchor, anchor + shim, 1)
+libc_c.write_text(s)
+
+librt_h = src / "src/wrapped/wrappedlibrt_private.h"
+s = librt_h.read_text()
+for old, new in (
+    ("GO(shm_open, iFpOu)", "GOM(shm_open, iFEpOu)"),
+    ("GO(shm_unlink, iFp)", "GOM(shm_unlink, iFEp)"),
+):
+    if old not in s:
+        raise SystemExit(f"Box64 librt wrapper anchor missing: {old}")
+    s = s.replace(old, new, 1)
+librt_h.write_text(s)
+
+librt_c = src / "src/wrapped/wrappedlibrt.c"
+s = librt_c.read_text()
+anchor = "const char* librtName = \"librt.so.1\";\n"
+if anchor not in s:
+    raise SystemExit("Box64 wrappedlibrt insertion anchor missing")
+shim = r'''
+/* XZIEL_ANDROID_GLIBC_SHM_SHIMS */
+#ifdef ANDROID
+EXPORT int my_shm_open(x64emu_t* emu, const char* name, int oflag, uint32_t mode)
+{
+    (void)emu; (void)name; (void)oflag; (void)mode;
+    errno = ENOSYS;
+    return -1;
+}
+
+EXPORT int my_shm_unlink(x64emu_t* emu, const char* name)
+{
+    (void)emu; (void)name;
+    errno = ENOSYS;
+    return -1;
+}
+#endif
+
+'''
+s = s.replace(anchor, anchor + shim, 1)
+librt_c.write_text(s)
+
+print("XZIEL_BOX64_ANDROID_GLIBC_SYMBOL_SHIMS_PATCHED")
+PY
+
+grep -q 'XZIEL_ANDROID_GLIBC_LIBC_SHIMS' "$SRC/src/wrapped/wrappedlibc.c"
+grep -q 'XZIEL_ANDROID_GLIBC_SHM_SHIMS' "$SRC/src/wrapped/wrappedlibrt.c"
+grep -q 'GOM(__errno_location, pFEv)' "$SRC/src/wrapped/wrappedlibc_private.h"
+grep -q 'GOM(__xpg_basename, pFEp)' "$SRC/src/wrapped/wrappedlibc_private.h"
+grep -q 'GOM(shm_open, iFEpOu)' "$SRC/src/wrapped/wrappedlibrt_private.h"
+echo "XZIEL_BOX64_ANDROID_GLIBC_SYMBOL_SHIMS_GREEN"
+
 cmake -S "$SRC" -B "$BUILD/cmake" \
   -DCMAKE_C_COMPILER="$CC" \
   -DCMAKE_CXX_COMPILER="$CXX" \
