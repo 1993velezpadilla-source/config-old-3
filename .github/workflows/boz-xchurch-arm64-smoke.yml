@@ -1,0 +1,111 @@
+name: XChurch ARM64 Android Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/boz-mod-runtime
+    paths:
+      - ".github/workflows/boz-xchurch-arm64-smoke.yml"
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  arm64-boot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download signed XChurch APK
+        uses: actions/download-artifact@v4
+        with:
+          name: XZIEL-BOZ-XChurch-APK
+          run-id: 36768068731
+          github-token: ${{ github.token }}
+          path: /tmp/xchurch-apk
+
+      - name: Prepare APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/xchurch-arm64
+          APK="$(find /tmp/xchurch-apk -type f -name '*.apk' | head -n1)"
+          test -s "$APK"
+          cp "$APK" /tmp/xchurch-arm64/xchurch.apk
+          sha256sum /tmp/xchurch-arm64/xchurch.apk | tee /tmp/xchurch-arm64/apk.sha256
+
+      - name: Boot signed XChurch APK on ARM64 Android
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: default
+          arch: arm64-v8a
+          profile: pixel_4
+          disable-linux-hw-accel: true
+          emulator-boot-timeout: 480
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -camera-back none
+          script: |
+            set +e
+            mkdir -p /tmp/xchurch-arm64/screens
+
+            echo "=== DEVICE ===" | tee /tmp/xchurch-arm64/status.txt
+            adb shell getprop ro.product.cpu.abi | tee -a /tmp/xchurch-arm64/status.txt
+            adb shell getprop ro.build.version.release | tee -a /tmp/xchurch-arm64/status.txt
+            adb shell getprop sys.boot_completed | tee -a /tmp/xchurch-arm64/status.txt
+
+            adb install -r -d /tmp/xchurch-arm64/xchurch.apk               > /tmp/xchurch-arm64/install.log 2>&1
+            INSTALL_RC=$?
+            echo "INSTALL_RC=$INSTALL_RC" | tee -a /tmp/xchurch-arm64/status.txt
+            cat /tmp/xchurch-arm64/install.log | tee -a /tmp/xchurch-arm64/status.txt
+
+            if [ "$INSTALL_RC" -eq 0 ]; then
+              adb shell pm grant com.activision.boz android.permission.WRITE_EXTERNAL_STORAGE 2>/dev/null || true
+              adb shell pm grant com.activision.boz android.permission.READ_EXTERNAL_STORAGE 2>/dev/null || true
+              adb shell appops set com.activision.boz MANAGE_EXTERNAL_STORAGE allow 2>/dev/null || true
+
+              adb logcat -c
+              adb shell am force-stop com.activision.boz
+              adb shell am start -W -n com.activision.boz/.Main                 > /tmp/xchurch-arm64/launch.txt 2>&1
+              LAUNCH_RC=$?
+              echo "LAUNCH_RC=$LAUNCH_RC" | tee -a /tmp/xchurch-arm64/status.txt
+              cat /tmp/xchurch-arm64/launch.txt | tee -a /tmp/xchurch-arm64/status.txt
+
+              for sec in 5 15 30 45; do
+                sleep "$sec"
+                adb exec-out screencap -p > "/tmp/xchurch-arm64/screens/boot_${sec}s.png"
+                adb shell dumpsys activity activities                   > "/tmp/xchurch-arm64/activity_${sec}s.txt" 2>&1
+              done
+            else
+              adb exec-out screencap -p > /tmp/xchurch-arm64/screens/install_failure.png
+            fi
+
+            adb logcat -d > /tmp/xchurch-arm64/logcat.txt 2>&1
+            adb shell dumpsys window windows > /tmp/xchurch-arm64/window.txt 2>&1
+            adb shell pm list packages | grep -i 'activision\|boz'               > /tmp/xchurch-arm64/packages.txt 2>&1
+
+            # Do not hide the evidence if launch fails; artifact always uploads.
+            exit 0
+
+      - name: Summarize ARM64 smoke
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          echo "=== STATUS ==="
+          cat /tmp/xchurch-arm64/status.txt 2>/dev/null || true
+          echo "=== SCREENS ==="
+          ls -lh /tmp/xchurch-arm64/screens 2>/dev/null || true
+          echo "=== CRASH MARKERS ==="
+          grep -Eai 'FATAL EXCEPTION|SIGSEGV|SIGABRT|dlopen failed|UnsatisfiedLinkError|Process com.activision.boz.*died|Fatal signal'             /tmp/xchurch-arm64/logcat.txt 2>/dev/null | tail -80 || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: XChurch-ARM64-Android-Proof
+          path: /tmp/xchurch-arm64/
+          if-no-files-found: error
+          retention-days: 14
