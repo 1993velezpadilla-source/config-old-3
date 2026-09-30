@@ -3,14 +3,18 @@ from pathlib import Path
 import re
 import sys
 
-if len(sys.argv) != 4:
-    raise SystemExit("usage: patch_winlator_xziel_nacht_direct.py <winlator-app-root> <exe-bytes> <exe-sha256>")
+if len(sys.argv) != 5:
+    raise SystemExit(
+        "usage: patch_winlator_xziel_nacht_direct.py "
+        "<winlator-app-root> <vfs-bytes> <vfs-sha256> <runtime-exe-sha256>"
+    )
 
 root = Path(sys.argv[1]).resolve()
-game_bytes = int(sys.argv[2])
-game_sha256 = sys.argv[3].strip().lower()
-if game_bytes < 800_000_000 or len(game_sha256) != 64:
-    raise SystemExit("invalid Nacht EXE identity")
+vfs_bytes = int(sys.argv[2])
+vfs_sha256 = sys.argv[3].strip().lower()
+runtime_exe_sha256 = sys.argv[4].strip().lower()
+if vfs_bytes < 800_000_000 or len(vfs_sha256) != 64 or len(runtime_exe_sha256) != 64:
+    raise SystemExit("invalid Nacht direct payload identity")
 app = root / "app"
 java = app / "src/main/java/com/winlator"
 assets = app / "src/main/assets"
@@ -48,9 +52,12 @@ import com.winlator.xenvironment.RootFSInstaller;
 import org.json.JSONObject;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.security.MessageDigest;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 import java.util.ArrayList;
 import java.util.concurrent.Executors;
 
@@ -58,13 +65,18 @@ public class XzielBootActivity extends AppCompatActivity {
     private static final String TAG = "XZIEL-HYBRID";
     private TextView status;
 
-    private static final String GAME_ASSET = "nacht-onefile.exe";
+    private static final String VFS_ASSET = "nacht-vfs.zip";
+    private static final String RUNTIME_ASSET_DIR = "nacht-runtime";
     private static final String GAME_DIR = "XZIEL";
-    private static final String GAME_EXE = "Nacht-Chronicles-XZIEL.exe";
-    private static final long GAME_BYTES = __XZIEL_GAME_BYTES__L;
-    private static final String GAME_SHA256 =
-        "__XZIEL_GAME_SHA256__";
-    private static final String PACKAGE_MARKER = ".xziel-nacht-onefile-v1";
+    private static final String GAME_EXE = "Xziel-Nacht.exe";
+    private static final String SCENE_RELATIVE =
+        "xziel/maps/xziel_nacht_bo3/scene.xzsc";
+    private static final long VFS_BYTES = __XZIEL_VFS_BYTES__L;
+    private static final String VFS_SHA256 =
+        "__XZIEL_VFS_SHA256__";
+    private static final String RUNTIME_EXE_SHA256 =
+        "__XZIEL_RUNTIME_EXE_SHA256__";
+    private static final String PACKAGE_MARKER = ".xziel-nacht-direct-vfs-v1";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -177,76 +189,138 @@ public class XzielBootActivity extends AppCompatActivity {
 
                 File gameDir = new File(container.getRootDir(), ".wine/drive_c/" + GAME_DIR);
                 File exe = new File(gameDir, GAME_EXE);
+                File scene = new File(gameDir, SCENE_RELATIVE);
                 File marker = new File(gameDir, PACKAGE_MARKER);
 
                 boolean ready =
                     exe.isFile() &&
-                    exe.length() == GAME_BYTES &&
+                    scene.isFile() &&
                     marker.isFile() &&
-                    GAME_SHA256.equals(FileUtils.readString(marker).trim());
+                    VFS_SHA256.equals(FileUtils.readString(marker).trim()) &&
+                    RUNTIME_EXE_SHA256.equals(sha256File(exe));
 
                 if (!ready) {
-                    Log.i(TAG, "EXE_INSTALL_BEGIN");
+                    Log.i(TAG, "DIRECT_PAYLOAD_INSTALL_BEGIN vfs_bytes=" + VFS_BYTES);
+                    runOnUiThread(() -> status.setText("XZIEL\nPreparing Nacht data..."));
                     FileUtils.delete(gameDir);
                     if (!gameDir.mkdirs() && !gameDir.isDirectory()) {
                         throw new RuntimeException("could not create game directory");
                     }
 
-                    installExeTransactional(exe);
+                    copyRuntimeAssets(gameDir);
+                    int extracted = unzipVfsAsset(gameDir);
 
-                    if (!exe.isFile() || exe.length() != GAME_BYTES) {
-                        throw new RuntimeException("installed EXE size mismatch");
+                    if (!exe.isFile()) {
+                        throw new RuntimeException("direct runtime EXE missing after install");
                     }
-                    FileUtils.writeString(marker, GAME_SHA256 + "\n");
-                    Log.i(TAG, "EXE_INSTALL_GREEN bytes=" + exe.length());
+                    if (!RUNTIME_EXE_SHA256.equals(sha256File(exe))) {
+                        throw new RuntimeException("direct runtime EXE SHA-256 mismatch");
+                    }
+                    if (!scene.isFile()) {
+                        throw new RuntimeException("Nacht scene missing after VFS extraction");
+                    }
+
+                    FileUtils.writeString(marker, VFS_SHA256 + "\n");
+                    Log.i(TAG, "DIRECT_PAYLOAD_INSTALL_GREEN files=" + extracted +
+                            " exe_bytes=" + exe.length() +
+                            " scene_bytes=" + scene.length());
                 }
                 else {
-                    Log.i(TAG, "EXE_ALREADY_READY bytes=" + exe.length());
+                    Log.i(TAG, "DIRECT_PAYLOAD_ALREADY_READY exe_bytes=" + exe.length());
                 }
 
                 runOnUiThread(() -> launchGame(container, exe));
             }
             catch (Throwable t) {
+                Log.e(TAG, "DIRECT_PAYLOAD_INSTALL_FAILED", t);
                 fail("XZIEL game setup failed\n" + t.getMessage());
             }
         });
     }
 
-    private void installExeTransactional(File finalExe) throws Exception {
-        File tmp = new File(finalExe.getParentFile(), GAME_EXE + ".partial");
-        FileUtils.delete(tmp);
+    private void copyRuntimeAssets(File gameDir) throws Exception {
+        String[] names = getAssets().list(RUNTIME_ASSET_DIR);
+        if (names == null || names.length == 0) {
+            throw new RuntimeException("embedded Win64 runtime assets missing");
+        }
 
+        int copied = 0;
+        for (String name : names) {
+            File out = new File(gameDir, name);
+            try (InputStream in = getAssets().open(
+                        RUNTIME_ASSET_DIR + "/" + name,
+                        AssetManager.ACCESS_STREAMING);
+                 FileOutputStream stream = new FileOutputStream(out)) {
+                byte[] buffer = new byte[1024 * 1024];
+                int read;
+                while ((read = in.read(buffer)) > 0) {
+                    stream.write(buffer, 0, read);
+                }
+                stream.getFD().sync();
+            }
+            copied++;
+        }
+        Log.i(TAG, "DIRECT_RUNTIME_ASSETS_COPIED count=" + copied);
+    }
+
+    private int unzipVfsAsset(File gameDir) throws Exception {
+        String rootPath = gameDir.getCanonicalPath() + File.separator;
+        int files = 0;
+
+        try (InputStream raw = getAssets().open(VFS_ASSET, AssetManager.ACCESS_STREAMING);
+             ZipInputStream zip = new ZipInputStream(raw)) {
+            byte[] buffer = new byte[1024 * 1024];
+            ZipEntry entry;
+            while ((entry = zip.getNextEntry()) != null) {
+                File out = new File(gameDir, entry.getName());
+                String outPath = out.getCanonicalPath();
+                if (!outPath.startsWith(rootPath)) {
+                    throw new RuntimeException("unsafe VFS entry: " + entry.getName());
+                }
+
+                if (entry.isDirectory()) {
+                    if (!out.mkdirs() && !out.isDirectory()) {
+                        throw new RuntimeException("could not create VFS directory: " + entry.getName());
+                    }
+                }
+                else {
+                    File parent = out.getParentFile();
+                    if (parent != null && !parent.mkdirs() && !parent.isDirectory()) {
+                        throw new RuntimeException("could not create VFS parent: " + entry.getName());
+                    }
+                    try (FileOutputStream stream = new FileOutputStream(out)) {
+                        int read;
+                        while ((read = zip.read(buffer)) > 0) {
+                            stream.write(buffer, 0, read);
+                        }
+                        stream.getFD().sync();
+                    }
+                    files++;
+                    if ((files % 500) == 0) {
+                        Log.i(TAG, "DIRECT_VFS_EXTRACT_PROGRESS files=" + files);
+                    }
+                }
+                zip.closeEntry();
+            }
+        }
+
+        if (files == 0) {
+            throw new RuntimeException("embedded VFS extracted zero files");
+        }
+        Log.i(TAG, "DIRECT_VFS_EXTRACT_GREEN files=" + files);
+        return files;
+    }
+
+    private static String sha256File(File file) throws Exception {
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        long total = 0;
-
-        try (InputStream in = getAssets().open(GAME_ASSET, AssetManager.ACCESS_STREAMING);
-             FileOutputStream out = new FileOutputStream(tmp)) {
+        try (InputStream in = new FileInputStream(file)) {
             byte[] buffer = new byte[1024 * 1024];
             int read;
             while ((read = in.read(buffer)) > 0) {
-                out.write(buffer, 0, read);
                 digest.update(buffer, 0, read);
-                total += read;
             }
-            out.getFD().sync();
         }
-
-        if (total != GAME_BYTES) {
-            FileUtils.delete(tmp);
-            throw new RuntimeException("embedded EXE byte count mismatch: " + total);
-        }
-
-        String actual = toHex(digest.digest());
-        if (!GAME_SHA256.equals(actual)) {
-            FileUtils.delete(tmp);
-            throw new RuntimeException("embedded EXE SHA-256 mismatch");
-        }
-
-        FileUtils.delete(finalExe);
-        if (!tmp.renameTo(finalExe)) {
-            FileUtils.delete(tmp);
-            throw new RuntimeException("atomic EXE install rename failed");
-        }
+        return toHex(digest.digest());
     }
 
     private static String toHex(byte[] bytes) {
@@ -270,7 +344,12 @@ public class XzielBootActivity extends AppCompatActivity {
     }
 }
 '''
-boot_java = boot_java.replace("__XZIEL_GAME_BYTES__", str(game_bytes)).replace("__XZIEL_GAME_SHA256__", game_sha256)
+boot_java = (
+    boot_java
+    .replace("__XZIEL_VFS_BYTES__", str(vfs_bytes))
+    .replace("__XZIEL_VFS_SHA256__", vfs_sha256)
+    .replace("__XZIEL_RUNTIME_EXE_SHA256__", runtime_exe_sha256)
+)
 (java / "XzielBootActivity.java").write_text(boot_java, encoding="utf-8")
 
 overlay_java = r'''package com.winlator;
@@ -867,8 +946,8 @@ xserver = java / "XServerDisplayActivity.java"
 text = xserver.read_text(encoding="utf-8")
 
 # XZIEL direct boot must not go through explorer -> winhandler. The Android
-# x86 bridge has proven that the Nacht payload itself can remain executing
-# under Wine while winhandler exits with status 1. Override only our private
+# x86 bridge has proven the direct Win64 runtime can stay alive under Wine.
+# Bypass both explorer/winhandler and the NSIS one-file wrapper. Override our private
 # direct-boot path; normal Winlator launches keep the upstream start command.
 guest_anchor = '            String guestExecutable = "wine explorer /desktop="+desktopName+","+xServer.screenInfo+" "+getWineStartCommand();'
 if guest_anchor not in text:
@@ -876,7 +955,7 @@ if guest_anchor not in text:
 direct_override = (
     guest_anchor + "\n" +
     '            if (getIntent().getBooleanExtra("xziel_direct_boot", false)) {\n' +
-    r'                guestExecutable = "wine C:\\XZIEL\\Nacht-Chronicles-XZIEL.exe";' + "\n" +
+    r'                guestExecutable = "wine C:\\XZIEL\\Xziel-Nacht.exe --xziel-root C:\\XZIEL --xziel-map xziel_nacht_bo3";' + "\n" +
     '                Log.i("XZIEL-HYBRID", "DIRECT_NACHT_WINE_LAUNCH command=" + guestExecutable);\n' +
     '            }'
 )
@@ -1134,12 +1213,11 @@ guest_exec_anchor = '''        String command = rootDir+"/usr/local/bin/box64 "+
 guest_exec_insert = '''        boolean xzielDirectNacht =
                 xzielX86Bridge &&
                 guestExecutable != null &&
-                guestExecutable.contains("Nacht-Chronicles-XZIEL.exe");
+                guestExecutable.contains("Xziel-Nacht.exe");
         if (xzielDirectNacht) {
-            // The full 888 MB one-file bootstrap is extremely I/O-heavy under
-            // interpreter-only Box64. Diagnostic tracing generated >150 MB in
-            // a single 3-minute smoke and materially slowed startup. Keep the
-            // real APK launch quiet; CI retains external process/socket probes.
+            // Android now installs the validated VFS natively and launches the
+            // small Win64 runtime directly. Keep the actual game launch quiet;
+            // CI retains external process/socket probes.
             envVars.put("BOX64_LOG", "0");
             envVars.put("BOX64_NOBANNER", "1");
             envVars.remove("BOX64_DLSYM_ERROR");
@@ -1247,10 +1325,8 @@ guest_exec_insert = '''        boolean xzielDirectNacht =
                 envVars.put("XZIEL_GUEST_CAPTURE_PATH", guestCapturePath);
             }
 
-            // Heavy Box64/Wine tracing proved useful for bring-up, but it turns
-            // the ~888 MB one-file executable into hundreds of MB of trace I/O
-            // before the first window can appear. Keep the warmup diagnostic,
-            // then launch the actual game on the fast path.
+            // Keep the warmup diagnostic, then launch the direct Win64 runtime
+            // on the quiet fast path.
             envVars.put("BOX64_LOG", "0");
             envVars.put("BOX64_NOBANNER", "1");
             envVars.remove("BOX64_DLSYM_ERROR");
@@ -1454,7 +1530,7 @@ anchor = "    lintOptions {\n"
 if anchor in text and "aaptOptions" not in text:
     text = text.replace(
         anchor,
-        "    aaptOptions {\n        noCompress 'exe', 'tzst'\n    }\n\n" + anchor,
+        "    aaptOptions {\n        noCompress 'exe', 'dll', 'zip', 'tzst'\n    }\n\n" + anchor,
         1,
     )
 gradle.write_text(text, encoding="utf-8")
@@ -1485,7 +1561,7 @@ if license_src.is_file():
     "XZIEL Hybrid prototype uses modified Winlator source as an internal compatibility layer.\n"
     "Upstream: https://github.com/brunodev85/winlator-app\n"
     "Pinned upstream commit: 3981d86efa4f333b2a34a7da8b6521476cd8c8b9\n"
-    "Modifications: direct boot, XZIEL branding, transactional Nacht EXE install, hidden container UI.\n",
+    "Modifications: direct boot, XZIEL branding, native VFS install, direct Win64 runtime launch, hidden container UI.\n",
     encoding="utf-8",
 )
 
