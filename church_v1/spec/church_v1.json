@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "id": "church_v1",
+  "displayName": "Church V1",
+  "stage": "blockout",
+  "units": "meters",
+  "visualRule": "Blockout geometry is never shippable final art.",
+  "player": {"referenceHeight": 1.78, "eyeHeight": 1.62},
+  "zones": [
+    {"id":"spawn_chapel","center":[0,-18,0],"size":[12,12,5],"floorZ":0},
+    {"id":"main_nave","center":[0,0,0],"size":[18,30,11],"floorZ":0},
+    {"id":"sacristy","center":[-14,5,0],"size":[8,12,5],"floorZ":0},
+    {"id":"graveyard","center":[17,1,0],"size":[16,24,4],"floorZ":0},
+    {"id":"utility_basement","center":[-8,12,-4],"size":[10,12,4],"floorZ":-4},
+    {"id":"crypt","center":[4,17,-5],"size":[16,14,4],"floorZ":-5},
+    {"id":"bell_tower","center":[0,18,8],"size":[8,8,22],"floorZ":0}
+  ],
+  "connections": [
+    ["spawn_chapel","main_nave"],
+    ["main_nave","sacristy"],
+    ["main_nave","graveyard"],
+    ["sacristy","utility_basement"],
+    ["graveyard","crypt"],
+    ["utility_basement","crypt"],
+    ["main_nave","bell_tower"]
+  ],
+  "gameplayAnchors": {
+    "playerSpawns": 4,
+    "zombieWindowTargets": 12,
+    "doorTargets": 7,
+    "wallBuyTargets": 6,
+    "mysteryBoxAnchors": 4,
+    "powerZone": "utility_basement",
+    "packAPunchZone": "crypt"
+  },
+  "finalArtTargets": {
+    "trianglesMin": 180000,
+    "trianglesPreferred": 450000,
+    "trianglesMax": 900000,
+    "meshObjectsMin": 20,
+    "materialsMin": 12,
+    "imageBackedMaterialsMin": 8,
+    "uniqueImagesMin": 12,
+    "textureMaxDimension": 2048,
+    "requiredSurfaceFamilies": ["stone","plaster","old_wood","oxidized_metal","stained_glass","wet_ground","wax","grave_stone"],
+    "requiredHeroAssets": ["main_altar","stained_glass_window","church_pew","confessional","bell","crypt_gate","grave_marker","power_generator"]
+  }
+}
