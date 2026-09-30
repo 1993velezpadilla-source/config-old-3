@@ -1,0 +1,48 @@
+name: XZIEL Android x86 ARM Bridge Probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - experiment/xziel-nacht-win64-exe-v1
+    paths:
+      - ".github/workflows/xziel-android-x86-armbridge-probe.yml"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Enable KVM
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -e /dev/kvm ]]; then sudo chmod 666 /dev/kvm; fi
+
+      - name: Probe Android 11 x86_64 ABI bridge
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          cores: 2
+          ram-size: 2048M
+          heap-size: 384M
+          disk-size: 4G
+          emulator-boot-timeout: 600
+          disable-animations: true
+          emulator-options: >-
+            -no-window
+            -no-snapshot
+            -noaudio
+            -no-boot-anim
+            -gpu swiftshader
+            -camera-back none
+            -camera-front none
+          script: |
+            set -eu
+            echo "primary=$(adb shell getprop ro.product.cpu.abi | tr -d '\r')"
+            echo "abilist=$(adb shell getprop ro.product.cpu.abilist | tr -d '\r')"
+            echo "bridge=$(adb shell getprop ro.dalvik.vm.native.bridge | tr -d '\r')"
+            echo "bridge_exec=$(adb shell getprop ro.enable.native.bridge.exec | tr -d '\r')"
+            adb shell getprop ro.product.cpu.abilist | tr -d '\r' | grep -q 'arm64-v8a' && echo XZIEL_ARM64_BRIDGE_PRESENT || echo XZIEL_ARM64_BRIDGE_ABSENT
