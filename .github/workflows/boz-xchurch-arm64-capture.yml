@@ -1,0 +1,170 @@
+name: XChurch ARM64 Runtime Capture
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/boz-mod-runtime
+    paths:
+      - ".github/workflows/boz-xchurch-arm64-capture.yml"
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  macos-arm64-capture:
+    runs-on: macos-14
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Host architecture
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/xchurch-arm64-macos
+          uname -a | tee /tmp/xchurch-arm64-macos/host.txt
+          uname -m | tee -a /tmp/xchurch-arm64-macos/host.txt
+
+      - name: Download verified XChurch APK
+        uses: actions/download-artifact@v4
+        with:
+          name: XZIEL-BOZ-XChurch-APK
+          run-id: 36768068731
+          github-token: ${{ github.token }}
+          path: /tmp/xchurch-apk-artifact
+
+      - name: Prepare APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$(find /tmp/xchurch-apk-artifact -type f -name '*.apk' | head -n1)"
+          test -s "$APK"
+          cp "$APK" /tmp/xchurch-arm64-macos/xchurch.apk
+          echo "APK_BYTES=$(stat -f %z /tmp/xchurch-arm64-macos/xchurch.apk)" | tee -a /tmp/xchurch-arm64-macos/host.txt
+          shasum -a 256 /tmp/xchurch-arm64-macos/xchurch.apk | tee /tmp/xchurch-arm64-macos/apk-sha256.txt
+
+      - name: Boot ARM64 Android and capture XChurch
+        uses: reactivecircus/android-emulator-runner@v2
+        continue-on-error: true
+        with:
+          api-level: 30
+          target: google_apis
+          arch: arm64-v8a
+          profile: pixel_6
+          emulator-boot-timeout: 1200
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            set +e
+            OUT=/tmp/xchurch-arm64-macos
+            adb shell getprop ro.product.cpu.abi | tee "$OUT/device-abi.txt"
+            adb install -r "$OUT/xchurch.apk" > "$OUT/install.log" 2>&1
+            INSTALL_RC=$?
+            echo "INSTALL_RC=$INSTALL_RC" | tee "$OUT/status.txt"
+            cat "$OUT/install.log" | tail -80 | tee -a "$OUT/status.txt"
+
+            if [ "$INSTALL_RC" -eq 0 ]; then
+              adb shell am force-stop com.activision.boz
+              adb shell monkey -p com.activision.boz -c android.intent.category.LAUNCHER 1                 > "$OUT/launch.log" 2>&1
+              sleep 8
+              adb exec-out screencap -p > "$OUT/boot_08s.png"
+              sleep 17
+              adb exec-out screencap -p > "$OUT/boot_25s.png"
+              sleep 20
+              adb exec-out screencap -p > "$OUT/boot_45s.png"
+            else
+              adb exec-out screencap -p > "$OUT/install_failure.png"
+            fi
+
+            adb shell dumpsys activity activities > "$OUT/activity.txt" 2>&1
+            adb shell dumpsys window windows > "$OUT/window.txt" 2>&1
+            adb logcat -d > "$OUT/logcat.txt" 2>&1
+            exit 0
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: XChurch-ARM64-macOS-Capture
+          path: /tmp/xchurch-arm64-macos/
+          if-no-files-found: warn
+          retention-days: 14
+
+  linux-arm64-capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Host architecture
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/xchurch-arm64-linux
+          uname -a | tee /tmp/xchurch-arm64-linux/host.txt
+          uname -m | tee -a /tmp/xchurch-arm64-linux/host.txt
+
+      - name: Download verified XChurch APK
+        uses: actions/download-artifact@v4
+        with:
+          name: XZIEL-BOZ-XChurch-APK
+          run-id: 36768068731
+          github-token: ${{ github.token }}
+          path: /tmp/xchurch-apk-artifact
+
+      - name: Prepare APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$(find /tmp/xchurch-apk-artifact -type f -name '*.apk' | head -n1)"
+          test -s "$APK"
+          cp "$APK" /tmp/xchurch-arm64-linux/xchurch.apk
+          sha256sum /tmp/xchurch-arm64-linux/xchurch.apk | tee /tmp/xchurch-arm64-linux/apk-sha256.txt
+
+      - name: Boot ARM64 Android in software mode and capture XChurch
+        uses: reactivecircus/android-emulator-runner@v2
+        continue-on-error: true
+        with:
+          api-level: 30
+          target: google_apis
+          arch: arm64-v8a
+          profile: pixel_6
+          emulator-boot-timeout: 1200
+          disable-linux-hw-accel: true
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -accel off
+          script: |
+            set +e
+            OUT=/tmp/xchurch-arm64-linux
+            adb shell getprop ro.product.cpu.abi | tee "$OUT/device-abi.txt"
+            adb install -r "$OUT/xchurch.apk" > "$OUT/install.log" 2>&1
+            INSTALL_RC=$?
+            echo "INSTALL_RC=$INSTALL_RC" | tee "$OUT/status.txt"
+            cat "$OUT/install.log" | tail -80 | tee -a "$OUT/status.txt"
+
+            if [ "$INSTALL_RC" -eq 0 ]; then
+              adb shell am force-stop com.activision.boz
+              adb shell monkey -p com.activision.boz -c android.intent.category.LAUNCHER 1                 > "$OUT/launch.log" 2>&1
+              sleep 10
+              adb exec-out screencap -p > "$OUT/boot_10s.png"
+              sleep 20
+              adb exec-out screencap -p > "$OUT/boot_30s.png"
+              sleep 30
+              adb exec-out screencap -p > "$OUT/boot_60s.png"
+            else
+              adb exec-out screencap -p > "$OUT/install_failure.png"
+            fi
+
+            adb shell dumpsys activity activities > "$OUT/activity.txt" 2>&1
+            adb shell dumpsys window windows > "$OUT/window.txt" 2>&1
+            adb logcat -d > "$OUT/logcat.txt" 2>&1
+            exit 0
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: XChurch-ARM64-Linux-Capture
+          path: /tmp/xchurch-arm64-linux/
+          if-no-files-found: warn
+          retention-days: 14
