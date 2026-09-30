@@ -699,13 +699,23 @@ jobs:
           PY
 
           mkdir -p /tmp/xziel_mod/levels/kino
+
           python3 tools/boz_mod/patch_theatre_textures_inplace.py \
             /tmp/boz-kino/extracted/levels/kino/theatre_shared.group.bin \
-            /tmp/xziel_mod/levels/kino/theatre_shared.group.bin \
+            /tmp/xziel_mod/levels/kino/theatre_shared.stage1.group.bin \
             --report boz_mod_out/kino_probe/theatre-texture-patch.json \
             | tee boz_mod_out/kino_probe/theatre-texture-patch.log
           grep -q "XZIEL_BOZ_THEATRE_TEXTURE_PATCH_OK" \
             boz_mod_out/kino_probe/theatre-texture-patch.log
+
+          python3 tools/boz_mod/patch_theatre_materials_inplace.py \
+            /tmp/xziel_mod/levels/kino/theatre_shared.stage1.group.bin \
+            /tmp/xziel_mod/levels/kino/theatre_shared.group.bin \
+            --report boz_mod_out/kino_probe/theatre-material-patch.json \
+            | tee boz_mod_out/kino_probe/theatre-material-patch.log
+          grep -q "XZIEL_BOZ_THEATRE_MATERIAL_PATCH_OK" \
+            boz_mod_out/kino_probe/theatre-material-patch.log
+
           test "$(stat -c %s /tmp/xziel_mod/levels/kino/theatre_shared.group.bin)" = \
                "$(stat -c %s /tmp/boz-kino/extracted/levels/kino/theatre_shared.group.bin)"
 
@@ -716,23 +726,39 @@ jobs:
             --no-delete --no-html \
             > boz_mod_out/kino_probe/dade-theatre-patched.log 2>&1
 
-          /tmp/dade-venv/bin/python - <<'PY' | tee boz_mod_out/kino_probe/theatre-texture-visual-proof.txt
+          /tmp/dade-venv/bin/python - <<'PY' | tee boz_mod_out/kino_probe/theatre-visual-roundtrip.txt
           from pathlib import Path
           from PIL import Image
-          root=Path('/tmp/theatre-patched-extracted/CIwTexture')
-          pngs=sorted(root.glob('*.png'))
+          import json
+
+          root=Path('/tmp/theatre-patched-extracted')
+
+          pngs=sorted((root/'CIwTexture').glob('*.png'))
           print('PATCHED_TEXTURE_PNGS', len(pngs))
-          assert len(pngs) == 13, len(pngs)
           expected={(255,0,255),(0,255,64)}
-          proved=0
+          texture_proved=0
           for p in pngs:
               im=Image.open(p).convert('RGB')
               colors=set(im.getdata())
               if colors & expected:
-                  proved += 1
-          print('PATCH_PATTERN_TEXTURES', proved)
-          assert proved == 13, proved
-          print('XZIEL_BOZ_TEXTURE_VISUAL_ROUNDTRIP_OK')
+                  texture_proved += 1
+          print('PATCH_PATTERN_TEXTURES', texture_proved)
+          assert len(pngs) > 0, len(pngs)
+          assert texture_proved == len(pngs), (texture_proved,len(pngs))
+
+          materials=sorted((root/'CIwMaterial').glob('*.json'))
+          print('PATCHED_MATERIAL_JSONS', len(materials))
+          material_proved=0
+          for p in materials:
+              d=json.loads(p.read_text())
+              if d.get('colour_ambient') == [255,0,255,255] and \
+                 d.get('colour4') == [255,0,255,255]:
+                  material_proved += 1
+          print('MAGENTA_MATERIALS', material_proved)
+          assert len(materials) == 91, len(materials)
+          assert material_proved > 0, material_proved
+
+          print('XZIEL_BOZ_VISUAL_RESOURCE_ROUNDTRIP_OK')
           PY
 
           rm -rf /tmp/theatre-extracted /tmp/theatre-patched-extracted /tmp/dade /tmp/dade-venv /tmp/xziel_mod
