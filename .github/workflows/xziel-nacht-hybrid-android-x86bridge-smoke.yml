@@ -28,7 +28,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          SOURCE_RUN=36647907664
+          SOURCE_RUN=36651339961
           mkdir -p input/hybrid-apk dist/android-x86bridge-smoke
           gh run download "$SOURCE_RUN" \
             --repo "${{ github.repository }}" \
