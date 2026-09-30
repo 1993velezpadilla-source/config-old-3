@@ -6,7 +6,7 @@ import json
 import struct
 from pathlib import Path
 
-MAGIC = 0x0606033D
+GROUP_TAG = 0x3D
 BLOCK_PARAMS = 0x8081E087
 BLOCK_NESTED = 0x3B495DC0
 BLOCK_OBJECTS = 0xDC3C2177
@@ -41,10 +41,8 @@ def read_cstring(data: bytes, pos: int) -> tuple[str, int]:
     return data[pos:end].decode("latin1"), end + 1
 
 def parse_sections(data: bytes) -> list[dict]:
-    if len(data) < 6 or struct.unpack_from("<I", data, 0)[0] != MAGIC:
-        raise ValueError("invalid CIwResGroup magic")
-    if struct.unpack_from("<H", data, 4)[0] != 0:
-        raise ValueError("invalid CIwResGroup reserved field")
+    if len(data) < 6 or data[0] != GROUP_TAG:
+        raise ValueError(f"invalid CIwResGroup tag: {data[:6].hex()}")
     p = 6
     out = []
     while True:
