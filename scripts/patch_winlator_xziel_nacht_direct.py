@@ -1016,6 +1016,23 @@ if ld_anchor not in gtext:
     raise SystemExit("Could not find GuestProgramLauncher LD_LIBRARY_PATH anchor")
 gtext = gtext.replace(ld_anchor, ld_insert, 1)
 
+post_env_anchor = '''        if (this.envVars != null) envVars.putAll(this.envVars);
+
+        File shmDir = new File(rootDir, "/tmp/shm");
+'''
+post_env_insert = '''        if (this.envVars != null) envVars.putAll(this.envVars);
+
+        if (xzielX86Bridge) {
+            envVars.remove("LD_LIBRARY_PATH");
+            Log.i("XZIEL-HYBRID", "X86_BRIDGE_HOST_LD_LIBRARY_PATH_REMOVED_FINAL");
+        }
+
+        File shmDir = new File(rootDir, "/tmp/shm");
+'''
+if post_env_anchor not in gtext:
+    raise SystemExit("Could not find GuestProgramLauncher post-env anchor")
+gtext = gtext.replace(post_env_anchor, post_env_insert, 1)
+
 guest_exec_anchor = '''        String command = rootDir+"/usr/local/bin/box64 "+guestExecutable;
 
         return ProcessHelper.exec(command, envVars, rootDir, (status) -> {
