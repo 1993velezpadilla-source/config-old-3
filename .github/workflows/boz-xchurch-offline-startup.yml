@@ -1,0 +1,218 @@
+name: XChurch Offline Startup Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/boz-mod-runtime
+    paths:
+      - ".github/workflows/boz-xchurch-offline-startup.yml"
+      - "tools/boz_mod/patch_offline_startup_icf.py"
+      - "tools/boz_mod/patch_app_icf_trace.py"
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Enable KVM
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/xchurch-offline/proof/screens
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"'             | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+          test -e /dev/kvm
+
+      - name: Download verified XChurch APK
+        uses: actions/download-artifact@v4
+        with:
+          name: XZIEL-BOZ-XChurch-APK
+          run-id: 36768068731
+          github-token: ${{ github.token }}
+          path: /tmp/xchurch-source
+
+      - name: Install Android tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n1)"
+          AVDMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name avdmanager | sort -V | tail -n1)"
+          test -x "$SDKMANAGER"
+          test -x "$AVDMANAGER"
+          echo "AVDMANAGER=$AVDMANAGER" >> "$GITHUB_ENV"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER"             "platform-tools"             "emulator"             "build-tools;36.0.0"             "system-images;android-30;google_apis;x86_64"             >/tmp/xchurch-offline/proof/sdk-install.txt 2>&1
+
+      - name: Build offline trace-enabled APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=/tmp/xchurch-offline
+          BASE="$(find /tmp/xchurch-source -type f -name '*.apk' | head -n1)"
+          test -s "$BASE"
+          cp "$BASE" "$OUT/unsigned.apk"
+
+          unzip -p "$BASE" assets/app.icf > "$OUT/app-original.icf"
+          python3 tools/boz_mod/patch_offline_startup_icf.py             "$OUT/app-original.icf" "$OUT/app-offline.icf"             | tee "$OUT/proof/offline-patch.log"
+          python3 tools/boz_mod/patch_app_icf_trace.py             "$OUT/app-offline.icf" "$OUT/app-patched.icf"             | tee "$OUT/proof/trace-patch.log"
+
+          cp "$OUT/app-original.icf" "$OUT/proof/app-original.icf"
+          cp "$OUT/app-patched.icf" "$OUT/proof/app-patched.icf"
+
+          mkdir -p "$OUT/stage/assets"
+          cp "$OUT/app-patched.icf" "$OUT/stage/assets/app.icf"
+          zip -q -d "$OUT/unsigned.apk" assets/app.icf || true
+          zip -q -d "$OUT/unsigned.apk" 'META-INF/*.RSA' 'META-INF/*.DSA'             'META-INF/*.EC' 'META-INF/*.SF' 'META-INF/MANIFEST.MF' || true
+          (
+            cd "$OUT/stage"
+            zip -q "$OUT/unsigned.apk" assets/app.icf
+          )
+
+          ZIPALIGN="$ANDROID_HOME/build-tools/36.0.0/zipalign"
+          APKSIGNER="$ANDROID_HOME/build-tools/36.0.0/apksigner"
+          "$ZIPALIGN" -f -p 4 "$OUT/unsigned.apk" "$OUT/aligned.apk"
+
+          keytool -genkeypair             -keystore "$OUT/offline.jks"             -storepass android -keypass android             -alias offline -keyalg RSA -keysize 2048 -validity 10000             -dname "CN=XChurch Offline, O=XZIEL, C=US" >/dev/null 2>&1
+
+          "$APKSIGNER" sign             --ks "$OUT/offline.jks"             --ks-key-alias offline             --ks-pass pass:android             --key-pass pass:android             --out "$OUT/xchurch-offline.apk"             "$OUT/aligned.apk"
+
+          "$APKSIGNER" verify --verbose "$OUT/xchurch-offline.apk"             > "$OUT/proof/apksigner.txt" 2>&1
+          test -s "$OUT/xchurch-offline.apk"
+
+          unzip -p "$OUT/xchurch-offline.apk" assets/app.icf             > "$OUT/proof/app-embedded.icf"
+          cmp "$OUT/app-patched.icf" "$OUT/proof/app-embedded.icf"
+
+          grep -q '^SplashScreenMinTime=0$' "$OUT/proof/app-embedded.icf"
+          grep -q '^FastLoad=1$' "$OUT/proof/app-embedded.icf"
+          grep -q '^EnableOF=0$' "$OUT/proof/app-embedded.icf"
+          grep -q '^ResourceDownloader=0$' "$OUT/proof/app-embedded.icf"
+          echo "XZIEL_BOZ_OFFLINE_APK_BUILD_OK" | tee "$OUT/proof/build.txt"
+
+      - name: Boot Android 11
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=/tmp/xchurch-offline
+          PROOF="$OUT/proof"
+          export ANDROID_AVD_HOME=/tmp/xchurch-offline-avd
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
+
+          printf 'no\n' | "$AVDMANAGER" create avd             --force             --name xchurch-offline             --package "system-images;android-30;google_apis;x86_64"             --device "pixel_4" > "$PROOF/avd-create.txt" 2>&1
+
+          ADB="$ANDROID_HOME/platform-tools/adb"
+          EMU="$ANDROID_HOME/emulator/emulator"
+          "$ADB" kill-server >/dev/null 2>&1 || true
+          "$ADB" start-server >/dev/null 2>&1
+
+          nohup "$EMU" @xchurch-offline             -no-window -gpu swiftshader_indirect -no-snapshot             -noaudio -no-boot-anim -no-metrics -camera-back none             > "$PROOF/emulator.log" 2>&1 &
+          EMU_PID=$!
+          echo "EMU_PID=$EMU_PID" > "$PROOF/status.txt"
+
+          READY=0
+          for i in $(seq 1 70); do
+            STATE="$("$ADB" get-state 2>/dev/null || true)"
+            if [ "$STATE" = "device" ]; then READY=1; break; fi
+            if ! kill -0 "$EMU_PID" 2>/dev/null; then break; fi
+            sleep 2
+          done
+          echo "ADB_READY=$READY" >> "$PROOF/status.txt"
+          test "$READY" = "1"
+
+          BOOT=0
+          for i in $(seq 1 70); do
+            COMPLETE="$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')"
+            if [ "$COMPLETE" = "1" ]; then BOOT=1; break; fi
+            sleep 2
+          done
+          echo "BOOT_COMPLETED=$BOOT" >> "$PROOF/status.txt"
+          test "$BOOT" = "1"
+
+          {
+            echo "ABI=$("$ADB" shell getprop ro.product.cpu.abi | tr -d '\r')"
+            echo "ABILIST=$("$ADB" shell getprop ro.product.cpu.abilist | tr -d '\r')"
+            echo "NATIVE_BRIDGE=$("$ADB" shell getprop ro.dalvik.vm.native.bridge | tr -d '\r')"
+            echo "NDK_TRANSLATION=$("$ADB" shell getprop ro.ndk_translation.version | tr -d '\r')"
+          } > "$PROOF/device.txt"
+
+      - name: Install launch and capture offline startup
+        shell: bash
+        run: |
+          set +e
+          OUT=/tmp/xchurch-offline
+          PROOF="$OUT/proof"
+          ADB="$ANDROID_HOME/platform-tools/adb"
+
+          "$ADB" install --abi arm64-v8a -r -d "$OUT/xchurch-offline.apk"             > "$PROOF/install.txt" 2>&1
+          RC=$?
+          echo "INSTALL_RC=$RC" | tee -a "$PROOF/status.txt"
+          cat "$PROOF/install.txt" | tee -a "$PROOF/status.txt"
+          if [ "$RC" -ne 0 ]; then
+            exit 0
+          fi
+
+          "$ADB" shell pm grant com.activision.boz android.permission.WRITE_EXTERNAL_STORAGE 2>/dev/null || true
+          "$ADB" shell pm grant com.activision.boz android.permission.READ_EXTERNAL_STORAGE 2>/dev/null || true
+          "$ADB" shell mkdir -p /sdcard/Android/obb/com.activision.boz 2>/dev/null || true
+
+          "$ADB" logcat -c
+          "$ADB" shell am force-stop com.activision.boz >/dev/null 2>&1 || true
+          "$ADB" shell am start -W -n com.activision.boz/.Main             > "$PROOF/launch.txt" 2>&1
+          LAUNCH_RC=$?
+          echo "LAUNCH_RC=$LAUNCH_RC" | tee -a "$PROOF/status.txt"
+
+          LAST=0
+          for SEC in 5 15 30 60; do
+            WAIT=$((SEC-LAST))
+            sleep "$WAIT"
+            LAST=$SEC
+            "$ADB" exec-out screencap -p > "$PROOF/screens/app_${SEC}s.png" 2>/dev/null || true
+            PID="$("$ADB" shell pidof com.activision.boz 2>/dev/null | tr -d '\r\n')"
+            echo "T=${SEC}s PID=$PID" | tee -a "$PROOF/status.txt"
+            if [ -n "$PID" ]; then
+              "$ADB" shell top -b -n 1 -p "$PID" > "$PROOF/top_${SEC}s.txt" 2>&1 || true
+              "$ADB" shell cat "/proc/$PID/status" > "$PROOF/proc_${SEC}s.txt" 2>&1 || true
+              "$ADB" shell cat "/proc/$PID/wchan" > "$PROOF/wchan_${SEC}s.txt" 2>&1 || true
+            fi
+          done
+
+          "$ADB" logcat -d -v threadtime > "$PROOF/logcat-full.txt" 2>&1
+          "$ADB" shell dumpsys activity activities > "$PROOF/activities.txt" 2>&1
+          "$ADB" shell dumpsys window windows > "$PROOF/window.txt" 2>&1
+          sha256sum "$PROOF"/screens/*.png > "$PROOF/screen-hashes.txt" 2>/dev/null || true
+
+          grep -Eai             'LOADER|FILE|RESMANAGER|STARTGAME|GAME|CORE|DEVICE|SURFACE|FLASH|NETWORK|ONLINE|HTTP|RESDOWNLOADER|download|FATAL|SIGSEGV|SIGABRT|UnsatisfiedLinkError|dlopen|xchurch|kino|IsDevice'             "$PROOF/logcat-full.txt" | tail -2500 > "$PROOF/logcat-focus.txt" || true
+          exit 0
+
+      - name: Summarize offline startup proof
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          PROOF=/tmp/xchurch-offline/proof
+          echo "=== STATUS ==="
+          cat "$PROOF/status.txt" 2>/dev/null || true
+          echo "=== SCREEN HASHES ==="
+          cat "$PROOF/screen-hashes.txt" 2>/dev/null || true
+          echo "=== TRACE TAIL ==="
+          tail -260 "$PROOF/logcat-focus.txt" 2>/dev/null || true
+          find "$PROOF" -maxdepth 2 -type f -printf '%P %s bytes\n'             | sort > "$PROOF/manifest.txt"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: XChurch-Offline-Startup-Proof
+          path: /tmp/xchurch-offline/proof/
+          if-no-files-found: error
+          retention-days: 14
