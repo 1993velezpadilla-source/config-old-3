@@ -128,6 +128,23 @@ EOF
       echo "XZIEL_X86BRIDGE_DIRECT_PROBE_WINESERVER"
       tail -n 300 "$OUT/wineserver-direct-probe.txt" || true
 
+      # Probe the real Winlator Wine prefix with and without esync.  The plain
+      # --version probe does not start wineserver or touch the container prefix,
+      # while the real XZIEL launch does both.
+      adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_LOG=2 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEDEBUG=+server,+process WINEESYNC=1 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wine cmd /c ver'" \
+        > "$OUT/wine-prefix-esync-on.txt" 2>&1 || true
+      adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_LOG=2 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEDEBUG=+server,+process WINEESYNC=1 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wineserver -k'" \
+        > "$OUT/wineserver-kill-after-esync-on.txt" 2>&1 || true
+      adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_LOG=2 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEDEBUG=+server,+process WINEESYNC=0 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wine cmd /c ver'" \
+        > "$OUT/wine-prefix-esync-off.txt" 2>&1 || true
+      adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_LOG=2 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEDEBUG=+server,+process WINEESYNC=0 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wineserver -k'" \
+        > "$OUT/wineserver-kill-after-esync-off.txt" 2>&1 || true
+
+      echo "XZIEL_X86BRIDGE_PREFIX_PROBE_ESYNC_ON"
+      tail -n 500 "$OUT/wine-prefix-esync-on.txt" || true
+      echo "XZIEL_X86BRIDGE_PREFIX_PROBE_ESYNC_OFF"
+      tail -n 500 "$OUT/wine-prefix-esync-off.txt" || true
+
       adb logcat -c
       adb shell am start -W -n ${XZIEL_PACKAGE}/com.winlator.XzielBootActivity | tee "$OUT/am-restart-pie.txt"
       sleep 3
