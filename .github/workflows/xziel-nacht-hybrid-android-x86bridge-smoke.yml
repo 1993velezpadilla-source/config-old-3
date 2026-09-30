@@ -4,6 +4,7 @@ name: XZIEL Nacht Hybrid Android x86 ARM-Bridge Smoke
 
 # rootfs runtime-path probe
 # glibc-static-pie rerun gate
+# static-pie-direct-exec gate
 
 on:
   workflow_dispatch:
