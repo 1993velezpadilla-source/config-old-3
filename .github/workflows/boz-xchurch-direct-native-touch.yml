@@ -268,12 +268,25 @@ jobs:
 
             sleep 5
             "$ADB" exec-out screencap -p > "$PROOF/screens/after_direct_05s.png" 2>/dev/null || true
+
+            # The title tap should land on the BOZ main menu. Use the same
+            # in-app MotionEvent injector to press the large SINGLE PLAYER
+            # panel near the upper-left of the landscape UI.
+            "$ADB" shell am start -W               -n com.activision.boz/.Main               --ez xzielDirectTap true               --ei xzielX 500               --ei xzielY 145               > "$PROOF/single-player-tap-intent.txt" 2>&1
+            echo "SINGLE_PLAYER_TAP_RC=$?" | tee -a "$PROOF/status.txt"
+
+            sleep 3
+            "$ADB" exec-out screencap -p > "$PROOF/screens/after_single_player_03s.png" 2>/dev/null || true
+            sleep 7
+            "$ADB" exec-out screencap -p > "$PROOF/screens/after_single_player_10s.png" 2>/dev/null || true
             sleep 10
-            "$ADB" exec-out screencap -p > "$PROOF/screens/after_direct_15s.png" 2>/dev/null || true
-            sleep 15
-            "$ADB" exec-out screencap -p > "$PROOF/screens/after_direct_30s.png" 2>/dev/null || true
+            "$ADB" exec-out screencap -p > "$PROOF/screens/after_single_player_20s.png" 2>/dev/null || true
+            sleep 10
+            "$ADB" exec-out screencap -p > "$PROOF/screens/after_single_player_30s.png" 2>/dev/null || true
+
+            # Keep a later frame as a stability check.
             sleep 30
-            "$ADB" exec-out screencap -p > "$PROOF/screens/after_direct_60s.png" 2>/dev/null || true
+            "$ADB" exec-out screencap -p > "$PROOF/screens/after_single_player_60s.png" 2>/dev/null || true
           fi
 
           PID="$("$ADB" shell pidof com.activision.boz 2>/dev/null | tr -d '\r\n')"
