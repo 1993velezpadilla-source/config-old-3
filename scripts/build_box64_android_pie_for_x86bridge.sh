@@ -62,6 +62,101 @@ grep -q 'XZIEL_ANDROID_GLIBC_START_MAIN' "$SRC/src/emu/entrypoint.c"
 grep -q 'EXPORT int32_t my___libc_start_main' "$SRC/src/emu/entrypoint.c"
 echo "XZIEL_BOX64_ANDROID_GLIBC_START_MAIN_PATCHED"
 
+# The guest here is glibc x86_64 Wine, even though Box64 itself is built
+# against Android/Bionic. Upstream Box64's ANDROID x64_sigaction_t follows
+# Bionic's LP64 userspace layout (flags first). glibc x86_64 uses handler
+# first, then its 128-byte sigset_t, then flags/restorer. With Wine's
+# wineserver blocked-signal mask this mismatch literally turns sa_mask
+# 0x110016007 into the SIGSEGV handler pointer. Keep host Bionic sigaction
+# for the native call, but decode/encode the guest structure with glibc ABI.
+python3 - "$SRC/src/include/signals.h" "$SRC/src/libtools/signals.c" <<'PY'
+from pathlib import Path
+import sys
+
+h = Path(sys.argv[1])
+c = Path(sys.argv[2])
+
+hs = h.read_text()
+old = """#ifdef ANDROID
+typedef struct x64_sigaction_s {
+\tint sa_flags;
+\tunion {
+\t  sighandler_t _sa_handler;
+\t  void (*_sa_sigaction)(int, siginfo_t *, void *);
+\t} _u;
+\tsigset_t sa_mask;
+\tvoid (*sa_restorer)(void);
+} x64_sigaction_t;
+#else
+"""
+new = """#ifdef ANDROID
+/* XZIEL_ANDROID_GLIBC_SIGACTION_LAYOUT
+ * Guest ABI: glibc x86_64, not Bionic LP64.
+ * glibc sigset_t is 1024 bits / 128 bytes.
+ */
+typedef struct x64_glibc_sigset_s {
+\tuint64_t __val[16];
+} x64_glibc_sigset_t;
+
+typedef struct x64_sigaction_s {
+\tunion {
+\t  sighandler_t _sa_handler;
+\t  void (*_sa_sigaction)(int, siginfo_t *, void *);
+\t} _u;
+\tx64_glibc_sigset_t sa_mask;
+\tuint32_t sa_flags;
+\tvoid (*sa_restorer)(void);
+} x64_sigaction_t;
+#else
+"""
+if old not in hs:
+    raise SystemExit("Box64 Android x64_sigaction_t layout anchor missing")
+hs = hs.replace(old, new, 1)
+h.write_text(hs)
+
+cs = c.read_text()
+fn = cs.find("int EXPORT my_sigaction(")
+if fn < 0:
+    raise SystemExit("Box64 my_sigaction function missing")
+head, tail = cs[:fn], cs[fn:]
+
+old_in = "        newact.sa_mask = act->sa_mask;\n        newact.sa_flags = act->sa_flags&~0x04000000;"
+new_in = """#ifdef ANDROID
+        /* XZIEL_ANDROID_GLIBC_SIGSET_COPY: guest glibc mask is 128 bytes;
+         * Bionic LP64 only needs the kernel-supported low signal word(s). */
+        memset(&newact.sa_mask, 0, sizeof(newact.sa_mask));
+        memcpy(&newact.sa_mask, &act->sa_mask,
+               sizeof(newact.sa_mask) < sizeof(act->sa_mask) ?
+               sizeof(newact.sa_mask) : sizeof(act->sa_mask));
+#else
+        newact.sa_mask = act->sa_mask;
+#endif
+        newact.sa_flags = act->sa_flags&~0x04000000;"""
+if old_in not in tail:
+    raise SystemExit("Box64 my_sigaction input mask anchor missing")
+tail = tail.replace(old_in, new_in, 1)
+
+old_out = "        oldact->sa_flags = old.sa_flags;\n        oldact->sa_mask = old.sa_mask;"
+new_out = """        oldact->sa_flags = old.sa_flags;
+#ifdef ANDROID
+        memset(&oldact->sa_mask, 0, sizeof(oldact->sa_mask));
+        memcpy(&oldact->sa_mask, &old.sa_mask,
+               sizeof(old.sa_mask) < sizeof(oldact->sa_mask) ?
+               sizeof(old.sa_mask) : sizeof(oldact->sa_mask));
+#else
+        oldact->sa_mask = old.sa_mask;
+#endif"""
+if old_out not in tail:
+    raise SystemExit("Box64 my_sigaction output mask anchor missing")
+tail = tail.replace(old_out, new_out, 1)
+
+c.write_text(head + tail)
+PY
+
+grep -q 'XZIEL_ANDROID_GLIBC_SIGACTION_LAYOUT' "$SRC/src/include/signals.h"
+grep -q 'XZIEL_ANDROID_GLIBC_SIGSET_COPY' "$SRC/src/libtools/signals.c"
+echo "XZIEL_BOX64_ANDROID_GLIBC_SIGACTION_GREEN"
+
 # Wine's x86_64 Unix side expects a few glibc symbols that Android/Bionic
 # does not export with glibc names. Route those through Box64 wrappers instead
 # of resolving them directly from Bionic.
