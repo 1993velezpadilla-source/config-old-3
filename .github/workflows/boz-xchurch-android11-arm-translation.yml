@@ -24,10 +24,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"'             | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          mkdir -p /tmp/xchurch-x86/screens
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm || true
-          ls -l /dev/kvm || true
+          test -e /dev/kvm
+          ls -l /dev/kvm | tee /tmp/xchurch-x86/kvm.txt
 
       - name: Download verified XChurch APK
         uses: actions/download-artifact@v4
@@ -41,97 +44,170 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p /tmp/xchurch-x86/screens
           APK="$(find /tmp/xchurch-apk -type f -name '*.apk' | head -n1)"
           test -s "$APK"
           cp "$APK" /tmp/xchurch-x86/xchurch.apk
           sha256sum /tmp/xchurch-x86/xchurch.apk | tee /tmp/xchurch-x86/apk.sha256
 
-      - name: Boot Android 11 x86_64 with ARM translation
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 30
-          target: google_apis
-          arch: x86_64
-          profile: pixel_4
-          cores: 4
-          ram-size: 4096M
-          emulator-boot-timeout: 300
-          disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
-          script: |
-            set +e
-            OUT=/tmp/xchurch-x86
-            mkdir -p "$OUT/screens"
+      - name: Install Android 11 x86_64 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n1)"
+          AVDMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name avdmanager | sort -V | tail -n1)"
+          test -x "$SDKMANAGER"
+          test -x "$AVDMANAGER"
+          echo "SDKMANAGER=$SDKMANAGER" >> "$GITHUB_ENV"
+          echo "AVDMANAGER=$AVDMANAGER" >> "$GITHUB_ENV"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" \
+            "platform-tools" \
+            "emulator" \
+            "system-images;android-30;google_apis;x86_64" \
+            2>&1 | tee /tmp/xchurch-x86/sdk-install.txt
 
-            {
-              echo "ABI=$(adb shell getprop ro.product.cpu.abi | tr -d '\r')"
-              echo "ABILIST=$(adb shell getprop ro.product.cpu.abilist | tr -d '\r')"
-              echo "ABILIST64=$(adb shell getprop ro.product.cpu.abilist64 | tr -d '\r')"
-              echo "NATIVE_BRIDGE=$(adb shell getprop ro.dalvik.vm.native.bridge | tr -d '\r')"
-              echo "NATIVE_BRIDGE_EXEC=$(adb shell getprop ro.enable.native.bridge.exec | tr -d '\r')"
-              echo "NDK_TRANSLATION=$(adb shell getprop ro.ndk_translation.version | tr -d '\r')"
-              echo "SDK=$(adb shell getprop ro.build.version.sdk | tr -d '\r')"
-            } | tee "$OUT/device.txt"
+      - name: Create and boot Android 11
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ANDROID_AVD_HOME=/tmp/xchurch-x86/avd
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
 
-            adb shell 'ls -l /system/lib64/libndk_translation.so /system/lib/libndk_translation.so 2>/dev/null'               > "$OUT/native-bridge-files.txt" 2>&1 || true
+          printf 'no\n' | "$AVDMANAGER" create avd \
+            --force \
+            --name xchurch-x86 \
+            --package "system-images;android-30;google_apis;x86_64" \
+            --device "pixel_4" \
+            2>&1 | tee /tmp/xchurch-x86/avd-create.txt
 
-            adb install --abi arm64-v8a -r -d "$OUT/xchurch.apk"               > "$OUT/install-arm64.txt" 2>&1
+          ADB="$ANDROID_HOME/platform-tools/adb"
+          EMU="$ANDROID_HOME/emulator/emulator"
+          test -x "$ADB"
+          test -x "$EMU"
+
+          "$EMU" -accel-check | tee /tmp/xchurch-x86/accel-check.txt || true
+          "$ADB" kill-server >/dev/null 2>&1 || true
+          "$ADB" start-server >/dev/null 2>&1
+
+          nohup "$EMU" @xchurch-x86 \
+            -no-window \
+            -gpu swiftshader_indirect \
+            -no-snapshot \
+            -noaudio \
+            -no-boot-anim \
+            -no-metrics \
+            -camera-back none \
+            > /tmp/xchurch-x86/emulator.log 2>&1 &
+          EMU_PID=$!
+          echo "EMU_PID=$EMU_PID" | tee /tmp/xchurch-x86/status.txt
+
+          READY=0
+          for i in $(seq 1 60); do
+            STATE="$("$ADB" get-state 2>/dev/null || true)"
+            echo "ADB_$i=$STATE" >> /tmp/xchurch-x86/status.txt
+            if [ "$STATE" = "device" ]; then
+              READY=1
+              break
+            fi
+            if ! kill -0 "$EMU_PID" 2>/dev/null; then
+              echo "EMULATOR_EXITED_EARLY" | tee -a /tmp/xchurch-x86/status.txt
+              break
+            fi
+            sleep 2
+          done
+          echo "ADB_READY=$READY" | tee -a /tmp/xchurch-x86/status.txt
+          test "$READY" = "1"
+
+          BOOT=0
+          for i in $(seq 1 60); do
+            COMPLETE="$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')"
+            echo "BOOT_$i=$COMPLETE" >> /tmp/xchurch-x86/status.txt
+            if [ "$COMPLETE" = "1" ]; then
+              BOOT=1
+              break
+            fi
+            sleep 2
+          done
+          echo "BOOT_COMPLETED=$BOOT" | tee -a /tmp/xchurch-x86/status.txt
+          test "$BOOT" = "1"
+
+          "$ADB" exec-out screencap -p > /tmp/xchurch-x86/screens/android_boot.png
+
+      - name: Probe ARM native bridge
+        shell: bash
+        run: |
+          set -euo pipefail
+          ADB="$ANDROID_HOME/platform-tools/adb"
+          {
+            echo "ABI=$("$ADB" shell getprop ro.product.cpu.abi | tr -d '\r')"
+            echo "ABILIST=$("$ADB" shell getprop ro.product.cpu.abilist | tr -d '\r')"
+            echo "ABILIST64=$("$ADB" shell getprop ro.product.cpu.abilist64 | tr -d '\r')"
+            echo "NATIVE_BRIDGE=$("$ADB" shell getprop ro.dalvik.vm.native.bridge | tr -d '\r')"
+            echo "NATIVE_BRIDGE_EXEC=$("$ADB" shell getprop ro.enable.native.bridge.exec | tr -d '\r')"
+            echo "NDK_TRANSLATION=$("$ADB" shell getprop ro.ndk_translation.version | tr -d '\r')"
+            echo "SDK=$("$ADB" shell getprop ro.build.version.sdk | tr -d '\r')"
+          } | tee /tmp/xchurch-x86/device.txt
+
+          "$ADB" shell 'find /system -name "*ndk_translation*" -o -name "libnb.so" 2>/dev/null | head -100' \
+            | tee /tmp/xchurch-x86/native-bridge-files.txt || true
+
+      - name: Install and launch XChurch APK
+        shell: bash
+        run: |
+          set +e
+          ADB="$ANDROID_HOME/platform-tools/adb"
+          OUT=/tmp/xchurch-x86
+
+          "$ADB" install --abi arm64-v8a -r -d "$OUT/xchurch.apk" \
+            > "$OUT/install-arm64.txt" 2>&1
+          INSTALL_RC=$?
+          echo "INSTALL_ARM64_RC=$INSTALL_RC" | tee -a "$OUT/status.txt"
+          cat "$OUT/install-arm64.txt" | tee -a "$OUT/status.txt"
+
+          if [ "$INSTALL_RC" -ne 0 ]; then
+            "$ADB" install -r -d "$OUT/xchurch.apk" > "$OUT/install-auto.txt" 2>&1
             INSTALL_RC=$?
-            echo "INSTALL_RC=$INSTALL_RC" | tee "$OUT/status.txt"
-            cat "$OUT/install-arm64.txt" | tee -a "$OUT/status.txt"
+            echo "INSTALL_AUTO_RC=$INSTALL_RC" | tee -a "$OUT/status.txt"
+            cat "$OUT/install-auto.txt" | tee -a "$OUT/status.txt"
+          fi
 
-            if [ "$INSTALL_RC" -ne 0 ]; then
-              adb install -r -d "$OUT/xchurch.apk"                 > "$OUT/install-auto.txt" 2>&1
-              AUTO_RC=$?
-              echo "AUTO_INSTALL_RC=$AUTO_RC" | tee -a "$OUT/status.txt"
-              cat "$OUT/install-auto.txt" | tee -a "$OUT/status.txt"
-              INSTALL_RC=$AUTO_RC
-            fi
+          "$ADB" exec-out screencap -p > "$OUT/screens/post_install.png" 2>/dev/null || true
 
-            adb exec-out screencap -p > "$OUT/screens/post_install.png" 2>/dev/null || true
+          if [ "$INSTALL_RC" -eq 0 ]; then
+            "$ADB" shell pm grant com.activision.boz android.permission.WRITE_EXTERNAL_STORAGE 2>/dev/null || true
+            "$ADB" shell pm grant com.activision.boz android.permission.READ_EXTERNAL_STORAGE 2>/dev/null || true
+            "$ADB" shell mkdir -p /sdcard/Android/obb/com.activision.boz 2>/dev/null || true
 
-            if [ "$INSTALL_RC" -ne 0 ]; then
-              adb logcat -d > "$OUT/logcat.txt" 2>&1
-              exit 0
-            fi
-
-            adb shell pm grant com.activision.boz android.permission.WRITE_EXTERNAL_STORAGE 2>/dev/null || true
-            adb shell pm grant com.activision.boz android.permission.READ_EXTERNAL_STORAGE 2>/dev/null || true
-            adb shell mkdir -p /sdcard/Android/obb/com.activision.boz 2>/dev/null || true
-
-            adb logcat -c
-            adb shell am force-stop com.activision.boz
-            adb shell am start -W -n com.activision.boz/.Main               > "$OUT/launch.txt" 2>&1
+            "$ADB" logcat -c
+            "$ADB" shell am force-stop com.activision.boz >/dev/null 2>&1 || true
+            "$ADB" shell am start -W -n com.activision.boz/.Main > "$OUT/launch.txt" 2>&1
             LAUNCH_RC=$?
             echo "LAUNCH_RC=$LAUNCH_RC" | tee -a "$OUT/status.txt"
             cat "$OUT/launch.txt" | tee -a "$OUT/status.txt"
 
             sleep 3
-            adb exec-out screencap -p > "$OUT/screens/app_03s.png" 2>/dev/null || true
+            "$ADB" exec-out screencap -p > "$OUT/screens/app_03s.png" 2>/dev/null || true
             sleep 5
-            adb exec-out screencap -p > "$OUT/screens/app_08s.png" 2>/dev/null || true
+            "$ADB" exec-out screencap -p > "$OUT/screens/app_08s.png" 2>/dev/null || true
             sleep 7
-            adb exec-out screencap -p > "$OUT/screens/app_15s.png" 2>/dev/null || true
+            "$ADB" exec-out screencap -p > "$OUT/screens/app_15s.png" 2>/dev/null || true
             sleep 15
-            adb exec-out screencap -p > "$OUT/screens/app_30s.png" 2>/dev/null || true
+            "$ADB" exec-out screencap -p > "$OUT/screens/app_30s.png" 2>/dev/null || true
 
-            PID="$(adb shell pidof com.activision.boz 2>/dev/null | tr -d '\r\n')"
+            PID="$("$ADB" shell pidof com.activision.boz 2>/dev/null | tr -d '\r\n')"
             echo "PID=$PID" | tee -a "$OUT/status.txt"
+          fi
 
-            adb logcat -d -v threadtime > "$OUT/logcat.txt" 2>&1
-            adb shell dumpsys activity activities > "$OUT/activities.txt" 2>&1
-            adb shell dumpsys window windows > "$OUT/window.txt" 2>&1
-
-            grep -Eai               'FATAL EXCEPTION|Fatal signal|SIGSEGV|SIGABRT|UnsatisfiedLinkError|dlopen failed|native bridge|ndk_translation|xchurch|kino|Marmalade|s3e|activision|boz'               "$OUT/logcat.txt" | tail -400 > "$OUT/logcat-highlights.txt" || true
-
-            if [ -n "$PID" ]; then
-              echo "XZIEL_BOZ_PROCESS_ALIVE=true" | tee -a "$OUT/status.txt"
-            else
-              echo "XZIEL_BOZ_PROCESS_ALIVE=false" | tee -a "$OUT/status.txt"
-            fi
-
-            exit 0
+          "$ADB" logcat -d -v threadtime > "$OUT/logcat.txt" 2>&1
+          "$ADB" shell dumpsys activity activities > "$OUT/activities.txt" 2>&1
+          "$ADB" shell dumpsys window windows > "$OUT/window.txt" 2>&1
+          grep -Eai \
+            'FATAL EXCEPTION|Fatal signal|SIGSEGV|SIGABRT|UnsatisfiedLinkError|dlopen failed|native bridge|ndk_translation|xchurch|kino|Marmalade|s3e|activision|boz' \
+            "$OUT/logcat.txt" | tail -400 > "$OUT/logcat-highlights.txt" || true
+          exit 0
 
       - name: Summarize ARM translation capture
         if: always()
@@ -145,7 +221,9 @@ jobs:
           echo "=== SCREENSHOTS ==="
           ls -lh /tmp/xchurch-x86/screens 2>/dev/null || true
           echo "=== LOG HIGHLIGHTS ==="
-          tail -120 /tmp/xchurch-x86/logcat-highlights.txt 2>/dev/null || true
+          tail -160 /tmp/xchurch-x86/logcat-highlights.txt 2>/dev/null || true
+          echo "=== EMULATOR TAIL ==="
+          tail -100 /tmp/xchurch-x86/emulator.log 2>/dev/null || true
 
       - uses: actions/upload-artifact@v4
         if: always()
