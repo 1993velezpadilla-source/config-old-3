@@ -94,16 +94,44 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let start = chunk.offset as usize;
     let slot = next_offset.checked_sub(start).ok_or("invalid physical slot")?;
-    if encoded.len() > slot {
-        return Err(format!(
-            "native DZ replacement does not fit: encoded={} slot={} old_header_packed={}",
-            encoded.len(), slot, chunk.compressed_length
-        ).into());
-    }
+    let grow_by = encoded.len().saturating_sub(slot);
 
     let mut patched = original;
+    let mut shifted_chunks = 0usize;
+
+    if grow_by > 0 {
+        // Grow the physical slot in-place by inserting bytes immediately
+        // before the next payload. DTRZ chunk offsets are explicit, so every
+        // later chunk in the same volume can be shifted without rewriting
+        // resource contents or the file/chunk map.
+        let insert_at = start
+            .checked_add(slot)
+            .ok_or("slot end overflow")?;
+        patched.splice(insert_at..insert_at, std::iter::repeat(0u8).take(grow_by));
+
+        for (id, later) in chunks.iter().enumerate() {
+            if id == chunk_id || later.file != chunk.file || later.flags & CHUNK_ZERO != 0 {
+                continue;
+            }
+            if later.offset > chunk.offset {
+                let new_offset = later
+                    .offset
+                    .checked_add(u32::try_from(grow_by)?)
+                    .ok_or("shifted chunk offset overflow")?;
+                let later_meta = chunk_table_pos + id * 16;
+                if later_meta + 4 > patched.len() {
+                    return Err("shifted chunk metadata offset out of range".into());
+                }
+                patched[later_meta..later_meta + 4]
+                    .copy_from_slice(&new_offset.to_le_bytes());
+                shifted_chunks += 1;
+            }
+        }
+    }
+
+    let physical_capacity = slot + grow_by;
     patched[start..start + encoded.len()].copy_from_slice(&encoded);
-    for b in &mut patched[start + encoded.len()..start + slot] {
+    for b in &mut patched[start + encoded.len()..start + physical_capacity] {
         *b = 0;
     }
 
@@ -130,8 +158,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("chunk_id={chunk_id}");
     println!("offset=0x{:x}", chunk.offset);
     println!("old_header_packed={}", chunk.compressed_length);
-    println!("physical_slot={slot}");
+    println!("physical_slot_before={slot}");
     println!("new_packed={}", encoded.len());
+    println!("archive_grow_by={grow_by}");
+    println!("shifted_chunks={shifted_chunks}");
     println!("unpacked={}", replacement.len());
     println!("flags=0x{:x}", chunk.flags);
     Ok(())
