@@ -19,6 +19,7 @@ cat "$OUT/install.log" | tee -a "$OUT/status.txt"
 if [ "$INSTALL_RC" -eq 0 ]; then
   adb shell settings put system accelerometer_rotation 0 || true
   adb shell settings put system user_rotation 1 || true
+  adb shell settings put secure immersive_mode_confirmations confirmed || true
   adb shell pm grant com.activision.boz android.permission.WRITE_EXTERNAL_STORAGE 2>/dev/null || true
   adb shell pm grant com.activision.boz android.permission.READ_EXTERNAL_STORAGE 2>/dev/null || true
   adb shell appops set com.activision.boz MANAGE_EXTERNAL_STORAGE allow 2>/dev/null || true
@@ -30,12 +31,19 @@ if [ "$INSTALL_RC" -eq 0 ]; then
   echo "START_RC=$START_RC" | tee -a "$OUT/status.txt"
   cat "$OUT/launch.txt" | tee -a "$OUT/status.txt"
 
-  sleep 5
+  # Android's first immersive-mode education overlay can hide the game.
+  # Dismiss it explicitly if it appears; harmless if it does not.
+  sleep 2
+  adb shell input tap 1700 520 >/dev/null 2>&1 || true
+
+  sleep 3
   adb exec-out screencap -p > "$OUT/screens/boot_05s.png"
   sleep 10
   adb exec-out screencap -p > "$OUT/screens/boot_15s.png"
   sleep 15
   adb exec-out screencap -p > "$OUT/screens/boot_30s.png"
+  sleep 30
+  adb exec-out screencap -p > "$OUT/screens/boot_60s.png"
 else
   adb exec-out screencap -p > "$OUT/screens/install_failure.png"
 fi
