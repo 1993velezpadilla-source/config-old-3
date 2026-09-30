@@ -15,7 +15,7 @@ permissions:
 jobs:
   capture:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 18
 
     steps:
       - uses: actions/checkout@v5
@@ -122,26 +122,39 @@ jobs:
           "$ADB" shell am start -W -n com.activision.boz/.Main > "$OUT/launch.txt" 2>&1
           echo "LAUNCH_RC=$?" | tee -a "$OUT/status.txt"
 
-          sleep 92
-          "$ADB" exec-out screencap -p > "$OUT/screens/title_before_touch.png"
-          PID="$("$ADB" shell pidof com.activision.boz 2>/dev/null | tr -d '\r\n')"
-          echo "TITLE_PID=$PID" | tee -a "$OUT/status.txt"
+          # Wait for the actual title frame instead of assuming a fixed boot time.
+          TITLE_HASH="49d0c83ce3913b461bc8b6eab848f15305487af49528efa832d2c787732204bb"
+          TITLE_FOUND=0
+          for SEC in $(seq 60 5 190); do
+            "$ADB" exec-out screencap -p > "$OUT/screens/poll_${SEC}s.png" 2>/dev/null || true
+            HASH="$(sha256sum "$OUT/screens/poll_${SEC}s.png" | awk '{print $1}')"
+            echo "POLL_${SEC}s_HASH=$HASH" | tee -a "$OUT/status.txt"
+            PID_NOW="$("$ADB" shell pidof com.activision.boz 2>/dev/null | tr -d '\r\n')"
+            echo "POLL_${SEC}s_PID=$PID_NOW" | tee -a "$OUT/status.txt"
+            if [ "$HASH" = "$TITLE_HASH" ]; then
+              cp "$OUT/screens/poll_${SEC}s.png" "$OUT/screens/title_before_touch.png"
+              echo "TITLE_DETECTED_AT=${SEC}s" | tee -a "$OUT/status.txt"
+              TITLE_FOUND=1
+              break
+            fi
+            sleep 5
+          done
 
-          # The game is in 2280x1080 landscape. Title says TOUCH SCREEN TO START.
-          "$ADB" shell input tap 1140 540
-          echo "TOUCH_SENT=1140,540" | tee -a "$OUT/status.txt"
+          if [ "$TITLE_FOUND" != "1" ]; then
+            echo "TITLE_NOT_DETECTED=true" | tee -a "$OUT/status.txt"
+          else
+            "$ADB" shell input tap 1140 540
+            echo "TOUCH_SENT=1140,540" | tee -a "$OUT/status.txt"
 
-          sleep 2
-          "$ADB" exec-out screencap -p > "$OUT/screens/after_touch_02s.png"
-          sleep 3
-          "$ADB" exec-out screencap -p > "$OUT/screens/after_touch_05s.png"
-          sleep 5
-          "$ADB" exec-out screencap -p > "$OUT/screens/after_touch_10s.png"
-          sleep 10
-          "$ADB" exec-out screencap -p > "$OUT/screens/after_touch_20s.png"
-          sleep 20
-          "$ADB" exec-out screencap -p > "$OUT/screens/after_touch_40s.png"
-
+            sleep 5
+            "$ADB" exec-out screencap -p > "$OUT/screens/after_touch_05s.png"
+            sleep 10
+            "$ADB" exec-out screencap -p > "$OUT/screens/after_touch_15s.png"
+            sleep 15
+            "$ADB" exec-out screencap -p > "$OUT/screens/after_touch_30s.png"
+            sleep 30
+            "$ADB" exec-out screencap -p > "$OUT/screens/after_touch_60s.png"
+          fi
           PID="$("$ADB" shell pidof com.activision.boz 2>/dev/null | tr -d '\r\n')"
           echo "FINAL_PID=$PID" | tee -a "$OUT/status.txt"
 
