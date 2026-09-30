@@ -7,38 +7,8 @@ OUT="dist/android-x86bridge-smoke"
 XZIEL_PACKAGE="com.xzielapp"
 mkdir -p "$OUT"
 
-# Build a clean x86_64 guest FreeType bundle from the x86_64 Linux CI host.
-# This is intentionally separate from the ARM64/glibc rootfs native libraries:
-# BOX64_EMULATED_LIBS must point at an x86_64 guest ELF, never the ARM64 copy.
-GUEST_FT_DIR="$OUT/x86_64-freetype-guest"
-mkdir -p "$GUEST_FT_DIR"
-HOST_FREETYPE="$(ldconfig -p 2>/dev/null | awk '/libfreetype\.so\.6 .*x86-64/ {print $NF; exit}')"
-if [[ -z "$HOST_FREETYPE" || ! -s "$HOST_FREETYPE" ]]; then
-  for candidate in /usr/lib/x86_64-linux-gnu/libfreetype.so.6 /lib/x86_64-linux-gnu/libfreetype.so.6; do
-    if [[ -s "$candidate" ]]; then HOST_FREETYPE="$candidate"; break; fi
-  done
-fi
-test -n "$HOST_FREETYPE" && test -s "$HOST_FREETYPE"
-file "$HOST_FREETYPE" | tee "$OUT/host-x86_64-freetype.file.txt"
-readelf -Ws "$HOST_FREETYPE" | grep -E 'FT_Get_WinFNT_Header|FT_Init_FreeType' | tee "$OUT/host-x86_64-freetype.symbols.txt"
-grep -q 'FT_Get_WinFNT_Header' "$OUT/host-x86_64-freetype.symbols.txt"
-cp -L "$HOST_FREETYPE" "$GUEST_FT_DIR/libfreetype.so.6"
-
-# Copy the non-glibc dependency closure reported by ldd. Keeping these beside
-# FreeType avoids depending on accidental guest package versions while still
-# using the rootfs guest glibc/loader ABI.
-ldd "$HOST_FREETYPE" | tee "$OUT/host-x86_64-freetype.ldd.txt"
-while read -r dep; do
-  [[ -n "$dep" && -s "$dep" ]] || continue
-  base="$(basename "$dep")"
-  case "$base" in
-    libc.so.6|libm.so.6|libpthread.so.0|libdl.so.2|librt.so.1|ld-linux-x86-64.so.2) continue ;;
-  esac
-  cp -L "$dep" "$GUEST_FT_DIR/$base"
-done < <(ldd "$HOST_FREETYPE" | awk '/=> \/[^ ]+/ {print $3} /^[[:space:]]*\/[^ ]+/ {print $1}' | sort -u)
-sha256sum "$GUEST_FT_DIR"/* | tee "$OUT/x86_64-freetype-guest.sha256"
-echo "XZIEL_X86BRIDGE_X86_64_FREETYPE_BUNDLE_GREEN"
-
+# FreeType gate: use the patched Bionic Box64 native wrapper. The custom
+# FT_Get_WinFNT_Header GOM shim is provided by the injected Box64 binary.
 adb wait-for-device
 primary="$(adb shell getprop ro.product.cpu.abi | tr -d '\r')"
 abilist="$(adb shell getprop ro.product.cpu.abilist | tr -d '\r')"
@@ -128,8 +98,8 @@ for i in $(seq 1 36); do
         cat > "$OUT/box64-bionic-wrapper.sh" <<'EOF'
 #!/system/bin/sh
 ROOT=/data/user/0/com.xzielapp/files/rootfs
-export BOX64_LD_LIBRARY_PATH="$ROOT/opt/xziel-x86_64/lib:$ROOT/lib/x86_64-linux-gnu"
-export BOX64_EMULATED_LIBS=libfreetype.so.6
+export BOX64_LD_LIBRARY_PATH="$ROOT/lib/x86_64-linux-gnu"
+export
 exec "$ROOT/usr/local/bin/box64.real" "$@"
 EOF
         adb shell "run-as ${XZIEL_PACKAGE} sh -c 'cat > files/rootfs/usr/local/bin/box64'" < "$OUT/box64-bionic-wrapper.sh"
@@ -147,8 +117,8 @@ EOF
 #!/system/bin/sh
 ROOT=/data/user/0/com.xzielapp/files/rootfs
 export LD_LIBRARY_PATH="$ROOT/usr/lib:$ROOT/lib"
-export BOX64_LD_LIBRARY_PATH="$ROOT/opt/xziel-x86_64/lib:$ROOT/lib/x86_64-linux-gnu"
-export BOX64_EMULATED_LIBS=libfreetype.so.6
+export BOX64_LD_LIBRARY_PATH="$ROOT/lib/x86_64-linux-gnu"
+export
 exec "$ROOT/usr/local/bin/box64.real" "$@"
 EOF
         adb shell "run-as ${XZIEL_PACKAGE} sh -c 'cat > files/rootfs/usr/local/bin/box64'" < "$OUT/box64-glibc-static-wrapper.sh"
@@ -172,18 +142,7 @@ EOF
         echo "XZIEL_X86BRIDGE_GLIBC_LOADER_WRAPPER_INJECTED"
       fi
 
-      # Inject a true x86_64 guest FreeType and its non-glibc dependency
-      # closure into an isolated guest-only path. This fixes the ABI mistake
-      # proven by run #82, where the ARM64 rootfs FreeType was forced emulated.
-      adb shell "run-as ${XZIEL_PACKAGE} mkdir -p files/rootfs/opt/xziel-x86_64/lib"
-      for lib in "$GUEST_FT_DIR"/*; do
-        base="$(basename "$lib")"
-        adb shell "run-as ${XZIEL_PACKAGE} sh -c 'cat > files/rootfs/opt/xziel-x86_64/lib/$base'" < "$lib"
-        adb shell run-as ${XZIEL_PACKAGE} chmod 644 "files/rootfs/opt/xziel-x86_64/lib/$base"
-      done
-      adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ls -l files/rootfs/opt/xziel-x86_64/lib; file files/rootfs/opt/xziel-x86_64/lib/libfreetype.so.6 2>/dev/null || true'" \
-        > "$OUT/x86_64-freetype-injected.txt" 2>&1 || true
-      echo "XZIEL_X86BRIDGE_X86_64_FREETYPE_INJECTED"
+      echo "XZIEL_X86BRIDGE_FREETYPE_MODE native-bionic-plus-winfnt-shim"
 
       # Deep compatibility probes are useful after a failure, but running them
       # before every relaunch can delay or retain Wine children. Fast launch is
@@ -191,11 +150,11 @@ EOF
       if [[ "${XZIEL_PRELAUNCH_DEEP_DIAG:-1}" == "1" ]]; then
       # Direct runtime probe: distinguish Box64/native-bridge failure from
       # Wine/winhandler/game startup failure before relaunching the Android UI.
-      adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=files/rootfs; TMPDIR=\$ROOT/tmp BOX64_LOG=2 BOX64_LD_LIBRARY_PATH=\$ROOT/opt/xziel-x86_64/lib:\$ROOT/lib/x86_64-linux-gnu \$ROOT/usr/local/bin/box64 --version'" \
+      adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=files/rootfs; TMPDIR=\$ROOT/tmp BOX64_LOG=2 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu \$ROOT/usr/local/bin/box64 --version'" \
         > "$OUT/box64-direct-probe.txt" 2>&1 || true
-      adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=files/rootfs; TMPDIR=\$ROOT/tmp BOX64_LOG=2 BOX64_LD_LIBRARY_PATH=\$ROOT/opt/xziel-x86_64/lib:\$ROOT/lib/x86_64-linux-gnu PATH=\$ROOT/opt/wine/bin:/system/bin \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wine --version'" \
+      adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=files/rootfs; TMPDIR=\$ROOT/tmp BOX64_LOG=2 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu PATH=\$ROOT/opt/wine/bin:/system/bin \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wine --version'" \
         > "$OUT/wine-direct-probe.txt" 2>&1 || true
-      adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=files/rootfs; TMPDIR=\$ROOT/tmp BOX64_LOG=2 BOX64_LD_LIBRARY_PATH=\$ROOT/opt/xziel-x86_64/lib:\$ROOT/lib/x86_64-linux-gnu PATH=\$ROOT/opt/wine/bin:/system/bin \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wineserver --version'" \
+      adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=files/rootfs; TMPDIR=\$ROOT/tmp BOX64_LOG=2 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu PATH=\$ROOT/opt/wine/bin:/system/bin \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wineserver --version'" \
         > "$OUT/wineserver-direct-probe.txt" 2>&1 || true
       echo "XZIEL_X86BRIDGE_DIRECT_PROBE_BOX64"
       tail -n 200 "$OUT/box64-direct-probe.txt" || true
@@ -203,8 +162,9 @@ EOF
       tail -n 300 "$OUT/wine-direct-probe.txt" || true
       echo "XZIEL_X86BRIDGE_DIRECT_PROBE_WINESERVER"
       tail -n 300 "$OUT/wineserver-direct-probe.txt" || true
+      echo "XZIEL_X86BRIDGE_WINFNT_SHIM_EXPECTED"
       echo "XZIEL_X86BRIDGE_FREETYPE_ROOTFS_CENSUS"
-      echo "XZIEL_X86BRIDGE_FREETYPE_MODE emulated=libfreetype.so.6 source=x86_64-guest-bundle path=opt/xziel-x86_64/lib:lib/x86_64-linux-gnu"
+      echo "XZIEL_X86BRIDGE_FREETYPE_MODE native-bionic-plus-winfnt-shim"
       adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; find \$ROOT/lib \$ROOT/usr/lib -type f -o -type l 2>/dev/null | grep -E \"/libfreetype\\.so|/libfontconfig\\.so\" | sort | head -n 80'" \
         > "$OUT/freetype-rootfs-census.txt" 2>&1 || true
       cat "$OUT/freetype-rootfs-census.txt" || true
@@ -240,7 +200,7 @@ EOF
       # wineserver -f is healthy and creates the real prefix socket. Keep one
       # foreground server alive across the first (slow) Wine prefix warmup and
       # the Android relaunch instead of killing it after a short diagnostic.
-      timeout 10s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; rm -f \$ROOT/tmp/xziel-wineserver-fg.log \$ROOT/tmp/xziel-wineserver-fg.pid; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_NOBANNER=1 BOX64_LOG=0 BOX64_LD_LIBRARY_PATH=\$ROOT/opt/xziel-x86_64/lib:\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEESYNC=0 WINEFSYNC=0 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wineserver -f > \$ROOT/tmp/xziel-wineserver-fg.log 2>&1 & echo \$! > \$ROOT/tmp/xziel-wineserver-fg.pid'" \
+      timeout 10s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; rm -f \$ROOT/tmp/xziel-wineserver-fg.log \$ROOT/tmp/xziel-wineserver-fg.pid; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_NOBANNER=1 BOX64_LOG=0 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEESYNC=0 WINEFSYNC=0 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wineserver -f > \$ROOT/tmp/xziel-wineserver-fg.log 2>&1 & echo \$! > \$ROOT/tmp/xziel-wineserver-fg.pid'" \
         > "$OUT/wineserver-fg-start.txt" 2>&1 || true
       sleep 2
       adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-wineserver-fg.pid > "$OUT/wineserver-fg.pid" 2>/dev/null || true
@@ -253,7 +213,7 @@ EOF
       # initialization. Keep Box64 tracing off here: per-call tracing inflated
       # the server log to tens of MB and made registry import artificially slow.
       # Give the same quiet server a bounded first-prefix warmup.
-      timeout 240s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_NOBANNER=1 BOX64_LOG=1 BOX64_DLSYM_ERROR=1 BOX64_LD_LIBRARY_PATH=\$ROOT/opt/xziel-x86_64/lib:\$ROOT/lib/x86_64-linux-gnu BOX64_EMULATED_LIBS=libfreetype.so.6 ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEDEBUG=+font WINEESYNC=0 WINEFSYNC=0 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wine cmd /c ver; rc=\$?; echo XZIEL_PRESTARTED_CMD_STATUS=\$rc; exit \$rc'" \
+      timeout 240s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_NOBANNER=1 BOX64_LOG=1 BOX64_DLSYM_ERROR=1 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEDEBUG=+font WINEESYNC=0 WINEFSYNC=0 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wine cmd /c ver; rc=\$?; echo XZIEL_PRESTARTED_CMD_STATUS=\$rc; exit \$rc'" \
         > "$OUT/wine-with-prestarted-server.txt" 2>&1 || true
 
       adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-wineserver-fg.log > "$OUT/wineserver-fg.log" 2>/dev/null || true
@@ -299,8 +259,8 @@ EOF
         export PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin
         export BOX64_LOG=2
         export BOX64_DLSYM_ERROR=1
-        export BOX64_LD_LIBRARY_PATH=\$ROOT/opt/xziel-x86_64/lib:\$ROOT/lib/x86_64-linux-gnu
-        export BOX64_EMULATED_LIBS=libfreetype.so.6
+        export BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu
+        export
         export ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0
         export ANDROID_ALSA_SERVER=\$ROOT/tmp/.sound/AS0
         export VIRGL_SERVER_PATH=\$ROOT/tmp/.virgl/V0
@@ -327,8 +287,8 @@ export USER=xuser
 export TMPDIR="$ROOT/tmp"
 export DISPLAY=:0
 export PATH="$ROOT/opt/wine/bin:$ROOT/usr/local/bin:$ROOT/usr/bin:/system/bin"
-export BOX64_LD_LIBRARY_PATH="$ROOT/opt/xziel-x86_64/lib:$ROOT/lib/x86_64-linux-gnu"
-export BOX64_EMULATED_LIBS=libfreetype.so.6
+export BOX64_LD_LIBRARY_PATH="$ROOT/lib/x86_64-linux-gnu"
+export
 export BOX64_LOG=2
 export BOX64_DLSYM_ERROR=1
 export BOX64_SHOWSEGV=1
