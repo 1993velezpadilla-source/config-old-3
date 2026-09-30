@@ -262,6 +262,7 @@ for old, new in (
     ("GO(__ctype_tolower_loc, pFv)", "GOM(__ctype_tolower_loc, pFEv)"),
     ("GO(__ctype_toupper_loc, pFv)", "GOM(__ctype_toupper_loc, pFEv)"),
     ("GO(nl_langinfo, pFi)", "GOM(nl_langinfo, pFEi)"),
+    ("GOW(chdir, iFp)", "GOM(chdir, iFEp)"),
 ):
     if old not in s:
         raise SystemExit(f"Box64 libc wrapper anchor missing: {old}")
@@ -297,6 +298,38 @@ if anchor not in s:
     raise SystemExit("Box64 wrappedlibc insertion anchor missing")
 shim = r'''
 /* XZIEL_ANDROID_GLIBC_LIBC_SHIMS */
+#ifdef ANDROID
+static const char* xziel_android_wine_tmp_path(const char* path, char* out, size_t out_size)
+{
+    static const char prefix[] = "/tmp/.wine-";
+    if(!path || strncmp(path, prefix, sizeof(prefix) - 1) != 0)
+        return path;
+
+    const char* tmpdir = getenv("TMPDIR");
+    if(!tmpdir || !*tmpdir)
+        return path;
+
+    int n = snprintf(out, out_size, "%s/%s", tmpdir, path + 5);
+    if(n < 0 || (size_t)n >= out_size) {
+        errno = ENAMETOOLONG;
+        return NULL;
+    }
+    return out;
+}
+
+EXPORT int my_chdir(x64emu_t* emu, const char* path)
+{
+    (void)emu;
+    char mapped[1536];
+    const char* target = xziel_android_wine_tmp_path(path, mapped, sizeof(mapped));
+    if(!target)
+        return -1;
+    if(target != path)
+        printf_log(LOG_INFO, "XZIEL_ANDROID_WINE_TMP_CHDIR %s -> %s\n", path, target);
+    return chdir(target);
+}
+#endif
+
 EXPORT void* my___errno_location(x64emu_t* emu)
 {
     (void)emu;
@@ -582,6 +615,9 @@ grep -q 'my___ctype_tolower_loc' "$SRC/src/wrapped/wrappedlibc.c"
 grep -q 'my___ctype_toupper_loc' "$SRC/src/wrapped/wrappedlibc.c"
 grep -q 'GOM(nl_langinfo, pFEi)' "$SRC/src/wrapped/wrappedlibc_private.h"
 grep -q 'my_nl_langinfo' "$SRC/src/wrapped/wrappedlibc.c"
+grep -q 'GOM(chdir, iFEp)' "$SRC/src/wrapped/wrappedlibc_private.h"
+grep -q 'XZIEL_ANDROID_WINE_TMP_CHDIR' "$SRC/src/wrapped/wrappedlibc.c"
+echo "XZIEL_BOX64_ANDROID_WINE_TMP_CHDIR_GREEN"
 grep -q 'XZIEL_ANDROID_WINESERVER_NATIVE_FORK' "$SRC/src/wrapped/wrappedlibc.c"
 echo "XZIEL_BOX64_ANDROID_WINESERVER_NATIVE_FORK_GREEN"
 echo "XZIEL_BOX64_ANDROID_GLIBC_CTYPE_GREEN"
