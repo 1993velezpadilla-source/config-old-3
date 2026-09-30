@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Add Xziel mobile combat feedback to NZ:P QuakeC."""
 from pathlib import Path
+import re
 import sys
 
 if len(sys.argv) != 2:
@@ -58,12 +59,22 @@ if "void(entity who, float damage, float critical) nzp_damage_number;" not in te
         "void(entity who, float damage, float critical) nzp_damage_number;\n\n"
     ) + text[insert_at:]
 
-hit_anchor = '''\tif (victim.classname == "ai_zombie" || victim.classname == "ai_dog") {\n\n'''
-hit_repl = '''\tif (victim.classname == "ai_zombie" || victim.classname == "ai_dog") {\n\n\t\t/* Mobile COD-style floating damage numbers. Report the actual weapon\n\t\t   damage request for every legitimate player hit, including the fatal\n\t\t   shot. The client owns presentation/timing only. */\n\t\tif (attacker.classname == "player" && d_style != DMG_TYPE_OTHER && damage > 0)\n\t\t\tnzp_damage_number(attacker, damage, d_style == DMG_TYPE_HEADSHOT);\n\n'''
+hit_pattern = re.compile(
+    r'(?m)^(?P<indent>[ \t]*)if\s*\(victim\.classname\s*==\s*"ai_zombie"\s*\|\|\s*'
+    r'victim\.classname\s*==\s*"ai_dog"\s*\)\s*\{\s*$'
+)
 if "nzp_damage_number(attacker" not in text:
-    if hit_anchor not in text:
+    match = hit_pattern.search(text)
+    if not match:
         raise SystemExit("Could not find zombie damage branch")
-    text = text.replace(hit_anchor, hit_repl, 1)
+    indent = match.group("indent") + "\t"
+    insertion = (
+        "\n"
+        + indent + "/* XZIEL mobile floating damage feedback. */\n"
+        + indent + 'if (attacker.classname == "player" && d_style != DMG_TYPE_OTHER && damage > 0)\n'
+        + indent + "\tnzp_damage_number(attacker, damage, d_style == DMG_TYPE_HEADSHOT);\n"
+    )
+    text = text[:match.end()] + insertion + text[match.end():]
 damage.write_text(text, encoding="utf-8")
 
 print("Patched QuakeC Xziel combat feedback.")
