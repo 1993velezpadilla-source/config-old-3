@@ -102,6 +102,21 @@ EOF
         echo "XZIEL_X86BRIDGE_GLIBC_LOADER_WRAPPER_INJECTED"
       fi
 
+      # Direct runtime probe: distinguish Box64/native-bridge failure from
+      # Wine/winhandler/game startup failure before relaunching the Android UI.
+      adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=files/rootfs; TMPDIR=\$ROOT/tmp BOX64_LOG=2 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu \$ROOT/usr/local/bin/box64 --version'" \
+        > "$OUT/box64-direct-probe.txt" 2>&1 || true
+      adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=files/rootfs; TMPDIR=\$ROOT/tmp BOX64_LOG=2 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu PATH=\$ROOT/opt/wine/bin:/system/bin \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wine --version'" \
+        > "$OUT/wine-direct-probe.txt" 2>&1 || true
+      adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=files/rootfs; TMPDIR=\$ROOT/tmp BOX64_LOG=2 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu PATH=\$ROOT/opt/wine/bin:/system/bin \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wineserver --version'" \
+        > "$OUT/wineserver-direct-probe.txt" 2>&1 || true
+      echo "XZIEL_X86BRIDGE_DIRECT_PROBE_BOX64"
+      tail -n 200 "$OUT/box64-direct-probe.txt" || true
+      echo "XZIEL_X86BRIDGE_DIRECT_PROBE_WINE"
+      tail -n 300 "$OUT/wine-direct-probe.txt" || true
+      echo "XZIEL_X86BRIDGE_DIRECT_PROBE_WINESERVER"
+      tail -n 300 "$OUT/wineserver-direct-probe.txt" || true
+
       adb logcat -c
       adb shell am start -W -n ${XZIEL_PACKAGE}/com.winlator.XzielBootActivity | tee "$OUT/am-restart-pie.txt"
       sleep 3
