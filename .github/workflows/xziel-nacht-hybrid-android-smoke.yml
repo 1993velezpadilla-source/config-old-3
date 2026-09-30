@@ -81,7 +81,7 @@ jobs:
             "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump badging "$XZIEL_APK" > dist-badging.txt
           fi
 
-          grep -q "package: name='com.xziel.hybrid'" dist-badging.txt
+          grep -q "package: name='com.xzielapp'" dist-badging.txt
           grep -q "launchable-activity: name='com.winlator.XzielBootActivity'" dist-badging.txt
           grep -q "native-code:.*'arm64-v8a'" dist-badging.txt
 
