@@ -164,6 +164,48 @@ EOF
       echo "XZIEL_X86BRIDGE_FULL_LAUNCH_PROBE_END"
     fi
 
+    if [[ "$pie_retry" == "1" ]]; then
+      # The Android XServer activity is deliberately kept alive after guest
+      # termination on x86. Re-run the Windows-side startup under the same
+      # prefix/display while forcing Box64/Wine diagnostics so an otherwise
+      # silent status=1 cannot hide the failing layer.
+      cat > "$OUT/xziel-exact-launch-probe.sh" <<'EOF'
+ROOT=/data/user/0/com.xzielapp/files/rootfs
+export HOME="$ROOT/home/xuser"
+export USER=xuser
+export TMPDIR="$ROOT/tmp"
+export DISPLAY=:0
+export PATH="$ROOT/opt/wine/bin:$ROOT/usr/local/bin:$ROOT/usr/bin:/system/bin"
+export BOX64_LD_LIBRARY_PATH="$ROOT/lib/x86_64-linux-gnu"
+export BOX64_LOG=2
+export BOX64_DLSYM_ERROR=1
+export BOX64_SHOWSEGV=1
+export WINEPREFIX="$ROOT/home/xuser/.wine"
+export WINEESYNC=1
+export WINEDEBUG=+process,+server,+module,+seh
+export ANDROID_SYSVSHM_SERVER="$ROOT/tmp/.sysvshm/SM0"
+export ANDROID_ALSA_SERVER="$ROOT/tmp/.sound/AS0"
+export ANDROID_ASERVER_USE_SHM=true
+export MESA_DEBUG=silent
+export MESA_NO_ERROR=1
+cd "$ROOT"
+
+echo XZIEL_EXACT_PROBE_CMD_BEGIN
+timeout 12 "$ROOT/usr/local/bin/box64" wine cmd /c ver
+echo "XZIEL_EXACT_PROBE_CMD_STATUS=$?"
+echo XZIEL_EXACT_PROBE_CMD_END
+
+echo XZIEL_EXACT_PROBE_LAUNCH_BEGIN
+timeout 15 "$ROOT/usr/local/bin/box64" wine explorer /desktop=nogui,1280x720 'C:\windows\winhandler.exe' /dir 'C:\\XZIEL' 'Nacht-Chronicles-XZIEL.exe'
+echo "XZIEL_EXACT_PROBE_LAUNCH_STATUS=$?"
+echo XZIEL_EXACT_PROBE_LAUNCH_END
+EOF
+      adb shell run-as ${XZIEL_PACKAGE} sh < "$OUT/xziel-exact-launch-probe.sh" \
+        > "$OUT/exact-launch-probe.txt" 2>&1 || true
+      echo "XZIEL_X86BRIDGE_EXACT_LAUNCH_PROBE"
+      tail -n 1600 "$OUT/exact-launch-probe.txt" || true
+    fi
+
     last_marker="GUEST_EXIT"
     failed=1
     echo "XZIEL_X86BRIDGE_GUEST_EXIT_DETECTED"
