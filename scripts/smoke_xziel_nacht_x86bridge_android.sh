@@ -168,9 +168,9 @@ EOF
       # Isolate wineserver daemonization. Wine launches wineserver with -d;
       # if foreground (-f) survives while -d crashes, Box64's fork/daemon path
       # is the remaining compatibility bug rather than Wine prefix/esync.
-      adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_LOG=2 BOX64_SHOWSEGV=1 BOX64_DLSYM_ERROR=1 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine timeout 6 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wineserver -f; rc=\$?; echo XZIEL_WINESERVER_FOREGROUND_STATUS=\$rc'" \
+      timeout 15s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_LOG=2 BOX64_SHOWSEGV=1 BOX64_DLSYM_ERROR=1 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine timeout 6 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wineserver -f; rc=\$?; echo XZIEL_WINESERVER_FOREGROUND_STATUS=\$rc'" \
         > "$OUT/wineserver-foreground-probe.txt" 2>&1 || true
-      adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_LOG=2 BOX64_SHOWSEGV=1 BOX64_DLSYM_ERROR=1 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine timeout 6 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wineserver -d; rc=\$?; echo XZIEL_WINESERVER_DAEMON_STATUS=\$rc'" \
+      timeout 15s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_LOG=2 BOX64_SHOWSEGV=1 BOX64_DLSYM_ERROR=1 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine timeout 6 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wineserver -d; rc=\$?; echo XZIEL_WINESERVER_DAEMON_STATUS=\$rc'" \
         > "$OUT/wineserver-daemon-probe.txt" 2>&1 || true
       echo "XZIEL_X86BRIDGE_WINESERVER_FOREGROUND_PROBE"
       tail -n 900 "$OUT/wineserver-foreground-probe.txt" || true
@@ -189,7 +189,7 @@ EOF
     # Wine loader/server diagnostics only for this bounded CI probe.
     if [[ "$pie_retry" == "1" ]]; then
       echo "XZIEL_X86BRIDGE_FULL_LAUNCH_PROBE_BEGIN"
-      adb shell "run-as ${XZIEL_PACKAGE} sh -c '
+      timeout 20s adb shell "run-as ${XZIEL_PACKAGE} sh -c '
         ROOT=/data/user/0/com.xzielapp/files/rootfs
         export HOME=\$ROOT/home/xuser
         export USER=xuser
@@ -249,7 +249,7 @@ timeout 15 "$ROOT/usr/local/bin/box64" wine explorer /desktop=nogui,1280x720 'C:
 echo "XZIEL_EXACT_PROBE_LAUNCH_STATUS=$?"
 echo XZIEL_EXACT_PROBE_LAUNCH_END
 EOF
-      adb shell run-as ${XZIEL_PACKAGE} sh < "$OUT/xziel-exact-launch-probe.sh" \
+      timeout 40s adb shell run-as ${XZIEL_PACKAGE} sh < "$OUT/xziel-exact-launch-probe.sh" \
         > "$OUT/exact-launch-probe.txt" 2>&1 || true
       echo "XZIEL_X86BRIDGE_EXACT_LAUNCH_PROBE"
       tail -n 1600 "$OUT/exact-launch-probe.txt" || true
