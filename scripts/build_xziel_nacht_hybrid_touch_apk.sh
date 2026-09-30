@@ -5,32 +5,42 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BUILD="$ROOT/build/xziel-nacht-hybrid-touch"
 WINLATOR="$BUILD/winlator"
 DIST="$BUILD/dist"
-INPUT_EXE="${XZIEL_NACHT_EXE:?set XZIEL_NACHT_EXE}"
+RUNTIME_DIR="${XZIEL_NACHT_RUNTIME_DIR:?set XZIEL_NACHT_RUNTIME_DIR}"
+VFS="${XZIEL_NACHT_VFS:?set XZIEL_NACHT_VFS}"
 
 WINLATOR_COMMIT=3981d86efa4f333b2a34a7da8b6521476cd8c8b9
 
 rm -rf "$BUILD"
 mkdir -p "$BUILD" "$DIST"
 
-test -s "$INPUT_EXE"
-actual_bytes="$(wc -c < "$INPUT_EXE" | tr -d '[:space:]')"
-actual_sha="$(sha256sum "$INPUT_EXE" | awk '{print $1}')"
-if [[ "$actual_bytes" -lt 800000000 ]]; then
-  echo "EXE too small: $actual_bytes" >&2
+test -d "$RUNTIME_DIR"
+test -s "$RUNTIME_DIR/Xziel-Nacht.exe"
+test -s "$RUNTIME_DIR/SDL2.dll"
+test -s "$RUNTIME_DIR/libEGL.dll"
+test -s "$RUNTIME_DIR/libGLESv2.dll"
+test -s "$RUNTIME_DIR/libstdc++-6.dll"
+test -s "$RUNTIME_DIR/zlib1.dll"
+test -s "$VFS"
+
+vfs_bytes="$(wc -c < "$VFS" | tr -d '[:space:]')"
+vfs_sha="$(sha256sum "$VFS" | awk '{print $1}')"
+runtime_sha="$(sha256sum "$RUNTIME_DIR/Xziel-Nacht.exe" | awk '{print $1}')"
+if [[ "$vfs_bytes" -lt 800000000 ]]; then
+  echo "VFS too small: $vfs_bytes" >&2
   exit 1
 fi
-if [[ "${#actual_sha}" -ne 64 ]]; then
-  echo "invalid sha256" >&2
+if [[ "${#vfs_sha}" -ne 64 || "${#runtime_sha}" -ne 64 ]]; then
+  echo "invalid direct payload sha256" >&2
   exit 1
 fi
-echo "XZIEL_NACHT_EXE_INPUT_GREEN bytes=$actual_bytes sha256=$actual_sha"
+echo "XZIEL_NACHT_DIRECT_PAYLOAD_INPUT_GREEN vfs_bytes=$vfs_bytes vfs_sha256=$vfs_sha runtime_sha256=$runtime_sha"
 
 git clone https://github.com/brunodev85/winlator-app.git "$WINLATOR"
 git -C "$WINLATOR" checkout --detach "$WINLATOR_COMMIT"
 test "$(git -C "$WINLATOR" rev-parse HEAD)" = "$WINLATOR_COMMIT"
 
 python3 "$ROOT/scripts/patch_winlator_xziel_nacht_direct.py" \
-  "$WINLATOR" "$actual_bytes" "$actual_sha"
+  "$WINLATOR" "$vfs_bytes" "$vfs_sha" "$runtime_sha"
 
 command -v zstd >/dev/null
 python3 "$ROOT/scripts/rewrite_winlator_runtime_package.py" \
@@ -54,8 +64,20 @@ done
 test "$hud_count" = "12"
 echo "XZIEL_HUD_ZOMBIES_MOBILE_V1_ASSETS_GREEN count=$hud_count"
 
-cp "$INPUT_EXE" "$ASSETS/nacht-onefile.exe"
-test -s "$ASSETS/nacht-onefile.exe"
+RUNTIME_ASSETS="$ASSETS/nacht-runtime"
+mkdir -p "$RUNTIME_ASSETS"
+cp "$RUNTIME_DIR"/*.exe "$RUNTIME_ASSETS/"
+cp "$RUNTIME_DIR"/*.dll "$RUNTIME_ASSETS/"
+cp "$VFS" "$ASSETS/nacht-vfs.zip"
+
+test -s "$RUNTIME_ASSETS/Xziel-Nacht.exe"
+test -s "$RUNTIME_ASSETS/SDL2.dll"
+test -s "$RUNTIME_ASSETS/libEGL.dll"
+test -s "$RUNTIME_ASSETS/libGLESv2.dll"
+test -s "$RUNTIME_ASSETS/libstdc++-6.dll"
+test -s "$RUNTIME_ASSETS/zlib1.dll"
+test -s "$ASSETS/nacht-vfs.zip"
+echo "XZIEL_DIRECT_PAYLOAD_ASSETS_GREEN"
 
 cd "$WINLATOR"
 chmod +x gradlew
@@ -81,7 +103,11 @@ cp "$APK" "$DIST/XZIEL-Nacht-Hybrid-TouchGyro-PixelFold-debug.apk"
 unzip -l "$APK" > "$DIST/apk-contents.txt"
 grep -q 'assets/rootfs.tzst' "$DIST/apk-contents.txt"
 grep -q 'assets/container_pattern.tzst' "$DIST/apk-contents.txt"
-grep -q 'assets/nacht-onefile.exe' "$DIST/apk-contents.txt"
+grep -q 'assets/nacht-vfs.zip' "$DIST/apk-contents.txt"
+grep -q 'assets/nacht-runtime/Xziel-Nacht.exe' "$DIST/apk-contents.txt"
+grep -q 'assets/nacht-runtime/SDL2.dll' "$DIST/apk-contents.txt"
+grep -q 'assets/nacht-runtime/libEGL.dll' "$DIST/apk-contents.txt"
+grep -q 'assets/nacht-runtime/libGLESv2.dll' "$DIST/apk-contents.txt"
 grep -q 'assets/licenses/WINLATOR-LGPL-2.1.txt' "$DIST/apk-contents.txt"
 grep -q 'assets/xziel_hud/hud_fire.webp' "$DIST/apk-contents.txt"
 grep -q 'assets/xziel_hud/hud_ads.webp' "$DIST/apk-contents.txt"
@@ -97,17 +123,24 @@ grep -q 'assets/xziel_hud/hud_knife.webp' "$DIST/apk-contents.txt"
 grep -q 'assets/xziel_hud/hud_claw.webp' "$DIST/apk-contents.txt"
 grep -q 'lib/arm64-v8a/' "$DIST/apk-contents.txt"
 
-python3 - "$APK" "$actual_bytes" <<'PY'
-import sys, zipfile
+python3 - "$APK" "$vfs_bytes" "$runtime_sha" <<'PY'
+import hashlib, sys, zipfile
 apk=sys.argv[1]
-expected=int(sys.argv[2])
+expected_vfs=int(sys.argv[2])
+expected_runtime_sha=sys.argv[3]
 with zipfile.ZipFile(apk) as z:
-    info=z.getinfo("assets/nacht-onefile.exe")
-    assert info.file_size == expected, (info.file_size, expected)
-    assert info.compress_type == zipfile.ZIP_STORED, info.compress_type
+    vfs=z.getinfo("assets/nacht-vfs.zip")
+    assert vfs.file_size == expected_vfs, (vfs.file_size, expected_vfs)
+    assert vfs.compress_type == zipfile.ZIP_STORED, vfs.compress_type
+    runtime=z.read("assets/nacht-runtime/Xziel-Nacht.exe")
+    assert hashlib.sha256(runtime).hexdigest() == expected_runtime_sha
     names=set(z.namelist())
     assert "assets/licenses/XZIEL-HYBRID-NOTICE.txt" in names
-    print("XZIEL_APK_EMBEDDED_EXE_GREEN", {"bytes": info.file_size, "stored": True})
+    print("XZIEL_APK_DIRECT_PAYLOAD_GREEN", {
+        "vfs_bytes": vfs.file_size,
+        "runtime_bytes": len(runtime),
+        "vfs_stored": True,
+    })
 PY
 
 # Verify the patched classes and direct-boot contract made it into source before APK packaging.
@@ -121,8 +154,13 @@ sha256sum "$DIST/XZIEL-Nacht-Hybrid-TouchGyro-PixelFold-debug.apk"   | tee "$DIS
 
 cat > "$DIST/control-contract.txt" <<EOF
 XZIEL_TOUCH_GYRO_CONTRACT
-source_exe_bytes=$actual_bytes
-source_exe_sha256=$actual_sha
+payload_mode=direct_runtime_vfs
+source_vfs_bytes=$vfs_bytes
+source_vfs_sha256=$vfs_sha
+runtime_exe_sha256=$runtime_sha
+launch_exe=Xziel-Nacht.exe
+launch_args=--xziel-root C:\\XZIEL --xziel-map xziel_nacht_bo3
+nsis_wrapper=bypassed
 joystick=WASD
 look=raw_mouse_delta
 gyro=enabled
