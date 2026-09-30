@@ -21,6 +21,10 @@ permissions:
   contents: read
   actions: read
 
+concurrency:
+  group: xziel-nacht-x86bridge-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   smoke:
     name: x86_64 Google APIs ARM-translation smoke
