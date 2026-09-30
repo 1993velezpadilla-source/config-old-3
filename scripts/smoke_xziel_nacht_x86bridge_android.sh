@@ -136,7 +136,7 @@ EOF
       # wineserver -f is healthy and creates the real prefix socket. Keep one
       # foreground server alive across the first (slow) Wine prefix warmup and
       # the Android relaunch instead of killing it after a short diagnostic.
-      timeout 10s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; rm -f \$ROOT/tmp/xziel-wineserver-fg.log \$ROOT/tmp/xziel-wineserver-fg.pid; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_LOG=2 BOX64_SHOWSEGV=1 BOX64_DLSYM_ERROR=1 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEESYNC=1 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wineserver -f > \$ROOT/tmp/xziel-wineserver-fg.log 2>&1 & echo \$! > \$ROOT/tmp/xziel-wineserver-fg.pid'" \
+      timeout 10s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; rm -f \$ROOT/tmp/xziel-wineserver-fg.log \$ROOT/tmp/xziel-wineserver-fg.pid; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_NOBANNER=1 BOX64_LOG=0 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEESYNC=1 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wineserver -f > \$ROOT/tmp/xziel-wineserver-fg.log 2>&1 & echo \$! > \$ROOT/tmp/xziel-wineserver-fg.pid'" \
         > "$OUT/wineserver-fg-start.txt" 2>&1 || true
       sleep 2
       adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-wineserver-fg.pid > "$OUT/wineserver-fg.pid" 2>/dev/null || true
@@ -145,9 +145,11 @@ EOF
 
       # First Wine use can spend a long time importing/normalizing the prefix
       # registry under interpreter-only Box64. Previous 20s probes killed the
-      # healthy server while the client was blocked in recvmsg waiting for that
-      # initialization. Give the same server a bounded but realistic warmup.
-      timeout 120s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_LOG=1 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEDEBUG=+server,+process WINEESYNC=1 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wine cmd /c ver; rc=\$?; echo XZIEL_PRESTARTED_CMD_STATUS=\$rc; exit \$rc'" \
+      # healthy server while the client was blocked waiting for that
+      # initialization. Keep Box64 tracing off here: per-call tracing inflated
+      # the server log to tens of MB and made registry import artificially slow.
+      # Give the same quiet server a bounded first-prefix warmup.
+      timeout 240s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_NOBANNER=1 BOX64_LOG=0 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEDEBUG=-all WINEESYNC=1 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wine cmd /c ver; rc=\$?; echo XZIEL_PRESTARTED_CMD_STATUS=\$rc; exit \$rc'" \
         > "$OUT/wine-with-prestarted-server.txt" 2>&1 || true
 
       adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-wineserver-fg.log > "$OUT/wineserver-fg.log" 2>/dev/null || true
@@ -158,6 +160,11 @@ EOF
       cat "$OUT/wineserver-fg-state.txt" || true
       echo "XZIEL_X86BRIDGE_PRESTARTED_WINESERVER_CMD"
       tail -n 1200 "$OUT/wine-with-prestarted-server.txt" || true
+      if grep -q 'XZIEL_PRESTARTED_CMD_STATUS=0' "$OUT/wine-with-prestarted-server.txt"; then
+        echo "XZIEL_X86BRIDGE_PRESTARTED_CMD_GREEN"
+      else
+        echo "XZIEL_X86BRIDGE_PRESTARTED_CMD_NOT_GREEN"
+      fi
       echo "XZIEL_X86BRIDGE_PRESTARTED_WINESERVER_LOG"
       tail -n 2600 "$OUT/wineserver-fg.log" || true
       echo "XZIEL_X86BRIDGE_PRESTARTED_WINESERVER_AFTER_WARMUP"
