@@ -335,8 +335,11 @@ int main(int argc, char **argv)
             SDL_INIT_VIDEO |
             SDL_INIT_EVENTS |
             SDL_INIT_TIMER |
-            SDL_INIT_SENSOR) != 0)
+            SDL_INIT_SENSOR) != 0) {
+        fprintf(stderr, "XZIEL_SDL_INIT_FAILED error=%s\n", SDL_GetError());
+        fflush(stderr);
         return 11;
+    }
 
     SDL_GL_SetAttribute(
         SDL_GL_CONTEXT_PROFILE_MASK,
@@ -364,16 +367,54 @@ int main(int argc, char **argv)
         SDL_WINDOW_FULLSCREEN_DESKTOP |
         SDL_WINDOW_ALLOW_HIGHDPI);
     if (!window) {
+        fprintf(
+            stderr,
+            "XZIEL_SDL_FULLSCREEN_WINDOW_FAILED error=%s\n",
+            SDL_GetError());
+        fflush(stderr);
+
+        /*
+         * Wine/X11 can reject SDL's FULLSCREEN_DESKTOP path before an OpenGL
+         * context is even attempted.  The XZIEL XServer surface is already
+         * 1280x720, so a borderless-sized window is a safe mobile fallback.
+         */
+        SDL_ClearError();
+        window = SDL_CreateWindow(
+            "XZIEL",
+            SDL_WINDOWPOS_CENTERED,
+            SDL_WINDOWPOS_CENTERED,
+            1280,
+            720,
+            SDL_WINDOW_OPENGL |
+            SDL_WINDOW_ALLOW_HIGHDPI);
+        if (window) {
+            fprintf(stderr, "XZIEL_SDL_WINDOWED_FALLBACK_GREEN\n");
+            fflush(stderr);
+        }
+    }
+    if (!window) {
+        fprintf(
+            stderr,
+            "XZIEL_SDL_WINDOW_CREATE_FAILED error=%s\n",
+            SDL_GetError());
+        fflush(stderr);
         SDL_Quit();
         return 12;
     }
 
     context = SDL_GL_CreateContext(window);
     if (!context) {
+        fprintf(
+            stderr,
+            "XZIEL_SDL_GL_CONTEXT_FAILED error=%s\n",
+            SDL_GetError());
+        fflush(stderr);
         SDL_DestroyWindow(window);
         SDL_Quit();
         return 13;
     }
+    fprintf(stderr, "XZIEL_SDL_GL_CONTEXT_GREEN\n");
+    fflush(stderr);
 
     SDL_GL_SetSwapInterval(1);
 
