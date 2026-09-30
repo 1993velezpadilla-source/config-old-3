@@ -1106,7 +1106,7 @@ jobs:
           test "$DZ_SHA" = "$FINAL_EMBED_SHA"
           unzip -l "$APK" > boz_mod_out/xchurch_apk/apk-list.txt
           grep -q 'lib/arm64-v8a/libs3e_android.so' boz_mod_out/xchurch_apk/apk-list.txt
-          grep -q 'assets/boz.s3e' boz_mod_out/xchurch_apk/apk-list.txt
+          grep -Eq 'assets/(boz_aarch64|boz)\.s3e' boz_mod_out/xchurch_apk/apk-list.txt
 
           {
             echo "APK_SHA256=$(sha256sum "$APK" | awk '{print $1}')"
