@@ -956,7 +956,7 @@ if guest_anchor not in text:
 direct_override = (
     guest_anchor + "\n" +
     '            if (getIntent().getBooleanExtra("xziel_direct_boot", false)) {\n' +
-    r'                guestExecutable = "wine C:\\XZIEL\\Xziel-Nacht.exe --xziel-root C:\\XZIEL --xziel-map xziel_nacht_bo3";' + "\n" +
+    r'                guestExecutable = "wine explorer /desktop="+desktopName+","+xServer.screenInfo+" C:\\XZIEL\\Xziel-Nacht.exe --xziel-root C:\\XZIEL --xziel-map xziel_nacht_bo3";' + "\n" +
     '                Log.i("XZIEL-HYBRID", "DIRECT_NACHT_WINE_LAUNCH command=" + guestExecutable);\n' +
     '            }'
 )
