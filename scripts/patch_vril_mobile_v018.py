@@ -529,7 +529,7 @@ if 'Image_LoadImage("gfx/xziel/fire"' not in htext:
         # assignment over time. Match the semantic line instead of relying on
         # a specific number of spaces.
         m = re.search(
-            r'^[ \\t]*hud_hitmarker\\s*=\\s*Image_LoadImage\\("gfx/hud/hit_marker",\\s*IMAGE_TGA,\\s*0,\\s*true,\\s*false\\);[ \\t]*\\n',
+            r'^[ \t]*hud_hitmarker\s*=\s*Image_LoadImage\("gfx/hud/hit_marker",\s*IMAGE_TGA,\s*0,\s*true,\s*false\);[ \t]*\n',
             htext,
             re.MULTILINE,
         )
