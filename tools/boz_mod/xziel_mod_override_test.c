@@ -80,6 +80,23 @@ static void read_exact_asset(const char *name, char *out, size_t out_size) {
     assert(s3eFileClose(file) == 0);
 }
 
+static void assert_trace_contains(const char *needle) {
+    char path[1400];
+    snprintf(path, sizeof(path), "%s/xziel_asset_trace.log", g_root);
+    FILE *f = fopen(path, "rb");
+    assert(f);
+
+    char buffer[8192];
+    size_t n = fread(buffer, 1, sizeof(buffer) - 1, f);
+    buffer[n] = 0;
+    fclose(f);
+
+    if (!strstr(buffer, needle)) {
+        fprintf(stderr, "trace missing '%s'\nTRACE:\n%s\n", needle, buffer);
+        abort();
+    }
+}
+
 int main(void) {
     char template[] = "/tmp/xziel-boz-mod.XXXXXX";
     char *root = mkdtemp(template);
@@ -105,6 +122,7 @@ int main(void) {
     create_fake_dtrz(p, requested, "STOCK_DTRZ");
 
     memset(&g_dtrz, 0, sizeof(g_dtrz));
+    assert(setenv("XZIEL_ASSET_TRACE", "1", 1) == 0);
 
     assert(s3eFileCheckExists(requested) == 1);
 
@@ -116,9 +134,14 @@ int main(void) {
         return 2;
     }
 
+    assert_trace_contains("HIT\tdata-etc/xziel_probe.group.bin\t");
+    assert_trace_contains("assets/xziel_mod/data-etc/xziel_probe.group.bin");
+
     puts("XZIEL_BOZ_OVERRIDE_PRIORITY_OK");
+    puts("XZIEL_BOZ_ASSET_TRACE_OK");
     puts("requested=data-etc/xziel_probe.group.bin");
     puts("winner=assets/xziel_mod/data-etc/xziel_probe.group.bin");
     puts("stock_source=assets/blackops_gles1.dz");
+    puts("trace=xziel_asset_trace.log");
     return 0;
 }
