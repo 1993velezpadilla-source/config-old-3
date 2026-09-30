@@ -46,6 +46,7 @@ echo "XZIEL_X86BRIDGE_ACTIVITY_LAUNCH_GREEN"
 ready=0
 failed=0
 last_marker="BOOT_ACTIVITY_START"
+pie_retry=0
 
 for i in $(seq 1 36); do
   adb logcat -d -v threadtime > "$OUT/logcat.txt" || true
@@ -62,6 +63,24 @@ for i in $(seq 1 36); do
   done
 
   if grep -q 'XZIEL-HYBRID.*GUEST_EXIT' "$OUT/logcat.txt"; then
+    if [[ "$pie_retry" == "0" ]] && grep -q 'position-independent executables' "$OUT/logcat.txt" && [[ -n "${XZIEL_BOX64_PIE:-}" ]] && [[ -s "$XZIEL_BOX64_PIE" ]]; then
+      pie_retry=1
+      echo "XZIEL_X86BRIDGE_NONPIE_BOX64_DETECTED"
+      sha256sum "$XZIEL_BOX64_PIE" | tee "$OUT/box64-pie-injected.sha256"
+
+      adb shell am force-stop com.xziel.hybrid || true
+      adb shell "run-as com.xziel.hybrid sh -c 'cat > files/rootfs/usr/local/bin/box64'" < "$XZIEL_BOX64_PIE"
+      adb shell run-as com.xziel.hybrid chmod 700 files/rootfs/usr/local/bin/box64
+      adb shell run-as com.xziel.hybrid ls -l files/rootfs/usr/local/bin/box64 | tee "$OUT/box64-pie-installed.txt"
+      echo "XZIEL_X86BRIDGE_PIE_BOX64_INJECTED"
+
+      adb logcat -c
+      adb shell am start -W -n com.xziel.hybrid/com.winlator.XzielBootActivity | tee "$OUT/am-restart-pie.txt"
+      sleep 3
+      last_marker="PIE_BOX64_RELAUNCH"
+      continue
+    fi
+
     last_marker="GUEST_EXIT"
     failed=1
     echo "XZIEL_X86BRIDGE_GUEST_EXIT_DETECTED"
