@@ -880,6 +880,56 @@ jobs:
             boz_mod_out/kino_probe/theatre-material-roundtrip.txt
           rm -rf /tmp/theatre-mutated-extracted /tmp/dade-verify /tmp/dade-verify-venv
 
+      - name: Patch real BOZ DTRZ with native DZ and verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s /tmp/boz-kino/blackops_gles1.dz
+          test -s /tmp/boz-kino/mod/levels/kino/theatre_shared.group.bin
+
+          rm -rf /tmp/native-dz-patcher
+          mkdir -p /tmp/native-dz-patcher/src
+          cp tools/boz_mod/native_dz_patch.rs /tmp/native-dz-patcher/src/main.rs
+          cat > /tmp/native-dz-patcher/Cargo.toml <<'EOF'
+          [package]
+          name = "xziel-native-dz-patcher"
+          version = "0.1.0"
+          edition = "2021"
+
+          [dependencies]
+          dzip = { path = "/tmp/dzip-rs/crates/dzip" }
+          EOF
+
+          cargo run --quiet --release \
+            --manifest-path /tmp/native-dz-patcher/Cargo.toml -- \
+            /tmp/boz-kino/blackops_gles1.dz \
+            levels/kino/theatre_shared.group.bin \
+            /tmp/boz-kino/mod/levels/kino/theatre_shared.group.bin \
+            /tmp/boz-kino/blackops_gles1.patched.dz \
+            | tee boz_mod_out/kino_probe/native-dz-patch.log
+
+          grep -q "XZIEL_BOZ_NATIVE_DZ_INPLACE_PATCH_OK" \
+            boz_mod_out/kino_probe/native-dz-patch.log
+          test -s /tmp/boz-kino/blackops_gles1.patched.dz
+
+          rm -rf /tmp/boz-kino/patched-check
+          /tmp/dzip-rs/target/release/dzip-cli extract \
+            /tmp/boz-kino/blackops_gles1.patched.dz \
+            --output /tmp/boz-kino/patched-check \
+            > boz_mod_out/kino_probe/native-dz-reextract.log 2>&1
+
+          cmp \
+            /tmp/boz-kino/mod/levels/kino/theatre_shared.group.bin \
+            /tmp/boz-kino/patched-check/levels/kino/theatre_shared.group.bin
+          cmp \
+            /tmp/boz-kino/extracted/levels/kino/kino.group.bin \
+            /tmp/boz-kino/patched-check/levels/kino/kino.group.bin
+
+          echo "XZIEL_BOZ_REAL_ARCHIVE_MOD_ROUNDTRIP_OK" \
+            | tee boz_mod_out/kino_probe/native-dz-verify.txt
+
+          rm -rf /tmp/native-dz-patcher /tmp/boz-kino/patched-check
+
       - name: Prepare BOZ core runtime for class scan
         shell: bash
         run: |
