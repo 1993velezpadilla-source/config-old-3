@@ -47,7 +47,7 @@ ready=0
 failed=0
 last_marker="BOOT_ACTIVITY_START"
 
-for i in $(seq 1 180); do
+for i in $(seq 1 36); do
   adb logcat -d -v threadtime > "$OUT/logcat.txt" || true
 
   if grep -Eq     'FATAL EXCEPTION|Fatal signal|SIGSEGV|SIGABRT|No space left on device|embedded EXE (byte count|SHA-256) mismatch|XZIEL startup failed|XZIEL game setup failed|Unable to start activity'     "$OUT/logcat.txt"; then
@@ -76,6 +76,10 @@ for i in $(seq 1 180); do
   fi
 
   printf 'probe=%s last_marker=%s\n' "$i" "$last_marker"
+
+  if (( i % 6 == 0 )); then
+    adb shell ps -A | grep -E 'xziel|winlator|box64|wine' | tee "$OUT/processes-probe-$i.txt" || true
+  fi
 
   if [[ "$last_marker" == "FIRST_RENDERABLE_WINDOW" ]]; then
     ready=1
