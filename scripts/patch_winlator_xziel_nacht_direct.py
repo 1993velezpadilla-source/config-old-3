@@ -970,7 +970,74 @@ new_exit = '''        Intent intent = getIntent();
 if old_exit not in text:
     raise SystemExit("Could not find XServer exit anchor")
 text = text.replace(old_exit, new_exit, 1)
+
+// Direct-boot guest process diagnostics: keep stdout/stderr visible in logcat.
+debug_anchor = '''        ProcessHelper.removeAllDebugCallbacks();
+        boolean enableLogs = preferences.getBoolean("enable_wine_debug", false) || preferences.getInt("box64_logs", 0) >= 1;
+'''
+debug_insert = '''        ProcessHelper.removeAllDebugCallbacks();
+        if (getIntent().getBooleanExtra("xziel_direct_boot", false)) {
+            ProcessHelper.addDebugCallback((line) -> Log.i("XZIEL-GUEST", line));
+            Log.i("XZIEL-HYBRID", "GUEST_DEBUG_CAPTURE_ENABLED");
+        }
+        boolean enableLogs = preferences.getBoolean("enable_wine_debug", false) || preferences.getInt("box64_logs", 0) >= 1;
+'''
+if debug_anchor not in text:
+    raise SystemExit("Could not find ProcessHelper debug anchor")
+text = text.replace(debug_anchor, debug_insert, 1)
+
 xserver.write_text(text, encoding="utf-8")
+
+# Instrument the guest launcher with command, PID and exit status.
+guest_launcher = java / "xenvironment/components/GuestProgramLauncherComponent.java"
+gtext = guest_launcher.read_text(encoding="utf-8")
+if "import android.util.Log;" not in gtext:
+    gtext = gtext.replace("import android.os.Process;\n", "import android.os.Process;\nimport android.util.Log;\n", 1)
+
+guest_exec_anchor = '''        String command = rootDir+"/usr/local/bin/box64 "+guestExecutable;
+
+        return ProcessHelper.exec(command, envVars, rootDir, (status) -> {
+            synchronized (lock) {
+                pid = -1;
+            }
+            if (terminationCallback != null) terminationCallback.call(status);
+        });
+'''
+guest_exec_insert = '''        String command = rootDir+"/usr/local/bin/box64 "+guestExecutable;
+        Log.i("XZIEL-HYBRID", "GUEST_EXEC command=" + command);
+
+        int launchedPid = ProcessHelper.exec(command, envVars, rootDir, (status) -> {
+            Log.i("XZIEL-HYBRID", "GUEST_EXIT status=" + status);
+            synchronized (lock) {
+                pid = -1;
+            }
+            if (terminationCallback != null) terminationCallback.call(status);
+        });
+        Log.i("XZIEL-HYBRID", "GUEST_PID pid=" + launchedPid);
+        return launchedPid;
+'''
+if guest_exec_anchor not in gtext:
+    raise SystemExit("Could not find GuestProgramLauncher exec anchor")
+gtext = gtext.replace(guest_exec_anchor, guest_exec_insert, 1)
+guest_launcher.write_text(gtext, encoding="utf-8")
+
+# Stop silently swallowing ProcessBuilder launch exceptions.
+process_helper = java / "core/ProcessHelper.java"
+ptext = process_helper.read_text(encoding="utf-8")
+if "import android.util.Log;" not in ptext:
+    ptext = ptext.replace("import android.system.OsConstants;\n", "import android.system.OsConstants;\nimport android.util.Log;\n", 1)
+process_catch_anchor = '''        catch (Exception e) {}
+        return pid;
+'''
+process_catch_insert = '''        catch (Exception e) {
+            Log.e("XZIEL-PROCESS", "exec failed command=" + command, e);
+        }
+        return pid;
+'''
+if process_catch_anchor not in ptext:
+    raise SystemExit("Could not find ProcessHelper silent catch anchor")
+ptext = ptext.replace(process_catch_anchor, process_catch_insert, 1)
+process_helper.write_text(ptext, encoding="utf-8")
 
 fg = java / "services/ForegroundService.java"
 text = fg.read_text(encoding="utf-8")
