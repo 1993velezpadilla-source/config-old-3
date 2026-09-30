@@ -136,6 +136,28 @@ EOF
       adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; find \$ROOT/lib \$ROOT/usr/lib -type f -o -type l 2>/dev/null | grep -E \"/libfreetype\\.so|/libfontconfig\\.so\" | sort | head -n 80'" \
         > "$OUT/freetype-rootfs-census.txt" 2>&1 || true
       cat "$OUT/freetype-rootfs-census.txt" || true
+      echo "XZIEL_X86BRIDGE_FREETYPE_SYMBOL_PROBE"
+      adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ls -l files/rootfs/usr/lib/libfreetype.so* files/rootfs/usr/lib/libfontconfig.so* 2>/dev/null'" \
+        > "$OUT/freetype-rootfs-links.txt" 2>&1 || true
+      cat "$OUT/freetype-rootfs-links.txt" || true
+      adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/usr/lib/libfreetype.so.6.20.2 \
+        > "$OUT/rootfs-libfreetype.so.6.20.2" 2>/dev/null || true
+      if [[ -s "$OUT/rootfs-libfreetype.so.6.20.2" ]]; then
+        file "$OUT/rootfs-libfreetype.so.6.20.2" | tee "$OUT/rootfs-libfreetype.file.txt" || true
+        readelf -h "$OUT/rootfs-libfreetype.so.6.20.2" | tee "$OUT/rootfs-libfreetype.elf-header.txt" || true
+        readelf -d "$OUT/rootfs-libfreetype.so.6.20.2" | tee "$OUT/rootfs-libfreetype.dynamic.txt" || true
+        readelf -Ws "$OUT/rootfs-libfreetype.so.6.20.2" \
+          | grep -E 'FT_Get_WinFNT_Header|FT_Init_FreeType' \
+          | tee "$OUT/rootfs-libfreetype.symbols.txt" || true
+        sha256sum "$OUT/rootfs-libfreetype.so.6.20.2" | tee "$OUT/rootfs-libfreetype.sha256"
+        if grep -q 'FT_Get_WinFNT_Header' "$OUT/rootfs-libfreetype.symbols.txt"; then
+          echo "XZIEL_X86BRIDGE_FREETYPE_SYMBOL_PRESENT"
+        else
+          echo "XZIEL_X86BRIDGE_FREETYPE_SYMBOL_MISSING"
+        fi
+      else
+        echo "XZIEL_X86BRIDGE_FREETYPE_BINARY_PULL_FAILED"
+      fi
       echo "XZIEL_X86BRIDGE_ANDROID_FREETYPE_CENSUS"
       adb shell "sh -c 'find /system/lib64 /apex -type f -o -type l 2>/dev/null | grep -E \"/(libft2|libfreetype)\\.so\" | sort | head -n 80'" \
         > "$OUT/android-freetype-census.txt" 2>&1 || true
@@ -159,7 +181,7 @@ EOF
       # initialization. Keep Box64 tracing off here: per-call tracing inflated
       # the server log to tens of MB and made registry import artificially slow.
       # Give the same quiet server a bounded first-prefix warmup.
-      timeout 240s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_NOBANNER=1 BOX64_LOG=0 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu:\$ROOT/usr/lib BOX64_EMULATED_LIBS=libfreetype.so.6:libfontconfig.so.1 ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEDEBUG=+font WINEESYNC=0 WINEFSYNC=0 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wine cmd /c ver; rc=\$?; echo XZIEL_PRESTARTED_CMD_STATUS=\$rc; exit \$rc'" \
+      timeout 240s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_NOBANNER=1 BOX64_LOG=1 BOX64_DLSYM_ERROR=1 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu:\$ROOT/usr/lib BOX64_EMULATED_LIBS=libfreetype.so.6:libfontconfig.so.1 ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEDEBUG=+font WINEESYNC=0 WINEFSYNC=0 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wine cmd /c ver; rc=\$?; echo XZIEL_PRESTARTED_CMD_STATUS=\$rc; exit \$rc'" \
         > "$OUT/wine-with-prestarted-server.txt" 2>&1 || true
 
       adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-wineserver-fg.log > "$OUT/wineserver-fg.log" 2>/dev/null || true
