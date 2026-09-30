@@ -14,6 +14,7 @@ Goals:
 """
 
 from pathlib import Path
+import re
 import sys
 
 
@@ -521,7 +522,21 @@ load_code = r'''    xziel_icon_fire    = Image_LoadImage("gfx/xziel/fire", IMAGE
     xziel_icon_threat  = Image_LoadImage("gfx/xziel/threat", IMAGE_PNG, 0, true, false);
 '''
 if 'Image_LoadImage("gfx/xziel/fire"' not in htext:
-    htext = must_replace(htext, load_anchor, load_anchor + load_code, "Xziel icon loading")
+    if load_anchor in htext:
+        htext = htext.replace(load_anchor, load_anchor + load_code, 1)
+    else:
+        # Vril and earlier XZIEL patches have changed alignment around this
+        # assignment over time. Match the semantic line instead of relying on
+        # a specific number of spaces.
+        m = re.search(
+            r'^[ \\t]*hud_hitmarker\\s*=\\s*Image_LoadImage\\("gfx/hud/hit_marker",\\s*IMAGE_TGA,\\s*0,\\s*true,\\s*false\\);[ \\t]*\\n',
+            htext,
+            re.MULTILINE,
+        )
+        if not m:
+            raise SystemExit("Could not find anchor: Xziel icon loading")
+        anchor = m.group(0)
+        htext = htext[:m.end()] + load_code + htext[m.end():]
 
 style_helper = r'''
 static void Xziel_ControlStyle(const char *label1, const char *label2, float *scale, float *opacity)
