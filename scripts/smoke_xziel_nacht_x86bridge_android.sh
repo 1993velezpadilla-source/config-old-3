@@ -10,6 +10,12 @@ OUT="dist/android-x86bridge-smoke"
 XZIEL_PACKAGE="com.xzielapp"
 mkdir -p "$OUT"
 
+# APK27+ owns wineserver lifecycle itself. Keep the smoke from injecting a
+# second foreground server so this run proves the standalone APK path.
+XZIEL_PRELAUNCH_DEEP_DIAG="${XZIEL_PRELAUNCH_DEEP_DIAG:-0}"
+export XZIEL_PRELAUNCH_DEEP_DIAG
+echo "XZIEL_PURE_APK_RUNTIME_MODE deep_diag=$XZIEL_PRELAUNCH_DEEP_DIAG"
+
 # FreeType gate: use the patched Bionic Box64 native wrapper. The custom
 # FT_Get_WinFNT_Header GOM shim is provided by the injected Box64 binary.
 adb wait-for-device
@@ -482,12 +488,30 @@ adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/r
   > "$OUT/runtime-wineserver-state.txt" 2>&1 || true
 cat "$OUT/runtime-wineserver-state.txt" || true
 
+# Snapshot NSIS self-extractor progress. Nacht-Chronicles-XZIEL.exe is an
+# NSIS container; reaching ns*.tmp proves we are inside the one-file bootstrap.
+# Presence/growth of game/7z.exe, xziel-nacht-vfs.zip, Xziel-Nacht.exe or
+# scene.xzsc tells us exactly how far extraction has progressed.
+adb shell "run-as ${XZIEL_PACKAGE} sh -c '
+  ROOT=/data/user/0/com.xzielapp/files/rootfs
+  TEMP=\$ROOT/home/xuser/.wine/drive_c/users/xuser/AppData/Local/Temp
+  echo XZIEL_NSIS_TEMP_CENSUS
+  find \$TEMP -maxdepth 3 -type f -printf "%s %p\\n" 2>/dev/null | sort -nr | head -n 200
+  echo XZIEL_NSIS_DIR_CENSUS
+  find \$TEMP -maxdepth 3 -type d -print 2>/dev/null | sort | head -n 200
+  echo XZIEL_NSIS_PAYLOAD_MARKERS
+  find \$TEMP -maxdepth 6 \\( -iname "7z.exe" -o -iname "xziel-nacht-vfs.zip" -o -iname "Xziel-Nacht.exe" -o -iname "scene.xzsc" \\) -print 2>/dev/null | sort
+  echo XZIEL_RUNTIME_PROCESS_CENSUS
+  ps -A | grep -E "box64|wine|wineserver|Nacht|7z|Xziel" || true
+'" > "$OUT/nsis-runtime-state.txt" 2>&1 || true
+cat "$OUT/nsis-runtime-state.txt" || true
+
 adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ls -la files/rootfs/tmp files/rootfs/tmp/shm 2>&1; find files/rootfs/tmp/shm -maxdepth 1 -type f -ls 2>/dev/null | head -n 200'" \
   > "$OUT/shm-state.txt" 2>&1 || true
 echo "XZIEL_X86BRIDGE_SHM_STATE"
 cat "$OUT/shm-state.txt" || true
 
-adb shell ps -A | grep -E 'xziel|winlator|box64|wine' | tee "$OUT/processes.txt" || true
+adb shell ps -A | grep -E 'xziel|winlator|box64|wine|Nacht|7z|Xziel' | tee "$OUT/processes.txt" || true
 adb shell dumpsys activity activities   | grep -E "mResumedActivity|topResumedActivity|${XZIEL_PACKAGE}"   | tee "$OUT/activity-final.txt" || true
 
 adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-guest-output.log \
