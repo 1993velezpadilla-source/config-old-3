@@ -1,0 +1,311 @@
+name: XChurch Direct Native Touch
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/boz-mod-runtime
+    paths:
+      - ".github/workflows/boz-xchurch-direct-native-touch.yml"
+      - "tools/boz_mod/patch_direct_native_tap.py"
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  direct-touch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Enable KVM
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/xchurch-direct/proof/screens
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+          test -e /dev/kvm
+
+      - name: Download proven XChurch APK payload
+        uses: actions/download-artifact@v4
+        with:
+          name: XZIEL-BOZ-XChurch-APK
+          run-id: 36768068731
+          github-token: ${{ github.token }}
+          path: /tmp/xchurch-base
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install Android build and emulator tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n1)"
+          AVDMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name avdmanager | sort -V | tail -n1)"
+          test -x "$SDKMANAGER"
+          test -x "$AVDMANAGER"
+          echo "AVDMANAGER=$AVDMANAGER" >> "$GITHUB_ENV"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" \
+            "platforms;android-36" \
+            "build-tools;36.0.0" \
+            "ndk;25.1.8937393" \
+            "platform-tools" \
+            "emulator" \
+            "system-images;android-30;google_apis;x86_64" \
+            > /tmp/xchurch-direct/proof/sdk-install.txt 2>&1
+
+      - name: Clone pinned BOZ reconstruction
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone -q https://github.com/eugene373/COD-BOZ-Partially-Decompiled.git /tmp/boz-direct
+          cd /tmp/boz-direct
+          git checkout -q e723c8c1ea4fac59be990efb3edf7a09b1af7768
+          test "$(git rev-parse HEAD)" = "e723c8c1ea4fac59be990efb3edf7a09b1af7768"
+          printf 'VERSION_CODE=1082\n' > app/version.properties
+          printf '%s\n' \
+            'android.useAndroidX=true' \
+            'android.nonTransitiveRClass=true' \
+            'org.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8' \
+            > gradle.properties
+          keytool -genkeypair \
+            -keystore ci-debug.jks \
+            -storepass android \
+            -keypass android \
+            -alias androiddebugkey \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=XZIEL DirectTouch, O=XZIEL, C=US" >/dev/null 2>&1
+          printf '%s\n' \
+            'storeFile=ci-debug.jks' \
+            'storePassword=android' \
+            'keyAlias=androiddebugkey' \
+            'keyPassword=android' \
+            > keystore.properties
+          chmod +x gradlew
+
+      - name: Overlay exact working XChurch ARM64 payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="$(find /tmp/xchurch-base -type f -name '*.apk' | head -n1)"
+          test -s "$BASE"
+          rm -rf /tmp/xchurch-payload
+          mkdir -p /tmp/xchurch-payload
+          unzip -q "$BASE" 'assets/*' 'lib/arm64-v8a/*' -d /tmp/xchurch-payload
+
+          cd /tmp/boz-direct
+          rm -rf app/src/main/assets app/src/main/jniLibs
+          mkdir -p app/src/main/assets app/src/main/jniLibs/arm64-v8a
+          cp -a /tmp/xchurch-payload/assets/. app/src/main/assets/
+          cp -a /tmp/xchurch-payload/lib/arm64-v8a/. app/src/main/jniLibs/arm64-v8a/
+
+          test -s app/src/main/assets/blackops_gles1.dz
+          test -s app/src/main/assets/boz_aarch64.s3e
+          test -s app/src/main/jniLibs/arm64-v8a/libs3e_android.so
+
+          sha256sum app/src/main/assets/blackops_gles1.dz \
+            | tee /tmp/xchurch-direct/proof/source-dz.sha256
+          find app/src/main/jniLibs/arm64-v8a -maxdepth 1 -type f -printf '%f %s\n' \
+            | sort > /tmp/xchurch-direct/proof/arm64-libs.txt
+
+      - name: Patch direct native touch command
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/boz_mod/patch_direct_native_tap.py \
+            /tmp/boz-direct/app/src/main/java/com/ideaworks3d/studio/IsDeviceActivity.kt \
+            | tee /tmp/xchurch-direct/proof/direct-touch-patch.txt
+          grep -q "XZIEL_DIRECT_NATIVE_TAP_PATCH_OK" \
+            /tmp/xchurch-direct/proof/direct-touch-patch.txt
+
+      - name: Build diagnostic ARM64 APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/boz-direct
+          ./gradlew :app:assembleDebug --no-daemon --stacktrace \
+            > /tmp/xchurch-direct/proof/gradle-build.txt 2>&1
+
+          APK="$PWD/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          cp "$APK" /tmp/xchurch-direct/direct-touch.apk
+
+          unzip -l "$APK" > /tmp/xchurch-direct/proof/apk-list.txt
+          grep -q 'lib/arm64-v8a/libs3e_android.so' /tmp/xchurch-direct/proof/apk-list.txt
+          grep -q 'assets/boz_aarch64.s3e' /tmp/xchurch-direct/proof/apk-list.txt
+          grep -q 'assets/blackops_gles1.dz' /tmp/xchurch-direct/proof/apk-list.txt
+
+          unzip -p "$APK" assets/blackops_gles1.dz \
+            | sha256sum | tee /tmp/xchurch-direct/proof/built-dz.sha256
+          BASE_DZ="$(awk '{print $1}' /tmp/xchurch-direct/proof/source-dz.sha256)"
+          BUILT_DZ="$(awk '{print $1}' /tmp/xchurch-direct/proof/built-dz.sha256)"
+          test "$BASE_DZ" = "$BUILT_DZ"
+          echo "XZIEL_DIRECT_TOUCH_APK_BUILD_OK" \
+            | tee /tmp/xchurch-direct/proof/build-proof.txt
+
+      - name: Boot Android 11
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=/tmp/xchurch-direct
+          PROOF="$OUT/proof"
+          export ANDROID_AVD_HOME=/tmp/xchurch-direct-avd
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
+
+          printf 'no\n' | "$AVDMANAGER" create avd \
+            --force --name xchurch-direct \
+            --package "system-images;android-30;google_apis;x86_64" \
+            --device "pixel_4" > "$PROOF/avd-create.txt" 2>&1
+
+          ADB="$ANDROID_HOME/platform-tools/adb"
+          EMU="$ANDROID_HOME/emulator/emulator"
+          "$ADB" kill-server >/dev/null 2>&1 || true
+          "$ADB" start-server >/dev/null 2>&1
+
+          nohup "$EMU" @xchurch-direct \
+            -no-window -gpu swiftshader_indirect -no-snapshot \
+            -noaudio -no-boot-anim -no-metrics -camera-back none \
+            > "$PROOF/emulator.log" 2>&1 &
+          EMU_PID=$!
+          echo "EMU_PID=$EMU_PID" > "$PROOF/status.txt"
+
+          READY=0
+          for i in $(seq 1 70); do
+            if [ "$("$ADB" get-state 2>/dev/null || true)" = "device" ]; then
+              READY=1; break
+            fi
+            sleep 2
+          done
+          echo "ADB_READY=$READY" >> "$PROOF/status.txt"
+          test "$READY" = "1"
+
+          BOOT=0
+          for i in $(seq 1 70); do
+            if [ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then
+              BOOT=1; break
+            fi
+            sleep 2
+          done
+          echo "BOOT_COMPLETED=$BOOT" >> "$PROOF/status.txt"
+          test "$BOOT" = "1"
+
+          {
+            echo "ABI=$("$ADB" shell getprop ro.product.cpu.abi | tr -d '\r')"
+            echo "ABILIST=$("$ADB" shell getprop ro.product.cpu.abilist | tr -d '\r')"
+            echo "NATIVE_BRIDGE=$("$ADB" shell getprop ro.dalvik.vm.native.bridge | tr -d '\r')"
+            echo "NDK_TRANSLATION=$("$ADB" shell getprop ro.ndk_translation.version | tr -d '\r')"
+          } > "$PROOF/device.txt"
+
+      - name: Launch detect title and inject native tap
+        shell: bash
+        run: |
+          set +e
+          OUT=/tmp/xchurch-direct
+          PROOF="$OUT/proof"
+          ADB="$ANDROID_HOME/platform-tools/adb"
+          TITLE_HASH="49d0c83ce3913b461bc8b6eab848f15305487af49528efa832d2c787732204bb"
+
+          "$ADB" install --abi arm64-v8a -r -d "$OUT/direct-touch.apk" \
+            > "$PROOF/install.txt" 2>&1
+          RC=$?
+          echo "INSTALL_RC=$RC" | tee -a "$PROOF/status.txt"
+          if [ "$RC" -ne 0 ]; then
+            cat "$PROOF/install.txt"
+            exit 0
+          fi
+
+          "$ADB" shell pm grant com.activision.boz android.permission.WRITE_EXTERNAL_STORAGE 2>/dev/null || true
+          "$ADB" shell pm grant com.activision.boz android.permission.READ_EXTERNAL_STORAGE 2>/dev/null || true
+          "$ADB" shell appops set com.activision.boz MANAGE_EXTERNAL_STORAGE allow 2>/dev/null || true
+          "$ADB" shell mkdir -p /sdcard/Android/obb/com.activision.boz 2>/dev/null || true
+
+          "$ADB" logcat -c
+          "$ADB" shell am force-stop com.activision.boz >/dev/null 2>&1 || true
+          "$ADB" shell am start -W -n com.activision.boz/.Main \
+            > "$PROOF/launch.txt" 2>&1
+          echo "LAUNCH_RC=$?" | tee -a "$PROOF/status.txt"
+
+          TITLE_FOUND=0
+          for SEC in $(seq 60 5 230); do
+            "$ADB" exec-out screencap -p > "$PROOF/screens/poll_${SEC}s.png" 2>/dev/null || true
+            HASH="$(sha256sum "$PROOF/screens/poll_${SEC}s.png" | awk '{print $1}')"
+            echo "POLL_${SEC}s_HASH=$HASH" | tee -a "$PROOF/status.txt"
+            if [ "$HASH" = "$TITLE_HASH" ]; then
+              cp "$PROOF/screens/poll_${SEC}s.png" "$PROOF/screens/title_before_direct_tap.png"
+              echo "TITLE_DETECTED_AT=${SEC}s" | tee -a "$PROOF/status.txt"
+              TITLE_FOUND=1
+              break
+            fi
+            sleep 5
+          done
+
+          if [ "$TITLE_FOUND" != "1" ]; then
+            echo "TITLE_NOT_DETECTED=true" | tee -a "$PROOF/status.txt"
+          else
+            "$ADB" shell am start -W \
+              -n com.activision.boz/.Main \
+              --ez xzielDirectTap true \
+              --ei xzielX 1140 \
+              --ei xzielY 540 \
+              > "$PROOF/direct-tap-intent.txt" 2>&1
+            echo "DIRECT_TAP_INTENT_RC=$?" | tee -a "$PROOF/status.txt"
+
+            sleep 5
+            "$ADB" exec-out screencap -p > "$PROOF/screens/after_direct_05s.png" 2>/dev/null || true
+            sleep 10
+            "$ADB" exec-out screencap -p > "$PROOF/screens/after_direct_15s.png" 2>/dev/null || true
+            sleep 15
+            "$ADB" exec-out screencap -p > "$PROOF/screens/after_direct_30s.png" 2>/dev/null || true
+            sleep 30
+            "$ADB" exec-out screencap -p > "$PROOF/screens/after_direct_60s.png" 2>/dev/null || true
+          fi
+
+          PID="$("$ADB" shell pidof com.activision.boz 2>/dev/null | tr -d '\r\n')"
+          echo "FINAL_PID=$PID" | tee -a "$PROOF/status.txt"
+
+          "$ADB" logcat -d -v threadtime > "$PROOF/logcat.txt" 2>&1
+          "$ADB" shell dumpsys activity activities > "$PROOF/activities.txt" 2>&1
+          sha256sum "$PROOF"/screens/*.png > "$PROOF/screen-hashes.txt" 2>/dev/null || true
+          grep -Eai \
+            'XZIEL_DIRECT_NATIVE_TAP|FATAL EXCEPTION|Fatal signal|SIGSEGV|SIGABRT|UnsatisfiedLinkError|dlopen failed|STARTGAME|menu|front|xchurch|kino|Marmalade|s3e|activision|boz' \
+            "$PROOF/logcat.txt" | tail -1600 > "$PROOF/logcat-focus.txt" || true
+          exit 0
+
+      - name: Summarize direct native touch
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          PROOF=/tmp/xchurch-direct/proof
+          echo "=== STATUS ==="
+          cat "$PROOF/status.txt" 2>/dev/null || true
+          echo "=== DIRECT TAP LOG ==="
+          grep -E 'XZIEL_DIRECT_NATIVE_TAP' "$PROOF/logcat.txt" 2>/dev/null || true
+          echo "=== HASHES ==="
+          cat "$PROOF/screen-hashes.txt" 2>/dev/null || true
+          find "$PROOF" -maxdepth 2 -type f -printf '%P %s bytes\n' \
+            | sort > "$PROOF/manifest.txt"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: XChurch-Direct-Native-Touch-Proof
+          path: /tmp/xchurch-direct/proof/
+          if-no-files-found: error
+          retention-days: 14
