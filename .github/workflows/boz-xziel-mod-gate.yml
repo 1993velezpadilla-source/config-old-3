@@ -1,4 +1,4 @@
-name: BOZ XZIEL Mod Override Gate
+name: BOZ XZIEL Mod Gates
 
 on:
   workflow_dispatch:
@@ -37,6 +37,7 @@ jobs:
           set -euo pipefail
           python3 tools/boz_mod/patch_mod_override.py /tmp/cod-boz-port
           grep -q "resolve_xziel_mod_path" /tmp/cod-boz-port/src/s3e_file.c
+          grep -q "xziel_trace_asset_request" /tmp/cod-boz-port/src/s3e_file.c
 
       - name: Compile override priority test
         shell: bash
@@ -45,9 +46,11 @@ jobs:
           cp tools/boz_mod/xziel_mod_override_test.c /tmp/cod-boz-port/tests/
           cd /tmp/cod-boz-port
           mkdir -p build/tests
-          cc -D_GNU_SOURCE -Iinclude -std=c11 -Wall -Wextra -Werror             -o build/tests/xziel_mod_override_test             tests/xziel_mod_override_test.c src/s3e_file.c
+          cc -D_GNU_SOURCE -Iinclude -std=c11 -Wall -Wextra -Werror \
+            -o build/tests/xziel_mod_override_test \
+            tests/xziel_mod_override_test.c src/s3e_file.c
 
-      - name: Prove XZIEL wins over stock DTRZ
+      - name: Prove XZIEL wins over stock DTRZ and trace request
         shell: bash
         run: |
           set -euo pipefail
@@ -57,29 +60,28 @@ jobs:
           grep -q "XZIEL_BOZ_ASSET_TRACE_OK" /tmp/xziel-boz-mod-gate.log
           grep -q "winner=assets/xziel_mod" /tmp/xziel-boz-mod-gate.log
 
-      - name: Save gate report
+      - name: Save override gate report
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p boz_mod_out
-          cp /tmp/xziel-boz-mod-gate.log boz_mod_out/
-          {
-            echo "UPSTREAM=Producdevity/cod-boz-port"
-            echo "UPSTREAM_COMMIT=3b444d6003a78f08694e965509477d13a742ebf1"
-            echo "MOD_ROOT=assets/xziel_mod"
-            echo "GAME_DATA_INCLUDED=false"
-            echo "GATE_1=override_priority"
-            echo "GATE_2=asset_trace"
-            echo "STATUS=GREEN"
-          } > boz_mod_out/gate.env
+          mkdir -p boz_mod_out/override
+          cp /tmp/xziel-boz-mod-gate.log boz_mod_out/override/
+          printf '%s\n' \
+            "UPSTREAM=Producdevity/cod-boz-port" \
+            "UPSTREAM_COMMIT=3b444d6003a78f08694e965509477d13a742ebf1" \
+            "MOD_ROOT=assets/xziel_mod" \
+            "GAME_DATA_INCLUDED=false" \
+            "GATE_1=override_priority" \
+            "GATE_2=asset_trace" \
+            "STATUS=GREEN" \
+            > boz_mod_out/override/gate.env
 
       - uses: actions/upload-artifact@v4
         with:
-          name: XZIEL-BOZ-Mod-Override-Gate
-          path: boz_mod_out/
+          name: XZIEL-BOZ-Mod-Override-Gates
+          path: boz_mod_out/override/
           if-no-files-found: error
           retention-days: 14
-
 
   dtrz-inplace-replace:
     runs-on: ubuntu-latest
@@ -126,14 +128,14 @@ jobs:
         run: |
           set -euo pipefail
           cp /tmp/xziel-dtrz-gate.log boz_mod_out/dtrz_gate/
-          {
-            echo "VERIFIER=codefl0w/MarmDump"
-            echo "VERIFIER_COMMIT=48b7b743344b7031e683cb81b67f8d874710caef"
-            echo "MODE=inplace_slot_replace"
-            echo "OFFSETS_SHIFTED=false"
-            echo "GATE_3=dtrz_inplace_replace"
-            echo "STATUS=GREEN"
-          } > boz_mod_out/dtrz_gate/gate.env
+          printf '%s\n' \
+            "VERIFIER=codefl0w/MarmDump" \
+            "VERIFIER_COMMIT=48b7b743344b7031e683cb81b67f8d874710caef" \
+            "MODE=inplace_slot_replace" \
+            "OFFSETS_SHIFTED=false" \
+            "GATE_3=dtrz_inplace_replace" \
+            "STATUS=GREEN" \
+            > boz_mod_out/dtrz_gate/gate.env
 
       - uses: actions/upload-artifact@v4
         with:
@@ -141,7 +143,6 @@ jobs:
           path: boz_mod_out/dtrz_gate/
           if-no-files-found: error
           retention-days: 14
-
 
   android-shell-build:
     runs-on: ubuntu-latest
@@ -160,7 +161,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          : "${ANDROID_HOME:=/usr/local/lib/android/sdk}"
+          ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
           SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -path '*/bin/sdkmanager' | sort -V | tail -n1)"
           test -x "$SDKMANAGER"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
@@ -188,12 +189,12 @@ jobs:
             -keysize 2048 \
             -validity 10000 \
             -dname "CN=XZIEL CI, OU=Development, O=XZIEL, L=San Juan, ST=PR, C=US"
-          cat > keystore.properties <<'EOF'
-storeFile=ci-debug.jks
-storePassword=android
-keyAlias=androiddebugkey
-keyPassword=android
-EOF
+          printf '%s\n' \
+            'storeFile=ci-debug.jks' \
+            'storePassword=android' \
+            'keyAlias=androiddebugkey' \
+            'keyPassword=android' \
+            > keystore.properties
           chmod +x gradlew
 
       - name: Build BOZ Android debug shell
@@ -226,15 +227,15 @@ EOF
           cp /tmp/boz-android-build.log boz_mod_out/android_build/
           cp /tmp/boz-apk-list.txt boz_mod_out/android_build/
           APK=/tmp/boz-android/app/build/outputs/apk/debug/app-debug.apk
-          {
-            echo "UPSTREAM=eugene373/COD-BOZ-Partially-Decompiled"
-            echo "UPSTREAM_COMMIT=e723c8c1ea4fac59be990efb3edf7a09b1af7768"
-            echo "APK_SHA256=$(sha256sum "$APK" | awk '{print $1}')"
-            echo "APK_BYTES=$(stat -c %s "$APK")"
-            echo "GATE_4=android_shell_build"
-            echo "STATUS=GREEN"
-            echo "APK_UPLOADED=false"
-          } > boz_mod_out/android_build/gate.env
+          printf '%s\n' \
+            "UPSTREAM=eugene373/COD-BOZ-Partially-Decompiled" \
+            "UPSTREAM_COMMIT=e723c8c1ea4fac59be990efb3edf7a09b1af7768" \
+            "APK_SHA256=$(sha256sum "$APK" | awk '{print $1}')" \
+            "APK_BYTES=$(stat -c %s "$APK")" \
+            "GATE_4=android_shell_build" \
+            "STATUS=GREEN" \
+            "APK_UPLOADED=false" \
+            > boz_mod_out/android_build/gate.env
 
       - uses: actions/upload-artifact@v4
         with:
