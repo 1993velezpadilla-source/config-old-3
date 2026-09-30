@@ -54,6 +54,7 @@ jobs:
           cd /tmp/cod-boz-port
           ./build/tests/xziel_mod_override_test | tee /tmp/xziel-boz-mod-gate.log
           grep -q "XZIEL_BOZ_OVERRIDE_PRIORITY_OK" /tmp/xziel-boz-mod-gate.log
+          grep -q "XZIEL_BOZ_ASSET_TRACE_OK" /tmp/xziel-boz-mod-gate.log
           grep -q "winner=assets/xziel_mod" /tmp/xziel-boz-mod-gate.log
 
       - name: Save gate report
@@ -67,7 +68,8 @@ jobs:
             echo "UPSTREAM_COMMIT=3b444d6003a78f08694e965509477d13a742ebf1"
             echo "MOD_ROOT=assets/xziel_mod"
             echo "GAME_DATA_INCLUDED=false"
-            echo "GATE=override_priority"
+            echo "GATE_1=override_priority"
+            echo "GATE_2=asset_trace"
             echo "STATUS=GREEN"
           } > boz_mod_out/gate.env
 
