@@ -574,7 +574,8 @@ jobs:
           unzip -q /tmp/boz-kino/app-release.apk 'lib/*/*.so' -d /tmp/boz-kino/runtime
           find /tmp/boz-kino/runtime -type f -name '*.so' -print | tee /tmp/boz-kino/runtime-so-list.txt
           test -s /tmp/boz-kino/runtime-so-list.txt
-          rm -f /tmp/boz-kino/app-release.apk
+          mv /tmp/boz-kino/app-release.apk /tmp/boz-kino/base.apk
+          test -s /tmp/boz-kino/base.apk
 
       - name: Build pinned native Dzip decoder
         shell: bash
@@ -1008,7 +1009,7 @@ jobs:
               'archiveSha256':hashlib.sha256(archive.read_bytes()).hexdigest(),
               'modelIndex':model['modelIndex'],
               'modelVertexCount':model['vertexCount'],
-              'archiveRetained':False,
+              'archiveRetained':True,
           }
           print(json.dumps(proof,sort_keys=True))
           print('XZIEL_BOZ_XCHURCH_REAL_DTRZ_ROUNDTRIP_OK')
@@ -1017,8 +1018,105 @@ jobs:
           rm -rf /tmp/native-dz-patcher /tmp/xchurch-reextract /tmp/xchurch-final
           rm -f \
             /tmp/boz-kino/blackops_gles1.xchurch-named.dz \
-            /tmp/boz-kino/blackops_gles1.xchurch-room.dz \
-            /tmp/boz-kino/blackops_gles1.xchurch-final.dz
+            /tmp/boz-kino/blackops_gles1.xchurch-room.dz
+          test -s /tmp/boz-kino/blackops_gles1.xchurch-final.dz
+
+      - name: Package signed XChurch Android APK
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BASE=/tmp/boz-kino/base.apk
+          DZ=/tmp/boz-kino/blackops_gles1.xchurch-final.dz
+          test -s "$BASE"
+          test -s "$DZ"
+
+          ENTRY="$(unzip -Z1 "$BASE" | grep -Fi 'blackops_gles1.dz' | head -n1)"
+          test -n "$ENTRY"
+          echo "APK_DZ_ENTRY=$ENTRY" | tee boz_mod_out/kino_probe/xchurch-apk-package.log
+
+          rm -rf /tmp/xchurch-apk
+          mkdir -p "/tmp/xchurch-apk/stage/$(dirname "$ENTRY")"
+          cp "$DZ" "/tmp/xchurch-apk/stage/$ENTRY"
+          cp "$BASE" /tmp/xchurch-apk/unsigned.apk
+
+          # Remove the stock resource and stale JAR signatures. The original
+          # APK signing block is invalid after any ZIP mutation and apksigner
+          # will create a fresh one below.
+          zip -q -d /tmp/xchurch-apk/unsigned.apk "$ENTRY"
+          zip -q -d /tmp/xchurch-apk/unsigned.apk 'META-INF/*.RSA' 'META-INF/*.DSA' \
+            'META-INF/*.EC' 'META-INF/*.SF' 'META-INF/MANIFEST.MF' || true
+
+          (
+            cd /tmp/xchurch-apk/stage
+            zip -0 -q /tmp/xchurch-apk/unsigned.apk "$ENTRY"
+          )
+
+          DZ_SHA="$(sha256sum "$DZ" | awk '{print $1}')"
+          EMBED_SHA="$(unzip -p /tmp/xchurch-apk/unsigned.apk "$ENTRY" | sha256sum | awk '{print $1}')"
+          echo "DZ_SHA256=$DZ_SHA" | tee -a boz_mod_out/kino_probe/xchurch-apk-package.log
+          echo "UNSIGNED_EMBEDDED_DZ_SHA256=$EMBED_SHA" | tee -a boz_mod_out/kino_probe/xchurch-apk-package.log
+          test "$DZ_SHA" = "$EMBED_SHA"
+
+          ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          ZIPALIGN="$(find "$ANDROID_HOME/build-tools" -type f -name zipalign 2>/dev/null | sort -V | tail -n1)"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner 2>/dev/null | sort -V | tail -n1)"
+          if [[ -z "$ZIPALIGN" || -z "$APKSIGNER" ]]; then
+            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -path '*/bin/sdkmanager' | sort -V | tail -n1)"
+            test -x "$SDKMANAGER"
+            yes | "$SDKMANAGER" --licenses >/dev/null || true
+            "$SDKMANAGER" "build-tools;36.0.0"
+            ZIPALIGN="$ANDROID_HOME/build-tools/36.0.0/zipalign"
+            APKSIGNER="$ANDROID_HOME/build-tools/36.0.0/apksigner"
+          fi
+          test -x "$ZIPALIGN"
+          test -x "$APKSIGNER"
+
+          "$ZIPALIGN" -f -p 4 \
+            /tmp/xchurch-apk/unsigned.apk \
+            /tmp/xchurch-apk/aligned.apk
+
+          keytool -genkeypair \
+            -keystore /tmp/xchurch-apk/xchurch-ci.jks \
+            -storepass android \
+            -keypass android \
+            -alias xchurch \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=XChurch CI, OU=Development, O=XZIEL, C=US"
+
+          mkdir -p boz_mod_out/xchurch_apk
+          APK="$GITHUB_WORKSPACE/boz_mod_out/xchurch_apk/XZIEL-BOZ-XChurch-test.apk"
+          "$APKSIGNER" sign \
+            --ks /tmp/xchurch-apk/xchurch-ci.jks \
+            --ks-key-alias xchurch \
+            --ks-pass pass:android \
+            --key-pass pass:android \
+            --out "$APK" \
+            /tmp/xchurch-apk/aligned.apk
+
+          "$APKSIGNER" verify --verbose --print-certs "$APK" \
+            | tee boz_mod_out/xchurch_apk/apksigner-verify.txt
+          "$ZIPALIGN" -c -p 4 "$APK"
+
+          FINAL_EMBED_SHA="$(unzip -p "$APK" "$ENTRY" | sha256sum | awk '{print $1}')"
+          test "$DZ_SHA" = "$FINAL_EMBED_SHA"
+          unzip -l "$APK" > boz_mod_out/xchurch_apk/apk-list.txt
+          grep -q 'lib/arm64-v8a/libs3e_android.so' boz_mod_out/xchurch_apk/apk-list.txt
+          grep -q 'assets/boz.s3e' boz_mod_out/xchurch_apk/apk-list.txt
+
+          {
+            echo "APK_SHA256=$(sha256sum "$APK" | awk '{print $1}')"
+            echo "APK_BYTES=$(stat -c %s "$APK")"
+            echo "EMBEDDED_DZ_SHA256=$FINAL_EMBED_SHA"
+            echo "DZ_ENTRY=$ENTRY"
+            echo "XCHURCH_DTRZ_GATE=GREEN"
+            echo "SIGNED=true"
+          } | tee boz_mod_out/xchurch_apk/build-proof.env
+
+          echo "XZIEL_BOZ_XCHURCH_SIGNED_APK_OK" \
+            | tee -a boz_mod_out/kino_probe/xchurch-apk-package.log
 
       - name: Prepare BOZ core runtime for class scan
         shell: bash
@@ -1084,5 +1182,13 @@ jobs:
         with:
           name: XZIEL-BOZ-Kino-Native-DZ-Probe
           path: boz_mod_out/kino_probe/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload installable XChurch APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-BOZ-XChurch-APK
+          path: boz_mod_out/xchurch_apk/
           if-no-files-found: error
           retention-days: 14
