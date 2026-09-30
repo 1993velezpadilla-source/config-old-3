@@ -11,7 +11,7 @@ APK="${1:?APK path required}"
 OUT="dist/android-x86bridge-smoke"
 XZIEL_PACKAGE="com.xzielapp"
 mkdir -p "$OUT"
-echo "XZIEL_SMOKE_REV=quiet-apk30-nsis-v1"
+echo "XZIEL_SMOKE_REV=direct-payload-v1"
 
 # APK27+ owns wineserver lifecycle itself. Keep the smoke from injecting a
 # second foreground server so this run proves the standalone APK path.
@@ -68,7 +68,7 @@ pie_retry=0
 # replacement we must not mistake that old marker for a failure of the relaunch.
 guest_exit_baseline=0
 
-for i in $(seq 1 72); do
+for i in $(seq 1 120); do
   adb logcat -d -v threadtime > "$OUT/logcat.txt" || true
   guest_exit_count="$(grep -c 'XZIEL-HYBRID.*GUEST_EXIT' "$OUT/logcat.txt" || true)"
 
@@ -77,7 +77,7 @@ for i in $(seq 1 72); do
     break
   fi
 
-  for marker in     ROOTFS_READY     CONTAINER_READY     LAUNCH_XSERVER     XSERVER_ACTIVITY_START     XSERVER_ENV_SETUP_BEGIN     XSERVER_ENVIRONMENT_STARTED     FIRST_RENDERABLE_WINDOW; do
+  for marker in     ROOTFS_READY     CONTAINER_READY     DIRECT_PAYLOAD_INSTALL_BEGIN     DIRECT_VFS_EXTRACT_PROGRESS     DIRECT_VFS_EXTRACT_GREEN     DIRECT_PAYLOAD_INSTALL_GREEN     DIRECT_PAYLOAD_ALREADY_READY     LAUNCH_XSERVER     XSERVER_ACTIVITY_START     XSERVER_ENV_SETUP_BEGIN     XSERVER_ENVIRONMENT_STARTED     RUNTIME_WINESERVER_SOCKET_GATE     RUNTIME_WARMUP_GATE     FIRST_RENDERABLE_WINDOW; do
     if grep -q "XZIEL-HYBRID.*$marker" "$OUT/logcat.txt"; then
       last_marker="$marker"
     fi
@@ -503,169 +503,55 @@ done
 
 adb shell df -h /data | tee "$OUT/data-after-boot.txt" || true
 
-# Preserve the guest's redirected stdout/stderr before any cleanup. The XZIEL
-# launcher writes this file specifically for x86-bridge diagnosis.
-adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-guest-output.log \
-  > "$OUT/xziel-guest-output.log" 2>/dev/null || true
-echo "XZIEL_X86BRIDGE_GUEST_FILE_CAPTURE_BEGIN"
-tail -n 1200 "$OUT/xziel-guest-output.log" || true
-echo "XZIEL_X86BRIDGE_GUEST_FILE_CAPTURE_END"
+# Capture the final Android/XZIEL state once. The direct-payload APK installs
+# the validated VFS natively, so NSIS/7z temp state is no longer a success gate.
+adb logcat -d -v threadtime > "$OUT/logcat-final.txt" || true
+grep -E 'XZIEL-HYBRID|XZIEL-GUEST|XZIEL-PROCESS|AndroidRuntime|FATAL EXCEPTION|Fatal signal|SIGSEGV|SIGABRT|No space left' \
+  "$OUT/logcat-final.txt" | tail -n 5000 > "$OUT/boot-markers.txt" || true
 
-# Capture the in-APK persistent wineserver separately. APK27+ starts this server
-# immediately before direct Nacht launch, so this log distinguishes server
-# startup failure from Wine/PE failure without relying only on logcat markers.
-adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-wineserver-runtime.log \
-  > "$OUT/xziel-wineserver-runtime.log" 2>/dev/null || true
-echo "XZIEL_X86BRIDGE_RUNTIME_WINESERVER_CAPTURE_BEGIN"
-tail -n 1600 "$OUT/xziel-wineserver-runtime.log" || true
-echo "XZIEL_X86BRIDGE_RUNTIME_WINESERVER_CAPTURE_END"
-cat > "$OUT/xziel-runtime-census.sh" <<'EOF'
+cat > "$OUT/xziel-direct-payload-census.sh" <<'EOF'
 ROOT=/data/user/0/com.xzielapp/files/rootfs
-TEMP="$ROOT/home/xuser/.wine/drive_c/users/xuser/AppData/Local/Temp"
 GAME="$ROOT/home/xuser/.wine/drive_c/XZIEL"
+
+echo XZIEL_DIRECT_PAYLOAD_CENSUS
+ls -l "$GAME/Xziel-Nacht.exe" \
+      "$GAME/xziel/maps/xziel_nacht_bo3/scene.xzsc" 2>/dev/null || true
+
+if [ -s "$GAME/Xziel-Nacht.exe" ] && \
+   [ -s "$GAME/xziel/maps/xziel_nacht_bo3/scene.xzsc" ]; then
+  echo XZIEL_DIRECT_PAYLOAD_PRESENT
+fi
 
 echo XZIEL_RUNTIME_SOCKET_CENSUS
 find "$ROOT/tmp" -maxdepth 3 -print 2>/dev/null \
   | grep -e server- -e xziel-wineserver-runtime \
-  | sort | head -n 200
-ps -A | grep -e box64 -e wineserver -e Nacht -e Xziel || true
+  | sort | head -n 200 || true
 
-echo XZIEL_DIRECT_PAYLOAD_CENSUS
-ls -l "$GAME/Xziel-Nacht.exe" "$GAME/xziel/maps/xziel_nacht_bo3/scene.xzsc" 2>/dev/null || true
-if [ -s "$GAME/Xziel-Nacht.exe" ] && [ -s "$GAME/xziel/maps/xziel_nacht_bo3/scene.xzsc" ]; then
-  echo XZIEL_DIRECT_PAYLOAD_PRESENT
-fi
-
-echo XZIEL_NSIS_TEMP_CENSUS
-find "$TEMP" -maxdepth 3 -type f -print 2>/dev/null | sort | head -n 400
-echo XZIEL_NSIS_DIR_CENSUS
-find "$TEMP" -maxdepth 3 -type d -print 2>/dev/null | sort | head -n 200
-echo XZIEL_NSIS_PAYLOAD_MARKERS
-find "$TEMP" -maxdepth 6 -type f -print 2>/dev/null \
-  | grep -Ei '/(7z[.]exe|xziel-nacht-vfs[.]zip|Xziel-Nacht[.]exe|scene[.]xzsc)EOF
-
-adb shell run-as ${XZIEL_PACKAGE} sh < "$OUT/xziel-runtime-census.sh" \
-  > "$OUT/nsis-runtime-state.txt" 2>&1 || true
-cat "$OUT/nsis-runtime-state.txt" || true
-
-adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ls -la files/rootfs/tmp files/rootfs/tmp/shm 2>&1; find files/rootfs/tmp/shm -maxdepth 1 -type f -ls 2>/dev/null | head -n 200'" \
-  > "$OUT/shm-state.txt" 2>&1 || true
-echo "XZIEL_X86BRIDGE_SHM_STATE"
-cat "$OUT/shm-state.txt" || true
-
-adb shell ps -A | grep -E 'xziel|winlator|box64|wine|Nacht|7z|Xziel' | tee "$OUT/processes.txt" || true
-adb shell dumpsys activity activities   | grep -E "mResumedActivity|topResumedActivity|${XZIEL_PACKAGE}"   | tee "$OUT/activity-final.txt" || true
-
-adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-guest-output.log \
-  > "$OUT/guest-output.txt" 2>/dev/null || true
-if [[ -s "$OUT/guest-output.txt" ]]; then
-  echo "XZIEL_X86BRIDGE_GUEST_OUTPUT_CAPTURED bytes=$(wc -c < "$OUT/guest-output.txt")"
-  tail -n 500 "$OUT/guest-output.txt" || true
-else
-  echo "XZIEL_X86BRIDGE_GUEST_OUTPUT_EMPTY"
-fi
-
-# Preserve the guest stdout/stderr file written by the APK's ProcessHelper.
-# This is the authoritative Wine/Box64 error stream for x86-bridge runs.
-adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-guest-output.log \
-  > "$OUT/xziel-guest-output.log" 2>/dev/null || true
-if [[ -s "$OUT/xziel-guest-output.log" ]]; then
-  echo "XZIEL_X86BRIDGE_GUEST_OUTPUT_CAPTURED bytes=$(wc -c < "$OUT/xziel-guest-output.log")"
-  tail -n 300 "$OUT/xziel-guest-output.log" || true
-else
-  echo "XZIEL_X86BRIDGE_GUEST_OUTPUT_EMPTY"
-fi
-
-adb shell "run-as ${XZIEL_PACKAGE} sh -c 'find files/rootfs -type f \\( -name \"ld-linux-x86-64.so.2\" -o -name \"ld-linux*.so*\" -o -path \"*/bin/wine\" -o -path \"*/bin/wine64\" \\) -print 2>/dev/null | sort'" \
-  | tee "$OUT/rootfs-runtime-paths.txt" || true
-echo "XZIEL_X86BRIDGE_ROOTFS_RUNTIME_PATHS"
-cat "$OUT/rootfs-runtime-paths.txt" || true
-
-# Preserve the guest stdout/stderr file created by ProcessHelper. This is the
-# authoritative diagnostic for silent Box64/Wine child exits.
-adb shell run-as ${XZIEL_PACKAGE} sh -c 'if [ -f files/rootfs/tmp/xziel-guest-output.log ]; then cat files/rootfs/tmp/xziel-guest-output.log; fi' \
-  > "$OUT/xziel-guest-output.log" 2>/dev/null || true
-echo "XZIEL_X86BRIDGE_GUEST_OUTPUT_BEGIN"
-tail -n 1200 "$OUT/xziel-guest-output.log" || true
-echo "XZIEL_X86BRIDGE_GUEST_OUTPUT_END"
-
-adb shell "run-as ${XZIEL_PACKAGE} sh -c 'if [ -d files/rootfs/tmp/shm ]; then ls -la files/rootfs/tmp/shm; fi'" \
-  > "$OUT/xziel-shm-state.txt" 2>/dev/null || true
-echo "XZIEL_X86BRIDGE_SHM_STATE"
-cat "$OUT/xziel-shm-state.txt" || true
-
-grep -E   'XZIEL-HYBRID|XZIEL-GUEST|XZIEL-PROCESS|box64|wine|vortek|gladio|AndroidRuntime|FATAL EXCEPTION|Fatal signal|SIGSEGV|SIGABRT|No space left'   "$OUT/logcat.txt" | tail -n 4000 > "$OUT/boot-markers.txt" || true
-
-adb exec-out screencap -p > "$OUT/final-screen.png" || true
-
-echo "last_marker=$last_marker" | tee "$OUT/result.txt"
-echo "ready=$ready" | tee -a "$OUT/result.txt"
-echo "failed=$failed" | tee -a "$OUT/result.txt"
-
-if [[ "$failed" == "1" || "$ready" != "1" ]]; then
-  echo "XZIEL_X86BRIDGE_RUNTIME_NOT_GREEN last_marker=$last_marker failed=$failed"
-  tail -n 700 "$OUT/boot-markers.txt" || true
-  exit 93
-fi
-
-echo "XZIEL_X86BRIDGE_FIRST_RENDERABLE_WINDOW_GREEN"
- \
-  | sort || true
 echo XZIEL_RUNTIME_PROCESS_CENSUS
-ps -A | grep -e box64 -e wine -e wineserver -e Nacht -e 7z -e Xziel || true
+ps -A | grep -e box64 -e wine -e wineserver -e Nacht -e Xziel || true
 EOF
 
-adb shell run-as ${XZIEL_PACKAGE} sh < "$OUT/xziel-runtime-census.sh" \
-  > "$OUT/nsis-runtime-state.txt" 2>&1 || true
-cat "$OUT/nsis-runtime-state.txt" || true
-
-adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ls -la files/rootfs/tmp files/rootfs/tmp/shm 2>&1; find files/rootfs/tmp/shm -maxdepth 1 -type f -ls 2>/dev/null | head -n 200'" \
-  > "$OUT/shm-state.txt" 2>&1 || true
-echo "XZIEL_X86BRIDGE_SHM_STATE"
-cat "$OUT/shm-state.txt" || true
-
-adb shell ps -A | grep -E 'xziel|winlator|box64|wine|Nacht|7z|Xziel' | tee "$OUT/processes.txt" || true
-adb shell dumpsys activity activities   | grep -E "mResumedActivity|topResumedActivity|${XZIEL_PACKAGE}"   | tee "$OUT/activity-final.txt" || true
+adb shell run-as ${XZIEL_PACKAGE} sh < "$OUT/xziel-direct-payload-census.sh" \
+  > "$OUT/direct-payload-state.txt" 2>&1 || true
+cat "$OUT/direct-payload-state.txt" || true
 
 adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-guest-output.log \
-  > "$OUT/guest-output.txt" 2>/dev/null || true
-if [[ -s "$OUT/guest-output.txt" ]]; then
-  echo "XZIEL_X86BRIDGE_GUEST_OUTPUT_CAPTURED bytes=$(wc -c < "$OUT/guest-output.txt")"
-  tail -n 500 "$OUT/guest-output.txt" || true
-else
-  echo "XZIEL_X86BRIDGE_GUEST_OUTPUT_EMPTY"
-fi
-
-# Preserve the guest stdout/stderr file written by the APK's ProcessHelper.
-# This is the authoritative Wine/Box64 error stream for x86-bridge runs.
-adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-guest-output.log \
-  > "$OUT/xziel-guest-output.log" 2>/dev/null || true
-if [[ -s "$OUT/xziel-guest-output.log" ]]; then
-  echo "XZIEL_X86BRIDGE_GUEST_OUTPUT_CAPTURED bytes=$(wc -c < "$OUT/xziel-guest-output.log")"
-  tail -n 300 "$OUT/xziel-guest-output.log" || true
-else
-  echo "XZIEL_X86BRIDGE_GUEST_OUTPUT_EMPTY"
-fi
-
-adb shell "run-as ${XZIEL_PACKAGE} sh -c 'find files/rootfs -type f \\( -name \"ld-linux-x86-64.so.2\" -o -name \"ld-linux*.so*\" -o -path \"*/bin/wine\" -o -path \"*/bin/wine64\" \\) -print 2>/dev/null | sort'" \
-  | tee "$OUT/rootfs-runtime-paths.txt" || true
-echo "XZIEL_X86BRIDGE_ROOTFS_RUNTIME_PATHS"
-cat "$OUT/rootfs-runtime-paths.txt" || true
-
-# Preserve the guest stdout/stderr file created by ProcessHelper. This is the
-# authoritative diagnostic for silent Box64/Wine child exits.
-adb shell run-as ${XZIEL_PACKAGE} sh -c 'if [ -f files/rootfs/tmp/xziel-guest-output.log ]; then cat files/rootfs/tmp/xziel-guest-output.log; fi' \
   > "$OUT/xziel-guest-output.log" 2>/dev/null || true
 echo "XZIEL_X86BRIDGE_GUEST_OUTPUT_BEGIN"
 tail -n 1200 "$OUT/xziel-guest-output.log" || true
 echo "XZIEL_X86BRIDGE_GUEST_OUTPUT_END"
 
-adb shell "run-as ${XZIEL_PACKAGE} sh -c 'if [ -d files/rootfs/tmp/shm ]; then ls -la files/rootfs/tmp/shm; fi'" \
-  > "$OUT/xziel-shm-state.txt" 2>/dev/null || true
-echo "XZIEL_X86BRIDGE_SHM_STATE"
-cat "$OUT/xziel-shm-state.txt" || true
+adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-wineserver-runtime.log \
+  > "$OUT/xziel-wineserver-runtime.log" 2>/dev/null || true
+echo "XZIEL_X86BRIDGE_RUNTIME_WINESERVER_CAPTURE_BEGIN"
+tail -n 1200 "$OUT/xziel-wineserver-runtime.log" || true
+echo "XZIEL_X86BRIDGE_RUNTIME_WINESERVER_CAPTURE_END"
 
-grep -E   'XZIEL-HYBRID|XZIEL-GUEST|XZIEL-PROCESS|box64|wine|vortek|gladio|AndroidRuntime|FATAL EXCEPTION|Fatal signal|SIGSEGV|SIGABRT|No space left'   "$OUT/logcat.txt" | tail -n 4000 > "$OUT/boot-markers.txt" || true
+adb shell ps -A | grep -E 'xziel|winlator|box64|wine|Nacht|Xziel' \
+  | tee "$OUT/processes.txt" || true
+adb shell dumpsys activity activities \
+  | grep -E "mResumedActivity|topResumedActivity|${XZIEL_PACKAGE}" \
+  | tee "$OUT/activity-final.txt" || true
 
 adb exec-out screencap -p > "$OUT/final-screen.png" || true
 
@@ -673,152 +559,18 @@ echo "last_marker=$last_marker" | tee "$OUT/result.txt"
 echo "ready=$ready" | tee -a "$OUT/result.txt"
 echo "failed=$failed" | tee -a "$OUT/result.txt"
 
-if [[ "$failed" == "1" || "$ready" != "1" ]]; then
-  echo "XZIEL_X86BRIDGE_RUNTIME_NOT_GREEN last_marker=$last_marker failed=$failed"
-  tail -n 700 "$OUT/boot-markers.txt" || true
-  exit 93
-fi
-
-echo "XZIEL_X86BRIDGE_FIRST_RENDERABLE_WINDOW_GREEN"
- \
-  | sort || true
-echo XZIEL_RUNTIME_PROCESS_CENSUS
-ps -A | grep -e box64 -e wine -e wineserver -e Nacht -e 7z -e Xziel || true
-EOF
-
-adb shell run-as ${XZIEL_PACKAGE} sh < "$OUT/xziel-runtime-census.sh" \
-  > "$OUT/nsis-runtime-state.txt" 2>&1 || true
-cat "$OUT/nsis-runtime-state.txt" || true
-
-adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ls -la files/rootfs/tmp files/rootfs/tmp/shm 2>&1; find files/rootfs/tmp/shm -maxdepth 1 -type f -ls 2>/dev/null | head -n 200'" \
-  > "$OUT/shm-state.txt" 2>&1 || true
-echo "XZIEL_X86BRIDGE_SHM_STATE"
-cat "$OUT/shm-state.txt" || true
-
-adb shell ps -A | grep -E 'xziel|winlator|box64|wine|Nacht|7z|Xziel' | tee "$OUT/processes.txt" || true
-adb shell dumpsys activity activities   | grep -E "mResumedActivity|topResumedActivity|${XZIEL_PACKAGE}"   | tee "$OUT/activity-final.txt" || true
-
-adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-guest-output.log \
-  > "$OUT/guest-output.txt" 2>/dev/null || true
-if [[ -s "$OUT/guest-output.txt" ]]; then
-  echo "XZIEL_X86BRIDGE_GUEST_OUTPUT_CAPTURED bytes=$(wc -c < "$OUT/guest-output.txt")"
-  tail -n 500 "$OUT/guest-output.txt" || true
+if grep -q 'XZIEL_DIRECT_PAYLOAD_PRESENT' "$OUT/direct-payload-state.txt"; then
+  echo "direct_payload=present" | tee -a "$OUT/result.txt"
 else
-  echo "XZIEL_X86BRIDGE_GUEST_OUTPUT_EMPTY"
+  echo "direct_payload=missing" | tee -a "$OUT/result.txt"
 fi
-
-# Preserve the guest stdout/stderr file written by the APK's ProcessHelper.
-# This is the authoritative Wine/Box64 error stream for x86-bridge runs.
-adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-guest-output.log \
-  > "$OUT/xziel-guest-output.log" 2>/dev/null || true
-if [[ -s "$OUT/xziel-guest-output.log" ]]; then
-  echo "XZIEL_X86BRIDGE_GUEST_OUTPUT_CAPTURED bytes=$(wc -c < "$OUT/xziel-guest-output.log")"
-  tail -n 300 "$OUT/xziel-guest-output.log" || true
-else
-  echo "XZIEL_X86BRIDGE_GUEST_OUTPUT_EMPTY"
-fi
-
-adb shell "run-as ${XZIEL_PACKAGE} sh -c 'find files/rootfs -type f \\( -name \"ld-linux-x86-64.so.2\" -o -name \"ld-linux*.so*\" -o -path \"*/bin/wine\" -o -path \"*/bin/wine64\" \\) -print 2>/dev/null | sort'" \
-  | tee "$OUT/rootfs-runtime-paths.txt" || true
-echo "XZIEL_X86BRIDGE_ROOTFS_RUNTIME_PATHS"
-cat "$OUT/rootfs-runtime-paths.txt" || true
-
-# Preserve the guest stdout/stderr file created by ProcessHelper. This is the
-# authoritative diagnostic for silent Box64/Wine child exits.
-adb shell run-as ${XZIEL_PACKAGE} sh -c 'if [ -f files/rootfs/tmp/xziel-guest-output.log ]; then cat files/rootfs/tmp/xziel-guest-output.log; fi' \
-  > "$OUT/xziel-guest-output.log" 2>/dev/null || true
-echo "XZIEL_X86BRIDGE_GUEST_OUTPUT_BEGIN"
-tail -n 1200 "$OUT/xziel-guest-output.log" || true
-echo "XZIEL_X86BRIDGE_GUEST_OUTPUT_END"
-
-adb shell "run-as ${XZIEL_PACKAGE} sh -c 'if [ -d files/rootfs/tmp/shm ]; then ls -la files/rootfs/tmp/shm; fi'" \
-  > "$OUT/xziel-shm-state.txt" 2>/dev/null || true
-echo "XZIEL_X86BRIDGE_SHM_STATE"
-cat "$OUT/xziel-shm-state.txt" || true
-
-grep -E   'XZIEL-HYBRID|XZIEL-GUEST|XZIEL-PROCESS|box64|wine|vortek|gladio|AndroidRuntime|FATAL EXCEPTION|Fatal signal|SIGSEGV|SIGABRT|No space left'   "$OUT/logcat.txt" | tail -n 4000 > "$OUT/boot-markers.txt" || true
-
-adb exec-out screencap -p > "$OUT/final-screen.png" || true
-
-echo "last_marker=$last_marker" | tee "$OUT/result.txt"
-echo "ready=$ready" | tee -a "$OUT/result.txt"
-echo "failed=$failed" | tee -a "$OUT/result.txt"
 
 if [[ "$failed" == "1" || "$ready" != "1" ]]; then
   echo "XZIEL_X86BRIDGE_RUNTIME_NOT_GREEN last_marker=$last_marker failed=$failed"
-  tail -n 700 "$OUT/boot-markers.txt" || true
+  tail -n 1200 "$OUT/boot-markers.txt" || true
   exit 93
 fi
 
-echo "XZIEL_X86BRIDGE_FIRST_RENDERABLE_WINDOW_GREEN"
- \
-  | sort || true
-echo XZIEL_RUNTIME_PROCESS_CENSUS
-ps -A | grep -e box64 -e wine -e wineserver -e Nacht -e 7z -e Xziel || true
-EOF
-
-adb shell run-as ${XZIEL_PACKAGE} sh < "$OUT/xziel-runtime-census.sh" \
-  > "$OUT/nsis-runtime-state.txt" 2>&1 || true
-cat "$OUT/nsis-runtime-state.txt" || true
-
-adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ls -la files/rootfs/tmp files/rootfs/tmp/shm 2>&1; find files/rootfs/tmp/shm -maxdepth 1 -type f -ls 2>/dev/null | head -n 200'" \
-  > "$OUT/shm-state.txt" 2>&1 || true
-echo "XZIEL_X86BRIDGE_SHM_STATE"
-cat "$OUT/shm-state.txt" || true
-
-adb shell ps -A | grep -E 'xziel|winlator|box64|wine|Nacht|7z|Xziel' | tee "$OUT/processes.txt" || true
-adb shell dumpsys activity activities   | grep -E "mResumedActivity|topResumedActivity|${XZIEL_PACKAGE}"   | tee "$OUT/activity-final.txt" || true
-
-adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-guest-output.log \
-  > "$OUT/guest-output.txt" 2>/dev/null || true
-if [[ -s "$OUT/guest-output.txt" ]]; then
-  echo "XZIEL_X86BRIDGE_GUEST_OUTPUT_CAPTURED bytes=$(wc -c < "$OUT/guest-output.txt")"
-  tail -n 500 "$OUT/guest-output.txt" || true
-else
-  echo "XZIEL_X86BRIDGE_GUEST_OUTPUT_EMPTY"
-fi
-
-# Preserve the guest stdout/stderr file written by the APK's ProcessHelper.
-# This is the authoritative Wine/Box64 error stream for x86-bridge runs.
-adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-guest-output.log \
-  > "$OUT/xziel-guest-output.log" 2>/dev/null || true
-if [[ -s "$OUT/xziel-guest-output.log" ]]; then
-  echo "XZIEL_X86BRIDGE_GUEST_OUTPUT_CAPTURED bytes=$(wc -c < "$OUT/xziel-guest-output.log")"
-  tail -n 300 "$OUT/xziel-guest-output.log" || true
-else
-  echo "XZIEL_X86BRIDGE_GUEST_OUTPUT_EMPTY"
-fi
-
-adb shell "run-as ${XZIEL_PACKAGE} sh -c 'find files/rootfs -type f \\( -name \"ld-linux-x86-64.so.2\" -o -name \"ld-linux*.so*\" -o -path \"*/bin/wine\" -o -path \"*/bin/wine64\" \\) -print 2>/dev/null | sort'" \
-  | tee "$OUT/rootfs-runtime-paths.txt" || true
-echo "XZIEL_X86BRIDGE_ROOTFS_RUNTIME_PATHS"
-cat "$OUT/rootfs-runtime-paths.txt" || true
-
-# Preserve the guest stdout/stderr file created by ProcessHelper. This is the
-# authoritative diagnostic for silent Box64/Wine child exits.
-adb shell run-as ${XZIEL_PACKAGE} sh -c 'if [ -f files/rootfs/tmp/xziel-guest-output.log ]; then cat files/rootfs/tmp/xziel-guest-output.log; fi' \
-  > "$OUT/xziel-guest-output.log" 2>/dev/null || true
-echo "XZIEL_X86BRIDGE_GUEST_OUTPUT_BEGIN"
-tail -n 1200 "$OUT/xziel-guest-output.log" || true
-echo "XZIEL_X86BRIDGE_GUEST_OUTPUT_END"
-
-adb shell "run-as ${XZIEL_PACKAGE} sh -c 'if [ -d files/rootfs/tmp/shm ]; then ls -la files/rootfs/tmp/shm; fi'" \
-  > "$OUT/xziel-shm-state.txt" 2>/dev/null || true
-echo "XZIEL_X86BRIDGE_SHM_STATE"
-cat "$OUT/xziel-shm-state.txt" || true
-
-grep -E   'XZIEL-HYBRID|XZIEL-GUEST|XZIEL-PROCESS|box64|wine|vortek|gladio|AndroidRuntime|FATAL EXCEPTION|Fatal signal|SIGSEGV|SIGABRT|No space left'   "$OUT/logcat.txt" | tail -n 4000 > "$OUT/boot-markers.txt" || true
-
-adb exec-out screencap -p > "$OUT/final-screen.png" || true
-
-echo "last_marker=$last_marker" | tee "$OUT/result.txt"
-echo "ready=$ready" | tee -a "$OUT/result.txt"
-echo "failed=$failed" | tee -a "$OUT/result.txt"
-
-if [[ "$failed" == "1" || "$ready" != "1" ]]; then
-  echo "XZIEL_X86BRIDGE_RUNTIME_NOT_GREEN last_marker=$last_marker failed=$failed"
-  tail -n 700 "$OUT/boot-markers.txt" || true
-  exit 93
-fi
-
+grep -q 'XZIEL_DIRECT_PAYLOAD_PRESENT' "$OUT/direct-payload-state.txt"
+echo "XZIEL_X86BRIDGE_DIRECT_PAYLOAD_GREEN"
 echo "XZIEL_X86BRIDGE_FIRST_RENDERABLE_WINDOW_GREEN"
