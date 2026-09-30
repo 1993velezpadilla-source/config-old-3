@@ -616,6 +616,17 @@ jobs:
           grep -q "DECODED_CIW_RESGROUP_COUNT 5" boz_mod_out/kino_probe/probe.log
           test -s boz_mod_out/kino_probe/report.json
 
+      - name: Analyze Kino nested group references
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/boz_mod/analyze_kino_group_refs.py \
+            --root /tmp/boz-kino/extracted \
+            --out boz_mod_out/kino_probe/nested-group-refs.json \
+            | tee boz_mod_out/kino_probe/nested-group-refs.log
+          grep -q "XZIEL_BOZ_NESTED_GROUP_ANALYSIS_OK" boz_mod_out/kino_probe/nested-group-refs.log
+          test -s boz_mod_out/kino_probe/nested-group-refs.json
+
       - name: Inventory real Kino resource classes
         shell: bash
         run: |
