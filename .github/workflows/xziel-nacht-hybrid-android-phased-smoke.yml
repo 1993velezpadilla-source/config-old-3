@@ -78,7 +78,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist/android-phased-smoke
-          nohup emulator             -avd xziel-arm64             -no-window             -no-snapshot             -noaudio             -no-boot-anim             -gpu swiftshader_indirect             -camera-back none             -camera-front none             > dist/android-phased-smoke/emulator.log 2>&1 &
+          nohup emulator             -avd xziel-arm64             -no-window             -no-snapshot             -noaudio             -no-boot-anim             -accel off             -gpu swiftshader_indirect             -camera-back none             -camera-front none             > dist/android-phased-smoke/emulator.log 2>&1 &
           echo $! > dist/android-phased-smoke/emulator.pid
 
           adb start-server
