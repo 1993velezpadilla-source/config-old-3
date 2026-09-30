@@ -1,0 +1,212 @@
+name: XChurch OBB Runtime Capture
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/boz-mod-runtime
+    paths:
+      - ".github/workflows/boz-xchurch-obb-runtime.yml"
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Enable KVM
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/xchurch-obb/screens
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+          test -e /dev/kvm
+
+      - name: Download verified XChurch APK
+        uses: actions/download-artifact@v4
+        with:
+          name: XZIEL-BOZ-XChurch-APK
+          run-id: 36768068731
+          github-token: ${{ github.token }}
+          path: /tmp/xchurch-apk
+
+      - name: Stage APK and modified OBB payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=/tmp/xchurch-obb
+          APK="$(find /tmp/xchurch-apk -type f -name '*.apk' | head -n1)"
+          test -s "$APK"
+          cp "$APK" "$OUT/xchurch.apk"
+          unzip -p "$APK" assets/blackops_gles1.dz > "$OUT/blackops_gles1.dz"
+          test -s "$OUT/blackops_gles1.dz"
+          {
+            sha256sum "$OUT/xchurch.apk"
+            sha256sum "$OUT/blackops_gles1.dz"
+            stat -c 'DZ_BYTES=%s' "$OUT/blackops_gles1.dz"
+          } | tee "$OUT/payload.txt"
+
+      - name: Install Android 11 x86_64 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n1)"
+          AVDMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name avdmanager | sort -V | tail -n1)"
+          test -x "$SDKMANAGER"
+          test -x "$AVDMANAGER"
+          echo "SDKMANAGER=$SDKMANAGER" >> "$GITHUB_ENV"
+          echo "AVDMANAGER=$AVDMANAGER" >> "$GITHUB_ENV"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "emulator" \
+            "system-images;android-30;google_apis;x86_64" >/dev/null
+
+      - name: Boot Android 11
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ANDROID_AVD_HOME=/tmp/xchurch-obb-avd
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
+
+          printf 'no\n' | "$AVDMANAGER" create avd \
+            --force --name xchurch-obb \
+            --package "system-images;android-30;google_apis;x86_64" \
+            --device "pixel_4" >/dev/null
+
+          ADB="$ANDROID_HOME/platform-tools/adb"
+          EMU="$ANDROID_HOME/emulator/emulator"
+          "$ADB" start-server >/dev/null 2>&1 || true
+          nohup "$EMU" @xchurch-obb \
+            -no-window -gpu swiftshader_indirect -no-snapshot \
+            -noaudio -no-boot-anim -no-metrics -camera-back none \
+            > /tmp/xchurch-obb/emulator.log 2>&1 &
+          echo "EMU_PID=$!" | tee /tmp/xchurch-obb/status.txt
+
+          READY=0
+          for i in $(seq 1 70); do
+            if [ "$("$ADB" get-state 2>/dev/null || true)" = "device" ]; then
+              READY=1; break
+            fi
+            sleep 2
+          done
+          echo "ADB_READY=$READY" | tee -a /tmp/xchurch-obb/status.txt
+          test "$READY" = "1"
+
+          BOOT=0
+          for i in $(seq 1 70); do
+            if [ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then
+              BOOT=1; break
+            fi
+            sleep 2
+          done
+          echo "BOOT_COMPLETED=$BOOT" | tee -a /tmp/xchurch-obb/status.txt
+          test "$BOOT" = "1"
+
+      - name: Install APK and stage real OBB
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=/tmp/xchurch-obb
+          ADB="$ANDROID_HOME/platform-tools/adb"
+
+          "$ADB" install --abi arm64-v8a -r -d "$OUT/xchurch.apk" \
+            | tee "$OUT/install.txt"
+
+          OBB=/sdcard/Android/obb/com.activision.boz
+          "$ADB" shell mkdir -p "$OBB"
+          "$ADB" push "$OUT/blackops_gles1.dz" "$OBB/blackops_gles1.dz" \
+            | tee "$OUT/obb-push.txt"
+
+          {
+            echo "=== OBB LIST ==="
+            "$ADB" shell ls -lah "$OBB"
+            echo "=== OBB FILE ==="
+            "$ADB" shell stat "$OBB/blackops_gles1.dz" || true
+            echo "=== DEVICE ==="
+            echo "ABI=$("$ADB" shell getprop ro.product.cpu.abi | tr -d '\r')"
+            echo "ABILIST=$("$ADB" shell getprop ro.product.cpu.abilist | tr -d '\r')"
+            echo "NATIVE_BRIDGE=$("$ADB" shell getprop ro.dalvik.vm.native.bridge | tr -d '\r')"
+          } | tee "$OUT/obb-proof.txt"
+
+          "$ADB" exec-out screencap -p > "$OUT/screens/pre_launch.png"
+
+      - name: Launch BOZ with XChurch OBB and capture
+        shell: bash
+        run: |
+          set +e
+          OUT=/tmp/xchurch-obb
+          ADB="$ANDROID_HOME/platform-tools/adb"
+
+          "$ADB" logcat -c
+          "$ADB" shell am force-stop com.activision.boz >/dev/null 2>&1 || true
+          "$ADB" shell am start -W -n com.activision.boz/.Main \
+            > "$OUT/launch.txt" 2>&1
+          RC=$?
+          echo "LAUNCH_RC=$RC" | tee -a "$OUT/status.txt"
+          cat "$OUT/launch.txt" | tee -a "$OUT/status.txt"
+
+          capture() {
+            L="$1"
+            "$ADB" exec-out screencap -p > "$OUT/screens/app_${L}.png" 2>/dev/null || true
+            PID="$("$ADB" shell pidof com.activision.boz 2>/dev/null | tr -d '\r\n')"
+            echo "APP_${L}_PID=$PID" | tee -a "$OUT/status.txt"
+            if [ -n "$PID" ]; then
+              "$ADB" shell top -b -n 1 -p "$PID" > "$OUT/top_${L}.txt" 2>&1 || true
+              "$ADB" shell "cat /proc/$PID/status" > "$OUT/proc_${L}.txt" 2>&1 || true
+            fi
+          }
+
+          sleep 5; capture 05s
+          sleep 10; capture 15s
+          sleep 15; capture 30s
+          sleep 30; capture 60s
+          sleep 30; capture 90s
+
+          "$ADB" logcat -d -v threadtime > "$OUT/logcat.txt" 2>&1
+          "$ADB" shell dumpsys activity activities > "$OUT/activities.txt" 2>&1
+          "$ADB" shell dumpsys window windows > "$OUT/window.txt" 2>&1
+          sha256sum "$OUT"/screens/app_*.png > "$OUT/screen-hashes.txt" 2>/dev/null || true
+
+          grep -Eai \
+            'FATAL EXCEPTION|Fatal signal|SIGSEGV|SIGABRT|UnsatisfiedLinkError|dlopen failed|blackops_gles1|DTRZ|xchurch|kino|DERBH|RESMANAGER|Marmalade|s3e|activision|boz' \
+            "$OUT/logcat.txt" | tail -600 > "$OUT/logcat-highlights.txt" || true
+          exit 0
+
+      - name: Stage slim proof
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          SRC=/tmp/xchurch-obb
+          DST=/tmp/xchurch-obb-proof
+          rm -rf "$DST"
+          mkdir -p "$DST/screens"
+          cp -f "$SRC"/screens/*.png "$DST/screens/" 2>/dev/null || true
+          for f in \
+            status.txt payload.txt install.txt obb-push.txt obb-proof.txt launch.txt \
+            logcat.txt logcat-highlights.txt activities.txt window.txt screen-hashes.txt \
+            top_*.txt proc_*.txt; do
+            for src in "$SRC"/$f; do
+              test -f "$src" && cp "$src" "$DST/"
+            done
+          done
+          find "$DST" -type f -printf '%P %s bytes\n' | sort | tee "$DST/manifest.txt"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: XChurch-OBB-Runtime-Proof
+          path: /tmp/xchurch-obb-proof/
+          if-no-files-found: error
+          retention-days: 14
