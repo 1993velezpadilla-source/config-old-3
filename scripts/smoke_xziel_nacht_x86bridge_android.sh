@@ -9,6 +9,7 @@ APK="${1:?APK path required}"
 OUT="dist/android-x86bridge-smoke"
 XZIEL_PACKAGE="com.xzielapp"
 mkdir -p "$OUT"
+echo "XZIEL_SMOKE_REV=quiet-apk30-nsis-v1"
 
 # APK27+ owns wineserver lifecycle itself. Keep the smoke from injecting a
 # second foreground server so this run proves the standalone APK path.
