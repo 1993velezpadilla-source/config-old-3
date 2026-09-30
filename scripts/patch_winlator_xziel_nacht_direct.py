@@ -870,22 +870,17 @@ text = xserver.read_text(encoding="utf-8")
 # x86 bridge has proven that the Nacht payload itself can remain executing
 # under Wine while winhandler exits with status 1. Override only our private
 # direct-boot path; normal Winlator launches keep the upstream start command.
-guest_pattern = re.compile(
-    r'(?P<indent>[ \\t]*)String guestExecutable = "wine explorer /desktop=[^\\r\\n]*getWineStartCommand\\(\\);'
-)
-guest_match = guest_pattern.search(text)
-if not guest_match:
+guest_anchor = '            String guestExecutable = "wine explorer /desktop="+desktopName+","+xServer.screenInfo+" "+getWineStartCommand();'
+if guest_anchor not in text:
     raise SystemExit("Could not find XServer guestExecutable wine/explorer anchor")
-guest_line = guest_match.group(0)
-guest_indent = guest_match.group("indent")
 direct_override = (
-    guest_line + "\n" +
-    guest_indent + 'if (getIntent().getBooleanExtra("xziel_direct_boot", false)) {\n' +
-    guest_indent + r'    guestExecutable = "wine C:\\XZIEL\\Nacht-Chronicles-XZIEL.exe";' + "\n" +
-    guest_indent + '    Log.i("XZIEL-HYBRID", "DIRECT_NACHT_WINE_LAUNCH command=" + guestExecutable);\n' +
-    guest_indent + '}'
+    guest_anchor + "\n" +
+    '            if (getIntent().getBooleanExtra("xziel_direct_boot", false)) {\n' +
+    r'                guestExecutable = "wine C:\\XZIEL\\Nacht-Chronicles-XZIEL.exe";' + "\n" +
+    '                Log.i("XZIEL-HYBRID", "DIRECT_NACHT_WINE_LAUNCH command=" + guestExecutable);\n' +
+    '            }'
 )
-text = text[:guest_match.start()] + direct_override + text[guest_match.end():]
+text = text.replace(guest_anchor, direct_override, 1)
 overlay_anchor = "        setupUI();\n"
 overlay_insert = '''        setupUI();
         if (getIntent().getBooleanExtra("xziel_direct_boot", false)) {
