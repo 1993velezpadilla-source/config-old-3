@@ -44,6 +44,38 @@ jobs:
             echo "XZIEL_BOX64_PIE=0"
           fi
 
+      - name: Probe rootfs ARM64 interpreters
+        shell: bash
+        run: |
+          set -euo pipefail
+          rootfs="winlator/app/src/main/assets/rootfs.tzst"
+          test -s "$rootfs"
+          mkdir -p out/rootfs
+          tar --zstd -xf "$rootfs" -C out/rootfs
+
+          : > out/rootfs-arm64-interpreters.txt
+          while IFS= read -r -d '' f; do
+            desc="$(file -b "$f" 2>/dev/null || true)"
+            case "$desc" in
+              *ELF*"ARM aarch64"*)
+                interp="$(readelf -l "$f" 2>/dev/null | sed -n 's/.*Requesting program interpreter: \(.*\)]/\1/p' | head -n1)"
+                if [[ -n "$interp" ]]; then
+                  rel="${f#out/rootfs/}"
+                  printf '%s\t%s\n' "$rel" "$interp" >> out/rootfs-arm64-interpreters.txt
+                fi
+                ;;
+            esac
+          done < <(find out/rootfs -type f -print0)
+
+          grep -R -a -l '/data/data/com\.winlator' out/rootfs 2>/dev/null             | sed 's#^out/rootfs/##' > out/rootfs-com-winlator-paths.txt || true
+
+          echo "XZIEL_ROOTFS_ARM64_INTERP_COUNT=$(wc -l < out/rootfs-arm64-interpreters.txt)"
+          echo "XZIEL_ROOTFS_COM_WINLATOR_REF_COUNT=$(wc -l < out/rootfs-com-winlator-paths.txt)"
+          echo "--- ARM64 interpreters ---"
+          cat out/rootfs-arm64-interpreters.txt
+          echo "--- /data/data/com.winlator refs ---"
+          head -n 200 out/rootfs-com-winlator-paths.txt
+
       - name: Upload ELF probe
         uses: actions/upload-artifact@v4
         with:
