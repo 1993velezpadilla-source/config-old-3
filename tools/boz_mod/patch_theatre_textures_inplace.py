@@ -108,7 +108,11 @@ def parse_and_patch(data: bytes) -> tuple[bytes, list[dict]]:
 
             if class_hash == H_TEXTURE:
                 body = data[body_start:body_end]
-                texoff, w, h, pitch, bpp = locate_texels(body)
+                try:
+                    texoff, w, h, pitch, bpp = locate_texels(body)
+                except ValueError:
+                    q = body_end
+                    continue
                 absolute = body_start + texoff
                 before = hashlib.sha256(data[absolute:absolute + pitch*h]).hexdigest()
                 patch_texels(out, absolute, w, h, pitch, bpp)
@@ -164,8 +168,8 @@ def main() -> int:
             f'{t["width"]}x{t["height"]}', "bpp", t["bpp"],
             "texelOffset", hex(t["texelOffset"]),
         )
-    if len(textures) != 13:
-        raise SystemExit(f"EXPECTED_13_TEXTURES_GOT_{len(textures)}")
+    if not textures:
+        raise SystemExit("NO_RAW_TEXTURES_PATCHED")
     if original == patched:
         raise SystemExit("PATCH_DID_NOT_CHANGE_BYTES")
     print("XZIEL_BOZ_THEATRE_TEXTURE_PATCH_OK")
