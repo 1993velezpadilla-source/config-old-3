@@ -148,18 +148,52 @@ if anchor not in s:
 shim = r'''
 /* XZIEL_ANDROID_GLIBC_SHM_SHIMS */
 #ifdef ANDROID
+static int xziel_android_shm_path(const char* name, char* out, size_t out_size)
+{
+    const char* tmpdir = getenv("TMPDIR");
+    if(!tmpdir || !*tmpdir)
+        tmpdir = "/data/data/com.xzielapp/files/rootfs/tmp";
+
+    while(name && *name == '/')
+        ++name;
+    if(!name || !*name) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    char dir[1024];
+    int n = snprintf(dir, sizeof(dir), "%s/shm", tmpdir);
+    if(n < 0 || (size_t)n >= sizeof(dir)) {
+        errno = ENAMETOOLONG;
+        return -1;
+    }
+    if(mkdir(dir, 0700) != 0 && errno != EEXIST)
+        return -1;
+
+    n = snprintf(out, out_size, "%s/%s", dir, name);
+    if(n < 0 || (size_t)n >= out_size) {
+        errno = ENAMETOOLONG;
+        return -1;
+    }
+    return 0;
+}
+
 EXPORT int my_shm_open(x64emu_t* emu, const char* name, int oflag, uint32_t mode)
 {
-    (void)emu; (void)name; (void)oflag; (void)mode;
-    errno = ENOSYS;
-    return -1;
+    (void)emu;
+    char path[1536];
+    if(xziel_android_shm_path(name, path, sizeof(path)) != 0)
+        return -1;
+    return open(path, oflag, (mode_t)mode);
 }
 
 EXPORT int my_shm_unlink(x64emu_t* emu, const char* name)
 {
-    (void)emu; (void)name;
-    errno = ENOSYS;
-    return -1;
+    (void)emu;
+    char path[1536];
+    if(xziel_android_shm_path(name, path, sizeof(path)) != 0)
+        return -1;
+    return unlink(path);
 }
 #endif
 
@@ -167,7 +201,7 @@ EXPORT int my_shm_unlink(x64emu_t* emu, const char* name)
 s = s.replace(anchor, anchor + shim, 1)
 librt_c.write_text(s)
 
-print("XZIEL_BOX64_ANDROID_GLIBC_SYMBOL_SHIMS_PATCHED")
+print("XZIEL_BOX64_ANDROID_GLIBC_SYMBOL_SHIMS_PATCHED file_backed_shm=1")
 PY
 
 grep -q 'XZIEL_ANDROID_GLIBC_LIBC_SHIMS' "$SRC/src/wrapped/wrappedlibc.c"
