@@ -83,11 +83,106 @@ jobs:
 
           "$EMULATOR" -version | tee /tmp/xchurch-fast/emulator-version.txt
           nohup "$EMULATOR"             @xchurch-arm64             -no-window             -noaudio             -no-boot-anim             -no-snapshot             -accel off             -gpu swiftshader_indirect             -no-metrics             > /tmp/xchurch-fast/emulator.log 2>&1 &
-          echo $! > /tmp/xchurch-fast/emulator.pid
+          EMU_PID=$!
+          echo "$EMU_PID" > /tmp/xchurch-fast/emulator.pid
 
           READY=0
           for i in $(seq 1 120); do
-            if "$ADB" get-state 2>/dev/null | grep -q '^device$'; then
+            if ! kill -0 "$EMU_PID" 2>/dev/null; then
+              echo "EMULATOR_EXITED_EARLY=1" | tee -a /tmp/xchurch-fast/status.txt
+              tail -200 /tmp/xchurch-fast/emulator.log || true
+              exit 1
+            fi
+            if "$ADB" get-state 2>/dev/null | grep -q '^device
+              READY=1
+              break
+            fi
+            sleep 3
+          done
+          echo "ADB_READY=$READY" | tee /tmp/xchurch-fast/status.txt
+          test "$READY" = "1"
+
+          BOOT=0
+          for i in $(seq 1 120); do
+            if [[ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; then
+              BOOT=1
+              break
+            fi
+            sleep 3
+          done
+          echo "BOOT_COMPLETED=$BOOT" | tee -a /tmp/xchurch-fast/status.txt
+          test "$BOOT" = "1"
+
+          {
+            echo "ABI=$("$ADB" shell getprop ro.product.cpu.abi | tr -d '\r')"
+            echo "ABILIST=$("$ADB" shell getprop ro.product.cpu.abilist | tr -d '\r')"
+            echo "SDK=$("$ADB" shell getprop ro.build.version.sdk | tr -d '\r')"
+          } | tee /tmp/xchurch-fast/device.txt
+
+      - name: Install, launch and capture BOZ XChurch
+        shell: bash
+        run: |
+          set +e
+          ADB="$ANDROID_HOME/platform-tools/adb"
+          OUT=/tmp/xchurch-fast
+
+          "$ADB" install -r -d "$OUT/xchurch.apk" > "$OUT/install.log" 2>&1
+          INSTALL_RC=$?
+          echo "INSTALL_RC=$INSTALL_RC" | tee -a "$OUT/status.txt"
+          cat "$OUT/install.log" | tee -a "$OUT/status.txt"
+
+          if [[ "$INSTALL_RC" -eq 0 ]]; then
+            "$ADB" shell settings put system accelerometer_rotation 0 || true
+            "$ADB" shell settings put system user_rotation 1 || true
+            "$ADB" shell pm grant com.activision.boz android.permission.WRITE_EXTERNAL_STORAGE 2>/dev/null || true
+            "$ADB" shell pm grant com.activision.boz android.permission.READ_EXTERNAL_STORAGE 2>/dev/null || true
+            "$ADB" shell appops set com.activision.boz MANAGE_EXTERNAL_STORAGE allow 2>/dev/null || true
+            "$ADB" shell mkdir -p /sdcard/Android/obb/com.activision.boz 2>/dev/null || true
+
+            "$ADB" logcat -c
+            "$ADB" shell am force-stop com.activision.boz
+            "$ADB" shell am start -W -n com.activision.boz/.Main > "$OUT/am-start.txt" 2>&1
+            START_RC=$?
+            echo "START_RC=$START_RC" | tee -a "$OUT/status.txt"
+            cat "$OUT/am-start.txt" | tee -a "$OUT/status.txt"
+
+            sleep 5
+            "$ADB" exec-out screencap -p > "$OUT/screens/boot_05s.png"
+            sleep 10
+            "$ADB" exec-out screencap -p > "$OUT/screens/boot_15s.png"
+            sleep 15
+            "$ADB" exec-out screencap -p > "$OUT/screens/boot_30s.png"
+          else
+            "$ADB" exec-out screencap -p > "$OUT/screens/install_failure.png"
+          fi
+
+          "$ADB" logcat -d -v threadtime > "$OUT/logcat.txt" 2>&1
+          "$ADB" shell dumpsys activity activities > "$OUT/activities.txt" 2>&1
+          "$ADB" shell dumpsys window windows > "$OUT/window.txt" 2>&1
+          PID="$("$ADB" shell pidof com.activision.boz 2>/dev/null | tr -d '\r' || true)"
+          echo "PID=$PID" | tee -a "$OUT/status.txt"
+
+          grep -Eai             'FATAL EXCEPTION|Fatal signal|SIGSEGV|SIGABRT|UnsatisfiedLinkError|dlopen failed|xchurch|kino|Marmalade|s3e|activision|boz'             "$OUT/logcat.txt" | tail -300 > "$OUT/logcat-highlights.txt" || true
+
+          exit 0
+
+      - name: Capture result summary
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          cat /tmp/xchurch-fast/status.txt 2>/dev/null || true
+          ls -lh /tmp/xchurch-fast/screens 2>/dev/null || true
+          cat /tmp/xchurch-fast/logcat-highlights.txt 2>/dev/null | tail -120 || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: XChurch-macOS-ARM64-Fast-Capture
+          path: /tmp/xchurch-fast/
+          if-no-files-found: error
+          retention-days: 14
+; then
               READY=1
               break
             fi
