@@ -30,6 +30,30 @@ test -x "$CXX"
 
 git clone --depth 1 --branch v0.4.4 https://github.com/ptitSeb/box64.git "$SRC"
 
+# Android/AOSP exposes native FreeType as libft2.so, while Box64's v0.4.4
+# wrapper uses libfreetype.so as its native alternate name. Keep the x86_64
+# guest SONAME libfreetype.so.6 unchanged, but map the Android native backend
+# to AOSP's libft2.so without restoring rootfs LD_LIBRARY_PATH globally.
+python3 - "$SRC" <<'PY'
+import pathlib, sys
+src = pathlib.Path(sys.argv[1])
+p = src / "src/wrapped/wrappedfreetype.c"
+s = p.read_text()
+old = '#define ALTNAME "libfreetype.so"'
+new = '''#ifdef ANDROID
+#define ALTNAME "libft2.so"
+#else
+#define ALTNAME "libfreetype.so"
+#endif
+/* XZIEL_ANDROID_FREETYPE_LIBFT2 */'''
+if old not in s:
+    raise SystemExit("Box64 FreeType ALTNAME anchor missing")
+s = s.replace(old, new, 1)
+p.write_text(s)
+PY
+grep -q 'XZIEL_ANDROID_FREETYPE_LIBFT2' "$SRC/src/wrapped/wrappedfreetype.c"
+echo "XZIEL_BOX64_ANDROID_FREETYPE_LIBFT2_GREEN"
+
 # XZIEL x86-bridge compatibility:
 # Upstream Box64's ANDROID entrypoint only exports my___libc_init(), while
 # Winlator's x86_64 Wine guest is glibc-linked and requires __libc_start_main.
