@@ -82,7 +82,7 @@ jobs:
           printf 'no\n' | "$AVDMANAGER" create avd             --force             --name xchurch-arm64             --package "system-images;android-30;google_apis;arm64-v8a"             --device "pixel_2"
 
           "$EMULATOR" -version | tee /tmp/xchurch-fast/emulator-version.txt
-          nohup "$EMULATOR"             @xchurch-arm64             -no-window             -noaudio             -no-boot-anim             -no-snapshot             -gpu swiftshader_indirect             > /tmp/xchurch-fast/emulator.log 2>&1 &
+          nohup "$EMULATOR"             @xchurch-arm64             -no-window             -noaudio             -no-boot-anim             -no-snapshot             -accel off             -gpu swiftshader_indirect             -no-metrics             > /tmp/xchurch-fast/emulator.log 2>&1 &
           echo $! > /tmp/xchurch-fast/emulator.pid
 
           READY=0
