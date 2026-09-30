@@ -64,7 +64,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y git unzip zip python3
+          sudo apt-get install -y git unzip zip python3 zstd
 
       - name: Install Android NDK and CMake
         shell: bash
