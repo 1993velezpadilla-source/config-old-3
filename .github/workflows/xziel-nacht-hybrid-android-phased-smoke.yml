@@ -1,0 +1,191 @@
+name: XZIEL Nacht Hybrid Android Phased Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - experiment/xziel-nacht-win64-exe-v1
+    paths:
+      - ".github/workflows/xziel-nacht-hybrid-android-phased-smoke.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  smoke:
+    name: ARM64 phased direct-boot smoke
+    runs-on: macos-14
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Download final 12-skin touch gyro APK
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          SOURCE_RUN=36647907664
+          mkdir -p input/hybrid-apk dist/android-phased-smoke
+          gh run download "$SOURCE_RUN"             --repo "${{ github.repository }}"             --name "XZIEL-Nacht-Hybrid-TouchGyro-PixelFold"             --dir input/hybrid-apk
+
+          APK="$(find input/hybrid-apk -type f -name 'XZIEL-Nacht-Hybrid-TouchGyro-PixelFold-debug.apk' -print -quit)"
+          test -n "$APK" && test -s "$APK"
+          echo "XZIEL_APK=$APK" >> "$GITHUB_ENV"
+          shasum -a 256 "$APK" | tee dist/android-phased-smoke/apk.sha256
+          echo "XZIEL_PHASE_APK_READY"
+
+      - name: Install Android ARM64 system image
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ANDROID_HOME="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [[ ! -x "$SDKMANAGER" ]]; then
+            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n1)"
+          fi
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER"             "platform-tools"             "emulator"             "platforms;android-30"             "system-images;android-30;default;arm64-v8a"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/emulator" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "XZIEL_PHASE_ANDROID_SDK_GREEN"
+
+      - name: Create ARM64 AVD
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo no | avdmanager create avd             --force             --name xziel-arm64             --package "system-images;android-30;default;arm64-v8a"
+
+          cat >> "$HOME/.android/avd/xziel-arm64.avd/config.ini" <<'EOF'
+          hw.cpu.ncore=2
+          hw.ramSize=3072
+          vm.heapSize=512
+          disk.dataPartition.size=12G
+          hw.keyboard=yes
+          showDeviceFrame=no
+          EOF
+          echo "XZIEL_PHASE_AVD_CREATED"
+
+      - name: Boot ARM64 emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/android-phased-smoke
+          nohup emulator             -avd xziel-arm64             -no-window             -no-snapshot             -noaudio             -no-boot-anim             -gpu swiftshader_indirect             -camera-back none             -camera-front none             > dist/android-phased-smoke/emulator.log 2>&1 &
+          echo $! > dist/android-phased-smoke/emulator.pid
+
+          adb start-server
+          ready=0
+          for i in $(seq 1 180); do
+            if adb get-state >/dev/null 2>&1; then
+              boot="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+              if [[ "$boot" == "1" ]]; then
+                ready=1
+                break
+              fi
+            fi
+            if ! kill -0 "$(cat dist/android-phased-smoke/emulator.pid)" 2>/dev/null; then
+              echo "EMULATOR_PROCESS_DIED"
+              tail -n 250 dist/android-phased-smoke/emulator.log || true
+              exit 70
+            fi
+            sleep 2
+          done
+
+          test "$ready" = "1"
+          adb shell getprop ro.product.cpu.abi | tr -d '\r' | tee dist/android-phased-smoke/device-abi.txt
+          grep -q '^arm64-v8a$' dist/android-phased-smoke/device-abi.txt
+          adb shell wm size | tee dist/android-phased-smoke/wm-size.txt
+          echo "XZIEL_PHASE_EMULATOR_GREEN"
+
+      - name: Install 998MB APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          adb shell df -h /data | tee dist/android-phased-smoke/data-before-install.txt
+          adb install -r -g "$XZIEL_APK" | tee dist/android-phased-smoke/adb-install.txt
+          grep -q 'Success' dist/android-phased-smoke/adb-install.txt
+          adb shell pm path com.xziel.hybrid | tee dist/android-phased-smoke/pm-path.txt
+          grep -q '^package:' dist/android-phased-smoke/pm-path.txt
+          echo "XZIEL_PHASE_APK_INSTALL_GREEN"
+
+      - name: Launch XZIEL direct boot
+        shell: bash
+        run: |
+          set -euo pipefail
+          adb shell am force-stop com.xziel.hybrid || true
+          adb logcat -c
+          adb shell am start -W             -n com.xziel.hybrid/com.winlator.XzielBootActivity             | tee dist/android-phased-smoke/am-start.txt
+          sleep 3
+          adb shell dumpsys activity activities             | grep -E 'mResumedActivity|topResumedActivity|com.xziel.hybrid'             | tee dist/android-phased-smoke/activity-after-launch.txt || true
+          adb logcat -d -v threadtime > dist/android-phased-smoke/logcat-launch.txt || true
+          grep -E 'XZIEL-HYBRID|AndroidRuntime|FATAL EXCEPTION|Fatal signal|SIGSEGV|SIGABRT'             dist/android-phased-smoke/logcat-launch.txt             | tail -n 800             > dist/android-phased-smoke/boot-markers-launch.txt || true
+          grep -q 'XZIEL-HYBRID.*BOOT_ACTIVITY_START' dist/android-phased-smoke/logcat-launch.txt
+          echo "XZIEL_PHASE_ACTIVITY_LAUNCH_GREEN"
+
+      - name: Probe rootfs container Wine and first window
+        shell: bash
+        run: |
+          set -euo pipefail
+          ready=0
+          failed=0
+          last_marker="BOOT_ACTIVITY_START"
+
+          for i in $(seq 1 180); do
+            adb logcat -d -v threadtime > dist/android-phased-smoke/logcat.txt || true
+
+            if grep -Eq               'FATAL EXCEPTION|Fatal signal|SIGSEGV|SIGABRT|No space left on device|embedded EXE (byte count|SHA-256) mismatch|XZIEL startup failed|XZIEL game setup failed|Unable to start activity'               dist/android-phased-smoke/logcat.txt; then
+              failed=1
+              break
+            fi
+
+            for marker in               ROOTFS_READY               CONTAINER_READY               LAUNCH_XSERVER               XSERVER_ACTIVITY_START               XSERVER_ENV_SETUP_BEGIN               XSERVER_ENVIRONMENT_STARTED               FIRST_RENDERABLE_WINDOW; do
+              if grep -q "XZIEL-HYBRID.*$marker" dist/android-phased-smoke/logcat.txt; then
+                last_marker="$marker"
+              fi
+            done
+
+            printf 'probe=%s last_marker=%s\n' "$i" "$last_marker"
+
+            if [[ "$last_marker" == "FIRST_RENDERABLE_WINDOW" ]]; then
+              ready=1
+              break
+            fi
+
+            sleep 5
+          done
+
+          adb shell df -h /data | tee dist/android-phased-smoke/data-after-boot.txt || true
+          adb shell ps -A | grep -E 'xziel|winlator|box64|wine'             | tee dist/android-phased-smoke/processes.txt || true
+          adb shell dumpsys activity activities             | grep -E 'mResumedActivity|topResumedActivity|com.xziel.hybrid'             | tee dist/android-phased-smoke/activity-final.txt || true
+          grep -E             'XZIEL-HYBRID|box64|wine|vortek|gladio|AndroidRuntime|FATAL EXCEPTION|Fatal signal|SIGSEGV|SIGABRT|No space left'             dist/android-phased-smoke/logcat.txt             | tail -n 3500             > dist/android-phased-smoke/boot-markers.txt || true
+
+          adb exec-out screencap -p > dist/android-phased-smoke/final-screen.png || true
+
+          echo "last_marker=$last_marker" | tee dist/android-phased-smoke/result.txt
+          echo "ready=$ready" | tee -a dist/android-phased-smoke/result.txt
+          echo "failed=$failed" | tee -a dist/android-phased-smoke/result.txt
+
+          if [[ "$failed" == "1" || "$ready" != "1" ]]; then
+            echo "XZIEL_PHASE_RUNTIME_NOT_GREEN last_marker=$last_marker failed=$failed"
+            tail -n 600 dist/android-phased-smoke/boot-markers.txt || true
+            exit 93
+          fi
+
+          echo "XZIEL_ANDROID_HYBRID_FIRST_RENDERABLE_WINDOW_GREEN"
+
+      - name: Upload phased smoke proof
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Nacht-Hybrid-Android-Phased-Smoke-Proof
+          path: dist/android-phased-smoke/
+          if-no-files-found: warn
+          retention-days: 14
