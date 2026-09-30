@@ -1,6 +1,8 @@
 # diagnostic-window: 180s guest-process sampling
 name: XZIEL Nacht Hybrid Android x86 ARM-Bridge Smoke
 
+# rootfs runtime-path probe
+
 on:
   workflow_dispatch:
   push:
