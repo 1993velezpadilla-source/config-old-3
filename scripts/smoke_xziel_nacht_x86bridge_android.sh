@@ -62,9 +62,14 @@ ready=0
 failed=0
 last_marker="BOOT_ACTIVITY_START"
 pie_retry=0
+# Count GUEST_EXIT markers relative to the most recent logcat reset. The first
+# embedded Box64 launch is intentionally allowed to fail non-PIE; after the PIE
+# replacement we must not mistake that old marker for a failure of the relaunch.
+guest_exit_baseline=0
 
 for i in $(seq 1 72); do
   adb logcat -d -v threadtime > "$OUT/logcat.txt" || true
+  guest_exit_count="$(grep -c 'XZIEL-HYBRID.*GUEST_EXIT' "$OUT/logcat.txt" || true)"
 
   if grep -Eq     'FATAL EXCEPTION|Fatal signal|SIGSEGV|SIGABRT|No space left on device|embedded EXE (byte count|SHA-256) mismatch|XZIEL startup failed|XZIEL game setup failed|Unable to start activity'     "$OUT/logcat.txt"; then
     failed=1
@@ -77,7 +82,8 @@ for i in $(seq 1 72); do
     fi
   done
 
-  if grep -q 'XZIEL-HYBRID.*GUEST_EXIT' "$OUT/logcat.txt"; then
+  if (( guest_exit_count > guest_exit_baseline )); then
+    echo "XZIEL_X86BRIDGE_NEW_GUEST_EXIT count=$guest_exit_count baseline=$guest_exit_baseline"
     # New diagnostic APK persists guest stdout/stderr instead of mirroring it
     # to logcat. Pull it immediately so the original non-PIE bootstrap failure
     # still triggers the Bionic PIE replacement path.
@@ -273,6 +279,12 @@ EOF
 
       echo "XZIEL_X86BRIDGE_FAST_RELAUNCH diag=${XZIEL_PRELAUNCH_DEEP_DIAG:-1}"
       adb logcat -c
+      # Some emulator/logd combinations can retain a just-written line across
+      # logcat -c. Snapshot the post-clear count *before* relaunch so only a
+      # genuinely new GUEST_EXIT from the PIE launch can trip the failure path.
+      adb logcat -d -v threadtime > "$OUT/logcat-after-pie-clear.txt" || true
+      guest_exit_baseline="$(grep -c 'XZIEL-HYBRID.*GUEST_EXIT' "$OUT/logcat-after-pie-clear.txt" || true)"
+      echo "XZIEL_X86BRIDGE_GUEST_EXIT_BASELINE_AFTER_PIE_CLEAR=$guest_exit_baseline"
       adb shell am start -W -n ${XZIEL_PACKAGE}/com.winlator.XzielBootActivity | tee "$OUT/am-restart-pie.txt"
       sleep 3
       last_marker="PIE_BOX64_RELAUNCH"
