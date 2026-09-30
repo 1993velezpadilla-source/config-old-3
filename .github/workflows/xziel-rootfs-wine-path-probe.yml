@@ -52,11 +52,23 @@ jobs:
             | grep -E 'ld-linux|ld-[^/]*\.so|libc\.so\.6|wine64|wine-preloader|wine64-preloader|/opt/wine/bin/' \
             | tee -a dist/rootfs-probe/paths.txt
 
-          echo "=== inspect /opt/wine/bin/wine ===" | tee -a dist/rootfs-probe/paths.txt
-          tar --zstd -xOf dist/rootfs-probe/rootfs.tzst ./opt/wine/bin/wine > dist/rootfs-probe/wine.bin
-          file dist/rootfs-probe/wine.bin | tee -a dist/rootfs-probe/paths.txt
-          readelf -h dist/rootfs-probe/wine.bin | tee -a dist/rootfs-probe/paths.txt || true
-          readelf -l dist/rootfs-probe/wine.bin | grep -E 'Requesting program interpreter|INTERP|LOAD' | tee -a dist/rootfs-probe/paths.txt || true
+          for item in \
+            "./opt/wine/bin/wine" \
+            "./opt/wine/bin/wineserver" \
+            "./opt/wine/lib/wine/x86_64-unix/wine-preloader"; do
+            base="$(basename "$item")"
+            echo "=== inspect $item ===" | tee -a dist/rootfs-probe/paths.txt
+            tar --zstd -xOf dist/rootfs-probe/rootfs.tzst "$item" > "dist/rootfs-probe/$base.bin"
+            file "dist/rootfs-probe/$base.bin" | tee -a dist/rootfs-probe/paths.txt
+            readelf -h "dist/rootfs-probe/$base.bin" | grep -E 'Class:|Type:|Machine:' | tee -a dist/rootfs-probe/paths.txt || true
+            readelf -l "dist/rootfs-probe/$base.bin" | grep -E 'Requesting program interpreter|INTERP' | tee -a dist/rootfs-probe/paths.txt || true
+            readelf -d "dist/rootfs-probe/$base.bin" | grep -E 'NEEDED|RPATH|RUNPATH' | tee -a dist/rootfs-probe/paths.txt || true
+          done
+
+          echo "=== x86_64-unix Wine libs ===" | tee -a dist/rootfs-probe/paths.txt
+          tar --zstd -tf dist/rootfs-probe/rootfs.tzst \
+            | grep -E '^\./opt/wine/lib/wine/x86_64-unix/.*\.so(\.|$)' \
+            | tee -a dist/rootfs-probe/paths.txt || true
 
           echo "XZIEL_ROOTFS_WINE_PATH_PROBE_GREEN"
 
