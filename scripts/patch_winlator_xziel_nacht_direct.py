@@ -1033,6 +1033,12 @@ if "import android.util.Log;" not in gtext:
     gtext = gtext.replace("import android.os.Process;\n", "import android.os.Process;\nimport android.util.Log;\n", 1)
 if "import android.os.Build;" not in gtext:
     gtext = gtext.replace("import android.os.Process;\n", "import android.os.Process;\nimport android.os.Build;\n", 1)
+if "import java.util.concurrent.CountDownLatch;" not in gtext:
+    gtext = gtext.replace(
+        "import android.util.Log;\n",
+        "import android.util.Log;\nimport java.util.concurrent.CountDownLatch;\nimport java.util.concurrent.TimeUnit;\n",
+        1,
+    )
 
 # Keep a dedicated foreground wineserver alive for XZIEL x86-bridge launches.
 # XServer initialization recreates rootfs/tmp; starting the server here ensures
@@ -1145,17 +1151,49 @@ guest_exec_insert = '''        boolean xzielDirectNacht =
             Log.i("XZIEL-HYBRID", "RUNTIME_WINESERVER_STARTED pid=" + xzielWineserverPid +
                     " command=" + wineserverCommand);
 
+            // Do not gate Nacht on an arbitrary sleep. The x86->ARM bridge
+            // only became reliable after a real Windows client completed
+            // against the post-XServer foreground wineserver. Reproduce that
+            // proven sequence in the launcher itself: server -> cmd.exe /c ver
+            // -> Nacht.
             if (guestCapturePath != null && !guestCapturePath.isEmpty()) {
-                envVars.put("XZIEL_GUEST_CAPTURE_PATH", guestCapturePath);
+                envVars.put("XZIEL_GUEST_CAPTURE_PATH", rootDir+"/tmp/xziel-warmup-runtime.log");
             }
 
+            String warmupCommand =
+                    rootDir+"/usr/local/bin/box64 " +
+                    rootDir+rootFS.getWinePath()+"/bin/wine " +
+                    "C:\\\\windows\\\\system32\\\\cmd.exe /c ver";
+            CountDownLatch warmupDone = new CountDownLatch(1);
+            int[] warmupStatus = new int[] {Integer.MIN_VALUE};
+            int warmupPid = ProcessHelper.exec(warmupCommand, envVars, rootDir, (status) -> {
+                warmupStatus[0] = status;
+                Log.i("XZIEL-HYBRID", "RUNTIME_WARMUP_EXIT status=" + status);
+                warmupDone.countDown();
+            });
+            Log.i("XZIEL-HYBRID", "RUNTIME_WARMUP_STARTED pid=" + warmupPid +
+                    " command=" + warmupCommand);
+
+            boolean warmupFinished = false;
             try {
-                Thread.sleep(2000);
+                warmupFinished = warmupDone.await(180, TimeUnit.SECONDS);
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
+                Log.i("XZIEL-HYBRID", "RUNTIME_WARMUP_INTERRUPTED");
             }
-            Log.i("XZIEL-HYBRID", "RUNTIME_WINESERVER_PRIMED pid=" + xzielWineserverPid);
+
+            if (!warmupFinished && warmupPid > 0) {
+                Process.killProcess(warmupPid);
+                Log.i("XZIEL-HYBRID", "RUNTIME_WARMUP_TIMEOUT pid=" + warmupPid);
+            }
+            Log.i("XZIEL-HYBRID", "RUNTIME_WARMUP_GATE finished=" + warmupFinished +
+                    " status=" + warmupStatus[0] +
+                    " wineserverPid=" + xzielWineserverPid);
+
+            if (guestCapturePath != null && !guestCapturePath.isEmpty()) {
+                envVars.put("XZIEL_GUEST_CAPTURE_PATH", guestCapturePath);
+            }
         }
 
         String command = rootDir+"/usr/local/bin/box64 "+guestExecutable;
