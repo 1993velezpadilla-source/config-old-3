@@ -31,6 +31,56 @@ struct SanctumGameplayProfile {
 [[nodiscard]] SanctumGameplayProfile
 makeSanctumGameplayProfile() noexcept;
 
+// Stable gameplay IDs. Art/presentation names may evolve without invalidating
+// saved runs, authored map anchors or telemetry.
+inline constexpr std::uint32_t kSanctumWeaponSidearmId = 2101U;
+inline constexpr std::uint32_t kSanctumWeaponSubmachineGunId = 2102U;
+inline constexpr std::uint32_t kSanctumWeaponAssaultRifleId = 2103U;
+inline constexpr std::uint32_t kSanctumWeaponMarksmanRifleId = 2104U;
+inline constexpr std::uint32_t kSanctumWeaponShotgunId = 2105U;
+inline constexpr std::uint32_t kSanctumWeaponLightMachineGunId = 2106U;
+inline constexpr std::uint32_t kSanctumWeaponSniperRifleId = 2107U;
+
+inline constexpr std::uint32_t kSanctumPerkFortitudeId = 3101U;
+inline constexpr std::uint32_t kSanctumPerkQuickHandsId = 3102U;
+inline constexpr std::uint32_t kSanctumPerkEnduranceId = 3103U;
+inline constexpr std::uint32_t kSanctumPerkSecondChanceId = 3104U;
+inline constexpr std::uint32_t kSanctumPerkRapidFireId = 3105U;
+inline constexpr std::uint32_t kSanctumPerkPrecisionId = 3106U;
+inline constexpr std::uint32_t kSanctumPerkArsenalId = 3107U;
+inline constexpr std::uint32_t kSanctumPerkBlastGuardId = 3108U;
+
+inline constexpr std::uint32_t kSanctumWallWeaponStationId = 4101U;
+inline constexpr std::uint32_t kSanctumRandomArsenalStationId = 4102U;
+inline constexpr std::uint32_t kSanctumReliquaryStationId = 4103U;
+inline constexpr std::uint32_t kSanctumWeaponUpgradeStationId = 4104U;
+inline constexpr std::uint32_t kSanctumVotiveStationId = 4105U;
+
+inline constexpr std::uint32_t kSanctumConsumableFullAmmoId = 5101U;
+inline constexpr std::uint32_t kSanctumConsumableDoubleScoreId = 5102U;
+
+struct SanctumSurvivalAnchors {
+    Vec3 wallWeapon{};
+    Vec3 randomArsenal{};
+    Vec3 reliquary{};
+    Vec3 weaponUpgrade{};
+    Vec3 votive{};
+
+    bool hasWallWeapon = false;
+    bool hasRandomArsenal = false;
+    bool hasReliquary = false;
+    bool hasWeaponUpgrade = false;
+    bool hasVotive = false;
+};
+
+// Gameplay catalog is native Xziel. Spatial placement remains authored by the
+// map/Blender pipeline: only anchors explicitly supplied by the map become
+// interaction stations. This prevents temporary floating machines from becoming
+// shipping geometry authority.
+[[nodiscard]] SurvivalContentDefinition
+makeSanctumSurvivalContent(
+    const SanctumSurvivalAnchors& anchors = {}) noexcept;
+
 enum class SanctumZone : std::uint32_t {
     Unknown = 0,
     Courtyard = 1,
