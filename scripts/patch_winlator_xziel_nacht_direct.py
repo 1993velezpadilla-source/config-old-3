@@ -1034,6 +1034,37 @@ if "import android.util.Log;" not in gtext:
 if "import android.os.Build;" not in gtext:
     gtext = gtext.replace("import android.os.Process;\n", "import android.os.Process;\nimport android.os.Build;\n", 1)
 
+# Keep a dedicated foreground wineserver alive for XZIEL x86-bridge launches.
+# XServer initialization recreates rootfs/tmp; starting the server here ensures
+# its socket is created only after that reset, immediately before Wine/Nacht.
+class_field_anchor = '''    private static int pid = -1;
+'''
+class_field_insert = '''    private static int pid = -1;
+    private static int xzielWineserverPid = -1;
+'''
+if class_field_anchor not in gtext:
+    raise SystemExit("Could not find GuestProgramLauncher pid field anchor")
+gtext = gtext.replace(class_field_anchor, class_field_insert, 1)
+
+stop_method_anchor = '''            if (pid != -1) {
+                Process.killProcess(pid);
+                pid = -1;
+            }
+'''
+stop_method_insert = '''            if (pid != -1) {
+                Process.killProcess(pid);
+                pid = -1;
+            }
+            if (xzielWineserverPid != -1) {
+                Process.killProcess(xzielWineserverPid);
+                xzielWineserverPid = -1;
+                Log.i("XZIEL-HYBRID", "RUNTIME_WINESERVER_STOPPED");
+            }
+'''
+if stop_method_anchor not in gtext:
+    raise SystemExit("Could not find GuestProgramLauncher stop anchor")
+gtext = gtext.replace(stop_method_anchor, stop_method_insert, 1)
+
 ld_anchor = '''        envVars.put("LD_LIBRARY_PATH", rootFS.getLibDir().getPath());
         envVars.put("BOX64_LD_LIBRARY_PATH", rootDir+"/lib/x86_64-linux-gnu");
 '''
@@ -1094,7 +1125,40 @@ guest_exec_anchor = '''        String command = rootDir+"/usr/local/bin/box64 "+
             if (terminationCallback != null) terminationCallback.call(status);
         });
 '''
-guest_exec_insert = '''        String command = rootDir+"/usr/local/bin/box64 "+guestExecutable;
+guest_exec_insert = '''        boolean xzielDirectNacht =
+                xzielX86Bridge &&
+                guestExecutable != null &&
+                guestExecutable.contains("Nacht-Chronicles-XZIEL.exe");
+        if (xzielDirectNacht) {
+            String guestCapturePath = envVars.get("XZIEL_GUEST_CAPTURE_PATH");
+            if (guestCapturePath != null && !guestCapturePath.isEmpty()) {
+                envVars.put("XZIEL_GUEST_CAPTURE_PATH", rootDir+"/tmp/xziel-wineserver-runtime.log");
+            }
+
+            String wineserverCommand =
+                    rootDir+"/usr/local/bin/box64 " +
+                    rootDir+rootFS.getWinePath()+"/bin/wineserver -f -p";
+            xzielWineserverPid = ProcessHelper.exec(wineserverCommand, envVars, rootDir, (status) -> {
+                Log.i("XZIEL-HYBRID", "RUNTIME_WINESERVER_EXIT status=" + status);
+                xzielWineserverPid = -1;
+            });
+            Log.i("XZIEL-HYBRID", "RUNTIME_WINESERVER_STARTED pid=" + xzielWineserverPid +
+                    " command=" + wineserverCommand);
+
+            if (guestCapturePath != null && !guestCapturePath.isEmpty()) {
+                envVars.put("XZIEL_GUEST_CAPTURE_PATH", guestCapturePath);
+            }
+
+            try {
+                Thread.sleep(2000);
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            Log.i("XZIEL-HYBRID", "RUNTIME_WINESERVER_PRIMED pid=" + xzielWineserverPid);
+        }
+
+        String command = rootDir+"/usr/local/bin/box64 "+guestExecutable;
         Log.i("XZIEL-HYBRID", "GUEST_EXEC command=" + command);
 
         int launchedPid = ProcessHelper.exec(command, envVars, rootDir, (status) -> {
