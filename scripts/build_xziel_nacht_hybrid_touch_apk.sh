@@ -32,6 +32,10 @@ test "$(git -C "$WINLATOR" rev-parse HEAD)" = "$WINLATOR_COMMIT"
 python3 "$ROOT/scripts/patch_winlator_xziel_nacht_direct.py" \
   "$WINLATOR" "$actual_bytes" "$actual_sha"
 
+command -v zstd >/dev/null
+python3 "$ROOT/scripts/rewrite_winlator_runtime_package.py" \
+  "$WINLATOR" --old com.winlator --new com.xzielapp
+
 ASSETS="$WINLATOR/app/src/main/assets"
 HUD_SRC="$ROOT/assets/mobile/xziel_hud_v1"
 HUD_DST="$ASSETS/xziel_hud"
@@ -143,6 +147,8 @@ skin_pressed_alpha=246
 prone=C
 slide=CTRL
 winlator_ui=hidden
+application_id=com.xzielapp
+runtime_package_paths_rewritten=1
 EOF
 
 ls -lh "$DIST/XZIEL-Nacht-Hybrid-TouchGyro-PixelFold-debug.apk"
