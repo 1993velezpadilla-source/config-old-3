@@ -279,8 +279,8 @@ jobs:
 
             # The title tap should land on the BOZ main menu. Use the same
             # in-app MotionEvent injector to press the large SINGLE PLAYER
-            # panel near the upper-left of the landscape UI.
-            "$ADB" shell am start -W               -n com.activision.boz/.Main               --ez xzielDirectTap true               --ei xzielX 500               --ei xzielY 145               > "$PROOF/single-player-tap-intent.txt" 2>&1
+            # panel body in the upper-left of the landscape UI.
+            "$ADB" shell am start -W               -n com.activision.boz/.Main               --ez xzielDirectTap true               --ei xzielX 520               --ei xzielY 300               > "$PROOF/single-player-tap-intent.txt" 2>&1
             echo "SINGLE_PLAYER_TAP_RC=$?" | tee -a "$PROOF/status.txt"
 
             sleep 5
