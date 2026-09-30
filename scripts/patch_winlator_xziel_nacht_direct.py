@@ -1207,6 +1207,17 @@ guest_exec_insert = '''        boolean xzielDirectNacht =
             if (guestCapturePath != null && !guestCapturePath.isEmpty()) {
                 envVars.put("XZIEL_GUEST_CAPTURE_PATH", guestCapturePath);
             }
+
+            // Heavy Box64/Wine tracing proved useful for bring-up, but it turns
+            // the ~888 MB one-file executable into hundreds of MB of trace I/O
+            // before the first window can appear. Keep the warmup diagnostic,
+            // then launch the actual game on the fast path.
+            envVars.put("BOX64_LOG", "0");
+            envVars.put("BOX64_NOBANNER", "1");
+            envVars.remove("BOX64_DLSYM_ERROR");
+            envVars.remove("BOX64_SHOWSEGV");
+            envVars.put("WINEDEBUG", "-all");
+            Log.i("XZIEL-HYBRID", "NACHT_FASTPATH_TRACE_OFF box64=0 wine=-all");
         }
 
         String command = rootDir+"/usr/local/bin/box64 "+guestExecutable;
