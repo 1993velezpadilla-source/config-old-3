@@ -444,19 +444,16 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Fetch BOZ payload temporarily
+      - name: Fetch pinned BOZ S3E payload directly
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p /tmp/boz-binprobe
           curl -L --fail --retry 3 --retry-delay 2 \
-            -o /tmp/boz-binprobe/app-release.apk \
-            https://github.com/12brendon34/COD-BOZ-Partially-Decompiled/releases/download/1.3.5/app-release.apk
-          ENTRY="$(unzip -Z1 /tmp/boz-binprobe/app-release.apk | grep -Fi 'assets/boz.s3e' | head -n1)"
-          test -n "$ENTRY"
-          unzip -p /tmp/boz-binprobe/app-release.apk "$ENTRY" > /tmp/boz-binprobe/boz.s3e
+            -o /tmp/boz-binprobe/boz.s3e \
+            https://raw.githubusercontent.com/eugene373/COD-BOZ-Partially-Decompiled/e723c8c1ea4fac59be990efb3edf7a09b1af7768/app/src/main/assets/boz.s3e
           test -s /tmp/boz-binprobe/boz.s3e
-          rm -f /tmp/boz-binprobe/app-release.apk
+          printf 'BOZ_S3E_BYTES=%s\n' "$(stat -c %s /tmp/boz-binprobe/boz.s3e)"
 
       - name: Decompress S3E executable payload
         shell: bash
