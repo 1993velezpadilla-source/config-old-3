@@ -179,6 +179,21 @@ jobs:
           git checkout e723c8c1ea4fac59be990efb3edf7a09b1af7768
           test "$(git rev-parse HEAD)" = "e723c8c1ea4fac59be990efb3edf7a09b1af7768"
           printf 'VERSION_CODE=1081\n' > app/version.properties
+          keytool -genkeypair \
+            -keystore ci-debug.jks \
+            -storepass android \
+            -keypass android \
+            -alias androiddebugkey \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=XZIEL CI, OU=Development, O=XZIEL, L=San Juan, ST=PR, C=US"
+          cat > keystore.properties <<'EOF'
+storeFile=ci-debug.jks
+storePassword=android
+keyAlias=androiddebugkey
+keyPassword=android
+EOF
           chmod +x gradlew
 
       - name: Build BOZ Android debug shell
