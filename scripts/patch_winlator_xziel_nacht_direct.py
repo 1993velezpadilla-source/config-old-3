@@ -1101,15 +1101,15 @@ post_env_insert = '''        if (this.envVars != null) envVars.putAll(this.envVa
             envVars.remove("LD_LIBRARY_PATH");
             envVars.put("XZIEL_GUEST_CAPTURE_PATH", rootDir+"/tmp/xziel-guest-output.log");
             envVars.put("BOX64_DYNAREC", "0");
-            envVars.put("BOX64_NOBANNER", "0");
-            envVars.put("BOX64_LOG", "2");
-            envVars.put("BOX64_DLSYM_ERROR", "1");
+            envVars.put("BOX64_NOBANNER", "1");
+            envVars.put("BOX64_LOG", "0");
+            envVars.put("BOX64_DLSYM_ERROR", "0");
             envVars.put("BOX64_SHOWSEGV", "1");
-            envVars.put("WINEDEBUG", "+process,+server,+module,+seh,+font");
+            envVars.put("WINEDEBUG", "-all");
             envVars.put("WINEESYNC", "0");
             envVars.put("WINEFSYNC", "0");
             Log.i("XZIEL-HYBRID", "X86_BRIDGE_HOST_LD_LIBRARY_PATH_REMOVED_FINAL");
-            Log.i("XZIEL-HYBRID", "X86_BRIDGE_GUEST_TRACE dynarec=0 box64=2 esync=0 fsync=0 freetype=native-bionic wine=process,server,module,seh,font");
+            Log.i("XZIEL-HYBRID", "X86_BRIDGE_RUNTIME_PROFILE dynarec=0 box64=0 esync=0 fsync=0 freetype=native-bionic wine=quiet");
             Log.i("XZIEL-HYBRID", "GUEST_FILE_CAPTURE path=" + rootDir + "/tmp/xziel-guest-output.log");
             Log.i("XZIEL-HYBRID", "GUEST_ENV prefix=" + envVars.get("WINEPREFIX") +
                     " path=" + envVars.get("PATH") +
