@@ -881,6 +881,8 @@ text = text.replace(overlay_anchor, overlay_insert, 1)
 
 if "import android.util.Log;" not in text:
     text = text.replace("import android.os.Bundle;\n", "import android.os.Bundle;\nimport android.util.Log;\n", 1)
+if "import android.os.Build;" not in text:
+    text = text.replace("import android.os.Bundle;\n", "import android.os.Bundle;\nimport android.os.Build;\n", 1)
 
 activity_anchor = '''        ForegroundService.startSession(this);
 '''
@@ -985,6 +987,26 @@ debug_insert = '''        ProcessHelper.removeAllDebugCallbacks();
 if debug_anchor not in text:
     raise SystemExit("Could not find ProcessHelper debug anchor")
 text = text.replace(debug_anchor, debug_insert, 1)
+
+termination_anchor = '''        guestProgramLauncherComponent.setTerminationCallback((status) -> exit());
+'''
+termination_insert = '''        guestProgramLauncherComponent.setTerminationCallback((status) -> {
+            boolean xzielX86KeepAlive =
+                    getIntent().getBooleanExtra("xziel_direct_boot", false) &&
+                    Build.SUPPORTED_ABIS != null &&
+                    Build.SUPPORTED_ABIS.length > 0 &&
+                    Build.SUPPORTED_ABIS[0].startsWith("x86");
+            if (xzielX86KeepAlive) {
+                Log.i("XZIEL-HYBRID", "X86_GUEST_EXIT_KEEPALIVE status=" + status);
+            }
+            else {
+                exit();
+            }
+        });
+'''
+if termination_anchor not in text:
+    raise SystemExit("Could not find XServer guest termination callback")
+text = text.replace(termination_anchor, termination_insert, 1)
 
 xserver.write_text(text, encoding="utf-8")
 
