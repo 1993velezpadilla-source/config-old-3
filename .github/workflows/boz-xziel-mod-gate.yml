@@ -1,0 +1,79 @@
+name: BOZ XZIEL Mod Override Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - feature/boz-mod-runtime
+    paths:
+      - ".github/workflows/boz-xziel-mod-gate.yml"
+      - "tools/boz_mod/**"
+      - "docs/BOZ_XZIEL_MOD_LAYER.md"
+
+permissions:
+  contents: read
+
+jobs:
+  override-priority:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Clone pinned MIT BOZ loader
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone https://github.com/Producdevity/cod-boz-port.git /tmp/cod-boz-port
+          cd /tmp/cod-boz-port
+          git checkout 3b444d6003a78f08694e965509477d13a742ebf1
+          test "$(git rev-parse HEAD)" = "3b444d6003a78f08694e965509477d13a742ebf1"
+
+      - name: Apply XZIEL mod override layer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/boz_mod/patch_mod_override.py /tmp/cod-boz-port
+          grep -q "resolve_xziel_mod_path" /tmp/cod-boz-port/src/s3e_file.c
+
+      - name: Compile override priority test
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp tools/boz_mod/xziel_mod_override_test.c /tmp/cod-boz-port/tests/
+          cd /tmp/cod-boz-port
+          mkdir -p build/tests
+          cc -D_GNU_SOURCE -Iinclude -std=c11 -Wall -Wextra -Werror             -o build/tests/xziel_mod_override_test             tests/xziel_mod_override_test.c src/s3e_file.c
+
+      - name: Prove XZIEL wins over stock DTRZ
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/cod-boz-port
+          ./build/tests/xziel_mod_override_test | tee /tmp/xziel-boz-mod-gate.log
+          grep -q "XZIEL_BOZ_OVERRIDE_PRIORITY_OK" /tmp/xziel-boz-mod-gate.log
+          grep -q "winner=assets/xziel_mod" /tmp/xziel-boz-mod-gate.log
+
+      - name: Save gate report
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p boz_mod_out
+          cp /tmp/xziel-boz-mod-gate.log boz_mod_out/
+          {
+            echo "UPSTREAM=Producdevity/cod-boz-port"
+            echo "UPSTREAM_COMMIT=3b444d6003a78f08694e965509477d13a742ebf1"
+            echo "MOD_ROOT=assets/xziel_mod"
+            echo "GAME_DATA_INCLUDED=false"
+            echo "GATE=override_priority"
+            echo "STATUS=GREEN"
+          } > boz_mod_out/gate.env
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-BOZ-Mod-Override-Gate
+          path: boz_mod_out/
+          if-no-files-found: error
+          retention-days: 14
