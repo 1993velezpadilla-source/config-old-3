@@ -178,6 +178,19 @@ adb shell run-as ${XZIEL_PACKAGE} sh -c 'find files/rootfs -type f \( -name "ld-
 echo "XZIEL_X86BRIDGE_ROOTFS_RUNTIME_PATHS"
 cat "$OUT/rootfs-runtime-paths.txt" || true
 
+# Preserve the guest stdout/stderr file created by ProcessHelper. This is the
+# authoritative diagnostic for silent Box64/Wine child exits.
+adb shell run-as ${XZIEL_PACKAGE} sh -c 'if [ -f files/rootfs/tmp/xziel-guest-output.log ]; then cat files/rootfs/tmp/xziel-guest-output.log; fi' \
+  > "$OUT/xziel-guest-output.log" 2>/dev/null || true
+echo "XZIEL_X86BRIDGE_GUEST_OUTPUT_BEGIN"
+tail -n 1200 "$OUT/xziel-guest-output.log" || true
+echo "XZIEL_X86BRIDGE_GUEST_OUTPUT_END"
+
+adb shell run-as ${XZIEL_PACKAGE} sh -c 'if [ -d files/rootfs/tmp/shm ]; then ls -la files/rootfs/tmp/shm; fi' \
+  > "$OUT/xziel-shm-state.txt" 2>/dev/null || true
+echo "XZIEL_X86BRIDGE_SHM_STATE"
+cat "$OUT/xziel-shm-state.txt" || true
+
 grep -E   'XZIEL-HYBRID|XZIEL-GUEST|XZIEL-PROCESS|box64|wine|vortek|gladio|AndroidRuntime|FATAL EXCEPTION|Fatal signal|SIGSEGV|SIGABRT|No space left'   "$OUT/logcat.txt" | tail -n 4000 > "$OUT/boot-markers.txt" || true
 
 adb exec-out screencap -p > "$OUT/final-screen.png" || true
