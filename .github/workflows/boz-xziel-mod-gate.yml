@@ -495,6 +495,17 @@ jobs:
           grep -q "DECODED_CIW_RESGROUP_COUNT 5" boz_mod_out/kino_probe/probe.log
           test -s boz_mod_out/kino_probe/report.json
 
+      - name: Inventory real Kino resource classes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/boz_mod/inventory_kino_resources.py \
+            --root /tmp/boz-kino/extracted \
+            --out boz_mod_out/kino_probe/resource-inventory.json \
+            | tee boz_mod_out/kino_probe/resource-inventory.log
+          grep -q "XZIEL_BOZ_RESOURCE_INVENTORY_OK" boz_mod_out/kino_probe/resource-inventory.log
+          test -s boz_mod_out/kino_probe/resource-inventory.json
+
       - name: Keep structural report only
         shell: bash
         run: |
