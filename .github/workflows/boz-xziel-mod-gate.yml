@@ -880,12 +880,53 @@ jobs:
             boz_mod_out/kino_probe/theatre-material-roundtrip.txt
           rm -rf /tmp/theatre-mutated-extracted /tmp/dade-verify /tmp/dade-verify-venv
 
-      - name: Patch real BOZ DTRZ with native DZ and verify
+      - name: Build XChurch into the real BOZ DTRZ and verify
         shell: bash
         run: |
           set -euo pipefail
           test -s /tmp/boz-kino/blackops_gles1.dz
-          test -s /tmp/boz-kino/mod/levels/kino/theatre_shared.group.bin
+          test -s /tmp/xchurch_mod/levels/kino/xchurch_shared.group.bin
+          test -s /tmp/xchurch_mod/levels/kino/kino_sectors.group.bin
+
+          rm -rf /tmp/xchurch-final
+          mkdir -p /tmp/xchurch-final/levels/kino
+
+          # Start from the room alias whose internal group name is already xchurch,
+          # then apply only same-size visual/geometry edits.
+          python3 tools/boz_mod/patch_theatre_textures_inplace.py \
+            /tmp/xchurch_mod/levels/kino/xchurch_shared.group.bin \
+            /tmp/xchurch-final/levels/kino/xchurch_shared.stage1.group.bin \
+            --report boz_mod_out/kino_probe/xchurch-texture-patch.json \
+            | tee boz_mod_out/kino_probe/xchurch-texture-patch.log
+
+          python3 tools/boz_mod/patch_theatre_materials_inplace.py \
+            /tmp/xchurch-final/levels/kino/xchurch_shared.stage1.group.bin \
+            /tmp/xchurch-final/levels/kino/xchurch_shared.stage2.group.bin \
+            --report boz_mod_out/kino_probe/xchurch-material-patch.json \
+            | tee boz_mod_out/kino_probe/xchurch-material-patch.log
+
+          python3 tools/boz_mod/patch_theatre_model_vertices.py \
+            /tmp/xchurch-final/levels/kino/xchurch_shared.stage2.group.bin \
+            /tmp/xchurch-final/levels/kino/xchurch_shared.group.bin \
+            --report boz_mod_out/kino_probe/xchurch-model-patch.json \
+            | tee boz_mod_out/kino_probe/xchurch-model-patch.log
+
+          cp /tmp/xchurch_mod/levels/kino/kino_sectors.group.bin \
+            /tmp/xchurch-final/levels/kino/kino_sectors.group.bin
+
+          test "$(stat -c %s /tmp/xchurch-final/levels/kino/xchurch_shared.group.bin)" = \
+               "$(stat -c %s /tmp/boz-kino/extracted/levels/kino/theatre_shared.group.bin)"
+
+          # DTRZ stores the file name separately from its compressed payload.
+          # theatre_shared and xchurch_shared are deliberately the same length.
+          python3 tools/boz_mod/rename_dtrz_entry_name.py \
+            --input /tmp/boz-kino/blackops_gles1.dz \
+            --output /tmp/boz-kino/blackops_gles1.xchurch-named.dz \
+            --old theatre_shared.group.bin \
+            --new xchurch_shared.group.bin \
+            | tee boz_mod_out/kino_probe/xchurch-dtrz-rename.log
+          grep -q "XZIEL_BOZ_DTRZ_ENTRY_RENAME_OK" \
+            boz_mod_out/kino_probe/xchurch-dtrz-rename.log
 
           rm -rf /tmp/native-dz-patcher
           mkdir -p /tmp/native-dz-patcher/src
@@ -900,35 +941,84 @@ jobs:
           dzip = { path = "/tmp/dzip-rs/crates/dzip" }
           EOF
 
-          cargo run --quiet --release \
-            --manifest-path /tmp/native-dz-patcher/Cargo.toml -- \
-            /tmp/boz-kino/blackops_gles1.dz \
-            levels/kino/theatre_shared.group.bin \
-            /tmp/boz-kino/mod/levels/kino/theatre_shared.group.bin \
-            /tmp/boz-kino/blackops_gles1.patched.dz \
-            | tee boz_mod_out/kino_probe/native-dz-patch.log
+          cargo build --quiet --release \
+            --manifest-path /tmp/native-dz-patcher/Cargo.toml
+          PATCHER=/tmp/native-dz-patcher/target/release/xziel-native-dz-patcher
+          test -x "$PATCHER"
 
+          "$PATCHER" \
+            /tmp/boz-kino/blackops_gles1.xchurch-named.dz \
+            levels/kino/xchurch_shared.group.bin \
+            /tmp/xchurch-final/levels/kino/xchurch_shared.group.bin \
+            /tmp/boz-kino/blackops_gles1.xchurch-room.dz \
+            | tee boz_mod_out/kino_probe/xchurch-native-dz-room.log
           grep -q "XZIEL_BOZ_NATIVE_DZ_INPLACE_PATCH_OK" \
-            boz_mod_out/kino_probe/native-dz-patch.log
-          test -s /tmp/boz-kino/blackops_gles1.patched.dz
+            boz_mod_out/kino_probe/xchurch-native-dz-room.log
 
-          rm -rf /tmp/boz-kino/patched-check
+          "$PATCHER" \
+            /tmp/boz-kino/blackops_gles1.xchurch-room.dz \
+            levels/kino/kino_sectors.group.bin \
+            /tmp/xchurch-final/levels/kino/kino_sectors.group.bin \
+            /tmp/boz-kino/blackops_gles1.xchurch-final.dz \
+            | tee boz_mod_out/kino_probe/xchurch-native-dz-sectors.log
+          grep -q "XZIEL_BOZ_NATIVE_DZ_INPLACE_PATCH_OK" \
+            boz_mod_out/kino_probe/xchurch-native-dz-sectors.log
+
+          /tmp/dzip-rs/target/release/dzip-cli list \
+            /tmp/boz-kino/blackops_gles1.xchurch-final.dz \
+            | tee boz_mod_out/kino_probe/xchurch-final-list.txt
+          grep -Fq "levels/kino/xchurch_shared.group.bin" \
+            boz_mod_out/kino_probe/xchurch-final-list.txt
+          if grep -Fq "levels/kino/theatre_shared.group.bin" \
+            boz_mod_out/kino_probe/xchurch-final-list.txt; then
+            echo "old theatre entry still present" >&2
+            exit 1
+          fi
+
+          rm -rf /tmp/xchurch-reextract
           /tmp/dzip-rs/target/release/dzip-cli extract \
-            /tmp/boz-kino/blackops_gles1.patched.dz \
-            --output /tmp/boz-kino/patched-check \
-            > boz_mod_out/kino_probe/native-dz-reextract.log 2>&1
+            /tmp/boz-kino/blackops_gles1.xchurch-final.dz \
+            --output /tmp/xchurch-reextract \
+            > boz_mod_out/kino_probe/xchurch-final-reextract.log 2>&1
 
           cmp \
-            /tmp/boz-kino/mod/levels/kino/theatre_shared.group.bin \
-            /tmp/boz-kino/patched-check/levels/kino/theatre_shared.group.bin
+            /tmp/xchurch-final/levels/kino/xchurch_shared.group.bin \
+            /tmp/xchurch-reextract/levels/kino/xchurch_shared.group.bin
           cmp \
-            /tmp/boz-kino/extracted/levels/kino/kino.group.bin \
-            /tmp/boz-kino/patched-check/levels/kino/kino.group.bin
+            /tmp/xchurch-final/levels/kino/kino_sectors.group.bin \
+            /tmp/xchurch-reextract/levels/kino/kino_sectors.group.bin
 
-          echo "XZIEL_BOZ_REAL_ARCHIVE_MOD_ROUNDTRIP_OK" \
-            | tee boz_mod_out/kino_probe/native-dz-verify.txt
+          python3 - <<'PY' | tee boz_mod_out/kino_probe/xchurch-final-proof.txt
+          import hashlib
+          import json
+          from pathlib import Path
 
-          rm -rf /tmp/native-dz-patcher /tmp/boz-kino/patched-check
+          room=Path('/tmp/xchurch-final/levels/kino/xchurch_shared.group.bin')
+          sectors=Path('/tmp/xchurch-final/levels/kino/kino_sectors.group.bin')
+          archive=Path('/tmp/boz-kino/blackops_gles1.xchurch-final.dz')
+          model=json.loads(Path(
+              'boz_mod_out/kino_probe/xchurch-model-patch.json'
+          ).read_text(encoding='utf-8'))
+          proof={
+              'roomBytes':room.stat().st_size,
+              'roomSha256':hashlib.sha256(room.read_bytes()).hexdigest(),
+              'sectorsBytes':sectors.stat().st_size,
+              'sectorsSha256':hashlib.sha256(sectors.read_bytes()).hexdigest(),
+              'archiveBytes':archive.stat().st_size,
+              'archiveSha256':hashlib.sha256(archive.read_bytes()).hexdigest(),
+              'modelIndex':model['modelIndex'],
+              'modelVertexCount':model['vertexCount'],
+              'archiveRetained':False,
+          }
+          print(json.dumps(proof,sort_keys=True))
+          print('XZIEL_BOZ_XCHURCH_REAL_DTRZ_ROUNDTRIP_OK')
+          PY
+
+          rm -rf /tmp/native-dz-patcher /tmp/xchurch-reextract /tmp/xchurch-final
+          rm -f \
+            /tmp/boz-kino/blackops_gles1.xchurch-named.dz \
+            /tmp/boz-kino/blackops_gles1.xchurch-room.dz \
+            /tmp/boz-kino/blackops_gles1.xchurch-final.dz
 
       - name: Prepare BOZ core runtime for class scan
         shell: bash
