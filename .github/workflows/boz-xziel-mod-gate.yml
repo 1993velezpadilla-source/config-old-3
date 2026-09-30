@@ -737,6 +737,59 @@ jobs:
 
           rm -rf /tmp/theatre-extracted /tmp/theatre-patched-extracted /tmp/dade /tmp/dade-venv /tmp/xziel_mod
 
+      - name: Mutate one real theatre material and verify round-trip
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/boz-kino/mod/levels/kino
+          python3 tools/boz_mod/mutate_theatre_material.py \
+            --input /tmp/boz-kino/extracted/levels/kino/theatre_shared.group.bin \
+            --output /tmp/boz-kino/mod/levels/kino/theatre_shared.group.bin \
+            --report boz_mod_out/kino_probe/theatre-material-mutation.json \
+            | tee boz_mod_out/kino_probe/theatre-material-mutation.log
+          grep -q "XZIEL_BOZ_THEATRE_MATERIAL_MUTATION_OK" \
+            boz_mod_out/kino_probe/theatre-material-mutation.log
+
+          git clone -q https://github.com/Tatsh/dade.git /tmp/dade-verify
+          cd /tmp/dade-verify
+          git checkout -q 4b2530b1508f63b9f7df090f0dbf4030099d4ef7
+          cd "$GITHUB_WORKSPACE"
+          python3 tools/boz_mod/patch_dade_boz_resgroup.py /tmp/dade-verify
+          python3 -m venv /tmp/dade-verify-venv
+          /tmp/dade-verify-venv/bin/pip install -q -e /tmp/dade-verify
+          rm -rf /tmp/theatre-mutated-extracted
+          /tmp/dade-verify-venv/bin/dade marmalade extract-group \
+            /tmp/boz-kino/mod/levels/kino/theatre_shared.group.bin \
+            /tmp/theatre-mutated-extracted \
+            --no-delete --no-html \
+            > boz_mod_out/kino_probe/dade-theatre-mutated.log 2>&1
+
+          python3 - <<'PY' | tee boz_mod_out/kino_probe/theatre-material-roundtrip.txt
+          import json
+          from pathlib import Path
+
+          report=json.loads(Path(
+              'boz_mod_out/kino_probe/theatre-material-mutation.json'
+          ).read_text(encoding='utf-8'))
+          idx=int(report['resourceIndex'])
+          mats=Path('/tmp/theatre-mutated-extracted/CIwMaterial')
+          matches=sorted(mats.glob(f'{idx:03d}_*.json'))
+          assert matches, (idx, list(mats.glob('*.json'))[:5])
+          material=json.loads(matches[0].read_text(encoding='utf-8'))
+          expected=[255,0,255,255]
+          for channel in ('ambient','emissive','specular','colour4'):
+              got=material.get(f'colour_{channel}')
+              assert got == expected, (channel, got, matches[0])
+          print('MUTATED_JSON', matches[0].name)
+          print('RESOURCE_INDEX', idx)
+          print('COLOUR_AMBIENT', material['colour_ambient'])
+          print('COLOUR_EMISSIVE', material['colour_emissive'])
+          print('XZIEL_BOZ_THEATRE_MATERIAL_ROUNDTRIP_OK')
+          PY
+          grep -q "XZIEL_BOZ_THEATRE_MATERIAL_ROUNDTRIP_OK" \
+            boz_mod_out/kino_probe/theatre-material-roundtrip.txt
+          rm -rf /tmp/theatre-mutated-extracted /tmp/dade-verify /tmp/dade-verify-venv
+
       - name: Prepare BOZ core runtime for class scan
         shell: bash
         run: |
