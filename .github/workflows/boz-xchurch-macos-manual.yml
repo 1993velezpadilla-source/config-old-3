@@ -1,0 +1,188 @@
+name: XChurch Manual macOS ARM64 Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/boz-mod-runtime
+    paths:
+      - ".github/workflows/boz-xchurch-macos-manual.yml"
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  manual-capture:
+    runs-on: macos-14
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Verify Apple Silicon and locate Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/xchurch-manual/screens
+          uname -a | tee /tmp/xchurch-manual/host.txt
+          test "$(uname -m)" = "arm64"
+
+          ANDROID_HOME="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
+          echo "ANDROID_HOME=$ANDROID_HOME" | tee -a /tmp/xchurch-manual/host.txt
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager 2>/dev/null | sort | tail -n1)"
+          AVDMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name avdmanager 2>/dev/null | sort | tail -n1)"
+          test -x "$SDKMANAGER"
+          test -x "$AVDMANAGER"
+          echo "SDKMANAGER=$SDKMANAGER" >> "$GITHUB_ENV"
+          echo "AVDMANAGER=$AVDMANAGER" >> "$GITHUB_ENV"
+
+      - name: Download signed XChurch APK
+        uses: actions/download-artifact@v4
+        with:
+          name: XZIEL-BOZ-XChurch-APK
+          run-id: 36768068731
+          github-token: ${{ github.token }}
+          path: /tmp/xchurch-apk
+
+      - name: Prepare APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$(find /tmp/xchurch-apk -type f -name '*.apk' | head -n1)"
+          test -s "$APK"
+          cp "$APK" /tmp/xchurch-manual/xchurch.apk
+          shasum -a 256 /tmp/xchurch-manual/xchurch.apk             | tee /tmp/xchurch-manual/apk.sha256
+
+      - name: Install ARM64 emulator components
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER"             "platform-tools"             "emulator"             "system-images;android-30;google_apis;arm64-v8a"             2>&1 | tee /tmp/xchurch-manual/sdk-install.txt
+
+          test -x "$ANDROID_HOME/platform-tools/adb"
+          test -x "$ANDROID_HOME/emulator/emulator"
+          "$ANDROID_HOME/emulator/emulator" -version             | tee /tmp/xchurch-manual/emulator-version.txt
+
+      - name: Create ARM64 AVD
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ANDROID_AVD_HOME=/tmp/xchurch-avd
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo "no" | "$AVDMANAGER" create avd             --force             --name xchurch30             --package "system-images;android-30;google_apis;arm64-v8a"             --device "pixel_4"             2>&1 | tee /tmp/xchurch-manual/avd-create.txt
+          test -f "$ANDROID_AVD_HOME/xchurch30.avd/config.ini"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
+
+      - name: Boot Android and capture XChurch
+        shell: bash
+        run: |
+          set +e
+          OUT=/tmp/xchurch-manual
+          ADB="$ANDROID_HOME/platform-tools/adb"
+          EMU="$ANDROID_HOME/emulator/emulator"
+
+          "$ADB" kill-server >/dev/null 2>&1 || true
+          "$ADB" start-server >/dev/null 2>&1 || true
+
+          nohup "$EMU" @xchurch30             -no-window             -noaudio             -no-boot-anim             -no-snapshot             -gpu swiftshader_indirect             -camera-back none             > "$OUT/emulator.txt" 2>&1 &
+          EMU_PID=$!
+          echo "EMU_PID=$EMU_PID" | tee "$OUT/status.txt"
+
+          DEVICE=0
+          for i in $(seq 1 36); do
+            if ! kill -0 "$EMU_PID" 2>/dev/null; then
+              echo "EMULATOR_EXITED_EARLY" | tee -a "$OUT/status.txt"
+              break
+            fi
+            STATE="$("$ADB" get-state 2>/dev/null || true)"
+            echo "POLL_$i STATE=$STATE" >> "$OUT/status.txt"
+            if [ "$STATE" = "device" ]; then
+              DEVICE=1
+              "$ADB" exec-out screencap -p > "$OUT/screens/device_seen.png" 2>/dev/null || true
+              break
+            fi
+            sleep 5
+          done
+
+          if [ "$DEVICE" != "1" ]; then
+            echo "ADB_DEVICE_NOT_READY" | tee -a "$OUT/status.txt"
+            tail -100 "$OUT/emulator.txt" > "$OUT/emulator-tail.txt"
+            exit 0
+          fi
+
+          echo "ABI=$("$ADB" shell getprop ro.product.cpu.abi | tr -d '\r')" | tee -a "$OUT/status.txt"
+          echo "SDK=$("$ADB" shell getprop ro.build.version.sdk | tr -d '\r')" | tee -a "$OUT/status.txt"
+
+          BOOT=0
+          for i in $(seq 1 24); do
+            COMPLETE="$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')"
+            echo "BOOT_$i=$COMPLETE" >> "$OUT/status.txt"
+            "$ADB" exec-out screencap -p > "$OUT/screens/android_boot_${i}.png" 2>/dev/null || true
+            if [ "$COMPLETE" = "1" ]; then
+              BOOT=1
+              break
+            fi
+            sleep 5
+          done
+
+          echo "ANDROID_BOOT_COMPLETE=$BOOT" | tee -a "$OUT/status.txt"
+
+          "$ADB" install -r -d "$OUT/xchurch.apk" > "$OUT/install.txt" 2>&1
+          INSTALL_RC=$?
+          echo "INSTALL_RC=$INSTALL_RC" | tee -a "$OUT/status.txt"
+          cat "$OUT/install.txt" | tee -a "$OUT/status.txt"
+
+          "$ADB" exec-out screencap -p > "$OUT/screens/post_install.png" 2>/dev/null || true
+
+          if [ "$INSTALL_RC" -ne 0 ]; then
+            "$ADB" logcat -d > "$OUT/logcat.txt" 2>&1
+            exit 0
+          fi
+
+          "$ADB" logcat -c
+          "$ADB" shell am force-stop com.activision.boz >/dev/null 2>&1 || true
+          "$ADB" shell am start -W -n com.activision.boz/.Main > "$OUT/launch.txt" 2>&1
+          LAUNCH_RC=$?
+          echo "LAUNCH_RC=$LAUNCH_RC" | tee -a "$OUT/status.txt"
+          cat "$OUT/launch.txt" | tee -a "$OUT/status.txt"
+
+          for sec in 3 8 15 30; do
+            sleep "$sec"
+            "$ADB" exec-out screencap -p > "$OUT/screens/app_${sec}s.png" 2>/dev/null || true
+            PID="$("$ADB" shell pidof com.activision.boz 2>/dev/null | tr -d '\r\n')"
+            echo "APP_${sec}s_PID=$PID" >> "$OUT/status.txt"
+          done
+
+          "$ADB" logcat -d > "$OUT/logcat.txt" 2>&1
+          "$ADB" shell dumpsys activity activities > "$OUT/activities.txt" 2>&1
+          "$ADB" shell dumpsys window windows > "$OUT/window.txt" 2>&1
+          grep -Eai             'FATAL EXCEPTION|Fatal signal|SIGSEGV|SIGABRT|UnsatisfiedLinkError|dlopen failed|Process com.activision.boz.*died|Marmalade|s3e'             "$OUT/logcat.txt" > "$OUT/runtime-markers.txt" || true
+
+          kill "$EMU_PID" >/dev/null 2>&1 || true
+          exit 0
+
+      - name: Summarize evidence
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          echo "=== STATUS ==="
+          cat /tmp/xchurch-manual/status.txt 2>/dev/null || true
+          echo "=== SCREENS ==="
+          ls -lh /tmp/xchurch-manual/screens 2>/dev/null || true
+          echo "=== RUNTIME MARKERS ==="
+          tail -100 /tmp/xchurch-manual/runtime-markers.txt 2>/dev/null || true
+          echo "=== EMULATOR TAIL ==="
+          tail -100 /tmp/xchurch-manual/emulator.txt 2>/dev/null || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: XChurch-Manual-macOS-ARM64-Proof
+          path: /tmp/xchurch-manual/
+          if-no-files-found: error
+          retention-days: 14
