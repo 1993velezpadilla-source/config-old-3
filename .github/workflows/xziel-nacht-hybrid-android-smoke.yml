@@ -15,7 +15,7 @@ permissions:
 jobs:
   smoke:
     name: ARM64 direct-boot smoke
-    runs-on: ubuntu-latest
+    runs-on: macos-14
     timeout-minutes: 60
 
     steps:
@@ -28,7 +28,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          SOURCE_RUN=36644992490
+          SOURCE_RUN=36647907664
           gh run watch "$SOURCE_RUN" \
             --repo "${{ github.repository }}" \
             --exit-status
@@ -101,6 +101,18 @@ jobs:
                   "assets/nacht-onefile.exe",
                   "assets/licenses/WINLATOR-LGPL-2.1.txt",
                   "assets/licenses/XZIEL-HYBRID-NOTICE.txt",
+                  "assets/xziel_hud/hud_ads.webp",
+                  "assets/xziel_hud/hud_ads_fire.webp",
+                  "assets/xziel_hud/hud_claw.webp",
+                  "assets/xziel_hud/hud_crouch.webp",
+                  "assets/xziel_hud/hud_fire.webp",
+                  "assets/xziel_hud/hud_grenade.webp",
+                  "assets/xziel_hud/hud_knife.webp",
+                  "assets/xziel_hud/hud_prone.webp",
+                  "assets/xziel_hud/hud_reload.webp",
+                  "assets/xziel_hud/hud_slide.webp",
+                  "assets/xziel_hud/hud_sprint.webp",
+                  "assets/xziel_hud/hud_swap.webp",
               ]
               for name in required:
                   assert name in names, name
@@ -130,11 +142,10 @@ jobs:
           target: default
           arch: arm64-v8a
           cores: 2
-          ram-size: 4096M
+          ram-size: 3072M
           heap-size: 512M
-          disk-size: 14G
-          emulator-boot-timeout: 1800
-          disable-linux-hw-accel: true
+          disk-size: 10G
+          emulator-boot-timeout: 900
           disable-animations: true
           emulator-options: >-
             -no-window
@@ -144,7 +155,7 @@ jobs:
             -gpu swiftshader_indirect
             -camera-back none
             -camera-front none
-            -memory 4096
+            -memory 3072
           script: |
             bash scripts/smoke_xziel_nacht_hybrid_android.sh "$XZIEL_APK" dist/android-hybrid-smoke
 
