@@ -62,8 +62,13 @@ jobs:
           "$SDKMANAGER" "build-tools;35.0.0" "platform-tools" >/dev/null
 
           expected_apk_sha="$(awk '{print $1}' "$XZIEL_APK_SHA_FILE")"
-          actual_apk_sha="$(sha256sum "$XZIEL_APK" | awk '{print $1}')"
+          if command -v sha256sum >/dev/null 2>&1; then
+            actual_apk_sha="$(sha256sum "$XZIEL_APK" | awk '{print $1}')"
+          else
+            actual_apk_sha="$(shasum -a 256 "$XZIEL_APK" | awk '{print $1}')"
+          fi
           test "$actual_apk_sha" = "$expected_apk_sha"
+          echo "XZIEL_APK_SHA_GREEN sha256=$actual_apk_sha"
 
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify \
             --verbose --print-certs "$XZIEL_APK" \
