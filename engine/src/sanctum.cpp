@@ -80,6 +80,190 @@ makeSanctumGameplayProfile() noexcept {
     return profile;
 }
 
+SurvivalContentDefinition
+makeSanctumSurvivalContent(
+    const SanctumSurvivalAnchors& anchors) noexcept {
+    SurvivalContentDefinition content{};
+    content.rules =
+        makeSanctumGameplayProfile().survival;
+
+    content.perks[0] = {
+        .id = kSanctumPerkFortitudeId,
+        .effect = SurvivalPerkEffect::Fortitude,
+        .cost = 2500U,
+        .magnitude = 1.5f,
+    };
+    content.perks[1] = {
+        .id = kSanctumPerkQuickHandsId,
+        .effect = SurvivalPerkEffect::QuickHands,
+        .cost = 3000U,
+        .magnitude = 0.72f,
+    };
+    content.perks[2] = {
+        .id = kSanctumPerkEnduranceId,
+        .effect = SurvivalPerkEffect::Endurance,
+        .cost = 2000U,
+        .magnitude = 1.12f,
+    };
+    content.perks[3] = {
+        .id = kSanctumPerkSecondChanceId,
+        .effect = SurvivalPerkEffect::SecondChance,
+        .cost = 1500U,
+        .magnitude = 0.70f,
+    };
+    content.perks[4] = {
+        .id = kSanctumPerkRapidFireId,
+        .effect = SurvivalPerkEffect::RapidFire,
+        .cost = 3000U,
+        .magnitude = 0.86f,
+    };
+    content.perks[5] = {
+        .id = kSanctumPerkPrecisionId,
+        .effect = SurvivalPerkEffect::Precision,
+        .cost = 2500U,
+        .magnitude = 1.35f,
+    };
+    content.perks[6] = {
+        .id = kSanctumPerkArsenalId,
+        .effect = SurvivalPerkEffect::Arsenal,
+        .cost = 3500U,
+        .magnitude = 1.0f,
+    };
+    content.perks[7] = {
+        .id = kSanctumPerkBlastGuardId,
+        .effect = SurvivalPerkEffect::BlastGuard,
+        .cost = 2000U,
+        .magnitude = 0.55f,
+    };
+    content.perkCount = 8U;
+
+    content.weaponPool[0] = {
+        .weaponId = kSanctumWeaponSidearmId,
+        .weight = 10U,
+        .minimumRound = 1U,
+    };
+    content.weaponPool[1] = {
+        .weaponId = kSanctumWeaponSubmachineGunId,
+        .weight = 18U,
+        .minimumRound = 1U,
+    };
+    content.weaponPool[2] = {
+        .weaponId = kSanctumWeaponAssaultRifleId,
+        .weight = 16U,
+        .minimumRound = 1U,
+    };
+    content.weaponPool[3] = {
+        .weaponId = kSanctumWeaponShotgunId,
+        .weight = 14U,
+        .minimumRound = 1U,
+    };
+    content.weaponPool[4] = {
+        .weaponId = kSanctumWeaponMarksmanRifleId,
+        .weight = 10U,
+        .minimumRound = 3U,
+    };
+    content.weaponPool[5] = {
+        .weaponId = kSanctumWeaponLightMachineGunId,
+        .weight = 7U,
+        .minimumRound = 5U,
+    };
+    content.weaponPool[6] = {
+        .weaponId = kSanctumWeaponSniperRifleId,
+        .weight = 5U,
+        .minimumRound = 6U,
+    };
+    content.weaponPoolCount = 7U;
+
+    content.consumables[0] = {
+        .id = kSanctumConsumableFullAmmoId,
+        .effect = SurvivalConsumableEffect::GrantPowerUp,
+        .powerUp = SurvivalPowerUpKind::FullAmmo,
+        .durationSeconds = 0.0f,
+        .weight = 3U,
+    };
+    content.consumables[1] = {
+        .id = kSanctumConsumableDoubleScoreId,
+        .effect = SurvivalConsumableEffect::GrantPowerUp,
+        .powerUp = SurvivalPowerUpKind::DoubleScore,
+        .durationSeconds = 30.0f,
+        .weight = 2U,
+    };
+    content.consumableCount = 2U;
+
+    const auto addStation =
+        [&](std::uint32_t id,
+            SurvivalStationKind kind,
+            Vec3 position,
+            std::uint32_t cost,
+            std::uint32_t contentId) noexcept {
+            if (content.stationCount >=
+                content.stations.size()) {
+                return;
+            }
+
+            content.stations[
+                content.stationCount++] = {
+                .id = id,
+                .kind = kind,
+                .position = position,
+                .cost = cost,
+                .contentId = contentId,
+                .maximumDistance = 1.75f,
+                .minimumFacingDot = 0.12f,
+                .priority = 1.20f,
+                .holdSeconds = 0.16f,
+                .enabled = true,
+            };
+        };
+
+    if (anchors.hasWallWeapon) {
+        addStation(
+            kSanctumWallWeaponStationId,
+            SurvivalStationKind::WallWeapon,
+            anchors.wallWeapon,
+            900U,
+            kSanctumWeaponSubmachineGunId);
+    }
+
+    if (anchors.hasRandomArsenal) {
+        addStation(
+            kSanctumRandomArsenalStationId,
+            SurvivalStationKind::RandomWeapon,
+            anchors.randomArsenal,
+            0U,
+            0U);
+    }
+
+    if (anchors.hasReliquary) {
+        addStation(
+            kSanctumReliquaryStationId,
+            SurvivalStationKind::Perk,
+            anchors.reliquary,
+            0U,
+            kSanctumPerkFortitudeId);
+    }
+
+    if (anchors.hasWeaponUpgrade) {
+        addStation(
+            kSanctumWeaponUpgradeStationId,
+            SurvivalStationKind::WeaponUpgrade,
+            anchors.weaponUpgrade,
+            0U,
+            0U);
+    }
+
+    if (anchors.hasVotive) {
+        addStation(
+            kSanctumVotiveStationId,
+            SurvivalStationKind::Consumable,
+            anchors.votive,
+            500U,
+            0U);
+    }
+
+    return content;
+}
+
 namespace {
 
 constexpr std::size_t presenceIndex(
