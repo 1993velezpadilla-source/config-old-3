@@ -100,11 +100,11 @@ jobs:
           activity = Path("build/android-project/app/src/main/java/org/libsdl/app/NZPActivity.java")
           text = activity.read_text(encoding="utf-8")
           pattern = re.compile(
-              r'(return\\s+new\\s+String\\[\\]\\s*\\{\\s*"-basedir"\\s*,\\s*dataRoot\\.getAbsolutePath\\(\\)\\s*)(\\};)',
+              r'(return\s+new\s+String\[\]\s*\{\s*"-basedir"\s*,\s*dataRoot\.getAbsolutePath\(\)\s*)(\};)',
               re.MULTILINE,
           )
           text, count = pattern.subn(
-              r'\\1,\\n            "+map", "xziel_proto"\\n        \\2',
+              r'\1,\n            "+map", "xziel_proto"\n        \2',
               text,
               count=1,
           )
