@@ -65,6 +65,21 @@ jobs:
           print("BLOCKOUT_NON_SHIPPABLE_GATE_OK")
           PY
 
+      - name: Build Gothic Main Nave art prototype
+        shell: bash
+        env:
+          CHURCH_V1_OUT: church_v1/out
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: |
+          set -euo pipefail
+          xvfb-run -a -s "-screen 0 1600x1000x24" \
+            blender --background --python tools/church_v1/build_nave_art_v1.py \
+            2>&1 | tee church_v1/out/nave-art-v1-build.log
+          test -s church_v1/out/nave_art_v1_player.png
+          test -s church_v1/out/nave_art_v1_side.png
+          test -s church_v1/out/church_v1_nave_art_prototype.glb
+          test -s church_v1/out/nave_art_v1_report.json
+
       - name: Validate authored final art when present
         shell: bash
         env:
