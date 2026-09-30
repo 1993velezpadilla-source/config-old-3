@@ -62,12 +62,24 @@ def render(obj: Path, out: Path, yaw_deg: float, pitch_deg: float, title: str):
         depth.append((z,f))
     depth.sort(reverse=True)
 
-    for z,f in depth:
-        p=[pt(rv[i]) for i in f]
-        # depth-only grayscale shading so the geometry itself remains the evidence.
-        shade=int(max(50,min(190,120+z/span*90)))
-        draw.polygon(p,fill=(shade,shade,shade))
-        draw.line(p+[p[0]],fill=(28,28,30),width=1)
+    if depth:
+        for z,f in depth:
+            p=[pt(rv[i]) for i in f]
+            # depth-only grayscale shading so the geometry itself remains the evidence.
+            shade=int(max(50,min(190,120+z/span*90)))
+            draw.polygon(p,fill=(shade,shade,shade))
+            draw.line(p+[p[0]],fill=(28,28,30),width=1)
+    else:
+        # Some BOZ CIwModel variants expose vertex blocks but the current
+        # decoder cannot recover the triangle-list block. Show the real
+        # projected vertex cloud instead of returning a misleading blank frame.
+        order=sorted(range(len(rv)), key=lambda i: rv[i][2], reverse=True)
+        for i in order:
+            x,y=pt(rv[i])
+            z=rv[i][2]
+            shade=int(max(80,min(235,155+z/span*100)))
+            r=2
+            draw.ellipse((x-r,y-r,x+r,y+r),fill=(shade,shade,shade))
 
     draw.rectangle((0,0,W,72),fill=(7,8,10))
     draw.text((28,18),title,fill=(240,240,240))
