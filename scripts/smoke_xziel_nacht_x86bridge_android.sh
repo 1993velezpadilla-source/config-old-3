@@ -71,14 +71,20 @@ for i in $(seq 1 36); do
 
       adb shell am force-stop ${XZIEL_PACKAGE} || true
 
-      # Prefer a native Android/Bionic PIE build when the CI builder provides
-      # one. It must be executed directly by Android's linker64. Older glibc
-      # PIE builds still use the explicit rootfs loader fallback.
+      # Execute PIE according to its actual ELF runtime contract.
+      # Bionic PIE has /system/bin/linker64 and is launched directly.
+      # glibc static-PIE has no INTERP at all and must also be launched directly.
+      # Only dynamically linked glibc PIE needs the explicit rootfs loader.
       if readelf -l "$XZIEL_BOX64_PIE" 2>/dev/null | grep -q '/system/bin/linker64'; then
         adb shell "run-as ${XZIEL_PACKAGE} sh -c 'cat > files/rootfs/usr/local/bin/box64'" < "$XZIEL_BOX64_PIE"
         adb shell run-as ${XZIEL_PACKAGE} chmod 700 files/rootfs/usr/local/bin/box64
         adb shell run-as ${XZIEL_PACKAGE} ls -l files/rootfs/usr/local/bin/box64 | tee "$OUT/box64-pie-installed.txt"
         echo "XZIEL_X86BRIDGE_BIONIC_PIE_BOX64_INJECTED"
+      elif ! readelf -l "$XZIEL_BOX64_PIE" 2>/dev/null | grep -q 'INTERP'; then
+        adb shell "run-as ${XZIEL_PACKAGE} sh -c 'cat > files/rootfs/usr/local/bin/box64'" < "$XZIEL_BOX64_PIE"
+        adb shell run-as ${XZIEL_PACKAGE} chmod 700 files/rootfs/usr/local/bin/box64
+        adb shell run-as ${XZIEL_PACKAGE} ls -l files/rootfs/usr/local/bin/box64 | tee "$OUT/box64-pie-installed.txt"
+        echo "XZIEL_X86BRIDGE_GLIBC_STATIC_PIE_BOX64_INJECTED"
       else
         adb shell "run-as ${XZIEL_PACKAGE} sh -c 'cat > files/rootfs/usr/local/bin/box64.real'" < "$XZIEL_BOX64_PIE"
         adb shell run-as ${XZIEL_PACKAGE} chmod 700 files/rootfs/usr/local/bin/box64.real
