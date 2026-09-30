@@ -1,0 +1,61 @@
+name: XZIEL Current APK Static Probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - experiment/xziel-nacht-win64-exe-v1
+    paths:
+      - ".github/workflows/xziel-current-apk-static-probe.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download rewritten APK
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p input
+          gh run download 36656326518 \
+            --repo "${{ github.repository }}" \
+            --name "XZIEL-Nacht-Hybrid-TouchGyro-PixelFold" \
+            --dir input
+          APK="$(find input -type f -name '*.apk' -print -quit)"
+          test -n "$APK" -a -s "$APK"
+          echo "APK=$APK" >> "$GITHUB_ENV"
+
+      - name: Dump exact package and contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n1)"
+          test -x "$AAPT"
+          "$AAPT" dump badging "$APK" | tee badging.txt
+          package="$("$AAPT" dump badging "$APK" | sed -n "s/^package: name='\([^']*\)'.*/\1/p" | head -n1)"
+          activity="$("$AAPT" dump badging "$APK" | sed -n "s/^launchable-activity: name='\([^']*\)'.*/\1/p" | head -n1)"
+          echo "XZIEL_EXACT_APK_PACKAGE=$package"
+          echo "XZIEL_EXACT_APK_ACTIVITY=$activity"
+          unzip -p "$APK" assets/xziel/control-contract.txt | tee control-contract.txt
+          test "$package" = "com.xzielapp"
+          test "$activity" = "com.winlator.XzielBootActivity"
+          grep -q '^application_id=com.xzielapp$' control-contract.txt
+          grep -q '^runtime_package_paths_rewritten=1$' control-contract.txt
+          echo "XZIEL_EXACT_APK_STATIC_GREEN"
+
+      - name: Upload static proof
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Current-APK-Static-Proof
+          path: |
+            badging.txt
+            control-contract.txt
+          if-no-files-found: warn
