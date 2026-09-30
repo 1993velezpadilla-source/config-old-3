@@ -635,7 +635,7 @@ jobs:
           grep -q "XZIEL_BOZ_RESOURCE_INVENTORY_OK" boz_mod_out/kino_probe/resource-inventory.log
           test -s boz_mod_out/kino_probe/resource-inventory.json
 
-      - name: Test modern Marmalade resource extractor on theatre
+      - name: Extract real theatre resources to open formats
         shell: bash
         run: |
           set -euo pipefail
@@ -643,21 +643,18 @@ jobs:
           cd /tmp/dade
           git checkout 4b2530b1508f63b9f7df090f0dbf4030099d4ef7
           test "$(git rev-parse HEAD)" = "4b2530b1508f63b9f7df090f0dbf4030099d4ef7"
-          python3 -m venv /tmp/dade-venv
-          /tmp/dade-venv/bin/pip install -q -e .
           cd "$GITHUB_WORKSPACE"
+          python3 tools/boz_mod/patch_dade_boz_resgroup.py /tmp/dade
+          python3 -m venv /tmp/dade-venv
+          /tmp/dade-venv/bin/pip install -q -e /tmp/dade
           rm -rf /tmp/theatre-extracted
-          set +e
           /tmp/dade-venv/bin/dade marmalade extract-group \
             /tmp/boz-kino/extracted/levels/kino/theatre_shared.group.bin \
             /tmp/theatre-extracted \
             --no-delete --no-html \
-            > boz_mod_out/kino_probe/dade-theatre.log 2>&1
-          rc=$?
-          set -e
-          echo "DADE_EXIT=$rc" | tee -a boz_mod_out/kino_probe/dade-theatre.log
-          if [[ $rc -eq 0 ]]; then
-            python3 - <<'PY' | tee boz_mod_out/kino_probe/dade-theatre-summary.txt
+            2>&1 | tee boz_mod_out/kino_probe/dade-theatre.log
+
+          python3 - <<'PY' | tee boz_mod_out/kino_probe/dade-theatre-summary.txt
           from pathlib import Path
           root=Path('/tmp/theatre-extracted')
           exts={}
@@ -670,14 +667,20 @@ jobs:
           print('FILES', total)
           for k,v in sorted(exts.items()):
               print('EXT', k or '<none>', v)
+          counts={}
           for cls in ['CIwTexture','CIwMaterial','CIwModel']:
               d=root/cls
-              print('CLASS',cls,'FILES',sum(1 for p in d.glob('*') if p.is_file()) if d.exists() else 0)
+              count=sum(1 for p in d.glob('*') if p.is_file()) if d.exists() else 0
+              counts[cls]=count
+              print('CLASS',cls,'FILES',count)
+          assert counts['CIwTexture'] >= 13, counts
+          assert counts['CIwMaterial'] >= 91, counts
+          assert counts['CIwModel'] >= 39, counts
+          assert exts.get('.obj',0) > 0, exts
+          assert exts.get('.json',0) > 0, exts
+          print('XZIEL_BOZ_THEATRE_OPEN_FORMAT_EXTRACT_OK')
           PY
-          else
-            echo "DADE_THEATRE_EXTRACT_FAILED_EXPECTED_VARIANT" | tee boz_mod_out/kino_probe/dade-theatre-summary.txt
-            tail -n 80 boz_mod_out/kino_probe/dade-theatre.log
-          fi
+
           rm -rf /tmp/theatre-extracted /tmp/dade /tmp/dade-venv
 
       - name: Identify Marmalade runtime resource classes
