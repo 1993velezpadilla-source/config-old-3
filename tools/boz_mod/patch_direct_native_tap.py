@@ -11,11 +11,11 @@ INSERTION = r'''
     // MultiTouch.onTouchEvent() normally forwards to LoaderThread.
     // This bypasses adb/input-device quirks while preserving the BOZ native
     // input path itself.
-    override fun onNewIntent(intent: Intent?) {
+    override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
 
-        if (intent?.getBooleanExtra("xzielDirectTap", false) == true) {
+        if (intent.getBooleanExtra("xzielDirectTap", false)) {
             val x = intent.getIntExtra("xzielX", 1140)
             val y = intent.getIntExtra("xzielY", 540)
 
@@ -58,7 +58,7 @@ def main() -> int:
     p.write_text(text, encoding="utf-8")
 
     verify = p.read_text(encoding="utf-8")
-    assert "override fun onNewIntent(intent: Intent?)" in verify
+    assert "override fun onNewIntent(intent: Intent)" in verify
     assert "LoaderThread().onMotionEvent(0, 4, x, y)" in verify
     assert "LoaderThread().onMotionEvent(0, 5, x, y)" in verify
     assert MARKER in verify
