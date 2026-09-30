@@ -61,6 +61,20 @@ for i in $(seq 1 180); do
     fi
   done
 
+  if grep -q 'XZIEL-HYBRID.*GUEST_EXIT' "$OUT/logcat.txt"; then
+    last_marker="GUEST_EXIT"
+    failed=1
+    echo "XZIEL_X86BRIDGE_GUEST_EXIT_DETECTED"
+    break
+  fi
+
+  if grep -q 'XZIEL-PROCESS.*exec failed' "$OUT/logcat.txt"; then
+    last_marker="PROCESS_EXEC_FAILED"
+    failed=1
+    echo "XZIEL_X86BRIDGE_PROCESS_EXEC_FAILED"
+    break
+  fi
+
   printf 'probe=%s last_marker=%s\n' "$i" "$last_marker"
 
   if [[ "$last_marker" == "FIRST_RENDERABLE_WINDOW" ]]; then
