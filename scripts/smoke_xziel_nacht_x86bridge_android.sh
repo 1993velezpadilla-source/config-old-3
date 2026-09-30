@@ -213,7 +213,11 @@ EOF
       # initialization. Keep Box64 tracing off here: per-call tracing inflated
       # the server log to tens of MB and made registry import artificially slow.
       # Give the same quiet server a bounded first-prefix warmup.
-      timeout 240s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_NOBANNER=1 BOX64_LOG=1 BOX64_DLSYM_ERROR=1 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEDEBUG=+font WINEESYNC=0 WINEFSYNC=0 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wine cmd /c ver; rc=\$?; echo XZIEL_PRESTARTED_CMD_STATUS=\$rc; exit \$rc'" \
+      echo "XZIEL_X86BRIDGE_DIRECT_CMD_EXE_PROBE"
+      adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; CMD=\$ROOT/home/xuser/.wine/drive_c/windows/system32/cmd.exe; ls -l \$CMD; test -s \$CMD'" \
+        > "$OUT/cmd-exe-state.txt" 2>&1 || true
+      cat "$OUT/cmd-exe-state.txt" || true
+      timeout 240s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; CMD=\$ROOT/home/xuser/.wine/drive_c/windows/system32/cmd.exe; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_NOBANNER=1 BOX64_LOG=1 BOX64_DLSYM_ERROR=1 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEDEBUG=+process,+server,+module,+seh WINEESYNC=0 WINEFSYNC=0 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wine \$CMD /c ver; rc=\$?; echo XZIEL_PRESTARTED_CMD_STATUS=\$rc; exit \$rc'" \
         > "$OUT/wine-with-prestarted-server.txt" 2>&1 || true
 
       adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-wineserver-fg.log > "$OUT/wineserver-fg.log" 2>/dev/null || true
