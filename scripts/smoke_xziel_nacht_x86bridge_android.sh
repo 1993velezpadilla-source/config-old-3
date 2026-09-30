@@ -400,20 +400,35 @@ echo "XZIEL_EXACT_PROBE_WINHANDLER_STATUS=$?"
 echo XZIEL_EXACT_PROBE_WINHANDLER_END
 
 echo XZIEL_EXACT_PROBE_NACHT_DIRECT_BEGIN
-timeout 20 "$ROOT/usr/local/bin/box64" "$ROOT/opt/wine/bin/wine" 'C:\XZIEL\Nacht-Chronicles-XZIEL.exe' &
+# The one-file payload is ~888 MB and interpreter-only Box64 can spend well
+# beyond 20s in PE/bootstrap I/O. Keep it alive long enough to distinguish a
+# real bootstrap from the old immediate status=1 launcher failure.
+timeout 90 "$ROOT/usr/local/bin/box64" "$ROOT/opt/wine/bin/wine" 'C:\XZIEL\Nacht-Chronicles-XZIEL.exe' &
 nacht_probe_pid=$!
-sleep 5
 echo "XZIEL_NACHT_DIRECT_HOST_PID=$nacht_probe_pid"
-ps -A | grep -E 'box64|wine|wineserver|Nacht|winhandler' || true
+elapsed=0
+for step in 5 10 15 30 30; do
+  sleep "$step"
+  elapsed=$((elapsed + step))
+  echo "XZIEL_NACHT_DIRECT_SAMPLE seconds=$elapsed"
+  ps -A | grep -E 'box64|wine|wineserver|Nacht|winhandler' || true
+  echo "XZIEL_NACHT_DIRECT_TMP_CENSUS seconds=$elapsed"
+  find "$ROOT/tmp" "$ROOT/home/xuser/.wine/drive_c/XZIEL" -maxdepth 3 -type f -mmin -3 -print 2>/dev/null | head -n 120 || true
+  kill -0 "$nacht_probe_pid" 2>/dev/null || break
+done
 wait "$nacht_probe_pid"
 nacht_status=$?
 echo "XZIEL_EXACT_PROBE_NACHT_DIRECT_STATUS=$nacht_status"
+if [ "$nacht_status" = "124" ]; then
+  echo XZIEL_NACHT_DIRECT_ALIVE_TO_TIMEOUT
+fi
 echo XZIEL_EXACT_PROBE_NACHT_DIRECT_END
 EOF
-      timeout 70s adb shell run-as ${XZIEL_PACKAGE} sh < "$OUT/xziel-exact-launch-probe.sh" \
+      timeout 150s adb shell run-as ${XZIEL_PACKAGE} sh < "$OUT/xziel-exact-launch-probe.sh" \
         > "$OUT/exact-launch-probe.txt" 2>&1 || true
+      adb exec-out screencap -p > "$OUT/nacht-direct-screen.png" 2>/dev/null || true
       echo "XZIEL_X86BRIDGE_EXACT_LAUNCH_PROBE"
-      tail -n 1600 "$OUT/exact-launch-probe.txt" || true
+      tail -n 5000 "$OUT/exact-launch-probe.txt" || true
     fi
 
     last_marker="GUEST_EXIT"
