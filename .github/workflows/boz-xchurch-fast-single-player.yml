@@ -88,6 +88,7 @@ jobs:
           echo "INSTALL_RC=$?" | tee -a "$OUT/status.txt"
           "$ADB" shell pm grant com.activision.boz android.permission.WRITE_EXTERNAL_STORAGE 2>/dev/null || true
           "$ADB" shell pm grant com.activision.boz android.permission.READ_EXTERNAL_STORAGE 2>/dev/null || true
+          "$ADB" shell appops set com.activision.boz MANAGE_EXTERNAL_STORAGE allow 2>/dev/null || true
           "$ADB" shell mkdir -p /sdcard/Android/obb/com.activision.boz 2>/dev/null || true
 
           "$ADB" logcat -c
