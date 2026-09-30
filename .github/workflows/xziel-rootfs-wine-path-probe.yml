@@ -1,0 +1,63 @@
+name: XZIEL RootFS Wine Path Probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - experiment/xziel-nacht-win64-exe-v1
+    paths:
+      - ".github/workflows/xziel-rootfs-wine-path-probe.yml"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v4
+
+      - name: Download linker-fixed hybrid APK
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          SOURCE_RUN=36654775012
+          mkdir -p input/apk dist/rootfs-probe
+          gh run download "$SOURCE_RUN" \
+            --repo "${{ github.repository }}" \
+            --name "XZIEL-Nacht-Hybrid-TouchGyro-PixelFold" \
+            --dir input/apk
+          APK="$(find input/apk -type f -name 'XZIEL-Nacht-Hybrid-TouchGyro-PixelFold-debug.apk' -print -quit)"
+          test -n "$APK" && test -s "$APK"
+          echo "APK=$APK" >> "$GITHUB_ENV"
+
+      - name: Inspect embedded RootFS Wine runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq zstd
+          echo "=== rootfs asset ===" | tee dist/rootfs-probe/paths.txt
+          unzip -l "$APK" | grep -E 'rootfs.*\.tzst|rootfs.*\.tar|rootfs' | tee -a dist/rootfs-probe/paths.txt
+
+          ROOTFS_ENTRY="$(unzip -Z1 "$APK" | grep -E '(^|/)rootfs\.tzst$' | head -n1)"
+          test -n "$ROOTFS_ENTRY"
+          echo "entry=$ROOTFS_ENTRY" | tee -a dist/rootfs-probe/paths.txt
+          unzip -p "$APK" "$ROOTFS_ENTRY" > dist/rootfs-probe/rootfs.tzst
+          test -s dist/rootfs-probe/rootfs.tzst
+
+          echo "=== matching rootfs paths ===" | tee -a dist/rootfs-probe/paths.txt
+          tar --zstd -tf dist/rootfs-probe/rootfs.tzst \
+            | grep -E '(^|/)(ld-linux-x86-64\.so\.2|wine|wine64)$|/opt/wine/.*/wine(64)?$|/opt/wine/bin/' \
+            | tee -a dist/rootfs-probe/paths.txt
+
+          echo "XZIEL_ROOTFS_WINE_PATH_PROBE_GREEN"
+
+      - name: Upload RootFS path proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-RootFS-Wine-Path-Proof
+          path: dist/rootfs-probe/paths.txt
+          retention-days: 14
