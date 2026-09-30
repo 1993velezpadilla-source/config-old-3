@@ -1047,8 +1047,14 @@ post_env_insert = '''        if (this.envVars != null) envVars.putAll(this.envVa
         if (xzielX86Bridge) {
             envVars.remove("LD_LIBRARY_PATH");
             envVars.put("XZIEL_GUEST_CAPTURE_PATH", rootDir+"/tmp/xziel-guest-output.log");
+            envVars.put("BOX64_LOG", "2");
+            envVars.put("WINEDEBUG", "+process,+server,+module");
             Log.i("XZIEL-HYBRID", "X86_BRIDGE_HOST_LD_LIBRARY_PATH_REMOVED_FINAL");
+            Log.i("XZIEL-HYBRID", "X86_BRIDGE_GUEST_TRACE box64=2 wine=process,server,module");
             Log.i("XZIEL-HYBRID", "GUEST_FILE_CAPTURE path=" + rootDir + "/tmp/xziel-guest-output.log");
+            Log.i("XZIEL-HYBRID", "GUEST_ENV prefix=" + envVars.get("WINEPREFIX") +
+                    " path=" + envVars.get("PATH") +
+                    " box64ld=" + envVars.get("BOX64_LD_LIBRARY_PATH"));
         }
 
         File shmDir = new File(rootDir, "/tmp/shm");
