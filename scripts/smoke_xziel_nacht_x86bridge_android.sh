@@ -70,10 +70,24 @@ for i in $(seq 1 36); do
       sha256sum "$XZIEL_BOX64_PIE" | tee "$OUT/box64-pie-injected.sha256"
 
       adb shell am force-stop ${XZIEL_PACKAGE} || true
-      adb shell "run-as ${XZIEL_PACKAGE} sh -c 'cat > files/rootfs/usr/local/bin/box64'" < "$XZIEL_BOX64_PIE"
+
+      # Keep the glibc-linked PIE binary separate and invoke it through the
+      # rootfs glibc loader. Executing it directly makes Android's Bionic
+      # linker try to resolve Winlator's glibc libc.so.6.
+      adb shell "run-as ${XZIEL_PACKAGE} sh -c 'cat > files/rootfs/usr/local/bin/box64.real'" < "$XZIEL_BOX64_PIE"
+      adb shell run-as ${XZIEL_PACKAGE} chmod 700 files/rootfs/usr/local/bin/box64.real
+
+      cat > "$OUT/box64-glibc-wrapper.sh" <<'EOF'
+#!/system/bin/sh
+ROOT=/data/data/com.xzielapp/files/rootfs
+exec "$ROOT/lib/ld-linux-aarch64.so.1" \
+  --library-path "$ROOT/lib:$ROOT/usr/lib" \
+  "$ROOT/usr/local/bin/box64.real" "$@"
+EOF
+      adb shell "run-as ${XZIEL_PACKAGE} sh -c 'cat > files/rootfs/usr/local/bin/box64'" < "$OUT/box64-glibc-wrapper.sh"
       adb shell run-as ${XZIEL_PACKAGE} chmod 700 files/rootfs/usr/local/bin/box64
-      adb shell run-as ${XZIEL_PACKAGE} ls -l files/rootfs/usr/local/bin/box64 | tee "$OUT/box64-pie-installed.txt"
-      echo "XZIEL_X86BRIDGE_PIE_BOX64_INJECTED"
+      adb shell run-as ${XZIEL_PACKAGE} ls -l files/rootfs/usr/local/bin/box64 files/rootfs/usr/local/bin/box64.real | tee "$OUT/box64-pie-installed.txt"
+      echo "XZIEL_X86BRIDGE_GLIBC_LOADER_WRAPPER_INJECTED"
 
       adb logcat -c
       adb shell am start -W -n ${XZIEL_PACKAGE}/com.winlator.XzielBootActivity | tee "$OUT/am-restart-pie.txt"
@@ -110,7 +124,7 @@ done
 
 adb shell df -h /data | tee "$OUT/data-after-boot.txt" || true
 adb shell ps -A | grep -E 'xziel|winlator|box64|wine' | tee "$OUT/processes.txt" || true
-adb shell dumpsys activity activities   | grep -E 'mResumedActivity|topResumedActivity|${XZIEL_PACKAGE}'   | tee "$OUT/activity-final.txt" || true
+adb shell dumpsys activity activities   | grep -E "mResumedActivity|topResumedActivity|${XZIEL_PACKAGE}"   | tee "$OUT/activity-final.txt" || true
 
 adb shell run-as ${XZIEL_PACKAGE} sh -c 'find files/rootfs -type f \( -name "ld-linux-x86-64.so.2" -o -name "ld-linux*.so*" -o -path "*/bin/wine" -o -path "*/bin/wine64" \) -print 2>/dev/null | sort' \
   | tee "$OUT/rootfs-runtime-paths.txt" || true
