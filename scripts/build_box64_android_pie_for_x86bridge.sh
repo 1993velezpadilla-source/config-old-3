@@ -260,13 +260,21 @@ spawn_patch = """        memcpy(newargv+toadd, argv, (n+1)*sizeof(char*));
             snprintf(xziel_cmd, sizeof(xziel_cmd),
                      "\\\"%s\\\" \\\"%s\\\" -f >/dev/null 2>&1 & exit 0",
                      emu->context->box64path, fullpath);
-            const char* xziel_shargv[] = {"/system/bin/sh", "-c", xziel_cmd, NULL};
-            printf_log(LOG_INFO, "XZIEL_ANDROID_WINESERVER_SHELL_DAEMON path=%s\\n", fullpath);
-            int xziel_ret = posix_spawn(pid, "/system/bin/sh", actions, attrp,
-                                        (char* const*)xziel_shargv, envp);
-            printf_log(LOG_INFO, "XZIEL_ANDROID_WINESERVER_SHELL_DAEMON spawn=%d pid=%d\\n",
-                       xziel_ret, (xziel_ret || !pid) ? -1 : (int)*pid);
-            return xziel_ret;
+            char* const xziel_shargv[] = {"/system/bin/sh", "-c", xziel_cmd, NULL};
+            printf_log(LOG_INFO, "XZIEL_ANDROID_WINESERVER_FORK_DAEMON path=%s\\n", fullpath);
+            pid_t xziel_pid = fork();
+            if(xziel_pid == 0) {
+                execve("/system/bin/sh", xziel_shargv, (char* const*)envp);
+                _exit(127);
+            }
+            if(xziel_pid < 0) {
+                int xziel_err = errno;
+                printf_log(LOG_INFO, "XZIEL_ANDROID_WINESERVER_FORK_DAEMON fork_error=%d\\n", xziel_err);
+                return xziel_err;
+            }
+            if(pid) *pid = xziel_pid;
+            printf_log(LOG_INFO, "XZIEL_ANDROID_WINESERVER_FORK_DAEMON pid=%d\\n", (int)xziel_pid);
+            return 0;
         }
 #endif
         if(self) newargv[toadd] = emu->context->fullpath;
@@ -369,8 +377,8 @@ grep -q 'my___ctype_toupper_loc' "$SRC/src/wrapped/wrappedlibc.c"
 grep -q 'GOM(nl_langinfo, pFEi)' "$SRC/src/wrapped/wrappedlibc_private.h"
 grep -q 'my_nl_langinfo' "$SRC/src/wrapped/wrappedlibc.c"
 echo "XZIEL_BOX64_ANDROID_WINESERVER_NO_DAEMON_GREEN"
-grep -q 'XZIEL_ANDROID_WINESERVER_SHELL_DAEMON' "$SRC/src/wrapped/wrappedlibc.c"
-echo "XZIEL_BOX64_ANDROID_WINESERVER_SHELL_DAEMON_GREEN"
+grep -q 'XZIEL_ANDROID_WINESERVER_FORK_DAEMON' "$SRC/src/wrapped/wrappedlibc.c"
+echo "XZIEL_BOX64_ANDROID_WINESERVER_FORK_DAEMON_GREEN"
 echo "XZIEL_BOX64_ANDROID_GLIBC_CTYPE_GREEN"
 echo "XZIEL_BOX64_ANDROID_GLIBC_LANGINFO_GREEN"
 grep -q 'GOM(shm_open, iFEpOu)' "$SRC/src/wrapped/wrappedlibc_private.h"
