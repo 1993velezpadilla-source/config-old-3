@@ -99,7 +99,6 @@ for i in $(seq 1 36); do
 #!/system/bin/sh
 ROOT=/data/user/0/com.xzielapp/files/rootfs
 export BOX64_LD_LIBRARY_PATH="$ROOT/lib/x86_64-linux-gnu"
-export
 exec "$ROOT/usr/local/bin/box64.real" "$@"
 EOF
         adb shell "run-as ${XZIEL_PACKAGE} sh -c 'cat > files/rootfs/usr/local/bin/box64'" < "$OUT/box64-bionic-wrapper.sh"
@@ -118,7 +117,6 @@ EOF
 ROOT=/data/user/0/com.xzielapp/files/rootfs
 export LD_LIBRARY_PATH="$ROOT/usr/lib:$ROOT/lib"
 export BOX64_LD_LIBRARY_PATH="$ROOT/lib/x86_64-linux-gnu"
-export
 exec "$ROOT/usr/local/bin/box64.real" "$@"
 EOF
         adb shell "run-as ${XZIEL_PACKAGE} sh -c 'cat > files/rootfs/usr/local/bin/box64'" < "$OUT/box64-glibc-static-wrapper.sh"
@@ -214,10 +212,31 @@ EOF
       # the server log to tens of MB and made registry import artificially slow.
       # Give the same quiet server a bounded first-prefix warmup.
       echo "XZIEL_X86BRIDGE_DIRECT_CMD_EXE_PROBE"
-      adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; CMD=\$ROOT/home/xuser/.wine/drive_c/windows/system32/cmd.exe; ls -l \$CMD; test -s \$CMD'" \
-        > "$OUT/cmd-exe-state.txt" 2>&1 || true
-      cat "$OUT/cmd-exe-state.txt" || true
-      timeout 240s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; CMD=\$ROOT/home/xuser/.wine/drive_c/windows/system32/cmd.exe; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_NOBANNER=1 BOX64_LOG=1 BOX64_DLSYM_ERROR=1 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEDEBUG=+process,+server,+module,+seh WINEESYNC=0 WINEFSYNC=0 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wine \$CMD /c ver; rc=\$?; echo XZIEL_PRESTARTED_CMD_STATUS=\$rc; exit \$rc'" \
+      adb shell "run-as ${XZIEL_PACKAGE} sh -c '
+        ROOT=/data/user/0/com.xzielapp/files/rootfs
+        echo XZIEL_PREFIX_LINK
+        ls -ld \$ROOT/home/xuser \$ROOT/home/xuser-1 2>/dev/null || true
+        echo XZIEL_WINDOWS_EXECUTABLE_CENSUS
+        ls -l \
+          \$ROOT/home/xuser/.wine/drive_c/windows/system32/cmd.exe \
+          \$ROOT/home/xuser/.wine/drive_c/windows/winhandler.exe \
+          \$ROOT/home/xuser/.wine/drive_c/XZIEL/Nacht-Chronicles-XZIEL.exe \
+          2>/dev/null || true
+        wc -c \
+          \$ROOT/home/xuser/.wine/drive_c/windows/system32/cmd.exe \
+          \$ROOT/home/xuser/.wine/drive_c/windows/winhandler.exe \
+          \$ROOT/home/xuser/.wine/drive_c/XZIEL/Nacht-Chronicles-XZIEL.exe \
+          2>/dev/null || true
+        test -s \$ROOT/home/xuser/.wine/drive_c/windows/system32/cmd.exe
+        test -s \$ROOT/home/xuser/.wine/drive_c/windows/winhandler.exe
+        test -s \$ROOT/home/xuser/.wine/drive_c/XZIEL/Nacht-Chronicles-XZIEL.exe
+      '" > "$OUT/windows-executable-census.txt" 2>&1 || true
+      cat "$OUT/windows-executable-census.txt" || true
+
+      # Use a DOS path here, not the Unix backing file. Passing the Unix path to
+      # Wine can route through start/ShellExecute and hide whether cmd.exe itself
+      # is healthy.
+      timeout 240s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_NOBANNER=1 BOX64_LOG=1 BOX64_DLSYM_ERROR=1 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEDEBUG=+process,+server,+module,+seh WINEESYNC=0 WINEFSYNC=0 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wine C:\\\\windows\\\\system32\\\\cmd.exe /c ver; rc=\$?; echo XZIEL_PRESTARTED_CMD_STATUS=\$rc; exit \$rc'" \
         > "$OUT/wine-with-prestarted-server.txt" 2>&1 || true
 
       adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-wineserver-fg.log > "$OUT/wineserver-fg.log" 2>/dev/null || true
@@ -264,7 +283,6 @@ EOF
         export BOX64_LOG=2
         export BOX64_DLSYM_ERROR=1
         export BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu
-        export
         export ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0
         export ANDROID_ALSA_SERVER=\$ROOT/tmp/.sound/AS0
         export VIRGL_SERVER_PATH=\$ROOT/tmp/.virgl/V0
@@ -292,7 +310,6 @@ export TMPDIR="$ROOT/tmp"
 export DISPLAY=:0
 export PATH="$ROOT/opt/wine/bin:$ROOT/usr/local/bin:$ROOT/usr/bin:/system/bin"
 export BOX64_LD_LIBRARY_PATH="$ROOT/lib/x86_64-linux-gnu"
-export
 export BOX64_LOG=2
 export BOX64_DLSYM_ERROR=1
 export BOX64_SHOWSEGV=1
@@ -308,16 +325,27 @@ export MESA_NO_ERROR=1
 cd "$ROOT"
 
 echo XZIEL_EXACT_PROBE_CMD_BEGIN
-timeout 12 "$ROOT/usr/local/bin/box64" wine cmd /c ver
+timeout 15 "$ROOT/usr/local/bin/box64" "$ROOT/opt/wine/bin/wine" 'C:\windows\system32\cmd.exe' /c ver
 echo "XZIEL_EXACT_PROBE_CMD_STATUS=$?"
 echo XZIEL_EXACT_PROBE_CMD_END
 
-echo XZIEL_EXACT_PROBE_LAUNCH_BEGIN
-timeout 15 "$ROOT/usr/local/bin/box64" wine explorer /desktop=nogui,1280x720 'C:\windows\winhandler.exe' /dir 'C:\\XZIEL' 'Nacht-Chronicles-XZIEL.exe'
-echo "XZIEL_EXACT_PROBE_LAUNCH_STATUS=$?"
-echo XZIEL_EXACT_PROBE_LAUNCH_END
+echo XZIEL_EXACT_PROBE_WINHANDLER_BEGIN
+timeout 18 "$ROOT/usr/local/bin/box64" "$ROOT/opt/wine/bin/wine" 'C:\windows\winhandler.exe' /dir 'C:\XZIEL' 'Nacht-Chronicles-XZIEL.exe'
+echo "XZIEL_EXACT_PROBE_WINHANDLER_STATUS=$?"
+echo XZIEL_EXACT_PROBE_WINHANDLER_END
+
+echo XZIEL_EXACT_PROBE_NACHT_DIRECT_BEGIN
+timeout 20 "$ROOT/usr/local/bin/box64" "$ROOT/opt/wine/bin/wine" 'C:\XZIEL\Nacht-Chronicles-XZIEL.exe' &
+nacht_probe_pid=$!
+sleep 5
+echo "XZIEL_NACHT_DIRECT_HOST_PID=$nacht_probe_pid"
+ps -A | grep -E 'box64|wine|wineserver|Nacht|winhandler' || true
+wait "$nacht_probe_pid"
+nacht_status=$?
+echo "XZIEL_EXACT_PROBE_NACHT_DIRECT_STATUS=$nacht_status"
+echo XZIEL_EXACT_PROBE_NACHT_DIRECT_END
 EOF
-      timeout 40s adb shell run-as ${XZIEL_PACKAGE} sh < "$OUT/xziel-exact-launch-probe.sh" \
+      timeout 70s adb shell run-as ${XZIEL_PACKAGE} sh < "$OUT/xziel-exact-launch-probe.sh" \
         > "$OUT/exact-launch-probe.txt" 2>&1 || true
       echo "XZIEL_X86BRIDGE_EXACT_LAUNCH_PROBE"
       tail -n 1600 "$OUT/exact-launch-probe.txt" || true
