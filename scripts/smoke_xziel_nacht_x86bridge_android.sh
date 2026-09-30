@@ -405,7 +405,7 @@ EOF
         export WINEDEBUG=+server,+process,+module,+loaddll
         if test -s \$ROOT/home/xuser/.wine/drive_c/XZIEL/Xziel-Nacht.exe; then
           echo XZIEL_FULL_PROBE_MODE=direct-runtime
-          timeout 8 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wine C:\\\\XZIEL\\\\Xziel-Nacht.exe --xziel-root C:\\\\XZIEL --xziel-map xziel_nacht_bo3
+          timeout 8 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wine explorer /desktop=xzielprobe,1280x720 C:\\\\XZIEL\\\\Xziel-Nacht.exe --xziel-root C:\\\\XZIEL --xziel-map xziel_nacht_bo3
         else
           echo XZIEL_FULL_PROBE_MODE=onefile
           timeout 8 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wine explorer /desktop=nogui,1280x720 C:\\\\windows\\\\winhandler.exe /dir C:\\\\XZIEL \"Nacht-Chronicles-XZIEL.exe\"
@@ -452,6 +452,7 @@ if [ -s "$ROOT/home/xuser/.wine/drive_c/XZIEL/Xziel-Nacht.exe" ]; then
   echo XZIEL_EXACT_PROBE_MODE=direct-runtime
   echo XZIEL_EXACT_PROBE_NACHT_DIRECT_BEGIN
   timeout 90 "$ROOT/usr/local/bin/box64" "$ROOT/opt/wine/bin/wine" \
+    explorer '/desktop=xzielprobe,1280x720' \
     'C:\XZIEL\Xziel-Nacht.exe' \
     --xziel-root 'C:\XZIEL' \
     --xziel-map xziel_nacht_bo3 &
