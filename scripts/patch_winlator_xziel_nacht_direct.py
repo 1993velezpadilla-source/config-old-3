@@ -909,6 +909,27 @@ if env_anchor not in text:
     raise SystemExit("Could not find XServer environment anchor")
 text = text.replace(env_anchor, env_insert, 1)
 
+stage_anchor = '''                setupWineSystemFiles();
+                extractGraphicsDriverFiles();
+                changeWineAudioDriver();
+'''
+stage_insert = '''                boolean xzielDirectBootStages = getIntent().getBooleanExtra("xziel_direct_boot", false);
+                if (xzielDirectBootStages) Log.i("XZIEL-HYBRID", "WINE_SYSTEM_FILES_BEGIN");
+                setupWineSystemFiles();
+                if (xzielDirectBootStages) Log.i("XZIEL-HYBRID", "WINE_SYSTEM_FILES_GREEN");
+
+                if (xzielDirectBootStages) Log.i("XZIEL-HYBRID", "GRAPHICS_EXTRACT_BEGIN driver=" + graphicsDriver[0] + "," + graphicsDriver[1] + " dx=" + dxwrapper);
+                extractGraphicsDriverFiles();
+                if (xzielDirectBootStages) Log.i("XZIEL-HYBRID", "GRAPHICS_EXTRACT_GREEN");
+
+                if (xzielDirectBootStages) Log.i("XZIEL-HYBRID", "AUDIO_DRIVER_BEGIN driver=" + audioDriver);
+                changeWineAudioDriver();
+                if (xzielDirectBootStages) Log.i("XZIEL-HYBRID", "AUDIO_DRIVER_GREEN");
+'''
+if stage_anchor not in text:
+    raise SystemExit("Could not find XServer staged boot anchor")
+text = text.replace(stage_anchor, stage_insert, 1)
+
 window_anchor = '''                if (!flags[0] && window.isRenderable() && !window.getClassName().isEmpty()) {
                     xServerView.getRenderer().setCursorVisible(true);
 '''
