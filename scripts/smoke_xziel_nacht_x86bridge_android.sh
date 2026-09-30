@@ -92,10 +92,24 @@ for i in $(seq 1 36); do
         adb shell run-as ${XZIEL_PACKAGE} ls -l files/rootfs/usr/local/bin/box64 | tee "$OUT/box64-pie-installed.txt"
         echo "XZIEL_X86BRIDGE_BIONIC_PIE_BOX64_INJECTED"
       elif ! readelf -l "$XZIEL_BOX64_PIE" 2>/dev/null | grep -q 'INTERP'; then
-        adb shell "run-as ${XZIEL_PACKAGE} sh -c 'cat > files/rootfs/usr/local/bin/box64'" < "$XZIEL_BOX64_PIE"
+        # glibc static-PIE Box64 can safely start under ndk_translation without
+        # an ELF interpreter. Keep it as .real and launch it through Android sh
+        # so native ARM64 glibc libraries from the Winlator rootfs are visible
+        # to Box64 wrappers, while x86_64 guest search stays isolated.
+        adb shell "run-as ${XZIEL_PACKAGE} sh -c 'cat > files/rootfs/usr/local/bin/box64.real'" < "$XZIEL_BOX64_PIE"
+        adb shell run-as ${XZIEL_PACKAGE} chmod 700 files/rootfs/usr/local/bin/box64.real
+        cat > "$OUT/box64-glibc-static-wrapper.sh" <<'EOF'
+#!/system/bin/sh
+ROOT=/data/user/0/com.xzielapp/files/rootfs
+unset BOX64_EMULATED_LIBS
+export LD_LIBRARY_PATH="$ROOT/usr/lib:$ROOT/lib"
+export BOX64_LD_LIBRARY_PATH="$ROOT/lib/x86_64-linux-gnu"
+exec "$ROOT/usr/local/bin/box64.real" "$@"
+EOF
+        adb shell "run-as ${XZIEL_PACKAGE} sh -c 'cat > files/rootfs/usr/local/bin/box64'" < "$OUT/box64-glibc-static-wrapper.sh"
         adb shell run-as ${XZIEL_PACKAGE} chmod 700 files/rootfs/usr/local/bin/box64
-        adb shell run-as ${XZIEL_PACKAGE} ls -l files/rootfs/usr/local/bin/box64 | tee "$OUT/box64-pie-installed.txt"
-        echo "XZIEL_X86BRIDGE_GLIBC_STATIC_PIE_BOX64_INJECTED"
+        adb shell run-as ${XZIEL_PACKAGE} ls -l files/rootfs/usr/local/bin/box64 files/rootfs/usr/local/bin/box64.real | tee "$OUT/box64-pie-installed.txt"
+        echo "XZIEL_X86BRIDGE_GLIBC_STATIC_PIE_BOX64_WRAPPER_INJECTED"
       else
         adb shell "run-as ${XZIEL_PACKAGE} sh -c 'cat > files/rootfs/usr/local/bin/box64.real'" < "$XZIEL_BOX64_PIE"
         adb shell run-as ${XZIEL_PACKAGE} chmod 700 files/rootfs/usr/local/bin/box64.real
