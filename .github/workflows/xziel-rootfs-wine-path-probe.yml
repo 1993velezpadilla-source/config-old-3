@@ -49,8 +49,14 @@ jobs:
 
           echo "=== matching rootfs paths ===" | tee -a dist/rootfs-probe/paths.txt
           tar --zstd -tf dist/rootfs-probe/rootfs.tzst \
-            | grep -E '(^|/)(ld-linux-x86-64\.so\.2|wine|wine64)$|/opt/wine/.*/wine(64)?$|/opt/wine/bin/' \
+            | grep -E 'ld-linux|ld-[^/]*\.so|libc\.so\.6|wine64|wine-preloader|wine64-preloader|/opt/wine/bin/' \
             | tee -a dist/rootfs-probe/paths.txt
+
+          echo "=== inspect /opt/wine/bin/wine ===" | tee -a dist/rootfs-probe/paths.txt
+          tar --zstd -xOf dist/rootfs-probe/rootfs.tzst ./opt/wine/bin/wine > dist/rootfs-probe/wine.bin
+          file dist/rootfs-probe/wine.bin | tee -a dist/rootfs-probe/paths.txt
+          readelf -h dist/rootfs-probe/wine.bin | tee -a dist/rootfs-probe/paths.txt || true
+          readelf -l dist/rootfs-probe/wine.bin | grep -E 'Requesting program interpreter|INTERP|LOAD' | tee -a dist/rootfs-probe/paths.txt || true
 
           echo "XZIEL_ROOTFS_WINE_PATH_PROBE_GREEN"
 
