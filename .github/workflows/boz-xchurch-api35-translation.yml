@@ -56,7 +56,7 @@ jobs:
           cores: 2
           ram-size: 3072M
           emulator-boot-timeout: 420
-          disable-animations: true
+          disable-animations: false
           emulator-options: -no-snapshot-load -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none -no-metrics
           script: |
             set +e
