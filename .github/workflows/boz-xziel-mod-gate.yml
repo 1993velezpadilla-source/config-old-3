@@ -492,7 +492,7 @@ jobs:
             --out boz_mod_out/kino_probe/report.json \
             | tee boz_mod_out/kino_probe/probe.log
           grep -q "XZIEL_BOZ_GROUP_DECODE_OK" boz_mod_out/kino_probe/probe.log
-          grep -q "VALID_GROUP_COUNT 5" boz_mod_out/kino_probe/probe.log
+          grep -q "DECODED_CIW_RESGROUP_COUNT 5" boz_mod_out/kino_probe/probe.log
           test -s boz_mod_out/kino_probe/report.json
 
       - name: Keep structural report only
