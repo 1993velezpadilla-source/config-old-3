@@ -721,7 +721,7 @@ jobs:
 
           rm -rf /tmp/theatre-patched-extracted
           /tmp/dade-venv/bin/dade marmalade extract-group \
-            /tmp/xziel_mod/levels/kino/theatre_shared.group.bin \
+            /tmp/xziel_mod/levels/kino/xchurch_shared.group.bin \
             /tmp/theatre-patched-extracted \
             --no-delete --no-html \
             > boz_mod_out/kino_probe/dade-theatre-patched.log 2>&1
@@ -762,6 +762,70 @@ jobs:
           PY
 
           rm -rf /tmp/theatre-extracted /tmp/theatre-patched-extracted /tmp/dade /tmp/dade-venv /tmp/xziel_mod
+
+      - name: Deform one real theatre model and verify OBJ geometry changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/boz-kino/modelmod/levels/kino
+          python3 tools/boz_mod/patch_theatre_model_vertices.py \
+            /tmp/boz-kino/extracted/levels/kino/theatre_shared.group.bin \
+            /tmp/boz-kino/modelmod/levels/kino/theatre_shared.group.bin \
+            --report boz_mod_out/kino_probe/theatre-model-patch.json \
+            | tee boz_mod_out/kino_probe/theatre-model-patch.log
+          grep -q "XZIEL_BOZ_THEATRE_MODEL_VERTEX_PATCH_OK" \
+            boz_mod_out/kino_probe/theatre-model-patch.log
+
+          git clone -q https://github.com/Tatsh/dade.git /tmp/dade-modelverify
+          cd /tmp/dade-modelverify
+          git checkout -q 4b2530b1508f63b9f7df090f0dbf4030099d4ef7
+          cd "$GITHUB_WORKSPACE"
+          python3 tools/boz_mod/patch_dade_boz_resgroup.py /tmp/dade-modelverify
+          python3 -m venv /tmp/dade-modelverify-venv
+          /tmp/dade-modelverify-venv/bin/pip install -q -e /tmp/dade-modelverify
+
+          rm -rf /tmp/model-before /tmp/model-after
+          /tmp/dade-modelverify-venv/bin/dade marmalade extract-group \
+            /tmp/boz-kino/extracted/levels/kino/theatre_shared.group.bin \
+            /tmp/model-before --no-delete --no-html --no-png --no-material-json \
+            >/dev/null 2>&1
+          /tmp/dade-modelverify-venv/bin/dade marmalade extract-group \
+            /tmp/boz-kino/modelmod/levels/kino/theatre_shared.group.bin \
+            /tmp/model-after --no-delete --no-html --no-png --no-material-json \
+            >/dev/null 2>&1
+
+          python3 - <<'PY' | tee boz_mod_out/kino_probe/theatre-model-roundtrip.txt
+          import json
+          from pathlib import Path
+
+          report=json.loads(Path(
+              'boz_mod_out/kino_probe/theatre-model-patch.json'
+          ).read_text(encoding='utf-8'))
+          idx=int(report['modelIndex'])
+          before=sorted((Path('/tmp/model-before')/'CIwModel').glob(f'{idx:03d}_*.obj'))
+          after=sorted((Path('/tmp/model-after')/'CIwModel').glob(f'{idx:03d}_*.obj'))
+          assert before and after, (idx,before,after)
+
+          def verts(path):
+              out=[]
+              for line in path.read_text(encoding='utf-8').splitlines():
+                  if line.startswith('v '):
+                      _,x,y,z=line.split()[:4]
+                      out.append((float(x),float(y),float(z)))
+              return out
+
+          vb=verts(before[0]); va=verts(after[0])
+          assert vb and len(vb)==len(va), (len(vb),len(va))
+          assert vb != va
+          print('MODEL_INDEX', idx)
+          print('VERTICES', len(vb))
+          print('FIRST_BEFORE', vb[:3])
+          print('FIRST_AFTER', va[:3])
+          print('XZIEL_BOZ_THEATRE_MODEL_GEOMETRY_ROUNDTRIP_OK')
+          PY
+          grep -q "XZIEL_BOZ_THEATRE_MODEL_GEOMETRY_ROUNDTRIP_OK" \
+            boz_mod_out/kino_probe/theatre-model-roundtrip.txt
+          rm -rf /tmp/model-before /tmp/model-after /tmp/dade-modelverify /tmp/dade-modelverify-venv
 
       - name: Mutate one real theatre material and verify round-trip
         shell: bash
