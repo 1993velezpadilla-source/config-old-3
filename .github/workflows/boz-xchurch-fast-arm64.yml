@@ -52,7 +52,7 @@ jobs:
           target: default
           arch: arm64-v8a
           profile: pixel_6
-          emulator-boot-timeout: 420
+          emulator-boot-timeout: 600
           disable-animations: false
           emulator-options: -no-window -accel off -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -no-metrics -camera-back none
           script: |
