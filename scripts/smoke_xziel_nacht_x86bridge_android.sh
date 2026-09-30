@@ -132,6 +132,7 @@ EOF
       echo "XZIEL_X86BRIDGE_DIRECT_PROBE_WINESERVER"
       tail -n 300 "$OUT/wineserver-direct-probe.txt" || true
       echo "XZIEL_X86BRIDGE_FREETYPE_ROOTFS_CENSUS"
+      echo "XZIEL_X86BRIDGE_FREETYPE_MODE emulated=libfreetype.so.6:libfontconfig.so.1 path=lib/x86_64-linux-gnu:usr/lib"
       adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; find \$ROOT/lib \$ROOT/usr/lib -type f -o -type l 2>/dev/null | grep -E \"/libfreetype\\.so|/libfontconfig\\.so\" | sort | head -n 80'" \
         > "$OUT/freetype-rootfs-census.txt" 2>&1 || true
       cat "$OUT/freetype-rootfs-census.txt" || true
@@ -158,7 +159,7 @@ EOF
       # initialization. Keep Box64 tracing off here: per-call tracing inflated
       # the server log to tens of MB and made registry import artificially slow.
       # Give the same quiet server a bounded first-prefix warmup.
-      timeout 240s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_NOBANNER=1 BOX64_LOG=0 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEDEBUG=+font WINEESYNC=0 WINEFSYNC=0 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wine cmd /c ver; rc=\$?; echo XZIEL_PRESTARTED_CMD_STATUS=\$rc; exit \$rc'" \
+      timeout 240s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_NOBANNER=1 BOX64_LOG=0 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu:\$ROOT/usr/lib BOX64_EMULATED_LIBS=libfreetype.so.6:libfontconfig.so.1 ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEDEBUG=+font WINEESYNC=0 WINEFSYNC=0 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wine cmd /c ver; rc=\$?; echo XZIEL_PRESTARTED_CMD_STATUS=\$rc; exit \$rc'" \
         > "$OUT/wine-with-prestarted-server.txt" 2>&1 || true
 
       adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-wineserver-fg.log > "$OUT/wineserver-fg.log" 2>/dev/null || true
@@ -204,8 +205,8 @@ EOF
         export PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin
         export BOX64_LOG=2
         export BOX64_DLSYM_ERROR=1
-        export BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu
-        export
+        export BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu:\$ROOT/usr/lib
+        export BOX64_EMULATED_LIBS=libfreetype.so.6:libfontconfig.so.1
         export ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0
         export ANDROID_ALSA_SERVER=\$ROOT/tmp/.sound/AS0
         export VIRGL_SERVER_PATH=\$ROOT/tmp/.virgl/V0
@@ -232,8 +233,8 @@ export USER=xuser
 export TMPDIR="$ROOT/tmp"
 export DISPLAY=:0
 export PATH="$ROOT/opt/wine/bin:$ROOT/usr/local/bin:$ROOT/usr/bin:/system/bin"
-export BOX64_LD_LIBRARY_PATH="$ROOT/lib/x86_64-linux-gnu"
-export
+export BOX64_LD_LIBRARY_PATH="$ROOT/lib/x86_64-linux-gnu:$ROOT/usr/lib"
+export BOX64_EMULATED_LIBS=libfreetype.so.6:libfontconfig.so.1
 export BOX64_LOG=2
 export BOX64_DLSYM_ERROR=1
 export BOX64_SHOWSEGV=1
