@@ -141,3 +141,88 @@ jobs:
           path: boz_mod_out/dtrz_gate/
           if-no-files-found: error
           retention-days: 14
+
+
+  android-shell-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install required Android packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager \
+            "platforms;android-36" \
+            "build-tools;36.0.0" \
+            "ndk;25.1.8937393"
+
+      - name: Clone pinned BOZ Android reconstruction
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone https://github.com/eugene373/COD-BOZ-Partially-Decompiled.git /tmp/boz-android
+          cd /tmp/boz-android
+          git checkout e723c8c1ea4fac59be990efb3edf7a09b1af7768
+          test "$(git rev-parse HEAD)" = "e723c8c1ea4fac59be990efb3edf7a09b1af7768"
+          printf 'VERSION_CODE=1081\n' > app/version.properties
+          chmod +x gradlew
+
+      - name: Build BOZ Android debug shell
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/boz-android
+          ./gradlew :app:assembleDebug --no-daemon --stacktrace \
+            | tee /tmp/boz-android-build.log
+
+      - name: Verify APK runtime payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=/tmp/boz-android/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          unzip -l "$APK" > /tmp/boz-apk-list.txt
+          grep -q "assets/boz.s3e" /tmp/boz-apk-list.txt
+          grep -q "assets/blackops_loader.dz" /tmp/boz-apk-list.txt
+          grep -q "lib/armeabi-v7a/libs3e_android.so" /tmp/boz-apk-list.txt
+          echo "XZIEL_BOZ_ANDROID_APK_BUILD_OK"
+          sha256sum "$APK"
+          stat -c 'APK_BYTES=%s' "$APK"
+
+      - name: Save Android build proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p boz_mod_out/android_build
+          cp /tmp/boz-android-build.log boz_mod_out/android_build/
+          cp /tmp/boz-apk-list.txt boz_mod_out/android_build/
+          APK=/tmp/boz-android/app/build/outputs/apk/debug/app-debug.apk
+          {
+            echo "UPSTREAM=eugene373/COD-BOZ-Partially-Decompiled"
+            echo "UPSTREAM_COMMIT=e723c8c1ea4fac59be990efb3edf7a09b1af7768"
+            echo "APK_SHA256=$(sha256sum "$APK" | awk '{print $1}')"
+            echo "APK_BYTES=$(stat -c %s "$APK")"
+            echo "GATE_4=android_shell_build"
+            echo "STATUS=GREEN"
+            echo "APK_UPLOADED=false"
+          } > boz_mod_out/android_build/gate.env
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-BOZ-Android-Build-Proof
+          path: boz_mod_out/android_build/
+          if-no-files-found: error
+          retention-days: 14
