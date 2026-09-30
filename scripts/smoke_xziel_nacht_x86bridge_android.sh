@@ -28,13 +28,13 @@ echo "XZIEL_X86BRIDGE_ARM64_TRANSLATION_AVAILABLE"
 adb shell df -h /data | tee "$OUT/data-before-install.txt"
 adb install -r -g --abi arm64-v8a "$APK" | tee "$OUT/adb-install.txt"
 grep -q 'Success' "$OUT/adb-install.txt"
-adb shell pm path com.xziel.hybrid | tee "$OUT/pm-path.txt"
+adb shell pm path com.xzielapp | tee "$OUT/pm-path.txt"
 grep -q '^package:' "$OUT/pm-path.txt"
 echo "XZIEL_X86BRIDGE_APK_INSTALL_GREEN"
 
-adb shell am force-stop com.xziel.hybrid || true
+adb shell am force-stop com.xzielapp || true
 adb logcat -c
-adb shell am start -W   -n com.xziel.hybrid/com.winlator.XzielBootActivity   | tee "$OUT/am-start.txt"
+adb shell am start -W   -n com.xzielapp/com.winlator.XzielBootActivity   | tee "$OUT/am-start.txt"
 
 sleep 3
 adb logcat -d -v threadtime > "$OUT/logcat-launch.txt" || true
@@ -68,14 +68,14 @@ for i in $(seq 1 36); do
       echo "XZIEL_X86BRIDGE_NONPIE_BOX64_DETECTED"
       sha256sum "$XZIEL_BOX64_PIE" | tee "$OUT/box64-pie-injected.sha256"
 
-      adb shell am force-stop com.xziel.hybrid || true
-      adb shell "run-as com.xziel.hybrid sh -c 'cat > files/rootfs/usr/local/bin/box64'" < "$XZIEL_BOX64_PIE"
-      adb shell run-as com.xziel.hybrid chmod 700 files/rootfs/usr/local/bin/box64
-      adb shell run-as com.xziel.hybrid ls -l files/rootfs/usr/local/bin/box64 | tee "$OUT/box64-pie-installed.txt"
+      adb shell am force-stop com.xzielapp || true
+      adb shell "run-as com.xzielapp sh -c 'cat > files/rootfs/usr/local/bin/box64'" < "$XZIEL_BOX64_PIE"
+      adb shell run-as com.xzielapp chmod 700 files/rootfs/usr/local/bin/box64
+      adb shell run-as com.xzielapp ls -l files/rootfs/usr/local/bin/box64 | tee "$OUT/box64-pie-installed.txt"
       echo "XZIEL_X86BRIDGE_PIE_BOX64_INJECTED"
 
       adb logcat -c
-      adb shell am start -W -n com.xziel.hybrid/com.winlator.XzielBootActivity | tee "$OUT/am-restart-pie.txt"
+      adb shell am start -W -n com.xzielapp/com.winlator.XzielBootActivity | tee "$OUT/am-restart-pie.txt"
       sleep 3
       last_marker="PIE_BOX64_RELAUNCH"
       continue
@@ -109,9 +109,9 @@ done
 
 adb shell df -h /data | tee "$OUT/data-after-boot.txt" || true
 adb shell ps -A | grep -E 'xziel|winlator|box64|wine' | tee "$OUT/processes.txt" || true
-adb shell dumpsys activity activities   | grep -E 'mResumedActivity|topResumedActivity|com.xziel.hybrid'   | tee "$OUT/activity-final.txt" || true
+adb shell dumpsys activity activities   | grep -E 'mResumedActivity|topResumedActivity|com.xzielapp'   | tee "$OUT/activity-final.txt" || true
 
-adb shell run-as com.xziel.hybrid sh -c 'find files/rootfs -type f \( -name "ld-linux-x86-64.so.2" -o -name "ld-linux*.so*" -o -path "*/bin/wine" -o -path "*/bin/wine64" \) -print 2>/dev/null | sort' \
+adb shell run-as com.xzielapp sh -c 'find files/rootfs -type f \( -name "ld-linux-x86-64.so.2" -o -name "ld-linux*.so*" -o -path "*/bin/wine" -o -path "*/bin/wine64" \) -print 2>/dev/null | sort' \
   | tee "$OUT/rootfs-runtime-paths.txt" || true
 echo "XZIEL_X86BRIDGE_ROOTFS_RUNTIME_PATHS"
 cat "$OUT/rootfs-runtime-paths.txt" || true
