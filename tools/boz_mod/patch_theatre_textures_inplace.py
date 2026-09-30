@@ -75,6 +75,7 @@ def parse_and_patch(data: bytes) -> tuple[bytes, list[dict]]:
     num_types = struct.unpack_from("<I", data, q)[0]
     q += 4
     report = []
+    skipped = []
 
     for _ in range(num_types):
         if q + 10 > len(data):
@@ -142,7 +143,7 @@ def main() -> int:
     args = ap.parse_args()
 
     original = args.input.read_bytes()
-    patched, textures = parse_and_patch(original)
+    patched, textures, skipped = parse_and_patch(original)
     if len(patched) != len(original):
         raise SystemExit("SIZE_CHANGED")
 
@@ -155,13 +156,16 @@ def main() -> int:
         "inputSha256": hashlib.sha256(original).hexdigest(),
         "outputSha256": hashlib.sha256(patched).hexdigest(),
         "texturesPatched": len(textures),
+        "texturesSkipped": len(skipped),
         "textures": textures,
+        "skipped": skipped,
     }
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(report, indent=2), encoding="utf-8")
 
     print("THEATRE_BYTES", len(original))
     print("TEXTURES_PATCHED", len(textures))
+    print("TEXTURES_SKIPPED", len(skipped))
     for t in textures:
         print(
             "TEXTURE", t["index"], t["nameHash"],
