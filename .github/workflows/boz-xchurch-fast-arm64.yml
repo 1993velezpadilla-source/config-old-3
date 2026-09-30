@@ -54,7 +54,7 @@ jobs:
           profile: pixel_6
           emulator-boot-timeout: 420
           disable-animations: false
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          emulator-options: -no-window -accel off -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -no-metrics -camera-back none
           script: |
             OUT=/tmp/xchurch-fast
             set +e
