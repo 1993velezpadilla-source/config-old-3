@@ -136,6 +136,20 @@ EOF
 done
 
 adb shell df -h /data | tee "$OUT/data-after-boot.txt" || true
+
+# Preserve the guest's redirected stdout/stderr before any cleanup. The XZIEL
+# launcher writes this file specifically for x86-bridge diagnosis.
+adb shell run-as ${XZIEL_PACKAGE} sh -c 'if [ -f files/rootfs/tmp/xziel-guest-output.log ]; then cat files/rootfs/tmp/xziel-guest-output.log; fi' \
+  > "$OUT/xziel-guest-output.log" 2>&1 || true
+echo "XZIEL_X86BRIDGE_GUEST_FILE_CAPTURE_BEGIN"
+tail -n 1200 "$OUT/xziel-guest-output.log" || true
+echo "XZIEL_X86BRIDGE_GUEST_FILE_CAPTURE_END"
+
+adb shell run-as ${XZIEL_PACKAGE} sh -c 'ls -la files/rootfs/tmp files/rootfs/tmp/shm 2>&1; find files/rootfs/tmp/shm -maxdepth 1 -type f -ls 2>/dev/null | head -n 200' \
+  > "$OUT/shm-state.txt" 2>&1 || true
+echo "XZIEL_X86BRIDGE_SHM_STATE"
+cat "$OUT/shm-state.txt" || true
+
 adb shell ps -A | grep -E 'xziel|winlator|box64|wine' | tee "$OUT/processes.txt" || true
 adb shell dumpsys activity activities   | grep -E "mResumedActivity|topResumedActivity|${XZIEL_PACKAGE}"   | tee "$OUT/activity-final.txt" || true
 
