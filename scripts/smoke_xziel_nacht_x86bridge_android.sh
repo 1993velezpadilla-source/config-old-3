@@ -162,6 +162,17 @@ else
   echo "XZIEL_X86BRIDGE_GUEST_OUTPUT_EMPTY"
 fi
 
+# Preserve the guest stdout/stderr file written by the APK's ProcessHelper.
+# This is the authoritative Wine/Box64 error stream for x86-bridge runs.
+adb shell run-as ${XZIEL_PACKAGE} sh -c 'test -f files/rootfs/tmp/xziel-guest-output.log && cat files/rootfs/tmp/xziel-guest-output.log' \
+  > "$OUT/xziel-guest-output.log" 2>/dev/null || true
+if [[ -s "$OUT/xziel-guest-output.log" ]]; then
+  echo "XZIEL_X86BRIDGE_GUEST_OUTPUT_CAPTURED bytes=$(wc -c < "$OUT/xziel-guest-output.log")"
+  tail -n 300 "$OUT/xziel-guest-output.log" || true
+else
+  echo "XZIEL_X86BRIDGE_GUEST_OUTPUT_EMPTY"
+fi
+
 adb shell run-as ${XZIEL_PACKAGE} sh -c 'find files/rootfs -type f \( -name "ld-linux-x86-64.so.2" -o -name "ld-linux*.so*" -o -path "*/bin/wine" -o -path "*/bin/wine64" \) -print 2>/dev/null | sort' \
   | tee "$OUT/rootfs-runtime-paths.txt" || true
 echo "XZIEL_X86BRIDGE_ROOTFS_RUNTIME_PATHS"
