@@ -15,7 +15,7 @@ permissions:
 jobs:
   capture:
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@v5
@@ -143,18 +143,62 @@ jobs:
           if [ "$TITLE_FOUND" != "1" ]; then
             echo "TITLE_NOT_DETECTED=true" | tee -a "$OUT/status.txt"
           else
-            "$ADB" shell input tap 1140 540
-            echo "TOUCH_SENT=1140,540" | tee -a "$OUT/status.txt"
+            ADVANCED=0
+            METHOD=""
 
-            sleep 5
-            "$ADB" exec-out screencap -p > "$OUT/screens/after_touch_05s.png"
-            sleep 10
-            "$ADB" exec-out screencap -p > "$OUT/screens/after_touch_15s.png"
-            sleep 15
-            "$ADB" exec-out screencap -p > "$OUT/screens/after_touch_30s.png"
-            sleep 30
-            "$ADB" exec-out screencap -p > "$OUT/screens/after_touch_60s.png"
-          fi
+            capture_after_input() {
+              LABEL="$1"
+              sleep 6
+              "$ADB" exec-out screencap -p > "$OUT/screens/input_${LABEL}.png" 2>/dev/null || true
+              INPUT_HASH="$(sha256sum "$OUT/screens/input_${LABEL}.png" | awk '{print $1}')"
+              echo "INPUT_${LABEL}_HASH=$INPUT_HASH" | tee -a "$OUT/status.txt"
+              if [ "$INPUT_HASH" != "$TITLE_HASH" ]; then
+                ADVANCED=1
+                METHOD="$LABEL"
+                echo "TITLE_ADVANCED_BY=$METHOD" | tee -a "$OUT/status.txt"
+              fi
+            }
+
+            # 1) Explicit touchscreen event on display 0.
+            "$ADB" shell input -d 0 touchscreen tap 1140 540 || true
+            capture_after_input "display0_touch"
+
+            # 2) Zero-distance touchscreen swipe gives a longer DOWN/UP pair.
+            if [ "$ADVANCED" = "0" ]; then
+              "$ADB" shell input -d 0 touchscreen swipe 1140 540 1140 540 180 || true
+              capture_after_input "display0_press"
+            fi
+
+            # 3) Direct MotionEvent injection if supported by this Android build.
+            if [ "$ADVANCED" = "0" ]; then
+              "$ADB" shell input -d 0 touchscreen motionevent DOWN 1140 540 || true
+              sleep 1
+              "$ADB" shell input -d 0 touchscreen motionevent UP 1140 540 || true
+              capture_after_input "motionevent"
+            fi
+
+            # 4/5) Frontend also accepts controller/keyboard confirmation on
+            # several BOZ builds; only try these while the title hash is unchanged.
+            if [ "$ADVANCED" = "0" ]; then
+              "$ADB" shell input -d 0 keyevent KEYCODE_ENTER || true
+              capture_after_input "enter"
+            fi
+            if [ "$ADVANCED" = "0" ]; then
+              "$ADB" shell input -d 0 keyevent KEYCODE_DPAD_CENTER || true
+              capture_after_input "dpad_center"
+            fi
+
+            if [ "$ADVANCED" = "0" ]; then
+              echo "TITLE_INPUT_ADVANCE_FAILED=true" | tee -a "$OUT/status.txt"
+            else
+              cp "$OUT/screens/input_${METHOD}.png" "$OUT/screens/after_input_success.png"
+              sleep 10
+              "$ADB" exec-out screencap -p > "$OUT/screens/frontend_10s.png" 2>/dev/null || true
+              sleep 15
+              "$ADB" exec-out screencap -p > "$OUT/screens/frontend_25s.png" 2>/dev/null || true
+              sleep 20
+              "$ADB" exec-out screencap -p > "$OUT/screens/frontend_45s.png" 2>/dev/null || true
+            fi          fi
           PID="$("$ADB" shell pidof com.activision.boz 2>/dev/null | tr -d '\r\n')"
           echo "FINAL_PID=$PID" | tee -a "$OUT/status.txt"
 
