@@ -1,0 +1,150 @@
+name: XChurch Fast Single Player Driver
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/boz-mod-runtime
+    paths:
+      - ".github/workflows/boz-xchurch-fast-single-player.yml"
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  drive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Enable KVM
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/xchurch-fast/screens
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"'             | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+          test -e /dev/kvm
+
+      - name: Download reusable diagnostic APK
+        uses: actions/download-artifact@v4
+        with:
+          name: XChurch-Diagnostic-Touch-APK
+          run-id: 36783515318
+          github-token: ${{ github.token }}
+          path: /tmp/xchurch-diag
+
+      - name: Install Android 11 emulator tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n1)"
+          AVDMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name avdmanager | sort -V | tail -n1)"
+          echo "AVDMANAGER=$AVDMANAGER" >> "$GITHUB_ENV"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "emulator"             "system-images;android-30;google_apis;x86_64" >/dev/null
+
+      - name: Boot Android 11
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ANDROID_AVD_HOME=/tmp/xchurch-fast-avd
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
+          mkdir -p "$ANDROID_AVD_HOME"
+          printf 'no\n' | "$AVDMANAGER" create avd             --force --name xchurch-fast             --package "system-images;android-30;google_apis;x86_64"             --device "pixel_4" >/dev/null
+
+          ADB="$ANDROID_HOME/platform-tools/adb"
+          EMU="$ANDROID_HOME/emulator/emulator"
+          "$ADB" start-server >/dev/null 2>&1 || true
+          nohup "$EMU" @xchurch-fast             -no-window -gpu swiftshader_indirect -no-snapshot             -noaudio -no-boot-anim -no-metrics -camera-back none             > /tmp/xchurch-fast/emulator.log 2>&1 &
+          echo "EMU_PID=$!" > /tmp/xchurch-fast/status.txt
+
+          for i in $(seq 1 70); do
+            [ "$("$ADB" get-state 2>/dev/null || true)" = "device" ] && break
+            sleep 2
+          done
+          for i in $(seq 1 70); do
+            [ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && break
+            sleep 2
+          done
+          echo "BOOT_OK=1" >> /tmp/xchurch-fast/status.txt
+
+      - name: Drive title then delayed Single Player
+        shell: bash
+        run: |
+          set +e
+          OUT=/tmp/xchurch-fast
+          ADB="$ANDROID_HOME/platform-tools/adb"
+          APK="$(find /tmp/xchurch-diag -type f -name '*.apk' | head -n1)"
+          test -s "$APK" || exit 1
+
+          "$ADB" install --abi arm64-v8a -r -d "$APK" > "$OUT/install.txt" 2>&1
+          echo "INSTALL_RC=$?" | tee -a "$OUT/status.txt"
+          "$ADB" shell pm grant com.activision.boz android.permission.WRITE_EXTERNAL_STORAGE 2>/dev/null || true
+          "$ADB" shell pm grant com.activision.boz android.permission.READ_EXTERNAL_STORAGE 2>/dev/null || true
+          "$ADB" shell mkdir -p /sdcard/Android/obb/com.activision.boz 2>/dev/null || true
+
+          "$ADB" logcat -c
+          "$ADB" shell am force-stop com.activision.boz
+          "$ADB" shell am start -W -n com.activision.boz/.Main > "$OUT/launch.txt" 2>&1
+
+          TITLE_HASH="49d0c83ce3913b461bc8b6eab848f15305487af49528efa832d2c787732204bb"
+          FOUND=0
+          for SEC in $(seq 60 5 230); do
+            "$ADB" exec-out screencap -p > "$OUT/screens/poll_${SEC}s.png" 2>/dev/null || true
+            H="$(sha256sum "$OUT/screens/poll_${SEC}s.png" | awk '{print $1}')"
+            echo "POLL_${SEC}s=$H" >> "$OUT/status.txt"
+            if [ "$H" = "$TITLE_HASH" ]; then
+              echo "TITLE_AT=${SEC}s" | tee -a "$OUT/status.txt"
+              cp "$OUT/screens/poll_${SEC}s.png" "$OUT/screens/title.png"
+              FOUND=1
+              break
+            fi
+            sleep 5
+          done
+
+          if [ "$FOUND" = "1" ]; then
+            "$ADB" shell am start -W -n com.activision.boz/.Main               --ez xzielDirectTap true --ei xzielX 1140 --ei xzielY 540               > "$OUT/title-tap.txt" 2>&1
+            sleep 10
+            "$ADB" exec-out screencap -p > "$OUT/screens/main_menu_10s.png"
+
+            # Let the menu completely settle before interacting again.
+            sleep 15
+            "$ADB" exec-out screencap -p > "$OUT/screens/main_menu_25s.png"
+
+            "$ADB" shell am start -W -n com.activision.boz/.Main               --ez xzielDirectTap true --ei xzielX 520 --ei xzielY 300               > "$OUT/single-player-tap.txt" 2>&1
+            echo "SINGLE_PLAYER_TAP_SENT=520,300" | tee -a "$OUT/status.txt"
+
+            sleep 5
+            "$ADB" exec-out screencap -p > "$OUT/screens/after_single_05s.png"
+            sleep 10
+            "$ADB" exec-out screencap -p > "$OUT/screens/after_single_15s.png"
+            sleep 15
+            "$ADB" exec-out screencap -p > "$OUT/screens/after_single_30s.png"
+          fi
+
+          "$ADB" logcat -d -v threadtime > "$OUT/logcat.txt"
+          grep -Eai 'XZIEL_DIRECT_NATIVE_TAP|STARTGAME|single|menu|map|kino|xchurch|FATAL|SIGSEGV|SIGABRT'             "$OUT/logcat.txt" | tail -500 > "$OUT/logcat-focus.txt" || true
+          sha256sum "$OUT"/screens/*.png > "$OUT/screen-hashes.txt" 2>/dev/null || true
+          exit 0
+
+      - name: Summarize
+        if: always()
+        shell: bash
+        run: |
+          cat /tmp/xchurch-fast/status.txt 2>/dev/null || true
+          cat /tmp/xchurch-fast/screen-hashes.txt 2>/dev/null || true
+          tail -120 /tmp/xchurch-fast/logcat-focus.txt 2>/dev/null || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: XChurch-Fast-Single-Player-Proof
+          path: /tmp/xchurch-fast/
+          if-no-files-found: error
+          retention-days: 14
