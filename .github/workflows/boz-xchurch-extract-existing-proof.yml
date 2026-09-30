@@ -1,0 +1,69 @@
+name: XChurch Extract Existing Slim Proof
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/boz-mod-runtime
+    paths:
+      - ".github/workflows/boz-xchurch-extract-existing-proof.yml"
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download existing Android11 proof
+        uses: actions/download-artifact@v4
+        with:
+          name: XChurch-Android11-ARM-Translation-Capture
+          run-id: 36772458810
+          github-token: ${{ github.token }}
+          path: /tmp/source-proof
+
+      - name: Stage only screenshots and runtime proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "=== SOURCE TREE ==="
+          find /tmp/source-proof -maxdepth 3 -type f -printf '%P %s bytes\n' | sort | head -300
+
+          SRC=/tmp/source-proof
+          DST=/tmp/slim-proof
+          mkdir -p "$DST/screens"
+
+          find "$SRC" -type f -name '*.png' -path '*/screens/*' -exec cp -f {} "$DST/screens/" \;
+
+          for name in             status.txt device.txt native-bridge-files.txt             install-arm64.txt install-auto.txt launch.txt             logcat-highlights.txt activities.txt window.txt             emulator.log accel-check.txt apk.sha256; do
+            f="$(find "$SRC" -type f -name "$name" | head -n1)"
+            if [ -n "$f" ]; then cp "$f" "$DST/$name"; fi
+          done
+
+          test -s "$DST/status.txt"
+          test -s "$DST/device.txt"
+          test -s "$DST/screens/android_boot.png"
+
+          find "$DST" -maxdepth 2 -type f -printf '%P %s bytes\n'             | sort | tee "$DST/manifest.txt"
+
+      - name: Verify expected runtime proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'INSTALL_ARM64_RC=0' /tmp/slim-proof/status.txt
+          grep -q 'LAUNCH_RC=0' /tmp/slim-proof/status.txt
+          grep -Eq '^PID=[0-9]+' /tmp/slim-proof/status.txt
+          grep -q 'NATIVE_BRIDGE=libndk_translation.so' /tmp/slim-proof/device.txt
+          echo "XZIEL_BOZ_XCHURCH_RUNTIME_SCREEN_PROOF_OK" | tee /tmp/slim-proof/gate.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: XChurch-Android11-Screenshot-Proof
+          path: /tmp/slim-proof/
+          if-no-files-found: error
+          retention-days: 14
