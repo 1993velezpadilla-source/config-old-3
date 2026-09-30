@@ -1,0 +1,176 @@
+name: XChurch Title Touch Capture
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/boz-mod-runtime
+    paths:
+      - ".github/workflows/boz-xchurch-title-touch.yml"
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Enable KVM
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+          test -e /dev/kvm
+
+      - name: Download verified XChurch APK
+        uses: actions/download-artifact@v4
+        with:
+          name: XZIEL-BOZ-XChurch-APK
+          run-id: 36768068731
+          github-token: ${{ github.token }}
+          path: /tmp/xchurch-apk
+
+      - name: Install Android 11 image
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=/tmp/xchurch-touch
+          mkdir -p "$OUT/screens"
+          APK="$(find /tmp/xchurch-apk -type f -name '*.apk' | head -n1)"
+          test -s "$APK"
+          cp "$APK" "$OUT/xchurch.apk"
+
+          ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n1)"
+          AVDMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name avdmanager | sort -V | tail -n1)"
+          echo "AVDMANAGER=$AVDMANAGER" >> "$GITHUB_ENV"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "emulator" \
+            "system-images;android-30;google_apis;x86_64" >/dev/null
+
+      - name: Boot Android 11
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=/tmp/xchurch-touch
+          export ANDROID_AVD_HOME=/tmp/xchurch-touch-avd
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
+
+          printf 'no\n' | "$AVDMANAGER" create avd \
+            --force --name xchurch-touch \
+            --package "system-images;android-30;google_apis;x86_64" \
+            --device "pixel_4" >/dev/null 2>&1
+
+          ADB="$ANDROID_HOME/platform-tools/adb"
+          EMU="$ANDROID_HOME/emulator/emulator"
+          "$ADB" kill-server >/dev/null 2>&1 || true
+          "$ADB" start-server >/dev/null 2>&1
+
+          nohup "$EMU" @xchurch-touch \
+            -no-window -gpu swiftshader_indirect -no-snapshot \
+            -noaudio -no-boot-anim -no-metrics -camera-back none \
+            > "$OUT/emulator.log" 2>&1 &
+          EMU_PID=$!
+          echo "EMU_PID=$EMU_PID" > "$OUT/status.txt"
+
+          READY=0
+          for i in $(seq 1 60); do
+            [ "$("$ADB" get-state 2>/dev/null || true)" = "device" ] && READY=1 && break
+            kill -0 "$EMU_PID" 2>/dev/null || break
+            sleep 2
+          done
+          echo "ADB_READY=$READY" >> "$OUT/status.txt"
+          test "$READY" = "1"
+
+          BOOT=0
+          for i in $(seq 1 60); do
+            [ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && BOOT=1 && break
+            sleep 2
+          done
+          echo "BOOT_COMPLETED=$BOOT" >> "$OUT/status.txt"
+          test "$BOOT" = "1"
+
+      - name: Launch, touch title screen, and capture
+        shell: bash
+        run: |
+          set +e
+          OUT=/tmp/xchurch-touch
+          ADB="$ANDROID_HOME/platform-tools/adb"
+
+          "$ADB" install --abi arm64-v8a -r -d "$OUT/xchurch.apk" > "$OUT/install.txt" 2>&1
+          RC=$?
+          echo "INSTALL_RC=$RC" | tee -a "$OUT/status.txt"
+          if [ "$RC" -ne 0 ]; then exit 0; fi
+
+          "$ADB" shell pm grant com.activision.boz android.permission.WRITE_EXTERNAL_STORAGE 2>/dev/null || true
+          "$ADB" shell pm grant com.activision.boz android.permission.READ_EXTERNAL_STORAGE 2>/dev/null || true
+          "$ADB" shell appops set com.activision.boz MANAGE_EXTERNAL_STORAGE allow 2>/dev/null || true
+          "$ADB" shell mkdir -p /sdcard/Android/obb/com.activision.boz 2>/dev/null || true
+
+          "$ADB" logcat -c
+          "$ADB" shell am force-stop com.activision.boz >/dev/null 2>&1 || true
+          "$ADB" shell am start -W -n com.activision.boz/.Main > "$OUT/launch.txt" 2>&1
+          echo "LAUNCH_RC=$?" | tee -a "$OUT/status.txt"
+
+          sleep 92
+          "$ADB" exec-out screencap -p > "$OUT/screens/title_before_touch.png"
+          PID="$("$ADB" shell pidof com.activision.boz 2>/dev/null | tr -d '\r\n')"
+          echo "TITLE_PID=$PID" | tee -a "$OUT/status.txt"
+
+          # The game is in 2280x1080 landscape. Title says TOUCH SCREEN TO START.
+          "$ADB" shell input tap 1140 540
+          echo "TOUCH_SENT=1140,540" | tee -a "$OUT/status.txt"
+
+          sleep 2
+          "$ADB" exec-out screencap -p > "$OUT/screens/after_touch_02s.png"
+          sleep 3
+          "$ADB" exec-out screencap -p > "$OUT/screens/after_touch_05s.png"
+          sleep 5
+          "$ADB" exec-out screencap -p > "$OUT/screens/after_touch_10s.png"
+          sleep 10
+          "$ADB" exec-out screencap -p > "$OUT/screens/after_touch_20s.png"
+          sleep 20
+          "$ADB" exec-out screencap -p > "$OUT/screens/after_touch_40s.png"
+
+          PID="$("$ADB" shell pidof com.activision.boz 2>/dev/null | tr -d '\r\n')"
+          echo "FINAL_PID=$PID" | tee -a "$OUT/status.txt"
+
+          "$ADB" logcat -d -v threadtime > "$OUT/logcat.txt" 2>&1
+          "$ADB" shell dumpsys activity activities > "$OUT/activities.txt" 2>&1
+          sha256sum "$OUT"/screens/*.png > "$OUT/screen-hashes.txt"
+          exit 0
+
+      - name: Summarize touch proof
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          OUT=/tmp/xchurch-touch
+          cat "$OUT/status.txt" 2>/dev/null || true
+          cat "$OUT/screen-hashes.txt" 2>/dev/null || true
+          find "$OUT/screens" -type f -printf '%f %s bytes\n' | sort || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: XChurch-Title-Touch-Proof
+          path: |
+            /tmp/xchurch-touch/screens/
+            /tmp/xchurch-touch/status.txt
+            /tmp/xchurch-touch/launch.txt
+            /tmp/xchurch-touch/install.txt
+            /tmp/xchurch-touch/screen-hashes.txt
+            /tmp/xchurch-touch/logcat.txt
+            /tmp/xchurch-touch/activities.txt
+          if-no-files-found: error
+          retention-days: 14
