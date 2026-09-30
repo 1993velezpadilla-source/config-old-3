@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/sanctum-native-xziel-v1
+      - feature/sanctum-vertical-slice-v1
     paths:
       - ".github/workflows/sanctum-native-hq-android.yml"
       - "engine/**"
