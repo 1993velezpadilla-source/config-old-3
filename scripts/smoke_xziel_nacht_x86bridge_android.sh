@@ -121,16 +121,32 @@ EOF
         > "$OUT/wine-direct-probe.txt" 2>&1 || true
       adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=files/rootfs; TMPDIR=\$ROOT/tmp BOX64_LOG=2 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu PATH=\$ROOT/opt/wine/bin:/system/bin \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wineserver --version'" \
         > "$OUT/wineserver-direct-probe.txt" 2>&1 || true
-      adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_LOG=2 BOX64_DLSYM_ERROR=1 BOX64_SHOWSEGV=1 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEESYNC=0 timeout 6 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wineserver -d'" \
-        > "$OUT/wineserver-daemon-direct-probe.txt" 2>&1 || true
       echo "XZIEL_X86BRIDGE_DIRECT_PROBE_BOX64"
       tail -n 200 "$OUT/box64-direct-probe.txt" || true
       echo "XZIEL_X86BRIDGE_DIRECT_PROBE_WINE"
       tail -n 300 "$OUT/wine-direct-probe.txt" || true
       echo "XZIEL_X86BRIDGE_DIRECT_PROBE_WINESERVER"
       tail -n 300 "$OUT/wineserver-direct-probe.txt" || true
-      echo "XZIEL_X86BRIDGE_DIRECT_PROBE_WINESERVER_DAEMON"
-      tail -n 900 "$OUT/wineserver-daemon-direct-probe.txt" || true
+      # Clean daemonization bypass probe.  Start wineserver in foreground but
+      # background the Box64 host process ourselves, then let Wine attach to
+      # that existing server.  This avoids wineserver -d's fork/daemon path,
+      # which becomes a zombie under Android native translation.
+      timeout 10s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; rm -f \$ROOT/tmp/xziel-wineserver-fg.log \$ROOT/tmp/xziel-wineserver-fg.pid; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_LOG=1 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEESYNC=0 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wineserver -f > \$ROOT/tmp/xziel-wineserver-fg.log 2>&1 & echo \$! > \$ROOT/tmp/xziel-wineserver-fg.pid'" \
+        > "$OUT/wineserver-fg-start.txt" 2>&1 || true
+      sleep 2
+      adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-wineserver-fg.pid > "$OUT/wineserver-fg.pid" 2>/dev/null || true
+      adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; echo PID=\$(cat \$ROOT/tmp/xziel-wineserver-fg.pid 2>/dev/null); ps -A | grep -E \"box64|wineserver\" || true; find \$ROOT/tmp -maxdepth 3 -type s -print 2>/dev/null | sort'" \
+        > "$OUT/wineserver-fg-state.txt" 2>&1 || true
+      timeout 20s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_LOG=2 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEDEBUG=+server,+process WINEESYNC=0 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wine cmd /c ver'" \
+        > "$OUT/wine-with-prestarted-server.txt" 2>&1 || true
+      adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-wineserver-fg.log > "$OUT/wineserver-fg.log" 2>/dev/null || true
+      timeout 5s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; pid=\$(cat \$ROOT/tmp/xziel-wineserver-fg.pid 2>/dev/null || true); if [ -n \"\$pid\" ]; then kill \$pid 2>/dev/null || true; fi'" >/dev/null 2>&1 || true
+      echo "XZIEL_X86BRIDGE_PRESTARTED_WINESERVER_STATE"
+      cat "$OUT/wineserver-fg-state.txt" || true
+      echo "XZIEL_X86BRIDGE_PRESTARTED_WINESERVER_CMD"
+      tail -n 900 "$OUT/wine-with-prestarted-server.txt" || true
+      echo "XZIEL_X86BRIDGE_PRESTARTED_WINESERVER_LOG"
+      tail -n 900 "$OUT/wineserver-fg.log" || true
 
       # Probe the real Winlator Wine prefix with and without esync.  The plain
       # --version probe does not start wineserver or touch the container prefix,
