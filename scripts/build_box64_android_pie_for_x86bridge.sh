@@ -75,7 +75,7 @@ cmake -S "$SRC" -B "$BUILD/cmake" \
   -DBOX32=0 \
   -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
   -DCMAKE_C_FLAGS="-fPIE" \
-  -DCMAKE_EXE_LINKER_FLAGS="-pie"
+  -DCMAKE_EXE_LINKER_FLAGS="-pie -Wl,--export-dynamic"
 
 cmake --build "$BUILD/cmake" --target box64 -j2
 
@@ -87,9 +87,12 @@ chmod 755 "$OUT/box64-pie"
 file "$OUT/box64-pie" | tee "$DIST/box64-pie.file.txt"
 readelf -h "$OUT/box64-pie" | tee "$DIST/box64-pie.readelf-h.txt"
 readelf -l "$OUT/box64-pie" | tee "$DIST/box64-pie.readelf-l.txt"
+readelf --dyn-syms -W "$OUT/box64-pie" | tee "$DIST/box64-pie.dynsym.txt"
 sha256sum "$OUT/box64-pie" | tee "$DIST/box64-pie.sha256"
 
 grep -Eq 'Type:[[:space:]]+DYN' "$DIST/box64-pie.readelf-h.txt"
+grep -Eq '[[:space:]]my___libc_start_main "$DIST/box64-pie.dynsym.txt"
+echo "XZIEL_BOX64_GLIBC_START_MAIN_DYNSYM_GREEN"
 
 echo "XZIEL_BOX64_PIE=$OUT/box64-pie" >> "$GITHUB_ENV"
 echo "XZIEL_BOX64_ANDROID_PIE_INTERPRETER_GREEN path=$OUT/box64-pie"
