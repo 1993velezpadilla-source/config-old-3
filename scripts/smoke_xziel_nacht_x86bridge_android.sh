@@ -161,6 +161,22 @@ EOF
 
       echo "XZIEL_X86BRIDGE_FREETYPE_MODE native-bionic-plus-winfnt-shim"
 
+      # Runtime iteration is only ~500 KB. Once the APK has natively installed
+      # the validated VFS, replace just Xziel-Nacht.exe with the newest green
+      # Win64 runtime before the PIE relaunch. This avoids rebuilding/reinstalling
+      # the 1 GB APK for every SDL/Wine bootstrap fix.
+      if [[ -n "${XZIEL_RUNTIME_OVERRIDE_EXE:-}" && -s "${XZIEL_RUNTIME_OVERRIDE_EXE}" ]]; then
+        echo "XZIEL_RUNTIME_OVERRIDE_INJECT_BEGIN"
+        sha256sum "${XZIEL_RUNTIME_OVERRIDE_EXE}" | tee "$OUT/runtime-override-host.sha256"
+        adb shell "run-as ${XZIEL_PACKAGE} sh -c 'cat > files/rootfs/home/xuser/.wine/drive_c/XZIEL/Xziel-Nacht.exe'" \
+          < "${XZIEL_RUNTIME_OVERRIDE_EXE}"
+        adb shell run-as ${XZIEL_PACKAGE} chmod 600 \
+          files/rootfs/home/xuser/.wine/drive_c/XZIEL/Xziel-Nacht.exe
+        adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ls -l files/rootfs/home/xuser/.wine/drive_c/XZIEL/Xziel-Nacht.exe; wc -c files/rootfs/home/xuser/.wine/drive_c/XZIEL/Xziel-Nacht.exe'" \
+          | tee "$OUT/runtime-override-device.txt"
+        echo "XZIEL_RUNTIME_OVERRIDE_INJECT_GREEN"
+      fi
+
       # Deep compatibility probes are useful after a failure, but running them
       # before every relaunch can delay or retain Wine children. Fast launch is
       # the default now: get Nacht to the real XServer first.
