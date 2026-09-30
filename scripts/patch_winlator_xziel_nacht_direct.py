@@ -52,6 +52,7 @@ import com.winlator.xenvironment.RootFSInstaller;
 import org.json.JSONObject;
 
 import java.io.File;
+import java.io.BufferedInputStream;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
@@ -268,7 +269,8 @@ public class XzielBootActivity extends AppCompatActivity {
         int files = 0;
 
         try (InputStream raw = getAssets().open(VFS_ASSET, AssetManager.ACCESS_STREAMING);
-             ZipInputStream zip = new ZipInputStream(raw)) {
+             BufferedInputStream buffered = new BufferedInputStream(raw, 1024 * 1024);
+             ZipInputStream zip = new ZipInputStream(buffered)) {
             byte[] buffer = new byte[1024 * 1024];
             ZipEntry entry;
             while ((entry = zip.getNextEntry()) != null) {
@@ -293,7 +295,6 @@ public class XzielBootActivity extends AppCompatActivity {
                         while ((read = zip.read(buffer)) > 0) {
                             stream.write(buffer, 0, read);
                         }
-                        stream.getFD().sync();
                     }
                     files++;
                     if ((files % 500) == 0) {
