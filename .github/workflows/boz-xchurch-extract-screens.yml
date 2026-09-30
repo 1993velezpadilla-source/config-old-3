@@ -1,0 +1,66 @@
+name: XChurch Extract Android Screens
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/boz-mod-runtime
+    paths:
+      - ".github/workflows/boz-xchurch-extract-screens.yml"
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download proven Android11 capture
+        uses: actions/download-artifact@v4
+        with:
+          name: XChurch-Android11-ARM-Translation-Capture
+          run-id: 36772458810
+          github-token: ${{ github.token }}
+          path: /tmp/xchurch-full
+
+      - name: Extract only screenshots and proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/xchurch-proof/screens
+
+          find /tmp/xchurch-full -type f -name '*.png' -print -exec cp {} /tmp/xchurch-proof/screens/ \;
+
+          for name in status.txt device.txt launch.txt install-arm64.txt install-auto.txt logcat-highlights.txt activities.txt window.txt; do
+            SRC="$(find /tmp/xchurch-full -type f -name "$name" | head -n1 || true)"
+            if [[ -n "$SRC" && -f "$SRC" ]]; then
+              cp "$SRC" /tmp/xchurch-proof/
+            fi
+          done
+
+          echo "=== PROOF FILES ==="
+          find /tmp/xchurch-proof -type f -printf '%P %s bytes\n' | sort
+
+          test -s /tmp/xchurch-proof/screens/app_15s.png
+          test -s /tmp/xchurch-proof/screens/app_30s.png
+          test -s /tmp/xchurch-proof/status.txt
+
+          grep -q 'ADB_READY=1' /tmp/xchurch-proof/status.txt
+          grep -q 'BOOT_COMPLETED=1' /tmp/xchurch-proof/status.txt
+          grep -q 'INSTALL_ARM64_RC=0' /tmp/xchurch-proof/status.txt
+          grep -q 'LAUNCH_RC=0' /tmp/xchurch-proof/status.txt
+          grep -Eq '^PID=[0-9]+' /tmp/xchurch-proof/status.txt
+
+          echo "XZIEL_BOZ_ANDROID_SCREEN_PROOF_OK"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: XChurch-Android11-Screens-Only
+          path: /tmp/xchurch-proof/
+          if-no-files-found: error
+          retention-days: 14
