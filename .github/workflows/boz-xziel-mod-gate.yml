@@ -248,3 +248,141 @@ jobs:
           path: boz_mod_out/android_build/
           if-no-files-found: error
           retention-days: 14
+
+
+  real-dtrz-manifest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download public BOZ AArch64 release for analysis only
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/boz135
+          curl -L --fail --retry 3 --retry-delay 2 \
+            -o /tmp/boz135/app-release.apk \
+            https://github.com/12brendon34/COD-BOZ-Partially-Decompiled/releases/download/1.3.5/app-release.apk
+          test -s /tmp/boz135/app-release.apk
+          unzip -l /tmp/boz135/app-release.apk | tee /tmp/boz135/apk-list.txt
+          grep -i "blackops_gles1.dz" /tmp/boz135/apk-list.txt
+
+      - name: Extract embedded DTRZ temporarily
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/boz135
+          ENTRY="$(unzip -Z1 app-release.apk | grep -i 'blackops_gles1\.dz$' | head -n1)"
+          test -n "$ENTRY"
+          unzip -p app-release.apk "$ENTRY" > blackops_gles1.dz
+          test -s blackops_gles1.dz
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/boz135/blackops_gles1.dz')
+          b=p.read_bytes()[:16]
+          print('DZ_BYTES', p.stat().st_size)
+          print('DZ_HEAD', b.hex())
+          assert b[:4] == b'DTRZ', b
+          print('REAL_DTRZ_MAGIC_OK')
+          PY
+
+      - name: Clone pinned MIT MarmDump
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone https://github.com/codefl0w/MarmDump.git /tmp/MarmDump
+          cd /tmp/MarmDump
+          git checkout 48b7b743344b7031e683cb81b67f8d874710caef
+          test "$(git rev-parse HEAD)" = "48b7b743344b7031e683cb81b67f8d874710caef"
+
+      - name: Build real DTRZ manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p boz_mod_out/real_manifest
+          python3 /tmp/MarmDump/MarmDump.py \
+            -i /tmp/boz135/blackops_gles1.dz \
+            --dry-run \
+            --manifest boz_mod_out/real_manifest/blackops_gles1_manifest.json \
+            | tee boz_mod_out/real_manifest/marmdump.log
+          test -s boz_mod_out/real_manifest/blackops_gles1_manifest.json
+
+      - name: Extract likely map resource names
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, re
+          from pathlib import Path
+
+          src=Path('boz_mod_out/real_manifest/blackops_gles1_manifest.json')
+          data=json.loads(src.read_text(encoding='utf-8'))
+
+          # MarmDump manifest shape may vary; recursively collect strings that
+          # look like archive paths without assuming a fixed schema.
+          strings=[]
+          def walk(v):
+              if isinstance(v, dict):
+                  for k,x in v.items():
+                      if isinstance(k,str):
+                          strings.append(k)
+                      walk(x)
+              elif isinstance(v, list):
+                  for x in v: walk(x)
+              elif isinstance(v, str):
+                  strings.append(v)
+          walk(data)
+
+          paths=[]
+          seen=set()
+          for s in strings:
+              s=s.replace('\\','/')
+              if '/' not in s and not re.search(r'\.(?:bin|group|i3d|itx|geo|dat)$', s, re.I):
+                  continue
+              if s not in seen:
+                  seen.add(s); paths.append(s)
+
+          kws=re.compile(
+              r'(kino|theatre|theater|ascension|dead.?ops|map|level|world|zombie|'
+              r'ingame|scene|environment|recast|nav|collision|geom|room|spawn)',
+              re.I
+          )
+          likely=[p for p in paths if kws.search(p)]
+
+          Path('boz_mod_out/real_manifest/all_resource_paths.txt').write_text(
+              '\n'.join(sorted(paths)), encoding='utf-8')
+          Path('boz_mod_out/real_manifest/likely_map_resources.txt').write_text(
+              '\n'.join(sorted(likely)), encoding='utf-8')
+
+          print('REAL_RESOURCE_PATHS', len(paths))
+          print('LIKELY_MAP_RESOURCES', len(likely))
+          print('--- LIKELY MAP RESOURCES ---')
+          for p in sorted(likely)[:300]:
+              print(p)
+          PY
+
+      - name: Save analysis proof only
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum /tmp/boz135/blackops_gles1.dz \
+            | awk '{print "SOURCE_DZ_SHA256=" $1}' \
+            > boz_mod_out/real_manifest/gate.env
+          {
+            echo "SOURCE_RELEASE=12brendon34/COD-BOZ-Partially-Decompiled@1.3.5"
+            echo "SOURCE_BINARY_RETAINED=false"
+            echo "MANIFEST_ONLY=true"
+            echo "GATE_5=real_dtrz_manifest"
+            echo "STATUS=GREEN"
+          } >> boz_mod_out/real_manifest/gate.env
+          rm -f /tmp/boz135/app-release.apk /tmp/boz135/blackops_gles1.dz
+          echo "XZIEL_BOZ_REAL_DTRZ_MANIFEST_OK"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-BOZ-Real-DTRZ-Manifest
+          path: boz_mod_out/real_manifest/
+          if-no-files-found: error
+          retention-days: 14
