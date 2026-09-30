@@ -268,6 +268,70 @@ EOF
       continue
     fi
 
+    # XServer setup clears rootfs/tmp. That invalidates the foreground
+    # wineserver socket that made the prelaunch cmd.exe probe GREEN. Wine then
+    # falls back to spawning wineserver -d, whose fork/daemon path crashes under
+    # the Android x86->ARM bridge. Recreate a foreground wineserver *after* the
+    # XServer environment is ready, then keep that exact server for all launch
+    # isolation probes below.
+    if [[ "$pie_retry" == "1" ]]; then
+      echo "XZIEL_X86BRIDGE_POST_XSERVER_WINESERVER_BEGIN"
+      adb shell "run-as ${XZIEL_PACKAGE} sh -c '
+        ROOT=/data/user/0/com.xzielapp/files/rootfs
+        rm -rf \$ROOT/tmp/.wine-* 2>/dev/null || true
+        rm -f \$ROOT/tmp/xziel-wineserver-postx.log \$ROOT/tmp/xziel-wineserver-postx.pid
+        HOME=\$ROOT/home/xuser \
+        USER=xuser \
+        TMPDIR=\$ROOT/tmp \
+        PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin \
+        BOX64_DYNAREC=0 \
+        BOX64_NOBANNER=1 \
+        BOX64_LOG=1 \
+        BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu \
+        ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 \
+        WINEPREFIX=\$ROOT/home/xuser/.wine \
+        WINEESYNC=0 \
+        WINEFSYNC=0 \
+        \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wineserver -f \
+          > \$ROOT/tmp/xziel-wineserver-postx.log 2>&1 &
+        echo \$! > \$ROOT/tmp/xziel-wineserver-postx.pid
+      '" > "$OUT/wineserver-postx-start.txt" 2>&1 || true
+      sleep 2
+      adb shell "run-as ${XZIEL_PACKAGE} sh -c '
+        ROOT=/data/user/0/com.xzielapp/files/rootfs
+        echo PID=\$(cat \$ROOT/tmp/xziel-wineserver-postx.pid 2>/dev/null)
+        ps -A | grep -E "box64|wineserver" || true
+        find \$ROOT/tmp -maxdepth 3 -type s -print 2>/dev/null | sort
+      '" > "$OUT/wineserver-postx-state.txt" 2>&1 || true
+      adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-wineserver-postx.log \
+        > "$OUT/wineserver-postx.log" 2>/dev/null || true
+      echo "XZIEL_X86BRIDGE_POST_XSERVER_WINESERVER_STATE"
+      cat "$OUT/wineserver-postx-state.txt" || true
+      echo "XZIEL_X86BRIDGE_POST_XSERVER_WINESERVER_LOG"
+      tail -n 400 "$OUT/wineserver-postx.log" || true
+
+      timeout 30s adb shell "run-as ${XZIEL_PACKAGE} sh -c '
+        ROOT=/data/user/0/com.xzielapp/files/rootfs
+        HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp \
+        PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin \
+        BOX64_DYNAREC=0 BOX64_NOBANNER=1 BOX64_LOG=1 \
+        BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu \
+        ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 \
+        WINEPREFIX=\$ROOT/home/xuser/.wine WINEESYNC=0 WINEFSYNC=0 \
+        \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wine C:\\\\windows\\\\system32\\\\cmd.exe /c ver
+        rc=\$?
+        echo XZIEL_POST_XSERVER_CMD_STATUS=\$rc
+        exit \$rc
+      '" > "$OUT/postxserver-cmd.txt" 2>&1 || true
+      tail -n 300 "$OUT/postxserver-cmd.txt" || true
+      if grep -q 'XZIEL_POST_XSERVER_CMD_STATUS=0' "$OUT/postxserver-cmd.txt"; then
+        echo "XZIEL_X86BRIDGE_POST_XSERVER_CMD_GREEN"
+      else
+        echo "XZIEL_X86BRIDGE_POST_XSERVER_CMD_NOT_GREEN"
+      fi
+      echo "XZIEL_X86BRIDGE_POST_XSERVER_WINESERVER_READY"
+    fi
+
     # If the Bionic PIE retry itself exited, reproduce the exact Wine/X11
     # launch while XServer, VirGL and ALSA are still alive. Turn on Box64 and
     # Wine loader/server diagnostics only for this bounded CI probe.
