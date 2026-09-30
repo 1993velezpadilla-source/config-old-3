@@ -37,7 +37,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          SOURCE_RUN=36665998606
+          SOURCE_RUN="$(gh run list \
+            --repo "${{ github.repository }}" \
+            --workflow "xziel-nacht-hybrid-touch-gyro-apk.yml" \
+            --branch "experiment/xziel-nacht-win64-exe-v1" \
+            --status success \
+            --limit 1 \
+            --json databaseId \
+            --jq '.[0].databaseId')"
+          test -n "$SOURCE_RUN"
+          echo "XZIEL_X86BRIDGE_SOURCE_APK_RUN=$SOURCE_RUN"
           mkdir -p input/hybrid-apk dist/android-x86bridge-smoke
           gh run download "$SOURCE_RUN" \
             --repo "${{ github.repository }}" \
