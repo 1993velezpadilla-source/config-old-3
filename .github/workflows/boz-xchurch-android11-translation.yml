@@ -1,0 +1,142 @@
+name: XChurch Android11 ARM Translation Capture
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/boz-mod-runtime
+    paths:
+      - ".github/workflows/boz-xchurch-android11-translation.yml"
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Enable KVM
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+          ls -l /dev/kvm || true
+
+      - name: Download verified XChurch APK
+        uses: actions/download-artifact@v4
+        with:
+          name: XZIEL-BOZ-XChurch-APK
+          run-id: 36768068731
+          github-token: ${{ github.token }}
+          path: /tmp/xchurch-apk-artifact
+
+      - name: Stage APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/xchurch-translation
+          APK="$(find /tmp/xchurch-apk-artifact -type f -name '*.apk' | head -n1)"
+          test -s "$APK"
+          cp "$APK" /tmp/xchurch-translation/xchurch.apk
+          sha256sum /tmp/xchurch-translation/xchurch.apk \
+            | tee /tmp/xchurch-translation/apk.sha256
+
+      - name: Boot Android 11 x86_64 ARM translation and capture
+        uses: reactivecircus/android-emulator-runner@v2
+        continue-on-error: true
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-boot-timeout: 420
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -no-metrics -camera-back none
+          script: |
+            set +e
+            OUT=/tmp/xchurch-translation
+
+            {
+              echo "CPU_ABI=$(adb shell getprop ro.product.cpu.abi)"
+              echo "CPU_ABILIST=$(adb shell getprop ro.product.cpu.abilist)"
+              echo "CPU_ABILIST64=$(adb shell getprop ro.product.cpu.abilist64)"
+              echo "NATIVE_BRIDGE=$(adb shell getprop ro.dalvik.vm.native.bridge)"
+              echo "ISA_ARM64=$(adb shell getprop ro.dalvik.vm.isa.arm64)"
+              echo "ENABLE_NATIVE_BRIDGE=$(adb shell getprop ro.enable.native.bridge.exec)"
+            } | tee "$OUT/device-props.txt"
+
+            adb shell 'ls -l /system/lib64/libndk_translation* 2>/dev/null' \
+              > "$OUT/native-bridge-files.txt" 2>&1 || true
+            adb shell 'find /system -maxdepth 4 -iname "*ndk_translation*" 2>/dev/null | head -50' \
+              >> "$OUT/native-bridge-files.txt" 2>&1 || true
+
+            adb install --abi arm64-v8a -r "$OUT/xchurch.apk" \
+              > "$OUT/install-arm64.log" 2>&1
+            RC=$?
+            if [ "$RC" -ne 0 ]; then
+              adb install -r "$OUT/xchurch.apk" \
+                > "$OUT/install-default.log" 2>&1
+              RC=$?
+            fi
+            echo "INSTALL_RC=$RC" | tee "$OUT/status.txt"
+            cat "$OUT/install-arm64.log" | tail -100 | tee -a "$OUT/status.txt"
+            [ -f "$OUT/install-default.log" ] && cat "$OUT/install-default.log" | tail -100 | tee -a "$OUT/status.txt"
+
+            adb shell pm list packages | grep -i 'activision\|boz' \
+              | tee "$OUT/packages.txt" || true
+
+            if [ "$RC" -eq 0 ]; then
+              adb shell am force-stop com.activision.boz || true
+              adb logcat -c
+              adb shell monkey -p com.activision.boz \
+                -c android.intent.category.LAUNCHER 1 \
+                > "$OUT/launch.log" 2>&1 || true
+
+              sleep 5
+              adb exec-out screencap -p > "$OUT/boot_05s.png"
+              sleep 10
+              adb exec-out screencap -p > "$OUT/boot_15s.png"
+              sleep 15
+              adb exec-out screencap -p > "$OUT/boot_30s.png"
+              sleep 30
+              adb exec-out screencap -p > "$OUT/boot_60s.png"
+            else
+              adb exec-out screencap -p > "$OUT/install_failure.png" || true
+            fi
+
+            adb shell dumpsys activity activities > "$OUT/activity.txt" 2>&1 || true
+            adb shell dumpsys window windows > "$OUT/window.txt" 2>&1 || true
+            adb logcat -d > "$OUT/logcat.txt" 2>&1 || true
+            exit 0
+
+      - name: Summarize capture
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=/tmp/xchurch-translation
+          echo "=== files ==="
+          find "$OUT" -maxdepth 1 -type f -printf '%f %s bytes\n' | sort
+          echo "=== status ==="
+          cat "$OUT/status.txt" 2>/dev/null || true
+          echo "=== props ==="
+          cat "$OUT/device-props.txt" 2>/dev/null || true
+          echo "=== activity ==="
+          grep -Ei 'activision|boz|mResumedActivity|topResumedActivity' \
+            "$OUT/activity.txt" 2>/dev/null | tail -30 || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: XChurch-Android11-ARM-Translation-Capture
+          path: /tmp/xchurch-translation/
+          if-no-files-found: error
+          retention-days: 14
