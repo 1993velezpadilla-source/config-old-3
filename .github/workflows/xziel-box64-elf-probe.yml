@@ -1,0 +1,52 @@
+name: XZIEL Box64 ELF Probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - experiment/xziel-nacht-win64-exe-v1
+    paths:
+      - ".github/workflows/xziel-box64-elf-probe.yml"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Clone pinned Winlator
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none https://github.com/brunodev85/winlator-app.git winlator
+          git -C winlator checkout 3981d86efa4f333b2a34a7da8b6521476cd8c8b9
+
+      - name: Inspect builtin Box64 0.4.4
+        shell: bash
+        run: |
+          set -euo pipefail
+          src="winlator/app/src/main/assets/box64/box64-0.4.4.tzst"
+          test -s "$src"
+          mkdir -p out/root
+          tar --zstd -xf "$src" -C out/root
+          box="$(find out/root -type f -path '*/usr/local/bin/box64' -print -quit)"
+          test -n "$box" -a -s "$box"
+          echo "BOX64=$box"
+          file "$box" | tee out/file.txt
+          readelf -h "$box" | tee out/elf-header.txt
+          readelf -l "$box" | tee out/program-headers.txt
+          readelf -d "$box" | tee out/dynamic.txt || true
+          echo "XZIEL_BOX64_TYPE=$(readelf -h "$box" | awk -F: '/Type:/{gsub(/^ +/,"",$2); print $2}')"
+          interp="$(readelf -l "$box" | sed -n 's/.*Requesting program interpreter: \(.*\)]/\1/p')"
+          echo "XZIEL_BOX64_INTERP=$interp"
+          if readelf -h "$box" | grep -q 'Type:.*DYN'; then
+            echo "XZIEL_BOX64_PIE=1"
+          else
+            echo "XZIEL_BOX64_PIE=0"
+          fi
+
+      - name: Upload ELF probe
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Box64-ELF-Probe
+          path: out/
+          if-no-files-found: error
