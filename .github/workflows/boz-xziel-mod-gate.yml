@@ -624,6 +624,23 @@ jobs:
           grep -q "XZIEL_BOZ_NESTED_GROUP_ANALYSIS_OK" boz_mod_out/kino_probe/nested-group-refs.log
           test -s boz_mod_out/kino_probe/nested-group-refs.json
 
+      - name: Build XChurch room alias and sector redirect
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/xchurch_mod
+          mkdir -p /tmp/xchurch_mod
+          python3 tools/boz_mod/build_xchurch_alias.py \
+            --sectors /tmp/boz-kino/extracted/levels/kino/kino_sectors.group.bin \
+            --theatre /tmp/boz-kino/extracted/levels/kino/theatre_shared.group.bin \
+            --out-root /tmp/xchurch_mod \
+            --report boz_mod_out/kino_probe/xchurch-alias.json \
+            | tee boz_mod_out/kino_probe/xchurch-alias.log
+          grep -q "XZIEL_BOZ_XCHURCH_ALIAS_BUILD_OK" boz_mod_out/kino_probe/xchurch-alias.log
+          test -s /tmp/xchurch_mod/levels/kino/kino_sectors.group.bin
+          test -s /tmp/xchurch_mod/levels/kino/xchurch_shared.group.bin
+          test -s boz_mod_out/kino_probe/xchurch-alias.json
+
       - name: Inventory real Kino resource classes
         shell: bash
         run: |
