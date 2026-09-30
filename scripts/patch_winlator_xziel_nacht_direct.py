@@ -1046,7 +1046,9 @@ post_env_insert = '''        if (this.envVars != null) envVars.putAll(this.envVa
 
         if (xzielX86Bridge) {
             envVars.remove("LD_LIBRARY_PATH");
+            envVars.put("XZIEL_GUEST_CAPTURE_PATH", rootDir+"/tmp/xziel-guest-output.log");
             Log.i("XZIEL-HYBRID", "X86_BRIDGE_HOST_LD_LIBRARY_PATH_REMOVED_FINAL");
+            Log.i("XZIEL-HYBRID", "GUEST_FILE_CAPTURE path=" + rootDir + "/tmp/xziel-guest-output.log");
         }
 
         File shmDir = new File(rootDir, "/tmp/shm");
@@ -1087,6 +1089,45 @@ process_helper = java / "core/ProcessHelper.java"
 ptext = process_helper.read_text(encoding="utf-8")
 if "import android.util.Log;" not in ptext:
     ptext = ptext.replace("import android.system.OsConstants;\n", "import android.system.OsConstants;\nimport android.util.Log;\n", 1)
+
+process_redirect_anchor = '''            ProcessBuilder processBuilder = (new ProcessBuilder(splitCommand(command))).directory(workingDir);
+            if (debugCallbacks.isEmpty()) processBuilder.redirectOutput(new File("/dev/null")).redirectErrorStream(true);
+
+            Map<String, String> environment = processBuilder.environment();
+'''
+process_redirect_insert = '''            ProcessBuilder processBuilder = (new ProcessBuilder(splitCommand(command))).directory(workingDir);
+            String xzielCapturePath = envVars != null ? envVars.get("XZIEL_GUEST_CAPTURE_PATH") : null;
+            if (xzielCapturePath != null && !xzielCapturePath.isEmpty()) {
+                File captureFile = new File(xzielCapturePath);
+                File captureParent = captureFile.getParentFile();
+                if (captureParent != null && !captureParent.isDirectory()) captureParent.mkdirs();
+                processBuilder.redirectOutput(captureFile).redirectErrorStream(true);
+                Log.i("XZIEL-PROCESS", "guest output redirected=" + captureFile.getPath());
+            }
+            else if (debugCallbacks.isEmpty()) {
+                processBuilder.redirectOutput(new File("/dev/null")).redirectErrorStream(true);
+            }
+
+            Map<String, String> environment = processBuilder.environment();
+'''
+if process_redirect_anchor not in ptext:
+    raise SystemExit("Could not find ProcessHelper redirect anchor")
+ptext = ptext.replace(process_redirect_anchor, process_redirect_insert, 1)
+
+process_reader_anchor = '''            if (!debugCallbacks.isEmpty()) {
+                createDebugThread(process.getInputStream());
+                createDebugThread(process.getErrorStream());
+            }
+'''
+process_reader_insert = '''            if (!debugCallbacks.isEmpty() && (xzielCapturePath == null || xzielCapturePath.isEmpty())) {
+                createDebugThread(process.getInputStream());
+                createDebugThread(process.getErrorStream());
+            }
+'''
+if process_reader_anchor not in ptext:
+    raise SystemExit("Could not find ProcessHelper reader anchor")
+ptext = ptext.replace(process_reader_anchor, process_reader_insert, 1)
+
 process_catch_anchor = '''        catch (Exception e) {}
         return pid;
 '''
