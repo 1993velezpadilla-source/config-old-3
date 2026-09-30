@@ -35,8 +35,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          RUNTIME_RUN=36644605239
+          RUNTIME_RUN="$(gh run list \
+            --repo "${{ github.repository }}" \
+            --workflow "xziel-nacht-win64-runtime.yml" \
+            --branch "experiment/xziel-nacht-win64-exe-v1" \
+            --status success \
+            --limit 1 \
+            --json databaseId \
+            --jq '.[0].databaseId')"
           VFS_RUN=36642428359
+          test -n "$RUNTIME_RUN"
+          echo "XZIEL_DIRECT_RUNTIME_SOURCE_RUN=$RUNTIME_RUN"
           mkdir -p input/runtime input/vfs
 
           gh run download "$RUNTIME_RUN" \
