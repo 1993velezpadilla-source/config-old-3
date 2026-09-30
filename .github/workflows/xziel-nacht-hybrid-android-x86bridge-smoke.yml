@@ -59,6 +59,32 @@ jobs:
           sha256sum "$APK" | tee dist/android-x86bridge-smoke/apk.sha256
           echo "XZIEL_X86BRIDGE_APK_READY"
 
+      - name: Download latest Win64 runtime override
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          RUNTIME_RUN="$(gh run list \
+            --repo "${{ github.repository }}" \
+            --workflow "xziel-nacht-win64-runtime.yml" \
+            --branch "experiment/xziel-nacht-win64-exe-v1" \
+            --status success \
+            --limit 1 \
+            --json databaseId \
+            --jq '.[0].databaseId')"
+          test -n "$RUNTIME_RUN"
+          mkdir -p input/runtime-override
+          gh run download "$RUNTIME_RUN" \
+            --repo "${{ github.repository }}" \
+            --name "XZIEL-Nacht-Win64-Runtime" \
+            --dir input/runtime-override
+          RUNTIME_EXE="$(find input/runtime-override -type f -name 'Xziel-Nacht.exe' -print -quit)"
+          test -n "$RUNTIME_EXE" && test -s "$RUNTIME_EXE"
+          echo "XZIEL_RUNTIME_OVERRIDE_SOURCE_RUN=$RUNTIME_RUN"
+          echo "XZIEL_RUNTIME_OVERRIDE_EXE=$RUNTIME_EXE" >> "$GITHUB_ENV"
+          sha256sum "$RUNTIME_EXE" | tee dist/android-x86bridge-smoke/runtime-override.sha256
+
       - name: Build Bionic PIE Box64 interpreter for Android native bridge
         shell: bash
         run: |
