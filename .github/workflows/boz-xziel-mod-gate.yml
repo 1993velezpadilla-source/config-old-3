@@ -437,6 +437,123 @@ jobs:
           retention-days: 14
 
 
+  boz-binariser-capability:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Fetch BOZ payload temporarily
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/boz-binprobe
+          curl -L --fail --retry 3 --retry-delay 2 \
+            -o /tmp/boz-binprobe/app-release.apk \
+            https://github.com/12brendon34/COD-BOZ-Partially-Decompiled/releases/download/1.3.5/app-release.apk
+          ENTRY="$(unzip -Z1 /tmp/boz-binprobe/app-release.apk | grep -Fi 'assets/boz.s3e' | head -n1)"
+          test -n "$ENTRY"
+          unzip -p /tmp/boz-binprobe/app-release.apk "$ENTRY" > /tmp/boz-binprobe/boz.s3e
+          test -s /tmp/boz-binprobe/boz.s3e
+          rm -f /tmp/boz-binprobe/app-release.apk
+
+      - name: Decompress S3E executable payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import lzma
+          from pathlib import Path
+
+          src=Path('/tmp/boz-binprobe/boz.s3e').read_bytes()
+          if len(src) < 14:
+              raise SystemExit('boz.s3e too small')
+          props=src[0]
+          pb=props // 45
+          rem=props % 45
+          lp=rem // 9
+          lc=rem % 9
+          dec=lzma.decompress(
+              src[13:],
+              format=lzma.FORMAT_RAW,
+              filters=[{'id': lzma.FILTER_LZMA1, 'lc':lc, 'lp':lp, 'pb':pb}],
+          )
+          Path('/tmp/boz-binprobe/boz.unpacked').write_bytes(dec)
+          print('BOZ_S3E_DECOMPRESSED_BYTES', len(dec))
+          print('BOZ_S3E_MAGIC', dec[:4].decode('ascii', errors='replace'))
+          PY
+
+      - name: Probe embedded Marmalade resource compiler strings
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p boz_mod_out/binariser_probe
+          strings -a -n 5 /tmp/boz-binprobe/boz.unpacked > /tmp/boz-binprobe/strings.txt
+
+          python3 - <<'PY' | tee boz_mod_out/binariser_probe/report.txt
+          from pathlib import Path
+
+          lines=Path('/tmp/boz-binprobe/strings.txt').read_text(
+              encoding='latin1', errors='replace').splitlines()
+          needles=[
+              'Serialising CIwResList',
+              'Serialising item',
+              'Wrote item:',
+              'Read item:',
+              '.group.bin.txt',
+              '.group.bin.debug',
+              '.group.hst',
+              'CIwModel',
+              'CIwMaterial',
+              'CIwResGroup',
+              'ResGroupResources',
+              'ResGroupMembers',
+              'Reading asset:',
+          ]
+          found={}
+          for needle in needles:
+              hits=[line for line in lines if needle.lower() in line.lower()]
+              found[needle]=hits[:20]
+              print('PROBE', repr(needle), 'HITS', len(hits))
+              for hit in hits[:5]:
+                  print('  ', repr(hit[:240]))
+
+          compiler_markers = sum(bool(found[n]) for n in [
+              'Serialising CIwResList',
+              'Wrote item:',
+              '.group.bin.txt',
+              '.group.hst',
+          ])
+          reader_markers = sum(bool(found[n]) for n in [
+              'CIwModel', 'CIwMaterial', 'CIwResGroup'
+          ])
+          print('COMPILER_MARKER_COUNT', compiler_markers)
+          print('RESOURCE_READER_MARKER_COUNT', reader_markers)
+          print('XZIEL_BOZ_BINARISER_PROBE_OK')
+          PY
+
+          grep -q "XZIEL_BOZ_BINARISER_PROBE_OK" boz_mod_out/binariser_probe/report.txt
+
+      - name: Save probe metadata only
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/boz-binprobe
+          printf '%s\n' \
+            "SOURCE_BINARY_RETAINED=false" \
+            "PAYLOAD_STRINGS_RETAINED=false" \
+            "GATE_7=boz_binariser_capability_probe" \
+            "STATUS=GREEN" \
+            > boz_mod_out/binariser_probe/gate.env
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-BOZ-Binariser-Capability-Probe
+          path: boz_mod_out/binariser_probe/
+          if-no-files-found: error
+          retention-days: 14
+
   real-kino-group-probe:
     runs-on: ubuntu-latest
     timeout-minutes: 35
