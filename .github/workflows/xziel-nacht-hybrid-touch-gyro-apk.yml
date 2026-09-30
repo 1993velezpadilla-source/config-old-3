@@ -29,29 +29,48 @@ jobs:
       - name: Checkout XZIEL
         uses: actions/checkout@v5
 
-      - name: Download input-bridge GREEN EXE
+      - name: Download direct Win64 runtime and validated VFS
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          SOURCE_RUN=36644822493
-          mkdir -p input/exe
-          gh run download "$SOURCE_RUN"             --repo "${{ github.repository }}"             --name "XZIEL-Nacht-Windows-OneFile-Fast"             --dir input/exe
+          RUNTIME_RUN=36644605239
+          VFS_RUN=36642428359
+          mkdir -p input/runtime input/vfs
 
-          EXE="$(find input/exe -type f -name 'Nacht-Chronicles-XZIEL.exe' -print -quit)"
-          test -n "$EXE"
-          test -s "$EXE"
+          gh run download "$RUNTIME_RUN" \
+            --repo "${{ github.repository }}" \
+            --name "XZIEL-Nacht-Win64-Runtime" \
+            --dir input/runtime
+          gh run download "$VFS_RUN" \
+            --repo "${{ github.repository }}" \
+            --name "XZIEL-Nacht-VFS-Complete" \
+            --dir input/vfs
 
-          bytes="$(wc -c < "$EXE" | tr -d '[:space:]')"
-          sha="$(sha256sum "$EXE" | awk '{print $1}')"
-          test "$bytes" -gt 800000000
-          test "${#sha}" = "64"
+          RUNTIME_EXE="$(find input/runtime -type f -name 'Xziel-Nacht.exe' -print -quit)"
+          VFS="$(find input/vfs -type f -name 'xziel-nacht-vfs.zip' -print -quit)"
+          test -n "$RUNTIME_EXE" && test -s "$RUNTIME_EXE"
+          test -n "$VFS" && test -s "$VFS"
+          test -s input/runtime/SDL2.dll
+          test -s input/runtime/libEGL.dll
+          test -s input/runtime/libGLESv2.dll
+          test -s input/runtime/libstdc++-6.dll
+          test -s input/runtime/zlib1.dll
 
-          echo "XZIEL_NACHT_EXE=$EXE" >> "$GITHUB_ENV"
-          echo "XZIEL_SOURCE_EXE_BYTES=$bytes" >> "$GITHUB_ENV"
-          echo "XZIEL_SOURCE_EXE_SHA256=$sha" >> "$GITHUB_ENV"
-          echo "XZIEL_TOUCH_GYRO_SOURCE_EXE_GREEN bytes=$bytes sha256=$sha"
+          vfs_bytes="$(wc -c < "$VFS" | tr -d '[:space:]')"
+          vfs_sha="$(sha256sum "$VFS" | awk '{print $1}')"
+          runtime_sha="$(sha256sum "$RUNTIME_EXE" | awk '{print $1}')"
+          test "$vfs_bytes" -gt 800000000
+          test "${#vfs_sha}" = "64"
+          test "${#runtime_sha}" = "64"
+
+          echo "XZIEL_NACHT_RUNTIME_DIR=input/runtime" >> "$GITHUB_ENV"
+          echo "XZIEL_NACHT_VFS=$VFS" >> "$GITHUB_ENV"
+          echo "XZIEL_NACHT_VFS_BYTES=$vfs_bytes" >> "$GITHUB_ENV"
+          echo "XZIEL_NACHT_VFS_SHA256=$vfs_sha" >> "$GITHUB_ENV"
+          echo "XZIEL_NACHT_RUNTIME_EXE_SHA256=$runtime_sha" >> "$GITHUB_ENV"
+          echo "XZIEL_DIRECT_PAYLOAD_INPUT_GREEN vfs_bytes=$vfs_bytes vfs_sha256=$vfs_sha runtime_sha256=$runtime_sha"
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
