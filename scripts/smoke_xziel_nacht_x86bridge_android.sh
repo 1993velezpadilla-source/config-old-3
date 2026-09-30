@@ -139,13 +139,13 @@ adb shell df -h /data | tee "$OUT/data-after-boot.txt" || true
 
 # Preserve the guest's redirected stdout/stderr before any cleanup. The XZIEL
 # launcher writes this file specifically for x86-bridge diagnosis.
-adb shell run-as ${XZIEL_PACKAGE} sh -c 'if [ -f files/rootfs/tmp/xziel-guest-output.log ]; then cat files/rootfs/tmp/xziel-guest-output.log; fi' \
-  > "$OUT/xziel-guest-output.log" 2>&1 || true
+adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-guest-output.log \
+  > "$OUT/xziel-guest-output.log" 2>/dev/null || true
 echo "XZIEL_X86BRIDGE_GUEST_FILE_CAPTURE_BEGIN"
 tail -n 1200 "$OUT/xziel-guest-output.log" || true
 echo "XZIEL_X86BRIDGE_GUEST_FILE_CAPTURE_END"
 
-adb shell run-as ${XZIEL_PACKAGE} sh -c 'ls -la files/rootfs/tmp files/rootfs/tmp/shm 2>&1; find files/rootfs/tmp/shm -maxdepth 1 -type f -ls 2>/dev/null | head -n 200' \
+adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ls -la files/rootfs/tmp files/rootfs/tmp/shm 2>&1; find files/rootfs/tmp/shm -maxdepth 1 -type f -ls 2>/dev/null | head -n 200'" \
   > "$OUT/shm-state.txt" 2>&1 || true
 echo "XZIEL_X86BRIDGE_SHM_STATE"
 cat "$OUT/shm-state.txt" || true
@@ -153,8 +153,8 @@ cat "$OUT/shm-state.txt" || true
 adb shell ps -A | grep -E 'xziel|winlator|box64|wine' | tee "$OUT/processes.txt" || true
 adb shell dumpsys activity activities   | grep -E "mResumedActivity|topResumedActivity|${XZIEL_PACKAGE}"   | tee "$OUT/activity-final.txt" || true
 
-adb shell run-as ${XZIEL_PACKAGE} sh -c 'cat files/rootfs/tmp/xziel-guest-output.log 2>/dev/null' \
-  > "$OUT/guest-output.txt" || true
+adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-guest-output.log \
+  > "$OUT/guest-output.txt" 2>/dev/null || true
 if [[ -s "$OUT/guest-output.txt" ]]; then
   echo "XZIEL_X86BRIDGE_GUEST_OUTPUT_CAPTURED bytes=$(wc -c < "$OUT/guest-output.txt")"
   tail -n 500 "$OUT/guest-output.txt" || true
@@ -164,7 +164,7 @@ fi
 
 # Preserve the guest stdout/stderr file written by the APK's ProcessHelper.
 # This is the authoritative Wine/Box64 error stream for x86-bridge runs.
-adb shell run-as ${XZIEL_PACKAGE} sh -c 'test -f files/rootfs/tmp/xziel-guest-output.log && cat files/rootfs/tmp/xziel-guest-output.log' \
+adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-guest-output.log \
   > "$OUT/xziel-guest-output.log" 2>/dev/null || true
 if [[ -s "$OUT/xziel-guest-output.log" ]]; then
   echo "XZIEL_X86BRIDGE_GUEST_OUTPUT_CAPTURED bytes=$(wc -c < "$OUT/xziel-guest-output.log")"
@@ -173,7 +173,7 @@ else
   echo "XZIEL_X86BRIDGE_GUEST_OUTPUT_EMPTY"
 fi
 
-adb shell run-as ${XZIEL_PACKAGE} sh -c 'find files/rootfs -type f \( -name "ld-linux-x86-64.so.2" -o -name "ld-linux*.so*" -o -path "*/bin/wine" -o -path "*/bin/wine64" \) -print 2>/dev/null | sort' \
+adb shell "run-as ${XZIEL_PACKAGE} sh -c 'find files/rootfs -type f \\( -name \"ld-linux-x86-64.so.2\" -o -name \"ld-linux*.so*\" -o -path \"*/bin/wine\" -o -path \"*/bin/wine64\" \\) -print 2>/dev/null | sort'" \
   | tee "$OUT/rootfs-runtime-paths.txt" || true
 echo "XZIEL_X86BRIDGE_ROOTFS_RUNTIME_PATHS"
 cat "$OUT/rootfs-runtime-paths.txt" || true
@@ -186,7 +186,7 @@ echo "XZIEL_X86BRIDGE_GUEST_OUTPUT_BEGIN"
 tail -n 1200 "$OUT/xziel-guest-output.log" || true
 echo "XZIEL_X86BRIDGE_GUEST_OUTPUT_END"
 
-adb shell run-as ${XZIEL_PACKAGE} sh -c 'if [ -d files/rootfs/tmp/shm ]; then ls -la files/rootfs/tmp/shm; fi' \
+adb shell "run-as ${XZIEL_PACKAGE} sh -c 'if [ -d files/rootfs/tmp/shm ]; then ls -la files/rootfs/tmp/shm; fi'" \
   > "$OUT/xziel-shm-state.txt" 2>/dev/null || true
 echo "XZIEL_X86BRIDGE_SHM_STATE"
 cat "$OUT/xziel-shm-state.txt" || true
