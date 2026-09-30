@@ -1164,6 +1164,45 @@ guest_exec_insert = '''        boolean xzielDirectNacht =
             Log.i("XZIEL-HYBRID", "RUNTIME_WINESERVER_STARTED pid=" + xzielWineserverPid +
                     " command=" + wineserverCommand);
 
+            // Gate clients on the actual Wine socket, not an arbitrary delay.
+            // Starting cmd.exe before server-*/socket exists races the Bionic
+            // Box64 wineserver and reproduces the status=1 failure seen in
+            // smoke #105.
+            boolean xzielWineserverSocketReady = false;
+            File xzielTmpDir = new File(rootDir, "tmp");
+            for (int readyAttempt = 0; readyAttempt < 100 && !xzielWineserverSocketReady; readyAttempt++) {
+                File[] wineRoots = xzielTmpDir.listFiles();
+                if (wineRoots != null) {
+                    for (File wineRoot : wineRoots) {
+                        if (!wineRoot.isDirectory() || !wineRoot.getName().startsWith(".wine-")) continue;
+                        File[] serverDirs = wineRoot.listFiles();
+                        if (serverDirs == null) continue;
+                        for (File serverDir : serverDirs) {
+                            if (!serverDir.isDirectory() || !serverDir.getName().startsWith("server-")) continue;
+                            File socket = new File(serverDir, "socket");
+                            if (socket.exists()) {
+                                xzielWineserverSocketReady = true;
+                                Log.i("XZIEL-HYBRID", "RUNTIME_WINESERVER_SOCKET path=" + socket.getAbsolutePath());
+                                break;
+                            }
+                        }
+                        if (xzielWineserverSocketReady) break;
+                    }
+                }
+                if (!xzielWineserverSocketReady) {
+                    if (xzielWineserverPid <= 0) break;
+                    try {
+                        Thread.sleep(100);
+                    }
+                    catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
+            Log.i("XZIEL-HYBRID", "RUNTIME_WINESERVER_SOCKET_GATE ready=" +
+                    xzielWineserverSocketReady + " pid=" + xzielWineserverPid);
+
             // Do not gate Nacht on an arbitrary sleep. The x86->ARM bridge
             // only became reliable after a real Windows client completed
             // against the post-XServer foreground wineserver. Reproduce that
