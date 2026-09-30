@@ -1019,7 +1019,7 @@ if "import android.os.Build;" not in gtext:
     gtext = gtext.replace("import android.os.Process;\n", "import android.os.Process;\nimport android.os.Build;\n", 1)
 
 ld_anchor = '''        envVars.put("LD_LIBRARY_PATH", rootFS.getLibDir().getPath());
-        envVars.put("BOX64_LD_LIBRARY_PATH", rootDir+"/lib/x86_64-linux-gnu");
+        envVars.put("BOX64_LD_LIBRARY_PATH", rootDir+"/lib/x86_64-linux-gnu:"+rootDir+"/usr/lib");
 '''
 ld_insert = '''        boolean xzielX86Bridge =
                 Build.SUPPORTED_ABIS != null &&
@@ -1052,11 +1052,12 @@ post_env_insert = '''        if (this.envVars != null) envVars.putAll(this.envVa
             envVars.put("BOX64_LOG", "2");
             envVars.put("BOX64_DLSYM_ERROR", "1");
             envVars.put("BOX64_SHOWSEGV", "1");
-            envVars.put("WINEDEBUG", "+process,+server,+module,+seh");
+            envVars.put("BOX64_EMULATED_LIBS", "libfreetype.so.6:libfontconfig.so.1");
+            envVars.put("WINEDEBUG", "+process,+server,+module,+seh,+font");
             envVars.put("WINEESYNC", "0");
             envVars.put("WINEFSYNC", "0");
             Log.i("XZIEL-HYBRID", "X86_BRIDGE_HOST_LD_LIBRARY_PATH_REMOVED_FINAL");
-            Log.i("XZIEL-HYBRID", "X86_BRIDGE_GUEST_TRACE dynarec=0 box64=2 esync=0 fsync=0 wine=process,server,module,seh");
+            Log.i("XZIEL-HYBRID", "X86_BRIDGE_GUEST_TRACE dynarec=0 box64=2 esync=0 fsync=0 freetype=emulated fontconfig=emulated wine=process,server,module,seh,font");
             Log.i("XZIEL-HYBRID", "GUEST_FILE_CAPTURE path=" + rootDir + "/tmp/xziel-guest-output.log");
             Log.i("XZIEL-HYBRID", "GUEST_ENV prefix=" + envVars.get("WINEPREFIX") +
                     " path=" + envVars.get("PATH") +
