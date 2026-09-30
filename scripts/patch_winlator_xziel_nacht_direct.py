@@ -1136,6 +1136,19 @@ guest_exec_insert = '''        boolean xzielDirectNacht =
                 guestExecutable != null &&
                 guestExecutable.contains("Nacht-Chronicles-XZIEL.exe");
         if (xzielDirectNacht) {
+            // The full 888 MB one-file bootstrap is extremely I/O-heavy under
+            // interpreter-only Box64. Diagnostic tracing generated >150 MB in
+            // a single 3-minute smoke and materially slowed startup. Keep the
+            // real APK launch quiet; CI retains external process/socket probes.
+            envVars.put("BOX64_LOG", "0");
+            envVars.put("BOX64_NOBANNER", "1");
+            envVars.remove("BOX64_DLSYM_ERROR");
+            envVars.remove("BOX64_SHOWSEGV");
+            envVars.remove("BOX64_DYNAREC_MISSING");
+            envVars.remove("BOX64_TRACE_FILE");
+            envVars.put("WINEDEBUG", "-all");
+            Log.i("XZIEL-HYBRID", "DIRECT_NACHT_QUIET_BOOT box64_log=0 wine_debug=off");
+
             String guestCapturePath = envVars.get("XZIEL_GUEST_CAPTURE_PATH");
             if (guestCapturePath != null && !guestCapturePath.isEmpty()) {
                 envVars.put("XZIEL_GUEST_CAPTURE_PATH", rootDir+"/tmp/xziel-wineserver-runtime.log");
