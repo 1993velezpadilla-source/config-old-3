@@ -112,7 +112,7 @@ jobs:
           adb shell df -h /data | tee dist/android-phased-smoke/data-before-install.txt
           adb install -r -g "$XZIEL_APK" | tee dist/android-phased-smoke/adb-install.txt
           grep -q 'Success' dist/android-phased-smoke/adb-install.txt
-          adb shell pm path com.xziel.hybrid | tee dist/android-phased-smoke/pm-path.txt
+          adb shell pm path com.xzielapp | tee dist/android-phased-smoke/pm-path.txt
           grep -q '^package:' dist/android-phased-smoke/pm-path.txt
           echo "XZIEL_PHASE_APK_INSTALL_GREEN"
 
@@ -120,11 +120,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          adb shell am force-stop com.xziel.hybrid || true
+          adb shell am force-stop com.xzielapp || true
           adb logcat -c
-          adb shell am start -W             -n com.xziel.hybrid/com.winlator.XzielBootActivity             | tee dist/android-phased-smoke/am-start.txt
+          adb shell am start -W             -n com.xzielapp/com.winlator.XzielBootActivity             | tee dist/android-phased-smoke/am-start.txt
           sleep 3
-          adb shell dumpsys activity activities             | grep -E 'mResumedActivity|topResumedActivity|com.xziel.hybrid'             | tee dist/android-phased-smoke/activity-after-launch.txt || true
+          adb shell dumpsys activity activities             | grep -E 'mResumedActivity|topResumedActivity|com.xzielapp'             | tee dist/android-phased-smoke/activity-after-launch.txt || true
           adb logcat -d -v threadtime > dist/android-phased-smoke/logcat-launch.txt || true
           grep -E 'XZIEL-HYBRID|AndroidRuntime|FATAL EXCEPTION|Fatal signal|SIGSEGV|SIGABRT'             dist/android-phased-smoke/logcat-launch.txt             | tail -n 800             > dist/android-phased-smoke/boot-markers-launch.txt || true
           grep -q 'XZIEL-HYBRID.*BOOT_ACTIVITY_START' dist/android-phased-smoke/logcat-launch.txt
@@ -164,7 +164,7 @@ jobs:
 
           adb shell df -h /data | tee dist/android-phased-smoke/data-after-boot.txt || true
           adb shell ps -A | grep -E 'xziel|winlator|box64|wine'             | tee dist/android-phased-smoke/processes.txt || true
-          adb shell dumpsys activity activities             | grep -E 'mResumedActivity|topResumedActivity|com.xziel.hybrid'             | tee dist/android-phased-smoke/activity-final.txt || true
+          adb shell dumpsys activity activities             | grep -E 'mResumedActivity|topResumedActivity|com.xzielapp'             | tee dist/android-phased-smoke/activity-final.txt || true
           grep -E             'XZIEL-HYBRID|box64|wine|vortek|gladio|AndroidRuntime|FATAL EXCEPTION|Fatal signal|SIGSEGV|SIGABRT|No space left'             dist/android-phased-smoke/logcat.txt             | tail -n 3500             > dist/android-phased-smoke/boot-markers.txt || true
 
           adb exec-out screencap -p > dist/android-phased-smoke/final-screen.png || true
