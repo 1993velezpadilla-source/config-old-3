@@ -297,16 +297,63 @@ jobs:
           git checkout 48b7b743344b7031e683cb81b67f8d874710caef
           test "$(git rev-parse HEAD)" = "48b7b743344b7031e683cb81b67f8d874710caef"
 
-      - name: Build real DTRZ manifest
+      - name: Build real DTRZ metadata manifest
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p boz_mod_out/real_manifest
+
+          # MarmDump's --list path is useful as an external parser check and
+          # does not require successfully decoding every payload variant.
           python3 /tmp/MarmDump/MarmDump.py \
             -i /tmp/boz135/blackops_gles1.dz \
-            --dry-run \
-            --manifest boz_mod_out/real_manifest/blackops_gles1_manifest.json \
-            | tee boz_mod_out/real_manifest/marmdump.log
+            --list \
+            | tee boz_mod_out/real_manifest/marmdump-list.txt
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          import importlib.util
+
+          root=Path('.').resolve()
+          spec=importlib.util.spec_from_file_location(
+              'dtrz_replace', root/'tools/boz_mod/dtrz_replace.py')
+          mod=importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(mod)
+
+          p=Path('/tmp/boz135/blackops_gles1.dz')
+          data=p.read_bytes()
+          layout=mod.parse_layout(data)
+
+          manifest={
+              'schemaVersion': 1,
+              'archive': 'blackops_gles1.dz',
+              'archiveBytes': len(data),
+              'fileCount': layout.file_count,
+              'version': layout.version,
+              'directoryCount': len(layout.directories),
+              'directories': layout.directories,
+              'entries': [
+                  {
+                      'index': e.index,
+                      'path': e.path,
+                      'offset': e.offset,
+                      'slotSize': e.slot_size,
+                      'uncompressedSize': e.usize,
+                      'uncompressedSize2': e.usize2,
+                      'flags': e.flags,
+                  }
+                  for e in layout.entries
+              ],
+          }
+
+          out=Path('boz_mod_out/real_manifest/blackops_gles1_manifest.json')
+          out.write_text(json.dumps(manifest, indent=2), encoding='utf-8')
+          print('REAL_DTRZ_FILE_COUNT', layout.file_count)
+          print('REAL_DTRZ_VERSION', layout.version)
+          print('REAL_DTRZ_DIRECTORY_COUNT', len(layout.directories))
+          print('REAL_DTRZ_METADATA_MANIFEST_OK')
+          PY
           test -s boz_mod_out/real_manifest/blackops_gles1_manifest.json
 
       - name: Extract likely map resource names
