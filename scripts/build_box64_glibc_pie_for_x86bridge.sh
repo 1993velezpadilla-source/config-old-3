@@ -11,7 +11,7 @@ rm -rf "$BUILD"
 mkdir -p "$BUILD" "$OUT" "$DIST"
 
 sudo apt-get update >/dev/null
-sudo apt-get install -y gcc-aarch64-linux-gnu patchelf >/dev/null
+sudo apt-get install -y gcc-aarch64-linux-gnu libc6-dev-arm64-cross >/dev/null
 
 git clone --depth 1 --branch v0.4.4 https://github.com/ptitSeb/box64.git "$SRC"
 
@@ -46,11 +46,11 @@ cmake -S "$SRC" -B "$BUILD/cmake" \
   -DNOLOADADDR=ON \
   -DCMAKE_BUILD_TYPE=Release \
   -DHAVE_TRACE=OFF \
-  -DSTATICBUILD=OFF \
+  -DSTATICBUILD=ON \
   -DBOX32=OFF \
   -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
   -DCMAKE_C_FLAGS="-fPIE" \
-  -DCMAKE_EXE_LINKER_FLAGS="-pie"
+  -DCMAKE_EXE_LINKER_FLAGS="-static-pie"
 
 cmake --build "$BUILD/cmake" --target box64 -j2
 
@@ -59,12 +59,9 @@ test -s "$BOX64"
 cp "$BOX64" "$OUT/box64-glibc-pie"
 chmod 755 "$OUT/box64-glibc-pie"
 
-# Match the rewritten XZIEL runtime sandbox exactly.
-XZIEL_INTERP="/data/data/com.xzielapp/files/rootfs/lib/ld-linux-aarch64.so.1"
-XZIEL_RPATH="/data/data/com.xzielapp/files/rootfs/lib"
-patchelf --set-interpreter "$XZIEL_INTERP" "$OUT/box64-glibc-pie"
-patchelf --set-rpath "$XZIEL_RPATH" "$OUT/box64-glibc-pie"
-
+# Static PIE must not depend on Android/Bionic or on a runtime ELF interpreter.
+# That lets ndk_translation validate a PIE executable while Box64 itself keeps
+# the glibc ABI Winlator expects.
 file "$OUT/box64-glibc-pie" | tee "$DIST/box64-glibc-pie.file.txt"
 readelf -h "$OUT/box64-glibc-pie" | tee "$DIST/box64-glibc-pie.readelf-h.txt"
 readelf -l "$OUT/box64-glibc-pie" | tee "$DIST/box64-glibc-pie.readelf-l.txt"
@@ -73,8 +70,15 @@ readelf -d "$OUT/box64-glibc-pie" | tee "$DIST/box64-glibc-pie.readelf-d.txt" ||
 sha256sum "$OUT/box64-glibc-pie" | tee "$DIST/box64-glibc-pie.sha256"
 
 grep -Eq 'Type:[[:space:]]+DYN' "$DIST/box64-glibc-pie.readelf-h.txt"
-grep -q "$XZIEL_INTERP" "$DIST/box64-glibc-pie.readelf-l.txt"
-grep -q "$XZIEL_RPATH" "$DIST/box64-glibc-pie.readelf-d.txt"
+if grep -q 'INTERP' "$DIST/box64-glibc-pie.readelf-l.txt"; then
+  echo "XZIEL_BOX64_STATIC_PIE_HAS_INTERP" >&2
+  exit 73
+fi
+if grep -q '(NEEDED)' "$DIST/box64-glibc-pie.readelf-d.txt"; then
+  echo "XZIEL_BOX64_STATIC_PIE_HAS_NEEDED" >&2
+  exit 74
+fi
+echo "XZIEL_BOX64_STATIC_PIE_LINK_GREEN"
 
 tls_align_hex="$(awk '$1=="TLS"{print $NF; exit}' "$DIST/box64-glibc-pie.readelf-lw.txt")"
 test -n "$tls_align_hex"
@@ -88,4 +92,4 @@ fi
 echo "XZIEL_BOX64_TLS_ALIGN64_GREEN"
 
 echo "XZIEL_BOX64_PIE=$OUT/box64-glibc-pie" >> "$GITHUB_ENV"
-echo "XZIEL_BOX64_GLIBC_PIE_GREEN dynarec=off path=$OUT/box64-glibc-pie"
+echo "XZIEL_BOX64_GLIBC_STATIC_PIE_GREEN dynarec=off path=$OUT/box64-glibc-pie"
