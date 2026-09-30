@@ -23,6 +23,7 @@ boot_java = r'''package com.winlator;
 import android.content.Intent;
 import android.content.res.AssetManager;
 import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Gravity;
@@ -129,8 +130,23 @@ public class XzielBootActivity extends AppCompatActivity {
             data.put("name", "XZIEL");
             data.put("screenSize", "1280x720");
             data.put("envVars", Container.DEFAULT_ENV_VARS);
-            data.put("graphicsDriver", GraphicsDrivers.VORTEK + "," + GraphicsDrivers.GLADIO);
-            data.put("dxwrapper", DXWrappers.DXVK);
+
+            boolean xzielX86Bridge =
+                    Build.SUPPORTED_ABIS != null &&
+                    Build.SUPPORTED_ABIS.length > 0 &&
+                    Build.SUPPORTED_ABIS[0].startsWith("x86");
+
+            if (xzielX86Bridge) {
+                data.put("graphicsDriver", GraphicsDrivers.VIRGL + "," + GraphicsDrivers.VIRGL);
+                data.put("dxwrapper", DXWrappers.WINED3D);
+                Log.i(TAG, "GRAPHICS_PROFILE x86_bridge=1 vulkan=off opengl=virgl dx=wined3d");
+            }
+            else {
+                data.put("graphicsDriver", GraphicsDrivers.VORTEK + "," + GraphicsDrivers.GLADIO);
+                data.put("dxwrapper", DXWrappers.DXVK);
+                Log.i(TAG, "GRAPHICS_PROFILE x86_bridge=0 vulkan=vortek opengl=gladio dx=dxvk");
+            }
+
             data.put("audioDriver", AudioDrivers.ALSA);
             data.put("wincomponents", Container.DEFAULT_WINCOMPONENTS);
             data.put("drives", Container.DEFAULT_DRIVES);
