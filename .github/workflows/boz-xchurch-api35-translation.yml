@@ -6,7 +6,8 @@ on:
     branches:
       - feature/boz-mod-runtime
     paths:
-      - ".github/workflows/boz-xchurch-api35-translation.yml"\n      - "tools/boz_mod/run_api35_capture.sh"
+      - ".github/workflows/boz-xchurch-api35-translation.yml"
+      - "tools/boz_mod/run_api35_capture.sh"
 
 permissions:
   actions: read
