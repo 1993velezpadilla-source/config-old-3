@@ -1,0 +1,227 @@
+name: XChurch Fast Menu Navigation
+
+on:
+  push:
+    branches:
+      - feature/boz-mod-runtime
+    paths:
+      - ".github/workflows/boz-xchurch-fast-menu-nav.yml"
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  navigate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Enable KVM
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/xchurch-nav/screens
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"'             | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+          test -e /dev/kvm
+
+      - name: Download already-built diagnostic touch APK
+        uses: actions/download-artifact@v4
+        with:
+          name: XChurch-Diagnostic-Touch-APK
+          run-id: 36783254602
+          github-token: ${{ github.token }}
+          path: /tmp/xchurch-nav/apk
+
+      - name: Stage diagnostic APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$(find /tmp/xchurch-nav/apk -type f -name '*.apk' | head -n1)"
+          test -s "$APK"
+          cp "$APK" /tmp/xchurch-nav/xchurch-touch.apk
+          sha256sum /tmp/xchurch-nav/xchurch-touch.apk             | tee /tmp/xchurch-nav/apk.sha256
+
+      - name: Install Android 11 emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n1)"
+          AVDMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name avdmanager | sort -V | tail -n1)"
+          test -x "$SDKMANAGER"
+          test -x "$AVDMANAGER"
+          echo "AVDMANAGER=$AVDMANAGER" >> "$GITHUB_ENV"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER"             "platform-tools"             "emulator"             "system-images;android-30;google_apis;x86_64"             >/tmp/xchurch-nav/sdk-install.txt 2>&1
+
+      - name: Boot Android 11
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=/tmp/xchurch-nav
+          export ANDROID_AVD_HOME=/tmp/xchurch-nav-avd
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
+
+          printf 'no\n' | "$AVDMANAGER" create avd             --force --name xchurch-nav             --package "system-images;android-30;google_apis;x86_64"             --device "pixel_4" >/dev/null
+
+          ADB="$ANDROID_HOME/platform-tools/adb"
+          EMU="$ANDROID_HOME/emulator/emulator"
+          "$ADB" kill-server >/dev/null 2>&1 || true
+          "$ADB" start-server >/dev/null 2>&1
+
+          nohup "$EMU" @xchurch-nav             -no-window -gpu swiftshader_indirect -no-snapshot             -noaudio -no-boot-anim -no-metrics -camera-back none             > "$OUT/emulator.log" 2>&1 &
+          EMU_PID=$!
+          echo "EMU_PID=$EMU_PID" > "$OUT/status.txt"
+
+          READY=0
+          for i in $(seq 1 70); do
+            if [ "$("$ADB" get-state 2>/dev/null || true)" = "device" ]; then
+              READY=1; break
+            fi
+            sleep 2
+          done
+          echo "ADB_READY=$READY" | tee -a "$OUT/status.txt"
+          test "$READY" = "1"
+
+          BOOT=0
+          for i in $(seq 1 70); do
+            if [ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then
+              BOOT=1; break
+            fi
+            sleep 2
+          done
+          echo "BOOT_COMPLETED=$BOOT" | tee -a "$OUT/status.txt"
+          test "$BOOT" = "1"
+
+      - name: Navigate title and probe Single Player hitbox
+        shell: bash
+        run: |
+          set +e
+          OUT=/tmp/xchurch-nav
+          ADB="$ANDROID_HOME/platform-tools/adb"
+          TITLE_HASH="49d0c83ce3913b461bc8b6eab848f15305487af49528efa832d2c787732204bb"
+          KNOWN_MENU_HASH="df1d8186b132009bca01be01050ccc87a28c8f8de4db1b21c7fb9b79d4ba6a0b"
+
+          "$ADB" install --abi arm64-v8a -r -d "$OUT/xchurch-touch.apk"             > "$OUT/install.txt" 2>&1
+          RC=$?
+          echo "INSTALL_RC=$RC" | tee -a "$OUT/status.txt"
+          test "$RC" = "0"
+
+          "$ADB" shell pm grant com.activision.boz android.permission.WRITE_EXTERNAL_STORAGE 2>/dev/null || true
+          "$ADB" shell pm grant com.activision.boz android.permission.READ_EXTERNAL_STORAGE 2>/dev/null || true
+          "$ADB" shell appops set com.activision.boz MANAGE_EXTERNAL_STORAGE allow 2>/dev/null || true
+          "$ADB" shell mkdir -p /sdcard/Android/obb/com.activision.boz 2>/dev/null || true
+
+          "$ADB" logcat -c
+          "$ADB" shell am force-stop com.activision.boz >/dev/null 2>&1 || true
+          "$ADB" shell am start -W -n com.activision.boz/.Main > "$OUT/launch.txt" 2>&1
+          echo "LAUNCH_RC=$?" | tee -a "$OUT/status.txt"
+
+          # Wait until the exact stable title frame appears.
+          TITLE_FOUND=0
+          for SEC in $(seq 60 5 240); do
+            "$ADB" exec-out screencap -p > "$OUT/screens/poll_${SEC}s.png" 2>/dev/null || true
+            H="$(sha256sum "$OUT/screens/poll_${SEC}s.png" | awk '{print $1}')"
+            echo "POLL_${SEC}s_HASH=$H" >> "$OUT/status.txt"
+            if [ "$H" = "$TITLE_HASH" ]; then
+              cp "$OUT/screens/poll_${SEC}s.png" "$OUT/screens/title_stable.png"
+              echo "TITLE_DETECTED_AT=${SEC}s" | tee -a "$OUT/status.txt"
+              TITLE_FOUND=1
+              break
+            fi
+            sleep 5
+          done
+          test "$TITLE_FOUND" = "1"
+
+          # Give the title state time to become input-ready, then retry the
+          # exact in-app MotionEvent until we observe a stable non-title frame.
+          sleep 3
+          MENU_READY=0
+          for TRY in 1 2 3 4; do
+            echo "TITLE_TAP_TRY=$TRY XY=1140,540" | tee -a "$OUT/status.txt"
+            "$ADB" shell am start -W               -n com.activision.boz/.Main               --ez xzielDirectTap true               --ei xzielX 1140               --ei xzielY 540               > "$OUT/title-tap-${TRY}.txt" 2>&1
+            sleep 5
+            "$ADB" exec-out screencap -p > "$OUT/screens/after_title_try_${TRY}.png" 2>/dev/null || true
+            H="$(sha256sum "$OUT/screens/after_title_try_${TRY}.png" | awk '{print $1}')"
+            echo "TITLE_TAP_TRY_${TRY}_HASH=$H" | tee -a "$OUT/status.txt"
+            if [ "$H" != "$TITLE_HASH" ]; then
+              # Allow any short transition to settle.
+              sleep 4
+              "$ADB" exec-out screencap -p > "$OUT/screens/main_menu_candidate.png" 2>/dev/null || true
+              MH="$(sha256sum "$OUT/screens/main_menu_candidate.png" | awk '{print $1}')"
+              echo "MAIN_MENU_CANDIDATE_HASH=$MH" | tee -a "$OUT/status.txt"
+              MENU_READY=1
+              break
+            fi
+            sleep 2
+          done
+          echo "MENU_READY=$MENU_READY" | tee -a "$OUT/status.txt"
+          test "$MENU_READY" = "1"
+
+          # Probe several points entirely inside the visible SINGLE PLAYER
+          # artwork. Stop on the first coordinate that changes the stable menu.
+          BASE_HASH="$(sha256sum "$OUT/screens/main_menu_candidate.png" | awk '{print $1}')"
+          echo "BASE_MENU_HASH=$BASE_HASH" | tee -a "$OUT/status.txt"
+          echo "KNOWN_MENU_HASH=$KNOWN_MENU_HASH" | tee -a "$OUT/status.txt"
+
+          ADVANCED=0
+          for SPEC in             "600 300 a"             "700 300 b"             "600 220 c"             "800 250 d"             "450 330 e"; do
+            set -- $SPEC
+            X="$1"; Y="$2"; LABEL="$3"
+            echo "SINGLE_PLAYER_PROBE_${LABEL}_XY=$X,$Y" | tee -a "$OUT/status.txt"
+            "$ADB" shell am start -W               -n com.activision.boz/.Main               --ez xzielDirectTap true               --ei xzielX "$X"               --ei xzielY "$Y"               > "$OUT/single-player-${LABEL}.txt" 2>&1
+            sleep 4
+            "$ADB" exec-out screencap -p > "$OUT/screens/single_player_probe_${LABEL}.png" 2>/dev/null || true
+            H="$(sha256sum "$OUT/screens/single_player_probe_${LABEL}.png" | awk '{print $1}')"
+            echo "SINGLE_PLAYER_PROBE_${LABEL}_HASH=$H" | tee -a "$OUT/status.txt"
+            if [ "$H" != "$BASE_HASH" ]; then
+              echo "SINGLE_PLAYER_ADVANCED_BY=${LABEL}:$X,$Y" | tee -a "$OUT/status.txt"
+              ADVANCED=1
+              sleep 6
+              "$ADB" exec-out screencap -p > "$OUT/screens/single_player_next_screen.png" 2>/dev/null || true
+              break
+            fi
+            sleep 2
+          done
+          echo "SINGLE_PLAYER_ADVANCED=$ADVANCED" | tee -a "$OUT/status.txt"
+
+          PID="$("$ADB" shell pidof com.activision.boz 2>/dev/null | tr -d '\r\n')"
+          echo "FINAL_PID=$PID" | tee -a "$OUT/status.txt"
+          "$ADB" logcat -d -v threadtime > "$OUT/logcat.txt" 2>&1
+          grep -Eai             'XZIEL_DIRECT_NATIVE_TAP|FATAL EXCEPTION|Fatal signal|SIGSEGV|SIGABRT|STARTGAME|menu|front|xchurch|kino|Marmalade|s3e|activision|boz'             "$OUT/logcat.txt" | tail -1800 > "$OUT/logcat-focus.txt" || true
+          sha256sum "$OUT"/screens/*.png > "$OUT/screen-hashes.txt" 2>/dev/null || true
+          exit 0
+
+      - name: Summarize navigation
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          OUT=/tmp/xchurch-nav
+          echo "=== STATUS ==="
+          cat "$OUT/status.txt" 2>/dev/null || true
+          echo "=== SCREENSHOTS ==="
+          ls -lh "$OUT/screens" 2>/dev/null || true
+          echo "=== TOUCH LOGS ==="
+          grep -E 'XZIEL_DIRECT_NATIVE_TAP' "$OUT/logcat.txt" 2>/dev/null || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: XChurch-Fast-Menu-Navigation-Proof
+          path: |
+            /tmp/xchurch-nav/screens/
+            /tmp/xchurch-nav/status.txt
+            /tmp/xchurch-nav/logcat-focus.txt
+            /tmp/xchurch-nav/screen-hashes.txt
+            /tmp/xchurch-nav/install.txt
+            /tmp/xchurch-nav/launch.txt
+          if-no-files-found: error
+          retention-days: 14
