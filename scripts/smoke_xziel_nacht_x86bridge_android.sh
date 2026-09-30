@@ -497,12 +497,15 @@ find "$ROOT/tmp" -maxdepth 3 -print 2>/dev/null \
 ps -A | grep -e box64 -e wineserver -e Nacht || true
 
 echo XZIEL_NSIS_TEMP_CENSUS
-find "$TEMP" -maxdepth 3 -type f -print 2>/dev/null | sort | head -n 400
+find "$TEMP" -maxdepth 3 -type f -printf '%s %p\n' 2>/dev/null \
+  | sort -nr | head -n 200
 echo XZIEL_NSIS_DIR_CENSUS
 find "$TEMP" -maxdepth 3 -type d -print 2>/dev/null | sort | head -n 200
 echo XZIEL_NSIS_PAYLOAD_MARKERS
-find "$TEMP" -maxdepth 6 -type f -print 2>/dev/null \
-  | grep -Ei '/(7z[.]exe|xziel-nacht-vfs[.]zip|Xziel-Nacht[.]exe|scene[.]xzsc)echo XZIEL_RUNTIME_PROCESS_CENSUS
+find "$TEMP" -maxdepth 6 \
+  \( -iname '7z.exe' -o -iname 'xziel-nacht-vfs.zip' -o -iname 'Xziel-Nacht.exe' -o -iname 'scene.xzsc' \) \
+  -print 2>/dev/null | sort
+echo XZIEL_RUNTIME_PROCESS_CENSUS
 ps -A | grep -e box64 -e wine -e wineserver -e Nacht -e 7z -e Xziel || true
 EOF
 
