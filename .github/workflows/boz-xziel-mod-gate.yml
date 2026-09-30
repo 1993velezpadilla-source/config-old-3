@@ -1098,7 +1098,7 @@ jobs:
 
           "$APKSIGNER" verify --verbose --print-certs "$APK" \
             | tee boz_mod_out/xchurch_apk/apksigner-verify.txt
-          "$ZIPALIGN" -c -p 4 "$APK"
+          "$ZIPALIGN" -c -v 4 "$APK"
 
           FINAL_EMBED_SHA="$(unzip -p "$APK" "$ENTRY" | sha256sum | awk '{print $1}')"
           test "$DZ_SHA" = "$FINAL_EMBED_SHA"
