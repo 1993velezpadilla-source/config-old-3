@@ -16,7 +16,7 @@ anchor = "#define \tSVC_ACHIEVEMENT \t\t\t52\n"
 if "SVC_XZIELDAMAGE" not in text:
     if anchor not in text:
         raise SystemExit("Could not find SVC_ACHIEVEMENT protocol anchor")
-    text = text.replace(anchor, anchor + "#define     SVC_XZIELDAMAGE             58\n", 1)
+    text = text.replace(anchor, anchor + "#define     SVC_XZIELDAMAGE             59\n", 1)
 defs.write_text(text, encoding="utf-8")
 
 # Reliable one-client damage number event. FTE is intentionally a no-op here;
