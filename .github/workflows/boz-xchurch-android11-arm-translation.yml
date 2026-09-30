@@ -225,10 +225,25 @@ jobs:
           echo "=== EMULATOR TAIL ==="
           tail -100 /tmp/xchurch-x86/emulator.log 2>/dev/null || true
 
+      - name: Stage slim proof artifact
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          SRC=/tmp/xchurch-x86
+          DST=/tmp/xchurch-proof
+          rm -rf "$DST"
+          mkdir -p "$DST/screens"
+          cp -f "$SRC"/screens/*.png "$DST/screens/" 2>/dev/null || true
+          for f in             status.txt device.txt native-bridge-files.txt             install-arm64.txt install-auto.txt launch.txt             logcat-highlights.txt activities.txt window.txt             emulator.log accel-check.txt apk.sha256; do
+            test -f "$SRC/$f" && cp "$SRC/$f" "$DST/$f"
+          done
+          find "$DST" -maxdepth 2 -type f -printf '%P %s bytes\n'             | sort | tee "$DST/manifest.txt"
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: XChurch-Android11-ARM-Translation-Capture
-          path: /tmp/xchurch-x86/
+          name: XChurch-Android11-Slim-Proof
+          path: /tmp/xchurch-proof/
           if-no-files-found: error
           retention-days: 14
