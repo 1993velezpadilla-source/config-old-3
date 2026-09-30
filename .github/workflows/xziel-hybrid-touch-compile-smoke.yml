@@ -46,8 +46,14 @@ jobs:
           set -euo pipefail
           git clone https://github.com/brunodev85/winlator-app.git winlator
           git -C winlator checkout --detach 3981d86efa4f333b2a34a7da8b6521476cd8c8b9
-          python3 scripts/patch_winlator_xziel_nacht_direct.py             winlator 800000001 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          python3 scripts/patch_winlator_xziel_nacht_direct.py \
+            winlator \
+            800000001 \
+            aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
+            bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
           test -s winlator/app/src/main/java/com/winlator/XzielMobileOverlay.java
+          grep -q 'DIRECT_PAYLOAD_INSTALL_BEGIN' winlator/app/src/main/java/com/winlator/XzielBootActivity.java
+          grep -q 'Xziel-Nacht.exe --xziel-root' winlator/app/src/main/java/com/winlator/XServerDisplayActivity.java
           grep -q 'ROLE_ADSFIRE' winlator/app/src/main/java/com/winlator/XzielMobileOverlay.java
           grep -q 'TYPE_GYROSCOPE' winlator/app/src/main/java/com/winlator/XzielMobileOverlay.java
           grep -q 'transparent' winlator/app/src/main/java/com/winlator/XzielMobileOverlay.java || true
