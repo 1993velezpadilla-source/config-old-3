@@ -1144,9 +1144,53 @@ text = strings.read_text(encoding="utf-8")
 text = text.replace('<string name="app_name">Winlator</string>', '<string name="app_name">XZIEL</string>')
 strings.write_text(text, encoding="utf-8")
 
+# Preserve Winlator's internal Java package names, but move runtime sandbox paths
+# to an equal-length XZIEL applicationId so ELF/RPATH strings can be rewritten
+# without shifting binary offsets.
+runtime_old_pkg = "com.winlator"
+runtime_new_pkg = "com.xzielapp"
+if len(runtime_old_pkg.encode("ascii")) != len(runtime_new_pkg.encode("ascii")):
+    raise SystemExit("XZIEL runtime package ids must have equal byte length")
+
+runtime_old_path = "/data/data/" + runtime_old_pkg
+runtime_new_path = "/data/data/" + runtime_new_pkg
+runtime_old_provider = runtime_old_pkg + ".FileProvider"
+runtime_new_provider = runtime_new_pkg + ".FileProvider"
+
+runtime_source_files = [
+    java / "core/AppUtils.java",
+    java / "core/FileUtils.java",
+    app / "src/main/cpp/winlator/include/winlator.h",
+    app / "src/main/cpp/vortekrenderer/include/vortek.h",
+    app / "src/main/cpp/gladiorenderer/include/gladio.h",
+]
+runtime_source_replacements = 0
+for runtime_file in runtime_source_files:
+    if not runtime_file.is_file():
+        raise SystemExit(f"Missing runtime package source file: {runtime_file}")
+    runtime_text = runtime_file.read_text(encoding="utf-8")
+    runtime_before = runtime_text
+    runtime_text = runtime_text.replace(runtime_old_path, runtime_new_path)
+    runtime_text = runtime_text.replace(runtime_old_provider, runtime_new_provider)
+    if runtime_text != runtime_before:
+        runtime_source_replacements += (
+            runtime_before.count(runtime_old_path)
+            + runtime_before.count(runtime_old_provider)
+        )
+        runtime_file.write_text(runtime_text, encoding="utf-8")
+
+if runtime_source_replacements < 5:
+    raise SystemExit(
+        f"Expected runtime package hardcodes were not all rewritten: {runtime_source_replacements}"
+    )
+print(
+    "XZIEL_RUNTIME_PACKAGE_SOURCE_GREEN "
+    f"old={runtime_old_pkg} new={runtime_new_pkg} replacements={runtime_source_replacements}"
+)
+
 gradle = app / "build.gradle"
 text = gradle.read_text(encoding="utf-8")
-text = text.replace("applicationId 'com.winlator'", "applicationId 'com.xziel.hybrid'")
+text = text.replace("applicationId 'com.winlator'", "applicationId 'com.xzielapp'")
 text = text.replace('versionCode 33', 'versionCode 1')
 text = text.replace('versionName "11.2"', 'versionName "0.1-nacht-hybrid"')
 
