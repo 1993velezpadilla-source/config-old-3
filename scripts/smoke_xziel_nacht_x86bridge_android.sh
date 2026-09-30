@@ -64,7 +64,18 @@ for i in $(seq 1 36); do
   done
 
   if grep -q 'XZIEL-HYBRID.*GUEST_EXIT' "$OUT/logcat.txt"; then
-    if [[ "$pie_retry" == "0" ]] && grep -q 'position-independent executables' "$OUT/logcat.txt" && [[ -n "${XZIEL_BOX64_PIE:-}" ]] && [[ -s "$XZIEL_BOX64_PIE" ]]; then
+    # New diagnostic APK persists guest stdout/stderr instead of mirroring it
+    # to logcat. Pull it immediately so the original non-PIE bootstrap failure
+    # still triggers the Bionic PIE replacement path.
+    adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-guest-output.log \
+      > "$OUT/guest-live.txt" 2>/dev/null || true
+    nonpie_detected=0
+    if grep -q 'position-independent executables' "$OUT/logcat.txt" || \
+       grep -q 'position-independent executables' "$OUT/guest-live.txt"; then
+      nonpie_detected=1
+    fi
+
+    if [[ "$pie_retry" == "0" && "$nonpie_detected" == "1" ]] && [[ -n "${XZIEL_BOX64_PIE:-}" ]] && [[ -s "$XZIEL_BOX64_PIE" ]]; then
       pie_retry=1
       echo "XZIEL_X86BRIDGE_NONPIE_BOX64_DETECTED"
       sha256sum "$XZIEL_BOX64_PIE" | tee "$OUT/box64-pie-injected.sha256"
