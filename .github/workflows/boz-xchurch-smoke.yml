@@ -1,0 +1,208 @@
+name: XChurch Android ARM64 Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/boz-mod-runtime
+    paths:
+      - ".github/workflows/boz-xchurch-smoke.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  arm64-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download latest verified XChurch APK artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p xchurch-apk xchurch-smoke
+          SOURCE_RUN="$(gh api \
+            "repos/$GITHUB_REPOSITORY/actions/artifacts?name=XZIEL-BOZ-XChurch-APK&per_page=100" \
+            --jq '[.artifacts[] | select(.expired == false)] | sort_by(.created_at) | last | .workflow_run.id')"
+          test -n "$SOURCE_RUN"
+          test "$SOURCE_RUN" != "null"
+          echo "SOURCE_RUN=$SOURCE_RUN" | tee xchurch-smoke/source-run.txt
+          gh run download "$SOURCE_RUN" \
+            -n XZIEL-BOZ-XChurch-APK \
+            -D xchurch-apk
+          APK="$(find xchurch-apk -type f -name '*.apk' -print -quit)"
+          test -s "$APK"
+          echo "XCHURCH_APK=$GITHUB_WORKSPACE/$APK" >> "$GITHUB_ENV"
+          sha256sum "$APK" | tee xchurch-smoke/apk-sha256.txt
+          ls -lh "$APK"
+
+      - name: Install emulator host dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            libpulse0 \
+            libgl1 \
+            libx11-6 \
+            libxcb1 \
+            libxcomposite1 \
+            libxcursor1 \
+            libxdamage1 \
+            libxi6 \
+            libxtst6 \
+            libnss3 \
+            libasound2t64
+
+      - name: Install ARM64 Android emulator image
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort | tail -n1)"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" \
+            "platform-tools" \
+            "platforms;android-31" \
+            "build-tools;35.0.0" \
+            "emulator" \
+            "system-images;android-31;google_apis;arm64-v8a"
+
+      - name: Boot ARM64 emulator and launch XChurch APK
+        shell: bash
+        env:
+          ANDROID_AVD_HOME: /tmp/boz-arm64-avd
+        run: |
+          set -euo pipefail
+          mkdir -p "$ANDROID_AVD_HOME" xchurch-smoke
+          ADB="$ANDROID_HOME/platform-tools/adb"
+          EMULATOR="$ANDROID_HOME/emulator/emulator"
+          AVDMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name avdmanager | sort | tail -n1)"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n1)"
+
+          "$AAPT" dump badging "$XCHURCH_APK" > xchurch-smoke/aapt-badging.txt
+          PACKAGE="$(sed -n "s/^package: name='\([^']*\)'.*/\1/p" xchurch-smoke/aapt-badging.txt | head -n1)"
+          ACTIVITY="$(sed -n "s/^launchable-activity: name='\([^']*\)'.*/\1/p" xchurch-smoke/aapt-badging.txt | head -n1)"
+          test -n "$PACKAGE"
+          test -n "$ACTIVITY"
+          printf 'PACKAGE=%s\nACTIVITY=%s\n' "$PACKAGE" "$ACTIVITY" \
+            | tee xchurch-smoke/runtime-target.txt
+
+          printf 'no\n' | "$AVDMANAGER" create avd \
+            --force \
+            --name boz-arm64-ci \
+            --package "system-images;android-31;google_apis;arm64-v8a" \
+            --device "pixel_2"
+
+          "$EMULATOR" -version | tee xchurch-smoke/emulator-version.txt
+          "$EMULATOR" -accel-check > xchurch-smoke/accel-check.txt 2>&1 || true
+
+          nohup "$EMULATOR" \
+            @boz-arm64-ci \
+            -no-window \
+            -no-audio \
+            -no-boot-anim \
+            -no-snapshot \
+            -accel off \
+            -gpu swiftshader_indirect \
+            -memory 2048 \
+            -cores 2 \
+            > xchurch-smoke/emulator-stdout.txt 2>&1 &
+          EMU_PID=$!
+          echo "$EMU_PID" > xchurch-smoke/emulator.pid
+
+          for i in $(seq 1 120); do
+            if ! kill -0 "$EMU_PID" 2>/dev/null; then
+              echo "EMULATOR_EXITED_EARLY" | tee xchurch-smoke/smoke-result.txt
+              cat xchurch-smoke/emulator-stdout.txt
+              exit 1
+            fi
+            if "$ADB" get-state 2>/dev/null | grep -q '^device$'; then
+              break
+            fi
+            sleep 5
+          done
+          "$ADB" wait-for-device
+
+          BOOTED=0
+          for i in $(seq 1 180); do
+            if [[ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; then
+              BOOTED=1
+              break
+            fi
+            sleep 5
+          done
+          if [[ "$BOOTED" != "1" ]]; then
+            echo "ANDROID_BOOT_TIMEOUT" | tee xchurch-smoke/smoke-result.txt
+            cat xchurch-smoke/emulator-stdout.txt || true
+            exit 1
+          fi
+
+          {
+            echo "ABI=$("$ADB" shell getprop ro.product.cpu.abi | tr -d '\r')"
+            echo "ABILIST=$("$ADB" shell getprop ro.product.cpu.abilist | tr -d '\r')"
+            echo "SDK=$("$ADB" shell getprop ro.build.version.sdk | tr -d '\r')"
+          } | tee xchurch-smoke/device.txt
+
+          "$ADB" logcat -c
+          set +e
+          "$ADB" install -r -g "$XCHURCH_APK" > xchurch-smoke/adb-install.txt 2>&1
+          INSTALL_RC=$?
+          set -e
+          cat xchurch-smoke/adb-install.txt
+          if [[ "$INSTALL_RC" != "0" ]]; then
+            echo "APK_INSTALL_FAILED=$INSTALL_RC" | tee xchurch-smoke/smoke-result.txt
+            "$ADB" logcat -d -v threadtime > xchurch-smoke/logcat.txt || true
+            exit "$INSTALL_RC"
+          fi
+
+          "$ADB" shell settings put secure immersive_mode_confirmations confirmed || true
+          "$ADB" shell am force-stop "$PACKAGE" || true
+          "$ADB" logcat -c
+          "$ADB" shell am start -W -n "$PACKAGE/$ACTIVITY" \
+            > xchurch-smoke/am-start.txt 2>&1 || true
+          cat xchurch-smoke/am-start.txt
+
+          sleep 60
+          "$ADB" exec-out screencap -p > xchurch-smoke/boot.png || true
+          "$ADB" logcat -d -v threadtime > xchurch-smoke/logcat.txt || true
+          "$ADB" shell dumpsys activity activities > xchurch-smoke/activities.txt || true
+          "$ADB" shell dumpsys package "$PACKAGE" > xchurch-smoke/package.txt || true
+
+          PID="$("$ADB" shell pidof "$PACKAGE" 2>/dev/null | tr -d '\r' || true)"
+          echo "PID=$PID" | tee xchurch-smoke/smoke-result.txt
+
+          grep -Ei \
+            "FATAL EXCEPTION|Fatal signal|AndroidRuntime|UnsatisfiedLinkError|dlopen|Marmalade|s3e|activision|boz|SIG(SEGV|ABRT)|xchurch|kino" \
+            xchurch-smoke/logcat.txt | tail -n 500 \
+            > xchurch-smoke/logcat-highlights.txt || true
+          cat xchurch-smoke/logcat-highlights.txt
+
+          if grep -Eq \
+            "FATAL EXCEPTION|Fatal signal|UnsatisfiedLinkError|SIGSEGV|SIGABRT" \
+            xchurch-smoke/logcat.txt; then
+            echo "BOZ_FATAL_RUNTIME_ERROR" | tee -a xchurch-smoke/smoke-result.txt
+            exit 1
+          fi
+          if [[ -z "$PID" ]]; then
+            echo "BOZ_PROCESS_NOT_ALIVE" | tee -a xchurch-smoke/smoke-result.txt
+            exit 1
+          fi
+
+          test -s xchurch-smoke/boot.png
+          echo "XZIEL_BOZ_XCHURCH_ANDROID_BOOT_OK" | tee -a xchurch-smoke/smoke-result.txt
+
+      - name: Upload smoke diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-BOZ-XChurch-Android-Smoke
+          path: xchurch-smoke/
+          if-no-files-found: warn
+          retention-days: 14
