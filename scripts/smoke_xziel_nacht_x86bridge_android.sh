@@ -63,7 +63,7 @@ failed=0
 last_marker="BOOT_ACTIVITY_START"
 pie_retry=0
 
-for i in $(seq 1 36); do
+for i in $(seq 1 72); do
   adb logcat -d -v threadtime > "$OUT/logcat.txt" || true
 
   if grep -Eq     'FATAL EXCEPTION|Fatal signal|SIGSEGV|SIGABRT|No space left on device|embedded EXE (byte count|SHA-256) mismatch|XZIEL startup failed|XZIEL game setup failed|Unable to start activity'     "$OUT/logcat.txt"; then
@@ -478,7 +478,7 @@ echo "XZIEL_X86BRIDGE_GUEST_FILE_CAPTURE_BEGIN"
 tail -n 1200 "$OUT/xziel-guest-output.log" || true
 echo "XZIEL_X86BRIDGE_GUEST_FILE_CAPTURE_END"
 
-# Capture the in-APK persistent wineserver separately. APK27 starts this server
+# Capture the in-APK persistent wineserver separately. APK27+ starts this server
 # immediately before direct Nacht launch, so this log distinguishes server
 # startup failure from Wine/PE failure without relying only on logcat markers.
 adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-wineserver-runtime.log \
@@ -486,26 +486,31 @@ adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-wineserver-runti
 echo "XZIEL_X86BRIDGE_RUNTIME_WINESERVER_CAPTURE_BEGIN"
 tail -n 1600 "$OUT/xziel-wineserver-runtime.log" || true
 echo "XZIEL_X86BRIDGE_RUNTIME_WINESERVER_CAPTURE_END"
-adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; echo XZIEL_RUNTIME_SOCKET_CENSUS; find \$ROOT/tmp -maxdepth 3 -type s -o -type f 2>/dev/null | grep -E "(server-|xziel-wineserver-runtime)" | sort | head -n 200; ps -A | grep -E "box64|wineserver|Nacht" || true'" \
-  > "$OUT/runtime-wineserver-state.txt" 2>&1 || true
-cat "$OUT/runtime-wineserver-state.txt" || true
+cat > "$OUT/xziel-runtime-census.sh" <<'EOF'
+ROOT=/data/user/0/com.xzielapp/files/rootfs
+TEMP="$ROOT/home/xuser/.wine/drive_c/users/xuser/AppData/Local/Temp"
 
-# Snapshot NSIS self-extractor progress. Nacht-Chronicles-XZIEL.exe is an
-# NSIS container; reaching ns*.tmp proves we are inside the one-file bootstrap.
-# Presence/growth of game/7z.exe, xziel-nacht-vfs.zip, Xziel-Nacht.exe or
-# scene.xzsc tells us exactly how far extraction has progressed.
-adb shell "run-as ${XZIEL_PACKAGE} sh -c '
-  ROOT=/data/user/0/com.xzielapp/files/rootfs
-  TEMP=\$ROOT/home/xuser/.wine/drive_c/users/xuser/AppData/Local/Temp
-  echo XZIEL_NSIS_TEMP_CENSUS
-  find \$TEMP -maxdepth 3 -type f -printf "%s %p\\n" 2>/dev/null | sort -nr | head -n 200
-  echo XZIEL_NSIS_DIR_CENSUS
-  find \$TEMP -maxdepth 3 -type d -print 2>/dev/null | sort | head -n 200
-  echo XZIEL_NSIS_PAYLOAD_MARKERS
-  find \$TEMP -maxdepth 6 \\( -iname "7z.exe" -o -iname "xziel-nacht-vfs.zip" -o -iname "Xziel-Nacht.exe" -o -iname "scene.xzsc" \\) -print 2>/dev/null | sort
-  echo XZIEL_RUNTIME_PROCESS_CENSUS
-  ps -A | grep -E "box64|wine|wineserver|Nacht|7z|Xziel" || true
-'" > "$OUT/nsis-runtime-state.txt" 2>&1 || true
+echo XZIEL_RUNTIME_SOCKET_CENSUS
+find "$ROOT/tmp" -maxdepth 3 -print 2>/dev/null \
+  | grep -e server- -e xziel-wineserver-runtime \
+  | sort | head -n 200
+ps -A | grep -e box64 -e wineserver -e Nacht || true
+
+echo XZIEL_NSIS_TEMP_CENSUS
+find "$TEMP" -maxdepth 3 -type f -printf '%s %p\n' 2>/dev/null \
+  | sort -nr | head -n 200
+echo XZIEL_NSIS_DIR_CENSUS
+find "$TEMP" -maxdepth 3 -type d -print 2>/dev/null | sort | head -n 200
+echo XZIEL_NSIS_PAYLOAD_MARKERS
+find "$TEMP" -maxdepth 6 \
+  \( -iname '7z.exe' -o -iname 'xziel-nacht-vfs.zip' -o -iname 'Xziel-Nacht.exe' -o -iname 'scene.xzsc' \) \
+  -print 2>/dev/null | sort
+echo XZIEL_RUNTIME_PROCESS_CENSUS
+ps -A | grep -e box64 -e wine -e wineserver -e Nacht -e 7z -e Xziel || true
+EOF
+
+adb shell run-as ${XZIEL_PACKAGE} sh < "$OUT/xziel-runtime-census.sh" \
+  > "$OUT/nsis-runtime-state.txt" 2>&1 || true
 cat "$OUT/nsis-runtime-state.txt" || true
 
 adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ls -la files/rootfs/tmp files/rootfs/tmp/shm 2>&1; find files/rootfs/tmp/shm -maxdepth 1 -type f -ls 2>/dev/null | head -n 200'" \
