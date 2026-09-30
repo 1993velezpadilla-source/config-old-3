@@ -79,6 +79,7 @@ for old, new in (
     ("GO(__ctype_b_loc, pFv)", "GOM(__ctype_b_loc, pFEv)"),
     ("GO(__ctype_tolower_loc, pFv)", "GOM(__ctype_tolower_loc, pFEv)"),
     ("GO(__ctype_toupper_loc, pFv)", "GOM(__ctype_toupper_loc, pFEv)"),
+    ("GO(nl_langinfo, pFi)", "GOM(nl_langinfo, pFEi)"),
 ):
     if old not in s:
         raise SystemExit(f"Box64 libc wrapper anchor missing: {old}")
@@ -214,6 +215,21 @@ EXPORT void* my___ctype_toupper_loc(x64emu_t* emu)
     return &xziel_ctype_toupper_ptr;
 }
 
+/*
+ * glibc and Bionic use different nl_item numeric layouts. Wine asks for
+ * glibc CODESET as item 0x0e; passing that value straight to Bionic returns
+ * a weekday string ("Saturday") instead of the codeset.
+ */
+EXPORT char* my_nl_langinfo(x64emu_t* emu, int item)
+{
+    (void)emu;
+#ifdef ANDROID
+    if(item == 0x0e)
+        return "UTF-8";
+#endif
+    return nl_langinfo((nl_item)item);
+}
+
 '''
 s = s.replace(anchor, anchor + shim, 1)
 libc_c.write_text(s)
@@ -310,7 +326,10 @@ grep -q 'GOM(__ctype_toupper_loc, pFEv)' "$SRC/src/wrapped/wrappedlibc_private.h
 grep -q 'my___ctype_b_loc' "$SRC/src/wrapped/wrappedlibc.c"
 grep -q 'my___ctype_tolower_loc' "$SRC/src/wrapped/wrappedlibc.c"
 grep -q 'my___ctype_toupper_loc' "$SRC/src/wrapped/wrappedlibc.c"
+grep -q 'GOM(nl_langinfo, pFEi)' "$SRC/src/wrapped/wrappedlibc_private.h"
+grep -q 'my_nl_langinfo' "$SRC/src/wrapped/wrappedlibc.c"
 echo "XZIEL_BOX64_ANDROID_GLIBC_CTYPE_GREEN"
+echo "XZIEL_BOX64_ANDROID_GLIBC_LANGINFO_GREEN"
 grep -q 'GOM(shm_open, iFEpOu)' "$SRC/src/wrapped/wrappedlibc_private.h"
 grep -q 'GOM(shm_unlink, iFEp)' "$SRC/src/wrapped/wrappedlibc_private.h"
 grep -q 'GOM(shm_open, iFEpOu)' "$SRC/src/wrapped/wrappedlibrt_private.h"
