@@ -139,6 +139,15 @@ adb shell df -h /data | tee "$OUT/data-after-boot.txt" || true
 adb shell ps -A | grep -E 'xziel|winlator|box64|wine' | tee "$OUT/processes.txt" || true
 adb shell dumpsys activity activities   | grep -E "mResumedActivity|topResumedActivity|${XZIEL_PACKAGE}"   | tee "$OUT/activity-final.txt" || true
 
+adb shell run-as ${XZIEL_PACKAGE} sh -c 'cat files/rootfs/tmp/xziel-guest-output.log 2>/dev/null' \
+  > "$OUT/guest-output.txt" || true
+if [[ -s "$OUT/guest-output.txt" ]]; then
+  echo "XZIEL_X86BRIDGE_GUEST_OUTPUT_CAPTURED bytes=$(wc -c < "$OUT/guest-output.txt")"
+  tail -n 500 "$OUT/guest-output.txt" || true
+else
+  echo "XZIEL_X86BRIDGE_GUEST_OUTPUT_EMPTY"
+fi
+
 adb shell run-as ${XZIEL_PACKAGE} sh -c 'find files/rootfs -type f \( -name "ld-linux-x86-64.so.2" -o -name "ld-linux*.so*" -o -path "*/bin/wine" -o -path "*/bin/wine64" \) -print 2>/dev/null | sort' \
   | tee "$OUT/rootfs-runtime-paths.txt" || true
 echo "XZIEL_X86BRIDGE_ROOTFS_RUNTIME_PATHS"
