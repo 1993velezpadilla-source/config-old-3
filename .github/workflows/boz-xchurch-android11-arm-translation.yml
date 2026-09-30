@@ -15,7 +15,7 @@ permissions:
 jobs:
   capture:
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    timeout-minutes: 22
 
     steps:
       - uses: actions/checkout@v5
@@ -188,17 +188,43 @@ jobs:
             echo "LAUNCH_RC=$LAUNCH_RC" | tee -a "$OUT/status.txt"
             cat "$OUT/launch.txt" | tee -a "$OUT/status.txt"
 
+            capture_state() {
+              LABEL="$1"
+              "$ADB" exec-out screencap -p > "$OUT/screens/app_${LABEL}.png" 2>/dev/null || true
+              PID_NOW="$("$ADB" shell pidof com.activision.boz 2>/dev/null | tr -d '\r\n')"
+              echo "APP_${LABEL}_PID=$PID_NOW" | tee -a "$OUT/status.txt"
+              if [ -n "$PID_NOW" ]; then
+                "$ADB" shell top -b -n 1 -p "$PID_NOW" > "$OUT/top_${LABEL}.txt" 2>&1 || true
+                "$ADB" shell "cat /proc/$PID_NOW/status" > "$OUT/proc_status_${LABEL}.txt" 2>&1 || true
+                "$ADB" shell "cat /proc/$PID_NOW/wchan" > "$OUT/wchan_${LABEL}.txt" 2>&1 || true
+                "$ADB" shell "ps -T -p $PID_NOW" > "$OUT/threads_${LABEL}.txt" 2>&1 || true
+              fi
+            }
+
             sleep 3
-            "$ADB" exec-out screencap -p > "$OUT/screens/app_03s.png" 2>/dev/null || true
+            capture_state 03s
             sleep 5
-            "$ADB" exec-out screencap -p > "$OUT/screens/app_08s.png" 2>/dev/null || true
+            capture_state 08s
             sleep 7
-            "$ADB" exec-out screencap -p > "$OUT/screens/app_15s.png" 2>/dev/null || true
+            capture_state 15s
             sleep 15
-            "$ADB" exec-out screencap -p > "$OUT/screens/app_30s.png" 2>/dev/null || true
+            capture_state 30s
+            sleep 30
+            capture_state 60s
+            sleep 30
+            capture_state 90s
+            sleep 30
+            capture_state 120s
+            sleep 60
+            capture_state 180s
 
             PID="$("$ADB" shell pidof com.activision.boz 2>/dev/null | tr -d '\r\n')"
             echo "PID=$PID" | tee -a "$OUT/status.txt"
+
+            {
+              echo "=== SCREEN SHA256 ==="
+              sha256sum "$OUT"/screens/app_*.png 2>/dev/null || true
+            } > "$OUT/screen-hashes.txt"
           fi
 
           "$ADB" logcat -d -v threadtime > "$OUT/logcat.txt" 2>&1
@@ -235,7 +261,7 @@ jobs:
           rm -rf "$DST"
           mkdir -p "$DST/screens"
           cp -f "$SRC"/screens/*.png "$DST/screens/" 2>/dev/null || true
-          for f in             status.txt device.txt native-bridge-files.txt             install-arm64.txt install-auto.txt launch.txt             logcat-highlights.txt activities.txt window.txt             emulator.log accel-check.txt apk.sha256; do
+          for f in             status.txt device.txt native-bridge-files.txt             install-arm64.txt install-auto.txt launch.txt             logcat.txt logcat-highlights.txt activities.txt window.txt             emulator.log accel-check.txt apk.sha256 screen-hashes.txt             top_*.txt proc_status_*.txt wchan_*.txt threads_*.txt; do
             test -f "$SRC/$f" && cp "$SRC/$f" "$DST/$f"
           done
           find "$DST" -maxdepth 2 -type f -printf '%P %s bytes\n'             | sort | tee "$DST/manifest.txt"
