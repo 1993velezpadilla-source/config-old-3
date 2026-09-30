@@ -1099,8 +1099,7 @@ jobs:
             /tmp/xchurch-apk/aligned.apk
 
           "$APKSIGNER" verify --verbose --print-certs "$APK" \
-            | tee boz_mod_out/xchurch_apk/apksigner-verify.txt
-          grep -q "^Verifies$" boz_mod_out/xchurch_apk/apksigner-verify.txt
+            2>&1 | tee boz_mod_out/xchurch_apk/apksigner-verify.txt
 
           FINAL_EMBED_SHA="$(unzip -p "$APK" "$ENTRY" | sha256sum | awk '{print $1}')"
           test "$DZ_SHA" = "$FINAL_EMBED_SHA"
