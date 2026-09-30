@@ -80,6 +80,18 @@ for old, new in (
     if old not in s:
         raise SystemExit(f"Box64 libc wrapper anchor missing: {old}")
     s = s.replace(old, new, 1)
+
+# glibc 2.34 moved POSIX shm entry points into libc. Wine's x86_64 ntdll.so
+# therefore resolves shm_open/shm_unlink against libc.so.6, not librt.so.1.
+# Export the same Box64 custom wrappers from wrappedlibc too; the actual
+# Android-safe implementations remain centralized in wrappedlibrt.c.
+anchor = "GOM(__xpg_basename, pFEp)"
+if anchor not in s:
+    raise SystemExit("Box64 libc shm insertion anchor missing")
+for entry in ("GOM(shm_open, iFEpOu)", "GOM(shm_unlink, iFEp)"):
+    if entry not in s:
+        s = s.replace(anchor, anchor + "\n" + entry, 1)
+        anchor = entry
 libc_h.write_text(s)
 
 libc_c = src / "src/wrapped/wrappedlibc.c"
@@ -162,7 +174,10 @@ grep -q 'XZIEL_ANDROID_GLIBC_LIBC_SHIMS' "$SRC/src/wrapped/wrappedlibc.c"
 grep -q 'XZIEL_ANDROID_GLIBC_SHM_SHIMS' "$SRC/src/wrapped/wrappedlibrt.c"
 grep -q 'GOM(__errno_location, pFEv)' "$SRC/src/wrapped/wrappedlibc_private.h"
 grep -q 'GOM(__xpg_basename, pFEp)' "$SRC/src/wrapped/wrappedlibc_private.h"
+grep -q 'GOM(shm_open, iFEpOu)' "$SRC/src/wrapped/wrappedlibc_private.h"
+grep -q 'GOM(shm_unlink, iFEp)' "$SRC/src/wrapped/wrappedlibc_private.h"
 grep -q 'GOM(shm_open, iFEpOu)' "$SRC/src/wrapped/wrappedlibrt_private.h"
+echo "XZIEL_BOX64_ANDROID_GLIBC34_SHM_IN_LIBC_GREEN"
 echo "XZIEL_BOX64_ANDROID_GLIBC_SYMBOL_SHIMS_GREEN"
 
 cmake -S "$SRC" -B "$BUILD/cmake" \
