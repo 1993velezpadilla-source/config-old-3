@@ -871,7 +871,7 @@ text = xserver.read_text(encoding="utf-8")
 # under Wine while winhandler exits with status 1. Override only our private
 # direct-boot path; normal Winlator launches keep the upstream start command.
 guest_pattern = re.compile(
-    r'(?P<indent>\\s*)String guestExecutable = "wine explorer /desktop=[^\\n]*getWineStartCommand\\(\\);'
+    r'(?P<indent>[ \\t]*)String guestExecutable = "wine explorer /desktop=[^\\r\\n]*getWineStartCommand\\(\\);'
 )
 guest_match = guest_pattern.search(text)
 if not guest_match:
@@ -879,14 +879,13 @@ if not guest_match:
 guest_line = guest_match.group(0)
 guest_indent = guest_match.group("indent")
 direct_override = (
-    guest_line + "\\n" +
-    guest_indent + 'if (getIntent().getBooleanExtra("xziel_direct_boot", false)) {\\n' +
-    guest_indent + '    guestExecutable = "wine C:\\\\\\\\XZIEL\\\\\\\\Nacht-Chronicles-XZIEL.exe";\\n' +
-    guest_indent + '    Log.i("XZIEL-HYBRID", "DIRECT_NACHT_WINE_LAUNCH command=" + guestExecutable);\\n' +
+    guest_line + "\n" +
+    guest_indent + 'if (getIntent().getBooleanExtra("xziel_direct_boot", false)) {\n' +
+    guest_indent + r'    guestExecutable = "wine C:\\XZIEL\\Nacht-Chronicles-XZIEL.exe";' + "\n" +
+    guest_indent + '    Log.i("XZIEL-HYBRID", "DIRECT_NACHT_WINE_LAUNCH command=" + guestExecutable);\n' +
     guest_indent + '}'
 )
 text = text[:guest_match.start()] + direct_override + text[guest_match.end():]
-
 overlay_anchor = "        setupUI();\n"
 overlay_insert = '''        setupUI();
         if (getIntent().getBooleanExtra("xziel_direct_boot", false)) {
