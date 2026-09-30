@@ -10,6 +10,8 @@ on:
       - experiment/xziel-nacht-win64-exe-v1
     paths:
       - ".github/workflows/xziel-nacht-hybrid-android-x86bridge-smoke.yml"
+      - "scripts/smoke_xziel_nacht_x86bridge_android.sh"
+      - "scripts/build_box64_android_pie_for_x86bridge.sh"
 
 permissions:
   contents: read
