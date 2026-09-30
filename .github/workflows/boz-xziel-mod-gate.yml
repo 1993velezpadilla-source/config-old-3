@@ -79,3 +79,65 @@ jobs:
           path: boz_mod_out/
           if-no-files-found: error
           retention-days: 14
+
+
+  dtrz-inplace-replace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Clone pinned MIT MarmDump verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone https://github.com/codefl0w/MarmDump.git /tmp/MarmDump
+          cd /tmp/MarmDump
+          git checkout 48b7b743344b7031e683cb81b67f8d874710caef
+          test "$(git rev-parse HEAD)" = "48b7b743344b7031e683cb81b67f8d874710caef"
+
+      - name: Build synthetic DTRZ and replace map resource
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/boz_mod/test_dtrz_replace.py "$GITHUB_WORKSPACE" \
+            | tee /tmp/xziel-dtrz-gate.log
+          grep -q "XZIEL_DTRZ_INPLACE_REPLACE_OK" /tmp/xziel-dtrz-gate.log
+          grep -q "XZIEL_DTRZ_SYNTHETIC_BUILD_OK" /tmp/xziel-dtrz-gate.log
+
+      - name: Verify patched archive with independent MarmDump
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/marmdump-out
+          python3 /tmp/MarmDump/MarmDump.py \
+            -i boz_mod_out/dtrz_gate/synthetic_after.dz \
+            -o /tmp/marmdump-out \
+            --manifest boz_mod_out/dtrz_gate/marmdump-manifest.json \
+            | tee -a /tmp/xziel-dtrz-gate.log
+          cmp \
+            boz_mod_out/dtrz_gate/replacement.group.bin \
+            /tmp/marmdump-out/data-etc/map_probe.group.bin
+          echo "XZIEL_DTRZ_MARMDUMP_VERIFY_OK" | tee -a /tmp/xziel-dtrz-gate.log
+
+      - name: Save DTRZ gate report
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp /tmp/xziel-dtrz-gate.log boz_mod_out/dtrz_gate/
+          {
+            echo "VERIFIER=codefl0w/MarmDump"
+            echo "VERIFIER_COMMIT=48b7b743344b7031e683cb81b67f8d874710caef"
+            echo "MODE=inplace_slot_replace"
+            echo "OFFSETS_SHIFTED=false"
+            echo "GATE_3=dtrz_inplace_replace"
+            echo "STATUS=GREEN"
+          } > boz_mod_out/dtrz_gate/gate.env
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-BOZ-DTRZ-Repack-Gate
+          path: boz_mod_out/dtrz_gate/
+          if-no-files-found: error
+          retention-days: 14
