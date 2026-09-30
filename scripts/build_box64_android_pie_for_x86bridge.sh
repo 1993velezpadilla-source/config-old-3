@@ -142,6 +142,13 @@ librt_h.write_text(s)
 
 librt_c = src / "src/wrapped/wrappedlibrt.c"
 s = librt_c.read_text()
+include_anchor = '#include <errno.h>\n'
+if include_anchor not in s:
+    raise SystemExit("Box64 wrappedlibrt include anchor missing")
+for inc in ('#include <fcntl.h>\n', '#include <sys/stat.h>\n', '#include <unistd.h>\n'):
+    if inc not in s:
+        s = s.replace(include_anchor, include_anchor + inc, 1)
+        include_anchor = inc
 anchor = "const char* librtName = \"librt.so.1\";\n"
 if anchor not in s:
     raise SystemExit("Box64 wrappedlibrt insertion anchor missing")
