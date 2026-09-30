@@ -15,6 +15,24 @@ sudo apt-get install -y gcc-aarch64-linux-gnu patchelf >/dev/null
 
 git clone --depth 1 --branch v0.4.4 https://github.com/ptitSeb/box64.git "$SRC"
 
+# Android's x86 native bridge validates ARM64 ELF TLS using Bionic rules.
+# Force at least one native TLS object to 64-byte alignment so PT_TLS p_align
+# becomes >= 0x40 instead of the glibc default 0x10.
+python3 - "$SRC" <<'PY'
+from pathlib import Path
+import sys
+
+src = Path(sys.argv[1])
+p = src / "src/os/os_linux.c"
+text = p.read_text(encoding="utf-8")
+old = "static __thread char native_name[500] = { 0 };"
+new = "static __thread char native_name[500] __attribute__((aligned(64))) = { 0 };"
+if old not in text:
+    raise SystemExit("Box64 TLS alignment anchor missing")
+p.write_text(text.replace(old, new, 1), encoding="utf-8")
+print("XZIEL_BOX64_TLS_SOURCE_ALIGN64_PATCHED")
+PY
+
 # CI-only bridge build:
 # - glibc/Winlator ABI, matching the shipped runtime
 # - PIE so Android x86 native-bridge accepts the ARM64 executable
@@ -50,12 +68,24 @@ patchelf --set-rpath "$XZIEL_RPATH" "$OUT/box64-glibc-pie"
 file "$OUT/box64-glibc-pie" | tee "$DIST/box64-glibc-pie.file.txt"
 readelf -h "$OUT/box64-glibc-pie" | tee "$DIST/box64-glibc-pie.readelf-h.txt"
 readelf -l "$OUT/box64-glibc-pie" | tee "$DIST/box64-glibc-pie.readelf-l.txt"
+readelf -lW "$OUT/box64-glibc-pie" | tee "$DIST/box64-glibc-pie.readelf-lw.txt"
 readelf -d "$OUT/box64-glibc-pie" | tee "$DIST/box64-glibc-pie.readelf-d.txt" || true
 sha256sum "$OUT/box64-glibc-pie" | tee "$DIST/box64-glibc-pie.sha256"
 
 grep -Eq 'Type:[[:space:]]+DYN' "$DIST/box64-glibc-pie.readelf-h.txt"
 grep -q "$XZIEL_INTERP" "$DIST/box64-glibc-pie.readelf-l.txt"
 grep -q "$XZIEL_RPATH" "$DIST/box64-glibc-pie.readelf-d.txt"
+
+tls_align_hex="$(awk '$1=="TLS"{print $NF; exit}' "$DIST/box64-glibc-pie.readelf-lw.txt")"
+test -n "$tls_align_hex"
+tls_align_hex="${tls_align_hex#0x}"
+tls_align_dec=$((16#$tls_align_hex))
+echo "XZIEL_BOX64_TLS_ALIGN bytes=$tls_align_dec hex=0x$tls_align_hex"
+if (( tls_align_dec < 64 )); then
+  echo "XZIEL_BOX64_TLS_ALIGN_TOO_SMALL bytes=$tls_align_dec" >&2
+  exit 72
+fi
+echo "XZIEL_BOX64_TLS_ALIGN64_GREEN"
 
 echo "XZIEL_BOX64_PIE=$OUT/box64-glibc-pie" >> "$GITHUB_ENV"
 echo "XZIEL_BOX64_GLIBC_PIE_GREEN dynarec=off path=$OUT/box64-glibc-pie"
