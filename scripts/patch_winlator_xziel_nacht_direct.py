@@ -1019,7 +1019,7 @@ if "import android.os.Build;" not in gtext:
     gtext = gtext.replace("import android.os.Process;\n", "import android.os.Process;\nimport android.os.Build;\n", 1)
 
 ld_anchor = '''        envVars.put("LD_LIBRARY_PATH", rootFS.getLibDir().getPath());
-        envVars.put("BOX64_LD_LIBRARY_PATH", rootDir+"/lib/x86_64-linux-gnu:"+rootDir+"/usr/lib");
+        envVars.put("BOX64_LD_LIBRARY_PATH", rootDir+"/lib/x86_64-linux-gnu");
 '''
 ld_insert = '''        boolean xzielX86Bridge =
                 Build.SUPPORTED_ABIS != null &&
@@ -1032,7 +1032,7 @@ ld_insert = '''        boolean xzielX86Bridge =
         else {
             envVars.put("LD_LIBRARY_PATH", rootFS.getLibDir().getPath());
         }
-        envVars.put("BOX64_LD_LIBRARY_PATH", rootDir+"/lib/x86_64-linux-gnu");
+        envVars.put("BOX64_LD_LIBRARY_PATH", rootDir+"/lib/x86_64-linux-gnu:"+rootDir+"/usr/lib");
 '''
 if ld_anchor not in gtext:
     raise SystemExit("Could not find GuestProgramLauncher LD_LIBRARY_PATH anchor")
