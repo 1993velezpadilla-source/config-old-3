@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "map": "church_v1",
+  "policy": {
+    "finalArtMustBeAuthored3D": true,
+    "proceduralPrimitiveFinalArtAllowed": false,
+    "blockoutMayUsePrimitives": true,
+    "pbrRequired": true,
+    "licenseMetadataRequired": true
+  },
+  "architectureKit": [
+    {"id":"wall_stone_A","status":"needed"},
+    {"id":"wall_stone_broken_A","status":"needed"},
+    {"id":"arch_nave_large_A","status":"needed"},
+    {"id":"column_nave_A","status":"needed"},
+    {"id":"ceiling_vault_A","status":"needed"},
+    {"id":"floor_stone_A","status":"needed"},
+    {"id":"stairs_tower_A","status":"needed"},
+    {"id":"door_main_A","status":"needed"},
+    {"id":"door_crypt_A","status":"needed"},
+    {"id":"window_stained_A","status":"needed"}
+  ],
+  "heroProps": [
+    {"id":"main_altar","status":"needed"},
+    {"id":"church_pew","status":"needed"},
+    {"id":"confessional","status":"needed"},
+    {"id":"bell","status":"needed"},
+    {"id":"crypt_gate","status":"needed"},
+    {"id":"grave_marker","status":"needed"},
+    {"id":"power_generator","status":"needed"}
+  ],
+  "surfaceFamilies": [
+    {"id":"stone","status":"needed"},
+    {"id":"plaster","status":"needed"},
+    {"id":"old_wood","status":"needed"},
+    {"id":"oxidized_metal","status":"needed"},
+    {"id":"stained_glass","status":"needed"},
+    {"id":"wet_ground","status":"needed"},
+    {"id":"wax","status":"needed"},
+    {"id":"grave_stone","status":"needed"}
+  ]
+}
