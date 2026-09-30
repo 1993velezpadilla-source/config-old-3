@@ -180,6 +180,11 @@ jobs:
           git checkout e723c8c1ea4fac59be990efb3edf7a09b1af7768
           test "$(git rev-parse HEAD)" = "e723c8c1ea4fac59be990efb3edf7a09b1af7768"
           printf 'VERSION_CODE=1081\n' > app/version.properties
+          printf '%s\n' \
+            'android.useAndroidX=true' \
+            'android.nonTransitiveRClass=true' \
+            'org.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8' \
+            > gradle.properties
           keytool -genkeypair \
             -keystore ci-debug.jks \
             -storepass android \
