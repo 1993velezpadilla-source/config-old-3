@@ -710,14 +710,14 @@ jobs:
 
           python3 tools/boz_mod/patch_theatre_materials_inplace.py \
             /tmp/xziel_mod/levels/kino/theatre_shared.stage1.group.bin \
-            /tmp/xziel_mod/levels/kino/theatre_shared.group.bin \
+            /tmp/xziel_mod/levels/kino/xchurch_shared.group.bin \
             --report boz_mod_out/kino_probe/theatre-material-patch.json \
             | tee boz_mod_out/kino_probe/theatre-material-patch.log
           grep -q "XZIEL_BOZ_THEATRE_MATERIAL_PATCH_OK" \
             boz_mod_out/kino_probe/theatre-material-patch.log
 
-          test "$(stat -c %s /tmp/xziel_mod/levels/kino/theatre_shared.group.bin)" = \
-               "$(stat -c %s /tmp/boz-kino/extracted/levels/kino/theatre_shared.group.bin)"
+          test "$(stat -c %s /tmp/xziel_mod/levels/kino/xchurch_shared.group.bin)" = \
+               "$(stat -c %s /tmp/xchurch_mod/levels/kino/xchurch_shared.group.bin)"
 
           rm -rf /tmp/theatre-patched-extracted
           /tmp/dade-venv/bin/dade marmalade extract-group \
