@@ -99,16 +99,18 @@ jobs:
 
           activity = Path("build/android-project/app/src/main/java/org/libsdl/app/NZPActivity.java")
           text = activity.read_text(encoding="utf-8")
-          old = """        return new String[] {
-              "-basedir", dataRoot.getAbsolutePath()
-          };"""
-          new = """        return new String[] {
-              "-basedir", dataRoot.getAbsolutePath(),
-              "+map", "xziel_proto"
-          };"""
-          if old not in text:
-              raise SystemExit("Could not locate NZPActivity default launch arguments")
-          activity.write_text(text.replace(old, new, 1), encoding="utf-8")
+          pattern = re.compile(
+              r'(return\\s+new\\s+String\\[\\]\\s*\\{\\s*"-basedir"\\s*,\\s*dataRoot\\.getAbsolutePath\\(\\)\\s*)(\\};)',
+              re.MULTILINE,
+          )
+          text, count = pattern.subn(
+              r'\\1,\\n            "+map", "xziel_proto"\\n        \\2',
+              text,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit("Could not patch NZPActivity default launch arguments")
+          activity.write_text(text, encoding="utf-8")
 
           gradle = Path("build/android-project/app/build.gradle")
           g = gradle.read_text(encoding="utf-8")
