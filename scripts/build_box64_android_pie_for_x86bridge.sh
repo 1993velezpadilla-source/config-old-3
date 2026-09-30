@@ -54,6 +54,69 @@ PY
 grep -q 'XZIEL_ANDROID_FREETYPE_LIBFT2' "$SRC/src/wrapped/wrappedfreetype.c"
 echo "XZIEL_BOX64_ANDROID_FREETYPE_LIBFT2_GREEN"
 
+# Android's native libft2.so omits FT_Get_WinFNT_Header, but Wine resolves
+# that symbol unconditionally while initializing its font backend. Box64's
+# GOM map can export a custom my_* function even when the native library has
+# no symbol at all. Return FT_Err_Cannot_Open_Resource (1) only if Wine ever
+# asks to parse a legacy WinFNT face; normal TrueType/OpenType stays native.
+python3 - "$SRC" <<'PY'
+from pathlib import Path
+import sys
+
+src = Path(sys.argv[1])
+private = src / "src/wrapped/wrappedfreetype_private.h"
+types = src / "src/wrapped/generated/wrappedfreetypetypes.h"
+impl = src / "src/wrapped/wrappedfreetype.c"
+
+p = private.read_text()
+old = "GO(FT_Get_WinFNT_Header, iFpp)"
+new = "GOM(FT_Get_WinFNT_Header, iFEpp)"
+if old not in p:
+    raise SystemExit("Box64 FT_Get_WinFNT_Header private anchor missing")
+private.write_text(p.replace(old, new, 1))
+
+t = types.read_text()
+old = """	GO(FT_New_Library, iFpp_t) \\
+	GO(FT_Outline_Decompose, iFppp_t) \\"""
+new = """	GO(FT_New_Library, iFpp_t) \\
+	GO(FT_Get_WinFNT_Header, iFpp_t) \\
+	GO(FT_Outline_Decompose, iFppp_t) \\"""
+if old not in t:
+    raise SystemExit("Box64 generated FreeType type map anchor missing")
+types.write_text(t.replace(old, new, 1))
+
+c = impl.read_text()
+anchor = '#include "wrappedlib_init.h"'
+if anchor not in c:
+    raise SystemExit("Box64 wrappedfreetype init anchor missing")
+shim = r'''
+#ifdef ANDROID
+/* XZIEL_ANDROID_FREETYPE_WINFNT_SHIM
+ * AOSP libft2 lacks this optional legacy WinFNT API. Wine only requires the
+ * symbol to exist during font initialization. If a .FNT/.FON face actually
+ * reaches it, report the standard FreeType cannot-open-resource error.
+ */
+EXPORT int my_FT_Get_WinFNT_Header(x64emu_t* emu, void* face, void* aheader)
+{
+    (void)emu;
+    (void)face;
+    (void)aheader;
+    printf_log(LOG_INFO, "XZIEL_FREETYPE_WINFNT_SHIM called unsupported=1\n");
+    return 1;
+}
+#endif
+
+'''
+impl.write_text(c.replace(anchor, shim + anchor, 1))
+print("XZIEL_BOX64_ANDROID_FREETYPE_WINFNT_SHIM_PATCHED")
+PY
+
+grep -q 'GOM(FT_Get_WinFNT_Header, iFEpp)' "$SRC/src/wrapped/wrappedfreetype_private.h"
+grep -q 'GO(FT_Get_WinFNT_Header, iFpp_t)' "$SRC/src/wrapped/generated/wrappedfreetypetypes.h"
+grep -q 'XZIEL_ANDROID_FREETYPE_WINFNT_SHIM' "$SRC/src/wrapped/wrappedfreetype.c"
+grep -q 'my_FT_Get_WinFNT_Header' "$SRC/src/wrapped/wrappedfreetype.c"
+echo "XZIEL_BOX64_ANDROID_FREETYPE_WINFNT_SHIM_GREEN"
+
 # XZIEL x86-bridge compatibility:
 # Upstream Box64's ANDROID entrypoint only exports my___libc_init(), while
 # Winlator's x86_64 Wine guest is glibc-linked and requires __libc_start_main.
