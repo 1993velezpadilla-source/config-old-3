@@ -131,55 +131,38 @@ EOF
       tail -n 300 "$OUT/wine-direct-probe.txt" || true
       echo "XZIEL_X86BRIDGE_DIRECT_PROBE_WINESERVER"
       tail -n 300 "$OUT/wineserver-direct-probe.txt" || true
-      # Clean daemonization bypass probe.  Start wineserver in foreground but
-      # background the Box64 host process ourselves, then let Wine attach to
-      # that existing server.  This avoids wineserver -d's fork/daemon path,
-      # which becomes a zombie under Android native translation.
-      timeout 10s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; rm -f \$ROOT/tmp/xziel-wineserver-fg.log \$ROOT/tmp/xziel-wineserver-fg.pid; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_LOG=2 BOX64_SHOWSEGV=1 BOX64_DLSYM_ERROR=1 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEESYNC=0 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wineserver -f > \$ROOT/tmp/xziel-wineserver-fg.log 2>&1 & echo \$! > \$ROOT/tmp/xziel-wineserver-fg.pid'" \
+      # Persistent foreground wineserver path. The Android/native-translation
+      # bridge cannot safely resume wineserver after its internal fork(), but
+      # wineserver -f is healthy and creates the real prefix socket. Keep one
+      # foreground server alive across the first (slow) Wine prefix warmup and
+      # the Android relaunch instead of killing it after a short diagnostic.
+      timeout 10s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; rm -f \$ROOT/tmp/xziel-wineserver-fg.log \$ROOT/tmp/xziel-wineserver-fg.pid; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_LOG=2 BOX64_SHOWSEGV=1 BOX64_DLSYM_ERROR=1 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEESYNC=1 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wineserver -f > \$ROOT/tmp/xziel-wineserver-fg.log 2>&1 & echo \$! > \$ROOT/tmp/xziel-wineserver-fg.pid'" \
         > "$OUT/wineserver-fg-start.txt" 2>&1 || true
       sleep 2
       adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-wineserver-fg.pid > "$OUT/wineserver-fg.pid" 2>/dev/null || true
       adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; echo PID=\$(cat \$ROOT/tmp/xziel-wineserver-fg.pid 2>/dev/null); ps -A | grep -E \"box64|wineserver\" || true; find \$ROOT/tmp -maxdepth 3 -type s -print 2>/dev/null | sort'" \
         > "$OUT/wineserver-fg-state.txt" 2>&1 || true
-      timeout 20s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_LOG=2 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEDEBUG=+server,+process WINEESYNC=0 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wine cmd /c ver'" \
+
+      # First Wine use can spend a long time importing/normalizing the prefix
+      # registry under interpreter-only Box64. Previous 20s probes killed the
+      # healthy server while the client was blocked in recvmsg waiting for that
+      # initialization. Give the same server a bounded but realistic warmup.
+      timeout 120s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_LOG=1 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEDEBUG=+server,+process WINEESYNC=1 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wine cmd /c ver; rc=\$?; echo XZIEL_PRESTARTED_CMD_STATUS=\$rc; exit \$rc'" \
         > "$OUT/wine-with-prestarted-server.txt" 2>&1 || true
+
       adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-wineserver-fg.log > "$OUT/wineserver-fg.log" 2>/dev/null || true
-      timeout 5s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; pid=\$(cat \$ROOT/tmp/xziel-wineserver-fg.pid 2>/dev/null || true); if [ -n \"\$pid\" ]; then kill \$pid 2>/dev/null || true; fi'" >/dev/null 2>&1 || true
+      adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; echo PID=\$(cat \$ROOT/tmp/xziel-wineserver-fg.pid 2>/dev/null); ps -A | grep -E \"box64|wineserver\" || true; find \$ROOT/tmp -maxdepth 3 -type s -print 2>/dev/null | sort'" \
+        > "$OUT/wineserver-fg-after-warmup.txt" 2>&1 || true
+
       echo "XZIEL_X86BRIDGE_PRESTARTED_WINESERVER_STATE"
       cat "$OUT/wineserver-fg-state.txt" || true
       echo "XZIEL_X86BRIDGE_PRESTARTED_WINESERVER_CMD"
-      tail -n 900 "$OUT/wine-with-prestarted-server.txt" || true
+      tail -n 1200 "$OUT/wine-with-prestarted-server.txt" || true
       echo "XZIEL_X86BRIDGE_PRESTARTED_WINESERVER_LOG"
-      tail -n 2200 "$OUT/wineserver-fg.log" || true
-
-      # Probe the real Winlator Wine prefix with and without esync.  The plain
-      # --version probe does not start wineserver or touch the container prefix,
-      # while the real XZIEL launch does both.
-      timeout 20s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_LOG=2 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEDEBUG=+server,+process WINEESYNC=1 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wine cmd /c ver'" \
-        > "$OUT/wine-prefix-esync-on.txt" 2>&1 || true
-      timeout 20s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_LOG=2 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEDEBUG=+server,+process WINEESYNC=1 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wineserver -k'" \
-        > "$OUT/wineserver-kill-after-esync-on.txt" 2>&1 || true
-      timeout 20s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_LOG=2 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEDEBUG=+server,+process WINEESYNC=0 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wine cmd /c ver'" \
-        > "$OUT/wine-prefix-esync-off.txt" 2>&1 || true
-      timeout 20s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_LOG=2 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEDEBUG=+server,+process WINEESYNC=0 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wineserver -k'" \
-        > "$OUT/wineserver-kill-after-esync-off.txt" 2>&1 || true
-
-      echo "XZIEL_X86BRIDGE_PREFIX_PROBE_ESYNC_ON"
-      tail -n 500 "$OUT/wine-prefix-esync-on.txt" || true
-      echo "XZIEL_X86BRIDGE_PREFIX_PROBE_ESYNC_OFF"
-      tail -n 500 "$OUT/wine-prefix-esync-off.txt" || true
-
-      # Isolate wineserver daemonization. Wine launches wineserver with -d;
-      # if foreground (-f) survives while -d crashes, Box64's fork/daemon path
-      # is the remaining compatibility bug rather than Wine prefix/esync.
-      timeout 15s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_LOG=2 BOX64_SHOWSEGV=1 BOX64_DLSYM_ERROR=1 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine timeout 6 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wineserver -f; rc=\$?; echo XZIEL_WINESERVER_FOREGROUND_STATUS=\$rc'" \
-        > "$OUT/wineserver-foreground-probe.txt" 2>&1 || true
-      timeout 15s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_LOG=2 BOX64_SHOWSEGV=1 BOX64_DLSYM_ERROR=1 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine timeout 6 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wineserver -d; rc=\$?; echo XZIEL_WINESERVER_DAEMON_STATUS=\$rc'" \
-        > "$OUT/wineserver-daemon-probe.txt" 2>&1 || true
-      echo "XZIEL_X86BRIDGE_WINESERVER_FOREGROUND_PROBE"
-      tail -n 900 "$OUT/wineserver-foreground-probe.txt" || true
-      echo "XZIEL_X86BRIDGE_WINESERVER_DAEMON_PROBE"
-      tail -n 900 "$OUT/wineserver-daemon-probe.txt" || true
+      tail -n 2600 "$OUT/wineserver-fg.log" || true
+      echo "XZIEL_X86BRIDGE_PRESTARTED_WINESERVER_AFTER_WARMUP"
+      cat "$OUT/wineserver-fg-after-warmup.txt" || true
+      echo "XZIEL_X86BRIDGE_PERSISTENT_WINESERVER_KEEPALIVE"
       fi
 
       echo "XZIEL_X86BRIDGE_FAST_RELAUNCH diag=${XZIEL_PRELAUNCH_DEEP_DIAG:-1}"
