@@ -243,43 +243,67 @@ EXPORT char* my_nl_langinfo(x64emu_t* emu, int item)
 '''
 s = s.replace(anchor, anchor + shim, 1)
 
-# Wine starts wineserver with -d. Under Android's native ARM translation the
-# daemon/fork path leaves wineserver in a zombie/livelock, while the exact
-# same binary stays healthy with -f. Rewrite only Wine's x64 wineserver spawn
-# on Android; posix_spawn still returns a child PID immediately to Wine.
-spawn_anchor = """        memcpy(newargv+toadd, argv, (n+1)*sizeof(char*));
-        if(self) newargv[toadd] = emu->context->fullpath;
+# Wine's server backgrounds itself later inside server/request.c with fork().
+# Box64 v0.4.4 normally defers emulated fork via emu->fork=1.  Under the
+# Android x86->ARM native-translation bridge that path leaves wineserver's
+# child as a zombie/SIGSEGV before its request loop can answer Wine.  Keep the
+# normal Box64 fork path for everything else, but let wineserver use Box64's
+# own dormant direct-host-fork implementation while it is still single-threaded.
+fork_anchor = """pid_t EXPORT my_fork(x64emu_t* emu)
+{
+    #if 1
+    emu->quit = 1;
+    emu->fork = 1;  // use regular fork...
+    return 0;
+    #else
 """
-if s.count(spawn_anchor) < 2:
-    raise SystemExit("Box64 posix_spawn anchors missing")
-spawn_patch = """        memcpy(newargv+toadd, argv, (n+1)*sizeof(char*));
+if fork_anchor not in s:
+    raise SystemExit("Box64 my_fork anchor missing")
+fork_patch = """pid_t EXPORT my_fork(x64emu_t* emu)
+{
 #ifdef ANDROID
-        if(x64 && fullpath && strstr(fullpath, "wineserver") &&
-           argv[1] && !strcmp(argv[1], "-d")) {
-            char xziel_cmd[4096];
-            snprintf(xziel_cmd, sizeof(xziel_cmd),
-                     "\\\"%s\\\" \\\"%s\\\" -f >/dev/null 2>&1 & exit 0",
-                     emu->context->box64path, fullpath);
-            char* const xziel_shargv[] = {"/system/bin/sh", "-c", xziel_cmd, NULL};
-            printf_log(LOG_INFO, "XZIEL_ANDROID_WINESERVER_FORK_DAEMON path=%s\\n", fullpath);
-            pid_t xziel_pid = fork();
-            if(xziel_pid == 0) {
-                execve("/system/bin/sh", xziel_shargv, (char* const*)envp);
-                _exit(127);
-            }
-            if(xziel_pid < 0) {
-                int xziel_err = errno;
-                printf_log(LOG_INFO, "XZIEL_ANDROID_WINESERVER_FORK_DAEMON fork_error=%d\\n", xziel_err);
-                return xziel_err;
-            }
-            if(pid) *pid = xziel_pid;
-            printf_log(LOG_INFO, "XZIEL_ANDROID_WINESERVER_FORK_DAEMON pid=%d\\n", (int)xziel_pid);
-            return 0;
+    if(emu && emu->context && emu->context->fullpath &&
+       strstr(emu->context->fullpath, "wineserver")) {
+        printf_log(LOG_INFO, "XZIEL_ANDROID_WINESERVER_NATIVE_FORK begin path=%s\\n",
+                   emu->context->fullpath);
+
+        /* Mirror Box64's dormant direct-fork path, scoped only to wineserver. */
+        for (int i=my_context->atfork_sz-1; i>=0; --i)
+            if(my_context->atforks[i].prepare)
+                RunFunctionWithEmu(emu, 0, my_context->atforks[i].prepare, 0);
+
+        int type = emu->type;
+        pid_t v = fork();
+        if(type == EMUTYPE_MAIN)
+            thread_set_emu(emu);
+
+        if(v < 0) {
+            printf_log(LOG_NONE,
+                       "XZIEL_ANDROID_WINESERVER_NATIVE_FORK error=%d errno=%d\\n",
+                       (int)v, errno);
+        } else if(v > 0) {
+            for (int i=0; i<my_context->atfork_sz; ++i)
+                if(my_context->atforks[i].parent)
+                    RunFunctionWithEmu(emu, 0, my_context->atforks[i].parent, 0);
+            printf_log(LOG_INFO,
+                       "XZIEL_ANDROID_WINESERVER_NATIVE_FORK parent child=%d\\n",
+                       (int)v);
+        } else {
+            for (int i=0; i<my_context->atfork_sz; ++i)
+                if(my_context->atforks[i].child)
+                    RunFunctionWithEmu(emu, 0, my_context->atforks[i].child, 0);
+            printf_log(LOG_INFO, "XZIEL_ANDROID_WINESERVER_NATIVE_FORK child\\n");
         }
+        return v;
+    }
 #endif
-        if(self) newargv[toadd] = emu->context->fullpath;
+    #if 1
+    emu->quit = 1;
+    emu->fork = 1;  // use regular fork...
+    return 0;
+    #else
 """
-s = s.replace(spawn_anchor, spawn_patch, 2)
+s = s.replace(fork_anchor, fork_patch, 1)
 libc_c.write_text(s)
 
 librt_h = src / "src/wrapped/wrappedlibrt_private.h"
@@ -376,9 +400,8 @@ grep -q 'my___ctype_tolower_loc' "$SRC/src/wrapped/wrappedlibc.c"
 grep -q 'my___ctype_toupper_loc' "$SRC/src/wrapped/wrappedlibc.c"
 grep -q 'GOM(nl_langinfo, pFEi)' "$SRC/src/wrapped/wrappedlibc_private.h"
 grep -q 'my_nl_langinfo' "$SRC/src/wrapped/wrappedlibc.c"
-echo "XZIEL_BOX64_ANDROID_WINESERVER_NO_DAEMON_GREEN"
-grep -q 'XZIEL_ANDROID_WINESERVER_FORK_DAEMON' "$SRC/src/wrapped/wrappedlibc.c"
-echo "XZIEL_BOX64_ANDROID_WINESERVER_FORK_DAEMON_GREEN"
+grep -q 'XZIEL_ANDROID_WINESERVER_NATIVE_FORK' "$SRC/src/wrapped/wrappedlibc.c"
+echo "XZIEL_BOX64_ANDROID_WINESERVER_NATIVE_FORK_GREEN"
 echo "XZIEL_BOX64_ANDROID_GLIBC_CTYPE_GREEN"
 echo "XZIEL_BOX64_ANDROID_GLIBC_LANGINFO_GREEN"
 grep -q 'GOM(shm_open, iFEpOu)' "$SRC/src/wrapped/wrappedlibc_private.h"
