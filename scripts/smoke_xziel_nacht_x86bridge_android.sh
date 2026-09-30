@@ -116,7 +116,7 @@ EOF
       # Deep compatibility probes are useful after a failure, but running them
       # before every relaunch can delay or retain Wine children. Fast launch is
       # the default now: get Nacht to the real XServer first.
-      if [[ "${XZIEL_PRELAUNCH_DEEP_DIAG:-0}" == "1" ]]; then
+      if [[ "${XZIEL_PRELAUNCH_DEEP_DIAG:-1}" == "1" ]]; then
       # Direct runtime probe: distinguish Box64/native-bridge failure from
       # Wine/winhandler/game startup failure before relaunching the Android UI.
       adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=files/rootfs; TMPDIR=\$ROOT/tmp BOX64_LOG=2 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu \$ROOT/usr/local/bin/box64 --version'" \
@@ -182,7 +182,7 @@ EOF
       tail -n 900 "$OUT/wineserver-daemon-probe.txt" || true
       fi
 
-      echo "XZIEL_X86BRIDGE_FAST_RELAUNCH diag=${XZIEL_PRELAUNCH_DEEP_DIAG:-0}"
+      echo "XZIEL_X86BRIDGE_FAST_RELAUNCH diag=${XZIEL_PRELAUNCH_DEEP_DIAG:-1}"
       adb logcat -c
       adb shell am start -W -n ${XZIEL_PACKAGE}/com.winlator.XzielBootActivity | tee "$OUT/am-restart-pie.txt"
       sleep 3
