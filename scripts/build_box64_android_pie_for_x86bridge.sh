@@ -242,6 +242,27 @@ EXPORT char* my_nl_langinfo(x64emu_t* emu, int item)
 
 '''
 s = s.replace(anchor, anchor + shim, 1)
+
+# Wine starts wineserver with -d. Under Android's native ARM translation the
+# daemon/fork path leaves wineserver in a zombie/livelock, while the exact
+# same binary stays healthy with -f. Rewrite only Wine's x64 wineserver spawn
+# on Android; posix_spawn still returns a child PID immediately to Wine.
+spawn_anchor = """        memcpy(newargv+toadd, argv, (n+1)*sizeof(char*));
+        if(self) newargv[toadd] = emu->context->fullpath;
+"""
+if s.count(spawn_anchor) < 2:
+    raise SystemExit("Box64 posix_spawn anchors missing")
+spawn_patch = """        memcpy(newargv+toadd, argv, (n+1)*sizeof(char*));
+#ifdef ANDROID
+        if(x64 && fullpath && strstr(fullpath, "wineserver") &&
+           argv[1] && !strcmp(argv[1], "-d")) {
+            newargv[toadd+1] = "-f";
+            printf_log(LOG_INFO, "XZIEL_ANDROID_WINESERVER_FOREGROUND -d=>-f\\n");
+        }
+#endif
+        if(self) newargv[toadd] = emu->context->fullpath;
+"""
+s = s.replace(spawn_anchor, spawn_patch, 2)
 libc_c.write_text(s)
 
 librt_h = src / "src/wrapped/wrappedlibrt_private.h"
@@ -338,6 +359,8 @@ grep -q 'my___ctype_tolower_loc' "$SRC/src/wrapped/wrappedlibc.c"
 grep -q 'my___ctype_toupper_loc' "$SRC/src/wrapped/wrappedlibc.c"
 grep -q 'GOM(nl_langinfo, pFEi)' "$SRC/src/wrapped/wrappedlibc_private.h"
 grep -q 'my_nl_langinfo' "$SRC/src/wrapped/wrappedlibc.c"
+grep -q 'XZIEL_ANDROID_WINESERVER_FOREGROUND' "$SRC/src/wrapped/wrappedlibc.c"
+echo "XZIEL_BOX64_ANDROID_WINESERVER_FOREGROUND_GREEN"
 echo "XZIEL_BOX64_ANDROID_GLIBC_CTYPE_GREEN"
 echo "XZIEL_BOX64_ANDROID_GLIBC_LANGINFO_GREEN"
 grep -q 'GOM(shm_open, iFEpOu)' "$SRC/src/wrapped/wrappedlibc_private.h"
