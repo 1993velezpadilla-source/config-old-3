@@ -66,9 +66,30 @@ jobs:
           python3 -m venv /tmp/dade-venv
           /tmp/dade-venv/bin/pip install -q -e /tmp/dade
           /tmp/dade-venv/bin/dade marmalade extract-group             /tmp/xchurch-visual/dz/levels/kino/xchurch_shared.group.bin             /tmp/xchurch-visual/open             --no-delete --no-html --no-png --no-material-json             > /tmp/xchurch-visual/dade.log 2>&1
-          OBJ="$(find /tmp/xchurch-visual/open/CIwModel -type f -name '*.obj' | sort | head -n1)"
+          OBJ="$(python3 - <<'PY'
+          from pathlib import Path
+          objs=sorted(Path('/tmp/xchurch-visual/open/CIwModel').glob('*.obj'))
+          if not objs:
+              raise SystemExit('no OBJ files found')
+          scored=[]
+          for p in objs:
+              faces=0
+              verts=0
+              for line in p.read_text(encoding='utf-8',errors='replace').splitlines():
+                  if line.startswith('f '):
+                      faces += 1
+                  elif line.startswith('v '):
+                      verts += 1
+              scored.append((faces,verts,p))
+          scored.sort(key=lambda x:(x[0],x[1]), reverse=True)
+          for faces,verts,p in scored[:10]:
+              print(f'CANDIDATE {p.name} faces={faces} verts={verts}', file=__import__('sys').stderr)
+          print(scored[0][2])
+          PY
+          )"
           test -s "$OBJ"
           echo "OBJ=$OBJ" >> "$GITHUB_ENV"
+          echo "SELECTED_OBJ=$OBJ"
 
       - name: Render actual modified geometry
         shell: bash
