@@ -15,6 +15,22 @@ sudo apt-get install -y gcc-aarch64-linux-gnu libc6-dev-arm64-cross >/dev/null
 
 git clone --depth 1 --branch v0.4.4 https://github.com/ptitSeb/box64.git "$SRC"
 
+# Upstream STATICBUILD forces "-static" after command-line CMake flags are read.
+# For the x86 Android bridge we specifically need ET_DYN static PIE, so override
+# that internal assignment before configure.
+python3 - "$SRC/CMakeLists.txt" <<'PY'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+s = p.read_text()
+old = "set(CMAKE_EXE_LINKER_FLAGS -static)"
+new = 'set(CMAKE_EXE_LINKER_FLAGS "-static-pie")'
+if old not in s:
+    raise SystemExit("Box64 STATICBUILD linker flag anchor missing")
+p.write_text(s.replace(old, new, 1))
+print("XZIEL_BOX64_STATICBUILD_STATIC_PIE_PATCHED")
+PY
+
 # Android's x86 native bridge validates ARM64 ELF TLS using Bionic rules.
 # Force at least one native TLS object to 64-byte alignment so PT_TLS p_align
 # becomes >= 0x40 instead of the glibc default 0x10.
