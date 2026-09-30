@@ -263,24 +263,6 @@ spawn_patch = """        memcpy(newargv+toadd, argv, (n+1)*sizeof(char*));
         if(self) newargv[toadd] = emu->context->fullpath;
 """
 s = s.replace(spawn_anchor, spawn_patch, 2)
-# Wine launches wineserver as a separate child through posix_spawn and then
-# asks that child to daemonize again with -d. Under Android native translation
-# that second fork/daemon step leaves wineserver as a zombie. Keep the child
-# created by posix_spawn in foreground mode instead (-f); it is already a
-# separate process, so Wine can attach to it without another daemonization.
-spawn_anchor = """        printf_log(/*LOG_DEBUG*/LOG_INFO, " => posix_spawn(%p, \\"%s\\", %p, %p, %p [\\"%s\\", \\"%s\\", \\"%s\\"...:%d], %p)\\n", pid, newargv[0], actions, attrp, newargv, newargv[0], newargv[1], newargv[2]?newargv[2]:"", n, envp);
-"""
-spawn_patch = """#ifdef ANDROID
-        if(fullpath && strstr(fullpath, "/wineserver") && argv[1] && !strcmp(argv[1], "-d")) {
-            newargv[toadd + 1] = "-f";
-            printf_log(LOG_INFO, "XZIEL Android wineserver daemon bypass: -d -> -f\\n");
-        }
-#endif
-"""
-count = s.count(spawn_anchor)
-if count < 2:
-    raise SystemExit(f"Expected both Box64 posix_spawn anchors, found {count}")
-s = s.replace(spawn_anchor, spawn_patch + spawn_anchor)
 libc_c.write_text(s)
 
 librt_h = src / "src/wrapped/wrappedlibrt_private.h"
@@ -377,7 +359,6 @@ grep -q 'my___ctype_tolower_loc' "$SRC/src/wrapped/wrappedlibc.c"
 grep -q 'my___ctype_toupper_loc' "$SRC/src/wrapped/wrappedlibc.c"
 grep -q 'GOM(nl_langinfo, pFEi)' "$SRC/src/wrapped/wrappedlibc_private.h"
 grep -q 'my_nl_langinfo' "$SRC/src/wrapped/wrappedlibc.c"
-grep -q 'XZIEL Android wineserver daemon bypass' "$SRC/src/wrapped/wrappedlibc.c"
 echo "XZIEL_BOX64_ANDROID_WINESERVER_NO_DAEMON_GREEN"
 grep -q 'XZIEL_ANDROID_WINESERVER_FOREGROUND' "$SRC/src/wrapped/wrappedlibc.c"
 echo "XZIEL_BOX64_ANDROID_WINESERVER_FOREGROUND_GREEN"
