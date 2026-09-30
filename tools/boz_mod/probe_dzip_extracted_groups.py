@@ -70,11 +70,33 @@ def count_hash_occurrences(data: bytes) -> dict[str, dict[str, object]]:
             start = pos + 1
             if len(offsets) >= 64:
                 break
-        out[name] = {
+        entry: dict[str, object] = {
             "hash": f"0x{value:08x}",
             "count": len(offsets),
             "offsets": offsets[:16],
         }
+        if name.startswith("CIw") and offsets:
+            headers = []
+            for pos in offsets[:16]:
+                if pos + 10 > len(data):
+                    continue
+                count = struct.unpack_from("<I", data, pos + 4)[0]
+                names_omitted = data[pos + 8]
+                has_size = data[pos + 9]
+                plausible = (
+                    count < 100000
+                    and names_omitted in (0, 1)
+                    and has_size in (0, 1)
+                )
+                headers.append({
+                    "offset": pos,
+                    "resourceCount": count,
+                    "namesOmitted": names_omitted,
+                    "hasSize": has_size,
+                    "plausibleResourceClassHeader": plausible,
+                })
+            entry["resourceClassHeaders"] = headers
+        out[name] = entry
     return out
 
 def parse_top_level_best_effort(data: bytes) -> dict:
@@ -203,9 +225,16 @@ def main() -> int:
         if top["complete"]:
             complete_deep_parse_count += 1
 
-        models = item["hashInventory"]["CIwModel"]["count"]
-        materials = item["hashInventory"]["CIwMaterial"]["count"]
-        textures = item["hashInventory"]["CIwTexture"]["count"]
+        def class_count(name: str) -> int | None:
+            headers = item["hashInventory"][name].get("resourceClassHeaders", [])
+            for header in headers:
+                if header.get("plausibleResourceClassHeader"):
+                    return int(header["resourceCount"])
+            return None
+
+        models = class_count("CIwModel")
+        materials = class_count("CIwMaterial")
+        textures = class_count("CIwTexture")
 
         status = "complete" if top["complete"] else "variant"
         print(
@@ -217,11 +246,11 @@ def main() -> int:
             repr(top["groupName"]),
             "top_parse",
             status,
-            "CIwModelHashHits",
+            "CIwModels",
             models,
-            "CIwMaterialHashHits",
+            "CIwMaterials",
             materials,
-            "CIwTextureHashHits",
+            "CIwTextures",
             textures,
         )
         if top["warning"]:
