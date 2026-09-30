@@ -92,6 +92,11 @@ adb shell df -h /data | tee "$OUT/data-after-boot.txt" || true
 adb shell ps -A | grep -E 'xziel|winlator|box64|wine' | tee "$OUT/processes.txt" || true
 adb shell dumpsys activity activities   | grep -E 'mResumedActivity|topResumedActivity|com.xziel.hybrid'   | tee "$OUT/activity-final.txt" || true
 
+adb shell run-as com.xziel.hybrid sh -c 'find files/rootfs -type f \( -name "ld-linux-x86-64.so.2" -o -name "ld-linux*.so*" -o -path "*/bin/wine" -o -path "*/bin/wine64" \) -print 2>/dev/null | sort' \
+  | tee "$OUT/rootfs-runtime-paths.txt" || true
+echo "XZIEL_X86BRIDGE_ROOTFS_RUNTIME_PATHS"
+cat "$OUT/rootfs-runtime-paths.txt" || true
+
 grep -E   'XZIEL-HYBRID|XZIEL-GUEST|XZIEL-PROCESS|box64|wine|vortek|gladio|AndroidRuntime|FATAL EXCEPTION|Fatal signal|SIGSEGV|SIGABRT|No space left'   "$OUT/logcat.txt" | tail -n 4000 > "$OUT/boot-markers.txt" || true
 
 adb exec-out screencap -p > "$OUT/final-screen.png" || true
