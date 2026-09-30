@@ -971,7 +971,7 @@ if old_exit not in text:
     raise SystemExit("Could not find XServer exit anchor")
 text = text.replace(old_exit, new_exit, 1)
 
-# Direct-boot guest process diagnostics: keep stdout/stderr visible in logcat.
+# Direct-boot guest process diagnostics v2: keep stdout/stderr visible in logcat.
 debug_anchor = '''        ProcessHelper.removeAllDebugCallbacks();
         boolean enableLogs = preferences.getBoolean("enable_wine_debug", false) || preferences.getInt("box64_logs", 0) >= 1;
 '''
