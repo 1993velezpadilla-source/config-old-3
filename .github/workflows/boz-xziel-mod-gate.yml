@@ -452,7 +452,72 @@ jobs:
           curl -L --fail --retry 3 --retry-delay 2 \
             -o /tmp/boz-kino/app-release.apk \
             https://github.com/12brendon34/COD-BOZ-Partially-Decompiled/releases/download/1.3.5/app-release.apk
-          ENTRY="$(unzip -Z1 /tmp/boz-kino/app-release.apk | grep -i 'blackops_gles1\\.dz$' | head -n1)"
+          ENTRY="$(unzip -Z1 /tmp/boz-kino/app-release.apk | grep -i 'blackops_gles1[.]dz | head -n1)"
+          test -n "$ENTRY"
+          unzip -p /tmp/boz-kino/app-release.apk "$ENTRY" > /tmp/boz-kino/blackops_gles1.dz
+          test -s /tmp/boz-kino/blackops_gles1.dz
+          rm -f /tmp/boz-kino/app-release.apk
+
+      - name: Build pinned native Dzip decoder
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo --version
+          git clone https://github.com/CodexuRegexl/Dzip-Rust.git /tmp/dzip-rs
+          cd /tmp/dzip-rs
+          git checkout fb4bd41d7f749e74673cd7963ba2df7582334a69
+          test "$(git rev-parse HEAD)" = "fb4bd41d7f749e74673cd7963ba2df7582334a69"
+          cargo build --release -p dzip-cli
+          test -x target/release/dzip-cli
+
+      - name: Decode real BOZ archive with native DZ codec
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p boz_mod_out/kino_probe
+          /tmp/dzip-rs/target/release/dzip-cli list /tmp/boz-kino/blackops_gles1.dz \
+            | tee boz_mod_out/kino_probe/dzip-list.txt
+          rm -rf /tmp/boz-kino/extracted
+          /tmp/dzip-rs/target/release/dzip-cli extract \
+            /tmp/boz-kino/blackops_gles1.dz \
+            --output /tmp/boz-kino/extracted \
+            | tee boz_mod_out/kino_probe/dzip-extract.log
+
+      - name: Validate decoded Kino resource groups
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/boz_mod/probe_dzip_extracted_groups.py \
+            --root /tmp/boz-kino/extracted \
+            --out boz_mod_out/kino_probe/report.json \
+            | tee boz_mod_out/kino_probe/probe.log
+          grep -q "XZIEL_BOZ_GROUP_DECODE_OK" boz_mod_out/kino_probe/probe.log
+          grep -q "VALID_GROUP_COUNT 5" boz_mod_out/kino_probe/probe.log
+          test -s boz_mod_out/kino_probe/report.json
+
+      - name: Keep structural report only
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/boz-kino /tmp/dzip-rs
+          printf '%s\n' \
+            "DECODER=CodexuRegexl/Dzip-Rust" \
+            "DECODER_COMMIT=fb4bd41d7f749e74673cd7963ba2df7582334a69" \
+            "DECODER_LICENSE=AGPL-3.0-or-later" \
+            "DECODER_USED_AS_EXTERNAL_CI_TOOL=true" \
+            "SOURCE_BINARY_RETAINED=false" \
+            "PAYLOAD_EXTRACTED_TO_ARTIFACT=false" \
+            "GATE_6=kino_native_dz_decode" \
+            "STATUS=GREEN" \
+            > boz_mod_out/kino_probe/gate.env
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-BOZ-Kino-Native-DZ-Probe
+          path: boz_mod_out/kino_probe/
+          if-no-files-found: error
+          retention-days: 14
+ | head -n1)"
           test -n "$ENTRY"
           unzip -p /tmp/boz-kino/app-release.apk "$ENTRY" > /tmp/boz-kino/blackops_gles1.dz
           test -s /tmp/boz-kino/blackops_gles1.dz
