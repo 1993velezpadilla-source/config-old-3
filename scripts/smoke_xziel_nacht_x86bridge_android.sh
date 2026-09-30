@@ -131,12 +131,17 @@ EOF
       tail -n 300 "$OUT/wine-direct-probe.txt" || true
       echo "XZIEL_X86BRIDGE_DIRECT_PROBE_WINESERVER"
       tail -n 300 "$OUT/wineserver-direct-probe.txt" || true
+      echo "XZIEL_X86BRIDGE_FREETYPE_ROOTFS_CENSUS"
+      adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; find \$ROOT/lib \$ROOT/usr/lib -type f -o -type l 2>/dev/null | grep -E \"/libfreetype\\.so|/libfontconfig\\.so\" | sort | head -n 80'" \
+        > "$OUT/freetype-rootfs-census.txt" 2>&1 || true
+      cat "$OUT/freetype-rootfs-census.txt" || true
+
       # Persistent foreground wineserver path. The Android/native-translation
       # bridge cannot safely resume wineserver after its internal fork(), but
       # wineserver -f is healthy and creates the real prefix socket. Keep one
       # foreground server alive across the first (slow) Wine prefix warmup and
       # the Android relaunch instead of killing it after a short diagnostic.
-      timeout 10s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; rm -f \$ROOT/tmp/xziel-wineserver-fg.log \$ROOT/tmp/xziel-wineserver-fg.pid; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_NOBANNER=1 BOX64_LOG=0 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEESYNC=0 WINEFSYNC=0 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wineserver -f > \$ROOT/tmp/xziel-wineserver-fg.log 2>&1 & echo \$! > \$ROOT/tmp/xziel-wineserver-fg.pid'" \
+      timeout 10s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; rm -f \$ROOT/tmp/xziel-wineserver-fg.log \$ROOT/tmp/xziel-wineserver-fg.pid; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_NOBANNER=1 BOX64_LOG=0 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu BOX64_EMULATED_LIBS=libfreetype.so.6 ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEESYNC=0 WINEFSYNC=0 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wineserver -f > \$ROOT/tmp/xziel-wineserver-fg.log 2>&1 & echo \$! > \$ROOT/tmp/xziel-wineserver-fg.pid'" \
         > "$OUT/wineserver-fg-start.txt" 2>&1 || true
       sleep 2
       adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-wineserver-fg.pid > "$OUT/wineserver-fg.pid" 2>/dev/null || true
@@ -149,7 +154,7 @@ EOF
       # initialization. Keep Box64 tracing off here: per-call tracing inflated
       # the server log to tens of MB and made registry import artificially slow.
       # Give the same quiet server a bounded first-prefix warmup.
-      timeout 240s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_NOBANNER=1 BOX64_LOG=0 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEDEBUG=-all WINEESYNC=0 WINEFSYNC=0 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wine cmd /c ver; rc=\$?; echo XZIEL_PRESTARTED_CMD_STATUS=\$rc; exit \$rc'" \
+      timeout 240s adb shell "run-as ${XZIEL_PACKAGE} sh -c 'ROOT=/data/user/0/com.xzielapp/files/rootfs; HOME=\$ROOT/home/xuser USER=xuser TMPDIR=\$ROOT/tmp PATH=\$ROOT/opt/wine/bin:\$ROOT/usr/local/bin:\$ROOT/usr/bin:/system/bin BOX64_DYNAREC=0 BOX64_NOBANNER=1 BOX64_LOG=0 BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu BOX64_EMULATED_LIBS=libfreetype.so.6 ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0 WINEPREFIX=\$ROOT/home/xuser/.wine WINEDEBUG=-all WINEESYNC=0 WINEFSYNC=0 \$ROOT/usr/local/bin/box64 \$ROOT/opt/wine/bin/wine cmd /c ver; rc=\$?; echo XZIEL_PRESTARTED_CMD_STATUS=\$rc; exit \$rc'" \
         > "$OUT/wine-with-prestarted-server.txt" 2>&1 || true
 
       adb exec-out run-as ${XZIEL_PACKAGE} cat files/rootfs/tmp/xziel-wineserver-fg.log > "$OUT/wineserver-fg.log" 2>/dev/null || true
@@ -196,6 +201,7 @@ EOF
         export BOX64_LOG=2
         export BOX64_DLSYM_ERROR=1
         export BOX64_LD_LIBRARY_PATH=\$ROOT/lib/x86_64-linux-gnu
+        export BOX64_EMULATED_LIBS=libfreetype.so.6
         export ANDROID_SYSVSHM_SERVER=\$ROOT/tmp/.sysvshm/SM0
         export ANDROID_ALSA_SERVER=\$ROOT/tmp/.sound/AS0
         export VIRGL_SERVER_PATH=\$ROOT/tmp/.virgl/V0
@@ -223,6 +229,7 @@ export TMPDIR="$ROOT/tmp"
 export DISPLAY=:0
 export PATH="$ROOT/opt/wine/bin:$ROOT/usr/local/bin:$ROOT/usr/bin:/system/bin"
 export BOX64_LD_LIBRARY_PATH="$ROOT/lib/x86_64-linux-gnu"
+export BOX64_EMULATED_LIBS=libfreetype.so.6
 export BOX64_LOG=2
 export BOX64_DLSYM_ERROR=1
 export BOX64_SHOWSEGV=1
