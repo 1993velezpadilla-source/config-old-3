@@ -1,0 +1,215 @@
+name: XChurch Offline Double Touch
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/boz-mod-runtime
+    paths:
+      - ".github/workflows/boz-xchurch-offline-double-touch.yml"
+      - "tools/boz_mod/patch_offline_startup_icf.py"
+      - "tools/boz_mod/patch_app_icf_trace.py"
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Enable KVM
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/xchurch-double/proof/screens
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+          test -e /dev/kvm
+
+      - name: Download verified XChurch APK
+        uses: actions/download-artifact@v4
+        with:
+          name: XZIEL-BOZ-XChurch-APK
+          run-id: 36768068731
+          github-token: ${{ github.token }}
+          path: /tmp/xchurch-source
+
+      - name: Install Android tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n1)"
+          AVDMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name avdmanager | sort -V | tail -n1)"
+          test -x "$SDKMANAGER"
+          test -x "$AVDMANAGER"
+          echo "AVDMANAGER=$AVDMANAGER" >> "$GITHUB_ENV"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" \
+            "platform-tools" "emulator" "build-tools;36.0.0" \
+            "system-images;android-30;google_apis;x86_64" >/dev/null
+
+      - name: Build offline XChurch APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=/tmp/xchurch-double
+          BASE="$(find /tmp/xchurch-source -type f -name '*.apk' | head -n1)"
+          test -s "$BASE"
+          cp "$BASE" "$OUT/unsigned.apk"
+
+          unzip -p "$BASE" assets/app.icf > "$OUT/app-original.icf"
+          python3 tools/boz_mod/patch_offline_startup_icf.py \
+            "$OUT/app-original.icf" "$OUT/app-offline.icf" \
+            | tee "$OUT/proof/offline-patch.log"
+
+          mkdir -p "$OUT/stage/assets"
+          cp "$OUT/app-offline.icf" "$OUT/stage/assets/app.icf"
+          zip -q -d "$OUT/unsigned.apk" assets/app.icf || true
+          zip -q -d "$OUT/unsigned.apk" 'META-INF/*.RSA' 'META-INF/*.DSA' \
+            'META-INF/*.EC' 'META-INF/*.SF' 'META-INF/MANIFEST.MF' || true
+          (
+            cd "$OUT/stage"
+            zip -q "$OUT/unsigned.apk" assets/app.icf
+          )
+
+          ZIPALIGN="$ANDROID_HOME/build-tools/36.0.0/zipalign"
+          APKSIGNER="$ANDROID_HOME/build-tools/36.0.0/apksigner"
+          "$ZIPALIGN" -f -p 4 "$OUT/unsigned.apk" "$OUT/aligned.apk"
+          keytool -genkeypair \
+            -keystore "$OUT/offline.jks" -storepass android -keypass android \
+            -alias offline -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=XChurch Offline Double Touch, O=XZIEL, C=US" >/dev/null 2>&1
+          "$APKSIGNER" sign \
+            --ks "$OUT/offline.jks" --ks-key-alias offline \
+            --ks-pass pass:android --key-pass pass:android \
+            --out "$OUT/xchurch-offline.apk" "$OUT/aligned.apk"
+          "$APKSIGNER" verify "$OUT/xchurch-offline.apk"
+          test -s "$OUT/xchurch-offline.apk"
+
+      - name: Boot Android 11
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=/tmp/xchurch-double
+          PROOF="$OUT/proof"
+          export ANDROID_AVD_HOME=/tmp/xchurch-double-avd
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
+
+          printf 'no\n' | "$AVDMANAGER" create avd \
+            --force --name xchurch-double \
+            --package "system-images;android-30;google_apis;x86_64" \
+            --device "pixel_4" >/dev/null 2>&1
+
+          ADB="$ANDROID_HOME/platform-tools/adb"
+          EMU="$ANDROID_HOME/emulator/emulator"
+          "$ADB" kill-server >/dev/null 2>&1 || true
+          "$ADB" start-server >/dev/null 2>&1
+          nohup "$EMU" @xchurch-double \
+            -no-window -gpu swiftshader_indirect -no-snapshot \
+            -noaudio -no-boot-anim -no-metrics -camera-back none \
+            > "$PROOF/emulator.log" 2>&1 &
+          EMU_PID=$!
+          echo "EMU_PID=$EMU_PID" > "$PROOF/status.txt"
+
+          READY=0
+          for i in $(seq 1 60); do
+            [ "$("$ADB" get-state 2>/dev/null || true)" = "device" ] && READY=1 && break
+            kill -0 "$EMU_PID" 2>/dev/null || break
+            sleep 2
+          done
+          echo "ADB_READY=$READY" >> "$PROOF/status.txt"
+          test "$READY" = "1"
+
+          BOOT=0
+          for i in $(seq 1 60); do
+            [ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && BOOT=1 && break
+            sleep 2
+          done
+          echo "BOOT_COMPLETED=$BOOT" >> "$PROOF/status.txt"
+          test "$BOOT" = "1"
+
+      - name: Launch and perform two title touches
+        shell: bash
+        run: |
+          set +e
+          OUT=/tmp/xchurch-double
+          PROOF="$OUT/proof"
+          ADB="$ANDROID_HOME/platform-tools/adb"
+
+          "$ADB" install --abi arm64-v8a -r -d "$OUT/xchurch-offline.apk" \
+            > "$PROOF/install.txt" 2>&1
+          RC=$?
+          echo "INSTALL_RC=$RC" | tee -a "$PROOF/status.txt"
+          if [ "$RC" -ne 0 ]; then exit 0; fi
+
+          "$ADB" shell pm grant com.activision.boz android.permission.WRITE_EXTERNAL_STORAGE 2>/dev/null || true
+          "$ADB" shell pm grant com.activision.boz android.permission.READ_EXTERNAL_STORAGE 2>/dev/null || true
+          "$ADB" shell appops set com.activision.boz MANAGE_EXTERNAL_STORAGE allow 2>/dev/null || true
+          "$ADB" shell mkdir -p /sdcard/Android/obb/com.activision.boz 2>/dev/null || true
+
+          "$ADB" logcat -c
+          "$ADB" shell am force-stop com.activision.boz >/dev/null 2>&1 || true
+          "$ADB" shell am start -W -n com.activision.boz/.Main > "$PROOF/launch.txt" 2>&1
+          echo "LAUNCH_RC=$?" | tee -a "$PROOF/status.txt"
+
+          sleep 62
+          "$ADB" exec-out screencap -p > "$PROOF/screens/title_1.png"
+          "$ADB" shell input tap 1140 540
+          echo "FIRST_TOUCH=1140,540" | tee -a "$PROOF/status.txt"
+
+          sleep 10
+          "$ADB" exec-out screencap -p > "$PROOF/screens/first_plus_10s.png"
+          sleep 15
+          "$ADB" exec-out screencap -p > "$PROOF/screens/first_plus_25s.png"
+          sleep 20
+          "$ADB" exec-out screencap -p > "$PROOF/screens/title_2_expected.png"
+
+          "$ADB" shell input tap 1140 540
+          echo "SECOND_TOUCH=1140,540" | tee -a "$PROOF/status.txt"
+
+          sleep 2
+          "$ADB" exec-out screencap -p > "$PROOF/screens/second_plus_02s.png"
+          sleep 3
+          "$ADB" exec-out screencap -p > "$PROOF/screens/second_plus_05s.png"
+          sleep 5
+          "$ADB" exec-out screencap -p > "$PROOF/screens/second_plus_10s.png"
+          sleep 10
+          "$ADB" exec-out screencap -p > "$PROOF/screens/second_plus_20s.png"
+          sleep 20
+          "$ADB" exec-out screencap -p > "$PROOF/screens/second_plus_40s.png"
+
+          PID="$("$ADB" shell pidof com.activision.boz 2>/dev/null | tr -d '\r\n')"
+          echo "FINAL_PID=$PID" | tee -a "$PROOF/status.txt"
+
+          "$ADB" logcat -d -v threadtime > "$PROOF/logcat.txt" 2>&1
+          "$ADB" shell dumpsys activity activities > "$PROOF/activities.txt" 2>&1
+          sha256sum "$PROOF"/screens/*.png > "$PROOF/screen-hashes.txt"
+          exit 0
+
+      - name: Summarize double touch
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          PROOF=/tmp/xchurch-double/proof
+          cat "$PROOF/status.txt" 2>/dev/null || true
+          cat "$PROOF/screen-hashes.txt" 2>/dev/null || true
+          find "$PROOF/screens" -type f -printf '%f %s bytes\n' | sort || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: XChurch-Offline-Double-Touch-Proof
+          path: /tmp/xchurch-double/proof/
+          if-no-files-found: error
+          retention-days: 14
