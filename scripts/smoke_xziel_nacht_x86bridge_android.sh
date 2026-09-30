@@ -74,7 +74,7 @@ adb shell df -h /data | tee "$OUT/data-after-boot.txt" || true
 adb shell ps -A | grep -E 'xziel|winlator|box64|wine' | tee "$OUT/processes.txt" || true
 adb shell dumpsys activity activities   | grep -E 'mResumedActivity|topResumedActivity|com.xziel.hybrid'   | tee "$OUT/activity-final.txt" || true
 
-grep -E   'XZIEL-HYBRID|box64|wine|vortek|gladio|AndroidRuntime|FATAL EXCEPTION|Fatal signal|SIGSEGV|SIGABRT|No space left'   "$OUT/logcat.txt" | tail -n 4000 > "$OUT/boot-markers.txt" || true
+grep -E   'XZIEL-HYBRID|XZIEL-GUEST|XZIEL-PROCESS|box64|wine|vortek|gladio|AndroidRuntime|FATAL EXCEPTION|Fatal signal|SIGSEGV|SIGABRT|No space left'   "$OUT/logcat.txt" | tail -n 4000 > "$OUT/boot-markers.txt" || true
 
 adb exec-out screencap -p > "$OUT/final-screen.png" || true
 
