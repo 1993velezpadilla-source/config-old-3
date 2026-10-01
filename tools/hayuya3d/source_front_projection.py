@@ -177,7 +177,7 @@ def project_source_front(
 
     scene=trimesh.Scene()
     if np.any(visible_faces):
-        front_mesh=mesh.submesh([faces[visible_faces]],append=True,repair=False)
+        front_mesh=mesh.submesh([np.flatnonzero(visible_faces)],append=True,repair=False)
         front_vertices=np.asarray(front_mesh.vertices,dtype=np.float64)
         fu=np.clip(
             (front_vertices[:,horizontal_axis]-lo[horizontal_axis])/du,
@@ -194,7 +194,7 @@ def project_source_front(
         scene.add_geometry(front_mesh,node_name="source_visible_front")
 
     if np.any(hidden_faces):
-        back_mesh=mesh.submesh([faces[hidden_faces]],append=True,repair=False)
+        back_mesh=mesh.submesh([np.flatnonzero(hidden_faces)],append=True,repair=False)
         back_mesh.visual=trimesh.visual.ColorVisuals(
             mesh=back_mesh,
             face_colors=np.tile(
