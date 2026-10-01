@@ -15,9 +15,7 @@ CANDLE_BLEND=Path(os.environ["SANCTUM_CANDLE_BLEND"])
 state=runpy.run_path("tools/sanctum_v2/dress_sanctum_with_cc0_gothic.py")
 scene=bpy.context.scene
 walkability=state["walkability_with_dressing"]
-mesh_stats=state["mesh_stats"]
-# The base stage owns SANCTUM_DRESS_OUT; redirect only the reused render helper\n# so enriched evidence lands in the enriched artifact directory.\nrender_view.__globals__["DRESS_OUT"]=OUT\nensure_camera=state["ensure_camera"]
-export_dressed=state["export_dressed"]
+mesh_stats=state["mesh_stats"]\nrender_view=state["render_dress_view"]\n# Redirect only enriched render evidence; the base stage already finished.\nrender_view.__globals__["DRESS_OUT"]=OUT\nensure_camera=state["ensure_camera"]\nexport_dressed=state["export_dressed"]
 inner_after=state["inner_after"]
 base_walk=state["walk"]
 base_export=list(state["export_objects"])
