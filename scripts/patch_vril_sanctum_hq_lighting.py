@@ -85,10 +85,10 @@ s=s.replace(
 
 p.write_text(s,encoding="utf-8")
 
-// Replace the GL4ES-sensitive color-mask suppression hook with a robust
-// two-stage compatibility path: let R_DrawWorld run for visibility/static
-// brush side-effects, then clear its pixels/depth and draw the HQ XZSM before
-// entity rendering. This keeps doors/zombies/HUD alive without exposing BSP.
+# Replace the GL4ES-sensitive color-mask suppression hook with a robust
+# two-stage compatibility path: let R_DrawWorld run for visibility/static
+# brush side-effects, then clear its pixels/depth and draw the HQ XZSM before
+# entity rendering. This keeps doors/zombies/HUD alive without exposing BSP.
 rmain=root/"source/platform/sdl/gl/gl_rmain.c"
 rt=rmain.read_text(encoding="utf-8")
 old_block='''\tif (Xziel_StaticMesh_Prepare())\n\t{\n\t\t// Sanctum: BSP remains the gameplay/visibility harness but is not\n\t\t// allowed to contribute color or depth. The HQ XZSM mesh is the\n\t\t// sole architectural visual authority.\n\t\tglColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);\n\t\tglDepthMask(GL_FALSE);\n\t\tR_DrawWorld ();\t\t// still adds static entities to the list\n\t\tglColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);\n\t\tglDepthMask(GL_TRUE);\n\t\tXziel_StaticMesh_Draw();\n\t}\n\telse\n\t{\n\t\tR_DrawWorld ();\t\t// normal NZ:P path\n\t}\n'''
