@@ -1,0 +1,112 @@
+name: XZIEL Sanctum Reference Reconstruction
+
+on:
+  push:
+    branches:
+      - feature/xziel-map-builder-agent-v1
+    paths:
+      - "references/sanctum/**/*.jpg"
+      - "references/sanctum/**/*.jpeg"
+      - "references/sanctum/**/*.png"
+      - "references/sanctum/**/*.tif"
+      - "references/sanctum/**/*.tiff"
+      - "references/sanctum/**/*.webp"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xziel-sanctum-reference-reconstruction
+  cancel-in-progress: true
+
+jobs:
+  reconstruct:
+    name: Recover cameras + sparse geometry from Sanctum photos
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Install host runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            python3-venv libgl1 libegl1 libglib2.0-0
+
+      - name: Preflight reference photos
+        shell: bash
+        run: |
+          set -euo pipefail
+          COUNT="$(find references/sanctum -type f \( \
+            -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o \
+            -iname '*.tif' -o -iname '*.tiff' -o -iname '*.webp' \
+          \) | wc -l)"
+          echo "REFERENCE_IMAGES=$COUNT"
+          test "$COUNT" -ge 3
+
+      - name: Install XZIEL deep reconstruction tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/xziel_toolchain/bootstrap_deep_cpu.sh
+          python3 tools/xziel_toolchain/doctor.py \
+            --root .xziel-tools \
+            --deep-only \
+            --out xziel-reference-deep-doctor.json
+
+      - name: Reconstruct reference cameras and sparse geometry
+        shell: bash
+        run: |
+          set -euo pipefail
+          .xziel-tools/deep-venv/bin/python \
+            tools/xziel_toolchain/reconstruct_references.py \
+            --images references/sanctum \
+            --out xziel-reference-reconstruction \
+            --max-image-size 2400
+
+          test -s xziel-reference-reconstruction/reference-reconstruction.json
+          test -s xziel-reference-reconstruction/cameras.json
+          test -s xziel-reference-reconstruction/sparse-points-clean.ply
+          grep -q '"metric_scale_known": false' \
+            xziel-reference-reconstruction/reference-reconstruction.json
+
+      - name: Validate reconstruction evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          p=Path("xziel-reference-reconstruction/reference-reconstruction.json")
+          d=json.loads(p.read_text(encoding="utf-8"))
+
+          assert d["status"]=="PASS", d
+          assert d["input_image_count"] >= 3, d
+          assert d["selected_model"]["registered_images"] >= 3, d
+          assert d["selected_model"]["points3D"] >= 20, d
+          assert d["clean_point_count"] >= 20, d
+          assert d["camera_count"] >= 3, d
+          assert d["metric_scale_known"] is False, d
+
+          print("XZIEL_REFERENCE_EVIDENCE_GREEN")
+          print("REGISTERED_IMAGES", d["selected_model"]["registered_images"])
+          print("POINTS3D", d["selected_model"]["points3D"])
+          print("CLEAN_POINTS", d["clean_point_count"])
+          PY
+
+      - name: Upload reconstruction evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-Reference-Reconstruction
+          path: |
+            xziel-reference-deep-doctor.json
+            xziel-reference-reconstruction/
+          if-no-files-found: warn
+          retention-days: 14
