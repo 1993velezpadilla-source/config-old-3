@@ -31,6 +31,8 @@ if args.deep or args.deep_only:
     if py.is_file():
         checks["open3d"]=run([str(py),"-c","import open3d as o; print(o.__version__)"])
         checks["pycolmap"]=run([str(py),"-c","import pycolmap as p; print(p.__version__)"])
+        checks["manifold3d"]=run([str(py),"-c","import manifold3d as m; print(m.Manifold.cube((1,1,1)).volume())"])
+        checks["coacd"]=run([str(py),"-c","import coacd; print('COACD_IMPORT_OK')"])
 
 fast_ok = (
     checks["gltfpack"].get("exists") and
@@ -43,7 +45,9 @@ fast_ok = (
 )
 deep_ok = (
     checks.get("open3d",{}).get("returncode")==0 and
-    checks.get("pycolmap",{}).get("returncode")==0
+    checks.get("pycolmap",{}).get("returncode")==0 and
+    checks.get("manifold3d",{}).get("returncode")==0 and
+    checks.get("coacd",{}).get("returncode")==0
 )
 if args.deep_only:
     ok = deep_ok
