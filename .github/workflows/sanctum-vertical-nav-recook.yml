@@ -1,0 +1,119 @@
+name: Sanctum Vertical Nav Recook
+
+on:
+  push:
+    branches:
+      - feature/xziel-map-builder-agent-v1
+    paths:
+      - ".github/workflows/sanctum-vertical-nav-recook.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  recook:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      SOURCE_RUN_ID: "36937706617"
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install runtime dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            build-essential cmake ninja-build pkg-config \
+            python3-venv curl unzip bzip2
+
+      - name: Download refined vertical artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: XZIEL-Sanctum-Vertical-Gameplay
+          path: source-artifact
+          repository: ${{ github.repository }}
+          run-id: ${{ env.SOURCE_RUN_ID }}
+          github-token: ${{ github.token }}
+
+      - name: Bootstrap current nav tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/xziel_toolchain/bootstrap_fast.sh
+          bash tools/xziel_toolchain/bootstrap_geometry_cpu.sh
+          test -x .xziel-tools/bin/xziel-navmesh-bake
+          test -x .xziel-tools/bin/xziel-navmesh-probe
+
+      - name: Recook authored navigation geometry
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=source-artifact/sanctum-vertical-probe
+          OUT=nav-recook
+          mkdir -p "$OUT"
+
+          .xziel-tools/geometry-venv/bin/python \
+            tools/xziel_toolchain/extract_runtime_geometry.py \
+            --input "$SRC/sanctum-vertical-blockout.glb" \
+            --out "$OUT" \
+            --exclude-prefix SANCTUM_AD_
+
+          .xziel-tools/bin/xziel-navmesh-bake \
+            "$OUT/sanctum-nav-source.obj" \
+            "$OUT/sanctum.navbin" \
+            "$OUT/navmesh-report.json"
+
+          python3 tools/xziel_toolchain/generate_vertical_nav_probes.py \
+            --report "$SRC/vertical-report.json" \
+            --out "$OUT/nav-probes.txt" \
+            --json "$OUT/nav-probes.json"
+
+          .xziel-tools/bin/xziel-navmesh-probe \
+            "$OUT/sanctum.navbin" \
+            "$OUT/nav-probes.txt" \
+            "$OUT/nav-connectivity-report.json" \
+            2>&1 | tee "$OUT/nav-connectivity.log"
+
+      - name: Validate authored multilevel navigation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("nav-recook")
+          geom=json.loads((root/"runtime-geometry-report.json").read_text())
+          nav=json.loads((root/"navmesh-report.json").read_text())
+          con=json.loads((root/"nav-connectivity-report.json").read_text())
+
+          assert geom["status"]=="PASS",geom
+          assert len(geom["nav_nodes"]) >= 10,geom
+          assert geom["nav_vertices"] > 0,geom
+          assert geom["nav_triangles"] > 0,geom
+          assert nav["status"]=="PASS",nav
+          assert nav["nav_vertical_span"] >= 6.5,nav
+          assert nav["nav_vertical_bands"] >= 3,nav
+          assert con["status"]=="PASS",con
+          assert con["all_probes_pass"] is True,con
+          assert con["all_links_pass"] is True,con
+          print("SANCTUM_AUTHORED_NAV_RECOOK_GREEN")
+          print("NAV_NODES",geom["nav_nodes"])
+          print("NAV_POLYGONS",nav["nav_polygons"])
+          print("NAV_VERTICAL_SPAN",nav["nav_vertical_span"])
+          print("NAV_VERTICAL_BANDS",nav["nav_vertical_bands"])
+          print("PATHS",con["links"])
+          PY
+
+      - name: Upload nav recook evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-Vertical-Nav-Recook
+          path: nav-recook/
+          if-no-files-found: error
+          retention-days: 14
