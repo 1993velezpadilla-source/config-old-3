@@ -10,8 +10,8 @@ PLAN=Path(f"build/sanctum_authored/{MAP_NAME}_plan.svg")
 OUT.parent.mkdir(parents=True,exist_ok=True)
 
 ART={
- "floor":"tiles_me","ceiling":"ceilings_64","wall":"facility_wall_l","door":"mechanical_door",
- "wood":"tiles_me","trigger":"trigger","glass":"facility_wall_l",
+ "floor":"loop_tile_maju2","ceiling":"loop_stone_grav","wall":"loop_stone_ruff","door":"4all_crate_wood",
+ "wood":"4all_crate_wood","trigger":"trigger","glass":"loop_tile_maju",
  "barricade_model":"models/misc/window.mdl",
  "barricade_rebuild_sfx":"sounds/misc/barricade.wav",
  "barricade_break_sfx":"sounds/misc/barricade_destroy.wav",
@@ -54,7 +54,7 @@ parts += [
     "{\n",kv("mapversion","220"),kv("classname","worldspawn"),
     kv("message",TITLE),kv("chaptertitle","SANCTUM OF ASH"),
     kv("location","Ruined Parish"),kv("person","XZIEL"),
-    kv("wad","../../textures/wad/zhlt.wad;../../textures/wad/Example_02.wad"),
+    kv("wad","../../textures/wad/Loop.wad;../../textures/wad/4all.wad;../../textures/wad/zhlt.wad"),
 ]
 
 # FLOOR PLATES — church proportions are intentionally authored rather than
@@ -77,13 +77,30 @@ parts.append(brush_box((-920,440,-24),(-620,690,0),ART["floor"]))
 parts.append(brush_box((420,440,-24),(760,690,0),ART["floor"]))
 parts.append(brush_box((680,-700,-24),(1020,-300,0),ART["floor"]))
 
-# CEILINGS.
-parts.append(brush_box((-980,-440,320),(560,440,336),ART["ceiling"]))
+# CEILINGS. The central nave is deliberately taller than the side aisles so
+# the silhouette reads as a church rather than one flat bunker room.
+parts.append(brush_box((-980,-440,270),(560,-280,286),ART["ceiling"]))
+parts.append(brush_box((-980,280,270),(560,440,286),ART["ceiling"]))
+parts.append(brush_box((-980,-280,360),(560,280,376),ART["ceiling"]))
 parts.append(brush_box((560,-300,360),(940,300,376),ART["ceiling"]))
 parts.append(brush_box((-1180,-240,240),(-980,240,256),ART["ceiling"]))
 parts.append(brush_box((-920,440,220),(-620,690,236),ART["ceiling"]))
 parts.append(brush_box((420,440,220),(760,690,236),ART["ceiling"]))
 parts.append(brush_box((680,-700,520),(1020,-300,536),ART["ceiling"]))
+
+# Clerestory walls above the side aisles. Openings line up with the nave bays.
+for side in (-1,1):
+    y0,y1=(-296,-280) if side==-1 else (280,296)
+    cursor=-980
+    for x in (-820,-460,-100,260):
+        a,b=x-42,x+42
+        if a>cursor:
+            parts.append(brush_box((cursor,y0,270),(a,y1,360),ART["wall"]))
+        parts.append(brush_box((a,y0,270),(b,y1,300),ART["wall"]))
+        parts.append(brush_box((a,y0,346),(b,y1,360),ART["wall"]))
+        cursor=b
+    if cursor<560:
+        parts.append(brush_box((cursor,y0,270),(560,y1,360),ART["wall"]))
 
 # WEST FACADE + NARTHEX.
 parts.append(brush_box((-1004,-440,0),(-980,-90,320),ART["wall"]))
@@ -146,21 +163,21 @@ parts.append(brush_box((790,-324,144),(930,-300,520),ART["wall"]))
 columns=[]
 for x in (-640,-280,80,440):
     for y in (-250,250):
-        parts.append(brush_box((x-22,y-22,0),(x+22,y+22,260),ART["wall"]))
-        parts.append(brush_box((x-30,y-30,252),(x+30,y+30,278),ART["wall"]))
+        parts.append(brush_box((x-22,y-22,0),(x+22,y+22,340),ART["wall"]))
+        parts.append(brush_box((x-32,y-32,330),(x+32,y+32,356),ART["wall"]))
         columns.append((x,y))
-for x in (-640,-280,80,440):
-    parts.append(brush_box((x-22,-416,244),(x+22,-272,272),ART["wall"]))
-    parts.append(brush_box((x-22,272,244),(x+22,416,272),ART["wall"]))
+# Stone ribs over each bay emphasize the long central nave.
+for x in (-820,-640,-460,-280,-100,80,260,440):
+    parts.append(brush_box((x-10,-280,340),(x+10,280,356),ART["wall"]))
 
 # THREE BROAD CHANCEL STEPS + ALTAR.
 for i in range(3):
     x1=500+i*24
     parts.append(brush_box((x1,-250,0),(x1+24,250,(i+1)*8),ART["floor"]))
 parts.append(brush_box((572,-250,0),(900,250,24),ART["floor"]))
-parts.append(brush_box((790,-80,24),(865,80,84),ART["wall"]))
-parts.append(brush_box((900,-18,84),(916,18,230),ART["wall"]))
-parts.append(brush_box((900,-72,155),(916,72,185),ART["wall"]))
+parts.append(brush_box((790,-80,24),(865,80,84),ART["wood"]))
+parts.append(brush_box((900,-18,84),(916,18,230),ART["wood"]))
+parts.append(brush_box((900,-72,155),(916,72,185),ART["wood"]))
 
 # PASSABLE PEWS — visible but explicitly noclip so AI has clean lanes.
 # Keep brush entities outside worldspawn; nesting an entity inside worldspawn is invalid MAP syntax.
@@ -205,6 +222,14 @@ for side in (-1,1):
         parts.append(brush_entity(
             "func_wall",(x-46,yy[0],190),(x+46,yy[1],258),ART["glass"],
             {"alpha":"0.32","rendermode":"4","renderamt":"130","spawnflags":"4"}
+        ))
+# Clerestory glass above the side aisles.
+for side in (-1,1):
+    yy=(-294,-282) if side==-1 else (282,294)
+    for x in window_x:
+        parts.append(brush_entity(
+            "func_wall",(x-38,yy[0],302),(x+38,yy[1],344),ART["glass"],
+            {"alpha":"0.40","rendermode":"4","renderamt":"150","spawnflags":"4"}
         ))
 
 # PAID SIDE-ROOM / TOWER DOORS.
