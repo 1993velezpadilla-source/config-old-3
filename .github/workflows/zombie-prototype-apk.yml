@@ -22,7 +22,7 @@ permissions:
 
 concurrency:
   group: xziel-dead-cell-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build-prototype:
@@ -110,7 +110,7 @@ jobs:
               re.MULTILINE,
           )
           text, count = pattern.subn(
-              r'\1,\n            "+map", "xziel_proto"\n        \2',
+              r'\1,\n            "-condebug",\n            "+map", "xziel_proto"\n        \2',
               text,
               count=1,
           )
@@ -181,6 +181,8 @@ jobs:
           sleep 5
           "$ADB" exec-out screencap -p > proto-dist/prototype-b.png
           "$ADB" logcat -d -v threadtime > proto-dist/prototype-logcat.txt || true
+          "$ADB" shell run-as com.xziel.deadcell sh -c 'cat files/nzp-runtime/nzp/condebug.log 2>/dev/null || true' > proto-dist/condebug.log || true
+          "$ADB" shell run-as com.xziel.deadcell sh -c 'find files/nzp-runtime -maxdepth 3 -type f -print 2>/dev/null | sort' > proto-dist/runtime-files.txt || true
 
           python3 -m pip install --quiet pillow==11.3.0
           python3 - <<'PY' | tee proto-dist/visual-report.txt
