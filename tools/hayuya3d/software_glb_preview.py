@@ -98,6 +98,13 @@ def _raster_textured(
                 fx=tx-xlo
                 fy=ty-ylo
 
+                if texture.shape[2] >= 4:
+                    atop=(1.0-fx)*texture[ylo,xlo,3]+fx*texture[ylo,xhi,3]
+                    abottom=(1.0-fx)*texture[yhi,xlo,3]+fx*texture[yhi,xhi,3]
+                    alpha=(1.0-fy)*atop+fy*abottom
+                    if alpha < 20.0:
+                        continue
+
                 for channel in range(3):
                     top=(1.0-fx)*texture[ylo,xlo,channel]+fx*texture[ylo,xhi,channel]
                     bottom=(1.0-fx)*texture[yhi,xlo,channel]+fx*texture[yhi,xhi,channel]
@@ -123,7 +130,7 @@ def _texture_payload(geometry):
         vertices,
         np.asarray(geometry.faces,dtype=np.int32),
         uv,
-        np.asarray(texture.convert("RGB"),dtype=np.uint8),
+        np.asarray(texture.convert("RGBA"),dtype=np.uint8),
     )
 
 
@@ -469,13 +476,13 @@ def render_preview(
                 full_raw,
                 full_mask_raw,
                 front_full_mask,
-                dilation_pixels=max(4,int(round(int(size)*0.010))),
+                dilation_pixels=max(2,int(round(int(size)*0.004))),
             )
             face_raw,face_mask_raw,face_clamp=_clamp_to_front_silhouette(
                 face_raw,
                 face_mask_raw,
                 front_face_mask,
-                dilation_pixels=max(5,int(round(int(face_size)*0.014))),
+                dilation_pixels=max(3,int(round(int(face_size)*0.006))),
             )
             silhouette_clamp={
                 "enabled":True,
@@ -501,7 +508,7 @@ def render_preview(
             int(face_size),
             0.10,
         )
-        renderer="hayuya-cpu-uv-front-silhouette-clamp-ss2-v4"
+        renderer="hayuya-cpu-uv-alpha-silhouette-clamp-ss2-v5"
     else:
         silhouette_clamp={
             "enabled":False,

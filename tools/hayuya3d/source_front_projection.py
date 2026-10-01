@@ -117,9 +117,13 @@ def _delivery_texture(source: Path, edge: int):
     )
 
     # Keep exact source detail where the subject exists, using the extrapolated
-    # image only outside the source foreground.
-    sharp=filled.copy()
-    sharp.paste(crop.convert("RGB"),mask=mask)
+    # image only outside the source foreground. Crucially, preserve the actual
+    # subject silhouette in alpha so renderers can distinguish real source
+    # foreground from extrapolated support pixels.
+    sharp_rgb=filled.copy()
+    sharp_rgb.paste(crop.convert("RGB"),mask=mask)
+    sharp=sharp_rgb.convert("RGBA")
+    sharp.putalpha(mask)
 
     # Hidden/rear surfaces must not inherit source-background pixels or the
     # nearest-edge "streaks" produced by 2D nearest-neighbour extrapolation.
@@ -177,6 +181,7 @@ def _delivery_texture(source: Path, edge: int):
         "low_frequency_blur_radius":float(radius),
         "foreground_background_extrapolated":bool(extrapolated),
         "hidden_surface_strategy":"smoothed_subject_height_bands",
+        "visible_surface_alpha_silhouette":True,
         "policy":"sharp visible source projection plus height-banded foreground colors on hidden surfaces",
     }
 
@@ -272,6 +277,8 @@ def project_source_front(
         baseColorTexture=texture,
         metallicFactor=0.0,
         roughnessFactor=0.82,
+        alphaMode="MASK",
+        alphaCutoff=0.08,
     )
     hidden_material=trimesh.visual.material.PBRMaterial(
         baseColorTexture=low_texture,
@@ -321,7 +328,7 @@ def project_source_front(
 
     report={
         "schema":1,
-        "method":"hayuya-native-source-front-projection-v5-height-banded-hidden-y-up",
+        "method":"hayuya-native-source-front-projection-v6-alpha-silhouette-y-up",
         "source_image":str(source_image),
         "native_mesh":str(native_mesh),
         "output_glb":str(output_glb),
