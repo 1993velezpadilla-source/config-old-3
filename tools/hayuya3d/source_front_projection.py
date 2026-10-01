@@ -260,15 +260,38 @@ def project_source_front(
 
     front_at_vertex=front[gy,gx]
     depth_extent=max(float(ext[depth_axis]),1e-8)
-    depth_tolerance=max(depth_extent*0.012,1e-6)
+    depth_tolerance=max(depth_extent*0.0075,1e-6)
     vertex_front_visible=(
         vertices[:,depth_axis] >= (front_at_vertex-depth_tolerance)
     )
     visible_vertex_count=vertex_front_visible[faces].sum(axis=1)
-    # +Z is Hunyuan's current source-facing direction.
+
+    # Classify on the triangle centroid too. The old >=2 visible vertices rule
+    # admitted side/internal triangles near an otherwise visible edge, which
+    # created dark seam loops through the face/neck after the material split.
+    face_centroids=face_vertices.mean(axis=1)
+    cu=np.clip(
+        (face_centroids[:,horizontal_axis]-lo[horizontal_axis])/du,
+        0.0,1.0,
+    )
+    cv=np.clip(
+        (face_centroids[:,up_axis]-lo[up_axis])/dv,
+        0.0,1.0,
+    )
+    cgx=np.clip(np.rint(cu*(grid-1)).astype(np.int64),0,grid-1)
+    cgy=np.clip(np.rint(cv*(grid-1)).astype(np.int64),0,grid-1)
+    centroid_front=front[cgy,cgx]
+    centroid_visible=(
+        face_centroids[:,depth_axis] >=
+        (centroid_front-depth_tolerance*0.70)
+    )
+
+    # +Z is Hunyuan's current source-facing direction. Require a meaningful
+    # front-facing normal so near-edge side walls do not become "front".
     visible_faces=(
-        (visible_vertex_count>=2)
-        & (face_normals[:,depth_axis]>0.02)
+        centroid_visible
+        & (visible_vertex_count>=1)
+        & (face_normals[:,depth_axis]>0.075)
     )
     hidden_faces=~visible_faces
 
@@ -328,7 +351,7 @@ def project_source_front(
 
     report={
         "schema":1,
-        "method":"hayuya-native-source-front-projection-v6-alpha-silhouette-y-up",
+        "method":"hayuya-native-source-front-projection-v7-centroid-depth-y-up",
         "source_image":str(source_image),
         "native_mesh":str(native_mesh),
         "output_glb":str(output_glb),
@@ -338,7 +361,9 @@ def project_source_front(
         "occluded_neutral_faces":int(np.count_nonzero(hidden_faces)),
         "visible_projected_fraction":float(np.mean(visible_faces)) if len(visible_faces) else 0.0,
         "depth_grid":int(grid),
-        "depth_tolerance_fraction":0.012,
+        "depth_tolerance_fraction":0.0075,
+        "front_normal_threshold":0.075,
+        "centroid_depth_required":True,
         "source_mesh_up_axis":"Y",
         "source_mesh_front_axis":"+Z",
         "blender_evidence_front_axis":"-Y",
