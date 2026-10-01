@@ -292,15 +292,29 @@ s = s.replace(hq_bind, hq_bind_repl, 1)
 # Preserve the 2K St Giles atlases on GPU and use trilinear mip filtering.
 gldraw = root / "source/platform/sdl/gl/gl_draw.c"
 gt = gldraw.read_text(encoding="utf-8")
-old_max = 'cvar_t\t\tgl_max_size = {"gl_max_size", "1024"};'
-new_max = 'cvar_t\t\tgl_max_size = {"gl_max_size", "2048"};'
-old_filter = 'int\t\tgl_filter_min = GL_LINEAR_MIPMAP_NEAREST;'
-new_filter = 'int\t\tgl_filter_min = GL_LINEAR_MIPMAP_LINEAR;'
-if old_max not in gt or old_filter not in gt:
-    raise SystemExit("Could not find Vril HQ texture-quality defaults")
-gt = gt.replace(old_max, new_max, 1)
-gt = gt.replace(old_filter, new_filter, 1)
-gldraw.write_text(gt, encoding="utf-8")
+lines = gt.splitlines()
+max_done = False
+filter_done = False
+for idx, line in enumerate(lines):
+    if (not max_done and "gl_max_size" in line and '"1024"' in line
+            and "cvar_t" in line):
+        lines[idx] = line.replace('"1024"', '"2048"', 1)
+        max_done = True
+    if (not filter_done and "gl_filter_min" in line
+            and "GL_LINEAR_MIPMAP_NEAREST" in line
+            and "=" in line):
+        lines[idx] = line.replace(
+            "GL_LINEAR_MIPMAP_NEAREST",
+            "GL_LINEAR_MIPMAP_LINEAR",
+            1,
+        )
+        filter_done = True
+if not max_done or not filter_done:
+    raise SystemExit(
+        f"Could not find Vril HQ texture-quality defaults "
+        f"max={max_done} filter={filter_done}"
+    )
+gldraw.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 p.write_text(s, encoding="utf-8")
 
