@@ -138,6 +138,7 @@ def _load_scene(path:Path):
     scene=trimesh.load(path,force="scene",process=False)
     geometries=[]
     source_visible_front=[]
+    occluded_support=[]
 
     # Preserve node identity so the evidence renderer can distinguish the
     # intentionally front-visible projection shell from occluded support
@@ -157,8 +158,11 @@ def _load_scene(path:Path):
             if not np.allclose(transform,np.eye(4),atol=1e-7):
                 geometry.apply_transform(transform)
             geometries.append(geometry)
-            if str(node)=="source_visible_front":
+            node_name=str(node)
+            if node_name=="source_visible_front":
                 source_visible_front.append(geometry)
+            elif node_name=="occluded_low_frequency":
+                occluded_support.append(geometry)
     else:
         geometries=[
             geometry.copy()
@@ -175,7 +179,7 @@ def _load_scene(path:Path):
         [np.asarray(g.vertices,dtype=np.float32) for g in geometries],
         axis=0,
     )
-    return geometries,vertices,source_visible_front
+    return geometries,vertices,source_visible_front,occluded_support
 
 
 def _render_point_fallback(geometries,size:int):
@@ -488,6 +492,43 @@ def _hard_clip_to_outline(
     }
 
 
+def _compose_front_priority(
+    front_image:Image.Image,
+    front_mask:Image.Image,
+    support_image:Image.Image,
+    support_mask:Image.Image,
+    outline_mask:Image.Image,
+):
+    front=np.asarray(front_mask,dtype=np.uint8)>0
+    support=np.asarray(support_mask,dtype=np.uint8)>0
+    outline=np.asarray(outline_mask,dtype=np.uint8)>0
+    if not np.any(outline):
+        raise RuntimeError("source outline mask was empty")
+
+    front_keep=front&outline
+    support_fill=support&outline&~front_keep
+    keep=front_keep|support_fill
+    missing=outline&~keep
+
+    front_rgb=np.asarray(front_image.convert("RGB"),dtype=np.uint8)
+    support_rgb=np.asarray(support_image.convert("RGB"),dtype=np.uint8)
+    out=np.full_like(front_rgb,18,dtype=np.uint8)
+    out[support_fill]=support_rgb[support_fill]
+    out[front_keep]=front_rgb[front_keep]
+
+    out_mask=Image.fromarray(keep.astype(np.uint8)*255,"L")
+    return Image.fromarray(out,"RGB"),out_mask,{
+        "policy":"front_priority_hidden_fill_only",
+        "outline_pixels":int(np.count_nonzero(outline)),
+        "front_pixels":int(np.count_nonzero(front_keep)),
+        "support_fill_pixels":int(np.count_nonzero(support_fill)),
+        "kept_pixels":int(np.count_nonzero(keep)),
+        "missing_inside_outline":int(np.count_nonzero(missing)),
+        "outline_coverage":float(np.count_nonzero(keep)/max(np.count_nonzero(outline),1)),
+        "hidden_over_front_pixels_forbidden":int(np.count_nonzero(support&front_keep)),
+    }
+
+
 def _mask_edge_contact(mask:Image.Image,margin:int=4):
     arr=np.asarray(mask,dtype=np.uint8)>0
     if not np.any(arr):
@@ -669,35 +710,24 @@ def render_preview(
     face_size:int=768,
     supersample:int=2,
 ):
-    geometries,vertices,source_visible_front=_load_scene(input_glb)
+    geometries,vertices,source_visible_front,occluded_support=_load_scene(input_glb)
     full_bounds,lo,hi=_full_bounds(vertices)
     textured=sum(_texture_payload(g) is not None for g in geometries)
 
     if textured:
         head_bounds=_head_bounds(geometries,vertices)
-        full_raw,full_mask_raw,full_bounds_used,full_edge_attempts=_render_uv_with_edge_retry(
+
+        # Use the all-geometry render ONLY to determine safe framing. Final
+        # pixels are composited from front and hidden-support layers separately
+        # so hidden geometry can never draw over the authored visible front.
+        _,_,full_bounds_used,full_edge_attempts=_render_uv_with_edge_retry(
             geometries,
             full_bounds,
             int(size),
             int(supersample),
             max_retries=2,
         )
-        face_raw,face_mask_raw=_render_uv_region(
-            geometries,
-            head_bounds,
-            int(face_size),
-            int(supersample),
-        )
         head_bounds_used=head_bounds
-        face_edge_attempts=[{
-            "attempt":0,
-            "bounds":[float(v) for v in head_bounds],
-            "edge_contact":_mask_edge_contact(
-                face_mask_raw,
-                margin=max(3,int(round(int(face_size)*0.006))),
-            ),
-            "retry_disabled_reason":"face evidence intentionally crops lower torso; bottom contact is not a head-clipping signal",
-        }]
 
         silhouette_clamp=None
         if source_visible_front:
@@ -713,20 +743,69 @@ def render_preview(
                 int(face_size),
                 alpha_threshold=8,
             )
-            full_raw,full_mask_raw,full_clamp=_hard_clip_to_outline(
-                full_raw,
-                full_mask_raw,
+
+            front_full,front_full_mask=_render_uv_region(
+                source_visible_front,
+                full_bounds_used,
+                int(size),
+                int(supersample),
+            )
+            front_face,front_face_mask=_render_uv_region(
+                source_visible_front,
+                head_bounds_used,
+                int(face_size),
+                int(supersample),
+            )
+
+            if occluded_support:
+                support_full,support_full_mask=_render_uv_region(
+                    occluded_support,
+                    full_bounds_used,
+                    int(size),
+                    int(supersample),
+                )
+                support_face,support_face_mask=_render_uv_region(
+                    occluded_support,
+                    head_bounds_used,
+                    int(face_size),
+                    int(supersample),
+                )
+            else:
+                support_full=Image.new("RGB",(int(size),int(size)),(18,18,18))
+                support_full_mask=Image.new("L",(int(size),int(size)),0)
+                support_face=Image.new("RGB",(int(face_size),int(face_size)),(18,18,18))
+                support_face_mask=Image.new("L",(int(face_size),int(face_size)),0)
+
+            full_raw,full_mask_raw,full_clamp=_compose_front_priority(
+                front_full,
+                front_full_mask,
+                support_full,
+                support_full_mask,
                 full_outline,
             )
-            face_raw,face_mask_raw,face_clamp=_hard_clip_to_outline(
-                face_raw,
-                face_mask_raw,
+            face_raw,face_mask_raw,face_clamp=_compose_front_priority(
+                front_face,
+                front_face_mask,
+                support_face,
+                support_face_mask,
                 face_outline,
             )
+
+            face_edge_attempts=[{
+                "attempt":0,
+                "bounds":[float(v) for v in head_bounds_used],
+                "edge_contact":_mask_edge_contact(
+                    face_mask_raw,
+                    margin=max(3,int(round(int(face_size)*0.006))),
+                ),
+                "retry_disabled_reason":"face evidence intentionally crops lower torso; bottom contact is not a head-clipping signal",
+            }]
+
             silhouette_clamp={
                 "enabled":True,
                 "source_node":"source_visible_front",
-                "policy":"hard_source_alpha_screen_space",
+                "support_node":"occluded_low_frequency",
+                "policy":"front_priority_hidden_fill_only",
                 "full":full_clamp,
                 "face":face_clamp,
                 "outline_mapping":{
@@ -739,6 +818,19 @@ def render_preview(
                 },
             }
         else:
+            full_raw,full_mask_raw=_render_uv_region(
+                geometries,
+                full_bounds_used,
+                int(size),
+                int(supersample),
+            )
+            face_raw,face_mask_raw=_render_uv_region(
+                geometries,
+                head_bounds_used,
+                int(face_size),
+                int(supersample),
+            )
+            face_edge_attempts=[]
             silhouette_clamp={
                 "enabled":False,
                 "reason":"source_visible_front node not present",
@@ -756,7 +848,7 @@ def render_preview(
             int(face_size),
             0.10,
         )
-        renderer="hayuya-cpu-uv-hard-source-outline-ss2-v8"
+        renderer="hayuya-cpu-uv-front-priority-fill-ss2-v9"
     else:
         silhouette_clamp={
             "enabled":False,
@@ -820,7 +912,7 @@ def render_preview(
             "full":0.12,
             "face":0.10,
         },
-        "silhouette_source":"hard_source_alpha_screen_space" if silhouette_clamp.get("enabled") else "renderer_zbuffer_visibility_mask",
+        "silhouette_source":"hard_source_alpha_front_priority" if silhouette_clamp.get("enabled") else "renderer_zbuffer_visibility_mask",
         "silhouette_clamp":silhouette_clamp,
     }
     (output_dir/"software_manifest.json").write_text(
