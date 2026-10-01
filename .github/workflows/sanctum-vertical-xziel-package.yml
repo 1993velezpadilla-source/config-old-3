@@ -1,0 +1,98 @@
+name: Sanctum Vertical XZIEL Package
+
+on:
+  workflow_run:
+    workflows:
+      - "Sanctum Vertical Gameplay Blockout"
+    types:
+      - completed
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  package:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'feature/xziel-map-builder-agent-v1')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+        with:
+          ref: feature/xziel-map-builder-agent-v1
+
+      - name: Download successful vertical artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: XZIEL-Sanctum-Vertical-Gameplay
+          path: vertical-artifact
+          repository: ${{ github.repository }}
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+
+      - name: Normalize artifact root
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d vertical-artifact/sanctum-vertical-probe
+          rm -rf sanctum-vertical-probe
+          cp -a vertical-artifact/sanctum-vertical-probe sanctum-vertical-probe
+
+      - name: Export XZIEL package
+        shell: bash
+        env:
+          SANCTUM_VERTICAL_OUT: sanctum-vertical-probe
+          SANCTUM_XZIEL_PACKAGE: sanctum-xziel-package
+        run: |
+          set -euo pipefail
+          python3 tools/sanctum_v2/export_vertical_xziel_package.py | tee package.log
+          grep -q SANCTUM_XZIEL_PACKAGE_PASS package.log
+
+      - name: Validate package contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          root=Path("sanctum-xziel-package")
+          pre=json.loads((root/"preflight.json").read_text(encoding="utf-8"))
+          m=json.loads((root/"map.json").read_text(encoding="utf-8"))
+          zones=json.loads((root/"zones.json").read_text(encoding="utf-8"))
+          entities=json.loads((root/"entities.json").read_text(encoding="utf-8"))
+          conns=json.loads((root/"connections.json").read_text(encoding="utf-8"))
+          ads=json.loads((root/"ads.json").read_text(encoding="utf-8"))
+
+          assert pre["ok"],pre
+          assert pre["counts"]["zones"]==3,pre
+          assert pre["counts"]["connections"]==4,pre
+          assert pre["counts"]["ads"]==3,pre
+          assert len(zones["zones"])==3,zones
+          assert len(conns["connections"])==4,conns
+          assert len(ads["placements"])==3,ads
+          assert m["monetizationPolicy"]["diegeticOnlyDuringGameplay"] is True,m
+          assert m["monetizationPolicy"]["pauseGameplay"] is False,m
+          assert (root/m["geometry"]).is_file(),m
+          assert (root/m["runtime"]["navmesh"]).is_file(),m
+          assert (root/m["runtime"]["collision"]).is_file(),m
+
+          print("SANCTUM_XZIEL_PACKAGE_CONTRACT_GREEN")
+          print(json.dumps(pre,indent=2))
+          PY
+
+      - name: Upload XZIEL package
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-Vertical-Package
+          path: |
+            sanctum-xziel-package/
+            package.log
+          if-no-files-found: error
+          retention-days: 14
