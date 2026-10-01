@@ -12,6 +12,11 @@ on:
       - "tools/xziel_toolchain/bootstrap_asset_cli.sh"
       - "tools/xziel_toolchain/process_glb.sh"
       - "tools/xziel_toolchain/validate_glb.cjs"
+      - "tools/xziel_toolchain/extract_runtime_geometry.py"
+      - "tools/xziel_toolchain/xziel_navmesh_bake.cpp"
+      - "tools/xziel_toolchain/generate_collision_hulls.py"
+      - "tools/xziel_toolchain/bootstrap_fast.sh"
+      - "tools/xziel_toolchain/bootstrap_geometry_cpu.sh"
   workflow_dispatch:
 
 permissions:
@@ -38,6 +43,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq \
             git-lfs curl xz-utils xvfb unzip bzip2 \
+            build-essential cmake ninja-build pkg-config python3-venv \
             libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1 \
             libgl1 libglu1-mesa
           git lfs install
@@ -178,6 +184,64 @@ jobs:
           print("XZIEL_DRESSED_UASTC_KTX2_GREEN")
           print("UASTC_BYTES", u["bytes"])
           print("UASTC_RATIO", u["size_ratio"])
+          PY
+
+      - name: Build runtime navmesh and collision sidecars
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          RAW_GLB="$(python3 - <<'PY'
+          import json
+          print(json.load(open("sanctum-dressed-probe/dressed-report.json",encoding="utf-8"))["glb"])
+          PY
+          )"
+
+          bash tools/xziel_toolchain/bootstrap_fast.sh
+          bash tools/xziel_toolchain/bootstrap_geometry_cpu.sh
+
+          mkdir -p sanctum-dressed-probe/runtime
+
+          .xziel-tools/geometry-venv/bin/python             tools/xziel_toolchain/extract_runtime_geometry.py             --input "sanctum-dressed-probe/$RAW_GLB"             --out sanctum-dressed-probe/runtime
+
+          .xziel-tools/bin/xziel-navmesh-bake             sanctum-dressed-probe/runtime/sanctum-nav-source.obj             sanctum-dressed-probe/runtime/sanctum.navbin             sanctum-dressed-probe/runtime/navmesh-report.json
+
+          .xziel-tools/geometry-venv/bin/python             tools/xziel_toolchain/generate_collision_hulls.py             --input sanctum-dressed-probe/runtime/sanctum-collision-source.glb             --output sanctum-dressed-probe/runtime/sanctum-collision-hulls.glb             --report sanctum-dressed-probe/runtime/collision-report.json             --threshold 0.08             --max-hulls 128             --max-hull-vertices 64
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          root=Path("sanctum-dressed-probe/runtime")
+          geom=json.loads((root/"runtime-geometry-report.json").read_text(encoding="utf-8"))
+          nav=json.loads((root/"navmesh-report.json").read_text(encoding="utf-8"))
+          col=json.loads((root/"collision-report.json").read_text(encoding="utf-8"))
+
+          assert geom["status"]=="PASS", geom
+          assert geom["included_node_count"] >= 20, geom
+          assert geom["vertices"] > 10000, geom
+          assert geom["triangles"] > 5000, geom
+
+          assert nav["status"]=="PASS", nav
+          assert nav["nav_polygons"] > 0, nav
+          assert nav["nav_vertices"] > 0, nav
+          assert nav["navdata_bytes"] > 0, nav
+          assert nav["nearest_poly_ref"] != 0, nav
+
+          assert col["status"]=="PASS", col
+          assert col["hull_count"] >= 1, col
+          assert col["hull_count"] <= 128, col
+          assert col["hull_triangles"] > 0, col
+
+          assert (root/"sanctum.navbin").is_file()
+          assert (root/"sanctum-collision-hulls.glb").is_file()
+
+          print("XZIEL_SANCTUM_RUNTIME_SIDECARS_GREEN")
+          print("RUNTIME_VERTICES", geom["vertices"])
+          print("RUNTIME_TRIANGLES", geom["triangles"])
+          print("NAV_POLYGONS", nav["nav_polygons"])
+          print("NAVDATA_BYTES", nav["navdata_bytes"])
+          print("COLLISION_HULLS", col["hull_count"])
           PY
 
       - name: Record source provenance
