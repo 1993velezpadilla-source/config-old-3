@@ -202,6 +202,50 @@ jobs:
           done
           echo "SINGLE_PLAYER_ADVANCED=$ADVANCED" | tee -a "$OUT/status.txt"
 
+          # Continue into NEW GAME only after Single Player is structurally confirmed.
+          NEW_GAME_ADVANCED=0
+          if [ "$ADVANCED" = "1" ] && [ -s "$OUT/screens/single_player_next_screen.png" ]; then
+            SP_BASE="$OUT/screens/single_player_next_screen.png"
+            for SPEC in \
+              "760 620 a" \
+              "900 720 b" \
+              "650 520 c" \
+              "520 650 d" \
+              "1000 620 e"; do
+              set -- $SPEC
+              X="$1"; Y="$2"; LABEL="$3"
+              echo "NEW_GAME_PROBE_${LABEL}_XY=$X,$Y" | tee -a "$OUT/status.txt"
+
+              CHANGED=0
+              for ATTEMPT in 1 2; do
+                "$ADB" shell am start -W \
+                  -n com.activision.boz/.Main \
+                  --ez xzielDirectTap true \
+                  --ei xzielX "$X" \
+                  --ei xzielY "$Y" \
+                  > "$OUT/new-game-${LABEL}-${ATTEMPT}.txt" 2>&1
+                sleep 4
+                SHOT="$OUT/screens/new_game_probe_${LABEL}_${ATTEMPT}.png"
+                "$ADB" exec-out screencap -p > "$SHOT" 2>/dev/null || true
+                METRICS="$(python3 -c 'import sys,numpy as np; from PIL import Image; a=np.asarray(Image.open(sys.argv[1]).convert("RGB"),dtype=np.int16); b=np.asarray(Image.open(sys.argv[2]).convert("RGB"),dtype=np.int16); d=np.abs(a-b); print(f"{float(d.mean()):.6f} {float(np.mean(np.any(d>20,axis=2))):.6f}")' "$SP_BASE" "$SHOT")"
+                MEAN_DIFF="$(echo "$METRICS" | awk '{print $1}')"
+                PCT_DIFF="$(echo "$METRICS" | awk '{print $2}')"
+                echo "NEW_GAME_PROBE_${LABEL}_${ATTEMPT}_MEAN_DIFF=$MEAN_DIFF PCT_GT20=$PCT_DIFF" | tee -a "$OUT/status.txt"
+                if python3 -c 'import sys; mean=float(sys.argv[1]); pct=float(sys.argv[2]); raise SystemExit(0 if (mean > 3.0 and pct > 0.08) else 1)' "$MEAN_DIFF" "$PCT_DIFF"; then
+                  echo "NEW_GAME_ADVANCED_BY=${LABEL}:$X,$Y ATTEMPT=$ATTEMPT" | tee -a "$OUT/status.txt"
+                  CHANGED=1
+                  NEW_GAME_ADVANCED=1
+                  sleep 5
+                  "$ADB" exec-out screencap -p > "$OUT/screens/new_game_next_screen.png" 2>/dev/null || true
+                  break
+                fi
+              done
+              if [ "$CHANGED" = "1" ]; then break; fi
+              sleep 1
+            done
+          fi
+          echo "NEW_GAME_ADVANCED=$NEW_GAME_ADVANCED" | tee -a "$OUT/status.txt"
+
           PID="$("$ADB" shell pidof com.activision.boz 2>/dev/null | tr -d '\r\n')"
           echo "FINAL_PID=$PID" | tee -a "$OUT/status.txt"
           "$ADB" logcat -d -v threadtime > "$OUT/logcat.txt" 2>&1
