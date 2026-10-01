@@ -42,9 +42,9 @@ replacement = '''        if (!XZSM_ReadExact(f, b->vertices, sizeof(*b->vertices
         /* XZSM v2 baked vertex lighting: clamp the floor so later lighting
          * passes cannot crush photogrammetry detail to black on Android. */
         for (j = 0; j < b->vertex_count; ++j) {
-            if (b->vertices[j].r < 112) b->vertices[j].r = 112;
-            if (b->vertices[j].g < 112) b->vertices[j].g = 112;
-            if (b->vertices[j].b < 112) b->vertices[j].b = 112;
+            if (b->vertices[j].r < 124) b->vertices[j].r = 124;
+            if (b->vertices[j].g < 124) b->vertices[j].g = 124;
+            if (b->vertices[j].b < 124) b->vertices[j].b = 124;
             b->vertices[j].a = 255;
         }
 
@@ -64,12 +64,14 @@ s = s.replace(
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
 ''',
-'''    /* HQ visual gate: preserve the enhanced photogrammetry albedo exactly.
-     * Lighting will be layered after the real church is visually validated. */
-    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+'''    /* HQ final path: 2K photogrammetry albedo multiplied by XZSM v2
+     * baked vertex lighting. Texture loading is now fixed, so this restores
+     * depth and atmosphere without the previous black-material failure. */
+    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+    glEnableClientState(GL_COLOR_ARRAY);
 ''',
 1,
 )
@@ -79,6 +81,7 @@ fallback_anchor = '''        if (b->texture >= 0)
             GL_Bind(b->texture);
         glVertexPointer(3, GL_FLOAT, sizeof(xzsm_vertex_t), &b->vertices[0].x);
         glTexCoordPointer(2, GL_FLOAT, sizeof(xzsm_vertex_t), &b->vertices[0].u);
+        glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(xzsm_vertex_t), &b->vertices[0].r);
         glDrawElements(GL_TRIANGLES, b->index_count, GL_UNSIGNED_SHORT, b->indices);
 '''
 fallback_repl = '''        if (b->texture >= 0) {
@@ -100,6 +103,17 @@ fallback_repl = '''        if (b->texture >= 0) {
 if fallback_anchor not in s:
     raise SystemExit("missing-texture fallback anchor not found")
 s = s.replace(fallback_anchor, fallback_repl, 1)
+
+disable_anchor = '''    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+    glDisableClientState(GL_VERTEX_ARRAY);
+'''
+disable_repl = '''    glDisableClientState(GL_COLOR_ARRAY);
+    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+    glDisableClientState(GL_VERTEX_ARRAY);
+'''
+if disable_anchor not in s:
+    raise SystemExit("color-array disable anchor not found")
+s = s.replace(disable_anchor, disable_repl, 1)
 
 # Android diagnostics.
 s = s.replace(
@@ -275,6 +289,19 @@ if hq_bind not in s:
     raise SystemExit("Could not find XZSM texture bind for HQ sampling override")
 s = s.replace(hq_bind, hq_bind_repl, 1)
 
+# Preserve the 2K St Giles atlases on GPU and use trilinear mip filtering.
+gldraw = root / "source/platform/sdl/gl/gl_draw.c"
+gt = gldraw.read_text(encoding="utf-8")
+old_max = 'cvar_t\t\tgl_max_size = {"gl_max_size", "1024"};'
+new_max = 'cvar_t\t\tgl_max_size = {"gl_max_size", "2048"};'
+old_filter = 'int\t\tgl_filter_min = GL_LINEAR_MIPMAP_NEAREST;'
+new_filter = 'int\t\tgl_filter_min = GL_LINEAR_MIPMAP_LINEAR;'
+if old_max not in gt or old_filter not in gt:
+    raise SystemExit("Could not find Vril HQ texture-quality defaults")
+gt = gt.replace(old_max, new_max, 1)
+gt = gt.replace(old_filter, new_filter, 1)
+gldraw.write_text(gt, encoding="utf-8")
+
 p.write_text(s, encoding="utf-8")
 
 # GL4ES-safe visual authority handoff: keep the BSP world pass for visibility
@@ -288,4 +315,4 @@ if old_block not in rt:
 rt = rt.replace(old_block, new_block, 1)
 rmain.write_text(rt, encoding="utf-8")
 
-print("Patched Sanctum HQ: long texture paths + full photogrammetry albedo + GL4ES-safe BSP erase.")
+print("Patched Sanctum HQ: 2K trilinear textures + baked vertex lighting + GL4ES-safe BSP erase.")
