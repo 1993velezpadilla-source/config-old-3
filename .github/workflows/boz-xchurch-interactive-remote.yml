@@ -1,0 +1,283 @@
+name: XChurch Interactive Remote
+
+on:
+  push:
+    branches:
+      - feature/boz-mod-runtime
+    paths:
+      - ".github/workflows/boz-xchurch-interactive-remote.yml"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  remote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Enable KVM
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/xchurch-remote
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"'             | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+          test -e /dev/kvm
+
+      - name: Download diagnostic touch APK
+        uses: actions/download-artifact@v4
+        with:
+          name: XChurch-Diagnostic-Touch-APK
+          run-id: 36783515318
+          github-token: ${{ github.token }}
+          path: /tmp/xchurch-remote/apk
+
+      - name: Prepare APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$(find /tmp/xchurch-remote/apk -type f -name '*.apk' | head -n1)"
+          test -s "$APK"
+          cp "$APK" /tmp/xchurch-remote/xchurch-touch.apk
+          sha256sum /tmp/xchurch-remote/xchurch-touch.apk             | tee /tmp/xchurch-remote/apk.sha256
+
+      - name: Install Android emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n1)"
+          AVDMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name avdmanager | sort -V | tail -n1)"
+          test -x "$SDKMANAGER"
+          test -x "$AVDMANAGER"
+          echo "AVDMANAGER=$AVDMANAGER" >> "$GITHUB_ENV"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER"             "platform-tools"             "emulator"             "system-images;android-30;google_apis;x86_64"             >/tmp/xchurch-remote/sdk-install.txt 2>&1
+
+      - name: Boot Android and launch XChurch
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=/tmp/xchurch-remote
+          export ANDROID_AVD_HOME=/tmp/xchurch-remote-avd
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
+          mkdir -p "$ANDROID_AVD_HOME"
+
+          printf 'no\n' | "$AVDMANAGER" create avd             --force --name xchurch-remote             --package "system-images;android-30;google_apis;x86_64"             --device "pixel_4" >/dev/null
+
+          ADB="$ANDROID_HOME/platform-tools/adb"
+          EMU="$ANDROID_HOME/emulator/emulator"
+          "$ADB" kill-server >/dev/null 2>&1 || true
+          "$ADB" start-server >/dev/null 2>&1
+
+          nohup "$EMU" @xchurch-remote             -no-window -gpu swiftshader_indirect -no-snapshot             -noaudio -no-boot-anim -no-metrics -camera-back none             > "$OUT/emulator.log" 2>&1 &
+          echo "EMU_PID=$!" | tee "$OUT/status.txt"
+
+          READY=0
+          for i in $(seq 1 80); do
+            if [ "$("$ADB" get-state 2>/dev/null || true)" = "device" ]; then
+              READY=1
+              break
+            fi
+            sleep 2
+          done
+          echo "ADB_READY=$READY" | tee -a "$OUT/status.txt"
+          test "$READY" = "1"
+
+          BOOT=0
+          for i in $(seq 1 80); do
+            if [ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then
+              BOOT=1
+              break
+            fi
+            sleep 2
+          done
+          echo "BOOT_COMPLETED=$BOOT" | tee -a "$OUT/status.txt"
+          test "$BOOT" = "1"
+
+          "$ADB" install --abi arm64-v8a -r -d "$OUT/xchurch-touch.apk"             > "$OUT/install.txt" 2>&1
+          echo "INSTALL_RC=$?" | tee -a "$OUT/status.txt"
+
+          "$ADB" shell pm grant com.activision.boz android.permission.WRITE_EXTERNAL_STORAGE 2>/dev/null || true
+          "$ADB" shell pm grant com.activision.boz android.permission.READ_EXTERNAL_STORAGE 2>/dev/null || true
+          "$ADB" shell appops set com.activision.boz MANAGE_EXTERNAL_STORAGE allow 2>/dev/null || true
+          "$ADB" shell mkdir -p /sdcard/Android/obb/com.activision.boz 2>/dev/null || true
+
+          "$ADB" shell am force-stop com.activision.boz >/dev/null 2>&1 || true
+          "$ADB" shell am start -W -n com.activision.boz/.Main             > "$OUT/launch.txt" 2>&1
+          echo "LAUNCH_RC=$?" | tee -a "$OUT/status.txt"
+
+      - name: Start phone-friendly tap controller
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=/tmp/xchurch-remote
+          cat > "$OUT/controller.py" <<'PY'
+          import os
+          import subprocess
+          import urllib.parse
+          from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+          ADB=os.path.join(os.environ["ANDROID_HOME"],"platform-tools","adb")
+
+          HTML=r'''<!doctype html>
+          <html>
+          <head>
+            <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+            <title>XChurch Remote</title>
+            <style>
+              html,body{margin:0;background:#000;color:#fff;font-family:sans-serif;height:100%}
+              #top{padding:8px 10px;font-size:14px;background:#111;position:sticky;top:0;z-index:2}
+              #wrap{display:flex;align-items:center;justify-content:center;min-height:calc(100vh - 40px)}
+              #screen{width:100vw;height:auto;display:block;touch-action:none}
+              #msg{opacity:.8;margin-left:8px}
+            </style>
+          </head>
+          <body>
+            <div id="top">XChurch Android live <span id="msg">tap the game screen</span></div>
+            <div id="wrap"><img id="screen" draggable="false"></div>
+            <script>
+              const img=document.getElementById('screen');
+              const msg=document.getElementById('msg');
+              let busy=false;
+              function refresh(){ if(!busy) img.src='/screen.png?t='+Date.now(); }
+              img.onload=()=>setTimeout(refresh,850);
+              img.onerror=()=>setTimeout(refresh,1500);
+              async function sendTap(clientX,clientY){
+                if(!img.naturalWidth||!img.naturalHeight)return;
+                const r=img.getBoundingClientRect();
+                const x=Math.round((clientX-r.left)/r.width*img.naturalWidth);
+                const y=Math.round((clientY-r.top)/r.height*img.naturalHeight);
+                busy=true; msg.textContent='tap '+x+','+y;
+                try{
+                  await fetch('/tap?x='+x+'&y='+y,{method:'POST'});
+                  await new Promise(r=>setTimeout(r,350));
+                }finally{busy=false;refresh();}
+              }
+              img.addEventListener('pointerup',e=>sendTap(e.clientX,e.clientY));
+              refresh();
+            </script>
+          </body></html>'''
+
+          class H(BaseHTTPRequestHandler):
+              def log_message(self, fmt, *args):
+                  print(fmt % args, flush=True)
+
+              def do_GET(self):
+                  if self.path.startswith('/screen.png'):
+                      try:
+                          p=subprocess.run([ADB,'exec-out','screencap','-p'],capture_output=True,timeout=8)
+                          body=p.stdout
+                          self.send_response(200)
+                          self.send_header('Content-Type','image/png')
+                          self.send_header('Cache-Control','no-store')
+                          self.send_header('Content-Length',str(len(body)))
+                          self.end_headers()
+                          self.wfile.write(body)
+                      except Exception as e:
+                          self.send_error(500,str(e))
+                      return
+                  body=HTML.encode()
+                  self.send_response(200)
+                  self.send_header('Content-Type','text/html; charset=utf-8')
+                  self.send_header('Cache-Control','no-store')
+                  self.send_header('Content-Length',str(len(body)))
+                  self.end_headers()
+                  self.wfile.write(body)
+
+              def do_POST(self):
+                  u=urllib.parse.urlparse(self.path)
+                  if u.path!='/tap':
+                      self.send_error(404)
+                      return
+                  q=urllib.parse.parse_qs(u.query)
+                  try:
+                      x=int(q['x'][0]); y=int(q['y'][0])
+                      subprocess.run([
+                          ADB,'shell','am','start','-W',
+                          '-n','com.activision.boz/.Main',
+                          '--ez','xzielDirectTap','true',
+                          '--ei','xzielX',str(x),
+                          '--ei','xzielY',str(y)
+                      ],capture_output=True,timeout=12)
+                      body=f'OK {x},{y}\n'.encode()
+                      self.send_response(200)
+                      self.send_header('Content-Type','text/plain')
+                      self.send_header('Content-Length',str(len(body)))
+                      self.end_headers()
+                      self.wfile.write(body)
+                  except Exception as e:
+                      self.send_error(500,str(e))
+
+          ThreadingHTTPServer(('127.0.0.1',8080),H).serve_forever()
+          PY
+
+          nohup python3 "$OUT/controller.py" > "$OUT/controller.log" 2>&1 &
+          echo "CONTROLLER_PID=$!" | tee -a "$OUT/status.txt"
+
+          for i in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:8080/ >/dev/null; then
+              echo "CONTROLLER_READY=1" | tee -a "$OUT/status.txt"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "CONTROLLER_READY=0" | tee -a "$OUT/status.txt"
+          exit 1
+
+      - name: Publish temporary remote link
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=/tmp/xchurch-remote
+          curl -fsSL             https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64             -o "$OUT/cloudflared"
+          chmod +x "$OUT/cloudflared"
+
+          nohup "$OUT/cloudflared" tunnel             --no-autoupdate             --url http://127.0.0.1:8080             > "$OUT/cloudflared.log" 2>&1 &
+          echo "CLOUDFLARED_PID=$!" | tee -a "$OUT/status.txt"
+
+          URL=""
+          for i in $(seq 1 40); do
+            URL="$(grep -Eo 'https://[a-zA-Z0-9-]+\.trycloudflare\.com' "$OUT/cloudflared.log" | head -n1 || true)"
+            if [ -n "$URL" ]; then
+              break
+            fi
+            sleep 1
+          done
+
+          test -n "$URL"
+          echo "REMOTE_URL=$URL" | tee -a "$OUT/status.txt"
+          echo "::notice title=XChurch Remote::$URL"
+
+      - name: Keep interactive session alive
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=/tmp/xchurch-remote
+          echo "REMOTE_SESSION_LIVE=1" | tee -a "$OUT/status.txt"
+          # Keep the ephemeral runner alive for manual phone interaction.
+          for i in $(seq 1 120); do
+            date -u '+KEEPALIVE %H:%M:%S UTC' | tee -a "$OUT/keepalive.txt"
+            sleep 10
+          done
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: XChurch-Interactive-Remote-Logs
+          path: |
+            /tmp/xchurch-remote/status.txt
+            /tmp/xchurch-remote/controller.log
+            /tmp/xchurch-remote/cloudflared.log
+            /tmp/xchurch-remote/install.txt
+            /tmp/xchurch-remote/launch.txt
+            /tmp/xchurch-remote/keepalive.txt
+          if-no-files-found: warn
+          retention-days: 2
