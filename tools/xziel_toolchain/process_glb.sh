@@ -22,7 +22,7 @@ VALIDATION="$OUT/$NAME.validation.json"
 INSPECT="$OUT/$NAME.inspect.txt"
 REPORT="$OUT/$NAME.pipeline.json"
 
-"$BIN/gltfpack" -i "$INPUT" -o "$OPT"
+"$BIN/gltfpack" -kv -i "$INPUT" -o "$OPT"
 test -s "$OPT"
 
 "$BIN/gltf-transform" inspect "$OPT" > "$INSPECT"
