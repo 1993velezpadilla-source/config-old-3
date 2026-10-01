@@ -401,19 +401,39 @@ def append_and_fit_cc0_interior_props(scene,target_min,target_max):
         raise SystemExit(f"Missing CC0 interior source: {INTERIOR_SOURCE}")
 
     prefixes=("pew","candle","altar","Cross","bible","pipe")
-    with bpy.data.libraries.load(str(INTERIOR_SOURCE),link=False) as (data_from,data_to):
-        selected=[
-            n for n in data_from.objects
-            if any(n==p or n.startswith(p+".") for p in prefixes)
-        ]
-        if not selected:
-            raise SystemExit("No approved interior prop objects found in CC0 source")
-        data_to.objects=selected
 
-    props=[o for o in data_to.objects if o is not None and o.type=="MESH"]
-    for o in props:
-        if o.name not in scene.collection.objects:
-            scene.collection.objects.link(o)
+    # Load the authored source Scene, not isolated mesh datablocks. The source
+    # uses scene/parent transforms for placement; isolated object append loses
+    # that layout. We read the real source matrix_world, then copy only approved
+    # mesh props into Sanctum and bake their authored world transform.
+    with bpy.data.libraries.load(str(INTERIOR_SOURCE),link=False) as (data_from,data_to):
+        if not data_from.scenes:
+            raise SystemExit("CC0 source contains no scenes")
+        data_to.scenes=list(data_from.scenes)
+
+    source_scenes=[s for s in data_to.scenes if s is not None]
+    if not source_scenes:
+        raise SystemExit("Could not load CC0 source scene")
+    source_scene=source_scenes[0]
+
+    source_props=[
+        o for o in source_scene.objects
+        if o.type=="MESH" and any(o.name==p or o.name.startswith(p+".") for p in prefixes)
+    ]
+    if not source_props:
+        raise SystemExit("No approved interior prop objects found in CC0 source scene")
+
+    props=[]
+    for src in source_props:
+        o=src.copy()
+        if src.data is not None:
+            o.data=src.data.copy()
+        authored_world=src.matrix_world.copy()
+        o.parent=None
+        o.matrix_parent_inverse=Matrix.Identity(4)
+        o.matrix_world=authored_world
+        scene.collection.objects.link(o)
+        props.append(o)
 
     pews=[o for o in props if o.name=="pew" or o.name.startswith("pew.")]
     if len(pews)<2:
@@ -507,6 +527,8 @@ def append_and_fit_cc0_interior_props(scene,target_min,target_max):
         "objects":[o.name for o in props],
         "source_bounds":{"min":list(src_min),"max":list(src_max),"size":list(src_max-src_min)},
         "target_bounds":{"min":list(target_min),"max":list(target_max),"size":list(tgt_size)},
+        "transform_source":"authored CC0 source Scene matrix_world baked onto selected prop copies",
+        "source_scene":source_scene.name,
         "axis_inference":{
             "pew_count":len(pews),
             "pew_center_spans":pew_spans,
@@ -515,12 +537,12 @@ def append_and_fit_cc0_interior_props(scene,target_min,target_max):
             "source_long_axis":axis_names[source_long_index],
             "source_long_sign":long_sign,
             "target_long_axis":axis_names[target_long_index],
-            "rule":"pew-center minimum spread => source up; remaining maximum spread => nave long axis; decor selects up sign; altar selects long sign",
+            "rule":"authored source-scene prop centers: pew minimum spread => source up; remaining maximum spread => nave long axis; decor selects up sign; altar selects long sign",
         },
         "oriented_bounds":{"min":list(oriented_min),"max":list(oriented_max),"size":list(oriented_size)},
         "uniform_scale":uniform_scale,
         "scale_rule":"minimum X/Y/Z fit ratio after data-derived axis correction",
-        "placement_rule":"preserve authored relative prop layout; infer source up/long axes from pews; map to cathedral Z-up/long axis; fit all three dimensions; center XY; align floor min-Z",
+        "placement_rule":"preserve authored source Scene matrix_world layout for selected CC0 props; infer source up/long axes from pew geometry centers; map to cathedral Z-up/long axis; fit all three dimensions; center XY; align floor min-Z",
         "fitted_bounds":{"min":list(fitted_min),"max":list(fitted_max),"size":list(fitted_size)},
     }
 
