@@ -83,8 +83,9 @@ jobs:
               tree=get_json(f"https://api.polyhaven.com/files/{asset}")
               rows=[]
               for path,rec in leaves(tree):
+                  parts=[str(x).lower() for x in path]
                   s=(" / ".join(path)+" "+rec.get("url","")).lower()
-                  if "4k" not in s:
+                  if "4k" not in parts:
                       continue
                   if ext and f".{ext}" not in rec.get("url","").lower():
                       continue
