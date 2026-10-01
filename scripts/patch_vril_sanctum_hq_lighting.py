@@ -83,6 +83,94 @@ s=s.replace(
     glDisableClientState(GL_VERTEX_ARRAY);
 ''',1)
 
+
+# Android XZSM diagnostics + explicit GL state for gauntlet loop.
+s=s.replace(
+    '#include <string.h>\n',
+    '#include <string.h>\n#if defined(__ANDROID__)\n#include <android/log.h>\n#endif\n',
+    1,
+)
+
+tex_anchor='''        if (b->texture < 0)
+            Con_Printf("XZSM: missing texture %s\\n", b->texture_name);
+'''
+tex_repl='''        if (b->texture < 0)
+            Con_Printf("XZSM: missing texture %s\\n", b->texture_name);
+#if defined(__ANDROID__)
+        __android_log_print(
+            b->texture < 0 ? ANDROID_LOG_ERROR : ANDROID_LOG_INFO,
+            "XZIEL_XZSM",
+            "texture[%u] handle=%d path=%s",
+            i, b->texture, b->texture_name);
+#endif
+'''
+if tex_anchor not in s:
+    raise SystemExit("texture diagnostic anchor not found")
+s=s.replace(tex_anchor,tex_repl,1)
+
+sum_anchor='''    xzsm_loaded = true;
+    Con_Printf("XZSM: Sanctum loaded batches=%u verts=%u indices=%u bytes=%d\\n",
+        xzsm_batch_count, total_vertices, total_indices, file_len);
+'''
+sum_repl='''    xzsm_loaded = true;
+    Con_Printf("XZSM: Sanctum loaded batches=%u verts=%u indices=%u bytes=%d\\n",
+        xzsm_batch_count, total_vertices, total_indices, file_len);
+#if defined(__ANDROID__)
+    __android_log_print(ANDROID_LOG_INFO, "XZIEL_XZSM",
+        "loaded batches=%u verts=%u indices=%u bytes=%d",
+        xzsm_batch_count, total_vertices, total_indices, file_len);
+#endif
+'''
+if sum_anchor not in s:
+    raise SystemExit("XZSM load summary anchor not found")
+s=s.replace(sum_anchor,sum_repl,1)
+
+draw_anchor='''    glEnable(GL_TEXTURE_2D);
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
+    glDisable(GL_ALPHA_TEST);
+    glDisable(GL_CULL_FACE);
+    glColor4f(1, 1, 1, 1);
+'''
+draw_repl='''    glEnable(GL_TEXTURE_2D);
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
+    glDisable(GL_ALPHA_TEST);
+    glDisable(GL_CULL_FACE);
+#ifdef GL_FOG
+    glDisable(GL_FOG);
+#endif
+#ifdef GL_LIGHTING
+    glDisable(GL_LIGHTING);
+#endif
+    glColor4f(1, 1, 1, 1);
+'''
+if draw_anchor not in s:
+    raise SystemExit("explicit GL state anchor not found")
+s=s.replace(draw_anchor,draw_repl,1)
+
+loop_anchor='''    for (i = 0; i < xzsm_batch_count; ++i) {
+'''
+loop_repl='''#if defined(__ANDROID__)
+    {
+        static int xziel_xzsm_draw_reported = 0;
+        if (!xziel_xzsm_draw_reported) {
+            GLenum e = glGetError();
+            __android_log_print(ANDROID_LOG_INFO, "XZIEL_XZSM",
+                "first draw batches=%u glErrorBefore=0x%x",
+                xzsm_batch_count, (unsigned)e);
+            xziel_xzsm_draw_reported = 1;
+        }
+    }
+#endif
+    for (i = 0; i < xzsm_batch_count; ++i) {
+'''
+if loop_anchor not in s:
+    raise SystemExit("draw loop diagnostic anchor not found")
+s=s.replace(loop_anchor,loop_repl,1)
+
 p.write_text(s,encoding="utf-8")
 
 # Replace the GL4ES-sensitive color-mask suppression hook with a robust
