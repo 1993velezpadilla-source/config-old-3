@@ -185,30 +185,13 @@ jobs:
             SHOT="$OUT/screens/single_player_probe_${LABEL}.png"
             "$ADB" exec-out screencap -p > "$SHOT" 2>/dev/null || true
 
-            METRICS="$(python3 - "$OUT/screens/main_menu_candidate.png" "$SHOT" <<'PY'
-import sys
-import numpy as np
-from PIL import Image
-
-a=np.asarray(Image.open(sys.argv[1]).convert("RGB"),dtype=np.int16)
-b=np.asarray(Image.open(sys.argv[2]).convert("RGB"),dtype=np.int16)
-d=np.abs(a-b)
-mean=float(d.mean())
-pct=float(np.mean(np.any(d>20,axis=2)))
-print(f"{mean:.6f} {pct:.6f}")
-PY
-)"
+            METRICS="$(python3 -c 'import sys,numpy as np; from PIL import Image; a=np.asarray(Image.open(sys.argv[1]).convert("RGB"),dtype=np.int16); b=np.asarray(Image.open(sys.argv[2]).convert("RGB"),dtype=np.int16); d=np.abs(a-b); print(f"{float(d.mean()):.6f} {float(np.mean(np.any(d>20,axis=2))):.6f}")' "$OUT/screens/main_menu_candidate.png" "$SHOT")"
             MEAN_DIFF="$(echo "$METRICS" | awk '{print $1}')"
             PCT_DIFF="$(echo "$METRICS" | awk '{print $2}')"
             echo "SINGLE_PLAYER_PROBE_${LABEL}_MEAN_DIFF=$MEAN_DIFF" | tee -a "$OUT/status.txt"
             echo "SINGLE_PLAYER_PROBE_${LABEL}_PCT_GT20=$PCT_DIFF" | tee -a "$OUT/status.txt"
 
-            if python3 - "$MEAN_DIFF" "$PCT_DIFF" <<'PY'
-import sys
-mean=float(sys.argv[1]); pct=float(sys.argv[2])
-raise SystemExit(0 if (mean > 3.0 and pct > 0.08) else 1)
-PY
-            then
+            if python3 -c 'import sys; mean=float(sys.argv[1]); pct=float(sys.argv[2]); raise SystemExit(0 if (mean > 3.0 and pct > 0.08) else 1)' "$MEAN_DIFF" "$PCT_DIFF"; then
               echo "SINGLE_PLAYER_ADVANCED_BY=${LABEL}:$X,$Y" | tee -a "$OUT/status.txt"
               ADVANCED=1
               sleep 5
