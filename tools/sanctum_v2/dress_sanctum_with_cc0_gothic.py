@@ -73,6 +73,11 @@ def load_ruins_assets():
         dst.objects = [name for name in src.objects if name in wanted]
 
     loaded = {obj.name: obj for obj in dst.objects if obj is not None}
+    for obj in loaded.values():
+        if obj.name not in scene.collection.objects:
+            scene.collection.objects.link(obj)
+    bpy.context.view_layer.update()
+
     missing = sorted(set(ASSET_NAMES.values()) - set(loaded))
     if missing:
         dress_fail(f"missing ruins assets: {missing}")
