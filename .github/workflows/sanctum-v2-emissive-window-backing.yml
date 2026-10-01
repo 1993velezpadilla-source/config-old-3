@@ -54,6 +54,18 @@ jobs:
           test -s external-shader-lib/cycles-principled-dielectric-transparent.blend
           grep -q "CC0" external-shader-lib/README.md
 
+      - name: Verify MIT authored stained-glass brightness correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf external-world-gan
+          git clone --depth 1 https://github.com/Mawiszus/World-GAN.git external-world-gan
+          grep -q "MIT License" external-world-gan/LICENSE
+          test -s external-world-gan/minecraft/blender_scripts/CyclesMineways.py
+          grep -q "def Stained_Glass_Shader" external-world-gan/minecraft/blender_scripts/CyclesMineways.py
+          grep -q 'hsv_node.inputs\[1\].default_value=2' external-world-gan/minecraft/blender_scripts/CyclesMineways.py
+          grep -q 'hsv_node.inputs\[2\].default_value=8' external-world-gan/minecraft/blender_scripts/CyclesMineways.py
+
       - name: Download verified licensed surface sources
         shell: bash
         run: |
@@ -208,7 +220,7 @@ jobs:
             --python tools/sanctum_v2/probe_cathedral_emissive_window_backing.py \
             2>&1 | tee sanctum-v2-emissive-window-backing/blender-relief-glass.log
 
-          grep -q "SANCTUM_V2_EMISSION_NODE_BACKING_OK" sanctum-v2-emissive-window-backing/blender-relief-glass.log
+          grep -q "SANCTUM_V2_AUTHORED_COLOR_BOOST_BACKING_OK" sanctum-v2-emissive-window-backing/blender-relief-glass.log
           test -s sanctum-v2-emissive-window-backing/relief-glass-report.json
           cp sanctum-v2-relief-assets/SOURCE_MANIFEST.json sanctum-v2-emissive-window-backing/
           cp sanctum-v2-relief-assets/ATTRIBUTION.txt sanctum-v2-emissive-window-backing/
@@ -230,6 +242,11 @@ jobs:
           assert d["stained_glass"]["emissive_backing"]["derived_window_faces"]>0, d
           assert d["stained_glass"]["emissive_backing"]["offset_m"]>0, d
           assert d["stained_glass"]["emissive_backing"]["emission_strength"]>0, d
+          boost=d["stained_glass"]["emissive_backing"]["authored_color_boost"]
+          assert boost["license"]=="MIT", d
+          assert boost["source_repo"]=="Mawiszus/World-GAN", d
+          assert boost["saturation"]==2.0, d
+          assert boost["value"]==8.0, d
           assert d["relief"]["stone_bump_distance_m"]>0, d
           assert d["relief"]["roof_bump_distance_m"]>0, d
           assert len(d["renders"])==6, d
