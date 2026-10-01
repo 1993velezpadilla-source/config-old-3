@@ -117,6 +117,7 @@ jobs:
             blender --background --python tools/church_map/export_vril_static_mesh.py \
             2>&1 | tee church-artifact/vril-static-4k-export.log
 
+          python3 -m pip install --quiet pillow==11.3.0
           python3 - <<'PY'
           import json
           from pathlib import Path
