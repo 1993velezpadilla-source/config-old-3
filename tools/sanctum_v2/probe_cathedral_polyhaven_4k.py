@@ -143,7 +143,6 @@ scene.render.image_settings.file_format = "PNG"
 scene.render.resolution_x = 1280
 scene.render.resolution_y = 800
 scene.render.resolution_percentage = 100
-scene.view_settings.look = "AgX - Medium High Contrast"
 setup_hdri(scene)
 cam = ensure_cam(scene)
 isolate(scene, target, cam)
