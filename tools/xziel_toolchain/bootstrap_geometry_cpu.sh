@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="\${XZIEL_TOOL_ROOT:-$PWD/.xziel-tools}"
+ROOT="${XZIEL_TOOL_ROOT:-$PWD/.xziel-tools}"
 VENV="$ROOT/geometry-venv"
 
 python3 -m venv "$VENV"
