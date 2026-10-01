@@ -1,0 +1,128 @@
+name: Sanctum CC0 Church Interior Probe
+
+on:
+  push:
+    branches:
+      - feature/xziel-map-builder-agent-v1
+    paths:
+      - ".github/workflows/sanctum-cc0-interior-probe.yml"
+      - "tools/sanctum_v2/probe_cc0_church_interior.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sanctum-cc0-church-interior-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    name: Probe explorable CC0 church interior
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Install host packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq             curl xz-utils xvfb             libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1             libgl1 libglu1-mesa
+
+      - name: Verify CC0 source page and download blend
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p external-cc0-church
+
+          curl -L --fail --retry 3             https://opengameart.org/content/medieval-church-interior             -o external-cc0-church/source-page.html
+          grep -qi "CC0" external-cc0-church/source-page.html
+          grep -qi "fully explorable interior" external-cc0-church/source-page.html
+
+          curl -L --fail --retry 3             https://opengameart.org/sites/default/files/church.blend             -o external-cc0-church/church.blend
+
+          test -s external-cc0-church/church.blend
+          BYTES="$(stat -c%s external-cc0-church/church.blend)"
+          echo "SOURCE_BYTES=$BYTES"
+          test "$BYTES" -gt 1000000
+
+          sha256sum external-cc0-church/church.blend | tee external-cc0-church/source.sha256
+
+      - name: Install Blender 5.2.2
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3             https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz             -o /tmp/blender-5.2.2-linux-x64.tar.xz
+          tar -C /tmp -xf /tmp/blender-5.2.2-linux-x64.tar.xz
+          /tmp/blender-5.2.2-linux-x64/blender --version
+
+      - name: Render and export CC0 interior
+        shell: bash
+        env:
+          SANCTUM_CC0_INTERIOR_OUT: sanctum-cc0-interior-probe
+        run: |
+          set -euo pipefail
+          mkdir -p sanctum-cc0-interior-probe
+          export SANCTUM_CC0_SOURCE_SHA256="$(cut -d' ' -f1 external-cc0-church/source.sha256)"
+
+          xvfb-run -a -s "-screen 0 1600x1000x24"             /tmp/blender-5.2.2-linux-x64/blender             -b external-cc0-church/church.blend             --python tools/sanctum_v2/probe_cc0_church_interior.py             2>&1 | tee sanctum-cc0-interior-probe/blender-probe.log
+
+          grep -q "SANCTUM_CC0_INTERIOR_PROBE_PASS" sanctum-cc0-interior-probe/blender-probe.log
+
+      - name: Validate evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          out=Path("sanctum-cc0-interior-probe")
+          d=json.loads((out/"probe-report.json").read_text(encoding="utf-8"))
+
+          assert d["status"]=="PASS", d
+          assert d["license"]=="CC0", d
+          assert d["stats"]["mesh_objects"] >= 1, d
+          assert d["stats"]["vertices"] >= 1000, d
+          assert d["stats"]["polygons"] >= 1000, d
+          assert len(d["renders"]) == 6, d
+          assert d["glb_bytes"] > 100000, d
+          assert len(d["source_sha256"]) == 64, d
+
+          for item in d["renders"]:
+              p=out/item["name"]
+              assert p.is_file() and p.stat().st_size > 3000, p
+
+          print("SANCTUM_CC0_INTERIOR_EVIDENCE_GREEN")
+          print("MESH_OBJECTS", d["stats"]["mesh_objects"])
+          print("VERTICES", d["stats"]["vertices"])
+          print("POLYGONS", d["stats"]["polygons"])
+          print("MATERIALS", d["stats"]["material_count"])
+          print("GLB_BYTES", d["glb_bytes"])
+          PY
+
+      - name: Record source metadata
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "SOURCE_PAGE=https://opengameart.org/content/medieval-church-interior"
+            echo "SOURCE_FILE=https://opengameart.org/sites/default/files/church.blend"
+            echo "LICENSE=CC0"
+            echo "SOURCE_SHA256=$(cut -d' ' -f1 external-cc0-church/source.sha256 2>/dev/null || true)"
+            echo "BLENDER=5.2.2"
+          } > sanctum-cc0-interior-probe/source-metadata.txt
+
+      - name: Upload CC0 interior evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-CC0-Church-Interior
+          path: sanctum-cc0-interior-probe/
+          if-no-files-found: error
+          retention-days: 14
