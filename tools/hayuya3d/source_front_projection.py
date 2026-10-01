@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageEnhance, ImageFilter
 
 
 def _deps():
@@ -59,21 +59,22 @@ def _foreground_bbox(image: Image.Image) -> tuple[int,int,int,int]:
     )
 
 
-def _delivery_texture(source: Path, edge: int) -> tuple[Image.Image,dict]:
+def _delivery_texture(source: Path, edge: int):
     image=Image.open(source).convert("RGBA")
     bbox=_foreground_bbox(image)
-    crop=image.crop(bbox)
-    # The projection maps the recovered subject bounds directly onto the native
-    # x/z body bounds. Use a square delivery atlas so UV math remains trivial;
-    # this is a reprojection diagnostic, not evidence of new source detail.
-    crop=crop.resize((int(edge),int(edge)),Image.Resampling.LANCZOS)
-    bg=Image.new("RGB",crop.size,(20,20,20))
-    bg.paste(crop,mask=crop.getchannel("A"))
-    return bg,{
+    crop=image.crop(bbox).resize((int(edge),int(edge)),Image.Resampling.LANCZOS)
+    sharp=Image.new("RGB",crop.size,(20,20,20))
+    sharp.paste(crop,mask=crop.getchannel("A"))
+    radius=max(24.0,float(edge)/48.0)
+    low=sharp.filter(ImageFilter.GaussianBlur(radius=radius))
+    low=ImageEnhance.Color(low).enhance(0.35)
+    low=ImageEnhance.Contrast(low).enhance(0.70)
+    return sharp,low,{
         "source_size":[int(image.width),int(image.height)],
         "source_bbox":[int(v) for v in bbox],
         "delivery_edge":int(edge),
-        "policy":"front-visible source-pixel projection; no generated texture detail",
+        "low_frequency_blur_radius":float(radius),
+        "policy":"sharp visible surfaces plus low-frequency hidden surfaces",
     }
 
 
@@ -163,14 +164,14 @@ def project_source_front(
     )
     hidden_faces=~visible_faces
 
-    texture,tex_meta=_delivery_texture(source_image,int(texture_edge))
+    texture,low_texture,tex_meta=_delivery_texture(source_image,int(texture_edge))
     projected_material=trimesh.visual.material.PBRMaterial(
         baseColorTexture=texture,
         metallicFactor=0.0,
         roughnessFactor=0.82,
     )
     hidden_material=trimesh.visual.material.PBRMaterial(
-        baseColorFactor=[34,34,34,255],
+        baseColorTexture=low_texture,
         metallicFactor=0.0,
         roughnessFactor=0.90,
     )
@@ -195,14 +196,14 @@ def project_source_front(
 
     if np.any(hidden_faces):
         back_mesh=mesh.submesh([np.flatnonzero(hidden_faces)],append=True,repair=False)
-        back_mesh.visual=trimesh.visual.ColorVisuals(
-            mesh=back_mesh,
-            face_colors=np.tile(
-                np.array([[34,34,34,255]],dtype=np.uint8),
-                (len(back_mesh.faces),1),
-            ),
+        back_vertices=np.asarray(back_mesh.vertices,dtype=np.float64)
+        bu=np.clip((back_vertices[:,horizontal_axis]-lo[horizontal_axis])/du,0.0,1.0)
+        bv=np.clip((back_vertices[:,up_axis]-lo[up_axis])/dv,0.0,1.0)
+        back_mesh.visual=trimesh.visual.TextureVisuals(
+            uv=np.stack([bu,bv],axis=1),
+            material=hidden_material,
         )
-        scene.add_geometry(back_mesh,node_name="occluded_neutral")
+        scene.add_geometry(back_mesh,node_name="occluded_low_frequency")
 
     output_glb.parent.mkdir(parents=True,exist_ok=True)
     output_glb.write_bytes(
@@ -217,7 +218,7 @@ def project_source_front(
 
     report={
         "schema":1,
-        "method":"hayuya-native-source-front-projection-v3-occlusion-aware-y-up",
+        "method":"hayuya-native-source-front-projection-v4-frequency-split-occlusion-aware-y-up",
         "source_image":str(source_image),
         "native_mesh":str(native_mesh),
         "output_glb":str(output_glb),
@@ -237,6 +238,7 @@ def project_source_front(
         "diagnostic_only":True,
         "production_eligible":False,
         "occlusion_aware":True,
+        "frequency_split_hidden_surfaces":True,
         "reason":"single-view visibility-aware fallback; cloud texture backends remain preferred and promotion still requires face/multiview gates",
         "bytes":len(blob),
     }
