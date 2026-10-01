@@ -104,6 +104,53 @@ jobs:
           },indent=2))
           PY
 
+      - name: Enhance photogrammetry textures for Android HQ
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet pillow==11.3.0
+          python3 - <<'PY' | tee hq-texture-pass.txt
+          from pathlib import Path
+          from PIL import Image, ImageEnhance, ImageFilter
+          import json, statistics
+
+          root=Path("church-artifact/vril_static/textures/xziel/sanctum")
+          rows=[]
+          for p in sorted(root.glob("*.png")):
+              im=Image.open(p).convert("RGB")
+              w,h=im.size
+              # Leave tiny generated dressing colors alone; only enhance real scan atlases.
+              if max(w,h) < 256:
+                  rows.append({"file":p.name,"before":[w,h],"after":[w,h],"enhanced":False})
+                  continue
+
+              # Photogrammetry atlases contain baked shadows. Brighten midtones
+              # without clipping highlights, then upscale to 2K and sharpen mildly.
+              lut=[min(255, int(round(255*((i/255.0)**0.55)))) for i in range(256)]
+              im=im.point(lut*3)
+              im=ImageEnhance.Contrast(im).enhance(1.08)
+              im=ImageEnhance.Color(im).enhance(1.04)
+
+              scale=2048/max(im.size)
+              nw=max(1,int(round(im.width*scale)))
+              nh=max(1,int(round(im.height*scale)))
+              if (nw,nh)!=im.size:
+                  im=im.resize((nw,nh),Image.Resampling.LANCZOS)
+              im=im.filter(ImageFilter.UnsharpMask(radius=1.1,percent=115,threshold=3))
+              im.save(p,optimize=True)
+
+              rows.append({"file":p.name,"before":[w,h],"after":[nw,nh],"enhanced":True})
+
+          enhanced=[r for r in rows if r["enhanced"]]
+          assert enhanced, rows
+          assert max(max(r["after"]) for r in enhanced) >= 2048
+          print("HQ_TEXTURE_PASS_OK",json.dumps({
+              "textures":len(rows),
+              "enhanced":len(enhanced),
+              "maxDimension":max(max(r["after"]) for r in enhanced)
+          },indent=2))
+          PY
+
       - name: Set up Java 17
         uses: actions/setup-java@v5
         with:
@@ -180,6 +227,7 @@ jobs:
           mkdir -p sanctum-hq-dist
           cp build/android-project/app/build/outputs/apk/debug/app-debug.apk              sanctum-hq-dist/XZIEL-Sanctum-HQ-XZSM-debug.apk
           cp hq-profile.txt sanctum-hq-dist/
+          cp hq-texture-pass.txt sanctum-hq-dist/
           cp church-artifact/vril_static_mesh_report.json sanctum-hq-dist/
           ls -lh sanctum-hq-dist/XZIEL-Sanctum-HQ-XZSM-debug.apk
 
@@ -214,18 +262,20 @@ jobs:
           "$ADB" shell am force-stop com.xziel.sanctumhq || true
           "$ADB" shell am start -W -n com.xziel.sanctumhq/org.libsdl.app.NZPActivity             > sanctum-hq-dist/am-start.txt 2>&1 || true
 
-          sleep 9
-          "$ADB" exec-out screencap -p > sanctum-hq-dist/hq-first.png
-          sleep 9
-          "$ADB" exec-out screencap -p > sanctum-hq-dist/hq-18s.png
-          sleep 14
-          "$ADB" exec-out screencap -p > sanctum-hq-dist/hq-32s.png
+          # XZSM is a 740k-triangle + multi-texture payload. Let the first load
+          # complete before visual judgment instead of failing on the black load frame.
+          sleep 38
+          "$ADB" exec-out screencap -p > sanctum-hq-dist/hq-40s.png
+          sleep 10
+          "$ADB" exec-out screencap -p > sanctum-hq-dist/hq-50s.png
+          sleep 15
+          "$ADB" exec-out screencap -p > sanctum-hq-dist/hq-65s.png
           "$ADB" logcat -d -v threadtime > sanctum-hq-dist/hq-logcat.txt || true
 
           python3 -m pip install --quiet pillow==11.3.0
           python3 - <<'PY' | tee sanctum-hq-dist/hq-visual-report.txt
           from PIL import Image,ImageChops,ImageStat
-          ps=["sanctum-hq-dist/hq-first.png","sanctum-hq-dist/hq-18s.png","sanctum-hq-dist/hq-32s.png"]
+          ps=["sanctum-hq-dist/hq-40s.png","sanctum-hq-dist/hq-50s.png","sanctum-hq-dist/hq-65s.png"]
           ims=[]
           for p in ps:
               im=Image.open(p).convert("RGB")
@@ -234,8 +284,8 @@ jobs:
               print(p,im.size,"mean",round(st.mean[0],2),"std",round(st.stddev[0],2),"range",(lo,hi))
               if im.width<=im.height or im.width<1000 or im.height<500:
                   raise SystemExit("bad screenshot dimensions")
-              if st.stddev[0] < 12 or hi-lo < 45:
-                  raise SystemExit("HQ frame too flat/blank")
+              if st.stddev[0] < 16 or hi-lo < 60 or st.mean[0] < 22:
+                  raise SystemExit("HQ frame too dark/flat/blank")
               ims.append(im)
           for a,b in zip(ims,ims[1:]):
               ds=ImageStat.Stat(ImageChops.difference(a,b).convert("L"))
