@@ -254,7 +254,16 @@ jobs:
 
           test -n "$URL"
           echo "REMOTE_URL=$URL" | tee -a "$OUT/status.txt"
+          echo "$URL" > "$OUT/remote-url.txt"
           echo "::notice title=XChurch Remote::$URL"
+
+      - name: Upload remote link immediately
+        uses: actions/upload-artifact@v4
+        with:
+          name: XChurch-Remote-Link
+          path: /tmp/xchurch-remote/remote-url.txt
+          if-no-files-found: error
+          retention-days: 1
 
       - name: Keep interactive session alive
         shell: bash
