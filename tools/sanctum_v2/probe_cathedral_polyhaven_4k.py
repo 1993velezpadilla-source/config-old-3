@@ -99,28 +99,43 @@ def ensure_cam(scene):
 def point(cam, target):
     cam.rotation_euler = (Vector(target)-cam.location).to_track_quat("-Z","Y").to_euler()
 
-def setup_hdri(scene):
-    world = scene.world or bpy.data.worlds.new("SANCTUM_V2_POLYHAVEN_WORLD")
-    scene.world = world
-    world.use_nodes = True
-    nodes = world.node_tree.nodes
-    links = world.node_tree.links
-    nodes.clear()
-    out = nodes.new("ShaderNodeOutputWorld")
-    bg = nodes.new("ShaderNodeBackground")
-    env = nodes.new("ShaderNodeTexEnvironment")
-    env.image = bpy.data.images.load(str(ASSETS/"afrikaans_church_exterior"/"church_exterior_4k.hdr"), check_existing=True)
-    hdr_size = tuple(int(v) for v in env.image.size)
-    if max(hdr_size) != 4096:
-        raise SystemExit(f"Expected exact 4K HDRI, got {hdr_size}")
-    bg.inputs["Strength"].default_value = 1.0
-    links.new(env.outputs["Color"], bg.inputs["Color"])
-    links.new(bg.outputs["Background"], out.inputs["Surface"])
+def ensure_world(scene):
+    if scene.world is None:
+        scene.world = bpy.data.worlds.new("SANCTUM_V2_PROBE_WORLD")
+    scene.world.use_nodes = True
+    bg = scene.world.node_tree.nodes.get("Background")
+    if bg:
+        bg.inputs["Color"].default_value = (0.035, 0.04, 0.055, 1)
+        bg.inputs["Strength"].default_value = 0.55
 
-def isolate(scene, target, cam):
+def ensure_lights(scene, center, size):
+    lights = []
+    configs = [
+        ("KEY", Vector((0.7,-0.8,1.1)), 2400, max(size.x,size.y,size.z)*0.5),
+        ("FILL", Vector((-0.8,0.2,0.65)), 1400, max(size.x,size.y,size.z)*0.7),
+        ("RIM", Vector((0.1,0.8,1.3)), 1800, max(size.x,size.y,size.z)*0.45),
+    ]
+    ext = max(size.x,size.y,size.z)
+    for name, off, energy, area in configs:
+        ld = bpy.data.lights.get(f"SANCTUM_V2_{name}_DATA") or bpy.data.lights.new(f"SANCTUM_V2_{name}_DATA","AREA")
+        lo = bpy.data.objects.get(f"SANCTUM_V2_{name}") or bpy.data.objects.new(f"SANCTUM_V2_{name}",ld)
+        if lo.name not in scene.collection.objects:
+            try:
+                scene.collection.objects.link(lo)
+            except RuntimeError:
+                pass
+        lo.location = center + off * ext
+        ld.energy = energy
+        ld.shape = "DISK"
+        ld.size = max(area, 2.0)
+        lo.rotation_euler = (center-lo.location).to_track_quat("-Z","Y").to_euler()
+        lights.append(lo)
+    return lights
+
+def isolate(scene, target, cam, lights):
     for o in scene.objects:
         if hasattr(o, "hide_render"):
-            o.hide_render = o not in (target, cam)
+            o.hide_render = o not in [target, cam, *lights]
     target.hide_render = False
     cam.hide_render = False
 
@@ -146,13 +161,13 @@ scene.render.image_settings.file_format = "PNG"
 scene.render.resolution_x = 1280
 scene.render.resolution_y = 800
 scene.render.resolution_percentage = 100
-setup_hdri(scene)
-cam = ensure_cam(scene)
-isolate(scene, target, cam)
-
 center = Vector(stats["center"])
 mn = Vector(stats["min"])
 size = Vector(stats["size"])
+ensure_world(scene)
+cam = ensure_cam(scene)
+lights = ensure_lights(scene, center, size)
+isolate(scene, target, cam, lights)
 ext = max(size.x, size.y, size.z)
 interior_z = mn.z + max(1.7, size.z*0.08)
 
@@ -176,7 +191,7 @@ report = {
         "BeamFakeTextureVertical": "Poly Haven stone_wall_04 4K CC0",
         "FakeRoof": "Poly Haven roof_slates_03 4K CC0",
     },
-    "lighting": "Poly Haven afrikaans_church_exterior 4K HDR CC0",
+    "lighting": "Proven Cathedral Probe #1 neutral review rig",
     "renders": [v[0] for v in views],
 }
 (OUT/"material-probe-report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
