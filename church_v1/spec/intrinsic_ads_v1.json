@@ -96,6 +96,7 @@
     },
     {
       "placementId": 2001,
+      "emitterId": 7001,
       "name": "entry_radio",
       "kind": "audio",
       "format": "audio",

@@ -2,6 +2,7 @@ import bpy
 import json
 import math
 import os
+import struct
 from pathlib import Path
 from mathutils import Vector
 
@@ -195,6 +196,70 @@ for placement in placements:
 if len(surface_objects) != 5 or len(audio_objects) != 1:
     raise RuntimeError("intrinsic placement type count mismatch")
 
+def fixed_path(value):
+    raw = value.encode("utf-8")
+    if not raw or len(raw) >= 96:
+        raise RuntimeError(f"XZAD asset path invalid: {value!r}")
+    return raw + b"\\0" * (96 - len(raw))
+
+surface_specs = [p for p in placements if p["kind"] == "surface"]
+audio_specs = [p for p in placements if p["kind"] == "audio"]
+xzad_path = OUT / "church_v1_intrinsic_ads.xzad"
+
+with xzad_path.open("wb") as f:
+    f.write(struct.pack(
+        "<4sIII",
+        b"XZAD",
+        1,
+        len(surface_specs),
+        len(audio_specs),
+    ))
+
+    for placement in surface_specs:
+        x, y, z = [float(v) for v in placement["center"]]
+        axis = placement["wallAxis"]
+        if axis == "x":
+            normal = (1.0, 0.0, 0.0) if x < 0.0 else (-1.0, 0.0, 0.0)
+        elif axis == "y":
+            normal = (0.0, -1.0, 0.0)
+        else:
+            raise RuntimeError(f"XZAD unsupported wallAxis: {axis}")
+
+        flags = 2 if placement["format"] == "video" else 1
+
+        f.write(struct.pack(
+            "<Q96s13fII",
+            int(placement["placementId"]),
+            fixed_path(placement["placeholderTexture"]),
+            x, y, z,
+            *normal,
+            float(placement["width"]),
+            float(placement["height"]),
+            float(placement["maxViewDistanceMeters"]),
+            float(placement["minimumFacingCosine"]),
+            float(placement["minimumScreenCoverage"]),
+            float(placement["impressionViewSeconds"]),
+            float(placement["cooldownSeconds"]),
+            int(placement["maxImpressionsPerSession"]),
+            flags,
+        ))
+
+    for placement in audio_specs:
+        x, y, z = [float(v) for v in placement["center"]]
+        f.write(struct.pack(
+            "<QQ96s8fI",
+            int(placement["placementId"]),
+            int(placement["emitterId"]),
+            fixed_path(placement["placeholderAudio"]),
+            x, y, z,
+            float(placement["minimumDistanceMeters"]),
+            float(placement["maximumDistanceMeters"]),
+            float(placement["maximumGain"]),
+            float(placement["impressionListenSeconds"]),
+            float(placement["cooldownSeconds"]),
+            int(placement["maxImpressionsPerSession"]),
+        ))
+
 # Export all authored geometry plus ad marker geometry. Extras preserve placement
 # metadata in the GLB for downstream XZIEL conversion/auditing.
 bpy.ops.object.select_all(action="DESELECT")
@@ -226,15 +291,41 @@ scene.render.resolution_y = 900
 scene.render.resolution_percentage = 100
 scene.render.image_settings.file_format = "PNG"
 
-bpy.ops.object.camera_add(location=(0.0, -11.8, 1.62))
-camera = bpy.context.object
-camera.name = "INTRINSIC_AD_PREVIEW_CAMERA"
-camera.data.lens = 24
-look_at(camera, (-4.2, 1.5, 3.25))
-scene.camera = camera
-scene.render.filepath = str(OUT / "intrinsic_ads_player.png")
-bpy.ops.render.render(write_still=True)
-bpy.data.objects.remove(camera, do_unlink=True)
+def render_view(filename, location, target, lens):
+    bpy.ops.object.camera_add(location=location)
+    camera = bpy.context.object
+    camera.name = "INTRINSIC_AD_PREVIEW_CAMERA"
+    camera.data.lens = lens
+    look_at(camera, target)
+    scene.camera = camera
+    scene.render.filepath = str(OUT / filename)
+    bpy.ops.render.render(write_still=True)
+    bpy.data.objects.remove(camera, do_unlink=True)
+
+render_view(
+    "intrinsic_ads_player.png",
+    (0.0, -11.8, 1.62),
+    (-4.2, 1.5, 3.25),
+    24,
+)
+render_view(
+    "intrinsic_ads_surface_close.png",
+    (-4.7, -7.5, 2.45),
+    (-8.69, -7.5, 3.40),
+    38,
+)
+render_view(
+    "intrinsic_ads_apse_close.png",
+    (0.0, 7.4, 1.70),
+    (0.0, 14.52, 3.30),
+    34,
+)
+render_view(
+    "intrinsic_ads_radio_close.png",
+    (5.9, -8.6, 1.65),
+    (5.9, -11.30, 1.15),
+    44,
+)
 
 report = {
     "stage": "INTRINSIC_ADS_V1",
@@ -249,6 +340,8 @@ report = {
     "impressionOnLoad": bool(spec["rules"]["impressionOnLoad"]),
     "provider": spec["rules"]["provider"],
     "exportedGlb": ads_glb.name,
+    "xzad": xzad_path.name,
+    "xzadBytes": xzad_path.stat().st_size,
 }
 (OUT / "intrinsic_ads_v1_report.json").write_text(
     json.dumps(report, indent=2),

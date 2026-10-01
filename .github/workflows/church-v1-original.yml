@@ -95,6 +95,10 @@ jobs:
           test -s church_v1/out/church_v1_nave_art_ads_v1.glb
           test -s church_v1/out/church_v1_nave_art_ads_v1.blend
           test -s church_v1/out/intrinsic_ads_player.png
+          test -s church_v1/out/intrinsic_ads_surface_close.png
+          test -s church_v1/out/intrinsic_ads_apse_close.png
+          test -s church_v1/out/intrinsic_ads_radio_close.png
+          test -s church_v1/out/church_v1_intrinsic_ads.xzad
           test -s church_v1/out/intrinsic_ads_v1_report.json
 
       - name: Validate intrinsic ad placement gate
@@ -112,7 +116,24 @@ jobs:
           assert r["automaticClicks"] is False, r
           assert r["impressionOnLoad"] is False, r
           assert r["provider"] == "LocalAdProvider", r
+          assert r["xzad"] == "church_v1_intrinsic_ads.xzad", r
+          assert r["xzadBytes"] > 0, r
           print("CHURCH_INTRINSIC_ADS_GATE_OK")
+          PY
+          python3 - <<'PY'
+          import struct
+          from pathlib import Path
+          p=Path("church_v1/out/church_v1_intrinsic_ads.xzad")
+          data=p.read_bytes()
+          assert len(data) >= 16, len(data)
+          magic,version,surfaces,audio=struct.unpack_from("<4sIII",data,0)
+          assert magic == b"XZAD", magic
+          assert version == 1, version
+          assert surfaces == 5, surfaces
+          assert audio == 1, audio
+          expected = 16 + surfaces * struct.calcsize("<Q96s13fII") + audio * struct.calcsize("<QQ96s8fI")
+          assert len(data) == expected, (len(data), expected)
+          print("XZAD_EXPORT_GATE_OK", {"bytes":len(data),"surfaces":surfaces,"audio":audio})
           PY
 
       - name: Validate authored final art when present
