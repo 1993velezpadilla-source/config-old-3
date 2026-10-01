@@ -120,8 +120,8 @@ jobs:
                       b=r.read(1024*1024)
                       if not b: break
                       f.write(b)
-              if dst.stat().st_size < 100000:
-                  raise SystemExit(f"Downloaded file too small: {dst} {dst.stat().st_size}")
+              if not dst.is_file() or dst.stat().st_size == 0:
+                  raise SystemExit(f"Download missing or empty: {dst}")
 
           manifest={
               "license":"CC0",
@@ -145,6 +145,29 @@ jobs:
           url=choose(asset,"hdri","hdr")
           download(url,root/asset/"church_4k.hdr")
           manifest["assets"][asset]={"hdri_4k":url}
+
+          def png_dimensions(path):
+              with path.open("rb") as f:
+                  sig=f.read(24)
+              if len(sig) < 24 or sig[:8] != b"\x89PNG\r\n\x1a\n" or sig[12:16] != b"IHDR":
+                  raise SystemExit(f"Not a valid PNG: {path}")
+              return int.from_bytes(sig[16:20],"big"), int.from_bytes(sig[20:24],"big")
+
+          texture_pngs = [
+              root/"stone_wall_04"/"diffuse.png",
+              root/"stone_wall_04"/"rough.png",
+              root/"stone_wall_04"/"normal_gl.png",
+              root/"roof_slates_03"/"diffuse.png",
+              root/"roof_slates_03"/"rough.png",
+              root/"roof_slates_03"/"normal_gl.png",
+          ]
+          dimensions={}
+          for p in texture_pngs:
+              w,h=png_dimensions(p)
+              dimensions[str(p)] = [w,h]
+              if max(w,h) != 4096:
+                  raise SystemExit(f"Expected Poly Haven 4K texture, got {w}x{h}: {p}")
+          manifest["verified_png_dimensions"]=dimensions
 
           (root/"SOURCE_MANIFEST.json").write_text(json.dumps(manifest,indent=2),encoding="utf-8")
           (root/"ATTRIBUTION.txt").write_text(
@@ -198,9 +221,15 @@ jobs:
           assert "Generate Cathedral Combined" in d["geometry_nodes"], d
           assert d["stats"]["uv_layers"] >= 1, d
           assert len(d["renders"]) == 6, d
+          def png_dimensions(path):
+              with path.open("rb") as f:
+                  sig=f.read(24)
+              assert len(sig) >= 24 and sig[:8] == b"\x89PNG\r\n\x1a\n" and sig[12:16] == b"IHDR", path
+              return int.from_bytes(sig[16:20],"big"), int.from_bytes(sig[20:24],"big")
           for name in d["renders"]:
               p=root/name
-              assert p.is_file() and p.stat().st_size > 25000, (name,p.stat().st_size if p.exists() else None)
+              assert p.is_file(), name
+              assert png_dimensions(p) == (1280,800), (name,png_dimensions(p))
           print("SANCTUM_V2_4K_VISUAL_GATES_OK")
           PY
 
