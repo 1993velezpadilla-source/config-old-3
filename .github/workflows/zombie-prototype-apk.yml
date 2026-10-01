@@ -21,7 +21,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: xziel-zombie-prototype
+  group: xziel-dead-cell-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
