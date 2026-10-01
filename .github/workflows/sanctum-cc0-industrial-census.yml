@@ -1,0 +1,73 @@
+name: Sanctum CC0 Industrial Pack Census
+
+on:
+  push:
+    branches:
+      - feature/xziel-map-builder-agent-v1
+    paths:
+      - ".github/workflows/sanctum-cc0-industrial-census.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sanctum-cc0-industrial-census-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  census:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download verified CC0 PBR industrial pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p industrial-census external-industrial
+          curl -L --fail --retry 3 \
+            https://opengameart.org/content/pbr-industrial-asset-pack \
+            -o industrial-census/source-page.html
+          grep -qi "CC0" industrial-census/source-page.html
+          grep -Eqi "control panel|pipe|tank|stair" industrial-census/source-page.html
+
+          curl -L --fail --retry 3 \
+            https://opengameart.org/sites/default/files/oga_industrial_a52_version_0.zip \
+            -o /tmp/industrial.zip
+          test -s /tmp/industrial.zip
+          sha256sum /tmp/industrial.zip | tee industrial-census/source.sha256
+          unzip -q /tmp/industrial.zip -d external-industrial
+
+      - name: Census Blender and asset files
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "SOURCE=https://opengameart.org/content/pbr-industrial-asset-pack"
+            echo "LICENSE=CC0"
+            echo "ZIP_BYTES=$(stat -c%s /tmp/industrial.zip)"
+            echo "SHA256=$(cut -d' ' -f1 industrial-census/source.sha256)"
+            echo
+            echo "BLEND_FILES"
+            find external-industrial -type f -iname '*.blend' -printf '%s %p\n' | sort -nr
+            echo
+            echo "MODEL_FILES"
+            find external-industrial -type f \( -iname '*.glb' -o -iname '*.gltf' -o -iname '*.fbx' -o -iname '*.obj' \) -printf '%s %p\n' | sort -nr | head -200
+            echo
+            echo "TEXTURES"
+            find external-industrial -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.tga' \) -printf '%s %p\n' | sort -nr | head -200
+          } | tee industrial-census/census.txt
+
+          BLENDS="$(find external-industrial -type f -iname '*.blend' | wc -l)"
+          echo "BLEND_COUNT=$BLENDS" | tee -a industrial-census/census.txt
+          test "$BLENDS" -ge 1
+
+      - name: Upload census
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-CC0-Industrial-Census
+          path: industrial-census/
+          if-no-files-found: error
+          retention-days: 14
