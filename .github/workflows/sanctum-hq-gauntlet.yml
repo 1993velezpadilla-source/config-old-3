@@ -272,6 +272,13 @@ jobs:
           "$ADB" exec-out screencap -p > sanctum-hq-dist/hq-65s.png
           "$ADB" logcat -d -v threadtime > sanctum-hq-dist/hq-logcat.txt || true
 
+          if grep -Eq 'XZIEL_XZSM: texture\[[0-9]+\] handle=-1' sanctum-hq-dist/hq-logcat.txt; then
+            echo "HQ architectural texture load failure"
+            grep 'XZIEL_XZSM: texture' sanctum-hq-dist/hq-logcat.txt | head -80
+            exit 1
+          fi
+          grep 'XZIEL_XZSM: loaded batches=' sanctum-hq-dist/hq-logcat.txt
+
           python3 -m pip install --quiet pillow==11.3.0
           python3 - <<'PY' | tee sanctum-hq-dist/hq-visual-report.txt
           from PIL import Image,ImageChops,ImageStat
