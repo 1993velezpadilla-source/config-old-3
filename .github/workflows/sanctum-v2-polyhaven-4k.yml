@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: sanctum-v2-polyhaven-4k-${{ github.ref }}
+  group: sanctum-v2-polyhaven-4k-v2-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
