@@ -362,6 +362,132 @@ def _clamp_to_front_silhouette(
     }
 
 
+def _source_alpha_planar_mask(
+    source_visible_front,
+    bounds,
+    output_size:int,
+    *,
+    alpha_threshold:int=8,
+):
+    # The source projection UVs are an affine XY mapping. Reconstruct that
+    # mapping directly from the exported front geometry and project the
+    # texture alpha into screen space WITHOUT rasterizing the front mesh.
+    # This makes the original 2D source outline authoritative even where
+    # front-face classification is sparse or hidden support geometry exists.
+    best=None
+    for geometry in source_visible_front:
+        payload=_texture_payload(geometry)
+        if payload is None:
+            continue
+        vertices,_,uv,texture=payload
+        if texture.shape[2] < 4 or len(vertices) < 8:
+            continue
+        if best is None or len(vertices)>len(best[0]):
+            best=(vertices,uv,texture)
+
+    if best is None:
+        raise RuntimeError("source_visible_front has no RGBA texture payload")
+
+    vertices,uv,texture=best
+    x=np.asarray(vertices[:,0],dtype=np.float64)
+    y=np.asarray(vertices[:,1],dtype=np.float64)
+    u=np.asarray(uv[:,0],dtype=np.float64)
+    v=np.asarray(uv[:,1],dtype=np.float64)
+
+    ax,bx=np.linalg.lstsq(
+        np.stack([x,np.ones_like(x)],axis=1),
+        u,
+        rcond=None,
+    )[0]
+    ay,by=np.linalg.lstsq(
+        np.stack([y,np.ones_like(y)],axis=1),
+        v,
+        rcond=None,
+    )[0]
+    u_fit=ax*x+bx
+    v_fit=ay*y+by
+    u_rmse=float(np.sqrt(np.mean((u-u_fit)**2)))
+    v_rmse=float(np.sqrt(np.mean((v-v_fit)**2)))
+    if not np.isfinite(u_rmse+v_rmse) or u_rmse>0.01 or v_rmse>0.01:
+        raise RuntimeError(
+            f"source alpha UV mapping is not planar enough: "
+            f"u_rmse={u_rmse} v_rmse={v_rmse}"
+        )
+
+    size=int(output_size)
+    xmin,xmax,ymin,ymax=[float(q) for q in bounds]
+    world_x=np.linspace(xmin,xmax,size,dtype=np.float64)
+    world_y=np.linspace(ymax,ymin,size,dtype=np.float64)
+    uu=ax*world_x+bx
+    vv=ay*world_y+by
+
+    tex_alpha=np.asarray(texture[:,:,3],dtype=np.float32)
+    th,tw=tex_alpha.shape
+    tx=np.clip(uu*(tw-1),0.0,tw-1.0)
+    ty=np.clip((1.0-vv)*(th-1),0.0,th-1.0)
+
+    x0=np.floor(tx).astype(np.int32)
+    y0=np.floor(ty).astype(np.int32)
+    x1=np.minimum(x0+1,tw-1)
+    y1=np.minimum(y0+1,th-1)
+    fx=(tx-x0).astype(np.float32)
+    fy=(ty-y0).astype(np.float32)
+
+    a00=tex_alpha[np.ix_(y0,x0)]
+    a01=tex_alpha[np.ix_(y0,x1)]
+    a10=tex_alpha[np.ix_(y1,x0)]
+    a11=tex_alpha[np.ix_(y1,x1)]
+    top=a00*(1.0-fx[None,:])+a01*fx[None,:]
+    bottom=a10*(1.0-fx[None,:])+a11*fx[None,:]
+    alpha=top*(1.0-fy[:,None])+bottom*fy[:,None]
+
+    valid_u=(uu>=0.0)&(uu<=1.0)
+    valid_v=(vv>=0.0)&(vv<=1.0)
+    valid=valid_v[:,None]&valid_u[None,:]
+    outline=valid&(alpha>=float(alpha_threshold))
+
+    return Image.fromarray(outline.astype(np.uint8)*255,"L"),{
+        "policy":"hard_source_alpha_screen_space",
+        "alpha_threshold":int(alpha_threshold),
+        "u_fit":[float(ax),float(bx)],
+        "v_fit":[float(ay),float(by)],
+        "u_rmse":u_rmse,
+        "v_rmse":v_rmse,
+        "outline_pixels":int(np.count_nonzero(outline)),
+        "texture_size":[int(tw),int(th)],
+    }
+
+
+def _hard_clip_to_outline(
+    image:Image.Image,
+    rendered_mask:Image.Image,
+    outline_mask:Image.Image,
+):
+    rendered=np.asarray(rendered_mask,dtype=np.uint8)>0
+    outline=np.asarray(outline_mask,dtype=np.uint8)>0
+    if not np.any(outline):
+        raise RuntimeError("hard source-alpha outline mask was empty")
+
+    keep=rendered&outline
+    outside=rendered&~outline
+    missing=outline&~rendered
+
+    arr=np.asarray(image.convert("RGB"),dtype=np.uint8).copy()
+    arr[~keep]=np.array([18,18,18],dtype=np.uint8)
+    out_mask=Image.fromarray(keep.astype(np.uint8)*255,"L")
+    outline_pixels=int(np.count_nonzero(outline))
+    kept_pixels=int(np.count_nonzero(keep))
+    return Image.fromarray(arr,"RGB"),out_mask,{
+        "policy":"hard_source_alpha_screen_space",
+        "outline_pixels":outline_pixels,
+        "rendered_pixels":int(np.count_nonzero(rendered)),
+        "kept_pixels":kept_pixels,
+        "removed_outside_outline":int(np.count_nonzero(outside)),
+        "missing_inside_outline":int(np.count_nonzero(missing)),
+        "outline_coverage":float(kept_pixels/max(outline_pixels,1)),
+    }
+
+
 def _mask_edge_contact(mask:Image.Image,margin:int=4):
     arr=np.asarray(mask,dtype=np.uint8)>0
     if not np.any(arr):
@@ -436,7 +562,7 @@ def _render_uv_with_edge_retry(
 def _full_bounds(vertices):
     lo=vertices.min(axis=0)
     hi=vertices.max(axis=0)
-    span=max(float(hi[0]-lo[0]),float(hi[1]-lo[1]))*1.28
+    span=max(float(hi[0]-lo[0]),float(hi[1]-lo[1]))*1.42
     cx=float((lo[0]+hi[0])*0.5)
     cy=float((lo[1]+hi[1])*0.5)
     return (
@@ -575,37 +701,38 @@ def render_preview(
 
         silhouette_clamp=None
         if source_visible_front:
-            _,front_full_mask=_render_uv_region(
+            full_outline,full_outline_map=_source_alpha_planar_mask(
                 source_visible_front,
                 full_bounds_used,
                 int(size),
-                int(supersample),
+                alpha_threshold=8,
             )
-            _,front_face_mask=_render_uv_region(
+            face_outline,face_outline_map=_source_alpha_planar_mask(
                 source_visible_front,
                 head_bounds_used,
                 int(face_size),
-                int(supersample),
+                alpha_threshold=8,
             )
-            full_raw,full_mask_raw,full_clamp=_clamp_to_front_silhouette(
+            full_raw,full_mask_raw,full_clamp=_hard_clip_to_outline(
                 full_raw,
                 full_mask_raw,
-                front_full_mask,
-                dilation_pixels=max(2,int(round(int(size)*0.004))),
-                rescue_pixels=max(8,int(round(int(size)*0.013))),
+                full_outline,
             )
-            face_raw,face_mask_raw,face_clamp=_clamp_to_front_silhouette(
+            face_raw,face_mask_raw,face_clamp=_hard_clip_to_outline(
                 face_raw,
                 face_mask_raw,
-                front_face_mask,
-                dilation_pixels=max(3,int(round(int(face_size)*0.006))),
-                rescue_pixels=max(6,int(round(int(face_size)*0.009))),
+                face_outline,
             )
             silhouette_clamp={
                 "enabled":True,
                 "source_node":"source_visible_front",
+                "policy":"hard_source_alpha_screen_space",
                 "full":full_clamp,
                 "face":face_clamp,
+                "outline_mapping":{
+                    "full":full_outline_map,
+                    "face":face_outline_map,
+                },
                 "edge_retry":{
                     "full":full_edge_attempts,
                     "face":face_edge_attempts,
@@ -629,7 +756,7 @@ def render_preview(
             int(face_size),
             0.10,
         )
-        renderer="hayuya-cpu-uv-alpha-proximity-rescue-ss2-v7"
+        renderer="hayuya-cpu-uv-hard-source-outline-ss2-v8"
     else:
         silhouette_clamp={
             "enabled":False,
@@ -693,7 +820,7 @@ def render_preview(
             "full":0.12,
             "face":0.10,
         },
-        "silhouette_source":"source_visible_front_clamp" if silhouette_clamp.get("enabled") else "renderer_zbuffer_visibility_mask",
+        "silhouette_source":"hard_source_alpha_screen_space" if silhouette_clamp.get("enabled") else "renderer_zbuffer_visibility_mask",
         "silhouette_clamp":silhouette_clamp,
     }
     (output_dir/"software_manifest.json").write_text(
