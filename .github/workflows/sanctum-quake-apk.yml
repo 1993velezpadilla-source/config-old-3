@@ -68,14 +68,11 @@ jobs:
         shell: bash
         env:
           CHURCH_SOURCE: church/source/st-giles-cripplegate.glb
-          CHURCH_OUT: church/out
-          CHURCH_TARGET_TRIS: "650000"
+          CHURCH_PLAN: church/out/zombies_map_plan.json
           LIBGL_ALWAYS_SOFTWARE: "1"
         run: |
           set -euo pipefail
-          xvfb-run -a -s "-screen 0 1280x1024x24"             blender --background --python tools/church_map/build_church_scene.py             2>&1 | tee church/out/church-measure.log
-          CHURCH_MASTER=church/out/church_map_master.blend           CHURCH_OUT=church/out           LIBGL_ALWAYS_SOFTWARE=1           xvfb-run -a -s "-screen 0 1600x1000x24"             blender --background --python tools/church_map/design_zombies_gameplay.py             2>&1 | tee church/out/church-gameplay-plan.log
-          test -s church/out/church_scene_report.json
+          xvfb-run -a -s "-screen 0 1280x1024x24" blender --background --python tools/church_map/measure_sanctum_fast.py 2>&1 | tee church/out/church-measure.log
           test -s church/out/zombies_map_plan.json
 
       - name: Export scan-derived GREEN Quake church
