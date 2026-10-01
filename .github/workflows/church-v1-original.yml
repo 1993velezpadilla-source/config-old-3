@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - feature/church-v1-original
+      - feature/church-intrinsic-ads-v1
     paths:
       - ".github/workflows/church-v1-original.yml"
       - "church_v1/**"
