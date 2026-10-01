@@ -4,18 +4,19 @@
   "allow_new_architecture": false,
   "source_object": "Catehdral",
   "geometry_node_group": "Generate Cathedral Combined",
-  "object_transform": {
-    "location": [0.0, 0.0, 0.0],
-    "rotation_deg": [0.0, 0.0, 0.0],
-    "scale": [1.0, 1.0, 1.0]
-  },
+  "object_transform": {},
   "geometry_nodes_inputs": {},
   "render": {
     "engine": "BLENDER_EEVEE",
-    "width": 1280,
-    "height": 800,
-    "lens_mm": 38.0,
-    "world_color": [0.025, 0.03, 0.04, 1.0],
+    "width": 640,
+    "height": 400,
+    "lens_mm": 38,
+    "world_color": [
+      0.025,
+      0.03,
+      0.04,
+      1
+    ],
     "world_strength": 0.45
   },
   "quality_gate": {
