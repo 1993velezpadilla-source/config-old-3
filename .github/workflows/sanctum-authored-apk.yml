@@ -1,0 +1,234 @@
+name: XZIEL Sanctum Authored Map
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/sanctum-authored-apk.yml"
+      - "tools/church_map/generate_sanctum_authored.py"
+      - "android/**"
+      - "scripts/**"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xziel-sanctum-authored-${{ github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  build-sanctum-authored:
+    name: Build authored Sanctum map
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Generate authored church MAP
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/church_map/generate_sanctum_authored.py | tee build/sanctum_authored/generate.log
+          test -s build/sanctum_authored/sanctum_authored.map
+          test -s build/sanctum_authored/sanctum_authored_report.json
+          test -s build/sanctum_authored/sanctum_authored_plan.svg
+          cat build/sanctum_authored/sanctum_authored_report.json
+
+      - name: Compile authored church BSP + NSZ
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/nzp-assets /tmp/spawn-zone-tool
+          git clone --depth 1 https://github.com/nzp-team/assets.git /tmp/nzp-assets
+          git clone --depth 1 --recursive https://github.com/nzp-team/spawn-zone-tool.git /tmp/spawn-zone-tool
+          python3 -m pip install --quiet -r /tmp/spawn-zone-tool/requirements.txt
+
+          (
+            cd /tmp/nzp-assets
+            bash tools/compile-wads.sh
+            mkdir -p source/maps/sanctum_authored
+            cp "$GITHUB_WORKSPACE/build/sanctum_authored/sanctum_authored.map" source/maps/sanctum_authored/sanctum_authored.map
+
+            if [[ ! -x tools/vhlt/hlbsp ]]; then
+              wget -q -P tools/ https://github.com/nzp-team/vhlt/releases/download/Vanilla/vhlt-v34-linux-x86_64.zip
+              unzip -q tools/vhlt-v34-linux-x86_64.zip -d tools/vhlt/
+              chmod +x tools/vhlt/*
+              rm tools/vhlt-v34-linux-x86_64.zip
+            fi
+
+            cd source/maps/sanctum_authored
+            ../../../tools/vhlt/hlcsg -threads 8 -nowadtextures -wadautodetect sanctum_authored.map
+            ../../../tools/vhlt/hlbsp -threads 8 sanctum_authored.map
+            ../../../tools/vhlt/hlvis -threads 8 -fast sanctum_authored.bsp
+            ../../../tools/vhlt/hlrad -threads 8 sanctum_authored.bsp
+            python3 /tmp/spawn-zone-tool/spawn_zone_tool.py sanctum_authored.map --output ../../../common/maps/sanctum_authored.nsz
+            mv sanctum_authored.bsp ../../../common/maps/sanctum_authored.bsp
+          ) 2>&1 | tee build/sanctum_authored/compile.log
+
+          mkdir -p sanctum-authored-dist
+          test -s /tmp/nzp-assets/common/maps/sanctum_authored.bsp
+          test -s /tmp/nzp-assets/common/maps/sanctum_authored.nsz
+          cp /tmp/nzp-assets/common/maps/sanctum_authored.bsp sanctum-authored-dist/
+          cp /tmp/nzp-assets/common/maps/sanctum_authored.nsz sanctum-authored-dist/
+          cp build/sanctum_authored/sanctum_authored.map sanctum-authored-dist/
+          cp build/sanctum_authored/sanctum_authored_report.json sanctum-authored-dist/
+          cp build/sanctum_authored/sanctum_authored_plan.svg sanctum-authored-dist/
+          cp build/sanctum_authored/generate.log sanctum-authored-dist/
+          cp build/sanctum_authored/compile.log sanctum-authored-dist/
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android SDK, NDK and emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER"             "platform-tools"             "platforms;android-35"             "build-tools;35.0.0"             "ndk;27.2.12479018"             "emulator"             "system-images;android-35;google_apis;x86_64"
+
+      - name: Prepare XZIEL Android with authored church
+        shell: bash
+        env:
+          XZIEL_EXTRA_MAP_NAME: sanctum_authored
+          XZIEL_EXTRA_MAP_BSP: ${{ github.workspace }}/sanctum-authored-dist/sanctum_authored.bsp
+          XZIEL_EXTRA_MAP_NSZ: ${{ github.workspace }}/sanctum-authored-dist/sanctum_authored.nsz
+        run: |
+          set -euo pipefail
+          bash scripts/prepare_android.sh
+          unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/maps/sanctum_authored.bsp'
+          unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/maps/sanctum_authored.nsz'
+
+      - name: Make authored Sanctum one-tap
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          activity=Path("build/android-project/app/src/main/java/org/libsdl/app/NZPActivity.java")
+          text=activity.read_text(encoding="utf-8")
+          pattern=re.compile(r'(return\s+new\s+String\[\]\s*\{\s*"-basedir"\s*,\s*dataRoot\.getAbsolutePath\(\)\s*)(\};)',re.MULTILINE)
+          text,count=pattern.subn(r'\1,\n            "+map", "sanctum_authored"\n        \2',text,count=1)
+          if count!=1:
+              raise SystemExit("Could not patch launch args")
+          activity.write_text(text,encoding="utf-8")
+
+          gradle=Path("build/android-project/app/build.gradle")
+          g=gradle.read_text(encoding="utf-8")
+          g,n=re.subn(r'applicationId\s+"[^"]+"','applicationId "com.xziel.sanctum"',g,count=1)
+          if n!=1: raise SystemExit("Could not patch applicationId")
+          g,n=re.subn(r'versionName\s+"[^"]+"','versionName "0.2-authored"',g,count=1)
+          if n!=1: raise SystemExit("Could not patch versionName")
+          gradle.write_text(g,encoding="utf-8")
+
+          strings=Path("build/android-project/app/src/main/res/values/strings.xml")
+          s=strings.read_text(encoding="utf-8")
+          s=re.sub(r'<string name="app_name">.*?</string>','<string name="app_name">XZIEL: Sanctum</string>',s)
+          strings.write_text(s,encoding="utf-8")
+          PY
+
+      - name: Build APK
+        working-directory: build/android-project
+        shell: bash
+        run: ./gradlew --no-daemon assembleDebug --stacktrace
+
+      - name: Collect APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp build/android-project/app/build/outputs/apk/debug/app-debug.apk sanctum-authored-dist/XZIEL-Sanctum-Authored-debug.apk
+          ls -lh sanctum-authored-dist/
+
+      - name: Android visual + gameplay evidence
+        id: smoke
+        continue-on-error: true
+        shell: bash
+        env:
+          ANDROID_AVD_HOME: ${{ runner.temp }}/xziel-sanctum-authored-avd
+        run: |
+          set -euo pipefail
+          mkdir -p "$ANDROID_AVD_HOME"
+          ADB="${ANDROID_HOME}/platform-tools/adb"
+          EMULATOR="${ANDROID_HOME}/emulator/emulator"
+          AVDMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name avdmanager | sort | tail -n 1)"
+
+          printf 'no\n' | "$AVDMANAGER" create avd --force --name xziel-sanctum-authored-ci             --package "system-images;android-35;google_apis;x86_64" --device "pixel_6"
+
+          [[ ! -e /dev/kvm ]] || sudo chmod 666 /dev/kvm || true
+          nohup "$EMULATOR" @xziel-sanctum-authored-ci -no-window -no-audio -no-boot-anim -no-snapshot             -gpu swiftshader_indirect -memory 2048 > sanctum-authored-dist/emulator-stdout.txt 2>&1 &
+
+          timeout 120 "$ADB" wait-for-device
+          for i in $(seq 1 60); do
+            [[ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]] && break
+            sleep 2
+          done
+          test "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1"
+
+          "$ADB" install -r sanctum-authored-dist/XZIEL-Sanctum-Authored-debug.apk
+          "$ADB" shell settings put secure immersive_mode_confirmations confirmed || true
+          "$ADB" logcat -c
+          "$ADB" shell am force-stop com.xziel.sanctum || true
+          "$ADB" shell am start -W -n com.xziel.sanctum/org.libsdl.app.NZPActivity > sanctum-authored-dist/am-start.txt 2>&1 || true
+
+          sleep 6
+          "$ADB" exec-out screencap -p > sanctum-authored-dist/church-06s.png
+          sleep 8
+          "$ADB" exec-out screencap -p > sanctum-authored-dist/church-14s.png
+          sleep 16
+          "$ADB" exec-out screencap -p > sanctum-authored-dist/church-30s.png
+          "$ADB" logcat -d -v threadtime > sanctum-authored-dist/logcat.txt || true
+
+          python3 -m pip install --quiet pillow==11.3.0
+          python3 - <<'PY' | tee sanctum-authored-dist/visual-report.txt
+          from PIL import Image,ImageChops,ImageStat
+          paths=[
+              "sanctum-authored-dist/church-06s.png",
+              "sanctum-authored-dist/church-14s.png",
+              "sanctum-authored-dist/church-30s.png",
+          ]
+          ims=[]
+          for p in paths:
+              im=Image.open(p).convert("RGB")
+              gray=im.convert("L"); st=ImageStat.Stat(gray); lo,hi=gray.getextrema()
+              print(p,im.size,"mean",round(st.mean[0],2),"std",round(st.stddev[0],2),"extrema",(lo,hi))
+              if im.width<=im.height or st.stddev[0]<6 or hi-lo<20:
+                  raise SystemExit("bad visual frame "+p)
+              ims.append(im)
+          for a,b in zip(ims,ims[1:]):
+              ds=ImageStat.Stat(ImageChops.difference(a,b).convert("L"))
+              print("delta",round(ds.mean[0],3),round(ds.stddev[0],3))
+          PY
+
+          PID="$("$ADB" shell pidof com.xziel.sanctum 2>/dev/null | tr -d '\r' || true)"
+          STAGE="$("$ADB" shell run-as com.xziel.sanctum cat files/nzp-runtime/.xziel-stage 2>/dev/null | tr -d '\r' || true)"
+          echo "PID=$PID" | tee sanctum-authored-dist/runtime-state.txt
+          echo "STAGE=$STAGE" | tee -a sanctum-authored-dist/runtime-state.txt
+
+          if grep -Eq "Fatal signal|FATAL EXCEPTION|stage=SYS_ERROR|XZIEL_QC.*PR_RunError" sanctum-authored-dist/logcat.txt; then
+            grep -E "XZIEL_QC|stage=SYS_ERROR|Fatal signal|FATAL EXCEPTION" sanctum-authored-dist/logcat.txt | tail -120 || true
+            exit 1
+          fi
+          test -n "$PID"
+          test "$STAGE" = "FIRST_FRAME_OK"
+
+      - name: Upload authored map evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-Authored
+          path: sanctum-authored-dist/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Fail if gameplay failed
+        if: steps.smoke.outcome == 'failure'
+        shell: bash
+        run: exit 1
