@@ -84,6 +84,35 @@ s=s.replace(
 ''',1)
 
 
+# Missing-texture fallback. If Image_LoadImage fails, draw the affected
+# geometry bright magenta instead of silently inheriting a black/invalid texture.
+fallback_anchor='''        if (b->texture >= 0)
+            GL_Bind(b->texture);
+        glVertexPointer(3, GL_FLOAT, sizeof(xzsm_vertex_t), &b->vertices[0].x);
+        glTexCoordPointer(2, GL_FLOAT, sizeof(xzsm_vertex_t), &b->vertices[0].u);
+        glDrawElements(GL_TRIANGLES, b->index_count, GL_UNSIGNED_SHORT, b->indices);
+'''
+fallback_repl='''        if (b->texture >= 0) {
+            glEnable(GL_TEXTURE_2D);
+            GL_Bind(b->texture);
+            glColor4f(1, 1, 1, 1);
+        } else {
+            glDisable(GL_TEXTURE_2D);
+            glColor4f(1, 0, 1, 1);
+        }
+        glVertexPointer(3, GL_FLOAT, sizeof(xzsm_vertex_t), &b->vertices[0].x);
+        glTexCoordPointer(2, GL_FLOAT, sizeof(xzsm_vertex_t), &b->vertices[0].u);
+        glDrawElements(GL_TRIANGLES, b->index_count, GL_UNSIGNED_SHORT, b->indices);
+        if (b->texture < 0) {
+            glEnable(GL_TEXTURE_2D);
+            glColor4f(1, 1, 1, 1);
+        }
+'''
+if fallback_anchor not in s:
+    raise SystemExit("missing-texture fallback anchor not found")
+s=s.replace(fallback_anchor,fallback_repl,1)
+
+
 # Android XZSM diagnostics + explicit GL state for gauntlet loop.
 s=s.replace(
     '#include <string.h>\n',
