@@ -136,6 +136,7 @@ def render_candidate(obj, index):
     scene.render.resolution_x = 1280
     scene.render.resolution_y = 800
     scene.render.resolution_percentage = 100
+    scene.render.image_settings.media_type = "IMAGE"
     scene.render.image_settings.file_format = "PNG"
 
     world = scene.world
