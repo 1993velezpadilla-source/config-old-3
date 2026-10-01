@@ -294,7 +294,7 @@ if stats["polygons"] < int(quality.get("min_polygons", 1)):
 
 render_cfg = plan.get("render", {})
 scene.render.engine = render_cfg.get("engine", "BLENDER_EEVEE")
-scene.render.image_settings.file_format = "PNG"
+scene.render.image_settings.media_type = "IMAGE"\nscene.render.image_settings.file_format = "PNG"
 scene.render.resolution_x = int(render_cfg.get("width", 1280))
 scene.render.resolution_y = int(render_cfg.get("height", 800))
 scene.render.resolution_percentage = 100
