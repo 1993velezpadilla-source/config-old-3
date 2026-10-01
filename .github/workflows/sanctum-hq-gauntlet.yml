@@ -100,6 +100,40 @@ jobs:
           },indent=2))
           PY
 
+      - name: Re-export Sanctum from original scan at real 4K
+        shell: bash
+        env:
+          CHURCH_GAMEPLAY_BLEND: ${{ github.workspace }}/church-artifact/dressing/sanctum_dressing_v1.blend
+          CHURCH_PLAN: ${{ github.workspace }}/church-artifact/zombies_map_plan.json
+          CHURCH_OUT: ${{ github.workspace }}/church-artifact
+          XZIEL_STATIC_TARGET_TRIS: "640000"
+          XZIEL_STATIC_TEXTURE_MAX: "4096"
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender libegl1 libgl1-mesa-dri libglx-mesa0 mesa-utils xvfb
+          xvfb-run -a -s "-screen 0 1280x1024x24" \
+            blender --background --python tools/church_map/export_vril_static_mesh.py \
+            2>&1 | tee church-artifact/vril-static-4k-export.log
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          from PIL import Image
+
+          r=json.load(open("church-artifact/vril_static_mesh_report.json",encoding="utf-8"))
+          assert r["textureMaxDimension"] >= 4096, r
+          root=Path("church-artifact/vril_static/textures/xziel/sanctum")
+          dims=[]
+          for p in sorted(root.glob("*.png")):
+              with Image.open(p) as im:
+                  dims.append((p.name,im.width,im.height))
+          arch=[d for d in dims if max(d[1],d[2]) >= 4096]
+          assert arch, dims
+          print("SANCTUM_REAL_4K_OK", {"textures":len(dims),"fourK":len(arch),"sample":arch[:4]})
+          PY
+
       - name: Enhance photogrammetry textures for Android HQ
         shell: bash
         run: |
@@ -126,19 +160,17 @@ jobs:
               im=ImageEnhance.Contrast(im).enhance(1.16)
               im=ImageEnhance.Color(im).enhance(1.03)
 
-              scale=2048/max(im.size)
-              nw=max(1,int(round(im.width*scale)))
-              nh=max(1,int(round(im.height*scale)))
-              if (nw,nh)!=im.size:
-                  im=im.resize((nw,nh),Image.Resampling.LANCZOS)
-              im=im.filter(ImageFilter.UnsharpMask(radius=0.9,percent=145,threshold=2))
+              # The XZSM re-export already preserves real source 4K.
+              # Keep those pixels; do not manufacture or shrink detail here.
+              nw,nh=im.size
+              im=im.filter(ImageFilter.UnsharpMask(radius=0.75,percent=125,threshold=2))
               im.save(p,optimize=True)
 
               rows.append({"file":p.name,"before":[w,h],"after":[nw,nh],"enhanced":True})
 
           enhanced=[r for r in rows if r["enhanced"]]
           assert enhanced, rows
-          assert max(max(r["after"]) for r in enhanced) >= 2048
+          assert max(max(r["after"]) for r in enhanced) >= 4096
           print("HQ_TEXTURE_PASS_OK",json.dumps({
               "textures":len(rows),
               "enhanced":len(enhanced),
@@ -179,6 +211,7 @@ jobs:
           unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/maps/sanctum_harness.nsz'
           unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/models/xziel/sanctum/sanctum.xzsm'
           unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/textures/xziel/sanctum/' | head -n 10
+          grep -q 'SANCTUM_REAL_4K_OK' church-artifact/vril-static-4k-export.log || true
 
       - name: Make HQ Sanctum one-tap
         shell: bash
