@@ -1,0 +1,289 @@
+name: Sanctum V2 CC0 Interior Import Probe
+
+on:
+  push:
+    branches:
+      - sanctum-v2-existing-assets-only
+    paths:
+      - ".github/workflows/sanctum-v2-cc0-interior-import.yml"
+      - "tools/sanctum_v2/probe_cathedral_cc0_interior_import.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sanctum-v2-cc0-interior-import-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    name: Render selective CC0 church interior import
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Install host packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq git-lfs curl xz-utils xvfb libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libglu1-mesa
+          git lfs install
+          python3 -m pip install --quiet pillow
+
+      - name: Fetch upstream authored cathedral kit
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf external-french-houses
+          git clone --depth 1 https://github.com/IRCSS/Blender-Geometry-Node-French-Houses.git external-french-houses
+          (cd external-french-houses && git lfs pull || true)
+          test -s external-french-houses/GeometryNodesFrenchHous.blend
+          grep -q "MIT License" external-french-houses/LICENSE
+
+      - name: Fetch external CC0 glass shader library
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf external-shader-lib
+          git clone --depth 1 https://github.com/wirehead/blender-shader-lib.git external-shader-lib
+          test -s external-shader-lib/cycles-principled-dielectric-transparent.blend
+          grep -q "CC0" external-shader-lib/README.md
+
+      - name: Verify MIT authored stained-glass brightness correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf external-world-gan
+          git clone --depth 1 https://github.com/Mawiszus/World-GAN.git external-world-gan
+          grep -q "MIT License" external-world-gan/LICENSE
+          test -s external-world-gan/minecraft/blender_scripts/CyclesMineways.py
+          grep -q "def Stained_Glass_Shader" external-world-gan/minecraft/blender_scripts/CyclesMineways.py
+          grep -q 'hsv_node.inputs\[1\].default_value=2' external-world-gan/minecraft/blender_scripts/CyclesMineways.py
+          grep -q 'hsv_node.inputs\[2\].default_value=8' external-world-gan/minecraft/blender_scripts/CyclesMineways.py
+
+      - name: Download verified licensed surface sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf sanctum-v2-relief-assets
+          mkdir -p sanctum-v2-relief-assets/stained_glass
+
+          python3 - <<'PY'
+          import json,re,urllib.request
+          from pathlib import Path
+          from PIL import Image
+
+          UA="XZIEL-Sanctum-V2/1.0 (licensed surface probe)"
+          root=Path("sanctum-v2-relief-assets")
+
+          def request(url):
+              return urllib.request.Request(url,headers={"User-Agent":UA})
+
+          def get_json(url):
+              with urllib.request.urlopen(request(url),timeout=60) as r:
+                  return json.load(r)
+
+          def download(url,dst):
+              dst.parent.mkdir(parents=True,exist_ok=True)
+              with urllib.request.urlopen(request(url),timeout=180) as r, dst.open("wb") as f:
+                  while True:
+                      b=r.read(1024*1024)
+                      if not b:
+                          break
+                      f.write(b)
+              if not dst.is_file() or dst.stat().st_size==0:
+                  raise SystemExit(f"Empty download: {dst}")
+
+          def leaves(obj,path=()):
+              if isinstance(obj,dict):
+                  if isinstance(obj.get("url"),str):
+                      yield path,obj
+                  for k,v in obj.items():
+                      if k!="url":
+                          yield from leaves(v,path+(str(k),))
+              elif isinstance(obj,list):
+                  for i,v in enumerate(obj):
+                      yield from leaves(v,path+(str(i),))
+
+          def choose(asset,kind):
+              tree=get_json(f"https://api.polyhaven.com/files/{asset}")
+              rows=[]
+              for path,rec in leaves(tree):
+                  parts=[str(x).lower() for x in path]
+                  url=rec.get("url","")
+                  s=(" / ".join(path)+" "+url).lower()
+                  if "4k" not in parts or ".png" not in url.lower():
+                      continue
+                  score=0
+                  if kind=="diffuse":
+                      if "diffuse" in s: score+=30
+                      if re.search(r"(^|[/_ -])diff([/_ .-]|$)",s): score+=15
+                  elif kind=="rough":
+                      if "roughness" in s: score+=30
+                      if "rough" in s: score+=15
+                      if "rough_ao" in s or "rough ao" in s: score-=10
+                  elif kind=="displacement":
+                      if "displacement" in s: score+=40
+                      if re.search(r"(^|[/_ -])disp([/_ .-]|$)",s): score+=20
+                  if score>0:
+                      rows.append((score,path,rec))
+              if not rows:
+                  raise SystemExit(f"No exact 4K {kind} PNG for {asset}")
+              rows.sort(key=lambda x:(x[0],x[2].get("size",0)),reverse=True)
+              return rows[0][2]["url"]
+
+          def dims(path):
+              with Image.open(path) as im:
+                  return list(im.size)
+
+          manifest={
+              "polyhaven_provider":"Powered by Poly Haven",
+              "polyhaven_license":"CC0",
+              "polyhaven":{},
+              "stained_glass":{
+                  "title":"Repeating Mini Windows - Stained Glass - Seamless texture with normalmap",
+                  "author":"Keith333",
+                  "license":"CC-BY 3.0",
+                  "source_page":"https://opengameart.org/content/repeating-mini-windows-stained-glass-seamless-texture-with-normalmap",
+                  "color_url":"https://opengameart.org/sites/default/files/SmallStained_S.jpg",
+                  "normal_url":"https://opengameart.org/sites/default/files/SmallStained_N.jpg"
+              }
+          }
+
+          for asset in ("stone_wall_04","roof_slates_03"):
+              info=get_json(f"https://api.polyhaven.com/info/{asset}")
+              physical=info.get("dimensions")
+              if not isinstance(physical,list) or len(physical)<2:
+                  raise SystemExit(f"Missing physical dimensions for {asset}: {physical}")
+              urls={}
+              for kind in ("diffuse","rough","displacement"):
+                  url=choose(asset,kind)
+                  p=root/asset/f"{kind}.png"
+                  download(url,p)
+                  if max(dims(p))!=4096:
+                      raise SystemExit(f"Expected exact 4K texture: {p} {dims(p)}")
+                  urls[kind]=url
+              manifest["polyhaven"][asset]={"dimensions_mm":physical,"urls":urls}
+
+          sg=manifest["stained_glass"]
+          color=root/"stained_glass"/"color.jpg"
+          normal=root/"stained_glass"/"normal.jpg"
+          download(sg["color_url"],color)
+          download(sg["normal_url"],normal)
+
+          color_dims=dims(color)
+          normal_dims=dims(normal)
+          if color_dims!=normal_dims:
+              raise SystemExit(f"Authored stained-glass color/normal size mismatch: {color_dims} vs {normal_dims}")
+          if min(color_dims)<=0:
+              raise SystemExit(f"Invalid stained-glass dimensions: {color_dims}")
+
+          manifest["stained_glass"]["source_dimensions"]=color_dims
+          (root/"SOURCE_MANIFEST.json").write_text(json.dumps(manifest,indent=2),encoding="utf-8")
+          (root/"ATTRIBUTION.txt").write_text(
+              "Stained glass: 'Repeating Mini Windows - Stained Glass - Seamless texture with normalmap'\n"
+              "Author: Keith333\n"
+              "License: CC-BY 3.0\n"
+              "Source: https://opengameart.org/content/repeating-mini-windows-stained-glass-seamless-texture-with-normalmap\n\n"
+              "Stone/roof materials: Poly Haven, CC0.\n",
+              encoding="utf-8",
+          )
+          print("SANCTUM_V2_LICENSED_ASSETS_OK")
+          print(json.dumps(manifest,indent=2))
+          PY
+
+      - name: Fetch stereoscopic CC0 church props
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf external-stereoscopic-church
+          mkdir -p external-stereoscopic-church
+          curl -L --fail --retry 3 https://opengameart.org/sites/default/files/Church.blend -o external-stereoscopic-church/church.blend
+          test -s external-stereoscopic-church/church.blend
+          cat > external-stereoscopic-church/SOURCE.txt <<'EOF'
+          Title: Church
+          Author: stereoscopic
+          License: CC0
+          Source: https://opengameart.org/content/church-0
+          EOF
+
+      - name: Install Blender 5.2.2
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz -o /tmp/blender.tar.xz
+          tar -C /tmp -xf /tmp/blender.tar.xz
+          /tmp/blender-5.2.2-linux-x64/blender --version
+
+      - name: Render relief and stained glass
+        shell: bash
+        env:
+          SANCTUM_V2_RELIEF_OUT: sanctum-v2-cc0-interior-import
+          SANCTUM_V2_RELIEF_ASSETS: sanctum-v2-relief-assets
+          SANCTUM_V2_GLASS_SHADER_LIB: external-shader-lib/cycles-principled-dielectric-transparent.blend
+          SANCTUM_V2_INTERIOR_SOURCE: external-stereoscopic-church/church.blend
+        run: |
+          set -euo pipefail
+          mkdir -p sanctum-v2-cc0-interior-import
+          xvfb-run -a -s "-screen 0 1600x1000x24" \
+            /tmp/blender-5.2.2-linux-x64/blender \
+            -b external-french-houses/GeometryNodesFrenchHous.blend \
+            --python tools/sanctum_v2/probe_cathedral_cc0_interior_import.py \
+            2>&1 | tee sanctum-v2-cc0-interior-import/blender-relief-glass.log
+
+          grep -q "SANCTUM_V2_CC0_INTERIOR_IMPORT_OK" sanctum-v2-cc0-interior-import/blender-relief-glass.log
+          test -s sanctum-v2-cc0-interior-import/relief-glass-report.json
+          cp sanctum-v2-relief-assets/SOURCE_MANIFEST.json sanctum-v2-cc0-interior-import/
+          cp sanctum-v2-relief-assets/ATTRIBUTION.txt sanctum-v2-cc0-interior-import/
+          cp external-stereoscopic-church/SOURCE.txt sanctum-v2-cc0-interior-import/INTERIOR_SOURCE.txt
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("sanctum-v2-cc0-interior-import")
+          d=json.loads((root/"relief-glass-report.json").read_text())
+          assert d["source_object"]=="Catehdral", d
+          props=d["cc0_interior_props"]
+          assert props["license"]=="CC0", d
+          assert props["author"]=="stereoscopic", d
+          assert props["object_count"]==42, d
+          assert props["uniform_scale"]>0, d
+          assert props["rotation_degrees"] in (0,90), d
+          assert d["mapping"]["stained_glass"]=="existing UVMap + OpenGameArt seamless maps + external CC0 Crown Glass for windows shader", d
+          assert len(d["stained_glass"]["source_dimensions"])==2, d
+          assert min(d["stained_glass"]["source_dimensions"])>0, d
+          assert d["stained_glass"]["uses_authored_normal_map"] is True, d
+          assert d["stained_glass"]["shader"]["source_material"]=="Crown Glass for windows", d
+          assert d["stained_glass"]["shader"]["copied_principled_defaults"]["Transmission Weight"]>0, d
+          assert d["stained_glass"]["raytracing"].get("scene.eevee.use_raytracing") is True, d
+          assert d["stained_glass"]["backlighting"]["count"]==3, d
+          assert d["stained_glass"]["emissive_backing"]["derived_window_faces"]>0, d
+          assert d["stained_glass"]["emissive_backing"]["offset_m"]>0, d
+          assert d["stained_glass"]["emissive_backing"]["emission_strength"]>0, d
+          boost=d["stained_glass"]["emissive_backing"]["authored_color_boost"]
+          assert boost["license"]=="MIT", d
+          assert boost["source_repo"]=="Mawiszus/World-GAN", d
+          assert boost["saturation"]==2.0, d
+          assert boost["value"]==8.0, d
+          assert d["relief"]["stone_bump_distance_m"]>0, d
+          assert d["relief"]["roof_bump_distance_m"]>0, d
+          assert len(d["renders"])==6, d
+          for n in d["renders"]:
+              p=root/n
+              assert p.is_file() and p.stat().st_size>0, n
+          print("SANCTUM_V2_RELIEF_GLASS_GATES_OK")
+          PY
+
+      - name: Upload visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-V2-CC0-Interior-Import
+          path: sanctum-v2-cc0-interior-import/
+          if-no-files-found: error
+          retention-days: 14
