@@ -40,6 +40,7 @@ PY
 
 echo "==> Patching Vril for Android GLES2 through GL4ES"
 python3 "$ROOT/scripts/patch_vril_android.py" "$DEPS/vril"
+python3 "$ROOT/scripts/patch_vril_qc_error_log.py" "$DEPS/vril"
 python3 "$ROOT/scripts/patch_vril_weaponhud.py" "$DEPS/vril"
 python3 "$ROOT/scripts/patch_vril_mobile_v018.py" "$DEPS/vril"
 python3 "$ROOT/scripts/patch_vril_weaponhud_v020.py" "$DEPS/vril"
