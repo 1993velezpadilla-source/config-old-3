@@ -8,8 +8,8 @@ fi
 
 INPUT="$1"
 OUT="$2"
-NAME="\${3:-$(basename "\${INPUT%.*}")}"
-ROOT="\${XZIEL_TOOL_ROOT:-$PWD/.xziel-tools}"
+NAME="${3:-$(basename "${INPUT%.*}")}"
+ROOT="${XZIEL_TOOL_ROOT:-$PWD/.xziel-tools}"
 BIN="$ROOT/bin"
 
 test -s "$INPUT"
