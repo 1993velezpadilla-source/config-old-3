@@ -242,9 +242,20 @@ jobs:
           PY
 
       - name: Install Blender for evidence
+        timeout-minutes: 8
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
-          sudo apt-get install -y -qq blender python3-numpy xvfb
-          blender -b --python-expr "import numpy; print('HAYUYA_BLENDER_NUMPY_READY', numpy.__version__)"
+          set -euo pipefail
+          echo "HAYUYA_BLENDER_INSTALL_BEGIN"
+          timeout 420s sudo -E apt-get \
+            -o Acquire::Retries=3 \
+            -o DPkg::Lock::Timeout=120 \
+            install -y -qq --no-install-recommends blender python3-numpy xvfb
+          echo "HAYUYA_BLENDER_INSTALL_DONE"
+          command -v blender
+          timeout 60s blender -b --python-expr "import numpy; print('HAYUYA_BLENDER_NUMPY_READY', numpy.__version__)"
+          echo "HAYUYA_BLENDER_BOOT_OK"
 
       - name: Render base native front
         shell: bash
