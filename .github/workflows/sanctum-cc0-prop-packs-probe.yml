@@ -1,0 +1,122 @@
+name: Sanctum CC0 Prop Packs Probe
+
+on:
+  push:
+    branches:
+      - feature/xziel-map-builder-agent-v1
+    paths:
+      - ".github/workflows/sanctum-cc0-prop-packs-probe.yml"
+      - "tools/sanctum_v2/probe_cc0_sanctum_prop_pack.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sanctum-cc0-prop-packs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    name: Probe CC0 benches candles and windows
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Install host packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            curl xz-utils xvfb \
+            libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1 \
+            libgl1 libglu1-mesa
+
+      - name: Fetch and verify CC0 prop packs
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf external-sanctum-props sanctum-props-probe
+          mkdir -p external-sanctum-props sanctum-props-probe
+
+          fetch_pack() {
+            local slug="$1" file="$2" out="$3"
+            curl -L --fail --retry 3 "https://opengameart.org/content/$slug" -o "external-sanctum-props/$out.html"
+            grep -qi "CC0" "external-sanctum-props/$out.html"
+            curl -L --fail --retry 3 "https://opengameart.org/sites/default/files/$file" -o "external-sanctum-props/$file"
+            test -s "external-sanctum-props/$file"
+            sha256sum "external-sanctum-props/$file" | tee "external-sanctum-props/$out.sha256"
+          }
+
+          fetch_pack medieval-benches medievalbenchesexport.blend benches
+          fetch_pack medieval-candles medievalcandles.blend candles
+          fetch_pack medieval-windows-interiors medievalwindows.blend windows
+
+      - name: Install Blender 5.2.2
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 \
+            https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz \
+            -o /tmp/blender-5.2.2-linux-x64.tar.xz
+          tar -C /tmp -xf /tmp/blender-5.2.2-linux-x64.tar.xz
+          /tmp/blender-5.2.2-linux-x64/blender --version
+
+      - name: Probe all prop packs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          probe() {
+            local pack="$1" blend="$2" slug="$3" sha="$4"
+            mkdir -p "sanctum-props-probe/$pack"
+            SANCTUM_PROP_OUT="sanctum-props-probe/$pack" \
+            SANCTUM_PROP_PACK="$pack" \
+            SANCTUM_PROP_LICENSE="CC0" \
+            SANCTUM_PROP_SOURCE_URL="https://opengameart.org/content/$slug" \
+            SANCTUM_PROP_SOURCE_FILE_URL="https://opengameart.org/sites/default/files/$blend" \
+            SANCTUM_PROP_SHA256="$sha" \
+            xvfb-run -a -s "-screen 0 1600x1000x24" \
+              /tmp/blender-5.2.2-linux-x64/blender \
+              -b "external-sanctum-props/$blend" \
+              --python tools/sanctum_v2/probe_cc0_sanctum_prop_pack.py \
+              2>&1 | tee "sanctum-props-probe/$pack/blender.log"
+            grep -q "SANCTUM_PROP_PROBE_PASS" "sanctum-props-probe/$pack/blender.log"
+          }
+
+          probe benches medievalbenchesexport.blend medieval-benches "$(cut -d' ' -f1 external-sanctum-props/benches.sha256)"
+          probe candles medievalcandles.blend medieval-candles "$(cut -d' ' -f1 external-sanctum-props/candles.sha256)"
+          probe windows medievalwindows.blend medieval-windows-interiors "$(cut -d' ' -f1 external-sanctum-props/windows.sha256)"
+
+      - name: Validate probe reports
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("sanctum-props-probe")
+          for pack in ("benches","candles","windows"):
+              d=json.loads((root/pack/"report.json").read_text(encoding="utf-8"))
+              assert d["status"]=="PASS", d
+              assert d["license"]=="CC0", d
+              assert d["mesh_object_count"] >= 1, d
+              assert len(d["selected"]) >= 1, d
+              assert len(d["renders"]) >= 1, d
+              assert d["glb_bytes"] > 1000, d
+              assert len(d["source_sha256"]) == 64, d
+              print("SANCTUM_PROP_PACK_GREEN",pack,d["mesh_object_count"],[x["name"] for x in d["selected"]])
+          PY
+
+      - name: Upload CC0 prop evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-CC0-Prop-Packs
+          path: sanctum-props-probe/
+          if-no-files-found: error
+          retention-days: 14
