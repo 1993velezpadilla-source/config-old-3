@@ -1,0 +1,105 @@
+name: Sanctum Vertical Connectivity Audit
+
+on:
+  push:
+    branches:
+      - feature/xziel-map-builder-agent-v1
+    paths:
+      - ".github/workflows/sanctum-vertical-connectivity-audit.yml"
+      - "tools/xziel_toolchain/xziel_navmesh_probe.cpp"
+      - "tools/xziel_toolchain/generate_vertical_nav_probes.py"
+      - "tools/xziel_toolchain/bootstrap_fast.sh"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SOURCE_RUN_ID: "36935753335"
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            build-essential cmake ninja-build pkg-config \
+            curl unzip bzip2
+
+      - name: Bootstrap Detour tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/xziel_toolchain/bootstrap_fast.sh
+          test -x .xziel-tools/bin/xziel-navmesh-probe
+
+      - name: Download last green vertical artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: XZIEL-Sanctum-Vertical-Gameplay
+          path: source-artifact
+          repository: ${{ github.repository }}
+          run-id: ${{ env.SOURCE_RUN_ID }}
+          github-token: ${{ github.token }}
+
+      - name: Generate authored floor probes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/xziel_toolchain/generate_vertical_nav_probes.py \
+            --report source-artifact/sanctum-vertical-probe/vertical-report.json \
+            --out source-artifact/nav-probes.txt \
+            --json source-artifact/nav-probes.json
+          cat source-artifact/nav-probes.txt
+
+      - name: Prove Detour floor connectivity
+        shell: bash
+        run: |
+          set -euo pipefail
+          .xziel-tools/bin/xziel-navmesh-probe \
+            source-artifact/sanctum-vertical-probe/runtime/sanctum.navbin \
+            source-artifact/nav-probes.txt \
+            source-artifact/nav-connectivity-report.json \
+            2>&1 | tee source-artifact/nav-connectivity.log
+
+          grep -q XZIEL_NAVMESH_CONNECTIVITY_PASS source-artifact/nav-connectivity.log
+
+          python3 - <<'PY'
+          import json
+          d=json.load(open("source-artifact/nav-connectivity-report.json",encoding="utf-8"))
+          assert d["status"]=="PASS",d
+          assert d["all_probes_pass"] is True,d
+          assert d["all_links_pass"] is True,d
+          assert len(d["probes"])==4,d
+          assert len(d["links"])==3,d
+          for p in d["probes"]:
+              assert p["pass"] is True,p
+              assert p["vertical_error"]<=0.90,p
+              assert p["horizontal_error"]<=1.50,p
+          for link in d["links"]:
+              assert link["pass"] is True,link
+              assert link["path_polygons"]>0,link
+          print("SANCTUM_AUTHORED_FLOOR_CONNECTIVITY_GREEN")
+          print(json.dumps(d,indent=2))
+          PY
+
+      - name: Upload connectivity evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-Vertical-Connectivity-Audit
+          path: |
+            source-artifact/nav-probes.txt
+            source-artifact/nav-probes.json
+            source-artifact/nav-connectivity-report.json
+            source-artifact/nav-connectivity.log
+          if-no-files-found: error
+          retention-days: 14
