@@ -6,7 +6,8 @@ import json
 from pathlib import Path
 
 import numpy as np
-from PIL import Image
+import cv2
+from PIL import Image, ImageFilter
 from scipy.ndimage import distance_transform_edt
 import trimesh
 
@@ -48,6 +49,102 @@ def _collect(path:Path):
         np.concatenate([p[0] for p in parts],axis=0),
         np.concatenate([p[1] for p in parts],axis=0),
     )
+
+
+def _render_textured_face(path:Path,edge:int):
+    loaded=trimesh.load(path,force="scene",process=False)
+    geometries=[
+        g for g in loaded.geometry.values()
+        if hasattr(g,"vertices") and hasattr(g,"faces") and len(g.vertices) and len(g.faces)
+    ]
+    if not geometries:
+        raise RuntimeError(f"no renderable mesh geometry in {path}")
+
+    all_vertices=np.concatenate(
+        [np.asarray(g.vertices,dtype=np.float64) for g in geometries],axis=0
+    )
+    lo=all_vertices.min(axis=0)
+    hi=all_vertices.max(axis=0)
+    y_cut=float(lo[1]+(hi[1]-lo[1])*0.76)
+    cx=float((lo[0]+hi[0])*0.5)
+    x_half=float((hi[0]-lo[0])*0.44)
+
+    batches=[]
+    head_points=[]
+    for geometry in geometries:
+        vertices=np.asarray(geometry.vertices,dtype=np.float64)
+        faces=np.asarray(geometry.faces,dtype=np.int64)
+        centroids=vertices[faces].mean(axis=1)
+        selected=np.flatnonzero(
+            (centroids[:,1] >= y_cut)
+            & (np.abs(centroids[:,0]-cx) <= x_half)
+        )
+        if not len(selected):
+            continue
+        uv=getattr(geometry.visual,"uv",None)
+        if uv is not None:
+            uv=np.asarray(uv,dtype=np.float64)
+        material=getattr(geometry.visual,"material",None)
+        texture=getattr(material,"baseColorTexture",None) if material is not None else None
+        texture_array=(
+            np.asarray(texture.convert("RGB"),dtype=np.uint8)
+            if texture is not None
+            else None
+        )
+        batches.append((vertices,faces,selected,uv,texture_array))
+        head_points.append(vertices[faces[selected]].reshape(-1,3))
+
+    if not head_points:
+        raise RuntimeError("no head-region faces for software face evidence")
+
+    points=np.concatenate(head_points,axis=0)
+    h_lo=points.min(axis=0)
+    h_hi=points.max(axis=0)
+    span=max(float(h_hi[0]-h_lo[0]),float(h_hi[1]-h_lo[1]))*1.15
+    center_x=float((h_lo[0]+h_hi[0])*0.5)
+    center_y=float((h_lo[1]+h_hi[1])*0.5)
+    xmin=center_x-span*0.5
+    xmax=center_x+span*0.5
+    ymin=center_y-span*0.5
+    ymax=center_y+span*0.5
+
+    size=int(edge)
+    image=np.full((size,size,3),18,dtype=np.uint8)
+    triangles=[]
+    for vertices,faces,selected,uv,texture_array in batches:
+        for face_index in selected:
+            tri=faces[face_index]
+            pts=vertices[tri]
+            xy=np.empty((3,2),dtype=np.int32)
+            xy[:,0]=np.rint(
+                (pts[:,0]-xmin)/max(xmax-xmin,1e-9)*(size-1)
+            ).astype(np.int32)
+            xy[:,1]=np.rint(
+                (ymax-pts[:,1])/max(ymax-ymin,1e-9)*(size-1)
+            ).astype(np.int32)
+
+            if uv is not None and texture_array is not None and len(uv)==len(vertices):
+                uv_center=uv[tri].mean(axis=0)
+                tx=int(np.clip(
+                    round(float(uv_center[0])*(texture_array.shape[1]-1)),
+                    0,texture_array.shape[1]-1,
+                ))
+                ty=int(np.clip(
+                    round((1.0-float(uv_center[1]))*(texture_array.shape[0]-1)),
+                    0,texture_array.shape[0]-1,
+                ))
+                color=tuple(int(x) for x in texture_array[ty,tx].tolist())
+            else:
+                color=(165,165,165)
+            triangles.append((float(pts[:,2].mean()),xy,color))
+
+    # Raw Hunyuan front is +Z: draw rear first, then front-facing geometry.
+    triangles.sort(key=lambda item:item[0])
+    for _,xy,color in triangles:
+        cv2.fillConvexPoly(image,xy,color,lineType=cv2.LINE_AA)
+
+    result=Image.fromarray(image,"RGB").filter(ImageFilter.GaussianBlur(0.35))
+    return result
 
 
 def _render_front(vertices,colors,size:int):
@@ -144,7 +241,7 @@ def render_preview(input_glb:Path,output_dir:Path,size:int=768,face_size:int=768
     full_path=turntable/"12_180.png"
     face_path=faces/"12_180.png"
     image.save(full_path)
-    _face_crop(image,mask,int(face_size)).save(face_path)
+    _render_textured_face(input_glb,int(face_size)).save(face_path)
     payload={
         "schema":1,
         "renderer":"hayuya-cpu-zbuffer-source-texture-v1",
