@@ -12,6 +12,11 @@ SOURCE_URL = os.environ.get("SANCTUM_PROP_SOURCE_URL", "")
 SOURCE_FILE_URL = os.environ.get("SANCTUM_PROP_SOURCE_FILE_URL", "")
 SOURCE_SHA256 = os.environ.get("SANCTUM_PROP_SHA256", "")
 
+if LICENSE != "CC0":
+    raise SystemExit(f"SANCTUM_PROP_PROBE_FAIL: unexpected license {LICENSE!r}")
+if len(SOURCE_SHA256) != 64:
+    raise SystemExit("SANCTUM_PROP_PROBE_FAIL: missing verified source SHA-256")
+
 def fail(msg):
     raise SystemExit(f"SANCTUM_PROP_PROBE_FAIL: {msg}")
 
