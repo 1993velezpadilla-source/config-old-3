@@ -1,0 +1,217 @@
+name: Sanctum V2 Poly Haven 4K Material Probe
+
+on:
+  push:
+    branches:
+      - sanctum-v2-existing-assets-only
+    paths:
+      - ".github/workflows/sanctum-v2-polyhaven-4k.yml"
+      - "tools/sanctum_v2/probe_cathedral_polyhaven_4k.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sanctum-v2-polyhaven-4k-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  material-probe:
+    name: Existing cathedral + CC0 4K materials
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Install host packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq git-lfs curl xz-utils xvfb libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libglu1-mesa
+          git lfs install
+
+      - name: Fetch upstream authored cathedral kit
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf external-french-houses
+          git clone --depth 1 https://github.com/IRCSS/Blender-Geometry-Node-French-Houses.git external-french-houses
+          (cd external-french-houses && git lfs pull || true)
+          test -s external-french-houses/GeometryNodesFrenchHous.blend
+          grep -q "MIT License" external-french-houses/LICENSE
+          grep -q "Generate Cathedral Combined" external-french-houses/README.md
+
+      - name: Download exact Poly Haven CC0 4K sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf polyhaven-assets
+          mkdir -p polyhaven-assets
+
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          import urllib.request
+          from pathlib import Path
+
+          UA="XZIEL-Sanctum-V2/1.0 (Poly Haven material probe)"
+          root=Path("polyhaven-assets")
+
+          def get_json(url):
+              req=urllib.request.Request(url,headers={"User-Agent":UA})
+              with urllib.request.urlopen(req,timeout=60) as r:
+                  return json.load(r)
+
+          def leaves(obj,path=()):
+              if isinstance(obj,dict):
+                  if isinstance(obj.get("url"),str):
+                      yield path,obj
+                  for k,v in obj.items():
+                      if k=="url":
+                          continue
+                      yield from leaves(v,path+(str(k),))
+              elif isinstance(obj,list):
+                  for i,v in enumerate(obj):
+                      yield from leaves(v,path+(str(i),))
+
+          def choose(asset, kind, ext):
+              tree=get_json(f"https://api.polyhaven.com/files/{asset}")
+              rows=[]
+              for path,rec in leaves(tree):
+                  s=(" / ".join(path)+" "+rec.get("url","")).lower()
+                  if "4k" not in s:
+                      continue
+                  if ext and f".{ext}" not in rec.get("url","").lower():
+                      continue
+                  score=0
+                  if kind=="diffuse":
+                      if "diffuse" in s: score+=20
+                      if re.search(r"(^|[/_ -])diff([/_ .-]|$)",s): score+=12
+                  elif kind=="rough":
+                      if "roughness" in s: score+=20
+                      if "rough" in s: score+=12
+                      if "rough_ao" in s or "rough ao" in s: score-=8
+                  elif kind=="normal_gl":
+                      if "nor_gl" in s or "normal_gl" in s or "normal gl" in s: score+=30
+                      elif "normal" in s: score+=8
+                      if "dx" in s: score-=20
+                  elif kind=="hdri":
+                      if ".hdr" in rec.get("url","").lower(): score+=30
+                      if "tonemapped" in s: score-=20
+                  if score>0:
+                      rows.append((score,path,rec))
+              if not rows:
+                  raise SystemExit(f"No {asset} {kind} 4K {ext} candidate")
+              rows.sort(key=lambda x:(x[0],x[2].get("size",0)),reverse=True)
+              score,path,rec=rows[0]
+              print("SELECT",asset,kind,score,"/".join(path),rec["url"])
+              return rec["url"]
+
+          def download(url,dst):
+              dst.parent.mkdir(parents=True,exist_ok=True)
+              req=urllib.request.Request(url,headers={"User-Agent":UA})
+              with urllib.request.urlopen(req,timeout=180) as r, dst.open("wb") as f:
+                  while True:
+                      b=r.read(1024*1024)
+                      if not b: break
+                      f.write(b)
+              if dst.stat().st_size < 100000:
+                  raise SystemExit(f"Downloaded file too small: {dst} {dst.stat().st_size}")
+
+          manifest={
+              "license":"CC0",
+              "provider":"Poly Haven",
+              "api":"https://api.polyhaven.com",
+              "assets":{},
+          }
+
+          for asset in ("stone_wall_04","roof_slates_03"):
+              ad=root/asset
+              urls={
+                  "diffuse":choose(asset,"diffuse","png"),
+                  "rough":choose(asset,"rough","png"),
+                  "normal_gl":choose(asset,"normal_gl","png"),
+              }
+              for kind,url in urls.items():
+                  download(url,ad/f"{kind}.png")
+              manifest["assets"][asset]=urls
+
+          asset="graaff_reinet_groote_kerk"
+          url=choose(asset,"hdri","hdr")
+          download(url,root/asset/"church_4k.hdr")
+          manifest["assets"][asset]={"hdri_4k":url}
+
+          (root/"SOURCE_MANIFEST.json").write_text(json.dumps(manifest,indent=2),encoding="utf-8")
+          (root/"ATTRIBUTION.txt").write_text(
+              "Materials and HDRI downloaded from Poly Haven via its public API.\n"
+              "Poly Haven assets are CC0.\n"
+              "https://polyhaven.com\n",
+              encoding="utf-8",
+          )
+          PY
+
+          find polyhaven-assets -type f -maxdepth 3 -printf '%p %s bytes\n'
+          test -s polyhaven-assets/stone_wall_04/diffuse.png
+          test -s polyhaven-assets/stone_wall_04/rough.png
+          test -s polyhaven-assets/stone_wall_04/normal_gl.png
+          test -s polyhaven-assets/roof_slates_03/diffuse.png
+          test -s polyhaven-assets/roof_slates_03/rough.png
+          test -s polyhaven-assets/roof_slates_03/normal_gl.png
+          test -s polyhaven-assets/graaff_reinet_groote_kerk/church_4k.hdr
+
+      - name: Install Blender 5.2.2
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz -o /tmp/blender.tar.xz
+          tar -C /tmp -xf /tmp/blender.tar.xz
+          /tmp/blender-5.2.2-linux-x64/blender --version
+
+      - name: Render unchanged cathedral with CC0 4K PBR
+        shell: bash
+        env:
+          SANCTUM_V2_MATERIAL_OUT: sanctum-v2-material-probe
+          SANCTUM_V2_POLYHAVEN_DIR: polyhaven-assets
+        run: |
+          set -euo pipefail
+          mkdir -p sanctum-v2-material-probe
+          xvfb-run -a -s "-screen 0 1600x1000x24" \
+            /tmp/blender-5.2.2-linux-x64/blender \
+            -b external-french-houses/GeometryNodesFrenchHous.blend \
+            --python tools/sanctum_v2/probe_cathedral_polyhaven_4k.py \
+            2>&1 | tee sanctum-v2-material-probe/blender-material-probe.log
+
+          grep -q "SANCTUM_V2_POLYHAVEN_4K_PROBE_OK" sanctum-v2-material-probe/blender-material-probe.log
+          test -s sanctum-v2-material-probe/material-probe-report.json
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("sanctum-v2-material-probe")
+          d=json.loads((root/"material-probe-report.json").read_text())
+          assert d["source_object"]=="Catehdral", d
+          assert "Generate Cathedral Combined" in d["geometry_nodes"], d
+          assert d["stats"]["uv_layers"] >= 1, d
+          assert len(d["renders"]) == 6, d
+          for name in d["renders"]:
+              p=root/name
+              assert p.is_file() and p.stat().st_size > 25000, (name,p.stat().st_size if p.exists() else None)
+          print("SANCTUM_V2_4K_VISUAL_GATES_OK")
+          PY
+
+          cp polyhaven-assets/SOURCE_MANIFEST.json sanctum-v2-material-probe/
+          cp polyhaven-assets/ATTRIBUTION.txt sanctum-v2-material-probe/
+
+      - name: Upload 4K material evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-V2-PolyHaven-4K-Probe
+          path: sanctum-v2-material-probe/
+          if-no-files-found: error
+          retention-days: 14
