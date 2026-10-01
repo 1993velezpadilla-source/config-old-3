@@ -81,7 +81,6 @@ fallback_anchor = '''        if (b->texture >= 0)
             GL_Bind(b->texture);
         glVertexPointer(3, GL_FLOAT, sizeof(xzsm_vertex_t), &b->vertices[0].x);
         glTexCoordPointer(2, GL_FLOAT, sizeof(xzsm_vertex_t), &b->vertices[0].u);
-        glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(xzsm_vertex_t), &b->vertices[0].r);
         glDrawElements(GL_TRIANGLES, b->index_count, GL_UNSIGNED_SHORT, b->indices);
 '''
 fallback_repl = '''        if (b->texture >= 0) {
@@ -94,6 +93,7 @@ fallback_repl = '''        if (b->texture >= 0) {
         }
         glVertexPointer(3, GL_FLOAT, sizeof(xzsm_vertex_t), &b->vertices[0].x);
         glTexCoordPointer(2, GL_FLOAT, sizeof(xzsm_vertex_t), &b->vertices[0].u);
+        glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(xzsm_vertex_t), &b->vertices[0].r);
         glDrawElements(GL_TRIANGLES, b->index_count, GL_UNSIGNED_SHORT, b->indices);
         if (b->texture < 0) {
             glEnable(GL_TEXTURE_2D);
