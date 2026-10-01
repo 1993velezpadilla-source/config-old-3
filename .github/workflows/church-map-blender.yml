@@ -8,6 +8,8 @@ on:
     paths:
       - ".github/workflows/church-map-blender.yml"
       - "tools/church_map/**"
+      - "tools/xziel_toolchain/bootstrap_geometry_cpu.sh"
+      - "tools/xziel_toolchain/generate_collision_hulls.py"
       - "ci/sanctum_dressing/build_dressing.py"
       - "docs/SANCTUM_OF_ASH_MAP_BIBLE.md"
 
@@ -36,7 +38,7 @@ jobs:
           sudo apt-get install -y -qq \
             blender python3-numpy \
             libegl1 libgl1-mesa-dri libglx-mesa0 mesa-utils xvfb \
-            git wget curl unzip zip libicu-dev
+            git wget curl unzip zip libicu-dev python3-venv
           python3 -m pip install --quiet --upgrade pip
           python3 -m pip install --quiet objaverse trimesh huggingface_hub
           blender --version
@@ -142,6 +144,24 @@ jobs:
             --python tools/church_map/fit_runtime_geometry_v2.py \
             2>&1 | tee church/out/runtime-fitted-v2.log
 
+      - name: Generate CoACD convex collision sidecar
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/xziel_toolchain/bootstrap_geometry_cpu.sh
+          .xziel-tools/geometry-venv/bin/python             tools/xziel_toolchain/generate_collision_hulls.py             --input church/out/church_collision_fitted_v2.glb             --output church/out/church_collision_coacd_v3.glb             --report church/out/church_collision_coacd_v3.json             --threshold 0.08             --max-hulls 128             --max-hull-vertices 64
+
+          test -s church/out/church_collision_coacd_v3.glb
+          test -s church/out/church_collision_coacd_v3.json
+          python3 - <<'PY'
+          import json
+          d=json.load(open("church/out/church_collision_coacd_v3.json",encoding="utf-8"))
+          assert d["status"]=="PASS", d
+          assert 1 <= d["hull_count"] <= 128, d
+          assert d["hull_triangles"] > 0, d
+          print("XZIEL_CHURCH_COACD_GREEN",d["hull_count"],d["hull_triangles"])
+          PY
+
       - name: Build runtime horror dressing overlay
         shell: bash
         env:
@@ -191,6 +211,8 @@ jobs:
           cp church/out/church_map_mobile_lod0.glb church/out/SanctumOfAsh/geometry/
           cp church/out/church_collision_proxy_v1.glb church/out/SanctumOfAsh/geometry/
           cp church/out/church_collision_fitted_v2.glb church/out/SanctumOfAsh/geometry/
+          cp church/out/church_collision_coacd_v3.glb church/out/SanctumOfAsh/geometry/
+          cp church/out/church_collision_coacd_v3.json church/out/SanctumOfAsh/nav/
           cp church/out/church_barricades_fitted_v2.glb church/out/SanctumOfAsh/geometry/
           cp church/out/dressing/sanctum_dressing_v1.glb church/out/SanctumOfAsh/geometry/
           cp church/out/church_nav_proxy_v1.json church/out/SanctumOfAsh/nav/
@@ -255,6 +277,8 @@ jobs:
             church/out/church_nav_proxy_v1.json \
             church/out/church_zombies_runtime_fitted_v2.blend \
             church/out/church_collision_fitted_v2.glb \
+            church/out/church_collision_coacd_v3.glb \
+            church/out/church_collision_coacd_v3.json \
             church/out/church_barricades_fitted_v2.glb \
             church/out/church_runtime_fitted_v2.json \
             church/out/dressing/sanctum_dressing_v1.blend \
@@ -272,6 +296,8 @@ jobs:
             church/out/SanctumOfAsh/geometry/church_map_mobile_lod0.glb \
             church/out/SanctumOfAsh/geometry/church_collision_proxy_v1.glb \
             church/out/SanctumOfAsh/geometry/church_collision_fitted_v2.glb \
+            church/out/SanctumOfAsh/geometry/church_collision_coacd_v3.glb \
+            church/out/SanctumOfAsh/nav/church_collision_coacd_v3.json \
             church/out/SanctumOfAsh/geometry/church_barricades_fitted_v2.glb \
             church/out/SanctumOfAsh/nav/church_runtime_fitted_v2.json \
             church/out/nzp_harness/sanctum_harness.map \
@@ -290,6 +316,7 @@ jobs:
           n=json.load(open("church/out/church_nav_proxy_v1.json", encoding="utf-8"))
           h=json.load(open("church/out/nzp_harness/sanctum_harness_export.json", encoding="utf-8"))
           f=json.load(open("church/out/church_runtime_fitted_v2.json", encoding="utf-8"))
+          c=json.load(open("church/out/church_collision_coacd_v3.json", encoding="utf-8"))
           s=json.load(open("church/out/vril_static_mesh_report.json", encoding="utf-8"))
           assert r["source_triangles"] >= 2700000, r
           assert r["mobile_lod0_triangles"] >= 640000, r
@@ -311,6 +338,9 @@ jobs:
           assert f["counts"]["barricades"] >= 8, f
           assert f["counts"]["raycastFitted"] > 0, f
           assert f["counts"]["collisionMeshes"] >= 4, f
+          assert c["status"] == "PASS", c
+          assert 1 <= c["hull_count"] <= 128, c
+          assert c["hull_triangles"] > 0, c
           assert s["runtimeTriangles"] >= 100000, s
           assert s["batchCount"] > 0, s
           assert s["textureCount"] > 0, s
@@ -325,6 +355,7 @@ jobs:
           print("WINDOW_CANDIDATES", len(n["windowCandidates"]))
           print("NZP_HARNESS", h)
           print("FITTED_RUNTIME", f["counts"])
+          print("COACD_COLLISION", {k:c[k] for k in ["hull_count","hull_triangles","output_bytes"]})
           print("VRIL_STATIC", {k:s[k] for k in ["version","runtimeTriangles","dressingTriangles","runtimeTotalTriangles","dressingObjectCount","batchCount","textureCount","modelBytes","vertexStrideBytes","vertexLighting"]})
           print("PACKAGE_PREFLIGHT", q)
           PY
