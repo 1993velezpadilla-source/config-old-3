@@ -142,9 +142,9 @@ jobs:
                   download(url,ad/f"{kind}.png")
               manifest["assets"][asset]=urls
 
-          asset="graaff_reinet_groote_kerk"
+          asset="afrikaans_church_exterior"
           url=choose(asset,"hdri","hdr")
-          download(url,root/asset/"church_4k.hdr")
+          download(url,root/asset/"church_exterior_4k.hdr")
           manifest["assets"][asset]={"hdri_4k":url}
 
           def png_dimensions(path):
@@ -186,7 +186,7 @@ jobs:
           test -s polyhaven-assets/roof_slates_03/diffuse.png
           test -s polyhaven-assets/roof_slates_03/rough.png
           test -s polyhaven-assets/roof_slates_03/normal_gl.png
-          test -s polyhaven-assets/graaff_reinet_groote_kerk/church_4k.hdr
+          test -s polyhaven-assets/afrikaans_church_exterior/church_exterior_4k.hdr
 
       - name: Install Blender 5.2.2
         shell: bash
