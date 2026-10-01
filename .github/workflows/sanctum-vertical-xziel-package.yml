@@ -15,9 +15,8 @@ permissions:
 jobs:
   package:
     if: >
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.head_branch == 'feature/xziel-map-builder-agent-v1')
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'feature/xziel-map-builder-agent-v1'
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
