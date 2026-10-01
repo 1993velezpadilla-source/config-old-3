@@ -175,28 +175,37 @@ for i, (zone, sp, approach, win, angle) in enumerate(spawn_defs, 1):
 parts.append(point("power_switch",(0,-210,40),{
     "angle":"90","oldmodel":ART["power_sfx"],
 }))
+# One live Mystery Box plus relocation anchors. NZ:P's relocation path expects
+# alternate locations to be mystery_box_tp_spot so the teddy model is
+# precached before findboxspot() can use it.
 parts.append(point("mystery_box",(-80,275,40),{
     "cost":"950","spawnflags":"0","angle":"90",
 }))
-parts.append(point("mystery_box",(655,270,40),{
-    "cost":"950","spawnflags":"1","angle":"180",
+parts.append(point("mystery_box_tp_spot",(655,270,40),{
+    "angle":"180",
 }))
-parts.append(point("mystery_box",(980,-265,40),{
-    "cost":"950","spawnflags":"1","angle":"0",
+parts.append(point("mystery_box_tp_spot",(980,-265,40),{
+    "angle":"0",
 }))
 parts.append(point("perk_pap",(900,0,40),{
-    "cost":"5000","requirespower":"1","angle":"180",
+    "cost":"5000","angle":"180",
 }))
 
-# Cheap early safety plus powered progression perks.
-for cls, pos, cost, powered in [
-    ("perk_revive",(-900,270,40),1500,0),
-    ("perk_juggernog",(70,310,40),2500,1),
-    ("perk_speed",(620,-315,40),3000,1),
-    ("perk_double",(980,310,40),2000,1),
-]:
+# Match the mapper-facing NZ:P perk contract instead of writing the transient
+# runtime requirespower field directly.
+perk_defs = [
+    ("perk_revive",(-900,270,40),500,1500,-1,1),
+    ("perk_juggernog",(70,310,40),2500,2500,1,1),
+    ("perk_speed",(620,-315,40),3000,3000,1,1),
+    ("perk_double",(980,310,40),2000,2000,1,1),
+]
+for cls, pos, solo_cost, coop_cost, solo_power, coop_power in perk_defs:
     parts.append(point(cls, pos, {
-        "cost":str(cost),"requirespower":str(powered),"angle":"180",
+        "cost":str(solo_cost),
+        "cost2":str(coop_cost),
+        "perk_requires_power_solo":str(solo_power),
+        "perk_requires_power_coop":str(coop_power),
+        "angle":"180",
     }))
 
 # Wall-buy ladder. sequence is weapon id - 1 in NZ:P weapon_wall().
@@ -246,6 +255,8 @@ report = {
     "doors": 2,
     "wallBuys": len(wall_buys) + 1,
     "mysteryBoxLocations": 3,
+    "mysteryBoxActive": 1,
+    "mysteryBoxTeleportSpots": 2,
     "perks": 4,
     "packAPunch": 1,
     "powerSwitches": 1,
