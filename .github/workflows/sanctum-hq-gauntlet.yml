@@ -19,7 +19,7 @@ jobs:
   sanctum-hq:
     name: Build + render HQ Sanctum
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 120
 
     steps:
       - name: Checkout XZIEL
@@ -173,11 +173,11 @@ jobs:
               im=ImageEnhance.Contrast(im).enhance(1.16)
               im=ImageEnhance.Color(im).enhance(1.03)
 
-              # FSRCNN already produced 4K. Keep those pixels and only do a
+              # EDSR already produced 4K. Keep those pixels and only do a
               # restrained material cleanup; do not resize again.
               nw,nh=im.size
               im=im.filter(ImageFilter.UnsharpMask(radius=0.75,percent=125,threshold=2))
-              im.save(p,optimize=True)
+              im.save(p,optimize=False,compress_level=3)
 
               rows.append({"file":p.name,"before":[w,h],"after":[nw,nh],"enhanced":True})
 
