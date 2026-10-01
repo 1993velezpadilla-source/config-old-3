@@ -153,6 +153,8 @@ jobs:
 
       - name: Optimize inspect and validate dressed GLB
         shell: bash
+        env:
+          XZIEL_KTX2_UASTC: "1"
         run: |
           set -euo pipefail
           bash tools/xziel_toolchain/bootstrap_asset_cli.sh
@@ -162,6 +164,21 @@ jobs:
           PY
           )"
           bash tools/xziel_toolchain/process_glb.sh             "sanctum-dressed-probe/$RAW_GLB"             "sanctum-dressed-probe/asset-pipeline"             "sanctum-dressed"
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("sanctum-dressed-probe/asset-pipeline/sanctum-dressed.pipeline.json")
+          d=json.loads(p.read_text(encoding="utf-8"))
+          u=d.get("uastc_ktx2")
+          assert u, d
+          assert u["validator"]["errors"] == 0, u
+          assert u["texture_dimensions_policy"] == "preserved-no-resize-flags", u
+          assert Path(u["path"]).is_file(), u
+          print("XZIEL_DRESSED_UASTC_KTX2_GREEN")
+          print("UASTC_BYTES", u["bytes"])
+          print("UASTC_RATIO", u["size_ratio"])
+          PY
 
       - name: Record source provenance
         if: always()
