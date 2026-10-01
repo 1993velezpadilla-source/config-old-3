@@ -37,3 +37,6 @@ The Android Vulkan static-mesh renderer exposes `queueRuntimeTextureReplacement(
 The replacement path is intentionally game-thread initiated. Asset I/O is bounded to 64 MiB, GPU upload is fence-driven, and descriptor swaps complete inside the normal renderer record/service path. Runtime replacement is independent of the Sanctum streaming graph, so Church V1 and other non-Sanctum maps can use the same mechanism.
 
 Each ad placement should use a unique placeholder texture when independent creative rotation is required. Sharing the same placeholder texture intentionally shares the replacement across every material bound to that texture.
+
+
+`VulkanClearRenderer` exposes the map-level bridge as `queueIntrinsicAdSurfaceCreative(source, replacement)`. The game loop therefore does not need to access `VulkanStaticMeshRenderer` or Vulkan descriptor state directly.

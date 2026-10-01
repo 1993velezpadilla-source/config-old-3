@@ -243,6 +243,14 @@ public:
     [[nodiscard]] bool ready() const noexcept;
     [[nodiscard]] bool deviceLost() const noexcept;
 
+    // Game-thread bridge used by IntrinsicAdSystem/AdSurface. The placeholder
+    // texture must already be bound by the loaded static map.
+    [[nodiscard]] bool queueIntrinsicAdSurfaceCreative(
+        const char* sourceTextureAssetPath,
+        const char* replacementAssetPath) noexcept;
+
+    [[nodiscard]] bool intrinsicAdSurfaceUploadBusy() const noexcept;
+
     // Measured on the previous completed frame. These are deliberately
     // renderer-owned so the PerformanceGovernor receives real workload data
     // instead of wall-clock frame cadence / guessed GPU cost.
