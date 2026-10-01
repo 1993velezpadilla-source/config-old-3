@@ -763,7 +763,7 @@ bool VulkanClearRenderer::deviceLost() const noexcept {
 bool VulkanClearRenderer::queueIntrinsicAdSurfaceCreative(
     const char* sourceTextureAssetPath,
     const char* replacementAssetPath) noexcept {
-    if (!ready_ ||
+    if (!initialized_ ||
         assetManager_ == nullptr ||
         sourceTextureAssetPath == nullptr ||
         replacementAssetPath == nullptr) {
