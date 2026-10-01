@@ -15,7 +15,7 @@ permissions:
 
 concurrency:
   group: xziel-sanctum-green-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build-sanctum:
