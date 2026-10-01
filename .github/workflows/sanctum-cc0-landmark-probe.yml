@@ -1,0 +1,139 @@
+name: Sanctum CC0 Landmark Visual Probe
+
+on:
+  push:
+    branches:
+      - feature/xziel-map-builder-agent-v1
+    paths:
+      - ".github/workflows/sanctum-cc0-landmark-probe.yml"
+      - "tools/sanctum_v2/probe_cc0_landmarks.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sanctum-cc0-landmark-probe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install host packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq curl xz-utils xvfb \
+            libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libglu1-mesa
+
+      - name: Fetch verified CC0 landmark sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf external-landmark-probe sanctum-landmark-probe
+          mkdir -p external-landmark-probe sanctum-landmark-probe
+
+          fetch() {
+            local slug="$1" file="$2" key="$3"
+            curl -L --fail --retry 3 "https://opengameart.org/content/$slug" -o "external-landmark-probe/$key.html"
+            grep -qi CC0 "external-landmark-probe/$key.html"
+            curl -L --fail --retry 3 "https://opengameart.org/sites/default/files/$file" -o "external-landmark-probe/$file"
+            test -s "external-landmark-probe/$file"
+            sha256sum "external-landmark-probe/$file" | tee "external-landmark-probe/$key.sha256"
+          }
+          fetch church-0 Church.blend altar
+          fetch open-books booksexport.blend books
+          fetch high-poly-church-bell church_bell1.blend bell
+
+      - name: Install Blender 5.2.2
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 \
+            https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz \
+            -o /tmp/blender.tar.xz
+          tar -C /tmp -xf /tmp/blender.tar.xz
+          /tmp/blender-5.2.2-linux-x64/blender --version
+
+      - name: Probe altar cross bible and candle
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p sanctum-landmark-probe/altar
+          SANCTUM_LANDMARK_OUT=sanctum-landmark-probe/altar \
+          SANCTUM_LANDMARK_PACK=altar \
+          SANCTUM_LANDMARK_LICENSE=CC0 \
+          SANCTUM_LANDMARK_SHA256="$(cut -d' ' -f1 external-landmark-probe/altar.sha256)" \
+          SANCTUM_LANDMARK_OBJECTS="altar,Cross,bible.000,candle" \
+          xvfb-run -a -s "-screen 0 1600x1000x24" \
+            /tmp/blender-5.2.2-linux-x64/blender \
+            -b external-landmark-probe/Church.blend \
+            --python tools/sanctum_v2/probe_cc0_landmarks.py \
+            2>&1 | tee sanctum-landmark-probe/altar/blender.log
+          grep -q SANCTUM_LANDMARK_PROBE_PASS sanctum-landmark-probe/altar/blender.log
+
+      - name: Probe open book
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p sanctum-landmark-probe/books
+          SANCTUM_LANDMARK_OUT=sanctum-landmark-probe/books \
+          SANCTUM_LANDMARK_PACK=books \
+          SANCTUM_LANDMARK_LICENSE=CC0 \
+          SANCTUM_LANDMARK_SHA256="$(cut -d' ' -f1 external-landmark-probe/books.sha256)" \
+          SANCTUM_LANDMARK_OBJECTS="book01Open" \
+          xvfb-run -a -s "-screen 0 1600x1000x24" \
+            /tmp/blender-5.2.2-linux-x64/blender \
+            -b external-landmark-probe/booksexport.blend \
+            --python tools/sanctum_v2/probe_cc0_landmarks.py \
+            2>&1 | tee sanctum-landmark-probe/books/blender.log
+          grep -q SANCTUM_LANDMARK_PROBE_PASS sanctum-landmark-probe/books/blender.log
+
+      - name: Probe high poly bell
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p sanctum-landmark-probe/bell
+          SANCTUM_LANDMARK_OUT=sanctum-landmark-probe/bell \
+          SANCTUM_LANDMARK_PACK=bell \
+          SANCTUM_LANDMARK_LICENSE=CC0 \
+          SANCTUM_LANDMARK_SHA256="$(cut -d' ' -f1 external-landmark-probe/bell.sha256)" \
+          SANCTUM_LANDMARK_OBJECTS="Circle" \
+          xvfb-run -a -s "-screen 0 1600x1000x24" \
+            /tmp/blender-5.2.2-linux-x64/blender \
+            -b external-landmark-probe/church_bell1.blend \
+            --python tools/sanctum_v2/probe_cc0_landmarks.py \
+            2>&1 | tee sanctum-landmark-probe/bell/blender.log
+          grep -q SANCTUM_LANDMARK_PROBE_PASS sanctum-landmark-probe/bell/blender.log
+
+      - name: Validate landmark visual evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("sanctum-landmark-probe")
+          for pack,min_renders in (("altar",4),("books",1),("bell",1)):
+              d=json.loads((root/pack/"report.json").read_text(encoding="utf-8"))
+              assert d["status"]=="PASS",d
+              assert d["license"]=="CC0",d
+              assert len(d["source_sha256"])==64,d
+              assert len(d["renders"])>=min_renders,d
+              assert d["glb_bytes"]>1000,d
+              print("SANCTUM_LANDMARK_VISUAL_GREEN",pack,[x["name"] for x in d["objects"]])
+          PY
+
+      - name: Upload landmark visuals
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-CC0-Landmark-Visuals
+          path: sanctum-landmark-probe/
+          if-no-files-found: error
+          retention-days: 14
