@@ -1,0 +1,139 @@
+name: Sanctum Composite Cathedral Interior
+
+on:
+  push:
+    branches:
+      - feature/xziel-map-builder-agent-v1
+    paths:
+      - ".github/workflows/sanctum-composite-cathedral-interior.yml"
+      - "tools/sanctum_v2/compose_cathedral_cc0_interior.py"
+      - "tools/sanctum_v2/map_builder_plan.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sanctum-composite-cathedral-interior-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compose:
+    name: Compose cathedral exterior + CC0 walkable interior
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Install host packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq             git-lfs curl xz-utils xvfb             libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1             libgl1 libglu1-mesa
+          git lfs install
+
+      - name: Fetch MIT cathedral and CC0 interior sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf external-french-houses external-cc0-church
+          git clone --depth 1 https://github.com/IRCSS/Blender-Geometry-Node-French-Houses.git external-french-houses
+          (cd external-french-houses && git lfs pull || true)
+          test -s external-french-houses/LICENSE
+          grep -q "MIT License" external-french-houses/LICENSE
+          test -s external-french-houses/GeometryNodesFrenchHous.blend
+
+          mkdir -p external-cc0-church
+          curl -L --fail --retry 3             https://opengameart.org/content/medieval-church-interior             -o external-cc0-church/source-page.html
+          grep -qi "CC0" external-cc0-church/source-page.html
+          grep -qi "fully explorable interior" external-cc0-church/source-page.html
+          curl -L --fail --retry 3             https://opengameart.org/sites/default/files/church.blend             -o external-cc0-church/church.blend
+          test -s external-cc0-church/church.blend
+
+          {
+            echo "OUTER_REV=$(git -C external-french-houses rev-parse HEAD)"
+            echo "INNER_SHA256=$(sha256sum external-cc0-church/church.blend | cut -d' ' -f1)"
+          } | tee /tmp/sanctum-composite-sources.txt
+
+      - name: Install Blender 5.2.2
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3             https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz             -o /tmp/blender-5.2.2-linux-x64.tar.xz
+          tar -C /tmp -xf /tmp/blender-5.2.2-linux-x64.tar.xz
+          /tmp/blender-5.2.2-linux-x64/blender --version
+
+      - name: Compose and inspect
+        shell: bash
+        env:
+          SANCTUM_COMPOSITE_OUT: sanctum-composite-probe
+          SANCTUM_CC0_BLEND: external-cc0-church/church.blend
+          XZIEL_MAP_AGENT_PLAN: tools/sanctum_v2/map_builder_plan.json
+        run: |
+          set -euo pipefail
+          mkdir -p sanctum-composite-probe
+
+          xvfb-run -a -s "-screen 0 1600x1000x24"             /tmp/blender-5.2.2-linux-x64/blender             -b external-french-houses/GeometryNodesFrenchHous.blend             --python tools/sanctum_v2/compose_cathedral_cc0_interior.py             2>&1 | tee sanctum-composite-probe/blender-composite.log
+
+          grep -q "SANCTUM_COMPOSITE_PROBE_PASS" sanctum-composite-probe/blender-composite.log
+
+      - name: Validate composition
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          out=Path("sanctum-composite-probe")
+          d=json.loads((out/"composite-report.json").read_text(encoding="utf-8"))
+
+          assert d["status"]=="PASS", d
+          assert d["outer_license"]=="MIT", d
+          assert d["inner_license"]=="CC0", d
+          assert d["outer_stats"]["vertices"] > 100000, d
+          assert d["inner_stats_after_fit"]["vertices"] > 5000, d
+          assert d["combined_stats"]["vertices"] > d["outer_stats"]["vertices"], d
+          assert 0.1 < d["inner_uniform_scale"] < 1.0, d
+          assert d["walkability"]["walkable"] >= 10, d
+          assert len(d["renders"]) == 6, d
+          assert d["glb_bytes"] > 1000000, d
+
+          for item in d["renders"]:
+              p=out/item["name"]
+              assert p.is_file() and p.stat().st_size > 3000, p
+
+          print("SANCTUM_COMPOSITE_EVIDENCE_GREEN")
+          print("OUTER_VERTICES", d["outer_stats"]["vertices"])
+          print("INNER_VERTICES", d["inner_stats_after_fit"]["vertices"])
+          print("INNER_SCALE", d["inner_uniform_scale"])
+          print("WALKABLE_RATIO", d["walkability"]["walkable_ratio"])
+          print("COMBINED_VERTICES", d["combined_stats"]["vertices"])
+          print("GLB_BYTES", d["glb_bytes"])
+          PY
+
+      - name: Record source provenance
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            cat /tmp/sanctum-composite-sources.txt 2>/dev/null || true
+            echo "OUTER_SOURCE=https://github.com/IRCSS/Blender-Geometry-Node-French-Houses"
+            echo "OUTER_LICENSE=MIT"
+            echo "INNER_SOURCE=https://opengameart.org/content/medieval-church-interior"
+            echo "INNER_LICENSE=CC0"
+            echo "BLENDER=5.2.2"
+          } > sanctum-composite-probe/source-provenance.txt
+
+      - name: Upload composition evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-Composite-Cathedral-Interior
+          path: sanctum-composite-probe/
+          if-no-files-found: error
+          retention-days: 14
