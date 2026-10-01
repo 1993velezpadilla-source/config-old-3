@@ -383,6 +383,23 @@ def object_center_world(o):
     pts=[o.matrix_world @ Vector(c) for c in o.bound_box]
     return sum(pts,Vector())/len(pts)
 
+def authored_world_matrix(o,cache=None):
+    # Reconstruct the authored transform from stored object transforms instead of
+    # trusting matrix_world immediately after library-appending a Scene. In
+    # Blender background mode the appended Scene can have stale matrix_world
+    # values until that Scene is evaluated by a view layer.
+    if cache is None:
+        cache={}
+    key=o.as_pointer()
+    if key in cache:
+        return cache[key].copy()
+    if o.parent is None:
+        m=o.matrix_basis.copy()
+    else:
+        m=authored_world_matrix(o.parent,cache) @ o.matrix_parent_inverse @ o.matrix_basis
+    cache[key]=m.copy()
+    return m
+
 def transformed_bounds(objects,matrix):
     pts=[]
     for o in objects:
@@ -424,11 +441,12 @@ def append_and_fit_cc0_interior_props(scene,target_min,target_max):
         raise SystemExit("No approved interior prop objects found in CC0 source scene")
 
     props=[]
+    authored_cache={}
     for src in source_props:
         o=src.copy()
         if src.data is not None:
             o.data=src.data.copy()
-        authored_world=src.matrix_world.copy()
+        authored_world=authored_world_matrix(src,authored_cache)
         o.parent=None
         o.matrix_parent_inverse=Matrix.Identity(4)
         o.matrix_world=authored_world
@@ -537,7 +555,7 @@ def append_and_fit_cc0_interior_props(scene,target_min,target_max):
         "objects":[o.name for o in props],
         "source_bounds":{"min":list(src_min),"max":list(src_max),"size":list(src_max-src_min)},
         "target_bounds":{"min":list(target_min),"max":list(target_max),"size":list(tgt_size)},
-        "transform_source":"authored CC0 source Scene matrix_world baked onto selected prop copies",
+        "transform_source":"authored CC0 source object hierarchy reconstructed from matrix_basis + matrix_parent_inverse, then baked onto selected prop copies",
         "source_scene":source_scene.name,
         "axis_inference":{
             "pew_count":len(pews),
@@ -553,7 +571,7 @@ def append_and_fit_cc0_interior_props(scene,target_min,target_max):
         "oriented_bounds":{"min":list(oriented_min),"max":list(oriented_max),"size":list(oriented_size)},
         "uniform_scale":uniform_scale,
         "scale_rule":"minimum X/Y/Z fit ratio after data-derived axis correction",
-        "placement_rule":"preserve authored source Scene matrix_world layout for selected CC0 props; infer source up from pew floor spread and source long axis/sign from authored altar displacement; map to cathedral Z-up/long axis; fit all three dimensions; center XY; align floor min-Z",
+        "placement_rule":"preserve authored source object hierarchy transforms independent of appended-scene matrix_world evaluation; infer source up from pew floor spread and source long axis/sign from authored altar displacement; map to cathedral Z-up/long axis; fit all three dimensions; center XY; align floor min-Z",
         "fitted_bounds":{"min":list(fitted_min),"max":list(fitted_max),"size":list(fitted_size)},
     }
 
