@@ -1,0 +1,136 @@
+name: Sanctum V2 Existing Asset Audit
+
+on:
+  push:
+    branches:
+      - sanctum-v2-existing-assets-only
+    paths:
+      - ".github/workflows/sanctum-v2-existing-assets.yml"
+      - "tools/sanctum_v2/**"
+      - "docs/SANCTUM_V2_EXISTING_ASSETS_SOURCE_LOCK.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sanctum-v2-existing-assets-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit-existing-kit:
+    name: Audit + render upstream church generators
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Install host packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            git-lfs curl xz-utils xvfb \
+            libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1 \
+            libgl1 libglu1-mesa
+          git lfs install
+
+      - name: Fetch existing authored architecture sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf external
+          mkdir -p external
+
+          git clone --depth 1 https://github.com/IRCSS/Blender-Geometry-Node-French-Houses.git external/french-houses
+          (
+            cd external/french-houses
+            git lfs pull || true
+          )
+
+          git clone --depth 1 https://github.com/p-schulz/osm_building_grammar.git external/osm-building-grammar
+          git clone --depth 1 https://github.com/ranjian0/building_tools.git external/building-tools
+
+          test -s external/french-houses/LICENSE
+          grep -q "MIT License" external/french-houses/LICENSE
+          grep -q "Apache License" external/osm-building-grammar/LICENSE
+          grep -q "MIT License" external/building-tools/LICENSE
+
+          SOURCE=external/french-houses/GeometryNodesFrenchHous.blend
+          test -s "$SOURCE"
+          BYTES="$(stat -c%s "$SOURCE")"
+          echo "FRENCH_HOUSES_BLEND_BYTES=$BYTES"
+          test "$BYTES" -gt 1000000
+
+          grep -q "Generate Cathedral Combined" external/french-houses/README.md
+          grep -q "GenerateChurchBuildingB" external/french-houses/README.md
+          grep -q "ChurchA-Front" external/french-houses/README.md
+          grep -q "gothic_church" external/osm-building-grammar/README.md
+          grep -q "cathedral_stone" external/osm-building-grammar/README.md
+
+      - name: Install official Blender 5.2.2
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 \
+            https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz \
+            -o /tmp/blender-5.2.2-linux-x64.tar.xz
+          tar -C /tmp -xf /tmp/blender-5.2.2-linux-x64.tar.xz
+          /tmp/blender-5.2.2-linux-x64/blender --version
+
+      - name: Render existing church and cathedral candidates
+        shell: bash
+        env:
+          SANCTUM_V2_AUDIT_OUT: sanctum-v2-audit
+        run: |
+          set -euo pipefail
+          mkdir -p sanctum-v2-audit
+          xvfb-run -a -s "-screen 0 1600x1000x24" \
+            /tmp/blender-5.2.2-linux-x64/blender \
+            -b external/french-houses/GeometryNodesFrenchHous.blend \
+            --python tools/sanctum_v2/audit_existing_church_kit.py \
+            2>&1 | tee sanctum-v2-audit/blender-audit.log
+
+          test -s sanctum-v2-audit/existing-church-kit-audit.json
+          test -s sanctum-v2-audit/existing-church-kit-audit.txt
+          grep -q "SANCTUM_V2_EXISTING_ASSET_AUDIT_DONE" sanctum-v2-audit/blender-audit.log
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("sanctum-v2-audit/existing-church-kit-audit.json")
+          d=json.loads(p.read_text(encoding="utf-8"))
+          names="\n".join(d["matching_node_groups"] + [x["name"] for x in d["candidate_objects"]]).lower()
+          required=("church","cathedral")
+          if not any(word in names for word in required):
+              raise SystemExit(f"No church/cathedral source candidates found: {d}")
+          renders=[r for r in d["renders"] if r.get("rendered")]
+          print("MATCHING_NODE_GROUPS",len(d["matching_node_groups"]))
+          print("CANDIDATE_OBJECTS",len(d["candidate_objects"]))
+          print("RENDERED",len(renders))
+          print("IMAGES",[r.get("image") for r in renders])
+          PY
+
+      - name: Record source revisions
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "IRCSS_FRENCH_HOUSES=$(git -C external/french-houses rev-parse HEAD 2>/dev/null || true)"
+            echo "OSM_BUILDING_GRAMMAR=$(git -C external/osm-building-grammar rev-parse HEAD 2>/dev/null || true)"
+            echo "BUILDING_TOOLS=$(git -C external/building-tools rev-parse HEAD 2>/dev/null || true)"
+            echo "BLENDER=5.2.2"
+          } > sanctum-v2-audit/source-revisions.txt
+
+      - name: Upload Sanctum V2 existing-asset evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-V2-Existing-Church-Kit-Audit
+          path: sanctum-v2-audit/
+          if-no-files-found: error
+          retention-days: 14
