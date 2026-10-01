@@ -45,3 +45,8 @@ Each ad placement should use a unique placeholder texture when independent creat
 ## Android radio audio bridge
 
 `AndroidAudioEngine` can preload a PCM16 WAV creative on the game thread with `prepareAdvertisement()`, start it with `playAdvertisement()`, and update gain/pan atomically with `updateAdvertisementSpatial()`. The AAudio callback performs no file I/O and allocates nothing. Creative replacement is rejected while an ad voice is queued or playing, avoiding races with the callback. Gameplay cues retain their existing centered mix; spatial panning is applied only to the advertisement voice. Stopping or voice-stealing an ad releases the in-flight state.
+
+
+## XZAD map sidecar
+
+Intrinsic placement metadata is not entrusted to renderer/importer-specific GLB extras. `XZAD` v1 is a compact little-endian sidecar parsed by `parseIntrinsicAdMapXzad()` into fixed-capacity arrays. Surface records carry the bound placeholder texture path, world-space center/normal, physical dimensions, viewability thresholds, cooldown/cap, and image/video flags. Audio records carry emitter position, fallback audio path, attenuation range, gain, listen threshold, cooldown, and cap. Duplicate IDs, malformed paths, invalid ranges, unknown flags, truncation, and trailing bytes are rejected.
