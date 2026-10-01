@@ -94,9 +94,12 @@ def list_modifier_inputs(mod):
         ident = getattr(item, "identifier", "")
         if not ident:
             continue
-        has_override = ident in prop_ids
+        input_container = modifier_input_properties(mod)
+        input_prop_ids = set(modifier_input_property_identifiers(mod))
+        has_runtime_input = input_container is not None and ident in input_prop_ids
+        runtime_input = getattr(input_container, ident) if has_runtime_input else None
         try:
-            value = getattr(props, ident) if has_override else getattr(item, "default_value", None)
+            value = runtime_input.value if runtime_input is not None and hasattr(runtime_input, "value") else getattr(item, "default_value", None)
         except Exception:
             value = getattr(item, "default_value", None)
         items.append({
@@ -104,7 +107,8 @@ def list_modifier_inputs(mod):
             "identifier": ident,
             "socket_type": getattr(item, "socket_type", getattr(item, "bl_socket_idname", "")),
             "hide_in_modifier": bool(getattr(item, "hide_in_modifier", False)),
-            "has_modifier_override": bool(has_override),
+            "has_runtime_input": bool(has_runtime_input),
+            "runtime_input_type": serialize_value(getattr(runtime_input, "type", None)) if runtime_input is not None else None,
             "value": serialize_value(value),
             "interface_default": serialize_value(getattr(item, "default_value", None)),
             "min_value": serialize_value(getattr(item, "min_value", None)),
@@ -155,22 +159,22 @@ def apply_gn_inputs(mod, requested):
         if not ident or ident not in prop_ids:
             fail(f"Geometry Nodes input {key!r} ({ident!r}) has no runtime modifier input property")
 
-        try:
-            old = getattr(input_props, ident)
-        except Exception as exc:
-            fail(f"could not read runtime input {key!r}: {exc}")
+        runtime_input = getattr(input_props, ident)
+        if not hasattr(runtime_input, "value"):
+            fail(f"Geometry Nodes input {key!r} runtime property has no editable .value")
 
         try:
-            setattr(input_props, ident, coerce_value(old, new_value))
+            old = runtime_input.value
+            runtime_input.value = coerce_value(old, new_value)
         except Exception as exc:
-            fail(f"could not set runtime input {key!r}: {exc}")
+            fail(f"could not set runtime input {key!r}.value: {exc}")
 
         applied.append({
             "name": item.name,
             "identifier": ident,
-            "mode": "modifier.properties.inputs",
+            "mode": "modifier.properties.inputs.<socket>.value",
             "before": serialize_value(old),
-            "after": serialize_value(getattr(input_props, ident)),
+            "after": serialize_value(runtime_input.value),
         })
 
     bpy.context.view_layer.update()
