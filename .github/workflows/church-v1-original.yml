@@ -133,6 +133,27 @@ jobs:
           assert audio == 1, audio
           expected = 16 + surfaces * struct.calcsize("<Q96s13fII") + audio * struct.calcsize("<QQ96s8fI")
           assert len(data) == expected, (len(data), expected)
+
+          # Semantic path gate: fixed 96-byte asset paths must contain a real
+          # NUL terminator, never the two printable characters "\\0".
+          off = 16
+          surface_size = struct.calcsize("<Q96s13fII")
+          audio_size = struct.calcsize("<QQ96s8fI")
+          for i in range(surfaces):
+              placement_id, path, *_ = struct.unpack_from("<Q96s13fII", data, off)
+              assert b"\x00" in path, (placement_id, path)
+              assert b"\\\\0" not in path, (placement_id, path)
+              decoded = path.split(b"\x00", 1)[0].decode("utf-8")
+              assert decoded.startswith("ads/church/"), (placement_id, decoded)
+              off += surface_size
+          for i in range(audio):
+              placement_id, emitter_id, path, *_ = struct.unpack_from("<QQ96s8fI", data, off)
+              assert b"\x00" in path, (placement_id, emitter_id, path)
+              assert b"\\\\0" not in path, (placement_id, emitter_id, path)
+              decoded = path.split(b"\x00", 1)[0].decode("utf-8")
+              assert decoded.startswith("ads/church/"), (placement_id, decoded)
+              off += audio_size
+
           print("XZAD_EXPORT_GATE_OK", {"bytes":len(data),"surfaces":surfaces,"audio":audio})
           PY
 

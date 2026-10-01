@@ -200,7 +200,7 @@ def fixed_path(value):
     raw = value.encode("utf-8")
     if not raw or len(raw) >= 96:
         raise RuntimeError(f"XZAD asset path invalid: {value!r}")
-    return raw + b"\\0" * (96 - len(raw))
+    return raw + b"\0" * (96 - len(raw))
 
 surface_specs = [p for p in placements if p["kind"] == "surface"]
 audio_specs = [p for p in placements if p["kind"] == "audio"]
