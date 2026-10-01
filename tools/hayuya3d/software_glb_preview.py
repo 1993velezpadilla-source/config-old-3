@@ -169,7 +169,7 @@ def _render_point_fallback(geometries,size:int):
     hi=vertices.max(axis=0)
 
     edge=int(size)
-    span=max(float(hi[0]-lo[0]),float(hi[1]-lo[1]))*1.08
+    span=max(float(hi[0]-lo[0]),float(hi[1]-lo[1]))*1.28
     cx=float((lo[0]+hi[0])*0.5)
     cy=float((lo[1]+hi[1])*0.5)
     xmin=cx-span*0.5
@@ -209,7 +209,8 @@ def _render_point_fallback(geometries,size:int):
             zbuf[yf[better],xf[better]]=zf[better]
             rgb[yf[better],xf[better]]=cf[better]
 
-    return Image.fromarray(rgb,"RGB"),lo,hi
+    mask=Image.fromarray((zbuf>-np.inf).astype(np.uint8)*255,"L")
+    return Image.fromarray(rgb,"RGB"),mask,lo,hi
 
 
 def _render_uv_region(
@@ -246,13 +247,19 @@ def _render_uv_region(
     if textured==0:
         raise RuntimeError("no textured geometry for UV render")
 
+    mask=(zbuf>-1e8).astype(np.uint8)*255
     image=Image.fromarray(rgb,"RGB")
+    mask_image=Image.fromarray(mask,"L")
     if render_size!=int(output_size):
         image=image.resize(
             (int(output_size),int(output_size)),
             Image.Resampling.LANCZOS,
         )
-    return image
+        mask_image=mask_image.resize(
+            (int(output_size),int(output_size)),
+            Image.Resampling.NEAREST,
+        )
+    return image,mask_image
 
 
 def _full_bounds(vertices):
@@ -294,7 +301,7 @@ def _head_bounds(geometries,vertices):
     head=np.concatenate(points,axis=0)
     h_lo=head.min(axis=0)
     h_hi=head.max(axis=0)
-    span=max(float(h_hi[0]-h_lo[0]),float(h_hi[1]-h_lo[1]))*1.12
+    span=max(float(h_hi[0]-h_lo[0]),float(h_hi[1]-h_lo[1]))*1.30
     cx=float((h_lo[0]+h_hi[0])*0.5)
     cy=float((h_lo[1]+h_hi[1])*0.5)
     return (
@@ -303,6 +310,59 @@ def _head_bounds(geometries,vertices):
         cy-span*0.5,
         cy+span*0.5,
     )
+
+
+def _normalize_visible_to_canvas(
+    image:Image.Image,
+    mask:Image.Image,
+    out_size:int,
+    pad_fraction:float,
+):
+    mask_array=np.asarray(mask,dtype=np.uint8)
+    ys,xs=np.where(mask_array>0)
+    if len(xs)==0:
+        raise RuntimeError("visible mask was empty")
+
+    x0=int(xs.min())
+    x1=int(xs.max())+1
+    y0=int(ys.min())
+    y1=int(ys.max())+1
+
+    width=max(1,x1-x0)
+    height=max(1,y1-y0)
+    pad_x=max(2,int(round(width*float(pad_fraction))))
+    pad_y=max(2,int(round(height*float(pad_fraction))))
+
+    x0=max(0,x0-pad_x)
+    x1=min(image.width,x1+pad_x)
+    y0=max(0,y0-pad_y)
+    y1=min(image.height,y1+pad_y)
+
+    crop=image.crop((x0,y0,x1,y1))
+    crop_mask=mask.crop((x0,y0,x1,y1))
+    side=max(crop.width,crop.height)
+
+    canvas=Image.new("RGB",(side,side),(18,18,18))
+    canvas_mask=Image.new("L",(side,side),0)
+    ox=(side-crop.width)//2
+    oy=(side-crop.height)//2
+    canvas.paste(crop,(ox,oy))
+    canvas_mask.paste(crop_mask,(ox,oy))
+
+    out=canvas.resize(
+        (int(out_size),int(out_size)),
+        Image.Resampling.LANCZOS,
+    )
+    out_mask=canvas_mask.resize(
+        (int(out_size),int(out_size)),
+        Image.Resampling.NEAREST,
+    )
+    return out,out_mask,{
+        "source_bbox":[x0,y0,x1,y1],
+        "source_content_size":[width,height],
+        "pad_fraction":float(pad_fraction),
+        "canvas_side":int(side),
+    }
 
 
 def render_preview(
@@ -317,33 +377,57 @@ def render_preview(
     textured=sum(_texture_payload(g) is not None for g in geometries)
 
     if textured:
-        full=_render_uv_region(
+        full_raw,full_mask_raw=_render_uv_region(
             geometries,
             full_bounds,
             int(size),
             int(supersample),
         )
-        face=_render_uv_region(
+        face_raw,face_mask_raw=_render_uv_region(
             geometries,
             _head_bounds(geometries,vertices),
             int(face_size),
             int(supersample),
         )
-        renderer="hayuya-cpu-uv-bilinear-zbuffer-ss2-v2"
-    else:
-        full,_,_=_render_point_fallback(geometries,int(size))
-        face=full.crop(
-            (
-                int(full.width*0.22),
-                0,
-                int(full.width*0.78),
-                int(full.height*0.46),
-            )
-        ).resize(
-            (int(face_size),int(face_size)),
-            Image.Resampling.LANCZOS,
+        full,full_mask,full_fit=_normalize_visible_to_canvas(
+            full_raw,
+            full_mask_raw,
+            int(size),
+            0.12,
         )
-        renderer="hayuya-cpu-vertex-evidence-fallback-v1"
+        face,face_mask,face_fit=_normalize_visible_to_canvas(
+            face_raw,
+            face_mask_raw,
+            int(face_size),
+            0.10,
+        )
+        renderer="hayuya-cpu-uv-bilinear-zbuffer-autofit-ss2-v3"
+    else:
+        full_raw,full_mask_raw,_,_=_render_point_fallback(
+            geometries,
+            int(size),
+        )
+        full,full_mask,full_fit=_normalize_visible_to_canvas(
+            full_raw,
+            full_mask_raw,
+            int(size),
+            0.12,
+        )
+        face_box=(
+            int(full_raw.width*0.20),
+            0,
+            int(full_raw.width*0.80),
+            int(full_raw.height*0.48),
+        )
+        face_raw=full_raw.crop(face_box)
+        face_mask_raw=full_mask_raw.crop(face_box)
+        face,face_mask,face_fit=_normalize_visible_to_canvas(
+            face_raw,
+            face_mask_raw,
+            int(face_size),
+            0.10,
+        )
+        renderer="hayuya-cpu-vertex-evidence-autofit-v2"
 
     turntable=output_dir/"turntable"
     faces=output_dir/"faces"
@@ -369,6 +453,15 @@ def render_preview(
         "turntable":[str(full_path)],
         "faces":[str(face_path)],
         "preflight_only":True,
+        "auto_fit":{
+            "full":full_fit,
+            "face":face_fit,
+        },
+        "safe_padding":{
+            "full":0.12,
+            "face":0.10,
+        },
+        "silhouette_source":"renderer_zbuffer_visibility_mask",
     }
     (output_dir/"software_manifest.json").write_text(
         json.dumps(payload,indent=2)+"\n",
