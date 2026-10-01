@@ -71,6 +71,7 @@ def load_ruins_assets():
     with bpy.data.libraries.load(str(RUINS_BLEND), link=False) as (src, dst):
         wanted = set(ASSET_NAMES.values())
         dst.objects = [name for name in src.objects if name in wanted]
+        dst.materials = [name for name in src.materials if name == "BrickFloor1"]
 
     loaded = {obj.name: obj for obj in dst.objects if obj is not None}
     for obj in loaded.values():
@@ -232,6 +233,13 @@ def export_dressed(objects):
 
 assets, asset_metadata = load_ruins_assets()
 
+# Reuse an authored CC0 floor material from the same Gothic pack.
+floor_material = bpy.data.materials.get("BrickFloor1")
+if floor_material is not None:
+    gameplay_floor.data.materials.clear()
+    gameplay_floor.data.materials.append(floor_material)
+    gameplay_floor["material_source"] = "3TD Fantasy Ruins Pack / BrickFloor1"
+
 ic = Vector(inner_after["center"])
 imn = Vector(inner_after["min"])
 isz = Vector(inner_after["size"])
@@ -247,7 +255,7 @@ for idx, frac in enumerate(bay_offsets, 1):
     y = ic.y + isz.y * frac
     role = "pillar_a" if idx % 2 else "pillar_b"
     for side, sign in (("L", -1.0), ("R", 1.0)):
-        x = ic.x + sign * half_w * 0.58
+        x = ic.x + sign * half_w * 0.66
         instances.append(place_instance(
             assets[role],
             f"SANCTUM_{role.upper()}_{idx}_{side}",
@@ -260,7 +268,7 @@ for side, sign in (("L", -1.0), ("R", 1.0)):
     instances.append(place_instance(
         assets["roman_column"],
         f"SANCTUM_ROMAN_ALTAR_{side}",
-        (ic.x + sign * half_w * 0.46, altar_y, floor_z),
+        (ic.x + sign * half_w * 0.55, altar_y, floor_z),
     ))
 
 # Existing authored arch centered near the altar end. Keep its original
@@ -268,7 +276,7 @@ for side, sign in (("L", -1.0), ("R", 1.0)):
 instances.append(place_instance(
     assets["arch"],
     "SANCTUM_ALTAR_ARCH",
-    (ic.x, ic.y + half_l * 0.52, floor_z),
+    (ic.x, ic.y + half_l * 0.64, floor_z),
 ))
 
 # Existing long wall/trim pieces run along the two side walls.
@@ -276,7 +284,7 @@ for side, sign in (("L", -1.0), ("R", 1.0)):
     instances.append(place_instance(
         assets["wall_trim"],
         f"SANCTUM_WALL_TRIM_{side}",
-        (ic.x + sign * half_w * 0.70, ic.y, floor_z),
+        (ic.x + sign * half_w * 0.78, ic.y, floor_z),
         rotation_z=math.radians(90.0),
         scale=(min(1.0, isz.y / 30.0), 1.0, 1.0),
     ))
@@ -341,6 +349,7 @@ report = {
     "dressing_license": "CC0",
     "dressing_source": "3TD Fantasy Ruins Pack for Blender",
     "dressing_source_sha256": os.environ.get("SANCTUM_RUINS_SHA256", ""),
+    "floor_material": floor_material.name if floor_material is not None else None,
     "asset_metadata": asset_metadata,
     "instances": [
         {
