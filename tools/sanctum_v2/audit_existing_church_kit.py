@@ -132,7 +132,7 @@ def render_candidate(obj, index):
     fill.data.size = max(extent * 0.6, 2.0)
     point_camera(fill, center)
 
-    scene.render.engine = "BLENDER_EEVEE_NEXT"
+    scene.render.engine = "BLENDER_EEVEE"
     scene.render.resolution_x = 1280
     scene.render.resolution_y = 800
     scene.render.resolution_percentage = 100
