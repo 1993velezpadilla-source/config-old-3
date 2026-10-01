@@ -1,0 +1,60 @@
+name: Sanctum V2 Stained Glass Shader Inventory
+
+on:
+  push:
+    branches:
+      - sanctum-v2-existing-assets-only
+    paths:
+      - ".github/workflows/sanctum-v2-stained-shader-inventory.yml"
+      - "tools/sanctum_v2/inventory_stained_glass_shader.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install host packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq git-lfs curl xz-utils xvfb libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libglu1-mesa
+
+      - name: Fetch CC0 shader library
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/wirehead/blender-shader-lib.git external-shader-lib
+          test -s external-shader-lib/cycles-principled-dielectric-transparent.blend
+          grep -q "CC0" external-shader-lib/README.md
+
+      - name: Install Blender 5.2.2
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz -o /tmp/blender.tar.xz
+          tar -C /tmp -xf /tmp/blender.tar.xz
+
+      - name: Inspect authored shader library
+        shell: bash
+        env:
+          SANCTUM_V2_SHADER_INV_OUT: sanctum-v2-shader-inventory
+          SANCTUM_V2_SHADER_LIB: external-shader-lib/cycles-principled-dielectric-transparent.blend
+        run: |
+          set -euo pipefail
+          xvfb-run -a /tmp/blender-5.2.2-linux-x64/blender -b             --python tools/sanctum_v2/inventory_stained_glass_shader.py             2>&1 | tee sanctum-v2-shader-inventory/blender.log
+          grep -q "SANCTUM_V2_SHADER_INVENTORY_OK" sanctum-v2-shader-inventory/blender.log
+
+      - name: Upload inventory
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-V2-Stained-Shader-Inventory
+          path: sanctum-v2-shader-inventory/
+          if-no-files-found: error
+          retention-days: 14
