@@ -1,0 +1,142 @@
+name: Sanctum CC0 Gothic Ruins Probe
+
+on:
+  push:
+    branches:
+      - feature/xziel-map-builder-agent-v1
+    paths:
+      - ".github/workflows/sanctum-cc0-gothic-ruins-probe.yml"
+      - "tools/sanctum_v2/probe_cc0_gothic_ruins_pack.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sanctum-cc0-gothic-ruins-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    name: Probe CC0 Gothic ruins detail kit
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Install host packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            curl xz-utils xvfb \
+            libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1 \
+            libgl1 libglu1-mesa
+
+      - name: Verify CC0 source and download Blender kit
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf external-ruins
+          mkdir -p external-ruins
+
+          curl -L --fail --retry 3 \
+            https://opengameart.org/content/3td-fantasy-ruins-pack-for-blender \
+            -o external-ruins/source-page.html
+
+          grep -qi "CC0" external-ruins/source-page.html
+          grep -Eqi "cathedral|pillar|arch|temple" external-ruins/source-page.html
+          grep -qi "textures are packed" external-ruins/source-page.html
+
+          curl -L --fail --retry 3 \
+            https://opengameart.org/sites/default/files/fantasy_ruins_pack_for_blender.blend \
+            -o external-ruins/fantasy_ruins_pack_for_blender.blend
+
+          test -s external-ruins/fantasy_ruins_pack_for_blender.blend
+          BYTES="$(stat -c%s external-ruins/fantasy_ruins_pack_for_blender.blend)"
+          echo "SOURCE_BYTES=$BYTES"
+          test "$BYTES" -gt 1000000
+
+          sha256sum external-ruins/fantasy_ruins_pack_for_blender.blend \
+            | tee external-ruins/source.sha256
+
+      - name: Install Blender 5.2.2
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 \
+            https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz \
+            -o /tmp/blender-5.2.2-linux-x64.tar.xz
+          tar -C /tmp -xf /tmp/blender-5.2.2-linux-x64.tar.xz
+          /tmp/blender-5.2.2-linux-x64/blender --version
+
+      - name: Inventory and render Gothic pieces
+        shell: bash
+        env:
+          SANCTUM_RUINS_OUT: sanctum-ruins-probe
+        run: |
+          set -euo pipefail
+          mkdir -p sanctum-ruins-probe
+          export SANCTUM_RUINS_SHA256="$(cut -d' ' -f1 external-ruins/source.sha256)"
+
+          xvfb-run -a -s "-screen 0 1600x1000x24" \
+            /tmp/blender-5.2.2-linux-x64/blender \
+            -b external-ruins/fantasy_ruins_pack_for_blender.blend \
+            --python tools/sanctum_v2/probe_cc0_gothic_ruins_pack.py \
+            2>&1 | tee sanctum-ruins-probe/blender-probe.log
+
+          grep -q "SANCTUM_RUINS_PROBE_PASS" sanctum-ruins-probe/blender-probe.log
+
+      - name: Validate evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          out=Path("sanctum-ruins-probe")
+          d=json.loads((out/"ruins-report.json").read_text(encoding="utf-8"))
+
+          assert d["status"]=="PASS", d
+          assert d["license"]=="CC0", d
+          assert d["mesh_object_count"] >= 6, d
+          assert len(d["selected"]) >= 6, d
+          assert len(d["renders"]) >= 6, d
+          assert d["glb_bytes"] > 100000, d
+          assert len(d["source_sha256"]) == 64, d
+
+          for item in d["renders"]:
+              p=out/item["name"]
+              assert p.is_file() and p.stat().st_size > 2000, p
+
+          print("SANCTUM_RUINS_EVIDENCE_GREEN")
+          print("MESH_OBJECTS", d["mesh_object_count"])
+          print("SELECTED", [x["name"] for x in d["selected"]])
+          print("GLB_BYTES", d["glb_bytes"])
+          PY
+
+      - name: Record source provenance
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "SOURCE_PAGE=https://opengameart.org/content/3td-fantasy-ruins-pack-for-blender"
+            echo "SOURCE_FILE=https://opengameart.org/sites/default/files/fantasy_ruins_pack_for_blender.blend"
+            echo "LICENSE=CC0"
+            echo "SOURCE_SHA256=$(cut -d' ' -f1 external-ruins/source.sha256 2>/dev/null || true)"
+            echo "BLENDER=5.2.2"
+          } > sanctum-ruins-probe/source-provenance.txt
+
+      - name: Upload Gothic ruins evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-CC0-Gothic-Ruins-Kit
+          path: sanctum-ruins-probe/
+          if-no-files-found: error
+          retention-days: 14
