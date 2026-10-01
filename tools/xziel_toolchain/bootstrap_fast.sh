@@ -62,7 +62,22 @@ cmake --install "$BUILD/recastnavigation"
 
 # XZIEL single-tile Recast -> Detour navmesh baker.
 if [[ -f "tools/xziel_toolchain/xziel_navmesh_bake.cpp" ]]; then
-  c++ -std=c++17 -O3 -DNDEBUG     -I"$ROOT/recast/include/recastnavigation"     tools/xziel_toolchain/xziel_navmesh_bake.cpp     "$ROOT/recast/lib/libRecast.a"     "$ROOT/recast/lib/libDetour.a"     -o "$BIN/xziel-navmesh-bake"
+  c++ -std=c++17 -O3 -DNDEBUG \
+    -I"$ROOT/recast/include/recastnavigation" \
+    tools/xziel_toolchain/xziel_navmesh_bake.cpp \
+    "$ROOT/recast/lib/libRecast.a" \
+    "$ROOT/recast/lib/libDetour.a" \
+    -o "$BIN/xziel-navmesh-bake"
+fi
+
+# Optional connectivity verifier: loads the emitted Detour navbin, snaps named
+# probes to the mesh, then requires real paths between consecutive probes.
+if [[ -f "tools/xziel_toolchain/xziel_navmesh_probe.cpp" ]]; then
+  c++ -std=c++17 -O3 -DNDEBUG \
+    -I"$ROOT/recast/include/recastnavigation" \
+    tools/xziel_toolchain/xziel_navmesh_probe.cpp \
+    "$ROOT/recast/lib/libDetour.a" \
+    -o "$BIN/xziel-navmesh-probe"
 fi
 
 XATLAS_SHA="f700c7790aaa030e794b52ba7791a05c085faf0c"
@@ -90,4 +105,7 @@ echo "[XZIEL] FAST_TOOLCHAIN_READY"
 "$BIN/ktx" --version || "$BIN/ktx" version || true
 test -f "$ROOT/lib/libxatlas.a"
 test -x "$BIN/xziel-navmesh-bake"
+if [[ -f "tools/xziel_toolchain/xziel_navmesh_probe.cpp" ]]; then
+  test -x "$BIN/xziel-navmesh-probe"
+fi
 find "$ROOT/recast" -type f \( -name 'libRecast*' -o -name 'libDetour*' \) | head
