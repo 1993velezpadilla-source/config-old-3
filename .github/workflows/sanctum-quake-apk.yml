@@ -179,6 +179,7 @@ jobs:
           test "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1"
 
           "$ADB" install -r sanctum-dist/XZIEL-Sanctum-GREEN-debug.apk
+          "$ADB" shell settings put secure immersive_mode_confirmations confirmed || true
           "$ADB" logcat -c
           "$ADB" shell am force-stop com.xziel.sanctum || true
           "$ADB" shell am start -W -n com.xziel.sanctum/org.libsdl.app.NZPActivity > sanctum-dist/am-start.txt 2>&1 || true
