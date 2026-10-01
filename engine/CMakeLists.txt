@@ -35,6 +35,7 @@ add_library(xziel_engine STATIC
     src/world_streaming.cpp
     src/scene_fx.cpp
     src/audio_scene.cpp
+    src/intrinsic_ads.cpp
     src/frame_graph.cpp
     src/visibility.cpp
     src/haptics.cpp
