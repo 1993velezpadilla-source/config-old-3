@@ -57,14 +57,12 @@ s=s.replace(
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
 ''',
-'''    /* HQ compatibility path: 2K photogrammetry albedo multiplied by the
-     * clamped XZSM v2 baked vertex-light term. This gives depth and atmosphere
-     * without sacrificing mobile texture detail. */
-    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+'''    /* HQ visual gate: preserve the enhanced photogrammetry albedo exactly.
+     * Lighting will be layered after the real church is visually validated. */
+    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
 
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-    glEnableClientState(GL_COLOR_ARRAY);
 ''',1)
 
 s=s.replace(
@@ -74,7 +72,6 @@ s=s.replace(
 ''',
 '''        glVertexPointer(3, GL_FLOAT, sizeof(xzsm_vertex_t), &b->vertices[0].x);
         glTexCoordPointer(2, GL_FLOAT, sizeof(xzsm_vertex_t), &b->vertices[0].u);
-        glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(xzsm_vertex_t), &b->vertices[0].r);
         glDrawElements(GL_TRIANGLES, b->index_count, GL_UNSIGNED_SHORT, b->indices);
 ''',1)
 
@@ -82,10 +79,9 @@ s=s.replace(
 '''    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
     glDisableClientState(GL_VERTEX_ARRAY);
 ''',
-'''    glDisableClientState(GL_COLOR_ARRAY);
-    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+'''    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
     glDisableClientState(GL_VERTEX_ARRAY);
 ''',1)
 
 p.write_text(s,encoding="utf-8")
-print("Patched Sanctum XZSM bridge for clamped baked vertex lighting + 2K albedo modulation.")
+print("Patched Sanctum XZSM bridge for full photogrammetry albedo authority.")
