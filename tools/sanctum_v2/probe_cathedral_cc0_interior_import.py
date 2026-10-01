@@ -74,6 +74,85 @@ def build_relief_box_material(mat,diffuse,roughness,displacement,tile_m,resoluti
     links.new(bump.outputs["Normal"],bsdf.inputs["Normal"])
     links.new(bsdf.outputs["BSDF"],out.inputs["Surface"])
 
+def build_world_relief_box_material(mat,diffuse,roughness,displacement,tile_m,resolution):
+    mat.use_nodes=True
+    nodes=mat.node_tree.nodes
+    links=mat.node_tree.links
+    nodes.clear()
+
+    out=nodes.new("ShaderNodeOutputMaterial")
+    bsdf=nodes.new("ShaderNodeBsdfPrincipled")
+    geom=nodes.new("ShaderNodeNewGeometry")
+    mapping=nodes.new("ShaderNodeMapping")
+
+    repeat=1.0/tile_m
+    mapping.inputs["Scale"].default_value=(repeat,repeat,repeat)
+
+    diff=box_tex(nodes,load_image(diffuse,False))
+    rough=box_tex(nodes,load_image(roughness,True))
+    disp=box_tex(nodes,load_image(displacement,True))
+    bump=nodes.new("ShaderNodeBump")
+    bump.inputs["Distance"].default_value=tile_m/float(resolution)
+
+    # World-space position keeps physical texel scale stable even though the
+    # imported props retain different authored object transforms.
+    links.new(geom.outputs["Position"],mapping.inputs["Vector"])
+    for n in (diff,rough,disp):
+        links.new(mapping.outputs["Vector"],n.inputs["Vector"])
+
+    links.new(diff.outputs["Color"],bsdf.inputs["Base Color"])
+    links.new(rough.outputs["Color"],bsdf.inputs["Roughness"])
+    links.new(disp.outputs["Color"],bump.inputs["Height"])
+    links.new(bump.outputs["Normal"],bsdf.inputs["Normal"])
+    links.new(bsdf.outputs["BSDF"],out.inputs["Surface"])
+
+def upgrade_cc0_interior_materials(props,manifest,resolution):
+    wood_asset="wood_planks"
+    wood_tile=tile_meters(manifest,wood_asset)
+    wood=bpy.data.materials.get("XZIEL_CC0_WoodPBR")
+    if wood is None:
+        wood=bpy.data.materials.new("XZIEL_CC0_WoodPBR")
+    build_world_relief_box_material(
+        wood,
+        ASSETS/wood_asset/"diffuse.png",
+        ASSETS/wood_asset/"rough.png",
+        ASSETS/wood_asset/"displacement.png",
+        wood_tile,
+        resolution,
+    )
+
+    remapped=[]
+    kept_authored=[]
+    for o in props:
+        wood_object=(o.name=="pew" or o.name.startswith("pew.") or
+                     o.name=="altar" or o.name.startswith("altar.") or
+                     o.name=="Cross" or o.name.startswith("Cross."))
+        if wood_object:
+            if len(o.data.materials)==0:
+                o.data.materials.append(wood)
+            else:
+                for i in range(len(o.data.materials)):
+                    o.data.materials[i]=wood
+            remapped.append(o.name)
+        else:
+            kept_authored.append(o.name)
+
+    return {
+        "wood_pbr":{
+            "asset":wood_asset,
+            "provider":"Poly Haven",
+            "license":"CC0",
+            "mapping":"world-space BOX triplanar",
+            "physical_tile_m":wood_tile,
+            "texture_resolution":resolution,
+            "bump_distance_m":wood_tile/float(resolution),
+            "objects":remapped,
+            "object_count":len(remapped),
+        },
+        "kept_authored_material_objects":kept_authored,
+        "rule":"replace only source flat-gray pew/altar/cross material with verified CC0 wood PBR; preserve authored pipe/candle/bible material slots",
+    }
+
 def load_authored_glass_shader():
     if not SHADER_LIB.is_file():
         raise SystemExit(f"Missing authored shader library: {SHADER_LIB}")
@@ -654,6 +733,11 @@ cc0_props,cc0_props_report=append_and_fit_cc0_interior_props(
     Vector(st["min"]),
     Vector(st["max"]),
 )
+cc0_props_report["material_upgrade"]=upgrade_cc0_interior_materials(
+    cc0_props,
+    manifest,
+    resolution,
+)
 all_lights=[*lights,*backlights]
 visible=[obj,cam,window_backing,*cc0_props,*all_lights]
 for o in scene.objects:
@@ -669,7 +753,7 @@ views=[
     ("03-interior-left-forward.png",Vector((center.x-size.x*0.18,center.y-size.y*0.18,interior_z)),Vector((center.x,center.y+size.y*0.18,interior_z+0.8))),
     ("04-interior-right-forward.png",Vector((center.x+size.x*0.18,center.y-size.y*0.18,interior_z)),Vector((center.x,center.y+size.y*0.18,interior_z+0.8))),
     ("05-interior-altar-side.png",Vector((center.x-size.x*0.20,center.y+size.y*0.12,interior_z+0.3)),Vector((center.x,center.y+size.y*0.24,interior_z+0.7))),
-    ("06-interior-high-overview.png",Vector((center.x,center.y,interior_z+size.z*0.16)),Vector((center.x,center.y,interior_z))),
+    ("06-interior-high-overview.png",Vector((center.x,center.y+size.y*0.20,interior_z+size.z*0.10)),Vector((center.x,center.y-size.y*0.12,interior_z+0.35))),
 ]
 for name,pos,look in views:
     render(scene,cam,name,pos,look)
