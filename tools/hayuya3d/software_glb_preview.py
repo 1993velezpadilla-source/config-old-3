@@ -325,25 +325,22 @@ def _clamp_to_front_silhouette(
     # silhouette lobes that caused #32-#34.
     rescue_radius=max(iterations+1,int(rescue_pixels))
     distance=distance_transform_edt(~front)
-    fringe=rendered & ~support & (distance<=float(rescue_radius))
-    labels,count=label(fringe)
+
+    # Proximity-band rescue: area is NOT a rejection criterion anymore.
+    # Long cloth tatters or a whole finger can be a large connected component
+    # while still being legitimate. The guard is geometric instead: only
+    # rendered pixels within a narrow distance band around the true source
+    # alpha silhouette are eligible. The old large secondary halo extends far
+    # beyond this band and therefore remains rejected.
+    rescued=rendered & ~support & (distance<=float(rescue_radius))
+    labels,count=label(rescued)
 
     front_pixels=int(np.count_nonzero(front))
-    max_component=max(96,int(round(front_pixels*0.006)))
-    rescued=np.zeros_like(rendered,dtype=bool)
-    rescued_components=0
-    rejected_components=0
     rescued_component_pixels=[]
-
     for component_id in range(1,int(count)+1):
-        component=labels==component_id
-        area=int(np.count_nonzero(component))
-        if area<=max_component:
-            rescued|=component
-            rescued_components+=1
+        area=int(np.count_nonzero(labels==component_id))
+        if area:
             rescued_component_pixels.append(area)
-        else:
-            rejected_components+=1
 
     keep=rendered & (support|rescued)
     removed=rendered & ~keep
@@ -357,10 +354,9 @@ def _clamp_to_front_silhouette(
         "kept_pixels":int(np.count_nonzero(keep)),
         "dilation_pixels":int(iterations),
         "rescue_pixels":int(rescue_radius),
-        "max_rescue_component_pixels":int(max_component),
+        "rescue_policy":"strict_source_alpha_proximity_band",
         "rescued_pixels":int(np.count_nonzero(rescued)),
-        "rescued_components":int(rescued_components),
-        "rejected_components":int(rejected_components),
+        "rescued_components":int(len(rescued_component_pixels)),
         "largest_rescued_component":int(max(rescued_component_pixels) if rescued_component_pixels else 0),
         "removed_pixels":int(np.count_nonzero(removed)),
     }
@@ -476,7 +472,7 @@ def _head_bounds(geometries,vertices):
     head=np.concatenate(points,axis=0)
     h_lo=head.min(axis=0)
     h_hi=head.max(axis=0)
-    span=max(float(h_hi[0]-h_lo[0]),float(h_hi[1]-h_lo[1]))*2.10
+    span=max(float(h_hi[0]-h_lo[0]),float(h_hi[1]-h_lo[1]))*1.95
     cx=float((h_lo[0]+h_hi[0])*0.5)
     cy=float((h_lo[1]+h_hi[1])*0.5)
     return (
@@ -560,13 +556,22 @@ def render_preview(
             int(supersample),
             max_retries=2,
         )
-        face_raw,face_mask_raw,head_bounds_used,face_edge_attempts=_render_uv_with_edge_retry(
+        face_raw,face_mask_raw=_render_uv_region(
             geometries,
             head_bounds,
             int(face_size),
             int(supersample),
-            max_retries=2,
         )
+        head_bounds_used=head_bounds
+        face_edge_attempts=[{
+            "attempt":0,
+            "bounds":[float(v) for v in head_bounds],
+            "edge_contact":_mask_edge_contact(
+                face_mask_raw,
+                margin=max(3,int(round(int(face_size)*0.006))),
+            ),
+            "retry_disabled_reason":"face evidence intentionally crops lower torso; bottom contact is not a head-clipping signal",
+        }]
 
         silhouette_clamp=None
         if source_visible_front:
@@ -587,14 +592,14 @@ def render_preview(
                 full_mask_raw,
                 front_full_mask,
                 dilation_pixels=max(2,int(round(int(size)*0.004))),
-                rescue_pixels=max(6,int(round(int(size)*0.010))),
+                rescue_pixels=max(8,int(round(int(size)*0.013))),
             )
             face_raw,face_mask_raw,face_clamp=_clamp_to_front_silhouette(
                 face_raw,
                 face_mask_raw,
                 front_face_mask,
                 dilation_pixels=max(3,int(round(int(face_size)*0.006))),
-                rescue_pixels=max(7,int(round(int(face_size)*0.012))),
+                rescue_pixels=max(6,int(round(int(face_size)*0.009))),
             )
             silhouette_clamp={
                 "enabled":True,
@@ -624,7 +629,7 @@ def render_preview(
             int(face_size),
             0.10,
         )
-        renderer="hayuya-cpu-uv-alpha-thindetail-edge-retry-ss2-v6"
+        renderer="hayuya-cpu-uv-alpha-proximity-rescue-ss2-v7"
     else:
         silhouette_clamp={
             "enabled":False,
