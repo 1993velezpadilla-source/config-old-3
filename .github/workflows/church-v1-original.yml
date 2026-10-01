@@ -80,6 +80,40 @@ jobs:
           test -s church_v1/out/church_v1_nave_art_prototype.glb
           test -s church_v1/out/nave_art_v1_report.json
 
+      - name: Build intrinsic in-world ad placements
+        shell: bash
+        env:
+          CHURCH_V1_OUT: church_v1/out
+          CHURCH_AD_MANIFEST: church_v1/spec/intrinsic_ads_v1.json
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: |
+          set -euo pipefail
+          xvfb-run -a -s "-screen 0 1600x1000x24" \
+            blender --background --python tools/church_v1/intrinsic_ad_markers.py \
+            2>&1 | tee church_v1/out/intrinsic-ads-v1-build.log
+          test -s church_v1/out/church_v1_nave_art_ads_v1.glb
+          test -s church_v1/out/church_v1_nave_art_ads_v1.blend
+          test -s church_v1/out/intrinsic_ads_player.png
+          test -s church_v1/out/intrinsic_ads_v1_report.json
+
+      - name: Validate intrinsic ad placement gate
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          r=json.load(open("church_v1/out/intrinsic_ads_v1_report.json", encoding="utf-8"))
+          assert r["stage"] == "INTRINSIC_ADS_V1", r
+          assert r["placementCount"] == 6, r
+          assert r["surfaceCount"] == 5, r
+          assert r["audioEmitterCount"] == 1, r
+          assert r["uniquePlacementIds"] == 6, r
+          assert r["hudOverlayAds"] is False, r
+          assert r["automaticClicks"] is False, r
+          assert r["impressionOnLoad"] is False, r
+          assert r["provider"] == "LocalAdProvider", r
+          print("CHURCH_INTRINSIC_ADS_GATE_OK")
+          PY
+
       - name: Validate authored final art when present
         shell: bash
         env:
