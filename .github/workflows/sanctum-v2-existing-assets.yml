@@ -108,6 +108,11 @@ jobs:
           if not any(word in names for word in required):
               raise SystemExit(f"No church/cathedral source candidates found: {d}")
           renders=[r for r in d["renders"] if r.get("rendered")]
+          if len(renders) < 3:
+              raise SystemExit(f"Expected at least 3 real rendered candidates, got {len(renders)}: {d['renders']}")
+          missing=[r.get("image") for r in renders if not (Path("sanctum-v2-audit") / r.get("image","")).is_file()]
+          if missing:
+              raise SystemExit(f"Rendered image files missing: {missing}")
           print("MATCHING_NODE_GROUPS",len(d["matching_node_groups"]))
           print("CANDIDATE_OBJECTS",len(d["candidate_objects"]))
           print("RENDERED",len(renders))
