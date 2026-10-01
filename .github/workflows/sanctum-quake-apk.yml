@@ -27,62 +27,15 @@ jobs:
       - name: Checkout XZIEL
         uses: actions/checkout@v5
 
-      - name: Install church build dependencies
-        shell: bash
-        run: |
-          set -euo pipefail
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq blender libegl1 libgl1-mesa-dri libglx-mesa0 mesa-utils xvfb git wget curl unzip zip
-          python3 -m pip install --quiet --upgrade pip
-          python3 -m pip install --quiet objaverse trimesh
-          blender --version
-
-      - name: Fetch original St Giles scan
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p church/source church/out
-          python3 - <<'PY'
-          import json, shutil
-          from pathlib import Path
-          import objaverse
-
-          uid="b92917ff83914adc8bc93959ba8b4399"
-          out=Path("church/source")
-          annotations=objaverse.load_annotations([uid])
-          ann=annotations.get(uid)
-          if not ann:
-              raise SystemExit("Missing St Giles Objaverse metadata")
-          if ann.get("license") != "by":
-              raise SystemExit(f"Unexpected source license: {ann.get('license')!r}")
-          objects=objaverse.load_objects([uid], download_processes=1)
-          source=objects.get(uid)
-          if not source:
-              raise SystemExit("Could not download St Giles source GLB")
-          shutil.copy2(source,out/"st-giles-cripplegate.glb")
-          (out/"source_metadata.json").write_text(json.dumps(ann,indent=2),encoding="utf-8")
-          print("SOURCE_GLB",source)
-          PY
-
-      - name: Measure original church and build gameplay plan
+      - name: Export measured Sanctum GREEN Quake church
         shell: bash
         env:
-          CHURCH_SOURCE: church/source/st-giles-cripplegate.glb
-          CHURCH_PLAN: church/out/zombies_map_plan.json
-          LIBGL_ALWAYS_SOFTWARE: "1"
-        run: |
-          set -euo pipefail
-          xvfb-run -a -s "-screen 0 1280x1024x24" blender --background --python tools/church_map/measure_sanctum_fast.py 2>&1 | tee church/out/church-measure.log
-          test -s church/out/zombies_map_plan.json
-
-      - name: Export scan-derived GREEN Quake church
-        shell: bash
-        env:
-          CHURCH_PLAN: church/out/zombies_map_plan.json
+          SANCTUM_SNAPSHOT: tools/church_map/sanctum_st_giles_measurement.v1.json
           NZP_MAP_OUT: church/out/nzp_green/sanctum_green.map
         run: |
           set -euo pipefail
-          python3 tools/church_map/export_nzp_green_church.py | tee church/out/sanctum-green-export.log
+          mkdir -p church/out/nzp_green
+          python3 tools/church_map/export_nzp_green_snapshot.py | tee church/out/sanctum-green-export.log
           test -s church/out/nzp_green/sanctum_green.map
           test -s church/out/nzp_green/sanctum_green_report.json
           cat church/out/nzp_green/sanctum_green_report.json
