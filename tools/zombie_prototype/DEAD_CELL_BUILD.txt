@@ -1,0 +1,2 @@
+XZIEL: DEAD CELL
+CI verification trigger for the gameplay-complete graybox Android build.
