@@ -42,9 +42,9 @@ replacement = '''        if (!XZSM_ReadExact(f, b->vertices, sizeof(*b->vertices
         /* XZSM v2 baked vertex lighting: clamp the floor so later lighting
          * passes cannot crush photogrammetry detail to black on Android. */
         for (j = 0; j < b->vertex_count; ++j) {
-            if (b->vertices[j].r < 124) b->vertices[j].r = 124;
-            if (b->vertices[j].g < 124) b->vertices[j].g = 124;
-            if (b->vertices[j].b < 124) b->vertices[j].b = 124;
+            if (b->vertices[j].r < 144) b->vertices[j].r = 144;
+            if (b->vertices[j].g < 144) b->vertices[j].g = 144;
+            if (b->vertices[j].b < 144) b->vertices[j].b = 144;
             b->vertices[j].a = 255;
         }
 
@@ -53,6 +53,20 @@ replacement = '''        if (!XZSM_ReadExact(f, b->vertices, sizeof(*b->vertices
 if anchor not in s:
     raise SystemExit("geometry load anchor not found")
 s = s.replace(anchor, replacement, 1)
+
+# Keep the HQ scan atlases at full-resolution level 0 instead of generating
+# a mip chain that visibly softens the close-range stonework on mobile.
+s = s.replace(
+    '''        b->texture = Image_LoadImage(
+            b->texture_name,
+            IMAGE_PNG | IMAGE_TGA | IMAGE_JPG,
+            0, true, true);''',
+    '''        b->texture = Image_LoadImage(
+            b->texture_name,
+            IMAGE_PNG | IMAGE_TGA | IMAGE_JPG,
+            0, false, true);''',
+    1,
+)
 
 # Preserve enhanced photogrammetry albedo exactly for the visual gate.
 s = s.replace(
@@ -281,40 +295,13 @@ hq_bind = '''            GL_Bind(b->texture);
             glColor4f(1, 1, 1, 1);
 '''
 hq_bind_repl = '''            GL_Bind(b->texture);
-            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
             glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
             glColor4f(1, 1, 1, 1);
 '''
 if hq_bind not in s:
     raise SystemExit("Could not find XZSM texture bind for HQ sampling override")
 s = s.replace(hq_bind, hq_bind_repl, 1)
-
-# Preserve the 2K St Giles atlases on GPU and use trilinear mip filtering.
-gldraw = root / "source/platform/sdl/gl/gl_draw.c"
-gt = gldraw.read_text(encoding="utf-8")
-lines = gt.splitlines()
-max_done = False
-filter_done = False
-for idx, line in enumerate(lines):
-    if (not max_done and "gl_max_size" in line and '"1024"' in line
-            and "cvar_t" in line):
-        lines[idx] = line.replace('"1024"', '"2048"', 1)
-        max_done = True
-    if (not filter_done and "gl_filter_min" in line
-            and "GL_LINEAR_MIPMAP_NEAREST" in line
-            and "=" in line):
-        lines[idx] = line.replace(
-            "GL_LINEAR_MIPMAP_NEAREST",
-            "GL_LINEAR_MIPMAP_LINEAR",
-            1,
-        )
-        filter_done = True
-if not max_done or not filter_done:
-    raise SystemExit(
-        f"Could not find Vril HQ texture-quality defaults "
-        f"max={max_done} filter={filter_done}"
-    )
-gldraw.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 p.write_text(s, encoding="utf-8")
 
