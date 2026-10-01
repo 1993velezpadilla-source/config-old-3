@@ -155,7 +155,7 @@ jobs:
               }
           }
 
-          for asset in ("stone_wall_04","roof_slates_03","wood_planks"):
+          for asset in ("stone_wall_04","roof_slates_03","wood_planks","monastery_stone_floor"):
               info=get_json(f"https://api.polyhaven.com/info/{asset}")
               physical=info.get("dimensions")
               if not isinstance(physical,list) or len(physical)<2:
@@ -190,7 +190,7 @@ jobs:
               "Author: Keith333\n"
               "License: CC-BY 3.0\n"
               "Source: https://opengameart.org/content/repeating-mini-windows-stained-glass-seamless-texture-with-normalmap\n\n"
-              "Stone/roof/wood materials: Poly Haven, CC0.\n",
+              "Stone/roof/wood/floor materials: Poly Haven, CC0.\n",
               encoding="utf-8",
           )
           print("SANCTUM_V2_LICENSED_ASSETS_OK")
@@ -268,6 +268,15 @@ jobs:
           assert wood["object_count"]>=26, d
           assert wood["physical_tile_m"]>0 and wood["bump_distance_m"]>0, d
           assert len(upgrade["kept_authored_material_objects"])>0, d
+          floor=d["floor_upgrade"]
+          assert floor["asset"]=="monastery_stone_floor", d
+          assert floor["provider"]=="Poly Haven", d
+          assert floor["license"]=="CC0", d
+          assert floor["texture_resolution"]==4096, d
+          assert floor["face_count"]>0, d
+          assert floor["physical_tile_m"]>0 and floor["bump_distance_m"]>0, d
+          assert floor["normal_gate_world_z"]==0.85, d
+          assert floor["z_fight_offset_m"]>0, d
           fitted=props["fitted_bounds"]["size"]
           target=props["target_bounds"]["size"]
           assert all(v>0 for v in fitted), d
