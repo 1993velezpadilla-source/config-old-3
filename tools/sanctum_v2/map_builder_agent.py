@@ -2,6 +2,8 @@ import bpy
 import json
 import math
 import os
+import hashlib
+import struct
 from pathlib import Path
 from mathutils import Vector
 
@@ -177,7 +179,7 @@ def apply_gn_inputs(mod, requested):
             "after": serialize_value(runtime_input.value),
         })
 
-    bpy.context.view_layer.update()
+    force_geometry_nodes_reevaluation(mod.id_data, mod)
     return applied
 
 def apply_transform(obj, transform):
@@ -189,6 +191,68 @@ def apply_transform(obj, transform):
         obj.rotation_euler = tuple(math.radians(float(v)) for v in transform["rotation_deg"])
     if "scale" in transform:
         obj.scale = Vector(transform["scale"])
+
+def force_geometry_nodes_reevaluation(obj, mod):
+    group = mod.node_group
+
+    # Mark every ID participating in the modifier evaluation as dirty.
+    try:
+        group.update_tag(refresh={"DATA"})
+    except Exception:
+        try:
+            group.update_tag()
+        except Exception:
+            pass
+    try:
+        group.update()
+    except Exception:
+        pass
+
+    try:
+        obj.data.update_tag()
+    except Exception:
+        pass
+    try:
+        obj.update_tag(refresh={"OBJECT", "DATA"})
+    except Exception:
+        try:
+            obj.update_tag()
+        except Exception:
+            pass
+
+    # Toggling viewport evaluation invalidates the modifier stack without
+    # changing authored geometry or node parameters.
+    was_viewport = mod.show_viewport
+    mod.show_viewport = False
+    bpy.context.view_layer.update()
+    mod.show_viewport = was_viewport
+
+    try:
+        obj.update_tag(refresh={"OBJECT", "DATA"})
+    except Exception:
+        pass
+    bpy.context.view_layer.update()
+
+
+def evaluated_mesh_fingerprint(obj):
+    deps = bpy.context.evaluated_depsgraph_get()
+    ev = obj.evaluated_get(deps)
+    mesh = ev.to_mesh()
+    try:
+        h = hashlib.sha256()
+        h.update(struct.pack("<QQ", len(mesh.vertices), len(mesh.polygons)))
+        mw = ev.matrix_world
+        for v in mesh.vertices:
+            p = mw @ v.co
+            h.update(struct.pack("<3d", float(p.x), float(p.y), float(p.z)))
+        for poly in mesh.polygons:
+            h.update(struct.pack("<I", len(poly.vertices)))
+            for idx in poly.vertices:
+                h.update(struct.pack("<I", int(idx)))
+        return h.hexdigest()
+    finally:
+        ev.to_mesh_clear()
+
 
 def evaluated_mesh_stats(obj):
     deps = bpy.context.evaluated_depsgraph_get()
@@ -364,7 +428,21 @@ modifier = find_geometry_nodes_modifier(target, expected_group)
 
 before_inputs = list_modifier_inputs(modifier)
 apply_transform(target, plan.get("object_transform", {}))
-applied_inputs = apply_gn_inputs(modifier, plan.get("geometry_nodes_inputs", {}))
+
+baseline_stats = evaluated_mesh_stats(target)
+baseline_fingerprint = evaluated_mesh_fingerprint(target)
+
+requested_inputs = plan.get("geometry_nodes_inputs", {})
+applied_inputs = apply_gn_inputs(modifier, requested_inputs)
+
+post_input_stats = evaluated_mesh_stats(target)
+post_input_fingerprint = evaluated_mesh_fingerprint(target)
+
+if requested_inputs and baseline_fingerprint == post_input_fingerprint:
+    fail(
+        "Geometry Nodes runtime inputs changed but evaluated mesh fingerprint did not change; "
+        "refusing false GREEN"
+    )
 
 baked_target = bake_evaluated_object(scene, target)
 stats = evaluated_mesh_stats(baked_target)
@@ -408,6 +486,11 @@ report = {
     "source_revision": os.environ.get("XZIEL_SOURCE_REV", ""),
     "blender_version": bpy.app.version_string,
     "stats": stats,
+    "baseline_stats": baseline_stats,
+    "post_input_stats": post_input_stats,
+    "baseline_fingerprint": baseline_fingerprint,
+    "post_input_fingerprint": post_input_fingerprint,
+    "geometry_changed": baseline_fingerprint != post_input_fingerprint,
     "modifier_property_keys": modifier_property_identifiers(modifier),
     "modifier_input_property_keys": modifier_input_property_identifiers(modifier),
     "modifier_inputs_before": before_inputs,
