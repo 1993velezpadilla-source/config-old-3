@@ -267,3 +267,5 @@ report={
 (OUT/"relief-glass-report.json").write_text(json.dumps(report,indent=2),encoding="utf-8")
 print("SANCTUM_V2_RELIEF_GLASS_OK")
 print(json.dumps(report,indent=2))
+
+# SEAMLESS_CC0_SOURCE_GATE_V2
