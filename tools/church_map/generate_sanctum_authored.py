@@ -374,6 +374,7 @@ report={
     "8-unit stair risers"
  ],
  "acceptance":[
+    "proper bench-shaped pew geometry",
     "first-person view reads as church",
     "zombies traverse barricade windows",
     "no giant bbox walls",
