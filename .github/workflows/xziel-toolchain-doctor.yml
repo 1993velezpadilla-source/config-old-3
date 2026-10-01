@@ -236,3 +236,90 @@ jobs:
           path: xziel-toolchain-deep-report.json
           if-no-files-found: error
           retention-days: 14
+
+
+  geometry-cpu-toolchain:
+    name: Collision geometry CPU tools
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Install Python venv support
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq python3-venv
+
+      - name: Cache geometry pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: xziel-geometry-pip-\${{ runner.os }}-\${{ hashFiles('tools/xziel_toolchain/manifest.json') }}
+
+      - name: Bootstrap geometry tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/xziel_toolchain/bootstrap_geometry_cpu.sh
+
+      - name: Build concave collision fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p xziel-collision-probe
+          .xziel-tools/geometry-venv/bin/python - <<'PY'
+          import numpy as np
+          import trimesh
+          from pathlib import Path
+
+          xy=np.array([[0,0],[2,0],[2,1],[1,1],[1,2],[0,2]],dtype=float)
+          verts=np.vstack([
+              np.column_stack([xy,np.zeros(len(xy))]),
+              np.column_stack([xy,np.ones(len(xy))]),
+          ])
+          bottom=[[0,3,1],[1,3,2],[0,5,3],[3,5,4]]
+          top=[[6,7,9],[7,8,9],[6,9,11],[9,10,11]]
+          sides=[]
+          for a,b in [(0,1),(1,2),(2,3),(3,4),(4,5),(5,0)]:
+              sides += [[a,b,b+6],[a,b+6,a+6]]
+          faces=np.asarray(bottom+top+sides,dtype=np.int64)
+          mesh=trimesh.Trimesh(vertices=verts,faces=faces,process=True)
+          assert mesh.is_watertight, mesh
+          mesh.export("xziel-collision-probe/concave-l.glb")
+          print("XZIEL_CONCAVE_FIXTURE",len(mesh.vertices),len(mesh.faces))
+          PY
+
+      - name: Generate convex collision hulls
+        shell: bash
+        run: |
+          set -euo pipefail
+          .xziel-tools/geometry-venv/bin/python \
+            tools/xziel_toolchain/generate_collision_hulls.py \
+            --input xziel-collision-probe/concave-l.glb \
+            --output xziel-collision-probe/concave-l-hulls.glb \
+            --report xziel-collision-probe/concave-l-hulls.json \
+            --threshold 0.02 \
+            --max-hulls 16 \
+            --max-hull-vertices 64
+
+          python3 - <<'PY'
+          import json
+          d=json.load(open("xziel-collision-probe/concave-l-hulls.json",encoding="utf-8"))
+          assert d["status"]=="PASS", d
+          assert d["hull_count"] >= 2, d
+          assert d["hull_count"] <= 16, d
+          assert d["hull_triangles"] > 0, d
+          print("XZIEL_CONCAVE_COACD_GREEN",d["hull_count"],d["hull_triangles"])
+          PY
+
+      - name: Upload collision evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Content-Toolchain-Collision
+          path: xziel-collision-probe/
+          if-no-files-found: error
+          retention-days: 14
