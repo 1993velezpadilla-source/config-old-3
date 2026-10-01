@@ -253,9 +253,12 @@ jobs:
           assert props["author"]=="stereoscopic", d
           assert props["object_count"]==42, d
           assert props["uniform_scale"]>0, d
-          assert props["transform_source"].startswith("authored CC0 source Scene matrix_world"), d
+          assert props["transform_source"].startswith("authored CC0 source object hierarchy reconstructed"), d
           assert props["axis_inference"]["pew_count"]==24, d
-          assert max(props["axis_inference"]["pew_center_spans"])>0, d
+          spans=props["axis_inference"]["pew_center_spans"]
+          assert sum(1 for v in spans if v>1e-4)>=2, d
+          assert props["axis_inference"]["source_up_axis"]=="Z", d
+          assert props["axis_inference"]["source_long_axis"]=="Y", d
           fitted=props["fitted_bounds"]["size"]
           target=props["target_bounds"]["size"]
           assert all(v>0 for v in fitted), d
