@@ -1,0 +1,91 @@
+name: Sanctum V2 Cathedral Probe
+
+on:
+  push:
+    branches:
+      - sanctum-v2-existing-assets-only
+    paths:
+      - ".github/workflows/sanctum-v2-cathedral-probe.yml"
+      - "tools/sanctum_v2/probe_upstream_cathedral.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sanctum-v2-cathedral-probe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    name: Render + export upstream cathedral
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Install host packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq git-lfs curl xz-utils xvfb libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libglu1-mesa
+          git lfs install
+
+      - name: Fetch upstream authored cathedral kit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/IRCSS/Blender-Geometry-Node-French-Houses.git external-french-houses
+          (cd external-french-houses && git lfs pull || true)
+          test -s external-french-houses/GeometryNodesFrenchHous.blend
+          grep -q "MIT License" external-french-houses/LICENSE
+
+      - name: Install Blender 5.2.2
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz -o /tmp/blender.tar.xz
+          tar -C /tmp -xf /tmp/blender.tar.xz
+          /tmp/blender-5.2.2-linux-x64/blender --version
+
+      - name: Probe existing cathedral
+        shell: bash
+        env:
+          SANCTUM_V2_PROBE_OUT: sanctum-v2-probe
+        run: |
+          set -euo pipefail
+          mkdir -p sanctum-v2-probe
+          xvfb-run -a -s "-screen 0 1600x1000x24" \
+            /tmp/blender-5.2.2-linux-x64/blender \
+            -b external-french-houses/GeometryNodesFrenchHous.blend \
+            --python tools/sanctum_v2/probe_upstream_cathedral.py \
+            2>&1 | tee sanctum-v2-probe/blender-probe.log
+
+          grep -q "SANCTUM_V2_CATHEDRAL_PROBE_OK" sanctum-v2-probe/blender-probe.log
+          test -s sanctum-v2-probe/probe-report.json
+          test -s sanctum-v2-probe/upstream-cathedral-candidate.glb
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("sanctum-v2-probe/probe-report.json").read_text())
+          assert d["source_object"]=="Catehdral", d
+          assert "Generate Cathedral Combined" in d["geometry_nodes"], d
+          assert d["stats"]["vertices"] > 100000, d
+          assert d["glb_bytes"] > 1000000, d
+          for p in d["renders"]:
+              q=Path("sanctum-v2-probe")/p
+              assert q.is_file() and q.stat().st_size>10000, q
+          print("SANCTUM_V2_PROBE_GATES_OK")
+          PY
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-V2-Cathedral-Probe
+          path: sanctum-v2-probe/
+          if-no-files-found: error
+          retention-days: 14
