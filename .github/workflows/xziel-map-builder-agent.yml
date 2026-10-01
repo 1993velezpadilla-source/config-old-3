@@ -1,0 +1,132 @@
+name: XZIEL Map Builder Agent
+
+on:
+  push:
+    branches:
+      - feature/xziel-map-builder-agent-v1
+    paths:
+      - ".github/workflows/xziel-map-builder-agent.yml"
+      - "tools/sanctum_v2/map_builder_agent.py"
+      - "tools/sanctum_v2/map_builder_plan.json"
+      - "docs/XZIEL_MAP_BUILDER_AGENT.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xziel-map-builder-agent-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-review-export:
+    name: Build + render + export existing cathedral
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Install host packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq             git-lfs curl xz-utils xvfb             libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1             libgl1 libglu1-mesa
+          git lfs install
+
+      - name: Fetch approved upstream cathedral source
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf external-french-houses
+          git clone --depth 1 https://github.com/IRCSS/Blender-Geometry-Node-French-Houses.git external-french-houses
+          (cd external-french-houses && git lfs pull || true)
+
+          test -s external-french-houses/LICENSE
+          grep -q "MIT License" external-french-houses/LICENSE
+          test -s external-french-houses/GeometryNodesFrenchHous.blend
+          grep -q "Generate Cathedral Combined" external-french-houses/README.md
+
+          git -C external-french-houses rev-parse HEAD | tee /tmp/xziel-source-rev.txt
+
+      - name: Install Blender 5.2.2
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3             https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz             -o /tmp/blender-5.2.2-linux-x64.tar.xz
+          tar -C /tmp -xf /tmp/blender-5.2.2-linux-x64.tar.xz
+          /tmp/blender-5.2.2-linux-x64/blender --version
+
+      - name: Execute map builder plan
+        shell: bash
+        env:
+          XZIEL_MAP_AGENT_OUT: xziel-map-agent-out
+          XZIEL_MAP_AGENT_PLAN: tools/sanctum_v2/map_builder_plan.json
+        run: |
+          set -euo pipefail
+          mkdir -p xziel-map-agent-out
+          export XZIEL_SOURCE_REV="$(cat /tmp/xziel-source-rev.txt)"
+
+          xvfb-run -a -s "-screen 0 1600x1000x24"             /tmp/blender-5.2.2-linux-x64/blender             -b external-french-houses/GeometryNodesFrenchHous.blend             --python tools/sanctum_v2/map_builder_agent.py             2>&1 | tee xziel-map-agent-out/blender-agent.log
+
+          grep -q "XZIEL_MAP_BUILDER_AGENT_PASS" xziel-map-agent-out/blender-agent.log
+
+      - name: Validate agent evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          out=Path("xziel-map-agent-out")
+          report=json.loads((out/"agent-report.json").read_text(encoding="utf-8"))
+
+          assert report["status"]=="PASS", report
+          assert report["geometry_policy"]=="existing-assets-only", report
+          assert report["allow_new_architecture"] is False, report
+          assert report["source_object"]=="Catehdral", report
+          assert report["geometry_node_group"]=="Generate Cathedral Combined", report
+          assert report["stats"]["vertices"] >= 100000, report
+          assert report["stats"]["polygons"] >= 80000, report
+          assert report["glb_bytes"] >= 1000000, report
+          assert len(report["renders"]) >= 6, report
+
+          for item in report["renders"]:
+              p=out/item["name"]
+              assert p.is_file(), p
+              assert p.stat().st_size > 10000, (p, p.stat().st_size)
+
+          glb=out/report["glb"]
+          assert glb.is_file() and glb.stat().st_size == report["glb_bytes"], glb
+
+          print("XZIEL_MAP_AGENT_EVIDENCE_GREEN")
+          print("VERTICES",report["stats"]["vertices"])
+          print("POLYGONS",report["stats"]["polygons"])
+          print("GLB_BYTES",report["glb_bytes"])
+          print("RENDERS",[x["name"] for x in report["renders"]])
+          PY
+
+      - name: Record reproducibility metadata
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "XZIEL_COMMIT=${GITHUB_SHA}"
+            echo "SOURCE_REPO=https://github.com/IRCSS/Blender-Geometry-Node-French-Houses"
+            echo "SOURCE_REV=$(cat /tmp/xziel-source-rev.txt 2>/dev/null || true)"
+            echo "BLENDER=5.2.2"
+            echo "POLICY=existing-assets-only"
+          } > xziel-map-agent-out/reproducibility.txt
+
+      - name: Upload map builder evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Map-Builder-Agent
+          path: xziel-map-agent-out/
+          if-no-files-found: error
+          retention-days: 14
