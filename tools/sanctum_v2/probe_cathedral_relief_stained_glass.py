@@ -79,7 +79,7 @@ def apply_stained_glass_seamless(mat,image_path):
     if not bsdfs:
         raise SystemExit("RoundWindwos has no Principled BSDF")
     img=load_image(image_path,False)
-    if tuple(img.size)!=(1024,1024):
+    if tuple(img.size)!=(1920,1920):
         raise SystemExit(f"Unexpected seamless stained-glass dimensions: {tuple(img.size)}")
 
     uv=nodes.new("ShaderNodeUVMap")
@@ -247,7 +247,7 @@ report={
     "mapping":{
         "stone":"BOX/Object + Poly Haven physical dimensions",
         "roof":"BOX/Object + Poly Haven physical dimensions",
-        "stained_glass":"existing UVMap + seamless REPEAT 2x",
+        "stained_glass":"existing UVMap + seamless REPEAT",
     },
     "relief":{
         "source":"Poly Haven 4K displacement maps",
