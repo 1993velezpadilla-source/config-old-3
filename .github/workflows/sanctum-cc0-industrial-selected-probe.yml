@@ -1,0 +1,71 @@
+name: Sanctum CC0 Industrial Selected Probe
+
+on:
+  push:
+    branches:
+      - feature/xziel-map-builder-agent-v1
+    paths:
+      - ".github/workflows/sanctum-cc0-industrial-selected-probe.yml"
+      - "tools/sanctum_v2/probe_cc0_industrial_selected.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sanctum-cc0-industrial-selected-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq curl xz-utils unzip xvfb libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libglu1-mesa
+
+      - name: Fetch verified CC0 industrial pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p external-industrial sanctum-industrial-probe
+          curl -L --fail --retry 3 https://opengameart.org/content/pbr-industrial-asset-pack -o sanctum-industrial-probe/source-page.html
+          grep -qi CC0 sanctum-industrial-probe/source-page.html
+          curl -L --fail --retry 3 https://opengameart.org/sites/default/files/oga_industrial_a52_version_0.zip -o /tmp/industrial.zip
+          sha256sum /tmp/industrial.zip | tee sanctum-industrial-probe/source.sha256
+          unzip -q /tmp/industrial.zip -d external-industrial
+
+      - name: Install Blender
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz -o /tmp/blender.tar.xz
+          tar -C /tmp -xf /tmp/blender.tar.xz
+
+      - name: Render selected industrial objects
+        shell: bash
+        run: |
+          set -euo pipefail
+          export SANCTUM_INDUSTRIAL_SHA256="$(cut -d' ' -f1 sanctum-industrial-probe/source.sha256)"
+          SANCTUM_INDUSTRIAL_PROBE_OUT=sanctum-industrial-probe \
+          xvfb-run -a -s "-screen 0 1400x900x24" \
+            /tmp/blender-5.2.2-linux-x64/blender \
+            -b external-industrial/OGA_industrial_a52_version/industrial_final_cycles.blend \
+            --python tools/sanctum_v2/probe_cc0_industrial_selected.py \
+            2>&1 | tee sanctum-industrial-probe/blender.log
+          grep -q SANCTUM_INDUSTRIAL_SELECTED_PROBE_PASS sanctum-industrial-probe/blender.log
+
+      - name: Upload probe
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-CC0-Industrial-Selected
+          path: sanctum-industrial-probe/
+          if-no-files-found: error
+          retention-days: 14
