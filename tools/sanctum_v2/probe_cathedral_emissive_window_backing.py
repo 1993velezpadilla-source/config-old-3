@@ -319,9 +319,17 @@ def build_emissive_window_backing(obj,source_material_name,color_path,physical_o
     tex.extension="REPEAT"
     tex.projection="FLAT"
 
+    color_boost=nodes.new("ShaderNodeHueSaturation")
+    # Authored MIT stained-glass correction from World-GAN/CyclesMineways:
+    # saturation=2, value=8 because transparent stained-glass RGBA renders super dark.
+    color_boost.inputs["Saturation"].default_value=2.0
+    color_boost.inputs["Value"].default_value=8.0
+
     links.new(uv.outputs["UV"],tex.inputs["Vector"])
-    links.new(tex.outputs["Color"],emission.inputs["Color"])
-    # Use Blender's own Emission node default strength; no hand-tuned multiplier.
+    links.new(tex.outputs["Color"],color_boost.inputs["Color"])
+    links.new(color_boost.outputs["Color"],emission.inputs["Color"])
+    # Keep Blender's Emission node default strength; brightness correction comes
+    # from the authored stained-glass color transform above, not a tuned multiplier.
     emission_strength=float(emission.inputs["Strength"].default_value)
     links.new(emission.outputs["Emission"],out.inputs["Surface"])
 
@@ -340,6 +348,15 @@ def build_emissive_window_backing(obj,source_material_name,color_path,physical_o
         "offset_rule":"one Poly Haven stone 4K source texel",
         "emission_strength":emission_strength,
         "emission_strength_rule":"Blender Emission node default, not tuned",
+        "authored_color_boost":{
+            "source_repo":"Mawiszus/World-GAN",
+            "source_file":"minecraft/blender_scripts/CyclesMineways.py",
+            "license":"MIT",
+            "shader":"Stained_Glass_Shader",
+            "saturation":2.0,
+            "value":8.0,
+            "reason":"upstream shader compensates stained-glass RGBA becoming super dark in transparency",
+        },
         "texture":"same OpenGameArt stained-glass color map as visible glass",
     }
 
@@ -466,7 +483,7 @@ report={
         "renders":[v[0] for v in views],
 }
 (OUT/"relief-glass-report.json").write_text(json.dumps(report,indent=2),encoding="utf-8")
-print("SANCTUM_V2_EMISSION_NODE_BACKING_OK")
+print("SANCTUM_V2_AUTHORED_COLOR_BOOST_BACKING_OK")
 print(json.dumps(report,indent=2))
 
 # SEAMLESS_CC0_SOURCE_GATE_V2
