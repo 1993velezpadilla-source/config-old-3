@@ -221,6 +221,60 @@ if n != 1:
     raise SystemExit("Could not find MAX_OSPATH definition")
 defs.write_text(dt, encoding="utf-8")
 
+
+# HQ sampling pass: stop feeding the 2K photogrammetry through Quake's
+# default retro/1K path. Keep this scoped to the Sanctum HQ build.
+gdraw = root / "source/platform/sdl/gl/gl_draw.c"
+gt = gdraw.read_text(encoding="utf-8")
+gt, n1 = re.subn(
+    r'cvar_t\s+gl_max_size\s*=\s*\{"gl_max_size",\s*"1024"\};',
+    'cvar_t\\t\\tgl_max_size = {"gl_max_size", "2048"};',
+    gt,
+    count=1,
+)
+gt, n2 = re.subn(
+    r'int\s+gl_filter_min\s*=\s*GL_LINEAR_MIPMAP_NEAREST\s*;',
+    'int\\t\\tgl_filter_min = GL_LINEAR_MIPMAP_LINEAR;',
+    gt,
+    count=1,
+)
+if n1 != 1 or n2 != 1:
+    raise SystemExit(f"Could not patch HQ texture sampling defaults max={n1} filter={n2}")
+gdraw.write_text(gt, encoding="utf-8")
+
+# Disable the engine's intentionally pixelated presentation defaults for HQ.
+rmain_defaults = root / "source/platform/sdl/gl/gl_rmain.c"
+rd = rmain_defaults.read_text(encoding="utf-8")
+rd, nr = re.subn(
+    r'(cvar_t\s+r_retro\s*=\s*\{"r_retro",\s*)"1"(\s*,\s*true\};)',
+    r'\g<1>"0"\g<2>',
+    rd,
+    count=1,
+)
+rd, nd = re.subn(
+    r'(cvar_t\s+r_dithering\s*=\s*\{"r_dithering",\s*)"1"(\s*,\s*true\};)',
+    r'\g<1>"0"\g<2>',
+    rd,
+    count=1,
+)
+if nr != 1 or nd != 1:
+    raise SystemExit(f"Could not patch retro/dither defaults retro={nr} dither={nd}")
+rmain_defaults.write_text(rd, encoding="utf-8")
+
+# Even if a user config later toggles retro mode, the HQ church itself must use
+# proper filtered sampling. Override immediately after each XZSM bind.
+hq_bind = '''            GL_Bind(b->texture);
+            glColor4f(1, 1, 1, 1);
+'''
+hq_bind_repl = '''            GL_Bind(b->texture);
+            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glColor4f(1, 1, 1, 1);
+'''
+if hq_bind not in s:
+    raise SystemExit("Could not find XZSM texture bind for HQ sampling override")
+s = s.replace(hq_bind, hq_bind_repl, 1)
+
 p.write_text(s, encoding="utf-8")
 
 # GL4ES-safe visual authority handoff: keep the BSP world pass for visibility
