@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   probe:
-    name: Render relief and seamless CC0 stained glass
+    name: Render relief and direct CC0 stained glass
     runs-on: ubuntu-latest
     timeout-minutes: 55
 
@@ -45,7 +45,7 @@ jobs:
           test -s external-french-houses/GeometryNodesFrenchHous.blend
           grep -q "MIT License" external-french-houses/LICENSE
 
-      - name: Download licensed surface sources
+      - name: Download verified licensed surface sources
         shell: bash
         run: |
           set -euo pipefail
@@ -53,37 +53,30 @@ jobs:
           mkdir -p sanctum-v2-relief-assets/stained_glass
 
           python3 - <<'PY'
-          import html as htmlmod
-          import io
-          import json
-          import re
-          import urllib.request
-          import zipfile
+          import json,re,urllib.request
           from pathlib import Path
-          from urllib.parse import urljoin, urlsplit, urlunsplit
           from PIL import Image
 
-          UA="XZIEL-Sanctum-V2/1.0 (licensed surface source probe)"
+          UA="XZIEL-Sanctum-V2/1.0 (verified licensed surface probe)"
           root=Path("sanctum-v2-relief-assets")
-          sgdir=root/"stained_glass"
 
-          def req(url, timeout=120):
-              return urllib.request.Request(url, headers={"User-Agent":UA})
+          def request(url,timeout=180):
+              return urllib.request.Request(url,headers={"User-Agent":UA})
 
           def get_json(url):
-              with urllib.request.urlopen(req(url), timeout=60) as r:
+              with urllib.request.urlopen(request(url),timeout=60) as r:
                   return json.load(r)
-
-          def get_bytes(url):
-              with urllib.request.urlopen(req(url), timeout=180) as r:
-                  return r.read()
 
           def download(url,dst):
               dst.parent.mkdir(parents=True,exist_ok=True)
-              data=get_bytes(url)
-              dst.write_bytes(data)
-              if dst.stat().st_size==0:
-                  raise SystemExit(f"Empty download: {url}")
+              with urllib.request.urlopen(request(url),timeout=180) as r, dst.open("wb") as f:
+                  while True:
+                      b=r.read(1024*1024)
+                      if not b:
+                          break
+                      f.write(b)
+              if not dst.is_file() or dst.stat().st_size==0:
+                  raise SystemExit(f"Empty download: {dst}")
 
           def leaves(obj,path=()):
               if isinstance(obj,dict):
@@ -96,7 +89,7 @@ jobs:
                   for i,v in enumerate(obj):
                       yield from leaves(v,path+(str(i),))
 
-          def choose_polyhaven(asset,kind):
+          def choose(asset,kind):
               tree=get_json(f"https://api.polyhaven.com/files/{asset}")
               rows=[]
               for path,rec in leaves(tree):
@@ -123,27 +116,22 @@ jobs:
               rows.sort(key=lambda x:(x[0],x[2].get("size",0)),reverse=True)
               return rows[0][2]["url"]
 
-          def png_dims(p):
-              with p.open("rb") as f:
-                  sig=f.read(24)
-              if len(sig)<24 or sig[:8]!=b"\x89PNG\r\n\x1a\n" or sig[12:16]!=b"IHDR":
-                  raise SystemExit(f"Invalid PNG: {p}")
-              return [int.from_bytes(sig[16:20],"big"),int.from_bytes(sig[20:24],"big")]
+          def png_dims(path):
+              with Image.open(path) as im:
+                  return list(im.size)
 
           manifest={
               "polyhaven_provider":"Powered by Poly Haven",
               "polyhaven_license":"CC0",
               "polyhaven":{},
               "stained_glass":{
-                  "title":"3DTextures stained glass seamless material",
-                  "license":"CC0 / Public Domain",
-                  "source_pages":[
-                      "https://3dtextures.me/2026/03/14/glass-stained-panel-window-004-free-seamless-pbr-texture/",
-                      "https://3dtextures.me/2020/09/21/glass-stained-001/"
-                  ],
-                  "expected_dimensions":[1024,1024],
-                  "seamless":True,
-                  "source_author_repeat_guidance":"2x to 4x"
+                  "title":"Mosaic glass art background",
+                  "license":"CC0 Public Domain",
+                  "source_page":"https://www.publicdomainpictures.net/en/view-image.php?image=382400&picture=mosaic-glass-art-background",
+                  "download_page":"https://www.publicdomainpictures.net/en/free-download.php?id=382400&image=mosaic-glass-art-background",
+                  "direct_standard_url":"https://www.publicdomainpictures.net/pictures/390000/velka/mosaik-glas-kunst-hintergrund-1612902792MsF.jpg",
+                  "expected_dimensions":[1920,1920],
+                  "tags":["stained glass","mosaic","seamless tile"]
               }
           }
 
@@ -151,10 +139,10 @@ jobs:
               info=get_json(f"https://api.polyhaven.com/info/{asset}")
               dims=info.get("dimensions")
               if not isinstance(dims,list) or len(dims)<2:
-                  raise SystemExit(f"Missing physical dimensions for {asset}: {dims}")
+                  raise SystemExit(f"Missing dimensions for {asset}: {dims}")
               urls={}
               for kind in ("diffuse","rough","displacement"):
-                  url=choose_polyhaven(asset,kind)
+                  url=choose(asset,kind)
                   p=root/asset/f"{kind}.png"
                   download(url,p)
                   if max(png_dims(p))!=4096:
@@ -162,95 +150,19 @@ jobs:
                   urls[kind]=url
               manifest["polyhaven"][asset]={"dimensions_mm":dims,"urls":urls}
 
-          def normalize_url(base,v):
-              u=urljoin(base,htmlmod.unescape(v))
-              p=urlsplit(u)
-              return urlunsplit((p.scheme,p.netloc,p.path,"",""))
+          sg=manifest["stained_glass"]
+          sg_path=root/"stained_glass"/"color.png"
+          raw_path=root/"stained_glass"/"source.jpg"
+          download(sg["direct_standard_url"],raw_path)
+          with Image.open(raw_path) as im:
+              if list(im.size)!=sg["expected_dimensions"]:
+                  raise SystemExit(f"Unexpected CC0 stained-glass dimensions: {im.size}")
+              im.convert("RGB").save(sg_path)
+          raw_path.unlink()
 
-          discovered=[]
-          for page in manifest["stained_glass"]["source_pages"]:
-              raw=get_bytes(page).decode("utf-8","ignore")
-              vals=[]
-              vals += re.findall(r'(?:href|src)=["\x27]([^"\x27]+)["\x27]',raw,re.I)
-              for srcset in re.findall(r'srcset=["\x27]([^"\x27]+)["\x27]',raw,re.I):
-                  vals += [x.strip().split()[0] for x in srcset.split(",") if x.strip()]
-              vals += re.findall(r'https?://[^"\x27<>\s]+',raw,re.I)
-              for v in vals:
-                  u=normalize_url(page,v)
-                  path=urlsplit(u).path.lower()
-                  if "3dtextures.me/wp-content/uploads/" in u or "i0.wp.com/3dtextures.me/wp-content/uploads/" in u:
-                      if re.search(r'\.(png|jpe?g|webp|zip)$',path,re.I):
-                          discovered.append(u)
-
-          for q in ("Glass Stained 001","Glass Stained Panel Window 004","Material 1638","Material 2001"):
-              api="https://3dtextures.me/wp-json/wp/v2/media?per_page=100&search="+urllib.parse.quote(q)
-              try:
-                  data=get_json(api)
-                  for item in data if isinstance(data,list) else []:
-                      for candidate in (
-                          item.get("source_url"),
-                          ((item.get("media_details") or {}).get("sizes") or {}).get("full",{}).get("source_url")
-                      ):
-                          if candidate:
-                              discovered.append(normalize_url(api,candidate))
-              except Exception as e:
-                  print("WP_MEDIA_SEARCH_SKIP",q,repr(e))
-
-          discovered=list(dict.fromkeys(discovered))
-          candidates=[]
-          audit={"discovered_urls":discovered,"inspected":[]}
-
-          def inspect_image_bytes(data,label,url):
-              try:
-                  with Image.open(io.BytesIO(data)) as im:
-                      size=list(im.size)
-                      rec={"url":url,"label":label,"size":size,"format":im.format}
-                      audit["inspected"].append(rec)
-                      if size==[1024,1024]:
-                          candidates.append((url,label,data,im.format))
-              except Exception:
-                  pass
-
-          for url in discovered:
-              try:
-                  data=get_bytes(url)
-                  if urlsplit(url).path.lower().endswith(".zip"):
-                      with zipfile.ZipFile(io.BytesIO(data)) as z:
-                          for name in z.namelist():
-                              if re.search(r'\.(png|jpe?g|webp)$',name,re.I):
-                                  inspect_image_bytes(z.read(name),name,url+"#"+name)
-                  else:
-                      inspect_image_bytes(data,Path(urlsplit(url).path).name,url)
-              except Exception as e:
-                  audit["inspected"].append({"url":url,"error":repr(e)})
-
-          def rank(item):
-              url,label,_,_=item
-              s=(url+" "+label).lower()
-              score=0
-              if any(k in s for k in ("diffuse","albedo","basecolor","base_color","color")): score+=100
-              if "stained" in s: score+=30
-              if any(k in s for k in ("normal","rough","disp","height","metal","mask","ambient","_ao")): score-=90
-              if "material_" in s: score-=20
-              return score
-
-          candidates.sort(key=rank,reverse=True)
-          audit["candidate_count"]=len(candidates)
-          audit["candidate_labels"]=[{"url":x[0],"label":x[1],"rank":rank(x)} for x in candidates]
-          (sgdir/"source-audit.json").write_text(json.dumps(audit,indent=2),encoding="utf-8")
-
-          if not candidates or rank(candidates[0])<0:
-              raise SystemExit("STAINED_SOURCE_DISCOVERY_FAILED: no trustworthy exact 1024x1024 color map exposed by source pages")
-
-          chosen=candidates[0]
-          with Image.open(io.BytesIO(chosen[2])) as im:
-              im.convert("RGB").save(sgdir/"color.png")
-
-          manifest["stained_glass"]["selected_url"]=chosen[0]
-          manifest["stained_glass"]["selected_label"]=chosen[1]
-          manifest["stained_glass"]["selected_rank"]=rank(chosen)
           (root/"SOURCE_MANIFEST.json").write_text(json.dumps(manifest,indent=2),encoding="utf-8")
-          print("SELECTED_STAINED_GLASS",json.dumps(manifest["stained_glass"],indent=2))
+          print("SANCTUM_V2_LICENSED_ASSETS_OK")
+          print(json.dumps(manifest,indent=2))
           PY
 
       - name: Install Blender 5.2.2
@@ -261,7 +173,7 @@ jobs:
           tar -C /tmp -xf /tmp/blender.tar.xz
           /tmp/blender-5.2.2-linux-x64/blender --version
 
-      - name: Render relief and seamless stained glass
+      - name: Render relief and stained glass
         shell: bash
         env:
           SANCTUM_V2_RELIEF_OUT: sanctum-v2-relief-glass
@@ -278,7 +190,6 @@ jobs:
           grep -q "SANCTUM_V2_RELIEF_GLASS_OK" sanctum-v2-relief-glass/blender-relief-glass.log
           test -s sanctum-v2-relief-glass/relief-glass-report.json
           cp sanctum-v2-relief-assets/SOURCE_MANIFEST.json sanctum-v2-relief-glass/
-          cp sanctum-v2-relief-assets/stained_glass/source-audit.json sanctum-v2-relief-glass/
 
           python3 - <<'PY'
           import json
@@ -286,8 +197,8 @@ jobs:
           root=Path("sanctum-v2-relief-glass")
           d=json.loads((root/"relief-glass-report.json").read_text())
           assert d["source_object"]=="Catehdral", d
-          assert d["mapping"]["stained_glass"]=="existing UVMap + seamless REPEAT 2x", d
-          assert d["stained_glass"]["source_dimensions"]==[1024,1024], d
+          assert d["mapping"]["stained_glass"]=="existing UVMap + seamless REPEAT", d
+          assert d["stained_glass"]["source_dimensions"]==[1920,1920], d
           assert d["relief"]["stone_bump_distance_m"]>0, d
           assert d["relief"]["roof_bump_distance_m"]>0, d
           assert len(d["renders"])==6, d
@@ -302,8 +213,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: XZIEL-Sanctum-V2-Relief-Stained-Glass
-          path: |
-            sanctum-v2-relief-glass/
-            sanctum-v2-relief-assets/stained_glass/source-audit.json
-          if-no-files-found: warn
+          path: sanctum-v2-relief-glass/
+          if-no-files-found: error
           retention-days: 14
