@@ -179,21 +179,38 @@ jobs:
           "$ADB" shell am force-stop com.xziel.sanctum || true
           "$ADB" shell am start -W -n com.xziel.sanctum/org.libsdl.app.NZPActivity > sanctum-authored-dist/am-start.txt 2>&1 || true
 
-          sleep 6
-          "$ADB" exec-out screencap -p > sanctum-authored-dist/church-06s.png
-          sleep 8
-          "$ADB" exec-out screencap -p > sanctum-authored-dist/church-14s.png
-          sleep 16
-          "$ADB" exec-out screencap -p > sanctum-authored-dist/church-30s.png
+          # XZIEL cold boot on the emulator reaches FIRST_FRAME_OK around 10s.
+          # Capture only after the renderer is known to be alive.
+          for i in $(seq 1 30); do
+            STAGE="$("$ADB" shell run-as com.xziel.sanctum cat files/nzp-runtime/.xziel-stage 2>/dev/null | tr -d '\r' || true)"
+            [[ "$STAGE" == "FIRST_FRAME_OK" ]] && break
+            [[ "$STAGE" == "SYS_ERROR" ]] && break
+            sleep 1
+          done
+
+          PID="$("$ADB" shell pidof com.xziel.sanctum 2>/dev/null | tr -d '\r' || true)"
+          STAGE="$("$ADB" shell run-as com.xziel.sanctum cat files/nzp-runtime/.xziel-stage 2>/dev/null | tr -d '\r' || true)"
+          echo "PID=$PID" | tee sanctum-authored-dist/runtime-state.txt
+          echo "STAGE=$STAGE" | tee -a sanctum-authored-dist/runtime-state.txt
+
+          test -n "$PID"
+          test "$STAGE" = "FIRST_FRAME_OK"
+
+          sleep 2
+          "$ADB" exec-out screencap -p > sanctum-authored-dist/church-first.png
+          sleep 10
+          "$ADB" exec-out screencap -p > sanctum-authored-dist/church-10s-later.png
+          sleep 18
+          "$ADB" exec-out screencap -p > sanctum-authored-dist/church-28s-later.png
           "$ADB" logcat -d -v threadtime > sanctum-authored-dist/logcat.txt || true
 
           python3 -m pip install --quiet pillow==11.3.0
           python3 - <<'PY' | tee sanctum-authored-dist/visual-report.txt
           from PIL import Image,ImageChops,ImageStat
           paths=[
-              "sanctum-authored-dist/church-06s.png",
-              "sanctum-authored-dist/church-14s.png",
-              "sanctum-authored-dist/church-30s.png",
+              "sanctum-authored-dist/church-first.png",
+              "sanctum-authored-dist/church-10s-later.png",
+              "sanctum-authored-dist/church-28s-later.png",
           ]
           ims=[]
           for p in paths:
@@ -208,17 +225,10 @@ jobs:
               print("delta",round(ds.mean[0],3),round(ds.stddev[0],3))
           PY
 
-          PID="$("$ADB" shell pidof com.xziel.sanctum 2>/dev/null | tr -d '\r' || true)"
-          STAGE="$("$ADB" shell run-as com.xziel.sanctum cat files/nzp-runtime/.xziel-stage 2>/dev/null | tr -d '\r' || true)"
-          echo "PID=$PID" | tee sanctum-authored-dist/runtime-state.txt
-          echo "STAGE=$STAGE" | tee -a sanctum-authored-dist/runtime-state.txt
-
           if grep -Eq "Fatal signal|FATAL EXCEPTION|stage=SYS_ERROR|XZIEL_QC.*PR_RunError" sanctum-authored-dist/logcat.txt; then
             grep -E "XZIEL_QC|stage=SYS_ERROR|Fatal signal|FATAL EXCEPTION" sanctum-authored-dist/logcat.txt | tail -120 || true
             exit 1
           fi
-          test -n "$PID"
-          test "$STAGE" = "FIRST_FRAME_OK"
 
       - name: Upload authored map evidence
         if: always()
