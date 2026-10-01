@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "geometry_policy": "existing-assets-only",
+  "allow_new_architecture": false,
+  "source_object": "Catehdral",
+  "geometry_node_group": "Generate Cathedral Combined",
+  "object_transform": {
+    "location": [0.0, 0.0, 0.0],
+    "rotation_deg": [0.0, 0.0, 0.0],
+    "scale": [1.0, 1.0, 1.0]
+  },
+  "geometry_nodes_inputs": {},
+  "render": {
+    "engine": "BLENDER_EEVEE",
+    "width": 1280,
+    "height": 800,
+    "lens_mm": 38.0,
+    "world_color": [0.025, 0.03, 0.04, 1.0],
+    "world_strength": 0.45
+  },
+  "quality_gate": {
+    "min_vertices": 100000,
+    "min_polygons": 80000,
+    "min_glb_bytes": 1000000
+  },
+  "export_glb": "sanctum-cathedral-agent.glb"
+}
