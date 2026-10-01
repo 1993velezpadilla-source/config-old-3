@@ -99,19 +99,7 @@ parts.append(brush_box((wx1,wy2,wz1),(wx2,wy2+16,wz2),"facility_wall_l"))
 floor_thick=16
 curb_h=10
 curb_w=10
-zone_colors={
-    "exterior":"ground_dirt",
-    "main_church":"tiles_me",
-    "office":"concrete_1",
-    "office_corridor":"concrete_1",
-    "boiler":"metal5",
-    "tower_stairs":"tiles_me",
-    "ringing_chamber":"wood1",
-    "clock_chamber":"wood1",
-    "roof_chamber":"concrete_1",
-    "tower_top":"concrete_1",
-    "turret":"concrete_1",
-}
+zone_colors={name:"tiles_me" for name in zone_q}
 for name,z in zone_q.items():
     mn,mx,fz=z["mn"],z["mx"],z["floor"]
     # clamp degenerate scan groups to a useful playable footprint
