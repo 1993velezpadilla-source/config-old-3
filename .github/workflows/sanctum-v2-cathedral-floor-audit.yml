@@ -1,0 +1,78 @@
+name: Sanctum V2 Cathedral Floor Material Audit
+
+on:
+  push:
+    branches:
+      - sanctum-v2-existing-assets-only
+    paths:
+      - ".github/workflows/sanctum-v2-cathedral-floor-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - name: Fetch cathedral source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/IRCSS/Blender-Geometry-Node-French-Houses.git external-french-houses
+          (cd external-french-houses && git lfs pull || true)
+          test -s external-french-houses/GeometryNodesFrenchHous.blend
+      - name: Install Blender
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz -o /tmp/blender.tar.xz
+          tar -C /tmp -xf /tmp/blender.tar.xz
+      - name: Audit evaluated cathedral materials
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat >/tmp/audit_floor.py <<'PY'
+          import bpy, json
+          from mathutils import Vector
+
+          o=bpy.data.objects.get("Catehdral")
+          if o is None:
+              raise SystemExit("Missing Catehdral")
+          deps=bpy.context.evaluated_depsgraph_get()
+          eo=o.evaluated_get(deps)
+          me=eo.to_mesh()
+          mw=eo.matrix_world
+          normal_m=eo.matrix_world.to_3x3()
+
+          mats=[m.name if m else None for m in me.materials]
+          rows={}
+          for p in me.polygons:
+              idx=p.material_index
+              name=mats[idx] if idx<len(mats) else None
+              n=(normal_m @ p.normal).normalized()
+              c=mw @ p.center
+              area=p.area
+              r=rows.setdefault(name,{
+                  "polygons":0,"area":0.0,
+                  "up_polygons":0,"up_area":0.0,
+                  "near_floor_up_polygons":0,"near_floor_up_area":0.0,
+                  "z_min":float(c.z),"z_max":float(c.z),
+              })
+              r["polygons"]+=1; r["area"]+=float(area)
+              r["z_min"]=min(r["z_min"],float(c.z)); r["z_max"]=max(r["z_max"],float(c.z))
+              if n.z>0.85:
+                  r["up_polygons"]+=1; r["up_area"]+=float(area)
+                  if c.z<2.5:
+                      r["near_floor_up_polygons"]+=1
+                      r["near_floor_up_area"]+=float(area)
+
+          eo.to_mesh_clear()
+          report={"materials":rows}
+          print("SANCTUM_V2_FLOOR_MATERIAL_AUDIT")
+          print(json.dumps(report,indent=2,sort_keys=True))
+          PY
+          /tmp/blender-5.2.2-linux-x64/blender -b external-french-houses/GeometryNodesFrenchHous.blend --python /tmp/audit_floor.py 2>&1 | tee /tmp/floor-audit.log
+          grep -q SANCTUM_V2_FLOOR_MATERIAL_AUDIT /tmp/floor-audit.log
