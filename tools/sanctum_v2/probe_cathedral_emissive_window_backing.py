@@ -311,7 +311,7 @@ def build_emissive_window_backing(obj,source_material_name,color_path,physical_o
     nodes.clear()
 
     out=nodes.new("ShaderNodeOutputMaterial")
-    bsdf=nodes.new("ShaderNodeBsdfPrincipled")
+    emission=nodes.new("ShaderNodeEmission")
     uv=nodes.new("ShaderNodeUVMap")
     uv.uv_map=UV_NAME
     tex=nodes.new("ShaderNodeTexImage")
@@ -320,12 +320,10 @@ def build_emissive_window_backing(obj,source_material_name,color_path,physical_o
     tex.projection="FLAT"
 
     links.new(uv.outputs["UV"],tex.inputs["Vector"])
-    if bsdf.inputs.get("Emission Color") is None:
-        raise SystemExit("Blender Principled shader has no Emission Color input")
-    links.new(tex.outputs["Color"],bsdf.inputs["Emission Color"])
-    # Keep Blender's authored/default emission strength; no tuned multiplier.
-    emission_strength=float(bsdf.inputs["Emission Strength"].default_value)
-    links.new(bsdf.outputs["BSDF"],out.inputs["Surface"])
+    links.new(tex.outputs["Color"],emission.inputs["Color"])
+    # Use Blender's own Emission node default strength; no hand-tuned multiplier.
+    emission_strength=float(emission.inputs["Strength"].default_value)
+    links.new(emission.outputs["Emission"],out.inputs["Surface"])
 
     mesh.materials.clear()
     mesh.materials.append(mat)
@@ -341,7 +339,7 @@ def build_emissive_window_backing(obj,source_material_name,color_path,physical_o
         "offset_m":physical_offset_m,
         "offset_rule":"one Poly Haven stone 4K source texel",
         "emission_strength":emission_strength,
-        "emission_strength_rule":"Blender Principled default, not tuned",
+        "emission_strength_rule":"Blender Emission node default, not tuned",
         "texture":"same OpenGameArt stained-glass color map as visible glass",
     }
 
@@ -468,7 +466,7 @@ report={
         "renders":[v[0] for v in views],
 }
 (OUT/"relief-glass-report.json").write_text(json.dumps(report,indent=2),encoding="utf-8")
-print("SANCTUM_V2_EMISSIVE_BACKING_GLASS_OK")
+print("SANCTUM_V2_EMISSION_NODE_BACKING_OK")
 print(json.dumps(report,indent=2))
 
 # SEAMLESS_CC0_SOURCE_GATE_V2
