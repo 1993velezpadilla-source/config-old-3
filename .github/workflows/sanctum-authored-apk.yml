@@ -31,6 +31,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p build/sanctum_authored
           python3 tools/church_map/generate_sanctum_authored.py | tee build/sanctum_authored/generate.log
           test -s build/sanctum_authored/sanctum_authored.map
           test -s build/sanctum_authored/sanctum_authored_report.json
