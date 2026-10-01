@@ -1,0 +1,205 @@
+name: Sanctum V2 Relief and Stained Glass Probe
+
+on:
+  push:
+    branches:
+      - sanctum-v2-existing-assets-only
+    paths:
+      - ".github/workflows/sanctum-v2-relief-glass.yml"
+      - "tools/sanctum_v2/probe_cathedral_relief_stained_glass.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sanctum-v2-relief-glass-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    name: Render relief and public-domain stained glass
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Install host packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq git-lfs curl xz-utils xvfb libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libglu1-mesa
+          git lfs install
+
+      - name: Fetch upstream authored cathedral kit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/IRCSS/Blender-Geometry-Node-French-Houses.git external-french-houses
+          (cd external-french-houses && git lfs pull || true)
+          test -s external-french-houses/GeometryNodesFrenchHous.blend
+          grep -q "MIT License" external-french-houses/LICENSE
+
+      - name: Download existing licensed surface sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf sanctum-v2-relief-assets
+          mkdir -p sanctum-v2-relief-assets/stained_glass
+
+          python3 - <<'PY'
+          import json,re,urllib.request
+          from pathlib import Path
+
+          UA="XZIEL-Sanctum-V2/1.0 (relief and stained glass probe)"
+          root=Path("sanctum-v2-relief-assets")
+
+          def get_json(url):
+              req=urllib.request.Request(url,headers={"User-Agent":UA})
+              with urllib.request.urlopen(req,timeout=60) as r:
+                  return json.load(r)
+
+          def leaves(obj,path=()):
+              if isinstance(obj,dict):
+                  if isinstance(obj.get("url"),str):
+                      yield path,obj
+                  for k,v in obj.items():
+                      if k!="url":
+                          yield from leaves(v,path+(str(k),))
+              elif isinstance(obj,list):
+                  for i,v in enumerate(obj):
+                      yield from leaves(v,path+(str(i),))
+
+          def choose(asset,kind):
+              tree=get_json(f"https://api.polyhaven.com/files/{asset}")
+              rows=[]
+              for path,rec in leaves(tree):
+                  parts=[str(x).lower() for x in path]
+                  url=rec.get("url","")
+                  s=(" / ".join(path)+" "+url).lower()
+                  if "4k" not in parts or ".png" not in url.lower():
+                      continue
+                  score=0
+                  if kind=="diffuse":
+                      if "diffuse" in s: score+=30
+                      if re.search(r"(^|[/_ -])diff([/_ .-]|$)",s): score+=15
+                  elif kind=="rough":
+                      if "roughness" in s: score+=30
+                      if "rough" in s: score+=15
+                      if "rough_ao" in s or "rough ao" in s: score-=10
+                  elif kind=="displacement":
+                      if "displacement" in s: score+=40
+                      if re.search(r"(^|[/_ -])disp([/_ .-]|$)",s): score+=20
+                  if score>0:
+                      rows.append((score,path,rec))
+              if not rows:
+                  raise SystemExit(f"No exact 4K {kind} PNG for {asset}")
+              rows.sort(key=lambda x:(x[0],x[2].get("size",0)),reverse=True)
+              return rows[0][2]["url"]
+
+          def download(url,dst):
+              dst.parent.mkdir(parents=True,exist_ok=True)
+              req=urllib.request.Request(url,headers={"User-Agent":UA})
+              with urllib.request.urlopen(req,timeout=180) as r, dst.open("wb") as f:
+                  while True:
+                      b=r.read(1024*1024)
+                      if not b: break
+                      f.write(b)
+              if not dst.is_file() or dst.stat().st_size==0:
+                  raise SystemExit(f"Empty download: {dst}")
+
+          def png_dims(p):
+              with p.open("rb") as f:
+                  sig=f.read(24)
+              if len(sig)<24 or sig[:8]!=b"\x89PNG\r\n\x1a\n" or sig[12:16]!=b"IHDR":
+                  raise SystemExit(f"Invalid PNG: {p}")
+              return [int.from_bytes(sig[16:20],"big"),int.from_bytes(sig[20:24],"big")]
+
+          manifest={
+              "polyhaven_provider":"Powered by Poly Haven",
+              "polyhaven_license":"CC0",
+              "polyhaven":{},
+              "stained_glass":{
+                  "title":"USA-Palo Alto-Stanford Memorial Church-Glass Window-1.jpg",
+                  "license":"Public Domain",
+                  "source_page":"https://commons.wikimedia.org/wiki/File:USA-Palo_Alto-Stanford_Memorial_Church-Glass_Window-1.jpg",
+                  "original_url":"https://upload.wikimedia.org/wikipedia/commons/f/fe/USA-Palo_Alto-Stanford_Memorial_Church-Glass_Window-1.jpg",
+                  "expected_dimensions":[1344,2176]
+              }
+          }
+
+          for asset in ("stone_wall_04","roof_slates_03"):
+              info=get_json(f"https://api.polyhaven.com/info/{asset}")
+              dims=info.get("dimensions")
+              if not isinstance(dims,list) or len(dims)<2:
+                  raise SystemExit(f"Missing dimensions for {asset}: {dims}")
+              urls={}
+              for kind in ("diffuse","rough","displacement"):
+                  url=choose(asset,kind)
+                  p=root/asset/f"{kind}.png"
+                  download(url,p)
+                  if max(png_dims(p))!=4096:
+                      raise SystemExit(f"Expected exact 4K texture: {p} {png_dims(p)}")
+                  urls[kind]=url
+              manifest["polyhaven"][asset]={"dimensions_mm":dims,"urls":urls}
+
+          sg=manifest["stained_glass"]
+          download(sg["original_url"],root/"stained_glass"/"stanford_memorial_window.jpg")
+
+          (root/"SOURCE_MANIFEST.json").write_text(json.dumps(manifest,indent=2),encoding="utf-8")
+          print(json.dumps(manifest,indent=2))
+          PY
+
+      - name: Install Blender 5.2.2
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz -o /tmp/blender.tar.xz
+          tar -C /tmp -xf /tmp/blender.tar.xz
+          /tmp/blender-5.2.2-linux-x64/blender --version
+
+      - name: Render relief and stained glass probe
+        shell: bash
+        env:
+          SANCTUM_V2_RELIEF_OUT: sanctum-v2-relief-glass
+          SANCTUM_V2_RELIEF_ASSETS: sanctum-v2-relief-assets
+        run: |
+          set -euo pipefail
+          mkdir -p sanctum-v2-relief-glass
+          xvfb-run -a -s "-screen 0 1600x1000x24" \
+            /tmp/blender-5.2.2-linux-x64/blender \
+            -b external-french-houses/GeometryNodesFrenchHous.blend \
+            --python tools/sanctum_v2/probe_cathedral_relief_stained_glass.py \
+            2>&1 | tee sanctum-v2-relief-glass/blender-relief-glass.log
+
+          grep -q "SANCTUM_V2_RELIEF_GLASS_OK" sanctum-v2-relief-glass/blender-relief-glass.log
+          test -s sanctum-v2-relief-glass/relief-glass-report.json
+          cp sanctum-v2-relief-assets/SOURCE_MANIFEST.json sanctum-v2-relief-glass/
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("sanctum-v2-relief-glass")
+          d=json.loads((root/"relief-glass-report.json").read_text())
+          assert d["source_object"]=="Catehdral", d
+          assert d["mapping"]["stained_glass"]=="existing UVMap on RoundWindwos", d
+          assert d["stained_glass"]["source_dimensions"]==[1344,2176], d
+          assert d["relief"]["stone_bump_distance_m"]>0, d
+          assert d["relief"]["roof_bump_distance_m"]>0, d
+          assert len(d["renders"])==6, d
+          for n in d["renders"]:
+              p=root/n
+              assert p.is_file() and p.stat().st_size>0, n
+          print("SANCTUM_V2_RELIEF_GLASS_GATES_OK")
+          PY
+
+      - name: Upload visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-V2-Relief-Stained-Glass
+          path: sanctum-v2-relief-glass/
+          if-no-files-found: error
+          retention-days: 14
