@@ -59,6 +59,17 @@ parts += [
 
 # FLOOR PLATES — church proportions are intentionally authored rather than
 # generated from zone AABBs.
+# INVISIBLE BSP SEAL.
+# Zombie spawn corridors live outside the visible church walls. Seal that exterior
+# with NULL world brushes so VHLT has a closed volume without reintroducing the
+# giant visible box from the old prototype.
+parts.append(brush_box((-1280,-760,-48),(1100,760,-24),"null"))
+parts.append(brush_box((-1280,-760,560),(1100,760,576),"null"))
+parts.append(brush_box((-1296,-760,-24),(-1280,760,560),"null"))
+parts.append(brush_box((1100,-760,-24),(1116,760,560),"null"))
+parts.append(brush_box((-1280,-776,-24),(1100,-760,560),"null"))
+parts.append(brush_box((-1280,760,-24),(1100,776,560),"null"))
+
 parts.append(brush_box((-980,-440,-24),(560,440,0),ART["floor"]))
 parts.append(brush_box((560,-300,-24),(940,300,0),ART["floor"]))
 parts.append(brush_box((-1180,-240,-24),(-980,240,0),ART["floor"]))
