@@ -8,6 +8,9 @@ on:
       - ".github/workflows/sanctum-composite-cathedral-interior.yml"
       - "tools/sanctum_v2/compose_cathedral_cc0_interior.py"
       - "tools/sanctum_v2/map_builder_plan.json"
+      - "tools/xziel_toolchain/bootstrap_asset_cli.sh"
+      - "tools/xziel_toolchain/process_glb.sh"
+      - "tools/xziel_toolchain/validate_glb.cjs"
   workflow_dispatch:
 
 permissions:
@@ -32,7 +35,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update -qq
-          sudo apt-get install -y -qq             git-lfs curl xz-utils xvfb             libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1             libgl1 libglu1-mesa
+          sudo apt-get install -y -qq             git-lfs curl xz-utils xvfb unzip bzip2             libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1             libgl1 libglu1-mesa
           git lfs install
 
       - name: Fetch MIT cathedral and CC0 interior sources
@@ -114,6 +117,18 @@ jobs:
           print("COMBINED_VERTICES", d["combined_stats"]["vertices"])
           print("GLB_BYTES", d["glb_bytes"])
           PY
+
+      - name: Optimize inspect and validate composite GLB
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/xziel_toolchain/bootstrap_asset_cli.sh
+          RAW_GLB="$(python3 - <<'PY'
+          import json
+          print(json.load(open("sanctum-composite-probe/composite-report.json",encoding="utf-8"))["glb"])
+          PY
+          )"
+          bash tools/xziel_toolchain/process_glb.sh             "sanctum-composite-probe/$RAW_GLB"             "sanctum-composite-probe/asset-pipeline"             "sanctum-composite"
 
       - name: Record source provenance
         if: always()
