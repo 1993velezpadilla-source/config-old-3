@@ -1,0 +1,90 @@
+name: Sanctum V2 Cathedral Material Inventory
+
+on:
+  push:
+    branches:
+      - sanctum-v2-existing-assets-only
+    paths:
+      - ".github/workflows/sanctum-v2-material-inventory.yml"
+      - "tools/sanctum_v2/inventory_cathedral_materials.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sanctum-v2-material-inventory-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  inventory:
+    name: Inventory evaluated cathedral materials
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Install host packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq git-lfs curl xz-utils xvfb libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libglu1-mesa
+          git lfs install
+
+      - name: Fetch upstream authored cathedral kit
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf external-french-houses
+          git clone --depth 1 https://github.com/IRCSS/Blender-Geometry-Node-French-Houses.git external-french-houses
+          (cd external-french-houses && git lfs pull || true)
+          test -s external-french-houses/GeometryNodesFrenchHous.blend
+          grep -q "MIT License" external-french-houses/LICENSE
+
+      - name: Install Blender 5.2.2
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz -o /tmp/blender.tar.xz
+          tar -C /tmp -xf /tmp/blender.tar.xz
+          /tmp/blender-5.2.2-linux-x64/blender --version
+
+      - name: Inventory evaluated material usage
+        shell: bash
+        env:
+          SANCTUM_V2_MATERIAL_INVENTORY_OUT: sanctum-v2-material-inventory
+        run: |
+          set -euo pipefail
+          mkdir -p sanctum-v2-material-inventory
+          xvfb-run -a -s "-screen 0 1280x720x24" \
+            /tmp/blender-5.2.2-linux-x64/blender \
+            -b external-french-houses/GeometryNodesFrenchHous.blend \
+            --python tools/sanctum_v2/inventory_cathedral_materials.py \
+            2>&1 | tee sanctum-v2-material-inventory/blender-inventory.log
+
+          grep -q "SANCTUM_V2_MATERIAL_INVENTORY_OK" sanctum-v2-material-inventory/blender-inventory.log
+          test -s sanctum-v2-material-inventory/cathedral-material-inventory.json
+          test -s sanctum-v2-material-inventory/cathedral-material-inventory.txt
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("sanctum-v2-material-inventory/cathedral-material-inventory.json").read_text())
+          assert d["source_object"]=="Catehdral", d
+          assert "Generate Cathedral Combined" in d["geometry_nodes"], d
+          assert d["evaluated_polygons"] > 100000, d
+          assert d["material_slot_count"] >= 1, d
+          assert abs(sum(x["surface_area_share"] for x in d["materials_by_surface_area"])-1.0) < 1e-6, d
+          print("SANCTUM_V2_MATERIAL_INVENTORY_GATES_OK")
+          PY
+
+      - name: Upload material inventory
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-V2-Cathedral-Material-Inventory
+          path: sanctum-v2-material-inventory/
+          if-no-files-found: error
+          retention-days: 14
