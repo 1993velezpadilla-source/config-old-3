@@ -256,7 +256,7 @@ gdraw = root / "source/platform/sdl/gl/gl_draw.c"
 gt = gdraw.read_text(encoding="utf-8")
 gt, n1 = re.subn(
     r'cvar_t\s+gl_max_size\s*=\s*\{"gl_max_size",\s*"1024"\};',
-    'cvar_t\\t\\tgl_max_size = {"gl_max_size", "2048"};',
+    'cvar_t\\t\\tgl_max_size = {"gl_max_size", "4096"};',
     gt,
     count=1,
 )
