@@ -100,13 +100,13 @@ jobs:
           },indent=2))
           PY
 
-      - name: Super-resolve St Giles atlases to 4K
+      - name: Super-resolve St Giles atlases 2K to 4K with EDSR
         shell: bash
         run: |
           set -euo pipefail
           python3 -m pip install --quiet "numpy<2" opencv-contrib-python-headless==4.10.0.84 pillow==11.3.0
           mkdir -p .cache/xziel-sr
-          curl -L --fail --retry 3 https://raw.githubusercontent.com/thinkerleolee/FSRCNN-OpenCV/master/models/fsrcnn_x4.pb -o .cache/xziel-sr/fsrcnn_x4.pb
+          curl -L --fail --retry 3 https://raw.githubusercontent.com/Saafke/EDSR_Tensorflow/master/models/EDSR_x2.pb -o .cache/xziel-sr/EDSR_x2.pb
 
           python3 - <<'PY' | tee church-artifact/superres-4k.log
           from pathlib import Path
@@ -116,8 +116,8 @@ jobs:
 
           root=Path("church-artifact/vril_static/textures/xziel/sanctum")
           sr=dnn_superres.DnnSuperResImpl_create()
-          sr.readModel(".cache/xziel-sr/fsrcnn_x4.pb")
-          sr.setModel("fsrcnn",4)
+          sr.readModel(".cache/xziel-sr/EDSR_x2.pb")
+          sr.setModel("edsr",2)
 
           rows=[]
           for p in sorted(root.glob("*.png")):
@@ -135,10 +135,10 @@ jobs:
 
           arch=[r for r in rows if r["sr"]]
           if len(arch)<11:
-              raise SystemExit(f"Expected >=11 architectural atlases, got {len(arch)}: {rows}")
+              raise SystemExit(f"Expected >=11 architectural atlases for EDSR, got {len(arch)}: {rows}")
           if min(max(r["after"]) for r in arch)<4096:
               raise SystemExit(f"Super-resolution did not reach 4K: {arch}")
-          print("XZIEL_FSRCNN_4K_OK")
+          print("XZIEL_EDSR_4K_OK")
           print(json.dumps({
               "architecturalAtlases":len(arch),
               "minOutputDimension":min(max(r["after"]) for r in arch),
@@ -224,7 +224,7 @@ jobs:
           unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/maps/sanctum_harness.nsz'
           unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/models/xziel/sanctum/sanctum.xzsm'
           unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/textures/xziel/sanctum/' | head -n 10
-          grep -q 'XZIEL_FSRCNN_4K_OK' church-artifact/superres-4k.log
+          grep -q 'XZIEL_EDSR_4K_OK' church-artifact/superres-4k.log
 
       - name: Make HQ Sanctum one-tap
         shell: bash
