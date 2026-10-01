@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   probe:
-    name: Render relief and public-domain stained glass
+    name: Render relief and seamless CC0 stained glass
     runs-on: ubuntu-latest
     timeout-minutes: 55
     steps:
@@ -48,6 +48,7 @@ jobs:
           set -euo pipefail
           rm -rf sanctum-v2-relief-assets
           mkdir -p sanctum-v2-relief-assets/stained_glass
+          python3 -m pip install --quiet pillow
 
           python3 - <<'PY'
           import json,re,urllib.request
@@ -122,11 +123,15 @@ jobs:
               "polyhaven_license":"CC0",
               "polyhaven":{},
               "stained_glass":{
-                  "title":"USA-Palo Alto-Stanford Memorial Church-Glass Window-1.jpg",
-                  "license":"Public Domain",
-                  "source_page":"https://commons.wikimedia.org/wiki/File:USA-Palo_Alto-Stanford_Memorial_Church-Glass_Window-1.jpg",
-                  "original_url":"https://upload.wikimedia.org/wikipedia/commons/f/fe/USA-Palo_Alto-Stanford_Memorial_Church-Glass_Window-1.jpg",
-                  "expected_dimensions":[1344,2176]
+                  "title":"Glass Stained Panel Window 004 / Glass Stained 001",
+                  "license":"CC0 / Public Domain",
+                  "source_pages":[
+                      "https://3dtextures.me/2026/03/14/glass-stained-panel-window-004-free-seamless-pbr-texture/",
+                      "https://3dtextures.me/2020/09/21/glass-stained-001/"
+                  ],
+                  "seamless":True,
+                  "expected_dimensions":[1024,1024],
+                  "source_author_repeat_guidance":"2x to 4x"
               }
           }
 
@@ -145,8 +150,135 @@ jobs:
                   urls[kind]=url
               manifest["polyhaven"][asset]={"dimensions_mm":dims,"urls":urls}
 
+          # Discover the actual free 1024 seamless stained-glass source from 3DTextures.
+          import html as htmlmod
+          from urllib.parse import urljoin, urlsplit, urlunsplit
+          from PIL import Image
           sg=manifest["stained_glass"]
-          download(sg["original_url"],root/"stained_glass"/"stanford_memorial_window.jpg")
+
+          def fetch_text(url):
+              req=urllib.request.Request(url,headers={"User-Agent":UA})
+              with urllib.request.urlopen(req,timeout=60) as r:
+                  return r.read().decode("utf-8","ignore")
+
+          def normalized_urls(page_url, page_html):
+              page_html=htmlmod.unescape(page_html)
+              vals=[]
+              vals += re.findall(r'(?:href|src)=["\\\']([^"\\\']+)["\\\']',page_html,re.I)
+              for srcset in re.findall(r'srcset=["\\\']([^"\\\']+)["\\\']',page_html,re.I):
+                  vals += [x.strip().split()[0] for x in srcset.split(",") if x.strip()]
+              vals += re.findall(r'https?://[^"\\\'<>\\s]+',page_html,re.I)
+              out=[]
+              for v in vals:
+                  u=urljoin(page_url,v)
+                  p=urlsplit(u)
+                  # Strip resize/query parameters so we inspect the original upload.
+                  u=urlunsplit((p.scheme,p.netloc,p.path,"",""))
+                  if re.search(r'\\.(?:png|jpe?g|webp)
+          (root/"SOURCE_MANIFEST.json").write_text(json.dumps(manifest,indent=2),encoding="utf-8")
+          print(json.dumps(manifest,indent=2))
+          PY
+
+      - name: Install Blender 5.2.2
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz -o /tmp/blender.tar.xz
+          tar -C /tmp -xf /tmp/blender.tar.xz
+          /tmp/blender-5.2.2-linux-x64/blender --version
+
+      - name: Render relief and stained glass probe
+        shell: bash
+        env:
+          SANCTUM_V2_RELIEF_OUT: sanctum-v2-relief-glass
+          SANCTUM_V2_RELIEF_ASSETS: sanctum-v2-relief-assets
+        run: |
+          set -euo pipefail
+          mkdir -p sanctum-v2-relief-glass
+          xvfb-run -a -s "-screen 0 1600x1000x24" \
+            /tmp/blender-5.2.2-linux-x64/blender \
+            -b external-french-houses/GeometryNodesFrenchHous.blend \
+            --python tools/sanctum_v2/probe_cathedral_relief_stained_glass.py \
+            2>&1 | tee sanctum-v2-relief-glass/blender-relief-glass.log
+
+          grep -q "SANCTUM_V2_RELIEF_GLASS_OK" sanctum-v2-relief-glass/blender-relief-glass.log
+          test -s sanctum-v2-relief-glass/relief-glass-report.json
+          cp sanctum-v2-relief-assets/SOURCE_MANIFEST.json sanctum-v2-relief-glass/
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("sanctum-v2-relief-glass")
+          d=json.loads((root/"relief-glass-report.json").read_text())
+          assert d["source_object"]=="Catehdral", d
+          assert d["mapping"]["stained_glass"]=="existing UVMap + seamless REPEAT 2x", d
+          assert d["stained_glass"]["source_dimensions"]==[1024,1024], d
+          assert d["relief"]["stone_bump_distance_m"]>0, d
+          assert d["relief"]["roof_bump_distance_m"]>0, d
+          assert len(d["renders"])==6, d
+          for n in d["renders"]:
+              p=root/n
+              assert p.is_file() and p.stat().st_size>0, n
+          print("SANCTUM_V2_RELIEF_GLASS_GATES_OK")
+          PY
+
+      - name: Upload visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-V2-Relief-Stained-Glass
+          path: sanctum-v2-relief-glass/
+          if-no-files-found: error
+          retention-days: 14
+,p.path,re.I):
+                      out.append(u)
+              return list(dict.fromkeys(out))
+
+          candidates=[]
+          for page in sg["source_pages"]:
+              page_html=fetch_text(page)
+              for url in normalized_urls(page,page_html):
+                  if "3dtextures.me/wp-content/uploads/" not in url and "i0.wp.com/3dtextures.me/wp-content/uploads/" not in url:
+                      continue
+                  try:
+                      tmp=root/"stained_glass"/("candidate_"+str(len(candidates))+".img")
+                      download(url,tmp)
+                      with Image.open(tmp) as im:
+                          size=list(im.size)
+                          mode=im.mode
+                          fmt=im.format
+                          if size==[1024,1024]:
+                              candidates.append({"url":url,"path":str(tmp),"size":size,"mode":mode,"format":fmt})
+                          else:
+                              tmp.unlink(missing_ok=True)
+                  except Exception as e:
+                      print("SKIP_STAINED_CANDIDATE",url,repr(e))
+
+          if not candidates:
+              raise SystemExit("No exact 1024x1024 source image discovered on the verified seamless CC0 stained-glass pages")
+
+          def rank(rec):
+              s=rec["url"].lower()
+              score=0
+              if any(k in s for k in ("diffuse","albedo","basecolor","base_color","color")): score+=100
+              if "glass_stained" in s or "stained" in s: score+=30
+              if any(k in s for k in ("normal","rough","disp","height","metal","mask","ao","ambient")): score-=80
+              if "material_" in s: score-=25
+              return score
+
+          candidates.sort(key=rank,reverse=True)
+          chosen=candidates[0]
+          if rank(chosen) < 0:
+              raise SystemExit(f"Only non-color stained-glass maps/previews discovered: {candidates}")
+
+          with Image.open(chosen["path"]) as im:
+              im.convert("RGB").save(root/"stained_glass"/"color.png")
+          for rec in candidates:
+              Path(rec["path"]).unlink(missing_ok=True)
+
+          manifest["stained_glass"]["selected_url"]=chosen["url"]
+          manifest["stained_glass"]["discovered_candidates"]=candidates
+          print("SELECTED_STAINED_GLASS",chosen)
 
           (root/"SOURCE_MANIFEST.json").write_text(json.dumps(manifest,indent=2),encoding="utf-8")
           print(json.dumps(manifest,indent=2))
