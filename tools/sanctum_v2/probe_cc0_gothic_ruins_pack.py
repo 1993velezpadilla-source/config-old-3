@@ -150,3 +150,5 @@ print(json.dumps({
     "selected_polygons":[x["polygons"] for x in selected_items],
     "glb_bytes":report["glb_bytes"],
 },indent=2))
+
+# Workflow trigger marker: Gothic ruins probe v1
