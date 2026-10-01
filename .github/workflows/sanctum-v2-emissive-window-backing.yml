@@ -208,7 +208,7 @@ jobs:
             --python tools/sanctum_v2/probe_cathedral_emissive_window_backing.py \
             2>&1 | tee sanctum-v2-emissive-window-backing/blender-relief-glass.log
 
-          grep -q "SANCTUM_V2_EMISSIVE_BACKING_GLASS_OK" sanctum-v2-emissive-window-backing/blender-relief-glass.log
+          grep -q "SANCTUM_V2_EMISSION_NODE_BACKING_OK" sanctum-v2-emissive-window-backing/blender-relief-glass.log
           test -s sanctum-v2-emissive-window-backing/relief-glass-report.json
           cp sanctum-v2-relief-assets/SOURCE_MANIFEST.json sanctum-v2-emissive-window-backing/
           cp sanctum-v2-relief-assets/ATTRIBUTION.txt sanctum-v2-emissive-window-backing/
