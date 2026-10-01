@@ -173,6 +173,36 @@ def fit_inner(inner_objects, outer_stats):
 
     return root, scale, inner_before, mesh_stats(inner_objects)
 
+def create_gameplay_floor(scene, inner_stats):
+    center = Vector(inner_stats["center"])
+    mn = Vector(inner_stats["min"])
+    size = Vector(inner_stats["size"])
+
+    hx = size.x * 0.34
+    hy = size.y * 0.39
+    z = mn.z + 0.12
+
+    verts = [
+        (center.x - hx, center.y - hy, z),
+        (center.x + hx, center.y - hy, z),
+        (center.x + hx, center.y + hy, z),
+        (center.x - hx, center.y + hy, z),
+    ]
+    mesh = bpy.data.meshes.new("SANCTUM_GAMEPLAY_FLOOR_MESH")
+    mesh.from_pydata(verts, [], [(0, 1, 2, 3)])
+    mesh.update()
+
+    floor = bpy.data.objects.new("SANCTUM_GAMEPLAY_FLOOR", mesh)
+    scene.collection.objects.link(floor)
+
+    stone = bpy.data.materials.get("Stone")
+    if stone is not None:
+        floor.data.materials.append(stone)
+
+    floor["xziel_role"] = "walkable_floor"
+    floor["source"] = "derived_from_cc0_interior_footprint"
+    return floor
+
 def sample_walkability(scene, outer, inner_objects, inner_stats):
     # Probe the CC0 shell by itself so the outer facade cannot fake floor hits.
     outer.hide_viewport = True
@@ -297,9 +327,15 @@ outer_stats = mesh_stats([outer_baked])
 inner_objects, missing = append_cc0_objects(scene)
 root, scale, inner_before, inner_after = fit_inner(inner_objects, outer_stats)
 
+gameplay_floor = create_gameplay_floor(scene, inner_after)
+inner_objects.append(gameplay_floor)
+
 walk = sample_walkability(scene, outer_baked, inner_objects, inner_after)
-if walk["walkable"] < 10:
-    fail(f"walkability probe too weak: {walk['walkable']} / {walk['samples']}")
+if walk["walkable_ratio"] < 0.40:
+    fail(
+        f"walkability ratio too weak: {walk['walkable']} / {walk['samples']} "
+        f"({walk['walkable_ratio']:.3f})"
+    )
 
 scene.render.engine = "BLENDER_WORKBENCH"
 scene.render.image_settings.media_type = "IMAGE"
@@ -332,6 +368,8 @@ report = {
     "inner_stats_after_fit": inner_after,
     "inner_uniform_scale": scale,
     "inner_objects": [o.name for o in inner_objects],
+    "gameplay_floor": gameplay_floor.name,
+    "gameplay_floor_role": gameplay_floor.get("xziel_role"),
     "missing_optional_inner_objects": missing,
     "walkability": walk,
     "combined_stats": combined_stats,
