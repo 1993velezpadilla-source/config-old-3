@@ -113,7 +113,10 @@ int main(int argc, char** argv) {
     }
 
     dtQueryFilter filter;
-    const float ext[3] = {1.50f, 0.90f, 1.50f};
+    // Search a generous volume for diagnostics, but keep the approval
+    // thresholds below strict. This lets failed probes report where the nearest
+    // actual nav polygon lives instead of returning REF 0 with no clue.
+    const float ext[3] = {6.00f, 6.00f, 6.00f};
     bool allProbes = true;
     for (Probe& p : probes) {
         status = query->findNearestPoly(p.p, ext, &filter, &p.ref, p.nearest);
