@@ -153,6 +153,76 @@ def upgrade_cc0_interior_materials(props,manifest,resolution):
         "rule":"replace only source flat-gray pew/altar/cross material with verified CC0 wood PBR; preserve authored pipe/candle/bible material slots",
     }
 
+def build_cathedral_floor_overlay(source_obj,manifest,resolution,scene_floor_z):
+    asset="monastery_stone_floor"
+    tile=tile_meters(manifest,asset)
+    mat=bpy.data.materials.get("XZIEL_MonasteryStoneFloorPBR")
+    if mat is None:
+        mat=bpy.data.materials.new("XZIEL_MonasteryStoneFloorPBR")
+    build_world_relief_box_material(
+        mat,
+        ASSETS/asset/"diffuse.png",
+        ASSETS/asset/"rough.png",
+        ASSETS/asset/"displacement.png",
+        tile,
+        resolution,
+    )
+
+    deps=bpy.context.evaluated_depsgraph_get()
+    eo=source_obj.evaluated_get(deps)
+    src=eo.to_mesh()
+    mw=eo.matrix_world
+    normal_m=eo.matrix_world.to_3x3()
+
+    bm=bmesh.new()
+    verts=[]
+    faces=[]
+    z_limit=float(scene_floor_z)+3.0
+    for p in src.polygons:
+        n=(normal_m @ p.normal).normalized()
+        wc=mw @ p.center
+        if n.z<=0.85 or wc.z>z_limit:
+            continue
+        idxs=[]
+        for vi in p.vertices:
+            wv=mw @ src.vertices[vi].co
+            verts.append((float(wv.x),float(wv.y),float(wv.z)+0.003))
+            idxs.append(len(verts)-1)
+        if len(idxs)>=3:
+            faces.append(idxs)
+
+    eo.to_mesh_clear()
+    if not faces:
+        bm.free()
+        raise SystemExit("No near-floor upward cathedral faces found for floor overlay")
+
+    mesh=bpy.data.meshes.new("XZIEL_CathedralFloorOverlayMesh")
+    mesh.from_pydata(verts,[],faces)
+    mesh.update()
+    overlay=bpy.data.objects.new("XZIEL_CathedralFloorOverlay",mesh)
+    bpy.context.scene.collection.objects.link(overlay)
+    overlay.data.materials.append(mat)
+
+    area=0.0
+    for p in mesh.polygons:
+        area+=float(p.area)
+
+    return overlay,{
+        "asset":asset,
+        "provider":"Poly Haven",
+        "license":"CC0",
+        "source_material_audit":"GroundFloorWalls contains the near-floor upward faces; extracted geometry avoids retexturing walls",
+        "normal_gate_world_z":0.85,
+        "z_limit":z_limit,
+        "face_count":len(mesh.polygons),
+        "area_m2_object_space":area,
+        "z_fight_offset_m":0.003,
+        "mapping":"world-space BOX triplanar",
+        "physical_tile_m":tile,
+        "texture_resolution":resolution,
+        "bump_distance_m":tile/float(resolution),
+    }
+
 def load_authored_glass_shader():
     if not SHADER_LIB.is_file():
         raise SystemExit(f"Missing authored shader library: {SHADER_LIB}")
@@ -738,8 +808,14 @@ cc0_props_report["material_upgrade"]=upgrade_cc0_interior_materials(
     manifest,
     resolution,
 )
+floor_overlay,floor_overlay_report=build_cathedral_floor_overlay(
+    obj,
+    manifest,
+    resolution,
+    mn.z,
+)
 all_lights=[*lights,*backlights]
-visible=[obj,cam,window_backing,*cc0_props,*all_lights]
+visible=[obj,cam,window_backing,floor_overlay,*cc0_props,*all_lights]
 for o in scene.objects:
     if hasattr(o,"hide_render"):
         o.hide_render=o not in visible
@@ -775,6 +851,7 @@ report={
         "roof_bump_distance_m":roof_tile/resolution,
     },
     "cc0_interior_props":cc0_props_report,
+    "floor_upgrade":floor_overlay_report,
     "stained_glass":{
         "source":"OpenGameArt Repeating Mini Windows - Stained Glass - Seamless texture with normalmap",
         "author":"Keith333",
