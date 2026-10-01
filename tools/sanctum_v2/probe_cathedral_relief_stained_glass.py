@@ -70,7 +70,7 @@ def build_relief_box_material(mat,diffuse,roughness,displacement,tile_m,resoluti
     links.new(bump.outputs["Normal"],bsdf.inputs["Normal"])
     links.new(bsdf.outputs["BSDF"],out.inputs["Surface"])
 
-def apply_stained_glass_seamless(mat,image_path):
+def apply_stained_glass_seamless(mat,color_path,normal_path,expected_size):
     if not mat.use_nodes or not mat.node_tree:
         raise SystemExit("RoundWindwos has no authored node tree to preserve")
     nodes=mat.node_tree.nodes
@@ -78,25 +78,36 @@ def apply_stained_glass_seamless(mat,image_path):
     bsdfs=[n for n in nodes if n.bl_idname=="ShaderNodeBsdfPrincipled"]
     if not bsdfs:
         raise SystemExit("RoundWindwos has no Principled BSDF")
-    img=load_image(image_path,False)
-    if tuple(img.size)!=(1920,1920):
-        raise SystemExit(f"Unexpected seamless stained-glass dimensions: {tuple(img.size)}")
+
+    color_img=load_image(color_path,False)
+    normal_img=load_image(normal_path,True)
+    actual=list(color_img.size)
+    normal_size=list(normal_img.size)
+    if actual!=list(expected_size):
+        raise SystemExit(f"Unexpected stained-glass color dimensions: {actual} expected={expected_size}")
+    if normal_size!=actual:
+        raise SystemExit(f"Stained-glass normal dimensions mismatch: color={actual} normal={normal_size}")
 
     uv=nodes.new("ShaderNodeUVMap")
     uv.uv_map=UV_NAME
-    mapping=nodes.new("ShaderNodeMapping")
-    # Source author explicitly recommends repeating this seamless texture 2x-4x.
-    mapping.inputs["Scale"].default_value=(2.0,2.0,2.0)
+    tex_color=nodes.new("ShaderNodeTexImage")
+    tex_color.image=color_img
+    tex_color.extension="REPEAT"
+    tex_color.projection="FLAT"
 
-    tex=nodes.new("ShaderNodeTexImage")
-    tex.image=img
-    tex.extension="REPEAT"
-    tex.projection="FLAT"
+    tex_normal=nodes.new("ShaderNodeTexImage")
+    tex_normal.image=normal_img
+    tex_normal.extension="REPEAT"
+    tex_normal.projection="FLAT"
+    nmap=nodes.new("ShaderNodeNormalMap")
 
-    links.new(uv.outputs["UV"],mapping.inputs["Vector"])
-    links.new(mapping.outputs["Vector"],tex.inputs["Vector"])
+    links.new(uv.outputs["UV"],tex_color.inputs["Vector"])
+    links.new(uv.outputs["UV"],tex_normal.inputs["Vector"])
+    links.new(tex_normal.outputs["Color"],nmap.inputs["Color"])
+
     for bsdf in bsdfs:
-        links.new(tex.outputs["Color"],bsdf.inputs["Base Color"])
+        links.new(tex_color.outputs["Color"],bsdf.inputs["Base Color"])
+        links.new(nmap.outputs["Normal"],bsdf.inputs["Normal"])
 
 def evaluated_stats(obj):
     deps=bpy.context.evaluated_depsgraph_get()
@@ -198,9 +209,12 @@ build_relief_box_material(
     roof_tile,
     resolution,
 )
+sg=manifest["stained_glass"]
 apply_stained_glass_seamless(
     mats["RoundWindwos"],
-    ASSETS/"stained_glass"/"color.png",
+    ASSETS/"stained_glass"/"color.jpg",
+    ASSETS/"stained_glass"/"normal.jpg",
+    sg["source_dimensions"],
 )
 
 st=evaluated_stats(obj)
@@ -247,7 +261,7 @@ report={
     "mapping":{
         "stone":"BOX/Object + Poly Haven physical dimensions",
         "roof":"BOX/Object + Poly Haven physical dimensions",
-        "stained_glass":"existing UVMap + seamless REPEAT",
+        "stained_glass":"existing UVMap + authored seamless color/normal maps",
     },
     "relief":{
         "source":"Poly Haven 4K displacement maps",
@@ -257,12 +271,14 @@ report={
         "roof_bump_distance_m":roof_tile/resolution,
     },
     "stained_glass":{
-        "source":"3DTextures Glass Stained Panel Window seamless CC0 material",
+        "source":"OpenGameArt Repeating Mini Windows - Stained Glass - Seamless texture with normalmap",
+        "author":"Keith333",
+        "license":"CC-BY 3.0",
+        "source_dimensions":sg["source_dimensions"],
+        "uses_authored_normal_map":True,
         "preserved_authored_shader":True,
-        "source_dimensions":[1024,1024],
-        "repeat":"2x as recommended by source author",
     },
-    "renders":[v[0] for v in views],
+        "renders":[v[0] for v in views],
 }
 (OUT/"relief-glass-report.json").write_text(json.dumps(report,indent=2),encoding="utf-8")
 print("SANCTUM_V2_RELIEF_GLASS_OK")
