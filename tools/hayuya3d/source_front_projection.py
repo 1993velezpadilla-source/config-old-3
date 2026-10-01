@@ -63,18 +63,76 @@ def _delivery_texture(source: Path, edge: int):
     image=Image.open(source).convert("RGBA")
     bbox=_foreground_bbox(image)
     crop=image.crop(bbox).resize((int(edge),int(edge)),Image.Resampling.LANCZOS)
-    sharp=Image.new("RGB",crop.size,(20,20,20))
-    sharp.paste(crop,mask=crop.getchannel("A"))
+
+    # Build a foreground mask at reduced resolution, then extrapolate nearest
+    # real subject colors through transparent/dark background. The projection
+    # must color the mesh itself; source-image background must never become a
+    # dark material halo around the generated silhouette.
+    from scipy.ndimage import distance_transform_edt
+
+    low_edge=min(1024,max(256,int(edge)//4))
+    small=crop.resize((low_edge,low_edge),Image.Resampling.LANCZOS)
+    rgba=np.asarray(small,dtype=np.uint8)
+    alpha=rgba[:,:,3]
+    use_alpha=(int(alpha.min())<245 and int(alpha.max())>8)
+
+    if use_alpha:
+        foreground=alpha>24
+    else:
+        rgbf=rgba[:,:,:3].astype(np.float32)
+        patch=max(4,low_edge//24)
+        corners=np.concatenate([
+            rgbf[:patch,:patch].reshape(-1,3),
+            rgbf[:patch,-patch:].reshape(-1,3),
+            rgbf[-patch:,:patch].reshape(-1,3),
+            rgbf[-patch:,-patch:].reshape(-1,3),
+        ],axis=0)
+        bg=np.median(corners,axis=0)
+        foreground=np.linalg.norm(rgbf-bg,axis=2)>20.0
+
+    rgb=rgba[:,:,:3].copy()
+    extrapolated=False
+    if int(np.count_nonzero(foreground))>=128 and np.any(~foreground):
+        _,indices=distance_transform_edt(
+            ~foreground,
+            return_indices=True,
+        )
+        missing=~foreground
+        rgb[missing]=rgb[
+            indices[0][missing],
+            indices[1][missing],
+        ]
+        extrapolated=True
+
+    filled=Image.fromarray(rgb,"RGB").resize(
+        (int(edge),int(edge)),
+        Image.Resampling.LANCZOS,
+    )
+    mask=Image.fromarray(
+        (foreground.astype(np.uint8)*255),
+        "L",
+    ).resize(
+        (int(edge),int(edge)),
+        Image.Resampling.LANCZOS,
+    )
+
+    # Keep exact source detail where the subject exists, using the extrapolated
+    # image only outside the source foreground.
+    sharp=filled.copy()
+    sharp.paste(crop.convert("RGB"),mask=mask)
+
     radius=max(24.0,float(edge)/48.0)
     low=sharp.filter(ImageFilter.GaussianBlur(radius=radius))
-    low=ImageEnhance.Color(low).enhance(0.35)
-    low=ImageEnhance.Contrast(low).enhance(0.70)
+    low=ImageEnhance.Color(low).enhance(0.42)
+    low=ImageEnhance.Contrast(low).enhance(0.78)
+
     return sharp,low,{
         "source_size":[int(image.width),int(image.height)],
         "source_bbox":[int(v) for v in bbox],
         "delivery_edge":int(edge),
         "low_frequency_blur_radius":float(radius),
-        "policy":"sharp visible surfaces plus low-frequency hidden surfaces",
+        "foreground_background_extrapolated":bool(extrapolated),
+        "policy":"foreground-preserving sharp projection plus extrapolated low-frequency hidden surfaces",
     }
 
 
