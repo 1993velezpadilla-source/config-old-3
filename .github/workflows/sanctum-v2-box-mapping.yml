@@ -1,0 +1,184 @@
+name: Sanctum V2 Cathedral Box Mapping Probe
+
+on:
+  push:
+    branches:
+      - sanctum-v2-existing-assets-only
+    paths:
+      - ".github/workflows/sanctum-v2-box-mapping.yml"
+      - "tools/sanctum_v2/probe_cathedral_box_mapping.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sanctum-v2-box-mapping-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    name: Render metric box-mapped cathedral
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Install host packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq git-lfs curl xz-utils xvfb libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libglu1-mesa
+          git lfs install
+
+      - name: Fetch upstream authored cathedral kit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/IRCSS/Blender-Geometry-Node-French-Houses.git external-french-houses
+          (cd external-french-houses && git lfs pull || true)
+          test -s external-french-houses/GeometryNodesFrenchHous.blend
+          grep -q "MIT License" external-french-houses/LICENSE
+
+      - name: Download exact 4K Poly Haven materials and physical dimensions
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf polyhaven-assets
+          mkdir -p polyhaven-assets
+          python3 - <<'PY'
+          import json,re,urllib.request
+          from pathlib import Path
+
+          UA="XZIEL-Sanctum-V2/1.0 (metric box mapping probe)"
+          root=Path("polyhaven-assets")
+
+          def get_json(url):
+              req=urllib.request.Request(url,headers={"User-Agent":UA})
+              with urllib.request.urlopen(req,timeout=60) as r:
+                  return json.load(r)
+
+          def leaves(obj,path=()):
+              if isinstance(obj,dict):
+                  if isinstance(obj.get("url"),str):
+                      yield path,obj
+                  for k,v in obj.items():
+                      if k!="url":
+                          yield from leaves(v,path+(str(k),))
+              elif isinstance(obj,list):
+                  for i,v in enumerate(obj):
+                      yield from leaves(v,path+(str(i),))
+
+          def choose(asset,kind):
+              tree=get_json(f"https://api.polyhaven.com/files/{asset}")
+              rows=[]
+              for path,rec in leaves(tree):
+                  parts=[str(x).lower() for x in path]
+                  url=rec.get("url","")
+                  s=(" / ".join(path)+" "+url).lower()
+                  if "4k" not in parts or ".png" not in url.lower():
+                      continue
+                  score=0
+                  if kind=="diffuse":
+                      if "diffuse" in s: score+=20
+                      if re.search(r"(^|[/_ -])diff([/_ .-]|$)",s): score+=12
+                  elif kind=="rough":
+                      if "roughness" in s: score+=20
+                      if "rough" in s: score+=12
+                      if "rough_ao" in s or "rough ao" in s: score-=8
+                  if score>0:
+                      rows.append((score,path,rec))
+              if not rows:
+                  raise SystemExit(f"No exact 4K {kind} PNG for {asset}")
+              rows.sort(key=lambda x:(x[0],x[2].get("size",0)),reverse=True)
+              return rows[0][2]["url"]
+
+          def download(url,dst):
+              dst.parent.mkdir(parents=True,exist_ok=True)
+              req=urllib.request.Request(url,headers={"User-Agent":UA})
+              with urllib.request.urlopen(req,timeout=180) as r, dst.open("wb") as f:
+                  while True:
+                      b=r.read(1024*1024)
+                      if not b: break
+                      f.write(b)
+              if not dst.is_file() or dst.stat().st_size==0:
+                  raise SystemExit(f"Empty download: {dst}")
+
+          def png_dims(p):
+              with p.open("rb") as f:
+                  sig=f.read(24)
+              if len(sig)<24 or sig[:8]!=b"\x89PNG\r\n\x1a\n" or sig[12:16]!=b"IHDR":
+                  raise SystemExit(f"Invalid PNG: {p}")
+              return [int.from_bytes(sig[16:20],"big"),int.from_bytes(sig[20:24],"big")]
+
+          manifest={"license":"CC0","provider":"Poly Haven","api":"https://api.polyhaven.com","assets":{}}
+          for asset in ("stone_wall_04","roof_slates_03"):
+              info=get_json(f"https://api.polyhaven.com/info/{asset}")
+              dims=info.get("dimensions")
+              if not isinstance(dims,list) or len(dims)<2:
+                  raise SystemExit(f"Missing physical dimensions for {asset}: {dims}")
+              ad=root/asset
+              urls={"diffuse":choose(asset,"diffuse"),"rough":choose(asset,"rough")}
+              for kind,url in urls.items():
+                  p=ad/f"{kind}.png"
+                  download(url,p)
+                  if max(png_dims(p))!=4096:
+                      raise SystemExit(f"Expected exact 4K: {p} {png_dims(p)}")
+              manifest["assets"][asset]={"dimensions_mm":dims,"urls":urls}
+
+          (root/"SOURCE_MANIFEST.json").write_text(json.dumps(manifest,indent=2),encoding="utf-8")
+          print(json.dumps(manifest,indent=2))
+          PY
+
+      - name: Install Blender 5.2.2
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz -o /tmp/blender.tar.xz
+          tar -C /tmp -xf /tmp/blender.tar.xz
+          /tmp/blender-5.2.2-linux-x64/blender --version
+
+      - name: Render box mapping probe
+        shell: bash
+        env:
+          SANCTUM_V2_BOX_OUT: sanctum-v2-box-probe
+          SANCTUM_V2_POLYHAVEN_DIR: polyhaven-assets
+        run: |
+          set -euo pipefail
+          mkdir -p sanctum-v2-box-probe
+          xvfb-run -a -s "-screen 0 1600x1000x24" \
+            /tmp/blender-5.2.2-linux-x64/blender \
+            -b external-french-houses/GeometryNodesFrenchHous.blend \
+            --python tools/sanctum_v2/probe_cathedral_box_mapping.py \
+            2>&1 | tee sanctum-v2-box-probe/blender-box-probe.log
+
+          grep -q "SANCTUM_V2_BOX_PROBE_OK" sanctum-v2-box-probe/blender-box-probe.log
+          test -s sanctum-v2-box-probe/box-probe-report.json
+          cp polyhaven-assets/SOURCE_MANIFEST.json sanctum-v2-box-probe/
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("sanctum-v2-box-probe")
+          d=json.loads((root/"box-probe-report.json").read_text())
+          assert d["source_object"]=="Catehdral", d
+          assert d["projection"]=="BOX", d
+          assert d["metric_tiles"]["stone_tile_m"]>0, d
+          assert d["metric_tiles"]["roof_tile_m"]>0, d
+          assert len(d["renders"])==6, d
+          for n in d["renders"]:
+              p=root/n
+              assert p.is_file() and p.stat().st_size>0, n
+          print("SANCTUM_V2_BOX_PROBE_GATES_OK")
+          PY
+
+      - name: Upload box mapping evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-V2-Cathedral-Box-Mapping
+          path: sanctum-v2-box-probe/
+          if-no-files-found: error
+          retention-days: 14
