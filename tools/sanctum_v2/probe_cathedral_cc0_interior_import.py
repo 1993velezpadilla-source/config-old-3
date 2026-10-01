@@ -449,18 +449,28 @@ def append_and_fit_cc0_interior_props(scene,target_min,target_max):
     # vary least along the source's vertical axis.
     source_up_index=min(range(3),key=lambda i:pew_spans[i])
     horizontal=[i for i in range(3) if i!=source_up_index]
-    source_long_index=max(horizontal,key=lambda i:pew_spans[i])
 
     pew_mean=sum(pew_centers,Vector())/len(pew_centers)
-    decor=[o for o in props if o not in pews and (o.name.startswith("candle") or o.name.startswith("Cross") or o.name=="altar")]
+    decor=[o for o in props if o not in pews and (o.name.startswith("candle") or o.name.startswith("Cross") or o.name=="altar" or o.name.startswith("altar."))]
     decor_mean=(sum((object_center_world(o) for o in decor),Vector())/len(decor)) if decor else pew_mean
 
     # Choose up sign from authored decor placement relative to pew floor.
     up_sign=1.0 if decor_mean[source_up_index]>=pew_mean[source_up_index] else -1.0
 
-    altar=bpy.data.objects.get("altar")
-    altar_center=object_center_world(altar) if altar in props else pew_mean
-    long_sign=1.0 if altar_center[source_long_index]>=pew_mean[source_long_index] else -1.0
+    # The source pew grid spans X and Y almost equally, so "largest pew span"
+    # is ambiguous and previously picked the wrong nave axis. Use the authored
+    # altar displacement from the pew centroid instead: the altar sits at the
+    # longitudinal end of the nave and therefore identifies both the long axis
+    # and its sign directly from source-scene placement.
+    altar=next((o for o in props if o.name=="altar" or o.name.startswith("altar.")),None)
+    if altar is None:
+        raise SystemExit("CC0 source has no altar prop for nave-axis inference")
+    altar_center=object_center_world(altar)
+    altar_delta=altar_center-pew_mean
+    source_long_index=max(horizontal,key=lambda i:abs(altar_delta[i]))
+    if abs(altar_delta[source_long_index])<=1e-6:
+        raise SystemExit(f"Ambiguous altar displacement for nave axis: {list(altar_delta)}")
+    long_sign=1.0 if altar_delta[source_long_index]>=0 else -1.0
 
     src_up=axis_vector(source_up_index,up_sign)
     src_long=axis_vector(source_long_index,long_sign)
@@ -537,12 +547,13 @@ def append_and_fit_cc0_interior_props(scene,target_min,target_max):
             "source_long_axis":axis_names[source_long_index],
             "source_long_sign":long_sign,
             "target_long_axis":axis_names[target_long_index],
-            "rule":"authored source-scene prop centers: pew minimum spread => source up; remaining maximum spread => nave long axis; decor selects up sign; altar selects long sign",
+            "altar_minus_pew_mean":list(altar_delta),
+            "rule":"authored source-scene prop centers: pew minimum spread => source up; altar displacement from pew centroid => nave long axis and sign; decor selects up sign",
         },
         "oriented_bounds":{"min":list(oriented_min),"max":list(oriented_max),"size":list(oriented_size)},
         "uniform_scale":uniform_scale,
         "scale_rule":"minimum X/Y/Z fit ratio after data-derived axis correction",
-        "placement_rule":"preserve authored source Scene matrix_world layout for selected CC0 props; infer source up/long axes from pew geometry centers; map to cathedral Z-up/long axis; fit all three dimensions; center XY; align floor min-Z",
+        "placement_rule":"preserve authored source Scene matrix_world layout for selected CC0 props; infer source up from pew floor spread and source long axis/sign from authored altar displacement; map to cathedral Z-up/long axis; fit all three dimensions; center XY; align floor min-Z",
         "fitted_bounds":{"min":list(fitted_min),"max":list(fitted_max),"size":list(fitted_size)},
     }
 
