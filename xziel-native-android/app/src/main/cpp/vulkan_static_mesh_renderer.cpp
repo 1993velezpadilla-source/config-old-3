@@ -2243,6 +2243,122 @@ void VulkanStaticMeshRenderer::destroyRuntimeTextureUpload() noexcept {
     runtimeTextureUpload_ = {};
 }
 
+bool VulkanStaticMeshRenderer::queueRuntimeTextureReplacement(
+    AAssetManager* assetManager,
+    const char* sourceTextureAssetPath,
+    const char* replacementAssetPath) noexcept {
+    if (!ready_ ||
+        assetManager == nullptr ||
+        sourceTextureAssetPath == nullptr ||
+        replacementAssetPath == nullptr ||
+        sourceTextureAssetPath[0] == '\0' ||
+        replacementAssetPath[0] == '\0' ||
+        runtimeTextureUpload_.active) {
+        return false;
+    }
+
+    std::uint32_t textureIndex = UINT32_MAX;
+
+    for (std::uint32_t i = 0U;
+         i < textures_.size();
+         ++i) {
+        if (textures_[i].assetPath ==
+            sourceTextureAssetPath) {
+            textureIndex = i;
+            break;
+        }
+    }
+
+    if (textureIndex == UINT32_MAX) {
+        __android_log_print(
+            ANDROID_LOG_WARN,
+            kTag,
+            "XZIEL_AD_TEXTURE_SOURCE_NOT_FOUND source=%s",
+            sourceTextureAssetPath);
+        return false;
+    }
+
+    AAsset* asset =
+        AAssetManager_open(
+            assetManager,
+            replacementAssetPath,
+            AASSET_MODE_BUFFER);
+
+    if (asset == nullptr) {
+        __android_log_print(
+            ANDROID_LOG_WARN,
+            kTag,
+            "XZIEL_AD_TEXTURE_CREATIVE_NOT_FOUND replacement=%s",
+            replacementAssetPath);
+        return false;
+    }
+
+    const off_t length =
+        AAsset_getLength(asset);
+
+    if (length <= 0 ||
+        static_cast<std::uint64_t>(length) >
+            64ULL * 1024ULL * 1024ULL) {
+        AAsset_close(asset);
+        return false;
+    }
+
+    std::vector<std::byte> bytes;
+
+    try {
+        bytes.resize(
+            static_cast<std::size_t>(
+                length));
+    } catch (...) {
+        AAsset_close(asset);
+        return false;
+    }
+
+    const int read =
+        AAsset_read(
+            asset,
+            bytes.data(),
+            bytes.size());
+
+    AAsset_close(asset);
+
+    if (read < 0 ||
+        static_cast<std::size_t>(read) !=
+            bytes.size()) {
+        return false;
+    }
+
+    if (!beginRuntimeKtx2Upload(
+            textureIndex,
+            0U,
+            std::move(bytes))) {
+        __android_log_print(
+            ANDROID_LOG_WARN,
+            kTag,
+            "XZIEL_AD_TEXTURE_UPLOAD_REJECTED texture=%u source=%s replacement=%s",
+            static_cast<unsigned int>(
+                textureIndex),
+            sourceTextureAssetPath,
+            replacementAssetPath);
+        return false;
+    }
+
+    __android_log_print(
+        ANDROID_LOG_INFO,
+        kTag,
+        "XZIEL_AD_TEXTURE_UPLOAD_SUBMITTED texture=%u source=%s replacement=%s",
+        static_cast<unsigned int>(
+            textureIndex),
+        sourceTextureAssetPath,
+        replacementAssetPath);
+
+    return true;
+}
+
+bool VulkanStaticMeshRenderer::runtimeTextureReplacementBusy() const noexcept {
+    return runtimeTextureUpload_.active;
+}
+
 bool VulkanStaticMeshRenderer::beginRuntimeKtx2Upload(
     std::uint32_t textureIndex,
     std::uint32_t targetBaseMip,
@@ -2751,10 +2867,7 @@ bool VulkanStaticMeshRenderer::beginRuntimeKtx2Upload(
 void VulkanStaticMeshRenderer::serviceRuntimeTextureResidency(
     std::uint32_t frameSlot,
     MemoryPressure memoryPressure) noexcept {
-    if (!streamGraphReady_ ||
-        frameSlot >= kDescriptorFrames ||
-        streamFallbackTextureIndex_ >=
-            textures_.size()) {
+    if (frameSlot >= kDescriptorFrames) {
         return;
     }
 
@@ -3009,6 +3122,15 @@ void VulkanStaticMeshRenderer::serviceRuntimeTextureResidency(
         }
 
         runtimeTextureUpload_ = {};
+        return;
+    }
+
+    // Intrinsic ad texture replacement must also work on maps that do not use
+    // the Sanctum streaming graph. The remainder of this function is strictly
+    // streaming-residency policy.
+    if (!streamGraphReady_ ||
+        streamFallbackTextureIndex_ >=
+            textures_.size()) {
         return;
     }
 

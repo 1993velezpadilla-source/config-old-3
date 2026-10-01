@@ -28,3 +28,12 @@ Cooldowns and per-session impression caps are enforced in engine state. Repeated
 Set `XZIEL_AD_DEBUG=1` to enable the debug-mode switch. Runtime UI/logging can consume `surfaceDebugSnapshot()` and `audioDebugSnapshot()`.
 
 No automatic clicks are generated and no impression is emitted merely because a creative was downloaded.
+
+
+## Runtime texture bridge
+
+The Android Vulkan static-mesh renderer exposes `queueRuntimeTextureReplacement()` for `AdSurface` creatives. A placement uses a dedicated placeholder texture asset, and a packaged ASTC KTX2 creative can replace that texture at runtime. The existing two-frame Vulkan descriptor swap path is reused so the creative is never rebound into a descriptor set that is still in flight.
+
+The replacement path is intentionally game-thread initiated. Asset I/O is bounded to 64 MiB, GPU upload is fence-driven, and descriptor swaps complete inside the normal renderer record/service path. Runtime replacement is independent of the Sanctum streaming graph, so Church V1 and other non-Sanctum maps can use the same mechanism.
+
+Each ad placement should use a unique placeholder texture when independent creative rotation is required. Sharing the same placeholder texture intentionally shares the replacement across every material bound to that texture.
