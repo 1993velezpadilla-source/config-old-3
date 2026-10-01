@@ -152,9 +152,11 @@ parts.append(brush_box((900,-18,84),(916,18,230),ART["wall"]))
 parts.append(brush_box((900,-72,155),(916,72,185),ART["wall"]))
 
 # PASSABLE PEWS — visible but explicitly noclip so AI has clean lanes.
+# Keep brush entities outside worldspawn; nesting an entity inside worldspawn is invalid MAP syntax.
+pew_entities=[]
 for x in (-520,-380,-240,-100,40,180):
     for y1,y2 in [(-210,-72),(72,210)]:
-        parts.append(brush_entity(
+        pew_entities.append(brush_entity(
             "func_detail",(x-44,y1,0),(x+44,y2,28),ART["wood"],
             {"zhlt_noclip":"1","zhlt_detaillevel":"2"}
         ))
@@ -179,6 +181,7 @@ parts.append(brush_box((850,-606,320),(1020,-590,356),ART["wall"]))
 parts.append(brush_box((735,-625,320),(805,-555,390),ART["wall"]))
 
 parts.append("}\n")
+parts.extend(pew_entities)
 
 # TRANSLUCENT GLASS / CLERESTORY.
 parts.append(brush_entity(
