@@ -104,7 +104,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m pip install --quiet opencv-contrib-python-headless pillow==11.3.0 numpy
+          python3 -m pip install --quiet "numpy<2" opencv-contrib-python-headless==4.10.0.84 pillow==11.3.0
           mkdir -p .cache/xziel-sr
           curl -L --fail --retry 3 https://raw.githubusercontent.com/thinkerleolee/FSRCNN-OpenCV/master/models/fsrcnn_x4.pb -o .cache/xziel-sr/fsrcnn_x4.pb
 
