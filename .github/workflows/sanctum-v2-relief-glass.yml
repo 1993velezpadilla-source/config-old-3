@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   probe:
-    name: Render relief and direct CC0 stained glass
+    name: Render relief and authored seamless stained glass
     runs-on: ubuntu-latest
     timeout-minutes: 55
 
@@ -57,10 +57,10 @@ jobs:
           from pathlib import Path
           from PIL import Image
 
-          UA="XZIEL-Sanctum-V2/1.0 (verified licensed surface probe)"
+          UA="XZIEL-Sanctum-V2/1.0 (licensed surface probe)"
           root=Path("sanctum-v2-relief-assets")
 
-          def request(url,timeout=180):
+          def request(url):
               return urllib.request.Request(url,headers={"User-Agent":UA})
 
           def get_json(url):
@@ -116,7 +116,7 @@ jobs:
               rows.sort(key=lambda x:(x[0],x[2].get("size",0)),reverse=True)
               return rows[0][2]["url"]
 
-          def png_dims(path):
+          def dims(path):
               with Image.open(path) as im:
                   return list(im.size)
 
@@ -125,42 +125,53 @@ jobs:
               "polyhaven_license":"CC0",
               "polyhaven":{},
               "stained_glass":{
-                  "title":"Mosaic glass art background",
-                  "license":"CC0 Public Domain",
-                  "source_page":"https://www.publicdomainpictures.net/en/view-image.php?image=382400&picture=mosaic-glass-art-background",
-                  "download_page":"https://www.publicdomainpictures.net/en/free-download.php?id=382400&image=mosaic-glass-art-background",
-                  "direct_standard_url":"https://www.publicdomainpictures.net/pictures/390000/velka/mosaik-glas-kunst-hintergrund-1612902792MsF.jpg",
-                  "expected_dimensions":[1920,1920],
-                  "tags":["stained glass","mosaic","seamless tile"]
+                  "title":"Repeating Mini Windows - Stained Glass - Seamless texture with normalmap",
+                  "author":"Keith333",
+                  "license":"CC-BY 3.0",
+                  "source_page":"https://opengameart.org/content/repeating-mini-windows-stained-glass-seamless-texture-with-normalmap",
+                  "color_url":"https://opengameart.org/sites/default/files/SmallStained_S.jpg",
+                  "normal_url":"https://opengameart.org/sites/default/files/SmallStained_N.jpg"
               }
           }
 
           for asset in ("stone_wall_04","roof_slates_03"):
               info=get_json(f"https://api.polyhaven.com/info/{asset}")
-              dims=info.get("dimensions")
-              if not isinstance(dims,list) or len(dims)<2:
-                  raise SystemExit(f"Missing dimensions for {asset}: {dims}")
+              physical=info.get("dimensions")
+              if not isinstance(physical,list) or len(physical)<2:
+                  raise SystemExit(f"Missing physical dimensions for {asset}: {physical}")
               urls={}
               for kind in ("diffuse","rough","displacement"):
                   url=choose(asset,kind)
                   p=root/asset/f"{kind}.png"
                   download(url,p)
-                  if max(png_dims(p))!=4096:
-                      raise SystemExit(f"Expected exact 4K texture: {p} {png_dims(p)}")
+                  if max(dims(p))!=4096:
+                      raise SystemExit(f"Expected exact 4K texture: {p} {dims(p)}")
                   urls[kind]=url
-              manifest["polyhaven"][asset]={"dimensions_mm":dims,"urls":urls}
+              manifest["polyhaven"][asset]={"dimensions_mm":physical,"urls":urls}
 
           sg=manifest["stained_glass"]
-          sg_path=root/"stained_glass"/"color.png"
-          raw_path=root/"stained_glass"/"source.jpg"
-          download(sg["direct_standard_url"],raw_path)
-          with Image.open(raw_path) as im:
-              if list(im.size)!=sg["expected_dimensions"]:
-                  raise SystemExit(f"Unexpected CC0 stained-glass dimensions: {im.size}")
-              im.convert("RGB").save(sg_path)
-          raw_path.unlink()
+          color=root/"stained_glass"/"color.jpg"
+          normal=root/"stained_glass"/"normal.jpg"
+          download(sg["color_url"],color)
+          download(sg["normal_url"],normal)
 
+          color_dims=dims(color)
+          normal_dims=dims(normal)
+          if color_dims!=normal_dims:
+              raise SystemExit(f"Authored stained-glass color/normal size mismatch: {color_dims} vs {normal_dims}")
+          if min(color_dims)<=0:
+              raise SystemExit(f"Invalid stained-glass dimensions: {color_dims}")
+
+          manifest["stained_glass"]["source_dimensions"]=color_dims
           (root/"SOURCE_MANIFEST.json").write_text(json.dumps(manifest,indent=2),encoding="utf-8")
+          (root/"ATTRIBUTION.txt").write_text(
+              "Stained glass: 'Repeating Mini Windows - Stained Glass - Seamless texture with normalmap'\n"
+              "Author: Keith333\n"
+              "License: CC-BY 3.0\n"
+              "Source: https://opengameart.org/content/repeating-mini-windows-stained-glass-seamless-texture-with-normalmap\n\n"
+              "Stone/roof materials: Poly Haven, CC0.\n",
+              encoding="utf-8",
+          )
           print("SANCTUM_V2_LICENSED_ASSETS_OK")
           print(json.dumps(manifest,indent=2))
           PY
@@ -190,6 +201,7 @@ jobs:
           grep -q "SANCTUM_V2_RELIEF_GLASS_OK" sanctum-v2-relief-glass/blender-relief-glass.log
           test -s sanctum-v2-relief-glass/relief-glass-report.json
           cp sanctum-v2-relief-assets/SOURCE_MANIFEST.json sanctum-v2-relief-glass/
+          cp sanctum-v2-relief-assets/ATTRIBUTION.txt sanctum-v2-relief-glass/
 
           python3 - <<'PY'
           import json
@@ -197,8 +209,10 @@ jobs:
           root=Path("sanctum-v2-relief-glass")
           d=json.loads((root/"relief-glass-report.json").read_text())
           assert d["source_object"]=="Catehdral", d
-          assert d["mapping"]["stained_glass"]=="existing UVMap + seamless REPEAT", d
-          assert d["stained_glass"]["source_dimensions"]==[1920,1920], d
+          assert d["mapping"]["stained_glass"]=="existing UVMap + authored seamless color/normal maps", d
+          assert len(d["stained_glass"]["source_dimensions"])==2, d
+          assert min(d["stained_glass"]["source_dimensions"])>0, d
+          assert d["stained_glass"]["uses_authored_normal_map"] is True, d
           assert d["relief"]["stone_bump_distance_m"]>0, d
           assert d["relief"]["roof_bump_distance_m"]>0, d
           assert len(d["renders"])==6, d
