@@ -124,36 +124,83 @@ def walkability_with_dressing(scene, inner_stats):
     mn = Vector(inner_stats["min"])
     mx = Vector(inner_stats["max"])
     floor_z = mn.z + 0.12
-    start_z = floor_z + 4.0
     xs = [mn.x + (mx.x - mn.x) * (0.18 + 0.64 * i / 10.0) for i in range(11)]
     ys = [mn.y + (mx.y - mn.y) * (0.12 + 0.76 * j / 16.0) for j in range(17)]
     deps = bpy.context.evaluated_depsgraph_get()
+
+    # Gameplay-oriented clearance test:
+    # 1) confirm a floor close below ankle/waist height so overhead arches,
+    #    beams, and ceilings cannot be mistaken for the floor;
+    # 2) probe a player-radius disc horizontally at chest height so walls,
+    #    pillars, props, etc. still count as blockers.
+    floor_probe_height = 0.75
+    player_probe_height = 1.0
+    player_radius = 0.34
+    radial_dirs = [
+        Vector((math.cos(a), math.sin(a), 0.0))
+        for a in [i * (math.tau / 8.0) for i in range(8)]
+    ]
+
     walkable = 0
     hits = 0
     blocked = []
+
     for x in xs:
         for y in ys:
-            origin = Vector((x, y, start_z))
+            floor_origin = Vector((x, y, floor_z + floor_probe_height))
             hit, loc, normal, face_index, obj, matrix = scene.ray_cast(
-                deps, origin, Vector((0,0,-1)), distance=20.0
+                deps, floor_origin, Vector((0,0,-1)), distance=1.5
             )
-            if hit:
-                hits += 1
-                is_floor = normal.z > 0.70 and abs(loc.z - floor_z) < 0.40
-                if is_floor:
-                    walkable += 1
-                else:
-                    blocked.append({
-                        "x":x,"y":y,"z":loc.z,
-                        "normal_z":normal.z,
-                        "object":obj.name if obj else "",
-                    })
+
+            if not hit:
+                blocked.append({
+                    "x":x,"y":y,"z":None,
+                    "normal_z":None,
+                    "object":"",
+                    "reason":"no_floor",
+                })
+                continue
+
+            hits += 1
+            is_floor = normal.z > 0.70 and abs(loc.z - floor_z) < 0.40
+            if not is_floor:
+                blocked.append({
+                    "x":x,"y":y,"z":loc.z,
+                    "normal_z":normal.z,
+                    "object":obj.name if obj else "",
+                    "reason":"floor_probe_blocked",
+                })
+                continue
+
+            chest = Vector((x, y, loc.z + player_probe_height))
+            blocker = None
+            for direction in radial_dirs:
+                h2, l2, n2, f2, o2, m2 = scene.ray_cast(
+                    deps, chest, direction, distance=player_radius
+                )
+                if h2:
+                    blocker = {
+                        "x":x,"y":y,"z":l2.z,
+                        "normal_z":n2.z,
+                        "object":o2.name if o2 else "",
+                        "reason":"player_radius_blocked",
+                    }
+                    break
+
+            if blocker is None:
+                walkable += 1
+            else:
+                blocked.append(blocker)
+
     total = len(xs) * len(ys)
     return {
         "samples": total,
         "hits": hits,
         "walkable": walkable,
         "walkable_ratio": walkable / total,
+        "player_radius": player_radius,
+        "player_probe_height": player_probe_height,
+        "floor_probe_height": floor_probe_height,
         "blocked_samples": blocked,
     }
 
