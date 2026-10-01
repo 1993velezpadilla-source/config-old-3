@@ -1,0 +1,125 @@
+name: Sanctum CC0 Landmark Inventory
+
+on:
+  push:
+    branches:
+      - feature/xziel-map-builder-agent-v1
+    paths:
+      - ".github/workflows/sanctum-cc0-landmark-inventory.yml"
+      - "tools/sanctum_v2/inventory_cc0_sanctum_props.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sanctum-cc0-landmark-inventory-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install host runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq curl xz-utils libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libglu1-mesa
+
+      - name: Fetch verified CC0 landmark packs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p external-sanctum-landmarks sanctum-landmark-inventory
+
+          curl -L --fail --retry 3 https://opengameart.org/content/church-0 -o external-sanctum-landmarks/altar.html
+          grep -qi CC0 external-sanctum-landmarks/altar.html
+          curl -L --fail --retry 3 https://opengameart.org/sites/default/files/Church.blend -o external-sanctum-landmarks/Church.blend
+          sha256sum external-sanctum-landmarks/Church.blend | tee external-sanctum-landmarks/altar.sha256
+
+          curl -L --fail --retry 3 https://opengameart.org/content/open-books -o external-sanctum-landmarks/books.html
+          grep -qi CC0 external-sanctum-landmarks/books.html
+          curl -L --fail --retry 3 https://opengameart.org/sites/default/files/booksexport.blend -o external-sanctum-landmarks/booksexport.blend
+          sha256sum external-sanctum-landmarks/booksexport.blend | tee external-sanctum-landmarks/books.sha256
+
+          curl -L --fail --retry 3 https://opengameart.org/content/high-poly-church-bell -o external-sanctum-landmarks/bell.html
+          grep -qi CC0 external-sanctum-landmarks/bell.html
+          curl -L --fail --retry 3 https://opengameart.org/sites/default/files/church_bell1.blend -o external-sanctum-landmarks/church_bell1.blend
+          sha256sum external-sanctum-landmarks/church_bell1.blend | tee external-sanctum-landmarks/bell.sha256
+
+          test -s external-sanctum-landmarks/Church.blend
+          test -s external-sanctum-landmarks/booksexport.blend
+          test -s external-sanctum-landmarks/church_bell1.blend
+
+      - name: Install Blender
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz -o /tmp/blender.tar.xz
+          tar -C /tmp -xf /tmp/blender.tar.xz
+
+      - name: Inventory altar church
+        shell: bash
+        env:
+          SANCTUM_PROP_INV_OUT: sanctum-landmark-inventory/altar
+          SANCTUM_PROP_PACK: altar-church
+        run: |
+          set -euo pipefail
+          mkdir -p "$SANCTUM_PROP_INV_OUT"
+          export SANCTUM_PROP_SHA256="$(cut -d' ' -f1 external-sanctum-landmarks/altar.sha256)"
+          /tmp/blender-5.2.2-linux-x64/blender -b external-sanctum-landmarks/Church.blend --python tools/sanctum_v2/inventory_cc0_sanctum_props.py 2>&1 | tee "$SANCTUM_PROP_INV_OUT/blender.log"
+          grep -q SANCTUM_PROP_INVENTORY_PASS "$SANCTUM_PROP_INV_OUT/blender.log"
+
+      - name: Inventory open books
+        shell: bash
+        env:
+          SANCTUM_PROP_INV_OUT: sanctum-landmark-inventory/books
+          SANCTUM_PROP_PACK: open-books
+        run: |
+          set -euo pipefail
+          mkdir -p "$SANCTUM_PROP_INV_OUT"
+          export SANCTUM_PROP_SHA256="$(cut -d' ' -f1 external-sanctum-landmarks/books.sha256)"
+          /tmp/blender-5.2.2-linux-x64/blender -b external-sanctum-landmarks/booksexport.blend --python tools/sanctum_v2/inventory_cc0_sanctum_props.py 2>&1 | tee "$SANCTUM_PROP_INV_OUT/blender.log"
+          grep -q SANCTUM_PROP_INVENTORY_PASS "$SANCTUM_PROP_INV_OUT/blender.log"
+
+      - name: Inventory church bell
+        shell: bash
+        env:
+          SANCTUM_PROP_INV_OUT: sanctum-landmark-inventory/bell
+          SANCTUM_PROP_PACK: church-bell
+        run: |
+          set -euo pipefail
+          mkdir -p "$SANCTUM_PROP_INV_OUT"
+          export SANCTUM_PROP_SHA256="$(cut -d' ' -f1 external-sanctum-landmarks/bell.sha256)"
+          /tmp/blender-5.2.2-linux-x64/blender -b external-sanctum-landmarks/church_bell1.blend --python tools/sanctum_v2/inventory_cc0_sanctum_props.py 2>&1 | tee "$SANCTUM_PROP_INV_OUT/blender.log"
+          grep -q SANCTUM_PROP_INVENTORY_PASS "$SANCTUM_PROP_INV_OUT/blender.log"
+
+      - name: Validate inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("sanctum-landmark-inventory")
+          for pack in ("altar","books","bell"):
+              d=json.loads((root/pack/"inventory.json").read_text(encoding="utf-8"))
+              assert d["status"]=="PASS",d
+              assert d["license"]=="CC0",d
+              assert d["mesh_object_count"]>=1,d
+              assert len(d["sha256"])==64,d
+              print("SANCTUM_LANDMARK_INVENTORY_GREEN",pack,d["mesh_object_count"])
+          PY
+
+      - name: Upload landmark inventory
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-CC0-Landmark-Inventory
+          path: sanctum-landmark-inventory/
+          if-no-files-found: error
+          retention-days: 14
