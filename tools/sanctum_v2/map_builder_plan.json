@@ -5,7 +5,11 @@
   "source_object": "Catehdral",
   "geometry_node_group": "Generate Cathedral Combined",
   "object_transform": {},
-  "geometry_nodes_inputs": {},
+  "geometry_nodes_inputs": {
+    "FirstFloorHeight": 6.5,
+    "FrontFoundationX": 17.5,
+    "FrontFoundationY": 10.5
+  },
   "render": {
     "engine": "BLENDER_WORKBENCH",
     "width": 640,
