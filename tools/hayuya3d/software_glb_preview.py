@@ -708,11 +708,25 @@ def _normalize_visible_to_canvas(
         (int(out_size),int(out_size)),
         Image.Resampling.NEAREST,
     )
+
+    # Lanczos can ring/bleed RGB beyond a hard silhouette even when the mask
+    # itself is correct. Re-apply the resized mask as the final operation so
+    # saved evidence can never contain colored pixels outside the outline.
+    out_arr=np.asarray(out,dtype=np.uint8).copy()
+    out_mask_arr=np.asarray(out_mask,dtype=np.uint8)>0
+    leaked_before_remask=int(np.count_nonzero(
+        np.any(out_arr!=np.array([18,18,18],dtype=np.uint8),axis=2)
+        & ~out_mask_arr
+    ))
+    out_arr[~out_mask_arr]=np.array([18,18,18],dtype=np.uint8)
+    out=Image.fromarray(out_arr,"RGB")
     return out,out_mask,{
         "source_bbox":[x0,y0,x1,y1],
         "source_content_size":[width,height],
         "pad_fraction":float(pad_fraction),
         "canvas_side":int(side),
+        "post_resize_hard_remask":True,
+        "rgb_pixels_outside_mask_removed":int(leaked_before_remask),
     }
 
 
@@ -748,13 +762,13 @@ def render_preview(
                 source_visible_front,
                 full_bounds_used,
                 int(size),
-                alpha_threshold=128,
+                alpha_threshold=48,
             )
             face_outline,face_source_rgb,face_outline_map=_source_planar_layer(
                 source_visible_front,
                 head_bounds_used,
                 int(face_size),
-                alpha_threshold=128,
+                alpha_threshold=48,
             )
 
             front_full,front_full_mask=_render_uv_region(
@@ -793,7 +807,7 @@ def render_preview(
                 support_full_mask,
                 full_outline,
                 full_source_rgb,
-                edge_fill_pixels=max(2,int(round(int(size)*0.004))),
+                edge_fill_pixels=max(4,int(round(int(size)*0.008))),
             )
             face_raw,face_mask_raw,face_clamp=_compose_front_priority(
                 front_face,
@@ -801,7 +815,7 @@ def render_preview(
                 support_face_mask,
                 face_outline,
                 face_source_rgb,
-                edge_fill_pixels=max(2,int(round(int(face_size)*0.004))),
+                edge_fill_pixels=max(3,int(round(int(face_size)*0.006))),
             )
 
             face_edge_attempts=[{
@@ -861,7 +875,7 @@ def render_preview(
             int(face_size),
             0.10,
         )
-        renderer="hayuya-cpu-uv-source-color-seamless-fill-ss2-v10"
+        renderer="hayuya-cpu-uv-detail-preserve-hard-remask-ss2-v11"
     else:
         silhouette_clamp={
             "enabled":False,

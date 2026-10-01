@@ -260,7 +260,7 @@ def project_source_front(
 
     front_at_vertex=front[gy,gx]
     depth_extent=max(float(ext[depth_axis]),1e-8)
-    depth_tolerance=max(depth_extent*0.0075,1e-6)
+    depth_tolerance=max(depth_extent*0.0095,1e-6)
     vertex_front_visible=(
         vertices[:,depth_axis] >= (front_at_vertex-depth_tolerance)
     )
@@ -283,7 +283,7 @@ def project_source_front(
     centroid_front=front[cgy,cgx]
     centroid_visible=(
         face_centroids[:,depth_axis] >=
-        (centroid_front-depth_tolerance*0.70)
+        (centroid_front-depth_tolerance*0.78)
     )
 
     # +Z is Hunyuan's current source-facing direction. Require a meaningful
@@ -291,7 +291,7 @@ def project_source_front(
     visible_faces=(
         centroid_visible
         & (visible_vertex_count>=1)
-        & (face_normals[:,depth_axis]>0.075)
+        & (face_normals[:,depth_axis]>0.045)
     )
     hidden_faces=~visible_faces
 
@@ -351,7 +351,7 @@ def project_source_front(
 
     report={
         "schema":1,
-        "method":"hayuya-native-source-front-projection-v7-centroid-depth-y-up",
+        "method":"hayuya-native-source-front-projection-v8-detail-preserving-centroid-y-up",
         "source_image":str(source_image),
         "native_mesh":str(native_mesh),
         "output_glb":str(output_glb),
@@ -361,8 +361,8 @@ def project_source_front(
         "occluded_neutral_faces":int(np.count_nonzero(hidden_faces)),
         "visible_projected_fraction":float(np.mean(visible_faces)) if len(visible_faces) else 0.0,
         "depth_grid":int(grid),
-        "depth_tolerance_fraction":0.0075,
-        "front_normal_threshold":0.075,
+        "depth_tolerance_fraction":0.0095,
+        "front_normal_threshold":0.045,
         "centroid_depth_required":True,
         "source_mesh_up_axis":"Y",
         "source_mesh_front_axis":"+Z",
