@@ -1,0 +1,70 @@
+name: Sanctum V2 Cathedral UV Audit
+
+on:
+  push:
+    branches:
+      - sanctum-v2-existing-assets-only
+    paths:
+      - ".github/workflows/sanctum-v2-uv-audit.yml"
+      - "tools/sanctum_v2/audit_cathedral_uvs.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sanctum-v2-uv-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    name: Audit evaluated cathedral UVs
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+      - name: Install host packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq git-lfs curl xz-utils xvfb libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libglu1-mesa
+          git lfs install
+      - name: Fetch upstream authored cathedral kit
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf external-french-houses
+          git clone --depth 1 https://github.com/IRCSS/Blender-Geometry-Node-French-Houses.git external-french-houses
+          (cd external-french-houses && git lfs pull || true)
+          test -s external-french-houses/GeometryNodesFrenchHous.blend
+          grep -q "MIT License" external-french-houses/LICENSE
+      - name: Install Blender 5.2.2
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz -o /tmp/blender.tar.xz
+          tar -C /tmp -xf /tmp/blender.tar.xz
+      - name: Audit UV health
+        shell: bash
+        env:
+          SANCTUM_V2_UV_AUDIT_OUT: sanctum-v2-uv-audit
+        run: |
+          set -euo pipefail
+          mkdir -p sanctum-v2-uv-audit
+          xvfb-run -a -s "-screen 0 1280x720x24" \
+            /tmp/blender-5.2.2-linux-x64/blender \
+            -b external-french-houses/GeometryNodesFrenchHous.blend \
+            --python tools/sanctum_v2/audit_cathedral_uvs.py \
+            2>&1 | tee sanctum-v2-uv-audit/blender-uv-audit.log
+          grep -q "SANCTUM_V2_UV_AUDIT_OK" sanctum-v2-uv-audit/blender-uv-audit.log
+          test -s sanctum-v2-uv-audit/cathedral-uv-audit.json
+      - name: Upload UV audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-V2-Cathedral-UV-Audit
+          path: sanctum-v2-uv-audit/
+          if-no-files-found: error
+          retention-days: 14
