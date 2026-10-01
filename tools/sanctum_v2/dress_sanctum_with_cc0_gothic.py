@@ -156,6 +156,63 @@ def walkability_with_dressing(scene, inner_stats):
         "blocked_samples": blocked,
     }
 
+def ensure_material_preview_lights(scene, center, size):
+    lights = []
+    configs = [
+        ("FRONT", Vector((0.0, -0.26, 0.32)), 1700.0, 7.0),
+        ("MID", Vector((-0.18, 0.02, 0.38)), 1300.0, 6.0),
+        ("ALTAR", Vector((0.16, 0.30, 0.36)), 1500.0, 6.0),
+    ]
+    for name, frac, energy, area in configs:
+        ld = bpy.data.lights.new(f"SANCTUM_MAT_{name}_DATA", "AREA")
+        ld.energy = energy
+        ld.shape = "DISK"
+        ld.size = area
+        lo = bpy.data.objects.new(f"SANCTUM_MAT_{name}", ld)
+        scene.collection.objects.link(lo)
+        lo.location = Vector((
+            center.x + size.x * frac.x,
+            center.y + size.y * frac.y,
+            floor_z + size.z * frac.z,
+        ))
+        target = Vector((center.x, center.y, floor_z + 2.2))
+        lo.rotation_euler = (target - lo.location).to_track_quat("-Z", "Y").to_euler()
+        lights.append(lo)
+    return lights
+
+def render_material_previews(scene, cam):
+    scene.render.engine = "BLENDER_EEVEE"
+    scene.render.resolution_x = 800
+    scene.render.resolution_y = 500
+    scene.render.resolution_percentage = 100
+    scene.render.image_settings.media_type = "IMAGE"
+    scene.render.image_settings.file_format = "PNG"
+
+    if scene.world is None:
+        scene.world = bpy.data.worlds.new("SANCTUM_MAT_WORLD")
+    scene.world.use_nodes = True
+    bg = scene.world.node_tree.nodes.get("Background")
+    if bg:
+        bg.inputs["Color"].default_value = (0.012, 0.015, 0.022, 1.0)
+        bg.inputs["Strength"].default_value = 0.30
+
+    lights = ensure_material_preview_lights(scene, ic, isz)
+    for light in lights:
+        light.hide_render = False
+
+    previews = []
+    preview_views = [
+        ("07-material-nave.png",
+         Vector((ic.x, ic.y-half_l*0.68, eye)),
+         Vector((ic.x, ic.y+half_l*0.42, eye+0.8))),
+        ("08-material-altar.png",
+         Vector((ic.x, ic.y+half_l*0.14, eye)),
+         Vector((ic.x, ic.y+half_l*0.58, eye+1.1))),
+    ]
+    for name, pos, look in preview_views:
+        previews.append(render_dress_view(scene, cam, name, pos, look))
+    return previews
+
 def export_dressed(objects):
     for obj in bpy.context.selected_objects:
         obj.select_set(False)
@@ -185,12 +242,12 @@ half_l = isz.y * 0.5
 instances = []
 
 # Four paired bays of existing authored pillar meshes.
-bay_offsets = (-0.30, -0.10, 0.10, 0.30)
+bay_offsets = (-0.32, -0.11, 0.10, 0.31)
 for idx, frac in enumerate(bay_offsets, 1):
     y = ic.y + isz.y * frac
     role = "pillar_a" if idx % 2 else "pillar_b"
     for side, sign in (("L", -1.0), ("R", 1.0)):
-        x = ic.x + sign * half_w * 0.78
+        x = ic.x + sign * half_w * 0.58
         instances.append(place_instance(
             assets[role],
             f"SANCTUM_{role.upper()}_{idx}_{side}",
@@ -203,7 +260,7 @@ for side, sign in (("L", -1.0), ("R", 1.0)):
     instances.append(place_instance(
         assets["roman_column"],
         f"SANCTUM_ROMAN_ALTAR_{side}",
-        (ic.x + sign * half_w * 0.56, altar_y, floor_z),
+        (ic.x + sign * half_w * 0.46, altar_y, floor_z),
     ))
 
 # Existing authored arch centered near the altar end. Keep its original
@@ -211,7 +268,7 @@ for side, sign in (("L", -1.0), ("R", 1.0)):
 instances.append(place_instance(
     assets["arch"],
     "SANCTUM_ALTAR_ARCH",
-    (ic.x, ic.y + half_l * 0.80, floor_z),
+    (ic.x, ic.y + half_l * 0.52, floor_z),
 ))
 
 # Existing long wall/trim pieces run along the two side walls.
@@ -219,7 +276,7 @@ for side, sign in (("L", -1.0), ("R", 1.0)):
     instances.append(place_instance(
         assets["wall_trim"],
         f"SANCTUM_WALL_TRIM_{side}",
-        (ic.x + sign * half_w * 0.92, ic.y, floor_z),
+        (ic.x + sign * half_w * 0.70, ic.y, floor_z),
         rotation_z=math.radians(90.0),
         scale=(min(1.0, isz.y / 30.0), 1.0, 1.0),
     ))
@@ -264,6 +321,7 @@ views = [
      Vector((ic.x, ic.y+half_l*0.82, eye+1.5))),
 ]
 renders = [render_dress_view(scene, cam, *v) for v in views]
+material_previews = render_material_previews(scene, cam)
 
 walk = walkability_with_dressing(scene, inner_after)
 if walk["walkable_ratio"] < 0.88:
@@ -297,6 +355,7 @@ report = {
     "walkability": walk,
     "stats": dressed_stats,
     "renders": renders,
+    "material_previews": material_previews,
     "glb": glb.name,
     "glb_bytes": glb.stat().st_size,
 }
