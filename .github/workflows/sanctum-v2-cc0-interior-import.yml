@@ -253,7 +253,13 @@ jobs:
           assert props["author"]=="stereoscopic", d
           assert props["object_count"]==42, d
           assert props["uniform_scale"]>0, d
-          assert props["rotation_degrees"] in (0,90), d
+          assert props["transform_source"].startswith("authored CC0 source Scene matrix_world"), d
+          assert props["axis_inference"]["pew_count"]==24, d
+          assert max(props["axis_inference"]["pew_center_spans"])>0, d
+          fitted=props["fitted_bounds"]["size"]
+          target=props["target_bounds"]["size"]
+          assert all(v>0 for v in fitted), d
+          assert all(fitted[i] <= target[i] + 1e-4 for i in range(3)), d
           assert d["mapping"]["stained_glass"]=="existing UVMap + OpenGameArt seamless maps + external CC0 Crown Glass for windows shader", d
           assert len(d["stained_glass"]["source_dimensions"])==2, d
           assert min(d["stained_glass"]["source_dimensions"])>0, d
