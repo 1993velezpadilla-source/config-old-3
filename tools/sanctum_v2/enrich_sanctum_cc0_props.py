@@ -16,7 +16,6 @@ state=runpy.run_path("tools/sanctum_v2/dress_sanctum_with_cc0_gothic.py")
 scene=bpy.context.scene
 walkability=state["walkability_with_dressing"]
 mesh_stats=state["mesh_stats"]
-render_view=state["render_dress_view"]
 # The base stage owns SANCTUM_DRESS_OUT; redirect only the reused render helper\n# so enriched evidence lands in the enriched artifact directory.\nrender_view.__globals__["DRESS_OUT"]=OUT\nensure_camera=state["ensure_camera"]
 export_dressed=state["export_dressed"]
 inner_after=state["inner_after"]
@@ -168,6 +167,17 @@ if bg:
 
 cam=ensure_camera(scene)
 eye=floor_z+1.72
+
+def render_enriched_view(scene, cam, name, pos, look):
+    cam.location=Vector(pos)
+    cam.rotation_euler=(Vector(look)-cam.location).to_track_quat("-Z","Y").to_euler()
+    scene.render.filepath=str(OUT/name)
+    bpy.ops.render.render(write_still=True)
+    p=OUT/name
+    if not p.is_file() or p.stat().st_size < 4000:
+        fail(f"render failed: {name}")
+    return {"name":name,"bytes":p.stat().st_size}
+
 views=[
     ("01-enriched-nave-forward.png",
      Vector((ic.x,ic.y-half_l*0.74,eye)),
@@ -182,7 +192,7 @@ views=[
      Vector((ic.x,ic.y+half_l*0.25,eye)),
      Vector((ic.x,ic.y+half_l*0.72,eye+1.0))),
 ]
-renders=[render_view(scene,cam,*v) for v in views]
+renders=[render_enriched_view(scene,cam,*v) for v in views]
 
 export_objects=[*base_export,*pews,*candles]
 glb=OUT/"sanctum-enriched-cathedral-interior.glb"
