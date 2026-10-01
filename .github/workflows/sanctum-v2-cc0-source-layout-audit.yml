@@ -1,0 +1,133 @@
+name: Sanctum V2 CC0 Source Layout Audit
+
+on:
+  push:
+    branches:
+      - sanctum-v2-existing-assets-only
+    paths:
+      - ".github/workflows/sanctum-v2-cc0-source-layout-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Audit authored CC0 source transforms
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Fetch stereoscopic CC0 church source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p cc0-source-audit
+          curl -L --fail --retry 3 \
+            https://opengameart.org/sites/default/files/Church.blend \
+            -o cc0-source-audit/Church.blend
+          test -s cc0-source-audit/Church.blend
+
+      - name: Install Blender 5.2.2
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 \
+            https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz \
+            -o /tmp/blender.tar.xz
+          tar -C /tmp -xf /tmp/blender.tar.xz
+
+      - name: Audit authored scene layout
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/audit_cc0_layout.py <<'PY'
+          import bpy, json
+          from pathlib import Path
+          from mathutils import Vector
+
+          src=Path("cc0-source-audit/Church.blend")
+          prefixes=("pew","candle","altar","Cross","bible","pipe")
+
+          bpy.ops.wm.open_mainfile(filepath=str(src.resolve()))
+          scenes=[s for s in bpy.data.scenes]
+          rows=[]
+          source_props=[]
+          for s in scenes:
+              for o in s.objects:
+                  if o.type=="MESH" and any(o.name==p or o.name.startswith(p+".") for p in prefixes):
+                      source_props.append((s,o))
+
+          # De-duplicate shared objects by pointer while preserving the authored scene.
+          seen=set(); props=[]
+          for s,o in source_props:
+              key=o.as_pointer()
+              if key in seen:
+                  continue
+              seen.add(key); props.append((s,o))
+
+          def center(o):
+              pts=[o.matrix_world @ Vector(c) for c in o.bound_box]
+              return sum(pts,Vector())/len(pts)
+
+          for s,o in props:
+              c=center(o)
+              rows.append({
+                  "scene":s.name,
+                  "name":o.name,
+                  "parent":o.parent.name if o.parent else None,
+                  "center_world":[float(c.x),float(c.y),float(c.z)],
+                  "matrix_world":[[float(v) for v in row] for row in o.matrix_world],
+              })
+
+          pews=[o for _,o in props if o.name=="pew" or o.name.startswith("pew.")]
+          pew_centers=[center(o) for o in pews]
+          spans=[
+              max(c[i] for c in pew_centers)-min(c[i] for c in pew_centers)
+              for i in range(3)
+          ] if pew_centers else [0,0,0]
+          up_idx=min(range(3),key=lambda i:spans[i]) if pew_centers else None
+          horiz=[i for i in range(3) if i!=up_idx] if up_idx is not None else []
+          long_idx=max(horiz,key=lambda i:spans[i]) if horiz else None
+
+          altar_candidates=[o for _,o in props if o.name=="altar" or o.name.startswith("altar.")]
+          altar_center=center(altar_candidates[0]) if altar_candidates else None
+          pew_mean=sum(pew_centers,Vector())/len(pew_centers) if pew_centers else None
+          altar_delta=[
+              float(altar_center[i]-pew_mean[i]) for i in range(3)
+          ] if altar_center is not None and pew_mean is not None else None
+
+          report={
+              "scene_names":[s.name for s in scenes],
+              "approved_prop_count":len(props),
+              "pew_count":len(pews),
+              "pew_center_spans":[float(x) for x in spans],
+              "inferred_up_axis":"XYZ"[up_idx] if up_idx is not None else None,
+              "inferred_long_axis":"XYZ"[long_idx] if long_idx is not None else None,
+              "altar_candidates":[o.name for o in altar_candidates],
+              "altar_minus_pew_mean":altar_delta,
+              "props":rows,
+          }
+          Path("cc0-source-audit/source-layout.json").write_text(json.dumps(report,indent=2))
+          print("SANCTUM_V2_CC0_SOURCE_LAYOUT_OK")
+          print(json.dumps(report,indent=2))
+          assert report["approved_prop_count"]==42, report
+          assert report["pew_count"]==24, report
+          assert max(report["pew_center_spans"])>0, report
+          assert report["altar_candidates"], report
+          PY
+
+          /tmp/blender-5.2.2-linux-x64/blender -b \
+            --python /tmp/audit_cc0_layout.py \
+            2>&1 | tee cc0-source-audit/audit.log
+          grep -q "SANCTUM_V2_CC0_SOURCE_LAYOUT_OK" cc0-source-audit/audit.log
+
+      - name: Upload source-layout evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-V2-CC0-Source-Layout-Audit
+          path: cc0-source-audit/
+          if-no-files-found: error
+          retention-days: 14
