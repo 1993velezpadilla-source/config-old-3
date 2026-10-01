@@ -154,28 +154,28 @@ for placement in placements:
     x, y, z = [float(v) for v in placement["center"]]
     shelf = add_cube(
         "ENTRY_RADIO_SHELF",
-        (x, y + 0.10, z - 0.52),
+        (x, y, z - 0.52),
         (1.65, 0.58, 0.12),
         FRAME,
         0.035,
     )
     radio = add_cube(
         "ENTRY_RADIO_AD_AUDIO_EMITTER",
-        (x, y + 0.18, z),
+        (x, y, z),
         (1.25, 0.42, 0.72),
         RADIO_BODY,
         0.065,
     )
     add_cube(
         "ENTRY_RADIO_SPEAKER_GRILLE",
-        (x - 0.31, y + 0.405, z),
+        (x - 0.31, y + 0.235, z),
         (0.48, 0.035, 0.48),
         RADIO_METAL,
         0.02,
     )
     add_cube(
         "ENTRY_RADIO_DIAL",
-        (x + 0.35, y + 0.415, z + 0.12),
+        (x + 0.35, y + 0.245, z + 0.12),
         (0.18, 0.05, 0.18),
         RADIO_METAL,
         0.025,
@@ -323,7 +323,7 @@ render_view(
 render_view(
     "intrinsic_ads_radio_close.png",
     (6.80, -10.7, 1.75),
-    (6.80, -14.07, 1.35),
+    (6.80, -14.45, 1.35),
     42,
 )
 
