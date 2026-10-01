@@ -52,6 +52,20 @@
       "license": "BSD-3-Clause",
       "role": "photogrammetry/SfM from overlapping reference photos",
       "pip": "pycolmap==4.2.1"
+    },
+    {
+      "name": "manifold3d",
+      "version": "3.5.4",
+      "license": "Apache-2.0",
+      "role": "robust mesh booleans, repair, union/difference for composite architecture",
+      "pip": "manifold3d==3.5.4"
+    },
+    {
+      "name": "CoACD",
+      "version": "1.0.14",
+      "license": "MIT",
+      "role": "automatic approximate convex decomposition for engine collision hulls",
+      "pip": "coacd==1.0.14"
     }
   ],
   "gpu_optional": [
