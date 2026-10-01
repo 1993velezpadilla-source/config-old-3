@@ -143,7 +143,9 @@ hole_w=max(1.9,min(2.35,hx*0.34))
 hole_len=max(5.8,min(6.8,hy*0.55))
 left_x0=xmin+0.55
 left_x1=left_x0+hole_w
-left_y0=ic.y-hy*0.44
+# Keep the west undercroft ramp fully inside the service-room shell.
+# The old -0.44 fraction crossed the south perimeter wall by ~2 m.
+left_y0=ic.y-hy*0.27
 left_y1=left_y0+hole_len
 right_x1=xmax-0.55
 right_x0=right_x1-hole_w
@@ -257,6 +259,23 @@ bx0=ic.x-hx*0.90
 bx1=ic.x+hx*0.90
 by0=ic.y-hy*0.28
 by1=ic.y+hy*0.56
+
+# Topology invariant: both authored undercroft ramp openings must live inside
+# the continuous perimeter shell. Fail before rendering if a future edit
+# pushes a ramp through a solid wall.
+topology_margin=0.08
+for opening_name,(ox0,ox1,oy0,oy1) in {
+    "west":(left_x0,left_x1,left_y0,left_y1),
+    "east":(right_x0,right_x1,right_y0,right_y1),
+}.items():
+    if ox0 < bx0-topology_margin or ox1 > bx1+topology_margin:
+        fail(f"{opening_name} undercroft ramp crosses X perimeter")
+    if oy0 < by0-topology_margin or oy1 > by1+topology_margin:
+        fail(
+            f"{opening_name} undercroft ramp crosses Y perimeter: "
+            f"[{oy0:.3f},{oy1:.3f}] vs room [{by0:.3f},{by1:.3f}]"
+        )
+
 basement_t=0.25
 vertical_meshes.append(add_box(
     "SANCTUM_UNDERCROFT_FLOOR",
