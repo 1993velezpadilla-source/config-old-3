@@ -109,11 +109,11 @@ def setup_hdri(scene):
     out = nodes.new("ShaderNodeOutputWorld")
     bg = nodes.new("ShaderNodeBackground")
     env = nodes.new("ShaderNodeTexEnvironment")
-    env.image = bpy.data.images.load(str(ASSETS/"graaff_reinet_groote_kerk"/"church_4k.hdr"), check_existing=True)
+    env.image = bpy.data.images.load(str(ASSETS/"afrikaans_church_exterior"/"church_exterior_4k.hdr"), check_existing=True)
     hdr_size = tuple(int(v) for v in env.image.size)
     if max(hdr_size) != 4096:
         raise SystemExit(f"Expected exact 4K HDRI, got {hdr_size}")
-    bg.inputs["Strength"].default_value = 0.38
+    bg.inputs["Strength"].default_value = 1.0
     links.new(env.outputs["Color"], bg.inputs["Color"])
     links.new(bg.outputs["Background"], out.inputs["Surface"])
 
@@ -176,7 +176,7 @@ report = {
         "BeamFakeTextureVertical": "Poly Haven stone_wall_04 4K CC0",
         "FakeRoof": "Poly Haven roof_slates_03 4K CC0",
     },
-    "lighting": "Poly Haven graaff_reinet_groote_kerk 4K HDR CC0",
+    "lighting": "Poly Haven afrikaans_church_exterior 4K HDR CC0",
     "renders": [v[0] for v in views],
 }
 (OUT/"material-probe-report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
