@@ -65,7 +65,17 @@ def main():
 
     if not pieces:
         raise SystemExit("XZIEL_RUNTIME_GEOMETRY_FAIL: no included mesh geometry")
-    if not any(row["node"] == "SANCTUM_GAMEPLAY_FLOOR" for row in included):
+
+    # Older Sanctum builds used one node named SANCTUM_GAMEPLAY_FLOOR.
+    # The vertical map intentionally segments that floor so real stair openings
+    # can exist. Accept either representation, but still require an authored
+    # main gameplay floor family so a shell-only export cannot pass.
+    floor_nodes = [
+        row["node"] for row in included
+        if row["node"] == "SANCTUM_GAMEPLAY_FLOOR"
+        or row["node"].startswith("SANCTUM_MAIN_FLOOR_")
+    ]
+    if not floor_nodes:
         raise SystemExit("XZIEL_RUNTIME_GEOMETRY_FAIL: gameplay floor missing")
 
     merged = trimesh.util.concatenate(pieces)
@@ -94,6 +104,7 @@ def main():
         "excluded_prefixes": list(args.exclude_prefix),
         "included_nodes": included,
         "excluded_nodes": excluded,
+        "floor_nodes": floor_nodes,
         "included_node_count": len(included),
         "excluded_node_count": len(excluded),
         "vertices": int(len(merged.vertices)),
@@ -113,6 +124,7 @@ def main():
     print(json.dumps({
         "included_nodes": report["included_node_count"],
         "excluded_nodes": report["excluded_node_count"],
+        "floor_nodes": report["floor_nodes"],
         "vertices": report["vertices"],
         "triangles": report["triangles"],
         "nav_obj_bytes": report["nav_obj_bytes"],
