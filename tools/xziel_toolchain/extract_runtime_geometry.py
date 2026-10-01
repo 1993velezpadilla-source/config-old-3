@@ -23,7 +23,7 @@ def main():
     ap.add_argument(
         "--exclude-prefix",
         action="append",
-        default=["SANCTUM_OUTER_BAKED"],
+        default=["SANCTUM_OUTER_BAKED", "SANCTUM_COSMETIC_"],
         help="Scene-node prefix to exclude from runtime collision/navigation geometry.",
     )
     args = ap.parse_args()
