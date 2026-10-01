@@ -110,6 +110,9 @@ def setup_hdri(scene):
     bg = nodes.new("ShaderNodeBackground")
     env = nodes.new("ShaderNodeTexEnvironment")
     env.image = bpy.data.images.load(str(ASSETS/"graaff_reinet_groote_kerk"/"church_4k.hdr"), check_existing=True)
+    hdr_size = tuple(int(v) for v in env.image.size)
+    if max(hdr_size) != 4096:
+        raise SystemExit(f"Expected exact 4K HDRI, got {hdr_size}")
     bg.inputs["Strength"].default_value = 0.38
     links.new(env.outputs["Color"], bg.inputs["Color"])
     links.new(bg.outputs["Background"], out.inputs["Surface"])
