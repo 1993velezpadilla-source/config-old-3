@@ -87,6 +87,25 @@ jobs:
           delta=altar_center-mean
           long_axis=max(horizontal,key=lambda i:abs(delta[i]))
 
+          material_rows=[]
+          seen=set()
+          for o in props:
+              slots=[]
+              for slot in o.material_slots:
+                  m=slot.material
+                  if m is None:
+                      slots.append(None)
+                      continue
+                  slots.append({
+                      "name":m.name,
+                      "diffuse_color":[float(v) for v in m.diffuse_color],
+                      "use_nodes":bool(m.use_nodes),
+                      "node_names":[n.name for n in m.node_tree.nodes] if m.use_nodes and m.node_tree else [],
+                  })
+              key=(o.name.split(".")[0],json.dumps(slots,sort_keys=True))
+              if key not in seen:
+                  seen.add(key)
+                  material_rows.append({"object":o.name,"slots":slots})
           report={
               "scene":source_scene.name,
               "prop_count":len(props),
@@ -99,6 +118,7 @@ jobs:
                   {"name":o.name,"center":[float(v) for v in center_with_matrix(o,mats[o.name])]}
                   for o in pews[:4]
               ],
+              "materials":material_rows,
           }
           print("SANCTUM_V2_CC0_TRANSFORM_SMOKE")
           print(json.dumps(report,indent=2))
