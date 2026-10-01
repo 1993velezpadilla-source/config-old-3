@@ -144,6 +144,7 @@ def walkability_with_dressing(scene, inner_stats):
     walkable = 0
     hits = 0
     blocked = []
+    walkable_points = []
 
     for x in xs:
         for y in ys:
@@ -189,6 +190,7 @@ def walkability_with_dressing(scene, inner_stats):
 
             if blocker is None:
                 walkable += 1
+                walkable_points.append([x, y])
             else:
                 blocked.append(blocker)
 
@@ -201,6 +203,7 @@ def walkability_with_dressing(scene, inner_stats):
         "player_radius": player_radius,
         "player_probe_height": player_probe_height,
         "floor_probe_height": floor_probe_height,
+        "walkable_points": walkable_points,
         "blocked_samples": blocked,
     }
 
@@ -280,6 +283,11 @@ def export_dressed(objects):
 
 assets, asset_metadata = load_ruins_assets()
 
+# Measure the actual composite before adding any dressing. The dressing gate
+# compares against this baseline instead of pretending the entire rectangular
+# bounding box is open floor.
+baseline_clearance = walkability_with_dressing(scene, inner_after)
+
 # Reuse an authored CC0 floor material from the same Gothic pack.
 floor_material = bpy.data.materials.get("BrickFloor1")
 if floor_material is not None:
@@ -323,7 +331,7 @@ for side, sign in (("L", -1.0), ("R", 1.0)):
 instances.append(place_instance(
     assets["arch"],
     "SANCTUM_ALTAR_ARCH",
-    (ic.x, ic.y + half_l * 0.64, floor_z),
+    (ic.x, ic.y + half_l * 0.82, floor_z),
 ))
 
 # Existing long wall/trim pieces run along the two side walls.
@@ -380,23 +388,46 @@ material_previews = render_material_previews(scene, cam)
 
 walk = walkability_with_dressing(scene, inner_after)
 
-# Always persist pre-gate diagnostics so a failed run tells us exactly which
-# authored piece blocked each walkability sample instead of forcing guesswork.
+def point_key(p):
+    return (round(float(p[0]), 5), round(float(p[1]), 5))
+
+baseline_points = {point_key(p) for p in baseline_clearance["walkable_points"]}
+dressed_points = {point_key(p) for p in walk["walkable_points"]}
+retained_points = baseline_points & dressed_points
+retention_ratio = (
+    len(retained_points) / len(baseline_points)
+    if baseline_points else 0.0
+)
+
+# Persist both measurements so failed runs explain whether the blocker belongs
+# to the base church or was introduced by dressing.
 from collections import Counter
 blockers = Counter(item.get("object", "") for item in walk["blocked_samples"])
 (DRESS_OUT/"walkability-diagnostics.json").write_text(
     json.dumps({
-        "walkability": walk,
+        "baseline_clearance": baseline_clearance,
+        "dressed_clearance": walk,
+        "baseline_walkable_points": len(baseline_points),
+        "retained_walkable_points": len(retained_points),
+        "retention_ratio": retention_ratio,
         "blockers": dict(blockers),
     }, indent=2),
     encoding="utf-8",
 )
 print("SANCTUM_WALKABILITY_BLOCKERS", json.dumps(dict(blockers), sort_keys=True))
+print(
+    "SANCTUM_WALKABILITY_RETENTION",
+    len(retained_points),
+    "/",
+    len(baseline_points),
+    f"({retention_ratio:.3f})",
+)
 
-if walk["walkable_ratio"] < 0.88:
+if retention_ratio < 0.88:
     dress_fail(
-        f"dressing blocks too much nave: {walk['walkable']} / {walk['samples']} "
-        f"({walk['walkable_ratio']:.3f})"
+        f"dressing preserves too little baseline clearance: "
+        f"{len(retained_points)} / {len(baseline_points)} "
+        f"({retention_ratio:.3f})"
     )
 
 export_objects = [outer_baked, *inner_objects, *instances]
@@ -422,7 +453,11 @@ report = {
         }
         for obj in instances
     ],
+    "baseline_clearance": baseline_clearance,
     "walkability": walk,
+    "walkability_retention_ratio": retention_ratio,
+    "baseline_walkable_points": len(baseline_points),
+    "retained_walkable_points": len(retained_points),
     "stats": dressed_stats,
     "renders": renders,
     "material_previews": material_previews,
@@ -434,6 +469,7 @@ print("SANCTUM_DRESSED_INTERIOR_PASS")
 print(json.dumps({
     "instances": len(instances),
     "walkable_ratio": walk["walkable_ratio"],
+    "walkability_retention_ratio": retention_ratio,
     "vertices": dressed_stats["vertices"],
     "polygons": dressed_stats["polygons"],
     "glb_bytes": glb.stat().st_size,
