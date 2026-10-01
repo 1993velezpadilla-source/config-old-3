@@ -148,6 +148,24 @@ def evaluated_mesh_stats(obj):
     finally:
         ev.to_mesh_clear()
 
+def bake_evaluated_object(scene, source):
+    deps = bpy.context.evaluated_depsgraph_get()
+    ev = source.evaluated_get(deps)
+    try:
+        mesh = bpy.data.meshes.new_from_object(
+            ev,
+            preserve_all_data_layers=True,
+            depsgraph=deps,
+        )
+    except TypeError:
+        mesh = bpy.data.meshes.new_from_object(ev, depsgraph=deps)
+    if mesh is None or not mesh.vertices:
+        fail("could not bake evaluated architecture")
+    baked = bpy.data.objects.new("XZIEL_MAP_AGENT_BAKED", mesh)
+    scene.collection.objects.link(baked)
+    baked.matrix_world = ev.matrix_world.copy()
+    return baked
+
 def ensure_camera(scene, lens):
     data = bpy.data.cameras.get("XZIEL_MAP_AGENT_CAMERA_DATA") or bpy.data.cameras.new("XZIEL_MAP_AGENT_CAMERA_DATA")
     cam = bpy.data.objects.get("XZIEL_MAP_AGENT_CAMERA") or bpy.data.objects.new("XZIEL_MAP_AGENT_CAMERA", data)
@@ -285,7 +303,8 @@ before_inputs = list_modifier_inputs(modifier)
 apply_transform(target, plan.get("object_transform", {}))
 applied_inputs = apply_gn_inputs(modifier, plan.get("geometry_nodes_inputs", {}))
 
-stats = evaluated_mesh_stats(target)
+baked_target = bake_evaluated_object(scene, target)
+stats = evaluated_mesh_stats(baked_target)
 quality = plan.get("quality_gate", {})
 if stats["vertices"] < int(quality.get("min_vertices", 1)):
     fail(f"vertex gate failed: {stats['vertices']}")
@@ -305,13 +324,13 @@ center = Vector(stats["center"])
 size = Vector(stats["size"])
 cam = ensure_camera(scene, float(render_cfg.get("lens_mm", 38.0)))
 lights = ensure_lights(scene, center, size)
-isolate(scene, target, [cam, *lights])
+isolate(scene, baked_target, [cam, *lights])
 
 views = plan.get("camera_views") or auto_cameras(stats)
 renders = render_views(scene, cam, views)
 
 glb_name = plan.get("export_glb", "xziel-map-agent.glb")
-glb = export_glb(target, glb_name)
+glb = export_glb(baked_target, glb_name)
 min_glb = int(quality.get("min_glb_bytes", 1))
 if glb.stat().st_size < min_glb:
     fail(f"GLB size gate failed: {glb.stat().st_size} < {min_glb}")
@@ -321,6 +340,7 @@ report = {
     "geometry_policy": plan["geometry_policy"],
     "allow_new_architecture": False,
     "source_object": target.name,
+    "baked_object": baked_target.name,
     "geometry_node_group": modifier.node_group.name,
     "source_revision": os.environ.get("XZIEL_SOURCE_REV", ""),
     "blender_version": bpy.app.version_string,
