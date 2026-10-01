@@ -129,21 +129,46 @@ def _texture_payload(geometry):
 
 def _load_scene(path:Path):
     scene=trimesh.load(path,force="scene",process=False)
-    geometries=[
-        geometry
-        for geometry in scene.geometry.values()
-        if hasattr(geometry,"vertices")
-        and hasattr(geometry,"faces")
-        and len(geometry.vertices)
-        and len(geometry.faces)
-    ]
+    geometries=[]
+    source_visible_front=[]
+
+    # Preserve node identity so the evidence renderer can distinguish the
+    # intentionally front-visible projection shell from occluded support
+    # geometry. Apply scene transforms before rasterization.
+    nodes=list(scene.graph.nodes_geometry)
+    if nodes:
+        for node in nodes:
+            transform,geometry_name=scene.graph.get(node)
+            geometry=scene.geometry[geometry_name].copy()
+            if not (
+                hasattr(geometry,"vertices")
+                and hasattr(geometry,"faces")
+                and len(geometry.vertices)
+                and len(geometry.faces)
+            ):
+                continue
+            if not np.allclose(transform,np.eye(4),atol=1e-7):
+                geometry.apply_transform(transform)
+            geometries.append(geometry)
+            if str(node)=="source_visible_front":
+                source_visible_front.append(geometry)
+    else:
+        geometries=[
+            geometry.copy()
+            for geometry in scene.geometry.values()
+            if hasattr(geometry,"vertices")
+            and hasattr(geometry,"faces")
+            and len(geometry.vertices)
+            and len(geometry.faces)
+        ]
+
     if not geometries:
         raise RuntimeError(f"no renderable geometry in {path}")
     vertices=np.concatenate(
         [np.asarray(g.vertices,dtype=np.float32) for g in geometries],
         axis=0,
     )
-    return geometries,vertices
+    return geometries,vertices,source_visible_front
 
 
 def _render_point_fallback(geometries,size:int):
@@ -262,6 +287,41 @@ def _render_uv_region(
     return image,mask_image
 
 
+def _clamp_to_front_silhouette(
+    image:Image.Image,
+    rendered_mask:Image.Image,
+    front_mask:Image.Image,
+    *,
+    dilation_pixels:int,
+):
+    from scipy.ndimage import binary_dilation, binary_fill_holes
+
+    rendered=np.asarray(rendered_mask,dtype=np.uint8)>0
+    front=np.asarray(front_mask,dtype=np.uint8)>0
+    if not np.any(front):
+        raise RuntimeError("source_visible_front silhouette mask was empty")
+
+    # Fill only enclosed holes, then expand slightly so genuine profile edges,
+    # antialiasing and thin cloth/finger boundaries survive. Hidden geometry
+    # can contribute *inside* this support mask but can never create a second
+    # silhouette outside it.
+    support=binary_fill_holes(front)
+    iterations=max(1,int(dilation_pixels))
+    support=binary_dilation(support,iterations=iterations)
+    keep=rendered & support
+
+    arr=np.asarray(image.convert("RGB"),dtype=np.uint8).copy()
+    arr[~keep]=np.array([18,18,18],dtype=np.uint8)
+    out_mask=Image.fromarray(keep.astype(np.uint8)*255,"L")
+    return Image.fromarray(arr,"RGB"),out_mask,{
+        "front_pixels":int(np.count_nonzero(front)),
+        "rendered_pixels":int(np.count_nonzero(rendered)),
+        "kept_pixels":int(np.count_nonzero(keep)),
+        "dilation_pixels":int(iterations),
+        "removed_pixels":int(np.count_nonzero(rendered & ~support)),
+    }
+
+
 def _full_bounds(vertices):
     lo=vertices.min(axis=0)
     hi=vertices.max(axis=0)
@@ -372,11 +432,12 @@ def render_preview(
     face_size:int=768,
     supersample:int=2,
 ):
-    geometries,vertices=_load_scene(input_glb)
+    geometries,vertices,source_visible_front=_load_scene(input_glb)
     full_bounds,lo,hi=_full_bounds(vertices)
     textured=sum(_texture_payload(g) is not None for g in geometries)
 
     if textured:
+        head_bounds=_head_bounds(geometries,vertices)
         full_raw,full_mask_raw=_render_uv_region(
             geometries,
             full_bounds,
@@ -385,10 +446,49 @@ def render_preview(
         )
         face_raw,face_mask_raw=_render_uv_region(
             geometries,
-            _head_bounds(geometries,vertices),
+            head_bounds,
             int(face_size),
             int(supersample),
         )
+
+        silhouette_clamp=None
+        if source_visible_front:
+            _,front_full_mask=_render_uv_region(
+                source_visible_front,
+                full_bounds,
+                int(size),
+                int(supersample),
+            )
+            _,front_face_mask=_render_uv_region(
+                source_visible_front,
+                head_bounds,
+                int(face_size),
+                int(supersample),
+            )
+            full_raw,full_mask_raw,full_clamp=_clamp_to_front_silhouette(
+                full_raw,
+                full_mask_raw,
+                front_full_mask,
+                dilation_pixels=max(4,int(round(int(size)*0.010))),
+            )
+            face_raw,face_mask_raw,face_clamp=_clamp_to_front_silhouette(
+                face_raw,
+                face_mask_raw,
+                front_face_mask,
+                dilation_pixels=max(5,int(round(int(face_size)*0.014))),
+            )
+            silhouette_clamp={
+                "enabled":True,
+                "source_node":"source_visible_front",
+                "full":full_clamp,
+                "face":face_clamp,
+            }
+        else:
+            silhouette_clamp={
+                "enabled":False,
+                "reason":"source_visible_front node not present",
+            }
+
         full,full_mask,full_fit=_normalize_visible_to_canvas(
             full_raw,
             full_mask_raw,
@@ -401,8 +501,12 @@ def render_preview(
             int(face_size),
             0.10,
         )
-        renderer="hayuya-cpu-uv-bilinear-zbuffer-autofit-ss2-v3"
+        renderer="hayuya-cpu-uv-front-silhouette-clamp-ss2-v4"
     else:
+        silhouette_clamp={
+            "enabled":False,
+            "reason":"untextured evidence fallback",
+        }
         full_raw,full_mask_raw,_,_=_render_point_fallback(
             geometries,
             int(size),
@@ -461,7 +565,8 @@ def render_preview(
             "full":0.12,
             "face":0.10,
         },
-        "silhouette_source":"renderer_zbuffer_visibility_mask",
+        "silhouette_source":"source_visible_front_clamp" if silhouette_clamp.get("enabled") else "renderer_zbuffer_visibility_mask",
+        "silhouette_clamp":silhouette_clamp,
     }
     (output_dir/"software_manifest.json").write_text(
         json.dumps(payload,indent=2)+"\n",
