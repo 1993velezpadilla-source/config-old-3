@@ -160,6 +160,77 @@ def _call_named(
     )
 
 
+def texture_existing_mesh(
+    image: Path,
+    mesh: Path,
+    output: Path,
+    *,
+    token: str | None = None,
+    seed: int = 1993,
+    space: str = "VAST-AI/TripoSG",
+) -> dict:
+    """Texture an existing HAYUYA mesh through TripoSG without replacing geometry."""
+    if not image.is_file():
+        raise FileNotFoundError(image)
+    if not mesh.is_file():
+        raise FileNotFoundError(mesh)
+
+    kwargs = {"verbose": True, "httpx_kwargs": {"timeout": 240.0}}
+    if token:
+        kwargs["token"] = token
+    client = Client(space, **kwargs)
+    named = _named_endpoints(client)
+
+    try:
+        session_init = _initialize_gradio_session(client)
+        print("HAYUYA_TRIPOSG_TEXTURE_SESSION_INIT", session_init)
+    except Exception as exc:
+        session_init = {
+            "attempted": True,
+            "ok": False,
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+        print(
+            "::warning::TripoSG texture session initialization failed: "
+            + session_init["error"]
+        )
+
+    tex_ep, tex_spec = _pick_endpoint(named, "/run_texture", "texture")
+    tex_values = {
+        "image": handle_file(str(image.resolve())),
+        "mesh_path": handle_file(str(mesh.resolve())),
+        "mesh": handle_file(str(mesh.resolve())),
+        "model": handle_file(str(mesh.resolve())),
+        "seed": int(seed),
+    }
+    textured = _call_named(client, tex_ep, tex_spec, tex_values)
+    chosen = _extract_downloaded_glb(textured)
+
+    output.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(chosen, output)
+    blob = output.read_bytes()
+    if blob[:4] != b"glTF" or len(blob) < 1024:
+        raise RuntimeError(
+            f"TripoSG texture output invalid: magic={blob[:16]!r} bytes={len(blob)}"
+        )
+
+    payload = {
+        "path": str(output),
+        "generator": "VAST-AI/TripoSG",
+        "service_space": space,
+        "mode": "texture_existing_mesh",
+        "source_mesh": str(mesh),
+        "reference_image": str(image),
+        "seed": int(seed),
+        "geometry_authority": "HAYUYA native refined mesh",
+        "geometry_replacement_allowed": False,
+        "bytes": len(blob),
+        "session_init": session_init,
+    }
+    print("HAYUYA_TRIPOSG_TEXTURE_PASS", payload)
+    return payload
+
+
 def generate(
     image: Path,
     output: Path,

@@ -11,6 +11,7 @@ on:
       - tools/hayuya3d/source_autofix.py
       - tools/hayuya3d/source_front_projection.py
       - tools/hayuya3d/mvadapter_texture_cloud.py
+      - tools/hayuya3d/triposg_cloud.py
       - tools/hayuya3d/judge_v4_face_worker.py
       - .github/workflows/hayuya-hunyuan-head-probe.yml
 
@@ -157,19 +158,71 @@ jobs:
               raise SystemExit(2)
           PY
 
-      - name: Texture refined native head directly with MVAdapter 4K
+      - name: Texture refined native head with cloud fallback chain
         shell: bash
         run: |
           set -euo pipefail
-          python tools/hayuya3d/mvadapter_texture_cloud.py \
-            --mesh out/hunyuan-head-probe/body_headwrap_native.glb \
-            --image hayuya/assets/monja-mugfwln6/geometry/primary.webp \
-            --output out/hunyuan-head-probe/body_headwrap_material_native.glb \
-            --seed 1993 \
-            --guidance-scale 3.5 \
-            --steps 30 \
-            --reference-conditioning-scale 1.4 \
-            --uv-size 4096
+          python - <<'PY'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          sys.path.insert(0, "tools/hayuya3d")
+          from mvadapter_texture_cloud import texture as mv_texture
+          from triposg_cloud import texture_existing_mesh
+
+          mesh=Path("out/hunyuan-head-probe/body_headwrap_native.glb")
+          image=Path("hayuya/assets/monja-mugfwln6/geometry/primary.webp")
+          output=Path("out/hunyuan-head-probe/body_headwrap_material_native.glb")
+          failures=[]
+
+          try:
+              mv_texture(
+                  mesh,
+                  image,
+                  output,
+                  space="VAST-AI/MV-Adapter-Img2Texture",
+                  seed=1993,
+                  guidance=3.5,
+                  steps=30,
+                  reference_scale=1.4,
+                  uv_size=4096,
+              )
+              print("HAYUYA_TEXTURE_BACKEND_SELECTED","mvadapter-4k")
+          except Exception as exc:
+              failures.append({
+                  "backend":"mvadapter-4k",
+                  "error":f"{type(exc).__name__}: {exc}",
+              })
+              print(
+                  "::warning::MVAdapter unavailable; trying TripoSG direct texture: "
+                  + failures[-1]["error"]
+              )
+
+          if not output.is_file() or output.read_bytes()[:4] != b"glTF":
+              try:
+                  result=texture_existing_mesh(
+                      image,
+                      mesh,
+                      output,
+                      token=os.environ.get("HF_TOKEN") or None,
+                      seed=1993,
+                  )
+                  print("HAYUYA_TEXTURE_BACKEND_SELECTED","triposg-direct")
+                  print("HAYUYA_TEXTURE_BACKEND_RESULT",json.dumps(result,separators=(",",":")))
+              except Exception as exc:
+                  failures.append({
+                      "backend":"triposg-direct",
+                      "error":f"{type(exc).__name__}: {exc}",
+                  })
+
+          if not output.is_file() or output.read_bytes()[:4] != b"glTF":
+              raise SystemExit(
+                  "all_texture_backends_failed:"+
+                  json.dumps(failures,separators=(",",":"))
+              )
+          PY
 
       - name: Install Blender for evidence
         run: |
