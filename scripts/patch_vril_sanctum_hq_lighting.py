@@ -224,6 +224,21 @@ if old not in it:
 it=it.replace(old,new,1)
 images.write_text(it,encoding="utf-8")
 
+
+# Android app-private paths are long. The stock engine uses MAX_OSPATH=128,
+# but /data/user/0/<package>/files/nzp-runtime/nzp + our 75-byte St Giles
+# atlas path exceeds that. Expand the filesystem path budget for this build.
+defs=root/"source/nzportable_def.h"
+dt=defs.read_text(encoding="utf-8")
+old="#define\\tMAX_OSPATH\\t\\t128\\t\\t\\t// max length of a filesystem pathname"
+new="#define\\tMAX_OSPATH\\t\\t512\\t\\t\\t// XZIEL Android: HQ asset paths exceed legacy Quake limit"
+if old not in dt:
+    old="#define MAX_OSPATH 128"
+    if old not in dt:
+        raise SystemExit("Could not find MAX_OSPATH definition")
+dt=dt.replace(old,new,1)
+defs.write_text(dt,encoding="utf-8")
+
 p.write_text(s,encoding="utf-8")
 
 # Replace the GL4ES-sensitive color-mask suppression hook with a robust
