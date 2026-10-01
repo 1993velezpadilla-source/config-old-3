@@ -1,0 +1,243 @@
+name: Sanctum Iconic CC0 Props
+
+on:
+  push:
+    branches:
+      - feature/xziel-map-builder-agent-v1
+    paths:
+      - ".github/workflows/sanctum-iconic-cc0-props.yml"
+      - "tools/sanctum_v2/dress_sanctum_iconic_props.py"
+      - "tools/sanctum_v2/dress_sanctum_with_cc0_gothic.py"
+      - "tools/sanctum_v2/compose_cathedral_cc0_interior.py"
+      - "tools/sanctum_v2/map_builder_plan.json"
+      - "tools/xziel_toolchain/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sanctum-iconic-cc0-props-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  iconic:
+    name: Build iconic church dressing with verified CC0 props
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Install host packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            git-lfs curl xz-utils xvfb unzip bzip2 \
+            build-essential cmake ninja-build pkg-config python3-venv \
+            libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1 \
+            libgl1 libglu1-mesa libegl1 libglib2.0-0
+          git lfs install
+
+      - name: Fetch and verify authored source assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf \
+            external-french-houses external-cc0-church external-ruins \
+            external-iconic-props sanctum-iconic-base sanctum-iconic-probe
+
+          git clone --depth 1 \
+            https://github.com/IRCSS/Blender-Geometry-Node-French-Houses.git \
+            external-french-houses
+          (cd external-french-houses && git lfs pull || true)
+          grep -q "MIT License" external-french-houses/LICENSE
+          test -s external-french-houses/GeometryNodesFrenchHous.blend
+
+          mkdir -p external-cc0-church external-ruins external-iconic-props
+
+          curl -L --fail --retry 3 \
+            https://opengameart.org/content/medieval-church-interior \
+            -o external-cc0-church/source-page.html
+          grep -qi "CC0" external-cc0-church/source-page.html
+          curl -L --fail --retry 3 \
+            https://opengameart.org/sites/default/files/church.blend \
+            -o external-cc0-church/church.blend
+          test -s external-cc0-church/church.blend
+
+          curl -L --fail --retry 3 \
+            https://opengameart.org/content/3td-fantasy-ruins-pack-for-blender \
+            -o external-ruins/source-page.html
+          grep -qi "CC0" external-ruins/source-page.html
+          curl -L --fail --retry 3 \
+            https://opengameart.org/sites/default/files/fantasy_ruins_pack_for_blender.blend \
+            -o external-ruins/fantasy_ruins_pack_for_blender.blend
+          test -s external-ruins/fantasy_ruins_pack_for_blender.blend
+
+          fetch_prop() {
+            local slug="$1" file="$2" key="$3"
+            curl -L --fail --retry 3 \
+              "https://opengameart.org/content/$slug" \
+              -o "external-iconic-props/$key.html"
+            grep -qi "CC0" "external-iconic-props/$key.html"
+            curl -L --fail --retry 3 \
+              "https://opengameart.org/sites/default/files/$file" \
+              -o "external-iconic-props/$file"
+            test -s "external-iconic-props/$file"
+            sha256sum "external-iconic-props/$file" | tee "external-iconic-props/$key.sha256"
+          }
+
+          fetch_prop medieval-benches medievalbenchesexport.blend benches
+          fetch_prop medieval-candles medievalcandles.blend candles
+          fetch_prop medieval-windows-interiors medievalwindows.blend windows
+
+          {
+            echo "OUTER_REV=$(git -C external-french-houses rev-parse HEAD)"
+            echo "INNER_SHA256=$(sha256sum external-cc0-church/church.blend | cut -d' ' -f1)"
+            echo "RUINS_SHA256=$(sha256sum external-ruins/fantasy_ruins_pack_for_blender.blend | cut -d' ' -f1)"
+            echo "BENCH_SHA256=$(cut -d' ' -f1 external-iconic-props/benches.sha256)"
+            echo "CANDLE_SHA256=$(cut -d' ' -f1 external-iconic-props/candles.sha256)"
+            echo "WINDOW_SHA256=$(cut -d' ' -f1 external-iconic-props/windows.sha256)"
+          } | tee /tmp/sanctum-iconic-sources.txt
+
+      - name: Install Blender 5.2.2
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 \
+            https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz \
+            -o /tmp/blender-5.2.2-linux-x64.tar.xz
+          tar -C /tmp -xf /tmp/blender-5.2.2-linux-x64.tar.xz
+          /tmp/blender-5.2.2-linux-x64/blender --version
+
+      - name: Build iconic Sanctum candidate
+        shell: bash
+        env:
+          SANCTUM_COMPOSITE_OUT: sanctum-iconic-composite
+          SANCTUM_ICONIC_BASE_OUT: sanctum-iconic-base
+          SANCTUM_ICONIC_OUT: sanctum-iconic-probe
+          SANCTUM_CC0_BLEND: external-cc0-church/church.blend
+          SANCTUM_RUINS_BLEND: external-ruins/fantasy_ruins_pack_for_blender.blend
+          SANCTUM_BENCH_BLEND: external-iconic-props/medievalbenchesexport.blend
+          SANCTUM_CANDLE_BLEND: external-iconic-props/medievalcandles.blend
+          SANCTUM_WINDOW_BLEND: external-iconic-props/medievalwindows.blend
+          XZIEL_MAP_AGENT_PLAN: tools/sanctum_v2/map_builder_plan.json
+        run: |
+          set -euo pipefail
+
+          export SANCTUM_RUINS_SHA256="$(grep '^RUINS_SHA256=' /tmp/sanctum-iconic-sources.txt | cut -d= -f2)"
+          export SANCTUM_BENCH_SHA256="$(grep '^BENCH_SHA256=' /tmp/sanctum-iconic-sources.txt | cut -d= -f2)"
+          export SANCTUM_CANDLE_SHA256="$(grep '^CANDLE_SHA256=' /tmp/sanctum-iconic-sources.txt | cut -d= -f2)"
+          export SANCTUM_WINDOW_SHA256="$(grep '^WINDOW_SHA256=' /tmp/sanctum-iconic-sources.txt | cut -d= -f2)"
+
+          xvfb-run -a -s "-screen 0 1600x1000x24" \
+            /tmp/blender-5.2.2-linux-x64/blender \
+            -b external-french-houses/GeometryNodesFrenchHous.blend \
+            --python tools/sanctum_v2/dress_sanctum_iconic_props.py \
+            2>&1 | tee sanctum-iconic-probe/blender-iconic.log
+
+          grep -q "SANCTUM_ICONIC_PROPS_PASS" sanctum-iconic-probe/blender-iconic.log
+
+      - name: Validate iconic evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          out=Path("sanctum-iconic-probe")
+          d=json.loads((out/"iconic-report.json").read_text(encoding="utf-8"))
+
+          assert d["status"]=="PASS", d
+          assert d["stage"]=="iconic-props-v1", d
+          assert all(v in ("MIT","CC0") for v in d["licenses"].values()), d
+          assert all(len(v)==64 for v in d["source_sha256"].values()), d
+          assert len(d["prop_instances"]) >= 20, d
+          assert len(d["glass_materials"]) >= 1, d
+          assert d["prop_clearance_retention_ratio"] >= 0.94, d
+          assert d["stats"]["vertices"] > 200000, d
+          assert d["stats"]["polygons"] > 150000, d
+          assert len(d["renders"]) == 8, d
+          assert d["glb_bytes"] > 1000000, d
+
+          for item in d["renders"]:
+              p=out/item["name"]
+              assert p.is_file() and p.stat().st_size > 4000, p
+
+          print("SANCTUM_ICONIC_EVIDENCE_GREEN")
+          print("PROPS",len(d["prop_instances"]))
+          print("PROP_CLEARANCE_RETENTION",d["prop_clearance_retention_ratio"])
+          print("GLASS_MATERIALS",d["glass_materials"])
+          print("VERTICES",d["stats"]["vertices"])
+          print("POLYGONS",d["stats"]["polygons"])
+          print("GLB_BYTES",d["glb_bytes"])
+          PY
+
+      - name: Run full XZIEL content worker
+        shell: bash
+        env:
+          XZIEL_KTX2_UASTC: "1"
+        run: |
+          set -euo pipefail
+          RAW_GLB="$(python3 - <<'PY'
+          import json
+          print(json.load(open("sanctum-iconic-probe/iconic-report.json",encoding="utf-8"))["glb"])
+          PY
+          )"
+
+          bash tools/xziel_toolchain/xziel_content_worker.sh \
+            map \
+            "sanctum-iconic-probe/$RAW_GLB" \
+            "sanctum-iconic-probe/toolchain" \
+            "sanctum-iconic"
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("sanctum-iconic-probe/toolchain")
+
+          pipe=json.loads((root/"optimized"/"sanctum-iconic.pipeline.json").read_text(encoding="utf-8"))
+          nav=json.loads((root/"runtime"/"sanctum-iconic.navmesh.json").read_text(encoding="utf-8"))
+          col=json.loads((root/"runtime"/"sanctum-iconic.collision.json").read_text(encoding="utf-8"))
+
+          assert pipe["status"]=="PASS",pipe
+          assert pipe["validator"]["errors"]==0,pipe
+          assert nav["status"]=="PASS" and nav["nav_polygons"]>0 and nav["nearest_poly_ref"]!=0,nav
+          assert col["status"]=="PASS" and 0<col["hull_count"]<=128,col
+
+          print("SANCTUM_ICONIC_TOOLCHAIN_GREEN")
+          print("NAV_POLYGONS",nav["nav_polygons"])
+          print("NAVDATA_BYTES",nav["navdata_bytes"])
+          print("COLLISION_HULLS",col["hull_count"])
+          PY
+
+      - name: Record provenance
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p sanctum-iconic-probe
+          {
+            cat /tmp/sanctum-iconic-sources.txt 2>/dev/null || true
+            echo "OUTER_LICENSE=MIT"
+            echo "INTERIOR_LICENSE=CC0"
+            echo "GOTHIC_DRESSING_LICENSE=CC0"
+            echo "BENCH_LICENSE=CC0"
+            echo "CANDLE_LICENSE=CC0"
+            echo "WINDOW_LICENSE=CC0"
+            echo "BLENDER=5.2.2"
+          } > sanctum-iconic-probe/source-provenance.txt
+
+      - name: Upload iconic Sanctum evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-Iconic-CC0-Props
+          path: |
+            sanctum-iconic-probe/
+            sanctum-iconic-base/dressed-report.json
+          if-no-files-found: error
+          retention-days: 14
