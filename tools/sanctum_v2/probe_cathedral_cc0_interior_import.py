@@ -374,6 +374,28 @@ def object_world_bounds(objects):
     mx=Vector((max(p.x for p in pts),max(p.y for p in pts),max(p.z for p in pts)))
     return mn,mx
 
+def axis_vector(index,sign=1.0):
+    v=[0.0,0.0,0.0]
+    v[index]=float(sign)
+    return Vector(v)
+
+def object_center_world(o):
+    pts=[o.matrix_world @ Vector(c) for c in o.bound_box]
+    return sum(pts,Vector())/len(pts)
+
+def transformed_bounds(objects,matrix):
+    pts=[]
+    for o in objects:
+        if o.type!="MESH":
+            continue
+        for c in o.bound_box:
+            pts.append(matrix @ (o.matrix_world @ Vector(c)))
+    if not pts:
+        raise SystemExit("No transformed mesh bounds")
+    mn=Vector((min(p.x for p in pts),min(p.y for p in pts),min(p.z for p in pts)))
+    mx=Vector((max(p.x for p in pts),max(p.y for p in pts),max(p.z for p in pts)))
+    return mn,mx
+
 def append_and_fit_cc0_interior_props(scene,target_min,target_max):
     if not INTERIOR_SOURCE.is_file():
         raise SystemExit(f"Missing CC0 interior source: {INTERIOR_SOURCE}")
@@ -393,42 +415,89 @@ def append_and_fit_cc0_interior_props(scene,target_min,target_max):
         if o.name not in scene.collection.objects:
             scene.collection.objects.link(o)
 
-    src_min,src_max=object_world_bounds(props)
-    src_size=src_max-src_min
+    pews=[o for o in props if o.name=="pew" or o.name.startswith("pew.")]
+    if len(pews)<2:
+        raise SystemExit(f"Need multiple pews to infer source axes, got {len(pews)}")
+
+    pew_centers=[object_center_world(o) for o in pews]
+    pew_spans=[
+        max(c[i] for c in pew_centers)-min(c[i] for c in pew_centers)
+        for i in range(3)
+    ]
+
+    # Data-derived source up axis: all pews sit on one floor, so their centers
+    # vary least along the source's vertical axis.
+    source_up_index=min(range(3),key=lambda i:pew_spans[i])
+    horizontal=[i for i in range(3) if i!=source_up_index]
+    source_long_index=max(horizontal,key=lambda i:pew_spans[i])
+
+    pew_mean=sum(pew_centers,Vector())/len(pew_centers)
+    decor=[o for o in props if o not in pews and (o.name.startswith("candle") or o.name.startswith("Cross") or o.name=="altar")]
+    decor_mean=(sum((object_center_world(o) for o in decor),Vector())/len(decor)) if decor else pew_mean
+
+    # Choose up sign from authored decor placement relative to pew floor.
+    up_sign=1.0 if decor_mean[source_up_index]>=pew_mean[source_up_index] else -1.0
+
+    altar=bpy.data.objects.get("altar")
+    altar_center=object_center_world(altar) if altar in props else pew_mean
+    long_sign=1.0 if altar_center[source_long_index]>=pew_mean[source_long_index] else -1.0
+
+    src_up=axis_vector(source_up_index,up_sign)
+    src_long=axis_vector(source_long_index,long_sign)
+    src_cross=src_long.cross(src_up).normalized()
+
     tgt_size=target_max-target_min
+    target_long_index=0 if tgt_size.x>=tgt_size.y else 1
+    dst_up=Vector((0,0,1))
+    dst_long=Vector((1,0,0)) if target_long_index==0 else Vector((0,1,0))
+    dst_cross=dst_long.cross(dst_up).normalized()
 
-    src_long="X" if src_size.x>=src_size.y else "Y"
-    tgt_long="X" if tgt_size.x>=tgt_size.y else "Y"
-    rotation=math.pi/2.0 if src_long!=tgt_long else 0.0
+    # Orthonormal basis mapping: source authored axes -> cathedral Z-up axes.
+    src_basis=Matrix((src_cross,src_long,src_up)).transposed()
+    dst_basis=Matrix((dst_cross,dst_long,dst_up)).transposed()
+    rot3=dst_basis @ src_basis.transposed()
+    rot=rot3.to_4x4()
 
-    if rotation:
-        rot=Matrix.Rotation(rotation,4,"Z")
-        # Rotation swaps horizontal footprint for the scale derivation.
-        fit_x=src_size.y
-        fit_y=src_size.x
-    else:
-        rot=Matrix.Identity(4)
-        fit_x=src_size.x
-        fit_y=src_size.y
+    src_min,src_max=object_world_bounds(props)
+    oriented_min,oriented_max=transformed_bounds(props,rot)
+    oriented_size=oriented_max-oriented_min
 
-    if fit_x<=0 or fit_y<=0:
-        raise SystemExit(f"Invalid CC0 prop footprint: {list(src_size)}")
+    dims=[oriented_size.x,oriented_size.y,oriented_size.z]
+    targets=[tgt_size.x,tgt_size.y,tgt_size.z]
+    ratios=[targets[i]/dims[i] for i in range(3) if dims[i]>0]
+    if len(ratios)!=3:
+        raise SystemExit(f"Invalid oriented CC0 prop bounds: {list(oriented_size)}")
+    uniform_scale=min(ratios)
 
-    uniform_scale=min(tgt_size.x/fit_x,tgt_size.y/fit_y)
-
-    src_anchor=Vector(((src_min.x+src_max.x)*0.5,(src_min.y+src_max.y)*0.5,src_min.z))
-    tgt_anchor=Vector(((target_min.x+target_max.x)*0.5,(target_min.y+target_max.y)*0.5,target_min.z))
+    oriented_anchor=Vector((
+        (oriented_min.x+oriented_max.x)*0.5,
+        (oriented_min.y+oriented_max.y)*0.5,
+        oriented_min.z,
+    ))
+    target_anchor=Vector((
+        (target_min.x+target_max.x)*0.5,
+        (target_min.y+target_max.y)*0.5,
+        target_min.z,
+    ))
 
     transform=(
-        Matrix.Translation(tgt_anchor)
+        Matrix.Translation(target_anchor)
         @ Matrix.Scale(uniform_scale,4)
+        @ Matrix.Translation(-oriented_anchor)
         @ rot
-        @ Matrix.Translation(-src_anchor)
     )
     for o in props:
         o.matrix_world=transform @ o.matrix_world
 
     fitted_min,fitted_max=object_world_bounds(props)
+    fitted_size=fitted_max-fitted_min
+
+    # Hard gate: corrected import must fit the cathedral bounds in all 3 axes.
+    eps=1e-4
+    if fitted_size.x>tgt_size.x+eps or fitted_size.y>tgt_size.y+eps or fitted_size.z>tgt_size.z+eps:
+        raise SystemExit(f"CC0 props overflow cathedral after corrected fit: fitted={list(fitted_size)} target={list(tgt_size)}")
+
+    axis_names=("X","Y","Z")
     return props,{
         "source":"OpenGameArt Church",
         "author":"stereoscopic",
@@ -436,14 +505,23 @@ def append_and_fit_cc0_interior_props(scene,target_min,target_max):
         "source_url":"https://opengameart.org/content/church-0",
         "object_count":len(props),
         "objects":[o.name for o in props],
-        "source_bounds":{"min":list(src_min),"max":list(src_max),"size":list(src_size)},
+        "source_bounds":{"min":list(src_min),"max":list(src_max),"size":list(src_max-src_min)},
         "target_bounds":{"min":list(target_min),"max":list(target_max),"size":list(tgt_size)},
-        "source_long_axis":src_long,
-        "target_long_axis":tgt_long,
-        "rotation_degrees":90 if rotation else 0,
+        "axis_inference":{
+            "pew_count":len(pews),
+            "pew_center_spans":pew_spans,
+            "source_up_axis":axis_names[source_up_index],
+            "source_up_sign":up_sign,
+            "source_long_axis":axis_names[source_long_index],
+            "source_long_sign":long_sign,
+            "target_long_axis":axis_names[target_long_index],
+            "rule":"pew-center minimum spread => source up; remaining maximum spread => nave long axis; decor selects up sign; altar selects long sign",
+        },
+        "oriented_bounds":{"min":list(oriented_min),"max":list(oriented_max),"size":list(oriented_size)},
         "uniform_scale":uniform_scale,
-        "placement_rule":"preserve source prop layout; rotate only if long axes differ; uniformly fit horizontal prop bounds to cathedral horizontal bounds; align source floor min-Z to cathedral min-Z",
-        "fitted_bounds":{"min":list(fitted_min),"max":list(fitted_max),"size":list(fitted_max-fitted_min)},
+        "scale_rule":"minimum X/Y/Z fit ratio after data-derived axis correction",
+        "placement_rule":"preserve authored relative prop layout; infer source up/long axes from pews; map to cathedral Z-up/long axis; fit all three dimensions; center XY; align floor min-Z",
+        "fitted_bounds":{"min":list(fitted_min),"max":list(fitted_max),"size":list(fitted_size)},
     }
 
 def render(scene,cam,name,pos,look):
