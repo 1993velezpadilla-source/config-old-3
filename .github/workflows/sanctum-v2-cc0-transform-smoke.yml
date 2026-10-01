@@ -96,11 +96,30 @@ jobs:
                   if m is None:
                       slots.append(None)
                       continue
+                  shader={}
+                  if m.use_nodes and m.node_tree:
+                      outs=[n for n in m.node_tree.nodes if n.type=="OUTPUT_MATERIAL" and getattr(n,"is_active_output",False)]
+                      out=outs[0] if outs else next((n for n in m.node_tree.nodes if n.type=="OUTPUT_MATERIAL"),None)
+                      if out and out.inputs.get("Surface") and out.inputs["Surface"].is_linked:
+                          srcnode=out.inputs["Surface"].links[0].from_node
+                          shader["active_surface_node"]=srcnode.name
+                          shader["active_surface_type"]=srcnode.type
+                          for input_name in ("Base Color","Roughness","Metallic","IOR","Alpha"):
+                              inp=srcnode.inputs.get(input_name) if hasattr(srcnode,"inputs") else None
+                              if inp is not None and not inp.is_linked:
+                                  v=inp.default_value
+                                  try: shader[input_name]=[float(x) for x in v]
+                                  except TypeError: shader[input_name]=float(v)
+                      shader["image_nodes"]=[
+                          {"name":n.name,"image":(n.image.filepath if n.image else None)}
+                          for n in m.node_tree.nodes if n.type=="TEX_IMAGE"
+                      ]
                   slots.append({
                       "name":m.name,
                       "diffuse_color":[float(v) for v in m.diffuse_color],
                       "use_nodes":bool(m.use_nodes),
                       "node_names":[n.name for n in m.node_tree.nodes] if m.use_nodes and m.node_tree else [],
+                      "shader":shader,
                   })
               key=(o.name.split(".")[0],json.dumps(slots,sort_keys=True))
               if key not in seen:
