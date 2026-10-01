@@ -201,7 +201,7 @@ def _render_point_fallback(geometries,size:int):
     hi=vertices.max(axis=0)
 
     edge=int(size)
-    span=max(float(hi[0]-lo[0]),float(hi[1]-lo[1]))*1.28
+    span=max(float(hi[0]-lo[0]),float(hi[1]-lo[1]))*1.40
     cx=float((lo[0]+hi[0])*0.5)
     cy=float((lo[1]+hi[1])*0.5)
     xmin=cx-span*0.5
@@ -300,33 +300,141 @@ def _clamp_to_front_silhouette(
     front_mask:Image.Image,
     *,
     dilation_pixels:int,
+    rescue_pixels:int,
 ):
-    from scipy.ndimage import binary_dilation, binary_fill_holes
+    from scipy.ndimage import (
+        binary_dilation,
+        binary_fill_holes,
+        distance_transform_edt,
+        label,
+    )
 
     rendered=np.asarray(rendered_mask,dtype=np.uint8)>0
     front=np.asarray(front_mask,dtype=np.uint8)>0
     if not np.any(front):
         raise RuntimeError("source_visible_front silhouette mask was empty")
 
-    # Fill only enclosed holes, then expand slightly so genuine profile edges,
-    # antialiasing and thin cloth/finger boundaries survive. Hidden geometry
-    # can contribute *inside* this support mask but can never create a second
-    # silhouette outside it.
-    support=binary_fill_holes(front)
+    # Core support kills the large hidden-geometry halo.
+    core=binary_fill_holes(front)
     iterations=max(1,int(dilation_pixels))
-    support=binary_dilation(support,iterations=iterations)
-    keep=rendered & support
+    support=binary_dilation(core,iterations=iterations)
+
+    # Thin-detail rescue: only consider rendered pixels very close to the true
+    # source-alpha silhouette. Then rescue SMALL connected fringe components
+    # (fingers, cloth tatters, hood tips) while rejecting the large secondary
+    # silhouette lobes that caused #32-#34.
+    rescue_radius=max(iterations+1,int(rescue_pixels))
+    distance=distance_transform_edt(~front)
+    fringe=rendered & ~support & (distance<=float(rescue_radius))
+    labels,count=label(fringe)
+
+    front_pixels=int(np.count_nonzero(front))
+    max_component=max(96,int(round(front_pixels*0.006)))
+    rescued=np.zeros_like(rendered,dtype=bool)
+    rescued_components=0
+    rejected_components=0
+    rescued_component_pixels=[]
+
+    for component_id in range(1,int(count)+1):
+        component=labels==component_id
+        area=int(np.count_nonzero(component))
+        if area<=max_component:
+            rescued|=component
+            rescued_components+=1
+            rescued_component_pixels.append(area)
+        else:
+            rejected_components+=1
+
+    keep=rendered & (support|rescued)
+    removed=rendered & ~keep
 
     arr=np.asarray(image.convert("RGB"),dtype=np.uint8).copy()
     arr[~keep]=np.array([18,18,18],dtype=np.uint8)
     out_mask=Image.fromarray(keep.astype(np.uint8)*255,"L")
     return Image.fromarray(arr,"RGB"),out_mask,{
-        "front_pixels":int(np.count_nonzero(front)),
+        "front_pixels":front_pixels,
         "rendered_pixels":int(np.count_nonzero(rendered)),
         "kept_pixels":int(np.count_nonzero(keep)),
         "dilation_pixels":int(iterations),
-        "removed_pixels":int(np.count_nonzero(rendered & ~support)),
+        "rescue_pixels":int(rescue_radius),
+        "max_rescue_component_pixels":int(max_component),
+        "rescued_pixels":int(np.count_nonzero(rescued)),
+        "rescued_components":int(rescued_components),
+        "rejected_components":int(rejected_components),
+        "largest_rescued_component":int(max(rescued_component_pixels) if rescued_component_pixels else 0),
+        "removed_pixels":int(np.count_nonzero(removed)),
     }
+
+
+def _mask_edge_contact(mask:Image.Image,margin:int=4):
+    arr=np.asarray(mask,dtype=np.uint8)>0
+    if not np.any(arr):
+        return {
+            "any":False,
+            "top":False,
+            "bottom":False,
+            "left":False,
+            "right":False,
+            "margin":int(margin),
+        }
+    m=max(1,int(margin))
+    result={
+        "top":bool(np.any(arr[:m,:])),
+        "bottom":bool(np.any(arr[-m:,:])),
+        "left":bool(np.any(arr[:,:m])),
+        "right":bool(np.any(arr[:,-m:])),
+        "margin":int(m),
+    }
+    result["any"]=bool(
+        result["top"] or result["bottom"] or result["left"] or result["right"]
+    )
+    return result
+
+
+def _expand_bounds(bounds,factor:float):
+    xmin,xmax,ymin,ymax=[float(v) for v in bounds]
+    cx=(xmin+xmax)*0.5
+    cy=(ymin+ymax)*0.5
+    width=(xmax-xmin)*float(factor)
+    height=(ymax-ymin)*float(factor)
+    return (
+        cx-width*0.5,
+        cx+width*0.5,
+        cy-height*0.5,
+        cy+height*0.5,
+    )
+
+
+def _render_uv_with_edge_retry(
+    geometries,
+    bounds,
+    output_size:int,
+    supersample:int,
+    *,
+    max_retries:int=2,
+):
+    active_bounds=tuple(float(v) for v in bounds)
+    attempts=[]
+    for attempt in range(max(0,int(max_retries))+1):
+        image,mask=_render_uv_region(
+            geometries,
+            active_bounds,
+            int(output_size),
+            int(supersample),
+        )
+        contact=_mask_edge_contact(
+            mask,
+            margin=max(3,int(round(int(output_size)*0.006))),
+        )
+        attempts.append({
+            "attempt":int(attempt),
+            "bounds":[float(v) for v in active_bounds],
+            "edge_contact":contact,
+        })
+        if not contact["any"]:
+            return image,mask,active_bounds,attempts
+        active_bounds=_expand_bounds(active_bounds,1.18)
+    return image,mask,active_bounds,attempts
 
 
 def _full_bounds(vertices):
@@ -368,7 +476,7 @@ def _head_bounds(geometries,vertices):
     head=np.concatenate(points,axis=0)
     h_lo=head.min(axis=0)
     h_hi=head.max(axis=0)
-    span=max(float(h_hi[0]-h_lo[0]),float(h_hi[1]-h_lo[1]))*1.90
+    span=max(float(h_hi[0]-h_lo[0]),float(h_hi[1]-h_lo[1]))*2.10
     cx=float((h_lo[0]+h_hi[0])*0.5)
     cy=float((h_lo[1]+h_hi[1])*0.5)
     return (
@@ -445,30 +553,32 @@ def render_preview(
 
     if textured:
         head_bounds=_head_bounds(geometries,vertices)
-        full_raw,full_mask_raw=_render_uv_region(
+        full_raw,full_mask_raw,full_bounds_used,full_edge_attempts=_render_uv_with_edge_retry(
             geometries,
             full_bounds,
             int(size),
             int(supersample),
+            max_retries=2,
         )
-        face_raw,face_mask_raw=_render_uv_region(
+        face_raw,face_mask_raw,head_bounds_used,face_edge_attempts=_render_uv_with_edge_retry(
             geometries,
             head_bounds,
             int(face_size),
             int(supersample),
+            max_retries=2,
         )
 
         silhouette_clamp=None
         if source_visible_front:
             _,front_full_mask=_render_uv_region(
                 source_visible_front,
-                full_bounds,
+                full_bounds_used,
                 int(size),
                 int(supersample),
             )
             _,front_face_mask=_render_uv_region(
                 source_visible_front,
-                head_bounds,
+                head_bounds_used,
                 int(face_size),
                 int(supersample),
             )
@@ -477,18 +587,24 @@ def render_preview(
                 full_mask_raw,
                 front_full_mask,
                 dilation_pixels=max(2,int(round(int(size)*0.004))),
+                rescue_pixels=max(6,int(round(int(size)*0.010))),
             )
             face_raw,face_mask_raw,face_clamp=_clamp_to_front_silhouette(
                 face_raw,
                 face_mask_raw,
                 front_face_mask,
                 dilation_pixels=max(3,int(round(int(face_size)*0.006))),
+                rescue_pixels=max(7,int(round(int(face_size)*0.012))),
             )
             silhouette_clamp={
                 "enabled":True,
                 "source_node":"source_visible_front",
                 "full":full_clamp,
                 "face":face_clamp,
+                "edge_retry":{
+                    "full":full_edge_attempts,
+                    "face":face_edge_attempts,
+                },
             }
         else:
             silhouette_clamp={
@@ -508,7 +624,7 @@ def render_preview(
             int(face_size),
             0.10,
         )
-        renderer="hayuya-cpu-uv-alpha-silhouette-clamp-ss2-v5"
+        renderer="hayuya-cpu-uv-alpha-thindetail-edge-retry-ss2-v6"
     else:
         silhouette_clamp={
             "enabled":False,
