@@ -60,6 +60,23 @@ def modifier_property_identifiers(mod):
     except Exception:
         return []
 
+def modifier_input_properties(mod):
+    props = getattr(mod, "properties", None)
+    return getattr(props, "inputs", None) if props is not None else None
+
+def modifier_input_property_identifiers(mod):
+    inputs = modifier_input_properties(mod)
+    if inputs is None:
+        return []
+    try:
+        return [
+            p.identifier
+            for p in inputs.bl_rna.properties
+            if p.identifier not in {"rna_type"}
+        ]
+    except Exception:
+        return []
+
 def list_modifier_inputs(mod):
     group = mod.node_group
     items = []
@@ -113,6 +130,7 @@ def coerce_value(old, new):
 def apply_gn_inputs(mod, requested):
     if not requested:
         return []
+
     group = mod.node_group
     interface_inputs = {}
     for item in group.interface.items_tree:
@@ -123,27 +141,36 @@ def apply_gn_inputs(mod, requested):
         interface_inputs[item.name] = item
         interface_inputs[getattr(item, "identifier", item.name)] = item
 
+    input_props = modifier_input_properties(mod)
+    prop_ids = set(modifier_input_property_identifiers(mod))
+    if input_props is None:
+        fail("Blender NodesModifier has no properties.inputs container")
+
     applied = []
     for key, new_value in requested.items():
         item = interface_inputs.get(key)
         if item is None:
             fail(f"Geometry Nodes input {key!r} is not exposed by {group.name!r}")
-        if not hasattr(item, "default_value"):
-            fail(f"Geometry Nodes input {key!r} has no editable default_value")
+        ident = getattr(item, "identifier", "")
+        if not ident or ident not in prop_ids:
+            fail(f"Geometry Nodes input {key!r} ({ident!r}) has no runtime modifier input property")
 
-        old = item.default_value
         try:
-            coerced = coerce_value(old, new_value)
-            item.default_value = coerced
+            old = getattr(input_props, ident)
         except Exception as exc:
-            fail(f"could not set {key!r}: {exc}")
+            fail(f"could not read runtime input {key!r}: {exc}")
+
+        try:
+            setattr(input_props, ident, coerce_value(old, new_value))
+        except Exception as exc:
+            fail(f"could not set runtime input {key!r}: {exc}")
 
         applied.append({
             "name": item.name,
-            "identifier": getattr(item, "identifier", ""),
-            "mode": "node_group_interface_default",
+            "identifier": ident,
+            "mode": "modifier.properties.inputs",
             "before": serialize_value(old),
-            "after": serialize_value(item.default_value),
+            "after": serialize_value(getattr(input_props, ident)),
         })
 
     bpy.context.view_layer.update()
@@ -378,6 +405,7 @@ report = {
     "blender_version": bpy.app.version_string,
     "stats": stats,
     "modifier_property_keys": modifier_property_identifiers(modifier),
+    "modifier_input_property_keys": modifier_input_property_identifiers(modifier),
     "modifier_inputs_before": before_inputs,
     "modifier_inputs_after": list_modifier_inputs(modifier),
     "applied_inputs": applied_inputs,
