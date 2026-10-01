@@ -1,0 +1,247 @@
+{
+  "schemaVersion": 1,
+  "name": "SANCTUM OF ASH",
+  "source": "St Giles-without-Cripplegate scan by artfletch (CC BY)",
+  "source_uid": "b92917ff83914adc8bc93959ba8b4399",
+  "measurement": "Blender scan-derived gameplay bounds from XZIEL church pipeline",
+  "scale": 39.3700787402,
+  "scan_bounds_m": {
+    "min": [
+      -28.473522186279297,
+      -34.28046417236328,
+      -19.28287124633789
+    ],
+    "max": [
+      32.97017288208008,
+      4.121851921081543,
+      25.405643463134766
+    ],
+    "size": [
+      61.443695068359375,
+      38.402316093444824,
+      44.688514709472656
+    ]
+  },
+  "quake_bounds": {
+    "min": [
+      -1402,
+      -948,
+      -1019
+    ],
+    "max": [
+      1402,
+      948,
+      1040
+    ]
+  },
+  "zones": {
+    "main_church": {
+      "floor": -770,
+      "min": [
+        -1014,
+        -565,
+        -880
+      ],
+      "max": [
+        984,
+        457,
+        -189
+      ],
+      "center": [
+        -15,
+        -54,
+        -534
+      ]
+    },
+    "boiler": {
+      "floor": -859,
+      "min": [
+        513,
+        63,
+        -862
+      ],
+      "max": [
+        796,
+        337,
+        -661
+      ],
+      "center": [
+        654,
+        200,
+        -761
+      ]
+    },
+    "clock_chamber": {
+      "floor": -81,
+      "min": [
+        687,
+        -265,
+        -88
+      ],
+      "max": [
+        999,
+        54,
+        199
+      ],
+      "center": [
+        843,
+        -105,
+        56
+      ]
+    },
+    "exterior": {
+      "floor": -780,
+      "min": [
+        -1210,
+        -756,
+        -786
+      ],
+      "max": [
+        1210,
+        756,
+        223
+      ],
+      "center": [
+        0,
+        0,
+        -282
+      ]
+    },
+    "office": {
+      "floor": -770,
+      "min": [
+        -966,
+        444,
+        -781
+      ],
+      "max": [
+        -760,
+        658,
+        -627
+      ],
+      "center": [
+        -863,
+        551,
+        -704
+      ]
+    },
+    "office_corridor": {
+      "floor": -770,
+      "min": [
+        -773,
+        453,
+        -773
+      ],
+      "max": [
+        -703,
+        581,
+        -655
+      ],
+      "center": [
+        -738,
+        517,
+        -714
+      ]
+    },
+    "ringing_chamber": {
+      "floor": -317,
+      "min": [
+        692,
+        -267,
+        -316
+      ],
+      "max": [
+        1002,
+        56,
+        -61
+      ],
+      "center": [
+        847,
+        -106,
+        -189
+      ]
+    },
+    "roof_chamber": {
+      "floor": 500,
+      "min": [
+        766,
+        -171,
+        488
+      ],
+      "max": [
+        905,
+        -43,
+        611
+      ],
+      "center": [
+        835,
+        -107,
+        549
+      ]
+    },
+    "tower_stairs": {
+      "floor": -750,
+      "min": [
+        916,
+        -280,
+        -751
+      ],
+      "max": [
+        1016,
+        -182,
+        325
+      ],
+      "center": [
+        966,
+        -231,
+        -213
+      ]
+    },
+    "tower_top": {
+      "floor": 500,
+      "min": [
+        665,
+        -313,
+        197
+      ],
+      "max": [
+        1040,
+        73,
+        880
+      ],
+      "center": [
+        852,
+        -120,
+        539
+      ]
+    },
+    "turret": {
+      "floor": -770,
+      "min": [
+        388,
+        -624,
+        -767
+      ],
+      "max": [
+        469,
+        -527,
+        -319
+      ],
+      "center": [
+        428,
+        -576,
+        -543
+      ]
+    }
+  },
+  "validated_source_counts": {
+    "zones": 11,
+    "original_gameplay_interactives": 54,
+    "original_zombie_spawn_candidates": 28
+  },
+  "green_gate": {
+    "player_spawns": 4,
+    "zombie_spawns": 8,
+    "bridge_steps": 213
+  }
+}
