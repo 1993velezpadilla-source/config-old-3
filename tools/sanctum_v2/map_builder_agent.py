@@ -47,9 +47,24 @@ def serialize_value(value):
     except Exception:
         return str(value)
 
+def modifier_property_identifiers(mod):
+    props = getattr(mod, "properties", None)
+    if props is None:
+        return []
+    try:
+        return [
+            p.identifier
+            for p in props.bl_rna.properties
+            if p.identifier not in {"rna_type"}
+        ]
+    except Exception:
+        return []
+
 def list_modifier_inputs(mod):
     group = mod.node_group
     items = []
+    props = getattr(mod, "properties", None)
+    prop_ids = set(modifier_property_identifiers(mod))
     try:
         tree = list(group.interface.items_tree)
     except Exception:
@@ -62,9 +77,9 @@ def list_modifier_inputs(mod):
         ident = getattr(item, "identifier", "")
         if not ident:
             continue
-        has_override = ident in mod.keys()
+        has_override = ident in prop_ids
         try:
-            value = mod[ident] if has_override else getattr(item, "default_value", None)
+            value = getattr(props, ident) if has_override else getattr(item, "default_value", None)
         except Exception:
             value = getattr(item, "default_value", None)
         items.append({
@@ -100,21 +115,22 @@ def apply_gn_inputs(mod, requested):
         return []
     sockets = {x["name"]: x for x in list_modifier_inputs(mod)}
     sockets_by_id = {x["identifier"]: x for x in sockets.values()}
+    props = getattr(mod, "properties", None)
+    prop_ids = set(modifier_property_identifiers(mod))
     applied = []
     for key, new_value in requested.items():
         socket = sockets.get(key) or sockets_by_id.get(key)
         if socket is None:
             fail(f"Geometry Nodes input {key!r} is not exposed by {mod.node_group.name!r}")
         ident = socket["identifier"]
-        if ident in mod.keys():
-            try:
-                old = mod[ident]
-            except Exception:
-                old = socket.get("interface_default")
-        else:
+        if props is None or ident not in prop_ids:
+            fail(f"Geometry Nodes input {key!r} has no writable modifier property in Blender {bpy.app.version_string}")
+        try:
+            old = getattr(props, ident)
+        except Exception:
             old = socket.get("interface_default")
         try:
-            mod[ident] = coerce_value(old, new_value)
+            setattr(props, ident, coerce_value(old, new_value))
         except Exception as exc:
             fail(f"could not set {key!r}: {exc}")
         applied.append({
@@ -353,7 +369,7 @@ report = {
     "source_revision": os.environ.get("XZIEL_SOURCE_REV", ""),
     "blender_version": bpy.app.version_string,
     "stats": stats,
-    "modifier_property_keys": list(modifier.keys()),
+    "modifier_property_keys": modifier_property_identifiers(modifier),
     "modifier_inputs_before": before_inputs,
     "modifier_inputs_after": list_modifier_inputs(modifier),
     "applied_inputs": applied_inputs,
