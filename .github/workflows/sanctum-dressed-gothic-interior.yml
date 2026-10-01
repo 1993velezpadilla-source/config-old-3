@@ -9,6 +9,9 @@ on:
       - "tools/sanctum_v2/dress_sanctum_with_cc0_gothic.py"
       - "tools/sanctum_v2/compose_cathedral_cc0_interior.py"
       - "tools/sanctum_v2/map_builder_plan.json"
+      - "tools/xziel_toolchain/bootstrap_asset_cli.sh"
+      - "tools/xziel_toolchain/process_glb.sh"
+      - "tools/xziel_toolchain/validate_glb.cjs"
   workflow_dispatch:
 
 permissions:
@@ -34,7 +37,7 @@ jobs:
           set -euo pipefail
           sudo apt-get update -qq
           sudo apt-get install -y -qq \
-            git-lfs curl xz-utils xvfb \
+            git-lfs curl xz-utils xvfb unzip bzip2 \
             libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1 \
             libgl1 libglu1-mesa
           git lfs install
@@ -145,6 +148,18 @@ jobs:
           print("POLYGONS", d["stats"]["polygons"])
           print("GLB_BYTES", d["glb_bytes"])
           PY
+
+      - name: Optimize inspect and validate dressed GLB
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/xziel_toolchain/bootstrap_asset_cli.sh
+          RAW_GLB="$(python3 - <<'PY'
+          import json
+          print(json.load(open("sanctum-dressed-probe/dressed-report.json",encoding="utf-8"))["glb"])
+          PY
+          )"
+          bash tools/xziel_toolchain/process_glb.sh             "sanctum-dressed-probe/$RAW_GLB"             "sanctum-dressed-probe/asset-pipeline"             "sanctum-dressed"
 
       - name: Record source provenance
         if: always()
