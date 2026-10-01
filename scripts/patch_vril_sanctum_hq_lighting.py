@@ -230,13 +230,33 @@ images.write_text(it,encoding="utf-8")
 # atlas path exceeds that. Expand the filesystem path budget for this build.
 defs=root/"source/nzportable_def.h"
 dt=defs.read_text(encoding="utf-8")
-old="#define\\tMAX_OSPATH\\t\\t128\\t\\t\\t// max length of a filesystem pathname"
-new="#define\\tMAX_OSPATH\\t\\t512\\t\\t\\t// XZIEL Android: HQ asset paths exceed legacy Quake limit"
-if old not in dt:
-    old="#define MAX_OSPATH 128"
-    if old not in dt:
-        raise SystemExit("Could not find MAX_OSPATH definition")
-dt=dt.replace(old,new,1)
+import re
+dt,n=re.subn(
+    r'(?m)^\\s*#define\\s+MAX_OSPATH\\s+128\\b.*
+
+p.write_text(s,encoding="utf-8")
+
+# Replace the GL4ES-sensitive color-mask suppression hook with a robust
+# two-stage compatibility path: let R_DrawWorld run for visibility/static
+# brush side-effects, then clear its pixels/depth and draw the HQ XZSM before
+# entity rendering. This keeps doors/zombies/HUD alive without exposing BSP.
+rmain=root/"source/platform/sdl/gl/gl_rmain.c"
+rt=rmain.read_text(encoding="utf-8")
+old_block='''\tif (Xziel_StaticMesh_Prepare())\n\t{\n\t\t// Sanctum: BSP remains the gameplay/visibility harness but is not\n\t\t// allowed to contribute color or depth. The HQ XZSM mesh is the\n\t\t// sole architectural visual authority.\n\t\tglColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);\n\t\tglDepthMask(GL_FALSE);\n\t\tR_DrawWorld ();\t\t// still adds static entities to the list\n\t\tglColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);\n\t\tglDepthMask(GL_TRUE);\n\t\tXziel_StaticMesh_Draw();\n\t}\n\telse\n\t{\n\t\tR_DrawWorld ();\t\t// normal NZ:P path\n\t}\n'''
+new_block='''\tif (Xziel_StaticMesh_Prepare())\n\t{\n\t\t// Run the BSP world pass for visibility/static-brush side effects.\n\t\t// Then erase BSP pixels/depth and make XZSM the visible architecture.\n\t\tR_DrawWorld ();\n\t\tglClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);\n\t\tglDepthRange(gldepthmin, gldepthmax);\n\t\tglDepthFunc(GL_LEQUAL);\n\t\tglDepthMask(GL_TRUE);\n\t\tglColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);\n\t\tXziel_StaticMesh_Draw();\n\t}\n\telse\n\t{\n\t\tR_DrawWorld ();\n\t}\n'''
+if old_block not in rt:
+    raise SystemExit("Could not find existing Sanctum color-mask hook")
+rt=rt.replace(old_block,new_block,1)
+rmain.write_text(rt,encoding="utf-8")
+
+print("Patched Sanctum XZSM bridge for full photogrammetry albedo authority + GL4ES-safe BSP erase.")
+,
+    '#define\\tMAX_OSPATH\\t\\t512\\t\\t\\t// XZIEL Android: HQ asset paths exceed legacy Quake limit',
+    dt,
+    count=1,
+)
+if n != 1:
+    raise SystemExit("Could not find MAX_OSPATH definition")
 defs.write_text(dt,encoding="utf-8")
 
 p.write_text(s,encoding="utf-8")
