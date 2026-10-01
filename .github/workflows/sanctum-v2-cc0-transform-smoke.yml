@@ -1,0 +1,112 @@
+name: Sanctum V2 CC0 Transform Reconstruction Smoke
+
+on:
+  push:
+    branches:
+      - sanctum-v2-existing-assets-only
+    paths:
+      - ".github/workflows/sanctum-v2-cc0-transform-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Verify appended-scene authored transforms
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Fetch sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/IRCSS/Blender-Geometry-Node-French-Houses.git external-french-houses
+          (cd external-french-houses && git lfs pull || true)
+          mkdir -p external-stereoscopic-church
+          curl -L --fail --retry 3 https://opengameart.org/sites/default/files/Church.blend -o external-stereoscopic-church/church.blend
+          test -s external-french-houses/GeometryNodesFrenchHous.blend
+          test -s external-stereoscopic-church/church.blend
+
+      - name: Install Blender
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz -o /tmp/blender.tar.xz
+          tar -C /tmp -xf /tmp/blender.tar.xz
+
+      - name: Smoke reconstructed transforms
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/smoke.py <<'PY'
+          import bpy, json
+          from pathlib import Path
+          from mathutils import Vector
+
+          src=Path("external-stereoscopic-church/church.blend")
+          prefixes=("pew","candle","altar","Cross","bible","pipe")
+
+          def authored_world_matrix(o,cache=None):
+              if cache is None:
+                  cache={}
+              key=o.as_pointer()
+              if key in cache:
+                  return cache[key].copy()
+              if o.parent is None:
+                  m=o.matrix_basis.copy()
+              else:
+                  m=authored_world_matrix(o.parent,cache) @ o.matrix_parent_inverse @ o.matrix_basis
+              cache[key]=m.copy()
+              return m
+
+          def center_with_matrix(o,m):
+              pts=[m @ Vector(c) for c in o.bound_box]
+              return sum(pts,Vector())/len(pts)
+
+          with bpy.data.libraries.load(str(src),link=False) as (data_from,data_to):
+              data_to.scenes=list(data_from.scenes)
+
+          source_scene=next(s for s in data_to.scenes if s is not None)
+          props=[
+              o for o in source_scene.objects
+              if o.type=="MESH" and any(o.name==p or o.name.startswith(p+".") for p in prefixes)
+          ]
+          cache={}
+          mats={o.name:authored_world_matrix(o,cache) for o in props}
+          pews=[o for o in props if o.name=="pew" or o.name.startswith("pew.")]
+          centers=[center_with_matrix(o,mats[o.name]) for o in pews]
+          spans=[max(c[i] for c in centers)-min(c[i] for c in centers) for i in range(3)]
+          up=min(range(3),key=lambda i:spans[i])
+          horizontal=[i for i in range(3) if i!=up]
+          mean=sum(centers,Vector())/len(centers)
+          altar=next(o for o in props if o.name=="altar" or o.name.startswith("altar."))
+          altar_center=center_with_matrix(altar,mats[altar.name])
+          delta=altar_center-mean
+          long_axis=max(horizontal,key=lambda i:abs(delta[i]))
+
+          report={
+              "scene":source_scene.name,
+              "prop_count":len(props),
+              "pew_count":len(pews),
+              "pew_spans":[float(x) for x in spans],
+              "up_axis":"XYZ"[up],
+              "long_axis":"XYZ"[long_axis],
+              "altar_delta":[float(x) for x in delta],
+              "sample_pews":[
+                  {"name":o.name,"center":[float(v) for v in center_with_matrix(o,mats[o.name])]}
+                  for o in pews[:4]
+              ],
+          }
+          print("SANCTUM_V2_CC0_TRANSFORM_SMOKE")
+          print(json.dumps(report,indent=2))
+          assert report["prop_count"]==42, report
+          assert report["pew_count"]==24, report
+          assert sum(v>1e-4 for v in report["pew_spans"])>=2, report
+          assert report["up_axis"]=="Z", report
+          assert report["long_axis"]=="Y", report
+          PY
+          /tmp/blender-5.2.2-linux-x64/blender -b external-french-houses/GeometryNodesFrenchHous.blend --python /tmp/smoke.py 2>&1 | tee /tmp/smoke.log
+          grep -q "SANCTUM_V2_CC0_TRANSFORM_SMOKE" /tmp/smoke.log
