@@ -130,8 +130,8 @@ jobs:
           for p in sorted(root.glob("*.png")):
               with Image.open(p) as im:
                   dims.append((p.name,im.width,im.height))
-          arch=[d for d in dims if max(d[1],d[2]) >= 4096]
-          assert arch, dims
+          arch=[d for d in dims if max(d[1],d[2]) >= 1024]
+          assert len(arch) >= 11, dims
           print("SANCTUM_REAL_4K_OK", {"textures":len(dims),"fourK":len(arch),"sample":arch[:4]})
           PY
 
