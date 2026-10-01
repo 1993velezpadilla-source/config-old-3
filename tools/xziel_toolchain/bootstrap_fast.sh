@@ -60,6 +60,11 @@ cmake -S "$SRC/recastnavigation" -B "$BUILD/recastnavigation" -G Ninja \
 cmake --build "$BUILD/recastnavigation" --parallel
 cmake --install "$BUILD/recastnavigation"
 
+# XZIEL single-tile Recast -> Detour navmesh baker.
+if [[ -f "tools/xziel_toolchain/xziel_navmesh_bake.cpp" ]]; then
+  c++ -std=c++17 -O3 -DNDEBUG     -I"$ROOT/recast/include/recastnavigation"     tools/xziel_toolchain/xziel_navmesh_bake.cpp     "$ROOT/recast/lib/libRecast.a"     "$ROOT/recast/lib/libDetour.a"     -o "$BIN/xziel-navmesh-bake"
+fi
+
 XATLAS_SHA="f700c7790aaa030e794b52ba7791a05c085faf0c"
 XATLAS_ARCHIVE="$CACHE/xatlas-$XATLAS_SHA.tar.gz"
 download "https://github.com/jpcy/xatlas/archive/$XATLAS_SHA.tar.gz" "$XATLAS_ARCHIVE"
@@ -84,4 +89,5 @@ echo "[XZIEL] FAST_TOOLCHAIN_READY"
 "$BIN/gltfpack" -h >/dev/null 2>&1 || true
 "$BIN/ktx" --version || "$BIN/ktx" version || true
 test -f "$ROOT/lib/libxatlas.a"
+test -x "$BIN/xziel-navmesh-bake"
 find "$ROOT/recast" -type f \( -name 'libRecast*' -o -name 'libDetour*' \) | head
