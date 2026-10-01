@@ -9,6 +9,9 @@ on:
       - "tools/sanctum_v2/map_builder_agent.py"
       - "tools/sanctum_v2/map_builder_plan.json"
       - "docs/XZIEL_MAP_BUILDER_AGENT.md"
+      - "tools/xziel_toolchain/bootstrap_asset_cli.sh"
+      - "tools/xziel_toolchain/process_glb.sh"
+      - "tools/xziel_toolchain/validate_glb.cjs"
   workflow_dispatch:
 
 permissions:
@@ -33,7 +36,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update -qq
-          sudo apt-get install -y -qq             git-lfs curl xz-utils xvfb             libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1             libgl1 libglu1-mesa
+          sudo apt-get install -y -qq             git-lfs curl xz-utils xvfb unzip bzip2             libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1             libgl1 libglu1-mesa
           git lfs install
 
       - name: Fetch approved upstream cathedral source
@@ -108,6 +111,18 @@ jobs:
           print("GLB_BYTES",report["glb_bytes"])
           print("RENDERS",[x["name"] for x in report["renders"]])
           PY
+
+      - name: Optimize inspect and validate exported GLB
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/xziel_toolchain/bootstrap_asset_cli.sh
+          RAW_GLB="$(python3 - <<'PY'
+          import json
+          print(json.load(open("xziel-map-agent-out/agent-report.json",encoding="utf-8"))["glb"])
+          PY
+          )"
+          bash tools/xziel_toolchain/process_glb.sh             "xziel-map-agent-out/$RAW_GLB"             "xziel-map-agent-out/asset-pipeline"             "sanctum-cathedral-agent"
 
       - name: Record reproducibility metadata
         if: always()
