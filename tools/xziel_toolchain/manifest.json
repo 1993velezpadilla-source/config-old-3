@@ -1,0 +1,115 @@
+{
+  "schema": 1,
+  "policy": "commercial-safe-by-default",
+  "fast_tools": [
+    {
+      "name": "Blender",
+      "version": "5.2.2 LTS",
+      "license": "GPL-3.0-or-later (tool; generated assets not forced GPL)",
+      "role": "authoring/render/bake/export",
+      "status": "existing"
+    },
+    {
+      "name": "meshoptimizer/gltfpack",
+      "version": "v1.3",
+      "license": "MIT",
+      "role": "GLB optimization, simplification, meshlets/LOD foundation",
+      "url": "https://github.com/zeux/meshoptimizer/releases/download/v1.3/gltfpack-ubuntu.zip"
+    },
+    {
+      "name": "KTX-Software",
+      "version": "v4.4.2",
+      "license": "Apache-2.0",
+      "role": "KTX2/Basis/ASTC texture pipeline",
+      "url": "https://github.com/KhronosGroup/KTX-Software/releases/download/v4.4.2/KTX-Software-4.4.2-Linux-x86_64.tar.bz2"
+    },
+    {
+      "name": "RecastNavigation",
+      "version": "v1.6.0",
+      "license": "Zlib",
+      "role": "navmesh + Detour pathfinding/crowd/tile cache",
+      "url": "https://github.com/recastnavigation/recastnavigation/archive/refs/tags/v1.6.0.tar.gz"
+    },
+    {
+      "name": "xatlas",
+      "version": "f700c7790aaa030e794b52ba7791a05c085faf0c",
+      "license": "MIT",
+      "role": "automatic UV unwrap/atlas",
+      "url": "https://github.com/jpcy/xatlas/archive/f700c7790aaa030e794b52ba7791a05c085faf0c.tar.gz"
+    }
+  ],
+  "deep_cpu_tools": [
+    {
+      "name": "Open3D CPU",
+      "version": "0.20.0",
+      "license": "MIT",
+      "role": "point clouds, registration, reconstruction QA, mesh processing",
+      "pip": "open3d-cpu==0.20.0"
+    },
+    {
+      "name": "pycolmap",
+      "version": "4.2.1",
+      "license": "BSD-3-Clause",
+      "role": "photogrammetry/SfM from overlapping reference photos",
+      "pip": "pycolmap==4.2.1"
+    }
+  ],
+  "gpu_optional": [
+    {
+      "name": "MapAnything",
+      "version": "3d10cf7a3016fc0f9bb13a071ee66c47b10be0d9",
+      "license": "Apache-2.0 code; use facebook/map-anything-apache weights for commercial work",
+      "default_enabled": false,
+      "role": "metric 3D reconstruction"
+    },
+    {
+      "name": "VGGT/VGGT-Omega",
+      "license": "commercial checkpoint required for commercial use",
+      "default_enabled": false,
+      "role": "multi-view/video geometry reconstruction"
+    },
+    {
+      "name": "TRELLIS.2",
+      "version": "75fbf0183001ed9876c8dbb35de6b68552ee08bd",
+      "license": "MIT core; verify dependency/model terms before commercial worker",
+      "default_enabled": false,
+      "role": "image-to-3D props/assets"
+    },
+    {
+      "name": "TripoSG",
+      "version": "fc5c40990181e2a756c4e0b1c2f4d6b5202faf8c",
+      "license": "MIT code; verify model/dependency terms",
+      "default_enabled": false,
+      "role": "image-to-3D props/assets"
+    },
+    {
+      "name": "gsplat",
+      "version": "512d366b67073d77ca099ede742683c165dfc23b",
+      "license": "Apache-2.0",
+      "default_enabled": false,
+      "role": "Gaussian splatting reconstruction/QA"
+    }
+  ],
+  "gui_optional": [
+    {
+      "name": "TrenchBroom",
+      "role": "FPS blockout/entities/XZIEL level editor candidate"
+    },
+    {
+      "name": "fSpy",
+      "role": "camera solve from reference photos"
+    },
+    {
+      "name": "BlenderGIS",
+      "role": "GIS/terrain/OSM ingestion"
+    },
+    {
+      "name": "Material Maker",
+      "role": "procedural PBR materials"
+    },
+    {
+      "name": "ArmorPaint",
+      "role": "PBR texture painting/baking"
+    }
+  ]
+}
