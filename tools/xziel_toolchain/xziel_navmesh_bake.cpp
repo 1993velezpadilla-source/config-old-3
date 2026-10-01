@@ -250,6 +250,49 @@ int main(int argc, char** argv) {
     if (dtStatusFailed(status) || nearestRef == 0)
         return fail("Detour nearest-poly validation", 32);
 
+    // Summarize vertical coverage of the baked polygons. Recast stores
+    // quantized vertices relative to pmesh->bmin, with Y as up in the OBJ
+    // produced by XZIEL's glTF runtime-geometry extractor.
+    std::vector<float> polyCenterY;
+    polyCenterY.reserve(size_t(pmesh->npolys));
+    for (int i = 0; i < pmesh->npolys; ++i) {
+        const unsigned short* poly = &pmesh->polys[i * pmesh->nvp * 2];
+        float sumY = 0.0f;
+        int countY = 0;
+        for (int j = 0; j < pmesh->nvp; ++j) {
+            const unsigned short vi = poly[j];
+            if (vi == RC_MESH_NULL_IDX) break;
+            const unsigned short* v = &pmesh->verts[vi * 3];
+            const float worldY = pmesh->bmin[1] + float(v[1]) * pmesh->ch;
+            sumY += worldY;
+            ++countY;
+        }
+        if (countY > 0) polyCenterY.push_back(sumY / float(countY));
+    }
+    std::sort(polyCenterY.begin(), polyCenterY.end());
+    int verticalBands = 0;
+    float navMinY = 0.0f;
+    float navMaxY = 0.0f;
+    if (!polyCenterY.empty()) {
+        navMinY = polyCenterY.front();
+        navMaxY = polyCenterY.back();
+        verticalBands = 1;
+        float bandMean = polyCenterY.front();
+        int bandCount = 1;
+        for (size_t i = 1; i < polyCenterY.size(); ++i) {
+            // A gap above ~1.25 m is large enough to distinguish separate
+            // floor plates while ignoring stairs/ramps inside one route.
+            if (polyCenterY[i] - bandMean > 1.25f) {
+                ++verticalBands;
+                bandMean = polyCenterY[i];
+                bandCount = 1;
+            } else {
+                bandMean = (bandMean * float(bandCount) + polyCenterY[i]) / float(bandCount + 1);
+                ++bandCount;
+            }
+        }
+    }
+
     std::ofstream report(argv[3]);
     if (!report) return fail("report output open", 33);
     report << "{\n";
@@ -267,6 +310,10 @@ int main(int argc, char** argv) {
     json_num(report, "agent_radius", agentRadius);
     json_num(report, "agent_climb", agentClimb);
     json_num(report, "walkable_slope_degrees", cfg.walkableSlopeAngle);
+    json_num(report, "nav_min_y", navMinY);
+    json_num(report, "nav_max_y", navMaxY);
+    json_num(report, "nav_vertical_span", navMaxY - navMinY);
+    json_num(report, "nav_vertical_bands", verticalBands);
     report << "  \"nearest_poly_ref\": " << static_cast<unsigned long long>(nearestRef) << "\n";
     report << "}\n";
     report.close();
@@ -275,6 +322,8 @@ int main(int argc, char** argv) {
     std::cout << "NAV_POLYGONS " << pmesh->npolys << "\n";
     std::cout << "NAV_VERTICES " << pmesh->nverts << "\n";
     std::cout << "NAVDATA_BYTES " << navDataSize << "\n";
+    std::cout << "NAV_VERTICAL_SPAN " << (navMaxY - navMinY) << "\n";
+    std::cout << "NAV_VERTICAL_BANDS " << verticalBands << "\n";
 
     dtFreeNavMeshQuery(query);
     query = nullptr;
