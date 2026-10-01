@@ -1,0 +1,103 @@
+name: Sanctum CC0 Prop Inventory
+
+on:
+  push:
+    branches:
+      - feature/xziel-map-builder-agent-v1
+    paths:
+      - ".github/workflows/sanctum-cc0-prop-inventory.yml"
+      - "tools/sanctum_v2/inventory_cc0_sanctum_props.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sanctum-cc0-prop-inventory-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install host runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq curl xz-utils libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libglu1-mesa
+
+      - name: Fetch verified CC0 packs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p external-sanctum-props sanctum-prop-inventory
+
+          curl -L --fail --retry 3 https://opengameart.org/content/medieval-benches -o external-sanctum-props/benches.html
+          grep -qi CC0 external-sanctum-props/benches.html
+          curl -L --fail --retry 3 https://opengameart.org/sites/default/files/medievalbenchesexport.blend -o external-sanctum-props/medievalbenchesexport.blend
+          sha256sum external-sanctum-props/medievalbenchesexport.blend | tee external-sanctum-props/benches.sha256
+
+          curl -L --fail --retry 3 https://opengameart.org/content/medieval-candles -o external-sanctum-props/candles.html
+          grep -qi CC0 external-sanctum-props/candles.html
+          curl -L --fail --retry 3 https://opengameart.org/sites/default/files/medievalcandles.blend -o external-sanctum-props/medievalcandles.blend
+          sha256sum external-sanctum-props/medievalcandles.blend | tee external-sanctum-props/candles.sha256
+
+          curl -L --fail --retry 3 https://opengameart.org/content/medieval-windows-interiors -o external-sanctum-props/windows.html
+          grep -qi CC0 external-sanctum-props/windows.html
+          curl -L --fail --retry 3 https://opengameart.org/sites/default/files/medievalwindows.blend -o external-sanctum-props/medievalwindows.blend
+          sha256sum external-sanctum-props/medievalwindows.blend | tee external-sanctum-props/windows.sha256
+
+      - name: Install Blender
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz -o /tmp/blender.tar.xz
+          tar -C /tmp -xf /tmp/blender.tar.xz
+
+      - name: Inventory benches
+        shell: bash
+        env:
+          SANCTUM_PROP_INV_OUT: sanctum-prop-inventory/benches
+          SANCTUM_PROP_PACK: benches
+        run: |
+          set -euo pipefail
+          mkdir -p "$SANCTUM_PROP_INV_OUT"
+          export SANCTUM_PROP_SHA256="$(cut -d' ' -f1 external-sanctum-props/benches.sha256)"
+          /tmp/blender-5.2.2-linux-x64/blender -b external-sanctum-props/medievalbenchesexport.blend --python tools/sanctum_v2/inventory_cc0_sanctum_props.py 2>&1 | tee "$SANCTUM_PROP_INV_OUT/blender.log"
+          grep -q SANCTUM_PROP_INVENTORY_PASS "$SANCTUM_PROP_INV_OUT/blender.log"
+
+      - name: Inventory candles
+        shell: bash
+        env:
+          SANCTUM_PROP_INV_OUT: sanctum-prop-inventory/candles
+          SANCTUM_PROP_PACK: candles
+        run: |
+          set -euo pipefail
+          mkdir -p "$SANCTUM_PROP_INV_OUT"
+          export SANCTUM_PROP_SHA256="$(cut -d' ' -f1 external-sanctum-props/candles.sha256)"
+          /tmp/blender-5.2.2-linux-x64/blender -b external-sanctum-props/medievalcandles.blend --python tools/sanctum_v2/inventory_cc0_sanctum_props.py 2>&1 | tee "$SANCTUM_PROP_INV_OUT/blender.log"
+          grep -q SANCTUM_PROP_INVENTORY_PASS "$SANCTUM_PROP_INV_OUT/blender.log"
+
+      - name: Inventory windows
+        shell: bash
+        env:
+          SANCTUM_PROP_INV_OUT: sanctum-prop-inventory/windows
+          SANCTUM_PROP_PACK: windows
+        run: |
+          set -euo pipefail
+          mkdir -p "$SANCTUM_PROP_INV_OUT"
+          export SANCTUM_PROP_SHA256="$(cut -d' ' -f1 external-sanctum-props/windows.sha256)"
+          /tmp/blender-5.2.2-linux-x64/blender -b external-sanctum-props/medievalwindows.blend --python tools/sanctum_v2/inventory_cc0_sanctum_props.py 2>&1 | tee "$SANCTUM_PROP_INV_OUT/blender.log"
+          grep -q SANCTUM_PROP_INVENTORY_PASS "$SANCTUM_PROP_INV_OUT/blender.log"
+
+      - name: Upload inventory
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-CC0-Prop-Inventory
+          path: sanctum-prop-inventory/
+          if-no-files-found: error
+          retention-days: 14
