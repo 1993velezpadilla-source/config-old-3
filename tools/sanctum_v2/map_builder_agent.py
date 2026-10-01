@@ -113,32 +113,40 @@ def coerce_value(old, new):
 def apply_gn_inputs(mod, requested):
     if not requested:
         return []
-    sockets = {x["name"]: x for x in list_modifier_inputs(mod)}
-    sockets_by_id = {x["identifier"]: x for x in sockets.values()}
-    props = getattr(mod, "properties", None)
-    prop_ids = set(modifier_property_identifiers(mod))
+    group = mod.node_group
+    interface_inputs = {}
+    for item in group.interface.items_tree:
+        if getattr(item, "item_type", None) != "SOCKET":
+            continue
+        if getattr(item, "in_out", None) != "INPUT":
+            continue
+        interface_inputs[item.name] = item
+        interface_inputs[getattr(item, "identifier", item.name)] = item
+
     applied = []
     for key, new_value in requested.items():
-        socket = sockets.get(key) or sockets_by_id.get(key)
-        if socket is None:
-            fail(f"Geometry Nodes input {key!r} is not exposed by {mod.node_group.name!r}")
-        ident = socket["identifier"]
-        if props is None or ident not in prop_ids:
-            fail(f"Geometry Nodes input {key!r} has no writable modifier property in Blender {bpy.app.version_string}")
+        item = interface_inputs.get(key)
+        if item is None:
+            fail(f"Geometry Nodes input {key!r} is not exposed by {group.name!r}")
+        if not hasattr(item, "default_value"):
+            fail(f"Geometry Nodes input {key!r} has no editable default_value")
+
+        old = item.default_value
         try:
-            old = getattr(props, ident)
-        except Exception:
-            old = socket.get("interface_default")
-        try:
-            setattr(props, ident, coerce_value(old, new_value))
+            coerced = coerce_value(old, new_value)
+            item.default_value = coerced
         except Exception as exc:
             fail(f"could not set {key!r}: {exc}")
+
         applied.append({
-            "name": socket["name"],
-            "identifier": ident,
+            "name": item.name,
+            "identifier": getattr(item, "identifier", ""),
+            "mode": "node_group_interface_default",
             "before": serialize_value(old),
-            "after": serialize_value(mod[ident]),
+            "after": serialize_value(item.default_value),
         })
+
+    bpy.context.view_layer.update()
     return applied
 
 def apply_transform(obj, transform):
