@@ -1,0 +1,283 @@
+{
+  "schema_version": 1,
+  "map_id": "sanctum_of_ash",
+  "coordinate_policy": "relative_to_fitted_interior_bounds",
+  "design_sources": [
+    "docs/SANCTUM_OF_ASH_MAP_BIBLE.md",
+    "docs/SANCTUM_OF_ASH_NATIVE_HORROR_REDIGN_V2.md",
+    "docs/sanctum-zombies-dna-profile.v1.json"
+  ],
+  "guardrails": {
+    "original_layout": true,
+    "no_exact_cod_room_copy": true,
+    "main_nave_loop_preserved": true,
+    "min_vertical_connections_per_new_floor": 2,
+    "tower_or_upper_floor_must_have_bailout": true,
+    "mobile_clearance_required": true
+  },
+  "floors": [
+    {
+      "id": "floor_minus_1",
+      "name": "Service Undercroft",
+      "vertical_offset_m": -3.6,
+      "gameplay_role": "power_pressure_loop",
+      "geometry": {
+        "footprint_width_fraction": 0.68,
+        "footprint_length_fraction": 0.46,
+        "corridor_width_m": 2.2,
+        "ceiling_height_m": 3,
+        "central_blocker_fraction": [
+          0.3,
+          0.22
+        ]
+      },
+      "connections": [
+        "undercroft_ramp_west",
+        "undercroft_ramp_east_shortcut"
+      ],
+      "power_state": "power_source",
+      "pressure_vectors": 3,
+      "interactions": [
+        "power_switch",
+        "boiler_steam_trap",
+        "perk_second_wind",
+        "mystery_reliquary_candidate",
+        "radio_ad_undercroft"
+      ]
+    },
+    {
+      "id": "floor_0",
+      "name": "Nave",
+      "vertical_offset_m": 0,
+      "gameplay_role": "primary_training_loop",
+      "existing": true,
+      "connections": [
+        "undercroft_ramp_west",
+        "upper_ramp_west",
+        "upper_ramp_east",
+        "undercroft_ramp_east_shortcut"
+      ],
+      "pressure_vectors": 3,
+      "interactions": [
+        "altar_forge",
+        "mystery_reliquary_primary",
+        "wallbuy_nave",
+        "ad_frame_nave_west"
+      ]
+    },
+    {
+      "id": "floor_1",
+      "name": "Choir Gallery",
+      "vertical_offset_m": 3.8,
+      "gameplay_role": "high_ground_risk_loop",
+      "geometry": {
+        "side_walkway_width_m": 2.15,
+        "rear_bridge_depth_m": 2.4,
+        "front_bridge_depth_m": 1.7,
+        "central_void_fraction": [
+          0.52,
+          0.5
+        ]
+      },
+      "connections": [
+        "upper_ramp_west",
+        "upper_ramp_east"
+      ],
+      "pressure_vectors": 2,
+      "interactions": [
+        "perk_rapid_hands",
+        "wallbuy_gallery",
+        "mystery_reliquary_candidate",
+        "ad_frame_gallery_east"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "upper_ramp_west",
+      "from": "floor_0",
+      "to": "floor_1",
+      "side": "west_rear",
+      "kind": "walkable_ramp_blockout",
+      "door_cost": 1000,
+      "always_escape_after_open": true
+    },
+    {
+      "id": "upper_ramp_east",
+      "from": "floor_0",
+      "to": "floor_1",
+      "side": "east_front",
+      "kind": "walkable_ramp_blockout",
+      "door_cost": 1250,
+      "always_escape_after_open": true
+    },
+    {
+      "id": "undercroft_ramp_west",
+      "from": "floor_0",
+      "to": "floor_minus_1",
+      "side": "west_mid",
+      "kind": "walkable_ramp_blockout",
+      "door_cost": 1000,
+      "always_escape_after_open": true
+    },
+    {
+      "id": "undercroft_ramp_east_shortcut",
+      "from": "floor_minus_1",
+      "to": "floor_0",
+      "side": "east_rear",
+      "kind": "power_shortcut_ramp",
+      "door_cost": 0,
+      "requires": "power_on",
+      "always_escape_after_open": true
+    }
+  ],
+  "gameplay_entities": [
+    {
+      "id": "power_switch",
+      "floor": "floor_minus_1",
+      "anchor_fraction": [
+        0,
+        0.24
+      ],
+      "kind": "power"
+    },
+    {
+      "id": "boiler_steam_trap",
+      "floor": "floor_minus_1",
+      "anchor_fraction": [
+        0,
+        0
+      ],
+      "kind": "trap"
+    },
+    {
+      "id": "perk_second_wind",
+      "floor": "floor_minus_1",
+      "anchor_fraction": [
+        -0.26,
+        -0.12
+      ],
+      "kind": "perk"
+    },
+    {
+      "id": "perk_rapid_hands",
+      "floor": "floor_1",
+      "anchor_fraction": [
+        0.28,
+        0.18
+      ],
+      "kind": "perk"
+    },
+    {
+      "id": "wallbuy_gallery",
+      "floor": "floor_1",
+      "anchor_fraction": [
+        -0.34,
+        0.08
+      ],
+      "kind": "wallbuy"
+    },
+    {
+      "id": "wallbuy_nave",
+      "floor": "floor_0",
+      "anchor_fraction": [
+        0.42,
+        -0.18
+      ],
+      "kind": "wallbuy"
+    },
+    {
+      "id": "mystery_reliquary_primary",
+      "floor": "floor_0",
+      "anchor_fraction": [
+        -0.3,
+        0.28
+      ],
+      "kind": "mystery_box"
+    },
+    {
+      "id": "altar_forge",
+      "floor": "floor_0",
+      "anchor_fraction": [
+        0,
+        0.38
+      ],
+      "kind": "upgrade_machine"
+    }
+  ],
+  "ad_system": {
+    "principles": {
+      "pauses_gameplay": false,
+      "hud_overlay": false,
+      "forced_fullscreen": false,
+      "forced_click": false,
+      "world_space_only": true,
+      "audio_is_spatial": true,
+      "quest_audio_has_priority": true,
+      "combat_audio_has_priority": true,
+      "provider_policy_gate_required": true
+    },
+    "placements": [
+      {
+        "id": "ad_frame_nave_west",
+        "floor": "floor_0",
+        "type": "framed_surface",
+        "anchor_fraction": [
+          -0.47,
+          -0.06
+        ],
+        "vertical_m": 1.65,
+        "size_m": [
+          1.6,
+          0.9
+        ],
+        "allowed_media": [
+          "static_image",
+          "silent_video"
+        ],
+        "audio": false
+      },
+      {
+        "id": "ad_frame_gallery_east",
+        "floor": "floor_1",
+        "type": "framed_surface",
+        "anchor_fraction": [
+          0.47,
+          0.1
+        ],
+        "vertical_m": 1.4,
+        "size_m": [
+          1.4,
+          0.8
+        ],
+        "allowed_media": [
+          "static_image",
+          "silent_video"
+        ],
+        "audio": false
+      },
+      {
+        "id": "radio_ad_undercroft",
+        "floor": "floor_minus_1",
+        "type": "spatial_radio",
+        "anchor_fraction": [
+          0.3,
+          0.18
+        ],
+        "vertical_m": 0.8,
+        "allowed_media": [
+          "audio"
+        ],
+        "audio": {
+          "max_radius_m": 7.5,
+          "full_volume_radius_m": 2.5,
+          "max_clip_seconds": 15,
+          "min_cooldown_seconds": 480,
+          "duck_under_enemy_and_quest_vo": true,
+          "stop_when_leaving_radius": false,
+          "fade_out_seconds": 1.2
+        }
+      }
+    ]
+  }
+}
