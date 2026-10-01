@@ -100,13 +100,13 @@ jobs:
           },indent=2))
           PY
 
-      - name: Super-resolve St Giles atlases 2K to 4K with EDSR
+      - name: Super-resolve St Giles atlases 1K to 4K with EDSR
         shell: bash
         run: |
           set -euo pipefail
           python3 -m pip install --quiet "numpy<2" opencv-contrib-python-headless==4.10.0.84 pillow==11.3.0
           mkdir -p .cache/xziel-sr
-          curl -L --fail --retry 3 https://raw.githubusercontent.com/Saafke/EDSR_Tensorflow/master/models/EDSR_x2.pb -o .cache/xziel-sr/EDSR_x2.pb
+          curl -L --fail --retry 3 https://raw.githubusercontent.com/Saafke/EDSR_Tensorflow/master/models/EDSR_x4.pb -o .cache/xziel-sr/EDSR_x4.pb
 
           python3 - <<'PY' | tee church-artifact/superres-4k.log
           from pathlib import Path
@@ -116,8 +116,8 @@ jobs:
 
           root=Path("church-artifact/vril_static/textures/xziel/sanctum")
           sr=dnn_superres.DnnSuperResImpl_create()
-          sr.readModel(".cache/xziel-sr/EDSR_x2.pb")
-          sr.setModel("edsr",2)
+          sr.readModel(".cache/xziel-sr/EDSR_x4.pb")
+          sr.setModel("edsr",4)
 
           rows=[]
           for p in sorted(root.glob("*.png")):
