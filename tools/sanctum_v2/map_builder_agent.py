@@ -62,16 +62,21 @@ def list_modifier_inputs(mod):
         ident = getattr(item, "identifier", "")
         if not ident:
             continue
+        has_override = ident in mod.keys()
         try:
-            value = mod[ident]
+            value = mod[ident] if has_override else getattr(item, "default_value", None)
         except Exception:
-            value = None
+            value = getattr(item, "default_value", None)
         items.append({
             "name": item.name,
             "identifier": ident,
             "socket_type": getattr(item, "socket_type", getattr(item, "bl_socket_idname", "")),
             "hide_in_modifier": bool(getattr(item, "hide_in_modifier", False)),
+            "has_modifier_override": bool(has_override),
             "value": serialize_value(value),
+            "interface_default": serialize_value(getattr(item, "default_value", None)),
+            "min_value": serialize_value(getattr(item, "min_value", None)),
+            "max_value": serialize_value(getattr(item, "max_value", None)),
         })
     return items
 
@@ -101,10 +106,13 @@ def apply_gn_inputs(mod, requested):
         if socket is None:
             fail(f"Geometry Nodes input {key!r} is not exposed by {mod.node_group.name!r}")
         ident = socket["identifier"]
-        try:
-            old = mod[ident]
-        except Exception:
-            fail(f"Geometry Nodes input {key!r} is not writable on modifier")
+        if ident in mod.keys():
+            try:
+                old = mod[ident]
+            except Exception:
+                old = socket.get("interface_default")
+        else:
+            old = socket.get("interface_default")
         try:
             mod[ident] = coerce_value(old, new_value)
         except Exception as exc:
@@ -345,6 +353,7 @@ report = {
     "source_revision": os.environ.get("XZIEL_SOURCE_REV", ""),
     "blender_version": bpy.app.version_string,
     "stats": stats,
+    "modifier_property_keys": list(modifier.keys()),
     "modifier_inputs_before": before_inputs,
     "modifier_inputs_after": list_modifier_inputs(modifier),
     "applied_inputs": applied_inputs,
