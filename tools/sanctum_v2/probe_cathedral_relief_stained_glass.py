@@ -70,7 +70,7 @@ def build_relief_box_material(mat,diffuse,roughness,displacement,tile_m,resoluti
     links.new(bump.outputs["Normal"],bsdf.inputs["Normal"])
     links.new(bsdf.outputs["BSDF"],out.inputs["Surface"])
 
-def apply_stained_glass_preserve_shader(mat,image_path):
+def apply_stained_glass_seamless(mat,image_path):
     if not mat.use_nodes or not mat.node_tree:
         raise SystemExit("RoundWindwos has no authored node tree to preserve")
     nodes=mat.node_tree.nodes
@@ -79,17 +79,22 @@ def apply_stained_glass_preserve_shader(mat,image_path):
     if not bsdfs:
         raise SystemExit("RoundWindwos has no Principled BSDF")
     img=load_image(image_path,False)
-    if tuple(img.size)!=(1344,2176):
-        raise SystemExit(f"Unexpected stained-glass source dimensions: {tuple(img.size)}")
+    if tuple(img.size)!=(1024,1024):
+        raise SystemExit(f"Unexpected seamless stained-glass dimensions: {tuple(img.size)}")
 
     uv=nodes.new("ShaderNodeUVMap")
     uv.uv_map=UV_NAME
+    mapping=nodes.new("ShaderNodeMapping")
+    # Source author explicitly recommends repeating this seamless texture 2x-4x.
+    mapping.inputs["Scale"].default_value=(2.0,2.0,2.0)
+
     tex=nodes.new("ShaderNodeTexImage")
     tex.image=img
-    tex.extension="EXTEND"
+    tex.extension="REPEAT"
     tex.projection="FLAT"
 
-    links.new(uv.outputs["UV"],tex.inputs["Vector"])
+    links.new(uv.outputs["UV"],mapping.inputs["Vector"])
+    links.new(mapping.outputs["Vector"],tex.inputs["Vector"])
     for bsdf in bsdfs:
         links.new(tex.outputs["Color"],bsdf.inputs["Base Color"])
 
@@ -193,9 +198,9 @@ build_relief_box_material(
     roof_tile,
     resolution,
 )
-apply_stained_glass_preserve_shader(
+apply_stained_glass_seamless(
     mats["RoundWindwos"],
-    ASSETS/"stained_glass"/"stanford_memorial_window.jpg",
+    ASSETS/"stained_glass"/"color.png",
 )
 
 st=evaluated_stats(obj)
@@ -242,7 +247,7 @@ report={
     "mapping":{
         "stone":"BOX/Object + Poly Haven physical dimensions",
         "roof":"BOX/Object + Poly Haven physical dimensions",
-        "stained_glass":"existing UVMap on RoundWindwos",
+        "stained_glass":"existing UVMap + seamless REPEAT 2x",
     },
     "relief":{
         "source":"Poly Haven 4K displacement maps",
@@ -252,9 +257,10 @@ report={
         "roof_bump_distance_m":roof_tile/resolution,
     },
     "stained_glass":{
-        "source":"Wikimedia Commons public-domain Stanford Memorial Church stained glass photograph",
+        "source":"3DTextures Glass Stained Panel Window seamless CC0 material",
         "preserved_authored_shader":True,
-        "source_dimensions":[1344,2176],
+        "source_dimensions":[1024,1024],
+        "repeat":"2x as recommended by source author",
     },
     "renders":[v[0] for v in views],
 }
