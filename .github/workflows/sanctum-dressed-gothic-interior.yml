@@ -130,7 +130,7 @@ jobs:
           assert d["interior_license"]=="CC0", d
           assert d["dressing_license"]=="CC0", d
           assert len(d["instances"]) >= 13, d
-          assert d["walkability"]["walkable_ratio"] >= 0.88, d
+          assert d["walkability_retention_ratio"] >= 0.88, d
           assert d["stats"]["vertices"] > 200000, d
           assert d["stats"]["polygons"] > 150000, d
           assert len(d["renders"]) == 6, d
@@ -143,7 +143,9 @@ jobs:
 
           print("SANCTUM_DRESSED_EVIDENCE_GREEN")
           print("INSTANCES", len(d["instances"]))
-          print("WALKABLE_RATIO", d["walkability"]["walkable_ratio"])
+          print("BASELINE_CLEARANCE_RATIO", d["baseline_clearance"]["walkable_ratio"])
+          print("DRESSED_CLEARANCE_RATIO", d["walkability"]["walkable_ratio"])
+          print("WALKABILITY_RETENTION_RATIO", d["walkability_retention_ratio"])
           print("VERTICES", d["stats"]["vertices"])
           print("POLYGONS", d["stats"]["polygons"])
           print("GLB_BYTES", d["glb_bytes"])
