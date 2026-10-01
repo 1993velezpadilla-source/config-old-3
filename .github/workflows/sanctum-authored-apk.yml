@@ -207,8 +207,10 @@ jobs:
           python3 -m pip install --quiet pillow==11.3.0
           python3 - <<'PY' | tee sanctum-authored-dist/visual-report.txt
           from PIL import Image,ImageChops,ImageStat
+          # The first post-stage capture is retained as a timing diagnostic:
+          # SDL can set FIRST_FRAME_OK before Android has presented the buffer.
+          # Visual acceptance therefore requires the two settled frames.
           paths=[
-              "sanctum-authored-dist/church-first.png",
               "sanctum-authored-dist/church-10s-later.png",
               "sanctum-authored-dist/church-28s-later.png",
           ]
