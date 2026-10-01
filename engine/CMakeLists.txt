@@ -226,6 +226,11 @@ if(XZIEL_ENGINE_BUILD_TESTS)
     target_compile_features(xziel_audio_scene_smoke PRIVATE cxx_std_20)
     add_test(NAME xziel_audio_scene_smoke COMMAND xziel_audio_scene_smoke)
 
+    add_executable(xziel_intrinsic_ads_smoke tests/intrinsic_ads_smoke.cpp)
+    target_link_libraries(xziel_intrinsic_ads_smoke PRIVATE xziel_engine)
+    target_compile_features(xziel_intrinsic_ads_smoke PRIVATE cxx_std_20)
+    add_test(NAME xziel_intrinsic_ads_smoke COMMAND xziel_intrinsic_ads_smoke)
+
     add_executable(xziel_frame_graph_smoke tests/frame_graph_smoke.cpp)
     target_link_libraries(xziel_frame_graph_smoke PRIVATE xziel_engine)
     target_compile_features(xziel_frame_graph_smoke PRIVATE cxx_std_20)

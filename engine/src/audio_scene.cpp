@@ -100,6 +100,9 @@ float AudioScenePlanner::score(
         case AudioSourceKind::HorrorStinger:
             kindBoost = 3.8f;
             break;
+        case AudioSourceKind::Advertisement:
+            kindBoost = 0.75f;
+            break;
         case AudioSourceKind::UI:
             kindBoost = 3.4f;
             break;
