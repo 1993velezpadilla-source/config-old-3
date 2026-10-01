@@ -141,5 +141,28 @@
       "role": "official glTF 2.0 conformance/error gate",
       "npm": "gltf-validator@2.0.0-dev.3.10"
     }
+  ],
+  "geometry_cpu_tools": [
+    {
+      "name": "trimesh",
+      "version": "5.1.0",
+      "license": "MIT",
+      "role": "GLB mesh IO and collision preprocessing",
+      "pip": "trimesh==5.1.0"
+    },
+    {
+      "name": "CoACD",
+      "version": "1.0.14",
+      "license": "MIT",
+      "role": "convex collision decomposition",
+      "pip": "coacd==1.0.14"
+    },
+    {
+      "name": "manifold3d",
+      "version": "3.5.4",
+      "license": "Apache-2.0",
+      "role": "robust mesh booleans/repair",
+      "pip": "manifold3d==3.5.4"
+    }
   ]
 }
