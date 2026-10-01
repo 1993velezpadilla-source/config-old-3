@@ -141,13 +141,15 @@ floor_thickness=0.18
 
 hole_w=max(1.9,min(2.35,hx*0.34))
 hole_len=max(5.8,min(6.8,hy*0.55))
-left_x0=xmin+0.55
+# Inset ramp openings from the side shell. The original 0.55 m inset
+# left each opening ~18.6 cm through the undercroft side wall.
+left_x0=xmin+1.00
 left_x1=left_x0+hole_w
 # Keep the west undercroft ramp fully inside the service-room shell.
 # The old -0.44 fraction crossed the south perimeter wall by ~2 m.
 left_y0=ic.y-hy*0.27
 left_y1=left_y0+hole_len
-right_x1=xmax-0.55
+right_x1=xmax-1.00
 right_x0=right_x1-hole_w
 right_y1=ic.y+hy*0.44
 right_y0=right_y1-hole_len
