@@ -120,22 +120,94 @@ def project_source_front(
     )
     uv=np.stack([u,v],axis=1)
 
+    # Visibility-aware front projection. The old v2 path gave every layer the
+    # same XY UVs, so a veil/neck surface behind the face could receive the
+    # exact same facial pixels ("photo sticker on a mannequin"). Build a
+    # coarse front-depth envelope in XY and texture only faces that are both
+    # front-facing and on that visible envelope.
+    faces=np.asarray(mesh.faces,dtype=np.int64)
+    face_vertices=vertices[faces]
+    face_normals=np.asarray(mesh.face_normals,dtype=np.float64)
+
+    grid=max(256,min(1024,int(texture_edge)//4))
+    gx=np.clip(np.rint(u*(grid-1)).astype(np.int64),0,grid-1)
+    gy=np.clip(np.rint(v*(grid-1)).astype(np.int64),0,grid-1)
+
+    front=np.full((grid,grid),-np.inf,dtype=np.float64)
+    np.maximum.at(front,(gy,gx),vertices[:,depth_axis])
+
+    # Expand sparse vertex samples slightly so tiny triangles whose centroid
+    # falls between raster points still inherit the nearest front depth.
+    try:
+        from scipy.ndimage import maximum_filter
+        front=maximum_filter(front,size=5,mode="nearest")
+    except Exception:
+        padded=np.pad(front,2,mode="edge")
+        windows=[]
+        for oy in range(5):
+            for ox in range(5):
+                windows.append(padded[oy:oy+grid,ox:ox+grid])
+        front=np.maximum.reduce(windows)
+
+    front_at_vertex=front[gy,gx]
+    depth_extent=max(float(ext[depth_axis]),1e-8)
+    depth_tolerance=max(depth_extent*0.012,1e-6)
+    vertex_front_visible=(
+        vertices[:,depth_axis] >= (front_at_vertex-depth_tolerance)
+    )
+    visible_vertex_count=vertex_front_visible[faces].sum(axis=1)
+    # +Z is Hunyuan's current source-facing direction.
+    visible_faces=(
+        (visible_vertex_count>=2)
+        & (face_normals[:,depth_axis]>0.02)
+    )
+    hidden_faces=~visible_faces
+
     texture,tex_meta=_delivery_texture(source_image,int(texture_edge))
-    material=trimesh.visual.material.PBRMaterial(
+    projected_material=trimesh.visual.material.PBRMaterial(
         baseColorTexture=texture,
         metallicFactor=0.0,
         roughnessFactor=0.82,
     )
-    mesh.visual=trimesh.visual.TextureVisuals(uv=uv,material=material)
-    try:
-        mesh.fix_normals(multibody=True)
-    except TypeError:
-        mesh.fix_normals()
+    hidden_material=trimesh.visual.material.PBRMaterial(
+        baseColorFactor=[34,34,34,255],
+        metallicFactor=0.0,
+        roughnessFactor=0.90,
+    )
+
+    scene=trimesh.Scene()
+    if np.any(visible_faces):
+        front_mesh=mesh.submesh([faces[visible_faces]],append=True,repair=False)
+        front_vertices=np.asarray(front_mesh.vertices,dtype=np.float64)
+        fu=np.clip(
+            (front_vertices[:,horizontal_axis]-lo[horizontal_axis])/du,
+            0.0,1.0,
+        )
+        fv=np.clip(
+            (front_vertices[:,up_axis]-lo[up_axis])/dv,
+            0.0,1.0,
+        )
+        front_mesh.visual=trimesh.visual.TextureVisuals(
+            uv=np.stack([fu,fv],axis=1),
+            material=projected_material,
+        )
+        scene.add_geometry(front_mesh,node_name="source_visible_front")
+
+    if np.any(hidden_faces):
+        back_mesh=mesh.submesh([faces[hidden_faces]],append=True,repair=False)
+        back_mesh.visual=trimesh.visual.ColorVisuals(
+            mesh=back_mesh,
+            face_colors=np.tile(
+                np.array([[34,34,34,255]],dtype=np.uint8),
+                (len(back_mesh.faces),1),
+            ),
+        )
+        scene.add_geometry(back_mesh,node_name="occluded_neutral")
 
     output_glb.parent.mkdir(parents=True,exist_ok=True)
     output_glb.write_bytes(
         trimesh.exchange.gltf.export_glb(
-            trimesh.Scene(mesh),
+            scene,
             include_normals=True,
         )
     )
@@ -145,12 +217,17 @@ def project_source_front(
 
     report={
         "schema":1,
-        "method":"hayuya-native-source-front-projection-v2-y-up",
+        "method":"hayuya-native-source-front-projection-v3-occlusion-aware-y-up",
         "source_image":str(source_image),
         "native_mesh":str(native_mesh),
         "output_glb":str(output_glb),
         "faces":int(len(mesh.faces)),
         "vertices":int(len(mesh.vertices)),
+        "visible_projected_faces":int(np.count_nonzero(visible_faces)),
+        "occluded_neutral_faces":int(np.count_nonzero(hidden_faces)),
+        "visible_projected_fraction":float(np.mean(visible_faces)) if len(visible_faces) else 0.0,
+        "depth_grid":int(grid),
+        "depth_tolerance_fraction":0.012,
         "source_mesh_up_axis":"Y",
         "source_mesh_front_axis":"+Z",
         "blender_evidence_front_axis":"-Y",
@@ -159,7 +236,8 @@ def project_source_front(
         "geometry_preserved":True,
         "diagnostic_only":True,
         "production_eligible":False,
-        "reason":"single-view source projection must pass front face gate and later multiview Judge before promotion",
+        "occlusion_aware":True,
+        "reason":"single-view visibility-aware fallback; cloud texture backends remain preferred and promotion still requires face/multiview gates",
         "bytes":len(blob),
     }
     output_glb.with_suffix(".projection.json").write_text(

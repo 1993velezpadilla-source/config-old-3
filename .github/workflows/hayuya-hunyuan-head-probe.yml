@@ -218,6 +218,23 @@ jobs:
                   })
 
           if not output.is_file() or output.read_bytes()[:4] != b"glTF":
+              try:
+                  from source_front_projection import project_source_front
+                  result=project_source_front(
+                      image,
+                      mesh,
+                      output,
+                      texture_edge=4096,
+                  )
+                  print("HAYUYA_TEXTURE_BACKEND_SELECTED","local-occlusion-projection")
+                  print("HAYUYA_TEXTURE_BACKEND_RESULT",json.dumps(result,separators=(",",":")))
+              except Exception as exc:
+                  failures.append({
+                      "backend":"local-occlusion-projection",
+                      "error":f"{type(exc).__name__}: {exc}",
+                  })
+
+          if not output.is_file() or output.read_bytes()[:4] != b"glTF":
               raise SystemExit(
                   "all_texture_backends_failed:"+
                   json.dumps(failures,separators=(",",":"))
