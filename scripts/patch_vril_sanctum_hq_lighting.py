@@ -200,6 +200,30 @@ if loop_anchor not in s:
     raise SystemExit("draw loop diagnostic anchor not found")
 s=s.replace(loop_anchor,loop_repl,1)
 
+
+# Vril's universal image loader builds extension-qualified names in a
+# MAX_QPATH (64-byte) local buffer. The HQ Sanctum scan paths are ~75 bytes
+# (textures/xziel/sanctum/<descriptive-atlas>.png), so they were silently
+# truncated before COM_FOpenFile and every architectural atlas returned -1.
+# Use the engine's filesystem-sized buffer instead; texture identifiers remain
+# short (<64) and unchanged.
+images=root/"source/images.c"
+it=images.read_text(encoding="utf-8")
+old='''byte* Image_LoadPixels(char* filename, int image_format)
+{
+	FILE	*f;
+	char name[MAX_QPATH];
+'''
+new='''byte* Image_LoadPixels(char* filename, int image_format)
+{
+	FILE	*f;
+	char name[MAX_OSPATH];
+'''
+if old not in it:
+    raise SystemExit("Could not find Image_LoadPixels path buffer")
+it=it.replace(old,new,1)
+images.write_text(it,encoding="utf-8")
+
 p.write_text(s,encoding="utf-8")
 
 # Replace the GL4ES-sensitive color-mask suppression hook with a robust
