@@ -7,7 +7,7 @@
   "object_transform": {},
   "geometry_nodes_inputs": {},
   "render": {
-    "engine": "BLENDER_EEVEE",
+    "engine": "BLENDER_WORKBENCH",
     "width": 640,
     "height": 400,
     "lens_mm": 38,
