@@ -165,30 +165,57 @@ jobs:
           echo "MENU_READY=$MENU_READY" | tee -a "$OUT/status.txt"
           test "$MENU_READY" = "1"
 
-          # Probe several points entirely inside the visible SINGLE PLAYER
-          # artwork. Stop on the first coordinate that changes the stable menu.
-          BASE_HASH="$(sha256sum "$OUT/screens/main_menu_candidate.png" | awk '{print $1}')"
-          echo "BASE_MENU_HASH=$BASE_HASH" | tee -a "$OUT/status.txt"
-          echo "KNOWN_MENU_HASH=$KNOWN_MENU_HASH" | tee -a "$OUT/status.txt"
+          # Probe several points inside SINGLE PLAYER, but do NOT use raw
+          # screenshot hashes as the transition signal: this menu animates.
+          # Measure decoded pixel difference instead.
+          python3 -m pip install -q pillow numpy
 
           ADVANCED=0
-          for SPEC in             "600 300 a"             "700 300 b"             "600 220 c"             "800 250 d"             "450 330 e"; do
+          for SPEC in             "500 145 a"             "520 300 b"             "600 300 c"             "720 300 d"             "450 250 e"             "650 180 f"             "780 220 g"             "420 340 h"; do
             set -- $SPEC
             X="$1"; Y="$2"; LABEL="$3"
             echo "SINGLE_PLAYER_PROBE_${LABEL}_XY=$X,$Y" | tee -a "$OUT/status.txt"
-            "$ADB" shell am start -W               -n com.activision.boz/.Main               --ez xzielDirectTap true               --ei xzielX "$X"               --ei xzielY "$Y"               > "$OUT/single-player-${LABEL}.txt" 2>&1
-            sleep 4
-            "$ADB" exec-out screencap -p > "$OUT/screens/single_player_probe_${LABEL}.png" 2>/dev/null || true
-            H="$(sha256sum "$OUT/screens/single_player_probe_${LABEL}.png" | awk '{print $1}')"
-            echo "SINGLE_PLAYER_PROBE_${LABEL}_HASH=$H" | tee -a "$OUT/status.txt"
-            if [ "$H" != "$BASE_HASH" ]; then
+
+            "$ADB" shell am start -W               -n com.activision.boz/.Main               --ez xzielDirectTap true               --ei xzielX "$X"               --ei xzielY "$Y"               > "$OUT/single-player-${LABEL}-1.txt" 2>&1
+            sleep 3
+
+            "$ADB" shell am start -W               -n com.activision.boz/.Main               --ez xzielDirectTap true               --ei xzielX "$X"               --ei xzielY "$Y"               > "$OUT/single-player-${LABEL}-2.txt" 2>&1
+            sleep 3
+
+            SHOT="$OUT/screens/single_player_probe_${LABEL}.png"
+            "$ADB" exec-out screencap -p > "$SHOT" 2>/dev/null || true
+
+            METRICS="$(python3 - "$OUT/screens/main_menu_candidate.png" "$SHOT" <<'PY'
+import sys
+import numpy as np
+from PIL import Image
+
+a=np.asarray(Image.open(sys.argv[1]).convert("RGB"),dtype=np.int16)
+b=np.asarray(Image.open(sys.argv[2]).convert("RGB"),dtype=np.int16)
+d=np.abs(a-b)
+mean=float(d.mean())
+pct=float(np.mean(np.any(d>20,axis=2)))
+print(f"{mean:.6f} {pct:.6f}")
+PY
+)"
+            MEAN_DIFF="$(echo "$METRICS" | awk '{print $1}')"
+            PCT_DIFF="$(echo "$METRICS" | awk '{print $2}')"
+            echo "SINGLE_PLAYER_PROBE_${LABEL}_MEAN_DIFF=$MEAN_DIFF" | tee -a "$OUT/status.txt"
+            echo "SINGLE_PLAYER_PROBE_${LABEL}_PCT_GT20=$PCT_DIFF" | tee -a "$OUT/status.txt"
+
+            if python3 - "$MEAN_DIFF" "$PCT_DIFF" <<'PY'
+import sys
+mean=float(sys.argv[1]); pct=float(sys.argv[2])
+raise SystemExit(0 if (mean > 3.0 and pct > 0.08) else 1)
+PY
+            then
               echo "SINGLE_PLAYER_ADVANCED_BY=${LABEL}:$X,$Y" | tee -a "$OUT/status.txt"
               ADVANCED=1
-              sleep 6
+              sleep 5
               "$ADB" exec-out screencap -p > "$OUT/screens/single_player_next_screen.png" 2>/dev/null || true
               break
             fi
-            sleep 2
+            sleep 1
           done
           echo "SINGLE_PLAYER_ADVANCED=$ADVANCED" | tee -a "$OUT/status.txt"
 
