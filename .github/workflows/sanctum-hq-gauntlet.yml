@@ -100,66 +100,51 @@ jobs:
           },indent=2))
           PY
 
-      - name: Restore original St Giles textures and export 4K XZSM
+      - name: Super-resolve St Giles atlases to 4K
         shell: bash
-        env:
-          CHURCH_GAMEPLAY_BLEND: \${{ github.workspace }}/church-artifact/dressing/sanctum_dressing_v1.blend
-          CHURCH_PLAN: \${{ github.workspace }}/church-artifact/zombies_map_plan.json
-          CHURCH_OUT: \${{ github.workspace }}/church-artifact
-          XZIEL_STATIC_TARGET_TRIS: "640000"
-          XZIEL_STATIC_TEXTURE_MAX: "4096"
-          LIBGL_ALWAYS_SOFTWARE: "1"
         run: |
           set -euo pipefail
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq blender libegl1 libgl1-mesa-dri libglx-mesa0 mesa-utils xvfb
-          python3 -m pip install --quiet pillow==11.3.0 objaverse huggingface_hub
+          python3 -m pip install --quiet opencv-contrib-python-headless pillow==11.3.0 numpy
+          mkdir -p .cache/xziel-sr
+          curl -L --fail --retry 3 https://raw.githubusercontent.com/thinkerleolee/FSRCNN-OpenCV/master/models/fsrcnn_x4.pb -o .cache/xziel-sr/fsrcnn_x4.pb
 
-          # Rebuild the XZSM geometry/UV payload at the 4K ceiling first.
-          xvfb-run -a -s "-screen 0 1280x1024x24" \
-            blender --background --python tools/church_map/export_vril_static_mesh.py \
-            2>&1 | tee church-artifact/vril-static-4k-export.log
-
-          # Fetch the untouched St Giles GLB instead of trying to upscale the
-          # 1K textures embedded in the gameplay/dressing blend.
-          python3 - <<'PY'
-          import shutil
+          python3 - <<'PY' | tee church-artifact/superres-4k.log
           from pathlib import Path
-          import objaverse
+          import json
+          import cv2
+          from cv2 import dnn_superres
 
-          uid="b92917ff83914adc8bc93959ba8b4399"
-          objects=objaverse.load_objects([uid],download_processes=1)
-          src=objects.get(uid)
-          if not src:
-              raise SystemExit("Could not fetch original St Giles GLB")
-          dst=Path("church-artifact/original-st-giles.glb")
-          shutil.copy2(src,dst)
-          print("ORIGINAL_GL_B",src,"->",dst,dst.stat().st_size)
-          PY
-
-          # Inject original base-color images by material name while preserving
-          # the working XZSM geometry, UVs, collision and gameplay alignment.
-          python3 tools/church_map/inject_original_glb_textures.py \
-            --glb church-artifact/original-st-giles.glb \
-            --report church-artifact/vril_static_mesh_report.json \
-            --root church-artifact/vril_static \
-            --max-dim 4096 \
-            | tee church-artifact/original-texture-inject.log
-
-          grep -q 'XZIEL_ORIGINAL_TEXTURE_INJECT_OK' church-artifact/original-texture-inject.log
-
-          python3 - <<'PY'
-          from pathlib import Path
-          from PIL import Image
           root=Path("church-artifact/vril_static/textures/xziel/sanctum")
-          dims=[]
+          sr=dnn_superres.DnnSuperResImpl_create()
+          sr.readModel(".cache/xziel-sr/fsrcnn_x4.pb")
+          sr.setModel("fsrcnn",4)
+
+          rows=[]
           for p in sorted(root.glob("*.png")):
-              with Image.open(p) as im:
-                  dims.append((p.name,im.width,im.height))
-          arch=[d for d in dims if max(d[1],d[2]) >= 2048]
-          if len(arch) < 8:
-              raise SystemExit(f"Original texture injection did not restore HQ atlases: {dims}")
-          print("SANCTUM_REAL_HQ_TEXTURES_OK",{"textures":len(dims),"hq":len(arch),"sample":arch[:5]})
+              img=cv2.imread(str(p),cv2.IMREAD_COLOR)
+              if img is None:
+                  raise SystemExit(f"Could not read {p}")
+              h,w=img.shape[:2]
+              if max(w,h)<256:
+                  rows.append({"file":p.name,"before":[w,h],"after":[w,h],"sr":False})
+                  continue
+              up=sr.upsample(img)
+              uh,uw=up.shape[:2]
+              cv2.imwrite(str(p),up,[cv2.IMWRITE_PNG_COMPRESSION,3])
+              rows.append({"file":p.name,"before":[w,h],"after":[uw,uh],"sr":True})
+
+          arch=[r for r in rows if r["sr"]]
+          if len(arch)<11:
+              raise SystemExit(f"Expected >=11 architectural atlases, got {len(arch)}: {rows}")
+          if min(max(r["after"]) for r in arch)<4096:
+              raise SystemExit(f"Super-resolution did not reach 4K: {arch}")
+          print("XZIEL_FSRCNN_4K_OK")
+          print(json.dumps({
+              "architecturalAtlases":len(arch),
+              "minOutputDimension":min(max(r["after"]) for r in arch),
+              "maxOutputDimension":max(max(r["after"]) for r in arch),
+              "sample":arch[:4]
+          },indent=2))
           PY
 
       - name: Enhance photogrammetry textures for Android HQ
@@ -188,8 +173,8 @@ jobs:
               im=ImageEnhance.Contrast(im).enhance(1.16)
               im=ImageEnhance.Color(im).enhance(1.03)
 
-              # The XZSM re-export already preserves real source 4K.
-              # Keep those pixels; do not manufacture or shrink detail here.
+              # FSRCNN already produced 4K. Keep those pixels and only do a
+              # restrained material cleanup; do not resize again.
               nw,nh=im.size
               im=im.filter(ImageFilter.UnsharpMask(radius=0.75,percent=125,threshold=2))
               im.save(p,optimize=True)
@@ -239,7 +224,7 @@ jobs:
           unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/maps/sanctum_harness.nsz'
           unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/models/xziel/sanctum/sanctum.xzsm'
           unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/textures/xziel/sanctum/' | head -n 10
-          grep -q 'XZIEL_ORIGINAL_TEXTURE_INJECT_OK' church-artifact/original-texture-inject.log
+          grep -q 'XZIEL_FSRCNN_4K_OK' church-artifact/superres-4k.log
 
       - name: Make HQ Sanctum one-tap
         shell: bash
