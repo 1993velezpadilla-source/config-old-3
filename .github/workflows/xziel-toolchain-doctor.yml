@@ -1,0 +1,189 @@
+name: XZIEL Content Toolchain Doctor
+
+on:
+  push:
+    branches:
+      - feature/xziel-map-builder-agent-v1
+    paths:
+      - ".github/workflows/xziel-toolchain-doctor.yml"
+      - "tools/xziel_toolchain/**"
+      - "docs/XZIEL_TOOLCHAIN.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xziel-toolchain-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fast-toolchain:
+    name: Fast map toolchain
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Install build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            build-essential cmake ninja-build curl unzip bzip2 pkg-config \
+            python3-venv
+
+      - name: Cache downloaded tool archives
+        uses: actions/cache@v4
+        with:
+          path: .xziel-tools/cache
+          key: xziel-content-tools-${{ runner.os }}-${{ hashFiles('tools/xziel_toolchain/manifest.json') }}
+
+      - name: Bootstrap fast content tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/xziel_toolchain/bootstrap_fast.sh
+
+      - name: Toolchain doctor
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/xziel_toolchain/doctor.py \
+            --root .xziel-tools \
+            --out xziel-toolchain-fast-report.json
+
+      - name: Compile integration probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/xziel_toolchain_probe.cpp <<'CPP'
+          #include <Recast.h>
+          #include <DetourNavMesh.h>
+          #include <xatlas.h>
+          #include <iostream>
+          int main() {
+              rcConfig cfg{};
+              (void)cfg;
+              dtNavMesh* nav = dtAllocNavMesh();
+              if (!nav) return 2;
+              dtFreeNavMesh(nav);
+              xatlas::Atlas* atlas = xatlas::Create();
+              if (!atlas) return 3;
+              xatlas::Destroy(atlas);
+              std::cout << "XZIEL_RECAST_DETOUR_XATLAS_LINK_GREEN\n";
+              return 0;
+          }
+          CPP
+          c++ -std=c++17 -O2 \
+            -I.xziel-tools/recast/include/recastnavigation \
+            -I.xziel-tools/include/xatlas \
+            /tmp/xziel_toolchain_probe.cpp \
+            .xziel-tools/lib/libxatlas.a \
+            .xziel-tools/recast/lib/libRecast.a \
+            .xziel-tools/recast/lib/libDetour.a \
+            -o /tmp/xziel_toolchain_probe
+          /tmp/xziel_toolchain_probe
+
+      - name: Optimize fixture GLB
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64, json, struct
+          from pathlib import Path
+
+          positions = struct.pack("<9f", 0,0,0, 1,0,0, 0,1,0)
+          indices = struct.pack("<3H", 0,1,2)
+          blob = positions + indices
+          uri = "data:application/octet-stream;base64," + base64.b64encode(blob).decode()
+          doc = {
+            "asset":{"version":"2.0","generator":"XZIEL fixture"},
+            "buffers":[{"byteLength":len(blob),"uri":uri}],
+            "bufferViews":[
+              {"buffer":0,"byteOffset":0,"byteLength":len(positions),"target":34962},
+              {"buffer":0,"byteOffset":len(positions),"byteLength":len(indices),"target":34963}
+            ],
+            "accessors":[
+              {"bufferView":0,"componentType":5126,"count":3,"type":"VEC3","min":[0,0,0],"max":[1,1,0]},
+              {"bufferView":1,"componentType":5123,"count":3,"type":"SCALAR"}
+            ],
+            "meshes":[{"primitives":[{"attributes":{"POSITION":0},"indices":1}]}],
+            "nodes":[{"mesh":0}],
+            "scenes":[{"nodes":[0]}],
+            "scene":0
+          }
+          Path("/tmp/xziel-triangle.gltf").write_text(json.dumps(doc), encoding="utf-8")
+          PY
+          bash tools/xziel_toolchain/optimize_glb.sh \
+            /tmp/xziel-triangle.gltf \
+            /tmp/xziel-triangle-optimized.glb
+          test -s /tmp/xziel-triangle-optimized.glb
+
+      - name: Upload fast evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Content-Toolchain-Fast
+          path: |
+            xziel-toolchain-fast-report.json
+            /tmp/xziel-triangle-optimized.glb
+          if-no-files-found: error
+          retention-days: 14
+
+  deep-cpu-toolchain:
+    name: Deep reconstruction CPU tools
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Install Python venv support
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq python3-venv libgl1 libglib2.0-0
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: xziel-deep-pip-${{ runner.os }}-${{ hashFiles('tools/xziel_toolchain/manifest.json') }}
+
+      - name: Bootstrap deep reconstruction tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/xziel_toolchain/bootstrap_deep_cpu.sh
+
+      - name: Verify Open3D and pyCOLMAP
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/xziel_toolchain/doctor.py \
+            --root .xziel-tools \
+            --deep \
+            --out xziel-toolchain-deep-report.json
+          .xziel-tools/deep-venv/bin/python - <<'PY'
+          import open3d as o3d
+          import pycolmap
+          mesh=o3d.geometry.TriangleMesh.create_box(1.0,2.0,3.0)
+          mesh.compute_vertex_normals()
+          assert len(mesh.vertices)==8
+          assert len(mesh.triangles)==12
+          print("XZIEL_OPEN3D_GEOMETRY_GREEN", o3d.__version__)
+          print("XZIEL_PYCOLMAP_GREEN", pycolmap.__version__)
+          PY
+
+      - name: Upload deep evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Content-Toolchain-Deep-CPU
+          path: xziel-toolchain-deep-report.json
+          if-no-files-found: error
+          retention-days: 14
