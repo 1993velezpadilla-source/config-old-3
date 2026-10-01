@@ -10,8 +10,8 @@ PLAN=Path(f"build/sanctum_authored/{MAP_NAME}_plan.svg")
 OUT.parent.mkdir(parents=True,exist_ok=True)
 
 ART={
- "floor":"loop_tile_maju2","ceiling":"loop_stone_grav","wall":"loop_stone_ruff","door":"4all_crate_wood",
- "wood":"4all_crate_wood","trigger":"trigger","glass":"loop_tile_maju",
+ "floor":"loop_stone_grav","ceiling":"wezu_wall1_dark","wall":"wezu_wall2_dark","door":"dung_crate_wood",
+ "wood":"dung_crate_wood","trigger":"trigger","glass":"loop_tile_maju",
  "barricade_model":"models/misc/window.mdl",
  "barricade_rebuild_sfx":"sounds/misc/barricade.wav",
  "barricade_break_sfx":"sounds/misc/barricade_destroy.wav",
@@ -54,7 +54,7 @@ parts += [
     "{\n",kv("mapversion","220"),kv("classname","worldspawn"),
     kv("message",TITLE),kv("chaptertitle","SANCTUM OF ASH"),
     kv("location","Ruined Parish"),kv("person","XZIEL"),
-    kv("wad","../../textures/wad/Loop.wad;../../textures/wad/4all.wad;../../textures/wad/zhlt.wad"),
+    kv("wad","../../textures/wad/Loop.wad;../../textures/wad/Dung3on.wad;../../textures/wad/4all.wad;../../textures/wad/zhlt.wad"),
 ]
 
 # FLOOR PLATES — church proportions are intentionally authored rather than
@@ -179,15 +179,27 @@ parts.append(brush_box((790,-80,24),(865,80,84),ART["wood"]))
 parts.append(brush_box((900,-18,84),(916,18,230),ART["wood"]))
 parts.append(brush_box((900,-72,155),(916,72,185),ART["wood"]))
 
-# PASSABLE PEWS — visible but explicitly noclip so AI has clean lanes.
-# Keep brush entities outside worldspawn; nesting an entity inside worldspawn is invalid MAP syntax.
+# PASSABLE PEWS — actual bench silhouette (seat + back + legs), all noclip
+# so AI receives a clean center/side navigation corridor.
 pew_entities=[]
 for x in (-520,-380,-240,-100,40,180):
     for y1,y2 in [(-210,-72),(72,210)]:
+        # seat
         pew_entities.append(brush_entity(
-            "func_detail",(x-44,y1,0),(x+44,y2,28),ART["wood"],
+            "func_detail",(x-22,y1,24),(x+22,y2,36),ART["wood"],
             {"zhlt_noclip":"1","zhlt_detaillevel":"2"}
         ))
+        # tall backrest on the west side of each row (player-facing silhouette)
+        pew_entities.append(brush_entity(
+            "func_detail",(x-26,y1,34),(x-14,y2,76),ART["wood"],
+            {"zhlt_noclip":"1","zhlt_detaillevel":"2"}
+        ))
+        # two end supports
+        for yy in (y1+8,y2-16):
+            pew_entities.append(brush_entity(
+                "func_detail",(x-18,yy,0),(x+18,yy+8,28),ART["wood"],
+                {"zhlt_noclip":"1","zhlt_detaillevel":"2"}
+            ))
 
 # Doorway framing.
 parts.append(brush_box((-1000,-105,0),(-960,-90,205),ART["wall"]))
@@ -325,16 +337,24 @@ for name,wid,cost,ammo,pos,ang in [
         "pap_cost":"4500","target":chalk
     }))
 
-# LIGHTS.
+# LIGHTS — intentionally low-key so Android overbright does not bleach the church.
 for p,val in [
-    ((-650,0,270),280),((-250,0,280),320),((150,0,280),320),
-    ((500,0,300),340),((800,0,320),360),
-    ((-780,555,180),180),((590,555,180),180),
-    ((850,-500,180),220),((850,-500,450),180),
+    ((-650,0,300),120),((-250,0,310),135),((150,0,310),135),
+    ((500,0,320),150),((800,0,330),165),
+    ((-780,555,170),90),((590,555,170),95),
+    ((850,-500,180),110),((850,-500,450),85),
 ]:
     parts.append(point("light",p,{"_light":str(val),"wait":"1","style":"0"}))
-parts.append(point("light",(860,-120,170),{"_light":"180 80 60 180","wait":"1","style":"0"}))
-parts.append(point("light",(860,120,170),{"_light":"60 80 180 180","wait":"1","style":"0"}))
+# warm altar pools + cool clerestory accents
+parts.append(point("light",(830,-100,150),{"_light":"180 105 55 135","wait":"1","style":"3"}))
+parts.append(point("light",(830,100,150),{"_light":"180 105 55 135","wait":"1","style":"3"}))
+parts.append(point("light",(-260,-250,330),{"_light":"65 85 150 90","wait":"1","style":"0"}))
+parts.append(point("light",(-260,250,330),{"_light":"65 85 150 90","wait":"1","style":"0"}))
+# visible flame props at the altar; collision remains brush-driven.
+for fy in (-115,115):
+    parts.append(point("place_model",(805,fy,88),{
+        "model":"models/props/flame.mdl","skin":"0","sequence":"0","spawnflags":"0","angle":"0"
+    }))
 
 OUT.write_text("".join(parts),encoding="utf-8")
 
@@ -342,7 +362,7 @@ report={
  "title":TITLE,"map":str(OUT),
  "design":"authored church, no bbox rooms/no auto bridges",
  "footprint":{"nave":[1540,880],"chancel":[380,600],"tower":[340,400]},
- "columns":len(columns),"functional_stair_steps":40,"stair_rise":8,
+ "columns":len(columns),"pew_rows":12,"functional_stair_steps":40,"stair_rise":8,
  "zombie_windows":len(spawn_defs),"glass_panels":1+len(window_x)*2,
  "paid_doors":3,"zones":len(zones),"player_spawns":4,
  "zombie_spawns":len(spawn_defs)+3,"perks":4,"pap":1,
