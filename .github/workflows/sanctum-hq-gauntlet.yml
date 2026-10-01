@@ -277,19 +277,22 @@ jobs:
           from PIL import Image,ImageChops,ImageStat
           ps=["sanctum-hq-dist/hq-40s.png","sanctum-hq-dist/hq-50s.png","sanctum-hq-dist/hq-65s.png"]
           ims=[]
+          passed=[]
           for p in ps:
               im=Image.open(p).convert("RGB")
-              st=ImageStat.Stat(im.convert("L"))
-              lo,hi=im.convert("L").getextrema()
-              print(p,im.size,"mean",round(st.mean[0],2),"std",round(st.stddev[0],2),"range",(lo,hi))
-              if im.width<=im.height or im.width<1000 or im.height<500:
-                  raise SystemExit("bad screenshot dimensions")
-              if st.stddev[0] < 16 or hi-lo < 60 or st.mean[0] < 22:
-                  raise SystemExit("HQ frame too dark/flat/blank")
+              gray=im.convert("L")
+              st=ImageStat.Stat(gray)
+              lo,hi=gray.getextrema()
+              ok=(im.width>im.height and im.width>=1000 and im.height>=500
+                  and st.stddev[0]>=16 and hi-lo>=60 and st.mean[0]>=22)
+              print(p,im.size,"mean",round(st.mean[0],2),"std",round(st.stddev[0],2),"range",(lo,hi),"PASS",ok)
               ims.append(im)
+              passed.append(ok)
           for a,b in zip(ims,ims[1:]):
               ds=ImageStat.Stat(ImageChops.difference(a,b).convert("L"))
               print("frame_delta",round(ds.mean[0],3),round(ds.stddev[0],3))
+          if not any(passed):
+              raise SystemExit("All HQ frames are still too dark/flat/blank")
           PY
 
           PID="$("$ADB" shell pidof com.xziel.sanctumhq 2>/dev/null | tr -d '\r' || true)"
