@@ -171,10 +171,12 @@ floor_box("SANCTUM_MAIN_FLOOR_RIGHT_HOLE_AFTER",right_x0,right_x1,right_y1,ymax)
 # has no continuous railing so a player can bail into the nave rather than camp.
 upper_z=floor_z+3.80
 gallery_t=0.24
-gallery_w=2.0
-gallery_x= hx*0.82
-gallery_y0=ic.y-hy*0.48
-gallery_y1=ic.y+hy*0.42
+gallery_w=1.85
+# Keep the gallery inside the proven nave clearance envelope instead of
+# pinning it against the CC0 masonry. This avoids wall/pillar interpenetration.
+gallery_x=half_w*0.50
+gallery_y0=ic.y-hy*0.42
+gallery_y1=ic.y+hy*0.38
 gallery_len=gallery_y1-gallery_y0
 vertical_meshes=[]
 for side,sign in (("WEST",-1.0),("EAST",1.0)):
@@ -192,16 +194,37 @@ vertical_meshes.append(add_box(
     WOOD,"upper_walkway",True
 ))
 
-# Outer gallery guards; the nave-facing edge remains a deliberate bailout.
+# Outer guards plus segmented nave-facing rails. Each side retains one
+# deliberate bailout gap so the high ground never becomes a permanent camp.
 rail_h=1.05
 for side,sign in (("WEST",-1.0),("EAST",1.0)):
-    x=ic.x+sign*(gallery_x+gallery_w*0.5)
+    x_outer=ic.x+sign*(gallery_x+gallery_w*0.5)
     vertical_meshes.append(add_box(
         f"SANCTUM_UPPER_{side}_OUTER_GUARD",
-        (x,(gallery_y0+gallery_y1)*0.5,upper_z+rail_h*0.5),
+        (x_outer,(gallery_y0+gallery_y1)*0.5,upper_z+rail_h*0.5),
         (0.12,gallery_len,rail_h),
         WOOD,"upper_guard",True
     ))
+
+    x_inner=ic.x+sign*(gallery_x-gallery_w*0.5)
+    gap_center=ic.y + (-1.35 if side=="WEST" else 1.35)
+    gap_half=1.05
+    seg_a0,seg_a1=gallery_y0,gap_center-gap_half
+    seg_b0,seg_b1=gap_center+gap_half,gallery_y1
+    if seg_a1-seg_a0>0.5:
+        vertical_meshes.append(add_box(
+            f"SANCTUM_UPPER_{side}_INNER_GUARD_A",
+            (x_inner,(seg_a0+seg_a1)*0.5,upper_z+rail_h*0.5),
+            (0.10,seg_a1-seg_a0,rail_h),
+            WOOD,"upper_guard",True
+        ))
+    if seg_b1-seg_b0>0.5:
+        vertical_meshes.append(add_box(
+            f"SANCTUM_UPPER_{side}_INNER_GUARD_B",
+            (x_inner,(seg_b0+seg_b1)*0.5,upper_z+rail_h*0.5),
+            (0.10,seg_b1-seg_b0,rail_h),
+            WOOD,"upper_guard",True
+        ))
 
 upper_run=6.6
 upper_ramp_w=max(1.45,min(1.75,gallery_w*0.82))
@@ -241,7 +264,9 @@ vertical_meshes.append(add_box(
     (bx1-bx0,by1-by0,basement_t),
     STONE,"undercroft_floor",True
 ))
-wall_h=3.0
+# Meet the underside of the segmented nave floor so the undercroft reads as
+# an actual room rather than a dark box with a floating gap above its walls.
+wall_h=(floor_z-floor_thickness)-lower_z
 vertical_meshes.extend([
     add_wall("SANCTUM_UNDERCROFT_WALL_WEST",(bx0,(by0+by1)*0.5,lower_z+wall_h*0.5),(0.22,by1-by0,wall_h)),
     add_wall("SANCTUM_UNDERCROFT_WALL_EAST",(bx1,(by0+by1)*0.5,lower_z+wall_h*0.5),(0.22,by1-by0,wall_h)),
@@ -408,14 +433,14 @@ def render(name,pos,look):
 
 renders=[
     render("01-nave-sees-upper-gallery.png",
-           (ic.x,ic.y-hy*0.70,floor_z+eye),
-           (ic.x,ic.y-hy*0.05,upper_z+0.4)),
+           (ic.x,ic.y-hy*0.66,floor_z+eye),
+           (ic.x-gallery_x*0.35,ic.y-hy*0.05,upper_z+0.10)),
     render("02-upper-gallery-player-view.png",
-           (ic.x-gallery_x,gallery_y0+2.8,upper_z+eye),
-           (ic.x+gallery_x,gallery_y0+2.8,upper_z+eye*0.9)),
+           (ic.x-gallery_x+0.25,gallery_y0+2.6,upper_z+eye),
+           (ic.x+gallery_x-0.25,ic.y+0.25,upper_z+1.05)),
     render("03-upper-east-bailout.png",
-           (ic.x+gallery_x,gallery_y1-2.2,upper_z+eye),
-           (ic.x,ic.y+hy*0.10,floor_z+1.0)),
+           (ic.x+gallery_x-0.25,ic.y+1.35,upper_z+eye),
+           (ic.x,ic.y+hy*0.05,floor_z+0.8)),
     render("04-undercroft-power-loop.png",
            (ic.x-4.2,by0+1.3,lower_z+eye),
            (ic.x,ic.y+hy*0.12,lower_z+1.1)),
