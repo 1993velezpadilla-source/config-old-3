@@ -9,6 +9,7 @@ def run(cmd):
 ap=argparse.ArgumentParser()
 ap.add_argument("--root", default=".xziel-tools")
 ap.add_argument("--deep", action="store_true")
+ap.add_argument("--deep-only", action="store_true")
 ap.add_argument("--out", default="xziel-toolchain-report.json")
 args=ap.parse_args()
 root=Path(args.root).resolve()
@@ -24,14 +25,14 @@ detour_libs=list((root/"recast").rglob("libDetour*")) if (root/"recast").exists(
 checks["recast"]={"libs":[str(p.relative_to(root)) for p in recast_libs]}
 checks["detour"]={"libs":[str(p.relative_to(root)) for p in detour_libs]}
 
-if args.deep:
+if args.deep or args.deep_only:
     py=root/"deep-venv"/"bin"/"python"
     checks["deep_python"]={"exists":py.is_file()}
     if py.is_file():
         checks["open3d"]=run([str(py),"-c","import open3d as o; print(o.__version__)"])
         checks["pycolmap"]=run([str(py),"-c","import pycolmap as p; print(p.__version__)"])
 
-ok = (
+fast_ok = (
     checks["gltfpack"].get("exists") and
     checks["ktx"].get("exists") and
     checks["xatlas"].get("exists") and
@@ -40,10 +41,18 @@ ok = (
     checks["gltfpack"].get("returncode",1) in (0,1) and
     checks["ktx"].get("returncode",1) in (0,1)
 )
-if args.deep:
-    ok = ok and checks.get("open3d",{}).get("returncode")==0 and checks.get("pycolmap",{}).get("returncode")==0
+deep_ok = (
+    checks.get("open3d",{}).get("returncode")==0 and
+    checks.get("pycolmap",{}).get("returncode")==0
+)
+if args.deep_only:
+    ok = deep_ok
+elif args.deep:
+    ok = fast_ok and deep_ok
+else:
+    ok = fast_ok
 
-report={"status":"PASS" if ok else "FAIL","root":str(root),"deep":args.deep,"checks":checks}
+report={"status":"PASS" if ok else "FAIL","root":str(root),"deep":args.deep,"deep_only":args.deep_only,"checks":checks}
 Path(args.out).write_text(json.dumps(report,indent=2),encoding="utf-8")
 print(json.dumps(report,indent=2))
 if not ok:
