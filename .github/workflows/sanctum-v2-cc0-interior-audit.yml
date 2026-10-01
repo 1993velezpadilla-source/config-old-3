@@ -1,0 +1,77 @@
+name: Sanctum V2 CC0 Church Interior Audit
+
+on:
+  push:
+    branches:
+      - sanctum-v2-existing-assets-only
+    paths:
+      - ".github/workflows/sanctum-v2-cc0-interior-audit.yml"
+      - "tools/sanctum_v2/audit_cc0_church_interior.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sanctum-v2-cc0-interior-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    name: Audit authored CC0 church interior
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Install host packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq curl xz-utils xvfb libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libglu1-mesa
+
+      - name: Fetch verified CC0 church interior
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p external-cc0-church
+          curl -L --fail --retry 3             https://opengameart.org/sites/default/files/church.blend             -o external-cc0-church/church.blend
+          test -s external-cc0-church/church.blend
+          cat > external-cc0-church/SOURCE.txt <<'EOF'
+          Title: Medieval Church Interior
+          Author: AnyRPG
+          License: CC0
+          Source: https://opengameart.org/content/medieval-church-interior
+          EOF
+
+      - name: Install Blender 5.2.2
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz -o /tmp/blender.tar.xz
+          tar -C /tmp -xf /tmp/blender.tar.xz
+          /tmp/blender-5.2.2-linux-x64/blender --version
+
+      - name: Audit source interior
+        shell: bash
+        env:
+          SANCTUM_V2_INTERIOR_AUDIT_OUT: sanctum-v2-interior-source-audit
+        run: |
+          set -euo pipefail
+          mkdir -p sanctum-v2-interior-source-audit
+          xvfb-run -a -s "-screen 0 1600x1000x24"             /tmp/blender-5.2.2-linux-x64/blender             -b external-cc0-church/church.blend             --python tools/sanctum_v2/audit_cc0_church_interior.py             2>&1 | tee sanctum-v2-interior-source-audit/blender-audit.log
+          grep -q "SANCTUM_V2_CC0_INTERIOR_AUDIT_OK" sanctum-v2-interior-source-audit/blender-audit.log
+          test -s sanctum-v2-interior-source-audit/cc0-church-interior-audit.json
+          cp external-cc0-church/SOURCE.txt sanctum-v2-interior-source-audit/
+
+      - name: Upload visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-V2-CC0-Church-Interior-Audit
+          path: sanctum-v2-interior-source-audit/
+          if-no-files-found: error
+          retention-days: 14
