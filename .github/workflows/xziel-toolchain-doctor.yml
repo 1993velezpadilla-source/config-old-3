@@ -134,6 +134,28 @@ jobs:
           print("XZIEL_RECAST_DETOUR_RUNTIME_GREEN", d)
           PY
 
+          cat > /tmp/xziel-nav-probes.txt <<'PROBES'
+          floor_start -4.0 0.05 -4.0
+          floor_goal 4.0 0.05 4.0
+          PROBES
+
+          .xziel-tools/bin/xziel-navmesh-probe \
+            /tmp/xziel-nav-fixture.navbin \
+            /tmp/xziel-nav-probes.txt \
+            /tmp/xziel-nav-connectivity.json
+
+          python3 - <<'PY'
+          import json
+          d=json.load(open("/tmp/xziel-nav-connectivity.json",encoding="utf-8"))
+          assert d["status"]=="PASS", d
+          assert d["all_probes_pass"] is True, d
+          assert d["all_links_pass"] is True, d
+          assert len(d["probes"]) == 2, d
+          assert len(d["links"]) == 1, d
+          assert d["links"][0]["path_polygons"] > 0, d
+          print("XZIEL_DETOUR_CONNECTIVITY_PROBE_GREEN", d)
+          PY
+
       - name: Bootstrap lightweight asset CLI
         shell: bash
         run: |
