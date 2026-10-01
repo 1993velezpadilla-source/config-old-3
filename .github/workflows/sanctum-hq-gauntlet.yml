@@ -1,0 +1,269 @@
+name: XZIEL Sanctum HQ Gauntlet
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/sanctum-hq-gauntlet.yml"
+      - "scripts/patch_vril_sanctum_hq_lighting.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xziel-sanctum-hq-${{ github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  sanctum-hq:
+    name: Build + render HQ Sanctum
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Resolve latest validated St Giles XZSM source
+        id: source
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          RUN_ID="$(python3 - <<'PY'
+          import json, os, urllib.request
+          repo=os.environ["REPO"]
+          req=urllib.request.Request(
+              f"https://api.github.com/repos/{repo}/actions/runs?per_page=100",
+              headers={
+                  "Authorization":f"Bearer {os.environ['GH_TOKEN']}",
+                  "Accept":"application/vnd.github+json",
+                  "X-GitHub-Api-Version":"2022-11-28",
+              },
+          )
+          data=json.load(urllib.request.urlopen(req))
+          runs=[
+              r for r in data.get("workflow_runs",[])
+              if r.get("path")==".github/workflows/church-map-blender.yml"
+              and r.get("conclusion")=="success"
+          ]
+          if not runs:
+              raise SystemExit("No successful church-map-blender run found")
+          runs.sort(key=lambda r:r["created_at"], reverse=True)
+          print(runs[0]["id"])
+          PY
+          )"
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "HQ source run: $RUN_ID"
+
+      - name: Download HQ St Giles runtime payload
+        uses: actions/download-artifact@v5
+        with:
+          name: Xziel-Sanctum-of-Ash-Runtime-Blockout
+          path: church-artifact
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.source.outputs.run_id }}
+
+      - name: Gate HQ visual payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s church-artifact/nzp_harness/sanctum_harness.bsp
+          test -s church-artifact/nzp_harness/sanctum_harness.nsz
+          test -s church-artifact/vril_static/models/xziel/sanctum/sanctum.xzsm
+          test -d church-artifact/vril_static/textures/xziel/sanctum
+          test -s church-artifact/vril_static_mesh_report.json
+
+          python3 - <<'PY' | tee hq-profile.txt
+          import json, os
+          from pathlib import Path
+          r=json.load(open("church-artifact/vril_static_mesh_report.json",encoding="utf-8"))
+          assert r["runtimeTriangles"] >= 620000, r
+          assert r.get("runtimeTotalTriangles",r["runtimeTriangles"]) >= 700000, r
+          assert r["textureMaxDimension"] >= 2048, r
+          assert r["batchCount"] <= 512, r
+          assert r["totalVertices"] <= 3000000, r
+          assert r["totalIndices"] <= 3500000, r
+          tex=list(Path("church-artifact/vril_static/textures/xziel/sanctum").glob("*"))
+          assert len(tex) >= 1
+          print("SANCTUM_HQ_PROFILE_OK")
+          print(json.dumps({
+              "runtimeTriangles":r["runtimeTriangles"],
+              "runtimeTotalTriangles":r.get("runtimeTotalTriangles"),
+              "dressingTriangles":r.get("dressingTriangles"),
+              "totalVertices":r["totalVertices"],
+              "totalIndices":r["totalIndices"],
+              "textureMaxDimension":r["textureMaxDimension"],
+              "batchCount":r["batchCount"],
+              "textureFiles":len(tex),
+              "xzsmBytes":os.path.getsize("church-artifact/vril_static/models/xziel/sanctum/sanctum.xzsm"),
+          },indent=2))
+          PY
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android SDK, NDK and emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER"             "platform-tools"             "platforms;android-35"             "build-tools;35.0.0"             "ndk;27.2.12479018"             "emulator"             "system-images;android-35;google_apis;x86_64"
+
+      - name: Prepare XZIEL with HQ St Giles visual authority
+        shell: bash
+        env:
+          XZIEL_EXTRA_MAP_NAME: sanctum_harness
+          XZIEL_EXTRA_MAP_BSP: ${{ github.workspace }}/church-artifact/nzp_harness/sanctum_harness.bsp
+          XZIEL_EXTRA_MAP_NSZ: ${{ github.workspace }}/church-artifact/nzp_harness/sanctum_harness.nsz
+          XZIEL_EXTRA_ASSET_DIR: ${{ github.workspace }}/church-artifact/vril_static
+        run: |
+          set -euo pipefail
+          bash scripts/prepare_android.sh
+
+          # Base prepare step installs the XZSM bridge. This second pass enables
+          # clamped v2 baked vertex lighting while preserving 2K scan albedo.
+          python3 scripts/patch_vril_sanctum_hq_lighting.py build/deps/vril
+
+          unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/maps/sanctum_harness.bsp'
+          unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/maps/sanctum_harness.nsz'
+          unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/models/xziel/sanctum/sanctum.xzsm'
+          unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/textures/xziel/sanctum/' | head -n 10
+
+      - name: Make HQ Sanctum one-tap
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          activity=Path("build/android-project/app/src/main/java/org/libsdl/app/NZPActivity.java")
+          text=activity.read_text(encoding="utf-8")
+          pattern=re.compile(r'(return\s+new\s+String\[\]\s*\{\s*"-basedir"\s*,\s*dataRoot\.getAbsolutePath\(\)\s*)(\};)',re.MULTILINE)
+          text,count=pattern.subn(r'\1,\n            "+map", "sanctum_harness"\n        \2',text,count=1)
+          if count!=1:
+              raise SystemExit("Could not patch launch args")
+          activity.write_text(text,encoding="utf-8")
+
+          gradle=Path("build/android-project/app/build.gradle")
+          g=gradle.read_text(encoding="utf-8")
+          g,n=re.subn(r'applicationId\s+"[^"]+"','applicationId "com.xziel.sanctumhq"',g,count=1)
+          if n!=1: raise SystemExit("applicationId patch failed")
+          g,n=re.subn(r'versionName\s+"[^"]+"','versionName "0.3-hq-xzsm"',g,count=1)
+          if n!=1: raise SystemExit("versionName patch failed")
+          gradle.write_text(g,encoding="utf-8")
+
+          strings=Path("build/android-project/app/src/main/res/values/strings.xml")
+          s=strings.read_text(encoding="utf-8")
+          s=re.sub(r'<string name="app_name">.*?</string>','<string name="app_name">XZIEL: Sanctum HQ</string>',s)
+          strings.write_text(s,encoding="utf-8")
+          PY
+
+      - name: Build HQ APK
+        working-directory: build/android-project
+        shell: bash
+        run: ./gradlew --no-daemon assembleDebug --stacktrace
+
+      - name: Collect HQ APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p sanctum-hq-dist
+          cp build/android-project/app/build/outputs/apk/debug/app-debug.apk              sanctum-hq-dist/XZIEL-Sanctum-HQ-XZSM-debug.apk
+          cp hq-profile.txt sanctum-hq-dist/
+          cp church-artifact/vril_static_mesh_report.json sanctum-hq-dist/
+          ls -lh sanctum-hq-dist/XZIEL-Sanctum-HQ-XZSM-debug.apk
+
+      - name: Android HQ visual gauntlet
+        id: smoke
+        continue-on-error: true
+        shell: bash
+        env:
+          ANDROID_AVD_HOME: ${{ runner.temp }}/xziel-sanctum-hq-avd
+        run: |
+          set -euo pipefail
+          mkdir -p "$ANDROID_AVD_HOME"
+          ADB="${ANDROID_HOME}/platform-tools/adb"
+          EMULATOR="${ANDROID_HOME}/emulator/emulator"
+          AVDMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name avdmanager | sort | tail -n 1)"
+
+          printf 'no\n' | "$AVDMANAGER" create avd --force --name xziel-sanctum-hq-ci             --package "system-images;android-35;google_apis;x86_64" --device "pixel_6"
+
+          [[ ! -e /dev/kvm ]] || sudo chmod 666 /dev/kvm || true
+          nohup "$EMULATOR" @xziel-sanctum-hq-ci             -no-window -no-audio -no-boot-anim -no-snapshot             -gpu swiftshader_indirect -memory 3072             > sanctum-hq-dist/emulator-stdout.txt 2>&1 &
+
+          timeout 120 "$ADB" wait-for-device
+          for i in $(seq 1 60); do
+            [[ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]] && break
+            sleep 2
+          done
+          test "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1"
+
+          "$ADB" install -r sanctum-hq-dist/XZIEL-Sanctum-HQ-XZSM-debug.apk
+          "$ADB" shell settings put secure immersive_mode_confirmations confirmed || true
+          "$ADB" logcat -c
+          "$ADB" shell am force-stop com.xziel.sanctumhq || true
+          "$ADB" shell am start -W -n com.xziel.sanctumhq/org.libsdl.app.NZPActivity             > sanctum-hq-dist/am-start.txt 2>&1 || true
+
+          sleep 9
+          "$ADB" exec-out screencap -p > sanctum-hq-dist/hq-first.png
+          sleep 9
+          "$ADB" exec-out screencap -p > sanctum-hq-dist/hq-18s.png
+          sleep 14
+          "$ADB" exec-out screencap -p > sanctum-hq-dist/hq-32s.png
+          "$ADB" logcat -d -v threadtime > sanctum-hq-dist/hq-logcat.txt || true
+
+          python3 -m pip install --quiet pillow==11.3.0
+          python3 - <<'PY' | tee sanctum-hq-dist/hq-visual-report.txt
+          from PIL import Image,ImageChops,ImageStat
+          ps=["sanctum-hq-dist/hq-first.png","sanctum-hq-dist/hq-18s.png","sanctum-hq-dist/hq-32s.png"]
+          ims=[]
+          for p in ps:
+              im=Image.open(p).convert("RGB")
+              st=ImageStat.Stat(im.convert("L"))
+              lo,hi=im.convert("L").getextrema()
+              print(p,im.size,"mean",round(st.mean[0],2),"std",round(st.stddev[0],2),"range",(lo,hi))
+              if im.width<=im.height or im.width<1000 or im.height<500:
+                  raise SystemExit("bad screenshot dimensions")
+              if st.stddev[0] < 12 or hi-lo < 45:
+                  raise SystemExit("HQ frame too flat/blank")
+              ims.append(im)
+          for a,b in zip(ims,ims[1:]):
+              ds=ImageStat.Stat(ImageChops.difference(a,b).convert("L"))
+              print("frame_delta",round(ds.mean[0],3),round(ds.stddev[0],3))
+          PY
+
+          PID="$("$ADB" shell pidof com.xziel.sanctumhq 2>/dev/null | tr -d '\r' || true)"
+          STAGE="$("$ADB" shell run-as com.xziel.sanctumhq cat files/nzp-runtime/.xziel-stage 2>/dev/null | tr -d '\r' || true)"
+          echo "PID=$PID" | tee sanctum-hq-dist/runtime-state.txt
+          echo "STAGE=$STAGE" | tee -a sanctum-hq-dist/runtime-state.txt
+
+          if grep -Eq "Fatal signal|FATAL EXCEPTION|stage=SYS_ERROR|XZIEL_QC.*PR_RunError" sanctum-hq-dist/hq-logcat.txt; then
+            grep -E "XZIEL_QC|stage=SYS_ERROR|Fatal signal|FATAL EXCEPTION" sanctum-hq-dist/hq-logcat.txt | tail -120 || true
+            exit 1
+          fi
+          test -n "$PID"
+          test "$STAGE" = "FIRST_FRAME_OK"
+
+      - name: Upload HQ gauntlet evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-HQ-Gauntlet
+          path: sanctum-hq-dist/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Fail if HQ gauntlet failed
+        if: steps.smoke.outcome == 'failure'
+        shell: bash
+        run: exit 1
