@@ -40,3 +40,8 @@ Each ad placement should use a unique placeholder texture when independent creat
 
 
 `VulkanClearRenderer` exposes the map-level bridge as `queueIntrinsicAdSurfaceCreative(source, replacement)`. The game loop therefore does not need to access `VulkanStaticMeshRenderer` or Vulkan descriptor state directly.
+
+
+## Android radio audio bridge
+
+`AndroidAudioEngine` can preload a PCM16 WAV creative on the game thread with `prepareAdvertisement()`, start it with `playAdvertisement()`, and update gain/pan atomically with `updateAdvertisementSpatial()`. The AAudio callback performs no file I/O and allocates nothing. Creative replacement is rejected while an ad voice is queued or playing, avoiding races with the callback. Gameplay cues retain their existing centered mix; spatial panning is applied only to the advertisement voice. Stopping or voice-stealing an ad releases the in-flight state.

@@ -34,6 +34,7 @@ enum class AndroidAudioCue : std::uint8_t {
     RoundStart,
     HorrorStinger,
     Thunder,
+    Advertisement,
 };
 
 [[nodiscard]] AndroidAudioCue weaponFireCue(
@@ -56,6 +57,24 @@ public:
     void play(
         AndroidAudioCue cue,
         float gain = 1.0f) noexcept;
+
+    [[nodiscard]] bool prepareAdvertisement(
+        AAssetManager* assetManager,
+        const char* assetPath) noexcept;
+
+    [[nodiscard]] bool playAdvertisement(
+        float gain,
+        float pan = 0.0f) noexcept;
+
+    void updateAdvertisementSpatial(
+        float gain,
+        float pan,
+        bool enabled = true) noexcept;
+
+    void stopAdvertisement() noexcept;
+
+    [[nodiscard]] bool advertisementReady() const noexcept;
+    [[nodiscard]] bool advertisementPlaying() const noexcept;
 
     // Reopens an AAudio stream after AAUDIO_ERROR_DISCONNECTED. Call from the
     // game thread; the real-time callback never performs lifecycle work.
@@ -83,6 +102,7 @@ private:
         float playbackRate = 1.0f;
         std::uint32_t noiseState = 1U;
         bool sampled = false;
+        bool spatialAdvertisement = false;
     };
 
     struct SampleBuffer {
@@ -122,12 +142,17 @@ private:
     std::array<Voice, 24> voices_{};
     SampleBuffer fireSample_{};
     SampleBuffer reloadSample_{};
+    SampleBuffer advertisementSample_{};
 
     AAudioStream* stream_ = nullptr;
     float sampleRate_ = 48000.0f;
 
     std::atomic<bool> disconnected_{false};
     std::atomic<bool> ready_{false};
+    std::atomic<bool> advertisementEnabled_{false};
+    std::atomic<bool> advertisementInFlight_{false};
+    std::atomic<float> advertisementGain_{0.0f};
+    std::atomic<float> advertisementPan_{0.0f};
     std::atomic<std::uint64_t> dropped_{0};
     std::uint32_t voiceSequence_ = 0U;
 };
