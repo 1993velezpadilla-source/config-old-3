@@ -1,0 +1,67 @@
+name: Sanctum CC0 Altar Cluster Probe
+
+on:
+  push:
+    branches:
+      - feature/xziel-map-builder-agent-v1
+    paths:
+      - ".github/workflows/sanctum-cc0-altar-cluster.yml"
+      - "tools/sanctum_v2/probe_cc0_altar_cluster.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq curl xz-utils xvfb libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libglu1-mesa
+
+      - name: Fetch verified CC0 altar source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p external-altar sanctum-altar-cluster
+          curl -L --fail --retry 3 https://opengameart.org/content/church-0 -o sanctum-altar-cluster/source-page.html
+          grep -qi CC0 sanctum-altar-cluster/source-page.html
+          curl -L --fail --retry 3 https://opengameart.org/sites/default/files/Church.blend -o external-altar/Church.blend
+          test -s external-altar/Church.blend
+          sha256sum external-altar/Church.blend | tee sanctum-altar-cluster/source.sha256
+
+      - name: Install Blender
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz -o /tmp/blender.tar.xz
+          tar -C /tmp -xf /tmp/blender.tar.xz
+
+      - name: Render authored altar cluster
+        shell: bash
+        run: |
+          set -euo pipefail
+          export SANCTUM_ALTAR_SHA256="$(cut -d' ' -f1 sanctum-altar-cluster/source.sha256)"
+          SANCTUM_ALTAR_CLUSTER_OUT=sanctum-altar-cluster \
+          xvfb-run -a -s "-screen 0 1600x1000x24" \
+            /tmp/blender-5.2.2-linux-x64/blender \
+            -b external-altar/Church.blend \
+            --python tools/sanctum_v2/probe_cc0_altar_cluster.py \
+            2>&1 | tee sanctum-altar-cluster/blender.log
+          grep -q SANCTUM_ALTAR_CLUSTER_PASS sanctum-altar-cluster/blender.log
+
+      - name: Upload altar evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-CC0-Altar-Cluster
+          path: sanctum-altar-cluster/
+          if-no-files-found: error
+          retention-days: 14
