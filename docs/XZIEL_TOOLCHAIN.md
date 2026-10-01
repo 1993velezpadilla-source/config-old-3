@@ -38,3 +38,12 @@ python3 tools/xziel_toolchain/doctor.py --root .xziel-tools --deep
 
 bash tools/xziel_toolchain/optimize_glb.sh input.glb output.glb
 ```
+
+
+## Geometry CPU toolchain
+`tools/xziel_toolchain/bootstrap_geometry_cpu.sh` installs a small collision/mesh environment:
+- trimesh 5.1.0
+- CoACD 1.0.14
+- manifold3d 3.5.4
+
+`generate_collision_hulls.py` converts an existing triangulated collision GLB into separate convex hull meshes and a JSON evidence report. The generated hull GLB is a sidecar candidate; existing fitted collision stays available until the XZIEL runtime loader is explicitly wired to consume the hull set.
