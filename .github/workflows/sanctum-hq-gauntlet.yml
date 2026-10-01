@@ -120,19 +120,18 @@ jobs:
                   rows.append({"file":p.name,"before":[w,h],"after":[w,h],"enhanced":False})
                   continue
 
-              # Photogrammetry atlases contain baked shadows. Brighten midtones
-              # without clipping highlights, then upscale to 2K and sharpen mildly.
-              lut=[min(255, int(round(255*((i/255.0)**0.55)))) for i in range(256)]
-              im=im.point(lut*3)
-              im=ImageEnhance.Contrast(im).enhance(1.08)
-              im=ImageEnhance.Color(im).enhance(1.04)
+              # Preserve the scan's real stone/wood tonality. The previous gamma
+              # lift washed the church nearly white; use only a controlled
+              # contrast/color cleanup before the 2K upscale.
+              im=ImageEnhance.Contrast(im).enhance(1.16)
+              im=ImageEnhance.Color(im).enhance(1.03)
 
               scale=2048/max(im.size)
               nw=max(1,int(round(im.width*scale)))
               nh=max(1,int(round(im.height*scale)))
               if (nw,nh)!=im.size:
                   im=im.resize((nw,nh),Image.Resampling.LANCZOS)
-              im=im.filter(ImageFilter.UnsharpMask(radius=1.1,percent=115,threshold=3))
+              im=im.filter(ImageFilter.UnsharpMask(radius=0.9,percent=145,threshold=2))
               im.save(p,optimize=True)
 
               rows.append({"file":p.name,"before":[w,h],"after":[nw,nh],"enhanced":True})
