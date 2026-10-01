@@ -121,10 +121,54 @@ def _delivery_texture(source: Path, edge: int):
     sharp=filled.copy()
     sharp.paste(crop.convert("RGB"),mask=mask)
 
-    radius=max(24.0,float(edge)/48.0)
-    low=sharp.filter(ImageFilter.GaussianBlur(radius=radius))
-    low=ImageEnhance.Color(low).enhance(0.42)
-    low=ImageEnhance.Contrast(low).enhance(0.78)
+    # Hidden/rear surfaces must not inherit source-background pixels or the
+    # nearest-edge "streaks" produced by 2D nearest-neighbour extrapolation.
+    # Build a deliberately low-frequency texture from the median subject color
+    # at each body height. This preserves broad hood/skin/garment color changes
+    # while suppressing eyes, mouth and edge stripes on occluded geometry.
+    row_rgb=np.zeros((low_edge,3),dtype=np.float32)
+    row_valid=np.zeros((low_edge,),dtype=bool)
+    for yy in range(low_edge):
+        row_mask=foreground[yy]
+        if np.any(row_mask):
+            row_rgb[yy]=np.median(rgba[yy,row_mask,:3],axis=0)
+            row_valid[yy]=True
+
+    valid_rows=np.flatnonzero(row_valid)
+    if len(valid_rows):
+        for yy in range(low_edge):
+            if not row_valid[yy]:
+                nearest=valid_rows[np.argmin(np.abs(valid_rows-yy))]
+                row_rgb[yy]=row_rgb[nearest]
+    else:
+        row_rgb[:]=np.median(rgb.reshape(-1,3),axis=0)
+
+    try:
+        from scipy.ndimage import gaussian_filter1d
+        row_rgb=gaussian_filter1d(
+            row_rgb,
+            sigma=max(3.0,float(low_edge)/64.0),
+            axis=0,
+            mode="nearest",
+        )
+    except Exception:
+        pass
+
+    global_subject=np.median(
+        rgba[foreground,:3],
+        axis=0,
+    ) if np.any(foreground) else np.median(rgb.reshape(-1,3),axis=0)
+    row_rgb=row_rgb*0.82+global_subject[None,:]*0.18
+    row_rgb=np.clip(row_rgb,0,255).astype(np.uint8)
+    low_small=np.repeat(row_rgb[:,None,:],low_edge,axis=1)
+    low=Image.fromarray(low_small,"RGB").resize(
+        (int(edge),int(edge)),
+        Image.Resampling.BICUBIC,
+    )
+    radius=max(16.0,float(edge)/96.0)
+    low=low.filter(ImageFilter.GaussianBlur(radius=radius))
+    low=ImageEnhance.Color(low).enhance(0.52)
+    low=ImageEnhance.Contrast(low).enhance(0.72)
 
     return sharp,low,{
         "source_size":[int(image.width),int(image.height)],
@@ -132,7 +176,8 @@ def _delivery_texture(source: Path, edge: int):
         "delivery_edge":int(edge),
         "low_frequency_blur_radius":float(radius),
         "foreground_background_extrapolated":bool(extrapolated),
-        "policy":"foreground-preserving sharp projection plus extrapolated low-frequency hidden surfaces",
+        "hidden_surface_strategy":"smoothed_subject_height_bands",
+        "policy":"sharp visible source projection plus height-banded foreground colors on hidden surfaces",
     }
 
 
@@ -276,7 +321,7 @@ def project_source_front(
 
     report={
         "schema":1,
-        "method":"hayuya-native-source-front-projection-v4-frequency-split-occlusion-aware-y-up",
+        "method":"hayuya-native-source-front-projection-v5-height-banded-hidden-y-up",
         "source_image":str(source_image),
         "native_mesh":str(native_mesh),
         "output_glb":str(output_glb),

@@ -301,7 +301,7 @@ def _head_bounds(geometries,vertices):
     head=np.concatenate(points,axis=0)
     h_lo=head.min(axis=0)
     h_hi=head.max(axis=0)
-    span=max(float(h_hi[0]-h_lo[0]),float(h_hi[1]-h_lo[1]))*1.55
+    span=max(float(h_hi[0]-h_lo[0]),float(h_hi[1]-h_lo[1]))*1.90
     cx=float((h_lo[0]+h_hi[0])*0.5)
     cy=float((h_lo[1]+h_hi[1])*0.5)
     return (
