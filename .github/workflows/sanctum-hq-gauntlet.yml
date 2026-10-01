@@ -37,7 +37,7 @@ jobs:
           import json, os, urllib.request
           repo=os.environ["REPO"]
           req=urllib.request.Request(
-              f"https://api.github.com/repos/{repo}/actions/runs?per_page=100",
+              f"https://api.github.com/repos/{repo}/actions/workflows/church-map-blender.yml/runs?status=success&per_page=20",
               headers={
                   "Authorization":f"Bearer {os.environ['GH_TOKEN']}",
                   "Accept":"application/vnd.github+json",
@@ -45,11 +45,7 @@ jobs:
               },
           )
           data=json.load(urllib.request.urlopen(req))
-          runs=[
-              r for r in data.get("workflow_runs",[])
-              if r.get("path")==".github/workflows/church-map-blender.yml"
-              and r.get("conclusion")=="success"
-          ]
+          runs=data.get("workflow_runs",[])
           if not runs:
               raise SystemExit("No successful church-map-blender run found")
           runs.sort(key=lambda r:r["created_at"], reverse=True)
