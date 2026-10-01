@@ -332,6 +332,20 @@ renders = [render_dress_view(scene, cam, *v) for v in views]
 material_previews = render_material_previews(scene, cam)
 
 walk = walkability_with_dressing(scene, inner_after)
+
+# Always persist pre-gate diagnostics so a failed run tells us exactly which
+# authored piece blocked each walkability sample instead of forcing guesswork.
+from collections import Counter
+blockers = Counter(item.get("object", "") for item in walk["blocked_samples"])
+(DRESS_OUT/"walkability-diagnostics.json").write_text(
+    json.dumps({
+        "walkability": walk,
+        "blockers": dict(blockers),
+    }, indent=2),
+    encoding="utf-8",
+)
+print("SANCTUM_WALKABILITY_BLOCKERS", json.dumps(dict(blockers), sort_keys=True))
+
 if walk["walkable_ratio"] < 0.88:
     dress_fail(
         f"dressing blocks too much nave: {walk['walkable']} / {walk['samples']} "
