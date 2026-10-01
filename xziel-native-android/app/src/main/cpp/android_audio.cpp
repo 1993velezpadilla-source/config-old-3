@@ -628,20 +628,47 @@ void AndroidAudioEngine::startVoice(
         }
     }
 
+    if (slot == nullptr &&
+        command.cue == AndroidAudioCue::Advertisement) {
+        // Advertising is always lower priority than gameplay audio. Never
+        // steal a weapon/zombie/UI voice merely to start a radio creative.
+        advertisementEnabled_.store(
+            false,
+            std::memory_order_release);
+        advertisementInFlight_.store(
+            false,
+            std::memory_order_release);
+        dropped_.fetch_add(
+            1U,
+            std::memory_order_relaxed);
+        return;
+    }
+
     if (slot == nullptr) {
-        // Deterministic voice stealing: replace the voice closest to its end.
-        slot = &voices_[0];
-        float oldestRatio = -1.0f;
-
+        // Gameplay may reclaim an ad voice immediately. Otherwise use the
+        // deterministic legacy policy: replace the voice closest to its end.
         for (auto& voice : voices_) {
-            const float ratio =
-                voice.durationSeconds > 0.0f
-                ? voice.ageSeconds / voice.durationSeconds
-                : 1.0f;
-
-            if (ratio > oldestRatio) {
-                oldestRatio = ratio;
+            if (voice.spatialAdvertisement) {
                 slot = &voice;
+                break;
+            }
+        }
+
+        if (slot == nullptr) {
+            slot = &voices_[0];
+            float oldestRatio = -1.0f;
+
+            for (auto& voice : voices_) {
+                const float ratio =
+                    voice.durationSeconds > 0.0f
+                    ? voice.ageSeconds /
+                        voice.durationSeconds
+                    : 1.0f;
+
+                if (ratio > oldestRatio) {
+                    oldestRatio = ratio;
+                    slot = &voice;
+                }
             }
         }
     }
