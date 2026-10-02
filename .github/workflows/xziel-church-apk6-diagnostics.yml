@@ -1,0 +1,119 @@
+name: XZIEL Church APK6 Diagnostics
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/xziel-map-builder-agent-v1
+    paths:
+      - ".github/workflows/xziel-church-apk6-diagnostics.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download APK #6 artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: XZIEL-Church-ExactTextures-InfinitePistol
+          path: apk6
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 37019696397
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install emulator tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "emulator" "system-images;android-35;google_apis;x86_64"
+
+      - name: Boot APK #6 and collect diagnostics
+        shell: bash
+        env:
+          ANDROID_AVD_HOME: ${{ runner.temp }}/xziel-apk6-diag-avd
+        run: |
+          set -euo pipefail
+          mkdir -p diag
+          ADB="${ANDROID_HOME}/platform-tools/adb"
+          EMULATOR="${ANDROID_HOME}/emulator/emulator"
+          AVDMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name avdmanager | sort | tail -n 1)"
+          printf 'no\n' | "$AVDMANAGER" create avd --force --name xziel-apk6-diag \
+            --package "system-images;android-35;google_apis;x86_64" --device "pixel_6"
+          [[ ! -e /dev/kvm ]] || sudo chmod 666 /dev/kvm || true
+          nohup "$EMULATOR" @xziel-apk6-diag -no-window -no-audio -no-boot-anim -no-snapshot \
+            -gpu swiftshader_indirect -memory 4096 > diag/emulator-stdout.txt 2>&1 &
+          timeout 120 "$ADB" wait-for-device
+          for i in $(seq 1 60); do
+            [[ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]] && break
+            sleep 2
+          done
+          "$ADB" install -r apk6/XZIEL-Church-ExactTextures-InfinitePistol-debug.apk
+          "$ADB" shell settings put secure immersive_mode_confirmations confirmed || true
+          "$ADB" logcat -c
+          "$ADB" shell am force-stop com.xziel.churchsnapshot || true
+          "$ADB" shell am start -W -n com.xziel.churchsnapshot/org.libsdl.app.NZPActivity | tee diag/am-start.txt || true
+
+          for i in $(seq 1 50); do
+            STAGE="$("$ADB" shell run-as com.xziel.churchsnapshot cat files/nzp-runtime/.xziel-stage 2>/dev/null | tr -d '\r' || true)"
+            [[ "$STAGE" == "FIRST_FRAME_OK" || "$STAGE" == "SYS_ERROR" ]] && break
+            sleep 1
+          done
+          echo "initial_stage=$STAGE" | tee diag/runtime-state.txt
+
+          sleep 5
+          "$ADB" exec-out screencap -p > diag/frame-05s.png || true
+          "$ADB" shell dumpsys window > diag/window-05s.txt || true
+          "$ADB" shell dumpsys activity activities > diag/activity-05s.txt || true
+
+          sleep 10
+          "$ADB" exec-out screencap -p > diag/frame-15s.png || true
+
+          sleep 15
+          "$ADB" exec-out screencap -p > diag/frame-30s.png || true
+
+          PID="$("$ADB" shell pidof com.xziel.churchsnapshot 2>/dev/null | tr -d '\r' || true)"
+          STAGE="$("$ADB" shell run-as com.xziel.churchsnapshot cat files/nzp-runtime/.xziel-stage 2>/dev/null | tr -d '\r' || true)"
+          echo "PID=$PID" | tee -a diag/runtime-state.txt
+          echo "STAGE=$STAGE" | tee -a diag/runtime-state.txt
+
+          "$ADB" logcat -d -v threadtime > diag/logcat.txt || true
+          "$ADB" shell run-as com.xziel.churchsnapshot find files/nzp-runtime -maxdepth 2 -type f -print > diag/runtime-files.txt 2>&1 || true
+
+          grep -E "XZSM:|GL4ES|GL_INVALID|GL_OUT_OF_MEMORY|Image_LoadImage|failed to upload|missing texture|FIRST_FRAME|SYS_ERROR|Fatal|FATAL|SIG|Out of GL|Could not find|sanctum" diag/logcat.txt \
+            | tail -400 | tee diag/key-log.txt || true
+
+          python3 - <<'PY' | tee diag/frame-stats.txt
+          from PIL import Image,ImageStat
+          for p in ["diag/frame-05s.png","diag/frame-15s.png","diag/frame-30s.png"]:
+              try:
+                  im=Image.open(p).convert("RGB")
+              except Exception as e:
+                  print(p,"unreadable",e); continue
+              s=ImageStat.Stat(im.convert("L"))
+              px=list(im.getdata())
+              print(p,im.size,"mean",round(s.mean[0],3),"std",round(s.stddev[0],3),
+                    "nonblack",round(sum(1 for r,g,b in px if max(r,g,b)>8)/len(px),5))
+          PY
+
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Church-APK6-Diagnostics
+          path: diag/
+          if-no-files-found: error
+          retention-days: 7
