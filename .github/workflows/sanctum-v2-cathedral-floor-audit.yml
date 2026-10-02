@@ -30,6 +30,42 @@ jobs:
           set -euo pipefail
           curl -L --fail --retry 3 https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz -o /tmp/blender.tar.xz
           tar -C /tmp -xf /tmp/blender.tar.xz
+      - name: Audit monastery diffuse luminance
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import urllib.request
+          from pathlib import Path
+          from PIL import Image,ImageStat
+          url="https://dl.polyhaven.org/file/ph-assets/Textures/png/4k/monastery_stone_floor/monastery_stone_floor_diff_4k.png"
+          dst=Path("/tmp/monastery_stone_floor_diff_4k.png")
+          with urllib.request.urlopen(url,timeout=180) as r, dst.open("wb") as f:
+              while True:
+                  b=r.read(1024*1024)
+                  if not b: break
+                  f.write(b)
+          im=Image.open(dst).convert("RGB")
+          stat=ImageStat.Stat(im)
+          means=[v/255.0 for v in stat.mean]
+          gray=im.convert("L")
+          hist=gray.histogram()
+          total=sum(hist)
+          def pct(q):
+              target=total*q
+              s=0
+              for i,n in enumerate(hist):
+                  s+=n
+                  if s>=target: return i/255.0
+              return 1.0
+          print("SANCTUM_MONASTERY_DIFFUSE_LUMA",{
+              "size":im.size,
+              "mean_rgb":means,
+              "mean_luma":ImageStat.Stat(gray).mean[0]/255.0,
+              "p10":pct(.10),"p50":pct(.50),"p90":pct(.90)
+          })
+          PY
+
       - name: Audit evaluated cathedral materials
         shell: bash
         run: |
