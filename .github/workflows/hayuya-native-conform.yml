@@ -17,6 +17,7 @@ on:
       - tools/hayuya3d/native_face_repair.py
       - tools/hayuya3d/regional_fusion.py
       - tools/hayuya3d/source_material_rescue.py
+      - tools/hayuya3d/native_visibility_material.py
       - tools/hayuya3d/source_front_projection.py
       - tools/hayuya3d/material_bridge.py
       - tools/hayuya3d/texture_gate.py
