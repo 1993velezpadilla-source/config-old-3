@@ -193,34 +193,33 @@ def build_cathedral_floor_overlay(source_obj,manifest,resolution,scene_floor_z):
     links.new(diff.outputs["Color"],color_boost.inputs["Color"])
     links.new(color_boost.outputs["Color"],bsdf.inputs["Base Color"])
 
-    deps=bpy.context.evaluated_depsgraph_get()
-    eo=source_obj.evaluated_get(deps)
-    src=eo.to_mesh()
-    mw=eo.matrix_world
-    normal_m=eo.matrix_world.to_3x3()
+    # The earlier face-extraction pass covered only 58.8897 m² inside a
+    # 961.8336 m² XY footprint (6.12%), proving those upward GroundFloorWalls
+    # faces are ledges/fragments rather than the visible nave floor. Build one
+    # continuous floor slab from the evaluated cathedral XY bounds instead.
+    st=evaluated_stats(source_obj)
+    mn=Vector(st["min"])
+    mx=Vector(st["max"])
+    footprint_size=mx-mn
 
-    bm=bmesh.new()
-    verts=[]
-    faces=[]
-    z_limit=float(scene_floor_z)+3.0
-    for p in src.polygons:
-        n=(normal_m @ p.normal).normalized()
-        wc=mw @ p.center
-        if n.z<=0.85 or wc.z>z_limit:
-            continue
-        idxs=[]
-        for vi in p.vertices:
-            wv=mw @ src.vertices[vi].co
-            verts.append((float(wv.x),float(wv.y),float(wv.z)+0.003))
-            idxs.append(len(verts)-1)
-        if len(idxs)>=3:
-            faces.append(idxs)
+    # Keep the slab under the wall shell. Half one authored physical tile on
+    # every side is a data-derived safety inset, not an eyeballed wall offset.
+    inset=tile*0.5
+    x0=mn.x+inset
+    x1=mx.x-inset
+    y0=mn.y+inset
+    y1=mx.y-inset
+    if x1<=x0 or y1<=y0:
+        raise SystemExit(f"Invalid cathedral floor footprint after inset: {list(mn)} {list(mx)} inset={inset}")
 
-    eo.to_mesh_clear()
-    if not faces:
-        bm.free()
-        raise SystemExit("No near-floor upward cathedral faces found for floor overlay")
-
+    z=float(scene_floor_z)+0.006
+    verts=[
+        (x0,y0,z),
+        (x1,y0,z),
+        (x1,y1,z),
+        (x0,y1,z),
+    ]
+    faces=[(0,1,2,3)]
     mesh=bpy.data.meshes.new("XZIEL_CathedralFloorOverlayMesh")
     mesh.from_pydata(verts,[],faces)
     mesh.update()
@@ -228,20 +227,35 @@ def build_cathedral_floor_overlay(source_obj,manifest,resolution,scene_floor_z):
     bpy.context.scene.collection.objects.link(overlay)
     overlay.data.materials.append(mat)
 
-    area=0.0
-    for p in mesh.polygons:
-        area+=float(p.area)
+    slab_area=(x1-x0)*(y1-y0)
+    bbox_area=footprint_size.x*footprint_size.y
+    coverage_ratio=(slab_area/bbox_area) if bbox_area>0 else 0.0
 
     return overlay,{
         "asset":asset,
         "provider":"Poly Haven",
         "license":"CC0",
-        "source_material_audit":"GroundFloorWalls contains the near-floor upward faces; extracted geometry avoids retexturing walls",
-        "normal_gate_world_z":0.85,
-        "z_limit":z_limit,
+        "source_material_audit":{
+            "fragment_face_count":965,
+            "fragment_area_m2":58.88974427450465,
+            "fragment_bbox_xy_area_m2":961.833611277325,
+            "fragment_coverage_ratio":0.06122654020823671,
+            "decision":"fragment extraction rejected; use continuous evaluated-cathedral XY footprint",
+        },
+        "footprint_bounds":{
+            "source_min":list(mn),
+            "source_max":list(mx),
+            "source_size":list(footprint_size),
+            "inset_m":inset,
+            "slab_min":[x0,y0,z],
+            "slab_max":[x1,y1,z],
+            "slab_size":[x1-x0,y1-y0,0.0],
+        },
         "face_count":len(mesh.polygons),
-        "area_m2_object_space":area,
-        "z_fight_offset_m":0.003,
+        "area_m2_object_space":slab_area,
+        "bbox_xy_area_m2":bbox_area,
+        "coverage_ratio":coverage_ratio,
+        "z_fight_offset_m":0.006,
         "mapping":"world-space BOX triplanar",
         "physical_tile_m":tile,
         "texture_resolution":resolution,
