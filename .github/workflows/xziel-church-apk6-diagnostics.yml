@@ -45,6 +45,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          unset ANDROID_AVD_HOME
           mkdir -p diag
           ADB="${ANDROID_HOME}/platform-tools/adb"
           EMULATOR="${ANDROID_HOME}/emulator/emulator"
