@@ -29,6 +29,51 @@ ymin=vertical_state["ymin"]; ymax=vertical_state["ymax"]
 STONE=vertical_state["STONE"]
 add_box=vertical_state["add_box"]
 
+def make_ref_material(name,base,roughness=0.55,metallic=0.0,noise_scale=0.0,noise_strength=0.0):
+    mat=bpy.data.materials.get(name) or bpy.data.materials.new(name)
+    mat.use_nodes=True
+    nt=mat.node_tree
+    bsdf=nt.nodes.get("Principled BSDF") if nt else None
+    if not bsdf:
+        return mat
+    bsdf.inputs["Base Color"].default_value=(*base,1.0)
+    bsdf.inputs["Roughness"].default_value=roughness
+    if "Metallic" in bsdf.inputs:
+        bsdf.inputs["Metallic"].default_value=metallic
+    if noise_scale>0.0:
+        noise=nt.nodes.new("ShaderNodeTexNoise")
+        noise.name=name+"_NOISE"
+        noise.inputs["Scale"].default_value=noise_scale
+        noise.inputs["Detail"].default_value=5.5
+        noise.inputs["Roughness"].default_value=0.72
+        bump=nt.nodes.new("ShaderNodeBump")
+        bump.name=name+"_BUMP"
+        bump.inputs["Strength"].default_value=noise_strength
+        bump.inputs["Distance"].default_value=0.12
+        nt.links.new(noise.outputs["Fac"],bump.inputs["Height"])
+        normal=bsdf.inputs.get("Normal")
+        if normal:
+            nt.links.new(bump.outputs["Normal"],normal)
+    return mat
+
+ALTAR_STONE=make_ref_material("SANCTUM_REF_ALTAR_STONE",(0.115,0.095,0.078),0.42,0.0,5.8,0.24)
+ALTAR_WOOD=make_ref_material("SANCTUM_REF_ALTAR_WOOD",(0.055,0.024,0.014),0.38,0.0,4.2,0.16)
+ALTAR_CLOTH=make_ref_material("SANCTUM_REF_ALTAR_CLOTH",(0.19,0.015,0.022),0.62,0.0,9.5,0.08)
+ALTAR_GOLD=make_ref_material("SANCTUM_REF_ALTAR_GOLD",(0.54,0.27,0.055),0.28,0.72,0.0,0.0)
+ALTAR_PAPER=make_ref_material("SANCTUM_REF_ALTAR_PAPER",(0.72,0.62,0.46),0.76,0.0,7.5,0.05)
+ALTAR_CANDLE=make_ref_material("SANCTUM_REF_ALTAR_CANDLE",(0.88,0.66,0.34),0.64,0.0,10.0,0.05)
+ALTAR_IRON=make_ref_material("SANCTUM_REF_ALTAR_IRON",(0.035,0.029,0.025),0.31,0.72,3.0,0.10)
+
+def add_cylinder(name,location,radius,depth,mat,role="hero_altar_detail",collision=False,vertices=24):
+    bpy.ops.mesh.primitive_cylinder_add(vertices=vertices,radius=radius,depth=depth,location=location)
+    obj=bpy.context.object
+    obj.name=name
+    if mat:
+        obj.data.materials.append(mat)
+    obj["xziel_role"]=role
+    obj["xziel_collision"]=bool(collision)
+    return obj
+
 def fail(msg):
     raise SystemExit("SANCTUM_HERO_ALTAR_FAIL: "+msg)
 
@@ -88,22 +133,105 @@ slab=place_bottom_center(
     role="hero_altar_slab"
 )
 
-# Two simple stone supports use the same authored stone material family; the
-# focal visual surfaces remain the CC0 ruin meshes above.
-support_a=add_box(
-    "SANCTUM_HERO_ALTAR_SUPPORT_L",
-    (ic.x-1.25,altar_y,floor_z+0.50),
-    (0.62,0.78,1.0),
-    STONE,"hero_altar_support",True
-)
-support_b=add_box(
-    "SANCTUM_HERO_ALTAR_SUPPORT_R",
-    (ic.x+1.25,altar_y,floor_z+0.50),
-    (0.62,0.78,1.0),
-    STONE,"hero_altar_support",True
-)
+# Reference-driven altar assembly. The new photo reads as a three-step
+# stone dais with a dark Gothic timber altar, burgundy frontal, gold cross,
+# open book and dense candle clusters. Keep it compact in the apse so gameplay
+# clearance and the proven multilevel navigation surfaces stay untouched.
+hero=[]
 
-hero=[apse,slab,support_a,support_b]
+step_specs=[
+    ("LOW",4.90,2.75,0.18,-0.98,0.09),
+    ("MID",4.30,2.28,0.18,-0.71,0.27),
+    ("TOP",3.72,1.82,0.18,-0.47,0.45),
+]
+for label,w,d,h,yoff,zoff in step_specs:
+    hero.append(add_box(
+        f"SANCTUM_HERO_ALTAR_STEP_{label}",
+        (ic.x,altar_y+yoff,floor_z+zoff),
+        (w,d,h),
+        ALTAR_STONE,"hero_altar_step",True
+    ))
+
+wood_base=add_box(
+    "SANCTUM_HERO_ALTAR_WOOD_BASE",
+    (ic.x,altar_y+0.05,floor_z+0.93),
+    (3.42,1.28,0.92),
+    ALTAR_WOOD,"hero_altar_wood",True
+)
+hero.append(wood_base)
+
+# Deep carved-looking rails/posts give the silhouette weight from the entrance.
+for sign in (-1.0,1.0):
+    hero.append(add_box(
+        f"SANCTUM_HERO_ALTAR_POST_{'L' if sign<0 else 'R'}",
+        (ic.x+sign*1.48,altar_y-0.02,floor_z+1.02),
+        (0.24,1.42,1.12),
+        ALTAR_WOOD,"hero_altar_wood",True
+    ))
+    hero.append(add_box(
+        f"SANCTUM_HERO_ALTAR_FINIAL_{'L' if sign<0 else 'R'}",
+        (ic.x+sign*1.48,altar_y-0.28,floor_z+1.67),
+        (0.18,0.24,0.34),
+        ALTAR_WOOD,"hero_altar_detail",False
+    ))
+
+# Re-skin the authored slab as the heavy dark top from the reference.
+if slab.data.materials:
+    slab.data.materials.clear()
+slab.data.materials.append(ALTAR_WOOD)
+hero.append(slab)
+
+cloth=add_box(
+    "SANCTUM_HERO_ALTAR_BURGUNDY_FRONTAL",
+    (ic.x,altar_y-0.655,floor_z+1.03),
+    (1.42,0.035,0.92),
+    ALTAR_CLOTH,"hero_altar_detail",False
+)
+hero.append(cloth)
+hero.append(add_box(
+    "SANCTUM_HERO_ALTAR_GOLD_CROSS_V",
+    (ic.x,altar_y-0.678,floor_z+1.03),
+    (0.105,0.025,0.58),
+    ALTAR_GOLD,"hero_altar_detail",False
+))
+hero.append(add_box(
+    "SANCTUM_HERO_ALTAR_GOLD_CROSS_H",
+    (ic.x,altar_y-0.680,floor_z+1.10),
+    (0.42,0.025,0.095),
+    ALTAR_GOLD,"hero_altar_detail",False
+))
+
+# Open book: two leaves pitched slightly away from the spine.
+book_z=floor_z+1.63
+for sign in (-1.0,1.0):
+    page=add_box(
+        f"SANCTUM_HERO_ALTAR_BOOK_{'L' if sign<0 else 'R'}",
+        (ic.x+sign*0.23,altar_y-0.06,book_z),
+        (0.48,0.56,0.035),
+        ALTAR_PAPER,"hero_altar_detail",False
+    )
+    page.rotation_euler.y=math.radians(sign*8.0)
+    hero.append(page)
+
+# Two dark iron candelabra groups plus warm wax candles.
+candle_x=(-1.18,-0.76,0.76,1.18)
+for idx,xoff in enumerate(candle_x,1):
+    base=add_cylinder(
+        f"SANCTUM_HERO_ALTAR_CANDLE_BASE_{idx}",
+        (ic.x+xoff,altar_y-0.02,floor_z+1.62),
+        0.105,0.14,ALTAR_IRON,"hero_altar_detail",False,24
+    )
+    stem=add_cylinder(
+        f"SANCTUM_HERO_ALTAR_CANDLE_STEM_{idx}",
+        (ic.x+xoff,altar_y-0.02,floor_z+1.91),
+        0.055,0.50,ALTAR_IRON,"hero_altar_detail",False,20
+    )
+    wax=add_cylinder(
+        f"SANCTUM_HERO_ALTAR_CANDLE_WAX_{idx}",
+        (ic.x+xoff,altar_y-0.02,floor_z+2.23),
+        0.075,0.34,ALTAR_CANDLE,"hero_altar_detail",False,20
+    )
+    hero.extend([base,stem,wax])
 
 # Safety: hero altar stays in the apse end-zone and cannot consume the central
 # training loop or leave the playable shell.
@@ -128,11 +256,22 @@ def add_area(name,loc,energy,size_m,color,target):
     lo.location=Vector(loc)
     lo.rotation_euler=(Vector(target)-lo.location).to_track_quat("-Z","Y").to_euler()
 
-altar_target=Vector((ic.x,altar_y,floor_z+1.2))
+altar_target=Vector((ic.x,altar_y,floor_z+1.42))
+# Warm candle/altar key against a restrained cool stained-glass rim.
 add_area("SANCTUM_ALTAR_KEY",
-         (ic.x-4.0,altar_y-3.0,floor_z+5.2),1150,4.5,(1.0,0.48,0.20),altar_target)
+         (ic.x-3.8,altar_y-2.4,floor_z+4.6),920,4.2,(1.0,0.38,0.12),altar_target)
 add_area("SANCTUM_ALTAR_RIM",
-         (ic.x+3.5,apse_y+1.0,floor_z+5.8),750,3.5,(0.22,0.38,0.72),altar_target)
+         (ic.x+3.2,apse_y+0.8,floor_z+5.9),540,3.2,(0.16,0.30,0.58),altar_target)
+
+# Local candle glows are proof-only; geometry remains in the GLB.
+for idx,xoff in enumerate(candle_x,1):
+    ld=bpy.data.lights.new(f"SANCTUM_HERO_CANDLE_GLOW_{idx}_DATA","POINT")
+    ld.energy=52.0
+    ld.color=(1.0,0.29,0.06)
+    ld.shadow_soft_size=0.42
+    lo=bpy.data.objects.new(f"SANCTUM_HERO_CANDLE_GLOW_{idx}",ld)
+    scene.collection.objects.link(lo)
+    lo.location=Vector((ic.x+xoff,altar_y-0.02,floor_z+2.42))
 
 scene.render.engine="BLENDER_EEVEE"
 scene.render.image_settings.media_type="IMAGE"
@@ -147,10 +286,12 @@ scene.world.use_nodes=True
 bg=scene.world.node_tree.nodes.get("Background")
 if bg:
     bg.inputs["Color"].default_value=(0.004,0.005,0.009,1)
-    bg.inputs["Strength"].default_value=0.18
+    bg.inputs["Strength"].default_value=0.125
 
 cam=ensure_camera(scene)
-eye=floor_z+1.84
+# Raised player-view requested for the entrance match.
+eye=floor_z+1.88
+cam.data.lens=31.0
 
 def point(cam,target):
     cam.rotation_euler=(Vector(target)-cam.location).to_track_quat("-Z","Y").to_euler()
@@ -167,8 +308,8 @@ def render(name,pos,look):
 
 renders=[
     render("01-hero-altar-from-nave.png",
-           (ic.x,ic.y-hy*0.48,eye),
-           (ic.x,altar_y,floor_z+1.35)),
+           (ic.x,ic.y-hy*0.70,eye),
+           (ic.x,altar_y,floor_z+1.72)),
     render("02-hero-altar-mid-nave.png",
            (ic.x-1.0,ic.y+hy*0.05,eye),
            (ic.x,altar_y,floor_z+1.55)),
@@ -207,14 +348,14 @@ if not glb.is_file() or glb.stat().st_size<1000000:
 stats=mesh_stats([o for o in export_objects if o.type=="MESH"])
 report={
     "status":"PASS",
-    "stage":"hero-altar-v1",
+    "stage":"hero-altar-reference-v2",
     "source":"OpenGameArt 3TD Fantasy Ruins Pack",
     "license":"CC0",
     "source_sha256":os.environ.get("SANCTUM_RUINS_SHA256",""),
     "source_objects":["TempleRuinTwo300","Object.001"],
-    "hero_objects":[o.name for o in hero],
+    "hero_objects":[o.name for o in hero],\n    "hero_camera":{"eye_height_m":1.88,"lens_mm":31.0,"view":"raised_main_door_reference_match"},\n    "reference_materials":["dark_worn_stone","dark_gothic_wood","burgundy_cloth","aged_gold","warm_wax","black_iron"],
     "apse_scale":0.42,
-    "altar_slab_scale":0.55,
+    "altar_slab_scale":0.55,\n    "altar_step_count":3,\n    "altar_candle_count":4,
     "apse_y":apse_y,
     "altar_y":altar_y,
     "renders":renders,
