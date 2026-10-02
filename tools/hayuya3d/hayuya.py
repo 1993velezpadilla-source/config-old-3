@@ -870,9 +870,10 @@ def make_job_plan(
             "asset_scope": "character-only",
             "activation": "character mode only; props and architecture are never routed through head/face donor generation",
             "input_geometry": "current native Judge champion",
-            "source_target": "current source-derived head/face evidence",
-            "donor_policy": "generate one native 3D head donor per usable selected backend from the same current source evidence",
-            "donor_failure_policy": "projection, planar volume, fusion, rebake and final volumetric failures are recorded per backend and never exposed as candidate_mesh",
+            "source_target": "up to three current source-derived head/face evidence images, preferring real detail references before full-body fallback",
+            "head_evidence_limit": 3,
+            "donor_policy": "for each selected head evidence source, generate one native 3D head donor per usable selected backend",
+            "donor_failure_policy": "projection, planar volume, fusion, rebake and final volumetric failures are recorded per source/backend and never exposed as candidate_mesh",
             "fusion_policy": "seam-safe head wrap on preserved full-body topology with adaptive displacement, orientation and payload-preservation guards",
             "asset_specific_coordinates": False,
             "projection_proxy_created": False,
@@ -3519,6 +3520,11 @@ def main() -> int:
                 asdict(source_face_repair_tournament)
                 if source_face_repair_tournament is not None else None
             ),
+            "tournaments": [
+                asdict(tournament)
+                for tournament in source_face_repair_tournaments
+            ],
+            "source_records": list(source_face_repair_source_records),
             "results": [
                 asdict(result)
                 for result in source_face_repair_results
@@ -3526,6 +3532,9 @@ def main() -> int:
             "failure": source_face_repair_failure,
             "candidate_label": source_face_repair_candidate_label,
             "candidate_labels": list(source_face_repair_candidate_labels),
+            "candidate_records": list(
+                source_face_repair_candidate_records
+            ),
             "winner_label": (
                 champion.backend
                 if champion.backend in source_face_repair_candidate_labels
@@ -3535,9 +3544,10 @@ def main() -> int:
                 champion.backend in source_face_repair_candidate_labels
             ),
             "policy": (
-                "current-source head evidence -> one native 3D donor per usable "
-                "selected backend -> seam-safe full-body head-wrap challengers -> "
-                "one complete Judge arena; never a PNG/front-projection replacement"
+                "up to three current-source head evidence images -> one native "
+                "3D donor per usable selected backend per source -> seam-safe "
+                "full-body head-wrap challengers -> one complete Judge arena; "
+                "never a PNG/front-projection replacement"
             ),
         },
         "mesh_doctor": {
