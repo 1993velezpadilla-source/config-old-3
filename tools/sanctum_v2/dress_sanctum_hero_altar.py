@@ -32,6 +32,10 @@ add_box=vertical_state["add_box"]
 # Same reference-driven PBR library used by the floor and new pews.
 refmat=runpy.run_path("tools/sanctum_v2/reference_materials.py")
 REF=refmat["material_set"]()
+ref_group_fit=runpy.run_path("tools/sanctum_v2/reference_group_fit.py")
+REF_SILHOUETTES=json.loads(Path("docs/sanctum-reference-silhouettes.v1.json").read_text(encoding="utf-8"))
+fit_object_group_to_silhouettes=ref_group_fit["fit_object_group_to_silhouettes"]
+count_group_violations=ref_group_fit["count_group_violations"]
 ALTAR_STONE=REF["stone"]
 ALTAR_WOOD=REF["wood_h"]
 ALTAR_WOOD_V=REF["wood_v"]
@@ -298,6 +302,32 @@ hero.append(add_cylinder(
     (ic.x,altar_y+0.03,floor_z+1.69),0.16,0.10,ALTAR_IRON,"hero_altar_detail",False,24
 ))
 
+# Lock the actual altar carcass to the traced front + side silhouettes.
+# Decorative candles/book/top cross are intentionally excluded so their vertical
+# detail remains faithful to the reference sheet rather than being squashed into
+# the body outline.
+altar_profile=REF_SILHOUETTES["altar"]
+body_exclude=("CANDLE","BOOK","TOP_CROSS","APSE_RUIN")
+altar_body_fit=[o for o in hero if not any(token in o.name for token in body_exclude)]
+altar_fit=fit_object_group_to_silhouettes(
+    altar_body_fit,
+    altar_profile["front_body"]["points"],
+    altar_profile["side_left"]["points"],
+    altar_profile["body_dimensions_m"],
+    anchor_xy=(ic.x,altar_y),
+    ground_z=floor_z,
+)
+altar_fit_audit=count_group_violations(
+    altar_body_fit,
+    altar_profile["front_body"]["points"],
+    altar_profile["side_left"]["points"],
+    altar_profile["body_dimensions_m"],
+    anchor_xy=(ic.x,altar_y),
+    ground_z=floor_z,
+)
+if altar_fit_audit["violations"]!=0:
+    fail(f"altar body escaped reference cage: {altar_fit_audit}")
+
 # Safety: hero altar stays in the apse end-zone and cannot consume the central
 # training loop or leave the playable shell.
 for obj in hero:
@@ -421,6 +451,9 @@ report={
     "hero_objects":[o.name for o in hero],
     "hero_camera":{"eye_height_m":1.88,"lens_mm":31.0,"view":"raised_main_door_reference_match"},
     "reference_material_profile":"docs/sanctum-reference-materials.v2.json",
+    "reference_silhouette_profile":"docs/sanctum-reference-silhouettes.v1.json",
+    "altar_reference_fit":altar_fit,
+    "altar_reference_fit_audit":altar_fit_audit,
     "reference_materials":["wet_dark_stone","aged_masonry","dark_gothic_wood","burgundy_cloth","aged_gold","warm_wax","black_iron"],
     "apse_scale":0.42,
     "altar_slab_scale":0.55,
