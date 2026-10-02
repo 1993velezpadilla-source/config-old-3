@@ -6,7 +6,9 @@
     "Trace front/side silhouettes from the supplied sheets and constrain the authored mesh to that visual hull.",
     "Use sketch/retopo tools for Gothic relief and small features.",
     "Use AI image-to-3D only as a candidate high-poly source; accept it only after silhouette and runtime gates.",
-    "Keep PBR/material generation separate from geometry fitting so baked lighting is not copied into albedo."
+    "Keep PBR/material generation separate from geometry fitting so baked lighting is not copied into albedo.",
+    "When GPU access exists, use Pixal3D multi-view as a high-detail proposal, then force the result through our traced silhouette cages and runtime gates rather than trusting generation alone.",
+    "For interactive sculpt/retopo work, BlendRelay can overlay references and viewport sketches while preserving selected geometry/checkpoints."
   ],
   "tools": [
     {
@@ -85,6 +87,27 @@
       "license": "MPL-2.0",
       "role": "true multi-photo photogrammetry; useful when consistent real photographs exist",
       "status": "not_primary_for_synthetic_angle_sheets"
+    },
+    {
+      "name": "Pixal3D",
+      "url": "https://github.com/TencentARC/Pixal3D",
+      "license": "MIT; third-party components remain under their own licenses per NOTICE",
+      "role": "pixel-aligned single/multi-view image-to-3D with direct pixel-to-3D correspondence; high-fidelity geometry + PBR candidate generator",
+      "status": "preferred_ai_candidate_generator_when_gpu_is_available"
+    },
+    {
+      "name": "BlendRelay MCP",
+      "url": "https://github.com/shefq/blendrelay-mcp",
+      "license": "MIT MCP/runtime + GPL-3.0-or-later Blender extension",
+      "role": "Blender agent bridge with reference images, viewport sketches, target boxes, selected-geometry edits and checkpoints",
+      "status": "promising_interactive_reference_editing_tool"
+    },
+    {
+      "name": "BlenderModelFitting",
+      "url": "https://github.com/hansgaensbauer/BlenderModelFitting",
+      "license": "verify before vendoring",
+      "role": "single-image / silhouette mesh fitting with Blender + PyTorch3D differential rendering; directly relevant to fitting an existing altar/pew mesh to masks",
+      "status": "algorithm_reference_for_differentiable_fit"
     }
   ],
   "implemented_now": [
