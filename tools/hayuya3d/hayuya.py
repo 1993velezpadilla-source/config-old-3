@@ -635,9 +635,20 @@ def make_job_plan(
     animation_requested: bool = False,
     source_autofix_mode: str = "auto",
     derived_detail_inputs: list[Path] | None = None,
+    geometry_inputs_override: list[Path] | None = None,
+    real_detail_inputs_override: list[Path] | None = None,
+    semantic_head_detail_inputs: list[Path] | None = None,
 ) -> dict:
     profile = PROFILES[profile_name]
-    resolved_asset_profile = asset_profile or infer_asset_profile(inputs[0], mode)
+    primary_for_profile = (
+        list(geometry_inputs_override or [])[0]
+        if geometry_inputs_override
+        else inputs[0]
+    )
+    resolved_asset_profile = asset_profile or infer_asset_profile(
+        primary_for_profile,
+        mode,
+    )
     if resolved_asset_profile == "auto":
         resolved_asset_profile = infer_asset_profile(inputs[0], mode)
     asset_spec = load_asset_profile_spec(resolved_asset_profile)
@@ -647,9 +658,18 @@ def make_job_plan(
         profile_name=profile_name,
     )
     roles = split_reference_roles(inputs)
-    geometry_inputs = roles.geometry
-    real_detail_inputs = list(roles.detail)
+    geometry_inputs = list(
+        geometry_inputs_override
+        if geometry_inputs_override is not None
+        else roles.geometry
+    )
+    real_detail_inputs = list(
+        real_detail_inputs_override
+        if real_detail_inputs_override is not None
+        else roles.detail
+    )
     derived_detail_inputs = list(derived_detail_inputs or [])
+    semantic_head_detail_inputs = list(semantic_head_detail_inputs or [])
     detail_inputs = [*real_detail_inputs, *derived_detail_inputs]
     group_size = multiview_group_size or profile.multiview_group_size
     groups = make_reference_groups(geometry_inputs, group_size) if len(geometry_inputs) > 1 else [list(geometry_inputs)]
@@ -658,7 +678,11 @@ def make_job_plan(
         if profile.multi_anchor
         else [geometry_inputs[0]]
     )
-    face_seed_count=face_seed_hypothesis_count(profile_name,detail_inputs)
+    face_seed_count=face_seed_hypothesis_count(
+        profile_name,
+        detail_inputs,
+        semantic_head_inputs=semantic_head_detail_inputs,
+    )
 
     return {
         "engine": "HAYUYA MONSTER",
@@ -679,6 +703,12 @@ def make_job_plan(
             "real_detail_source_count": len(real_detail_inputs),
             "derived_detail_sources": [str(p) for p in derived_detail_inputs],
             "derived_detail_source_count": len(derived_detail_inputs),
+            "semantic_head_detail_sources": [
+                str(p) for p in semantic_head_detail_inputs
+            ],
+            "semantic_head_detail_source_count": len(
+                semantic_head_detail_inputs
+            ),
             "derived_details_are_auxiliary_evidence": True,
             "detail_policy": "manual detail/close-up references are optional; source-autofix crops are derived from real geometry sources and never count as independent photos",
         },
