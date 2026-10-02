@@ -1,0 +1,86 @@
+name: Sanctum Gothic Ruins Full Inventory
+
+on:
+  push:
+    branches:
+      - feature/xziel-map-builder-agent-v1
+    paths:
+      - ".github/workflows/sanctum-gothic-ruins-full-inventory.yml"
+      - "tools/sanctum_v2/inventory_cc0_sanctum_props.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sanctum-gothic-ruins-full-inventory-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq curl xz-utils libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libglu1-mesa
+
+      - name: Fetch verified CC0 Gothic ruins
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p external-ruins gothic-ruins-inventory
+          curl -L --fail --retry 3 https://opengameart.org/content/3td-fantasy-ruins-pack-for-blender -o gothic-ruins-inventory/source-page.html
+          grep -qi CC0 gothic-ruins-inventory/source-page.html
+          curl -L --fail --retry 3 https://opengameart.org/sites/default/files/fantasy_ruins_pack_for_blender.blend -o external-ruins/fantasy_ruins_pack_for_blender.blend
+          test -s external-ruins/fantasy_ruins_pack_for_blender.blend
+          sha256sum external-ruins/fantasy_ruins_pack_for_blender.blend | tee gothic-ruins-inventory/source.sha256
+
+      - name: Install Blender
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz -o /tmp/blender.tar.xz
+          tar -C /tmp -xf /tmp/blender.tar.xz
+
+      - name: Inventory every mesh object
+        shell: bash
+        env:
+          SANCTUM_PROP_INV_OUT: gothic-ruins-inventory
+          SANCTUM_PROP_PACK: gothic_ruins
+        run: |
+          set -euo pipefail
+          export SANCTUM_PROP_SHA256="$(cut -d' ' -f1 gothic-ruins-inventory/source.sha256)"
+          /tmp/blender-5.2.2-linux-x64/blender \
+            -b external-ruins/fantasy_ruins_pack_for_blender.blend \
+            --python tools/sanctum_v2/inventory_cc0_sanctum_props.py \
+            2>&1 | tee gothic-ruins-inventory/blender.log
+          grep -q SANCTUM_PROP_INVENTORY_PASS gothic-ruins-inventory/blender.log
+
+      - name: Validate inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          d=json.load(open("gothic-ruins-inventory/inventory.json",encoding="utf-8"))
+          assert d["status"]=="PASS",d
+          assert d["license"]=="CC0",d
+          assert d["mesh_object_count"]>=10,d
+          assert len(d["sha256"])==64,d
+          print("SANCTUM_GOTHIC_RUINS_INVENTORY_GREEN",d["mesh_object_count"])
+          print("TOP_OBJECTS",[x["name"] for x in d["objects"][:50]])
+          PY
+
+      - name: Upload inventory
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-Gothic-Ruins-Full-Inventory
+          path: gothic-ruins-inventory/
+          if-no-files-found: error
+          retention-days: 14
