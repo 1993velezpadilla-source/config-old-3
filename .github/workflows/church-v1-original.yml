@@ -116,6 +116,12 @@ jobs:
           assert r["automaticClicks"] is False, r
           assert r["impressionOnLoad"] is False, r
           assert r["provider"] == "LocalAdProvider", r
+          spec=json.load(open("church_v1/spec/intrinsic_ads_v1.json", encoding="utf-8"))
+          visual=[p for p in spec["placements"] if p["kind"] == "surface"]
+          assert len(visual) == 5, visual
+          assert all(p.get("disclosureLabel") == "Ad" for p in visual), visual
+          assert all(p.get("disclosureMode") == "integrated_physical_plaque" for p in visual), visual
+          assert all(p.get("clickable") is False for p in visual), visual
           assert r["xzad"] == "church_v1_intrinsic_ads.xzad", r
           assert r["xzadBytes"] > 0, r
           print("CHURCH_INTRINSIC_ADS_GATE_OK")
