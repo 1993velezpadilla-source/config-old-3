@@ -1,0 +1,83 @@
+name: Sanctum Gothic Altar Candidates
+
+on:
+  push:
+    branches:
+      - feature/xziel-map-builder-agent-v1
+    paths:
+      - ".github/workflows/sanctum-gothic-altar-candidates.yml"
+      - "tools/sanctum_v2/probe_gothic_altar_candidates.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sanctum-gothic-altar-candidates-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq curl xz-utils xvfb libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libglu1-mesa
+      - name: Fetch verified CC0 ruins
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p external-ruins sanctum-gothic-altar-candidates
+          curl -L --fail --retry 3 https://opengameart.org/content/3td-fantasy-ruins-pack-for-blender -o sanctum-gothic-altar-candidates/source-page.html
+          grep -qi CC0 sanctum-gothic-altar-candidates/source-page.html
+          curl -L --fail --retry 3 https://opengameart.org/sites/default/files/fantasy_ruins_pack_for_blender.blend -o external-ruins/fantasy_ruins_pack_for_blender.blend
+          sha256sum external-ruins/fantasy_ruins_pack_for_blender.blend | tee sanctum-gothic-altar-candidates/source.sha256
+      - name: Install Blender
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz -o /tmp/blender.tar.xz
+          tar -C /tmp -xf /tmp/blender.tar.xz
+      - name: Render altar candidates
+        shell: bash
+        run: |
+          set -euo pipefail
+          export SANCTUM_RUINS_SHA256="$(cut -d' ' -f1 sanctum-gothic-altar-candidates/source.sha256)"
+          SANCTUM_GOTHIC_ALTAR_PROBE_OUT=sanctum-gothic-altar-candidates \
+          xvfb-run -a -s "-screen 0 1500x1000x24" \
+            /tmp/blender-5.2.2-linux-x64/blender \
+            -b external-ruins/fantasy_ruins_pack_for_blender.blend \
+            --python tools/sanctum_v2/probe_gothic_altar_candidates.py \
+            2>&1 | tee sanctum-gothic-altar-candidates/blender.log
+          grep -q SANCTUM_GOTHIC_ALTAR_CANDIDATES_PASS sanctum-gothic-altar-candidates/blender.log
+      - name: Validate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("sanctum-gothic-altar-candidates")
+          d=json.loads((root/"report.json").read_text(encoding="utf-8"))
+          assert d["status"]=="PASS",d
+          assert d["license"]=="CC0",d
+          assert len(d["candidates"])==6,d
+          assert len(d["renders"])==6,d
+          assert len(d["source_sha256"])==64,d
+          for x in d["renders"]:
+              p=root/x["name"]; assert p.is_file() and p.stat().st_size>4000,p
+          print("SANCTUM_GOTHIC_ALTAR_CANDIDATES_GREEN")
+          PY
+      - name: Upload
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-Gothic-Altar-Candidates
+          path: sanctum-gothic-altar-candidates/
+          if-no-files-found: error
+          retention-days: 14
