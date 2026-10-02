@@ -24,7 +24,12 @@ def _align(blob:bytearray)->int:
     return len(blob)
 
 
-def build_skinned_character(path:Path, *, head_scale:float=1.0)->None:
+def build_skinned_character(
+    path:Path,
+    *,
+    head_scale:float=1.0,
+    up_axis:str="y",
+)->None:
     source=trimesh.creation.icosphere(subdivisions=3,radius=1.0)
     vertices=np.asarray(source.vertices,dtype=np.float32).copy()
     vertices[:,1]*=2.0
@@ -34,6 +39,11 @@ def build_skinned_character(path:Path, *, head_scale:float=1.0)->None:
     head=norm>=0.78
     vertices[head,0]*=head_scale
     vertices[head,2]*=head_scale
+
+    if str(up_axis).lower()=="z":
+        vertices=vertices[:,[0,2,1]]
+    elif str(up_axis).lower()!="y":
+        raise ValueError(f"unsupported fixture up_axis: {up_axis}")
 
     faces=np.asarray(source.faces,dtype=np.uint16)
     count=len(vertices)
@@ -134,6 +144,30 @@ class RiggedRegionalFusionTests(unittest.TestCase):
             self.assertEqual(before,skin_payload_signature(wrapped))
             self.assertTrue(audit_glb(wrapped).rig_ready)
             self.assertTrue(audit_skin_weights(wrapped).ready)
+
+    def test_rigged_head_wrap_remaps_z_up_donor_without_touching_skin_payload(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            base=root/"base-y-up.glb"
+            donor=root/"donor-z-up.glb"
+            wrapped=root/"wrapped-axis-normalized.glb"
+            build_skinned_character(base,head_scale=1.0,up_axis="y")
+            build_skinned_character(donor,head_scale=1.14,up_axis="z")
+
+            before=skin_payload_signature(base)
+            result=build_rig_preserving_head_wrap_geometry(
+                base,
+                donor,
+                wrapped,
+                up_axis="y",
+            )
+
+            self.assertTrue(result.geometry_ready,result.error)
+            self.assertEqual(result.up_axis,1)
+            self.assertEqual(result.donor_up_axis,2)
+            self.assertTrue(result.donor_axis_remapped)
+            self.assertTrue(result.skin_payload_preserved,result.error)
+            self.assertEqual(before,skin_payload_signature(wrapped))
 
     def test_prepare_rigged_untextured_head_wrap_is_judge_eligible(self):
         with tempfile.TemporaryDirectory() as tmp:
