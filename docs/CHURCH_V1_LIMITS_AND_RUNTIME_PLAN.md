@@ -114,22 +114,32 @@ Design rule:
 ## 6. Current XZIEL horde limit — blocker, not design target
 
 Current engine implementation:
-- kMaxHordeZombies = 16 hard slots
+- kMaxHordeZombies = 16 hard simulation slots
 - HordeConfig default maxActive = 8
+- Android prototype VulkanGameScene stores only 8 visible zombie states
+- the current prototype renderer constructs each zombie from many per-body-part
+  primitive draws; raising the visible array alone would multiply draw calls and
+  is not the shipping scalability path
 - 32 authored spawn-point slots
 - 256 navigation floors
 - 256 static navigation obstacles
 - 64 dynamic blockers
 - 96 navigation links per floor
 
-The 16-slot hard cap is currently the largest gameplay-capacity mismatch for a
-four-player Zombies-style release. It must be stress-tested and redesigned
-before Church V1 late-game balance is frozen.
+The 8-visible / 16-simulated split is currently the largest gameplay-capacity
+mismatch for a four-player Zombies-style release. It must be redesigned before
+Church V1 late-game balance is frozen.
 
-Do not blindly copy a historical Call of Duty active-zombie count. The next
-gate is to benchmark 16/24/32+ simulated actors on target Android tiers while
-using CrowdBudgetPlanner to reduce distant animation, perception cadence,
-ragdolls and shadows without reducing gameplay movement/attack simulation.
+Do not raise the prototype visible-zombie array to 32 while retaining the
+piecewise primitive renderer. The shipping path is a real zombie mesh/skeleton
+path with GPU-friendly batching/instancing, then a stress matrix at 8/16/24/32
+active actors on target Android tiers. CrowdBudgetPlanner should reduce distant
+animation, perception cadence, ragdolls and shadows without reducing gameplay
+movement/attack simulation.
+
+Do not blindly copy a historical Call of Duty active-zombie count. Reserve
+zombies can be queued outside the active set; the active set must be selected
+from measured CPU/GPU budgets.
 
 ## 7. Intrinsic visual ads
 
