@@ -6,6 +6,8 @@ PACKAGE = Path(os.environ.get("CHURCH_PACKAGE", "church/out/SanctumOfAsh"))
 PLAN = Path(os.environ.get("CHURCH_PLAN", "church/out/zombies_map_plan.json"))
 OUT = Path(os.environ.get("NZP_MAP_OUT", "church/out/nzp_harness/sanctum_harness.map"))
 FITTED = Path(os.environ.get("CHURCH_FITTED", "church/out/church_runtime_fitted_v2.json"))
+NAV_SKELETON_ENV=os.environ.get("CHURCH_NAV_SKELETON","").strip()
+NAV_SKELETON=Path(NAV_SKELETON_ENV) if NAV_SKELETON_ENV else None
 OUT.parent.mkdir(parents=True, exist_ok=True)
 
 zones_doc=json.loads((PACKAGE/"zones.json").read_text())
@@ -14,6 +16,9 @@ spawns=json.loads((PACKAGE/"spawns.json").read_text())["spawns"]
 plan=json.loads(PLAN.read_text())
 fitted_doc=json.loads(FITTED.read_text()) if FITTED.exists() else {"barricades":[]}
 fitted_by_spawn={x["spawn"]:x for x in fitted_doc.get("barricades",[])}
+nav_doc=json.loads(NAV_SKELETON.read_text()) if NAV_SKELETON and NAV_SKELETON.exists() else None
+if nav_doc and nav_doc.get("mode")!="floors_ramps_only":
+    raise SystemExit(f"unsupported CHURCH_NAV_SKELETON mode: {nav_doc.get('mode')}")
 
 SCALE=39.3700787402  # Blender meters -> Quake/Hammer-ish units
 zone_raw=plan["zones"]
@@ -98,31 +103,79 @@ parts.append(brush_box((wx2,wy1,wz1),(wx2+wall,wy2,wz2),"facility_wall_l"))
 parts.append(brush_box((wx1,wy1-wall,wz1),(wx2,wy1,wz2),"facility_wall_l"))
 parts.append(brush_box((wx1,wy2,wz1),(wx2,wy2+wall,wz2),"facility_wall_l"))
 
-# Platforms under actual zone floors.
-# The scan has irregular/crumbled visual edges. The old collision deck ended
-# exactly at the zone AABB, so a player could step onto visible photogrammetry
-# just outside that box and drop beneath the map. Give every playable zone a
-# generous invisible safety margin while keeping the visual authority in XZSM.
+# Collision/navigation authority.
+# Normal map builds retain the broad zone decks. Snapshot navigation tests can
+# instead supply a surgical floors+ramp skeleton so we can walk all three
+# levels without spending time on interior wall/prop collision yet.
 floor_pad=max(48,int(1.75*SCALE))
 floor_thickness=16
 floor_count=0
-for z,info in zone_raw.items():
-    if z=="other": continue
-    mn=qv(info["min"]); mx=qv(info["max"])
-    floorz=mn[2]
-    parts.append(brush_box(
-        (mn[0]-floor_pad,mn[1]-floor_pad,floorz-floor_thickness),
-        (mx[0]+floor_pad,mx[1]+floor_pad,floorz),
-        "null"
-    ))
-    floor_count += 1
+nav_ramp_count=0
+nav_step_count=0
+nav_step_height_max=0.0
 
-# Last-resort catch deck beneath the lowest playable floor. This is invisible
-# and exists only so malformed scan edges can never turn into an endless fall.
+if nav_doc:
+    for floor in nav_doc.get("floors",[]):
+        mnq=qv(floor["min"])
+        mxq=qv(floor["max"])
+        lo=tuple(min(mnq[i],mxq[i]) for i in range(3))
+        hi=tuple(max(mnq[i],mxq[i]) for i in range(3))
+        parts.append(brush_box(lo,hi,"null"))
+        floor_count += 1
+
+    for ramp in nav_doc.get("ramps",[]):
+        low=qv(ramp["low"])
+        high=qv(ramp["high"])
+        # Manifest endpoints are ordered by height, but keep this robust.
+        if high[2] < low[2]:
+            low,high=high,low
+        dx=high[0]-low[0]
+        dy=high[1]-low[1]
+        dz=high[2]-low[2]
+        requested=max(1,int(ramp.get("steps",12)))
+        # GoldSrc/Quake step-up is happiest below ~18u. Target <=14u.
+        steps=max(requested,int(math.ceil(abs(dz)/14.0)))
+        half_w=max(12,int(round(float(ramp["width_m"])*SCALE*0.5)))
+        overlap=2
+        zbase=low[2]-8
+        step_h=abs(dz)/steps if steps else abs(dz)
+        nav_step_height_max=max(nav_step_height_max,step_h)
+        for si in range(steps):
+            t0=si/steps
+            t1=(si+1)/steps
+            xa=int(round(low[0]+dx*t0)); xb=int(round(low[0]+dx*t1))
+            ya=int(round(low[1]+dy*t0)); yb=int(round(low[1]+dy*t1))
+            ztop=int(round(low[2]+dz*t1))
+            x0=min(xa,xb)-half_w-overlap
+            x1=max(xa,xb)+half_w+overlap
+            y0=min(ya,yb)-overlap
+            y1=max(ya,yb)+overlap
+            parts.append(brush_box((x0,y0,zbase),(x1,y1,ztop),"null"))
+            nav_step_count += 1
+        nav_ramp_count += 1
+else:
+    # Legacy broad decks used by the generic smoke harness.
+    for z,info in zone_raw.items():
+        if z=="other": continue
+        mn=qv(info["min"]); mx=qv(info["max"])
+        floorz=mn[2]
+        parts.append(brush_box(
+            (mn[0]-floor_pad,mn[1]-floor_pad,floorz-floor_thickness),
+            (mx[0]+floor_pad,mx[1]+floor_pad,floorz),
+            "null"
+        ))
+        floor_count += 1
+
+# Last-resort catch deck beneath the lowest authored collision floor.
 catch_drop=max(96,int(2.5*SCALE))
+if nav_doc and nav_doc.get("floors"):
+    nav_low=min(qv(f["min"])[2] for f in nav_doc["floors"])
+    catch_z=nav_low-catch_drop
+else:
+    catch_z=wz1-catch_drop
 parts.append(brush_box(
-    (wx1,wy1,wz1-catch_drop-floor_thickness),
-    (wx2,wy2,wz1-catch_drop),
+    (wx1,wy1,catch_z-floor_thickness),
+    (wx2,wy2,catch_z),
     "null"
 ))
 parts.append("}\n")
@@ -238,7 +291,16 @@ summary={
  "map":str(OUT),"scale":SCALE,"bounds":{"min":[wx1,wy1,wz1],"max":[wx2,wy2,wz2]},
  "zones":len([z for z in zone_docs if z!="other"]),"spawns":len(spawns),
  "players":4,"entities":len(entities),
- "collisionSafety":{"zoneFloorDecks":floor_count,"floorPadUnits":floor_pad,"catchDeckDropUnits":catch_drop}
+ "collisionSafety":{
+   "mode":"floors_ramps_only" if nav_doc else "legacy_zone_decks",
+   "zoneFloorDecks":floor_count,
+   "floorPadUnits":0 if nav_doc else floor_pad,
+   "rampCount":nav_ramp_count,
+   "rampStepBrushes":nav_step_count,
+   "maxRampStepHeightUnits":round(nav_step_height_max,3),
+   "interiorWallCollision":False if nav_doc else None,
+   "catchDeckDropUnits":catch_drop
+ }
 }
 (OUT.parent/"sanctum_harness_export.json").write_text(json.dumps(summary,indent=2),encoding="utf-8")
 print(json.dumps(summary,indent=2))

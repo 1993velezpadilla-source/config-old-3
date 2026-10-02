@@ -1,0 +1,212 @@
+name: XZIEL Church Navigation Test APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/xziel-map-builder-agent-v1
+    paths:
+      - ".github/workflows/xziel-church-navigation-test-apk.yml"
+      - "tools/church_map/export_nzp_harness.py"
+      - "tools/church_map/sanctum_nav_skeleton_apk9.v1.json"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xziel-church-navigation-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  repack-navigation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download GREEN APK9 visual build
+        uses: actions/download-artifact@v5
+        with:
+          name: XZIEL-Church-ExactTextures-InfinitePistol-SpawnFixed
+          path: base
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 37050248485
+
+      - name: Build surgical floors and ramps harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq git unzip zip build-essential python3-pip
+          mkdir -p nav/package nav/out/nzp_harness
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          nav=json.load(open("tools/church_map/sanctum_nav_skeleton_apk9.v1.json"))
+          plan={"working_title":"XZIEL CHURCH NAVIGATION TEST","zones":{"main_church":{
+              "min":nav["plan"]["min"],"max":nav["plan"]["max"],
+              "center":[(a+b)*0.5 for a,b in zip(nav["plan"]["min"],nav["plan"]["max"])]
+          }}}
+          Path("nav/out/snapshot_plan.json").write_text(json.dumps(plan,indent=2))
+          Path("nav/package/zones.json").write_text(json.dumps({"zones":[{"id":"zone_main_church","neighbors":[]}]},indent=2))
+          s=nav["spawn"]
+          Path("nav/package/entities.json").write_text(json.dumps({"entities":[{
+              "type":"player_spawn",
+              "transform":{"position":{"x":s[0],"y":s[1],"z":s[2]}},
+              "properties":{"navigation_test":"floors_ramps_only"}
+          }]},indent=2))
+          Path("nav/package/spawns.json").write_text(json.dumps({"spawns":[]},indent=2))
+          Path("nav/out/fitted.json").write_text(json.dumps({"barricades":[]},indent=2))
+          PY
+          CHURCH_PACKAGE="$GITHUB_WORKSPACE/nav/package" \
+          CHURCH_PLAN="$GITHUB_WORKSPACE/nav/out/snapshot_plan.json" \
+          CHURCH_FITTED="$GITHUB_WORKSPACE/nav/out/fitted.json" \
+          CHURCH_NAV_SKELETON="$GITHUB_WORKSPACE/tools/church_map/sanctum_nav_skeleton_apk9.v1.json" \
+          NZP_MAP_OUT="$GITHUB_WORKSPACE/nav/out/nzp_harness/sanctum_harness.map" \
+            python3 tools/church_map/export_nzp_harness.py
+
+          python3 - <<'PY'
+          import json
+          d=json.load(open("nav/out/nzp_harness/sanctum_harness_export.json"))
+          c=d["collisionSafety"]
+          assert c["mode"]=="floors_ramps_only",c
+          assert c["zoneFloorDecks"]==11,c
+          assert c["rampCount"]==4,c
+          assert c["rampStepBrushes"]>=44,c
+          assert c["maxRampStepHeightUnits"]<=14.0,c
+          assert c["interiorWallCollision"] is False,c
+          print("NAV_SKELETON_GREEN",json.dumps(c,indent=2))
+          PY
+
+          rm -rf /tmp/nzp-assets /tmp/spawn-zone-tool
+          git clone --depth 1 https://github.com/nzp-team/assets.git /tmp/nzp-assets
+          git clone --depth 1 --recursive https://github.com/nzp-team/spawn-zone-tool.git /tmp/spawn-zone-tool
+          python3 -m pip install --quiet -r /tmp/spawn-zone-tool/requirements.txt
+          (
+            cd /tmp/nzp-assets
+            bash tools/compile-wads.sh
+            mkdir -p source/maps/sanctum_harness
+            cp "$GITHUB_WORKSPACE/nav/out/nzp_harness/sanctum_harness.map" source/maps/sanctum_harness/sanctum_harness.map
+            bash tools/compile-maps.sh --map sanctum_harness --zone-tool-path /tmp/spawn-zone-tool
+          )
+          cp /tmp/nzp-assets/common/maps/sanctum_harness.bsp nav/out/nzp_harness/
+          cp /tmp/nzp-assets/common/maps/sanctum_harness.nsz nav/out/nzp_harness/
+          test -s nav/out/nzp_harness/sanctum_harness.bsp
+          test -s nav/out/nzp_harness/sanctum_harness.nsz
+
+      - name: Replace only gameplay BSP inside APK9
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p work/assets dist
+          APK="$(find base -maxdepth 1 -name '*.apk' | head -n1)"
+          test -s "$APK"
+          cp "$APK" work/base.apk
+          unzip -p work/base.apk assets/nzp-data.zip > work/nzp-data.zip
+
+          python3 - <<'PY'
+          import io,zipfile
+          from pathlib import Path
+          zpath=Path("work/nzp-data.zip")
+          zin=zipfile.ZipFile(io.BytesIO(zpath.read_bytes()),"r")
+          infos={i.filename:i for i in zin.infolist()}
+          files={i.filename:zin.read(i.filename) for i in zin.infolist()}
+          zin.close()
+          files["nzp/maps/sanctum_harness.bsp"]=Path("nav/out/nzp_harness/sanctum_harness.bsp").read_bytes()
+          files["nzp/maps/sanctum_harness.nsz"]=Path("nav/out/nzp_harness/sanctum_harness.nsz").read_bytes()
+          out=io.BytesIO()
+          with zipfile.ZipFile(out,"w") as zout:
+              for name,data in files.items():
+                  old=infos.get(name)
+                  zi=zipfile.ZipInfo(name,date_time=(old.date_time if old else (2026,1,1,0,0,0)))
+                  zi.compress_type=old.compress_type if old else zipfile.ZIP_DEFLATED
+                  if old:
+                      zi.external_attr=old.external_attr
+                      zi.create_system=old.create_system
+                      zi.flag_bits=old.flag_bits
+                  zout.writestr(zi,data)
+          zpath.write_bytes(out.getvalue())
+          print("NAV_BSP_REPACK_GREEN",len(files["nzp/maps/sanctum_harness.bsp"]))
+          PY
+
+          cp work/nzp-data.zip work/assets/nzp-data.zip
+          cp work/base.apk work/unsigned.apk
+          zip -q -d work/unsigned.apk 'META-INF/*' || true
+          (cd work && zip -q -u unsigned.apk assets/nzp-data.zip)
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install signing and emulator tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "build-tools;35.0.0" "emulator" "system-images;android-35;google_apis;x86_64"
+
+      - name: Align and sign navigation APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIPALIGN="${ANDROID_HOME}/build-tools/35.0.0/zipalign"
+          APKSIGNER="${ANDROID_HOME}/build-tools/35.0.0/apksigner"
+          keytool -genkeypair -v -keystore work/debug.keystore -storepass android -alias androiddebugkey -keypass android \
+            -dname "CN=Android Debug,O=XZIEL,C=US" -keyalg RSA -keysize 2048 -validity 10000 >/dev/null 2>&1
+          "$ZIPALIGN" -f -p 4 work/unsigned.apk work/aligned.apk
+          "$APKSIGNER" sign --ks work/debug.keystore --ks-pass pass:android --key-pass pass:android \
+            --out dist/XZIEL-Church-NavigationSkeleton-InfinitePistol.apk work/aligned.apk
+          "$APKSIGNER" verify --verbose dist/XZIEL-Church-NavigationSkeleton-InfinitePistol.apk
+          cp nav/out/nzp_harness/sanctum_harness_export.json dist/
+          ls -lh dist/
+
+      - name: Boot navigation APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          export HOME="${RUNNER_TEMP}/xziel-navtest-home"
+          export ANDROID_AVD_HOME="$HOME/.android/avd"
+          mkdir -p "$ANDROID_AVD_HOME"
+          ADB="${ANDROID_HOME}/platform-tools/adb"
+          EMULATOR="${ANDROID_HOME}/emulator/emulator"
+          AVDMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name avdmanager | sort | tail -n 1)"
+          printf 'no\n' | "$AVDMANAGER" create avd --force --name xziel-navtest \
+            --package "system-images;android-35;google_apis;x86_64" --device "pixel_6"
+          [[ ! -e /dev/kvm ]] || sudo chmod 666 /dev/kvm || true
+          nohup "$EMULATOR" @xziel-navtest -no-window -no-audio -no-boot-anim -no-snapshot \
+            -gpu swiftshader_indirect -memory 4096 > dist/emulator-stdout.txt 2>&1 &
+          timeout 120 "$ADB" wait-for-device
+          for i in $(seq 1 60); do
+            [[ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]] && break
+            sleep 2
+          done
+          "$ADB" install -r dist/XZIEL-Church-NavigationSkeleton-InfinitePistol.apk
+          "$ADB" shell settings put secure immersive_mode_confirmations confirmed || true
+          "$ADB" shell am force-stop com.xziel.churchsnapshot || true
+          "$ADB" shell am start -W -n com.xziel.churchsnapshot/org.libsdl.app.NZPActivity >/dev/null 2>&1 || true
+          for i in $(seq 1 60); do
+            STAGE="$("$ADB" shell run-as com.xziel.churchsnapshot cat files/nzp-runtime/.xziel-stage 2>/dev/null | tr -d '\r' || true)"
+            [[ "$STAGE" == "FIRST_FRAME_OK" ]] && break
+            sleep 1
+          done
+          sleep 40
+          "$ADB" exec-out screencap -p > dist/navigation-spawn.png || true
+          PID="$("$ADB" shell pidof com.xziel.churchsnapshot 2>/dev/null | tr -d '\r' || true)"
+          STAGE="$("$ADB" shell run-as com.xziel.churchsnapshot cat files/nzp-runtime/.xziel-stage 2>/dev/null | tr -d '\r' || true)"
+          echo "PID=$PID" | tee dist/runtime-state.txt
+          echo "STAGE=$STAGE" | tee -a dist/runtime-state.txt
+          test -n "$PID"
+          test "$STAGE" = "FIRST_FRAME_OK"
+
+      - name: Upload navigation test APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Church-NavigationSkeleton-InfinitePistol
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
