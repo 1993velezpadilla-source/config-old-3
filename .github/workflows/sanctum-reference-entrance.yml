@@ -126,6 +126,9 @@ jobs:
           assert d["status"]=="PASS",d
           assert d["source_image_stored_in_repo"] is False,d
           assert abs(d["camera"]["lens_mm"]-t["camera"]["lens_mm_initial"])<0.01,d
+          assert abs(d["camera"]["eye_height_m"]-t["camera"]["eye_height_m"])<0.001,d
+          assert abs(d["camera"]["lens_mm"]-t["hard_gates"]["camera_lens_mm_exact"])<0.01,d
+          assert abs(d["camera"]["eye_height_m"]-t["hard_gates"]["camera_eye_height_m_exact"])<0.001,d
           assert abs(d["camera"]["pitch_up_degrees"]-t["camera"]["pitch_up_degrees_initial"])<0.01,d
           assert d["geometry"]["pew_count"]>=10,d
           assert d["geometry"]["stained_glass_objects"]>=16,d
