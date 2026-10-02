@@ -1,0 +1,70 @@
+from __future__ import annotations
+
+from pathlib import Path
+from types import SimpleNamespace
+import sys
+
+import trimesh
+from PIL import Image
+
+HERE = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(HERE))
+
+from native_geometry_guard import assert_native_candidate
+from native_face_repair import (
+    generate_source_head_donor,
+    select_head_donor_backend,
+)
+
+
+def _write_native(path: Path) -> None:
+    mesh = trimesh.creation.icosphere(subdivisions=2, radius=0.5)
+    scene = trimesh.Scene()
+    scene.add_geometry(mesh, node_name="HeadMesh", geom_name="HeadMesh")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(scene.export(file_type="glb"))
+
+
+def test_backend_selection_is_capability_based_not_asset_specific(tmp_path: Path):
+    root = tmp_path / "models"
+    (root / "triposg").mkdir(parents=True)
+    (root / "triposr").mkdir(parents=True)
+
+    assert (
+        select_head_donor_backend(["triposr", "triposg"], root)
+        == "triposg"
+    )
+    assert select_head_donor_backend(["triposr"], root) == "triposr"
+    assert select_head_donor_backend(["trellis2"], root) is None
+
+
+def test_source_head_donor_is_native_and_uses_current_detail(tmp_path: Path):
+    detail = tmp_path / "different_person_head.png"
+    Image.new("RGBA", (96, 96), (180, 120, 90, 255)).save(detail)
+
+    seen = {}
+
+    def fake_generator(**kwargs):
+        seen.update(kwargs)
+        output = Path(kwargs["out_dir"]) / "native_head.glb"
+        _write_native(output)
+        return SimpleNamespace(model_path=output)
+
+    donor = generate_source_head_donor(
+        detail,
+        tmp_path / "run",
+        backend="triposg",
+        seed=77,
+        hero_faces=250000,
+        trellis2_resolution=1024,
+        texture_size=4096,
+        model_root=tmp_path / "models",
+        generator_override=fake_generator,
+    )
+
+    assert donor.is_file()
+    assert seen["backend"] == "triposg"
+    assert Path(seen["image"]).name == "source_head_rgba.png"
+    assert seen["seed"] == 77
+    report = assert_native_candidate(donor, label="unit-test")
+    assert report["is_projection_proxy"] is False
