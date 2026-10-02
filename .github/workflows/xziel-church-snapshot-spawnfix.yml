@@ -1,0 +1,178 @@
+name: XZIEL Church Snapshot Spawn Fix
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/xziel-map-builder-agent-v1
+    paths:
+      - ".github/workflows/xziel-church-snapshot-spawnfix.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xziel-church-snapshot-spawnfix-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  repack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download exact-texture GREEN APK #5
+        uses: actions/download-artifact@v5
+        with:
+          name: XZIEL-Church-ExactTextures-InfinitePistol
+          path: base
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 37012873623
+
+      - name: Patch only player spawn positions
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p work/assets dist
+          cp base/XZIEL-Church-ExactTextures-InfinitePistol-debug.apk work/base.apk
+          unzip -p work/base.apk assets/nzp-data.zip > work/nzp-data.zip
+          python3 - <<'PY'
+          import io,struct,zipfile
+          from pathlib import Path
+
+          zpath=Path("work/nzp-data.zip")
+          raw=zpath.read_bytes()
+          zin=zipfile.ZipFile(io.BytesIO(raw),"r")
+          files={i.filename:zin.read(i.filename) for i in zin.infolist()}
+          infos={i.filename:i for i in zin.infolist()}
+          zin.close()
+
+          key="nzp/maps/sanctum_harness.bsp"
+          bsp=bytearray(files[key])
+          ver=struct.unpack_from("<i",bsp,0)[0]
+          assert ver==30,ver
+          off,length=struct.unpack_from("<ii",bsp,4)
+          ent=bytes(bsp[off:off+length])
+          replacements={
+              b'"origin" "-24 -632 -812"':b'"origin" "-24 -382 -812"',
+              b'"origin" "24 -632 -812"':b'"origin" "24 -382 -812"',
+              b'"origin" "-24 -584 -812"':b'"origin" "-24 -334 -812"',
+              b'"origin" "24 -584 -812"':b'"origin" "24 -334 -812"',
+          }
+          for old,new in replacements.items():
+              assert len(old)==len(new),(old,new)
+              assert ent.count(old)==1,(old,ent.count(old))
+              ent=ent.replace(old,new,1)
+          bsp[off:off+length]=ent
+          files[key]=bytes(bsp)
+
+          out=io.BytesIO()
+          with zipfile.ZipFile(out,"w") as zout:
+              for name,data in files.items():
+                  info=infos[name]
+                  zi=zipfile.ZipInfo(name,date_time=info.date_time)
+                  zi.compress_type=info.compress_type
+                  zi.external_attr=info.external_attr
+                  zi.create_system=info.create_system
+                  zi.flag_bits=info.flag_bits
+                  zout.writestr(zi,data)
+          zpath.write_bytes(out.getvalue())
+          print("SPAWN_PATCH_GREEN")
+          print(ent.decode("latin1","ignore"))
+          PY
+
+          cp work/nzp-data.zip work/assets/nzp-data.zip
+          cp work/base.apk work/unsigned.apk
+          zip -q -d work/unsigned.apk 'META-INF/*' || true
+          (
+            cd work
+            zip -q -u unsigned.apk assets/nzp-data.zip
+          )
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install signing and emulator tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "build-tools;35.0.0" "emulator" "system-images;android-35;google_apis;x86_64"
+
+      - name: Align and re-sign snapshot APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIPALIGN="${ANDROID_HOME}/build-tools/35.0.0/zipalign"
+          APKSIGNER="${ANDROID_HOME}/build-tools/35.0.0/apksigner"
+          keytool -genkeypair -v -keystore work/debug.keystore -storepass android -alias androiddebugkey -keypass android \
+            -dname "CN=Android Debug,O=XZIEL,C=US" -keyalg RSA -keysize 2048 -validity 10000 >/dev/null 2>&1
+          "$ZIPALIGN" -f -p 4 work/unsigned.apk work/aligned.apk
+          "$APKSIGNER" sign --ks work/debug.keystore --ks-pass pass:android --key-pass pass:android \
+            --out dist/XZIEL-Church-ExactTextures-InfinitePistol-SpawnFixed.apk work/aligned.apk
+          "$APKSIGNER" verify --verbose dist/XZIEL-Church-ExactTextures-InfinitePistol-SpawnFixed.apk
+          ls -lh dist/*.apk
+
+      - name: Emulator smoke and screenshot
+        shell: bash
+        env:
+          ANDROID_AVD_HOME: ${{ runner.temp }}/xziel-spawnfix-avd
+        run: |
+          set -euo pipefail
+          ADB="${ANDROID_HOME}/platform-tools/adb"
+          EMULATOR="${ANDROID_HOME}/emulator/emulator"
+          AVDMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name avdmanager | sort | tail -n 1)"
+          mkdir -p "$ANDROID_AVD_HOME"
+          printf 'no\n' | "$AVDMANAGER" create avd --force --name xziel-spawnfix-ci \
+            --package "system-images;android-35;google_apis;x86_64" --device "pixel_6"
+          [[ ! -e /dev/kvm ]] || sudo chmod 666 /dev/kvm || true
+          nohup "$EMULATOR" @xziel-spawnfix-ci -no-window -no-audio -no-boot-anim -no-snapshot \
+            -gpu swiftshader_indirect -memory 3072 > dist/emulator-stdout.txt 2>&1 &
+          timeout 120 "$ADB" wait-for-device
+          for i in $(seq 1 60); do
+            [[ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]] && break
+            sleep 2
+          done
+          "$ADB" install -r dist/XZIEL-Church-ExactTextures-InfinitePistol-SpawnFixed.apk
+          "$ADB" shell settings put secure immersive_mode_confirmations confirmed || true
+          "$ADB" shell am force-stop com.xziel.churchsnapshot || true
+          "$ADB" shell am start -W -n com.xziel.churchsnapshot/org.libsdl.app.NZPActivity >/dev/null 2>&1 || true
+          for i in $(seq 1 50); do
+            STAGE="$("$ADB" shell run-as com.xziel.churchsnapshot cat files/nzp-runtime/.xziel-stage 2>/dev/null | tr -d '\r' || true)"
+            [[ "$STAGE" == "FIRST_FRAME_OK" ]] && break
+            sleep 1
+          done
+          sleep 10
+          "$ADB" exec-out screencap -p > dist/church-spawn-fixed.png
+          PID="$("$ADB" shell pidof com.xziel.churchsnapshot | tr -d '\r' || true)"
+          STAGE="$("$ADB" shell run-as com.xziel.churchsnapshot cat files/nzp-runtime/.xziel-stage 2>/dev/null | tr -d '\r' || true)"
+          echo "PID=$PID STAGE=$STAGE" | tee dist/runtime-state.txt
+          test -n "$PID"
+          test "$STAGE" = "FIRST_FRAME_OK"
+          python3 -m pip install --quiet pillow==11.3.0
+          python3 - <<'PY' | tee dist/visual-gate.txt
+          from PIL import Image,ImageStat
+          im=Image.open("dist/church-spawn-fixed.png").convert("RGB")
+          px=list(im.getdata())
+          pure=sum(1 for r,g,b in px if r>248 and g>248 and b>248)/len(px)
+          near=sum(1 for r,g,b in px if min(r,g,b)>235)/len(px)
+          std=ImageStat.Stat(im.convert("L")).stddev[0]
+          print("size",im.size,"std",round(std,3),"pure_white",round(pure,5),"near_white",round(near,5))
+          assert std>=18,(std,pure,near)
+          assert pure<=0.05,(std,pure,near)
+          assert near<=0.07,(std,pure,near)
+          PY
+
+      - name: Upload spawn-fixed APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Church-ExactTextures-InfinitePistol-SpawnFixed
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
