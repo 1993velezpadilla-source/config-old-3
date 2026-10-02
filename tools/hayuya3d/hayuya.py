@@ -521,6 +521,7 @@ def make_job_plan(
     viewforge_mode: str = "auto",
     geometry_refine_mode: str = "auto",
     native_silhouette_conform_mode: str = "auto",
+    native_face_repair_mode: str = "auto",
     gameprep_mode: str = "auto",
     character_specialist_mode: str = "off",
     mesh_doctor_mode: str = "auto",
@@ -652,6 +653,16 @@ def make_job_plan(
             "topology_policy": "vertex-position challenger only; no projection shell and no source_visible_front/occluded_low_frequency nodes",
             "asset_specific_coordinates": False,
             "promotion_policy": "never overwrite the native generator result; add a challenger and require it to win the same full Judge",
+        },
+        "native_face_repair": {
+            "mode": native_face_repair_mode,
+            "input_geometry": "current native Judge champion",
+            "source_target": "current source-derived head/face evidence",
+            "donor_policy": "generate one native 3D head donor from the current source crop using an already-selected bootstrapped backend",
+            "fusion_policy": "seam-safe head wrap on preserved full-body topology with adaptive displacement guards",
+            "asset_specific_coordinates": False,
+            "projection_proxy_created": False,
+            "promotion_policy": "face repair is only a challenger; complete Judge must promote it",
         },
         "multi_reference": {
             "enabled": len(geometry_inputs) > 1,
@@ -936,6 +947,15 @@ def main() -> int:
         ),
     )
     parser.add_argument(
+        "--native-face-repair",
+        choices=["off", "auto", "required"],
+        default="auto",
+        help=(
+            "generate a native 3D head donor from the current source face/head "
+            "evidence and add a seam-safe face-repair challenger."
+        ),
+    )
+    parser.add_argument(
         "--mesh-doctor",
         choices=["off", "auto", "required"],
         default="auto",
@@ -1138,6 +1158,7 @@ def main() -> int:
         viewforge_mode=args.viewforge,
         geometry_refine_mode=args.geometry_refine,
         native_silhouette_conform_mode=args.native_silhouette_conform,
+        native_face_repair_mode=args.native_face_repair,
         gameprep_mode=args.gameprep,
         character_specialist_mode=args.character_specialist,
         mesh_doctor_mode=args.mesh_doctor,
@@ -1721,6 +1742,123 @@ def main() -> int:
                     )
                     traceback.print_exc()
                     if args.native_silhouette_conform == "required":
+                        raise
+
+    source_face_repair_result = None
+    source_face_repair_failure = None
+    source_face_repair_status = (
+        "off" if args.native_face_repair == "off" else "checking"
+    )
+    source_face_repair_candidate_label = None
+
+    if args.native_face_repair in {"auto", "required"}:
+        if mode != "character":
+            source_face_repair_status = "skipped_not_character"
+            source_face_repair_failure = (
+                "native face repair only applies to detected/declared characters"
+            )
+            if args.native_face_repair == "required":
+                raise RuntimeError(source_face_repair_failure)
+        else:
+            head_details = [
+                Path(path)
+                for path in detail_inputs
+                if infer_detail_region_hint(Path(path)) == "head"
+            ]
+            if not head_details:
+                source_face_repair_status = "skipped_no_head_evidence"
+                source_face_repair_failure = (
+                    "no current-source head/face evidence is available for native donor generation"
+                )
+                print(
+                    f"HAYUYA_SOURCE_FACE_REPAIR_SKIPPED {source_face_repair_failure}",
+                    file=sys.stderr,
+                )
+                if args.native_face_repair == "required":
+                    raise RuntimeError(source_face_repair_failure)
+            else:
+                provisional = valid[0]
+                provisional_path = Path(provisional.path)
+                try:
+                    from native_face_repair import (
+                        prepare_source_face_repair_challenger,
+                    )
+
+                    face_dir = job_dir / "native_face_repair"
+                    source_face_repair_result = (
+                        prepare_source_face_repair_challenger(
+                            provisional_path,
+                            head_details[0],
+                            face_dir,
+                            selected_backends=selected,
+                            seed=args.seed + 9091,
+                            hero_faces=max(
+                                200_000,
+                                min(int(profile.hero_faces), 750_000),
+                            ),
+                            trellis2_resolution=int(profile.trellis2_resolution),
+                            texture_size=int(profile.texture_size),
+                            model_root=args.model_root,
+                            require_rebake=True,
+                        )
+                    )
+
+                    if not source_face_repair_result.ready:
+                        source_face_repair_status = "rejected"
+                        source_face_repair_failure = (
+                            source_face_repair_result.error
+                            or "source-derived face repair was not Judge-eligible"
+                        )
+                        print(
+                            "HAYUYA_SOURCE_FACE_REPAIR_REJECTED "
+                            + source_face_repair_failure,
+                            file=sys.stderr,
+                        )
+                        if args.native_face_repair == "required":
+                            raise RuntimeError(source_face_repair_failure)
+                    else:
+                        source_face_repair_candidate_label = (
+                            "source_face_repair_"
+                            + str(source_face_repair_result.backend or "native")
+                        )
+                        repaired_path = Path(
+                            str(source_face_repair_result.candidate_mesh)
+                        )
+                        assert_native_candidate(
+                            repaired_path,
+                            label=source_face_repair_candidate_label,
+                        )
+                        assert_native_character_360(
+                            repaired_path,
+                            label=source_face_repair_candidate_label,
+                        )
+                        candidates.append(
+                            (source_face_repair_candidate_label, repaired_path)
+                        )
+                        source_face_repair_status = "candidate_ready"
+                        print(
+                            "HAYUYA_SOURCE_FACE_REPAIR_READY "
+                            f"base={provisional.backend} "
+                            f"donor_backend={source_face_repair_result.backend} "
+                            f"detail={head_details[0]} "
+                            f"candidate={source_face_repair_candidate_label}"
+                        )
+
+                        ranked = run_full_ranking()
+                        valid = [x for x in ranked if x.valid]
+                        if not valid:
+                            raise RuntimeError(
+                                "source face repair re-ranking produced no valid candidates"
+                            )
+                except Exception as exc:
+                    source_face_repair_status = "failed"
+                    source_face_repair_failure = f"{type(exc).__name__}: {exc}"
+                    print(
+                        f"HAYUYA_SOURCE_FACE_REPAIR_FAILED {source_face_repair_failure}",
+                        file=sys.stderr,
+                    )
+                    traceback.print_exc()
+                    if args.native_face_repair == "required":
                         raise
 
     mesh_doctor_audit = None
@@ -2887,6 +3025,24 @@ def main() -> int:
         "character_specialist": {
             "status": character_specialist_status,
             "failure": character_specialist_failure,
+        },
+        "native_face_repair": {
+            "mode": args.native_face_repair,
+            "status": source_face_repair_status,
+            "result": (
+                asdict(source_face_repair_result)
+                if source_face_repair_result is not None else None
+            ),
+            "failure": source_face_repair_failure,
+            "candidate_label": source_face_repair_candidate_label,
+            "won_final_arena": bool(
+                source_face_repair_candidate_label
+                and champion.backend == source_face_repair_candidate_label
+            ),
+            "policy": (
+                "current-source head evidence -> native 3D donor -> seam-safe "
+                "full-body head wrap; never a PNG/front-projection replacement"
+            ),
         },
         "mesh_doctor": {
             "status": mesh_doctor_status,
