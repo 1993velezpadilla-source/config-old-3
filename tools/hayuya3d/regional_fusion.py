@@ -42,6 +42,9 @@ class HeadWrapResult:
     flipped_face_fraction:float|None=None
     topology_preserved:bool|None=None
     uv_preserved:bool|None=None
+    donor_up_axis:int|None=None
+    donor_axis_remapped:bool|None=None
+    donor_up_axis_confidence:float|None=None
 
 
 def _sibling_module(name:str):
@@ -164,6 +167,51 @@ def _bbox(vertices):
     return lo,hi,(lo+hi)*0.5,hi-lo
 
 
+def _remap_donor_up_axis(
+    donor_vertices,
+    donor_extent,
+    target_up_axis:int,
+    *,
+    min_confidence:float=1.08,
+):
+    """Map a clearly inferred donor vertical axis onto the base vertical axis.
+
+    Head donors can be produced by a different backend than the body. If their
+    coordinate conventions differ (for example Z-up donor onto Y-up body),
+    using the body's axis directly mis-scales and rotates the donor. Ambiguous
+    near-spherical heads are left untouched rather than guessing.
+    """
+    np,_,_=_deps()
+    extent=np.asarray(donor_extent,dtype=np.float64)
+    order=np.argsort(extent)
+    inferred=int(order[-1])
+    largest=float(extent[inferred])
+    second=float(extent[int(order[-2])]) if len(order)>=2 else 0.0
+    confidence=largest/max(second,1e-9)
+
+    if confidence<float(min_confidence):
+        return (
+            np.asarray(donor_vertices,dtype=np.float64).copy(),
+            int(target_up_axis),
+            False,
+            float(confidence),
+        )
+
+    if inferred==int(target_up_axis):
+        return (
+            np.asarray(donor_vertices,dtype=np.float64).copy(),
+            inferred,
+            False,
+            float(confidence),
+        )
+
+    remapped=np.asarray(donor_vertices,dtype=np.float64).copy()
+    remapped[:,[int(target_up_axis),inferred]]=(
+        remapped[:,[inferred,int(target_up_axis)]]
+    )
+    return remapped,inferred,True,float(confidence)
+
+
 def _rig_blocked(path:Path)->tuple[bool,str|None]:
     if path.suffix.lower()!=".glb":
         return False,None
@@ -250,6 +298,16 @@ def build_head_wrap_geometry(
             resolved_up_axis=up_axis
         else:
             resolved_up_axis=int(np.argmax(base_extent))
+
+        donor_vertices,donor_up_axis,donor_axis_remapped,donor_axis_confidence=(
+            _remap_donor_up_axis(
+                donor_vertices,
+                donor_extent,
+                resolved_up_axis,
+            )
+        )
+        donor_lo,donor_hi,donor_center,donor_extent=_bbox(donor_vertices)
+
         base_height=float(base_extent[resolved_up_axis])
         donor_height=float(donor_extent[resolved_up_axis])
         if base_height<=1e-9 or donor_height<=1e-9:
@@ -505,6 +563,12 @@ def build_head_wrap_geometry(
                 preservation["topology_preserved"]
             ),
             uv_preserved=bool(preservation["uv_preserved"]),
+            donor_up_axis=int(donor_up_axis),
+            donor_axis_remapped=bool(donor_axis_remapped),
+            donor_up_axis_confidence=round(
+                float(donor_axis_confidence),
+                8,
+            ),
         )
     except Exception as exc:
         return HeadWrapResult(
@@ -585,6 +649,15 @@ def build_rig_preserving_head_wrap_geometry(
             resolved_up_axis=up_axis
         else:
             resolved_up_axis=int(np.argmax(base_extent))
+
+        donor_vertices,donor_up_axis,donor_axis_remapped,donor_axis_confidence=(
+            _remap_donor_up_axis(
+                donor_vertices,
+                donor_extent,
+                resolved_up_axis,
+            )
+        )
+        _,_,donor_center,donor_extent=_bbox(donor_vertices)
 
         base_height=float(base_extent[resolved_up_axis])
         donor_height=float(donor_extent[resolved_up_axis])
@@ -751,6 +824,12 @@ def build_rig_preserving_head_wrap_geometry(
             skin_weights_ready=True,
             error=None,
             donor_scope=donor_scope,
+            donor_up_axis=int(donor_up_axis),
+            donor_axis_remapped=bool(donor_axis_remapped),
+            donor_up_axis_confidence=round(
+                float(donor_axis_confidence),
+                8,
+            ),
         )
     except Exception as exc:
         return HeadWrapResult(
