@@ -130,6 +130,27 @@
       "license": "audit space dependencies before production use",
       "role": "interactive drawn building sketch -> 3D workflow; useful reference for mask/stroke conditioning UI",
       "status": "workflow_reference"
+    },
+    {
+      "name": "blender-game-skills / blender-image-to-3d",
+      "url": "https://github.com/majidmanzarpour/blender-game-skills",
+      "license": "MIT",
+      "role": "reference-calibrated Blender workflow with fixed-camera review, silhouette IoU, width-profile measurement, baking, validation and clean round-trip",
+      "status": "methodology_adopted"
+    },
+    {
+      "name": "image2blender",
+      "url": "https://github.com/tyohnn/image2blender",
+      "license": "Apache-2.0",
+      "role": "quality-gated procedural Blender reconstruction over MCP with locked blockout/structure/form/material/detail/lighting passes and bounded repair reviews",
+      "status": "methodology_adopted"
+    },
+    {
+      "name": "NijiGPen",
+      "url": "https://github.com/chsh2/nijiGPen",
+      "license": "audit before vendoring",
+      "role": "Grease Pencil cleanup, vector booleans/offsets and mesh generation from 2D shapes; useful for Gothic tracery and ornamental profiles",
+      "status": "candidate_for_ornament_strokes"
     }
   ],
   "implemented_now": [
@@ -138,6 +159,7 @@
     "tools/sanctum_v2/reference_silhouette_fit.py",
     "reference-driven PBR material library",
     "pew dual-silhouette vertex clamp",
-    "standalone reference-fit CI gate"
+    "standalone reference-fit CI gate",
+    "camera-locked front/side IoU scorer with normalized width-profile and dimension-error metrics"
   ]
 }
