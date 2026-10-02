@@ -45,6 +45,8 @@ class HeadWrapResult:
     donor_up_axis:int|None=None
     donor_axis_remapped:bool|None=None
     donor_up_axis_confidence:float|None=None
+    donor_yaw_degrees:float|None=None
+    donor_yaw_alignment_score:float|None=None
 
 
 def _sibling_module(name:str):
@@ -212,6 +214,86 @@ def _remap_donor_up_axis(
     return remapped,inferred,True,float(confidence)
 
 
+def _yaw_align_donor_to_base_head(
+    donor_vertices,
+    base_head_vertices,
+    center,
+    up_axis:int,
+    *,
+    candidate_angles:tuple[float,...]=(
+        0.0,45.0,90.0,135.0,180.0,225.0,270.0,315.0
+    ),
+    max_points:int=4000,
+):
+    """Choose donor yaw that best matches the already-valid native head shape."""
+    np,_,cKDTree=_deps()
+    donor=np.asarray(donor_vertices,dtype=np.float64)
+    base=np.asarray(base_head_vertices,dtype=np.float64)
+    center=np.asarray(center,dtype=np.float64)
+    if len(donor)<8 or len(base)<8:
+        return donor.copy(),0.0,0.0
+
+    def sample(points):
+        if len(points)<=int(max_points):
+            return points
+        ids=np.linspace(
+            0,
+            len(points)-1,
+            int(max_points),
+            dtype=np.int64,
+        )
+        return points[ids]
+
+    base_sample=sample(base)
+    base_tree=cKDTree(base_sample)
+    plane=[axis for axis in (0,1,2) if axis!=int(up_axis)]
+    a,b=plane
+    best_vertices=None
+    best_angle=0.0
+    best_score=None
+    base_scale=max(
+        float(np.linalg.norm(base.max(axis=0)-base.min(axis=0))),
+        1e-9,
+    )
+
+    for angle in candidate_angles:
+        theta=math.radians(float(angle))
+        cos_a=math.cos(theta)
+        sin_a=math.sin(theta)
+        shifted=donor-center
+        rotated=shifted.copy()
+        aa=shifted[:,a].copy()
+        bb=shifted[:,b].copy()
+        rotated[:,a]=cos_a*aa-sin_a*bb
+        rotated[:,b]=sin_a*aa+cos_a*bb
+        rotated+=center
+
+        donor_sample=sample(rotated)
+        donor_tree=cKDTree(donor_sample)
+        donor_to_base=base_tree.query(
+            donor_sample,
+            k=1,
+            workers=-1,
+        )[0]
+        base_to_donor=donor_tree.query(
+            base_sample,
+            k=1,
+            workers=-1,
+        )[0]
+        score=(
+            float(np.median(donor_to_base))
+            + float(np.median(base_to_donor))
+        )/base_scale
+
+        if best_score is None or score<best_score-1e-12:
+            best_score=score
+            best_angle=float(angle)
+            best_vertices=rotated
+
+    assert best_vertices is not None
+    return best_vertices,best_angle,float(best_score)
+
+
 def _rig_blocked(path:Path)->tuple[bool,str|None]:
     if path.suffix.lower()!=".glb":
         return False,None
@@ -352,9 +434,21 @@ def build_head_wrap_geometry(
                 raise RuntimeError("collapsed base head bounds")
             scale=target_height/donor_height
             aligned=(donor_vertices-donor_center)*scale+base_head_center
+            (
+                aligned,
+                donor_yaw_degrees,
+                donor_yaw_alignment_score,
+            )=_yaw_align_donor_to_base_head(
+                aligned,
+                base_head,
+                base_head_center,
+                resolved_up_axis,
+            )
         else:
             scale=base_height/donor_height
             aligned=(donor_vertices-donor_center)*scale+base_center
+            donor_yaw_degrees=0.0
+            donor_yaw_alignment_score=0.0
 
         aligned_lo,aligned_hi,_,aligned_extent=_bbox(aligned)
         donor_norm_h=(aligned[:,resolved_up_axis]-base_lo[resolved_up_axis])/base_height
@@ -569,6 +663,14 @@ def build_head_wrap_geometry(
                 float(donor_axis_confidence),
                 8,
             ),
+            donor_yaw_degrees=round(
+                float(donor_yaw_degrees),
+                4,
+            ),
+            donor_yaw_alignment_score=round(
+                float(donor_yaw_alignment_score),
+                8,
+            ),
         )
     except Exception as exc:
         return HeadWrapResult(
@@ -681,9 +783,21 @@ def build_rig_preserving_head_wrap_geometry(
                 raise RuntimeError("collapsed base head bounds")
             scale=target_height/donor_height
             aligned=(donor_vertices-donor_center)*scale+base_head_center
+            (
+                aligned,
+                donor_yaw_degrees,
+                donor_yaw_alignment_score,
+            )=_yaw_align_donor_to_base_head(
+                aligned,
+                base_head,
+                base_head_center,
+                resolved_up_axis,
+            )
         else:
             scale=base_height/donor_height
             aligned=(donor_vertices-donor_center)*scale+base_center
+            donor_yaw_degrees=0.0
+            donor_yaw_alignment_score=0.0
 
         donor_norm_h=(
             aligned[:,resolved_up_axis]-base_lo[resolved_up_axis]
@@ -828,6 +942,14 @@ def build_rig_preserving_head_wrap_geometry(
             donor_axis_remapped=bool(donor_axis_remapped),
             donor_up_axis_confidence=round(
                 float(donor_axis_confidence),
+                8,
+            ),
+            donor_yaw_degrees=round(
+                float(donor_yaw_degrees),
+                4,
+            ),
+            donor_yaw_alignment_score=round(
+                float(donor_yaw_alignment_score),
                 8,
             ),
         )
