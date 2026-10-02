@@ -24,11 +24,11 @@
       "height": 1.15,
       "placeholderTexture": "ads/church/frame_01_dummy.ktx2",
       "maxViewDistanceMeters": 20,
-      "minimumFacingCosine": 0.25,
-      "minimumScreenCoverage": 0.0008,
+      "minimumFacingCosine": 0.57357645,
+      "minimumScreenCoverage": 0.015,
       "impressionViewSeconds": 1,
       "cooldownSeconds": 30,
-      "maxImpressionsPerSession": 3
+      "maxImpressionsPerSession": 1
     },
     {
       "placementId": 1002,
@@ -45,11 +45,11 @@
       "height": 1.15,
       "placeholderTexture": "ads/church/frame_02_dummy.ktx2",
       "maxViewDistanceMeters": 20,
-      "minimumFacingCosine": 0.25,
-      "minimumScreenCoverage": 0.0008,
+      "minimumFacingCosine": 0.57357645,
+      "minimumScreenCoverage": 0.015,
       "impressionViewSeconds": 1,
       "cooldownSeconds": 30,
-      "maxImpressionsPerSession": 3
+      "maxImpressionsPerSession": 1
     },
     {
       "placementId": 1003,
@@ -66,11 +66,11 @@
       "height": 1.15,
       "placeholderTexture": "ads/church/frame_03_dummy.ktx2",
       "maxViewDistanceMeters": 20,
-      "minimumFacingCosine": 0.25,
-      "minimumScreenCoverage": 0.0008,
+      "minimumFacingCosine": 0.57357645,
+      "minimumScreenCoverage": 0.015,
       "impressionViewSeconds": 1,
       "cooldownSeconds": 30,
-      "maxImpressionsPerSession": 3
+      "maxImpressionsPerSession": 1
     },
     {
       "placementId": 1004,
@@ -87,11 +87,11 @@
       "height": 2.05,
       "placeholderTexture": "ads/church/poster_dummy.ktx2",
       "maxViewDistanceMeters": 24,
-      "minimumFacingCosine": 0.3,
-      "minimumScreenCoverage": 0.0008,
+      "minimumFacingCosine": 0.57357645,
+      "minimumScreenCoverage": 0.015,
       "impressionViewSeconds": 1,
       "cooldownSeconds": 30,
-      "maxImpressionsPerSession": 3
+      "maxImpressionsPerSession": 1
     },
     {
       "placementId": 1005,
@@ -108,11 +108,11 @@
       "height": 1.125,
       "placeholderTexture": "ads/church/tv_dummy.ktx2",
       "maxViewDistanceMeters": 24,
-      "minimumFacingCosine": 0.3,
-      "minimumScreenCoverage": 0.0008,
-      "impressionViewSeconds": 1,
+      "minimumFacingCosine": 0.57357645,
+      "minimumScreenCoverage": 0.015,
+      "impressionViewSeconds": 2,
       "cooldownSeconds": 45,
-      "maxImpressionsPerSession": 2
+      "maxImpressionsPerSession": 1
     },
     {
       "placementId": 2001,
@@ -130,7 +130,7 @@
       "maximumGain": 0.6,
       "impressionListenSeconds": 1,
       "cooldownSeconds": 45,
-      "maxImpressionsPerSession": 3,
+      "maxImpressionsPerSession": 1,
       "placeholderAudio": "ads/church/radio_dummy.wav"
     }
   ]
