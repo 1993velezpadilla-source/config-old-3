@@ -57,10 +57,10 @@ jobs:
           off,length=struct.unpack_from("<ii",bsp,4)
           ent=bytes(bsp[off:off+length])
           replacements={
-              b'"origin" "-24 -632 -812"':b'"origin" "-24 -382 -812"',
-              b'"origin" "24 -632 -812"':b'"origin" "24 -382 -812"',
-              b'"origin" "-24 -584 -812"':b'"origin" "-24 -334 -812"',
-              b'"origin" "24 -584 -812"':b'"origin" "24 -334 -812"',
+              b'"origin" "-24 -632 -812"':b'"origin" "-24 -100 -812"',
+              b'"origin" "24 -632 -812"':b'"origin" "24 -100 -812"',
+              b'"origin" "-24 -584 -812"':b'"origin" "-24 -052 -812"',
+              b'"origin" "24 -584 -812"':b'"origin" "24 -052 -812"',
           }
           for old,new in replacements.items():
               assert len(old)==len(new),(old,new)
@@ -121,10 +121,11 @@ jobs:
 
       - name: Emulator smoke and screenshot
         shell: bash
-        env:
-          ANDROID_AVD_HOME: ${{ runner.temp }}/xziel-spawnfix-avd
         run: |
           set -euo pipefail
+          export HOME="${RUNNER_TEMP}/xziel-spawnfix-home"
+          unset ANDROID_AVD_HOME
+          mkdir -p "$HOME"
           ADB="${ANDROID_HOME}/platform-tools/adb"
           EMULATOR="${ANDROID_HOME}/emulator/emulator"
           AVDMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name avdmanager | sort | tail -n 1)"
