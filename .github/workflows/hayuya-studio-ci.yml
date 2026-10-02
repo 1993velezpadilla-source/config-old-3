@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - art/hayuya-monster-v1
+      - art/hayuya-core-generalize-v1
     paths:
       - tools/hayuya3d/studio/**
       - tools/hayuya3d/studio_server.py
