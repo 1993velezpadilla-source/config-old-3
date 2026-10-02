@@ -1,0 +1,195 @@
+name: Sanctum Hero Altar
+
+on:
+  push:
+    branches:
+      - feature/xziel-map-builder-agent-v1
+    paths:
+      - ".github/workflows/sanctum-hero-altar.yml"
+      - "tools/sanctum_v2/dress_sanctum_hero_altar.py"
+      - "tools/sanctum_v2/dress_sanctum_industrial_undercroft.py"
+      - "tools/sanctum_v2/build_sanctum_vertical_blockout.py"
+      - "tools/xziel_toolchain/extract_runtime_geometry.py"
+      - "tools/xziel_toolchain/xziel_navmesh_bake.cpp"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sanctum-hero-altar-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install host packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            git-lfs curl xz-utils xvfb unzip bzip2 \
+            build-essential cmake ninja-build pkg-config python3-venv \
+            libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1 \
+            libgl1 libglu1-mesa libegl1
+          git lfs install
+      - name: Fetch approved architecture and CC0 assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf external-french-houses external-cc0-church external-ruins external-sanctum-props external-industrial
+          git clone --depth 1 https://github.com/IRCSS/Blender-Geometry-Node-French-Houses.git external-french-houses
+          (cd external-french-houses && git lfs pull || true)
+          grep -q "MIT License" external-french-houses/LICENSE
+          mkdir -p external-cc0-church external-ruins external-sanctum-props external-industrial
+
+          curl -L --fail --retry 3 https://opengameart.org/content/medieval-church-interior -o external-cc0-church/page.html
+          grep -qi CC0 external-cc0-church/page.html
+          curl -L --fail --retry 3 https://opengameart.org/sites/default/files/church.blend -o external-cc0-church/church.blend
+
+          curl -L --fail --retry 3 https://opengameart.org/content/3td-fantasy-ruins-pack-for-blender -o external-ruins/page.html
+          grep -qi CC0 external-ruins/page.html
+          curl -L --fail --retry 3 https://opengameart.org/sites/default/files/fantasy_ruins_pack_for_blender.blend -o external-ruins/fantasy_ruins_pack_for_blender.blend
+
+          curl -L --fail --retry 3 https://opengameart.org/content/medieval-benches -o external-sanctum-props/benches.html
+          grep -qi CC0 external-sanctum-props/benches.html
+          curl -L --fail --retry 3 https://opengameart.org/sites/default/files/medievalbenchesexport.blend -o external-sanctum-props/medievalbenchesexport.blend
+
+          curl -L --fail --retry 3 https://opengameart.org/content/medieval-candles -o external-sanctum-props/candles.html
+          grep -qi CC0 external-sanctum-props/candles.html
+          curl -L --fail --retry 3 https://opengameart.org/sites/default/files/medievalcandles.blend -o external-sanctum-props/medievalcandles.blend
+
+          curl -L --fail --retry 3 https://opengameart.org/content/pbr-industrial-asset-pack -o external-industrial/page.html
+          grep -qi CC0 external-industrial/page.html
+          curl -L --fail --retry 3 https://opengameart.org/sites/default/files/oga_industrial_a52_version_0.zip -o /tmp/industrial.zip
+          unzip -q /tmp/industrial.zip -d external-industrial
+
+          sha256sum external-ruins/fantasy_ruins_pack_for_blender.blend | tee /tmp/ruins.sha256
+          sha256sum external-sanctum-props/medievalbenchesexport.blend | tee /tmp/bench.sha256
+          sha256sum external-sanctum-props/medievalcandles.blend | tee /tmp/candle.sha256
+          sha256sum /tmp/industrial.zip | tee /tmp/industrial.sha256
+
+      - name: Install Blender 5.2.2
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz -o /tmp/blender.tar.xz
+          tar -C /tmp -xf /tmp/blender.tar.xz
+
+      - name: Build hero altar Sanctum
+        shell: bash
+        env:
+          SANCTUM_COMPOSITE_OUT: sanctum-hero-composite
+          SANCTUM_DRESS_OUT: sanctum-hero-dressed
+          SANCTUM_ENRICH_OUT: sanctum-hero-enriched
+          SANCTUM_VERTICAL_OUT: sanctum-hero-vertical
+          SANCTUM_INDUSTRIAL_DRESS_OUT: sanctum-hero-industrial
+          SANCTUM_HERO_ALTAR_OUT: sanctum-hero-altar-probe
+          SANCTUM_CC0_BLEND: external-cc0-church/church.blend
+          SANCTUM_RUINS_BLEND: external-ruins/fantasy_ruins_pack_for_blender.blend
+          SANCTUM_BENCH_BLEND: external-sanctum-props/medievalbenchesexport.blend
+          SANCTUM_CANDLE_BLEND: external-sanctum-props/medievalcandles.blend
+          SANCTUM_INDUSTRIAL_BLEND: external-industrial/OGA_industrial_a52_version/industrial_final_cycles.blend
+          SANCTUM_VERTICAL_LAYOUT: docs/sanctum-vertical-layout.v1.json
+          XZIEL_MAP_AGENT_PLAN: tools/sanctum_v2/map_builder_plan.json
+        run: |
+          set -euo pipefail
+          mkdir -p sanctum-hero-composite sanctum-hero-dressed sanctum-hero-enriched sanctum-hero-vertical sanctum-hero-industrial sanctum-hero-altar-probe
+          export SANCTUM_RUINS_SHA256="$(cut -d' ' -f1 /tmp/ruins.sha256)"
+          export SANCTUM_BENCH_SHA256="$(cut -d' ' -f1 /tmp/bench.sha256)"
+          export SANCTUM_CANDLE_SHA256="$(cut -d' ' -f1 /tmp/candle.sha256)"
+          export SANCTUM_INDUSTRIAL_SHA256="$(cut -d' ' -f1 /tmp/industrial.sha256)"
+
+          xvfb-run -a -s "-screen 0 1600x1000x24" \
+            /tmp/blender-5.2.2-linux-x64/blender \
+            -b external-french-houses/GeometryNodesFrenchHous.blend \
+            --python tools/sanctum_v2/dress_sanctum_hero_altar.py \
+            2>&1 | tee sanctum-hero-altar-probe/blender.log
+          grep -q SANCTUM_HERO_ALTAR_PASS sanctum-hero-altar-probe/blender.log
+
+      - name: Validate hero altar evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("sanctum-hero-altar-probe")
+          d=json.loads((root/"hero-altar-report.json").read_text(encoding="utf-8"))
+          assert d["status"]=="PASS",d
+          assert d["license"]=="CC0",d
+          assert len(d["source_sha256"])==64,d
+          assert d["source_objects"]==["TempleRuinTwo300","Object.001"],d
+          assert len(d["hero_objects"])==4,d
+          assert len(d["renders"])==4,d
+          assert d["glb_bytes"]>1000000,d
+          for x in d["renders"]:
+              p=root/x["name"]; assert p.is_file() and p.stat().st_size>6000,p
+          print("SANCTUM_HERO_ALTAR_EVIDENCE_GREEN")
+          PY
+
+      - name: Validate GLB and multilevel runtime
+        shell: bash
+        env:
+          XZIEL_KTX2_UASTC: "1"
+        run: |
+          set -euo pipefail
+          RAW="sanctum-hero-altar-probe/sanctum-hero-altar.glb"
+          bash tools/xziel_toolchain/bootstrap_asset_cli.sh
+          bash tools/xziel_toolchain/process_glb.sh "$RAW" sanctum-hero-altar-probe/asset-pipeline sanctum-hero-altar
+
+          bash tools/xziel_toolchain/bootstrap_fast.sh
+          bash tools/xziel_toolchain/bootstrap_geometry_cpu.sh
+          mkdir -p sanctum-hero-altar-probe/runtime
+
+          .xziel-tools/geometry-venv/bin/python \
+            tools/xziel_toolchain/extract_runtime_geometry.py \
+            --input "$RAW" \
+            --out sanctum-hero-altar-probe/runtime \
+            --exclude-prefix SANCTUM_AD_
+
+          .xziel-tools/bin/xziel-navmesh-bake \
+            sanctum-hero-altar-probe/runtime/sanctum-nav-source.obj \
+            sanctum-hero-altar-probe/runtime/sanctum.navbin \
+            sanctum-hero-altar-probe/runtime/navmesh-report.json
+
+          .xziel-tools/geometry-venv/bin/python \
+            tools/xziel_toolchain/generate_collision_hulls.py \
+            --input sanctum-hero-altar-probe/runtime/sanctum-collision-source.glb \
+            --output sanctum-hero-altar-probe/runtime/sanctum-collision-hulls.glb \
+            --report sanctum-hero-altar-probe/runtime/collision-report.json \
+            --threshold 0.10 --max-hulls 128 --max-hull-vertices 64
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("sanctum-hero-altar-probe")
+          pipe=json.loads((root/"asset-pipeline/sanctum-hero-altar.pipeline.json").read_text())
+          nav=json.loads((root/"runtime/navmesh-report.json").read_text())
+          col=json.loads((root/"runtime/collision-report.json").read_text())
+          assert pipe["validator"]["errors"]==0,pipe
+          assert nav["status"]=="PASS",nav
+          assert nav["nav_polygons"]>=35,nav
+          assert nav["nav_vertical_span"]>=7.0,nav
+          assert nav["nav_vertical_bands"]>=5,nav
+          assert nav["nearest_poly_ref"]!=0,nav
+          assert col["status"]=="PASS",col
+          assert 1<=col["hull_count"]<=128,col
+          print("SANCTUM_HERO_ALTAR_RUNTIME_GREEN")
+          print("NAV_POLYGONS",nav["nav_polygons"])
+          print("NAV_VERTICAL_BANDS",nav["nav_vertical_bands"])
+          print("COLLISION_HULLS",col["hull_count"])
+          PY
+
+      - name: Upload hero altar
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-Hero-Altar
+          path: sanctum-hero-altar-probe/
+          if-no-files-found: error
+          retention-days: 14
