@@ -826,7 +826,7 @@ def make_job_plan(
             "fusion_policy": "seam-safe head wrap on preserved full-body topology with adaptive displacement, orientation and payload-preservation guards",
             "asset_specific_coordinates": False,
             "projection_proxy_created": False,
-            "promotion_policy": "every Judge-eligible donor backend enters one complete Judge arena; backend priority controls execution order only",
+            "promotion_policy": "every Judge-eligible donor backend becomes a challenger in one complete Judge arena; backend priority controls execution order only",
         },
         "multi_reference": {
             "enabled": len(geometry_inputs) > 1,
