@@ -443,6 +443,19 @@ def head_composite_regressions(source, challenger) -> list[str]:
     return reasons
 
 
+def face_repair_candidate_regressions(source, challenger) -> list[str]:
+    """Require a native face-repair challenger to improve face evidence monotonically."""
+    reasons=head_composite_regressions(source,challenger)
+    reasons.extend(
+        _strict_metric_improvement(
+            source,
+            challenger,
+            "appearance_face_detail_min_score",
+        )
+    )
+    return reasons
+
+
 def _strict_metric_improvement(
     source,
     challenger,
@@ -1789,7 +1802,10 @@ def main() -> int:
         if mode=="character" and args.profile in {"monster","ultra"}:
             from qa import candidate_rank_key, character_quality_evidence_complete
             identity_required_for_ranking=any(
-                infer_detail_region_hint(path)=="head"
+                is_head_detail_evidence(
+                    path,
+                    semantic_head_inputs=semantic_head_detail_inputs,
+                )
                 for path in detail_inputs
             )
             for item in result:
@@ -2137,6 +2153,97 @@ def main() -> int:
                     if not valid:
                         raise RuntimeError(
                             "source face repair tournament re-ranking produced no valid candidates"
+                        )
+
+                    base_item=next(
+                        (
+                            item for item in ranked
+                            if item.backend==provisional.backend
+                        ),
+                        None,
+                    )
+                    if base_item is None:
+                        raise RuntimeError(
+                            "source face repair base candidate missing after re-ranking"
+                        )
+
+                    rejected_labels=[]
+                    for label in list(source_face_repair_candidate_labels):
+                        face_item=next(
+                            (
+                                item for item in ranked
+                                if item.backend==label
+                            ),
+                            None,
+                        )
+                        if face_item is None:
+                            rejected_labels.append(label)
+                            continue
+                        regressions=face_repair_candidate_regressions(
+                            base_item,
+                            face_item,
+                        )
+                        if regressions:
+                            face_item.valid=False
+                            face_item.notes.append(
+                                "Native Face Repair monotonic face guard rejected: "
+                                + ";".join(regressions)
+                            )
+                            rejected_labels.append(label)
+                            print(
+                                "HAYUYA_SOURCE_FACE_REPAIR_GUARD_REJECTED "
+                                f"candidate={label} "
+                                + ";".join(regressions),
+                                file=sys.stderr,
+                            )
+                        else:
+                            print(
+                                "HAYUYA_SOURCE_FACE_REPAIR_GUARD_PASS "
+                                f"candidate={label} "
+                                "face_metric=appearance_face_detail_min_score"
+                            )
+
+                    if rejected_labels:
+                        rejected_set=set(rejected_labels)
+                        candidates[:]=[
+                            pair for pair in candidates
+                            if pair[0] not in rejected_set
+                        ]
+                        source_face_repair_candidate_labels=[
+                            label
+                            for label in source_face_repair_candidate_labels
+                            if label not in rejected_set
+                        ]
+                        from qa import candidate_rank_key
+                        ranked=sorted(
+                            ranked,
+                            key=lambda item:candidate_rank_key(
+                                item,
+                                mode=mode,
+                                identity_required=True,
+                            ),
+                            reverse=True,
+                        )
+                        valid=[item for item in ranked if item.valid]
+
+                    source_face_repair_candidate_label=(
+                        source_face_repair_candidate_labels[0]
+                        if source_face_repair_candidate_labels
+                        else None
+                    )
+                    if not source_face_repair_candidate_labels:
+                        source_face_repair_status="rejected_face_guard"
+                        source_face_repair_failure=(
+                            "all native face-repair challengers failed the "
+                            "monotonic face-evidence guard"
+                        )
+                        if args.native_face_repair=="required":
+                            raise RuntimeError(source_face_repair_failure)
+                    else:
+                        source_face_repair_status=(
+                            "candidates_ready"
+                            if len(source_face_repair_candidate_labels)>1
+                            else "candidate_ready"
                         )
             except Exception as exc:
                 source_face_repair_status = "failed"
@@ -2513,7 +2620,10 @@ def main() -> int:
     from qa import candidate_rank_key
 
     identity_required = any(
-        infer_detail_region_hint(path)=="head"
+        is_head_detail_evidence(
+            path,
+            semantic_head_inputs=semantic_head_detail_inputs,
+        )
         for path in detail_inputs
     )
 
