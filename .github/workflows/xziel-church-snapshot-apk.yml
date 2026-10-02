@@ -1,0 +1,301 @@
+name: XZIEL Church Snapshot APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/xziel-map-builder-agent-v1
+    paths:
+      - ".github/workflows/xziel-church-snapshot-apk.yml"
+      - "tools/church_map/prepare_hero_snapshot_for_xzsm.py"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xziel-church-snapshot-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-snapshot-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+
+      - name: Download exact Hero Altar #31 artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: XZIEL-Sanctum-Hero-Altar
+          path: snapshot-src
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 36965470510
+
+      - name: Verify exact snapshot payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s snapshot-src/sanctum-hero-altar.glb
+          test -s snapshot-src/hero-altar-report.json
+          python3 - <<'PY'
+          import json
+          d=json.load(open("snapshot-src/hero-altar-report.json"))
+          assert d["stage"]=="hero-altar-reference-v3", d
+          assert d["glb_bytes"]>50_000_000, d
+          assert d["altar_step_count"]==3, d
+          print("HERO31_BYTES",d["glb_bytes"])
+          print("HERO31_OBJECTS",len(d["hero_objects"]))
+          PY
+
+      - name: Install Blender 5.2.2 and map tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb curl xz-utils unzip git-lfs
+          curl -L --fail --retry 6 --retry-all-errors --retry-delay 2 \
+            https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz \
+            -o /tmp/blender.tar.xz
+          tar -C /tmp -xf /tmp/blender.tar.xz
+          /tmp/blender-5.2.2-linux-x64/blender --version
+
+      - name: Prepare exact Hero31 snapshot for XZSM
+        shell: bash
+        env:
+          XZIEL_SNAPSHOT_GLB: ${{ github.workspace }}/snapshot-src/sanctum-hero-altar.glb
+          XZIEL_SNAPSHOT_OUT: snapshot/out
+        run: |
+          set -euo pipefail
+          mkdir -p snapshot/out
+          xvfb-run -a -s "-screen 0 1600x1000x24" \
+            /tmp/blender-5.2.2-linux-x64/blender -b \
+            --python tools/church_map/prepare_hero_snapshot_for_xzsm.py \
+            2>&1 | tee snapshot/out/snapshot-prep.log
+          grep -q XZIEL_HERO31_SNAPSHOT_PREP_PASS snapshot/out/snapshot-prep.log
+          test -s snapshot/out/hero31_snapshot_master.blend
+          test -s snapshot/out/snapshot_plan.json
+
+      - name: Export full geometry XZSM without decimation
+        shell: bash
+        env:
+          CHURCH_GAMEPLAY_BLEND: ${{ github.workspace }}/snapshot/out/hero31_snapshot_master.blend
+          CHURCH_PLAN: ${{ github.workspace }}/snapshot/out/snapshot_plan.json
+          CHURCH_OUT: ${{ github.workspace }}/snapshot/out
+          XZIEL_STATIC_TARGET_TRIS: "99999999"
+          XZIEL_STATIC_TEXTURE_MAX: "8192"
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: |
+          set -euo pipefail
+          xvfb-run -a -s "-screen 0 1600x1000x24" \
+            /tmp/blender-5.2.2-linux-x64/blender -b \
+            --python tools/church_map/export_vril_static_mesh.py \
+            2>&1 | tee snapshot/out/xzsm-export.log
+          grep -q XZSM_EXPORT_OK snapshot/out/xzsm-export.log
+          test -s snapshot/out/vril_static/models/xziel/sanctum/sanctum.xzsm
+          python3 - <<'PY'
+          import json
+          d=json.load(open("snapshot/out/vril_static_mesh_report.json"))
+          assert d["decimateRatio"]==1.0,d
+          assert d["dressingTriangles"]>100000,d
+          assert d["runtimeTotalTriangles"]>=d["dressingTriangles"],d
+          assert d["textureMaxDimension"]==8192,d
+          print("SNAPSHOT_XZSM_GREEN",{
+            "heroTriangles":d["dressingTriangles"],
+            "batches":d["batchCount"],
+            "textures":d["textureCount"],
+            "modelBytes":d["modelBytes"],
+            "decimateRatio":d["decimateRatio"],
+          })
+          PY
+
+      - name: Generate walkable snapshot harness
+        shell: bash
+        env:
+          CHURCH_PACKAGE: ${{ github.workspace }}/snapshot/out/package
+          CHURCH_PLAN: ${{ github.workspace }}/snapshot/out/snapshot_plan.json
+          CHURCH_FITTED: ${{ github.workspace }}/snapshot/out/fitted.json
+          NZP_MAP_OUT: ${{ github.workspace }}/snapshot/out/nzp_harness/sanctum_harness.map
+        run: |
+          set -euo pipefail
+          python3 tools/church_map/export_nzp_harness.py | tee snapshot/out/nzp-harness-export.log
+          test -s snapshot/out/nzp_harness/sanctum_harness.map
+
+      - name: Compile snapshot BSP and NSZ
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/nzp-assets /tmp/spawn-zone-tool
+          git clone --depth 1 https://github.com/nzp-team/assets.git /tmp/nzp-assets
+          git clone --depth 1 --recursive https://github.com/nzp-team/spawn-zone-tool.git /tmp/spawn-zone-tool
+          python3 -m pip install --quiet -r /tmp/spawn-zone-tool/requirements.txt
+          (
+            cd /tmp/nzp-assets
+            bash tools/compile-wads.sh
+            mkdir -p source/maps/sanctum_harness
+            cp "$GITHUB_WORKSPACE/snapshot/out/nzp_harness/sanctum_harness.map" \
+               source/maps/sanctum_harness/sanctum_harness.map
+            bash tools/compile-maps.sh --map sanctum_harness --zone-tool-path /tmp/spawn-zone-tool
+          ) 2>&1 | tee snapshot/out/nzp-harness-compile.log
+          cp /tmp/nzp-assets/common/maps/sanctum_harness.bsp snapshot/out/nzp_harness/
+          cp /tmp/nzp-assets/common/maps/sanctum_harness.nsz snapshot/out/nzp_harness/
+          test -s snapshot/out/nzp_harness/sanctum_harness.bsp
+          test -s snapshot/out/nzp_harness/sanctum_harness.nsz
+
+      - name: Enable infinite pistol in this snapshot build
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("scripts/patch_vril_weaponhud.py")
+          s=p.read_text(encoding="utf-8")
+          old='cvar_t xziel_mobile_unlimited_pistol = {"xziel_mobile_unlimited_pistol", "0", true};'
+          new='cvar_t xziel_mobile_unlimited_pistol = {"xziel_mobile_unlimited_pistol", "1", true};'
+          if old not in s:
+              raise SystemExit("Unlimited pistol cvar anchor missing")
+          p.write_text(s.replace(old,new,1),encoding="utf-8")
+          print("SNAPSHOT_INFINITE_PISTOL_DEFAULT_ON")
+          PY
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android SDK NDK and emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0" \
+            "ndk;27.2.12479018" \
+            "emulator" \
+            "system-images;android-35;google_apis;x86_64"
+
+      - name: Prepare Android project with exact Hero31 snapshot
+        shell: bash
+        env:
+          XZIEL_EXTRA_MAP_NAME: sanctum_harness
+          XZIEL_EXTRA_MAP_BSP: ${{ github.workspace }}/snapshot/out/nzp_harness/sanctum_harness.bsp
+          XZIEL_EXTRA_MAP_NSZ: ${{ github.workspace }}/snapshot/out/nzp_harness/sanctum_harness.nsz
+          XZIEL_EXTRA_ASSET_DIR: ${{ github.workspace }}/snapshot/out/vril_static
+        run: |
+          set -euo pipefail
+          bash scripts/prepare_android.sh
+          unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/maps/sanctum_harness.bsp'
+          unzip -l build/android-project/app/src/main/assets/nzp-data.zip | grep 'nzp/models/xziel/sanctum/sanctum.xzsm'
+
+      - name: Make snapshot one-tap app
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          activity=Path("build/android-project/app/src/main/java/org/libsdl/app/NZPActivity.java")
+          s=activity.read_text(encoding="utf-8")
+          pat=re.compile(r'(return\s+new\s+String\[\]\s*\{\s*"-basedir"\s*,\s*dataRoot\.getAbsolutePath\(\)\s*)(\};)',re.MULTILINE)
+          s,n=pat.subn(r'\1,\n            "+map", "sanctum_harness"\n        \2',s,count=1)
+          if n!=1: raise SystemExit("Could not patch launch map")
+          activity.write_text(s,encoding="utf-8")
+
+          gradle=Path("build/android-project/app/build.gradle")
+          g=gradle.read_text(encoding="utf-8")
+          g,n=re.subn(r'applicationId\s+"[^"]+"','applicationId "com.xziel.churchsnapshot"',g,count=1)
+          if n!=1: raise SystemExit("Could not patch applicationId")
+          g,n=re.subn(r'versionName\s+"[^"]+"','versionName "0.1-hero31-snapshot"',g,count=1)
+          if n!=1: raise SystemExit("Could not patch versionName")
+          gradle.write_text(g,encoding="utf-8")
+
+          strings=Path("build/android-project/app/src/main/res/values/strings.xml")
+          x=strings.read_text(encoding="utf-8")
+          x=re.sub(r'<string name="app_name">.*?</string>','<string name="app_name">XZIEL Church Snapshot</string>',x)
+          strings.write_text(x,encoding="utf-8")
+          PY
+
+      - name: Build APK
+        working-directory: build/android-project
+        shell: bash
+        run: ./gradlew --no-daemon assembleDebug --stacktrace
+
+      - name: Collect snapshot APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p snapshot-dist
+          cp build/android-project/app/build/outputs/apk/debug/app-debug.apk \
+             snapshot-dist/XZIEL-Church-Hero31-InfinitePistol-debug.apk
+          cp snapshot-src/01-hero-altar-from-nave.png snapshot-dist/reference-hero31.png
+          cp snapshot/out/snapshot-prep-report.json snapshot-dist/
+          cp snapshot/out/vril_static_mesh_report.json snapshot-dist/
+          ls -lh snapshot-dist/
+
+      - name: Android smoke test
+        id: smoke
+        continue-on-error: true
+        shell: bash
+        env:
+          ANDROID_AVD_HOME: ${{ runner.temp }}/xziel-church-snapshot-avd
+        run: |
+          set -euo pipefail
+          ADB="${ANDROID_HOME}/platform-tools/adb"
+          EMULATOR="${ANDROID_HOME}/emulator/emulator"
+          AVDMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name avdmanager | sort | tail -n 1)"
+          mkdir -p "$ANDROID_AVD_HOME"
+          printf 'no\n' | "$AVDMANAGER" create avd --force --name xziel-church-snapshot-ci \
+            --package "system-images;android-35;google_apis;x86_64" --device "pixel_6"
+          [[ ! -e /dev/kvm ]] || sudo chmod 666 /dev/kvm || true
+          nohup "$EMULATOR" @xziel-church-snapshot-ci -no-window -no-audio -no-boot-anim -no-snapshot \
+            -gpu swiftshader_indirect -memory 3072 > snapshot-dist/emulator-stdout.txt 2>&1 &
+          timeout 120 "$ADB" wait-for-device
+          for i in $(seq 1 60); do
+            [[ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]] && break
+            sleep 2
+          done
+          test "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1"
+          "$ADB" install -r snapshot-dist/XZIEL-Church-Hero31-InfinitePistol-debug.apk
+          "$ADB" shell settings put secure immersive_mode_confirmations confirmed || true
+          "$ADB" logcat -c
+          "$ADB" shell am force-stop com.xziel.churchsnapshot || true
+          "$ADB" shell am start -W -n com.xziel.churchsnapshot/org.libsdl.app.NZPActivity > snapshot-dist/am-start.txt 2>&1 || true
+          for i in $(seq 1 45); do
+            STAGE="$("$ADB" shell run-as com.xziel.churchsnapshot cat files/nzp-runtime/.xziel-stage 2>/dev/null | tr -d '\r' || true)"
+            [[ "$STAGE" == "FIRST_FRAME_OK" ]] && break
+            [[ "$STAGE" == "SYS_ERROR" ]] && break
+            sleep 1
+          done
+          sleep 10
+          "$ADB" exec-out screencap -p > snapshot-dist/church-snapshot.png || true
+          "$ADB" logcat -d -v threadtime > snapshot-dist/logcat.txt || true
+          PID="$("$ADB" shell pidof com.xziel.churchsnapshot 2>/dev/null | tr -d '\r' || true)"
+          STAGE="$("$ADB" shell run-as com.xziel.churchsnapshot cat files/nzp-runtime/.xziel-stage 2>/dev/null | tr -d '\r' || true)"
+          echo "PID=$PID" | tee snapshot-dist/runtime-state.txt
+          echo "STAGE=$STAGE" | tee -a snapshot-dist/runtime-state.txt
+          grep -E "XZSM: Sanctum loaded|HQ visual authority active|FIRST_FRAME_OK" snapshot-dist/logcat.txt | tail -30 || true
+          test -n "$PID"
+          test "$STAGE" = "FIRST_FRAME_OK"
+          grep -q "XZSM: Sanctum loaded" snapshot-dist/logcat.txt
+
+      - name: Upload snapshot APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Church-Hero31-InfinitePistol
+          path: snapshot-dist/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Fail if smoke test failed
+        if: steps.smoke.outcome == 'failure'
+        shell: bash
+        run: exit 1
