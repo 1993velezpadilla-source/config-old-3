@@ -398,9 +398,19 @@ def _orient_head_donor_to_base(
     if best is None:
         raise RuntimeError("could not orient native head donor")
 
-    ordered=sorted(float(x["score"]) for x in attempts)
-    second=ordered[1] if len(ordered)>1 else ordered[0]
-    confidence=second/max(float(best["score"]),1e-9)
+    axis_scores={}
+    for item in attempts:
+        axis=int(item["source_up_axis"])
+        score=float(item["score"])
+        axis_scores[axis]=min(axis_scores.get(axis,float("inf")),score)
+    ordered_axis=sorted(axis_scores.items(),key=lambda item:item[1])
+    best_axis_score=float(ordered_axis[0][1])
+    second_axis_score=(
+        float(ordered_axis[1][1])
+        if len(ordered_axis)>1
+        else best_axis_score
+    )
+    confidence=second_axis_score/max(best_axis_score,1e-9)
     identity_like=bool(
         best["source_up_axis"]==int(target_up_axis)
         and best["source_up_sign"]==1
@@ -422,7 +432,11 @@ def _orient_head_donor_to_base(
                 8,
             ),
             "best_score":float(best["score"]),
-            "second_best_score":float(second),
+            "second_best_axis_score":float(second_axis_score),
+            "axis_score_by_source_up":{
+                str(axis):float(score)
+                for axis,score in sorted(axis_scores.items())
+            },
         },
     )
 
