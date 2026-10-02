@@ -12,7 +12,7 @@ HAYUYA_DIR = ROOT / "tools" / "hayuya3d"
 sys.path.insert(0, str(HAYUYA_DIR))
 
 from native_geometry_guard import inspect_candidate
-from source_material_rescue import rescue_source_material
+from source_material_rescue import rescue_source_material, validate_textured_native_rescue
 from texture_gate import inspect as inspect_texture_gate
 
 
@@ -86,3 +86,47 @@ def test_source_material_rescue_keeps_native_geometry_and_embeds_basecolor(
     assert after.passed is True
     assert after.base_color_image_count >= 1
     assert after.base_color_min_edge >= 512
+
+
+def test_textured_native_validation_rejects_geometry_mutation(tmp_path: Path):
+    source = tmp_path / "front.png"
+    native = tmp_path / "native.glb"
+    textured = tmp_path / "textured.glb"
+    mutated = tmp_path / "mutated.glb"
+    _source(source)
+    _native_character(native)
+
+    rescue_source_material(
+        source,
+        native,
+        textured,
+        texture_edge=1024,
+        min_texture_edge=512,
+        total_samples=30000,
+    )
+
+    validated = validate_textured_native_rescue(
+        native,
+        textured,
+        min_texture_edge=512,
+    )
+    assert validated["geometry_preserved"] is True
+    assert validated["texture_gate"]["passed"] is True
+
+    scene = trimesh.load(textured, force="scene", process=False)
+    geom_name = next(iter(scene.geometry))
+    mesh = scene.geometry[geom_name].copy()
+    vertices = np.asarray(mesh.vertices, dtype=np.float64).copy()
+    vertices[0, 0] += 0.02
+    mesh.vertices = vertices
+    mutated.write_bytes(
+        trimesh.exchange.gltf.export_glb(trimesh.Scene(mesh))
+    )
+
+    import pytest
+    with pytest.raises(RuntimeError, match="changed native vertex positions"):
+        validate_textured_native_rescue(
+            native,
+            mutated,
+            min_texture_edge=512,
+        )
