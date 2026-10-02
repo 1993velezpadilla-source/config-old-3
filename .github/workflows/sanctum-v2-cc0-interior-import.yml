@@ -277,6 +277,11 @@ jobs:
           assert floor["physical_tile_m"]>0 and floor["bump_distance_m"]>0, d
           assert floor["normal_gate_world_z"]==0.85, d
           assert floor["z_fight_offset_m"]>0, d
+          luma=floor["albedo_luminance_audit"]
+          assert 0.33 < luma["source_p50"] < 0.35, d
+          assert abs(luma["target_p50"]-0.45) < 1e-6, d
+          assert 1.30 < luma["value_boost"] < 1.36, d
+          assert luma["rule"].startswith("floor-only"), d
           fitted=props["fitted_bounds"]["size"]
           target=props["target_bounds"]["size"]
           assert all(v>0 for v in fitted), d
