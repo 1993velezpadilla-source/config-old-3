@@ -79,6 +79,89 @@ def place_copy(template,name,target_bottom_center,scale=1.0,rotation_z=0.0,role=
     obj["source_license"]="CC0"
     return obj
 
+def enrich_boiler_materials(obj, seed=0):
+    """Layer deterministic grime, wet roughness breakup and micro-bump over CC0 PBR."""
+    if obj.type!="MESH":
+        return
+    for slot_i,slot in enumerate(obj.material_slots):
+        src=slot.material
+        if src is None:
+            continue
+        mat=src.copy()
+        mat.name=f"{src.name}_SANCTUM_GRIME_{seed}_{slot_i}"
+        mat.use_nodes=True
+        nt=mat.node_tree
+        bsdf=nt.nodes.get("Principled BSDF") if nt else None
+        if bsdf is None:
+            slot.material=mat
+            continue
+
+        noise=nt.nodes.new("ShaderNodeTexNoise")
+        noise.name=f"SANCTUM_GRIME_NOISE_{seed}_{slot_i}"
+        noise.inputs["Scale"].default_value=2.35 + seed*0.21
+        noise.inputs["Detail"].default_value=6.0
+        noise.inputs["Roughness"].default_value=0.72
+
+        ramp=nt.nodes.new("ShaderNodeValToRGB")
+        ramp.name=f"SANCTUM_GRIME_MASK_{seed}_{slot_i}"
+        ramp.color_ramp.elements[0].position=0.46
+        ramp.color_ramp.elements[0].color=(0.0,0.0,0.0,1.0)
+        ramp.color_ramp.elements[1].position=0.74
+        ramp.color_ramp.elements[1].color=(0.58,0.58,0.58,1.0)
+        nt.links.new(noise.outputs["Fac"],ramp.inputs["Fac"])
+
+        # Dark oily/grimy deposits over the authored albedo without replacing it.
+        mix=nt.nodes.new("ShaderNodeMixRGB")
+        mix.blend_type="MULTIPLY"
+        mix.inputs[2].default_value=(0.20,0.13,0.075,1.0)
+        nt.links.new(ramp.outputs["Color"],mix.inputs[0])
+        base=bsdf.inputs.get("Base Color")
+        if base:
+            if base.is_linked:
+                old=base.links[0]
+                from_socket=old.from_socket
+                nt.links.remove(old)
+                nt.links.new(from_socket,mix.inputs[1])
+            else:
+                mix.inputs[1].default_value=base.default_value
+            nt.links.new(mix.outputs["Color"],base)
+
+        # Wet/oily patches selectively lower roughness; dry metal stays authored.
+        rough=bsdf.inputs.get("Roughness")
+        if rough:
+            mapr=nt.nodes.new("ShaderNodeMapRange")
+            mapr.inputs["From Min"].default_value=0.0
+            mapr.inputs["From Max"].default_value=1.0
+            mapr.inputs["To Min"].default_value=1.0
+            mapr.inputs["To Max"].default_value=0.46
+            nt.links.new(noise.outputs["Fac"],mapr.inputs["Value"])
+            mult=nt.nodes.new("ShaderNodeMath")
+            mult.operation="MULTIPLY"
+            if rough.is_linked:
+                old=rough.links[0]
+                from_socket=old.from_socket
+                nt.links.remove(old)
+                nt.links.new(from_socket,mult.inputs[0])
+            else:
+                mult.inputs[0].default_value=float(rough.default_value)
+            nt.links.new(mapr.outputs["Result"],mult.inputs[1])
+            nt.links.new(mult.outputs[0],rough)
+
+        # Fine pitting/grit layered over any authored normal map.
+        bump=nt.nodes.new("ShaderNodeBump")
+        bump.inputs["Strength"].default_value=0.17
+        bump.inputs["Distance"].default_value=0.11
+        nt.links.new(noise.outputs["Fac"],bump.inputs["Height"])
+        normal=bsdf.inputs.get("Normal")
+        if normal:
+            if normal.is_linked:
+                old=normal.links[0]
+                from_socket=old.from_socket
+                nt.links.remove(old)
+                nt.links.new(from_socket,bump.inputs["Normal"])
+            nt.links.new(bump.outputs["Normal"],normal)
+        slot.material=mat
+
 # Remove the blockout boiler from the final authored/export set.
 boiler=bpy.data.objects.get("SANCTUM_BOILER_CORE")
 if boiler:
@@ -141,6 +224,10 @@ industrial.append(place_copy(
     rotation_z=0.0,
     role="vent"
 ))
+
+# Material pass from the new reference: less pale, more oily/grimy surface breakup.
+for idx,obj in enumerate(industrial,1):
+    enrich_boiler_materials(obj,idx)
 
 # Basic geometric safety envelope: props must stay away from the two ramp
 # openings and preserve broad west/east loop lanes.
@@ -208,10 +295,10 @@ scene.world.use_nodes=True
 bg=scene.world.node_tree.nodes.get("Background")
 if bg:
     bg.inputs["Color"].default_value=(0.003,0.004,0.006,1)
-    bg.inputs["Strength"].default_value=0.24
+    bg.inputs["Strength"].default_value=0.15
 
 cam=ensure_camera(scene)
-eye=1.68
+eye=1.82
 def point(cam,target):
     cam.rotation_euler=(Vector(target)-cam.location).to_track_quat("-Z","Y").to_euler()
 
