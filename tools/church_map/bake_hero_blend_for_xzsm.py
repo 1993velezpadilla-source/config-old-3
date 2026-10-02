@@ -76,7 +76,32 @@ def ensure_image_material(mat):
     if mat is None:
         img=flat_image(None,(0.18,0.18,0.18,1.0))
         return "flat",img
-    mat.use_nodes=True
+
+    # Older CC0 .blend assets (notably the 3TD ruins apse) still carry their
+    # authored look in Material.diffuse_color with use_nodes=False. Enabling
+    # nodes first creates a fresh Principled BSDF at Blender's default 0.8 gray,
+    # which was flattening every moss/brick/concrete material to RGB 204.
+    # Capture the legacy color BEFORE switching the material to nodes.
+    if not mat.use_nodes:
+        legacy_color=tuple(float(x) for x in mat.diffuse_color)
+        mat.use_nodes=True
+        nt=mat.node_tree
+        bsdf=next((n for n in nt.nodes if n.type=="BSDF_PRINCIPLED"),None)
+        if bsdf is None:
+            bsdf=nt.nodes.new("ShaderNodeBsdfPrincipled")
+        img=flat_image(mat,legacy_color)
+        tex=nt.nodes.new("ShaderNodeTexImage")
+        tex.name="XZIEL_LEGACY_DIFFUSE_IMAGE"
+        tex.image=img
+        sock=bsdf.inputs.get("Base Color")
+        if sock is not None:
+            for link in list(sock.links):
+                nt.links.remove(link)
+            nt.links.new(tex.outputs["Color"],sock)
+        bsdf.inputs["Roughness"].default_value=0.62
+        mat.diffuse_color=legacy_color
+        return "flat",img
+
     nt=mat.node_tree
     bsdf=next((n for n in nt.nodes if n.type=="BSDF_PRINCIPLED"),None)
     if bsdf is None:
