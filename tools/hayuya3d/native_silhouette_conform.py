@@ -9,6 +9,7 @@ from pathlib import Path
 import numpy as np
 from scipy.ndimage import distance_transform_edt, maximum_filter
 
+from gltf_audit import audit_glb
 from native_geometry_guard import assert_native_candidate
 from visual_judge import (
     _boundary,
@@ -26,6 +27,19 @@ def _load_editable_scene(path: Path):
     import trimesh
 
     assert_native_candidate(path, label="native_silhouette_conform")
+    gltf = audit_glb(path)
+    if not gltf.valid_glb or gltf.errors:
+        raise RuntimeError(
+            "native silhouette conform requires a structurally valid GLB: "
+            + "; ".join(gltf.errors[:4])
+        )
+    if gltf.skin_count or gltf.animation_count or gltf.morph_target_count:
+        raise RuntimeError(
+            "native silhouette conform is pre-rig/pre-animation only "
+            f"(skins={gltf.skin_count}, animations={gltf.animation_count}, "
+            f"morph_targets={gltf.morph_target_count})"
+        )
+
     scene = trimesh.load(path, force="scene", process=False)
     nodes = list(scene.graph.nodes_geometry)
 
@@ -570,6 +584,109 @@ def _conform_iteration(
     }
 
 
+def _mesh_structural_signature(path: Path) -> dict:
+    import trimesh
+
+    scene = trimesh.load(path, force="scene", process=False)
+    nodes = list(scene.graph.nodes_geometry)
+    total_vertices = 0
+    total_faces = 0
+    uv_nodes = 0
+    material_nodes = 0
+
+    for node in nodes:
+        _transform, geometry_name = scene.graph.get(node)
+        geometry = scene.geometry[geometry_name]
+        if not hasattr(geometry, "vertices") or not hasattr(geometry, "faces"):
+            continue
+        vertices = np.asarray(geometry.vertices)
+        faces = np.asarray(geometry.faces)
+        total_vertices += int(len(vertices))
+        total_faces += int(len(faces))
+
+        visual = getattr(geometry, "visual", None)
+        uv = getattr(visual, "uv", None) if visual is not None else None
+        if uv is not None and len(uv) == len(vertices) and len(vertices):
+            uv_nodes += 1
+        material = getattr(visual, "material", None) if visual is not None else None
+        if material is not None:
+            material_nodes += 1
+
+    return {
+        "mesh_nodes": int(len(nodes)),
+        "vertices": int(total_vertices),
+        "faces": int(total_faces),
+        "uv_mesh_nodes": int(uv_nodes),
+        "material_mesh_nodes": int(material_nodes),
+    }
+
+
+def _assert_roundtrip_preserved(input_glb: Path, output_glb: Path) -> dict:
+    before_mesh = _mesh_structural_signature(input_glb)
+    after_mesh = _mesh_structural_signature(output_glb)
+    before_gltf = audit_glb(input_glb)
+    after_gltf = audit_glb(output_glb)
+
+    regressions = []
+    for key in ("mesh_nodes", "vertices", "faces"):
+        if int(after_mesh[key]) != int(before_mesh[key]):
+            regressions.append(
+                f"{key}:{before_mesh[key]}->{after_mesh[key]}"
+            )
+    for key in ("uv_mesh_nodes", "material_mesh_nodes"):
+        if int(after_mesh[key]) < int(before_mesh[key]):
+            regressions.append(
+                f"{key}:{before_mesh[key]}->{after_mesh[key]}"
+            )
+
+    for key in ("mesh_count", "material_count", "texture_count"):
+        before_value = int(getattr(before_gltf, key))
+        after_value = int(getattr(after_gltf, key))
+        if after_value < before_value:
+            regressions.append(
+                f"{key}:{before_value}->{after_value}"
+            )
+
+    missing_channels = sorted(
+        set(before_gltf.material_channels) - set(after_gltf.material_channels)
+    )
+    if missing_channels:
+        regressions.append(
+            "material_channels_missing:" + ",".join(missing_channels)
+        )
+    if not after_gltf.valid_glb or after_gltf.errors:
+        regressions.append(
+            "output_gltf_invalid:"
+            + ";".join(after_gltf.errors[:4])
+        )
+
+    payload = {
+        "policy": "native-glb-roundtrip-preservation-v1",
+        "before_mesh": before_mesh,
+        "after_mesh": after_mesh,
+        "before_gltf": {
+            "mesh_count": int(before_gltf.mesh_count),
+            "material_count": int(before_gltf.material_count),
+            "texture_count": int(before_gltf.texture_count),
+            "material_channels": list(before_gltf.material_channels),
+        },
+        "after_gltf": {
+            "mesh_count": int(after_gltf.mesh_count),
+            "material_count": int(after_gltf.material_count),
+            "texture_count": int(after_gltf.texture_count),
+            "material_channels": list(after_gltf.material_channels),
+        },
+        "regressions": regressions,
+        "preserved": not regressions,
+    }
+    if regressions:
+        raise RuntimeError(
+            "native silhouette conform GLB round-trip regression: "
+            + " | ".join(regressions)
+        )
+    return payload
+
+
 def _write_world_vertices(scene, records, vertices_world: np.ndarray, output: Path):
     import trimesh
 
@@ -690,6 +807,10 @@ def conform_native_silhouette(
     vertices_world_out = current * scale + center
     _write_world_vertices(scene, records, vertices_world_out, output_glb)
     assert_native_candidate(output_glb, label="native_silhouette_conform_output")
+    roundtrip_preservation = _assert_roundtrip_preserved(
+        input_glb,
+        output_glb,
+    )
 
     payload = {
         "schema": 1,
@@ -722,6 +843,7 @@ def conform_native_silhouette(
         },
         "passes": passes,
         "render_budget": render_budget,
+        "roundtrip_preservation": roundtrip_preservation,
         "topology_smoothing": {
             "mode": "active-visible-one-ring-only",
             "iterations": int(topology_smoothing_iterations),
