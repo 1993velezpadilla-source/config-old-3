@@ -10,6 +10,7 @@ from unittest import mock
 
 import numpy as np
 import trimesh
+from PIL import Image
 
 from tools.hayuya3d.gltf_position_patch import skin_payload_signature
 from tools.hayuya3d.regional_fusion import (
@@ -20,7 +21,12 @@ from tools.hayuya3d.skin_weight_qa import audit_skin_weights
 from tools.hayuya3d.gltf_audit import audit_glb
 
 
-def make_character(path:Path, *, head_scale:float=1.0):
+def make_character(
+    path:Path,
+    *,
+    head_scale:float=1.0,
+    textured:bool=False,
+):
     mesh=trimesh.creation.icosphere(subdivisions=3,radius=1.0)
     vertices=np.asarray(mesh.vertices,dtype=np.float64).copy()
     # Make Y the character height axis.
@@ -36,6 +42,22 @@ def make_character(path:Path, *, head_scale:float=1.0):
         faces=np.asarray(mesh.faces).copy(),
         process=False,
     )
+    if textured:
+        u=(vertices[:,0]-vertices[:,0].min())/max(
+            float(vertices[:,0].max()-vertices[:,0].min()),
+            1e-9,
+        )
+        v=(vertices[:,1]-vertices[:,1].min())/max(
+            float(vertices[:,1].max()-vertices[:,1].min()),
+            1e-9,
+        )
+        uv=np.stack([u,v],axis=1)
+        image=Image.new("RGBA",(8,8),(40,80,120,255))
+        material=trimesh.visual.texture.SimpleMaterial(image=image)
+        out.visual=trimesh.visual.texture.TextureVisuals(
+            uv=uv,
+            material=material,
+        )
     path.write_bytes(trimesh.exchange.gltf.export_glb(trimesh.Scene(out)))
 
 
@@ -185,6 +207,25 @@ class RegionalFusionTests(unittest.TestCase):
                 float(result.bbox_drift_fraction),
                 0.08,
             )
+
+    def test_textured_head_wrap_preserves_topology_and_uv_mapping(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            base=root/"base-textured.glb"
+            donor=root/"donor.glb"
+            output=root/"wrapped-textured.glb"
+            make_character(base,head_scale=1.0,textured=True)
+            make_character(donor,head_scale=1.12)
+
+            result=build_head_wrap_geometry(
+                base,
+                donor,
+                output,
+            )
+            self.assertTrue(result.geometry_ready,result.error)
+            self.assertTrue(result.topology_preserved,result.error)
+            self.assertTrue(result.uv_preserved,result.error)
+            self.assertTrue(output.is_file())
 
     def test_untextured_fixture_needs_no_material_rebake(self):
         with tempfile.TemporaryDirectory() as tmp:
