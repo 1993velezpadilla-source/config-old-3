@@ -116,7 +116,7 @@ def add_disclosure_label(name, surface_loc, width, height, normal):
         location=(
             plate_center[0] + nx * 0.022,
             plate_center[1] + ny * 0.022,
-            plate_center[2] - 0.040,
+            plate_center[2],
         )
     )
     txt = bpy.context.object
@@ -124,7 +124,7 @@ def add_disclosure_label(name, surface_loc, width, height, normal):
     txt.data.body = "AD"
     txt.data.align_x = "CENTER"
     txt.data.align_y = "CENTER"
-    txt.data.size = 0.095
+    txt.data.size = 0.082
     txt.data.extrude = 0.004
     txt.data.bevel_depth = 0.0015
     txt.rotation_mode = "QUATERNION"
@@ -354,15 +354,35 @@ scene.render.resolution_y = 900
 scene.render.resolution_percentage = 100
 scene.render.image_settings.file_format = "PNG"
 
-def render_view(filename, location, target, lens):
+def render_view(filename, location, target, lens, audit_light=None):
     bpy.ops.object.camera_add(location=location)
     camera = bpy.context.object
     camera.name = "INTRINSIC_AD_PREVIEW_CAMERA"
     camera.data.lens = lens
     look_at(camera, target)
     scene.camera = camera
+
+    validation_light = None
+    if audit_light is not None:
+        energy, radius = audit_light
+        lx = (location[0] + target[0]) * 0.5
+        ly = (location[1] + target[1]) * 0.5
+        lz = max(location[2], target[2]) + 0.75
+        bpy.ops.object.light_add(
+            type="AREA",
+            location=(lx, ly, lz),
+        )
+        validation_light = bpy.context.object
+        validation_light.name = "VALIDATION_ONLY_AD_AUDIT_LIGHT"
+        validation_light.data.energy = energy
+        validation_light.data.size = radius
+        look_at(validation_light, target)
+
     scene.render.filepath = str(OUT / filename)
     bpy.ops.render.render(write_still=True)
+
+    if validation_light is not None:
+        bpy.data.objects.remove(validation_light, do_unlink=True)
     bpy.data.objects.remove(camera, do_unlink=True)
 
 render_view(
@@ -388,6 +408,7 @@ render_view(
     (6.80, -10.7, 1.75),
     (6.80, -14.45, 1.35),
     42,
+    audit_light=(420.0, 2.0),
 )
 
 report = {
