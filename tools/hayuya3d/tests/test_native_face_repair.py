@@ -14,6 +14,7 @@ from native_geometry_guard import assert_native_candidate
 from native_360_geometry_gate import Native360GeometryRejected
 from native_face_repair import (
     generate_source_head_donor,
+    prepare_source_face_repair_challenger,
     select_head_donor_backend,
 )
 
@@ -85,6 +86,30 @@ def test_full_body_source_can_derive_head_evidence_for_native_donor(tmp_path: Pa
     assert alpha.getbbox() is not None
     assert alpha.getextrema()[0] == 0
     assert Path(seen["image"]).name == "source_head_rgba.png"
+
+
+def test_face_repair_rejects_planar_base_before_any_fusion(tmp_path: Path):
+    base = tmp_path / "flat_base.glb"
+    detail = tmp_path / "head.png"
+    _write_planar_native(base)
+    Image.new("RGBA", (96, 96), (180, 120, 90, 255)).save(detail)
+
+    result = prepare_source_face_repair_challenger(
+        base,
+        detail,
+        tmp_path / "repair",
+        selected_backends=[],
+        seed=5,
+        hero_faces=250000,
+        trellis2_resolution=1024,
+        texture_size=4096,
+        model_root=tmp_path / "models",
+    )
+
+    assert result.ready is False
+    assert result.attempted is True
+    assert result.candidate_mesh is None
+    assert "Native360GeometryRejected" in str(result.error)
 
 
 def test_source_head_donor_rejects_planar_native_generator_output(tmp_path: Path):
