@@ -1,0 +1,129 @@
+name: HAYUYA Recover Passed Artifact
+
+on:
+  push:
+    branches:
+      - art/hayuya-core-generalize-v1
+    paths:
+      - "hayuya/recovery/*.json"
+
+permissions:
+  contents: write
+  actions: read
+  issues: write
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Locate recovery request
+        id: request
+        shell: bash
+        run: |
+          set -euo pipefail
+          request="$(
+            git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA"               | grep '^hayuya/recovery/.*\.json$'               | tail -n 1
+          )"
+          test -n "$request"
+          test -s "$request"
+
+          run_id="$(jq -r '.run_id' "$request")"
+          artifact_name="$(jq -r '.artifact_name' "$request")"
+          job_id="$(jq -r '.job_id' "$request")"
+          title="$(jq -r '.title // .job_id' "$request")"
+
+          test "$run_id" != "null"
+          test "$artifact_name" != "null"
+          test "$job_id" != "null"
+
+          echo "request=$request" >> "$GITHUB_OUTPUT"
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+          echo "artifact_name=$artifact_name" >> "$GITHUB_OUTPUT"
+          echo "job_id=$job_id" >> "$GITHUB_OUTPUT"
+          echo "title=$title" >> "$GITHUB_OUTPUT"
+
+      - name: Download passed artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="/tmp/hayuya-recovery"
+          rm -rf "$root"
+          mkdir -p "$root"
+
+          gh run download "${{ steps.request.outputs.run_id }}"             --repo "$GITHUB_REPOSITORY"             --name "${{ steps.request.outputs.artifact_name }}"             --dir "$root"
+
+          test -s "$root/outputs/hayuya_final.glb"
+          test -s "$root/outputs/judge_v4_core/judge_v4.json"
+
+          passed="$(jq -r '.passed' "$root/outputs/judge_v4_core/judge_v4.json")"
+          hard="$(jq -r '.hard_fail_reasons | length' "$root/outputs/judge_v4_core/judge_v4.json")"
+          test "$passed" = "true"
+          test "$hard" = "0"
+
+      - name: Persist approved model
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="/tmp/hayuya-recovery"
+          job_id="${{ steps.request.outputs.job_id }}"
+          model_dir="hayuya/models/$job_id"
+          payload="$(mktemp -d)"
+
+          cp "$root/outputs/hayuya_final.glb" "$payload/model.glb"
+          if [ -s "$root/outputs/manifest.json" ]; then
+            cp "$root/outputs/manifest.json" "$payload/manifest.json"
+          fi
+          cp "$root/outputs/judge_v4_core/judge_v4.json" "$payload/judge_v4_core.json"
+
+          for qa in quality_gate.json texture_gate.json rig_gate.json part_map.json; do
+            if [ -s "$root/outputs/$qa" ]; then
+              cp "$root/outputs/$qa" "$payload/$qa"
+            fi
+          done
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          target_branch="${GITHUB_REF_NAME:-art/hayuya-core-generalize-v1}"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin "$target_branch"
+            git reset --hard "origin/$target_branch"
+
+            rm -rf "$model_dir"
+            mkdir -p "$model_dir"
+            cp -R "$payload/." "$model_dir/"
+
+            git add "$model_dir"
+            if git diff --cached --quiet; then
+              echo "HAYUYA_RECOVERY_ALREADY_CURRENT job=$job_id"
+              rm -rf "$payload"
+              exit 0
+            fi
+
+            git commit -m "hayuya: recover passed $job_id for Hub preview"
+            if git push origin "HEAD:$target_branch"; then
+              echo "HAYUYA_RECOVERY_PERSISTED job=$job_id run=${{ steps.request.outputs.run_id }}"
+              rm -rf "$payload"
+              exit 0
+            fi
+            sleep $((attempt * 2))
+          done
+
+          rm -rf "$payload"
+          echo "Could not persist recovered HAYUYA model after retries" >&2
+          exit 1
+
+      - name: Notify HAYUYA Hub done
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh issue comment 55             --repo "$GITHUB_REPOSITORY"             --body "✅ **DONE** — **HAYUYA_WEB** / \`${{ steps.request.outputs.job_id }}\` — ${{ steps.request.outputs.title }} — recovered from Judge-passed run \`${{ steps.request.outputs.run_id }}\`"
