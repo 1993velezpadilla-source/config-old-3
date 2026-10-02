@@ -1,0 +1,78 @@
+name: Sanctum Reference Silhouette Fit
+
+on:
+  push:
+    branches:
+      - feature/xziel-map-builder-agent-v1
+    paths:
+      - ".github/workflows/sanctum-reference-fit.yml"
+      - "tools/sanctum_v2/build_reference_visual_hull.py"
+      - "docs/sanctum-reference-silhouettes.v1.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sanctum-reference-fit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Blender 5.2.2
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xz-utils xvfb libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libglu1-mesa libegl1
+          curl -L --fail --retry 6 --retry-all-errors --retry-delay 2             https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz             -o /tmp/blender.tar.xz
+          tar -C /tmp -xf /tmp/blender.tar.xz
+
+      - name: Build reference-locked visual hulls
+        shell: bash
+        env:
+          SANCTUM_REFERENCE_FIT_OUT: sanctum-reference-fit
+          SANCTUM_REFERENCE_SILHOUETTES: docs/sanctum-reference-silhouettes.v1.json
+        run: |
+          set -euo pipefail
+          mkdir -p sanctum-reference-fit
+          xvfb-run -a -s "-screen 0 1600x1000x24"             /tmp/blender-5.2.2-linux-x64/blender             -b --python tools/sanctum_v2/build_reference_visual_hull.py             2>&1 | tee sanctum-reference-fit/blender.log
+          grep -q SANCTUM_REFERENCE_FIT_PASS sanctum-reference-fit/blender.log
+
+      - name: Validate silhouette reconstruction
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          r=Path("sanctum-reference-fit")
+          d=json.loads((r/"reference-fit-report.json").read_text())
+          assert d["status"]=="PASS",d
+          for key in ("pew","altar"):
+              x=d[key]
+              assert x["status"]=="PASS",x
+              assert x["vertices"]>=8,x
+              assert x["polygons"]>=6,x
+              assert x["volume_m3"]>0,x
+              assert x["front_points"]>=15,x
+              assert x["side_points"]>=15,x
+              assert (r/x["glb"]).is_file(),x
+              assert x["glb_bytes"]>1000,x
+          print("SANCTUM_REFERENCE_SILHOUETTES_GREEN")
+          print(json.dumps(d,indent=2))
+          PY
+
+      - name: Upload reference-fit guides
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-Reference-Fit
+          path: sanctum-reference-fit/
+          if-no-files-found: error
+          retention-days: 14
