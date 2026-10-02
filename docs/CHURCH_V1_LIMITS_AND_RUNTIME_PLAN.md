@@ -105,6 +105,33 @@ Thermal:
 - If thermally constrained, freeze the in-world TV to a static frame before
   reducing gameplay simulation quality.
 
+## 4.1 Church lighting budget
+
+The current Blender Main Nave reference uses 23 authored light objects:
+- 4 altar-candle point lights
+- 8 chandelier-candle point lights
+- 6 cold stained-glass/side area lights
+- 4 warm central point fills
+- 1 altar area key
+
+These 23 lights are a look-development reference, not a runtime requirement.
+
+XZIEL runtime budgets:
+- Low: 3 dynamic / 1 shadowed
+- Medium: 6 dynamic / 1 shadowed
+- High: 12 dynamic / 3 shadowed
+- Ultra: 24 dynamic / 6 shadowed
+
+Runtime conversion target:
+- candle flames use emissive geometry/lightmaps; never one dynamic light per candle
+- the chandelier uses one clustered/fake practical light, not eight
+- stained-glass color shafts should be baked/static where possible
+- reserve shadowed dynamic lights for player/combat-critical lighting and at
+  most one principal Church key on Medium
+- Church V1's intended visual identity must remain readable with the Medium
+  6/1 light budget; High adds refinement rather than making the scene work at
+  all
+
 ## 5. Zombies map topology
 
 Church V1 currently defines seven macro zones:
@@ -164,6 +191,33 @@ At 7.2 m/s a player can cross the unobstructed 30 m nave in roughly 4.2 seconds.
 Therefore long straight-line traversal must be interrupted by combat,
 navigation, doors, pew banks or spawn pressure; raw room size alone will not
 create difficulty.
+
+## 5.2 Spawn-zone gap
+
+Current XZIEL map capacities are adequate for Church V1:
+- 32 zombie spawn points
+- 32 zombie windows/barricades
+- 16 doors
+- 256 navigation floors
+- 256 static map boxes/obstacles
+
+However, the current map format sends all zombie spawn points to
+HordeDirector as one global list. It has no authored spawn-zone/adjacency
+concept and therefore cannot yet express the key Zombies rule that closed
+doors and player-local zones constrain eligible spawns.
+
+Before Church V1 expands beyond a single-room prototype, add:
+- fixed-capacity spawn-zone AABBs
+- spawn-point-to-zone membership
+- zone adjacency
+- per-zone activation/gating by door state
+- player-position zone lookup
+- eligible-spawn filtering before minimum-distance selection
+
+The 30 m Main Nave should be logically segmented into at least south, middle
+and apse spawn regions even if the rendered church remains one seamless room.
+Decorative stained glass at ~4.85 m elevation is not a zombie ingress point.
+Ground-level barricades/doors must be authored separately.
 
 ## 6. Current XZIEL horde limit — blocker, not design target
 
