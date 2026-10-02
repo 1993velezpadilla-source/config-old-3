@@ -22,6 +22,7 @@ on:
       - tools/hayuya3d/tests/test_native_360_geometry_gate.py
       - tools/hayuya3d/tests/test_native_silhouette_conform.py
       - tools/hayuya3d/tests/test_native_face_repair.py
+      - tools/hayuya3d/tests/test_regional_fusion.py
       - tools/hayuya3d/tests/test_planner.py
       - .github/workflows/hayuya-native-conform.yml
   workflow_dispatch:
@@ -54,6 +55,9 @@ jobs:
       - name: Source-derived native face repair
         run: |
           python -m pytest -q tools/hayuya3d/tests/test_native_face_repair.py
+      - name: Regional fusion topology and UV preservation
+        run: |
+          python -m pytest -q tools/hayuya3d/tests/test_regional_fusion.py
       - name: Pipeline planner contract
         run: |
           python -m pytest -q tools/hayuya3d/tests/test_planner.py
