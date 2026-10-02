@@ -271,40 +271,32 @@ jobs:
                   })
 
           if not output.is_file() or output.read_bytes()[:4] != b"glTF":
-              try:
-                  from source_front_projection import project_source_front
-                  result=project_source_front(
-                      image,
-                      mesh,
-                      output,
-                      texture_edge=4096,
-                  )
-                  print("HAYUYA_TEXTURE_BACKEND_SELECTED","local-occlusion-projection")
-                  print("HAYUYA_TEXTURE_BACKEND_RESULT",json.dumps(result,separators=(",",":")))
-              except Exception as exc:
-                  failures.append({
-                      "backend":"local-occlusion-projection",
-                      "error":f"{type(exc).__name__}: {exc}",
-                  })
-
-          if not output.is_file() or output.read_bytes()[:4] != b"glTF":
-              raise SystemExit(
-                  "all_texture_backends_failed:"+
-                  json.dumps(failures,separators=(",",":"))
+              # Texture service failure must NEVER switch this native-model probe
+              # to the old front-projection representation. Keep the real native
+              # mesh and continue geometry/face validation untextured instead.
+              output.write_bytes(mesh.read_bytes())
+              print(
+                  "::warning::Texture backends unavailable; preserving native "
+                  "geometry without projection fallback: "
+                  + json.dumps(failures,separators=(",",":"))
               )
+              print("HAYUYA_TEXTURE_BACKEND_SELECTED","native-untextured-fallback")
+
+          from native_geometry_guard import assert_native_candidate
+          assert_native_candidate(output,label="hunyuan-head-probe-material")
           PY
 
-      - name: Conform textured silhouette geometry
+      - name: Conform native mesh from current source silhouette
         shell: bash
         run: |
           set -euo pipefail
-          python tools/hayuya3d/silhouette_conform.py \
+          python tools/hayuya3d/native_silhouette_conform.py \
             --input out/hunyuan-head-probe/body_headwrap_material_native.glb \
+            --source hayuya/assets/monja-mugfwln6/geometry/primary.webp \
             --output out/hunyuan-head-probe/body_headwrap_material_native.glb \
-            --report out/hunyuan-head-probe/body_headwrap_material_native.silhouette_conform.json \
-            --iterations 2 --grid 768 \
-            --overscan 1.42 --alpha-threshold 48 --edge-fill-radius 6 \
-            --profile tools/hayuya3d/profiles/monja-mugfwln6.json
+            --report out/hunyuan-head-probe/body_headwrap_material_native.native_silhouette.json \
+            --size 384 --azimuth-step 30 --iterations 3 \
+            --boundary-band-px 6 --max-target-px 18 --per-vertex-cap-px 3
 
       - name: Render base native front
         shell: bash
