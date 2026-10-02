@@ -137,7 +137,12 @@ for obj in export_objects:
             flat_materials+=1
         else:
             image_materials+=1
-    if has_proc:
+    # The authored 3TD apse uses legacy/mixed material wiring that Blender
+    # renders correctly but our simple Base Color classifier can mistake for
+    # flat colors. Force the whole apse through a real 4K Blender bake so the
+    # Android snapshot preserves the same ruin material visible in the Hero
+    # proof render instead of a pale concrete placeholder.
+    if has_proc or obj.name=="SANCTUM_HERO_APSE_RUIN":
         procedural_objects.append(obj)
 
 # Diffuse COLOR bake does not need lighting convergence. One Cycles sample
@@ -298,6 +303,7 @@ report={
     "image_material_slots":image_materials,
     "flat_material_slots":flat_materials,
     "procedural_objects_baked":len(procedural_objects),
+    "forced_legacy_bakes":[o.name for o in procedural_objects if o.name=="SANCTUM_HERO_APSE_RUIN"],
     "bakes":bake_records,
     "floor_z":float(floor_z),
     "spawn":[float(x) for x in spawn],
