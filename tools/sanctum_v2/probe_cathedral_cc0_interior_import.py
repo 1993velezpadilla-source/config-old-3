@@ -168,6 +168,31 @@ def build_cathedral_floor_overlay(source_obj,manifest,resolution,scene_floor_z):
         resolution,
     )
 
+    # Data-driven floor-only brightness correction. A dedicated audit of the
+    # exact Poly Haven 4K diffuse measured p50=0.3372549. Preserve the authored
+    # texture contrast while raising the median toward 0.45 so the stone reads
+    # under Sanctum's deliberately dark interior lighting.
+    source_median_luma=0.33725490196078434
+    target_median_luma=0.45
+    albedo_value_boost=target_median_luma/source_median_luma
+    nodes=mat.node_tree.nodes
+    links=mat.node_tree.links
+    bsdf=next(n for n in nodes if n.bl_idname=="ShaderNodeBsdfPrincipled")
+    diff=next(
+        n for n in nodes
+        if n.bl_idname=="ShaderNodeTexImage"
+        and n.image is not None
+        and Path(bpy.path.abspath(n.image.filepath)).name=="diffuse.png"
+    )
+    for link in list(bsdf.inputs["Base Color"].links):
+        links.remove(link)
+    color_boost=nodes.new("ShaderNodeHueSaturation")
+    color_boost.inputs["Hue"].default_value=0.5
+    color_boost.inputs["Saturation"].default_value=0.94
+    color_boost.inputs["Value"].default_value=albedo_value_boost
+    links.new(diff.outputs["Color"],color_boost.inputs["Color"])
+    links.new(color_boost.outputs["Color"],bsdf.inputs["Base Color"])
+
     deps=bpy.context.evaluated_depsgraph_get()
     eo=source_obj.evaluated_get(deps)
     src=eo.to_mesh()
@@ -221,6 +246,16 @@ def build_cathedral_floor_overlay(source_obj,manifest,resolution,scene_floor_z):
         "physical_tile_m":tile,
         "texture_resolution":resolution,
         "bump_distance_m":tile/float(resolution),
+        "albedo_luminance_audit":{
+            "source_mean_luma":0.34727313775642243,
+            "source_p10":0.2784313725490196,
+            "source_p50":source_median_luma,
+            "source_p90":0.42745098039215684,
+            "target_p50":target_median_luma,
+            "value_boost":albedo_value_boost,
+            "saturation":0.94,
+            "rule":"floor-only authored diffuse correction; no global exposure change",
+        },
     }
 
 def load_authored_glass_shader():
