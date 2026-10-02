@@ -27,27 +27,38 @@ class SourceFaceRepairResult:
     candidate_mesh: str | None
     fusion: dict | None
     error: str | None = None
+    backend_attempts: list[dict] | None = None
     method: str = "hayuya-source-derived-native-face-repair-v1"
+
+
+def available_head_donor_backends(
+    selected_backends: list[str] | tuple[str, ...],
+    model_root: Path,
+) -> list[str]:
+    """Return usable donor generators in deterministic capability order."""
+    selected = {str(x) for x in selected_backends}
+    root = Path(model_root)
+    return [
+        backend
+        for backend in HEAD_DONOR_PRIORITY
+        if (
+            backend in selected
+            and backend in GENERATORS
+            and (root / backend).is_dir()
+        )
+    ]
 
 
 def select_head_donor_backend(
     selected_backends: list[str] | tuple[str, ...],
     model_root: Path,
 ) -> str | None:
-    """Pick one already-enabled native generator for a source-derived head donor.
-
-    Selection is capability-based and contains no asset/person-specific branch.
-    """
-    selected = {str(x) for x in selected_backends}
-    root = Path(model_root)
-    for backend in HEAD_DONOR_PRIORITY:
-        if (
-            backend in selected
-            and backend in GENERATORS
-            and (root / backend).is_dir()
-        ):
-            return backend
-    return None
+    """Compatibility helper returning the first usable donor backend."""
+    available = available_head_donor_backends(
+        selected_backends,
+        model_root,
+    )
+    return available[0] if available else None
 
 
 def _stage_source(
@@ -187,6 +198,8 @@ def prepare_source_face_repair_challenger(
 
     No Monja coordinates, silhouettes, landmarks, or cached masks are consumed.
     """
+
+
     base_mesh = Path(base_mesh)
     detail_image = Path(detail_image)
     out_dir = Path(out_dir)
@@ -194,83 +207,6 @@ def prepare_source_face_repair_challenger(
     try:
         assert_native_candidate(base_mesh, label="source_face_repair_base")
         assert_native_volumetric(base_mesh, label="source_face_repair_base")
-        backend = select_head_donor_backend(list(selected_backends), Path(model_root))
-        if backend is None:
-            return SourceFaceRepairResult(
-                attempted=False,
-                ready=False,
-                source_detail=str(detail_image),
-                base_mesh=str(base_mesh),
-                backend=None,
-                staged_source=None,
-                donor_mesh=None,
-                candidate_mesh=None,
-                fusion=None,
-                error="no selected native head-donor backend is bootstrapped",
-            )
-
-        donor_dir = out_dir / "donor"
-        donor = generate_source_head_donor(
-            detail_image,
-            donor_dir,
-            backend=backend,
-            seed=int(seed),
-            hero_faces=int(hero_faces),
-            trellis2_resolution=int(trellis2_resolution),
-            texture_size=int(texture_size),
-            model_root=Path(model_root),
-            generator_override=generator_override,
-            derive_head_from_full_source=bool(
-                derive_head_from_full_source
-            ),
-        )
-
-        from regional_fusion import prepare_head_wrap_challenger
-
-        fusion = prepare_head_wrap_challenger(
-            base_mesh,
-            donor,
-            out_dir / "fusion",
-            texture_size=int(texture_size),
-            require_rebake=bool(require_rebake),
-            up_axis=up_axis,
-            donor_scope="head",
-        )
-        fusion_payload = asdict(fusion)
-        candidate = fusion.output_glb or fusion.raw_output_glb
-
-        if not fusion.ready_for_judge or not candidate:
-            return SourceFaceRepairResult(
-                attempted=True,
-                ready=False,
-                source_detail=str(detail_image),
-                base_mesh=str(base_mesh),
-                backend=backend,
-                staged_source=str(donor_dir / "source_head_rgba.png"),
-                donor_mesh=str(donor),
-                candidate_mesh=str(candidate) if candidate else None,
-                fusion=fusion_payload,
-                error=fusion.error or "source-derived head wrap is not Judge-eligible",
-            )
-
-        candidate_path = Path(candidate)
-        assert_native_candidate(candidate_path, label="source_face_repair_output")
-        assert_native_volumetric(
-            candidate_path,
-            label="source_face_repair_output",
-        )
-        return SourceFaceRepairResult(
-            attempted=True,
-            ready=True,
-            source_detail=str(detail_image),
-            base_mesh=str(base_mesh),
-            backend=backend,
-            staged_source=str(donor_dir / "source_head_rgba.png"),
-            donor_mesh=str(donor),
-            candidate_mesh=str(candidate_path),
-            fusion=fusion_payload,
-            error=None,
-        )
     except Exception as exc:
         return SourceFaceRepairResult(
             attempted=True,
@@ -283,8 +219,171 @@ def prepare_source_face_repair_challenger(
             candidate_mesh=None,
             fusion=None,
             error=f"{type(exc).__name__}:{exc}",
+            backend_attempts=[],
         )
 
+    backends = available_head_donor_backends(
+        list(selected_backends),
+        Path(model_root),
+    )
+    if not backends:
+        return SourceFaceRepairResult(
+            attempted=False,
+            ready=False,
+            source_detail=str(detail_image),
+            base_mesh=str(base_mesh),
+            backend=None,
+            staged_source=None,
+            donor_mesh=None,
+            candidate_mesh=None,
+            fusion=None,
+            error="no selected native head-donor backend is bootstrapped",
+            backend_attempts=[],
+        )
+
+    from regional_fusion import prepare_head_wrap_challenger
+
+    attempts: list[dict] = []
+    last_donor: Path | None = None
+    last_fusion: dict | None = None
+    last_candidate: Path | None = None
+
+    for index, backend in enumerate(backends):
+        donor_dir = out_dir / f"donor_{index:02d}_{backend}"
+        staged_source = donor_dir / "source_head_rgba.png"
+        try:
+            donor = generate_source_head_donor(
+                detail_image,
+                donor_dir,
+                backend=backend,
+                seed=int(seed) + index * 101,
+                hero_faces=int(hero_faces),
+                trellis2_resolution=int(trellis2_resolution),
+                texture_size=int(texture_size),
+                model_root=Path(model_root),
+                generator_override=generator_override,
+                derive_head_from_full_source=bool(
+                    derive_head_from_full_source
+                ),
+            )
+            last_donor = donor
+        except Exception as exc:
+            attempts.append(
+                {
+                    "backend": backend,
+                    "stage": "native_head_donor",
+                    "ready": False,
+                    "error": f"{type(exc).__name__}:{exc}",
+                }
+            )
+            continue
+
+        try:
+            fusion = prepare_head_wrap_challenger(
+                base_mesh,
+                donor,
+                out_dir / f"fusion_{index:02d}_{backend}",
+                texture_size=int(texture_size),
+                require_rebake=bool(require_rebake),
+                up_axis=up_axis,
+                donor_scope="head",
+            )
+            fusion_payload = asdict(fusion)
+            last_fusion = fusion_payload
+            candidate = fusion.output_glb or fusion.raw_output_glb
+            last_candidate = Path(candidate) if candidate else None
+
+            if not fusion.ready_for_judge or not candidate:
+                attempts.append(
+                    {
+                        "backend": backend,
+                        "stage": "head_wrap",
+                        "ready": False,
+                        "donor_mesh": str(donor),
+                        "candidate_mesh": str(candidate) if candidate else None,
+                        "error": (
+                            fusion.error
+                            or "source-derived head wrap is not Judge-eligible"
+                        ),
+                    }
+                )
+                continue
+
+            candidate_path = Path(candidate)
+            assert_native_candidate(
+                candidate_path,
+                label=f"source_face_repair_output:{backend}",
+            )
+            assert_native_volumetric(
+                candidate_path,
+                label=f"source_face_repair_output:{backend}",
+            )
+
+            attempts.append(
+                {
+                    "backend": backend,
+                    "stage": "output_gate",
+                    "ready": True,
+                    "donor_mesh": str(donor),
+                    "candidate_mesh": str(candidate_path),
+                    "error": None,
+                }
+            )
+            return SourceFaceRepairResult(
+                attempted=True,
+                ready=True,
+                source_detail=str(detail_image),
+                base_mesh=str(base_mesh),
+                backend=backend,
+                staged_source=str(staged_source),
+                donor_mesh=str(donor),
+                candidate_mesh=str(candidate_path),
+                fusion=fusion_payload,
+                error=None,
+                backend_attempts=attempts,
+            )
+        except Exception as exc:
+            attempts.append(
+                {
+                    "backend": backend,
+                    "stage": "fusion_or_output_gate",
+                    "ready": False,
+                    "donor_mesh": str(donor),
+                    "candidate_mesh": (
+                        str(last_candidate)
+                        if last_candidate is not None
+                        else None
+                    ),
+                    "error": f"{type(exc).__name__}:{exc}",
+                }
+            )
+            continue
+
+    errors = [
+        f"{item['backend']}@{item['stage']}:{item.get('error')}"
+        for item in attempts
+        if not item.get("ready")
+    ]
+    return SourceFaceRepairResult(
+        attempted=True,
+        ready=False,
+        source_detail=str(detail_image),
+        base_mesh=str(base_mesh),
+        backend=None,
+        staged_source=None,
+        donor_mesh=str(last_donor) if last_donor is not None else None,
+        candidate_mesh=(
+            str(last_candidate)
+            if last_candidate is not None
+            else None
+        ),
+        fusion=last_fusion,
+        error=(
+            "all selected native head-donor backends were rejected: "
+            + " | ".join(errors)
+        ),
+        backend_attempts=attempts,
+    )
 
 def main() -> int:
     parser = argparse.ArgumentParser(
