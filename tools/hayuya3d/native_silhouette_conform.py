@@ -313,9 +313,105 @@ def _front_surface_vertex_mask(
     }
 
 
+def _smooth_topology_displacements(
+    delta_px: np.ndarray,
+    faces: np.ndarray,
+    active: np.ndarray,
+    *,
+    iterations: int,
+    blend: float,
+):
+    """Blend already-authorized contour motion across active mesh neighbors.
+
+    The smoother never activates a new vertex. Only vertices already approved by
+    both the source-boundary test and front-surface visibility gate can move.
+    """
+    delta = np.asarray(delta_px, dtype=np.float64).copy()
+    faces = np.asarray(faces, dtype=np.int64)
+    active = np.asarray(active, dtype=bool)
+    passes = max(0, int(iterations))
+    mix = min(1.0, max(0.0, float(blend)))
+    active_count = int(np.count_nonzero(active))
+
+    if passes == 0 or mix <= 0.0 or active_count < 2 or len(faces) == 0:
+        return delta, {
+            "iterations": 0,
+            "blend": mix,
+            "active_vertices": active_count,
+            "active_vertices_with_neighbors": 0,
+            "active_edges": 0,
+        }
+
+    touched = np.any(active[faces], axis=1)
+    local_faces = faces[touched]
+    if not len(local_faces):
+        return delta, {
+            "iterations": 0,
+            "blend": mix,
+            "active_vertices": active_count,
+            "active_vertices_with_neighbors": 0,
+            "active_edges": 0,
+        }
+
+    edges = np.concatenate(
+        [
+            local_faces[:, [0, 1]],
+            local_faces[:, [1, 2]],
+            local_faces[:, [2, 0]],
+        ],
+        axis=0,
+    )
+    edge_mask = active[edges[:, 0]] & active[edges[:, 1]]
+    edges = edges[edge_mask]
+    if not len(edges):
+        return delta, {
+            "iterations": 0,
+            "blend": mix,
+            "active_vertices": active_count,
+            "active_vertices_with_neighbors": 0,
+            "active_edges": 0,
+            "local_faces_considered": int(len(local_faces)),
+        }
+
+    src = np.concatenate([edges[:, 0], edges[:, 1]])
+    dst = np.concatenate([edges[:, 1], edges[:, 0]])
+    last_counts = np.zeros((len(delta),), dtype=np.int32)
+    executed = 0
+
+    for _ in range(passes):
+        sums = np.zeros_like(delta)
+        counts = np.zeros((len(delta),), dtype=np.int32)
+        np.add.at(sums, src, delta[dst])
+        np.add.at(counts, src, 1)
+        has_neighbors = active & (counts > 0)
+        if not np.any(has_neighbors):
+            break
+        averaged = sums[has_neighbors] / counts[has_neighbors, None]
+        delta[has_neighbors] = (
+            delta[has_neighbors] * (1.0 - mix)
+            + averaged * mix
+        )
+        last_counts = counts
+        executed += 1
+
+    delta[~active] = 0.0
+    return delta, {
+        "iterations": int(executed),
+        "blend": mix,
+        "active_vertices": active_count,
+        "active_vertices_with_neighbors": int(
+            np.count_nonzero(active & (last_counts > 0))
+        ),
+        "active_edges": int(len(edges)),
+        "local_faces_considered": int(len(local_faces)),
+        "can_activate_new_vertices": False,
+    }
+
+
 def _conform_iteration(
     vertices_norm,
-    faces,
+    render_faces,
+    topology_faces,
     source_mask,
     camera,
     *,
@@ -325,6 +421,8 @@ def _conform_iteration(
     per_vertex_cap_px: float,
     visibility_depth_tolerance_ratio: float,
     visibility_neighborhood_px: int,
+    topology_smoothing_iterations: int,
+    topology_smoothing_blend: float,
 ):
     state = _project_state(
         vertices_norm,
@@ -415,6 +513,13 @@ def _conform_iteration(
     )
     delta_px *= weight[:, None]
     delta_px[~active] = 0.0
+    delta_px, smoothing = _smooth_topology_displacements(
+        delta_px,
+        topology_faces,
+        active,
+        iterations=int(topology_smoothing_iterations),
+        blend=float(topology_smoothing_blend),
+    )
 
     world_delta_norm = _screen_to_camera_delta(
         vertices_norm,
@@ -429,7 +534,7 @@ def _conform_iteration(
 
     after = _project_state(
         candidate_vertices,
-        faces,
+        render_faces,
         source_mask,
         camera,
         size=size,
@@ -452,6 +557,7 @@ def _conform_iteration(
         "active_vertices": int(np.count_nonzero(active)),
         "occluded_boundary_vertices_blocked": occluded_boundary_vertices,
         "visibility": visibility,
+        "topology_smoothing": smoothing,
         "max_requested_target_px": float(
             target_distance[active].max(initial=0.0)
         ),
@@ -498,6 +604,8 @@ def conform_native_silhouette(
     visibility_depth_tolerance_ratio: float = 0.025,
     visibility_neighborhood_px: int = 1,
     render_face_budget: int = 12000,
+    topology_smoothing_iterations: int = 2,
+    topology_smoothing_blend: float = 0.35,
 ):
     scene, records, vertices_world, faces = _load_editable_scene(input_glb)
     vertices_norm, center, scale = _normalized(vertices_world)
@@ -537,6 +645,7 @@ def conform_native_silhouette(
         proposed, item = _conform_iteration(
             current,
             render_faces,
+            faces,
             source_mask,
             camera,
             size=int(size),
@@ -547,6 +656,10 @@ def conform_native_silhouette(
                 visibility_depth_tolerance_ratio
             ),
             visibility_neighborhood_px=int(visibility_neighborhood_px),
+            topology_smoothing_iterations=int(
+                topology_smoothing_iterations
+            ),
+            topology_smoothing_blend=float(topology_smoothing_blend),
         )
         item["iteration"] = index + 1
         passes.append(item)
@@ -609,6 +722,12 @@ def conform_native_silhouette(
         },
         "passes": passes,
         "render_budget": render_budget,
+        "topology_smoothing": {
+            "mode": "active-visible-one-ring-only",
+            "iterations": int(topology_smoothing_iterations),
+            "blend": float(topology_smoothing_blend),
+            "can_activate_new_vertices": False,
+        },
         "visibility_policy": {
             "mode": "camera-front-surface-only",
             "depth_tolerance_ratio": float(
@@ -671,6 +790,16 @@ def main() -> int:
         type=int,
         default=12000,
     )
+    parser.add_argument(
+        "--topology-smoothing-iterations",
+        type=int,
+        default=2,
+    )
+    parser.add_argument(
+        "--topology-smoothing-blend",
+        type=float,
+        default=0.35,
+    )
     args = parser.parse_args()
 
     conform_native_silhouette(
@@ -689,6 +818,8 @@ def main() -> int:
         ),
         visibility_neighborhood_px=args.visibility_neighborhood_px,
         render_face_budget=args.render_face_budget,
+        topology_smoothing_iterations=args.topology_smoothing_iterations,
+        topology_smoothing_blend=args.topology_smoothing_blend,
     )
     return 0
 
