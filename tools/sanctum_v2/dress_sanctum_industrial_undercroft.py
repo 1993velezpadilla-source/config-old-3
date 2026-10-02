@@ -256,10 +256,10 @@ def point_light(name,location,energy,color):
     lo.location=Vector(location)
     return lo
 
-point_light("SANCTUM_BOILER_WARM_A",(ic.x-1.8,center_y,lower_z+1.7),520,(1.0,0.18,0.04))
-point_light("SANCTUM_BOILER_WARM_B",(ic.x+1.8,center_y+0.5,lower_z+1.5),360,(0.95,0.28,0.08))
-point_light("SANCTUM_BOILER_COOL_FILL",(ic.x,by0+1.1,lower_z+2.0),260,(0.18,0.30,0.55))
-point_light("SANCTUM_BOILER_TANK_RIM",(ic.x,center_y-2.2,lower_z+2.2),300,(0.22,0.38,0.62))
+point_light("SANCTUM_BOILER_WARM_A",(ic.x-1.8,center_y,lower_z+1.7),470,(1.0,0.43,0.12))
+point_light("SANCTUM_BOILER_WARM_B",(ic.x+1.8,center_y+0.5,lower_z+1.5),310,(0.92,0.34,0.10))
+point_light("SANCTUM_BOILER_COOL_FILL",(ic.x,by0+1.1,lower_z+2.0),190,(0.16,0.22,0.34))
+point_light("SANCTUM_BOILER_TANK_RIM",(ic.x,center_y-2.2,lower_z+2.2),225,(0.18,0.27,0.42))
 
 # Proof-only overhead area light so the PBR machinery can actually be inspected
 # in CI renders. This light is not part of export_objects and never ships.
@@ -278,9 +278,9 @@ def area_light(name,location,energy,size,color):
 area_light(
     "SANCTUM_BOILER_PROOF_OVERHEAD",
     (ic.x,center_y,lower_z+2.75),
-    950,
+    760,
     4.6,
-    (0.72,0.64,0.52),
+    (0.68,0.60,0.48),
 )
 
 scene.render.engine="BLENDER_EEVEE"
