@@ -23,7 +23,7 @@ class SourceMaterialRescueResult:
     material_bridge: dict
     texture_gate: dict
     projection_report: dict
-    method: str = "hayuya-native-source-material-rescue-v2-cylindrical"
+    method: str = "hayuya-native-source-material-rescue-v3-visibility-materials"
 
 
 def _scene_payload(path: Path):
@@ -376,7 +376,7 @@ def rescue_source_material(
     min_texture_edge: int = 1024,
     total_samples: int = 250_000,
 ) -> SourceMaterialRescueResult:
-    """Texture native geometry locally without wrapping front pixels to rear."""
+    """Texture native geometry locally with visibility-gated face materials."""
     from native_360_geometry_gate import assert_native_volumetric
     from native_geometry_guard import assert_native_candidate
     from texture_gate import inspect as inspect_texture_gate
@@ -388,7 +388,9 @@ def rescue_source_material(
     assert_native_candidate(native_mesh, label="source_material_rescue_input")
     assert_native_volumetric(native_mesh, label="source_material_rescue_input")
 
-    projection_report = _apply_native_cylindrical_material(
+    from native_visibility_material import apply_visibility_material
+
+    projection_report = apply_visibility_material(
         source_image,
         native_mesh,
         output_glb,
@@ -434,7 +436,7 @@ def rescue_source_material(
         texture_gate_passed=bool(texture_report.passed),
         material_bridge={
             "used": False,
-            "method": "direct-native-cylindrical-uv-bake",
+            "method": "direct-native-visibility-face-materials",
             "legacy_nearest_uv_proxy_bridge_removed": True,
             "geometry_replacement_allowed": False,
             "total_samples_compatibility_argument": int(total_samples),
