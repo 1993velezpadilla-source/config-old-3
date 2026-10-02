@@ -1,0 +1,127 @@
+name: HAYUYA Promote Passed Artifact
+
+on:
+  push:
+    branches:
+      - art/hayuya-core-generalize-v1
+    paths:
+      - hayuya/jobs/promote/*.json
+
+permissions:
+  contents: write
+  actions: read
+  issues: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve promotion request
+        id: request
+        shell: bash
+        run: |
+          set -euo pipefail
+          before='\${{ github.event.before }}'
+          after='\${{ github.sha }}'
+          req="$(git diff --name-only "$before" "$after" -- 'hayuya/jobs/promote/*.json' | tail -n 1)"
+          test -n "$req"
+          python - "$req" >> "$GITHUB_OUTPUT" <<'PY'
+          import json,sys
+          from pathlib import Path
+          p=Path(sys.argv[1])
+          d=json.loads(p.read_text())
+          required=("run_id","artifact_name","job_id","title")
+          missing=[k for k in required if not d.get(k)]
+          if missing:
+              raise SystemExit("missing promotion fields: "+",".join(missing))
+          for k in required:
+              print(f"{k}={d[k]}")
+          PY
+
+      - name: Download approved artifact
+        env:
+          GH_TOKEN: \${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf recovered
+          gh run download '\${{ steps.request.outputs.run_id }}' \
+            --repo "$GITHUB_REPOSITORY" \
+            --name '\${{ steps.request.outputs.artifact_name }}' \
+            --dir recovered
+          test -s recovered/outputs/hayuya_final.glb
+          test -s recovered/outputs/manifest.json
+          test -s recovered/outputs/judge_v4_core/judge_v4.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("recovered/outputs/judge_v4_core/judge_v4.json")
+          d=json.loads(p.read_text())
+          if not d.get("passed"):
+              raise SystemExit("refusing to promote artifact: Judge v4 did not pass")
+          if d.get("hard_fail_reasons"):
+              raise SystemExit("refusing to promote artifact: hard failures present")
+          print("HAYUYA_PROMOTE_JUDGE_PASS hard_failures=0")
+          PY
+
+      - name: Persist approved model to Hub
+        shell: bash
+        run: |
+          set -euo pipefail
+          job='\${{ steps.request.outputs.job_id }}'
+          model_dir="hayuya/models/$job"
+          mkdir -p "$model_dir"
+          cp recovered/outputs/hayuya_final.glb "$model_dir/model.glb"
+          cp recovered/outputs/manifest.json "$model_dir/manifest.json"
+          cp recovered/outputs/judge_v4_core/judge_v4.json "$model_dir/judge_v4_core.json"
+
+          for qa in quality_gate.json texture_gate.json rig_gate.json part_map.json hayuya_motions_handoff.json; do
+            if [ -f "recovered/outputs/$qa" ]; then
+              cp "recovered/outputs/$qa" "$model_dir/$qa"
+            fi
+          done
+
+          rm -rf "$model_dir/prepared_views" "$model_dir/prepared_details"
+          if [ -d recovered/outputs/prepared_views ]; then
+            cp -R recovered/outputs/prepared_views "$model_dir/prepared_views"
+          fi
+          if [ -d recovered/outputs/prepared_details ]; then
+            cp -R recovered/outputs/prepared_details "$model_dir/prepared_details"
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$model_dir"
+          git commit -m "hayuya: promote approved $job to Hub"
+
+          target_branch="$GITHUB_REF_NAME"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin "$target_branch"
+            git rebase "origin/$target_branch" || {
+              git rebase --abort || true
+              sleep $((attempt * 2))
+              continue
+            }
+            if git push origin "HEAD:$target_branch"; then
+              echo "HAYUYA_PROMOTE_PERSISTED $job branch=$target_branch"
+              exit 0
+            fi
+            sleep $((attempt * 2))
+          done
+          echo "Could not persist approved artifact after retries" >&2
+          exit 1
+
+      - name: Notify HAYUYA Hub done
+        env:
+          GH_TOKEN: \${{ github.token }}
+        shell: bash
+        run: |
+          body="✅ **DONE** — **HAYUYA_WEB** / \${{ steps.request.outputs.job_id }} — \${{ steps.request.outputs.title }}
+
+          Judge v4 passed with 0 hard failures. Approved artifact recovered and published to Hub."
+          gh issue comment 55 --repo "$GITHUB_REPOSITORY" --body "$body"
