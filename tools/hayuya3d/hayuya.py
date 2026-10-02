@@ -677,6 +677,8 @@ def make_job_plan(
         },
         "native_face_repair": {
             "mode": native_face_repair_mode,
+            "asset_scope": "character-only",
+            "activation": "character mode only; props and architecture are never routed through head/face donor generation",
             "input_geometry": "current native Judge champion",
             "source_target": "current source-derived head/face evidence",
             "donor_policy": "generate one native 3D head donor from the current source crop using an already-selected bootstrapped backend",
