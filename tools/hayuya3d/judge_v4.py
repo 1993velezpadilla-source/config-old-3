@@ -24,6 +24,8 @@ class JudgeV4Thresholds:
     face_candidate_detection_fraction_min: float = 0.60
     face_profile_median_error_max: float = 0.22
     face_profile_p90_error_max: float = 0.35
+    face_nose_ratio_min: float = 0.65
+    face_nose_ratio_max: float = 1.40
     internvl_face_anatomy_min: float = 80.0
     internvl_face_source_fidelity_min: float = 75.0
     internvl_body_anatomy_min: float = 75.0
@@ -47,6 +49,73 @@ class JudgeV4Report:
     face_landmarks: dict | None
     dreamsim: dict | None
     internvl: dict | None
+
+
+def face_proportion_failures(
+    face_landmarks: dict,
+    thresholds: JudgeV4Thresholds,
+) -> tuple[list[str], dict]:
+    """Generic source-relative face proportion gate.
+
+    The gate is derived from the current source face profile on every job.
+    It contains no asset coordinates, Monja landmarks, or fixed target face.
+    """
+    if not face_landmarks.get("face_expected_from_source"):
+        return [], {
+            "enabled": False,
+            "reason": "source face not established",
+        }
+
+    reference = dict(face_landmarks.get("reference_profile") or {})
+    rows = list(face_landmarks.get("candidate") or [])
+    if not rows:
+        return ["face_proportion_candidate_missing"], {
+            "enabled": True,
+            "passed": False,
+            "ratios": {},
+        }
+
+    features = dict(rows[0].get("features") or {})
+    ratio_names = (
+        "nose_to_chin",
+        "nose_eye_center_offset",
+    )
+    lo = float(thresholds.face_nose_ratio_min)
+    hi = float(thresholds.face_nose_ratio_max)
+    failures = []
+    ratios = {}
+
+    for name in ratio_names:
+        try:
+            expected = float(reference.get(name))
+            actual = float(features.get(name))
+        except (TypeError, ValueError):
+            expected = 0.0
+            actual = 0.0
+
+        if expected <= 1e-8 or actual <= 1e-8:
+            ratios[name] = None
+            failures.append(f"face_proportion_missing:{name}")
+            continue
+
+        ratio = actual / expected
+        ratios[name] = round(float(ratio), 6)
+        if not (lo <= ratio <= hi):
+            failures.append(
+                f"face_{name}_ratio:{ratio:.3f}_outside_{lo:.3f}_{hi:.3f}"
+            )
+
+    return failures, {
+        "enabled": True,
+        "passed": not failures,
+        "source_relative": True,
+        "ratios": ratios,
+        "limits": {
+            "min": lo,
+            "max": hi,
+        },
+        "asset_specific_coordinates": False,
+    }
 
 
 def _load_rgb(path: Path) -> Image.Image:
@@ -491,6 +560,12 @@ def run_judge_v4(
                         f"face_geometry_p90_error:{p90}>"
                         f"{t.face_profile_p90_error_max}"
                     )
+                proportion_failures, proportion_gate = face_proportion_failures(
+                    face_landmarks,
+                    t,
+                )
+                face_landmarks["proportion_gate"] = proportion_gate
+                failures.extend(proportion_failures)
             else:
                 advisories.append(
                     "MediaPipe did not establish a human-like source face; "
