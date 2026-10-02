@@ -1,0 +1,156 @@
+{
+  "schemaVersion": 1,
+  "mapId": "church_v1",
+  "stage": "intrinsic_ads_prototype",
+  "rules": {
+    "hudOverlayAds": false,
+    "automaticClicks": false,
+    "impressionOnLoad": false,
+    "provider": "LocalAdProvider"
+  },
+  "placements": [
+    {
+      "placementId": 1001,
+      "name": "nave_pier_frame_left_south",
+      "kind": "surface",
+      "format": "image",
+      "center": [
+        -8.55,
+        -7.5,
+        3.55
+      ],
+      "wallAxis": "x",
+      "width": 0.7,
+      "height": 1.15,
+      "placeholderTexture": "ads/church/frame_01_dummy.ktx2",
+      "maxViewDistanceMeters": 20,
+      "minimumFacingCosine": 0.57357645,
+      "minimumScreenCoverage": 0.015,
+      "impressionViewSeconds": 1,
+      "cooldownSeconds": 30,
+      "maxImpressionsPerSession": 1,
+      "disclosureLabel": "Ad",
+      "disclosureMode": "integrated_physical_plaque",
+      "clickable": false
+    },
+    {
+      "placementId": 1002,
+      "name": "nave_pier_frame_right_mid",
+      "kind": "surface",
+      "format": "image",
+      "center": [
+        8.55,
+        0.5,
+        3.55
+      ],
+      "wallAxis": "x",
+      "width": 0.7,
+      "height": 1.15,
+      "placeholderTexture": "ads/church/frame_02_dummy.ktx2",
+      "maxViewDistanceMeters": 20,
+      "minimumFacingCosine": 0.57357645,
+      "minimumScreenCoverage": 0.015,
+      "impressionViewSeconds": 1,
+      "cooldownSeconds": 30,
+      "maxImpressionsPerSession": 1,
+      "disclosureLabel": "Ad",
+      "disclosureMode": "integrated_physical_plaque",
+      "clickable": false
+    },
+    {
+      "placementId": 1003,
+      "name": "nave_pier_frame_left_north",
+      "kind": "surface",
+      "format": "image",
+      "center": [
+        -8.55,
+        8.5,
+        3.55
+      ],
+      "wallAxis": "x",
+      "width": 0.7,
+      "height": 1.15,
+      "placeholderTexture": "ads/church/frame_03_dummy.ktx2",
+      "maxViewDistanceMeters": 20,
+      "minimumFacingCosine": 0.57357645,
+      "minimumScreenCoverage": 0.015,
+      "impressionViewSeconds": 1,
+      "cooldownSeconds": 30,
+      "maxImpressionsPerSession": 1,
+      "disclosureLabel": "Ad",
+      "disclosureMode": "integrated_physical_plaque",
+      "clickable": false
+    },
+    {
+      "placementId": 1004,
+      "name": "reredos_left_poster",
+      "kind": "surface",
+      "format": "image",
+      "center": [
+        -4.6,
+        14.28,
+        3.45
+      ],
+      "wallAxis": "y",
+      "width": 1.55,
+      "height": 2.05,
+      "placeholderTexture": "ads/church/poster_dummy.ktx2",
+      "maxViewDistanceMeters": 24,
+      "minimumFacingCosine": 0.57357645,
+      "minimumScreenCoverage": 0.015,
+      "impressionViewSeconds": 1,
+      "cooldownSeconds": 30,
+      "maxImpressionsPerSession": 1,
+      "disclosureLabel": "Ad",
+      "disclosureMode": "integrated_physical_plaque",
+      "clickable": false
+    },
+    {
+      "placementId": 1005,
+      "name": "reredos_right_tv",
+      "kind": "surface",
+      "format": "video",
+      "center": [
+        4.6,
+        14.28,
+        3.45
+      ],
+      "wallAxis": "y",
+      "width": 2,
+      "height": 1.125,
+      "placeholderTexture": "ads/church/tv_dummy.ktx2",
+      "maxViewDistanceMeters": 24,
+      "minimumFacingCosine": 0.57357645,
+      "minimumScreenCoverage": 0.015,
+      "impressionViewSeconds": 2,
+      "cooldownSeconds": 45,
+      "maxImpressionsPerSession": 1,
+      "disclosureLabel": "Ad",
+      "disclosureMode": "integrated_physical_plaque",
+      "clickable": false
+    },
+    {
+      "placementId": 2001,
+      "emitterId": 7001,
+      "name": "entry_side_aisle_radio",
+      "kind": "audio",
+      "format": "audio",
+      "center": [
+        6.8,
+        -14.45,
+        1.35
+      ],
+      "minimumDistanceMeters": 1,
+      "maximumDistanceMeters": 12,
+      "maximumGain": 0.6,
+      "impressionListenSeconds": 1,
+      "cooldownSeconds": 45,
+      "maxImpressionsPerSession": 1,
+      "placeholderAudio": "ads/church/radio_dummy.wav",
+      "requiresUserInitiation": true,
+      "maximumCreativeSeconds": 30,
+      "preferredCreativeSeconds": 15,
+      "audibleDisclosureRequired": true
+    }
+  ]
+}

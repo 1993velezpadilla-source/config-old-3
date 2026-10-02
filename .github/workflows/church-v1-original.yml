@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - feature/church-v1-original
+      - feature/church-intrinsic-ads-v1
     paths:
       - ".github/workflows/church-v1-original.yml"
       - "church_v1/**"
@@ -79,6 +80,88 @@ jobs:
           test -s church_v1/out/nave_art_v1_side.png
           test -s church_v1/out/church_v1_nave_art_prototype.glb
           test -s church_v1/out/nave_art_v1_report.json
+
+      - name: Build intrinsic in-world ad placements
+        shell: bash
+        env:
+          CHURCH_V1_OUT: church_v1/out
+          CHURCH_AD_MANIFEST: church_v1/spec/intrinsic_ads_v1.json
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: |
+          set -euo pipefail
+          xvfb-run -a -s "-screen 0 1600x1000x24" \
+            blender --background --python tools/church_v1/intrinsic_ad_markers.py \
+            2>&1 | tee church_v1/out/intrinsic-ads-v1-build.log
+          test -s church_v1/out/church_v1_nave_art_ads_v1.glb
+          test -s church_v1/out/church_v1_nave_art_ads_v1.blend
+          test -s church_v1/out/intrinsic_ads_player.png
+          test -s church_v1/out/intrinsic_ads_surface_close.png
+          test -s church_v1/out/intrinsic_ads_apse_close.png
+          test -s church_v1/out/intrinsic_ads_radio_close.png
+          test -s church_v1/out/church_v1_intrinsic_ads.xzad
+          test -s church_v1/out/intrinsic_ads_v1_report.json
+
+      - name: Validate intrinsic ad placement gate
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          r=json.load(open("church_v1/out/intrinsic_ads_v1_report.json", encoding="utf-8"))
+          assert r["stage"] == "INTRINSIC_ADS_V1", r
+          assert r["placementCount"] == 6, r
+          assert r["surfaceCount"] == 5, r
+          assert r["audioEmitterCount"] == 1, r
+          assert r["uniquePlacementIds"] == 6, r
+          assert r["hudOverlayAds"] is False, r
+          assert r["automaticClicks"] is False, r
+          assert r["impressionOnLoad"] is False, r
+          assert r["provider"] == "LocalAdProvider", r
+          spec=json.load(open("church_v1/spec/intrinsic_ads_v1.json", encoding="utf-8"))
+          visual=[p for p in spec["placements"] if p["kind"] == "surface"]
+          assert len(visual) == 5, visual
+          assert all(p.get("disclosureLabel") == "Ad" for p in visual), visual
+          assert all(p.get("disclosureMode") == "integrated_physical_plaque" for p in visual), visual
+          assert all(p.get("clickable") is False for p in visual), visual
+          assert r["xzad"] == "church_v1_intrinsic_ads.xzad", r
+          assert r["xzadBytes"] > 0, r
+          print("CHURCH_INTRINSIC_ADS_GATE_OK")
+          PY
+          python3 - <<'PY'
+          import struct
+          from pathlib import Path
+          p=Path("church_v1/out/church_v1_intrinsic_ads.xzad")
+          data=p.read_bytes()
+          assert len(data) >= 16, len(data)
+          magic,version,surfaces,audio=struct.unpack_from("<4sIII",data,0)
+          assert magic == b"XZAD", magic
+          assert version == 1, version
+          assert surfaces == 5, surfaces
+          assert audio == 1, audio
+          expected = 16 + surfaces * struct.calcsize("<Q96s13fII") + audio * struct.calcsize("<QQ96s8fI")
+          assert len(data) == expected, (len(data), expected)
+
+          # Semantic path gate: fixed 96-byte asset paths must contain a real
+          # NUL terminator, never the two printable characters "\\0".
+          off = 16
+          surface_size = struct.calcsize("<Q96s13fII")
+          audio_size = struct.calcsize("<QQ96s8fI")
+          for i in range(surfaces):
+              placement_id, path, *_ = struct.unpack_from("<Q96s13fII", data, off)
+              assert b"\x00" in path, (placement_id, path)
+              assert b"\\\\0" not in path, (placement_id, path)
+              decoded = path.split(b"\x00", 1)[0].decode("utf-8")
+              assert decoded.startswith("ads/church/"), (placement_id, decoded)
+              off += surface_size
+          for i in range(audio):
+              placement_id, emitter_id, path, *_ = struct.unpack_from("<QQ96s8fI", data, off)
+              assert b"\x00" in path, (placement_id, emitter_id, path)
+              assert b"\\\\0" not in path, (placement_id, emitter_id, path)
+              decoded = path.split(b"\x00", 1)[0].decode("utf-8")
+              assert decoded.startswith("ads/church/"), (placement_id, decoded)
+              off += audio_size
+
+          print("XZAD_EXPORT_GATE_OK", {"bytes":len(data),"surfaces":surfaces,"audio":audio})
+          PY
 
       - name: Validate authored final art when present
         shell: bash
