@@ -7,7 +7,7 @@ import math
 from pathlib import Path
 
 import numpy as np
-from scipy.ndimage import distance_transform_edt
+from scipy.ndimage import distance_transform_edt, maximum_filter
 
 from native_geometry_guard import assert_native_candidate
 from visual_judge import (
@@ -221,6 +221,65 @@ def _screen_to_camera_delta(
     return camera_delta @ rot
 
 
+def _front_surface_vertex_mask(
+    depth,
+    px,
+    py,
+    *,
+    size: int,
+    depth_tolerance_ratio: float,
+    neighborhood_px: int,
+):
+    """Keep only vertices on the camera-visible shell.
+
+    A source silhouette is front-view evidence. Moving rear/occluded vertices that
+    merely project to the same contour can damage valid 360 geometry, so conform
+    edits are restricted to the locally front-most projected vertex layer.
+    """
+    depth = np.asarray(depth, dtype=np.float64)
+    px = np.asarray(px, dtype=np.int64)
+    py = np.asarray(py, dtype=np.int64)
+    if len(depth) != len(px) or len(depth) != len(py):
+        raise ValueError("depth/pixel coordinate length mismatch")
+    if not len(depth):
+        return np.zeros((0,), dtype=bool), {
+            "visible_vertices": 0,
+            "occluded_vertices": 0,
+            "depth_tolerance": 0.0,
+            "neighborhood_px": int(neighborhood_px),
+        }
+
+    front_depth = np.full((int(size), int(size)), -np.inf, dtype=np.float64)
+    np.maximum.at(front_depth, (py, px), depth)
+
+    neighborhood = max(0, int(neighborhood_px))
+    if neighborhood:
+        front_depth = maximum_filter(
+            front_depth,
+            size=neighborhood * 2 + 1,
+            mode="constant",
+            cval=-np.inf,
+        )
+
+    robust_lo = float(np.percentile(depth, 2.0))
+    robust_hi = float(np.percentile(depth, 98.0))
+    depth_span = max(robust_hi - robust_lo, 1e-9)
+    tolerance = max(
+        1e-6,
+        depth_span * max(0.0, float(depth_tolerance_ratio)),
+    )
+    local_front = front_depth[py, px]
+    visible = depth >= (local_front - tolerance)
+    return visible, {
+        "visible_vertices": int(np.count_nonzero(visible)),
+        "occluded_vertices": int(np.count_nonzero(~visible)),
+        "depth_tolerance": float(tolerance),
+        "depth_span": float(depth_span),
+        "depth_tolerance_ratio": float(depth_tolerance_ratio),
+        "neighborhood_px": int(neighborhood),
+    }
+
+
 def _conform_iteration(
     vertices_norm,
     faces,
@@ -231,6 +290,8 @@ def _conform_iteration(
     boundary_band_px: float,
     max_target_px: float,
     per_vertex_cap_px: float,
+    visibility_depth_tolerance_ratio: float,
+    visibility_neighborhood_px: int,
 ):
     state = _project_state(
         vertices_norm,
@@ -267,19 +328,35 @@ def _conform_iteration(
 
     boundary_distance = distance_to_candidate_boundary[py, px]
     target_distance = distance_to_source_boundary[py, px]
-    active = (
+    front_surface, visibility = _front_surface_vertex_mask(
+        state["depth"],
+        px,
+        py,
+        size=int(size),
+        depth_tolerance_ratio=float(visibility_depth_tolerance_ratio),
+        neighborhood_px=int(visibility_neighborhood_px),
+    )
+    boundary_target = (
         (boundary_distance <= float(boundary_band_px))
         & (target_distance > 0.35)
         & (target_distance <= float(max_target_px))
+    )
+    active = boundary_target & front_surface
+    occluded_boundary_vertices = int(
+        np.count_nonzero(boundary_target & ~front_surface)
     )
 
     if not np.any(active):
         return vertices_norm.copy(), {
             "accepted": False,
-            "reason": "no boundary vertices inside safe source target band",
+            "reason": (
+                "no camera-visible boundary vertices inside safe source target band"
+            ),
             "before_score": state["score"],
             "after_score": state["score"],
             "active_vertices": 0,
+            "occluded_boundary_vertices_blocked": occluded_boundary_vertices,
+            "visibility": visibility,
         }
 
     target_y = source_indices[0, py, px].astype(np.float64)
@@ -340,6 +417,8 @@ def _conform_iteration(
             after["boundary_f1"] if accepted else state["boundary_f1"]
         ),
         "active_vertices": int(np.count_nonzero(active)),
+        "occluded_boundary_vertices_blocked": occluded_boundary_vertices,
+        "visibility": visibility,
         "max_requested_target_px": float(
             target_distance[active].max(initial=0.0)
         ),
@@ -383,6 +462,8 @@ def conform_native_silhouette(
     boundary_band_px: float = 5.0,
     max_target_px: float = 14.0,
     per_vertex_cap_px: float = 3.0,
+    visibility_depth_tolerance_ratio: float = 0.025,
+    visibility_neighborhood_px: int = 1,
 ):
     scene, records, vertices_world, faces = _load_editable_scene(input_glb)
     vertices_norm, center, scale = _normalized(vertices_world)
@@ -424,6 +505,10 @@ def conform_native_silhouette(
             boundary_band_px=float(boundary_band_px),
             max_target_px=float(max_target_px),
             per_vertex_cap_px=float(per_vertex_cap_px),
+            visibility_depth_tolerance_ratio=float(
+                visibility_depth_tolerance_ratio
+            ),
+            visibility_neighborhood_px=int(visibility_neighborhood_px),
         )
         item["iteration"] = index + 1
         passes.append(item)
@@ -485,6 +570,14 @@ def conform_native_silhouette(
             "boundary_f1": float(final["boundary_f1"]),
         },
         "passes": passes,
+        "visibility_policy": {
+            "mode": "camera-front-surface-only",
+            "depth_tolerance_ratio": float(
+                visibility_depth_tolerance_ratio
+            ),
+            "neighborhood_px": int(visibility_neighborhood_px),
+            "rear_occluded_vertices_are_editable": False,
+        },
         "max_displacement_body_span_ratio": max_displacement_ratio,
         "native_geometry_preserved": True,
         "projection_proxy_created": False,
@@ -524,6 +617,16 @@ def main() -> int:
     parser.add_argument("--boundary-band-px", type=float, default=5.0)
     parser.add_argument("--max-target-px", type=float, default=14.0)
     parser.add_argument("--per-vertex-cap-px", type=float, default=3.0)
+    parser.add_argument(
+        "--visibility-depth-tolerance-ratio",
+        type=float,
+        default=0.025,
+    )
+    parser.add_argument(
+        "--visibility-neighborhood-px",
+        type=int,
+        default=1,
+    )
     args = parser.parse_args()
 
     conform_native_silhouette(
@@ -537,6 +640,10 @@ def main() -> int:
         boundary_band_px=args.boundary_band_px,
         max_target_px=args.max_target_px,
         per_vertex_cap_px=args.per_vertex_cap_px,
+        visibility_depth_tolerance_ratio=(
+            args.visibility_depth_tolerance_ratio
+        ),
+        visibility_neighborhood_px=args.visibility_neighborhood_px,
     )
     return 0
 
