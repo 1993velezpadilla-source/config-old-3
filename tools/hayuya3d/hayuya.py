@@ -2051,7 +2051,10 @@ def main() -> int:
 
     source_face_repair_result = None
     source_face_repair_tournament = None
+    source_face_repair_tournaments = []
     source_face_repair_results = []
+    source_face_repair_source_records = []
+    source_face_repair_candidate_records = []
     source_face_repair_failure = None
     source_face_repair_status = (
         "off" if args.native_face_repair == "off" else "checking"
@@ -2068,26 +2071,23 @@ def main() -> int:
             if args.native_face_repair == "required":
                 raise RuntimeError(source_face_repair_failure)
         else:
-            head_details = [
-                Path(path)
-                for path in detail_inputs
-                if is_head_detail_evidence(
-                    Path(path),
-                    semantic_head_inputs=semantic_head_detail_inputs,
-                )
-            ]
-            derive_head_from_full_source = not bool(head_details)
-            face_source = (
-                head_details[0]
-                if head_details
-                else Path(geometry_inputs[0])
+            face_evidence_sources=select_face_repair_evidence_sources(
+                detail_inputs,
+                geometry_inputs,
+                semantic_head_inputs=semantic_head_detail_inputs,
+                limit=3,
             )
-            if derive_head_from_full_source:
-                print(
-                    "HAYUYA_SOURCE_FACE_REPAIR_FALLBACK "
-                    f"source={face_source} "
-                    "method=foreground-silhouette-head-zoom"
+            if not face_evidence_sources:
+                raise RuntimeError(
+                    "native face repair has no usable source evidence"
                 )
+            for face_source,derive_head_from_full_source in face_evidence_sources:
+                if derive_head_from_full_source:
+                    print(
+                        "HAYUYA_SOURCE_FACE_REPAIR_FALLBACK "
+                        f"source={face_source} "
+                        "method=foreground-silhouette-head-zoom"
+                    )
 
             provisional = valid[0]
             provisional_path = Path(provisional.path)
@@ -2097,13 +2097,17 @@ def main() -> int:
                 )
 
                 face_dir = job_dir / "native_face_repair"
-                source_face_repair_tournament = (
-                    prepare_source_face_repair_tournament(
+                ready_entries=[]
+                for source_index,(
+                    face_source,
+                    derive_head_from_full_source,
+                ) in enumerate(face_evidence_sources):
+                    tournament=prepare_source_face_repair_tournament(
                         provisional_path,
                         face_source,
-                        face_dir,
+                        face_dir / f"source_{source_index:02d}",
                         selected_backends=selected,
-                        seed=args.seed + 9091,
+                        seed=args.seed + 9091 + source_index * 1009,
                         hero_faces=max(
                             200_000,
                             min(int(profile.hero_faces), 750_000),
@@ -2116,19 +2120,34 @@ def main() -> int:
                             derive_head_from_full_source
                         ),
                     )
-                )
-                source_face_repair_results=list(
-                    source_face_repair_tournament.results
-                )
+                    source_face_repair_tournaments.append(tournament)
+                    if source_face_repair_tournament is None:
+                        source_face_repair_tournament=tournament
 
-                ready_results=[
-                    result
-                    for result in source_face_repair_results
-                    if result.ready and result.candidate_mesh
-                ]
+                    source_face_repair_source_records.append({
+                        "source_index":int(source_index),
+                        "source":str(face_source),
+                        "derived_from_full_source":bool(
+                            derive_head_from_full_source
+                        ),
+                        "backend_order":list(tournament.backend_order),
+                        "ready_backends":list(tournament.ready_backends),
+                        "error":tournament.error,
+                    })
+
+                    for result in tournament.results:
+                        source_face_repair_results.append(result)
+                        if result.ready and result.candidate_mesh:
+                            ready_entries.append((
+                                int(source_index),
+                                Path(face_source),
+                                bool(derive_head_from_full_source),
+                                result,
+                            ))
+
                 source_face_repair_result=(
-                    ready_results[0]
-                    if ready_results
+                    ready_entries[0][3]
+                    if ready_entries
                     else (
                         source_face_repair_results[0]
                         if source_face_repair_results
@@ -2136,11 +2155,16 @@ def main() -> int:
                     )
                 )
 
-                if not source_face_repair_tournament.ready:
+                if not ready_entries:
                     source_face_repair_status = "rejected"
+                    errors=[
+                        tournament.error
+                        for tournament in source_face_repair_tournaments
+                        if tournament.error
+                    ]
                     source_face_repair_failure = (
-                        source_face_repair_tournament.error
-                        or "source-derived face repair tournament produced no Judge-eligible candidates"
+                        "all source/back-end native face repair entries failed"
+                        + (": " + " | ".join(errors) if errors else "")
                     )
                     print(
                         "HAYUYA_SOURCE_FACE_REPAIR_REJECTED "
@@ -2150,11 +2174,19 @@ def main() -> int:
                     if args.native_face_repair == "required":
                         raise RuntimeError(source_face_repair_failure)
                 else:
-                    for result in ready_results:
+                    for (
+                        source_index,
+                        face_source,
+                        derive_head_from_full_source,
+                        result,
+                    ) in ready_entries:
                         label=(
                             "source_face_repair_"
                             + str(result.backend or "native")
                         )
+                        if len(face_evidence_sources)>1:
+                            label+=f"_src{source_index:02d}"
+
                         repaired_path=Path(str(result.candidate_mesh))
                         assert_native_candidate(
                             repaired_path,
@@ -2166,11 +2198,22 @@ def main() -> int:
                         )
                         candidates.append((label,repaired_path))
                         source_face_repair_candidate_labels.append(label)
+                        source_face_repair_candidate_records.append({
+                            "label":label,
+                            "source_index":int(source_index),
+                            "source":str(face_source),
+                            "derived_from_full_source":bool(
+                                derive_head_from_full_source
+                            ),
+                            "backend":result.backend,
+                            "candidate_mesh":str(repaired_path),
+                        })
                         print(
                             "HAYUYA_SOURCE_FACE_REPAIR_READY "
                             f"base={provisional.backend} "
                             f"donor_backend={result.backend} "
                             f"detail={face_source} "
+                            f"source_index={source_index} "
                             f"derived_from_full_source="
                             f"{str(derive_head_from_full_source).lower()} "
                             f"candidate={label}"
