@@ -253,7 +253,8 @@ jobs:
             --output out/hunyuan-head-probe/body_headwrap_material_native.glb \
             --report out/hunyuan-head-probe/body_headwrap_material_native.silhouette_conform.json \
             --iterations 2 --grid 768 \
-            --overscan 1.42 --alpha-threshold 48 --edge-fill-radius 6
+            --overscan 1.42 --alpha-threshold 48 --edge-fill-radius 6 \
+            --profile tools/hayuya3d/profiles/monja-mugfwln6.json
 
       - name: Render base native front
         shell: bash

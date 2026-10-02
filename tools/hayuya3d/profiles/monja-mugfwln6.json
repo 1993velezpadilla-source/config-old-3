@@ -1,0 +1,57 @@
+{
+  "schema": 1,
+  "name": "monja-mugfwln6",
+  "legacy_monja_targeting": true,
+  "targeted_safety_regions": [
+    [
+      0.37,
+      0.3,
+      0.49,
+      0.5
+    ],
+    [
+      0.49,
+      0,
+      0.62,
+      0.27
+    ]
+  ],
+  "surface_patches": [
+    {
+      "name": "thumb_middle_patch",
+      "rect_norm": [
+        0.4088541666666667,
+        0.3854166666666667,
+        0.4453125,
+        0.46484375
+      ],
+      "depth_mode": "average",
+      "depth_lift": 0.00075
+    },
+    {
+      "name": "head_top_patch",
+      "rect_norm": [
+        0.53125,
+        0.14583333333333334,
+        0.5755208333333334,
+        0.21223958333333334
+      ],
+      "depth_mode": "average",
+      "depth_lift": 0.00075
+    }
+  ],
+  "headspace_patch": {
+    "rect_norm": [
+      0.55,
+      0.33,
+      0.6,
+      0.38
+    ],
+    "grid": 1024,
+    "area_min": 12,
+    "area_max": 420,
+    "edge_fill_radius": 6,
+    "depth_lift": 0.0015,
+    "dilation_iterations": 1
+  }
+}

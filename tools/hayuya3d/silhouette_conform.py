@@ -9,6 +9,8 @@ import numpy as np
 from PIL import Image, ImageDraw
 from scipy.ndimage import distance_transform_edt, label
 
+from asset_profile import load_asset_profile
+
 
 FRONT_NODE="source_visible_front"
 SUPPORT_NODE="occluded_low_frequency"
@@ -871,6 +873,7 @@ def _add_residual_surface_patches(
     grid:int,
     overscan:float,
     alpha_threshold:int,
+    regions:list[dict],
 ):
     import trimesh
     from scipy.spatial import cKDTree
@@ -950,13 +953,29 @@ def _add_residual_surface_patches(
             zz=float(np.sum(vertices[indices,2]*weights)/np.sum(weights))
         return zz+float(depth_lift)
 
-    # Pixel coordinates are in the same 768-ish source-projection evidence
-    # space used by the silhouette conform reports. The apex micro-patch is
-    # intentionally much smaller than the existing head-top safety patch.
-    regions=[
-        ("thumb_middle_patch",(314,296,342,357),False,0.00075),
-        ("head_top_patch",(408,112,442,163),False,0.00075),
-    ]
+    # Asset-specific repair rectangles are supplied by an external profile.
+    # Generic HAYUYA passes an empty list and never inherits Monja coordinates.
+    normalized_regions=[]
+    for spec in list(regions or []):
+        rect=spec.get("rect_norm")
+        if not isinstance(rect,list) or len(rect)!=4:
+            raise RuntimeError(f"invalid profile surface patch rect: {spec}")
+        x0,y0,x1,y1=[float(v) for v in rect]
+        if not (0.0<=x0<x1<=1.0 and 0.0<=y0<y1<=1.0):
+            raise RuntimeError(f"profile surface patch rect out of range: {spec}")
+        px0=int(round(x0*int(grid)))
+        py0=int(round(y0*int(grid)))
+        px1=int(round(x1*int(grid)))
+        py1=int(round(y1*int(grid)))
+        mode=str(spec.get("depth_mode","average"))
+        frontmost=(mode=="frontmost")
+        normalized_regions.append((
+            str(spec.get("name","profile_patch")),
+            (px0,py0,px1,py1),
+            bool(frontmost),
+            float(spec.get("depth_lift",0.00075)),
+        ))
+    regions=normalized_regions
 
     patch_vertices=[]
     patch_uv=[]
@@ -1111,6 +1130,7 @@ def _headspace_apex_missing_patch(
     scene,
     *,
     alpha_threshold:int,
+    selector:dict|None,
 ):
     import trimesh
     from scipy.ndimage import distance_transform_edt, label
@@ -1129,7 +1149,26 @@ def _headspace_apex_missing_patch(
     if len(uv)!=len(vertices):
         raise RuntimeError("front UV/vertex count mismatch before head-space patch")
 
-    head_grid=1024
+    if not selector:
+        return {
+            "policy":"profile-headspace-missing-surface-patch-v1",
+            "enabled":False,
+            "reason":"asset profile has no head-space patch selector",
+        }
+
+    head_grid=int(selector.get("grid",1024))
+    edge_fill_radius=float(selector.get("edge_fill_radius",6.0))
+    area_min=int(selector.get("area_min",12))
+    area_max=int(selector.get("area_max",420))
+    rect=selector.get("rect_norm")
+    if not isinstance(rect,list) or len(rect)!=4:
+        raise RuntimeError("profile head-space selector requires rect_norm[4]")
+    sx0,sy0,sx1,sy1=[float(v) for v in rect]
+    if not (0.0<=sx0<sx1<=1.0 and 0.0<=sy0<sy1<=1.0):
+        raise RuntimeError("profile head-space selector rect out of range")
+    depth_lift=float(selector.get("depth_lift",0.00150))
+    dilation_iterations=int(selector.get("dilation_iterations",1))
+
     bounds=_head_bounds(scene)
     front_mask=_rasterize(front,bounds,head_grid)
     support_mask=_rasterize(support,bounds,head_grid)
@@ -1140,7 +1179,7 @@ def _headspace_apex_missing_patch(
     support_fill=support_mask&outline&~front_keep
     keep=front_keep|support_fill
     distance=distance_transform_edt(~keep)
-    edge_fill=(outline&~keep)&(distance<=6.0)
+    edge_fill=(outline&~keep)&(distance<=edge_fill_radius)
     keep2=keep|edge_fill
     missing=outline&~keep2
 
@@ -1149,13 +1188,11 @@ def _headspace_apex_missing_patch(
     for component_id in range(1,int(count)+1):
         ys,xs=np.where(labels==component_id)
         area=int(len(xs))
-        if area<12 or area>420:
+        if area<area_min or area>area_max:
             continue
         cx=float(xs.mean())/float(head_grid)
         cy=float(ys.mean())/float(head_grid)
-        # The visible apex notch lives in the upper-middle hood shell.
-        # Select by normalized head-space, not hard-coded whole-body pixels.
-        if not (0.55<=cx<=0.60 and 0.33<=cy<=0.38):
+        if not (sx0<=cx<=sx1 and sy0<=cy<=sy1):
             continue
         candidates.append({
             "component_id":int(component_id),
@@ -1169,7 +1206,7 @@ def _headspace_apex_missing_patch(
 
     if not candidates:
         return {
-            "policy":"headspace-apex-missing-surface-patch-v1",
+            "policy":"profile-headspace-missing-surface-patch-v1",
             "enabled":False,
             "head_grid":head_grid,
             "reason":"no qualifying apex missing component",
@@ -1177,15 +1214,16 @@ def _headspace_apex_missing_patch(
             "candidates":[],
         }
 
-    # Use the largest qualifying component; #52 evidence is 112 px at
-    # approximately bbox 579..597 x 362..371.
     target=max(candidates,key=lambda x:x["area"])
     component=labels==int(target["component_id"])
 
     # Add one-pixel insurance around the measured missing cells, but only
     # inside authoritative source alpha.
     from scipy.ndimage import binary_dilation
-    cells=binary_dilation(component,iterations=1)&outline
+    cells=binary_dilation(
+        component,
+        iterations=max(0,dilation_iterations),
+    )&outline
 
     rgba=np.asarray(texture.convert("RGBA"),dtype=np.uint8)
     x=vertices[:,0]
@@ -1225,7 +1263,7 @@ def _headspace_apex_missing_patch(
             k=min(12,len(vertices)),
         )
         indices=np.atleast_1d(indices).astype(np.int64)
-        return float(np.max(vertices[indices,2]))+0.00150
+        return float(np.max(vertices[indices,2]))+depth_lift
 
     patch_vertices=[]
     patch_uv=[]
@@ -1257,7 +1295,7 @@ def _headspace_apex_missing_patch(
 
     if not patch_faces:
         return {
-            "policy":"headspace-apex-missing-surface-patch-v1",
+            "policy":"profile-headspace-missing-surface-patch-v1",
             "enabled":False,
             "head_grid":head_grid,
             "reason":"qualifying component produced no opaque patch cells",
@@ -1294,11 +1332,11 @@ def _headspace_apex_missing_patch(
     front_keep_after=front_mask_after&outline
     keep_after=front_keep_after|(support_mask&outline&~front_keep_after)
     distance_after=distance_transform_edt(~keep_after)
-    edge_after=(outline&~keep_after)&(distance_after<=6.0)
+    edge_after=(outline&~keep_after)&(distance_after<=edge_fill_radius)
     missing_after=outline&~(keep_after|edge_after)
 
     return {
-        "policy":"headspace-apex-missing-surface-patch-v1",
+        "policy":"profile-headspace-missing-surface-patch-v1",
         "enabled":True,
         "head_grid":head_grid,
         "target":target,
@@ -1306,11 +1344,14 @@ def _headspace_apex_missing_patch(
         "vertices_added":int(len(patch_vertices)),
         "faces_added":int(len(patch_faces)),
         "depth_mode":"frontmost_12_neighborhood",
-        "depth_lift":0.00150,
+        "depth_lift":float(depth_lift),
         "missing_before":int(np.count_nonzero(missing)),
         "missing_after":int(np.count_nonzero(missing_after)),
         "target_missing_after":int(np.count_nonzero(
-            missing_after & binary_dilation(component,iterations=1)
+            missing_after & binary_dilation(
+                component,
+                iterations=max(0,dilation_iterations),
+            )
         )),
         "topology_change":"front head-apex residual only",
     }
@@ -1326,7 +1367,11 @@ def conform(
     overscan:float,
     alpha_threshold:int,
     edge_fill_radius:int,
+    asset_profile:dict|None=None,
 ):
+    profile=dict(asset_profile or {})
+    profile_name=str(profile.get("name","generic"))
+    legacy_monja_targeting=bool(profile.get("legacy_monja_targeting",False))
     scene=_load_scene(input_glb)
     original={}
     topology={}
@@ -1363,37 +1408,45 @@ def conform(
         if result["after_missing"]<=512:
             break
 
-    targeted_extremity=_targeted_extremity_pass(
-        scene,
-        grid=grid,
-        overscan=overscan,
-        alpha_threshold=alpha_threshold,
-        edge_fill_radius=edge_fill_radius,
-    )
-
-    residual_thumb_bridge=_residual_thumb_bridge_pass(
-        scene,
-        grid=grid,
-        overscan=overscan,
-        alpha_threshold=alpha_threshold,
-        edge_fill_radius=edge_fill_radius,
-    )
-
-    decisive_thumb_head_passes=[]
-    for decisive_index in range(6):
-        decisive=_decisive_thumb_head_pass(
+    skipped_profile_pass={
+        "enabled":False,
+        "reason":"generic core has no asset-specific legacy targeting",
+        "profile":profile_name,
+    }
+    if legacy_monja_targeting:
+        targeted_extremity=_targeted_extremity_pass(
             scene,
             grid=grid,
             overscan=overscan,
             alpha_threshold=alpha_threshold,
             edge_fill_radius=edge_fill_radius,
-            pass_index=decisive_index,
         )
-        decisive_thumb_head_passes.append(decisive)
-        if decisive["after_missing"]>=decisive["before_missing"]:
-            break
-        if not decisive["selected_components"]:
-            break
+        residual_thumb_bridge=_residual_thumb_bridge_pass(
+            scene,
+            grid=grid,
+            overscan=overscan,
+            alpha_threshold=alpha_threshold,
+            edge_fill_radius=edge_fill_radius,
+        )
+        decisive_thumb_head_passes=[]
+        for decisive_index in range(6):
+            decisive=_decisive_thumb_head_pass(
+                scene,
+                grid=grid,
+                overscan=overscan,
+                alpha_threshold=alpha_threshold,
+                edge_fill_radius=edge_fill_radius,
+                pass_index=decisive_index,
+            )
+            decisive_thumb_head_passes.append(decisive)
+            if decisive["after_missing"]>=decisive["before_missing"]:
+                break
+            if not decisive["selected_components"]:
+                break
+    else:
+        targeted_extremity=dict(skipped_profile_pass)
+        residual_thumb_bridge=dict(skipped_profile_pass)
+        decisive_thumb_head_passes=[]
 
     final_before_surface_patch=_coverage(
         scene,grid,overscan,alpha_threshold,edge_fill_radius
@@ -1432,17 +1485,15 @@ def conform(
             (ymax0-base[:,1])/
             max(ymax0-ymin0,1e-12)
         )
-        targeted=(
-            (
-                (px0>=0.37)&(px0<=0.49)&
-                (py0>=0.30)&(py0<=0.50)
+        targeted=np.zeros(len(base),dtype=bool)
+        for rect in list(profile.get("targeted_safety_regions") or []):
+            if not isinstance(rect,list) or len(rect)!=4:
+                raise RuntimeError("profile targeted_safety_regions requires rect_norm[4]")
+            rx0,ry0,rx1,ry1=[float(v) for v in rect]
+            targeted|=(
+                (px0>=rx0)&(px0<=rx1)&
+                (py0>=ry0)&(py0<=ry1)
             )
-            |
-            (
-                (px0>=0.49)&(px0<=0.62)&
-                (py0<=0.27)
-            )
-        )
         if np.any(targeted):
             max_xy_displacement_targeted=max(
                 max_xy_displacement_targeted,
@@ -1478,10 +1529,12 @@ def conform(
         grid=grid,
         overscan=overscan,
         alpha_threshold=alpha_threshold,
+        regions=list(profile.get("surface_patches") or []),
     )
     headspace_apex_patch=_headspace_apex_missing_patch(
         scene,
         alpha_threshold=alpha_threshold,
+        selector=profile.get("headspace_patch"),
     )
     final=_coverage(
         scene,grid,overscan,alpha_threshold,edge_fill_radius
@@ -1493,7 +1546,13 @@ def conform(
 
     payload={
         "schema":1,
-        "policy":"localized-screen-space-silhouette-conform-v1",
+        "policy":"localized-screen-space-silhouette-conform-v2-profiled",
+        "asset_profile":{
+            "name":profile_name,
+            "legacy_monja_targeting":legacy_monja_targeting,
+            "surface_patch_count":int(len(profile.get("surface_patches") or [])),
+            "headspace_patch_enabled":bool(profile.get("headspace_patch")),
+        },
         "input":str(input_glb),
         "output":str(output_glb),
         "grid":int(grid),
@@ -1560,7 +1619,13 @@ def main():
     parser.add_argument("--overscan",type=float,default=1.42)
     parser.add_argument("--alpha-threshold",type=int,default=48)
     parser.add_argument("--edge-fill-radius",type=int,default=6)
+    parser.add_argument(
+        "--profile",
+        type=Path,
+        help="Optional asset-specific JSON profile. Omit for generic HAYUYA core.",
+    )
     args=parser.parse_args()
+    profile=load_asset_profile(args.profile)
     conform(
         args.input,
         args.output,
@@ -1570,6 +1635,7 @@ def main():
         overscan=args.overscan,
         alpha_threshold=args.alpha_threshold,
         edge_fill_radius=args.edge_fill_radius,
+        asset_profile=profile,
     )
 
 
