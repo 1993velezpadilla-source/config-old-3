@@ -926,24 +926,37 @@ def _add_residual_surface_patches(
         ty=max(0,min(th-1,ty))
         return int(rgba[ty,tx,3])
 
-    def sample_depth(wx:float,wy:float):
+    def sample_depth(
+        wx:float,
+        wy:float,
+        *,
+        frontmost:bool=False,
+        depth_lift:float=0.00075,
+    ):
         distances,indices=xy_tree.query(
             np.array([wx,wy],dtype=np.float64),
             k=min(8,len(vertices)),
         )
         distances=np.atleast_1d(distances).astype(np.float64)
         indices=np.atleast_1d(indices).astype(np.int64)
-        weights=1.0/np.maximum(distances,1e-6)
-        zz=float(np.sum(vertices[indices,2]*weights)/np.sum(weights))
-        # Tiny source-facing lift avoids z fighting while staying effectively
-        # on the reconstructed surface.
-        return zz+0.00075
+        if frontmost:
+            # At the hood apex an inverse-distance average can sit behind the
+            # curved source-facing shell and reopen a tiny black notch in the
+            # 1024 evidence render. Use the nearest local FRONT-most surface
+            # only for this micro-patch so it remains true 3D geometry.
+            zz=float(np.max(vertices[indices,2]))
+        else:
+            weights=1.0/np.maximum(distances,1e-6)
+            zz=float(np.sum(vertices[indices,2]*weights)/np.sum(weights))
+        return zz+float(depth_lift)
 
     # Pixel coordinates are in the same 768-ish source-projection evidence
-    # space used by the silhouette conform reports.
+    # space used by the silhouette conform reports. The apex micro-patch is
+    # intentionally much smaller than the existing head-top safety patch.
     regions=[
-        ("thumb_middle_patch",(314,296,342,357)),
-        ("head_top_patch",(408,112,442,163)),
+        ("thumb_middle_patch",(314,296,342,357),False,0.00075),
+        ("head_top_patch",(408,112,442,163),False,0.00075),
+        ("head_apex_frontmost_patch",(418,116,439,141),True,0.00150),
     ]
 
     patch_vertices=[]
@@ -951,7 +964,7 @@ def _add_residual_surface_patches(
     patch_faces=[]
     region_stats=[]
 
-    for region_name,(rx0,ry0,rx1,ry1) in regions:
+    for region_name,(rx0,ry0,rx1,ry1),frontmost,depth_lift in regions:
         region_face_start=len(patch_faces)
         region_cell_count=0
 
@@ -973,7 +986,12 @@ def _add_residual_surface_patches(
                 base=len(patch_vertices)
                 for cpx,cpy in corners:
                     wx,wy=pixel_to_world(cpx,cpy)
-                    wz=sample_depth(wx,wy)
+                    wz=sample_depth(
+                        wx,
+                        wy,
+                        frontmost=bool(frontmost),
+                        depth_lift=float(depth_lift),
+                    )
                     uu=float(ax*wx+bx)
                     vv=float(ay*wy+by)
                     patch_vertices.append([wx,wy,wz])
@@ -990,6 +1008,8 @@ def _add_residual_surface_patches(
             "region":region_name,
             "cells":int(region_cell_count),
             "faces_added":int(len(patch_faces)-region_face_start),
+            "depth_mode":"frontmost_neighborhood" if frontmost else "inverse_distance_average",
+            "depth_lift":float(depth_lift),
         })
 
     if not patch_faces:
@@ -1006,7 +1026,7 @@ def _add_residual_surface_patches(
     patch_uv=np.asarray(patch_uv,dtype=np.float64)
     patch_faces=np.asarray(patch_faces,dtype=np.int64)
 
-    if len(patch_vertices)>20000 or len(patch_faces)>10000:
+    if len(patch_vertices)>24000 or len(patch_faces)>12000:
         raise RuntimeError(
             "residual surface patch exceeded safety budget: "
             f"vertices={len(patch_vertices)} faces={len(patch_faces)}"
@@ -1037,6 +1057,8 @@ def _add_residual_surface_patches(
         "vertices_added":int(len(patch_vertices)),
         "faces_added":int(len(patch_faces)),
         "depth_lift":0.00075,
+        "apex_depth_lift":0.00150,
+        "apex_depth_mode":"frontmost_neighborhood",
         "topology_change":"front residual patches only",
     }
 
