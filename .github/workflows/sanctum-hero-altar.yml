@@ -10,6 +10,7 @@ on:
       - "tools/sanctum_v2/reference_materials.py"
       - "tools/sanctum_v2/reference_silhouette_fit.py"
       - "tools/sanctum_v2/reference_group_fit.py"
+      - "tools/sanctum_v2/score_reference_silhouette.py"
       - "docs/sanctum-reference-silhouettes.v1.json"
       - "tools/sanctum_v2/enrich_sanctum_cc0_props.py"
       - "docs/sanctum-reference-materials.v2.json"
@@ -118,6 +119,38 @@ jobs:
             --python tools/sanctum_v2/dress_sanctum_hero_altar.py \
             2>&1 | tee sanctum-hero-altar-probe/blender.log
           grep -q SANCTUM_HERO_ALTAR_PASS sanctum-hero-altar-probe/blender.log
+
+      - name: Score altar against traced reference
+        shell: bash
+        env:
+          SANCTUM_REFERENCE_SCORE_GLB: sanctum-hero-altar-probe/sanctum-hero-altar.glb
+          SANCTUM_REFERENCE_SCORE_OUT: sanctum-hero-altar-probe/reference-score
+          SANCTUM_REFERENCE_SILHOUETTES: docs/sanctum-reference-silhouettes.v1.json
+        run: |
+          set -euo pipefail
+          xvfb-run -a -s "-screen 0 1280x800x24" \
+            /tmp/blender-5.2.2-linux-x64/blender -b \
+            --python tools/sanctum_v2/score_reference_silhouette.py \
+            2>&1 | tee sanctum-hero-altar-probe/reference-score.log
+          grep -q SANCTUM_REFERENCE_SCORE_PASS sanctum-hero-altar-probe/reference-score.log
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("sanctum-hero-altar-probe/reference-score/reference-score.json")
+          d=json.loads(p.read_text())
+          assert d["status"]=="PASS",d
+          assert d["body_object_count"]>=10,d
+          # First hard visual floor. This is intentionally separate from the
+          # runtime gates and will only be raised after we establish a measured
+          # baseline from the real altar build.
+          assert d["front"]["iou"]>=0.60,d
+          assert d["side"]["iou"]>=0.55,d
+          assert d["mean_iou"]>=0.60,d
+          print("SANCTUM_REFERENCE_SCORE_GREEN")
+          print("FRONT_IOU",d["front"]["iou"])
+          print("SIDE_IOU",d["side"]["iou"])
+          print("MEAN_IOU",d["mean_iou"])
+          PY
 
       - name: Validate hero altar evidence
         shell: bash
