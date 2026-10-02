@@ -21,8 +21,15 @@ from native_silhouette_conform import (
 )
 
 
-def _box(path: Path, extents=(1.0, 2.0, 0.45)):
+def _box(
+    path: Path,
+    extents=(1.0, 2.0, 0.45),
+    *,
+    subdivisions: int = 0,
+):
     mesh = trimesh.creation.box(extents=extents)
+    for _ in range(max(0, int(subdivisions))):
+        mesh = mesh.subdivide()
     scene = trimesh.Scene()
     scene.add_geometry(mesh, node_name="CharacterMesh", geom_name="CharacterMesh")
     path.write_bytes(scene.export(file_type="glb"))
@@ -223,7 +230,9 @@ def test_native_conform_is_source_specific_not_monja_specific(tmp_path: Path):
     narrow_out = tmp_path / "narrow.glb"
     wide_out = tmp_path / "wide.glb"
 
-    _box(native, extents=(1.0, 2.0, 0.45))
+    # Native generators emit dense surfaces. Use a locally editable contour
+    # instead of an 8-vertex primitive whose corners cannot express shape change.
+    _box(native, extents=(1.0, 2.0, 0.45), subdivisions=3)
     _source_rect(narrow, width=82, height=190)
     _source_rect(wide, width=132, height=190)
 
