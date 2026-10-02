@@ -14,6 +14,7 @@ from PIL import Image
 
 from tools.hayuya3d.gltf_position_patch import skin_payload_signature
 from tools.hayuya3d.regional_fusion import (
+    _head_donor_background_shell_fraction,
     _orient_head_donor_to_base,
     _proper_axis_alignment_rotations,
     _yaw_align_donor_to_base_head,
@@ -178,6 +179,38 @@ def make_skinned_character(
     blob.extend(binary)
     path.write_bytes(bytes(blob))
 
+
+class RegionalFusionTests(unittest.TestCase):
+    def test_background_shell_gate_is_not_blinded_by_extreme_outlier(self):
+        valid=trimesh.creation.icosphere(subdivisions=3,radius=1.0)
+        valid_vertices=np.asarray(valid.vertices,dtype=np.float64)
+        valid_with_outlier=np.concatenate(
+            [
+                valid_vertices,
+                np.asarray([[60.0,-45.0,70.0]],dtype=np.float64),
+            ],
+            axis=0,
+        )
+        valid_fraction=_head_donor_background_shell_fraction(
+            valid_with_outlier,
+        )
+        self.assertLess(valid_fraction,0.18)
+
+        shell=trimesh.creation.box(extents=(2.0,2.0,2.0))
+        for _ in range(3):
+            shell=shell.subdivide()
+        shell_vertices=np.asarray(shell.vertices,dtype=np.float64)
+        shell_with_outlier=np.concatenate(
+            [
+                shell_vertices,
+                np.asarray([[80.0,80.0,-90.0]],dtype=np.float64),
+            ],
+            axis=0,
+        )
+        shell_fraction=_head_donor_background_shell_fraction(
+            shell_with_outlier,
+        )
+        self.assertGreater(shell_fraction,0.18)
 
 class RegionalFusionTests(unittest.TestCase):
     def test_axis_alignment_candidates_are_proper_rotations_only(self):
