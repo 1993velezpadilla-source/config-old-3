@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -698,6 +699,8 @@ def _mesh_structural_signature(path: Path) -> dict:
     total_faces = 0
     uv_nodes = 0
     material_nodes = 0
+    uv_fingerprints = []
+    texture_fingerprints = []
 
     for node in nodes:
         _transform, geometry_name = scene.graph.get(node)
@@ -713,9 +716,23 @@ def _mesh_structural_signature(path: Path) -> dict:
         uv = getattr(visual, "uv", None) if visual is not None else None
         if uv is not None and len(uv) == len(vertices) and len(vertices):
             uv_nodes += 1
+            uv_arr = np.asarray(uv, dtype=np.float64)
+            uv_quantized = np.round(uv_arr, decimals=7).astype("<f8", copy=False)
+            uv_fingerprints.append(
+                hashlib.sha256(uv_quantized.tobytes()).hexdigest()
+            )
         material = getattr(visual, "material", None) if visual is not None else None
         if material is not None:
             material_nodes += 1
+            texture = getattr(material, "baseColorTexture", None)
+            if texture is not None:
+                try:
+                    rgba = np.asarray(texture.convert("RGBA"), dtype=np.uint8)
+                    texture_fingerprints.append(
+                        hashlib.sha256(rgba.tobytes()).hexdigest()
+                    )
+                except Exception:
+                    texture_fingerprints.append("unreadable-texture")
 
     return {
         "mesh_nodes": int(len(nodes)),
@@ -723,6 +740,8 @@ def _mesh_structural_signature(path: Path) -> dict:
         "faces": int(total_faces),
         "uv_mesh_nodes": int(uv_nodes),
         "material_mesh_nodes": int(material_nodes),
+        "uv_fingerprints": sorted(uv_fingerprints),
+        "base_color_texture_fingerprints": sorted(texture_fingerprints),
     }
 
 
@@ -743,6 +762,17 @@ def _assert_roundtrip_preserved(input_glb: Path, output_glb: Path) -> dict:
             regressions.append(
                 f"{key}:{before_mesh[key]}->{after_mesh[key]}"
             )
+
+    if (
+        after_mesh["uv_fingerprints"]
+        != before_mesh["uv_fingerprints"]
+    ):
+        regressions.append("uv_coordinates_changed")
+    if (
+        after_mesh["base_color_texture_fingerprints"]
+        != before_mesh["base_color_texture_fingerprints"]
+    ):
+        regressions.append("base_color_texture_pixels_changed")
 
     for key in ("mesh_count", "material_count", "texture_count"):
         before_value = int(getattr(before_gltf, key))
