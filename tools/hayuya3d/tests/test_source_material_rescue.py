@@ -13,7 +13,6 @@ sys.path.insert(0, str(HAYUYA_DIR))
 
 from native_geometry_guard import inspect_candidate
 from source_material_rescue import (
-    _cylindrical_delivery_atlas,
     rescue_source_material,
     validate_textured_native_rescue,
 )
@@ -79,8 +78,12 @@ def test_source_material_rescue_keeps_native_geometry_and_embeds_basecolor(
     assert result.diagnostic_material_donor == ""
     assert result.material_bridge["used"] is False
     assert result.material_bridge["legacy_nearest_uv_proxy_bridge_removed"] is True
-    assert result.projection_report["rear_uses_source_pixels"] is False
     assert result.projection_report["projection_proxy_created"] is False
+    assert result.projection_report["same_native_mesh"] is True
+    assert result.projection_report["face_materials_only"] is True
+    assert result.projection_report["projection_plane"] == "XY"
+    assert result.projection_report["front_uv_span"] > 0.80
+    assert result.projection_report["hidden_to_front_high_frequency_ratio"] < 0.45
 
     final_report = inspect_candidate(output)
     assert final_report["is_projection_proxy"] is False
@@ -138,22 +141,3 @@ def test_textured_native_validation_rejects_geometry_mutation(tmp_path: Path):
             min_texture_edge=512,
         )
 
-
-
-def test_cylindrical_atlas_keeps_high_frequency_source_detail_off_rear(
-    tmp_path: Path,
-):
-    source = tmp_path / "front.png"
-    _source(source)
-
-    _atlas, _orm, report = _cylindrical_delivery_atlas(
-        source,
-        512,
-        front_core_degrees=30.0,
-        front_fade_degrees=72.0,
-    )
-
-    assert report["rear_uses_source_pixels"] is False
-    assert report["hidden_surface_strategy"] == "height-band-low-frequency-only"
-    assert report["front_edge_energy"] > 0.0
-    assert report["rear_to_front_high_frequency_ratio"] < 0.45
