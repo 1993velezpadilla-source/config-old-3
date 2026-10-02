@@ -983,6 +983,14 @@ def run_single_backend(
     seed: int,
     model_root: Path,
 ):
+    if backend == "hunyuan3d_2_1":
+        return GENERATORS[backend](
+            image,
+            out_dir,
+            seed=seed,
+            model_root=model_root,
+            remove_background=False,
+        )
     if backend == "trellis2":
         return GENERATORS[backend](
             image,
