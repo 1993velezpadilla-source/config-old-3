@@ -45,6 +45,13 @@ def _source_rect(path: Path, *, width: int, height: int):
     image.save(path)
 
 
+def test_generic_pipeline_does_not_import_legacy_projection_conform():
+    pipeline = (HERE / "hayuya.py").read_text(encoding="utf-8")
+    assert "from native_silhouette_conform import conform_native_silhouette" in pipeline
+    assert "from silhouette_conform import" not in pipeline
+    assert "import silhouette_conform" not in pipeline
+
+
 def test_legacy_projection_conform_rejects_generic_and_unprofiled_assets():
     with pytest.raises(RuntimeError, match="forbidden for generic/new assets"):
         _require_legacy_projection_profile(None)
