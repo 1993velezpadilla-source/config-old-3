@@ -150,7 +150,7 @@ if bg:
     bg.inputs["Strength"].default_value=0.18
 
 cam=ensure_camera(scene)
-eye=floor_z+1.68
+eye=floor_z+1.84
 
 def point(cam,target):
     cam.rotation_euler=(Vector(target)-cam.location).to_track_quat("-Z","Y").to_euler()
