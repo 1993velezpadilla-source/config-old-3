@@ -469,6 +469,21 @@ for obj in export_objects:
         obj.select_set(True)
 bpy.context.view_layer.objects.active=next(o for o in export_objects if o.type=="MESH")
 
+# Persist the exact Blender scene/material authority used for the proof renders.
+# GLB is still exported for validators, but Android snapshot builds consume this
+# packed .blend so procedural stone/wood/floor/cloth nodes are not lost.
+for obj in export_objects:
+    if obj.type=="MESH":
+        obj["xziel_snapshot_export"]=True
+try:
+    bpy.ops.file.pack_all()
+except Exception as exc:
+    print("WARN pack_all",exc)
+blend=OUT/"sanctum-hero-altar.blend"
+bpy.ops.wm.save_as_mainfile(filepath=str(blend))
+if not blend.is_file() or blend.stat().st_size<1000000:
+    fail("hero altar packed BLEND export failed")
+
 glb=OUT/"sanctum-hero-altar.glb"
 bpy.ops.export_scene.gltf(
     filepath=str(glb),
@@ -505,6 +520,8 @@ report={
     "altar_y":altar_y,
     "renders":renders,
     "stats":stats,
+    "blend":blend.name,
+    "blend_bytes":blend.stat().st_size,
     "glb":glb.name,
     "glb_bytes":glb.stat().st_size,
 }
