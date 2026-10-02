@@ -199,9 +199,32 @@ def load_asset_profile_spec(asset_profile: str) -> dict:
     raise ValueError(f"unknown asset profile: {asset_profile}")
 
 
-def face_seed_hypothesis_count(profile_name: str, detail_inputs: list[Path]) -> int:
+def is_head_detail_evidence(
+    path: Path,
+    *,
+    semantic_head_inputs: list[Path] | set[Path] | None = None,
+) -> bool:
+    semantic={
+        Path(item).resolve()
+        for item in (semantic_head_inputs or [])
+    }
+    return (
+        Path(path).resolve() in semantic
+        or infer_detail_region_hint(Path(path))=="head"
+    )
+
+
+def face_seed_hypothesis_count(
+    profile_name: str,
+    detail_inputs: list[Path],
+    *,
+    semantic_head_inputs: list[Path] | set[Path] | None = None,
+) -> int:
     has_face_reference=any(
-        infer_detail_region_hint(path)=="head"
+        is_head_detail_evidence(
+            path,
+            semantic_head_inputs=semantic_head_inputs,
+        )
         for path in detail_inputs
     )
     if not has_face_reference:
@@ -211,6 +234,63 @@ def face_seed_hypothesis_count(profile_name: str, detail_inputs: list[Path]) -> 
     if profile_name=="monster":
         return 2
     return 1
+
+
+def reclassify_semantic_face_closeups(
+    geometry_inputs: list[Path],
+    real_detail_inputs: list[Path],
+    source_autofix_result,
+    *,
+    min_face_box_fraction: float = 0.08,
+) -> tuple[list[Path], list[Path], list[Path]]:
+    """Move obvious unnamed face close-ups out of the geometry reference pool.
+
+    Filename routing remains conservative by default. During execution, however,
+    source-autofix already has grounded face evidence. A direct, semantically
+    confirmed face occupying a large image fraction is better treated as local
+    head evidence when another real geometry source remains available.
+    """
+    geometry=[Path(path).resolve() for path in geometry_inputs]
+    details=[Path(path).resolve() for path in real_detail_inputs]
+    if source_autofix_result is None or len(geometry)<=1:
+        return geometry,details,[]
+
+    geometry_set=set(geometry)
+    candidates=[]
+    for item in list(getattr(source_autofix_result,"sources",[]) or []):
+        try:
+            source=Path(getattr(item,"source")).resolve()
+        except Exception:
+            continue
+        fraction=getattr(item,"face_box_fraction",None)
+        if (
+            source not in geometry_set
+            or not bool(getattr(item,"direct_face_detected",False))
+            or not bool(
+                getattr(item,"semantic_face_or_head_confirmed",False)
+            )
+            or fraction is None
+            or float(fraction)<float(min_face_box_fraction)
+        ):
+            continue
+        candidates.append((source,float(fraction)))
+
+    if not candidates:
+        return geometry,details,[]
+
+    # Move the strongest close-ups first but always preserve >=1 real geometry
+    # source. An all-close-up job still needs one primary reconstruction anchor.
+    index={path:i for i,path in enumerate(geometry)}
+    candidates.sort(key=lambda item:(-item[1],index[item[0]]))
+    move_limit=max(0,len(geometry)-1)
+    moved=[path for path,_fraction in candidates[:move_limit]]
+    moved_set=set(moved)
+
+    geometry=[path for path in geometry if path not in moved_set]
+    for path in moved:
+        if path not in details:
+            details.append(path)
+    return geometry,details,moved
 
 
 def native_conform_mutation_blockers(gltf_audit) -> list[str]:
