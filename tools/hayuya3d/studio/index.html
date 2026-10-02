@@ -24,14 +24,17 @@
     <aside class="left-panel panel">
       <section>
         <div class="section-head">
-          <h2>Create from Image</h2>
-          <span id="fileCount">0</span>
+          <h2>Create from Images</h2>
+          <div class="section-actions">
+            <span id="fileCount">0</span>
+            <button id="clearGeometry" type="button" class="mini-ghost">Clear</button>
+          </div>
         </div>
         <label class="dropzone" id="dropzone">
           <input id="images" type="file" accept="image/png,image/jpeg,image/webp" multiple>
-          <strong>Drop one photo</strong>
-          <span>or tap to choose</span>
-          <small>One photo is enough. Add more angles only if you have them.</small>
+          <strong>Drop photos</strong>
+          <span>or tap to choose · add more in as many batches as you want</span>
+          <small>No 5-photo cap. One photo works; front / side / back / 3⁄4 refs improve multiview evidence. 512 MB total per job.</small>
         </label>
         <div id="thumbs" class="thumbs"></div>
       </section>
@@ -44,13 +47,16 @@
         <section>
           <div class="section-head">
             <h2>Extra face/detail photos</h2>
-            <span id="faceFileCount">0</span>
+            <div class="section-actions">
+              <span id="faceFileCount">0</span>
+              <button id="clearFace" type="button" class="mini-ghost">Clear</button>
+            </div>
           </div>
           <label class="dropzone face-dropzone" id="faceDropzone">
             <input id="faceImages" type="file" accept="image/png,image/jpeg,image/webp" multiple>
             <strong>Add optional close-ups</strong>
-            <span>or tap to choose</span>
-            <small>Not required — HAYUYA automatically finds and zooms the face from the main photo.</small>
+            <span>or tap to choose · batches accumulate instead of replacing</span>
+            <small>These are semantic head/detail refs for the new Native Face Repair tournament. Not required — HAYUYA can still derive face evidence from the main geometry photo.</small>
           </label>
           <div id="faceThumbs" class="thumbs"></div>
         </section>
