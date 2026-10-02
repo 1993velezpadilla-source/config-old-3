@@ -101,6 +101,55 @@ def _assert_geometry_preserved(before_path: Path, after_path: Path) -> dict:
     }
 
 
+def validate_textured_native_rescue(
+    native_mesh: Path,
+    candidate_mesh: Path,
+    *,
+    min_texture_edge: int = 1024,
+) -> dict:
+    """Accept a texturing result only if it preserves native geometry exactly."""
+    from native_360_geometry_gate import assert_native_volumetric
+    from native_geometry_guard import assert_native_candidate
+    from texture_gate import inspect as inspect_texture_gate
+
+    native_mesh=Path(native_mesh)
+    candidate_mesh=Path(candidate_mesh)
+
+    native_report=assert_native_candidate(
+        candidate_mesh,
+        label="textured_native_rescue_output",
+    )
+    volume_report=assert_native_volumetric(
+        candidate_mesh,
+        label="textured_native_rescue_output",
+    )
+    preservation=_assert_geometry_preserved(
+        native_mesh,
+        candidate_mesh,
+    )
+    texture_report=inspect_texture_gate(
+        candidate_mesh,
+        min_edge=max(1,int(min_texture_edge)),
+        min_base_color_edge=max(1,int(min_texture_edge)),
+    )
+    if not texture_report.passed:
+        raise RuntimeError(
+            "textured native rescue did not satisfy texture gate: "
+            + ";".join(texture_report.warnings)
+        )
+
+    return {
+        "native_candidate":not bool(native_report["is_projection_proxy"]),
+        "volumetric":not bool(volume_report["catastrophically_planar"]),
+        "geometry_preserved":bool(
+            preservation["connectivity_identical"]
+            and preservation["positions_identical"]
+        ),
+        "preservation":preservation,
+        "texture_gate":asdict(texture_report),
+    }
+
+
 def rescue_source_material(
     source_image: Path,
     native_mesh: Path,
