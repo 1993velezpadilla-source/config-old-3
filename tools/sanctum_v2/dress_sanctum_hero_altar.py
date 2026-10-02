@@ -403,6 +403,7 @@ for idx,xoff in enumerate(candle_x,1):
     ld.energy=52.0
     ld.color=(1.0,0.29,0.06)
     ld.shadow_soft_size=0.42
+    ld.use_shadow=False
     lo=bpy.data.objects.new(f"SANCTUM_HERO_CANDLE_GLOW_{idx}",ld)
     scene.collection.objects.link(lo)
     lo.location=Vector((ic.x+xoff,altar_y-0.02,floor_z+2.42))

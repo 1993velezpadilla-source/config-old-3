@@ -442,11 +442,12 @@ if bg:
 
 # Add a few proof-only lights; not exported to runtime GLB.
 proof_lights=[]
-def point_light(name,location,energy,color):
+def point_light(name,location,energy,color,cast_shadow=True):
     ld=bpy.data.lights.new(name+"_DATA","POINT")
     ld.energy=energy
     ld.color=color
     ld.shadow_soft_size=0.75
+    ld.use_shadow=bool(cast_shadow)
     lo=bpy.data.objects.new(name,ld)
     scene.collection.objects.link(lo)
     lo.location=Vector(location)
@@ -458,9 +459,9 @@ point_light("SANCTUM_PROOF_UNDERCROFT_LIGHT",(ic.x,ic.y+hy*0.12,lower_z+1.6),220
 # authoring remains separate from navigation/collision.
 for idx,frac in enumerate((-0.42,-0.18,0.08,0.34),1):
     y=ic.y+hy*frac
-    point_light(f"SANCTUM_PROOF_NAVE_WARM_L_{idx}",(ic.x-hx*0.58,y,floor_z+2.3),150,(1.0,0.31,0.08))
-    point_light(f"SANCTUM_PROOF_NAVE_WARM_R_{idx}",(ic.x+hx*0.58,y,floor_z+2.3),150,(1.0,0.31,0.08))
-point_light("SANCTUM_PROOF_ALTAR_COOL",(ic.x,ic.y+hy*0.62,floor_z+5.2),300,(0.20,0.34,0.66))
+    point_light(f"SANCTUM_PROOF_NAVE_WARM_L_{idx}",(ic.x-hx*0.58,y,floor_z+2.3),150,(1.0,0.31,0.08),False)
+    point_light(f"SANCTUM_PROOF_NAVE_WARM_R_{idx}",(ic.x+hx*0.58,y,floor_z+2.3),150,(1.0,0.31,0.08),False)
+point_light("SANCTUM_PROOF_ALTAR_COOL",(ic.x,ic.y+hy*0.62,floor_z+5.2),300,(0.20,0.34,0.66),False)
 
 cam=ensure_camera(scene)
 eye=1.88

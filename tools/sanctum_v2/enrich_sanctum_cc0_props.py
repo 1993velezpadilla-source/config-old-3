@@ -261,6 +261,7 @@ for idx,obj in enumerate(candles,1):
     ld.energy=55.0
     ld.color=(1.0,0.44,0.16)
     ld.shadow_soft_size=0.65
+    ld.use_shadow=False
     lo=bpy.data.objects.new(f"SANCTUM_CANDLE_LIGHT_{idx:02d}",ld)
     scene.collection.objects.link(lo)
     lo.location=obj.location+Vector((0,0,0.75))

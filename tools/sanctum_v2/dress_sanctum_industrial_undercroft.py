@@ -318,20 +318,21 @@ if intrusions:
     fail(f"industrial props intrude ramp safety envelopes: {intrusions}")
 
 # Proof lighting.
-def point_light(name,location,energy,color):
+def point_light(name,location,energy,color,cast_shadow=True):
     ld=bpy.data.lights.new(name+"_DATA","POINT")
     ld.energy=energy
     ld.color=color
     ld.shadow_soft_size=0.65
+    ld.use_shadow=bool(cast_shadow)
     lo=bpy.data.objects.new(name,ld)
     scene.collection.objects.link(lo)
     lo.location=Vector(location)
     return lo
 
 point_light("SANCTUM_BOILER_WARM_A",(ic.x-1.8,center_y,lower_z+1.7),470,(1.0,0.43,0.12))
-point_light("SANCTUM_BOILER_WARM_B",(ic.x+1.8,center_y+0.5,lower_z+1.5),310,(0.92,0.34,0.10))
-point_light("SANCTUM_BOILER_COOL_FILL",(ic.x,by0+1.1,lower_z+2.0),190,(0.16,0.22,0.34))
-point_light("SANCTUM_BOILER_TANK_RIM",(ic.x,center_y-2.2,lower_z+2.2),225,(0.18,0.27,0.42))
+point_light("SANCTUM_BOILER_WARM_B",(ic.x+1.8,center_y+0.5,lower_z+1.5),310,(0.92,0.34,0.10),False)
+point_light("SANCTUM_BOILER_COOL_FILL",(ic.x,by0+1.1,lower_z+2.0),190,(0.16,0.22,0.34),False)
+point_light("SANCTUM_BOILER_TANK_RIM",(ic.x,center_y-2.2,lower_z+2.2),225,(0.18,0.27,0.42),False)
 
 # Proof-only overhead area light so the PBR machinery can actually be inspected
 # in CI renders. This light is not part of export_objects and never ships.

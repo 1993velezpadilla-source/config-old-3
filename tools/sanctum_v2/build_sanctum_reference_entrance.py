@@ -368,9 +368,10 @@ for obj in altar:
         fail(f"altar extends beyond apse envelope: {obj.name} maxY={mx.y:.3f}")
 
 # Lighting tuned to the supplied reference: warm candle layers + cool glass.
-def point_light(name,loc,energy,color,radius=0.55):
+def point_light(name,loc,energy,color,radius=0.55,cast_shadow=False):
     ld=bpy.data.lights.new(name+"_DATA","POINT")
     ld.energy=energy; ld.color=color; ld.shadow_soft_size=radius
+    ld.use_shadow=bool(cast_shadow)
     o=bpy.data.objects.new(name,ld); scene.collection.objects.link(o); o.location=Vector(loc)
     return o
 
