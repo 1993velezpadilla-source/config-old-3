@@ -487,6 +487,173 @@ def _targeted_extremity_pass(
     }
 
 
+def _residual_thumb_bridge_pass(
+    scene,
+    *,
+    grid:int,
+    overscan:float,
+    alpha_threshold:int,
+    edge_fill_radius:int,
+):
+    state=_coverage(
+        scene,grid,overscan,alpha_threshold,edge_fill_radius
+    )
+    missing=state["missing"]
+    keep=state["keep"]
+    bounds=state["bounds"]
+
+    distance,indices=distance_transform_edt(
+        ~keep,
+        return_indices=True,
+    )
+    labels,count=label(missing)
+    scale=float(grid)/768.0
+    controls=[]
+    selected=[]
+
+    for component_id in range(1,int(count)+1):
+        ys,xs=np.where(labels==component_id)
+        area=int(len(xs))
+        if area<8:
+            continue
+
+        cx=float(xs.mean())/max(float(grid),1.0)
+        cy=float(ys.mean())/max(float(grid),1.0)
+        width=int(xs.max()-xs.min()+1)
+        height=int(ys.max()-ys.min()+1)
+
+        region=None
+        if (
+            0.33<=cx<=0.37
+            and 0.35<=cy<=0.42
+            and area<=100
+            and width<=14
+            and height<=24
+        ):
+            region="thumb_bridge"
+        elif (
+            0.52<=cx<=0.58
+            and cy<0.22
+            and area<=110
+        ):
+            region="head_top_residual"
+
+        if region is None:
+            continue
+
+        values=distance[ys,xs]
+        index=int(np.argmax(values))
+        target_x=int(xs[index])
+        target_y=int(ys[index])
+        anchor_y=int(indices[0,target_y,target_x])
+        anchor_x=int(indices[1,target_y,target_x])
+        peak_distance=float(values[index])
+
+        if region=="thumb_bridge":
+            if peak_distance>12.0*scale:
+                continue
+            cap=4.5*scale
+            radius=10.5*scale
+        else:
+            if peak_distance>10.0*scale:
+                continue
+            cap=2.25*scale
+            radius=7.5*scale
+
+        control={
+            "region":region,
+            "area":area,
+            "bbox":[
+                int(xs.min()),int(ys.min()),
+                int(xs.max()),int(ys.max()),
+            ],
+            "centroid":[float(xs.mean()),float(ys.mean())],
+            "target":[target_x,target_y],
+            "anchor":[anchor_x,anchor_y],
+            "distance_px":peak_distance,
+            "cap_px":float(cap),
+            "radius_px":float(radius),
+        }
+        selected.append(control)
+        controls.append(control)
+
+    xmin,xmax,ymin,ymax=[float(x) for x in bounds]
+    moved_vertices=0
+    max_iteration_world=0.0
+    per_iteration_cap=5.0*scale
+
+    for node in (FRONT_NODE,SUPPORT_NODE):
+        geometry=_geometry(scene,node)
+        vertices=np.asarray(geometry.vertices,dtype=np.float64).copy()
+        px=(
+            (vertices[:,0]-xmin)/
+            max(xmax-xmin,1e-12)*
+            (int(grid)-1)
+        )
+        py=(
+            (ymax-vertices[:,1])/
+            max(ymax-ymin,1e-12)*
+            (int(grid)-1)
+        )
+        total=np.zeros((len(vertices),2),dtype=np.float64)
+
+        for control in controls:
+            target_x,target_y=control["target"]
+            anchor_x,anchor_y=control["anchor"]
+            delta=np.array([
+                float(target_x-anchor_x),
+                float(target_y-anchor_y),
+            ],dtype=np.float64)
+            delta_length=max(float(np.linalg.norm(delta)),1e-9)
+            cap=float(control["cap_px"])
+            radius=float(control["radius_px"])
+            sigma=radius*0.42
+            radius2=(px-anchor_x)**2+(py-anchor_y)**2
+            weight=np.exp(-0.5*radius2/(sigma*sigma))
+            weight[radius2>radius*radius]=0.0
+            delta*=min(1.0,cap/delta_length)
+            total+=weight[:,None]*delta[None,:]
+
+        magnitude=np.linalg.norm(total,axis=1)
+        over=magnitude>per_iteration_cap
+        if np.any(over):
+            total[over]*=(
+                per_iteration_cap/
+                magnitude[over]
+            )[:,None]
+
+        dx=total[:,0]/max(int(grid)-1,1)*(xmax-xmin)
+        dy=-total[:,1]/max(int(grid)-1,1)*(ymax-ymin)
+        displacement=np.sqrt(dx*dx+dy*dy)
+        moved_vertices+=int(np.count_nonzero(displacement>1e-7))
+        if len(displacement):
+            max_iteration_world=max(
+                max_iteration_world,
+                float(displacement.max()),
+            )
+
+        vertices[:,0]+=dx
+        vertices[:,1]+=dy
+        geometry.vertices=vertices
+
+    _recompute_planar_uv(scene)
+    after=_coverage(
+        scene,grid,overscan,alpha_threshold,edge_fill_radius
+    )
+
+    return {
+        "policy":"residual-thumb-bridge-head-top-v1",
+        "before_missing":int(state["missing_pixels"]),
+        "after_missing":int(after["missing_pixels"]),
+        "before_coverage":float(state["coverage"]),
+        "after_coverage":float(after["coverage"]),
+        "moved_vertices":int(moved_vertices),
+        "max_iteration_world_displacement":float(max_iteration_world),
+        "selected_components":selected,
+        "controls":controls,
+    }
+
+
 def conform(
     input_glb:Path,
     output_glb:Path,
@@ -534,6 +701,14 @@ def conform(
             break
 
     targeted_extremity=_targeted_extremity_pass(
+        scene,
+        grid=grid,
+        overscan=overscan,
+        alpha_threshold=alpha_threshold,
+        edge_fill_radius=edge_fill_radius,
+    )
+
+    residual_thumb_bridge=_residual_thumb_bridge_pass(
         scene,
         grid=grid,
         overscan=overscan,
@@ -601,6 +776,7 @@ def conform(
         "topology":topology,
         "passes":passes,
         "targeted_extremity_pass":targeted_extremity,
+        "residual_thumb_bridge_pass":residual_thumb_bridge,
     }
 
     output_glb.parent.mkdir(parents=True,exist_ok=True)
