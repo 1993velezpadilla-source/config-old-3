@@ -8,7 +8,8 @@
     "Use AI image-to-3D only as a candidate high-poly source; accept it only after silhouette and runtime gates.",
     "Keep PBR/material generation separate from geometry fitting so baked lighting is not copied into albedo.",
     "When GPU access exists, use Pixal3D multi-view as a high-detail proposal, then force the result through our traced silhouette cages and runtime gates rather than trusting generation alone.",
-    "For interactive sculpt/retopo work, BlendRelay can overlay references and viewport sketches while preserving selected geometry/checkpoints."
+    "For interactive sculpt/retopo work, BlendRelay can overlay references and viewport sketches while preserving selected geometry/checkpoints.",
+    "Add a camera-locked silhouette IoU score to CI and accept geometry edits only when the reference score improves; never trade a worse visual match for a passing runtime gate."
   ],
   "tools": [
     {
@@ -108,6 +109,27 @@
       "license": "verify before vendoring",
       "role": "single-image / silhouette mesh fitting with Blender + PyTorch3D differential rendering; directly relevant to fitting an existing altar/pew mesh to masks",
       "status": "algorithm_reference_for_differentiable_fit"
+    },
+    {
+      "name": "3d-cli reference match",
+      "url": "https://github.com/alex-mextner/3d-cli",
+      "license": "repository license not confirmed in current audit; technique only until cleared",
+      "role": "camera-fit + silhouette IoU + overlay + accept-only-if-score-improves loop; directly maps to our GitHub reference-match gate",
+      "status": "adopt_method_not_code_until_license_cleared"
+    },
+    {
+      "name": "fal Blender Extension",
+      "url": "https://github.com/fal-ai/fal-blender-extension",
+      "license": "GPL-3.0-or-later",
+      "role": "Blender image-to-3D plus sketch-to-image/refine workflow; exposes face budgets, symmetry and topology controls",
+      "status": "research_only_for_zero_budget_pipeline"
+    },
+    {
+      "name": "atmcnd sketch-2-3d",
+      "url": "https://huggingface.co/spaces/atmcnd/sketch-2-3d",
+      "license": "audit space dependencies before production use",
+      "role": "interactive drawn building sketch -> 3D workflow; useful reference for mask/stroke conditioning UI",
+      "status": "workflow_reference"
     }
   ],
   "implemented_now": [
