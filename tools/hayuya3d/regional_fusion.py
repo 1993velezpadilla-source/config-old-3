@@ -168,7 +168,7 @@ def _rig_blocked(path:Path)->tuple[bool,str|None]:
     if path.suffix.lower()!=".glb":
         return False,None
     try:
-        from gltf_audit import audit_glb
+        audit_glb=_sibling_module("gltf_audit").audit_glb
         audit=audit_glb(path)
         if audit.skin_count>0 or audit.skinned_mesh_nodes>0:
             return True,(
@@ -202,7 +202,7 @@ def build_head_wrap_geometry(
     """
     if base_mesh.suffix.lower()==".glb":
         try:
-            from gltf_audit import audit_glb
+            audit_glb=_sibling_module("gltf_audit").audit_glb
             base_audit=audit_glb(base_mesh)
             if base_audit.skin_count>0 or base_audit.skinned_mesh_nodes>0:
                 return build_rig_preserving_head_wrap_geometry(
@@ -536,15 +536,16 @@ def build_rig_preserving_head_wrap_geometry(
     """Patch only skinned POSITION accessors and preserve JOINTS/WEIGHTS bytes."""
     np,_,cKDTree=_deps()
     try:
-        from gltf_audit import audit_glb
-        from gltf_position_patch import (
-            _doc_and_bin,
-            mesh_nodes_identity_for_accessors,
-            mesh_position_accessors,
-            patch_position_accessors,
-            read_position_accessor,
+        audit_glb=_sibling_module("gltf_audit").audit_glb
+        gltf_position_patch=_sibling_module("gltf_position_patch")
+        _doc_and_bin=gltf_position_patch._doc_and_bin
+        mesh_nodes_identity_for_accessors=(
+            gltf_position_patch.mesh_nodes_identity_for_accessors
         )
-        from skin_weight_qa import audit_skin_weights
+        mesh_position_accessors=gltf_position_patch.mesh_position_accessors
+        patch_position_accessors=gltf_position_patch.patch_position_accessors
+        read_position_accessor=gltf_position_patch.read_position_accessor
+        audit_skin_weights=_sibling_module("skin_weight_qa").audit_skin_weights
 
         before_rig=audit_glb(base_mesh)
         before_skin=audit_skin_weights(base_mesh)
@@ -794,7 +795,7 @@ def prepare_head_wrap_challenger(
     out_dir.mkdir(parents=True,exist_ok=True)
     raw=out_dir/"head_wrap_raw.glb"
     try:
-        from gltf_audit import audit_glb
+        audit_glb=_sibling_module("gltf_audit").audit_glb
         base_rig=audit_glb(base_mesh)
     except Exception:
         base_rig=None
@@ -861,7 +862,7 @@ def prepare_head_wrap_challenger(
     # Topology and UVs are preserved, but tangent-space normal/AO evidence is
     # geometry-dependent. Rebake before the challenger is eligible for promotion.
     try:
-        from gltf_audit import audit_glb
+        audit_glb=_sibling_module("gltf_audit").audit_glb
         audit=audit_glb(base_mesh)
         required=[
             channel for channel in ("normal","occlusion")
@@ -879,8 +880,9 @@ def prepare_head_wrap_challenger(
     final=out_dir/"head_wrap_rebaked.glb"
     try:
         if base_rig is not None and base_rig.skin_count>0:
-            from rig_preserving_rebake import (
-                rebake_material_channels_preserve_rig,
+            rebake_material_channels_preserve_rig=(
+                _sibling_module("rig_preserving_rebake")
+                .rebake_material_channels_preserve_rig
             )
             rebake=rebake_material_channels_preserve_rig(
                 base_mesh,
@@ -896,7 +898,9 @@ def prepare_head_wrap_challenger(
                 rebake.skin_payload_preserved
             )
         else:
-            from material_rebake import rebake_material_channels
+            rebake_material_channels=(
+                _sibling_module("material_rebake").rebake_material_channels
+            )
             rebake=rebake_material_channels(
                 base_mesh,
                 raw,
