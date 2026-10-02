@@ -100,22 +100,39 @@ jobs:
           rm -rf /tmp/sanctum-live-site
           mkdir -p /tmp/sanctum-live-site
 
-          hero="$(find hero-artifact -type f -name '01-hero-altar-from-nave.png' -print -quit)"
+          KIND="${SOURCE_KIND}"
+          if [[ "$KIND" == "hero" ]]; then
+            hero="$(find visual-artifact -type f -name '01-hero-altar-from-nave.png' -print -quit)"
+            pairs=(
+              "02-hero-altar-mid-nave.png:mid-nave.png"
+              "03-hero-altar-three-quarter.png:three-quarter.png"
+              "04-hero-altar-side.png:side.png"
+            )
+            report="$(find visual-artifact -type f -name 'hero-altar-report.json' -print -quit)"
+            pipe="$(find visual-artifact -type f -name 'sanctum-hero-altar.pipeline.json' -print -quit)"
+          else
+            hero="$(find visual-artifact -type f -name '01-nave-sees-upper-gallery.png' -print -quit)"
+            pairs=(
+              "02-upper-gallery-player-view.png:mid-nave.png"
+              "03-upper-east-bailout.png:three-quarter.png"
+              "06-diegetic-ad-frame.png:side.png"
+            )
+            report="$(find visual-artifact -type f -name 'vertical-report.json' -print -quit)"
+            pipe="$(find visual-artifact -type f -name 'sanctum-vertical.pipeline.json' -print -quit)"
+          fi
+
           test -n "$hero"
           cp "$hero" /tmp/sanctum-live-site/hero.png
 
-          for pair in             "02-hero-altar-mid-nave.png:mid-nave.png"             "03-hero-altar-three-quarter.png:three-quarter.png"             "04-hero-altar-side.png:side.png"
-          do
+          for pair in "${pairs[@]}"; do
             src_name="${pair%%:*}"
             dst_name="${pair##*:}"
-            src="$(find hero-artifact -type f -name "$src_name" -print -quit)"
+            src="$(find visual-artifact -type f -name "$src_name" -print -quit)"
             [[ -n "$src" ]] && cp "$src" "/tmp/sanctum-live-site/$dst_name"
           done
 
-          report="$(find hero-artifact -type f -name 'hero-altar-report.json' -print -quit)"
-          nav="$(find hero-artifact -type f -name 'navmesh-report.json' -print -quit)"
-          col="$(find hero-artifact -type f -name 'collision-report.json' -print -quit)"
-          pipe="$(find hero-artifact -type f -name 'sanctum-hero-altar.pipeline.json' -print -quit)"
+          nav="$(find visual-artifact -type f -name 'navmesh-report.json' -print -quit)"
+          col="$(find visual-artifact -type f -name 'collision-report.json' -print -quit)"
 
           [[ -n "$report" ]] && cp "$report" /tmp/sanctum-live-site/hero-altar-report.json
           [[ -n "$nav" ]] && cp "$nav" /tmp/sanctum-live-site/navmesh-report.json
