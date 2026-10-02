@@ -899,11 +899,21 @@ def prepare_head_wrap_challenger(
                 max_texture_size=texture_size,
                 blender=blender,
             )
+        preservation=_assert_topology_uv_preserved(
+            base_mesh,
+            final,
+        )
+        result.topology_preserved=bool(
+            preservation["topology_preserved"]
+        )
+        result.uv_preserved=bool(preservation["uv_preserved"])
         result.output_glb=str(final)
         result.rebake_resolved=list(rebake.resolved_channels)
         result.rebake_ready=not rebake.remaining_channels
         result.ready_for_judge=bool(
             result.geometry_ready
+            and result.topology_preserved
+            and result.uv_preserved
             and (result.rebake_ready or not require_rebake)
         )
         if rebake.error and not result.error:
