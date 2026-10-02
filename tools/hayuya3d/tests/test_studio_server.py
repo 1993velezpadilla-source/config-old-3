@@ -654,9 +654,22 @@ class StudioServerTests(unittest.TestCase):
 
         parts.append(field("profile", "ultra"))
         parts.append(field("mode", "character"))
-        parts.append(file("images", "front.png", b"PNG-A"))
-        parts.append(file("images", "back.png", b"PNG-B"))
-        parts.append(file("face_images", "IMG_1234.jpg", b"FACE-C"))
+        for index in range(12):
+            parts.append(
+                file(
+                    "images",
+                    f"view_{index:02d}.png",
+                    f"PNG-{index}".encode(),
+                )
+            )
+        for index in range(4):
+            parts.append(
+                file(
+                    "face_images",
+                    f"IMG_FACE_{index:02d}.jpg",
+                    f"FACE-{index}".encode(),
+                )
+            )
         body = b"".join(parts) + f"--{boundary}--\r\n".encode()
 
         fields, files = parse_multipart(
@@ -665,12 +678,18 @@ class StudioServerTests(unittest.TestCase):
         )
         self.assertEqual(fields["profile"], "ultra")
         self.assertEqual(fields["mode"], "character")
-        self.assertEqual(len(files), 3)
-        self.assertEqual(files[0][1], "front.png")
-        self.assertEqual(files[1][2], b"PNG-B")
-        self.assertEqual(files[2][0], "face_images")
-        self.assertEqual(files[2][1], "IMG_1234.jpg")
-        self.assertEqual(files[2][2], b"FACE-C")
+        self.assertEqual(len(files), 16)
+
+        geometry = [item for item in files if item[0] == "images"]
+        face = [item for item in files if item[0] == "face_images"]
+        self.assertEqual(len(geometry), 12)
+        self.assertEqual(len(face), 4)
+        self.assertEqual(geometry[0][1], "view_00.png")
+        self.assertEqual(geometry[-1][1], "view_11.png")
+        self.assertEqual(geometry[-1][2], b"PNG-11")
+        self.assertEqual(face[0][1], "IMG_FACE_00.jpg")
+        self.assertEqual(face[-1][1], "IMG_FACE_03.jpg")
+        self.assertEqual(face[-1][2], b"FACE-3")
 
 
 if __name__ == "__main__":
