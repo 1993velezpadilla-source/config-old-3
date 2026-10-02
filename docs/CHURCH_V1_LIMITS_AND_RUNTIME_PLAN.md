@@ -65,6 +65,26 @@ Shipping compatibility:
 The current 2K texture ceiling is below Vulkan's mandatory minimum 2D image
 dimension capability of 4096 and therefore is not itself a platform problem.
 
+## 3.1 Vulkan binding limits
+
+Push-constant ceiling:
+- Vulkan Core guarantees only 128 bytes of push constants.
+- XZIEL StaticMeshRenderer already uses exactly 128 bytes and has a compile-time
+  static_assert protecting that size.
+- Do not add ad placement IDs, video frame state, creative metadata or any new
+  per-material fields to the static-mesh push-constant block.
+- Future intrinsic-ad/video metadata must use existing material/descriptor
+  state or a separate uniform/storage buffer.
+
+Descriptors:
+- Vulkan Core guarantees at least 16 per-stage sampled images/samplers and at
+  least 4 bound descriptor sets. Query the physical device for actual values.
+- The current one-texture-per-material/draw model does not need one sampler
+  binding for every Church placement simultaneously, so five intrinsic visual
+  placements do not by themselves require bindless descriptors.
+- Any future texture-array/bindless redesign must be feature/limit queried and
+  must retain a portable fallback.
+
 ## 4. Memory and thermal behavior
 
 Android 17 introduces stricter per-app memory enforcement that varies with
