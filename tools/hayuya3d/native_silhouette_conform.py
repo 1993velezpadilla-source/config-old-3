@@ -332,6 +332,90 @@ def _project_state(
     }
 
 
+def _collateral_view_preservation(
+    reference_vertices,
+    candidate_vertices,
+    faces,
+    camera,
+    *,
+    size:int,
+    azimuth_offsets:tuple[float,...]=(90.0,180.0,270.0),
+    min_iou:float=0.90,
+    min_boundary_f1:float=0.68,
+):
+    """Protect unseen 360 silhouettes while fitting a single source view.
+
+    The source photo authorizes changes only in its solved camera. Side/back
+    silhouettes therefore remain anchored to the original native Hero Master.
+    This compares shape at fixed relative cameras and rejects a front-view gain
+    when it causes too much collateral drift in unseen views.
+    """
+    (
+        _score,
+        _iou,
+        _edge,
+        up_axis,
+        elevation,
+        azimuth,
+        projection,
+        camera_distance,
+    )=camera
+
+    views=[]
+    allowed=True
+    for offset in azimuth_offsets:
+        view_azimuth=(float(azimuth)+float(offset))%360.0
+        baseline=render_silhouette(
+            reference_vertices,
+            faces,
+            view_azimuth,
+            elevation,
+            up_axis,
+            size=int(size),
+            projection=projection,
+            camera_distance=camera_distance,
+        )
+        trial=render_silhouette(
+            candidate_vertices,
+            faces,
+            view_azimuth,
+            elevation,
+            up_axis,
+            size=int(size),
+            projection=projection,
+            camera_distance=camera_distance,
+        )
+        score,iou,edge=score_masks(baseline,trial)
+        view_ok=bool(
+            float(iou)>=float(min_iou)
+            and float(edge)>=float(min_boundary_f1)
+        )
+        allowed=allowed and view_ok
+        views.append({
+            "offset_degrees":float(offset),
+            "azimuth":float(view_azimuth),
+            "score":float(score),
+            "iou":float(iou),
+            "boundary_f1":float(edge),
+            "allowed":view_ok,
+        })
+
+    return allowed,{
+        "policy":"preserve-unseen-native-silhouettes-v1",
+        "min_iou_required":float(min_iou),
+        "min_boundary_f1_required":float(min_boundary_f1),
+        "view_count":int(len(views)),
+        "min_iou_observed":float(
+            min((x["iou"] for x in views),default=1.0)
+        ),
+        "min_boundary_f1_observed":float(
+            min((x["boundary_f1"] for x in views),default=1.0)
+        ),
+        "allowed":bool(allowed),
+        "views":views,
+    }
+
+
 def _screen_to_camera_delta(
     vertices_norm,
     xy,
@@ -537,6 +621,7 @@ def _smooth_topology_displacements(
 
 def _conform_iteration(
     vertices_norm,
+    preservation_reference_vertices,
     render_faces,
     topology_faces,
     source_mask,
@@ -550,6 +635,8 @@ def _conform_iteration(
     visibility_neighborhood_px: int,
     topology_smoothing_iterations: int,
     topology_smoothing_blend: float,
+    collateral_min_iou: float,
+    collateral_min_boundary_f1: float,
 ):
     state = _project_state(
         vertices_norm,
@@ -673,15 +760,31 @@ def _conform_iteration(
             camera,
             size=size,
         )
+        collateral_allowed,collateral=(
+            _collateral_view_preservation(
+                preservation_reference_vertices,
+                trial_vertices,
+                render_faces,
+                camera,
+                size=int(size),
+                min_iou=float(collateral_min_iou),
+                min_boundary_f1=float(collateral_min_boundary_f1),
+            )
+        )
         trials.append(
             {
                 "scale": float(step_scale),
                 "score": float(trial_state["score"]),
                 "iou": float(trial_state["iou"]),
                 "boundary_f1": float(trial_state["boundary_f1"]),
+                "collateral_allowed":bool(collateral_allowed),
+                "collateral":collateral,
             }
         )
-        if trial_state["score"] > best_state["score"] + 1e-6:
+        if (
+            collateral_allowed
+            and trial_state["score"] > best_state["score"] + 1e-6
+        ):
             best_vertices = trial_vertices
             best_state = trial_state
             accepted_scale = float(step_scale)
@@ -886,6 +989,8 @@ def conform_native_silhouette(
     render_face_budget: int = 12000,
     topology_smoothing_iterations: int = 2,
     topology_smoothing_blend: float = 0.35,
+    collateral_min_iou: float = 0.90,
+    collateral_min_boundary_f1: float = 0.68,
 ):
     scene, records, vertices_world, faces = _load_editable_scene(input_glb)
     vertices_norm, center, scale = _normalized(vertices_world)
@@ -925,6 +1030,7 @@ def conform_native_silhouette(
     for index in range(max(1, int(iterations))):
         proposed, item = _conform_iteration(
             current,
+            original_norm,
             render_faces,
             faces,
             source_mask,
@@ -941,6 +1047,10 @@ def conform_native_silhouette(
                 topology_smoothing_iterations
             ),
             topology_smoothing_blend=float(topology_smoothing_blend),
+            collateral_min_iou=float(collateral_min_iou),
+            collateral_min_boundary_f1=float(
+                collateral_min_boundary_f1
+            ),
         )
         item["iteration"] = index + 1
         passes.append(item)
@@ -1021,6 +1131,13 @@ def conform_native_silhouette(
         "no_op_preserves_exact_input_bytes": bool(not geometry_changed),
         "render_budget": render_budget,
         "roundtrip_preservation": roundtrip_preservation,
+        "collateral_360_policy": {
+            "mode": "preserve-unseen-native-silhouettes-v1",
+            "azimuth_offsets_degrees": [90.0, 180.0, 270.0],
+            "min_iou": float(collateral_min_iou),
+            "min_boundary_f1": float(collateral_min_boundary_f1),
+            "reference": "original-native-hero-master",
+        },
         "topology_smoothing": {
             "mode": "active-visible-one-ring-only",
             "iterations": int(topology_smoothing_iterations),
@@ -1099,6 +1216,16 @@ def main() -> int:
         type=float,
         default=0.35,
     )
+    parser.add_argument(
+        "--collateral-min-iou",
+        type=float,
+        default=0.90,
+    )
+    parser.add_argument(
+        "--collateral-min-boundary-f1",
+        type=float,
+        default=0.68,
+    )
     args = parser.parse_args()
 
     conform_native_silhouette(
@@ -1119,6 +1246,8 @@ def main() -> int:
         render_face_budget=args.render_face_budget,
         topology_smoothing_iterations=args.topology_smoothing_iterations,
         topology_smoothing_blend=args.topology_smoothing_blend,
+        collateral_min_iou=args.collateral_min_iou,
+        collateral_min_boundary_f1=args.collateral_min_boundary_f1,
     )
     return 0
 
