@@ -31,6 +31,17 @@ class SourceFaceRepairResult:
     method: str = "hayuya-source-derived-native-face-repair-v1"
 
 
+@dataclass
+class SourceFaceRepairTournamentResult:
+    attempted: bool
+    ready: bool
+    backend_order: list[str]
+    results: list[SourceFaceRepairResult]
+    ready_backends: list[str]
+    error: str | None = None
+    method: str = "hayuya-source-derived-native-face-repair-tournament-v1"
+
+
 def available_head_donor_backends(
     selected_backends: list[str] | tuple[str, ...],
     model_root: Path,
@@ -382,6 +393,83 @@ def prepare_source_face_repair_challenger(
         ),
         backend_attempts=attempts,
     )
+
+def prepare_source_face_repair_tournament(
+    base_mesh: Path,
+    detail_image: Path,
+    out_dir: Path,
+    *,
+    selected_backends: list[str] | tuple[str, ...],
+    seed: int,
+    hero_faces: int,
+    trellis2_resolution: int,
+    texture_size: int,
+    model_root: Path = DEFAULT_MODEL_ROOT,
+    up_axis: str | int | None = None,
+    require_rebake: bool = True,
+    generator_override: Callable | None = None,
+    derive_head_from_full_source: bool = False,
+) -> SourceFaceRepairTournamentResult:
+    """Build every usable native head-donor challenger for a Judge tournament."""
+    backends=available_head_donor_backends(
+        list(selected_backends),
+        Path(model_root),
+    )
+    if not backends:
+        return SourceFaceRepairTournamentResult(
+            attempted=False,
+            ready=False,
+            backend_order=[],
+            results=[],
+            ready_backends=[],
+            error="no selected native head-donor backend is bootstrapped",
+        )
+
+    results=[]
+    for index,backend in enumerate(backends):
+        result=prepare_source_face_repair_challenger(
+            base_mesh,
+            detail_image,
+            Path(out_dir)/f"{index:02d}_{backend}",
+            selected_backends=[backend],
+            seed=int(seed)+index*101,
+            hero_faces=int(hero_faces),
+            trellis2_resolution=int(trellis2_resolution),
+            texture_size=int(texture_size),
+            model_root=Path(model_root),
+            up_axis=up_axis,
+            require_rebake=bool(require_rebake),
+            generator_override=generator_override,
+            derive_head_from_full_source=bool(
+                derive_head_from_full_source
+            ),
+        )
+        results.append(result)
+
+    ready_backends=[
+        str(result.backend)
+        for result in results
+        if result.ready and result.backend
+    ]
+    errors=[
+        f"{backend}:{result.error}"
+        for backend,result in zip(backends,results)
+        if not result.ready
+    ]
+    return SourceFaceRepairTournamentResult(
+        attempted=True,
+        ready=bool(ready_backends),
+        backend_order=list(backends),
+        results=results,
+        ready_backends=ready_backends,
+        error=(
+            None
+            if ready_backends
+            else "all native face-repair tournament entries failed: "
+            + " | ".join(errors)
+        ),
+    )
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(
