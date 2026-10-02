@@ -15,6 +15,7 @@ if len(SHA)!=64: fail("missing source sha")
 
 scene=bpy.context.scene
 scene.render.engine="BLENDER_EEVEE"
+scene.render.image_settings.media_type="IMAGE"
 scene.render.image_settings.file_format="PNG"
 scene.render.resolution_x=720
 scene.render.resolution_y=480
