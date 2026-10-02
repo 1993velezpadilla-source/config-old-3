@@ -178,6 +178,22 @@ def make_skinned_character(
 
 
 class RegionalFusionTests(unittest.TestCase):
+    def test_donor_yaw_alignment_keeps_zero_for_nearly_symmetric_head(self):
+        sphere=trimesh.creation.icosphere(subdivisions=3,radius=1.0)
+        base=np.asarray(sphere.vertices,dtype=np.float64).copy()
+        base[:,1]*=1.05
+        donor=base.copy()
+
+        aligned,angle,score=_yaw_align_donor_to_base_head(
+            donor,
+            base,
+            np.zeros(3,dtype=np.float64),
+            1,
+        )
+        self.assertEqual(angle,0.0)
+        self.assertLess(score,1e-8)
+        self.assertTrue(np.allclose(aligned,donor))
+
     def test_donor_yaw_alignment_recovers_rotated_asymmetric_head(self):
         sphere=trimesh.creation.icosphere(subdivisions=3,radius=1.0)
         base=np.asarray(sphere.vertices,dtype=np.float64).copy()
