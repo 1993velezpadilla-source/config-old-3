@@ -1285,6 +1285,8 @@ final_texture_min_edge=(
 )
 detail_fusion_payload=None
 head_geometry_fusion_payload=None
+hunyuan_head_geometry_payload=None
+source_head_geometry_promoted=False
 source_material_rescue_payload=None
 
 # Textureless native fallbacks (notably public CPU TripoSR continuity meshes)
@@ -1538,6 +1540,106 @@ if preview_recovery_face_rescue_required and not (
         "rescue did not produce a Judge-ready candidate."
     )
 
+# Prefer a denser source-derived Hunyuan head donor for facial geometry when
+# the request explicitly enables Hunyuan3D. The donor is geometry-only; the
+# current model keeps its own material payload. If any generation/fusion/gate
+# fails, TripoSR below remains the continuity fallback.
+if (
+    detail_views
+    and HUNYUAN3D_ENABLED
+    and ASSET_PROFILE in {"auto","character.humanoid","character.creature"}
+):
+    try:
+        from hunyuan3d_cloud import generate_shape as generate_hunyuan_shape
+        from regional_fusion import prepare_head_wrap_challenger
+
+        hunyuan_head_meta=generate_hunyuan_shape(
+            detail_views[0],
+            OUT/"hunyuan_head_geometry_donor.glb",
+            token=TOKEN,
+            seed=1994,
+            steps=30,
+            guidance_scale=5.0,
+            octree_resolution=384,
+            num_chunks=8000,
+            remove_background=True,
+        )
+        hunyuan_head_donor=Path(hunyuan_head_meta["path"])
+        hunyuan_head_wrap=prepare_head_wrap_challenger(
+            dst,
+            hunyuan_head_donor,
+            OUT/"hunyuan_head_geometry_wrap",
+            texture_size=max(1024,int(actual_texture_size or 0)),
+            require_rebake=True,
+            up_axis="y",
+            donor_scope="head",
+        )
+        hunyuan_head_geometry_payload={
+            "attempted":True,
+            "source_detail":detail_views[0].name,
+            "donor":hunyuan_head_meta,
+            "fusion":asdict(hunyuan_head_wrap),
+            "promoted":False,
+        }
+        print(
+            "HAYUYA_HUNYUAN_HEAD_GEOMETRY_FUSION",
+            json.dumps(
+                hunyuan_head_geometry_payload,
+                separators=(",",":"),
+            ),
+        )
+        if hunyuan_head_wrap.ready_for_judge and hunyuan_head_wrap.output_glb:
+            hunyuan_wrapped=Path(hunyuan_head_wrap.output_glb)
+            hunyuan_wrapped_mesh=inspect_mesh_gate(
+                hunyuan_wrapped,
+                require_normals=require_final_normals,
+            )
+            hunyuan_wrapped_texture=inspect_texture_gate(
+                hunyuan_wrapped,
+                min_edge=final_texture_min_edge,
+            )
+            hunyuan_head_geometry_payload["mesh_gate"]=asdict(
+                hunyuan_wrapped_mesh
+            )
+            hunyuan_head_geometry_payload["texture_gate"]=asdict(
+                hunyuan_wrapped_texture
+            )
+            if hunyuan_wrapped_mesh.passed and hunyuan_wrapped_texture.passed:
+                shutil.copy2(hunyuan_wrapped,dst)
+                data=dst.read_bytes()
+                hunyuan_head_geometry_payload["promoted"]=True
+                source_head_geometry_promoted=True
+                selected_compute=(
+                    selected_compute
+                    +" + Hunyuan3D source-head seam-limited geometry fusion"
+                )
+                print(
+                    "HAYUYA_HUNYUAN_HEAD_GEOMETRY_FUSION_PROMOTED",
+                    json.dumps(
+                        hunyuan_head_geometry_payload,
+                        separators=(",",":"),
+                    ),
+                )
+            else:
+                hunyuan_head_geometry_payload["rejected_reason"]="post_wrap_gate"
+        else:
+            hunyuan_head_geometry_payload["rejected_reason"]=(
+                hunyuan_head_wrap.error
+                or "regional_fusion_not_judge_ready"
+            )
+    except Exception as hunyuan_head_exc:
+        hunyuan_head_geometry_payload={
+            "attempted":True,
+            "source_detail":detail_views[0].name if detail_views else None,
+            "promoted":False,
+            "error":f"{type(hunyuan_head_exc).__name__}: {hunyuan_head_exc}",
+        }
+        print(
+            "::warning::HAYUYA Hunyuan source-head geometry unavailable; "
+            "falling back to TripoSR geometry continuity: "
+            +hunyuan_head_geometry_payload["error"]
+        )
+
 # Real head/detail evidence must affect the final character instead of only
 # being written to the manifest. Build a CPU TripoSR donor from the tight
 # source-derived head crop, align that donor to the semantic head region, and
@@ -1562,85 +1664,94 @@ if (
         # weak point. Try a seam-safe head-only geometry challenger first, then
         # layer its baseColor evidence onto whichever geometry survives.
         detail_geometry_fusion_payload=None
-        try:
-            from regional_fusion import prepare_head_wrap_challenger
-            detail_head_wrap=prepare_head_wrap_challenger(
-                dst,
-                detail_donor,
-                OUT/"detail_head_geometry_wrap",
-                texture_size=max(1024,int(actual_texture_size or 0)),
-                require_rebake=True,
-                up_axis="y",
-                donor_scope="head",
-            )
+        if source_head_geometry_promoted:
             detail_geometry_fusion_payload={
-                "attempted":True,
+                "attempted":False,
                 "source_detail":detail_views[0].name,
-                "fusion":asdict(detail_head_wrap),
                 "promoted":False,
+                "skipped_reason":"hunyuan_head_geometry_already_promoted",
             }
-            print(
-                "HAYUYA_DETAIL_HEAD_GEOMETRY_FUSION",
-                json.dumps(
-                    detail_geometry_fusion_payload,
-                    separators=(",",":"),
-                ),
-            )
-            if detail_head_wrap.ready_for_judge and detail_head_wrap.output_glb:
-                detail_wrapped=Path(detail_head_wrap.output_glb)
-                detail_wrapped_mesh=inspect_mesh_gate(
-                    detail_wrapped,
-                    require_normals=require_final_normals,
+        else:
+            try:
+                from regional_fusion import prepare_head_wrap_challenger
+                detail_head_wrap=prepare_head_wrap_challenger(
+                    dst,
+                    detail_donor,
+                    OUT/"detail_head_geometry_wrap",
+                    texture_size=max(1024,int(actual_texture_size or 0)),
+                    require_rebake=True,
+                    up_axis="y",
+                    donor_scope="head",
                 )
-                detail_wrapped_texture=inspect_texture_gate(
-                    detail_wrapped,
-                    min_edge=final_texture_min_edge,
+                detail_geometry_fusion_payload={
+                    "attempted":True,
+                    "source_detail":detail_views[0].name,
+                    "fusion":asdict(detail_head_wrap),
+                    "promoted":False,
+                }
+                print(
+                    "HAYUYA_DETAIL_HEAD_GEOMETRY_FUSION",
+                    json.dumps(
+                        detail_geometry_fusion_payload,
+                        separators=(",",":"),
+                    ),
                 )
-                detail_geometry_fusion_payload["mesh_gate"]=asdict(
-                    detail_wrapped_mesh
-                )
-                detail_geometry_fusion_payload["texture_gate"]=asdict(
-                    detail_wrapped_texture
-                )
-                if detail_wrapped_mesh.passed and detail_wrapped_texture.passed:
-                    shutil.copy2(detail_wrapped,dst)
-                    data=dst.read_bytes()
-                    detail_geometry_fusion_payload["promoted"]=True
-                    selected_compute=(
-                        selected_compute
-                        +" + CPU source-head seam-limited geometry fusion"
+                if detail_head_wrap.ready_for_judge and detail_head_wrap.output_glb:
+                    detail_wrapped=Path(detail_head_wrap.output_glb)
+                    detail_wrapped_mesh=inspect_mesh_gate(
+                        detail_wrapped,
+                        require_normals=require_final_normals,
                     )
-                    print(
-                        "HAYUYA_DETAIL_HEAD_GEOMETRY_FUSION_PROMOTED",
-                        json.dumps(
-                            detail_geometry_fusion_payload,
-                            separators=(",",":"),
-                        ),
+                    detail_wrapped_texture=inspect_texture_gate(
+                        detail_wrapped,
+                        min_edge=final_texture_min_edge,
                     )
+                    detail_geometry_fusion_payload["mesh_gate"]=asdict(
+                        detail_wrapped_mesh
+                    )
+                    detail_geometry_fusion_payload["texture_gate"]=asdict(
+                        detail_wrapped_texture
+                    )
+                    if detail_wrapped_mesh.passed and detail_wrapped_texture.passed:
+                        shutil.copy2(detail_wrapped,dst)
+                        data=dst.read_bytes()
+                        detail_geometry_fusion_payload["promoted"]=True
+                        source_head_geometry_promoted=True
+                        selected_compute=(
+                            selected_compute
+                            +" + CPU source-head seam-limited geometry fusion"
+                        )
+                        print(
+                            "HAYUYA_DETAIL_HEAD_GEOMETRY_FUSION_PROMOTED",
+                            json.dumps(
+                                detail_geometry_fusion_payload,
+                                separators=(",",":"),
+                            ),
+                        )
+                    else:
+                        detail_geometry_fusion_payload["rejected_reason"]=(
+                            "post_wrap_gate"
+                        )
                 else:
                     detail_geometry_fusion_payload["rejected_reason"]=(
-                        "post_wrap_gate"
+                        detail_head_wrap.error
+                        or "regional_fusion_not_judge_ready"
                     )
-            else:
-                detail_geometry_fusion_payload["rejected_reason"]=(
-                    detail_head_wrap.error
-                    or "regional_fusion_not_judge_ready"
+            except Exception as detail_geometry_exc:
+                detail_geometry_fusion_payload={
+                    "attempted":True,
+                    "source_detail":detail_views[0].name,
+                    "promoted":False,
+                    "error":(
+                        f"{type(detail_geometry_exc).__name__}: "
+                        f"{detail_geometry_exc}"
+                    ),
+                }
+                print(
+                    "::warning::HAYUYA source-head geometry challenger unavailable; "
+                    "continuing with the current safe geometry: "
+                    +detail_geometry_fusion_payload["error"]
                 )
-        except Exception as detail_geometry_exc:
-            detail_geometry_fusion_payload={
-                "attempted":True,
-                "source_detail":detail_views[0].name,
-                "promoted":False,
-                "error":(
-                    f"{type(detail_geometry_exc).__name__}: "
-                    f"{detail_geometry_exc}"
-                ),
-            }
-            print(
-                "::warning::HAYUYA source-head geometry challenger unavailable; "
-                "continuing with the current safe geometry: "
-                +detail_geometry_fusion_payload["error"]
-            )
 
         detail_fused=OUT/"hayuya_head_detail_fused.glb"
         fusion=fuse_local_basecolor(
@@ -1786,6 +1897,7 @@ manifest={
     "prepared_views":[p.name for p in crops],
     "prepared_detail_views":[p.name for p in detail_views],
     "head_geometry_fusion":head_geometry_fusion_payload,
+    "hunyuan_head_geometry_fusion":hunyuan_head_geometry_payload,
     "detail_fusion":detail_fusion_payload,
     "source_material_rescue":source_material_rescue_payload,
     "source_autofix":(
