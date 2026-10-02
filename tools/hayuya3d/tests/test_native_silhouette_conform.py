@@ -11,7 +11,10 @@ HERE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HERE))
 
 from native_geometry_guard import assert_native_candidate
-from native_silhouette_conform import conform_native_silhouette
+from native_silhouette_conform import (
+    _front_surface_vertex_mask,
+    conform_native_silhouette,
+)
 
 
 def _box(path: Path, extents=(1.0, 2.0, 0.45)):
@@ -36,6 +39,26 @@ def _source_rect(path: Path, *, width: int, height: int):
         fill=(180, 180, 180, 255),
     )
     image.save(path)
+
+
+def test_front_surface_gate_blocks_rear_vertices_at_same_projection():
+    depth = np.asarray([0.42, -0.31, 0.37, -0.22], dtype=np.float64)
+    px = np.asarray([40, 40, 90, 90], dtype=np.int64)
+    py = np.asarray([60, 60, 110, 110], dtype=np.int64)
+
+    visible, telemetry = _front_surface_vertex_mask(
+        depth,
+        px,
+        py,
+        size=160,
+        depth_tolerance_ratio=0.025,
+        neighborhood_px=1,
+    )
+
+    assert visible.tolist() == [True, False, True, False]
+    assert telemetry["visible_vertices"] == 2
+    assert telemetry["occluded_vertices"] == 2
+    assert telemetry["depth_tolerance_ratio"] == 0.025
 
 
 def test_native_conform_keeps_real_geometry_and_never_creates_proxy_nodes(tmp_path: Path):
@@ -67,6 +90,8 @@ def test_native_conform_keeps_real_geometry_and_never_creates_proxy_nodes(tmp_pa
     assert result["projection_proxy_created"] is False
     assert result["asset_specific_coordinates"] is False
     assert result["native_geometry_preserved"] is True
+    assert result["visibility_policy"]["mode"] == "camera-front-surface-only"
+    assert result["visibility_policy"]["rear_occluded_vertices_are_editable"] is False
     assert result["final"]["score"] >= result["initial"]["score"]
     assert_native_candidate(output, label="test-output")
 
