@@ -9,6 +9,8 @@ on:
       - "tools/sanctum_v2/build_sanctum_vertical_blockout.py"
       - "tools/sanctum_v2/export_vertical_xziel_package.py"
       - "tools/sanctum_v2/enrich_sanctum_cc0_props.py"
+      - "tools/sanctum_v2/reference_materials.py"
+      - "docs/sanctum-reference-materials.v2.json"
       - "docs/sanctum-vertical-layout.v1.json"
       - "tools/xziel_toolchain/xziel_navmesh_bake.cpp"
       - "tools/xziel_toolchain/extract_runtime_geometry.py"
