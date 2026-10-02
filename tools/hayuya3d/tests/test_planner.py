@@ -6,6 +6,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[3]
 HAYUYA_DIR = ROOT / "tools" / "hayuya3d"
@@ -216,6 +217,40 @@ class HayuyaPlannerTests(unittest.TestCase):
         self.assertEqual(plan["retopology"]["mode"], "auto")
         self.assertIn("Judge", plan["retopology"]["policy"])
         self.assertIn("skip", plan["retopology"]["rig_policy"])
+
+    def test_native_conform_blocks_nonstatic_gltf_features(self):
+        static = SimpleNamespace(
+            valid_glb=True,
+            errors=[],
+            skin_count=0,
+            animation_count=0,
+            morph_target_count=0,
+        )
+        self.assertEqual(hayuya.native_conform_mutation_blockers(static), [])
+
+        animated = SimpleNamespace(
+            valid_glb=True,
+            errors=[],
+            skin_count=1,
+            animation_count=4,
+            morph_target_count=7,
+        )
+        blockers = hayuya.native_conform_mutation_blockers(animated)
+        self.assertIn("skins=1", blockers)
+        self.assertIn("animations=4", blockers)
+        self.assertIn("morph_targets=7", blockers)
+
+        invalid = SimpleNamespace(
+            valid_glb=False,
+            errors=["bad accessor"],
+            skin_count=0,
+            animation_count=0,
+            morph_target_count=0,
+        )
+        blockers = hayuya.native_conform_mutation_blockers(invalid)
+        self.assertIn("invalid_glb", blockers)
+        self.assertIn("gltf_audit_errors=1", blockers)
+
 
     def test_job_plan_native_conform_is_generic_native_challenger(self):
         refs = [Path("/tmp/another_character_front.png")]
