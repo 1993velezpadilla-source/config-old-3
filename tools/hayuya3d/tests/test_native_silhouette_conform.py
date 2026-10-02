@@ -100,22 +100,45 @@ def test_legacy_projection_conform_rejects_generic_and_unprofiled_assets():
     assert legacy["legacy_monja_targeting"] is True
 
 
-def test_render_face_budget_is_deterministic_and_never_changes_source_faces():
-    faces = np.arange(90000, dtype=np.int64).reshape(-1, 3)
-    original = faces.copy()
+def test_render_face_budget_clusters_surface_and_preserves_components():
+    primary = trimesh.creation.icosphere(subdivisions=4, radius=1.0)
+    secondary = trimesh.creation.icosphere(subdivisions=3, radius=0.22)
+    secondary.apply_translation((1.75, 0.35, 0.10))
 
-    subset_a, meta_a = _bounded_render_faces(faces, max_faces=1200)
-    subset_b, meta_b = _bounded_render_faces(faces, max_faces=1200)
+    primary_vertex_count = len(primary.vertices)
+    mesh = trimesh.util.concatenate([primary, secondary])
+    vertices = np.asarray(mesh.vertices, dtype=np.float64)
+    faces = np.asarray(mesh.faces, dtype=np.int64)
+    original_vertices = vertices.copy()
+    original_faces = faces.copy()
 
-    assert len(subset_a) <= 1200
+    subset_a, meta_a = _bounded_render_faces(
+        vertices,
+        faces,
+        max_faces=1200,
+    )
+    subset_b, meta_b = _bounded_render_faces(
+        vertices,
+        faces,
+        max_faces=1200,
+    )
+
+    assert 0 < len(subset_a) <= 1200
     assert np.array_equal(subset_a, subset_b)
-    assert np.array_equal(faces, original)
+    assert np.array_equal(vertices, original_vertices)
+    assert np.array_equal(faces, original_faces)
     assert meta_a == meta_b
     assert meta_a["input_faces"] == len(faces)
     assert meta_a["render_faces"] == len(subset_a)
     assert meta_a["subsampled"] is True
-    assert np.array_equal(subset_a[0], faces[0])
-    assert np.array_equal(subset_a[-1], faces[-1])
+    assert meta_a["policy"] == "deterministic-vertex-clustered-surface-proxy"
+    assert meta_a["proxy_grid"] is not None
+    assert meta_a["proxy_vertices_used"] > 0
+
+    # The render proxy must preserve evidence from both disconnected objects,
+    # not merely sample whichever faces happen to dominate array order.
+    assert np.any(np.all(subset_a < primary_vertex_count, axis=1))
+    assert np.any(np.all(subset_a >= primary_vertex_count, axis=1))
 
 
 def test_topology_smoothing_reduces_isolated_active_spike_without_moving_inactive():
