@@ -42,9 +42,16 @@ replacement = '''        if (!XZSM_ReadExact(f, b->vertices, sizeof(*b->vertices
         /* XZSM v2 baked vertex lighting: clamp the floor so later lighting
          * passes cannot crush photogrammetry detail to black on Android. */
         for (j = 0; j < b->vertex_count; ++j) {
-            if (b->vertices[j].r < 144) b->vertices[j].r = 144;
-            if (b->vertices[j].g < 144) b->vertices[j].g = 144;
-            if (b->vertices[j].b < 144) b->vertices[j].b = 144;
+            /* Preserve baked light intensity but remove scan-zone RGB casts
+             * that were turning neutral stone blue/gray on Android. */
+            unsigned int lum = ((unsigned int)b->vertices[j].r +
+                                (unsigned int)b->vertices[j].g +
+                                (unsigned int)b->vertices[j].b) / 3u;
+            if (lum < 144u) lum = 144u;
+            if (lum > 255u) lum = 255u;
+            b->vertices[j].r = (unsigned char)lum;
+            b->vertices[j].g = (unsigned char)lum;
+            b->vertices[j].b = (unsigned char)lum;
             b->vertices[j].a = 255;
         }
 
@@ -183,7 +190,12 @@ draw_repl = '''    glEnable(GL_TEXTURE_2D);
     glDepthMask(GL_TRUE);
     glDisable(GL_BLEND);
     glDisable(GL_ALPHA_TEST);
-    glDisable(GL_CULL_FACE);
+    /* The source scan is consistently wound. Back-face culling removes
+     * the thin reverse-facing photogrammetry shards visible around windows
+     * and broken wall edges without touching gameplay collision. */
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
 #ifdef GL_FOG
     glDisable(GL_FOG);
 #endif
