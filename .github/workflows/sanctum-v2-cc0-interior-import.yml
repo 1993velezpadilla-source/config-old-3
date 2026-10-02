@@ -268,6 +268,18 @@ jobs:
           assert wood["object_count"]>=26, d
           assert wood["physical_tile_m"]>0 and wood["bump_distance_m"]>0, d
           assert len(upgrade["kept_authored_material_objects"])>0, d
+          cross=props["cross_scale_normalization"]
+          assert cross["cross_count"]>=3, d
+          assert cross["applied"] is True, d
+          assert 0.0 < cross["scale_factor"] < 1.0, d
+          assert cross["largest_height_before_m"] > cross["cap_height_m"], d
+          assert cross["largest_to_median_after"] <= 2.0001, d
+          legacy=props["legacy_shader_restore"]
+          assert legacy["restored_count"]>=4, d
+          assert legacy["packed_image_count"]>=2, d
+          assert all(m["legacy_surface_type"]!="BSDF_PRINCIPLED" for m in legacy["materials"]), d
+          assert any(m["legacy_surface_type"]=="BSDF_GLASS" for m in legacy["materials"]), d
+          assert any(m["legacy_surface_type"]=="MIX_SHADER" for m in legacy["materials"]), d
           floor=d["floor_upgrade"]
           assert floor["asset"]=="monastery_stone_floor", d
           assert floor["provider"]=="Poly Haven", d
