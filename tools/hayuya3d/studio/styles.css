@@ -32,6 +32,9 @@ h2 { margin:0; font-size:13px; letter-spacing:.04em; text-transform:uppercase; }
 .viewer-panel { grid-area:center; min-width:0; display:flex; flex-direction:column; background:radial-gradient(circle at 50% 42%, #1b2230 0%, #0c1017 42%, #080a0f 75%); }
 section { margin-bottom:20px; }
 .section-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; color:var(--muted); }
+.section-actions { display:flex; align-items:center; gap:8px; }
+.mini-ghost { border:1px solid var(--line); background:transparent; color:var(--muted); border-radius:999px; padding:4px 8px; font-size:11px; }
+.mini-ghost:hover { color:var(--text); border-color:rgba(255,255,255,.24); }
 .dropzone { display:flex; min-height:150px; flex-direction:column; align-items:center; justify-content:center; border:1px dashed rgba(39,217,255,.45); border-radius:var(--radius); background:rgba(39,217,255,.035); text-align:center; gap:4px; transition:.2s ease; }
 .dropzone.drag { border-color:var(--accent); background:rgba(255,45,154,.07); transform:scale(.995); }
 .face-dropzone { min-height:112px; border-color:rgba(255,45,154,.40); background:linear-gradient(135deg,rgba(255,45,154,.045),rgba(39,217,255,.025)); }
@@ -41,7 +44,11 @@ section { margin-bottom:20px; }
 .dropzone strong { font-size:15px; }
 .dropzone span, .dropzone small { color:var(--muted); }
 .thumbs { display:grid; grid-template-columns:repeat(4,1fr); gap:7px; margin-top:9px; }
-.thumb { aspect-ratio:1; width:100%; object-fit:cover; border-radius:10px; border:1px solid var(--line); background:#0a0d12; }
+.thumb-card { position:relative; min-width:0; }
+.thumb { aspect-ratio:1; width:100%; object-fit:cover; border-radius:10px; border:1px solid var(--line); background:#0a0d12; display:block; }
+.thumb-remove { position:absolute; top:4px; right:4px; width:24px; height:24px; border-radius:999px; border:1px solid rgba(255,255,255,.28); background:rgba(8,10,14,.82); color:#fff; font-size:18px; line-height:19px; padding:0; }
+.thumb-remove:hover { background:rgba(255,45,154,.88); }
+.thumb-name { display:block; margin-top:3px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; color:var(--muted); font-size:10px; }
 .controls { display:grid; gap:10px; }
 .controls label { display:grid; gap:6px; color:var(--muted); font-size:12px; font-weight:700; }
 select { border:1px solid var(--line); border-radius:12px; padding:10px 12px; background:#0e1219; outline:none; }
