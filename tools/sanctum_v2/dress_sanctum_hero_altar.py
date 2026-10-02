@@ -29,40 +29,24 @@ ymin=vertical_state["ymin"]; ymax=vertical_state["ymax"]
 STONE=vertical_state["STONE"]
 add_box=vertical_state["add_box"]
 
-def make_ref_material(name,base,roughness=0.55,metallic=0.0,noise_scale=0.0,noise_strength=0.0):
-    mat=bpy.data.materials.get(name) or bpy.data.materials.new(name)
-    mat.use_nodes=True
-    nt=mat.node_tree
-    bsdf=nt.nodes.get("Principled BSDF") if nt else None
-    if not bsdf:
-        return mat
-    bsdf.inputs["Base Color"].default_value=(*base,1.0)
-    bsdf.inputs["Roughness"].default_value=roughness
-    if "Metallic" in bsdf.inputs:
-        bsdf.inputs["Metallic"].default_value=metallic
-    if noise_scale>0.0:
-        noise=nt.nodes.new("ShaderNodeTexNoise")
-        noise.name=name+"_NOISE"
-        noise.inputs["Scale"].default_value=noise_scale
-        noise.inputs["Detail"].default_value=5.5
-        noise.inputs["Roughness"].default_value=0.72
-        bump=nt.nodes.new("ShaderNodeBump")
-        bump.name=name+"_BUMP"
-        bump.inputs["Strength"].default_value=noise_strength
-        bump.inputs["Distance"].default_value=0.12
-        nt.links.new(noise.outputs["Fac"],bump.inputs["Height"])
-        normal=bsdf.inputs.get("Normal")
-        if normal:
-            nt.links.new(bump.outputs["Normal"],normal)
-    return mat
+# Same reference-driven PBR library used by the floor and new pews.
+refmat=runpy.run_path("tools/sanctum_v2/reference_materials.py")
+REF=refmat["material_set"]()
+ALTAR_STONE=REF["stone"]
+ALTAR_WOOD=REF["wood_h"]
+ALTAR_WOOD_V=REF["wood_v"]
+ALTAR_CLOTH=REF["cloth"]
+ALTAR_GOLD=REF["gold"]
+ALTAR_CANDLE=REF["wax"]
+ALTAR_IRON=REF["iron"]
 
-ALTAR_STONE=make_ref_material("SANCTUM_REF_ALTAR_STONE",(0.115,0.095,0.078),0.42,0.0,5.8,0.24)
-ALTAR_WOOD=make_ref_material("SANCTUM_REF_ALTAR_WOOD",(0.055,0.024,0.014),0.38,0.0,4.2,0.16)
-ALTAR_CLOTH=make_ref_material("SANCTUM_REF_ALTAR_CLOTH",(0.19,0.015,0.022),0.62,0.0,9.5,0.08)
-ALTAR_GOLD=make_ref_material("SANCTUM_REF_ALTAR_GOLD",(0.54,0.27,0.055),0.28,0.72,0.0,0.0)
-ALTAR_PAPER=make_ref_material("SANCTUM_REF_ALTAR_PAPER",(0.72,0.62,0.46),0.76,0.0,7.5,0.05)
-ALTAR_CANDLE=make_ref_material("SANCTUM_REF_ALTAR_CANDLE",(0.88,0.66,0.34),0.64,0.0,10.0,0.05)
-ALTAR_IRON=make_ref_material("SANCTUM_REF_ALTAR_IRON",(0.035,0.029,0.025),0.31,0.72,3.0,0.10)
+# Page material remains deliberately matte/aged so the book does not glow.
+ALTAR_PAPER=bpy.data.materials.get("SANCTUM_REF_ALTAR_PAPER") or bpy.data.materials.new("SANCTUM_REF_ALTAR_PAPER")
+ALTAR_PAPER.use_nodes=True
+paper_bsdf=ALTAR_PAPER.node_tree.nodes.get("Principled BSDF")
+if paper_bsdf:
+    paper_bsdf.inputs["Base Color"].default_value=(0.68,0.57,0.42,1.0)
+    paper_bsdf.inputs["Roughness"].default_value=0.78
 
 def add_cylinder(name,location,radius,depth,mat,role="hero_altar_detail",collision=False,vertices=24):
     bpy.ops.mesh.primitive_cylinder_add(vertices=vertices,radius=radius,depth=depth,location=location)
@@ -72,6 +56,18 @@ def add_cylinder(name,location,radius,depth,mat,role="hero_altar_detail",collisi
         obj.data.materials.append(mat)
     obj["xziel_role"]=role
     obj["xziel_collision"]=bool(collision)
+    return obj
+
+def add_segment(name,a,b,radius,mat,role="hero_altar_detail"):
+    a=Vector(a); b=Vector(b)
+    d=b-a
+    bpy.ops.mesh.primitive_cylinder_add(vertices=14,radius=radius,depth=d.length,location=(a+b)*0.5)
+    obj=bpy.context.object
+    obj.name=name
+    obj.rotation_euler=d.to_track_quat("Z","Y").to_euler()
+    obj.data.materials.append(mat)
+    obj["xziel_role"]=role
+    obj["xziel_collision"]=False
     return obj
 
 def fail(msg):
@@ -201,6 +197,57 @@ hero.append(add_box(
     (0.42,0.025,0.095),
     ALTAR_GOLD,"hero_altar_detail",False
 ))
+# Gold cloth edging from the supplied closeup: narrow aged trim, not bright UI gold.
+cloth_y=altar_y-0.686
+for idx,(cx,cz,sx,sz) in enumerate([
+    (ic.x, floor_z+1.48, 1.48,0.035),
+    (ic.x, floor_z+0.58, 1.48,0.035),
+    (ic.x-0.72,floor_z+1.03,0.035,0.92),
+    (ic.x+0.72,floor_z+1.03,0.035,0.92),
+]):
+    hero.append(add_box(
+        f"SANCTUM_HERO_ALTAR_CLOTH_TRIM_{idx}",
+        (cx,cloth_y,cz),(sx,0.018,sz),ALTAR_GOLD,"hero_altar_detail",False
+    ))
+
+# Three pointed Gothic relief panels across the timber front. The center is
+# partially covered by the frontal; side panels remain clearly readable.
+for panel_i,xoff in enumerate((-1.02,0.0,1.02),1):
+    x=ic.x+xoff
+    y=altar_y-0.665
+    z0=floor_z+0.65
+    z1=floor_z+1.15
+    apex=floor_z+1.36
+    for seg_i,(a,b) in enumerate([
+        ((x-0.27,y,z0),(x-0.27,y,z1)),
+        ((x+0.27,y,z0),(x+0.27,y,z1)),
+        ((x-0.27,y,z1),(x,y,apex)),
+        ((x+0.27,y,z1),(x,y,apex)),
+    ]):
+        hero.append(add_segment(
+            f"SANCTUM_HERO_ALTAR_GOTHIC_{panel_i}_{seg_i}",a,b,0.024,ALTAR_WOOD_V
+        ))
+
+# Raised corner pilasters and stepped top/base rails add the all-angle weight
+# visible in the reference model rather than reading as one plain cube.
+for sign in (-1.0,1.0):
+    x=ic.x+sign*1.60
+    hero.append(add_box(
+        f"SANCTUM_HERO_ALTAR_FRONT_PILASTER_{'L' if sign<0 else 'R'}",
+        (x,altar_y-0.62,floor_z+1.02),(0.20,0.16,1.16),ALTAR_WOOD_V,"hero_altar_detail",False
+    ))
+    hero.append(add_box(
+        f"SANCTUM_HERO_ALTAR_PILASTER_CAP_{'L' if sign<0 else 'R'}",
+        (x,altar_y-0.62,floor_z+1.62),(0.32,0.24,0.10),ALTAR_WOOD,"hero_altar_detail",False
+    ))
+hero.append(add_box(
+    "SANCTUM_HERO_ALTAR_FRONT_TOP_TRIM",
+    (ic.x,altar_y-0.63,floor_z+1.56),(3.52,0.16,0.11),ALTAR_WOOD,"hero_altar_detail",False
+))
+hero.append(add_box(
+    "SANCTUM_HERO_ALTAR_FRONT_BASE_TRIM",
+    (ic.x,altar_y-0.63,floor_z+0.51),(3.52,0.18,0.13),ALTAR_WOOD,"hero_altar_detail",False
+))
 
 # Open book: two leaves pitched slightly away from the spine.
 book_z=floor_z+1.63
@@ -215,7 +262,7 @@ for sign in (-1.0,1.0):
     hero.append(page)
 
 # Two dark iron candelabra groups plus warm wax candles.
-candle_x=(-1.18,-0.76,0.76,1.18)
+candle_x=(-1.28,-0.98,-0.68,-0.38,0.38,0.68,0.98,1.28)
 for idx,xoff in enumerate(candle_x,1):
     base=add_cylinder(
         f"SANCTUM_HERO_ALTAR_CANDLE_BASE_{idx}",
@@ -233,6 +280,23 @@ for idx,xoff in enumerate(candle_x,1):
         0.075,0.34,ALTAR_CANDLE,"hero_altar_detail",False,20
     )
     hero.extend([base,stem,wax])
+
+# Central altar cross, built as aged metal geometry so it reads from the nave.
+cross_z=floor_z+2.28
+hero.append(add_cylinder(
+    "SANCTUM_HERO_ALTAR_TOP_CROSS_STEM",
+    (ic.x,altar_y+0.03,cross_z),0.035,1.15,ALTAR_GOLD,"hero_altar_detail",False,18
+))
+hero.append(add_segment(
+    "SANCTUM_HERO_ALTAR_TOP_CROSS_BAR",
+    (ic.x-0.34,altar_y+0.03,cross_z+0.18),
+    (ic.x+0.34,altar_y+0.03,cross_z+0.18),
+    0.035,ALTAR_GOLD
+))
+hero.append(add_cylinder(
+    "SANCTUM_HERO_ALTAR_TOP_CROSS_BASE",
+    (ic.x,altar_y+0.03,floor_z+1.69),0.16,0.10,ALTAR_IRON,"hero_altar_detail",False,24
+))
 
 # Safety: hero altar stays in the apse end-zone and cannot consume the central
 # training loop or leave the playable shell.
@@ -349,18 +413,19 @@ if not glb.is_file() or glb.stat().st_size<1000000:
 stats=mesh_stats([o for o in export_objects if o.type=="MESH"])
 report={
     "status":"PASS",
-    "stage":"hero-altar-reference-v2",
+    "stage":"hero-altar-reference-v3",
     "source":"OpenGameArt 3TD Fantasy Ruins Pack",
     "license":"CC0",
     "source_sha256":os.environ.get("SANCTUM_RUINS_SHA256",""),
     "source_objects":["TempleRuinTwo300","Object.001"],
     "hero_objects":[o.name for o in hero],
     "hero_camera":{"eye_height_m":1.88,"lens_mm":31.0,"view":"raised_main_door_reference_match"},
-    "reference_materials":["dark_worn_stone","dark_gothic_wood","burgundy_cloth","aged_gold","warm_wax","black_iron"],
+    "reference_material_profile":"docs/sanctum-reference-materials.v2.json",
+    "reference_materials":["wet_dark_stone","aged_masonry","dark_gothic_wood","burgundy_cloth","aged_gold","warm_wax","black_iron"],
     "apse_scale":0.42,
     "altar_slab_scale":0.55,
     "altar_step_count":3,
-    "altar_candle_count":4,
+    "altar_candle_count":8,
     "apse_y":apse_y,
     "altar_y":altar_y,
     "renders":renders,
