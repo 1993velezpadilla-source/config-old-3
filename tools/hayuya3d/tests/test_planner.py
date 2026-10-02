@@ -121,6 +121,104 @@ class HayuyaPlannerTests(unittest.TestCase):
         self.assertEqual(plan["reference_pool"]["detail_source_count"], 2)
         self.assertEqual(plan["multi_reference"]["group_count"], 1)
 
+    def test_unnamed_large_face_is_reclassified_as_real_head_detail(self):
+        full=Path("/tmp/IMG_0001.png").resolve()
+        close=Path("/tmp/IMG_1234.png").resolve()
+        report=SimpleNamespace(
+            sources=[
+                SimpleNamespace(
+                    source=str(full),
+                    direct_face_detected=True,
+                    semantic_face_or_head_confirmed=True,
+                    face_box_fraction=0.012,
+                    face_detail="/tmp/source_autofix/details/000-face_detail-auto.png",
+                ),
+                SimpleNamespace(
+                    source=str(close),
+                    direct_face_detected=True,
+                    semantic_face_or_head_confirmed=True,
+                    face_box_fraction=0.24,
+                    face_detail="/tmp/source_autofix/details/001-face_detail-auto.png",
+                ),
+            ]
+        )
+
+        geometry,details,semantic=hayuya.reclassify_semantic_face_closeups(
+            [full,close],
+            [],
+            report,
+        )
+
+        self.assertEqual(geometry,[full])
+        self.assertEqual(details,[close])
+        self.assertEqual(semantic,[close])
+        self.assertEqual(
+            hayuya.face_seed_hypothesis_count(
+                "monster",
+                details,
+                semantic_head_inputs=semantic,
+            ),
+            2,
+        )
+        self.assertTrue(
+            hayuya.is_head_detail_evidence(
+                close,
+                semantic_head_inputs=semantic,
+            )
+        )
+
+    def test_semantic_closeup_reclassification_never_removes_all_geometry(self):
+        a=Path("/tmp/IMG_A.png").resolve()
+        b=Path("/tmp/IMG_B.png").resolve()
+        report=SimpleNamespace(
+            sources=[
+                SimpleNamespace(
+                    source=str(a),
+                    direct_face_detected=True,
+                    semantic_face_or_head_confirmed=True,
+                    face_box_fraction=0.31,
+                ),
+                SimpleNamespace(
+                    source=str(b),
+                    direct_face_detected=True,
+                    semantic_face_or_head_confirmed=True,
+                    face_box_fraction=0.29,
+                ),
+            ]
+        )
+        geometry,details,semantic=hayuya.reclassify_semantic_face_closeups(
+            [a,b],
+            [],
+            report,
+        )
+        self.assertEqual(len(geometry),1)
+        self.assertEqual(len(details),1)
+        self.assertEqual(len(semantic),1)
+        self.assertNotEqual(geometry[0],details[0])
+
+    def test_job_plan_accepts_content_routed_reference_roles(self):
+        full=Path("/tmp/IMG_full.png")
+        close=Path("/tmp/IMG_close.png")
+        plan=hayuya.make_job_plan(
+            [full,close],
+            profile_name="monster",
+            mode="character",
+            seed=1993,
+            selected_backends=["triposg"],
+            model_root=Path("/tmp/models"),
+            geometry_inputs_override=[full],
+            real_detail_inputs_override=[close],
+            semantic_head_detail_inputs=[close],
+        )
+        pool=plan["reference_pool"]
+        self.assertEqual(pool["geometry_sources"],[str(full)])
+        self.assertEqual(pool["real_detail_sources"],[str(close)])
+        self.assertEqual(
+            pool["semantic_head_detail_sources"],
+            [str(close)],
+        )
+        self.assertTrue(plan["face_seed_tournament"]["enabled"])
+
     def test_face_seed_tournament_is_bounded_and_face_conditioned(self):
         face = Path("/tmp/refs/details/face_detail.png")
         hand = Path("/tmp/refs/details/hand_detail.png")
