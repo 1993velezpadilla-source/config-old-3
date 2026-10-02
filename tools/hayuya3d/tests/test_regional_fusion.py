@@ -195,6 +195,47 @@ class RegionalFusionTests(unittest.TestCase):
         for _axis,_sign,matrix in candidates:
             self.assertAlmostEqual(float(np.linalg.det(matrix)),1.0,places=7)
 
+    def test_head_orientation_recovers_negative_up_sign_without_reflection(self):
+        sphere=trimesh.creation.icosphere(subdivisions=3,radius=1.0)
+        base=np.asarray(sphere.vertices,dtype=np.float64).copy()
+        base[:,0]*=0.78
+        base[:,1]*=1.08
+        base[:,2]*=0.74
+        nose=(base[:,1]>0.0)&(base[:,2]>0.30)&(np.abs(base[:,0])<0.30)
+        base[nose,2]+=0.24
+
+        # Proper 180 degree rotation around X: source remains Y-axis based but
+        # positive Y becomes negative Y, with Z flipped too (determinant +1).
+        donor=base.copy()
+        donor[:,1]*=-1.0
+        donor[:,2]*=-1.0
+
+        (
+            _aligned,
+            _scale,
+            source_up_axis,
+            axis_remapped,
+            _confidence,
+            _yaw,
+            score,
+            telemetry,
+        )=_orient_head_donor_to_base(
+            donor,
+            base,
+            np.zeros(3,dtype=np.float64),
+            1,
+        )
+
+        self.assertEqual(source_up_axis,1)
+        self.assertTrue(axis_remapped)
+        self.assertEqual(telemetry["source_up_sign"],-1)
+        self.assertAlmostEqual(
+            telemetry["proper_rotation_determinant"],
+            1.0,
+            places=7,
+        )
+        self.assertLess(score,0.08)
+
     def test_head_orientation_uses_base_fit_when_width_exceeds_height(self):
         sphere=trimesh.creation.icosphere(subdivisions=3,radius=1.0)
         base=np.asarray(sphere.vertices,dtype=np.float64).copy()
