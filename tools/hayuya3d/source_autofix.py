@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import math
 import subprocess
 import sys
 from dataclasses import asdict, dataclass
@@ -246,6 +247,48 @@ def _mediapipe_pose_head(source: Path, out_path: Path, cache_path: Path):
     return None
 
 
+def _foreground_vertical_alignment(mask: np.ndarray) -> dict:
+    """Measure whether a foreground silhouette supports a top=head assumption."""
+    ys,xs=np.where(np.asarray(mask,dtype=bool))
+    if len(xs)<128:
+        return {
+            "ready":False,
+            "vertical_alignment":0.0,
+            "elongation":0.0,
+            "samples":int(len(xs)),
+        }
+
+    if len(xs)>20000:
+        ids=np.linspace(0,len(xs)-1,20000,dtype=np.int64)
+        xs=xs[ids]
+        ys=ys[ids]
+
+    points=np.stack(
+        [xs.astype(np.float64),ys.astype(np.float64)],
+        axis=1,
+    )
+    points-=points.mean(axis=0,keepdims=True)
+    cov=np.cov(points,rowvar=False)
+    values,vectors=np.linalg.eigh(cov)
+    order=np.argsort(values)
+    major=float(max(values[order[-1]],1e-9))
+    minor=float(max(values[order[-2]],1e-9))
+    principal=vectors[:,order[-1]]
+    vertical_alignment=float(
+        abs(principal[1])/max(float(np.linalg.norm(principal)),1e-9)
+    )
+    elongation=float(math.sqrt(major/minor))
+    return {
+        "ready":bool(
+            vertical_alignment>=0.72
+            and elongation>=1.12
+        ),
+        "vertical_alignment":vertical_alignment,
+        "elongation":elongation,
+        "samples":int(len(xs)),
+    }
+
+
 def _foreground_head_zoom(source: Path, out_path: Path):
     """Recover a head-region zoom from the real subject silhouette without inventing pixels."""
     image = Image.open(source).convert("RGBA")
@@ -271,6 +314,10 @@ def _foreground_head_zoom(source: Path, out_path: Path):
 
     ys, xs = np.where(mask)
     if len(xs) < 128:
+        return None
+
+    orientation=_foreground_vertical_alignment(mask)
+    if not orientation["ready"]:
         return None
 
     x0, x1 = int(xs.min()), int(xs.max())
@@ -330,6 +377,14 @@ def _foreground_head_zoom(source: Path, out_path: Path):
         "output_size": [crop.width, crop.height],
         "alpha_preserved": True,
         "semantic_face_or_head_confirmed": False,
+        "silhouette_vertical_alignment": round(
+            float(orientation["vertical_alignment"]),
+            8,
+        ),
+        "silhouette_elongation": round(
+            float(orientation["elongation"]),
+            8,
+        ),
     }
 
 
