@@ -36,6 +36,22 @@ if gameplay_floor is not None and gameplay_floor.type=="MESH":
     gameplay_floor.data.materials.append(REF["floor"])
     gameplay_floor["material_source"]="Sanctum reference board / procedural PBR v2"
 
+# Upgrade only materials that are explicitly named as glass/window materials.
+# This avoids flattening the existing church art while giving true window
+# surfaces the blue/red/gold stained-glass response from the reference board.
+stained_glass_slots=0
+for obj in base_export:
+    if obj.type!="MESH":
+        continue
+    for slot in obj.material_slots:
+        mat=slot.material
+        if mat is None:
+            continue
+        n=mat.name.lower()
+        if "glass" in n or "window" in n or "vitra" in n:
+            slot.material=REF["glass"]
+            stained_glass_slots += 1
+
 ic=Vector(inner_after["center"])
 isz=Vector(inner_after["size"])
 floor_z=Vector(inner_after["min"]).z + 0.12
@@ -323,6 +339,7 @@ report={
     "bench_source":"user Sanctum pew all-angle reference / original procedural reconstruction",
     "bench_source_sha256":"",
     "reference_material_profile":"docs/sanctum-reference-materials.v2.json",
+    "stained_glass_slots_upgraded":stained_glass_slots,
     "candle_source":"https://opengameart.org/content/medieval-candles",
     "candle_source_sha256":os.environ.get("SANCTUM_CANDLE_SHA256",""),
     "pew_source_object":"SANCTUM_PEW_REFERENCE_TEMPLATE",
