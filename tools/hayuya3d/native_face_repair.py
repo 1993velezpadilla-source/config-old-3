@@ -193,6 +193,7 @@ def prepare_source_face_repair_challenger(
 
     try:
         assert_native_candidate(base_mesh, label="source_face_repair_base")
+        assert_native_volumetric(base_mesh, label="source_face_repair_base")
         backend = select_head_donor_backend(list(selected_backends), Path(model_root))
         if backend is None:
             return SourceFaceRepairResult(
@@ -254,6 +255,10 @@ def prepare_source_face_repair_challenger(
 
         candidate_path = Path(candidate)
         assert_native_candidate(candidate_path, label="source_face_repair_output")
+        assert_native_volumetric(
+            candidate_path,
+            label="source_face_repair_output",
+        )
         return SourceFaceRepairResult(
             attempted=True,
             ready=True,
