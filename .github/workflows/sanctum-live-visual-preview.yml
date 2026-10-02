@@ -4,6 +4,7 @@ on:
   workflow_run:
     workflows:
       - "Sanctum Hero Altar"
+      - "Sanctum Front Door Reference Match"
     types:
       - completed
   push:
@@ -43,13 +44,19 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           EVENT_NAME: ${{ github.event_name }}
           EVENT_RUN_ID: ${{ github.event.workflow_run.id }}
+          EVENT_WORKFLOW: ${{ github.event.workflow_run.name }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           if [[ "$EVENT_NAME" == "workflow_run" && -n "${EVENT_RUN_ID:-}" ]]; then
             RUN_ID="$EVENT_RUN_ID"
-            ARTIFACT="XZIEL-Sanctum-Hero-Altar"
-            KIND="hero"
+            if [[ "${EVENT_WORKFLOW:-}" == "Sanctum Front Door Reference Match" ]]; then
+              ARTIFACT="XZIEL-Sanctum-Front-Door-Reference"
+              KIND="reference"
+            else
+              ARTIFACT="XZIEL-Sanctum-Hero-Altar"
+              KIND="hero"
+            fi
           else
             # Immediate bootstrap: publish the last known GREEN Vertical #7 view
             # while the new Hero build is still rendering. A completed Hero run
@@ -104,7 +111,16 @@ jobs:
           fi
 
           KIND="${SOURCE_KIND}"
-          if [[ "$KIND" == "hero" ]]; then
+          if [[ "$KIND" == "reference" ]]; then
+            hero="$(find visual-artifact -type f -name '00-front-door-reference-match.png' -print -quit)"
+            pairs=(
+              "01-reference-altar-detail.png:mid-nave.png"
+              "02-reference-stained-glass.png:three-quarter.png"
+              "00-front-door-reference-match.png:side.png"
+            )
+            report="$(find visual-artifact -type f -name 'reference-entrance-report.json' -print -quit)"
+            pipe="$(find visual-artifact -type f -name 'sanctum-reference-entrance.pipeline.json' -print -quit)"
+          elif [[ "$KIND" == "hero" ]]; then
             hero="$(find visual-artifact -type f -name '01-hero-altar-from-nave.png' -print -quit)"
             pairs=(
               "02-hero-altar-mid-nave.png:mid-nave.png"
@@ -137,7 +153,7 @@ jobs:
           nav="$(find visual-artifact -type f -name 'navmesh-report.json' -print -quit)"
           col="$(find visual-artifact -type f -name 'collision-report.json' -print -quit)"
 
-          [[ -n "$report" ]] && cp "$report" /tmp/sanctum-live-site/hero-altar-report.json
+          [[ -n "$report" ]] && cp "$report" /tmp/sanctum-live-site/source-report.json
           [[ -n "$nav" ]] && cp "$nav" /tmp/sanctum-live-site/navmesh-report.json
           [[ -n "$col" ]] && cp "$col" /tmp/sanctum-live-site/collision-report.json
           [[ -n "$pipe" ]] && cp "$pipe" /tmp/sanctum-live-site/pipeline-report.json
@@ -149,7 +165,7 @@ jobs:
           def load(name):
               p=root/name
               return json.loads(p.read_text()) if p.exists() else {}
-          hero=load("hero-altar-report.json")
+          hero=load("source-report.json")
           nav=load("navmesh-report.json")
           col=load("collision-report.json")
           pipe=load("pipeline-report.json")
@@ -158,7 +174,7 @@ jobs:
               "source_run_id":os.environ["SOURCE_RUN_ID"],
               "source_kind":os.environ["SOURCE_KIND"],
               "hero_status":hero.get("status","UNKNOWN"),
-              "hero_camera":hero.get("hero_camera",{}),
+              "hero_camera":hero.get("camera", hero.get("hero_camera",{})),
               "nav_status":nav.get("status","UNKNOWN"),
               "nav_polygons":nav.get("nav_polygons"),
               "nav_vertical_span":nav.get("nav_vertical_span"),
