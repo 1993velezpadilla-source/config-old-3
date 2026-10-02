@@ -131,7 +131,11 @@
       "impressionListenSeconds": 1,
       "cooldownSeconds": 45,
       "maxImpressionsPerSession": 1,
-      "placeholderAudio": "ads/church/radio_dummy.wav"
+      "placeholderAudio": "ads/church/radio_dummy.wav",
+      "requiresUserInitiation": true,
+      "maximumCreativeSeconds": 30,
+      "preferredCreativeSeconds": 15,
+      "audibleDisclosureRequired": true
     }
   ]
 }
