@@ -1,0 +1,20 @@
+{
+  "schema": 2,
+  "job_id": "monja-nun-0-mur3s4kw-visibility-planar",
+  "owner": "HAYUYA_WEB",
+  "title": "Monja nun #0 visibility planar texture rerun",
+  "geometry_input": "hayuya/assets/monja-nun-0-mur3s4kw-generalized/geometry/primary.webp",
+  "reference_dir": "",
+  "detail_dir": "",
+  "profile": "monster",
+  "mode": "character",
+  "asset_profile": "character.humanoid",
+  "weapon_family": "auto",
+  "animation_requested": false,
+  "motion_profile": "hayuya_auto",
+  "texture_quality": "high",
+  "portable_target": "high",
+  "gpu_vram": 24,
+  "backends": "hunyuan3d_2_1,trellis2,triposg,spar3d,triposr",
+  "retry_token": "visibility-planar-20261002"
+}
