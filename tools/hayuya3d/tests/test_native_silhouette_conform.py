@@ -173,6 +173,32 @@ def test_front_surface_gate_blocks_rear_vertices_at_same_projection():
     assert telemetry["depth_tolerance_ratio"] == 0.025
 
 
+def test_native_conform_noop_preserves_exact_glb_bytes(tmp_path: Path):
+    native = tmp_path / "native.glb"
+    source = tmp_path / "source.png"
+    output = tmp_path / "noop.glb"
+
+    _box(native, extents=(1.0, 2.0, 0.45), subdivisions=1)
+    _source_rect(source, width=118, height=190)
+
+    before = native.read_bytes()
+    result = conform_native_silhouette(
+        native,
+        source,
+        output,
+        size=160,
+        iterations=1,
+        boundary_band_px=8.0,
+        max_target_px=20.0,
+        per_vertex_cap_px=0.0,
+    )
+
+    assert result["geometry_changed"] is False
+    assert result["accepted_passes"] == 0
+    assert result["no_op_preserves_exact_input_bytes"] is True
+    assert output.read_bytes() == before
+
+
 def test_native_conform_keeps_real_geometry_and_never_creates_proxy_nodes(tmp_path: Path):
     native = tmp_path / "native.glb"
     source = tmp_path / "source.png"
