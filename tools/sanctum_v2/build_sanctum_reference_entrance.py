@@ -242,10 +242,13 @@ for obj in scene.objects:
 altar_y=ic.y+half_l*0.49
 step_z=floor_z
 altar=[]
+# The reference pedestal is only slightly wider than the altar body.
+# Keep the complete silhouette inside the measured 11-24% screen-width gate
+# from the front threshold; a 6.1 m base projected too wide at ~19.6 m.
 step_specs=[
-    (6.1,2.25,0.18),
-    (5.72,1.92,0.18),
-    (5.34,1.62,0.18),
+    (4.92,2.15,0.18),
+    (4.72,1.86,0.18),
+    (4.52,1.58,0.18),
 ]
 acc=0.0
 for i,(w,d,h) in enumerate(step_specs,1):
