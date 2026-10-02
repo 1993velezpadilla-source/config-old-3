@@ -7,6 +7,9 @@ on:
     paths:
       - ".github/workflows/sanctum-hero-altar.yml"
       - "tools/sanctum_v2/dress_sanctum_hero_altar.py"
+      - "tools/sanctum_v2/reference_materials.py"
+      - "tools/sanctum_v2/enrich_sanctum_cc0_props.py"
+      - "docs/sanctum-reference-materials.v2.json"
       - "tools/sanctum_v2/dress_sanctum_industrial_undercroft.py"
       - "tools/sanctum_v2/build_sanctum_vertical_blockout.py"
       - "tools/xziel_toolchain/extract_runtime_geometry.py"
@@ -126,11 +129,12 @@ jobs:
           assert d["license"]=="CC0",d
           assert len(d["source_sha256"])==64,d
           assert d["source_objects"]==["TempleRuinTwo300","Object.001"],d
-          assert len(d["hero_objects"])>=20,d
+          assert len(d["hero_objects"])>=45,d
           assert d["altar_step_count"]==3,d
-          assert d["altar_candle_count"]==4,d
+          assert d["altar_candle_count"]==8,d
           assert d["hero_camera"]["eye_height_m"]>=1.88,d
           assert d["hero_camera"]["lens_mm"]==31.0,d
+          assert d["reference_material_profile"]=="docs/sanctum-reference-materials.v2.json",d
           assert len(d["renders"])==4,d
           assert d["glb_bytes"]>1000000,d
           for x in d["renders"]:
