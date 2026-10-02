@@ -591,14 +591,16 @@ jobs:
           fi
           git commit -m "hayuya: persist $HAYUYA_JOB_ID for Hub preview"
 
+          target_branch="${GITHUB_REF_NAME:-art/hayuya-core-generalize-v1}"
           for attempt in 1 2 3 4 5; do
-            git pull --rebase origin art/hayuya-monster-v1 || {
+            git fetch origin "$target_branch"
+            git rebase "origin/$target_branch" || {
               git rebase --abort || true
               sleep $((attempt * 2))
               continue
             }
-            if git push origin HEAD:art/hayuya-monster-v1; then
-              echo "HAYUYA_MODEL_PERSISTED $HAYUYA_JOB_ID"
+            if git push origin "HEAD:$target_branch"; then
+              echo "HAYUYA_MODEL_PERSISTED $HAYUYA_JOB_ID branch=$target_branch"
               exit 0
             fi
             sleep $((attempt * 2))
