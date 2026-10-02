@@ -1,0 +1,82 @@
+name: Sanctum Alternate CC0 Altar Census
+
+on:
+  push:
+    branches:
+      - feature/xziel-map-builder-agent-v1
+    paths:
+      - ".github/workflows/sanctum-cc0-alt-altar-census.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sanctum-cc0-alt-altar-census-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  census:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Fetch verified CC0 altar source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p altar-census external-alt-altar
+          curl -L --fail --retry 3 https://opengameart.org/content/altar -o altar-census/source-page.html
+          grep -qi "CC0" altar-census/source-page.html
+          grep -qi "altar.tar.gz" altar-census/source-page.html
+
+          URL="$(python3 - <<'PY'
+          import re
+          from html import unescape
+          s=open("altar-census/source-page.html",encoding="utf-8",errors="ignore").read()
+          m=re.search(r'href="([^"]*altar\.tar\.gz[^"]*)"',s,re.I)
+          if not m:
+              raise SystemExit("altar archive link missing")
+          u=unescape(m.group(1))
+          if u.startswith("/"):
+              u="https://opengameart.org"+u
+          print(u)
+          PY
+          )"
+          echo "ARCHIVE_URL=$URL" | tee altar-census/source-url.txt
+          curl -L --fail --retry 3 "$URL" -o /tmp/altar.tar.gz
+          test -s /tmp/altar.tar.gz
+          sha256sum /tmp/altar.tar.gz | tee altar-census/source.sha256
+          tar -tzf /tmp/altar.tar.gz | tee altar-census/archive-files.txt
+          tar -xzf /tmp/altar.tar.gz -C external-alt-altar
+
+      - name: Census extracted asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "SOURCE=https://opengameart.org/content/altar"
+            echo "LICENSE=CC0"
+            echo "ARCHIVE_BYTES=$(stat -c%s /tmp/altar.tar.gz)"
+            echo "SHA256=$(cut -d' ' -f1 altar-census/source.sha256)"
+            echo
+            echo "ALL_FILES"
+            find external-alt-altar -type f -printf '%s %p\n' | sort -nr
+            echo
+            echo "BLEND_COUNT=$(find external-alt-altar -type f -iname '*.blend' | wc -l)"
+            echo "OBJ_COUNT=$(find external-alt-altar -type f -iname '*.obj' | wc -l)"
+            echo "FBX_COUNT=$(find external-alt-altar -type f -iname '*.fbx' | wc -l)"
+            echo "GLB_COUNT=$(find external-alt-altar -type f -iname '*.glb' | wc -l)"
+          } | tee altar-census/census.txt
+
+          MODELS="$(find external-alt-altar -type f \( -iname '*.blend' -o -iname '*.obj' -o -iname '*.fbx' -o -iname '*.glb' -o -iname '*.gltf' \) | wc -l)"
+          test "$MODELS" -ge 1
+
+      - name: Upload census
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-Alternate-CC0-Altar-Census
+          path: altar-census/
+          if-no-files-found: error
+          retention-days: 14
