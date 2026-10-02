@@ -213,6 +213,27 @@ def face_seed_hypothesis_count(profile_name: str, detail_inputs: list[Path]) -> 
     return 1
 
 
+def native_conform_mutation_blockers(gltf_audit) -> list[str]:
+    """Return GLB features that a trimesh vertex round-trip must not touch."""
+    blockers: list[str] = []
+    if not bool(getattr(gltf_audit, "valid_glb", True)):
+        blockers.append("invalid_glb")
+    errors = list(getattr(gltf_audit, "errors", None) or [])
+    if errors:
+        blockers.append("gltf_audit_errors=" + str(len(errors)))
+
+    skins = int(getattr(gltf_audit, "skin_count", 0) or 0)
+    animations = int(getattr(gltf_audit, "animation_count", 0) or 0)
+    morph_targets = int(getattr(gltf_audit, "morph_target_count", 0) or 0)
+    if skins:
+        blockers.append(f"skins={skins}")
+    if animations:
+        blockers.append(f"animations={animations}")
+    if morph_targets:
+        blockers.append(f"morph_targets={morph_targets}")
+    return blockers
+
+
 def needs_texture_superres(
     profile_name: str,
     base_color_min_edge: int | None,
@@ -1661,20 +1682,27 @@ def main() -> int:
         else:
             provisional = valid[0]
             provisional_path = Path(provisional.path)
-            provisional_rigged = False
+            native_conform_blockers: list[str] = []
             if provisional_path.suffix.lower() == ".glb":
                 try:
                     from gltf_audit import audit_glb
-                    native_conform_rig = audit_glb(provisional_path)
-                    provisional_rigged = native_conform_rig.skin_count > 0
-                except Exception:
-                    provisional_rigged = False
+                    native_conform_audit = audit_glb(provisional_path)
+                    native_conform_blockers = native_conform_mutation_blockers(
+                        native_conform_audit
+                    )
+                except Exception as exc:
+                    native_conform_blockers = [
+                        "audit_failed="
+                        + type(exc).__name__
+                    ]
 
-            if provisional_rigged:
-                native_conform_status = "skipped_rigged"
+            if native_conform_blockers:
+                native_conform_status = "skipped_nonstatic_gltf"
                 native_conform_failure = (
-                    "native conform is pre-rig only; refusing a trimesh round-trip "
-                    "that could damage JOINTS/WEIGHTS"
+                    "native conform only mutates static pre-rig geometry; refusing "
+                    "a trimesh round-trip that could damage skinning, animation, "
+                    "morph targets, or an invalid GLB: "
+                    + ",".join(native_conform_blockers)
                 )
                 print(
                     f"HAYUYA_NATIVE_CONFORM_SKIPPED {native_conform_failure}",
