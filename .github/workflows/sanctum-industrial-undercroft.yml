@@ -8,6 +8,8 @@ on:
       - ".github/workflows/sanctum-industrial-undercroft.yml"
       - "tools/sanctum_v2/dress_sanctum_industrial_undercroft.py"
       - "tools/sanctum_v2/reference_materials.py"
+      - "tools/sanctum_v2/reference_silhouette_fit.py"
+      - "docs/sanctum-reference-silhouettes.v1.json"
       - "tools/sanctum_v2/enrich_sanctum_cc0_props.py"
       - "docs/sanctum-reference-materials.v2.json"
       - "tools/sanctum_v2/build_sanctum_vertical_blockout.py"
