@@ -30,6 +30,9 @@ base_export=list(state["export_objects"])
 # same authored visual family instead of letting props look like pasted assets.
 refmat=runpy.run_path("tools/sanctum_v2/reference_materials.py")
 REF=refmat["material_set"]()
+ref_fit=runpy.run_path("tools/sanctum_v2/reference_silhouette_fit.py")
+REF_PROFILES=ref_fit["load_profiles"]()
+fit_object_to_silhouettes=ref_fit["fit_object_to_silhouettes"]
 gameplay_floor=state.get("gameplay_floor")
 if gameplay_floor is not None and gameplay_floor.type=="MESH":
     gameplay_floor.data.materials.clear()
@@ -176,8 +179,20 @@ def build_reference_pew_template():
     bpy.ops.object.join()
     o=bpy.context.view_layer.objects.active
     o.name="SANCTUM_PEW_REFERENCE_TEMPLATE"
+    # Project the authored template into the traced front+side visual hull.
+    # This is the "draw over the photo" constraint: outer geometry must match
+    # both supplied orthographic silhouettes before we instance it.
+    pew_profile=REF_PROFILES["pew"]
+    fit_stats=fit_object_to_silhouettes(
+        o,
+        pew_profile["front"]["points"],
+        pew_profile["side_left"]["points"],
+        pew_profile["target_dimensions_m"],
+    )
     bpy.ops.object.origin_set(type="ORIGIN_GEOMETRY",center="BOUNDS")
     o["xziel_role"]="church_prop"
+    o["reference_fit_vertices"]=fit_stats["vertices"]
+    o["reference_fit_changed_components"]=fit_stats["changed"]
     o["source_pack"]="User Sanctum pew reference / procedural reconstruction"
     o["source_license"]="original_xziel_reference_reconstruction"
     o.hide_render=True
@@ -339,6 +354,8 @@ report={
     "bench_source":"user Sanctum pew all-angle reference / original procedural reconstruction",
     "bench_source_sha256":"",
     "reference_material_profile":"docs/sanctum-reference-materials.v2.json",
+    "reference_silhouette_profile":"docs/sanctum-reference-silhouettes.v1.json",
+    "pew_reference_fit_method":"dual_silhouette_vertex_clamp",
     "stained_glass_slots_upgraded":stained_glass_slots,
     "candle_source":"https://opengameart.org/content/medieval-candles",
     "candle_source_sha256":os.environ.get("SANCTUM_CANDLE_SHA256",""),
