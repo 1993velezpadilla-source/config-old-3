@@ -54,6 +54,71 @@ def world_bounds(obj):
     mx=Vector((max(p.x for p in pts),max(p.y for p in pts),max(p.z for p in pts)))
     return mn,mx
 
+def relink_used_image_textures(objects,asset_root):
+    """Resolve image nodes from the extracted CC0 pack instead of accepting magenta placeholders."""
+    asset_root=Path(asset_root)
+    exts={".png",".jpg",".jpeg",".tga",".bmp",".tif",".tiff",".exr",".hdr"}
+    by_name={}
+    for p in asset_root.rglob("*"):
+        if p.is_file() and p.suffix.lower() in exts:
+            by_name.setdefault(p.name.lower(),p)
+
+    relinked=[]
+    unresolved=[]
+    checked=0
+    seen_nodes=set()
+    for obj in objects:
+        if not obj or obj.type!="MESH":
+            continue
+        for slot in obj.material_slots:
+            mat=slot.material
+            if mat is None or not mat.use_nodes or mat.node_tree is None:
+                continue
+            for node in mat.node_tree.nodes:
+                if node.type!="TEX_IMAGE" or node.image is None:
+                    continue
+                key=(mat.name,node.name)
+                if key in seen_nodes:
+                    continue
+                seen_nodes.add(key)
+                checked+=1
+                img=node.image
+                if int(img.size[0])>0 and int(img.size[1])>0:
+                    continue
+
+                raw=Path(str(img.filepath or "")).name
+                names=[raw.lower()] if raw else []
+                # Blender may suffix duplicate datablock names with .001 while
+                # the on-disk texture keeps the original filename.
+                img_name=str(img.name)
+                if img_name.lower() not in names:
+                    names.append(img_name.lower())
+                if "." in img_name:
+                    stem,suffix=img_name.rsplit(".",1)
+                    if suffix.isdigit() and len(suffix)==3:
+                        names.append(stem.lower())
+
+                candidate=None
+                for name in names:
+                    if name in by_name:
+                        candidate=by_name[name]
+                        break
+                if candidate is None:
+                    unresolved.append({"object":obj.name,"material":mat.name,"image":img.name,"filepath":img.filepath})
+                    continue
+                try:
+                    loaded=bpy.data.images.load(str(candidate.resolve()),check_existing=True)
+                    loaded.filepath=str(candidate.resolve())
+                    loaded.reload()
+                    node.image=loaded
+                    if int(loaded.size[0])<=0 or int(loaded.size[1])<=0:
+                        unresolved.append({"object":obj.name,"material":mat.name,"image":img.name,"candidate":str(candidate)})
+                    else:
+                        relinked.append({"image":img.name,"path":str(candidate),"size":[int(loaded.size[0]),int(loaded.size[1])]})
+                except Exception as exc:
+                    unresolved.append({"object":obj.name,"material":mat.name,"image":img.name,"candidate":str(candidate),"error":str(exc)})
+    return {"checked_nodes":checked,"relinked":relinked,"unresolved":unresolved}
+
 def place_copy(template,name,target_bottom_center,scale=1.0,rotation_z=0.0,role="industrial_prop"):
     obj=template.copy()
     obj.data=template.data
@@ -173,6 +238,13 @@ tank_src=normalize_source(append_object("tank_2_mat"))
 pipe5_src=normalize_source(append_object("pipe_05"))
 pipe7_src=normalize_source(append_object("pipe_07"))
 vent_src=normalize_source(append_object("vent_mat"))
+
+texture_relink=relink_used_image_textures(
+    (tank_src,pipe5_src,pipe7_src,vent_src),
+    INDUSTRIAL_BLEND.parent,
+)
+if texture_relink["unresolved"]:
+    fail(f"industrial PBR textures unresolved: {texture_relink['unresolved']}")
 
 for src in (tank_src,pipe5_src,pipe7_src,vent_src):
     src.hide_render=True
@@ -360,6 +432,7 @@ report={
     "source":"OpenGameArt PBR Industrial Asset Pack by a52",
     "license":"CC0",
     "source_sha256":os.environ.get("SANCTUM_INDUSTRIAL_SHA256",""),
+    "texture_relink":texture_relink,
     "replaced_blockout":"SANCTUM_BOILER_CORE",
     "industrial_objects":[o.name for o in industrial],
     "tank_scale":tank_scale,
