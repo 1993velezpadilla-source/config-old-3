@@ -5,6 +5,7 @@ import math
 import os
 import re
 import struct
+import hashlib
 from pathlib import Path
 from mathutils import Vector
 
@@ -349,6 +350,7 @@ def material_color(mat):
 
 texture_records = {}
 texture_paths = {}
+texture_digest_paths = {}
 church_material_names = {
     m.name
     for o in runtime_objects
@@ -364,7 +366,11 @@ def save_material_texture(mat):
         return texture_paths[key]
 
     idx = len(texture_paths)
-    stem = f"tex_{idx:03d}_{safe_name(key)}"
+    # Vril's legacy image loader builds paths in MAX_QPATH-sized buffers.
+    # Long semantic material names silently truncate and fail to open, leaving
+    # otherwise valid meshes white. Keep runtime filenames intentionally tiny;
+    # human-readable material names remain in the JSON report.
+    stem = f"t{idx:03d}"
     rel_no_ext = f"textures/xziel/sanctum/{stem}"
     dst = TEXTURE_DIR / f"{stem}.png"
 
@@ -400,11 +406,26 @@ def save_material_texture(mat):
         source_desc = "generated_base_color"
         fallback_materials.add(key)
 
+    if not dst.exists():
+        raise RuntimeError(f"texture write failed for {key}: {dst}")
+
+    digest = hashlib.sha256(dst.read_bytes()).hexdigest()
+    canonical = texture_digest_paths.get(digest)
+    duplicate_of = None
+    if canonical is not None:
+        duplicate_of = canonical
+        dst.unlink()
+        rel_no_ext = canonical
+    else:
+        texture_digest_paths[digest] = rel_no_ext
+
     texture_paths[key] = rel_no_ext
     texture_records[key] = {
         "path": rel_no_ext + ".png",
         "source": source_desc,
-        "bytes": dst.stat().st_size if dst.exists() else 0,
+        "bytes": (TEXTURE_DIR / (Path(rel_no_ext).name + ".png")).stat().st_size,
+        "sha256": digest,
+        "duplicateOf": duplicate_of,
     }
     return rel_no_ext
 
@@ -553,6 +574,9 @@ report = {
     "scanCleanup":cleanup_stats,
     "batchCount":len(batches),
     "textureCount":len(texture_records),
+    "uniqueTextureCount":len(texture_digest_paths),
+    "deduplicatedTextureCount":len(texture_records)-len(texture_digest_paths),
+    "runtimeTextureNameMode":"short_qpath_safe_ids",
     "textureSourceMode":"raw_albedo_preserve",
     "fallbackMaterials":sorted(fallback_materials),
     "churchFallbackMaterials":church_fallbacks,

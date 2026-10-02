@@ -8,6 +8,7 @@ on:
     paths:
       - ".github/workflows/xziel-church-snapshot-apk.yml"
       - "tools/church_map/bake_hero_blend_for_xzsm.py"
+      - "tools/church_map/export_vril_static_mesh.py"
 
 permissions:
   contents: read
@@ -94,7 +95,16 @@ jobs:
           assert d["fallbackMaterials"]==[],d
           assert d["churchFallbackMaterials"]==[],d
           assert d["runtimeTriangles"]>100000,d
-          print("EXACT_TEXTURE_XZSM_GREEN",d["runtimeTriangles"],d["textureCount"],d["modelBytes"])
+          assert d["runtimeTextureNameMode"]=="short_qpath_safe_ids",d
+          assert d["uniqueTextureCount"]<=d["textureCount"],d
+          assert all(len(x["path"]) < 48 for x in d["textures"].values()), d
+          print("EXACT_TEXTURE_XZSM_GREEN",{
+              "tris":d["runtimeTriangles"],
+              "materials":d["textureCount"],
+              "uniqueTextures":d["uniqueTextureCount"],
+              "deduped":d["deduplicatedTextureCount"],
+              "modelBytes":d["modelBytes"],
+          })
           PY
 
       - name: Generate and compile walkable harness
