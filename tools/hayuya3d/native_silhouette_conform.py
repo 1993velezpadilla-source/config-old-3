@@ -516,7 +516,7 @@ def conform_native_silhouette(
 
     camera = _best_camera(
         vertices_norm,
-        faces,
+        render_faces,
         source_mask,
         size=int(size),
         azimuth_step=int(azimuth_step),
