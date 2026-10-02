@@ -1429,7 +1429,10 @@ if (
     detail_views
     and TRIPOSR_CPU_ENABLED
     and ASSET_PROFILE in {"auto","character.humanoid","character.creature"}
-    and selected_generator=="microsoft/TRELLIS.2-preview-recovery"
+    and (
+        selected_generator=="microsoft/TRELLIS.2-preview-recovery"
+        or multi
+    )
 ):
     try:
         from regional_fusion import prepare_head_wrap_challenger
@@ -1450,7 +1453,11 @@ if (
         )
         head_geometry_fusion_payload={
             "attempted":True,
-            "reason":"preview_recovery_face_geometry_guard",
+            "reason":(
+                "multiview_face_geometry_guard"
+                if multi
+                else "preview_recovery_face_geometry_guard"
+            ),
             "donor":geometry_donor_meta,
             "fusion":asdict(head_wrap),
             "promoted":False,
@@ -1477,7 +1484,11 @@ if (
                 head_geometry_fusion_payload["promoted"]=True
                 selected_compute=(
                     selected_compute
-                    +" + CPU full-body TripoSR seam-limited head geometry fusion"
+                    +(
+                        " + CPU front-authority seam-limited head geometry fusion"
+                        if multi
+                        else " + CPU full-body TripoSR seam-limited head geometry fusion"
+                    )
                 )
                 print(
                     "HAYUYA_HEAD_GEOMETRY_FUSION_PROMOTED",
@@ -1499,7 +1510,11 @@ if (
     except Exception as head_geometry_exc:
         head_geometry_fusion_payload={
             "attempted":True,
-            "reason":"preview_recovery_face_geometry_guard",
+            "reason":(
+                "multiview_face_geometry_guard"
+                if multi
+                else "preview_recovery_face_geometry_guard"
+            ),
             "promoted":False,
             "error":f"{type(head_geometry_exc).__name__}: {head_geometry_exc}",
         }
