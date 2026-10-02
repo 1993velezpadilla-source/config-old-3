@@ -15,9 +15,12 @@ from native_geometry_guard import assert_native_candidate
 from visual_judge import render_silhouette, score_masks
 from silhouette_conform import _require_legacy_projection_profile
 from native_silhouette_conform import (
+    _assert_roundtrip_preserved,
     _bounded_render_faces,
     _front_surface_vertex_mask,
+    _load_editable_scene,
     _smooth_topology_displacements,
+    _write_world_vertices,
     conform_native_silhouette,
 )
 
@@ -33,6 +36,30 @@ def _box(
         mesh = mesh.subdivide()
     scene = trimesh.Scene()
     scene.add_geometry(mesh, node_name="CharacterMesh", geom_name="CharacterMesh")
+    path.write_bytes(scene.export(file_type="glb"))
+
+
+def _textured_box(path: Path):
+    mesh = trimesh.creation.box(extents=(1.0, 2.0, 0.45))
+    vertices = np.asarray(mesh.vertices, dtype=np.float64)
+    x = vertices[:, 0]
+    y = vertices[:, 1]
+    u = (x - x.min()) / max(float(x.max() - x.min()), 1e-9)
+    v = (y - y.min()) / max(float(y.max() - y.min()), 1e-9)
+    uv = np.stack([u, v], axis=1)
+
+    texture = Image.new("RGBA", (8, 8), (0, 0, 0, 255))
+    draw = ImageDraw.Draw(texture)
+    draw.rectangle((0, 0, 3, 7), fill=(255, 0, 0, 255))
+    draw.rectangle((4, 0, 7, 7), fill=(0, 255, 0, 255))
+
+    material = trimesh.visual.texture.SimpleMaterial(image=texture)
+    mesh.visual = trimesh.visual.texture.TextureVisuals(
+        uv=uv,
+        material=material,
+    )
+    scene = trimesh.Scene()
+    scene.add_geometry(mesh, node_name="TexturedMesh", geom_name="TexturedMesh")
     path.write_bytes(scene.export(file_type="glb"))
 
 
@@ -70,6 +97,30 @@ def _source_rect(path: Path, *, width: int, height: int):
         fill=(180, 180, 180, 255),
     )
     image.save(path)
+
+
+def test_roundtrip_preserves_uv_and_texture_fingerprints_when_geometry_moves(
+    tmp_path: Path,
+):
+    source = tmp_path / "textured.glb"
+    output = tmp_path / "textured_moved.glb"
+    _textured_box(source)
+
+    scene, records, vertices_world, _faces = _load_editable_scene(source)
+    moved = np.asarray(vertices_world, dtype=np.float64).copy()
+    moved[0, 0] += 0.01
+    _write_world_vertices(scene, records, moved, output)
+
+    preservation = _assert_roundtrip_preserved(source, output)
+    assert preservation["preserved"] is True
+    before = preservation["before_mesh"]
+    after = preservation["after_mesh"]
+    assert before["uv_fingerprints"] == after["uv_fingerprints"]
+    assert (
+        before["base_color_texture_fingerprints"]
+        == after["base_color_texture_fingerprints"]
+    )
+    assert before["base_color_texture_fingerprints"]
 
 
 def test_generic_pipeline_does_not_import_legacy_projection_conform():
