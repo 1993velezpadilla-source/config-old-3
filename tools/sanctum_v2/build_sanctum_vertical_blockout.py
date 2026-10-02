@@ -336,22 +336,34 @@ power_proxy=add_box(
 )
 power_proxy["xziel_entity_id"]="power_switch"
 
-# Diegetic ad surfaces. These are deliberately prefixed SANCTUM_AD_ so the
-# runtime collision/nav extractor can exclude them while the render/export keeps them.
+# Diegetic ad surfaces. Anchor them to the proven *interior* gameplay
+# bounds, not the larger fitted-source half-width. The older placement used
+# half_w and landed behind the masonry, so the proof camera saw only stone.
+ad_nave_west_pos=(xmin+0.18,ic.y-hy*0.08,floor_z+1.75)
+ad_gallery_east_pos=(xmax-0.18,ic.y+hy*0.10,upper_z+1.40)
+ad_radio_pos=(bx1-1.0,ic.y+hy*0.22,lower_z+0.35)
+
+# Hard gate: world-space creatives must be visibly reachable from the authored
+# interior side of the map. Never silently export a sponsor surface behind wall.
+if not (xmin <= ad_nave_west_pos[0] <= xmax):
+    fail(f"nave ad frame outside gameplay X bounds: {ad_nave_west_pos[0]:.3f}")
+if not (xmin <= ad_gallery_east_pos[0] <= xmax):
+    fail(f"gallery ad frame outside gameplay X bounds: {ad_gallery_east_pos[0]:.3f}")
+
 ad_meshes=[]
 ad_meshes.extend(add_ad_frame(
     "NAVE_WEST",
-    (ic.x-half_w*0.965,ic.y-hy*0.08,floor_z+1.75),
+    ad_nave_west_pos,
     "X",(1.60,0.90),"ad_frame_nave_west"
 ))
 ad_meshes.extend(add_ad_frame(
     "GALLERY_EAST",
-    (ic.x+half_w*0.965,ic.y+hy*0.10,upper_z+1.40),
+    ad_gallery_east_pos,
     "X",(1.40,0.80),"ad_frame_gallery_east"
 ))
 radio=add_box(
     "SANCTUM_AD_RADIO_UNDERCROFT",
-    (bx1-1.0,ic.y+hy*0.22,lower_z+0.35),
+    ad_radio_pos,
     (0.58,0.34,0.42),
     METAL,"spatial_radio_ad",False
 )
@@ -387,9 +399,9 @@ ad_manifest={
         {
             **p,
             "world_position":(
-                [ic.x-half_w*0.965,ic.y-hy*0.08,floor_z+1.75] if p["id"]=="ad_frame_nave_west"
-                else [ic.x+half_w*0.965,ic.y+hy*0.10,upper_z+1.40] if p["id"]=="ad_frame_gallery_east"
-                else [bx1-1.0,ic.y+hy*0.22,lower_z+0.35]
+                list(ad_nave_west_pos) if p["id"]=="ad_frame_nave_west"
+                else list(ad_gallery_east_pos) if p["id"]=="ad_frame_gallery_east"
+                else list(ad_radio_pos)
             )
         }
         for p in layout["ad_system"]["placements"]
@@ -469,8 +481,8 @@ renders=[
            (ic.x+3.2,by1-1.4,lower_z+eye),
            ((right_x0+right_x1)*0.5,right_hole_center_y,floor_z+0.5)),
     render("06-diegetic-ad-frame.png",
-           (ic.x-half_w*0.60,ic.y-hy*0.08,floor_z+eye),
-           (ic.x-half_w*0.965,ic.y-hy*0.08,floor_z+1.75)),
+           (ic.x-hx*0.55,ic.y-hy*0.08,floor_z+eye),
+           Vector(ad_nave_west_pos)),
 ]
 
 export_objects=[
