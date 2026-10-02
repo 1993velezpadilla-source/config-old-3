@@ -1203,6 +1203,8 @@ def main() -> int:
     source_autofix_failure = None
     recovered_detail_inputs: list[Path] = []
     derived_detail_inputs: list[Path] = []
+    semantic_head_detail_inputs: list[Path] = []
+    content_reclassified_sources: list[Path] = []
     if args.source_autofix in {"auto", "required"} and args.execute and args.mode in {"auto", "character"}:
         try:
             from source_autofix import build_source_autofix
@@ -1231,6 +1233,49 @@ def main() -> int:
             traceback.print_exc()
             if args.source_autofix == "required":
                 raise
+
+    if source_autofix_result is not None:
+        (
+            geometry_inputs,
+            real_detail_inputs,
+            content_reclassified_sources,
+        )=reclassify_semantic_face_closeups(
+            geometry_inputs,
+            real_detail_inputs,
+            source_autofix_result,
+        )
+        semantic_head_detail_inputs=list(content_reclassified_sources)
+
+        if content_reclassified_sources:
+            moved_set={
+                Path(path).resolve()
+                for path in content_reclassified_sources
+            }
+            redundant_derived=set()
+            for item in list(
+                getattr(source_autofix_result,"sources",[]) or []
+            ):
+                try:
+                    source=Path(getattr(item,"source")).resolve()
+                except Exception:
+                    continue
+                face_detail=getattr(item,"face_detail",None)
+                if source in moved_set and face_detail:
+                    redundant_derived.add(
+                        Path(face_detail).resolve()
+                    )
+            recovered_detail_inputs=[
+                path
+                for path in recovered_detail_inputs
+                if Path(path).resolve() not in redundant_derived
+            ]
+            print(
+                "HAYUYA_REFERENCE_ROLE_RECLASSIFIED "
+                f"semantic_head_details="
+                f"{len(content_reclassified_sources)} "
+                f"geometry_sources={len(geometry_inputs)} "
+                f"redundant_derived_removed={len(redundant_derived)}"
+            )
 
     mode = args.mode
     if mode == "auto":
@@ -1276,7 +1321,11 @@ def main() -> int:
         if profile.multi_anchor
         else [geometry_inputs[0]]
     )
-    face_seed_count=face_seed_hypothesis_count(args.profile,detail_inputs)
+    face_seed_count=face_seed_hypothesis_count(
+        args.profile,
+        detail_inputs,
+        semantic_head_inputs=semantic_head_detail_inputs,
+    )
 
     plan = make_job_plan(
         inputs,
@@ -1304,6 +1353,9 @@ def main() -> int:
         animation_requested=args.animation,
         source_autofix_mode=args.source_autofix,
         derived_detail_inputs=derived_detail_inputs,
+        geometry_inputs_override=geometry_inputs,
+        real_detail_inputs_override=real_detail_inputs,
+        semantic_head_detail_inputs=semantic_head_detail_inputs,
     )
     portable_runtime = plan["mobile_portability"]["runtime_target"]
     portable_lod0_ceiling = int(portable_runtime["lod0_triangles"][1])
@@ -1914,7 +1966,10 @@ def main() -> int:
             head_details = [
                 Path(path)
                 for path in detail_inputs
-                if infer_detail_region_hint(Path(path)) == "head"
+                if is_head_detail_evidence(
+                    Path(path),
+                    semantic_head_inputs=semantic_head_detail_inputs,
+                )
             ]
             derive_head_from_full_source = not bool(head_details)
             face_source = (
