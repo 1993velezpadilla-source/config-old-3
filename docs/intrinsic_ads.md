@@ -15,11 +15,13 @@ Provider requests and asset downloads must run outside render/audio callbacks. `
 
 ## Measurement rules
 
-A surface impression is only emitted after continuous qualifying visibility. A frame that is out of frustum, occluded, too distant, facing away, or below minimum screen coverage resets the continuous visibility timer.
+The visual path uses an IAB/MRC-style intrinsic in-game baseline: at least 50% of the creative visible, at least 1.5% of total screen coverage from the visible creative, and a planar facing threshold clamped to cos(55 degrees), about 0.574. Static/display creatives require at least 1 continuous second; video/dynamic creatives require at least 2 continuous seconds. The engine evaluates visibility every frame, which is more frequent than the 200 ms polling baseline.
+
+A surface impression is only emitted after continuous qualifying visibility. A frame that is out of frustum, fully occluded, too distant, too oblique, below the minimum visible fraction, or below minimum screen coverage resets the continuous visibility timer. `visibleCreativeFraction` represents the fraction remaining visible after clipping/partial occlusion; the `occluded` boolean should be reserved for a fully blocked or otherwise unmeasurable surface.
 
 An audio impression is only emitted after continuous audible playback inside the emitter radius. Audio ads are represented as `AudioSourceKind::Advertisement`, intentionally below weapons, zombie voices, UI, music, and core ambience in the audio voice priority model.
 
-Cooldowns and per-session impression caps are enforced in engine state. Repeated movement through a trigger does not automatically create repeated impressions. A placement must explicitly refresh after cooldown.
+Cooldowns and per-session impression caps are enforced in engine state. Visual placements default to one counted impression per session; a provider that rotates to a distinct creative can opt into a higher placement cap only if it preserves per-creative accounting. Repeated movement through a trigger does not automatically create repeated impressions. A placement must explicitly refresh after cooldown.
 
 ## Offline testing
 
@@ -50,3 +52,6 @@ Each ad placement should use a unique placeholder texture when independent creat
 ## XZAD map sidecar
 
 Intrinsic placement metadata is not entrusted to renderer/importer-specific GLB extras. `XZAD` v1 is a compact little-endian sidecar parsed by `parseIntrinsicAdMapXzad()` into fixed-capacity arrays. Surface records carry the bound placeholder texture path, world-space center/normal, physical dimensions, viewability thresholds, cooldown/cap, and image/video flags. Audio records carry emitter position, fallback audio path, attenuation range, gain, listen threshold, cooldown, and cap. Duplicate IDs, malformed paths, invalid ranges, unknown flags, truncation, and trailing bytes are rejected.
+
+
+The display/video rules above do not define a billing standard for spatial audio. `AdAudioEmitter` playback reporting remains an internal audible-exposure signal until the selected intrinsic-audio provider defines the billable event.
