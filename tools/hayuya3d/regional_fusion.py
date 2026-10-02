@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 from dataclasses import asdict,dataclass
@@ -38,6 +39,8 @@ class HeadWrapResult:
     collapsed_face_fraction:float|None=None
     stretched_edge_fraction:float|None=None
     flipped_face_fraction:float|None=None
+    topology_preserved:bool|None=None
+    uv_preserved:bool|None=None
 
 
 def _deps():
@@ -58,6 +61,77 @@ def _all_vertices(meshes):
     if not arrays:
         raise ValueError("mesh contains no vertices")
     return np.concatenate(arrays,axis=0)
+
+
+def _topology_uv_signature(path:Path)->dict:
+    """Fingerprint connectivity and UV mapping independently of face order."""
+    np,trimesh,_=_deps()
+    scene=trimesh.load(path,force="scene",process=False)
+    entries=[]
+    for node in scene.graph.nodes_geometry:
+        _transform,geometry_name=scene.graph.get(node)
+        geometry=scene.geometry[geometry_name]
+        if not hasattr(geometry,"vertices") or not hasattr(geometry,"faces"):
+            continue
+        vertices=np.asarray(geometry.vertices)
+        faces=np.asarray(geometry.faces,dtype=np.int64)
+        canonical=np.sort(faces,axis=1)
+        if len(canonical):
+            order=np.lexsort((
+                canonical[:,2],
+                canonical[:,1],
+                canonical[:,0],
+            ))
+            canonical=canonical[order]
+        face_hash=hashlib.sha256(
+            canonical.astype("<i8",copy=False).tobytes()
+        ).hexdigest()
+
+        visual=getattr(geometry,"visual",None)
+        uv=getattr(visual,"uv",None) if visual is not None else None
+        uv_hash=None
+        if uv is not None and len(uv)==len(vertices) and len(vertices):
+            uv_arr=np.round(
+                np.asarray(uv,dtype=np.float64),
+                decimals=7,
+            ).astype("<f8",copy=False)
+            uv_hash=hashlib.sha256(uv_arr.tobytes()).hexdigest()
+
+        entries.append((
+            int(len(vertices)),
+            int(len(faces)),
+            face_hash,
+            uv_hash,
+        ))
+
+    entries=sorted(entries)
+    return {
+        "mesh_count":int(len(entries)),
+        "topology":[(a,b,h) for a,b,h,_uv in entries],
+        "uv":[(a,b,uv) for a,b,_h,uv in entries],
+    }
+
+
+def _assert_topology_uv_preserved(base_mesh:Path,output_glb:Path)->dict:
+    before=_topology_uv_signature(base_mesh)
+    after=_topology_uv_signature(output_glb)
+    topology_preserved=before["topology"]==after["topology"]
+    uv_preserved=before["uv"]==after["uv"]
+    if not topology_preserved or not uv_preserved:
+        reasons=[]
+        if not topology_preserved:
+            reasons.append("topology_changed")
+        if not uv_preserved:
+            reasons.append("uv_mapping_changed")
+        raise RuntimeError(
+            "head_wrap_base_payload_regression:"+";".join(reasons)
+        )
+    return {
+        "topology_preserved":True,
+        "uv_preserved":True,
+        "before":before,
+        "after":after,
+    }
 
 
 def _smoothstep(values):
@@ -332,6 +406,11 @@ def build_head_wrap_geometry(
         if output_glb.read_bytes()[:4]!=b"glTF":
             raise RuntimeError("head wrap export is not a valid GLB")
 
+        preservation=_assert_topology_uv_preserved(
+            base_mesh,
+            output_glb,
+        )
+
         moved=np.concatenate(all_applied,axis=0) if all_applied else np.zeros((0,3))
         moved_norm=np.linalg.norm(moved,axis=1)/diagonal if len(moved) else np.zeros(0)
         seam=np.concatenate(seam_applied,axis=0) if seam_applied else np.zeros((0,3))
@@ -416,6 +495,10 @@ def build_head_wrap_geometry(
             collapsed_face_fraction=round(collapsed_face_fraction,8),
             stretched_edge_fraction=round(stretched_edge_fraction,8),
             flipped_face_fraction=round(flipped_face_fraction,8),
+            topology_preserved=bool(
+                preservation["topology_preserved"]
+            ),
+            uv_preserved=bool(preservation["uv_preserved"]),
         )
     except Exception as exc:
         return HeadWrapResult(
