@@ -12,7 +12,14 @@ from native_geometry_guard import assert_native_candidate
 from native_360_geometry_gate import assert_native_volumetric
 
 
-HEAD_DONOR_PRIORITY = ("trellis2", "triposg", "spar3d", "triposr")
+HEAD_DONOR_PRIORITY = (
+    "trellis2",
+    "hunyuan3d_2_1",
+    "triposg",
+    "spar3d",
+    "triposr",
+)
+REMOTE_HEAD_DONOR_BACKENDS = {"hunyuan3d_2_1"}
 
 
 @dataclass
@@ -55,7 +62,10 @@ def available_head_donor_backends(
         if (
             backend in selected
             and backend in GENERATORS
-            and (root / backend).is_dir()
+            and (
+                backend in REMOTE_HEAD_DONOR_BACKENDS
+                or (root / backend).is_dir()
+            )
         )
     ]
 
@@ -140,6 +150,14 @@ def generate_source_head_donor(
             trellis2_resolution=int(trellis2_resolution),
             texture_size=int(texture_size),
             model_root=Path(model_root),
+        )
+    elif backend == "hunyuan3d_2_1":
+        candidate = GENERATORS[backend](
+            staged,
+            out_dir / "generator",
+            seed=int(seed),
+            model_root=Path(model_root),
+            remove_background=True,
         )
     elif backend == "trellis2":
         candidate = GENERATORS[backend](
