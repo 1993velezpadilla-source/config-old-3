@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - art/hayuya-monster-v1
+      - art/hayuya-core-generalize-v1
     paths:
       - hayuya/jobs/requests/**.json
       - tools/hayuya3d/job_request.py
