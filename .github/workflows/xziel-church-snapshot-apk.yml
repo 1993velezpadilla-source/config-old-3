@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: xziel-church-snapshot-apk-${{ github.ref }}
@@ -31,26 +32,24 @@ jobs:
           sudo apt-get install -y -qq git-lfs curl xz-utils xvfb unzip bzip2 build-essential cmake ninja-build pkg-config python3-venv libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libglu1-mesa libegl1
           git lfs install
 
-      - name: Fetch exact Hero source assets
+      - name: Download exact packed Hero #33 Blender authority
+        uses: actions/download-artifact@v5
+        with:
+          name: XZIEL-Sanctum-Hero-Altar
+          path: snapshot/hero
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 37006309792
+
+      - name: Verify packed Hero Blender authority
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf external-french-houses external-cc0-church external-ruins external-sanctum-props external-industrial
-          mkdir -p snapshot/hero snapshot/out
-          CURL=(curl -L --fail --retry 8 --retry-all-errors --retry-delay 2 --connect-timeout 20)
-          git clone --depth 1 https://github.com/IRCSS/Blender-Geometry-Node-French-Houses.git external-french-houses
-          (cd external-french-houses && git lfs pull || true)
-          mkdir -p external-cc0-church external-ruins external-sanctum-props external-industrial
-          "${CURL[@]}" https://opengameart.org/sites/default/files/church.blend -o external-cc0-church/church.blend
-          "${CURL[@]}" https://opengameart.org/sites/default/files/fantasy_ruins_pack_for_blender.blend -o external-ruins/fantasy_ruins_pack_for_blender.blend
-          "${CURL[@]}" https://opengameart.org/sites/default/files/medievalbenchesexport.blend -o external-sanctum-props/medievalbenchesexport.blend
-          "${CURL[@]}" https://opengameart.org/sites/default/files/medievalcandles.blend -o external-sanctum-props/medievalcandles.blend
-          "${CURL[@]}" https://opengameart.org/sites/default/files/oga_industrial_a52_version_0.zip -o /tmp/industrial.zip
-          unzip -q /tmp/industrial.zip -d external-industrial
-          sha256sum external-ruins/fantasy_ruins_pack_for_blender.blend | tee /tmp/ruins.sha256
-          sha256sum external-sanctum-props/medievalbenchesexport.blend | tee /tmp/bench.sha256
-          sha256sum external-sanctum-props/medievalcandles.blend | tee /tmp/candle.sha256
-          sha256sum /tmp/industrial.zip | tee /tmp/industrial.sha256
+          mkdir -p snapshot/out
+          test -s snapshot/hero/sanctum-hero-altar.blend
+          test -s snapshot/hero/01-hero-altar-from-nave.png
+          test "$(stat -c%s snapshot/hero/sanctum-hero-altar.blend)" -gt 50000000
+          echo "PACKED_HERO33_BLEND_GREEN $(stat -c%s snapshot/hero/sanctum-hero-altar.blend)"
 
       - name: Install Blender 5.2.2
         shell: bash
@@ -58,37 +57,6 @@ jobs:
           set -euo pipefail
           curl -L --fail --retry 6 --retry-all-errors --retry-delay 2 https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz -o /tmp/blender.tar.xz
           tar -C /tmp -xf /tmp/blender.tar.xz
-
-      - name: Build exact Hero scene and packed Blender authority
-        shell: bash
-        env:
-          SANCTUM_COMPOSITE_OUT: snapshot/hero-composite
-          SANCTUM_DRESS_OUT: snapshot/hero-dressed
-          SANCTUM_ENRICH_OUT: snapshot/hero-enriched
-          SANCTUM_VERTICAL_OUT: snapshot/hero-vertical
-          SANCTUM_INDUSTRIAL_DRESS_OUT: snapshot/hero-industrial
-          SANCTUM_HERO_ALTAR_OUT: snapshot/hero
-          SANCTUM_CC0_BLEND: external-cc0-church/church.blend
-          SANCTUM_RUINS_BLEND: external-ruins/fantasy_ruins_pack_for_blender.blend
-          SANCTUM_BENCH_BLEND: external-sanctum-props/medievalbenchesexport.blend
-          SANCTUM_CANDLE_BLEND: external-sanctum-props/medievalcandles.blend
-          SANCTUM_INDUSTRIAL_BLEND: external-industrial/OGA_industrial_a52_version/industrial_final_cycles.blend
-          SANCTUM_VERTICAL_LAYOUT: docs/sanctum-vertical-layout.v1.json
-          XZIEL_MAP_AGENT_PLAN: tools/sanctum_v2/map_builder_plan.json
-        run: |
-          set -euo pipefail
-          mkdir -p snapshot/hero-composite snapshot/hero-dressed snapshot/hero-enriched snapshot/hero-vertical snapshot/hero-industrial snapshot/hero
-          export SANCTUM_RUINS_SHA256="$(cut -d' ' -f1 /tmp/ruins.sha256)"
-          export SANCTUM_BENCH_SHA256="$(cut -d' ' -f1 /tmp/bench.sha256)"
-          export SANCTUM_CANDLE_SHA256="$(cut -d' ' -f1 /tmp/candle.sha256)"
-          export SANCTUM_INDUSTRIAL_SHA256="$(cut -d' ' -f1 /tmp/industrial.sha256)"
-          xvfb-run -a -s "-screen 0 1600x1000x24" /tmp/blender-5.2.2-linux-x64/blender \
-            -b external-french-houses/GeometryNodesFrenchHous.blend \
-            --python tools/sanctum_v2/dress_sanctum_hero_altar.py \
-            2>&1 | tee snapshot/hero/blender.log
-          grep -q SANCTUM_HERO_ALTAR_PASS snapshot/hero/blender.log
-          test -s snapshot/hero/sanctum-hero-altar.blend
-          test -s snapshot/hero/01-hero-altar-from-nave.png
 
       - name: Bake exact procedural materials for Android
         shell: bash
