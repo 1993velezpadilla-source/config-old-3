@@ -519,6 +519,7 @@ def make_job_plan(
     appearance_mode: str = "auto",
     viewforge_mode: str = "auto",
     geometry_refine_mode: str = "auto",
+    native_silhouette_conform_mode: str = "auto",
     gameprep_mode: str = "auto",
     character_specialist_mode: str = "off",
     mesh_doctor_mode: str = "auto",
@@ -640,6 +641,16 @@ def make_job_plan(
             "wonder3d_rgb_normal_stage": True,
             "single_source_trellis_fusion": "real primary anchor + up to five non-front synthetic Wonder3D RGB views",
             "synthetic_views_never_enter_real_source_judge": True,
+        },
+        "native_silhouette_conform": {
+            "mode": native_silhouette_conform_mode,
+            "input_geometry": "native generator/Judge champion only",
+            "source_target": "current real source image mask",
+            "auto_activation": "single real geometry source after first full ranking",
+            "multi_reference_policy": "auto skips multi-reference jobs; required may create a primary-source challenger but the full Judge still scores every real source",
+            "topology_policy": "vertex-position challenger only; no projection shell and no source_visible_front/occluded_low_frequency nodes",
+            "asset_specific_coordinates": False,
+            "promotion_policy": "never overwrite the native generator result; add a challenger and require it to win the same full Judge",
         },
         "multi_reference": {
             "enabled": len(geometry_inputs) > 1,
@@ -915,6 +926,15 @@ def main() -> int:
         help="TripoSF SparseFlex geometry challenger policy for monster/ultra execution",
     )
     parser.add_argument(
+        "--native-silhouette-conform",
+        choices=["off", "auto", "required"],
+        default="auto",
+        help=(
+            "source-driven silhouette repair on the native 3D champion. "
+            "Creates a challenger only; never creates a front-projection proxy."
+        ),
+    )
+    parser.add_argument(
         "--mesh-doctor",
         choices=["off", "auto", "required"],
         default="auto",
@@ -1116,6 +1136,7 @@ def main() -> int:
         appearance_mode=args.appearance_judge,
         viewforge_mode=args.viewforge,
         geometry_refine_mode=args.geometry_refine,
+        native_silhouette_conform_mode=args.native_silhouette_conform,
         gameprep_mode=args.gameprep,
         character_specialist_mode=args.character_specialist,
         mesh_doctor_mode=args.mesh_doctor,
@@ -1587,6 +1608,105 @@ def main() -> int:
     valid = [x for x in ranked if x.valid]
     if not valid:
         raise SystemExit("Candidates were produced but none passed Hayuya Judge")
+
+    native_conform_result = None
+    native_conform_failure = None
+    native_conform_status = (
+        "off" if args.native_silhouette_conform == "off" else "checking"
+    )
+    native_conform_candidate_label = None
+
+    if args.native_silhouette_conform in {"auto", "required"}:
+        if len(geometry_inputs) > 1 and args.native_silhouette_conform == "auto":
+            native_conform_status = "skipped_multi_reference"
+            native_conform_failure = (
+                "auto native conform is intentionally single-source; "
+                "multi-reference jobs already provide real 3D coverage"
+            )
+            print(
+                f"HAYUYA_NATIVE_CONFORM_SKIPPED {native_conform_failure}",
+                file=sys.stderr,
+            )
+        else:
+            provisional = valid[0]
+            provisional_path = Path(provisional.path)
+            provisional_rigged = False
+            if provisional_path.suffix.lower() == ".glb":
+                try:
+                    from gltf_audit import audit_glb
+                    native_conform_rig = audit_glb(provisional_path)
+                    provisional_rigged = native_conform_rig.skin_count > 0
+                except Exception:
+                    provisional_rigged = False
+
+            if provisional_rigged:
+                native_conform_status = "skipped_rigged"
+                native_conform_failure = (
+                    "native conform is pre-rig only; refusing a trimesh round-trip "
+                    "that could damage JOINTS/WEIGHTS"
+                )
+                print(
+                    f"HAYUYA_NATIVE_CONFORM_SKIPPED {native_conform_failure}",
+                    file=sys.stderr,
+                )
+                if args.native_silhouette_conform == "required":
+                    raise RuntimeError(native_conform_failure)
+            else:
+                try:
+                    from native_silhouette_conform import conform_native_silhouette
+
+                    conform_dir = job_dir / "native_silhouette_conform"
+                    native_conform_candidate_label = (
+                        f"{provisional.backend}_native_conform"
+                    )
+                    conform_output = (
+                        conform_dir / f"{native_conform_candidate_label}.glb"
+                    )
+                    native_conform_result = conform_native_silhouette(
+                        provisional_path,
+                        geometry_inputs[0],
+                        conform_output,
+                        report=conform_dir / "native_silhouette_conform.json",
+                        size=256,
+                        azimuth_step=30,
+                        iterations=3,
+                        boundary_band_px=5.0,
+                        max_target_px=14.0,
+                        per_vertex_cap_px=3.0,
+                    )
+                    candidates.append(
+                        (native_conform_candidate_label, conform_output)
+                    )
+                    native_conform_status = "candidate_ready"
+                    print(
+                        "HAYUYA_NATIVE_CONFORM_READY "
+                        f"source={provisional.backend} "
+                        f"candidate={native_conform_candidate_label} "
+                        f"score={native_conform_result['initial']['score']:.3f}->"
+                        f"{native_conform_result['final']['score']:.3f} "
+                        f"max_body_span_delta="
+                        f"{native_conform_result['max_displacement_body_span_ratio']:.6f}"
+                    )
+
+                    # It remains only a challenger. The complete production,
+                    # silhouette, appearance and face-evidence arena decides if
+                    # the native repair deserves promotion.
+                    ranked = run_full_ranking()
+                    valid = [x for x in ranked if x.valid]
+                    if not valid:
+                        raise RuntimeError(
+                            "native silhouette conform re-ranking produced no valid candidates"
+                        )
+                except Exception as exc:
+                    native_conform_status = "failed"
+                    native_conform_failure = f"{type(exc).__name__}: {exc}"
+                    print(
+                        f"HAYUYA_NATIVE_CONFORM_FAILED {native_conform_failure}",
+                        file=sys.stderr,
+                    )
+                    traceback.print_exc()
+                    if args.native_silhouette_conform == "required":
+                        raise
 
     mesh_doctor_audit = None
     mesh_doctor_result = None
