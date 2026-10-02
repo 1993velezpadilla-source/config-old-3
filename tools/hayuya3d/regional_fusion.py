@@ -288,9 +288,17 @@ def _yaw_align_donor_to_base_head(
             k=1,
             workers=-1,
         )[0]
+        donor_median=float(np.median(donor_to_base))
+        base_median=float(np.median(base_to_donor))
+        donor_p90=float(np.percentile(donor_to_base,90.0))
+        base_p90=float(np.percentile(base_to_donor,90.0))
+        # Median keeps the fit stable against isolated reconstruction noise,
+        # while P90 makes asymmetric detail (nose, hood edge, helmet brim,
+        # hair mass) matter enough to disambiguate axis/yaw conventions.
         score=(
-            float(np.median(donor_to_base))
-            + float(np.median(base_to_donor))
+            donor_median
+            + base_median
+            + 0.35*(donor_p90+base_p90)
         )/base_scale
 
         if abs(float(angle))<1e-9:
