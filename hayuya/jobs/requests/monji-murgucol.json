@@ -1,0 +1,20 @@
+{
+  "schema": 2,
+  "job_id": "monji-murgucol",
+  "owner": "HAYUYA_WEB",
+  "title": "Monji",
+  "geometry_input": "hayuya/assets/monji-murgucol/geometry/primary.webp",
+  "reference_dir": "hayuya/assets/monji-murgucol/references",
+  "detail_dir": "hayuya/assets/monji-murgucol/details",
+  "profile": "monster",
+  "mode": "auto",
+  "asset_profile": "auto",
+  "weapon_family": "auto",
+  "animation_requested": true,
+  "motion_profile": "hayuya_auto",
+  "texture_quality": "high",
+  "portable_target": "high",
+  "gpu_vram": 24,
+  "backends": "hunyuan3d_2_1,trellis2,triposg,spar3d,triposr",
+  "retry_token": "web-murgucol"
+}
