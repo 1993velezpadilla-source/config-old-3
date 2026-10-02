@@ -159,6 +159,24 @@ def _normalized_subject(path: Path, output: Path, size: int = 512) -> Path:
     return output
 
 
+def _normalized_frame(path: Path, output: Path, size: int = 512) -> Path:
+    """Resize a dedicated renderer frame without subject re-cropping.
+
+    Head closeups emitted by the faithful renderer are already camera-framed.
+    Re-running subject bbox detection can crop away hood/face pixels and make
+    the main Judge disagree with the front preflight on the exact same frame.
+    """
+    image = _load_rgb(path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    ImageOps.pad(
+        image,
+        (size, size),
+        method=Image.Resampling.LANCZOS,
+        color=(24, 24, 24),
+    ).save(output)
+    return output
+
+
 def _face_crop(path: Path, output: Path, size: int = 512) -> Path:
     image = _load_rgb(path)
     x0, y0, x1, y1 = _subject_bbox(image)
@@ -411,7 +429,7 @@ def run_judge_v4(
         selected = list(provided_face_frames[:len(requested_face_indices)])
         candidate_face_indices = list(requested_face_indices[:len(selected)])
         candidate_faces = [
-            _normalized_subject(
+            _normalized_frame(
                 path,
                 evidence_dir / "candidate_face" / f"{index:02d}.png",
             )
