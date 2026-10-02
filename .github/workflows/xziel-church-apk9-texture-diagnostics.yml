@@ -1,0 +1,129 @@
+name: XZIEL Church APK9 Texture Diagnostics
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/xziel-map-builder-agent-v1
+    paths:
+      - ".github/workflows/xziel-church-apk9-texture-diagnostics.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download instrumented APK #9
+        uses: actions/download-artifact@v5
+        with:
+          name: XZIEL-Church-ExactTextures-InfinitePistol
+          path: apk9
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 37045812639
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install emulator tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "emulator" "system-images;android-35;google_apis;x86_64"
+          python3 -m pip install --quiet pillow==11.3.0
+
+      - name: Boot APK9 and capture XZSM logs
+        shell: bash
+        run: |
+          set -euo pipefail
+          export HOME="${RUNNER_TEMP}/xziel-apk9-diag-home"
+          export ANDROID_AVD_HOME="$HOME/.android/avd"
+          mkdir -p "$ANDROID_AVD_HOME" diag
+          ADB="${ANDROID_HOME}/platform-tools/adb"
+          EMULATOR="${ANDROID_HOME}/emulator/emulator"
+          AVDMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name avdmanager | sort | tail -n 1)"
+
+          printf 'no\n' | "$AVDMANAGER" create avd --force --name xziel-apk9-diag \
+            --package "system-images;android-35;google_apis;x86_64" --device "pixel_6"
+          [[ ! -e /dev/kvm ]] || sudo chmod 666 /dev/kvm || true
+          nohup "$EMULATOR" @xziel-apk9-diag -no-window -no-audio -no-boot-anim -no-snapshot \
+            -gpu swiftshader_indirect -memory 4096 > diag/emulator-stdout.txt 2>&1 &
+          timeout 120 "$ADB" wait-for-device
+          for i in $(seq 1 60); do
+            [[ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]] && break
+            sleep 2
+          done
+          test "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1"
+
+          APK="$(find apk9 -maxdepth 1 -name '*.apk' | head -n1)"
+          test -s "$APK"
+          "$ADB" install -r "$APK"
+          "$ADB" shell settings put secure immersive_mode_confirmations confirmed || true
+          "$ADB" logcat -c
+          "$ADB" shell am force-stop com.xziel.churchsnapshot || true
+          "$ADB" shell am start -W -n com.xziel.churchsnapshot/org.libsdl.app.NZPActivity > diag/am-start.txt 2>&1 || true
+
+          for i in $(seq 1 60); do
+            STAGE="$("$ADB" shell run-as com.xziel.churchsnapshot cat files/nzp-runtime/.xziel-stage 2>/dev/null | tr -d '\r' || true)"
+            [[ "$STAGE" == "FIRST_FRAME_OK" || "$STAGE" == "SYS_ERROR" ]] && break
+            sleep 1
+          done
+          echo "FIRST_STAGE=$STAGE" | tee diag/runtime-state.txt
+
+          sleep 15
+          "$ADB" exec-out screencap -p > diag/frame-15s.png || true
+          sleep 15
+          "$ADB" exec-out screencap -p > diag/frame-30s.png || true
+          sleep 15
+          "$ADB" exec-out screencap -p > diag/frame-45s.png || true
+
+          PID="$("$ADB" shell pidof com.xziel.churchsnapshot 2>/dev/null | tr -d '\r' || true)"
+          STAGE="$("$ADB" shell run-as com.xziel.churchsnapshot cat files/nzp-runtime/.xziel-stage 2>/dev/null | tr -d '\r' || true)"
+          echo "PID=$PID" | tee -a diag/runtime-state.txt
+          echo "STAGE=$STAGE" | tee -a diag/runtime-state.txt
+
+          "$ADB" logcat -d -v threadtime > diag/logcat-all.txt || true
+          "$ADB" logcat -d -v raw -s XZIEL_XZSM:I '*:S' > diag/xzsm-texture-log.txt || true
+          grep -E "XZIEL_XZSM|GL_OUT_OF_MEMORY|GL_INVALID|failed|error|Error" diag/logcat-all.txt \
+            > diag/key-log.txt || true
+
+          echo "=== XZSM TEXTURE LOG ==="
+          cat diag/xzsm-texture-log.txt || true
+
+          python3 - <<'PY' | tee diag/frame-stats.txt
+          from PIL import Image,ImageStat
+          for p in ["diag/frame-15s.png","diag/frame-30s.png","diag/frame-45s.png"]:
+              im=Image.open(p).convert("RGB")
+              stat=ImageStat.Stat(im.convert("L"))
+              px=list(im.getdata())
+              pure=sum(1 for r,g,b in px if r>248 and g>248 and b>248)/len(px)
+              near=sum(1 for r,g,b in px if min(r,g,b)>235)/len(px)
+              nonblack=sum(1 for r,g,b in px if max(r,g,b)>8)/len(px)
+              print(p,im.size,"mean",round(stat.mean[0],3),"std",round(stat.stddev[0],3),
+                    "pure_white",round(pure,5),"near_white",round(near,5),"nonblack",round(nonblack,5))
+          PY
+
+          test -n "$PID"
+          test "$STAGE" = "FIRST_FRAME_OK"
+          test -s diag/xzsm-texture-log.txt
+          grep -q "load batch=" diag/xzsm-texture-log.txt
+          grep -q "draw batch=" diag/xzsm-texture-log.txt
+
+      - name: Upload APK9 texture diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Church-APK9-Texture-Diagnostics
+          path: diag/
+          if-no-files-found: error
+          retention-days: 7
