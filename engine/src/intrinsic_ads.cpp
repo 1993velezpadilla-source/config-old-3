@@ -83,7 +83,8 @@ bool AdCreative::valid() const noexcept {
     }
 
     if (kind == AdCreativeKind::Audio) {
-        return durationSeconds >= 0.0f &&
+        return durationSeconds > 0.0f &&
+            durationSeconds <= kIntrinsicAdAudioMaxSeconds &&
             std::isfinite(durationSeconds);
     }
 
@@ -460,7 +461,8 @@ AdAudioEmitterFrame IntrinsicAdSystem::stepAudioEmitter(
 
     state.lastDistanceMeters = nonNegative(input.distanceMeters);
     frame.gain =
-        input.enabled && frame.loaded && frame.active
+        input.enabled && input.userInitiated &&
+                frame.loaded && frame.active
             ? audioGain(definition, state.lastDistanceMeters)
             : 0.0f;
 
@@ -512,7 +514,8 @@ AudioSource IntrinsicAdSystem::makeAudioSource(
 
     const auto& state = audioEmitters_[index];
     const float gain =
-        input.enabled && state.frame.loaded && state.frame.active
+        input.enabled && input.userInitiated &&
+                state.frame.loaded && state.frame.active
             ? audioGain(state.definition, input.distanceMeters)
             : 0.0f;
 
