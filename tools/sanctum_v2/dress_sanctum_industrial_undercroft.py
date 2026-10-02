@@ -59,6 +59,11 @@ def place_copy(template,name,target_bottom_center,scale=1.0,rotation_z=0.0,role=
     obj.data=template.data
     obj.name=name
     scene.collection.objects.link(obj)
+    # Copies inherit the hidden state of the source template. Explicitly
+    # re-enable authored instances so proof renders and final export see them.
+    obj.hide_render=False
+    obj.hide_viewport=False
+    obj.hide_set(False)
     obj.location=(0.0,0.0,0.0)
     obj.rotation_euler=(0.0,0.0,rotation_z)
     obj.scale=(scale,scale,scale)
@@ -163,9 +168,10 @@ def point_light(name,location,energy,color):
     lo.location=Vector(location)
     return lo
 
-point_light("SANCTUM_BOILER_WARM_A",(ic.x-1.8,center_y,lower_z+1.7),360,(1.0,0.18,0.04))
-point_light("SANCTUM_BOILER_WARM_B",(ic.x+1.8,center_y+0.5,lower_z+1.5),220,(0.95,0.28,0.08))
-point_light("SANCTUM_BOILER_COOL_FILL",(ic.x,by0+1.1,lower_z+2.0),150,(0.18,0.30,0.55))
+point_light("SANCTUM_BOILER_WARM_A",(ic.x-1.8,center_y,lower_z+1.7),520,(1.0,0.18,0.04))
+point_light("SANCTUM_BOILER_WARM_B",(ic.x+1.8,center_y+0.5,lower_z+1.5),360,(0.95,0.28,0.08))
+point_light("SANCTUM_BOILER_COOL_FILL",(ic.x,by0+1.1,lower_z+2.0),260,(0.18,0.30,0.55))
+point_light("SANCTUM_BOILER_TANK_RIM",(ic.x,center_y-2.2,lower_z+2.2),300,(0.22,0.38,0.62))
 
 scene.render.engine="BLENDER_EEVEE"
 scene.render.image_settings.media_type="IMAGE"
@@ -179,7 +185,7 @@ scene.world.use_nodes=True
 bg=scene.world.node_tree.nodes.get("Background")
 if bg:
     bg.inputs["Color"].default_value=(0.003,0.004,0.006,1)
-    bg.inputs["Strength"].default_value=0.14
+    bg.inputs["Strength"].default_value=0.24
 
 cam=ensure_camera(scene)
 eye=1.68
