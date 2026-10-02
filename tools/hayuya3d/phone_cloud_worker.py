@@ -1262,6 +1262,68 @@ final_texture_min_edge=(
 )
 detail_fusion_payload=None
 head_geometry_fusion_payload=None
+source_material_rescue_payload=None
+
+# Textureless native fallbacks (notably public CPU TripoSR continuity meshes)
+# are still useful geometry. Do not relax the texture gate and do not promote
+# the old front-projection proxy. Instead, use that projection only as a
+# temporary material donor, bridge the material back onto the original native
+# mesh, then re-run the normal native/volume/texture gates.
+initial_texture_gate=inspect_texture_gate(
+    dst,
+    min_edge=final_texture_min_edge,
+    min_base_color_edge=final_texture_min_edge,
+)
+if initial_texture_gate.base_color_image_count==0:
+    try:
+        from source_material_rescue import rescue_source_material
+
+        rescued=OUT/"hayuya_source_material_rescued.glb"
+        rescue_edge=(
+            4096
+            if TEXTURE_QUALITY=="ultra"
+            else 2048
+            if TEXTURE_QUALITY in {"high","standard"}
+            else 1024
+        )
+        rescue=rescue_source_material(
+            crops[0],
+            dst,
+            rescued,
+            texture_edge=rescue_edge,
+            min_texture_edge=final_texture_min_edge,
+            total_samples=250_000,
+        )
+        source_material_rescue_payload=asdict(rescue)
+        shutil.copy2(rescued,dst)
+        data=dst.read_bytes()
+        actual_texture_size=max(
+            int(actual_texture_size or 0),
+            int(rescue.texture_edge),
+        )
+        selected_compute=(
+            selected_compute
+            +" + HAYUYA source-derived native material rescue"
+        )
+        print(
+            "HAYUYA_SOURCE_MATERIAL_RESCUE_PASS",
+            json.dumps(
+                source_material_rescue_payload,
+                separators=(",",":"),
+            ),
+        )
+    except Exception as rescue_exc:
+        source_material_rescue_payload={
+            "attempted":True,
+            "promoted":False,
+            "error":f"{type(rescue_exc).__name__}: {rescue_exc}",
+            "reason":"missing_embedded_base_color",
+        }
+        print(
+            "::warning::HAYUYA source material rescue unavailable; "
+            "keeping native geometry for downstream hard texture gate: "
+            +source_material_rescue_payload["error"]
+        )
 
 # TRELLIS.2 preview recovery is intentionally only an approximate visual hull.
 # For face-critical characters, do not rely on texture paint to hide a weak head
@@ -1531,6 +1593,7 @@ manifest={
     "prepared_detail_views":[p.name for p in detail_views],
     "head_geometry_fusion":head_geometry_fusion_payload,
     "detail_fusion":detail_fusion_payload,
+    "source_material_rescue":source_material_rescue_payload,
     "source_autofix":(
         asdict(source_autofix_result)
         if source_autofix_result is not None else None
