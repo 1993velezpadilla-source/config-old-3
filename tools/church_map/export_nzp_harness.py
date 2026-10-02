@@ -120,7 +120,8 @@ if nav_doc:
         mxq=qv(floor["max"])
         lo=tuple(min(mnq[i],mxq[i]) for i in range(3))
         hi=tuple(max(mnq[i],mxq[i]) for i in range(3))
-        parts.append(brush_box(lo,hi,"null"))
+        floor_texture=str(floor.get("texture","null"))
+        parts.append(brush_box(lo,hi,floor_texture))
         floor_count += 1
 
     for ramp in nav_doc.get("ramps",[]):

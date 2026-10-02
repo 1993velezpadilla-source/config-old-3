@@ -72,11 +72,16 @@ jobs:
           d=json.load(open("nav/out/nzp_harness/sanctum_harness_export.json"))
           c=d["collisionSafety"]
           assert c["mode"]=="floors_ramps_only",c
-          assert c["zoneFloorDecks"]==11,c
+          assert c["zoneFloorDecks"]==13,c
           assert c["rampCount"]==4,c
           assert c["rampStepBrushes"]>=44,c
           assert c["maxRampStepHeightUnits"]<=14.0,c
           assert c["interiorWallCollision"] is False,c
+          nav=json.load(open("tools/church_map/sanctum_nav_skeleton_apk9.v1.json"))
+          ids={f["id"] for f in nav["floors"]}
+          assert "upper_full_deck" in ids,ids
+          assert {"exterior_west","exterior_east","exterior_front","exterior_rear"} <= ids,ids
+          assert nav["plan"]["min"][0] < -35 and nav["plan"]["max"][0] > 0, nav["plan"]
           print("NAV_SKELETON_GREEN",json.dumps(c,indent=2))
           PY
 
@@ -159,8 +164,8 @@ jobs:
             -dname "CN=Android Debug,O=XZIEL,C=US" -keyalg RSA -keysize 2048 -validity 10000 >/dev/null 2>&1
           "$ZIPALIGN" -f -p 4 work/unsigned.apk work/aligned.apk
           "$APKSIGNER" sign --ks work/debug.keystore --ks-pass pass:android --key-pass pass:android \
-            --out dist/XZIEL-Church-NavigationSkeleton-InfinitePistol.apk work/aligned.apk
-          "$APKSIGNER" verify --verbose dist/XZIEL-Church-NavigationSkeleton-InfinitePistol.apk
+            --out dist/XZIEL-Church-Exterior-UpperFloor-InfinitePistol.apk work/aligned.apk
+          "$APKSIGNER" verify --verbose dist/XZIEL-Church-Exterior-UpperFloor-InfinitePistol.apk
           cp nav/out/nzp_harness/sanctum_harness_export.json dist/
           ls -lh dist/
 
@@ -184,7 +189,7 @@ jobs:
             [[ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]] && break
             sleep 2
           done
-          "$ADB" install -r dist/XZIEL-Church-NavigationSkeleton-InfinitePistol.apk
+          "$ADB" install -r dist/XZIEL-Church-Exterior-UpperFloor-InfinitePistol.apk
           "$ADB" shell settings put secure immersive_mode_confirmations confirmed || true
           "$ADB" shell am force-stop com.xziel.churchsnapshot || true
           "$ADB" shell am start -W -n com.xziel.churchsnapshot/org.libsdl.app.NZPActivity >/dev/null 2>&1 || true
@@ -206,7 +211,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: XZIEL-Church-NavigationSkeleton-InfinitePistol
+          name: XZIEL-Church-Exterior-UpperFloor-InfinitePistol
           path: dist/
           if-no-files-found: error
           retention-days: 14

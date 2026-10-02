@@ -6,17 +6,19 @@
   "notes": [
     "Only floors and vertical access ramps collide in this test.",
     "Interior walls, pews, altar and props intentionally remain non-colliding.",
-    "Ramps are compiled as invisible walkable step brushes by export_nzp_harness.py."
+    "Ramps are compiled as invisible walkable step brushes by export_nzp_harness.py.",
+    "The second floor is a complete visible walkable deck for gameplay testing.",
+    "A visible walkable exterior apron surrounds the church while preserving undercroft access holes."
   ],
   "plan": {
     "min": [
-      -31.819637298583984,
-      -45.38863754272461,
+      -39.819637298583984,
+      -53.38863754272461,
       -0.3148227035999298
     ],
     "max": [
-      -3.8008956909179688,
-      -9.320945739746094,
+      4.199104309082031,
+      -1.3209457397460938,
       42.96233367919922
     ]
   },
@@ -131,33 +133,7 @@
       ]
     },
     {
-      "id": "upper_west",
-      "min": [
-        -23.334475803375245,
-        -32.55373108863831,
-        3.2451772916316983
-      ],
-      "max": [
-        -21.484475803375243,
-        -22.650985651016235,
-        3.4851772916316985
-      ]
-    },
-    {
-      "id": "upper_east",
-      "min": [
-        -14.136053371429442,
-        -32.55373108863831,
-        3.2451772916316983
-      ],
-      "max": [
-        -12.286053371429443,
-        -22.650985651016235,
-        3.4851772916316985
-      ]
-    },
-    {
-      "id": "upper_rear_bridge",
+      "id": "upper_full_deck",
       "min": [
         -23.334475803375245,
         -32.55373108863831,
@@ -165,9 +141,71 @@
       ],
       "max": [
         -12.286053371429443,
-        -30.55373108863831,
+        -22.650985651016235,
         3.4851772916316985
-      ]
+      ],
+      "texture": "tiles_me",
+      "purpose": "visible_walkable_second_floor"
+    },
+    {
+      "id": "exterior_west",
+      "min": [
+        -39.819637298583984,
+        -53.38863754272461,
+        -0.4948227083683014
+      ],
+      "max": [
+        -25.169002532958984,
+        -1.3209457397460938,
+        -0.3148227083683014
+      ],
+      "texture": "tiles_me",
+      "purpose": "exterior_gameplay"
+    },
+    {
+      "id": "exterior_east",
+      "min": [
+        -10.451526641845703,
+        -53.38863754272461,
+        -0.4948227083683014
+      ],
+      "max": [
+        4.199104309082031,
+        -1.3209457397460938,
+        -0.3148227083683014
+      ],
+      "texture": "tiles_me",
+      "purpose": "exterior_gameplay"
+    },
+    {
+      "id": "exterior_front",
+      "min": [
+        -25.169002532958984,
+        -53.38863754272461,
+        -0.4948227083683014
+      ],
+      "max": [
+        -10.451526641845703,
+        -39.73322153091431,
+        -0.3148227083683014
+      ],
+      "texture": "tiles_me",
+      "purpose": "exterior_gameplay"
+    },
+    {
+      "id": "exterior_rear",
+      "min": [
+        -25.169002532958984,
+        -14.97635793685913,
+        -0.4948227083683014
+      ],
+      "max": [
+        -10.451526641845703,
+        -1.3209457397460938,
+        -0.3148227083683014
+      ],
+      "texture": "tiles_me",
+      "purpose": "exterior_gameplay"
     }
   ],
   "ramps": [
