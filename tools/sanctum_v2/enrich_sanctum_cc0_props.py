@@ -25,6 +25,17 @@ export_dressed=state["export_dressed"]
 inner_after=state["inner_after"]
 base_walk=state["walk"]
 base_export=list(state["export_objects"])
+
+# Shared reference-driven PBR set.  This keeps pew/altar/floor materials in the
+# same authored visual family instead of letting props look like pasted assets.
+refmat=runpy.run_path("tools/sanctum_v2/reference_materials.py")
+REF=refmat["material_set"]()
+gameplay_floor=state.get("gameplay_floor")
+if gameplay_floor is not None and gameplay_floor.type=="MESH":
+    gameplay_floor.data.materials.clear()
+    gameplay_floor.data.materials.append(REF["floor"])
+    gameplay_floor["material_source"]="Sanctum reference board / procedural PBR v2"
+
 ic=Vector(inner_after["center"])
 isz=Vector(inner_after["size"])
 floor_z=Vector(inner_after["min"]).z + 0.12
@@ -63,25 +74,116 @@ def place_copy(template,name,location,rotation_z=0.0,scale=1.0):
     obj["source_pack"]="OpenGameArt AnyRPG CC0"
     return obj
 
-# Detailed wooden bench: closest useful authored CC0 approximation to a pew.
-bench_template=append_object(BENCH_BLEND,"BenchWoodOld")
-bench_template.name="SANCTUM_PEW_TEMPLATE"
-bench_template.hide_render=True
-bench_template.hide_viewport=True
+# Reference-built Gothic pew.  The previous BenchWoodOld was technically
+# valid but too thin/simple compared with the supplied all-angle model sheet.
+# Build one heavier authored template: square posts, wide feet, thick seat/back,
+# pointed Gothic relief and a real hymn-book rack, then instance it for rows.
+def _box_piece(name,loc,size,mat,bevel=0.018):
+    bpy.ops.mesh.primitive_cube_add(size=1.0,location=loc)
+    o=bpy.context.object
+    o.name=name
+    o.dimensions=Vector(size)
+    bpy.ops.object.transform_apply(location=False,rotation=False,scale=True)
+    o.data.materials.append(mat)
+    if bevel>0:
+        mod=o.modifiers.new("SANCTUM_EDGE_SOFTEN","BEVEL")
+        mod.width=bevel
+        mod.segments=2
+        bpy.context.view_layer.objects.active=o
+        o.select_set(True)
+        try:
+            bpy.ops.object.modifier_apply(modifier=mod.name)
+        finally:
+            o.select_set(False)
+    return o
+
+def _tube_segment(name,a,b,radius,mat):
+    a=Vector(a); b=Vector(b)
+    d=b-a
+    length=d.length
+    mid=(a+b)*0.5
+    bpy.ops.mesh.primitive_cylinder_add(vertices=12,radius=radius,depth=length,location=mid)
+    o=bpy.context.object
+    o.name=name
+    o.rotation_euler=d.to_track_quat("Z","Y").to_euler()
+    o.data.materials.append(mat)
+    return o
+
+def build_reference_pew_template():
+    parts=[]
+    W=3.45
+    # Main horizontal timbers.
+    parts += [
+        _box_piece("PEW_SEAT",(0.0,0.00,0.49),(W,0.62,0.11),REF["wood_h"],0.025),
+        _box_piece("PEW_BACK",(0.0,-0.31,1.02),(W,0.12,0.82),REF["wood_h"],0.024),
+        _box_piece("PEW_TOP_RAIL",(0.0,-0.31,1.45),(W+0.12,0.16,0.12),REF["wood_h"],0.025),
+        _box_piece("PEW_FRONT_APRON",(0.0,0.24,0.33),(W,0.10,0.28),REF["wood_h"],0.020),
+        _box_piece("PEW_RACK",(0.0,-0.46,0.84),(W-0.44,0.16,0.35),REF["wood_h"],0.016),
+        _box_piece("PEW_RACK_LIP",(0.0,-0.56,0.67),(W-0.34,0.10,0.10),REF["wood_h"],0.014),
+    ]
+    # Heavy Gothic end posts/panels and stepped feet/caps.
+    for side,sign in (("L",-1.0),("R",1.0)):
+        x=sign*(W*0.5+0.09)
+        parts += [
+            _box_piece(f"PEW_{side}_END",(x,0.0,0.77),(0.24,0.82,1.54),REF["wood_v"],0.028),
+            _box_piece(f"PEW_{side}_FOOT",(x,0.0,0.09),(0.38,0.94,0.18),REF["wood_h"],0.024),
+            _box_piece(f"PEW_{side}_BASE",(x,0.0,0.22),(0.32,0.88,0.12),REF["wood_h"],0.022),
+            _box_piece(f"PEW_{side}_CAP",(x,0.0,1.50),(0.38,0.92,0.16),REF["wood_h"],0.024),
+        ]
+        # Raised pointed-arch relief on the outside face, matching the reference.
+        xf=x+sign*0.128
+        for idx,(a,b) in enumerate([
+            ((xf,-0.27,0.36),(xf,-0.27,1.00)),
+            ((xf, 0.27,0.36),(xf, 0.27,1.00)),
+            ((xf,-0.27,1.00),(xf,0.0,1.29)),
+            ((xf, 0.27,1.00),(xf,0.0,1.29)),
+            ((xf,-0.20,0.38),(xf,0.0,0.62)),
+            ((xf, 0.20,0.38),(xf,0.0,0.62)),
+        ]):
+            parts.append(_tube_segment(f"PEW_{side}_GOTHIC_{idx}",a,b,0.028,REF["wood_v"]))
+    # Hymn books: muted black/burgundy volumes visible from the rear rack.
+    book_mats=[]
+    for idx,col in enumerate(((0.050,0.020,0.018,1.0),(0.19,0.025,0.028,1.0),(0.035,0.033,0.030,1.0))):
+        m=bpy.data.materials.get(f"SANCTUM_HYMN_{idx}") or bpy.data.materials.new(f"SANCTUM_HYMN_{idx}")
+        m.diffuse_color=col
+        book_mats.append(m)
+    for i,x in enumerate((-1.00,-0.50,0.0,0.50,1.00)):
+        parts.append(_box_piece(f"PEW_BOOK_{i}",(x,-0.58,0.88),(0.28,0.07,0.34),book_mats[i%3],0.008))
+
+    for o in bpy.context.selected_objects:
+        o.select_set(False)
+    for o in parts:
+        o.select_set(True)
+    bpy.context.view_layer.objects.active=parts[0]
+    bpy.ops.object.join()
+    o=bpy.context.view_layer.objects.active
+    o.name="SANCTUM_PEW_REFERENCE_TEMPLATE"
+    bpy.ops.object.origin_set(type="ORIGIN_GEOMETRY",center="BOUNDS")
+    o["xziel_role"]="church_prop"
+    o["source_pack"]="User Sanctum pew reference / procedural reconstruction"
+    o["source_license"]="original_xziel_reference_reconstruction"
+    o.hide_render=True
+    o.hide_viewport=True
+    return o
+
+bench_template=build_reference_pew_template()
 
 pews=[]
 row_fracs=(-0.26,-0.16,-0.06,0.04,0.14)
-x_offset=min(2.25,half_w*0.27)
+# Wider/heavier than the old benches while preserving the proven central aisle.
+x_offset=max(2.55,min(3.05,half_w*0.33))
 for row,frac in enumerate(row_fracs,1):
     y=ic.y+isz.y*frac
     for side,sign in (("L",-1.0),("R",1.0)):
-        pews.append(place_copy(
+        p=place_copy(
             bench_template,
             f"SANCTUM_PEW_{row}_{side}",
             (ic.x+sign*x_offset,y,floor_z),
             rotation_z=0.0,
             scale=1.0,
-        ))
+        )
+        p["reference_model"]="docs/sanctum-reference-materials.v2.json#model_targets.pew"
+        pews.append(p)
 
 # Build one authored candle cluster from the center stand + candle + wick.
 candle_parts=[]
@@ -170,7 +272,9 @@ if bg:
     bg.inputs["Strength"].default_value=0.18
 
 cam=ensure_camera(scene)
-eye=floor_z+1.72
+# Keep all nave proofs at the new requested player-view height.
+eye=floor_z+1.88
+cam.data.lens=31.0
 
 def render_enriched_view(scene, cam, name, pos, look):
     cam.location=Vector(pos)
@@ -214,11 +318,12 @@ stats=mesh_stats(export_objects)
 report={
     "status":"PASS",
     "license_policy":"MIT outer + CC0 interior/dressing/props",
-    "bench_source":"https://opengameart.org/content/medieval-benches",
-    "bench_source_sha256":os.environ.get("SANCTUM_BENCH_SHA256",""),
+    "bench_source":"user Sanctum pew all-angle reference / original procedural reconstruction",
+    "bench_source_sha256":"",
+    "reference_material_profile":"docs/sanctum-reference-materials.v2.json",
     "candle_source":"https://opengameart.org/content/medieval-candles",
     "candle_source_sha256":os.environ.get("SANCTUM_CANDLE_SHA256",""),
-    "pew_source_object":"BenchWoodOld",
+    "pew_source_object":"SANCTUM_PEW_REFERENCE_TEMPLATE",
     "candle_source_objects":["CandleStand","Candle","Wicka"],
     "pew_count":len(pews),
     "candle_count":len(candles),
