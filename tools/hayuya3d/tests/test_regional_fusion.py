@@ -14,6 +14,7 @@ from PIL import Image
 
 from tools.hayuya3d.gltf_position_patch import skin_payload_signature
 from tools.hayuya3d.regional_fusion import (
+    _yaw_align_donor_to_base_head,
     build_head_wrap_geometry,
     prepare_head_wrap_challenger,
 )
@@ -177,6 +178,37 @@ def make_skinned_character(
 
 
 class RegionalFusionTests(unittest.TestCase):
+    def test_donor_yaw_alignment_recovers_rotated_asymmetric_head(self):
+        sphere=trimesh.creation.icosphere(subdivisions=3,radius=1.0)
+        base=np.asarray(sphere.vertices,dtype=np.float64).copy()
+        base[:,0]*=0.72
+        base[:,1]*=1.10
+        base[:,2]*=0.82
+
+        # Add an asymmetric forward "nose" only on the upper-front region.
+        nose=(base[:,1]>0.05)&(base[:,2]>0.35)&(np.abs(base[:,0])<0.28)
+        base[nose,2]+=0.28
+
+        theta=math.radians(90.0)
+        donor=base.copy()
+        x=donor[:,0].copy()
+        z=donor[:,2].copy()
+        donor[:,0]=math.cos(theta)*x-math.sin(theta)*z
+        donor[:,2]=math.sin(theta)*x+math.cos(theta)*z
+
+        aligned,angle,score=_yaw_align_donor_to_base_head(
+            donor,
+            base,
+            np.zeros(3,dtype=np.float64),
+            1,
+        )
+        self.assertIn(angle,(90.0,270.0))
+        self.assertLess(score,0.08)
+
+        before=np.mean(np.linalg.norm(donor-base,axis=1))
+        after=np.mean(np.linalg.norm(aligned-base,axis=1))
+        self.assertLess(after,before*0.35)
+
     def test_head_wrap_changes_head_with_soft_neck_and_bounded_drift(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp)
