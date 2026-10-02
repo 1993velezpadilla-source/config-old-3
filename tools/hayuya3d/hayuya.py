@@ -1793,101 +1793,107 @@ def main() -> int:
                 for path in detail_inputs
                 if infer_detail_region_hint(Path(path)) == "head"
             ]
-            if not head_details:
-                source_face_repair_status = "skipped_no_head_evidence"
-                source_face_repair_failure = (
-                    "no current-source head/face evidence is available for native donor generation"
-                )
+            derive_head_from_full_source = not bool(head_details)
+            face_source = (
+                head_details[0]
+                if head_details
+                else Path(geometry_inputs[0])
+            )
+            if derive_head_from_full_source:
                 print(
-                    f"HAYUYA_SOURCE_FACE_REPAIR_SKIPPED {source_face_repair_failure}",
-                    file=sys.stderr,
+                    "HAYUYA_SOURCE_FACE_REPAIR_FALLBACK "
+                    f"source={face_source} "
+                    "method=foreground-silhouette-head-zoom"
                 )
-                if args.native_face_repair == "required":
-                    raise RuntimeError(source_face_repair_failure)
-            else:
-                provisional = valid[0]
-                provisional_path = Path(provisional.path)
-                try:
-                    from native_face_repair import (
-                        prepare_source_face_repair_challenger,
+
+            provisional = valid[0]
+            provisional_path = Path(provisional.path)
+            try:
+                from native_face_repair import (
+                    prepare_source_face_repair_challenger,
+                )
+
+                face_dir = job_dir / "native_face_repair"
+                source_face_repair_result = (
+                    prepare_source_face_repair_challenger(
+                        provisional_path,
+                        face_source,
+                        face_dir,
+                        selected_backends=selected,
+                        seed=args.seed + 9091,
+                        hero_faces=max(
+                            200_000,
+                            min(int(profile.hero_faces), 750_000),
+                        ),
+                        trellis2_resolution=int(profile.trellis2_resolution),
+                        texture_size=int(profile.texture_size),
+                        model_root=args.model_root,
+                        require_rebake=True,
+                        derive_head_from_full_source=(
+                            derive_head_from_full_source
+                        ),
                     )
+                )
 
-                    face_dir = job_dir / "native_face_repair"
-                    source_face_repair_result = (
-                        prepare_source_face_repair_challenger(
-                            provisional_path,
-                            head_details[0],
-                            face_dir,
-                            selected_backends=selected,
-                            seed=args.seed + 9091,
-                            hero_faces=max(
-                                200_000,
-                                min(int(profile.hero_faces), 750_000),
-                            ),
-                            trellis2_resolution=int(profile.trellis2_resolution),
-                            texture_size=int(profile.texture_size),
-                            model_root=args.model_root,
-                            require_rebake=True,
-                        )
+                if not source_face_repair_result.ready:
+                    source_face_repair_status = "rejected"
+                    source_face_repair_failure = (
+                        source_face_repair_result.error
+                        or "source-derived face repair was not Judge-eligible"
                     )
-
-                    if not source_face_repair_result.ready:
-                        source_face_repair_status = "rejected"
-                        source_face_repair_failure = (
-                            source_face_repair_result.error
-                            or "source-derived face repair was not Judge-eligible"
-                        )
-                        print(
-                            "HAYUYA_SOURCE_FACE_REPAIR_REJECTED "
-                            + source_face_repair_failure,
-                            file=sys.stderr,
-                        )
-                        if args.native_face_repair == "required":
-                            raise RuntimeError(source_face_repair_failure)
-                    else:
-                        source_face_repair_candidate_label = (
-                            "source_face_repair_"
-                            + str(source_face_repair_result.backend or "native")
-                        )
-                        repaired_path = Path(
-                            str(source_face_repair_result.candidate_mesh)
-                        )
-                        assert_native_candidate(
-                            repaired_path,
-                            label=source_face_repair_candidate_label,
-                        )
-                        assert_native_character_360(
-                            repaired_path,
-                            label=source_face_repair_candidate_label,
-                        )
-                        candidates.append(
-                            (source_face_repair_candidate_label, repaired_path)
-                        )
-                        source_face_repair_status = "candidate_ready"
-                        print(
-                            "HAYUYA_SOURCE_FACE_REPAIR_READY "
-                            f"base={provisional.backend} "
-                            f"donor_backend={source_face_repair_result.backend} "
-                            f"detail={head_details[0]} "
-                            f"candidate={source_face_repair_candidate_label}"
-                        )
-
-                        ranked = run_full_ranking()
-                        valid = [x for x in ranked if x.valid]
-                        if not valid:
-                            raise RuntimeError(
-                                "source face repair re-ranking produced no valid candidates"
-                            )
-                except Exception as exc:
-                    source_face_repair_status = "failed"
-                    source_face_repair_failure = f"{type(exc).__name__}: {exc}"
                     print(
-                        f"HAYUYA_SOURCE_FACE_REPAIR_FAILED {source_face_repair_failure}",
+                        "HAYUYA_SOURCE_FACE_REPAIR_REJECTED "
+                        + source_face_repair_failure,
                         file=sys.stderr,
                     )
-                    traceback.print_exc()
                     if args.native_face_repair == "required":
-                        raise
+                        raise RuntimeError(source_face_repair_failure)
+                else:
+                    source_face_repair_candidate_label = (
+                        "source_face_repair_"
+                        + str(source_face_repair_result.backend or "native")
+                    )
+                    repaired_path = Path(
+                        str(source_face_repair_result.candidate_mesh)
+                    )
+                    assert_native_candidate(
+                        repaired_path,
+                        label=source_face_repair_candidate_label,
+                    )
+                    assert_native_character_360(
+                        repaired_path,
+                        label=source_face_repair_candidate_label,
+                    )
+                    candidates.append(
+                        (source_face_repair_candidate_label, repaired_path)
+                    )
+                    source_face_repair_status = "candidate_ready"
+                    print(
+                        "HAYUYA_SOURCE_FACE_REPAIR_READY "
+                        f"base={provisional.backend} "
+                        f"donor_backend={source_face_repair_result.backend} "
+                        f"detail={face_source} "
+                        f"derived_from_full_source="
+                        f"{str(derive_head_from_full_source).lower()} "
+                        f"candidate={source_face_repair_candidate_label}"
+                    )
+
+                    ranked = run_full_ranking()
+                    valid = [x for x in ranked if x.valid]
+                    if not valid:
+                        raise RuntimeError(
+                            "source face repair re-ranking produced no valid candidates"
+                        )
+            except Exception as exc:
+                source_face_repair_status = "failed"
+                source_face_repair_failure = f"{type(exc).__name__}: {exc}"
+                print(
+                    f"HAYUYA_SOURCE_FACE_REPAIR_FAILED {source_face_repair_failure}",
+                    file=sys.stderr,
+                )
+                traceback.print_exc()
+                if args.native_face_repair == "required":
+                    raise
 
     mesh_doctor_audit = None
     mesh_doctor_result = None
