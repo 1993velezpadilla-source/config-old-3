@@ -11,6 +11,7 @@ HERE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HERE))
 
 from native_geometry_guard import assert_native_candidate
+from native_360_geometry_gate import Native360GeometryRejected
 from native_face_repair import (
     generate_source_head_donor,
     select_head_donor_backend,
@@ -23,6 +24,14 @@ def _write_native(path: Path) -> None:
     scene.add_geometry(mesh, node_name="HeadMesh", geom_name="HeadMesh")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(scene.export(file_type="glb"))
+
+def _write_planar_native(path: Path) -> None:
+    mesh = trimesh.creation.box(extents=(1.0, 1.0, 0.0005))
+    scene = trimesh.Scene()
+    scene.add_geometry(mesh, node_name="HeadMesh", geom_name="HeadMesh")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(scene.export(file_type="glb"))
+
 
 
 def test_backend_selection_is_capability_based_not_asset_specific(tmp_path: Path):
@@ -76,6 +85,33 @@ def test_full_body_source_can_derive_head_evidence_for_native_donor(tmp_path: Pa
     assert alpha.getbbox() is not None
     assert alpha.getextrema()[0] == 0
     assert Path(seen["image"]).name == "source_head_rgba.png"
+
+
+def test_source_head_donor_rejects_planar_native_generator_output(tmp_path: Path):
+    detail = tmp_path / "head.png"
+    Image.new("RGBA", (96, 96), (180, 120, 90, 255)).save(detail)
+
+    def fake_planar_generator(**kwargs):
+        output = Path(kwargs["out_dir"]) / "planar_head.glb"
+        _write_planar_native(output)
+        return SimpleNamespace(model_path=output)
+
+    try:
+        generate_source_head_donor(
+            detail,
+            tmp_path / "planar_run",
+            backend="triposg",
+            seed=91,
+            hero_faces=250000,
+            trellis2_resolution=1024,
+            texture_size=4096,
+            model_root=tmp_path / "models",
+            generator_override=fake_planar_generator,
+        )
+    except Native360GeometryRejected as exc:
+        assert "source_head_donor:triposg" in str(exc)
+    else:
+        raise AssertionError("planar native head donor must be rejected before fusion")
 
 
 def test_source_head_donor_is_native_and_uses_current_detail(tmp_path: Path):
