@@ -79,7 +79,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          "${CURL[@]}" https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz -o /tmp/blender.tar.xz
+          curl -L --fail --retry 6 --retry-all-errors --retry-delay 2 https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz -o /tmp/blender.tar.xz
           tar -C /tmp -xf /tmp/blender.tar.xz
 
       - name: Build hero altar Sanctum
