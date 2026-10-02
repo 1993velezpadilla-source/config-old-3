@@ -14,7 +14,13 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 sys.path.insert(0, str(HERE))
 
-from adapters import DEFAULT_MODEL_ROOT, GENERATORS, REFINERS, pshuman_readiness
+from adapters import (
+    DEFAULT_MODEL_ROOT,
+    GENERATORS,
+    REFINERS,
+    REMOTE_GENERATORS,
+    pshuman_readiness,
+)
 from qa import export_glb, rank_candidates
 from reference_pool import infer_detail_region_hint, order_for_multiview_coverage, split_reference_roles
 from mobile_portability import build_portability_plan
@@ -974,7 +980,11 @@ def choose_backends(
         if not permissive and not allow_restricted:
             print(f"SKIP {backend}: opt-in/restricted license", file=sys.stderr)
             continue
-        if gpu_vram is not None and int(entry["min_vram_gb"]) > gpu_vram:
+        if (
+            backend not in REMOTE_GENERATORS
+            and gpu_vram is not None
+            and int(entry["min_vram_gb"]) > gpu_vram
+        ):
             print(
                 f"SKIP {backend}: requires >= {entry['min_vram_gb']}GB VRAM, budget={gpu_vram}GB",
                 file=sys.stderr,
