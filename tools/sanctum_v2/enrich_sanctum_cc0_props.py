@@ -71,7 +71,9 @@ def place_copy(template,name,location,rotation_z=0.0,scale=1.0):
     dz=floor_z-bottom_z(obj)
     obj.location.z += dz
     obj["xziel_role"]="church_prop"
-    obj["source_pack"]="OpenGameArt AnyRPG CC0"
+    obj["source_pack"]=template.get("source_pack","OpenGameArt AnyRPG CC0")
+    if template.get("source_license"):
+        obj["source_license"]=template.get("source_license")
     return obj
 
 # Reference-built Gothic pew.  The previous BenchWoodOld was technically
@@ -317,7 +319,7 @@ if not glb.is_file() or glb.stat().st_size < 1000000:
 stats=mesh_stats(export_objects)
 report={
     "status":"PASS",
-    "license_policy":"MIT outer + CC0 interior/dressing/props",
+    "license_policy":"MIT outer + CC0 architecture/dressing/candles + original XZIEL reference-reconstructed pews",
     "bench_source":"user Sanctum pew all-angle reference / original procedural reconstruction",
     "bench_source_sha256":"",
     "reference_material_profile":"docs/sanctum-reference-materials.v2.json",
