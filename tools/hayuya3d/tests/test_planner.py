@@ -196,6 +196,35 @@ class HayuyaPlannerTests(unittest.TestCase):
         self.assertEqual(len(semantic),1)
         self.assertNotEqual(geometry[0],details[0])
 
+    def test_reclassified_detail_face_cannot_force_character_mode_by_itself(self):
+        prop=Path("/tmp/altar_front.png").resolve()
+        close=Path("/tmp/IMG_face.png").resolve()
+        report=SimpleNamespace(
+            character_hint=True,
+            sources=[
+                SimpleNamespace(
+                    source=str(prop),
+                    semantic_face_or_head_confirmed=False,
+                ),
+                SimpleNamespace(
+                    source=str(close),
+                    semantic_face_or_head_confirmed=True,
+                ),
+            ],
+        )
+        self.assertFalse(
+            hayuya.semantic_character_hint_for_geometry(
+                report,
+                [prop],
+            )
+        )
+        self.assertTrue(
+            hayuya.semantic_character_hint_for_geometry(
+                report,
+                [prop,close],
+            )
+        )
+
     def test_job_plan_accepts_content_routed_reference_roles(self):
         full=Path("/tmp/IMG_full.png")
         close=Path("/tmp/IMG_close.png")
