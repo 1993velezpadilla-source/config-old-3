@@ -38,8 +38,14 @@ def material(name,fallback=None):
         mat.diffuse_color=(0.18,0.18,0.18,1.0)
     return mat
 
-STONE=material("Stone","GreyBrick2")
-WOOD=material("Wood")
+# Reference-driven PBR family shared by nave, pews, altar and new runtime
+# geometry.  This changes only shading/materials; authored navigation topology
+# remains exactly the same.
+refmat=runpy.run_path("tools/sanctum_v2/reference_materials.py")
+REF=refmat["material_set"]()
+STONE=REF["stone"]
+FLOOR=REF["floor"]
+WOOD=REF["wood_h"]
 METAL=material("Metal","RustedMetal")
 
 def simple_material(name,color,emission=0.0):
@@ -158,7 +164,7 @@ floor_parts=[]
 def floor_box(name,x0,x1,y0,y1):
     if x1-x0<0.15 or y1-y0<0.15:
         return None
-    obj=add_box(name,((x0+x1)*0.5,(y0+y1)*0.5,floor_z-floor_thickness*0.5),(x1-x0,y1-y0,floor_thickness),STONE,"walkable_floor",True)
+    obj=add_box(name,((x0+x1)*0.5,(y0+y1)*0.5,floor_z-floor_thickness*0.5),(x1-x0,y1-y0,floor_thickness),FLOOR,"walkable_floor",True)
     floor_parts.append(obj)
     return obj
 
