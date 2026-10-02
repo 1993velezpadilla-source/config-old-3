@@ -821,7 +821,7 @@ def make_job_plan(
             "activation": "character mode only; props and architecture are never routed through head/face donor generation",
             "input_geometry": "current native Judge champion",
             "source_target": "current source-derived head/face evidence",
-            "donor_policy": "try selected bootstrapped native 3D head-donor backends in deterministic capability order; reject bad donors/fusions per gate and fall through until one Judge-eligible challenger exists",
+            "donor_policy": "try selected bootstrapped native 3D head donor backends in deterministic capability order; reject bad donors/fusions per gate and fall through until one Judge-eligible challenger exists",
             "donor_failure_policy": "projection, planar volume, fusion, rebake and final volumetric failures are recorded per backend and never exposed as candidate_mesh",
             "fusion_policy": "seam-safe head wrap on preserved full-body topology with adaptive displacement, orientation and payload-preservation guards",
             "asset_specific_coordinates": False,
