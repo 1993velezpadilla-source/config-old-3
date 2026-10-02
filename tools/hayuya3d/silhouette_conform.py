@@ -16,6 +16,21 @@ FRONT_NODE="source_visible_front"
 SUPPORT_NODE="occluded_low_frequency"
 
 
+def _require_legacy_projection_profile(profile:dict|None)->dict:
+    """Quarantine the old front-projection conform from generic HAYUYA jobs."""
+    normalized=dict(profile or {})
+    name=str(normalized.get("name") or "unspecified")
+    if not bool(normalized.get("legacy_monja_targeting",False)):
+        raise RuntimeError(
+            "legacy silhouette_conform.py is projection-shell-only and is "
+            "forbidden for generic/new assets; use native_silhouette_conform.py "
+            "instead. A deliberately legacy profile with "
+            "legacy_monja_targeting=true is required "
+            f"(profile={name})."
+        )
+    return normalized
+
+
 def _load_scene(path:Path):
     import trimesh
     scene=trimesh.load(path,force="scene",process=False)
@@ -1369,9 +1384,9 @@ def conform(
     edge_fill_radius:int,
     asset_profile:dict|None=None,
 ):
-    profile=dict(asset_profile or {})
-    profile_name=str(profile.get("name","generic"))
-    legacy_monja_targeting=bool(profile.get("legacy_monja_targeting",False))
+    profile=_require_legacy_projection_profile(asset_profile)
+    profile_name=str(profile.get("name","legacy"))
+    legacy_monja_targeting=True
     scene=_load_scene(input_glb)
     original={}
     topology={}
@@ -1547,6 +1562,9 @@ def conform(
     payload={
         "schema":1,
         "policy":"localized-screen-space-silhouette-conform-v2-profiled",
+        "legacy_projection_route":True,
+        "generic_pipeline_eligible":False,
+        "replacement":"native_silhouette_conform.py",
         "asset_profile":{
             "name":profile_name,
             "legacy_monja_targeting":legacy_monja_targeting,
@@ -1622,10 +1640,14 @@ def main():
     parser.add_argument(
         "--profile",
         type=Path,
-        help="Optional asset-specific JSON profile. Omit for generic HAYUYA core.",
+        help=(
+            "Required legacy projection profile. Generic/new assets must use "
+            "native_silhouette_conform.py instead."
+        ),
     )
     args=parser.parse_args()
     profile=load_asset_profile(args.profile)
+    _require_legacy_projection_profile(profile)
     conform(
         args.input,
         args.output,
