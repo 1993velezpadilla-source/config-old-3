@@ -19,6 +19,7 @@ from native_face_repair import (
     select_head_donor_backend,
 )
 from regional_fusion import HeadWrapResult
+from source_autofix import _foreground_head_zoom
 
 
 def _write_native(path: Path) -> None:
@@ -48,6 +49,24 @@ def test_backend_selection_is_capability_based_not_asset_specific(tmp_path: Path
     )
     assert select_head_donor_backend(["triposr"], root) == "triposr"
     assert select_head_donor_backend(["trellis2"], root) is None
+
+
+def test_foreground_head_fallback_rejects_horizontal_subject(tmp_path: Path):
+    source = tmp_path / "horizontal_subject.png"
+    image = Image.new("RGBA", (512, 256), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((30, 94, 94, 158), fill=(190, 140, 110, 255))
+    draw.rectangle((92, 82, 430, 174), fill=(120, 120, 120, 255))
+    draw.rectangle((150, 55, 360, 82), fill=(120, 120, 120, 255))
+    draw.rectangle((150, 174, 360, 201), fill=(120, 120, 120, 255))
+    image.save(source)
+
+    result = _foreground_head_zoom(
+        source,
+        tmp_path / "should_not_exist.png",
+    )
+    assert result is None
+    assert not (tmp_path / "should_not_exist.png").exists()
 
 
 def test_full_body_source_can_derive_head_evidence_for_native_donor(tmp_path: Path):
