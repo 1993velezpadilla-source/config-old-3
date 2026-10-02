@@ -1,0 +1,193 @@
+name: Sanctum Live Visual Preview
+
+on:
+  workflow_run:
+    workflows:
+      - "Sanctum Hero Altar"
+    types:
+      - completed
+  push:
+    branches:
+      - feature/xziel-map-builder-agent-v1
+    paths:
+      - ".github/workflows/sanctum-live-visual-preview.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: sanctum-live-visual-preview
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'feature/xziel-map-builder-agent-v1'
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout XZIEL
+        uses: actions/checkout@v5
+        with:
+          ref: feature/xziel-map-builder-agent-v1
+          fetch-depth: 1
+
+      - name: Resolve latest successful hero build
+        id: source
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_RUN_ID: ${{ github.event.workflow_run.id }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == "workflow_run" && -n "${EVENT_RUN_ID:-}" ]]; then
+            RUN_ID="$EVENT_RUN_ID"
+          else
+            RUN_ID="$(python3 - <<'PY'
+          import json, os, urllib.parse, urllib.request
+          repo=os.environ["REPO"]
+          branch=urllib.parse.quote("feature/xziel-map-builder-agent-v1", safe="")
+          url=f"https://api.github.com/repos/{repo}/actions/workflows/sanctum-hero-altar.yml/runs?branch={branch}&status=success&per_page=1"
+          req=urllib.request.Request(url,headers={
+              "Authorization":f"Bearer {os.environ['GH_TOKEN']}",
+              "Accept":"application/vnd.github+json",
+              "X-GitHub-Api-Version":"2022-11-28",
+          })
+          runs=json.load(urllib.request.urlopen(req)).get("workflow_runs",[])
+          if not runs:
+              raise SystemExit("No successful Sanctum Hero Altar build exists yet")
+          print(runs[0]["id"])
+          PY
+          )"
+          fi
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "SANCTUM_LIVE_SOURCE_RUN=$RUN_ID"
+
+      - name: Download latest hero renders
+        uses: actions/download-artifact@v5
+        with:
+          name: XZIEL-Sanctum-Hero-Altar
+          path: hero-artifact
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.source.outputs.run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Build mobile-friendly live visual surface
+        shell: bash
+        env:
+          SOURCE_RUN_ID: ${{ steps.source.outputs.run_id }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/sanctum-live-site
+          mkdir -p /tmp/sanctum-live-site
+
+          hero="$(find hero-artifact -type f -name '01-hero-altar-from-nave.png' -print -quit)"
+          test -n "$hero"
+          cp "$hero" /tmp/sanctum-live-site/hero.png
+
+          for pair in             "02-hero-altar-mid-nave.png:mid-nave.png"             "03-hero-altar-three-quarter.png:three-quarter.png"             "04-hero-altar-side.png:side.png"
+          do
+            src_name="${pair%%:*}"
+            dst_name="${pair##*:}"
+            src="$(find hero-artifact -type f -name "$src_name" -print -quit)"
+            [[ -n "$src" ]] && cp "$src" "/tmp/sanctum-live-site/$dst_name"
+          done
+
+          report="$(find hero-artifact -type f -name 'hero-altar-report.json' -print -quit)"
+          nav="$(find hero-artifact -type f -name 'navmesh-report.json' -print -quit)"
+          col="$(find hero-artifact -type f -name 'collision-report.json' -print -quit)"
+          pipe="$(find hero-artifact -type f -name 'sanctum-hero-altar.pipeline.json' -print -quit)"
+
+          [[ -n "$report" ]] && cp "$report" /tmp/sanctum-live-site/hero-altar-report.json
+          [[ -n "$nav" ]] && cp "$nav" /tmp/sanctum-live-site/navmesh-report.json
+          [[ -n "$col" ]] && cp "$col" /tmp/sanctum-live-site/collision-report.json
+          [[ -n "$pipe" ]] && cp "$pipe" /tmp/sanctum-live-site/pipeline-report.json
+
+          python3 - <<'PY'
+          import datetime, json, os
+          from pathlib import Path
+          root=Path("/tmp/sanctum-live-site")
+          def load(name):
+              p=root/name
+              return json.loads(p.read_text()) if p.exists() else {}
+          hero=load("hero-altar-report.json")
+          nav=load("navmesh-report.json")
+          col=load("collision-report.json")
+          pipe=load("pipeline-report.json")
+          state={
+              "updated_utc":datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              "source_run_id":os.environ["SOURCE_RUN_ID"],
+              "hero_status":hero.get("status","UNKNOWN"),
+              "hero_camera":hero.get("hero_camera",{}),
+              "nav_status":nav.get("status","UNKNOWN"),
+              "nav_polygons":nav.get("nav_polygons"),
+              "nav_vertical_span":nav.get("nav_vertical_span"),
+              "nav_vertical_bands":nav.get("nav_vertical_bands"),
+              "collision_status":col.get("status","UNKNOWN"),
+              "collision_hulls":col.get("hull_count"),
+              "validator_errors":pipe.get("validator",{}).get("errors"),
+          }
+          (root/"status.json").write_text(json.dumps(state,indent=2),encoding="utf-8")
+
+          def val(v, fallback="—"):
+              return fallback if v is None else str(v)
+          cam=state["hero_camera"] or {}
+          readme=f"""# 🕯️ SANCTUM — LIVE VISUAL PREVIEW
+
+          **Refresh this page after a build finishes.** This branch is replaced automatically by the latest successful **Sanctum Hero Altar** render.
+
+          ## Main entrance / player view
+
+          [![Sanctum hero player view](hero.png)](hero.png)
+
+          Tap the image above to open it full-size and zoom.
+
+          **Current visual pass:** raised entrance camera · eye height {val(cam.get("eye_height_m"))} m · {val(cam.get("lens_mm"))} mm lens.
+
+          **Runtime gates from the same build:** Hero {state["hero_status"]} · Recast {state["nav_status"]} · nav polygons {val(state["nav_polygons"])} · vertical span {val(state["nav_vertical_span"])} m · bands {val(state["nav_vertical_bands"])} · CoACD {state["collision_status"]} · hulls {val(state["collision_hulls"])} · GLB validator errors {val(state["validator_errors"])}.
+
+          ## Other live angles
+
+          [Mid nave](mid-nave.png) · [Three-quarter](three-quarter.png) · [Side](side.png)
+
+          Source workflow run: https://github.com/{os.environ["REPO"]}/actions/runs/{os.environ["SOURCE_RUN_ID"]}
+
+          Updated UTC: {state["updated_utc"]}
+          """
+          # Strip workflow indentation while preserving Markdown.
+          lines=[line[10:] if line.startswith("          ") else line for line in readme.splitlines()]
+          (root/"README.md").write_text("\n".join(lines)+"\n",encoding="utf-8")
+          PY
+
+          test -s /tmp/sanctum-live-site/hero.png
+          test -s /tmp/sanctum-live-site/README.md
+
+      - name: Publish visual-only branch
+        shell: bash
+        env:
+          SOURCE_RUN_ID: ${{ steps.source.outputs.run_id }}
+        run: |
+          set -euo pipefail
+          git config user.name "xziel-sanctum-bot"
+          git config user.email "xziel-sanctum-bot@users.noreply.github.com"
+
+          git switch --orphan _sanctum_live_publish
+          git rm -rf . >/dev/null 2>&1 || true
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -a /tmp/sanctum-live-site/. .
+
+          git add -A
+          git commit -m "Sanctum live preview from hero run $SOURCE_RUN_ID"
+          git push origin HEAD:refs/heads/sanctum-live-preview --force
+
+          echo "SANCTUM_LIVE_PREVIEW_PUBLISHED"
