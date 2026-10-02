@@ -495,6 +495,27 @@ class HayuyaPlannerTests(unittest.TestCase):
         meta = hayuya.backend_meta(lock)
         self.assertFalse(meta["hunyuan3d_2_1"]["enabled_by_default"])
 
+    def test_hunyuan_cloud_adapter_stays_restricted_opt_in(self):
+        lock=hayuya.load_lock()
+        denied=hayuya.choose_backends(
+            lock,
+            hayuya.PROFILES["monster"],
+            "hunyuan3d_2_1",
+            gpu_vram=4,
+            allow_restricted=False,
+        )
+        self.assertEqual(denied,[])
+
+        allowed=hayuya.choose_backends(
+            lock,
+            hayuya.PROFILES["monster"],
+            "hunyuan3d_2_1",
+            gpu_vram=4,
+            allow_restricted=True,
+        )
+        self.assertEqual(allowed,["hunyuan3d_2_1"])
+
+
     def test_universal_asset_profile_inference(self):
         self.assertEqual(hayuya.infer_asset_profile(Path("/tmp/weapons/pump_shotgun/front.png")), "weapon.firearm")
         self.assertEqual(hayuya.infer_asset_profile(Path("/tmp/foliage/grass/front.png")), "foliage.grass")
