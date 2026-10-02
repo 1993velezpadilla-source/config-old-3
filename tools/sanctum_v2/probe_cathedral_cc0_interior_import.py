@@ -106,6 +106,143 @@ def build_world_relief_box_material(mat,diffuse,roughness,displacement,tile_m,re
     links.new(bump.outputs["Normal"],bsdf.inputs["Normal"])
     links.new(bsdf.outputs["BSDF"],out.inputs["Surface"])
 
+def object_bounds_single(o):
+    pts=[o.matrix_world @ Vector(c) for c in o.bound_box]
+    mn=Vector((min(p.x for p in pts),min(p.y for p in pts),min(p.z for p in pts)))
+    mx=Vector((max(p.x for p in pts),max(p.y for p in pts),max(p.z for p in pts)))
+    return mn,mx
+
+def normalize_cross_scale(props):
+    crosses=[o for o in props if o.name=="Cross" or o.name.startswith("Cross.")]
+    if len(crosses)<2:
+        return {"cross_count":len(crosses),"applied":False,"reason":"fewer than two crosses"}
+
+    rows=[]
+    for o in crosses:
+        mn,mx=object_bounds_single(o)
+        rows.append((o,mn,mx,mx.z-mn.z))
+    heights=sorted(float(r[3]) for r in rows)
+    n=len(heights)
+    median_h=heights[n//2] if n%2 else (heights[n//2-1]+heights[n//2])*0.5
+    largest=max(rows,key=lambda r:r[3])
+    o,old_mn,old_mx,old_h=largest
+    cap_h=median_h*2.0
+    applied=old_h>cap_h+1e-6
+    factor=1.0
+    if applied:
+        factor=cap_h/old_h
+        old_anchor=Vector(((old_mn.x+old_mx.x)*0.5,(old_mn.y+old_mx.y)*0.5,old_mn.z))
+        o.scale=o.scale*factor
+        bpy.context.view_layer.update()
+        new_mn,new_mx=object_bounds_single(o)
+        new_anchor=Vector(((new_mn.x+new_mx.x)*0.5,(new_mn.y+new_mx.y)*0.5,new_mn.z))
+        o.location += old_anchor-new_anchor
+        bpy.context.view_layer.update()
+
+    final_rows=[]
+    for x in crosses:
+        mn,mx=object_bounds_single(x)
+        final_rows.append({"name":x.name,"size":list(mx-mn)})
+    final_heights=sorted(r["size"][2] for r in final_rows)
+    return {
+        "cross_count":len(crosses),
+        "median_height_before_m":median_h,
+        "largest_height_before_m":float(old_h),
+        "cap_rule":"largest cross height <= 2x median cross height",
+        "cap_height_m":cap_h,
+        "applied":applied,
+        "scale_factor":factor,
+        "adjusted_object":o.name if applied else None,
+        "preserve_anchor":"world bounds bottom-center",
+        "final_crosses":final_rows,
+        "largest_to_median_after":max(final_heights)/(sorted(final_heights)[len(final_heights)//2] if final_heights else 1.0),
+    }
+
+def restore_authored_legacy_prop_shaders(props):
+    restored=[]
+    seen=set()
+    packed_images=[]
+    for o in props:
+        # Wood-remapped church furniture deliberately uses the new PBR material.
+        if (o.name=="pew" or o.name.startswith("pew.") or
+            o.name=="altar" or o.name.startswith("altar.") or
+            o.name=="Cross" or o.name.startswith("Cross.")):
+            continue
+        for slot in o.material_slots:
+            m=slot.material
+            if m is None or m.as_pointer() in seen or not m.use_nodes or not m.node_tree:
+                continue
+            seen.add(m.as_pointer())
+            nodes=m.node_tree.nodes
+            links=m.node_tree.links
+            outputs=[n for n in nodes if n.type=="OUTPUT_MATERIAL"]
+            active=next((n for n in outputs if getattr(n,"is_active_output",False)),None)
+            if active is None or active.inputs.get("Surface") is None:
+                continue
+
+            active_src=(active.inputs["Surface"].links[0].from_node if active.inputs["Surface"].is_linked else None)
+            if active_src is None or active_src.type!="BSDF_PRINCIPLED":
+                continue
+
+            candidates=[]
+            for out in outputs:
+                if out==active or out.inputs.get("Surface") is None or not out.inputs["Surface"].is_linked:
+                    continue
+                link=out.inputs["Surface"].links[0]
+                src=link.from_node
+                if src.type=="BSDF_PRINCIPLED":
+                    continue
+                score=0
+                if out.name=="Material Output":
+                    score+=100
+                if src.type in ("MIX_SHADER","BSDF_GLASS"):
+                    score+=50
+                if src.type=="BSDF_DIFFUSE":
+                    score+=20
+                candidates.append((score,out,link))
+            if not candidates:
+                continue
+            _,legacy_out,legacy_link=max(candidates,key=lambda x:x[0])
+
+            for old in list(active.inputs["Surface"].links):
+                links.remove(old)
+            links.new(legacy_link.from_socket,active.inputs["Surface"])
+
+            if active.inputs.get("Displacement") is not None and legacy_out.inputs.get("Displacement") is not None and legacy_out.inputs["Displacement"].is_linked:
+                for old in list(active.inputs["Displacement"].links):
+                    links.remove(old)
+                links.new(legacy_out.inputs["Displacement"].links[0].from_socket,active.inputs["Displacement"])
+
+            images=[]
+            for n in nodes:
+                if n.type=="TEX_IMAGE" and n.image is not None:
+                    row={
+                        "material":m.name,
+                        "node":n.name,
+                        "packed":bool(n.image.packed_file),
+                        "size":list(n.image.size),
+                    }
+                    images.append(row)
+                    if row["packed"]:
+                        packed_images.append(row)
+
+            restored.append({
+                "material":m.name,
+                "objects":[x.name for x in props if any(s.material==m for s in x.material_slots)],
+                "active_output":active.name,
+                "legacy_output":legacy_out.name,
+                "legacy_surface_node":legacy_link.from_node.name,
+                "legacy_surface_type":legacy_link.from_node.type,
+                "images":images,
+            })
+    return {
+        "restored_count":len(restored),
+        "materials":restored,
+        "packed_image_count":len(packed_images),
+        "packed_images":packed_images,
+        "rule":"restore authored pre-Principled surface graph into Blender 5.2 active output for non-wood CC0 props",
+    }
+
 def upgrade_cc0_interior_materials(props,manifest,resolution):
     wood_asset="wood_planks"
     wood_tile=tile_meters(manifest,wood_asset)
@@ -852,11 +989,13 @@ cc0_props,cc0_props_report=append_and_fit_cc0_interior_props(
     Vector(st["min"]),
     Vector(st["max"]),
 )
+cc0_props_report["cross_scale_normalization"]=normalize_cross_scale(cc0_props)
 cc0_props_report["material_upgrade"]=upgrade_cc0_interior_materials(
     cc0_props,
     manifest,
     resolution,
 )
+cc0_props_report["legacy_shader_restore"]=restore_authored_legacy_prop_shaders(cc0_props)
 floor_overlay,floor_overlay_report=build_cathedral_floor_overlay(
     obj,
     manifest,
