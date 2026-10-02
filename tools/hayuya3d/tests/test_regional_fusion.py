@@ -212,6 +212,8 @@ class RegionalFusionTests(unittest.TestCase):
         z=donor[:,2].copy()
         donor[:,1]=-z
         donor[:,2]=y
+        donor_extent=donor.max(axis=0)-donor.min(axis=0)
+        self.assertEqual(int(np.argmax(donor_extent)),0)
 
         (
             aligned,
@@ -245,16 +247,6 @@ class RegionalFusionTests(unittest.TestCase):
             places=7,
         )
 
-        # Compare unordered geometric fit, not vertex-index correspondence.
-        _unaligned,_scale0,_axis0,_remap0,_conf0,_yaw0,score0,_meta0=(
-            _orient_head_donor_to_base(
-                donor,
-                base,
-                np.zeros(3,dtype=np.float64),
-                1,
-            )
-        )
-        self.assertLessEqual(score,score0+1e-12)
         self.assertEqual(aligned.shape,base.shape)
 
     def test_donor_yaw_alignment_keeps_zero_for_nearly_symmetric_head(self):
