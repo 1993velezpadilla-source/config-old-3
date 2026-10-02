@@ -584,27 +584,40 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "$model_dir"
-          if git diff --cached --quiet; then
-            echo "HAYUYA_MODEL_ALREADY_CURRENT $HAYUYA_JOB_ID"
-            exit 0
-          fi
-          git commit -m "hayuya: persist $HAYUYA_JOB_ID for Hub preview"
+
+          # Persist only the screened model payload. Never rebase/cherry-pick
+          # the queue request history: the target branch may advance while a
+          # long Judge run is executing, which previously replayed the request
+          # commit and conflicted after an otherwise successful Judge PASS.
+          persist_tmp="$(mktemp -d)"
+          cp -R "$model_dir/." "$persist_tmp/"
 
           target_branch="${GITHUB_REF_NAME:-art/hayuya-core-generalize-v1}"
           for attempt in 1 2 3 4 5; do
             git fetch origin "$target_branch"
-            git rebase "origin/$target_branch" || {
-              git rebase --abort || true
-              sleep $((attempt * 2))
-              continue
-            }
-            if git push origin "HEAD:$target_branch"; then
-              echo "HAYUYA_MODEL_PERSISTED $HAYUYA_JOB_ID branch=$target_branch"
+            git reset --hard "origin/$target_branch"
+
+            rm -rf "$model_dir"
+            mkdir -p "$model_dir"
+            cp -R "$persist_tmp/." "$model_dir/"
+
+            git add "$model_dir"
+            if git diff --cached --quiet; then
+              echo "HAYUYA_MODEL_ALREADY_CURRENT $HAYUYA_JOB_ID"
+              rm -rf "$persist_tmp"
               exit 0
             fi
+
+            git commit -m "hayuya: persist $HAYUYA_JOB_ID for Hub preview"
+            if git push origin "HEAD:$target_branch"; then
+              echo "HAYUYA_MODEL_PERSISTED $HAYUYA_JOB_ID branch=$target_branch"
+              rm -rf "$persist_tmp"
+              exit 0
+            fi
+
             sleep $((attempt * 2))
           done
+          rm -rf "$persist_tmp"
           echo "Could not persist $HAYUYA_JOB_ID after retries" >&2
           exit 1
 
