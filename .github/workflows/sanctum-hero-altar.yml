@@ -25,7 +25,7 @@ permissions:
 
 concurrency:
   group: sanctum-hero-altar-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -146,10 +146,31 @@ jobs:
           assert d["front"]["iou"]>=0.60,d
           assert d["side"]["iou"]>=0.55,d
           assert d["mean_iou"]>=0.60,d
+
+          # Shape gates: IoU alone can hide a body that is too wide/narrow at
+          # specific heights. Require the measured scanline profile to stay
+          # reasonably close to the traced front/side reference.
+          fw=d["front"]["width_profile"]
+          sw=d["side"]["width_profile"]
+          assert fw["bands"]>=16 and sw["bands"]>=16,d
+          assert fw["mean_abs_error"]<=0.22,d
+          assert sw["mean_abs_error"]<=0.25,d
+          assert fw["max_abs_error"]<=0.65,d
+          assert sw["max_abs_error"]<=0.65,d
+
+          # The body fit is authored against a 4.90 x 2.75 x 1.84 m cage.
+          # Reject silent scale drift even when the normalized silhouette score
+          # still looks acceptable.
+          assert len(d["dimension_error_pct"])==3,d
+          assert max(d["dimension_error_pct"])<=3.0,d
+
           print("SANCTUM_REFERENCE_SCORE_GREEN")
           print("FRONT_IOU",d["front"]["iou"])
           print("SIDE_IOU",d["side"]["iou"])
           print("MEAN_IOU",d["mean_iou"])
+          print("FRONT_WIDTH_PROFILE_MAE",fw["mean_abs_error"])
+          print("SIDE_WIDTH_PROFILE_MAE",sw["mean_abs_error"])
+          print("DIMENSION_ERROR_PCT",d["dimension_error_pct"])
           PY
 
       - name: Validate hero altar evidence
