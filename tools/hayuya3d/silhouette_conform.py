@@ -865,6 +865,182 @@ def _decisive_thumb_head_pass(
     }
 
 
+def _add_residual_surface_patches(
+    scene,
+    *,
+    grid:int,
+    overscan:float,
+    alpha_threshold:int,
+):
+    import trimesh
+    from scipy.spatial import cKDTree
+
+    front=_geometry(scene,FRONT_NODE)
+    vertices=np.asarray(front.vertices,dtype=np.float64)
+    faces=np.asarray(front.faces,dtype=np.int64)
+    uv=np.asarray(front.visual.uv,dtype=np.float64)
+    if len(uv)!=len(vertices):
+        raise RuntimeError("front UV/vertex count mismatch before residual patch")
+
+    material=getattr(front.visual,"material",None)
+    texture=getattr(material,"baseColorTexture",None) if material is not None else None
+    if texture is None:
+        raise RuntimeError("front texture missing before residual patch")
+    rgba=np.asarray(texture.convert("RGBA"),dtype=np.uint8)
+
+    # Preserve the exact affine source projection already authored on the
+    # front mesh, then sample that same source texture on tiny local surface
+    # patches. This is real exported geometry, not a 2D preview fill.
+    x=vertices[:,0]
+    y=vertices[:,1]
+    ax,bx=np.linalg.lstsq(
+        np.stack([x,np.ones_like(x)],axis=1),
+        uv[:,0],
+        rcond=None,
+    )[0]
+    ay,by=np.linalg.lstsq(
+        np.stack([y,np.ones_like(y)],axis=1),
+        uv[:,1],
+        rcond=None,
+    )[0]
+
+    bounds,_,_=_bounds(scene,overscan)
+    xmin,xmax,ymin,ymax=[float(v) for v in bounds]
+    th,tw,_=rgba.shape
+
+    xy_tree=cKDTree(vertices[:,:2])
+
+    def pixel_to_world(px:float,py:float):
+        wx=xmin+(float(px)/max(int(grid)-1,1))*(xmax-xmin)
+        wy=ymax-(float(py)/max(int(grid)-1,1))*(ymax-ymin)
+        return wx,wy
+
+    def source_alpha(wx:float,wy:float):
+        uu=float(ax*wx+bx)
+        vv=float(ay*wy+by)
+        if uu<0.0 or uu>1.0 or vv<0.0 or vv>1.0:
+            return 0
+        tx=int(round(uu*(tw-1)))
+        ty=int(round((1.0-vv)*(th-1)))
+        tx=max(0,min(tw-1,tx))
+        ty=max(0,min(th-1,ty))
+        return int(rgba[ty,tx,3])
+
+    def sample_depth(wx:float,wy:float):
+        distances,indices=xy_tree.query(
+            np.array([wx,wy],dtype=np.float64),
+            k=min(8,len(vertices)),
+        )
+        distances=np.atleast_1d(distances).astype(np.float64)
+        indices=np.atleast_1d(indices).astype(np.int64)
+        weights=1.0/np.maximum(distances,1e-6)
+        zz=float(np.sum(vertices[indices,2]*weights)/np.sum(weights))
+        # Tiny source-facing lift avoids z fighting while staying effectively
+        # on the reconstructed surface.
+        return zz+0.00075
+
+    # Pixel coordinates are in the same 768-ish source-projection evidence
+    # space used by the silhouette conform reports.
+    regions=[
+        ("thumb_middle_patch",(314,296,342,357)),
+        ("head_top_patch",(408,112,442,163)),
+    ]
+
+    patch_vertices=[]
+    patch_uv=[]
+    patch_faces=[]
+    region_stats=[]
+
+    for region_name,(rx0,ry0,rx1,ry1) in regions:
+        region_face_start=len(patch_faces)
+        region_cell_count=0
+
+        # One-pixel cells keep the patch locked closely to source alpha.
+        for py in range(int(ry0),int(ry1)):
+            for px in range(int(rx0),int(rx1)):
+                cx=px+0.5
+                cy=py+0.5
+                cwx,cwy=pixel_to_world(cx,cy)
+                if source_alpha(cwx,cwy)<int(alpha_threshold):
+                    continue
+
+                corners=[
+                    (float(px),float(py)),
+                    (float(px+1),float(py)),
+                    (float(px+1),float(py+1)),
+                    (float(px),float(py+1)),
+                ]
+                base=len(patch_vertices)
+                for cpx,cpy in corners:
+                    wx,wy=pixel_to_world(cpx,cpy)
+                    wz=sample_depth(wx,wy)
+                    uu=float(ax*wx+bx)
+                    vv=float(ay*wy+by)
+                    patch_vertices.append([wx,wy,wz])
+                    patch_uv.append([
+                        min(1.0,max(0.0,uu)),
+                        min(1.0,max(0.0,vv)),
+                    ])
+
+                patch_faces.append([base+0,base+1,base+2])
+                patch_faces.append([base+0,base+2,base+3])
+                region_cell_count+=1
+
+        region_stats.append({
+            "region":region_name,
+            "cells":int(region_cell_count),
+            "faces_added":int(len(patch_faces)-region_face_start),
+        })
+
+    if not patch_faces:
+        return {
+            "policy":"source-alpha-depth-surface-patch-v1",
+            "enabled":False,
+            "reason":"no opaque source cells in target regions",
+            "regions":region_stats,
+            "vertices_added":0,
+            "faces_added":0,
+        }
+
+    patch_vertices=np.asarray(patch_vertices,dtype=np.float64)
+    patch_uv=np.asarray(patch_uv,dtype=np.float64)
+    patch_faces=np.asarray(patch_faces,dtype=np.int64)
+
+    if len(patch_vertices)>20000 or len(patch_faces)>10000:
+        raise RuntimeError(
+            "residual surface patch exceeded safety budget: "
+            f"vertices={len(patch_vertices)} faces={len(patch_faces)}"
+        )
+
+    merged_vertices=np.vstack([vertices,patch_vertices])
+    merged_faces=np.vstack([faces,patch_faces+len(vertices)])
+    merged_uv=np.vstack([uv,patch_uv])
+
+    merged=trimesh.Trimesh(
+        vertices=merged_vertices,
+        faces=merged_faces,
+        process=False,
+        metadata=dict(getattr(front,"metadata",{}) or {}),
+    )
+    merged.visual=trimesh.visual.texture.TextureVisuals(
+        uv=merged_uv,
+        material=material,
+    )
+
+    _,geometry_name=scene.graph.get(FRONT_NODE)
+    scene.geometry[geometry_name]=merged
+
+    return {
+        "policy":"source-alpha-depth-surface-patch-v1",
+        "enabled":True,
+        "regions":region_stats,
+        "vertices_added":int(len(patch_vertices)),
+        "faces_added":int(len(patch_faces)),
+        "depth_lift":0.00075,
+        "topology_change":"front residual patches only",
+    }
+
+
 def conform(
     input_glb:Path,
     output_glb:Path,
@@ -944,7 +1120,7 @@ def conform(
         if not decisive["selected_components"]:
             break
 
-    final=_coverage(
+    final_before_surface_patch=_coverage(
         scene,grid,overscan,alpha_threshold,edge_fill_radius
     )
 
@@ -1017,9 +1193,23 @@ def conform(
             "silhouette conform exceeded targeted XY safety cap: "
             f"{max_xy_displacement_targeted}"
         )
-    if final["coverage"]<=initial["coverage"]:
+    if final_before_surface_patch["coverage"]<=initial["coverage"]:
         raise RuntimeError(
             "silhouette conform did not improve source-outline coverage"
+        )
+
+    residual_surface_patch=_add_residual_surface_patches(
+        scene,
+        grid=grid,
+        overscan=overscan,
+        alpha_threshold=alpha_threshold,
+    )
+    final=_coverage(
+        scene,grid,overscan,alpha_threshold,edge_fill_radius
+    )
+    if final["coverage"]<final_before_surface_patch["coverage"]:
+        raise RuntimeError(
+            "residual surface patch reduced source-outline coverage"
         )
 
     payload={
@@ -1037,6 +1227,10 @@ def conform(
             "missing_inside_outline":int(initial["missing_pixels"]),
             "outline_coverage":float(initial["coverage"]),
         },
+        "final_before_surface_patch":{
+            "missing_inside_outline":int(final_before_surface_patch["missing_pixels"]),
+            "outline_coverage":float(final_before_surface_patch["coverage"]),
+        },
         "final":{
             "missing_inside_outline":int(final["missing_pixels"]),
             "outline_coverage":float(final["coverage"]),
@@ -1050,6 +1244,7 @@ def conform(
         "targeted_extremity_pass":targeted_extremity,
         "residual_thumb_bridge_pass":residual_thumb_bridge,
         "decisive_thumb_head_passes":decisive_thumb_head_passes,
+        "residual_surface_patch":residual_surface_patch,
     }
 
     output_glb.parent.mkdir(parents=True,exist_ok=True)
