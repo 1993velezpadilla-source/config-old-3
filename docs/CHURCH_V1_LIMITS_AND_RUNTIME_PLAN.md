@@ -111,6 +111,40 @@ Design rule:
 - Piers and side-aisle architecture should break long sightlines rather than
   leaving the entire nave as one unobstructed training rectangle.
 
+## 5.1 Movement-space metrics
+
+Current XZIEL character metrics:
+- player collision radius: 0.28 m (0.56 m diameter)
+- player collision height: 1.78 m
+- player eye height: 1.62 m
+- walk: 4.4 m/s
+- sprint: 6.4 m/s
+- tactical sprint: 7.2 m/s
+- zombie half-width: 0.38 m (0.76 m body width)
+- zombie body height: 1.86 m
+
+Current Main Nave geometry:
+- nave: ~18 m wide x 30 m long
+- columns: x = +/-6.1 m
+- bays/columns: ~4 m longitudinal spacing
+- pew banks leave ~2.1 m central aisle
+- side circulation between column envelope and wall is roughly 1.9-2.2 m
+
+These values are currently compatible with first-person combat circulation. The
+central aisle is approximately 3.75 player diameters wide and 2.75 zombie body
+widths wide. Side aisles are intentionally tighter but remain wider than twice
+the player diameter.
+
+Do not widen the whole nave. Preserve tension through furniture, pier sightline
+breaks, opened/closed doors and active spawn zones. Validate every critical
+door/corridor against the actual XZIEL capsule rather than real-world
+architecture alone.
+
+At 7.2 m/s a player can cross the unobstructed 30 m nave in roughly 4.2 seconds.
+Therefore long straight-line traversal must be interrupted by combat,
+navigation, doors, pew banks or spawn pressure; raw room size alone will not
+create difficulty.
+
 ## 6. Current XZIEL horde limit — blocker, not design target
 
 Current engine implementation:
