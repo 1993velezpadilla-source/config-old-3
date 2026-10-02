@@ -125,6 +125,57 @@ jobs:
               if key not in seen:
                   seen.add(key)
                   material_rows.append({"object":o.name,"slots":slots})
+          detail_rows=[]
+          for o in props:
+              if not (o.name.startswith("bible") or o.name.startswith("candle") or o.name.startswith("Cross") or o.name.startswith("altar")):
+                  continue
+              wm=mats[o.name]
+              pts=[wm @ Vector(c) for c in o.bound_box]
+              mn=Vector((min(p.x for p in pts),min(p.y for p in pts),min(p.z for p in pts)))
+              mx=Vector((max(p.x for p in pts),max(p.y for p in pts),max(p.z for p in pts)))
+              slots=[]
+              for slot in o.material_slots:
+                  m=slot.material
+                  if m is None:
+                      continue
+                  links=[]
+                  images=[]
+                  outputs=[]
+                  if m.use_nodes and m.node_tree:
+                      for n in m.node_tree.nodes:
+                          if n.type=="TEX_IMAGE":
+                              img=n.image
+                              images.append({
+                                  "node":n.name,
+                                  "filepath":img.filepath if img else None,
+                                  "packed":bool(img and img.packed_file),
+                                  "size":list(img.size) if img else None,
+                                  "has_data":bool(img and img.has_data),
+                              })
+                          if n.type=="OUTPUT_MATERIAL":
+                              outputs.append({
+                                  "name":n.name,
+                                  "active":bool(getattr(n,"is_active_output",False)),
+                                  "surface_linked":bool(n.inputs.get("Surface") and n.inputs["Surface"].is_linked),
+                                  "surface_from":(
+                                      n.inputs["Surface"].links[0].from_node.name
+                                      if n.inputs.get("Surface") and n.inputs["Surface"].is_linked else None
+                                  ),
+                              })
+                      for l in m.node_tree.links:
+                          links.append({
+                              "from_node":l.from_node.name,
+                              "from_socket":l.from_socket.name,
+                              "to_node":l.to_node.name,
+                              "to_socket":l.to_socket.name,
+                          })
+                  slots.append({"name":m.name,"images":images,"outputs":outputs,"links":links})
+              detail_rows.append({
+                  "object":o.name,
+                  "world_bounds":{"min":list(mn),"max":list(mx),"size":list(mx-mn)},
+                  "slots":slots,
+              })
+
           report={
               "scene":source_scene.name,
               "prop_count":len(props),
@@ -138,6 +189,7 @@ jobs:
                   for o in pews[:4]
               ],
               "materials":material_rows,
+              "detail_rows":detail_rows,
           }
           print("SANCTUM_V2_CC0_TRANSFORM_SMOKE")
           print(json.dumps(report,indent=2))
