@@ -9,6 +9,7 @@ on:
       - ".github/workflows/xziel-church-snapshot-apk.yml"
       - "tools/church_map/bake_hero_blend_for_xzsm.py"
       - "tools/church_map/export_vril_static_mesh.py"
+      - "scripts/patch_vril_sanctum_staticmesh.py"
 
 permissions:
   contents: read

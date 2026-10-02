@@ -20,6 +20,12 @@ c_path.write_text(r'''// Xziel textured static-mesh bridge for Android/SDL.
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef __ANDROID__
+#include <android/log.h>
+#define XZLOG(...) __android_log_print(ANDROID_LOG_INFO, "XZIEL_XZSM", __VA_ARGS__)
+#else
+#define XZLOG(...) Con_Printf(__VA_ARGS__)
+#endif
 
 #define XZSM_VERSION 2u
 #define XZSM_MAX_BATCHES 512u
@@ -51,6 +57,7 @@ static uint32_t xzsm_batch_count = 0;
 static qboolean xzsm_loaded = false;
 static qboolean xzsm_attempted = false;
 static qboolean xzsm_authority_reported = false;
+static qboolean xzsm_draw_logged = false;
 
 extern cvar_t gl_cull;
 extern qboolean R_CullBox(vec3_t mins, vec3_t maxs);
@@ -70,6 +77,7 @@ static void XZSM_Free(void)
     xzsm_loaded = false;
     xzsm_attempted = false;
     xzsm_authority_reported = false;
+    xzsm_draw_logged = false;
 }
 
 static int XZSM_ReadExact(FILE *f, void *dst, size_t size)
@@ -179,8 +187,11 @@ static qboolean XZSM_LoadSanctum(void)
             b->texture_name,
             IMAGE_PNG | IMAGE_TGA | IMAGE_JPG,
             0, true, true);
-        if (b->texture < 0)
+        XZLOG("load batch=%u name=%s tex=%d", i, b->texture_name, b->texture);
+        if (b->texture < 0) {
             Con_Printf("XZSM: missing texture %s\n", b->texture_name);
+            XZLOG("MISSING batch=%u name=%s", i, b->texture_name);
+        }
     }
 
     fclose(f);
@@ -243,6 +254,8 @@ void Xziel_StaticMesh_Draw(void)
         xzsm_batch_t *b = &xzsm_batches[i];
         if (R_CullBox(b->mins, b->maxs))
             continue;
+        if (!xzsm_draw_logged)
+            XZLOG("draw batch=%u name=%s tex=%d", i, b->texture_name, b->texture);
         if (b->texture >= 0)
             GL_Bind(b->texture);
         glVertexPointer(3, GL_FLOAT, sizeof(xzsm_vertex_t), &b->vertices[0].x);
@@ -250,6 +263,7 @@ void Xziel_StaticMesh_Draw(void)
         glDrawElements(GL_TRIANGLES, b->index_count, GL_UNSIGNED_SHORT, b->indices);
     }
 
+    xzsm_draw_logged = true;
     glDisableClientState(GL_TEXTURE_COORD_ARRAY);
     glDisableClientState(GL_VERTEX_ARRAY);
     if (gl_cull.value)
