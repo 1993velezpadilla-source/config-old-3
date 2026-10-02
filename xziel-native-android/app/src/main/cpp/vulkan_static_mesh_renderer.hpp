@@ -121,6 +121,17 @@ public:
     [[nodiscard]] std::uint32_t totalIndices() const noexcept;
     [[nodiscard]] StaticMeshFrameStats frameStats() const noexcept;
 
+    // Game-thread entry point for intrinsic AdSurface creatives. The source
+    // path identifies an already-bound placeholder texture; replacementPath
+    // must be a packaged ASTC KTX2 asset. Upload and descriptor swaps complete
+    // asynchronously during record() without blocking the render thread.
+    [[nodiscard]] bool queueRuntimeTextureReplacement(
+        AAssetManager* assetManager,
+        const char* sourceTextureAssetPath,
+        const char* replacementAssetPath) noexcept;
+
+    [[nodiscard]] bool runtimeTextureReplacementBusy() const noexcept;
+
     void setStreamingPortalOpen(
         std::uint32_t portalId,
         bool open) noexcept;

@@ -16,6 +16,7 @@ enum class AudioSourceKind : std::uint8_t {
     Ambience,
     Music,
     HorrorStinger,
+    Advertisement,
     UI,
 };
 

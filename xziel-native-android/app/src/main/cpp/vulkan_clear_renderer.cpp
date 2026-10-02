@@ -760,6 +760,27 @@ bool VulkanClearRenderer::deviceLost() const noexcept {
     return deviceLost_;
 }
 
+bool VulkanClearRenderer::queueIntrinsicAdSurfaceCreative(
+    const char* sourceTextureAssetPath,
+    const char* replacementAssetPath) noexcept {
+    if (!initialized_ ||
+        assetManager_ == nullptr ||
+        sourceTextureAssetPath == nullptr ||
+        replacementAssetPath == nullptr) {
+        return false;
+    }
+
+    return sanctumMesh_.queueRuntimeTextureReplacement(
+        assetManager_,
+        sourceTextureAssetPath,
+        replacementAssetPath);
+}
+
+bool VulkanClearRenderer::intrinsicAdSurfaceUploadBusy() const noexcept {
+    return sanctumMesh_.runtimeTextureReplacementBusy();
+}
+
+
 float VulkanClearRenderer::lastCpuRenderMs() const noexcept {
     return lastCpuRenderMs_;
 }

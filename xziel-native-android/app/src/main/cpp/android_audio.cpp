@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <utility>
 #include <vector>
 
 namespace xziel::android {
@@ -113,6 +114,8 @@ CueProfile profileFor(
             return {56.0f, 0.58f, 0.72f, 0.48f, 0.48f};
         case AndroidAudioCue::Thunder:
             return {48.0f, 0.70f, 0.20f, 0.96f, 0.55f};
+        case AndroidAudioCue::Advertisement:
+            return {220.0f, 0.01f, 0.0f, 0.0f, 0.0f};
     }
 
     return {};
@@ -155,6 +158,11 @@ bool AndroidAudioEngine::initialize(
 
     fireSample_ = {};
     reloadSample_ = {};
+    advertisementSample_ = {};
+    advertisementEnabled_.store(false, std::memory_order_release);
+    advertisementInFlight_.store(false, std::memory_order_release);
+    advertisementGain_.store(0.0f, std::memory_order_release);
+    advertisementPan_.store(0.0f, std::memory_order_release);
 
     if (assetManager != nullptr) {
         (void) loadPcm16Wav(
@@ -175,6 +183,8 @@ bool AndroidAudioEngine::initialize(
 
 void AndroidAudioEngine::shutdown() noexcept {
     ready_.store(false, std::memory_order_release);
+    advertisementEnabled_.store(false, std::memory_order_release);
+    advertisementInFlight_.store(false, std::memory_order_release);
 
     if (stream_ != nullptr) {
         (void) AAudioStream_requestStop(stream_);
@@ -201,6 +211,115 @@ void AndroidAudioEngine::play(
     if (!commands_.tryPush(command)) {
         dropped_.fetch_add(1U, std::memory_order_relaxed);
     }
+}
+
+bool AndroidAudioEngine::prepareAdvertisement(
+    AAssetManager* assetManager,
+    const char* assetPath) noexcept {
+    if (advertisementInFlight_.load(
+            std::memory_order_acquire)) {
+        return false;
+    }
+
+    SampleBuffer candidate{};
+    if (!loadPcm16Wav(
+            assetManager,
+            assetPath,
+            candidate) ||
+        candidate.mono.empty() ||
+        candidate.sampleRate == 0U) {
+        return false;
+    }
+
+    advertisementSample_ =
+        std::move(candidate);
+    return true;
+}
+
+bool AndroidAudioEngine::playAdvertisement(
+    float gain,
+    float pan) noexcept {
+    if (!ready() ||
+        advertisementSample_.mono.empty() ||
+        advertisementSample_.sampleRate == 0U ||
+        advertisementInFlight_.exchange(
+            true,
+            std::memory_order_acq_rel)) {
+        return false;
+    }
+
+    advertisementGain_.store(
+        std::clamp(
+            std::isfinite(gain) ? gain : 0.0f,
+            0.0f,
+            1.0f),
+        std::memory_order_release);
+    advertisementPan_.store(
+        std::clamp(
+            std::isfinite(pan) ? pan : 0.0f,
+            -1.0f,
+            1.0f),
+        std::memory_order_release);
+    advertisementEnabled_.store(
+        true,
+        std::memory_order_release);
+
+    Command command{
+        .cue = AndroidAudioCue::Advertisement,
+        .gain = 1.0f,
+    };
+
+    if (!commands_.tryPush(command)) {
+        advertisementEnabled_.store(
+            false,
+            std::memory_order_release);
+        advertisementInFlight_.store(
+            false,
+            std::memory_order_release);
+        dropped_.fetch_add(
+            1U,
+            std::memory_order_relaxed);
+        return false;
+    }
+
+    return true;
+}
+
+void AndroidAudioEngine::updateAdvertisementSpatial(
+    float gain,
+    float pan,
+    bool enabled) noexcept {
+    advertisementGain_.store(
+        std::clamp(
+            std::isfinite(gain) ? gain : 0.0f,
+            0.0f,
+            1.0f),
+        std::memory_order_release);
+    advertisementPan_.store(
+        std::clamp(
+            std::isfinite(pan) ? pan : 0.0f,
+            -1.0f,
+            1.0f),
+        std::memory_order_release);
+    advertisementEnabled_.store(
+        enabled,
+        std::memory_order_release);
+}
+
+void AndroidAudioEngine::stopAdvertisement() noexcept {
+    advertisementEnabled_.store(
+        false,
+        std::memory_order_release);
+}
+
+bool AndroidAudioEngine::advertisementReady() const noexcept {
+    return !advertisementSample_.mono.empty() &&
+        advertisementSample_.sampleRate > 0U;
+}
+
+bool AndroidAudioEngine::advertisementPlaying() const noexcept {
+    return advertisementInFlight_.load(
+        std::memory_order_acquire);
 }
 
 void AndroidAudioEngine::service() noexcept {
@@ -414,6 +533,10 @@ AndroidAudioEngine::sampleFor(
             return reloadSample_.mono.empty()
                 ? nullptr
                 : &reloadSample_;
+        case AndroidAudioCue::Advertisement:
+            return advertisementSample_.mono.empty()
+                ? nullptr
+                : &advertisementSample_;
         default:
             return nullptr;
     }
@@ -505,20 +628,47 @@ void AndroidAudioEngine::startVoice(
         }
     }
 
+    if (slot == nullptr &&
+        command.cue == AndroidAudioCue::Advertisement) {
+        // Advertising is always lower priority than gameplay audio. Never
+        // steal a weapon/zombie/UI voice merely to start a radio creative.
+        advertisementEnabled_.store(
+            false,
+            std::memory_order_release);
+        advertisementInFlight_.store(
+            false,
+            std::memory_order_release);
+        dropped_.fetch_add(
+            1U,
+            std::memory_order_relaxed);
+        return;
+    }
+
     if (slot == nullptr) {
-        // Deterministic voice stealing: replace the voice closest to its end.
-        slot = &voices_[0];
-        float oldestRatio = -1.0f;
-
+        // Gameplay may reclaim an ad voice immediately. Otherwise use the
+        // deterministic legacy policy: replace the voice closest to its end.
         for (auto& voice : voices_) {
-            const float ratio =
-                voice.durationSeconds > 0.0f
-                ? voice.ageSeconds / voice.durationSeconds
-                : 1.0f;
-
-            if (ratio > oldestRatio) {
-                oldestRatio = ratio;
+            if (voice.spatialAdvertisement) {
                 slot = &voice;
+                break;
+            }
+        }
+
+        if (slot == nullptr) {
+            slot = &voices_[0];
+            float oldestRatio = -1.0f;
+
+            for (auto& voice : voices_) {
+                const float ratio =
+                    voice.durationSeconds > 0.0f
+                    ? voice.ageSeconds /
+                        voice.durationSeconds
+                    : 1.0f;
+
+                if (ratio > oldestRatio) {
+                    oldestRatio = ratio;
+                    slot = &voice;
+                }
             }
         }
     }
@@ -526,10 +676,22 @@ void AndroidAudioEngine::startVoice(
     const CueProfile profile =
         profileFor(command.cue);
 
+    if (slot->active &&
+        slot->spatialAdvertisement) {
+        advertisementEnabled_.store(
+            false,
+            std::memory_order_release);
+        advertisementInFlight_.store(
+            false,
+            std::memory_order_release);
+    }
+
     *slot = {};
     slot->active = true;
     slot->cue = command.cue;
     slot->gain = command.gain;
+    slot->spatialAdvertisement =
+        command.cue == AndroidAudioCue::Advertisement;
 
     if (const auto* sample =
             sampleFor(command.cue);
@@ -611,6 +773,16 @@ float AndroidAudioEngine::renderVoice(
     }
 
     if (voice.sampled) {
+        if (voice.spatialAdvertisement &&
+            !advertisementEnabled_.load(
+                std::memory_order_acquire)) {
+            voice.active = false;
+            advertisementInFlight_.store(
+                false,
+                std::memory_order_release);
+            return 0.0f;
+        }
+
         const auto* sample =
             sampleFor(voice.cue);
 
@@ -618,6 +790,14 @@ float AndroidAudioEngine::renderVoice(
             sample->mono.empty() ||
             sample->sampleRate == 0U) {
             voice.active = false;
+            if (voice.spatialAdvertisement) {
+                advertisementEnabled_.store(
+                    false,
+                    std::memory_order_release);
+                advertisementInFlight_.store(
+                    false,
+                    std::memory_order_release);
+            }
             return 0.0f;
         }
 
@@ -732,7 +912,21 @@ float AndroidAudioEngine::renderVoice(
             static_cast<float>(
                 sample->mono.size())) {
             voice.active = false;
+            if (voice.spatialAdvertisement) {
+                advertisementEnabled_.store(
+                    false,
+                    std::memory_order_release);
+                advertisementInFlight_.store(
+                    false,
+                    std::memory_order_release);
+            }
         }
+
+        const float liveGain =
+            voice.spatialAdvertisement
+            ? advertisementGain_.load(
+                  std::memory_order_acquire)
+            : voice.gain;
 
         return (
             value *
@@ -740,7 +934,7 @@ float AndroidAudioEngine::renderVoice(
                     ? fire.sampleMix
                     : 0.80f) +
             transient) *
-            voice.gain;
+            liveGain;
     }
 
     const CueProfile profile =
@@ -868,20 +1062,40 @@ AndroidAudioEngine::render(
     for (std::int32_t frame = 0;
          frame < numFrames;
          ++frame) {
-        float mixed = 0.0f;
+        float mixedLeft = 0.0f;
+        float mixedRight = 0.0f;
 
         for (auto& voice : voices_) {
-            mixed +=
+            const float value =
                 renderVoice(
                     voice,
                     sampleRate_);
+
+            if (voice.spatialAdvertisement) {
+                const float pan =
+                    advertisementPan_.load(
+                        std::memory_order_acquire);
+                const float leftScale =
+                    pan > 0.0f
+                    ? 1.0f - pan
+                    : 1.0f;
+                const float rightScale =
+                    pan < 0.0f
+                    ? 1.0f + pan
+                    : 1.0f;
+
+                mixedLeft += value * leftScale;
+                mixedRight += value * rightScale;
+            } else {
+                mixedLeft += value;
+                mixedRight += value;
+            }
         }
 
-        const float sample =
-            clampSample(mixed);
-
-        output[frame * 2] = sample;
-        output[frame * 2 + 1] = sample;
+        output[frame * 2] =
+            clampSample(mixedLeft);
+        output[frame * 2 + 1] =
+            clampSample(mixedRight);
     }
 
     return AAUDIO_CALLBACK_RESULT_CONTINUE;

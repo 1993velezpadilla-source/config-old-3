@@ -35,6 +35,8 @@ add_library(xziel_engine STATIC
     src/world_streaming.cpp
     src/scene_fx.cpp
     src/audio_scene.cpp
+    src/intrinsic_ads.cpp
+    src/intrinsic_ad_map.cpp
     src/frame_graph.cpp
     src/visibility.cpp
     src/haptics.cpp
@@ -225,6 +227,16 @@ if(XZIEL_ENGINE_BUILD_TESTS)
     target_link_libraries(xziel_audio_scene_smoke PRIVATE xziel_engine)
     target_compile_features(xziel_audio_scene_smoke PRIVATE cxx_std_20)
     add_test(NAME xziel_audio_scene_smoke COMMAND xziel_audio_scene_smoke)
+
+    add_executable(xziel_intrinsic_ads_smoke tests/intrinsic_ads_smoke.cpp)
+    target_link_libraries(xziel_intrinsic_ads_smoke PRIVATE xziel_engine)
+    target_compile_features(xziel_intrinsic_ads_smoke PRIVATE cxx_std_20)
+    add_test(NAME xziel_intrinsic_ads_smoke COMMAND xziel_intrinsic_ads_smoke)
+
+    add_executable(xziel_intrinsic_ad_map_smoke tests/intrinsic_ad_map_smoke.cpp)
+    target_link_libraries(xziel_intrinsic_ad_map_smoke PRIVATE xziel_engine)
+    target_compile_features(xziel_intrinsic_ad_map_smoke PRIVATE cxx_std_20)
+    add_test(NAME xziel_intrinsic_ad_map_smoke COMMAND xziel_intrinsic_ad_map_smoke)
 
     add_executable(xziel_frame_graph_smoke tests/frame_graph_smoke.cpp)
     target_link_libraries(xziel_frame_graph_smoke PRIVATE xziel_engine)
