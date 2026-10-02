@@ -397,6 +397,49 @@ class RegionalFusionTests(unittest.TestCase):
         self.assertLess(score,1e-8)
         self.assertTrue(np.allclose(aligned,donor))
 
+    def test_donor_yaw_alignment_refines_non_45_degree_rotation(self):
+        sphere=trimesh.creation.icosphere(subdivisions=3,radius=1.0)
+        base=np.asarray(sphere.vertices,dtype=np.float64).copy()
+        base[:,0]*=0.72
+        base[:,1]*=1.10
+        base[:,2]*=0.82
+
+        nose=(base[:,1]>0.05)&(base[:,2]>0.35)&(np.abs(base[:,0])<0.28)
+        base[nose,2]+=0.30
+        side=(base[:,0]>0.38)&(base[:,1]>0.10)&(base[:,2]>-0.15)
+        base[side,0]+=0.16
+
+        theta=math.radians(30.0)
+        donor=base.copy()
+        x=donor[:,0].copy()
+        z=donor[:,2].copy()
+        donor[:,0]=math.cos(theta)*x-math.sin(theta)*z
+        donor[:,2]=math.sin(theta)*x+math.cos(theta)*z
+
+        _coarse,coarse_angle,coarse_score=_yaw_align_donor_to_base_head(
+            donor,
+            base,
+            np.zeros(3,dtype=np.float64),
+            1,
+            refinement_steps=(),
+        )
+        _fine,fine_angle,fine_score=_yaw_align_donor_to_base_head(
+            donor,
+            base,
+            np.zeros(3,dtype=np.float64),
+            1,
+        )
+
+        expected=330.0
+        circular_error=min(
+            abs(fine_angle-expected),
+            360.0-abs(fine_angle-expected),
+        )
+        self.assertLessEqual(circular_error,8.0)
+        self.assertLess(fine_score,coarse_score-1e-6)
+        self.assertNotAlmostEqual(fine_angle%45.0,0.0,places=4)
+        self.assertIn(coarse_angle,(315.0,0.0))
+
     def test_donor_yaw_alignment_recovers_rotated_asymmetric_head(self):
         sphere=trimesh.creation.icosphere(subdivisions=3,radius=1.0)
         base=np.asarray(sphere.vertices,dtype=np.float64).copy()
