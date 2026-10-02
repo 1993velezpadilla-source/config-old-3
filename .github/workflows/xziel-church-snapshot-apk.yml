@@ -103,6 +103,8 @@ jobs:
           assert d["dressingTriangles"]>100000,d
           assert d["runtimeTotalTriangles"]>=d["dressingTriangles"],d
           assert d["textureMaxDimension"]==8192,d
+          assert d["fallbackMaterials"]==[], d
+          assert d["churchFallbackMaterials"]==[], d
           print("SNAPSHOT_XZSM_GREEN",{
             "heroTriangles":d["dressingTriangles"],
             "batches":d["batchCount"],
@@ -284,7 +286,26 @@ jobs:
           grep -E "XZSM: Sanctum loaded|HQ visual authority active|FIRST_FRAME_OK" snapshot-dist/logcat.txt | tail -30 || true
           test -n "$PID"
           test "$STAGE" = "FIRST_FRAME_OK"
-          grep -q "XZSM: Sanctum loaded" snapshot-dist/logcat.txt
+
+          python3 -m pip install --quiet pillow==11.3.0
+          python3 - <<'PY' | tee snapshot-dist/visual-gate.txt
+          from PIL import Image,ImageStat
+          im=Image.open("snapshot-dist/church-snapshot.png").convert("RGB")
+          if im.width<=im.height or im.width<1000 or im.height<500:
+              raise SystemExit(f"bad screenshot size {im.size}")
+          gray=im.convert("L")
+          st=ImageStat.Stat(gray)
+          px=list(im.getdata())
+          white=sum(1 for r,g,b in px if r>248 and g>248 and b>248)/len(px)
+          near_white=sum(1 for r,g,b in px if min(r,g,b)>235)/len(px)
+          print("size",im.size,"std",round(st.stddev[0],3),"pure_white_fraction",round(white,5),"near_white_fraction",round(near_white,5))
+          if st.stddev[0] < 18:
+              raise SystemExit("snapshot frame is too flat")
+          # Old broken export measured ~21% pure white. HUD glyphs are allowed,
+          # but architectural white placeholders are not.
+          if white > 0.05 or near_white > 0.07:
+              raise SystemExit(f"white-placeholder regression pure={white:.4f} near={near_white:.4f}")
+          PY
 
       - name: Upload snapshot APK
         if: always()
