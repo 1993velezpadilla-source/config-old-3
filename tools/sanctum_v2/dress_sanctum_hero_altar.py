@@ -93,6 +93,39 @@ def world_bounds(obj):
     mx=Vector((max(p.x for p in pts),max(p.y for p in pts),max(p.z for p in pts)))
     return mn,mx
 
+def fit_bottom_center_to_box(obj,target,target_size,rotation_z=0.0,role="hero_backdrop"):
+    """Fit authored source geometry into a target world-space box without decimation.
+
+    The ruins pack objects carry very large authored dimensions.  Earlier code
+    applied a blind 0.42 scalar, which left the apse ~28 m wide and outside the
+    Sanctum nave envelope.  This preserves every source vertex/material while
+    fitting only its world transform to the actual apse bay.
+    """
+    obj.location=(0,0,0)
+    obj.rotation_euler=(0,0,rotation_z)
+    obj.scale=(1,1,1)
+    obj.hide_render=False
+    obj.hide_viewport=False
+    bpy.context.view_layer.update()
+    mn,mx=world_bounds(obj)
+    size=mx-mn
+    tx,ty,tz=[float(v) for v in target_size]
+    sx=tx/max(size.x,1e-6)
+    sy=ty/max(size.y,1e-6)
+    sz=tz/max(size.z,1e-6)
+    obj.scale=(sx,sy,sz)
+    bpy.context.view_layer.update()
+    mn,mx=world_bounds(obj)
+    bottom_center=Vector(((mn.x+mx.x)*0.5,(mn.y+mx.y)*0.5,mn.z))
+    obj.location += Vector(target)-bottom_center
+    bpy.context.view_layer.update()
+    obj["xziel_role"]=role
+    obj["source_pack"]="OpenGameArt 3TD Fantasy Ruins"
+    obj["source_license"]="CC0"
+    obj["reference_fit"]="apse_target_box"
+    obj["reference_target_size_m"]=[tx,ty,tz]
+    return obj
+
 def place_bottom_center(obj,target,scale=1.0,rotation_z=0.0,role="hero_altar"):
     obj.location=(0,0,0)
     obj.rotation_euler=(0,0,rotation_z)
@@ -115,13 +148,19 @@ slab_src=append_object("Object.001","SANCTUM_HERO_ALTAR_SLAB")
 # The apse sits at the far end of the nave, behind the active combat loop but
 # clearly visible from spawn/pews. Keep the existing Gothic arch as a backdrop.
 apse_y=ic.y+half_l*0.60
-apse=place_bottom_center(
+apse_target_size=(
+    (xmax-xmin)*0.86,
+    max(2.4,half_l*0.23),
+    8.4,
+)
+apse=fit_bottom_center_to_box(
     apse_src,
     (ic.x,apse_y,floor_z),
-    scale=0.42,
+    apse_target_size,
     rotation_z=0.0,
     role="hero_apse"
 )
+apse_bounds=[list(v) for v in world_bounds(apse)]
 
 # A long authored stone slab becomes the altar table top.
 altar_y=ic.y+half_l*0.48
@@ -455,7 +494,9 @@ report={
     "altar_reference_fit":altar_fit,
     "altar_reference_fit_audit":altar_fit_audit,
     "reference_materials":["wet_dark_stone","aged_masonry","dark_gothic_wood","burgundy_cloth","aged_gold","warm_wax","black_iron"],
-    "apse_scale":0.42,
+    "apse_fit":"target_box_no_decimation",
+    "apse_target_size_m":list(apse_target_size),
+    "apse_bounds":apse_bounds,
     "altar_slab_scale":0.55,
     "altar_step_count":3,
     "altar_candle_count":8,
