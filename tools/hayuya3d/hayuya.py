@@ -1985,11 +1985,14 @@ def main() -> int:
                         raise
 
     source_face_repair_result = None
+    source_face_repair_tournament = None
+    source_face_repair_results = []
     source_face_repair_failure = None
     source_face_repair_status = (
         "off" if args.native_face_repair == "off" else "checking"
     )
     source_face_repair_candidate_label = None
+    source_face_repair_candidate_labels = []
 
     if args.native_face_repair in {"auto", "required"}:
         if mode != "character":
@@ -2025,12 +2028,12 @@ def main() -> int:
             provisional_path = Path(provisional.path)
             try:
                 from native_face_repair import (
-                    prepare_source_face_repair_challenger,
+                    prepare_source_face_repair_tournament,
                 )
 
                 face_dir = job_dir / "native_face_repair"
-                source_face_repair_result = (
-                    prepare_source_face_repair_challenger(
+                source_face_repair_tournament = (
+                    prepare_source_face_repair_tournament(
                         provisional_path,
                         face_source,
                         face_dir,
@@ -2049,12 +2052,30 @@ def main() -> int:
                         ),
                     )
                 )
+                source_face_repair_results=list(
+                    source_face_repair_tournament.results
+                )
 
-                if not source_face_repair_result.ready:
+                ready_results=[
+                    result
+                    for result in source_face_repair_results
+                    if result.ready and result.candidate_mesh
+                ]
+                source_face_repair_result=(
+                    ready_results[0]
+                    if ready_results
+                    else (
+                        source_face_repair_results[0]
+                        if source_face_repair_results
+                        else None
+                    )
+                )
+
+                if not source_face_repair_tournament.ready:
                     source_face_repair_status = "rejected"
                     source_face_repair_failure = (
-                        source_face_repair_result.error
-                        or "source-derived face repair was not Judge-eligible"
+                        source_face_repair_tournament.error
+                        or "source-derived face repair tournament produced no Judge-eligible candidates"
                     )
                     print(
                         "HAYUYA_SOURCE_FACE_REPAIR_REJECTED "
@@ -2064,40 +2085,50 @@ def main() -> int:
                     if args.native_face_repair == "required":
                         raise RuntimeError(source_face_repair_failure)
                 else:
-                    source_face_repair_candidate_label = (
-                        "source_face_repair_"
-                        + str(source_face_repair_result.backend or "native")
+                    for result in ready_results:
+                        label=(
+                            "source_face_repair_"
+                            + str(result.backend or "native")
+                        )
+                        repaired_path=Path(str(result.candidate_mesh))
+                        assert_native_candidate(
+                            repaired_path,
+                            label=label,
+                        )
+                        assert_native_character_360(
+                            repaired_path,
+                            label=label,
+                        )
+                        candidates.append((label,repaired_path))
+                        source_face_repair_candidate_labels.append(label)
+                        print(
+                            "HAYUYA_SOURCE_FACE_REPAIR_READY "
+                            f"base={provisional.backend} "
+                            f"donor_backend={result.backend} "
+                            f"detail={face_source} "
+                            f"derived_from_full_source="
+                            f"{str(derive_head_from_full_source).lower()} "
+                            f"candidate={label}"
+                        )
+
+                    source_face_repair_candidate_label=(
+                        source_face_repair_candidate_labels[0]
+                        if source_face_repair_candidate_labels
+                        else None
                     )
-                    repaired_path = Path(
-                        str(source_face_repair_result.candidate_mesh)
-                    )
-                    assert_native_candidate(
-                        repaired_path,
-                        label=source_face_repair_candidate_label,
-                    )
-                    assert_native_character_360(
-                        repaired_path,
-                        label=source_face_repair_candidate_label,
-                    )
-                    candidates.append(
-                        (source_face_repair_candidate_label, repaired_path)
-                    )
-                    source_face_repair_status = "candidate_ready"
-                    print(
-                        "HAYUYA_SOURCE_FACE_REPAIR_READY "
-                        f"base={provisional.backend} "
-                        f"donor_backend={source_face_repair_result.backend} "
-                        f"detail={face_source} "
-                        f"derived_from_full_source="
-                        f"{str(derive_head_from_full_source).lower()} "
-                        f"candidate={source_face_repair_candidate_label}"
+                    source_face_repair_status=(
+                        "candidates_ready"
+                        if len(source_face_repair_candidate_labels)>1
+                        else "candidate_ready"
                     )
 
+                    # All valid donor backends enter one arena together. Backend
+                    # priority determines execution order only, never quality.
                     ranked = run_full_ranking()
                     valid = [x for x in ranked if x.valid]
                     if not valid:
                         raise RuntimeError(
-                            "source face repair re-ranking produced no valid candidates"
+                            "source face repair tournament re-ranking produced no valid candidates"
                         )
             except Exception as exc:
                 source_face_repair_status = "failed"
