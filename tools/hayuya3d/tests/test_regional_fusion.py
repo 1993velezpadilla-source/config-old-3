@@ -195,6 +195,64 @@ class RegionalFusionTests(unittest.TestCase):
         for _axis,_sign,matrix in candidates:
             self.assertAlmostEqual(float(np.linalg.det(matrix)),1.0,places=7)
 
+    def test_head_orientation_scale_ignores_single_extreme_donor_outlier(self):
+        sphere=trimesh.creation.icosphere(subdivisions=3,radius=1.0)
+        base=np.asarray(sphere.vertices,dtype=np.float64).copy()
+        base[:,0]*=0.82
+        base[:,1]*=1.05
+        base[:,2]*=0.76
+        nose=(base[:,1]>0.0)&(base[:,2]>0.30)&(np.abs(base[:,0])<0.30)
+        base[nose,2]+=0.22
+
+        clean=base.copy()
+        contaminated=np.concatenate(
+            [clean,np.asarray([[45.0,-37.0,52.0]],dtype=np.float64)],
+            axis=0,
+        )
+
+        (
+            _aligned_clean,
+            scale_clean,
+            axis_clean,
+            _remap_clean,
+            _confidence_clean,
+            _yaw_clean,
+            score_clean,
+            meta_clean,
+        )=_orient_head_donor_to_base(
+            clean,
+            base,
+            np.zeros(3,dtype=np.float64),
+            1,
+        )
+        (
+            _aligned_dirty,
+            scale_dirty,
+            axis_dirty,
+            _remap_dirty,
+            _confidence_dirty,
+            _yaw_dirty,
+            score_dirty,
+            meta_dirty,
+        )=_orient_head_donor_to_base(
+            contaminated,
+            base,
+            np.zeros(3,dtype=np.float64),
+            1,
+        )
+
+        self.assertEqual(axis_clean,axis_dirty)
+        self.assertAlmostEqual(scale_clean,scale_dirty,delta=0.03)
+        self.assertLess(score_dirty,score_clean+0.04)
+        self.assertEqual(
+            meta_clean["alignment_bounds_policy"],
+            "percentile-2-98",
+        )
+        self.assertEqual(
+            meta_dirty["alignment_bounds_policy"],
+            "percentile-2-98",
+        )
+
     def test_head_orientation_recovers_negative_up_sign_without_reflection(self):
         sphere=trimesh.creation.icosphere(subdivisions=3,radius=1.0)
         base=np.asarray(sphere.vertices,dtype=np.float64).copy()
