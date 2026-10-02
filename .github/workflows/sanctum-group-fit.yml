@@ -1,0 +1,65 @@
+name: Sanctum Group Silhouette Fit
+
+on:
+  push:
+    branches:
+      - feature/xziel-map-builder-agent-v1
+    paths:
+      - ".github/workflows/sanctum-group-fit.yml"
+      - "tools/sanctum_v2/reference_group_fit.py"
+      - "tools/sanctum_v2/test_reference_group_fit.py"
+      - "docs/sanctum-reference-silhouettes.v1.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sanctum-group-fit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Blender 5.2.2
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xz-utils xvfb libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libglu1-mesa libegl1
+          curl -L --fail --retry 6 --retry-all-errors --retry-delay 2             https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz             -o /tmp/blender.tar.xz
+          tar -C /tmp -xf /tmp/blender.tar.xz
+      - name: Test multi-object silhouette clamp
+        shell: bash
+        env:
+          SANCTUM_GROUP_FIT_OUT: sanctum-group-fit
+        run: |
+          set -euo pipefail
+          mkdir -p sanctum-group-fit
+          xvfb-run -a -s "-screen 0 1280x800x24"             /tmp/blender-5.2.2-linux-x64/blender -b             --python tools/sanctum_v2/test_reference_group_fit.py             2>&1 | tee sanctum-group-fit/blender.log
+          grep -q SANCTUM_GROUP_SILHOUETTE_FIT_PASS sanctum-group-fit/blender.log
+      - name: Validate group fit report
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("sanctum-group-fit/group-fit-report.json")
+          d=json.loads(p.read_text())
+          assert d["status"]=="PASS",d
+          assert d["audit"]["violations"]==0,d
+          assert d["fit"]["changed_vertices"]>0,d
+          assert d["glb_bytes"]>1000,d
+          print("SANCTUM_GROUP_FIT_GREEN")
+          PY
+      - name: Upload group-fit proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-Group-Fit
+          path: sanctum-group-fit/
+          if-no-files-found: error
+          retention-days: 14
