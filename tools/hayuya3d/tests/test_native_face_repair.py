@@ -14,6 +14,7 @@ sys.path.insert(0, str(HERE))
 from native_geometry_guard import assert_native_candidate
 from native_360_geometry_gate import Native360GeometryRejected
 from native_face_repair import (
+    available_head_donor_backends,
     generate_source_head_donor,
     prepare_source_face_repair_challenger,
     prepare_source_face_repair_tournament,
@@ -37,6 +38,18 @@ def _write_planar_native(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(scene.export(file_type="glb"))
 
+
+
+def test_explicit_hunyuan_head_donor_is_remote_and_needs_no_local_model_dir(
+    tmp_path: Path,
+):
+    root=tmp_path/"models"
+    root.mkdir()
+    available=available_head_donor_backends(
+        ["hunyuan3d_2_1"],
+        root,
+    )
+    assert available==["hunyuan3d_2_1"]
 
 
 def test_backend_selection_is_capability_based_not_asset_specific(tmp_path: Path):
