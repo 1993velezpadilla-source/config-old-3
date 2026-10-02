@@ -5,11 +5,13 @@ on:
     branches:
       - art/hayuya-core-generalize-v1
     paths:
+      - tools/hayuya3d/hayuya.py
       - tools/hayuya3d/native_geometry_guard.py
       - tools/hayuya3d/native_silhouette_conform.py
       - tools/hayuya3d/visual_judge.py
       - tools/hayuya3d/tests/test_native_geometry_guard.py
       - tools/hayuya3d/tests/test_native_silhouette_conform.py
+      - tools/hayuya3d/tests/test_planner.py
       - .github/workflows/hayuya-native-conform.yml
   workflow_dispatch:
 
@@ -32,3 +34,6 @@ jobs:
       - name: Source-driven native silhouette conform
         run: |
           python -m pytest -q tools/hayuya3d/tests/test_native_silhouette_conform.py
+      - name: Pipeline planner contract
+        run: |
+          python -m pytest -q tools/hayuya3d/tests/test_planner.py
