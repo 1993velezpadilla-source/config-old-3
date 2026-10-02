@@ -17,6 +17,8 @@ inline constexpr float kIntrinsicAdMinimumScreenCoverage = 0.015f;
 inline constexpr float kIntrinsicAdMinimumFacingCosine = 0.57357645f;
 inline constexpr float kIntrinsicAdDisplayViewSeconds = 1.0f;
 inline constexpr float kIntrinsicAdVideoViewSeconds = 2.0f;
+inline constexpr float kIntrinsicAdAudioIdealSeconds = 15.0f;
+inline constexpr float kIntrinsicAdAudioMaxSeconds = 30.0f;
 
 enum class AdCreativeKind : std::uint8_t {
     Image,
@@ -205,6 +207,7 @@ struct AdAudioEmitterInput {
     float deltaSeconds = 0.0f;
     float distanceMeters = 0.0f;
     bool enabled = true;
+    bool userInitiated = false;
 };
 
 struct AdSurfaceFrame {
