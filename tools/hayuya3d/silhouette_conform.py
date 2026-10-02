@@ -301,6 +301,192 @@ def _conform_iteration(
     }
 
 
+def _targeted_extremity_pass(
+    scene,
+    *,
+    grid:int,
+    overscan:float,
+    alpha_threshold:int,
+    edge_fill_radius:int,
+):
+    state=_coverage(
+        scene,grid,overscan,alpha_threshold,edge_fill_radius
+    )
+    missing=state["missing"]
+    keep=state["keep"]
+    bounds=state["bounds"]
+
+    distance,indices=distance_transform_edt(
+        ~keep,
+        return_indices=True,
+    )
+    labels,count=label(missing)
+    scale=float(grid)/768.0
+    controls=[]
+    selected=[]
+
+    for component_id in range(1,int(count)+1):
+        ys,xs=np.where(labels==component_id)
+        area=int(len(xs))
+        if area<20:
+            continue
+
+        cx=float(xs.mean())/max(float(grid),1.0)
+        cy=float(ys.mean())/max(float(grid),1.0)
+        region=None
+        if cy<0.24 and cx>0.50:
+            region="head_top"
+        elif 0.30<=cy<=0.49 and cx<0.47:
+            region="thumb_hand"
+
+        if region is None:
+            continue
+
+        values=distance[ys,xs]
+        max_distance=float(values.max(initial=0.0))
+        if max_distance>18.0*scale:
+            continue
+
+        order=np.argsort(values)[::-1]
+        peaks=[]
+        min_sep=(6.0 if region=="thumb_hand" else 5.0)*scale
+        max_peaks=3 if region=="thumb_hand" else 2
+
+        for index in order:
+            target_x=int(xs[index])
+            target_y=int(ys[index])
+            if any(
+                (target_x-p["target"][0])**2+
+                (target_y-p["target"][1])**2 <
+                min_sep*min_sep
+                for p in peaks
+            ):
+                continue
+
+            anchor_y=int(indices[0,target_y,target_x])
+            anchor_x=int(indices[1,target_y,target_x])
+            peak_distance=float(values[index])
+            peak={
+                "target":[target_x,target_y],
+                "anchor":[anchor_x,anchor_y],
+                "distance_px":peak_distance,
+            }
+            peaks.append(peak)
+            if len(peaks)>=max_peaks:
+                break
+
+        if not peaks:
+            continue
+
+        selected.append({
+            "region":region,
+            "area":area,
+            "centroid":[float(xs.mean()),float(ys.mean())],
+            "max_distance_px":max_distance,
+            "peaks":peaks,
+        })
+
+        for peak in peaks:
+            target_x,target_y=peak["target"]
+            anchor_x,anchor_y=peak["anchor"]
+            peak_distance=float(peak["distance_px"])
+            if region=="thumb_hand":
+                cap=6.0*scale
+                radius=max(
+                    9.0*scale,
+                    min(15.0*scale,peak_distance*1.8),
+                )
+            else:
+                cap=3.5*scale
+                radius=max(
+                    7.0*scale,
+                    min(11.0*scale,peak_distance*1.8),
+                )
+            controls.append({
+                "region":region,
+                "target":[target_x,target_y],
+                "anchor":[anchor_x,anchor_y],
+                "cap_px":float(cap),
+                "radius_px":float(radius),
+            })
+
+    xmin,xmax,ymin,ymax=[float(x) for x in bounds]
+    moved_vertices=0
+    max_iteration_world=0.0
+    per_iteration_cap=7.0*scale
+
+    for node in (FRONT_NODE,SUPPORT_NODE):
+        geometry=_geometry(scene,node)
+        vertices=np.asarray(geometry.vertices,dtype=np.float64).copy()
+        px=(
+            (vertices[:,0]-xmin)/
+            max(xmax-xmin,1e-12)*
+            (int(grid)-1)
+        )
+        py=(
+            (ymax-vertices[:,1])/
+            max(ymax-ymin,1e-12)*
+            (int(grid)-1)
+        )
+        total=np.zeros((len(vertices),2),dtype=np.float64)
+
+        for control in controls:
+            target_x,target_y=control["target"]
+            anchor_x,anchor_y=control["anchor"]
+            delta=np.array([
+                float(target_x-anchor_x),
+                float(target_y-anchor_y),
+            ],dtype=np.float64)
+            delta_length=max(float(np.linalg.norm(delta)),1e-9)
+            cap=float(control["cap_px"])
+            radius=float(control["radius_px"])
+            sigma=radius*0.45
+            radius2=(px-anchor_x)**2+(py-anchor_y)**2
+            weight=np.exp(-0.5*radius2/(sigma*sigma))
+            weight[radius2>radius*radius]=0.0
+            delta*=min(1.0,cap/delta_length)
+            total+=weight[:,None]*delta[None,:]
+
+        magnitude=np.linalg.norm(total,axis=1)
+        over=magnitude>per_iteration_cap
+        if np.any(over):
+            total[over]*=(
+                per_iteration_cap/
+                magnitude[over]
+            )[:,None]
+
+        dx=total[:,0]/max(int(grid)-1,1)*(xmax-xmin)
+        dy=-total[:,1]/max(int(grid)-1,1)*(ymax-ymin)
+        displacement=np.sqrt(dx*dx+dy*dy)
+        moved_vertices+=int(np.count_nonzero(displacement>1e-7))
+        if len(displacement):
+            max_iteration_world=max(
+                max_iteration_world,
+                float(displacement.max()),
+            )
+
+        vertices[:,0]+=dx
+        vertices[:,1]+=dy
+        geometry.vertices=vertices
+
+    _recompute_planar_uv(scene)
+    after=_coverage(
+        scene,grid,overscan,alpha_threshold,edge_fill_radius
+    )
+
+    return {
+        "policy":"targeted-thumb-head-multipeak-v1",
+        "before_missing":int(state["missing_pixels"]),
+        "after_missing":int(after["missing_pixels"]),
+        "before_coverage":float(state["coverage"]),
+        "after_coverage":float(after["coverage"]),
+        "moved_vertices":int(moved_vertices),
+        "max_iteration_world_displacement":float(max_iteration_world),
+        "selected_components":selected,
+        "controls":controls,
+    }
+
+
 def conform(
     input_glb:Path,
     output_glb:Path,
@@ -346,6 +532,14 @@ def conform(
             break
         if result["after_missing"]<=512:
             break
+
+    targeted_extremity=_targeted_extremity_pass(
+        scene,
+        grid=grid,
+        overscan=overscan,
+        alpha_threshold=alpha_threshold,
+        edge_fill_radius=edge_fill_radius,
+    )
 
     final=_coverage(
         scene,grid,overscan,alpha_threshold,edge_fill_radius
@@ -406,6 +600,7 @@ def conform(
         "max_z_displacement":float(max_z_displacement),
         "topology":topology,
         "passes":passes,
+        "targeted_extremity_pass":targeted_extremity,
     }
 
     output_glb.parent.mkdir(parents=True,exist_ok=True)
