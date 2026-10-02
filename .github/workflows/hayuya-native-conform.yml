@@ -6,10 +6,12 @@ on:
       - art/hayuya-core-generalize-v1
     paths:
       - tools/hayuya3d/hayuya.py
+      - tools/hayuya3d/judge_v4.py
       - tools/hayuya3d/native_geometry_guard.py
       - tools/hayuya3d/native_360_geometry_gate.py
       - tools/hayuya3d/native_silhouette_conform.py
       - tools/hayuya3d/visual_judge.py
+      - tools/hayuya3d/tests/test_judge_v4_face_proportions.py
       - tools/hayuya3d/tests/test_native_geometry_guard.py
       - tools/hayuya3d/tests/test_native_360_geometry_gate.py
       - tools/hayuya3d/tests/test_native_silhouette_conform.py
@@ -39,6 +41,9 @@ jobs:
       - name: Source-driven native silhouette conform
         run: |
           python -m pytest -q tools/hayuya3d/tests/test_native_silhouette_conform.py
+      - name: Generic source-relative face proportions
+        run: |
+          python -m pytest -q tools/hayuya3d/tests/test_judge_v4_face_proportions.py
       - name: Pipeline planner contract
         run: |
           python -m pytest -q tools/hayuya3d/tests/test_planner.py
