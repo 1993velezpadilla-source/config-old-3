@@ -17,27 +17,94 @@ function toast(message) {
   toast.timer = setTimeout(() => el.classList.remove("show"), 2600);
 }
 
-function renderFileThumbs(files, countId, thumbsId) {
-  $(countId).textContent = files.length;
+function fileKey(file) {
+  return [file.name, file.size, file.lastModified].join("::");
+}
+
+function mergeFiles(current, incoming) {
+  const merged = [...current];
+  const seen = new Set(current.map(fileKey));
+  Array.from(incoming || []).forEach((file) => {
+    const key = fileKey(file);
+    if (!seen.has(key)) {
+      seen.add(key);
+      merged.push(file);
+    }
+  });
+  return merged;
+}
+
+function humanBytes(bytes) {
+  const value = Number(bytes || 0);
+  if (value < 1024 * 1024) return Math.max(1, Math.round(value / 1024)) + " KB";
+  return (value / (1024 * 1024)).toFixed(value >= 100 * 1024 * 1024 ? 0 : 1) + " MB";
+}
+
+function renderFileThumbs(files, countId, thumbsId, collectionName) {
+  const totalBytes = files.reduce((sum, file) => sum + Number(file.size || 0), 0);
+  $(countId).textContent = files.length
+    ? files.length + " · " + humanBytes(totalBytes)
+    : "0";
+
   const thumbs = $(thumbsId);
   thumbs.replaceChildren();
-  files.slice(0, 20).forEach((file) => {
+  files.forEach((file, index) => {
+    const card = document.createElement("div");
+    card.className = "thumb-card";
+
     const img = document.createElement("img");
     img.className = "thumb";
     img.alt = file.name;
-    img.src = URL.createObjectURL(file);
-    thumbs.appendChild(img);
+    const url = URL.createObjectURL(file);
+    img.src = url;
+    img.addEventListener("load", () => URL.revokeObjectURL(url), {once:true});
+
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "thumb-remove";
+    remove.setAttribute("aria-label", "Remove " + file.name);
+    remove.title = "Remove " + file.name;
+    remove.textContent = "×";
+    remove.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      state[collectionName].splice(index, 1);
+      if (collectionName === "files") {
+        renderFileThumbs(state.files, "fileCount", "thumbs", "files");
+      } else {
+        renderFileThumbs(state.faceFiles, "faceFileCount", "faceThumbs", "faceFiles");
+      }
+    });
+
+    const label = document.createElement("span");
+    label.className = "thumb-name";
+    label.textContent = file.name;
+
+    card.append(img, remove, label);
+    thumbs.appendChild(card);
   });
 }
 
 function setFiles(files) {
-  state.files = Array.from(files || []);
-  renderFileThumbs(state.files, "fileCount", "thumbs");
+  state.files = mergeFiles(state.files, files);
+  renderFileThumbs(state.files, "fileCount", "thumbs", "files");
 }
 
 function setFaceFiles(files) {
-  state.faceFiles = Array.from(files || []);
-  renderFileThumbs(state.faceFiles, "faceFileCount", "faceThumbs");
+  state.faceFiles = mergeFiles(state.faceFiles, files);
+  renderFileThumbs(state.faceFiles, "faceFileCount", "faceThumbs", "faceFiles");
+}
+
+function clearFiles(kind) {
+  if (kind === "geometry") {
+    state.files = [];
+    $("images").value = "";
+    renderFileThumbs(state.files, "fileCount", "thumbs", "files");
+  } else {
+    state.faceFiles = [];
+    $("faceImages").value = "";
+    renderFileThumbs(state.faceFiles, "faceFileCount", "faceThumbs", "faceFiles");
+  }
 }
 
 function setProgress(stage, progress, status) {
@@ -1131,8 +1198,16 @@ async function startJob() {
   }
 }
 
-$("images").addEventListener("change", (e) => setFiles(e.target.files));
-$("faceImages").addEventListener("change", (e) => setFaceFiles(e.target.files));
+$("images").addEventListener("change", (e) => {
+  setFiles(e.target.files);
+  e.target.value = "";
+});
+$("faceImages").addEventListener("change", (e) => {
+  setFaceFiles(e.target.files);
+  e.target.value = "";
+});
+$("clearGeometry").addEventListener("click", () => clearFiles("geometry"));
+$("clearFace").addEventListener("click", () => clearFiles("face"));
 $("runButton").addEventListener("click", startJob);
 $("refreshJobs").addEventListener("click", refreshJobs);
 $("clearLog").addEventListener("click", () => { state.logs=[]; $("log").textContent=""; });
