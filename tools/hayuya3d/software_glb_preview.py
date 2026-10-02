@@ -249,6 +249,85 @@ def _render_point_fallback(geometries,size:int):
     return Image.fromarray(rgb,"RGB"),mask,lo,hi
 
 
+def _render_flat_region(
+    geometries,
+    bounds,
+    output_size:int,
+    supersample:int,
+    *,
+    color:tuple[int,int,int]=(165,165,165),
+):
+    """Triangle z-buffer fallback for valid native geometry without UV textures."""
+    render_size=max(
+        int(output_size),
+        int(output_size)*max(1,int(supersample)),
+    )
+    zbuf=np.full(
+        (render_size,render_size),
+        -1e9,
+        dtype=np.float32,
+    )
+    rgb=np.full(
+        (render_size,render_size,3),
+        18,
+        dtype=np.uint8,
+    )
+    xmin,xmax,ymin,ymax=[float(v) for v in bounds]
+    texture=np.asarray(
+        [[[
+            int(color[0]),
+            int(color[1]),
+            int(color[2]),
+            255,
+        ]]],
+        dtype=np.uint8,
+    )
+
+    rendered=0
+    for geometry in geometries:
+        vertices=np.asarray(
+            geometry.vertices,
+            dtype=np.float32,
+        )
+        faces=np.asarray(
+            geometry.faces,
+            dtype=np.int32,
+        )
+        if not len(vertices) or not len(faces):
+            continue
+        uv=np.zeros((len(vertices),2),dtype=np.float32)
+        _raster_textured(
+            vertices,
+            faces,
+            uv,
+            texture,
+            zbuf,
+            rgb,
+            xmin,
+            xmax,
+            ymin,
+            ymax,
+        )
+        rendered+=1
+
+    if rendered==0:
+        raise RuntimeError("no geometry for flat triangle render")
+
+    mask=(zbuf>-1e8).astype(np.uint8)*255
+    image=Image.fromarray(rgb,"RGB")
+    mask_image=Image.fromarray(mask,"L")
+    if render_size!=int(output_size):
+        image=image.resize(
+            (int(output_size),int(output_size)),
+            Image.Resampling.LANCZOS,
+        )
+        mask_image=mask_image.resize(
+            (int(output_size),int(output_size)),
+            Image.Resampling.NEAREST,
+        )
+    return image,mask_image
+
+
 def _render_uv_region(
     geometries,
     bounds,
