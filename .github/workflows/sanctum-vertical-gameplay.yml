@@ -7,6 +7,7 @@ on:
     paths:
       - ".github/workflows/sanctum-vertical-gameplay.yml"
       - "tools/sanctum_v2/build_sanctum_vertical_blockout.py"
+      - "tools/sanctum_v2/export_vertical_xziel_package.py"
       - "tools/sanctum_v2/enrich_sanctum_cc0_props.py"
       - "docs/sanctum-vertical-layout.v1.json"
       - "tools/xziel_toolchain/xziel_navmesh_bake.cpp"
@@ -212,6 +213,36 @@ jobs:
           print("NAV_VERTICAL_SPAN",nav["nav_vertical_span"])
           print("NAV_VERTICAL_BANDS",nav["nav_vertical_bands"])
           print("COLLISION_HULLS",col["hull_count"])
+          PY
+
+      - name: Package vertical Sanctum for XZIEL
+        shell: bash
+        env:
+          SANCTUM_VERTICAL_OUT: sanctum-vertical-probe
+          SANCTUM_XZIEL_PACKAGE: sanctum-vertical-probe/xziel-package
+        run: |
+          set -euo pipefail
+
+          python3 tools/sanctum_v2/export_vertical_xziel_package.py | tee sanctum-vertical-probe/xziel-package.log
+          grep -q SANCTUM_XZIEL_PACKAGE_PASS sanctum-vertical-probe/xziel-package.log
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("sanctum-vertical-probe/xziel-package")
+          pre=json.loads((root/"preflight.json").read_text(encoding="utf-8"))
+          m=json.loads((root/"map.json").read_text(encoding="utf-8"))
+          assert pre["ok"],pre
+          assert pre["counts"]["zones"]==3,pre
+          assert pre["counts"]["connections"]==4,pre
+          assert pre["counts"]["ads"]==3,pre
+          assert (root/m["geometry"]).is_file(),m
+          assert (root/m["runtime"]["navmesh"]).is_file(),m
+          assert (root/m["runtime"]["collision"]).is_file(),m
+          assert m["monetizationPolicy"]["diegeticOnlyDuringGameplay"] is True,m
+          assert m["monetizationPolicy"]["pauseGameplay"] is False,m
+          print("SANCTUM_XZIEL_PACKAGE_CONTRACT_GREEN")
+          print(json.dumps(pre,indent=2))
           PY
 
       - name: Upload vertical Sanctum
