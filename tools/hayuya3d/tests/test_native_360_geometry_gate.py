@@ -12,6 +12,7 @@ sys.path.insert(0, str(HERE))
 from native_360_geometry_gate import (
     Native360GeometryRejected,
     assert_native_character_360,
+    assert_native_volumetric,
     inspect_native_360_geometry,
 )
 
@@ -28,6 +29,19 @@ def test_real_volume_passes(tmp_path: Path):
     report = assert_native_character_360(path, label="volume")
     assert report["catastrophically_planar"] is False
     assert report["minor_span_ratio"] > 0.012
+
+
+def test_generic_volumetric_gate_rejects_planar_native_donor(tmp_path: Path):
+    path = tmp_path / "head_sheet.glb"
+    _write_mesh(path, trimesh.creation.box(extents=(1.0, 1.0, 0.0005)))
+
+    try:
+        assert_native_volumetric(path, label="head-donor")
+    except Native360GeometryRejected as exc:
+        assert "volumetric 3D evidence" in str(exc)
+        assert "head-donor" in str(exc)
+    else:
+        raise AssertionError("planar native donor must be rejected")
 
 
 def test_sheet_like_character_is_rejected(tmp_path: Path):
