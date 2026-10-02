@@ -7,14 +7,15 @@
     "height": 594
   },
   "camera": {
-    "lens_mm_initial": 34,
-    "eye_height_m": 1.78,
+    "lens_mm_initial": 31,
+    "eye_height_m": 1.88,
     "pitch_up_degrees_initial": 9.3,
     "principal_axis_x_norm": 0.5,
     "derived_vanishing_point_top_origin": [
       0.494,
       0.706
-    ]
+    ],
+    "lock": "main_door_player_view_v2"
   },
   "composition": {
     "altar_bbox_top_origin_norm": [
@@ -70,6 +71,8 @@
     "altar_screen_center_x_error_max": 0.05,
     "altar_screen_center_y_error_max": 0.11,
     "pew_mirror_screen_error_max": 0.1,
-    "gameplay_nav_gates_unchanged": true
+    "gameplay_nav_gates_unchanged": true,
+    "camera_lens_mm_exact": 31,
+    "camera_eye_height_m_exact": 1.88
   }
 }
