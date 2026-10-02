@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib
+import itertools
 import json
 import math
 from dataclasses import asdict,dataclass
@@ -307,6 +308,122 @@ def _yaw_align_donor_to_base_head(
     return best_vertices,best_angle,float(best_score)
 
 
+def _proper_axis_alignment_rotations(target_up_axis:int):
+    """Return six proper rotations covering every source-up axis/sign pair."""
+    np,_,_=_deps()
+    target=int(target_up_axis)
+    if target not in (0,1,2):
+        raise ValueError(f"invalid target up axis: {target}")
+
+    chosen={}
+    for perm in itertools.permutations((0,1,2)):
+        base=np.zeros((3,3),dtype=np.float64)
+        for output_axis,input_axis in enumerate(perm):
+            base[output_axis,input_axis]=1.0
+        for signs in itertools.product((-1.0,1.0),repeat=3):
+            matrix=base*np.asarray(signs,dtype=np.float64)[:,None]
+            if float(np.linalg.det(matrix))<0.999999:
+                continue
+            source_up=int(np.argmax(np.abs(matrix[target])))
+            source_sign=int(np.sign(matrix[target,source_up]) or 1)
+            key=(source_up,source_sign)
+            if key not in chosen:
+                chosen[key]=matrix
+    return [
+        (source_up,source_sign,chosen[(source_up,source_sign)])
+        for source_up in (0,1,2)
+        for source_sign in (-1,1)
+    ]
+
+
+def _orient_head_donor_to_base(
+    donor_vertices,
+    base_head_vertices,
+    base_head_center,
+    target_up_axis:int,
+):
+    """Solve head donor axis convention + yaw from the current base geometry.
+
+    This deliberately does not assume the donor's longest dimension is height.
+    Six proper source-up/sign rotations are tested, each followed by the existing
+    yaw fit. The winner is selected by symmetric nearest-surface distance.
+    """
+    np,_,_=_deps()
+    donor=np.asarray(donor_vertices,dtype=np.float64)
+    base=np.asarray(base_head_vertices,dtype=np.float64)
+    center=np.asarray(base_head_center,dtype=np.float64)
+    if len(donor)<8 or len(base)<8:
+        raise RuntimeError("head orientation solve requires at least 8 vertices")
+
+    donor_lo,donor_hi,donor_center,_donor_extent=_bbox(donor)
+    _base_lo,_base_hi,_base_center,base_extent=_bbox(base)
+    target_height=float(base_extent[int(target_up_axis)])
+    if target_height<=1e-9:
+        raise RuntimeError("collapsed base head bounds")
+
+    attempts=[]
+    best=None
+    for source_up,source_sign,matrix in _proper_axis_alignment_rotations(
+        int(target_up_axis)
+    ):
+        oriented=(donor-donor_center)@matrix.T
+        _lo,_hi,_center,extent=_bbox(oriented)
+        donor_height=float(extent[int(target_up_axis)])
+        if donor_height<=1e-9:
+            continue
+        scale=target_height/donor_height
+        aligned=oriented*scale+center
+        aligned,yaw,score=_yaw_align_donor_to_base_head(
+            aligned,
+            base,
+            center,
+            int(target_up_axis),
+        )
+        item={
+            "source_up_axis":int(source_up),
+            "source_up_sign":int(source_sign),
+            "yaw_degrees":float(yaw),
+            "score":float(score),
+            "scale":float(scale),
+            "matrix":matrix,
+            "vertices":aligned,
+        }
+        attempts.append(item)
+        if best is None or item["score"]<best["score"]-1e-12:
+            best=item
+
+    if best is None:
+        raise RuntimeError("could not orient native head donor")
+
+    ordered=sorted(float(x["score"]) for x in attempts)
+    second=ordered[1] if len(ordered)>1 else ordered[0]
+    confidence=second/max(float(best["score"]),1e-9)
+    identity_like=bool(
+        best["source_up_axis"]==int(target_up_axis)
+        and best["source_up_sign"]==1
+    )
+    return (
+        np.asarray(best["vertices"],dtype=np.float64),
+        float(best["scale"]),
+        int(best["source_up_axis"]),
+        bool(not identity_like),
+        float(confidence),
+        float(best["yaw_degrees"]),
+        float(best["score"]),
+        {
+            "policy":"base-driven-proper-rotation-plus-yaw-v1",
+            "candidate_count":int(len(attempts)),
+            "source_up_sign":int(best["source_up_sign"]),
+            "proper_rotation_determinant":round(
+                float(np.linalg.det(best["matrix"])),
+                8,
+            ),
+            "best_score":float(best["score"]),
+            "second_best_score":float(second),
+        },
+    )
+
+
 def _rig_blocked(path:Path)->tuple[bool,str|None]:
     if path.suffix.lower()!=".glb":
         return False,None
@@ -394,23 +511,39 @@ def build_head_wrap_geometry(
         else:
             resolved_up_axis=int(np.argmax(base_extent))
 
-        donor_vertices,donor_up_axis,donor_axis_remapped,donor_axis_confidence=(
-            _remap_donor_up_axis(
+        donor_scope=str(donor_scope).lower().strip()
+        if donor_scope not in {"fullbody","head"}:
+            raise ValueError(f"invalid donor_scope: {donor_scope}")
+
+        base_height=float(base_extent[resolved_up_axis])
+        if base_height<=1e-9:
+            raise ValueError("collapsed character bounds")
+
+        if donor_scope=="fullbody":
+            (
+                donor_vertices,
+                donor_up_axis,
+                donor_axis_remapped,
+                donor_axis_confidence,
+            )=_remap_donor_up_axis(
                 donor_vertices,
                 donor_extent,
                 resolved_up_axis,
             )
-        )
-        donor_lo,donor_hi,donor_center,donor_extent=_bbox(donor_vertices)
-
-        base_height=float(base_extent[resolved_up_axis])
-        donor_height=float(donor_extent[resolved_up_axis])
-        if base_height<=1e-9 or donor_height<=1e-9:
-            raise ValueError("collapsed character bounds")
-
-        donor_scope=str(donor_scope).lower().strip()
-        if donor_scope not in {"fullbody","head"}:
-            raise ValueError(f"invalid donor_scope: {donor_scope}")
+            donor_lo,donor_hi,donor_center,donor_extent=_bbox(donor_vertices)
+            donor_height=float(donor_extent[resolved_up_axis])
+            if donor_height<=1e-9:
+                raise ValueError("collapsed donor bounds")
+            donor_orientation={
+                "policy":"fullbody-longest-axis-compatibility",
+            }
+        else:
+            donor_up_axis=resolved_up_axis
+            donor_axis_remapped=False
+            donor_axis_confidence=1.0
+            donor_orientation={
+                "policy":"pending-base-driven-head-orientation",
+            }
 
         if donor_scope=="head":
             # Fail closed when a cropped RGB detail was reconstructed together
@@ -445,14 +578,17 @@ def build_head_wrap_geometry(
             target_height=float(base_head_extent[resolved_up_axis])
             if target_height<=1e-9:
                 raise RuntimeError("collapsed base head bounds")
-            scale=target_height/donor_height
-            aligned=(donor_vertices-donor_center)*scale+base_head_center
             (
                 aligned,
+                scale,
+                donor_up_axis,
+                donor_axis_remapped,
+                donor_axis_confidence,
                 donor_yaw_degrees,
                 donor_yaw_alignment_score,
-            )=_yaw_align_donor_to_base_head(
-                aligned,
+                donor_orientation,
+            )=_orient_head_donor_to_base(
+                donor_vertices,
                 base_head,
                 base_head_center,
                 resolved_up_axis,
@@ -682,6 +818,21 @@ def build_head_wrap_geometry(
             ),
             donor_yaw_alignment_score=round(
                 float(donor_yaw_alignment_score),
+                8,
+            ),
+            donor_orientation_policy=str(
+                donor_orientation.get("policy")
+            ),
+            donor_orientation_candidates=int(
+                donor_orientation.get("candidate_count",1)
+            ),
+            donor_orientation_determinant=round(
+                float(
+                    donor_orientation.get(
+                        "proper_rotation_determinant",
+                        1.0,
+                    )
+                ),
                 8,
             ),
         )
