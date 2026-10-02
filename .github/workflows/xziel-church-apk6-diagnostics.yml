@@ -43,8 +43,6 @@ jobs:
 
       - name: Boot APK #6 and collect diagnostics
         shell: bash
-        env:
-          ANDROID_AVD_HOME: ${{ runner.temp }}/xziel-apk6-diag-avd
         run: |
           set -euo pipefail
           mkdir -p diag
