@@ -195,16 +195,44 @@ def _bounded_render_faces(
     best = None
     best_grid = None
     attempts = []
+    last_over_grid = None
+
     for grid in grids:
         proxy = build_proxy(int(grid))
         count = int(len(proxy))
         attempts.append({"grid": int(grid), "faces": count})
         if count == 0:
             continue
-        if count <= budget:
-            best = proxy
-            best_grid = int(grid)
-            break
+        if count > budget:
+            last_over_grid = int(grid)
+            continue
+
+        best = proxy
+        best_grid = int(grid)
+
+        # The coarse geometric schedule gets us near the budget cheaply. Refine
+        # between the last over-budget grid and this under-budget grid so the
+        # proxy keeps as much contour detail as possible.
+        if (
+            last_over_grid is not None
+            and last_over_grid - best_grid > 1
+        ):
+            low = best_grid + 1
+            high = last_over_grid - 1
+            while low <= high:
+                mid = (low + high) // 2
+                trial = build_proxy(int(mid))
+                trial_count = int(len(trial))
+                attempts.append(
+                    {"grid": int(mid), "faces": trial_count}
+                )
+                if 0 < trial_count <= budget:
+                    best = trial
+                    best_grid = int(mid)
+                    low = mid + 1
+                else:
+                    high = mid - 1
+        break
 
     if best is None:
         raise RuntimeError(
