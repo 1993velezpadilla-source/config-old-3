@@ -149,12 +149,24 @@ int main() {
     assert(surface.cooldownRemainingSeconds == 0.0f);
     assert(ads.refreshSurface(0));
 
+    const auto nonInitiatedAudio = ads.stepAudioEmitter(
+        0,
+        {
+            .deltaSeconds = 0.5f,
+            .distanceMeters = 2.0f,
+            .enabled = true,
+            .userInitiated = false,
+        });
+    assert(!nonInitiatedAudio.audible);
+    assert(nonInitiatedAudio.gain == 0.0f);
+
     auto audio = ads.stepAudioEmitter(
         0,
         {
             .deltaSeconds = 0.5f,
             .distanceMeters = 2.0f,
             .enabled = true,
+            .userInitiated = true,
         });
 
     assert(audio.loaded);
@@ -169,6 +181,7 @@ int main() {
             .deltaSeconds = 0.5f,
             .distanceMeters = 2.0f,
             .enabled = true,
+            .userInitiated = true,
         });
 
     assert(audio.impressionSent);
@@ -235,6 +248,7 @@ int main() {
             .deltaSeconds = 0.0f,
             .distanceMeters = 2.0f,
             .enabled = true,
+            .userInitiated = true,
         });
 
     assert(adVoice.id == 7001U);
