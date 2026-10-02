@@ -51,6 +51,7 @@ class HeadWrapResult:
     donor_orientation_policy:str|None=None
     donor_orientation_candidates:int|None=None
     donor_orientation_determinant:float|None=None
+    donor_up_sign:int|None=None
 
 
 def _sibling_module(name:str):
@@ -852,6 +853,9 @@ def build_head_wrap_geometry(
                 ),
                 8,
             ),
+            donor_up_sign=int(
+                donor_orientation.get("source_up_sign",1)
+            ),
         )
     except Exception as exc:
         return HeadWrapResult(
@@ -1166,6 +1170,9 @@ def build_rig_preserving_head_wrap_geometry(
                     )
                 ),
                 8,
+            ),
+            donor_up_sign=int(
+                donor_orientation.get("source_up_sign",1)
             ),
         )
     except Exception as exc:
