@@ -40,6 +40,16 @@ bool creativeAllowed(
     return false;
 }
 
+float requiredSurfaceViewSeconds(
+    const AdSurfaceDefinition& definition,
+    AdCreativeKind kind) noexcept {
+    const float configured = nonNegative(definition.impressionViewSeconds);
+    if (kind == AdCreativeKind::Video) {
+        return std::max(configured, kIntrinsicAdVideoViewSeconds);
+    }
+    return std::max(configured, kIntrinsicAdDisplayViewSeconds);
+}
+
 float audioGain(
     const AdAudioEmitterDefinition& definition,
     float distanceMeters) noexcept {
@@ -385,9 +395,14 @@ AdSurfaceFrame IntrinsicAdSystem::stepSurface(
         input.frustumVisible &&
         !input.occluded &&
         state.lastDistanceMeters <= definition.maxViewDistanceMeters &&
-        state.lastFacingCosine >= definition.minimumFacingCosine &&
+        state.lastFacingCosine >=
+            std::max(definition.minimumFacingCosine,
+                     kIntrinsicAdMinimumFacingCosine) &&
+        clamp01(input.visibleCreativeFraction) >=
+            kIntrinsicAdMinimumVisibleFraction &&
         nonNegative(input.screenCoverage) >=
-            definition.minimumScreenCoverage;
+            std::max(definition.minimumScreenCoverage,
+                     kIntrinsicAdMinimumScreenCoverage);
 
     frame.visible = viewable;
 
@@ -405,6 +420,7 @@ AdSurfaceFrame IntrinsicAdSystem::stepSurface(
             .distanceMeters = state.lastDistanceMeters,
             .facingCosine = state.lastFacingCosine,
             .screenCoverage = nonNegative(input.screenCoverage),
+            .visibleCreativeFraction = clamp01(input.visibleCreativeFraction),
             .visible = frame.visible,
         });
     }
@@ -413,7 +429,8 @@ AdSurfaceFrame IntrinsicAdSystem::stepSurface(
         frame.visible &&
         !frame.impressionSent &&
         frame.cooldownRemainingSeconds <= 0.0f &&
-        frame.visibleSeconds >= definition.impressionViewSeconds) {
+        frame.visibleSeconds >=
+            requiredSurfaceViewSeconds(definition, frame.creative.kind)) {
         provider_->reportImpression(
             definition.placementId,
             frame.creative.creativeId);
