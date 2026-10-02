@@ -299,6 +299,37 @@ def reclassify_semantic_face_closeups(
     return geometry,details,moved
 
 
+def select_face_repair_evidence_sources(
+    detail_inputs: list[Path],
+    geometry_inputs: list[Path],
+    *,
+    semantic_head_inputs: list[Path] | set[Path] | None = None,
+    limit: int = 3,
+) -> list[tuple[Path, bool]]:
+    """Return bounded face-repair sources as (path, derive_from_full_source)."""
+    seen=set()
+    heads=[]
+    for path in detail_inputs:
+        resolved=Path(path).resolve()
+        if resolved in seen:
+            continue
+        if is_head_detail_evidence(
+            resolved,
+            semantic_head_inputs=semantic_head_inputs,
+        ):
+            seen.add(resolved)
+            heads.append(resolved)
+
+    if heads:
+        return [
+            (path,False)
+            for path in heads[:max(1,int(limit))]
+        ]
+    if geometry_inputs:
+        return [(Path(geometry_inputs[0]).resolve(),True)]
+    return []
+
+
 def semantic_character_hint_for_geometry(
     source_autofix_result,
     geometry_inputs: list[Path],
