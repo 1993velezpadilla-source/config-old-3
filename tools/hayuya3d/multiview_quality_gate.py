@@ -13,7 +13,9 @@ from PIL import Image, ImageDraw
 from software_glb_preview import (
     _load_scene,
     _normalize_visible_to_canvas,
+    _render_flat_region,
     _render_uv_region,
+    _texture_payload,
 )
 
 
@@ -86,12 +88,29 @@ def render_multiview(
         )
         bounds = _bounds(vertices_rot, overscan=1.42)
 
-        image, mask = _render_uv_region(
-            geometries,
-            bounds,
-            int(size),
-            int(supersample),
-        )
+        textured_geometry_count=int(sum(
+            1
+            for geometry in geometries
+            if _texture_payload(geometry) is not None
+        ))
+        if textured_geometry_count:
+            image,mask=_render_uv_region(
+                geometries,
+                bounds,
+                int(size),
+                int(supersample),
+            )
+            render_evidence="authored-uv-basecolor"
+            appearance_evidence=True
+        else:
+            image,mask=_render_flat_region(
+                geometries,
+                bounds,
+                int(size),
+                int(supersample),
+            )
+            render_evidence="native-flat-triangle-zbuffer"
+            appearance_evidence=False
         normalized, normalized_mask, framing = _normalize_visible_to_canvas(
             image,
             mask,
@@ -102,21 +121,37 @@ def render_multiview(
         source_pixels = 0
         support_pixels = 0
         if source_front:
-            _, source_mask = _render_uv_region(
-                source_front,
-                bounds,
-                int(size),
-                1,
-            )
-            source_pixels = _mask_pixels(source_mask)
+            try:
+                _,source_mask=_render_uv_region(
+                    source_front,
+                    bounds,
+                    int(size),
+                    1,
+                )
+            except RuntimeError:
+                _,source_mask=_render_flat_region(
+                    source_front,
+                    bounds,
+                    int(size),
+                    1,
+                )
+            source_pixels=_mask_pixels(source_mask)
         if support:
-            _, support_mask = _render_uv_region(
-                support,
-                bounds,
-                int(size),
-                1,
-            )
-            support_pixels = _mask_pixels(support_mask)
+            try:
+                _,support_mask=_render_uv_region(
+                    support,
+                    bounds,
+                    int(size),
+                    1,
+                )
+            except RuntimeError:
+                _,support_mask=_render_flat_region(
+                    support,
+                    bounds,
+                    int(size),
+                    1,
+                )
+            support_pixels=_mask_pixels(support_mask)
 
         total_pixels = max(_mask_pixels(mask), 1)
         label = ANGLE_LABELS.get(int(angle), f"yaw_{int(angle):+04d}")
@@ -134,6 +169,9 @@ def render_multiview(
             "support_pixels_raw": int(support_pixels),
             "source_front_ratio_proxy": float(source_pixels / total_pixels),
             "support_ratio_proxy": float(support_pixels / total_pixels),
+            "textured_geometry_count":textured_geometry_count,
+            "render_evidence":render_evidence,
+            "appearance_evidence":bool(appearance_evidence),
             "framing": framing,
             "bounds": [float(x) for x in bounds],
         }
@@ -167,10 +205,16 @@ def render_multiview(
         "views": records,
         "contact_sheet": str(sheet_path),
         "diagnostic_only": True,
+        "appearance_evidence_available":bool(
+            all(view["appearance_evidence"] for view in records)
+        ),
+        "geometry_evidence_available":True,
         "notes": (
-            "Rotates copies of the exported GLB around Y and renders its authored "
-            "UV/baseColor materials with the CPU z-buffer. Source-front/support "
-            "ratios are evidence proxies, not perceptual quality scores."
+            "Rotates copies of the exported GLB around Y. Authored UV/baseColor "
+            "is used when available; otherwise a flat triangle z-buffer preserves "
+            "native geometry/silhouette evidence without inventing appearance. "
+            "Source-front/support ratios are evidence proxies, not perceptual "
+            "quality scores."
         ),
     }
     report = output_dir / "multiview_quality_report.json"
