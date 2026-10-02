@@ -15,6 +15,7 @@ on:
       - tools/hayuya3d/native_geometry_guard.py
       - tools/hayuya3d/native_360_geometry_gate.py
       - tools/hayuya3d/tests/test_native_face_repair.py
+      - tools/hayuya3d/tests/test_multiview_quality_gate.py
       - tools/hayuya3d/tests/test_native_silhouette_conform.py
       - tools/hayuya3d/tests/test_native_geometry_guard.py
       - tools/hayuya3d/tests/test_native_360_geometry_gate.py
@@ -91,7 +92,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python -m pytest -q             tools/hayuya3d/tests/test_native_geometry_guard.py             tools/hayuya3d/tests/test_native_360_geometry_gate.py             tools/hayuya3d/tests/test_native_silhouette_conform.py             tools/hayuya3d/tests/test_native_face_repair.py
+          python -m pytest -q             tools/hayuya3d/tests/test_native_geometry_guard.py             tools/hayuya3d/tests/test_native_360_geometry_gate.py             tools/hayuya3d/tests/test_native_silhouette_conform.py             tools/hayuya3d/tests/test_native_face_repair.py             tools/hayuya3d/tests/test_multiview_quality_gate.py
 
       - name: Install MediaPipe runtime
         run: |
