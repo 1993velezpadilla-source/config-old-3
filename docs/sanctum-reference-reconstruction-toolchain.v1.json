@@ -1,0 +1,98 @@
+{
+  "version": 1,
+  "goal": "Reference-locked church asset reconstruction with commercial-safe output and zero-cost-first tooling.",
+  "production_strategy": [
+    "Do not trust one-shot generative 3D as final geometry.",
+    "Trace front/side silhouettes from the supplied sheets and constrain the authored mesh to that visual hull.",
+    "Use sketch/retopo tools for Gothic relief and small features.",
+    "Use AI image-to-3D only as a candidate high-poly source; accept it only after silhouette and runtime gates.",
+    "Keep PBR/material generation separate from geometry fitting so baked lighting is not copied into albedo."
+  ],
+  "tools": [
+    {
+      "name": "Retopo Draw",
+      "url": "https://github.com/ndlomoro/blender-retopo-addon",
+      "license": "MIT",
+      "role": "draw strokes directly on a mesh, generate quad-dominant topology, project result back to source surface",
+      "status": "preferred_manual_fit"
+    },
+    {
+      "name": "GreaseMesh",
+      "url": "https://github.com/tonis2/GreaseMesh",
+      "license": "GPL-3.0-or-later",
+      "role": "Grease Pencil strokes -> solid/mirror/path/wall meshes; boolean cuts and lattice wrapping",
+      "status": "external_tool_only"
+    },
+    {
+      "name": "Differentiable Mesh Optimizer",
+      "url": "https://github.com/mehull-26/differentiable-mesh-optimizer",
+      "license": "MIT",
+      "role": "multi-view silhouette loss using PyTorch3D to optimize mesh vertices against reference masks",
+      "status": "candidate_for_gpu_fit"
+    },
+    {
+      "name": "PyTorch3D",
+      "url": "https://github.com/facebookresearch/pytorch3d",
+      "license": "BSD",
+      "role": "differentiable rasterization, camera optimization and mesh deformation primitives",
+      "status": "candidate_core_math"
+    },
+    {
+      "name": "TripoSG Scribble",
+      "url": "https://huggingface.co/Jinstudio/TripoSG-scribble",
+      "license": "MIT model card; dependency licenses must still be audited",
+      "role": "scribble+prompt to 3D proposal; useful when we literally trace the supplied silhouette",
+      "status": "proposal_only_until_dependency_audit"
+    },
+    {
+      "name": "Hi3DGen",
+      "url": "https://github.com/Stable-X/Hi3DGen",
+      "license": "MIT per repository",
+      "role": "high-fidelity image-to-3D geometry using normal bridging",
+      "status": "proposal_only_gpu"
+    },
+    {
+      "name": "ComfyUI-3D-Pack",
+      "url": "https://github.com/MrForExample/ComfyUI-3D-Pack",
+      "license": "MIT framework; individual models vary",
+      "role": "orchestrates Hunyuan3D, PartCrafter, MV-Adapter, Wonder3D, TRELLIS-style workflows and UV/PBR baking",
+      "status": "integration_lab"
+    },
+    {
+      "name": "PartCrafter",
+      "url": "https://huggingface.co/wgsxm/PartCrafter",
+      "license": "MIT model card",
+      "role": "single-image 3D with separated parts; promising for altar carcass/candles/cross decomposition",
+      "status": "proposal_only_gpu"
+    },
+    {
+      "name": "TRELLIS.2",
+      "url": "https://github.com/microsoft/TRELLIS.2",
+      "license": "Repository README says MIT, but a 2026 GitHub issue reports missing LICENSE file; re-audit before shipping",
+      "role": "high-fidelity PBR image-to-3D candidate generator",
+      "status": "hold_for_license_recheck"
+    },
+    {
+      "name": "Hunyuan3D-2.1",
+      "url": "https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1",
+      "license": "Tencent Hunyuan non-commercial terms surfaced in repository/API metadata",
+      "role": "strong PBR texturing and image-to-mesh research reference",
+      "status": "do_not_use_for_commercial_release_without_license_clearance"
+    },
+    {
+      "name": "Meshroom / AliceVision",
+      "url": "https://github.com/alicevision/Meshroom",
+      "license": "MPL-2.0",
+      "role": "true multi-photo photogrammetry; useful when consistent real photographs exist",
+      "status": "not_primary_for_synthetic_angle_sheets"
+    }
+  ],
+  "implemented_now": [
+    "docs/sanctum-reference-silhouettes.v1.json",
+    "tools/sanctum_v2/build_reference_visual_hull.py",
+    "tools/sanctum_v2/reference_silhouette_fit.py",
+    "reference-driven PBR material library",
+    "pew dual-silhouette vertex clamp",
+    "standalone reference-fit CI gate"
+  ]
+}
