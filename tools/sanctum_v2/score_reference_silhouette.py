@@ -96,7 +96,32 @@ def render_alpha(name,view):
     w,h=img.size
     px=list(img.pixels[:])
     alpha=[px[i*4+3] for i in range(w*h)]
-    return w,h,alpha,path
+    luma=[
+        max(px[i*4],px[i*4+1],px[i*4+2])
+        for i in range(w*h)
+    ]
+    # Blender Workbench can write visible RGB coverage while Render Result alpha
+    # remains zero with film_transparent. Prefer alpha when it contains coverage,
+    # otherwise use rendered luminance. This prevents a visible white silhouette
+    # from being rejected as an empty mask.
+    if max(alpha,default=0.0)>0.10:
+        coverage=alpha
+        coverage_source="alpha"
+    elif max(luma,default=0.0)>0.10:
+        coverage=luma
+        coverage_source="luma"
+    else:
+        fail("rendered silhouette has no alpha or RGB coverage")
+    print(
+        "SANCTUM_REFERENCE_MASK_SOURCE",
+        view,
+        coverage_source,
+        "alpha_max",
+        max(alpha,default=0.0),
+        "luma_max",
+        max(luma,default=0.0),
+    )
+    return w,h,coverage,path
 
 def bbox_mask(w,h,alpha,threshold=0.10):
     xs=[]; ys=[]

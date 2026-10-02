@@ -417,12 +417,20 @@ cam.rotation_euler=(Vector((ic.x,altar_y,look_z))-cam.location).to_track_quat("-
 
 def screen_bbox(objects):
     xs=[]; ys=[]
+    inv_cam=cam.matrix_world.inverted()
     for obj in objects:
         if obj.type!="MESH":
             continue
-        for c in obj.bound_box:
-            p=world_to_camera_view(scene,cam,obj.matrix_world@Vector(c))
-            if p.z>0:
+        for corner in obj.bound_box:
+            wp=obj.matrix_world@Vector(corner)
+            local=inv_cam@wp
+            # Blender cameras look down local -Z. Test that directly instead of
+            # interpreting world_to_camera_view().z, whose depth convention is
+            # not a stable front/behind predicate across this headless path.
+            if local.z >= -float(cam.data.clip_start):
+                continue
+            p=world_to_camera_view(scene,cam,wp)
+            if math.isfinite(float(p.x)) and math.isfinite(float(p.y)):
                 xs.append(float(p.x)); ys.append(float(p.y))
     if not xs:
         fail("no projected points for screen bbox")
