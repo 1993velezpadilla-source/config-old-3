@@ -243,6 +243,7 @@ def _yaw_align_donor_to_base_head(
     candidate_angles:tuple[float,...]=(
         0.0,45.0,90.0,135.0,180.0,225.0,270.0,315.0
     ),
+    refinement_steps:tuple[float,...]=(22.5,11.25,5.625),
     max_points:int=4000,
     min_relative_improvement:float=0.03,
 ):
@@ -269,24 +270,20 @@ def _yaw_align_donor_to_base_head(
     base_tree=cKDTree(base_sample)
     plane=[axis for axis in (0,1,2) if axis!=int(up_axis)]
     a,b=plane
-    best_vertices=None
-    best_angle=0.0
-    best_score=None
-    zero_vertices=None
-    zero_score=None
     base_scale=max(
         float(np.linalg.norm(base.max(axis=0)-base.min(axis=0))),
         1e-9,
     )
+    shifted=donor-center
 
-    for angle in candidate_angles:
-        theta=math.radians(float(angle))
+    def evaluate(angle:float):
+        normalized=float(angle)%360.0
+        theta=math.radians(normalized)
         cos_a=math.cos(theta)
         sin_a=math.sin(theta)
-        shifted=donor-center
         rotated=shifted.copy()
-        aa=shifted[:,a].copy()
-        bb=shifted[:,b].copy()
+        aa=shifted[:,a]
+        bb=shifted[:,b]
         rotated[:,a]=cos_a*aa-sin_a*bb
         rotated[:,b]=sin_a*aa+cos_a*bb
         rotated+=center
@@ -307,22 +304,47 @@ def _yaw_align_donor_to_base_head(
         base_median=float(np.median(base_to_donor))
         donor_p90=float(np.percentile(donor_to_base,90.0))
         base_p90=float(np.percentile(base_to_donor,90.0))
-        # Median keeps the fit stable against isolated reconstruction noise,
-        # while P90 makes asymmetric detail (nose, hood edge, helmet brim,
-        # hair mass) matter enough to disambiguate axis/yaw conventions.
         score=(
             donor_median
             + base_median
             + 0.35*(donor_p90+base_p90)
         )/base_scale
+        return rotated,float(score),normalized
 
-        if abs(float(angle))<1e-9:
+    best_vertices=None
+    best_angle=0.0
+    best_score=None
+    zero_vertices=None
+    zero_score=None
+    evaluated=set()
+
+    def consider(angle:float):
+        nonlocal best_vertices,best_angle,best_score,zero_vertices,zero_score
+        normalized=round(float(angle)%360.0,8)
+        if normalized in evaluated:
+            return
+        evaluated.add(normalized)
+        rotated,score,normalized=evaluate(normalized)
+        if abs(normalized)<1e-8 or abs(normalized-360.0)<1e-8:
             zero_vertices=rotated.copy()
             zero_score=float(score)
         if best_score is None or score<best_score-1e-12:
-            best_score=score
-            best_angle=float(angle)
+            best_score=float(score)
+            best_angle=float(normalized)
             best_vertices=rotated
+
+    for angle in candidate_angles:
+        consider(float(angle))
+
+    # Only refine a true coarse bank. Tiny custom banks are treated as an
+    # explicit request to evaluate exactly those hypotheses.
+    if len(tuple(candidate_angles))>=4 and best_score is not None:
+        for step in refinement_steps:
+            if float(step)<=0.0:
+                continue
+            anchor=float(best_angle)
+            consider(anchor-float(step))
+            consider(anchor+float(step))
 
     assert best_vertices is not None
     if zero_vertices is not None and zero_score is not None and best_angle!=0.0:
@@ -332,8 +354,7 @@ def _yaw_align_donor_to_base_head(
         if improvement<float(min_relative_improvement):
             return zero_vertices,0.0,float(zero_score)
 
-    return best_vertices,best_angle,float(best_score)
-
+    return best_vertices,float(best_angle)%360.0,float(best_score)
 
 def _head_donor_background_shell_fraction(
     donor_vertices,
