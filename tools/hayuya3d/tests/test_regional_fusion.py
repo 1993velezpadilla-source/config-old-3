@@ -578,6 +578,60 @@ class RegionalFusionTests(unittest.TestCase):
             self.assertEqual(result.rebake_required,[])
             self.assertTrue(Path(result.output_glb or "").is_file())
 
+    def test_fullbody_challenger_adapts_displacement_until_topology_passes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            base=root/"base.glb"
+            donor=root/"donor.glb"
+            make_character(base,head_scale=1.0)
+            make_character(donor,head_scale=1.2)
+
+            calls=[]
+
+            def fake_build(
+                _base,
+                _donor,
+                target,
+                *,
+                max_displacement_fraction=0.055,
+                up_axis=None,
+                donor_scope="fullbody",
+            ):
+                fraction=float(max_displacement_fraction)
+                calls.append(fraction)
+                result=mock.Mock()
+                result.geometry_ready=fraction<=0.0200001
+                result.error=(
+                    None
+                    if result.geometry_ready
+                    else "head_face_collapse_fraction=0.20>0.08"
+                )
+                result.method="fixture"
+                result.rebake_required=[]
+                result.rebake_resolved=[]
+                result.rebake_ready=False
+                result.ready_for_judge=False
+                result.output_glb=str(target)
+                return result
+
+            with mock.patch(
+                "tools.hayuya3d.regional_fusion.build_head_wrap_geometry",
+                side_effect=fake_build,
+            ):
+                result=prepare_head_wrap_challenger(
+                    base,
+                    donor,
+                    root/"fusion",
+                    texture_size=256,
+                    donor_scope="fullbody",
+                )
+
+            self.assertEqual(calls[:3],[0.055,0.030,0.020])
+            self.assertTrue(result.geometry_ready,result.error)
+            self.assertTrue(result.rebake_ready,result.error)
+            self.assertTrue(result.ready_for_judge,result.error)
+            self.assertIn("adaptive-fullbody-0.0200",result.method)
+
     def test_invalid_skin_weights_fail_closed_before_head_wrap(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp)
