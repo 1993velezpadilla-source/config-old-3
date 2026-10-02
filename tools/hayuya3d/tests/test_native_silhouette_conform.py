@@ -12,6 +12,7 @@ HERE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HERE))
 
 from native_geometry_guard import assert_native_candidate
+from visual_judge import render_silhouette, score_masks
 from silhouette_conform import _require_legacy_projection_profile
 from native_silhouette_conform import (
     _bounded_render_faces,
@@ -139,6 +140,45 @@ def test_render_face_budget_clusters_surface_and_preserves_components():
     # not merely sample whichever faces happen to dominate array order.
     assert np.any(np.all(subset_a < primary_vertex_count, axis=1))
     assert np.any(np.all(subset_a >= primary_vertex_count, axis=1))
+
+
+def test_clustered_render_proxy_tracks_full_mesh_silhouette():
+    primary = trimesh.creation.icosphere(subdivisions=4, radius=1.0)
+    secondary = trimesh.creation.icosphere(subdivisions=3, radius=0.22)
+    secondary.apply_translation((1.75, 0.35, 0.10))
+    mesh = trimesh.util.concatenate([primary, secondary])
+
+    vertices = np.asarray(mesh.vertices, dtype=np.float64)
+    faces = np.asarray(mesh.faces, dtype=np.int64)
+    center = (vertices.min(axis=0) + vertices.max(axis=0)) * 0.5
+    scale = float(np.max(vertices.max(axis=0) - vertices.min(axis=0)))
+    vertices_norm = (vertices - center) / max(scale, 1e-9)
+
+    proxy_faces, _meta = _bounded_render_faces(
+        vertices_norm,
+        faces,
+        max_faces=1200,
+    )
+    full_mask = render_silhouette(
+        vertices_norm,
+        faces,
+        35.0,
+        8.0,
+        "y",
+        size=192,
+    )
+    proxy_mask = render_silhouette(
+        vertices_norm,
+        proxy_faces,
+        35.0,
+        8.0,
+        "y",
+        size=192,
+    )
+    _score, iou, boundary_f1 = score_masks(full_mask, proxy_mask)
+
+    assert iou >= 0.90
+    assert boundary_f1 >= 0.70
 
 
 def test_topology_smoothing_reduces_isolated_active_spike_without_moving_inactive():
