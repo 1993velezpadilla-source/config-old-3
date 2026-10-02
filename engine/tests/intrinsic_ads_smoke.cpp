@@ -3,6 +3,11 @@
 #include <cassert>
 
 int main() {
+    assert(xziel::kIntrinsicAdMinimumVisibleFraction == 0.50f);
+    assert(xziel::kIntrinsicAdMinimumScreenCoverage == 0.015f);
+    assert(xziel::kIntrinsicAdMinimumFacingCosine > 0.57f);
+    assert(xziel::kIntrinsicAdVideoViewSeconds == 2.0f);
+
     xziel::LocalAdProvider provider;
 
     assert(provider.setCreative(
@@ -57,6 +62,48 @@ int main() {
     assert(ads.primeAll() == 2U);
 
     auto surface = ads.stepSurface(
+        0,
+        {
+            .deltaSeconds = 0.5f,
+            .distanceMeters = 5.0f,
+            .facingCosine = 0.9f,
+            .screenCoverage = 0.05f,
+            .visibleCreativeFraction = 0.49f,
+            .frustumVisible = true,
+            .occluded = false,
+        });
+    assert(!surface.visible);
+    assert(!surface.impressionSent);
+
+    surface = ads.stepSurface(
+        0,
+        {
+            .deltaSeconds = 0.5f,
+            .distanceMeters = 5.0f,
+            .facingCosine = 0.55f,
+            .screenCoverage = 0.05f,
+            .visibleCreativeFraction = 1.0f,
+            .frustumVisible = true,
+            .occluded = false,
+        });
+    assert(!surface.visible);
+    assert(!surface.impressionSent);
+
+    surface = ads.stepSurface(
+        0,
+        {
+            .deltaSeconds = 0.5f,
+            .distanceMeters = 5.0f,
+            .facingCosine = 0.9f,
+            .screenCoverage = 0.014f,
+            .visibleCreativeFraction = 1.0f,
+            .frustumVisible = true,
+            .occluded = false,
+        });
+    assert(!surface.visible);
+    assert(!surface.impressionSent);
+
+    surface = ads.stepSurface(
         0,
         {
             .deltaSeconds = 0.5f,
@@ -127,6 +174,60 @@ int main() {
     assert(audio.impressionSent);
     assert(audio.sessionImpressions == 1U);
     assert(provider.stats().impressions == 2U);
+
+    // Video baseline must require two continuous seconds.
+    xziel::LocalAdProvider videoProvider;
+    assert(videoProvider.setCreative(
+        3001,
+        {
+            .creativeId = 7001,
+            .assetId = 9201,
+            .kind = xziel::AdCreativeKind::Video,
+            .width = 1920,
+            .height = 1080,
+            .durationSeconds = 15.0f,
+        }));
+
+    xziel::IntrinsicAdSystem videoAds(&videoProvider);
+    assert(videoAds.addSurface({
+        .placementId = 3001,
+        .meshId = 4001,
+        .aspectRatio = 16.0f / 9.0f,
+        .impressionViewSeconds = 1.0f,
+        .allowImage = false,
+        .allowVideo = true,
+    }));
+    assert(videoAds.primeSurface(0));
+
+    for (int i = 0; i < 3; ++i) {
+        const auto videoFrame = videoAds.stepSurface(
+            0,
+            {
+                .deltaSeconds = 0.5f,
+                .distanceMeters = 4.0f,
+                .facingCosine = 0.9f,
+                .screenCoverage = 0.05f,
+                .visibleCreativeFraction = 1.0f,
+                .frustumVisible = true,
+                .occluded = false,
+            });
+        assert(videoFrame.visible);
+        assert(!videoFrame.impressionSent);
+    }
+
+    const auto videoFrame = videoAds.stepSurface(
+        0,
+        {
+            .deltaSeconds = 0.5f,
+            .distanceMeters = 4.0f,
+            .facingCosine = 0.9f,
+            .screenCoverage = 0.05f,
+            .visibleCreativeFraction = 1.0f,
+            .frustumVisible = true,
+            .occluded = false,
+        });
+    assert(videoFrame.impressionSent);
+    assert(videoProvider.stats().impressions == 1U);
 
     const auto adVoice = ads.makeAudioSource(
         0,
