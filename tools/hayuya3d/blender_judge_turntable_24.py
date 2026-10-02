@@ -133,8 +133,18 @@ def main():
     full_scale=max(float(ext.x),float(ext.y),float(ext.z))*1.08
     full_scale=max(full_scale,0.35)
     head_target=center.copy()
-    head_target.z=mn.z+ext.z*0.82
-    head_scale=max(float(ext.z)*0.30,float(ext.x)*0.50,float(ext.y)*0.50,0.18)
+    # Character face evidence lives near the top of the body bounds. The old
+    # 0.82 / 0.30 framing centered too low and frequently clipped the forehead
+    # while wasting most of the crop on shoulders/chest. Keep this generic:
+    # target the upper humanoid region and preserve extra lateral room for
+    # hoods, hair, helmets and horns.
+    head_target.z=mn.z+ext.z*0.895
+    head_scale=max(
+        float(ext.z)*0.24,
+        float(ext.x)*0.58,
+        float(ext.y)*0.58,
+        0.18,
+    )
 
     full=[]
     faces=[]
