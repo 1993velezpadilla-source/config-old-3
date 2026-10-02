@@ -14,6 +14,7 @@ from native_geometry_guard import assert_native_candidate
 from native_silhouette_conform import (
     _bounded_render_faces,
     _front_surface_vertex_mask,
+    _smooth_topology_displacements,
     conform_native_silhouette,
 )
 
@@ -58,6 +59,41 @@ def test_render_face_budget_is_deterministic_and_never_changes_source_faces():
     assert meta_a["subsampled"] is True
     assert np.array_equal(subset_a[0], faces[0])
     assert np.array_equal(subset_a[-1], faces[-1])
+
+
+def test_topology_smoothing_reduces_isolated_active_spike_without_moving_inactive():
+    faces = np.asarray(
+        [
+            [0, 1, 2],
+            [1, 3, 2],
+        ],
+        dtype=np.int64,
+    )
+    active = np.asarray([True, True, True, False])
+    delta = np.asarray(
+        [
+            [1.0, 0.0],
+            [7.0, 0.0],
+            [1.0, 0.0],
+            [0.0, 0.0],
+        ],
+        dtype=np.float64,
+    )
+
+    smoothed, meta = _smooth_topology_displacements(
+        delta,
+        faces,
+        active,
+        iterations=2,
+        blend=0.5,
+    )
+
+    assert smoothed[1, 0] < delta[1, 0]
+    assert smoothed[1, 0] > 1.0
+    assert np.array_equal(smoothed[3], np.asarray([0.0, 0.0]))
+    assert meta["active_vertices"] == 3
+    assert meta["active_vertices_with_neighbors"] == 3
+    assert meta["can_activate_new_vertices"] is False
 
 
 def test_front_surface_gate_blocks_rear_vertices_at_same_projection():
@@ -113,6 +149,8 @@ def test_native_conform_keeps_real_geometry_and_never_creates_proxy_nodes(tmp_pa
     assert result["visibility_policy"]["rear_occluded_vertices_are_editable"] is False
     assert result["render_budget"]["render_faces"] <= 12000
     assert result["render_budget"]["input_faces"] >= result["render_budget"]["render_faces"]
+    assert result["topology_smoothing"]["mode"] == "active-visible-one-ring-only"
+    assert result["topology_smoothing"]["can_activate_new_vertices"] is False
     assert result["final"]["score"] >= result["initial"]["score"]
     assert_native_candidate(output, label="test-output")
 
