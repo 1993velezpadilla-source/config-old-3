@@ -1556,6 +1556,92 @@ if (
             token=TOKEN,
         )
         detail_donor=Path(detail_donor_meta["path"])
+
+        # The tight source-derived head donor is also a better geometry
+        # authority than a full-body donor when facial correspondence is the
+        # weak point. Try a seam-safe head-only geometry challenger first, then
+        # layer its baseColor evidence onto whichever geometry survives.
+        detail_geometry_fusion_payload=None
+        try:
+            from regional_fusion import prepare_head_wrap_challenger
+            detail_head_wrap=prepare_head_wrap_challenger(
+                dst,
+                detail_donor,
+                OUT/"detail_head_geometry_wrap",
+                texture_size=max(1024,int(actual_texture_size or 0)),
+                require_rebake=True,
+                up_axis="y",
+                donor_scope="head",
+            )
+            detail_geometry_fusion_payload={
+                "attempted":True,
+                "source_detail":detail_views[0].name,
+                "fusion":asdict(detail_head_wrap),
+                "promoted":False,
+            }
+            print(
+                "HAYUYA_DETAIL_HEAD_GEOMETRY_FUSION",
+                json.dumps(
+                    detail_geometry_fusion_payload,
+                    separators=(",",":"),
+                ),
+            )
+            if detail_head_wrap.ready_for_judge and detail_head_wrap.output_glb:
+                detail_wrapped=Path(detail_head_wrap.output_glb)
+                detail_wrapped_mesh=inspect_mesh_gate(
+                    detail_wrapped,
+                    require_normals=require_final_normals,
+                )
+                detail_wrapped_texture=inspect_texture_gate(
+                    detail_wrapped,
+                    min_edge=final_texture_min_edge,
+                )
+                detail_geometry_fusion_payload["mesh_gate"]=asdict(
+                    detail_wrapped_mesh
+                )
+                detail_geometry_fusion_payload["texture_gate"]=asdict(
+                    detail_wrapped_texture
+                )
+                if detail_wrapped_mesh.passed and detail_wrapped_texture.passed:
+                    shutil.copy2(detail_wrapped,dst)
+                    data=dst.read_bytes()
+                    detail_geometry_fusion_payload["promoted"]=True
+                    selected_compute=(
+                        selected_compute
+                        +" + CPU source-head seam-limited geometry fusion"
+                    )
+                    print(
+                        "HAYUYA_DETAIL_HEAD_GEOMETRY_FUSION_PROMOTED",
+                        json.dumps(
+                            detail_geometry_fusion_payload,
+                            separators=(",",":"),
+                        ),
+                    )
+                else:
+                    detail_geometry_fusion_payload["rejected_reason"]=(
+                        "post_wrap_gate"
+                    )
+            else:
+                detail_geometry_fusion_payload["rejected_reason"]=(
+                    detail_head_wrap.error
+                    or "regional_fusion_not_judge_ready"
+                )
+        except Exception as detail_geometry_exc:
+            detail_geometry_fusion_payload={
+                "attempted":True,
+                "source_detail":detail_views[0].name,
+                "promoted":False,
+                "error":(
+                    f"{type(detail_geometry_exc).__name__}: "
+                    f"{detail_geometry_exc}"
+                ),
+            }
+            print(
+                "::warning::HAYUYA source-head geometry challenger unavailable; "
+                "continuing with the current safe geometry: "
+                +detail_geometry_fusion_payload["error"]
+            )
+
         detail_fused=OUT/"hayuya_head_detail_fused.glb"
         fusion=fuse_local_basecolor(
             dst,
@@ -1571,6 +1657,7 @@ if (
             "attempted":True,
             "source_detail":detail_views[0].name,
             "donor":detail_donor_meta,
+            "geometry_fusion":detail_geometry_fusion_payload,
             "fusion":asdict(fusion),
             "promoted":False,
         }
