@@ -825,8 +825,18 @@ def conform_native_silhouette(
             "native silhouette conform regressed source silhouette score"
         )
 
-    vertices_world_out = current * scale + center
-    _write_world_vertices(scene, records, vertices_world_out, output_glb)
+    geometry_changed = bool(max_displacement_ratio > 1e-10)
+    accepted_passes = int(sum(1 for item in passes if item.get("accepted")))
+
+    if geometry_changed:
+        vertices_world_out = current * scale + center
+        _write_world_vertices(scene, records, vertices_world_out, output_glb)
+    else:
+        # Do not round-trip a perfect/no-op native candidate through trimesh.
+        # Preserve the exact original GLB bytes when no vertex change won.
+        output_glb.parent.mkdir(parents=True, exist_ok=True)
+        output_glb.write_bytes(input_glb.read_bytes())
+
     assert_native_candidate(output_glb, label="native_silhouette_conform_output")
     roundtrip_preservation = _assert_roundtrip_preserved(
         input_glb,
@@ -863,6 +873,9 @@ def conform_native_silhouette(
             "boundary_f1": float(final["boundary_f1"]),
         },
         "passes": passes,
+        "accepted_passes": accepted_passes,
+        "geometry_changed": geometry_changed,
+        "no_op_preserves_exact_input_bytes": bool(not geometry_changed),
         "render_budget": render_budget,
         "roundtrip_preservation": roundtrip_preservation,
         "topology_smoothing": {
