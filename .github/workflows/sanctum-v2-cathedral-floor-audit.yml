@@ -108,7 +108,50 @@ jobs:
                       r["near_floor_up_area"]+=float(area)
 
           eo.to_mesh_clear()
-          report={"materials":rows}
+          floor_pts=[]
+          floor_area=0.0
+          floor_faces=0
+          floor_z_min=None
+          floor_z_max=None
+          for p in me.polygons:
+              idx=p.material_index
+              name=mats[idx] if idx<len(mats) else None
+              if name!="GroundFloorWalls":
+                  continue
+              n=(normal_m @ p.normal).normalized()
+              c=mw @ p.center
+              if n.z<=0.85 or c.z>2.5:
+                  continue
+              floor_faces+=1
+              floor_area+=float(p.area)
+              for vi in p.vertices:
+                  wv=mw @ me.vertices[vi].co
+                  floor_pts.append((float(wv.x),float(wv.y),float(wv.z)))
+                  floor_z_min=float(wv.z) if floor_z_min is None else min(floor_z_min,float(wv.z))
+                  floor_z_max=float(wv.z) if floor_z_max is None else max(floor_z_max,float(wv.z))
+
+          if floor_pts:
+              xs=[p[0] for p in floor_pts]; ys=[p[1] for p in floor_pts]
+              bounds={
+                  "min":[min(xs),min(ys),floor_z_min],
+                  "max":[max(xs),max(ys),floor_z_max],
+                  "size":[max(xs)-min(xs),max(ys)-min(ys),floor_z_max-floor_z_min],
+              }
+              bbox_xy_area=(max(xs)-min(xs))*(max(ys)-min(ys))
+              coverage_ratio=(floor_area/bbox_xy_area) if bbox_xy_area>0 else 0.0
+          else:
+              bounds=None; bbox_xy_area=0.0; coverage_ratio=0.0
+
+          report={
+              "materials":rows,
+              "near_floor_groundfloorwalls":{
+                  "face_count":floor_faces,
+                  "face_area":floor_area,
+                  "bounds":bounds,
+                  "bbox_xy_area":bbox_xy_area,
+                  "coverage_ratio":coverage_ratio,
+              },
+          }
           print("SANCTUM_V2_FLOOR_MATERIAL_AUDIT")
           print(json.dumps(report,indent=2,sort_keys=True))
           PY
