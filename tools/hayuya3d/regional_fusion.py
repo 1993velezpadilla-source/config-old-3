@@ -224,6 +224,7 @@ def _yaw_align_donor_to_base_head(
         0.0,45.0,90.0,135.0,180.0,225.0,270.0,315.0
     ),
     max_points:int=4000,
+    min_relative_improvement:float=0.03,
 ):
     """Choose donor yaw that best matches the already-valid native head shape."""
     np,_,cKDTree=_deps()
@@ -251,6 +252,8 @@ def _yaw_align_donor_to_base_head(
     best_vertices=None
     best_angle=0.0
     best_score=None
+    zero_vertices=None
+    zero_score=None
     base_scale=max(
         float(np.linalg.norm(base.max(axis=0)-base.min(axis=0))),
         1e-9,
@@ -285,12 +288,22 @@ def _yaw_align_donor_to_base_head(
             + float(np.median(base_to_donor))
         )/base_scale
 
+        if abs(float(angle))<1e-9:
+            zero_vertices=rotated.copy()
+            zero_score=float(score)
         if best_score is None or score<best_score-1e-12:
             best_score=score
             best_angle=float(angle)
             best_vertices=rotated
 
     assert best_vertices is not None
+    if zero_vertices is not None and zero_score is not None and best_angle!=0.0:
+        improvement=(
+            float(zero_score)-float(best_score)
+        )/max(float(zero_score),1e-9)
+        if improvement<float(min_relative_improvement):
+            return zero_vertices,0.0,float(zero_score)
+
     return best_vertices,best_angle,float(best_score)
 
 
