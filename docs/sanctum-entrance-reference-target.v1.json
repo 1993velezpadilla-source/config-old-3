@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "target_id": "sanctum_front_door_reference_v1",
+  "source": "derived measurements from user-supplied entrance reference; source image is not stored in the public repo",
+  "source_crop_pixels": {
+    "width": 793,
+    "height": 594
+  },
+  "camera": {
+    "lens_mm_initial": 34,
+    "eye_height_m": 1.78,
+    "pitch_up_degrees_initial": 9.3,
+    "principal_axis_x_norm": 0.5,
+    "derived_vanishing_point_top_origin": [
+      0.494,
+      0.706
+    ]
+  },
+  "composition": {
+    "altar_bbox_top_origin_norm": [
+      0.42,
+      0.56,
+      0.59,
+      0.71
+    ],
+    "altar_center_tolerance_norm": [
+      0.05,
+      0.11
+    ],
+    "altar_width_range_norm": [
+      0.11,
+      0.24
+    ],
+    "pew_left_region_top_origin_norm": [
+      0,
+      0.64,
+      0.35,
+      1
+    ],
+    "pew_right_region_top_origin_norm": [
+      0.65,
+      0.64,
+      1,
+      1
+    ],
+    "aisle_bottom_width_range_norm": [
+      0.42,
+      0.56
+    ],
+    "stained_glass_apex_region_top_origin_norm": [
+      0.27,
+      0,
+      0.72,
+      0.52
+    ],
+    "floor_visible_from_y_top_origin_norm": 0.67
+  },
+  "visual_requirements": {
+    "symmetry_axis": "nave center",
+    "altar": "centered far-end focal landmark with steps, dark carved wood/stone, burgundy cloth, cross, open book, dense candles",
+    "pews": "two heavy gothic wooden banks with clear central aisle",
+    "floor": "dark worn stone tile with wet/specular breakup; optional chapel pattern accents",
+    "windows": "tall stained-glass panels dominating upper half of entrance view",
+    "lighting": "warm candle layers against cool stained-glass/window light",
+    "depth_cues": "candle density and repeated pew/window rhythm increase toward altar"
+  },
+  "hard_gates": {
+    "camera_must_be_inside_front_threshold": true,
+    "camera_center_offset_m_max": 0.1,
+    "altar_screen_center_x_error_max": 0.05,
+    "altar_screen_center_y_error_max": 0.11,
+    "pew_mirror_screen_error_max": 0.1,
+    "gameplay_nav_gates_unchanged": true
+  }
+}
