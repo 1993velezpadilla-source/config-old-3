@@ -49,9 +49,26 @@ def select_head_donor_backend(
     return None
 
 
-def _stage_source(detail_image: Path, output: Path) -> Path:
-    """Stage the *current* source head crop with transparent background when possible."""
+def _stage_source(
+    detail_image: Path,
+    output: Path,
+    *,
+    derive_head_from_full_source: bool = False,
+) -> Path:
+    """Stage current-source head evidence without inventing identity pixels."""
     output.parent.mkdir(parents=True, exist_ok=True)
+
+    if derive_head_from_full_source:
+        from source_autofix import _foreground_head_zoom
+
+        recovered = _foreground_head_zoom(Path(detail_image), output)
+        if recovered is None or not output.is_file():
+            raise RuntimeError(
+                "could not derive grounded head evidence from the current "
+                "full-body source"
+            )
+        return output
+
     try:
         from viewforge import _native_foreground_rgba
 
@@ -75,6 +92,7 @@ def generate_source_head_donor(
     texture_size: int,
     model_root: Path = DEFAULT_MODEL_ROOT,
     generator_override: Callable | None = None,
+    derive_head_from_full_source: bool = False,
 ) -> Path:
     """Generate real native 3D from the current source's head evidence.
 
@@ -83,7 +101,11 @@ def generate_source_head_donor(
     """
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    staged = _stage_source(Path(detail_image), out_dir / "source_head_rgba.png")
+    staged = _stage_source(
+        Path(detail_image),
+        out_dir / "source_head_rgba.png",
+        derive_head_from_full_source=bool(derive_head_from_full_source),
+    )
 
     if generator_override is not None:
         candidate = generator_override(
@@ -153,6 +175,7 @@ def prepare_source_face_repair_challenger(
     up_axis: str | int | None = None,
     require_rebake: bool = True,
     generator_override: Callable | None = None,
+    derive_head_from_full_source: bool = False,
 ) -> SourceFaceRepairResult:
     """Create a judged face-repair challenger from the current source image.
 
@@ -194,6 +217,9 @@ def prepare_source_face_repair_challenger(
             texture_size=int(texture_size),
             model_root=Path(model_root),
             generator_override=generator_override,
+            derive_head_from_full_source=bool(
+                derive_head_from_full_source
+            ),
         )
 
         from regional_fusion import prepare_head_wrap_challenger
