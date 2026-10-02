@@ -9,6 +9,7 @@ from typing import Callable
 
 from adapters import DEFAULT_MODEL_ROOT, GENERATORS
 from native_geometry_guard import assert_native_candidate
+from native_360_geometry_gate import assert_native_volumetric
 
 
 HEAD_DONOR_PRIORITY = ("trellis2", "triposg", "spar3d", "triposr")
@@ -158,6 +159,7 @@ def generate_source_head_donor(
     if not donor.is_file():
         raise RuntimeError(f"source head donor did not create a mesh: {donor}")
     assert_native_candidate(donor, label=f"source_head_donor:{backend}")
+    assert_native_volumetric(donor, label=f"source_head_donor:{backend}")
     return donor
 
 
