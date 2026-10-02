@@ -425,6 +425,9 @@ def refine_triposf(
     )
 
 
+REMOTE_GENERATORS = {"hunyuan3d_2_1"}
+
+
 REFINERS = {
     "triposf": refine_triposf,
 }
