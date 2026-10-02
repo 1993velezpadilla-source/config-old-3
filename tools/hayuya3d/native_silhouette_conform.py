@@ -543,23 +543,44 @@ def _conform_iteration(
         size=size,
     )
 
-    candidate_vertices = np.asarray(vertices_norm, dtype=np.float64).copy()
-    candidate_vertices += world_delta_norm
+    base_vertices = np.asarray(vertices_norm, dtype=np.float64)
+    best_vertices = base_vertices.copy()
+    best_state = state
+    accepted_scale = 0.0
+    trials = []
 
-    after = _project_state(
-        candidate_vertices,
-        render_faces,
-        source_mask,
-        camera,
-        size=size,
-    )
+    # Full contour steps can overshoot on coarse or irregular topology. Search a
+    # few conservative fractions and keep only a measured improvement.
+    for step_scale in (1.0, 0.65, 0.40, 0.20):
+        trial_vertices = base_vertices + world_delta_norm * float(step_scale)
+        trial_state = _project_state(
+            trial_vertices,
+            render_faces,
+            source_mask,
+            camera,
+            size=size,
+        )
+        trials.append(
+            {
+                "scale": float(step_scale),
+                "score": float(trial_state["score"]),
+                "iou": float(trial_state["iou"]),
+                "boundary_f1": float(trial_state["boundary_f1"]),
+            }
+        )
+        if trial_state["score"] > best_state["score"] + 1e-6:
+            best_vertices = trial_vertices
+            best_state = trial_state
+            accepted_scale = float(step_scale)
 
-    accepted = bool(after["score"] > state["score"] + 1e-6)
-    if not accepted:
-        candidate_vertices = np.asarray(vertices_norm, dtype=np.float64).copy()
+    accepted = bool(accepted_scale > 0.0)
+    candidate_vertices = best_vertices if accepted else base_vertices.copy()
+    after = best_state if accepted else state
 
     return candidate_vertices, {
         "accepted": accepted,
+        "accepted_step_scale": float(accepted_scale),
+        "line_search_trials": trials,
         "before_score": state["score"],
         "after_score": after["score"] if accepted else state["score"],
         "before_iou": state["iou"],
