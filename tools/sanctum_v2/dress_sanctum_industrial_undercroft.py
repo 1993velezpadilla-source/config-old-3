@@ -132,12 +132,13 @@ industrial.append(place_copy(
     role="boiler_pipe"
 ))
 
-# Vent mounted to east wall, above player shoulder height.
+# Vent mounted to the south wall, centered between the two lateral ramp
+# envelopes. The east-wall placement became unsafe after the ramps were inset.
 industrial.append(place_copy(
-    vent_src,"SANCTUM_UNDERCROFT_VENT_EAST",
-    (bx1-0.16,center_y+2.25,lower_z+1.25),
+    vent_src,"SANCTUM_UNDERCROFT_VENT_SOUTH",
+    (ic.x,by0+0.16,lower_z+1.25),
     scale=0.80,
-    rotation_z=math.radians(90),
+    rotation_z=0.0,
     role="vent"
 ))
 
