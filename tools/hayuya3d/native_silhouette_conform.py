@@ -107,15 +107,20 @@ def _normalized(vertices_world: np.ndarray):
     return (vertices_world - center) / scale, center, scale
 
 
-def _bounded_render_faces(faces: np.ndarray, max_faces: int):
-    """Deterministically cap raster work without touching exported topology.
+def _bounded_render_faces(
+    vertices: np.ndarray,
+    faces: np.ndarray,
+    max_faces: int,
+):
+    """Build a deterministic surface proxy while preserving exported topology.
 
-    HAYUYA Hero Masters can contain hundreds of thousands or millions of
-    triangles. Camera search renders many hypotheses, so feeding every triangle
-    into every software-raster pass is unnecessary and can make conform
-    impractical. This subset is evidence-only: all original vertices/faces stay
-    intact and the final full Judge still decides promotion.
+    Random/uniform face subsampling creates a perforated silhouette on dense
+    Hero Masters. Instead, cluster nearby vertices, remap every original face to
+    representative *original* vertex indices, then drop only collapsed/duplicate
+    proxy triangles. The proxy follows later vertex deformation automatically
+    because it still indexes the real editable vertex array.
     """
+    vertices = np.asarray(vertices, dtype=np.float64)
     faces = np.asarray(faces, dtype=np.int64)
     budget = max(32, int(max_faces))
     total = int(len(faces))
@@ -126,17 +131,96 @@ def _bounded_render_faces(faces: np.ndarray, max_faces: int):
             "budget": budget,
             "subsampled": False,
             "policy": "full-face-render",
+            "proxy_grid": None,
+            "proxy_vertices_used": int(len(np.unique(faces))),
         }
 
-    ids = np.linspace(0, total - 1, budget, dtype=np.int64)
-    ids = np.unique(ids)
-    subset = faces[ids]
-    return subset, {
+    lo = vertices.min(axis=0)
+    hi = vertices.max(axis=0)
+    span = np.maximum(hi - lo, 1e-9)
+
+    def build_proxy(grid: int):
+        scaled = (vertices - lo) / span
+        cells = np.clip(
+            np.floor(scaled * float(grid)).astype(np.int64),
+            0,
+            int(grid) - 1,
+        )
+        keys = (
+            cells[:, 0]
+            + int(grid) * (
+                cells[:, 1]
+                + int(grid) * cells[:, 2]
+            )
+        )
+        _unique, first, inverse = np.unique(
+            keys,
+            return_index=True,
+            return_inverse=True,
+        )
+        representative = first[inverse]
+        remapped = representative[faces]
+        nondegenerate = (
+            (remapped[:, 0] != remapped[:, 1])
+            & (remapped[:, 1] != remapped[:, 2])
+            & (remapped[:, 0] != remapped[:, 2])
+        )
+        remapped = remapped[nondegenerate]
+        if not len(remapped):
+            return remapped
+
+        canonical = np.sort(remapped, axis=1)
+        _rows, keep = np.unique(
+            canonical,
+            axis=0,
+            return_index=True,
+        )
+        return remapped[np.sort(keep)]
+
+    start_grid = max(6, int(round(math.sqrt(float(budget) / 4.0))))
+    grids = []
+    value = int(round(start_grid * 1.6))
+    while value >= 4:
+        if value not in grids:
+            grids.append(value)
+        next_value = int(math.floor(value * 0.80))
+        if next_value >= value:
+            next_value = value - 1
+        value = next_value
+    for tail in (3, 2):
+        if tail not in grids:
+            grids.append(tail)
+
+    best = None
+    best_grid = None
+    attempts = []
+    for grid in grids:
+        proxy = build_proxy(int(grid))
+        count = int(len(proxy))
+        attempts.append({"grid": int(grid), "faces": count})
+        if count == 0:
+            continue
+        if count <= budget:
+            best = proxy
+            best_grid = int(grid)
+            break
+
+    if best is None:
+        raise RuntimeError(
+            "could not build non-empty bounded render proxy "
+            f"(input_faces={total}, budget={budget}, attempts={attempts})"
+        )
+
+    used_vertices = int(len(np.unique(best)))
+    return best, {
         "input_faces": total,
-        "render_faces": int(len(subset)),
+        "render_faces": int(len(best)),
         "budget": budget,
         "subsampled": True,
-        "policy": "deterministic-uniform-face-evidence-only",
+        "policy": "deterministic-vertex-clustered-surface-proxy",
+        "proxy_grid": best_grid,
+        "proxy_vertices_used": used_vertices,
+        "attempts": attempts,
     }
 
 
@@ -748,6 +832,7 @@ def conform_native_silhouette(
     scene, records, vertices_world, faces = _load_editable_scene(input_glb)
     vertices_norm, center, scale = _normalized(vertices_world)
     render_faces, render_budget = _bounded_render_faces(
+        vertices_norm,
         faces,
         max_faces=int(render_face_budget),
     )
