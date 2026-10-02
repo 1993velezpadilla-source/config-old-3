@@ -12,6 +12,7 @@ sys.path.insert(0, str(HERE))
 
 from native_geometry_guard import assert_native_candidate
 from native_silhouette_conform import (
+    _bounded_render_faces,
     _front_surface_vertex_mask,
     conform_native_silhouette,
 )
@@ -39,6 +40,24 @@ def _source_rect(path: Path, *, width: int, height: int):
         fill=(180, 180, 180, 255),
     )
     image.save(path)
+
+
+def test_render_face_budget_is_deterministic_and_never_changes_source_faces():
+    faces = np.arange(90000, dtype=np.int64).reshape(-1, 3)
+    original = faces.copy()
+
+    subset_a, meta_a = _bounded_render_faces(faces, max_faces=1200)
+    subset_b, meta_b = _bounded_render_faces(faces, max_faces=1200)
+
+    assert len(subset_a) <= 1200
+    assert np.array_equal(subset_a, subset_b)
+    assert np.array_equal(faces, original)
+    assert meta_a == meta_b
+    assert meta_a["input_faces"] == len(faces)
+    assert meta_a["render_faces"] == len(subset_a)
+    assert meta_a["subsampled"] is True
+    assert np.array_equal(subset_a[0], faces[0])
+    assert np.array_equal(subset_a[-1], faces[-1])
 
 
 def test_front_surface_gate_blocks_rear_vertices_at_same_projection():
@@ -92,6 +111,8 @@ def test_native_conform_keeps_real_geometry_and_never_creates_proxy_nodes(tmp_pa
     assert result["native_geometry_preserved"] is True
     assert result["visibility_policy"]["mode"] == "camera-front-surface-only"
     assert result["visibility_policy"]["rear_occluded_vertices_are_editable"] is False
+    assert result["render_budget"]["render_faces"] <= 12000
+    assert result["render_budget"]["input_faces"] >= result["render_budget"]["render_faces"]
     assert result["final"]["score"] >= result["initial"]["score"]
     assert_native_candidate(output, label="test-output")
 
