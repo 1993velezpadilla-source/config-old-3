@@ -7,8 +7,17 @@ on:
       - art/hayuya-monster-v1
       - art/hayuya-core-generalize-v1
     paths:
+      - tools/hayuya3d/hayuya.py
       - tools/hayuya3d/hunyuan3d_cloud.py
       - tools/hayuya3d/regional_fusion.py
+      - tools/hayuya3d/native_face_repair.py
+      - tools/hayuya3d/native_silhouette_conform.py
+      - tools/hayuya3d/native_geometry_guard.py
+      - tools/hayuya3d/native_360_geometry_gate.py
+      - tools/hayuya3d/tests/test_native_face_repair.py
+      - tools/hayuya3d/tests/test_native_silhouette_conform.py
+      - tools/hayuya3d/tests/test_native_geometry_guard.py
+      - tools/hayuya3d/tests/test_native_360_geometry_gate.py
       - tools/hayuya3d/source_autofix.py
       - tools/hayuya3d/asset_profile.py
       - tools/hayuya3d/profiles/**
@@ -76,7 +85,13 @@ jobs:
       - name: Install probe dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install "gradio_client>=1.10,<2" pillow numpy trimesh "scipy>=1.11" "mediapipe==1.0.1" "numba>=0.61,<1"
+          python -m pip install "gradio_client>=1.10,<2" pillow numpy trimesh "scipy>=1.11" "mediapipe==1.0.1" "numba>=0.61,<1" pytest
+
+      - name: Run generic native repair unit gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest -q             tools/hayuya3d/tests/test_native_geometry_guard.py             tools/hayuya3d/tests/test_native_360_geometry_gate.py             tools/hayuya3d/tests/test_native_silhouette_conform.py             tools/hayuya3d/tests/test_native_face_repair.py
 
       - name: Install MediaPipe runtime
         run: |
