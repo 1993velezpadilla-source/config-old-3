@@ -28,7 +28,10 @@
       "minimumScreenCoverage": 0.015,
       "impressionViewSeconds": 1,
       "cooldownSeconds": 30,
-      "maxImpressionsPerSession": 1
+      "maxImpressionsPerSession": 1,
+      "disclosureLabel": "Ad",
+      "disclosureMode": "integrated_physical_plaque",
+      "clickable": false
     },
     {
       "placementId": 1002,
@@ -49,7 +52,10 @@
       "minimumScreenCoverage": 0.015,
       "impressionViewSeconds": 1,
       "cooldownSeconds": 30,
-      "maxImpressionsPerSession": 1
+      "maxImpressionsPerSession": 1,
+      "disclosureLabel": "Ad",
+      "disclosureMode": "integrated_physical_plaque",
+      "clickable": false
     },
     {
       "placementId": 1003,
@@ -70,7 +76,10 @@
       "minimumScreenCoverage": 0.015,
       "impressionViewSeconds": 1,
       "cooldownSeconds": 30,
-      "maxImpressionsPerSession": 1
+      "maxImpressionsPerSession": 1,
+      "disclosureLabel": "Ad",
+      "disclosureMode": "integrated_physical_plaque",
+      "clickable": false
     },
     {
       "placementId": 1004,
@@ -91,7 +100,10 @@
       "minimumScreenCoverage": 0.015,
       "impressionViewSeconds": 1,
       "cooldownSeconds": 30,
-      "maxImpressionsPerSession": 1
+      "maxImpressionsPerSession": 1,
+      "disclosureLabel": "Ad",
+      "disclosureMode": "integrated_physical_plaque",
+      "clickable": false
     },
     {
       "placementId": 1005,
@@ -112,7 +124,10 @@
       "minimumScreenCoverage": 0.015,
       "impressionViewSeconds": 2,
       "cooldownSeconds": 45,
-      "maxImpressionsPerSession": 1
+      "maxImpressionsPerSession": 1,
+      "disclosureLabel": "Ad",
+      "disclosureMode": "integrated_physical_plaque",
+      "clickable": false
     },
     {
       "placementId": 2001,
