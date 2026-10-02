@@ -5,10 +5,13 @@ on:
   push:
     branches:
       - art/hayuya-monster-v1
+      - art/hayuya-core-generalize-v1
     paths:
       - tools/hayuya3d/hunyuan3d_cloud.py
       - tools/hayuya3d/regional_fusion.py
       - tools/hayuya3d/source_autofix.py
+      - tools/hayuya3d/asset_profile.py
+      - tools/hayuya3d/profiles/**
       - tools/hayuya3d/source_front_projection.py
       - tools/hayuya3d/software_glb_preview.py
       - tools/hayuya3d/multiview_quality_gate.py
@@ -37,6 +40,38 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
+      - name: Validate generic asset profile defaults
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, "tools/hayuya3d")
+          from asset_profile import load_asset_profile
+
+          generic=load_asset_profile(None)
+          assert generic["name"]=="generic"
+          assert generic["legacy_monja_targeting"] is False
+          assert generic["targeted_safety_regions"]==[]
+          assert generic["surface_patches"]==[]
+          assert generic["headspace_patch"] is None
+
+          monja=load_asset_profile(Path("tools/hayuya3d/profiles/monja-mugfwln6.json"))
+          assert monja["legacy_monja_targeting"] is True
+          assert len(monja["surface_patches"])==2
+          assert monja["headspace_patch"] is not None
+          print("HAYUYA_ASSET_PROFILE_SPLIT_PASS",json.dumps({
+              "generic":generic,
+              "monja_profile":{
+                  "name":monja["name"],
+                  "surface_patch_count":len(monja["surface_patches"]),
+                  "headspace_patch":bool(monja["headspace_patch"]),
+              },
+          },separators=(",",":")))
+          PY
 
       - name: Install probe dependencies
         run: |
