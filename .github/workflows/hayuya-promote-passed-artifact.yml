@@ -26,8 +26,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          before='\${{ github.event.before }}'
-          after='\${{ github.sha }}'
+          before='${{ github.event.before }}'
+          after='${{ github.sha }}'
           req="$(git diff --name-only "$before" "$after" -- 'hayuya/jobs/promote/*.json' | tail -n 1)"
           test -n "$req"
           python - "$req" >> "$GITHUB_OUTPUT" <<'PY'
@@ -45,14 +45,14 @@ jobs:
 
       - name: Download approved artifact
         env:
-          GH_TOKEN: \${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
           rm -rf recovered
-          gh run download '\${{ steps.request.outputs.run_id }}' \
+          gh run download '${{ steps.request.outputs.run_id }}' \
             --repo "$GITHUB_REPOSITORY" \
-            --name '\${{ steps.request.outputs.artifact_name }}' \
+            --name '${{ steps.request.outputs.artifact_name }}' \
             --dir recovered
           test -s recovered/outputs/hayuya_final.glb
           test -s recovered/outputs/manifest.json
@@ -73,7 +73,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          job='\${{ steps.request.outputs.job_id }}'
+          job='${{ steps.request.outputs.job_id }}'
           model_dir="hayuya/models/$job"
           mkdir -p "$model_dir"
           cp recovered/outputs/hayuya_final.glb "$model_dir/model.glb"
@@ -118,10 +118,10 @@ jobs:
 
       - name: Notify HAYUYA Hub done
         env:
-          GH_TOKEN: \${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          body="✅ **DONE** — **HAYUYA_WEB** / \${{ steps.request.outputs.job_id }} — \${{ steps.request.outputs.title }}
+          body="✅ **DONE** — **HAYUYA_WEB** / ${{ steps.request.outputs.job_id }} — ${{ steps.request.outputs.title }}
 
           Judge v4 passed with 0 hard failures. Approved artifact recovered and published to Hub."
           gh issue comment 55 --repo "$GITHUB_REPOSITORY" --body "$body"
