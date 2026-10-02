@@ -26,6 +26,7 @@ def make_character(
     *,
     head_scale:float=1.0,
     textured:bool=False,
+    up_axis:str="y",
 ):
     mesh=trimesh.creation.icosphere(subdivisions=3,radius=1.0)
     vertices=np.asarray(mesh.vertices,dtype=np.float64).copy()
@@ -37,6 +38,11 @@ def make_character(
     head=norm>=0.78
     vertices[head,0]*=head_scale
     vertices[head,2]*=head_scale
+    if str(up_axis).lower()=="z":
+        vertices=vertices[:,[0,2,1]]
+    elif str(up_axis).lower()!="y":
+        raise ValueError(f"unsupported fixture up_axis: {up_axis}")
+
     out=trimesh.Trimesh(
         vertices=vertices,
         faces=np.asarray(mesh.faces).copy(),
@@ -207,6 +213,31 @@ class RegionalFusionTests(unittest.TestCase):
                 float(result.bbox_drift_fraction),
                 0.08,
             )
+
+    def test_head_wrap_remaps_z_up_donor_onto_y_up_base(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            base=root/"base-y-up.glb"
+            donor=root/"donor-z-up.glb"
+            output=root/"wrapped-axis-normalized.glb"
+            make_character(base,head_scale=1.0,up_axis="y")
+            make_character(donor,head_scale=1.14,up_axis="z")
+
+            result=build_head_wrap_geometry(
+                base,
+                donor,
+                output,
+                up_axis="y",
+            )
+            self.assertTrue(result.geometry_ready,result.error)
+            self.assertEqual(result.up_axis,1)
+            self.assertEqual(result.donor_up_axis,2)
+            self.assertTrue(result.donor_axis_remapped)
+            self.assertGreater(
+                float(result.donor_up_axis_confidence or 0.0),
+                1.08,
+            )
+            self.assertGreater(result.changed_vertices,0)
 
     def test_textured_head_wrap_preserves_topology_and_uv_mapping(self):
         with tempfile.TemporaryDirectory() as tmp:
