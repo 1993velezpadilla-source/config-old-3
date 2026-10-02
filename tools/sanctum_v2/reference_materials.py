@@ -88,12 +88,11 @@ def wet_flagstone(name="SANCTUM_REF_WET_FLAGSTONE"):
     mix.blend_type="MULTIPLY"
     mix.inputs[0].default_value=0.44
     nt.links.new(brick.outputs["Color"],mix.inputs[1])
-    _ramp(nt,coarse.outputs["Fac"],[
+    coarse_ramp=_ramp(nt,coarse.outputs["Fac"],[
         (0.20,(0.50,0.34,0.27,1.0)),
         (0.55,(0.92,0.70,0.55,1.0)),
         (0.82,(1.14,0.90,0.68,1.0)),
     ])
-    coarse_ramp=nt.nodes[-1]
     nt.links.new(coarse_ramp.outputs["Color"],mix.inputs[2])
     nt.links.new(mix.outputs["Color"],b.inputs["Base Color"])
 
