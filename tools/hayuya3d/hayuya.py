@@ -293,6 +293,36 @@ def reclassify_semantic_face_closeups(
     return geometry,details,moved
 
 
+def semantic_character_hint_for_geometry(
+    source_autofix_result,
+    geometry_inputs: list[Path],
+) -> bool:
+    """Use semantic character evidence only from references still acting as geometry."""
+    if source_autofix_result is None:
+        return False
+    geometry={
+        Path(path).resolve()
+        for path in geometry_inputs
+    }
+    for item in list(getattr(source_autofix_result,"sources",[]) or []):
+        try:
+            source=Path(getattr(item,"source")).resolve()
+        except Exception:
+            continue
+        if (
+            source in geometry
+            and bool(
+                getattr(
+                    item,
+                    "semantic_face_or_head_confirmed",
+                    False,
+                )
+            )
+        ):
+            return True
+    return False
+
+
 def native_conform_mutation_blockers(gltf_audit) -> list[str]:
     """Return GLB features that a trimesh vertex round-trip must not touch."""
     blockers: list[str] = []
@@ -1279,8 +1309,14 @@ def main() -> int:
 
     mode = args.mode
     if mode == "auto":
-        # Content beats filenames only when a face/head detector actually confirms it.
-        if source_autofix_result is not None and source_autofix_result.character_hint:
+        # Content beats filenames only when semantic face/head evidence belongs
+        # to a reference that is still part of the geometry reconstruction pool.
+        # A reclassified close-up detail must not turn an unrelated prop into a
+        # character by itself.
+        if semantic_character_hint_for_geometry(
+            source_autofix_result,
+            geometry_inputs,
+        ):
             mode = "character"
         else:
             mode = infer_asset_mode(geometry_inputs[0])
