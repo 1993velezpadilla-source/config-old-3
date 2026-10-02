@@ -48,6 +48,9 @@ class HeadWrapResult:
     donor_up_axis_confidence:float|None=None
     donor_yaw_degrees:float|None=None
     donor_yaw_alignment_score:float|None=None
+    donor_orientation_policy:str|None=None
+    donor_orientation_candidates:int|None=None
+    donor_orientation_determinant:float|None=None
 
 
 def _sibling_module(name:str):
@@ -916,23 +919,39 @@ def build_rig_preserving_head_wrap_geometry(
         else:
             resolved_up_axis=int(np.argmax(base_extent))
 
-        donor_vertices,donor_up_axis,donor_axis_remapped,donor_axis_confidence=(
-            _remap_donor_up_axis(
+        donor_scope=str(donor_scope).lower().strip()
+        if donor_scope not in {"fullbody","head"}:
+            raise ValueError(f"invalid donor_scope: {donor_scope}")
+
+        base_height=float(base_extent[resolved_up_axis])
+        if base_height<=1e-9:
+            raise ValueError("collapsed character bounds")
+
+        if donor_scope=="fullbody":
+            (
+                donor_vertices,
+                donor_up_axis,
+                donor_axis_remapped,
+                donor_axis_confidence,
+            )=_remap_donor_up_axis(
                 donor_vertices,
                 donor_extent,
                 resolved_up_axis,
             )
-        )
-        _,_,donor_center,donor_extent=_bbox(donor_vertices)
-
-        base_height=float(base_extent[resolved_up_axis])
-        donor_height=float(donor_extent[resolved_up_axis])
-        if base_height<=1e-9 or donor_height<=1e-9:
-            raise ValueError("collapsed character bounds")
-
-        donor_scope=str(donor_scope).lower().strip()
-        if donor_scope not in {"fullbody","head"}:
-            raise ValueError(f"invalid donor_scope: {donor_scope}")
+            _,_,donor_center,donor_extent=_bbox(donor_vertices)
+            donor_height=float(donor_extent[resolved_up_axis])
+            if donor_height<=1e-9:
+                raise ValueError("collapsed donor bounds")
+            donor_orientation={
+                "policy":"fullbody-longest-axis-compatibility",
+            }
+        else:
+            donor_up_axis=resolved_up_axis
+            donor_axis_remapped=False
+            donor_axis_confidence=1.0
+            donor_orientation={
+                "policy":"pending-base-driven-head-orientation",
+            }
 
         base_norm_h=(
             base_vertices[:,resolved_up_axis]-base_lo[resolved_up_axis]
@@ -945,14 +964,17 @@ def build_rig_preserving_head_wrap_geometry(
             target_height=float(base_head_extent[resolved_up_axis])
             if target_height<=1e-9:
                 raise RuntimeError("collapsed base head bounds")
-            scale=target_height/donor_height
-            aligned=(donor_vertices-donor_center)*scale+base_head_center
             (
                 aligned,
+                scale,
+                donor_up_axis,
+                donor_axis_remapped,
+                donor_axis_confidence,
                 donor_yaw_degrees,
                 donor_yaw_alignment_score,
-            )=_yaw_align_donor_to_base_head(
-                aligned,
+                donor_orientation,
+            )=_orient_head_donor_to_base(
+                donor_vertices,
                 base_head,
                 base_head_center,
                 resolved_up_axis,
@@ -1114,6 +1136,21 @@ def build_rig_preserving_head_wrap_geometry(
             ),
             donor_yaw_alignment_score=round(
                 float(donor_yaw_alignment_score),
+                8,
+            ),
+            donor_orientation_policy=str(
+                donor_orientation.get("policy")
+            ),
+            donor_orientation_candidates=int(
+                donor_orientation.get("candidate_count",1)
+            ),
+            donor_orientation_determinant=round(
+                float(
+                    donor_orientation.get(
+                        "proper_rotation_determinant",
+                        1.0,
+                    )
+                ),
                 8,
             ),
         )
