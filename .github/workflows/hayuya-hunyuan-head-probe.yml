@@ -11,6 +11,7 @@ on:
       - tools/hayuya3d/source_autofix.py
       - tools/hayuya3d/source_front_projection.py
       - tools/hayuya3d/software_glb_preview.py
+      - tools/hayuya3d/multiview_quality_gate.py
       - tools/hayuya3d/silhouette_conform.py
       - tools/hayuya3d/mvadapter_texture_cloud.py
       - tools/hayuya3d/triposg_cloud.py
@@ -280,6 +281,16 @@ jobs:
             --input out/hunyuan-head-probe/body_headwrap_material_native.glb \
             --output-dir out/hunyuan-head-probe/headwrap_textured_front \
             --size 1024 --face-size 1024 --supersample 2
+
+      - name: Render multiview quality gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/hayuya3d/multiview_quality_gate.py \
+            --input out/hunyuan-head-probe/body_headwrap_material_native.glb \
+            --output-dir out/hunyuan-head-probe/multiview_quality_gate \
+            --size 1024 --supersample 2 \
+            --angles="0,30,45,90,180,-90,-45,-30"
 
       - name: Validate refined face and nose proportions
         shell: bash
