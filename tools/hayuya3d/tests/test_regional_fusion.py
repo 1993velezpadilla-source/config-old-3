@@ -14,6 +14,8 @@ from PIL import Image
 
 from tools.hayuya3d.gltf_position_patch import skin_payload_signature
 from tools.hayuya3d.regional_fusion import (
+    _orient_head_donor_to_base,
+    _proper_axis_alignment_rotations,
     _yaw_align_donor_to_base_head,
     build_head_wrap_geometry,
     prepare_head_wrap_challenger,
@@ -178,6 +180,83 @@ def make_skinned_character(
 
 
 class RegionalFusionTests(unittest.TestCase):
+    def test_axis_alignment_candidates_are_proper_rotations_only(self):
+        candidates=_proper_axis_alignment_rotations(1)
+        self.assertEqual(len(candidates),6)
+        keys={(axis,sign) for axis,sign,_matrix in candidates}
+        self.assertEqual(
+            keys,
+            {
+                (0,-1),(0,1),
+                (1,-1),(1,1),
+                (2,-1),(2,1),
+            },
+        )
+        for _axis,_sign,matrix in candidates:
+            self.assertAlmostEqual(float(np.linalg.det(matrix)),1.0,places=7)
+
+    def test_head_orientation_uses_base_fit_when_width_exceeds_height(self):
+        sphere=trimesh.creation.icosphere(subdivisions=3,radius=1.0)
+        base=np.asarray(sphere.vertices,dtype=np.float64).copy()
+        # Deliberately make width X larger than vertical Y so a longest-extent
+        # heuristic would choose the wrong source up axis.
+        base[:,0]*=1.35
+        base[:,1]*=1.00
+        base[:,2]*=0.72
+        nose=(base[:,1]>0.0)&(base[:,2]>0.30)&(np.abs(base[:,0])<0.35)
+        base[nose,2]+=0.26
+
+        # Proper +90 degree rotation around X: Y-up source becomes Z-up donor.
+        donor=base.copy()
+        y=donor[:,1].copy()
+        z=donor[:,2].copy()
+        donor[:,1]=-z
+        donor[:,2]=y
+
+        (
+            aligned,
+            scale,
+            source_up_axis,
+            axis_remapped,
+            confidence,
+            yaw,
+            score,
+            telemetry,
+        )=_orient_head_donor_to_base(
+            donor,
+            base,
+            np.zeros(3,dtype=np.float64),
+            1,
+        )
+
+        self.assertEqual(source_up_axis,2)
+        self.assertTrue(axis_remapped)
+        self.assertGreater(confidence,1.0)
+        self.assertGreater(scale,0.0)
+        self.assertLess(score,0.08)
+        self.assertEqual(
+            telemetry["policy"],
+            "base-driven-proper-rotation-plus-yaw-v1",
+        )
+        self.assertEqual(telemetry["candidate_count"],6)
+        self.assertAlmostEqual(
+            telemetry["proper_rotation_determinant"],
+            1.0,
+            places=7,
+        )
+
+        # Compare unordered geometric fit, not vertex-index correspondence.
+        _unaligned,_scale0,_axis0,_remap0,_conf0,_yaw0,score0,_meta0=(
+            _orient_head_donor_to_base(
+                donor,
+                base,
+                np.zeros(3,dtype=np.float64),
+                1,
+            )
+        )
+        self.assertLessEqual(score,score0+1e-12)
+        self.assertEqual(aligned.shape,base.shape)
+
     def test_donor_yaw_alignment_keeps_zero_for_nearly_symmetric_head(self):
         sphere=trimesh.creation.icosphere(subdivisions=3,radius=1.0)
         base=np.asarray(sphere.vertices,dtype=np.float64).copy()
