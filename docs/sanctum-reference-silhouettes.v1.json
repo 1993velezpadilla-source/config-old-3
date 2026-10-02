@@ -577,6 +577,16 @@
       "depth": 2.75,
       "height": 2.85
     },
-    "note": "Body-biased front contour. Candles and cross remain separate authored geometry."
+    "note": "Body front/side contours constrain the stone/wood altar carcass. Candles, open book and top cross remain separate authored detail above the body cage.",
+    "body_dimensions_m": {
+      "width": 4.9,
+      "depth": 2.75,
+      "height": 1.84
+    },
+    "full_target_dimensions_m": {
+      "width": 4.9,
+      "depth": 2.75,
+      "height": 2.85
+    }
   }
 }
