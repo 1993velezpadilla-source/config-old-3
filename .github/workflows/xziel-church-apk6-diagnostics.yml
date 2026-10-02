@@ -45,13 +45,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          export HOME="${RUNNER_TEMP}/xziel-android-home"
           unset ANDROID_AVD_HOME
-          mkdir -p diag
+          mkdir -p "$HOME/.android/avd" diag
           ADB="${ANDROID_HOME}/platform-tools/adb"
           EMULATOR="${ANDROID_HOME}/emulator/emulator"
           AVDMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name avdmanager | sort | tail -n 1)"
           printf 'no\n' | "$AVDMANAGER" create avd --force --name xziel-apk6-diag \
             --package "system-images;android-35;google_apis;x86_64" --device "pixel_6"
+          "$AVDMANAGER" list avd | tee diag/avd-list.txt
+          find "$HOME/.android/avd" -maxdepth 2 -type f -print | tee diag/avd-files.txt
+          test -f "$HOME/.android/avd/xziel-apk6-diag.ini"
           [[ ! -e /dev/kvm ]] || sudo chmod 666 /dev/kvm || true
           nohup "$EMULATOR" @xziel-apk6-diag -no-window -no-audio -no-boot-anim -no-snapshot \
             -gpu swiftshader_indirect -memory 4096 > diag/emulator-stdout.txt 2>&1 &
