@@ -274,6 +274,29 @@ if DETAIL_DIR and DETAIL_DIR.is_dir():
 
 # If only one view exists, TRELLIS runs its true single-image path.
 multi=len(crops) >= 2
+
+# Multi-view authority is classic TRELLIS. Older/mobile clients can submit a
+# valid multi-view set while omitting "trellis" from HAYUYA_BACKENDS. Never
+# turn that client-side omission into "No permitted generator produced a model".
+# Auto-enable the known multi-image backend in-core so the request remains
+# executable and all supplied views are preserved.
+if multi and not CLASSIC_TRELLIS_ENABLED:
+    CLASSIC_TRELLIS_ENABLED=True
+    if "trellis" not in BACKENDS:
+        BACKENDS.insert(0,"trellis")
+    print(
+        "HAYUYA_MULTIIMAGE_BACKEND_AUTO_ENABLED",
+        json.dumps(
+            {
+                "backend":"trellis",
+                "reason":"multi_view_requires_classic_trellis_authority",
+                "geometry_views":len(crops),
+                "requested_backends":BACKENDS,
+            },
+            separators=(",",":"),
+        ),
+    )
+
 print("HAYUYA_REFERENCE_SET",
       "geometry_views="+str(len(crops)),
       "detail_views="+str(len(detail_views)),
