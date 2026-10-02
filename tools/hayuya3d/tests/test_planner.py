@@ -217,6 +217,25 @@ class HayuyaPlannerTests(unittest.TestCase):
         self.assertIn("Judge", plan["retopology"]["policy"])
         self.assertIn("skip", plan["retopology"]["rig_policy"])
 
+    def test_job_plan_native_conform_is_generic_native_challenger(self):
+        refs = [Path("/tmp/another_character_front.png")]
+        plan = hayuya.make_job_plan(
+            refs,
+            profile_name="monster",
+            mode="character",
+            seed=1993,
+            selected_backends=["triposg"],
+            model_root=Path("/tmp/models"),
+            native_silhouette_conform_mode="auto",
+        )
+        policy = plan["native_silhouette_conform"]
+        self.assertEqual(policy["mode"], "auto")
+        self.assertFalse(policy["asset_specific_coordinates"])
+        self.assertIn("native", policy["input_geometry"])
+        self.assertIn("challenger", policy["promotion_policy"])
+        self.assertNotIn("monja", json.dumps(policy).lower())
+        self.assertNotIn("source_visible_front", policy["input_geometry"])
+
     def test_hunyuan_is_not_default(self):
         lock = hayuya.load_lock()
         meta = hayuya.backend_meta(lock)
