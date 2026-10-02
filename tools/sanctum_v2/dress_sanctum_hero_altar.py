@@ -137,7 +137,8 @@ slab=place_bottom_center(
 # stone dais with a dark Gothic timber altar, burgundy frontal, gold cross,
 # open book and dense candle clusters. Keep it compact in the apse so gameplay
 # clearance and the proven multilevel navigation surfaces stay untouched.
-hero=[]
+# Keep the authored CC0 apse in both export and safety validation.
+hero=[apse]
 
 step_specs=[
     ("LOW",4.90,2.75,0.18,-0.98,0.09),
