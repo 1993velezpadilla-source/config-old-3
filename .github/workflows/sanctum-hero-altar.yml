@@ -42,30 +42,32 @@ jobs:
         run: |
           set -euo pipefail
           rm -rf external-french-houses external-cc0-church external-ruins external-sanctum-props external-industrial
+          mkdir -p sanctum-hero-altar-probe
+          CURL=(curl -L --fail --retry 8 --retry-all-errors --retry-delay 2 --connect-timeout 20)
           git clone --depth 1 https://github.com/IRCSS/Blender-Geometry-Node-French-Houses.git external-french-houses
           (cd external-french-houses && git lfs pull || true)
           grep -q "MIT License" external-french-houses/LICENSE
           mkdir -p external-cc0-church external-ruins external-sanctum-props external-industrial
 
-          curl -L --fail --retry 3 https://opengameart.org/content/medieval-church-interior -o external-cc0-church/page.html
+          "${CURL[@]}" https://opengameart.org/content/medieval-church-interior -o external-cc0-church/page.html
           grep -qi CC0 external-cc0-church/page.html
-          curl -L --fail --retry 3 https://opengameart.org/sites/default/files/church.blend -o external-cc0-church/church.blend
+          "${CURL[@]}" https://opengameart.org/sites/default/files/church.blend -o external-cc0-church/church.blend
 
-          curl -L --fail --retry 3 https://opengameart.org/content/3td-fantasy-ruins-pack-for-blender -o external-ruins/page.html
+          "${CURL[@]}" https://opengameart.org/content/3td-fantasy-ruins-pack-for-blender -o external-ruins/page.html
           grep -qi CC0 external-ruins/page.html
-          curl -L --fail --retry 3 https://opengameart.org/sites/default/files/fantasy_ruins_pack_for_blender.blend -o external-ruins/fantasy_ruins_pack_for_blender.blend
+          "${CURL[@]}" https://opengameart.org/sites/default/files/fantasy_ruins_pack_for_blender.blend -o external-ruins/fantasy_ruins_pack_for_blender.blend
 
-          curl -L --fail --retry 3 https://opengameart.org/content/medieval-benches -o external-sanctum-props/benches.html
+          "${CURL[@]}" https://opengameart.org/content/medieval-benches -o external-sanctum-props/benches.html
           grep -qi CC0 external-sanctum-props/benches.html
-          curl -L --fail --retry 3 https://opengameart.org/sites/default/files/medievalbenchesexport.blend -o external-sanctum-props/medievalbenchesexport.blend
+          "${CURL[@]}" https://opengameart.org/sites/default/files/medievalbenchesexport.blend -o external-sanctum-props/medievalbenchesexport.blend
 
-          curl -L --fail --retry 3 https://opengameart.org/content/medieval-candles -o external-sanctum-props/candles.html
+          "${CURL[@]}" https://opengameart.org/content/medieval-candles -o external-sanctum-props/candles.html
           grep -qi CC0 external-sanctum-props/candles.html
-          curl -L --fail --retry 3 https://opengameart.org/sites/default/files/medievalcandles.blend -o external-sanctum-props/medievalcandles.blend
+          "${CURL[@]}" https://opengameart.org/sites/default/files/medievalcandles.blend -o external-sanctum-props/medievalcandles.blend
 
-          curl -L --fail --retry 3 https://opengameart.org/content/pbr-industrial-asset-pack -o external-industrial/page.html
+          "${CURL[@]}" https://opengameart.org/content/pbr-industrial-asset-pack -o external-industrial/page.html
           grep -qi CC0 external-industrial/page.html
-          curl -L --fail --retry 3 https://opengameart.org/sites/default/files/oga_industrial_a52_version_0.zip -o /tmp/industrial.zip
+          "${CURL[@]}" https://opengameart.org/sites/default/files/oga_industrial_a52_version_0.zip -o /tmp/industrial.zip
           unzip -q /tmp/industrial.zip -d external-industrial
 
           sha256sum external-ruins/fantasy_ruins_pack_for_blender.blend | tee /tmp/ruins.sha256
@@ -77,7 +79,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl -L --fail --retry 3 https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz -o /tmp/blender.tar.xz
+          "${CURL[@]}" https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz -o /tmp/blender.tar.xz
           tar -C /tmp -xf /tmp/blender.tar.xz
 
       - name: Build hero altar Sanctum
