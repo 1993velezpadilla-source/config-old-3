@@ -205,9 +205,15 @@ class RegionalFusionTests(unittest.TestCase):
         self.assertIn(angle,(90.0,270.0))
         self.assertLess(score,0.08)
 
-        before=np.mean(np.linalg.norm(donor-base,axis=1))
-        after=np.mean(np.linalg.norm(aligned-base,axis=1))
-        self.assertLess(after,before*0.35)
+        _unaligned,zero_angle,zero_score=_yaw_align_donor_to_base_head(
+            donor,
+            base,
+            np.zeros(3,dtype=np.float64),
+            1,
+            candidate_angles=(0.0,),
+        )
+        self.assertEqual(zero_angle,0.0)
+        self.assertLess(score,zero_score*0.35)
 
     def test_head_wrap_changes_head_with_soft_neck_and_bounded_drift(self):
         with tempfile.TemporaryDirectory() as tmp:
