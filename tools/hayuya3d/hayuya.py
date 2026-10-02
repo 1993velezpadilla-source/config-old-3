@@ -1733,34 +1733,45 @@ def main() -> int:
                         max_target_px=14.0,
                         per_vertex_cap_px=3.0,
                     )
-                    if mode == "character":
-                        assert_native_character_360(
-                            conform_output,
-                            label=native_conform_candidate_label,
+                    if not native_conform_result.get("geometry_changed", False):
+                        native_conform_status = "no_change_needed"
+                        native_conform_candidate_label = None
+                        print(
+                            "HAYUYA_NATIVE_CONFORM_NOOP "
+                            f"source={provisional.backend} "
+                            f"score={native_conform_result['initial']['score']:.3f}->"
+                            f"{native_conform_result['final']['score']:.3f} "
+                            "original_glb_preserved=true"
                         )
-                    candidates.append(
-                        (native_conform_candidate_label, conform_output)
-                    )
-                    native_conform_status = "candidate_ready"
-                    print(
-                        "HAYUYA_NATIVE_CONFORM_READY "
-                        f"source={provisional.backend} "
-                        f"candidate={native_conform_candidate_label} "
-                        f"score={native_conform_result['initial']['score']:.3f}->"
-                        f"{native_conform_result['final']['score']:.3f} "
-                        f"max_body_span_delta="
-                        f"{native_conform_result['max_displacement_body_span_ratio']:.6f}"
-                    )
+                    else:
+                        if mode == "character":
+                            assert_native_character_360(
+                                conform_output,
+                                label=native_conform_candidate_label,
+                            )
+                        candidates.append(
+                            (native_conform_candidate_label, conform_output)
+                        )
+                        native_conform_status = "candidate_ready"
+                        print(
+                            "HAYUYA_NATIVE_CONFORM_READY "
+                            f"source={provisional.backend} "
+                            f"candidate={native_conform_candidate_label} "
+                            f"score={native_conform_result['initial']['score']:.3f}->"
+                            f"{native_conform_result['final']['score']:.3f} "
+                            f"max_body_span_delta="
+                            f"{native_conform_result['max_displacement_body_span_ratio']:.6f}"
+                        )
 
-                    # It remains only a challenger. The complete production,
-                    # silhouette, appearance and face-evidence arena decides if
-                    # the native repair deserves promotion.
-                    ranked = run_full_ranking()
-                    valid = [x for x in ranked if x.valid]
-                    if not valid:
-                        raise RuntimeError(
-                            "native silhouette conform re-ranking produced no valid candidates"
-                        )
+                        # It remains only a challenger. The complete production,
+                        # silhouette, appearance and face-evidence arena decides if
+                        # the native repair deserves promotion.
+                        ranked = run_full_ranking()
+                        valid = [x for x in ranked if x.valid]
+                        if not valid:
+                            raise RuntimeError(
+                                "native silhouette conform re-ranking produced no valid candidates"
+                            )
                 except Exception as exc:
                     native_conform_status = "failed"
                     native_conform_failure = f"{type(exc).__name__}: {exc}"
