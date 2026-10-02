@@ -18,6 +18,7 @@ from adapters import DEFAULT_MODEL_ROOT, GENERATORS, REFINERS, pshuman_readiness
 from qa import export_glb, rank_candidates
 from reference_pool import infer_detail_region_hint, order_for_multiview_coverage, split_reference_roles
 from mobile_portability import build_portability_plan
+from native_geometry_guard import ProjectionProxyRejected, assert_native_candidate
 
 
 @dataclass(frozen=True)
@@ -1319,6 +1320,34 @@ def main() -> int:
                     traceback.print_exc()
                     if args.require_all:
                         raise
+
+    # Never allow the diagnostic front-projection representation to
+    # masquerade as a native image-to-3D result.  The projection/face tools are
+    # downstream evidence and repair helpers only; geometry candidates must
+    # originate from real 3D generators (TRELLIS.2/TripoSG/TRELLIS/etc.).
+    native_candidates: list[tuple[str, Path]] = []
+    native_geometry_guard = {}
+    for label, candidate_path in candidates:
+        try:
+            guard_report = assert_native_candidate(candidate_path, label=label)
+            native_candidates.append((label, candidate_path))
+            native_geometry_guard[label] = guard_report
+        except ProjectionProxyRejected as exc:
+            failure_key = f"{label}:native_geometry_guard"
+            failures[failure_key] = str(exc)
+            native_geometry_guard[label] = {
+                "is_projection_proxy": True,
+                "rejected": True,
+                "reason": str(exc),
+            }
+            print(
+                f"HAYUYA_NATIVE_GEOMETRY_REJECTED {label} {candidate_path}: {exc}",
+                file=sys.stderr,
+            )
+            if args.require_all:
+                raise
+    candidates = native_candidates
+    plan["native_geometry_guard"] = native_geometry_guard
 
     if not candidates:
         manifest = {**plan, "status": "failed", "failures": failures}
