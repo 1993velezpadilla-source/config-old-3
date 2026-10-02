@@ -107,7 +107,6 @@ jobs:
                       r["near_floor_up_polygons"]+=1
                       r["near_floor_up_area"]+=float(area)
 
-          eo.to_mesh_clear()
           floor_pts=[]
           floor_area=0.0
           floor_faces=0
@@ -142,6 +141,7 @@ jobs:
           else:
               bounds=None; bbox_xy_area=0.0; coverage_ratio=0.0
 
+          eo.to_mesh_clear()
           report={
               "materials":rows,
               "near_floor_groundfloorwalls":{
