@@ -1,0 +1,35 @@
+{
+  "status": "PASS",
+  "input": "sanctum-vertical-probe/sanctum-vertical-blockout.glb",
+  "input_bytes": 38448032,
+  "input_sha256": "0433fb5266ee18b81fb00c6705fc7a5a9573f65104143ca138342860c7b4ccbc",
+  "optimized": "sanctum-vertical-probe/asset-pipeline/sanctum-vertical.optimized.glb",
+  "optimized_bytes": 24163576,
+  "optimized_sha256": "ba6c8bb5e6b741ef3009e6a6ea9d4f763584f942ff01dcd650102504b942f909",
+  "size_ratio": 0.6284736758437988,
+  "validator": {
+    "errors": 0,
+    "warnings": 0,
+    "infos": 38,
+    "hints": 0
+  },
+  "uastc_ktx2": {
+    "path": "sanctum-vertical-probe/asset-pipeline/sanctum-vertical.uastc-ktx2.glb",
+    "bytes": 29768244,
+    "sha256": "7731b3e09570e2cbfec36806e8764a26202078df513b8d64e585b31c82c9c32a",
+    "size_ratio": 0.7742462345016775,
+    "texture_dimensions_policy": "preserved-no-resize-flags",
+    "gltfpack_flags": [
+      "-kv",
+      "-tu",
+      "-tq",
+      "10"
+    ],
+    "validator": {
+      "errors": 0,
+      "warnings": 24,
+      "infos": 45,
+      "hints": 0
+    }
+  }
+}

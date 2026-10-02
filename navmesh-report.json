@@ -1,0 +1,21 @@
+{
+  "status": "PASS",
+  "input_vertices": 360,
+  "input_triangles": 180,
+  "grid_width": 98,
+  "grid_height": 165,
+  "nav_vertices": 85,
+  "nav_polygons": 40,
+  "detail_vertices": 175,
+  "detail_triangles": 95,
+  "navdata_bytes": 6640,
+  "agent_height": 1.8,
+  "agent_radius": 0.34,
+  "agent_climb": 0.45,
+  "walkable_slope_degrees": 50,
+  "nav_min_y": -3.86482,
+  "nav_max_y": 3.53518,
+  "nav_vertical_span": 7.4,
+  "nav_vertical_bands": 5,
+  "nearest_poly_ref": 103
+}

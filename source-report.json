@@ -1,0 +1,117 @@
+{
+  "status": "PASS",
+  "stage": "vertical-gameplay-blockout-v1",
+  "integration_status": "PLAYABLE_BLOCKOUT_REQUIRES_RUNTIME_PORTAL_TEST",
+  "design_layout": "docs/sanctum-vertical-layout.v1.json",
+  "floor_heights_m": {
+    "undercroft": -3.9148227083683014,
+    "nave": -0.3148227083683014,
+    "gallery": 3.4851772916316985
+  },
+  "vertical_span_m": 7.4,
+  "main_floor_bounds": [
+    [
+      -25.169002532958984,
+      -39.73322153091431,
+      -0.3148227083683014
+    ],
+    [
+      -10.451526641845703,
+      -14.97635793685913,
+      -0.3148227083683014
+    ]
+  ],
+  "undercroft_bounds": [
+    [
+      -24.43312873840332,
+      -30.820750637054445,
+      -3.9148227083683014
+    ],
+    [
+      -11.187400436401367,
+      -20.42286792755127,
+      -0.49482270836830144
+    ]
+  ],
+  "gallery": {
+    "x_offset": 4.5992112159729,
+    "y0": -32.55373108863831,
+    "y1": -22.650985651016235,
+    "width": 1.85
+  },
+  "floor_openings": {
+    "west": [
+      -24.169002532958984,
+      -21.819002532958983,
+      -30.69696631908417,
+      -23.896966319084168
+    ],
+    "east": [
+      -13.801526641845703,
+      -11.451526641845703,
+      -28.70827974319458,
+      -21.90827974319458
+    ]
+  },
+  "connections": [
+    "SANCTUM_UPPER_RAMP_WEST",
+    "SANCTUM_UPPER_RAMP_EAST",
+    "SANCTUM_UNDERCROFT_RAMP_WEST",
+    "SANCTUM_UNDERCROFT_RAMP_EAST_SHORTCUT"
+  ],
+  "ad_surface_count": 3,
+  "ad_manifest": "sanctum-ad-surfaces.json",
+  "gameplay_manifest": "sanctum-gameplay-entities.json",
+  "renders": [
+    {
+      "name": "01-nave-sees-upper-gallery.png",
+      "bytes": 710979
+    },
+    {
+      "name": "02-upper-gallery-player-view.png",
+      "bytes": 789103
+    },
+    {
+      "name": "03-upper-east-bailout.png",
+      "bytes": 627832
+    },
+    {
+      "name": "04-undercroft-power-loop.png",
+      "bytes": 479402
+    },
+    {
+      "name": "05-undercroft-shortcut.png",
+      "bytes": 668578
+    },
+    {
+      "name": "06-diegetic-ad-frame.png",
+      "bytes": 687147
+    }
+  ],
+  "stats": {
+    "vertices": 212896,
+    "polygons": 159076,
+    "min": [
+      -31.819637298583984,
+      -45.38863754272461,
+      -4.164822578430176
+    ],
+    "max": [
+      -3.8008956909179688,
+      -9.320945739746094,
+      42.96233367919922
+    ],
+    "center": [
+      -17.810266494750977,
+      -27.35479164123535,
+      19.39875602722168
+    ],
+    "size": [
+      28.018741607666016,
+      36.067691802978516,
+      47.12715530395508
+    ]
+  },
+  "glb": "sanctum-vertical-blockout.glb",
+  "glb_bytes": 38448032
+}

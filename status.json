@@ -1,0 +1,14 @@
+{
+  "updated_utc": "2026-10-02T03:12:56.877738+00:00",
+  "source_run_id": "36949132649",
+  "source_kind": "vertical",
+  "hero_status": "PASS",
+  "hero_camera": {},
+  "nav_status": "PASS",
+  "nav_polygons": 40,
+  "nav_vertical_span": 7.4,
+  "nav_vertical_bands": 5,
+  "collision_status": "PASS",
+  "collision_hulls": 51,
+  "validator_errors": 0
+}
