@@ -1,0 +1,104 @@
+{
+  "version": 2,
+  "source": "user-provided Sanctum material/model reference boards",
+  "policy": "Reference images define palette, surface response, proportions and detailing. Final game materials are procedural PBR so baked photographic lighting is not copied into albedo.",
+  "measurements": {
+    "floor_wet": {
+      "median_rgb": [
+        0.3059,
+        0.2078,
+        0.1725
+      ],
+      "luminance_p10": 0.0888,
+      "luminance_p50": 0.2287,
+      "luminance_p90": 0.6443,
+      "target_roughness": [
+        0.1,
+        0.36
+      ]
+    },
+    "aged_stone": {
+      "median_rgb": [
+        0.3686,
+        0.2078,
+        0.1176
+      ],
+      "luminance_p10": 0.0707,
+      "luminance_p50": 0.2359,
+      "luminance_p90": 0.5546,
+      "target_roughness": [
+        0.46,
+        0.68
+      ]
+    },
+    "dark_wood": {
+      "median_rgb": [
+        0.2039,
+        0.0863,
+        0.0353
+      ],
+      "luminance_p10": 0.023,
+      "luminance_p50": 0.1071,
+      "luminance_p90": 0.3412,
+      "target_roughness": [
+        0.27,
+        0.52
+      ]
+    },
+    "burgundy_cloth": {
+      "median_rgb": [
+        0.2941,
+        0.0706,
+        0.0588
+      ],
+      "luminance_p10": 0.0467,
+      "luminance_p50": 0.1132,
+      "luminance_p90": 0.4005,
+      "target_roughness": [
+        0.58,
+        0.7
+      ]
+    },
+    "candle_wax_metal": {
+      "median_rgb": [
+        0.1725,
+        0.0784,
+        0.0588
+      ],
+      "luminance_p10": 0.0438,
+      "luminance_p50": 0.0925,
+      "luminance_p90": 0.6228
+    }
+  },
+  "model_targets": {
+    "pew": {
+      "width_m": 3.45,
+      "seat_height_m": 0.48,
+      "end_panel_height_m": 1.48,
+      "features": [
+        "heavy square end posts",
+        "pointed Gothic relief",
+        "back hymn-book rack",
+        "worn dark wood",
+        "wide stable feet"
+      ]
+    },
+    "altar": {
+      "features": [
+        "three stone steps",
+        "dark Gothic timber carcass",
+        "burgundy frontal",
+        "aged gold cross and trim",
+        "open book",
+        "iron/brass candelabra",
+        "warm wax candles"
+      ]
+    }
+  },
+  "runtime_constraints": [
+    "do not reduce source geometry quality",
+    "keep central aisle clear",
+    "visual materials must not change Recast topology",
+    "collision/nav remain server-authoritative"
+  ]
+}
