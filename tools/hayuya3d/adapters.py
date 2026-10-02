@@ -224,6 +224,53 @@ def generate_trellis(
     )
 
 
+def generate_hunyuan3d_2_1(
+    image: Path,
+    out_dir: Path,
+    *,
+    seed: int,
+    model_root: Path = DEFAULT_MODEL_ROOT,
+    remove_background: bool = False,
+) -> Candidate:
+    """Opt-in Tencent Hunyuan3D 2.1 cloud adapter.
+
+    This backend remains disabled by default in backends.lock.json. Importing the
+    Gradio client is intentionally lazy so normal HAYUYA runs do not acquire a
+    network/runtime dependency on the public Space.
+    """
+    del model_root  # Cloud adapter; kept for GENERATORS signature consistency.
+    from hunyuan3d_cloud import generate_shape
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    model_path = out_dir / "hunyuan3d_2_1.glb"
+    token = (
+        os.environ.get("HF_TOKEN")
+        or os.environ.get("HUGGINGFACE_TOKEN")
+        or None
+    )
+    generate_shape(
+        Path(image),
+        model_path,
+        token=token,
+        seed=int(seed),
+        steps=30,
+        guidance_scale=5.0,
+        octree_resolution=384,
+        num_chunks=8000,
+        remove_background=bool(remove_background),
+    )
+    if not model_path.is_file():
+        raise RuntimeError(f"Hunyuan3D 2.1 did not create {model_path}")
+    return Candidate(
+        "hunyuan3d_2_1",
+        model_path,
+        notes=(
+            "Opt-in Tencent Hunyuan3D 2.1 native shape candidate; "
+            "Community License and public Space availability apply"
+        ),
+    )
+
+
 def generate_spar3d(
     image: Path,
     out_dir: Path,
@@ -385,6 +432,7 @@ REFINERS = {
 
 GENERATORS = {
     "triposg": generate_triposg,
+    "hunyuan3d_2_1": generate_hunyuan3d_2_1,
     "triposr": generate_triposr,
     "instantmesh": generate_instantmesh,
     "trellis2": generate_trellis2,
