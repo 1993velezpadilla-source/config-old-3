@@ -12,6 +12,12 @@ inline constexpr std::size_t kMaxAdSurfaces = 32;
 inline constexpr std::size_t kMaxAdAudioEmitters = 16;
 inline constexpr std::size_t kMaxLocalAdCreatives = 64;
 
+inline constexpr float kIntrinsicAdMinimumVisibleFraction = 0.50f;
+inline constexpr float kIntrinsicAdMinimumScreenCoverage = 0.015f;
+inline constexpr float kIntrinsicAdMinimumFacingCosine = 0.57357645f;
+inline constexpr float kIntrinsicAdDisplayViewSeconds = 1.0f;
+inline constexpr float kIntrinsicAdVideoViewSeconds = 2.0f;
+
 enum class AdCreativeKind : std::uint8_t {
     Image,
     Video,
@@ -49,6 +55,7 @@ struct AdVisibilitySample {
     float distanceMeters = 0.0f;
     float facingCosine = 0.0f;
     float screenCoverage = 0.0f;
+    float visibleCreativeFraction = 0.0f;
     bool visible = false;
 };
 
@@ -159,12 +166,12 @@ struct AdSurfaceDefinition {
 
     float aspectRatio = 1.0f;
     float maxViewDistanceMeters = 30.0f;
-    float minimumFacingCosine = 0.25f;
-    float minimumScreenCoverage = 0.0008f;
-    float impressionViewSeconds = 1.0f;
+    float minimumFacingCosine = kIntrinsicAdMinimumFacingCosine;
+    float minimumScreenCoverage = kIntrinsicAdMinimumScreenCoverage;
+    float impressionViewSeconds = kIntrinsicAdDisplayViewSeconds;
     float cooldownSeconds = 30.0f;
 
-    std::uint32_t maxImpressionsPerSession = 3;
+    std::uint32_t maxImpressionsPerSession = 1;
 
     bool allowImage = true;
     bool allowVideo = false;
@@ -188,6 +195,7 @@ struct AdSurfaceInput {
     float distanceMeters = 0.0f;
     float facingCosine = 0.0f;
     float screenCoverage = 0.0f;
+    float visibleCreativeFraction = 1.0f;
 
     bool frustumVisible = false;
     bool occluded = false;
