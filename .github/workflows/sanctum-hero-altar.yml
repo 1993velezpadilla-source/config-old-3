@@ -9,6 +9,7 @@ on:
       - "tools/sanctum_v2/dress_sanctum_hero_altar.py"
       - "tools/sanctum_v2/reference_materials.py"
       - "tools/sanctum_v2/reference_silhouette_fit.py"
+      - "tools/sanctum_v2/reference_group_fit.py"
       - "docs/sanctum-reference-silhouettes.v1.json"
       - "tools/sanctum_v2/enrich_sanctum_cc0_props.py"
       - "docs/sanctum-reference-materials.v2.json"
@@ -137,6 +138,9 @@ jobs:
           assert d["hero_camera"]["eye_height_m"]>=1.88,d
           assert d["hero_camera"]["lens_mm"]==31.0,d
           assert d["reference_material_profile"]=="docs/sanctum-reference-materials.v2.json",d
+          assert d["reference_silhouette_profile"]=="docs/sanctum-reference-silhouettes.v1.json",d
+          assert d["altar_reference_fit"]["changed_vertices"]>0,d
+          assert d["altar_reference_fit_audit"]["violations"]==0,d
           assert len(d["renders"])==4,d
           assert d["glb_bytes"]>1000000,d
           for x in d["renders"]:
