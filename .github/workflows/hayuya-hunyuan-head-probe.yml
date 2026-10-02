@@ -242,6 +242,17 @@ jobs:
               )
           PY
 
+      - name: Conform textured silhouette geometry
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/hayuya3d/silhouette_conform.py \
+            --input out/hunyuan-head-probe/body_headwrap_material_native.glb \
+            --output out/hunyuan-head-probe/body_headwrap_material_native.glb \
+            --report out/hunyuan-head-probe/body_headwrap_material_native.silhouette_conform.json \
+            --iterations 2 --grid 768 \
+            --overscan 1.42 --alpha-threshold 48 --edge-fill-radius 6
+
       - name: Render base native front
         shell: bash
         run: |
