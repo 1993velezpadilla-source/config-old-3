@@ -1,0 +1,110 @@
+name: Sanctum Alternate CC0 Altar Probe
+
+on:
+  push:
+    branches:
+      - feature/xziel-map-builder-agent-v1
+    paths:
+      - ".github/workflows/sanctum-cc0-alt-altar-probe.yml"
+      - "tools/sanctum_v2/probe_cc0_sanctum_prop_pack.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sanctum-cc0-alt-altar-probe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq curl xz-utils xvfb libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libglu1-mesa
+
+      - name: Fetch verified CC0 altar
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p external-alt-altar sanctum-alt-altar-probe
+          curl -L --fail --retry 3 https://opengameart.org/content/altar -o sanctum-alt-altar-probe/source-page.html
+          grep -qi CC0 sanctum-alt-altar-probe/source-page.html
+          URL="$(python3 - <<'PY'
+          import re
+          from html import unescape
+          s=open("sanctum-alt-altar-probe/source-page.html",encoding="utf-8",errors="ignore").read()
+          m=re.search(r'href="([^"]*altar\.tar\.gz[^"]*)"',s,re.I)
+          if not m:
+              raise SystemExit("archive link missing")
+          u=unescape(m.group(1))
+          if u.startswith("/"):
+              u="https://opengameart.org"+u
+          print(u)
+          PY
+          )"
+          curl -L --fail --retry 3 "$URL" -o /tmp/altar.tar.gz
+          sha256sum /tmp/altar.tar.gz | tee sanctum-alt-altar-probe/source.sha256
+          tar -xzf /tmp/altar.tar.gz -C external-alt-altar
+          test -s external-alt-altar/altar.blend
+
+      - name: Install Blender
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz -o /tmp/blender.tar.xz
+          tar -C /tmp -xf /tmp/blender.tar.xz
+
+      - name: Probe alternate altar
+        shell: bash
+        env:
+          SANCTUM_PROP_OUT: sanctum-alt-altar-probe
+          SANCTUM_PROP_PACK: alternate_altar
+          SANCTUM_PROP_LICENSE: CC0
+          SANCTUM_PROP_SOURCE_URL: https://opengameart.org/content/altar
+        run: |
+          set -euo pipefail
+          export SANCTUM_PROP_SHA256="$(cut -d' ' -f1 sanctum-alt-altar-probe/source.sha256)"
+          SANCTUM_PROP_SOURCE_FILE_URL="archive:altar.tar.gz/altar.blend" \
+          xvfb-run -a -s "-screen 0 1500x1000x24" \
+            /tmp/blender-5.2.2-linux-x64/blender \
+            -b external-alt-altar/altar.blend \
+            --python tools/sanctum_v2/probe_cc0_sanctum_prop_pack.py \
+            2>&1 | tee sanctum-alt-altar-probe/blender.log
+          grep -q SANCTUM_PROP_PROBE_PASS sanctum-alt-altar-probe/blender.log
+
+      - name: Validate probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("sanctum-alt-altar-probe")
+          d=json.loads((root/"report.json").read_text(encoding="utf-8"))
+          assert d["status"]=="PASS",d
+          assert d["license"]=="CC0",d
+          assert d["mesh_object_count"]>=1,d
+          assert len(d["source_sha256"])==64,d
+          assert len(d["renders"])>=1,d
+          assert d["glb_bytes"]>1000,d
+          print("SANCTUM_ALT_ALTAR_PROBE_GREEN")
+          print("OBJECTS",[x["name"] for x in d["objects"]])
+          print("SELECTED",[x["name"] for x in d["selected"]])
+          PY
+
+      - name: Upload probe
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-Alternate-CC0-Altar-Probe
+          path: sanctum-alt-altar-probe/
+          if-no-files-found: error
+          retention-days: 14
