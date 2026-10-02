@@ -19,6 +19,7 @@ from qa import export_glb, rank_candidates
 from reference_pool import infer_detail_region_hint, order_for_multiview_coverage, split_reference_roles
 from mobile_portability import build_portability_plan
 from native_geometry_guard import ProjectionProxyRejected, assert_native_candidate
+from native_360_geometry_gate import Native360GeometryRejected, assert_native_character_360
 
 
 @dataclass(frozen=True)
@@ -1350,16 +1351,25 @@ def main() -> int:
     native_geometry_guard = {}
     for label, candidate_path in candidates:
         try:
-            guard_report = assert_native_candidate(candidate_path, label=label)
+            provenance_report = assert_native_candidate(candidate_path, label=label)
+            guard_report = {
+                "provenance": provenance_report,
+                "character_360": None,
+            }
+            if mode == "character":
+                guard_report["character_360"] = assert_native_character_360(
+                    candidate_path,
+                    label=label,
+                )
             native_candidates.append((label, candidate_path))
             native_geometry_guard[label] = guard_report
-        except ProjectionProxyRejected as exc:
+        except (ProjectionProxyRejected, Native360GeometryRejected) as exc:
             failure_key = f"{label}:native_geometry_guard"
             failures[failure_key] = str(exc)
             native_geometry_guard[label] = {
-                "is_projection_proxy": True,
                 "rejected": True,
                 "reason": str(exc),
+                "character_360_required": mode == "character",
             }
             print(
                 f"HAYUYA_NATIVE_GEOMETRY_REJECTED {label} {candidate_path}: {exc}",
@@ -1674,6 +1684,11 @@ def main() -> int:
                         max_target_px=14.0,
                         per_vertex_cap_px=3.0,
                     )
+                    if mode == "character":
+                        assert_native_character_360(
+                            conform_output,
+                            label=native_conform_candidate_label,
+                        )
                     candidates.append(
                         (native_conform_candidate_label, conform_output)
                     )
