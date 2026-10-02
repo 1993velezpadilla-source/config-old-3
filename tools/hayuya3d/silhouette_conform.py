@@ -754,11 +754,25 @@ def _decisive_thumb_head_pass(
             anchor_x,anchor_y=peak["anchor"]
             peak_distance=float(peak["distance_px"])
             if region=="thumb_middle":
-                cap=(8.5 if int(pass_index)==0 else 7.0)*scale
-                radius=(18.0 if int(pass_index)==0 else 15.0)*scale
+                if int(pass_index)==0:
+                    cap=8.5*scale
+                    radius=18.0*scale
+                elif int(pass_index)==1:
+                    cap=7.0*scale
+                    radius=15.0*scale
+                else:
+                    cap=5.0*scale
+                    radius=max(9.0*scale,13.0*scale-float(pass_index)*scale)
             else:
-                cap=(3.5 if int(pass_index)==0 else 3.0)*scale
-                radius=(9.0 if int(pass_index)==0 else 8.0)*scale
+                if int(pass_index)==0:
+                    cap=3.5*scale
+                    radius=9.0*scale
+                elif int(pass_index)==1:
+                    cap=3.0*scale
+                    radius=8.0*scale
+                else:
+                    cap=2.0*scale
+                    radius=6.5*scale
 
             controls.append({
                 "region":region,
@@ -772,7 +786,12 @@ def _decisive_thumb_head_pass(
     xmin,xmax,ymin,ymax=[float(x) for x in bounds]
     moved_vertices=0
     max_iteration_world=0.0
-    per_iteration_cap=(9.0 if int(pass_index)==0 else 8.0)*scale
+    if int(pass_index)==0:
+        per_iteration_cap=9.0*scale
+    elif int(pass_index)==1:
+        per_iteration_cap=8.0*scale
+    else:
+        per_iteration_cap=5.5*scale
 
     for node in (FRONT_NODE,SUPPORT_NODE):
         geometry=_geometry(scene,node)
@@ -910,7 +929,7 @@ def conform(
     )
 
     decisive_thumb_head_passes=[]
-    for decisive_index in range(2):
+    for decisive_index in range(6):
         decisive=_decisive_thumb_head_pass(
             scene,
             grid=grid,
@@ -921,6 +940,8 @@ def conform(
         )
         decisive_thumb_head_passes.append(decisive)
         if decisive["after_missing"]>=decisive["before_missing"]:
+            break
+        if not decisive["selected_components"]:
             break
 
     final=_coverage(
