@@ -204,7 +204,10 @@ bench_template=build_reference_pew_template()
 pews=[]
 row_fracs=(-0.26,-0.16,-0.06,0.04,0.14)
 # Wider/heavier than the old benches while preserving the proven central aisle.
-x_offset=max(2.55,min(3.05,half_w*0.33))
+# Full reference width is preserved. Move the heavier pews into the side-bay
+# footprint (where pillars already consume clearance) instead of shrinking them
+# or weakening the 0.88 walkability gate.
+x_offset=min(max(3.00,half_w*0.50),half_w-1.85)
 for row,frac in enumerate(row_fracs,1):
     y=ic.y+isz.y*frac
     for side,sign in (("L",-1.0),("R",1.0)):
