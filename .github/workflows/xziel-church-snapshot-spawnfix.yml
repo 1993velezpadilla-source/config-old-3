@@ -124,12 +124,11 @@ jobs:
         run: |
           set -euo pipefail
           export HOME="${RUNNER_TEMP}/xziel-spawnfix-home"
-          unset ANDROID_AVD_HOME
-          mkdir -p "$HOME"
+          export ANDROID_AVD_HOME="$HOME/.android/avd"
+          mkdir -p "$ANDROID_AVD_HOME"
           ADB="${ANDROID_HOME}/platform-tools/adb"
           EMULATOR="${ANDROID_HOME}/emulator/emulator"
           AVDMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -type f -name avdmanager | sort | tail -n 1)"
-          mkdir -p "$ANDROID_AVD_HOME"
           printf 'no\n' | "$AVDMANAGER" create avd --force --name xziel-spawnfix-ci \
             --package "system-images;android-35;google_apis;x86_64" --device "pixel_6"
           [[ ! -e /dev/kvm ]] || sudo chmod 666 /dev/kvm || true
