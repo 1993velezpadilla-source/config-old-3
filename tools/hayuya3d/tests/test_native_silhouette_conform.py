@@ -4,6 +4,7 @@ from pathlib import Path
 import sys
 
 import numpy as np
+import pytest
 import trimesh
 from PIL import Image, ImageDraw
 
@@ -11,6 +12,7 @@ HERE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HERE))
 
 from native_geometry_guard import assert_native_candidate
+from silhouette_conform import _require_legacy_projection_profile
 from native_silhouette_conform import (
     _bounded_render_faces,
     _front_surface_vertex_mask,
@@ -41,6 +43,28 @@ def _source_rect(path: Path, *, width: int, height: int):
         fill=(180, 180, 180, 255),
     )
     image.save(path)
+
+
+def test_legacy_projection_conform_rejects_generic_and_unprofiled_assets():
+    with pytest.raises(RuntimeError, match="forbidden for generic/new assets"):
+        _require_legacy_projection_profile(None)
+
+    with pytest.raises(RuntimeError, match="forbidden for generic/new assets"):
+        _require_legacy_projection_profile(
+            {
+                "name": "generic",
+                "legacy_monja_targeting": False,
+            }
+        )
+
+    legacy = _require_legacy_projection_profile(
+        {
+            "name": "monja-mugfwln6",
+            "legacy_monja_targeting": True,
+        }
+    )
+    assert legacy["name"] == "monja-mugfwln6"
+    assert legacy["legacy_monja_targeting"] is True
 
 
 def test_render_face_budget_is_deterministic_and_never_changes_source_faces():
