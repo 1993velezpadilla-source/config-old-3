@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import sys
 
 import trimesh
-from PIL import Image
+from PIL import Image, ImageDraw
 
 HERE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HERE))
@@ -36,6 +36,46 @@ def test_backend_selection_is_capability_based_not_asset_specific(tmp_path: Path
     )
     assert select_head_donor_backend(["triposr"], root) == "triposr"
     assert select_head_donor_backend(["trellis2"], root) is None
+
+
+def test_full_body_source_can_derive_head_evidence_for_native_donor(tmp_path: Path):
+    source = tmp_path / "anonymous_full_body.png"
+    image = Image.new("RGBA", (256, 512), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((94, 28, 162, 96), fill=(190, 140, 110, 255))
+    draw.rectangle((76, 94, 180, 390), fill=(120, 120, 120, 255))
+    draw.rectangle((58, 120, 76, 300), fill=(120, 120, 120, 255))
+    draw.rectangle((180, 120, 198, 300), fill=(120, 120, 120, 255))
+    image.save(source)
+
+    seen = {}
+
+    def fake_generator(**kwargs):
+        seen.update(kwargs)
+        output = Path(kwargs["out_dir"]) / "native_head.glb"
+        _write_native(output)
+        return SimpleNamespace(model_path=output)
+
+    donor = generate_source_head_donor(
+        source,
+        tmp_path / "fallback_run",
+        backend="triposg",
+        seed=88,
+        hero_faces=250000,
+        trellis2_resolution=1024,
+        texture_size=4096,
+        model_root=tmp_path / "models",
+        generator_override=fake_generator,
+        derive_head_from_full_source=True,
+    )
+
+    assert donor.is_file()
+    staged = Image.open(seen["image"]).convert("RGBA")
+    assert staged.size == (1024, 1024)
+    alpha = staged.getchannel("A")
+    assert alpha.getbbox() is not None
+    assert alpha.getextrema()[0] == 0
+    assert Path(seen["image"]).name == "source_head_rgba.png"
 
 
 def test_source_head_donor_is_native_and_uses_current_detail(tmp_path: Path):
