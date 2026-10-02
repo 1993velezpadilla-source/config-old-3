@@ -1,0 +1,82 @@
+{
+  "schema": 2,
+  "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/hayuya_final.glb",
+  "image_count": 4,
+  "max_edge": 2048,
+  "max_megapixels": 4.1943,
+  "mean_edge_variance": 494.402,
+  "base_color_image_count": 1,
+  "base_color_max_edge": 2048,
+  "base_color_min_edge": 2048,
+  "base_color_max_megapixels": 4.1943,
+  "material_roles": {
+    "baseColor": [
+      0
+    ],
+    "metallicRoughness": [
+      3
+    ],
+    "normal": [
+      1
+    ],
+    "occlusion": [
+      2
+    ]
+  },
+  "metrics": [
+    {
+      "index": 0,
+      "mime_type": "image/png",
+      "width": 2048,
+      "height": 2048,
+      "megapixels": 4.1943,
+      "edge_variance": 859.141,
+      "luminance_stddev": 28.2187,
+      "entropy": 5.717,
+      "roles": [
+        "baseColor"
+      ]
+    },
+    {
+      "index": 1,
+      "mime_type": "image/png",
+      "width": 2048,
+      "height": 2048,
+      "megapixels": 4.1943,
+      "edge_variance": 620.0602,
+      "luminance_stddev": 5.7333,
+      "entropy": 2.267,
+      "roles": [
+        "normal"
+      ]
+    },
+    {
+      "index": 2,
+      "mime_type": "image/png",
+      "width": 2048,
+      "height": 2048,
+      "megapixels": 4.1943,
+      "edge_variance": 249.2033,
+      "luminance_stddev": 7.7571,
+      "entropy": 2.4509,
+      "roles": [
+        "occlusion"
+      ]
+    },
+    {
+      "index": 3,
+      "mime_type": "image/png",
+      "width": 2048,
+      "height": 2048,
+      "megapixels": 4.1943,
+      "edge_variance": 249.2033,
+      "luminance_stddev": 7.7571,
+      "entropy": 2.4509,
+      "roles": [
+        "metallicRoughness"
+      ]
+    }
+  ],
+  "warnings": [],
+  "passed": true
+}

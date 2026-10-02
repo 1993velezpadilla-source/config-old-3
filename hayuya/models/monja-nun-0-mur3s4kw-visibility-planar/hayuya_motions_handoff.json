@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "source_product": "HAYUYA 3D",
+  "downstream_product": "HAYUYA Motions",
+  "hero_model": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/hayuya_final.glb",
+  "asset_profile": "character.humanoid",
+  "motion_profile": "hayuya_auto",
+  "motion_requested": false,
+  "geometry_is_immutable_source": true,
+  "instructions": [
+    "Do not modify the approved HAYUYA 3D Hero Master in place.",
+    "Rig, skin, animation and motion QA belong to HAYUYA Motions.",
+    "Write derived animated assets as separate outputs."
+  ]
+}

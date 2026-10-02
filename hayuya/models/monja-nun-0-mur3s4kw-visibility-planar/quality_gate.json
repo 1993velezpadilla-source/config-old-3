@@ -1,0 +1,28 @@
+{
+  "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/hayuya_final.glb",
+  "valid": true,
+  "passed": true,
+  "vertices": 50320,
+  "faces": 100456,
+  "triangle_primitives": 1,
+  "normal_primitives": 1,
+  "missing_normal_primitives": 0,
+  "components": 35,
+  "largest_component_fraction": 0.986677,
+  "degenerate_ratio": 4e-05,
+  "bbox_extents": [
+    0.62793046,
+    0.99794093,
+    0.37318921
+  ],
+  "bbox_aspect_ratio": 2.674088,
+  "axis_alignment_weighted": 0.844666,
+  "axis_aligned_area_98": 0.166114,
+  "dominant_normal_axis_area": [
+    0.330532,
+    0.134789,
+    0.534678
+  ],
+  "reasons": [],
+  "warnings": []
+}

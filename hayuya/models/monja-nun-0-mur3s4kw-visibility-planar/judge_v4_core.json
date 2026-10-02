@@ -1,0 +1,1366 @@
+{
+  "schema": 4,
+  "method": "fail-closed multi-eye visual acceptance: 24-view render evidence + Q-ReAlign-Mini-0.8B + MediaPipe dense face geometry + DreamSim + dual-order InternVL3.5-1B-HF [tier=core]",
+  "policy": "required",
+  "passed": true,
+  "hard_fail_reasons": [],
+  "advisories": [],
+  "thresholds": {
+    "qrealign_full_mean_min": 0.55,
+    "qrealign_full_p10_min": 0.45,
+    "qrealign_face_mean_min": 0.55,
+    "qrealign_face_p10_min": 0.42,
+    "dreamsim_full_worst_max": 0.5,
+    "dreamsim_face_worst_max": 0.45,
+    "face_candidate_detection_fraction_min": 0.6,
+    "face_profile_median_error_max": 0.22,
+    "face_profile_p90_error_max": 0.35,
+    "face_nose_ratio_min": 0.65,
+    "face_nose_ratio_max": 1.4,
+    "internvl_face_anatomy_min": 80.0,
+    "internvl_face_source_fidelity_min": 75.0,
+    "internvl_body_anatomy_min": 75.0,
+    "internvl_hands_min": 65.0,
+    "internvl_material_texture_min": 70.0,
+    "internvl_multiview_consistency_min": 80.0,
+    "internvl_source_fidelity_min": 75.0
+  },
+  "evidence": {
+    "final_glb": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/hayuya_final.glb",
+    "source_images": [
+      "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/prepared_views/front.png"
+    ],
+    "detail_images": [
+      "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/prepared_details/detail_01_auto_head.png"
+    ],
+    "turntable_frames": [
+      "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/blender_evidence/turntable/00_000.png",
+      "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/blender_evidence/turntable/01_015.png",
+      "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/blender_evidence/turntable/02_030.png",
+      "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/blender_evidence/turntable/03_045.png",
+      "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/blender_evidence/turntable/04_060.png",
+      "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/blender_evidence/turntable/05_075.png",
+      "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/blender_evidence/turntable/06_090.png",
+      "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/blender_evidence/turntable/07_105.png",
+      "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/blender_evidence/turntable/08_120.png",
+      "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/blender_evidence/turntable/09_135.png",
+      "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/blender_evidence/turntable/10_150.png",
+      "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/blender_evidence/turntable/11_165.png",
+      "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/blender_evidence/turntable/12_180.png",
+      "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/blender_evidence/turntable/13_195.png",
+      "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/blender_evidence/turntable/14_210.png",
+      "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/blender_evidence/turntable/15_225.png",
+      "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/blender_evidence/turntable/16_240.png",
+      "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/blender_evidence/turntable/17_255.png",
+      "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/blender_evidence/turntable/18_270.png",
+      "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/blender_evidence/turntable/19_285.png",
+      "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/blender_evidence/turntable/20_300.png",
+      "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/blender_evidence/turntable/21_315.png",
+      "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/blender_evidence/turntable/22_330.png",
+      "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/blender_evidence/turntable/23_345.png"
+    ],
+    "candidate_face_render_inputs": [
+      "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/blender_evidence/faces/12_180.png",
+      "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/blender_evidence/faces/13_195.png",
+      "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/blender_evidence/faces/14_210.png",
+      "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/blender_evidence/faces/15_225.png",
+      "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/blender_evidence/faces/16_240.png",
+      "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/blender_evidence/faces/08_120.png",
+      "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/blender_evidence/faces/09_135.png",
+      "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/blender_evidence/faces/10_150.png",
+      "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/blender_evidence/faces/11_165.png"
+    ],
+    "candidate_face_crops": [
+      "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/candidate_face/00.png",
+      "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/candidate_face/01.png",
+      "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/candidate_face/02.png",
+      "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/candidate_face/03.png",
+      "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/candidate_face/04.png",
+      "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/candidate_face/20.png",
+      "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/candidate_face/21.png",
+      "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/candidate_face/22.png",
+      "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/candidate_face/23.png"
+    ],
+    "source_face_crops": [
+      "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/source_face/detail_00.png",
+      "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/source_face/crop_00.png"
+    ],
+    "source_sheet": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/source_sheet.jpg",
+    "turntable_sheet": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/turntable_sheet.jpg",
+    "face_sheet": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/face_sheet.jpg",
+    "boards": [
+      "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/board_source_first.jpg",
+      "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/board_candidate_first.jpg"
+    ]
+  },
+  "qrealign": {
+    "schema": 1,
+    "model": "q-future/Q-ReAlign-Mini-0.8B",
+    "provenance": {
+      "model_id": "q-future/Q-ReAlign-Mini-0.8B",
+      "resolved_revision": "fe1f45a7574c9e9d908875af9f7e90cb946aa19f",
+      "num_parameters": 852985920,
+      "dtype": "torch.bfloat16"
+    },
+    "device": "cpu",
+    "images": [
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/turn_full/00.png",
+        "score": 0.771798,
+        "probabilities": {
+          "excellent": 0.168231,
+          "good": 0.75396,
+          "fair": 0.074652,
+          "poor": 0.003081,
+          "bad": 7.5e-05
+        }
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/turn_full/01.png",
+        "score": 0.764174,
+        "probabilities": {
+          "excellent": 0.149839,
+          "good": 0.760946,
+          "fair": 0.085376,
+          "poor": 0.003751,
+          "bad": 8.8e-05
+        }
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/turn_full/02.png",
+        "score": 0.749066,
+        "probabilities": {
+          "excellent": 0.123303,
+          "good": 0.755323,
+          "fair": 0.115833,
+          "poor": 0.005418,
+          "bad": 0.000123
+        }
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/turn_full/03.png",
+        "score": 0.689358,
+        "probabilities": {
+          "excellent": 0.071632,
+          "good": 0.638452,
+          "fair": 0.266146,
+          "poor": 0.023256,
+          "bad": 0.000514
+        }
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/turn_full/04.png",
+        "score": 0.699997,
+        "probabilities": {
+          "excellent": 0.087849,
+          "good": 0.649118,
+          "fair": 0.238797,
+          "poor": 0.023644,
+          "bad": 0.000592
+        }
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/turn_full/05.png",
+        "score": 0.725412,
+        "probabilities": {
+          "excellent": 0.11845,
+          "good": 0.681633,
+          "fair": 0.183459,
+          "poor": 0.01603,
+          "bad": 0.000427
+        }
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/turn_full/06.png",
+        "score": 0.712478,
+        "probabilities": {
+          "excellent": 0.107335,
+          "good": 0.657506,
+          "fair": 0.213461,
+          "poor": 0.021135,
+          "bad": 0.000563
+        }
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/turn_full/07.png",
+        "score": 0.693899,
+        "probabilities": {
+          "excellent": 0.081439,
+          "good": 0.640567,
+          "fair": 0.25085,
+          "poor": 0.026439,
+          "bad": 0.000705
+        }
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/turn_full/08.png",
+        "score": 0.707742,
+        "probabilities": {
+          "excellent": 0.100108,
+          "good": 0.652786,
+          "fair": 0.225597,
+          "poor": 0.020984,
+          "bad": 0.000525
+        }
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/turn_full/09.png",
+        "score": 0.7113,
+        "probabilities": {
+          "excellent": 0.082759,
+          "good": 0.692935,
+          "fair": 0.211333,
+          "poor": 0.012692,
+          "bad": 0.00028
+        }
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/turn_full/10.png",
+        "score": 0.732892,
+        "probabilities": {
+          "excellent": 0.095253,
+          "good": 0.749224,
+          "fair": 0.147531,
+          "poor": 0.007819,
+          "bad": 0.000173
+        }
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/turn_full/11.png",
+        "score": 0.7608,
+        "probabilities": {
+          "excellent": 0.141329,
+          "good": 0.76402,
+          "fair": 0.091249,
+          "poor": 0.003324,
+          "bad": 7.8e-05
+        }
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/turn_full/12.png",
+        "score": 0.770787,
+        "probabilities": {
+          "excellent": 0.16043,
+          "good": 0.76537,
+          "fair": 0.07119,
+          "poor": 0.002938,
+          "bad": 7.1e-05
+        }
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/turn_full/13.png",
+        "score": 0.760068,
+        "probabilities": {
+          "excellent": 0.134634,
+          "good": 0.774765,
+          "fair": 0.086926,
+          "poor": 0.003588,
+          "bad": 8.7e-05
+        }
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/turn_full/14.png",
+        "score": 0.739512,
+        "probabilities": {
+          "excellent": 0.102727,
+          "good": 0.759055,
+          "fair": 0.131904,
+          "poor": 0.006169,
+          "bad": 0.000145
+        }
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/turn_full/15.png",
+        "score": 0.702426,
+        "probabilities": {
+          "excellent": 0.075715,
+          "good": 0.674843,
+          "fair": 0.23322,
+          "poor": 0.015871,
+          "bad": 0.000351
+        }
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/turn_full/16.png",
+        "score": 0.71902,
+        "probabilities": {
+          "excellent": 0.115379,
+          "good": 0.663959,
+          "fair": 0.202496,
+          "poor": 0.017694,
+          "bad": 0.000472
+        }
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/turn_full/17.png",
+        "score": 0.718928,
+        "probabilities": {
+          "excellent": 0.104753,
+          "good": 0.683076,
+          "fair": 0.195704,
+          "poor": 0.016064,
+          "bad": 0.000402
+        }
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/turn_full/18.png",
+        "score": 0.736065,
+        "probabilities": {
+          "excellent": 0.135389,
+          "good": 0.68756,
+          "fair": 0.16331,
+          "poor": 0.013405,
+          "bad": 0.000336
+        }
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/turn_full/19.png",
+        "score": 0.72871,
+        "probabilities": {
+          "excellent": 0.108875,
+          "good": 0.709955,
+          "fair": 0.168629,
+          "poor": 0.012215,
+          "bad": 0.000326
+        }
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/turn_full/20.png",
+        "score": 0.722038,
+        "probabilities": {
+          "excellent": 0.106117,
+          "good": 0.691971,
+          "fair": 0.186241,
+          "poor": 0.015288,
+          "bad": 0.000383
+        }
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/turn_full/21.png",
+        "score": 0.727998,
+        "probabilities": {
+          "excellent": 0.103187,
+          "good": 0.716258,
+          "fair": 0.170126,
+          "poor": 0.010217,
+          "bad": 0.000212
+        }
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/turn_full/22.png",
+        "score": 0.743027,
+        "probabilities": {
+          "excellent": 0.114834,
+          "good": 0.748813,
+          "fair": 0.130124,
+          "poor": 0.006086,
+          "bad": 0.000143
+        }
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/turn_full/23.png",
+        "score": 0.770975,
+        "probabilities": {
+          "excellent": 0.160487,
+          "good": 0.765642,
+          "fair": 0.071216,
+          "poor": 0.002594,
+          "bad": 6.1e-05
+        }
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/candidate_face/00.png",
+        "score": 0.828804,
+        "probabilities": {
+          "excellent": 0.34025,
+          "good": 0.63567,
+          "fair": 0.023154,
+          "poor": 0.000898,
+          "bad": 2.8e-05
+        }
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/candidate_face/01.png",
+        "score": 0.798497,
+        "probabilities": {
+          "excellent": 0.235318,
+          "good": 0.72483,
+          "fair": 0.038415,
+          "poor": 0.001399,
+          "bad": 3.8e-05
+        }
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/candidate_face/02.png",
+        "score": 0.805308,
+        "probabilities": {
+          "excellent": 0.259134,
+          "good": 0.704399,
+          "fair": 0.03507,
+          "poor": 0.00136,
+          "bad": 3.7e-05
+        }
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/candidate_face/03.png",
+        "score": 0.766425,
+        "probabilities": {
+          "excellent": 0.157975,
+          "good": 0.753656,
+          "fair": 0.084558,
+          "poor": 0.003715,
+          "bad": 9.6e-05
+        }
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/candidate_face/04.png",
+        "score": 0.715919,
+        "probabilities": {
+          "excellent": 0.093693,
+          "good": 0.692304,
+          "fair": 0.198348,
+          "poor": 0.015295,
+          "bad": 0.00036
+        }
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/candidate_face/20.png",
+        "score": 0.678694,
+        "probabilities": {
+          "excellent": 0.072392,
+          "good": 0.606128,
+          "fair": 0.286315,
+          "poor": 0.034195,
+          "bad": 0.00097
+        }
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/candidate_face/21.png",
+        "score": 0.760151,
+        "probabilities": {
+          "excellent": 0.141152,
+          "good": 0.763062,
+          "fair": 0.091135,
+          "poor": 0.004537,
+          "bad": 0.000114
+        }
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/candidate_face/22.png",
+        "score": 0.779293,
+        "probabilities": {
+          "excellent": 0.188103,
+          "good": 0.743963,
+          "fair": 0.065007,
+          "poor": 0.002856,
+          "bad": 7.2e-05
+        }
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/candidate_face/23.png",
+        "score": 0.813137,
+        "probabilities": {
+          "excellent": 0.285023,
+          "good": 0.683735,
+          "fair": 0.030041,
+          "poor": 0.001165,
+          "bad": 3.5e-05
+        }
+      }
+    ],
+    "count": 33,
+    "mean": 0.742567,
+    "minimum": 0.678694,
+    "p10": 0.699997,
+    "maximum": 0.828804,
+    "full_summary": {
+      "count": 24,
+      "mean": 0.731603,
+      "minimum": 0.689358,
+      "p10": 0.699997,
+      "maximum": 0.771798
+    },
+    "face_summary": {
+      "count": 9,
+      "mean": 0.771803,
+      "minimum": 0.678694,
+      "p10": 0.678694,
+      "maximum": 0.828804
+    }
+  },
+  "face_landmarks": {
+    "schema": 1,
+    "model": "/home/runner/.cache/hayuya/face_landmarker.task",
+    "face_expected_from_source": true,
+    "source_detected": 2,
+    "source_total": 2,
+    "candidate_detected": 7,
+    "candidate_total": 9,
+    "source": [
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/source_face/detail_00.png",
+        "attempt": 0,
+        "landmarks": 478,
+        "features": {
+          "inter_eye": 0.232045,
+          "left_eye_width": 0.453424,
+          "right_eye_width": 0.434802,
+          "left_eye_height": 0.131181,
+          "right_eye_height": 0.119515,
+          "mouth_width": 0.767055,
+          "mouth_height": 0.241221,
+          "face_width": 2.171561,
+          "face_height": 2.517668,
+          "nose_to_chin": 1.385254,
+          "nose_eye_center_offset": 0.846284,
+          "mouth_face_center_offset": 1.270648,
+          "eye_width_asymmetry": 0.04107,
+          "eye_height_asymmetry": 0.08893
+        },
+        "blendshapes": {
+          "_neutral": 2e-06,
+          "browDownLeft": 0.126305,
+          "browDownRight": 0.10485,
+          "browInnerUp": 0.000879,
+          "browOuterUpLeft": 0.032069,
+          "browOuterUpRight": 0.020431,
+          "cheekPuff": 7.3e-05,
+          "cheekSquintLeft": 1e-06,
+          "cheekSquintRight": 0.0,
+          "eyeBlinkLeft": 0.150761,
+          "eyeBlinkRight": 0.079077,
+          "eyeLookDownLeft": 0.167795,
+          "eyeLookDownRight": 0.179344,
+          "eyeLookInLeft": 0.013883,
+          "eyeLookInRight": 0.104344,
+          "eyeLookOutLeft": 0.178129,
+          "eyeLookOutRight": 0.044828,
+          "eyeLookUpLeft": 0.055642,
+          "eyeLookUpRight": 0.050248,
+          "eyeSquintLeft": 0.393421,
+          "eyeSquintRight": 0.342475,
+          "eyeWideLeft": 0.007031,
+          "eyeWideRight": 0.004636,
+          "jawForward": 0.000161,
+          "jawLeft": 0.029419,
+          "jawOpen": 0.290572,
+          "jawRight": 0.000141,
+          "mouthClose": 0.00172,
+          "mouthDimpleLeft": 0.000475,
+          "mouthDimpleRight": 0.00526,
+          "mouthFrownLeft": 0.0056,
+          "mouthFrownRight": 0.007564,
+          "mouthFunnel": 0.00568,
+          "mouthLeft": 0.002522,
+          "mouthLowerDownLeft": 0.046431,
+          "mouthLowerDownRight": 0.023629,
+          "mouthPressLeft": 0.003091,
+          "mouthPressRight": 0.074226,
+          "mouthPucker": 0.006358,
+          "mouthRight": 4.6e-05,
+          "mouthRollLower": 0.02318,
+          "mouthRollUpper": 0.013099,
+          "mouthShrugLower": 0.02349,
+          "mouthShrugUpper": 0.147005,
+          "mouthSmileLeft": 0.0001,
+          "mouthSmileRight": 0.00018,
+          "mouthStretchLeft": 0.000423,
+          "mouthStretchRight": 0.002909,
+          "mouthUpperUpLeft": 0.013776,
+          "mouthUpperUpRight": 0.036102,
+          "noseSneerLeft": 1e-06,
+          "noseSneerRight": 4e-06
+        }
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/source_face/crop_00.png",
+        "attempt": 0,
+        "landmarks": 478,
+        "features": {
+          "inter_eye": 0.058579,
+          "left_eye_width": 0.457176,
+          "right_eye_width": 0.426122,
+          "left_eye_height": 0.130304,
+          "right_eye_height": 0.115595,
+          "mouth_width": 0.765109,
+          "mouth_height": 0.226986,
+          "face_width": 2.198963,
+          "face_height": 2.750524,
+          "nose_to_chin": 1.504288,
+          "nose_eye_center_offset": 0.857804,
+          "mouth_face_center_offset": 1.305624,
+          "eye_width_asymmetry": 0.067927,
+          "eye_height_asymmetry": 0.112884
+        },
+        "blendshapes": {
+          "_neutral": 1e-06,
+          "browDownLeft": 0.138859,
+          "browDownRight": 0.168195,
+          "browInnerUp": 0.000639,
+          "browOuterUpLeft": 0.035148,
+          "browOuterUpRight": 0.010941,
+          "cheekPuff": 2.4e-05,
+          "cheekSquintLeft": 1e-06,
+          "cheekSquintRight": 0.0,
+          "eyeBlinkLeft": 0.223864,
+          "eyeBlinkRight": 0.102303,
+          "eyeLookDownLeft": 0.279714,
+          "eyeLookDownRight": 0.276692,
+          "eyeLookInLeft": 0.075331,
+          "eyeLookInRight": 0.041826,
+          "eyeLookOutLeft": 0.053296,
+          "eyeLookOutRight": 0.084569,
+          "eyeLookUpLeft": 0.030644,
+          "eyeLookUpRight": 0.031178,
+          "eyeSquintLeft": 0.342062,
+          "eyeSquintRight": 0.350408,
+          "eyeWideLeft": 0.004155,
+          "eyeWideRight": 0.002926,
+          "jawForward": 4.4e-05,
+          "jawLeft": 0.024277,
+          "jawOpen": 0.279062,
+          "jawRight": 0.000161,
+          "mouthClose": 0.005466,
+          "mouthDimpleLeft": 0.000359,
+          "mouthDimpleRight": 0.003064,
+          "mouthFrownLeft": 0.002601,
+          "mouthFrownRight": 0.002896,
+          "mouthFunnel": 0.007423,
+          "mouthLeft": 0.004686,
+          "mouthLowerDownLeft": 0.00568,
+          "mouthLowerDownRight": 0.002589,
+          "mouthPressLeft": 0.001852,
+          "mouthPressRight": 0.028101,
+          "mouthPucker": 0.041562,
+          "mouthRight": 4.6e-05,
+          "mouthRollLower": 0.038589,
+          "mouthRollUpper": 0.015326,
+          "mouthShrugLower": 0.046581,
+          "mouthShrugUpper": 0.091689,
+          "mouthSmileLeft": 1.9e-05,
+          "mouthSmileRight": 2.5e-05,
+          "mouthStretchLeft": 0.000294,
+          "mouthStretchRight": 0.000621,
+          "mouthUpperUpLeft": 0.002958,
+          "mouthUpperUpRight": 0.00772,
+          "noseSneerLeft": 0.0,
+          "noseSneerRight": 1e-06
+        }
+      }
+    ],
+    "candidate": [
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/candidate_face/00.png",
+        "attempt": 0,
+        "landmarks": 478,
+        "features": {
+          "inter_eye": 0.085966,
+          "left_eye_width": 0.451186,
+          "right_eye_width": 0.424414,
+          "left_eye_height": 0.057124,
+          "right_eye_height": 0.078836,
+          "mouth_width": 0.679661,
+          "mouth_height": 0.154029,
+          "face_width": 2.212144,
+          "face_height": 2.70222,
+          "nose_to_chin": 1.419216,
+          "nose_eye_center_offset": 0.816197,
+          "mouth_face_center_offset": 1.232105,
+          "eye_width_asymmetry": 0.059338,
+          "eye_height_asymmetry": 0.275405
+        },
+        "blendshapes": {
+          "_neutral": 0.0,
+          "browDownLeft": 0.002182,
+          "browDownRight": 0.003888,
+          "browInnerUp": 0.122081,
+          "browOuterUpLeft": 0.282178,
+          "browOuterUpRight": 0.110801,
+          "cheekPuff": 3.6e-05,
+          "cheekSquintLeft": 0.0,
+          "cheekSquintRight": 0.0,
+          "eyeBlinkLeft": 0.430991,
+          "eyeBlinkRight": 0.560023,
+          "eyeLookDownLeft": 0.748377,
+          "eyeLookDownRight": 0.73245,
+          "eyeLookInLeft": 0.021855,
+          "eyeLookInRight": 0.159396,
+          "eyeLookOutLeft": 0.159292,
+          "eyeLookOutRight": 0.035265,
+          "eyeLookUpLeft": 0.005677,
+          "eyeLookUpRight": 0.002176,
+          "eyeSquintLeft": 0.318613,
+          "eyeSquintRight": 0.262057,
+          "eyeWideLeft": 0.00256,
+          "eyeWideRight": 0.000203,
+          "jawForward": 5.2e-05,
+          "jawLeft": 0.026235,
+          "jawOpen": 0.112872,
+          "jawRight": 0.000117,
+          "mouthClose": 0.008113,
+          "mouthDimpleLeft": 0.001242,
+          "mouthDimpleRight": 0.055453,
+          "mouthFrownLeft": 1e-05,
+          "mouthFrownRight": 6e-06,
+          "mouthFunnel": 0.057437,
+          "mouthLeft": 0.035082,
+          "mouthLowerDownLeft": 0.004473,
+          "mouthLowerDownRight": 0.000971,
+          "mouthPressLeft": 0.000823,
+          "mouthPressRight": 0.020532,
+          "mouthPucker": 0.594718,
+          "mouthRight": 0.000135,
+          "mouthRollLower": 0.024993,
+          "mouthRollUpper": 0.025949,
+          "mouthShrugLower": 0.015181,
+          "mouthShrugUpper": 0.07453,
+          "mouthSmileLeft": 3.8e-05,
+          "mouthSmileRight": 5.3e-05,
+          "mouthStretchLeft": 0.000129,
+          "mouthStretchRight": 1.3e-05,
+          "mouthUpperUpLeft": 0.003032,
+          "mouthUpperUpRight": 0.014279,
+          "noseSneerLeft": 0.0,
+          "noseSneerRight": 0.0
+        },
+        "profile_error": 0.045939
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/candidate_face/01.png",
+        "attempt": 0,
+        "landmarks": 478,
+        "features": {
+          "inter_eye": 0.082345,
+          "left_eye_width": 0.431891,
+          "right_eye_width": 0.410704,
+          "left_eye_height": 0.081588,
+          "right_eye_height": 0.088236,
+          "mouth_width": 0.661956,
+          "mouth_height": 0.177661,
+          "face_width": 2.192615,
+          "face_height": 2.783127,
+          "nose_to_chin": 1.484677,
+          "nose_eye_center_offset": 0.841108,
+          "mouth_face_center_offset": 1.260832,
+          "eye_width_asymmetry": 0.049058,
+          "eye_height_asymmetry": 0.075349
+        },
+        "blendshapes": {
+          "_neutral": 0.0,
+          "browDownLeft": 0.00562,
+          "browDownRight": 0.010799,
+          "browInnerUp": 0.058625,
+          "browOuterUpLeft": 0.20015,
+          "browOuterUpRight": 0.097053,
+          "cheekPuff": 2e-05,
+          "cheekSquintLeft": 0.0,
+          "cheekSquintRight": 0.0,
+          "eyeBlinkLeft": 0.396331,
+          "eyeBlinkRight": 0.298615,
+          "eyeLookDownLeft": 0.65019,
+          "eyeLookDownRight": 0.671564,
+          "eyeLookInLeft": 0.054609,
+          "eyeLookInRight": 0.080735,
+          "eyeLookOutLeft": 0.092326,
+          "eyeLookOutRight": 0.064966,
+          "eyeLookUpLeft": 0.006386,
+          "eyeLookUpRight": 0.006182,
+          "eyeSquintLeft": 0.270648,
+          "eyeSquintRight": 0.439425,
+          "eyeWideLeft": 0.002387,
+          "eyeWideRight": 0.00093,
+          "jawForward": 3.2e-05,
+          "jawLeft": 0.078472,
+          "jawOpen": 0.239416,
+          "jawRight": 0.000183,
+          "mouthClose": 0.016341,
+          "mouthDimpleLeft": 0.001381,
+          "mouthDimpleRight": 0.047416,
+          "mouthFrownLeft": 4e-06,
+          "mouthFrownRight": 2e-06,
+          "mouthFunnel": 0.060082,
+          "mouthLeft": 0.011735,
+          "mouthLowerDownLeft": 0.003395,
+          "mouthLowerDownRight": 0.000945,
+          "mouthPressLeft": 0.000606,
+          "mouthPressRight": 0.008074,
+          "mouthPucker": 0.82522,
+          "mouthRight": 0.000554,
+          "mouthRollLower": 0.046546,
+          "mouthRollUpper": 0.12277,
+          "mouthShrugLower": 0.006273,
+          "mouthShrugUpper": 0.008958,
+          "mouthSmileLeft": 3e-06,
+          "mouthSmileRight": 3e-06,
+          "mouthStretchLeft": 8.9e-05,
+          "mouthStretchRight": 4e-06,
+          "mouthUpperUpLeft": 0.00017,
+          "mouthUpperUpRight": 0.000599,
+          "noseSneerLeft": 0.0,
+          "noseSneerRight": 0.0
+        },
+        "profile_error": 0.049885
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/candidate_face/02.png",
+        "attempt": 0,
+        "landmarks": 478,
+        "features": {
+          "inter_eye": 0.075837,
+          "left_eye_width": 0.465,
+          "right_eye_width": 0.420502,
+          "left_eye_height": 0.064604,
+          "right_eye_height": 0.089564,
+          "mouth_width": 0.708771,
+          "mouth_height": 0.167461,
+          "face_width": 2.311463,
+          "face_height": 2.966075,
+          "nose_to_chin": 1.54489,
+          "nose_eye_center_offset": 0.878994,
+          "mouth_face_center_offset": 1.348438,
+          "eye_width_asymmetry": 0.095695,
+          "eye_height_asymmetry": 0.278686
+        },
+        "blendshapes": {
+          "_neutral": 0.0,
+          "browDownLeft": 0.001312,
+          "browDownRight": 0.000503,
+          "browInnerUp": 0.285715,
+          "browOuterUpLeft": 0.366614,
+          "browOuterUpRight": 0.287325,
+          "cheekPuff": 3e-05,
+          "cheekSquintLeft": 0.0,
+          "cheekSquintRight": 0.0,
+          "eyeBlinkLeft": 0.338799,
+          "eyeBlinkRight": 0.512802,
+          "eyeLookDownLeft": 0.724518,
+          "eyeLookDownRight": 0.721802,
+          "eyeLookInLeft": 0.063736,
+          "eyeLookInRight": 0.085923,
+          "eyeLookOutLeft": 0.101423,
+          "eyeLookOutRight": 0.08443,
+          "eyeLookUpLeft": 0.00813,
+          "eyeLookUpRight": 0.002729,
+          "eyeSquintLeft": 0.358495,
+          "eyeSquintRight": 0.286214,
+          "eyeWideLeft": 0.00424,
+          "eyeWideRight": 0.0003,
+          "jawForward": 4.7e-05,
+          "jawLeft": 0.024258,
+          "jawOpen": 0.148344,
+          "jawRight": 0.000284,
+          "mouthClose": 0.017054,
+          "mouthDimpleLeft": 0.000336,
+          "mouthDimpleRight": 0.063791,
+          "mouthFrownLeft": 1.3e-05,
+          "mouthFrownRight": 5e-06,
+          "mouthFunnel": 0.074984,
+          "mouthLeft": 0.003261,
+          "mouthLowerDownLeft": 0.004556,
+          "mouthLowerDownRight": 0.000702,
+          "mouthPressLeft": 0.000202,
+          "mouthPressRight": 0.007882,
+          "mouthPucker": 0.778883,
+          "mouthRight": 0.00181,
+          "mouthRollLower": 0.015107,
+          "mouthRollUpper": 0.036542,
+          "mouthShrugLower": 0.00422,
+          "mouthShrugUpper": 0.015569,
+          "mouthSmileLeft": 1e-05,
+          "mouthSmileRight": 1.7e-05,
+          "mouthStretchLeft": 0.000417,
+          "mouthStretchRight": 1e-05,
+          "mouthUpperUpLeft": 0.000504,
+          "mouthUpperUpRight": 0.004078,
+          "noseSneerLeft": 0.0,
+          "noseSneerRight": 0.0
+        },
+        "profile_error": 0.072379
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/candidate_face/03.png",
+        "attempt": 0,
+        "landmarks": 478,
+        "features": {
+          "inter_eye": 0.062155,
+          "left_eye_width": 0.473785,
+          "right_eye_width": 0.396025,
+          "left_eye_height": 0.165521,
+          "right_eye_height": 0.142015,
+          "mouth_width": 0.795719,
+          "mouth_height": 0.094175,
+          "face_width": 2.067151,
+          "face_height": 2.859861,
+          "nose_to_chin": 1.301403,
+          "nose_eye_center_offset": 0.86607,
+          "mouth_face_center_offset": 1.196251,
+          "eye_width_asymmetry": 0.164126,
+          "eye_height_asymmetry": 0.142011
+        },
+        "blendshapes": {
+          "_neutral": 2e-06,
+          "browDownLeft": 0.000557,
+          "browDownRight": 0.000852,
+          "browInnerUp": 0.136175,
+          "browOuterUpLeft": 0.785282,
+          "browOuterUpRight": 0.324694,
+          "cheekPuff": 3.5e-05,
+          "cheekSquintLeft": 1e-06,
+          "cheekSquintRight": 0.0,
+          "eyeBlinkLeft": 0.058464,
+          "eyeBlinkRight": 0.113632,
+          "eyeLookDownLeft": 0.105378,
+          "eyeLookDownRight": 0.358021,
+          "eyeLookInLeft": 0.161366,
+          "eyeLookInRight": 0.028173,
+          "eyeLookOutLeft": 0.03302,
+          "eyeLookOutRight": 0.164834,
+          "eyeLookUpLeft": 0.117316,
+          "eyeLookUpRight": 0.015391,
+          "eyeSquintLeft": 0.692344,
+          "eyeSquintRight": 0.034535,
+          "eyeWideLeft": 0.014696,
+          "eyeWideRight": 0.002304,
+          "jawForward": 9.4e-05,
+          "jawLeft": 0.008515,
+          "jawOpen": 0.00748,
+          "jawRight": 1.6e-05,
+          "mouthClose": 0.001131,
+          "mouthDimpleLeft": 0.00015,
+          "mouthDimpleRight": 0.004272,
+          "mouthFrownLeft": 0.004287,
+          "mouthFrownRight": 0.003335,
+          "mouthFunnel": 0.059663,
+          "mouthLeft": 0.005386,
+          "mouthLowerDownLeft": 0.002015,
+          "mouthLowerDownRight": 0.000631,
+          "mouthPressLeft": 0.002133,
+          "mouthPressRight": 0.03322,
+          "mouthPucker": 0.240651,
+          "mouthRight": 0.000305,
+          "mouthRollLower": 0.006181,
+          "mouthRollUpper": 0.000716,
+          "mouthShrugLower": 0.093274,
+          "mouthShrugUpper": 0.351858,
+          "mouthSmileLeft": 0.00061,
+          "mouthSmileRight": 0.001166,
+          "mouthStretchLeft": 0.001893,
+          "mouthStretchRight": 0.003437,
+          "mouthUpperUpLeft": 0.049131,
+          "mouthUpperUpRight": 0.110257,
+          "noseSneerLeft": 4e-06,
+          "noseSneerRight": 1e-06
+        },
+        "profile_error": 0.087633
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/candidate_face/21.png",
+        "attempt": 0,
+        "landmarks": 478,
+        "features": {
+          "inter_eye": 0.066676,
+          "left_eye_width": 0.420953,
+          "right_eye_width": 0.401063,
+          "left_eye_height": 0.103639,
+          "right_eye_height": 0.131039,
+          "mouth_width": 0.775265,
+          "mouth_height": 0.143638,
+          "face_width": 2.168452,
+          "face_height": 3.021461,
+          "nose_to_chin": 1.543908,
+          "nose_eye_center_offset": 0.819897,
+          "mouth_face_center_offset": 1.191333,
+          "eye_width_asymmetry": 0.047251,
+          "eye_height_asymmetry": 0.209095
+        },
+        "blendshapes": {
+          "_neutral": 1e-06,
+          "browDownLeft": 5.2e-05,
+          "browDownRight": 2.1e-05,
+          "browInnerUp": 0.772844,
+          "browOuterUpLeft": 0.89616,
+          "browOuterUpRight": 0.873617,
+          "cheekPuff": 4.9e-05,
+          "cheekSquintLeft": 1e-06,
+          "cheekSquintRight": 0.0,
+          "eyeBlinkLeft": 0.193312,
+          "eyeBlinkRight": 0.286351,
+          "eyeLookDownLeft": 0.107902,
+          "eyeLookDownRight": 0.160169,
+          "eyeLookInLeft": 0.056191,
+          "eyeLookInRight": 0.0732,
+          "eyeLookOutLeft": 0.099984,
+          "eyeLookOutRight": 0.090929,
+          "eyeLookUpLeft": 0.107374,
+          "eyeLookUpRight": 0.06549,
+          "eyeSquintLeft": 0.41192,
+          "eyeSquintRight": 0.326971,
+          "eyeWideLeft": 0.006247,
+          "eyeWideRight": 0.001131,
+          "jawForward": 5.2e-05,
+          "jawLeft": 0.00084,
+          "jawOpen": 0.198254,
+          "jawRight": 0.004006,
+          "mouthClose": 0.050568,
+          "mouthDimpleLeft": 6.3e-05,
+          "mouthDimpleRight": 0.003787,
+          "mouthFrownLeft": 0.002128,
+          "mouthFrownRight": 0.001094,
+          "mouthFunnel": 0.009268,
+          "mouthLeft": 0.197037,
+          "mouthLowerDownLeft": 0.001306,
+          "mouthLowerDownRight": 0.000233,
+          "mouthPressLeft": 0.000536,
+          "mouthPressRight": 0.010002,
+          "mouthPucker": 0.156303,
+          "mouthRight": 1.2e-05,
+          "mouthRollLower": 0.012499,
+          "mouthRollUpper": 0.016477,
+          "mouthShrugLower": 0.019805,
+          "mouthShrugUpper": 0.028626,
+          "mouthSmileLeft": 5e-05,
+          "mouthSmileRight": 6.2e-05,
+          "mouthStretchLeft": 0.002396,
+          "mouthStretchRight": 0.000558,
+          "mouthUpperUpLeft": 0.000865,
+          "mouthUpperUpRight": 0.001308,
+          "noseSneerLeft": 1e-06,
+          "noseSneerRight": 0.0
+        },
+        "profile_error": 0.087619
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/candidate_face/22.png",
+        "attempt": 0,
+        "landmarks": 478,
+        "features": {
+          "inter_eye": 0.079586,
+          "left_eye_width": 0.453848,
+          "right_eye_width": 0.428078,
+          "left_eye_height": 0.063517,
+          "right_eye_height": 0.104715,
+          "mouth_width": 0.651938,
+          "mouth_height": 0.129564,
+          "face_width": 2.160856,
+          "face_height": 2.710095,
+          "nose_to_chin": 1.363384,
+          "nose_eye_center_offset": 0.802927,
+          "mouth_face_center_offset": 1.155731,
+          "eye_width_asymmetry": 0.05678,
+          "eye_height_asymmetry": 0.393432
+        },
+        "blendshapes": {
+          "_neutral": 0.0,
+          "browDownLeft": 0.000664,
+          "browDownRight": 0.000702,
+          "browInnerUp": 0.145311,
+          "browOuterUpLeft": 0.558874,
+          "browOuterUpRight": 0.522567,
+          "cheekPuff": 4.4e-05,
+          "cheekSquintLeft": 0.0,
+          "cheekSquintRight": 0.0,
+          "eyeBlinkLeft": 0.250336,
+          "eyeBlinkRight": 0.456826,
+          "eyeLookDownLeft": 0.507468,
+          "eyeLookDownRight": 0.526483,
+          "eyeLookInLeft": 0.067621,
+          "eyeLookInRight": 0.053781,
+          "eyeLookOutLeft": 0.080475,
+          "eyeLookOutRight": 0.091156,
+          "eyeLookUpLeft": 0.016328,
+          "eyeLookUpRight": 0.007988,
+          "eyeSquintLeft": 0.395664,
+          "eyeSquintRight": 0.337421,
+          "eyeWideLeft": 0.004891,
+          "eyeWideRight": 0.000352,
+          "jawForward": 3.7e-05,
+          "jawLeft": 0.01405,
+          "jawOpen": 0.180029,
+          "jawRight": 0.000193,
+          "mouthClose": 0.029132,
+          "mouthDimpleLeft": 0.000431,
+          "mouthDimpleRight": 0.035385,
+          "mouthFrownLeft": 1.5e-05,
+          "mouthFrownRight": 4e-06,
+          "mouthFunnel": 0.056728,
+          "mouthLeft": 0.25064,
+          "mouthLowerDownLeft": 0.001189,
+          "mouthLowerDownRight": 0.000276,
+          "mouthPressLeft": 0.00085,
+          "mouthPressRight": 0.008727,
+          "mouthPucker": 0.669082,
+          "mouthRight": 3.4e-05,
+          "mouthRollLower": 0.017854,
+          "mouthRollUpper": 0.035593,
+          "mouthShrugLower": 0.006942,
+          "mouthShrugUpper": 0.024508,
+          "mouthSmileLeft": 5e-05,
+          "mouthSmileRight": 3.9e-05,
+          "mouthStretchLeft": 0.000975,
+          "mouthStretchRight": 7e-06,
+          "mouthUpperUpLeft": 0.00115,
+          "mouthUpperUpRight": 0.003005,
+          "noseSneerLeft": 0.0,
+          "noseSneerRight": 0.0
+        },
+        "profile_error": 0.086822
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/candidate_face/23.png",
+        "attempt": 0,
+        "landmarks": 478,
+        "features": {
+          "inter_eye": 0.085463,
+          "left_eye_width": 0.447943,
+          "right_eye_width": 0.417041,
+          "left_eye_height": 0.064812,
+          "right_eye_height": 0.091289,
+          "mouth_width": 0.692521,
+          "mouth_height": 0.175566,
+          "face_width": 2.149487,
+          "face_height": 2.554715,
+          "nose_to_chin": 1.356486,
+          "nose_eye_center_offset": 0.795729,
+          "mouth_face_center_offset": 1.153476,
+          "eye_width_asymmetry": 0.068986,
+          "eye_height_asymmetry": 0.290029
+        },
+        "blendshapes": {
+          "_neutral": 0.0,
+          "browDownLeft": 0.003542,
+          "browDownRight": 0.007344,
+          "browInnerUp": 0.036695,
+          "browOuterUpLeft": 0.27964,
+          "browOuterUpRight": 0.11199,
+          "cheekPuff": 7.5e-05,
+          "cheekSquintLeft": 0.0,
+          "cheekSquintRight": 0.0,
+          "eyeBlinkLeft": 0.330421,
+          "eyeBlinkRight": 0.381161,
+          "eyeLookDownLeft": 0.530572,
+          "eyeLookDownRight": 0.525988,
+          "eyeLookInLeft": 0.032714,
+          "eyeLookInRight": 0.100123,
+          "eyeLookOutLeft": 0.110207,
+          "eyeLookOutRight": 0.045279,
+          "eyeLookUpLeft": 0.013118,
+          "eyeLookUpRight": 0.010145,
+          "eyeSquintLeft": 0.298364,
+          "eyeSquintRight": 0.446787,
+          "eyeWideLeft": 0.002896,
+          "eyeWideRight": 0.000455,
+          "jawForward": 0.000106,
+          "jawLeft": 0.086224,
+          "jawOpen": 0.20992,
+          "jawRight": 3.5e-05,
+          "mouthClose": 0.006577,
+          "mouthDimpleLeft": 0.000988,
+          "mouthDimpleRight": 0.095553,
+          "mouthFrownLeft": 2.4e-05,
+          "mouthFrownRight": 9e-06,
+          "mouthFunnel": 0.02957,
+          "mouthLeft": 0.0957,
+          "mouthLowerDownLeft": 0.014252,
+          "mouthLowerDownRight": 0.003691,
+          "mouthPressLeft": 0.001712,
+          "mouthPressRight": 0.034772,
+          "mouthPucker": 0.151769,
+          "mouthRight": 1.7e-05,
+          "mouthRollLower": 0.014807,
+          "mouthRollUpper": 0.039036,
+          "mouthShrugLower": 0.003633,
+          "mouthShrugUpper": 0.041354,
+          "mouthSmileLeft": 0.000123,
+          "mouthSmileRight": 0.000132,
+          "mouthStretchLeft": 0.000843,
+          "mouthStretchRight": 1.4e-05,
+          "mouthUpperUpLeft": 0.004706,
+          "mouthUpperUpRight": 0.017625,
+          "noseSneerLeft": 0.0,
+          "noseSneerRight": 0.0
+        },
+        "profile_error": 0.082002
+      }
+    ],
+    "source_failures": [],
+    "candidate_failures": [
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/candidate_face/04.png",
+        "error": "no_face_detected"
+      },
+      {
+        "path": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/candidate_face/20.png",
+        "error": "no_face_detected"
+      }
+    ],
+    "reference_profile": {
+      "eye_height_asymmetry": 0.100907,
+      "eye_width_asymmetry": 0.054499,
+      "face_height": 2.634096,
+      "face_width": 2.185262,
+      "inter_eye": 0.145312,
+      "left_eye_height": 0.130742,
+      "left_eye_width": 0.4553,
+      "mouth_face_center_offset": 1.288136,
+      "mouth_height": 0.234103,
+      "mouth_width": 0.766082,
+      "nose_eye_center_offset": 0.852044,
+      "nose_to_chin": 1.444771,
+      "right_eye_height": 0.117555,
+      "right_eye_width": 0.430462
+    },
+    "median_profile_error": 0.082002,
+    "p90_profile_error": 0.087619,
+    "proportion_gate": {
+      "enabled": true,
+      "passed": true,
+      "source_relative": true,
+      "ratios": {
+        "nose_to_chin": 0.982312,
+        "nose_eye_center_offset": 0.957928
+      },
+      "limits": {
+        "min": 0.65,
+        "max": 1.4
+      },
+      "asset_specific_coordinates": false
+    }
+  },
+  "dreamsim": {
+    "schema": 1,
+    "model": "DreamSim",
+    "device": "cpu",
+    "full": {
+      "sources": 1,
+      "candidates": 24,
+      "per_source": [
+        {
+          "source": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/source_full/00.png",
+          "best": {
+            "candidate": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/turn_full/13.png",
+            "distance": 0.226828
+          },
+          "top3": [
+            {
+              "candidate": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/turn_full/13.png",
+              "distance": 0.226828
+            },
+            {
+              "candidate": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/turn_full/12.png",
+              "distance": 0.23014
+            },
+            {
+              "candidate": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/turn_full/11.png",
+              "distance": 0.236119
+            }
+          ]
+        }
+      ],
+      "mean_best_distance": 0.226828,
+      "worst_best_distance": 0.226828,
+      "best_best_distance": 0.226828
+    },
+    "face": {
+      "sources": 2,
+      "candidates": 9,
+      "per_source": [
+        {
+          "source": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/source_face/detail_00.png",
+          "best": {
+            "candidate": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/candidate_face/00.png",
+            "distance": 0.320575
+          },
+          "top3": [
+            {
+              "candidate": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/candidate_face/00.png",
+              "distance": 0.320575
+            },
+            {
+              "candidate": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/candidate_face/23.png",
+              "distance": 0.333161
+            },
+            {
+              "candidate": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/candidate_face/01.png",
+              "distance": 0.333741
+            }
+          ]
+        },
+        {
+          "source": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/source_face/crop_00.png",
+          "best": {
+            "candidate": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/candidate_face/00.png",
+            "distance": 0.207614
+          },
+          "top3": [
+            {
+              "candidate": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/candidate_face/00.png",
+              "distance": 0.207614
+            },
+            {
+              "candidate": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/candidate_face/01.png",
+              "distance": 0.224231
+            },
+            {
+              "candidate": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/evidence/candidate_face/23.png",
+              "distance": 0.22644
+            }
+          ]
+        }
+      ],
+      "mean_best_distance": 0.264095,
+      "worst_best_distance": 0.320575,
+      "best_best_distance": 0.207614
+    }
+  },
+  "internvl": {
+    "schema": 1,
+    "model": "OpenGVLab/InternVL3_5-1B-HF",
+    "provenance": {
+      "model_id": "OpenGVLab/InternVL3_5-1B-HF",
+      "resolved_revision": "9191dbccf312b537016f041b25d61c72e7c5c9f3",
+      "num_parameters": 1060897792,
+      "dtype": "torch.bfloat16"
+    },
+    "device": "cpu",
+    "passes": [
+      {
+        "board": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/board_source_first.jpg",
+        "raw": "```json\n{\n  \"pass\": true,\n  \"confidence\": 0.95,\n  \"critical_issues\": [],\n  \"scores\": {\n    \"face_anatomy\": 100,\n    \"face_source_fidelity\": 100,\n    \"body_anatomy\": 100,\n    \"hands\": 100,\n    \"material_texture\": 100,\n    \"multiview_consistency\": 100,\n    \"source_fidelity\": 100\n  },\n  \"notes\": []\n}\n```",
+        "verdict": {
+          "pass": true,
+          "confidence": 0.95,
+          "critical_issues": [],
+          "scores": {
+            "face_anatomy": 100.0,
+            "source_fidelity": 100.0,
+            "multiview_consistency": 100.0,
+            "hands": 100.0,
+            "body_anatomy": 100.0,
+            "face_source_fidelity": 100.0,
+            "material_texture": 100.0
+          },
+          "notes": []
+        }
+      },
+      {
+        "board": "out/hayuya-jobs/monja-nun-0-mur3s4kw-visibility-planar/outputs/judge_v4_core/board_candidate_first.jpg",
+        "raw": "```json\n{\n  \"pass\": true,\n  \"confidence\": 0.95,\n  \"critical_issues\": [],\n  \"scores\": {\n    \"face_anatomy\": 100,\n    \"face_source_fidelity\": 100,\n    \"body_anatomy\": 100,\n    \"hands\": 100,\n    \"material_texture\": 100,\n    \"multiview_consistency\": 100,\n    \"source_fidelity\": 100\n  },\n  \"notes\": []\n}\n```",
+        "verdict": {
+          "pass": true,
+          "confidence": 0.95,
+          "critical_issues": [],
+          "scores": {
+            "face_anatomy": 100.0,
+            "source_fidelity": 100.0,
+            "multiview_consistency": 100.0,
+            "hands": 100.0,
+            "body_anatomy": 100.0,
+            "face_source_fidelity": 100.0,
+            "material_texture": 100.0
+          },
+          "notes": []
+        }
+      }
+    ]
+  }
+}
