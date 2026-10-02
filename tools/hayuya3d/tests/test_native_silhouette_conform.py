@@ -17,6 +17,7 @@ from silhouette_conform import _require_legacy_projection_profile
 from native_silhouette_conform import (
     _assert_roundtrip_preserved,
     _bounded_render_faces,
+    _collateral_view_preservation,
     _front_surface_vertex_mask,
     _load_editable_scene,
     _smooth_topology_displacements,
@@ -232,6 +233,54 @@ def test_clustered_render_proxy_tracks_full_mesh_silhouette():
     assert boundary_f1 >= 0.70
 
 
+def test_collateral_view_gate_preserves_unseen_side_and_back_shape():
+    mesh = trimesh.creation.icosphere(subdivisions=3, radius=1.0)
+    reference = np.asarray(mesh.vertices, dtype=np.float64)
+    faces = np.asarray(mesh.faces, dtype=np.int64)
+    camera = (
+        0.0,
+        0.0,
+        0.0,
+        "y",
+        0.0,
+        0.0,
+        "orthographic",
+        None,
+    )
+
+    allowed_same, same = _collateral_view_preservation(
+        reference,
+        reference.copy(),
+        faces,
+        camera,
+        size=160,
+        min_iou=0.90,
+        min_boundary_f1=0.68,
+    )
+    assert allowed_same is True
+    assert same["allowed"] is True
+    assert same["min_iou_observed"] >= 0.99
+    assert same["min_boundary_f1_observed"] >= 0.99
+
+    collapsed_side = reference.copy()
+    collapsed_side[:, 2] *= 0.20
+    allowed_bad, bad = _collateral_view_preservation(
+        reference,
+        collapsed_side,
+        faces,
+        camera,
+        size=160,
+        min_iou=0.90,
+        min_boundary_f1=0.68,
+    )
+    assert allowed_bad is False
+    assert bad["allowed"] is False
+    assert (
+        bad["min_iou_observed"] < 0.90
+        or bad["min_boundary_f1_observed"] < 0.68
+    )
+
+
 def test_topology_smoothing_reduces_isolated_active_spike_without_moving_inactive():
     faces = np.asarray(
         [
@@ -344,6 +393,8 @@ def test_native_conform_keeps_real_geometry_and_never_creates_proxy_nodes(tmp_pa
     assert result["native_geometry_preserved"] is True
     assert result["visibility_policy"]["mode"] == "camera-front-surface-only"
     assert result["visibility_policy"]["rear_occluded_vertices_are_editable"] is False
+    assert result["collateral_360_policy"]["mode"] == "preserve-unseen-native-silhouettes-v1"
+    assert result["collateral_360_policy"]["reference"] == "original-native-hero-master"
     assert result["render_budget"]["render_faces"] <= 12000
     assert result["render_budget"]["input_faces"] >= result["render_budget"]["render_faces"]
     assert result["topology_smoothing"]["mode"] == "active-visible-one-ring-only"
