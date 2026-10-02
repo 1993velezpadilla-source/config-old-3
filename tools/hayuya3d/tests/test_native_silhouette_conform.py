@@ -28,6 +28,25 @@ def _box(path: Path, extents=(1.0, 2.0, 0.45)):
     path.write_bytes(scene.export(file_type="glb"))
 
 
+def _scene_world_vertices(path: Path) -> np.ndarray:
+    scene = trimesh.load(path, force="scene", process=False)
+    chunks = []
+    for node in scene.graph.nodes_geometry:
+        transform, geometry_name = scene.graph.get(node)
+        geometry = scene.geometry[geometry_name]
+        if not hasattr(geometry, "vertices") or not len(geometry.vertices):
+            continue
+        chunks.append(
+            trimesh.transform_points(
+                np.asarray(geometry.vertices, dtype=np.float64),
+                np.asarray(transform, dtype=np.float64),
+            )
+        )
+    if not chunks:
+        raise AssertionError(f"no geometry in {path}")
+    return np.concatenate(chunks, axis=0)
+
+
 def _source_rect(path: Path, *, width: int, height: int):
     image = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
@@ -234,3 +253,16 @@ def test_native_conform_is_source_specific_not_monja_specific(tmp_path: Path):
     assert "monja" not in wide_result["policy"].lower()
     assert_native_candidate(narrow_out)
     assert_native_candidate(wide_out)
+
+    narrow_vertices = _scene_world_vertices(narrow_out)
+    wide_vertices = _scene_world_vertices(wide_out)
+    assert narrow_vertices.shape == wide_vertices.shape
+    assert not np.allclose(narrow_vertices, wide_vertices, atol=1e-7)
+    assert (
+        abs(
+            narrow_result["max_displacement_body_span_ratio"]
+            - wide_result["max_displacement_body_span_ratio"]
+        )
+        > 1e-7
+        or not np.allclose(narrow_vertices, wide_vertices, atol=1e-7)
+    )
