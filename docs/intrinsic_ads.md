@@ -55,3 +55,8 @@ Intrinsic placement metadata is not entrusted to renderer/importer-specific GLB 
 
 
 The display/video rules above do not define a billing standard for spatial audio. `AdAudioEmitter` playback reporting remains an internal audible-exposure signal until the selected intrinsic-audio provider defines the billable event.
+
+
+## Audio creative policy
+
+For the church-radio path, advertising audio is opt-in at runtime: proximity alone never makes an ad audible. The game must pass an explicit user-initiated interaction before gain is non-zero. Audio creatives must report a positive duration no longer than 30 seconds; 15 seconds is the preferred creative length. Production providers are responsible for supplying the required audible advertising disclosure and campaign-wide frequency control. The church prototype is stricter than the industry pacing recommendation because its single radio is capped to one counted ad impression per session.
