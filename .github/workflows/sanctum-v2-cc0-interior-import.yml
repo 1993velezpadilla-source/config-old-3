@@ -273,10 +273,16 @@ jobs:
           assert floor["provider"]=="Poly Haven", d
           assert floor["license"]=="CC0", d
           assert floor["texture_resolution"]==4096, d
-          assert floor["face_count"]>0, d
+          assert floor["face_count"]==1, d
           assert floor["physical_tile_m"]>0 and floor["bump_distance_m"]>0, d
-          assert floor["normal_gate_world_z"]==0.85, d
           assert floor["z_fight_offset_m"]>0, d
+          audit=floor["source_material_audit"]
+          assert 0.05 < audit["fragment_coverage_ratio"] < 0.07, d
+          assert audit["decision"].startswith("fragment extraction rejected"), d
+          fp=floor["footprint_bounds"]
+          assert abs(fp["inset_m"]-floor["physical_tile_m"]*0.5) < 1e-6, d
+          assert floor["coverage_ratio"]>0.80, d
+          assert floor["area_m2_object_space"]>700, d
           luma=floor["albedo_luminance_audit"]
           assert 0.33 < luma["source_p50"] < 0.35, d
           assert abs(luma["target_p50"]-0.45) < 1e-6, d
