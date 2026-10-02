@@ -60,6 +60,8 @@ FRAME = make_material("AD_FRAME_DARK_BRASS", (0.10, 0.055, 0.018), 0.38, 0.68)
 TV_BODY = make_material("AD_TV_BODY", (0.018, 0.020, 0.024), 0.42, 0.48)
 RADIO_BODY = make_material("AD_RADIO_BODY", (0.055, 0.030, 0.018), 0.62, 0.12)
 RADIO_METAL = make_material("AD_RADIO_METAL", (0.055, 0.060, 0.065), 0.34, 0.72)
+AD_LABEL_PLATE = make_material("AD_LABEL_PLATE", (0.018, 0.014, 0.010), 0.42, 0.55)
+AD_LABEL_TEXT = make_material("AD_LABEL_TEXT", (0.88, 0.74, 0.46), 0.35, 0.20)
 
 surface_materials = [
     make_material("AD_PLACEHOLDER_FRAME_01", (0.10, 0.18, 0.24), 0.48, 0.0, (0.03, 0.06, 0.10)),
@@ -85,6 +87,56 @@ def add_cube(name, loc, dims, material, bevel=0.03):
     move_to_ads(obj)
     return obj
 
+def add_disclosure_label(name, surface_loc, width, height, normal):
+    # Physical disclosure plate remains outside the replaceable creative
+    # texture, so a network creative cannot accidentally erase it.
+    nx, ny, nz = normal
+    label_z = surface_loc[2] - height * 0.5 - 0.12
+    plate_center = (
+        surface_loc[0] + nx * 0.035,
+        surface_loc[1] + ny * 0.035,
+        label_z,
+    )
+
+    if abs(nx) > 0.5:
+        plate_dims = (0.035, min(max(width * 0.62, 0.28), 0.48), 0.13)
+    else:
+        plate_dims = (min(max(width * 0.30, 0.42), 0.62), 0.035, 0.13)
+
+    plate = add_cube(
+        f"{name}_AD_DISCLOSURE_PLATE",
+        plate_center,
+        plate_dims,
+        AD_LABEL_PLATE,
+        0.012,
+    )
+    plate["xziel_ad_disclosure"] = "Ad"
+
+    bpy.ops.object.text_add(
+        location=(
+            plate_center[0] + nx * 0.022,
+            plate_center[1] + ny * 0.022,
+            plate_center[2] - 0.040,
+        )
+    )
+    txt = bpy.context.object
+    txt.name = f"{name}_AD_DISCLOSURE_TEXT"
+    txt.data.body = "AD"
+    txt.data.align_x = "CENTER"
+    txt.data.align_y = "CENTER"
+    txt.data.size = 0.095
+    txt.data.extrude = 0.004
+    txt.data.bevel_depth = 0.0015
+    txt.rotation_mode = "QUATERNION"
+    txt.rotation_quaternion = Vector(normal).to_track_quat("Z", "Y")
+    txt.data.materials.append(AD_LABEL_TEXT)
+    bpy.context.view_layer.objects.active = txt
+    txt.select_set(True)
+    bpy.ops.object.convert(target="MESH")
+    move_to_ads(txt)
+    txt["xziel_ad_disclosure"] = "Ad"
+    return plate, txt
+
 def tag_surface(obj, placement):
     obj["xziel_ad_kind"] = "surface"
     obj["xziel_ad_placement_id"] = int(placement["placementId"])
@@ -98,6 +150,8 @@ def tag_surface(obj, placement):
     obj["xziel_ad_session_cap"] = int(placement["maxImpressionsPerSession"])
     obj["xziel_ad_no_auto_click"] = True
     obj["xziel_ad_no_impression_on_load"] = True
+    obj["xziel_ad_disclosure_label"] = placement.get("disclosureLabel", "Ad")
+    obj["xziel_ad_clickable"] = bool(placement.get("clickable", False))
 
 def add_surface(placement, material):
     x, y, z = [float(v) for v in placement["center"]]
@@ -108,12 +162,14 @@ def add_surface(placement, material):
 
     if axis == "x":
         inward = 1.0 if x < 0.0 else -1.0
+        normal = (inward, 0.0, 0.0)
         backing_loc = (x, y, z)
         surface_loc = (x + inward * 0.095, y, z)
         backing_dims = (0.16, width + 0.30, height + 0.30)
         surface_dims = (0.055, width, height)
     elif axis == "y":
         inward = -1.0
+        normal = (0.0, inward, 0.0)
         backing_loc = (x, y, z)
         surface_loc = (x, y + inward * 0.095, z)
         backing_dims = (width + 0.30, 0.16, height + 0.30)
@@ -131,6 +187,13 @@ def add_surface(placement, material):
         0.018,
     )
     tag_surface(surface, placement)
+    add_disclosure_label(
+        name,
+        surface_loc,
+        width,
+        height,
+        normal,
+    )
     return surface
 
 surface_index = 0
