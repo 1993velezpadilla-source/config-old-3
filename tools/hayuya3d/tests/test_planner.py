@@ -248,6 +248,35 @@ class HayuyaPlannerTests(unittest.TestCase):
         )
         self.assertTrue(plan["face_seed_tournament"]["enabled"])
 
+    def test_face_repair_evidence_sources_use_up_to_three_head_refs(self):
+        details=[
+            Path("/tmp/details/face_front.png"),
+            Path("/tmp/details/head_left.png"),
+            Path("/tmp/IMG_3003.png"),
+            Path("/tmp/details/face_right.png"),
+        ]
+        semantic=[details[2]]
+        sources=hayuya.select_face_repair_evidence_sources(
+            details,
+            [Path("/tmp/body.png")],
+            semantic_head_inputs=semantic,
+            limit=3,
+        )
+        self.assertEqual(
+            [path for path,_derive in sources],
+            [path.resolve() for path in details[:3]],
+        )
+        self.assertTrue(all(not derive for _path,derive in sources))
+
+    def test_face_repair_evidence_sources_fallback_to_full_body(self):
+        body=Path("/tmp/body.png")
+        sources=hayuya.select_face_repair_evidence_sources(
+            [Path("/tmp/details/hand_detail.png")],
+            [body],
+            limit=3,
+        )
+        self.assertEqual(sources,[(body.resolve(),True)])
+
     def test_face_seed_tournament_is_bounded_and_face_conditioned(self):
         face = Path("/tmp/refs/details/face_detail.png")
         hand = Path("/tmp/refs/details/hand_detail.png")
@@ -471,6 +500,8 @@ class HayuyaPlannerTests(unittest.TestCase):
         self.assertFalse(policy["projection_proxy_created"])
         self.assertIn("current source", policy["source_target"])
         self.assertIn("native 3D head donor", policy["donor_policy"])
+        self.assertEqual(policy["head_evidence_limit"],3)
+        self.assertIn("each selected head evidence", policy["donor_policy"])
         self.assertIn("challenger", policy["promotion_policy"])
         self.assertNotIn("monja", json.dumps(policy).lower())
         self.assertNotIn("source_visible_front", json.dumps(policy).lower())
