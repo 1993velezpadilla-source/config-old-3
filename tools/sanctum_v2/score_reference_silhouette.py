@@ -148,12 +148,37 @@ def iou(a,b):
     union=sum(1 for x,y in zip(a,b) if x or y)
     return (inter/union if union else 0.0),inter,union
 
+def width_profile(mask,n=256,bands=16):
+    out=[]
+    for bi in range(bands):
+        y=min(n-1,max(0,int((bi+0.5)*n/bands)))
+        xs=[x for x in range(n) if mask[y*n+x]]
+        if xs:
+            out.append((max(xs)-min(xs)+1)/n)
+        else:
+            out.append(0.0)
+    return out
+
+def profile_error(actual,ref):
+    errs=[abs(a-b) for a,b in zip(actual,ref)]
+    return {
+        "mean_abs_error":sum(errs)/len(errs) if errs else 1.0,
+        "max_abs_error":max(errs) if errs else 1.0,
+        "bands":len(errs),
+        "actual":actual,
+        "reference":ref,
+        "errors":errs,
+    }
+
 results={}
 for view,key in (("front","front_body"),("side","side_left")):
     w,h,alpha,path=render_alpha(f"altar-{view}-mask",view)
     actual,bbox=normalized_actual_mask(w,h,alpha)
     ref=polygon_mask(altar[key]["points"])
     score,inter,union=iou(actual,ref)
+    actual_profile=width_profile(actual)
+    ref_profile=width_profile(ref)
+    width_err=profile_error(actual_profile,ref_profile)
     results[view]={
         "iou":score,
         "intersection_pixels":inter,
@@ -161,10 +186,16 @@ for view,key in (("front","front_body"),("side","side_left")):
         "render_bbox_px":list(bbox),
         "render":path.name,
         "reference_points":len(altar[key]["points"]),
+        "width_profile":width_err,
     }
 
 target=Vector((float(body_dims["width"]),float(body_dims["depth"]),float(body_dims["height"])))
 dim_ratio=Vector((size.x/target.x,size.y/target.y,size.z/target.z))
+dim_error_pct=[
+    abs(size.x-target.x)/target.x*100.0,
+    abs(size.y-target.y)/target.y*100.0,
+    abs(size.z-target.z)/target.z*100.0,
+]
 report={
     "status":"PASS",
     "glb":str(GLB),
@@ -173,6 +204,7 @@ report={
     "measured_size_m":[float(size.x),float(size.y),float(size.z)],
     "target_body_dimensions_m":body_dims,
     "dimension_ratio":[float(dim_ratio.x),float(dim_ratio.y),float(dim_ratio.z)],
+    "dimension_error_pct":dim_error_pct,
     "front":results["front"],
     "side":results["side"],
     "mean_iou":(results["front"]["iou"]+results["side"]["iou"])*0.5,
