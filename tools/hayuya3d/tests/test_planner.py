@@ -345,6 +345,59 @@ class HayuyaPlannerTests(unittest.TestCase):
         self.assertIn("Judge", plan["retopology"]["policy"])
         self.assertIn("skip", plan["retopology"]["rig_policy"])
 
+    def test_face_repair_guard_rejects_global_win_that_regresses_face(self):
+        base=SimpleNamespace(
+            pbr_channels=["baseColor","normal"],
+            head_texel_density_score=82.0,
+            head_texture_detail_score=79.0,
+            appearance_face_detail_min_score=74.0,
+            base_color_min_edge=4096,
+            score=80.0,
+        )
+        challenger=SimpleNamespace(
+            pbr_channels=["baseColor","normal"],
+            head_texel_density_score=84.0,
+            head_texture_detail_score=80.0,
+            appearance_face_detail_min_score=71.0,
+            base_color_min_edge=4096,
+            score=93.0,
+        )
+        reasons=hayuya.face_repair_candidate_regressions(
+            base,
+            challenger,
+        )
+        self.assertTrue(
+            any(
+                reason.startswith(
+                    "regressed:appearance_face_detail_min_score"
+                )
+                for reason in reasons
+            )
+        )
+
+    def test_face_repair_guard_accepts_strict_face_improvement_without_regressions(self):
+        base=SimpleNamespace(
+            pbr_channels=["baseColor","normal","metallicRoughness"],
+            head_texel_density_score=82.0,
+            head_texture_detail_score=79.0,
+            appearance_face_detail_min_score=74.0,
+            base_color_min_edge=4096,
+        )
+        challenger=SimpleNamespace(
+            pbr_channels=["baseColor","normal","metallicRoughness"],
+            head_texel_density_score=83.0,
+            head_texture_detail_score=81.0,
+            appearance_face_detail_min_score=78.0,
+            base_color_min_edge=4096,
+        )
+        self.assertEqual(
+            hayuya.face_repair_candidate_regressions(
+                base,
+                challenger,
+            ),
+            [],
+        )
+
     def test_native_conform_blocks_nonstatic_gltf_features(self):
         static = SimpleNamespace(
             valid_glb=True,
