@@ -173,6 +173,28 @@ point_light("SANCTUM_BOILER_WARM_B",(ic.x+1.8,center_y+0.5,lower_z+1.5),360,(0.9
 point_light("SANCTUM_BOILER_COOL_FILL",(ic.x,by0+1.1,lower_z+2.0),260,(0.18,0.30,0.55))
 point_light("SANCTUM_BOILER_TANK_RIM",(ic.x,center_y-2.2,lower_z+2.2),300,(0.22,0.38,0.62))
 
+# Proof-only overhead area light so the PBR machinery can actually be inspected
+# in CI renders. This light is not part of export_objects and never ships.
+def area_light(name,location,energy,size,color):
+    ld=bpy.data.lights.new(name+"_DATA","AREA")
+    ld.energy=energy
+    ld.shape="DISK"
+    ld.size=size
+    ld.color=color
+    lo=bpy.data.objects.new(name,ld)
+    scene.collection.objects.link(lo)
+    lo.location=Vector(location)
+    lo.rotation_euler=(0.0,0.0,0.0)
+    return lo
+
+area_light(
+    "SANCTUM_BOILER_PROOF_OVERHEAD",
+    (ic.x,center_y,lower_z+2.75),
+    950,
+    4.6,
+    (0.72,0.64,0.52),
+)
+
 scene.render.engine="BLENDER_EEVEE"
 scene.render.image_settings.media_type="IMAGE"
 scene.render.image_settings.file_format="PNG"
@@ -202,19 +224,22 @@ def render(name,pos,look):
         fail(f"render failed {name}")
     return {"name":name,"bytes":p.stat().st_size}
 
+# Keep proof cameras inside the central clear lane, away from the west/east
+# ramp footprints. Earlier views were technically valid but the ramps occluded
+# the hero machinery, making a GREEN art pass impossible to judge visually.
 renders=[
     render("01-undercroft-boiler-entry.png",
-           (ic.x-4.8,by0+1.5,lower_z+eye),
-           (ic.x,center_y,lower_z+1.15)),
+           (ic.x,by0+1.25,lower_z+eye),
+           (ic.x,center_y,lower_z+1.20)),
     render("02-undercroft-boiler-loop-west.png",
-           (ic.x-3.2,center_y-1.7,lower_z+eye),
-           (ic.x-0.5,center_y,lower_z+1.25)),
+           (ic.x-2.75,center_y+1.15,lower_z+eye),
+           (ic.x-0.55,center_y,lower_z+1.20)),
     render("03-undercroft-boiler-loop-east.png",
-           (ic.x+3.2,center_y+1.6,lower_z+eye),
-           (ic.x+0.4,center_y,lower_z+1.25)),
+           (ic.x+2.75,center_y+1.15,lower_z+eye),
+           (ic.x+0.55,center_y,lower_z+1.20)),
     render("04-undercroft-power-route.png",
-           (bx0+1.1,by1-1.2,lower_z+eye),
-           (ic.x,center_y,lower_z+1.4)),
+           (ic.x,by1-1.20,lower_z+eye),
+           (ic.x,center_y,lower_z+1.35)),
 ]
 
 export_objects=[*base_export,*industrial]
