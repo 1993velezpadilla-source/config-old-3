@@ -12,7 +12,7 @@ from texture_gate import inspect as inspect_texture_gate
 from trellis2_cloud import generate as generate_trellis2_cloud
 from trellis2_preview_recovery import recover as recover_trellis2_preview
 from trellis2_preview_normal_hero import build_normal_informed_hero
-from triposg_cloud import generate as generate_triposg_cloud
+from triposg_cloud import generate as generate_triposg_cloud, texture_existing_mesh as texture_triposg_existing_mesh
 from detailgen3d_cloud import refine as refine_detailgen3d_cloud
 from hunyuan3d_cloud import generate_shape as generate_hunyuan3d_shape
 from triposr_cpu_cloud import generate as generate_triposr_cpu_cloud
@@ -1275,55 +1275,124 @@ initial_texture_gate=inspect_texture_gate(
     min_base_color_edge=final_texture_min_edge,
 )
 if initial_texture_gate.base_color_image_count==0:
-    try:
-        from source_material_rescue import rescue_source_material
+    cloud_texture_error=None
+    if TRIPOSG_CLOUD_ENABLED:
+        try:
+            from source_material_rescue import (
+                validate_textured_native_rescue,
+            )
 
-        rescued=OUT/"hayuya_source_material_rescued.glb"
-        rescue_edge=(
-            4096
-            if TEXTURE_QUALITY=="ultra"
-            else 2048
-            if TEXTURE_QUALITY in {"high","standard"}
-            else 1024
-        )
-        rescue=rescue_source_material(
-            crops[0],
-            dst,
-            rescued,
-            texture_edge=rescue_edge,
-            min_texture_edge=final_texture_min_edge,
-            total_samples=250_000,
-        )
-        source_material_rescue_payload=asdict(rescue)
-        shutil.copy2(rescued,dst)
-        data=dst.read_bytes()
-        actual_texture_size=max(
-            int(actual_texture_size or 0),
-            int(rescue.texture_edge),
-        )
-        selected_compute=(
-            selected_compute
-            +" + HAYUYA source-derived native material rescue"
-        )
-        print(
-            "HAYUYA_SOURCE_MATERIAL_RESCUE_PASS",
-            json.dumps(
-                source_material_rescue_payload,
-                separators=(",",":"),
-            ),
-        )
-    except Exception as rescue_exc:
-        source_material_rescue_payload={
-            "attempted":True,
-            "promoted":False,
-            "error":f"{type(rescue_exc).__name__}: {rescue_exc}",
-            "reason":"missing_embedded_base_color",
-        }
-        print(
-            "::warning::HAYUYA source material rescue unavailable; "
-            "keeping native geometry for downstream hard texture gate: "
-            +source_material_rescue_payload["error"]
-        )
+            cloud_textured=OUT/"hayuya_cloud_textured_native.glb"
+            cloud_meta=texture_triposg_existing_mesh(
+                crops[0],
+                dst,
+                cloud_textured,
+                token=TOKEN,
+                seed=1993,
+            )
+            validation=validate_textured_native_rescue(
+                dst,
+                cloud_textured,
+                min_texture_edge=final_texture_min_edge,
+            )
+            shutil.copy2(cloud_textured,dst)
+            data=dst.read_bytes()
+            actual_texture_size=max(
+                int(actual_texture_size or 0),
+                int(
+                    validation["texture_gate"].get(
+                        "base_color_min_edge",
+                        0,
+                    )
+                ),
+            )
+            selected_compute=(
+                selected_compute
+                +" + TripoSG texture-existing-mesh native material rescue"
+            )
+            source_material_rescue_payload={
+                "attempted":True,
+                "promoted":True,
+                "mode":"triposg_texture_existing_mesh",
+                "cloud":cloud_meta,
+                "validation":validation,
+            }
+            print(
+                "HAYUYA_CLOUD_NATIVE_TEXTURE_RESCUE_PASS",
+                json.dumps(
+                    source_material_rescue_payload,
+                    separators=(",",":"),
+                ),
+            )
+        except Exception as cloud_exc:
+            cloud_texture_error=(
+                f"{type(cloud_exc).__name__}: {cloud_exc}"
+            )
+            print(
+                "::warning::HAYUYA cloud native texture rescue unavailable; "
+                "falling back to local source-material rescue: "
+                +cloud_texture_error
+            )
+
+    if not (
+        source_material_rescue_payload
+        and source_material_rescue_payload.get("promoted")
+    ):
+        try:
+            from source_material_rescue import rescue_source_material
+
+            rescued=OUT/"hayuya_source_material_rescued.glb"
+            rescue_edge=(
+                4096
+                if TEXTURE_QUALITY=="ultra"
+                else 2048
+                if TEXTURE_QUALITY in {"high","standard"}
+                else 1024
+            )
+            rescue=rescue_source_material(
+                crops[0],
+                dst,
+                rescued,
+                texture_edge=rescue_edge,
+                min_texture_edge=final_texture_min_edge,
+                total_samples=250_000,
+            )
+            source_material_rescue_payload={
+                **asdict(rescue),
+                "promoted":True,
+                "mode":"local_source_material_rescue",
+                "cloud_texture_error":cloud_texture_error,
+            }
+            shutil.copy2(rescued,dst)
+            data=dst.read_bytes()
+            actual_texture_size=max(
+                int(actual_texture_size or 0),
+                int(rescue.texture_edge),
+            )
+            selected_compute=(
+                selected_compute
+                +" + HAYUYA source-derived native material rescue"
+            )
+            print(
+                "HAYUYA_SOURCE_MATERIAL_RESCUE_PASS",
+                json.dumps(
+                    source_material_rescue_payload,
+                    separators=(",",":"),
+                ),
+            )
+        except Exception as rescue_exc:
+            source_material_rescue_payload={
+                "attempted":True,
+                "promoted":False,
+                "cloud_texture_error":cloud_texture_error,
+                "error":f"{type(rescue_exc).__name__}: {rescue_exc}",
+                "reason":"missing_embedded_base_color",
+            }
+            print(
+                "::warning::HAYUYA source material rescue unavailable; "
+                "keeping native geometry for downstream hard texture gate: "
+                +source_material_rescue_payload["error"]
+            )
 
 # TRELLIS.2 preview recovery is intentionally only an approximate visual hull.
 # For face-critical characters, do not rely on texture paint to hide a weak head
