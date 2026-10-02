@@ -279,7 +279,7 @@ jobs:
           python tools/hayuya3d/software_glb_preview.py \
             --input out/hunyuan-head-probe/body_headwrap_material_native.glb \
             --output-dir out/hunyuan-head-probe/headwrap_textured_front \
-            --size 768 --face-size 768
+            --size 1024 --face-size 1024 --supersample 2
 
       - name: Validate refined face and nose proportions
         shell: bash

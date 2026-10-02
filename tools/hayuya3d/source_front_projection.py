@@ -122,8 +122,67 @@ def _delivery_texture(source: Path, edge: int):
     # foreground from extrapolated support pixels.
     sharp_rgb=filled.copy()
     sharp_rgb.paste(crop.convert("RGB"),mask=mask)
+
+    # Quality pass: preserve the source photograph, but restore high-frequency
+    # detail lost by the large 4K delivery resize. Keep this deliberately
+    # conservative and apply it only to real foreground pixels so silhouettes
+    # and extrapolated support colors cannot develop ringing/halos.
+    detail_radius=max(0.8,min(1.6,float(edge)/4096.0*1.15))
+    detail_rgb=sharp_rgb.filter(
+        ImageFilter.UnsharpMask(
+            radius=detail_radius,
+            percent=118,
+            threshold=2,
+        )
+    )
+    detail_rgb=ImageEnhance.Contrast(detail_rgb).enhance(1.035)
+    detail_rgb=ImageEnhance.Color(detail_rgb).enhance(1.015)
+    sharp_rgb=Image.composite(detail_rgb,sharp_rgb,mask)
+
     sharp=sharp_rgb.convert("RGBA")
     sharp.putalpha(mask)
+
+    # Derive a subtle PBR micro-normal map from luminance detail. This does not
+    # change silhouette or base geometry; it gives cloth/skin/hood fine relief
+    # in renderers that honor glTF normal textures.
+    normal_edge=min(2048,int(edge))
+    normal_rgb=sharp_rgb.resize(
+        (normal_edge,normal_edge),
+        Image.Resampling.LANCZOS,
+    )
+    normal_mask=mask.resize(
+        (normal_edge,normal_edge),
+        Image.Resampling.LANCZOS,
+    )
+    normal_arr=np.asarray(normal_rgb,dtype=np.float32)/255.0
+    luma=(
+        normal_arr[:,:,0]*0.2126+
+        normal_arr[:,:,1]*0.7152+
+        normal_arr[:,:,2]*0.0722
+    )
+    try:
+        from scipy.ndimage import gaussian_filter
+        luma=gaussian_filter(luma,sigma=0.75,mode="nearest")
+    except Exception:
+        pass
+    gy,gx=np.gradient(luma)
+    normal_strength=6.0
+    nx=-gx*normal_strength
+    ny=gy*normal_strength
+    nz=np.ones_like(nx,dtype=np.float32)
+    norm=np.sqrt(nx*nx+ny*ny+nz*nz)
+    nx/=np.maximum(norm,1e-8)
+    ny/=np.maximum(norm,1e-8)
+    nz/=np.maximum(norm,1e-8)
+    normal_np=np.stack([
+        (nx*0.5+0.5)*255.0,
+        (ny*0.5+0.5)*255.0,
+        (nz*0.5+0.5)*255.0,
+    ],axis=2)
+    normal_np=np.clip(normal_np,0,255).astype(np.uint8)
+    normal_valid=np.asarray(normal_mask,dtype=np.uint8)>24
+    normal_np[~normal_valid]=np.array([128,128,255],dtype=np.uint8)
+    normal_texture=Image.fromarray(normal_np,"RGB")
 
     # Hidden/rear surfaces must not inherit source-background pixels or the
     # nearest-edge "streaks" produced by 2D nearest-neighbour extrapolation.
@@ -174,7 +233,7 @@ def _delivery_texture(source: Path, edge: int):
     low=ImageEnhance.Color(low).enhance(0.52)
     low=ImageEnhance.Contrast(low).enhance(0.72)
 
-    return sharp,low,{
+    return sharp,low,normal_texture,{
         "source_size":[int(image.width),int(image.height)],
         "source_bbox":[int(v) for v in bbox],
         "delivery_edge":int(edge),
@@ -182,7 +241,18 @@ def _delivery_texture(source: Path, edge: int):
         "foreground_background_extrapolated":bool(extrapolated),
         "hidden_surface_strategy":"smoothed_subject_height_bands",
         "visible_surface_alpha_silhouette":True,
-        "policy":"sharp visible source projection plus height-banded foreground colors on hidden surfaces",
+        "visible_quality_pass":{
+            "unsharp_radius":float(detail_radius),
+            "unsharp_percent":118,
+            "contrast":1.035,
+            "color":1.015,
+        },
+        "normal_texture":{
+            "edge":int(normal_edge),
+            "strength":float(normal_strength),
+            "source":"luminance_microdetail",
+        },
+        "policy":"detail-enhanced visible source projection plus 2K micro-normal and height-banded hidden colors",
     }
 
 
@@ -295,9 +365,10 @@ def project_source_front(
     )
     hidden_faces=~visible_faces
 
-    texture,low_texture,tex_meta=_delivery_texture(source_image,int(texture_edge))
+    texture,low_texture,normal_texture,tex_meta=_delivery_texture(source_image,int(texture_edge))
     projected_material=trimesh.visual.material.PBRMaterial(
         baseColorTexture=texture,
+        normalTexture=normal_texture,
         metallicFactor=0.0,
         roughnessFactor=0.82,
         alphaMode="MASK",
@@ -351,7 +422,7 @@ def project_source_front(
 
     report={
         "schema":1,
-        "method":"hayuya-native-source-front-projection-v8-detail-preserving-centroid-y-up",
+        "method":"hayuya-native-source-front-projection-v9-pbr-detail-normal-y-up",
         "source_image":str(source_image),
         "native_mesh":str(native_mesh),
         "output_glb":str(output_glb),
