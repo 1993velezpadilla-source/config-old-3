@@ -230,6 +230,45 @@ def black_iron(name="SANCTUM_REF_BLACK_IRON"):
     b.inputs["Roughness"].default_value=0.30
     return m
 
+def stained_glass(name="SANCTUM_REF_STAINED_GLASS"):
+    """Procedural blue/red/gold Gothic glass inspired by the supplied window board."""
+    m,nt,b=_mat(name)
+    mapping=_map_nodes(nt,(1.15,1.15,1.0))
+    vor=nt.nodes.new("ShaderNodeTexVoronoi")
+    vor.distance="EUCLIDEAN"
+    vor.feature="F1"
+    vor.inputs["Scale"].default_value=8.5
+    nt.links.new(mapping.outputs["Vector"],vor.inputs["Vector"])
+    noise=_noise(nt,mapping.outputs["Vector"],3.8,5.0,0.62,0.18)
+    mixfac=nt.nodes.new("ShaderNodeMath")
+    mixfac.operation="MULTIPLY"
+    nt.links.new(vor.outputs["Distance"],mixfac.inputs[0])
+    nt.links.new(noise.outputs["Fac"],mixfac.inputs[1])
+    ramp=_ramp(nt,mixfac.outputs[0],[
+        (0.16,(0.015,0.035,0.11,1.0)),
+        (0.34,(0.035,0.18,0.62,1.0)),
+        (0.54,(0.46,0.018,0.025,1.0)),
+        (0.72,(0.88,0.34,0.035,1.0)),
+        (0.90,(0.12,0.35,0.72,1.0)),
+    ])
+    nt.links.new(ramp.outputs["Color"],b.inputs["Base Color"])
+    b.inputs["Roughness"].default_value=0.19
+    if "Transmission Weight" in b.inputs:
+        b.inputs["Transmission Weight"].default_value=0.36
+    if "Emission Color" in b.inputs:
+        nt.links.new(ramp.outputs["Color"],b.inputs["Emission Color"])
+    if "Emission Strength" in b.inputs:
+        b.inputs["Emission Strength"].default_value=0.45
+    # Dark lead seams from Voronoi edge distance.
+    edge=nt.nodes.new("ShaderNodeValToRGB")
+    edge.color_ramp.elements[0].position=0.035
+    edge.color_ramp.elements[0].color=(0.005,0.005,0.006,1.0)
+    edge.color_ramp.elements[1].position=0.09
+    edge.color_ramp.elements[1].color=(1.0,1.0,1.0,1.0)
+    if "Distance to Edge" in vor.outputs:
+        nt.links.new(vor.outputs["Distance to Edge"],edge.inputs["Fac"])
+    return m
+
 def material_set():
     return {
         "floor":wet_flagstone(),
@@ -240,4 +279,5 @@ def material_set():
         "gold":aged_gold(),
         "wax":candle_wax(),
         "iron":black_iron(),
+        "glass":stained_glass(),
     }
