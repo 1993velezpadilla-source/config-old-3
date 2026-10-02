@@ -236,6 +236,30 @@ class HayuyaPlannerTests(unittest.TestCase):
         self.assertNotIn("monja", json.dumps(policy).lower())
         self.assertNotIn("source_visible_front", policy["input_geometry"])
 
+    def test_job_plan_native_face_repair_is_current_source_generic(self):
+        refs = [
+            Path("/tmp/another_character_front.png"),
+            Path("/tmp/details/another_character_face_detail.png"),
+        ]
+        plan = hayuya.make_job_plan(
+            refs,
+            profile_name="monster",
+            mode="character",
+            seed=1993,
+            selected_backends=["trellis2", "triposg"],
+            model_root=Path("/tmp/models"),
+            native_face_repair_mode="auto",
+        )
+        policy = plan["native_face_repair"]
+        self.assertEqual(policy["mode"], "auto")
+        self.assertFalse(policy["asset_specific_coordinates"])
+        self.assertFalse(policy["projection_proxy_created"])
+        self.assertIn("current source", policy["source_target"])
+        self.assertIn("native 3D head donor", policy["donor_policy"])
+        self.assertIn("challenger", policy["promotion_policy"])
+        self.assertNotIn("monja", json.dumps(policy).lower())
+        self.assertNotIn("source_visible_front", json.dumps(policy).lower())
+
     def test_hunyuan_is_not_default(self):
         lock = hayuya.load_lock()
         meta = hayuya.backend_meta(lock)
