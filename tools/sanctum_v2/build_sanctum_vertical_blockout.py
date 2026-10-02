@@ -454,9 +454,17 @@ def point_light(name,location,energy,color):
 
 point_light("SANCTUM_PROOF_UPPER_LIGHT",(ic.x,gallery_y0+2.0,upper_z+1.8),260,(0.28,0.42,0.68))
 point_light("SANCTUM_PROOF_UNDERCROFT_LIGHT",(ic.x,ic.y+hy*0.12,lower_z+1.6),220,(0.80,0.20,0.06))
+# Warm nave pools + restrained cool altar/window fill. Proof-only; runtime light
+# authoring remains separate from navigation/collision.
+for idx,frac in enumerate((-0.42,-0.18,0.08,0.34),1):
+    y=ic.y+hy*frac
+    point_light(f"SANCTUM_PROOF_NAVE_WARM_L_{idx}",(ic.x-hx*0.58,y,floor_z+2.3),150,(1.0,0.31,0.08))
+    point_light(f"SANCTUM_PROOF_NAVE_WARM_R_{idx}",(ic.x+hx*0.58,y,floor_z+2.3),150,(1.0,0.31,0.08))
+point_light("SANCTUM_PROOF_ALTAR_COOL",(ic.x,ic.y+hy*0.62,floor_z+5.2),300,(0.20,0.34,0.66))
 
 cam=ensure_camera(scene)
-eye=1.68
+eye=1.88
+cam.data.lens=31.0
 def point(cam,target):
     cam.rotation_euler=(Vector(target)-cam.location).to_track_quat("-Z","Y").to_euler()
 
@@ -472,8 +480,8 @@ def render(name,pos,look):
 
 renders=[
     render("01-nave-sees-upper-gallery.png",
-           (ic.x,ic.y-hy*0.66,floor_z+eye),
-           (ic.x-gallery_x*0.35,ic.y-hy*0.05,upper_z+0.10)),
+           (ic.x,ic.y-hy*0.76,floor_z+eye),
+           (ic.x,ic.y+hy*0.58,floor_z+1.72)),
     render("02-upper-gallery-player-view.png",
            (ic.x-gallery_x+0.25,gallery_y0+2.6,upper_z+eye),
            (ic.x+gallery_x-0.25,ic.y+0.25,upper_z+1.05)),
@@ -548,6 +556,7 @@ report={
     "ad_surface_count":3,
     "ad_manifest":"sanctum-ad-surfaces.json",
     "gameplay_manifest":"sanctum-gameplay-entities.json",
+    "proof_camera":{"eye_height_m":eye,"lens_mm":31.0,"primary_view":"raised_main_door"},
     "renders":renders,
     "stats":stats,
     "glb":glb.name,
