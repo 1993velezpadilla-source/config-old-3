@@ -457,6 +457,178 @@ def _source_planar_layer(
         },
     )
 
+def _source_planar_normal_layer(
+    source_visible_front,
+    bounds,
+    output_size:int,
+):
+    best=None
+    for geometry in source_visible_front:
+        payload=_texture_payload(geometry)
+        if payload is None:
+            continue
+        visual=getattr(geometry,"visual",None)
+        material=getattr(visual,"material",None)
+        normal_texture=(
+            getattr(material,"normalTexture",None)
+            if material is not None else None
+        )
+        if normal_texture is None:
+            continue
+        vertices,_,uv,_=payload
+        if best is None or len(vertices)>len(best[0]):
+            best=(vertices,uv,normal_texture,material)
+
+    if best is None:
+        return None,{
+            "enabled":False,
+            "reason":"source_visible_front material has no normalTexture",
+        }
+
+    vertices,uv,normal_texture,material=best
+    normal_rgba=np.asarray(
+        normal_texture.convert("RGBA"),
+        dtype=np.uint8,
+    )
+
+    x=np.asarray(vertices[:,0],dtype=np.float64)
+    y=np.asarray(vertices[:,1],dtype=np.float64)
+    u=np.asarray(uv[:,0],dtype=np.float64)
+    v=np.asarray(uv[:,1],dtype=np.float64)
+    ax,bx=np.linalg.lstsq(
+        np.stack([x,np.ones_like(x)],axis=1),u,rcond=None
+    )[0]
+    ay,by=np.linalg.lstsq(
+        np.stack([y,np.ones_like(y)],axis=1),v,rcond=None
+    )[0]
+    u_rmse=float(np.sqrt(np.mean((u-(ax*x+bx))**2)))
+    v_rmse=float(np.sqrt(np.mean((v-(ay*y+by))**2)))
+    if not np.isfinite(u_rmse+v_rmse) or u_rmse>0.01 or v_rmse>0.01:
+        return None,{
+            "enabled":False,
+            "reason":"normal UV mapping not planar enough",
+            "u_rmse":u_rmse,
+            "v_rmse":v_rmse,
+        }
+
+    size=int(output_size)
+    xmin,xmax,ymin,ymax=[float(q) for q in bounds]
+    world_x=np.linspace(xmin,xmax,size,dtype=np.float64)
+    world_y=np.linspace(ymax,ymin,size,dtype=np.float64)
+    uu=ax*world_x+bx
+    vv=ay*world_y+by
+
+    th,tw,_=normal_rgba.shape
+    tx=np.clip(uu*(tw-1),0.0,tw-1.0)
+    ty=np.clip((1.0-vv)*(th-1),0.0,th-1.0)
+    x0=np.floor(tx).astype(np.int32)
+    y0=np.floor(ty).astype(np.int32)
+    x1=np.minimum(x0+1,tw-1)
+    y1=np.minimum(y0+1,th-1)
+    fx=(tx-x0).astype(np.float32)
+    fy=(ty-y0).astype(np.float32)
+
+    sampled=np.empty((size,size,3),dtype=np.float32)
+    for channel in range(3):
+        plane=np.asarray(normal_rgba[:,:,channel],dtype=np.float32)
+        p00=plane[np.ix_(y0,x0)]
+        p01=plane[np.ix_(y0,x1)]
+        p10=plane[np.ix_(y1,x0)]
+        p11=plane[np.ix_(y1,x1)]
+        top=p00*(1.0-fx[None,:])+p01*fx[None,:]
+        bottom=p10*(1.0-fx[None,:])+p11*fx[None,:]
+        sampled[:,:,channel]=top*(1.0-fy[:,None])+bottom*fy[:,None]
+
+    valid_u=(uu>=0.0)&(uu<=1.0)
+    valid_v=(vv>=0.0)&(vv<=1.0)
+    valid=valid_v[:,None]&valid_u[None,:]
+
+    roughness=float(getattr(material,"roughnessFactor",0.82) or 0.82)
+    return (
+        Image.fromarray(
+            np.clip(sampled,0,255).astype(np.uint8),
+            "RGB",
+        ),
+        {
+            "enabled":True,
+            "policy":"planar-tangent-normal-map-v1",
+            "texture_size":[int(tw),int(th)],
+            "roughness":roughness,
+            "u_rmse":u_rmse,
+            "v_rmse":v_rmse,
+            "valid_pixels":int(np.count_nonzero(valid)),
+        },
+    )
+
+
+def _apply_normal_microrelief(
+    image:Image.Image,
+    mask:Image.Image,
+    normal_layer:Image.Image|None,
+    *,
+    roughness:float=0.82,
+):
+    if normal_layer is None:
+        return image,{
+            "enabled":False,
+            "reason":"normal layer unavailable",
+        }
+
+    rgb=np.asarray(image.convert("RGB"),dtype=np.float32)
+    keep=np.asarray(mask,dtype=np.uint8)>0
+    normal=np.asarray(normal_layer.convert("RGB"),dtype=np.float32)
+    if normal.shape[:2]!=rgb.shape[:2]:
+        normal=np.asarray(
+            normal_layer.resize(
+                (rgb.shape[1],rgb.shape[0]),
+                Image.Resampling.BILINEAR,
+            ).convert("RGB"),
+            dtype=np.float32,
+        )
+
+    n=normal/127.5-1.0
+    length=np.sqrt(np.sum(n*n,axis=2))
+    valid=keep&(length>0.15)
+    inv=1.0/np.maximum(length,1e-6)
+    nx=n[:,:,0]*inv
+    ny=n[:,:,1]*inv
+    nz=n[:,:,2]*inv
+
+    light=np.array([-0.34,0.42,0.841],dtype=np.float32)
+    light/=np.linalg.norm(light)
+    ndotl=np.clip(
+        nx*light[0]+ny*light[1]+nz*light[2],
+        0.0,
+        1.0,
+    )
+    flat=float(light[2])
+
+    relief_gain=0.20*(0.65+0.35*float(np.clip(roughness,0.0,1.0)))
+    cavity_gain=0.045
+    shade=(
+        1.0
+        + relief_gain*(ndotl-flat)
+        - cavity_gain*np.clip(1.0-nz,0.0,1.0)
+    )
+    shade=np.clip(shade,0.94,1.06)
+    shade[~valid]=1.0
+
+    out=np.clip(rgb*shade[:,:,None],0,255).astype(np.uint8)
+    applied=shade[valid]
+    return Image.fromarray(out,"RGB"),{
+        "enabled":True,
+        "policy":"source-preserving-normal-microrelief-v1",
+        "roughness":float(roughness),
+        "light":[float(v) for v in light],
+        "relief_gain":float(relief_gain),
+        "cavity_gain":float(cavity_gain),
+        "applied_pixels":int(np.count_nonzero(valid)),
+        "shade_min":float(applied.min()) if applied.size else 1.0,
+        "shade_max":float(applied.max()) if applied.size else 1.0,
+        "shade_mean":float(applied.mean()) if applied.size else 1.0,
+    }
+
+
 def _hard_clip_to_outline(
     image:Image.Image,
     rendered_mask:Image.Image,
@@ -879,6 +1051,33 @@ def render_preview(
                 edge_fill_pixels=max(3,int(round(int(face_size)*0.006))),
             )
 
+            full_normal,full_normal_map=_source_planar_normal_layer(
+                source_visible_front,
+                full_bounds_used,
+                int(size),
+            )
+            face_normal,face_normal_map=_source_planar_normal_layer(
+                source_visible_front,
+                head_bounds_used,
+                int(face_size),
+            )
+            normal_roughness=float(
+                full_normal_map.get("roughness",0.82)
+                if full_normal_map.get("enabled") else 0.82
+            )
+            full_raw,full_normal_relief=_apply_normal_microrelief(
+                full_raw,
+                full_mask_raw,
+                full_normal,
+                roughness=normal_roughness,
+            )
+            face_raw,face_normal_relief=_apply_normal_microrelief(
+                face_raw,
+                face_mask_raw,
+                face_normal,
+                roughness=normal_roughness,
+            )
+
             face_edge_attempts=[{
                 "attempt":0,
                 "bounds":[float(v) for v in head_bounds_used],
@@ -903,6 +1102,14 @@ def render_preview(
                 "edge_retry":{
                     "full":full_edge_attempts,
                     "face":face_edge_attempts,
+                },
+                "normal_map":{
+                    "full":full_normal_map,
+                    "face":face_normal_map,
+                },
+                "normal_microrelief":{
+                    "full":full_normal_relief,
+                    "face":face_normal_relief,
                 },
             }
         else:
@@ -936,7 +1143,7 @@ def render_preview(
             int(face_size),
             0.10,
         )
-        renderer="hayuya-cpu-uv-source-delta-microrepair-ss2-v12"
+        renderer="hayuya-cpu-uv-normal-microrelief-source-delta-ss2-v13"
     else:
         silhouette_clamp={
             "enabled":False,
