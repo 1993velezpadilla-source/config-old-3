@@ -174,6 +174,21 @@ def _bbox(vertices):
     return lo,hi,(lo+hi)*0.5,hi-lo
 
 
+def _robust_bbox(vertices, *, percentile:float=2.0):
+    """Bounds for alignment only; final safety gates still use full min/max."""
+    np,_,_=_deps()
+    vv=np.asarray(vertices,dtype=np.float64)
+    if len(vv)<8:
+        return _bbox(vv)
+    q=min(10.0,max(0.0,float(percentile)))
+    lo=np.percentile(vv,q,axis=0)
+    hi=np.percentile(vv,100.0-q,axis=0)
+    extent=hi-lo
+    if np.any(extent<=1e-9):
+        return _bbox(vv)
+    return lo,hi,(lo+hi)*0.5,extent
+
+
 def _remap_donor_up_axis(
     donor_vertices,
     donor_extent,
@@ -367,8 +382,15 @@ def _orient_head_donor_to_base(
     if len(donor)<8 or len(base)<8:
         raise RuntimeError("head orientation solve requires at least 8 vertices")
 
-    donor_lo,donor_hi,donor_center,_donor_extent=_bbox(donor)
-    _base_lo,_base_hi,_base_center,base_extent=_bbox(base)
+    donor_lo,donor_hi,donor_center,_donor_extent=_robust_bbox(
+        donor,
+        percentile=2.0,
+    )
+    _base_lo,_base_hi,robust_base_center,base_extent=_robust_bbox(
+        base,
+        percentile=2.0,
+    )
+    center=robust_base_center
     target_height=float(base_extent[int(target_up_axis)])
     if target_height<=1e-9:
         raise RuntimeError("collapsed base head bounds")
@@ -379,7 +401,10 @@ def _orient_head_donor_to_base(
         int(target_up_axis)
     ):
         oriented=(donor-donor_center)@matrix.T
-        _lo,_hi,_center,extent=_bbox(oriented)
+        _lo,_hi,_center,extent=_robust_bbox(
+            oriented,
+            percentile=2.0,
+        )
         donor_height=float(extent[int(target_up_axis)])
         if donor_height<=1e-9:
             continue
@@ -441,6 +466,7 @@ def _orient_head_donor_to_base(
                 8,
             ),
             "best_score":float(best["score"]),
+            "alignment_bounds_policy":"percentile-2-98",
             "second_best_axis_score":float(second_axis_score),
             "axis_score_by_source_up":{
                 str(axis):float(score)
