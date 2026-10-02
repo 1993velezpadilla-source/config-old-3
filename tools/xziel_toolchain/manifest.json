@@ -164,5 +164,30 @@
       "role": "robust mesh booleans/repair",
       "pip": "manifold3d==3.5.4"
     }
+  ],
+  "reference_match_optional": [
+    {
+      "name": "GeoCalib",
+      "version": "97b8968e7798a66bf04fcf791fb535624241bda7",
+      "license": "Apache-2.0 code; CC-BY-4.0 trained weights",
+      "default_enabled": false,
+      "role": "single-image focal/intrinsics/gravity calibration for entrance-reference camera matching",
+      "url": "https://github.com/cvg/GeoCalib"
+    },
+    {
+      "name": "LightGlue",
+      "version": "eb42fee2d71449efb0aa5c10549752b5d75384d8",
+      "license": "Apache-2.0 code and LightGlue/DISK weights; avoid SuperPoint restrictive weights",
+      "default_enabled": false,
+      "role": "feature matching between authored reference and Blender proof render",
+      "url": "https://github.com/cvg/LightGlue"
+    },
+    {
+      "name": "fSpy",
+      "license": "GPL-3.0",
+      "default_enabled": false,
+      "role": "manual still-image camera calibration cross-check",
+      "url": "https://github.com/stuffmatic/fSpy"
+    }
   ]
 }
