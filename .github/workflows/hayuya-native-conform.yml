@@ -16,12 +16,18 @@ on:
       - tools/hayuya3d/profiles/monja-mugfwln6.json
       - tools/hayuya3d/native_face_repair.py
       - tools/hayuya3d/regional_fusion.py
+      - tools/hayuya3d/source_material_rescue.py
+      - tools/hayuya3d/source_front_projection.py
+      - tools/hayuya3d/material_bridge.py
+      - tools/hayuya3d/texture_gate.py
+      - tools/hayuya3d/phone_cloud_worker.py
       - tools/hayuya3d/visual_judge.py
       - tools/hayuya3d/tests/test_judge_v4_face_proportions.py
       - tools/hayuya3d/tests/test_native_geometry_guard.py
       - tools/hayuya3d/tests/test_native_360_geometry_gate.py
       - tools/hayuya3d/tests/test_native_silhouette_conform.py
       - tools/hayuya3d/tests/test_native_face_repair.py
+      - tools/hayuya3d/tests/test_source_material_rescue.py
       - tools/hayuya3d/tests/test_multiview_quality_gate.py
       - tools/hayuya3d/tests/test_regional_fusion.py
       - tools/hayuya3d/tests/test_rigged_regional_fusion.py
@@ -57,6 +63,9 @@ jobs:
       - name: Source-derived native face repair
         run: |
           python -m pytest -q tools/hayuya3d/tests/test_native_face_repair.py
+      - name: Native source material rescue
+        run: |
+          python -m pytest -q tools/hayuya3d/tests/test_source_material_rescue.py
       - name: Multiview native geometry fallback
         run: |
           python -m pytest -q tools/hayuya3d/tests/test_multiview_quality_gate.py
