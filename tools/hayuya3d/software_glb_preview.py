@@ -496,7 +496,7 @@ def _compose_front_priority(
     *,
     edge_fill_pixels:int,
 ):
-    from scipy.ndimage import distance_transform_edt
+    from scipy.ndimage import distance_transform_edt, label
 
     front=np.asarray(front_mask,dtype=np.uint8)>0
     support=np.asarray(support_mask,dtype=np.uint8)>0
@@ -527,6 +527,55 @@ def _compose_front_priority(
     out[edge_fill]=projected_rgb[edge_fill]
     out[front_keep]=front_rgb[front_keep]
 
+    # Repair only tiny raster/partition artifacts where the rendered front is
+    # substantially darker than the exact same 4K source projection. Real dark
+    # content (eyes, mouth, cloth holes, shadows) is preserved because it is
+    # dark in BOTH images and therefore does not enter this candidate mask.
+    front_luma=(
+        front_rgb[:,:,0].astype(np.float32)*0.2126+
+        front_rgb[:,:,1].astype(np.float32)*0.7152+
+        front_rgb[:,:,2].astype(np.float32)*0.0722
+    )
+    projected_luma=(
+        projected_rgb[:,:,0].astype(np.float32)*0.2126+
+        projected_rgb[:,:,1].astype(np.float32)*0.7152+
+        projected_rgb[:,:,2].astype(np.float32)*0.0722
+    )
+    micro_candidate=(
+        front_keep
+        & ((projected_luma-front_luma)>=24.0)
+    )
+    labeled,count=label(micro_candidate)
+    scale=float(max(front.shape))/1024.0
+    area_cap=max(16,int(round(96.0*scale*scale)))
+    compact_span=max(8,int(round(32.0*scale)))
+    line_area_cap=max(12,int(round(72.0*scale*scale)))
+    line_span=max(12,int(round(64.0*scale)))
+    line_thickness=max(2,int(round(4.0*scale)))
+    micro_repair=np.zeros_like(micro_candidate,dtype=bool)
+    repaired_components=0
+    for component_id in range(1,int(count)+1):
+        ys,xs=np.where(labeled==component_id)
+        area=int(len(xs))
+        if area<=0:
+            continue
+        width=int(xs.max()-xs.min()+1)
+        height=int(ys.max()-ys.min()+1)
+        compact=(
+            area<=area_cap
+            and max(width,height)<=compact_span
+        )
+        thin_line=(
+            area<=line_area_cap
+            and min(width,height)<=line_thickness
+            and max(width,height)<=line_span
+        )
+        if compact or thin_line:
+            micro_repair[ys,xs]=True
+            repaired_components+=1
+
+    out[micro_repair]=projected_rgb[micro_repair]
+
     out_mask=Image.fromarray(keep2.astype(np.uint8)*255,"L")
     outline_pixels=int(np.count_nonzero(outline))
     return Image.fromarray(out,"RGB"),out_mask,{
@@ -540,6 +589,18 @@ def _compose_front_priority(
         "missing_inside_outline":int(np.count_nonzero(missing2)),
         "outline_coverage":float(np.count_nonzero(keep2)/max(outline_pixels,1)),
         "hidden_over_front_pixels_forbidden":int(np.count_nonzero(support&front_keep)),
+        "micro_artifact_repair":{
+            "policy":"source-delta-small-component-v1",
+            "luma_delta_threshold":24.0,
+            "candidate_pixels":int(np.count_nonzero(micro_candidate)),
+            "repaired_pixels":int(np.count_nonzero(micro_repair)),
+            "repaired_components":int(repaired_components),
+            "area_cap":int(area_cap),
+            "compact_span":int(compact_span),
+            "line_area_cap":int(line_area_cap),
+            "line_span":int(line_span),
+            "line_thickness":int(line_thickness),
+        },
     }
 
 def _mask_edge_contact(mask:Image.Image,margin:int=4):
@@ -875,7 +936,7 @@ def render_preview(
             int(face_size),
             0.10,
         )
-        renderer="hayuya-cpu-uv-detail-preserve-hard-remask-ss2-v11"
+        renderer="hayuya-cpu-uv-source-delta-microrepair-ss2-v12"
     else:
         silhouette_clamp={
             "enabled":False,
