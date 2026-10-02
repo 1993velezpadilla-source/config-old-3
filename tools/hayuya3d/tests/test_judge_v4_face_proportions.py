@@ -6,7 +6,11 @@ import sys
 HERE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HERE))
 
-from judge_v4 import JudgeV4Thresholds, face_proportion_failures
+from judge_v4 import (
+    JudgeV4Thresholds,
+    _normalized_frame,
+    face_proportion_failures,
+)
 
 
 def _report(nose_to_chin: float, nose_eye: float):
@@ -68,3 +72,24 @@ def test_gate_uses_new_source_profile_not_monja_template():
     assert failures == []
     assert gate["ratios"]["nose_to_chin"] == 1.05
     assert gate["ratios"]["nose_eye_center_offset"] == 0.96
+
+
+
+def test_dedicated_face_frame_is_resized_without_subject_recrop(tmp_path: Path):
+    from PIL import Image, ImageDraw
+
+    source = tmp_path / "face_frame.png"
+    output = tmp_path / "normalized.png"
+    image = Image.new("RGB", (320, 180), (24, 24, 24))
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((0, 45, 30, 135), fill=(255, 0, 0))
+    draw.rectangle((289, 45, 319, 135), fill=(0, 0, 255))
+    draw.rectangle((120, 20, 200, 160), fill=(210, 190, 170))
+    image.save(source)
+
+    _normalized_frame(source, output, size=512)
+
+    result = Image.open(output).convert("RGB")
+    pixels = list(result.getdata())
+    assert any(r > 240 and g < 20 and b < 20 for r, g, b in pixels)
+    assert any(b > 240 and r < 20 and g < 20 for r, g, b in pixels)
