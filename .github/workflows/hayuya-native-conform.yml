@@ -22,6 +22,7 @@ on:
       - tools/hayuya3d/tests/test_native_360_geometry_gate.py
       - tools/hayuya3d/tests/test_native_silhouette_conform.py
       - tools/hayuya3d/tests/test_native_face_repair.py
+      - tools/hayuya3d/tests/test_multiview_quality_gate.py
       - tools/hayuya3d/tests/test_regional_fusion.py
       - tools/hayuya3d/tests/test_rigged_regional_fusion.py
       - tools/hayuya3d/tests/test_planner.py
@@ -40,7 +41,7 @@ jobs:
       - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install numpy scipy pillow trimesh pytest
+          python -m pip install numpy scipy pillow trimesh numba pytest
       - name: Native geometry provenance guard
         run: |
           python -m pytest -q tools/hayuya3d/tests/test_native_geometry_guard.py
@@ -56,6 +57,9 @@ jobs:
       - name: Source-derived native face repair
         run: |
           python -m pytest -q tools/hayuya3d/tests/test_native_face_repair.py
+      - name: Multiview native geometry fallback
+        run: |
+          python -m pytest -q tools/hayuya3d/tests/test_multiview_quality_gate.py
       - name: Regional fusion topology and UV preservation
         run: |
           python -m pytest -q tools/hayuya3d/tests/test_regional_fusion.py
