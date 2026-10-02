@@ -295,6 +295,21 @@ class HayuyaPlannerTests(unittest.TestCase):
         self.assertNotIn("monja", json.dumps(policy).lower())
         self.assertNotIn("source_visible_front", json.dumps(policy).lower())
 
+    def test_native_face_repair_plan_is_character_only_for_props(self):
+        plan = hayuya.make_job_plan(
+            [Path("/tmp/props/church_altar/front.png")],
+            profile_name="game",
+            mode="prop",
+            seed=1993,
+            selected_backends=["triposg"],
+            model_root=Path("/tmp/models"),
+            native_face_repair_mode="auto",
+        )
+        policy = plan["native_face_repair"]
+        self.assertEqual(policy["asset_scope"], "character-only")
+        self.assertIn("props", policy["activation"])
+        self.assertIn("architecture", policy["activation"])
+
     def test_hunyuan_is_not_default(self):
         lock = hayuya.load_lock()
         meta = hayuya.backend_meta(lock)
