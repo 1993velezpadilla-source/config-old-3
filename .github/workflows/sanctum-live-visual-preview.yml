@@ -99,6 +99,9 @@ jobs:
           set -euo pipefail
           rm -rf /tmp/sanctum-live-site
           mkdir -p /tmp/sanctum-live-site
+          if [[ -s references/sanctum/hero_reference.jpg ]]; then
+            cp references/sanctum/hero_reference.jpg /tmp/sanctum-live-site/reference.jpg
+          fi
 
           KIND="${SOURCE_KIND}"
           if [[ "$KIND" == "hero" ]]; then
@@ -173,11 +176,15 @@ jobs:
 
           **Refresh this page after a build finishes.** This branch updates automatically. While Hero is rendering it shows the last GREEN Sanctum view; when Hero finishes it switches to the new entrance/player-view render.
 
-          ## Main entrance / player view
+          ## Reference vs current build
 
-          [![Sanctum hero player view](hero.png)](hero.png)
+          ### Reference
+          [![Sanctum reference](reference.jpg)](reference.jpg)
 
-          Tap the image above to open it full-size and zoom.
+          ### Current GitHub build
+          [![Sanctum current player view](hero.png)](hero.png)
+
+          Tap either image to open it full-size and zoom.
 
           **Current source:** {state["source_kind"]}. **Hero camera target:** raised entrance view · eye height {val(cam.get("eye_height_m"))} m · {val(cam.get("lens_mm"))} mm lens.
 
