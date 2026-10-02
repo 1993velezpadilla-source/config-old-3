@@ -93,6 +93,39 @@ def _normalized(vertices_world: np.ndarray):
     return (vertices_world - center) / scale, center, scale
 
 
+def _bounded_render_faces(faces: np.ndarray, max_faces: int):
+    """Deterministically cap raster work without touching exported topology.
+
+    HAYUYA Hero Masters can contain hundreds of thousands or millions of
+    triangles. Camera search renders many hypotheses, so feeding every triangle
+    into every software-raster pass is unnecessary and can make conform
+    impractical. This subset is evidence-only: all original vertices/faces stay
+    intact and the final full Judge still decides promotion.
+    """
+    faces = np.asarray(faces, dtype=np.int64)
+    budget = max(32, int(max_faces))
+    total = int(len(faces))
+    if total <= budget:
+        return faces, {
+            "input_faces": total,
+            "render_faces": total,
+            "budget": budget,
+            "subsampled": False,
+            "policy": "full-face-render",
+        }
+
+    ids = np.linspace(0, total - 1, budget, dtype=np.int64)
+    ids = np.unique(ids)
+    subset = faces[ids]
+    return subset, {
+        "input_faces": total,
+        "render_faces": int(len(subset)),
+        "budget": budget,
+        "subsampled": True,
+        "policy": "deterministic-uniform-face-evidence-only",
+    }
+
+
 def _best_camera(vertices_norm, faces, source_mask, *, size: int, azimuth_step: int):
     bank = build_render_bank(
         vertices_norm,
@@ -295,7 +328,7 @@ def _conform_iteration(
 ):
     state = _project_state(
         vertices_norm,
-        faces,
+        render_faces,
         source_mask,
         camera,
         size=size,
@@ -464,9 +497,14 @@ def conform_native_silhouette(
     per_vertex_cap_px: float = 3.0,
     visibility_depth_tolerance_ratio: float = 0.025,
     visibility_neighborhood_px: int = 1,
+    render_face_budget: int = 12000,
 ):
     scene, records, vertices_world, faces = _load_editable_scene(input_glb)
     vertices_norm, center, scale = _normalized(vertices_world)
+    render_faces, render_budget = _bounded_render_faces(
+        faces,
+        max_faces=int(render_face_budget),
+    )
 
     source_mask, source_confidence, source_mask_method = (
         extract_source_mask_evidence(source_image, size=int(size))
@@ -485,7 +523,7 @@ def conform_native_silhouette(
     )
     initial = _project_state(
         vertices_norm,
-        faces,
+        render_faces,
         source_mask,
         camera,
         size=int(size),
@@ -498,7 +536,7 @@ def conform_native_silhouette(
     for index in range(max(1, int(iterations))):
         proposed, item = _conform_iteration(
             current,
-            faces,
+            render_faces,
             source_mask,
             camera,
             size=int(size),
@@ -518,7 +556,7 @@ def conform_native_silhouette(
 
     final = _project_state(
         current,
-        faces,
+        render_faces,
         source_mask,
         camera,
         size=int(size),
@@ -570,6 +608,7 @@ def conform_native_silhouette(
             "boundary_f1": float(final["boundary_f1"]),
         },
         "passes": passes,
+        "render_budget": render_budget,
         "visibility_policy": {
             "mode": "camera-front-surface-only",
             "depth_tolerance_ratio": float(
@@ -627,6 +666,11 @@ def main() -> int:
         type=int,
         default=1,
     )
+    parser.add_argument(
+        "--render-face-budget",
+        type=int,
+        default=12000,
+    )
     args = parser.parse_args()
 
     conform_native_silhouette(
@@ -644,6 +688,7 @@ def main() -> int:
             args.visibility_depth_tolerance_ratio
         ),
         visibility_neighborhood_px=args.visibility_neighborhood_px,
+        render_face_budget=args.render_face_budget,
     )
     return 0
 
