@@ -7,9 +7,11 @@ on:
     paths:
       - tools/hayuya3d/hayuya.py
       - tools/hayuya3d/native_geometry_guard.py
+      - tools/hayuya3d/native_360_geometry_gate.py
       - tools/hayuya3d/native_silhouette_conform.py
       - tools/hayuya3d/visual_judge.py
       - tools/hayuya3d/tests/test_native_geometry_guard.py
+      - tools/hayuya3d/tests/test_native_360_geometry_gate.py
       - tools/hayuya3d/tests/test_native_silhouette_conform.py
       - tools/hayuya3d/tests/test_planner.py
       - .github/workflows/hayuya-native-conform.yml
@@ -31,6 +33,9 @@ jobs:
       - name: Native geometry provenance guard
         run: |
           python -m pytest -q tools/hayuya3d/tests/test_native_geometry_guard.py
+      - name: Native 360 volumetric geometry gate
+        run: |
+          python -m pytest -q tools/hayuya3d/tests/test_native_360_geometry_gate.py
       - name: Source-driven native silhouette conform
         run: |
           python -m pytest -q tools/hayuya3d/tests/test_native_silhouette_conform.py
