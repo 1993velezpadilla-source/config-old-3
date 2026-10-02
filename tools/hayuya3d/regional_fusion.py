@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib
 import json
 import math
 from dataclasses import asdict,dataclass
@@ -43,6 +44,11 @@ class HeadWrapResult:
     uv_preserved:bool|None=None
 
 
+def _sibling_module(name:str):
+    target=f"{__package__}.{name}" if __package__ else name
+    return importlib.import_module(target)
+
+
 def _deps():
     import numpy as np
     import trimesh
@@ -51,7 +57,7 @@ def _deps():
 
 
 def _scene_meshes(path:Path):
-    from material_bridge import _scene_meshes as load
+    load=_sibling_module("material_bridge")._scene_meshes
     return load(path)
 
 
