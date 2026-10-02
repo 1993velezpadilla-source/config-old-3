@@ -23,14 +23,14 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Download exact-texture APK #8
+      - name: Download exact-texture APK #9
         uses: actions/download-artifact@v5
         with:
           name: XZIEL-Church-ExactTextures-InfinitePistol
           path: base
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
-          run-id: 37028022597
+          run-id: 37045812639
 
       - name: Patch only player spawn positions
         shell: bash
@@ -148,7 +148,7 @@ jobs:
             [[ "$STAGE" == "FIRST_FRAME_OK" ]] && break
             sleep 1
           done
-          # APK #8 needs time to extract/load the full-resolution XZSM texture
+          # APK #9 needs time to extract/load the full-resolution XZSM texture
           # set after FIRST_FRAME_OK. Diagnostics showed the scene becomes
           # fully visible around the 30-second mark.
           sleep 40
