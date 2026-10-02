@@ -335,6 +335,33 @@ def _yaw_align_donor_to_base_head(
     return best_vertices,best_angle,float(best_score)
 
 
+def _head_donor_background_shell_fraction(
+    donor_vertices,
+    *,
+    percentile:float=2.0,
+    face_band:float=0.005,
+)->float:
+    """Estimate rectangular reconstruction-shell contamination robustly.
+
+    Alignment outliers are ignored when establishing the reference bounds, then
+    every vertex is measured against those robust box faces. A true cropped-RGB
+    box/sheet shell still produces a large face population; one stray vertex
+    cannot hide it by expanding min/max.
+    """
+    np,_,_=_deps()
+    vv=np.asarray(donor_vertices,dtype=np.float64)
+    lo,hi,_center,extent=_robust_bbox(vv,percentile=percentile)
+    span=np.maximum(extent,1e-9)
+    normalized=(vv-lo)/span
+    face_distance=np.minimum(
+        np.abs(normalized),
+        np.abs(1.0-normalized),
+    )
+    return float(np.mean(
+        np.any(face_distance<float(face_band),axis=1)
+    ))
+
+
 def _proper_axis_alignment_rotations(target_up_axis:int):
     """Return six proper rotations covering every source-up axis/sign pair."""
     np,_,_=_deps()
@@ -598,19 +625,9 @@ def build_head_wrap_geometry(
             }
 
         if donor_scope=="head":
-            # Fail closed when a cropped RGB detail was reconstructed together
-            # with its rectangular background. That failure mode creates a
-            # nearly box-shaped shell with an abnormally large population of
-            # vertices pinned to the donor bounding-box faces; nearest-surface
-            # wrapping then turns the base hood/face into large folded spikes.
-            donor_span=np.maximum(donor_extent,1e-9)
-            donor_edge_distance=np.minimum(
-                donor_vertices-donor_lo,
-                donor_hi-donor_vertices,
-            )/donor_span
-            donor_bbox_face_fraction=float(np.mean(
-                np.any(donor_edge_distance<0.005,axis=1)
-            ))
+            donor_bbox_face_fraction=_head_donor_background_shell_fraction(
+                donor_vertices,
+            )
             if donor_bbox_face_fraction>0.18:
                 raise RuntimeError(
                     "head_donor_background_shell:"
@@ -1004,6 +1021,16 @@ def build_rig_preserving_head_wrap_geometry(
             donor_orientation={
                 "policy":"pending-base-driven-head-orientation",
             }
+
+        if donor_scope=="head":
+            donor_bbox_face_fraction=_head_donor_background_shell_fraction(
+                donor_vertices,
+            )
+            if donor_bbox_face_fraction>0.18:
+                raise RuntimeError(
+                    "head_donor_background_shell:"
+                    f"bbox_face_fraction={donor_bbox_face_fraction:.6f}>0.180000"
+                )
 
         base_norm_h=(
             base_vertices[:,resolved_up_axis]-base_lo[resolved_up_axis]
