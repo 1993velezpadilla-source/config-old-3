@@ -1,0 +1,1688 @@
+{
+  "schema": 1,
+  "id": "hayuya_zombie_animation_library_v1",
+  "groups": [
+    {
+      "id": "basic",
+      "label": "Zombie Animations",
+      "description": "Two local one-tap animation banks are installed for HAYUYA: 43 UAM2 clips and 46 UAM1 clips. Clicking a clip switches the live model to the correct animation bank automatically.",
+      "categories": [
+        {
+          "id": "idle",
+          "label": "Idle / Stand",
+          "items": [
+            {
+              "id": "quaternius_uam1_idle_loop",
+              "label": "Idle · Loop",
+              "source": "quaternius-uam1",
+              "clip": "Idle_Loop",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "idle",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "idle",
+                "zombie",
+                "loop"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_idle_foldarms_loop",
+              "label": "Idle FoldArms · Loop",
+              "source": "quaternius-uam2",
+              "clip": "Idle_FoldArms_Loop",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "idle",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "idle",
+                "zombie",
+                "loop"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_idle_lantern_loop",
+              "label": "Idle Lantern · Loop",
+              "source": "quaternius-uam2",
+              "clip": "Idle_Lantern_Loop",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "idle",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "idle",
+                "zombie",
+                "loop"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_idle_no_loop",
+              "label": "Idle No · Loop",
+              "source": "quaternius-uam2",
+              "clip": "Idle_No_Loop",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "idle",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "idle",
+                "zombie",
+                "loop"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_idle_rail_loop",
+              "label": "Idle Rail · Loop",
+              "source": "quaternius-uam2",
+              "clip": "Idle_Rail_Loop",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "idle",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "idle",
+                "zombie",
+                "loop"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_idle_rail_call",
+              "label": "Idle Rail Call",
+              "source": "quaternius-uam2",
+              "clip": "Idle_Rail_Call",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "idle",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "idle",
+                "zombie"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_idle_shield_loop",
+              "label": "Idle Shield · Loop",
+              "source": "quaternius-uam2",
+              "clip": "Idle_Shield_Loop",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "idle",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "idle",
+                "zombie",
+                "loop"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_idle_shield_break",
+              "label": "Idle Shield Break",
+              "source": "quaternius-uam2",
+              "clip": "Idle_Shield_Break",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "idle",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "idle",
+                "zombie"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_idle_talking_loop",
+              "label": "Idle Talking · Loop",
+              "source": "quaternius-uam1",
+              "clip": "Idle_Talking_Loop",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "idle",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "idle",
+                "zombie",
+                "loop"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_idle_talkingphone_loop",
+              "label": "Idle TalkingPhone · Loop",
+              "source": "quaternius-uam2",
+              "clip": "Idle_TalkingPhone_Loop",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "idle",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "idle",
+                "zombie",
+                "loop"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_idle_torch_loop",
+              "label": "Idle Torch · Loop",
+              "source": "quaternius-uam1",
+              "clip": "Idle_Torch_Loop",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "idle",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "idle",
+                "zombie",
+                "loop"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_laytoidle",
+              "label": "LayToIdle",
+              "source": "quaternius-uam2",
+              "clip": "LayToIdle",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "idle",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "idle",
+                "zombie"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_ninjajump_idle_loop",
+              "label": "NinjaJump Idle · Loop",
+              "source": "quaternius-uam2",
+              "clip": "NinjaJump_Idle_Loop",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "idle",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "idle",
+                "zombie",
+                "loop"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_pistol_idle_loop",
+              "label": "Pistol Idle · Loop",
+              "source": "quaternius-uam1",
+              "clip": "Pistol_Idle_Loop",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "idle",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "idle",
+                "zombie",
+                "loop"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_sitting_idle_loop",
+              "label": "Sitting Idle · Loop",
+              "source": "quaternius-uam1",
+              "clip": "Sitting_Idle_Loop",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "idle",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "idle",
+                "zombie",
+                "loop"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_spell_simple_idle_loop",
+              "label": "Spell Simple Idle · Loop",
+              "source": "quaternius-uam1",
+              "clip": "Spell_Simple_Idle_Loop",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "idle",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "idle",
+                "zombie",
+                "loop"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_swim_idle_loop",
+              "label": "Swim Idle · Loop",
+              "source": "quaternius-uam1",
+              "clip": "Swim_Idle_Loop",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "idle",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "idle",
+                "zombie",
+                "loop"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_sword_idle",
+              "label": "Sword Idle",
+              "source": "quaternius-uam1",
+              "clip": "Sword_Idle",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "idle",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "idle",
+                "zombie"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_zombie_idle_loop",
+              "label": "Zombie Idle",
+              "source": "quaternius-uam2",
+              "clip": "Zombie_Idle_Loop",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "zombie_recommended",
+              "zombie_compatible": true,
+              "zombie_recommended": true,
+              "tags": [
+                "zombie_recommended",
+                "zombie",
+                "loop"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "walk",
+          "label": "Walking",
+          "items": [
+            {
+              "id": "quaternius_uam1_walk_loop",
+              "label": "Shamble / Walk",
+              "source": "quaternius-uam1",
+              "clip": "Walk_Loop",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "walk",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "walk",
+                "zombie",
+                "loop"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_walk_carry_loop",
+              "label": "Walk Carry · Loop",
+              "source": "quaternius-uam2",
+              "clip": "Walk_Carry_Loop",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "walk",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "walk",
+                "zombie",
+                "loop"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_walk_formal_loop",
+              "label": "Walk Formal · Loop",
+              "source": "quaternius-uam1",
+              "clip": "Walk_Formal_Loop",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "walk",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "walk",
+                "zombie",
+                "loop"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_zombie_walk_fwd_loop",
+              "label": "Zombie Shamble Forward",
+              "source": "quaternius-uam2",
+              "clip": "Zombie_Walk_Fwd_Loop",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "zombie_recommended",
+              "zombie_compatible": true,
+              "zombie_recommended": true,
+              "tags": [
+                "zombie_recommended",
+                "zombie",
+                "loop"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "run_chase",
+          "label": "Run / Chase",
+          "items": [
+            {
+              "id": "quaternius_uam1_jog_fwd_loop",
+              "label": "Chase · Jog Forward",
+              "source": "quaternius-uam1",
+              "clip": "Jog_Fwd_Loop",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "chase",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "chase",
+                "zombie",
+                "loop"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_sprint_loop",
+              "label": "Chase · Sprint",
+              "source": "quaternius-uam1",
+              "clip": "Sprint_Loop",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "chase",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "chase",
+                "zombie",
+                "loop"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "attack",
+          "label": "Attack",
+          "items": [
+            {
+              "id": "quaternius_uam2_melee_hook",
+              "label": "Zombie Melee · Hook",
+              "source": "quaternius-uam2",
+              "clip": "Melee_Hook",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "attack",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "attack",
+                "zombie"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_melee_hook_rec",
+              "label": "Zombie Melee · Hook Recovery",
+              "source": "quaternius-uam2",
+              "clip": "Melee_Hook_Rec",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "attack",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "attack",
+                "zombie"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_overhandthrow",
+              "label": "OverhandThrow",
+              "source": "quaternius-uam2",
+              "clip": "OverhandThrow",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "attack",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "attack",
+                "zombie"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_pistol_shoot",
+              "label": "Pistol Shoot",
+              "source": "quaternius-uam1",
+              "clip": "Pistol_Shoot",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "attack",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "attack",
+                "zombie"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_punch_cross",
+              "label": "Zombie Melee · Cross",
+              "source": "quaternius-uam1",
+              "clip": "Punch_Cross",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "attack",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "attack",
+                "zombie"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_punch_enter",
+              "label": "Punch Enter",
+              "source": "quaternius-uam1",
+              "clip": "Punch_Enter",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "attack",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "attack",
+                "zombie"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_punch_jab",
+              "label": "Zombie Melee · Jab",
+              "source": "quaternius-uam1",
+              "clip": "Punch_Jab",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "attack",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "attack",
+                "zombie"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_shield_oneshot",
+              "label": "Shield OneShot",
+              "source": "quaternius-uam2",
+              "clip": "Shield_OneShot",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "attack",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "attack",
+                "zombie"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_spell_simple_shoot",
+              "label": "Spell Simple Shoot",
+              "source": "quaternius-uam1",
+              "clip": "Spell_Simple_Shoot",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "attack",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "attack",
+                "zombie"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_sword_attack",
+              "label": "Sword Attack",
+              "source": "quaternius-uam1",
+              "clip": "Sword_Attack",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "attack",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "attack",
+                "zombie"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_sword_attack_rm",
+              "label": "Sword Attack · Root Motion",
+              "source": "quaternius-uam1",
+              "clip": "Sword_Attack_RM",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "attack",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "attack",
+                "zombie"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_sword_block",
+              "label": "Sword Block",
+              "source": "quaternius-uam2",
+              "clip": "Sword_Block",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "attack",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "attack",
+                "zombie"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_sword_dash_rm",
+              "label": "Sword Dash · Root Motion",
+              "source": "quaternius-uam2",
+              "clip": "Sword_Dash_RM",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "attack",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "attack",
+                "zombie"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_sword_regular_a",
+              "label": "Sword Regular A",
+              "source": "quaternius-uam2",
+              "clip": "Sword_Regular_A",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "attack",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "attack",
+                "zombie"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_sword_regular_a_rec",
+              "label": "Sword Regular A · Recovery",
+              "source": "quaternius-uam2",
+              "clip": "Sword_Regular_A_Rec",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "attack",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "attack",
+                "zombie"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_sword_regular_b",
+              "label": "Sword Regular B",
+              "source": "quaternius-uam2",
+              "clip": "Sword_Regular_B",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "attack",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "attack",
+                "zombie"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_sword_regular_b_rec",
+              "label": "Sword Regular B · Recovery",
+              "source": "quaternius-uam2",
+              "clip": "Sword_Regular_B_Rec",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "attack",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "attack",
+                "zombie"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_sword_regular_c",
+              "label": "Sword Regular C",
+              "source": "quaternius-uam2",
+              "clip": "Sword_Regular_C",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "attack",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "attack",
+                "zombie"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_sword_regular_combo",
+              "label": "Sword Regular Combo",
+              "source": "quaternius-uam2",
+              "clip": "Sword_Regular_Combo",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "attack",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "attack",
+                "zombie"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_zombie_scratch",
+              "label": "Zombie Scratch Attack",
+              "source": "quaternius-uam2",
+              "clip": "Zombie_Scratch",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "zombie_recommended",
+              "zombie_compatible": true,
+              "zombie_recommended": true,
+              "tags": [
+                "zombie_recommended",
+                "zombie"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "death",
+          "label": "Death",
+          "items": [
+            {
+              "id": "quaternius_uam1_death01",
+              "label": "Zombie Death / Collapse",
+              "source": "quaternius-uam1",
+              "clip": "Death01",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "death",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "death",
+                "zombie"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "special",
+          "label": "Special / Traversal",
+          "items": [
+            {
+              "id": "quaternius_uam2_a_tpose",
+              "label": "A TPose",
+              "source": "quaternius-uam2",
+              "clip": "A_TPose",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_a_tpose",
+              "label": "A TPose",
+              "source": "quaternius-uam1",
+              "clip": "A_TPose",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_chest_open",
+              "label": "Chest Open",
+              "source": "quaternius-uam2",
+              "clip": "Chest_Open",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_climbup_1m_rm",
+              "label": "ClimbUp 1m · Root Motion",
+              "source": "quaternius-uam2",
+              "clip": "ClimbUp_1m_RM",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_consume",
+              "label": "Consume",
+              "source": "quaternius-uam2",
+              "clip": "Consume",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_dance_loop",
+              "label": "Dance · Loop",
+              "source": "quaternius-uam1",
+              "clip": "Dance_Loop",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility",
+                "loop"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_driving_loop",
+              "label": "Driving · Loop",
+              "source": "quaternius-uam1",
+              "clip": "Driving_Loop",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility",
+                "loop"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_farm_harvest",
+              "label": "Farm Harvest",
+              "source": "quaternius-uam2",
+              "clip": "Farm_Harvest",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_farm_plantseed",
+              "label": "Farm PlantSeed",
+              "source": "quaternius-uam2",
+              "clip": "Farm_PlantSeed",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_farm_watering",
+              "label": "Farm Watering",
+              "source": "quaternius-uam2",
+              "clip": "Farm_Watering",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_fixing_kneeling",
+              "label": "Fixing Kneeling",
+              "source": "quaternius-uam1",
+              "clip": "Fixing_Kneeling",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_interact",
+              "label": "Interact",
+              "source": "quaternius-uam1",
+              "clip": "Interact",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_jump_loop",
+              "label": "Jump · Loop",
+              "source": "quaternius-uam1",
+              "clip": "Jump_Loop",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility",
+                "loop"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_jump_land",
+              "label": "Jump Land",
+              "source": "quaternius-uam1",
+              "clip": "Jump_Land",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_jump_start",
+              "label": "Jump Start",
+              "source": "quaternius-uam1",
+              "clip": "Jump_Start",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_ninjajump_land",
+              "label": "NinjaJump Land",
+              "source": "quaternius-uam2",
+              "clip": "NinjaJump_Land",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_ninjajump_start",
+              "label": "NinjaJump Start",
+              "source": "quaternius-uam2",
+              "clip": "NinjaJump_Start",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_pickup_table",
+              "label": "PickUp Table",
+              "source": "quaternius-uam1",
+              "clip": "PickUp_Table",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_pistol_aim_down",
+              "label": "Pistol Aim Down",
+              "source": "quaternius-uam1",
+              "clip": "Pistol_Aim_Down",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_pistol_aim_neutral",
+              "label": "Pistol Aim Neutral",
+              "source": "quaternius-uam1",
+              "clip": "Pistol_Aim_Neutral",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_pistol_aim_up",
+              "label": "Pistol Aim Up",
+              "source": "quaternius-uam1",
+              "clip": "Pistol_Aim_Up",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_pistol_reload",
+              "label": "Pistol Reload",
+              "source": "quaternius-uam1",
+              "clip": "Pistol_Reload",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_push_loop",
+              "label": "Push · Loop",
+              "source": "quaternius-uam1",
+              "clip": "Push_Loop",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility",
+                "loop"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_roll",
+              "label": "Roll",
+              "source": "quaternius-uam1",
+              "clip": "Roll",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_roll_rm",
+              "label": "Roll · Root Motion",
+              "source": "quaternius-uam1",
+              "clip": "Roll_RM",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_shield_dash_rm",
+              "label": "Shield Dash · Root Motion",
+              "source": "quaternius-uam2",
+              "clip": "Shield_Dash_RM",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_sitting_enter",
+              "label": "Sitting Enter",
+              "source": "quaternius-uam1",
+              "clip": "Sitting_Enter",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_sitting_exit",
+              "label": "Sitting Exit",
+              "source": "quaternius-uam1",
+              "clip": "Sitting_Exit",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_sitting_talking_loop",
+              "label": "Sitting Talking · Loop",
+              "source": "quaternius-uam1",
+              "clip": "Sitting_Talking_Loop",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility",
+                "loop"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_slide_loop",
+              "label": "Slide · Loop",
+              "source": "quaternius-uam2",
+              "clip": "Slide_Loop",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility",
+                "loop"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_slide_exit",
+              "label": "Slide Exit",
+              "source": "quaternius-uam2",
+              "clip": "Slide_Exit",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_slide_start",
+              "label": "Slide Start",
+              "source": "quaternius-uam2",
+              "clip": "Slide_Start",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_spell_simple_enter",
+              "label": "Spell Simple Enter",
+              "source": "quaternius-uam1",
+              "clip": "Spell_Simple_Enter",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_spell_simple_exit",
+              "label": "Spell Simple Exit",
+              "source": "quaternius-uam1",
+              "clip": "Spell_Simple_Exit",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_swim_fwd_loop",
+              "label": "Swim Fwd · Loop",
+              "source": "quaternius-uam1",
+              "clip": "Swim_Fwd_Loop",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility",
+                "loop"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_treechopping_loop",
+              "label": "TreeChopping · Loop",
+              "source": "quaternius-uam2",
+              "clip": "TreeChopping_Loop",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility",
+                "loop"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_yes",
+              "label": "Yes",
+              "source": "quaternius-uam2",
+              "clip": "Yes",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "utility",
+              "zombie_compatible": false,
+              "zombie_recommended": false,
+              "tags": [
+                "utility"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "crawler",
+          "label": "Crawlers / Low Locomotion",
+          "items": [
+            {
+              "id": "quaternius_uam1_crouch_fwd_loop",
+              "label": "Crawler Forward",
+              "source": "quaternius-uam1",
+              "clip": "Crouch_Fwd_Loop",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "crawler",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "crawler",
+                "zombie",
+                "loop"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_crouch_idle_loop",
+              "label": "Crawler Idle",
+              "source": "quaternius-uam1",
+              "clip": "Crouch_Idle_Loop",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "crawler",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "crawler",
+                "zombie",
+                "loop"
+              ]
+            }
+          ],
+          "description": "True crawl clips go here; current UAM1 crouch clips are temporary low-profile options until dedicated crawler mocap is ingested."
+        },
+        {
+          "id": "hit",
+          "label": "Hit Reactions",
+          "items": [
+            {
+              "id": "quaternius_uam1_hit_chest",
+              "label": "Hit Reaction · Chest",
+              "source": "quaternius-uam1",
+              "clip": "Hit_Chest",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "hit_reaction",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "hit_reaction",
+                "zombie"
+              ]
+            },
+            {
+              "id": "quaternius_uam1_hit_head",
+              "label": "Hit Reaction · Head",
+              "source": "quaternius-uam1",
+              "clip": "Hit_Head",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "hit_reaction",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "hit_reaction",
+                "zombie"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_hit_knockback",
+              "label": "Hit Reaction · Knockback",
+              "source": "quaternius-uam2",
+              "clip": "Hit_Knockback",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "hit_reaction",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "hit_reaction",
+                "zombie"
+              ]
+            },
+            {
+              "id": "quaternius_uam2_hit_knockback_rm",
+              "label": "Hit Reaction · Knockback (Root Motion)",
+              "source": "quaternius-uam2",
+              "clip": "Hit_Knockback_RM",
+              "license": "CC0",
+              "availability": "local",
+              "one_tap_ready": true,
+              "motion_family": "hit_reaction",
+              "zombie_compatible": true,
+              "zombie_recommended": false,
+              "tags": [
+                "hit_reaction",
+                "zombie"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "turn",
+          "label": "Turns / Transitions",
+          "items": []
+        }
+      ]
+    },
+    {
+      "id": "real_mocap",
+      "label": "Real Mocap",
+      "description": "Human-performed motion capture sources. External packs stay catalog-only until their files and license are ingested.",
+      "categories": [
+        {
+          "id": "free_human_capture",
+          "label": "Free Human Mocap",
+          "items": [
+            {
+              "id": "rokoko_zombie_12",
+              "label": "Rokoko — 12 Free Zombie Animations",
+              "performer": "Sam Lazarus",
+              "capture": "Rokoko Smartsuit Pro II + Smartgloves",
+              "format": "FBX",
+              "skeleton": "Mixamo",
+              "fps": 30,
+              "count": 12,
+              "license_note": "Rokoko states the pack may be used in personal through commercial projects.",
+              "source_url": "https://www.rokoko.com/resources/rokoko-mocap-12-free-zombie-animations",
+              "availability": "external_download_required",
+              "one_tap_ready": false,
+              "notes": "Free to use in projects according to Rokoko's resource page; source ZIP is not mirrored in public GitHub because redistribution rights are not explicit."
+            },
+            {
+              "id": "mocap_online_demo",
+              "label": "MoCap Online — Free Demo Pack",
+              "capture": "Professional mocap sample pack; includes Zombie samples.",
+              "format": "FBX and other engine formats",
+              "source_url": "https://mocaponline.itch.io/mocap-online-demo",
+              "availability": "external_license_review",
+              "one_tap_ready": false
+            }
+          ]
+        },
+        {
+          "id": "pro_library",
+          "label": "Professional Mocap Libraries",
+          "items": [
+            {
+              "id": "mocap_online_zombie_pro",
+              "label": "MoCap Online — Zombie Pro",
+              "count": 265,
+              "categories": [
+                "attack",
+                "hyper_attack",
+                "chase",
+                "hyper_chase",
+                "crawl",
+                "walk",
+                "stand",
+                "turn",
+                "death",
+                "transitions"
+              ],
+              "source_url": "https://mocaponline.com/pages/animlist/zombie-pro",
+              "availability": "paid_external",
+              "license_note": "Do not ingest automatically. License/AI-use terms must be satisfied first.",
+              "one_tap_ready": false
+            },
+            {
+              "id": "vicon_zombie_81",
+              "label": "Zombie Animation | Vicon Mocap",
+              "count": 81,
+              "categories": [
+                "movement",
+                "attack",
+                "hit_reaction"
+              ],
+              "source_url": "https://www.fab.com/listings/7559e39e-ad01-42aa-a5fb-d0f8e10f0601",
+              "availability": "paid_external",
+              "license_note": "Catalog only until purchased/licensed.",
+              "one_tap_ready": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cc0_expansion",
+      "label": "CC0 Expansion",
+      "description": "Free packs selected for future ingestion.",
+      "categories": [
+        {
+          "id": "quaternius",
+          "label": "Quaternius",
+          "items": [
+            {
+              "id": "quaternius_universal_anim2",
+              "label": "Universal Animation Library 2 — Standard",
+              "count": 43,
+              "categories": [
+                "zombie_idle",
+                "zombie_walk",
+                "zombie_scratch",
+                "melee",
+                "hit",
+                "special"
+              ],
+              "format": [
+                "GLB"
+              ],
+              "license": "CC0",
+              "source_url": "https://quaternius.com/packs/universalanimationlibrary2.html",
+              "availability": "local_library",
+              "local_path": "hayuya/animation_library/quaternius-uam2/library.glb",
+              "one_tap_ready": false
+            },
+            {
+              "id": "quaternius_animated_zombie",
+              "label": "Animated Zombie Pack",
+              "count": 6,
+              "models": 2,
+              "format": [
+                "FBX",
+                "OBJ",
+                "Blend"
+              ],
+              "license": "CC0",
+              "source_url": "https://quaternius.com/packs/animatedzombie.html",
+              "availability": "local_archive",
+              "one_tap_ready": false,
+              "local_archive_path": "hayuya/source_archives/quaternius_animated_zombie/quaternius_animated_zombie.zip",
+              "ingest_note": "Original CC0 source and a self-contained animated GLB preview are local in HAYUYA.",
+              "local_path": "hayuya/animation_library/quaternius-animated-zombie/model.glb",
+              "embedded_actions": [
+                "ZombieAttack_Zombie",
+                "ZombieBite_Zombie",
+                "ZombieCrawl_Zombie",
+                "ZombieIdle_Zombie",
+                "ZombieRun_Zombie",
+                "ZombieWalk_Zombie"
+              ],
+              "notes": "CC0 source ZIP stored locally in HAYUYA; preview model also local."
+            },
+            {
+              "id": "quaternius_universal_anim1",
+              "label": "Universal Animation Library — Standard",
+              "count": 46,
+              "categories": [
+                "walk",
+                "sprint",
+                "death",
+                "hit",
+                "crouch",
+                "combat"
+              ],
+              "format": [
+                "GLB"
+              ],
+              "license": "CC0",
+              "source_url": "https://quaternius.com/packs/universalanimationlibrary.html",
+              "availability": "local_library",
+              "local_path": "hayuya/animation_library/quaternius-uam1/library.glb",
+              "one_tap_ready": false
+            },
+            {
+              "id": "quaternius_zombie_apocalypse",
+              "label": "Zombie Apocalypse Kit",
+              "count": "20 animations per playable character",
+              "models": 60,
+              "format": [
+                "FBX",
+                "OBJ",
+                "glTF",
+                "Blend"
+              ],
+              "license": "CC0",
+              "source_url": "https://quaternius.com/packs/zombieapocalypsekit.html",
+              "availability": "local_archive",
+              "one_tap_ready": false,
+              "local_archive_path": "hayuya/source_archives/quaternius_zombie_apocalypse/quaternius_zombie_apocalypse.zip",
+              "notes": "CC0 source ZIP stored locally in HAYUYA; 294 source files archived."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "ui": {
+    "motion_family_order": [
+      "zombie_recommended",
+      "crawler",
+      "walk",
+      "chase",
+      "attack",
+      "hit_reaction",
+      "death",
+      "idle",
+      "utility"
+    ],
+    "motion_family_labels": {
+      "zombie_recommended": "Zombie · Recommended",
+      "crawler": "Crawlers",
+      "walk": "Walk / Shamble",
+      "chase": "Chase",
+      "attack": "Attacks",
+      "hit_reaction": "Hit Reactions",
+      "death": "Deaths",
+      "idle": "Idles",
+      "utility": "Generic / Utility"
+    },
+    "note": "Display labels are human-facing; embedded clip names remain unchanged for GLB compatibility."
+  }
+}

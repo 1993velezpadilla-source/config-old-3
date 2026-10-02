@@ -1,0 +1,96 @@
+name: HAYUYA Ingest Quaternius Animation Libraries
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - .github/workflows/hayuya-ingest-quaternius-animation-libraries.yml
+
+permissions:
+  contents: write
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: art/hayuya-monster-v1
+          fetch-depth: 1
+
+      - name: Download CC0 archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3             "https://opengameart.org/sites/default/files/universal_animation_library_2standard.zip"             -o /tmp/uam2.zip
+          curl -fL --retry 3             "https://opengameart.org/sites/default/files/universal_animation_librarystandard.zip"             -o /tmp/uam1.zip
+
+      - name: Extract compact GLB libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/uam1 /tmp/uam2
+          mkdir -p /tmp/uam1 /tmp/uam2
+          unzip -oq /tmp/uam1.zip -d /tmp/uam1
+          unzip -oq /tmp/uam2.zip -d /tmp/uam2
+
+          mkdir -p hayuya/animation_library/quaternius-uam1 hayuya/animation_library/quaternius-uam2
+          cp "/tmp/uam1/Animation Library[Standard]/Godot/AnimationLibrary_Godot_Standard.glb"             hayuya/animation_library/quaternius-uam1/library.glb
+          cp "/tmp/uam1/Animation Library[Standard]/License.txt"             hayuya/animation_library/quaternius-uam1/LICENSE.txt
+
+          cp "/tmp/uam2/Universal Animation Library 2 [Standard]/Unreal-Godot/UAL2_Standard.glb"             hayuya/animation_library/quaternius-uam2/library.glb
+          cp "/tmp/uam2/Universal Animation Library 2 [Standard]/License.txt"             hayuya/animation_library/quaternius-uam2/LICENSE.txt
+
+          cat > hayuya/animation_library/quaternius-uam1/SOURCE.txt <<'EOF'
+          Quaternius Universal Animation Library — Standard
+          License: CC0
+          Source: https://opengameart.org/content/universal-animation-library
+          Upstream: https://quaternius.com/packs/universalanimationlibrary.html
+          Compact ingest: Godot GLB only, preserving embedded animation clips.
+          EOF
+
+          cat > hayuya/animation_library/quaternius-uam2/SOURCE.txt <<'EOF'
+          Quaternius Universal Animation Library 2 — Standard
+          License: CC0
+          Source: https://opengameart.org/content/universal-animation-library-2
+          Upstream: https://quaternius.com/packs/universalanimationlibrary2.html
+          Compact ingest: Unreal/Godot GLB only, preserving embedded animation clips.
+          EOF
+
+          test "$(stat -c%s hayuya/animation_library/quaternius-uam1/library.glb)" -gt 1000000
+          test "$(stat -c%s hayuya/animation_library/quaternius-uam2/library.glb)" -gt 1000000
+
+      - name: Inspect animation metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/hayuya3d/rig_gate.py             hayuya/animation_library/quaternius-uam1/library.glb             --json hayuya/animation_library/quaternius-uam1/rig_gate.json
+          python tools/hayuya3d/rig_gate.py             hayuya/animation_library/quaternius-uam2/library.glb             --json hayuya/animation_library/quaternius-uam2/rig_gate.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          for key in ("quaternius-uam1","quaternius-uam2"):
+              p=Path("hayuya/animation_library")/key/"rig_gate.json"
+              d=json.loads(p.read_text())
+              print("HAYUYA_LIBRARY",key,"clips",len(d.get("animation_clips",[])))
+              for clip in d.get("animation_clips",[]):
+                  print(key,clip)
+          PY
+
+      - name: Commit compact animation libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add hayuya/animation_library/quaternius-uam1 hayuya/animation_library/quaternius-uam2
+          if git diff --cached --quiet; then
+            echo "No library changes."
+            exit 0
+          fi
+          git commit -m "hayuya: ingest CC0 Quaternius animation libraries"
+          git pull --rebase origin art/hayuya-monster-v1
+          git push origin HEAD:art/hayuya-monster-v1

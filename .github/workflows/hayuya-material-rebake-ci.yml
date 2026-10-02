@@ -1,0 +1,193 @@
+name: HAYUYA Material Rebake CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - tools/hayuya3d/material_rebake.py
+      - tools/hayuya3d/blender_material_rebake.py
+      - tools/hayuya3d/gameprep.py
+      - tools/hayuya3d/tests/test_material_rebake.py
+      - .github/workflows/hayuya-material-rebake-ci.yml
+
+permissions:
+  contents: read
+
+jobs:
+  blender-normal-rebake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy pillow trimesh scipy
+          sudo apt-get update -qq
+          sudo apt-get install -y blender python3-numpy
+
+      - name: Verify Blender glTF Python runtime
+        run: |
+          blender --background --factory-startup --python-expr "import numpy, bpy; print('HAYUYA_BLENDER_NUMPY_READY', numpy.__version__)"
+
+      - name: Build synthetic high and low meshes
+        run: |
+          cat >/tmp/hayuya-rebake-fixture.py <<'PY'
+          import bpy
+          from pathlib import Path
+
+          root=Path("/tmp/hayuya-rebake")
+          root.mkdir(parents=True,exist_ok=True)
+
+          def reset():
+              bpy.ops.object.select_all(action="SELECT")
+              bpy.ops.object.delete(use_global=False)
+              for material in list(bpy.data.materials):
+                  bpy.data.materials.remove(material)
+
+          def material():
+              m=bpy.data.materials.new("FixtureMaterial")
+              m.use_nodes=True
+              bsdf=m.node_tree.nodes.get("Principled BSDF")
+              bsdf.inputs["Base Color"].default_value=(0.55,0.24,0.15,1.0)
+              bsdf.inputs["Roughness"].default_value=0.68
+              return m
+
+          def cube(name,location,scale,mat,bevel=False):
+              bpy.ops.mesh.primitive_cube_add(size=1.0,location=location)
+              obj=bpy.context.object
+              obj.name=name
+              obj.scale=scale
+              bpy.ops.object.transform_apply(location=False,rotation=False,scale=True)
+              obj.data.materials.append(mat)
+              if bevel:
+                  modifier=obj.modifiers.new("SourceBevel","BEVEL")
+                  modifier.width=0.055
+                  modifier.segments=4
+                  bpy.context.view_layer.objects.active=obj
+                  bpy.ops.object.modifier_apply(modifier=modifier.name)
+              obj.select_set(False)
+              return obj
+
+          def build(path,high):
+              reset()
+              mat=material()
+              floor=cube("floor",(0.0,0.0,-0.075),(2.0,2.0,0.15),mat,bevel=high)
+              wall=cube("wall",(-0.55,0.0,0.85),(0.16,2.0,1.0),mat,bevel=high)
+              ledge=cube("ledge",(0.25,0.0,0.38),(0.55,0.65,0.12),mat,bevel=high)
+
+              # One material means one runtime atlas. Join first, then unwrap the
+              # complete topology exactly once so islands cannot overlap merely
+              # because each source primitive previously owned the full 0..1 UV.
+              bpy.ops.object.select_all(action="DESELECT")
+              for obj in (floor,wall,ledge):
+                  obj.select_set(True)
+              bpy.context.view_layer.objects.active=floor
+              bpy.ops.object.join()
+              target=bpy.context.object
+              target.name="fixture"
+
+              bpy.ops.object.mode_set(mode="EDIT")
+              bpy.ops.mesh.select_all(action="SELECT")
+              bpy.ops.uv.smart_project(angle_limit=1.15192,island_margin=0.035)
+              bpy.ops.object.mode_set(mode="OBJECT")
+
+              bpy.ops.object.select_all(action="DESELECT")
+              target.select_set(True)
+              bpy.context.view_layer.objects.active=target
+              bpy.ops.export_scene.gltf(
+                  filepath=str(path),
+                  export_format="GLB",
+                  use_selection=True,
+                  export_yup=True,
+                  export_materials="EXPORT",
+              )
+
+          build(root/"target.glb",False)
+          build(root/"source.glb",True)
+          print("HAYUYA_REBAKE_FIXTURE_READY global_atlas=true")
+          PY
+          blender --background --factory-startup --python /tmp/hayuya-rebake-fixture.py
+
+      - name: Execute real Blender normal and AO rebake
+        env:
+          HAYUYA_BLENDER: /usr/bin/blender
+        run: |
+          python tools/hayuya3d/material_rebake.py \
+            --source /tmp/hayuya-rebake/source.glb \
+            --target /tmp/hayuya-rebake/target.glb \
+            --output /tmp/hayuya-rebake/rebaked.glb \
+            --required normal \
+            --required occlusion \
+            --texture-size 256 \
+            --json /tmp/hayuya-rebake/result.json
+
+      - name: Verify normal and AO rebakes are real
+        run: |
+          python - <<'PY'
+          import io,json
+          from pathlib import Path
+          import numpy as np
+          from PIL import Image
+          import sys
+
+          sys.path.insert(0,"tools/hayuya3d")
+          from qa import inspect_mesh
+          from texture_gate import embedded_images
+
+          root=Path("/tmp/hayuya-rebake")
+          result=json.loads((root/"result.json").read_text())
+          assert result["resolved_channels"]==["normal","occlusion"],result
+          assert result["remaining_channels"]==[],result
+          assert result["error"] is None,result
+
+          inspected=inspect_mesh(
+              root/"rebaked.glb",
+              backend="blender_rebake_ci",
+              mode="prop",
+              target_faces=1,
+          )
+          assert inspected.valid,inspected
+          channels=set(inspected.pbr_channels or [])
+          assert {"normal","occlusion"}.issubset(channels),inspected
+
+          role_images={}
+          for index,mime,data,roles in embedded_images(root/"rebaked.glb"):
+              arr=np.asarray(Image.open(io.BytesIO(data)).convert("RGB"),dtype=np.float32)
+              for role in roles:
+                  role_images.setdefault(role,[]).append(arr)
+
+          assert role_images.get("normal"),"rebaked GLB has no embedded normal image"
+          assert role_images.get("occlusion"),"rebaked GLB has no embedded occlusion image"
+          normal_variation=max(float(np.std(arr,axis=(0,1)).mean()) for arr in role_images["normal"])
+          ao_variation=max(float(np.std(arr,axis=(0,1)).mean()) for arr in role_images["occlusion"])
+          assert normal_variation>1.0,f"normal map looks neutral/flat: std={normal_variation}"
+          assert ao_variation>0.25,f"AO map looks neutral/flat: std={ao_variation}"
+          print(
+              "HAYUYA_REAL_MATERIAL_REBAKE_PASS",
+              "normal_std",normal_variation,
+              "ao_std",ao_variation,
+              sorted(channels),
+          )
+          PY
+
+      - name: Upload rebake proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hayuya-material-rebake-proof
+          path: |
+            /tmp/hayuya-rebake/rebaked.glb
+            /tmp/hayuya-rebake/result.json
+            /tmp/hayuya-rebake/*.rebake.json
+          retention-days: 7

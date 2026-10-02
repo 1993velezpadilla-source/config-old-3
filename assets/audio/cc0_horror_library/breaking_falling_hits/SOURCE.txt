@@ -1,0 +1,7 @@
+Title: 75 CC0 breaking / falling / hit sfx
+Creator: rubberduck
+License: CC0 / Public Domain dedication (as declared on source page)
+Source: https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx
+Retrieved UTC: 2026-09-22T22:43:40Z
+Archive SHA256:
+e6ee04d91c5f4d30cfda1260d2c9d1faf96fda36319287215fbd07bcb1a80451  _cc0_audio_downloads/breaking_falling_hits.zip

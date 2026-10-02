@@ -1,0 +1,86 @@
+name: HAYUYA Ingest Extra CC0 Zombie Audio
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - .github/workflows/hayuya-ingest-extra-zombie-audio.yml
+
+permissions:
+  contents: write
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: art/hayuya-monster-v1
+          fetch-depth: 1
+
+      - name: Download verified CC0 packs
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="assets/audio/cc0_horror_library"
+          mkdir -p "$root/zomby_sfx_saturn91" "$root/zombie_noises_ianzazz" "$root/zombie_moans_emopreben"
+
+          for n in 01 02 03; do
+            curl -fL --retry 3 "https://opengameart.org/sites/default/files/${n}_zombey.mp3" -o "$root/zomby_sfx_saturn91/${n}_zombey.mp3"
+          done
+          curl -fL --retry 3 "https://opengameart.org/sites/default/files/04_zombey_0.mp3" -o "$root/zomby_sfx_saturn91/04_zombey.mp3"
+          for n in 06 07; do
+            curl -fL --retry 3 "https://opengameart.org/sites/default/files/${n}_zombey.mp3" -o "$root/zomby_sfx_saturn91/${n}_zombey.mp3"
+          done
+
+          curl -fL --retry 3 "https://opengameart.org/sites/default/files/zombienoises.zip" -o /tmp/zombienoises.zip
+          unzip -oq /tmp/zombienoises.zip -d "$root/zombie_noises_ianzazz"
+
+          curl -fL --retry 3 "https://opengameart.org/sites/default/files/zombiemoans_-_wav.zip" -o /tmp/zombiemoans.zip
+          unzip -oq /tmp/zombiemoans.zip -d "$root/zombie_moans_emopreben"
+
+      - name: Write provenance
+        shell: bash
+        run: |
+          cat > assets/audio/cc0_horror_library/zomby_sfx_saturn91/SOURCE.txt <<'EOF'
+          Title: Zomby sfx pack
+          Creator: saturn91
+          License: CC0 / Public Domain dedication
+          Source: https://opengameart.org/content/zomby-sfx-pack
+          Notes: Creator states these zombie calls were made with their own voice and microphone.
+          EOF
+
+          cat > assets/audio/cc0_horror_library/zombie_noises_ianzazz/SOURCE.txt <<'EOF'
+          Title: Zombie noises and moans
+          Creator: ianzazz
+          License: CC0 / Public Domain dedication
+          Source: https://opengameart.org/content/zombie-noises-and-moans
+          EOF
+
+          cat > assets/audio/cc0_horror_library/zombie_moans_emopreben/SOURCE.txt <<'EOF'
+          Title: Zombie Moans 01
+          Creator: EmoPreben
+          License: CC0 / Public Domain dedication
+          Source: https://opengameart.org/content/zombie-moans-01-by-emopreben
+          EOF
+
+          find assets/audio/cc0_horror_library/zomby_sfx_saturn91                assets/audio/cc0_horror_library/zombie_noises_ianzazz                assets/audio/cc0_horror_library/zombie_moans_emopreben                -type f -print0 | sort -z | xargs -0 sha256sum > /tmp/hayuya-extra-audio-sha256.txt
+          cat /tmp/hayuya-extra-audio-sha256.txt
+
+      - name: Commit ingested audio
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/audio/cc0_horror_library/zomby_sfx_saturn91                   assets/audio/cc0_horror_library/zombie_noises_ianzazz                   assets/audio/cc0_horror_library/zombie_moans_emopreben
+          if git diff --cached --quiet; then
+            echo "No new audio changes."
+            exit 0
+          fi
+          git commit -m "hayuya: ingest extra CC0 zombie vocal packs"
+          git pull --rebase origin art/hayuya-monster-v1
+          git push origin HEAD:art/hayuya-monster-v1

@@ -1,0 +1,7 @@
+Title: Zombies Sound Pack
+Creator: artisticdude
+License: CC0 / Public Domain dedication (as declared on source page)
+Source: https://opengameart.org/content/zombies-sound-pack
+Retrieved UTC: 2026-09-22T22:43:32Z
+Archive SHA256:
+8096ceeb4dac35d9eef9bfe0cc6649778d1eebf141b208d394ac338b9e5be314  _cc0_audio_downloads/zombies_artisticdude.zip

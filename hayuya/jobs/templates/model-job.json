@@ -1,0 +1,18 @@
+{
+  "schema": 2,
+  "job_id": "OWNER-ASSET-001",
+  "owner": "OWNER",
+  "title": "Asset title",
+  "geometry_input": "path/to/front.png",
+  "reference_dir": "",
+  "detail_dir": "",
+  "profile": "monster",
+  "mode": "auto",
+  "asset_profile": "auto",
+  "animation_requested": false,
+  "motion_profile": "auto",
+  "texture_quality": "standard",
+  "portable_target": "auto",
+  "gpu_vram": 24,
+  "backends": "triposg,trellis2,trellis,instantmesh,triposr"
+}

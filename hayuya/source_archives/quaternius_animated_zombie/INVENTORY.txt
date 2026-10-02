@@ -1,0 +1,11 @@
+Blends/TextureTutorial.png
+Blends/Zombie.blend
+Blends/ZombieSmooth.blend
+Blends/ZombieTexture.png
+FBX/Zombie.fbx
+FBX/ZombieSmooth.fbx
+OBJ/Zombie.mtl
+OBJ/Zombie.obj
+OBJ/ZombieSmooth.mtl
+OBJ/ZombieSmooth.obj
+Preview.mp4

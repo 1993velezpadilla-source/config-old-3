@@ -1,0 +1,7 @@
+{
+  "schema": 1,
+  "job_id": "zombitest1-muetjpwb",
+  "owner": "HAYUYA_WEB",
+  "reason": "Rig QA v47: rerun semantic pelvis-to-head face deformation QA after fixing edge-sampler return contract; preserve V45 rig, weights and animations exactly; no QA threshold changes",
+  "requested_at": "2026-09-24T08:58:00Z"
+}

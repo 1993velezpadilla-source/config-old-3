@@ -1,0 +1,7 @@
+ID: quaternius_animated_characters
+License: CC0
+Source page: https://opengameart.org/content/animated-characters-pack
+Resolved archive: https://opengameart.org/sites/default/files/ultimate_animated_character_pack_by_quaternius.zip
+Archive: quaternius_animated_characters.zip
+SHA256: 0295062cbc72da52ee804f39ac38694901a40458011f9b2638fc7ef13ed509da
+HAYUYA note: archived only because the upstream page explicitly identifies this free pack/license.

@@ -1,0 +1,5 @@
+Quaternius Universal Animation Library 2 — Standard
+License: CC0
+Source: https://opengameart.org/content/universal-animation-library-2
+Upstream: https://quaternius.com/packs/universalanimationlibrary2.html
+Compact ingest: Unreal/Godot GLB only, preserving embedded animation clips.

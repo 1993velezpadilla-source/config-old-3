@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "job_id": "monja-trellis2-ab-01",
+  "source": "hayuya/models/monja-trellis2-ab-01/model.glb",
+  "size": 1024,
+  "views": ["front", "three_quarter", "side", "face"],
+  "purpose": "factual_visual_validation_of_generated_model"
+}

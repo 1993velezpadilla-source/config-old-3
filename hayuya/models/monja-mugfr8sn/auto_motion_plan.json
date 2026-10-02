@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "engine": "HAYUYA Auto",
+  "enabled": true,
+  "asset_profile": "character.creature",
+  "motion_profile": "hayuya_auto",
+  "status": "needs_creature_rig",
+  "motion_system": "skeletal",
+  "weapon_family": "auto",
+  "family_source": null,
+  "family_confidence": 0.0,
+  "preview_set": [
+    "idle",
+    "locomotion",
+    "attack",
+    "hit",
+    "death"
+  ],
+  "required_components": [],
+  "synthesis_operations": [
+    "infer_joint_chain",
+    "fit_creature_skeleton",
+    "retarget_only_compatible_creature_motion"
+  ],
+  "requires": [
+    "mesh_gate",
+    "texture_gate",
+    "creature_skeleton_fit",
+    "rig_gate",
+    "animation_deformation_gate"
+  ],
+  "warnings": [],
+  "research_sources": [
+    {
+      "title": "Monja",
+      "url": "https://en.wikipedia.org/wiki/Monja",
+      "kind": "secondary_reference"
+    }
+  ],
+  "editor_override_allowed": true,
+  "motion_strategy": null,
+  "learned_examples": []
+}

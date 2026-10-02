@@ -1,0 +1,7 @@
+Title: 100 CC0 metal and wood SFX
+Creator: rubberduck
+License: CC0 / Public Domain dedication (as declared on source page)
+Source: https://opengameart.org/content/100-cc0-metal-and-wood-sfx
+Retrieved UTC: 2026-09-22T22:43:37Z
+Archive SHA256:
+be6eba63b03409ac0c77787a956b1503a7c186403d04aef9725c52644a4b7878  _cc0_audio_downloads/wood_metal_rubberduck.zip

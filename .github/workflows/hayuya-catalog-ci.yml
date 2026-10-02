@@ -1,0 +1,41 @@
+name: HAYUYA Catalog and Pipeline CI
+
+on:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - hayuya/library/**
+      - hayuya/animation_library/**
+      - assets/audio/**
+      - hayuya/standards/**
+      - tools/hayuya3d/catalog_audit.py
+      - tools/hayuya3d/blender_autorig.py
+      - tools/hayuya3d/rig_gate.py
+      - tools/hayuya3d/blender_animation_gate.py
+      - tools/hayuya3d/phone_cloud_worker.py
+      - .github/workflows/hayuya-catalog-ci.yml
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: art/hayuya-monster-v1
+          lfs: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Syntax-check pipeline scripts
+        run: |
+          python -m py_compile \
+            tools/hayuya3d/catalog_audit.py \
+            tools/hayuya3d/rig_gate.py \
+            tools/hayuya3d/blender_autorig.py \
+            tools/hayuya3d/blender_animation_gate.py \
+            tools/hayuya3d/phone_cloud_worker.py
+      - name: Audit every local motion and audio reference
+        run: python tools/hayuya3d/catalog_audit.py

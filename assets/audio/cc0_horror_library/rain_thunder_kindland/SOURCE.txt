@@ -1,0 +1,7 @@
+Title: rain and thunders
+Creator: kindland
+License: CC0 / Public Domain dedication (as declared on source page)
+Source: https://opengameart.org/content/rain-and-thunders
+Retrieved UTC: 2026-09-22T22:43:58Z
+File SHA256:
+115c233f9f8bc793f12723030aaae6cfda923e565c32a8e54bb274b2a8199ee1  assets/audio/cc0_horror_library/rain_thunder_kindland/dark_rainy_night.ogg

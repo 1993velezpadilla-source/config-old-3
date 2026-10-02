@@ -1,0 +1,57 @@
+{
+  "schema": 1,
+  "id": "hayuya_preview_pack_v1",
+  "description": "Default motion contract shown in the HAYUYA character preview.",
+  "body": {
+    "preferred_clip_order": [
+      "idle",
+      "breath",
+      "walk",
+      "run",
+      "attack",
+      "punch",
+      "hit",
+      "death"
+    ],
+    "autoplay": "idle",
+    "loop": true
+  },
+  "face": {
+    "blink": {
+      "required_control": "blink_l+blink_r",
+      "default_enabled": true,
+      "target_interval_seconds": [
+        2.5,
+        5.5
+      ]
+    },
+    "mouth": {
+      "required_control": "jaw or mouth-open morph",
+      "default_enabled": true,
+      "mode": "subtle_idle_open_close"
+    },
+    "eyes": {
+      "required_control": "eye_l+eye_r",
+      "default_enabled": true,
+      "mode": "micro_saccade"
+    }
+  },
+  "secondary_motion": {
+    "hair": {
+      "required_pattern_group": "hair",
+      "default_enabled": true,
+      "mode": "spring_bone"
+    },
+    "cloth": {
+      "required_pattern_group": "cloth",
+      "default_enabled": true,
+      "mode": "spring_bone"
+    }
+  },
+  "qa": {
+    "require_rig_for_character_ready": true,
+    "require_embedded_clip_for_preview_ready": true,
+    "do_not_fake_missing_face_controls": true,
+    "do_not_mark_game_ready_from_preview_only": true
+  }
+}

@@ -1,0 +1,62 @@
+name: Hayuya Hub Pages
+
+on:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - tools/hayuya3d/hub/**
+      - .github/workflows/hayuya-hub-pages.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: hayuya-hub-pages
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate standalone Hub
+        run: |
+          test -s tools/hayuya3d/hub/index.html
+          test -s tools/hayuya3d/hub/hub.css
+          test -s tools/hayuya3d/hub/hub.js
+          test -s tools/hayuya3d/hub/hayuya-hub-standalone.html
+
+  deploy:
+    if: github.event_name == 'workflow_dispatch'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare Hub site
+        run: |
+          mkdir -p _site
+          cp tools/hayuya3d/hub/index.html _site/index.html
+          cp tools/hayuya3d/hub/hub.css _site/hub.css
+          cp tools/hayuya3d/hub/hub.js _site/hub.js
+          touch _site/.nojekyll
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,76 @@
+name: Persist Zombie Iglesia Result
+
+on:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - .github/workflows/persist-zombie-iglesia-result.yml
+
+permissions:
+  contents: write
+  issues: write
+  actions: read
+
+jobs:
+  persist:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: art/hayuya-monster-v1
+          fetch-depth: 1
+
+      - name: Download successful Zombie Iglesia artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: hayuya-job-zombie-iglesia-001
+          path: in/zombie-iglesia
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35889013508
+
+      - name: Verify and stage permanent model
+        shell: bash
+        run: |
+          set -euo pipefail
+          src="in/zombie-iglesia/outputs/hayuya_final.glb"
+          manifest="in/zombie-iglesia/outputs/manifest.json"
+          test -s "$src"
+          test -s "$manifest"
+          python - <<'PY'
+          from pathlib import Path
+          p=Path("in/zombie-iglesia/outputs/hayuya_final.glb")
+          b=p.read_bytes()
+          assert b[:4] == b"glTF"
+          assert len(b) > 1024
+          print("ZOMBIE_IGLESIA_GLB_PASS", len(b))
+          PY
+          out="hayuya/models/zombie-iglesia"
+          mkdir -p "$out"
+          cp "$src" "$out/zombie-iglesia.glb"
+          cp "$manifest" "$out/manifest.json"
+          if [ -d "in/zombie-iglesia/outputs/prepared_views" ]; then
+            rm -rf "$out/prepared_views"
+            cp -R "in/zombie-iglesia/outputs/prepared_views" "$out/prepared_views"
+          fi
+
+      - name: Commit permanent Zombie Iglesia model
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add hayuya/models/zombie-iglesia
+          git commit -m "hayuya: persist Zombie Iglesia final GLB"
+          git push origin HEAD:art/hayuya-monster-v1
+
+      - name: Notify Hayuya Hub
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment 55 --repo "$GITHUB_REPOSITORY" --body "📦 **SAVED** — **Christian** / `zombie-iglesia-001` — Zombie Iglesia
+
+          Permanent GLB: `hayuya/models/zombie-iglesia/zombie-iglesia.glb`"

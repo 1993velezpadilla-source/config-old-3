@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "input": "hayuya/weapon_library/quaternius-animated-guns/raw/Shotgun.blend",
+  "object_count": 2,
+  "mesh_count": 1,
+  "armature_count": 1,
+  "empty_count": 0,
+  "vertices": 524,
+  "polygons": 486,
+  "mesh_names": [
+    "Shotgun"
+  ],
+  "armatures": [
+    {
+      "name": "ShotgunArmature",
+      "bones": [
+        "Control",
+        "Reload",
+        "Trigger",
+        "Bullet"
+      ]
+    }
+  ],
+  "bone_names": [
+    "Bullet",
+    "Control",
+    "Reload",
+    "Trigger"
+  ],
+  "actions": [
+    "FireWBullet",
+    "FireWOBullet",
+    "Reload"
+  ],
+  "action_count": 3,
+  "materials": [
+    "Barrels",
+    "Black",
+    "BulletRed",
+    "BulletYellow",
+    "DarkMetal",
+    "Trigger"
+  ],
+  "shape_keys": [],
+  "animation_capable": true
+}

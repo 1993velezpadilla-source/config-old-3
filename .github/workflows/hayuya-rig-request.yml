@@ -1,0 +1,414 @@
+name: HAYUYA Rig Request
+
+on:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - hayuya/rig_requests/**.json
+      - .github/workflows/hayuya-rig-request.yml
+      - tools/hayuya3d/blender_autorig.py
+      - tools/hayuya3d/rig_gate.py
+      - tools/hayuya3d/blender_animation_gate.py
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.collect.outputs.matrix }}
+      count: ${{ steps.collect.outputs.count }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: art/hayuya-monster-v1
+          fetch-depth: 2
+      - id: collect
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os, subprocess
+          from pathlib import Path
+          root=Path(".")
+          if os.environ.get("GITHUB_EVENT_NAME")=="workflow_dispatch":
+              paths=sorted((root/"hayuya/rig_requests").glob("*.json")) if (root/"hayuya/rig_requests").is_dir() else []
+          else:
+              event_sha=os.environ["GITHUB_SHA"]
+              # The branch may advance while this run is queued. Checkout follows
+              # the current branch head with fetch-depth=1, so the event SHA can
+              # legitimately be absent by the time prepare executes. Fetch that
+              # exact immutable commit before diff-tree instead of failing with
+              # "fatal: bad object".
+              present=subprocess.run(
+                  ["git","cat-file","-e",f"{event_sha}^{{commit}}"],
+                  stdout=subprocess.DEVNULL,
+                  stderr=subprocess.DEVNULL,
+              ).returncode==0
+              if not present:
+                  subprocess.run(
+                      ["git","fetch","--no-tags","--depth=1","origin",event_sha],
+                      check=True,
+                  )
+              p=subprocess.run(
+                  ["git","diff-tree","--no-commit-id","--name-only","-r",event_sha],
+                  text=True,
+                  stdout=subprocess.PIPE,
+                  check=True,
+              )
+              paths=[
+                  root/x.strip() for x in p.stdout.splitlines()
+                  if x.startswith("hayuya/rig_requests/") and x.endswith(".json")
+              ]
+          include=[]
+          for path in paths:
+              if not path.is_file(): continue
+              d=json.loads(path.read_text())
+              job=str(d.get("job_id",""))
+              if not job or not all(ch.isalnum() or ch in "._-" for ch in job):
+                  raise SystemExit("unsafe job_id")
+              include.append({"job_id":job,"request":str(path),"owner":str(d.get("owner","HAYUYA"))})
+          with open(os.environ["GITHUB_OUTPUT"],"a") as f:
+              f.write("matrix="+json.dumps({"include":include},separators=(",",":"))+"\n")
+              f.write("count="+str(len(include))+"\n")
+          print(json.dumps(include,indent=2))
+          PY
+
+  rig:
+    needs: prepare
+    if: needs.prepare.outputs.count != '0'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: hayuya-rig-${{ matrix.job_id }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: art/hayuya-monster-v1
+          fetch-depth: 1
+
+      - name: Validate source model
+        run: |
+          set -euo pipefail
+          test -s "hayuya/models/${{ matrix.job_id }}/model.glb"
+
+      - name: Install Blender
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender python3-numpy python3-pip
+          python3 -m pip install --quiet --break-system-packages "trimesh>=4,<5"
+
+      - name: Build UAM2 bank on real model
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "out/rig/${{ matrix.job_id }}"
+          blender --python-exit-code 1 -b --python tools/hayuya3d/blender_autorig.py -- \
+            --target "hayuya/models/${{ matrix.job_id }}/model.glb" \
+            --donor hayuya/animation_library/quaternius-uam2/library.glb \
+            --output "out/rig/${{ matrix.job_id }}/animated.glb" \
+            --report "out/rig/${{ matrix.job_id }}/autorig-uam2.json"
+          python tools/hayuya3d/rig_gate.py \
+            "out/rig/${{ matrix.job_id }}/animated.glb" \
+            --json "out/rig/${{ matrix.job_id }}/rig-uam2.json"
+          blender --python-exit-code 1 -b --python tools/hayuya3d/blender_animation_gate.py -- \
+            --model "out/rig/${{ matrix.job_id }}/animated.glb" \
+            --reference "hayuya/models/${{ matrix.job_id }}/model.glb" \
+            --json "out/rig/${{ matrix.job_id }}/anim-uam2.json" --samples 5 || true
+
+      - name: Build UAM1 bank on real model
+        shell: bash
+        run: |
+          set -euo pipefail
+          blender --python-exit-code 1 -b --python tools/hayuya3d/blender_autorig.py -- \
+            --target "hayuya/models/${{ matrix.job_id }}/model.glb" \
+            --donor hayuya/animation_library/quaternius-uam1/library.glb \
+            --output "out/rig/${{ matrix.job_id }}/animated-uam1.glb" \
+            --report "out/rig/${{ matrix.job_id }}/autorig-uam1.json"
+          python tools/hayuya3d/rig_gate.py \
+            "out/rig/${{ matrix.job_id }}/animated-uam1.glb" \
+            --json "out/rig/${{ matrix.job_id }}/rig-uam1.json"
+          blender --python-exit-code 1 -b --python tools/hayuya3d/blender_animation_gate.py -- \
+            --model "out/rig/${{ matrix.job_id }}/animated-uam1.glb" \
+            --reference "hayuya/models/${{ matrix.job_id }}/model.glb" \
+            --json "out/rig/${{ matrix.job_id }}/anim-uam1.json" --samples 5 || true
+
+      - name: Confirm this is the latest rig request
+        id: freshness
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          job="${{ matrix.job_id }}"
+          current=Path("${{ matrix.request }}")
+          candidates=[]
+          root=Path("hayuya/rig_requests")
+          for p in root.glob("*.json"):
+              try:
+                  d=json.loads(p.read_text())
+              except Exception:
+                  continue
+              if str(d.get("job_id",""))!=job:
+                  continue
+              candidates.append((
+                  str(d.get("requested_at","")),
+                  p.name,
+                  p,
+              ))
+          latest=max(candidates,key=lambda x:(x[0],x[1]))[2] if candidates else current
+          is_current=(latest.as_posix()==current.as_posix())
+          with open(os.environ["GITHUB_OUTPUT"],"a") as out:
+              out.write("current="+("true" if is_current else "false")+"\n")
+              out.write("latest="+latest.as_posix()+"\n")
+          print("HAYUYA_RIG_REQUEST_FRESHNESS",json.dumps({
+              "job_id":job,
+              "current":current.as_posix(),
+              "latest":latest.as_posix(),
+              "is_current":is_current,
+          },separators=(",",":")))
+          PY
+
+      - name: Persist animated real-model banks
+        if: steps.freshness.outputs.current == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          job="${{ matrix.job_id }}"
+          src="out/rig/$job"
+          dst="hayuya/models/$job"
+          cp "$src/animated.glb" "$dst/animated.glb"
+          cp "$src/animated-uam1.glb" "$dst/animated-uam1.glb"
+          cp "$src/rig-uam2.json" "$dst/rig_gate.json"
+          cp "$src/rig-uam1.json" "$dst/rig_gate_uam1.json"
+          cp "$src/anim-uam2.json" "$dst/animation_gate.json"
+          cp "$src/anim-uam1.json" "$dst/animation_gate_uam1.json"
+          cp "$src/autorig-uam2.json" "$dst/autorig-report.json"
+          cp "$src/autorig-uam1.json" "$dst/autorig-report-uam1.json"
+
+          python3 - <<'PY'
+          import json, os, sys
+          from pathlib import Path
+          sys.path.insert(0, str(Path("tools/hayuya3d").resolve()))
+          from auto_motion_planner import plan as plan_auto_motion
+          from part_segmentation_plan import build as build_part_segmentation
+          from part_map import build_part_map, write_part_map
+          job="${{ matrix.job_id }}"
+          root=Path("hayuya/models")/job
+          manifest_path=root/"manifest.json"
+          manifest=json.loads(manifest_path.read_text()) if manifest_path.exists() else {"schema":2,"job_id":job}
+          r2=json.loads((root/"rig_gate.json").read_text())
+          r1=json.loads((root/"rig_gate_uam1.json").read_text())
+          g2=json.loads((root/"animation_gate.json").read_text())
+          g1=json.loads((root/"animation_gate_uam1.json").read_text())
+          c2=[str(x) for x in g2.get("compatible_clips",[])]
+          c1=[str(x) for x in g1.get("compatible_clips",[])]
+
+          # Fail-closed promotion policy: once a bank has published a safe clip,
+          # experimental rerigs are not allowed to silently lose it. This makes
+          # rig iteration monotonic from the user's point of view; a worse rerig
+          # can fail CI without replacing the last known-good animated model.
+          incumbent_banks=manifest.get("animation_banks") if isinstance(manifest.get("animation_banks"),dict) else {}
+          promotion_guard={}
+          for bank_name,new_clips in (("quaternius-uam2",c2),("quaternius-uam1",c1)):
+              old=incumbent_banks.get(bank_name,{}) if isinstance(incumbent_banks.get(bank_name,{}),dict) else {}
+              old_clips=[str(x) for x in old.get("clips",[])]
+              old_safe=bool(old.get("quality_passed"))
+              missing=sorted(set(old_clips)-set(new_clips)) if old_safe else []
+              promotion_guard[bank_name]={
+                  "incumbent_safe":old_safe,
+                  "incumbent_clip_count":len(old_clips),
+                  "candidate_clip_count":len(new_clips),
+                  "missing_incumbent_clips":missing,
+              }
+              if missing:
+                  raise SystemExit(
+                      f"safe_clip_regression:{bank_name}:"
+                      + ",".join(missing)
+                  )
+
+          useful2=[x for x in c2 if "tpose" not in x.lower().replace("_","")]
+          useful1=[x for x in c1 if "tpose" not in x.lower().replace("_","")]
+          usable2=bool(r2.get("rig_ready")) and len(useful2)>=3
+          usable1=bool(r1.get("rig_ready")) and len(useful1)>=3
+          if not (usable2 or usable1):
+              raise SystemExit(
+                  "No animation bank passed the safe-motion minimum: "
+                  f"uam2={len(useful2)} useful, uam1={len(useful1)} useful"
+              )
+
+          # Structural monotonicity protects capabilities that clip counts alone
+          # cannot see. Once the published preview has real weighted hands/joints,
+          # a later rerig using the same bank may not silently drop them.
+          incumbent_character=manifest.get("character") if isinstance(manifest.get("character"),dict) else {}
+          incumbent_preview=str(manifest.get("preview_model") or "")
+          selected_preview="animated.glb" if usable2 else "animated-uam1.glb"
+          selected_rig=r2 if usable2 else r1
+          incumbent_joints={
+              str(x) for x in incumbent_character.get("weighted_joint_names",[])
+              if str(x)
+          }
+          candidate_joints={
+              str(x) for x in selected_rig.get("weighted_joint_names",[])
+              if str(x)
+          }
+          missing_joints=(
+              sorted(incumbent_joints-candidate_joints)
+              if incumbent_preview==selected_preview
+              and bool(incumbent_character.get("rig_ready"))
+              else []
+          )
+          incumbent_quality=int(incumbent_character.get("rig_quality_version") or 0)
+          candidate_quality=3
+          if incumbent_quality>candidate_quality:
+              raise SystemExit(
+                  f"rig_quality_regression:{candidate_quality}<{incumbent_quality}"
+              )
+          if missing_joints:
+              raise SystemExit(
+                  "weighted_joint_regression:"+",".join(missing_joints)
+              )
+
+          manifest["preview_model"]=selected_preview
+          manifest["rig_quality_version"]=candidate_quality
+          manifest["rig_promotion_policy"]={
+            "mode":"monotonic_safe_clips_and_structure_v2",
+            "passed":True,
+            "banks":promotion_guard,
+            "structure":{
+              "incumbent_preview_model":incumbent_preview,
+              "candidate_preview_model":selected_preview,
+              "same_bank":incumbent_preview==selected_preview,
+              "incumbent_weighted_joint_count":len(incumbent_joints),
+              "candidate_weighted_joint_count":len(candidate_joints),
+              "missing_incumbent_weighted_joints":missing_joints,
+              "incumbent_rig_quality_version":incumbent_quality,
+              "candidate_rig_quality_version":candidate_quality,
+            },
+          }
+          manifest["asset_profile"]="character.humanoid"
+          asset=manifest.setdefault("asset",{})
+          asset.update({
+            "profile":"character.humanoid",
+            "weapon_family":"auto",
+            "animation_requested":True,
+            "motion_profile":manifest.get("motion_profile","hayuya_auto"),
+            "animation_systems":["skeletal","morph_targets","secondary_motion"],
+            "mechanical_rig_ready":False,
+            "procedural_motion_ready":False,
+            "requires_profile_postprocess":False,
+          })
+
+          # The source job may have entered the cloud worker as profile=auto and
+          # been provisionally treated like a static prop. Once Rig QA proves a
+          # humanoid, rebuild every profile-derived decision so the manifest does
+          # not contain contradictory stale prop.static state.
+          research=manifest.get("research") if isinstance(manifest.get("research"),dict) else {}
+          auto_motion=plan_auto_motion(
+            "character.humanoid",
+            True,
+            manifest.get("motion_profile","hayuya_auto"),
+            "auto",
+            research,
+          )
+          manifest["auto_motion"]=auto_motion
+          (root/"auto_motion_plan.json").write_text(json.dumps(auto_motion,indent=2)+"\n")
+
+          part_plan=build_part_segmentation("character.humanoid","auto")
+          manifest["part_segmentation_plan"]=part_plan
+          (root/"part_segmentation_plan.json").write_text(json.dumps(part_plan,indent=2)+"\n")
+
+          # Rebuild the semantic-lite part map in character mode as well. Keeping
+          # the old prop-mode map after a successful humanoid rig can poison later
+          # animation/add-on decisions even when the rig itself is healthy.
+          part_map=build_part_map(root/"model.glb",mode="character",up_axis="y")
+          write_part_map(part_map,root/"part_map.json")
+          manifest["part_map_summary"]={
+            "components":part_map.component_count,
+            "mode":part_map.mode,
+            "warnings":[],
+          }
+
+          manifest["character"]={
+            "rig_quality_version":3,
+            "skeleton_type":(r2 if usable2 else r1).get("skeleton_type","hayuya_humanoid_v1"),
+            "preview_pack":"hayuya_preview_pack_v1",
+            "rig_ready":(usable2 if usable2 else usable1),
+            "animation_ready":(usable2 if usable2 else usable1),
+            "preview_animation_ready":(usable2 if usable2 else usable1),
+            "animation_clips":(c2 if usable2 else c1),
+            "weighted_joint_count":(r2 if usable2 else r1).get("weighted_joints",0),
+            "weighted_joint_names":(r2 if usable2 else r1).get("weighted_joint_names",[]),
+            "facial":(r2 if usable2 else r1).get("facial",{}),
+            "secondary_motion":(r2 if usable2 else r1).get("secondary_motion",{}),
+            "warnings":(r2 if usable2 else r1).get("warnings",[]),
+            "deformation_qa":{
+              "schema":(g2 if usable2 else g1).get("schema",1),
+              "passed":(usable2 if usable2 else usable1),
+              "full_bank_passed":bool((g2 if usable2 else g1).get("passed")),
+              "action_count":(g2 if usable2 else g1).get("action_count",0),
+              "compatible_clips":(c2 if usable2 else c1),
+              "rejected_clip_count":(g2 if usable2 else g1).get("rejected_clip_count",0),
+              "failures":(g2 if usable2 else g1).get("failures",[])
+            }
+          }
+          manifest["animation_banks"]={
+            "quaternius-uam2":{
+              "model":"animated.glb",
+              "clips":c2,
+              "rig_ready":bool(r2.get("rig_ready")),
+              "animation_ready":bool(r2.get("animation_ready")),
+              "quality_passed":usable2,
+              "full_bank_passed":bool(g2.get("passed")),
+              "rig_quality_version":3
+            },
+            "quaternius-uam1":{
+              "model":"animated-uam1.glb",
+              "clips":c1,
+              "rig_ready":bool(r1.get("rig_ready")),
+              "animation_ready":bool(r1.get("animation_ready")),
+              "quality_passed":usable1,
+              "full_bank_passed":bool(g1.get("passed")),
+              "rig_quality_version":3
+            }
+          }
+          manifest_path.write_text(json.dumps(manifest,indent=2)+"\n")
+          PY
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$dst"
+          git commit -m "hayuya: rig real model $job with local animation banks"
+          for attempt in 1 2 3 4 5; do
+            git pull --rebase origin art/hayuya-monster-v1 || { git rebase --abort || true; sleep $((attempt*2)); continue; }
+            if git push origin HEAD:art/hayuya-monster-v1; then exit 0; fi
+            sleep $((attempt*2))
+          done
+          exit 1
+
+      - name: Notify Hub
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          status="${{ job.status }}"
+          current="${{ steps.freshness.outputs.current }}"
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          if [[ "$status" == "failure" ]]; then
+            gh issue comment 55 --repo "$GITHUB_REPOSITORY" --body "❌ **RIG FAILED** — **${{ matrix.owner }}** / ${{ matrix.job_id }} — $run_url"
+          elif [[ "$current" != "true" ]]; then
+            gh issue comment 55 --repo "$GITHUB_REPOSITORY" --body "⏭️ **RIG SUPERSEDED** — **${{ matrix.owner }}** / ${{ matrix.job_id }} — newer request exists; this run was not allowed to publish."
+          elif [[ "$status" == "success" ]]; then
+            gh issue comment 55 --repo "$GITHUB_REPOSITORY" --body "🦴 **RIG READY** — **${{ matrix.owner }}** / ${{ matrix.job_id }} — real model now carries a QA-approved local animation bank."
+          else
+            gh issue comment 55 --repo "$GITHUB_REPOSITORY" --body "❌ **RIG FAILED** — **${{ matrix.owner }}** / ${{ matrix.job_id }} — status=$status — $run_url"
+          fi

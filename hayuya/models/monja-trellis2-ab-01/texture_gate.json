@@ -1,0 +1,34 @@
+{
+  "schema": 2,
+  "path": "out/hayuya-jobs/monja-trellis2-ab-01/outputs/hayuya_final.glb",
+  "image_count": 1,
+  "max_edge": 2048,
+  "max_megapixels": 4.1943,
+  "mean_edge_variance": 755.8696,
+  "base_color_image_count": 1,
+  "base_color_max_edge": 2048,
+  "base_color_min_edge": 2048,
+  "base_color_max_megapixels": 4.1943,
+  "material_roles": {
+    "baseColor": [
+      0
+    ]
+  },
+  "metrics": [
+    {
+      "index": 0,
+      "mime_type": "image/png",
+      "width": 2048,
+      "height": 2048,
+      "megapixels": 4.1943,
+      "edge_variance": 755.8696,
+      "luminance_stddev": 42.7895,
+      "entropy": 7.0479,
+      "roles": [
+        "baseColor"
+      ]
+    }
+  ],
+  "warnings": [],
+  "passed": true
+}

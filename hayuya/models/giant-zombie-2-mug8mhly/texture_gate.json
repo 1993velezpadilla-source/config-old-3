@@ -1,0 +1,34 @@
+{
+  "schema": 2,
+  "path": "out/hayuya-jobs/giant-zombie-2-mug8mhly/outputs/hayuya_final.glb",
+  "image_count": 1,
+  "max_edge": 2048,
+  "max_megapixels": 4.1943,
+  "mean_edge_variance": 1041.4343,
+  "base_color_image_count": 1,
+  "base_color_max_edge": 2048,
+  "base_color_min_edge": 2048,
+  "base_color_max_megapixels": 4.1943,
+  "material_roles": {
+    "baseColor": [
+      0
+    ]
+  },
+  "metrics": [
+    {
+      "index": 0,
+      "mime_type": "image/png",
+      "width": 2048,
+      "height": 2048,
+      "megapixels": 4.1943,
+      "edge_variance": 1041.4343,
+      "luminance_stddev": 54.1141,
+      "entropy": 7.6511,
+      "roles": [
+        "baseColor"
+      ]
+    }
+  ],
+  "warnings": [],
+  "passed": true
+}

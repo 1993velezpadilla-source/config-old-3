@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "query": "Monja TRELLIS2 A/B",
+  "asset_profile": "character.humanoid",
+  "requested_weapon_family": "auto",
+  "adapter": "wikipedia_mediawiki",
+  "sources": [],
+  "inferred_weapon_family": "auto",
+  "confidence": 0.0,
+  "matched_patterns": [],
+  "summary": "",
+  "warnings": [
+    "no_search_results"
+  ]
+}

@@ -1,0 +1,157 @@
+name: HAYUYA Build Free Weapon Preview Library
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - hayuya/source_archives/oga_flat_guns_east.zip
+      - hayuya/source_archives/oga_flat_guns_west.zip
+      - hayuya/source_archives/oga_revolver_game_asset.zip
+      - tools/hayuya3d/blender_asset_inspector.py
+      - .github/workflows/hayuya-build-free-weapon-preview-library.yml
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: art/hayuya-monster-v1
+          fetch-depth: 1
+
+      - name: Install Blender runtime
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender libegl1 libgl1 python3-numpy
+
+      - name: Extract preview-ready GLBs
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="hayuya/weapon_library/free-source-previews"
+          rm -rf "$root"
+          mkdir -p "$root"/{east,west,revolver,reports}
+
+          rm -rf /tmp/east /tmp/west /tmp/revolver
+          mkdir -p /tmp/east /tmp/west /tmp/revolver
+          unzip -oq hayuya/source_archives/oga_flat_guns_east.zip -d /tmp/east
+          unzip -oq hayuya/source_archives/oga_flat_guns_west.zip -d /tmp/west
+          unzip -oq hayuya/source_archives/oga_revolver_game_asset.zip -d /tmp/revolver
+
+          find /tmp/east -type f -iname '*.glb' -exec cp {} "$root/east/" \;
+          find /tmp/west -type f -iname '*.glb' -exec cp {} "$root/west/" \;
+
+          blender -b "/tmp/revolver/RevolverPreview.blend" --python-expr '
+          import bpy, pathlib
+          out=pathlib.Path("hayuya/weapon_library/free-source-previews/revolver/RevolverAnimated.glb").resolve()
+          bpy.ops.export_scene.gltf(
+              filepath=str(out),
+              export_format="GLB",
+              export_animations=True,
+              export_skins=True,
+              export_nla_strips=True,
+              export_yup=True
+          )
+          print("HAYUYA_REVOLVER_PREVIEW",out)
+          '
+
+      - name: Inspect animated revolver preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="hayuya/weapon_library/free-source-previews"
+          if [ -s "$root/revolver/RevolverAnimated.glb" ]; then
+            blender -b --python tools/hayuya3d/blender_asset_inspector.py --               --input "$root/revolver/RevolverAnimated.glb"               --json "$root/reports/revolver__RevolverAnimated.json"
+          fi
+
+      - name: Build Hub inventory
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("hayuya/weapon_library/free-source-previews")
+
+          def family(name):
+              n=name.lower()
+              if "revolver" in n:return "revolver"
+              if "shotgun_pump" in n:return "shotgun_pump_tube"
+              if "shotgun_auto" in n:return "shotgun_semiauto_tube"
+              if "pistol" in n:return "handgun_semiauto"
+              if "sniper" in n:return "rifle_bolt_action"
+              if "smg" in n or "rifle" in n:return "rifle_magazine"
+              return "unknown"
+
+          assets=[]
+          for group in ("east","west"):
+              for source in sorted((root/group).glob("*.glb")):
+                  assets.append({
+                      "id":(group+"_"+source.stem).lower(),
+                      "label":source.stem.replace("_"," "),
+                      "source_pack":"oga_flat_guns_"+group,
+                      "license":"CC0",
+                      "family_guess":family(source.name),
+                      "preview_model":str(source).replace("\\","/"),
+                      "actions":[],
+                      "action_count":0,
+                      "armature_count":0,
+                      "bone_names":[],
+                      "animation_capable":False,
+                      "availability":"local",
+                  })
+
+          rev=root/"revolver"/"RevolverAnimated.glb"
+          if rev.exists() and rev.stat().st_size>0:
+              report_path=root/"reports"/"revolver__RevolverAnimated.json"
+              d=json.loads(report_path.read_text()) if report_path.exists() else {}
+              assets.append({
+                  "id":"revolver_revolveranimated",
+                  "label":"Revolver Animated",
+                  "source_pack":"oga_revolver_game_asset",
+                  "license":"CC0",
+                  "family_guess":"revolver",
+                  "preview_model":str(rev).replace("\\","/"),
+                  "actions":d.get("actions",[]),
+                  "action_count":d.get("action_count",0),
+                  "armature_count":d.get("armature_count",0),
+                  "bone_names":d.get("bone_names",[]),
+                  "animation_capable":bool(d.get("animation_capable",False)),
+                  "availability":"local",
+              })
+
+          inv={
+              "schema":1,
+              "id":"hayuya_free_weapon_preview_library_v1",
+              "assets":assets,
+          }
+          (root/"inventory.json").write_text(json.dumps(inv,indent=2)+"\n")
+          print("HAYUYA_FREE_WEAPON_PREVIEWS",len(assets))
+          if len(assets)<20:
+              raise SystemExit(f"expected at least 20 East/West previews, got {len(assets)}")
+          print(json.dumps(inv,indent=2))
+          PY
+
+      - name: Commit preview library
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add hayuya/weapon_library/free-source-previews
+          if git diff --cached --quiet; then
+            echo "No preview-library changes."
+            exit 0
+          fi
+          git commit -m "hayuya: build local previews from archived free weapon sources"
+          for attempt in 1 2 3 4 5; do
+            git pull --rebase origin art/hayuya-monster-v1
+            if git push origin HEAD:art/hayuya-monster-v1; then exit 0; fi
+            sleep $((attempt*2))
+          done
+          exit 1

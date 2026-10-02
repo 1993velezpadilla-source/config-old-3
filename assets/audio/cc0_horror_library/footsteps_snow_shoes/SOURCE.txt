@@ -1,0 +1,7 @@
+Title: 41 snow shoe steps
+Creator: Corsica_S / qubodup
+License: CC0 / Public Domain dedication (as declared on source page)
+Source: https://opengameart.org/content/41-snow-shoe-steps
+Retrieved UTC: 2026-09-22T22:43:56Z
+Archive SHA256:
+ca3ae64f425524b8dbf0557734f57dd0b987997781450ddec9b4e8831fc7515d  _cc0_audio_downloads/footsteps_snow_shoes.7z

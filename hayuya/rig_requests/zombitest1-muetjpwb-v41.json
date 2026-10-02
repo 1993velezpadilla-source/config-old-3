@@ -1,0 +1,7 @@
+{
+  "schema": 1,
+  "job_id": "zombitest1-muetjpwb",
+  "owner": "HAYUYA_WEB",
+  "reason": "Rig QA v41: rerun V40 rest-compensated arm animation after Blender-compatible quaternion norm fix; preserve V38 monotonic safe-clip guard; no QA threshold relaxation",
+  "requested_at": "2026-09-24T07:00:00Z"
+}

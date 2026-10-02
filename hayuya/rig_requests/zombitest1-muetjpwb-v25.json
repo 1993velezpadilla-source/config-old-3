@@ -1,0 +1,7 @@
+{
+  "schema": 1,
+  "job_id": "zombitest1-muetjpwb",
+  "owner": "HAYUYA_WEB",
+  "reason": "Rig QA v25: preserve per-vertex local anatomical bone masks through adjacency smoothing; no threshold changes",
+  "requested_at": "2026-09-24T04:00:10Z"
+}

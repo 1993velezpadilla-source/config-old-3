@@ -1,0 +1,222 @@
+name: HAYUYA Real-ESRGAN Runtime Pin CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - tools/hayuya3d/texture_runtimes.lock.json
+      - tools/hayuya3d/texture_runtime.py
+      - tools/hayuya3d/texture_superres.py
+      - tools/hayuya3d/tests/test_texture_runtime.py
+      - tools/hayuya3d/tests/test_texture_superres.py
+      - .github/workflows/hayuya-realesrgan-pin-ci.yml
+
+permissions:
+  contents: read
+
+jobs:
+  verify-linux-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Download complete official runtime bundle
+        run: |
+          set -euo pipefail
+          url="https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesrgan-ncnn-vulkan-20220424-ubuntu.zip"
+          curl --fail --location --retry 3 --output /tmp/realesrgan.zip "$url"
+          echo "HAYUYA_REALESRGAN_ASSET_URL=$url"
+          echo "HAYUYA_REALESRGAN_SHA256=$(sha256sum /tmp/realesrgan.zip | awk '{print $1}')"
+          unzip -l /tmp/realesrgan.zip
+          unzip -Z1 /tmp/realesrgan.zip | grep -E 'models/realesrgan-x4plus\.(param|bin)$'
+
+      - name: Extract and verify runtime layout
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/realesrgan
+          unzip -q /tmp/realesrgan.zip -d /tmp/realesrgan
+          exe="$(find /tmp/realesrgan -type f -name 'realesrgan-ncnn-vulkan' | head -n 1)"
+          modeldir="$(find /tmp/realesrgan -type d -name models | head -n 1)"
+          test -n "$exe"
+          test -n "$modeldir"
+          test -f "$modeldir/realesrgan-x4plus.param"
+          test -f "$modeldir/realesrgan-x4plus.bin"
+          chmod +x "$exe"
+          "$exe" -h >/tmp/realesrgan-help.txt 2>&1 || true
+          cat /tmp/realesrgan-help.txt
+          grep -Eqi "usage|realesrgan|input-path" /tmp/realesrgan-help.txt
+          echo "HAYUYA_REALESRGAN_RUNTIME_LAYOUT_PASS exe=$exe models=$modeldir"
+
+      - name: Prove real x2 inference through Vulkan
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y mesa-vulkan-drivers
+          python -m pip install --quiet pillow
+          python - <<'PY'
+          from PIL import Image
+          image=Image.new("RGB",(16,16))
+          pixels=image.load()
+          for y in range(16):
+              for x in range(16):
+                  pixels[x,y]=(235,60,55) if (x//2+y//2)%2==0 else (35,185,220)
+          image.save("/tmp/realesrgan-input.png")
+          PY
+          exe="$(find /tmp/realesrgan -type f -name 'realesrgan-ncnn-vulkan' | head -n 1)"
+          modeldir="$(find /tmp/realesrgan -type d -name models | head -n 1)"
+          "$exe" \
+            -i /tmp/realesrgan-input.png \
+            -o /tmp/realesrgan-output.png \
+            -m "$modeldir" \
+            -s 2 \
+            -n realesrgan-x4plus \
+            -f png
+          python - <<'PY'
+          from PIL import Image
+          inp=Image.open("/tmp/realesrgan-input.png").convert("RGB")
+          out=Image.open("/tmp/realesrgan-output.png").convert("RGB")
+          assert inp.size==(16,16),inp.size
+          assert out.size==(32,32),out.size
+          spread=max(high-low for low,high in out.getextrema())
+          assert spread>25,("flat super-resolution output",out.getextrema())
+          print(
+              "HAYUYA_REALESRGAN_REAL_INFERENCE_PASS",
+              "input",inp.size,
+              "output",out.size,
+              "spread",spread,
+          )
+          PY
+
+      - name: Prove HAYUYA GLB super-resolution end to end
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/hayuya-realesrgan-e2e
+          python - <<'PY'
+          import io
+          from pathlib import Path
+          from PIL import Image
+          from tools.hayuya3d.glb_images import write_glb
+
+          root=Path("/tmp/hayuya-realesrgan-e2e")
+
+          base=Image.new("RGB",(16,16))
+          px=base.load()
+          for y in range(16):
+              for x in range(16):
+                  px[x,y]=(
+                      min(235,55+x*9),
+                      min(220,45+y*8),
+                      min(230,75+(x+y)*4),
+                  )
+          base_buf=io.BytesIO()
+          base.save(base_buf,format="PNG")
+          base_bytes=base_buf.getvalue()
+
+          normal=Image.new("RGB",(8,8),(128,128,255))
+          normal_buf=io.BytesIO()
+          normal.save(normal_buf,format="PNG")
+          normal_bytes=normal_buf.getvalue()
+
+          blob=bytearray()
+          offsets=[]
+          for payload in (base_bytes,normal_bytes):
+              while len(blob)%4:
+                  blob.append(0)
+              offsets.append(len(blob))
+              blob.extend(payload)
+
+          doc={
+              "asset":{"version":"2.0"},
+              "buffers":[{"byteLength":len(blob)}],
+              "bufferViews":[
+                  {"buffer":0,"byteOffset":offsets[0],"byteLength":len(base_bytes)},
+                  {"buffer":0,"byteOffset":offsets[1],"byteLength":len(normal_bytes)},
+              ],
+              "images":[
+                  {"bufferView":0,"mimeType":"image/png"},
+                  {"bufferView":1,"mimeType":"image/png"},
+              ],
+              "textures":[{"source":0},{"source":1}],
+              "materials":[{
+                  "pbrMetallicRoughness":{"baseColorTexture":{"index":0}},
+                  "normalTexture":{"index":1},
+              }],
+              "scenes":[{"nodes":[]}],
+              "scene":0,
+          }
+          write_glb(root/"source.glb",doc,bytes(blob))
+          print("HAYUYA_REALESRGAN_E2E_FIXTURE_READY",root/"source.glb")
+          PY
+
+          exe="$(find /tmp/realesrgan -type f -name 'realesrgan-ncnn-vulkan' | head -n 1)"
+          python tools/hayuya3d/texture_superres.py \
+            /tmp/hayuya-realesrgan-e2e/source.glb \
+            /tmp/hayuya-realesrgan-e2e/output.glb \
+            --target-edge 32 \
+            --realesrgan "$exe" \
+            --json /tmp/hayuya-realesrgan-e2e/result.json
+
+          python - <<'PY'
+          import io,json
+          from pathlib import Path
+          from PIL import Image
+          from tools.hayuya3d.texture_gate import embedded_images
+
+          root=Path("/tmp/hayuya-realesrgan-e2e")
+          result=json.loads((root/"result.json").read_text())
+          assert result["ready"],result
+          assert result["method"]=="realesrgan_ncnn_vulkan_basecolor_v2",result
+          assert result["remaining_image_indices"]==[],result
+          assert len(result["items"])==1,result
+          item=result["items"][0]
+          assert item["generated_width"]==32,item
+          assert item["generated_height"]==32,item
+          assert item["final_width"]==32,item
+          assert item["final_height"]==32,item
+          assert item["content_mae"]<=56.0,item
+          assert item["luminance_mean_drift"]<=64.0,item
+
+          source={
+              index:(data,roles)
+              for index,mime,data,roles in embedded_images(root/"source.glb")
+          }
+          output={
+              index:(data,roles)
+              for index,mime,data,roles in embedded_images(root/"output.glb")
+          }
+          with Image.open(io.BytesIO(output[0][0])) as image:
+              assert image.size==(32,32),image.size
+          assert output[0][1]==["baseColor"],output[0][1]
+          assert output[1][1]==["normal"],output[1][1]
+          assert output[1][0]==source[1][0],"normal map changed during baseColor SR"
+          print(
+              "HAYUYA_REALESRGAN_GLB_E2E_PASS",
+              "content_mae",item["content_mae"],
+              "luma_drift",item["luminance_mean_drift"],
+              "baseColor","32x32",
+              "normal_preserved",True,
+          )
+          PY
+
+      - name: Upload pin evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hayuya-realesrgan-pin-evidence
+          path: |
+            /tmp/realesrgan-help.txt
+            /tmp/realesrgan-input.png
+            /tmp/realesrgan-output.png
+            /tmp/hayuya-realesrgan-e2e/source.glb
+            /tmp/hayuya-realesrgan-e2e/output.glb
+            /tmp/hayuya-realesrgan-e2e/result.json
+          retention-days: 7

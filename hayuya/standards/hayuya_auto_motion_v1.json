@@ -1,0 +1,154 @@
+{
+  "schema": 1,
+  "id": "hayuya_auto_motion_v1",
+  "label": "HAYUYA Auto",
+  "description": "Default motion brain. HAYUYA identifies the asset, researches/validates its real mechanism when useful, chooses only compatible motion systems, synthesizes or retargets motion, then self-evaluates before GAME READY.",
+  "policy": {
+    "default_on_new_assets": true,
+    "user_override_allowed": true,
+    "fail_closed_when_mechanism_ambiguous": true,
+    "internet_research_is_evidence_not_truth": true,
+    "model_structure_overrides_text_guess": true,
+    "never_force_humanoid_rig_on_non_humanoid": true,
+    "never_force_weapon_clip_across_incompatible_families": true
+  },
+  "evidence_priority": [
+    "explicit_user_asset_profile_and_weapon_family",
+    "detected_model_parts_and_rig_structure",
+    "multi_view_visual_evidence",
+    "trusted_local_library_metadata",
+    "internet_research_from_cited_sources",
+    "filename_title_heuristics"
+  ],
+  "stages": [
+    "classify_asset_profile",
+    "inspect_model_structure",
+    "research_identity_and_mechanism_when_needed",
+    "choose_motion_system",
+    "plan_required_parts_or_bones",
+    "synthesize_or_retarget_motion",
+    "render_or_sample_motion",
+    "self_evaluate_deformation_and_mechanical_consistency",
+    "publish_preview",
+    "allow_editor_override"
+  ],
+  "profile_defaults": {
+    "character.humanoid": {
+      "motion_system": "skeletal",
+      "preferred": [
+        "autorig",
+        "local_animation_retarget",
+        "facial_idle",
+        "secondary_motion"
+      ],
+      "auto_preview": [
+        "idle",
+        "walk",
+        "run",
+        "attack",
+        "hit",
+        "death"
+      ]
+    },
+    "character.creature": {
+      "motion_system": "skeletal",
+      "preferred": [
+        "creature_rig_fit",
+        "procedural_idle",
+        "library_retarget_if_compatible"
+      ]
+    },
+    "weapon.firearm": {
+      "motion_system": "mechanical_skeleton",
+      "preferred": [
+        "mechanism_research",
+        "part_segmentation",
+        "pivot_axis_detection",
+        "mechanical_motion_synthesis"
+      ],
+      "auto_preview": [
+        "idle",
+        "fire",
+        "reload",
+        "inspect"
+      ],
+      "hard_rule": "reload/fire cycles must match the detected real mechanism"
+    },
+    "weapon.melee": {
+      "motion_system": "transform_channels",
+      "preferred": [
+        "socket_setup",
+        "display_motion",
+        "optional_character_pairing"
+      ]
+    },
+    "prop.mechanical": {
+      "motion_system": "transform_channels",
+      "preferred": [
+        "part_segmentation",
+        "pivot_detection",
+        "open_close_or_rotate"
+      ]
+    },
+    "vehicle": {
+      "motion_system": "mechanical_skeleton",
+      "preferred": [
+        "wheel_axes",
+        "steering",
+        "suspension",
+        "door_hinges"
+      ]
+    },
+    "foliage.grass": {
+      "motion_system": "vertex_wind",
+      "preferred": [
+        "root_weight_map",
+        "wind_profile"
+      ]
+    },
+    "foliage.tree": {
+      "motion_system": "vertex_wind",
+      "preferred": [
+        "trunk_branch_leaf_weights",
+        "wind_profile"
+      ]
+    },
+    "prop.static": {
+      "motion_system": "optional_transform_channels",
+      "preferred": [
+        "static_by_default",
+        "display_motion_only_if_requested"
+      ]
+    },
+    "environment.modular": {
+      "motion_system": "optional_transform_channels",
+      "preferred": [
+        "static_by_default",
+        "door_or_mechanical_subpart_motion_if_detected"
+      ]
+    }
+  },
+  "self_evaluation": {
+    "geometry": [
+      "mesh_gate",
+      "bounds_stability"
+    ],
+    "texture": [
+      "texture_gate",
+      "source_fidelity_diagnostic"
+    ],
+    "skeletal": [
+      "rig_gate",
+      "animation_deformation_gate"
+    ],
+    "firearm": [
+      "weapon_component_gate",
+      "weapon_animation_matcher",
+      "mechanical_motion_gate"
+    ],
+    "procedural": [
+      "profile_compatibility",
+      "bounds_stability"
+    ]
+  }
+}

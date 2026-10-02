@@ -1,0 +1,28 @@
+{
+  "path": "out/hayuya-jobs/zombitest1-muetjpwb/outputs/hayuya_final.glb",
+  "valid": true,
+  "passed": true,
+  "vertices": 28290,
+  "faces": 36341,
+  "components": 1095,
+  "largest_component_fraction": 0.019548,
+  "degenerate_ratio": 0.0,
+  "bbox_extents": [
+    0.45784888,
+    0.99958244,
+    0.53538191
+  ],
+  "bbox_aspect_ratio": 2.183215,
+  "axis_alignment_weighted": 0.858651,
+  "axis_aligned_area_98": 0.116099,
+  "dominant_normal_axis_area": [
+    0.510926,
+    0.08075,
+    0.408324
+  ],
+  "reasons": [],
+  "warnings": [
+    "fragmented_surface:components=1095,largest=0.020",
+    "high_component_count:1095"
+  ]
+}

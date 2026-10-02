@@ -1,0 +1,75 @@
+name: HAYUYA Semantic Parts Prototype
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - tools/hayuya3d/semantic_part_detector.py
+      - tools/hayuya3d/blender_reference_render.py
+      - tools/hayuya3d/part_segmentation_plan.py
+      - .github/workflows/hayuya-semantic-parts-prototype.yml
+
+permissions:
+  contents: read
+
+jobs:
+  pistol-semantic-parts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Blender
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender libegl1 libgl1
+
+      - name: Render known CC0 pistol
+        run: |
+          mkdir -p out/semantic-parts
+          blender -b --python tools/hayuya3d/blender_reference_render.py --             --input hayuya/weapon_library/quaternius-animated-guns/raw/Pistol.blend             --output out/semantic-parts/pistol-front.png             --size 1024             --view front
+
+      - name: Build firearm segmentation prompts
+        run: |
+          python tools/hayuya3d/part_segmentation_plan.py             --asset-profile weapon.firearm             --weapon-family handgun_semiauto             --json out/semantic-parts/plan.json
+
+      - name: Install semantic vision stack
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install             --extra-index-url https://download.pytorch.org/whl/cpu             "torch>=2.7" "torchvision>=0.22"             "transformers>=5.17,<6" "accelerate>=1.10"             pillow safetensors
+
+      - name: GroundingDINO + SAM2 semantic parts
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_HUB_DISABLE_TELEMETRY: "1"
+        run: |
+          python tools/hayuya3d/semantic_part_detector.py             --image out/semantic-parts/pistol-front.png             --plan out/semantic-parts/plan.json             --out out/semantic-parts/detected
+
+      - name: Validate detector report
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("out/semantic-parts/detected/semantic_parts.json")
+          d=json.loads(p.read_text())
+          assert d["asset_profile"]=="weapon.firearm", d
+          assert d["weapon_family"]=="handgun_semiauto", d
+          assert 0.0 <= d["coverage"] <= 1.0, d
+          assert d["detectors"]["grounding_dino"].startswith("IDEA-Research/"), d
+          assert d["detectors"]["sam2"].startswith("facebook/"), d
+          print("HAYUYA_SEMANTIC_PROTOTYPE_REPORT", json.dumps({
+              "passed":d["passed"],
+              "coverage":d["coverage"],
+              "detected":[x["part"] for x in d["detections"]],
+              "missing":d["missing_required"],
+          }))
+          PY
+
+      - name: Upload semantic evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: hayuya-semantic-parts-pistol
+          path: out/semantic-parts/**
+          retention-days: 14

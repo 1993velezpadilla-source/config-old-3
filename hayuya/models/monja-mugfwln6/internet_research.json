@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "query": "Monja",
+  "asset_profile": "character.creature",
+  "requested_weapon_family": "auto",
+  "adapter": "wikipedia_mediawiki",
+  "sources": [
+    {
+      "title": "Monja",
+      "url": "https://en.wikipedia.org/wiki/Monja",
+      "kind": "secondary_reference"
+    }
+  ],
+  "inferred_weapon_family": "auto",
+  "confidence": 0.7,
+  "matched_patterns": [],
+  "summary": "Monja may refer to:\n\nMonjayaki, a type of dish cooked using an iron plate in Japanese cuisine\nMonja (given name)",
+  "warnings": []
+}

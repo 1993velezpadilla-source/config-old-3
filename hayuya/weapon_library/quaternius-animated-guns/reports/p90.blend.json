@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "input": "hayuya/weapon_library/quaternius-animated-guns/raw/P90.blend",
+  "object_count": 2,
+  "mesh_count": 1,
+  "armature_count": 1,
+  "empty_count": 0,
+  "vertices": 478,
+  "polygons": 417,
+  "mesh_names": [
+    "P90"
+  ],
+  "armatures": [
+    {
+      "name": "P90Armature",
+      "bones": [
+        "Control",
+        "Trigger",
+        "Magazine"
+      ]
+    }
+  ],
+  "bone_names": [
+    "Control",
+    "Magazine",
+    "Trigger"
+  ],
+  "actions": [
+    "Fire",
+    "Reload"
+  ],
+  "action_count": 2,
+  "materials": [
+    "Material.001",
+    "Material.002",
+    "Material.003",
+    "Material.004"
+  ],
+  "shape_keys": [],
+  "animation_capable": true
+}

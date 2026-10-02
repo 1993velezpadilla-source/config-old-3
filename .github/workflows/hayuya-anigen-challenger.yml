@@ -1,0 +1,161 @@
+name: HAYUYA AniGen Character Challenger
+
+on:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - hayuya/jobs/anigen/**.json
+      - tools/hayuya3d/anigen_cloud.py
+      - tools/hayuya3d/anigen_semantic_rig.py
+      - tools/hayuya3d/visual_eye_gate.py
+      - tools/hayuya3d/material_gate.py
+      - tools/hayuya3d/mvadapter_texture_cloud.py
+      - tools/hayuya3d/mesh_gate.py
+      - tools/hayuya3d/rig_gate.py
+      - tools/hayuya3d/blender_model_preview_pack.py
+      - .github/workflows/hayuya-anigen-challenger.yml
+  workflow_dispatch:
+    inputs:
+      request:
+        description: "Path to AniGen request JSON"
+        required: false
+        default: "hayuya/jobs/anigen/monja-anigen-deep-01.json"
+
+permissions:
+  contents: read
+
+jobs:
+  build-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.collect.outputs.matrix }}
+      count: ${{ steps.collect.outputs.count }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: collect
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+          MANUAL_REQUEST: ${{ inputs.request }}
+        run: |
+          python - <<'PY'
+          import json, os, subprocess
+          from pathlib import Path
+          paths=[]
+          if os.environ["EVENT_NAME"]=="workflow_dispatch":
+              p=os.environ.get("MANUAL_REQUEST","").strip()
+              if p:
+                  paths=[p]
+          else:
+              before=os.environ.get("BEFORE","")
+              after=os.environ.get("AFTER","")
+              try:
+                  diff=subprocess.check_output(["git","diff","--name-only",before,after],text=True).splitlines()
+              except Exception:
+                  diff=[]
+              paths=[p for p in diff if p.startswith("hayuya/jobs/anigen/") and p.endswith(".json")]
+          include=[]
+          for p in sorted(set(paths)):
+              path=Path(p)
+              if not path.is_file():
+                  continue
+              data=json.loads(path.read_text(encoding="utf-8"))
+              data["request_path"]=p
+              include.append(data)
+          out=Path(os.environ["GITHUB_OUTPUT"])
+          with out.open("a",encoding="utf-8") as f:
+              f.write("matrix="+json.dumps({"include":include},separators=(",",":"))+"\n")
+              f.write("count="+str(len(include))+"\n")
+          print(json.dumps(include,indent=2))
+          PY
+
+  run:
+    needs: build-matrix
+    if: needs.build-matrix.outputs.count != '0'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.build-matrix.outputs.matrix) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      OUT: out/anigen/${{ matrix.job_id }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install controller
+        run: python -m pip install "gradio_client>=1.10,<2" pillow trimesh numpy
+
+      - name: Generate shape + skeleton + skin together
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        shell: bash
+        run: |
+          python tools/hayuya3d/anigen_cloud.py             --input "${{ matrix.image }}"             --output-dir "$OUT"             --ss-model "${{ matrix.ss_model }}"             --slat-model "${{ matrix.slat_model }}"             --ss-steps "${{ matrix.ss_steps }}"             --slat-steps "${{ matrix.slat_steps }}"             --joints-density "${{ matrix.joints_density }}"             --texture-size "${{ matrix.texture_size }}"             --seed "${{ matrix.seed }}"
+
+      - name: Map embedded AniGen rig to HAYUYA humanoid semantics
+        run: |
+          test -s "$OUT/anigen_mesh.glb"
+          python tools/hayuya3d/anigen_semantic_rig.py \
+            --input "$OUT/anigen_mesh.glb" \
+            --output "$OUT/anigen_semantic.glb" \
+            --report "$OUT/anigen_semantic_rig.json"
+
+      - name: Apply reference-conditioned 4K texture
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        shell: bash
+        run: |
+          python tools/hayuya3d/mvadapter_texture_cloud.py \
+            --mesh "$OUT/anigen_semantic.glb" \
+            --image "${{ matrix.image }}" \
+            --output "$OUT/anigen_textured.glb" \
+            --seed "${{ matrix.seed }}" \
+            --guidance-scale 3.5 \
+            --steps 30 \
+            --reference-conditioning-scale 1.4 \
+            --uv-size 4096
+
+      - name: Reject clay or vertex-color-only output
+        run: |
+          python tools/hayuya3d/material_gate.py "$OUT/anigen_textured.glb" \
+            --require-texture --json "$OUT/material_gate.json"
+
+      - name: Structural mesh gate
+        run: |
+          python tools/hayuya3d/mesh_gate.py "$OUT/anigen_textured.glb" \
+            --require-normals --json "$OUT/mesh_gate.json"
+
+      - name: Inspect generated semantic rig after texturing
+        shell: bash
+        run: |
+          python tools/hayuya3d/rig_gate.py "$OUT/anigen_textured.glb" \
+            --json "$OUT/rig_gate.json"
+
+      - name: Install Blender for factual preview
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender libegl1 libgl1 libglx-mesa0 xvfb libegl1 libgl1-mesa-dri
+
+      - name: Render front three-quarter side and face
+        env:
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: |
+          blender --python-exit-code 1 -b             --python tools/hayuya3d/blender_model_preview_pack.py --             --input "$OUT/anigen_textured.glb"             --output-dir "$OUT/renders"             --size 1024
+
+      - name: Eyes-open visual gate
+        run: |
+          python tools/hayuya3d/visual_eye_gate.py "$OUT/renders" \
+            --json "$OUT/visual_eye_gate.json"
+
+      - name: Upload complete challenger result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hayuya-anigen-${{ matrix.job_id }}
+          path: ${{ env.OUT }}
+          retention-days: 14

@@ -1,0 +1,62 @@
+name: Hayuya GPU E2E
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - .github/workflows/hayuya-gpu-e2e.yml
+      - tools/hayuya3d/gpu_e2e.sh
+      - tools/hayuya3d/gpu_doctor.py
+      - tools/hayuya3d/gpu_verify.py
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Validate GPU harness syntax
+        run: |
+          bash -n tools/hayuya3d/gpu_e2e.sh
+          python -m py_compile tools/hayuya3d/gpu_doctor.py tools/hayuya3d/gpu_verify.py
+
+  e2e:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[gpu-e2e]')
+    runs-on: [self-hosted, linux, x64, hayuya-gpu]
+    timeout-minutes: 360
+    concurrency:
+      group: hayuya-gpu-direct-${{ github.ref }}
+      cancel-in-progress: true
+    env:
+      HAYUYA_JOB_ID: monja-ultra-2m-direct
+      HAYUYA_GEOMETRY_INPUT: hayuya/assets/monja-mugfwln6/geometry/primary.webp
+      HAYUYA_PROFILE: ultra
+      HAYUYA_MODE: character
+      HAYUYA_PORTABLE_TARGET: high
+      HAYUYA_GPU_VRAM: "24"
+      HAYUYA_BACKENDS: trellis2,triposg
+      HAYUYA_OUTPUT_ROOT: out/hayuya-jobs/monja-ultra-2m-direct/outputs
+      HAYUYA_EVIDENCE_ROOT: out/gpu-e2e/monja-ultra-2m-direct
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 1
+      - name: Run one-photo GPU proof
+        run: bash tools/hayuya3d/gpu_e2e.sh
+      - name: Upload HAYUYA GPU evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hayuya-gpu-e2e
+          path: out/gpu-e2e/**
+          if-no-files-found: warn
+          retention-days: 14

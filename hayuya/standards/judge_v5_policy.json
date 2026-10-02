@@ -1,0 +1,71 @@
+{
+  "schema": 2,
+  "id": "hayuya_judge_v5_research_2026_09_25",
+  "approval_enabled": false,
+  "calibration_status": "human_gold_set_required",
+  "required_views": [
+    "front",
+    "three_quarter",
+    "side",
+    "face"
+  ],
+  "qrealign": {
+    "main_min_score": 0.45,
+    "main_max_poor_bad_mass": 0.35,
+    "face_min_score": 0.55,
+    "face_min_good_excellent_mass": 0.5,
+    "face_max_poor_bad_mass": 0.2
+  },
+  "siglip2": {
+    "full_body_views": [
+      "front",
+      "three_quarter",
+      "side"
+    ],
+    "best_full_body_catastrophic_floor": 0.2,
+    "mean_full_body_catastrophic_floor": 0.12,
+    "per_source_best_catastrophic_floor": 0.22,
+    "require_all_sources_matched": true,
+    "require_all_24_turntable_views": true
+  },
+  "face_identity": {
+    "required": true,
+    "cosine_catastrophic_floor": 0.3,
+    "cosine_provisional_accept": 0.4,
+    "candidate_detection_fraction_min": 0.8,
+    "front_cosine_catastrophic_floor": 0.3,
+    "median_cosine_catastrophic_floor": 0.28,
+    "require_front_face": true,
+    "require_multiview_face_consensus": true
+  },
+  "pyiqa": {
+    "required_metrics": [
+      "topiq_nr",
+      "musiq",
+      "clipiqa+",
+      "maniqa",
+      "topiq_nr-face"
+    ],
+    "require_all_face_metrics": true
+  },
+  "policy": {
+    "hard_veto": true,
+    "missing_evidence_rejects": true,
+    "averages_cannot_override_face_failure": true,
+    "unknown_is_not_pass": true,
+    "v4_cannot_ship_high_end_character": true,
+    "v5_is_authoritative": true,
+    "all_24_views_required": true,
+    "all_available_face_views_required": true,
+    "hub_preview_is_not_production_approval": true
+  },
+  "required_turntable_views": 24,
+  "ediffiqa": {
+    "candidate_detection_fraction_min": 0.8,
+    "minimum_catastrophic_floor": 0.15,
+    "median_catastrophic_floor": 0.3,
+    "variant": "L",
+    "role": "independent_face_image_quality_veto",
+    "note": "Absolute acceptance remains calibration-locked; these are catastrophic-only veto floors."
+  }
+}

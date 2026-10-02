@@ -1,0 +1,19 @@
+{
+  "engine": "HAYUYA PHONE CLOUD",
+  "job_id": "zombie-iglesia-001",
+  "compute": "GitHub-hosted CPU controller + public TRELLIS ZeroGPU",
+  "phone_only": true,
+  "source": "hayuya/assets/zombie-iglesia/geometry/zombie-iglesia-reference-sheet.png",
+  "prepared_views": [
+    "front.png",
+    "side.png",
+    "back.png",
+    "three_quarter.png"
+  ],
+  "multi_image": true,
+  "generator": "trellis-community/TRELLIS",
+  "texture_size": 2048,
+  "glb": "hayuya_final.glb",
+  "glb_bytes": 3919380,
+  "authenticated_hf": false
+}

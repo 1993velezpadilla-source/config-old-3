@@ -1,0 +1,7 @@
+Title: 40 CC0 water / splash / slime SFX
+Creator: rubberduck
+License: CC0 / Public Domain dedication (as declared on source page)
+Source: https://opengameart.org/content/40-cc0-water-splash-slime-sfx
+Retrieved UTC: 2026-09-22T22:43:42Z
+Archive SHA256:
+7cd39abb49d4362a37ba18dc0e454c7dc1d08029d4e5b683149046bc237b2eba  _cc0_audio_downloads/water_splash_slime.zip

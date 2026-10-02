@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#080a0f">
+  <title>HAYUYA Hub</title>
+  <link rel="stylesheet" href="./hub.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div>
+        <div class="eyebrow">HAYUYA 3D</div>
+        <h1>Hub</h1>
+        <p>Una sola pantalla para Christian, sus agentes y Félix.</p>
+      </div>
+      <button id="refresh" class="refresh">Refresh</button>
+    </header>
+
+    <section class="how">
+      <strong>Para crear un modelo:</strong>
+      <span>Dile a tu ChatGPT/agente “usa Hayuya para crear este modelo”. Eso es todo.</span>
+    </section>
+
+    <section class="stats">
+      <article><span id="runningCount">0</span><small>RUNNING</small></article>
+      <article><span id="waitingCount">0</span><small>WAITING</small></article>
+      <article><span id="doneCount">0</span><small>GENERATED</small></article>
+      <article><span id="failedCount">0</span><small>FAILED</small></article>
+    </section>
+
+    <section class="toolbar">
+      <div class="filters" id="filters">
+        <button class="active" data-filter="all">All</button>
+        <button data-filter="running">Running</button>
+        <button data-filter="waiting">Waiting</button>
+        <button data-filter="done">Generated</button>
+      </div>
+      <div id="updated" class="updated">Loading…</div>
+    </section>
+
+    <section id="jobs" class="jobs">
+      <div class="empty">Buscando trabajos de Hayuya…</div>
+    </section>
+
+    <section class="note">
+      <strong>GENERATED no significa APPROVED.</strong>
+      <span>Un trabajo exitoso del phone/cloud solo terminó generación y pre-screen. Los personajes Monster/Ultra necesitan HAYUYA Judge V5 en GPU para producción; sin V5 APPROVED, production_approved=false.</span>
+    </section>
+  </main>
+
+  <script src="./hub.js"></script>
+</body>
+</html>

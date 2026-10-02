@@ -1,0 +1,7 @@
+{
+  "schema": 1,
+  "job_id": "zombitest1-muetjpwb",
+  "owner": "HAYUYA_WEB",
+  "reason": "Rig QA v45: rerun V44 diagnostic after queued-request SHA fetch hardening; preserve V43 skinning/animation, validate monotonic clips and weighted joints, collect cross-side rest-edge telemetry; no QA threshold changes",
+  "requested_at": "2026-09-24T08:44:00Z"
+}

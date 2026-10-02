@@ -1,0 +1,84 @@
+{
+  "schema": 1,
+  "id": "hayuya_zombie_preview_models_v1",
+  "assets": [
+    {
+      "id": "zombie_male",
+      "label": "Zombie Male",
+      "preview_model": "hayuya/animation_library/zombie-preview-models/models/Zombie_Male.glb",
+      "actions": [
+        "Death_CharacterArmature",
+        "Defeat_CharacterArmature",
+        "Idle_CharacterArmature",
+        "Jump_CharacterArmature",
+        "PickUp_CharacterArmature",
+        "Punch_CharacterArmature",
+        "RecieveHit_CharacterArmature",
+        "Roll_CharacterArmature",
+        "Run_Carry_CharacterArmature",
+        "Run_CharacterArmature",
+        "Shoot_OneHanded_CharacterArmature",
+        "SitDown_CharacterArmature",
+        "StandUp_CharacterArmature",
+        "SwordSlash_CharacterArmature",
+        "Victory_CharacterArmature",
+        "Walk_Carry_CharacterArmature",
+        "Walk_CharacterArmature"
+      ],
+      "action_count": 17,
+      "armature_count": 1,
+      "animation_capable": true,
+      "license": "CC0",
+      "availability": "local",
+      "source_pack": "quaternius_animated_characters"
+    },
+    {
+      "id": "zombie_female",
+      "label": "Zombie Female",
+      "preview_model": "hayuya/animation_library/zombie-preview-models/models/Zombie_Female.glb",
+      "actions": [
+        "Death_CharacterArmature",
+        "Defeat_CharacterArmature",
+        "Idle_CharacterArmature",
+        "Jump_CharacterArmature",
+        "PickUp_CharacterArmature",
+        "Punch_CharacterArmature",
+        "RecieveHit_CharacterArmature",
+        "Roll_CharacterArmature",
+        "Run_Carry_CharacterArmature",
+        "Run_CharacterArmature",
+        "Shoot_OneHanded_CharacterArmature",
+        "SitDown_CharacterArmature",
+        "StandUp_CharacterArmature",
+        "SwordSlash_CharacterArmature",
+        "Victory_CharacterArmature",
+        "Walk_Carry_CharacterArmature",
+        "Walk_CharacterArmature"
+      ],
+      "action_count": 17,
+      "armature_count": 1,
+      "animation_capable": true,
+      "license": "CC0",
+      "availability": "local",
+      "source_pack": "quaternius_animated_characters"
+    },
+    {
+      "id": "skeleton",
+      "label": "Skeleton",
+      "preview_model": "hayuya/animation_library/zombie-preview-models/models/Skeleton.glb",
+      "actions": [
+        "Skeleton_Attack_SkeletonArmature",
+        "Skeleton_Death_SkeletonArmature",
+        "Skeleton_Idle_SkeletonArmature",
+        "Skeleton_Running_SkeletonArmature",
+        "Skeleton_Spawn_SkeletonArmature"
+      ],
+      "action_count": 5,
+      "armature_count": 1,
+      "animation_capable": true,
+      "license": "CC0",
+      "availability": "local",
+      "source_pack": "quaternius_animated_monsters"
+    }
+  ]
+}

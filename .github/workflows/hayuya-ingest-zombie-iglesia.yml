@@ -1,0 +1,95 @@
+name: Hayuya Ingest Zombie Iglesia
+
+on:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - hayuya/inbox/zombie-iglesia/READY
+
+permissions:
+  contents: write
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Hayuya workspace
+        uses: actions/checkout@v4
+        with:
+          ref: art/hayuya-monster-v1
+          fetch-depth: 1
+
+      - name: Rebuild Zombie Iglesia reference images
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="hayuya/inbox/zombie-iglesia"
+          out="hayuya/assets/zombie-iglesia"
+          mkdir -p "$out/geometry" "$out/references" "hayuya/jobs/requests"
+
+          cat "$root/primary"/part-*.b64 | tr -d '\n\r' | base64 -d > "$out/geometry/primary-reference.webp"
+          cat "$root/secondary"/part-*.b64 | tr -d '\n\r' | base64 -d > "$out/references/secondary-context.webp"
+
+          echo "6fa8665b396cd82d1a0ca9ae99f0e0705845f39b095c3f195a85f525db3476cd  $out/geometry/primary-reference.webp" | sha256sum -c -
+          echo "c35957ecce8644e42dd8bc15afab753200f7567b37ffb778aecb429fc1a2d931  $out/references/secondary-context.webp" | sha256sum -c -
+
+          cat > "$out/reference-manifest.json" <<'JSON'
+          {
+            "schema": 1,
+            "asset": "Zombie Iglesia",
+            "slug": "zombie-iglesia",
+            "primary": {
+              "role": "geometry_reference",
+              "path": "hayuya/assets/zombie-iglesia/geometry/primary-reference.webp",
+              "description": "Primary Hayuya reference sheet: front, side, back, 3/4, face, clothing, hand and footwear details.",
+              "source_generated_file": "a_high_detail_cinematic_character_concept_sheet.png",
+              "source_png_sha256": "36d359fb6cf13387943de4e002b89ef30b53cc33952890271d2484d3904b3b11",
+              "webp_sha256": "6fa8665b396cd82d1a0ca9ae99f0e0705845f39b095c3f195a85f525db3476cd"
+            },
+            "secondary": {
+              "role": "context_reference",
+              "path": "hayuya/assets/zombie-iglesia/references/secondary-context.webp",
+              "description": "Secondary reference for silhouette, mood, scale and church-context read only.",
+              "source_generated_file": "a_dark_concept_art_style_character_design_sheet.png",
+              "source_png_sha256": "cd8d830f2bdc484602c56226e3031cd629a29e5e0b95f3ec6eacf110cae86a8b",
+              "webp_sha256": "c35957ecce8644e42dd8bc15afab753200f7567b37ffb778aecb429fc1a2d931"
+            },
+            "constraints": [
+              "Canonical asset name is Zombie Iglesia.",
+              "Do not rename or merge this asset with Zombie Church.",
+              "Use the primary sheet for geometry decisions.",
+              "Use the secondary sheet only as supporting reference."
+            ]
+          }
+          JSON
+
+          cat > "hayuya/jobs/requests/zombie-iglesia-001.json" <<'JSON'
+          {
+            "schema": 1,
+            "job_id": "zombie-iglesia-001",
+            "owner": "Christian",
+            "title": "Zombie Iglesia",
+            "geometry_input": "hayuya/assets/zombie-iglesia/geometry/primary-reference.webp",
+            "reference_dir": "hayuya/assets/zombie-iglesia/references",
+            "detail_dir": "",
+            "profile": "monster",
+            "mode": "character",
+            "portable_target": "high",
+            "gpu_vram": 24,
+            "backends": "triposg,trellis2,trellis,instantmesh,triposr"
+          }
+          JSON
+
+          rm -rf "$root"
+
+      - name: Commit references and queue request
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add hayuya/assets/zombie-iglesia hayuya/jobs/requests/zombie-iglesia-001.json hayuya/inbox/zombie-iglesia || true
+          git commit -m "hayuya: ingest Zombie Iglesia references and queue model job"
+          git push origin HEAD:art/hayuya-monster-v1

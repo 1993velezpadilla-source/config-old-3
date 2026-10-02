@@ -1,0 +1,307 @@
+name: Hayuya Judge V5 Real Regression
+
+on:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - .github/workflows/hayuya-judge-v5-regression.yml
+      - hayuya/calibration/requests/judge-v5-monja-known-bad.json
+      - hayuya/models/monja-mugfwln6/**
+      - hayuya/assets/monja-mugfwln6/**
+      - hayuya/standards/judge_v5_policy.json
+      - tools/hayuya3d/judge_v4*.py
+      - tools/hayuya3d/judge_model_provenance.py
+      - tools/hayuya3d/judge_v5*.py
+      - tools/hayuya3d/siglip2_reference_judge.py
+      - tools/hayuya3d/cvlface_identity_judge.py
+      - tools/hayuya3d/ediffiqa_face_judge.py
+      - tools/hayuya3d/pyiqa_ensemble_judge.py
+      - tools/hayuya3d/gameprep.py
+      - tools/hayuya3d/backend_envs.py
+      - tools/hayuya3d/backend_envs.lock.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hayuya-judge-v5-real-regression
+  cancel-in-progress: true
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile authoritative judge code
+        run: |
+          python -m py_compile \
+            tools/hayuya3d/judge_model_provenance.py \
+            tools/hayuya3d/judge_v4.py \
+            tools/hayuya3d/judge_v4_qrealign_worker.py \
+            tools/hayuya3d/judge_v4_face_worker.py \
+            tools/hayuya3d/judge_v4_dreamsim_worker.py \
+            tools/hayuya3d/judge_v4_internvl_worker.py \
+            tools/hayuya3d/judge_v5.py \
+            tools/hayuya3d/judge_v5_gate.py \
+            tools/hayuya3d/judge_v5_visualquality_r1_worker.py \
+            tools/hayuya3d/siglip2_reference_judge.py \
+            tools/hayuya3d/cvlface_identity_judge.py \
+            tools/hayuya3d/ediffiqa_face_judge.py \
+            tools/hayuya3d/pyiqa_ensemble_judge.py
+
+  known-bad-monja:
+    needs: syntax
+    runs-on: [self-hosted, linux, x64, hayuya-gpu]
+    timeout-minutes: 360
+    env:
+      OUT: out/judge-v5-regression/monja-known-bad
+      MODEL: hayuya/models/monja-mugfwln6/model.glb
+      SOURCE: hayuya/assets/monja-mugfwln6/geometry/primary.webp
+      DETAILS: hayuya/assets/monja-mugfwln6/details
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 1
+
+      - name: Verify real historical bad fixture exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$MODEL"
+          test -s "$SOURCE"
+          test -d "$DETAILS"
+          test "$(find "$DETAILS" -maxdepth 1 -type f | wc -l)" -ge 1
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          req=json.loads(Path("hayuya/calibration/requests/judge-v5-monja-known-bad.json").read_text())
+          assert req["expected_status"]=="REJECTED"
+          assert req["fixture"]=="monja-mugfwln6"
+          print("HAYUYA_REAL_BAD_FIXTURE_READY")
+          PY
+
+      - name: Build isolated Judge V5 GPU environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$OUT"
+          python3 -m venv .hayuya/judge-control
+          .hayuya/judge-control/bin/python -m pip install --upgrade pip
+          .hayuya/judge-control/bin/python tools/hayuya3d/backend_envs.py \
+            --backend judge_v4 \
+            --env-root .hayuya/envs \
+            --exports .hayuya/envs/hayuya_env.sh \
+            --json "$OUT/env-plan.json" \
+            --execute
+          source .hayuya/envs/hayuya_env.sh
+          test -x "$HAYUYA_JUDGE_V4_PYTHON"
+          "$HAYUYA_JUDGE_V4_PYTHON" - <<'PY'
+          import torch
+          print("JUDGE_CUDA",torch.cuda.is_available(),torch.__version__,torch.version.cuda)
+          if not torch.cuda.is_available():
+              raise SystemExit("Judge V5 real regression requires CUDA")
+          PY
+
+      - name: Render exact 24-view evidence from historical bad model
+        shell: bash
+        run: |
+          set -euo pipefail
+          source .hayuya/envs/hayuya_env.sh
+          mkdir -p "$OUT/turntable"
+          "$HAYUYA_JUDGE_V4_PYTHON" - <<'PY'
+          from pathlib import Path
+          import os,sys
+          sys.path.insert(0,"tools/hayuya3d")
+          from gameprep import build_turntable
+          frames=build_turntable(
+              Path(os.environ["MODEL"]),
+              Path(os.environ["OUT"])/"turntable",
+              anchor_view=None,
+          )
+          assert len(frames)==24, len(frames)
+          print("HAYUYA_24_VIEW_REAL_EVIDENCE",len(frames))
+          PY
+
+      - name: Run Judge V4 Pro on real known-bad Monja
+        shell: bash
+        run: |
+          set -euo pipefail
+          source .hayuya/envs/hayuya_env.sh
+          mapfile -t turns < <(find "$OUT/turntable" -maxdepth 1 -name '*.png' | sort)
+          args=()
+          for p in "${turns[@]}"; do args+=(--turntable "$p"); done
+          details=()
+          while IFS= read -r p; do details+=(--detail "$p"); done < <(find "$DETAILS" -maxdepth 1 -type f | sort)
+          "$HAYUYA_JUDGE_V4_PYTHON" tools/hayuya3d/judge_v4.py \
+            --final-glb "$MODEL" \
+            --source "$SOURCE" \
+            "${details[@]}" \
+            "${args[@]}" \
+            --output-dir "$OUT/judge_v4" \
+            --policy required \
+            --python "$HAYUYA_JUDGE_V4_PYTHON" \
+            --tier pro || true
+          test -s "$OUT/judge_v4/judge_v4.json"
+
+      - name: Run authoritative Judge V5 on every view
+        shell: bash
+        run: |
+          set -euo pipefail
+          source .hayuya/envs/hayuya_env.sh
+          "$HAYUYA_JUDGE_V4_PYTHON" tools/hayuya3d/judge_v5.py \
+            --judge-v4 "$OUT/judge_v4/judge_v4.json" \
+            --source "$SOURCE" \
+            --final-glb "$MODEL" \
+            --output-dir "$OUT/judge_v5" \
+            --policy hayuya/standards/judge_v5_policy.json \
+            --python "$HAYUYA_JUDGE_V4_PYTHON" || true
+          test -s "$OUT/judge_v5/judge_v5.json"
+
+      - name: Known bad must be REJECTED, never merely uncalibrated
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          root=Path(os.environ["OUT"])
+          v4=json.loads((root/"judge_v4"/"judge_v4.json").read_text())
+          v5=json.loads((root/"judge_v5"/"judge_v5.json").read_text())
+          print("V4",v4.get("passed"),v4.get("hard_fail_reasons"))
+          print("V5",v5.get("status"),v5.get("hard_fail_reasons"))
+          assert v5.get("passed") is False
+          assert v5.get("status")=="REJECTED", (
+              "KNOWN BAD escaped hard-veto metrics: "+str(v5.get("status"))
+          )
+          reasons=v5.get("hard_fail_reasons") or []
+          assert reasons, "KNOWN BAD must have concrete hard-fail evidence"
+
+          # Prove the heavyweight checkpoints that actually executed.
+          expected=(
+              (v4.get("qrealign") or {}, "q-future/Q-ReAlign-Pro-9B"),
+              (v4.get("internvl") or {}, "OpenGVLab/InternVL3_5-8B-HF"),
+              (v5.get("visualquality_r1") or {}, "TianheWu/VisualQuality-R1-7B"),
+              (v5.get("siglip2") or {}, "google/siglip2-giant-opt-patch16-384"),
+          )
+          checkpoint_proof=[]
+          for payload,model_id in expected:
+              p=payload.get("provenance") or {}
+              assert p.get("model_id")==model_id, (
+                  "REGRESSION INVALID: wrong checkpoint "+str(p)
+              )
+              assert p.get("resolved_revision"), (
+                  "REGRESSION INVALID: unresolved checkpoint revision for "+model_id
+              )
+              assert int(p.get("num_parameters") or 0)>100_000_000, (
+                  "REGRESSION INVALID: suspiciously small/unloaded checkpoint "+str(p)
+              )
+              checkpoint_proof.append({
+                  "model":model_id,
+                  "revision":p["resolved_revision"],
+                  "parameters":p["num_parameters"],
+              })
+          print("HAYUYA_REAL_CHECKPOINT_PROVENANCE",checkpoint_proof)
+
+          # A broken/missing evaluator is NOT proof that the eyes saw a bad face.
+          infrastructure_tokens=(
+              "_worker:", "python_missing", "_evidence_missing",
+              "missing_metric", "final_glb_missing",
+          )
+          infra=[r for r in reasons if any(t in r for t in infrastructure_tokens)]
+          assert not infra, "REGRESSION INVALID: evaluator/infrastructure failure: "+str(infra)
+
+          # Require the heavyweight eyes to have actually executed.
+          for key in ("visualquality_r1","siglip2","pyiqa"):
+              payload=v5.get(key)
+              assert isinstance(payload,dict) and payload.get("ready") is True, (
+                  "REGRESSION INVALID: "+key+" did not execute successfully"
+              )
+          face_expected=bool((v4.get("face_landmarks") or {}).get("face_expected_from_source"))
+          if face_expected:
+              for key in ("cvlface","ediffiqa"):
+                  payload=v5.get(key)
+                  assert isinstance(payload,dict) and payload.get("ready") is True, (
+                      "REGRESSION INVALID: "+key+" did not execute successfully"
+                  )
+
+          # The pass condition is a CONTENT rejection from at least one real eye,
+          # not merely Judge V4 being absent/rejected.
+          v4_reasons=v4.get("hard_fail_reasons") or []
+          content_prefixes=(
+              "visualquality_r1_catastrophic_",
+              "siglip2_catastrophic_",
+              "siglip2_source_",
+              "adaface_detection_coverage:",
+              "adaface_catastrophic_",
+              "adaface_front_face_missing",
+              "ediffiqa_detection_coverage:",
+              "ediffiqa_minimum:",
+              "ediffiqa_median:",
+          )
+          v4_content_prefixes=(
+              "qrealign_","dreamsim_","internvl_pass_",
+              "front_face_not_detected","face_detection_fraction:",
+              "face_profile_",
+          )
+          content_hits=[
+              r for r in reasons if r.startswith(content_prefixes)
+          ] + [
+              "v4:"+r for r in v4_reasons if r.startswith(v4_content_prefixes)
+          ]
+          assert content_hits, (
+              "REGRESSION INVALID: known-bad was rejected without any visual "
+              "content eye identifying a defect. V5="+str(reasons)+" V4="+str(v4_reasons)
+          )
+
+          # This fixture is specifically a FACE failure. Do not let a body,
+          # silhouette, or generic-image veto hide the fact that the face eyes
+          # missed it. Require at least TWO independent face-specific families.
+          families=set()
+          for r in reasons:
+              if r.startswith("visualquality_r1_face_catastrophic_"):
+                  families.add("VisualQuality-R1-face")
+              if r.startswith(("adaface_detection_coverage:","adaface_catastrophic_","adaface_front_face_missing")):
+                  families.add("AdaFace-identity")
+              if r.startswith(("ediffiqa_detection_coverage:","ediffiqa_minimum:","ediffiqa_median:")):
+                  families.add("eDifFIQA-face-quality")
+          for r in v4_reasons:
+              if r.startswith("qrealign_face_"):
+                  families.add("Q-ReAlign-face")
+              if r.startswith("dreamsim_face_"):
+                  families.add("DreamSim-face")
+              if r.startswith(("front_face_not_detected","face_detection_fraction:","face_profile_")):
+                  families.add("MediaPipe-face-geometry")
+              if r.startswith("internvl_pass_") and (
+                  "_face_anatomy:" in r
+                  or "_face_source_fidelity:" in r
+                  or "_critical:" in r
+              ):
+                  families.add("InternVL-face-critic")
+
+          assert len(families)>=2, (
+              "REGRESSION INVALID: known-bad Monja was not independently "
+              "identified as a FACE failure by at least two eyes. families="
+              +str(sorted(families))+" V5="+str(reasons)+" V4="+str(v4_reasons)
+          )
+          print(
+              "HAYUYA_KNOWN_BAD_MONJA_FACE_CAUGHT_BY_INDEPENDENT_EYES",
+              sorted(families),
+          )
+          print("HAYUYA_KNOWN_BAD_MONJA_REJECTED_BY_REAL_EYES",content_hits)
+          PY
+
+      - name: Upload full visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hayuya-judge-v5-monja-known-bad
+          path: out/judge-v5-regression/monja-known-bad/**
+          if-no-files-found: error
+          retention-days: 30

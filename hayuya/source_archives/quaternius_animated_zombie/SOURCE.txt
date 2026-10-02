@@ -1,0 +1,6 @@
+Title: Animated Zombie Pack
+Creator: Quaternius
+License on original pack page: CC0
+Original pack page: https://quaternius.com/packs/animatedzombie.html
+Public Google Drive folder discovered in original page source: https://drive.google.com/drive/folders/1AfOPRgr5Gl8gll9KfGDEUSYq_Ag7yPJG
+HAYUYA storage: lossless tar.gz split into GitHub-safe chunks. Reassemble chunks in lexical order before extraction.

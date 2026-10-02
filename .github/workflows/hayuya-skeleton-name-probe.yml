@@ -1,0 +1,22 @@
+name: HAYUYA Skeleton Name Probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - .github/workflows/hayuya-skeleton-name-probe.yml
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: UAM1 joint names
+        run: python tools/hayuya3d/glb_joint_names.py hayuya/animation_library/quaternius-uam1/library.glb
+      - name: UAM2 joint names
+        run: python tools/hayuya3d/glb_joint_names.py hayuya/animation_library/quaternius-uam2/library.glb

@@ -1,0 +1,20 @@
+{
+  "schema": 2,
+  "job_id": "monja-trellis2-strict-ultra-02",
+  "owner": "HAYUYA_AUDIT",
+  "title": "Monja TRUE TRELLIS2 Ultra visual gate",
+  "geometry_input": "hayuya/assets/monja-mugfwln6/geometry/primary.webp",
+  "reference_dir": "",
+  "detail_dir": "hayuya/assets/monja-mugfwln6/details",
+  "profile": "monster",
+  "mode": "character",
+  "asset_profile": "character.humanoid",
+  "weapon_family": "auto",
+  "animation_requested": false,
+  "motion_profile": "hayuya_auto",
+  "texture_quality": "ultra",
+  "portable_target": "high",
+  "gpu_vram": 24,
+  "backends": "trellis2",
+  "retry_token": "audit-trellis2-strict-ultra-02"
+}

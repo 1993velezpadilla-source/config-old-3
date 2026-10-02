@@ -1,0 +1,12 @@
+ID: quaternius-human-rigged
+Display name: Quaternius Human — rigged
+Author: Quaternius; prepared mirror by UMRAM-Bilkent
+License: CC0-1.0
+Source page: https://github.com/UMRAM-Bilkent/supine-human-model
+Model URL: https://raw.githubusercontent.com/UMRAM-Bilkent/supine-human-model/main/assets/human.glb
+Preview URL: https://raw.githubusercontent.com/UMRAM-Bilkent/supine-human-model/main/assets/human_preview.png
+License URL: https://raw.githubusercontent.com/UMRAM-Bilkent/supine-human-model/main/LICENSE
+model.glb SHA256: ce4d543e82e455d5a1253798c9759f12b9eec74929ddbca464447eeaa3a42c5d
+preview.png SHA256: 332199207a628a2b556076ec13cfd097ef2cdc4064292fa42ec59e1513fad829
+
+Policy: the downloaded GLB is the dimensional authority for all future texture/reference generation.

@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "asset_profile": "character.creature",
+  "weapon_family": "auto",
+  "status": "not_required",
+  "required": [],
+  "optional": [],
+  "prompts": {},
+  "detectors": [],
+  "projection": "multi_view_preferred",
+  "fusion_rule": "a 3D component is accepted only when masks from available views agree spatially or later 3D geometry evidence confirms it",
+  "confidence_gate": 0.72,
+  "critical_targets_requested": [],
+  "promoted_critical_parts": [],
+  "warnings": []
+}

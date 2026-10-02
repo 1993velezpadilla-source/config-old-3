@@ -1,0 +1,136 @@
+name: HAYUYA Archive Zombie Apocalypse Source
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - .github/workflows/hayuya-archive-zombie-apocalypse-source.yml
+
+permissions:
+  contents: write
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: art/hayuya-monster-v1
+          fetch-depth: 1
+
+      - name: Download public CC0 Google Drive folder
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --quiet "gdown>=5,<6"
+          rm -rf /tmp/hayuya-zombie-apocalypse
+          mkdir -p /tmp/hayuya-zombie-apocalypse
+          folder="https://drive.google.com/drive/folders/1mWP6sCHun7OUMHQeDNZLrXTteXlzWg_t?usp=sharing"
+          gdown --folder --remaining-ok "$folder" -O /tmp/hayuya-zombie-apocalypse
+          find /tmp/hayuya-zombie-apocalypse -type f -printf '%P\n' | sort > /tmp/zap-files.txt
+          files="$(wc -l < /tmp/zap-files.txt)"
+          echo "HAYUYA_ZAP_DOWNLOADED=$files"
+          test "$files" -gt 5
+
+      - name: Validate and package source
+        shell: bash
+        run: |
+          set -euo pipefail
+          files="$(find /tmp/hayuya-zombie-apocalypse -type f | wc -l)"
+          bytes="$(du -sb /tmp/hayuya-zombie-apocalypse | cut -f1)"
+          echo "HAYUYA_ZAP_FILES=$files"
+          echo "HAYUYA_ZAP_BYTES=$bytes"
+          test "$files" -gt 5
+          test "$bytes" -gt 1000000
+
+          dst="hayuya/source_archives/quaternius_zombie_apocalypse"
+          rm -rf "$dst"
+          mkdir -p "$dst/zip_parts"
+          cp /tmp/zap-files.txt "$dst/INVENTORY.txt"
+
+          cat > "$dst/SOURCE.txt" <<'EOF'
+          Title: Zombie Apocalypse Kit
+          Creator: Quaternius
+          License on original pack page: CC0
+          Original pack page: https://quaternius.com/packs/zombieapocalypsekit.html
+          Public creator Patreon post: https://www.patreon.com/posts/zombie-kit-60-100385247
+          Public Google Drive folder: https://drive.google.com/drive/folders/1mWP6sCHun7OUMHQeDNZLrXTteXlzWg_t
+          EOF
+
+          (
+            cd /tmp/hayuya-zombie-apocalypse
+            zip -qr /tmp/quaternius_zombie_apocalypse.zip .
+          )
+          zipbytes="$(stat -c%s /tmp/quaternius_zombie_apocalypse.zip)"
+          if [ "$zipbytes" -lt 99000000 ]; then
+            cp /tmp/quaternius_zombie_apocalypse.zip "$dst/quaternius_zombie_apocalypse.zip"
+            zipmode="single"
+          else
+            split -b 90M -d -a 3 /tmp/quaternius_zombie_apocalypse.zip "$dst/zip_parts/quaternius_zombie_apocalypse.zip.part-"
+            zipmode="split"
+          fi
+          sha256sum /tmp/quaternius_zombie_apocalypse.zip > "$dst/SHA256-ZIP.txt"
+
+          ZIPMODE="$zipmode" ZIPBYTES="$zipbytes" python - <<'PY'
+          import json, os
+          from pathlib import Path
+          root=Path("hayuya/source_archives/quaternius_zombie_apocalypse")
+          inv=(root/"INVENTORY.txt").read_text().splitlines()
+          parts=[{"path":str(p).replace("\\","/"),"bytes":p.stat().st_size} for p in sorted((root/"zip_parts").glob("*"))]
+          m={
+            "schema":1,
+            "id":"quaternius_zombie_apocalypse",
+            "license":"CC0",
+            "source_page":"https://quaternius.com/packs/zombieapocalypsekit.html",
+            "drive_folder":"https://drive.google.com/drive/folders/1mWP6sCHun7OUMHQeDNZLrXTteXlzWg_t",
+            "source_file_count":len(inv),
+            "zip_mode":os.environ["ZIPMODE"],
+            "zip_bytes":int(os.environ["ZIPBYTES"]),
+            "zip_archive":"hayuya/source_archives/quaternius_zombie_apocalypse/quaternius_zombie_apocalypse.zip" if os.environ["ZIPMODE"]=="single" else None,
+            "zip_parts":parts,
+            "complete":True
+          }
+          (root/"manifest.json").write_text(json.dumps(m,indent=2)+"\n")
+          print(json.dumps(m,indent=2))
+          PY
+
+      - name: Mark downloaded pack local in animation catalog
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("hayuya/library/zombie_animations.json")
+          d=json.loads(p.read_text())
+          for g in d.get("groups",[]):
+            for cat in g.get("categories",[]):
+              for item in cat.get("items",[]):
+                if item.get("id")=="quaternius_zombie_apocalypse":
+                  item["availability"]="local_archive"
+                  item["local_archive_path"]="hayuya/source_archives/quaternius_zombie_apocalypse"
+                  item["notes"]="CC0 Zombie Apocalypse source archived locally; animation ingest/retarget can use the stored files."
+          p.write_text(json.dumps(d,indent=2)+"\n")
+          PY
+
+      - name: Commit archived source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add hayuya/source_archives/quaternius_zombie_apocalypse hayuya/library/zombie_animations.json
+          if git diff --cached --quiet; then
+            echo "Zombie Apocalypse source already archived."
+            exit 0
+          fi
+          git commit -m "hayuya: archive Quaternius Zombie Apocalypse CC0 source"
+          for attempt in 1 2 3 4 5; do
+            git pull --rebase origin art/hayuya-monster-v1
+            if git push origin HEAD:art/hayuya-monster-v1; then exit 0; fi
+            sleep $((attempt*2))
+          done
+          exit 1

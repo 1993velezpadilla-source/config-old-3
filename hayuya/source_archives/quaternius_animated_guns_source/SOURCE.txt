@@ -1,0 +1,7 @@
+ID: quaternius_animated_guns_source
+License: CC0
+Source page: https://opengameart.org/content/low-poly-animated-guns
+Resolved archive: https://opengameart.org/sites/default/files/FPS%20Pack_0.zip
+Archive: quaternius_animated_guns_source.zip
+SHA256: 1af9e37e9852dea6bb5e1db8b93a057e067e740083a5ba48e6bb13fc8d19ccaf
+HAYUYA note: archived only because the upstream page explicitly identifies this free pack/license.

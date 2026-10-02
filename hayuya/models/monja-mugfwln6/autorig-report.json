@@ -1,0 +1,618 @@
+{
+  "schema": 1,
+  "target": "out/hayuya-jobs/monja-mugfwln6/outputs/hayuya_final.glb",
+  "donor": "hayuya/animation_library/quaternius-uam2/library.glb",
+  "output": "out/hayuya-jobs/monja-mugfwln6/outputs/animated.glb",
+  "target_meshes": [
+    "geometry_0"
+  ],
+  "target_bounds": {
+    "min": [
+      -0.2260282337665558,
+      -0.2766951024532318,
+      -0.5002641677856445
+    ],
+    "max": [
+      0.23059596121311188,
+      0.260180801153183,
+      0.4996587932109833
+    ],
+    "height": 0.9999229907989502,
+    "axis": 2
+  },
+  "donor_bounds": {
+    "min": [
+      -0.9722270369529724,
+      -0.20494338870048523,
+      -0.010636750608682632
+    ],
+    "max": [
+      0.9722267389297485,
+      0.2874327301979065,
+      1.8388822078704834
+    ],
+    "height": 1.8495190143585205,
+    "height_axis": 2,
+    "bbox_major_axis": 0
+  },
+  "scale": 0.540639476013043,
+  "axis_scales": [
+    0.540639476013043,
+    0.540639476013043,
+    0.540639476013043
+  ],
+  "requested_axis_scales": [
+    0.2973517118071737,
+    0.9731510568234774,
+    0.540639476013043
+  ],
+  "armature_fit_mode": "uniform_height_plus_pose_aware_arms_v32_rest_compensated",
+  "orientation_fix": {
+    "method": "head_minus_pelvis",
+    "applied": true,
+    "target_axis": 2,
+    "alignment_before": 0.9977123737335205,
+    "alignment_after": 1.0,
+    "head_before": [
+      0.0,
+      -0.006442507728934288,
+      1.6099717617034912
+    ],
+    "pelvis_before": [
+      0.0,
+      0.03711997717618942,
+      0.9670400619506836
+    ],
+    "head_after": [
+      0.0,
+      0.10240798443555832,
+      1.6067242622375488
+    ],
+    "pelvis_after": [
+      0.0,
+      0.10240796953439713,
+      0.9623185396194458
+    ],
+    "bbox_major_axis_after": 0,
+    "body_height_on_target_axis": 1.8495190143585205
+  },
+  "lateral_axis": {
+    "method": "named_lr_bone_centroids_v27",
+    "axis": 0,
+    "vector": [
+      -0.76183021068573,
+      -5.587935447692871e-08,
+      -1.4901161193847656e-07
+    ],
+    "left_samples": 29,
+    "right_samples": 29,
+    "target_horizontal_extents": [
+      0.45662420988082886,
+      0.5368759036064148
+    ]
+  },
+  "arm_rest_fit": {
+    "schema": 1,
+    "method": "rigid_arm_subtree_lateral_projection_v2_rest_compensated",
+    "applied": true,
+    "target_width_height_ratio": 0.4566593619522835,
+    "trigger_width_height_ratio_max": 0.68,
+    "trigger_hand_overhang_min_normalized": 0.1,
+    "chains": [
+      {
+        "side": "left",
+        "upper": "upperarm_l",
+        "hand": "hand_l",
+        "applied": true,
+        "original_hand_lateral": 0.42821550369262695,
+        "original_hand_overhang": 0.19761954247951508,
+        "original_hand_overhang_normalized": 0.43278377416753966,
+        "shoulder": [
+          0.106032595038414,
+          0.057379454374313354,
+          0.28026801347732544
+        ],
+        "original_endpoint": [
+          0.42821550369262695,
+          0.05737942457199097,
+          0.2802680730819702
+        ],
+        "target_hand_lateral": 0.21233099341392517,
+        "desired_lateral_reach": 0.10629839837551117,
+        "vertical_drop": 0.3041421825473963,
+        "rotated_bone_count": 23,
+        "rest_compensation_quaternion": [
+          0.6706904172897339,
+          0.3661082983016968,
+          0.4639376103878021,
+          0.4482199251651764
+        ],
+        "new_endpoint": [
+          0.21233099699020386,
+          0.05737942457199097,
+          -0.02387416362762451
+        ]
+      },
+      {
+        "side": "right",
+        "upper": "upperarm_r",
+        "hand": "hand_r",
+        "applied": true,
+        "original_hand_lateral": -0.42364758253097534,
+        "original_hand_overhang": 0.19761934876441956,
+        "original_hand_overhang_normalized": 0.43278334993444456,
+        "shoulder": [
+          -0.10146474838256836,
+          0.05737944692373276,
+          0.28026801347732544
+        ],
+        "original_endpoint": [
+          -0.42364758253097534,
+          0.05737937241792679,
+          0.28026795387268066
+        ],
+        "target_hand_lateral": -0.20776326596736908,
+        "desired_lateral_reach": 0.10629851758480072,
+        "vertical_drop": 0.30414207964085377,
+        "rotated_bone_count": 23,
+        "rest_compensation_quaternion": [
+          0.6706907749176025,
+          0.3661078214645386,
+          -0.46393734216690063,
+          -0.448219895362854
+        ],
+        "new_endpoint": [
+          -0.20776326954364777,
+          0.05737937241792679,
+          -0.02387407422065735
+        ]
+      }
+    ]
+  },
+  "armature": "HAYUYA_Armature",
+  "bones": [
+    "root",
+    "pelvis",
+    "spine_01",
+    "spine_02",
+    "spine_03",
+    "neck_01",
+    "Head",
+    "clavicle_l",
+    "upperarm_l",
+    "lowerarm_l",
+    "hand_l",
+    "index_01_l",
+    "index_02_l",
+    "index_03_l",
+    "index_04_leaf_l",
+    "middle_01_l",
+    "middle_02_l",
+    "middle_03_l",
+    "middle_04_leaf_l",
+    "pinky_01_l",
+    "pinky_02_l",
+    "pinky_03_l",
+    "pinky_04_leaf_l",
+    "ring_01_l",
+    "ring_02_l",
+    "ring_03_l",
+    "ring_04_leaf_l",
+    "thumb_01_l",
+    "thumb_02_l",
+    "thumb_03_l",
+    "thumb_04_leaf_l",
+    "clavicle_r",
+    "upperarm_r",
+    "lowerarm_r",
+    "hand_r",
+    "index_01_r",
+    "index_02_r",
+    "index_03_r",
+    "index_04_leaf_r",
+    "middle_01_r",
+    "middle_02_r",
+    "middle_03_r",
+    "middle_04_leaf_r",
+    "pinky_01_r",
+    "pinky_02_r",
+    "pinky_03_r",
+    "pinky_04_leaf_r",
+    "ring_01_r",
+    "ring_02_r",
+    "ring_03_r",
+    "ring_04_leaf_r",
+    "thumb_01_r",
+    "thumb_02_r",
+    "thumb_03_r",
+    "thumb_04_leaf_r",
+    "thigh_l",
+    "calf_l",
+    "foot_l",
+    "ball_l",
+    "ball_leaf_l",
+    "thigh_r",
+    "calf_r",
+    "foot_r",
+    "ball_r",
+    "ball_leaf_r"
+  ],
+  "actions": [
+    "A_TPose_Armature",
+    "Chest_Open_Armature",
+    "ClimbUp_1m_RM_Armature",
+    "Consume_Armature",
+    "Farm_Harvest_Armature",
+    "Farm_PlantSeed_Armature",
+    "Farm_Watering_Armature",
+    "Hit_Knockback_Armature",
+    "Hit_Knockback_RM_Armature",
+    "Idle_FoldArms_Loop_Armature",
+    "Idle_Lantern_Loop_Armature",
+    "Idle_No_Loop_Armature",
+    "Idle_Rail_Call_Armature",
+    "Idle_Rail_Loop_Armature",
+    "Idle_Shield_Break_Armature",
+    "Idle_Shield_Loop_Armature",
+    "Idle_TalkingPhone_Loop_Armature",
+    "LayToIdle_Armature",
+    "Melee_Hook_Armature",
+    "Melee_Hook_Rec_Armature",
+    "NinjaJump_Idle_Loop_Armature",
+    "NinjaJump_Land_Armature",
+    "NinjaJump_Start_Armature",
+    "OverhandThrow_Armature",
+    "Shield_Dash_RM_Armature",
+    "Shield_OneShot_Armature",
+    "Slide_Exit_Armature",
+    "Slide_Loop_Armature",
+    "Slide_Start_Armature",
+    "Sword_Block_Armature",
+    "Sword_Dash_RM_Armature",
+    "Sword_Regular_A_Armature",
+    "Sword_Regular_A_Rec_Armature",
+    "Sword_Regular_B_Armature",
+    "Sword_Regular_B_Rec_Armature",
+    "Sword_Regular_C_Armature",
+    "Sword_Regular_Combo_Armature",
+    "TreeChopping_Loop_Armature",
+    "Walk_Carry_Loop_Armature",
+    "Yes_Armature",
+    "Zombie_Idle_Loop_Armature",
+    "Zombie_Scratch_Armature",
+    "Zombie_Walk_Fwd_Loop_Armature"
+  ],
+  "weighted_bones": [
+    "Head",
+    "calf_l",
+    "calf_r",
+    "clavicle_l",
+    "clavicle_r",
+    "foot_l",
+    "foot_r",
+    "hand_l",
+    "hand_r",
+    "lowerarm_l",
+    "lowerarm_r",
+    "neck_01",
+    "pelvis",
+    "spine_01",
+    "spine_02",
+    "spine_03",
+    "thigh_l",
+    "thigh_r",
+    "upperarm_l",
+    "upperarm_r"
+  ],
+  "weighted_bone_count": 20,
+  "donor_root_objects": [
+    "Armature",
+    "Icosphere"
+  ],
+  "cleared_custom_shape_objects": [
+    "Icosphere"
+  ],
+  "excluded_donor_meshes_from_fit": [
+    "Icosphere"
+  ],
+  "armature_object_transform_baked": true,
+  "armature_world_before": [
+    [
+      0.5406394600868225,
+      0.0,
+      0.0,
+      0.002283923327922821
+    ],
+    [
+      0.0,
+      0.5394027233123779,
+      0.036547787487506866,
+      -0.030555643141269684
+    ],
+    [
+      0.0,
+      -0.036547787487506866,
+      0.5394027233123779,
+      -0.49451351165771484
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "armature_world_after": [
+    [
+      1.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      1.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      1.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "animation_retarget": {
+    "method": "rotation_only_on_fitted_rest_v29_rest_compensated",
+    "actions": 43,
+    "removed_location_curves": 8385,
+    "removed_scale_curves": 8385,
+    "kept_rotation_curves": 11180,
+    "kept_other_curves": 0,
+    "rest_compensated_bones": [
+      "upperarm_l",
+      "upperarm_r"
+    ],
+    "rest_compensated_actions": 43,
+    "rest_compensated_keyframes": 4270,
+    "rest_compensation_missing_quaternion_channels": []
+  },
+  "export_meshes": [
+    "geometry_0"
+  ],
+  "sterile_export_scene_meshes": [
+    "geometry_0"
+  ],
+  "binding_method": "expanded_component_consensus_pose_aware_arms_v35",
+  "bind_results": [
+    {
+      "mesh": "geometry_0",
+      "ok": true,
+      "groups": 20,
+      "weighted_group_names": [
+        "Head",
+        "calf_l",
+        "calf_r",
+        "clavicle_l",
+        "clavicle_r",
+        "foot_l",
+        "foot_r",
+        "hand_l",
+        "hand_r",
+        "lowerarm_l",
+        "lowerarm_r",
+        "neck_01",
+        "pelvis",
+        "spine_01",
+        "spine_02",
+        "spine_03",
+        "thigh_l",
+        "thigh_r",
+        "upperarm_l",
+        "upperarm_r"
+      ],
+      "spatial_weight_vertices": 95937,
+      "fallback_weighted_vertices": 0,
+      "donor_samples": 8546,
+      "bone_envelope_segments": 20,
+      "anatomical_neighbor_graph": {
+        "pelvis": [
+          "spine_01",
+          "thigh_l",
+          "thigh_r"
+        ],
+        "spine_03": [
+          "clavicle_l",
+          "clavicle_r",
+          "neck_01",
+          "spine_02"
+        ],
+        "Head": [
+          "neck_01"
+        ],
+        "foot_l": [
+          "calf_l"
+        ],
+        "upperarm_l": [
+          "clavicle_l",
+          "lowerarm_l"
+        ],
+        "calf_r": [
+          "foot_r",
+          "thigh_r"
+        ],
+        "upperarm_r": [
+          "clavicle_r",
+          "lowerarm_r"
+        ],
+        "neck_01": [
+          "Head",
+          "spine_03"
+        ],
+        "hand_r": [
+          "lowerarm_r"
+        ],
+        "thigh_r": [
+          "calf_r",
+          "pelvis"
+        ],
+        "spine_01": [
+          "pelvis",
+          "spine_02"
+        ],
+        "foot_r": [
+          "calf_r"
+        ],
+        "clavicle_l": [
+          "spine_03",
+          "upperarm_l"
+        ],
+        "thigh_l": [
+          "calf_l",
+          "pelvis"
+        ],
+        "lowerarm_l": [
+          "hand_l",
+          "upperarm_l"
+        ],
+        "spine_02": [
+          "spine_01",
+          "spine_03"
+        ],
+        "hand_l": [
+          "lowerarm_l"
+        ],
+        "calf_l": [
+          "foot_l",
+          "thigh_l"
+        ],
+        "lowerarm_r": [
+          "hand_r",
+          "upperarm_r"
+        ],
+        "clavicle_r": [
+          "spine_03",
+          "upperarm_r"
+        ]
+      },
+      "blend_neighbours": 4,
+      "query_space": "fitted_skeleton_bone_envelopes",
+      "weight_smoothing": {
+        "attempted": true,
+        "passed": true,
+        "groups": 20,
+        "method": "adjacency_python_anatomical_mask_v2",
+        "anatomical_mask_enforced": true,
+        "semantic_head_zone": {
+          "min_height_norm": 0.76,
+          "bone": "Head"
+        },
+        "connected_components": 1801,
+        "rigidized_small_components": 1756,
+        "rigidized_vertices": 70672,
+        "rigidize_max_vertices": 2048,
+        "rigidize_max_span": 0.2799784374237061
+      }
+    }
+  ],
+  "rest_pose_fit_telemetry": {
+    "schema": 1,
+    "method": "terminal_major_bone_bbox_overlap_v1",
+    "lateral_axis": 0,
+    "top1_counts": {
+      "thigh_r": 12421,
+      "Head": 12075,
+      "thigh_l": 9296,
+      "foot_r": 8920,
+      "foot_l": 8478,
+      "calf_l": 8195,
+      "calf_r": 7136,
+      "pelvis": 3844,
+      "spine_02": 3529,
+      "lowerarm_l": 3348,
+      "upperarm_l": 3289,
+      "spine_01": 3283,
+      "lowerarm_r": 3268,
+      "hand_l": 3133,
+      "upperarm_r": 2050,
+      "hand_r": 1698,
+      "clavicle_r": 1100,
+      "spine_03": 485,
+      "clavicle_l": 389
+    },
+    "terminal_major_fit": [
+      {
+        "name": "hand_l",
+        "kind": "hand",
+        "top1_vertices": 3133,
+        "weighted": true,
+        "lateral_range": [
+          0.203603,
+          0.212331
+        ],
+        "target_lateral_range": [
+          -0.226028,
+          0.230596
+        ],
+        "lateral_overhang": 0.0,
+        "lateral_overhang_normalized": 0.0
+      },
+      {
+        "name": "hand_r",
+        "kind": "hand",
+        "top1_vertices": 1698,
+        "weighted": true,
+        "lateral_range": [
+          -0.207763,
+          -0.199036
+        ],
+        "target_lateral_range": [
+          -0.226028,
+          0.230596
+        ],
+        "lateral_overhang": 0.0,
+        "lateral_overhang_normalized": 0.0
+      },
+      {
+        "name": "foot_l",
+        "kind": "foot",
+        "top1_vertices": 8478,
+        "weighted": true,
+        "lateral_range": [
+          0.050401,
+          0.050401
+        ],
+        "target_lateral_range": [
+          -0.226028,
+          0.230596
+        ],
+        "lateral_overhang": 0.0,
+        "lateral_overhang_normalized": 0.0
+      },
+      {
+        "name": "foot_r",
+        "kind": "foot",
+        "top1_vertices": 8920,
+        "weighted": true,
+        "lateral_range": [
+          -0.045833,
+          -0.045833
+        ],
+        "target_lateral_range": [
+          -0.226028,
+          0.230596
+        ],
+        "lateral_overhang": 0.0,
+        "lateral_overhang_normalized": 0.0
+      }
+    ],
+    "suspected_rest_pose_mismatch": false
+  },
+  "output_bytes": 34999776
+}

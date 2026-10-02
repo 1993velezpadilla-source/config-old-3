@@ -1,0 +1,548 @@
+{
+  "schema": 2,
+  "id": "hayuya_zombie_audio_library_v2",
+  "base": "assets/audio/cc0_horror_library",
+  "policy": "CC0/public-domain local pool; no copied/ripped COD/Treyarch audio.",
+  "indexed_audio_files": 1095,
+  "categories": [
+    {
+      "id": "zombie_vocals",
+      "label": "Zombie Vocals / Moans",
+      "subcategories": [
+        {
+          "id": "artisticdude_24",
+          "label": "Classic Zombie Vocal Pool",
+          "source": "artisticdude — Zombies Sound Pack",
+          "license": "CC0",
+          "files": [
+            "assets/audio/cc0_horror_library/zombies_artisticdude/zombies/zombie-1.wav",
+            "assets/audio/cc0_horror_library/zombies_artisticdude/zombies/zombie-10.wav",
+            "assets/audio/cc0_horror_library/zombies_artisticdude/zombies/zombie-11.wav",
+            "assets/audio/cc0_horror_library/zombies_artisticdude/zombies/zombie-12.wav",
+            "assets/audio/cc0_horror_library/zombies_artisticdude/zombies/zombie-13.wav",
+            "assets/audio/cc0_horror_library/zombies_artisticdude/zombies/zombie-14.wav",
+            "assets/audio/cc0_horror_library/zombies_artisticdude/zombies/zombie-15.wav",
+            "assets/audio/cc0_horror_library/zombies_artisticdude/zombies/zombie-16.wav",
+            "assets/audio/cc0_horror_library/zombies_artisticdude/zombies/zombie-17.wav",
+            "assets/audio/cc0_horror_library/zombies_artisticdude/zombies/zombie-18.wav",
+            "assets/audio/cc0_horror_library/zombies_artisticdude/zombies/zombie-19.wav",
+            "assets/audio/cc0_horror_library/zombies_artisticdude/zombies/zombie-2.wav",
+            "assets/audio/cc0_horror_library/zombies_artisticdude/zombies/zombie-20.wav",
+            "assets/audio/cc0_horror_library/zombies_artisticdude/zombies/zombie-21.wav",
+            "assets/audio/cc0_horror_library/zombies_artisticdude/zombies/zombie-22.wav",
+            "assets/audio/cc0_horror_library/zombies_artisticdude/zombies/zombie-23.wav",
+            "assets/audio/cc0_horror_library/zombies_artisticdude/zombies/zombie-24.wav",
+            "assets/audio/cc0_horror_library/zombies_artisticdude/zombies/zombie-3.wav",
+            "assets/audio/cc0_horror_library/zombies_artisticdude/zombies/zombie-4.wav",
+            "assets/audio/cc0_horror_library/zombies_artisticdude/zombies/zombie-5.wav",
+            "assets/audio/cc0_horror_library/zombies_artisticdude/zombies/zombie-6.wav",
+            "assets/audio/cc0_horror_library/zombies_artisticdude/zombies/zombie-7.wav",
+            "assets/audio/cc0_horror_library/zombies_artisticdude/zombies/zombie-8.wav",
+            "assets/audio/cc0_horror_library/zombies_artisticdude/zombies/zombie-9.wav"
+          ],
+          "count": 24
+        },
+        {
+          "id": "saturn91_calls",
+          "label": "Human-recorded Zombie Calls",
+          "source": "saturn91 — Zomby sfx pack",
+          "license": "CC0",
+          "files": [
+            "assets/audio/cc0_horror_library/zomby_sfx_saturn91/01_zombey.mp3",
+            "assets/audio/cc0_horror_library/zomby_sfx_saturn91/02_zombey.mp3",
+            "assets/audio/cc0_horror_library/zomby_sfx_saturn91/03_zombey.mp3",
+            "assets/audio/cc0_horror_library/zomby_sfx_saturn91/04_zombey.mp3",
+            "assets/audio/cc0_horror_library/zomby_sfx_saturn91/06_zombey.mp3",
+            "assets/audio/cc0_horror_library/zomby_sfx_saturn91/07_zombey.mp3"
+          ],
+          "notes": "Creator states these calls were made with their own voice and microphone.",
+          "count": 6
+        },
+        {
+          "id": "ianzazz_noises",
+          "label": "Zombie Noises / Alert",
+          "source": "ianzazz — Zombie noises and moans",
+          "license": "CC0",
+          "files": [
+            "assets/audio/cc0_horror_library/zombie_noises_ianzazz/fastzombie1.ogg",
+            "assets/audio/cc0_horror_library/zombie_noises_ianzazz/zombienoise1.ogg",
+            "assets/audio/cc0_horror_library/zombie_noises_ianzazz/zombienoise2.ogg",
+            "assets/audio/cc0_horror_library/zombie_noises_ianzazz/zombienoise3.ogg"
+          ],
+          "count": 4
+        },
+        {
+          "id": "emopreben_moans",
+          "label": "Zombie Moans",
+          "source": "EmoPreben — Zombie Moans 01",
+          "license": "CC0",
+          "files": [
+            "assets/audio/cc0_horror_library/zombie_moans_emopreben/ZombieMoans - Track 5 - ZombieMoan1.wav",
+            "assets/audio/cc0_horror_library/zombie_moans_emopreben/ZombieMoans - Track 6 - ZombieMoan2.wav",
+            "assets/audio/cc0_horror_library/zombie_moans_emopreben/ZombieMoans - Track 7 - ZombieMoan3.wav"
+          ],
+          "count": 3
+        },
+        {
+          "id": "darsycho_moans",
+          "label": "Long Zombie Moan",
+          "source": "Darsycho — Zombie moans",
+          "license": "CC0",
+          "files": [
+            "assets/audio/cc0_horror_library/zombie_moans_darsycho/zombie_moans.ogg"
+          ],
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "attack",
+      "label": "Attack / Aggro",
+      "subcategories": [
+        {
+          "id": "attack_creature",
+          "label": "Attack Vocals",
+          "source": "rubberduck — CC0 Creature SFX #2",
+          "license": "CC0",
+          "files": [
+            "assets/audio/cc0_horror_library/creature_rubberduck_02/attack_01.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_02/attack_02.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_02/attack_03.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_02/attack_04.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_02/attack_05.ogg"
+          ],
+          "count": 5
+        }
+      ]
+    },
+    {
+      "id": "pain_hit",
+      "label": "Pain / Hit",
+      "subcategories": [
+        {
+          "id": "hurt",
+          "label": "Hurt / Pain",
+          "source": "rubberduck CC0 Creature SFX",
+          "license": "CC0",
+          "files": [
+            "assets/audio/cc0_horror_library/creature_rubberduck_01/hurt_01.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_01/hurt_02.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_01/hurt_03.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_01/hurt_04.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_01/hurt_05.ogg",
+            "assets/audio/cc0_horror_library/rpg_sfx_rubberduck/creature_hurt_01.ogg",
+            "assets/audio/cc0_horror_library/rpg_sfx_rubberduck/creature_hurt_02.ogg"
+          ],
+          "count": 7
+        },
+        {
+          "id": "grunt",
+          "label": "Grunts",
+          "source": "rubberduck CC0 Creature SFX",
+          "license": "CC0",
+          "files": [
+            "assets/audio/cc0_horror_library/creature_rubberduck_01/grunt_01.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_01/grunt_02.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_01/grunt_03.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_01/grunt_04.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_01/grunt_05.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_02/grunt_06.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_02/grunt_07.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_02/grunt_08.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_02/grunt_09.ogg"
+          ],
+          "count": 9
+        }
+      ]
+    },
+    {
+      "id": "death",
+      "label": "Death",
+      "subcategories": [
+        {
+          "id": "death_vocals",
+          "label": "Death Vocals",
+          "source": "rubberduck CC0 Creature/RPG SFX",
+          "license": "CC0",
+          "files": [
+            "assets/audio/cc0_horror_library/creature_rubberduck_02/die_01.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_02/die_02.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_02/die_03.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_02/die_04.ogg",
+            "assets/audio/cc0_horror_library/rpg_sfx_rubberduck/creature_die_01.ogg"
+          ],
+          "count": 5
+        }
+      ]
+    },
+    {
+      "id": "scream",
+      "label": "Screams / Roars",
+      "subcategories": [
+        {
+          "id": "screams",
+          "label": "Screams",
+          "source": "rubberduck CC0 Creature SFX",
+          "license": "CC0",
+          "files": [
+            "assets/audio/cc0_horror_library/creature_rubberduck_01/scream_01.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_01/scream_02.ogg"
+          ],
+          "count": 2
+        },
+        {
+          "id": "roars",
+          "label": "Roars / Howl",
+          "source": "rubberduck CC0 Creature/RPG SFX",
+          "license": "CC0",
+          "files": [
+            "assets/audio/cc0_horror_library/creature_rubberduck_01/howl.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_01/roar_01.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_01/roar_02.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_01/roar_03.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_02/roar_04.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_02/roar_05.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_02/roar_06.ogg",
+            "assets/audio/cc0_horror_library/rpg_sfx_rubberduck/creature_roar_01.ogg",
+            "assets/audio/cc0_horror_library/rpg_sfx_rubberduck/creature_roar_02.ogg",
+            "assets/audio/cc0_horror_library/rpg_sfx_rubberduck/creature_roar_03.ogg"
+          ],
+          "count": 10
+        }
+      ]
+    },
+    {
+      "id": "breath_gurgle",
+      "label": "Breathing / Gurgle",
+      "subcategories": [
+        {
+          "id": "breath",
+          "label": "Breathing",
+          "source": "rubberduck CC0 Creature SFX",
+          "license": "CC0",
+          "files": [
+            "assets/audio/cc0_horror_library/creature_rubberduck_01/breath.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_02/breath_02.ogg"
+          ],
+          "count": 2
+        },
+        {
+          "id": "gurgle",
+          "label": "Burble / Cough / Spit",
+          "source": "rubberduck CC0 Creature SFX",
+          "license": "CC0",
+          "files": [
+            "assets/audio/cc0_horror_library/creature_rubberduck_01/burble_01.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_01/burble_02.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_01/cough_01.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_01/cough_02.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_01/cough_03.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_01/ooh.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_01/spit_01.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_01/spit_02.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_01/spit_03.ogg"
+          ],
+          "count": 9
+        }
+      ]
+    },
+    {
+      "id": "footsteps",
+      "label": "Walking / Footsteps",
+      "subcategories": [
+        {
+          "id": "snow_gravel",
+          "label": "Snow / Gravel Footsteps",
+          "source": "Corsica_S / qubodup",
+          "license": "CC0",
+          "files": [
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_01.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_02.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_03.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_04.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_05.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_06.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_07.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_08.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_09.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_10.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_11.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_12.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_13.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_14.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_15.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_16.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_17.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_18.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_and_ice_01.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_and_ice_02.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_and_ice_03.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_and_ice_04.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_and_ice_05.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_and_ice_06.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_and_ice_07.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_and_ice_08.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_and_ice_09.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_and_ice_10.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_and_ice_11.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_and_ice_12.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_and_ice_13.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_and_ice_14.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_and_ice_15.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_and_ice_16.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_and_ice_17.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_and_ice_18.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_and_ice_19.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_and_ice_20.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_and_ice_21.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_and_ice_22.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_and_ice_23.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_gravel/Corsica_S-Walking_in_Snow/Corsica_S-Walking_on_snow_covered_gravel_and_ice_24.flac"
+          ],
+          "count": 42
+        },
+        {
+          "id": "snow_shoes",
+          "label": "Snow Shoe Footsteps",
+          "source": "Corsica_S / qubodup",
+          "license": "CC0",
+          "files": [
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-01.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-02.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-03.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-04.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-05.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-06.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-07.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-08.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-09.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-10.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-11.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-12.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-13.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-14.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-15.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-16.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-17.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-18.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-19.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-20.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-21.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-22.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-23.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-24.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-25.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-26.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-27.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-28.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-29.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-30.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-31.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-32.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-33.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-34.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-35.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-36.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-37.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-38.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-39.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-40.flac",
+            "assets/audio/cc0_horror_library/footsteps_snow_shoes/Corsica_S-Snow_Shoes/Corsica_S-Snow_Shoes-41.flac"
+          ],
+          "count": 41
+        },
+        {
+          "id": "wet_wood_steps",
+          "label": "Wet / Wood Footsteps",
+          "source": "rubberduck General SFX #2",
+          "license": "CC0",
+          "files": [
+            "assets/audio/cc0_horror_library/general_sfx_rubberduck_02/sfx100v2_footstep_01.ogg",
+            "assets/audio/cc0_horror_library/general_sfx_rubberduck_02/sfx100v2_footstep_02.ogg",
+            "assets/audio/cc0_horror_library/general_sfx_rubberduck_02/sfx100v2_footstep_wet_01.ogg",
+            "assets/audio/cc0_horror_library/general_sfx_rubberduck_02/sfx100v2_footstep_wet_02.ogg",
+            "assets/audio/cc0_horror_library/general_sfx_rubberduck_02/sfx100v2_footstep_wet_03.ogg",
+            "assets/audio/cc0_horror_library/general_sfx_rubberduck_02/sfx100v2_footstep_wood_01.ogg",
+            "assets/audio/cc0_horror_library/general_sfx_rubberduck_02/sfx100v2_footstep_wood_02.ogg",
+            "assets/audio/cc0_horror_library/general_sfx_rubberduck_02/sfx100v2_footstep_wood_03.ogg",
+            "assets/audio/cc0_horror_library/general_sfx_rubberduck_02/sfx100v2_footstep_wood_04.ogg"
+          ],
+          "count": 9
+        }
+      ]
+    },
+    {
+      "id": "crawler",
+      "label": "Crawler / Wet Body",
+      "subcategories": [
+        {
+          "id": "slime_body",
+          "label": "Slime / Wet Body Motion",
+          "source": "rubberduck Water/Splash/Slime",
+          "license": "CC0",
+          "files": [
+            "assets/audio/cc0_horror_library/water_splash_slime/bubble_01.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/bubble_02.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/bubble_03.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/loop_bubbles_02.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/loop_bubbles_1.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/loop_rain.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/loop_water_01.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/loop_water_02.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/loop_water_03.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/slime_01.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/slime_02.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/slime_03.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/slime_04.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/slime_05.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/slime_06.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/slime_07.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/slime_08.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/slime_09.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/slime_10.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/slime_11.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/slime_12.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/slime_13.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/slime_14.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/slime_15.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/slime_16.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/splash_01.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/splash_02.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/splash_03.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/splash_04.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/splash_05.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/splash_06.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/splash_07.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/splash_08.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/splash_09.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/splash_10.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/splash_11.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/splash_12.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/splash_13.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/splash_14.ogg",
+            "assets/audio/cc0_horror_library/water_splash_slime/splash_15.ogg"
+          ],
+          "count": 40
+        },
+        {
+          "id": "creature_slime",
+          "label": "Creature Slime",
+          "source": "rubberduck Creature/RPG SFX",
+          "license": "CC0",
+          "files": [
+            "assets/audio/cc0_horror_library/creature_rubberduck_02/slime_01.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_02/slime_02.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_02/slime_03.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_02/slime_04.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_02/slime_05.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_02/slime_06.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_02/slime_07.ogg",
+            "assets/audio/cc0_horror_library/creature_rubberduck_02/slime_08.ogg",
+            "assets/audio/cc0_horror_library/rpg_sfx_rubberduck/creature_slime_01.ogg",
+            "assets/audio/cc0_horror_library/rpg_sfx_rubberduck/creature_slime_02.ogg",
+            "assets/audio/cc0_horror_library/rpg_sfx_rubberduck/creature_slime_03.ogg",
+            "assets/audio/cc0_horror_library/rpg_sfx_rubberduck/creature_slime_04.ogg"
+          ],
+          "count": 12
+        }
+      ]
+    },
+    {
+      "id": "cloth_gear",
+      "label": "Clothes / Gear Foley",
+      "subcategories": [
+        {
+          "id": "cloth",
+          "label": "Cloth Movement",
+          "source": "OwlishMedia — 202 More Sound Effects",
+          "license": "CC0",
+          "files": [
+            "assets/audio/cc0_horror_library/household_foley_owlishmedia/Cloth/Cloth_01.wav",
+            "assets/audio/cc0_horror_library/household_foley_owlishmedia/Cloth/Cloth_02.wav",
+            "assets/audio/cc0_horror_library/household_foley_owlishmedia/Cloth/Cloth_03.wav",
+            "assets/audio/cc0_horror_library/household_foley_owlishmedia/Cloth/Cloth_04.wav",
+            "assets/audio/cc0_horror_library/household_foley_owlishmedia/Cloth/Cloth_05.wav",
+            "assets/audio/cc0_horror_library/household_foley_owlishmedia/Cloth/Cloth_06.wav",
+            "assets/audio/cc0_horror_library/household_foley_owlishmedia/Cloth/Cloth_07.wav"
+          ],
+          "count": 7
+        },
+        {
+          "id": "chain",
+          "label": "Chain / Gear",
+          "source": "rubberduck RPG SFX",
+          "license": "CC0",
+          "files": [
+            "assets/audio/cc0_horror_library/rpg_sfx_rubberduck/chain_01.ogg",
+            "assets/audio/cc0_horror_library/rpg_sfx_rubberduck/chain_02.ogg",
+            "assets/audio/cc0_horror_library/rpg_sfx_rubberduck/chain_03.ogg"
+          ],
+          "count": 3
+        }
+      ]
+    },
+    {
+      "id": "impact_foley",
+      "label": "Impact / Body Foley",
+      "subcategories": [
+        {
+          "id": "impacts",
+          "label": "Generic Impact Pool",
+          "source": "rubberduck Breaking/Falling/Hit SFX",
+          "license": "CC0",
+          "files": [
+            "assets/audio/cc0_horror_library/breaking_falling_hits/bfh1_glass_hit_01.ogg",
+            "assets/audio/cc0_horror_library/breaking_falling_hits/bfh1_glass_hit_02.ogg",
+            "assets/audio/cc0_horror_library/breaking_falling_hits/bfh1_hit_01.ogg",
+            "assets/audio/cc0_horror_library/breaking_falling_hits/bfh1_hit_02.ogg",
+            "assets/audio/cc0_horror_library/breaking_falling_hits/bfh1_hit_03.ogg",
+            "assets/audio/cc0_horror_library/breaking_falling_hits/bfh1_hit_04.ogg",
+            "assets/audio/cc0_horror_library/breaking_falling_hits/bfh1_hit_05.ogg",
+            "assets/audio/cc0_horror_library/breaking_falling_hits/bfh1_hit_06.ogg",
+            "assets/audio/cc0_horror_library/breaking_falling_hits/bfh1_hit_07.ogg",
+            "assets/audio/cc0_horror_library/breaking_falling_hits/bfh1_hit_08.ogg",
+            "assets/audio/cc0_horror_library/breaking_falling_hits/bfh1_hit_09.ogg",
+            "assets/audio/cc0_horror_library/breaking_falling_hits/bfh1_hit_10.ogg",
+            "assets/audio/cc0_horror_library/breaking_falling_hits/bfh1_hit_11.ogg",
+            "assets/audio/cc0_horror_library/breaking_falling_hits/bfh1_hit_12.ogg",
+            "assets/audio/cc0_horror_library/breaking_falling_hits/bfh1_hit_13.ogg",
+            "assets/audio/cc0_horror_library/breaking_falling_hits/bfh1_metal_hit_01.ogg",
+            "assets/audio/cc0_horror_library/breaking_falling_hits/bfh1_metal_hit_02.ogg",
+            "assets/audio/cc0_horror_library/breaking_falling_hits/bfh1_metal_hit_03.ogg",
+            "assets/audio/cc0_horror_library/breaking_falling_hits/bfh1_metal_hit_04.ogg",
+            "assets/audio/cc0_horror_library/breaking_falling_hits/bfh1_metal_hit_05.ogg",
+            "assets/audio/cc0_horror_library/breaking_falling_hits/bfh1_metal_hit_06.ogg",
+            "assets/audio/cc0_horror_library/breaking_falling_hits/bfh1_rock_hit_01.ogg",
+            "assets/audio/cc0_horror_library/breaking_falling_hits/bfh1_wood_hit_01.ogg",
+            "assets/audio/cc0_horror_library/breaking_falling_hits/bfh1_wood_hit_02.ogg",
+            "assets/audio/cc0_horror_library/breaking_falling_hits/bfh1_wood_hit_03.ogg"
+          ],
+          "count": 25
+        }
+      ]
+    }
+  ],
+  "research_candidates": [
+    {
+      "id": "oga_zomby_sfx_2025",
+      "label": "Zomby SFX Pack — saturn91",
+      "license": "CC0",
+      "source_url": "https://opengameart.org/content/zomby-sfx-pack",
+      "status": "ingested_local"
+    },
+    {
+      "id": "oga_zombie_noises_moans",
+      "label": "Zombie noises and moans — ianzazz",
+      "license": "CC0",
+      "source_url": "https://opengameart.org/content/zombie-noises-and-moans",
+      "status": "ingested_local"
+    },
+    {
+      "id": "oga_zombie_moans_emopreben",
+      "label": "Zombie Moans 01 — EmoPreben",
+      "license": "CC0",
+      "source_url": "https://opengameart.org/content/zombie-moans-01-by-emopreben",
+      "status": "ingested_local"
+    }
+  ]
+}

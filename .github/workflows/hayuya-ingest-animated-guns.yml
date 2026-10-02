@@ -1,0 +1,137 @@
+name: HAYUYA Ingest CC0 Animated Guns
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - tools/hayuya3d/blender_asset_inspector.py
+      - .github/workflows/hayuya-ingest-animated-guns.yml
+
+permissions:
+  contents: write
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: art/hayuya-monster-v1
+          fetch-depth: 1
+
+      - name: Install Blender
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender
+
+      - name: Download Quaternius CC0 Animated Guns
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3             "https://opengameart.org/sites/default/files/FPS%20Pack_0.zip"             -o /tmp/hayuya-animated-guns.zip
+          test "$(stat -c%s /tmp/hayuya-animated-guns.zip)" -gt 100000
+
+      - name: Extract and inspect
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/hayuya-guns
+          mkdir -p /tmp/hayuya-guns
+          unzip -oq /tmp/hayuya-animated-guns.zip -d /tmp/hayuya-guns
+
+          dst="hayuya/weapon_library/quaternius-animated-guns"
+          rm -rf "$dst"
+          mkdir -p "$dst/raw" "$dst/reports"
+
+          find /tmp/hayuya-guns -type f ! -path '*/__MACOSX/*' -print0             | while IFS= read -r -d '' file; do
+                name="$(basename "$file")"
+                cp "$file" "$dst/raw/$name"
+              done
+
+          cat > "$dst/SOURCE.txt" <<'EOF'
+          Title: Low Poly Animated Guns / Animated Guns Pack
+          Creator: Quaternius
+          License: CC0 / Public Domain dedication
+          Source: https://opengameart.org/content/low-poly-animated-guns
+          Upstream: https://quaternius.com/packs/animatedguns.html
+          Contains six animated weapon models including pistol, revolver, shotgun, P90 and sniper-class weapons.
+          EOF
+
+          shopt -s nullglob
+          for file in "$dst"/raw/*.blend "$dst"/raw/*.fbx "$dst"/raw/*.glb; do
+            base="$(basename "$file")"
+            key="$(printf '%s' "$base" | tr '[:upper:] ' '[:lower:]_' | tr -cd 'a-z0-9_.-')"
+            blender -b --python tools/hayuya3d/blender_asset_inspector.py --               --input "$file"               --json "$dst/reports/$key.json"
+          done
+
+      - name: Build weapon inventory
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json,re
+          from pathlib import Path
+          root=Path("hayuya/weapon_library/quaternius-animated-guns")
+          reports=[]
+          seen=set()
+          def family(name):
+              n=name.lower()
+              if "revolver" in n: return "revolver"
+              if "shotgun" in n: return "shotgun_pump_tube"
+              if "p90" in n or "uzi" in n: return "rifle_magazine"
+              if "sniper" in n or "awp" in n: return "rifle_bolt_action"
+              if "pistol" in n or "handgun" in n: return "handgun_semiauto"
+              if "rifle" in n or "ak" in n: return "rifle_magazine"
+              return "unknown"
+          for p in sorted((root/"reports").glob("*.json")):
+              d=json.loads(p.read_text())
+              signature=(tuple(d.get("mesh_names",[])),tuple(d.get("actions",[])))
+              if signature in seen:
+                  continue
+              seen.add(signature)
+              reports.append({
+                  "report":str(p.relative_to(root)),
+                  "source_file":Path(d["input"]).name,
+                  "family_guess":family(Path(d["input"]).name+" "+" ".join(d.get("mesh_names",[]))),
+                  "meshes":d.get("mesh_count",0),
+                  "armatures":d.get("armature_count",0),
+                  "actions":d.get("actions",[]),
+                  "action_count":d.get("action_count",0),
+                  "bone_names":d.get("bone_names",[]),
+                  "animation_capable":d.get("animation_capable",False)
+              })
+          inventory={
+              "schema":1,
+              "id":"quaternius-animated-guns",
+              "license":"CC0",
+              "source":"https://opengameart.org/content/low-poly-animated-guns",
+              "assets":reports
+          }
+          (root/"inventory.json").write_text(json.dumps(inventory,indent=2)+"\n")
+          print(json.dumps(inventory,indent=2))
+          PY
+
+      - name: Commit weapon library
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add hayuya/weapon_library/quaternius-animated-guns
+          if git diff --cached --quiet; then
+            echo "No weapon library changes."
+            exit 0
+          fi
+          git commit -m "hayuya: ingest CC0 animated gun library"
+          for attempt in 1 2 3 4 5; do
+            git pull --rebase origin art/hayuya-monster-v1
+            if git push origin HEAD:art/hayuya-monster-v1; then
+              exit 0
+            fi
+            echo "Concurrent HAYUYA update detected; retrying push $attempt/5"
+            sleep $((attempt*2))
+          done
+          echo "::error::Could not persist weapon library after concurrent branch updates"
+          exit 1

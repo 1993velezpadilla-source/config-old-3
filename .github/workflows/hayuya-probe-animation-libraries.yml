@@ -1,0 +1,51 @@
+name: HAYUYA Probe CC0 Animation Libraries
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - .github/workflows/hayuya-probe-animation-libraries.yml
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download CC0 animation libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3             "https://opengameart.org/sites/default/files/universal_animation_library_2standard.zip"             -o /tmp/uam2.zip
+          curl -fL --retry 3             "https://opengameart.org/sites/default/files/universal_animation_librarystandard.zip"             -o /tmp/uam1.zip
+          echo "UAM2_BYTES=$(stat -c%s /tmp/uam2.zip)"
+          echo "UAM1_BYTES=$(stat -c%s /tmp/uam1.zip)"
+
+      - name: Inventory archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out/animation-probe/uam1 out/animation-probe/uam2
+          unzip -l /tmp/uam1.zip | tee out/animation-probe/uam1-list.txt
+          unzip -l /tmp/uam2.zip | tee out/animation-probe/uam2-list.txt
+          unzip -oq /tmp/uam1.zip -d out/animation-probe/uam1
+          unzip -oq /tmp/uam2.zip -d out/animation-probe/uam2
+          echo "=== EXTENSION COUNTS ==="
+          find out/animation-probe/uam1 out/animation-probe/uam2 -type f             | sed 's/.*\.//' | tr '[:upper:]' '[:lower:]' | sort | uniq -c | sort -nr
+          echo "=== LIKELY ZOMBIE FILES ==="
+          find out/animation-probe/uam1 out/animation-probe/uam2 -type f             | grep -Ei 'zombie|crawl|walk|chase|attack|death|hit|idle|turn'             | head -250 || true
+
+      - name: Upload inventory
+        uses: actions/upload-artifact@v4
+        with:
+          name: hayuya-cc0-animation-library-probe
+          path: |
+            out/animation-probe/uam1-list.txt
+            out/animation-probe/uam2-list.txt
+          retention-days: 14

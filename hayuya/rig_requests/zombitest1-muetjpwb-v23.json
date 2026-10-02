@@ -1,0 +1,7 @@
+{
+  "schema": 1,
+  "job_id": "zombitest1-muetjpwb",
+  "owner": "HAYUYA_WEB",
+  "reason": "Rig QA v23: require real deform groups in animation QA so rig helpers cannot contaminate bounds/topology",
+  "requested_at": "2026-09-24T03:47:00Z"
+}

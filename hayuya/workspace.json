@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "product": "HAYUYA Studio",
+  "open_command": [
+    "open hayuya",
+    "abre hayuya",
+    "open hayuya studio",
+    "abre hayuya studio"
+  ],
+  "preferred_gui": {
+    "provider": "vercel",
+    "url": "https://hayuya-studio.vercel.app",
+    "status": "ready",
+    "project_name": "hayuya-studio",
+    "project_id": "prj_UgGjFrh1b1riMwHXpBLqznDOCp3L",
+    "deployment_id": "dpl_4wvjonttfNTxm8qXZFaWjcxg9e63",
+    "production_aliases": [
+      "https://hayuya-studio.vercel.app",
+      "https://hayuya-studio-xziel-zombies.vercel.app"
+    ],
+    "source_repo": "1993velezpadilla-source/hayuya-studio",
+    "source_branch": "main",
+    "source_directory": ".",
+    "note": "Production deployment verified READY on Vercel. open hayuya should return the canonical URL above."
+  },
+  "prepared_static_source": "tools/hayuya3d/hub",
+  "github_pages": {
+    "prepared": true,
+    "enabled": false
+  },
+  "fallback": {
+    "kind": "github_issue_hub",
+    "url": "https://github.com/1993velezpadilla-source/config-old-3/issues/55",
+    "label": "HAYUYA HUB fallback"
+  },
+  "behavior": {
+    "return_direct_gui_link": true,
+    "never_require_lan_ip_for_normal_open": true,
+    "never_require_terminal_for_normal_open": true,
+    "shared_gui_isolated_jobs": true
+  }
+}

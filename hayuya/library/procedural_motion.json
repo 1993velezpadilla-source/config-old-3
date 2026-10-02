@@ -1,0 +1,183 @@
+{
+  "schema": 1,
+  "id": "hayuya_procedural_motion_v1",
+  "categories": [
+    {
+      "id": "foliage",
+      "label": "Foliage / Wind",
+      "items": [
+        {
+          "id": "grass_breeze",
+          "label": "Grass — Soft Breeze",
+          "profiles": [
+            "foliage.grass"
+          ],
+          "system": "vertex_wind",
+          "availability": "local",
+          "one_tap_ready": true,
+          "params": {
+            "intensity": 0.18,
+            "speed": 0.7,
+            "gust": 0.08,
+            "root_lock": 1
+          }
+        },
+        {
+          "id": "grass_windy",
+          "label": "Grass — Windy",
+          "profiles": [
+            "foliage.grass"
+          ],
+          "system": "vertex_wind",
+          "availability": "local",
+          "one_tap_ready": true,
+          "params": {
+            "intensity": 0.38,
+            "speed": 1.25,
+            "gust": 0.22,
+            "root_lock": 1
+          }
+        },
+        {
+          "id": "tree_breeze",
+          "label": "Tree — Branch + Leaf Sway",
+          "profiles": [
+            "foliage.tree"
+          ],
+          "system": "vertex_wind",
+          "availability": "local",
+          "one_tap_ready": true,
+          "params": {
+            "trunk": 0.04,
+            "branch": 0.18,
+            "leaf": 0.35,
+            "speed": 0.65
+          }
+        },
+        {
+          "id": "tree_storm",
+          "label": "Tree — Heavy Wind",
+          "profiles": [
+            "foliage.tree"
+          ],
+          "system": "vertex_wind",
+          "availability": "local",
+          "one_tap_ready": true,
+          "params": {
+            "trunk": 0.1,
+            "branch": 0.42,
+            "leaf": 0.7,
+            "speed": 1.25
+          }
+        }
+      ]
+    },
+    {
+      "id": "mechanical",
+      "label": "Mechanical / Props",
+      "items": [
+        {
+          "id": "hinge_open_close",
+          "label": "Hinge Open / Close",
+          "profiles": [
+            "prop.mechanical",
+            "environment.modular"
+          ],
+          "system": "transform_channels",
+          "availability": "local",
+          "one_tap_ready": true,
+          "params": {
+            "axis": "auto_hinge",
+            "degrees": 90
+          }
+        },
+        {
+          "id": "continuous_rotate",
+          "label": "Continuous Rotation",
+          "profiles": [
+            "prop.mechanical",
+            "vehicle"
+          ],
+          "system": "transform_channels",
+          "availability": "local",
+          "one_tap_ready": true,
+          "params": {
+            "axis": "auto",
+            "rpm": 30
+          }
+        },
+        {
+          "id": "wheel_spin",
+          "label": "Wheel Spin",
+          "profiles": [
+            "vehicle"
+          ],
+          "system": "mechanical_skeleton",
+          "availability": "local",
+          "one_tap_ready": true,
+          "params": {
+            "axis": "wheel_axle",
+            "rpm": 120
+          }
+        },
+        {
+          "id": "suspension_idle",
+          "label": "Vehicle Suspension Idle",
+          "profiles": [
+            "vehicle"
+          ],
+          "system": "mechanical_skeleton",
+          "availability": "local",
+          "one_tap_ready": true,
+          "params": {
+            "amplitude": 0.02,
+            "speed": 0.8
+          }
+        }
+      ]
+    },
+    {
+      "id": "ambient",
+      "label": "Ambient Motion",
+      "items": [
+        {
+          "id": "subtle_float",
+          "label": "Subtle Float",
+          "profiles": [
+            "prop.static",
+            "prop.mechanical",
+            "weapon.melee"
+          ],
+          "system": "transform_channels",
+          "availability": "local",
+          "one_tap_ready": true,
+          "params": {
+            "amplitude": 0.03,
+            "speed": 0.55
+          }
+        },
+        {
+          "id": "slow_spin",
+          "label": "Slow Display Spin",
+          "profiles": [
+            "prop.static",
+            "weapon.melee",
+            "weapon.firearm"
+          ],
+          "system": "transform_channels",
+          "availability": "local",
+          "one_tap_ready": true,
+          "params": {
+            "axis": "vertical",
+            "rpm": 6
+          }
+        }
+      ]
+    }
+  ],
+  "engine_notes": {
+    "foliage": "Game export should map vertex_wind profiles to engine foliage wind/WPO or equivalent, not force a skeletal humanoid rig.",
+    "mechanical": "Mechanical transforms must use detected pivots/axes and part segmentation.",
+    "gltf": "Portable GLB can bake transform animations; runtime-specific wind remains metadata when vertex shaders are the superior game path."
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "job_id": "monja-anigen-deep-01",
+  "title": "Monja AniGen shape+skeleton+skin challenger",
+  "image": "hayuya/assets/monja-mugfwln6/geometry/primary.webp",
+  "ss_model": "ss_flow_solo",
+  "slat_model": "slat_flow_auto",
+  "ss_steps": 25,
+  "slat_steps": 25,
+  "joints_density": 1,
+  "texture_size": 2048,
+  "seed": 42,
+  "retry_token": "anigen-deep-01-visual-texture-r8"
+}

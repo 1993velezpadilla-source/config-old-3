@@ -1,0 +1,243 @@
+name: Hayuya Monster CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - tools/hayuya3d/**
+      - hayuya/library/**
+      - hayuya/animation_library/**
+      - hayuya/standards/**
+      - assets/audio/cc0_horror_library/**
+      - assets/characters/shared/docs/HAYUYA_3D_MASTER_PROMPT.md
+      - .github/workflows/hayuya-monster-ci.yml
+
+permissions:
+  contents: read
+
+jobs:
+  planner-ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install MediaPipe runtime libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1
+
+      - name: Install CPU Hayuya test deps
+        run: python -m pip install --upgrade pip numpy pillow trimesh scipy fast-simplification mediapipe
+
+      - name: Compile Hayuya Python
+        run: python -m py_compile tools/hayuya3d/*.py
+
+      - name: Run Hayuya unit tests
+        run: python -m unittest discover -s tools/hayuya3d/tests -v
+
+      - name: Audit HAYUYA 3D AAA geometry limits
+        run: python tools/hayuya3d/limits_audit.py
+
+      - name: Validate real single-photo automatic face zoom
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/hayuya-source-autofix
+          python tools/hayuya3d/source_autofix.py \
+            --input hayuya/assets/monja-mugfwln6/geometry/primary.webp \
+            --out /tmp/hayuya-source-autofix \
+            --policy required
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report=Path("/tmp/hayuya-source-autofix/source_autofix.json")
+          data=json.loads(report.read_text(encoding="utf-8"))
+          assert data["ready"] is True, data
+          assert data["real_sources_preserved"] is True, data
+          assert data["derived_sources_are_not_independent_references"] is True, data
+          assert len(data["sources"]) == 1, data
+          assert len(data["derived_detail_sources"]) == 1, data
+          crop=Path(data["derived_detail_sources"][0])
+          assert crop.is_file() and crop.stat().st_size > 1024, data
+          assert data["sources"][0]["output_size"] == [1024,1024], data
+          from PIL import Image
+          im=Image.open(crop)
+          assert im.mode == "RGBA", (im.mode, data)
+          alpha=im.getchannel("A")
+          lo,hi=alpha.getextrema()
+          assert lo < 245 and hi > 5, (lo,hi,data)
+          assert data["sources"][0].get("alpha_preserved") is True, data
+          print("HAYUYA_SINGLE_PHOTO_AUTOFIX_PASS", crop, data["sources"][0]["method"], "alpha", (lo,hi))
+          PY
+
+      - name: Upload single-photo autofix evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: hayuya-single-photo-autofix-evidence
+          path: |
+            /tmp/hayuya-source-autofix/source_autofix.json
+            /tmp/hayuya-source-autofix/details/*.png
+          retention-days: 1
+          if-no-files-found: error
+
+      - name: Validate catastrophic-mesh gate on known-good Zombie Iglesia
+        run: |
+          python tools/hayuya3d/mesh_gate.py \
+            hayuya/models/zombie-iglesia-001/model.glb \
+            --json /tmp/hayuya-known-good-mesh-gate.json
+
+      - name: Measure source-fidelity score on known-good Zombie Iglesia
+        run: |
+          python tools/hayuya3d/visual_judge.py \
+            hayuya/models/zombie-iglesia-001/model.glb \
+            --source hayuya/models/zombie-iglesia/prepared_views/front.png \
+            --size 128 \
+            --azimuth-step 45 | tee /tmp/hayuya-known-good-visual.json
+
+      - name: Measure texture clarity on known Hayuya models
+        run: |
+          python tools/hayuya3d/texture_gate.py             hayuya/models/zombie-iglesia-001/model.glb             --json /tmp/zombie-iglesia-texture.json
+          python tools/hayuya3d/texture_gate.py             hayuya/models/candy-zombie-001/model.glb             --json /tmp/candy-zombie-texture.json
+
+      - name: Calibrate face mesh and texel telemetry on real Hayuya characters
+        run: |
+          python - <<'PY'
+          import json
+          import math
+          import sys
+          from pathlib import Path
+
+          sys.path.insert(0, "tools/hayuya3d")
+          from qa import inspect_mesh
+
+          models = [
+              Path("hayuya/models/zombie-iglesia-001/model.glb"),
+              Path("hayuya/models/candy-zombie-001/model.glb"),
+              Path("hayuya/models/zombitest1-muetjpwb/model.glb"),
+          ]
+          rows = []
+          for path in models:
+              score = inspect_mesh(
+                  path,
+                  backend="face_calibration",
+                  mode="character",
+                  target_faces=250000,
+                  target_texture_size=4096,
+              )
+              if not score.valid:
+                  raise SystemExit(f"face calibration model invalid: {path}: {score.notes}")
+              for metric_name in (
+                  "head_density_score",
+                  "head_texel_density_score",
+                  "head_texture_detail_ratio",
+                  "head_texture_detail_score",
+                  "head_texture_detail_mean",
+              ):
+                  value = getattr(score, metric_name)
+                  if value is None or not math.isfinite(float(value)):
+                      raise SystemExit(
+                          f"face calibration metric missing/non-finite: "
+                          f"{path}: {metric_name}={value}: {score.notes}"
+                      )
+              rows.append({
+                  "model": str(path),
+                  "faces": score.faces,
+                  "head_region_faces": score.head_region_faces,
+                  "head_region_face_fraction": score.head_region_face_fraction,
+                  "head_region_density_ratio": score.head_region_density_ratio,
+                  "head_density_score": score.head_density_score,
+                  "head_texel_density_ratio": score.head_texel_density_ratio,
+                  "head_texel_density_score": score.head_texel_density_score,
+                  "head_texture_detail_ratio": score.head_texture_detail_ratio,
+                  "head_texture_detail_score": score.head_texture_detail_score,
+                  "head_texture_detail_mean": score.head_texture_detail_mean,
+                  "base_color_min_edge": score.base_color_min_edge,
+                  "base_color_max_edge": score.base_color_max_edge,
+                  "texture_resolution_score": score.texture_resolution_score,
+              })
+          print("HAYUYA_FACE_QUALITY_CALIBRATION", json.dumps(rows, sort_keys=True))
+          PY
+
+      - name: Inspect character rig readiness
+        run: |
+          python tools/hayuya3d/rig_gate.py \
+            hayuya/models/zombie-iglesia-001/model.glb \
+            --json /tmp/zombie-iglesia-rig.json
+          python tools/hayuya3d/rig_gate.py \
+            hayuya/models/candy-zombie-001/model.glb \
+            --json /tmp/candy-zombie-rig.json
+
+      - name: Validate canonical animated donor contract
+        run: |
+          python tools/hayuya3d/rig_gate.py \
+            hayuya/animation_library/quaternius-uam2/library.glb \
+            --json /tmp/quaternius-uam2-rig.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path("/tmp/quaternius-uam2-rig.json").read_text())
+          assert data["valid_glb"] is True
+          assert data["rig_ready"] is True, data
+          assert data["animation_ready"] is True, data
+          assert data["preview_animation_ready"] is True, data
+          assert len(data["animation_clips"]) >= 40, data
+          assert "Zombie_Idle_Loop" in data["animation_clips"], data
+          assert "Zombie_Walk_Fwd_Loop" in data["animation_clips"], data
+          assert "Zombie_Scratch" in data["animation_clips"], data
+          print("HAYUYA_CANONICAL_RIG_DONOR_PASS", data["joints"], len(data["animation_clips"]))
+          PY
+
+      - name: Validate character editor catalogs
+        run: python tools/hayuya3d/validate_editor_catalog.py
+
+      - name: Calibrate against historical bad Candyland billboard output
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin b69c3bd96a97f8f63695dce6193a31d763252aba
+          git show b69c3bd96a97f8f63695dce6193a31d763252aba:hayuya/models/candy-zombie-001/model.glb > /tmp/candy-bad.glb
+          python tools/hayuya3d/mesh_gate.py /tmp/candy-bad.glb --json /tmp/candy-bad-mesh-gate.json || true
+          python tools/hayuya3d/visual_judge.py \
+            /tmp/candy-bad.glb \
+            --source hayuya/assets/candy-zombie-001/geometry/candy-zombie-user-reference.jpg \
+            --size 128 \
+            --azimuth-step 45 | tee /tmp/candy-bad-visual.json
+
+      - name: Dry-run one-photo planner
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path("/tmp/hayuya-front.png")
+          p.write_bytes(b"\x89PNG\r\n\x1a\n" + b"x"*2048)
+          PY
+          python tools/hayuya3d/hayuya.py \
+            --input /tmp/hayuya-front.png \
+            --profile monster \
+            --gpu-vram 8
+
+      - name: Dry-run twelve-photo folder reference pool
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          root=Path("/tmp/hayuya-pool")
+          (root/"individual").mkdir(parents=True, exist_ok=True)
+          (root/"details").mkdir(parents=True, exist_ok=True)
+          for i in range(9):
+              p=root/"individual"/f"view-{i}.png"
+              p.write_bytes(b"\x89PNG\r\n\x1a\n" + bytes([65+i])*(2048+i))
+          for i in range(3):
+              p=root/"details"/f"detail-{i}.png"
+              p.write_bytes(b"\x89PNG\r\n\x1a\n" + bytes([80+i])*(2200+i))
+          PY
+          python tools/hayuya3d/hayuya.py \
+            --input-dir /tmp/hayuya-pool \
+            --profile monster \
+            --gpu-vram 8

@@ -1,0 +1,7 @@
+ID: oga_flat_guns_west
+License: CC0
+Source page: https://opengameart.org/content/cc0-flat-guns-west
+Resolved archive: https://opengameart.org/sites/default/files/flat_guns_west.zip
+Archive: oga_flat_guns_west.zip
+SHA256: 0e83e670f7c85a2c024887662f5f6ab584daceb5c8a38bac5a3f14a0397a1d29
+HAYUYA note: archived only because the upstream page explicitly identifies this free pack/license.

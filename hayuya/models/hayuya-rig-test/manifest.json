@@ -1,0 +1,44 @@
+{
+  "schema": 2,
+  "engine": "HAYUYA RIG LIBRARY",
+  "job_id": "hayuya-rig-test",
+  "source": "hayuya/rig_library/quaternius-human-rigged/preview.png",
+  "glb": "model.glb",
+  "glb_bytes": 698560,
+  "generator": "Quaternius Human rig donor (CC0)",
+  "character": {
+    "skeleton_type": "hayuya_humanoid_v1",
+    "rig_ready": true,
+    "animation_ready": true,
+    "preview_animation_ready": true,
+    "animation_clips": [
+      "Human Armature|ArmatureAction.002",
+      "Human Armature|Death",
+      "Human Armature|Idle",
+      "Human Armature|Jump",
+      "Human Armature|Punch",
+      "Human Armature|Run",
+      "Human Armature|Walk",
+      "Human Armature|Working"
+    ],
+    "facial": {
+      "jaw": false,
+      "eye_l": false,
+      "eye_r": false,
+      "blink_l": false,
+      "blink_r": false,
+      "morph_targets": []
+    },
+    "secondary_motion": {
+      "hair_nodes": [],
+      "cloth_nodes": [],
+      "hair_ready": false,
+      "cloth_ready": false
+    },
+    "warnings": [
+      "no_jaw_control",
+      "no_blink_controls",
+      "secondary_motion_not_present"
+    ]
+  }
+}

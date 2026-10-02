@@ -1,0 +1,110 @@
+name: HAYUYA Build Animated Zombie Pack Preview
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - hayuya/source_archives/quaternius_animated_zombie/**
+      - .github/workflows/hayuya-build-animated-zombie-pack-preview.yml
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: art/hayuya-monster-v1
+          fetch-depth: 1
+
+      - name: Install Blender runtime
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender libegl1 libgl1 python3-numpy
+
+      - name: Reassemble archived source
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="hayuya/source_archives/quaternius_animated_zombie"
+          cat "$root"/parts/quaternius_animated_zombie.tar.gz.part-* > /tmp/quaternius_animated_zombie.tar.gz
+          sha256sum -c "$root/SHA256.txt" --status || {
+            expected="$(cut -d' ' -f1 "$root/SHA256.txt")"
+            actual="$(sha256sum /tmp/quaternius_animated_zombie.tar.gz | cut -d' ' -f1)"
+            test "$expected" = "$actual"
+          }
+          rm -rf /tmp/hayuya-az
+          mkdir -p /tmp/hayuya-az
+          tar -xzf /tmp/quaternius_animated_zombie.tar.gz -C /tmp/hayuya-az
+          test -s /tmp/hayuya-az/Blends/ZombieSmooth.blend
+
+      - name: Export self-contained animated GLB
+        shell: bash
+        run: |
+          set -euo pipefail
+          dst="hayuya/animation_library/quaternius-animated-zombie"
+          rm -rf "$dst"
+          mkdir -p "$dst"
+          blender -b /tmp/hayuya-az/Blends/ZombieSmooth.blend --python-expr '
+          import bpy, pathlib
+          out=pathlib.Path("hayuya/animation_library/quaternius-animated-zombie/model.glb").resolve()
+          bpy.ops.export_scene.gltf(
+              filepath=str(out),
+              export_format="GLB",
+              export_animations=True,
+              export_skins=True,
+              export_nla_strips=True,
+              export_yup=True
+          )
+          print("HAYUYA_ANIMATED_ZOMBIE_GLTF",out)
+          '
+          blender -b --python tools/hayuya3d/blender_asset_inspector.py --             --input "$dst/model.glb"             --json "$dst/report.json"
+
+      - name: Update animation catalog
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report=json.loads(Path("hayuya/animation_library/quaternius-animated-zombie/report.json").read_text())
+          catalog_path=Path("hayuya/library/zombie_animations.json")
+          d=json.loads(catalog_path.read_text())
+          found=False
+          for group in d.get("groups",[]):
+              for cat in group.get("categories",[]):
+                  for item in cat.get("items",[]):
+                      if item.get("id")=="quaternius_animated_zombie":
+                          item["availability"]="local"
+                          item["local_path"]="hayuya/animation_library/quaternius-animated-zombie/model.glb"
+                          item["local_archive_path"]="hayuya/source_archives/quaternius_animated_zombie"
+                          item["embedded_actions"]=report.get("actions",[])
+                          item["count"]=len(report.get("actions",[]))
+                          item["one_tap_ready"]=False
+                          item["ingest_note"]="Original CC0 source and a self-contained animated GLB preview are local in HAYUYA."
+                          found=True
+          if not found:
+              raise SystemExit("Animated Zombie catalog item not found")
+          catalog_path.write_text(json.dumps(d,indent=2)+"\n")
+          print("HAYUYA_ANIMATED_ZOMBIE_ACTIONS",report.get("actions",[]))
+          PY
+
+      - name: Commit preview and catalog
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add hayuya/animation_library/quaternius-animated-zombie hayuya/library/zombie_animations.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "hayuya: add local Animated Zombie model preview"
+          for attempt in 1 2 3 4 5; do
+            git pull --rebase origin art/hayuya-monster-v1
+            if git push origin HEAD:art/hayuya-monster-v1; then exit 0; fi
+            sleep $((attempt*2))
+          done
+          exit 1

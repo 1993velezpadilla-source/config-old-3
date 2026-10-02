@@ -1,0 +1,7 @@
+{
+  "schema": 1,
+  "job_id": "zombitest1-muetjpwb",
+  "owner": "HAYUYA_WEB",
+  "reason": "Rig QA v44: preserve V43 skinning and animation exactly; validate structural monotonic weighted-joint guard and collect rest-edge anatomy telemetry for cross-side deformation outliers; no QA threshold changes",
+  "requested_at": "2026-09-24T08:39:00Z"
+}

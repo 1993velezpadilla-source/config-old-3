@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "fixture": "monja-mugfwln6",
+  "label": "known_bad",
+  "expected_status": "REJECTED",
+  "source": "hayuya/assets/monja-mugfwln6/geometry/primary.webp",
+  "detail_dir": "hayuya/assets/monja-mugfwln6/details",
+  "model": "hayuya/models/monja-mugfwln6/model.glb",
+  "reason": "User-confirmed visibly broken face/model that the previous judge path allowed to appear acceptable. It must never receive production approval.",
+  "contract": {
+    "require_all_24_views": true,
+    "require_authoritative_v5": true,
+    "blocked_uncalibrated_is_not_sufficient_for_this_negative_fixture": true,
+    "hard_fail_reason_required": true
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "schema": 1,
+  "job_id": "zombitest1-muetjpwb",
+  "owner": "HAYUYA_WEB",
+  "reason": "Rig QA v39 experiment: pose-aware rigid arm-subtree rest fit for narrow standing characters; preserve bone lengths/hierarchy and V38 monotonic safe-clip guard; no deformation-threshold relaxation",
+  "requested_at": "2026-09-24T06:30:00Z"
+}

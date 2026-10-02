@@ -1,0 +1,28 @@
+{
+  "path": "out/hayuya-jobs/monja-mugfswij/outputs/hayuya_final.glb",
+  "valid": true,
+  "passed": true,
+  "vertices": 92301,
+  "faces": 137671,
+  "components": 1739,
+  "largest_component_fraction": 0.01507,
+  "degenerate_ratio": 1.5e-05,
+  "bbox_extents": [
+    0.45676562,
+    0.99998656,
+    0.53694451
+  ],
+  "bbox_aspect_ratio": 2.189277,
+  "axis_alignment_weighted": 0.858899,
+  "axis_aligned_area_98": 0.125485,
+  "dominant_normal_axis_area": [
+    0.520507,
+    0.083581,
+    0.395913
+  ],
+  "reasons": [],
+  "warnings": [
+    "fragmented_surface:components=1739,largest=0.015",
+    "high_component_count:1739"
+  ]
+}

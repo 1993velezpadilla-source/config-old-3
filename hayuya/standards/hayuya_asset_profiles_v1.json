@@ -1,0 +1,235 @@
+{
+  "schema": 1,
+  "id": "hayuya_asset_profiles_v1",
+  "philosophy": "Every generated asset may opt into animation, but HAYUYA chooses an animation system compatible with the asset's physical structure instead of forcing humanoid rigs onto everything.",
+  "profiles": [
+    {
+      "id": "character.humanoid",
+      "label": "Humanoid Character",
+      "animation_systems": [
+        "skeletal",
+        "morph_targets",
+        "secondary_motion"
+      ],
+      "preferred_pipeline": [
+        "multiview_if_available",
+        "retopo",
+        "pbr_texture",
+        "humanoid_autorig",
+        "face_controls",
+        "deformation_qa"
+      ],
+      "required_qa": [
+        "mesh_gate",
+        "texture_clarity",
+        "rig_gate",
+        "deformation_gate"
+      ]
+    },
+    {
+      "id": "character.creature",
+      "label": "Creature / Monster",
+      "animation_systems": [
+        "skeletal",
+        "morph_targets",
+        "secondary_motion"
+      ],
+      "preferred_pipeline": [
+        "multiview_if_available",
+        "retopo",
+        "creature_skeleton_fit",
+        "pbr_texture",
+        "deformation_qa"
+      ],
+      "required_qa": [
+        "mesh_gate",
+        "texture_clarity",
+        "rig_gate",
+        "deformation_gate"
+      ]
+    },
+    {
+      "id": "weapon.firearm",
+      "label": "Firearm",
+      "animation_systems": [
+        "mechanical_skeleton",
+        "transform_channels",
+        "morph_targets"
+      ],
+      "preferred_pipeline": [
+        "part_segmentation",
+        "mechanical_axis_detection",
+        "pbr_texture",
+        "weapon_rig",
+        "weapon_compatibility_gate"
+      ],
+      "required_qa": [
+        "mesh_gate",
+        "weapon_component_gate",
+        "animation_compatibility_gate",
+        "mechanical_motion_gate"
+      ]
+    },
+    {
+      "id": "weapon.melee",
+      "label": "Melee Weapon",
+      "animation_systems": [
+        "transform_channels",
+        "optional_skeletal"
+      ],
+      "preferred_pipeline": [
+        "part_segmentation",
+        "pbr_texture",
+        "attachment_socket_setup"
+      ],
+      "required_qa": [
+        "mesh_gate",
+        "pivot_socket_gate"
+      ]
+    },
+    {
+      "id": "prop.mechanical",
+      "label": "Mechanical Prop",
+      "animation_systems": [
+        "mechanical_skeleton",
+        "transform_channels",
+        "morph_targets"
+      ],
+      "preferred_pipeline": [
+        "part_segmentation",
+        "pivot_detection",
+        "pbr_texture",
+        "mechanical_rig"
+      ],
+      "required_qa": [
+        "mesh_gate",
+        "mechanical_motion_gate"
+      ]
+    },
+    {
+      "id": "vehicle",
+      "label": "Vehicle",
+      "animation_systems": [
+        "mechanical_skeleton",
+        "transform_channels",
+        "suspension_rig"
+      ],
+      "preferred_pipeline": [
+        "part_segmentation",
+        "wheel_axis_detection",
+        "door_hinge_detection",
+        "pbr_texture",
+        "vehicle_rig"
+      ],
+      "required_qa": [
+        "mesh_gate",
+        "mechanical_motion_gate"
+      ]
+    },
+    {
+      "id": "foliage.grass",
+      "label": "Grass / Small Foliage",
+      "animation_systems": [
+        "vertex_wind",
+        "transform_channels"
+      ],
+      "preferred_pipeline": [
+        "alpha_or_geometry_cleanup",
+        "wind_weight_generation",
+        "pbr_texture",
+        "foliage_lod"
+      ],
+      "required_qa": [
+        "mesh_gate",
+        "wind_bounds_gate",
+        "alpha_overdraw_gate"
+      ]
+    },
+    {
+      "id": "foliage.tree",
+      "label": "Tree / Large Plant",
+      "animation_systems": [
+        "vertex_wind",
+        "skeletal_foliage"
+      ],
+      "preferred_pipeline": [
+        "trunk_branch_segmentation",
+        "wind_weight_generation",
+        "pbr_texture",
+        "foliage_lod"
+      ],
+      "required_qa": [
+        "mesh_gate",
+        "wind_bounds_gate",
+        "lod_gate"
+      ]
+    },
+    {
+      "id": "prop.static",
+      "label": "Static Prop",
+      "animation_systems": [
+        "optional_transform_channels",
+        "optional_morph_targets"
+      ],
+      "preferred_pipeline": [
+        "retopo",
+        "pbr_texture",
+        "pivot_setup",
+        "collision_proxy"
+      ],
+      "required_qa": [
+        "mesh_gate",
+        "texture_clarity"
+      ]
+    },
+    {
+      "id": "environment.modular",
+      "label": "Environment / Modular Piece",
+      "animation_systems": [
+        "optional_transform_channels",
+        "optional_vertex_animation"
+      ],
+      "preferred_pipeline": [
+        "retopo",
+        "pbr_texture",
+        "modular_snap_points",
+        "collision_proxy",
+        "lod"
+      ],
+      "required_qa": [
+        "mesh_gate",
+        "modular_bounds_gate",
+        "texture_clarity"
+      ]
+    }
+  ],
+  "global_output_contract": {
+    "formats": [
+      "glb"
+    ],
+    "optional_exports": [
+      "fbx",
+      "obj"
+    ],
+    "materials": [
+      "base_color",
+      "normal",
+      "roughness",
+      "metallic"
+    ],
+    "metadata": [
+      "asset_profile",
+      "scale",
+      "pivot",
+      "bounds",
+      "animation_system",
+      "qa",
+      "license_provenance"
+    ],
+    "game_ready_requires": [
+      "mesh_qa_pass",
+      "profile_qa_pass",
+      "no_unresolved_required_dependencies"
+    ]
+  }
+}

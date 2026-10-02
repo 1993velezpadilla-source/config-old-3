@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "input": "hayuya/weapon_library/quaternius-animated-guns/raw/Pistol.blend",
+  "object_count": 2,
+  "mesh_count": 1,
+  "armature_count": 1,
+  "empty_count": 0,
+  "vertices": 764,
+  "polygons": 625,
+  "mesh_names": [
+    "Muzzle"
+  ],
+  "armatures": [
+    {
+      "name": "PistolArmature",
+      "bones": [
+        "Control",
+        "Slide",
+        "Trigger",
+        "Magazine"
+      ]
+    }
+  ],
+  "bone_names": [
+    "Control",
+    "Magazine",
+    "Slide",
+    "Trigger"
+  ],
+  "actions": [
+    "Fire",
+    "Reload",
+    "Slide"
+  ],
+  "action_count": 3,
+  "materials": [
+    "DarkerMetal",
+    "Magazine",
+    "Material.003",
+    "Metal",
+    "Muzzle",
+    "Wood"
+  ],
+  "shape_keys": [],
+  "animation_capable": true
+}

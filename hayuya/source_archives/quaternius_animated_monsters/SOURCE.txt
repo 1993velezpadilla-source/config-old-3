@@ -1,0 +1,7 @@
+ID: quaternius_animated_monsters
+License: CC0
+Source page: https://opengameart.org/content/lowpoly-animated-monsters
+Resolved archive: https://opengameart.org/sites/default/files/Animated%20Monster%20Pack%20by%20%40Quaternius.zip
+Archive: quaternius_animated_monsters.zip
+SHA256: acab2bddc5939f9b1b92c930507d73e0fd80037a39631cf2049bb6cfcaec1acd
+HAYUYA note: archived only because the upstream page explicitly identifies this free pack/license.

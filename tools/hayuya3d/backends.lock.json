@@ -1,0 +1,335 @@
+{
+  "schema_version": 1,
+  "updated_utc": "2026-09-25T17:55:00Z",
+  "policy": {
+    "default_stack": "permissive_open_source",
+    "allow_restricted_by_default": false,
+    "notes": [
+      "Pinned SHAs make Hayuya reproducible.",
+      "Restricted/community-license backends must never be silently enabled.",
+      "Provider outputs may be used for generation/QA only when their license and terms permit the intended use."
+    ]
+  },
+  "backends": [
+    {
+      "id": "triposg",
+      "role": [
+        "single_image_shape",
+        "geometry_candidate"
+      ],
+      "repo": "https://github.com/VAST-AI-Research/TripoSG.git",
+      "sha": "fc5c40990181e2a756c4e0b1c2f4d6b5202faf8c",
+      "license": "MIT",
+      "enabled_by_default": true,
+      "min_vram_gb": 8,
+      "quality_tier": "high",
+      "notes": "1.5B rectified-flow image-to-shape model; direct GLB export and face limiting.",
+      "input_policy": {
+        "native_images_per_call": 1,
+        "hayuya_strategy": "spawn independent hypotheses from ordered real anchors; Judge against full pool"
+      }
+    },
+    {
+      "id": "triposf",
+      "role": [
+        "geometry_refine",
+        "high_resolution_reconstruction"
+      ],
+      "repo": "https://github.com/VAST-AI-Research/TripoSF.git",
+      "sha": "b97b749aa5726fb64ceec359a4ef8e61e79279c7",
+      "license": "MIT",
+      "enabled_by_default": true,
+      "min_vram_gb": 12,
+      "quality_tier": "ultra",
+      "notes": "SparseFlex up to 1024^3; strong fit for open surfaces, cloth, foliage and complex topology."
+    },
+    {
+      "id": "trellis2",
+      "role": [
+        "single_image_shape",
+        "pbr_candidate",
+        "geometry_candidate"
+      ],
+      "repo": "https://github.com/microsoft/TRELLIS.2.git",
+      "sha": "75fbf0183001ed9876c8dbb35de6b68552ee08bd",
+      "license": "MIT",
+      "enabled_by_default": true,
+      "min_vram_gb": 24,
+      "quality_tier": "ultra",
+      "notes": "4B O-Voxel image-to-3D, 512^3 to 1536^3, full PBR, arbitrary/open topology.",
+      "input_policy": {
+        "native_images_per_call": 1,
+        "hayuya_strategy": "primary ultra candidate; additional reference evidence enters Judge and other multi-image candidates"
+      }
+    },
+    {
+      "id": "trellis",
+      "role": [
+        "multi_image_shape",
+        "geometry_candidate",
+        "multi_view_fusion"
+      ],
+      "repo": "https://github.com/microsoft/TRELLIS.git",
+      "sha": "442aa1e1afb9014e80681d3bf604e8d728a86ee7",
+      "license": "MIT",
+      "enabled_by_default": true,
+      "min_vram_gb": 16,
+      "quality_tier": "high",
+      "notes": "Native run_multi_image() candidate using stochastic or multidiffusion fusion; activates automatically when Hayuya gets 2 photos.",
+      "input_policy": {
+        "logical_reference_limit": null,
+        "hayuya_default_group_size": 6,
+        "grouping": "primary-anchor repeated across bounded groups"
+      }
+    },
+    {
+      "id": "instantmesh",
+      "role": [
+        "single_image_multiview",
+        "geometry_candidate",
+        "view_synthesis"
+      ],
+      "repo": "https://github.com/TencentARC/InstantMesh.git",
+      "sha": "08822c52fdc399b93ea00e4fa9e596344ed52ccc",
+      "license": "Apache-2.0",
+      "enabled_by_default": true,
+      "min_vram_gb": 12,
+      "quality_tier": "balanced",
+      "notes": "Zero123++ sparse-view generation plus LRM/FlexiCubes reconstruction."
+    },
+    {
+      "id": "wonder3d",
+      "role": [
+        "view_synthesis",
+        "normal_synthesis",
+        "geometry_support"
+      ],
+      "repo": "https://github.com/xxlong0/Wonder3D.git",
+      "sha": "d894f827aa8c2917761a0dad3ab40df74c7a5b24",
+      "license": "MIT",
+      "enabled_by_default": true,
+      "min_vram_gb": 12,
+      "quality_tier": "balanced",
+      "notes": "Cross-domain multiview RGB+normal generation; useful for canonical view completion and normal constraints."
+    },
+    {
+      "id": "dinov2",
+      "role": [
+        "appearance_evaluator",
+        "feature_similarity",
+        "judge_v3"
+      ],
+      "repo": "https://github.com/facebookresearch/dinov2.git",
+      "sha": "7764ea0f912e53c92e82eb78a2a1631e92725fc8",
+      "license": "Apache-2.0",
+      "enabled_by_default": true,
+      "min_vram_gb": 1,
+      "quality_tier": "evaluator",
+      "notes": "Judge v3 uses only the original DINOv2 ViT-S/14 LVD-142M path documented as Apache-2.0. Do not substitute Cell-DINO/X-Ray-DINO restricted variants."
+    },
+    {
+      "id": "triposr",
+      "role": [
+        "fast_shape",
+        "sanity_candidate"
+      ],
+      "repo": "https://github.com/VAST-AI-Research/TripoSR.git",
+      "sha": "107cefdc244c39106fa830359024f6a2f1c78871",
+      "license": "MIT",
+      "enabled_by_default": true,
+      "min_vram_gb": 6,
+      "quality_tier": "fast",
+      "notes": "Fast single-image LRM; GLB output and texture baking make it ideal as a baseline candidate."
+    },
+    {
+      "id": "instant_meshes_retopo",
+      "role": [
+        "retopology",
+        "quad_remesh",
+        "cpu_gameprep"
+      ],
+      "repo": "https://github.com/wjakob/instant-meshes.git",
+      "sha": "7b3160864a2e1025af498c84cfed91cbfb613698",
+      "license": "BSD-3-Clause",
+      "enabled_by_default": false,
+      "min_vram_gb": 0,
+      "quality_tier": "production_topology",
+      "submodules": true,
+      "notes": "CPU field-aligned retopology. Batch CLI supports deterministic pure-quad or quad-dominant output. Optional because it requires a native C++ build; no GPU required."
+    },
+    {
+      "id": "pshuman",
+      "role": [
+        "character_specialist",
+        "human_geometry",
+        "human_multiview"
+      ],
+      "repo": "https://github.com/pengHTYX/PSHuman.git",
+      "sha": "f2a635126dca3bf0526b4a08723cb84a79b57cab",
+      "license": "MIT repo + third-party SMPL/SMPL-X/ECON components requiring separate rights/review",
+      "enabled_by_default": false,
+      "min_vram_gb": 40,
+      "quality_tier": "character_ultra",
+      "notes": "Human specialist. Top-level repo is MIT, but pinned source includes third-party proprietary-license notices and requires external SMPL/SMPL-X/PIXIE assets. Never auto-enable in the commercial-safe core; explicit --allow-restricted opt-in only."
+    },
+    {
+      "id": "spar3d",
+      "role": [
+        "single_image_shape",
+        "backside_reconstruction",
+        "point_cloud_candidate"
+      ],
+      "repo": "https://github.com/Stability-AI/stable-point-aware-3d.git",
+      "sha": "fdc311b16809e6a8adc2f5a3407ebb3db1a95bd1",
+      "license": "Stability AI Community License",
+      "enabled_by_default": false,
+      "min_vram_gb": 7,
+      "quality_tier": "high",
+      "notes": "Point-cloud-conditioned single-image reconstruction aimed at stronger unseen/backside geometry. Opt-in because the Stability AI Community License has registration/revenue/use obligations."
+    },
+    {
+      "id": "stable_fast_3d",
+      "role": [
+        "fast_shape",
+        "uv_candidate",
+        "material_candidate"
+      ],
+      "repo": "https://github.com/Stability-AI/stable-fast-3d.git",
+      "sha": "ff21fc491b4dc5314bf6734c7c0dabd86b5f5bb2",
+      "license": "Stability AI Community License",
+      "enabled_by_default": false,
+      "min_vram_gb": 6,
+      "quality_tier": "fast",
+      "notes": "Fast single-image reconstruction with UV unwrapping and illumination disentanglement. Opt-in for license reasons."
+    },
+    {
+      "id": "hunyuan3d_2_1",
+      "role": [
+        "optional_shape",
+        "optional_pbr"
+      ],
+      "repo": "https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1.git",
+      "sha": "82920d643c0dc2f7bfd7255f45f62d386edfe60c",
+      "license": "Tencent Hunyuan 3D 2.1 Community License",
+      "enabled_by_default": false,
+      "min_vram_gb": 21,
+      "quality_tier": "high",
+      "notes": "Opt-in only. License has territory/commercial/use conditions and forbids using outputs to improve other AI models. Do not silently bundle or enable."
+    },
+    {
+      "id": "sam2",
+      "role": [
+        "image_part_segmentation",
+        "foreground_mask",
+        "component_mask_support"
+      ],
+      "repo": "https://github.com/facebookresearch/sam2.git",
+      "sha": "2b90b9f5ceec907a1c18123530e92e794ad901a4",
+      "license": "Apache-2.0",
+      "enabled_by_default": false,
+      "min_vram_gb": 4,
+      "quality_tier": "segmentation",
+      "notes": "Permissive promptable segmentation support for source/reference images. Intended for component masks and editor-assisted cleanup, not as a 3D generator."
+    },
+    {
+      "id": "groundingdino",
+      "role": [
+        "open_vocabulary_detection",
+        "part_prompt_generation",
+        "component_localization"
+      ],
+      "repo": "https://github.com/IDEA-Research/GroundingDINO.git",
+      "sha": "856dde20aee659246248e20734ef9ba5214f5e44",
+      "license": "Apache-2.0",
+      "enabled_by_default": false,
+      "min_vram_gb": 4,
+      "quality_tier": "detection",
+      "notes": "Optional open-vocabulary locator for semantic parts such as magazine, slide, pump, cylinder, doors or wheels. Must be combined with SAM2 masks and downstream 3D projection; fail closed when confidence is weak."
+    },
+    {
+      "id": "judge_v4",
+      "role": [
+        "final_visual_acceptance",
+        "face_anatomy_evaluator",
+        "human_aligned_image_quality",
+        "multimodal_asset_review",
+        "perceptual_similarity"
+      ],
+      "source_required": false,
+      "license": "Apache-2.0",
+      "enabled_by_default": true,
+      "min_vram_gb": 20,
+      "quality_tier": "evaluator_ultra",
+      "notes": "Fail-closed final visual judge. Runtime uses Apache-2.0 Q-ReAlign-Pro-9B and InternVL3.5-8B-HF checkpoints plus Apache MediaPipe and MIT DreamSim. No generator is auto-approved from aggregate mesh score alone."
+    }
+  ],
+  "service_adapters": [
+    {
+      "id": "tripo_api",
+      "enabled_by_default": false,
+      "env_key": "TRIPO_API_KEY",
+      "capabilities": [
+        "image_to_multiview",
+        "image_to_model",
+        "multiview_to_model",
+        "texture",
+        "segment",
+        "complete",
+        "decimate",
+        "rig"
+      ],
+      "notes": "Optional paid/cloud adapter; never required for the open-source Hayuya path.",
+      "max_images_per_generation_call": 4,
+      "hayuya_strategy": "map canonical subsets/groups into vendor calls; never cap total Hayuya reference pool"
+    },
+    {
+      "id": "meshy_api",
+      "enabled_by_default": false,
+      "env_key": "MESHY_API_KEY",
+      "capabilities": [
+        "image_to_model",
+        "multi_image_to_model",
+        "pbr",
+        "remesh",
+        "rig"
+      ],
+      "notes": "Optional paid/cloud adapter; never required for the open-source Hayuya path.",
+      "max_images_per_generation_call": 4,
+      "hayuya_strategy": "group arbitrary Hayuya pool into 1-4 image API tasks; first image is primary for each group"
+    },
+    {
+      "id": "rodin_api",
+      "enabled_by_default": false,
+      "env_key": "RODIN_API_KEY",
+      "capabilities": [
+        "image_to_model",
+        "multi_image_to_model",
+        "pbr",
+        "quad_or_raw_mesh",
+        "high_detail_master",
+        "texture"
+      ],
+      "notes": "Optional official Hyper3D Rodin Gen-2.5 adapter. Public API accepts 1-5 images; never scrape or bypass the authenticated web service.",
+      "max_images_per_generation_call": 5,
+      "hayuya_strategy": "group arbitrary Hayuya pool into 1-5 image API tasks while preserving source order"
+    }
+  ],
+  "evaluation_research": [
+    {
+      "id": "met3r",
+      "repo": "https://github.com/mohammadasim98/met3r.git",
+      "sha": "ee0e1752898559e1a3e85e2e151d3edeb9b55f73",
+      "license": "MIT code with MASt3R/DUSt3R transitive non-commercial dependencies",
+      "enabled_by_default": false,
+      "decision": "research architecture only; not a default commercial dependency"
+    },
+    {
+      "id": "vggt",
+      "repo": "https://github.com/facebookresearch/vggt.git",
+      "sha": "a288dd0f14786c93483e45524328726ab7b1b4ce",
+      "license": "VGGT custom license; commercial checkpoint has separate terms/access",
+      "enabled_by_default": false,
+      "decision": "opt-in camera/depth research only after explicit license/checkpoint review"
+    }
+  ]
+}

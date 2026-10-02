@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "job_id": "candy-zombie-001",
+  "owner": "Christian",
+  "title": "Candyland Zombie — single image challenge",
+  "geometry_input": "hayuya/assets/candy-zombie-001/geometry/candy-zombie-user-reference.jpg",
+  "reference_dir": "",
+  "detail_dir": "",
+  "profile": "monster",
+  "mode": "character",
+  "portable_target": "high",
+  "gpu_vram": 24,
+  "backends": "triposg,trellis2,trellis,instantmesh,triposr",
+  "execution": "phone_cloud",
+  "compute": "github-hosted + public ZeroGPU",
+  "note": "Immediate retry using the verified clean Candyland source. Reject DONE unless the new mesh quality gate passes.",
+  "retry_token": "candy-zombie-now-v3"
+}

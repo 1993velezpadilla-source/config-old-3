@@ -1,0 +1,607 @@
+{
+  "schema": 2,
+  "engine": "HAYUYA PHONE CLOUD",
+  "job_id": "giant-zombie-2-mug7ilq4",
+  "asset_profile": "character.humanoid",
+  "weapon_family": "auto",
+  "animation_requested": true,
+  "motion_profile": "hayuya_auto",
+  "texture_quality": "high",
+  "compute": "GitHub-hosted CPU controller + public TRELLIS ZeroGPU",
+  "phone_only": true,
+  "source": "hayuya/assets/giant-zombie-2-mug7ilq4/geometry/primary.webp",
+  "prepared_views": [
+    "front.png"
+  ],
+  "prepared_detail_views": [],
+  "reference_dir": "",
+  "detail_dir": "",
+  "prep_target": 1536,
+  "multi_image": false,
+  "generator": "trellis-community/TRELLIS",
+  "texture_size": 2048,
+  "requested_texture_target": 2048,
+  "native_texture_target": 2048,
+  "texture_refinement_pending": false,
+  "quality_profile": {
+    "ss_sampling_steps": 16,
+    "slat_sampling_steps": 16,
+    "requested_mesh_simplify": 0.7,
+    "actual_mesh_simplify": 0.7,
+    "requested_texture_size": 2048,
+    "actual_texture_size": 2048,
+    "public_ui_simplify_floor": 0.9,
+    "public_ui_texture_ceiling": 2048,
+    "dense_extraction_override_attempted": true,
+    "extraction_fallback": null,
+    "detail_reference_count": 0,
+    "note": "TRELLIS simplify is triangle-removal ratio. HAYUYA reports requested and actual extraction quality separately."
+  },
+  "glb": "hayuya_final.glb",
+  "glb_bytes": 7773372,
+  "authenticated_hf": false,
+  "cloud_retry_count": 0,
+  "cloud_retries": [],
+  "source_mode": "RGB",
+  "source_had_alpha": false,
+  "alpha_preserved": true,
+  "quality_gate": {
+    "path": "out/hayuya-jobs/giant-zombie-2-mug7ilq4/outputs/hayuya_final.glb",
+    "valid": true,
+    "passed": true,
+    "vertices": 74493,
+    "faces": 113193,
+    "components": 1289,
+    "largest_component_fraction": 0.025519,
+    "degenerate_ratio": 0.000106,
+    "bbox_extents": [
+      0.41614132,
+      1.00036702,
+      0.3085531
+    ],
+    "bbox_aspect_ratio": 3.242123,
+    "axis_alignment_weighted": 0.890651,
+    "axis_aligned_area_98": 0.227048,
+    "dominant_normal_axis_area": [
+      0.384105,
+      0.053182,
+      0.562713
+    ],
+    "reasons": [],
+    "warnings": [
+      "fragmented_surface:components=1289,largest=0.026",
+      "high_component_count:1289"
+    ]
+  },
+  "texture_gate": {
+    "schema": 2,
+    "path": "out/hayuya-jobs/giant-zombie-2-mug7ilq4/outputs/hayuya_final.glb",
+    "image_count": 1,
+    "max_edge": 2048,
+    "max_megapixels": 4.1943,
+    "mean_edge_variance": 699.5028,
+    "base_color_image_count": 1,
+    "base_color_max_edge": 2048,
+    "base_color_min_edge": 2048,
+    "base_color_max_megapixels": 4.1943,
+    "material_roles": {
+      "baseColor": [
+        0
+      ]
+    },
+    "metrics": [
+      {
+        "index": 0,
+        "mime_type": "image/png",
+        "width": 2048,
+        "height": 2048,
+        "megapixels": 4.1943,
+        "edge_variance": 699.5028,
+        "luminance_stddev": 39.5869,
+        "entropy": 6.4062,
+        "roles": [
+          "baseColor"
+        ]
+      }
+    ],
+    "warnings": [],
+    "passed": true
+  },
+  "asset": {
+    "profile": "character.humanoid",
+    "weapon_family": "auto",
+    "animation_requested": true,
+    "motion_profile": "hayuya_auto",
+    "animation_systems": [
+      "skeletal",
+      "morph_targets",
+      "secondary_motion"
+    ],
+    "mechanical_rig_ready": false,
+    "procedural_motion_ready": false,
+    "requires_profile_postprocess": false
+  },
+  "character": {
+    "rig_quality_version": 3,
+    "skeleton_type": "hayuya_humanoid_v1",
+    "preview_pack": "hayuya_preview_pack_v1",
+    "rig_ready": true,
+    "animation_ready": true,
+    "preview_animation_ready": true,
+    "animation_clips": [
+      "A_TPose",
+      "Chest_Open",
+      "Consume",
+      "Farm_Watering",
+      "Idle_FoldArms_Loop",
+      "Idle_Lantern_Loop",
+      "Idle_No_Loop",
+      "Idle_Rail_Call",
+      "Idle_Rail_Loop",
+      "Idle_Shield_Break",
+      "Idle_Shield_Loop",
+      "Shield_OneShot",
+      "TreeChopping_Loop",
+      "Walk_Carry_Loop",
+      "Yes",
+      "Zombie_Idle_Loop",
+      "Zombie_Walk_Fwd_Loop"
+    ],
+    "weighted_joint_count": 20,
+    "weighted_joint_names": [
+      "Head",
+      "calf_l",
+      "calf_r",
+      "clavicle_l",
+      "clavicle_r",
+      "foot_l",
+      "foot_r",
+      "hand_l",
+      "hand_r",
+      "lowerarm_l",
+      "lowerarm_r",
+      "neck_01",
+      "pelvis",
+      "spine_01",
+      "spine_02",
+      "spine_03",
+      "thigh_l",
+      "thigh_r",
+      "upperarm_l",
+      "upperarm_r"
+    ],
+    "facial": {
+      "jaw": false,
+      "eye_l": false,
+      "eye_r": false,
+      "blink_l": false,
+      "blink_r": false,
+      "morph_targets": []
+    },
+    "secondary_motion": {
+      "hair_nodes": [],
+      "cloth_nodes": [],
+      "hair_ready": false,
+      "cloth_ready": false
+    },
+    "warnings": [
+      "no_jaw_control",
+      "no_blink_controls"
+    ],
+    "deformation_qa": {
+      "schema": 2,
+      "passed": true,
+      "full_bank_passed": false,
+      "action_count": 43,
+      "compatible_clips": [
+        "A_TPose",
+        "Chest_Open",
+        "Consume",
+        "Farm_Watering",
+        "Idle_FoldArms_Loop",
+        "Idle_Lantern_Loop",
+        "Idle_No_Loop",
+        "Idle_Rail_Call",
+        "Idle_Rail_Loop",
+        "Idle_Shield_Break",
+        "Idle_Shield_Loop",
+        "Shield_OneShot",
+        "TreeChopping_Loop",
+        "Walk_Carry_Loop",
+        "Yes",
+        "Zombie_Idle_Loop",
+        "Zombie_Walk_Fwd_Loop"
+      ],
+      "rejected_clip_count": 26,
+      "failures": [
+        "rest_vs_reference_diagonal:1.4098",
+        "ClimbUp_1m_RM:axis_extent_failure:frame=0.00,ratios=0.503,2.560,0.907",
+        "ClimbUp_1m_RM:axis_extent_failure:frame=16.00,ratios=0.503,2.560,0.907",
+        "ClimbUp_1m_RM:local_edge_stretch:frame=4.00,p99=3.210",
+        "ClimbUp_1m_RM:local_edge_stretch:frame=8.00,p99=3.475",
+        "Farm_Harvest:local_edge_stretch:frame=15.00,p99=2.933",
+        "Farm_Harvest:local_edge_stretch:frame=30.00,p99=2.907",
+        "Farm_PlantSeed:local_edge_stretch:frame=16.50,p99=2.858",
+        "Farm_PlantSeed:local_edge_stretch:frame=33.00,p99=3.014",
+        "Hit_Knockback:axis_extent_failure:frame=10.00,ratios=0.588,2.657,0.458",
+        "Hit_Knockback:axis_extent_failure:frame=15.00,ratios=0.540,2.804,0.364",
+        "Hit_Knockback:axis_extent_failure:frame=20.00,ratios=0.537,2.920,0.345",
+        "Hit_Knockback:axis_extent_failure:frame=5.00,ratios=0.539,2.534,0.685",
+        "Hit_Knockback:local_edge_stretch:frame=0.00,p99=2.880",
+        "Hit_Knockback_RM:axis_extent_failure:frame=10.00,ratios=0.588,2.657,0.458",
+        "Hit_Knockback_RM:axis_extent_failure:frame=15.00,ratios=0.540,2.804,0.364",
+        "Hit_Knockback_RM:axis_extent_failure:frame=20.00,ratios=0.537,2.920,0.345",
+        "Hit_Knockback_RM:axis_extent_failure:frame=5.00,ratios=0.539,2.534,0.685",
+        "Hit_Knockback_RM:local_edge_stretch:frame=0.00,p99=2.880",
+        "Idle_TalkingPhone_Loop:head_face_collapse:frame=0.00,p01=0.524",
+        "Idle_TalkingPhone_Loop:head_face_collapse:frame=17.50,p01=0.516",
+        "Idle_TalkingPhone_Loop:head_face_collapse:frame=35.00,p01=0.530",
+        "Idle_TalkingPhone_Loop:head_face_collapse:frame=52.50,p01=0.522",
+        "Idle_TalkingPhone_Loop:head_face_collapse:frame=70.00,p01=0.524",
+        "LayToIdle:axis_extent_failure:frame=0.00,ratios=0.357,2.929,0.316",
+        "LayToIdle:local_edge_stretch:frame=18.00,p99=2.975",
+        "LayToIdle:local_edge_stretch:frame=27.00,p99=2.804",
+        "LayToIdle:local_edge_stretch:frame=9.00,p99=2.815",
+        "Melee_Hook:axis_extent_failure:frame=11.00,ratios=0.449,2.535,0.782",
+        "Melee_Hook:axis_extent_failure:frame=5.50,ratios=0.666,2.804,0.648",
+        "Melee_Hook:axis_extent_failure:frame=8.25,ratios=0.460,3.499,0.696",
+        "Melee_Hook:local_edge_stretch:frame=11.00,p99=2.789",
+        "Melee_Hook:local_edge_stretch:frame=2.75,p99=2.834",
+        "Melee_Hook:local_edge_stretch:frame=5.50,p99=3.061",
+        "Melee_Hook:local_edge_stretch:frame=8.25,p99=2.788",
+        "Melee_Hook_Rec:local_edge_stretch:frame=0.00,p99=2.773",
+        "Melee_Hook_Rec:local_edge_stretch:frame=3.50,p99=2.610",
+        "NinjaJump_Idle_Loop:local_edge_collapse:frame=0.00,p01=0.338",
+        "NinjaJump_Idle_Loop:local_edge_collapse:frame=12.00,p01=0.348",
+        "NinjaJump_Idle_Loop:local_edge_collapse:frame=24.00,p01=0.344",
+        "NinjaJump_Idle_Loop:local_edge_collapse:frame=36.00,p01=0.334",
+        "NinjaJump_Idle_Loop:local_edge_collapse:frame=48.00,p01=0.338",
+        "NinjaJump_Idle_Loop:local_edge_stretch:frame=0.00,p99=3.438",
+        "NinjaJump_Idle_Loop:local_edge_stretch:frame=12.00,p99=3.328",
+        "NinjaJump_Idle_Loop:local_edge_stretch:frame=24.00,p99=3.357",
+        "NinjaJump_Idle_Loop:local_edge_stretch:frame=36.00,p99=3.410",
+        "NinjaJump_Idle_Loop:local_edge_stretch:frame=48.00,p99=3.438",
+        "NinjaJump_Land:local_edge_collapse:frame=0.00,p01=0.338",
+        "NinjaJump_Land:local_edge_stretch:frame=0.00,p99=3.438",
+        "NinjaJump_Land:local_edge_stretch:frame=7.50,p99=3.064",
+        "NinjaJump_Start:local_edge_collapse:frame=11.50,p01=0.347",
+        "NinjaJump_Start:local_edge_collapse:frame=17.25,p01=0.337",
+        "NinjaJump_Start:local_edge_collapse:frame=23.00,p01=0.338",
+        "NinjaJump_Start:local_edge_stretch:frame=0.00,p99=2.910",
+        "NinjaJump_Start:local_edge_stretch:frame=11.50,p99=3.312",
+        "NinjaJump_Start:local_edge_stretch:frame=17.25,p99=3.411",
+        "NinjaJump_Start:local_edge_stretch:frame=23.00,p99=3.439",
+        "NinjaJump_Start:local_edge_stretch:frame=5.75,p99=3.130",
+        "OverhandThrow:local_edge_stretch:frame=16.00,p99=2.643",
+        "Shield_Dash_RM:axis_extent_failure:frame=6.50,ratios=0.683,2.564,0.722",
+        "Shield_Dash_RM:local_edge_stretch:frame=0.00,p99=3.041",
+        "Shield_Dash_RM:local_edge_stretch:frame=6.50,p99=3.147",
+        "Slide_Exit:axis_extent_failure:frame=0.00,ratios=0.599,2.768,0.502",
+        "Slide_Exit:axis_extent_failure:frame=12.00,ratios=0.442,2.626,0.915",
+        "Slide_Exit:axis_extent_failure:frame=3.00,ratios=0.539,2.632,0.517",
+        "Slide_Exit:local_edge_stretch:frame=0.00,p99=2.971",
+        "Slide_Exit:local_edge_stretch:frame=3.00,p99=3.223",
+        "Slide_Exit:local_edge_stretch:frame=6.00,p99=3.621",
+        "Slide_Exit:local_edge_stretch:frame=9.00,p99=2.882",
+        "Slide_Loop:axis_extent_failure:frame=0.00,ratios=0.603,2.768,0.500",
+        "Slide_Loop:axis_extent_failure:frame=12.00,ratios=0.658,2.699,0.501",
+        "Slide_Loop:axis_extent_failure:frame=24.00,ratios=0.677,2.731,0.500",
+        "Slide_Loop:axis_extent_failure:frame=36.00,ratios=0.702,2.720,0.501",
+        "Slide_Loop:axis_extent_failure:frame=48.00,ratios=0.603,2.768,0.500",
+        "Slide_Loop:local_edge_stretch:frame=0.00,p99=2.971",
+        "Slide_Loop:local_edge_stretch:frame=12.00,p99=2.964",
+        "Slide_Loop:local_edge_stretch:frame=24.00,p99=2.885",
+        "Slide_Loop:local_edge_stretch:frame=36.00,p99=2.963",
+        "Slide_Loop:local_edge_stretch:frame=48.00,p99=2.971",
+        "Slide_Start:axis_extent_failure:frame=0.00,ratios=0.442,2.626,0.915",
+        "Slide_Start:axis_extent_failure:frame=10.00,ratios=0.692,2.817,0.553",
+        "Slide_Start:axis_extent_failure:frame=15.00,ratios=0.652,2.755,0.507",
+        "Slide_Start:axis_extent_failure:frame=20.00,ratios=0.599,2.768,0.502",
+        "Slide_Start:local_edge_stretch:frame=10.00,p99=2.504",
+        "Slide_Start:local_edge_stretch:frame=15.00,p99=2.921",
+        "Slide_Start:local_edge_stretch:frame=20.00,p99=2.971",
+        "Slide_Start:local_edge_stretch:frame=5.00,p99=2.842",
+        "Sword_Block:axis_extent_failure:frame=7.25,ratios=0.480,2.548,0.844",
+        "Sword_Dash_RM:axis_extent_failure:frame=18.50,ratios=0.564,2.588,0.693",
+        "Sword_Dash_RM:axis_extent_failure:frame=9.25,ratios=0.695,2.521,0.677",
+        "Sword_Dash_RM:local_edge_stretch:frame=18.50,p99=2.568",
+        "Sword_Dash_RM:local_edge_stretch:frame=27.75,p99=2.598",
+        "Sword_Dash_RM:local_edge_stretch:frame=9.25,p99=2.536",
+        "Sword_Regular_A:local_edge_stretch:frame=10.00,p99=2.949",
+        "Sword_Regular_A:local_edge_stretch:frame=7.50,p99=2.931",
+        "Sword_Regular_A_Rec:local_edge_stretch:frame=0.00,p99=2.948",
+        "Sword_Regular_A_Rec:local_edge_stretch:frame=5.75,p99=2.637",
+        "Sword_Regular_B:axis_extent_failure:frame=12.00,ratios=0.577,2.679,0.736",
+        "Sword_Regular_B:axis_extent_failure:frame=6.00,ratios=0.593,3.155,0.654",
+        "Sword_Regular_B:axis_extent_failure:frame=9.00,ratios=0.584,2.763,0.755",
+        "Sword_Regular_B:local_edge_stretch:frame=0.00,p99=2.953",
+        "Sword_Regular_B:local_edge_stretch:frame=12.00,p99=2.654",
+        "Sword_Regular_B:local_edge_stretch:frame=3.00,p99=3.102",
+        "Sword_Regular_B:local_edge_stretch:frame=6.00,p99=2.833",
+        "Sword_Regular_B:local_edge_stretch:frame=9.00,p99=2.678",
+        "Sword_Regular_B_Rec:axis_extent_failure:frame=0.00,ratios=0.580,2.662,0.728",
+        "Sword_Regular_B_Rec:axis_extent_failure:frame=6.00,ratios=0.641,2.501,0.710",
+        "Sword_Regular_B_Rec:local_edge_stretch:frame=0.00,p99=2.653",
+        "Sword_Regular_B_Rec:local_edge_stretch:frame=12.00,p99=2.708",
+        "Sword_Regular_B_Rec:local_edge_stretch:frame=6.00,p99=2.681",
+        "Sword_Regular_C:axis_extent_failure:frame=0.00,ratios=0.618,2.671,0.751",
+        "Sword_Regular_C:axis_extent_failure:frame=12.00,ratios=0.581,2.806,1.025",
+        "Sword_Regular_C:local_edge_stretch:frame=0.00,p99=2.629",
+        "Sword_Regular_C:local_edge_stretch:frame=24.00,p99=2.549",
+        "Sword_Regular_Combo:axis_extent_failure:frame=18.00,ratios=0.765,2.680,0.747",
+        "Sword_Regular_Combo:axis_extent_failure:frame=36.00,ratios=0.382,2.662,1.104",
+        "Sword_Regular_Combo:local_edge_stretch:frame=18.00,p99=2.650",
+        "Zombie_Scratch:axis_extent_failure:frame=10.75,ratios=0.638,2.626,0.809",
+        "Zombie_Scratch:local_edge_stretch:frame=10.75,p99=2.754",
+        "Zombie_Scratch:local_edge_stretch:frame=21.50,p99=3.246"
+      ]
+    }
+  },
+  "preview_model": "animated.glb",
+  "rig_quality_version": 3,
+  "animation_banks": {
+    "quaternius-uam2": {
+      "model": "animated.glb",
+      "clips": [
+        "A_TPose",
+        "Chest_Open",
+        "Consume",
+        "Farm_Watering",
+        "Idle_FoldArms_Loop",
+        "Idle_Lantern_Loop",
+        "Idle_No_Loop",
+        "Idle_Rail_Call",
+        "Idle_Rail_Loop",
+        "Idle_Shield_Break",
+        "Idle_Shield_Loop",
+        "Shield_OneShot",
+        "TreeChopping_Loop",
+        "Walk_Carry_Loop",
+        "Yes",
+        "Zombie_Idle_Loop",
+        "Zombie_Walk_Fwd_Loop"
+      ],
+      "rig_ready": true,
+      "animation_ready": true,
+      "quality_passed": true,
+      "full_bank_passed": false,
+      "rig_quality_version": 3
+    },
+    "quaternius-uam1": {
+      "model": "animated-uam1.glb",
+      "clips": [
+        "A_TPose",
+        "Dance_Loop",
+        "Hit_Chest",
+        "Hit_Head",
+        "Idle_Loop",
+        "Idle_Talking_Loop",
+        "Idle_Torch_Loop",
+        "Interact",
+        "Jump_Loop",
+        "PickUp_Table",
+        "Pistol_Aim_Down",
+        "Pistol_Aim_Neutral",
+        "Pistol_Aim_Up",
+        "Pistol_Idle_Loop",
+        "Pistol_Reload",
+        "Pistol_Shoot",
+        "Punch_Cross",
+        "Punch_Enter",
+        "Punch_Jab",
+        "Spell_Simple_Enter",
+        "Spell_Simple_Exit",
+        "Spell_Simple_Idle_Loop",
+        "Spell_Simple_Shoot",
+        "Swim_Idle_Loop",
+        "Sword_Idle",
+        "Walk_Formal_Loop",
+        "Walk_Loop"
+      ],
+      "rig_ready": true,
+      "animation_ready": true,
+      "quality_passed": true,
+      "full_bank_passed": false,
+      "rig_quality_version": 3
+    }
+  },
+  "auto_motion": {
+    "schema": 1,
+    "engine": "HAYUYA Auto",
+    "enabled": true,
+    "asset_profile": "character.humanoid",
+    "motion_profile": "hayuya_auto",
+    "status": "plan_ready",
+    "motion_system": "skeletal",
+    "weapon_family": "auto",
+    "family_source": null,
+    "family_confidence": 0.0,
+    "preview_set": [
+      "idle",
+      "walk",
+      "run",
+      "attack",
+      "hit",
+      "death"
+    ],
+    "required_components": [],
+    "synthesis_operations": [
+      "fit_hayuya_humanoid_v1",
+      "retarget_local_animation_library",
+      "facial_idle_if_controls_exist",
+      "secondary_motion_if_controls_exist"
+    ],
+    "requires": [
+      "mesh_gate",
+      "texture_gate",
+      "humanoid_autorig",
+      "rig_gate",
+      "animation_deformation_gate"
+    ],
+    "warnings": [],
+    "research_sources": [
+      {
+        "title": "Marvel Zombies 2",
+        "url": "https://en.wikipedia.org/wiki/Marvel_Zombies_2",
+        "kind": "secondary_reference"
+      }
+    ],
+    "editor_override_allowed": true,
+    "motion_strategy": null,
+    "learned_examples": []
+  },
+  "research": {
+    "adapter": "wikipedia_mediawiki",
+    "confidence": 0.7,
+    "inferred_weapon_family": "auto",
+    "sources": [
+      {
+        "title": "Marvel Zombies 2",
+        "url": "https://en.wikipedia.org/wiki/Marvel_Zombies_2",
+        "kind": "secondary_reference"
+      }
+    ],
+    "warnings": []
+  },
+  "part_segmentation_plan": {
+    "schema": 1,
+    "asset_profile": "character.humanoid",
+    "weapon_family": "auto",
+    "status": "ready",
+    "required": [
+      "body",
+      "head",
+      "upper_arm_left",
+      "upper_arm_right",
+      "forearm_left",
+      "forearm_right",
+      "thigh_left",
+      "thigh_right",
+      "calf_left",
+      "calf_right"
+    ],
+    "optional": [
+      "jaw",
+      "left_eye",
+      "right_eye",
+      "mouth",
+      "teeth",
+      "left_hand",
+      "right_hand",
+      "left_ear",
+      "right_ear",
+      "hair",
+      "wounds",
+      "loose_clothing",
+      "feet"
+    ],
+    "prompts": {
+      "body": [
+        "human body",
+        "torso"
+      ],
+      "head": [
+        "head",
+        "face"
+      ],
+      "upper_arm_left": [
+        "left upper arm"
+      ],
+      "upper_arm_right": [
+        "right upper arm"
+      ],
+      "forearm_left": [
+        "left forearm"
+      ],
+      "forearm_right": [
+        "right forearm"
+      ],
+      "thigh_left": [
+        "left thigh",
+        "left upper leg"
+      ],
+      "thigh_right": [
+        "right thigh",
+        "right upper leg"
+      ],
+      "calf_left": [
+        "left calf",
+        "left lower leg"
+      ],
+      "calf_right": [
+        "right calf",
+        "right lower leg"
+      ],
+      "jaw": [
+        "jaw",
+        "lower face"
+      ],
+      "left_eye": [
+        "left eye"
+      ],
+      "right_eye": [
+        "right eye"
+      ],
+      "mouth": [
+        "mouth",
+        "lips"
+      ],
+      "teeth": [
+        "teeth",
+        "visible teeth"
+      ],
+      "left_hand": [
+        "left hand",
+        "left fingers"
+      ],
+      "right_hand": [
+        "right hand",
+        "right fingers"
+      ],
+      "left_ear": [
+        "left ear"
+      ],
+      "right_ear": [
+        "right ear"
+      ],
+      "hair": [
+        "hair",
+        "hairline",
+        "ponytail",
+        "braid"
+      ],
+      "wounds": [
+        "wound",
+        "scar",
+        "skin lesion"
+      ],
+      "loose_clothing": [
+        "coat",
+        "skirt",
+        "dress",
+        "cape",
+        "loose sleeve",
+        "tie"
+      ],
+      "feet": [
+        "feet",
+        "shoes"
+      ]
+    },
+    "detectors": [
+      "groundingdino",
+      "sam2"
+    ],
+    "projection": "multi_view_preferred",
+    "fusion_rule": "a 3D component is accepted only when masks from available views agree spatially or later 3D geometry evidence confirms it",
+    "confidence_gate": 0.72,
+    "critical_targets_requested": [],
+    "promoted_critical_parts": [],
+    "warnings": []
+  },
+  "part_map_summary": {
+    "components": 1289,
+    "mode": "character",
+    "warnings": []
+  }
+}

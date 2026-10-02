@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "input": "hayuya/weapon_library/quaternius-animated-guns/raw/SniperRifle.blend",
+  "object_count": 2,
+  "mesh_count": 1,
+  "armature_count": 1,
+  "empty_count": 0,
+  "vertices": 863,
+  "polygons": 841,
+  "mesh_names": [
+    "Rifle.001"
+  ],
+  "armatures": [
+    {
+      "name": "SniperRifle ",
+      "bones": [
+        "Control",
+        "Bullet",
+        "Trigger",
+        "Magazine",
+        "Handle"
+      ]
+    }
+  ],
+  "bone_names": [
+    "Bullet",
+    "Control",
+    "Handle",
+    "Magazine",
+    "Trigger"
+  ],
+  "actions": [
+    "FireWBullet",
+    "FireWOBullet",
+    "Reload"
+  ],
+  "action_count": 3,
+  "materials": [
+    "Barrel",
+    "Barrels",
+    "Black",
+    "BulletOrange",
+    "BulletYellow",
+    "DarkWood",
+    "Green",
+    "LightWood",
+    "Magazine",
+    "Metal",
+    "Trigger"
+  ],
+  "shape_keys": [],
+  "animation_capable": true
+}

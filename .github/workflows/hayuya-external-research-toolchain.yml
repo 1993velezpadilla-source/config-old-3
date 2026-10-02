@@ -1,0 +1,69 @@
+name: HAYUYA External Research Toolchain
+
+on:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - tools/hayuya3d/external_research_tools.lock.json
+      - tools/hayuya3d/bootstrap_external_research_tools.py
+      - .github/workflows/hayuya-external-research-toolchain.yml
+  workflow_dispatch:
+    inputs:
+      include_restricted:
+        description: "Clone research-restricted sources for audit only"
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  audit-sources:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download pinned public research/tool sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          extra=""
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "${{ inputs.include_restricted }}" = "true" ]; then
+              extra="--include-restricted"
+            fi
+          else
+            extra="--include-restricted"
+          fi
+          python tools/hayuya3d/bootstrap_external_research_tools.py             --dest out/hayuya-external             --inventory out/hayuya-external-inventory.json             $extra
+
+      - name: Build redistribution-safe source pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out/hayuya-external-safe
+          for name in triposg triposf trellis2 instant_meshes mpfb2 mblab blenrig; do
+            if [ -d "out/hayuya-external/$name" ]; then
+              cp -a "out/hayuya-external/$name" "out/hayuya-external-safe/$name"
+              rm -rf "out/hayuya-external-safe/$name/.git"
+            fi
+          done
+          cp out/hayuya-external-inventory.json out/hayuya-external-safe/inventory.json
+          cp tools/hayuya3d/external_research_tools.lock.json out/hayuya-external-safe/source-lock.json
+
+      - name: Upload source inventory
+        uses: actions/upload-artifact@v4
+        with:
+          name: hayuya-external-research-inventory
+          path: out/hayuya-external-inventory.json
+          retention-days: 14
+
+      - name: Upload redistribution-safe scripts
+        uses: actions/upload-artifact@v4
+        with:
+          name: hayuya-external-tool-sources
+          path: out/hayuya-external-safe
+          retention-days: 14

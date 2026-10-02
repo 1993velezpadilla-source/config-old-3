@@ -1,0 +1,168 @@
+name: Hayuya Model Job
+
+on:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - .github/workflows/hayuya-model-job.yml
+      - tools/hayuya3d/gpu_e2e.sh
+  workflow_dispatch:
+    inputs:
+      job_id:
+        description: Unique job id, e.g. christian-zombie-001
+        required: true
+        type: string
+      owner:
+        description: Human/agent label, e.g. Christian, Agent-2, Felix
+        required: true
+        type: string
+      geometry_input:
+        description: Primary image path inside the repo
+        required: true
+        type: string
+      reference_dir:
+        description: Optional directory with additional geometry references
+        required: false
+        default: ""
+        type: string
+      detail_dir:
+        description: Optional details/closeups directory
+        required: false
+        default: ""
+        type: string
+      profile:
+        description: Hayuya profile
+        required: true
+        default: monster
+        type: choice
+        options:
+          - preview
+          - mobile
+          - game
+          - monster
+          - ultra
+      mode:
+        description: Asset mode
+        required: true
+        default: auto
+        type: choice
+        options:
+          - auto
+          - prop
+          - character
+          - architecture
+      portable_target:
+        description: Runtime portability target
+        required: true
+        default: auto
+        type: choice
+        options:
+          - auto
+          - compatibility
+          - balanced
+          - high
+          - flagship
+      gpu_vram:
+        description: GPU VRAM budget in GB
+        required: true
+        default: "24"
+        type: string
+      backends:
+        description: Comma-separated backend set
+        required: true
+        default: triposg,trellis2,trellis,instantmesh,triposr
+        type: string
+
+permissions:
+  contents: read
+
+# Different model jobs never block each other at the workflow level.
+# Re-running the SAME job_id is serialized so its artifacts cannot overlap.
+concurrency:
+  group: hayuya-model-${{ github.event_name == 'workflow_dispatch' && inputs.job_id || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate multi-job harness
+        run: |
+          bash -n tools/hayuya3d/gpu_e2e.sh
+          grep -q "concurrency:" .github/workflows/hayuya-model-job.yml
+          grep -q "inputs.job_id" .github/workflows/hayuya-model-job.yml
+
+  generate:
+    if: github.event_name == 'workflow_dispatch'
+    name: ${{ inputs.owner }} / ${{ inputs.job_id }}
+    runs-on: [self-hosted, linux, x64, hayuya-gpu]
+    timeout-minutes: 360
+
+    env:
+      HAYUYA_JOB_ID: ${{ inputs.job_id }}
+      HAYUYA_GEOMETRY_INPUT: ${{ inputs.geometry_input }}
+      HAYUYA_REFERENCE_DIR: ${{ inputs.reference_dir }}
+      HAYUYA_DETAIL_DIR: ${{ inputs.detail_dir }}
+      HAYUYA_PROFILE: ${{ inputs.profile }}
+      HAYUYA_MODE: ${{ inputs.mode }}
+      HAYUYA_PORTABLE_TARGET: ${{ inputs.portable_target }}
+      HAYUYA_GPU_VRAM: ${{ inputs.gpu_vram }}
+      HAYUYA_BACKENDS: ${{ inputs.backends }}
+      HAYUYA_OUTPUT_ROOT: out/hayuya-jobs/${{ inputs.job_id }}/outputs
+      HAYUYA_EVIDENCE_ROOT: out/hayuya-jobs/${{ inputs.job_id }}/evidence
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 1
+
+      - name: Validate job inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "${HAYUYA_JOB_ID}" =~ ^[A-Za-z0-9._-]+$ ]]; then
+            echo "job_id may only contain letters, digits, dot, underscore and dash" >&2
+            exit 2
+          fi
+          test -f "${HAYUYA_GEOMETRY_INPUT}"
+          if [[ -n "${HAYUYA_REFERENCE_DIR}" ]]; then
+            test -d "${HAYUYA_REFERENCE_DIR}"
+          fi
+          if [[ -n "${HAYUYA_DETAIL_DIR}" ]]; then
+            test -d "${HAYUYA_DETAIL_DIR}"
+          fi
+
+      - name: Run Hayuya model job
+        run: bash tools/hayuya3d/gpu_e2e.sh
+
+      - name: Write job summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## HAYUYA job"
+            echo ""
+            echo "- **Job:** ${HAYUYA_JOB_ID}"
+            echo "- **Owner:** ${{ inputs.owner }}"
+            echo "- **Profile:** ${HAYUYA_PROFILE}"
+            echo "- **Mode:** ${HAYUYA_MODE}"
+            echo "- **Portable target:** ${HAYUYA_PORTABLE_TARGET}"
+            echo "- **Primary input:** ${HAYUYA_GEOMETRY_INPUT}"
+            echo ""
+            echo "Outputs are isolated under `out/hayuya-jobs/${HAYUYA_JOB_ID}/`."
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload isolated Hayuya job artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hayuya-job-${{ inputs.job_id }}
+          path: out/hayuya-jobs/${{ inputs.job_id }}/**
+          if-no-files-found: warn
+          retention-days: 14

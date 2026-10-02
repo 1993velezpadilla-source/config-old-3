@@ -1,0 +1,6 @@
+Title: Low Poly Animated Guns / Animated Guns Pack
+Creator: Quaternius
+License: CC0 / Public Domain dedication
+Source: https://opengameart.org/content/low-poly-animated-guns
+Upstream: https://quaternius.com/packs/animatedguns.html
+Contains six animated weapon models including pistol, revolver, shotgun, P90 and sniper-class weapons.

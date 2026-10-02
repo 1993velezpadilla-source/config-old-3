@@ -1,0 +1,658 @@
+name: Hayuya Queue
+run-name: HAYUYA • ${{ github.event.head_commit.message }}
+
+on:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - hayuya/jobs/requests/**.json
+      - tools/hayuya3d/job_request.py
+      - tools/hayuya3d/gpu_e2e.sh
+      - tools/hayuya3d/phone_cloud_worker.py
+      - tools/hayuya3d/triposg_cloud.py
+      - tools/hayuya3d/detailgen3d_cloud.py
+      - tools/hayuya3d/trellis2_cloud.py
+      - tools/hayuya3d/source_autofix.py
+      - tools/hayuya3d/mesh_gate.py
+      - tools/hayuya3d/trellis2_preview_recovery.py
+      - tools/hayuya3d/local_detail_fusion.py
+      - tools/hayuya3d/blender_animation_gate.py
+      - tools/hayuya3d/internet_asset_research.py
+      - tools/hayuya3d/auto_motion_planner.py
+      - tools/hayuya3d/part_segmentation_plan.py
+      - tools/hayuya3d/part_map.py
+      - tools/hayuya3d/mechanical_part_fitter.py
+      - hayuya/standards/hayuya_auto_motion_v1.json
+      - hayuya/standards/hayuya_research_sources_v1.json
+      - .github/workflows/hayuya-queue.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.requests.outputs.matrix }}
+      count: ${{ steps.requests.outputs.count }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Collect and validate requests
+        id: requests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          root = Path('.').resolve()
+          sys.path.insert(0, str(root / 'tools' / 'hayuya3d'))
+          from job_request import load_request
+
+          if os.environ.get('GITHUB_EVENT_NAME') == 'workflow_dispatch':
+              changed = sorted((root / 'hayuya' / 'jobs' / 'requests').glob('*.json')) if (root / 'hayuya' / 'jobs' / 'requests').is_dir() else []
+          else:
+              proc = subprocess.run(
+                  ['git', 'diff-tree', '--no-commit-id', '--name-only', '-r', os.environ['GITHUB_SHA']],
+                  check=True, text=True, stdout=subprocess.PIPE
+              )
+              changed = [root / line.strip() for line in proc.stdout.splitlines() if line.startswith('hayuya/jobs/requests/') and line.endswith('.json')]
+
+          include = []
+          for path in changed:
+              if not path.is_file():
+                  continue
+              data = load_request(path, root)
+              raw_asset=str(data.get('asset_profile','auto') or 'auto').strip().lower()
+              request_profile=str(data.get('profile','') or '').strip().lower()
+              title=str(data.get('title','') or '').strip().lower()
+              animated=bool(data.get('animation_requested'))
+              humanoid_words=(
+                  'zombi','undead','human','humanoid','person','npc','survivor',
+                  'soldier','civilian','doctor','nurse','police','cop','priest','priestess',
+                  'woman','female','man','male','girl','boy','witch','llorona','monja','nun','sister'
+              )
+              if raw_asset=='auto' and any(w in title for w in humanoid_words):
+                  effective_asset='character.humanoid'
+              elif raw_asset=='auto' and animated and request_profile in {'monster','creature'}:
+                  effective_asset='character.creature'
+              elif raw_asset=='auto' and animated and request_profile in {'character','humanoid'}:
+                  effective_asset='character.humanoid'
+              else:
+                  effective_asset=raw_asset
+              effective_mode='character' if effective_asset.startswith('character.') else data['mode']
+
+              include.append({
+                  'request': str(path.relative_to(root)),
+                  'job_id': data['job_id'],
+                  'owner': data['owner'],
+                  'title': data['title'],
+                  'source_repo': data.get('source_repo', ''),
+                  'source_ref': data.get('source_ref', ''),
+                  'geometry_input': ('external/source/' + data['geometry_input']) if data.get('source_repo') else data['geometry_input'],
+                  'reference_dir': ('external/source/' + data.get('reference_dir', '')) if data.get('source_repo') and data.get('reference_dir') else data.get('reference_dir', ''),
+                  'detail_dir': ('external/source/' + data.get('detail_dir', '')) if data.get('source_repo') and data.get('detail_dir') else data.get('detail_dir', ''),
+                  'profile': data['profile'],
+                  'mode': effective_mode,
+                  'portable_target': data['portable_target'],
+                  'asset_profile': effective_asset,
+                  'weapon_family': data.get('weapon_family', 'auto'),
+                  'animation_requested': 'true' if data.get('animation_requested') else 'false',
+                  'motion_profile': data.get('motion_profile', 'auto'),
+                  'texture_quality': data.get('texture_quality', 'standard'),
+                  'gpu_vram': str(data.get('gpu_vram', 24)),
+                  'backends': data.get('backends', 'triposg,trellis2,trellis,instantmesh,triposr'),
+              })
+
+          matrix = json.dumps({'include': include}, separators=(',', ':'))
+          out = Path(os.environ['GITHUB_OUTPUT'])
+          with out.open('a', encoding='utf-8') as f:
+              f.write(f'matrix={matrix}\n')
+              f.write(f'count={len(include)}\n')
+          print(json.dumps(include, indent=2))
+          PY
+
+      - name: Queue summary
+        run: |
+          echo "Validated ${{ steps.requests.outputs.count }} HAYUYA request(s)." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Notify HAYUYA Hub waiting
+        if: steps.requests.outputs.count != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MATRIX_JSON: ${{ steps.requests.outputs.matrix }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, os, subprocess
+          data=json.loads(os.environ['MATRIX_JSON'])
+          for item in data.get('include', []):
+              body=(f"🟡 **WAITING** — **{item['owner']}** / `{item['job_id']}` — {item['title']}\n\n"
+                    f"Profile: `{item['profile']}` · Mode: `{item['mode']}`")
+              subprocess.run(['gh','issue','comment','55','--repo',os.environ['GITHUB_REPOSITORY'],'--body',body],check=True)
+          PY
+
+  generate:
+    needs: prepare
+    if: needs.prepare.outputs.count != '0'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    name: ${{ matrix.owner }} / ${{ matrix.job_id }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    concurrency:
+      group: hayuya-phone-cloud-${{ matrix.job_id }}
+      cancel-in-progress: true
+    env:
+      HAYUYA_JOB_ID: ${{ matrix.job_id }}
+      HAYUYA_GEOMETRY_INPUT: ${{ matrix.geometry_input }}
+      HAYUYA_REFERENCE_DIR: ${{ matrix.reference_dir }}
+      HAYUYA_DETAIL_DIR: ${{ matrix.detail_dir }}
+      HAYUYA_PROFILE: ${{ matrix.profile }}
+      HAYUYA_MODE: ${{ matrix.mode }}
+      HAYUYA_PORTABLE_TARGET: ${{ matrix.portable_target }}
+      HAYUYA_ASSET_PROFILE: ${{ matrix.asset_profile }}
+      HAYUYA_WEAPON_FAMILY: ${{ matrix.weapon_family }}
+      HAYUYA_ANIMATION_REQUESTED: ${{ matrix.animation_requested }}
+      HAYUYA_MOTION_PROFILE: ${{ matrix.motion_profile }}
+      HAYUYA_TEXTURE_QUALITY: ${{ matrix.texture_quality }}
+      HAYUYA_GPU_VRAM: ${{ matrix.gpu_vram }}
+      HAYUYA_BACKENDS: ${{ matrix.backends }}
+      HAYUYA_SOURCE_REPO: ${{ matrix.source_repo }}
+      HAYUYA_SOURCE_REF: ${{ matrix.source_ref }}
+      HAYUYA_OUTPUT_ROOT: out/hayuya-jobs/${{ matrix.job_id }}/outputs
+      HAYUYA_EVIDENCE_ROOT: out/hayuya-jobs/${{ matrix.job_id }}/evidence
+
+    steps:
+      - name: Notify HAYUYA Hub running
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment 55 --repo "$GITHUB_REPOSITORY" --body "🟢 **RUNNING** — **${{ matrix.owner }}** / \`${{ matrix.job_id }}\` — ${{ matrix.title }}"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 1
+
+      - name: Checkout external source references
+        if: matrix.source_repo != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p external
+          git clone --depth 1 --branch "${HAYUYA_SOURCE_REF}" "https://github.com/${HAYUYA_SOURCE_REPO}.git" external/source
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install phone/cloud controller
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libgles2
+          python -m pip install --upgrade pip
+          python -m pip install "gradio_client>=1.10,<2" pillow numpy trimesh mediapipe "scipy>=1.11" "scikit-image>=0.22" "xatlas==0.0.11" "fast-simplification>=0.1.7"
+
+      - name: Restore latest TRELLIS.2 preview checkpoint
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HAYUYA_OUTPUT_ROOT"
+          artifact_name="hayuya-job-$HAYUYA_JOB_ID"
+          rm -rf /tmp/hayuya-checkpoint
+          mkdir -p /tmp/hayuya-checkpoint
+          mapfile -t run_ids < <(
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?per_page=100" --jq \
+              ".artifacts | map(select(.name == \"$artifact_name\" and .expired == false)) | sort_by(.created_at) | reverse | .[].workflow_run.id"
+          )
+          restored=false
+          for prior_run in "${run_ids[@]:-}"; do
+            rm -rf /tmp/hayuya-checkpoint/*
+            if ! gh run download "$prior_run" --repo "$GITHUB_REPOSITORY" -n "$artifact_name" -D /tmp/hayuya-checkpoint >/dev/null 2>&1; then
+              continue
+            fi
+            preview="$(find /tmp/hayuya-checkpoint -type f -name 'trellis2_candidate.preview.html' -print -quit)"
+            if [[ -n "$preview" && -s "$preview" ]]; then
+              cp "$preview" "$HAYUYA_OUTPUT_ROOT/trellis2_candidate.preview.html"
+              generation="$(find /tmp/hayuya-checkpoint -type f -name 'trellis2_candidate.generation.json' -print -quit)"
+              if [[ -n "$generation" && -s "$generation" ]]; then
+                cp "$generation" "$HAYUYA_OUTPUT_ROOT/trellis2_candidate.generation.json"
+              fi
+              echo "HAYUYA_TRELLIS2_CHECKPOINT_RESTORED prior_run=$prior_run bytes=$(wc -c < "$HAYUYA_OUTPUT_ROOT/trellis2_candidate.preview.html")"
+              restored=true
+              break
+            fi
+          done
+          if [[ "$restored" != true ]]; then
+            echo "HAYUYA_TRELLIS2_CHECKPOINT_NONE job=$HAYUYA_JOB_ID"
+          fi
+
+      - name: Run phone-only Hayuya cloud job
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: python tools/hayuya3d/phone_cloud_worker.py
+
+      - name: Classify asset for HAYUYA 3D character fidelity QA
+        id: character_motion
+        if: success()
+        env:
+          HAYUYA_TITLE: ${{ matrix.title }}
+          HAYUYA_ASSET_PROFILE: ${{ matrix.asset_profile }}
+          HAYUYA_REQUEST_PROFILE: ${{ matrix.profile }}
+        shell: bash
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import os,re
+          profile=os.environ.get("HAYUYA_ASSET_PROFILE","auto").strip().lower()
+          title=os.environ.get("HAYUYA_TITLE","").strip().lower()
+          request_profile=os.environ.get("HAYUYA_REQUEST_PROFILE","").strip().lower()
+          explicit=profile.startswith("character.")
+          character_words=(
+              "zombi","zombie","undead","human","humanoid","character","person","npc",
+              "enemy","monster","creature","ghost","witch","witcher","llorona",
+              "woman","female","man","male","girl","boy","soldier","civilian",
+              "survivor","doctor","nurse","police","cop","priest","priestess","monja","nun","sister","demon"
+          )
+          prop_words=(
+              "table","chair","door","window","building","church","house","street",
+              "tree","grass","plant","car","vehicle","truck","weapon","gun","rifle",
+              "pistol","shotgun","crate","barrel","lamp","sign","environment","map"
+          )
+          auto_character=profile=="auto" and (
+              any(w in title for w in character_words)
+              or request_profile in {"character","humanoid","monster"}
+          )
+          obvious_prop=profile=="auto" and any(w in title for w in prop_words) and not auto_character
+          skeletal=explicit or (auto_character and not obvious_prop)
+          print("skeletal="+("true" if skeletal else "false"))
+          print("resolved_profile="+("character.humanoid" if skeletal else profile))
+          PY
+
+      - name: Install Judge v4 Core eyes + faithful renderer
+        if: success() && steps.character_motion.outputs.skeletal == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender python3-numpy
+          python -m pip install --upgrade "transformers>=5.2,<6" accelerate safetensors huggingface_hub sentencepiece einops timm
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
+          python -m pip install "mediapipe==1.0.1" dreamsim
+
+      - name: Judge v4 Core — fail closed before HAYUYA 3D export
+        if: success() && steps.character_motion.outputs.skeletal == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/hayuya3d/judge_phone_v4.py             --output-root "$HAYUYA_OUTPUT_ROOT"             --python "$(command -v python)"             --force-character
+
+      - name: Legacy motion stage disabled — moved to HAYUYA Motions
+        if: ${{ false }}
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender python3-numpy
+
+      - name: Legacy AutoRig disabled — moved to HAYUYA Motions
+        if: ${{ false }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          target="$HAYUYA_OUTPUT_ROOT/hayuya_final.glb"
+          blender --python-exit-code 1 -b --python tools/hayuya3d/blender_autorig.py -- \
+            --target "$target" \
+            --donor hayuya/animation_library/quaternius-uam2/library.glb \
+            --output "$HAYUYA_OUTPUT_ROOT/animated.glb" \
+            --report "$HAYUYA_OUTPUT_ROOT/autorig-report.json"
+          python tools/hayuya3d/rig_gate.py "$HAYUYA_OUTPUT_ROOT/animated.glb" --json "$HAYUYA_OUTPUT_ROOT/rig_gate_animated.json"
+          blender --python-exit-code 1 -b --python tools/hayuya3d/blender_animation_gate.py -- \
+            --model "$HAYUYA_OUTPUT_ROOT/animated.glb" \
+            --reference "$target" \
+            --json "$HAYUYA_OUTPUT_ROOT/animation_gate.json" --samples 5 || true
+
+          blender --python-exit-code 1 -b --python tools/hayuya3d/blender_autorig.py -- \
+            --target "$target" \
+            --donor hayuya/animation_library/quaternius-uam1/library.glb \
+            --output "$HAYUYA_OUTPUT_ROOT/animated-uam1.glb" \
+            --report "$HAYUYA_OUTPUT_ROOT/autorig-report-uam1.json"
+          python tools/hayuya3d/rig_gate.py "$HAYUYA_OUTPUT_ROOT/animated-uam1.glb" --json "$HAYUYA_OUTPUT_ROOT/rig_gate_uam1.json"
+          blender --python-exit-code 1 -b --python tools/hayuya3d/blender_animation_gate.py -- \
+            --model "$HAYUYA_OUTPUT_ROOT/animated-uam1.glb" \
+            --reference "$target" \
+            --json "$HAYUYA_OUTPUT_ROOT/animation_gate_uam1.json" --samples 5 || true
+
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          root=Path(os.environ["HAYUYA_OUTPUT_ROOT"])
+          mp=root/"manifest.json"
+          if not mp.exists():
+              raise SystemExit("manifest missing")
+          m=json.loads(mp.read_text())
+          r2=json.loads((root/"rig_gate_animated.json").read_text())
+          r1=json.loads((root/"rig_gate_uam1.json").read_text())
+          g2=json.loads((root/"animation_gate.json").read_text())
+          g1=json.loads((root/"animation_gate_uam1.json").read_text())
+          c2_all=[str(x) for x in g2.get("compatible_clips",[])]
+          c1_all=[str(x) for x in g1.get("compatible_clips",[])]
+          moving2={str(x) for x in g2.get("observable_clips",[])}
+          moving1={str(x) for x in g1.get("observable_clips",[])}
+          c2=[x for x in c2_all if x in moving2]
+          c1=[x for x in c1_all if x in moving1]
+          useful2=[x for x in c2 if "tpose" not in x.lower().replace("_","")]
+          useful1=[x for x in c1 if "tpose" not in x.lower().replace("_","")]
+          usable2=bool(r2.get("rig_ready")) and len(useful2)>=3
+          usable1=bool(r1.get("rig_ready")) and len(useful1)>=3
+          if not (usable2 or usable1):
+              raise SystemExit(
+                  "No animation bank passed the safe-motion minimum: "
+                  f"uam2={len(useful2)} useful, uam1={len(useful1)} useful"
+              )
+          m["preview_model"]="animated.glb" if usable2 else "animated-uam1.glb"
+          m["rig_quality_version"]=3
+          m["asset_profile"]="character.humanoid"
+          if isinstance(m.get("asset"),dict):
+              m["asset"]["profile"]="character.humanoid"
+          m["character"]={
+            "rig_quality_version":3,
+            "skeleton_type":(r2 if usable2 else r1).get("skeleton_type","hayuya_humanoid_v1"),
+            "preview_pack":"hayuya_preview_pack_v1",
+            "rig_ready":(usable2 if usable2 else usable1),
+            "animation_ready":(usable2 if usable2 else usable1),
+            "preview_animation_ready":(usable2 if usable2 else usable1),
+            "animation_clips":(c2 if usable2 else c1),
+            "weighted_joint_count":(r2 if usable2 else r1).get("weighted_joints",0),
+            "weighted_joint_names":(r2 if usable2 else r1).get("weighted_joint_names",[]),
+            "facial":(r2 if usable2 else r1).get("facial",{}),
+            "secondary_motion":(r2 if usable2 else r1).get("secondary_motion",{}),
+            "warnings":(r2 if usable2 else r1).get("warnings",[]),
+            "deformation_qa":{
+              "schema":(g2 if usable2 else g1).get("schema",1),
+              "passed":(usable2 if usable2 else usable1),
+              "full_bank_passed":bool((g2 if usable2 else g1).get("passed")),
+              "action_count":(g2 if usable2 else g1).get("action_count",0),
+              "compatible_clips":(c2 if usable2 else c1),
+              "all_geometry_safe_clips":(c2_all if usable2 else c1_all),
+              "observable_motion_passed":True,
+              "observable_clip_count":len(c2 if usable2 else c1),
+              "static_compatible_clips":(g2 if usable2 else g1).get("static_compatible_clips",[]),
+              "rejected_clip_count":(g2 if usable2 else g1).get("rejected_clip_count",0),
+              "failures":(g2 if usable2 else g1).get("failures",[])
+            }
+          }
+          m["animation_banks"]={
+            "quaternius-uam2":{
+              "model":"animated.glb",
+              "clips":c2,
+              "geometry_safe_clips":c2_all,
+              "observable_clip_count":len(c2),
+              "rig_ready":bool(r2.get("rig_ready")),
+              "animation_ready":bool(r2.get("animation_ready")),
+              "quality_passed":usable2,
+              "full_bank_passed":bool(g2.get("passed")),
+              "rig_quality_version":3
+            },
+            "quaternius-uam1":{
+              "model":"animated-uam1.glb",
+              "clips":c1,
+              "geometry_safe_clips":c1_all,
+              "observable_clip_count":len(c1),
+              "rig_ready":bool(r1.get("rig_ready")),
+              "animation_ready":bool(r1.get("animation_ready")),
+              "quality_passed":usable1,
+              "full_bank_passed":bool(g1.get("passed")),
+              "rig_quality_version":3
+            }
+          }
+          mp.write_text(json.dumps(m,indent=2)+"\n")
+          PY
+
+      - name: Build deterministic 3D part map
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$HAYUYA_MODE" in
+            character) pmode="character" ;;
+            architecture) pmode="architecture" ;;
+            *) pmode="prop" ;;
+          esac
+          python tools/hayuya3d/part_map.py             "$HAYUYA_OUTPUT_ROOT/hayuya_final.glb"             --mode "$pmode"             --output "$HAYUYA_OUTPUT_ROOT/part_map.json"
+
+      - name: Emit HAYUYA Motions handoff
+        if: success()
+        shell: bash
+        env:
+          HAYUYA_ANIMATION_REQUESTED: ${{ matrix.animation_requested }}
+          HAYUYA_ASSET_PROFILE: ${{ matrix.asset_profile }}
+          HAYUYA_MOTION_PROFILE: ${{ matrix.motion_profile }}
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          root=Path(os.environ["HAYUYA_OUTPUT_ROOT"])
+          payload={
+            "schema":1,
+            "source_product":"HAYUYA 3D",
+            "downstream_product":"HAYUYA Motions",
+            "hero_model":str(root/"hayuya_final.glb"),
+            "asset_profile":os.environ.get("HAYUYA_ASSET_PROFILE","auto"),
+            "motion_profile":os.environ.get("HAYUYA_MOTION_PROFILE","auto"),
+            "motion_requested":os.environ.get("HAYUYA_ANIMATION_REQUESTED","false").lower()=="true",
+            "geometry_is_immutable_source":True,
+            "instructions":[
+              "Do not modify the approved HAYUYA 3D Hero Master in place.",
+              "Rig, skin, animation and motion QA belong to HAYUYA Motions.",
+              "Write derived animated assets as separate outputs."
+            ],
+          }
+          (root/"hayuya_motions_handoff.json").write_text(json.dumps(payload,indent=2)+"\n")
+          print("HAYUYA_MOTIONS_HANDOFF",json.dumps(payload,separators=(",",":")))
+          PY
+
+      - name: Legacy motion planning disabled — moved to HAYUYA Motions
+        if: ${{ false }}
+        env:
+          HAYUYA_TITLE: ${{ matrix.title }}
+          HAYUYA_ASSET_PROFILE: ${{ matrix.asset_profile }}
+          HAYUYA_WEAPON_FAMILY: ${{ matrix.weapon_family }}
+          HAYUYA_MOTION_PROFILE: ${{ matrix.motion_profile }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HAYUYA_EVIDENCE_ROOT"
+          python tools/hayuya3d/internet_asset_research.py             --query "$HAYUYA_TITLE"             --asset-profile "$HAYUYA_ASSET_PROFILE"             --weapon-family "$HAYUYA_WEAPON_FAMILY"             --json "$HAYUYA_EVIDENCE_ROOT/internet_research.json"
+
+          python tools/hayuya3d/auto_motion_planner.py             --asset-profile "$HAYUYA_ASSET_PROFILE"             --weapon-family "$HAYUYA_WEAPON_FAMILY"             --motion-profile "$HAYUYA_MOTION_PROFILE"             --animation-requested true             --research "$HAYUYA_EVIDENCE_ROOT/internet_research.json"             --json "$HAYUYA_OUTPUT_ROOT/auto_motion_plan.json"
+
+          python tools/hayuya3d/part_segmentation_plan.py             --asset-profile "$HAYUYA_ASSET_PROFILE"             --weapon-family "$HAYUYA_WEAPON_FAMILY"             --json "$HAYUYA_OUTPUT_ROOT/part_segmentation_plan.json"
+
+          python - <<'PY'
+          import json, os, subprocess, sys
+          from pathlib import Path
+          root=Path(os.environ["HAYUYA_OUTPUT_ROOT"])
+          plan=json.loads((root/"auto_motion_plan.json").read_text())
+          if plan.get("asset_profile")=="weapon.firearm":
+              family=str(plan.get("weapon_family") or "auto")
+              part_map=root/"part_map.json"
+              if family!="auto" and part_map.exists():
+                  subprocess.run([
+                      sys.executable,"tools/hayuya3d/mechanical_part_fitter.py",
+                      "--part-map",str(part_map),
+                      "--family",family,
+                      "--json",str(root/"mechanical_part_fit.json"),
+                  ],check=True)
+                  fit=json.loads((root/"mechanical_part_fit.json").read_text())
+                  plan["mechanical_part_fit"]=fit
+                  if fit.get("mechanical_ready"):
+                      plan["status"]="mechanical_fit_ready"
+                  elif fit.get("status")=="partial_fit":
+                      plan["status"]="needs_semantic_part_segmentation"
+                  (root/"auto_motion_plan.json").write_text(json.dumps(plan,indent=2)+"\n")
+          PY
+
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          root=Path(os.environ["HAYUYA_OUTPUT_ROOT"])
+          manifest_path=root/"manifest.json"
+          if manifest_path.exists():
+              manifest=json.loads(manifest_path.read_text())
+              plan=json.loads((root/"auto_motion_plan.json").read_text())
+              research_path=Path(os.environ["HAYUYA_EVIDENCE_ROOT"])/"internet_research.json"
+              research=json.loads(research_path.read_text()) if research_path.exists() else {}
+              manifest["auto_motion"]=plan
+              manifest["research"]={
+                  "adapter":research.get("adapter"),
+                  "confidence":research.get("confidence",0),
+                  "inferred_weapon_family":research.get("inferred_weapon_family","auto"),
+                  "sources":research.get("sources",[]),
+                  "warnings":research.get("warnings",[])
+              }
+              seg_path=root/"part_segmentation_plan.json"
+              fit_path=root/"mechanical_part_fit.json"
+              part_map_path=root/"part_map.json"
+              if seg_path.exists():
+                  manifest["part_segmentation_plan"]=json.loads(seg_path.read_text())
+              if fit_path.exists():
+                  manifest["mechanical_part_fit"]=json.loads(fit_path.read_text())
+              if part_map_path.exists():
+                  part_map=json.loads(part_map_path.read_text())
+                  manifest["part_map_summary"]={
+                      "components":len(part_map.get("components",[])),
+                      "mode":part_map.get("mode"),
+                      "warnings":part_map.get("warnings",[])
+                  }
+              manifest_path.write_text(json.dumps(manifest,indent=2)+"\n")
+          PY
+
+      - name: Persist core-screened model for Hub preview
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          src="$HAYUYA_OUTPUT_ROOT/hayuya_final.glb"
+          test -s "$src"
+          model_dir="hayuya/models/$HAYUYA_JOB_ID"
+          mkdir -p "$model_dir"
+          cp "$src" "$model_dir/model.glb"
+          if [ -f "$HAYUYA_OUTPUT_ROOT/manifest.json" ]; then
+            cp "$HAYUYA_OUTPUT_ROOT/manifest.json" "$model_dir/manifest.json"
+          fi
+          for qa in quality_gate.json texture_gate.json rig_gate.json part_map.json auto_motion_plan.json part_segmentation_plan.json mechanical_part_fit.json failure_reason.txt rig_gate_animated.json rig_gate_uam1.json animation_gate.json animation_gate_uam1.json autorig-report.json autorig-report-uam1.json; do
+            if [ -f "$HAYUYA_OUTPUT_ROOT/$qa" ]; then
+              cp "$HAYUYA_OUTPUT_ROOT/$qa" "$model_dir/$qa"
+            fi
+          done
+          if [ -f "$HAYUYA_OUTPUT_ROOT/judge_v4_core/judge_v4.json" ]; then
+            cp "$HAYUYA_OUTPUT_ROOT/judge_v4_core/judge_v4.json" "$model_dir/judge_v4_core.json"
+          fi
+          for model in animated.glb animated-uam1.glb; do
+            if [ -f "$HAYUYA_OUTPUT_ROOT/$model" ]; then
+              cp "$HAYUYA_OUTPUT_ROOT/$model" "$model_dir/$model"
+            fi
+          done
+          if [ -f "$HAYUYA_EVIDENCE_ROOT/internet_research.json" ]; then
+            cp "$HAYUYA_EVIDENCE_ROOT/internet_research.json" "$model_dir/internet_research.json"
+          fi
+          rm -rf "$model_dir/prepared_views" "$model_dir/prepared_details"
+          if [ -d "$HAYUYA_OUTPUT_ROOT/prepared_views" ]; then
+            cp -R "$HAYUYA_OUTPUT_ROOT/prepared_views" "$model_dir/prepared_views"
+          fi
+          if [ -d "$HAYUYA_OUTPUT_ROOT/prepared_details" ]; then
+            cp -R "$HAYUYA_OUTPUT_ROOT/prepared_details" "$model_dir/prepared_details"
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$model_dir"
+          if git diff --cached --quiet; then
+            echo "HAYUYA_MODEL_ALREADY_CURRENT $HAYUYA_JOB_ID"
+            exit 0
+          fi
+          git commit -m "hayuya: persist $HAYUYA_JOB_ID for Hub preview"
+
+          for attempt in 1 2 3 4 5; do
+            git pull --rebase origin art/hayuya-monster-v1 || {
+              git rebase --abort || true
+              sleep $((attempt * 2))
+              continue
+            }
+            if git push origin HEAD:art/hayuya-monster-v1; then
+              echo "HAYUYA_MODEL_PERSISTED $HAYUYA_JOB_ID"
+              exit 0
+            fi
+            sleep $((attempt * 2))
+          done
+          echo "Could not persist $HAYUYA_JOB_ID after retries" >&2
+          exit 1
+
+      - name: Job summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## HAYUYA model job"
+            echo ""
+            echo "- **Owner:** ${{ matrix.owner }}"
+            echo "- **Job:** ${{ matrix.job_id }}"
+            echo "- **Title:** ${{ matrix.title }}"
+            echo "- **Profile:** ${{ matrix.profile }}"
+            echo "- **Mode:** ${{ matrix.mode }}"
+            echo "- **Portable:** ${{ matrix.portable_target }}"
+            echo "- **Request:** ${{ matrix.request }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload isolated result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hayuya-job-${{ matrix.job_id }}
+          path: out/hayuya-jobs/${{ matrix.job_id }}/**
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Notify HAYUYA Hub result
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          status='${{ job.status }}'
+          if [[ "$status" == "success" ]]; then
+            badge='✅ **DONE**'
+          else
+            badge='❌ **FAILED**'
+          fi
+          url='${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
+          reason=''
+          if [[ "$status" != "success" && -s "$HAYUYA_OUTPUT_ROOT/failure_reason.txt" ]]; then
+            reason="$(head -c 700 "$HAYUYA_OUTPUT_ROOT/failure_reason.txt" | tr '\n' ' ')"
+          fi
+          body="$badge — **${{ matrix.owner }}** / \`${{ matrix.job_id }}\` — ${{ matrix.title }}"
+          if [[ -n "$reason" ]]; then
+            body="$body
+
+          Reason: $reason"
+          fi
+          body="$body
+
+          [Open run / result]($url)"
+          gh issue comment 55 --repo "$GITHUB_REPOSITORY" --body "$body"

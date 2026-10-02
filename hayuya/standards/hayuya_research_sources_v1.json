@@ -1,0 +1,61 @@
+{
+  "schema": 1,
+  "id": "hayuya_research_sources_v1",
+  "online_adapters": [
+    {
+      "id": "wikipedia_mediawiki",
+      "enabled": true,
+      "role": "identity_and_mechanism_background",
+      "api": "https://en.wikipedia.org/w/api.php",
+      "trust": "secondary_reference",
+      "notes": "Used to identify likely object/weapon mechanism and vocabulary; never used alone to mark GAME READY."
+    }
+  ],
+  "curated_mechanism_sources": [
+    {
+      "topic": "semi_automatic_pistol",
+      "url": "https://en.wikipedia.org/wiki/Semi-automatic_pistol",
+      "facts": [
+        "slide/bolt reciprocates during firing cycle",
+        "most use removable box magazine"
+      ]
+    },
+    {
+      "topic": "pistol_slide",
+      "url": "https://en.wikipedia.org/wiki/Pistol_slide",
+      "facts": [
+        "slide reciprocates rearward/forward",
+        "extract/eject/cock/feed cycle"
+      ]
+    },
+    {
+      "topic": "pump_action",
+      "url": "https://en.wikipedia.org/wiki/Pump_action",
+      "facts": [
+        "sliding fore-end cycles rearward then forward",
+        "commonly tube fed but box-mag variants exist"
+      ]
+    },
+    {
+      "topic": "shotgun_pump",
+      "url": "https://en.wikipedia.org/wiki/Shotgun",
+      "facts": [
+        "pump fore-end works action",
+        "tube-fed examples load shells individually through receiver port"
+      ]
+    },
+    {
+      "topic": "bolt_action",
+      "url": "https://en.wikipedia.org/wiki/Bolt_action",
+      "facts": [
+        "common rotating bolt uses turn-up, pull-back, push-forward, turn-down sequence"
+      ]
+    }
+  ],
+  "rules": {
+    "cite_sources_in_research_report": true,
+    "no_live_search_required_for_known_local_family": true,
+    "run_live_research_when_title_contains_specific_model_name_or_family_is_ambiguous": true,
+    "confidence_below_0_72_requires_editor_confirmation": true
+  }
+}

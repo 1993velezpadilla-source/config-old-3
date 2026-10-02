@@ -1,0 +1,58 @@
+{
+  "schema": 1,
+  "id": "hayuya_mechanical_part_map_v1",
+  "example": {
+    "asset_profile": "weapon.firearm",
+    "weapon_family": "shotgun_pump_tube",
+    "components": {
+      "pump": {
+        "target_type": "bone",
+        "target_name": "Pump",
+        "axis": [
+          0,
+          1,
+          0
+        ],
+        "distance": 0.18,
+        "confidence": 0.97
+      },
+      "trigger": {
+        "target_type": "bone",
+        "target_name": "Trigger",
+        "axis": [
+          1,
+          0,
+          0
+        ],
+        "degrees": -12,
+        "confidence": 0.91
+      },
+      "tube": {
+        "target_type": "object",
+        "target_name": "Tube",
+        "confidence": 0.89
+      }
+    },
+    "sockets": {
+      "loading_gate": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation_quaternion": [
+          1,
+          0,
+          0,
+          0
+        ]
+      }
+    }
+  },
+  "acceptance": {
+    "minimum_component_confidence": 0.72,
+    "required_family_components_must_exist": true,
+    "axis_or_pivot_required_for_animated_component": true,
+    "low_confidence_component_requires_editor_confirmation": true
+  }
+}

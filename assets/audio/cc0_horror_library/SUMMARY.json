@@ -1,0 +1,25 @@
+{
+  "audio_file_count": 1106,
+  "packs": {
+    "ambient_horror_techiew": 1,
+    "ambient_loops_rubberduck": 30,
+    "breaking_falling_hits": 75,
+    "creature_rubberduck_01": 80,
+    "creature_rubberduck_02": 80,
+    "footsteps_snow_gravel": 42,
+    "footsteps_snow_shoes": 41,
+    "general_sfx_rubberduck_01": 100,
+    "general_sfx_rubberduck_02": 100,
+    "horror_hits_psychhead": 55,
+    "household_foley_owlishmedia": 202,
+    "rain_thunder_kindland": 1,
+    "rpg_sfx_rubberduck": 80,
+    "water_splash_slime": 40,
+    "weird_horror_sources": 30,
+    "wood_metal_rubberduck": 100,
+    "zombie_moans_darsycho": 1,
+    "zombies_artisticdude": 48
+  },
+  "policy": "CC0/public-domain raw source pool; no COD/Treyarch rips",
+  "total_audio_bytes": 115843104
+}

@@ -1,0 +1,136 @@
+{
+  "schema": 1,
+  "asset_profile": "character.humanoid",
+  "weapon_family": "auto",
+  "status": "ready",
+  "required": [
+    "body",
+    "head",
+    "upper_arm_left",
+    "upper_arm_right",
+    "forearm_left",
+    "forearm_right",
+    "thigh_left",
+    "thigh_right",
+    "calf_left",
+    "calf_right"
+  ],
+  "optional": [
+    "jaw",
+    "left_eye",
+    "right_eye",
+    "mouth",
+    "teeth",
+    "left_hand",
+    "right_hand",
+    "left_ear",
+    "right_ear",
+    "hair",
+    "wounds",
+    "loose_clothing",
+    "feet"
+  ],
+  "prompts": {
+    "body": [
+      "human body",
+      "torso"
+    ],
+    "head": [
+      "head",
+      "face"
+    ],
+    "upper_arm_left": [
+      "left upper arm"
+    ],
+    "upper_arm_right": [
+      "right upper arm"
+    ],
+    "forearm_left": [
+      "left forearm"
+    ],
+    "forearm_right": [
+      "right forearm"
+    ],
+    "thigh_left": [
+      "left thigh",
+      "left upper leg"
+    ],
+    "thigh_right": [
+      "right thigh",
+      "right upper leg"
+    ],
+    "calf_left": [
+      "left calf",
+      "left lower leg"
+    ],
+    "calf_right": [
+      "right calf",
+      "right lower leg"
+    ],
+    "jaw": [
+      "jaw",
+      "lower face"
+    ],
+    "left_eye": [
+      "left eye"
+    ],
+    "right_eye": [
+      "right eye"
+    ],
+    "mouth": [
+      "mouth",
+      "lips"
+    ],
+    "teeth": [
+      "teeth",
+      "visible teeth"
+    ],
+    "left_hand": [
+      "left hand",
+      "left fingers"
+    ],
+    "right_hand": [
+      "right hand",
+      "right fingers"
+    ],
+    "left_ear": [
+      "left ear"
+    ],
+    "right_ear": [
+      "right ear"
+    ],
+    "hair": [
+      "hair",
+      "hairline",
+      "ponytail",
+      "braid"
+    ],
+    "wounds": [
+      "wound",
+      "scar",
+      "skin lesion"
+    ],
+    "loose_clothing": [
+      "coat",
+      "skirt",
+      "dress",
+      "cape",
+      "loose sleeve",
+      "tie"
+    ],
+    "feet": [
+      "feet",
+      "shoes"
+    ]
+  },
+  "detectors": [
+    "groundingdino",
+    "sam2"
+  ],
+  "projection": "multi_view_preferred",
+  "fusion_rule": "a 3D component is accepted only when masks from available views agree spatially or later 3D geometry evidence confirms it",
+  "confidence_gate": 0.72,
+  "critical_targets_requested": [],
+  "promoted_critical_parts": [],
+  "warnings": []
+}

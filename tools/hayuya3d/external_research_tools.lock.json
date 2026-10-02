@@ -1,0 +1,143 @@
+{
+  "schema": 1,
+  "generated_on": "2026-09-25",
+  "purpose": "Pinned public source/tool audit for HAYUYA image-to-3D, humanoid reconstruction, topology, rigging, facial reconstruction, and Blender post-processing.",
+  "rules": {
+    "vendor_policy": "Do not copy third-party code into HAYUYA production sources. Fetch pinned upstream snapshots into an external cache and preserve upstream licenses.",
+    "restricted_policy": "Research-restricted tools may be cloned for audit only and must not enter a commercial/released HAYUYA pipeline without a separate license review.",
+    "weights_policy": "This manifest downloads source code only. Model weights/assets with separate terms are never fetched automatically."
+  },
+  "tools": [
+    {
+      "id": "triposg",
+      "category": "geometry_generation",
+      "repo": "VAST-AI-Research/TripoSG",
+      "sha": "fc5c40990181e2a756c4e0b1c2f4d6b5202faf8c",
+      "license": "MIT",
+      "tier": "production_candidate",
+      "notes": "Public research code from the team behind Tripo. Image-conditioned rectified-flow/SDF VAE shape generation."
+    },
+    {
+      "id": "triposf",
+      "category": "geometry_representation_refinement",
+      "repo": "VAST-AI-Research/TripoSF",
+      "sha": "b97b749aa5726fb64ceec359a4ef8e61e79279c7",
+      "license": "MIT",
+      "tier": "production_candidate",
+      "notes": "SparseFlex high-resolution arbitrary-topology reconstruction/modeling; useful as a geometry quality/refinement reference."
+    },
+    {
+      "id": "trellis2",
+      "category": "geometry_pbr_generation",
+      "repo": "microsoft/TRELLIS.2",
+      "sha": "75fbf0183001ed9876c8dbb35de6b68552ee08bd",
+      "license": "MIT",
+      "tier": "production_candidate",
+      "notes": "O-Voxel image-to-3D with PBR attributes; already used by HAYUYA challenger path."
+    },
+    {
+      "id": "instant_meshes",
+      "category": "retopology",
+      "repo": "wjakob/instant-meshes",
+      "sha": "7b3160864a2e1025af498c84cfed91cbfb613698",
+      "license": "BSD-3-Clause",
+      "tier": "production_candidate",
+      "notes": "Field-aligned automatic quad retopology; keep as external executable."
+    },
+    {
+      "id": "anigen",
+      "category": "joint_geometry_rig_skin_generation",
+      "repo": "VAST-AI-Research/AniGen",
+      "sha": "c49db3d6b466537a02ccf2286688903d77af7e4f",
+      "license": "MIT source; third-party CUBVH has non-commercial/research terms",
+      "tier": "research_review",
+      "notes": "Directly co-generates shape, skeleton, and skin weights. Inference does not require CUBVH according to upstream; verify checkpoint terms before production."
+    },
+    {
+      "id": "mpfb2",
+      "category": "blender_human_template",
+      "repo": "makehumancommunity/mpfb2",
+      "sha": "7fcc8df56f26776923e0a825f4551c3c3779befe",
+      "license": "GPL-3.0 code; bundled assets CC0",
+      "tier": "external_blender_tool",
+      "notes": "Parametric human generator for Blender. Keep as a separate tool/process; generated outputs are described upstream as unrestricted/asset-derived."
+    },
+    {
+      "id": "mblab",
+      "category": "blender_humanoid_face_rig",
+      "repo": "animate1978/MB-Lab",
+      "sha": "063bff04e60f3e7c651fda628c30f5d83f3f3078",
+      "license": "GPL-3.0",
+      "tier": "external_blender_tool",
+      "notes": "Humanoid morph/measurement/face rig scripts. Useful as implementation reference and external Blender tooling."
+    },
+    {
+      "id": "blenrig",
+      "category": "blender_auto_rig_face",
+      "repo": "jpbouza/BlenRig",
+      "sha": "990e112bad51572bff984a071119f04c101069f4",
+      "license": "GPL-3.0",
+      "tier": "external_blender_tool",
+      "notes": "Blender auto-rigging/skinning system with advanced facial rig; separate GPL tool."
+    },
+    {
+      "id": "hunyuan3d21",
+      "category": "shape_pbr_texture",
+      "repo": "Tencent-Hunyuan/Hunyuan3D-2.1",
+      "sha": "82920d643c0dc2f7bfd7255f45f62d386edfe60c",
+      "license": "Tencent Hunyuan terms / non-commercial constraints may apply",
+      "tier": "research_restricted",
+      "notes": "Open shape + PBR texture pipeline including remesh, UV wrapping, multiview normal/position conditioning, super-resolution, bake and inpaint."
+    },
+    {
+      "id": "econ",
+      "category": "human_template_reconstruction",
+      "repo": "YuliangXiu/ECON",
+      "sha": "d8f4e8b7171e30868acd94a1d1f6fcc1238e3e32",
+      "license": "non-commercial scientific research",
+      "tier": "research_restricted",
+      "notes": "SMPL-X-guided clothed human reconstruction from a single image; close match to the 'fit a base human then reconstruct clothing' hypothesis."
+    },
+    {
+      "id": "sith",
+      "category": "human_template_reconstruction",
+      "repo": "SiTH-Diffusion/SiTH",
+      "sha": "6401549120a4a6246b5cb4a10d8c3e1b2d9e8c7d",
+      "license": "MIT code; SMPL-X body models have separate terms",
+      "tier": "research_review",
+      "notes": "Single-view textured human reconstruction with SMPL-X fitting, back hallucination, and mesh reconstruction."
+    },
+    {
+      "id": "deca",
+      "category": "face_reconstruction",
+      "repo": "yfeng95/DECA",
+      "sha": "a11554ae2a2b0f3998cf1fa94dd4db03babb34a2",
+      "license": "non-commercial scientific research; FLAME assets separate",
+      "tier": "research_restricted",
+      "notes": "Single-image detailed animatable face reconstruction. Valuable algorithm reference for face/head-specific refinement."
+    },
+    {
+      "id": "stable_fast_3d",
+      "category": "geometry_uv_material",
+      "repo": "Stability-AI/stable-fast-3d",
+      "sha": "ff21fc491b4dc5314bf6734c7c0dabd86b5f5bb2",
+      "license": "see upstream LICENSE.md/model terms",
+      "tier": "research_review",
+      "notes": "Single-image mesh reconstruction with UV unwrapping, delight/material prediction, and optional triangle/quad remeshing."
+    }
+  ],
+  "blender_builtins": [
+    {
+      "id": "rigify",
+      "license": "GPL-2.0-or-later",
+      "action": "use_installed_blender",
+      "notes": "Blender's standard automatic rigging system includes a face rig. No vendoring required."
+    },
+    {
+      "id": "quadriflow",
+      "license": "Blender source tree terms / upstream QuadriFlow components",
+      "action": "use_installed_blender",
+      "notes": "Built into Blender for quad remeshing; no need to clone the entire Blender source tree."
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "schema": 1,
+  "job_id": "zombitest1-muetjpwb",
+  "owner": "HAYUYA_WEB",
+  "reason": "Rig QA v36: validate canonical animation-action dedup plus fully consistent humanoid metadata/part-map resync using the GLB Y-up convention; preserve V32 deformation thresholds and safe-clip policy",
+  "requested_at": "2026-09-24T06:08:00Z"
+}

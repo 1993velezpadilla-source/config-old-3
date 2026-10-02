@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "query": "Giant zombie 2",
+  "asset_profile": "character.humanoid",
+  "requested_weapon_family": "auto",
+  "adapter": "wikipedia_mediawiki",
+  "sources": [
+    {
+      "title": "Marvel Zombies 2",
+      "url": "https://en.wikipedia.org/wiki/Marvel_Zombies_2",
+      "kind": "secondary_reference"
+    }
+  ],
+  "inferred_weapon_family": "auto",
+  "confidence": 0.7,
+  "matched_patterns": [],
+  "summary": "Marvel Zombies 2 is a five-issue limited series published from October 2007 - February 2008 by comics publisher Marvel Comics. The series was written by Robert Kirkman with art by Sean Phillips and Arthur Suydam. It is part of the Marvel Zombies series.",
+  "warnings": []
+}

@@ -1,0 +1,7 @@
+Title: 30 CC0 SFX loops
+Creator: rubberduck
+License: CC0 / Public Domain dedication (as declared on source page)
+Source: https://opengameart.org/content/30-cc0-sfx-loops
+Retrieved UTC: 2026-09-22T22:43:41Z
+Archive SHA256:
+9c013474c7e56192a0d1b2840535a1e1d8b93166948d4a9f7136bb6c3d5421cd  _cc0_audio_downloads/ambient_loops_rubberduck.zip

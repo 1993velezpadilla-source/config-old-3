@@ -1,0 +1,7 @@
+Title: Zombie moans
+Creator: Darsycho
+License: CC0 / Public Domain dedication (as declared on source page)
+Source: https://opengameart.org/content/zombie-moans
+Retrieved UTC: 2026-09-22T22:43:59Z
+File SHA256:
+49b0bd7a7908f2b3ea61ae93ccf584ab650705d62e8ed6d4c8c9f5b98ad37b05  assets/audio/cc0_horror_library/zombie_moans_darsycho/zombie_moans.ogg

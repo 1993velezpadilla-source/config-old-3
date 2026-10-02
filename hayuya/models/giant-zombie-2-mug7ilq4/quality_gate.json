@@ -1,0 +1,28 @@
+{
+  "path": "out/hayuya-jobs/giant-zombie-2-mug7ilq4/outputs/hayuya_final.glb",
+  "valid": true,
+  "passed": true,
+  "vertices": 74493,
+  "faces": 113193,
+  "components": 1289,
+  "largest_component_fraction": 0.025519,
+  "degenerate_ratio": 0.000106,
+  "bbox_extents": [
+    0.41614132,
+    1.00036702,
+    0.3085531
+  ],
+  "bbox_aspect_ratio": 3.242123,
+  "axis_alignment_weighted": 0.890651,
+  "axis_aligned_area_98": 0.227048,
+  "dominant_normal_axis_area": [
+    0.384105,
+    0.053182,
+    0.562713
+  ],
+  "reasons": [],
+  "warnings": [
+    "fragmented_surface:components=1289,largest=0.026",
+    "high_component_count:1289"
+  ]
+}

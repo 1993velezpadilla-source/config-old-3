@@ -1,0 +1,175 @@
+name: Hayuya Retopo Native CI
+
+on:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - .github/workflows/hayuya-retopo-ci.yml
+      - tools/hayuya3d/retopo.py
+      - tools/hayuya3d/material_bridge.py
+      - tools/hayuya3d/bootstrap.py
+      - tools/hayuya3d/backends.lock.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-retopo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout Hayuya
+        uses: actions/checkout@v4
+
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake clang g++ libc++-dev libc++abi-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxxf86vm-dev libgl1-mesa-dev
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install CPU mesh dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy pillow trimesh scipy fast-simplification
+
+      - name: Bootstrap pinned Instant Meshes source and submodules
+        run: python tools/hayuya3d/bootstrap.py --backend instant_meshes_retopo
+
+      - name: Build pinned Instant Meshes
+        run: |
+          python tools/hayuya3d/retopo.py --build
+          test -x ".hayuya/models/instant_meshes_retopo/build-hayuya/Instant Meshes"
+
+      - name: Create colored source GLB
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import numpy as np
+          import trimesh
+          root = Path('out/native-retopo')
+          root.mkdir(parents=True, exist_ok=True)
+          mesh = trimesh.creation.icosphere(subdivisions=3, radius=0.5)
+          rgba = np.tile(np.array([[40, 170, 210, 255]], dtype=np.uint8), (len(mesh.vertices), 1))
+          mesh.visual = trimesh.visual.ColorVisuals(mesh, vertex_colors=rgba)
+          source = root / 'source.glb'
+          source.write_bytes(trimesh.exchange.gltf.export_glb(trimesh.Scene(mesh)))
+          print(source)
+          PY
+
+      - name: Run native retopo plus Material Bridge
+        run: |
+          python tools/hayuya3d/retopo.py \
+            --input out/native-retopo/source.glb \
+            --output out/native-retopo/result \
+            --target-faces 1200 \
+            --texture-size 256 \
+            --style quad_dominant
+
+      - name: Verify native retopo artifact
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import numpy as np
+          import trimesh
+
+          root = Path('out/native-retopo')
+          obj = root / 'result/retopo_master.obj'
+          glb = root / 'result/retopo_material_bridge.glb'
+          manifest = root / 'result/retopo_manifest.json'
+          source = root / 'source.glb'
+
+          assert obj.is_file() and obj.stat().st_size > 128
+          assert glb.is_file() and glb.read_bytes()[:4] == b'glTF'
+          assert manifest.is_file(), 'retopo manifest missing'
+
+          data = json.loads(manifest.read_text())
+          counts = {
+              'faces': 0,
+              'quads': 0,
+              'tris': 0,
+              'ngons': 0,
+              'runtime_triangle_equivalent': 0,
+          }
+          for raw in obj.read_text(errors='ignore').splitlines():
+              if not raw.lstrip().startswith('f '):
+                  continue
+              n = len(raw.split()) - 1
+              if n < 3:
+                  continue
+              counts['faces'] += 1
+              counts['runtime_triangle_equivalent'] += n - 2
+              if n == 4:
+                  counts['quads'] += 1
+              elif n == 3:
+                  counts['tris'] += 1
+              elif n > 4:
+                  counts['ngons'] += 1
+
+          counts['quad_fraction'] = counts['quads'] / counts['faces'] if counts['faces'] else 0.0
+          counts['target_triangle_faces'] = int(data['target_triangle_faces'])
+          counts['triangle_target_error_fraction'] = (
+              abs(counts['runtime_triangle_equivalent'] - counts['target_triangle_faces'])
+              / counts['target_triangle_faces']
+          )
+
+          assert counts['faces'] > 0
+          assert counts['quad_fraction'] >= 0.85, counts
+          assert counts['triangle_target_error_fraction'] <= 0.20, counts
+          assert counts['runtime_triangle_equivalent'] == int(data['runtime_triangle_equivalent'])
+          assert abs(
+              counts['triangle_target_error_fraction']
+              - float(data['triangle_target_error_fraction'])
+          ) <= 1e-6
+
+          def combined(path):
+              scene = trimesh.load(path, force='scene', process=False)
+              return trimesh.util.concatenate(list(scene.geometry.values()))
+
+          src = combined(source)
+          out = combined(glb)
+
+          # OBJ polygons triangulate into exactly this runtime GLB face count.
+          assert len(out.faces) == counts['runtime_triangle_equivalent'], (
+              len(out.faces), counts
+          )
+
+          # Retopology must preserve object-space size and center closely.
+          extent_rel = np.abs(out.extents - src.extents) / np.maximum(src.extents, 1e-9)
+          center_drift = float(np.linalg.norm(out.centroid - src.centroid))
+          assert float(extent_rel.max()) <= 0.10, extent_rel
+          assert center_drift <= 0.05 * float(src.extents.max()), center_drift
+
+          # Uniform fixture color should survive Material Bridge essentially intact.
+          src_colors = np.asarray(src.visual.vertex_colors[:, :3], dtype=np.float32)
+          out_colors = np.asarray(out.visual.vertex_colors[:, :3], dtype=np.float32)
+          src_mean = src_colors.mean(axis=0)
+          out_mean = out_colors.mean(axis=0)
+          color_drift = np.abs(src_mean - out_mean)
+          assert float(color_drift.max()) <= 5.0, (src_mean, out_mean)
+
+          counts['source_color_mean'] = src_mean.round(3).tolist()
+          counts['output_color_mean'] = out_mean.round(3).tolist()
+          counts['max_extent_relative_error'] = float(extent_rel.max())
+          counts['centroid_drift'] = center_drift
+          counts['material_method'] = data['material_method']
+
+          report = root / 'NATIVE_RETOPO_PASS.json'
+          report.write_text(json.dumps(counts, indent=2) + '\n')
+          print(json.dumps(counts, indent=2))
+          PY
+
+      - name: Upload native retopo evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hayuya-native-retopo-${{ github.run_id }}
+          path: out/native-retopo/**
+          if-no-files-found: warn
+          retention-days: 14

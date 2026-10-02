@@ -1,0 +1,7 @@
+Title: 30 weird CC0 SFX
+Creator: rubberduck
+License: CC0 / Public Domain dedication (as declared on source page)
+Source: https://opengameart.org/content/30-weird-cc0-sfx
+Retrieved UTC: 2026-09-22T22:43:43Z
+Archive SHA256:
+e399d5ff0bf0603fbdfb331bb56fdd613baa9001cacd697bfd7c1615f094d189  _cc0_audio_downloads/weird_horror_sources.zip

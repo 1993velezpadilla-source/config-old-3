@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#090b10">
+  <title>HAYUYA Studio</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/vendor/model-viewer.min.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">HAYUYA 3D</div>
+        <h1>Studio</h1>
+      </div>
+      <div class="status-cluster">
+        <span id="serverStatus" class="pill online">LOCAL</span>
+        <span id="jobStatus" class="pill">IDLE</span>
+      </div>
+    </header>
+
+    <aside class="left-panel panel">
+      <section>
+        <div class="section-head">
+          <h2>Create from Image</h2>
+          <span id="fileCount">0</span>
+        </div>
+        <label class="dropzone" id="dropzone">
+          <input id="images" type="file" accept="image/png,image/jpeg,image/webp" multiple>
+          <strong>Drop one photo</strong>
+          <span>or tap to choose</span>
+          <small>One photo is enough. Add more angles only if you have them.</small>
+        </label>
+        <div id="thumbs" class="thumbs"></div>
+      </section>
+
+      <button id="runButton" class="primary">Generate 3D</button>
+
+      <details class="advanced-options">
+        <summary>Advanced options (optional)</summary>
+
+        <section>
+          <div class="section-head">
+            <h2>Extra face/detail photos</h2>
+            <span id="faceFileCount">0</span>
+          </div>
+          <label class="dropzone face-dropzone" id="faceDropzone">
+            <input id="faceImages" type="file" accept="image/png,image/jpeg,image/webp" multiple>
+            <strong>Add optional close-ups</strong>
+            <span>or tap to choose</span>
+            <small>Not required — HAYUYA automatically finds and zooms the face from the main photo.</small>
+          </label>
+          <div id="faceThumbs" class="thumbs"></div>
+        </section>
+
+        <section class="controls">
+          <label>Profile
+            <select id="profile">
+              <option value="monster" selected>Monster</option>
+              <option value="ultra">Ultra</option>
+              <option value="game">Game</option>
+              <option value="mobile">Mobile</option>
+              <option value="preview">Preview</option>
+            </select>
+          </label>
+          <label>Asset
+            <select id="mode">
+              <option value="auto" selected>Auto</option>
+              <option value="character">Character</option>
+              <option value="prop">Prop</option>
+              <option value="architecture">Architecture</option>
+            </select>
+          </label>
+          <label>Portable target
+            <select id="tier">
+              <option value="auto" selected>Auto</option>
+              <option value="flagship">Flagship</option>
+              <option value="high">High</option>
+              <option value="balanced">Balanced</option>
+              <option value="compatibility">Compatibility</option>
+            </select>
+          </label>
+        </section>
+      </details>
+
+      <section>
+        <div class="section-head"><h2>Jobs</h2><button id="refreshJobs" class="ghost">Refresh</button></div>
+        <div id="jobs" class="job-list"></div>
+      </section>
+    </aside>
+
+    <main class="viewer-panel">
+      <div class="viewer-toolbar">
+        <div>
+          <div id="modelLabel" class="model-label">No model yet</div>
+          <div id="modelMeta" class="model-meta">Drop one photo and generate your 3D model.</div>
+        </div>
+        <div class="viewer-actions">
+          <button id="resetView" class="ghost">Reset</button>
+          <button id="autoRotate" class="ghost active">Rotate</button>
+        </div>
+      </div>
+
+      <div class="viewer-stage">
+        <model-viewer id="viewer"
+          camera-controls
+          auto-rotate
+          shadow-intensity="1"
+          exposure="1"
+          tone-mapping="neutral"
+          interaction-prompt="none"
+          touch-action="pan-y"
+          environment-image="neutral">
+        </model-viewer>
+        <div id="emptyState" class="empty-state">
+          <div class="orb"></div>
+          <strong>Live 3D will appear here</strong>
+          <span>Candidate meshes can replace the viewer as Hayuya produces them.</span>
+        </div>
+        <div id="viewerError" class="viewer-error" hidden>Preview could not be loaded.</div>
+      </div>
+
+      <div id="animationControls" class="animation-controls" hidden>
+        <button id="animationPlay" class="ghost" type="button">Play</button>
+        <label>
+          Animation
+          <select id="animationSelect" aria-label="Preview animation"></select>
+        </label>
+        <span id="animationMeta" class="animation-meta">No animation clips</span>
+      </div>
+
+      <div class="progress-wrap">
+        <div class="progress-head">
+          <span id="stageLabel">Idle</span>
+          <span id="progressText">0%</span>
+        </div>
+        <div class="progress-track"><div id="progressBar" class="progress-bar"></div></div>
+      </div>
+
+      <div class="stage-strip" id="stageStrip">
+        <span data-stage="planning">Plan</span>
+        <span data-stage="viewforge">Views</span>
+        <span data-stage="generating">Generate</span>
+        <span data-stage="judge">Judge</span>
+        <span data-stage="refinement">Refine</span>
+        <span data-stage="mesh_doctor">Doctor</span>
+        <span data-stage="retopo">Retopo</span>
+        <span data-stage="composite">Composite</span>
+        <span data-stage="gameprep">GamePrep</span>
+        <span data-stage="portable">Portable</span>
+        <span data-stage="qa">QA</span>
+      </div>
+    </main>
+
+    <aside class="right-panel panel">
+      <section>
+        <div class="section-head"><h2>Live Arena</h2><span id="candidateCount">0</span></div>
+        <div id="candidates" class="candidate-list">
+          <div class="muted-card">Candidates will appear here.</div>
+        </div>
+      </section>
+
+      <section id="compositeSection" hidden>
+        <div class="section-head"><h2>Champion DNA</h2><span id="compositeState">BASE</span></div>
+        <div id="compositeSummary" class="muted-card"></div>
+        <div id="compositeDonors" class="final-qa-grid"></div>
+      </section>
+
+      <section id="semanticSection" hidden>
+        <div class="section-head"><h2>Semantic Anatomy</h2><span id="semanticState">WAITING</span></div>
+        <div id="semanticSummary" class="muted-card"></div>
+        <div id="semanticParts" class="final-qa-grid"></div>
+      </section>
+
+      <section id="portableSection" hidden>
+        <div class="section-head"><h2>Runtime / LOD Parity</h2><span id="portableState">WAITING</span></div>
+        <div id="portableSummary" class="muted-card"></div>
+        <div id="portableTiers" class="final-qa-grid"></div>
+      </section>
+
+      <section id="aaaSection" hidden>
+        <div class="section-head"><h2>AAA Acceptance</h2><span id="aaaState">BLOCKED</span></div>
+        <div id="aaaSummary" class="muted-card"></div>
+        <div id="aaaGates" class="final-qa-grid"></div>
+        <div id="aaaBlockers" class="qa-warnings" hidden></div>
+      </section>
+
+      <section id="finalQaSection" hidden>
+        <div class="section-head"><h2>Final QA</h2><span id="finalQaState">WAITING</span></div>
+        <div id="finalQa" class="final-qa-grid"></div>
+        <div id="finalQaWarnings" class="qa-warnings" hidden></div>
+      </section>
+
+      <section class="log-section">
+        <div class="section-head"><h2>Pipeline</h2><button id="clearLog" class="ghost">Clear</button></div>
+        <pre id="log" class="log"></pre>
+      </section>
+    </aside>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+{
+  "schema": 1,
+  "job_id": "zombitest1-muetjpwb",
+  "owner": "HAYUYA_WEB",
+  "reason": "Rig QA v33: validate post-rig humanoid profile resync; preserve V32 deformation-safe weights and compatible-clip filtering",
+  "requested_at": "2026-09-24T05:50:00Z"
+}

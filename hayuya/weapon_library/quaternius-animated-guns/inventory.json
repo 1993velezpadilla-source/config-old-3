@@ -1,0 +1,128 @@
+{
+  "schema": 1,
+  "id": "quaternius-animated-guns",
+  "license": "CC0",
+  "source": "https://opengameart.org/content/low-poly-animated-guns",
+  "assets": [
+    {
+      "report": "reports/p90.blend.json",
+      "source_file": "P90.blend",
+      "family_guess": "rifle_magazine",
+      "meshes": 1,
+      "armatures": 1,
+      "actions": [
+        "Fire",
+        "Reload"
+      ],
+      "action_count": 2,
+      "bone_names": [
+        "Control",
+        "Magazine",
+        "Trigger"
+      ],
+      "animation_capable": true
+    },
+    {
+      "report": "reports/pistol.blend.json",
+      "source_file": "Pistol.blend",
+      "family_guess": "handgun_semiauto",
+      "meshes": 1,
+      "armatures": 1,
+      "actions": [
+        "Fire",
+        "Reload",
+        "Slide"
+      ],
+      "action_count": 3,
+      "bone_names": [
+        "Control",
+        "Magazine",
+        "Slide",
+        "Trigger"
+      ],
+      "animation_capable": true
+    },
+    {
+      "report": "reports/revolver.blend.json",
+      "source_file": "Revolver.blend",
+      "family_guess": "revolver",
+      "meshes": 1,
+      "armatures": 1,
+      "actions": [
+        "Fire",
+        "Reload"
+      ],
+      "action_count": 2,
+      "bone_names": [
+        "Bullets",
+        "Control",
+        "Drum",
+        "Hammer",
+        "Quick",
+        "Trigger"
+      ],
+      "animation_capable": true
+    },
+    {
+      "report": "reports/rifle.blend.json",
+      "source_file": "Rifle.blend",
+      "family_guess": "rifle_magazine",
+      "meshes": 1,
+      "armatures": 1,
+      "actions": [
+        "FireWBullet",
+        "FireWOBullet",
+        "Reload"
+      ],
+      "action_count": 3,
+      "bone_names": [
+        "Bullet",
+        "Control",
+        "Magazine",
+        "Trigger"
+      ],
+      "animation_capable": true
+    },
+    {
+      "report": "reports/shotgun.blend.json",
+      "source_file": "Shotgun.blend",
+      "family_guess": "shotgun_pump_tube",
+      "meshes": 1,
+      "armatures": 1,
+      "actions": [
+        "FireWBullet",
+        "FireWOBullet",
+        "Reload"
+      ],
+      "action_count": 3,
+      "bone_names": [
+        "Bullet",
+        "Control",
+        "Reload",
+        "Trigger"
+      ],
+      "animation_capable": true
+    },
+    {
+      "report": "reports/sniperrifle.blend.json",
+      "source_file": "SniperRifle.blend",
+      "family_guess": "rifle_bolt_action",
+      "meshes": 1,
+      "armatures": 1,
+      "actions": [
+        "FireWBullet",
+        "FireWOBullet",
+        "Reload"
+      ],
+      "action_count": 3,
+      "bone_names": [
+        "Bullet",
+        "Control",
+        "Handle",
+        "Magazine",
+        "Trigger"
+      ],
+      "animation_capable": true
+    }
+  ]
+}

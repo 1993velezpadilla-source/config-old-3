@@ -1,0 +1,43 @@
+name: HAYUYA Discover Animated Zombie Source
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - .github/workflows/hayuya-discover-animated-zombie-source.yml
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Inspect original CC0 pack page source
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fLsS             -A "HAYUYA/1.0 source discovery"             "https://quaternius.com/packs/animatedzombie.html"             -o /tmp/animatedzombie.html
+          python - <<'PY'
+          import html,re
+          from pathlib import Path
+          body=html.unescape(Path("/tmp/animatedzombie.html").read_text(errors="replace"))
+          urls=sorted(set(re.findall(r'https?://[^"\'<>\s)]+',body)))
+          interesting=[
+              u for u in urls
+              if any(k in u.lower() for k in (
+                  "drive.google","dropbox","itch.io","mega.nz",".zip",".7z","download"
+              ))
+          ]
+          print("HAYUYA_ANIMATED_ZOMBIE_SOURCE_CANDIDATES")
+          for u in interesting:
+              print(u)
+          print("HAYUYA_CANDIDATE_COUNT",len(interesting))
+          if not interesting:
+              print("No direct source URL exposed in static page HTML.")
+          PY

@@ -1,0 +1,304 @@
+{
+  "schema": 1,
+  "input": "hayuya/weapon_library/quaternius-animated-guns/raw/SniperRifle.blend",
+  "armatures": [
+    {
+      "name": "SniperRifle ",
+      "bones": [
+        "Control",
+        "Bullet",
+        "Trigger",
+        "Magazine",
+        "Handle"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "name": "FireWBullet",
+      "frame_range": [
+        0.0,
+        19.0
+      ],
+      "animated_bones": [
+        "Bullet",
+        "Control",
+        "Trigger"
+      ],
+      "bone_channels": {
+        "Control": [
+          {
+            "path": "pose.bones[\"Control\"].location",
+            "array_index": 0,
+            "keyframes": 5,
+            "value_delta": 2e-08
+          },
+          {
+            "path": "pose.bones[\"Control\"].location",
+            "array_index": 1,
+            "keyframes": 5,
+            "value_delta": 0.17815432
+          },
+          {
+            "path": "pose.bones[\"Control\"].location",
+            "array_index": 2,
+            "keyframes": 5,
+            "value_delta": 0.02524373
+          },
+          {
+            "path": "pose.bones[\"Control\"].rotation_quaternion",
+            "array_index": 0,
+            "keyframes": 5,
+            "value_delta": 0.00172389
+          },
+          {
+            "path": "pose.bones[\"Control\"].rotation_quaternion",
+            "array_index": 1,
+            "keyframes": 5,
+            "value_delta": 0.05869392
+          },
+          {
+            "path": "pose.bones[\"Control\"].rotation_quaternion",
+            "array_index": 3,
+            "keyframes": 5,
+            "value_delta": 5e-08
+          },
+          {
+            "path": "pose.bones[\"Control\"].scale",
+            "array_index": 1,
+            "keyframes": 5,
+            "value_delta": 1.2e-07
+          }
+        ],
+        "Trigger": [
+          {
+            "path": "pose.bones[\"Trigger\"].rotation_quaternion",
+            "array_index": 0,
+            "keyframes": 3,
+            "value_delta": 0.07231253
+          },
+          {
+            "path": "pose.bones[\"Trigger\"].rotation_quaternion",
+            "array_index": 1,
+            "keyframes": 3,
+            "value_delta": 0.37335795
+          },
+          {
+            "path": "pose.bones[\"Trigger\"].rotation_quaternion",
+            "array_index": 3,
+            "keyframes": 3,
+            "value_delta": 4.8e-07
+          }
+        ],
+        "Bullet": [
+          {
+            "path": "pose.bones[\"Bullet\"].location",
+            "array_index": 0,
+            "keyframes": 7,
+            "value_delta": 1.08344173
+          },
+          {
+            "path": "pose.bones[\"Bullet\"].location",
+            "array_index": 1,
+            "keyframes": 7,
+            "value_delta": 1.03e-06
+          },
+          {
+            "path": "pose.bones[\"Bullet\"].location",
+            "array_index": 2,
+            "keyframes": 7,
+            "value_delta": 4.06033516
+          }
+        ]
+      },
+      "object_channels": [],
+      "mechanical_motion_present": true
+    },
+    {
+      "name": "FireWOBullet",
+      "frame_range": [
+        0.0,
+        9.0
+      ],
+      "animated_bones": [
+        "Control",
+        "Trigger"
+      ],
+      "bone_channels": {
+        "Control": [
+          {
+            "path": "pose.bones[\"Control\"].location",
+            "array_index": 0,
+            "keyframes": 5,
+            "value_delta": 2e-08
+          },
+          {
+            "path": "pose.bones[\"Control\"].location",
+            "array_index": 1,
+            "keyframes": 5,
+            "value_delta": 0.17815432
+          },
+          {
+            "path": "pose.bones[\"Control\"].location",
+            "array_index": 2,
+            "keyframes": 5,
+            "value_delta": 0.02524373
+          },
+          {
+            "path": "pose.bones[\"Control\"].rotation_quaternion",
+            "array_index": 0,
+            "keyframes": 5,
+            "value_delta": 0.00172389
+          },
+          {
+            "path": "pose.bones[\"Control\"].rotation_quaternion",
+            "array_index": 1,
+            "keyframes": 5,
+            "value_delta": 0.05869392
+          },
+          {
+            "path": "pose.bones[\"Control\"].rotation_quaternion",
+            "array_index": 3,
+            "keyframes": 5,
+            "value_delta": 5e-08
+          },
+          {
+            "path": "pose.bones[\"Control\"].scale",
+            "array_index": 1,
+            "keyframes": 5,
+            "value_delta": 1.2e-07
+          }
+        ],
+        "Trigger": [
+          {
+            "path": "pose.bones[\"Trigger\"].rotation_quaternion",
+            "array_index": 0,
+            "keyframes": 3,
+            "value_delta": 0.07231253
+          },
+          {
+            "path": "pose.bones[\"Trigger\"].rotation_quaternion",
+            "array_index": 1,
+            "keyframes": 3,
+            "value_delta": 0.37335795
+          },
+          {
+            "path": "pose.bones[\"Trigger\"].rotation_quaternion",
+            "array_index": 3,
+            "keyframes": 3,
+            "value_delta": 4.8e-07
+          }
+        ]
+      },
+      "object_channels": [],
+      "mechanical_motion_present": true
+    },
+    {
+      "name": "Reload",
+      "frame_range": [
+        0.0,
+        22.0
+      ],
+      "animated_bones": [
+        "Control",
+        "Handle",
+        "Magazine"
+      ],
+      "bone_channels": {
+        "Control": [
+          {
+            "path": "pose.bones[\"Control\"].location",
+            "array_index": 0,
+            "keyframes": 6,
+            "value_delta": 1.1e-07
+          },
+          {
+            "path": "pose.bones[\"Control\"].location",
+            "array_index": 1,
+            "keyframes": 6,
+            "value_delta": 0.01948348
+          },
+          {
+            "path": "pose.bones[\"Control\"].location",
+            "array_index": 2,
+            "keyframes": 6,
+            "value_delta": 0.13250347
+          },
+          {
+            "path": "pose.bones[\"Control\"].scale",
+            "array_index": 1,
+            "keyframes": 6,
+            "value_delta": 1.2e-07
+          }
+        ],
+        "Handle": [
+          {
+            "path": "pose.bones[\"Handle\"].location",
+            "array_index": 0,
+            "keyframes": 6,
+            "value_delta": 5e-08
+          },
+          {
+            "path": "pose.bones[\"Handle\"].location",
+            "array_index": 1,
+            "keyframes": 6,
+            "value_delta": 8e-08
+          },
+          {
+            "path": "pose.bones[\"Handle\"].location",
+            "array_index": 2,
+            "keyframes": 6,
+            "value_delta": 0.14251041
+          },
+          {
+            "path": "pose.bones[\"Handle\"].rotation_quaternion",
+            "array_index": 0,
+            "keyframes": 6,
+            "value_delta": 0.12079477
+          },
+          {
+            "path": "pose.bones[\"Handle\"].rotation_quaternion",
+            "array_index": 1,
+            "keyframes": 6,
+            "value_delta": 1.8e-07
+          },
+          {
+            "path": "pose.bones[\"Handle\"].rotation_quaternion",
+            "array_index": 2,
+            "keyframes": 6,
+            "value_delta": 2.3e-07
+          },
+          {
+            "path": "pose.bones[\"Handle\"].rotation_quaternion",
+            "array_index": 3,
+            "keyframes": 6,
+            "value_delta": 0.47644326
+          }
+        ],
+        "Magazine": [
+          {
+            "path": "pose.bones[\"Magazine\"].location",
+            "array_index": 0,
+            "keyframes": 6,
+            "value_delta": 0.25389431
+          },
+          {
+            "path": "pose.bones[\"Magazine\"].location",
+            "array_index": 1,
+            "keyframes": 6,
+            "value_delta": 2.34807158
+          },
+          {
+            "path": "pose.bones[\"Magazine\"].location",
+            "array_index": 2,
+            "keyframes": 6,
+            "value_delta": 0.35087377
+          }
+        ]
+      },
+      "object_channels": [],
+      "mechanical_motion_present": true
+    }
+  ],
+  "action_count": 3
+}

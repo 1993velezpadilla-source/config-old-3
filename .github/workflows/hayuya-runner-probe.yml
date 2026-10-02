@@ -1,0 +1,26 @@
+name: Hayuya Runner Probe
+
+on:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - .github/workflows/hayuya-runner-probe.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  base-self-hosted:
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 5
+    steps:
+      - name: Report runner and GPU
+        shell: bash
+        run: |
+          set -euxo pipefail
+          uname -a
+          command -v nvidia-smi || true
+          nvidia-smi || true
+          python3 --version || true

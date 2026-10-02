@@ -1,0 +1,71 @@
+{
+  "schema": 1,
+  "id": "hayuya_weapon_animation_library_v1",
+  "groups": [
+    {
+      "id": "cc0_local_candidates",
+      "label": "CC0 weapon sources",
+      "items": [
+        {
+          "id": "quaternius_animated_guns",
+          "label": "Quaternius Animated Guns Pack",
+          "license": "CC0",
+          "models": [
+            "P90",
+            "revolver",
+            "pistol",
+            "shotgun",
+            "sniper_rifle",
+            "other"
+          ],
+          "source_url": "https://quaternius.com/packs/animatedguns.html",
+          "availability": "local_library",
+          "notes": "Six animated CC0 guns are local in HAYUYA with inspected actions/components; original source archive is also stored in GitHub.",
+          "local_library_path": "hayuya/weapon_library/quaternius-animated-guns",
+          "local_archive_path": "hayuya/source_archives/quaternius_animated_guns_source.zip"
+        },
+        {
+          "id": "oga_revolver_game_asset",
+          "label": "Revolver Game Asset",
+          "license": "CC0",
+          "family": "revolver",
+          "source_url": "https://opengameart.org/content/revolver-game-asset",
+          "availability": "local_archive",
+          "notes": "Includes reload and shoot animation plus ammunition. Source archive is now stored locally in HAYUYA. Source archive is now stored locally in HAYUYA. Source archive is now stored locally in HAYUYA. Source archive is now stored locally in HAYUYA.",
+          "local_archive_path": "hayuya/source_archives/oga_revolver_game_asset.zip"
+        },
+        {
+          "id": "oga_flat_guns_east",
+          "label": "CC0 Flat Guns East",
+          "license": "CC0",
+          "source_url": "https://opengameart.org/content/cc0-flat-guns-east",
+          "availability": "local_archive",
+          "notes": "Rigged weapon models with attachment bones; compatibility fixtures. Source archive is now stored locally in HAYUYA. Source archive is now stored locally in HAYUYA. Source archive is now stored locally in HAYUYA. Source archive is now stored locally in HAYUYA.",
+          "local_archive_path": "hayuya/source_archives/oga_flat_guns_east.zip"
+        },
+        {
+          "id": "oga_flat_guns_west",
+          "label": "CC0 Flat Guns West",
+          "license": "CC0",
+          "source_url": "https://opengameart.org/content/cc0-flat-guns-west",
+          "availability": "local_archive",
+          "notes": "Rigged weapon models with attachment bones; compatibility fixtures. Source archive is now stored locally in HAYUYA. Source archive is now stored locally in HAYUYA. Source archive is now stored locally in HAYUYA. Source archive is now stored locally in HAYUYA.",
+          "local_archive_path": "hayuya/source_archives/oga_flat_guns_west.zip"
+        }
+      ]
+    },
+    {
+      "id": "reference_only",
+      "label": "Reference-only pro libraries",
+      "items": [
+        {
+          "id": "fab_weapon_impact",
+          "label": "Weapon IMPACT bundle",
+          "availability": "reference_only",
+          "source_url": "https://www.fab.com/listings/d8a6c0a4-d3ff-4379-98ba-5971ab17cafe",
+          "notes": "Taxonomy reference: shotgun adds pump motion while pistol/rifle use magazine reload families. Do not ingest without license."
+        }
+      ]
+    }
+  ]
+}

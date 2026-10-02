@@ -1,0 +1,316 @@
+{
+  "schema": 1,
+  "input": "hayuya/weapon_library/quaternius-animated-guns/raw/Revolver.blend",
+  "armatures": [
+    {
+      "name": "RevolverArmature",
+      "bones": [
+        "Control",
+        "Drum",
+        "Hammer",
+        "Trigger",
+        "Quick",
+        "Bullets"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "name": "Fire",
+      "frame_range": [
+        0.0,
+        17.0
+      ],
+      "animated_bones": [
+        "Control",
+        "Drum",
+        "Hammer",
+        "Trigger"
+      ],
+      "bone_channels": {
+        "Control": [
+          {
+            "path": "pose.bones[\"Control\"].location",
+            "array_index": 0,
+            "keyframes": 4,
+            "value_delta": 3e-08
+          },
+          {
+            "path": "pose.bones[\"Control\"].location",
+            "array_index": 1,
+            "keyframes": 4,
+            "value_delta": 0.11321604
+          },
+          {
+            "path": "pose.bones[\"Control\"].location",
+            "array_index": 2,
+            "keyframes": 4,
+            "value_delta": 0.08511332
+          },
+          {
+            "path": "pose.bones[\"Control\"].rotation_quaternion",
+            "array_index": 0,
+            "keyframes": 4,
+            "value_delta": 0.0018959
+          },
+          {
+            "path": "pose.bones[\"Control\"].rotation_quaternion",
+            "array_index": 1,
+            "keyframes": 4,
+            "value_delta": 0.06154856
+          },
+          {
+            "path": "pose.bones[\"Control\"].rotation_quaternion",
+            "array_index": 3,
+            "keyframes": 4,
+            "value_delta": 2e-08
+          }
+        ],
+        "Drum": [
+          {
+            "path": "pose.bones[\"Drum\"].rotation_quaternion",
+            "array_index": 0,
+            "keyframes": 2,
+            "value_delta": 0.28649241
+          },
+          {
+            "path": "pose.bones[\"Drum\"].rotation_quaternion",
+            "array_index": 1,
+            "keyframes": 2,
+            "value_delta": 2e-08
+          },
+          {
+            "path": "pose.bones[\"Drum\"].rotation_quaternion",
+            "array_index": 2,
+            "keyframes": 2,
+            "value_delta": 0.70064753
+          },
+          {
+            "path": "pose.bones[\"Drum\"].rotation_quaternion",
+            "array_index": 3,
+            "keyframes": 2,
+            "value_delta": 1.5e-07
+          }
+        ],
+        "Hammer": [
+          {
+            "path": "pose.bones[\"Hammer\"].rotation_quaternion",
+            "array_index": 0,
+            "keyframes": 4,
+            "value_delta": 0.16690212
+          },
+          {
+            "path": "pose.bones[\"Hammer\"].rotation_quaternion",
+            "array_index": 1,
+            "keyframes": 4,
+            "value_delta": 0.55312568
+          },
+          {
+            "path": "pose.bones[\"Hammer\"].rotation_quaternion",
+            "array_index": 3,
+            "keyframes": 4,
+            "value_delta": 2.2e-07
+          }
+        ],
+        "Trigger": [
+          {
+            "path": "pose.bones[\"Trigger\"].rotation_quaternion",
+            "array_index": 0,
+            "keyframes": 4,
+            "value_delta": 0.12802368
+          },
+          {
+            "path": "pose.bones[\"Trigger\"].rotation_quaternion",
+            "array_index": 1,
+            "keyframes": 4,
+            "value_delta": 0.48954809
+          },
+          {
+            "path": "pose.bones[\"Trigger\"].rotation_quaternion",
+            "array_index": 3,
+            "keyframes": 4,
+            "value_delta": 5.1e-07
+          },
+          {
+            "path": "pose.bones[\"Trigger\"].scale",
+            "array_index": 1,
+            "keyframes": 4,
+            "value_delta": 1.2e-07
+          }
+        ]
+      },
+      "object_channels": [],
+      "mechanical_motion_present": true
+    },
+    {
+      "name": "Reload",
+      "frame_range": [
+        0.0,
+        46.0
+      ],
+      "animated_bones": [
+        "Bullets",
+        "Control",
+        "Drum",
+        "Quick"
+      ],
+      "bone_channels": {
+        "Control": [
+          {
+            "path": "pose.bones[\"Control\"].location",
+            "array_index": 0,
+            "keyframes": 11,
+            "value_delta": 0.16776482
+          },
+          {
+            "path": "pose.bones[\"Control\"].location",
+            "array_index": 1,
+            "keyframes": 11,
+            "value_delta": 0.1219067
+          },
+          {
+            "path": "pose.bones[\"Control\"].location",
+            "array_index": 2,
+            "keyframes": 11,
+            "value_delta": 0.09164676
+          },
+          {
+            "path": "pose.bones[\"Control\"].rotation_quaternion",
+            "array_index": 0,
+            "keyframes": 11,
+            "value_delta": 0.00094616
+          },
+          {
+            "path": "pose.bones[\"Control\"].rotation_quaternion",
+            "array_index": 1,
+            "keyframes": 11,
+            "value_delta": 0.06562317
+          },
+          {
+            "path": "pose.bones[\"Control\"].rotation_quaternion",
+            "array_index": 2,
+            "keyframes": 11,
+            "value_delta": 0.05911655
+          },
+          {
+            "path": "pose.bones[\"Control\"].rotation_quaternion",
+            "array_index": 3,
+            "keyframes": 11,
+            "value_delta": 0.04444251
+          }
+        ],
+        "Drum": [
+          {
+            "path": "pose.bones[\"Drum\"].location",
+            "array_index": 0,
+            "keyframes": 9,
+            "value_delta": 2.42935491
+          },
+          {
+            "path": "pose.bones[\"Drum\"].location",
+            "array_index": 1,
+            "keyframes": 9,
+            "value_delta": 7e-08
+          },
+          {
+            "path": "pose.bones[\"Drum\"].location",
+            "array_index": 2,
+            "keyframes": 9,
+            "value_delta": 0.69954062
+          }
+        ],
+        "Quick": [
+          {
+            "path": "pose.bones[\"Quick\"].location",
+            "array_index": 0,
+            "keyframes": 16,
+            "value_delta": 6.65215397
+          },
+          {
+            "path": "pose.bones[\"Quick\"].location",
+            "array_index": 1,
+            "keyframes": 16,
+            "value_delta": 4.74752975
+          },
+          {
+            "path": "pose.bones[\"Quick\"].location",
+            "array_index": 2,
+            "keyframes": 16,
+            "value_delta": 301.99854338
+          },
+          {
+            "path": "pose.bones[\"Quick\"].rotation_quaternion",
+            "array_index": 0,
+            "keyframes": 16,
+            "value_delta": 0.50292534
+          },
+          {
+            "path": "pose.bones[\"Quick\"].rotation_quaternion",
+            "array_index": 1,
+            "keyframes": 16,
+            "value_delta": 0.86770785
+          },
+          {
+            "path": "pose.bones[\"Quick\"].rotation_quaternion",
+            "array_index": 2,
+            "keyframes": 16,
+            "value_delta": 0.29652956
+          },
+          {
+            "path": "pose.bones[\"Quick\"].rotation_quaternion",
+            "array_index": 3,
+            "keyframes": 16,
+            "value_delta": 0.024763
+          }
+        ],
+        "Bullets": [
+          {
+            "path": "pose.bones[\"Bullets\"].location",
+            "array_index": 0,
+            "keyframes": 18,
+            "value_delta": 8.70343089
+          },
+          {
+            "path": "pose.bones[\"Bullets\"].location",
+            "array_index": 1,
+            "keyframes": 18,
+            "value_delta": 2.31815052
+          },
+          {
+            "path": "pose.bones[\"Bullets\"].location",
+            "array_index": 2,
+            "keyframes": 18,
+            "value_delta": 12.05787206
+          },
+          {
+            "path": "pose.bones[\"Bullets\"].rotation_quaternion",
+            "array_index": 0,
+            "keyframes": 18,
+            "value_delta": 0.04497629
+          },
+          {
+            "path": "pose.bones[\"Bullets\"].rotation_quaternion",
+            "array_index": 1,
+            "keyframes": 18,
+            "value_delta": 1e-08
+          },
+          {
+            "path": "pose.bones[\"Bullets\"].rotation_quaternion",
+            "array_index": 2,
+            "keyframes": 18,
+            "value_delta": 0.29652956
+          },
+          {
+            "path": "pose.bones[\"Bullets\"].rotation_quaternion",
+            "array_index": 3,
+            "keyframes": 18,
+            "value_delta": 8e-08
+          }
+        ]
+      },
+      "object_channels": [],
+      "mechanical_motion_present": true
+    }
+  ],
+  "action_count": 2
+}

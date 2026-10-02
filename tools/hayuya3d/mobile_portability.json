@@ -1,0 +1,769 @@
+{
+  "schema": 1,
+  "name": "HAYUYA Mobile Portability Knowledge Base",
+  "researched_at": "2026-09-23",
+  "intent": "Machine-readable rules for deriving portable mobile/game assets from a source-faithful hero master. These are portability budgets and capability notes, not claims of universal engine hard limits.",
+  "portability_definition": {
+    "portable_is_not_one_polygon_number": true,
+    "hero_master_is_never_mobile_ceiling": true,
+    "runtime_derivatives_are_required": true,
+    "budget_axes": [
+      "sustained frame time",
+      "CPU/render-thread draw submission",
+      "visible geometry",
+      "material and shader complexity",
+      "texture/GPU memory bandwidth",
+      "overdraw/transparency",
+      "dynamic lights and shadows",
+      "animation/skinning cost",
+      "RAM/streaming pressure",
+      "thermal headroom and battery",
+      "device GPU/API feature support"
+    ],
+    "principle": "A portable asset is one that can be transformed into tiered runtime derivatives without destroying the high-quality master, and whose runtime forms respect scene-level performance, memory, bandwidth and thermal budgets."
+  },
+  "universal_rules": {
+    "preserve_hero_master": true,
+    "generate_lods": true,
+    "prefer_shared_materials_and_atlases": true,
+    "minimize_material_slots": true,
+    "avoid_unnecessary_transparency_and_overdraw": true,
+    "keep_collision_simpler_than_render_mesh": true,
+    "texture_mipmaps_required_for_3d": true,
+    "compressed_mobile_textures_required": true,
+    "android_primary_texture_format": "ASTC",
+    "android_fallback_texture_format": "ETC2",
+    "portable_distribution_texture_container": "KTX2 + Basis Universal when target runtime supports KHR_texture_basisu",
+    "portable_asset_container": "glTF 2.0 / GLB baseline",
+    "use_occlusion_and_distance_culling_in_scene": true,
+    "baked_or_hybrid_lighting_preferred_for_broad_compatibility": true,
+    "dynamic_quality_scaling_required_for_long_mobile_sessions": true,
+    "thermal_validation_minimum_minutes": 15,
+    "validate_on_real_low_mid_high_devices": true,
+    "profile_cpu_gpu_memory_and_thermal_separately": true,
+    "profile_multiple_gpu_vendors": true,
+    "no_universal_per_asset_triangle_limit": true,
+    "no_universal_draw_call_limit": true
+  },
+  "hayuya_house_runtime_tiers": {
+    "compatibility": {
+      "intent": "Broad lower-end mobile compatibility; prioritize sustained 30 FPS and low bandwidth.",
+      "nominal_fps": 30,
+      "frame_budget_ms": 33.33,
+      "prop_lod0_triangles": [
+        5000,
+        15000
+      ],
+      "character_lod0_triangles": [
+        15000,
+        35000
+      ],
+      "architecture_piece_lod0_triangles": [
+        5000,
+        20000
+      ],
+      "default_texture_edge_px": 1024,
+      "exceptional_texture_edge_px": 2048,
+      "recommended_astc_block": "8x8 or 6x6 depending importance",
+      "material_slots_target": [
+        1,
+        2
+      ],
+      "lighting_bias": "baked/static, one dominant dynamic light only when needed",
+      "transparency_bias": "avoid; use cutout sparingly",
+      "notes": "HAYUYA house budget, not an engine hard limit."
+    },
+    "balanced": {
+      "intent": "Mainstream mobile quality; sustained 30-60 FPS depending device and scene.",
+      "nominal_fps": 45,
+      "frame_budget_ms": 22.22,
+      "prop_lod0_triangles": [
+        10000,
+        30000
+      ],
+      "character_lod0_triangles": [
+        30000,
+        60000
+      ],
+      "architecture_piece_lod0_triangles": [
+        10000,
+        40000
+      ],
+      "default_texture_edge_px": 2048,
+      "exceptional_texture_edge_px": 2048,
+      "recommended_astc_block": "6x6",
+      "material_slots_target": [
+        1,
+        3
+      ],
+      "lighting_bias": "baked/hybrid with tightly bounded dynamic lights and shadows",
+      "transparency_bias": "limited screen coverage",
+      "notes": "HAYUYA house budget, not an engine hard limit."
+    },
+    "high": {
+      "intent": "High-end mobile; preserve close-range fidelity while remaining scalable.",
+      "nominal_fps": 60,
+      "frame_budget_ms": 16.67,
+      "prop_lod0_triangles": [
+        20000,
+        60000
+      ],
+      "character_lod0_triangles": [
+        50000,
+        100000
+      ],
+      "architecture_piece_lod0_triangles": [
+        20000,
+        80000
+      ],
+      "default_texture_edge_px": 2048,
+      "exceptional_texture_edge_px": 4096,
+      "recommended_astc_block": "6x6 or 5x5 for hero materials",
+      "material_slots_target": [
+        1,
+        4
+      ],
+      "lighting_bias": "hybrid/dynamic selectively; shadow distance and quality must scale",
+      "transparency_bias": "budget by screen coverage and overdraw",
+      "notes": "HAYUYA house budget, not an engine hard limit."
+    },
+    "flagship": {
+      "intent": "Flagship mobile / showcase quality. Requires device profiling and fallback tiers.",
+      "nominal_fps": 60,
+      "frame_budget_ms": 16.67,
+      "prop_lod0_triangles": [
+        40000,
+        100000
+      ],
+      "character_lod0_triangles": [
+        80000,
+        180000
+      ],
+      "architecture_piece_lod0_triangles": [
+        40000,
+        150000
+      ],
+      "default_texture_edge_px": 2048,
+      "exceptional_texture_edge_px": 4096,
+      "hero_source_texture_edge_px": 8192,
+      "recommended_astc_block": "5x5 or 4x4 selectively; 6x6 for less critical maps",
+      "material_slots_target": [
+        1,
+        6
+      ],
+      "lighting_bias": "advanced mobile renderer allowed but must have lower tiers",
+      "transparency_bias": "selective; aggressively test overdraw",
+      "notes": "HAYUYA house budget, not an engine hard limit. 8K belongs to source/hero or exceptional use, not blanket runtime use."
+    }
+  },
+  "lod_policy": {
+    "source_master": "never destructively optimized",
+    "lod0": "tier-budget runtime hero",
+    "lod1_ratio": 0.55,
+    "lod2_ratio": 0.28,
+    "lod3_ratio": 0.12,
+    "distant_impostor_or_hlod": "recommended for environment/architecture where supported",
+    "material_rule": "preserve appearance using shared PBR transfer/bakes; do not create extra material slots per LOD",
+    "rig_rule": "do not simplify rigged meshes unless joints/weights are preserved and validated"
+  },
+  "engine_profiles": [
+    {
+      "id": "unreal-5.8-mobile",
+      "class": "major",
+      "renderer": "Mobile Forward / Mobile Deferred; experimental/beta desktop-renderer paths on select mobile",
+      "graphics_apis": [
+        "Android OpenGL ES 3.2",
+        "Android Vulkan",
+        "iOS Metal 2.0"
+      ],
+      "portable_features": [
+        "LOD",
+        "HLOD",
+        "texture streaming",
+        "virtual textures",
+        "occlusion culling",
+        "dynamic and baked lighting"
+      ],
+      "notable_mobile_limits": [
+        "standard mobile renderer: no Nanite",
+        "no TSR",
+        "no hardware ray tracing",
+        "no Path Tracer",
+        "no Virtual Shadow Maps",
+        "no Lumen GI/reflections on standard mobile path"
+      ],
+      "public_numeric_guidance": [
+        "<=700 scene draw calls per single view",
+        "<=500k scene triangles per single view",
+        "~700 draw-call target Galaxy Tab S6; <500 lower-end"
+      ],
+      "asset_implication": "Do not interpret scene budgets as a per-asset cap. Keep material IDs low, build LOD/HLOD, and preserve a separate hero master."
+    },
+    {
+      "id": "unity-6-urp",
+      "class": "major",
+      "renderer": "URP Forward / Forward+ / Deferred with Render Graph",
+      "graphics_apis": [
+        "Vulkan Android",
+        "Metal iOS",
+        "other platform-supported mobile backends"
+      ],
+      "portable_features": [
+        "SRP Batcher",
+        "GPU Resident Drawer",
+        "GPU occlusion culling",
+        "LOD",
+        "Render Graph native-pass merging",
+        "runtime quality assets",
+        "Adaptive Performance integrations"
+      ],
+      "notable_mobile_limits": [
+        "Deferred has higher mobile performance impact than Forward/Forward+ in current URP docs",
+        "feature cost is device/content dependent",
+        "mobile remains bandwidth/overdraw/thermal sensitive"
+      ],
+      "public_numeric_guidance": [],
+      "asset_implication": "Shared materials, instancing-friendly assets, LODs, ASTC/ETC2 variants and scalable texture/shader tiers."
+    },
+    {
+      "id": "godot-4-mobile",
+      "class": "major-open-source",
+      "renderer": "Mobile renderer (modern APIs) plus Compatibility renderer for older/lower-end devices; Forward+ for higher-end/desktop-class use",
+      "graphics_apis": [
+        "Vulkan/modern mobile backend",
+        "OpenGL compatibility path"
+      ],
+      "portable_features": [
+        "LOD",
+        "visibility ranges/HLOD-style replacement",
+        "occlusion culling",
+        "MultiMesh instancing",
+        "baked lighting"
+      ],
+      "notable_mobile_limits": [
+        "realtime lights/shadows/GI can be too expensive on low-power mobile",
+        "transparent rendering/overdraw is costly",
+        "automatic instancing behavior differs by renderer"
+      ],
+      "public_numeric_guidance": [],
+      "asset_implication": "Keep opaque, instanceable, LOD-ready meshes and provide baked-lighting-friendly UV/material structure."
+    },
+    {
+      "id": "cocos-creator-3.8",
+      "class": "major-mobile-focused",
+      "renderer": "Cocos Creator 3D mobile/web renderer",
+      "graphics_apis": [
+        "platform-dependent mobile graphics backends"
+      ],
+      "portable_features": [
+        "mesh LOD",
+        "instancing batching",
+        "ASTC/ETC/PVRTC texture compression"
+      ],
+      "notable_mobile_limits": [
+        "transparent instances in a batch may sort incorrectly",
+        "non-uniform scale can produce inaccurate normals in instancing path",
+        "dynamic batching has animation/content restrictions"
+      ],
+      "public_numeric_guidance": [
+        "docs recommend ASTC 6x6 for high-quality model textures as a practical preset"
+      ],
+      "asset_implication": "Generate LODs, uniform-scale-safe normals, instancing-friendly variants and compressed texture packs."
+    },
+    {
+      "id": "defold",
+      "class": "mobile-focused",
+      "renderer": "scriptable lightweight renderer",
+      "graphics_apis": [
+        "platform-dependent native/web backends"
+      ],
+      "portable_features": [
+        "glTF/GLB models",
+        "Basis Universal",
+        "ASTC",
+        "instancing where compatible",
+        "GPU skinning where supported"
+      ],
+      "notable_mobile_limits": [
+        "draw calls remain expensive",
+        "hardware texture sampler limits vary",
+        "CPU skinning fallback reduces instancing opportunities",
+        "built-in glTF PBR lighting model is not supplied automatically"
+      ],
+      "public_numeric_guidance": [
+        "project setting can split meshes above 65,536 vertices for compatibility paths"
+      ],
+      "asset_implication": "Prefer simple material contracts, few draw calls, portable GLB and compressed textures."
+    },
+    {
+      "id": "playcanvas",
+      "class": "web-mobile-3d",
+      "renderer": "WebGL2 with WebGPU support path",
+      "graphics_apis": [
+        "WebGL2",
+        "WebGPU"
+      ],
+      "portable_features": [
+        "PBR",
+        "instancing",
+        "skin/morph animation",
+        "Basis textures"
+      ],
+      "notable_mobile_limits": [
+        "browser memory and power constraints",
+        "instance culling behavior must be considered",
+        "device pixel ratio can multiply fill/bandwidth cost"
+      ],
+      "public_numeric_guidance": [
+        "rough low-end mobile target: 100-200 draw calls"
+      ],
+      "asset_implication": "Strongly minimize material/mesh splits and texture memory; keep web-ready compressed variants."
+    },
+    {
+      "id": "o3de-atom",
+      "class": "open-source-aaa",
+      "renderer": "Atom modular pipelines; low-end pipeline is default for iOS/Android",
+      "graphics_apis": [
+        "Vulkan Android",
+        "Metal iOS"
+      ],
+      "portable_features": [
+        "custom render pipelines",
+        "Forward+/other modular techniques"
+      ],
+      "notable_mobile_limits": [
+        "desktop/main pipeline should not be assumed portable; mobile defaults to low-end pipeline"
+      ],
+      "public_numeric_guidance": [],
+      "asset_implication": "Keep the asset renderer-agnostic and provide low-end material/LOD variants."
+    },
+    {
+      "id": "roblox",
+      "class": "large-platform-engine",
+      "renderer": "Roblox cross-device engine",
+      "graphics_apis": [
+        "platform-managed"
+      ],
+      "portable_features": [
+        "mesh instancing",
+        "quality-level scaling",
+        "streaming/engine-managed cross-device representation"
+      ],
+      "notable_mobile_limits": [
+        "draw-call and content density costs",
+        "quality level is device-dependent and not a stable numeric asset contract"
+      ],
+      "public_numeric_guidance": [],
+      "asset_implication": "Identical reusable meshes/textures, low material variety, scalable geometric detail."
+    },
+    {
+      "id": "flax-mobile",
+      "class": "secondary-3d",
+      "renderer": "Vulkan-centric mobile path with scalable graphics quality",
+      "graphics_apis": [
+        "Vulkan Android",
+        "Vulkan via MoltenVK on iOS"
+      ],
+      "portable_features": [
+        "rendering percentage",
+        "texture groups",
+        "per-platform mip caps",
+        "ASTC 4x4/6x6/8x8"
+      ],
+      "notable_mobile_limits": [
+        "advanced desktop-like effects need aggressive per-device scaling"
+      ],
+      "public_numeric_guidance": [],
+      "asset_implication": "Provide ASTC-ready textures, mip/quality groups and renderer-neutral LODs."
+    },
+    {
+      "id": "stride-mobile",
+      "class": "secondary-3d",
+      "renderer": "cross-platform Stride renderer",
+      "graphics_apis": [
+        "platform-dependent Android/iOS graphics backends"
+      ],
+      "portable_features": [
+        "cross-platform build targeting"
+      ],
+      "notable_mobile_limits": [
+        "mobile documentation is less prescriptive/current than Unreal/Unity/Godot; do not use as primary budget authority"
+      ],
+      "public_numeric_guidance": [],
+      "asset_implication": "Use conservative GLB/PBR/LOD conventions rather than engine-specific assumptions."
+    },
+    {
+      "id": "cryengine-android-legacy",
+      "class": "legacy-secondary",
+      "renderer": "historical Android/Vulkan/GLES support in CRYENGINE 5.x documentation",
+      "graphics_apis": [
+        "OpenGL ES 3.1 historical",
+        "Vulkan historical/experimental evolution"
+      ],
+      "portable_features": [
+        "32-bit index-buffer work and mobile Vulkan support appeared in 5.x"
+      ],
+      "notable_mobile_limits": [
+        "current public mobile guidance is comparatively stale; not a primary 2026 portability authority"
+      ],
+      "public_numeric_guidance": [],
+      "asset_implication": "Track for compatibility knowledge only, not for modern default budgets."
+    },
+    {
+      "id": "netease-neox-messiah",
+      "class": "large-proprietary-mobile",
+      "renderer": "Proprietary NetEase game-engine stack",
+      "graphics_apis": [
+        "platform-specific; public filing does not expose a stable API contract"
+      ],
+      "portable_features": [
+        "NeoX adapted to iOS/Android",
+        "Messiah designed specifically for mobile 3D",
+        "high-quality lighting/audio/VFX/physics/animation"
+      ],
+      "notable_mobile_limits": [
+        "no public universal per-asset polygon/draw-call ceiling",
+        "production limits remain game/device specific"
+      ],
+      "public_numeric_guidance": [
+        "Ace Racer public GDC production talk: high-quality realistic graphics at 90fps"
+      ],
+      "asset_implication": "Treat 90fps/high-fidelity mobile as possible on tuned content, but keep all Hayuya fallback tiers; do not infer proprietary engine internals that NetEase has not published."
+    },
+    {
+      "id": "gamemaker-mobile",
+      "class": "secondary-cross-platform",
+      "renderer": "GameMaker renderer; primarily 2D but supports surfaces/3D graphics and Android GPU targeting",
+      "graphics_apis": [
+        "platform-managed"
+      ],
+      "portable_features": [
+        "texture groups/pages",
+        "VRAM prefetch/flush controls",
+        "Android dedicated-GPU targeting"
+      ],
+      "notable_mobile_limits": [
+        "texture swaps and texture-page VRAM matter",
+        "24-bit screen color can cost performance",
+        "large-resolution/3D projects should target GPU-capable devices"
+      ],
+      "public_numeric_guidance": [
+        "official Android guidance suggests 1024x1024 texture pages when uncertain because of Android fragmentation"
+      ],
+      "asset_implication": "Useful compatibility reference for texture-page/VRAM discipline, not a high-end 3D quality authority."
+    },
+    {
+      "id": "construct-3-web-mobile",
+      "class": "secondary-web-mobile-3d",
+      "renderer": "WebGPU/WebGL browser renderer with growing 3D model support",
+      "graphics_apis": [
+        "WebGPU",
+        "WebGL"
+      ],
+      "portable_features": [
+        "3D models",
+        "WebGPU renderer",
+        "multitexturing",
+        "browser/mobile export"
+      ],
+      "notable_mobile_limits": [
+        "fill rate can dominate on mobile",
+        "multitexturing trades CPU texture-switch cost for per-pixel GPU work",
+        "browser/mobile GPU capability varies"
+      ],
+      "public_numeric_guidance": [],
+      "asset_implication": "Keep fill-rate, texture switching, effects and screen coverage conservative for browser-mobile variants."
+    },
+    {
+      "id": "libgdx",
+      "class": "framework",
+      "renderer": "OpenGL ES-oriented cross-platform Java framework",
+      "graphics_apis": [
+        "OpenGL ES 2.0 Android",
+        "OpenGL ES 3.0 Android",
+        "WebGL 2 optional web path"
+      ],
+      "portable_features": [
+        "custom rendering architecture",
+        "cross-platform Android/iOS/Web/Desktop"
+      ],
+      "notable_mobile_limits": [
+        "developer owns most batching/material/LOD policy",
+        "API feature floor changes between GLES2 and GLES3",
+        "iOS OpenGL ES path is legacy/experimental in its current docs"
+      ],
+      "public_numeric_guidance": [],
+      "asset_implication": "Use conservative GLB/PBR-derived content and explicit low-feature variants; do not assume an engine-managed scalability system."
+    },
+    {
+      "id": "monogame",
+      "class": "framework",
+      "renderer": "Cross-platform C# framework rather than a full content-scalability engine",
+      "graphics_apis": [
+        "platform-dependent"
+      ],
+      "portable_features": [
+        "custom 2D/3D rendering"
+      ],
+      "notable_mobile_limits": [
+        "developer is responsible for draw batching, LOD, material complexity, streaming and quality tiers"
+      ],
+      "public_numeric_guidance": [],
+      "asset_implication": "HAYUYA should export neutral meshes/textures and metadata rather than depend on engine-side automatic optimization."
+    },
+    {
+      "id": "android-native-vulkan-custom",
+      "class": "custom-native-engine",
+      "renderer": "Developer-owned native renderer",
+      "graphics_apis": [
+        "Vulkan primary",
+        "OpenGL ES compatibility/legacy"
+      ],
+      "portable_features": [
+        "full control of render passes",
+        "frame pacing",
+        "ADPF",
+        "Memory Advice",
+        "Game Mode",
+        "custom streaming/LOD/material systems"
+      ],
+      "notable_mobile_limits": [
+        "no engine safety net; developer owns CPU/GPU synchronization, draw submission, resource lifetime, memory, thermal adaptation and device compatibility",
+        "vendor/generation bottlenecks vary substantially"
+      ],
+      "public_numeric_guidance": [
+        "Vulkan lowers driver/draw-call overhead versus OpenGL ES in draw-heavy scenes; no universal draw-call/triangle ceiling"
+      ],
+      "asset_implication": "HAYUYA output must be explicit and auditable: LOD chain, texture tiers, material count, collision, scale/orientation, compression plan and runtime budget metadata."
+    }
+  ],
+  "public_large_game_case_studies": [
+    {
+      "id": "cod-mobile",
+      "engine_or_stack": "Unity + TiMi/Samsung adaptive performance work",
+      "lessons": [
+        "PBR/high-resolution textures create heavy CPU/GPU workload",
+        "scale shadow distance",
+        "scale foliage LOD",
+        "scale animation update rate/LOD",
+        "scale target FPS before thermal throttling"
+      ],
+      "reported_result": "Samsung case study reports ~7% higher average FPS and ~2C average / 3C max lower temperature in its tested BR battles."
+    },
+    {
+      "id": "pubg-mobile",
+      "engine_or_stack": "Unreal Engine 4 / Tencent",
+      "lessons": [
+        "texture streaming for RAM/GPU efficiency",
+        "FOV/distance culling",
+        "dynamic instancing",
+        "same material across LODs to reduce shader switches",
+        "simplify distant shaders",
+        "reduce per-object memory",
+        "async loading for huge maps"
+      ]
+    },
+    {
+      "id": "honor-of-kings",
+      "engine_or_stack": "Tencent production renderer",
+      "lessons": [
+        "support hardware from entry-level to latest",
+        "shading-pipeline optimization",
+        "1080p60 shipped target requires engine-level specialization and scalability"
+      ],
+      "reported_result": "GDC 2023 session describes shipping 1080p 60fps while targeting varied hardware."
+    },
+    {
+      "id": "lineage-w",
+      "engine_or_stack": "Unreal Engine + Android ADPF",
+      "lessons": [
+        "peak FPS is not sustained FPS",
+        "quality scalers should map to game-specific settings",
+        "thermal headroom must influence resolution/view distance/post and other fidelity"
+      ],
+      "reported_result": "Google case study: 60fps test on Pixel 6 fell to 32fps after thermal pressure without adaptability; game-specific ADPF tuning sustained a much more stable result."
+    },
+    {
+      "id": "asphalt-9",
+      "engine_or_stack": "Gameloft proprietary stack + Android Game Mode",
+      "lessons": [
+        "offer 30/60fps modes by device",
+        "battery mode can remove expensive reflection/ray-tracing, DoF and simplify motion blur/weather shaders",
+        "quality should follow performance/battery preference"
+      ]
+    },
+    {
+      "id": "arena-breakout",
+      "engine_or_stack": "Tencent/MoreFun mobile production stack",
+      "lessons": [
+        "high-end mobile can support very high refresh and selected ray-tracing effects",
+        "these are flagship paths, not baseline portability requirements"
+      ],
+      "reported_result": "Tencent GDC 2024 schedule documents sessions on 144 FPS mobile rendering and mobile ray tracing."
+    }
+  ],
+  "gpu_platform_rules": {
+    "android": {
+      "primary_api": "Vulkan",
+      "legacy_api": "OpenGL ES remains supported but not primary for new graphics features",
+      "texture_primary": "ASTC",
+      "texture_fallback": "ETC2",
+      "thermal_rule": "measure thermal headroom and adapt before severe throttling",
+      "memory_rule": "use Memory Advice / engine telemetry where possible; do not assume one RAM budget across devices"
+    },
+    "ios": {
+      "primary_api": "Metal",
+      "architecture_rule": "Apple GPUs use tile-based deferred rendering; minimize render-target/system-memory round trips",
+      "memory_rule": "memory limits are device-dependent; excessive use can trigger termination",
+      "texture_rule": "ASTC is broadly relevant on Apple GPU families; select formats by target capability"
+    },
+    "common_tile_gpu": {
+      "rule": "Keep transient/deferred data on-chip when engine/API supports it; avoid unnecessary stores/loads and render passes.",
+      "why": "External memory bandwidth costs performance and power on tile-based mobile GPUs."
+    },
+    "powervr": {
+      "architecture": "Tile-Based Deferred Rendering (TBDR)",
+      "rules": [
+        "Keep opaque work friendly to hidden-surface removal.",
+        "Avoid unnecessary system-memory stores/loads for transient attachments.",
+        "Treat discard/alpha-test and layered transparency as architecture-sensitive costs.",
+        "Keep temporary deferred data on-chip where the renderer/API permits."
+      ],
+      "why": "PowerVR documentation describes bandwidth/power savings from tile memory and hidden-surface removal; mobile efficiency depends strongly on minimizing system-memory traffic."
+    },
+    "cross_vendor_android": {
+      "vendors": [
+        "Adreno",
+        "Mali",
+        "PowerVR and other Vulkan/OpenGL ES implementations"
+      ],
+      "rule": "Never infer one GPU's bottleneck from another. Profile CPU and GPU frame time on real vendor hardware; vendor and generation differences can materially change bottlenecks.",
+      "tools": [
+        "Android GPU Inspector",
+        "RenderDoc",
+        "Arm Performance Studio where applicable",
+        "Android Performance Analyzer"
+      ],
+      "geometry": "Use LOD, culling and mesh simplification when geometry is the actual bottleneck.",
+      "shaders": "Use the lowest adequate precision and avoid needless passes/attachments.",
+      "textures": "Use GPU compression and mipmaps; ASTC primary on modern Android with fallback packaging."
+    }
+  },
+  "zombie_game_asset_rules": {
+    "crowd_zombies": "Use shared skeletons/materials where possible, animation LOD/update throttling, mesh LODs and instancing/batching-compatible materials.",
+    "hero_zombie": "Allow higher LOD0 and richer material detail, but retain lower LODs and cheaper shadow/material variants.",
+    "gore_transparency": "Prefer geometry/decals/masks with controlled screen coverage; uncontrolled translucent layers are high-risk for overdraw.",
+    "environment": "Favor modular reusable meshes, shared atlases/materials, occlusion-friendly layout, HLOD/impostors for distance, baked/hybrid lighting.",
+    "props": "Keep material slots low and collapse tiny geometric detail into normal/detail maps only when that is cheaper for the target tier.",
+    "collision": "Generate simplified convex/simple collision; render mesh is not the collision budget.",
+    "textures": "Keep 8K at hero/source level unless a flagship runtime test proves it justified; derive 4K/2K/1K tier variants with mipmaps and mobile compression."
+  },
+  "confidence_policy": {
+    "official_docs_over_blog_marketing": true,
+    "numeric_values_are_contextual": true,
+    "no_vendor_private_reverse_engineering": true,
+    "public_technical_talks_and_postmortems_allowed": true,
+    "stale_guidance_must_be_labeled": true,
+    "real_device_profiling_overrides_house_budgets": true
+  },
+  "coverage": {
+    "scope": "Major current 3D-capable mobile engines, mobile-first runtimes, web-mobile 3D stacks, large proprietary production engines with public evidence, and mobile GPU/platform constraints.",
+    "living_knowledge_base": true,
+    "literal_every_engine_claim": false,
+    "rationale": "There are thousands of niche, internal and abandoned engines. Hayuya tracks engines that materially change a 3D mobile asset contract, plus large-company internal engines when credible public technical evidence exists."
+  },
+  "research_sources": {
+    "android_engine_overview": [
+      "https://developer.android.com/games/engines/engines-overview",
+      "https://developer.android.com/games/guides/basics",
+      "https://developer.android.com/games/optimize/adpf/game-engine-support"
+    ],
+    "unreal": [
+      "https://dev.epicgames.com/documentation/unreal-engine/rendering-features-reference",
+      "https://dev.epicgames.com/documentation/unreal-engine/mobile-rendering-and-shading-modes-for-unreal-engine",
+      "https://dev.epicgames.com/documentation/unreal-engine/performance-guidelines-for-mobile-devices-in-unreal-engine",
+      "https://dev.epicgames.com/documentation/unreal-engine/optimization-and-development-best-practices-for-mobile-projects-in-unreal-engine"
+    ],
+    "unity": [
+      "https://docs.unity.com/en-us/engine/6000.7/manual/render-pipelines/universal-render-pipeline/introduction/urp-concepts/rendering-paths/comparison",
+      "https://docs.unity.com/en-us/engine/6000.7/manual/render-pipelines/universal-render-pipeline/customizing-urp/render-graph/introduction",
+      "https://docs.unity3d.com/Manual/optimizing-draw-calls-choose-method.html"
+    ],
+    "godot": [
+      "https://docs.godotengine.org/en/latest/tutorials/performance/optimizing_3d_performance.html",
+      "https://docs.godotengine.org/en/latest/tutorials/performance/using_multimesh.html",
+      "https://docs.godotengine.org/en/latest/tutorials/rendering/renderers.html"
+    ],
+    "cocos": [
+      "https://docs.cocos.com/creator/3.8/manual/en/engine/renderable/model-component.html",
+      "https://docs.cocos.com/creator/3.8/manual/en/asset/compress-texture.html"
+    ],
+    "defold": [
+      "https://defold.com/manuals/performance/",
+      "https://defold.com/manuals/model/",
+      "https://defold.com/manuals/texture-profiles/"
+    ],
+    "playcanvas": [
+      "https://developer.playcanvas.com/user-manual/optimization/guidelines/",
+      "https://developer.playcanvas.com/user-manual/graphics/advanced-rendering/instancing/"
+    ],
+    "netease": [
+      "https://www.sec.gov/Archives/edgar/data/1110646/000110465926043468/ntes-20251231x20f.htm",
+      "https://www.gdcvault.com/play/1028909/Achieving-High-Quality-90fps-Realism"
+    ],
+    "gamemaker": [
+      "https://manual.gamemaker.io/lts/en/Settings/Texture_Groups.htm",
+      "https://gamemaker.io/en/help/articles/android-compiling-your-app"
+    ],
+    "construct": [
+      "https://www.construct.net/en/make-games/manuals/construct-3/tips-and-guides/performance-tips",
+      "https://www.construct.net/en/make-games/manuals/construct-3/project-primitives/projects"
+    ],
+    "libgdx": [
+      "https://libgdx.com/wiki/graphics/opengl-es-support",
+      "https://libgdx.com/features/"
+    ],
+    "mobile_platform": [
+      "https://developer.android.com/games/optimize/adpf",
+      "https://developer.android.com/games/optimize/adpf/thermal",
+      "https://developer.android.com/games/optimize/textures",
+      "https://developer.apple.com/documentation/Metal/rendering-a-scene-with-deferred-lighting-in-swift",
+      "https://www.khronos.org/gltf/",
+      "https://www.khronos.org/ktx/"
+    ],
+    "android_native_and_gpu": [
+      "https://developer.android.com/games/optimize/optimization-tips",
+      "https://developer.android.com/games/optimize/power",
+      "https://developer.android.com/games/develop/vulkan/native-engine-support",
+      "https://developer.android.com/android-performance-analyzer/analyze/frame-times",
+      "https://docs.imgtec.com/starter-guides/powervr-architecture/html/topics/tile-based-deferred-rendering-index.html",
+      "https://docs.imgtec.com/starter-guides/powervr-architecture/html/topics/rules/do-use-on-chip-memory-efficiently-for-deferred-rendering.html"
+    ]
+  },
+  "texture_delivery": {
+    "strategy": "Physical KTX2/Basis Universal embedded in runtime GLBs with KHR_texture_basisu; engine build systems may transcode to native ASTC/ETC2 as appropriate.",
+    "toolchain": {
+      "gltf_transform": {
+        "package": "@gltf-transform/cli",
+        "version": "4.5.0",
+        "license": "MIT"
+      },
+      "ktx_software": {
+        "project": "KhronosGroup/KTX-Software",
+        "version": "4.4.2"
+      }
+    },
+    "codec_policy": {
+      "high_fidelity_linear_maps": "UASTC for normalTexture, occlusionTexture and metallicRoughnessTexture",
+      "color_and_remaining_maps": "ETC1S after UASTC pass",
+      "mipmaps": true,
+      "require_khr_texture_basisu": true,
+      "verify_all_images_ktx2": true
+    },
+    "native_gpu_formats": {
+      "android_preferred": "ASTC where supported",
+      "android_fallback": "ETC2",
+      "note": "Do not mislabel Basis Universal payloads as pre-transcoded ASTC/ETC2. Native GPU format selection may happen at runtime or during engine-specific build packaging."
+    }
+  }
+}

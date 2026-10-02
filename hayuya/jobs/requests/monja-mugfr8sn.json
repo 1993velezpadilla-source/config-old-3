@@ -1,0 +1,20 @@
+{
+  "schema": 2,
+  "job_id": "monja-mugfr8sn",
+  "owner": "HAYUYA_WEB",
+  "title": "Monja",
+  "geometry_input": "hayuya/assets/monja-mugfr8sn/geometry/primary.webp",
+  "reference_dir": "",
+  "detail_dir": "hayuya/assets/monja-mugfr8sn/details",
+  "profile": "monster",
+  "mode": "auto",
+  "asset_profile": "auto",
+  "weapon_family": "auto",
+  "animation_requested": true,
+  "motion_profile": "hayuya_auto",
+  "texture_quality": "high",
+  "portable_target": "high",
+  "gpu_vram": 24,
+  "backends": "triposg,trellis2,trellis,instantmesh,triposr",
+  "retry_token": "web-mugfr8sn"
+}

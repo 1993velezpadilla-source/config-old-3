@@ -1,0 +1,282 @@
+{
+  "schema": 1,
+  "id": "hayuya_weapon_animation_v1",
+  "rule": "A weapon animation is eligible only when weapon family and required moving components match the actual model. Never apply a pistol magazine reload to a tube-fed shotgun, a revolver cylinder reload to a pistol, or a pump cycle to a non-pump weapon.",
+  "families": {
+    "handgun_semiauto": {
+      "aliases": [
+        "pistol",
+        "semi_auto_pistol",
+        "handgun"
+      ],
+      "expected_components": [
+        "trigger",
+        "slide",
+        "magazine",
+        "magazine_release"
+      ],
+      "optional_components": [
+        "hammer",
+        "safety",
+        "slide_stop"
+      ],
+      "allowed_events": [
+        "idle",
+        "fire",
+        "recoil",
+        "slide_cycle",
+        "reload_mag",
+        "reload_mag_empty",
+        "inspect",
+        "equip",
+        "unequip",
+        "dry_fire",
+        "malfunction_clear"
+      ]
+    },
+    "revolver": {
+      "aliases": [
+        "revolver"
+      ],
+      "expected_components": [
+        "trigger",
+        "cylinder"
+      ],
+      "optional_components": [
+        "hammer",
+        "ejector_rod",
+        "speedloader"
+      ],
+      "allowed_events": [
+        "idle",
+        "fire",
+        "recoil",
+        "cylinder_open",
+        "reload_cylinder",
+        "cylinder_close",
+        "inspect",
+        "equip",
+        "unequip",
+        "dry_fire"
+      ]
+    },
+    "shotgun_pump_tube": {
+      "aliases": [
+        "pump_shotgun",
+        "tube_fed_shotgun"
+      ],
+      "expected_components": [
+        "trigger",
+        "pump",
+        "tube"
+      ],
+      "optional_components": [
+        "loading_gate",
+        "shell_lifter",
+        "safety"
+      ],
+      "allowed_events": [
+        "idle",
+        "fire",
+        "recoil",
+        "pump_cycle",
+        "reload_shell",
+        "reload_shell_start",
+        "reload_shell_end",
+        "inspect",
+        "equip",
+        "unequip",
+        "dry_fire"
+      ]
+    },
+    "shotgun_semiauto_tube": {
+      "aliases": [
+        "semi_auto_shotgun"
+      ],
+      "expected_components": [
+        "trigger",
+        "bolt",
+        "tube"
+      ],
+      "optional_components": [
+        "charging_handle",
+        "loading_gate"
+      ],
+      "allowed_events": [
+        "idle",
+        "fire",
+        "recoil",
+        "bolt_cycle",
+        "reload_shell",
+        "reload_shell_start",
+        "reload_shell_end",
+        "inspect",
+        "equip",
+        "unequip",
+        "dry_fire"
+      ]
+    },
+    "shotgun_break_open": {
+      "aliases": [
+        "double_barrel",
+        "break_action_shotgun"
+      ],
+      "expected_components": [
+        "trigger",
+        "break_hinge",
+        "barrel_group"
+      ],
+      "optional_components": [
+        "extractor",
+        "hammer"
+      ],
+      "allowed_events": [
+        "idle",
+        "fire",
+        "recoil",
+        "break_open",
+        "reload_shell_pair",
+        "break_close",
+        "inspect",
+        "equip",
+        "unequip",
+        "dry_fire"
+      ]
+    },
+    "rifle_magazine": {
+      "aliases": [
+        "assault_rifle",
+        "battle_rifle",
+        "carbine",
+        "semi_auto_rifle",
+        "automatic_rifle",
+        "smg"
+      ],
+      "expected_components": [
+        "trigger",
+        "bolt_or_slide",
+        "magazine"
+      ],
+      "optional_components": [
+        "charging_handle",
+        "safety",
+        "selector",
+        "bolt_release"
+      ],
+      "allowed_events": [
+        "idle",
+        "fire",
+        "recoil",
+        "reload_mag",
+        "reload_mag_empty",
+        "charge",
+        "bolt_cycle",
+        "inspect",
+        "equip",
+        "unequip",
+        "dry_fire",
+        "malfunction_clear"
+      ]
+    },
+    "rifle_bolt_action": {
+      "aliases": [
+        "bolt_action",
+        "sniper_bolt_action"
+      ],
+      "expected_components": [
+        "trigger",
+        "bolt_handle",
+        "magazine_or_internal_mag"
+      ],
+      "optional_components": [
+        "safety"
+      ],
+      "allowed_events": [
+        "idle",
+        "fire",
+        "recoil",
+        "bolt_cycle",
+        "reload_mag",
+        "reload_internal",
+        "reload_single",
+        "inspect",
+        "equip",
+        "unequip",
+        "dry_fire"
+      ]
+    },
+    "lmg_beltfed": {
+      "aliases": [
+        "lmg",
+        "belt_fed"
+      ],
+      "expected_components": [
+        "trigger",
+        "bolt_or_slide",
+        "feed_cover",
+        "belt_or_box"
+      ],
+      "optional_components": [
+        "charging_handle"
+      ],
+      "allowed_events": [
+        "idle",
+        "fire",
+        "recoil",
+        "reload_belt",
+        "feed_cover_open",
+        "feed_cover_close",
+        "charge",
+        "inspect",
+        "equip",
+        "unequip",
+        "dry_fire"
+      ]
+    },
+    "launcher": {
+      "aliases": [
+        "rocket_launcher",
+        "grenade_launcher"
+      ],
+      "expected_components": [
+        "trigger"
+      ],
+      "optional_components": [
+        "tube",
+        "breech",
+        "cylinder",
+        "safety"
+      ],
+      "allowed_events": [
+        "idle",
+        "fire",
+        "recoil",
+        "reload_round",
+        "reload_tube",
+        "breech_open",
+        "breech_close",
+        "inspect",
+        "equip",
+        "unequip",
+        "dry_fire"
+      ]
+    }
+  },
+  "common_sockets": [
+    "muzzle",
+    "grip_primary",
+    "grip_support",
+    "sight",
+    "optic",
+    "magazine",
+    "shell_eject",
+    "attachment_top",
+    "attachment_side",
+    "attachment_under"
+  ],
+  "compatibility_levels": {
+    "exact": "family matches and all required components are present",
+    "conditional": "family matches but optional component changes clip behavior",
+    "reject": "family mismatch or required mechanical component absent"
+  }
+}

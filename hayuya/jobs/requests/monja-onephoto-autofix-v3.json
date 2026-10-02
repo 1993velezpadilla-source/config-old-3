@@ -1,0 +1,20 @@
+{
+  "schema": 2,
+  "job_id": "monja-hero-master-v1",
+  "owner": "HAYUYA_AUDIT",
+  "title": "Monja Hero Master V1",
+  "geometry_input": "hayuya/assets/monja-mugfwln6/geometry/primary.webp",
+  "reference_dir": "",
+  "detail_dir": "",
+  "profile": "ultra",
+  "mode": "auto",
+  "asset_profile": "auto",
+  "weapon_family": "auto",
+  "animation_requested": false,
+  "motion_profile": "hayuya_auto",
+  "texture_quality": "ultra",
+  "portable_target": "high",
+  "gpu_vram": 24,
+  "backends": "trellis2,hunyuan3d,triposg,detailgen3d,triposr",
+  "retry_token": "ultra-hunyuan-native512-compact-material-donor-20260928-v4"
+}

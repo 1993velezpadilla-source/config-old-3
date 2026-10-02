@@ -1,0 +1,7 @@
+{
+  "schema": 1,
+  "job_id": "zombitest1-muetjpwb",
+  "owner": "HAYUYA_WEB",
+  "reason": "Rig QA v29: component-coherent skinning for fragmented AI meshes + rotation-only retarget + anatomical axes + strict deform QA",
+  "requested_at": "2026-09-24T04:18:00Z"
+}

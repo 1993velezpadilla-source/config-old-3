@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "path": "out/hayuya-jobs/zombitest1-muetjpwb/outputs/hayuya_final.glb",
+  "image_count": 1,
+  "max_edge": 2048,
+  "max_megapixels": 4.1943,
+  "mean_edge_variance": 707.7177,
+  "metrics": [
+    {
+      "index": 0,
+      "mime_type": "image/png",
+      "width": 2048,
+      "height": 2048,
+      "megapixels": 4.1943,
+      "edge_variance": 707.7177,
+      "luminance_stddev": 43.9548,
+      "entropy": 7.0244
+    }
+  ],
+  "warnings": [],
+  "passed": true
+}

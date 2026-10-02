@@ -1,0 +1,60 @@
+{
+  "schema": 1,
+  "input": "hayuya/animation_library/zombie-preview-models/models/Skeleton.glb",
+  "object_count": 3,
+  "mesh_count": 2,
+  "armature_count": 1,
+  "empty_count": 0,
+  "vertices": 2087,
+  "polygons": 1890,
+  "mesh_names": [
+    "Cylinder.001",
+    "Icosphere"
+  ],
+  "armatures": [
+    {
+      "name": "SkeletonArmature",
+      "bones": [
+        "Hips",
+        "Torso",
+        "Neck",
+        "Head",
+        "L.UpperLeg",
+        "L.DownLeg",
+        "R.UpperLeg",
+        "R.DownLeg",
+        "L.UpperLeg.001",
+        "L.DownLeg.001",
+        "R.UpperLeg.001",
+        "R.DownLeg.001"
+      ]
+    }
+  ],
+  "bone_names": [
+    "Head",
+    "Hips",
+    "L.DownLeg",
+    "L.DownLeg.001",
+    "L.UpperLeg",
+    "L.UpperLeg.001",
+    "Neck",
+    "R.DownLeg",
+    "R.DownLeg.001",
+    "R.UpperLeg",
+    "R.UpperLeg.001",
+    "Torso"
+  ],
+  "actions": [
+    "Skeleton_Attack_SkeletonArmature",
+    "Skeleton_Death_SkeletonArmature",
+    "Skeleton_Idle_SkeletonArmature",
+    "Skeleton_Running_SkeletonArmature",
+    "Skeleton_Spawn_SkeletonArmature"
+  ],
+  "action_count": 5,
+  "materials": [
+    "Skeleton"
+  ],
+  "shape_keys": [],
+  "animation_capable": true
+}

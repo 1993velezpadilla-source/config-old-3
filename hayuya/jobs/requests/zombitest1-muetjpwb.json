@@ -1,0 +1,20 @@
+{
+  "schema": 2,
+  "job_id": "zombitest1-muetjpwb",
+  "owner": "HAYUYA_WEB",
+  "title": "Zombitest1",
+  "geometry_input": "hayuya/assets/zombitest1-muetjpwb/geometry/primary.webp",
+  "reference_dir": "",
+  "detail_dir": "",
+  "profile": "monster",
+  "mode": "prop",
+  "asset_profile": "auto",
+  "weapon_family": "auto",
+  "animation_requested": true,
+  "motion_profile": "hayuya_auto",
+  "texture_quality": "high",
+  "portable_target": "high",
+  "gpu_vram": 24,
+  "backends": "triposg,trellis2,trellis,instantmesh,triposr",
+  "retry_token": "web-muetjpwb"
+}

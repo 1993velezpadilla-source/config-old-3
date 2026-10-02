@@ -1,0 +1,114 @@
+name: HAYUYA AutoRig UAM1 Bank
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - .github/workflows/hayuya-autorig-uam1.yml
+
+permissions:
+  contents: write
+
+jobs:
+  candy-uam1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: art/hayuya-monster-v1
+          fetch-depth: 1
+
+      - name: Install Blender
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender python3-numpy
+
+      - name: Rig Candyland zombie with UAM1 animation bank
+        run: |
+          set -euo pipefail
+          mkdir -p out/autorig-uam1
+          blender -b --python tools/hayuya3d/blender_autorig.py --             --target hayuya/models/candy-zombie-001/model.glb             --donor hayuya/animation_library/quaternius-uam1/library.glb             --output out/autorig-uam1/candy-zombie-001-uam1.glb             --report out/autorig-uam1/autorig-report.json
+
+      - name: Validate UAM1 rig
+        run: |
+          set -euo pipefail
+          python tools/hayuya3d/rig_gate.py             out/autorig-uam1/candy-zombie-001-uam1.glb             --json out/autorig-uam1/rig-gate.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("out/autorig-uam1/rig-gate.json").read_text())
+          assert d["valid_glb"] is True, d
+          assert d["rig_ready"] is True, d
+          assert d["animation_ready"] is True, d
+          assert len(d["animation_clips"]) >= 40, d
+          assert "Sprint_Loop" in d["animation_clips"], d
+          assert "Death01" in d["animation_clips"], d
+          assert "Crouch_Fwd_Loop" in d["animation_clips"], d
+          print("HAYUYA_UAM1_RIG_PASS", d["joints"], len(d["animation_clips"]))
+          PY
+
+      - name: Deformation QA
+        run: |
+          blender -b --python tools/hayuya3d/blender_animation_gate.py --             --model out/autorig-uam1/candy-zombie-001-uam1.glb             --json out/autorig-uam1/animation-gate.json             --samples 5
+
+      - name: Persist UAM1 animation bank
+        shell: bash
+        run: |
+          set -euo pipefail
+          dst="hayuya/models/candy-zombie-001"
+          cp out/autorig-uam1/candy-zombie-001-uam1.glb "$dst/animated-uam1.glb"
+          cp out/autorig-uam1/rig-gate.json "$dst/rig_gate_uam1.json"
+          cp out/autorig-uam1/animation-gate.json "$dst/animation_gate_uam1.json"
+          cp out/autorig-uam1/autorig-report.json "$dst/autorig-report-uam1.json"
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("hayuya/models/candy-zombie-001")
+          manifest=json.loads((root/"manifest.json").read_text())
+          rig=json.loads((root/"rig_gate_uam1.json").read_text())
+          gate=json.loads((root/"animation_gate_uam1.json").read_text())
+          banks=manifest.setdefault("animation_banks",{})
+          banks["quaternius-uam1"]={
+              "model":"animated-uam1.glb",
+              "skeleton_type":"hayuya_uam1_def_compat",
+              "clips":rig.get("animation_clips",[]),
+              "rig_ready":bool(rig.get("rig_ready")),
+              "animation_ready":bool(rig.get("animation_ready")),
+              "deformation_qa":{
+                  "passed":bool(gate.get("passed")),
+                  "action_count":gate.get("action_count",0),
+                  "failures":gate.get("failures",[])
+              }
+          }
+          # Ensure the canonical/default bank is discoverable too.
+          ch=manifest.get("character") or {}
+          if (root/"animated.glb").exists():
+              banks.setdefault("quaternius-uam2",{
+                  "model":"animated.glb",
+                  "skeleton_type":ch.get("skeleton_type","hayuya_humanoid_v1"),
+                  "clips":ch.get("animation_clips",[]),
+                  "rig_ready":bool(ch.get("rig_ready")),
+                  "animation_ready":bool(ch.get("animation_ready")),
+                  "deformation_qa":ch.get("deformation_qa",{})
+              })
+          (root/"manifest.json").write_text(json.dumps(manifest,indent=2)+"\n")
+          PY
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$dst/animated-uam1.glb" "$dst/rig_gate_uam1.json"                   "$dst/animation_gate_uam1.json" "$dst/autorig-report-uam1.json"                   "$dst/manifest.json"
+          git commit -m "hayuya: add UAM1 animation bank to Candyland zombie"
+          git pull --rebase origin art/hayuya-monster-v1
+          git push origin HEAD:art/hayuya-monster-v1
+
+      - name: Upload UAM1 bank artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hayuya-candy-zombie-uam1-bank
+          path: out/autorig-uam1/**
+          retention-days: 14

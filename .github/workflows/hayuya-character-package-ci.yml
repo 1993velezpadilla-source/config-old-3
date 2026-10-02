@@ -1,0 +1,129 @@
+name: HAYUYA Character Package CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - tools/hayuya3d/build_character_package.py
+      - hayuya/library/**
+      - hayuya/models/candy-zombie-001/animated*.glb
+      - .github/workflows/hayuya-character-package-ci.yml
+      - .github/workflows/hayuya-character-package.yml
+
+permissions:
+  contents: read
+
+jobs:
+  package-ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build single-bank UAM2 package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/hayuya-package-ci
+          cat > /tmp/hayuya-package-ci/animation-gate.json <<'EOF'
+          {
+            "schema":2,
+            "passed":true,
+            "compatible_clips":["Zombie_Walk_Fwd_Loop","Sprint_Loop","Death01"],
+            "rejected_clip_count":0
+          }
+          EOF
+          cat > /tmp/hayuya-package-ci/uam2.json <<'EOF'
+          {
+            "schema":1,
+            "job_id":"candy-zombie-001",
+            "title":"Candyland CI UAM2",
+            "skeleton_type":"hayuya_humanoid_v1",
+            "selected":{
+              "animations":[
+                {"kind":"animation","id":"uam2_zombie_walk","label":"Zombie Walk","source":"quaternius-uam2","clip":"Zombie_Walk_Fwd_Loop","availability":"local"}
+              ],
+              "real_mocap":[],
+              "audio":[
+                {"kind":"audio","id":"saturn91_calls","label":"Human-recorded Zombie Calls","availability":"local","files":["assets/audio/cc0_horror_library/zomby_sfx_saturn91/01_zombey.mp3"]}
+              ],
+              "addons":[]
+            }
+          }
+          EOF
+          python tools/hayuya3d/build_character_package.py             --recipe /tmp/hayuya-package-ci/uam2.json             --model hayuya/models/candy-zombie-001/animated.glb             --out /tmp/hayuya-package-ci/uam2-out --animation-gate /tmp/hayuya-package-ci/animation-gate.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("/tmp/hayuya-package-ci/uam2-out/candy-zombie-001/BUILD.json").read_text())
+          assert d["game_ready"] is True, d
+          assert d["selected_animation_sources"] == ["quaternius-uam2"], d
+          assert not d["mixed_animation_sources"], d
+          print("HAYUYA_PACKAGE_UAM2_PASS")
+          PY
+
+      - name: Build single-bank UAM1 package
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/hayuya-package-ci/uam1.json <<'EOF'
+          {
+            "schema":1,
+            "job_id":"candy-zombie-001",
+            "title":"Candyland CI UAM1",
+            "skeleton_type":"hayuya_uam1_def_compat",
+            "selected":{
+              "animations":[
+                {"kind":"animation","id":"uam1_sprint","label":"Sprint","source":"quaternius-uam1","clip":"Sprint_Loop","availability":"local"},
+                {"kind":"animation","id":"uam1_death","label":"Death","source":"quaternius-uam1","clip":"Death01","availability":"local"}
+              ],
+              "real_mocap":[],
+              "audio":[],
+              "addons":[]
+            }
+          }
+          EOF
+          python tools/hayuya3d/build_character_package.py             --recipe /tmp/hayuya-package-ci/uam1.json             --model hayuya/models/candy-zombie-001/animated-uam1.glb             --out /tmp/hayuya-package-ci/uam1-out --animation-gate /tmp/hayuya-package-ci/animation-gate.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("/tmp/hayuya-package-ci/uam1-out/candy-zombie-001/BUILD.json").read_text())
+          assert d["game_ready"] is True, d
+          assert d["selected_animation_sources"] == ["quaternius-uam1"], d
+          assert not d["mixed_animation_sources"], d
+          print("HAYUYA_PACKAGE_UAM1_PASS")
+          PY
+
+      - name: Reject mixed animation banks as game-ready
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/hayuya-package-ci/mixed.json <<'EOF'
+          {
+            "schema":1,
+            "job_id":"candy-zombie-001",
+            "title":"Candyland CI Mixed",
+            "skeleton_type":"hayuya_humanoid_v1",
+            "selected":{
+              "animations":[
+                {"kind":"animation","id":"uam2_zombie_walk","label":"Zombie Walk","source":"quaternius-uam2","clip":"Zombie_Walk_Fwd_Loop","availability":"local"},
+                {"kind":"animation","id":"uam1_sprint","label":"Sprint","source":"quaternius-uam1","clip":"Sprint_Loop","availability":"local"}
+              ],
+              "real_mocap":[],
+              "audio":[],
+              "addons":[]
+            }
+          }
+          EOF
+          python tools/hayuya3d/build_character_package.py             --recipe /tmp/hayuya-package-ci/mixed.json             --model hayuya/models/candy-zombie-001/animated.glb             --out /tmp/hayuya-package-ci/mixed-out --animation-gate /tmp/hayuya-package-ci/animation-gate.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("/tmp/hayuya-package-ci/mixed-out/candy-zombie-001/BUILD.json").read_text())
+          assert d["game_ready"] is False, d
+          assert d["mixed_animation_sources"] is True, d
+          assert set(d["selected_animation_sources"]) == {"quaternius-uam1","quaternius-uam2"}, d
+          print("HAYUYA_PACKAGE_MIXED_BANK_GUARD_PASS")
+          PY

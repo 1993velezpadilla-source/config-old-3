@@ -1,0 +1,7 @@
+Title: 202 More Sound Effects
+Creator: OwlishMedia
+License: CC0 / Public Domain dedication (as declared on source page)
+Source: https://opengameart.org/content/202-more-sound-effects
+Retrieved UTC: 2026-09-22T22:43:52Z
+Archive SHA256:
+9428c1437137d9ea06ba94e13da12488d4c57990a1c32d83db9e7707e69fb3af  _cc0_audio_downloads/household_foley_owlishmedia.zip

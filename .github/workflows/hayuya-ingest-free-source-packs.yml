@@ -1,0 +1,284 @@
+name: HAYUYA Ingest Free Source Packs
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - .github/workflows/hayuya-ingest-free-source-packs.yml
+
+permissions:
+  contents: write
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: art/hayuya-monster-v1
+          fetch-depth: 1
+
+      - name: Download verified free source archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p hayuya/source_archives
+          python - <<'PY'
+          from __future__ import annotations
+          import html.parser, json, os, re, urllib.parse, urllib.request
+          from pathlib import Path
+
+          ROOT=Path("hayuya/source_archives")
+          UA="HAYUYA/1.0 (+GitHub Actions; free-source archival)"
+          MAX=95*1024*1024
+
+          packs=[
+              {
+                  "id":"quaternius_animated_characters",
+                  "url":"https://opengameart.org/sites/default/files/ultimate_animated_character_pack_by_quaternius.zip",
+                  "page":"https://opengameart.org/content/animated-characters-pack",
+                  "license":"CC0",
+                  "catalog":"character_animation",
+              },
+              {
+                  "id":"quaternius_animated_monsters",
+                  "url":"https://opengameart.org/sites/default/files/Animated%20Monster%20Pack%20by%20%40Quaternius.zip",
+                  "page":"https://opengameart.org/content/lowpoly-animated-monsters",
+                  "license":"CC0",
+                  "catalog":"creature_animation",
+              },
+              {
+                  "id":"quaternius_animated_guns_source",
+                  "url":"https://opengameart.org/sites/default/files/FPS%20Pack_0.zip",
+                  "page":"https://opengameart.org/content/low-poly-animated-guns",
+                  "license":"CC0",
+                  "catalog":"weapon",
+              },
+              {
+                  "id":"quaternius_uam1_source",
+                  "url":"https://opengameart.org/sites/default/files/universal_animation_librarystandard.zip",
+                  "page":"https://opengameart.org/content/universal-animation-library",
+                  "license":"CC0",
+                  "catalog":"character_animation",
+              },
+              {
+                  "id":"quaternius_uam2_source",
+                  "url":"https://opengameart.org/sites/default/files/universal_animation_library_2standard.zip",
+                  "page":"https://opengameart.org/content/universal-animation-library-2",
+                  "license":"CC0",
+                  "catalog":"character_animation",
+              },
+              {
+                  "id":"oga_flat_guns_east",
+                  "url":"https://opengameart.org/sites/default/files/flat_guns_east.zip",
+                  "page":"https://opengameart.org/content/cc0-flat-guns-east",
+                  "license":"CC0",
+                  "catalog":"weapon",
+              },
+              {
+                  "id":"oga_flat_guns_west",
+                  "url":"https://opengameart.org/sites/default/files/flat_guns_west.zip",
+                  "page":"https://opengameart.org/content/cc0-flat-guns-west",
+                  "license":"CC0",
+                  "catalog":"weapon",
+              },
+              {
+                  "id":"oga_revolver_game_asset",
+                  "url":"https://opengameart.org/sites/default/files/revolver_fbx_gltf_blend_textures.zip",
+                  "page":"https://opengameart.org/content/revolver-game-asset",
+                  "license":"CC0",
+                  "catalog":"weapon",
+              },
+              {
+                  "id":"quaternius_animated_zombie",
+                  "page":"https://quaternius.com/packs/animatedzombie.html",
+                  "license":"CC0",
+                  "catalog":"zombie_animation",
+              },
+              {
+                  "id":"quaternius_zombie_apocalypse",
+                  "page":"https://quaternius.com/packs/zombieapocalypsekit.html",
+                  "license":"CC0",
+                  "catalog":"zombie_animation",
+              },
+          ]
+
+          class Links(html.parser.HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.links=[]
+                  self.current=None
+                  self.text=[]
+              def handle_starttag(self,tag,attrs):
+                  if tag=="a":
+                      self.current=dict(attrs).get("href")
+                      self.text=[]
+              def handle_data(self,data):
+                  if self.current is not None:self.text.append(data)
+              def handle_endtag(self,tag):
+                  if tag=="a" and self.current is not None:
+                      self.links.append((self.current," ".join(self.text).strip()))
+                      self.current=None;self.text=[]
+
+          def get(url):
+              req=urllib.request.Request(url,headers={"User-Agent":UA})
+              return urllib.request.urlopen(req,timeout=30)
+
+          def resolve_download(page):
+              with get(page) as r:
+                  body=r.read().decode("utf-8","replace")
+              parser=Links();parser.feed(body)
+              candidates=[]
+              for href,text in parser.links:
+                  absolute=urllib.parse.urljoin(page,href)
+                  score=0
+                  low=(absolute+" "+text).lower()
+                  if "download" in low: score+=4
+                  if re.search(r"\.(zip|7z)(?:$|\?)",absolute,re.I): score+=8
+                  if "itch.io" in absolute.lower(): score-=3
+                  if absolute.startswith("mailto:"):continue
+                  if score>0:candidates.append((score,absolute,text))
+              candidates.sort(reverse=True)
+              print("DOWNLOAD_CANDIDATES",page,json.dumps(candidates[:30]))
+              for _,url,_ in candidates:
+                  try:
+                      with get(url) as r:
+                          ctype=(r.headers.get("Content-Type") or "").lower()
+                          disp=(r.headers.get("Content-Disposition") or "").lower()
+                          first=r.read(4)
+                          if first[:2]==b"PK" or "zip" in ctype or ".zip" in disp or re.search(r"\.zip(?:$|\?)",r.geturl(),re.I):
+                              return r.geturl()
+                  except Exception:
+                      continue
+              return None
+
+          manifest={"schema":1,"packs":[]}
+          for pack in packs:
+              url=pack.get("url") or resolve_download(pack["page"])
+              rec={**pack,"resolved_url":url,"status":"unresolved"}
+              if not url:
+                  rec["reason"]="no_direct_archive_resolved"
+                  manifest["packs"].append(rec)
+                  print("UNRESOLVED",pack["id"],pack["page"])
+                  continue
+              out=ROOT/(pack["id"]+".zip")
+              try:
+                  with get(url) as r, out.open("wb") as f:
+                      total=0
+                      while True:
+                          chunk=r.read(1024*1024)
+                          if not chunk:break
+                          total+=len(chunk)
+                          if total>MAX:
+                              raise RuntimeError("archive_exceeds_95MiB_git_blob_limit")
+                          f.write(chunk)
+                  if out.stat().st_size<512:
+                      raise RuntimeError("archive_too_small")
+                  if out.read_bytes()[:2]!=b"PK":
+                      raise RuntimeError("not_zip")
+                  rec["status"]="downloaded"
+                  rec["bytes"]=out.stat().st_size
+                  rec["archive"]=str(out)
+                  print("DOWNLOADED",pack["id"],out.stat().st_size,url)
+              except Exception as exc:
+                  out.unlink(missing_ok=True)
+                  rec["reason"]=f"{type(exc).__name__}:{exc}"
+                  print("FAILED",pack["id"],rec["reason"])
+              manifest["packs"].append(rec)
+
+          (ROOT/"manifest.json").write_text(json.dumps(manifest,indent=2)+"\n")
+          PY
+
+      - name: Write archive inventories and provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json, zipfile
+          from pathlib import Path
+          root=Path("hayuya/source_archives")
+          manifest=json.loads((root/"manifest.json").read_text())
+          for rec in manifest["packs"]:
+              if rec.get("status")!="downloaded":continue
+              z=Path(rec["archive"])
+              d=root/rec["id"]
+              d.mkdir(parents=True,exist_ok=True)
+              with zipfile.ZipFile(z) as archive:
+                  names=archive.namelist()
+              (d/"INVENTORY.txt").write_text("\n".join(names)+"\n")
+              sha=hashlib.sha256(z.read_bytes()).hexdigest()
+              (d/"SOURCE.txt").write_text(
+                  f"ID: {rec['id']}\n"
+                  f"License: {rec['license']}\n"
+                  f"Source page: {rec['page']}\n"
+                  f"Resolved archive: {rec['resolved_url']}\n"
+                  f"Archive: {z.name}\n"
+                  f"SHA256: {sha}\n"
+                  "HAYUYA note: archived only because the upstream page explicitly identifies this free pack/license.\n"
+              )
+          PY
+
+      - name: Mark downloaded catalogs local
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("hayuya/source_archives")
+          manifest=json.loads((root/"manifest.json").read_text())
+          downloaded={x["id"]:x for x in manifest["packs"] if x.get("status")=="downloaded"}
+
+          zp=Path("hayuya/library/zombie_animations.json")
+          z=json.loads(zp.read_text())
+          for group in z.get("groups",[]):
+              for cat in group.get("categories",[]):
+                  for item in cat.get("items",[]):
+                      rec=downloaded.get(item.get("id"))
+                      if rec:
+                          item["availability"]="local_archive"
+                          item["local_archive_path"]=rec["archive"]
+                          item["one_tap_ready"]=False
+                          item["ingest_note"]="Source archive is local; compact preview/retarget indexing still required."
+          zp.write_text(json.dumps(z,indent=2)+"\n")
+
+          wp=Path("hayuya/library/weapon_animations.json")
+          w=json.loads(wp.read_text())
+          for group in w.get("groups",[]):
+              for item in group.get("items",[]):
+                  rec=downloaded.get(item.get("id"))
+                  if rec:
+                      item["availability"]="local_archive"
+                      item["local_archive_path"]=rec["archive"]
+                      item["notes"]=(item.get("notes","")+" Source archive is now stored locally in HAYUYA.").strip()
+          wp.write_text(json.dumps(w,indent=2)+"\n")
+          PY
+
+      - name: Commit free source archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add hayuya/source_archives hayuya/library/zombie_animations.json hayuya/library/weapon_animations.json
+          if git diff --cached --quiet; then
+            echo "No new source archives."
+            exit 0
+          fi
+          git commit -m "hayuya: archive verified free source packs"
+          for attempt in 1 2 3 4 5; do
+            git pull --rebase origin art/hayuya-monster-v1
+            if git push origin HEAD:art/hayuya-monster-v1; then exit 0; fi
+            sleep $((attempt*2))
+          done
+          exit 1
+
+      - name: Upload ingest manifest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hayuya-free-source-ingest
+          path: hayuya/source_archives/manifest.json
+          retention-days: 14

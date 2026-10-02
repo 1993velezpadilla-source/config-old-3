@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "source": "hayuya/models/monja-trellis2-ab-01/model.glb",
+  "size": 1024,
+  "bounds": {
+    "min": [
+      -0.2261674,
+      -0.2766633,
+      -0.5002691
+    ],
+    "max": [
+      0.2305984,
+      0.2601875,
+      0.4996606
+    ],
+    "extents": [
+      0.4567658,
+      0.5368508,
+      0.9999297
+    ]
+  },
+  "renders": {
+    "front": "hayuya/models/monja-trellis2-ab-01/renders/front.png",
+    "three_quarter": "hayuya/models/monja-trellis2-ab-01/renders/three_quarter.png",
+    "side": "hayuya/models/monja-trellis2-ab-01/renders/side.png",
+    "opposite": "hayuya/models/monja-trellis2-ab-01/renders/opposite.png",
+    "three_quarter_opposite": "hayuya/models/monja-trellis2-ab-01/renders/three_quarter_opposite.png",
+    "side_opposite": "hayuya/models/monja-trellis2-ab-01/renders/side_opposite.png",
+    "face": "hayuya/models/monja-trellis2-ab-01/renders/face.png",
+    "face_opposite": "hayuya/models/monja-trellis2-ab-01/renders/face_opposite.png"
+  },
+  "renderer": "blender_eevee_generated_model_preview_v2_eye_framed"
+}

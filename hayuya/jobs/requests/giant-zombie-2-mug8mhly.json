@@ -1,0 +1,20 @@
+{
+  "schema": 2,
+  "job_id": "giant-zombie-2-mug8mhly",
+  "owner": "HAYUYA_WEB",
+  "title": "Giant zombie 2",
+  "geometry_input": "hayuya/assets/giant-zombie-2-mug8mhly/geometry/primary.webp",
+  "reference_dir": "",
+  "detail_dir": "",
+  "profile": "monster",
+  "mode": "auto",
+  "asset_profile": "auto",
+  "weapon_family": "auto",
+  "animation_requested": true,
+  "motion_profile": "hayuya_auto",
+  "texture_quality": "high",
+  "portable_target": "high",
+  "gpu_vram": 24,
+  "backends": "triposg,trellis2,trellis,instantmesh,triposr",
+  "retry_token": "web-mug8mhly"
+}

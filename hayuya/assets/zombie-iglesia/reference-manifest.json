@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "asset": "Zombie Iglesia",
+  "slug": "zombie-iglesia",
+  "primary": {
+    "role": "geometry_reference",
+    "path": "hayuya/assets/zombie-iglesia/geometry/zombie-iglesia-reference-sheet.png",
+    "description": "Primary Hayuya sheet: front, side, back, 3/4 plus face, vestment, hand and footwear details."
+  },
+  "secondary": {
+    "role": "context_reference",
+    "path": "hayuya/assets/zombie-iglesia/references/zombie-iglesia-context-sheet.png",
+    "description": "Secondary reference for silhouette, scale, mood and church-context read only."
+  },
+  "constraints": [
+    "Canonical asset name is Zombie Iglesia.",
+    "Do not rename or merge this asset with Zombie Church.",
+    "Use the primary sheet for geometry decisions.",
+    "Use the secondary sheet only as supporting reference."
+  ]
+}

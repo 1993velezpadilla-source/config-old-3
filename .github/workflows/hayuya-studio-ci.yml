@@ -1,0 +1,51 @@
+name: Hayuya Studio CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - tools/hayuya3d/studio/**
+      - tools/hayuya3d/studio_server.py
+      - tools/hayuya3d/tests/test_studio_server.py
+      - .github/workflows/hayuya-studio-ci.yml
+
+permissions:
+  contents: read
+
+jobs:
+  studio-ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile Studio server
+        run: python -m py_compile tools/hayuya3d/studio_server.py
+
+      - name: Run Studio server tests
+        run: python -m unittest tools.hayuya3d.tests.test_studio_server -v
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Validate Studio JavaScript syntax
+        run: node --check tools/hayuya3d/studio/app.js
+
+      - name: Verify responsive shell files
+        run: |
+          test -s tools/hayuya3d/studio/index.html
+          test -s tools/hayuya3d/studio/styles.css
+          grep -q "/vendor/model-viewer.min.js" tools/hayuya3d/studio/index.html
+          grep -q 'MODEL_VIEWER_VERSION = "4.3.1"' tools/hayuya3d/studio_server.py
+          grep -q "@media (max-width: 720px)" tools/hayuya3d/studio/styles.css

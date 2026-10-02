@@ -1,0 +1,139 @@
+{
+  "schema": 1,
+  "input": "hayuya/weapon_library/quaternius-animated-guns/raw/P90.blend",
+  "armatures": [
+    {
+      "name": "P90Armature",
+      "bones": [
+        "Control",
+        "Trigger",
+        "Magazine"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "name": "Fire",
+      "frame_range": [
+        0.0,
+        7.0
+      ],
+      "animated_bones": [
+        "Control",
+        "Trigger"
+      ],
+      "bone_channels": {
+        "Trigger": [
+          {
+            "path": "pose.bones[\"Trigger\"].location",
+            "array_index": 1,
+            "keyframes": 3,
+            "value_delta": 0.5833264
+          },
+          {
+            "path": "pose.bones[\"Trigger\"].location",
+            "array_index": 2,
+            "keyframes": 3,
+            "value_delta": 4e-08
+          }
+        ],
+        "Control": [
+          {
+            "path": "pose.bones[\"Control\"].location",
+            "array_index": 1,
+            "keyframes": 3,
+            "value_delta": 0.14505839
+          },
+          {
+            "path": "pose.bones[\"Control\"].location",
+            "array_index": 2,
+            "keyframes": 3,
+            "value_delta": 3e-08
+          },
+          {
+            "path": "pose.bones[\"Control\"].rotation_quaternion",
+            "array_index": 0,
+            "keyframes": 3,
+            "value_delta": 0.00014365
+          },
+          {
+            "path": "pose.bones[\"Control\"].rotation_quaternion",
+            "array_index": 1,
+            "keyframes": 3,
+            "value_delta": 0.01695085
+          },
+          {
+            "path": "pose.bones[\"Control\"].rotation_quaternion",
+            "array_index": 3,
+            "keyframes": 3,
+            "value_delta": 2e-08
+          }
+        ]
+      },
+      "object_channels": [],
+      "mechanical_motion_present": true
+    },
+    {
+      "name": "Reload",
+      "frame_range": [
+        0.0,
+        24.0
+      ],
+      "animated_bones": [
+        "Control",
+        "Magazine"
+      ],
+      "bone_channels": {
+        "Control": [
+          {
+            "path": "pose.bones[\"Control\"].rotation_quaternion",
+            "array_index": 0,
+            "keyframes": 6,
+            "value_delta": 0.00021553
+          },
+          {
+            "path": "pose.bones[\"Control\"].rotation_quaternion",
+            "array_index": 1,
+            "keyframes": 6,
+            "value_delta": 0.03508707
+          },
+          {
+            "path": "pose.bones[\"Control\"].rotation_quaternion",
+            "array_index": 3,
+            "keyframes": 6,
+            "value_delta": 4e-08
+          }
+        ],
+        "Magazine": [
+          {
+            "path": "pose.bones[\"Magazine\"].location",
+            "array_index": 1,
+            "keyframes": 14,
+            "value_delta": 13.87981606
+          },
+          {
+            "path": "pose.bones[\"Magazine\"].location",
+            "array_index": 2,
+            "keyframes": 14,
+            "value_delta": 1.39126658
+          },
+          {
+            "path": "pose.bones[\"Magazine\"].rotation_quaternion",
+            "array_index": 0,
+            "keyframes": 14,
+            "value_delta": 0.00614482
+          },
+          {
+            "path": "pose.bones[\"Magazine\"].rotation_quaternion",
+            "array_index": 1,
+            "keyframes": 14,
+            "value_delta": 0.11249593
+          }
+        ]
+      },
+      "object_channels": [],
+      "mechanical_motion_present": true
+    }
+  ],
+  "action_count": 2
+}

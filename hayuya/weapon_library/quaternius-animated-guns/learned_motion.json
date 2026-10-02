@@ -1,0 +1,380 @@
+{
+  "schema": 1,
+  "id": "hayuya_weapon_motion_learning_v1",
+  "source_library": "quaternius-animated-guns",
+  "families": {
+    "rifle_magazine": {
+      "actions": {
+        "Fire": {
+          "samples": 1,
+          "moving_bones": {
+            "Control": 1,
+            "Trigger": 1
+          }
+        },
+        "Reload": {
+          "samples": 2,
+          "moving_bones": {
+            "Control": 2,
+            "Magazine": 2
+          }
+        },
+        "FireWBullet": {
+          "samples": 1,
+          "moving_bones": {
+            "Bullet": 1,
+            "Control": 1,
+            "Trigger": 1
+          }
+        },
+        "FireWOBullet": {
+          "samples": 1,
+          "moving_bones": {
+            "Control": 1,
+            "Trigger": 1
+          }
+        }
+      }
+    },
+    "handgun_semiauto": {
+      "actions": {
+        "Fire": {
+          "samples": 1,
+          "moving_bones": {
+            "Control": 1,
+            "Slide": 1,
+            "Trigger": 1
+          }
+        },
+        "Reload": {
+          "samples": 1,
+          "moving_bones": {
+            "Control": 1,
+            "Magazine": 1
+          }
+        },
+        "Slide": {
+          "samples": 1,
+          "moving_bones": {
+            "Control": 1,
+            "Slide": 1
+          }
+        }
+      }
+    },
+    "revolver": {
+      "actions": {
+        "Fire": {
+          "samples": 1,
+          "moving_bones": {
+            "Control": 1,
+            "Drum": 1,
+            "Hammer": 1,
+            "Trigger": 1
+          }
+        },
+        "Reload": {
+          "samples": 1,
+          "moving_bones": {
+            "Bullets": 1,
+            "Control": 1,
+            "Drum": 1,
+            "Quick": 1
+          }
+        }
+      }
+    },
+    "shotgun_pump_tube": {
+      "actions": {
+        "FireWBullet": {
+          "samples": 1,
+          "moving_bones": {
+            "Bullet": 1,
+            "Control": 1,
+            "Trigger": 1
+          }
+        },
+        "FireWOBullet": {
+          "samples": 1,
+          "moving_bones": {
+            "Control": 1,
+            "Trigger": 1
+          }
+        },
+        "Reload": {
+          "samples": 1,
+          "moving_bones": {
+            "Control": 1,
+            "Reload": 1
+          }
+        }
+      }
+    },
+    "rifle_bolt_action": {
+      "actions": {
+        "FireWBullet": {
+          "samples": 1,
+          "moving_bones": {
+            "Bullet": 1,
+            "Control": 1,
+            "Trigger": 1
+          }
+        },
+        "FireWOBullet": {
+          "samples": 1,
+          "moving_bones": {
+            "Control": 1,
+            "Trigger": 1
+          }
+        },
+        "Reload": {
+          "samples": 1,
+          "moving_bones": {
+            "Control": 1,
+            "Handle": 1,
+            "Magazine": 1
+          }
+        }
+      }
+    }
+  },
+  "assets": [
+    {
+      "source_file": "P90.blend",
+      "family": "rifle_magazine",
+      "actions": [
+        {
+          "name": "Fire",
+          "animated_bones": [
+            "Control",
+            "Trigger"
+          ],
+          "frame_range": [
+            0.0,
+            7.0
+          ],
+          "mechanical_motion_present": true
+        },
+        {
+          "name": "Reload",
+          "animated_bones": [
+            "Control",
+            "Magazine"
+          ],
+          "frame_range": [
+            0.0,
+            24.0
+          ],
+          "mechanical_motion_present": true
+        }
+      ]
+    },
+    {
+      "source_file": "Pistol.blend",
+      "family": "handgun_semiauto",
+      "actions": [
+        {
+          "name": "Fire",
+          "animated_bones": [
+            "Control",
+            "Slide",
+            "Trigger"
+          ],
+          "frame_range": [
+            0.0,
+            17.0
+          ],
+          "mechanical_motion_present": true
+        },
+        {
+          "name": "Reload",
+          "animated_bones": [
+            "Control",
+            "Magazine"
+          ],
+          "frame_range": [
+            0.0,
+            21.0
+          ],
+          "mechanical_motion_present": true
+        },
+        {
+          "name": "Slide",
+          "animated_bones": [
+            "Control",
+            "Slide"
+          ],
+          "frame_range": [
+            0.0,
+            9.0
+          ],
+          "mechanical_motion_present": true
+        }
+      ]
+    },
+    {
+      "source_file": "Revolver.blend",
+      "family": "revolver",
+      "actions": [
+        {
+          "name": "Fire",
+          "animated_bones": [
+            "Control",
+            "Drum",
+            "Hammer",
+            "Trigger"
+          ],
+          "frame_range": [
+            0.0,
+            17.0
+          ],
+          "mechanical_motion_present": true
+        },
+        {
+          "name": "Reload",
+          "animated_bones": [
+            "Bullets",
+            "Control",
+            "Drum",
+            "Quick"
+          ],
+          "frame_range": [
+            0.0,
+            46.0
+          ],
+          "mechanical_motion_present": true
+        }
+      ]
+    },
+    {
+      "source_file": "Rifle.blend",
+      "family": "rifle_magazine",
+      "actions": [
+        {
+          "name": "FireWBullet",
+          "animated_bones": [
+            "Bullet",
+            "Control",
+            "Trigger"
+          ],
+          "frame_range": [
+            0.0,
+            20.0
+          ],
+          "mechanical_motion_present": true
+        },
+        {
+          "name": "FireWOBullet",
+          "animated_bones": [
+            "Control",
+            "Trigger"
+          ],
+          "frame_range": [
+            0.0,
+            11.0
+          ],
+          "mechanical_motion_present": true
+        },
+        {
+          "name": "Reload",
+          "animated_bones": [
+            "Control",
+            "Magazine"
+          ],
+          "frame_range": [
+            0.0,
+            11.0
+          ],
+          "mechanical_motion_present": true
+        }
+      ]
+    },
+    {
+      "source_file": "Shotgun.blend",
+      "family": "shotgun_pump_tube",
+      "actions": [
+        {
+          "name": "FireWBullet",
+          "animated_bones": [
+            "Bullet",
+            "Control",
+            "Trigger"
+          ],
+          "frame_range": [
+            0.0,
+            17.0
+          ],
+          "mechanical_motion_present": true
+        },
+        {
+          "name": "FireWOBullet",
+          "animated_bones": [
+            "Control",
+            "Trigger"
+          ],
+          "frame_range": [
+            0.0,
+            10.0
+          ],
+          "mechanical_motion_present": true
+        },
+        {
+          "name": "Reload",
+          "animated_bones": [
+            "Control",
+            "Reload"
+          ],
+          "frame_range": [
+            0.0,
+            6.0
+          ],
+          "mechanical_motion_present": true
+        }
+      ]
+    },
+    {
+      "source_file": "SniperRifle.blend",
+      "family": "rifle_bolt_action",
+      "actions": [
+        {
+          "name": "FireWBullet",
+          "animated_bones": [
+            "Bullet",
+            "Control",
+            "Trigger"
+          ],
+          "frame_range": [
+            0.0,
+            19.0
+          ],
+          "mechanical_motion_present": true
+        },
+        {
+          "name": "FireWOBullet",
+          "animated_bones": [
+            "Control",
+            "Trigger"
+          ],
+          "frame_range": [
+            0.0,
+            9.0
+          ],
+          "mechanical_motion_present": true
+        },
+        {
+          "name": "Reload",
+          "animated_bones": [
+            "Control",
+            "Handle",
+            "Magazine"
+          ],
+          "frame_range": [
+            0.0,
+            22.0
+          ],
+          "mechanical_motion_present": true
+        }
+      ]
+    }
+  ]
+}

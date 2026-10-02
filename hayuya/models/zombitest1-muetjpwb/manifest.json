@@ -1,0 +1,488 @@
+{
+  "schema": 2,
+  "engine": "HAYUYA PHONE CLOUD",
+  "job_id": "zombitest1-muetjpwb",
+  "asset_profile": "character.humanoid",
+  "weapon_family": "auto",
+  "animation_requested": true,
+  "motion_profile": "hayuya_auto",
+  "texture_quality": "high",
+  "compute": "GitHub-hosted CPU controller + public TRELLIS ZeroGPU",
+  "phone_only": true,
+  "source": "hayuya/assets/zombitest1-muetjpwb/geometry/primary.webp",
+  "prepared_views": [
+    "front.png"
+  ],
+  "prepared_detail_views": [],
+  "reference_dir": "",
+  "detail_dir": "",
+  "prep_target": 1536,
+  "multi_image": false,
+  "generator": "trellis-community/TRELLIS",
+  "texture_size": 2048,
+  "requested_texture_target": 4096,
+  "texture_refinement_pending": true,
+  "glb": "hayuya_final.glb",
+  "glb_bytes": 6268768,
+  "authenticated_hf": false,
+  "source_mode": "RGBA",
+  "source_had_alpha": true,
+  "alpha_preserved": true,
+  "quality_gate": {
+    "path": "out/hayuya-jobs/zombitest1-muetjpwb/outputs/hayuya_final.glb",
+    "valid": true,
+    "passed": true,
+    "vertices": 28290,
+    "faces": 36341,
+    "components": 1095,
+    "largest_component_fraction": 0.019548,
+    "degenerate_ratio": 0,
+    "bbox_extents": [
+      0.45784888,
+      0.99958244,
+      0.53538191
+    ],
+    "bbox_aspect_ratio": 2.183215,
+    "axis_alignment_weighted": 0.858651,
+    "axis_aligned_area_98": 0.116099,
+    "dominant_normal_axis_area": [
+      0.510926,
+      0.08075,
+      0.408324
+    ],
+    "reasons": [],
+    "warnings": [
+      "fragmented_surface:components=1095,largest=0.020",
+      "high_component_count:1095"
+    ]
+  },
+  "texture_gate": {
+    "schema": 1,
+    "path": "out/hayuya-jobs/zombitest1-muetjpwb/outputs/hayuya_final.glb",
+    "image_count": 1,
+    "max_edge": 2048,
+    "max_megapixels": 4.1943,
+    "mean_edge_variance": 707.7177,
+    "metrics": [
+      {
+        "index": 0,
+        "mime_type": "image/png",
+        "width": 2048,
+        "height": 2048,
+        "megapixels": 4.1943,
+        "edge_variance": 707.7177,
+        "luminance_stddev": 43.9548,
+        "entropy": 7.0244
+      }
+    ],
+    "warnings": [],
+    "passed": true
+  },
+  "asset": {
+    "profile": "character.humanoid",
+    "weapon_family": "auto",
+    "animation_requested": true,
+    "motion_profile": "hayuya_auto",
+    "animation_systems": [
+      "skeletal",
+      "morph_targets",
+      "secondary_motion"
+    ],
+    "mechanical_rig_ready": false,
+    "procedural_motion_ready": false,
+    "requires_profile_postprocess": false
+  },
+  "auto_motion": {
+    "schema": 1,
+    "engine": "HAYUYA Auto",
+    "enabled": true,
+    "asset_profile": "character.humanoid",
+    "motion_profile": "hayuya_auto",
+    "status": "plan_ready",
+    "motion_system": "skeletal",
+    "weapon_family": "auto",
+    "family_source": null,
+    "family_confidence": 0.0,
+    "preview_set": [
+      "idle",
+      "walk",
+      "run",
+      "attack",
+      "hit",
+      "death"
+    ],
+    "required_components": [],
+    "synthesis_operations": [
+      "fit_hayuya_humanoid_v1",
+      "retarget_local_animation_library",
+      "facial_idle_if_controls_exist",
+      "secondary_motion_if_controls_exist"
+    ],
+    "requires": [
+      "mesh_gate",
+      "texture_gate",
+      "humanoid_autorig",
+      "rig_gate",
+      "animation_deformation_gate"
+    ],
+    "warnings": [],
+    "research_sources": [],
+    "editor_override_allowed": true,
+    "motion_strategy": null,
+    "learned_examples": []
+  },
+  "research": {
+    "adapter": "wikipedia_mediawiki",
+    "confidence": 0,
+    "inferred_weapon_family": "auto",
+    "sources": [],
+    "warnings": [
+      "no_search_results"
+    ]
+  },
+  "part_segmentation_plan": {
+    "schema": 1,
+    "asset_profile": "character.humanoid",
+    "weapon_family": "auto",
+    "status": "ready",
+    "required": [
+      "body",
+      "head",
+      "upper_arm_left",
+      "upper_arm_right",
+      "forearm_left",
+      "forearm_right",
+      "thigh_left",
+      "thigh_right",
+      "calf_left",
+      "calf_right"
+    ],
+    "optional": [
+      "jaw",
+      "left_eye",
+      "right_eye",
+      "hair",
+      "loose_clothing",
+      "hands",
+      "feet"
+    ],
+    "prompts": {
+      "head": [
+        "head",
+        "face"
+      ],
+      "jaw": [
+        "jaw",
+        "lower mouth",
+        "lower face"
+      ],
+      "left_eye": [
+        "left eye"
+      ],
+      "right_eye": [
+        "right eye"
+      ],
+      "hair": [
+        "hair",
+        "ponytail",
+        "braid"
+      ],
+      "loose_clothing": [
+        "coat",
+        "skirt",
+        "dress",
+        "cape",
+        "loose sleeve",
+        "tie"
+      ]
+    },
+    "detectors": [
+      "groundingdino",
+      "sam2"
+    ],
+    "projection": "multi_view_preferred",
+    "fusion_rule": "a 3D component is accepted only when masks from available views agree spatially or later 3D geometry evidence confirms it",
+    "confidence_gate": 0.72,
+    "warnings": []
+  },
+  "part_map_summary": {
+    "components": 1095,
+    "mode": "character",
+    "warnings": []
+  },
+  "preview_model": "animated.glb",
+  "character": {
+    "rig_quality_version": 3,
+    "skeleton_type": "hayuya_humanoid_v1",
+    "preview_pack": "hayuya_preview_pack_v1",
+    "rig_ready": true,
+    "animation_ready": true,
+    "preview_animation_ready": true,
+    "animation_clips": [
+      "A_TPose",
+      "Chest_Open",
+      "Consume",
+      "Farm_Watering",
+      "Hit_Knockback",
+      "Hit_Knockback_RM",
+      "Idle_FoldArms_Loop",
+      "Idle_Lantern_Loop",
+      "Idle_No_Loop",
+      "Idle_Rail_Call",
+      "Idle_Rail_Loop",
+      "Idle_Shield_Break",
+      "Idle_Shield_Loop",
+      "Idle_TalkingPhone_Loop",
+      "Melee_Hook_Rec",
+      "OverhandThrow",
+      "Shield_OneShot",
+      "Sword_Block",
+      "Sword_Dash_RM",
+      "Sword_Regular_B_Rec",
+      "Sword_Regular_Combo",
+      "TreeChopping_Loop",
+      "Walk_Carry_Loop",
+      "Yes",
+      "Zombie_Idle_Loop",
+      "Zombie_Walk_Fwd_Loop"
+    ],
+    "weighted_joint_count": 20,
+    "weighted_joint_names": [
+      "Head",
+      "calf_l",
+      "calf_r",
+      "clavicle_l",
+      "clavicle_r",
+      "foot_l",
+      "foot_r",
+      "hand_l",
+      "hand_r",
+      "lowerarm_l",
+      "lowerarm_r",
+      "neck_01",
+      "pelvis",
+      "spine_01",
+      "spine_02",
+      "spine_03",
+      "thigh_l",
+      "thigh_r",
+      "upperarm_l",
+      "upperarm_r"
+    ],
+    "facial": {
+      "jaw": false,
+      "eye_l": false,
+      "eye_r": false,
+      "blink_l": false,
+      "blink_r": false,
+      "morph_targets": []
+    },
+    "secondary_motion": {
+      "hair_nodes": [],
+      "cloth_nodes": [],
+      "hair_ready": false,
+      "cloth_ready": false
+    },
+    "warnings": [
+      "no_jaw_control",
+      "no_blink_controls"
+    ],
+    "deformation_qa": {
+      "schema": 2,
+      "passed": true,
+      "full_bank_passed": false,
+      "action_count": 43,
+      "compatible_clips": [
+        "A_TPose",
+        "Chest_Open",
+        "Consume",
+        "Farm_Watering",
+        "Hit_Knockback",
+        "Hit_Knockback_RM",
+        "Idle_FoldArms_Loop",
+        "Idle_Lantern_Loop",
+        "Idle_No_Loop",
+        "Idle_Rail_Call",
+        "Idle_Rail_Loop",
+        "Idle_Shield_Break",
+        "Idle_Shield_Loop",
+        "Idle_TalkingPhone_Loop",
+        "Melee_Hook_Rec",
+        "OverhandThrow",
+        "Shield_OneShot",
+        "Sword_Block",
+        "Sword_Dash_RM",
+        "Sword_Regular_B_Rec",
+        "Sword_Regular_Combo",
+        "TreeChopping_Loop",
+        "Walk_Carry_Loop",
+        "Yes",
+        "Zombie_Idle_Loop",
+        "Zombie_Walk_Fwd_Loop"
+      ],
+      "rejected_clip_count": 17,
+      "failures": [
+        "ClimbUp_1m_RM:local_edge_stretch:frame=4.00,p99=2.729",
+        "ClimbUp_1m_RM:local_edge_stretch:frame=8.00,p99=3.172",
+        "Farm_Harvest:local_edge_stretch:frame=15.00,p99=2.573",
+        "Farm_Harvest:local_edge_stretch:frame=30.00,p99=2.662",
+        "Farm_PlantSeed:local_edge_stretch:frame=33.00,p99=2.572",
+        "LayToIdle:local_edge_stretch:frame=18.00,p99=2.510",
+        "LayToIdle:local_edge_stretch:frame=9.00,p99=2.574",
+        "Melee_Hook:local_edge_stretch:frame=5.50,p99=2.617",
+        "Melee_Hook:local_edge_stretch:frame=8.25,p99=2.655",
+        "NinjaJump_Idle_Loop:local_edge_collapse:frame=0.00,p01=0.325",
+        "NinjaJump_Idle_Loop:local_edge_collapse:frame=12.00,p01=0.339",
+        "NinjaJump_Idle_Loop:local_edge_collapse:frame=24.00,p01=0.327",
+        "NinjaJump_Idle_Loop:local_edge_collapse:frame=36.00,p01=0.321",
+        "NinjaJump_Idle_Loop:local_edge_collapse:frame=48.00,p01=0.325",
+        "NinjaJump_Idle_Loop:local_edge_stretch:frame=0.00,p99=3.076",
+        "NinjaJump_Idle_Loop:local_edge_stretch:frame=12.00,p99=3.052",
+        "NinjaJump_Idle_Loop:local_edge_stretch:frame=24.00,p99=3.048",
+        "NinjaJump_Idle_Loop:local_edge_stretch:frame=36.00,p99=3.058",
+        "NinjaJump_Idle_Loop:local_edge_stretch:frame=48.00,p99=3.076",
+        "NinjaJump_Land:local_edge_collapse:frame=0.00,p01=0.325",
+        "NinjaJump_Land:local_edge_stretch:frame=0.00,p99=3.076",
+        "NinjaJump_Start:local_edge_collapse:frame=11.50,p01=0.336",
+        "NinjaJump_Start:local_edge_collapse:frame=17.25,p01=0.321",
+        "NinjaJump_Start:local_edge_collapse:frame=23.00,p01=0.325",
+        "NinjaJump_Start:local_edge_stretch:frame=11.50,p99=3.053",
+        "NinjaJump_Start:local_edge_stretch:frame=17.25,p99=3.075",
+        "NinjaJump_Start:local_edge_stretch:frame=23.00,p99=3.076",
+        "NinjaJump_Start:local_edge_stretch:frame=5.75,p99=2.899",
+        "Shield_Dash_RM:local_edge_stretch:frame=0.00,p99=2.641",
+        "Slide_Exit:local_edge_stretch:frame=0.00,p99=2.733",
+        "Slide_Exit:local_edge_stretch:frame=3.00,p99=3.037",
+        "Slide_Exit:local_edge_stretch:frame=6.00,p99=3.140",
+        "Slide_Loop:local_edge_stretch:frame=0.00,p99=2.733",
+        "Slide_Loop:local_edge_stretch:frame=12.00,p99=2.588",
+        "Slide_Loop:local_edge_stretch:frame=24.00,p99=2.616",
+        "Slide_Loop:local_edge_stretch:frame=36.00,p99=2.641",
+        "Slide_Loop:local_edge_stretch:frame=48.00,p99=2.733",
+        "Slide_Start:local_edge_stretch:frame=10.00,p99=2.530",
+        "Slide_Start:local_edge_stretch:frame=15.00,p99=2.613",
+        "Slide_Start:local_edge_stretch:frame=20.00,p99=2.733",
+        "Sword_Regular_A:local_edge_stretch:frame=10.00,p99=2.716",
+        "Sword_Regular_A:local_edge_stretch:frame=7.50,p99=2.704",
+        "Sword_Regular_A_Rec:local_edge_stretch:frame=0.00,p99=2.724",
+        "Sword_Regular_B:local_edge_stretch:frame=0.00,p99=2.704",
+        "Sword_Regular_B:local_edge_stretch:frame=3.00,p99=2.710",
+        "Sword_Regular_B:local_edge_stretch:frame=6.00,p99=2.564",
+        "Sword_Regular_C:local_edge_stretch:frame=24.00,p99=2.555",
+        "Zombie_Scratch:local_edge_stretch:frame=21.50,p99=2.693"
+      ]
+    }
+  },
+  "animation_banks": {
+    "quaternius-uam2": {
+      "model": "animated.glb",
+      "clips": [
+        "A_TPose",
+        "Chest_Open",
+        "Consume",
+        "Farm_Watering",
+        "Hit_Knockback",
+        "Hit_Knockback_RM",
+        "Idle_FoldArms_Loop",
+        "Idle_Lantern_Loop",
+        "Idle_No_Loop",
+        "Idle_Rail_Call",
+        "Idle_Rail_Loop",
+        "Idle_Shield_Break",
+        "Idle_Shield_Loop",
+        "Idle_TalkingPhone_Loop",
+        "Melee_Hook_Rec",
+        "OverhandThrow",
+        "Shield_OneShot",
+        "Sword_Block",
+        "Sword_Dash_RM",
+        "Sword_Regular_B_Rec",
+        "Sword_Regular_Combo",
+        "TreeChopping_Loop",
+        "Walk_Carry_Loop",
+        "Yes",
+        "Zombie_Idle_Loop",
+        "Zombie_Walk_Fwd_Loop"
+      ],
+      "rig_ready": true,
+      "animation_ready": true,
+      "quality_passed": true,
+      "full_bank_passed": false,
+      "rig_quality_version": 3
+    },
+    "quaternius-uam1": {
+      "model": "animated-uam1.glb",
+      "clips": [
+        "A_TPose",
+        "Dance_Loop",
+        "Death01",
+        "Driving_Loop",
+        "Hit_Chest",
+        "Hit_Head",
+        "Idle_Loop",
+        "Idle_Talking_Loop",
+        "Idle_Torch_Loop",
+        "Interact",
+        "Jog_Fwd_Loop",
+        "Jump_Loop",
+        "PickUp_Table",
+        "Pistol_Aim_Down",
+        "Pistol_Aim_Neutral",
+        "Pistol_Aim_Up",
+        "Pistol_Idle_Loop",
+        "Pistol_Reload",
+        "Pistol_Shoot",
+        "Punch_Cross",
+        "Punch_Enter",
+        "Punch_Jab",
+        "Sitting_Enter",
+        "Sitting_Exit",
+        "Sitting_Idle_Loop",
+        "Sitting_Talking_Loop",
+        "Spell_Simple_Enter",
+        "Spell_Simple_Exit",
+        "Spell_Simple_Idle_Loop",
+        "Spell_Simple_Shoot",
+        "Sprint_Loop",
+        "Swim_Idle_Loop",
+        "Sword_Idle",
+        "Walk_Formal_Loop",
+        "Walk_Loop"
+      ],
+      "rig_ready": true,
+      "animation_ready": true,
+      "quality_passed": true,
+      "full_bank_passed": false,
+      "rig_quality_version": 3
+    }
+  },
+  "rig_quality_version": 3,
+  "rig_promotion_policy": {
+    "mode": "monotonic_safe_clips_and_structure_v2",
+    "passed": true,
+    "banks": {
+      "quaternius-uam2": {
+        "incumbent_safe": true,
+        "incumbent_clip_count": 26,
+        "candidate_clip_count": 26,
+        "missing_incumbent_clips": []
+      },
+      "quaternius-uam1": {
+        "incumbent_safe": true,
+        "incumbent_clip_count": 35,
+        "candidate_clip_count": 35,
+        "missing_incumbent_clips": []
+      }
+    },
+    "structure": {
+      "incumbent_preview_model": "animated.glb",
+      "candidate_preview_model": "animated.glb",
+      "same_bank": true,
+      "incumbent_weighted_joint_count": 20,
+      "candidate_weighted_joint_count": 20,
+      "missing_incumbent_weighted_joints": [],
+      "incumbent_rig_quality_version": 3,
+      "candidate_rig_quality_version": 3
+    }
+  }
+}

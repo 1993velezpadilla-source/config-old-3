@@ -1,0 +1,96 @@
+name: HAYUYA Learn Weapon Motion
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - tools/hayuya3d/blender_action_inspector.py
+      - hayuya/weapon_library/quaternius-animated-guns/**
+      - .github/workflows/hayuya-learn-weapon-motion.yml
+
+permissions:
+  contents: write
+
+jobs:
+  learn:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: art/hayuya-monster-v1
+          fetch-depth: 1
+
+      - name: Install Blender
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender
+
+      - name: Inspect moving bones per action
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="hayuya/weapon_library/quaternius-animated-guns"
+          mkdir -p "$root/action_reports"
+          shopt -s nullglob
+          for file in "$root"/raw/*.blend "$root"/raw/*.fbx "$root"/raw/*.glb; do
+            base="$(basename "$file")"
+            key="$(printf '%s' "$base" | tr '[:upper:] ' '[:lower:]_' | tr -cd 'a-z0-9_.-')"
+            blender -b --python tools/hayuya3d/blender_action_inspector.py --               --input "$file"               --json "$root/action_reports/$key.json"
+          done
+
+      - name: Build learned mechanical fingerprints
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json,re
+          from pathlib import Path
+          root=Path("hayuya/weapon_library/quaternius-animated-guns")
+          inventory=json.loads((root/"inventory.json").read_text())
+          by_source={a["source_file"].lower():a for a in inventory.get("assets",[])}
+          learned={"schema":1,"id":"hayuya_weapon_motion_learning_v1","source_library":"quaternius-animated-guns","families":{},"assets":[]}
+          for p in sorted((root/"action_reports").glob("*.json")):
+              data=json.loads(p.read_text())
+              source=Path(data["input"]).name
+              meta=by_source.get(source.lower(),{})
+              fam=meta.get("family_guess","unknown")
+              asset={"source_file":source,"family":fam,"actions":[]}
+              for action in data.get("actions",[]):
+                  moving=action.get("animated_bones",[])
+                  rec={
+                      "name":action.get("name"),
+                      "animated_bones":moving,
+                      "frame_range":action.get("frame_range"),
+                      "mechanical_motion_present":action.get("mechanical_motion_present",False)
+                  }
+                  asset["actions"].append(rec)
+                  bucket=learned["families"].setdefault(fam,{"actions":{}})
+                  act=bucket["actions"].setdefault(action.get("name"),{"samples":0,"moving_bones":{}})
+                  act["samples"]+=1
+                  for bone in moving:
+                      act["moving_bones"][bone]=act["moving_bones"].get(bone,0)+1
+              learned["assets"].append(asset)
+          (root/"learned_motion.json").write_text(json.dumps(learned,indent=2)+"\n")
+          print(json.dumps(learned,indent=2))
+          PY
+
+      - name: Commit learned motion
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add hayuya/weapon_library/quaternius-animated-guns/action_reports                   hayuya/weapon_library/quaternius-animated-guns/learned_motion.json
+          if git diff --cached --quiet; then
+            echo "No learned-motion changes."
+            exit 0
+          fi
+          git commit -m "hayuya: learn moving weapon parts from CC0 animations"
+          for attempt in 1 2 3 4 5; do
+            git pull --rebase origin art/hayuya-monster-v1
+            if git push origin HEAD:art/hayuya-monster-v1; then exit 0; fi
+            sleep $((attempt*2))
+          done
+          exit 1

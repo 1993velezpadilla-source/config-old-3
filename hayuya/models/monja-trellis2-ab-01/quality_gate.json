@@ -1,0 +1,28 @@
+{
+  "path": "out/hayuya-jobs/monja-trellis2-ab-01/outputs/hayuya_final.glb",
+  "valid": true,
+  "passed": true,
+  "vertices": 95947,
+  "faces": 143542,
+  "components": 1781,
+  "largest_component_fraction": 0.012569,
+  "degenerate_ratio": 0.0,
+  "bbox_extents": [
+    0.45676582,
+    0.9999297,
+    0.53685084
+  ],
+  "bbox_aspect_ratio": 2.189152,
+  "axis_alignment_weighted": 0.859936,
+  "axis_aligned_area_98": 0.129129,
+  "dominant_normal_axis_area": [
+    0.52218,
+    0.083737,
+    0.394083
+  ],
+  "reasons": [],
+  "warnings": [
+    "fragmented_surface:components=1781,largest=0.013",
+    "high_component_count:1781"
+  ]
+}

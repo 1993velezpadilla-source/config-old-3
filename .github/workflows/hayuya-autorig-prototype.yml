@@ -1,0 +1,156 @@
+name: HAYUYA AutoRig Prototype
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - tools/hayuya3d/blender_autorig.py
+      - tools/hayuya3d/rig_gate.py
+      - tools/hayuya3d/blender_animation_gate.py
+      - hayuya/standards/hayuya_humanoid_v1.json
+      - hayuya/animation_library/quaternius-uam2/library.glb
+      - .github/workflows/hayuya-autorig-prototype.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hayuya-autorig-prototype-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  candy-autorig:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Blender
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender python3-numpy
+
+      - name: Rig Candyland zombie with canonical CC0 animation library
+        run: |
+          mkdir -p out/autorig
+          blender --python-exit-code 1 -b --python tools/hayuya3d/blender_autorig.py --             --target hayuya/models/candy-zombie-001/model.glb             --donor hayuya/animation_library/quaternius-uam2/library.glb             --output out/autorig/candy-zombie-001-rigged.glb             --report out/autorig/autorig-report.json
+
+      - name: Validate exported rig and animations
+        run: |
+          python tools/hayuya3d/rig_gate.py             out/autorig/candy-zombie-001-rigged.glb             --json out/autorig/rig-gate.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path("out/autorig/rig-gate.json").read_text())
+          assert data["valid_glb"] is True, data
+          assert data["rig_ready"] is True, data
+          assert data["animation_ready"] is True, data
+          assert data["preview_animation_ready"] is True, data
+          assert data["animation_clips"], data
+          print("HAYUYA_AUTORIG_RIG_GATE_PASS", data["joints"], data["animation_clips"])
+          PY
+
+      - name: Run animation deformation gate
+        run: |
+          blender --python-exit-code 1 -b --python tools/hayuya3d/blender_animation_gate.py -- \
+            --model out/autorig/candy-zombie-001-rigged.glb \
+            --reference hayuya/models/candy-zombie-001/model.glb \
+            --json out/autorig/animation-gate.json \
+            --samples 5 || true
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          gate=json.loads(Path("out/autorig/animation-gate.json").read_text())
+          clips=[str(x) for x in gate.get("compatible_clips",[])]
+          useful=[x for x in clips if "tpose" not in x.lower().replace("_","")]
+          ref=gate.get("reference_fidelity") or {}
+          if ref and ref.get("passed") is not True:
+              raise SystemExit("Candyland rest geometry failed reference fidelity: "+str(ref.get("failures")))
+          required_zombie={"Zombie_Idle_Loop","Zombie_Walk_Fwd_Loop","Zombie_Scratch"}
+          missing_zombie=sorted(required_zombie-set(clips))
+          if len(useful)<3:
+              raise SystemExit(f"Candyland has only {len(useful)} deformation-safe useful clips")
+          if missing_zombie:
+              raise SystemExit("Candyland core zombie motions failed deformation QA: "+", ".join(missing_zombie))
+          print("HAYUYA_AUTORIG_ANIMATION_GATE_PASS",len(useful),useful[:12])
+          print("HAYUYA_CORE_ZOMBIE_MOTIONS_PASS",sorted(required_zombie))
+          PY
+
+      - name: Persist animated Candyland preview model
+        shell: bash
+        run: |
+          set -euo pipefail
+          dst="hayuya/models/candy-zombie-001"
+          mkdir -p "$dst"
+          cp out/autorig/candy-zombie-001-rigged.glb "$dst/animated.glb"
+          cp out/autorig/rig-gate.json "$dst/rig_gate.json"
+          cp out/autorig/autorig-report.json "$dst/autorig-report.json"
+          cp out/autorig/animation-gate.json "$dst/animation_gate.json"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("hayuya/models/candy-zombie-001")
+          manifest=json.loads((root/"manifest.json").read_text())
+          rig=json.loads((root/"rig_gate.json").read_text())
+          anim_gate=json.loads((root/"animation_gate.json").read_text())
+          compatible=[str(x) for x in anim_gate.get("compatible_clips",[])]
+          useful=[x for x in compatible if "tpose" not in x.lower().replace("_","")]
+          manifest["schema"]=2
+          manifest["rig_quality_version"]=3
+          manifest["preview_model"]="animated.glb"
+          manifest["asset_profile"]="character.humanoid"
+          manifest["character"]={
+              "rig_quality_version":3,
+              "skeleton_type":rig.get("skeleton_type","hayuya_humanoid_v1"),
+              "preview_pack":"hayuya_preview_pack_v1",
+              "rig_ready":bool(rig.get("rig_ready")) and len(useful)>=3,
+              "animation_ready":bool(rig.get("animation_ready")) and len(useful)>=3,
+              "preview_animation_ready":bool(rig.get("preview_animation_ready")) and len(useful)>=3,
+              "animation_clips":compatible,
+              "weighted_joint_count":rig.get("weighted_joints",0),
+              "weighted_joint_names":rig.get("weighted_joint_names",[]),
+              "facial":rig.get("facial",{}),
+              "secondary_motion":rig.get("secondary_motion",{}),
+              "warnings":rig.get("warnings",[]),
+              "deformation_qa":{
+                  "schema":anim_gate.get("schema",1),
+                  "passed":len(useful)>=3 and (anim_gate.get("reference_fidelity") or {}).get("passed",True),
+                  "full_bank_passed":bool(anim_gate.get("passed")),
+                  "action_count":anim_gate.get("action_count",0),
+                  "compatible_clips":compatible,
+                  "rejected_clip_count":anim_gate.get("rejected_clip_count",0),
+                  "reference_fidelity":anim_gate.get("reference_fidelity"),
+                  "failures":anim_gate.get("failures",[])
+              }
+          }
+          manifest["animation_banks"]={
+              "quaternius-uam2":{
+                  "model":"animated.glb",
+                  "clips":compatible,
+                  "rig_ready":bool(rig.get("rig_ready")),
+                  "animation_ready":bool(rig.get("animation_ready")),
+                  "quality_passed":bool(rig.get("rig_ready")) and len(useful)>=3,
+                  "full_bank_passed":bool(anim_gate.get("passed")),
+                  "rig_quality_version":3
+              }
+          }
+          (root/"manifest.json").write_text(json.dumps(manifest,indent=2)+"\n")
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$dst/animated.glb" "$dst/rig_gate.json" "$dst/autorig-report.json" "$dst/animation_gate.json" "$dst/manifest.json"
+          if ! git diff --cached --quiet; then
+            git commit -m "hayuya: persist animated Candyland character preview"
+            git pull --rebase origin art/hayuya-monster-v1
+            git push origin HEAD:art/hayuya-monster-v1
+          fi
+
+      - name: Upload AutoRig prototype
+        uses: actions/upload-artifact@v4
+        with:
+          name: hayuya-autorig-candy-zombie-001
+          path: out/autorig/**
+          retention-days: 14

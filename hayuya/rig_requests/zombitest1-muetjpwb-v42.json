@@ -1,0 +1,7 @@
+{
+  "schema": 1,
+  "job_id": "zombitest1-muetjpwb",
+  "owner": "HAYUYA_WEB",
+  "reason": "Rig QA v42: keep V41 pose-aware rest compensation and require anatomical consensus before rigidizing disconnected mesh islands; preserve V41 monotonic safe-clip guard; no QA threshold relaxation",
+  "requested_at": "2026-09-24T07:20:00Z"
+}

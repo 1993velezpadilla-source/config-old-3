@@ -1,0 +1,7 @@
+Title: 80 CC0 RPG SFX
+Creator: rubberduck
+License: CC0 / Public Domain dedication (as declared on source page)
+Source: https://opengameart.org/node/86018
+Retrieved UTC: 2026-09-22T22:43:36Z
+Archive SHA256:
+1c2f06ff4e8563b5b8b745b23cf213c1474142a69bb82bd8f5e10d9b3f7a7bbd  _cc0_audio_downloads/rpg_sfx_rubberduck.zip

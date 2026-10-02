@@ -1,0 +1,204 @@
+{
+  "schema": 1,
+  "input": "hayuya/weapon_library/quaternius-animated-guns/raw/Pistol.blend",
+  "armatures": [
+    {
+      "name": "PistolArmature",
+      "bones": [
+        "Control",
+        "Slide",
+        "Trigger",
+        "Magazine"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "name": "Fire",
+      "frame_range": [
+        0.0,
+        17.0
+      ],
+      "animated_bones": [
+        "Control",
+        "Slide",
+        "Trigger"
+      ],
+      "bone_channels": {
+        "Slide": [
+          {
+            "path": "pose.bones[\"Slide\"].location",
+            "array_index": 1,
+            "keyframes": 4,
+            "value_delta": 3.46709943
+          },
+          {
+            "path": "pose.bones[\"Slide\"].location",
+            "array_index": 2,
+            "keyframes": 4,
+            "value_delta": 6e-08
+          }
+        ],
+        "Trigger": [
+          {
+            "path": "pose.bones[\"Trigger\"].location",
+            "array_index": 0,
+            "keyframes": 4,
+            "value_delta": 1e-07
+          },
+          {
+            "path": "pose.bones[\"Trigger\"].location",
+            "array_index": 1,
+            "keyframes": 4,
+            "value_delta": 0.41478556
+          },
+          {
+            "path": "pose.bones[\"Trigger\"].location",
+            "array_index": 2,
+            "keyframes": 4,
+            "value_delta": 2.5e-07
+          }
+        ],
+        "Control": [
+          {
+            "path": "pose.bones[\"Control\"].location",
+            "array_index": 0,
+            "keyframes": 3,
+            "value_delta": 3.4e-07
+          },
+          {
+            "path": "pose.bones[\"Control\"].location",
+            "array_index": 1,
+            "keyframes": 3,
+            "value_delta": 0.94156647
+          },
+          {
+            "path": "pose.bones[\"Control\"].location",
+            "array_index": 2,
+            "keyframes": 3,
+            "value_delta": 8e-08
+          },
+          {
+            "path": "pose.bones[\"Control\"].rotation_quaternion",
+            "array_index": 0,
+            "keyframes": 3,
+            "value_delta": 0.00387013
+          },
+          {
+            "path": "pose.bones[\"Control\"].rotation_quaternion",
+            "array_index": 1,
+            "keyframes": 3,
+            "value_delta": 0.08789522
+          },
+          {
+            "path": "pose.bones[\"Control\"].rotation_quaternion",
+            "array_index": 2,
+            "keyframes": 3,
+            "value_delta": 3e-08
+          }
+        ]
+      },
+      "object_channels": [],
+      "mechanical_motion_present": true
+    },
+    {
+      "name": "Reload",
+      "frame_range": [
+        0.0,
+        21.0
+      ],
+      "animated_bones": [
+        "Control",
+        "Magazine"
+      ],
+      "bone_channels": {
+        "Control": [
+          {
+            "path": "pose.bones[\"Control\"].location",
+            "array_index": 0,
+            "keyframes": 6,
+            "value_delta": 1e-07
+          },
+          {
+            "path": "pose.bones[\"Control\"].location",
+            "array_index": 1,
+            "keyframes": 6,
+            "value_delta": 4e-08
+          },
+          {
+            "path": "pose.bones[\"Control\"].location",
+            "array_index": 2,
+            "keyframes": 6,
+            "value_delta": 0.58125806
+          }
+        ],
+        "Magazine": [
+          {
+            "path": "pose.bones[\"Magazine\"].location",
+            "array_index": 0,
+            "keyframes": 4,
+            "value_delta": 2e-08
+          },
+          {
+            "path": "pose.bones[\"Magazine\"].location",
+            "array_index": 1,
+            "keyframes": 4,
+            "value_delta": 16.79354858
+          },
+          {
+            "path": "pose.bones[\"Magazine\"].location",
+            "array_index": 2,
+            "keyframes": 4,
+            "value_delta": 0.64658749
+          }
+        ]
+      },
+      "object_channels": [],
+      "mechanical_motion_present": true
+    },
+    {
+      "name": "Slide",
+      "frame_range": [
+        0.0,
+        9.0
+      ],
+      "animated_bones": [
+        "Control",
+        "Slide"
+      ],
+      "bone_channels": {
+        "Slide": [
+          {
+            "path": "pose.bones[\"Slide\"].location",
+            "array_index": 1,
+            "keyframes": 3,
+            "value_delta": 2.86215496
+          },
+          {
+            "path": "pose.bones[\"Slide\"].location",
+            "array_index": 2,
+            "keyframes": 3,
+            "value_delta": 5e-08
+          }
+        ],
+        "Control": [
+          {
+            "path": "pose.bones[\"Control\"].rotation_quaternion",
+            "array_index": 0,
+            "keyframes": 3,
+            "value_delta": 0.00017524
+          },
+          {
+            "path": "pose.bones[\"Control\"].rotation_quaternion",
+            "array_index": 1,
+            "keyframes": 3,
+            "value_delta": 0.01872293
+          }
+        ]
+      },
+      "object_channels": [],
+      "mechanical_motion_present": true
+    }
+  ],
+  "action_count": 3
+}

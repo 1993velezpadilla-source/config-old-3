@@ -1,0 +1,7 @@
+ID: oga_revolver_game_asset
+License: CC0
+Source page: https://opengameart.org/content/revolver-game-asset
+Resolved archive: https://opengameart.org/sites/default/files/revolver_fbx_gltf_blend_textures.zip
+Archive: oga_revolver_game_asset.zip
+SHA256: d404e247c2503937d7ba8fc965e9872a8e3636aef0de6100c2ae30650112eb4d
+HAYUYA note: archived only because the upstream page explicitly identifies this free pack/license.

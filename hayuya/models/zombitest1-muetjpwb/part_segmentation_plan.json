@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "asset_profile": "character.humanoid",
+  "weapon_family": "auto",
+  "status": "ready",
+  "required": [
+    "body",
+    "head",
+    "upper_arm_left",
+    "upper_arm_right",
+    "forearm_left",
+    "forearm_right",
+    "thigh_left",
+    "thigh_right",
+    "calf_left",
+    "calf_right"
+  ],
+  "optional": [
+    "jaw",
+    "left_eye",
+    "right_eye",
+    "hair",
+    "loose_clothing",
+    "hands",
+    "feet"
+  ],
+  "prompts": {
+    "head": [
+      "head",
+      "face"
+    ],
+    "jaw": [
+      "jaw",
+      "lower mouth",
+      "lower face"
+    ],
+    "left_eye": [
+      "left eye"
+    ],
+    "right_eye": [
+      "right eye"
+    ],
+    "hair": [
+      "hair",
+      "ponytail",
+      "braid"
+    ],
+    "loose_clothing": [
+      "coat",
+      "skirt",
+      "dress",
+      "cape",
+      "loose sleeve",
+      "tie"
+    ]
+  },
+  "detectors": [
+    "groundingdino",
+    "sam2"
+  ],
+  "projection": "multi_view_preferred",
+  "fusion_rule": "a 3D component is accepted only when masks from available views agree spatially or later 3D geometry evidence confirms it",
+  "confidence_gate": 0.72,
+  "warnings": []
+}

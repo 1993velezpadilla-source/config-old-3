@@ -1,0 +1,7 @@
+Title: 100 CC0 SFX #2
+Creator: rubberduck
+License: CC0 / Public Domain dedication (as declared on source page)
+Source: https://opengameart.org/content/100-cc0-sfx-2
+Retrieved UTC: 2026-09-22T22:43:39Z
+Archive SHA256:
+0fc61b4494e2e893c0c015ced4877b3f689c7d84a48cb61daecd7ddb52db797b  _cc0_audio_downloads/general_sfx_rubberduck_02.zip

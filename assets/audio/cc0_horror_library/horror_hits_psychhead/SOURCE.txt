@@ -1,0 +1,7 @@
+Title: Horror Hit Soundpack 1
+Creator: psychhead_
+License: CC0 / Public Domain dedication (as declared on source page)
+Source: https://opengameart.org/content/horror-hit-soundpack-1
+Retrieved UTC: 2026-09-22T22:43:49Z
+Archive SHA256:
+4bbdba64225d2ad2f5d23a04d71ccb18e6567c42f972a7f2dcb66d8acc5ed4f3  _cc0_audio_downloads/horror_hits_psychhead.zip

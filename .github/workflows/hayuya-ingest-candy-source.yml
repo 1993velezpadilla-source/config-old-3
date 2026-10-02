@@ -1,0 +1,74 @@
+name: Hayuya Ingest Candyland Source
+
+on:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - hayuya/assets/candy-zombie-001/geometry/_upload/READY
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: art/hayuya-monster-v1
+          fetch-depth: 1
+
+      - name: Reconstruct exact source image
+        shell: bash
+        run: |
+          set -euo pipefail
+          upload="hayuya/assets/candy-zombie-001/geometry/_upload"
+          out="hayuya/assets/candy-zombie-001/geometry/candy-zombie-user-reference.jpg"
+          tmp="$(mktemp)"
+          find "$upload" -maxdepth 1 -type f -name 'part*.b64' -print0 \
+            | sort -z \
+            | xargs -0 cat \
+            | tr -d '\r\n' > "$tmp"
+          base64 -d "$tmp" > "$out"
+          rm -f "$tmp"
+
+          expected="06306cd1d30a095ca32efd299f2938344afdb9f47eea58786c37edd1b678dde4"
+          actual="$(sha256sum "$out" | awk '{print $1}')"
+          test "$actual" = "$expected"
+          test "$(stat -c%s "$out")" -eq 40159
+
+          python - <<'PY'
+          from pathlib import Path
+          p=Path("hayuya/assets/candy-zombie-001/geometry/candy-zombie-user-reference.jpg")
+          b=p.read_bytes()
+          assert b[:2] == b"\xff\xd8", b[:8]
+          assert b[-2:] == b"\xff\xd9", b[-8:]
+          print("HAYUYA_SOURCE_INGEST_PASS", len(b))
+          PY
+
+      - name: Commit clean source and remove staging chunks
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add hayuya/assets/candy-zombie-001/geometry/candy-zombie-user-reference.jpg
+          git rm -r hayuya/assets/candy-zombie-001/geometry/_upload
+          git commit -m "hayuya: ingest verified Candyland zombie source"
+          git pull --rebase origin art/hayuya-monster-v1
+          git push origin HEAD:art/hayuya-monster-v1
+
+      - name: Notify Hayuya Hub
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh issue comment 55 --repo "$GITHUB_REPOSITORY" --body "🧪 **SOURCE READY** — **Christian** / `candy-zombie-001` — verified replacement reference staged
+
+          SHA256: `06306cd1d30a095ca32efd299f2938344afdb9f47eea58786c37edd1b678dde4`
+          Size: `40159 bytes`
+          Generation intentionally NOT started until ZeroGPU quota is available."

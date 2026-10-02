@@ -1,0 +1,131 @@
+{
+  "schema": 1,
+  "id": "hayuya_character_addons_v1",
+  "categories": [
+    {
+      "id": "face",
+      "label": "Face",
+      "items": [
+        {
+          "id": "blink",
+          "label": "Blink Eyes",
+          "type": "facial_control",
+          "requires": [
+            "blink_l",
+            "blink_r"
+          ]
+        },
+        {
+          "id": "jaw",
+          "label": "Jaw / Mouth Motion",
+          "type": "facial_control",
+          "requires": [
+            "jaw_or_mouth_morph"
+          ]
+        },
+        {
+          "id": "eyes",
+          "label": "Eye Micro Motion",
+          "type": "facial_control",
+          "requires": [
+            "eye_l",
+            "eye_r"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "secondary_motion",
+      "label": "Hair / Clothes",
+      "items": [
+        {
+          "id": "hair_spring",
+          "label": "Hair Spring Motion",
+          "type": "spring_bones",
+          "target_patterns": [
+            "hair",
+            "bang",
+            "ponytail",
+            "braid"
+          ]
+        },
+        {
+          "id": "cloth_spring",
+          "label": "Cloth Spring Motion",
+          "type": "spring_bones",
+          "target_patterns": [
+            "cloth",
+            "skirt",
+            "cape",
+            "coat",
+            "jacket",
+            "sleeve",
+            "dress",
+            "hem",
+            "tie"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "audio_events",
+      "label": "Audio Events",
+      "items": [
+        {
+          "id": "step_events",
+          "label": "Footstep events",
+          "type": "event_binding",
+          "events": [
+            "foot_l",
+            "foot_r"
+          ]
+        },
+        {
+          "id": "attack_voice",
+          "label": "Attack vocal",
+          "type": "event_binding",
+          "events": [
+            "attack_start"
+          ]
+        },
+        {
+          "id": "pain_voice",
+          "label": "Pain vocal",
+          "type": "event_binding",
+          "events": [
+            "hit"
+          ]
+        },
+        {
+          "id": "death_voice",
+          "label": "Death vocal",
+          "type": "event_binding",
+          "events": [
+            "death"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "quality",
+      "label": "Quality",
+      "items": [
+        {
+          "id": "texture_clarity",
+          "label": "Texture Clarity Pass",
+          "type": "texture_postprocess"
+        },
+        {
+          "id": "face_priority",
+          "label": "Face Priority Pass",
+          "type": "face_refinement"
+        },
+        {
+          "id": "mobile_opt",
+          "label": "Mobile Optimization",
+          "type": "mesh_material_optimization"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "skeleton_type": "hayuya_humanoid_v1",
+  "valid_glb": true,
+  "skins": 0,
+  "joints": 0,
+  "weighted_joints": 0,
+  "weighted_joint_names": [],
+  "weighted_required_groups_found": 0,
+  "weighted_required_group_fraction": 0.0,
+  "required_groups_found": 0,
+  "required_groups_total": 18,
+  "required_group_fraction": 0.0,
+  "missing_required_groups": [
+    "root",
+    "pelvis",
+    "spine",
+    "chest",
+    "neck",
+    "head",
+    "upperarm_l",
+    "lowerarm_l",
+    "hand_l",
+    "upperarm_r",
+    "lowerarm_r",
+    "hand_r",
+    "thigh_l",
+    "calf_l",
+    "foot_l",
+    "thigh_r",
+    "calf_r",
+    "foot_r"
+  ],
+  "animation_clips": [],
+  "rig_ready": false,
+  "animation_ready": false,
+  "preview_animation_ready": false,
+  "facial": {
+    "jaw": false,
+    "eye_l": false,
+    "eye_r": false,
+    "blink_l": false,
+    "blink_r": false,
+    "morph_targets": []
+  },
+  "secondary_motion": {
+    "hair_nodes": [],
+    "cloth_nodes": [],
+    "hair_ready": false,
+    "cloth_ready": false
+  },
+  "warnings": [
+    "no_skin",
+    "too_few_joints:0<15",
+    "missing_core_bones:0/18",
+    "too_few_weighted_joints:0<12",
+    "insufficient_weighted_core_bones:0/18",
+    "no_embedded_animation_clips",
+    "no_jaw_control",
+    "no_blink_controls"
+  ]
+}

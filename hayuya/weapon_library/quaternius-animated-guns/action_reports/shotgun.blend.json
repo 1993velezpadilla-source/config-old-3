@@ -1,0 +1,222 @@
+{
+  "schema": 1,
+  "input": "hayuya/weapon_library/quaternius-animated-guns/raw/Shotgun.blend",
+  "armatures": [
+    {
+      "name": "ShotgunArmature",
+      "bones": [
+        "Control",
+        "Reload",
+        "Trigger",
+        "Bullet"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "name": "FireWBullet",
+      "frame_range": [
+        0.0,
+        17.0
+      ],
+      "animated_bones": [
+        "Bullet",
+        "Control",
+        "Trigger"
+      ],
+      "bone_channels": {
+        "Control": [
+          {
+            "path": "pose.bones[\"Control\"].location",
+            "array_index": 1,
+            "keyframes": 4,
+            "value_delta": 0.20184356
+          },
+          {
+            "path": "pose.bones[\"Control\"].location",
+            "array_index": 2,
+            "keyframes": 4,
+            "value_delta": 3e-08
+          },
+          {
+            "path": "pose.bones[\"Control\"].rotation_quaternion",
+            "array_index": 0,
+            "keyframes": 4,
+            "value_delta": 0.00226712
+          },
+          {
+            "path": "pose.bones[\"Control\"].rotation_quaternion",
+            "array_index": 1,
+            "keyframes": 4,
+            "value_delta": 0.06729864
+          },
+          {
+            "path": "pose.bones[\"Control\"].rotation_quaternion",
+            "array_index": 3,
+            "keyframes": 4,
+            "value_delta": 1.2e-07
+          }
+        ],
+        "Bullet": [
+          {
+            "path": "pose.bones[\"Bullet\"].location",
+            "array_index": 0,
+            "keyframes": 6,
+            "value_delta": 3.01637936
+          },
+          {
+            "path": "pose.bones[\"Bullet\"].location",
+            "array_index": 1,
+            "keyframes": 6,
+            "value_delta": 0.07994175
+          },
+          {
+            "path": "pose.bones[\"Bullet\"].location",
+            "array_index": 2,
+            "keyframes": 6,
+            "value_delta": 15.10143185
+          }
+        ],
+        "Trigger": [
+          {
+            "path": "pose.bones[\"Trigger\"].rotation_quaternion",
+            "array_index": 0,
+            "keyframes": 3,
+            "value_delta": 0.04816514
+          },
+          {
+            "path": "pose.bones[\"Trigger\"].rotation_quaternion",
+            "array_index": 1,
+            "keyframes": 3,
+            "value_delta": 3e-08
+          },
+          {
+            "path": "pose.bones[\"Trigger\"].rotation_quaternion",
+            "array_index": 3,
+            "keyframes": 3,
+            "value_delta": 0.30661115
+          }
+        ]
+      },
+      "object_channels": [],
+      "mechanical_motion_present": true
+    },
+    {
+      "name": "FireWOBullet",
+      "frame_range": [
+        0.0,
+        10.0
+      ],
+      "animated_bones": [
+        "Control",
+        "Trigger"
+      ],
+      "bone_channels": {
+        "Control": [
+          {
+            "path": "pose.bones[\"Control\"].location",
+            "array_index": 1,
+            "keyframes": 4,
+            "value_delta": 0.20184356
+          },
+          {
+            "path": "pose.bones[\"Control\"].location",
+            "array_index": 2,
+            "keyframes": 4,
+            "value_delta": 3e-08
+          },
+          {
+            "path": "pose.bones[\"Control\"].rotation_quaternion",
+            "array_index": 0,
+            "keyframes": 4,
+            "value_delta": 0.00226712
+          },
+          {
+            "path": "pose.bones[\"Control\"].rotation_quaternion",
+            "array_index": 1,
+            "keyframes": 4,
+            "value_delta": 0.06729864
+          },
+          {
+            "path": "pose.bones[\"Control\"].rotation_quaternion",
+            "array_index": 3,
+            "keyframes": 4,
+            "value_delta": 1.2e-07
+          }
+        ],
+        "Trigger": [
+          {
+            "path": "pose.bones[\"Trigger\"].rotation_quaternion",
+            "array_index": 0,
+            "keyframes": 3,
+            "value_delta": 0.04816514
+          },
+          {
+            "path": "pose.bones[\"Trigger\"].rotation_quaternion",
+            "array_index": 1,
+            "keyframes": 3,
+            "value_delta": 3e-08
+          },
+          {
+            "path": "pose.bones[\"Trigger\"].rotation_quaternion",
+            "array_index": 3,
+            "keyframes": 3,
+            "value_delta": 0.30661115
+          }
+        ]
+      },
+      "object_channels": [],
+      "mechanical_motion_present": true
+    },
+    {
+      "name": "Reload",
+      "frame_range": [
+        0.0,
+        6.0
+      ],
+      "animated_bones": [
+        "Control",
+        "Reload"
+      ],
+      "bone_channels": {
+        "Control": [
+          {
+            "path": "pose.bones[\"Control\"].location",
+            "array_index": 1,
+            "keyframes": 4,
+            "value_delta": 0.01945806
+          },
+          {
+            "path": "pose.bones[\"Control\"].rotation_quaternion",
+            "array_index": 0,
+            "keyframes": 4,
+            "value_delta": 6.5e-06
+          },
+          {
+            "path": "pose.bones[\"Control\"].rotation_quaternion",
+            "array_index": 1,
+            "keyframes": 4,
+            "value_delta": 0.00360429
+          }
+        ],
+        "Reload": [
+          {
+            "path": "pose.bones[\"Reload\"].location",
+            "array_index": 1,
+            "keyframes": 3,
+            "value_delta": 0.57428193
+          },
+          {
+            "path": "pose.bones[\"Reload\"].location",
+            "array_index": 2,
+            "keyframes": 3,
+            "value_delta": 3e-08
+          }
+        ]
+      },
+      "object_channels": [],
+      "mechanical_motion_present": true
+    }
+  ],
+  "action_count": 3
+}

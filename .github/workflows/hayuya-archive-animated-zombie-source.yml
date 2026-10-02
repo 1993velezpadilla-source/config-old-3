@@ -1,0 +1,132 @@
+name: HAYUYA Archive Animated Zombie Source
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - .github/workflows/hayuya-archive-animated-zombie-source.yml
+
+permissions:
+  contents: write
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: art/hayuya-monster-v1
+          fetch-depth: 1
+
+      - name: Download public CC0 Google Drive folder
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --quiet "gdown>=5,<6"
+          rm -rf /tmp/hayuya-animated-zombie
+          mkdir -p /tmp/hayuya-animated-zombie
+          gdown --folder --remaining-ok             "https://drive.google.com/drive/folders/1AfOPRgr5Gl8gll9KfGDEUSYq_Ag7yPJG?usp=sharing"             -O /tmp/hayuya-animated-zombie
+
+      - name: Validate and package source
+        shell: bash
+        run: |
+          set -euo pipefail
+          files="$(find /tmp/hayuya-animated-zombie -type f | wc -l)"
+          bytes="$(du -sb /tmp/hayuya-animated-zombie | cut -f1)"
+          echo "HAYUYA_ANIMATED_ZOMBIE_FILES=$files"
+          echo "HAYUYA_ANIMATED_ZOMBIE_BYTES=$bytes"
+          test "$files" -gt 1
+          test "$bytes" -gt 100000
+          test "$bytes" -lt 1000000000
+
+          dst="hayuya/source_archives/quaternius_animated_zombie"
+          rm -rf "$dst"
+          mkdir -p "$dst/parts"
+
+          (
+            cd /tmp/hayuya-animated-zombie
+            find . -type f -printf '%P\n' | sort > "$GITHUB_WORKSPACE/$dst/INVENTORY.txt"
+          )
+
+          cat > "$dst/SOURCE.txt" <<'EOF'
+          Title: Animated Zombie Pack
+          Creator: Quaternius
+          License on original pack page: CC0
+          Original pack page: https://quaternius.com/packs/animatedzombie.html
+          Public Google Drive folder discovered in original page source: https://drive.google.com/drive/folders/1AfOPRgr5Gl8gll9KfGDEUSYq_Ag7yPJG
+          HAYUYA storage: lossless tar.gz split into GitHub-safe chunks. Reassemble chunks in lexical order before extraction.
+          EOF
+
+          (
+            cd /tmp/hayuya-animated-zombie
+            zip -qr "$GITHUB_WORKSPACE/$dst/quaternius_animated_zombie.zip" .
+          )
+          zipbytes="$(stat -c%s "$dst/quaternius_animated_zombie.zip")"
+          test "$zipbytes" -lt 99000000
+
+          tar -C /tmp/hayuya-animated-zombie -czf /tmp/quaternius_animated_zombie.tar.gz .
+          sha256sum "$dst/quaternius_animated_zombie.zip" > "$dst/SHA256-ZIP.txt"
+          sha256sum /tmp/quaternius_animated_zombie.tar.gz > "$dst/SHA256.txt"
+          split -b 90M -d -a 3 /tmp/quaternius_animated_zombie.tar.gz "$dst/parts/quaternius_animated_zombie.tar.gz.part-"
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("hayuya/source_archives/quaternius_animated_zombie")
+          parts=[{"path":str(p).replace("\\","/"),"bytes":p.stat().st_size} for p in sorted((root/"parts").glob("*"))]
+          inventory=(root/"INVENTORY.txt").read_text().splitlines()
+          manifest={
+              "schema":1,
+              "id":"quaternius_animated_zombie",
+              "license":"CC0",
+              "source_page":"https://quaternius.com/packs/animatedzombie.html",
+              "drive_folder":"https://drive.google.com/drive/folders/1AfOPRgr5Gl8gll9KfGDEUSYq_Ag7yPJG",
+              "source_file_count":len(inventory),
+              "zip_archive":"hayuya/source_archives/quaternius_animated_zombie/quaternius_animated_zombie.zip",
+              "zip_bytes":(root/"quaternius_animated_zombie.zip").stat().st_size,
+              "parts":parts,
+          }
+          (root/"manifest.json").write_text(json.dumps(manifest,indent=2)+"\n")
+          print(json.dumps(manifest,indent=2))
+          PY
+
+      - name: Mark real ZIP local in animation catalog
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("hayuya/library/zombie_animations.json")
+          d=json.loads(p.read_text())
+          for g in d.get("groups",[]):
+            for cat in g.get("categories",[]):
+              for item in cat.get("items",[]):
+                if item.get("id")=="quaternius_animated_zombie":
+                  item["availability"]="local_archive"
+                  item["local_archive_path"]="hayuya/source_archives/quaternius_animated_zombie/quaternius_animated_zombie.zip"
+                  item["notes"]="CC0 source ZIP stored locally in HAYUYA; preview model also local."
+          p.write_text(json.dumps(d,indent=2)+"\n")
+          PY
+
+      - name: Commit archived source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add hayuya/source_archives/quaternius_animated_zombie hayuya/library/zombie_animations.json
+          if git diff --cached --quiet; then
+            echo "Animated Zombie source already archived."
+            exit 0
+          fi
+          git commit -m "hayuya: archive Quaternius Animated Zombie CC0 source"
+          for attempt in 1 2 3 4 5; do
+            git pull --rebase origin art/hayuya-monster-v1
+            if git push origin HEAD:art/hayuya-monster-v1; then exit 0; fi
+            sleep $((attempt*2))
+          done
+          exit 1

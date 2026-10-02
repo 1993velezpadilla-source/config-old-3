@@ -1,0 +1,57 @@
+name: HAYUYA Build Zombie Preview Library
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - hayuya/source_archives/quaternius_animated_characters.zip
+      - hayuya/source_archives/quaternius_animated_monsters.zip
+      - tools/hayuya3d/build_zombie_preview_library.py
+      - tools/hayuya3d/blender_asset_inspector.py
+      - .github/workflows/hayuya-build-zombie-preview-library.yml
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: art/hayuya-monster-v1
+          fetch-depth: 1
+
+      - name: Install Blender runtime
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender libegl1 libgl1 python3-numpy
+
+      - name: Build local zombie previews
+        run: |
+          python tools/hayuya3d/build_zombie_preview_library.py \
+            --characters hayuya/source_archives/quaternius_animated_characters.zip \
+            --monsters hayuya/source_archives/quaternius_animated_monsters.zip \
+            --out hayuya/animation_library/zombie-preview-models
+
+      - name: Commit preview models
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add hayuya/animation_library/zombie-preview-models
+          if git diff --cached --quiet; then
+            echo "No preview changes."
+            exit 0
+          fi
+          git commit -m "hayuya: build local animated zombie preview models"
+          for attempt in 1 2 3 4 5; do
+            git pull --rebase origin art/hayuya-monster-v1
+            if git push origin HEAD:art/hayuya-monster-v1; then exit 0; fi
+            sleep $((attempt*2))
+          done
+          exit 1

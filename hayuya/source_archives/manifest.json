@@ -1,0 +1,111 @@
+{
+  "schema": 1,
+  "packs": [
+    {
+      "id": "quaternius_animated_characters",
+      "url": "https://opengameart.org/sites/default/files/ultimate_animated_character_pack_by_quaternius.zip",
+      "page": "https://opengameart.org/content/animated-characters-pack",
+      "license": "CC0",
+      "catalog": "character_animation",
+      "resolved_url": "https://opengameart.org/sites/default/files/ultimate_animated_character_pack_by_quaternius.zip",
+      "status": "downloaded",
+      "bytes": 48430012,
+      "archive": "hayuya/source_archives/quaternius_animated_characters.zip"
+    },
+    {
+      "id": "quaternius_animated_monsters",
+      "url": "https://opengameart.org/sites/default/files/Animated%20Monster%20Pack%20by%20%40Quaternius.zip",
+      "page": "https://opengameart.org/content/lowpoly-animated-monsters",
+      "license": "CC0",
+      "catalog": "creature_animation",
+      "resolved_url": "https://opengameart.org/sites/default/files/Animated%20Monster%20Pack%20by%20%40Quaternius.zip",
+      "status": "downloaded",
+      "bytes": 1408836,
+      "archive": "hayuya/source_archives/quaternius_animated_monsters.zip"
+    },
+    {
+      "id": "quaternius_animated_guns_source",
+      "url": "https://opengameart.org/sites/default/files/FPS%20Pack_0.zip",
+      "page": "https://opengameart.org/content/low-poly-animated-guns",
+      "license": "CC0",
+      "catalog": "weapon",
+      "resolved_url": "https://opengameart.org/sites/default/files/FPS%20Pack_0.zip",
+      "status": "downloaded",
+      "bytes": 1098036,
+      "archive": "hayuya/source_archives/quaternius_animated_guns_source.zip"
+    },
+    {
+      "id": "quaternius_uam1_source",
+      "url": "https://opengameart.org/sites/default/files/universal_animation_librarystandard.zip",
+      "page": "https://opengameart.org/content/universal-animation-library",
+      "license": "CC0",
+      "catalog": "character_animation",
+      "resolved_url": "https://opengameart.org/sites/default/files/universal_animation_librarystandard.zip",
+      "status": "downloaded",
+      "bytes": 14541205,
+      "archive": "hayuya/source_archives/quaternius_uam1_source.zip"
+    },
+    {
+      "id": "quaternius_uam2_source",
+      "url": "https://opengameart.org/sites/default/files/universal_animation_library_2standard.zip",
+      "page": "https://opengameart.org/content/universal-animation-library-2",
+      "license": "CC0",
+      "catalog": "character_animation",
+      "resolved_url": "https://opengameart.org/sites/default/files/universal_animation_library_2standard.zip",
+      "status": "downloaded",
+      "bytes": 10257419,
+      "archive": "hayuya/source_archives/quaternius_uam2_source.zip"
+    },
+    {
+      "id": "oga_flat_guns_east",
+      "url": "https://opengameart.org/sites/default/files/flat_guns_east.zip",
+      "page": "https://opengameart.org/content/cc0-flat-guns-east",
+      "license": "CC0",
+      "catalog": "weapon",
+      "resolved_url": "https://opengameart.org/sites/default/files/flat_guns_east.zip",
+      "status": "downloaded",
+      "bytes": 1536969,
+      "archive": "hayuya/source_archives/oga_flat_guns_east.zip"
+    },
+    {
+      "id": "oga_flat_guns_west",
+      "url": "https://opengameart.org/sites/default/files/flat_guns_west.zip",
+      "page": "https://opengameart.org/content/cc0-flat-guns-west",
+      "license": "CC0",
+      "catalog": "weapon",
+      "resolved_url": "https://opengameart.org/sites/default/files/flat_guns_west.zip",
+      "status": "downloaded",
+      "bytes": 1856435,
+      "archive": "hayuya/source_archives/oga_flat_guns_west.zip"
+    },
+    {
+      "id": "oga_revolver_game_asset",
+      "url": "https://opengameart.org/sites/default/files/revolver_fbx_gltf_blend_textures.zip",
+      "page": "https://opengameart.org/content/revolver-game-asset",
+      "license": "CC0",
+      "catalog": "weapon",
+      "resolved_url": "https://opengameart.org/sites/default/files/revolver_fbx_gltf_blend_textures.zip",
+      "status": "downloaded",
+      "bytes": 25529508,
+      "archive": "hayuya/source_archives/oga_revolver_game_asset.zip"
+    },
+    {
+      "id": "quaternius_animated_zombie",
+      "page": "https://quaternius.com/packs/animatedzombie.html",
+      "license": "CC0",
+      "catalog": "zombie_animation",
+      "resolved_url": null,
+      "status": "unresolved",
+      "reason": "no_direct_archive_resolved"
+    },
+    {
+      "id": "quaternius_zombie_apocalypse",
+      "page": "https://quaternius.com/packs/zombieapocalypsekit.html",
+      "license": "CC0",
+      "catalog": "zombie_animation",
+      "resolved_url": null,
+      "status": "unresolved",
+      "reason": "no_direct_archive_resolved"
+    }
+  ]
+}

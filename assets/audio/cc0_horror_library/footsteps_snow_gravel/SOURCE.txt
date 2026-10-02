@@ -1,0 +1,7 @@
+Title: 42 Snow and Gravel Footsteps
+Creator: Corsica_S / qubodup
+License: CC0 / Public Domain dedication (as declared on source page)
+Source: https://opengameart.org/content/42-snow-and-gravel-footsteps
+Retrieved UTC: 2026-09-22T22:43:54Z
+Archive SHA256:
+206306b51f8eeedf82043d6628174ec8ff9b16230dffb5192a5c74688e62abd4  _cc0_audio_downloads/footsteps_snow_gravel.7z

@@ -1,0 +1,7 @@
+{
+  "schema": 1,
+  "job_id": "zombitest1-muetjpwb",
+  "owner": "HAYUYA_WEB",
+  "reason": "Rig QA v43: restore V41 fragmented-island skinning exactly and add deformation outlier bone attribution telemetry only; preserve monotonic safe-clip guard; no QA threshold relaxation",
+  "requested_at": "2026-09-24T08:12:00Z"
+}

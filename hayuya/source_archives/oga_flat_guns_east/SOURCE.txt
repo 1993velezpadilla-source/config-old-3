@@ -1,0 +1,7 @@
+ID: oga_flat_guns_east
+License: CC0
+Source page: https://opengameart.org/content/cc0-flat-guns-east
+Resolved archive: https://opengameart.org/sites/default/files/flat_guns_east.zip
+Archive: oga_flat_guns_east.zip
+SHA256: 3d989ac8e9f0f1f0efe66098fc8f09f31cfadcebb1ed51260201f691946700d4
+HAYUYA note: archived only because the upstream page explicitly identifies this free pack/license.

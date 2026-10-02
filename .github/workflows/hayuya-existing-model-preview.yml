@@ -1,0 +1,87 @@
+name: HAYUYA Existing Model Preview
+
+on:
+  push:
+    branches:
+      - art/hayuya-monster-v1
+    paths:
+      - "hayuya/preview_requests/**.json"
+      - "tools/hayuya3d/blender_model_preview_pack.py"
+      - ".github/workflows/hayuya-existing-model-preview.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  render:
+    name: Render generated-model preview packs
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 2
+
+      - name: Install Blender
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender python3-numpy libegl1 libgl1 xvfb
+
+      - name: Render requested preview packs
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          requests=(hayuya/preview_requests/*.json)
+          if [ "${#requests[@]}" -eq 0 ]; then
+            echo "No preview requests found."
+            exit 0
+          fi
+
+          for request in "${requests[@]}"; do
+            python -c 'import json,shlex,sys; from pathlib import Path; req=json.loads(Path(sys.argv[1]).read_text(encoding="utf-8")); job_id=str(req["job_id"]).strip(); source=str(req.get("source") or f"hayuya/models/{job_id}/model.glb").strip(); size=int(req.get("size",1024)); assert job_id and "/" not in job_id and "\\" not in job_id, "invalid job_id"; assert 512 <= size <= 2048, "preview size must be 512..2048"; print("JOB_ID="+shlex.quote(job_id)); print("SOURCE="+shlex.quote(source)); print("SIZE="+shlex.quote(str(size)))' "$request" > /tmp/hayuya_preview_env
+            source /tmp/hayuya_preview_env
+
+            test -s "$SOURCE"
+            out="hayuya/models/$JOB_ID/renders"
+            rm -rf "$out"
+            xvfb-run -a blender --python-exit-code 1 -b --python tools/hayuya3d/blender_model_preview_pack.py -- --input "$SOURCE" --output-dir "$out" --size "$SIZE"
+          done
+
+      - name: Persist preview packs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add hayuya/models/*/renders || true
+          if git diff --cached --quiet; then
+            echo "Preview renders already current."
+          else
+            git commit -m "hayuya: persist generated-model preview renders"
+            for attempt in 1 2 3 4 5; do
+              if git pull --rebase origin art/hayuya-monster-v1 && git push origin HEAD:art/hayuya-monster-v1; then
+                echo "HAYUYA_PREVIEWS_PERSISTED"
+                break
+              fi
+              git rebase --abort || true
+              if [ "$attempt" -eq 5 ]; then
+                echo "Could not persist preview renders after retries" >&2
+                exit 1
+              fi
+              sleep $((attempt * 2))
+            done
+          fi
+
+      - name: Upload preview artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hayuya-generated-previews-${{ github.run_number }}
+          path: hayuya/models/*/renders/**
+          if-no-files-found: error
+          retention-days: 7

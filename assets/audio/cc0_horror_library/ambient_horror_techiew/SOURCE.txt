@@ -1,0 +1,7 @@
+Title: Ambient horror
+Creator: techiew
+License: CC0 / Public Domain dedication (as declared on source page)
+Source: https://opengameart.org/content/ambient-horror
+Retrieved UTC: 2026-09-22T22:43:57Z
+File SHA256:
+70943868cd7df14310bf0613da1c0c8858e0fb82ce554cb45bfd5a268d6f44d4  assets/audio/cc0_horror_library/ambient_horror_techiew/ambient_horror.ogg

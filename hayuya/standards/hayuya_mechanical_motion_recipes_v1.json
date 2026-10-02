@@ -1,0 +1,360 @@
+{
+  "schema": 1,
+  "id": "hayuya_mechanical_motion_recipes_v1",
+  "units": "normalized_by_asset_bounds",
+  "note": "These are semantic motion recipes, not fixed transforms. A fitted part map supplies the real target object/bone, axis, pivot and scale before compilation.",
+  "families": {
+    "handgun_semiauto": {
+      "fire": [
+        {
+          "t": 0,
+          "component": "trigger",
+          "op": "rotate",
+          "amount": 0
+        },
+        {
+          "t": 0.1,
+          "component": "trigger",
+          "op": "rotate",
+          "amount": 1
+        },
+        {
+          "t": 0.18,
+          "component": "slide",
+          "op": "translate_axis",
+          "amount": 0
+        },
+        {
+          "t": 0.34,
+          "component": "slide",
+          "op": "translate_axis",
+          "amount": -1
+        },
+        {
+          "t": 0.56,
+          "component": "slide",
+          "op": "translate_axis",
+          "amount": 0
+        },
+        {
+          "t": 0.75,
+          "component": "trigger",
+          "op": "rotate",
+          "amount": 0
+        }
+      ],
+      "reload_mag": [
+        {
+          "t": 0,
+          "component": "magazine",
+          "op": "translate_axis",
+          "amount": 0
+        },
+        {
+          "t": 0.26,
+          "component": "magazine",
+          "op": "translate_axis",
+          "amount": -1
+        },
+        {
+          "t": 0.58,
+          "component": "magazine",
+          "op": "translate_axis",
+          "amount": -1
+        },
+        {
+          "t": 0.86,
+          "component": "magazine",
+          "op": "translate_axis",
+          "amount": 0
+        }
+      ]
+    },
+    "revolver": {
+      "fire": [
+        {
+          "t": 0,
+          "component": "trigger",
+          "op": "rotate",
+          "amount": 0
+        },
+        {
+          "t": 0.2,
+          "component": "trigger",
+          "op": "rotate",
+          "amount": 1
+        },
+        {
+          "t": 0.24,
+          "component": "cylinder",
+          "op": "rotate_step",
+          "amount": 1
+        },
+        {
+          "t": 0.5,
+          "component": "trigger",
+          "op": "rotate",
+          "amount": 0
+        }
+      ],
+      "reload_cylinder": [
+        {
+          "t": 0,
+          "component": "cylinder",
+          "op": "hinge_rotate",
+          "amount": 0
+        },
+        {
+          "t": 0.22,
+          "component": "cylinder",
+          "op": "hinge_rotate",
+          "amount": 1
+        },
+        {
+          "t": 0.7,
+          "component": "cylinder",
+          "op": "hinge_rotate",
+          "amount": 1
+        },
+        {
+          "t": 0.95,
+          "component": "cylinder",
+          "op": "hinge_rotate",
+          "amount": 0
+        }
+      ]
+    },
+    "shotgun_pump_tube": {
+      "pump_cycle": [
+        {
+          "t": 0,
+          "component": "pump",
+          "op": "translate_axis",
+          "amount": 0
+        },
+        {
+          "t": 0.45,
+          "component": "pump",
+          "op": "translate_axis",
+          "amount": -1
+        },
+        {
+          "t": 1,
+          "component": "pump",
+          "op": "translate_axis",
+          "amount": 0
+        }
+      ],
+      "reload_shell": [
+        {
+          "t": 0,
+          "component": "shell",
+          "op": "spawn_or_attach",
+          "amount": 0
+        },
+        {
+          "t": 0.55,
+          "component": "shell",
+          "op": "translate_to_socket",
+          "socket": "loading_gate",
+          "amount": 1
+        },
+        {
+          "t": 1,
+          "component": "shell",
+          "op": "hide_or_parent",
+          "amount": 1
+        }
+      ]
+    },
+    "shotgun_semiauto_tube": {
+      "bolt_cycle": [
+        {
+          "t": 0,
+          "component": "bolt",
+          "op": "translate_axis",
+          "amount": 0
+        },
+        {
+          "t": 0.35,
+          "component": "bolt",
+          "op": "translate_axis",
+          "amount": -1
+        },
+        {
+          "t": 1,
+          "component": "bolt",
+          "op": "translate_axis",
+          "amount": 0
+        }
+      ]
+    },
+    "shotgun_break_open": {
+      "break_open": [
+        {
+          "t": 0,
+          "component": "barrel_group",
+          "op": "hinge_rotate",
+          "amount": 0
+        },
+        {
+          "t": 1,
+          "component": "barrel_group",
+          "op": "hinge_rotate",
+          "amount": 1
+        }
+      ],
+      "break_close": [
+        {
+          "t": 0,
+          "component": "barrel_group",
+          "op": "hinge_rotate",
+          "amount": 1
+        },
+        {
+          "t": 1,
+          "component": "barrel_group",
+          "op": "hinge_rotate",
+          "amount": 0
+        }
+      ]
+    },
+    "rifle_magazine": {
+      "bolt_cycle": [
+        {
+          "t": 0,
+          "component": "bolt_or_slide",
+          "op": "translate_axis",
+          "amount": 0
+        },
+        {
+          "t": 0.35,
+          "component": "bolt_or_slide",
+          "op": "translate_axis",
+          "amount": -1
+        },
+        {
+          "t": 1,
+          "component": "bolt_or_slide",
+          "op": "translate_axis",
+          "amount": 0
+        }
+      ],
+      "reload_mag": [
+        {
+          "t": 0,
+          "component": "magazine",
+          "op": "translate_axis",
+          "amount": 0
+        },
+        {
+          "t": 0.3,
+          "component": "magazine",
+          "op": "translate_axis",
+          "amount": -1
+        },
+        {
+          "t": 0.62,
+          "component": "magazine",
+          "op": "translate_axis",
+          "amount": -1
+        },
+        {
+          "t": 0.92,
+          "component": "magazine",
+          "op": "translate_axis",
+          "amount": 0
+        }
+      ]
+    },
+    "rifle_bolt_action": {
+      "bolt_cycle": [
+        {
+          "t": 0,
+          "component": "bolt_handle",
+          "op": "rotate_axis",
+          "amount": 0
+        },
+        {
+          "t": 0.18,
+          "component": "bolt_handle",
+          "op": "rotate_axis",
+          "amount": 1
+        },
+        {
+          "t": 0.42,
+          "component": "bolt_handle",
+          "op": "translate_axis",
+          "amount": -1
+        },
+        {
+          "t": 0.72,
+          "component": "bolt_handle",
+          "op": "translate_axis",
+          "amount": 0
+        },
+        {
+          "t": 1,
+          "component": "bolt_handle",
+          "op": "rotate_axis",
+          "amount": 0
+        }
+      ]
+    },
+    "lmg_beltfed": {
+      "reload_belt": [
+        {
+          "t": 0,
+          "component": "feed_cover",
+          "op": "hinge_rotate",
+          "amount": 0
+        },
+        {
+          "t": 0.18,
+          "component": "feed_cover",
+          "op": "hinge_rotate",
+          "amount": 1
+        },
+        {
+          "t": 0.78,
+          "component": "feed_cover",
+          "op": "hinge_rotate",
+          "amount": 1
+        },
+        {
+          "t": 1,
+          "component": "feed_cover",
+          "op": "hinge_rotate",
+          "amount": 0
+        }
+      ]
+    }
+  },
+  "compile_requirements": {
+    "translate_axis": [
+      "target",
+      "axis",
+      "distance"
+    ],
+    "rotate_axis": [
+      "target",
+      "axis",
+      "degrees"
+    ],
+    "hinge_rotate": [
+      "target",
+      "pivot",
+      "axis",
+      "degrees"
+    ],
+    "rotate_step": [
+      "target",
+      "axis",
+      "degrees_per_step"
+    ],
+    "translate_to_socket": [
+      "target",
+      "socket_transform"
+    ]
+  }
+}

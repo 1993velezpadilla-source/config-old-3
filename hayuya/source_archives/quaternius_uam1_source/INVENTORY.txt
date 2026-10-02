@@ -1,0 +1,11 @@
+Animation Library[Standard]/
+Animation Library[Standard]/Godot/
+Animation Library[Standard]/Godot/AnimationLibrary_Godot_Standard.glb
+Animation Library[Standard]/License.txt
+Animation Library[Standard]/Preview.png
+Animation Library[Standard]/Unity/
+Animation Library[Standard]/Unity/AnimationLibrary_Unity_Standard.fbx
+Animation Library[Standard]/Unity_Setup.png
+Animation Library[Standard]/Unreal Engine/
+Animation Library[Standard]/Unreal Engine/AL_Standard.fbx
+Animation Library[Standard]/UnrealEngine_Setup.png

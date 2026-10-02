@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "input": "hayuya/weapon_library/quaternius-animated-guns/raw/Revolver.blend",
+  "object_count": 2,
+  "mesh_count": 1,
+  "armature_count": 1,
+  "empty_count": 0,
+  "vertices": 1412,
+  "polygons": 1109,
+  "mesh_names": [
+    "Bullets"
+  ],
+  "armatures": [
+    {
+      "name": "RevolverArmature",
+      "bones": [
+        "Control",
+        "Drum",
+        "Hammer",
+        "Trigger",
+        "Quick",
+        "Bullets"
+      ]
+    }
+  ],
+  "bone_names": [
+    "Bullets",
+    "Control",
+    "Drum",
+    "Hammer",
+    "Quick",
+    "Trigger"
+  ],
+  "actions": [
+    "Fire",
+    "Reload"
+  ],
+  "action_count": 2,
+  "materials": [
+    "Black",
+    "BulletTip",
+    "BulletYellow",
+    "Metal",
+    "Wood"
+  ],
+  "shape_keys": [],
+  "animation_capable": true
+}

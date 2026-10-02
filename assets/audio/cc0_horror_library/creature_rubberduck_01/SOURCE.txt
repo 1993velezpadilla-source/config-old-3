@@ -1,0 +1,7 @@
+Title: 80 CC0 creature SFX
+Creator: rubberduck
+License: CC0 / Public Domain dedication (as declared on source page)
+Source: https://opengameart.org/content/80-cc0-creature-sfx
+Retrieved UTC: 2026-09-22T22:43:33Z
+Archive SHA256:
+5d4002eea42f278e76543bb36e8ddd2cb978588a13271984191d8228f5d26768  _cc0_audio_downloads/creature_rubberduck_01.zip

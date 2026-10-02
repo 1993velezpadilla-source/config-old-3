@@ -1,0 +1,7 @@
+ID: quaternius_uam1_source
+License: CC0
+Source page: https://opengameart.org/content/universal-animation-library
+Resolved archive: https://opengameart.org/sites/default/files/universal_animation_librarystandard.zip
+Archive: quaternius_uam1_source.zip
+SHA256: 18ff1a7215f4852b320203e8aaf02a1578b5c8eef9027fbaedfcedc7b85a3ac2
+HAYUYA note: archived only because the upstream page explicitly identifies this free pack/license.
