@@ -184,6 +184,40 @@ def _delivery_texture(source: Path, edge: int):
     normal_np[~normal_valid]=np.array([128,128,255],dtype=np.uint8)
     normal_texture=Image.fromarray(normal_np,"RGB")
 
+    # Pack a glTF-style ORM map at 2K. R=occlusion, G=roughness, B=metallic.
+    # Keep the derivation conservative because the source image already carries
+    # baked photographic lighting; these maps should add material response, not
+    # replace or double-light the source.
+    pbr_edge=normal_edge
+    try:
+        from scipy.ndimage import gaussian_filter
+        broad_luma=gaussian_filter(luma,sigma=5.0,mode="nearest")
+        fine_luma=gaussian_filter(luma,sigma=1.15,mode="nearest")
+    except Exception:
+        broad_luma=luma
+        fine_luma=luma
+
+    cavity=np.clip((broad_luma-luma)*2.25,0.0,1.0)
+    ao=np.clip(1.0-0.20*cavity,0.78,1.0)
+
+    detail=np.abs(luma-fine_luma)
+    valid_detail=detail[normal_valid]
+    detail_scale=float(np.percentile(valid_detail,95.0)) if valid_detail.size else 0.08
+    detail_scale=max(detail_scale,0.02)
+    detail_norm=np.clip(detail/detail_scale,0.0,1.0)
+    roughness=np.clip(0.78+0.13*detail_norm,0.76,0.92)
+
+    ao[~normal_valid]=1.0
+    roughness[~normal_valid]=0.90
+    orm_np=np.zeros((pbr_edge,pbr_edge,3),dtype=np.uint8)
+    orm_np[:,:,0]=np.clip(ao*255.0,0,255).astype(np.uint8)
+    orm_np[:,:,1]=np.clip(roughness*255.0,0,255).astype(np.uint8)
+    orm_np[:,:,2]=0
+    orm_texture=Image.fromarray(orm_np,"RGB")
+
+    ao_valid=ao[normal_valid]
+    rough_valid=roughness[normal_valid]
+
     # Hidden/rear surfaces must not inherit source-background pixels or the
     # nearest-edge "streaks" produced by 2D nearest-neighbour extrapolation.
     # Build a deliberately low-frequency texture from the median subject color
@@ -233,7 +267,7 @@ def _delivery_texture(source: Path, edge: int):
     low=ImageEnhance.Color(low).enhance(0.52)
     low=ImageEnhance.Contrast(low).enhance(0.72)
 
-    return sharp,low,normal_texture,{
+    return sharp,low,normal_texture,orm_texture,{
         "source_size":[int(image.width),int(image.height)],
         "source_bbox":[int(v) for v in bbox],
         "delivery_edge":int(edge),
@@ -252,7 +286,19 @@ def _delivery_texture(source: Path, edge: int):
             "strength":float(normal_strength),
             "source":"luminance_microdetail",
         },
-        "policy":"detail-enhanced visible source projection plus 2K micro-normal and height-banded hidden colors",
+        "orm_texture":{
+            "edge":int(pbr_edge),
+            "packing":"R=occlusion,G=roughness,B=metallic",
+            "source":"single-view-local-cavity-and-detail",
+            "ao_min":float(ao_valid.min()) if ao_valid.size else 1.0,
+            "ao_max":float(ao_valid.max()) if ao_valid.size else 1.0,
+            "ao_mean":float(ao_valid.mean()) if ao_valid.size else 1.0,
+            "roughness_min":float(rough_valid.min()) if rough_valid.size else 0.82,
+            "roughness_max":float(rough_valid.max()) if rough_valid.size else 0.82,
+            "roughness_mean":float(rough_valid.mean()) if rough_valid.size else 0.82,
+            "metallic":0.0,
+        },
+        "policy":"detail-enhanced visible source projection plus 2K normal+ORM PBR and height-banded hidden colors",
     }
 
 
@@ -365,12 +411,14 @@ def project_source_front(
     )
     hidden_faces=~visible_faces
 
-    texture,low_texture,normal_texture,tex_meta=_delivery_texture(source_image,int(texture_edge))
+    texture,low_texture,normal_texture,orm_texture,tex_meta=_delivery_texture(source_image,int(texture_edge))
     projected_material=trimesh.visual.material.PBRMaterial(
         baseColorTexture=texture,
         normalTexture=normal_texture,
+        metallicRoughnessTexture=orm_texture,
+        occlusionTexture=orm_texture,
         metallicFactor=0.0,
-        roughnessFactor=0.82,
+        roughnessFactor=1.0,
         alphaMode="MASK",
         alphaCutoff=0.08,
     )
@@ -422,7 +470,7 @@ def project_source_front(
 
     report={
         "schema":1,
-        "method":"hayuya-native-source-front-projection-v9-pbr-detail-normal-y-up",
+        "method":"hayuya-native-source-front-projection-v10-pbr-normal-orm-y-up",
         "source_image":str(source_image),
         "native_mesh":str(native_mesh),
         "output_glb":str(output_glb),

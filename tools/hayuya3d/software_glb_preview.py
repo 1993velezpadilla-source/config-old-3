@@ -561,6 +561,203 @@ def _source_planar_normal_layer(
     )
 
 
+def _source_planar_pbr_layer(
+    source_visible_front,
+    bounds,
+    output_size:int,
+):
+    best=None
+    for geometry in source_visible_front:
+        payload=_texture_payload(geometry)
+        if payload is None:
+            continue
+        visual=getattr(geometry,"visual",None)
+        material=getattr(visual,"material",None)
+        packed=(
+            getattr(material,"metallicRoughnessTexture",None)
+            if material is not None else None
+        )
+        occlusion=(
+            getattr(material,"occlusionTexture",None)
+            if material is not None else None
+        )
+        texture=packed if packed is not None else occlusion
+        if texture is None:
+            continue
+        vertices,_,uv,_=payload
+        if best is None or len(vertices)>len(best[0]):
+            best=(vertices,uv,texture)
+
+    if best is None:
+        return None,{
+            "enabled":False,
+            "reason":"source_visible_front material has no ORM texture",
+        }
+
+    vertices,uv,texture_image=best
+    packed=np.asarray(texture_image.convert("RGB"),dtype=np.uint8)
+    x=np.asarray(vertices[:,0],dtype=np.float64)
+    y=np.asarray(vertices[:,1],dtype=np.float64)
+    u=np.asarray(uv[:,0],dtype=np.float64)
+    v=np.asarray(uv[:,1],dtype=np.float64)
+    ax,bx=np.linalg.lstsq(
+        np.stack([x,np.ones_like(x)],axis=1),u,rcond=None
+    )[0]
+    ay,by=np.linalg.lstsq(
+        np.stack([y,np.ones_like(y)],axis=1),v,rcond=None
+    )[0]
+    u_rmse=float(np.sqrt(np.mean((u-(ax*x+bx))**2)))
+    v_rmse=float(np.sqrt(np.mean((v-(ay*y+by))**2)))
+    if not np.isfinite(u_rmse+v_rmse) or u_rmse>0.01 or v_rmse>0.01:
+        return None,{
+            "enabled":False,
+            "reason":"ORM UV mapping not planar enough",
+            "u_rmse":u_rmse,
+            "v_rmse":v_rmse,
+        }
+
+    size=int(output_size)
+    xmin,xmax,ymin,ymax=[float(q) for q in bounds]
+    world_x=np.linspace(xmin,xmax,size,dtype=np.float64)
+    world_y=np.linspace(ymax,ymin,size,dtype=np.float64)
+    uu=ax*world_x+bx
+    vv=ay*world_y+by
+
+    th,tw,_=packed.shape
+    tx=np.clip(uu*(tw-1),0.0,tw-1.0)
+    ty=np.clip((1.0-vv)*(th-1),0.0,th-1.0)
+    x0=np.floor(tx).astype(np.int32)
+    y0=np.floor(ty).astype(np.int32)
+    x1=np.minimum(x0+1,tw-1)
+    y1=np.minimum(y0+1,th-1)
+    fx=(tx-x0).astype(np.float32)
+    fy=(ty-y0).astype(np.float32)
+
+    sampled=np.empty((size,size,3),dtype=np.float32)
+    for channel in range(3):
+        plane=np.asarray(packed[:,:,channel],dtype=np.float32)
+        p00=plane[np.ix_(y0,x0)]
+        p01=plane[np.ix_(y0,x1)]
+        p10=plane[np.ix_(y1,x0)]
+        p11=plane[np.ix_(y1,x1)]
+        top=p00*(1.0-fx[None,:])+p01*fx[None,:]
+        bottom=p10*(1.0-fx[None,:])+p11*fx[None,:]
+        sampled[:,:,channel]=top*(1.0-fy[:,None])+bottom*fy[:,None]
+
+    valid_u=(uu>=0.0)&(uu<=1.0)
+    valid_v=(vv>=0.0)&(vv<=1.0)
+    valid=valid_v[:,None]&valid_u[None,:]
+    ao=sampled[:,:,0]/255.0
+    rough=sampled[:,:,1]/255.0
+    metallic=sampled[:,:,2]/255.0
+    valid_ao=ao[valid]
+    valid_rough=rough[valid]
+    valid_metal=metallic[valid]
+
+    return Image.fromarray(
+        np.clip(sampled,0,255).astype(np.uint8),
+        "RGB",
+    ),{
+        "enabled":True,
+        "policy":"planar-glTF-orm-v1",
+        "texture_size":[int(tw),int(th)],
+        "u_rmse":u_rmse,
+        "v_rmse":v_rmse,
+        "valid_pixels":int(np.count_nonzero(valid)),
+        "ao_min":float(valid_ao.min()) if valid_ao.size else 1.0,
+        "ao_max":float(valid_ao.max()) if valid_ao.size else 1.0,
+        "ao_mean":float(valid_ao.mean()) if valid_ao.size else 1.0,
+        "roughness_min":float(valid_rough.min()) if valid_rough.size else 0.82,
+        "roughness_max":float(valid_rough.max()) if valid_rough.size else 0.82,
+        "roughness_mean":float(valid_rough.mean()) if valid_rough.size else 0.82,
+        "metallic_mean":float(valid_metal.mean()) if valid_metal.size else 0.0,
+    }
+
+
+def _apply_pbr_material_response(
+    image:Image.Image,
+    mask:Image.Image,
+    normal_layer:Image.Image|None,
+    pbr_layer:Image.Image|None,
+):
+    if normal_layer is None or pbr_layer is None:
+        return image,{
+            "enabled":False,
+            "reason":"normal or ORM layer unavailable",
+        }
+
+    rgb=np.asarray(image.convert("RGB"),dtype=np.float32)
+    keep=np.asarray(mask,dtype=np.uint8)>0
+    normal=np.asarray(normal_layer.convert("RGB"),dtype=np.float32)
+    pbr=np.asarray(pbr_layer.convert("RGB"),dtype=np.float32)
+    if normal.shape[:2]!=rgb.shape[:2]:
+        normal=np.asarray(
+            normal_layer.resize(
+                (rgb.shape[1],rgb.shape[0]),
+                Image.Resampling.BILINEAR,
+            ).convert("RGB"),
+            dtype=np.float32,
+        )
+    if pbr.shape[:2]!=rgb.shape[:2]:
+        pbr=np.asarray(
+            pbr_layer.resize(
+                (rgb.shape[1],rgb.shape[0]),
+                Image.Resampling.BILINEAR,
+            ).convert("RGB"),
+            dtype=np.float32,
+        )
+
+    n=normal/127.5-1.0
+    length=np.sqrt(np.sum(n*n,axis=2))
+    valid=keep&(length>0.15)
+    inv=1.0/np.maximum(length,1e-6)
+    nx=n[:,:,0]*inv
+    ny=n[:,:,1]*inv
+    nz=n[:,:,2]*inv
+
+    ao=np.clip(pbr[:,:,0]/255.0,0.0,1.0)
+    rough=np.clip(pbr[:,:,1]/255.0,0.04,1.0)
+
+    light=np.array([-0.34,0.42,0.841],dtype=np.float32)
+    light/=np.linalg.norm(light)
+    view=np.array([0.0,0.0,1.0],dtype=np.float32)
+    half_vec=light+view
+    half_vec/=np.linalg.norm(half_vec)
+    ndoth=np.clip(
+        nx*half_vec[0]+ny*half_vec[1]+nz*half_vec[2],
+        0.0,
+        1.0,
+    )
+    spec_power=6.0+(1.0-rough)*42.0
+    spec_strength=0.018*np.power(1.0-rough,1.35)
+    spec=np.power(ndoth,spec_power)*spec_strength
+
+    ao_response=1.0-0.10*(1.0-ao)
+    response=np.clip(ao_response+spec,0.972,1.018)
+    response[~valid]=1.0
+
+    out=np.clip(rgb*response[:,:,None],0,255).astype(np.uint8)
+    rr=rough[valid]
+    aa=ao[valid]
+    applied=response[valid]
+    return Image.fromarray(out,"RGB"),{
+        "enabled":True,
+        "policy":"source-preserving-orm-response-v1",
+        "applied_pixels":int(np.count_nonzero(valid)),
+        "roughness_min":float(rr.min()) if rr.size else 0.82,
+        "roughness_max":float(rr.max()) if rr.size else 0.82,
+        "roughness_mean":float(rr.mean()) if rr.size else 0.82,
+        "ao_min":float(aa.min()) if aa.size else 1.0,
+        "ao_max":float(aa.max()) if aa.size else 1.0,
+        "ao_mean":float(aa.mean()) if aa.size else 1.0,
+        "response_min":float(applied.min()) if applied.size else 1.0,
+        "response_max":float(applied.max()) if applied.size else 1.0,
+        "response_mean":float(applied.mean()) if applied.size else 1.0,
+        "specular_strength_max":0.018,
+        "ao_strength":0.10,
+    }
+
+
 def _apply_normal_microrelief(
     image:Image.Image,
     mask:Image.Image,
@@ -1061,9 +1258,23 @@ def render_preview(
                 head_bounds_used,
                 int(face_size),
             )
+            full_pbr,full_pbr_map=_source_planar_pbr_layer(
+                source_visible_front,
+                full_bounds_used,
+                int(size),
+            )
+            face_pbr,face_pbr_map=_source_planar_pbr_layer(
+                source_visible_front,
+                head_bounds_used,
+                int(face_size),
+            )
             normal_roughness=float(
+                full_pbr_map.get(
+                    "roughness_mean",
+                    full_normal_map.get("roughness",0.82),
+                )
+                if full_pbr_map.get("enabled") else
                 full_normal_map.get("roughness",0.82)
-                if full_normal_map.get("enabled") else 0.82
             )
             full_raw,full_normal_relief=_apply_normal_microrelief(
                 full_raw,
@@ -1076,6 +1287,18 @@ def render_preview(
                 face_mask_raw,
                 face_normal,
                 roughness=normal_roughness,
+            )
+            full_raw,full_pbr_response=_apply_pbr_material_response(
+                full_raw,
+                full_mask_raw,
+                full_normal,
+                full_pbr,
+            )
+            face_raw,face_pbr_response=_apply_pbr_material_response(
+                face_raw,
+                face_mask_raw,
+                face_normal,
+                face_pbr,
             )
 
             face_edge_attempts=[{
@@ -1111,6 +1334,14 @@ def render_preview(
                     "full":full_normal_relief,
                     "face":face_normal_relief,
                 },
+                "pbr_map":{
+                    "full":full_pbr_map,
+                    "face":face_pbr_map,
+                },
+                "pbr_material_response":{
+                    "full":full_pbr_response,
+                    "face":face_pbr_response,
+                },
             }
         else:
             full_raw,full_mask_raw=_render_uv_region(
@@ -1143,7 +1374,7 @@ def render_preview(
             int(face_size),
             0.10,
         )
-        renderer="hayuya-cpu-uv-normal-microrelief-source-delta-ss2-v13"
+        renderer="hayuya-cpu-uv-normal-orm-source-delta-ss2-v14"
     else:
         silhouette_clamp={
             "enabled":False,
