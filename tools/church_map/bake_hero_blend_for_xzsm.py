@@ -115,7 +115,17 @@ for obj in export_objects:
     if has_proc:
         procedural_objects.append(obj)
 
-scene.render.engine="BLENDER_EEVEE"
+# Diffuse COLOR bake does not need lighting convergence. One Cycles sample
+# evaluates the authored shader color exactly while avoiding thousands of
+# unnecessary path-tracing samples. Resolution remains 4K/2K.
+scene.render.engine="CYCLES"
+scene.cycles.device="CPU"
+scene.cycles.samples=1
+scene.cycles.preview_samples=1
+scene.cycles.use_adaptive_sampling=False
+scene.cycles.use_denoising=False
+scene.render.bake.use_clear=True
+scene.render.bake.margin=12
 bake_records=[]
 bake_root=OUT/"material-bakes"
 bake_root.mkdir(parents=True,exist_ok=True)
@@ -174,16 +184,8 @@ for idx,obj in enumerate(procedural_objects,1):
         nt.nodes.active=node
         node.select=True
 
-    scene.render.engine="BLENDER_EEVEE"
-    scene.render.bake.use_clear=True
-    scene.render.bake.margin=12
-    try:
-        bpy.ops.object.bake(type="DIFFUSE",pass_filter={"COLOR"},use_clear=True,margin=12)
-    except RuntimeError:
-        # Baking is supported through Cycles in some headless builds.
-        scene.render.engine="CYCLES"
-        scene.cycles.device="CPU"
-        bpy.ops.object.bake(type="DIFFUSE",pass_filter={"COLOR"},use_clear=True,margin=12)
+    # COLOR-only bake: exact procedural Base Color, no direct/indirect light.
+    bpy.ops.object.bake(type="DIFFUSE",pass_filter={"COLOR"},use_clear=True,margin=12)
 
     img.save()
     img.pack()
