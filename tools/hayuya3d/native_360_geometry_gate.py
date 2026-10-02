@@ -85,18 +85,24 @@ def inspect_native_360_geometry(path: Path) -> dict:
     }
 
 
-def assert_native_character_360(path: Path, *, label: str | None = None) -> dict:
+def assert_native_volumetric(path: Path, *, label: str | None = None) -> dict:
+    """Reject catastrophic sheet geometry without imposing body proportions."""
     report = inspect_native_360_geometry(path)
     if report["catastrophically_planar"]:
         prefix = f"{label}: " if label else ""
         raise Native360GeometryRejected(
             prefix
-            + "character candidate is catastrophically planar and cannot be "
-            "promoted as a native 360 model "
+            + "native candidate is catastrophically planar and cannot be "
+            "used as volumetric 3D evidence "
             + f"(minor_span_ratio={report['minor_span_ratio']:.6f}, "
             + f"covariance_minor_ratio={report['covariance_minor_ratio']:.8f})"
         )
     return report
+
+
+def assert_native_character_360(path: Path, *, label: str | None = None) -> dict:
+    """Compatibility wrapper for full-character promotion checks."""
+    return assert_native_volumetric(path, label=label)
 
 
 def main() -> int:
