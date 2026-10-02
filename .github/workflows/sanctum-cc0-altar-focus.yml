@@ -1,0 +1,93 @@
+name: Sanctum CC0 Altar Focus Probe
+
+on:
+  push:
+    branches:
+      - feature/xziel-map-builder-agent-v1
+    paths:
+      - ".github/workflows/sanctum-cc0-altar-focus.yml"
+      - "tools/sanctum_v2/probe_cc0_altar_focus.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sanctum-cc0-altar-focus-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq curl xz-utils xvfb libx11-6 libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libglu1-mesa
+
+      - name: Fetch verified CC0 church
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p external-altar sanctum-altar-focus
+          curl -L --fail --retry 3 https://opengameart.org/content/church-0 -o sanctum-altar-focus/source-page.html
+          grep -qi CC0 sanctum-altar-focus/source-page.html
+          curl -L --fail --retry 3 https://opengameart.org/sites/default/files/Church.blend -o external-altar/Church.blend
+          test -s external-altar/Church.blend
+          sha256sum external-altar/Church.blend | tee sanctum-altar-focus/source.sha256
+
+      - name: Install Blender
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz -o /tmp/blender.tar.xz
+          tar -C /tmp -xf /tmp/blender.tar.xz
+
+      - name: Render authored altar cluster
+        shell: bash
+        run: |
+          set -euo pipefail
+          export SANCTUM_ALTAR_SHA256="$(cut -d' ' -f1 sanctum-altar-focus/source.sha256)"
+          SANCTUM_ALTAR_FOCUS_OUT=sanctum-altar-focus \
+          xvfb-run -a -s "-screen 0 1500x1000x24" \
+            /tmp/blender-5.2.2-linux-x64/blender \
+            -b external-altar/Church.blend \
+            --python tools/sanctum_v2/probe_cc0_altar_focus.py \
+            2>&1 | tee sanctum-altar-focus/blender.log
+          grep -q SANCTUM_ALTAR_FOCUS_PASS sanctum-altar-focus/blender.log
+
+      - name: Validate altar focus
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("sanctum-altar-focus")
+          d=json.loads((root/"altar-focus-report.json").read_text(encoding="utf-8"))
+          assert d["status"]=="PASS",d
+          assert d["license"]=="CC0",d
+          assert len(d["source_sha256"])==64,d
+          assert d["objects"]==["altar","Cross","bible.000","bible.002","candle","candle.001","candle.002","candle.003"],d
+          assert len(d["renders"])==3,d
+          assert d["glb_bytes"]>1000,d
+          for item in d["renders"]:
+              p=root/item["name"]
+              assert p.is_file() and p.stat().st_size>5000,p
+          print("SANCTUM_ALTAR_FOCUS_GREEN")
+          print("SIZE",d["bounds"]["size"])
+          PY
+
+      - name: Upload altar focus
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-Sanctum-CC0-Altar-Focus
+          path: sanctum-altar-focus/
+          if-no-files-found: error
+          retention-days: 14
