@@ -251,6 +251,7 @@ def prepare_source_face_repair_challenger(
     for index, backend in enumerate(backends):
         donor_dir = out_dir / f"donor_{index:02d}_{backend}"
         staged_source = donor_dir / "source_head_rgba.png"
+        attempt_candidate: Path | None = None
         try:
             donor = generate_source_head_donor(
                 detail_image,
@@ -291,7 +292,8 @@ def prepare_source_face_repair_challenger(
             fusion_payload = asdict(fusion)
             last_fusion = fusion_payload
             candidate = fusion.output_glb or fusion.raw_output_glb
-            last_candidate = Path(candidate) if candidate else None
+            attempt_candidate = Path(candidate) if candidate else None
+            last_candidate = attempt_candidate
 
             if not fusion.ready_for_judge or not candidate:
                 attempts.append(
@@ -350,8 +352,8 @@ def prepare_source_face_repair_challenger(
                     "ready": False,
                     "donor_mesh": str(donor),
                     "candidate_mesh": (
-                        str(last_candidate)
-                        if last_candidate is not None
+                        str(attempt_candidate)
+                        if attempt_candidate is not None
                         else None
                     ),
                     "error": f"{type(exc).__name__}:{exc}",
@@ -372,11 +374,7 @@ def prepare_source_face_repair_challenger(
         backend=None,
         staged_source=None,
         donor_mesh=str(last_donor) if last_donor is not None else None,
-        candidate_mesh=(
-            str(last_candidate)
-            if last_candidate is not None
-            else None
-        ),
+        candidate_mesh=None,
         fusion=last_fusion,
         error=(
             "all selected native head-donor backends were rejected: "
