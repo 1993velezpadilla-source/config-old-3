@@ -505,6 +505,40 @@ def main() -> int:
     parser.add_argument("--allow-unrebaked", action="store_true")
     args = parser.parse_args()
 
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+
+    if len(args.backend) > 1:
+        tournament = prepare_source_face_repair_tournament(
+            args.base,
+            args.detail,
+            args.output_dir,
+            selected_backends=args.backend,
+            seed=args.seed,
+            hero_faces=args.hero_faces,
+            trellis2_resolution=args.trellis2_resolution,
+            texture_size=args.texture_size,
+            model_root=args.model_root,
+            require_rebake=not args.allow_unrebaked,
+        )
+        (args.output_dir / "source_face_repair_tournament.json").write_text(
+            json.dumps(asdict(tournament), indent=2) + "\n",
+            encoding="utf-8",
+        )
+        compatibility_result = next(
+            (result for result in tournament.results if result.ready),
+            tournament.results[0] if tournament.results else None,
+        )
+        if compatibility_result is not None:
+            (args.output_dir / "source_face_repair.json").write_text(
+                json.dumps(asdict(compatibility_result), indent=2) + "\n",
+                encoding="utf-8",
+            )
+        print(
+            "HAYUYA_SOURCE_FACE_REPAIR_TOURNAMENT",
+            json.dumps(asdict(tournament), separators=(",", ":")),
+        )
+        return 0 if tournament.ready else 2
+
     result = prepare_source_face_repair_challenger(
         args.base,
         args.detail,
@@ -517,12 +551,14 @@ def main() -> int:
         model_root=args.model_root,
         require_rebake=not args.allow_unrebaked,
     )
-    args.output_dir.mkdir(parents=True, exist_ok=True)
     (args.output_dir / "source_face_repair.json").write_text(
         json.dumps(asdict(result), indent=2) + "\n",
         encoding="utf-8",
     )
-    print("HAYUYA_SOURCE_FACE_REPAIR", json.dumps(asdict(result), separators=(",", ":")))
+    print(
+        "HAYUYA_SOURCE_FACE_REPAIR",
+        json.dumps(asdict(result), separators=(",", ":")),
+    )
     return 0 if result.ready else 2
 
 
