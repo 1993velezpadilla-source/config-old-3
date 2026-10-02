@@ -956,7 +956,6 @@ def _add_residual_surface_patches(
     regions=[
         ("thumb_middle_patch",(314,296,342,357),False,0.00075),
         ("head_top_patch",(408,112,442,163),False,0.00075),
-        ("head_apex_frontmost_patch",(418,116,439,141),True,0.00150),
     ]
 
     patch_vertices=[]
@@ -1057,9 +1056,263 @@ def _add_residual_surface_patches(
         "vertices_added":int(len(patch_vertices)),
         "faces_added":int(len(patch_faces)),
         "depth_lift":0.00075,
-        "apex_depth_lift":0.00150,
-        "apex_depth_mode":"frontmost_neighborhood",
         "topology_change":"front residual patches only",
+    }
+
+
+def _head_bounds(scene):
+    vertices=np.concatenate([
+        np.asarray(g.vertices,dtype=np.float64)
+        for g in scene.geometry.values()
+        if hasattr(g,"vertices") and len(g.vertices)
+    ],axis=0)
+    lo=vertices.min(axis=0)
+    hi=vertices.max(axis=0)
+    center_x=float((lo[0]+hi[0])*0.5)
+    y_cut=float(lo[1]+(hi[1]-lo[1])*0.83)
+    x_half=float((hi[0]-lo[0])*0.34)
+
+    points=[]
+    for geometry in scene.geometry.values():
+        if not hasattr(geometry,"faces"):
+            continue
+        v=np.asarray(geometry.vertices,dtype=np.float64)
+        f=np.asarray(geometry.faces,dtype=np.int64)
+        if not len(f):
+            continue
+        centroids=v[f].mean(axis=1)
+        selected=np.flatnonzero(
+            (centroids[:,1]>=y_cut)
+            & (np.abs(centroids[:,0]-center_x)<=x_half)
+        )
+        if len(selected):
+            points.append(v[f[selected]].reshape(-1,3))
+    if not points:
+        raise RuntimeError("no head-region geometry for apex repair")
+
+    head=np.concatenate(points,axis=0)
+    h_lo=head.min(axis=0)
+    h_hi=head.max(axis=0)
+    span=max(
+        float(h_hi[0]-h_lo[0]),
+        float(h_hi[1]-h_lo[1]),
+    )*1.95
+    cx=float((h_lo[0]+h_hi[0])*0.5)
+    cy=float((h_lo[1]+h_hi[1])*0.5)
+    return (
+        cx-span*0.5,
+        cx+span*0.5,
+        cy-span*0.5,
+        cy+span*0.5,
+    )
+
+
+def _headspace_apex_missing_patch(
+    scene,
+    *,
+    alpha_threshold:int,
+):
+    import trimesh
+    from scipy.ndimage import distance_transform_edt, label
+    from scipy.spatial import cKDTree
+
+    front=_geometry(scene,FRONT_NODE)
+    support=_geometry(scene,SUPPORT_NODE)
+    material=getattr(front.visual,"material",None)
+    texture=getattr(material,"baseColorTexture",None) if material is not None else None
+    if texture is None:
+        raise RuntimeError("front texture missing before head-space apex patch")
+
+    vertices=np.asarray(front.vertices,dtype=np.float64)
+    faces=np.asarray(front.faces,dtype=np.int64)
+    uv=np.asarray(front.visual.uv,dtype=np.float64)
+    if len(uv)!=len(vertices):
+        raise RuntimeError("front UV/vertex count mismatch before head-space patch")
+
+    head_grid=1024
+    bounds=_head_bounds(scene)
+    front_mask=_rasterize(front,bounds,head_grid)
+    support_mask=_rasterize(support,bounds,head_grid)
+    outline,_=_source_outline(
+        front,bounds,head_grid,alpha_threshold
+    )
+    front_keep=front_mask&outline
+    support_fill=support_mask&outline&~front_keep
+    keep=front_keep|support_fill
+    distance=distance_transform_edt(~keep)
+    edge_fill=(outline&~keep)&(distance<=6.0)
+    keep2=keep|edge_fill
+    missing=outline&~keep2
+
+    labels,count=label(missing)
+    candidates=[]
+    for component_id in range(1,int(count)+1):
+        ys,xs=np.where(labels==component_id)
+        area=int(len(xs))
+        if area<12 or area>420:
+            continue
+        cx=float(xs.mean())/float(head_grid)
+        cy=float(ys.mean())/float(head_grid)
+        # The visible apex notch lives in the upper-middle hood shell.
+        # Select by normalized head-space, not hard-coded whole-body pixels.
+        if not (0.55<=cx<=0.60 and 0.33<=cy<=0.38):
+            continue
+        candidates.append({
+            "component_id":int(component_id),
+            "area":area,
+            "centroid":[float(xs.mean()),float(ys.mean())],
+            "bbox":[
+                int(xs.min()),int(ys.min()),
+                int(xs.max()),int(ys.max()),
+            ],
+        })
+
+    if not candidates:
+        return {
+            "policy":"headspace-apex-missing-surface-patch-v1",
+            "enabled":False,
+            "head_grid":head_grid,
+            "reason":"no qualifying apex missing component",
+            "missing_before":int(np.count_nonzero(missing)),
+            "candidates":[],
+        }
+
+    # Use the largest qualifying component; #52 evidence is 112 px at
+    # approximately bbox 579..597 x 362..371.
+    target=max(candidates,key=lambda x:x["area"])
+    component=labels==int(target["component_id"])
+
+    # Add one-pixel insurance around the measured missing cells, but only
+    # inside authoritative source alpha.
+    from scipy.ndimage import binary_dilation
+    cells=binary_dilation(component,iterations=1)&outline
+
+    rgba=np.asarray(texture.convert("RGBA"),dtype=np.uint8)
+    x=vertices[:,0]
+    y=vertices[:,1]
+    ax,bx=np.linalg.lstsq(
+        np.stack([x,np.ones_like(x)],axis=1),
+        uv[:,0],
+        rcond=None,
+    )[0]
+    ay,by=np.linalg.lstsq(
+        np.stack([y,np.ones_like(y)],axis=1),
+        uv[:,1],
+        rcond=None,
+    )[0]
+
+    xmin,xmax,ymin,ymax=[float(v) for v in bounds]
+    th,tw,_=rgba.shape
+    xy_tree=cKDTree(vertices[:,:2])
+
+    def pixel_to_world(px:float,py:float):
+        wx=xmin+(float(px)/float(head_grid-1))*(xmax-xmin)
+        wy=ymax-(float(py)/float(head_grid-1))*(ymax-ymin)
+        return wx,wy
+
+    def source_alpha(wx:float,wy:float):
+        uu=float(ax*wx+bx)
+        vv=float(ay*wy+by)
+        if uu<0.0 or uu>1.0 or vv<0.0 or vv>1.0:
+            return 0
+        tx=max(0,min(tw-1,int(round(uu*(tw-1)))))
+        ty=max(0,min(th-1,int(round((1.0-vv)*(th-1)))))
+        return int(rgba[ty,tx,3])
+
+    def frontmost_depth(wx:float,wy:float):
+        _,indices=xy_tree.query(
+            np.array([wx,wy],dtype=np.float64),
+            k=min(12,len(vertices)),
+        )
+        indices=np.atleast_1d(indices).astype(np.int64)
+        return float(np.max(vertices[indices,2]))+0.00150
+
+    patch_vertices=[]
+    patch_uv=[]
+    patch_faces=[]
+    ys,xs=np.where(cells)
+    for py,px in zip(ys.tolist(),xs.tolist()):
+        cwx,cwy=pixel_to_world(px+0.5,py+0.5)
+        if source_alpha(cwx,cwy)<int(alpha_threshold):
+            continue
+        corners=[
+            (float(px),float(py)),
+            (float(px+1),float(py)),
+            (float(px+1),float(py+1)),
+            (float(px),float(py+1)),
+        ]
+        base=len(patch_vertices)
+        for cpx,cpy in corners:
+            wx,wy=pixel_to_world(cpx,cpy)
+            wz=frontmost_depth(wx,wy)
+            uu=float(ax*wx+bx)
+            vv=float(ay*wy+by)
+            patch_vertices.append([wx,wy,wz])
+            patch_uv.append([
+                min(1.0,max(0.0,uu)),
+                min(1.0,max(0.0,vv)),
+            ])
+        patch_faces.append([base+0,base+1,base+2])
+        patch_faces.append([base+0,base+2,base+3])
+
+    if not patch_faces:
+        return {
+            "policy":"headspace-apex-missing-surface-patch-v1",
+            "enabled":False,
+            "head_grid":head_grid,
+            "reason":"qualifying component produced no opaque patch cells",
+            "missing_before":int(np.count_nonzero(missing)),
+            "target":target,
+        }
+
+    if len(patch_vertices)>4000 or len(patch_faces)>2000:
+        raise RuntimeError(
+            "head-space apex patch exceeded safety budget: "
+            f"vertices={len(patch_vertices)} faces={len(patch_faces)}"
+        )
+
+    patch_vertices=np.asarray(patch_vertices,dtype=np.float64)
+    patch_uv=np.asarray(patch_uv,dtype=np.float64)
+    patch_faces=np.asarray(patch_faces,dtype=np.int64)
+
+    merged=trimesh.Trimesh(
+        vertices=np.vstack([vertices,patch_vertices]),
+        faces=np.vstack([faces,patch_faces+len(vertices)]),
+        process=False,
+        metadata=dict(getattr(front,"metadata",{}) or {}),
+    )
+    merged.visual=trimesh.visual.texture.TextureVisuals(
+        uv=np.vstack([uv,patch_uv]),
+        material=material,
+    )
+    _,geometry_name=scene.graph.get(FRONT_NODE)
+    scene.geometry[geometry_name]=merged
+
+    # Measure the exact same head-space evidence after patching.
+    front_after=_geometry(scene,FRONT_NODE)
+    front_mask_after=_rasterize(front_after,bounds,head_grid)
+    front_keep_after=front_mask_after&outline
+    keep_after=front_keep_after|(support_mask&outline&~front_keep_after)
+    distance_after=distance_transform_edt(~keep_after)
+    edge_after=(outline&~keep_after)&(distance_after<=6.0)
+    missing_after=outline&~(keep_after|edge_after)
+
+    return {
+        "policy":"headspace-apex-missing-surface-patch-v1",
+        "enabled":True,
+        "head_grid":head_grid,
+        "target":target,
+        "dilated_cells":int(np.count_nonzero(cells)),
+        "vertices_added":int(len(patch_vertices)),
+        "faces_added":int(len(patch_faces)),
+        "depth_mode":"frontmost_12_neighborhood",
+        "depth_lift":0.00150,
+        "missing_before":int(np.count_nonzero(missing)),
+        "missing_after":int(np.count_nonzero(missing_after)),
+        "target_missing_after":int(np.count_nonzero(
+            missing_after & binary_dilation(component,iterations=1)
+        )),
+        "topology_change":"front head-apex residual only",
     }
 
 
@@ -1226,6 +1479,10 @@ def conform(
         overscan=overscan,
         alpha_threshold=alpha_threshold,
     )
+    headspace_apex_patch=_headspace_apex_missing_patch(
+        scene,
+        alpha_threshold=alpha_threshold,
+    )
     final=_coverage(
         scene,grid,overscan,alpha_threshold,edge_fill_radius
     )
@@ -1267,6 +1524,7 @@ def conform(
         "residual_thumb_bridge_pass":residual_thumb_bridge,
         "decisive_thumb_head_passes":decisive_thumb_head_passes,
         "residual_surface_patch":residual_surface_patch,
+        "headspace_apex_patch":headspace_apex_patch,
     }
 
     output_glb.parent.mkdir(parents=True,exist_ok=True)
