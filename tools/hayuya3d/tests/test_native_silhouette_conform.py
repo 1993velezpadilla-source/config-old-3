@@ -151,6 +151,12 @@ def test_native_conform_keeps_real_geometry_and_never_creates_proxy_nodes(tmp_pa
     assert result["render_budget"]["input_faces"] >= result["render_budget"]["render_faces"]
     assert result["topology_smoothing"]["mode"] == "active-visible-one-ring-only"
     assert result["topology_smoothing"]["can_activate_new_vertices"] is False
+    preservation = result["roundtrip_preservation"]
+    assert preservation["preserved"] is True
+    assert preservation["regressions"] == []
+    assert preservation["before_mesh"]["vertices"] == preservation["after_mesh"]["vertices"]
+    assert preservation["before_mesh"]["faces"] == preservation["after_mesh"]["faces"]
+    assert preservation["before_mesh"]["uv_mesh_nodes"] <= preservation["after_mesh"]["uv_mesh_nodes"]
     assert result["final"]["score"] >= result["initial"]["score"]
     assert_native_candidate(output, label="test-output")
 
