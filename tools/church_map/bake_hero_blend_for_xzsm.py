@@ -10,6 +10,7 @@ import bpy
 import json
 import os
 import re
+import runpy
 from pathlib import Path
 from mathutils import Vector
 
@@ -25,6 +26,152 @@ export_objects=[
 ]
 if not export_objects:
     raise SystemExit("HERO_BLEND_BAKE_FAIL: xziel_snapshot_export meshes missing")
+
+# ---------------------------------------------------------------------------
+# POLISH PASS 01
+# Reuse the exact Hero scene, then add only authored gameplay-readable visual
+# geometry that the BSP cannot show because XZSM is the sole visual authority.
+# ---------------------------------------------------------------------------
+NAV_PATH=Path(os.environ.get("XZIEL_NAV_SKELETON","tools/church_map/sanctum_nav_skeleton_apk9.v1.json"))
+nav_doc=json.loads(NAV_PATH.read_text(encoding="utf-8")) if NAV_PATH.is_file() else None
+polish_objects=[]
+removed_pews=[]
+spawner_windows=[]
+
+refmat=runpy.run_path("tools/sanctum_v2/reference_materials.py")
+REF=refmat["material_set"]()
+POLISH_FLOOR=REF["floor"]
+POLISH_WOOD=REF["wood_h"]
+POLISH_GLASS=REF["glass"]
+
+def flat_polish_material(name,color,roughness=0.75):
+    mat=bpy.data.materials.get(name) or bpy.data.materials.new(name)
+    mat.use_nodes=True
+    bsdf=mat.node_tree.nodes.get("Principled BSDF") if mat.node_tree else None
+    if bsdf:
+        bsdf.inputs["Base Color"].default_value=(*color,1.0)
+        bsdf.inputs["Roughness"].default_value=roughness
+    mat.diffuse_color=(*color,1.0)
+    return mat
+
+BOARD_MAT=flat_polish_material("SANCTUM_SPAWNER_BOARD_WOOD",(0.105,0.030,0.012),0.86)
+
+def make_quad_object(name, rects, material):
+    # rects are 4-tuples of world-space corners. Multiple quads become one
+    # object/material so Android gets one texture rather than dozens.
+    verts=[]; faces=[]
+    for rect in rects:
+        base=len(verts)
+        verts.extend(tuple(float(x) for x in p) for p in rect)
+        faces.append((base,base+1,base+2,base+3))
+    mesh=bpy.data.meshes.new(name+"_MESH")
+    mesh.from_pydata(verts,[],faces)
+    mesh.update()
+    obj=bpy.data.objects.new(name,mesh)
+    scene.collection.objects.link(obj)
+    mesh.materials.append(material)
+    obj["xziel_role"]="polish_visual"
+    obj["xziel_collision"]=False
+    polish_objects.append(obj)
+    return obj
+
+def object_world_bounds(obj):
+    pts=[obj.matrix_world @ Vector(c) for c in obj.bound_box]
+    return (
+        Vector((min(p.x for p in pts),min(p.y for p in pts),min(p.z for p in pts))),
+        Vector((max(p.x for p in pts),max(p.y for p in pts),max(p.z for p in pts))),
+    )
+
+if nav_doc:
+    nave_specs=[f for f in nav_doc.get("floors",[]) if f["id"].startswith("nave_")]
+    if not nave_specs:
+        raise SystemExit("POLISH_FAIL: nav skeleton has no nave floor pieces")
+    nx0=min(f["min"][0] for f in nave_specs); nx1=max(f["max"][0] for f in nave_specs)
+    ny0=min(f["min"][1] for f in nave_specs); ny1=max(f["max"][1] for f in nave_specs)
+    nave_z=max(f["max"][2] for f in nave_specs)
+
+    # Remove only prop pews that visibly escape the playable nave footprint.
+    kept=[]
+    for obj in export_objects:
+        n=obj.name.upper()
+        if "PEW" in n:
+            mn_,mx_=object_world_bounds(obj)
+            outside=(mn_.x < nx0-0.18 or mx_.x > nx1+0.18 or mn_.y < ny0-0.18 or mx_.y > ny1+0.18)
+            if outside:
+                removed_pews.append(obj.name)
+                obj.hide_render=True
+                obj.hide_viewport=True
+                continue
+        kept.append(obj)
+    export_objects=kept
+
+    # Visible exterior apron: one object, four quads, one high-quality bake.
+    ext_rects=[]
+    for f in nav_doc.get("floors",[]):
+        if not f["id"].startswith("exterior_"):
+            continue
+        x0,y0,_=f["min"]; x1,y1,z=f["max"]
+        z=float(z)+0.018
+        ext_rects.append(((x0,y0,z),(x1,y0,z),(x1,y1,z),(x0,y1,z)))
+    if len(ext_rects)!=4:
+        raise SystemExit(f"POLISH_FAIL: expected 4 exterior apron pieces, got {len(ext_rects)}")
+    exterior_obj=make_quad_object("SANCTUM_EXTERIOR_FLOOR_VISUAL",ext_rects,POLISH_FLOOR)
+    exterior_obj["xziel_zone"]="exterior"
+
+    # Full visible second floor matched 1:1 to the already-proven collision deck.
+    upper=next((f for f in nav_doc.get("floors",[]) if f["id"]=="upper_full_deck"),None)
+    if not upper:
+        raise SystemExit("POLISH_FAIL: upper_full_deck missing")
+    ux0,uy0,_=upper["min"]; ux1,uy1,uz=upper["max"]; uz=float(uz)+0.018
+    upper_obj=make_quad_object("SANCTUM_UPPER_FLOOR_VISUAL",[
+        ((ux0,uy0,uz),(ux1,uy0,uz),(ux1,uy1,uz),(ux0,uy1,uz))
+    ],POLISH_WOOD)
+    upper_obj["xziel_zone"]="main_church"
+
+    # Eight future zombie-window sockets. These are visual-only in this pass:
+    # stained-glass backplates + three dark boards each. No spawn_zombie or
+    # item_barricade entities are enabled yet.
+    glass_rects=[]; board_rects=[]
+    ys=[ny0+(ny1-ny0)*t for t in (0.18,0.38,0.62,0.82)]
+    for side,x,normal in (("west",nx0-0.025,(-1.0,0.0,0.0)),("east",nx1+0.025,(1.0,0.0,0.0))):
+        for slot,y in enumerate(ys,1):
+            zc=nave_z+1.28
+            half_w=0.92; half_h=0.88
+            glass_rects.append(((x,y-half_w,zc-half_h),(x,y+half_w,zc-half_h),(x,y+half_w,zc+half_h),(x,y-half_w,zc+half_h)))
+            for bi,(dz,slant) in enumerate(((-0.52,0.10),(0.0,-0.08),(0.52,0.12)),1):
+                zz=zc+dz
+                h=0.105
+                board_rects.append(((x-normal[0]*0.012,y-half_w-0.06,zz-h-slant),
+                                    (x-normal[0]*0.012,y+half_w+0.06,zz-h+slant),
+                                    (x-normal[0]*0.012,y+half_w+0.06,zz+h+slant),
+                                    (x-normal[0]*0.012,y-half_w-0.06,zz+h-slant)))
+            inside=(x-normal[0]*0.85,y,zc-0.55)
+            outside=(x+normal[0]*2.6,y,zc-0.55)
+            approach=(x+normal[0]*1.25,y,zc-0.55)
+            spawner_windows.append({
+                "id":f"window_{side}_{slot}",
+                "side":side,
+                "slot":slot,
+                "barricade_center":[float(x),float(y),float(zc)],
+                "normal":[float(v) for v in normal],
+                "inside_player_side":[float(v) for v in inside],
+                "outside_spawn":[float(v) for v in outside],
+                "outside_approach":[float(v) for v in approach],
+                "state":"prepared_no_zombies",
+            })
+    window_glass=make_quad_object("SANCTUM_SPAWNER_WINDOWS_GLASS",glass_rects,POLISH_GLASS)
+    window_glass["xziel_role"]="future_spawner_window"
+    window_boards=make_quad_object("SANCTUM_SPAWNER_WINDOWS_BOARDS",board_rects,BOARD_MAT)
+    window_boards["xziel_role"]="future_barricade_boards"
+
+    (OUT/"window-spawner-prep.json").write_text(json.dumps({
+        "schema_version":1,
+        "status":"PREPARED_NO_ZOMBIES",
+        "count":len(spawner_windows),
+        "windows":spawner_windows,
+    },indent=2),encoding="utf-8")
+
+    export_objects.extend(polish_objects)
 
 def bounds(objects):
     pts=[]
@@ -190,7 +337,7 @@ for idx,obj in enumerate(procedural_objects,1):
 
     n=obj.name.upper()
     # Architecture/key surfaces stay 4K; small detail stays 2K.
-    high=any(k in n for k in ("FLOOR","WALL","APSE","STEP","WOOD_BASE","PEW","ALTAR_SLAB"))
+    high=any(k in n for k in ("FLOOR","WALL","APSE","STEP","WOOD_BASE","PEW","ALTAR_SLAB","SPAWNER_WINDOWS"))
     res=4096 if high else 2048
     safe=re.sub(r"[^A-Za-z0-9_]+","_",obj.name)[:64]
     img=bpy.data.images.new(f"XZIEL_BAKED_{safe}",width=res,height=res,alpha=True,float_buffer=False)
@@ -267,9 +414,14 @@ if not floor_objs:
 if not floor_objs:
     raise SystemExit("HERO_BLEND_BAKE_FAIL: main floor objects missing")
 floor_z=sum(max((o.matrix_world@Vector(c)).z for c in o.bound_box) for o in floor_objs)/len(floor_objs)
-spawn=Vector(((mn.x+mx.x)*0.5,mn.y+2.6,floor_z))
-zone_min=Vector((mn.x,mn.y,floor_z))
-zone_max=Vector((mx.x,mx.y,max(mx.z,floor_z+8.0)))
+if nav_doc:
+    spawn=Vector(nav_doc.get("spawn",((mn.x+mx.x)*0.5,mn.y+2.6,floor_z)))
+    zone_min=Vector(nav_doc["plan"]["min"])
+    zone_max=Vector(nav_doc["plan"]["max"])
+else:
+    spawn=Vector(((mn.x+mx.x)*0.5,mn.y+2.6,floor_z))
+    zone_min=Vector((mn.x,mn.y,floor_z))
+    zone_max=Vector((mx.x,mx.y,max(mx.z,floor_z+8.0)))
 zone_center=(zone_min+zone_max)*0.5
 
 plan={"working_title":"XZIEL CHURCH SNAPSHOT EXACT HERO MATERIALS","zones":{"main_church":{
@@ -304,6 +456,15 @@ report={
     "flat_material_slots":flat_materials,
     "procedural_objects_baked":len(procedural_objects),
     "forced_legacy_bakes":[o.name for o in procedural_objects if o.name=="SANCTUM_HERO_APSE_RUIN"],
+    "polish":{
+        "nav_skeleton":str(NAV_PATH) if nav_doc else None,
+        "visible_exterior":bool(nav_doc),
+        "visible_upper_floor":bool(nav_doc),
+        "spawner_window_count":len(spawner_windows),
+        "spawner_state":"prepared_no_zombies" if spawner_windows else "none",
+        "removed_out_of_bounds_pews":removed_pews,
+        "polish_objects":[o.name for o in polish_objects],
+    },
     "bakes":bake_records,
     "floor_z":float(floor_z),
     "spawn":[float(x) for x in spawn],

@@ -10,6 +10,7 @@ on:
       - "tools/church_map/bake_hero_blend_for_xzsm.py"
       - "tools/church_map/export_vril_static_mesh.py"
       - "scripts/patch_vril_sanctum_staticmesh.py"
+      - "tools/church_map/sanctum_nav_skeleton_apk9.v1.json"
 
 permissions:
   contents: read
@@ -65,6 +66,7 @@ jobs:
         env:
           XZIEL_HERO_BLEND: ${{ github.workspace }}/snapshot/hero/sanctum-hero-altar.blend
           XZIEL_SNAPSHOT_OUT: snapshot/out
+          XZIEL_NAV_SKELETON: ${{ github.workspace }}/tools/church_map/sanctum_nav_skeleton_apk9.v1.json
         run: |
           set -euo pipefail
           xvfb-run -a -s "-screen 0 1600x1000x24" /tmp/blender-5.2.2-linux-x64/blender -b \
@@ -72,6 +74,21 @@ jobs:
             2>&1 | tee snapshot/out/material-bake.log
           grep -q XZIEL_EXACT_HERO_MATERIAL_BAKE_PASS snapshot/out/material-bake.log
           test -s snapshot/out/hero31_android_baked.blend
+          test -s snapshot/out/window-spawner-prep.json
+          python3 - <<'PY'
+          import json
+          r=json.load(open("snapshot/out/exact-material-bake-report.json"))
+          p=r["polish"]
+          assert p["visible_exterior"] is True,p
+          assert p["visible_upper_floor"] is True,p
+          assert p["spawner_window_count"]==8,p
+          assert p["spawner_state"]=="prepared_no_zombies",p
+          assert "SANCTUM_EXTERIOR_FLOOR_VISUAL" in p["polish_objects"],p
+          assert "SANCTUM_UPPER_FLOOR_VISUAL" in p["polish_objects"],p
+          w=json.load(open("snapshot/out/window-spawner-prep.json"))
+          assert w["status"]=="PREPARED_NO_ZOMBIES" and w["count"]==8,w
+          print("CHURCH_POLISH01_GREEN",json.dumps(p,indent=2))
+          PY
 
       - name: Export full XZSM with exact baked materials
         shell: bash
@@ -114,6 +131,7 @@ jobs:
           CHURCH_PACKAGE: ${{ github.workspace }}/snapshot/out/package
           CHURCH_PLAN: ${{ github.workspace }}/snapshot/out/snapshot_plan.json
           CHURCH_FITTED: ${{ github.workspace }}/snapshot/out/fitted.json
+          CHURCH_NAV_SKELETON: ${{ github.workspace }}/tools/church_map/sanctum_nav_skeleton_apk9.v1.json
           NZP_MAP_OUT: ${{ github.workspace }}/snapshot/out/nzp_harness/sanctum_harness.map
         run: |
           set -euo pipefail
@@ -196,10 +214,12 @@ jobs:
         shell: bash
         run: |
           mkdir -p snapshot-dist
-          cp build/android-project/app/build/outputs/apk/debug/app-debug.apk snapshot-dist/XZIEL-Church-ExactTextures-InfinitePistol-debug.apk
+          cp build/android-project/app/build/outputs/apk/debug/app-debug.apk snapshot-dist/XZIEL-Church-Polish01-NoZombies-InfinitePistol.apk
           cp snapshot/hero/01-hero-altar-from-nave.png snapshot-dist/blender-reference.png
           cp snapshot/out/exact-material-bake-report.json snapshot-dist/
           cp snapshot/out/vril_static_mesh_report.json snapshot-dist/
+          cp snapshot/out/window-spawner-prep.json snapshot-dist/
+          cp snapshot/out/nzp_harness/sanctum_harness_export.json snapshot-dist/
 
       - name: Android visual smoke
         id: smoke
@@ -221,7 +241,7 @@ jobs:
             [[ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]] && break
             sleep 2
           done
-          "$ADB" install -r snapshot-dist/XZIEL-Church-ExactTextures-InfinitePistol-debug.apk
+          "$ADB" install -r snapshot-dist/XZIEL-Church-Polish01-NoZombies-InfinitePistol.apk
           "$ADB" shell settings put secure immersive_mode_confirmations confirmed || true
           "$ADB" shell am force-stop com.xziel.churchsnapshot || true
           "$ADB" shell am start -W -n com.xziel.churchsnapshot/org.libsdl.app.NZPActivity >/dev/null 2>&1 || true
@@ -230,7 +250,7 @@ jobs:
             [[ "$STAGE" == "FIRST_FRAME_OK" ]] && break
             sleep 1
           done
-          sleep 10
+          sleep 45
           "$ADB" exec-out screencap -p > snapshot-dist/church-exact-textures.png
           PID="$("$ADB" shell pidof com.xziel.churchsnapshot | tr -d '\r' || true)"
           STAGE="$("$ADB" shell run-as com.xziel.churchsnapshot cat files/nzp-runtime/.xziel-stage 2>/dev/null | tr -d '\r' || true)"
@@ -253,7 +273,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: XZIEL-Church-ExactTextures-InfinitePistol
+          name: XZIEL-Church-Polish01-NoZombies-InfinitePistol
           path: snapshot-dist/
           if-no-files-found: error
           retention-days: 14

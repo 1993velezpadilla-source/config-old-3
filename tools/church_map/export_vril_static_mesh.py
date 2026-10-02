@@ -251,8 +251,8 @@ def visual_zone(obj):
     return "main_church"
 
 ZONE_TINT = {
-    "exterior": (0.68, 0.78, 1.00),
-    "main_church": (1.00, 0.86, 0.72),
+    "exterior": (0.82, 0.88, 1.00),
+    "main_church": (1.00, 0.95, 0.88),
     "office": (0.92, 0.83, 0.72),
     "office_corridor": (0.88, 0.82, 0.76),
     "boiler": (1.00, 0.72, 0.56),
@@ -287,12 +287,14 @@ def baked_vertex_rgba(obj, world_pos, world_normal):
     # real-world shadowing, so multiplying it by the old 0.34 floor crushed
     # large interior regions to near-black in the Android harness. Keep the
     # night mood and directional shaping, but preserve midtone information.
-    level = 0.68 + 0.20 * ndl + 0.08 * upward
+    # Safe mobile night grade: keep enough headroom for dramatic cool/warm
+    # shaping without ever crushing the authored albedo back into black.
+    level = 0.80 + 0.12 * ndl + 0.06 * upward
     for light_pos, radius, strength in warm_lights:
         d = (world_pos - light_pos).length
         if d < radius:
-            level += strength * (1.0 - d / radius)
-    level = max(0.52, min(1.0, level))
+            level += min(0.14,strength) * (1.0 - d / radius)
+    level = max(0.72, min(1.0, level))
 
     rgb = [max(0, min(255, int(round(255.0 * level * tint[i])))) for i in range(3)]
     return (rgb[0], rgb[1], rgb[2], 255)
@@ -569,7 +571,7 @@ report = {
     "textureMaxDimension":TEXTURE_MAX,
     "decimateRatio":ratio,
     "batching":"object_material_spatial",
-    "vertexLighting":"night_moon_plus_zone_practicals_v1",
+    "vertexLighting":"mobile_safe_moon_warm_grade_v2",
     "vertexStrideBytes":24,
     "scanCleanup":cleanup_stats,
     "batchCount":len(batches),

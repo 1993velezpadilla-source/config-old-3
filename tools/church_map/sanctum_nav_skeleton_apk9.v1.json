@@ -7,18 +7,19 @@
     "Only floors and vertical access ramps collide in this test.",
     "Interior walls, pews, altar and props intentionally remain non-colliding.",
     "Ramps are compiled as invisible walkable step brushes by export_nzp_harness.py.",
-    "The second floor is a complete visible walkable deck for gameplay testing.",
-    "A visible walkable exterior apron surrounds the church while preserving undercroft access holes."
+    "The second floor has a complete collision deck and a matching visible XZSM deck.",
+    "The exterior gameplay apron extends roughly 15 m beyond the original church visual bounds.",
+    "Eight side-window sockets are prepared for future zombie spawn/path/barricade wiring; no zombie entities are enabled yet."
   ],
   "plan": {
     "min": [
-      -39.819637298583984,
-      -53.38863754272461,
+      -46.819637298583984,
+      -60.38863754272461,
       -0.3148227035999298
     ],
     "max": [
-      4.199104309082031,
-      -1.3209457397460938,
+      11.199104309082031,
+      5.679054260253906,
       42.96233367919922
     ]
   },
@@ -150,38 +151,38 @@
     {
       "id": "exterior_west",
       "min": [
-        -39.819637298583984,
-        -53.38863754272461,
+        -46.819637298583984,
+        -60.38863754272461,
         -0.4948227083683014
       ],
       "max": [
         -25.169002532958984,
-        -1.3209457397460938,
+        5.679054260253906,
         -0.3148227083683014
       ],
-      "texture": "tiles_me",
+      "texture": "loop_tile_maju2",
       "purpose": "exterior_gameplay"
     },
     {
       "id": "exterior_east",
       "min": [
         -10.451526641845703,
-        -53.38863754272461,
+        -60.38863754272461,
         -0.4948227083683014
       ],
       "max": [
-        4.199104309082031,
-        -1.3209457397460938,
+        11.199104309082031,
+        5.679054260253906,
         -0.3148227083683014
       ],
-      "texture": "tiles_me",
+      "texture": "loop_tile_maju2",
       "purpose": "exterior_gameplay"
     },
     {
       "id": "exterior_front",
       "min": [
         -25.169002532958984,
-        -53.38863754272461,
+        -60.38863754272461,
         -0.4948227083683014
       ],
       "max": [
@@ -189,7 +190,7 @@
         -39.73322153091431,
         -0.3148227083683014
       ],
-      "texture": "tiles_me",
+      "texture": "loop_tile_maju2",
       "purpose": "exterior_gameplay"
     },
     {
@@ -201,10 +202,10 @@
       ],
       "max": [
         -10.451526641845703,
-        -1.3209457397460938,
+        5.679054260253906,
         -0.3148227083683014
       ],
-      "texture": "tiles_me",
+      "texture": "loop_tile_maju2",
       "purpose": "exterior_gameplay"
     }
   ],
