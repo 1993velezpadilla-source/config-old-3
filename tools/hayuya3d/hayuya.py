@@ -2099,6 +2099,7 @@ def main() -> int:
 
                 face_dir = job_dir / "native_face_repair"
                 ready_entries=[]
+                source_face_repair_result_by_label={}
                 for source_index,(
                     face_source,
                     derive_head_from_full_source,
@@ -2199,6 +2200,7 @@ def main() -> int:
                         )
                         candidates.append((label,repaired_path))
                         source_face_repair_candidate_labels.append(label)
+                        source_face_repair_result_by_label[label]=result
                         source_face_repair_candidate_records.append({
                             "label":label,
                             "source_index":int(source_index),
@@ -2208,6 +2210,8 @@ def main() -> int:
                             ),
                             "backend":result.backend,
                             "candidate_mesh":str(repaired_path),
+                            "face_guard":"pending",
+                            "face_guard_regressions":[],
                         })
                         print(
                             "HAYUYA_SOURCE_FACE_REPAIR_READY "
@@ -2263,6 +2267,13 @@ def main() -> int:
                         )
                         if face_item is None:
                             rejected_labels.append(label)
+                            for record in source_face_repair_candidate_records:
+                                if record["label"]==label:
+                                    record["face_guard"]="rejected"
+                                    record["face_guard_regressions"]=[
+                                        "missing_ranked_candidate"
+                                    ]
+                                    break
                             continue
                         regressions=face_repair_candidate_regressions(
                             base_item,
@@ -2275,6 +2286,13 @@ def main() -> int:
                                 + ";".join(regressions)
                             )
                             rejected_labels.append(label)
+                            for record in source_face_repair_candidate_records:
+                                if record["label"]==label:
+                                    record["face_guard"]="rejected"
+                                    record["face_guard_regressions"]=list(
+                                        regressions
+                                    )
+                                    break
                             print(
                                 "HAYUYA_SOURCE_FACE_REPAIR_GUARD_REJECTED "
                                 f"candidate={label} "
@@ -2282,6 +2300,11 @@ def main() -> int:
                                 file=sys.stderr,
                             )
                         else:
+                            for record in source_face_repair_candidate_records:
+                                if record["label"]==label:
+                                    record["face_guard"]="passed"
+                                    record["face_guard_regressions"]=[]
+                                    break
                             print(
                                 "HAYUYA_SOURCE_FACE_REPAIR_GUARD_PASS "
                                 f"candidate={label} "
@@ -2316,6 +2339,33 @@ def main() -> int:
                         if source_face_repair_candidate_labels
                         else None
                     )
+                    if source_face_repair_candidate_label is not None:
+                        source_face_repair_result=(
+                            source_face_repair_result_by_label.get(
+                                source_face_repair_candidate_label,
+                                source_face_repair_result,
+                            )
+                        )
+                        surviving_record=next(
+                            (
+                                record
+                                for record in source_face_repair_candidate_records
+                                if record["label"]==source_face_repair_candidate_label
+                            ),
+                            None,
+                        )
+                        if surviving_record is not None:
+                            source_index=int(
+                                surviving_record["source_index"]
+                            )
+                            if (
+                                0<=source_index
+                                <len(source_face_repair_tournaments)
+                            ):
+                                source_face_repair_tournament=(
+                                    source_face_repair_tournaments[source_index]
+                                )
+
                     if not source_face_repair_candidate_labels:
                         source_face_repair_status="rejected_face_guard"
                         source_face_repair_failure=(
