@@ -126,6 +126,7 @@ jobs:
           timeout 75 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
             --headless --path xogot --script res://ci/church_traversal_probe.gd \
             2>&1 | tee build/xogot-ai/church-traversal-probe.log
+          grep -q "XZOGOT_HUMAN_SCALE_GREEN" build/xogot-ai/church-traversal-probe.log
           grep -q "XZOGOT_BALCONY_TRAVERSAL_GREEN" build/xogot-ai/church-traversal-probe.log
           grep -q "XZOGOT_CHURCH_TRAVERSAL_PROBE_GREEN" build/xogot-ai/church-traversal-probe.log
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-ai/church-traversal-probe.log
