@@ -116,6 +116,12 @@ _GENERATOR_BY_NAME = {
         True,
         False,
     ),
+    "pixal3d_candidate.glb": (
+        "TencentARC/Pixal3D",
+        "pixal3d",
+        True,
+        False,
+    ),
     "unique3d_candidate.glb": (
         "AiuniAI/Unique3D",
         "unique3d",
