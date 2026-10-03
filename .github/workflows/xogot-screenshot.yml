@@ -42,6 +42,16 @@ jobs:
           unzip -q /tmp/godot.zip -d /tmp/godot
           chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
 
+      - name: Import project assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/xogot-screenshot
+          timeout 180 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --editor --path xogot --quit \
+            2>&1 | tee build/xogot-screenshot/import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|Error importing 'res://assets/zombies/monja_basica.glb'" build/xogot-screenshot/import.log
+
       - name: Render current gameplay screenshot
         shell: bash
         run: |
@@ -54,6 +64,8 @@ jobs:
             --resolution 1280x720 \
             --script res://ci/screenshot_capture.gd \
             2>&1 | tee build/xogot-screenshot/render.log
+          grep -q "XZOGOT_MONJA_BASICA_LOADED" build/xogot-screenshot/render.log
+          ! grep -q "XZOGOT_MONJA_BASICA_FALLBACK" build/xogot-screenshot/render.log
           grep -q "XZOGOT_SCREENSHOT_GREEN" build/xogot-screenshot/render.log
           test -s /tmp/xogot-current-game.png
           cp /tmp/xogot-current-game.png build/xogot-screenshot/xogot-current-game.png
