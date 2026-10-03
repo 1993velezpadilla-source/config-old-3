@@ -159,11 +159,13 @@ def main() -> int:
     parser.add_argument("--winner", default="winner.glb")
     args = parser.parse_args()
 
+    args.input = args.input.resolve()
+    args.output_dir = args.output_dir.resolve()
+
     if not args.input.is_file():
         parser.error(f"missing input: {args.input}")
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    os.chdir(HAYUYA3D)
     if str(HAYUYA3D) not in os.sys.path:
         os.sys.path.insert(0, str(HAYUYA3D))
 
