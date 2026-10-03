@@ -1,0 +1,74 @@
+name: Restore Latest XZIEL HUD PNGs
+
+on:
+  push:
+    branches:
+      - feature/xogot-port-v1
+    paths:
+      - ".github/workflows/restore-latest-xziel-hud.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Reconstruct latest approved HUD payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/xziel-hud
+          : > /tmp/xziel-hud/payload.b64
+          for i in 00 01 02 03 04 05; do
+            git show 471932581f4847d400deb5a639e1f278a63d7cfd:assets/mobile_hud/xziel_hud_v1/part_${i}.b64 >> /tmp/xziel-hud/payload.b64
+          done
+          tr -d '\n\r ' < /tmp/xziel-hud/payload.b64 | base64 -d > /tmp/xziel-hud/payload.bin
+          file /tmp/xziel-hud/payload.bin
+          sha256sum /tmp/xziel-hud/payload.bin
+
+      - name: Extract payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/xziel-hud/extracted
+          if unzip -t /tmp/xziel-hud/payload.bin >/dev/null 2>&1; then
+            unzip -q /tmp/xziel-hud/payload.bin -d /tmp/xziel-hud/extracted
+          elif tar -tf /tmp/xziel-hud/payload.bin >/dev/null 2>&1; then
+            tar -xf /tmp/xziel-hud/payload.bin -C /tmp/xziel-hud/extracted
+          else
+            echo "Unknown HUD payload format"
+            xxd -l 64 /tmp/xziel-hud/payload.bin
+            exit 2
+          fi
+          find /tmp/xziel-hud/extracted -type f -maxdepth 5 | sort
+
+      - name: Audit PNGs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          root=Path('/tmp/xziel-hud/extracted')
+          pngs=sorted(root.rglob('*.png'))
+          print('PNG_COUNT', len(pngs))
+          for p in pngs:
+              with Image.open(p) as im:
+                  print('HUD_PNG', p.relative_to(root), im.size, im.mode)
+          if len(pngs) < 10:
+              raise SystemExit('expected latest HUD PNG pack, found too few PNGs')
+          PY
+
+      - name: Upload restored HUD
+        uses: actions/upload-artifact@v4
+        with:
+          name: Latest-XZIEL-HUD-PNGs
+          path: /tmp/xziel-hud/extracted/
+          if-no-files-found: error
+          retention-days: 7
