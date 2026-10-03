@@ -6,6 +6,7 @@ on:
       - art/hayuya-cleanroom-aaa-v1
     paths:
       - tools/hayuya3d/blender_model_preview_pack.py
+      - tools/hayuya3d/orient_preview_pack.py
       - .github/workflows/hayuya-preview-framing-regression.yml
 
 jobs:
