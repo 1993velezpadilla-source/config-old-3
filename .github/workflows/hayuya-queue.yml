@@ -298,6 +298,16 @@ jobs:
           python -m pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
           python -m pip install "mediapipe==1.0.1" dreamsim
 
+      - name: Select facial geometry challenger by Judge evidence
+        if: success() && steps.character_motion.outputs.skeletal == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/hayuya3d/face_geometry_tournament.py \
+            --output-root "$HAYUYA_OUTPUT_ROOT" \
+            --python "$(command -v python)" \
+            --blender "$(command -v blender)"
+
       - name: Judge v4 Core — fail closed before HAYUYA 3D export
         if: success() && steps.character_motion.outputs.skeletal == 'true'
         shell: bash
