@@ -232,12 +232,12 @@ func _add_window_threshold_ramp(side: String, sx: float, index: int, z: float) -
 	# Exterior ground is y=0 while the church floor top is ~0.445 m.
 	# A shallow physical ramp lets CharacterBody3D zombies and players cross without teleport/stair hacks.
 	var run: float = 1.80
-	var rise: float = 0.52
+	var rise: float = 0.62
 	var angle_rad: float = atan(rise / run)
 	var angle_deg: float = rad_to_deg(angle_rad)
 	var body := StaticBody3D.new()
 	body.name = "WindowRamp_%s_%02d" % [side, index]
-	body.position = Vector3(11.50 * sx, 0.26, z)
+	body.position = Vector3(11.50 * sx, 0.21, z)
 	body.rotation_degrees.z = -sx * angle_deg
 
 	var mesh_instance := MeshInstance3D.new()
