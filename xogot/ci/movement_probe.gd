@@ -13,7 +13,8 @@ func _run_probe() -> void:
 	var scene: Node = packed.instantiate()
 	root.add_child(scene)
 	await process_frame
-	await process_frame
+	await physics_frame
+	await physics_frame
 
 	var player: Node = scene.get_node_or_null("Player")
 	if player == null:
@@ -34,35 +35,49 @@ func _run_probe() -> void:
 		quit(5)
 		return
 
-	player.call("_set_crouched", true)
-	await process_frame
+	# Hold a synthetic crouch touch through a physics frame.
+	player.set("_crouch_touch", 77)
+	await physics_frame
 	if absf(capsule.height - 1.18) > 0.02:
-		push_error("MOVEMENT_PROBE: crouch capsule height wrong")
+		push_error("MOVEMENT_PROBE: crouch capsule height wrong: %s" % capsule.height)
 		quit(6)
 		return
 	if absf(collider.position.y - 0.59) > 0.02:
-		push_error("MOVEMENT_PROBE: crouch collider position wrong")
+		push_error("MOVEMENT_PROBE: crouch collider position wrong: %s" % collider.position.y)
 		quit(7)
 		return
 
-	player.call("_set_crouched", false)
-	await process_frame
+	# Release and make sure standing geometry returns.
+	player.set("_crouch_touch", -1)
+	await physics_frame
 	if absf(capsule.height - 1.80) > 0.02:
-		push_error("MOVEMENT_PROBE: stand capsule height wrong")
+		push_error("MOVEMENT_PROBE: stand capsule height wrong: %s" % capsule.height)
 		quit(8)
 		return
 	if absf(collider.position.y - 0.90) > 0.02:
-		push_error("MOVEMENT_PROBE: stand collider position wrong")
+		push_error("MOVEMENT_PROBE: stand collider position wrong: %s" % collider.position.y)
 		quit(9)
+		return
+
+	# Synthetic full-stick + crouch edge should start one slide.
+	player.set("_move_touch", 88)
+	player.set("_move_vector", Vector2(0.0, -1.0))
+	player.set("_crouch_touch", 77)
+	player.set("_crouch_was_pressed", false)
+	player.set("_slide_cooldown_timer", 0.0)
+	await physics_frame
+	if not bool(player.get("_sliding")):
+		push_error("MOVEMENT_PROBE: slide did not start")
+		quit(10)
 		return
 
 	if float(player.get("slide_speed")) <= float(player.get("sprint_speed")):
 		push_error("MOVEMENT_PROBE: slide speed must exceed sprint speed")
-		quit(10)
+		quit(11)
 		return
 	if float(player.get("slide_duration")) <= 0.0:
 		push_error("MOVEMENT_PROBE: invalid slide duration")
-		quit(11)
+		quit(12)
 		return
 
 	print("XZOGOT_MOVEMENT_PROBE_GREEN")
