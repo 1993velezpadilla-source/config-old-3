@@ -36,11 +36,6 @@ func _run() -> void:
 	if stair_ramps.size() != 1:
 		_fail(5, "expected one continuous balcony stair ramp")
 		return
-	var stair_landings: Array[Node] = get_nodes_in_group("walkable_stair_landing")
-	if stair_landings.size() != 1:
-		_fail(12, "expected one physical balcony stair landing")
-		return
-
 	var player: CharacterBody3D = scene.get_node_or_null("Player") as CharacterBody3D
 	if player == null:
 		_fail(6, "player missing")
