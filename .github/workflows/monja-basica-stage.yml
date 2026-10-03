@@ -1,0 +1,42 @@
+name: Stage Monja Basica GLB
+
+on:
+  push:
+    branches:
+      - feature/xogot-port-v1
+    paths:
+      - ".github/workflows/monja-basica-stage.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  stage-model:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: feature/xogot-port-v1
+          fetch-depth: 0
+
+      - name: Download exact uploaded GLB
+        shell: bash
+        env:
+          MODEL_URL: "https://sdmntprcentralus.oaiusercontent.com/files/00000000-5228-81f5-ad66-f3b436421e06/raw?se=2026-10-03T17%3A09%3A41Z&sp=r&sv=2026-02-06&sr=b&scid=f06a3f4a-38fb-5580-8821-9bba0e9ec17e&skoid=a1be202a-6464-476c-a496-723317c4a4db&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-02T20%3A02%3A33Z&ske=2026-10-03T20%3A02%3A33Z&sks=b&skv=2026-02-06&sig=9U1SHt73cdU4Y86bkyHLfhNEtDrGS7Fo%2BEmGgcDpdKs%3D"
+        run: |
+          set -euo pipefail
+          mkdir -p xogot/assets/zombies
+          curl -L --fail --retry 3 "$MODEL_URL" -o xogot/assets/zombies/monja_basica.glb
+          test "$(stat -c%s xogot/assets/zombies/monja_basica.glb)" = "22662836"
+          echo "cbe6740173b3b8f0aa2ddc10dcf8601b07f76fbdfec73278ce7bcdb6831b24bd  xogot/assets/zombies/monja_basica.glb" | sha256sum -c -
+
+      - name: Commit model
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "XZIEL Asset Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add xogot/assets/zombies/monja_basica.glb
+          git commit -m "Add Monja Basica common church zombie model"
+          git push origin HEAD:feature/xogot-port-v1
