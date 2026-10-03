@@ -17,6 +17,7 @@ from detailgen3d_cloud import refine as refine_detailgen3d_cloud
 from hunyuan3d_cloud import generate_shape as generate_hunyuan3d_shape
 from hunyuan3d_multiview_cloud import generate as generate_hunyuan3d_multiview
 from unique3d_cloud import generate as generate_unique3d_cloud
+from hi3dgen_cloud import generate as generate_hi3dgen_cloud
 from triposr_cpu_cloud import generate as generate_triposr_cpu_cloud
 from local_detail_fusion import fuse_local_basecolor
 from source_autofix import build_source_autofix
@@ -45,13 +46,14 @@ BACKENDS = [
     x.strip().lower()
     for x in os.environ.get(
         "HAYUYA_BACKENDS",
-        "unique3d,triposg,trellis2,trellis,instantmesh,triposr",
+        "unique3d,hi3dgen,triposg,trellis2,trellis,instantmesh,triposr",
     ).split(",")
     if x.strip()
 ]
 TRELLIS2_ENABLED = "trellis2" in BACKENDS
 TRIPOSG_CLOUD_ENABLED = "triposg" in BACKENDS
 UNIQUE3D_ENABLED = "unique3d" in BACKENDS
+HI3DGEN_ENABLED = "hi3dgen" in BACKENDS
 DETAILGEN3D_ENABLED = "detailgen3d" in BACKENDS
 HUNYUAN3D_ENABLED = any(
     x in BACKENDS for x in {"hunyuan3d","hunyuan3d_2_1"}
@@ -1137,6 +1139,74 @@ if (
         print(
             "::warning::Unique3D challenger unavailable/rejected: "
             f"{type(unique_exc).__name__}: {unique_exc}"
+        )
+
+# Hi3DGen is reserved for character/creature geometry where its normal-bridge
+# path provides a genuinely different high-frequency surface hypothesis.
+if (
+    not multi
+    and HI3DGEN_ENABLED
+    and ASSET_PROFILE in {"auto","character.humanoid","character.creature"}
+    and TEXTURE_QUALITY in {"high","ultra"}
+):
+    try:
+        hi3d_meta=generate_hi3dgen_cloud(
+            crops[0],
+            OUT/"hi3dgen_candidate.glb",
+            token=TOKEN,
+            seed=1993,
+            ss_guidance_strength=3.0,
+            ss_sampling_steps=50,
+            slat_guidance_strength=3.0,
+            slat_sampling_steps=6,
+        )
+        hi3d_candidate=Path(hi3d_meta["path"])
+        hi3d_mesh=inspect_mesh_gate(hi3d_candidate,require_normals=False)
+        hi3d_tex=inspect_texture_gate(
+            hi3d_candidate,
+            min_edge=4096 if TEXTURE_QUALITY=="ultra" else 2048,
+        )
+
+        if hi3d_mesh.passed and not hi3d_tex.passed and modern_candidate is not None:
+            try:
+                from material_bridge import transfer_best_material
+                hi3d_bridged=OUT/"hi3dgen_candidate_material_bridge.glb"
+                hi3d_bridge=transfer_best_material(
+                    modern_candidate,
+                    hi3d_candidate,
+                    hi3d_bridged,
+                    total_samples=450_000,
+                    max_texture_size=4096 if TEXTURE_QUALITY=="ultra" else 2048,
+                )
+                hi3d_candidate=hi3d_bridged
+                hi3d_mesh=inspect_mesh_gate(hi3d_candidate,require_normals=False)
+                hi3d_tex=inspect_texture_gate(
+                    hi3d_candidate,
+                    min_edge=4096 if TEXTURE_QUALITY=="ultra" else 2048,
+                )
+                hi3d_meta["hayuya_material_bridge"]=asdict(hi3d_bridge)
+            except Exception as hi3d_bridge_exc:
+                print(
+                    "::warning::Hi3DGen material bridge unavailable: "
+                    f"{type(hi3d_bridge_exc).__name__}: {hi3d_bridge_exc}"
+                )
+
+        print(
+            "HAYUYA_HI3DGEN_CANDIDATE_READY",
+            json.dumps(
+                {
+                    "meta":hi3d_meta,
+                    "mesh":asdict(hi3d_mesh),
+                    "texture":asdict(hi3d_tex),
+                    "path":str(hi3d_candidate),
+                },
+                separators=(",",":"),
+            ),
+        )
+    except Exception as hi3d_exc:
+        print(
+            "::warning::Hi3DGen challenger unavailable/rejected: "
+            f"{type(hi3d_exc).__name__}: {hi3d_exc}"
         )
 
 # VAST's public TripoSG Space exposes the same open model family we already
