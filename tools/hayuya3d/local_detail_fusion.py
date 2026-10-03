@@ -121,9 +121,26 @@ def _normalized_heights(vertices,up_axis:int):
 
 
 def _region_weights(vertices,region:str,up_axis:int):
+    resolved=str(region or "").lower()
+    if resolved=="face":
+        np,_,_=_deps()
+        vv=np.asarray(vertices,dtype=np.float64)
+        if not len(vv):
+            return np.zeros(0,dtype=np.float64)
+        lo=np.min(vv,axis=0)
+        hi=np.max(vv,axis=0)
+        extent=hi-lo
+        from regional_fusion import _semantic_face_weights
+        return _semantic_face_weights(
+            vv,
+            up_axis=int(up_axis),
+            base_lo=lo,
+            base_extent=extent,
+            head_start=0.72,
+        )
     return _region_weight_from_height(
         _normalized_heights(vertices,up_axis),
-        region,
+        resolved,
     )
 
 
@@ -168,6 +185,9 @@ def _align_cloud(
         resolved=str(region or "").lower()
         if resolved=="head":
             target=base[heights>=0.58]
+        elif resolved=="face":
+            face_weights=_region_weights(base,"face",int(up_axis))
+            target=base[face_weights>0.05]
         elif resolved=="middle":
             target=base[(heights>=0.18)&(heights<=0.84)]
         elif resolved=="lower":
@@ -328,6 +348,11 @@ def fuse_local_basecolor(
         faces=np.asarray(base.faces,dtype=np.int64)
         uv=np.asarray(base.visual.uv,dtype=np.float64)
         normalized_heights=_normalized_heights(vertices,axis)
+        semantic_region_weights=(
+            _region_weights(vertices,"face",axis)
+            if str(region or "").lower()=="face"
+            else None
+        )
 
         donor_points,donor_colors=_deterministic_donor_cloud(
             donor_mesh,samples=donor_samples
@@ -357,6 +382,11 @@ def fuse_local_basecolor(
         skipped_seams=0
         for face in faces:
             tri_h=normalized_heights[face]
+            tri_semantic=(
+                semantic_region_weights[face]
+                if semantic_region_weights is not None
+                else None
+            )
             tri_uv=_wrap_uv(uv[face])
             # Avoid painting across wrapped UV seams in v1. Those boundary
             # triangles stay base-exact until seam-aware unwrap support lands.
@@ -385,13 +415,18 @@ def fuse_local_basecolor(
             )
             if bary is None or not np.any(inside):
                 continue
-            local_height=np.sum(
-                bary*tri_h.reshape((1,1,3)),axis=-1
-            )
-            local_alpha=_region_weight_from_height(
-                local_height,
-                region,
-            )
+            if tri_semantic is not None:
+                local_alpha=np.sum(
+                    bary*tri_semantic.reshape((1,1,3)),axis=-1
+                )
+            else:
+                local_height=np.sum(
+                    bary*tri_h.reshape((1,1,3)),axis=-1
+                )
+                local_alpha=_region_weight_from_height(
+                    local_height,
+                    region,
+                )
             donor_rgb=np.sum(
                 bary[...,None]
                 *vertex_colors[face].reshape((1,1,3,3)),
@@ -579,7 +614,7 @@ def main()->int:
     parser.add_argument("--output",type=Path,required=True)
     parser.add_argument(
         "--region",
-        choices=["head","middle","lower"],
+        choices=["head","face","middle","lower"],
         required=True,
     )
     parser.add_argument("--up-axis",choices=["x","y","z"],default="y")
