@@ -29,7 +29,7 @@ jobs:
       - name: Install Blender
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq blender xvfb python3-pil
+          sudo apt-get install -y -qq blender xvfb python3-pil python3-numpy
 
       - name: Render bbox-safe preview pack
         run: |
