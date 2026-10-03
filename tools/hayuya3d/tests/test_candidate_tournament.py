@@ -3,11 +3,16 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from tools.hayuya3d.candidate_tournament import (
+ROOT = Path(__file__).resolve().parents[3]
+HAYUYA_DIR = ROOT / "tools" / "hayuya3d"
+sys.path.insert(0, str(HAYUYA_DIR))
+
+from candidate_tournament import (
     CandidateSpec,
     run_tournament,
 )
@@ -64,9 +69,9 @@ class CandidateTournamentTests(unittest.TestCase):
                     views=[SimpleNamespace(source=str(source))],
                 )
 
-            with patch("tools.hayuya3d.candidate_tournament.inspect_mesh",side_effect=fake_mesh), \
-                 patch("tools.hayuya3d.candidate_tournament.inspect_texture",return_value=texture_report()), \
-                 patch("tools.hayuya3d.candidate_tournament.score_visual",side_effect=fake_visual):
+            with patch("candidate_tournament.inspect_mesh",side_effect=fake_mesh), \
+                 patch("candidate_tournament.inspect_texture",return_value=texture_report()), \
+                 patch("candidate_tournament.score_visual",side_effect=fake_visual):
                 report=run_tournament(
                     specs,
                     [source],
@@ -107,9 +112,9 @@ class CandidateTournamentTests(unittest.TestCase):
                     views=[SimpleNamespace(source=str(source))],
                 )
 
-            with patch("tools.hayuya3d.candidate_tournament.inspect_mesh",return_value=mesh_report(faces=1_200_000)), \
-                 patch("tools.hayuya3d.candidate_tournament.inspect_texture",return_value=texture_report()), \
-                 patch("tools.hayuya3d.candidate_tournament.score_visual",side_effect=fake_visual):
+            with patch("candidate_tournament.inspect_mesh",return_value=mesh_report(faces=1_200_000)), \
+                 patch("candidate_tournament.inspect_texture",return_value=texture_report()), \
+                 patch("candidate_tournament.score_visual",side_effect=fake_visual):
                 report=run_tournament(
                     specs,
                     [source],
@@ -143,9 +148,9 @@ class CandidateTournamentTests(unittest.TestCase):
                     views=[SimpleNamespace(source=str(source))],
                 )
 
-            with patch("tools.hayuya3d.candidate_tournament.inspect_mesh",return_value=mesh_report(faces=1_200_000)), \
-                 patch("tools.hayuya3d.candidate_tournament.inspect_texture",return_value=texture_report()), \
-                 patch("tools.hayuya3d.candidate_tournament.score_visual",side_effect=fake_visual):
+            with patch("candidate_tournament.inspect_mesh",return_value=mesh_report(faces=1_200_000)), \
+                 patch("candidate_tournament.inspect_texture",return_value=texture_report()), \
+                 patch("candidate_tournament.score_visual",side_effect=fake_visual):
                 report=run_tournament(specs,[source],texture_quality="ultra")
 
             self.assertEqual(report["winner"]["generator"],"AiuniAI/Unique3D")
@@ -174,10 +179,10 @@ class CandidateTournamentTests(unittest.TestCase):
                 ),
             ]
 
-            with patch("tools.hayuya3d.candidate_tournament.inspect_mesh",return_value=mesh_report(faces=2_000_000)), \
-                 patch("tools.hayuya3d.candidate_tournament.inspect_texture",return_value=texture_report()), \
+            with patch("candidate_tournament.inspect_mesh",return_value=mesh_report(faces=2_000_000)), \
+                 patch("candidate_tournament.inspect_texture",return_value=texture_report()), \
                  patch(
-                    "tools.hayuya3d.candidate_tournament.score_visual",
+                    "candidate_tournament.score_visual",
                     return_value=SimpleNamespace(
                         score=99.0,
                         views=[SimpleNamespace(source=str(source))],
