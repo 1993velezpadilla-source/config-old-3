@@ -129,7 +129,10 @@ func _build_interior() -> void:
 		_pew(Vector3(5.6, 0.75, float(z)), wood)
 	# upper rear balcony / second-floor gameplay shell
 	_box("Balcony", Vector3(20.5, 0.5, 6.0), Vector3(0, 5.0, 10.4), Color(0.11, 0.075, 0.045))
-	_box("BalconyRail", Vector3(20.0, 1.15, 0.25), Vector3(0, 5.8, 7.55), wood)
+
+	# Balcony rail has a real opening aligned with the stair exit at x=-8.
+	_box("BalconyRailMain", Vector3(15.8, 1.15, 0.25), Vector3(2.1, 5.8, 7.55), wood)
+	_box("BalconyRailLeft", Vector3(1.3, 1.15, 0.25), Vector3(-10.35, 5.8, 7.55), wood)
 
 	# Visual stairs stay crisp, while one continuous hidden ramp provides reliable
 	# CharacterBody3D traversal to the balcony on touch/mobile.
