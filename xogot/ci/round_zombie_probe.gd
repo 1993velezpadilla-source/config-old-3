@@ -171,15 +171,34 @@ func _run_probe() -> void:
 	print("XZOGOT_WINDOW_PHYSICAL_CROSS_GREEN")
 
 	var points_before_kill: int = int(player.call("get_points"))
-	for i in range(4):
-		zombie.call("apply_damage", 30.0, player)
+
+	# Body hit: 30 damage, +10 points.
+	zombie.call("apply_damage", 30.0, player)
+	if absf(float(zombie.call("get_health")) - 70.0) > 0.01:
+		_fail(35, "body damage amount wrong")
+		return
+
+	# Head hit: 30 x 2 damage, +10 hit +10 headshot bonus.
+	var head_position: Vector3 = (zombie as Node3D).global_position + Vector3(0.0, 1.52, 0.0)
+	zombie.call("apply_hitscan_damage", 30.0, player, head_position)
+	if not bool(zombie.get_meta("last_hit_headshot", false)):
+		_fail(36, "head impact was not classified as headshot")
+		return
+	if absf(float(zombie.call("get_health")) - 10.0) > 0.01:
+		_fail(37, "headshot multiplier wrong")
+		return
+
+	# Final body hit kills. Total award stays 100 points:
+	# 10 body + 20 headshot + 10 final hit + 60 kill.
+	zombie.call("apply_damage", 30.0, player)
 	await process_frame
 	if int(round_manager.call("get_alive")) != 0:
 		_fail(17, "round manager did not receive zombie death")
 		return
 	if int(player.call("get_points")) != points_before_kill + 100:
-		_fail(18, "hit + kill points wrong")
+		_fail(18, "body/headshot/kill points accounting wrong")
 		return
+	print("XZOGOT_HEADSHOT_PROBE_GREEN")
 
 	player.call("heal_full")
 	player.call("apply_damage", 20.0)
