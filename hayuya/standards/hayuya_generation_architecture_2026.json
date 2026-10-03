@@ -1,0 +1,103 @@
+{
+  "schema": 1,
+  "updated_utc": "2026-10-03T06:08:00Z",
+  "policy": "source-first-independent-hypothesis-tournament",
+  "principles": [
+    "Preserve every generator output as an independent hypothesis until judging.",
+    "Use real source-image fidelity as the dominant promotion signal.",
+    "Treat geometry views and detail/material views as different evidence classes.",
+    "Generate the highest-fidelity hero master before retopology or runtime decimation.",
+    "Never let polygon count alone promote a model.",
+    "Never let a diagnostic or license-blocked candidate become a shipping winner.",
+    "Run retopology, LOD creation, rigging and runtime optimization only after hero approval."
+  ],
+  "public_contract_patterns": {
+    "meshy_7_1": {
+      "primary_view": "first image",
+      "multiview_images": "1-4",
+      "geometry_resolution": [
+        "standard",
+        "2k",
+        "4k single-image"
+      ],
+      "texture_resolution": [
+        "2k",
+        "4k",
+        "8k"
+      ],
+      "pbr": true,
+      "separate_texture_guidance_views": true,
+      "highest_fidelity_rule": "should_remesh=false",
+      "hayuya_equivalent": [
+        "prepared_views",
+        "prepared_details",
+        "candidate_tournament",
+        "gameprep"
+      ]
+    },
+    "tripo_v3_1": {
+      "geometry_texture_decoupled": true,
+      "pbr": true,
+      "model_seed": true,
+      "texture_seed": true,
+      "uv_control": true,
+      "parts": true,
+      "smart_low_poly": true,
+      "hayuya_equivalent": [
+        "independent generator candidates",
+        "material bridge",
+        "part_map",
+        "retopo",
+        "gameprep"
+      ]
+    },
+    "rodin_gen_2_5": {
+      "ordered_images": "1-5",
+      "material_authority": "first image",
+      "raw_faces": "up to 2,000,000 custom target",
+      "pbr": true,
+      "geometry_first": true,
+      "hayuya_equivalent": [
+        "front-first source policy",
+        "hero master",
+        "post-judge runtime optimization"
+      ]
+    },
+    "pixal3d_2026": {
+      "license": "MIT",
+      "single_view_live": true,
+      "multiview_code": true,
+      "pixel_aligned_conditioning": true,
+      "pbr": true,
+      "generation_resolution": [
+        1024,
+        1536
+      ],
+      "hayuya_role": "primary permissive high-fidelity live challenger"
+    },
+    "unique3d": {
+      "license": "MIT",
+      "hayuya_role": "independent permissive geometry challenger"
+    },
+    "hi3dgen": {
+      "license": "MIT",
+      "hayuya_role": "character high-frequency geometry challenger"
+    },
+    "hunyuan3d_2mv": {
+      "hayuya_role": "true multiview diagnostic challenger",
+      "production_eligible": false,
+      "reason": "explicit distribution/license approval required before shipping"
+    }
+  },
+  "hayuya_stage_order": [
+    "source normalization and role split",
+    "independent native geometry generation",
+    "source-first candidate tournament",
+    "AAA mesh and texture hard gates",
+    "face/detail regional tournament for characters",
+    "Judge v4",
+    "retopology and material rebake",
+    "LOD parity and runtime QA",
+    "rig/motion handoff"
+  ]
+}
