@@ -78,6 +78,12 @@ func _run_probe() -> void:
 	if int(round_manager.call("get_remaining_to_spawn")) != 3:
 		_fail(15, "remaining spawn count wrong")
 		return
+	if zombie.get_node_or_null("MonjaBasicaVisual") == null:
+		_fail(21, "Monja Basica visual was not instantiated")
+		return
+	if str(zombie.get_meta("zombie_model", "")) != "monja_basica":
+		_fail(22, "Monja Basica model metadata missing")
+		return
 
 	await physics_frame
 	await physics_frame
