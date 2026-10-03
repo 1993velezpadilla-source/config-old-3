@@ -10,6 +10,8 @@ on:
       - tools/hayuya3d/cleanroom_engine_router.py
       - tools/hayuya3d/cleanroom_aggregate.py
       - tools/hayuya3d/triposg_cloud.py
+      - tools/hayuya3d/tripo_api_cloud.py
+      - tools/hayuya3d/tests/test_tripo_api_cloud.py
       - tools/hayuya3d/trellis2_cloud.py
       - tools/hayuya3d/hunyuan3d_cloud.py
       - hayuya/assets/monji-murgucol/**
@@ -27,7 +29,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        provider: [triposg, hunyuan, trellis2]
+        provider: [triposg, tripoapi, hunyuan, trellis2]
     name: provider / ${{ matrix.provider }}
     runs-on: ubuntu-latest
     timeout-minutes: 240
@@ -55,6 +57,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install \
             "gradio_client>=1.10,<2" \
+            "requests>=2.31,<3" \
             pillow numpy trimesh scipy \
             "scikit-image>=0.22" \
             "fast-simplification>=0.1.7"
@@ -71,8 +74,16 @@ jobs:
           python -m py_compile \
             tools/hayuya3d/cleanroom_engine_router.py \
             tools/hayuya3d/triposg_cloud.py \
+            tools/hayuya3d/tripo_api_cloud.py \
+            tools/hayuya3d/tests/test_tripo_api_cloud.py \
             tools/hayuya3d/trellis2_cloud.py \
             tools/hayuya3d/hunyuan3d_cloud.py
+
+      - name: Test Tripo API adapter
+        if: matrix.provider == 'tripoapi'
+        run: |
+          set -euo pipefail
+          python tools/hayuya3d/tests/test_tripo_api_cloud.py
 
       - name: Verify source
         run: |
@@ -82,6 +93,8 @@ jobs:
       - name: Run isolated provider
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          TRIPO_API_KEY: ${{ secrets.TRIPO_API_KEY }}
+          HAYUYA_TRIPO_MODEL_VERSION: P1-20260311
         run: |
           set -euo pipefail
           mkdir -p "$OUTPUT_DIR"

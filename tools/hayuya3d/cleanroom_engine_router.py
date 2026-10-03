@@ -63,6 +63,10 @@ def _run_trellis2(image: Path, out: Path, token: str | None, seed: int) -> dict[
     mod = importlib.import_module("trellis2_cloud")
     return mod.generate(image, out, token=token, seed=seed, quality="ultra")
 
+def _run_tripoapi(image: Path, out: Path, token: str | None, seed: int) -> dict[str, Any]:
+    mod = importlib.import_module("tripo_api_cloud")
+    return mod.generate(image, out, token=token, seed=seed)
+
 def _run_hunyuan(image: Path, out: Path, token: str | None, seed: int) -> dict[str, Any]:
     mod = importlib.import_module("hunyuan3d_cloud")
     # Geometry authority must come from Hunyuan's shape generator.
@@ -117,6 +121,7 @@ def _run_sf3d(image: Path, out: Path, token: str | None, seed: int) -> dict[str,
 
 PROVIDERS: dict[str, Callable[[Path, Path, str | None, int], dict[str, Any]]] = {
     "triposg": _run_tripsg,
+    "tripoapi": _run_tripoapi,
     "trellis2": _run_trellis2,
     "hunyuan": _run_hunyuan,
     "sf3d": _run_sf3d,
@@ -175,7 +180,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="HAYUYA clean-room image-to-3D tournament router")
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
-    parser.add_argument("--providers", default="triposg,hunyuan,trellis2,sf3d")
+    parser.add_argument("--providers", default="triposg,tripoapi,hunyuan,trellis2,sf3d")
     parser.add_argument("--seed", type=int, default=1993)
     parser.add_argument("--hf-token", default=os.getenv("HF_TOKEN"))
     parser.add_argument("--winner", default="winner.glb")
