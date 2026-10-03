@@ -57,6 +57,7 @@ func _run_probe() -> void:
 
 	# Break it again so the first spawned zombie can transition through the socket.
 	barricade.call("zombie_damage", 50.0)
+	await physics_frame
 	if not bool(barricade.call("is_broken")):
 		_fail(10, "repaired barricade did not break again")
 		return
@@ -136,7 +137,27 @@ func _run_probe() -> void:
 			break
 
 	if not crossed_physically:
-		_fail(32, "zombie could not physically cross the real window aperture")
+		var stuck_position: Vector3 = (zombie as Node3D).global_position
+		var world: World3D = (zombie as Node3D).get_world_3d()
+		var blocker_name: String = "none"
+		if world != null:
+			var from: Vector3 = stuck_position + Vector3(0.0, 0.85, 0.0)
+			var to: Vector3 = inside_point + Vector3(0.0, 0.85, 0.0)
+			var ray := PhysicsRayQueryParameters3D.create(from, to)
+			ray.exclude = [(zombie as CollisionObject3D).get_rid()]
+			var hit: Dictionary = world.direct_space_state.intersect_ray(ray)
+			if not hit.is_empty():
+				var blocker: Object = hit.get("collider") as Object
+				if blocker != null:
+					blocker_name = str(blocker.get("name"))
+		_fail(
+			32,
+			"zombie could not physically cross; stuck=%s inside=%s blocker=%s" % [
+				stuck_position,
+				inside_point,
+				blocker_name
+			]
+		)
 		return
 
 	var crossed_position: Vector3 = (zombie as Node3D).global_position
