@@ -24,6 +24,7 @@ on:
       - tools/hayuya3d/phone_cloud_worker.py
       - tools/hayuya3d/candidate_tournament.py
       - tools/hayuya3d/unique3d_cloud.py
+      - tools/hayuya3d/pixal3d_cloud.py
       - tools/hayuya3d/hi3dgen_cloud.py
       - tools/hayuya3d/hunyuan3d_multiview_cloud.py
       - tools/hayuya3d/visual_judge.py
@@ -92,6 +93,7 @@ jobs:
           python -m py_compile \
             tools/hayuya3d/candidate_tournament.py \
             tools/hayuya3d/unique3d_cloud.py \
+            tools/hayuya3d/pixal3d_cloud.py \
             tools/hayuya3d/hi3dgen_cloud.py \
             tools/hayuya3d/hunyuan3d_multiview_cloud.py \
             tools/hayuya3d/phone_cloud_worker.py
