@@ -46,7 +46,7 @@ func _build_church() -> void:
 	_box("FrontRight", Vector3(7.8, 8.2, 0.65), Vector3(7.1, 4.1, 14), stone)
 	_box("FrontLintel", Vector3(6.4, 2.0, 0.8), Vector3(0, 7.2, 14), dark_stone)
 	# buttresses give the exterior an actual church silhouette
-	for z in [-19.0, -11.0, -3.0, 5.0, 12.0]:
+	var buttress_z: Array[float] = [-19.0, -11.0, -3.0, 5.0, 12.0]\n\tfor z: float in buttress_z:
 		_box("ButtressL", Vector3(1.15, 6.2, 1.55), Vector3(-11.45, 3.1, z), dark_stone)
 		_box("ButtressR", Vector3(1.15, 6.2, 1.55), Vector3(11.45, 3.1, z), dark_stone)
 	# front tower
@@ -78,9 +78,9 @@ func _build_interior() -> void:
 
 func _build_windows() -> void:
 	var glow := Color(0.24, 0.34, 0.48)
-	var zs := [-17.0, -9.0, -1.0, 7.0]
+	var zs: Array[float] = [-17.0, -9.0, -1.0, 7.0]
 	for i in range(zs.size()):
-		var z := zs[i]
+		var z: float = zs[i]
 		_box("WindowL_%d" % i, Vector3(0.10, 3.1, 2.0), Vector3(-10.64, 4.2, z), glow, false)
 		_box("WindowR_%d" % i, Vector3(0.10, 3.1, 2.0), Vector3(10.64, 4.2, z), glow, false)
 		# barricade boards mark future zombie entry/spawn gameplay points
@@ -89,7 +89,7 @@ func _build_windows() -> void:
 			_box("BarricadeR_%d_%d" % [i,b], Vector3(0.18, 0.28, 2.5), Vector3(10.52, 3.4 + b * 0.75, z), Color(0.22, 0.12, 0.055), false)
 
 func _build_lights() -> void:
-	for z in [-17.0, -7.0, 3.0, 10.0]:
+	var light_z: Array[float] = [-17.0, -7.0, 3.0, 10.0]\n\tfor z: float in light_z:
 		var lamp := OmniLight3D.new()
 		lamp.position = Vector3(0, 4.2, z)
 		lamp.light_color = Color(1.0, 0.56, 0.27)
