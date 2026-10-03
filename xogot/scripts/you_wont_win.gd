@@ -136,20 +136,20 @@ func _build_interior() -> void:
 
 	# Visual stairs stay crisp, while one continuous hidden ramp provides reliable
 	# CharacterBody3D traversal to the balcony on touch/mobile.
-	for i in range(12):
+	for i in range(14):
 		_box(
 			"Stair%d" % i,
-			Vector3(3.2, 0.30, 0.68),
-			Vector3(-8.0, 0.62 + float(i) * 0.37, 2.65 + float(i) * 0.52),
+			Vector3(3.2, 0.30, 0.58),
+			Vector3(-8.0, 0.58 + float(i) * 0.35, 0.95 + float(i) * 0.45),
 			wood,
 			false
 		)
-	_box("StairTopLanding", Vector3(3.4, 0.30, 2.2), Vector3(-8.0, 5.05, 9.0), wood, false)
+	_box("StairTopLanding", Vector3(3.4, 0.30, 1.6), Vector3(-8.0, 5.08, 7.75), wood, false)
 	_build_balcony_stair_ramp()
 
 func _build_balcony_stair_ramp() -> void:
-	var start := Vector3(-8.0, 0.46, 2.30)
-	var finish := Vector3(-8.0, 5.02, 8.85)
+	var start := Vector3(-8.0, 0.38, 0.60)
+	var finish := Vector3(-8.0, 5.18, 7.55)
 	var run: float = finish.z - start.z
 	var rise: float = finish.y - start.y
 	var slope_length: float = sqrt(run * run + rise * rise)
