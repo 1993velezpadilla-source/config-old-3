@@ -4,31 +4,31 @@ func _init() -> void:
 	call_deferred("_run_probe")
 
 func _run_probe() -> void:
-	var packed := load("res://main.tscn") as PackedScene
+	var packed: PackedScene = load("res://main.tscn") as PackedScene
 	if packed == null:
 		push_error("MOVEMENT_PROBE: main scene missing")
 		quit(2)
 		return
 
-	var scene := packed.instantiate()
+	var scene: Node = packed.instantiate()
 	root.add_child(scene)
 	await process_frame
 	await process_frame
 
-	var player := scene.get_node_or_null("Player")
+	var player: Node = scene.get_node_or_null("Player")
 	if player == null:
 		push_error("MOVEMENT_PROBE: Player missing")
 		quit(3)
 		return
 
-	var collider := player.get_node_or_null("CollisionShape3D") as CollisionShape3D
-	var head := player.get_node_or_null("Head") as Node3D
+	var collider: CollisionShape3D = player.get_node_or_null("CollisionShape3D") as CollisionShape3D
+	var head: Node3D = player.get_node_or_null("Head") as Node3D
 	if collider == null or head == null:
 		push_error("MOVEMENT_PROBE: collider/head missing")
 		quit(4)
 		return
 
-	var capsule := collider.shape as CapsuleShape3D
+	var capsule: CapsuleShape3D = collider.shape as CapsuleShape3D
 	if capsule == null:
 		push_error("MOVEMENT_PROBE: capsule missing")
 		quit(5)
