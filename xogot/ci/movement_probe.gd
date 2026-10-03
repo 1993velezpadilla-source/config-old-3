@@ -35,14 +35,62 @@ func _run_probe() -> void:
 		quit(5)
 		return
 
+	var camera: Camera3D = player.get_node_or_null("Head/Camera3D") as Camera3D
+	if camera == null:
+		push_error("MOVEMENT_PROBE: camera missing")
+		quit(13)
+		return
+	if absf(capsule.radius - 0.36) > 0.01:
+		push_error("MOVEMENT_PROBE: player radius wrong: %s" % capsule.radius)
+		quit(14)
+		return
+	if absf(head.position.y - 1.60) > 0.02:
+		push_error("MOVEMENT_PROBE: audited eye height wrong: %s" % head.position.y)
+		quit(15)
+		return
+	if absf(camera.fov - 66.0) > 0.1:
+		push_error("MOVEMENT_PROBE: base FOV wrong: %s" % camera.fov)
+		quit(16)
+		return
+	if absf(float(player.get("ads_touch_multiplier")) - 0.62) > 0.001:
+		push_error("MOVEMENT_PROBE: ADS touch multiplier wrong")
+		quit(17)
+		return
+	if absf(float(player.get("gyro_ads_multiplier")) - 0.65) > 0.001:
+		push_error("MOVEMENT_PROBE: gyro ADS multiplier wrong")
+		quit(18)
+		return
+	if absf(float(player.get("camera_stance_response")) - 18.0) > 0.01:
+		push_error("MOVEMENT_PROBE: stance camera response wrong")
+		quit(19)
+		return
+	if absf(float(player.get("landing_spring_frequency")) - 17.0) > 0.01:
+		push_error("MOVEMENT_PROBE: landing spring frequency wrong")
+		quit(20)
+		return
+
+	var layout: Script = load("res://scripts/mobile_layout.gd") as Script
+	if layout == null:
+		push_error("MOVEMENT_PROBE: mobile layout missing")
+		quit(21)
+		return
+	if (layout.get("FIRE_CENTER") as Vector2).distance_to(Vector2(0.885, 0.585)) > 0.001:
+		push_error("MOVEMENT_PROBE: canonical fire HUD position wrong")
+		quit(22)
+		return
+	if (layout.get("JOY_CENTER") as Vector2).distance_to(Vector2(0.170, 0.740)) > 0.001:
+		push_error("MOVEMENT_PROBE: canonical joystick HUD position wrong")
+		quit(23)
+		return
+
 	# Hold a synthetic crouch touch through a physics frame.
 	player.set("_crouch_touch", 77)
 	await physics_frame
-	if absf(capsule.height - 1.18) > 0.02:
+	if absf(capsule.height - 1.16) > 0.02:
 		push_error("MOVEMENT_PROBE: crouch capsule height wrong: %s" % capsule.height)
 		quit(6)
 		return
-	if absf(collider.position.y - 0.59) > 0.02:
+	if absf(collider.position.y - 0.58) > 0.02:
 		push_error("MOVEMENT_PROBE: crouch collider position wrong: %s" % collider.position.y)
 		quit(7)
 		return
@@ -50,11 +98,11 @@ func _run_probe() -> void:
 	# Release and make sure standing geometry returns.
 	player.set("_crouch_touch", -1)
 	await physics_frame
-	if absf(capsule.height - 1.80) > 0.02:
+	if absf(capsule.height - 1.76) > 0.02:
 		push_error("MOVEMENT_PROBE: stand capsule height wrong: %s" % capsule.height)
 		quit(8)
 		return
-	if absf(collider.position.y - 0.90) > 0.02:
+	if absf(collider.position.y - 0.88) > 0.02:
 		push_error("MOVEMENT_PROBE: stand collider position wrong: %s" % collider.position.y)
 		quit(9)
 		return
@@ -80,6 +128,7 @@ func _run_probe() -> void:
 		quit(12)
 		return
 
+	print("XZOGOT_COD_VIEW_PROBE_GREEN")
 	print("XZOGOT_MOVEMENT_PROBE_GREEN")
 	scene.queue_free()
 	await process_frame
