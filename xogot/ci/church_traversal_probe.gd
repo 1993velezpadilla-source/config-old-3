@@ -55,7 +55,7 @@ func _run() -> void:
 		_fail(11, "BalconyGate did not enter opened state")
 		return
 
-	player.global_position = Vector3(-8.0, 0.48, 1.65)
+	player.global_position = Vector3(-8.0, 0.48, 0.10)
 	player.rotation.y = 0.0
 	player.set("_move_touch", 909)
 	player.set("_move_vector", Vector2(0.0, 1.0))
