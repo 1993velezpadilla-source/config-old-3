@@ -6,6 +6,7 @@ import importlib
 import json
 import os
 import traceback
+import hashlib
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -179,6 +180,7 @@ def main() -> int:
         "schema": 1,
         "method": "hayuya-cleanroom-blackbox-tournament-v1",
         "input": str(args.input),
+        "input_sha256": hashlib.sha256(args.input.read_bytes()).hexdigest(),
         "providers": requested,
         "results": [asdict(r) for r in results],
         "winner": asdict(passing[0]) if passing else None,
