@@ -210,6 +210,7 @@ func _move_toward_flat(target: Vector3, stop_distance: float) -> bool:
 	if distance <= stop_distance:
 		return true
 	var direction: Vector3 = delta_pos.normalized()
+	rotation.y = atan2(-direction.x, -direction.z)
 	velocity.x = direction.x * move_speed
 	velocity.z = direction.z * move_speed
 	move_and_slide()
