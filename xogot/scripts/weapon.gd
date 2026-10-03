@@ -87,7 +87,7 @@ func _fire_hitscan() -> void:
 		return
 	var collider: Object = hit.get("collider") as Object
 	if collider != null and collider.has_method("apply_damage"):
-		collider.call("apply_damage", damage)
+		collider.call("apply_damage", damage, _body)
 
 func add_reserve_ammo(amount: int) -> void:
 	if amount <= 0:
