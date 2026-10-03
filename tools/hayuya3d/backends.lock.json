@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_utc": "2026-09-25T17:55:00Z",
+  "updated_utc": "2026-10-03T05:55:00Z",
   "policy": {
     "default_stack": "permissive_open_source",
     "allow_restricted_by_default": false,
@@ -330,6 +330,52 @@
       "license": "VGGT custom license; commercial checkpoint has separate terms/access",
       "enabled_by_default": false,
       "decision": "opt-in camera/depth research only after explicit license/checkpoint review"
+    }
+  ],
+  "public_space_adapters": [
+    {
+      "id": "unique3d_zerogpu",
+      "enabled_by_default": true,
+      "space": "Wuvin/Unique3D",
+      "generator": "AiuniAI/Unique3D",
+      "license": "MIT",
+      "capabilities": [
+        "single_image_shape",
+        "high_detail_geometry",
+        "colored_mesh",
+        "production_candidate"
+      ],
+      "max_images_per_generation_call": 1,
+      "hayuya_strategy": "independent native geometry hypothesis; source-first tournament decides promotion"
+    },
+    {
+      "id": "hi3dgen_zerogpu",
+      "enabled_by_default": true,
+      "space": "Stable-X/Hi3DGen",
+      "generator": "Stable-X/Hi3DGen",
+      "license": "MIT",
+      "capabilities": [
+        "single_image_shape",
+        "normal_bridge",
+        "character_geometry_challenger"
+      ],
+      "max_images_per_generation_call": 1,
+      "hayuya_strategy": "character/creature high-frequency geometry challenger; material bridge then source-first tournament"
+    },
+    {
+      "id": "hunyuan3d_2mv_zerogpu",
+      "enabled_by_default": false,
+      "space": "tencent/Hunyuan3D-2mv",
+      "generator": "tencent/Hunyuan3D-2mv",
+      "license": "Hunyuan model license requires explicit distribution review",
+      "capabilities": [
+        "multi_image_shape",
+        "one_to_four_views",
+        "textured_shape",
+        "diagnostic_geometry"
+      ],
+      "max_images_per_generation_call": 4,
+      "hayuya_strategy": "comparison evidence only; never production winner unless licensing policy is explicitly changed"
     }
   ]
 }
