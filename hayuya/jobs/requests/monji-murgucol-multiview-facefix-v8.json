@@ -2,7 +2,7 @@
   "schema": 2,
   "job_id": "monji-murgucol-multiview-facefix-v8",
   "owner": "HAYUYA_WEB",
-  "title": "Monji multiview facefix v8 face-only texture tournament",
+  "title": "Monji multiview v8 source-first AAA tournament",
   "geometry_input": "hayuya/assets/monji-murgucol/geometry/primary.webp",
   "reference_dir": "hayuya/assets/monji-murgucol/references",
   "detail_dir": "hayuya/assets/monji-murgucol/details",
@@ -15,6 +15,6 @@
   "texture_quality": "high",
   "portable_target": "high",
   "gpu_vram": 24,
-  "backends": "trellis,hunyuan3d_2_1,trellis2,triposg,spar3d,triposr",
-  "retry_token": "multiview-facefix-v8-face-texture-20261003"
+  "backends": "trellis,hunyuan3d_2_1,pixal3d,unique3d,hi3dgen,trellis2,triposg,spar3d,triposr",
+  "retry_token": "multiview-v8-source-first-aaa-tournament-20261003a"
 }
