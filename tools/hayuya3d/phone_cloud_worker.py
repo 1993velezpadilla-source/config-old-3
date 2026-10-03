@@ -1168,6 +1168,118 @@ if (
             f"{type(detailgen_exc).__name__}: {detailgen_exc}"
         )
 
+
+candidate_tournament_report=None
+if modern_candidate is not None:
+    try:
+        from candidate_tournament import tournament_from_output
+
+        candidate_tournament_report=tournament_from_output(
+            OUT,
+            crops,
+            texture_quality=TEXTURE_QUALITY,
+            current=modern_candidate,
+            current_generator=selected_generator,
+            output_json=OUT/"candidate_tournament.json",
+        )
+        tournament_winner=candidate_tournament_report.get("winner") or {}
+        winner_path=Path(str(tournament_winner.get("path") or ""))
+        if winner_path.is_file():
+            previous_candidate=Path(modern_candidate)
+            previous_generator=selected_generator
+            modern_candidate=winner_path
+            result=str(modern_candidate)
+            selected_generator=str(
+                tournament_winner.get("generator")
+                or selected_generator
+            )
+            selected_compute=(
+                selected_compute
+                +" + HAYUYA source-first independent candidate tournament"
+            )
+            actual_mesh_simplify=0.0
+            actual_texture_size=max(
+                int(actual_texture_size or 0),
+                int(tournament_winner.get("base_color_min_edge") or 0),
+            )
+            hero_target=(
+                2_000_000
+                if TEXTURE_QUALITY=="ultra"
+                else 1_250_000
+                if TEXTURE_QUALITY=="high"
+                else 500_000
+            )
+            hero_floor=(
+                1_000_000
+                if TEXTURE_QUALITY=="ultra"
+                else 650_000
+                if TEXTURE_QUALITY=="high"
+                else 250_000
+            )
+            native_geometry=bool(
+                tournament_winner.get("native_geometry",True)
+            )
+            winner_eligible=bool(
+                tournament_winner.get("eligible")
+            )
+            hunyuan_winner=(
+                selected_generator=="tencent/Hunyuan3D-2.1"
+            )
+            hero_master_report={
+                "schema":1,
+                "policy":"source-first-independent-hypothesis-tournament-v1",
+                "generator":selected_generator,
+                "target_faces":hero_target,
+                "minimum_faces":hero_floor,
+                "actual_faces":int(
+                    tournament_winner.get("faces") or 0
+                ),
+                "actual_vertices":int(
+                    tournament_winner.get("vertices") or 0
+                ),
+                "dense_master_ready":winner_eligible,
+                "density_target_met":bool(
+                    int(tournament_winner.get("faces") or 0)>=hero_floor
+                ),
+                "provider_capped":False,
+                "refinement_required":False,
+                "native_model_generated_geometry":native_geometry,
+                "native_latent_extraction":native_geometry,
+                "source_visual_score":float(
+                    tournament_winner.get("visual_score") or 0.0
+                ),
+                "source_views_judged":int(
+                    tournament_winner.get("source_views_judged") or 0
+                ),
+                "source_views_expected":int(
+                    tournament_winner.get("source_views_expected") or 0
+                ),
+                "tournament_score":float(
+                    tournament_winner.get("composite_score") or 0.0
+                ),
+                "optimization_deferred":True,
+                "runtime_optimization_stage":"post-Judge-v4",
+                "license_review_required":hunyuan_winner,
+                "distribution_eligible":not hunyuan_winner,
+                "candidate_tournament":"candidate_tournament.json",
+            }
+            print(
+                "HAYUYA_CANDIDATE_TOURNAMENT_WINNER",
+                json.dumps(
+                    {
+                        "previous_path":str(previous_candidate),
+                        "previous_generator":previous_generator,
+                        "winner":tournament_winner,
+                    },
+                    separators=(",",":"),
+                ),
+            )
+    except Exception as tournament_exc:
+        print(
+            "::warning::HAYUYA candidate tournament unavailable; "
+            "keeping current hard-gated candidate: "
+            f"{type(tournament_exc).__name__}: {tournament_exc}"
+        )
 aaa_eligibility = assess_aaa_candidate(
     generator=selected_generator,
     hero_master=hero_master_report,
