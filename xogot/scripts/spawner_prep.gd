@@ -28,9 +28,9 @@ func _load_or_derive() -> Array:
 		return []
 
 	var nave: Array = []
-	for floor in nav.get("floors", []):
-		if str(floor.get("id", "")).begins_with("nave_"):
-			nave.append(floor)
+	for floor_data in nav.get("floors", []):
+		if str(floor_data.get("id", "")).begins_with("nave_"):
+			nave.append(floor_data)
 	if nave.is_empty():
 		return []
 	var xmin: float = INF
@@ -38,12 +38,12 @@ func _load_or_derive() -> Array:
 	var ymin: float = INF
 	var ymax: float = -INF
 	var ztop: float = -INF
-	for floor in nave:
-		xmin = min(xmin, float(floor["min"][0]))
-		xmax = max(xmax, float(floor["max"][0]))
-		ymin = min(ymin, float(floor["min"][1]))
-		ymax = max(ymax, float(floor["max"][1]))
-		ztop = max(ztop, float(floor["max"][2]))
+	for floor_data in nave:
+		xmin = min(xmin, float(floor_data["min"][0]))
+		xmax = max(xmax, float(floor_data["max"][0]))
+		ymin = min(ymin, float(floor_data["min"][1]))
+		ymax = max(ymax, float(floor_data["max"][1]))
+		ztop = max(ztop, float(floor_data["max"][2]))
 
 	var result: Array = []
 	for side_data in [["west", xmin, -1.0], ["east", xmax, 1.0]]:
