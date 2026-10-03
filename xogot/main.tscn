@@ -1,11 +1,9 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
-[ext_resource type="Script" path="res://scripts/nav_builder.gd" id="2_nav"]
-[ext_resource type="Script" path="res://scripts/church_loader.gd" id="3_church"]
-[ext_resource type="Script" path="res://scripts/spawner_prep.gd" id="4_spawn"]
-[ext_resource type="Script" path="res://scripts/player.gd" id="5_player"]
-[ext_resource type="Script" path="res://scripts/mobile_hud.gd" id="6_hud"]\n[ext_resource type="Script" path="res://scripts/church_fresh.gd" id="7_fresh"]
+[ext_resource type="Script" path="res://scripts/church_fresh.gd" id="2_fresh"]
+[ext_resource type="Script" path="res://scripts/player.gd" id="3_player"]
+[ext_resource type="Script" path="res://scripts/mobile_hud.gd" id="4_hud"]
 
 [sub_resource type="CapsuleShape3D" id="Capsule_player"]
 radius = 0.38
@@ -14,21 +12,14 @@ height = 1.78
 [node name="Main" type="Node3D"]
 script = ExtResource("1_main")
 
-[node name="World" type="Node3D" parent="."]
-
-[node name="ChurchLoader" type="Node3D" parent="World"]
-script = ExtResource("3_church")
-
-[node name="NavigationSkeleton" type="Node3D" parent="World"]
-script = ExtResource("2_nav")
-
-[node name="SpawnerPrep" type="Node3D" parent="World"]
-script = ExtResource("4_spawn")
+[node name="FreshChurch" type="Node3D" parent="."]
+script = ExtResource("2_fresh")
 
 [node name="Player" type="CharacterBody3D" parent="."]
+position = Vector3(-17.81, 0.05, 36.5)
 floor_snap_length = 0.45
 floor_max_angle = 0.872665
-script = ExtResource("5_player")
+script = ExtResource("3_player")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Player"]
 position = Vector3(0, 0.89, 0)
@@ -52,4 +43,4 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-script = ExtResource("6_hud")
+script = ExtResource("4_hud")
