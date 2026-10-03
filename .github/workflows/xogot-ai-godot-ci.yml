@@ -64,8 +64,10 @@ jobs:
           grep -q "YOU_WONT_WIN: CHURCH_V2_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_PLAYER_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_MOVEMENT_V2_READY" build/xogot-ai/runtime.log
-          grep -q "XZOGOT_HUD_V3_READY" build/xogot-ai/runtime.log
+          grep -q "XZOGOT_HUD_V4_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_WEAPON_READY" build/xogot-ai/runtime.log
+          grep -q "XZOGOT_INTERACTION_PLAYER_READY 500" build/xogot-ai/runtime.log
+          grep -q "XZOGOT_INTERACTIONS_PREPARED 6" build/xogot-ai/runtime.log
           grep -q "XZOGOT_WINDOWS_PREPARED 8" build/xogot-ai/runtime.log
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-ai/runtime.log
 
@@ -89,6 +91,17 @@ jobs:
             2>&1 | tee build/xogot-ai/weapon-probe.log
           grep -q "XZOGOT_WEAPON_PROBE_GREEN" build/xogot-ai/weapon-probe.log
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-ai/weapon-probe.log
+          echo "XOGOT_AI_VM_GREEN"
+
+      - name: Verify interaction economy in Godot
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 60 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/interaction_probe.gd \
+            2>&1 | tee build/xogot-ai/interaction-probe.log
+          grep -q "XZOGOT_INTERACTION_PROBE_GREEN" build/xogot-ai/interaction-probe.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-ai/interaction-probe.log
           echo "XOGOT_AI_VM_GREEN"
 
       - name: Upload AI Godot logs
