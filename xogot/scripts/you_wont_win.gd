@@ -39,9 +39,10 @@ func _build_site() -> void:
 func _build_church() -> void:
 	var stone := Color(0.20, 0.19, 0.175)
 	var dark_stone := Color(0.135, 0.13, 0.125)
-	# nave shell, with openings instead of solid featureless walls
-	_box("LeftWall", Vector3(0.65, 8.2, 38), Vector3(-11, 4.1, -5), stone)
-	_box("RightWall", Vector3(0.65, 8.2, 38), Vector3(11, 4.1, -5), stone)
+	# Nave shell. Side walls are segmented around four real zombie-window apertures
+	# per side; no invisible solid wall remains behind the barricades.
+	_build_side_wall_with_window_openings(-11.0, "L", stone, dark_stone)
+	_build_side_wall_with_window_openings(11.0, "R", stone, dark_stone)
 	_box("RearWall", Vector3(22, 8.2, 0.65), Vector3(0, 4.1, -24), stone)
 	_box("FrontLeft", Vector3(7.8, 8.2, 0.65), Vector3(-7.1, 4.1, 14), stone)
 	_box("FrontRight", Vector3(7.8, 8.2, 0.65), Vector3(7.1, 4.1, 14), stone)
@@ -60,6 +61,61 @@ func _build_church() -> void:
 	# tower cap
 	_wedge_roof("TowerRoofL", Vector3(-1.4, 15.0, 10.7), -28.0, Color(0.04, 0.045, 0.052), Vector3(3.3, 0.35, 6.2))
 	_wedge_roof("TowerRoofR", Vector3(1.4, 15.0, 10.7), 28.0, Color(0.04, 0.045, 0.052), Vector3(3.3, 0.35, 6.2))
+
+func _build_side_wall_with_window_openings(x: float, side: String, stone: Color, trim: Color) -> void:
+	var wall_min_z: float = -24.0
+	var wall_max_z: float = 14.0
+	var opening_half_width: float = 1.40
+	var opening_top_y: float = 3.35
+	var wall_top_y: float = 8.20
+	var centers: Array[float] = [-17.0, -9.0, -1.0, 7.0]
+
+	var cursor_z: float = wall_min_z
+	for i in range(centers.size()):
+		var center_z: float = centers[i]
+		var opening_min_z: float = center_z - opening_half_width
+		var opening_max_z: float = center_z + opening_half_width
+		var segment_len: float = opening_min_z - cursor_z
+		if segment_len > 0.01:
+			_box(
+				"SideWall_%s_%02d" % [side, i],
+				Vector3(0.65, wall_top_y, segment_len),
+				Vector3(x, wall_top_y * 0.5, cursor_z + segment_len * 0.5),
+				stone
+			)
+
+		# Stone lintel above each walk-through zombie window.
+		var lintel_height: float = wall_top_y - opening_top_y
+		_box(
+			"WindowLintel_%s_%02d" % [side, i],
+			Vector3(0.65, lintel_height, opening_half_width * 2.0),
+			Vector3(x, opening_top_y + lintel_height * 0.5, center_z),
+			stone
+		)
+
+		# Thin jamb trim makes the aperture readable from inside and outside.
+		_box(
+			"WindowJambA_%s_%02d" % [side, i],
+			Vector3(0.82, opening_top_y, 0.18),
+			Vector3(x, opening_top_y * 0.5, opening_min_z),
+			trim
+		)
+		_box(
+			"WindowJambB_%s_%02d" % [side, i],
+			Vector3(0.82, opening_top_y, 0.18),
+			Vector3(x, opening_top_y * 0.5, opening_max_z),
+			trim
+		)
+		cursor_z = opening_max_z
+
+	var tail_len: float = wall_max_z - cursor_z
+	if tail_len > 0.01:
+		_box(
+			"SideWall_%s_tail" % side,
+			Vector3(0.65, wall_top_y, tail_len),
+			Vector3(x, wall_top_y * 0.5, cursor_z + tail_len * 0.5),
+			stone
+		)
 
 func _build_interior() -> void:
 	var wood := Color(0.16, 0.095, 0.055)
@@ -125,8 +181,9 @@ func _build_windows() -> void:
 	var window_id: int = 0
 	for i in range(zs.size()):
 		var z: float = zs[i]
-		_box("WindowL_%d" % i, Vector3(0.10, 2.6, 2.2), Vector3(-10.64, 1.85, z), glow, false)
-		_box("WindowR_%d" % i, Vector3(0.10, 2.6, 2.2), Vector3(10.64, 1.85, z), glow, false)
+		# A faint non-colliding back glow marks the aperture; the opening itself is real.
+		_box("WindowGlowL_%d" % i, Vector3(0.03, 2.25, 2.35), Vector3(-11.34, 1.55, z), Color(glow.r, glow.g, glow.b, 0.22), false)
+		_box("WindowGlowR_%d" % i, Vector3(0.03, 2.25, 2.35), Vector3(11.34, 1.55, z), Color(glow.r, glow.g, glow.b, 0.22), false)
 		_add_window_socket(window_id, "left", z)
 		window_id += 1
 		_add_window_socket(window_id, "right", z)
