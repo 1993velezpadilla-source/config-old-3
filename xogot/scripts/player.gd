@@ -14,6 +14,8 @@ const NAV_PATH := "res://data/nav_skeleton.json"
 @export var gyro_enabled := true
 @export var gyro_sensitivity := 0.70
 @export var use_nav_spawn := true
+@export var interaction_range := 3.4
+@export var starting_points := 500
 
 const STAND_HEAD_Y := 1.62
 const CROUCH_HEAD_Y := 1.12
@@ -22,6 +24,7 @@ const CROUCH_CAPSULE_HEIGHT := 1.18
 const STAND_COLLIDER_Y := 0.90
 const CROUCH_COLLIDER_Y := 0.59
 
+var points: int = 0
 var _gravity := 18.0
 var _move_touch := -1
 var _look_touch := -1
@@ -39,17 +42,20 @@ var _slide_cooldown_timer := 0.0
 var _slide_direction := Vector3.ZERO
 
 @onready var _head: Node3D = $Head
+@onready var _camera: Camera3D = $Head/Camera3D
 @onready var _collider: CollisionShape3D = $CollisionShape3D
 @onready var _weapon: Node = $Weapon
 
 func _ready() -> void:
 	_gravity = float(ProjectSettings.get_setting("physics/3d/default_gravity", 18.0))
+	points = starting_points
 	if not OS.has_feature("mobile"):
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	if use_nav_spawn:
 		_place_at_spawn()
 	print("XZOGOT_PLAYER_READY")
 	print("XZOGOT_MOVEMENT_V2_READY")
+	print("XZOGOT_INTERACTION_PLAYER_READY ", points)
 
 func _b2g(a: Array) -> Vector3:
 	return Vector3(float(a[0]), float(a[2]), -float(a[1]))
@@ -65,6 +71,8 @@ func _place_at_spawn() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		_apply_look(Vector2(event.relative.x, event.relative.y) * mouse_sensitivity)
+	elif event is InputEventKey and event.pressed and (event.keycode == KEY_E or event.keycode == KEY_F):
+		request_interact()
 	elif event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	elif event is InputEventMouseButton and event.pressed and not OS.has_feature("mobile"):
@@ -76,10 +84,11 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _handle_touch(event: InputEventScreenTouch) -> void:
 	var size: Vector2 = get_viewport().get_visible_rect().size
-	var jump_zone := event.position.x > size.x * 0.84 and event.position.y > size.y * 0.72
-	var crouch_zone := event.position.x > size.x * 0.68 and event.position.x <= size.x * 0.84 and event.position.y > size.y * 0.72
-	var fire_zone := event.position.x > size.x * 0.84 and event.position.y > size.y * 0.46 and event.position.y <= size.y * 0.72
-	var reload_zone := event.position.x > size.x * 0.68 and event.position.x <= size.x * 0.84 and event.position.y > size.y * 0.50 and event.position.y <= size.y * 0.72
+	var jump_zone: bool = event.position.x > size.x * 0.84 and event.position.y > size.y * 0.72
+	var crouch_zone: bool = event.position.x > size.x * 0.68 and event.position.x <= size.x * 0.84 and event.position.y > size.y * 0.72
+	var fire_zone: bool = event.position.x > size.x * 0.84 and event.position.y > size.y * 0.46 and event.position.y <= size.y * 0.72
+	var reload_zone: bool = event.position.x > size.x * 0.68 and event.position.x <= size.x * 0.84 and event.position.y > size.y * 0.50 and event.position.y <= size.y * 0.72
+	var interact_zone: bool = event.position.x > size.x * 0.52 and event.position.x <= size.x * 0.68 and event.position.y > size.y * 0.66
 
 	if event.pressed:
 		if event.position.x < size.x * 0.46 and event.position.y > size.y * 0.22 and _move_touch < 0:
@@ -95,6 +104,8 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 			_weapon.call("set_trigger_held", true)
 		elif reload_zone:
 			_weapon.call("request_reload")
+		elif interact_zone:
+			request_interact()
 		elif _look_touch < 0:
 			_look_touch = event.index
 	else:
@@ -121,17 +132,54 @@ func _apply_look(delta: Vector2) -> void:
 	_pitch = clamp(_pitch - delta.y, deg_to_rad(-86.0), deg_to_rad(86.0))
 	_head.rotation.x = _pitch
 
+func request_interact() -> bool:
+	if _camera == null:
+		return false
+	var world: World3D = _camera.get_world_3d()
+	if world == null:
+		return false
+	var origin: Vector3 = _camera.global_position
+	var direction: Vector3 = -_camera.global_transform.basis.z.normalized()
+	var target: Vector3 = origin + direction * interaction_range
+	var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(origin, target)
+	query.exclude = [get_rid()]
+	query.collide_with_areas = true
+	query.collide_with_bodies = true
+	var hit: Dictionary = world.direct_space_state.intersect_ray(query)
+	if hit.is_empty():
+		return false
+	var collider: Object = hit.get("collider") as Object
+	return try_interact_with(collider)
+
+func try_interact_with(target: Object) -> bool:
+	if target == null or not target.has_method("interact"):
+		return false
+	return bool(target.call("interact", self))
+
+func spend_points(amount: int) -> bool:
+	if amount < 0 or points < amount:
+		return false
+	points -= amount
+	return true
+
+func add_points(amount: int) -> void:
+	if amount > 0:
+		points += amount
+
+func get_points() -> int:
+	return points
+
 func _set_crouched(enabled: bool) -> void:
 	if _crouched == enabled:
 		return
 	_crouched = enabled
-	var capsule := _collider.shape as CapsuleShape3D
+	var capsule: CapsuleShape3D = _collider.shape as CapsuleShape3D
 	if capsule != null:
 		capsule.height = CROUCH_CAPSULE_HEIGHT if enabled else STAND_CAPSULE_HEIGHT
 	_collider.position.y = CROUCH_COLLIDER_Y if enabled else STAND_COLLIDER_Y
 
 func _update_stance(delta: float, crouch_pressed: bool) -> void:
-	var target_head_y := CROUCH_HEAD_Y if (_crouched or _sliding) else STAND_HEAD_Y
+	var target_head_y: float = CROUCH_HEAD_Y if (_crouched or _sliding) else STAND_HEAD_Y
 	_head.position.y = move_toward(_head.position.y, target_head_y, 5.5 * delta)
 
 	if _sliding:
@@ -182,9 +230,9 @@ func _physics_process(delta: float) -> void:
 	if wish.length_squared() > 0.001:
 		wish = wish.normalized()
 
-	var crouch_pressed := _crouch_touch >= 0 or Input.is_key_pressed(KEY_CTRL) or Input.is_key_pressed(KEY_C)
-	var crouch_just_pressed := crouch_pressed and not _crouch_was_pressed
-	var sprinting := Input.is_key_pressed(KEY_SHIFT) or input_2d.length() > 0.92
+	var crouch_pressed: bool = _crouch_touch >= 0 or Input.is_key_pressed(KEY_CTRL) or Input.is_key_pressed(KEY_C)
+	var crouch_just_pressed: bool = crouch_pressed and not _crouch_was_pressed
+	var sprinting: bool = Input.is_key_pressed(KEY_SHIFT) or input_2d.length() > 0.92
 
 	if crouch_just_pressed and sprinting and input_2d.length() > 0.72 and is_on_floor() and not _sliding and _slide_cooldown_timer <= 0.0:
 		_sliding = true
@@ -200,7 +248,7 @@ func _physics_process(delta: float) -> void:
 		velocity.x = _slide_direction.x * current_slide_speed
 		velocity.z = _slide_direction.z * current_slide_speed
 	else:
-		var speed := crouch_speed if _crouched else (sprint_speed if sprinting else walk_speed)
+		var speed: float = crouch_speed if _crouched else (sprint_speed if sprinting else walk_speed)
 		velocity.x = move_toward(velocity.x, wish.x * speed, 22.0 * delta)
 		velocity.z = move_toward(velocity.z, wish.z * speed, 22.0 * delta)
 
