@@ -80,14 +80,30 @@ func _build_interior() -> void:
 func _build_windows() -> void:
 	var glow := Color(0.24, 0.34, 0.48)
 	var zs: Array[float] = [-17.0, -9.0, -1.0, 7.0]
+	var window_id: int = 0
 	for i in range(zs.size()):
 		var z: float = zs[i]
 		_box("WindowL_%d" % i, Vector3(0.10, 3.1, 2.0), Vector3(-10.64, 4.2, z), glow, false)
 		_box("WindowR_%d" % i, Vector3(0.10, 3.1, 2.0), Vector3(10.64, 4.2, z), glow, false)
+		_add_window_spawn_marker(window_id, "left", Vector3(-12.0, 0.55, z))
+		window_id += 1
+		_add_window_spawn_marker(window_id, "right", Vector3(12.0, 0.55, z))
+		window_id += 1
 		# barricade boards mark future zombie entry/spawn gameplay points
 		for b in range(3):
 			_box("BarricadeL_%d_%d" % [i,b], Vector3(0.18, 0.28, 2.5), Vector3(-10.52, 3.4 + b * 0.75, z), Color(0.22, 0.12, 0.055), false)
 			_box("BarricadeR_%d_%d" % [i,b], Vector3(0.18, 0.28, 2.5), Vector3(10.52, 3.4 + b * 0.75, z), Color(0.22, 0.12, 0.055), false)
+	print("XZOGOT_WINDOWS_PREPARED ", window_id)
+
+func _add_window_spawn_marker(window_id: int, side: String, pos: Vector3) -> void:
+	var marker := Marker3D.new()
+	marker.name = "ZombieWindow_%02d" % window_id
+	marker.position = pos
+	marker.add_to_group("zombie_window")
+	marker.set_meta("window_id", window_id)
+	marker.set_meta("side", side)
+	marker.set_meta("status", "PREPARED_NO_ZOMBIES")
+	add_child(marker)
 
 func _build_lights() -> void:
 	var light_z: Array[float] = [-17.0, -7.0, 3.0, 10.0]
