@@ -1,0 +1,26 @@
+{
+  "set_name": "xziel_hud_zombies_mobile_v1",
+  "status": "latest-approved",
+  "source_commit": "612e625a032c6f07ac6de5698ef164b2126185a3",
+  "source_workflow": "XZIEL Nacht Hybrid Touch Gyro APK",
+  "source_date": "2026-09-29",
+  "exact_latest_12": [
+    "hud_ads.webp",
+    "hud_ads_fire.webp",
+    "hud_claw.webp",
+    "hud_crouch.webp",
+    "hud_fire.webp",
+    "hud_grenade.webp",
+    "hud_knife.webp",
+    "hud_prone.webp",
+    "hud_reload.webp",
+    "hud_slide.webp",
+    "hud_sprint.webp",
+    "hud_swap.webp"
+  ],
+  "jump_fallback": {
+    "file": "hud_jump.png",
+    "source_commit": "fed7a3140630d4cdc0e7ca9065b05779c596a86d",
+    "reason": "Latest 12-skin Touch+Gyro contract did not include Jump/Vault"
+  }
+}
