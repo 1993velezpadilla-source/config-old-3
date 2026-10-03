@@ -15,6 +15,7 @@ func _ready() -> void:
 	_build_site()
 	_build_church()
 	_build_interior()
+	_build_realism_pass()
 	_build_interactions()
 	_build_windows()
 	_build_lights()
@@ -27,15 +28,20 @@ func _build_environment() -> void:
 	env.background_mode = Environment.BG_COLOR
 	env.background_color = Color(0.006, 0.009, 0.016)
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.16, 0.20, 0.30)
-	env.ambient_light_energy = 0.42
+	env.ambient_light_color = Color(0.11, 0.14, 0.20)
+	env.ambient_light_energy = 0.30
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.fog_enabled = true
+	env.fog_light_color = Color(0.055, 0.065, 0.085)
+	env.fog_light_energy = 0.72
+	env.fog_density = 0.018
+	env.fog_aerial_perspective = 0.42
 	world.environment = env
 	add_child(world)
 	var moon := DirectionalLight3D.new()
 	moon.rotation_degrees = Vector3(-48, -32, 0)
-	moon.light_color = Color(0.48, 0.60, 1.0)
-	moon.light_energy = 1.25
+	moon.light_color = Color(0.38, 0.48, 0.72)
+	moon.light_energy = 0.72
 	moon.shadow_enabled = true
 	add_child(moon)
 
@@ -128,18 +134,16 @@ func _build_side_wall_with_window_openings(x: float, side: String, stone: Color,
 		)
 
 func _build_interior() -> void:
-	var wood := Color(0.16, 0.095, 0.055)
-	# center aisle + raised altar
-	_box("Aisle", Vector3(3.2, 0.05, 30), Vector3(0, 0.48, -3), Color(0.20, 0.18, 0.145))
-	_box("AltarPlatform", Vector3(12, 0.55, 5.5), Vector3(0, 0.55, -20.5), Color(0.15, 0.13, 0.105))
-	_box("Altar", Vector3(4.8, 1.25, 1.5), Vector3(0, 1.45, -21.2), Color(0.30, 0.27, 0.21))
-	# pew rows leave a central combat lane
+	var wood := Color(0.115, 0.062, 0.031)
+	# Center aisle + raised altar, kept deliberately tighter than the first blockout.
+	_box("Aisle", Vector3(2.55, 0.035, 29.0), Vector3(0, 0.465, -3), Color(0.145, 0.132, 0.112))
+	_box("AltarPlatform", Vector3(7.2, 0.34, 4.2), Vector3(0, 0.49, -20.5), Color(0.105, 0.095, 0.082))
+	_box("Altar", Vector3(3.5, 1.0, 1.15), Vector3(0, 1.12, -21.0), Color(0.23, 0.205, 0.16))
+	# Human-scale pews: thinner seat/back and shorter span, so they read as furniture instead of blocks.
 	for z in range(-15, 8, 4):
-		# Keep a clear 3.2 m stair lane along the rear-left wall.
-		# The z=1 and z=5 left pew rows used to physically block the balcony stairs.
 		if z != 1 and z != 5:
-			_pew(Vector3(-5.6, 0.75, float(z)), wood)
-		_pew(Vector3(5.6, 0.75, float(z)), wood)
+			_pew(Vector3(-4.75, 0.55, float(z)), wood)
+		_pew(Vector3(4.75, 0.55, float(z)), wood)
 	# upper rear balcony / second-floor gameplay shell
 	_box("Balcony", Vector3(20.5, 0.5, 6.0), Vector3(0, 5.0, 10.4), Color(0.11, 0.075, 0.045))
 
@@ -159,6 +163,86 @@ func _build_interior() -> void:
 		)
 	_box("StairTopLanding", Vector3(3.4, 0.30, 1.6), Vector3(-8.0, 5.08, 7.75), wood, false)
 	_build_balcony_stair_ramp()
+
+func _build_realism_pass() -> void:
+	# Visual-only architecture pass. These details intentionally do not alter gameplay collision.
+	var trim := Color(0.095, 0.090, 0.082)
+	var beam := Color(0.075, 0.040, 0.020)
+	var stone_dark := Color(0.115, 0.110, 0.105)
+
+	# Interior pilasters break the long flat walls and restore human visual scale.
+	var pillar_z: Array[float] = [-20.5, -13.0, -5.0, 3.0, 10.0]
+	for i in range(pillar_z.size()):
+		var z: float = pillar_z[i]
+		_visual_cylinder(
+			"PilasterL_%02d" % i,
+			0.34,
+			5.4,
+			Vector3(-10.45, 2.75, z),
+			stone_dark,
+			12
+		)
+		_visual_cylinder(
+			"PilasterR_%02d" % i,
+			0.34,
+			5.4,
+			Vector3(10.45, 2.75, z),
+			stone_dark,
+			12
+		)
+
+	# Roof ribs / timber ties create repeated scale references overhead.
+	var beam_z: Array[float] = [-18.0, -12.0, -6.0, 0.0, 6.0, 11.0]
+	for i in range(beam_z.size()):
+		_visual_box(
+			"CeilingTie_%02d" % i,
+			Vector3(18.4, 0.18, 0.28),
+			Vector3(0.0, 6.25, beam_z[i]),
+			beam
+		)
+
+	# Stone/wood base trim along the nave walls.
+	_visual_box("BaseTrimL", Vector3(0.18, 0.42, 36.0), Vector3(-10.60, 0.35, -5.0), trim)
+	_visual_box("BaseTrimR", Vector3(0.18, 0.42, 36.0), Vector3(10.60, 0.35, -5.0), trim)
+
+	# Floor seams stop the nave from reading as one giant smooth toy slab.
+	for zi in range(-18, 12, 2):
+		_visual_box(
+			"FloorSeamZ_%02d" % (zi + 20),
+			Vector3(19.0, 0.018, 0.035),
+			Vector3(0.0, 0.462, float(zi)),
+			Color(0.070, 0.064, 0.055)
+		)
+	for xi in range(-8, 9, 2):
+		_visual_box(
+			"FloorSeamX_%02d" % (xi + 10),
+			Vector3(0.035, 0.018, 31.0),
+			Vector3(float(xi), 0.463, -3.0),
+			Color(0.070, 0.064, 0.055)
+		)
+
+	print("XZOGOT_ANTI_TOY_PASS_READY")
+
+func _visual_box(label: String, size: Vector3, pos: Vector3, color: Color) -> void:
+	_box(label, size, pos, color, false)
+
+func _visual_cylinder(label: String, radius: float, height: float, pos: Vector3, color: Color, sides: int = 12) -> void:
+	var root := Node3D.new()
+	root.name = label
+	root.position = _wp(pos)
+	var mi := MeshInstance3D.new()
+	var mesh := CylinderMesh.new()
+	mesh.top_radius = radius * WORLD_SCALE
+	mesh.bottom_radius = radius * WORLD_SCALE
+	mesh.height = height * WORLD_SCALE
+	mesh.radial_segments = sides
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = color
+	mat.roughness = 0.93
+	mesh.material = mat
+	mi.mesh = mesh
+	root.add_child(mi)
+	add_child(root)
 
 func _build_balcony_stair_ramp() -> void:
 	var start: Vector3 = _wp(Vector3(-8.0, 0.38, 0.60))
@@ -309,8 +393,8 @@ func _build_lights() -> void:
 		var lamp := OmniLight3D.new()
 		lamp.position = _wp(Vector3(0, 4.2, z))
 		lamp.light_color = Color(1.0, 0.56, 0.27)
-		lamp.light_energy = 2.0
-		lamp.omni_range = 8.5 * WORLD_SCALE
+		lamp.light_energy = 1.45
+		lamp.omni_range = 7.0 * WORLD_SCALE
 		lamp.shadow_enabled = true
 		add_child(lamp)
 
@@ -326,10 +410,10 @@ func _build_camera() -> void:
 	add_child(camera)
 
 func _pew(pos: Vector3, color: Color) -> void:
-	_box("PewSeat", Vector3(6.2, 0.35, 1.05), pos, color)
-	_box("PewBack", Vector3(6.2, 1.35, 0.22), pos + Vector3(0, 0.72, 0.42), color)
-	_box("PewLegL", Vector3(0.28, 0.8, 0.8), pos + Vector3(-2.6, -0.35, 0), color)
-	_box("PewLegR", Vector3(0.28, 0.8, 0.8), pos + Vector3(2.6, -0.35, 0), color)
+	_box("PewSeat", Vector3(4.65, 0.22, 0.82), pos, color)
+	_box("PewBack", Vector3(4.65, 0.92, 0.16), pos + Vector3(0, 0.44, 0.33), color)
+	_box("PewLegL", Vector3(0.18, 0.55, 0.62), pos + Vector3(-1.95, -0.25, 0), color)
+	_box("PewLegR", Vector3(0.18, 0.55, 0.62), pos + Vector3(1.95, -0.25, 0), color)
 
 func _wedge_roof(label: String, pos: Vector3, roll: float, color: Color, size: Vector3 = Vector3(11.8, 0.45, 39.0)) -> void:
 	var body := StaticBody3D.new()
@@ -365,8 +449,14 @@ func _box(label: String, size: Vector3, pos: Vector3, color: Color, collision: b
 	var mesh := BoxMesh.new()
 	mesh.size = _ws(size)
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = color
-	mat.roughness = 0.86
+	var variation: float = 0.955 + float(abs(label.hash()) % 11) * 0.006
+	mat.albedo_color = Color(
+		clampf(color.r * variation, 0.0, 1.0),
+		clampf(color.g * variation, 0.0, 1.0),
+		clampf(color.b * variation, 0.0, 1.0),
+		color.a
+	)
+	mat.roughness = 0.84 + float(abs(label.hash()) % 7) * 0.015
 	mesh.material = mat
 	mi.mesh = mesh
 	root.add_child(mi)
