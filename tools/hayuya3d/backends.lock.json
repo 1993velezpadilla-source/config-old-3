@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_utc": "2026-10-03T05:55:00Z",
+  "updated_utc": "2026-10-03T06:03:00Z",
   "policy": {
     "default_stack": "permissive_open_source",
     "allow_restricted_by_default": false,
@@ -334,6 +334,23 @@
   ],
   "public_space_adapters": [
     {
+      "id": "pixal3d_zerogpu",
+      "enabled_by_default": true,
+      "space": "TencentARC/Pixal3D",
+      "generator": "TencentARC/Pixal3D",
+      "license": "MIT",
+      "capabilities": [
+        "single_image_shape",
+        "pixel_aligned_geometry",
+        "pbr",
+        "1536_generation",
+        "4k_texture",
+        "production_candidate"
+      ],
+      "max_images_per_generation_call": 1,
+      "hayuya_strategy": "primary permissive live high-fidelity challenger; source-first tournament decides promotion"
+    },
+    {
       "id": "unique3d_zerogpu",
       "enabled_by_default": true,
       "space": "Wuvin/Unique3D",
@@ -376,6 +393,23 @@
       ],
       "max_images_per_generation_call": 4,
       "hayuya_strategy": "comparison evidence only; never production winner unless licensing policy is explicitly changed"
+    }
+  ],
+  "local_optional_backends": [
+    {
+      "id": "pixal3d_multiview",
+      "repo": "https://github.com/TencentARC/Pixal3D.git",
+      "branch": "master",
+      "license": "MIT",
+      "capabilities": [
+        "multi_image_shape",
+        "camera_conditioned_views",
+        "pixel_aligned_pbr",
+        "1024_to_1536"
+      ],
+      "input_contract": "views directory plus transforms.json; canonical front first; shipped 0/90/180/270 orbit rig can be reused when camera metadata is unavailable",
+      "enabled_by_default": false,
+      "reason": "requires a substantial CUDA runner; keep registered for future GPU execution rather than fake multiview through the single-view Space"
     }
   ]
 }
