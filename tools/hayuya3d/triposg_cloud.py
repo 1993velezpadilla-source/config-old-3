@@ -50,7 +50,16 @@ def _initialize_gradio_session(client: Client) -> dict:
 
 
 def _prepare_local_segmented_image(image: Path, work_dir: Path) -> tuple[Path | None, dict]:
-    """Reuse a trustworthy alpha matte locally and avoid a redundant ZeroGPU call."""
+    """Prepare a trustworthy foreground locally before TripoSG inference.
+
+    Preference order:
+    1. Reuse authored alpha when present.
+    2. Use rembg/ONNX locally for general-object foreground extraction.
+    3. Return None so the caller may try the public Space segmentation endpoint.
+
+    This keeps segmentation outside the geometry provider's failure domain and
+    avoids hard-coding Hayuya to human-only inputs.
+    """
     try:
         from PIL import Image
         im=Image.open(image).convert("RGBA")
@@ -60,23 +69,71 @@ def _prepare_local_segmented_image(image: Path, work_dir: Path) -> tuple[Path | 
         total=max(1,sum(hist))
         nonopaque=sum(hist[:250])
         fraction=float(nonopaque)/float(total)
-        useful=bool(lo < 250 and hi > 5 and fraction >= 0.0001)
         report={
             "mode":"RGBA",
             "size":[int(im.width),int(im.height)],
             "alpha_min":int(lo),
             "alpha_max":int(hi),
             "nonopaque_fraction":fraction,
-            "useful_alpha":useful,
+            "useful_alpha":False,
+            "method":"none",
         }
-        if not useful:
-            return None, report
+
         work_dir.mkdir(parents=True, exist_ok=True)
         out=work_dir/"triposg_local_segmented.png"
-        im.save(out, format="PNG")
-        return out, report
+
+        useful=bool(lo < 250 and hi > 5 and fraction >= 0.0001)
+        if useful:
+            report["useful_alpha"]=True
+            report["method"]="authored_alpha"
+            im.save(out, format="PNG")
+            return out, report
+
+        try:
+            from rembg import remove
+            cleaned=remove(im)
+            if not hasattr(cleaned, "getchannel"):
+                cleaned=Image.open(io.BytesIO(cleaned)).convert("RGBA")
+            else:
+                cleaned=cleaned.convert("RGBA")
+
+            a=cleaned.getchannel("A")
+            rlo, rhi=a.getextrema()
+            rhist=a.histogram()
+            rtotal=max(1,sum(rhist))
+            rnonopaque=sum(rhist[:250])
+            rfraction=float(rnonopaque)/float(rtotal)
+
+            # Reject masks that are effectively empty or fully opaque.
+            import numpy as np
+            arr=np.asarray(a)
+            fg=float((arr > 20).mean())
+            bg=float((arr < 245).mean())
+            mask_ok=bool(
+                rlo < 245
+                and rhi > 20
+                and 0.01 <= fg <= 0.98
+                and bg >= 0.01
+            )
+            report.update({
+                "rembg_alpha_min":int(rlo),
+                "rembg_alpha_max":int(rhi),
+                "rembg_nonopaque_fraction":rfraction,
+                "rembg_foreground_fraction":fg,
+                "rembg_background_fraction":bg,
+                "rembg_mask_ok":mask_ok,
+            })
+            if mask_ok:
+                report["useful_alpha"]=True
+                report["method"]="rembg_onnx"
+                cleaned.save(out, format="PNG")
+                return out, report
+        except Exception as exc:
+            report["rembg_error"]=f"{type(exc).__name__}: {exc}"
+
+        return None, report
     except Exception as exc:
-        return None, {"useful_alpha":False,"error":f"{type(exc).__name__}: {exc}"}
+        return None, {"useful_alpha":False,"method":"error","error":f"{type(exc).__name__}: {exc}"}
 
 def _parameter_names(spec: dict) -> list[str]:
     return [str(p.get("parameter_name") or "") for p in spec.get("parameters", [])]
