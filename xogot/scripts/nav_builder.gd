@@ -10,7 +10,7 @@ var _exterior_mat: StandardMaterial3D
 var _ramp_mat: StandardMaterial3D
 
 func _ready() -> void:
-	_show_fallback_visuals = not ResourceLoader.exists(CHURCH_PATH)
+	_show_fallback_visuals = false # fresh native church owns all visuals; nav is collision-only
 	_make_materials()
 	_build()
 
