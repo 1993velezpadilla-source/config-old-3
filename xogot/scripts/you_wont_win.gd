@@ -231,18 +231,18 @@ func _build_windows() -> void:
 func _add_window_threshold_ramp(side: String, sx: float, index: int, z: float) -> void:
 	# Exterior ground is y=0 while the church floor top is ~0.445 m.
 	# A shallow physical ramp lets CharacterBody3D zombies and players cross without teleport/stair hacks.
-	var run: float = 2.40
-	var rise: float = 0.45
+	var run: float = 1.80
+	var rise: float = 0.52
 	var angle_rad: float = atan(rise / run)
 	var angle_deg: float = rad_to_deg(angle_rad)
 	var body := StaticBody3D.new()
 	body.name = "WindowRamp_%s_%02d" % [side, index]
-	body.position = Vector3(10.90 * sx, 0.225, z)
+	body.position = Vector3(11.50 * sx, 0.26, z)
 	body.rotation_degrees.z = -sx * angle_deg
 
 	var mesh_instance := MeshInstance3D.new()
 	var mesh := BoxMesh.new()
-	mesh.size = Vector3(run, 0.16, 2.30)
+	mesh.size = Vector3(run, 0.18, 2.30)
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = Color(0.16, 0.15, 0.13)
 	mat.roughness = 0.92
@@ -252,7 +252,7 @@ func _add_window_threshold_ramp(side: String, sx: float, index: int, z: float) -
 
 	var collision := CollisionShape3D.new()
 	var shape := BoxShape3D.new()
-	shape.size = Vector3(run, 0.16, 2.30)
+	shape.size = Vector3(run, 0.18, 2.30)
 	collision.shape = shape
 	body.add_child(collision)
 	body.add_to_group("zombie_window_ramp")
@@ -262,9 +262,9 @@ func _add_window_socket(window_id: int, side: String, z: float) -> void:
 	var left: bool = side == "left"
 	var sx: float = -1.0 if left else 1.0
 	var barricade_x: float = 10.52 * sx
-	var outside_spawn := Vector3(13.0 * sx, 0.55, z)
-	var outside_approach := Vector3(11.45 * sx, 0.55, z)
-	var inside_point := Vector3(9.72 * sx, 0.55, z)
+	var outside_spawn := Vector3(13.0 * sx, 0.08, z)
+	var outside_approach := Vector3(11.95 * sx, 0.08, z)
+	var inside_point := Vector3(10.20 * sx, 0.48, z)
 
 	var marker := Marker3D.new()
 	marker.name = "ZombieWindow_%02d" % window_id
