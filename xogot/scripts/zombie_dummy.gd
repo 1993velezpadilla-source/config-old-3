@@ -118,9 +118,9 @@ func _fit_visual_to_gameplay_bounds(
 	var width_adjust: float = 1.0
 	var depth_adjust: float = 1.0
 	if uniform_width > max_width:
-		width_adjust = clampf(max_width / uniform_width, 0.78, 1.0)
+		width_adjust = clampf(max_width / uniform_width, 0.72, 1.0)
 	if uniform_depth > max_depth:
-		depth_adjust = clampf(max_depth / uniform_depth, 0.78, 1.0)
+		depth_adjust = clampf(max_depth / uniform_depth, 0.72, 1.0)
 
 	var scale_x: float = scale_y * width_adjust
 	var scale_z: float = scale_y * depth_adjust
