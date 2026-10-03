@@ -16,6 +16,10 @@ const MONJA_BASICA_PATH := "res://assets/zombies/monja_basica.glb"
 @export var target_visual_max_depth: float = 0.60
 @export var collider_radius: float = 0.30
 @export var collider_height: float = 1.70
+@export var headshot_multiplier: float = 2.0
+@export var headshot_height_ratio: float = 0.72
+@export var headshot_bonus_points: int = 10
+@export var hit_reaction_duration: float = 0.14
 
 enum Phase {
 	APPROACH,
@@ -30,6 +34,8 @@ var target_barricade: Node
 var phase: Phase = Phase.APPROACH
 var _attack_timer: float = 0.0
 var _gravity: float = 18.0
+var _hit_reaction_timer: float = 0.0
+var _visual_root: Node3D
 
 func _ready() -> void:
 	_gravity = float(ProjectSettings.get_setting("physics/3d/default_gravity", 18.0))
@@ -59,6 +65,7 @@ func _build_body() -> void:
 				var visual := Node3D.new()
 				visual.name = "MonjaBasicaVisual"
 				add_child(visual)
+				_visual_root = visual
 				imported.name = "MonjaBasicaSource"
 				visual.add_child(imported)
 				if _fit_visual_to_gameplay_bounds(
@@ -181,6 +188,7 @@ func _build_fallback_visual() -> void:
 	add_child(visual)
 
 func _physics_process(delta: float) -> void:
+	_update_hit_reaction(delta)
 	if phase == Phase.DEAD:
 		return
 	if _attack_timer > 0.0:
@@ -275,14 +283,45 @@ func _move_toward_flat_speed(target: Vector3, stop_distance: float, speed: float
 	move_and_slide()
 	return false
 
+func apply_hitscan_damage(amount: float, source: Node = null, hit_position: Vector3 = Vector3.ZERO) -> void:
+	if phase == Phase.DEAD or amount <= 0.0:
+		return
+	var local_hit: Vector3 = to_local(hit_position)
+	var head_threshold: float = target_visual_height * headshot_height_ratio
+	var is_headshot: bool = local_hit.y >= head_threshold
+	var applied_amount: float = amount * (headshot_multiplier if is_headshot else 1.0)
+	set_meta("last_hit_headshot", is_headshot)
+	if is_headshot:
+		print("XZOGOT_ZOMBIE_HEADSHOT")
+	_take_damage(applied_amount, source, is_headshot)
+
 func apply_damage(amount: float, source: Node = null) -> void:
+	_take_damage(amount, source, false)
+
+func _take_damage(amount: float, source: Node, headshot: bool) -> void:
 	if phase == Phase.DEAD or amount <= 0.0:
 		return
 	health -= amount
+	_hit_reaction_timer = hit_reaction_duration
 	if source != null and source.has_method("add_points"):
 		source.call("add_points", 10)
+		if headshot:
+			source.call("add_points", headshot_bonus_points)
 	if health <= 0.0:
 		_die(source)
+
+func _update_hit_reaction(delta: float) -> void:
+	if _visual_root == null or not is_instance_valid(_visual_root):
+		return
+	if _hit_reaction_timer > 0.0:
+		_hit_reaction_timer = maxf(0.0, _hit_reaction_timer - delta)
+		var ratio: float = _hit_reaction_timer / maxf(hit_reaction_duration, 0.001)
+		_visual_root.rotation.z = deg_to_rad(sin(ratio * PI) * 4.5)
+	else:
+		_visual_root.rotation.z = move_toward(_visual_root.rotation.z, 0.0, delta * 4.5)
+
+func get_health() -> float:
+	return health
 
 func _die(source: Node) -> void:
 	phase = Phase.DEAD
