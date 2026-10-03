@@ -9,6 +9,7 @@ const NAV_PATH := "res://data/nav_skeleton.json"
 @export var touch_sensitivity := 0.0028
 @export var gyro_enabled := true
 @export var gyro_sensitivity := 0.70
+@export var use_nav_spawn := true
 
 var _gravity := 18.0
 var _move_touch := -1
@@ -24,7 +25,9 @@ func _ready() -> void:
 	_gravity = float(ProjectSettings.get_setting("physics/3d/default_gravity", 18.0))
 	if not OS.has_feature("mobile"):
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	_place_at_spawn()
+	if use_nav_spawn:
+		_place_at_spawn()
+	print("XZOGOT_PLAYER_READY")
 
 func _b2g(a: Array) -> Vector3:
 	return Vector3(float(a[0]), float(a[2]), -float(a[1]))
@@ -105,7 +108,7 @@ func _physics_process(delta: float) -> void:
 	if input_2d.length() > 1.0:
 		input_2d = input_2d.normalized()
 
-	var wish: Vector3 = (transform.basis * Vector3(input_2d.x, 0.0, input_2d.y))
+	var wish: Vector3 = transform.basis * Vector3(input_2d.x, 0.0, input_2d.y)
 	wish.y = 0.0
 	if wish.length_squared() > 0.001:
 		wish = wish.normalized()
