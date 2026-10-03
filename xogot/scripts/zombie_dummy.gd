@@ -9,7 +9,7 @@ const MONJA_BASICA_PATH := "res://assets/zombies/monja_basica.glb"
 @export var barricade_damage: float = 25.0
 @export var player_damage: float = 20.0
 @export var attack_interval: float = 0.90
-@export var monja_scale: float = 1.76
+@export var target_visual_height: float = 1.74
 
 enum Phase {
 	APPROACH,
@@ -47,18 +47,83 @@ func _build_body() -> void:
 	if ResourceLoader.exists(MONJA_BASICA_PATH):
 		var packed: PackedScene = load(MONJA_BASICA_PATH) as PackedScene
 		if packed != null:
-			var visual: Node3D = packed.instantiate() as Node3D
-			if visual != null:
+			var imported: Node3D = packed.instantiate() as Node3D
+			if imported != null:
+				var visual := Node3D.new()
 				visual.name = "MonjaBasicaVisual"
-				visual.scale = Vector3.ONE * monja_scale
-				visual.position.y = 0.86
 				add_child(visual)
-				set_meta("zombie_model", "monja_basica")
-				print("XZOGOT_MONJA_BASICA_LOADED")
-				return
+				imported.name = "ImportedModel"
+				visual.add_child(imported)
+				if _fit_visual_to_height(visual, imported, target_visual_height):
+					set_meta("zombie_model", "monja_basica")
+					print("XZOGOT_MONJA_BASICA_LOADED")
+					return
+				visual.queue_free()
 
 	_build_fallback_visual()
 	print("XZOGOT_MONJA_BASICA_FALLBACK")
+
+func _fit_visual_to_height(wrapper: Node3D, imported: Node3D, target_height: float) -> bool:
+	var points: Array[Vector3] = []
+	_collect_mesh_bounds(imported, Transform3D.IDENTITY, points)
+	if points.is_empty():
+		return false
+
+	var min_v: Vector3 = points[0]
+	var max_v: Vector3 = points[0]
+	for point: Vector3 in points:
+		min_v.x = minf(min_v.x, point.x)
+		min_v.y = minf(min_v.y, point.y)
+		min_v.z = minf(min_v.z, point.z)
+		max_v.x = maxf(max_v.x, point.x)
+		max_v.y = maxf(max_v.y, point.y)
+		max_v.z = maxf(max_v.z, point.z)
+
+	var raw_size: Vector3 = max_v - min_v
+	if raw_size.y <= 0.0001:
+		return false
+
+	var scale_factor: float = target_height / raw_size.y
+	var center_x: float = (min_v.x + max_v.x) * 0.5
+	var center_z: float = (min_v.z + max_v.z) * 0.5
+	wrapper.scale = Vector3.ONE * scale_factor
+	wrapper.position = Vector3(
+		-center_x * scale_factor,
+		-min_v.y * scale_factor,
+		-center_z * scale_factor
+	)
+
+	set_meta("zombie_visual_height_m", raw_size.y * scale_factor)
+	set_meta("zombie_visual_width_m", raw_size.x * scale_factor)
+	set_meta("zombie_visual_depth_m", raw_size.z * scale_factor)
+	set_meta("zombie_visual_scale", scale_factor)
+	print(
+		"XZOGOT_MONJA_FIT ",
+		"raw=", raw_size,
+		" scale=", scale_factor,
+		" fitted=", Vector3(raw_size.x, raw_size.y, raw_size.z) * scale_factor
+	)
+	return true
+
+func _collect_mesh_bounds(node: Node3D, parent_transform: Transform3D, points: Array[Vector3]) -> void:
+	var current_transform: Transform3D = parent_transform * node.transform
+	if node is MeshInstance3D:
+		var mesh_instance := node as MeshInstance3D
+		if mesh_instance.mesh != null:
+			var bounds: AABB = mesh_instance.mesh.get_aabb()
+			for xi in range(2):
+				for yi in range(2):
+					for zi in range(2):
+						var corner := bounds.position + Vector3(
+							bounds.size.x * float(xi),
+							bounds.size.y * float(yi),
+							bounds.size.z * float(zi)
+						)
+						points.append(current_transform * corner)
+
+	for child: Node in node.get_children():
+		if child is Node3D:
+			_collect_mesh_bounds(child as Node3D, current_transform, points)
 
 func _build_fallback_visual() -> void:
 	var visual := MeshInstance3D.new()
