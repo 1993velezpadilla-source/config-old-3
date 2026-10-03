@@ -1288,6 +1288,8 @@ head_geometry_fusion_payload=None
 hunyuan_head_geometry_payload=None
 source_head_geometry_promoted=False
 source_material_rescue_payload=None
+face_geometry_candidates=[]
+face_candidate_root=OUT/"face_geometry_candidates"
 
 # Textureless native fallbacks (notably public CPU TripoSR continuity meshes)
 # are still useful geometry. Do not relax the texture gate and do not promote
@@ -1536,6 +1538,54 @@ if preview_recovery_face_rescue_required and not (
         "source-derived face evidence exists but the seam-limited head geometry "
         "rescue did not produce a Judge-ready candidate."
     )
+
+# Snapshot the character before any source-head geometry or detail-texture
+# intervention. Every facial challenger is derived independently from this
+# authority so a failed experiment can never accumulate deformation onto the
+# next one. Judge-side tournament selection later decides whether any challenger
+# is visually better than this untouched multi-view baseline.
+if (
+    detail_views
+    and ASSET_PROFILE in {"auto","character.humanoid","character.creature"}
+):
+    try:
+        face_candidate_root.mkdir(parents=True,exist_ok=True)
+        pure_base=face_candidate_root/"00_multiview_base.glb"
+        shutil.copy2(dst,pure_base)
+        pure_mesh=inspect_mesh_gate(
+            pure_base,
+            require_normals=require_final_normals,
+        )
+        pure_texture=inspect_texture_gate(
+            pure_base,
+            min_edge=final_texture_min_edge,
+        )
+        if pure_mesh.passed and pure_texture.passed:
+            face_geometry_candidates.append({
+                "name":"multiview_base",
+                "path":str(pure_base),
+                "kind":"baseline",
+                "hard_gate_passed":True,
+                "mesh_gate":asdict(pure_mesh),
+                "texture_gate":asdict(pure_texture),
+            })
+            print(
+                "HAYUYA_FACE_CANDIDATE_BASE",
+                json.dumps(
+                    face_geometry_candidates[-1],
+                    separators=(",",":"),
+                ),
+            )
+        else:
+            print(
+                "::warning::HAYUYA pure multi-view facial baseline failed "
+                "hard mesh/texture gates and will not enter the tournament"
+            )
+    except Exception as face_base_exc:
+        print(
+            "::warning::HAYUYA could not snapshot pure facial baseline: "
+            f"{type(face_base_exc).__name__}: {face_base_exc}"
+        )
 
 # Prefer a denser source-derived Hunyuan head donor for facial geometry when
 # the request explicitly enables Hunyuan3D. The donor is geometry-only; the
