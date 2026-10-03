@@ -281,12 +281,24 @@ def generate(
             raise RuntimeError(
                 f"Unexpected TripoSG segmentation signature: {seg_params}"
             )
-        segmented = client.predict(
-            handle_file(str(image.resolve())),
-            api_name=seg_ep,
-        )
-        segmented_input = _as_file_input(segmented)
-        segmentation_mode="public_space_rmbg"
+        try:
+            segmented = client.predict(
+                handle_file(str(image.resolve())),
+                api_name=seg_ep,
+            )
+            segmented_input = _as_file_input(segmented)
+            segmentation_mode="public_space_rmbg"
+        except Exception as exc:
+            # Segmentation is a convenience stage, not geometry authority.
+            # Some public Space revisions throw a bare RuntimeError here.
+            # Feed the original source directly into image_to_3d rather than
+            # killing an otherwise-valid TripoSG generation.
+            segmentation_mode="public_space_rmbg_failed_direct_input"
+            segmented_input = handle_file(str(image.resolve()))
+            print(
+                "::warning::TripoSG segmentation unavailable; using original image: "
+                + f"{type(exc).__name__}: {exc}"
+            )
 
     gen_ep, gen_spec = _pick_endpoint(named, "/image_to_3d", "image_to_3d")
     gen_values = {
