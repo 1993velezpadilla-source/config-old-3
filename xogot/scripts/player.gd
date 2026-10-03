@@ -183,8 +183,8 @@ func _physics_process(delta: float) -> void:
 	_update_stance(delta, crouch_pressed)
 
 	if _sliding:
-		var slide_factor := clamp(_slide_timer / slide_duration, 0.0, 1.0)
-		var current_slide_speed := lerpf(crouch_speed, slide_speed, slide_factor)
+		var slide_factor: float = clampf(_slide_timer / slide_duration, 0.0, 1.0)
+		var current_slide_speed: float = lerpf(crouch_speed, slide_speed, slide_factor)
 		velocity.x = _slide_direction.x * current_slide_speed
 		velocity.z = _slide_direction.z * current_slide_speed
 	else:
