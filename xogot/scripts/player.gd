@@ -16,6 +16,7 @@ const NAV_PATH := "res://data/nav_skeleton.json"
 @export var use_nav_spawn := true
 @export var interaction_range := 3.4
 @export var starting_points := 500
+@export var max_health := 100.0
 
 const STAND_HEAD_Y := 1.62
 const CROUCH_HEAD_Y := 1.12
@@ -25,6 +26,8 @@ const STAND_COLLIDER_Y := 0.90
 const CROUCH_COLLIDER_Y := 0.59
 
 var points: int = 0
+var health: float = 100.0
+var downed: bool = false
 var _gravity := 18.0
 var _move_touch := -1
 var _look_touch := -1
@@ -49,6 +52,8 @@ var _slide_direction := Vector3.ZERO
 func _ready() -> void:
 	_gravity = float(ProjectSettings.get_setting("physics/3d/default_gravity", 18.0))
 	points = starting_points
+	health = max_health
+	add_to_group("player")
 	if not OS.has_feature("mobile"):
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	if use_nav_spawn:
@@ -168,6 +173,25 @@ func add_points(amount: int) -> void:
 
 func get_points() -> int:
 	return points
+
+func apply_damage(amount: float) -> void:
+	if downed or amount <= 0.0:
+		return
+	health = maxf(0.0, health - amount)
+	if health <= 0.0:
+		downed = true
+		_weapon.call("set_trigger_held", false)
+		print("XZOGOT_PLAYER_DOWN")
+
+func heal_full() -> void:
+	health = max_health
+	downed = false
+
+func get_health() -> float:
+	return health
+
+func is_downed() -> bool:
+	return downed
 
 func _set_crouched(enabled: bool) -> void:
 	if _crouched == enabled:
