@@ -2,11 +2,14 @@ extends CharacterBody3D
 
 signal died(zombie: Node)
 
+const MONJA_BASICA_PATH := "res://assets/zombies/monja_basica.glb"
+
 @export var move_speed: float = 1.85
 @export var health: float = 100.0
 @export var barricade_damage: float = 25.0
 @export var player_damage: float = 20.0
 @export var attack_interval: float = 0.90
+@export var monja_scale: float = 1.76
 
 enum Phase {
 	APPROACH,
@@ -33,6 +36,7 @@ func configure(player: Node3D, barricade: Node) -> void:
 
 func _build_body() -> void:
 	var cs := CollisionShape3D.new()
+	cs.name = "ZombieCollider"
 	var capsule := CapsuleShape3D.new()
 	capsule.radius = 0.34
 	capsule.height = 1.72
@@ -40,7 +44,25 @@ func _build_body() -> void:
 	cs.position.y = 0.86
 	add_child(cs)
 
+	if ResourceLoader.exists(MONJA_BASICA_PATH):
+		var packed: PackedScene = load(MONJA_BASICA_PATH) as PackedScene
+		if packed != null:
+			var visual: Node3D = packed.instantiate() as Node3D
+			if visual != null:
+				visual.name = "MonjaBasicaVisual"
+				visual.scale = Vector3.ONE * monja_scale
+				visual.position.y = 0.86
+				add_child(visual)
+				set_meta("zombie_model", "monja_basica")
+				print("XZOGOT_MONJA_BASICA_LOADED")
+				return
+
+	_build_fallback_visual()
+	print("XZOGOT_MONJA_BASICA_FALLBACK")
+
+func _build_fallback_visual() -> void:
 	var visual := MeshInstance3D.new()
+	visual.name = "FallbackZombieVisual"
 	var mesh := CapsuleMesh.new()
 	mesh.radius = 0.34
 	mesh.height = 1.72
