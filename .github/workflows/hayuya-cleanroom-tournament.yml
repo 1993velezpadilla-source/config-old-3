@@ -94,7 +94,7 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           TRIPO_API_KEY: ${{ secrets.TRIPO_API_KEY }}
-          HAYUYA_TRIPO_MODEL_VERSION: P1-20260311
+          HAYUYA_TRIPO_MODEL_VERSION: v3.1-20260211
         run: |
           set -euo pipefail
           mkdir -p "$OUTPUT_DIR"

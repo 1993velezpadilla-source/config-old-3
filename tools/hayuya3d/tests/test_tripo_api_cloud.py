@@ -65,6 +65,40 @@ class TripoAPICloudTests(unittest.TestCase):
             self.assertEqual(meta["artifact_kind"], "pbr_model")
             self.assertFalse(meta["multi_view"])
 
+    def test_v31_ultra_payload_keeps_max_geometry_and_omits_false_quad(self):
+        data = mod._base_task_options(
+            model_version="v3.1-20260211",
+            seed=1993,
+            texture=True,
+            pbr=True,
+            texture_quality="standard",
+            face_limit=2_000_000,
+            geometry_quality="detailed",
+            quad=False,
+            auto_size=False,
+        )
+        self.assertEqual(data["face_limit"], 2_000_000)
+        self.assertEqual(data["geometry_quality"], "detailed")
+        self.assertNotIn("quad", data)
+        self.assertNotIn("auto_size", data)
+
+    def test_p1_capability_filter_removes_unsupported_params(self):
+        data = mod._base_task_options(
+            model_version="P1-20260311",
+            seed=1993,
+            texture=True,
+            pbr=True,
+            texture_quality="standard",
+            face_limit=2_000_000,
+            geometry_quality="detailed",
+            quad=True,
+            auto_size=True,
+        )
+        self.assertEqual(data["face_limit"], 20_000)
+        self.assertNotIn("geometry_quality", data)
+        self.assertNotIn("quad", data)
+        self.assertNotIn("auto_size", data)
+
     def test_multiview_preserves_front_left_back_right_slots(self):
         with tempfile.TemporaryDirectory() as temp:
             paths = []

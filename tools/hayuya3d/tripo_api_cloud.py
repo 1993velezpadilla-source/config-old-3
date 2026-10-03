@@ -217,19 +217,46 @@ def _base_task_options(
     texture: bool,
     pbr: bool,
     texture_quality: str,
+    face_limit: int | None,
+    geometry_quality: str | None,
     quad: bool,
     auto_size: bool,
 ) -> dict[str, Any]:
-    return {
+    data: dict[str, Any] = {
         "model_version": model_version,
         "model_seed": int(seed),
         "texture_seed": int(seed),
         "texture": bool(texture),
         "pbr": bool(pbr),
         "texture_quality": texture_quality,
-        "quad": bool(quad),
-        "auto_size": bool(auto_size),
     }
+
+    # Tripo P1 is a separate low-poly family. Its API explicitly rejects
+    # quad/smart-low-poly/generate-parts/geometry-quality and caps face_limit
+    # at 20k. Keep one adapter while emitting only provider-valid parameters.
+    if model_version == "P1-20260311":
+        if face_limit is not None:
+            data["face_limit"] = max(48, min(int(face_limit), 20_000))
+        return data
+
+    max_faces = {
+        "v3.1-20260211": 2_000_000,
+        "v3.0-20250812": 2_000_000,
+        "v2.5-20250123": 500_000,
+        "v2.0-20240919": 500_000,
+    }.get(model_version)
+    if face_limit is not None and max_faces is not None:
+        data["face_limit"] = max(500, min(int(face_limit), max_faces))
+    if geometry_quality and model_version in {
+        "v3.1-20260211",
+        "v3.0-20250812",
+    }:
+        data["geometry_quality"] = geometry_quality
+    if quad:
+        data["quad"] = True
+    if auto_size:
+        data["auto_size"] = True
+    return data
 
 def generate(
     image: Path,
@@ -241,7 +268,9 @@ def generate(
     model_version: str | None = None,
     texture: bool = True,
     pbr: bool = True,
-    texture_quality: str = "detailed",
+    texture_quality: str = "standard",
+    face_limit: int | None = 2_000_000,
+    geometry_quality: str | None = "detailed",
     quad: bool = False,
     auto_size: bool = False,
     timeout_s: float = 1800.0,
@@ -250,7 +279,7 @@ def generate(
     version = (
         model_version
         or os.getenv("HAYUYA_TRIPO_MODEL_VERSION")
-        or "P1-20260311"
+        or "v3.1-20260211"
     )
     if version not in SUPPORTED_SINGLE:
         raise TripoAPIError(
@@ -267,6 +296,8 @@ def generate(
             texture=texture,
             pbr=pbr,
             texture_quality=texture_quality,
+            face_limit=face_limit,
+            geometry_quality=geometry_quality,
             quad=quad,
             auto_size=auto_size,
         ),
@@ -301,7 +332,9 @@ def generate_multiview(
     model_version: str | None = None,
     texture: bool = True,
     pbr: bool = True,
-    texture_quality: str = "detailed",
+    texture_quality: str = "standard",
+    face_limit: int | None = 2_000_000,
+    geometry_quality: str | None = "detailed",
     quad: bool = False,
     auto_size: bool = False,
     timeout_s: float = 1800.0,
@@ -314,7 +347,7 @@ def generate_multiview(
         model_version
         or os.getenv("HAYUYA_TRIPO_MULTIVIEW_MODEL_VERSION")
         or os.getenv("HAYUYA_TRIPO_MODEL_VERSION")
-        or "P1-20260311"
+        or "v3.1-20260211"
     )
     if version not in SUPPORTED_MULTIVIEW:
         raise TripoAPIError(
