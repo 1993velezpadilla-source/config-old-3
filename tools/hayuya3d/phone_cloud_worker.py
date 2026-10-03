@@ -15,6 +15,7 @@ from trellis2_preview_normal_hero import build_normal_informed_hero
 from triposg_cloud import generate as generate_triposg_cloud, texture_existing_mesh as texture_triposg_existing_mesh
 from detailgen3d_cloud import refine as refine_detailgen3d_cloud
 from hunyuan3d_cloud import generate_shape as generate_hunyuan3d_shape
+from unique3d_cloud import generate as generate_unique3d_cloud
 from triposr_cpu_cloud import generate as generate_triposr_cpu_cloud
 from local_detail_fusion import fuse_local_basecolor
 from source_autofix import build_source_autofix
@@ -43,12 +44,13 @@ BACKENDS = [
     x.strip().lower()
     for x in os.environ.get(
         "HAYUYA_BACKENDS",
-        "triposg,trellis2,trellis,instantmesh,triposr",
+        "unique3d,triposg,trellis2,trellis,instantmesh,triposr",
     ).split(",")
     if x.strip()
 ]
 TRELLIS2_ENABLED = "trellis2" in BACKENDS
 TRIPOSG_CLOUD_ENABLED = "triposg" in BACKENDS
+UNIQUE3D_ENABLED = "unique3d" in BACKENDS
 DETAILGEN3D_ENABLED = "detailgen3d" in BACKENDS
 HUNYUAN3D_ENABLED = any(
     x in BACKENDS for x in {"hunyuan3d","hunyuan3d_2_1"}
@@ -961,6 +963,111 @@ if (
         print(
             "::warning::Hunyuan3D native challenger unavailable/rejected: "
             f"{type(hunyuan_exc).__name__}: {hunyuan_exc}"
+        )
+
+# MIT Unique3D independent geometry hypothesis.
+# It never overwrites another generator merely because it ran later. The model
+# survives as its own candidate until HAYUYA's source-first tournament compares
+# every real source image against every surviving native mesh.
+if (
+    UNIQUE3D_ENABLED
+    and TEXTURE_QUALITY in {"high","ultra"}
+):
+    try:
+        unique_meta=generate_unique3d_cloud(
+            crops[0],
+            OUT/"unique3d_candidate.glb",
+            token=TOKEN,
+            seed=1993,
+            remove_background=True,
+            refine=True,
+            expansion_weight=0.1,
+            init_type="std",
+        )
+        unique_candidate=Path(unique_meta["path"])
+        unique_mesh=inspect_mesh_gate(unique_candidate,require_normals=False)
+        unique_tex=inspect_texture_gate(
+            unique_candidate,
+            min_edge=2048 if TEXTURE_QUALITY=="high" else 4096,
+        )
+
+        # Unique3D can surface color differently across Space revisions. When
+        # its geometry is healthy but the GLB lacks a production baseColor atlas,
+        # reproject material evidence from the best existing source-derived mesh
+        # without changing Unique3D geometry.
+        if unique_mesh.passed and not unique_tex.passed and modern_candidate is not None:
+            try:
+                from material_bridge import transfer_best_material
+                unique_bridged=OUT/"unique3d_candidate_material_bridge.glb"
+                unique_bridge=transfer_best_material(
+                    modern_candidate,
+                    unique_candidate,
+                    unique_bridged,
+                    total_samples=350_000,
+                    max_texture_size=4096 if TEXTURE_QUALITY=="ultra" else 2048,
+                )
+                unique_candidate=unique_bridged
+                unique_mesh=inspect_mesh_gate(unique_candidate,require_normals=False)
+                unique_tex=inspect_texture_gate(
+                    unique_candidate,
+                    min_edge=4096 if TEXTURE_QUALITY=="ultra" else 2048,
+                )
+                unique_meta["hayuya_material_bridge"]=asdict(unique_bridge)
+            except Exception as unique_bridge_exc:
+                print(
+                    "::warning::Unique3D material bridge unavailable: "
+                    f"{type(unique_bridge_exc).__name__}: {unique_bridge_exc}"
+                )
+
+        print(
+            "HAYUYA_UNIQUE3D_CANDIDATE_READY",
+            json.dumps(
+                {
+                    "meta":unique_meta,
+                    "mesh":asdict(unique_mesh),
+                    "texture":asdict(unique_tex),
+                    "path":str(unique_candidate),
+                },
+                separators=(",",":"),
+            ),
+        )
+
+        # Continuity only: if nothing else survived, let Unique3D carry the
+        # pipeline into the tournament. Otherwise it remains independent.
+        if modern_candidate is None and unique_mesh.passed and unique_tex.passed:
+            modern_candidate=unique_candidate
+            result=str(modern_candidate)
+            selected_generator="AiuniAI/Unique3D"
+            selected_compute="public MIT Unique3D ZeroGPU + HAYUYA hard gates"
+            actual_mesh_simplify=0.0
+            actual_texture_size=int(unique_tex.base_color_min_edge or 0)
+            hero_master_report={
+                "schema":1,
+                "policy":"independent-native-candidate-before-tournament",
+                "generator":selected_generator,
+                "target_faces":2_000_000 if TEXTURE_QUALITY=="ultra" else 1_250_000,
+                "minimum_faces":1_000_000 if TEXTURE_QUALITY=="ultra" else 650_000,
+                "actual_faces":int(unique_mesh.faces),
+                "actual_vertices":int(unique_mesh.vertices),
+                "dense_master_ready":True,
+                "density_target_met":bool(
+                    int(unique_mesh.faces)>=(
+                        1_000_000 if TEXTURE_QUALITY=="ultra" else 650_000
+                    )
+                ),
+                "provider_capped":False,
+                "refinement_required":False,
+                "native_model_generated_geometry":True,
+                "native_latent_extraction":True,
+                "license_review_required":False,
+                "distribution_eligible":True,
+                "optimization_deferred":True,
+                "runtime_optimization_stage":"post-Judge-v4",
+            }
+    except Exception as unique_exc:
+        print(
+            "::warning::Unique3D challenger unavailable/rejected: "
+            f"{type(unique_exc).__name__}: {unique_exc}"
         )
 
 # VAST's public TripoSG Space exposes the same open model family we already
