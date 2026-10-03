@@ -24,7 +24,7 @@ jobs:
     env:
       INPUT_IMAGE: hayuya/assets/monji-murgucol/geometry/primary.webp
       OUTPUT_DIR: out/hayuya-cleanroom/monji-murgucol
-      PROVIDERS: triposg,trellis2,hunyuan
+      PROVIDERS: triposg,hunyuan,trellis2
 
     steps:
       - name: Checkout Hayuya cleanroom branch
