@@ -26,6 +26,7 @@ var _gravity := 18.0
 var _move_touch := -1
 var _look_touch := -1
 var _crouch_touch := -1
+var _fire_touch := -1
 var _move_origin := Vector2.ZERO
 var _move_vector := Vector2.ZERO
 var _jump_requested := false
@@ -39,6 +40,7 @@ var _slide_direction := Vector3.ZERO
 
 @onready var _head: Node3D = $Head
 @onready var _collider: CollisionShape3D = $CollisionShape3D
+@onready var _weapon: Node = $Weapon
 
 func _ready() -> void:
 	_gravity = float(ProjectSettings.get_setting("physics/3d/default_gravity", 18.0))
@@ -76,6 +78,8 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 	var size: Vector2 = get_viewport().get_visible_rect().size
 	var jump_zone := event.position.x > size.x * 0.84 and event.position.y > size.y * 0.72
 	var crouch_zone := event.position.x > size.x * 0.68 and event.position.x <= size.x * 0.84 and event.position.y > size.y * 0.72
+	var fire_zone := event.position.x > size.x * 0.84 and event.position.y > size.y * 0.46 and event.position.y <= size.y * 0.72
+	var reload_zone := event.position.x > size.x * 0.68 and event.position.x <= size.x * 0.84 and event.position.y > size.y * 0.50 and event.position.y <= size.y * 0.72
 
 	if event.pressed:
 		if event.position.x < size.x * 0.46 and event.position.y > size.y * 0.22 and _move_touch < 0:
@@ -86,6 +90,11 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 			_jump_requested = true
 		elif crouch_zone and _crouch_touch < 0:
 			_crouch_touch = event.index
+		elif fire_zone and _fire_touch < 0:
+			_fire_touch = event.index
+			_weapon.call("set_trigger_held", true)
+		elif reload_zone:
+			_weapon.call("request_reload")
 		elif _look_touch < 0:
 			_look_touch = event.index
 	else:
@@ -96,6 +105,9 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 			_look_touch = -1
 		if event.index == _crouch_touch:
 			_crouch_touch = -1
+		if event.index == _fire_touch:
+			_fire_touch = -1
+			_weapon.call("set_trigger_held", false)
 
 func _handle_drag(event: InputEventScreenDrag) -> void:
 	if event.index == _move_touch:
