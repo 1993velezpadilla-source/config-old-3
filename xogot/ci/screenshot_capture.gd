@@ -1,5 +1,7 @@
 extends SceneTree
 
+# Normalized altar bench + Monja facing capture.
+
 # Architectural shell V2 screenshot.
 
 # Gothic anti toy pass.
