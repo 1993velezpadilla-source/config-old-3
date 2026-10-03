@@ -152,7 +152,7 @@ func _build_interior() -> void:
 
 func _build_balcony_stair_ramp() -> void:
 	var start := Vector3(-8.0, 0.38, 0.60)
-	var finish := Vector3(-8.0, 5.18, 7.55)
+	var finish := Vector3(-8.0, 5.17, 6.95)
 	var run: float = finish.z - start.z
 	var rise: float = finish.y - start.y
 	var slope_length: float = sqrt(run * run + rise * rise)
@@ -170,6 +170,19 @@ func _build_balcony_stair_ramp() -> void:
 	collision.shape = shape
 	ramp.add_child(collision)
 	add_child(ramp)
+
+	# Flat bridge overlaps both the top of the ramp and the balcony slab,
+	# eliminating the vertical balcony edge for a 0.38 m player capsule.
+	var landing := StaticBody3D.new()
+	landing.name = "BalconyStairLandingCollision"
+	landing.position = Vector3(-8.0, 5.17, 7.55)
+	landing.add_to_group("walkable_stair_landing")
+	var landing_collision := CollisionShape3D.new()
+	var landing_shape := BoxShape3D.new()
+	landing_shape.size = Vector3(3.0, 0.16, 1.50)
+	landing_collision.shape = landing_shape
+	landing.add_child(landing_collision)
+	add_child(landing)
 
 	print("XZOGOT_BALCONY_RAMP_READY ", angle_deg)
 
