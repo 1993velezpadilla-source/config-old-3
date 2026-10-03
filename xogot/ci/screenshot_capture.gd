@@ -1,6 +1,7 @@
 extends SceneTree
 
 # Capture Monja Basica common church zombie.
+# Auto-fit Monja screenshot.
 
 func _init() -> void:
 	call_deferred("_capture")
@@ -25,7 +26,7 @@ func _capture() -> void:
 		var zombie: Node3D = round_manager.call("spawn_one") as Node3D
 		if zombie != null:
 			zombie.set("phase", 2)
-			zombie.global_position = Vector3(1.65, 0.48, 0.6)
+			zombie.global_position = Vector3(0.0, 0.48, -0.8)
 
 	for i in range(45):
 		await process_frame
