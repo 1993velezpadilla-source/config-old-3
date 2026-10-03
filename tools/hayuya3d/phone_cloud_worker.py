@@ -15,6 +15,7 @@ from trellis2_preview_normal_hero import build_normal_informed_hero
 from triposg_cloud import generate as generate_triposg_cloud, texture_existing_mesh as texture_triposg_existing_mesh
 from detailgen3d_cloud import refine as refine_detailgen3d_cloud
 from hunyuan3d_cloud import generate_shape as generate_hunyuan3d_shape
+from hunyuan3d_multiview_cloud import generate as generate_hunyuan3d_multiview
 from unique3d_cloud import generate as generate_unique3d_cloud
 from triposr_cpu_cloud import generate as generate_triposr_cpu_cloud
 from local_detail_fusion import fuse_local_basecolor
@@ -826,6 +827,74 @@ if not hosted_vast_allowed and (
             separators=(",",":"),
         ),
     )
+
+# True multi-view Hunyuan challenger. It is retained as comparison evidence
+# only; candidate_tournament.py marks this generator non-production-eligible.
+if (
+    multi
+    and HUNYUAN3D_ENABLED
+    and TEXTURE_QUALITY in {"high","ultra"}
+):
+    try:
+        role_views={}
+        # Preserve explicit canonical names from legacy/reference-sheet sources.
+        for view in crops[:4]:
+            stem=Path(view).stem.lower()
+            if stem=="front" and "front" not in role_views:
+                role_views["front"]=Path(view)
+            elif stem=="back" and "back" not in role_views:
+                role_views["back"]=Path(view)
+            elif stem in {"side","left"} and "left" not in role_views:
+                role_views["left"]=Path(view)
+            elif stem in {"three_quarter","right"} and "right" not in role_views:
+                role_views["right"]=Path(view)
+
+        # Independent uploads arrive in user order. Fill any missing canonical
+        # slots deterministically so front/side/back/alternate sets still work.
+        canonical_order=("front","left","back","right")
+        unused=[Path(v) for v in crops[:4] if Path(v) not in role_views.values()]
+        for role in canonical_order:
+            if role not in role_views and unused:
+                role_views[role]=unused.pop(0)
+
+        hunyuan2mv_meta=generate_hunyuan3d_multiview(
+            role_views,
+            OUT/"hunyuan3d_2mv_candidate.glb",
+            token=TOKEN,
+            seed=1993,
+            steps=30,
+            guidance_scale=5.0,
+            octree_resolution=512 if TEXTURE_QUALITY=="ultra" else 384,
+            num_chunks=8000,
+            remove_background=False,
+            textured=True,
+        )
+        hunyuan2mv_candidate=Path(hunyuan2mv_meta["path"])
+        hunyuan2mv_mesh=inspect_mesh_gate(
+            hunyuan2mv_candidate,
+            require_normals=False,
+        )
+        hunyuan2mv_tex=inspect_texture_gate(
+            hunyuan2mv_candidate,
+            min_edge=2048 if TEXTURE_QUALITY=="high" else 4096,
+        )
+        print(
+            "HAYUYA_HUNYUAN2MV_CANDIDATE_READY",
+            json.dumps(
+                {
+                    "meta":hunyuan2mv_meta,
+                    "mesh":asdict(hunyuan2mv_mesh),
+                    "texture":asdict(hunyuan2mv_tex),
+                    "production_eligible":False,
+                },
+                separators=(",",":"),
+            ),
+        )
+    except Exception as hunyuan2mv_exc:
+        print(
+            "::warning::Hunyuan3D-2mv challenger unavailable/rejected: "
+            f"{type(hunyuan2mv_exc).__name__}: {hunyuan2mv_exc}"
+        )
 
 # Hunyuan3D-2.1 is a true model-generated shape candidate. It may enter
 # fidelity/anatomy Judge even when below the nominal 2M Ultra density target;
