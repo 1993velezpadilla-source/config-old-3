@@ -1,5 +1,7 @@
 extends SceneTree
 
+# Architectural shell V2 screenshot.
+
 # Gothic anti toy pass.
 
 # Procedural material realism pass.
