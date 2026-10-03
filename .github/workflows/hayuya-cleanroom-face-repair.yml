@@ -1,0 +1,173 @@
+name: HAYUYA Cleanroom Face Repair
+run-name: HAYUYA Face Repair • Monji • Hunyuan head donor
+
+on:
+  push:
+    branches:
+      - art/hayuya-cleanroom-aaa-v1
+    paths:
+      - .github/workflows/hayuya-cleanroom-face-repair.yml
+      - tools/hayuya3d/native_face_repair.py
+      - tools/hayuya3d/regional_fusion.py
+      - tools/hayuya3d/hunyuan3d_cloud.py
+      - tools/hayuya3d/adapters.py
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: hayuya-cleanroom-face-repair-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  repair-and-judge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    env:
+      SOURCE_RUN_ID: "37102628769"
+      ROOT: out/hayuya-cleanroom/monji-face-repair
+
+    steps:
+      - name: Checkout Hayuya
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 1
+
+      - name: Download cleanroom body winner
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/hayuya-base
+          gh run download "$SOURCE_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            -n hayuya-cleanroom-monji-final \
+            -D /tmp/hayuya-base
+          test -s /tmp/hayuya-base/winner.glb
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install face-repair dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install \
+            "gradio_client>=1.10,<2" \
+            pillow numpy trimesh scipy scikit-image \
+            xatlas fast-simplification
+
+      - name: Build source-grounded native head repair
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$ROOT"
+          python tools/hayuya3d/native_face_repair.py \
+            --base /tmp/hayuya-base/winner.glb \
+            --detail hayuya/assets/monji-murgucol/details/detail-01.webp \
+            --output-dir "$ROOT/repair" \
+            --backend hunyuan3d_2_1 \
+            --seed 1993 \
+            --hero-faces 500000 \
+            --texture-size 4096 \
+            --allow-unrebaked
+
+      - name: Stage repaired candidate for Judge
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os, shutil
+          from pathlib import Path
+          root=Path(os.environ["ROOT"])
+          report=json.loads((root/"repair/source_face_repair.json").read_text())
+          candidate=report.get("candidate_mesh")
+          if not report.get("ready") or not candidate:
+              raise SystemExit("face repair produced no Judge-ready candidate: "+json.dumps(report))
+          candidate=Path(candidate)
+          if not candidate.is_file():
+              raise SystemExit(f"candidate missing: {candidate}")
+
+          shutil.copy2(candidate, root/"hayuya_final.glb")
+          (root/"prepared_views").mkdir(parents=True,exist_ok=True)
+          (root/"prepared_details").mkdir(parents=True,exist_ok=True)
+          shutil.copy2("hayuya/assets/monji-murgucol/geometry/primary.webp",root/"prepared_views/front.webp")
+          for p in Path("hayuya/assets/monji-murgucol/references").glob("*"):
+              if p.is_file(): shutil.copy2(p,root/"prepared_views"/p.name)
+          for p in Path("hayuya/assets/monji-murgucol/details").glob("*"):
+              if p.is_file(): shutil.copy2(p,root/"prepared_details"/p.name)
+
+          manifest={
+            "schema":2,
+            "job_id":"monji-murgucol-cleanroom-face-repair",
+            "title":"Monji Hunyuan body + source-grounded Hunyuan head repair",
+            "profile":"monster",
+            "mode":"character",
+            "asset_profile":"character.creature",
+            "base_source_run":int(os.environ["SOURCE_RUN_ID"]),
+            "face_repair":report,
+            "production_approved":False,
+          }
+          (root/"manifest.json").write_text(json.dumps(manifest,indent=2)+"\n")
+          PY
+
+      - name: Install Judge v4 Core
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender python3-numpy libegl1 libgl1 libgles2
+          python -m pip install \
+            "mediapipe==0.10.21" \
+            "transformers>=4.45,<6" accelerate safetensors \
+            huggingface_hub sentencepiece einops timm dreamsim
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
+
+      - name: Judge repaired face geometry
+        run: |
+          set -euo pipefail
+          python tools/hayuya3d/judge_phone_v4.py \
+            --output-root "$ROOT" \
+            --python "$(command -v python)" \
+            --force-character
+
+      - name: Repair summary
+        if: always()
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, os
+          from pathlib import Path
+          root=Path(os.environ["ROOT"])
+          print("## HAYUYA source-grounded face repair")
+          rp=root/"repair/source_face_repair.json"
+          if rp.exists():
+              r=json.loads(rp.read_text())
+              print(f"- Repair ready: **{r.get('ready')}**")
+              print(f"- Head backend: **{r.get('backend')}**")
+              print(f"- Candidate: \`{r.get('candidate_mesh')}\`")
+          mp=root/"manifest.json"
+          if mp.exists():
+              m=json.loads(mp.read_text())
+              pre=m.get("judge_v4_front_preflight") or {}
+              vis=m.get("visual_approval") or {}
+              print(f"- Front preflight: **{pre.get('passed','n/a')}**")
+              print(f"- Core passed: **{vis.get('core_passed','n/a')}**")
+              reasons=vis.get("hard_fail_reasons") or pre.get("reasons") or []
+              if reasons:
+                  print("\n### Hard failures")
+                  for reason in reasons[:20]: print(f"- \`{reason}\`")
+          PY
+
+      - name: Upload repaired model and Judge evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hayuya-cleanroom-monji-face-repair
+          path: |
+            out/hayuya-cleanroom/monji-face-repair/**
+          if-no-files-found: warn
+          retention-days: 14
