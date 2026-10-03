@@ -118,20 +118,12 @@ func _fit_visual_to_gameplay_bounds(
 		return false
 
 	var scale_y: float = target_height / raw_size.y
-	var uniform_width: float = raw_size.x * scale_y
-	var uniform_depth: float = raw_size.z * scale_y
 
-	# Keep the authored vertical proportions, but gently constrain oversized robe width/depth
-	# so the common church zombie fits doors, pew aisles and the gameplay collider naturally.
-	var width_adjust: float = 1.0
-	var depth_adjust: float = 1.0
-	if uniform_width > max_width:
-		width_adjust = clampf(max_width / uniform_width, 0.72, 1.0)
-	if uniform_depth > max_depth:
-		depth_adjust = clampf(max_depth / uniform_depth, 0.72, 1.0)
-
-	var scale_x: float = scale_y * width_adjust
-	var scale_z: float = scale_y * depth_adjust
+	# These are authored gameplay silhouette targets, not loose maximums.
+	# After correcting the GLB forward axis, fit X/Z directly so the common
+	# church zombie keeps the intended regular human mass from every export.
+	var scale_x: float = max_width / raw_size.x
+	var scale_z: float = max_depth / raw_size.z
 	var center_x: float = (min_v.x + max_v.x) * 0.5
 	var center_z: float = (min_v.z + max_v.z) * 0.5
 
