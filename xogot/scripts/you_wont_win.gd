@@ -315,6 +315,19 @@ func _build_realism_pass() -> void:
 func _visual_box(label: String, size: Vector3, pos: Vector3, color: Color) -> void:
 	_box(label, size, pos, color, false)
 
+func _visual_box_rotated(label: String, size: Vector3, pos: Vector3, rotation_deg: Vector3, color: Color) -> void:
+	var root := Node3D.new()
+	root.name = label
+	root.position = _wp(pos)
+	root.rotation_degrees = rotation_deg
+	var mi := MeshInstance3D.new()
+	var mesh := BoxMesh.new()
+	mesh.size = _ws(size)
+	mesh.material = _make_surface_material(label, color, 0.83)
+	mi.mesh = mesh
+	root.add_child(mi)
+	add_child(root)
+
 func _visual_cylinder(label: String, radius: float, height: float, pos: Vector3, color: Color, sides: int = 12) -> void:
 	var root := Node3D.new()
 	root.name = label
@@ -404,6 +417,8 @@ func _build_windows() -> void:
 		# A faint non-colliding back glow marks the aperture; the opening itself is real.
 		_box("WindowGlowL_%d" % i, Vector3(0.03, 2.25, 2.35), Vector3(-11.34, 1.55, z), Color(glow.r, glow.g, glow.b, 0.22), false)
 		_box("WindowGlowR_%d" % i, Vector3(0.03, 2.25, 2.35), Vector3(11.34, 1.55, z), Color(glow.r, glow.g, glow.b, 0.22), false)
+		_add_gothic_window_trim("L", -1.0, i, z)
+		_add_gothic_window_trim("R", 1.0, i, z)
 		_add_window_threshold_ramp("L", -1.0, i, z)
 		_add_window_socket(window_id, "left", z)
 		window_id += 1
@@ -411,6 +426,25 @@ func _build_windows() -> void:
 		_add_window_socket(window_id, "right", z)
 		window_id += 1
 	print("XZOGOT_WINDOWS_PREPARED ", window_id)
+
+func _add_gothic_window_trim(side: String, sx: float, index: int, z: float) -> void:
+	var trim := Color(0.095, 0.090, 0.082)
+	var x: float = 10.82 * sx
+	# Two sloped stone members visually turn the rectangular gameplay opening into a pointed arch.
+	_visual_box_rotated(
+		"WindowArchA_%s_%02d" % [side, index],
+		Vector3(0.22, 0.22, 1.95),
+		Vector3(x, 3.15, z - 0.67),
+		Vector3(-38.0, 0.0, 0.0),
+		trim
+	)
+	_visual_box_rotated(
+		"WindowArchB_%s_%02d" % [side, index],
+		Vector3(0.22, 0.22, 1.95),
+		Vector3(x, 3.15, z + 0.67),
+		Vector3(38.0, 0.0, 0.0),
+		trim
+	)
 
 func _add_window_threshold_ramp(side: String, sx: float, index: int, z: float) -> void:
 	# Exterior ground is y=0 while the church floor top is ~0.445 m.
@@ -479,11 +513,32 @@ func _build_lights() -> void:
 	for z: float in light_z:
 		var lamp := OmniLight3D.new()
 		lamp.position = _wp(Vector3(0, 4.2, z))
-		lamp.light_color = Color(1.0, 0.56, 0.27)
-		lamp.light_energy = 1.45
+		lamp.light_color = Color(1.0, 0.52, 0.22)
+		lamp.light_energy = 1.42
 		lamp.omni_range = 7.0 * WORLD_SCALE
 		lamp.shadow_enabled = true
 		add_child(lamp)
+
+	# Low-energy wall sconces reveal architecture without flattening the horror contrast.
+	var sconce_z: Array[float] = [-13.0, -3.0, 7.0]
+	for i in range(sconce_z.size()):
+		var z: float = sconce_z[i]
+		for side in [-1.0, 1.0]:
+			var sconce := OmniLight3D.new()
+			sconce.name = "WallSconce_%s_%02d" % ["L" if side < 0.0 else "R", i]
+			sconce.position = _wp(Vector3(9.7 * side, 2.65, z))
+			sconce.light_color = Color(1.0, 0.35, 0.12)
+			sconce.light_energy = 0.42
+			sconce.omni_range = 3.6 * WORLD_SCALE
+			sconce.shadow_enabled = false
+			add_child(sconce)
+
+			_visual_box(
+				"SconceFixture_%s_%02d" % ["L" if side < 0.0 else "R", i],
+				Vector3(0.16, 0.34, 0.26),
+				Vector3(9.95 * side, 2.65, z),
+				Color(0.12, 0.075, 0.035)
+			)
 
 func _build_camera() -> void:
 	if get_viewport().get_camera_3d() != null:
@@ -497,10 +552,21 @@ func _build_camera() -> void:
 	add_child(camera)
 
 func _pew(pos: Vector3, color: Color) -> void:
-	_box("PewSeat", Vector3(4.65, 0.22, 0.82), pos, color)
-	_box("PewBack", Vector3(4.65, 0.92, 0.16), pos + Vector3(0, 0.44, 0.33), color)
-	_box("PewLegL", Vector3(0.18, 0.55, 0.62), pos + Vector3(-1.95, -0.25, 0), color)
-	_box("PewLegR", Vector3(0.18, 0.55, 0.62), pos + Vector3(1.95, -0.25, 0), color)
+	# Collision remains simple while the visible silhouette uses thinner, angled church furniture.
+	_box("PewSeatCollider", Vector3(4.65, 0.18, 0.76), pos, color)
+	_box("PewLegL", Vector3(0.15, 0.52, 0.58), pos + Vector3(-1.95, -0.24, 0), color)
+	_box("PewLegR", Vector3(0.15, 0.52, 0.58), pos + Vector3(1.95, -0.24, 0), color)
+
+	_visual_box_rotated(
+		"PewBackVisual",
+		Vector3(4.65, 0.78, 0.12),
+		pos + Vector3(0, 0.48, 0.31),
+		Vector3(-8.0, 0.0, 0.0),
+		color
+	)
+	_visual_box("PewTopRail", Vector3(4.72, 0.12, 0.16), pos + Vector3(0, 0.84, 0.37), color)
+	_visual_box("PewEndL", Vector3(0.13, 0.76, 0.86), pos + Vector3(-2.28, 0.18, 0.05), color)
+	_visual_box("PewEndR", Vector3(0.13, 0.76, 0.86), pos + Vector3(2.28, 0.18, 0.05), color)
 
 func _wedge_roof(label: String, pos: Vector3, roll: float, color: Color, size: Vector3 = Vector3(11.8, 0.45, 39.0)) -> void:
 	var body := StaticBody3D.new()
