@@ -2,12 +2,101 @@ extends Node3D
 
 const WORLD_SCALE: float = 0.78
 
+var _stone_texture: Texture2D
+var _wood_texture: Texture2D
+var _floor_texture: Texture2D
+
 func _wp(v: Vector3) -> Vector3:
 	return v * WORLD_SCALE
 
 func _ws(v: Vector3) -> Vector3:
 	return v * WORLD_SCALE
 
+
+func _hash_noise(x: int, y: int, seed: int) -> float:
+	var v: float = sin(float(x * 127 + y * 311 + seed * 71)) * 43758.5453
+	return v - floor(v)
+
+func _make_grain_texture(kind: String) -> Texture2D:
+	var tex_size: int = 64
+	var image := Image.create(tex_size, tex_size, false, Image.FORMAT_RGBA8)
+	var seed: int = 17 if kind == "stone" else (41 if kind == "wood" else 83)
+
+	for y in range(tex_size):
+		for x in range(tex_size):
+			var noise: float = _hash_noise(x, y, seed)
+			var value: float = 0.86
+
+			if kind == "stone":
+				var mortar_x: bool = x % 18 <= 1
+				var row: int = y / 12
+				var shifted_x: int = (x + (9 if row % 2 == 1 else 0)) % 18
+				var mortar_y: bool = y % 12 <= 1
+				var mortar: bool = mortar_y or shifted_x <= 1
+				value = 0.72 if mortar else 0.83 + noise * 0.16
+			elif kind == "wood":
+				var grain: float = sin(float(x) * 0.44 + sin(float(y) * 0.18) * 1.8)
+				value = 0.78 + grain * 0.075 + noise * 0.08
+			else:
+				var grout: bool = x % 16 <= 1 or y % 16 <= 1
+				value = 0.70 if grout else 0.84 + noise * 0.11
+
+			value = clampf(value, 0.58, 1.0)
+			image.set_pixel(x, y, Color(value, value, value, 1.0))
+
+	image.generate_mipmaps()
+	return ImageTexture.create_from_image(image)
+
+func _surface_texture_for(label: String) -> Texture2D:
+	var lower: String = label.to_lower()
+	var is_wood: bool = (
+		lower.contains("pew")
+		or lower.contains("altar")
+		or lower.contains("balcony")
+		or lower.contains("stair")
+		or lower.contains("ceilingtie")
+	)
+	var is_floor: bool = (
+		lower.contains("floor")
+		or lower.contains("aisle")
+		or lower.contains("ground")
+		or lower.contains("walk")
+		or lower.contains("step")
+	)
+
+	if is_wood:
+		if _wood_texture == null:
+			_wood_texture = _make_grain_texture("wood")
+		return _wood_texture
+	if is_floor:
+		if _floor_texture == null:
+			_floor_texture = _make_grain_texture("floor")
+		return _floor_texture
+
+	if _stone_texture == null:
+		_stone_texture = _make_grain_texture("stone")
+	return _stone_texture
+
+func _make_surface_material(label: String, color: Color, base_roughness: float) -> StandardMaterial3D:
+	var mat := StandardMaterial3D.new()
+	var variation: float = 0.955 + float(abs(label.hash()) % 11) * 0.006
+	mat.albedo_color = Color(
+		clampf(color.r * variation, 0.0, 1.0),
+		clampf(color.g * variation, 0.0, 1.0),
+		clampf(color.b * variation, 0.0, 1.0),
+		color.a
+	)
+	mat.albedo_texture = _surface_texture_for(label)
+	mat.roughness = clampf(base_roughness + float(abs(label.hash()) % 5) * 0.018, 0.55, 0.98)
+
+	var lower: String = label.to_lower()
+	if lower.contains("pew") or lower.contains("altar") or lower.contains("stair") or lower.contains("balcony"):
+		mat.uv1_scale = Vector3(3.4, 3.4, 3.4)
+	elif lower.contains("floor") or lower.contains("aisle") or lower.contains("ground"):
+		mat.uv1_scale = Vector3(7.0, 7.0, 7.0)
+	else:
+		mat.uv1_scale = Vector3(5.0, 5.0, 5.0)
+	return mat
 
 func _ready() -> void:
 	set_meta("world_scale", WORLD_SCALE)
@@ -236,9 +325,7 @@ func _visual_cylinder(label: String, radius: float, height: float, pos: Vector3,
 	mesh.bottom_radius = radius * WORLD_SCALE
 	mesh.height = height * WORLD_SCALE
 	mesh.radial_segments = sides
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = color
-	mat.roughness = 0.93
+	var mat: StandardMaterial3D = _make_surface_material(label, color, 0.91)
 	mesh.material = mat
 	mi.mesh = mesh
 	root.add_child(mi)
@@ -423,9 +510,7 @@ func _wedge_roof(label: String, pos: Vector3, roll: float, color: Color, size: V
 	var mi := MeshInstance3D.new()
 	var mesh := BoxMesh.new()
 	mesh.size = _ws(size)
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = color
-	mat.roughness = 0.92
+	var mat: StandardMaterial3D = _make_surface_material(label, color, 0.91)
 	mesh.material = mat
 	mi.mesh = mesh
 	body.add_child(mi)
@@ -448,15 +533,7 @@ func _box(label: String, size: Vector3, pos: Vector3, color: Color, collision: b
 	var mi := MeshInstance3D.new()
 	var mesh := BoxMesh.new()
 	mesh.size = _ws(size)
-	var mat := StandardMaterial3D.new()
-	var variation: float = 0.955 + float(abs(label.hash()) % 11) * 0.006
-	mat.albedo_color = Color(
-		clampf(color.r * variation, 0.0, 1.0),
-		clampf(color.g * variation, 0.0, 1.0),
-		clampf(color.b * variation, 0.0, 1.0),
-		color.a
-	)
-	mat.roughness = 0.84 + float(abs(label.hash()) % 7) * 0.015
+	var mat: StandardMaterial3D = _make_surface_material(label, color, 0.84)
 	mesh.material = mat
 	mi.mesh = mesh
 	root.add_child(mi)
