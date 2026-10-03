@@ -64,8 +64,8 @@ jobs:
           grep -q "YOU_WONT_WIN: CHURCH_V2_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_PLAYER_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_MOVEMENT_V2_READY" build/xogot-ai/runtime.log
-          grep -q "XZOGOT_HUD_V6_READY" build/xogot-ai/runtime.log
-          grep -q "XZOGOT_OFFICIAL_SKINS_READY" build/xogot-ai/runtime.log
+          grep -q "XZOGOT_HUD_V7_READY" build/xogot-ai/runtime.log
+          grep -q "XZOGOT_LATEST_12_SKINS_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_COD_VIEW_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_WEAPON_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_INTERACTION_PLAYER_READY 500" build/xogot-ai/runtime.log
