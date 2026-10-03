@@ -221,11 +221,11 @@ def prepare_source_face_repair_challenger(
 ) -> SourceFaceRepairResult:
     """Create a judged face-repair challenger from the current source image.
 
-    This is the reusable version of the successful Monja workflow:
-      source photo -> automatic head evidence -> native head donor -> seam-safe
-      head wrap on the already-valid full 3D body.
+    Generic source-derived repair flow:
+      current source photo -> automatic head evidence -> native head donor ->
+      seam-safe head wrap on the already-valid full 3D body.
 
-    No Monja coordinates, silhouettes, landmarks, or cached masks are consumed.
+    No asset-specific coordinates, silhouettes, landmarks, or cached masks are consumed.
     """
 
 
