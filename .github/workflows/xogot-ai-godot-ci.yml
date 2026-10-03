@@ -1,0 +1,75 @@
+name: Xogot AI Godot VM
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/xogot-port-v1
+    paths:
+      - "xogot/**"
+      - ".github/workflows/xogot-ai-godot-ci.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xogot-ai-godot-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  godot-ai-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Godot host tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq unzip curl
+
+      - name: Install Godot 4.6.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/godot.zip
+          rm -rf /tmp/godot
+          mkdir -p /tmp/godot
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+          /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 --version
+
+      - name: Import and parse project
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/xogot-ai
+          timeout 180 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --editor --path xogot --quit \
+            2>&1 | tee build/xogot-ai/import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-ai/import.log
+
+      - name: Run live scene smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 120 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --quit-after 120 \
+            2>&1 | tee build/xogot-ai/runtime.log
+          grep -q "YOU_WONT_WIN: CHURCH_V2_READY" build/xogot-ai/runtime.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-ai/runtime.log
+          echo "XOGOT_AI_VM_GREEN"
+
+      - name: Upload AI Godot logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-AI-Godot-VM-logs
+          path: build/xogot-ai/
+          if-no-files-found: warn
+          retention-days: 7
