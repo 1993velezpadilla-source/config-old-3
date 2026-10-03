@@ -42,6 +42,19 @@ func _run() -> void:
 		_fail(6, "player missing")
 		return
 
+	var balcony_gate: Node = scene.get_node_or_null("BalconyGate")
+	if balcony_gate == null:
+		_fail(9, "BalconyGate missing")
+		return
+	player.call("add_points", 1000)
+	if not bool(balcony_gate.call("interact", player)):
+		_fail(10, "BalconyGate could not be purchased/opened")
+		return
+	await physics_frame
+	if not bool(balcony_gate.call("was_used")):
+		_fail(11, "BalconyGate did not enter opened state")
+		return
+
 	player.global_position = Vector3(-8.0, 0.48, 1.65)
 	player.rotation.y = 0.0
 	player.set("_move_touch", 909)
