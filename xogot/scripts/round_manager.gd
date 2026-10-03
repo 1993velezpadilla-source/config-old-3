@@ -67,9 +67,9 @@ func spawn_one() -> Node:
 	zombie.name = "Zombie_R%d_%d" % [current_round, _window_cursor]
 	zombie.set_script(script_resource)
 	zombie.call("configure", player, barricade)
-	zombie.global_position = barricade.call("get_outside_spawn") as Vector3
 	zombie.connect("died", Callable(self, "_on_zombie_died"))
 	get_parent().add_child(zombie)
+	zombie.global_position = barricade.call("get_outside_spawn") as Vector3
 
 	_remaining_to_spawn = maxi(0, _remaining_to_spawn - 1)
 	_alive += 1
