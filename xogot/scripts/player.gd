@@ -87,6 +87,7 @@ func _ready() -> void:
 		_place_at_spawn()
 	print("XZOGOT_PLAYER_READY")
 	print("XZOGOT_MOVEMENT_V2_READY")
+	print("XZOGOT_COD_VIEW_READY")
 	print("XZOGOT_INTERACTION_PLAYER_READY ", points)
 
 func _b2g(a: Array) -> Vector3:
