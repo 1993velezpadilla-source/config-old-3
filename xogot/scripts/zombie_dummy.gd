@@ -9,6 +9,8 @@ const MONJA_BASICA_PATH := "res://assets/zombies/monja_basica.glb"
 @export var barricade_damage: float = 25.0
 @export var player_damage: float = 20.0
 @export var attack_interval: float = 0.90
+@export var window_cross_speed: float = 2.65
+@export var turn_lerp: float = 0.22
 @export var target_visual_height: float = 1.74
 @export var target_visual_max_width: float = 0.75
 @export var target_visual_max_depth: float = 0.60
@@ -19,7 +21,8 @@ enum Phase {
 	APPROACH,
 	ATTACK_BARRICADE,
 	CHASE_PLAYER,
-	DEAD
+	DEAD,
+	CROSS_WINDOW
 }
 
 var target_player: Node3D
@@ -193,13 +196,15 @@ func _physics_process(delta: float) -> void:
 			_tick_barricade()
 		Phase.CHASE_PLAYER:
 			_tick_chase()
+		Phase.CROSS_WINDOW:
+			_tick_cross_window()
 
 func _tick_approach() -> void:
 	if target_barricade == null or not is_instance_valid(target_barricade):
 		phase = Phase.CHASE_PLAYER
 		return
 	if bool(target_barricade.call("is_broken")):
-		_cross_window()
+		_begin_window_cross()
 		return
 	var target: Vector3 = target_barricade.call("get_outside_approach") as Vector3
 	if _move_toward_flat(target, 0.45):
@@ -212,7 +217,7 @@ func _tick_barricade() -> void:
 		phase = Phase.CHASE_PLAYER
 		return
 	if bool(target_barricade.call("is_broken")):
-		_cross_window()
+		_begin_window_cross()
 		return
 	velocity.x = 0.0
 	velocity.z = 0.0
@@ -220,11 +225,23 @@ func _tick_barricade() -> void:
 		target_barricade.call("zombie_damage", barricade_damage)
 		_attack_timer = attack_interval
 
-func _cross_window() -> void:
-	if target_barricade != null and is_instance_valid(target_barricade):
-		global_position = target_barricade.call("get_inside_point") as Vector3
-	phase = Phase.CHASE_PLAYER
-	print("XZOGOT_ZOMBIE_ENTERED")
+func _begin_window_cross() -> void:
+	if target_barricade == null or not is_instance_valid(target_barricade):
+		phase = Phase.CHASE_PLAYER
+		return
+	phase = Phase.CROSS_WINDOW
+	print("XZOGOT_ZOMBIE_WINDOW_CROSS_BEGIN")
+
+func _tick_cross_window() -> void:
+	if target_barricade == null or not is_instance_valid(target_barricade):
+		phase = Phase.CHASE_PLAYER
+		return
+	var inside: Vector3 = target_barricade.call("get_inside_point") as Vector3
+	if _move_toward_flat_speed(inside, 0.22, window_cross_speed):
+		velocity.x = 0.0
+		velocity.z = 0.0
+		phase = Phase.CHASE_PLAYER
+		print("XZOGOT_ZOMBIE_ENTERED")
 
 func _tick_chase() -> void:
 	if target_player == null or not is_instance_valid(target_player):
@@ -243,14 +260,18 @@ func _tick_chase() -> void:
 	_move_toward_flat(target, 0.0)
 
 func _move_toward_flat(target: Vector3, stop_distance: float) -> bool:
+	return _move_toward_flat_speed(target, stop_distance, move_speed)
+
+func _move_toward_flat_speed(target: Vector3, stop_distance: float, speed: float) -> bool:
 	var delta_pos := Vector3(target.x - global_position.x, 0.0, target.z - global_position.z)
 	var distance: float = delta_pos.length()
 	if distance <= stop_distance:
 		return true
 	var direction: Vector3 = delta_pos.normalized()
-	rotation.y = atan2(-direction.x, -direction.z)
-	velocity.x = direction.x * move_speed
-	velocity.z = direction.z * move_speed
+	var target_yaw: float = atan2(-direction.x, -direction.z)
+	rotation.y = lerp_angle(rotation.y, target_yaw, turn_lerp)
+	velocity.x = direction.x * speed
+	velocity.z = direction.z * speed
 	move_and_slide()
 	return false
 
