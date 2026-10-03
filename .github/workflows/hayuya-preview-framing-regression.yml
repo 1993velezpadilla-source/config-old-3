@@ -13,10 +13,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-        with:
-          lfs: true
-          fetch-depth: 1
+      - name: Fetch only renderer + test GLB
+        run: |
+          set -euo pipefail
+          mkdir -p tools/hayuya3d input out/hayuya-preview-framing
+          BASE="https://raw.githubusercontent.com/1993velezpadilla-source/config-old-3/${GITHUB_SHA}"
+          curl -L --fail --retry 3 \
+            "$BASE/tools/hayuya3d/blender_model_preview_pack.py" \
+            -o tools/hayuya3d/blender_model_preview_pack.py
+          curl -L --fail --retry 3 \
+            "$BASE/hayuya/models/monja-trellis2-ab-01/model.glb" \
+            -o input/model.glb
+          test -s input/model.glb
 
       - name: Install Blender
         run: |
@@ -26,11 +34,9 @@ jobs:
       - name: Render bbox-safe preview pack
         run: |
           set -euo pipefail
-          test -s hayuya/models/monja-trellis2-ab-01/model.glb
-          mkdir -p out/hayuya-preview-framing
           xvfb-run -a blender --python-exit-code 1 -b \
             --python tools/hayuya3d/blender_model_preview_pack.py -- \
-            --input hayuya/models/monja-trellis2-ab-01/model.glb \
+            --input input/model.glb \
             --output-dir out/hayuya-preview-framing \
             --size 1024
 
@@ -74,7 +80,6 @@ jobs:
                   "bottom": (h - 1 - box[3]) / h,
               }
               report[name] = {"box": box, "margins": margins}
-              # At least 2% on every side proves the subject is not clipped.
               if min(margins.values()) < 0.02:
                   raise SystemExit(f"{name}: unsafe margin {margins}")
           print("HAYUYA_PREVIEW_FRAMING_GREEN", report)
