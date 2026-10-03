@@ -125,27 +125,45 @@ func _build_windows() -> void:
 	var window_id: int = 0
 	for i in range(zs.size()):
 		var z: float = zs[i]
-		_box("WindowL_%d" % i, Vector3(0.10, 3.1, 2.0), Vector3(-10.64, 4.2, z), glow, false)
-		_box("WindowR_%d" % i, Vector3(0.10, 3.1, 2.0), Vector3(10.64, 4.2, z), glow, false)
-		_add_window_spawn_marker(window_id, "left", Vector3(-12.0, 0.55, z))
+		_box("WindowL_%d" % i, Vector3(0.10, 2.6, 2.2), Vector3(-10.64, 1.85, z), glow, false)
+		_box("WindowR_%d" % i, Vector3(0.10, 2.6, 2.2), Vector3(10.64, 1.85, z), glow, false)
+		_add_window_socket(window_id, "left", z)
 		window_id += 1
-		_add_window_spawn_marker(window_id, "right", Vector3(12.0, 0.55, z))
+		_add_window_socket(window_id, "right", z)
 		window_id += 1
-		# barricade boards mark future zombie entry/spawn gameplay points
-		for b in range(3):
-			_box("BarricadeL_%d_%d" % [i,b], Vector3(0.18, 0.28, 2.5), Vector3(-10.52, 3.4 + b * 0.75, z), Color(0.22, 0.12, 0.055), false)
-			_box("BarricadeR_%d_%d" % [i,b], Vector3(0.18, 0.28, 2.5), Vector3(10.52, 3.4 + b * 0.75, z), Color(0.22, 0.12, 0.055), false)
 	print("XZOGOT_WINDOWS_PREPARED ", window_id)
 
-func _add_window_spawn_marker(window_id: int, side: String, pos: Vector3) -> void:
+func _add_window_socket(window_id: int, side: String, z: float) -> void:
+	var left: bool = side == "left"
+	var sx: float = -1.0 if left else 1.0
+	var barricade_x: float = 10.52 * sx
+	var outside_spawn := Vector3(13.0 * sx, 0.55, z)
+	var outside_approach := Vector3(11.45 * sx, 0.55, z)
+	var inside_point := Vector3(9.72 * sx, 0.55, z)
+
 	var marker := Marker3D.new()
 	marker.name = "ZombieWindow_%02d" % window_id
-	marker.position = pos
+	marker.position = Vector3(12.0 * sx, 0.55, z)
 	marker.add_to_group("zombie_window")
 	marker.set_meta("window_id", window_id)
 	marker.set_meta("side", side)
-	marker.set_meta("status", "PREPARED_NO_ZOMBIES")
+	marker.set_meta("status", "ACTIVE_BARRICADE")
+	marker.set_meta("outside_spawn", outside_spawn)
+	marker.set_meta("outside_approach", outside_approach)
+	marker.set_meta("inside_point", inside_point)
 	add_child(marker)
+
+	var script_resource: Script = load("res://scripts/barricade.gd") as Script
+	var barricade := StaticBody3D.new()
+	barricade.name = "Barricade_%02d" % window_id
+	barricade.position = Vector3(barricade_x, 1.55, z)
+	barricade.set_script(script_resource)
+	barricade.set_meta("window_id", window_id)
+	barricade.set_meta("side", side)
+	barricade.set_meta("outside_spawn", outside_spawn)
+	barricade.set_meta("outside_approach", outside_approach)
+	barricade.set_meta("inside_point", inside_point)
+	add_child(barricade)
 
 func _build_lights() -> void:
 	var light_z: Array[float] = [-17.0, -7.0, 3.0, 10.0]
