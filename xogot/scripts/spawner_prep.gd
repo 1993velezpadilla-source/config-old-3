@@ -5,7 +5,7 @@ const GENERATED_PATH := "res://data/window_spawners.json"
 const CHURCH_PATH := "res://assets/church/sanctum_current.glb"
 
 func _ready() -> void:
-	var windows := _load_or_derive()
+	var windows: Array = _load_or_derive()
 	for w in windows:
 		_add_socket(w)
 	print("XZOGOT: %d window spawner sockets prepared; zombies disabled." % windows.size())
@@ -27,17 +27,17 @@ func _load_or_derive() -> Array:
 	if not nav is Dictionary:
 		return []
 
-	var nave := []
+	var nave: Array = []
 	for floor in nav.get("floors", []):
 		if str(floor.get("id", "")).begins_with("nave_"):
 			nave.append(floor)
 	if nave.is_empty():
 		return []
-	var xmin := INF
-	var xmax := -INF
-	var ymin := INF
-	var ymax := -INF
-	var ztop := -INF
+	var xmin: float = INF
+	var xmax: float = -INF
+	var ymin: float = INF
+	var ymax: float = -INF
+	var ztop: float = -INF
 	for floor in nave:
 		xmin = min(xmin, float(floor["min"][0]))
 		xmax = max(xmax, float(floor["max"][0]))
@@ -45,15 +45,15 @@ func _load_or_derive() -> Array:
 		ymax = max(ymax, float(floor["max"][1]))
 		ztop = max(ztop, float(floor["max"][2]))
 
-	var result := []
+	var result: Array = []
 	for side_data in [["west", xmin, -1.0], ["east", xmax, 1.0]]:
 		var side := str(side_data[0])
 		var x := float(side_data[1])
 		var nx := float(side_data[2])
 		for i in range(4):
-			var t := [0.18, 0.38, 0.62, 0.82][i]
-			var y := lerp(ymin, ymax, t)
-			var z := ztop + 1.28
+			var t: float = float([0.18, 0.38, 0.62, 0.82][i])
+			var y: float = lerpf(ymin, ymax, t)
+			var z: float = ztop + 1.28
 			result.append({
 				"id": "window_%s_%d" % [side, i + 1],
 				"side": side,
