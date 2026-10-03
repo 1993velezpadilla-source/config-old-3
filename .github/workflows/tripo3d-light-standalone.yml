@@ -1,0 +1,83 @@
+name: Tripo3D Light Standalone
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "standalone/tripo3d-light-test/**"
+      - ".github/workflows/tripo3d-light-standalone.yml"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "validate = free; auth = key/balance; generate = real model (may consume credits)"
+        required: true
+        default: validate
+        type: choice
+        options: [validate, auth, generate]
+      image_url:
+        description: "Public JPG/PNG URL used by dry-run/generation"
+        required: true
+        default: "https://raw.githubusercontent.com/VAST-AI-Research/TripoSR/main/examples/chair.png"
+        type: string
+      model_version:
+        description: "Tripo model version"
+        required: true
+        default: "v2.5-20250123"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: standalone/tripo3d-light-test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - name: Compile
+        run: python -m py_compile tripo_probe.py
+      - name: Dry-run current API payload
+        env:
+          IMAGE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.image_url || 'https://raw.githubusercontent.com/VAST-AI-Research/TripoSR/main/examples/chair.png' }}
+          MODEL_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.model_version || 'v2.5-20250123' }}
+        run: python tripo_probe.py --dry-run --image-url "$IMAGE_URL" --model-version "$MODEL_VERSION"
+
+  api:
+    if: github.event_name == 'workflow_dispatch' && (inputs.mode == 'auth' || inputs.mode == 'generate')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: standalone/tripo3d-light-test
+    env:
+      TRIPO_API_KEY: ${{ secrets.TRIPO_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - name: Require API key
+        run: test -n "$TRIPO_API_KEY" || (echo 'TRIPO_API_KEY secret is missing' && exit 2)
+      - name: Auth/balance smoke
+        run: python tripo_probe.py --auth-check
+      - name: Real generation
+        if: inputs.mode == 'generate'
+        run: >-
+          python tripo_probe.py --generate
+          --image-url "${{ inputs.image_url }}"
+          --model-version "${{ inputs.model_version }}"
+          --out-dir output
+      - name: Upload generated files
+        if: inputs.mode == 'generate' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tripo3d-light-standalone-output
+          path: standalone/tripo3d-light-test/output/
+          if-no-files-found: warn
+          retention-days: 7
