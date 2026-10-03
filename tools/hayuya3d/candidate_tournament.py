@@ -128,6 +128,18 @@ _GENERATOR_BY_NAME = {
         True,
         False,
     ),
+    "hi3dgen_candidate.glb": (
+        "Stable-X/Hi3DGen",
+        "hi3dgen",
+        True,
+        False,
+    ),
+    "hi3dgen_candidate_material_bridge.glb": (
+        "Stable-X/Hi3DGen",
+        "hi3dgen",
+        True,
+        False,
+    ),
 }
 
 
