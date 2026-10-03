@@ -29,5 +29,55 @@
     "face": "hayuya/models/monja-trellis2-ab-01/renders/face.png",
     "face_opposite": "hayuya/models/monja-trellis2-ab-01/renders/face_opposite.png"
   },
-  "renderer": "blender_eevee_generated_model_preview_v2_eye_framed"
+  "framing": {
+    "full_body_mode": "projected_aabb_fit",
+    "full_body_padding": 1.12,
+    "face_mode": "upper_32pct_bbox_fit"
+  },
+  "renderer": "blender_eevee_generated_model_preview_v3_bbox_safe",
+  "orientation": {
+    "method": "source_front_reference_v2_upper_identity",
+    "reference": "hayuya/models/monja-trellis2-ab-01/prepared_views/front.png",
+    "raw_positive_y": {
+      "score": 0.559467,
+      "global": {
+        "score": 0.579637,
+        "mask_iou": 0.724521,
+        "gray_corr": 0.523742,
+        "edge_corr": 0.506388,
+        "hist_corr": 0.923614
+      },
+      "upper_identity": {
+        "score": 0.554425,
+        "mask_iou": 0.692629,
+        "gray_corr": 0.500108,
+        "edge_corr": 0.486351,
+        "hist_corr": 0.934393
+      },
+      "detail_candidate": "/home/runner/work/config-old-3/config-old-3/hayuya/models/monja-trellis2-ab-01/renders/face.png"
+    },
+    "raw_negative_y": {
+      "score": 0.609505,
+      "global": {
+        "score": 0.607899,
+        "mask_iou": 0.728348,
+        "gray_corr": 0.584709,
+        "edge_corr": 0.505101,
+        "hist_corr": 0.780609
+      },
+      "upper_identity": {
+        "score": 0.609906,
+        "mask_iou": 0.71355,
+        "gray_corr": 0.601422,
+        "edge_corr": 0.500804,
+        "hist_corr": 0.894806
+      },
+      "detail_candidate": "/home/runner/work/config-old-3/config-old-3/hayuya/models/monja-trellis2-ab-01/renders/face_opposite.png"
+    },
+    "selected_raw_axis": "-Y",
+    "swapped_front_back": true,
+    "confidence_delta": 0.050038,
+    "ambiguous": false,
+    "confidence_threshold": 0.015
+  }
 }
