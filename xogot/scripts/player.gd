@@ -238,6 +238,12 @@ func is_adsfire_pressed() -> bool:
 func is_slide_pressed() -> bool:
 	return _crouch_touch >= 0
 
+func is_sprinting() -> bool:
+	return _sprinting
+
+func is_sliding() -> bool:
+	return _sliding
+
 func get_camera_eye_height() -> float:
 	return _head.position.y
 
