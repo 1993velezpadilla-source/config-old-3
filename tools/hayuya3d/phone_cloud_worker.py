@@ -1711,6 +1711,7 @@ if (
         # weak point. Try a seam-safe head-only geometry challenger first, then
         # layer its baseColor evidence onto whichever geometry survives.
         detail_geometry_fusion_payload=None
+        detail_face_candidate_raw=None
         if source_head_geometry_promoted:
             detail_geometry_fusion_payload={
                 "attempted":False,
@@ -1719,28 +1720,85 @@ if (
                 "skipped_reason":"hunyuan_head_geometry_already_promoted",
             }
         else:
-            # TripoSR remains useful as source-grounded appearance evidence, but
-            # it is not a trustworthy facial geometry authority for multi-view
-            # characters. If the preferred native Hunyuan head challenger is
-            # unavailable or rejected, fail closed on geometry and keep the
-            # current multi-view master unchanged. Texture fusion below may
-            # still use this donor without moving vertices.
-            detail_geometry_fusion_payload={
-                "attempted":False,
-                "source_detail":detail_views[0].name,
-                "promoted":False,
-                "skipped_reason":(
-                    "triposr_head_geometry_not_authoritative;"
-                    "preserve_multiview_master_until_native_face_challenger"
-                ),
-            }
-            print(
-                "HAYUYA_DETAIL_HEAD_GEOMETRY_FUSION_SKIPPED",
-                json.dumps(
-                    detail_geometry_fusion_payload,
-                    separators=(",",":"),
-                ),
-            )
+            # TripoSR is not allowed to replace the whole head. It may produce
+            # a tightly masked facial challenger, but that challenger remains
+            # non-authoritative until the Judge-side face tournament compares
+            # it against the untouched multi-view baseline.
+            detail_face_candidate_raw=None
+            try:
+                from regional_fusion import prepare_head_wrap_challenger
+                face_base=face_candidate_root/"00_multiview_base.glb"
+                if not face_base.is_file():
+                    face_base=dst
+                detail_face_wrap=prepare_head_wrap_challenger(
+                    face_base,
+                    detail_donor,
+                    OUT/"detail_face_geometry_wrap",
+                    texture_size=max(1024,int(actual_texture_size or 0)),
+                    require_rebake=True,
+                    up_axis="y",
+                    donor_scope="face",
+                )
+                detail_geometry_fusion_payload={
+                    "attempted":True,
+                    "source_detail":detail_views[0].name,
+                    "fusion":asdict(detail_face_wrap),
+                    "promoted":False,
+                    "authority":"judge_tournament_only",
+                }
+                print(
+                    "HAYUYA_DETAIL_FACE_GEOMETRY_CHALLENGER",
+                    json.dumps(
+                        detail_geometry_fusion_payload,
+                        separators=(",",":"),
+                    ),
+                )
+                if detail_face_wrap.ready_for_judge and detail_face_wrap.output_glb:
+                    face_raw=Path(detail_face_wrap.output_glb)
+                    face_mesh=inspect_mesh_gate(
+                        face_raw,
+                        require_normals=require_final_normals,
+                    )
+                    face_texture=inspect_texture_gate(
+                        face_raw,
+                        min_edge=final_texture_min_edge,
+                    )
+                    detail_geometry_fusion_payload["mesh_gate"]=asdict(face_mesh)
+                    detail_geometry_fusion_payload["texture_gate"]=asdict(face_texture)
+                    if face_mesh.passed and face_texture.passed:
+                        detail_face_candidate_raw=face_candidate_root/"02_triposr_face_geometry.glb"
+                        shutil.copy2(face_raw,detail_face_candidate_raw)
+                        face_geometry_candidates.append({
+                            "name":"triposr_face_geometry",
+                            "path":str(detail_face_candidate_raw),
+                            "kind":"face_geometry",
+                            "hard_gate_passed":True,
+                            "mesh_gate":asdict(face_mesh),
+                            "texture_gate":asdict(face_texture),
+                        })
+                    else:
+                        detail_geometry_fusion_payload["rejected_reason"]="post_wrap_gate"
+                else:
+                    detail_geometry_fusion_payload["rejected_reason"]=(
+                        detail_face_wrap.error
+                        or "face_regional_fusion_not_judge_ready"
+                    )
+            except Exception as detail_face_geometry_exc:
+                detail_geometry_fusion_payload={
+                    "attempted":True,
+                    "source_detail":detail_views[0].name,
+                    "promoted":False,
+                    "authority":"judge_tournament_only",
+                    "error":(
+                        f"{type(detail_face_geometry_exc).__name__}: "
+                        f"{detail_face_geometry_exc}"
+                    ),
+                }
+                print(
+                    "::warning::HAYUYA face-only geometry challenger unavailable; "
+                    "preserving multi-view master: "
+                    +detail_geometry_fusion_payload["error"]
+                )
 
         detail_fused=OUT/"hayuya_head_detail_fused.glb"
         fusion=fuse_local_basecolor(
@@ -1792,6 +1850,84 @@ if (
                 print(
                     "::warning::Head-detail fusion challenger rejected by hard gates"
                 )
+
+        # Build independent tournament variants from the same untouched base.
+        # These never overwrite hayuya_final.glb here; the Judge-side selector
+        # renders every candidate first and only then copies a verified winner.
+        pure_base_path=face_candidate_root/"00_multiview_base.glb"
+        if pure_base_path.is_file():
+            try:
+                pure_detail_path=face_candidate_root/"01_multiview_plus_detail_texture.glb"
+                pure_detail_fusion=fuse_local_basecolor(
+                    pure_base_path,
+                    detail_donor,
+                    pure_detail_path,
+                    region="head",
+                    up_axis="y",
+                    donor_samples=80_000,
+                    max_alignment_p95_ratio=0.30,
+                    donor_scope="region",
+                )
+                if pure_detail_fusion.ready:
+                    pure_detail_mesh=inspect_mesh_gate(
+                        pure_detail_path,
+                        require_normals=require_final_normals,
+                    )
+                    pure_detail_texture=inspect_texture_gate(
+                        pure_detail_path,
+                        min_edge=final_texture_min_edge,
+                    )
+                    if pure_detail_mesh.passed and pure_detail_texture.passed:
+                        face_geometry_candidates.append({
+                            "name":"multiview_plus_detail_texture",
+                            "path":str(pure_detail_path),
+                            "kind":"texture_only",
+                            "hard_gate_passed":True,
+                            "mesh_gate":asdict(pure_detail_mesh),
+                            "texture_gate":asdict(pure_detail_texture),
+                        })
+            except Exception as pure_detail_exc:
+                print(
+                    "::warning::HAYUYA pure-base detail texture challenger failed: "
+                    f"{type(pure_detail_exc).__name__}: {pure_detail_exc}"
+                )
+
+        if detail_face_candidate_raw is not None and Path(detail_face_candidate_raw).is_file():
+            try:
+                face_detail_path=face_candidate_root/"03_triposr_face_plus_detail_texture.glb"
+                face_detail_fusion=fuse_local_basecolor(
+                    Path(detail_face_candidate_raw),
+                    detail_donor,
+                    face_detail_path,
+                    region="head",
+                    up_axis="y",
+                    donor_samples=80_000,
+                    max_alignment_p95_ratio=0.30,
+                    donor_scope="region",
+                )
+                if face_detail_fusion.ready:
+                    face_detail_mesh=inspect_mesh_gate(
+                        face_detail_path,
+                        require_normals=require_final_normals,
+                    )
+                    face_detail_texture=inspect_texture_gate(
+                        face_detail_path,
+                        min_edge=final_texture_min_edge,
+                    )
+                    if face_detail_mesh.passed and face_detail_texture.passed:
+                        face_geometry_candidates.append({
+                            "name":"triposr_face_plus_detail_texture",
+                            "path":str(face_detail_path),
+                            "kind":"face_geometry_plus_texture",
+                            "hard_gate_passed":True,
+                            "mesh_gate":asdict(face_detail_mesh),
+                            "texture_gate":asdict(face_detail_texture),
+                        })
+            except Exception as face_detail_exc:
+                print(
+                    "::warning::HAYUYA face+detail texture challenger failed: "
+                    f"{type(face_detail_exc).__name__}: {face_detail_exc}"
+                )
     except Exception as detail_exc:
         detail_fusion_payload={
             "attempted":True,
@@ -1803,6 +1939,48 @@ if (
             "::warning::HAYUYA head-detail fusion unavailable; "
             "keeping base model: "
             +detail_fusion_payload["error"]
+        )
+
+# Persist every hard-gated facial variant for the Judge-side tournament.
+# The current pre-tournament master is included as a candidate too, but the
+# selector scores all paths before copying anything over hayuya_final.glb.
+if face_geometry_candidates:
+    try:
+        current_mesh=inspect_mesh_gate(
+            dst,
+            require_normals=require_final_normals,
+        )
+        current_texture=inspect_texture_gate(
+            dst,
+            min_edge=final_texture_min_edge,
+        )
+        if current_mesh.passed and current_texture.passed:
+            face_geometry_candidates.append({
+                "name":"current_pre_tournament_master",
+                "path":str(dst),
+                "kind":"current_master",
+                "hard_gate_passed":True,
+                "mesh_gate":asdict(current_mesh),
+                "texture_gate":asdict(current_texture),
+            })
+        face_manifest={
+            "schema":1,
+            "master":str(dst),
+            "selection_policy":"judge_v4_face_landmarks_fail_closed",
+            "candidates":face_geometry_candidates,
+        }
+        (OUT/"face_geometry_candidates.json").write_text(
+            json.dumps(face_manifest,indent=2)+"\n",
+            encoding="utf-8",
+        )
+        print(
+            "HAYUYA_FACE_GEOMETRY_CANDIDATES",
+            json.dumps(face_manifest,separators=(",",":")),
+        )
+    except Exception as face_manifest_exc:
+        print(
+            "::warning::HAYUYA could not persist face tournament manifest: "
+            f"{type(face_manifest_exc).__name__}: {face_manifest_exc}"
         )
 
 # Catastrophic geometry gate: a backend returning a syntactically valid GLB is
