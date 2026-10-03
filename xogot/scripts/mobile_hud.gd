@@ -7,7 +7,7 @@ const HUD_ADS = preload("res://assets/hud/latest_12/hud_ads.webp")
 const HUD_ADSFIRE = preload("res://assets/hud/latest_12/hud_ads_fire.webp")
 const HUD_CLAW = preload("res://assets/hud/latest_12/hud_claw.webp")
 const HUD_CROUCH = preload("res://assets/hud/latest_12/hud_crouch.webp")
-const HUD_FIRE = preload("res://assets/hud/latest_12/hud_fire.webp")
+const HUD_FIRE = preload("res://assets/hud/latest_12/hud_fire.png")
 const HUD_GRENADE = preload("res://assets/hud/latest_12/hud_grenade.webp")
 const HUD_KNIFE = preload("res://assets/hud/latest_12/hud_knife.webp")
 const HUD_PRONE = preload("res://assets/hud/latest_12/hud_prone.webp")
@@ -36,8 +36,9 @@ const PRESSED_ALPHA := 246.0 / 255.0
 func _ready() -> void:
 	set_process(true)
 	queue_redraw()
-	print("XZOGOT_HUD_V7_READY")
+	print("XZOGOT_HUD_V8_READY")
 	print("XZOGOT_LATEST_12_SKINS_READY")
+	print("XZOGOT_FIRE_SKIN_VALID_PNG_READY")
 
 func _process(_delta: float) -> void:
 	queue_redraw()

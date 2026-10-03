@@ -64,8 +64,9 @@ jobs:
           grep -q "YOU_WONT_WIN: CHURCH_V2_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_PLAYER_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_MOVEMENT_V2_READY" build/xogot-ai/runtime.log
-          grep -q "XZOGOT_HUD_V7_READY" build/xogot-ai/runtime.log
+          grep -q "XZOGOT_HUD_V8_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_LATEST_12_SKINS_READY" build/xogot-ai/runtime.log
+          grep -q "XZOGOT_FIRE_SKIN_VALID_PNG_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_COD_VIEW_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_WEAPON_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_INTERACTION_PLAYER_READY 500" build/xogot-ai/runtime.log
@@ -73,6 +74,7 @@ jobs:
           grep -q "XZOGOT_WINDOWS_PREPARED 8" build/xogot-ai/runtime.log
           grep -q "XZOGOT_ARCH_SHELL_V2_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_AUTHORED_ALTAR_READY" build/xogot-ai/runtime.log
+          grep -q "XZOGOT_AUTHORED_BENCHES_FACE_ALTAR 180" build/xogot-ai/runtime.log
           grep -q "XZOGOT_AUTHORED_BENCHES_READY 9" build/xogot-ai/runtime.log
           grep -q "XZOGOT_ROUND_MANAGER_READY" build/xogot-ai/runtime.log
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-ai/runtime.log
@@ -119,6 +121,7 @@ jobs:
             --headless --path xogot --script res://ci/round_zombie_probe.gd \
             2>&1 | tee build/xogot-ai/round-zombie-probe.log
           grep -q "XZOGOT_MONJA_BASICA_LOADED" build/xogot-ai/round-zombie-probe.log
+          grep -q "XZOGOT_ZOMBIE_GROUND_SNAP_READY 0.24" build/xogot-ai/round-zombie-probe.log
           grep -q "XZOGOT_MONJA_FORWARD_FIXED 90" build/xogot-ai/round-zombie-probe.log
           grep -q "XZOGOT_WINDOW_PHYSICAL_CROSS_GREEN" build/xogot-ai/round-zombie-probe.log
           grep -q "XZOGOT_ENEMY_SCALE_PROBE_GREEN" build/xogot-ai/round-zombie-probe.log

@@ -283,7 +283,7 @@ func _build_authored_benches() -> void:
 			"AuthoredBench_R_%02d" % count,
 			Vector3(4.75, bench_base_y, z),
 			bench_target,
-			0.0,
+			180.0,
 			false
 		)
 		if right != null:
@@ -302,7 +302,7 @@ func _build_authored_benches() -> void:
 				"AuthoredBench_L_%02d" % count,
 				Vector3(-4.75, bench_base_y, z),
 				bench_target,
-				0.0,
+				180.0,
 				false
 			)
 			if left != null:
@@ -314,6 +314,7 @@ func _build_authored_benches() -> void:
 				)
 				count += 1
 
+	print("XZOGOT_AUTHORED_BENCHES_FACE_ALTAR 180")
 	print("XZOGOT_AUTHORED_BENCHES_READY ", count)
 
 func _spawn_fitted_furniture(

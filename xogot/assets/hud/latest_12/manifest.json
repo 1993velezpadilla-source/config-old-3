@@ -22,5 +22,11 @@
     "file": "hud_jump.png",
     "source_commit": "fed7a3140630d4cdc0e7ca9065b05779c596a86d",
     "reason": "Latest 12-skin Touch+Gyro contract did not include Jump/Vault"
+  },
+  "fire_fallback": {
+    "file": "hud_fire.png",
+    "source_commit": "fed7a3140630d4cdc0e7ca9065b05779c596a86d",
+    "source_blob": "2909049cd326c5b016dac41784d40fcbd6eaef86",
+    "reason": "Sep-29 hud_fire.webp is visibly corrupted in the original runtime pack; use the last valid authored FIRE PNG while retaining the other latest skins"
   }
 }

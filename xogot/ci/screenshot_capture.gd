@@ -29,6 +29,11 @@ func _capture() -> void:
 	var scene: Node = packed.instantiate()
 	root.add_child(scene)
 
+	var player: Node3D = scene.get_node_or_null("Player") as Node3D
+	if player != null:
+		player.global_position = Vector3(3.4, 0.38, 6.2)
+		player.rotation.y = deg_to_rad(7.2)
+
 	for i in range(20):
 		await process_frame
 
@@ -39,8 +44,7 @@ func _capture() -> void:
 		var zombie: Node3D = round_manager.call("spawn_one") as Node3D
 		if zombie != null:
 			zombie.set("phase", 2)
-			zombie.global_position = Vector3(0.0, 0.48, 2.4)
-			var player: Node3D = scene.get_node_or_null("Player") as Node3D
+			zombie.global_position = Vector3(0.35, 0.35, 1.75)
 			if player != null:
 				zombie.look_at(player.global_position, Vector3.UP)
 			zombie.set_physics_process(false)
@@ -54,6 +58,8 @@ func _capture() -> void:
 			inspect_light.light_color = Color(0.82, 0.68, 0.52)
 			inspect_light.shadow_enabled = true
 			scene.add_child(inspect_light)
+
+	print("XZOGOT_SCREENSHOT_SIDE_COMPOSITION_READY")
 
 	for i in range(12):
 		await process_frame

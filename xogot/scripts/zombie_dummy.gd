@@ -39,8 +39,10 @@ var _visual_root: Node3D
 
 func _ready() -> void:
 	_gravity = float(ProjectSettings.get_setting("physics/3d/default_gravity", 18.0))
+	floor_snap_length = 0.24
 	add_to_group("zombie")
 	_build_body()
+	print("XZOGOT_ZOMBIE_GROUND_SNAP_READY 0.24")
 	print("XZOGOT_ZOMBIE_READY")
 
 func configure(player: Node3D, barricade: Node) -> void:
