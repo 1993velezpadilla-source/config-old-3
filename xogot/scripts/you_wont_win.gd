@@ -29,7 +29,7 @@ func _make_grain_texture(kind: String) -> Texture2D:
 
 			if kind == "stone":
 				var mortar_x: bool = x % 18 <= 1
-				var row: int = y / 12
+				var row: int = floori(float(y) / 12.0)
 				var shifted_x: int = (x + (9 if row % 2 == 1 else 0)) % 18
 				var mortar_y: bool = y % 12 <= 1
 				var mortar: bool = mortar_y or shifted_x <= 1
