@@ -1,5 +1,7 @@
 extends SceneTree
 
+# Capture Monja Basica common church zombie.
+
 func _init() -> void:
 	call_deferred("_capture")
 
