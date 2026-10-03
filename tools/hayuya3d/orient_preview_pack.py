@@ -38,7 +38,12 @@ def _foreground_mask(img: Image.Image) -> np.ndarray:
     return dist > max(14.0, float(np.percentile(dist, 60)) * 0.45)
 
 
-def _normalized(path: Path, size: int = 192):
+def _normalized(
+    path: Path,
+    size: int = 192,
+    *,
+    region: str = "full",
+):
     img = Image.open(path).convert("RGBA")
     mask = _foreground_mask(img)
     ys, xs = np.where(mask)
@@ -51,6 +56,15 @@ def _normalized(path: Path, size: int = 192):
     x1 = min(img.width, int(xs.max()) + pad_x + 1)
     y0 = max(0, int(ys.min()) - pad_y)
     y1 = min(img.height, int(ys.max()) + pad_y + 1)
+
+    if region == "upper":
+        subject_h = max(1, y1 - y0)
+        y1 = min(
+            img.height,
+            y0 + max(8, int(round(subject_h * 0.42))),
+        )
+    elif region != "full":
+        raise ValueError(f"unknown region: {region}")
 
     crop = img.crop((x0, y0, x1, y1))
     crop_mask = Image.fromarray((mask[y0:y1, x0:x1] * 255).astype(np.uint8), "L")
@@ -102,9 +116,9 @@ def _hist(rgb: np.ndarray, mask: np.ndarray) -> np.ndarray:
     return out / n if n > 1e-8 else out
 
 
-def score_pair(reference: Path, candidate: Path) -> dict:
-    rr, rg, re, rm = _normalized(reference)
-    cr, cg, ce, cm = _normalized(candidate)
+def _compare(reference_payload, candidate_payload) -> dict:
+    rr, rg, re, rm = reference_payload
+    cr, cg, ce, cm = candidate_payload
     joint = rm | cm
     inter = float(np.count_nonzero(rm & cm))
     union = float(np.count_nonzero(joint))
@@ -112,13 +126,10 @@ def score_pair(reference: Path, candidate: Path) -> dict:
     gray_corr = (_corr(rg, cg, joint) + 1.0) * 0.5
     edge_corr = (_corr(re, ce, joint) + 1.0) * 0.5
     hist_corr = float(np.dot(_hist(rr, rm), _hist(cr, cm)))
-    # Front/back is a structural decision. Global color histograms are nearly
-    # orientation-invariant for clothed characters and can overpower the face/
-    # torso evidence, so keep histogram only as diagnostics.
     score = (
         0.30 * mask_iou
-        + 0.50 * gray_corr
-        + 0.20 * edge_corr
+        + 0.45 * gray_corr
+        + 0.25 * edge_corr
     )
     return {
         "score": round(float(score), 6),
@@ -128,6 +139,32 @@ def score_pair(reference: Path, candidate: Path) -> dict:
         "hist_corr": round(hist_corr, 6),
     }
 
+
+def score_pair(
+    reference: Path,
+    candidate: Path,
+    *,
+    detail_candidate: Path | None = None,
+) -> dict:
+    full = _compare(
+        _normalized(reference, region="full"),
+        _normalized(candidate, region="full"),
+    )
+    detail_path = detail_candidate or candidate
+    upper = _compare(
+        _normalized(reference, region="upper"),
+        _normalized(detail_path, region="full"),
+    )
+    score = (
+        0.20 * float(full["score"])
+        + 0.80 * float(upper["score"])
+    )
+    return {
+        "score": round(score, 6),
+        "global": full,
+        "upper_identity": upper,
+        "detail_candidate": str(detail_path),
+    }
 
 def _swap(render_dir: Path, a: str, b: str):
     pa = render_dir / f"{a}.png"
@@ -147,8 +184,16 @@ def main():
     if not reference.is_file():
         raise FileNotFoundError(reference)
 
-    pos_y = score_pair(reference, render_dir / "front.png")
-    neg_y = score_pair(reference, render_dir / "opposite.png")
+    pos_y = score_pair(
+        reference,
+        render_dir / "front.png",
+        detail_candidate=render_dir / "face.png",
+    )
+    neg_y = score_pair(
+        reference,
+        render_dir / "opposite.png",
+        detail_candidate=render_dir / "face_opposite.png",
+    )
     swapped = neg_y["score"] > pos_y["score"]
     if swapped:
         for left, right in (
@@ -159,11 +204,11 @@ def main():
             _swap(render_dir, left, right)
 
     confidence = abs(float(pos_y["score"]) - float(neg_y["score"]))
-    ambiguous = confidence < 0.01
+    ambiguous = confidence < 0.015
     manifest_path = render_dir / "preview_manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     manifest["orientation"] = {
-        "method": "source_front_reference_v1",
+        "method": "source_front_reference_v2_upper_identity",
         "reference": str(a.reference),
         "raw_positive_y": pos_y,
         "raw_negative_y": neg_y,
@@ -171,6 +216,7 @@ def main():
         "swapped_front_back": swapped,
         "confidence_delta": round(confidence, 6),
         "ambiguous": ambiguous,
+        "confidence_threshold": 0.015,
     }
     manifest_path.write_text(
         json.dumps(manifest, indent=2) + "\n",
