@@ -1,5 +1,7 @@
 extends SceneTree
 
+# Monja Basica native asset gate.
+
 func _init() -> void:
 	call_deferred("_run_probe")
 
