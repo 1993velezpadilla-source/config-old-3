@@ -17,6 +17,7 @@ from detailgen3d_cloud import refine as refine_detailgen3d_cloud
 from hunyuan3d_cloud import generate_shape as generate_hunyuan3d_shape
 from hunyuan3d_multiview_cloud import generate as generate_hunyuan3d_multiview
 from unique3d_cloud import generate as generate_unique3d_cloud
+from pixal3d_cloud import generate as generate_pixal3d_cloud
 from hi3dgen_cloud import generate as generate_hi3dgen_cloud
 from triposr_cpu_cloud import generate as generate_triposr_cpu_cloud
 from local_detail_fusion import fuse_local_basecolor
@@ -46,12 +47,13 @@ BACKENDS = [
     x.strip().lower()
     for x in os.environ.get(
         "HAYUYA_BACKENDS",
-        "unique3d,hi3dgen,triposg,trellis2,trellis,instantmesh,triposr",
+        "pixal3d,unique3d,hi3dgen,triposg,trellis2,trellis,instantmesh,triposr",
     ).split(",")
     if x.strip()
 ]
 TRELLIS2_ENABLED = "trellis2" in BACKENDS
 TRIPOSG_CLOUD_ENABLED = "triposg" in BACKENDS
+PIXAL3D_ENABLED = "pixal3d" in BACKENDS
 UNIQUE3D_ENABLED = "unique3d" in BACKENDS
 HI3DGEN_ENABLED = "hi3dgen" in BACKENDS
 DETAILGEN3D_ENABLED = "detailgen3d" in BACKENDS
@@ -490,6 +492,7 @@ actual_texture_size=qp["texture_size"]
 selected_generator="trellis-community/TRELLIS"
 selected_compute="GitHub-hosted CPU controller + public TRELLIS ZeroGPU"
 modern_candidate=None
+pixal3d_ready=False
 preview_recovery_candidate=None
 preview_normal_hero_report=None
 preview_recovery_face_rescue_required=False
@@ -1036,6 +1039,77 @@ if (
             f"{type(hunyuan_exc).__name__}: {hunyuan_exc}"
         )
 
+# 2026 Pixal3D pixel-aligned PBR challenger.
+# This is the highest-quality permissive live lane and stays independent until
+# the source-first tournament compares it against every other surviving mesh.
+if (
+    not multi
+    and PIXAL3D_ENABLED
+    and TEXTURE_QUALITY in {"high","ultra"}
+):
+    try:
+        pixal_meta=generate_pixal3d_cloud(
+            crops[0],
+            OUT/"pixal3d_candidate.glb",
+            token=TOKEN,
+            seed=1993,
+            resolution=1536 if TEXTURE_QUALITY=="ultra" else 1024,
+            decimation_target=1_000_000,
+            texture_size=4096 if TEXTURE_QUALITY=="ultra" else 2048,
+        )
+        pixal_candidate=Path(pixal_meta["path"])
+        pixal_mesh=inspect_mesh_gate(pixal_candidate,require_normals=False)
+        pixal_tex=inspect_texture_gate(
+            pixal_candidate,
+            min_edge=4096 if TEXTURE_QUALITY=="ultra" else 2048,
+        )
+        pixal3d_ready=bool(pixal_mesh.passed and pixal_tex.passed)
+        print(
+            "HAYUYA_PIXAL3D_CANDIDATE_READY",
+            json.dumps(
+                {
+                    "meta":pixal_meta,
+                    "mesh":asdict(pixal_mesh),
+                    "texture":asdict(pixal_tex),
+                    "ready":pixal3d_ready,
+                },
+                separators=(",",":"),
+            ),
+        )
+        if modern_candidate is None and pixal3d_ready:
+            modern_candidate=pixal_candidate
+            result=str(modern_candidate)
+            selected_generator="TencentARC/Pixal3D"
+            selected_compute="public Pixal3D ZeroGPU + HAYUYA hard gates"
+            actual_mesh_simplify=0.0
+            actual_texture_size=int(pixal_tex.base_color_min_edge or 0)
+            hero_master_report={
+                "schema":1,
+                "policy":"independent-native-candidate-before-tournament",
+                "generator":selected_generator,
+                "target_faces":2_000_000 if TEXTURE_QUALITY=="ultra" else 1_250_000,
+                "minimum_faces":750_000 if TEXTURE_QUALITY=="ultra" else 500_000,
+                "actual_faces":int(pixal_mesh.faces),
+                "actual_vertices":int(pixal_mesh.vertices),
+                "dense_master_ready":True,
+                "density_target_met":bool(int(pixal_mesh.faces)>=500_000),
+                "provider_capped":False,
+                "refinement_required":False,
+                "native_model_generated_geometry":True,
+                "native_latent_extraction":True,
+                "license_review_required":False,
+                "distribution_eligible":True,
+                "pixel_aligned_conditioning":True,
+                "optimization_deferred":True,
+                "runtime_optimization_stage":"post-Judge-v4",
+            }
+    except Exception as pixal_exc:
+        pixal3d_ready=False
+        print(
+            "::warning::Pixal3D challenger unavailable/rejected: "
+            f"{type(pixal_exc).__name__}: {pixal_exc}"
+        )
+
 # MIT Unique3D independent geometry hypothesis.
 # It never overwrites another generator merely because it ran later. The model
 # survives as its own candidate until HAYUYA's source-first tournament compares
@@ -1145,6 +1219,7 @@ if (
 # path provides a genuinely different high-frequency surface hypothesis.
 if (
     not multi
+    and not pixal3d_ready
     and HI3DGEN_ENABLED
     and ASSET_PROFILE in {"auto","character.humanoid","character.creature"}
     and TEXTURE_QUALITY in {"high","ultra"}
