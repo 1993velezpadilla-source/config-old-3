@@ -39,6 +39,10 @@ class Session:
         return Response({"code": 0, "data": {"task_id": "t1"}})
 
     def get(self, url, **_kwargs):
+        if url.endswith("/user/balance"):
+            return Response(
+                {"code": 0, "data": {"balance": 100, "frozen": 0}}
+            )
         if "/task/" in url:
             return Response(
                 {
@@ -98,6 +102,32 @@ class TripoAPICloudTests(unittest.TestCase):
         self.assertNotIn("geometry_quality", data)
         self.assertNotIn("quad", data)
         self.assertNotIn("auto_size", data)
+
+    def test_budget_profiles_prioritize_geometry(self):
+        self.assertEqual(mod._budget_profile(50)["name"], "ultra_pbr")
+        self.assertEqual(
+            mod._budget_profile(40)["name"], "ultra_geometry_only"
+        )
+        self.assertEqual(mod._budget_profile(30)["name"], "standard_pbr")
+        self.assertEqual(
+            mod._budget_profile(20)["name"], "standard_geometry_only"
+        )
+        with self.assertRaises(mod.TripoAPIError):
+            mod._budget_profile(19.999)
+
+    def test_standard_v31_clamps_faces_to_1_5m(self):
+        data = mod._base_task_options(
+            model_version="v3.1-20260211",
+            seed=1993,
+            texture=False,
+            pbr=False,
+            texture_quality="standard",
+            face_limit=2_000_000,
+            geometry_quality="standard",
+            quad=False,
+            auto_size=False,
+        )
+        self.assertEqual(data["face_limit"], 1_500_000)
 
     def test_multiview_preserves_front_left_back_right_slots(self):
         with tempfile.TemporaryDirectory() as temp:

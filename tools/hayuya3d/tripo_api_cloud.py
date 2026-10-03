@@ -114,6 +114,73 @@ def create_task(
         raise TripoAPIError("create_task: response contained no task_id")
     return str(task_id)
 
+def get_balance(
+    *,
+    api_key: str | None = None,
+    session: requests.Session | None = None,
+) -> dict[str, float]:
+    key = _api_key(api_key)
+    s = session or requests.Session()
+    response = s.get(
+        f"{BASE_URL}/user/balance",
+        headers=_headers(key),
+        timeout=(20, 120),
+    )
+    payload = _json_response(response, operation="get_balance")
+    data = payload.get("data") or {}
+    if "balance" not in data:
+        raise TripoAPIError(
+            f"get_balance: response contained no balance; keys={sorted(data)}"
+        )
+    return {
+        "balance": float(data.get("balance") or 0.0),
+        "frozen": float(data.get("frozen") or 0.0),
+    }
+
+def _budget_profile(available: float) -> dict[str, Any]:
+    # Image-to-3D v3.1: base/no-texture=20, standard texture=30,
+    # detailed geometry adds 20 credits. Prefer geometry over texture.
+    if available >= 50:
+        return {
+            "name": "ultra_pbr",
+            "estimated_credits": 50,
+            "texture": True,
+            "pbr": True,
+            "geometry_quality": "detailed",
+            "face_limit": 2_000_000,
+        }
+    if available >= 40:
+        return {
+            "name": "ultra_geometry_only",
+            "estimated_credits": 40,
+            "texture": False,
+            "pbr": False,
+            "geometry_quality": "detailed",
+            "face_limit": 2_000_000,
+        }
+    if available >= 30:
+        return {
+            "name": "standard_pbr",
+            "estimated_credits": 30,
+            "texture": True,
+            "pbr": True,
+            "geometry_quality": "standard",
+            "face_limit": 1_500_000,
+        }
+    if available >= 20:
+        return {
+            "name": "standard_geometry_only",
+            "estimated_credits": 20,
+            "texture": False,
+            "pbr": False,
+            "geometry_quality": "standard",
+            "face_limit": 1_500_000,
+        }
+    raise TripoAPIError(
+        f"Tripo balance preflight: {available:g} available credits; "
+        "v3.1 image-to-3D requires at least 20 credits without texture"
+    )
+
 def get_task(
     task_id: str,
     *,
@@ -239,9 +306,10 @@ def _base_task_options(
             data["face_limit"] = max(48, min(int(face_limit), 20_000))
         return data
 
+    ultra = geometry_quality == "detailed"
     max_faces = {
-        "v3.1-20260211": 2_000_000,
-        "v3.0-20250812": 2_000_000,
+        "v3.1-20260211": 2_000_000 if ultra else 1_500_000,
+        "v3.0-20250812": 2_000_000 if ultra else 1_500_000,
         "v2.5-20250123": 500_000,
         "v2.0-20240919": 500_000,
     }.get(model_version)
@@ -287,6 +355,28 @@ def generate(
         )
     key = _api_key(api_key)
     session = requests.Session()
+    balance_info = get_balance(api_key=key, session=session)
+    available = balance_info["balance"]
+    print(
+        "HAYUYA_TRIPO_BALANCE",
+        json.dumps(balance_info, separators=(",", ":")),
+        flush=True,
+    )
+    profile = None
+    if (
+        version == "v3.1-20260211"
+        and os.getenv("HAYUYA_TRIPO_AUTO_BUDGET", "1") != "0"
+    ):
+        profile = _budget_profile(available)
+        texture = bool(profile["texture"])
+        pbr = bool(profile["pbr"])
+        geometry_quality = str(profile["geometry_quality"])
+        face_limit = int(profile["face_limit"])
+        print(
+            "HAYUYA_TRIPO_PROFILE",
+            json.dumps(profile, separators=(",", ":")),
+            flush=True,
+        )
     task_data: dict[str, Any] = {
         "type": "image_to_model",
         "file": upload_image(Path(image), api_key=key, session=session),
@@ -314,6 +404,9 @@ def generate(
         "provider": "tripoapi",
         "task_id": task_id,
         "model_version": version,
+        "available_credits": available,
+        "budget_profile": profile["name"] if profile else "explicit",
+        "estimated_credits": profile["estimated_credits"] if profile else None,
         "textured": bool(texture or pbr),
         "pbr": bool(pbr),
         "multi_view": False,
@@ -355,6 +448,18 @@ def generate_multiview(
         )
     key = _api_key(api_key)
     session = requests.Session()
+    balance_info = get_balance(api_key=key, session=session)
+    available = balance_info["balance"]
+    profile = None
+    if (
+        version == "v3.1-20260211"
+        and os.getenv("HAYUYA_TRIPO_AUTO_BUDGET", "1") != "0"
+    ):
+        profile = _budget_profile(available)
+        texture = bool(profile["texture"])
+        pbr = bool(profile["pbr"])
+        geometry_quality = str(profile["geometry_quality"])
+        face_limit = int(profile["face_limit"])
     files = [
         {}
         if image is None
@@ -388,6 +493,9 @@ def generate_multiview(
         "provider": "tripoapi",
         "task_id": task_id,
         "model_version": version,
+        "available_credits": available,
+        "budget_profile": profile["name"] if profile else "explicit",
+        "estimated_credits": profile["estimated_credits"] if profile else None,
         "textured": bool(texture or pbr),
         "pbr": bool(pbr),
         "multi_view": True,
