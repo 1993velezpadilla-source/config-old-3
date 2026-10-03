@@ -11,11 +11,16 @@
     "triangles": 1938984
   },
   "gameplay_fit_m": {
-    "height": 1.74,
-    "max_width": 0.75,
-    "max_depth": 0.60,
-    "collider_radius": 0.30,
-    "collider_height": 1.70
+    "height": 1.76,
+    "max_width": 0.74,
+    "max_depth": 0.58,
+    "collider_radius": 0.29,
+    "collider_height": 1.72
   },
-  "notes": "Canonical common zombie for the church. Keep this filename and asset_id stable; variants must use different asset IDs."
+  "notes": "Canonical common zombie for the church. Keep this filename and asset_id stable; variants must use different asset IDs.",
+  "first_person_reference": {
+    "player_body_height": 1.76,
+    "player_eye_height": 1.6,
+    "headshot_height_ratio": 0.84
+  }
 }
