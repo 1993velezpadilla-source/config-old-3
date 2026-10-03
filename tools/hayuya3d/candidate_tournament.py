@@ -376,21 +376,25 @@ def run_tournament(
     ]
 
     eligible = [row for row in rows if row.eligible]
-    pool = eligible if eligible else [
+    ranking_key=lambda row: (
+        row.composite_score,
+        row.visual_score,
+        row.topology_score,
+        row.texture_score,
+        row.density_score,
+    )
+    eligible.sort(key=ranking_key, reverse=True)
+    diagnostic_pool=[
         row for row in rows
         if row.mesh_passed and row.source_views_judged > 0
     ]
-    pool.sort(
-        key=lambda row: (
-            row.composite_score,
-            row.visual_score,
-            row.topology_score,
-            row.texture_score,
-            row.density_score,
-        ),
-        reverse=True,
-    )
-    winner = pool[0] if pool else None
+    diagnostic_pool.sort(key=ranking_key, reverse=True)
+
+    # Never promote a diagnostic/license-blocked/material-incomplete mesh merely
+    # because every production candidate failed. Empty winner means fail closed;
+    # diagnostic_leader remains visible for debugging and future repair.
+    winner = eligible[0] if eligible else None
+    diagnostic_leader = diagnostic_pool[0] if diagnostic_pool else None
     report = {
         "schema": 1,
         "policy": "source-first-independent-hypothesis-tournament-v1",
@@ -398,8 +402,7 @@ def run_tournament(
         "source_images": [str(x) for x in source_images],
         "candidate_count": len(rows),
         "eligible_count": len(eligible),
-        "winner": asdict(winner) if winner else None,
-        "candidates": [
+        "winner": asdict(winner) if winner else None,\n        "diagnostic_leader": asdict(diagnostic_leader) if diagnostic_leader else None,\n        "candidates": [
             asdict(row)
             for row in sorted(
                 rows,
