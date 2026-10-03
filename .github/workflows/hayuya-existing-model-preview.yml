@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - art/hayuya-monster-v1
+      - art/hayuya-cleanroom-aaa-v1
     paths:
       - "hayuya/preview_requests/**.json"
       - "tools/hayuya3d/blender_model_preview_pack.py"
@@ -71,7 +72,7 @@ jobs:
           else
             git commit -m "hayuya: persist generated-model preview renders"
             for attempt in 1 2 3 4 5; do
-              if git pull --rebase origin art/hayuya-monster-v1 && git push origin HEAD:art/hayuya-monster-v1; then
+              if git pull --rebase origin "$GITHUB_REF_NAME" && git push origin HEAD:"$GITHUB_REF_NAME"; then
                 echo "HAYUYA_PREVIEWS_PERSISTED"
                 break
               fi
