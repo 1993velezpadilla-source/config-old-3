@@ -1,0 +1,28 @@
+name: HAYUYA • export existing renders
+
+on:
+  push:
+    branches:
+      - art/hayuya-cleanroom-aaa-v1
+    paths:
+      - .github/workflows/hayuya-export-existing-renders.yml
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Collect renders
+        run: |
+          set -euo pipefail
+          mkdir -p out/render-pack
+          cp hayuya/models/monja-trellis2-ab-01/renders/front.png out/render-pack/front.png
+          cp hayuya/models/monja-trellis2-ab-01/renders/three_quarter.png out/render-pack/three_quarter.png
+          cp hayuya/models/monja-trellis2-ab-01/renders/side.png out/render-pack/side.png
+          cp hayuya/models/monja-trellis2-ab-01/renders/opposite.png out/render-pack/opposite.png
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hayuya-monja-inline-renders
+          path: out/render-pack/*
+          if-no-files-found: error
+          retention-days: 2
