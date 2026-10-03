@@ -87,8 +87,30 @@ func _run_probe() -> void:
 		_fail(22, "Monja Basica model metadata missing")
 		return
 	var fitted_height: float = float(zombie.get_meta("zombie_visual_height_m", 0.0))
-	if fitted_height < 1.70 or fitted_height > 1.78:
+	var fitted_width: float = float(zombie.get_meta("zombie_visual_width_m", 0.0))
+	var fitted_depth: float = float(zombie.get_meta("zombie_visual_depth_m", 0.0))
+	if fitted_height < 1.72 or fitted_height > 1.76:
 		_fail(23, "Monja Basica fitted height out of range: %s" % fitted_height)
+		return
+	if fitted_width < 0.70 or fitted_width > 0.76:
+		_fail(24, "Monja Basica fitted width out of range: %s" % fitted_width)
+		return
+	if fitted_depth < 0.55 or fitted_depth > 0.61:
+		_fail(25, "Monja Basica fitted depth out of range: %s" % fitted_depth)
+		return
+	if not bool(zombie.get_meta("zombie_visual_centered_on_feet", false)):
+		_fail(26, "Monja Basica is not foot-centered")
+		return
+	var zombie_collider: CollisionShape3D = zombie.get_node_or_null("ZombieCollider") as CollisionShape3D
+	if zombie_collider == null:
+		_fail(27, "Monja Basica collider missing")
+		return
+	var zombie_capsule: CapsuleShape3D = zombie_collider.shape as CapsuleShape3D
+	if zombie_capsule == null:
+		_fail(28, "Monja Basica capsule missing")
+		return
+	if absf(zombie_capsule.radius - 0.30) > 0.001 or absf(zombie_capsule.height - 1.70) > 0.001:
+		_fail(29, "Monja Basica collider dimensions wrong")
 		return
 
 	await physics_frame
