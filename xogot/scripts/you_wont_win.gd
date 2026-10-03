@@ -130,9 +130,42 @@ func _build_interior() -> void:
 	# upper rear balcony / second-floor gameplay shell
 	_box("Balcony", Vector3(20.5, 0.5, 6.0), Vector3(0, 5.0, 10.4), Color(0.11, 0.075, 0.045))
 	_box("BalconyRail", Vector3(20.0, 1.15, 0.25), Vector3(0, 5.8, 7.55), wood)
-	_box("StairLanding", Vector3(4.0, 0.45, 4.0), Vector3(-8.0, 2.65, 8.0), wood)
-	for i in range(8):
-		_box("Stair%d" % i, Vector3(3.2, 0.30, 1.0), Vector3(-8.0, 0.55 + i * 0.55, 3.0 + i * 0.62), wood)
+
+	# Visual stairs stay crisp, while one continuous hidden ramp provides reliable
+	# CharacterBody3D traversal to the balcony on touch/mobile.
+	for i in range(12):
+		_box(
+			"Stair%d" % i,
+			Vector3(3.2, 0.30, 0.68),
+			Vector3(-8.0, 0.62 + float(i) * 0.37, 2.65 + float(i) * 0.52),
+			wood,
+			false
+		)
+	_box("StairTopLanding", Vector3(3.4, 0.30, 2.2), Vector3(-8.0, 5.05, 9.0), wood, false)
+	_build_balcony_stair_ramp()
+
+func _build_balcony_stair_ramp() -> void:
+	var start := Vector3(-8.0, 0.46, 2.30)
+	var finish := Vector3(-8.0, 5.02, 8.85)
+	var run: float = finish.z - start.z
+	var rise: float = finish.y - start.y
+	var slope_length: float = sqrt(run * run + rise * rise)
+	var angle_deg: float = rad_to_deg(atan(rise / run))
+
+	var ramp := StaticBody3D.new()
+	ramp.name = "BalconyStairRamp"
+	ramp.position = (start + finish) * 0.5
+	ramp.rotation_degrees.x = -angle_deg
+	ramp.add_to_group("walkable_stair_ramp")
+
+	var collision := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(3.0, 0.16, slope_length)
+	collision.shape = shape
+	ramp.add_child(collision)
+	add_child(ramp)
+
+	print("XZOGOT_BALCONY_RAMP_READY ", angle_deg)
 
 func _build_interactions() -> void:
 	# Generic interaction kinds: 0 door, 1 wallbuy, 2 mystery, 3 perk, 4 power.
