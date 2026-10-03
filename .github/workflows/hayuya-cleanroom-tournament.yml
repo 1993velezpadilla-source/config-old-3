@@ -1,0 +1,120 @@
+name: HAYUYA Cleanroom Tournament
+run-name: HAYUYA Cleanroom • Monji • TripoSG vs TRELLIS2 vs Hunyuan
+
+on:
+  push:
+    branches:
+      - art/hayuya-cleanroom-aaa-v1
+    paths:
+      - .github/workflows/hayuya-cleanroom-tournament.yml
+      - tools/hayuya3d/cleanroom_engine_router.py
+      - tools/hayuya3d/triposg_cloud.py
+      - tools/hayuya3d/trellis2_cloud.py
+      - tools/hayuya3d/hunyuan3d_cloud.py
+      - hayuya/assets/monji-murgucol/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tournament:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      INPUT_IMAGE: hayuya/assets/monji-murgucol/geometry/primary.webp
+      OUTPUT_DIR: out/hayuya-cleanroom/monji-murgucol
+      PROVIDERS: triposg,trellis2,hunyuan
+
+    steps:
+      - name: Checkout Hayuya cleanroom branch
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install cleanroom controller dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install \
+            "gradio_client>=1.10,<2" \
+            pillow numpy trimesh scipy \
+            "scikit-image>=0.22" \
+            "fast-simplification>=0.1.7"
+
+      - name: Compile cleanroom router
+        run: |
+          set -euo pipefail
+          python -m py_compile \
+            tools/hayuya3d/cleanroom_engine_router.py \
+            tools/hayuya3d/triposg_cloud.py \
+            tools/hayuya3d/trellis2_cloud.py \
+            tools/hayuya3d/hunyuan3d_cloud.py
+
+      - name: Verify Monji source
+        run: |
+          set -euo pipefail
+          test -s "$INPUT_IMAGE"
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          p=Path("hayuya/assets/monji-murgucol/geometry/primary.webp")
+          im=Image.open(p)
+          print("HAYUYA_CLEANROOM_SOURCE", p, im.size, im.mode, p.stat().st_size)
+          for q in sorted(Path("hayuya/assets/monji-murgucol/references").glob("*")):
+              if q.is_file():
+                  r=Image.open(q)
+                  print("HAYUYA_CLEANROOM_REFERENCE", q, r.size, r.mode, q.stat().st_size)
+          PY
+
+      - name: Run cleanroom image-to-3D tournament
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$OUTPUT_DIR"
+          python tools/hayuya3d/cleanroom_engine_router.py \
+            --input "$INPUT_IMAGE" \
+            --output-dir "$OUTPUT_DIR" \
+            --providers "$PROVIDERS" \
+            --seed 1993
+
+      - name: Summarize tournament
+        if: always()
+        run: |
+          set -euo pipefail
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          from pathlib import Path
+          p=Path("out/hayuya-cleanroom/monji-murgucol/cleanroom_tournament.json")
+          print("## HAYUYA Cleanroom — Monji")
+          if not p.exists():
+              print("\nTournament manifest was not produced.")
+              raise SystemExit(0)
+          d=json.loads(p.read_text())
+          print("\n| Provider | OK | Score | Faces | Bytes | Error |")
+          print("|---|---:|---:|---:|---:|---|")
+          for r in d.get("results",[]):
+              err=(r.get("error") or "").replace("|","/")[:180]
+              print(f"| {r.get('name')} | {r.get('ok')} | {r.get('score')} | {r.get('faces')} | {r.get('bytes')} | {err} |")
+          w=d.get("winner")
+          if w:
+              print(f"\n**Structural winner:** \`{w.get('name')}\` — score \`{w.get('score')}\`.")
+              print("\nFinal visual promotion still requires HAYUYA Judge.")
+          PY
+
+      - name: Upload cleanroom evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hayuya-cleanroom-monji-murgucol
+          path: |
+            out/hayuya-cleanroom/monji-murgucol/**
+          if-no-files-found: warn
+          retention-days: 14
