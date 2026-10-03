@@ -10,6 +10,7 @@ import trimesh
 from PIL import Image
 
 from tools.hayuya3d.local_detail_fusion import (
+    _region_weights,
     _seam_added_delta,
     fuse_local_basecolor,
 )
@@ -148,6 +149,26 @@ class LocalDetailFusionTests(unittest.TestCase):
             self.assertTrue(np.array_equal(after[:4],before[:4]))
             self.assertTrue(np.array_equal(after[-4:],before[-4:]))
             self.assertFalse(np.array_equal(after[24:40],before[24:40]))
+
+    def test_face_region_is_front_upper_head_only(self):
+        mesh=trimesh.creation.icosphere(subdivisions=3,radius=1.0)
+        vertices=np.asarray(mesh.vertices,dtype=np.float64).copy()
+        vertices[:,1]*=2.0
+        weights=_region_weights(vertices,"face",1)
+
+        self.assertEqual(len(weights),len(vertices))
+        self.assertGreater(float(weights.max()),0.5)
+
+        y=vertices[:,1]
+        z=vertices[:,2]
+        height=(y-y.min())/max(float(y.max()-y.min()),1e-9)
+        lower=height<0.65
+        self.assertLessEqual(float(weights[lower].max(initial=0.0)),1e-6)
+
+        upper=height>=0.72
+        front=upper&(z<0.0)
+        back=upper&(z>0.0)
+        self.assertGreater(float(weights[front].mean()),float(weights[back].mean()))
 
     def test_seam_metric_detects_hard_texture_cut(self):
         before=np.full((32,32,3),100,dtype=np.uint8)
