@@ -1,5 +1,7 @@
 extends SceneTree
 
+# Gothic anti toy pass.
+
 # Procedural material realism pass.
 
 # Human scale 0.78 screenshot.
