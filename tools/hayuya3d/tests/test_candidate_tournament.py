@@ -122,5 +122,75 @@ class CandidateTournamentTests(unittest.TestCase):
             self.assertIn("diagnostic_geometry_only",preview["reasons"])
 
 
+    def test_license_blocked_candidate_is_evidence_only(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            source=root/"front.png"
+            source.write_bytes(b"x")
+            native=root/"native.glb"
+            hunyuan=root/"hunyuan.glb"
+            native.write_bytes(b"glTF")
+            hunyuan.write_bytes(b"glTF")
+            specs=[
+                CandidateSpec(native,"AiuniAI/Unique3D","unique3d"),
+                CandidateSpec(hunyuan,"tencent/Hunyuan3D-2mv","hunyuan3d_2mv"),
+            ]
+
+            def fake_visual(path, images, size=128, azimuth_step=45):
+                score=82.0 if Path(path)==native else 99.0
+                return SimpleNamespace(
+                    score=score,
+                    views=[SimpleNamespace(source=str(source))],
+                )
+
+            with patch("tools.hayuya3d.candidate_tournament.inspect_mesh",return_value=mesh_report(faces=1_200_000)), \
+                 patch("tools.hayuya3d.candidate_tournament.inspect_texture",return_value=texture_report()), \
+                 patch("tools.hayuya3d.candidate_tournament.score_visual",side_effect=fake_visual):
+                report=run_tournament(specs,[source],texture_quality="ultra")
+
+            self.assertEqual(report["winner"]["generator"],"AiuniAI/Unique3D")
+            blocked=next(
+                x for x in report["candidates"]
+                if x["generator"]=="tencent/Hunyuan3D-2mv"
+            )
+            self.assertFalse(blocked["production_eligible"])
+            self.assertFalse(blocked["eligible"])
+            self.assertIn("license_not_production_eligible",blocked["reasons"])
+
+    def test_no_shippable_candidate_means_no_winner(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            source=root/"front.png"
+            source.write_bytes(b"x")
+            preview=root/"preview.glb"
+            preview.write_bytes(b"glTF")
+            specs=[
+                CandidateSpec(
+                    preview,
+                    "microsoft/TRELLIS.2-preview-recovery",
+                    "preview",
+                    native_geometry=False,
+                    diagnostic_only=True,
+                ),
+            ]
+
+            with patch("tools.hayuya3d.candidate_tournament.inspect_mesh",return_value=mesh_report(faces=2_000_000)), \
+                 patch("tools.hayuya3d.candidate_tournament.inspect_texture",return_value=texture_report()), \
+                 patch(
+                    "tools.hayuya3d.candidate_tournament.score_visual",
+                    return_value=SimpleNamespace(
+                        score=99.0,
+                        views=[SimpleNamespace(source=str(source))],
+                    ),
+                 ):
+                report=run_tournament(specs,[source],texture_quality="ultra")
+
+            self.assertIsNone(report["winner"])
+            self.assertEqual(
+                report["diagnostic_leader"]["generator"],
+                "microsoft/TRELLIS.2-preview-recovery",
+            )
+
+
 if __name__=="__main__":
     unittest.main()
