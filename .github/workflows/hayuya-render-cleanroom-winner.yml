@@ -40,10 +40,25 @@ jobs:
           cp "$WINNER" input/winner.glb
           test -s input/winner.glb
 
-      - name: Install renderer dependencies
+      - name: Set up cleanup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install cleanup + renderer dependencies
         run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy trimesh
           sudo apt-get update -qq
           sudo apt-get install -y -qq blender xvfb python3-pil python3-numpy
+
+      - name: Strip generated support slabs
+        run: |
+          set -euo pipefail
+          cp input/winner.glb input/winner.raw.glb
+          python tools/hayuya3d/support_plane_cleanup.py input/winner.glb \
+            | tee out/hayuya-cleanroom-winner-preview/support_cleanup.log
+          test -s input/winner.glb
 
       - name: Render winner preview pack
         run: |
