@@ -17,16 +17,22 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Reconstruct latest approved HUD payload
         shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           mkdir -p /tmp/xziel-hud
           : > /tmp/xziel-hud/payload.b64
           for i in 00 01 02 03 04 05; do
-            git show 471932581f4847d400deb5a639e1f278a63d7cfd:assets/mobile_hud/xziel_hud_v1/part_${i}.b64 >> /tmp/xziel-hud/payload.b64
+            curl -fsSL \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H "Accept: application/vnd.github.raw+json" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/contents/assets/mobile_hud/xziel_hud_v1/part_${i}.b64?ref=471932581f4847d400deb5a639e1f278a63d7cfd" \
+              >> /tmp/xziel-hud/payload.b64
           done
           tr -d '\n\r ' < /tmp/xziel-hud/payload.b64 | base64 -d > /tmp/xziel-hud/payload.bin
           file /tmp/xziel-hud/payload.bin
