@@ -2,25 +2,32 @@ extends Control
 
 const MobileLayout = preload("res://scripts/mobile_layout.gd")
 
-const TEX_TOUCH_SMALL_IDLE = preload("res://assets/hud/official/touch_small_idle.svg")
-const TEX_TOUCH_SMALL_PRESSED = preload("res://assets/hud/official/touch_small_pressed.svg")
-const TEX_TOUCH_FIRE_IDLE = preload("res://assets/hud/official/touch_fire_idle.svg")
-const TEX_TOUCH_FIRE_PRESSED = preload("res://assets/hud/official/touch_fire_pressed.svg")
-const TEX_TOUCH_ADS_IDLE = preload("res://assets/hud/official/touch_ads_idle.svg")
-const TEX_TOUCH_ADS_PRESSED = preload("res://assets/hud/official/touch_ads_pressed.svg")
-const TEX_TOUCH_ADSFIRE_IDLE = preload("res://assets/hud/official/touch_adsfire_idle.svg")
-const TEX_TOUCH_ADSFIRE_PRESSED = preload("res://assets/hud/official/touch_adsfire_pressed.svg")
+# Exact Sep-29 Touch+Gyro artwork restored from the historical APK contract.
+const HUD_ADS = preload("res://assets/hud/latest_12/hud_ads.webp")
+const HUD_ADSFIRE = preload("res://assets/hud/latest_12/hud_ads_fire.webp")
+const HUD_CLAW = preload("res://assets/hud/latest_12/hud_claw.webp")
+const HUD_CROUCH = preload("res://assets/hud/latest_12/hud_crouch.webp")
+const HUD_FIRE = preload("res://assets/hud/latest_12/hud_fire.webp")
+const HUD_GRENADE = preload("res://assets/hud/latest_12/hud_grenade.webp")
+const HUD_KNIFE = preload("res://assets/hud/latest_12/hud_knife.webp")
+const HUD_PRONE = preload("res://assets/hud/latest_12/hud_prone.webp")
+const HUD_RELOAD = preload("res://assets/hud/latest_12/hud_reload.webp")
+const HUD_SLIDE = preload("res://assets/hud/latest_12/hud_slide.webp")
+const HUD_SPRINT = preload("res://assets/hud/latest_12/hud_sprint.webp")
+const HUD_SWAP = preload("res://assets/hud/latest_12/hud_swap.webp")
+
+# Sep-29 set intentionally had no Jump/Vault face; this is the last authored
+# project PNG for Jump/Vault, restored from the prior official pack.
+const HUD_JUMP = preload("res://assets/hud/latest_12/hud_jump.png")
+
+# The latest 12-pack did not replace joystick art. Keep the established XZIEL
+# joystick only; action buttons below are all restored latest artwork.
 const TEX_JOY_RING = preload("res://assets/hud/official/joystick_ring.svg")
 const TEX_JOY_KNOB = preload("res://assets/hud/official/joystick_knob.svg")
 const TEX_JOY_KNOB_ACTIVE = preload("res://assets/hud/official/joystick_knob_active.svg")
 
-const ICON_FIRE = preload("res://assets/hud/official/fire.svg")
-const ICON_ADS = preload("res://assets/hud/official/ads.svg")
-const ICON_ADSFIRE = preload("res://assets/hud/official/adsfire.svg")
-const ICON_RELOAD = preload("res://assets/hud/official/reload.svg")
-const ICON_USE = preload("res://assets/hud/official/use.svg")
-const ICON_JUMP = preload("res://assets/hud/official/jump.svg")
-const ICON_SLIDE = preload("res://assets/hud/official/slide.svg")
+const IDLE_ALPHA := 210.0 / 255.0
+const PRESSED_ALPHA := 246.0 / 255.0
 
 @onready var _player: Node = get_node_or_null("../../Player")
 @onready var _weapon: Node = get_node_or_null("../../Player/Weapon")
@@ -29,8 +36,8 @@ const ICON_SLIDE = preload("res://assets/hud/official/slide.svg")
 func _ready() -> void:
 	set_process(true)
 	queue_redraw()
-	print("XZOGOT_HUD_V6_READY")
-	print("XZOGOT_OFFICIAL_SKINS_READY")
+	print("XZOGOT_HUD_V7_READY")
+	print("XZOGOT_LATEST_12_SKINS_READY")
 
 func _process(_delta: float) -> void:
 	queue_redraw()
@@ -38,27 +45,34 @@ func _process(_delta: float) -> void:
 func _screen(center: Vector2) -> Vector2:
 	return MobileLayout.screen_point(center, size)
 
-func _draw_tex_center(texture: Texture2D, center: Vector2, diameter: float, alpha: float = 1.0) -> void:
+func _draw_tex_center(
+	texture: Texture2D,
+	center: Vector2,
+	diameter: float,
+	alpha: float = 1.0
+) -> void:
 	if texture == null:
 		return
 	var d := Vector2(diameter, diameter)
-	draw_texture_rect(texture, Rect2(center - d * 0.5, d), false, Color(1.0, 1.0, 1.0, alpha))
+	draw_texture_rect(
+		texture,
+		Rect2(center - d * 0.5, d),
+		false,
+		Color(1.0, 1.0, 1.0, alpha)
+	)
 
-func _draw_control(
+func _draw_latest_control(
 	center_norm: Vector2,
 	radius_h: float,
-	surface_idle: Texture2D,
-	surface_pressed: Texture2D,
-	glyph: Texture2D,
+	texture: Texture2D,
 	pressed: bool,
-	opacity: float = 0.82,
-	glyph_scale: float = 0.54
+	visual_scale: float = 1.0
 ) -> void:
 	var center: Vector2 = _screen(center_norm)
-	var diameter: float = radius_h * size.y * 2.16
-	var surface: Texture2D = surface_pressed if pressed else surface_idle
-	_draw_tex_center(surface, center, diameter, opacity)
-	_draw_tex_center(glyph, center, diameter * glyph_scale, minf(1.0, opacity + 0.10))
+	var press_scale: float = 1.06 if pressed else 1.0
+	var diameter: float = radius_h * size.y * 2.20 * visual_scale * press_scale
+	var alpha: float = PRESSED_ALPHA if pressed else IDLE_ALPHA
+	_draw_tex_center(texture, center, diameter, alpha)
 
 func _draw_joystick() -> void:
 	var center: Vector2 = _screen(MobileLayout.JOY_CENTER)
@@ -76,7 +90,12 @@ func _draw_joystick() -> void:
 
 	var knob_center: Vector2 = center + move_vector * ring_radius * 0.72
 	var knob_diameter: float = 0.042 * size.y * 2.18
-	_draw_tex_center(TEX_JOY_KNOB_ACTIVE if active else TEX_JOY_KNOB, knob_center, knob_diameter, 0.88)
+	_draw_tex_center(
+		TEX_JOY_KNOB_ACTIVE if active else TEX_JOY_KNOB,
+		knob_center,
+		knob_diameter,
+		0.88
+	)
 
 func _draw() -> void:
 	var s: Vector2 = size
@@ -96,7 +115,9 @@ func _draw() -> void:
 	var fire_pressed := false
 	var ads_pressed := false
 	var adsfire_pressed := false
-	var slide_pressed := false
+	var stance_pressed := false
+	var sprinting := false
+	var sliding := false
 	if _player != null:
 		if _player.has_method("is_fire_pressed"):
 			fire_pressed = bool(_player.call("is_fire_pressed"))
@@ -105,74 +126,69 @@ func _draw() -> void:
 		if _player.has_method("is_adsfire_pressed"):
 			adsfire_pressed = bool(_player.call("is_adsfire_pressed"))
 		if _player.has_method("is_slide_pressed"):
-			slide_pressed = bool(_player.call("is_slide_pressed"))
+			stance_pressed = bool(_player.call("is_slide_pressed"))
+		if _player.has_method("is_sprinting"):
+			sprinting = bool(_player.call("is_sprinting"))
+		if _player.has_method("is_sliding"):
+			sliding = bool(_player.call("is_sliding"))
 
 	var reload_pressed := false
 	if _weapon != null and _weapon.has_method("is_reloading"):
 		reload_pressed = bool(_weapon.call("is_reloading"))
 
-	_draw_control(
+	_draw_latest_control(
 		MobileLayout.FIRE_CENTER,
 		MobileLayout.FIRE_RADIUS,
-		TEX_TOUCH_FIRE_IDLE,
-		TEX_TOUCH_FIRE_PRESSED,
-		ICON_FIRE,
-		fire_pressed,
-		0.82,
-		0.50
+		HUD_FIRE,
+		fire_pressed
 	)
-	_draw_control(
+	_draw_latest_control(
 		MobileLayout.ADSFIRE_CENTER,
 		MobileLayout.ADSFIRE_RADIUS,
-		TEX_TOUCH_ADSFIRE_IDLE,
-		TEX_TOUCH_ADSFIRE_PRESSED,
-		ICON_ADSFIRE,
-		adsfire_pressed,
-		0.82,
-		0.54
+		HUD_ADSFIRE,
+		adsfire_pressed
 	)
-	_draw_control(
+	_draw_latest_control(
 		MobileLayout.ADS_CENTER,
 		MobileLayout.ADS_RADIUS,
-		TEX_TOUCH_ADS_IDLE,
-		TEX_TOUCH_ADS_PRESSED,
-		ICON_ADS,
-		ads_pressed,
-		0.82,
-		0.55
+		HUD_ADS,
+		ads_pressed
 	)
-	_draw_control(
+	_draw_latest_control(
 		MobileLayout.RELOAD_CENTER,
 		MobileLayout.RELOAD_RADIUS,
-		TEX_TOUCH_SMALL_IDLE,
-		TEX_TOUCH_SMALL_PRESSED,
-		ICON_RELOAD,
+		HUD_RELOAD,
 		reload_pressed
 	)
-	_draw_control(
+	_draw_latest_control(
 		MobileLayout.USE_CENTER,
 		MobileLayout.USE_RADIUS,
-		TEX_TOUCH_SMALL_IDLE,
-		TEX_TOUCH_SMALL_PRESSED,
-		ICON_USE,
+		HUD_CLAW,
 		false
 	)
-	_draw_control(
+	_draw_latest_control(
 		MobileLayout.JUMP_CENTER,
 		MobileLayout.JUMP_RADIUS,
-		TEX_TOUCH_SMALL_IDLE,
-		TEX_TOUCH_SMALL_PRESSED,
-		ICON_JUMP,
+		HUD_JUMP,
 		false
 	)
-	_draw_control(
+
+	# Same gameplay button: crouch at normal pace, tactical slide while sprinting.
+	var stance_texture: Texture2D = HUD_SLIDE if (sprinting or sliding) else HUD_CROUCH
+	_draw_latest_control(
 		MobileLayout.SLIDE_CENTER,
 		MobileLayout.SLIDE_RADIUS,
-		TEX_TOUCH_SMALL_IDLE,
-		TEX_TOUCH_SMALL_PRESSED,
-		ICON_SLIDE,
-		slide_pressed
+		stance_texture,
+		stance_pressed
 	)
+
+	# Historical requirement: auto-sprint icon is an indicator, not another hit target.
+	if sprinting:
+		var sprint_center := Vector2(
+			MobileLayout.JOY_CENTER.x,
+			MobileLayout.JOY_CENTER.y - 0.145
+		)
+		_draw_latest_control(sprint_center, 0.034, HUD_SPRINT, true, 0.94)
 
 	# Ammo bar.
 	if _weapon != null and _weapon.has_method("get_magazine"):
