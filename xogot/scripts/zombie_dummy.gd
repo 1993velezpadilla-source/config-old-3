@@ -10,6 +10,10 @@ const MONJA_BASICA_PATH := "res://assets/zombies/monja_basica.glb"
 @export var player_damage: float = 20.0
 @export var attack_interval: float = 0.90
 @export var target_visual_height: float = 1.74
+@export var target_visual_max_width: float = 0.75
+@export var target_visual_max_depth: float = 0.60
+@export var collider_radius: float = 0.30
+@export var collider_height: float = 1.70
 
 enum Phase {
 	APPROACH,
@@ -38,10 +42,10 @@ func _build_body() -> void:
 	var cs := CollisionShape3D.new()
 	cs.name = "ZombieCollider"
 	var capsule := CapsuleShape3D.new()
-	capsule.radius = 0.34
-	capsule.height = 1.72
+	capsule.radius = collider_radius
+	capsule.height = collider_height
 	cs.shape = capsule
-	cs.position.y = 0.86
+	cs.position.y = collider_height * 0.5
 	add_child(cs)
 
 	if ResourceLoader.exists(MONJA_BASICA_PATH):
@@ -52,9 +56,15 @@ func _build_body() -> void:
 				var visual := Node3D.new()
 				visual.name = "MonjaBasicaVisual"
 				add_child(visual)
-				imported.name = "ImportedModel"
+				imported.name = "MonjaBasicaSource"
 				visual.add_child(imported)
-				if _fit_visual_to_height(visual, imported, target_visual_height):
+				if _fit_visual_to_gameplay_bounds(
+					visual,
+					imported,
+					target_visual_height,
+					target_visual_max_width,
+					target_visual_max_depth
+				):
 					set_meta("zombie_model", "monja_basica")
 					print("XZOGOT_MONJA_BASICA_LOADED")
 					return
@@ -63,7 +73,13 @@ func _build_body() -> void:
 	_build_fallback_visual()
 	print("XZOGOT_MONJA_BASICA_FALLBACK")
 
-func _fit_visual_to_height(wrapper: Node3D, imported: Node3D, target_height: float) -> bool:
+func _fit_visual_to_gameplay_bounds(
+	wrapper: Node3D,
+	imported: Node3D,
+	target_height: float,
+	max_width: float,
+	max_depth: float
+) -> bool:
 	var points: Array[Vector3] = []
 	_collect_mesh_bounds(imported, Transform3D.IDENTITY, points)
 	if points.is_empty():
@@ -83,25 +99,47 @@ func _fit_visual_to_height(wrapper: Node3D, imported: Node3D, target_height: flo
 	if raw_size.y <= 0.0001:
 		return false
 
-	var scale_factor: float = target_height / raw_size.y
+	var scale_y: float = target_height / raw_size.y
+	var uniform_width: float = raw_size.x * scale_y
+	var uniform_depth: float = raw_size.z * scale_y
+
+	# Keep the authored vertical proportions, but gently constrain oversized robe width/depth
+	# so the common church zombie fits doors, pew aisles and the gameplay collider naturally.
+	var width_adjust: float = 1.0
+	var depth_adjust: float = 1.0
+	if uniform_width > max_width:
+		width_adjust = clampf(max_width / uniform_width, 0.78, 1.0)
+	if uniform_depth > max_depth:
+		depth_adjust = clampf(max_depth / uniform_depth, 0.78, 1.0)
+
+	var scale_x: float = scale_y * width_adjust
+	var scale_z: float = scale_y * depth_adjust
 	var center_x: float = (min_v.x + max_v.x) * 0.5
 	var center_z: float = (min_v.z + max_v.z) * 0.5
-	wrapper.scale = Vector3.ONE * scale_factor
+
+	wrapper.scale = Vector3(scale_x, scale_y, scale_z)
 	wrapper.position = Vector3(
-		-center_x * scale_factor,
-		-min_v.y * scale_factor,
-		-center_z * scale_factor
+		-center_x * scale_x,
+		-min_v.y * scale_y,
+		-center_z * scale_z
 	)
 
-	set_meta("zombie_visual_height_m", raw_size.y * scale_factor)
-	set_meta("zombie_visual_width_m", raw_size.x * scale_factor)
-	set_meta("zombie_visual_depth_m", raw_size.z * scale_factor)
-	set_meta("zombie_visual_scale", scale_factor)
+	var fitted_size := Vector3(
+		raw_size.x * scale_x,
+		raw_size.y * scale_y,
+		raw_size.z * scale_z
+	)
+
+	set_meta("zombie_visual_height_m", fitted_size.y)
+	set_meta("zombie_visual_width_m", fitted_size.x)
+	set_meta("zombie_visual_depth_m", fitted_size.z)
+	set_meta("zombie_visual_scale_xyz", Vector3(scale_x, scale_y, scale_z))
+	set_meta("zombie_visual_centered_on_feet", true)
 	print(
 		"XZOGOT_MONJA_FIT ",
 		"raw=", raw_size,
-		" scale=", scale_factor,
-		" fitted=", Vector3(raw_size.x, raw_size.y, raw_size.z) * scale_factor
+		" scale_xyz=", Vector3(scale_x, scale_y, scale_z),
+		" fitted=", fitted_size
 	)
 	return true
 
