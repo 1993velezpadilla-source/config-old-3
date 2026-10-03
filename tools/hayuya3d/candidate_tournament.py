@@ -408,7 +408,9 @@ def run_tournament(
         "source_images": [str(x) for x in source_images],
         "candidate_count": len(rows),
         "eligible_count": len(eligible),
-        "winner": asdict(winner) if winner else None,\n        "diagnostic_leader": asdict(diagnostic_leader) if diagnostic_leader else None,\n        "candidates": [
+        "winner": asdict(winner) if winner else None,
+        "diagnostic_leader": asdict(diagnostic_leader) if diagnostic_leader else None,
+        "candidates": [
             asdict(row)
             for row in sorted(
                 rows,
