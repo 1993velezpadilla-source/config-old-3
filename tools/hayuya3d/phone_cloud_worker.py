@@ -1034,7 +1034,7 @@ if (
 
         # Continuity only: if nothing else survived, let Unique3D carry the
         # pipeline into the tournament. Otherwise it remains independent.
-        if modern_candidate is None and unique_mesh.passed and unique_tex.passed:
+        if (\n            not multi\n            and modern_candidate is None\n            and unique_mesh.passed\n            and unique_tex.passed\n        ):
             modern_candidate=unique_candidate
             result=str(modern_candidate)
             selected_generator="AiuniAI/Unique3D"
