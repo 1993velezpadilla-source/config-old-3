@@ -92,6 +92,12 @@ _GENERATOR_BY_NAME = {
         True,
         False,
     ),
+    "hunyuan3d_2mv_candidate.glb": (
+        "tencent/Hunyuan3D-2mv",
+        "hunyuan3d_2mv",
+        True,
+        False,
+    ),
     "triposg_hero_candidate_material_bridge.glb": (
         "VAST-AI/TripoSG",
         "triposg",
