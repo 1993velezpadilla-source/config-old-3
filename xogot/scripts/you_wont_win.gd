@@ -105,6 +105,7 @@ func _ready() -> void:
 	_build_church()
 	_build_interior()
 	_build_realism_pass()
+	_build_architectural_shell_v2()
 	_build_interactions()
 	_build_windows()
 	_build_lights()
@@ -343,6 +344,172 @@ func _visual_cylinder(label: String, radius: float, height: float, pos: Vector3,
 	mi.mesh = mesh
 	root.add_child(mi)
 	add_child(root)
+
+func _build_architectural_shell_v2() -> void:
+	var stone_mid := Color(0.145, 0.138, 0.126)
+	var stone_dark := Color(0.086, 0.082, 0.076)
+	var stone_edge := Color(0.185, 0.176, 0.158)
+	var timber := Color(0.062, 0.032, 0.016)
+
+	# Continuous nave cornices stop the walls from reading as giant flat slabs.
+	_visual_box("NaveCorniceL", Vector3(0.34, 0.26, 36.0), Vector3(-10.48, 5.55, -5.0), stone_edge)
+	_visual_box("NaveCorniceR", Vector3(0.34, 0.26, 36.0), Vector3(10.48, 5.55, -5.0), stone_edge)
+	_visual_box("NaveStringCourseL", Vector3(0.26, 0.18, 36.0), Vector3(-10.43, 2.25, -5.0), stone_mid)
+	_visual_box("NaveStringCourseR", Vector3(0.26, 0.18, 36.0), Vector3(10.43, 2.25, -5.0), stone_mid)
+
+	# Pilaster bases/capitals add believable load-bearing rhythm.
+	var pier_z: Array[float] = [-20.5, -13.0, -5.0, 3.0, 10.0]
+	for i in range(pier_z.size()):
+		var z: float = pier_z[i]
+		for side in [-1.0, 1.0]:
+			var x: float = 10.28 * side
+			var side_tag: String = "L" if side < 0.0 else "R"
+			_visual_box(
+				"PilasterBase_%s_%02d" % [side_tag, i],
+				Vector3(0.92, 0.34, 0.96),
+				Vector3(x, 0.38, z),
+				stone_dark
+			)
+			_visual_box(
+				"PilasterCapital_%s_%02d" % [side_tag, i],
+				Vector3(0.90, 0.28, 0.92),
+				Vector3(x, 5.36, z),
+				stone_edge
+			)
+			_visual_box(
+				"PilasterNeck_%s_%02d" % [side_tag, i],
+				Vector3(0.62, 0.30, 0.66),
+				Vector3(x, 5.10, z),
+				stone_mid
+			)
+
+	# Repeated rib-vault members create real architectural scale overhead.
+	var rib_z: Array[float] = [-18.0, -12.0, -6.0, 0.0, 6.0, 11.0]
+	for i in range(rib_z.size()):
+		var z: float = rib_z[i]
+		_visual_box_rotated(
+			"VaultRibL_%02d" % i,
+			Vector3(7.25, 0.20, 0.24),
+			Vector3(-4.15, 6.35, z),
+			Vector3(0.0, 0.0, 18.0),
+			stone_mid
+		)
+		_visual_box_rotated(
+			"VaultRibR_%02d" % i,
+			Vector3(7.25, 0.20, 0.24),
+			Vector3(4.15, 6.35, z),
+			Vector3(0.0, 0.0, -18.0),
+			stone_mid
+		)
+		_visual_box(
+			"VaultBoss_%02d" % i,
+			Vector3(0.52, 0.28, 0.52),
+			Vector3(0.0, 7.52, z),
+			stone_edge
+		)
+
+	# Deep front portal with nested pointed arches, instead of a rectangular entrance cutout.
+	_build_pointed_portal_layer("Outer", 2.55, 5.50, 0.34, 13.62, stone_dark)
+	_build_pointed_portal_layer("Mid", 2.15, 5.10, 0.26, 13.48, stone_mid)
+	_build_pointed_portal_layer("Inner", 1.75, 4.70, 0.20, 13.36, stone_edge)
+
+	# Interior door reveal gives thickness to the front wall.
+	_visual_box("PortalRevealL", Vector3(0.36, 4.15, 1.10), Vector3(-1.93, 2.10, 13.42), stone_dark)
+	_visual_box("PortalRevealR", Vector3(0.36, 4.15, 1.10), Vector3(1.93, 2.10, 13.42), stone_dark)
+
+	# Window sills/reveals give each zombie opening visible wall depth.
+	var window_z: Array[float] = [-17.0, -9.0, -1.0, 7.0]
+	for i in range(window_z.size()):
+		var z: float = window_z[i]
+		for side in [-1.0, 1.0]:
+			var x: float = 10.62 * side
+			var side_tag: String = "L" if side < 0.0 else "R"
+			_visual_box(
+				"WindowSill_%s_%02d" % [side_tag, i],
+				Vector3(0.95, 0.18, 2.62),
+				Vector3(x, 0.70, z),
+				stone_edge
+			)
+			_visual_box(
+				"WindowRevealA_%s_%02d" % [side_tag, i],
+				Vector3(0.92, 2.70, 0.16),
+				Vector3(x, 2.05, z - 1.30),
+				stone_dark
+			)
+			_visual_box(
+				"WindowRevealB_%s_%02d" % [side_tag, i],
+				Vector3(0.92, 2.70, 0.16),
+				Vector3(x, 2.05, z + 1.30),
+				stone_dark
+			)
+
+	# External stepped buttress faces read as real masonry masses instead of one rectangle.
+	var buttress_z: Array[float] = [-19.0, -11.0, -3.0, 5.0, 12.0]
+	for i in range(buttress_z.size()):
+		var z: float = buttress_z[i]
+		for side in [-1.0, 1.0]:
+			var x: float = 11.70 * side
+			var side_tag: String = "L" if side < 0.0 else "R"
+			_visual_box(
+				"ButtressFoot_%s_%02d" % [side_tag, i],
+				Vector3(1.55, 1.10, 2.10),
+				Vector3(x, 0.70, z),
+				stone_dark
+			)
+			_visual_box(
+				"ButtressShoulder_%s_%02d" % [side_tag, i],
+				Vector3(1.15, 0.80, 1.65),
+				Vector3(x, 4.60, z),
+				stone_mid
+			)
+
+	# Timber wall plates visually connect the roof to the masonry.
+	_visual_box("RoofPlateL", Vector3(0.34, 0.28, 36.0), Vector3(-9.95, 6.18, -5.0), timber)
+	_visual_box("RoofPlateR", Vector3(0.34, 0.28, 36.0), Vector3(9.95, 6.18, -5.0), timber)
+
+	print("XZOGOT_ARCH_SHELL_V2_READY")
+
+func _build_pointed_portal_layer(
+	tag: String,
+	half_width: float,
+	height: float,
+	thickness: float,
+	z: float,
+	color: Color
+) -> void:
+	var jamb_height: float = height * 0.58
+	var arch_len: float = height * 0.48
+	var jamb_y: float = jamb_height * 0.5
+	var arch_y: float = jamb_height + arch_len * 0.29
+	var arch_x: float = half_width * 0.54
+	var angle: float = 33.0
+
+	_visual_box(
+		"PortalJambL_%s" % tag,
+		Vector3(thickness, jamb_height, 0.42),
+		Vector3(-half_width, jamb_y, z),
+		color
+	)
+	_visual_box(
+		"PortalJambR_%s" % tag,
+		Vector3(thickness, jamb_height, 0.42),
+		Vector3(half_width, jamb_y, z),
+		color
+	)
+	_visual_box_rotated(
+		"PortalArchL_%s" % tag,
+		Vector3(thickness, arch_len, 0.42),
+		Vector3(-arch_x, arch_y, z),
+		Vector3(0.0, 0.0, -angle),
+		color
+	)
+	_visual_box_rotated(
+		"PortalArchR_%s" % tag,
+		Vector3(thickness, arch_len, 0.42),
+		Vector3(arch_x, arch_y, z),
+		Vector3(0.0, 0.0, angle),
+		color
+	)
 
 func _build_balcony_stair_ramp() -> void:
 	var start: Vector3 = _wp(Vector3(-8.0, 0.38, 0.60))
