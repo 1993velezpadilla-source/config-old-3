@@ -67,6 +67,10 @@ func _build_body() -> void:
 				add_child(visual)
 				_visual_root = visual
 				imported.name = "MonjaBasicaSource"
+				# 3DH/Tripo export authored this character facing +X.
+				# Godot gameplay forward is -Z, so rotate the SOURCE before fitting
+				# to keep final world width/depth correct while fixing visual facing.
+				imported.rotation_degrees.y = 90.0
 				visual.add_child(imported)
 				if _fit_visual_to_gameplay_bounds(
 					visual,
@@ -76,6 +80,8 @@ func _build_body() -> void:
 					target_visual_max_depth
 				):
 					set_meta("zombie_model", "monja_basica")
+					set_meta("zombie_visual_forward_fix_deg", 90.0)
+					print("XZOGOT_MONJA_FORWARD_FIXED 90")
 					print("XZOGOT_MONJA_BASICA_LOADED")
 					return
 				visual.queue_free()
