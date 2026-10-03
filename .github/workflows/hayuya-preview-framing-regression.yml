@@ -22,9 +22,16 @@ jobs:
             "$BASE/tools/hayuya3d/blender_model_preview_pack.py" \
             -o tools/hayuya3d/blender_model_preview_pack.py
           curl -L --fail --retry 3 \
+            "$BASE/tools/hayuya3d/orient_preview_pack.py" \
+            -o tools/hayuya3d/orient_preview_pack.py
+          curl -L --fail --retry 3 \
             "$BASE/hayuya/models/monja-trellis2-ab-01/model.glb" \
             -o input/model.glb
+          curl -L --fail --retry 3 \
+            "$BASE/hayuya/models/monja-trellis2-ab-01/prepared_views/front.png" \
+            -o input/front_reference.png
           test -s input/model.glb
+          test -s input/front_reference.png
 
       - name: Install Blender
         run: |
@@ -39,6 +46,12 @@ jobs:
             --input input/model.glb \
             --output-dir out/hayuya-preview-framing \
             --size 1024
+
+      - name: Orient front/back from source reference
+        run: |
+          python tools/hayuya3d/orient_preview_pack.py \
+            --reference input/front_reference.png \
+            --render-dir out/hayuya-preview-framing
 
       - name: Verify full-body safe margins
         run: |

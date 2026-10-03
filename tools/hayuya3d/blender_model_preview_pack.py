@@ -216,18 +216,34 @@ def main():
         },
     }
 
-    head_target = center.copy()
-    head_target.z = mn.z + ext.z * 0.78
-    head_scale = max(height * 0.22, float(ext.x) * 0.36, float(ext.y) * 0.36, 0.14)
+    # Generic head/face review region: upper 32% of the subject, centered
+    # laterally and depth-limited so arms/skirts cannot blow out the crop.
+    head_z_min = mn.z + ext.z * 0.68
+    head_half_x = min(float(ext.x) * 0.5, height * 0.24)
+    head_half_y = min(float(ext.y) * 0.5, height * 0.24)
+    head_mn = Vector((
+        center.x - head_half_x,
+        center.y - head_half_y,
+        head_z_min,
+    ))
+    head_mx = Vector((
+        center.x + head_half_x,
+        center.y + head_half_y,
+        mx.z,
+    ))
+    head_target = (head_mn + head_mx) * 0.5
+    head_bounds = (head_mn, head_mx)
     views["face"] = {
         "target": head_target,
-        "offset": Vector((0.0, 3.0 * radius, 0.05 * radius)),
-        "scale": head_scale,
+        "offset": Vector((0.0, 3.0 * radius, 0.02 * radius)),
+        "bounds": head_bounds,
+        "padding": 1.08,
     }
     views["face_opposite"] = {
         "target": head_target,
-        "offset": Vector((0.0, -3.0 * radius, 0.05 * radius)),
-        "scale": head_scale,
+        "offset": Vector((0.0, -3.0 * radius, 0.02 * radius)),
+        "bounds": head_bounds,
+        "padding": 1.08,
     }
 
     rendered = {}
@@ -241,7 +257,10 @@ def main():
             spec["offset"],
             bounds=spec.get("bounds"),
             ortho_scale=spec.get("scale"),
-            padding=full_body_padding if spec.get("bounds") else 1.0,
+            padding=spec.get(
+                "padding",
+                full_body_padding if spec.get("bounds") else 1.0,
+            ),
         )
         rendered[name] = str(output)
 
@@ -258,7 +277,7 @@ def main():
         "framing": {
             "full_body_mode": "projected_aabb_fit",
             "full_body_padding": full_body_padding,
-            "face_mode": "upper_body_closeup",
+            "face_mode": "upper_32pct_bbox_fit",
         },
         "renderer": "blender_eevee_generated_model_preview_v3_bbox_safe",
     }
