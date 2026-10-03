@@ -1,5 +1,7 @@
 extends SceneTree
 
+# Human scale 0.78 screenshot.
+
 # Current build capture after headshot/window fixes.
 
 # Capture Monja Basica common church zombie.
