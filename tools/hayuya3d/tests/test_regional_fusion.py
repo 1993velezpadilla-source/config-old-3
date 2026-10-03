@@ -632,6 +632,43 @@ class RegionalFusionTests(unittest.TestCase):
             self.assertTrue(result.ready_for_judge,result.error)
             self.assertIn("adaptive-fullbody-0.0200",result.method)
 
+
+    def test_face_scope_is_narrower_than_head_scope_and_preserves_topology(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            base=root/"base-face.glb"
+            donor=root/"donor-face.glb"
+            head_out=root/"head.glb"
+            face_out=root/"face.glb"
+            make_character(base,head_scale=1.0,textured=True)
+            make_character(donor,head_scale=1.16)
+
+            head=build_head_wrap_geometry(
+                base,
+                donor,
+                head_out,
+                up_axis="y",
+                donor_scope="head",
+                max_displacement_fraction=0.01,
+            )
+            face=build_head_wrap_geometry(
+                base,
+                donor,
+                face_out,
+                up_axis="y",
+                donor_scope="face",
+                max_displacement_fraction=0.01,
+            )
+
+            self.assertTrue(head.geometry_ready,head.error)
+            self.assertTrue(face.geometry_ready,face.error)
+            self.assertGreater(head.changed_vertices,0)
+            self.assertGreater(face.changed_vertices,0)
+            self.assertLess(face.changed_vertices,head.changed_vertices)
+            self.assertTrue(face.topology_preserved,face.error)
+            self.assertTrue(face.uv_preserved,face.error)
+            self.assertEqual(face.donor_scope,"face")
+
     def test_invalid_skin_weights_fail_closed_before_head_wrap(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp)
