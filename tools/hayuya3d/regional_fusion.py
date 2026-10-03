@@ -1437,14 +1437,16 @@ def prepare_head_wrap_challenger(
             donor_scope=donor_scope,
         )
 
-    result=_build_geometry(raw,0.055)
+    initial_fraction=0.055
+    result=_build_geometry(raw,initial_fraction)
 
     # Nearest-surface transfer can fold/collapse local face topology even when
-    # the donor itself is a valid reconstruction. This is most common with
-    # cropped head donors, but it also happens with full-body multi-view donors
-    # whose facial tessellation differs sharply from the base mesh. Keep every
-    # existing seam/bounds/topology gate and search downward for the strongest
-    # displacement that actually passes. Never relax the gates.
+    # the donor itself is a valid reconstruction. Search downward until a safe
+    # bracket is found, then binary-refine upward to the strongest displacement
+    # that still passes every existing geometry/topology gate.
+    #
+    # This is deliberately source/asset agnostic: the selected strength is
+    # derived from the current base+donor geometry, never from a named fixture.
     if not result.geometry_ready:
         prior=result.error or "aggressive_head_wrap_rejected"
         attempts=[]
@@ -1453,25 +1455,72 @@ def prepare_head_wrap_challenger(
         fractions=(
             (0.030,0.020,0.015,0.010,0.006,0.004,0.0025,0.0015)
             if scope=="fullbody"
-            else (0.010,0.006,0.004,0.0025,0.0015)
+            else (0.030,0.020,0.015,0.010,0.006,0.004,0.0025,0.0015)
         )
+
+        # failed_above and safe_below form a geometry-derived bracket.
+        failed_above=float(initial_fraction)
+        safe_below=None
+        safe_result=None
+        safe_path=None
+
         for fraction in fractions:
             tag=str(fraction).replace(".","p")
             candidate=out_dir/f"head_wrap_adaptive_{scope}_{tag}_raw.glb"
             trial=_build_geometry(candidate,fraction)
             attempts.append(
-                f"{fraction:.4f}:"
+                f"{fraction:.6f}:"
                 + ("pass" if trial.geometry_ready else (trial.error or "rejected"))
             )
             fallback=trial
             if trial.geometry_ready:
-                result=trial
-                raw=candidate
-                result.method=(
-                    "hayuya-head-wrap-regional-fusion-v5-adaptive-"
-                    f"{scope}-{fraction:.4f}"
-                )
+                safe_below=float(fraction)
+                safe_result=trial
+                safe_path=candidate
                 break
+            failed_above=float(fraction)
+
+        if safe_result is not None and safe_below is not None and safe_path is not None:
+            # Maximize fidelity while keeping exactly the same safety gates.
+            # Six bisection rounds resolve the safe strength tightly enough
+            # without weakening seam/collapse/stretch/flip/topology/UV limits.
+            low=float(safe_below)
+            high=float(failed_above)
+            best_fraction=low
+            best_result=safe_result
+            best_path=safe_path
+
+            for refine_index in range(6):
+                mid=(low+high)*0.5
+                tag=(
+                    f"{mid:.6f}"
+                    .rstrip("0")
+                    .rstrip(".")
+                    .replace(".","p")
+                )
+                candidate=(
+                    out_dir
+                    /f"head_wrap_refined_{scope}_{tag}_raw.glb"
+                )
+                trial=_build_geometry(candidate,mid)
+                attempts.append(
+                    f"{mid:.6f}:"
+                    + ("pass" if trial.geometry_ready else (trial.error or "rejected"))
+                )
+                if trial.geometry_ready:
+                    low=mid
+                    best_fraction=mid
+                    best_result=trial
+                    best_path=candidate
+                else:
+                    high=mid
+
+            result=best_result
+            raw=best_path
+            result.method=(
+                "hayuya-head-wrap-regional-fusion-v6-max-safe-"
+                f"{scope}-{best_fraction:.6f}"
+            )
         else:
             assert fallback is not None
             fallback.error=(
