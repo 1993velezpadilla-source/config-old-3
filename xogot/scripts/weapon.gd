@@ -86,7 +86,12 @@ func _fire_hitscan() -> void:
 	if hit.is_empty():
 		return
 	var collider: Object = hit.get("collider") as Object
-	if collider != null and collider.has_method("apply_damage"):
+	if collider == null:
+		return
+	var hit_position: Vector3 = hit.get("position", target) as Vector3
+	if collider.has_method("apply_hitscan_damage"):
+		collider.call("apply_hitscan_damage", damage, _body, hit_position)
+	elif collider.has_method("apply_damage"):
 		collider.call("apply_damage", damage, _body)
 
 func add_reserve_ammo(amount: int) -> void:
