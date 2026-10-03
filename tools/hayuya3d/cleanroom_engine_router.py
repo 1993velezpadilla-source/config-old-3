@@ -162,6 +162,10 @@ def run_candidate(name: str, image: Path, out_dir: Path, token: str | None, seed
         print("HAYUYA_CLEANROOM_PROVIDER_PASS", json.dumps(asdict(candidate), separators=(",", ":"), default=str), flush=True)
         return candidate
     except Exception as exc:
+        skipped = (
+            name == "tripoapi"
+            and type(exc).__name__ == "TripoUnavailable"
+        )
         candidate = Candidate(
             name=name,
             ok=False,
@@ -171,9 +175,18 @@ def run_candidate(name: str, image: Path, out_dir: Path, token: str | None, seed
             bytes=0,
             score=0.0,
             error=f"{type(exc).__name__}: {exc}",
-            meta={"traceback": traceback.format_exc(limit=8)},
+            meta={
+                "traceback": traceback.format_exc(limit=8),
+                "skipped": skipped,
+                "skip_reason": "provider_unavailable" if skipped else None,
+            },
         )
-        print("HAYUYA_CLEANROOM_PROVIDER_FAIL", json.dumps(asdict(candidate), separators=(",", ":"), default=str), flush=True)
+        marker = (
+            "HAYUYA_CLEANROOM_PROVIDER_SKIP"
+            if skipped
+            else "HAYUYA_CLEANROOM_PROVIDER_FAIL"
+        )
+        print(marker, json.dumps(asdict(candidate), separators=(",", ":"), default=str), flush=True)
         return candidate
 
 def main() -> int:
@@ -227,6 +240,14 @@ def main() -> int:
     print("HAYUYA_CLEANROOM_MANIFEST", json.dumps(manifest, separators=(",", ":"), default=str), flush=True)
 
     if not passing:
+        skipped = [x for x in results if x.meta.get("skipped")]
+        if skipped and len(skipped) == len(results):
+            print(
+                "HAYUYA_CLEANROOM_ALL_PROVIDERS_SKIPPED",
+                json.dumps(manifest, separators=(",", ":"), default=str),
+                flush=True,
+            )
+            return 0
         print("HAYUYA_CLEANROOM_NO_WINNER", json.dumps(manifest, separators=(",", ":"), default=str), flush=True)
         return 2
 

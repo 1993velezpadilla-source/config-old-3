@@ -33,6 +33,10 @@ SUPPORTED_MULTIVIEW = {
 class TripoAPIError(RuntimeError):
     pass
 
+class TripoUnavailable(TripoAPIError):
+    """Expected provider unavailability; tournament should skip, not fail."""
+    pass
+
 def _api_key(explicit: str | None = None) -> str:
     key = (explicit or os.getenv("TRIPO_API_KEY") or "").strip()
     if not key:
@@ -176,7 +180,7 @@ def _budget_profile(available: float) -> dict[str, Any]:
             "geometry_quality": "standard",
             "face_limit": 1_500_000,
         }
-    raise TripoAPIError(
+    raise TripoUnavailable(
         f"Tripo balance preflight: {available:g} available credits; "
         "v3.1 image-to-3D requires at least 20 credits without texture"
     )

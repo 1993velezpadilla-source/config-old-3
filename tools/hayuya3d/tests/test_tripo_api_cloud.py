@@ -112,7 +112,7 @@ class TripoAPICloudTests(unittest.TestCase):
         self.assertEqual(
             mod._budget_profile(20)["name"], "standard_geometry_only"
         )
-        with self.assertRaises(mod.TripoAPIError):
+        with self.assertRaises(mod.TripoUnavailable):
             mod._budget_profile(19.999)
 
     def test_standard_v31_clamps_faces_to_1_5m(self):
