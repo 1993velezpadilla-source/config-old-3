@@ -65,7 +65,19 @@ def _run_trellis2(image: Path, out: Path, token: str | None, seed: int) -> dict[
 
 def _run_hunyuan(image: Path, out: Path, token: str | None, seed: int) -> dict[str, Any]:
     mod = importlib.import_module("hunyuan3d_cloud")
-    return mod.generate_textured_material_donor(image, out, token=token, seed=seed)
+    # Geometry authority must come from Hunyuan's shape generator.
+    # Material-donor generation is intentionally a later, non-authoritative pass.
+    return mod.generate_shape(
+        image,
+        out,
+        token=token,
+        seed=seed,
+        steps=30,
+        guidance_scale=5.0,
+        octree_resolution=384,
+        num_chunks=8000,
+        remove_background=False,
+    )
 
 def _run_sf3d(image: Path, out: Path, token: str | None, seed: int) -> dict[str, Any]:
     # Local official Stability-AI/stable-fast-3d checkout only.
