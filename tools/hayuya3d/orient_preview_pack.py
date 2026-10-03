@@ -112,11 +112,13 @@ def score_pair(reference: Path, candidate: Path) -> dict:
     gray_corr = (_corr(rg, cg, joint) + 1.0) * 0.5
     edge_corr = (_corr(re, ce, joint) + 1.0) * 0.5
     hist_corr = float(np.dot(_hist(rr, rm), _hist(cr, cm)))
+    # Front/back is a structural decision. Global color histograms are nearly
+    # orientation-invariant for clothed characters and can overpower the face/
+    # torso evidence, so keep histogram only as diagnostics.
     score = (
-        0.35 * mask_iou
-        + 0.30 * gray_corr
+        0.30 * mask_iou
+        + 0.50 * gray_corr
         + 0.20 * edge_corr
-        + 0.15 * hist_corr
     )
     return {
         "score": round(float(score), 6),
@@ -157,6 +159,7 @@ def main():
             _swap(render_dir, left, right)
 
     confidence = abs(float(pos_y["score"]) - float(neg_y["score"]))
+    ambiguous = confidence < 0.01
     manifest_path = render_dir / "preview_manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     manifest["orientation"] = {
@@ -167,6 +170,7 @@ def main():
         "selected_raw_axis": "-Y" if swapped else "+Y",
         "swapped_front_back": swapped,
         "confidence_delta": round(confidence, 6),
+        "ambiguous": ambiguous,
     }
     manifest_path.write_text(
         json.dumps(manifest, indent=2) + "\n",

@@ -7,6 +7,7 @@ on:
     paths:
       - "hayuya/preview_requests/**.json"
       - "tools/hayuya3d/blender_model_preview_pack.py"
+      - "tools/hayuya3d/orient_preview_pack.py"
       - ".github/workflows/hayuya-existing-model-preview.yml"
   workflow_dispatch:
 
@@ -29,7 +30,7 @@ jobs:
       - name: Install Blender
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq blender python3-numpy libegl1 libgl1 xvfb
+          sudo apt-get install -y -qq blender python3-numpy python3-pil libegl1 libgl1 xvfb
 
       - name: Render requested preview packs
         shell: bash
@@ -43,13 +44,18 @@ jobs:
           fi
 
           for request in "${requests[@]}"; do
-            python -c 'import json,shlex,sys; from pathlib import Path; req=json.loads(Path(sys.argv[1]).read_text(encoding="utf-8")); job_id=str(req["job_id"]).strip(); source=str(req.get("source") or f"hayuya/models/{job_id}/model.glb").strip(); size=int(req.get("size",1024)); assert job_id and "/" not in job_id and "\\" not in job_id, "invalid job_id"; assert 512 <= size <= 2048, "preview size must be 512..2048"; print("JOB_ID="+shlex.quote(job_id)); print("SOURCE="+shlex.quote(source)); print("SIZE="+shlex.quote(str(size)))' "$request" > /tmp/hayuya_preview_env
+            python -c 'import json,shlex,sys; from pathlib import Path; req=json.loads(Path(sys.argv[1]).read_text(encoding="utf-8")); job_id=str(req["job_id"]).strip(); source=str(req.get("source") or f"hayuya/models/{job_id}/model.glb").strip(); size=int(req.get("size",1024)); front_reference=str(req.get("front_reference") or f"hayuya/models/{job_id}/prepared_views/front.png").strip(); assert job_id and "/" not in job_id and "\\" not in job_id, "invalid job_id"; assert 512 <= size <= 2048, "preview size must be 512..2048"; print("JOB_ID="+shlex.quote(job_id)); print("SOURCE="+shlex.quote(source)); print("SIZE="+shlex.quote(str(size))); print("FRONT_REFERENCE="+shlex.quote(front_reference))' "$request" > /tmp/hayuya_preview_env
             source /tmp/hayuya_preview_env
 
             test -s "$SOURCE"
             out="hayuya/models/$JOB_ID/renders"
             rm -rf "$out"
             xvfb-run -a blender --python-exit-code 1 -b --python tools/hayuya3d/blender_model_preview_pack.py -- --input "$SOURCE" --output-dir "$out" --size "$SIZE"
+            if [ -s "$FRONT_REFERENCE" ]; then
+              python tools/hayuya3d/orient_preview_pack.py --reference "$FRONT_REFERENCE" --render-dir "$out"
+            else
+              echo "HAYUYA_PREVIEW_ORIENTATION_SKIPPED missing=$FRONT_REFERENCE"
+            fi
           done
 
       - name: Persist preview packs
