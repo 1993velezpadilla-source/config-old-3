@@ -108,23 +108,23 @@ func _build_ramp(ramp: Dictionary) -> void:
 		high = swap
 
 	var horizontal := Vector3(high.x - low.x, 0.0, high.z - low.z)
-	var total_len := max(horizontal.length(), 0.01)
+	var total_len: float = maxf(horizontal.length(), 0.01)
 	var direction := horizontal.normalized()
-	var requested := max(int(ramp.get("steps", 12)), 12)
-	var vertical := high.y - low.y
-	var steps := max(requested, int(ceil(abs(vertical) / 0.30)))
-	var seg_len := total_len / float(steps)
-	var width := float(ramp.get("width_m", 1.5))
-	var yaw := atan2(direction.x, direction.z)
-	var base_y := low.y - 0.12
+	var requested: int = maxi(int(ramp.get("steps", 12)), 12)
+	var vertical: float = high.y - low.y
+	var steps: int = maxi(requested, int(ceil(absf(vertical) / 0.30)))
+	var seg_len: float = total_len / float(steps)
+	var width: float = float(ramp.get("width_m", 1.5))
+	var yaw: float = atan2(direction.x, direction.z)
+	var base_y: float = low.y - 0.12
 
 	for i in range(steps):
-		var t0 := float(i) / float(steps)
-		var t1 := float(i + 1) / float(steps)
+		var t0: float = float(i) / float(steps)
+		var t1: float = float(i + 1) / float(steps)
 		var p0 := low.lerp(high, t0)
 		var p1 := low.lerp(high, t1)
-		var top_y := p1.y
-		var height := max(0.08, top_y - base_y)
+		var top_y: float = p1.y
+		var height: float = maxf(0.08, top_y - base_y)
 		var mid := Vector3((p0.x + p1.x) * 0.5, base_y + height * 0.5, (p0.z + p1.z) * 0.5)
 		_add_box(
 			"Ramp_%s_%02d" % [str(ramp.get("id", "ramp")), i],
