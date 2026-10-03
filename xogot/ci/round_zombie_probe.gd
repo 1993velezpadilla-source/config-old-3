@@ -90,13 +90,13 @@ func _run_probe() -> void:
 	var fitted_height: float = float(zombie.get_meta("zombie_visual_height_m", 0.0))
 	var fitted_width: float = float(zombie.get_meta("zombie_visual_width_m", 0.0))
 	var fitted_depth: float = float(zombie.get_meta("zombie_visual_depth_m", 0.0))
-	if fitted_height < 1.72 or fitted_height > 1.76:
+	if fitted_height < 1.75 or fitted_height > 1.77:
 		_fail(23, "Monja Basica fitted height out of range: %s" % fitted_height)
 		return
-	if fitted_width < 0.70 or fitted_width > 0.76:
+	if fitted_width < 0.72 or fitted_width > 0.75:
 		_fail(24, "Monja Basica fitted width out of range: %s" % fitted_width)
 		return
-	if fitted_depth < 0.55 or fitted_depth > 0.61:
+	if fitted_depth < 0.56 or fitted_depth > 0.59:
 		_fail(25, "Monja Basica fitted depth out of range: %s" % fitted_depth)
 		return
 	if not bool(zombie.get_meta("zombie_visual_centered_on_feet", false)):
@@ -110,8 +110,11 @@ func _run_probe() -> void:
 	if zombie_capsule == null:
 		_fail(28, "Monja Basica capsule missing")
 		return
-	if absf(zombie_capsule.radius - 0.30) > 0.001 or absf(zombie_capsule.height - 1.70) > 0.001:
+	if absf(zombie_capsule.radius - 0.29) > 0.001 or absf(zombie_capsule.height - 1.72) > 0.001:
 		_fail(29, "Monja Basica collider dimensions wrong")
+		return
+	if absf(float(zombie.get("headshot_height_ratio")) - 0.84) > 0.001:
+		_fail(38, "Monja Basica headshot height ratio wrong")
 		return
 
 	var spawn_position: Vector3 = (zombie as Node3D).global_position
@@ -179,7 +182,7 @@ func _run_probe() -> void:
 		return
 
 	# Head hit: 30 x 2 damage, +10 hit +10 headshot bonus.
-	var head_position: Vector3 = (zombie as Node3D).global_position + Vector3(0.0, 1.52, 0.0)
+	var head_position: Vector3 = (zombie as Node3D).global_position + Vector3(0.0, 1.56, 0.0)
 	zombie.call("apply_hitscan_damage", 30.0, player, head_position)
 	if not bool(zombie.get_meta("last_hit_headshot", false)):
 		_fail(36, "head impact was not classified as headshot")
@@ -198,6 +201,7 @@ func _run_probe() -> void:
 	if int(player.call("get_points")) != points_before_kill + 100:
 		_fail(18, "body/headshot/kill points accounting wrong")
 		return
+	print("XZOGOT_ENEMY_SCALE_PROBE_GREEN")
 	print("XZOGOT_HEADSHOT_PROBE_GREEN")
 
 	player.call("heal_full")
