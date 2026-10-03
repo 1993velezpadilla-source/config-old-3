@@ -1,0 +1,21 @@
+{
+  "asset_id": "monja_basica",
+  "display_name": "Monja Básica",
+  "file": "monja_basica.glb",
+  "role": "common_church_zombie",
+  "canonical": true,
+  "version": 1,
+  "geometry": {
+    "vertices": 1023652,
+    "indices": 5816952,
+    "triangles": 1938984
+  },
+  "gameplay_fit_m": {
+    "height": 1.74,
+    "max_width": 0.75,
+    "max_depth": 0.60,
+    "collider_radius": 0.30,
+    "collider_height": 1.70
+  },
+  "notes": "Canonical common zombie for the church. Keep this filename and asset_id stable; variants must use different asset IDs."
+}
