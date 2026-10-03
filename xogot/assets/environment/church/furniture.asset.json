@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "source": "user-authored church furniture uploads",
+  "assets": {
+    "altar": {
+      "file": "altar.glb",
+      "sha256": "b97b7cc3d4b88011357f5ba805f8cc7630d39f105bf1f7b57587010b733d7298",
+      "bytes": 23464484,
+      "vertices": 1053024,
+      "indices": 5767689,
+      "triangles": 1922563,
+      "raw_extents": [
+        0.553695679,
+        0.777038574,
+        0.980178833
+      ],
+      "pbr": [
+        "base_color",
+        "orm",
+        "normal"
+      ],
+      "meshopt_compressed": true
+    },
+    "bench": {
+      "file": "bench.glb",
+      "sha256": "00d790195ccfb893f623968ef52704dedb42ce24cb3c52e88c3a3ce1645185c7",
+      "bytes": 24641060,
+      "vertices": 1009693,
+      "indices": 5731992,
+      "triangles": 1910664,
+      "raw_extents": [
+        0.980453491,
+        0.457199096,
+        0.285186768
+      ],
+      "pbr": [
+        "base_color",
+        "orm",
+        "normal"
+      ],
+      "meshopt_compressed": true
+    }
+  },
+  "runtime": {
+    "preserve_original_geometry": true,
+    "collision_policy": "simple invisible proxy; never mesh collision",
+    "bench_target_authoring_m": [
+      4.65,
+      1.35,
+      1
+    ],
+    "altar_target_authoring_m": [
+      3.6,
+      1.45,
+      1.35
+    ]
+  }
+}
