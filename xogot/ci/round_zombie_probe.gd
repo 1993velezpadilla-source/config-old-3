@@ -113,11 +113,41 @@ func _run_probe() -> void:
 		_fail(29, "Monja Basica collider dimensions wrong")
 		return
 
+	var spawn_position: Vector3 = (zombie as Node3D).global_position
+	var inside_point: Vector3 = barricade.call("get_inside_point") as Vector3
+
 	await physics_frame
 	await physics_frame
-	if int(zombie.call("get_phase")) != 2:
-		_fail(16, "zombie did not cross broken barricade into chase phase")
+	if int(zombie.call("get_phase")) != 4:
+		_fail(16, "zombie skipped physical CROSS_WINDOW phase")
 		return
+	if (zombie as Node3D).global_position.distance_to(inside_point) < 0.35:
+		_fail(30, "zombie teleported through the window instead of traversing it")
+		return
+
+	var crossed_physically: bool = false
+	for i in range(180):
+		await physics_frame
+		if not is_instance_valid(zombie):
+			_fail(31, "zombie vanished during window traversal")
+			return
+		if int(zombie.call("get_phase")) == 2:
+			crossed_physically = true
+			break
+
+	if not crossed_physically:
+		_fail(32, "zombie could not physically cross the real window aperture")
+		return
+
+	var crossed_position: Vector3 = (zombie as Node3D).global_position
+	if crossed_position.distance_to(inside_point) > 0.45:
+		_fail(33, "zombie entered chase phase before reaching the interior side")
+		return
+	if crossed_position.distance_to(spawn_position) < 2.0:
+		_fail(34, "zombie did not actually travel through the wall opening")
+		return
+
+	print("XZOGOT_WINDOW_PHYSICAL_CROSS_GREEN")
 
 	var points_before_kill: int = int(player.call("get_points"))
 	for i in range(4):
