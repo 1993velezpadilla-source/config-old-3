@@ -1,0 +1,40 @@
+name: Normalize Church Furniture GLB
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  normalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: feature/xogot-port-v1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Decode unsupported glTF extensions
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --global @gltf-transform/cli@4.5.1
+          mkdir -p /tmp/furniture
+          gltf-transform cp xogot/assets/environment/church/altar.glb /tmp/furniture/altar-cp.glb
+          gltf-transform dequantize /tmp/furniture/altar-cp.glb /tmp/furniture/altar.glb
+          gltf-transform cp xogot/assets/environment/church/bench.glb /tmp/furniture/bench-cp.glb
+          gltf-transform dequantize /tmp/furniture/bench-cp.glb /tmp/furniture/bench.glb
+          cp /tmp/furniture/altar.glb xogot/assets/environment/church/altar.glb
+          cp /tmp/furniture/bench.glb xogot/assets/environment/church/bench.glb
+      - name: Commit normalized GLBs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "xziel-bot"
+          git config user.email "xziel-bot@users.noreply.github.com"
+          git add xogot/assets/environment/church/altar.glb xogot/assets/environment/church/bench.glb
+          git commit -m "Normalize altar and bench GLBs for Godot"
+          git push origin HEAD:feature/xogot-port-v1
