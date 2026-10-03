@@ -1,0 +1,151 @@
+name: HAYUYA Cleanroom Winner Judge
+run-name: HAYUYA Judge • Monji • cleanroom winner
+
+on:
+  push:
+    branches:
+      - art/hayuya-cleanroom-aaa-v1
+    paths:
+      - .github/workflows/hayuya-cleanroom-winner-judge.yml
+      - tools/hayuya3d/judge_phone_v4.py
+      - tools/hayuya3d/judge_v4.py
+      - tools/hayuya3d/blender_judge_turntable_24.py
+      - tools/hayuya3d/judge_v4_face_worker.py
+      - tools/hayuya3d/visual_judge.py
+      - tools/hayuya3d/turntable_qa.py
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: hayuya-cleanroom-winner-judge-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  judge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      SOURCE_RUN_ID: "37102628769"
+      JUDGE_ROOT: out/hayuya-cleanroom/judge-monji
+
+    steps:
+      - name: Checkout Hayuya
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 1
+
+      - name: Download cleanroom winner
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/cleanroom-winner
+          gh run download "$SOURCE_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            -n hayuya-cleanroom-monji-final \
+            -D /tmp/cleanroom-winner
+          test -s /tmp/cleanroom-winner/winner.glb
+          ls -lh /tmp/cleanroom-winner
+
+      - name: Prepare Judge input package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$JUDGE_ROOT/prepared_views" "$JUDGE_ROOT/prepared_details"
+          cp /tmp/cleanroom-winner/winner.glb "$JUDGE_ROOT/hayuya_final.glb"
+          cp hayuya/assets/monji-murgucol/geometry/primary.webp "$JUDGE_ROOT/prepared_views/front.webp"
+          cp hayuya/assets/monji-murgucol/references/* "$JUDGE_ROOT/prepared_views/" || true
+          cp hayuya/assets/monji-murgucol/details/* "$JUDGE_ROOT/prepared_details/" || true
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          root=Path(os.environ["JUDGE_ROOT"])
+          agg=Path("/tmp/cleanroom-winner/cleanroom_aggregate.json")
+          aggregate=json.loads(agg.read_text()) if agg.exists() else {}
+          manifest={
+            "schema":2,
+            "job_id":"monji-murgucol-cleanroom-winner-judge",
+            "title":"Monji cleanroom Hunyuan winner Judge",
+            "profile":"monster",
+            "mode":"character",
+            "asset_profile":"character.creature",
+            "generator":"cleanroom_tournament",
+            "cleanroom_source_run":int(os.environ["SOURCE_RUN_ID"]),
+            "cleanroom_aggregate":aggregate,
+            "production_approved":False,
+          }
+          (root/"manifest.json").write_text(json.dumps(manifest,indent=2)+"\n")
+          PY
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Judge v4 Core
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender python3-numpy libegl1 libgl1 libgles2
+          python -m pip install --upgrade pip
+          python -m pip install \
+            pillow numpy trimesh scipy scikit-image \
+            "mediapipe==0.10.21" \
+            "transformers>=4.45,<6" accelerate safetensors \
+            huggingface_hub sentencepiece einops timm dreamsim
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
+
+      - name: Run Judge v4 Core
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/hayuya3d/judge_phone_v4.py \
+            --output-root "$JUDGE_ROOT" \
+            --python "$(command -v python)" \
+            --force-character
+
+      - name: Judge summary
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, os
+          from pathlib import Path
+          root=Path(os.environ["JUDGE_ROOT"])
+          print("## HAYUYA Cleanroom Winner Judge")
+          mp=root/"manifest.json"
+          if not mp.exists():
+              print("\nManifest missing.")
+              raise SystemExit(0)
+          m=json.loads(mp.read_text())
+          pre=m.get("judge_v4_front_preflight") or {}
+          core=m.get("judge_v4_core") or {}
+          vis=m.get("visual_approval") or {}
+          print(f"\n- Front preflight: **{pre.get('passed','n/a')}**")
+          print(f"- Core passed: **{vis.get('core_passed','n/a')}**")
+          print(f"- Production approved: **{vis.get('production_approved',False)}**")
+          reasons=vis.get("hard_fail_reasons") or pre.get("reasons") or []
+          if reasons:
+              print("\n### Hard failures")
+              for reason in reasons[:32]:
+                  print(f"- \`{reason}\`")
+          face=pre.get("front_face")
+          if face:
+              print(f"\nFront render: \`{face}\`")
+          PY
+
+      - name: Upload Judge evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hayuya-cleanroom-monji-judge
+          path: |
+            out/hayuya-cleanroom/judge-monji/**
+          if-no-files-found: warn
+          retention-days: 14
