@@ -1,5 +1,7 @@
 extends SceneTree
 
+# Current build capture after headshot/window fixes.
+
 # Capture Monja Basica common church zombie.
 # Auto-fit Monja screenshot.
 # Final proportion pass screenshot.
