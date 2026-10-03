@@ -2,11 +2,12 @@ extends Control
 
 @onready var _player: Node = get_node_or_null("../../Player")
 @onready var _weapon: Node = get_node_or_null("../../Player/Weapon")
+@onready var _round_manager: Node = get_node_or_null("../../RoundManager")
 
 func _ready() -> void:
 	set_process(true)
 	queue_redraw()
-	print("XZOGOT_HUD_V4_READY")
+	print("XZOGOT_HUD_V5_READY")
 
 func _process(_delta: float) -> void:
 	queue_redraw()
@@ -84,6 +85,26 @@ func _draw() -> void:
 		var points_pos := Vector2(s.x * 0.05, s.y * 0.92)
 		draw_rect(Rect2(points_pos, points_size), Color(1.0, 1.0, 1.0, 0.10), true)
 		draw_rect(Rect2(points_pos, Vector2(points_size.x * point_ratio, points_size.y)), warm, true)
+
+
+	# Health meter.
+	if _player != null and _player.has_method("get_health"):
+		var health: float = float(_player.call("get_health"))
+		var max_health: float = float(_player.get("max_health"))
+		var health_ratio: float = clampf(health / maxf(max_health, 1.0), 0.0, 1.0)
+		var health_size := Vector2(s.x * 0.16, 6.0)
+		var health_pos := Vector2(s.x * 0.05, s.y * 0.89)
+		draw_rect(Rect2(health_pos, health_size), Color(1.0, 1.0, 1.0, 0.10), true)
+		draw_rect(Rect2(health_pos, Vector2(health_size.x * health_ratio, health_size.y)), combat, true)
+
+	# Round meter. One segment per round, capped visually at 10.
+	if _round_manager != null and _round_manager.has_method("get_round"):
+		var current_round: int = int(_round_manager.call("get_round"))
+		var round_ratio: float = clampf(float(current_round) / 10.0, 0.0, 1.0)
+		var round_size := Vector2(s.x * 0.12, 5.0)
+		var round_pos := Vector2(s.x * 0.44, s.y * 0.06)
+		draw_rect(Rect2(round_pos, round_size), Color(1.0, 1.0, 1.0, 0.10), true)
+		draw_rect(Rect2(round_pos, Vector2(round_size.x * round_ratio, round_size.y)), white, true)
 
 	# Right-side look area hint kept intentionally subtle.
 	draw_arc(Vector2(s.x * 0.73, s.y * 0.38), min_dim * 0.045, -0.8, 0.8, 18, Color(1,1,1,0.08), 2.0)
