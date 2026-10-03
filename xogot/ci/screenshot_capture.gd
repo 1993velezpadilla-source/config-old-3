@@ -37,13 +37,14 @@ func _capture() -> void:
 				zombie.look_at(player.global_position, Vector3.UP)
 			zombie.set_physics_process(false)
 
-			# Diagnostic-only neutral light so the actual imported model is visible.
+			# Very soft warm fill only for visibility; keep gameplay contrast/shadows intact.
 			var inspect_light := OmniLight3D.new()
-			inspect_light.name = "ScreenshotInspectLight"
-			inspect_light.position = Vector3(0.0, 2.2, 5.8)
-			inspect_light.omni_range = 9.0
-			inspect_light.light_energy = 2.2
-			inspect_light.light_color = Color(0.92, 0.95, 1.0)
+			inspect_light.name = "ScreenshotSoftFill"
+			inspect_light.position = Vector3(0.8, 2.1, 5.2)
+			inspect_light.omni_range = 6.5
+			inspect_light.light_energy = 0.48
+			inspect_light.light_color = Color(0.82, 0.68, 0.52)
+			inspect_light.shadow_enabled = true
 			scene.add_child(inspect_light)
 
 	for i in range(12):
