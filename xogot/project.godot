@@ -1,10 +1,10 @@
-; XZOMBIE / Xogot native port
-; Godot 4.6 project — GDScript only for Xogot iPad/iPhone compatibility.
+; YOU WON'T WIN — native Xogot/Godot project
+; Fresh foundation. No legacy church/map dependency.
 config_version=5
 
 [application]
 
-config/name="XZOMBIE — Xogot Port"
+config/name="YOU WON'T WIN"
 run/main_scene="res://main.tscn"
 config/features=PackedStringArray("4.6", "Mobile")
 
