@@ -1,6 +1,8 @@
 extends Node3D
 
 const WORLD_SCALE: float = 0.78
+const ALTAR_ASSET_PATH := "res://assets/environment/church/altar.glb"
+const BENCH_ASSET_PATH := "res://assets/environment/church/bench.glb"
 
 var _stone_texture: Texture2D
 var _wood_texture: Texture2D
@@ -225,15 +227,11 @@ func _build_side_wall_with_window_openings(x: float, side: String, stone: Color,
 
 func _build_interior() -> void:
 	var wood := Color(0.115, 0.062, 0.031)
-	# Center aisle + raised altar, kept deliberately tighter than the first blockout.
+	# Center aisle + raised altar. Furniture visuals now come from the authored GLBs.
 	_box("Aisle", Vector3(2.55, 0.035, 29.0), Vector3(0, 0.465, -3), Color(0.145, 0.132, 0.112))
 	_box("AltarPlatform", Vector3(7.2, 0.34, 4.2), Vector3(0, 0.49, -20.5), Color(0.105, 0.095, 0.082))
-	_box("Altar", Vector3(3.5, 1.0, 1.15), Vector3(0, 1.12, -21.0), Color(0.23, 0.205, 0.16))
-	# Human-scale pews: thinner seat/back and shorter span, so they read as furniture instead of blocks.
-	for z in range(-15, 8, 4):
-		if z != 1 and z != 5:
-			_pew(Vector3(-4.75, 0.55, float(z)), wood)
-		_pew(Vector3(4.75, 0.55, float(z)), wood)
+	_build_authored_altar()
+	_build_authored_benches()
 	# upper rear balcony / second-floor gameplay shell
 	_box("Balcony", Vector3(20.5, 0.5, 6.0), Vector3(0, 5.0, 10.4), Color(0.11, 0.075, 0.045))
 
@@ -253,6 +251,177 @@ func _build_interior() -> void:
 		)
 	_box("StairTopLanding", Vector3(3.4, 0.30, 1.6), Vector3(-8.0, 5.08, 7.75), wood, false)
 	_build_balcony_stair_ramp()
+
+func _build_authored_altar() -> void:
+	var altar_base_y: float = 0.66
+	var altar_target := Vector3(3.60, 1.45, 1.35)
+	var altar := _spawn_fitted_furniture(
+		ALTAR_ASSET_PATH,
+		"AuthoredAltar",
+		Vector3(0.0, altar_base_y, -20.85),
+		altar_target,
+		90.0,
+		true
+	)
+	if altar != null:
+		altar.add_to_group("authored_church_furniture")
+		_collision_box(
+			"AltarCollision",
+			Vector3(3.35, 1.12, 1.15),
+			Vector3(0.0, altar_base_y + 0.56, -20.85)
+		)
+		print("XZOGOT_AUTHORED_ALTAR_READY")
+
+func _build_authored_benches() -> void:
+	var bench_base_y: float = 0.445
+	var bench_target := Vector3(4.65, 1.35, 1.00)
+	var bench_rows: Array[float] = [-15.0, -11.0, -7.0, -3.0, 1.0]
+	var count: int = 0
+	for z: float in bench_rows:
+		var right := _spawn_fitted_furniture(
+			BENCH_ASSET_PATH,
+			"AuthoredBench_R_%02d" % count,
+			Vector3(4.75, bench_base_y, z),
+			bench_target,
+			0.0,
+			false
+		)
+		if right != null:
+			right.add_to_group("authored_church_furniture")
+			_collision_box(
+				"BenchCollision_R_%02d" % count,
+				Vector3(4.30, 0.78, 0.82),
+				Vector3(4.75, bench_base_y + 0.39, z)
+			)
+			count += 1
+
+		# Preserve the stair lane on the rear-left side.
+		if z <= -3.0:
+			var left := _spawn_fitted_furniture(
+				BENCH_ASSET_PATH,
+				"AuthoredBench_L_%02d" % count,
+				Vector3(-4.75, bench_base_y, z),
+				bench_target,
+				0.0,
+				false
+			)
+			if left != null:
+				left.add_to_group("authored_church_furniture")
+				_collision_box(
+					"BenchCollision_L_%02d" % count,
+					Vector3(4.30, 0.78, 0.82),
+					Vector3(-4.75, bench_base_y + 0.39, z)
+				)
+				count += 1
+
+	print("XZOGOT_AUTHORED_BENCHES_READY ", count)
+
+func _spawn_fitted_furniture(
+	path: String,
+	label: String,
+	base_pos: Vector3,
+	target_size: Vector3,
+	rotation_y_deg: float,
+	swap_xz: bool
+) -> Node3D:
+	if not ResourceLoader.exists(path):
+		push_error("FURNITURE_ASSET_MISSING: " + path)
+		return null
+
+	var packed: PackedScene = load(path) as PackedScene
+	if packed == null:
+		push_error("FURNITURE_ASSET_NOT_PACKED: " + path)
+		return null
+
+	var imported: Node3D = packed.instantiate() as Node3D
+	if imported == null:
+		push_error("FURNITURE_ASSET_INSTANTIATE_FAILED: " + path)
+		return null
+
+	var points: Array[Vector3] = []
+	_collect_furniture_bounds(imported, Transform3D.IDENTITY, points)
+	if points.is_empty():
+		imported.queue_free()
+		push_error("FURNITURE_ASSET_BOUNDS_EMPTY: " + path)
+		return null
+
+	var min_v: Vector3 = points[0]
+	var max_v: Vector3 = points[0]
+	for point: Vector3 in points:
+		min_v.x = minf(min_v.x, point.x)
+		min_v.y = minf(min_v.y, point.y)
+		min_v.z = minf(min_v.z, point.z)
+		max_v.x = maxf(max_v.x, point.x)
+		max_v.y = maxf(max_v.y, point.y)
+		max_v.z = maxf(max_v.z, point.z)
+
+	var raw_size: Vector3 = max_v - min_v
+	if raw_size.x <= 0.0001 or raw_size.y <= 0.0001 or raw_size.z <= 0.0001:
+		imported.queue_free()
+		push_error("FURNITURE_ASSET_BAD_BOUNDS: " + path)
+		return null
+
+	var desired_local: Vector3 = target_size
+	if swap_xz:
+		desired_local = Vector3(target_size.z, target_size.y, target_size.x)
+	var desired_world: Vector3 = desired_local * WORLD_SCALE
+
+	var wrapper := Node3D.new()
+	wrapper.name = label
+	wrapper.position = _wp(base_pos)
+	wrapper.rotation_degrees.y = rotation_y_deg
+	wrapper.scale = Vector3(
+		desired_world.x / raw_size.x,
+		desired_world.y / raw_size.y,
+		desired_world.z / raw_size.z
+	)
+
+	imported.name = "Source"
+	imported.position = Vector3(
+		-(min_v.x + max_v.x) * 0.5,
+		-min_v.y,
+		-(min_v.z + max_v.z) * 0.5
+	)
+	wrapper.add_child(imported)
+	wrapper.set_meta("source_asset", path)
+	wrapper.set_meta("target_size_m", target_size * WORLD_SCALE)
+	add_child(wrapper)
+	return wrapper
+
+func _collect_furniture_bounds(
+	node: Node3D,
+	parent_transform: Transform3D,
+	points: Array[Vector3]
+) -> void:
+	var current_transform: Transform3D = parent_transform * node.transform
+	if node is MeshInstance3D:
+		var mesh_instance := node as MeshInstance3D
+		if mesh_instance.mesh != null:
+			var bounds: AABB = mesh_instance.mesh.get_aabb()
+			for xi in range(2):
+				for yi in range(2):
+					for zi in range(2):
+						var corner := bounds.position + Vector3(
+							bounds.size.x * float(xi),
+							bounds.size.y * float(yi),
+							bounds.size.z * float(zi)
+						)
+						points.append(current_transform * corner)
+
+	for child: Node in node.get_children():
+		if child is Node3D:
+			_collect_furniture_bounds(child as Node3D, current_transform, points)
+
+func _collision_box(label: String, size: Vector3, pos: Vector3) -> void:
+	var body := StaticBody3D.new()
+	body.name = label
+	body.position = _wp(pos)
+	var cs := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = _ws(size)
+	cs.shape = shape
+	body.add_child(cs)
+	add_child(body)
 
 func _build_realism_pass() -> void:
 	# Visual-only architecture pass. These details intentionally do not alter gameplay collision.
