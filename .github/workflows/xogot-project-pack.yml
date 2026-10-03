@@ -6,11 +6,11 @@ on:
     branches:
       - feature/xogot-port-v1
     paths:
-      - "xogot/**"
+      - "xogot/tools/**"
+      - "xogot/data/nav_skeleton.json"
       - "tools/church_map/bake_hero_blend_for_xzsm.py"
       - "tools/church_map/sanctum_nav_skeleton_apk9.v1.json"
       - "tools/sanctum_v2/reference_materials.py"
-      - ".github/workflows/xogot-project-pack.yml"
 
 permissions:
   contents: read
