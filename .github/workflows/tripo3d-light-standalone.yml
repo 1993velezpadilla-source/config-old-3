@@ -49,13 +49,15 @@ jobs:
         run: python tripo_probe.py --dry-run --image-url "$IMAGE_URL" --model-version "$MODEL_VERSION"
 
   api:
-    if: github.event_name == 'workflow_dispatch' && (inputs.mode == 'auth' || inputs.mode == 'generate')
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && (inputs.mode == 'auth' || inputs.mode == 'generate'))
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: standalone/tripo3d-light-test
     env:
       TRIPO_API_KEY: ${{ secrets.TRIPO_API_KEY }}
+      IMAGE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.image_url || 'https://raw.githubusercontent.com/VAST-AI-Research/TripoSR/main/examples/chair.png' }}
+      MODEL_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.model_version || 'v2.5-20250123' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -67,14 +69,14 @@ jobs:
       - name: Auth/balance smoke
         run: python tripo_probe.py --auth-check
       - name: Real generation
-        if: inputs.mode == 'generate'
+        if: github.event_name == 'pull_request' || inputs.mode == 'generate'
         run: >-
           python tripo_probe.py --generate
-          --image-url "${{ inputs.image_url }}"
-          --model-version "${{ inputs.model_version }}"
+          --image-url "$IMAGE_URL"
+          --model-version "$MODEL_VERSION"
           --out-dir output
       - name: Upload generated files
-        if: inputs.mode == 'generate' && always()
+        if: (github.event_name == 'pull_request' || inputs.mode == 'generate') && always()
         uses: actions/upload-artifact@v4
         with:
           name: tripo3d-light-standalone-output
