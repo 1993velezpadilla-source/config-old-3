@@ -63,6 +63,7 @@ jobs:
             2>&1 | tee build/xogot-ai/runtime.log
           grep -q "YOU_WONT_WIN: CHURCH_V2_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_PLAYER_READY" build/xogot-ai/runtime.log
+          grep -q "XZOGOT_WINDOWS_PREPARED 8" build/xogot-ai/runtime.log
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-ai/runtime.log
           echo "XOGOT_AI_VM_GREEN"
 
