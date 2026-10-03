@@ -1,0 +1,59 @@
+name: Audit Latest HUD Skins
+
+on:
+  push:
+    branches:
+      - feature/xogot-port-v1
+    paths:
+      - ".github/workflows/audit-latest-hud-temp.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  sheet:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build contact sheet
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -q pillow
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image, ImageDraw, ImageFont
+
+          root=Path("xogot/assets/hud/latest_12")
+          files=[
+            "hud_ads.webp","hud_ads_fire.webp","hud_claw.webp","hud_crouch.webp",
+            "hud_fire.webp","hud_grenade.webp","hud_knife.webp","hud_prone.webp",
+            "hud_reload.webp","hud_slide.webp","hud_sprint.webp","hud_swap.webp",
+            "hud_jump.png"
+          ]
+          cell_w,cell_h=220,190
+          cols=4
+          rows=(len(files)+cols-1)//cols
+          sheet=Image.new("RGBA",(cell_w*cols,cell_h*rows),(20,20,20,255))
+          draw=ImageDraw.Draw(sheet)
+          for i,name in enumerate(files):
+            im=Image.open(root/name).convert("RGBA")
+            # nearest source inspection + smooth enlarged gameplay-like preview
+            max_side=120
+            scale=min(max_side/im.width,max_side/im.height)
+            resized=im.resize((round(im.width*scale),round(im.height*scale)),Image.Resampling.LANCZOS)
+            x=(i%cols)*cell_w+(cell_w-resized.width)//2
+            y=(i//cols)*cell_h+18
+            sheet.alpha_composite(resized,(x,y))
+            draw.text(((i%cols)*cell_w+10,(i//cols)*cell_h+145),name,fill=(255,255,255,255))
+            draw.text(((i%cols)*cell_w+10,(i//cols)*cell_h+163),f"{im.width}x{im.height}",fill=(170,170,170,255))
+          out=Path("/tmp/xziel-hud-contact-sheet.png")
+          sheet.convert("RGB").save(out,quality=95)
+          print(out)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: XZIEL-HUD-Contact-Sheet
+          path: /tmp/xziel-hud-contact-sheet.png
+          retention-days: 2
