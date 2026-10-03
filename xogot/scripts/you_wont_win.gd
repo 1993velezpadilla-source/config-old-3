@@ -125,7 +125,10 @@ func _build_interior() -> void:
 	_box("Altar", Vector3(4.8, 1.25, 1.5), Vector3(0, 1.45, -21.2), Color(0.30, 0.27, 0.21))
 	# pew rows leave a central combat lane
 	for z in range(-15, 8, 4):
-		_pew(Vector3(-5.6, 0.75, float(z)), wood)
+		# Keep a clear 3.2 m stair lane along the rear-left wall.
+		# The z=1 and z=5 left pew rows used to physically block the balcony stairs.
+		if z != 1 and z != 5:
+			_pew(Vector3(-5.6, 0.75, float(z)), wood)
 		_pew(Vector3(5.6, 0.75, float(z)), wood)
 	# upper rear balcony / second-floor gameplay shell
 	_box("Balcony", Vector3(20.5, 0.5, 6.0), Vector3(0, 5.0, 10.4), Color(0.11, 0.075, 0.045))
