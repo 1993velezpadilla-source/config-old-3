@@ -112,6 +112,12 @@ PROVIDERS: dict[str, Callable[[Path, Path, str | None, int], dict[str, Any]]] = 
 
 def run_candidate(name: str, image: Path, out_dir: Path, token: str | None, seed: int) -> Candidate:
     out = out_dir / f"{name}.glb"
+    print("HAYUYA_CLEANROOM_PROVIDER_START", json.dumps({
+        "provider": name,
+        "input": str(image),
+        "output": str(out),
+        "seed": seed,
+    }, separators=(",", ":")), flush=True)
     try:
         meta = PROVIDERS[name](image, out, token, seed) or {}
         if not out.is_file():
@@ -125,7 +131,7 @@ def run_candidate(name: str, image: Path, out_dir: Path, token: str | None, seed
             raise RuntimeError(f"{name} invalid GLB magic/size")
         faces, vertices, audit = _load_mesh_stats(out)
         meta = {**meta, **audit}
-        return Candidate(
+        candidate = Candidate(
             name=name,
             ok=True,
             path=str(out),
@@ -136,8 +142,10 @@ def run_candidate(name: str, image: Path, out_dir: Path, token: str | None, seed
             error=None,
             meta=meta,
         )
+        print("HAYUYA_CLEANROOM_PROVIDER_PASS", json.dumps(asdict(candidate), separators=(",", ":"), default=str), flush=True)
+        return candidate
     except Exception as exc:
-        return Candidate(
+        candidate = Candidate(
             name=name,
             ok=False,
             path=None,
@@ -148,12 +156,14 @@ def run_candidate(name: str, image: Path, out_dir: Path, token: str | None, seed
             error=f"{type(exc).__name__}: {exc}",
             meta={"traceback": traceback.format_exc(limit=8)},
         )
+        print("HAYUYA_CLEANROOM_PROVIDER_FAIL", json.dumps(asdict(candidate), separators=(",", ":"), default=str), flush=True)
+        return candidate
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="HAYUYA clean-room image-to-3D tournament router")
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
-    parser.add_argument("--providers", default="triposg,trellis2,hunyuan,sf3d")
+    parser.add_argument("--providers", default="triposg,hunyuan,trellis2,sf3d")
     parser.add_argument("--seed", type=int, default=1993)
     parser.add_argument("--hf-token", default=os.getenv("HF_TOKEN"))
     parser.add_argument("--winner", default="winner.glb")
@@ -197,8 +207,10 @@ def main() -> int:
         encoding="utf-8",
     )
 
+    print("HAYUYA_CLEANROOM_MANIFEST", json.dumps(manifest, separators=(",", ":"), default=str), flush=True)
+
     if not passing:
-        print("HAYUYA_CLEANROOM_NO_WINNER", json.dumps(manifest, separators=(",", ":")))
+        print("HAYUYA_CLEANROOM_NO_WINNER", json.dumps(manifest, separators=(",", ":"), default=str), flush=True)
         return 2
 
     winner_src = Path(passing[0].path or "")
