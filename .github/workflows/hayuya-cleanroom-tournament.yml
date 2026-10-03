@@ -14,6 +14,8 @@ on:
       - tools/hayuya3d/tests/test_tripo_api_cloud.py
       - tools/hayuya3d/trellis2_cloud.py
       - tools/hayuya3d/hunyuan3d_cloud.py
+      - tools/hayuya3d/support_plane_cleanup.py
+      - tools/hayuya3d/tests/test_support_plane_cleanup.py
       - hayuya/assets/monji-murgucol/**
   workflow_dispatch:
 
@@ -77,13 +79,21 @@ jobs:
             tools/hayuya3d/tripo_api_cloud.py \
             tools/hayuya3d/tests/test_tripo_api_cloud.py \
             tools/hayuya3d/trellis2_cloud.py \
-            tools/hayuya3d/hunyuan3d_cloud.py
+            tools/hayuya3d/hunyuan3d_cloud.py \
+            tools/hayuya3d/support_plane_cleanup.py \
+            tools/hayuya3d/tests/test_support_plane_cleanup.py
 
       - name: Test Tripo API adapter
         if: matrix.provider == 'tripoapi'
         run: |
           set -euo pipefail
           python tools/hayuya3d/tests/test_tripo_api_cloud.py
+
+      - name: Test Hunyuan support cleanup
+        if: matrix.provider == 'hunyuan'
+        run: |
+          set -euo pipefail
+          python tools/hayuya3d/tests/test_support_plane_cleanup.py
 
       - name: Verify source
         run: |

@@ -227,6 +227,23 @@ def generate_shape(
     if len(blob) < 1024:
         raise RuntimeError(f"Hunyuan3D mesh unexpectedly small: {len(blob)} bytes")
 
+    # Keep the provider's untouched output for audit, then remove only giant
+    # thin boundary slabs (photo backdrops / floors) when the conservative
+    # geometry gates prove they are support artifacts rather than the subject.
+    raw_output = output.with_name(output.stem + ".raw.glb")
+    shutil.copy2(output, raw_output)
+    from support_plane_cleanup import strip_boundary_support_slabs
+    support_cleanup = strip_boundary_support_slabs(output)
+    blob = output.read_bytes()
+    if len(blob) < 1024 or blob[:4] != b"glTF":
+        raise RuntimeError(
+            f"Hunyuan3D cleaned mesh is not a valid GLB: bytes={len(blob)}"
+        )
+    print(
+        "HAYUYA_HUNYUAN_SUPPORT_CLEANUP",
+        json.dumps(support_cleanup, separators=(",", ":")),
+    )
+
     meta = {
         "schema": 1,
         "generator": "tencent/Hunyuan3D-2.1",
@@ -246,6 +263,8 @@ def generate_shape(
             "must be reviewed before production distribution"
         ),
         "path": str(output),
+        "raw_path": str(raw_output),
+        "support_cleanup": support_cleanup,
         "bytes": len(blob),
     }
     output.with_suffix(".generation.json").write_text(
