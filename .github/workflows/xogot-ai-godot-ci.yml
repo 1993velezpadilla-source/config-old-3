@@ -114,6 +114,7 @@ jobs:
             2>&1 | tee build/xogot-ai/round-zombie-probe.log
           grep -q "XZOGOT_MONJA_BASICA_LOADED" build/xogot-ai/round-zombie-probe.log
           grep -q "XZOGOT_WINDOW_PHYSICAL_CROSS_GREEN" build/xogot-ai/round-zombie-probe.log
+          grep -q "XZOGOT_HEADSHOT_PROBE_GREEN" build/xogot-ai/round-zombie-probe.log
           grep -q "XZOGOT_ROUND_ZOMBIE_PROBE_GREEN" build/xogot-ai/round-zombie-probe.log
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-ai/round-zombie-probe.log
           echo "XOGOT_AI_VM_GREEN"
