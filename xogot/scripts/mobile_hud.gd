@@ -1,5 +1,27 @@
 extends Control
 
+const MobileLayout = preload("res://scripts/mobile_layout.gd")
+
+const TEX_TOUCH_SMALL_IDLE = preload("res://assets/hud/official/touch_small_idle.svg")
+const TEX_TOUCH_SMALL_PRESSED = preload("res://assets/hud/official/touch_small_pressed.svg")
+const TEX_TOUCH_FIRE_IDLE = preload("res://assets/hud/official/touch_fire_idle.svg")
+const TEX_TOUCH_FIRE_PRESSED = preload("res://assets/hud/official/touch_fire_pressed.svg")
+const TEX_TOUCH_ADS_IDLE = preload("res://assets/hud/official/touch_ads_idle.svg")
+const TEX_TOUCH_ADS_PRESSED = preload("res://assets/hud/official/touch_ads_pressed.svg")
+const TEX_TOUCH_ADSFIRE_IDLE = preload("res://assets/hud/official/touch_adsfire_idle.svg")
+const TEX_TOUCH_ADSFIRE_PRESSED = preload("res://assets/hud/official/touch_adsfire_pressed.svg")
+const TEX_JOY_RING = preload("res://assets/hud/official/joystick_ring.svg")
+const TEX_JOY_KNOB = preload("res://assets/hud/official/joystick_knob.svg")
+const TEX_JOY_KNOB_ACTIVE = preload("res://assets/hud/official/joystick_knob_active.svg")
+
+const ICON_FIRE = preload("res://assets/hud/official/fire.svg")
+const ICON_ADS = preload("res://assets/hud/official/ads.svg")
+const ICON_ADSFIRE = preload("res://assets/hud/official/adsfire.svg")
+const ICON_RELOAD = preload("res://assets/hud/official/reload.svg")
+const ICON_USE = preload("res://assets/hud/official/use.svg")
+const ICON_JUMP = preload("res://assets/hud/official/jump.svg")
+const ICON_SLIDE = preload("res://assets/hud/official/slide.svg")
+
 @onready var _player: Node = get_node_or_null("../../Player")
 @onready var _weapon: Node = get_node_or_null("../../Player/Weapon")
 @onready var _round_manager: Node = get_node_or_null("../../RoundManager")
@@ -7,65 +29,150 @@ extends Control
 func _ready() -> void:
 	set_process(true)
 	queue_redraw()
-	print("XZOGOT_HUD_V5_READY")
+	print("XZOGOT_HUD_V6_READY")
+	print("XZOGOT_OFFICIAL_SKINS_READY")
 
 func _process(_delta: float) -> void:
 	queue_redraw()
 
+func _screen(center: Vector2) -> Vector2:
+	return MobileLayout.screen_point(center, size)
+
+func _draw_tex_center(texture: Texture2D, center: Vector2, diameter: float, alpha: float = 1.0) -> void:
+	if texture == null:
+		return
+	var d := Vector2(diameter, diameter)
+	draw_texture_rect(texture, Rect2(center - d * 0.5, d), false, Color(1.0, 1.0, 1.0, alpha))
+
+func _draw_control(
+	center_norm: Vector2,
+	radius_h: float,
+	surface_idle: Texture2D,
+	surface_pressed: Texture2D,
+	glyph: Texture2D,
+	pressed: bool,
+	opacity: float = 0.82,
+	glyph_scale: float = 0.54
+) -> void:
+	var center: Vector2 = _screen(center_norm)
+	var diameter: float = radius_h * size.y * 2.16
+	var surface: Texture2D = surface_pressed if pressed else surface_idle
+	_draw_tex_center(surface, center, diameter, opacity)
+	_draw_tex_center(glyph, center, diameter * glyph_scale, minf(1.0, opacity + 0.10))
+
+func _draw_joystick() -> void:
+	var center: Vector2 = _screen(MobileLayout.JOY_CENTER)
+	var ring_radius: float = MobileLayout.JOY_VISUAL_RADIUS * size.y
+	var ring_diameter: float = ring_radius * 2.12
+	_draw_tex_center(TEX_JOY_RING, center, ring_diameter, 0.78)
+
+	var move_vector := Vector2.ZERO
+	var active := false
+	if _player != null:
+		if _player.has_method("get_move_vector"):
+			move_vector = _player.call("get_move_vector") as Vector2
+		if _player.has_method("is_move_touch_active"):
+			active = bool(_player.call("is_move_touch_active"))
+
+	var knob_center: Vector2 = center + move_vector * ring_radius * 0.72
+	var knob_diameter: float = 0.042 * size.y * 2.18
+	_draw_tex_center(TEX_JOY_KNOB_ACTIVE if active else TEX_JOY_KNOB, knob_center, knob_diameter, 0.88)
+
 func _draw() -> void:
 	var s: Vector2 = size
 	var white := Color(1.0, 1.0, 1.0, 0.72)
-	var dim := Color(1.0, 1.0, 1.0, 0.13)
 	var warm := Color(1.0, 0.42, 0.12, 0.24)
-	var cool := Color(0.42, 0.68, 1.0, 0.22)
 	var combat := Color(1.0, 0.16, 0.12, 0.28)
-	var interact := Color(0.95, 0.83, 0.34, 0.26)
 
-	# Crosshair.
+	# Small COD-style center reticle.
 	var c: Vector2 = s * 0.5
-	draw_line(c + Vector2(-9, 0), c + Vector2(-3, 0), white, 2.0)
-	draw_line(c + Vector2(3, 0), c + Vector2(9, 0), white, 2.0)
-	draw_line(c + Vector2(0, -9), c + Vector2(0, -3), white, 2.0)
-	draw_line(c + Vector2(0, 3), c + Vector2(0, 9), white, 2.0)
+	draw_line(c + Vector2(-8, 0), c + Vector2(-3, 0), white, 1.8)
+	draw_line(c + Vector2(3, 0), c + Vector2(8, 0), white, 1.8)
+	draw_line(c + Vector2(0, -8), c + Vector2(0, -3), white, 1.8)
+	draw_line(c + Vector2(0, 3), c + Vector2(0, 8), white, 1.8)
 
-	var min_dim: float = minf(s.x, s.y)
-	var move_center := Vector2(s.x * 0.15, s.y * 0.79)
-	var interact_center := Vector2(s.x * 0.60, s.y * 0.82)
-	var crouch_center := Vector2(s.x * 0.76, s.y * 0.82)
-	var jump_center := Vector2(s.x * 0.90, s.y * 0.82)
-	var reload_center := Vector2(s.x * 0.76, s.y * 0.60)
-	var fire_center := Vector2(s.x * 0.90, s.y * 0.60)
+	_draw_joystick()
 
-	# Touch regions.
-	draw_circle(move_center, min_dim * 0.075, dim)
-	draw_circle(interact_center, min_dim * 0.048, interact)
-	draw_circle(crouch_center, min_dim * 0.050, cool)
-	draw_circle(jump_center, min_dim * 0.055, warm)
-	draw_circle(reload_center, min_dim * 0.044, dim)
-	draw_circle(fire_center, min_dim * 0.060, combat)
+	var fire_pressed := false
+	var ads_pressed := false
+	var adsfire_pressed := false
+	var slide_pressed := false
+	if _player != null:
+		if _player.has_method("is_fire_pressed"):
+			fire_pressed = bool(_player.call("is_fire_pressed"))
+		if _player.has_method("is_ads_pressed"):
+			ads_pressed = bool(_player.call("is_ads_pressed"))
+		if _player.has_method("is_adsfire_pressed"):
+			adsfire_pressed = bool(_player.call("is_adsfire_pressed"))
+		if _player.has_method("is_slide_pressed"):
+			slide_pressed = bool(_player.call("is_slide_pressed"))
 
-	# Interact glyph.
-	draw_circle(interact_center, 11.0, white, false, 2.4)
-	draw_line(interact_center + Vector2(-7, 0), interact_center + Vector2(7, 0), white, 2.4)
-	draw_line(interact_center + Vector2(0, -7), interact_center + Vector2(0, 7), white, 2.4)
+	var reload_pressed := false
+	if _weapon != null and _weapon.has_method("is_reloading"):
+		reload_pressed = bool(_weapon.call("is_reloading"))
 
-	# Jump glyph.
-	draw_line(jump_center + Vector2(-10, 5), jump_center + Vector2(0, -7), white, 3.0)
-	draw_line(jump_center + Vector2(0, -7), jump_center + Vector2(10, 5), white, 3.0)
-
-	# Crouch / slide glyph.
-	draw_line(crouch_center + Vector2(-12, 7), crouch_center + Vector2(10, 7), white, 3.0)
-	draw_line(crouch_center + Vector2(-4, -7), crouch_center + Vector2(7, 1), white, 3.0)
-	draw_circle(crouch_center + Vector2(-9, -9), 3.2, white)
-
-	# Fire glyph.
-	draw_circle(fire_center, 10.0, white, false, 2.5)
-	draw_circle(fire_center, 3.0, white)
-
-	# Reload glyph.
-	draw_arc(reload_center, 12.0, 0.25, 5.15, 22, white, 2.5)
-	draw_line(reload_center + Vector2(-10, -7), reload_center + Vector2(-2, -12), white, 2.5)
-	draw_line(reload_center + Vector2(-10, -7), reload_center + Vector2(-11, -15), white, 2.5)
+	_draw_control(
+		MobileLayout.FIRE_CENTER,
+		MobileLayout.FIRE_RADIUS,
+		TEX_TOUCH_FIRE_IDLE,
+		TEX_TOUCH_FIRE_PRESSED,
+		ICON_FIRE,
+		fire_pressed,
+		0.82,
+		0.50
+	)
+	_draw_control(
+		MobileLayout.ADSFIRE_CENTER,
+		MobileLayout.ADSFIRE_RADIUS,
+		TEX_TOUCH_ADSFIRE_IDLE,
+		TEX_TOUCH_ADSFIRE_PRESSED,
+		ICON_ADSFIRE,
+		adsfire_pressed,
+		0.82,
+		0.54
+	)
+	_draw_control(
+		MobileLayout.ADS_CENTER,
+		MobileLayout.ADS_RADIUS,
+		TEX_TOUCH_ADS_IDLE,
+		TEX_TOUCH_ADS_PRESSED,
+		ICON_ADS,
+		ads_pressed,
+		0.82,
+		0.55
+	)
+	_draw_control(
+		MobileLayout.RELOAD_CENTER,
+		MobileLayout.RELOAD_RADIUS,
+		TEX_TOUCH_SMALL_IDLE,
+		TEX_TOUCH_SMALL_PRESSED,
+		ICON_RELOAD,
+		reload_pressed
+	)
+	_draw_control(
+		MobileLayout.USE_CENTER,
+		MobileLayout.USE_RADIUS,
+		TEX_TOUCH_SMALL_IDLE,
+		TEX_TOUCH_SMALL_PRESSED,
+		ICON_USE,
+		false
+	)
+	_draw_control(
+		MobileLayout.JUMP_CENTER,
+		MobileLayout.JUMP_RADIUS,
+		TEX_TOUCH_SMALL_IDLE,
+		TEX_TOUCH_SMALL_PRESSED,
+		ICON_JUMP,
+		false
+	)
+	_draw_control(
+		MobileLayout.SLIDE_CENTER,
+		MobileLayout.SLIDE_RADIUS,
+		TEX_TOUCH_SMALL_IDLE,
+		TEX_TOUCH_SMALL_PRESSED,
+		ICON_SLIDE,
+		slide_pressed
+	)
 
 	# Ammo bar.
 	if _weapon != null and _weapon.has_method("get_magazine"):
@@ -77,7 +184,7 @@ func _draw() -> void:
 		draw_rect(Rect2(bar_pos, bar_size), Color(1.0, 1.0, 1.0, 0.10), true)
 		draw_rect(Rect2(bar_pos, Vector2(bar_size.x * ratio, bar_size.y)), white, true)
 
-	# Points meter. Full rail = 5000 points.
+	# Points + health rails.
 	if _player != null and _player.has_method("get_points"):
 		var points: int = int(_player.call("get_points"))
 		var point_ratio: float = clampf(float(points) / 5000.0, 0.0, 1.0)
@@ -86,8 +193,6 @@ func _draw() -> void:
 		draw_rect(Rect2(points_pos, points_size), Color(1.0, 1.0, 1.0, 0.10), true)
 		draw_rect(Rect2(points_pos, Vector2(points_size.x * point_ratio, points_size.y)), warm, true)
 
-
-	# Health meter.
 	if _player != null and _player.has_method("get_health"):
 		var health: float = float(_player.call("get_health"))
 		var max_health: float = float(_player.get("max_health"))
@@ -97,7 +202,6 @@ func _draw() -> void:
 		draw_rect(Rect2(health_pos, health_size), Color(1.0, 1.0, 1.0, 0.10), true)
 		draw_rect(Rect2(health_pos, Vector2(health_size.x * health_ratio, health_size.y)), combat, true)
 
-	# Round meter. One segment per round, capped visually at 10.
 	if _round_manager != null and _round_manager.has_method("get_round"):
 		var current_round: int = int(_round_manager.call("get_round"))
 		var round_ratio: float = clampf(float(current_round) / 10.0, 0.0, 1.0)
@@ -105,6 +209,3 @@ func _draw() -> void:
 		var round_pos := Vector2(s.x * 0.44, s.y * 0.06)
 		draw_rect(Rect2(round_pos, round_size), Color(1.0, 1.0, 1.0, 0.10), true)
 		draw_rect(Rect2(round_pos, Vector2(round_size.x * round_ratio, round_size.y)), white, true)
-
-	# Right-side look area hint kept intentionally subtle.
-	draw_arc(Vector2(s.x * 0.73, s.y * 0.38), min_dim * 0.045, -0.8, 0.8, 18, Color(1,1,1,0.08), 2.0)
