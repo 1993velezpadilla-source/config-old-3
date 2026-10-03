@@ -1,0 +1,62 @@
+name: HAYUYA Genericity Guard
+run-name: HAYUYA • fixture-agnostic core guard
+
+on:
+  push:
+    branches:
+      - art/hayuya-cleanroom-aaa-v1
+      - art/hayuya-core-generalize-v1
+    paths:
+      - .github/workflows/hayuya-genericity-guard.yml
+      - tools/hayuya3d/cleanroom_engine_router.py
+      - tools/hayuya3d/triposg_cloud.py
+      - tools/hayuya3d/hunyuan3d_cloud.py
+      - tools/hayuya3d/native_face_repair.py
+      - tools/hayuya3d/regional_fusion.py
+      - tools/hayuya3d/face_geometry_tournament.py
+      - tools/hayuya3d/tests/test_cleanroom_genericity_guard.py
+      - tools/hayuya3d/tests/test_native_face_repair.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hayuya-genericity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  genericity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout Hayuya
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install lightweight test dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install pytest pillow numpy trimesh scipy
+
+      - name: Enforce fixture-agnostic runtime core
+        run: |
+          set -euo pipefail
+          python -m pytest -q \
+            tools/hayuya3d/tests/test_cleanroom_genericity_guard.py
+
+      - name: Run generic native face-repair regressions
+        run: |
+          set -euo pipefail
+          python -m pytest -q \
+            tools/hayuya3d/tests/test_native_face_repair.py \
+            -k "capability_based_not_asset_specific or full_body_source_can_derive_head_evidence or face_repair_tournament_keeps_every_ready_backend"
