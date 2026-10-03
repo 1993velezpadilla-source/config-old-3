@@ -1,0 +1,46 @@
+name: Import Church Furniture Assets
+
+on:
+  push:
+    branches:
+      - feature/xogot-port-v1
+    paths:
+      - ".github/workflows/import-church-furniture-temp.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  import-assets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: feature/xogot-port-v1
+          fetch-depth: 1
+
+      - name: Download exact uploaded GLBs
+        env:
+          ALTAR_URL: "https://sdmntprcentralus.oaiusercontent.com/files/00000000-6b9c-81f5-8877-74c8084f1b63/raw?se=2026-10-03T22%3A46%3A17Z&sp=r&sv=2026-02-06&sr=b&scid=6cb3e146-be7c-5ea4-80ae-651661970265&skoid=a1be202a-6464-476c-a496-723317c4a4db&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-03T14%3A34%3A40Z&ske=2026-10-04T14%3A34%3A40Z&sks=b&skv=2026-02-06&sig=wfi%2BJ0F49S4%2Bkn2zvF/RXy76adsWR8IA1wBmNEyXZcg%3D"
+          BENCH_URL: "https://sdmntprcentralus.oaiusercontent.com/files/00000000-2190-81f5-8546-c9362b4e000a/raw?se=2026-10-03T22%3A46%3A33Z&sp=r&sv=2026-02-06&sr=b&scid=756e4be9-a947-5bf7-89f6-8bee5e948a6a&skoid=a1be202a-6464-476c-a496-723317c4a4db&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-03T14%3A35%3A25Z&ske=2026-10-04T14%3A35%3A25Z&sks=b&skv=2026-02-06&sig=/I2MkZCo2tlAKxgkff4R9jiD5UusvOZnrySUmm9oLH4%3D"
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p xogot/assets/environment/church
+          curl -fL --retry 3 --retry-all-errors "$ALTAR_URL" -o xogot/assets/environment/church/altar.glb
+          curl -fL --retry 3 --retry-all-errors "$BENCH_URL" -o xogot/assets/environment/church/bench.glb
+          test "$(sha256sum xogot/assets/environment/church/altar.glb | awk '{print $1}')" = "b97b7cc3d4b88011357f5ba805f8cc7630d39f105bf1f7b57587010b733d7298"
+          test "$(sha256sum xogot/assets/environment/church/bench.glb | awk '{print $1}')" = "00d790195ccfb893f623968ef52704dedb42ce24cb3c52e88c3a3ce1645185c7"
+          printf 'ALTAR_BYTES='; stat -c%s xogot/assets/environment/church/altar.glb
+          printf 'BENCH_BYTES='; stat -c%s xogot/assets/environment/church/bench.glb
+
+      - name: Commit church furniture
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "xziel-bot"
+          git config user.email "xziel-bot@users.noreply.github.com"
+          git add xogot/assets/environment/church/altar.glb xogot/assets/environment/church/bench.glb
+          git commit -m "Add authored altar and bench church assets"
+          git push origin HEAD:feature/xogot-port-v1
