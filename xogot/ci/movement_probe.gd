@@ -1,5 +1,7 @@
 extends SceneTree
 
+const MobileLayout = preload("res://scripts/mobile_layout.gd")
+
 func _init() -> void:
 	call_deferred("_run_probe")
 
@@ -69,16 +71,11 @@ func _run_probe() -> void:
 		quit(20)
 		return
 
-	var layout: Script = load("res://scripts/mobile_layout.gd") as Script
-	if layout == null:
-		push_error("MOVEMENT_PROBE: mobile layout missing")
-		quit(21)
-		return
-	if (layout.get("FIRE_CENTER") as Vector2).distance_to(Vector2(0.885, 0.585)) > 0.001:
+	if MobileLayout.FIRE_CENTER.distance_to(Vector2(0.885, 0.585)) > 0.001:
 		push_error("MOVEMENT_PROBE: canonical fire HUD position wrong")
 		quit(22)
 		return
-	if (layout.get("JOY_CENTER") as Vector2).distance_to(Vector2(0.170, 0.740)) > 0.001:
+	if MobileLayout.JOY_CENTER.distance_to(Vector2(0.170, 0.740)) > 0.001:
 		push_error("MOVEMENT_PROBE: canonical joystick HUD position wrong")
 		quit(23)
 		return
