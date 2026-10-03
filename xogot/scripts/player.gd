@@ -1,5 +1,7 @@
 extends CharacterBody3D
 
+const MobileLayout = preload("res://scripts/mobile_layout.gd")
+
 const NAV_PATH := "res://data/nav_skeleton.json"
 
 @export var walk_speed := 4.8
@@ -13,17 +15,28 @@ const NAV_PATH := "res://data/nav_skeleton.json"
 @export var touch_sensitivity := 0.0028
 @export var gyro_enabled := true
 @export var gyro_sensitivity := 0.70
+@export var ads_touch_multiplier := 0.62
+@export var fire_touch_multiplier := 1.00
+@export var gyro_ads_multiplier := 0.65
+@export var ads_toggle_mode := false
+@export var base_fov := 66.0
+@export var ads_fov := 52.0
+@export var sprint_fov := 69.0
+@export var slide_fov := 70.5
+@export var camera_stance_response := 18.0
+@export var landing_spring_frequency := 17.0
 @export var use_nav_spawn := true
 @export var interaction_range := 3.4
 @export var starting_points := 500
 @export var max_health := 100.0
 
-const STAND_HEAD_Y := 1.62
-const CROUCH_HEAD_Y := 1.12
-const STAND_CAPSULE_HEIGHT := 1.80
-const CROUCH_CAPSULE_HEIGHT := 1.18
-const STAND_COLLIDER_Y := 0.90
-const CROUCH_COLLIDER_Y := 0.59
+const PLAYER_RADIUS := 0.36
+const STAND_HEAD_Y := 1.60
+const CROUCH_HEAD_Y := 1.03
+const STAND_CAPSULE_HEIGHT := 1.76
+const CROUCH_CAPSULE_HEIGHT := 1.16
+const STAND_COLLIDER_Y := 0.88
+const CROUCH_COLLIDER_Y := 0.58
 
 var points: int = 0
 var health: float = 100.0
@@ -33,6 +46,8 @@ var _move_touch := -1
 var _look_touch := -1
 var _crouch_touch := -1
 var _fire_touch := -1
+var _ads_touch := -1
+var _adsfire_touch := -1
 var _move_origin := Vector2.ZERO
 var _move_vector := Vector2.ZERO
 var _jump_requested := false
@@ -43,6 +58,10 @@ var _crouch_was_pressed := false
 var _slide_timer := 0.0
 var _slide_cooldown_timer := 0.0
 var _slide_direction := Vector3.ZERO
+var _sprinting := false
+var _was_on_floor := false
+var _land_camera_pos := 0.0
+var _land_camera_vel := 0.0
 
 @onready var _head: Node3D = $Head
 @onready var _camera: Camera3D = $Head/Camera3D
@@ -54,6 +73,14 @@ func _ready() -> void:
 	points = starting_points
 	health = max_health
 	add_to_group("player")
+	var capsule: CapsuleShape3D = _collider.shape as CapsuleShape3D
+	if capsule != null:
+		capsule.radius = PLAYER_RADIUS
+		capsule.height = STAND_CAPSULE_HEIGHT
+	_collider.position.y = STAND_COLLIDER_Y
+	_head.position.y = STAND_HEAD_Y
+	_camera.fov = base_fov
+	_was_on_floor = is_on_floor()
 	if not OS.has_feature("mobile"):
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	if use_nav_spawn:
@@ -89,28 +116,31 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _handle_touch(event: InputEventScreenTouch) -> void:
 	var size: Vector2 = get_viewport().get_visible_rect().size
-	var jump_zone: bool = event.position.x > size.x * 0.84 and event.position.y > size.y * 0.72
-	var crouch_zone: bool = event.position.x > size.x * 0.68 and event.position.x <= size.x * 0.84 and event.position.y > size.y * 0.72
-	var fire_zone: bool = event.position.x > size.x * 0.84 and event.position.y > size.y * 0.46 and event.position.y <= size.y * 0.72
-	var reload_zone: bool = event.position.x > size.x * 0.68 and event.position.x <= size.x * 0.84 and event.position.y > size.y * 0.50 and event.position.y <= size.y * 0.72
-	var interact_zone: bool = event.position.x > size.x * 0.52 and event.position.x <= size.x * 0.68 and event.position.y > size.y * 0.66
-
 	if event.pressed:
-		if event.position.x < size.x * 0.46 and event.position.y > size.y * 0.22 and _move_touch < 0:
-			_move_touch = event.index
-			_move_origin = event.position
-			_move_vector = Vector2.ZERO
-		elif jump_zone:
-			_jump_requested = true
-		elif crouch_zone and _crouch_touch < 0:
-			_crouch_touch = event.index
-		elif fire_zone and _fire_touch < 0:
+		if MobileLayout.inside(event.position, size, MobileLayout.ADSFIRE_CENTER, MobileLayout.ADSFIRE_RADIUS) and _adsfire_touch < 0:
+			_adsfire_touch = event.index
+			_weapon.call("set_trigger_held", true)
+		elif MobileLayout.inside(event.position, size, MobileLayout.FIRE_CENTER, MobileLayout.FIRE_RADIUS) and _fire_touch < 0:
 			_fire_touch = event.index
 			_weapon.call("set_trigger_held", true)
-		elif reload_zone:
+		elif MobileLayout.inside(event.position, size, MobileLayout.ADS_CENTER, MobileLayout.ADS_RADIUS) and _ads_touch < 0:
+			if ads_toggle_mode:
+				set_meta("ads_toggled", not bool(get_meta("ads_toggled", false)))
+			else:
+				_ads_touch = event.index
+		elif MobileLayout.inside(event.position, size, MobileLayout.RELOAD_CENTER, MobileLayout.RELOAD_RADIUS):
 			_weapon.call("request_reload")
-		elif interact_zone:
+		elif MobileLayout.inside(event.position, size, MobileLayout.SLIDE_CENTER, MobileLayout.SLIDE_RADIUS) and _crouch_touch < 0:
+			_crouch_touch = event.index
+		elif MobileLayout.inside(event.position, size, MobileLayout.JUMP_CENTER, MobileLayout.JUMP_RADIUS):
+			_jump_requested = true
+		elif MobileLayout.inside(event.position, size, MobileLayout.USE_CENTER, MobileLayout.USE_RADIUS):
 			request_interact()
+		elif MobileLayout.inside(event.position, size, MobileLayout.JOY_CENTER, MobileLayout.JOY_RADIUS) and _move_touch < 0:
+			_move_touch = event.index
+			_move_origin = MobileLayout.screen_point(MobileLayout.JOY_CENTER, size)
+			_move_vector = (event.position - _move_origin) / maxf(MobileLayout.JOY_RADIUS * size.y * 0.90, 1.0)
+			_move_vector = _move_vector.limit_length(1.0)
 		elif _look_touch < 0:
 			_look_touch = event.index
 	else:
@@ -121,16 +151,31 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 			_look_touch = -1
 		if event.index == _crouch_touch:
 			_crouch_touch = -1
+		if event.index == _ads_touch:
+			_ads_touch = -1
 		if event.index == _fire_touch:
 			_fire_touch = -1
-			_weapon.call("set_trigger_held", false)
+			if _adsfire_touch < 0:
+				_weapon.call("set_trigger_held", false)
+		if event.index == _adsfire_touch:
+			_adsfire_touch = -1
+			if _fire_touch < 0:
+				_weapon.call("set_trigger_held", false)
 
 func _handle_drag(event: InputEventScreenDrag) -> void:
 	if event.index == _move_touch:
-		_move_vector = (event.position - _move_origin) / 115.0
+		var size: Vector2 = get_viewport().get_visible_rect().size
+		_move_vector = (event.position - _move_origin) / maxf(MobileLayout.JOY_RADIUS * size.y * 0.90, 1.0)
 		_move_vector = _move_vector.limit_length(1.0)
+	elif event.index == _fire_touch:
+		_apply_look(event.relative * touch_sensitivity * fire_touch_multiplier)
+	elif event.index == _adsfire_touch:
+		_apply_look(event.relative * touch_sensitivity * fire_touch_multiplier * ads_touch_multiplier)
+	elif event.index == _ads_touch:
+		_apply_look(event.relative * touch_sensitivity * ads_touch_multiplier)
 	elif event.index == _look_touch:
-		_apply_look(event.relative * touch_sensitivity)
+		var multiplier: float = ads_touch_multiplier if _is_ads_active() else 1.0
+		_apply_look(event.relative * touch_sensitivity * multiplier)
 
 func _apply_look(delta: Vector2) -> void:
 	rotation.y -= delta.x
@@ -174,6 +219,30 @@ func add_points(amount: int) -> void:
 func get_points() -> int:
 	return points
 
+func get_move_vector() -> Vector2:
+	return _move_vector
+
+func is_move_touch_active() -> bool:
+	return _move_touch >= 0
+
+func is_fire_pressed() -> bool:
+	return _fire_touch >= 0
+
+func is_ads_pressed() -> bool:
+	return _is_ads_active() and _adsfire_touch < 0
+
+func is_adsfire_pressed() -> bool:
+	return _adsfire_touch >= 0
+
+func is_slide_pressed() -> bool:
+	return _crouch_touch >= 0
+
+func get_camera_eye_height() -> float:
+	return _head.position.y
+
+func get_camera_fov() -> float:
+	return _camera.fov
+
 func apply_damage(amount: float) -> void:
 	if downed or amount <= 0.0:
 		return
@@ -202,9 +271,54 @@ func _set_crouched(enabled: bool) -> void:
 		capsule.height = CROUCH_CAPSULE_HEIGHT if enabled else STAND_CAPSULE_HEIGHT
 	_collider.position.y = CROUCH_COLLIDER_Y if enabled else STAND_COLLIDER_Y
 
+func _is_ads_active() -> bool:
+	return bool(get_meta("ads_toggled", false)) or _ads_touch >= 0 or _adsfire_touch >= 0
+
+func _slide_visual_pose() -> float:
+	if not _sliding or slide_duration <= 0.001:
+		return 0.0
+	var slide_t: float = clampf(1.0 - (_slide_timer / slide_duration), 0.0, 1.0)
+	if slide_t < 0.14:
+		var u: float = slide_t / 0.14
+		return u * u * (3.0 - 2.0 * u)
+	if slide_t < 0.72:
+		return 1.0
+	var u: float = (slide_t - 0.72) / 0.28
+	var smooth: float = u * u * (3.0 - 2.0 * u)
+	return 1.0 - smooth
+
+func _update_landing_spring(delta: float) -> void:
+	var frequency: float = landing_spring_frequency
+	var acceleration: float = (-frequency * frequency * _land_camera_pos) - (2.0 * frequency * _land_camera_vel)
+	_land_camera_vel += acceleration * delta
+	_land_camera_pos += _land_camera_vel * delta
+	_land_camera_pos = clampf(_land_camera_pos, -0.060, 0.012)
+	if absf(_land_camera_pos) < 0.00005 and absf(_land_camera_vel) < 0.0005:
+		_land_camera_pos = 0.0
+		_land_camera_vel = 0.0
+
+func _update_camera_fov(delta: float) -> void:
+	var target_fov: float = base_fov
+	if _is_ads_active():
+		target_fov = ads_fov
+	elif _sliding:
+		target_fov = slide_fov
+	elif _sprinting:
+		target_fov = sprint_fov
+	var blend: float = 1.0 - exp(-10.0 * delta)
+	_camera.fov = lerpf(_camera.fov, target_fov, blend)
+
 func _update_stance(delta: float, crouch_pressed: bool) -> void:
+	_update_landing_spring(delta)
+	var slide_pose: float = _slide_visual_pose()
 	var target_head_y: float = CROUCH_HEAD_Y if (_crouched or _sliding) else STAND_HEAD_Y
-	_head.position.y = move_toward(_head.position.y, target_head_y, 5.5 * delta)
+	if _sprinting and not _crouched and not _sliding:
+		target_head_y -= 0.025
+	target_head_y -= 0.080 * slide_pose
+	target_head_y += _land_camera_pos
+	var blend: float = 1.0 - exp(-camera_stance_response * delta)
+	_head.position.y = lerpf(_head.position.y, target_head_y, blend)
+	_head.rotation.z = lerpf(_head.rotation.z, deg_to_rad(-1.15 * sin(slide_pose * PI)), blend)
 
 	if _sliding:
 		_slide_timer -= delta
@@ -227,8 +341,9 @@ func _physics_process(delta: float) -> void:
 	if gyro_enabled and OS.has_feature("mobile") and _look_touch < 0:
 		var gyro: Vector3 = Input.get_gyroscope()
 		if gyro.length() > 0.05:
-			rotation.y -= gyro.y * gyro_sensitivity * delta
-			_pitch = clamp(_pitch - gyro.x * gyro_sensitivity * delta, deg_to_rad(-86.0), deg_to_rad(86.0))
+			var gyro_mult: float = gyro_ads_multiplier if _is_ads_active() else 1.0
+			rotation.y -= gyro.y * gyro_sensitivity * gyro_mult * delta
+			_pitch = clamp(_pitch - gyro.x * gyro_sensitivity * gyro_mult * delta, deg_to_rad(-86.0), deg_to_rad(86.0))
 			_head.rotation.x = _pitch
 
 	if not is_on_floor():
@@ -257,6 +372,7 @@ func _physics_process(delta: float) -> void:
 	var crouch_pressed: bool = _crouch_touch >= 0 or Input.is_key_pressed(KEY_CTRL) or Input.is_key_pressed(KEY_C)
 	var crouch_just_pressed: bool = crouch_pressed and not _crouch_was_pressed
 	var sprinting: bool = Input.is_key_pressed(KEY_SHIFT) or input_2d.length() > 0.92
+	_sprinting = sprinting and not _is_ads_active()
 
 	if crouch_just_pressed and sprinting and input_2d.length() > 0.72 and is_on_floor() and not _sliding and _slide_cooldown_timer <= 0.0:
 		_sliding = true
@@ -272,9 +388,15 @@ func _physics_process(delta: float) -> void:
 		velocity.x = _slide_direction.x * current_slide_speed
 		velocity.z = _slide_direction.z * current_slide_speed
 	else:
-		var speed: float = crouch_speed if _crouched else (sprint_speed if sprinting else walk_speed)
+		var speed: float = crouch_speed if _crouched else (sprint_speed if _sprinting else walk_speed)
 		velocity.x = move_toward(velocity.x, wish.x * speed, 22.0 * delta)
 		velocity.z = move_toward(velocity.z, wish.z * speed, 22.0 * delta)
 
+	var vertical_before_move: float = velocity.y
 	move_and_slide()
+	if not _was_on_floor and is_on_floor() and vertical_before_move < -3.0:
+		var impact: float = minf(absf(vertical_before_move), 18.0)
+		_land_camera_vel -= impact * 0.18
+	_was_on_floor = is_on_floor()
+	_update_camera_fov(delta)
 	_crouch_was_pressed = crouch_pressed
