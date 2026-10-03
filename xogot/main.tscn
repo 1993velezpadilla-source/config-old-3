@@ -1,46 +1,6 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=2 format=3]
 
-[ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
-[ext_resource type="Script" path="res://scripts/church_fresh.gd" id="2_fresh"]
-[ext_resource type="Script" path="res://scripts/player.gd" id="3_player"]
-[ext_resource type="Script" path="res://scripts/mobile_hud.gd" id="4_hud"]
+[ext_resource path="res://scripts/you_wont_win.gd" type="Script" id="1"]
 
-[sub_resource type="CapsuleShape3D" id="Capsule_player"]
-radius = 0.38
-height = 1.78
-
-[node name="Main" type="Node3D"]
-script = ExtResource("1_main")
-
-[node name="FreshChurch" type="Node3D" parent="."]
-script = ExtResource("2_fresh")
-
-[node name="Player" type="CharacterBody3D" parent="."]
-position = Vector3(-17.81, 0.05, 36.5)
-floor_snap_length = 0.45
-floor_max_angle = 0.872665
-script = ExtResource("3_player")
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Player"]
-position = Vector3(0, 0.89, 0)
-shape = SubResource("Capsule_player")
-
-[node name="Head" type="Node3D" parent="Player"]
-position = Vector3(0, 1.62, 0)
-
-[node name="Camera3D" type="Camera3D" parent="Player/Head"]
-current = true
-fov = 78.0
-near = 0.04
-
-[node name="HUDLayer" type="CanvasLayer" parent="."]
-
-[node name="HUD" type="Control" parent="HUDLayer"]
-layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-script = ExtResource("4_hud")
+[node name="YouWontWin" type="Node3D"]
+script = ExtResource("1")
