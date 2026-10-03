@@ -86,6 +86,10 @@ func _run_probe() -> void:
 	if str(zombie.get_meta("zombie_model", "")) != "monja_basica":
 		_fail(22, "Monja Basica model metadata missing")
 		return
+	var fitted_height: float = float(zombie.get_meta("zombie_visual_height_m", 0.0))
+	if fitted_height < 1.70 or fitted_height > 1.78:
+		_fail(23, "Monja Basica fitted height out of range: %s" % fitted_height)
+		return
 
 	await physics_frame
 	await physics_frame
