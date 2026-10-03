@@ -12,12 +12,12 @@
   },
   "gameplay_fit_m": {
     "height": 1.76,
-    "max_width": 0.74,
-    "max_depth": 0.58,
-    "collider_radius": 0.29,
+    "max_width": 0.82,
+    "max_depth": 0.66,
+    "collider_radius": 0.31,
     "collider_height": 1.72
   },
-  "notes": "Canonical common zombie for the church. Keep this filename and asset_id stable; variants must use different asset IDs.",
+  "notes": "Canonical common church zombie. Human-height 1.76 m with fuller regular-body silhouette; do not compensate map scale by shrinking the enemy.",
   "first_person_reference": {
     "player_body_height": 1.76,
     "player_eye_height": 1.6,
