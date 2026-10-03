@@ -1,0 +1,106 @@
+name: Repack Monja Basica for Godot
+
+on:
+  push:
+    branches:
+      - feature/xogot-port-v1
+    paths:
+      - ".github/workflows/monja-basica-repack.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  repack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: feature/xogot-port-v1
+          fetch-depth: 0
+
+      - name: Install lossless glTF tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/gltf-repack
+          cd /tmp/gltf-repack
+          npm init -y >/dev/null
+          npm install @gltf-transform/core@4.5.1 @gltf-transform/extensions@4.5.1 @gltf-transform/functions@4.5.1 meshoptimizer@0.24.0
+
+      - name: Repack without unsupported extensions
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat >/tmp/gltf-repack/repack.mjs <<'EOF'
+          import { NodeIO } from '@gltf-transform/core';
+          import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
+          import { dequantize } from '@gltf-transform/functions';
+          import { MeshoptDecoder } from 'meshoptimizer';
+
+          const input = process.argv[2];
+          const output = process.argv[3];
+          await MeshoptDecoder.ready;
+          const io = new NodeIO()
+            .registerExtensions(ALL_EXTENSIONS)
+            .registerDependencies({'meshopt.decoder': MeshoptDecoder});
+
+          const doc = await io.read(input);
+          await doc.transform(dequantize());
+
+          for (const ext of [...doc.getRoot().listExtensionsUsed()]) {
+            if (ext.extensionName === 'EXT_meshopt_compression') {
+              ext.dispose();
+            }
+          }
+
+          await io.write(output, doc);
+          EOF
+
+          node /tmp/gltf-repack/repack.mjs             xogot/assets/zombies/monja_basica.glb             /tmp/monja_basica_godot.glb
+
+      - name: Verify geometry and extension removal
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, struct
+          def read_glb(path):
+              d=open(path,'rb').read()
+              magic,ver,length=struct.unpack_from('<4sII',d,0)
+              assert magic==b'glTF' and ver==2 and length==len(d)
+              off=12; js=None
+              while off<len(d):
+                  ln,tp=struct.unpack_from('<II',d,off); off+=8
+                  chunk=d[off:off+ln]; off+=ln
+                  if tp==0x4E4F534A: js=json.loads(chunk.rstrip(b'\x00 ').decode())
+              return js
+          src=read_glb('xogot/assets/zombies/monja_basica.glb')
+          out=read_glb('/tmp/monja_basica_godot.glb')
+          sp=src['meshes'][0]['primitives'][0]
+          op=out['meshes'][0]['primitives'][0]
+          sv=src['accessors'][sp['attributes']['POSITION']]['count']
+          ov=out['accessors'][op['attributes']['POSITION']]['count']
+          si=src['accessors'][sp['indices']]['count']
+          oi=out['accessors'][op['indices']]['count']
+          assert (sv,si)==(1023652,5816952), (sv,si)
+          assert (ov,oi)==(sv,si), ((ov,oi),(sv,si))
+          req=set(out.get('extensionsRequired',[]))
+          used=set(out.get('extensionsUsed',[]))
+          assert 'EXT_meshopt_compression' not in req|used, (req,used)
+          assert 'KHR_mesh_quantization' not in req|used, (req,used)
+          print('MONJA_REPACK_GEOMETRY_OK',ov,oi)
+          print('MONJA_REPACK_SIZE',__import__('os').path.getsize('/tmp/monja_basica_godot.glb'))
+          PY
+
+      - name: Commit Godot-compatible model
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp /tmp/monja_basica_godot.glb xogot/assets/zombies/monja_basica.glb
+          git config user.name "XZIEL Asset Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add xogot/assets/zombies/monja_basica.glb
+          git commit -m "Repack Monja Basica GLB for native Godot import"
+          git push origin HEAD:feature/xogot-port-v1
