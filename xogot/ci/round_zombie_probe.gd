@@ -93,10 +93,10 @@ func _run_probe() -> void:
 	if fitted_height < 1.75 or fitted_height > 1.77:
 		_fail(23, "Monja Basica fitted height out of range: %s" % fitted_height)
 		return
-	if fitted_width < 0.72 or fitted_width > 0.75:
+	if fitted_width < 0.81 or fitted_width > 0.83:
 		_fail(24, "Monja Basica fitted width out of range: %s" % fitted_width)
 		return
-	if fitted_depth < 0.56 or fitted_depth > 0.59:
+	if fitted_depth < 0.65 or fitted_depth > 0.67:
 		_fail(25, "Monja Basica fitted depth out of range: %s" % fitted_depth)
 		return
 	if not bool(zombie.get_meta("zombie_visual_centered_on_feet", false)):
@@ -110,7 +110,7 @@ func _run_probe() -> void:
 	if zombie_capsule == null:
 		_fail(28, "Monja Basica capsule missing")
 		return
-	if absf(zombie_capsule.radius - 0.29) > 0.001 or absf(zombie_capsule.height - 1.72) > 0.001:
+	if absf(zombie_capsule.radius - 0.31) > 0.001 or absf(zombie_capsule.height - 1.72) > 0.001:
 		_fail(29, "Monja Basica collider dimensions wrong")
 		return
 	if absf(float(zombie.get("headshot_height_ratio")) - 0.84) > 0.001:
