@@ -521,9 +521,10 @@ func _build_lights() -> void:
 
 	# Low-energy wall sconces reveal architecture without flattening the horror contrast.
 	var sconce_z: Array[float] = [-13.0, -3.0, 7.0]
+	var sconce_sides: Array[float] = [-1.0, 1.0]
 	for i in range(sconce_z.size()):
 		var z: float = sconce_z[i]
-		for side in [-1.0, 1.0]:
+		for side: float in sconce_sides:
 			var sconce := OmniLight3D.new()
 			sconce.name = "WallSconce_%s_%02d" % ["L" if side < 0.0 else "R", i]
 			sconce.position = _wp(Vector3(9.7 * side, 2.65, z))
