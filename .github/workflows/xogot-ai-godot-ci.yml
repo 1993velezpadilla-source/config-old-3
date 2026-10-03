@@ -112,6 +112,7 @@ jobs:
           timeout 60 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
             --headless --path xogot --script res://ci/round_zombie_probe.gd \
             2>&1 | tee build/xogot-ai/round-zombie-probe.log
+          grep -q "XZOGOT_MONJA_BASICA_LOADED" build/xogot-ai/round-zombie-probe.log
           grep -q "XZOGOT_ROUND_ZOMBIE_PROBE_GREEN" build/xogot-ai/round-zombie-probe.log
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-ai/round-zombie-probe.log
           echo "XOGOT_AI_VM_GREEN"
