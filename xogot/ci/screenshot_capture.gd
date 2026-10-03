@@ -26,9 +26,22 @@ func _capture() -> void:
 		var zombie: Node3D = round_manager.call("spawn_one") as Node3D
 		if zombie != null:
 			zombie.set("phase", 2)
-			zombie.global_position = Vector3(0.0, 0.48, -0.8)
+			zombie.global_position = Vector3(0.0, 0.48, 2.4)
+			var player: Node3D = scene.get_node_or_null("Player") as Node3D
+			if player != null:
+				zombie.look_at(player.global_position, Vector3.UP)
+			zombie.set_physics_process(false)
 
-	for i in range(45):
+			# Diagnostic-only neutral light so the actual imported model is visible.
+			var inspect_light := OmniLight3D.new()
+			inspect_light.name = "ScreenshotInspectLight"
+			inspect_light.position = Vector3(0.0, 2.2, 5.8)
+			inspect_light.omni_range = 9.0
+			inspect_light.light_energy = 2.2
+			inspect_light.light_color = Color(0.92, 0.95, 1.0)
+			scene.add_child(inspect_light)
+
+	for i in range(12):
 		await process_frame
 
 	var image: Image = root.get_texture().get_image()
