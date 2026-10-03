@@ -22,7 +22,7 @@ func _draw() -> void:
 	draw_line(c + Vector2(0, -9), c + Vector2(0, -3), white, 2.0)
 	draw_line(c + Vector2(0, 3), c + Vector2(0, 9), white, 2.0)
 
-	var min_dim := min(s.x, s.y)
+	var min_dim: float = minf(s.x, s.y)
 	var move_center := Vector2(s.x * 0.15, s.y * 0.79)
 	var crouch_center := Vector2(s.x * 0.76, s.y * 0.82)
 	var jump_center := Vector2(s.x * 0.90, s.y * 0.82)
