@@ -113,7 +113,7 @@ func _pew(pos: Vector3, color: Color) -> void:
 	_box("PewLegL", Vector3(0.28, 0.8, 0.8), pos + Vector3(-2.6, -0.35, 0), color)
 	_box("PewLegR", Vector3(0.28, 0.8, 0.8), pos + Vector3(2.6, -0.35, 0), color)
 
-func _wedge_roof(label: String, pos: Vector3, roll: float, color: Color, size := Vector3(11.8, 0.45, 39.0)) -> void:
+func _wedge_roof(label: String, pos: Vector3, roll: float, color: Color, size: Vector3 = Vector3(11.8, 0.45, 39.0)) -> void:
 	var body := StaticBody3D.new()
 	body.name = label
 	body.position = pos
@@ -134,7 +134,7 @@ func _wedge_roof(label: String, pos: Vector3, roll: float, color: Color, size :=
 	body.add_child(cs)
 	add_child(body)
 
-func _box(label: String, size: Vector3, pos: Vector3, color: Color, collision := true) -> void:
+func _box(label: String, size: Vector3, pos: Vector3, color: Color, collision: bool = true) -> void:
 	var root: Node3D
 	if collision:
 		var body := StaticBody3D.new()
