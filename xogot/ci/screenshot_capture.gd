@@ -1,5 +1,7 @@
 extends SceneTree
 
+# Final grounded altar-facing furniture capture.
+
 # Normalized altar bench + Monja facing capture.
 
 # Architectural shell V2 screenshot.
