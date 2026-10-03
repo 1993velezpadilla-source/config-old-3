@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
+import statistics
 import subprocess
 import sys
 from pathlib import Path
@@ -46,6 +47,123 @@ def _candidate_sources(root:Path)->list[Path]:
             unique.append(path)
     return unique
 
+
+
+def _dreamsim_face_distances(
+    source_paths:list[Path],
+    rows:list[dict],
+)->dict:
+    """Add source-grounded perceptual face distance without weakening hard gates."""
+    if not source_paths:
+        return {"ready":False,"reason":"no_detected_face_sources"}
+
+    try:
+        import torch
+        from PIL import Image
+        from dreamsim import dreamsim
+        from judge_v4_face_worker import _crop_top_subject
+
+        device="cuda" if torch.cuda.is_available() else "cpu"
+        model,preprocess=dreamsim(pretrained=True,device=device)
+        model.eval()
+
+        prepared_sources=[]
+        for path in source_paths:
+            if not path.is_file():
+                continue
+            image=_crop_top_subject(Image.open(path).convert("RGB"))
+            prepared_sources.append((
+                path,
+                preprocess(image).to(device),
+            ))
+        if not prepared_sources:
+            return {"ready":False,"reason":"face_source_files_missing"}
+
+        scored=0
+        with torch.inference_mode():
+            for row in rows:
+                render_raw=row.get("render_face")
+                if not render_raw:
+                    continue
+                render_path=Path(render_raw)
+                if not render_path.is_file():
+                    continue
+                candidate=_crop_top_subject(
+                    Image.open(render_path).convert("RGB")
+                )
+                candidate_tensor=preprocess(candidate).to(device)
+                distances=[]
+                source_scores=[]
+                for source_path,source_tensor in prepared_sources:
+                    distance=float(
+                        model(source_tensor,candidate_tensor)
+                        .detach().cpu().item()
+                    )
+                    if not (distance==distance):
+                        continue
+                    distances.append(distance)
+                    source_scores.append({
+                        "source":str(source_path),
+                        "distance":round(distance,6),
+                    })
+                if not distances:
+                    continue
+                source_scores.sort(key=lambda item:item["distance"])
+                row["dreamsim_face_mean_distance"]=round(
+                    float(statistics.mean(distances)),6
+                )
+                row["dreamsim_face_median_distance"]=round(
+                    float(statistics.median(distances)),6
+                )
+                row["dreamsim_face_best_distance"]=round(
+                    float(min(distances)),6
+                )
+                row["dreamsim_face_best_source"]=source_scores[0]["source"]
+                row["dreamsim_face_sources"]=source_scores
+                scored+=1
+
+        return {
+            "ready":scored>0,
+            "device":device,
+            "model":"DreamSim",
+            "source_count":len(prepared_sources),
+            "candidate_count":scored,
+            "selection_metric":"dreamsim_face_median_distance",
+        }
+    except Exception as exc:
+        return {
+            "ready":False,
+            "reason":f"{type(exc).__name__}:{exc}",
+        }
+
+
+def _rank_eligible(eligible:list[dict],dreamsim_ready:bool)->list[dict]:
+    """Rank only candidates that already passed the existing facial hard gates."""
+    if dreamsim_ready:
+        usable=[
+            row for row in eligible
+            if row.get("dreamsim_face_median_distance") is not None
+        ]
+        if len(usable)==len(eligible) and usable:
+            return sorted(
+                eligible,
+                key=lambda row:(
+                    float(row["dreamsim_face_median_distance"]),
+                    float(row["median_profile_error"]),
+                    float(row["p90_profile_error"]),
+                    0 if row["name"]=="multiview_base" else 1,
+                    row["name"],
+                ),
+            )
+    return sorted(
+        eligible,
+        key=lambda row:(
+            float(row["median_profile_error"]),
+            float(row["p90_profile_error"]),
+            0 if row["name"]=="multiview_base" else 1,
+            row["name"],
+        ),
+    )
 
 def main()->int:
     p=argparse.ArgumentParser(
@@ -92,6 +210,7 @@ def main()->int:
     tournament_dir=root/"face_geometry_tournament"
     tournament_dir.mkdir(parents=True,exist_ok=True)
     rows=[]
+    detected_source_faces={}
 
     for index,row in enumerate(candidates):
         name=str(row.get("name") or f"candidate_{index:02d}")
@@ -129,6 +248,11 @@ def main()->int:
             face_run=_run(face_cmd)
             if face_run["returncode"]==0 and candidate_report.is_file():
                 face_report=json.loads(candidate_report.read_text(encoding="utf-8"))
+                for source_row in face_report.get("source",[]):
+                    raw_source=source_row.get("path")
+                    if raw_source:
+                        source_path=Path(raw_source)
+                        detected_source_faces[str(source_path)]=source_path
 
         detected=int((face_report or {}).get("candidate_detected",0) or 0)
         total=int((face_report or {}).get("candidate_total",1) or 1)
@@ -169,20 +293,23 @@ def main()->int:
         })
 
     eligible=[row for row in rows if row["eligible"]]
+
+    # Perceptual fidelity is evaluated only after the existing facial hard gates.
+    # Normalize sources to the upper subject/head before DreamSim comparison so
+    # full-body framing and background cannot dominate facial selection.
+    detected=list(detected_source_faces.values())
+    detail_detected=[
+        path for path in detected
+        if "prepared_details" in path.parts
+    ]
+    fidelity_sources=detail_detected or detected
+    dreamsim=_dreamsim_face_distances(fidelity_sources,rows)
+    ranked=_rank_eligible(eligible,bool(dreamsim.get("ready")))
+
     selected=None
     promoted=False
-    if eligible:
-        # Lowest profile error wins. Exact ties prefer the untouched multi-view
-        # baseline so a challenger must provide measurable evidence to replace it.
-        eligible.sort(
-            key=lambda row:(
-                float(row["median_profile_error"]),
-                float(row["p90_profile_error"]),
-                0 if row["name"]=="multiview_base" else 1,
-                row["name"],
-            )
-        )
-        selected=eligible[0]
+    if ranked:
+        selected=ranked[0]
         selected_path=Path(selected["path"])
         if selected_path.resolve()!=master.resolve():
             master.parent.mkdir(parents=True,exist_ok=True)
@@ -197,8 +324,15 @@ def main()->int:
             "median_profile_error_max":FACE_MEDIAN_MAX,
             "p90_profile_error_max":FACE_P90_MAX,
             "tie_break":"prefer_multiview_base",
+            "selection_order":(
+                "hard_face_gates_then_dreamsim_then_landmarks"
+                if dreamsim.get("ready")
+                else "hard_face_gates_then_landmarks"
+            ),
             "fail_closed":True,
         },
+        "dreamsim":dreamsim,
+        "fidelity_sources":[str(path) for path in fidelity_sources],
         "source_count":len(sources),
         "candidate_count":len(rows),
         "eligible_count":len(eligible),
