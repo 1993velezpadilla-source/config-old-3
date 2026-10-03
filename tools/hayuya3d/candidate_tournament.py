@@ -11,6 +11,11 @@ from mesh_gate import inspect as inspect_mesh
 from texture_gate import inspect as inspect_texture
 from visual_judge import score_candidate as score_visual
 
+NON_PRODUCTION_GENERATORS = {
+    "tencent/Hunyuan3D-2.1",
+    "tencent/Hunyuan3D-2mv",
+}
+
 
 @dataclass(frozen=True)
 class CandidateSpec:
@@ -28,6 +33,7 @@ class CandidateScore:
     family: str
     native_geometry: bool
     diagnostic_only: bool
+    production_eligible: bool
     eligible: bool
     visual_score: float
     source_views_judged: int
@@ -101,6 +107,18 @@ _GENERATOR_BY_NAME = {
     "detailgen3d_hero_candidate.glb": (
         "VAST-AI/TripoSG+DetailGen3D",
         "detailgen3d",
+        True,
+        False,
+    ),
+    "unique3d_candidate.glb": (
+        "AiuniAI/Unique3D",
+        "unique3d",
+        True,
+        False,
+    ),
+    "unique3d_candidate_material_bridge.glb": (
+        "AiuniAI/Unique3D",
+        "unique3d",
         True,
         False,
     ),
@@ -221,6 +239,7 @@ def score_one(
     required_edge = _texture_edge_for_quality(texture_quality)
     target_faces = _target_faces_for_quality(texture_quality)
     reasons: list[str] = []
+    production_eligible = spec.generator not in NON_PRODUCTION_GENERATORS
 
     mesh = inspect_mesh(spec.path, require_normals=False)
     try:
@@ -279,6 +298,8 @@ def score_one(
         reasons.append(f"source_coverage:{judged}/{expected}")
     if spec.diagnostic_only:
         reasons.append("diagnostic_geometry_only")
+    if not production_eligible:
+        reasons.append("license_not_production_eligible")
 
     eligible = bool(
         mesh.passed
@@ -286,6 +307,7 @@ def score_one(
         and expected > 0
         and judged == expected
         and not spec.diagnostic_only
+        and production_eligible
     )
 
     return CandidateScore(
@@ -294,6 +316,7 @@ def score_one(
         family=spec.family,
         native_geometry=spec.native_geometry,
         diagnostic_only=spec.diagnostic_only,
+        production_eligible=production_eligible,
         eligible=eligible,
         visual_score=round(visual_score, 4),
         source_views_judged=judged,
