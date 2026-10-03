@@ -48,7 +48,9 @@ func _run_probe() -> void:
 
 	# Verify the actual camera ray can purchase/open the rear door.
 	player.set("interaction_range", 4.4)
-	(player as Node3D).global_position = Vector3(0.0, 0.48, -14.4)
+	var rear_pos: Vector3 = (rear_door as Node3D).global_position
+	(player as Node3D).global_position = Vector3(rear_pos.x, 0.38, rear_pos.z + 3.0)
+	(player as Node3D).rotation.y = 0.0
 	await physics_frame
 	if not bool(player.call("request_interact")):
 		_fail(8, "ray interaction did not open rear door")
