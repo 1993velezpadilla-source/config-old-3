@@ -32,8 +32,8 @@ func _b2g(a: Array) -> Vector3:
 func _place_at_spawn() -> void:
 	if not FileAccess.file_exists(NAV_PATH):
 		return
-	var f := FileAccess.open(NAV_PATH, FileAccess.READ)
-	var nav = JSON.parse_string(f.get_as_text())
+	var f: FileAccess = FileAccess.open(NAV_PATH, FileAccess.READ)
+	var nav: Variant = JSON.parse_string(f.get_as_text())
 	if nav is Dictionary and nav.has("spawn"):
 		global_position = _b2g(nav["spawn"]) + Vector3(0.0, 0.18, 0.0)
 
@@ -50,7 +50,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		_handle_drag(event)
 
 func _handle_touch(event: InputEventScreenTouch) -> void:
-	var size := get_viewport().get_visible_rect().size
+	var size: Vector2 = get_viewport().get_visible_rect().size
 	if event.pressed:
 		if event.position.x < size.x * 0.46 and event.position.y > size.y * 0.22 and _move_touch < 0:
 			_move_touch = event.index
@@ -81,7 +81,7 @@ func _apply_look(delta: Vector2) -> void:
 
 func _physics_process(delta: float) -> void:
 	if gyro_enabled and OS.has_feature("mobile") and _look_touch < 0:
-		var gyro := Input.get_gyroscope()
+		var gyro: Vector3 = Input.get_gyroscope()
 		if gyro.length() > 0.05:
 			rotation.y -= gyro.y * gyro_sensitivity * delta
 			_pitch = clamp(_pitch - gyro.x * gyro_sensitivity * delta, deg_to_rad(-86.0), deg_to_rad(86.0))
@@ -93,25 +93,25 @@ func _physics_process(delta: float) -> void:
 		velocity.y = jump_velocity
 	_jump_requested = false
 
-	var input_2d := Vector2.ZERO
+	var input_2d: Vector2 = Vector2.ZERO
 	input_2d.x = float(Input.is_key_pressed(KEY_D)) - float(Input.is_key_pressed(KEY_A))
 	input_2d.y = float(Input.is_key_pressed(KEY_S)) - float(Input.is_key_pressed(KEY_W))
 	if _move_touch >= 0:
 		input_2d = _move_vector
 
-	var pad := Vector2(Input.get_joy_axis(0, JOY_AXIS_LEFT_X), Input.get_joy_axis(0, JOY_AXIS_LEFT_Y))
+	var pad: Vector2 = Vector2(Input.get_joy_axis(0, JOY_AXIS_LEFT_X), Input.get_joy_axis(0, JOY_AXIS_LEFT_Y))
 	if pad.length() > 0.16:
 		input_2d = pad.limit_length(1.0)
 	if input_2d.length() > 1.0:
 		input_2d = input_2d.normalized()
 
-	var wish := (transform.basis * Vector3(input_2d.x, 0.0, input_2d.y))
+	var wish: Vector3 = (transform.basis * Vector3(input_2d.x, 0.0, input_2d.y))
 	wish.y = 0.0
 	if wish.length_squared() > 0.001:
 		wish = wish.normalized()
 
-	var sprinting := Input.is_key_pressed(KEY_SHIFT) or input_2d.length() > 0.92
-	var speed := sprint_speed if sprinting else walk_speed
+	var sprinting: bool = Input.is_key_pressed(KEY_SHIFT) or input_2d.length() > 0.92
+	var speed: float = sprint_speed if sprinting else walk_speed
 	velocity.x = move_toward(velocity.x, wish.x * speed, 22.0 * delta)
 	velocity.z = move_toward(velocity.z, wish.z * speed, 22.0 * delta)
 
