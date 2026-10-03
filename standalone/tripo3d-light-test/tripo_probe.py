@@ -32,6 +32,19 @@ def require_key() -> str:
     key = os.getenv("TRIPO_API_KEY", "").strip()
     if not key:
         raise SystemExit("TRIPO_API_KEY is missing. Dry-run still works without a key.")
+
+    # Be forgiving when a dashboard/user copies an entire Authorization value
+    # instead of only the raw tsk_... token.
+    if key.lower().startswith("bearer "):
+        key = key[7:].strip()
+
+    # GitHub Secrets stores literal characters, so strip accidental wrapping
+    # quotes without ever printing the secret itself.
+    if len(key) >= 2 and key[0] == key[-1] and key[0] in {"'", '"'}:
+        key = key[1:-1].strip()
+
+    if not key:
+        raise SystemExit("TRIPO_API_KEY became empty after normalization.")
     return key
 
 
