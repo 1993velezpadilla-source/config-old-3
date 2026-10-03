@@ -101,6 +101,8 @@ func _build_lights() -> void:
 		add_child(lamp)
 
 func _build_camera() -> void:
+	if get_viewport().get_camera_3d() != null:
+		return
 	var camera := Camera3D.new()
 	camera.name = "PreviewCamera"
 	camera.position = Vector3(0, 7.8, 31)
