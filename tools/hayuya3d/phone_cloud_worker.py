@@ -1496,6 +1496,38 @@ data=dst.read_bytes()
 if data[:4] != b"glTF" or len(data)<1024:
     fail("Invalid GLB output")
 
+try:
+    from candidate_tournament import tournament_from_output
+    post_tournament=tournament_from_output(
+        OUT,
+        crops,
+        texture_quality=TEXTURE_QUALITY,
+        current=dst,
+        current_generator=selected_generator,
+        output_json=OUT/"candidate_tournament_post_extraction.json",
+    )
+    post_winner=post_tournament.get("winner") or {}
+    post_winner_path=Path(str(post_winner.get("path") or ""))
+    if post_winner_path.is_file():
+        if post_winner_path.resolve()!=dst.resolve():
+            shutil.copy2(post_winner_path,dst)
+            data=dst.read_bytes()
+        selected_generator=str(post_winner.get("generator") or selected_generator)
+        actual_texture_size=max(
+            int(actual_texture_size or 0),
+            int(post_winner.get("base_color_min_edge") or 0),
+        )
+        selected_compute=selected_compute+" + post-extraction source tournament"
+        print(
+            "HAYUYA_POST_EXTRACTION_TOURNAMENT_WINNER",
+            json.dumps(post_winner,separators=(",",":")),
+        )
+except Exception as post_tournament_exc:
+    print(
+        "::warning::post-extraction tournament unavailable: "
+        f"{type(post_tournament_exc).__name__}: {post_tournament_exc}"
+    )
+
 require_final_normals=STRICT_TRELLIS2 and TEXTURE_QUALITY in {"high","ultra"}
 final_texture_min_edge=(
     4096
