@@ -167,6 +167,67 @@ def _head_wrap_influence(values):
     return s*s
 
 
+def _semantic_face_weights(
+    vertices,
+    *,
+    up_axis:int,
+    base_lo,
+    base_extent,
+    head_start:float,
+):
+    """Return soft weights for the semantic facial core only.
+
+    HAYUYA character GLBs are Y-up before Blender import and face the semantic
+    negative depth axis. Keep the mask generic across supported up axes: use the
+    negative non-up depth axis for front/back, the remaining axis for width,
+    and fade all boundaries so hood/hair/helmet/neck vertices remain stable.
+    """
+    np,_,_=_deps()
+    vv=np.asarray(vertices,dtype=np.float64)
+    weights=np.zeros(len(vv),dtype=np.float64)
+    if not len(vv):
+        return weights
+
+    up=int(up_axis)
+    if up not in (0,1,2):
+        raise ValueError(f"invalid up axis for face weights: {up}")
+
+    if up==1:
+        front_axis,lateral_axis=2,0
+    elif up==2:
+        front_axis,lateral_axis=1,0
+    else:
+        front_axis,lateral_axis=2,1
+
+    height=max(float(base_extent[up]),1e-9)
+    normalized=(vv[:,up]-base_lo[up])/height
+    head_mask=normalized>=head_start
+    head=vv[head_mask]
+    if len(head)<16:
+        return weights
+
+    head_lo,head_hi,head_center,head_extent=_bbox(head)
+    head_h=max(float(head_extent[up]),1e-9)
+    head_w=max(float(head_extent[lateral_axis]),1e-9)
+    head_d=max(float(head_extent[front_axis]),1e-9)
+
+    local_h=(vv[:,up]-head_lo[up])/head_h
+    lateral=np.abs(vv[:,lateral_axis]-head_center[lateral_axis])/(0.5*head_w)
+    frontness=(head_hi[front_axis]-vv[:,front_axis])/head_d
+
+    lower=_smoothstep((local_h-0.10)/0.18)
+    upper=1.0-_smoothstep((local_h-0.88)/0.10)
+    lateral_w=1.0-_smoothstep((lateral-0.56)/0.38)
+    front_w=_smoothstep((frontness-0.44)/0.28)
+    head_entry=_smoothstep((normalized-head_start)/0.035)
+
+    return np.clip(
+        lower*upper*lateral_w*front_w*head_entry,
+        0.0,
+        1.0,
+    )
+
+
 def _bbox(vertices):
     np,_,_=_deps()
     lo=np.min(vertices,axis=0)
@@ -612,7 +673,7 @@ def build_head_wrap_geometry(
             resolved_up_axis=int(np.argmax(base_extent))
 
         donor_scope=str(donor_scope).lower().strip()
-        if donor_scope not in {"fullbody","head"}:
+        if donor_scope not in {"fullbody","head","face"}:
             raise ValueError(f"invalid donor_scope: {donor_scope}")
 
         base_height=float(base_extent[resolved_up_axis])
@@ -645,7 +706,7 @@ def build_head_wrap_geometry(
                 "policy":"pending-base-driven-head-orientation",
             }
 
-        if donor_scope=="head":
+        if donor_scope in {"head","face"}:
             donor_bbox_face_fraction=_head_donor_background_shell_fraction(
                 donor_vertices,
             )
@@ -660,7 +721,7 @@ def build_head_wrap_geometry(
             base_vertices[:,resolved_up_axis]-base_lo[resolved_up_axis]
         )/base_height
 
-        if donor_scope=="head":
+        if donor_scope in {"head","face"}:
             base_head=base_vertices[base_norm_h>=head_start]
             if len(base_head)<16:
                 raise RuntimeError("base head region too sparse for head donor")
@@ -691,10 +752,20 @@ def build_head_wrap_geometry(
 
         aligned_lo,aligned_hi,_,aligned_extent=_bbox(aligned)
         donor_norm_h=(aligned[:,resolved_up_axis]-base_lo[resolved_up_axis])/base_height
-        donor_head=aligned[donor_norm_h>=max(0.68,head_start-0.04)]
+        if donor_scope=="face":
+            donor_face_weights=_semantic_face_weights(
+                aligned,
+                up_axis=resolved_up_axis,
+                base_lo=base_lo,
+                base_extent=base_extent,
+                head_start=head_start,
+            )
+            donor_head=aligned[donor_face_weights>0.05]
+        else:
+            donor_head=aligned[donor_norm_h>=max(0.68,head_start-0.04)]
         if len(donor_head)<16:
             raise RuntimeError(
-                f"donor head region too sparse: {len(donor_head)} vertices"
+                f"donor {donor_scope} region too sparse: {len(donor_head)} vertices"
             )
         tree=cKDTree(donor_head)
 
@@ -714,8 +785,18 @@ def build_head_wrap_geometry(
             mesh=original.copy()
             vv=np.asarray(mesh.vertices,dtype=np.float64).copy()
             normalized=(vv[:,resolved_up_axis]-base_lo[resolved_up_axis])/base_height
-            mask=normalized>=head_start
-            ids=np.flatnonzero(mask)
+            if donor_scope=="face":
+                region_influence=_semantic_face_weights(
+                    vv,
+                    up_axis=resolved_up_axis,
+                    base_lo=base_lo,
+                    base_extent=base_extent,
+                    head_start=head_start,
+                )
+                ids=np.flatnonzero(region_influence>1e-4)
+            else:
+                region_influence=None
+                ids=np.flatnonzero(normalized>=head_start)
             head_vertices+=int(len(ids))
             if len(ids):
                 distances,nearest=tree.query(vv[ids],k=1,workers=-1)
@@ -729,8 +810,11 @@ def build_head_wrap_geometry(
                 clamped_vertices+=int(np.count_nonzero(too_large))
                 displacement*=clamp_scale[:,None]
 
-                t=(normalized[ids]-head_start)/max(full_influence-head_start,1e-9)
-                influence=_head_wrap_influence(t)
+                if donor_scope=="face":
+                    influence=region_influence[ids]
+                else:
+                    t=(normalized[ids]-head_start)/max(full_influence-head_start,1e-9)
+                    influence=_head_wrap_influence(t)
                 applied=displacement*influence[:,None]
                 before_v=np.asarray(original.vertices,dtype=np.float64)
                 vv[ids]+=applied
@@ -786,7 +870,10 @@ def build_head_wrap_geometry(
                         deform_affected_edges+=int(np.count_nonzero(valid_edge))
                         deform_stretched_edges+=int(np.count_nonzero(edge_ratio>3.0))
 
-                seam_mask=normalized[ids]<(head_start+(full_influence-head_start)*0.35)
+                if donor_scope=="face":
+                    seam_mask=influence<0.35
+                else:
+                    seam_mask=normalized[ids]<(head_start+(full_influence-head_start)*0.35)
                 if np.any(seam_mask):
                     seam_applied.append(applied[seam_mask])
 
@@ -1010,7 +1097,7 @@ def build_rig_preserving_head_wrap_geometry(
             resolved_up_axis=int(np.argmax(base_extent))
 
         donor_scope=str(donor_scope).lower().strip()
-        if donor_scope not in {"fullbody","head"}:
+        if donor_scope not in {"fullbody","head","face"}:
             raise ValueError(f"invalid donor_scope: {donor_scope}")
 
         base_height=float(base_extent[resolved_up_axis])
@@ -1043,7 +1130,7 @@ def build_rig_preserving_head_wrap_geometry(
                 "policy":"pending-base-driven-head-orientation",
             }
 
-        if donor_scope=="head":
+        if donor_scope in {"head","face"}:
             donor_bbox_face_fraction=_head_donor_background_shell_fraction(
                 donor_vertices,
             )
@@ -1056,7 +1143,7 @@ def build_rig_preserving_head_wrap_geometry(
         base_norm_h=(
             base_vertices[:,resolved_up_axis]-base_lo[resolved_up_axis]
         )/base_height
-        if donor_scope=="head":
+        if donor_scope in {"head","face"}:
             base_head=base_vertices[base_norm_h>=head_start]
             if len(base_head)<16:
                 raise RuntimeError("base head region too sparse for head donor")
@@ -1088,12 +1175,22 @@ def build_rig_preserving_head_wrap_geometry(
         donor_norm_h=(
             aligned[:,resolved_up_axis]-base_lo[resolved_up_axis]
         )/base_height
-        donor_head=aligned[
-            donor_norm_h>=max(0.68,head_start-0.04)
-        ]
+        if donor_scope=="face":
+            donor_face_weights=_semantic_face_weights(
+                aligned,
+                up_axis=resolved_up_axis,
+                base_lo=base_lo,
+                base_extent=base_extent,
+                head_start=head_start,
+            )
+            donor_head=aligned[donor_face_weights>0.05]
+        else:
+            donor_head=aligned[
+                donor_norm_h>=max(0.68,head_start-0.04)
+            ]
         if len(donor_head)<16:
             raise RuntimeError(
-                f"donor head region too sparse: {len(donor_head)} vertices"
+                f"donor {donor_scope} region too sparse: {len(donor_head)} vertices"
             )
         tree=cKDTree(donor_head)
 
@@ -1101,9 +1198,20 @@ def build_rig_preserving_head_wrap_geometry(
         normalized=(
             base_vertices[:,resolved_up_axis]-base_lo[resolved_up_axis]
         )/base_height
-        ids=np.flatnonzero(normalized>=head_start)
+        if donor_scope=="face":
+            region_influence=_semantic_face_weights(
+                base_vertices,
+                up_axis=resolved_up_axis,
+                base_lo=base_lo,
+                base_extent=base_extent,
+                head_start=head_start,
+            )
+            ids=np.flatnonzero(region_influence>1e-4)
+        else:
+            region_influence=None
+            ids=np.flatnonzero(normalized>=head_start)
         if len(ids)<=0:
-            raise RuntimeError("base has no head-region vertices")
+            raise RuntimeError(f"base has no {donor_scope}-region vertices")
 
         _,nearest=tree.query(base_vertices[ids],k=1,workers=-1)
         targets=donor_head[np.asarray(nearest,dtype=np.int64)]
@@ -1117,19 +1225,25 @@ def build_rig_preserving_head_wrap_geometry(
             1e-12,
         )
         displacement*=clamp_scale[:,None]
-        t=(normalized[ids]-head_start)/max(
-            full_influence-head_start,
-            1e-9,
-        )
-        influence=_head_wrap_influence(t)
+        if donor_scope=="face":
+            influence=region_influence[ids]
+        else:
+            t=(normalized[ids]-head_start)/max(
+                full_influence-head_start,
+                1e-9,
+            )
+            influence=_head_wrap_influence(t)
         applied=displacement*influence[:,None]
 
         wrapped=base_vertices.copy()
         wrapped[ids]+=applied
         moved_norm=np.linalg.norm(applied,axis=1)/diagonal
-        seam_mask=normalized[ids] < (
-            head_start+(full_influence-head_start)*0.35
-        )
+        if donor_scope=="face":
+            seam_mask=influence<0.35
+        else:
+            seam_mask=normalized[ids] < (
+                head_start+(full_influence-head_start)*0.35
+            )
         seam_norm=(
             np.linalg.norm(applied[seam_mask],axis=1)/diagonal
             if np.any(seam_mask)
