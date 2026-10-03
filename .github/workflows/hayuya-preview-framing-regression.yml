@@ -1,0 +1,88 @@
+name: HAYUYA • preview framing regression
+
+on:
+  push:
+    branches:
+      - art/hayuya-cleanroom-aaa-v1
+    paths:
+      - tools/hayuya3d/blender_model_preview_pack.py
+      - .github/workflows/hayuya-preview-framing-regression.yml
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 1
+
+      - name: Install Blender
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender xvfb python3-pil
+
+      - name: Render bbox-safe preview pack
+        run: |
+          set -euo pipefail
+          test -s hayuya/models/monja-trellis2-ab-01/model.glb
+          mkdir -p out/hayuya-preview-framing
+          xvfb-run -a blender --python-exit-code 1 -b \
+            --python tools/hayuya3d/blender_model_preview_pack.py -- \
+            --input hayuya/models/monja-trellis2-ab-01/model.glb \
+            --output-dir out/hayuya-preview-framing \
+            --size 1024
+
+      - name: Verify full-body safe margins
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import numpy as np
+
+          root = Path("out/hayuya-preview-framing")
+          names = [
+              "front",
+              "three_quarter",
+              "side",
+              "opposite",
+              "three_quarter_opposite",
+              "side_opposite",
+          ]
+          report = {}
+          for name in names:
+              img = np.asarray(Image.open(root / f"{name}.png").convert("RGB"))
+              h, w, _ = img.shape
+              corners = np.concatenate([
+                  img[:24,:24].reshape(-1,3),
+                  img[:24,-24:].reshape(-1,3),
+                  img[-24:,:24].reshape(-1,3),
+                  img[-24:,-24:].reshape(-1,3),
+              ], axis=0)
+              bg = np.median(corners.astype(np.float32), axis=0)
+              dist = np.linalg.norm(img.astype(np.float32) - bg[None,None,:], axis=2)
+              mask = dist > 18.0
+              ys, xs = np.where(mask)
+              if not len(xs):
+                  raise SystemExit(f"{name}: no foreground detected")
+              box = [int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max())]
+              margins = {
+                  "left": box[0] / w,
+                  "top": box[1] / h,
+                  "right": (w - 1 - box[2]) / w,
+                  "bottom": (h - 1 - box[3]) / h,
+              }
+              report[name] = {"box": box, "margins": margins}
+              # At least 2% on every side proves the subject is not clipped.
+              if min(margins.values()) < 0.02:
+                  raise SystemExit(f"{name}: unsafe margin {margins}")
+          print("HAYUYA_PREVIEW_FRAMING_GREEN", report)
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hayuya-preview-framing-regression
+          path: out/hayuya-preview-framing/**
+          if-no-files-found: error
+          retention-days: 3

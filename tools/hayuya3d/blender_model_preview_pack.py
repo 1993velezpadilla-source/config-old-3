@@ -66,10 +66,61 @@ def add_light(location, target, energy, size):
     look_at(light, target)
 
 
-def render_view(scene, cam, output, target, offset, ortho_scale):
+def _bounds_corners(mn, mx):
+    return [
+        Vector((x, y, z))
+        for x in (mn.x, mx.x)
+        for y in (mn.y, mx.y)
+        for z in (mn.z, mx.z)
+    ]
+
+
+def fit_ortho_scale(scene, cam, mn, mx, padding=1.12):
+    """Fit the complete world-space AABB inside the current ortho camera."""
+    bpy.context.view_layer.update()
+    inv = cam.matrix_world.inverted()
+    pts = [inv @ p for p in _bounds_corners(mn, mx)]
+    x_min = min(p.x for p in pts)
+    x_max = max(p.x for p in pts)
+    y_min = min(p.y for p in pts)
+    y_max = max(p.y for p in pts)
+
+    x_span = max(float(x_max - x_min), 1e-6)
+    y_span = max(float(y_max - y_min), 1e-6)
+    aspect = (
+        float(scene.render.resolution_x) * float(scene.render.pixel_aspect_x)
+    ) / max(
+        float(scene.render.resolution_y) * float(scene.render.pixel_aspect_y),
+        1e-6,
+    )
+
+    # Blender ortho_scale is the vertical frame span; horizontal span is
+    # ortho_scale * aspect. Fit both projected dimensions, then add safe area.
+    scale = max(y_span, x_span / max(aspect, 1e-6)) * float(padding)
+    return max(scale, 1e-4)
+
+
+def render_view(
+    scene,
+    cam,
+    output,
+    target,
+    offset,
+    *,
+    bounds=None,
+    ortho_scale=None,
+    padding=1.12,
+):
     cam.location = target + offset
     look_at(cam, target)
-    cam.data.ortho_scale = ortho_scale
+    if bounds is not None:
+        cam.data.ortho_scale = fit_ortho_scale(
+            scene, cam, bounds[0], bounds[1], padding=padding
+        )
+    elif ortho_scale is not None:
+        cam.data.ortho_scale = float(ortho_scale)
+    else:
+        raise ValueError("bounds or ortho_scale is required")
     scene.render.filepath = str(output.resolve())
     bpy.ops.render.render(write_still=True)
 
@@ -125,11 +176,10 @@ def main():
 
     a.output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Blender's orthographic scale behaves like a half-span for this imported
-    # glTF scene. The previous 1.30 factor left the subject at ~39% of frame.
-    # Keep factual geometry, but frame it like a production turntable.
-    full_scale = max(float(ext.x), float(ext.y), float(ext.z)) * 0.66
-    full_scale = max(full_scale, 0.28)
+    # Full-body views are fitted from the projected world-space bounds for
+    # every camera angle. This is generic and prevents head/feet clipping.
+    full_body_bounds = (mn, mx)
+    full_body_padding = 1.12
 
     views = {
         # AniGen's glTF export faces +Y after Blender imports Y-up glTF into
@@ -137,32 +187,32 @@ def main():
         "front": {
             "target": center,
             "offset": Vector((0.0, 3.2 * radius, 0.0)),
-            "scale": full_scale,
+            "bounds": full_body_bounds,
         },
         "three_quarter": {
             "target": center,
             "offset": Vector((2.30 * radius, 2.30 * radius, 0.0)),
-            "scale": full_scale,
+            "bounds": full_body_bounds,
         },
         "side": {
             "target": center,
             "offset": Vector((3.2 * radius, 0.0, 0.0)),
-            "scale": full_scale,
+            "bounds": full_body_bounds,
         },
         "opposite": {
             "target": center,
             "offset": Vector((0.0, -3.2 * radius, 0.0)),
-            "scale": full_scale,
+            "bounds": full_body_bounds,
         },
         "three_quarter_opposite": {
             "target": center,
             "offset": Vector((-2.30 * radius, -2.30 * radius, 0.0)),
-            "scale": full_scale,
+            "bounds": full_body_bounds,
         },
         "side_opposite": {
             "target": center,
             "offset": Vector((-3.2 * radius, 0.0, 0.0)),
-            "scale": full_scale,
+            "bounds": full_body_bounds,
         },
     }
 
@@ -183,7 +233,16 @@ def main():
     rendered = {}
     for name, spec in views.items():
         output = a.output_dir / f"{name}.png"
-        render_view(scene, cam, output, spec["target"], spec["offset"], spec["scale"])
+        render_view(
+            scene,
+            cam,
+            output,
+            spec["target"],
+            spec["offset"],
+            bounds=spec.get("bounds"),
+            ortho_scale=spec.get("scale"),
+            padding=full_body_padding if spec.get("bounds") else 1.0,
+        )
         rendered[name] = str(output)
 
     manifest = {
@@ -196,7 +255,12 @@ def main():
             "extents": [round(float(v), 7) for v in ext],
         },
         "renders": rendered,
-        "renderer": "blender_eevee_generated_model_preview_v2_eye_framed",
+        "framing": {
+            "full_body_mode": "projected_aabb_fit",
+            "full_body_padding": full_body_padding,
+            "face_mode": "upper_body_closeup",
+        },
+        "renderer": "blender_eevee_generated_model_preview_v3_bbox_safe",
     }
     (a.output_dir / "preview_manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     print("HAYUYA_MODEL_PREVIEW_PACK", json.dumps(manifest))
