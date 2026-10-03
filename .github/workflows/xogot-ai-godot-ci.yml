@@ -69,6 +69,7 @@ jobs:
           grep -q "XZOGOT_INTERACTION_PLAYER_READY 500" build/xogot-ai/runtime.log
           grep -q "XZOGOT_INTERACTIONS_PREPARED 6" build/xogot-ai/runtime.log
           grep -q "XZOGOT_WINDOWS_PREPARED 8" build/xogot-ai/runtime.log
+          grep -q "XZOGOT_ARCH_SHELL_V2_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_ROUND_MANAGER_READY" build/xogot-ai/runtime.log
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-ai/runtime.log
 
