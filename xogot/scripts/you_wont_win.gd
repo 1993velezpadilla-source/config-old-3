@@ -5,6 +5,7 @@ func _ready() -> void:
 	_build_site()
 	_build_church()
 	_build_interior()
+	_build_interactions()
 	_build_windows()
 	_build_lights()
 	_build_camera()
@@ -76,6 +77,47 @@ func _build_interior() -> void:
 	_box("StairLanding", Vector3(4.0, 0.45, 4.0), Vector3(-8.0, 2.65, 8.0), wood)
 	for i in range(8):
 		_box("Stair%d" % i, Vector3(3.2, 0.30, 1.0), Vector3(-8.0, 0.55 + i * 0.55, 3.0 + i * 0.62), wood)
+
+func _build_interactions() -> void:
+	# Generic interaction kinds: 0 door, 1 wallbuy, 2 mystery, 3 perk, 4 power.
+	_interactive_box("RearDoor", Vector3(3.4, 3.8, 0.35), Vector3(0, 1.9, -18.2), Color(0.12, 0.07, 0.035), 0, 750, 0, true, "OPEN REAR DOOR")
+	_interactive_box("BalconyGate", Vector3(3.5, 2.2, 0.30), Vector3(-8.0, 6.0, 7.45), Color(0.13, 0.075, 0.04), 0, 1000, 0, true, "OPEN BALCONY")
+	_interactive_box("WallBuy_01", Vector3(0.28, 1.8, 1.7), Vector3(-10.45, 1.7, -5.0), Color(0.16, 0.42, 0.62), 1, 500, 60, false, "BUY AMMO")
+	_interactive_box("MysteryBoxSocket", Vector3(2.2, 1.4, 1.1), Vector3(7.4, 0.9, -15.0), Color(0.18, 0.12, 0.30), 2, 950, 0, false, "MYSTERY BOX")
+	_interactive_box("PerkSocket", Vector3(1.2, 2.0, 1.2), Vector3(-7.4, 1.2, -15.2), Color(0.42, 0.11, 0.09), 3, 2500, 0, true, "PERK")
+	_interactive_box("PowerSwitch", Vector3(0.7, 2.2, 0.7), Vector3(8.6, 1.4, 8.3), Color(0.52, 0.42, 0.12), 4, 0, 0, true, "TURN ON POWER")
+	print("XZOGOT_INTERACTIONS_PREPARED 6")
+
+func _interactive_box(label: String, size: Vector3, pos: Vector3, color: Color, kind: int, price: int, reward: int, one_shot: bool, prompt: String) -> void:
+	var script_resource: Script = load("res://scripts/interactable.gd") as Script
+	var body := StaticBody3D.new()
+	body.name = label
+	body.position = pos
+	body.set_script(script_resource)
+	body.set("interaction_kind", kind)
+	body.set("price", price)
+	body.set("reward_amount", reward)
+	body.set("one_shot", one_shot)
+	body.set("prompt_text", prompt)
+	body.add_to_group("zombie_interactable")
+
+	var mi := MeshInstance3D.new()
+	var mesh := BoxMesh.new()
+	mesh.size = size
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = color
+	mat.roughness = 0.74
+	mat.metallic = 0.06
+	mesh.material = mat
+	mi.mesh = mesh
+	body.add_child(mi)
+
+	var cs := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = size
+	cs.shape = shape
+	body.add_child(cs)
+	add_child(body)
 
 func _build_windows() -> void:
 	var glow := Color(0.24, 0.34, 0.48)
