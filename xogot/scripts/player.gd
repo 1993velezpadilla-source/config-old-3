@@ -4,6 +4,9 @@ const NAV_PATH := "res://data/nav_skeleton.json"
 
 @export var walk_speed := 4.8
 @export var sprint_speed := 8.1
+@export var crouch_speed := 3.2
+@export var slide_speed := 10.6
+@export var slide_duration := 0.62
 @export var jump_velocity := 6.0
 @export var mouse_sensitivity := 0.0022
 @export var touch_sensitivity := 0.0028
@@ -11,15 +14,28 @@ const NAV_PATH := "res://data/nav_skeleton.json"
 @export var gyro_sensitivity := 0.70
 @export var use_nav_spawn := true
 
+const STAND_HEAD_Y := 1.62
+const CROUCH_HEAD_Y := 1.12
+const STAND_CAPSULE_HEIGHT := 1.80
+const CROUCH_CAPSULE_HEIGHT := 1.18
+const STAND_COLLIDER_Y := 0.90
+const CROUCH_COLLIDER_Y := 0.59
+
 var _gravity := 18.0
 var _move_touch := -1
 var _look_touch := -1
 var _move_origin := Vector2.ZERO
 var _move_vector := Vector2.ZERO
 var _jump_requested := false
+var _crouch_touch_held := false
 var _pitch := 0.0
+var _crouched := false
+var _sliding := false
+var _slide_timer := 0.0
+var _slide_direction := Vector3.ZERO
 
 @onready var _head: Node3D = $Head
+@onready var _collider: CollisionShape3D = $CollisionShape3D
 
 func _ready() -> void:
 	_gravity = float(ProjectSettings.get_setting("physics/3d/default_gravity", 18.0))
@@ -28,6 +44,7 @@ func _ready() -> void:
 	if use_nav_spawn:
 		_place_at_spawn()
 	print("XZOGOT_PLAYER_READY")
+	print("XZOGOT_MOVEMENT_V2_READY")
 
 func _b2g(a: Array) -> Vector3:
 	return Vector3(float(a[0]), float(a[2]), -float(a[1]))
@@ -54,13 +71,18 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _handle_touch(event: InputEventScreenTouch) -> void:
 	var size: Vector2 = get_viewport().get_visible_rect().size
+	var jump_zone := event.position.x > size.x * 0.84 and event.position.y > size.y * 0.72
+	var crouch_zone := event.position.x > size.x * 0.68 and event.position.x <= size.x * 0.84 and event.position.y > size.y * 0.72
+
 	if event.pressed:
 		if event.position.x < size.x * 0.46 and event.position.y > size.y * 0.22 and _move_touch < 0:
 			_move_touch = event.index
 			_move_origin = event.position
 			_move_vector = Vector2.ZERO
-		elif event.position.x > size.x * 0.80 and event.position.y > size.y * 0.76:
+		elif jump_zone:
 			_jump_requested = true
+		elif crouch_zone:
+			_crouch_touch_held = true
 		elif _look_touch < 0:
 			_look_touch = event.index
 	else:
@@ -69,6 +91,8 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 			_move_vector = Vector2.ZERO
 		if event.index == _look_touch:
 			_look_touch = -1
+		if crouch_zone:
+			_crouch_touch_held = false
 
 func _handle_drag(event: InputEventScreenDrag) -> void:
 	if event.index == _move_touch:
@@ -82,6 +106,32 @@ func _apply_look(delta: Vector2) -> void:
 	_pitch = clamp(_pitch - delta.y, deg_to_rad(-86.0), deg_to_rad(86.0))
 	_head.rotation.x = _pitch
 
+func _set_crouched(enabled: bool) -> void:
+	if _crouched == enabled:
+		return
+	_crouched = enabled
+	var capsule := _collider.shape as CapsuleShape3D
+	if capsule != null:
+		capsule.height = CROUCH_CAPSULE_HEIGHT if enabled else STAND_CAPSULE_HEIGHT
+	_collider.position.y = CROUCH_COLLIDER_Y if enabled else STAND_COLLIDER_Y
+
+func _update_stance(delta: float, crouch_pressed: bool) -> void:
+	var target_head_y := CROUCH_HEAD_Y if (_crouched or _sliding) else STAND_HEAD_Y
+	_head.position.y = move_toward(_head.position.y, target_head_y, 5.5 * delta)
+
+	if _sliding:
+		_slide_timer -= delta
+		if _slide_timer <= 0.0 or not is_on_floor():
+			_sliding = false
+			if not crouch_pressed:
+				_set_crouched(false)
+		return
+
+	if crouch_pressed:
+		_set_crouched(true)
+	else:
+		_set_crouched(false)
+
 func _physics_process(delta: float) -> void:
 	if gyro_enabled and OS.has_feature("mobile") and _look_touch < 0:
 		var gyro: Vector3 = Input.get_gyroscope()
@@ -92,30 +142,46 @@ func _physics_process(delta: float) -> void:
 
 	if not is_on_floor():
 		velocity.y -= _gravity * delta
-	if (_jump_requested or Input.is_key_pressed(KEY_SPACE)) and is_on_floor():
+	if (_jump_requested or Input.is_key_pressed(KEY_SPACE)) and is_on_floor() and not _sliding:
 		velocity.y = jump_velocity
 	_jump_requested = false
 
-	var input_2d: Vector2 = Vector2.ZERO
+	var input_2d := Vector2.ZERO
 	input_2d.x = float(Input.is_key_pressed(KEY_D)) - float(Input.is_key_pressed(KEY_A))
 	input_2d.y = float(Input.is_key_pressed(KEY_S)) - float(Input.is_key_pressed(KEY_W))
 	if _move_touch >= 0:
 		input_2d = _move_vector
 
-	var pad: Vector2 = Vector2(Input.get_joy_axis(0, JOY_AXIS_LEFT_X), Input.get_joy_axis(0, JOY_AXIS_LEFT_Y))
+	var pad := Vector2(Input.get_joy_axis(0, JOY_AXIS_LEFT_X), Input.get_joy_axis(0, JOY_AXIS_LEFT_Y))
 	if pad.length() > 0.16:
 		input_2d = pad.limit_length(1.0)
 	if input_2d.length() > 1.0:
 		input_2d = input_2d.normalized()
 
-	var wish: Vector3 = transform.basis * Vector3(input_2d.x, 0.0, input_2d.y)
+	var wish := transform.basis * Vector3(input_2d.x, 0.0, input_2d.y)
 	wish.y = 0.0
 	if wish.length_squared() > 0.001:
 		wish = wish.normalized()
 
-	var sprinting: bool = Input.is_key_pressed(KEY_SHIFT) or input_2d.length() > 0.92
-	var speed: float = sprint_speed if sprinting else walk_speed
-	velocity.x = move_toward(velocity.x, wish.x * speed, 22.0 * delta)
-	velocity.z = move_toward(velocity.z, wish.z * speed, 22.0 * delta)
+	var crouch_pressed := _crouch_touch_held or Input.is_key_pressed(KEY_CTRL) or Input.is_key_pressed(KEY_C)
+	var sprinting := Input.is_key_pressed(KEY_SHIFT) or input_2d.length() > 0.92
+
+	if crouch_pressed and sprinting and input_2d.length() > 0.72 and is_on_floor() and not _sliding:
+		_sliding = true
+		_slide_timer = slide_duration
+		_slide_direction = wish if wish.length_squared() > 0.001 else -transform.basis.z
+		_set_crouched(true)
+
+	_update_stance(delta, crouch_pressed)
+
+	if _sliding:
+		var slide_factor := clamp(_slide_timer / slide_duration, 0.0, 1.0)
+		var current_slide_speed := lerpf(crouch_speed, slide_speed, slide_factor)
+		velocity.x = _slide_direction.x * current_slide_speed
+		velocity.z = _slide_direction.z * current_slide_speed
+	else:
+		var speed := crouch_speed if _crouched else (sprint_speed if sprinting else walk_speed)
+		velocity.x = move_toward(velocity.x, wish.x * speed, 22.0 * delta)
+		velocity.z = move_toward(velocity.z, wish.z * speed, 22.0 * delta)
 
 	move_and_slide()
