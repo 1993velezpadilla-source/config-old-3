@@ -160,9 +160,13 @@ func _build_church() -> void:
 	for z: float in buttress_z:
 		_box("ButtressL", Vector3(1.15, 6.2, 1.55), Vector3(-11.45, 3.1, z), dark_stone)
 		_box("ButtressR", Vector3(1.15, 6.2, 1.55), Vector3(11.45, 3.1, z), dark_stone)
-	# front tower
-	_box("TowerBase", Vector3(7.0, 10.5, 6.0), Vector3(0, 5.25, 10.7), dark_stone)
+	# Front tower with a real central passage instead of one solid block.
+	# Two piers + upper lintel preserve tower mass while keeping the 3 m portal walkable.
+	_box("TowerBasePierL", Vector3(2.0, 4.4, 6.0), Vector3(-2.5, 2.2, 10.7), dark_stone)
+	_box("TowerBasePierR", Vector3(2.0, 4.4, 6.0), Vector3(2.5, 2.2, 10.7), dark_stone)
+	_box("TowerBaseLintel", Vector3(7.0, 6.1, 6.0), Vector3(0, 7.45, 10.7), dark_stone)
 	_box("TowerUpper", Vector3(5.4, 4.0, 5.0), Vector3(0, 12.5, 10.7), stone)
+	print("XZOGOT_TOWER_PORTAL_OPEN 3.0")
 	# pitched nave roof
 	_wedge_roof("RoofLeft", Vector3(-5.55, 9.9, -5), -20.0, Color(0.055, 0.06, 0.07))
 	_wedge_roof("RoofRight", Vector3(5.55, 9.9, -5), 20.0, Color(0.055, 0.06, 0.07))
