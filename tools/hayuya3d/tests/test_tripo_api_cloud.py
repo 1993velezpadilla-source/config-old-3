@@ -157,6 +157,11 @@ class TripoAPICloudTests(unittest.TestCase):
                 return ("model", "https://cdn/x.glb")
 
             with (
+                patch.object(
+                    mod,
+                    "get_balance",
+                    return_value={"balance": 100.0, "frozen": 0.0},
+                ),
                 patch.object(mod, "upload_image", side_effect=upload),
                 patch.object(mod, "create_task", side_effect=create),
                 patch.object(mod, "wait_for_task", side_effect=wait),
