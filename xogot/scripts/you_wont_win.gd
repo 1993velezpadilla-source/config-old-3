@@ -706,7 +706,7 @@ func _build_balcony_stair_ramp() -> void:
 
 func _build_interactions() -> void:
 	# Generic interaction kinds: 0 door, 1 wallbuy, 2 mystery, 3 perk, 4 power.
-	_interactive_box("RearDoor", Vector3(3.4, 3.8, 0.35), Vector3(0, 1.9, -18.2), Color(0.12, 0.07, 0.035), 0, 750, 0, true, "OPEN REAR DOOR")
+	_interactive_box("RearDoor", Vector3(3.4, 3.8, 0.35), Vector3(0, 1.9, 13.10), Color(0.12, 0.07, 0.035), 0, 750, 0, true, "OPEN FRONT DOOR")
 	_interactive_box("BalconyGate", Vector3(3.5, 2.2, 0.30), Vector3(-8.0, 6.0, 7.45), Color(0.13, 0.075, 0.04), 0, 1000, 0, true, "OPEN BALCONY")
 	_interactive_box("WallBuy_01", Vector3(0.28, 1.8, 1.7), Vector3(-10.45, 1.7, -5.0), Color(0.16, 0.42, 0.62), 1, 500, 60, false, "BUY AMMO")
 	_interactive_box("MysteryBoxSocket", Vector3(2.2, 1.4, 1.1), Vector3(7.4, 0.9, -15.0), Color(0.18, 0.12, 0.30), 2, 950, 0, false, "MYSTERY BOX")
@@ -855,6 +855,16 @@ func _build_lights() -> void:
 		lamp.omni_range = 7.0 * WORLD_SCALE
 		lamp.shadow_enabled = true
 		add_child(lamp)
+
+	var altar_glow := OmniLight3D.new()
+	altar_glow.name = "AltarGlow"
+	altar_glow.position = _wp(Vector3(0.0, 2.35, -20.10))
+	altar_glow.light_color = Color(1.0, 0.30, 0.10)
+	altar_glow.light_energy = 1.05
+	altar_glow.omni_range = 5.2 * WORLD_SCALE
+	altar_glow.shadow_enabled = true
+	add_child(altar_glow)
+	print("XZOGOT_ALTAR_LIGHT_READY")
 
 	# Low-energy wall sconces reveal architecture without flattening the horror contrast.
 	var sconce_z: Array[float] = [-13.0, -3.0, 7.0]
