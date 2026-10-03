@@ -1,0 +1,2665 @@
+{
+  "schema": 2,
+  "engine": "HAYUYA PHONE CLOUD",
+  "job_id": "monji-murgucol-multiview-facefix-v7",
+  "asset_profile": "character.creature",
+  "weapon_family": "auto",
+  "animation_requested": true,
+  "motion_profile": "hayuya_auto",
+  "texture_quality": "high",
+  "compute": "GitHub-hosted CPU controller + public TRELLIS ZeroGPU + CPU semantic head-detail fusion",
+  "phone_only": true,
+  "source": "hayuya/assets/monji-murgucol/geometry/primary.webp",
+  "prepared_views": [
+    "front.png",
+    "view_02.png",
+    "view_03.png",
+    "view_04.png"
+  ],
+  "prepared_detail_views": [
+    "detail_01_auto_head.png",
+    "detail_02.png"
+  ],
+  "head_geometry_fusion": null,
+  "hunyuan_head_geometry_fusion": {
+    "attempted": true,
+    "source_detail": "detail_01_auto_head.png",
+    "promoted": false,
+    "error": "AppError: 'You have exceeded your ZeroGPU quota (90s requested vs. 53s left). Try again in 23:57:50. Authenticate with a Hugging Face token for more quota - https://huggingface.co/settings/tokens'"
+  },
+  "detail_fusion": {
+    "attempted": true,
+    "source_detail": "detail_01_auto_head.png",
+    "donor": {
+      "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/detail_head_donor.glb",
+      "generator": "stabilityai/TripoSR",
+      "service_space": "AleenDG/3DGenTripoSR",
+      "compute": "public Hugging Face CPU Space",
+      "bytes": 3054912,
+      "quality_role": "continuity_candidate",
+      "requires_full_hayuya_gates": true
+    },
+    "geometry_fusion": {
+      "attempted": true,
+      "source_detail": "detail_01_auto_head.png",
+      "fusion": {
+        "base_mesh": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/face_geometry_candidates/00_multiview_base.glb",
+        "donor_mesh": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/detail_head_donor.glb",
+        "raw_output_glb": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/detail_face_geometry_wrap/head_wrap_adaptive_face_0p01_raw.glb",
+        "output_glb": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/detail_face_geometry_wrap/head_wrap_adaptive_face_0p01_raw.glb",
+        "attempted": true,
+        "geometry_ready": true,
+        "rebake_ready": true,
+        "ready_for_judge": true,
+        "up_axis": 1,
+        "alignment_scale": 0.2907903,
+        "head_vertices": 3228,
+        "changed_vertices": 3228,
+        "clamped_vertices": 2353,
+        "mean_displacement_normalized": 0.0039947,
+        "max_displacement_normalized": 0.01,
+        "seam_max_displacement_normalized": 0.00349703,
+        "bbox_drift_fraction": 0.0,
+        "rebake_required": [],
+        "rebake_resolved": [],
+        "skin_payload_preserved": null,
+        "skin_runtime_ready": null,
+        "rig_preserved": null,
+        "skin_weights_ready": null,
+        "error": null,
+        "method": "hayuya-head-wrap-regional-fusion-v5-adaptive-face-0.0100",
+        "donor_scope": "face",
+        "collapsed_face_fraction": 0.00944305,
+        "stretched_edge_fraction": 0.00064238,
+        "flipped_face_fraction": 0.00269802,
+        "topology_preserved": true,
+        "uv_preserved": true,
+        "donor_up_axis": 1,
+        "donor_axis_remapped": true,
+        "donor_up_axis_confidence": 1.31781813,
+        "donor_yaw_degrees": 0.0,
+        "donor_yaw_alignment_score": 0.157466,
+        "donor_orientation_policy": "base-driven-proper-rotation-plus-yaw-v1",
+        "donor_orientation_candidates": 6,
+        "donor_orientation_determinant": 1.0,
+        "donor_up_sign": -1
+      },
+      "promoted": false,
+      "authority": "judge_tournament_only",
+      "mesh_gate": {
+        "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/detail_face_geometry_wrap/head_wrap_adaptive_face_0p01_raw.glb",
+        "valid": true,
+        "passed": true,
+        "vertices": 66870,
+        "faces": 100430,
+        "triangle_primitives": 1,
+        "normal_primitives": 0,
+        "missing_normal_primitives": 1,
+        "components": 3,
+        "largest_component_fraction": 0.973996,
+        "degenerate_ratio": 4e-05,
+        "bbox_extents": [
+          0.4376276,
+          0.99922973,
+          0.33131503
+        ],
+        "bbox_aspect_ratio": 3.015951,
+        "axis_alignment_weighted": 0.885061,
+        "axis_aligned_area_98": 0.166521,
+        "dominant_normal_axis_area": [
+          0.467182,
+          0.048487,
+          0.484331
+        ],
+        "reasons": [],
+        "warnings": []
+      },
+      "texture_gate": {
+        "schema": 2,
+        "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/detail_face_geometry_wrap/head_wrap_adaptive_face_0p01_raw.glb",
+        "image_count": 1,
+        "max_edge": 4096,
+        "max_megapixels": 16.7772,
+        "mean_edge_variance": 368.0873,
+        "base_color_image_count": 1,
+        "base_color_max_edge": 4096,
+        "base_color_min_edge": 4096,
+        "base_color_max_megapixels": 16.7772,
+        "material_roles": {
+          "baseColor": [
+            0
+          ]
+        },
+        "metrics": [
+          {
+            "index": 0,
+            "mime_type": "image/png",
+            "width": 4096,
+            "height": 4096,
+            "megapixels": 16.7772,
+            "edge_variance": 368.0873,
+            "luminance_stddev": 23.9523,
+            "entropy": 5.5931,
+            "roles": [
+              "baseColor"
+            ]
+          }
+        ],
+        "warnings": [],
+        "passed": true
+      }
+    },
+    "fusion": {
+      "base_mesh": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/hayuya_final.glb",
+      "donor_mesh": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/detail_head_donor.glb",
+      "output_glb": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/hayuya_head_detail_fused.glb",
+      "region": "head",
+      "ready": true,
+      "basecolor_image_index": 0,
+      "changed_pixels": 1209901,
+      "unchanged_pixels": 15567315,
+      "changed_fraction": 0.072116,
+      "donor_alignment_p95_ratio": 0.129879,
+      "skin_payload_preserved": true,
+      "runtime_payload_preserved": true,
+      "geometry_preserved": true,
+      "skipped_uv_seam_faces": 0,
+      "seam_boundary_pairs": 85674,
+      "seam_added_delta_p95": 1.333333,
+      "seam_added_delta_max": 5.333333,
+      "seam_ready": true,
+      "error": null,
+      "method": "hayuya-local-basecolor-fusion-v2"
+    },
+    "promoted": true,
+    "mesh_gate": {
+      "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/hayuya_head_detail_fused.glb",
+      "valid": true,
+      "passed": true,
+      "vertices": 66870,
+      "faces": 100430,
+      "triangle_primitives": 1,
+      "normal_primitives": 0,
+      "missing_normal_primitives": 1,
+      "components": 3,
+      "largest_component_fraction": 0.973997,
+      "degenerate_ratio": 0.0,
+      "bbox_extents": [
+        0.4376276,
+        0.99922973,
+        0.33131503
+      ],
+      "bbox_aspect_ratio": 3.015951,
+      "axis_alignment_weighted": 0.884208,
+      "axis_aligned_area_98": 0.166168,
+      "dominant_normal_axis_area": [
+        0.465772,
+        0.046869,
+        0.487359
+      ],
+      "reasons": [],
+      "warnings": []
+    },
+    "texture_gate": {
+      "schema": 2,
+      "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/hayuya_head_detail_fused.glb",
+      "image_count": 1,
+      "max_edge": 4096,
+      "max_megapixels": 16.7772,
+      "mean_edge_variance": 381.6829,
+      "base_color_image_count": 1,
+      "base_color_max_edge": 4096,
+      "base_color_min_edge": 4096,
+      "base_color_max_megapixels": 16.7772,
+      "material_roles": {
+        "baseColor": [
+          0
+        ]
+      },
+      "metrics": [
+        {
+          "index": 0,
+          "mime_type": "image/png",
+          "width": 4096,
+          "height": 4096,
+          "megapixels": 16.7772,
+          "edge_variance": 381.6829,
+          "luminance_stddev": 21.3092,
+          "entropy": 5.6037,
+          "roles": [
+            "baseColor"
+          ]
+        }
+      ],
+      "warnings": [],
+      "passed": true
+    }
+  },
+  "source_material_rescue": null,
+  "source_autofix": {
+    "schema": 1,
+    "ready": true,
+    "sources": [
+      {
+        "source": "hayuya/assets/monji-murgucol/geometry/primary.webp",
+        "face_detail": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/source_autofix/details/000-face_detail-auto.png",
+        "method": "mediapipe_face_landmarker_zoom_probe",
+        "direct_face_detected": false,
+        "used_zoom_probe": true,
+        "face_box_fraction": 0.02239633,
+        "source_size": [
+          1024,
+          1536
+        ],
+        "output_size": [
+          1024,
+          1024
+        ],
+        "semantic_face_or_head_confirmed": true,
+        "alpha_preserved": false,
+        "warning": null
+      }
+    ],
+    "derived_detail_sources": [
+      "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/source_autofix/details/000-face_detail-auto.png"
+    ],
+    "character_hint": true,
+    "real_sources_preserved": true,
+    "derived_sources_are_not_independent_references": true,
+    "policy": "auto",
+    "manifest": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/source_autofix/source_autofix.json"
+  },
+  "source_autofix_failure": null,
+  "manual_face_closeup_required": false,
+  "single_photo_first": true,
+  "reference_dir": "hayuya/assets/monji-murgucol/references",
+  "detail_dir": "hayuya/assets/monji-murgucol/details",
+  "prep_target": 2048,
+  "multi_image": true,
+  "generator": "trellis-community/TRELLIS",
+  "preview_recovery_candidate": null,
+  "preview_recovery_face_rescue_required": false,
+  "preview_recovery_face_rescue_reason": null,
+  "preview_normal_hero": null,
+  "hero_master": null,
+  "preview_recovery_promoted": false,
+  "requested_backends": [
+    "trellis",
+    "hunyuan3d_2_1",
+    "trellis2",
+    "triposg",
+    "spar3d",
+    "triposr"
+  ],
+  "strict_trellis2": false,
+  "texture_size": 4096,
+  "requested_texture_target": 4096,
+  "native_texture_target": 4096,
+  "texture_refinement_pending": false,
+  "quality_profile": {
+    "ss_sampling_steps": 16,
+    "slat_sampling_steps": 16,
+    "requested_mesh_simplify": 0.7,
+    "actual_mesh_simplify": 0.7,
+    "requested_texture_size": 4096,
+    "actual_texture_size": 4096,
+    "public_ui_simplify_floor": 0.9,
+    "public_ui_texture_ceiling": 2048,
+    "dense_extraction_override_attempted": true,
+    "extraction_fallback": null,
+    "detail_reference_count": 2,
+    "note": "TRELLIS simplify is triangle-removal ratio. HAYUYA reports requested and actual extraction quality separately."
+  },
+  "glb": "hayuya_final.glb",
+  "glb_bytes": 28784240,
+  "authenticated_hf": false,
+  "cloud_retry_count": 0,
+  "cloud_retries": [],
+  "source_mode": "RGB",
+  "source_had_alpha": false,
+  "alpha_preserved": true,
+  "quality_gate": {
+    "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/hayuya_final.glb",
+    "valid": true,
+    "passed": true,
+    "vertices": 66870,
+    "faces": 100430,
+    "triangle_primitives": 1,
+    "normal_primitives": 0,
+    "missing_normal_primitives": 1,
+    "components": 3,
+    "largest_component_fraction": 0.973997,
+    "degenerate_ratio": 0.0,
+    "bbox_extents": [
+      0.4376276,
+      0.99922973,
+      0.33131503
+    ],
+    "bbox_aspect_ratio": 3.015951,
+    "axis_alignment_weighted": 0.884208,
+    "axis_aligned_area_98": 0.166168,
+    "dominant_normal_axis_area": [
+      0.465772,
+      0.046869,
+      0.487359
+    ],
+    "reasons": [],
+    "warnings": []
+  },
+  "texture_gate": {
+    "schema": 2,
+    "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/hayuya_final.glb",
+    "image_count": 1,
+    "max_edge": 4096,
+    "max_megapixels": 16.7772,
+    "mean_edge_variance": 381.6829,
+    "base_color_image_count": 1,
+    "base_color_max_edge": 4096,
+    "base_color_min_edge": 4096,
+    "base_color_max_megapixels": 16.7772,
+    "material_roles": {
+      "baseColor": [
+        0
+      ]
+    },
+    "metrics": [
+      {
+        "index": 0,
+        "mime_type": "image/png",
+        "width": 4096,
+        "height": 4096,
+        "megapixels": 16.7772,
+        "edge_variance": 381.6829,
+        "luminance_stddev": 21.3092,
+        "entropy": 5.6037,
+        "roles": [
+          "baseColor"
+        ]
+      }
+    ],
+    "warnings": [],
+    "passed": true
+  },
+  "asset": {
+    "profile": "character.creature",
+    "weapon_family": "auto",
+    "animation_requested": true,
+    "motion_profile": "hayuya_auto",
+    "animation_systems": [
+      "skeletal",
+      "morph_targets",
+      "secondary_motion"
+    ],
+    "mechanical_rig_ready": false,
+    "procedural_motion_ready": false,
+    "requires_profile_postprocess": false
+  },
+  "character": {
+    "skeleton_type": "hayuya_humanoid_v1",
+    "preview_pack": "hayuya_preview_pack_v1",
+    "rig_ready": false,
+    "animation_ready": false,
+    "preview_animation_ready": false,
+    "animation_clips": [],
+    "facial": {
+      "jaw": false,
+      "eye_l": false,
+      "eye_r": false,
+      "blink_l": false,
+      "blink_r": false,
+      "morph_targets": []
+    },
+    "secondary_motion": {
+      "hair_nodes": [],
+      "cloth_nodes": [],
+      "hair_ready": false,
+      "cloth_ready": false
+    },
+    "warnings": [
+      "no_skin",
+      "too_few_joints:0<15",
+      "missing_core_bones:0/18",
+      "too_few_weighted_joints:0<12",
+      "insufficient_weighted_core_bones:0/18",
+      "no_embedded_animation_clips",
+      "no_jaw_control",
+      "no_blink_controls"
+    ]
+  },
+  "judge_v4_front_preflight": {
+    "schema": 1,
+    "passed": true,
+    "reasons": [],
+    "front_face": "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/front_preflight/blender/faces/12_180.png",
+    "renderer": "blender-eevee-24view-material-faithful-v1",
+    "face_landmarks": {
+      "schema": 1,
+      "model": "/home/runner/.cache/hayuya/face_landmarker.task",
+      "face_expected_from_source": true,
+      "source_detected": 4,
+      "source_total": 6,
+      "candidate_detected": 1,
+      "candidate_total": 1,
+      "source": [
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/prepared_views/front.png",
+          "attempt": 1,
+          "landmarks": 478,
+          "features": {
+            "inter_eye": 0.061374,
+            "left_eye_width": 0.451566,
+            "right_eye_width": 0.431785,
+            "left_eye_height": 0.137069,
+            "right_eye_height": 0.117376,
+            "mouth_width": 0.77109,
+            "mouth_height": 0.218338,
+            "face_width": 2.226014,
+            "face_height": 2.630639,
+            "nose_to_chin": 1.423862,
+            "nose_eye_center_offset": 0.859579,
+            "mouth_face_center_offset": 1.296679,
+            "eye_width_asymmetry": 0.043804,
+            "eye_height_asymmetry": 0.143671
+          },
+          "blendshapes": {
+            "_neutral": 1e-06,
+            "browDownLeft": 0.269565,
+            "browDownRight": 0.274202,
+            "browInnerUp": 0.000657,
+            "browOuterUpLeft": 0.008569,
+            "browOuterUpRight": 0.003735,
+            "cheekPuff": 3.4e-05,
+            "cheekSquintLeft": 1e-06,
+            "cheekSquintRight": 0.0,
+            "eyeBlinkLeft": 0.17915,
+            "eyeBlinkRight": 0.072606,
+            "eyeLookDownLeft": 0.167093,
+            "eyeLookDownRight": 0.166636,
+            "eyeLookInLeft": 0.032259,
+            "eyeLookInRight": 0.08507,
+            "eyeLookOutLeft": 0.101522,
+            "eyeLookOutRight": 0.049317,
+            "eyeLookUpLeft": 0.057458,
+            "eyeLookUpRight": 0.062764,
+            "eyeSquintLeft": 0.456709,
+            "eyeSquintRight": 0.359142,
+            "eyeWideLeft": 0.004717,
+            "eyeWideRight": 0.004578,
+            "jawForward": 0.000116,
+            "jawLeft": 0.02866,
+            "jawOpen": 0.24708,
+            "jawRight": 0.000108,
+            "mouthClose": 0.002363,
+            "mouthDimpleLeft": 0.000461,
+            "mouthDimpleRight": 0.002761,
+            "mouthFrownLeft": 0.00264,
+            "mouthFrownRight": 0.003596,
+            "mouthFunnel": 0.012587,
+            "mouthLeft": 0.003267,
+            "mouthLowerDownLeft": 0.021015,
+            "mouthLowerDownRight": 0.010167,
+            "mouthPressLeft": 0.001403,
+            "mouthPressRight": 0.023333,
+            "mouthPucker": 0.023035,
+            "mouthRight": 4.8e-05,
+            "mouthRollLower": 0.017564,
+            "mouthRollUpper": 0.01322,
+            "mouthShrugLower": 0.014421,
+            "mouthShrugUpper": 0.121602,
+            "mouthSmileLeft": 4.8e-05,
+            "mouthSmileRight": 7.7e-05,
+            "mouthStretchLeft": 0.000261,
+            "mouthStretchRight": 0.001664,
+            "mouthUpperUpLeft": 0.010189,
+            "mouthUpperUpRight": 0.026893,
+            "noseSneerLeft": 1e-06,
+            "noseSneerRight": 2e-06
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/prepared_views/view_03.png",
+          "attempt": 1,
+          "landmarks": 478,
+          "features": {
+            "inter_eye": 0.060382,
+            "left_eye_width": 0.435928,
+            "right_eye_width": 0.381784,
+            "left_eye_height": 0.135413,
+            "right_eye_height": 0.144942,
+            "mouth_width": 0.787961,
+            "mouth_height": 0.241523,
+            "face_width": 2.219663,
+            "face_height": 2.73483,
+            "nose_to_chin": 1.448013,
+            "nose_eye_center_offset": 0.889334,
+            "mouth_face_center_offset": 1.307215,
+            "eye_width_asymmetry": 0.124204,
+            "eye_height_asymmetry": 0.065742
+          },
+          "blendshapes": {
+            "_neutral": 2e-06,
+            "browDownLeft": 0.101322,
+            "browDownRight": 0.07765,
+            "browInnerUp": 0.001308,
+            "browOuterUpLeft": 0.057975,
+            "browOuterUpRight": 0.014871,
+            "cheekPuff": 8.1e-05,
+            "cheekSquintLeft": 3e-06,
+            "cheekSquintRight": 0.0,
+            "eyeBlinkLeft": 0.113224,
+            "eyeBlinkRight": 0.026547,
+            "eyeLookDownLeft": 0.151615,
+            "eyeLookDownRight": 0.072215,
+            "eyeLookInLeft": 0.11835,
+            "eyeLookInRight": 0.05213,
+            "eyeLookOutLeft": 0.05212,
+            "eyeLookOutRight": 0.136954,
+            "eyeLookUpLeft": 0.067376,
+            "eyeLookUpRight": 0.145387,
+            "eyeSquintLeft": 0.101251,
+            "eyeSquintRight": 0.571219,
+            "eyeWideLeft": 0.007903,
+            "eyeWideRight": 0.019416,
+            "jawForward": 0.000283,
+            "jawLeft": 0.018244,
+            "jawOpen": 0.071179,
+            "jawRight": 8.7e-05,
+            "mouthClose": 0.000665,
+            "mouthDimpleLeft": 0.001077,
+            "mouthDimpleRight": 0.010084,
+            "mouthFrownLeft": 0.02202,
+            "mouthFrownRight": 0.024891,
+            "mouthFunnel": 0.01305,
+            "mouthLeft": 0.001712,
+            "mouthLowerDownLeft": 0.047357,
+            "mouthLowerDownRight": 0.013285,
+            "mouthPressLeft": 0.003557,
+            "mouthPressRight": 0.118188,
+            "mouthPucker": 0.006471,
+            "mouthRight": 3.5e-05,
+            "mouthRollLower": 0.019771,
+            "mouthRollUpper": 0.001262,
+            "mouthShrugLower": 0.040157,
+            "mouthShrugUpper": 0.501755,
+            "mouthSmileLeft": 0.006681,
+            "mouthSmileRight": 0.015716,
+            "mouthStretchLeft": 0.013027,
+            "mouthStretchRight": 0.007664,
+            "mouthUpperUpLeft": 0.088765,
+            "mouthUpperUpRight": 0.272699,
+            "noseSneerLeft": 0.0,
+            "noseSneerRight": 1e-06
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/prepared_details/detail_01_auto_head.png",
+          "attempt": 0,
+          "landmarks": 478,
+          "features": {
+            "inter_eye": 0.233946,
+            "left_eye_width": 0.455311,
+            "right_eye_width": 0.441118,
+            "left_eye_height": 0.130133,
+            "right_eye_height": 0.122243,
+            "mouth_width": 0.763686,
+            "mouth_height": 0.235617,
+            "face_width": 2.159387,
+            "face_height": 2.505072,
+            "nose_to_chin": 1.374981,
+            "nose_eye_center_offset": 0.849449,
+            "mouth_face_center_offset": 1.26638,
+            "eye_width_asymmetry": 0.031172,
+            "eye_height_asymmetry": 0.060629
+          },
+          "blendshapes": {
+            "_neutral": 2e-06,
+            "browDownLeft": 0.144499,
+            "browDownRight": 0.140316,
+            "browInnerUp": 0.000566,
+            "browOuterUpLeft": 0.030491,
+            "browOuterUpRight": 0.015737,
+            "cheekPuff": 7e-05,
+            "cheekSquintLeft": 1e-06,
+            "cheekSquintRight": 0.0,
+            "eyeBlinkLeft": 0.141031,
+            "eyeBlinkRight": 0.081282,
+            "eyeLookDownLeft": 0.115811,
+            "eyeLookDownRight": 0.12582,
+            "eyeLookInLeft": 0.009252,
+            "eyeLookInRight": 0.085645,
+            "eyeLookOutLeft": 0.25005,
+            "eyeLookOutRight": 0.059747,
+            "eyeLookUpLeft": 0.075289,
+            "eyeLookUpRight": 0.068319,
+            "eyeSquintLeft": 0.41638,
+            "eyeSquintRight": 0.398588,
+            "eyeWideLeft": 0.007171,
+            "eyeWideRight": 0.004256,
+            "jawForward": 0.000177,
+            "jawLeft": 0.026363,
+            "jawOpen": 0.296777,
+            "jawRight": 0.000176,
+            "mouthClose": 0.001671,
+            "mouthDimpleLeft": 0.00048,
+            "mouthDimpleRight": 0.004369,
+            "mouthFrownLeft": 0.003622,
+            "mouthFrownRight": 0.005193,
+            "mouthFunnel": 0.008307,
+            "mouthLeft": 0.002027,
+            "mouthLowerDownLeft": 0.045343,
+            "mouthLowerDownRight": 0.024452,
+            "mouthPressLeft": 0.002357,
+            "mouthPressRight": 0.053781,
+            "mouthPucker": 0.009801,
+            "mouthRight": 6.9e-05,
+            "mouthRollLower": 0.016231,
+            "mouthRollUpper": 0.012054,
+            "mouthShrugLower": 0.01377,
+            "mouthShrugUpper": 0.11983,
+            "mouthSmileLeft": 8.6e-05,
+            "mouthSmileRight": 0.000157,
+            "mouthStretchLeft": 0.000334,
+            "mouthStretchRight": 0.002925,
+            "mouthUpperUpLeft": 0.010232,
+            "mouthUpperUpRight": 0.027197,
+            "noseSneerLeft": 1e-06,
+            "noseSneerRight": 5e-06
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/prepared_details/detail_02.png",
+          "attempt": 0,
+          "landmarks": 478,
+          "features": {
+            "inter_eye": 0.126671,
+            "left_eye_width": 0.479903,
+            "right_eye_width": 0.425888,
+            "left_eye_height": 0.158798,
+            "right_eye_height": 0.159283,
+            "mouth_width": 0.759451,
+            "mouth_height": 0.215625,
+            "face_width": 2.196105,
+            "face_height": 2.597388,
+            "nose_to_chin": 1.40064,
+            "nose_eye_center_offset": 0.90815,
+            "mouth_face_center_offset": 1.318019,
+            "eye_width_asymmetry": 0.112554,
+            "eye_height_asymmetry": 0.003049
+          },
+          "blendshapes": {
+            "_neutral": 1e-06,
+            "browDownLeft": 0.169769,
+            "browDownRight": 0.127565,
+            "browInnerUp": 0.000795,
+            "browOuterUpLeft": 0.01822,
+            "browOuterUpRight": 0.018462,
+            "cheekPuff": 5.4e-05,
+            "cheekSquintLeft": 1e-06,
+            "cheekSquintRight": 0.0,
+            "eyeBlinkLeft": 0.033312,
+            "eyeBlinkRight": 0.01047,
+            "eyeLookDownLeft": 0.019582,
+            "eyeLookDownRight": 0.019557,
+            "eyeLookInLeft": 0.477371,
+            "eyeLookInRight": 0.003437,
+            "eyeLookOutLeft": 0.007633,
+            "eyeLookOutRight": 0.428505,
+            "eyeLookUpLeft": 0.328191,
+            "eyeLookUpRight": 0.350486,
+            "eyeSquintLeft": 0.366336,
+            "eyeSquintRight": 0.32032,
+            "eyeWideLeft": 0.019644,
+            "eyeWideRight": 0.022853,
+            "jawForward": 0.000148,
+            "jawLeft": 0.129498,
+            "jawOpen": 0.264841,
+            "jawRight": 4.2e-05,
+            "mouthClose": 0.003011,
+            "mouthDimpleLeft": 0.000675,
+            "mouthDimpleRight": 0.009338,
+            "mouthFrownLeft": 0.000906,
+            "mouthFrownRight": 0.000828,
+            "mouthFunnel": 0.013724,
+            "mouthLeft": 0.003406,
+            "mouthLowerDownLeft": 0.062094,
+            "mouthLowerDownRight": 0.028887,
+            "mouthPressLeft": 0.003468,
+            "mouthPressRight": 0.113806,
+            "mouthPucker": 0.024267,
+            "mouthRight": 4.3e-05,
+            "mouthRollLower": 0.022782,
+            "mouthRollUpper": 0.009776,
+            "mouthShrugLower": 0.009359,
+            "mouthShrugUpper": 0.035794,
+            "mouthSmileLeft": 8.5e-05,
+            "mouthSmileRight": 0.000173,
+            "mouthStretchLeft": 0.000583,
+            "mouthStretchRight": 0.001011,
+            "mouthUpperUpLeft": 0.001735,
+            "mouthUpperUpRight": 0.005691,
+            "noseSneerLeft": 0.0,
+            "noseSneerRight": 1e-06
+          }
+        }
+      ],
+      "candidate": [
+        {
+          "path": "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/front_preflight/blender/faces/12_180.png",
+          "attempt": 0,
+          "landmarks": 478,
+          "features": {
+            "inter_eye": 0.142415,
+            "left_eye_width": 0.45692,
+            "right_eye_width": 0.435548,
+            "left_eye_height": 0.082987,
+            "right_eye_height": 0.086784,
+            "mouth_width": 0.752357,
+            "mouth_height": 0.061859,
+            "face_width": 2.162662,
+            "face_height": 2.504791,
+            "nose_to_chin": 1.235512,
+            "nose_eye_center_offset": 0.811648,
+            "mouth_face_center_offset": 1.211603,
+            "eye_width_asymmetry": 0.046775,
+            "eye_height_asymmetry": 0.043756
+          },
+          "blendshapes": {
+            "_neutral": 1e-06,
+            "browDownLeft": 0.011844,
+            "browDownRight": 0.02398,
+            "browInnerUp": 0.057544,
+            "browOuterUpLeft": 0.112469,
+            "browOuterUpRight": 0.041826,
+            "cheekPuff": 1.9e-05,
+            "cheekSquintLeft": 0.0,
+            "cheekSquintRight": 0.0,
+            "eyeBlinkLeft": 0.458685,
+            "eyeBlinkRight": 0.469117,
+            "eyeLookDownLeft": 0.706063,
+            "eyeLookDownRight": 0.65205,
+            "eyeLookInLeft": 0.097087,
+            "eyeLookInRight": 0.039839,
+            "eyeLookOutLeft": 0.048822,
+            "eyeLookOutRight": 0.091889,
+            "eyeLookUpLeft": 0.008046,
+            "eyeLookUpRight": 0.003881,
+            "eyeSquintLeft": 0.236296,
+            "eyeSquintRight": 0.201623,
+            "eyeWideLeft": 0.001727,
+            "eyeWideRight": 0.000393,
+            "jawForward": 0.00013,
+            "jawLeft": 0.000331,
+            "jawOpen": 0.001085,
+            "jawRight": 2.5e-05,
+            "mouthClose": 0.000179,
+            "mouthDimpleLeft": 0.003792,
+            "mouthDimpleRight": 0.004147,
+            "mouthFrownLeft": 0.00218,
+            "mouthFrownRight": 0.003168,
+            "mouthFunnel": 0.003775,
+            "mouthLeft": 0.001294,
+            "mouthLowerDownLeft": 0.001275,
+            "mouthLowerDownRight": 0.001258,
+            "mouthPressLeft": 0.007881,
+            "mouthPressRight": 0.015126,
+            "mouthPucker": 0.049395,
+            "mouthRight": 0.001137,
+            "mouthRollLower": 0.003019,
+            "mouthRollUpper": 0.000333,
+            "mouthShrugLower": 0.047045,
+            "mouthShrugUpper": 0.234929,
+            "mouthSmileLeft": 0.003599,
+            "mouthSmileRight": 0.004988,
+            "mouthStretchLeft": 0.001316,
+            "mouthStretchRight": 0.008617,
+            "mouthUpperUpLeft": 0.09639,
+            "mouthUpperUpRight": 0.145144,
+            "noseSneerLeft": 8e-06,
+            "noseSneerRight": 1e-06
+          },
+          "profile_error": 0.052745
+        }
+      ],
+      "source_failures": [
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/prepared_views/view_02.png",
+          "error": "no_face_detected"
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/prepared_views/view_04.png",
+          "error": "no_face_detected"
+        }
+      ],
+      "candidate_failures": [],
+      "reference_profile": {
+        "eye_height_asymmetry": 0.063186,
+        "eye_width_asymmetry": 0.078179,
+        "face_height": 2.614013,
+        "face_width": 2.207884,
+        "inter_eye": 0.094023,
+        "left_eye_height": 0.136241,
+        "left_eye_width": 0.453439,
+        "mouth_face_center_offset": 1.301947,
+        "mouth_height": 0.226977,
+        "mouth_width": 0.767388,
+        "nose_eye_center_offset": 0.874456,
+        "nose_to_chin": 1.412251,
+        "right_eye_height": 0.133593,
+        "right_eye_width": 0.428836
+      },
+      "median_profile_error": 0.052745,
+      "p90_profile_error": 0.052745
+    }
+  },
+  "judge_v4_core": {
+    "schema": 4,
+    "method": "fail-closed multi-eye visual acceptance: 24-view render evidence + Q-ReAlign-Mini-0.8B + MediaPipe dense face geometry + DreamSim + dual-order InternVL3.5-1B-HF [tier=core]",
+    "policy": "required",
+    "passed": true,
+    "hard_fail_reasons": [],
+    "advisories": [],
+    "thresholds": {
+      "qrealign_full_mean_min": 0.55,
+      "qrealign_full_p10_min": 0.45,
+      "qrealign_face_mean_min": 0.55,
+      "qrealign_face_p10_min": 0.42,
+      "dreamsim_full_worst_max": 0.5,
+      "dreamsim_face_worst_max": 0.45,
+      "face_candidate_detection_fraction_min": 0.6,
+      "face_profile_median_error_max": 0.22,
+      "face_profile_p90_error_max": 0.35,
+      "face_nose_ratio_min": 0.65,
+      "face_nose_ratio_max": 1.4,
+      "internvl_face_anatomy_min": 80.0,
+      "internvl_face_source_fidelity_min": 75.0,
+      "internvl_body_anatomy_min": 75.0,
+      "internvl_hands_min": 65.0,
+      "internvl_material_texture_min": 70.0,
+      "internvl_multiview_consistency_min": 80.0,
+      "internvl_source_fidelity_min": 75.0
+    },
+    "evidence": {
+      "final_glb": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/hayuya_final.glb",
+      "source_images": [
+        "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/prepared_views/front.png",
+        "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/prepared_views/view_02.png",
+        "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/prepared_views/view_03.png",
+        "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/prepared_views/view_04.png"
+      ],
+      "detail_images": [
+        "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/prepared_details/detail_01_auto_head.png",
+        "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/prepared_details/detail_02.png"
+      ],
+      "turntable_frames": [
+        "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/blender_evidence/turntable/00_000.png",
+        "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/blender_evidence/turntable/01_015.png",
+        "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/blender_evidence/turntable/02_030.png",
+        "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/blender_evidence/turntable/03_045.png",
+        "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/blender_evidence/turntable/04_060.png",
+        "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/blender_evidence/turntable/05_075.png",
+        "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/blender_evidence/turntable/06_090.png",
+        "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/blender_evidence/turntable/07_105.png",
+        "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/blender_evidence/turntable/08_120.png",
+        "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/blender_evidence/turntable/09_135.png",
+        "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/blender_evidence/turntable/10_150.png",
+        "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/blender_evidence/turntable/11_165.png",
+        "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/blender_evidence/turntable/12_180.png",
+        "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/blender_evidence/turntable/13_195.png",
+        "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/blender_evidence/turntable/14_210.png",
+        "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/blender_evidence/turntable/15_225.png",
+        "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/blender_evidence/turntable/16_240.png",
+        "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/blender_evidence/turntable/17_255.png",
+        "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/blender_evidence/turntable/18_270.png",
+        "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/blender_evidence/turntable/19_285.png",
+        "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/blender_evidence/turntable/20_300.png",
+        "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/blender_evidence/turntable/21_315.png",
+        "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/blender_evidence/turntable/22_330.png",
+        "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/blender_evidence/turntable/23_345.png"
+      ],
+      "candidate_face_render_inputs": [
+        "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/blender_evidence/faces/12_180.png",
+        "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/blender_evidence/faces/13_195.png",
+        "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/blender_evidence/faces/14_210.png",
+        "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/blender_evidence/faces/15_225.png",
+        "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/blender_evidence/faces/16_240.png",
+        "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/blender_evidence/faces/08_120.png",
+        "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/blender_evidence/faces/09_135.png",
+        "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/blender_evidence/faces/10_150.png",
+        "/home/runner/work/config-old-3/config-old-3/out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/blender_evidence/faces/11_165.png"
+      ],
+      "candidate_face_crops": [
+        "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/00.png",
+        "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/01.png",
+        "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/02.png",
+        "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/03.png",
+        "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/04.png",
+        "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/20.png",
+        "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/21.png",
+        "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/22.png",
+        "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/23.png"
+      ],
+      "source_face_crops": [
+        "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/source_face/detail_00.png",
+        "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/source_face/detail_01.png",
+        "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/source_face/crop_00.png",
+        "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/source_face/crop_01.png",
+        "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/source_face/crop_02.png",
+        "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/source_face/crop_03.png"
+      ],
+      "source_sheet": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/source_sheet.jpg",
+      "turntable_sheet": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/turntable_sheet.jpg",
+      "face_sheet": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/face_sheet.jpg",
+      "boards": [
+        "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/board_source_first.jpg",
+        "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/board_candidate_first.jpg"
+      ]
+    },
+    "qrealign": {
+      "schema": 1,
+      "model": "q-future/Q-ReAlign-Mini-0.8B",
+      "provenance": {
+        "model_id": "q-future/Q-ReAlign-Mini-0.8B",
+        "resolved_revision": "fe1f45a7574c9e9d908875af9f7e90cb946aa19f",
+        "num_parameters": 852985920,
+        "dtype": "torch.bfloat16"
+      },
+      "device": "cpu",
+      "images": [
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/00.png",
+          "score": 0.761074,
+          "probabilities": {
+            "excellent": 0.148118,
+            "good": 0.752204,
+            "fair": 0.095632,
+            "poor": 0.003947,
+            "bad": 9.9e-05
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/01.png",
+          "score": 0.75934,
+          "probabilities": {
+            "excellent": 0.147172,
+            "good": 0.747399,
+            "fair": 0.10115,
+            "poor": 0.004175,
+            "bad": 0.000105
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/02.png",
+          "score": 0.757037,
+          "probabilities": {
+            "excellent": 0.139461,
+            "good": 0.753919,
+            "fair": 0.102032,
+            "poor": 0.004483,
+            "bad": 0.000105
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/03.png",
+          "score": 0.761076,
+          "probabilities": {
+            "excellent": 0.148118,
+            "good": 0.752206,
+            "fair": 0.095632,
+            "poor": 0.003947,
+            "bad": 9.6e-05
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/04.png",
+          "score": 0.768722,
+          "probabilities": {
+            "excellent": 0.152243,
+            "good": 0.773155,
+            "fair": 0.071915,
+            "poor": 0.002619,
+            "bad": 6.8e-05
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/05.png",
+          "score": 0.768144,
+          "probabilities": {
+            "excellent": 0.158893,
+            "good": 0.758037,
+            "fair": 0.079897,
+            "poor": 0.003098,
+            "bad": 7.5e-05
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/06.png",
+          "score": 0.782528,
+          "probabilities": {
+            "excellent": 0.182228,
+            "good": 0.767209,
+            "fair": 0.049046,
+            "poor": 0.001481,
+            "bad": 3.6e-05
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/07.png",
+          "score": 0.792121,
+          "probabilities": {
+            "excellent": 0.213067,
+            "good": 0.743678,
+            "fair": 0.041955,
+            "poor": 0.001267,
+            "bad": 3.2e-05
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/08.png",
+          "score": 0.798635,
+          "probabilities": {
+            "excellent": 0.235376,
+            "good": 0.725009,
+            "fair": 0.038424,
+            "poor": 0.00116,
+            "bad": 3.1e-05
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/09.png",
+          "score": 0.800103,
+          "probabilities": {
+            "excellent": 0.236492,
+            "good": 0.728446,
+            "fair": 0.03407,
+            "poor": 0.000966,
+            "bad": 2.6e-05
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/10.png",
+          "score": 0.800103,
+          "probabilities": {
+            "excellent": 0.236492,
+            "good": 0.728446,
+            "fair": 0.03407,
+            "poor": 0.000966,
+            "bad": 2.6e-05
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/11.png",
+          "score": 0.794423,
+          "probabilities": {
+            "excellent": 0.214682,
+            "good": 0.749313,
+            "fair": 0.035046,
+            "poor": 0.000934,
+            "bad": 2.6e-05
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/12.png",
+          "score": 0.799371,
+          "probabilities": {
+            "excellent": 0.235942,
+            "good": 0.726752,
+            "fair": 0.036183,
+            "poor": 0.001093,
+            "bad": 3e-05
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/13.png",
+          "score": 0.799371,
+          "probabilities": {
+            "excellent": 0.235942,
+            "good": 0.726752,
+            "fair": 0.036183,
+            "poor": 0.001093,
+            "bad": 3e-05
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/14.png",
+          "score": 0.79937,
+          "probabilities": {
+            "excellent": 0.235942,
+            "good": 0.726752,
+            "fair": 0.036183,
+            "poor": 0.001093,
+            "bad": 3.1e-05
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/15.png",
+          "score": 0.791283,
+          "probabilities": {
+            "excellent": 0.212474,
+            "good": 0.741606,
+            "fair": 0.044537,
+            "poor": 0.001345,
+            "bad": 3.8e-05
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/16.png",
+          "score": 0.806168,
+          "probabilities": {
+            "excellent": 0.259783,
+            "good": 0.706163,
+            "fair": 0.033028,
+            "poor": 0.000997,
+            "bad": 2.9e-05
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/17.png",
+          "score": 0.791236,
+          "probabilities": {
+            "excellent": 0.212455,
+            "good": 0.741542,
+            "fair": 0.044533,
+            "poor": 0.001432,
+            "bad": 3.8e-05
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/18.png",
+          "score": 0.791236,
+          "probabilities": {
+            "excellent": 0.212455,
+            "good": 0.741542,
+            "fair": 0.044533,
+            "poor": 0.001432,
+            "bad": 3.8e-05
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/19.png",
+          "score": 0.798591,
+          "probabilities": {
+            "excellent": 0.235358,
+            "good": 0.724952,
+            "fair": 0.038421,
+            "poor": 0.001235,
+            "bad": 3.4e-05
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/20.png",
+          "score": 0.79395,
+          "probabilities": {
+            "excellent": 0.223057,
+            "good": 0.731375,
+            "fair": 0.043923,
+            "poor": 0.0016,
+            "bad": 4.5e-05
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/21.png",
+          "score": 0.773223,
+          "probabilities": {
+            "excellent": 0.169057,
+            "good": 0.757662,
+            "fair": 0.070474,
+            "poor": 0.002733,
+            "bad": 7.5e-05
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/22.png",
+          "score": 0.761456,
+          "probabilities": {
+            "excellent": 0.155147,
+            "good": 0.740164,
+            "fair": 0.10017,
+            "poor": 0.004401,
+            "bad": 0.000117
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/23.png",
+          "score": 0.763332,
+          "probabilities": {
+            "excellent": 0.156178,
+            "good": 0.745084,
+            "fair": 0.094727,
+            "poor": 0.00391,
+            "bad": 0.000101
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/00.png",
+          "score": 0.863177,
+          "probabilities": {
+            "excellent": 0.463794,
+            "good": 0.525547,
+            "fair": 0.010247,
+            "poor": 0.000397,
+            "bad": 1.5e-05
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/01.png",
+          "score": 0.895982,
+          "probabilities": {
+            "excellent": 0.589505,
+            "good": 0.40516,
+            "fair": 0.0051,
+            "poor": 0.000224,
+            "bad": 1e-05
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/02.png",
+          "score": 0.879506,
+          "probabilities": {
+            "excellent": 0.526766,
+            "good": 0.46487,
+            "fair": 0.007999,
+            "poor": 0.000351,
+            "bad": 1.4e-05
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/03.png",
+          "score": 0.870835,
+          "probabilities": {
+            "excellent": 0.494618,
+            "good": 0.494618,
+            "fair": 0.010265,
+            "poor": 0.00048,
+            "bad": 1.8e-05
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/04.png",
+          "score": 0.870287,
+          "probabilities": {
+            "excellent": 0.49391,
+            "good": 0.49391,
+            "fair": 0.011616,
+            "poor": 0.000543,
+            "bad": 2e-05
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/20.png",
+          "score": 0.833835,
+          "probabilities": {
+            "excellent": 0.36636,
+            "good": 0.604026,
+            "fair": 0.028251,
+            "poor": 0.001321,
+            "bad": 4.2e-05
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/21.png",
+          "score": 0.845985,
+          "probabilities": {
+            "excellent": 0.40075,
+            "good": 0.583087,
+            "fair": 0.015539,
+            "poor": 0.000603,
+            "bad": 2.2e-05
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/22.png",
+          "score": 0.863143,
+          "probabilities": {
+            "excellent": 0.463768,
+            "good": 0.525518,
+            "fair": 0.010246,
+            "poor": 0.00045,
+            "bad": 1.7e-05
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/23.png",
+          "score": 0.871352,
+          "probabilities": {
+            "excellent": 0.49527,
+            "good": 0.49527,
+            "fair": 0.009071,
+            "poor": 0.000374,
+            "bad": 1.5e-05
+          }
+        }
+      ],
+      "count": 33,
+      "mean": 0.806242,
+      "minimum": 0.757037,
+      "p10": 0.761076,
+      "maximum": 0.895982,
+      "full_summary": {
+        "count": 24,
+        "mean": 0.783829,
+        "minimum": 0.757037,
+        "p10": 0.761074,
+        "maximum": 0.806168
+      },
+      "face_summary": {
+        "count": 9,
+        "mean": 0.866011,
+        "minimum": 0.833835,
+        "p10": 0.833835,
+        "maximum": 0.895982
+      }
+    },
+    "face_landmarks": {
+      "schema": 1,
+      "model": "/home/runner/.cache/hayuya/face_landmarker.task",
+      "face_expected_from_source": true,
+      "source_detected": 5,
+      "source_total": 6,
+      "candidate_detected": 8,
+      "candidate_total": 9,
+      "source": [
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/source_face/detail_00.png",
+          "attempt": 0,
+          "landmarks": 478,
+          "features": {
+            "inter_eye": 0.232045,
+            "left_eye_width": 0.453424,
+            "right_eye_width": 0.434802,
+            "left_eye_height": 0.131181,
+            "right_eye_height": 0.119515,
+            "mouth_width": 0.767055,
+            "mouth_height": 0.241221,
+            "face_width": 2.171561,
+            "face_height": 2.517668,
+            "nose_to_chin": 1.385254,
+            "nose_eye_center_offset": 0.846284,
+            "mouth_face_center_offset": 1.270648,
+            "eye_width_asymmetry": 0.04107,
+            "eye_height_asymmetry": 0.08893
+          },
+          "blendshapes": {
+            "_neutral": 2e-06,
+            "browDownLeft": 0.126305,
+            "browDownRight": 0.10485,
+            "browInnerUp": 0.000879,
+            "browOuterUpLeft": 0.032069,
+            "browOuterUpRight": 0.020431,
+            "cheekPuff": 7.3e-05,
+            "cheekSquintLeft": 1e-06,
+            "cheekSquintRight": 0.0,
+            "eyeBlinkLeft": 0.150761,
+            "eyeBlinkRight": 0.079077,
+            "eyeLookDownLeft": 0.167795,
+            "eyeLookDownRight": 0.179344,
+            "eyeLookInLeft": 0.013883,
+            "eyeLookInRight": 0.104344,
+            "eyeLookOutLeft": 0.17813,
+            "eyeLookOutRight": 0.044828,
+            "eyeLookUpLeft": 0.055642,
+            "eyeLookUpRight": 0.050248,
+            "eyeSquintLeft": 0.393422,
+            "eyeSquintRight": 0.342474,
+            "eyeWideLeft": 0.007031,
+            "eyeWideRight": 0.004636,
+            "jawForward": 0.000161,
+            "jawLeft": 0.029419,
+            "jawOpen": 0.290572,
+            "jawRight": 0.000141,
+            "mouthClose": 0.00172,
+            "mouthDimpleLeft": 0.000475,
+            "mouthDimpleRight": 0.00526,
+            "mouthFrownLeft": 0.0056,
+            "mouthFrownRight": 0.007564,
+            "mouthFunnel": 0.00568,
+            "mouthLeft": 0.002522,
+            "mouthLowerDownLeft": 0.046431,
+            "mouthLowerDownRight": 0.023629,
+            "mouthPressLeft": 0.003091,
+            "mouthPressRight": 0.074226,
+            "mouthPucker": 0.006358,
+            "mouthRight": 4.6e-05,
+            "mouthRollLower": 0.02318,
+            "mouthRollUpper": 0.013099,
+            "mouthShrugLower": 0.02349,
+            "mouthShrugUpper": 0.147005,
+            "mouthSmileLeft": 0.0001,
+            "mouthSmileRight": 0.00018,
+            "mouthStretchLeft": 0.000423,
+            "mouthStretchRight": 0.002909,
+            "mouthUpperUpLeft": 0.013776,
+            "mouthUpperUpRight": 0.036103,
+            "noseSneerLeft": 1e-06,
+            "noseSneerRight": 4e-06
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/source_face/detail_01.png",
+          "attempt": 0,
+          "landmarks": 478,
+          "features": {
+            "inter_eye": 0.129931,
+            "left_eye_width": 0.493186,
+            "right_eye_width": 0.436913,
+            "left_eye_height": 0.157597,
+            "right_eye_height": 0.152845,
+            "mouth_width": 0.741385,
+            "mouth_height": 0.206884,
+            "face_width": 2.217727,
+            "face_height": 2.582046,
+            "nose_to_chin": 1.381533,
+            "nose_eye_center_offset": 0.90073,
+            "mouth_face_center_offset": 1.308879,
+            "eye_width_asymmetry": 0.114102,
+            "eye_height_asymmetry": 0.030154
+          },
+          "blendshapes": {
+            "_neutral": 1e-06,
+            "browDownLeft": 0.168466,
+            "browDownRight": 0.153716,
+            "browInnerUp": 0.001322,
+            "browOuterUpLeft": 0.016236,
+            "browOuterUpRight": 0.014998,
+            "cheekPuff": 4.8e-05,
+            "cheekSquintLeft": 1e-06,
+            "cheekSquintRight": 0.0,
+            "eyeBlinkLeft": 0.037722,
+            "eyeBlinkRight": 0.012085,
+            "eyeLookDownLeft": 0.029938,
+            "eyeLookDownRight": 0.035679,
+            "eyeLookInLeft": 0.476429,
+            "eyeLookInRight": 0.002973,
+            "eyeLookOutLeft": 0.009557,
+            "eyeLookOutRight": 0.421657,
+            "eyeLookUpLeft": 0.24456,
+            "eyeLookUpRight": 0.253772,
+            "eyeSquintLeft": 0.541783,
+            "eyeSquintRight": 0.27938,
+            "eyeWideLeft": 0.022959,
+            "eyeWideRight": 0.021441,
+            "jawForward": 0.000121,
+            "jawLeft": 0.113619,
+            "jawOpen": 0.253609,
+            "jawRight": 4.4e-05,
+            "mouthClose": 0.00202,
+            "mouthDimpleLeft": 0.000712,
+            "mouthDimpleRight": 0.009129,
+            "mouthFrownLeft": 0.000629,
+            "mouthFrownRight": 0.000634,
+            "mouthFunnel": 0.011029,
+            "mouthLeft": 0.001187,
+            "mouthLowerDownLeft": 0.073584,
+            "mouthLowerDownRight": 0.035923,
+            "mouthPressLeft": 0.00182,
+            "mouthPressRight": 0.068357,
+            "mouthPucker": 0.032688,
+            "mouthRight": 0.000172,
+            "mouthRollLower": 0.017859,
+            "mouthRollUpper": 0.012175,
+            "mouthShrugLower": 0.006469,
+            "mouthShrugUpper": 0.030625,
+            "mouthSmileLeft": 3.6e-05,
+            "mouthSmileRight": 7.8e-05,
+            "mouthStretchLeft": 0.000293,
+            "mouthStretchRight": 0.001024,
+            "mouthUpperUpLeft": 0.001831,
+            "mouthUpperUpRight": 0.007001,
+            "noseSneerLeft": 0.0,
+            "noseSneerRight": 1e-06
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/source_face/crop_00.png",
+          "attempt": 0,
+          "landmarks": 478,
+          "features": {
+            "inter_eye": 0.058579,
+            "left_eye_width": 0.457176,
+            "right_eye_width": 0.426122,
+            "left_eye_height": 0.130304,
+            "right_eye_height": 0.115595,
+            "mouth_width": 0.765109,
+            "mouth_height": 0.226986,
+            "face_width": 2.198963,
+            "face_height": 2.750524,
+            "nose_to_chin": 1.504288,
+            "nose_eye_center_offset": 0.857804,
+            "mouth_face_center_offset": 1.305624,
+            "eye_width_asymmetry": 0.067927,
+            "eye_height_asymmetry": 0.112884
+          },
+          "blendshapes": {
+            "_neutral": 1e-06,
+            "browDownLeft": 0.138859,
+            "browDownRight": 0.168195,
+            "browInnerUp": 0.000639,
+            "browOuterUpLeft": 0.035148,
+            "browOuterUpRight": 0.010941,
+            "cheekPuff": 2.4e-05,
+            "cheekSquintLeft": 1e-06,
+            "cheekSquintRight": 0.0,
+            "eyeBlinkLeft": 0.223865,
+            "eyeBlinkRight": 0.102302,
+            "eyeLookDownLeft": 0.279714,
+            "eyeLookDownRight": 0.276692,
+            "eyeLookInLeft": 0.075331,
+            "eyeLookInRight": 0.041826,
+            "eyeLookOutLeft": 0.053295,
+            "eyeLookOutRight": 0.084569,
+            "eyeLookUpLeft": 0.030644,
+            "eyeLookUpRight": 0.031178,
+            "eyeSquintLeft": 0.342061,
+            "eyeSquintRight": 0.350408,
+            "eyeWideLeft": 0.004155,
+            "eyeWideRight": 0.002926,
+            "jawForward": 4.4e-05,
+            "jawLeft": 0.024277,
+            "jawOpen": 0.279062,
+            "jawRight": 0.000161,
+            "mouthClose": 0.005466,
+            "mouthDimpleLeft": 0.000359,
+            "mouthDimpleRight": 0.003064,
+            "mouthFrownLeft": 0.002601,
+            "mouthFrownRight": 0.002896,
+            "mouthFunnel": 0.007423,
+            "mouthLeft": 0.004686,
+            "mouthLowerDownLeft": 0.00568,
+            "mouthLowerDownRight": 0.002589,
+            "mouthPressLeft": 0.001852,
+            "mouthPressRight": 0.028101,
+            "mouthPucker": 0.041562,
+            "mouthRight": 4.6e-05,
+            "mouthRollLower": 0.038589,
+            "mouthRollUpper": 0.015326,
+            "mouthShrugLower": 0.046581,
+            "mouthShrugUpper": 0.091689,
+            "mouthSmileLeft": 1.9e-05,
+            "mouthSmileRight": 2.5e-05,
+            "mouthStretchLeft": 0.000294,
+            "mouthStretchRight": 0.000621,
+            "mouthUpperUpLeft": 0.002958,
+            "mouthUpperUpRight": 0.00772,
+            "noseSneerLeft": 0.0,
+            "noseSneerRight": 1e-06
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/source_face/crop_02.png",
+          "attempt": 0,
+          "landmarks": 478,
+          "features": {
+            "inter_eye": 0.056112,
+            "left_eye_width": 0.484937,
+            "right_eye_width": 0.393501,
+            "left_eye_height": 0.142506,
+            "right_eye_height": 0.144155,
+            "mouth_width": 0.74982,
+            "mouth_height": 0.196469,
+            "face_width": 2.268164,
+            "face_height": 2.827902,
+            "nose_to_chin": 1.530753,
+            "nose_eye_center_offset": 0.94034,
+            "mouth_face_center_offset": 1.407275,
+            "eye_width_asymmetry": 0.188553,
+            "eye_height_asymmetry": 0.011438
+          },
+          "blendshapes": {
+            "_neutral": 0.0,
+            "browDownLeft": 0.188449,
+            "browDownRight": 0.06188,
+            "browInnerUp": 0.000527,
+            "browOuterUpLeft": 0.019571,
+            "browOuterUpRight": 0.013483,
+            "cheekPuff": 2.9e-05,
+            "cheekSquintLeft": 0.0,
+            "cheekSquintRight": 0.0,
+            "eyeBlinkLeft": 0.101567,
+            "eyeBlinkRight": 0.024309,
+            "eyeLookDownLeft": 0.089267,
+            "eyeLookDownRight": 0.072953,
+            "eyeLookInLeft": 0.168239,
+            "eyeLookInRight": 0.041049,
+            "eyeLookOutLeft": 0.030958,
+            "eyeLookOutRight": 0.183991,
+            "eyeLookUpLeft": 0.115019,
+            "eyeLookUpRight": 0.151845,
+            "eyeSquintLeft": 0.194889,
+            "eyeSquintRight": 0.53093,
+            "eyeWideLeft": 0.007797,
+            "eyeWideRight": 0.014397,
+            "jawForward": 0.00016,
+            "jawLeft": 0.174659,
+            "jawOpen": 0.132897,
+            "jawRight": 1.7e-05,
+            "mouthClose": 0.002958,
+            "mouthDimpleLeft": 0.000693,
+            "mouthDimpleRight": 0.004685,
+            "mouthFrownLeft": 0.003504,
+            "mouthFrownRight": 0.002604,
+            "mouthFunnel": 0.015705,
+            "mouthLeft": 0.0287,
+            "mouthLowerDownLeft": 0.026822,
+            "mouthLowerDownRight": 0.005834,
+            "mouthPressLeft": 0.001504,
+            "mouthPressRight": 0.062175,
+            "mouthPucker": 0.045176,
+            "mouthRight": 2e-06,
+            "mouthRollLower": 0.038734,
+            "mouthRollUpper": 0.008244,
+            "mouthShrugLower": 0.01361,
+            "mouthShrugUpper": 0.052897,
+            "mouthSmileLeft": 9.1e-05,
+            "mouthSmileRight": 0.000123,
+            "mouthStretchLeft": 0.005044,
+            "mouthStretchRight": 0.000474,
+            "mouthUpperUpLeft": 0.001372,
+            "mouthUpperUpRight": 0.004369,
+            "noseSneerLeft": 0.0,
+            "noseSneerRight": 0.0
+          }
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/source_face/crop_03.png",
+          "attempt": 1,
+          "landmarks": 478,
+          "features": {
+            "inter_eye": 0.159715,
+            "left_eye_width": 0.373767,
+            "right_eye_width": 0.466186,
+            "left_eye_height": 0.104656,
+            "right_eye_height": 0.107961,
+            "mouth_width": 0.837228,
+            "mouth_height": 0.235397,
+            "face_width": 2.063439,
+            "face_height": 2.383677,
+            "nose_to_chin": 1.317912,
+            "nose_eye_center_offset": 0.952263,
+            "mouth_face_center_offset": 1.386486,
+            "eye_width_asymmetry": 0.198245,
+            "eye_height_asymmetry": 0.03062
+          },
+          "blendshapes": {
+            "_neutral": 0.0,
+            "browDownLeft": 0.015509,
+            "browDownRight": 0.027171,
+            "browInnerUp": 0.150558,
+            "browOuterUpLeft": 0.036567,
+            "browOuterUpRight": 0.234784,
+            "cheekPuff": 2.2e-05,
+            "cheekSquintLeft": 2e-06,
+            "cheekSquintRight": 1e-06,
+            "eyeBlinkLeft": 0.42573,
+            "eyeBlinkRight": 0.009874,
+            "eyeLookDownLeft": 0.123503,
+            "eyeLookDownRight": 0.058348,
+            "eyeLookInLeft": 0.427398,
+            "eyeLookInRight": 0.062981,
+            "eyeLookOutLeft": 0.015913,
+            "eyeLookOutRight": 0.323484,
+            "eyeLookUpLeft": 0.112709,
+            "eyeLookUpRight": 0.166523,
+            "eyeSquintLeft": 0.103333,
+            "eyeSquintRight": 0.735002,
+            "eyeWideLeft": 0.003021,
+            "eyeWideRight": 0.074275,
+            "jawForward": 0.002446,
+            "jawLeft": 0.000425,
+            "jawOpen": 0.000249,
+            "jawRight": 0.000343,
+            "mouthClose": 1e-06,
+            "mouthDimpleLeft": 0.010113,
+            "mouthDimpleRight": 0.000652,
+            "mouthFrownLeft": 0.03092,
+            "mouthFrownRight": 0.044847,
+            "mouthFunnel": 0.010816,
+            "mouthLeft": 0.001085,
+            "mouthLowerDownLeft": 0.298503,
+            "mouthLowerDownRight": 0.245786,
+            "mouthPressLeft": 0.024734,
+            "mouthPressRight": 0.005587,
+            "mouthPucker": 0.014766,
+            "mouthRight": 4.6e-05,
+            "mouthRollLower": 0.001944,
+            "mouthRollUpper": 0.000283,
+            "mouthShrugLower": 0.006169,
+            "mouthShrugUpper": 0.12108,
+            "mouthSmileLeft": 0.134782,
+            "mouthSmileRight": 0.08156,
+            "mouthStretchLeft": 0.064996,
+            "mouthStretchRight": 0.17324,
+            "mouthUpperUpLeft": 0.168938,
+            "mouthUpperUpRight": 0.099804,
+            "noseSneerLeft": 1.6e-05,
+            "noseSneerRight": 2e-06
+          }
+        }
+      ],
+      "candidate": [
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/00.png",
+          "attempt": 0,
+          "landmarks": 478,
+          "features": {
+            "inter_eye": 0.141663,
+            "left_eye_width": 0.448798,
+            "right_eye_width": 0.431939,
+            "left_eye_height": 0.083502,
+            "right_eye_height": 0.08124,
+            "mouth_width": 0.750088,
+            "mouth_height": 0.058211,
+            "face_width": 2.176462,
+            "face_height": 2.507457,
+            "nose_to_chin": 1.230507,
+            "nose_eye_center_offset": 0.805086,
+            "mouth_face_center_offset": 1.212644,
+            "eye_width_asymmetry": 0.037565,
+            "eye_height_asymmetry": 0.027085
+          },
+          "blendshapes": {
+            "_neutral": 1e-06,
+            "browDownLeft": 0.021299,
+            "browDownRight": 0.035647,
+            "browInnerUp": 0.028052,
+            "browOuterUpLeft": 0.081729,
+            "browOuterUpRight": 0.03352,
+            "cheekPuff": 1.8e-05,
+            "cheekSquintLeft": 0.0,
+            "cheekSquintRight": 0.0,
+            "eyeBlinkLeft": 0.47538,
+            "eyeBlinkRight": 0.469859,
+            "eyeLookDownLeft": 0.708097,
+            "eyeLookDownRight": 0.654442,
+            "eyeLookInLeft": 0.054267,
+            "eyeLookInRight": 0.076794,
+            "eyeLookOutLeft": 0.074606,
+            "eyeLookOutRight": 0.053912,
+            "eyeLookUpLeft": 0.00803,
+            "eyeLookUpRight": 0.003965,
+            "eyeSquintLeft": 0.248004,
+            "eyeSquintRight": 0.18428,
+            "eyeWideLeft": 0.00163,
+            "eyeWideRight": 0.000404,
+            "jawForward": 0.000134,
+            "jawLeft": 0.000318,
+            "jawOpen": 0.000713,
+            "jawRight": 2.3e-05,
+            "mouthClose": 0.000123,
+            "mouthDimpleLeft": 0.004529,
+            "mouthDimpleRight": 0.00511,
+            "mouthFrownLeft": 0.002096,
+            "mouthFrownRight": 0.002953,
+            "mouthFunnel": 0.003484,
+            "mouthLeft": 0.001423,
+            "mouthLowerDownLeft": 0.001056,
+            "mouthLowerDownRight": 0.001042,
+            "mouthPressLeft": 0.008735,
+            "mouthPressRight": 0.016114,
+            "mouthPucker": 0.050027,
+            "mouthRight": 0.001112,
+            "mouthRollLower": 0.002992,
+            "mouthRollUpper": 0.000277,
+            "mouthShrugLower": 0.064148,
+            "mouthShrugUpper": 0.272484,
+            "mouthSmileLeft": 0.004027,
+            "mouthSmileRight": 0.005367,
+            "mouthStretchLeft": 0.001381,
+            "mouthStretchRight": 0.007589,
+            "mouthUpperUpLeft": 0.090211,
+            "mouthUpperUpRight": 0.129192,
+            "noseSneerLeft": 9e-06,
+            "noseSneerRight": 1e-06
+          },
+          "profile_error": 0.081492
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/01.png",
+          "attempt": 0,
+          "landmarks": 478,
+          "features": {
+            "inter_eye": 0.140217,
+            "left_eye_width": 0.460665,
+            "right_eye_width": 0.391798,
+            "left_eye_height": 0.101521,
+            "right_eye_height": 0.102172,
+            "mouth_width": 0.702465,
+            "mouth_height": 0.029343,
+            "face_width": 2.086419,
+            "face_height": 2.494091,
+            "nose_to_chin": 1.269142,
+            "nose_eye_center_offset": 0.860976,
+            "mouth_face_center_offset": 1.304768,
+            "eye_width_asymmetry": 0.149495,
+            "eye_height_asymmetry": 0.006372
+          },
+          "blendshapes": {
+            "_neutral": 0.0,
+            "browDownLeft": 0.010296,
+            "browDownRight": 0.013264,
+            "browInnerUp": 0.025585,
+            "browOuterUpLeft": 0.222573,
+            "browOuterUpRight": 0.116007,
+            "cheekPuff": 4e-06,
+            "cheekSquintLeft": 0.0,
+            "cheekSquintRight": 0.0,
+            "eyeBlinkLeft": 0.218428,
+            "eyeBlinkRight": 0.295394,
+            "eyeLookDownLeft": 0.61744,
+            "eyeLookDownRight": 0.574343,
+            "eyeLookInLeft": 0.332099,
+            "eyeLookInRight": 0.00645,
+            "eyeLookOutLeft": 0.020253,
+            "eyeLookOutRight": 0.364739,
+            "eyeLookUpLeft": 0.011628,
+            "eyeLookUpRight": 0.00388,
+            "eyeSquintLeft": 0.351261,
+            "eyeSquintRight": 0.147905,
+            "eyeWideLeft": 0.008361,
+            "eyeWideRight": 0.000605,
+            "jawForward": 2.5e-05,
+            "jawLeft": 0.003568,
+            "jawOpen": 0.000965,
+            "jawRight": 9e-06,
+            "mouthClose": 0.000131,
+            "mouthDimpleLeft": 0.000231,
+            "mouthDimpleRight": 0.01292,
+            "mouthFrownLeft": 0.000487,
+            "mouthFrownRight": 0.000264,
+            "mouthFunnel": 0.001752,
+            "mouthLeft": 0.002512,
+            "mouthLowerDownLeft": 0.0004,
+            "mouthLowerDownRight": 0.000115,
+            "mouthPressLeft": 0.001148,
+            "mouthPressRight": 0.034326,
+            "mouthPucker": 0.321674,
+            "mouthRight": 0.000777,
+            "mouthRollLower": 0.005354,
+            "mouthRollUpper": 0.000836,
+            "mouthShrugLower": 0.087569,
+            "mouthShrugUpper": 0.039595,
+            "mouthSmileLeft": 3.1e-05,
+            "mouthSmileRight": 6.7e-05,
+            "mouthStretchLeft": 0.000676,
+            "mouthStretchRight": 0.000281,
+            "mouthUpperUpLeft": 0.000291,
+            "mouthUpperUpRight": 0.002051,
+            "noseSneerLeft": 1e-06,
+            "noseSneerRight": 0.0
+          },
+          "profile_error": 0.064362
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/02.png",
+          "attempt": 0,
+          "landmarks": 478,
+          "features": {
+            "inter_eye": 0.142061,
+            "left_eye_width": 0.460717,
+            "right_eye_width": 0.372246,
+            "left_eye_height": 0.13095,
+            "right_eye_height": 0.121286,
+            "mouth_width": 0.689761,
+            "mouth_height": 0.012375,
+            "face_width": 2.202858,
+            "face_height": 2.474082,
+            "nose_to_chin": 1.290543,
+            "nose_eye_center_offset": 0.948637,
+            "mouth_face_center_offset": 1.304156,
+            "eye_width_asymmetry": 0.192028,
+            "eye_height_asymmetry": 0.073795
+          },
+          "blendshapes": {
+            "_neutral": 0.0,
+            "browDownLeft": 0.132905,
+            "browDownRight": 0.10706,
+            "browInnerUp": 0.001125,
+            "browOuterUpLeft": 0.034138,
+            "browOuterUpRight": 0.020594,
+            "cheekPuff": 6e-06,
+            "cheekSquintLeft": 0.0,
+            "cheekSquintRight": 0.0,
+            "eyeBlinkLeft": 0.0941,
+            "eyeBlinkRight": 0.041406,
+            "eyeLookDownLeft": 0.209412,
+            "eyeLookDownRight": 0.228732,
+            "eyeLookInLeft": 0.359067,
+            "eyeLookInRight": 0.045076,
+            "eyeLookOutLeft": 0.01163,
+            "eyeLookOutRight": 0.272316,
+            "eyeLookUpLeft": 0.051778,
+            "eyeLookUpRight": 0.038447,
+            "eyeSquintLeft": 0.532196,
+            "eyeSquintRight": 0.174294,
+            "eyeWideLeft": 0.017413,
+            "eyeWideRight": 0.007659,
+            "jawForward": 8.8e-05,
+            "jawLeft": 0.031882,
+            "jawOpen": 0.000571,
+            "jawRight": 2e-06,
+            "mouthClose": 4.3e-05,
+            "mouthDimpleLeft": 0.001699,
+            "mouthDimpleRight": 0.05852,
+            "mouthFrownLeft": 7.4e-05,
+            "mouthFrownRight": 2.1e-05,
+            "mouthFunnel": 0.003423,
+            "mouthLeft": 0.082627,
+            "mouthLowerDownLeft": 0.001059,
+            "mouthLowerDownRight": 0.000159,
+            "mouthPressLeft": 0.006756,
+            "mouthPressRight": 0.164193,
+            "mouthPucker": 0.103091,
+            "mouthRight": 1.5e-05,
+            "mouthRollLower": 0.001659,
+            "mouthRollUpper": 0.000592,
+            "mouthShrugLower": 0.013217,
+            "mouthShrugUpper": 0.019936,
+            "mouthSmileLeft": 0.001362,
+            "mouthSmileRight": 0.002708,
+            "mouthStretchLeft": 0.009474,
+            "mouthStretchRight": 4.6e-05,
+            "mouthUpperUpLeft": 7e-05,
+            "mouthUpperUpRight": 0.000971,
+            "noseSneerLeft": 0.0,
+            "noseSneerRight": 0.0
+          },
+          "profile_error": 0.045541
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/03.png",
+          "attempt": 0,
+          "landmarks": 478,
+          "features": {
+            "inter_eye": 0.146493,
+            "left_eye_width": 0.444639,
+            "right_eye_width": 0.363529,
+            "left_eye_height": 0.111867,
+            "right_eye_height": 0.093831,
+            "mouth_width": 0.723396,
+            "mouth_height": 0.02161,
+            "face_width": 2.219066,
+            "face_height": 2.332904,
+            "nose_to_chin": 1.251771,
+            "nose_eye_center_offset": 0.883821,
+            "mouth_face_center_offset": 1.329593,
+            "eye_width_asymmetry": 0.182419,
+            "eye_height_asymmetry": 0.161222
+          },
+          "blendshapes": {
+            "_neutral": 0.0,
+            "browDownLeft": 0.181708,
+            "browDownRight": 0.069432,
+            "browInnerUp": 0.002662,
+            "browOuterUpLeft": 0.037921,
+            "browOuterUpRight": 0.051141,
+            "cheekPuff": 2.4e-05,
+            "cheekSquintLeft": 0.0,
+            "cheekSquintRight": 0.0,
+            "eyeBlinkLeft": 0.073768,
+            "eyeBlinkRight": 0.095493,
+            "eyeLookDownLeft": 0.343381,
+            "eyeLookDownRight": 0.419233,
+            "eyeLookInLeft": 0.035768,
+            "eyeLookInRight": 0.23632,
+            "eyeLookOutLeft": 0.242927,
+            "eyeLookOutRight": 0.037671,
+            "eyeLookUpLeft": 0.029996,
+            "eyeLookUpRight": 0.017938,
+            "eyeSquintLeft": 0.565956,
+            "eyeSquintRight": 0.08688,
+            "eyeWideLeft": 0.021668,
+            "eyeWideRight": 0.004673,
+            "jawForward": 0.000127,
+            "jawLeft": 0.017732,
+            "jawOpen": 0.000941,
+            "jawRight": 5e-06,
+            "mouthClose": 4.4e-05,
+            "mouthDimpleLeft": 0.006454,
+            "mouthDimpleRight": 0.041844,
+            "mouthFrownLeft": 0.000173,
+            "mouthFrownRight": 3.7e-05,
+            "mouthFunnel": 0.018558,
+            "mouthLeft": 0.124408,
+            "mouthLowerDownLeft": 0.001439,
+            "mouthLowerDownRight": 0.001156,
+            "mouthPressLeft": 0.033155,
+            "mouthPressRight": 0.02469,
+            "mouthPucker": 0.567878,
+            "mouthRight": 6e-06,
+            "mouthRollLower": 0.013827,
+            "mouthRollUpper": 0.003658,
+            "mouthShrugLower": 0.007952,
+            "mouthShrugUpper": 0.004617,
+            "mouthSmileLeft": 0.000391,
+            "mouthSmileRight": 0.000138,
+            "mouthStretchLeft": 0.038931,
+            "mouthStretchRight": 2.2e-05,
+            "mouthUpperUpLeft": 1.6e-05,
+            "mouthUpperUpRight": 9.3e-05,
+            "noseSneerLeft": 0.0,
+            "noseSneerRight": 0.0
+          },
+          "profile_error": 0.101396
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/20.png",
+          "attempt": 0,
+          "landmarks": 478,
+          "features": {
+            "inter_eye": 0.136781,
+            "left_eye_width": 0.386948,
+            "right_eye_width": 0.461712,
+            "left_eye_height": 0.125858,
+            "right_eye_height": 0.122771,
+            "mouth_width": 0.824684,
+            "mouth_height": 0.031241,
+            "face_width": 2.258369,
+            "face_height": 2.47686,
+            "nose_to_chin": 1.223193,
+            "nose_eye_center_offset": 0.933072,
+            "mouth_face_center_offset": 1.450112,
+            "eye_width_asymmetry": 0.161928,
+            "eye_height_asymmetry": 0.024527
+          },
+          "blendshapes": {
+            "_neutral": 1e-06,
+            "browDownLeft": 0.004387,
+            "browDownRight": 0.024347,
+            "browInnerUp": 0.230598,
+            "browOuterUpLeft": 0.087095,
+            "browOuterUpRight": 0.093241,
+            "cheekPuff": 9e-06,
+            "cheekSquintLeft": 1e-06,
+            "cheekSquintRight": 1e-06,
+            "eyeBlinkLeft": 0.165696,
+            "eyeBlinkRight": 0.057776,
+            "eyeLookDownLeft": 0.27196,
+            "eyeLookDownRight": 0.323881,
+            "eyeLookInLeft": 0.556891,
+            "eyeLookInRight": 0.014456,
+            "eyeLookOutLeft": 0.014924,
+            "eyeLookOutRight": 0.596661,
+            "eyeLookUpLeft": 0.030516,
+            "eyeLookUpRight": 0.020209,
+            "eyeSquintLeft": 0.31935,
+            "eyeSquintRight": 0.095637,
+            "eyeWideLeft": 0.011189,
+            "eyeWideRight": 0.017045,
+            "jawForward": 0.000445,
+            "jawLeft": 8.7e-05,
+            "jawOpen": 3.1e-05,
+            "jawRight": 0.000633,
+            "mouthClose": 0.0,
+            "mouthDimpleLeft": 0.134205,
+            "mouthDimpleRight": 0.004038,
+            "mouthFrownLeft": 0.000911,
+            "mouthFrownRight": 0.001695,
+            "mouthFunnel": 0.002924,
+            "mouthLeft": 0.003748,
+            "mouthLowerDownLeft": 0.001332,
+            "mouthLowerDownRight": 0.00484,
+            "mouthPressLeft": 0.135355,
+            "mouthPressRight": 0.016596,
+            "mouthPucker": 0.070802,
+            "mouthRight": 0.000337,
+            "mouthRollLower": 0.000963,
+            "mouthRollUpper": 0.000142,
+            "mouthShrugLower": 0.021797,
+            "mouthShrugUpper": 0.103227,
+            "mouthSmileLeft": 0.02601,
+            "mouthSmileRight": 0.014556,
+            "mouthStretchLeft": 0.002615,
+            "mouthStretchRight": 0.079408,
+            "mouthUpperUpLeft": 0.002287,
+            "mouthUpperUpRight": 0.000662,
+            "noseSneerLeft": 0.000144,
+            "noseSneerRight": 1e-06
+          },
+          "profile_error": 0.049602
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/21.png",
+          "attempt": 0,
+          "landmarks": 478,
+          "features": {
+            "inter_eye": 0.138412,
+            "left_eye_width": 0.383491,
+            "right_eye_width": 0.500756,
+            "left_eye_height": 0.114161,
+            "right_eye_height": 0.122341,
+            "mouth_width": 0.849403,
+            "mouth_height": 0.083681,
+            "face_width": 2.224168,
+            "face_height": 2.522531,
+            "nose_to_chin": 1.282934,
+            "nose_eye_center_offset": 0.935072,
+            "mouth_face_center_offset": 1.41503,
+            "eye_width_asymmetry": 0.234175,
+            "eye_height_asymmetry": 0.066863
+          },
+          "blendshapes": {
+            "_neutral": 1e-06,
+            "browDownLeft": 0.001317,
+            "browDownRight": 0.004827,
+            "browInnerUp": 0.425836,
+            "browOuterUpLeft": 0.180802,
+            "browOuterUpRight": 0.204756,
+            "cheekPuff": 1.9e-05,
+            "cheekSquintLeft": 2e-06,
+            "cheekSquintRight": 2e-06,
+            "eyeBlinkLeft": 0.185499,
+            "eyeBlinkRight": 0.140847,
+            "eyeLookDownLeft": 0.496844,
+            "eyeLookDownRight": 0.479737,
+            "eyeLookInLeft": 0.107477,
+            "eyeLookInRight": 0.104721,
+            "eyeLookOutLeft": 0.095949,
+            "eyeLookOutRight": 0.126699,
+            "eyeLookUpLeft": 0.015998,
+            "eyeLookUpRight": 0.011974,
+            "eyeSquintLeft": 0.288366,
+            "eyeSquintRight": 0.155471,
+            "eyeWideLeft": 0.006234,
+            "eyeWideRight": 0.010795,
+            "jawForward": 0.00101,
+            "jawLeft": 4.5e-05,
+            "jawOpen": 4.2e-05,
+            "jawRight": 0.000486,
+            "mouthClose": 1e-06,
+            "mouthDimpleLeft": 0.067512,
+            "mouthDimpleRight": 0.000642,
+            "mouthFrownLeft": 0.005477,
+            "mouthFrownRight": 0.008551,
+            "mouthFunnel": 0.006988,
+            "mouthLeft": 0.007074,
+            "mouthLowerDownLeft": 0.005163,
+            "mouthLowerDownRight": 0.018568,
+            "mouthPressLeft": 0.137676,
+            "mouthPressRight": 0.007039,
+            "mouthPucker": 0.087696,
+            "mouthRight": 0.000109,
+            "mouthRollLower": 0.001042,
+            "mouthRollUpper": 9.4e-05,
+            "mouthShrugLower": 0.01735,
+            "mouthShrugUpper": 0.202238,
+            "mouthSmileLeft": 0.112498,
+            "mouthSmileRight": 0.033063,
+            "mouthStretchLeft": 0.03966,
+            "mouthStretchRight": 0.154909,
+            "mouthUpperUpLeft": 0.047883,
+            "mouthUpperUpRight": 0.015915,
+            "noseSneerLeft": 0.000178,
+            "noseSneerRight": 1e-06
+          },
+          "profile_error": 0.090625
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/22.png",
+          "attempt": 0,
+          "landmarks": 478,
+          "features": {
+            "inter_eye": 0.137215,
+            "left_eye_width": 0.395501,
+            "right_eye_width": 0.482348,
+            "left_eye_height": 0.109815,
+            "right_eye_height": 0.106912,
+            "mouth_width": 0.820734,
+            "mouth_height": 0.096886,
+            "face_width": 2.236786,
+            "face_height": 2.588864,
+            "nose_to_chin": 1.329731,
+            "nose_eye_center_offset": 0.885428,
+            "mouth_face_center_offset": 1.291895,
+            "eye_width_asymmetry": 0.18005,
+            "eye_height_asymmetry": 0.026429
+          },
+          "blendshapes": {
+            "_neutral": 1e-06,
+            "browDownLeft": 0.006476,
+            "browDownRight": 0.011725,
+            "browInnerUp": 0.163753,
+            "browOuterUpLeft": 0.089792,
+            "browOuterUpRight": 0.136415,
+            "cheekPuff": 5.2e-05,
+            "cheekSquintLeft": 2e-06,
+            "cheekSquintRight": 3e-06,
+            "eyeBlinkLeft": 0.247476,
+            "eyeBlinkRight": 0.11038,
+            "eyeLookDownLeft": 0.533669,
+            "eyeLookDownRight": 0.562841,
+            "eyeLookInLeft": 0.016028,
+            "eyeLookInRight": 0.281114,
+            "eyeLookOutLeft": 0.278192,
+            "eyeLookOutRight": 0.035244,
+            "eyeLookUpLeft": 0.008541,
+            "eyeLookUpRight": 0.011054,
+            "eyeSquintLeft": 0.333799,
+            "eyeSquintRight": 0.271173,
+            "eyeWideLeft": 0.002525,
+            "eyeWideRight": 0.012666,
+            "jawForward": 0.000917,
+            "jawLeft": 8.2e-05,
+            "jawOpen": 0.002184,
+            "jawRight": 0.001476,
+            "mouthClose": 3.2e-05,
+            "mouthDimpleLeft": 0.066163,
+            "mouthDimpleRight": 0.000377,
+            "mouthFrownLeft": 0.002849,
+            "mouthFrownRight": 0.003757,
+            "mouthFunnel": 0.00273,
+            "mouthLeft": 0.006428,
+            "mouthLowerDownLeft": 0.009769,
+            "mouthLowerDownRight": 0.041448,
+            "mouthPressLeft": 0.232459,
+            "mouthPressRight": 0.003605,
+            "mouthPucker": 0.007649,
+            "mouthRight": 5.8e-05,
+            "mouthRollLower": 0.002687,
+            "mouthRollUpper": 0.000684,
+            "mouthShrugLower": 0.002949,
+            "mouthShrugUpper": 0.082868,
+            "mouthSmileLeft": 0.102058,
+            "mouthSmileRight": 0.014978,
+            "mouthStretchLeft": 0.051037,
+            "mouthStretchRight": 0.045487,
+            "mouthUpperUpLeft": 0.018849,
+            "mouthUpperUpRight": 0.004804,
+            "noseSneerLeft": 2.6e-05,
+            "noseSneerRight": 3e-06
+          },
+          "profile_error": 0.060247
+        },
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/23.png",
+          "attempt": 0,
+          "landmarks": 478,
+          "features": {
+            "inter_eye": 0.143739,
+            "left_eye_width": 0.42581,
+            "right_eye_width": 0.46065,
+            "left_eye_height": 0.089158,
+            "right_eye_height": 0.081831,
+            "mouth_width": 0.784583,
+            "mouth_height": 0.153215,
+            "face_width": 2.146876,
+            "face_height": 2.481379,
+            "nose_to_chin": 1.281215,
+            "nose_eye_center_offset": 0.813912,
+            "mouth_face_center_offset": 1.217957,
+            "eye_width_asymmetry": 0.075633,
+            "eye_height_asymmetry": 0.082178
+          },
+          "blendshapes": {
+            "_neutral": 1e-06,
+            "browDownLeft": 0.009024,
+            "browDownRight": 0.012369,
+            "browInnerUp": 0.067376,
+            "browOuterUpLeft": 0.123545,
+            "browOuterUpRight": 0.131997,
+            "cheekPuff": 9.4e-05,
+            "cheekSquintLeft": 2e-06,
+            "cheekSquintRight": 1e-06,
+            "eyeBlinkLeft": 0.335009,
+            "eyeBlinkRight": 0.338758,
+            "eyeLookDownLeft": 0.753657,
+            "eyeLookDownRight": 0.748746,
+            "eyeLookInLeft": 0.011974,
+            "eyeLookInRight": 0.346647,
+            "eyeLookOutLeft": 0.364898,
+            "eyeLookOutRight": 0.007013,
+            "eyeLookUpLeft": 0.003719,
+            "eyeLookUpRight": 0.002759,
+            "eyeSquintLeft": 0.323562,
+            "eyeSquintRight": 0.21375,
+            "eyeWideLeft": 0.001807,
+            "eyeWideRight": 0.002116,
+            "jawForward": 0.000965,
+            "jawLeft": 0.000115,
+            "jawOpen": 0.003828,
+            "jawRight": 0.001329,
+            "mouthClose": 6.4e-05,
+            "mouthDimpleLeft": 0.035584,
+            "mouthDimpleRight": 0.002234,
+            "mouthFrownLeft": 0.001821,
+            "mouthFrownRight": 0.001817,
+            "mouthFunnel": 0.009439,
+            "mouthLeft": 0.002432,
+            "mouthLowerDownLeft": 0.047504,
+            "mouthLowerDownRight": 0.081035,
+            "mouthPressLeft": 0.080853,
+            "mouthPressRight": 0.00863,
+            "mouthPucker": 0.0179,
+            "mouthRight": 0.000264,
+            "mouthRollLower": 0.002054,
+            "mouthRollUpper": 0.000552,
+            "mouthShrugLower": 0.005541,
+            "mouthShrugUpper": 0.240862,
+            "mouthSmileLeft": 0.102481,
+            "mouthSmileRight": 0.03747,
+            "mouthStretchLeft": 0.019527,
+            "mouthStretchRight": 0.010219,
+            "mouthUpperUpLeft": 0.340691,
+            "mouthUpperUpRight": 0.177631,
+            "noseSneerLeft": 3.1e-05,
+            "noseSneerRight": 2e-06
+          },
+          "profile_error": 0.074575
+        }
+      ],
+      "source_failures": [
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/source_face/crop_01.png",
+          "error": "no_face_detected"
+        }
+      ],
+      "candidate_failures": [
+        {
+          "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/04.png",
+          "error": "no_face_detected"
+        }
+      ],
+      "reference_profile": {
+        "eye_height_asymmetry": 0.03062,
+        "eye_width_asymmetry": 0.114102,
+        "face_height": 2.582046,
+        "face_width": 2.198963,
+        "inter_eye": 0.129931,
+        "left_eye_height": 0.131181,
+        "left_eye_width": 0.457176,
+        "mouth_face_center_offset": 1.308879,
+        "mouth_height": 0.226986,
+        "mouth_width": 0.765109,
+        "nose_eye_center_offset": 0.90073,
+        "nose_to_chin": 1.385254,
+        "right_eye_height": 0.119515,
+        "right_eye_width": 0.434802
+      },
+      "median_profile_error": 0.069469,
+      "p90_profile_error": 0.090625,
+      "proportion_gate": {
+        "enabled": true,
+        "passed": true,
+        "source_relative": true,
+        "ratios": {
+          "nose_to_chin": 0.88829,
+          "nose_eye_center_offset": 0.893815
+        },
+        "limits": {
+          "min": 0.65,
+          "max": 1.4
+        },
+        "asset_specific_coordinates": false
+      }
+    },
+    "dreamsim": {
+      "schema": 1,
+      "model": "DreamSim",
+      "device": "cpu",
+      "full": {
+        "sources": 4,
+        "candidates": 24,
+        "per_source": [
+          {
+            "source": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/source_full/00.png",
+            "best": {
+              "candidate": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/10.png",
+              "distance": 0.144374
+            },
+            "top3": [
+              {
+                "candidate": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/10.png",
+                "distance": 0.144374
+              },
+              {
+                "candidate": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/11.png",
+                "distance": 0.152406
+              },
+              {
+                "candidate": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/13.png",
+                "distance": 0.153762
+              }
+            ]
+          },
+          {
+            "source": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/source_full/01.png",
+            "best": {
+              "candidate": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/02.png",
+              "distance": 0.126268
+            },
+            "top3": [
+              {
+                "candidate": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/02.png",
+                "distance": 0.126268
+              },
+              {
+                "candidate": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/22.png",
+                "distance": 0.1326
+              },
+              {
+                "candidate": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/23.png",
+                "distance": 0.133617
+              }
+            ]
+          },
+          {
+            "source": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/source_full/02.png",
+            "best": {
+              "candidate": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/10.png",
+              "distance": 0.145297
+            },
+            "top3": [
+              {
+                "candidate": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/10.png",
+                "distance": 0.145297
+              },
+              {
+                "candidate": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/09.png",
+                "distance": 0.146258
+              },
+              {
+                "candidate": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/11.png",
+                "distance": 0.152519
+              }
+            ]
+          },
+          {
+            "source": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/source_full/03.png",
+            "best": {
+              "candidate": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/04.png",
+              "distance": 0.145142
+            },
+            "top3": [
+              {
+                "candidate": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/04.png",
+                "distance": 0.145142
+              },
+              {
+                "candidate": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/19.png",
+                "distance": 0.153518
+              },
+              {
+                "candidate": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/turn_full/05.png",
+                "distance": 0.154051
+              }
+            ]
+          }
+        ],
+        "mean_best_distance": 0.14027,
+        "worst_best_distance": 0.145297,
+        "best_best_distance": 0.126268
+      },
+      "face": {
+        "sources": 5,
+        "candidates": 9,
+        "per_source": [
+          {
+            "source": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/source_face/detail_00.png",
+            "best": {
+              "candidate": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/01.png",
+              "distance": 0.247932
+            },
+            "top3": [
+              {
+                "candidate": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/01.png",
+                "distance": 0.247932
+              },
+              {
+                "candidate": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/00.png",
+                "distance": 0.255633
+              },
+              {
+                "candidate": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/23.png",
+                "distance": 0.260355
+              }
+            ]
+          },
+          {
+            "source": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/source_face/detail_01.png",
+            "best": {
+              "candidate": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/01.png",
+              "distance": 0.17867
+            },
+            "top3": [
+              {
+                "candidate": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/01.png",
+                "distance": 0.17867
+              },
+              {
+                "candidate": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/23.png",
+                "distance": 0.186753
+              },
+              {
+                "candidate": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/00.png",
+                "distance": 0.190158
+              }
+            ]
+          },
+          {
+            "source": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/source_face/crop_00.png",
+            "best": {
+              "candidate": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/01.png",
+              "distance": 0.297087
+            },
+            "top3": [
+              {
+                "candidate": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/01.png",
+                "distance": 0.297087
+              },
+              {
+                "candidate": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/23.png",
+                "distance": 0.298655
+              },
+              {
+                "candidate": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/00.png",
+                "distance": 0.301415
+              }
+            ]
+          },
+          {
+            "source": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/source_face/crop_02.png",
+            "best": {
+              "candidate": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/01.png",
+              "distance": 0.301594
+            },
+            "top3": [
+              {
+                "candidate": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/01.png",
+                "distance": 0.301594
+              },
+              {
+                "candidate": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/23.png",
+                "distance": 0.302866
+              },
+              {
+                "candidate": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/00.png",
+                "distance": 0.316296
+              }
+            ]
+          },
+          {
+            "source": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/source_face/crop_03.png",
+            "best": {
+              "candidate": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/20.png",
+              "distance": 0.299827
+            },
+            "top3": [
+              {
+                "candidate": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/20.png",
+                "distance": 0.299827
+              },
+              {
+                "candidate": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/21.png",
+                "distance": 0.32509
+              },
+              {
+                "candidate": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/evidence/candidate_face/22.png",
+                "distance": 0.330633
+              }
+            ]
+          }
+        ],
+        "mean_best_distance": 0.265022,
+        "worst_best_distance": 0.301594,
+        "best_best_distance": 0.17867
+      }
+    },
+    "internvl": {
+      "schema": 1,
+      "model": "OpenGVLab/InternVL3_5-1B-HF",
+      "provenance": {
+        "model_id": "OpenGVLab/InternVL3_5-1B-HF",
+        "resolved_revision": "9191dbccf312b537016f041b25d61c72e7c5c9f3",
+        "num_parameters": 1060897792,
+        "dtype": "torch.bfloat16"
+      },
+      "device": "cpu",
+      "passes": [
+        {
+          "board": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/board_source_first.jpg",
+          "raw": "```json\n{\n  \"pass\": true,\n  \"confidence\": 0.95,\n  \"critical_issues\": [],\n  \"scores\": {\n    \"face_anatomy\": 100,\n    \"face_source_fidelity\": 100,\n    \"body_anatomy\": 100,\n    \"hands\": 100,\n    \"material_texture\": 100,\n    \"multiview_consistency\": 100,\n    \"source_fidelity\": 100\n  },\n  \"notes\": []\n}\n```",
+          "verdict": {
+            "pass": true,
+            "confidence": 0.95,
+            "critical_issues": [],
+            "scores": {
+              "face_anatomy": 100.0,
+              "face_source_fidelity": 100.0,
+              "source_fidelity": 100.0,
+              "multiview_consistency": 100.0,
+              "material_texture": 100.0,
+              "hands": 100.0,
+              "body_anatomy": 100.0
+            },
+            "notes": []
+          }
+        },
+        {
+          "board": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/judge_v4_core/board_candidate_first.jpg",
+          "raw": "```json\n{\n  \"pass\": true,\n  \"confidence\": 0.95,\n  \"critical_issues\": [],\n  \"scores\": {\n    \"face_anatomy\": 100,\n    \"face_source_fidelity\": 100,\n    \"body_anatomy\": 100,\n    \"hands\": 100,\n    \"material_texture\": 100,\n    \"multiview_consistency\": 100,\n    \"source_fidelity\": 100\n  },\n  \"notes\": []\n}\n```",
+          "verdict": {
+            "pass": true,
+            "confidence": 0.95,
+            "critical_issues": [],
+            "scores": {
+              "face_anatomy": 100.0,
+              "face_source_fidelity": 100.0,
+              "source_fidelity": 100.0,
+              "multiview_consistency": 100.0,
+              "material_texture": 100.0,
+              "hands": 100.0,
+              "body_anatomy": 100.0
+            },
+            "notes": []
+          }
+        }
+      ]
+    }
+  },
+  "visual_approval": {
+    "schema": 1,
+    "state": "core_pass",
+    "production_approved": false,
+    "core_passed": true,
+    "pro_required": true,
+    "hard_fail_reasons": [],
+    "note": "Core is the mandatory CPU pre-screen only. It can reject but can never production-approve a character. Monster/Ultra production approval requires authoritative Judge v5 on the HAYUYA GPU worker."
+  }
+}

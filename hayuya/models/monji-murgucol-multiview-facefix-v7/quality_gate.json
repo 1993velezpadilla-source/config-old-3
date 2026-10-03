@@ -1,0 +1,28 @@
+{
+  "path": "out/hayuya-jobs/monji-murgucol-multiview-facefix-v7/outputs/hayuya_final.glb",
+  "valid": true,
+  "passed": true,
+  "vertices": 66870,
+  "faces": 100430,
+  "triangle_primitives": 1,
+  "normal_primitives": 0,
+  "missing_normal_primitives": 1,
+  "components": 3,
+  "largest_component_fraction": 0.973997,
+  "degenerate_ratio": 0.0,
+  "bbox_extents": [
+    0.4376276,
+    0.99922973,
+    0.33131503
+  ],
+  "bbox_aspect_ratio": 3.015951,
+  "axis_alignment_weighted": 0.884208,
+  "axis_aligned_area_98": 0.166168,
+  "dominant_normal_axis_area": [
+    0.465772,
+    0.046869,
+    0.487359
+  ],
+  "reasons": [],
+  "warnings": []
+}
