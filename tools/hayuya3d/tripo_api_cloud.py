@@ -370,6 +370,8 @@ def generate_multiview(
             texture=texture,
             pbr=pbr,
             texture_quality=texture_quality,
+            face_limit=face_limit,
+            geometry_quality=geometry_quality,
             quad=quad,
             auto_size=auto_size,
         ),
