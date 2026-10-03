@@ -1,5 +1,7 @@
 extends SceneTree
 
+# Procedural material realism pass.
+
 # Human scale 0.78 screenshot.
 
 # Current build capture after headshot/window fixes.
