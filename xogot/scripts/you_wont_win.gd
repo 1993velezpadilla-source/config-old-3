@@ -1,6 +1,16 @@
 extends Node3D
 
+const WORLD_SCALE: float = 0.78
+
+func _wp(v: Vector3) -> Vector3:
+	return v * WORLD_SCALE
+
+func _ws(v: Vector3) -> Vector3:
+	return v * WORLD_SCALE
+
+
 func _ready() -> void:
+	set_meta("world_scale", WORLD_SCALE)
 	_build_environment()
 	_build_site()
 	_build_church()
@@ -151,8 +161,8 @@ func _build_interior() -> void:
 	_build_balcony_stair_ramp()
 
 func _build_balcony_stair_ramp() -> void:
-	var start := Vector3(-8.0, 0.38, 0.60)
-	var finish := Vector3(-8.0, 5.60, 7.55)
+	var start: Vector3 = _wp(Vector3(-8.0, 0.38, 0.60))
+	var finish: Vector3 = _wp(Vector3(-8.0, 5.60, 7.55))
 	var run: float = finish.z - start.z
 	var rise: float = finish.y - start.y
 	var slope_length: float = sqrt(run * run + rise * rise)
@@ -166,7 +176,7 @@ func _build_balcony_stair_ramp() -> void:
 
 	var collision := CollisionShape3D.new()
 	var shape := BoxShape3D.new()
-	shape.size = Vector3(3.0, 0.16, slope_length)
+	shape.size = Vector3(3.0 * WORLD_SCALE, 0.16 * WORLD_SCALE, slope_length)
 	collision.shape = shape
 	ramp.add_child(collision)
 	add_child(ramp)
@@ -187,7 +197,7 @@ func _interactive_box(label: String, size: Vector3, pos: Vector3, color: Color, 
 	var script_resource: Script = load("res://scripts/interactable.gd") as Script
 	var body := StaticBody3D.new()
 	body.name = label
-	body.position = pos
+	body.position = _wp(pos)
 	body.set_script(script_resource)
 	body.set("interaction_kind", kind)
 	body.set("price", price)
@@ -198,7 +208,7 @@ func _interactive_box(label: String, size: Vector3, pos: Vector3, color: Color, 
 
 	var mi := MeshInstance3D.new()
 	var mesh := BoxMesh.new()
-	mesh.size = size
+	mesh.size = _ws(size)
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = color
 	mat.roughness = 0.74
@@ -209,7 +219,7 @@ func _interactive_box(label: String, size: Vector3, pos: Vector3, color: Color, 
 
 	var cs := CollisionShape3D.new()
 	var shape := BoxShape3D.new()
-	shape.size = size
+	shape.size = _ws(size)
 	cs.shape = shape
 	body.add_child(cs)
 	add_child(body)
@@ -240,12 +250,12 @@ func _add_window_threshold_ramp(side: String, sx: float, index: int, z: float) -
 	var angle_deg: float = rad_to_deg(angle_rad)
 	var body := StaticBody3D.new()
 	body.name = "WindowRamp_%s_%02d" % [side, index]
-	body.position = Vector3(11.50 * sx, 0.21, z)
+	body.position = _wp(Vector3(11.50 * sx, 0.21, z))
 	body.rotation_degrees.z = -sx * angle_deg
 
 	var mesh_instance := MeshInstance3D.new()
 	var mesh := BoxMesh.new()
-	mesh.size = Vector3(run, 0.18, 2.30)
+	mesh.size = _ws(Vector3(run, 0.18, 2.30))
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = Color(0.16, 0.15, 0.13)
 	mat.roughness = 0.92
@@ -255,7 +265,7 @@ func _add_window_threshold_ramp(side: String, sx: float, index: int, z: float) -
 
 	var collision := CollisionShape3D.new()
 	var shape := BoxShape3D.new()
-	shape.size = Vector3(run, 0.18, 2.30)
+	shape.size = _ws(Vector3(run, 0.18, 2.30))
 	collision.shape = shape
 	body.add_child(collision)
 	body.add_to_group("zombie_window_ramp")
@@ -265,13 +275,13 @@ func _add_window_socket(window_id: int, side: String, z: float) -> void:
 	var left: bool = side == "left"
 	var sx: float = -1.0 if left else 1.0
 	var barricade_x: float = 10.52 * sx
-	var outside_spawn := Vector3(13.0 * sx, 0.08, z)
-	var outside_approach := Vector3(11.95 * sx, 0.08, z)
-	var inside_point := Vector3(10.20 * sx, 0.48, z)
+	var outside_spawn: Vector3 = _wp(Vector3(13.0 * sx, 0.08, z))
+	var outside_approach: Vector3 = _wp(Vector3(11.95 * sx, 0.08, z))
+	var inside_point: Vector3 = _wp(Vector3(10.20 * sx, 0.48, z))
 
 	var marker := Marker3D.new()
 	marker.name = "ZombieWindow_%02d" % window_id
-	marker.position = Vector3(12.0 * sx, 0.55, z)
+	marker.position = _wp(Vector3(12.0 * sx, 0.55, z))
 	marker.add_to_group("zombie_window")
 	marker.set_meta("window_id", window_id)
 	marker.set_meta("side", side)
@@ -284,7 +294,7 @@ func _add_window_socket(window_id: int, side: String, z: float) -> void:
 	var script_resource: Script = load("res://scripts/barricade.gd") as Script
 	var barricade := StaticBody3D.new()
 	barricade.name = "Barricade_%02d" % window_id
-	barricade.position = Vector3(barricade_x, 1.55, z)
+	barricade.position = _wp(Vector3(barricade_x, 1.55, z))
 	barricade.set_script(script_resource)
 	barricade.set_meta("window_id", window_id)
 	barricade.set_meta("side", side)
@@ -297,10 +307,10 @@ func _build_lights() -> void:
 	var light_z: Array[float] = [-17.0, -7.0, 3.0, 10.0]
 	for z: float in light_z:
 		var lamp := OmniLight3D.new()
-		lamp.position = Vector3(0, 4.2, z)
+		lamp.position = _wp(Vector3(0, 4.2, z))
 		lamp.light_color = Color(1.0, 0.56, 0.27)
 		lamp.light_energy = 2.0
-		lamp.omni_range = 8.5
+		lamp.omni_range = 8.5 * WORLD_SCALE
 		lamp.shadow_enabled = true
 		add_child(lamp)
 
@@ -309,7 +319,7 @@ func _build_camera() -> void:
 		return
 	var camera := Camera3D.new()
 	camera.name = "PreviewCamera"
-	camera.position = Vector3(0, 7.8, 31)
+	camera.position = _wp(Vector3(0, 7.8, 31))
 	camera.rotation_degrees = Vector3(-8, 0, 0)
 	camera.fov = 68
 	camera.current = true
@@ -324,11 +334,11 @@ func _pew(pos: Vector3, color: Color) -> void:
 func _wedge_roof(label: String, pos: Vector3, roll: float, color: Color, size: Vector3 = Vector3(11.8, 0.45, 39.0)) -> void:
 	var body := StaticBody3D.new()
 	body.name = label
-	body.position = pos
+	body.position = _wp(pos)
 	body.rotation_degrees.z = roll
 	var mi := MeshInstance3D.new()
 	var mesh := BoxMesh.new()
-	mesh.size = size
+	mesh.size = _ws(size)
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = color
 	mat.roughness = 0.92
@@ -337,7 +347,7 @@ func _wedge_roof(label: String, pos: Vector3, roll: float, color: Color, size: V
 	body.add_child(mi)
 	var cs := CollisionShape3D.new()
 	var shape := BoxShape3D.new()
-	shape.size = size
+	shape.size = _ws(size)
 	cs.shape = shape
 	body.add_child(cs)
 	add_child(body)
@@ -350,10 +360,10 @@ func _box(label: String, size: Vector3, pos: Vector3, color: Color, collision: b
 	else:
 		root = Node3D.new()
 	root.name = label
-	root.position = pos
+	root.position = _wp(pos)
 	var mi := MeshInstance3D.new()
 	var mesh := BoxMesh.new()
-	mesh.size = size
+	mesh.size = _ws(size)
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = color
 	mat.roughness = 0.86
@@ -363,7 +373,7 @@ func _box(label: String, size: Vector3, pos: Vector3, color: Color, collision: b
 	if collision:
 		var cs := CollisionShape3D.new()
 		var shape := BoxShape3D.new()
-		shape.size = size
+		shape.size = _ws(size)
 		cs.shape = shape
 		root.add_child(cs)
 	add_child(root)
