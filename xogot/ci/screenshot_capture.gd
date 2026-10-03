@@ -2,6 +2,7 @@ extends SceneTree
 
 # Capture Monja Basica common church zombie.
 # Auto-fit Monja screenshot.
+# Final proportion pass screenshot.
 
 func _init() -> void:
 	call_deferred("_capture")
