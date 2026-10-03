@@ -1,7 +1,11 @@
 name: Normalize Church Furniture GLB
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - feature/xogot-port-v1
+    paths:
+      - ".github/workflows/normalize-church-furniture-temp.yml"
 
 permissions:
   contents: write
