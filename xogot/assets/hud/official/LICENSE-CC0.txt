@@ -1,0 +1,11 @@
+XZIEL official mobile HUD assets.
+
+Original XZIEL touch surfaces (touch/joystick/fire/ADS/ADS+fire) are generated
+from scripts/build_xziel_icons.py in this repository.
+
+Action glyphs are pinned from Nieobie/Game-Icon-Pack.
+Revision: b1a5fec8b68c99e7b46484db707610ab2414ad4c
+License: CC0 1.0 Universal.
+Source: https://github.com/Nieobie/Game-Icon-Pack
+
+The XZIEL-specific surface composition is original project artwork.
