@@ -184,11 +184,43 @@ func _build_windows() -> void:
 		# A faint non-colliding back glow marks the aperture; the opening itself is real.
 		_box("WindowGlowL_%d" % i, Vector3(0.03, 2.25, 2.35), Vector3(-11.34, 1.55, z), Color(glow.r, glow.g, glow.b, 0.22), false)
 		_box("WindowGlowR_%d" % i, Vector3(0.03, 2.25, 2.35), Vector3(11.34, 1.55, z), Color(glow.r, glow.g, glow.b, 0.22), false)
+		_add_window_threshold_ramp("L", -1.0, i, z)
 		_add_window_socket(window_id, "left", z)
 		window_id += 1
+		_add_window_threshold_ramp("R", 1.0, i, z)
 		_add_window_socket(window_id, "right", z)
 		window_id += 1
 	print("XZOGOT_WINDOWS_PREPARED ", window_id)
+
+func _add_window_threshold_ramp(side: String, sx: float, index: int, z: float) -> void:
+	# Exterior ground is y=0 while the church floor top is ~0.445 m.
+	# A shallow physical ramp lets CharacterBody3D zombies and players cross without teleport/stair hacks.
+	var run: float = 2.40
+	var rise: float = 0.45
+	var angle_rad: float = atan(rise / run)
+	var angle_deg: float = rad_to_deg(angle_rad)
+	var body := StaticBody3D.new()
+	body.name = "WindowRamp_%s_%02d" % [side, index]
+	body.position = Vector3(10.90 * sx, 0.225, z)
+	body.rotation_degrees.z = -sx * angle_deg
+
+	var mesh_instance := MeshInstance3D.new()
+	var mesh := BoxMesh.new()
+	mesh.size = Vector3(run, 0.16, 2.30)
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.16, 0.15, 0.13)
+	mat.roughness = 0.92
+	mesh.material = mat
+	mesh_instance.mesh = mesh
+	body.add_child(mesh_instance)
+
+	var collision := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(run, 0.16, 2.30)
+	collision.shape = shape
+	body.add_child(collision)
+	body.add_to_group("zombie_window_ramp")
+	add_child(body)
 
 func _add_window_socket(window_id: int, side: String, z: float) -> void:
 	var left: bool = side == "left"
