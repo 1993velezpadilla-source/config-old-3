@@ -4,6 +4,7 @@ signal died(zombie: Node)
 
 const MONJA_BASICA_PATH := "res://assets/zombies/monja_basica.glb"
 const MONJA_RIGGED_PATH := "res://assets/zombies/monja_basica_rigged.glb"
+const MONJA_RIGGED_DISMEMBER_PATH := "res://assets/zombies/monja_basica_rigged_dismember.glb"
 
 const RIGGED_FALLBACK_ANIMS := {
 	"idle": ["Zombie_Idle_Loop"],
@@ -228,7 +229,12 @@ func _build_body() -> void:
 
 	var selected_path: String = MONJA_BASICA_PATH
 	var using_rigged: bool = false
-	if ResourceLoader.exists(MONJA_RIGGED_PATH):
+	var using_rigged_dismember: bool = false
+	if ResourceLoader.exists(MONJA_RIGGED_DISMEMBER_PATH):
+		selected_path = MONJA_RIGGED_DISMEMBER_PATH
+		using_rigged = true
+		using_rigged_dismember = true
+	elif ResourceLoader.exists(MONJA_RIGGED_PATH):
 		selected_path = MONJA_RIGGED_PATH
 		using_rigged = true
 
@@ -252,10 +258,15 @@ func _build_body() -> void:
 					target_visual_max_depth
 				):
 					_animation_player = _find_animation_player(imported)
-					set_meta("zombie_model", "monja_basica_rigged" if using_rigged else "monja_basica")
+					set_meta(
+						"zombie_model",
+						"monja_basica_rigged_dismember" if using_rigged_dismember
+						else ("monja_basica_rigged" if using_rigged else "monja_basica")
+					)
 					set_meta("zombie_visual_forward_fix_deg", 90.0)
 					set_meta("zombie_rig_ready", _animation_player != null)
 					set_meta("zombie_rigged_asset", using_rigged)
+					set_meta("zombie_authored_dismember_asset", using_rigged_dismember)
 					print("XZOGOT_MONJA_FORWARD_FIXED 90")
 					print("XZOGOT_MONJA_BASICA_LOADED")
 					if _animation_player != null:
@@ -682,20 +693,22 @@ func _authored_limb_name(zone: String) -> String:
 		"right_leg": return "Dismember_RightLeg"
 	return ""
 
-func _find_authored_limb(zone: String) -> MeshInstance3D:
+func _find_authored_limbs(zone: String) -> Array[MeshInstance3D]:
+	var result: Array[MeshInstance3D] = []
 	if _visual_root == null:
-		return null
+		return result
 	var limb_name: String = _authored_limb_name(zone)
 	if limb_name.is_empty():
-		return null
-	var node: Node = _visual_root.find_child(limb_name, true, false)
-	if node is MeshInstance3D:
-		return node as MeshInstance3D
-	if node != null:
-		for child: Node in node.get_children():
-			if child is MeshInstance3D:
-				return child as MeshInstance3D
-	return null
+		return result
+	var token := limb_name.to_lower()
+	for node: Node in _visual_root.find_children("*", "MeshInstance3D", true, false):
+		if node is MeshInstance3D and node.name.to_lower().contains(token):
+			result.append(node as MeshInstance3D)
+	return result
+
+func _find_authored_limb(zone: String) -> MeshInstance3D:
+	var limbs := _find_authored_limbs(zone)
+	return limbs[0] if not limbs.is_empty() else null
 
 func _spawn_detached_proxy(zone: String, source_part: MeshInstance3D = null) -> void:
 	var rigid := RigidBody3D.new()
@@ -792,11 +805,13 @@ func _sever_limb(zone: String, source: Node, impulse_damage: float) -> bool:
 	_severed[zone] = true
 	set_meta("severed_" + zone, true)
 
-	var authored: MeshInstance3D = _find_authored_limb(zone)
+	var authored_limbs := _find_authored_limbs(zone)
+	var authored: MeshInstance3D = authored_limbs[0] if not authored_limbs.is_empty() else null
 	_spawn_detached_proxy(zone, authored)
-	if authored != null:
-		authored.visible = false
-		print("XZOGOT_AUTHORED_LIMB_DETACHED ", zone)
+	if not authored_limbs.is_empty():
+		for part: MeshInstance3D in authored_limbs:
+			part.visible = false
+		print("XZOGOT_AUTHORED_LIMB_DETACHED ", zone, " meshes=", authored_limbs.size())
 	else:
 		print("XZOGOT_LIMB_PROXY_DETACHED ", zone)
 
