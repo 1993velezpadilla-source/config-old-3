@@ -363,6 +363,33 @@ func equip_weapon(id: String, refill: bool = true) -> bool:
 	)
 	return true
 
+func apply_authoritative_network_loadout(
+	id: String,
+	magazine: int,
+	reserve: int,
+	upgraded: bool
+) -> bool:
+	if not WeaponCatalog.has_weapon(id):
+		return false
+	if upgraded:
+		_upgraded_ids[id] = true
+	else:
+		_upgraded_ids.erase(id)
+	if not equip_weapon(id, true):
+		return false
+	_magazine = clampi(magazine, 0, magazine_size)
+	reserve_ammo = maxi(0, reserve)
+	_reloading = false
+	_reload_timer = 0.0
+	set_meta("weapon_upgraded", _upgraded)
+	print(
+		"XZOGOT_NETWORK_LOADOUT_SYNC ", id,
+		" mag=", _magazine,
+		" reserve=", reserve_ammo,
+		" upgraded=", _upgraded
+	)
+	return true
+
 func buy_wall_weapon(id: String, player: Node) -> bool:
 	if not WeaponCatalog.has_weapon(id):
 		return false
