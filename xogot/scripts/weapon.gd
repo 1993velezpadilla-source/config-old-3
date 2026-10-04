@@ -249,7 +249,7 @@ func _refresh_view_assets(def: Dictionary) -> void:
 			push_warning("XZOGOT_WEAPON_DEV_FALLBACK " + _weapon_id + " " + model_path)
 		else:
 			set_meta("weapon_asset_lane", "missing_real_asset")
-			push_error("XZOGOT_REAL_WEAPON_ASSET_REQUIRED " + _weapon_id + " " + model_path)
+			push_warning("XZOGOT_REAL_WEAPON_ASSET_REQUIRED " + _weapon_id + " " + model_path)
 
 	if _fire_audio != null:
 		var fire_path: String = WeaponAssetRegistry.preferred_audio_path(
