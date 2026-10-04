@@ -129,8 +129,8 @@ func _run() -> void:
 	_round_manager = _scene.get_node_or_null("RoundManager")
 
 	# Turn on final-map electrical presentation without bypassing its startup rig.
-	get_tree().set_meta("power_on", true)
-	for node: Node in get_tree().get_nodes_in_group("xz_power_light_rig"):
+	set_meta("power_on", true)
+	for node: Node in get_nodes_in_group("xz_power_light_rig"):
 		if node.has_method("dev_trigger_startup"):
 			node.call("dev_trigger_startup")
 	await create_timer(1.8).timeout
@@ -170,7 +170,7 @@ func _run() -> void:
 
 	var rigged_seen := false
 	var animated_seen := false
-	for node: Node in get_tree().get_nodes_in_group("zombie"):
+	for node: Node in get_nodes_in_group("zombie"):
 		if bool(node.get_meta("zombie_rigged_asset", false)):
 			rigged_seen = true
 		var anim_name := str(node.get_meta("active_animation", ""))
