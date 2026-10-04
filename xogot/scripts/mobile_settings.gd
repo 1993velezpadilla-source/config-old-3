@@ -42,6 +42,7 @@ var _network_status: Label
 var _network_roster: Label
 var _network_share: Label
 var _network_error: Label
+var _network_found: Label
 var _network_address: LineEdit
 var _network_port: LineEdit
 var _network_last_error: String = ""
@@ -289,10 +290,22 @@ func _build_network_page() -> void:
 	_network_port.max_length = 5
 	_page_network.add_child(_network_port)
 
+	_network_found = Label.new()
+	_network_found.name = "FoundMatches"
+	_network_found.text = "LAN MATCHES: NOT SCANNING"
+	_network_found.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_network_found.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_network_found.modulate = Color(0.76, 0.84, 0.78)
+	_page_network.add_child(_network_found)
+
 	var host_private := _button(_page_network, "HostPrivate", "HOST PRIVATE — 1–4 PLAYERS")
 	host_private.pressed.connect(func(): _network_host(true))
-	var host_public := _button(_page_network, "HostPublic", "HOST PUBLIC DIRECT — 1–4 PLAYERS")
+	var host_public := _button(_page_network, "HostPublic", "HOST PUBLIC / LAN — DISCOVERABLE")
 	host_public.pressed.connect(func(): _network_host(false))
+	var find_lan := _button(_page_network, "FindLan", "FIND MATCH — LAN")
+	find_lan.pressed.connect(_network_find_lan)
+	var join_found := _button(_page_network, "JoinFound", "JOIN FOUND MATCH")
+	join_found.pressed.connect(_network_join_found)
 	var join := _button(_page_network, "JoinDirect", "JOIN DIRECT IP")
 	join.pressed.connect(_network_join)
 	var leave := _button(_page_network, "LeaveNetwork", "LEAVE SESSION")
@@ -300,7 +313,7 @@ func _build_network_page() -> void:
 
 	var note := Label.new()
 	note.name = "NetworkDirectoryNote"
-	note.text = "PUBLIC DIRECT marks the session public-ready but does not fake internet discovery. A real Find Match directory/relay is the next network layer. LAN/direct-IP works now."
+	note.text = "LAN Find Match is real UDP discovery. Internet-wide PUBLIC matchmaking still needs a rendezvous/NAT service; the UI does not pretend LAN discovery is global."
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	note.modulate = Color(0.68, 0.72, 0.76)
@@ -332,6 +345,58 @@ func _network_host(private_session: bool) -> void:
 	else:
 		_network_last_error = "HOST FAILED: " + str(err)
 	_refresh_network_status()
+
+func _network_find_lan() -> void:
+	var network: Node = _network_manager_node()
+	if network == null or not network.has_method("start_find_match"):
+		_network_last_error = "LAN DISCOVERY UNAVAILABLE"
+		_refresh_network_status()
+		return
+	_network_last_error = ""
+	var err: int = int(network.call("start_find_match", 7778))
+	if err == OK:
+		print("XZOGOT_NETWORK_UI_FIND_LAN")
+	else:
+		_network_last_error = "FIND MATCH FAILED: " + str(err)
+	_refresh_network_status()
+
+func _network_join_found() -> void:
+	var network: Node = _network_manager_node()
+	if network == null or not network.has_method("join_best_lan_match"):
+		_network_last_error = "LAN DISCOVERY UNAVAILABLE"
+		_refresh_network_status()
+		return
+	_network_last_error = ""
+	var err: int = int(network.call("join_best_lan_match"))
+	if err == OK:
+		print("XZOGOT_NETWORK_UI_JOIN_FOUND")
+	else:
+		_network_last_error = "NO JOINABLE LAN MATCH" if err == ERR_DOES_NOT_EXIST else ("JOIN FOUND FAILED: " + str(err))
+	_refresh_network_status()
+
+func _refresh_found_matches(network: Node) -> void:
+	if _network_found == null:
+		return
+	if network == null or not network.has_method("get_discovered_matches"):
+		_network_found.text = "LAN MATCHES: UNAVAILABLE"
+		return
+	var matches: Array = network.call("get_discovered_matches") as Array
+	if matches.is_empty():
+		_network_found.text = "LAN MATCHES: NONE FOUND"
+		return
+	var parts := PackedStringArray()
+	for session_var: Variant in matches.slice(0, 4):
+		var session := session_var as Dictionary
+		parts.append(
+			"%s  %d/%d  %s:%d" % [
+				str(session.get("name", "MATCH")),
+				int(session.get("players", 0)),
+				int(session.get("max_players", 4)),
+				str(session.get("ip", "?")),
+				int(session.get("port", 7777)),
+			]
+		)
+	_network_found.text = "LAN MATCHES:\n" + "\n".join(parts)
 
 func _network_join() -> void:
 	var network: Node = _network_manager_node()
@@ -394,6 +459,7 @@ func _refresh_network_status() -> void:
 		return
 
 	_network_status.text = str(network.call("get_status_text"))
+	_refresh_found_matches(network)
 	var mode: String = str(network.call("get_mode")) if network.has_method("get_mode") else "offline"
 	var ids: PackedInt32Array = (
 		network.call("get_roster_ids") as PackedInt32Array
