@@ -220,6 +220,28 @@ func _draw_powerup_effects() -> void:
 		)
 		y += float(font_size) * 1.18
 
+func _draw_downed_revive_state() -> void:
+	if _player == null:
+		return
+	var font: Font = ThemeDB.fallback_font
+	var font_size: int = maxi(18, int(size.y * 0.026))
+	if _player.has_method("is_downed") and bool(_player.call("is_downed")):
+		var bleed_ratio: float = 0.0
+		if _player.has_method("get_bleedout_ratio"):
+			bleed_ratio = float(_player.call("get_bleedout_ratio"))
+		var pos := Vector2(size.x * 0.34, size.y * 0.82)
+		var bar := Vector2(size.x * 0.32, 8.0)
+		draw_rect(Rect2(pos, bar), Color(0.0, 0.0, 0.0, 0.62), true)
+		draw_rect(Rect2(pos, Vector2(bar.x * bleed_ratio, bar.y)), Color(0.80, 0.15, 0.12, 0.88), true)
+		draw_string(font, pos + Vector2(0.0, -8.0), "DOWNED", HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color(1.0, 0.78, 0.72, 0.95))
+	elif _player.has_method("is_reviving_teammate") and bool(_player.call("is_reviving_teammate")):
+		var revive_ratio: float = float(_player.call("get_active_revive_progress_ratio"))
+		var pos := Vector2(size.x * 0.34, size.y * 0.82)
+		var bar := Vector2(size.x * 0.32, 8.0)
+		draw_rect(Rect2(pos, bar), Color(0.0, 0.0, 0.0, 0.62), true)
+		draw_rect(Rect2(pos, Vector2(bar.x * revive_ratio, bar.y)), Color(0.74, 0.84, 0.70, 0.92), true)
+		draw_string(font, pos + Vector2(0.0, -8.0), "REVIVING", HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color(0.92, 0.96, 0.88, 0.96))
+
 func _draw() -> void:
 	var s: Vector2 = size
 	var white := Color(1.0, 1.0, 1.0, 0.72)
@@ -362,3 +384,4 @@ func _draw() -> void:
 	# then a compact numeric counter for high-round readability on mobile.
 	_draw_round_counter()
 	_draw_powerup_effects()
+	_draw_downed_revive_state()
