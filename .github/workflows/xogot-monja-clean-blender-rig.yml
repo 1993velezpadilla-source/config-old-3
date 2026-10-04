@@ -71,6 +71,13 @@ jobs:
       - name: Stage clean rig candidate
         shell: bash
         run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("xogot/build/monja-clean-blender-rig/report.json").read_text())
+          assert r.get("pose_match",{}).get("validated") is True, "Refusing to promote clean Monja until source-pose match is validated"
+          print("XZOGOT_MONJA_POSE_MATCH_PROMOTION_GREEN")
+          PY
           set -euo pipefail
           SIZE=$(stat -c%s xogot/build/monja-clean-blender-rig/monja_basica_clean_rig.glb)
           mkdir -p xogot/assets/zombies/monja_clean
