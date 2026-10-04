@@ -152,6 +152,7 @@ def clear_pose(arm):
         pb.matrix_basis.identity()
 
 def apply_bind_pose_as_rest(target_arm,bind_action):
+    target_arm.data.pose_position='POSE'
     target_arm.animation_data_create()
     target_arm.animation_data.action=bind_action
     start=int(round(bind_action.frame_range[0]))
