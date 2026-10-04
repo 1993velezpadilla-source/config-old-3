@@ -353,7 +353,7 @@ func _build_body() -> void:
 			var imported: Node3D = packed.instantiate() as Node3D
 			if imported != null:
 				var visual := Node3D.new()
-				visual.name = "EnemyVisual_" + enemy_variant
+				visual.name = "MonjaBasicaVisual" if enemy_variant == "normal" else ("EnemyVisual_" + enemy_variant)
 				add_child(visual)
 				_visual_root = visual
 				imported.name = "EnemySource_" + enemy_variant
