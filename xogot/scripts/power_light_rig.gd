@@ -36,8 +36,8 @@ func _collect_fixtures(node: Node) -> void:
 		if child is OmniLight3D:
 			var fixture := child as OmniLight3D
 			_fixtures.append(fixture)
-		for nested: Node in child.get_children():
-			_collect_fixtures(nested)
+			for nested: Node in child.get_children():
+				_collect_fixtures(nested)
 		else:
 			_collect_fixtures(child)
 
