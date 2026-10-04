@@ -130,7 +130,9 @@ func _run() -> void:
 		await physics_frame
 		crypt_min_y = minf(crypt_min_y, player.global_position.y)
 		if (
-			player.global_position.z <= -22.0 * world_scale
+			# ReliquaryCorridorFloor begins near local z=-19.1. Requiring
+			# local z<=-20 proves the player fully cleared the descending ramp.
+			player.global_position.z <= -20.0 * world_scale
 			and player.global_position.y <= -1.70
 		):
 			reached_reliquary_corridor = true
