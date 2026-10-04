@@ -1,0 +1,101 @@
+name: Author Rigged Monja GLB
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/church-expansion-v1
+    paths:
+      - "xogot/tools/author_monja_rigged.py"
+      - ".github/workflows/xogot-monja-rigged.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: xogot-monja-rigged-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  author:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Install Blender
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender
+          blender --version | head -n 2
+
+      - name: Rig Monja from animated UAL2 donor
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf xogot/build/monja-rigged
+          mkdir -p xogot/build/monja-rigged
+          timeout 2400 blender -b --python xogot/tools/author_monja_rigged.py \
+            2>&1 | tee xogot/build/monja-rigged/blender.log
+          grep -q "XZOGOT_MONJA_RIGGED_WEIGHT_TRANSFER_GREEN" xogot/build/monja-rigged/blender.log
+          grep -q "XZOGOT_MONJA_RIGGED_ANIMATIONS_GREEN" xogot/build/monja-rigged/blender.log
+          grep -q "XZOGOT_MONJA_RIGGED_POLYGONS_GREEN" xogot/build/monja-rigged/blender.log
+          test -s xogot/build/monja-rigged/monja_basica_rigged.glb
+          test -s xogot/build/monja-rigged/monja_rigged_report.json
+
+      - name: Validate rig output
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("xogot/build/monja-rigged/monja_rigged_report.json").read_text())
+          assert r["polygon_conservation_ok"] is True
+          assert r["armatures"] >= 1
+          assert len(r["required_zombie_actions"]) >= 3
+          assert all(x["weighted_vertices"] >= int(x["vertices"]*0.90) for x in r["transfer"])
+          print("XZOGOT_MONJA_RIG_REPORT_GREEN",r["output_bytes"],r["required_zombie_actions"])
+          PY
+
+      - name: Stage rigged runtime asset when Git-safe
+        shell: bash
+        run: |
+          set -euo pipefail
+          SIZE=$(stat -c%s xogot/build/monja-rigged/monja_basica_rigged.glb)
+          if [ "$SIZE" -lt 95000000 ]; then
+            cp xogot/build/monja-rigged/monja_basica_rigged.glb xogot/assets/zombies/monja_basica_rigged.glb
+            cp xogot/build/monja-rigged/monja_rigged_report.json xogot/assets/zombies/monja_basica_rigged.report.json
+            echo "COMMIT_RIGGED=1" >> "$GITHUB_ENV"
+          else
+            echo "COMMIT_RIGGED=0" >> "$GITHUB_ENV"
+            echo "Rigged GLB too large for normal Git path; artifact retained."
+          fi
+
+      - name: Commit rigged Monja
+        if: env.COMMIT_RIGGED == '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "XZOGOT Asset Bot"
+          git config user.email "xogot-asset-bot@users.noreply.github.com"
+          git add xogot/assets/zombies/monja_basica_rigged.glb xogot/assets/zombies/monja_basica_rigged.report.json
+          if git diff --cached --quiet; then
+            echo "XZOGOT_MONJA_RIGGED_NO_CHANGE"
+          else
+            git commit -m "asset: add rigged animated Monja"
+            git push origin HEAD:feature/church-expansion-v1
+          fi
+
+      - name: Upload rigged Monja artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: monja-rigged-authored
+          path: xogot/build/monja-rigged/
+          if-no-files-found: warn
+          retention-days: 14
