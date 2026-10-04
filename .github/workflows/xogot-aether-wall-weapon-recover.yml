@@ -87,55 +87,81 @@ jobs:
           assert any(r["ext"]==".uasset" for r in rows)
           PY
 
-      - name: Install current UModel command-line exporter
+      - name: Install .NET 10 for current CUE4Parse
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build current CUE4Parse CLI for Linux
         shell: bash
         run: |
           set -euo pipefail
-          curl -fL --retry 5 \
-            https://raw.githubusercontent.com/gildor2/UEViewer/master/umodel \
-            -o "$RUNNER_TEMP/umodel"
-          chmod +x "$RUNNER_TEMP/umodel"
-          file "$RUNNER_TEMP/umodel"
+          rm -rf "$RUNNER_TEMP/CUE4Parse.CLI" "$RUNNER_TEMP/cue4parse-publish"
+          git clone --depth 1 https://github.com/joric/CUE4Parse.CLI.git "$RUNNER_TEMP/CUE4Parse.CLI"
+          dotnet publish "$RUNNER_TEMP/CUE4Parse.CLI/CUE4Parse.CLI/CUE4Parse.CLI.csproj" \
+            -c Release -r linux-x64 --self-contained true \
+            -p:RuntimeIdentifier=linux-x64 \
+            -p:PublishTrimmed=false \
+            -p:PublishSingleFile=true \
+            -o "$RUNNER_TEMP/cue4parse-publish"
+          CUE4PARSE=$(find "$RUNNER_TEMP/cue4parse-publish" -maxdepth 1 -type f -perm -111 \
+            ! -name '*.so' | head -1)
+          test -x "$CUE4PARSE"
+          "$CUE4PARSE" --version | tee recovered/cue4parse-version.txt || true
+          "$CUE4PARSE" --help > recovered/cue4parse-help.txt 2>&1 || true
+          echo "CUE4PARSE=$CUE4PARSE" >> "$GITHUB_ENV"
+          echo "XZOGOT_CUE4PARSE_LINUX_READY $CUE4PARSE"
 
-          # UEViewer's Linux CLI is an old 32-bit binary. Ubuntu 24.04 no longer
-          # ships libpng12, so stage that one legacy ABI locally instead of
-          # downgrading the runner.
-          mkdir -p "$RUNNER_TEMP/umodel-compat"
-          curl -fL --retry 5 \
-            https://archive.ubuntu.com/ubuntu/pool/main/libp/libpng/libpng12-0_1.2.54-1ubuntu1.1_i386.deb \
-            -o "$RUNNER_TEMP/libpng12-i386.deb"
-          dpkg-deb -x "$RUNNER_TEMP/libpng12-i386.deb" "$RUNNER_TEMP/umodel-compat"
-          UMODEL_LIB="$RUNNER_TEMP/umodel-compat/lib/i386-linux-gnu"
-          test -s "$UMODEL_LIB/libpng12.so.0"
-
-          echo "XZOGOT_UMODEL_LDD_BEGIN" | tee recovered/umodel-ldd.txt
-          LD_LIBRARY_PATH="$UMODEL_LIB:${LD_LIBRARY_PATH:-}" \
-            ldd "$RUNNER_TEMP/umodel" | tee -a recovered/umodel-ldd.txt
-          if grep -q "not found" recovered/umodel-ldd.txt; then
-            echo "XZOGOT_UMODEL_DEPENDENCY_MISSING"
-            exit 23
-          fi
-          echo "XZOGOT_UMODEL_LDD_GREEN" | tee -a recovered/umodel-ldd.txt
-          LD_LIBRARY_PATH="$UMODEL_LIB:${LD_LIBRARY_PATH:-}" \
-            "$RUNNER_TEMP/umodel" -version | tee recovered/umodel-version.txt
-          echo "UMODEL=$RUNNER_TEMP/umodel" >> "$GITHUB_ENV"
-          echo "UMODEL_LIB=$UMODEL_LIB" >> "$GITHUB_ENV"
-
-      - name: Export weapon meshes animations textures and sounds
+      - name: Export UE5 Aether weapon meshes animations textures and sounds
         shell: bash
         run: |
           set -euo pipefail
+          rm -rf recovered/export
           mkdir -p recovered/export
-          set +e
-          LD_LIBRARY_PATH="$UMODEL_LIB:${LD_LIBRARY_PATH:-}" \
-            "$UMODEL" -export -gltf -sounds -png \
-            -path="$(pwd)/recovered/raw" \
-            -out="$(pwd)/recovered/export" \
-            '*.uasset' \
-            > recovered/umodel-export.log 2>&1
-          RC=$?
-          set -e
-          echo "UMODEL_RC=$RC"
+          cat > recovered/aether-weapon-packages.txt <<'EOF'
+          ProjectAether/Content/Assets/Weapons/waw/M1Garand/*
+          ProjectAether/Content/Assets/Weapons/waw/MP40/*
+          ProjectAether/Content/Assets/Weapons/waw/TrenchGun/*
+          ProjectAether/Content/Assets/Weapons/waw/Thompson/*
+          ProjectAether/Content/Assets/Sounds/**/*garand*
+          ProjectAether/Content/Assets/Sounds/**/*Garand*
+          ProjectAether/Content/Assets/Sounds/**/*mp40*
+          ProjectAether/Content/Assets/Sounds/**/*MP40*
+          ProjectAether/Content/Assets/Sounds/**/*trench*
+          ProjectAether/Content/Assets/Sounds/**/*Trench*
+          ProjectAether/Content/Assets/Sounds/**/*thompson*
+          ProjectAether/Content/Assets/Sounds/**/*Thompson*
+          EOF
+
+          : > recovered/cue4parse-export.log
+          SUCCESS_GAME=""
+          for GAME in GAME_UE5_7 GAME_UE5_6 GAME_UE5_5; do
+            echo "XZOGOT_CUE4PARSE_TRY $GAME" | tee -a recovered/cue4parse-export.log
+            rm -rf recovered/export/*
+            set +e
+            "$CUE4PARSE" \
+              --pak "$RUNNER_TEMP/aether-legacy.pak" \
+              -g "$GAME" \
+              -c recovered/aether-weapon-packages.txt \
+              -o recovered/export \
+              -y -v \
+              --mesh-format Gltf2 \
+              --anim-format ActorX \
+              --texture-format Png \
+              --lod-format FirstLod \
+              --export-materials true \
+              >> recovered/cue4parse-export.log 2>&1
+            RC=$?
+            set -e
+            COUNT=$(find recovered/export -type f | wc -l)
+            echo "XZOGOT_CUE4PARSE_RESULT $GAME rc=$RC files=$COUNT" | tee -a recovered/cue4parse-export.log
+            if [ "$COUNT" -gt 0 ]; then
+              SUCCESS_GAME="$GAME"
+              break
+            fi
+          done
+
+          echo "$SUCCESS_GAME" > recovered/cue4parse-game-version.txt
           find recovered/export -type f | sort > recovered/export-files.txt
           python3 - <<'PY'
           from pathlib import Path
@@ -146,16 +172,18 @@ jobs:
           for r in rows:kinds[r["ext"]]=kinds.get(r["ext"],0)+1
           report={"file_count":len(rows),"bytes":sum(r["bytes"] for r in rows),"extensions":kinds,"files":rows}
           Path("recovered/export-report.json").write_text(json.dumps(report,indent=2)+"\n")
-          print("XZOGOT_AETHER_UMODEL_EXPORT",report["file_count"],report["bytes"],kinds)
+          print("XZOGOT_AETHER_CUE4PARSE_EXPORT",report["file_count"],report["bytes"],kinds)
           if not rows:
-              raise SystemExit("UModel produced no export files")
-          mesh=sum(kinds.get(x,0) for x in (".gltf",".glb",".psk",".pskx"))
-          anim=sum(kinds.get(x,0) for x in (".psa",".md5anim"))
-          sound=sum(kinds.get(x,0) for x in (".wav",".ogg",".mp3"))
+              raise SystemExit("CUE4Parse produced no export files; inspect cue4parse-export.log")
+          mesh=sum(kinds.get(x,0) for x in (".gltf",".glb",".psk",".pskx",".uemodel",".obj"))
+          anim=sum(kinds.get(x,0) for x in (".psa",".ueanim"))
+          sound=sum(kinds.get(x,0) for x in (".wav",".ogg",".mp3",".wem"))
           print("XZOGOT_AETHER_WALL_EXPORT_CLASSES",mesh,anim,sound)
           if mesh<=0:
               raise SystemExit("No weapon mesh export produced")
           PY
+          test -n "$SUCCESS_GAME"
+          echo "XZOGOT_AETHER_CUE4PARSE_GREEN $SUCCESS_GAME"
 
       - name: Upload recovered wall weapons
         if: always()
@@ -165,9 +193,11 @@ jobs:
           path: |
             recovered/raw-report.json
             recovered/raw-files.txt
-            recovered/umodel-version.txt
-            recovered/umodel-ldd.txt
-            recovered/umodel-export.log
+            recovered/cue4parse-version.txt
+            recovered/cue4parse-help.txt
+            recovered/cue4parse-game-version.txt
+            recovered/cue4parse-export.log
+            recovered/aether-weapon-packages.txt
             recovered/export-report.json
             recovered/export-files.txt
             recovered/export/
