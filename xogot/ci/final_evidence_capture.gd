@@ -179,12 +179,25 @@ func _run() -> void:
 
 	print("XZOGOT_FINAL_EVIDENCE_RIGGED_MONJA ", rigged_seen)
 	print("XZOGOT_FINAL_EVIDENCE_ANIMATED_MONJA ", animated_seen)
-	if not ResourceLoader.exists("res://assets/zombies/monja_basica_rigged.glb"):
-		_fail(7, "final evidence requires rigged Monja asset")
+	var rigid_rig_exists := ResourceLoader.exists("res://assets/zombies/monja_basica_rigid_rig.glb")
+	var smooth_rig_exists := ResourceLoader.exists("res://assets/zombies/monja_basica_rigged.glb")
+	var detachable_rig_exists := ResourceLoader.exists("res://assets/zombies/monja_basica_rigged_dismember.glb")
+	if not rigid_rig_exists and not smooth_rig_exists and not detachable_rig_exists:
+		_fail(7, "final evidence requires an animated Monja rig asset")
 		return
 	if not rigged_seen or not animated_seen:
 		_fail(8, "final evidence requires visibly animated rigged Monja")
 		return
+
+	var world: Node = _scene
+	if world == null or not world.has_method("_gift_split_present_count"):
+		_fail(9, "final evidence cannot inspect gift runtime")
+		return
+	var gift_count: int = int(world.call("_gift_split_present_count"))
+	if gift_count != 104:
+		_fail(10, "final evidence requires all split gifts: %d/104" % gift_count)
+		return
+	print("XZOGOT_FINAL_EVIDENCE_GIFTS_GREEN 104/104")
 
 	print("XZOGOT_FINAL_EVIDENCE_CAPTURE_GREEN 14_png 96_video_frames")
 	quit(0)
