@@ -1,0 +1,176 @@
+name: Aether UE5.7 Mapping and Weapon Export
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/church-expansion-v1
+    paths:
+      - ".github/workflows/xogot-aether-usmap-export.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xogot-aether-usmap-export
+  cancel-in-progress: true
+
+jobs:
+  map-and-export:
+    runs-on: windows-latest
+    timeout-minutes: 180
+    env:
+      PATTERNSLEUTH_RES_EngineVersion: "5.7"
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download Project Aether UE5.7 build
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force -Path "$env:RUNNER_TEMP\aether-download" | Out-Null
+          npx --yes itchio-downloader --url "https://verrial.itch.io/projectaether" --downloadDirectory "$env:RUNNER_TEMP\aether-download"
+          $zip = Get-ChildItem "$env:RUNNER_TEMP\aether-download" -Filter '*.zip' -Recurse |
+            Sort-Object Length -Descending | Select-Object -First 1
+          if (-not $zip) { throw 'Project Aether ZIP missing' }
+          "AETHER_ZIP=$($zip.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "XZOGOT_AETHER_ZIP $($zip.Length)"
+
+      - name: Extract runtime and locate UE shipping executable
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = "$env:RUNNER_TEMP\aether-game"
+          New-Item -ItemType Directory -Force -Path $root | Out-Null
+          7z x -y "$env:AETHER_ZIP" "-o$root" | Out-Host
+          $exe = Get-ChildItem $root -Filter '*-Win64-Shipping.exe' -Recurse |
+            Sort-Object Length -Descending | Select-Object -First 1
+          if (-not $exe) {
+            $exe = Get-ChildItem $root -Filter '*.exe' -Recurse |
+              Where-Object { $_.Name -match 'Aether|Project' } |
+              Sort-Object Length -Descending | Select-Object -First 1
+          }
+          if (-not $exe) { throw 'Project Aether executable not found' }
+          $pakDir = Get-ChildItem $root -Directory -Recurse |
+            Where-Object { $_.Name -eq 'Paks' -and (Get-ChildItem $_.FullName -Filter '*.utoc' -ErrorAction SilentlyContinue) } |
+            Select-Object -First 1
+          if (-not $pakDir) { throw 'Aether IoStore Paks directory missing' }
+          "AETHER_EXE=$($exe.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "AETHER_BINDIR=$($exe.Directory.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "AETHER_PAKDIR=$($pakDir.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "XZOGOT_AETHER_EXE $($exe.FullName)"
+          Write-Host "XZOGOT_AETHER_PAKDIR $($pakDir.FullName)"
+
+      - name: Install current jmap dumper
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $url='https://github.com/trumank/jmap/releases/download/v0.2.0/jmap_dumper-x86_64-pc-windows-msvc.zip'
+          Invoke-WebRequest $url -OutFile "$env:RUNNER_TEMP\jmap.zip"
+          $dir="$env:RUNNER_TEMP\jmap"
+          Expand-Archive "$env:RUNNER_TEMP\jmap.zip" -DestinationPath $dir -Force
+          $exe=Get-ChildItem $dir -Filter 'jmap_dumper.exe' -Recurse | Select-Object -First 1
+          if (-not $exe) { throw 'jmap_dumper.exe missing' }
+          "JMAP=$($exe.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "XZOGOT_JMAP_READY $($exe.FullName)"
+
+      - name: Launch Aether null-RHI and dump UE5.7 mappings
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $mapOut = Join-Path $PWD 'Mappings.usmap'
+          Remove-Item $mapOut -Force -ErrorAction SilentlyContinue
+          $args='-nullrhi -nosound -unattended -NoSplash -windowed -ResX=320 -ResY=240'
+          $proc=Start-Process -FilePath "$env:AETHER_EXE" -ArgumentList $args -PassThru
+          Write-Host "XZOGOT_AETHER_PID $($proc.Id)"
+          Start-Sleep -Seconds 25
+          if ($proc.HasExited) {
+            Write-Host "XZOGOT_AETHER_EXITED_EARLY code=$($proc.ExitCode)"
+          } else {
+            & "$env:JMAP" --pid $proc.Id $mapOut 2>&1 | Tee-Object -FilePath jmap.log
+            $rc=$LASTEXITCODE
+            Write-Host "XZOGOT_JMAP_RC $rc"
+          }
+          if (-not $proc.HasExited) {
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+          }
+          if (-not (Test-Path $mapOut)) {
+            throw 'Mappings.usmap was not generated'
+          }
+          $bytes=(Get-Item $mapOut).Length
+          if ($bytes -lt 4096) { throw "Mappings.usmap too small: $bytes" }
+          Write-Host "XZOGOT_AETHER_USMAP_GREEN bytes=$bytes"
+
+      - name: Install .NET 10
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build current CUE4Parse CLI
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $src="$env:RUNNER_TEMP\CUE4Parse.CLI"
+          $out="$env:RUNNER_TEMP\cue4parse-publish"
+          git clone --depth 1 https://github.com/joric/CUE4Parse.CLI.git $src
+          dotnet publish "$src\CUE4Parse.CLI\CUE4Parse.CLI.csproj" -c Release -r win-x64 --self-contained true -p:PublishTrimmed=false -p:PublishSingleFile=true -o $out
+          $exe=Get-ChildItem $out -Filter '*.exe' | Sort-Object Length -Descending | Select-Object -First 1
+          if (-not $exe) { throw 'CUE4Parse CLI missing' }
+          "CUE4PARSE=$($exe.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "XZOGOT_CUE4PARSE_READY $($exe.FullName)"
+
+      - name: Probe M1 Garand skeletal mesh with mappings
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          Remove-Item recovered-probe -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path recovered-probe | Out-Null
+          & "$env:CUE4PARSE" -i "$env:AETHER_PAKDIR" -g GAME_UE5_7 -m "$PWD\Mappings.usmap" -p '*Weapons/waw/M1Garand/M1Garand.uasset' -o recovered-probe -y -v --mesh-format Gltf2 --mesh-quality Highest --export-materials false 2>&1 | Tee-Object -FilePath cue4parse-probe.log
+          $mesh=Get-ChildItem recovered-probe -Recurse -File | Where-Object { $_.Extension -in '.gltf','.glb','.psk','.pskx','.uemodel' }
+          Write-Host "XZOGOT_M1_MAPPING_PROBE meshes=$($mesh.Count)"
+          if ($mesh.Count -lt 1) { throw 'Mapped M1 Garand mesh export produced no mesh' }
+          Write-Host 'XZOGOT_M1_USMAP_EXPORT_GREEN'
+
+      - name: Export complete Aether WaW weapon model and animation tree
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          @'
+          *Weapons/waw/*/*.uasset
+          *Weapons/waw/*/Anims/**/*.uasset
+          '@ | Set-Content aether-waw-export.txt -Encoding ascii
+          Remove-Item recovered-export -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path recovered-export | Out-Null
+          & "$env:CUE4PARSE" -i "$env:AETHER_PAKDIR" -g GAME_UE5_7 -m "$PWD\Mappings.usmap" -c aether-waw-export.txt -o recovered-export -y -v --mesh-format Gltf2 --mesh-quality Highest --export-materials false 2>&1 | Tee-Object -FilePath cue4parse-full.log
+          $files=Get-ChildItem recovered-export -Recurse -File
+          $mesh=@($files | Where-Object { $_.Extension -in '.gltf','.glb','.psk','.pskx','.uemodel' })
+          $anim=@($files | Where-Object { $_.Extension -in '.psa','.ueanim','.json' })
+          $dirs=@($files | ForEach-Object {
+            if ($_.FullName -match '[\\/]Weapons[\\/]waw[\\/]([^\\/]+)[\\/]') { $Matches[1] }
+          } | Sort-Object -Unique)
+          $report=[PSCustomObject]@{
+            file_count=$files.Count
+            mesh_count=$mesh.Count
+            animation_like_count=$anim.Count
+            weapon_directories=$dirs
+            weapon_directory_count=$dirs.Count
+          }
+          $report | ConvertTo-Json -Depth 5 | Set-Content aether-waw-usmap-export-report.json -Encoding utf8
+          $report | Format-List | Out-Host
+          if ($mesh.Count -lt 5) { throw "Expected multiple real meshes; got $($mesh.Count)" }
+          Write-Host "XZOGOT_AETHER_FULL_WAW_EXPORT_GREEN weapons=$($dirs.Count) meshes=$($mesh.Count)"
+
+      - name: Upload mapping and real weapon export
+        uses: actions/upload-artifact@v4
+        with:
+          name: aether-waw-usmap-real-weapons
+          path: |
+            Mappings.usmap
+            jmap.log
+            cue4parse-probe.log
+            cue4parse-full.log
+            aether-waw-usmap-export-report.json
+            recovered-probe/**
+            recovered-export/**
+          if-no-files-found: error
+          retention-days: 14
