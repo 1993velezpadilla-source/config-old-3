@@ -43,30 +43,33 @@ jobs:
             2>&1 | tee xogot/build/monja-rigid-rig/blender.log
           grep -q "XZOGOT_MONJA_RIGID_RIG_PARTS_GREEN" xogot/build/monja-rigid-rig/blender.log
           grep -q "XZOGOT_MONJA_RIGID_RIG_ANIMS_GREEN" xogot/build/monja-rigid-rig/blender.log
-          grep -q "XZOGOT_MONJA_RIGID_RIG_POLYGONS_GREEN" xogot/build/monja-rigid-rig/blender.log
+          grep -q "XZOGOT_MONJA_RIGID_RIG_TRIANGLES_GREEN" xogot/build/monja-rigid-rig/blender.log
           grep -q "XZOGOT_MONJA_RIGID_RIG_GREEN" xogot/build/monja-rigid-rig/blender.log
-          test -s xogot/build/monja-rigid-rig/monja_basica_rigid_rig.glb
+          test -s xogot/build/monja-rigid-rig/monja_basica_rigid_rig.gltf
 
-      - name: Commit when Git-safe
+      - name: Commit Git-safe separate rig asset
         shell: bash
         run: |
           set -euo pipefail
-          SIZE=$(stat -c%s xogot/build/monja-rigid-rig/monja_basica_rigid_rig.glb)
-          cp xogot/build/monja-rigid-rig/monja_basica_rigid_rig.report.json \
-             xogot/assets/zombies/monja_basica_rigid_rig.report.json
-          if [ "$SIZE" -lt 95000000 ]; then
-            cp xogot/build/monja-rigid-rig/monja_basica_rigid_rig.glb \
-               xogot/assets/zombies/monja_basica_rigid_rig.glb
-          fi
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("xogot/build/monja-rigid-rig/monja_basica_rigid_rig.report.json").read_text())
+          assert r["triangle_conservation_ok"] is True
+          assert len(r["required_actions"]) >= 3
+          assert r["max_file_bytes"] < 95_000_000, r["export_files"]
+          print("XZOGOT_MONJA_RIGID_FILES_GIT_SAFE",r["export_files"])
+          PY
+          rm -rf xogot/assets/zombies/monja_rigid
+          mkdir -p xogot/assets/zombies/monja_rigid
+          cp xogot/build/monja-rigid-rig/* xogot/assets/zombies/monja_rigid/
+          rm -f xogot/assets/zombies/monja_rigid/blender.log
           git config user.name "XZOGOT Asset Bot"
           git config user.email "xogot-asset-bot@users.noreply.github.com"
           git pull --rebase origin feature/church-expansion-v1
-          git add xogot/assets/zombies/monja_basica_rigid_rig.report.json
-          if [ "$SIZE" -lt 95000000 ]; then
-            git add xogot/assets/zombies/monja_basica_rigid_rig.glb
-          fi
+          git add xogot/assets/zombies/monja_rigid/
           if ! git diff --cached --quiet; then
-            git commit -m "asset: add rigid-part animated Monja"
+            git commit -m "asset: add full-density rigid animated Monja"
             git push origin HEAD:feature/church-expansion-v1
           fi
 
