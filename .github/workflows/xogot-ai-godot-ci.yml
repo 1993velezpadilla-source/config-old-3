@@ -80,7 +80,11 @@ jobs:
           grep -q "XZOGOT_SPAWN_DIRECTOR_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_WEAPON_CATALOG_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_WINDOWS_PREPARED 8" build/xogot-ai/runtime.log
-          grep -q "XZOGOT_ARCH_SHELL_V2_READY" build/xogot-ai/runtime.log
+          if test -s xogot/assets/environment/church/church_final_architecture.glb; then
+            grep -q "XZOGOT_FINAL_CHURCH_ARCHITECTURE_READY" build/xogot-ai/runtime.log
+          else
+            grep -q "XZOGOT_ARCH_SHELL_V2_READY" build/xogot-ai/runtime.log
+          fi
           grep -q "XZOGOT_AUTHORED_ALTAR_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_ROYAL_AISLE_CARPET_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_ALTAR_LIGHT_READY" build/xogot-ai/runtime.log
