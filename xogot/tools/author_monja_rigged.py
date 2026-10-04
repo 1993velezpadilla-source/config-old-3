@@ -11,6 +11,7 @@ MONJA = ROOT / "assets" / "zombies" / "monja_basica.glb"
 DONOR = ROOT / "assets" / "zombie_mocap" / "retarget" / "UAL2_Standard.glb"
 OUT_GLB = OUT / "monja_basica_rigged.glb"
 REPORT = OUT / "monja_rigged_report.json"
+PIPELINE_VERSION = "rig-v3-rna-safe"
 
 def reset():
     bpy.ops.wm.read_factory_settings(use_empty=True)
