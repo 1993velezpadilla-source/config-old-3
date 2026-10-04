@@ -1,11 +1,12 @@
 {
-  "version": 2,
+  "version": 3,
   "policy": {
     "geometry": "Full density; no decimation",
     "loading": "Only instantiate if split asset exists",
     "visibility": "Distance-cull high-density decor instead of reducing geometry",
     "collision": "Visual-only unless an explicit gameplay collision proxy already exists",
-    "lighting": "Candleholders pair with XzCandleManager; stained glass pairs with non-shadow colored SpotLight3D beams"
+    "lighting": "Candleholders pair with XzCandleManager; stained glass pairs with non-shadow colored SpotLight3D beams",
+    "exterior_ruins": "Hero ruin meshes stay outside primary training lanes; visual-only with distance culling"
   },
   "placements": [
     {
@@ -423,6 +424,110 @@
       "rotation_y": -90,
       "target_height": 3.35,
       "visibility_end": 42
+    },
+    {
+      "bundle": "ruins",
+      "model": "Model_08",
+      "role": "RearRuinHero_West",
+      "position": [
+        -28.8,
+        0.08,
+        -38.6
+      ],
+      "rotation_y": 18,
+      "target_height": 5.2,
+      "visibility_end": 46
+    },
+    {
+      "bundle": "ruins",
+      "model": "Model_12",
+      "role": "RearRuinArch_West",
+      "position": [
+        -24.8,
+        0.08,
+        -42.1
+      ],
+      "rotation_y": 90,
+      "target_height": 4.35,
+      "visibility_end": 44
+    },
+    {
+      "bundle": "ruins",
+      "model": "Model_13",
+      "role": "RearRuinArch_Mid",
+      "position": [
+        -12.8,
+        0.08,
+        -43
+      ],
+      "rotation_y": 0,
+      "target_height": 4.1,
+      "visibility_end": 44
+    },
+    {
+      "bundle": "ruins",
+      "model": "Model_17",
+      "role": "RearRuinArch_East",
+      "position": [
+        10.8,
+        0.08,
+        -43
+      ],
+      "rotation_y": 180,
+      "target_height": 3.65,
+      "visibility_end": 42
+    },
+    {
+      "bundle": "ruins",
+      "model": "Model_21",
+      "role": "GraveyardRuinGate",
+      "position": [
+        29.6,
+        0.08,
+        -31.5
+      ],
+      "rotation_y": -90,
+      "target_height": 3.1,
+      "visibility_end": 38
+    },
+    {
+      "bundle": "ruins",
+      "model": "Model_24",
+      "role": "GraveyardRuinLow",
+      "position": [
+        29.4,
+        0.08,
+        -18
+      ],
+      "rotation_y": -80,
+      "target_height": 1.85,
+      "visibility_end": 32
+    },
+    {
+      "bundle": "ruins",
+      "model": "Model_28",
+      "role": "FrontCourtyardRuin_West",
+      "position": [
+        -17.6,
+        0.08,
+        31.2
+      ],
+      "rotation_y": 90,
+      "target_height": 2.85,
+      "visibility_end": 38
+    },
+    {
+      "bundle": "ruins",
+      "model": "Model_29",
+      "role": "FrontCourtyardRuin_East",
+      "position": [
+        17.6,
+        0.08,
+        32
+      ],
+      "rotation_y": -90,
+      "target_height": 1.65,
+      "visibility_end": 34
     }
   ]
 }
