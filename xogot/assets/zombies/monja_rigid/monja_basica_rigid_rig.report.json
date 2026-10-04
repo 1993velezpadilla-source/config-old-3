@@ -1,0 +1,114 @@
+{
+  "source_polygons": 1938984,
+  "source_triangles": 1938984,
+  "output_polygons": 1939064,
+  "output_triangles": 1939064,
+  "serialized_triangles": 1938984,
+  "triangle_conservation_ok": true,
+  "blender_reimport_triangle_delta": 80,
+  "armatures": 1,
+  "actions": [
+    "A_TPose_Armature",
+    "Chest_Open_Armature",
+    "ClimbUp_1m_RM_Armature",
+    "Consume_Armature",
+    "Farm_Harvest_Armature",
+    "Farm_PlantSeed_Armature",
+    "Farm_Watering_Armature",
+    "Hit_Knockback_Armature",
+    "Hit_Knockback_RM_Armature",
+    "Idle_FoldArms_Loop_Armature",
+    "Idle_Lantern_Loop_Armature",
+    "Idle_No_Loop_Armature",
+    "Idle_Rail_Call_Armature",
+    "Idle_Rail_Loop_Armature",
+    "Idle_Shield_Break_Armature",
+    "Idle_Shield_Loop_Armature",
+    "Idle_TalkingPhone_Loop_Armature",
+    "LayToIdle_Armature",
+    "Melee_Hook_Armature",
+    "Melee_Hook_Rec_Armature",
+    "NinjaJump_Idle_Loop_Armature",
+    "NinjaJump_Land_Armature",
+    "NinjaJump_Start_Armature",
+    "OverhandThrow_Armature",
+    "Shield_Dash_RM_Armature",
+    "Shield_OneShot_Armature",
+    "Slide_Exit_Armature",
+    "Slide_Loop_Armature",
+    "Slide_Start_Armature",
+    "Sword_Block_Armature",
+    "Sword_Dash_RM_Armature",
+    "Sword_Regular_A_Armature",
+    "Sword_Regular_A_Rec_Armature",
+    "Sword_Regular_B_Armature",
+    "Sword_Regular_B_Rec_Armature",
+    "Sword_Regular_C_Armature",
+    "Sword_Regular_Combo_Armature",
+    "TreeChopping_Loop_Armature",
+    "Walk_Carry_Loop_Armature",
+    "Yes_Armature",
+    "Zombie_Idle_Loop_Armature",
+    "Zombie_Scratch_Armature",
+    "Zombie_Walk_Fwd_Loop_Armature"
+  ],
+  "required_actions": [
+    "Zombie_Idle_Loop_Armature",
+    "Zombie_Scratch_Armature",
+    "Zombie_Walk_Fwd_Loop_Armature"
+  ],
+  "semantic_mesh_counts": {
+    "torso": 1,
+    "head": 1,
+    "left_arm": 1,
+    "right_arm": 1,
+    "left_leg": 1,
+    "right_leg": 1
+  },
+  "part_polygons": {
+    "torso": 698351,
+    "head": 171465,
+    "left_arm": 114262,
+    "right_arm": 71277,
+    "left_leg": 470555,
+    "right_leg": 413074
+  },
+  "part_bones": {
+    "torso": "spine_03",
+    "head": "Head",
+    "left_arm": "upperarm_l",
+    "right_arm": "upperarm_r",
+    "left_leg": "thigh_l",
+    "right_leg": "thigh_r"
+  },
+  "output_bytes_total": 103160075,
+  "max_file_bytes": 88256100,
+  "export_files": [
+    {
+      "name": "NormalGL_e0d2d1df-9996-4a5d-a164-d9b0d05071ed.png",
+      "bytes": 5818888
+    },
+    {
+      "name": "monja_basica_rigid_rig.bin",
+      "bytes": 88256100
+    },
+    {
+      "name": "monja_basica_rigid_rig.gltf",
+      "bytes": 2841043
+    },
+    {
+      "name": "ORM_e0d2d1df-9996-4a5d-a164-d9b0d05071ed.jpg",
+      "bytes": 2085075
+    },
+    {
+      "name": "Color_e0d2d1df-9996-4a5d-a164-d9b0d05071ed.jpg",
+      "bytes": 4158585
+    },
+    {
+      "name": "blender.log",
+      "bytes": 384
+    }
+  ],
+  "decimation": false,
+  "rig_mode": "rigid_region_bone_parenting"
+}
