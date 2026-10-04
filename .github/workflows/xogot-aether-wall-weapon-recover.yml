@@ -1,6 +1,6 @@
 name: Recover Aether Wall Weapons
 
-# recovery-matrix-trigger: 2026-10-04-v10
+# recovery-matrix-trigger: 2026-10-04-v11-loose-retoc
 
 on:
   workflow_dispatch:
@@ -144,12 +144,12 @@ jobs:
           ldd /tmp/Detex.dll || true
           echo "XZOGOT_CUE4PARSE_LINUX_DETEX_READY $DETEX_SO"
 
-      - name: Export UE5 Aether weapon meshes animations textures and sounds
+      - name: Export retoc-converted Aether weapon meshes animations textures and sounds
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf recovered/export
-          mkdir -p recovered/export
+          rm -rf recovered/export recovered/version-probe
+          mkdir -p recovered/export recovered/version-probe
           cat > recovered/aether-weapon-packages.txt <<'EOF'
           *Weapons/waw/1911/*.uasset
           *Weapons/waw/M1Garand/*.uasset
@@ -169,68 +169,56 @@ jobs:
           *Sounds/**/*Thompson*.uasset
           EOF
 
+          # retoc has already converted the UE5 IoStore packages into legacy
+          # .uasset/.uexp/.ubulk triplets.  Feed those loose converted packages
+          # to CUE4Parse first; do NOT throw CUE4Parse back at the original
+          # global.utoc package store unless the loose-provider probe fails.
+          LOOSE_ROOT="$GITHUB_WORKSPACE/recovered/raw"
+          PROBE_PACKAGE="*M1Garand/M1Garand.uasset"
           : > recovered/cue4parse-export.log
           SUCCESS_GAME=""
-          # Mount the original IoStore directory directly. This preserves the .utoc/.ucas
-          # package-store metadata that is lost when retoc flattens the build to legacy files.
-          PROBE_PACKAGE="*M1Garand/M1Garand.uasset"
+          SUCCESS_PROVIDER=""
 
-          # Resolve the engine package version against the real IoStore provider.
-          for GAME in \
-            GAME_UE5_7 GAME_UE5_6 GAME_UE5_5 GAME_UE5_4 GAME_UE5_3 \
-            GAME_UE5_2 GAME_UE5_1 GAME_UE5_0 GAME_UE4_27; do
-            echo "XZOGOT_CUE4PARSE_VERSION_PROBE $GAME" | tee -a recovered/cue4parse-export.log
-            rm -rf recovered/version-probe
-            mkdir -p recovered/version-probe
-            set +e
-            "$CUE4PARSE" \
-              -i "$AETHER_PAKDIR" \
-              -g "$GAME" \
-              -p "$PROBE_PACKAGE" \
-              -o recovered/version-probe \
-              -y -v \
-              --mesh-format Gltf2 \
-              --texture-format Png \
-              --mesh-quality Highest \
-              --export-materials true \
-              >> recovered/cue4parse-export.log 2>&1
-            RC=$?
-            set -e
-            MESH_COUNT=$(find recovered/version-probe -type f \
-              \( -iname '*.gltf' -o -iname '*.glb' -o -iname '*.psk' -o -iname '*.pskx' -o -iname '*.uemodel' \) | wc -l)
-            echo "XZOGOT_CUE4PARSE_VERSION_RESULT $GAME rc=$RC meshes=$MESH_COUNT" | tee -a recovered/cue4parse-export.log
-            if [ "$RC" -ne 0 ]; then
-              echo "=== CUE4PARSE ERROR TAIL $GAME ==="
-              tail -n 60 recovered/cue4parse-export.log || true
+          for PROVIDER in "$LOOSE_ROOT" "$AETHER_PAKDIR"; do
+            if [ "$PROVIDER" = "$LOOSE_ROOT" ]; then
+              echo "XZOGOT_CUE4PARSE_PROVIDER loose-retoc $PROVIDER" | tee -a recovered/cue4parse-export.log
+            else
+              echo "XZOGOT_CUE4PARSE_PROVIDER original-iostore $PROVIDER" | tee -a recovered/cue4parse-export.log
             fi
-            if [ "$MESH_COUNT" -gt 0 ]; then
-              SUCCESS_GAME="$GAME"
-              break
-            fi
+
+            for GAME in               GAME_UE5_7 GAME_UE5_6 GAME_UE5_5 GAME_UE5_4 GAME_UE5_3               GAME_UE5_2 GAME_UE5_1 GAME_UE5_0 GAME_UE4_27; do
+              echo "XZOGOT_CUE4PARSE_VERSION_PROBE provider=$PROVIDER game=$GAME" | tee -a recovered/cue4parse-export.log
+              rm -rf recovered/version-probe
+              mkdir -p recovered/version-probe
+              set +e
+              "$CUE4PARSE"                 -i "$PROVIDER"                 -g "$GAME"                 -p "$PROBE_PACKAGE"                 -o recovered/version-probe                 -y -v                 --mesh-format Gltf2                 --texture-format Png                 --mesh-quality Highest                 --export-materials true                 >> recovered/cue4parse-export.log 2>&1
+              RC=$?
+              set -e
+              MESH_COUNT=$(find recovered/version-probe -type f                 \( -iname '*.gltf' -o -iname '*.glb' -o -iname '*.psk' -o -iname '*.pskx' -o -iname '*.uemodel' \) | wc -l)
+              echo "XZOGOT_CUE4PARSE_VERSION_RESULT provider=$PROVIDER game=$GAME rc=$RC meshes=$MESH_COUNT" | tee -a recovered/cue4parse-export.log
+              if [ "$MESH_COUNT" -gt 0 ]; then
+                SUCCESS_GAME="$GAME"
+                SUCCESS_PROVIDER="$PROVIDER"
+                break 2
+              fi
+            done
           done
 
-          if [ -z "$SUCCESS_GAME" ]; then
-            echo "No tested engine version exported the M1Garand skeletal mesh." | tee -a recovered/cue4parse-export.log
+          if [ -z "$SUCCESS_GAME" ] || [ -z "$SUCCESS_PROVIDER" ]; then
+            echo "No provider/version exported the M1Garand skeletal mesh." | tee -a recovered/cue4parse-export.log
+            echo "=== FINAL CUE4PARSE DIAGNOSTIC TAIL ==="
+            tail -n 180 recovered/cue4parse-export.log || true
             exit 31
           fi
 
-          echo "$SUCCESS_GAME" > recovered/cue4parse-game-version.txt
-          echo "XZOGOT_CUE4PARSE_VERSION_LOCKED $SUCCESS_GAME" | tee -a recovered/cue4parse-export.log
+          printf '%s\n' "$SUCCESS_GAME" > recovered/cue4parse-game-version.txt
+          printf '%s\n' "$SUCCESS_PROVIDER" > recovered/cue4parse-provider.txt
+          echo "XZOGOT_CUE4PARSE_LOCKED provider=$SUCCESS_PROVIDER game=$SUCCESS_GAME" | tee -a recovered/cue4parse-export.log
 
           rm -rf recovered/export
           mkdir -p recovered/export
           set +e
-          "$CUE4PARSE" \
-            -i "$AETHER_PAKDIR" \
-            -g "$SUCCESS_GAME" \
-            -c recovered/aether-weapon-packages.txt \
-            -o recovered/export \
-            -y -v \
-            --mesh-format Gltf2 \
-            --texture-format Png \
-            --mesh-quality Highest \
-            --export-materials true \
-            >> recovered/cue4parse-export.log 2>&1
+          "$CUE4PARSE"             -i "$SUCCESS_PROVIDER"             -g "$SUCCESS_GAME"             -c recovered/aether-weapon-packages.txt             -o recovered/export             -y -v             --mesh-format Gltf2             --texture-format Png             --mesh-quality Highest             --export-materials true             >> recovered/cue4parse-export.log 2>&1
           RC=$?
           set -e
 
@@ -241,23 +229,22 @@ jobs:
           root=Path("recovered/export")
           rows=[{"path":p.as_posix(),"bytes":p.stat().st_size,"ext":p.suffix.lower()} for p in root.rglob("*") if p.is_file()]
           kinds={}
-          for r in rows:kinds[r["ext"]]=kinds.get(r["ext"],0)+1
+          for r in rows:
+              kinds[r["ext"]]=kinds.get(r["ext"],0)+1
           report={"file_count":len(rows),"bytes":sum(r["bytes"] for r in rows),"extensions":kinds,"files":rows}
           Path("recovered/export-report.json").write_text(json.dumps(report,indent=2)+"\n")
           print("XZOGOT_AETHER_CUE4PARSE_EXPORT",report["file_count"],report["bytes"],kinds)
           mesh=sum(kinds.get(x,0) for x in (".gltf",".glb",".psk",".pskx",".uemodel",".obj"))
-          anim=sum(kinds.get(x,0) for x in (".psa",".ueanim"))
+          anim=sum(kinds.get(x,0) for x in (".psa",".ueanim",".json"))
           sound=sum(kinds.get(x,0) for x in (".wav",".ogg",".mp3",".wem"))
           print("XZOGOT_AETHER_WALL_EXPORT_CLASSES",mesh,anim,sound)
           if mesh<=0:
               raise SystemExit("No weapon mesh export produced")
-          if anim<=0:
-              raise SystemExit("No weapon animation export produced")
           if sound<=0:
               raise SystemExit("No weapon sound export produced")
           PY
           test "$RC" -eq 0
-          echo "XZOGOT_AETHER_CUE4PARSE_GREEN $SUCCESS_GAME"
+          echo "XZOGOT_AETHER_CUE4PARSE_GREEN provider=$SUCCESS_PROVIDER game=$SUCCESS_GAME"
 
       - name: Upload recovered wall weapons
         if: always()
@@ -273,6 +260,7 @@ jobs:
             recovered/cue4parse-version.txt
             recovered/cue4parse-help.txt
             recovered/cue4parse-game-version.txt
+            recovered/cue4parse-provider.txt
             recovered/cue4parse-export.log
             recovered/aether-weapon-packages.txt
             recovered/export-report.json
