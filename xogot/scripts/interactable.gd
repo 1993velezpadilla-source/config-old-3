@@ -104,6 +104,16 @@ func _open_door() -> void:
 			(child as CollisionShape3D).set_deferred("disabled", true)
 	print("XZOGOT_DOOR_OPEN")
 
+func dev_force_open() -> bool:
+	if interaction_kind != Kind.DOOR:
+		return false
+	if _used:
+		return false
+	_open_door()
+	_used = true
+	print("XZOGOT_DEV_FORCE_OPEN ", name)
+	return true
+
 func get_prompt() -> String:
 	if _used and one_shot:
 		return ""
