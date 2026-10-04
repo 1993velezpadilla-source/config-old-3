@@ -144,6 +144,23 @@ jobs:
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-ai/round-zombie-probe.log
           echo "XOGOT_AI_VM_GREEN"
 
+      - name: Verify classic Zombies power-ups
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 75 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/powerup_probe.gd \
+            2>&1 | tee build/xogot-ai/powerup-probe.log
+          grep -q "XZOGOT_DOUBLE_POINTS_PROBE_GREEN" build/xogot-ai/powerup-probe.log
+          grep -q "XZOGOT_CARPENTER_PROBE_GREEN" build/xogot-ai/powerup-probe.log
+          grep -q "XZOGOT_INSTA_KILL_PROBE_GREEN" build/xogot-ai/powerup-probe.log
+          grep -q "XZOGOT_NUKE_PROBE_GREEN" build/xogot-ai/powerup-probe.log
+          grep -q "XZOGOT_MAX_AMMO_PHYSICAL_PICKUP_GREEN" build/xogot-ai/powerup-probe.log
+          grep -q "XZOGOT_POWERUP_ANTISPAM_GREEN" build/xogot-ai/powerup-probe.log
+          grep -q "XZOGOT_CLASSIC_POWERUP_SYSTEM_GREEN" build/xogot-ai/powerup-probe.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|POWERUP_PROBE:" build/xogot-ai/powerup-probe.log
+          echo "XZOGOT_CLASSIC_POWERUP_GATE_GREEN"
+
       - name: Verify church traversal in Godot
         shell: bash
         run: |
