@@ -250,6 +250,20 @@ jobs:
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-ai/perk-upgrade-probe.log
           echo "XZOGOT_PERK_UPGRADE_GATE_GREEN"
 
+      - name: Verify church ambience and world audio
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 75 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/church_audio_probe.gd \
+            2>&1 | tee build/xogot-ai/church-audio-probe.log
+          grep -q "XZOGOT_CHURCH_AUDIO_ASSETS_GREEN 18" build/xogot-ai/church-audio-probe.log
+          grep -q "XZOGOT_CHURCH_AMBIENCE_GREEN 3" build/xogot-ai/church-audio-probe.log
+          grep -q "XZOGOT_BELL_INTERACTION_AUDIO_GREEN" build/xogot-ai/church-audio-probe.log
+          grep -q "XZOGOT_WOOD_AUDIO_PATH_GREEN" build/xogot-ai/church-audio-probe.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-ai/church-audio-probe.log
+          echo "XZOGOT_CHURCH_AUDIO_GATE_GREEN"
+
       - name: Upload AI Godot logs
         if: always()
         uses: actions/upload-artifact@v4
