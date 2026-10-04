@@ -325,10 +325,12 @@ func _build_side_rooms_v1(stone: Color, dark_stone: Color, timber: Color) -> voi
 	_box("ReliquaryFloor", Vector3(16.0, 0.28, 10.0), Vector3(8.0, -2.95, -26.0), Color(0.050, 0.047, 0.044))
 	_box("ReliquaryNorthWall", Vector3(16.0, 3.3, 0.52), Vector3(8.0, -1.30, -30.75), dark_stone)
 	_box("ReliquaryWestWall", Vector3(0.52, 3.3, 10.0), Vector3(0.25, -1.30, -26.0), dark_stone)
-	# Keep the east-wall segments inside the chamber edge so the 3.1m crypt
-	# corridor at x=16 remains capsule-clear all the way to the doorway gap.
-	_box("ReliquaryEastWallA", Vector3(0.52, 3.3, 3.10), Vector3(14.75, -1.30, -28.45), dark_stone)
-	_box("ReliquaryEastWallB", Vector3(0.52, 3.3, 3.10), Vector3(14.75, -1.30, -23.55), dark_stone)
+	# Keep the east-wall segments inside the chamber edge and leave a true
+	# capsule-safe doorway after world-position scaling. Box dimensions are
+	# authored in runtime metres, while _wp() scales positions; the former
+	# 3.10m segments collapsed the apparent 2.9m doorway to ~0.72m in world.
+	_box("ReliquaryEastWallA", Vector3(0.52, 3.3, 2.00), Vector3(14.75, -1.30, -29.70), dark_stone)
+	_box("ReliquaryEastWallB", Vector3(0.52, 3.3, 2.00), Vector3(14.75, -1.30, -22.30), dark_stone)
 	for i in range(3):
 		_box(
 			"ReliquarySarcophagus_%02d" % i,
