@@ -211,6 +211,66 @@ jobs:
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|NETWORK_E2E_(HOST|CLIENT):" "$HOST_LOG" "$CLIENT_LOG"
           echo "XZOGOT_REAL_ENET_E2E_GREEN"
 
+      - name: Verify real four-process ENet session
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/xogot-ai
+          HOST_LOG="build/xogot-ai/network-4p-host.log"
+          C2_LOG="build/xogot-ai/network-4p-client2.log"
+          C3_LOG="build/xogot-ai/network-4p-client3.log"
+          C4_LOG="build/xogot-ai/network-4p-client4.log"
+
+          timeout 35 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/network_4p_e2e_host.gd \
+            >"$HOST_LOG" 2>&1 &
+          HOST_PID=$!
+
+          for _i in $(seq 1 120); do
+            if grep -q "XZOGOT_4P_E2E_HOST_LISTENING" "$HOST_LOG" 2>/dev/null; then
+              break
+            fi
+            sleep 0.1
+          done
+          grep -q "XZOGOT_4P_E2E_HOST_LISTENING" "$HOST_LOG"
+
+          timeout 30 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/network_4p_e2e_client.gd -- client2 \
+            >"$C2_LOG" 2>&1 &
+          C2_PID=$!
+          timeout 30 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/network_4p_e2e_client.gd -- client3 \
+            >"$C3_LOG" 2>&1 &
+          C3_PID=$!
+          timeout 30 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/network_4p_e2e_client.gd -- client4 \
+            >"$C4_LOG" 2>&1 &
+          C4_PID=$!
+
+          wait "$C2_PID"
+          wait "$C3_PID"
+          wait "$C4_PID"
+          wait "$HOST_PID"
+
+          grep -q "XZOGOT_4P_E2E_HOST_PREJOIN_GREEN" "$HOST_LOG"
+          grep -q "XZOGOT_4P_E2E_HOST_ROSTER_GREEN" "$HOST_LOG"
+          grep -q "XZOGOT_4P_E2E_HOST_PROXIES_GREEN 3" "$HOST_LOG"
+          grep -q "XZOGOT_4P_E2E_HOST_STABLE_GREEN" "$HOST_LOG"
+          grep -q "XZOGOT_4P_E2E_HOST_GREEN" "$HOST_LOG"
+
+          for LOG in "$C2_LOG" "$C3_LOG" "$C4_LOG"; do
+            grep -q "XZOGOT_4P_E2E_CLIENT_ROSTER_GREEN" "$LOG"
+            grep -q "XZOGOT_4P_E2E_CLIENT_PROXIES_GREEN" "$LOG"
+            grep -q "XZOGOT_4P_E2E_CLIENT_ROUND_GREEN" "$LOG"
+            grep -q "XZOGOT_4P_E2E_CLIENT_WORLD_GREEN" "$LOG"
+            grep -q "XZOGOT_4P_E2E_CLIENT_EFFECTS_GREEN" "$LOG"
+            grep -q "XZOGOT_4P_E2E_CLIENT_STABLE_GREEN" "$LOG"
+            grep -q "XZOGOT_4P_E2E_CLIENT_GREEN" "$LOG"
+            ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|NETWORK_4P_CLIENT:" "$LOG"
+          done
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|NETWORK_4P_HOST:" "$HOST_LOG"
+          echo "XZOGOT_REAL_4P_ENET_GATE_GREEN"
+
       - name: Verify round barricade and zombie loop
         shell: bash
         run: |
