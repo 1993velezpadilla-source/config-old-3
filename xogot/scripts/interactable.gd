@@ -28,7 +28,10 @@ var _last_power_visual_state: bool = false
 const SFX_DOOR := "res://assets/audio/church/world/door_open.ogg"
 const SFX_POWER := "res://assets/audio/church/world/power_switch.ogg"
 const SFX_MACHINE := "res://assets/audio/church/world/machine_use.ogg"
+const SFX_MACHINE_LOOP := "res://assets/audio/church/world/machine_loop.ogg"
 const SFX_MYSTERY := "res://assets/audio/church/world/mystery_open.ogg"
+
+var _machine_loop_audio: AudioStreamPlayer3D
 
 func _play_world_sfx(path: String, volume_db: float = -4.0) -> void:
 	if not ResourceLoader.exists(path):
@@ -48,9 +51,28 @@ func _play_world_sfx(path: String, volume_db: float = -4.0) -> void:
 
 
 func _ready() -> void:
+	if interaction_kind == Kind.PERK or interaction_kind == Kind.UPGRADE:
+		_build_machine_loop_audio()
 	_last_power_visual_state = not bool(get_tree().get_meta("power_on", false))
 	_update_power_visual()
 	set_process(requires_power)
+
+func _build_machine_loop_audio() -> void:
+	if not ResourceLoader.exists(SFX_MACHINE_LOOP):
+		return
+	var stream := load(SFX_MACHINE_LOOP) as AudioStream
+	if stream == null:
+		return
+	if stream is AudioStreamOggVorbis:
+		(stream as AudioStreamOggVorbis).loop = true
+	_machine_loop_audio = AudioStreamPlayer3D.new()
+	_machine_loop_audio.name = "MachineLoopAudio"
+	_machine_loop_audio.stream = stream
+	_machine_loop_audio.volume_db = -18.0
+	_machine_loop_audio.unit_size = 1.4
+	_machine_loop_audio.max_distance = 13.0
+	add_child(_machine_loop_audio)
+	_machine_loop_audio.play()
 
 func _process(_delta: float) -> void:
 	if not requires_power:
@@ -73,6 +95,8 @@ func _update_power_visual() -> void:
 		elif node is GeometryInstance3D:
 			var geometry := node as GeometryInstance3D
 			geometry.transparency = 0.0 if powered else 0.68
+	if _machine_loop_audio != null:
+		_machine_loop_audio.stream_paused = not powered
 	if requires_power:
 		set_meta("powered_visual_on", powered)
 
