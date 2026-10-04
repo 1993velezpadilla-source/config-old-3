@@ -1,6 +1,9 @@
 extends CharacterBody3D
 class_name XzNetworkPlayerProxy
 
+const PerkCatalog = preload("res://scripts/perk_catalog.gd")
+const NETWORK_WEAPON_STATE = preload("res://scripts/network_weapon_state.gd")
+
 @export var interpolation_speed: float = 14.0
 @export var bleedout_duration: float = 45.0
 @export var revive_hold_duration: float = 4.0
@@ -10,6 +13,7 @@ var display_name: String = ""
 var health: float = 100.0
 var max_health: float = 100.0
 var points: int = 500
+var _perks: Dictionary = {}
 var downed: bool = false
 var eliminated: bool = false
 var bleedout_remaining: float = 0.0
@@ -32,6 +36,10 @@ func _ready() -> void:
 	add_to_group("player")
 	add_to_group("network_remote_player")
 	_target_position = global_position
+	var weapon := Node.new()
+	weapon.name = "Weapon"
+	weapon.set_script(NETWORK_WEAPON_STATE)
+	add_child(weapon)
 	_build_visual()
 	set_process(true)
 	print("XZOGOT_NETWORK_PROXY_READY peer=", peer_id)
@@ -106,6 +114,13 @@ func apply_network_state(
 func apply_damage(amount: float) -> void:
 	if eliminated or downed or amount <= 0.0:
 		return
+	var lethal: bool = health - amount <= 0.0
+	if lethal and has_perk("last_rites"):
+		_perks.erase("last_rites")
+		health = maxf(45.0, max_health * 0.30)
+		set_meta("owned_perks", get_owned_perks())
+		print("XZOGOT_NETWORK_PROXY_LAST_RITES peer=", peer_id)
+		return
 	health = maxf(0.0, health - amount)
 	if health <= 0.0:
 		downed = true
@@ -144,6 +159,36 @@ func is_eliminated() -> bool:
 
 func get_health() -> float:
 	return health
+
+func can_buy_perk(id: String) -> bool:
+	return PerkCatalog.has_perk(id) and not _perks.has(id) and not downed and not eliminated
+
+func grant_perk(id: String) -> bool:
+	if not can_buy_perk(id):
+		return false
+	_perks[id] = true
+	if id == "martyrs_blood":
+		max_health = maxf(max_health, 200.0)
+		health = max_health
+	set_meta("owned_perks", get_owned_perks())
+	print("XZOGOT_NETWORK_PROXY_PERK peer=", peer_id, " perk=", id)
+	return true
+
+func has_perk(id: String) -> bool:
+	return _perks.has(id)
+
+func get_owned_perks() -> Array[String]:
+	var result: Array[String] = []
+	for id_var: Variant in _perks.keys():
+		result.append(str(id_var))
+	result.sort()
+	return result
+
+func get_weapon_damage_multiplier() -> float:
+	return 1.08 if has_perk("twin_bells") else 1.0
+
+func get_max_health() -> float:
+	return max_health
 
 func add_points(amount: int) -> void:
 	if amount > 0:
