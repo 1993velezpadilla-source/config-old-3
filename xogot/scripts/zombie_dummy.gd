@@ -5,6 +5,7 @@ signal died(zombie: Node)
 const MONJA_BASICA_PATH := "res://assets/zombies/monja_basica.glb"
 const MONJA_RIGGED_PATH := "res://assets/zombies/monja_basica_rigged.glb"
 const MONJA_RIGGED_DISMEMBER_PATH := "res://assets/zombies/monja_basica_rigged_dismember.glb"
+const MONJA_RIGID_RIG_PATH := "res://assets/zombies/monja_basica_rigid_rig.glb"
 
 const RIGGED_FALLBACK_ANIMS := {
 	"idle": ["Zombie_Idle_Loop"],
@@ -230,7 +231,13 @@ func _build_body() -> void:
 	var selected_path: String = MONJA_BASICA_PATH
 	var using_rigged: bool = false
 	var using_rigged_dismember: bool = false
-	if ResourceLoader.exists(MONJA_RIGGED_DISMEMBER_PATH):
+	var using_rigid_rig: bool = false
+	if ResourceLoader.exists(MONJA_RIGID_RIG_PATH):
+		selected_path = MONJA_RIGID_RIG_PATH
+		using_rigged = true
+		using_rigged_dismember = true
+		using_rigid_rig = true
+	elif ResourceLoader.exists(MONJA_RIGGED_DISMEMBER_PATH):
 		selected_path = MONJA_RIGGED_DISMEMBER_PATH
 		using_rigged = true
 		using_rigged_dismember = true
@@ -260,13 +267,17 @@ func _build_body() -> void:
 					_animation_player = _find_animation_player(imported)
 					set_meta(
 						"zombie_model",
-						"monja_basica_rigged_dismember" if using_rigged_dismember
-						else ("monja_basica_rigged" if using_rigged else "monja_basica")
+						"monja_basica_rigid_rig" if using_rigid_rig
+						else (
+							"monja_basica_rigged_dismember" if using_rigged_dismember
+							else ("monja_basica_rigged" if using_rigged else "monja_basica")
+						)
 					)
 					set_meta("zombie_visual_forward_fix_deg", 90.0)
 					set_meta("zombie_rig_ready", _animation_player != null)
 					set_meta("zombie_rigged_asset", using_rigged)
 					set_meta("zombie_authored_dismember_asset", using_rigged_dismember)
+					set_meta("zombie_rigid_region_rig", using_rigid_rig)
 					print("XZOGOT_MONJA_FORWARD_FIXED 90")
 					print("XZOGOT_MONJA_BASICA_LOADED")
 					if _animation_player != null:
