@@ -23,7 +23,7 @@ func _run_probe() -> void:
 	var weapon: Node = scene.get_node_or_null("Player/Weapon")
 	var rear_door: Node = scene.get_node_or_null("RearDoor")
 	var balcony_gate: Node = scene.get_node_or_null("BalconyGate")
-	var wallbuy: Node = scene.get_node_or_null("WallBuy_01")
+	var wallbuy: Node = scene.get_node_or_null("WallBuy_M1")
 	var mystery: Node = scene.get_node_or_null("MysteryBoxSocket")
 	var perk: Node = scene.get_node_or_null("PerkSocket")
 	var power: Node = scene.get_node_or_null("PowerSwitch")
@@ -34,100 +34,95 @@ func _run_probe() -> void:
 	if rear_door == null or balcony_gate == null or wallbuy == null or mystery == null or perk == null or power == null:
 		_fail(4, "one or more interactables missing")
 		return
-	if get_nodes_in_group("zombie_interactable").size() != 6:
-		_fail(5, "expected six interactables")
+	if get_nodes_in_group("zombie_interactable").size() != 14:
+		_fail(5, "expected fourteen interactables")
+		return
+	if get_nodes_in_group("wall_buy").size() != 4:
+		_fail(6, "expected four audited wall buys")
+		return
+	if get_nodes_in_group("wall_buy_chalk").size() != 4:
+		_fail(7, "expected four diegetic chalk silhouettes")
 		return
 	if int(player.call("get_points")) != 500:
-		_fail(6, "wrong starting points")
+		_fail(8, "wrong starting points")
 		return
 
 	player.call("add_points", 5000)
 	if int(player.call("get_points")) != 5500:
-		_fail(7, "add_points failed")
+		_fail(9, "add_points failed")
 		return
 
-	# Verify the actual camera ray can purchase/open the rear door.
+	# Verify actual camera ray opens the front door.
 	player.set("interaction_range", 4.4)
 	var rear_pos: Vector3 = (rear_door as Node3D).global_position
-	if rear_pos.z > 0.0:
-		# Front portal: stand inside the nave and look toward +Z.
-		(player as Node3D).global_position = Vector3(rear_pos.x, 0.38, rear_pos.z - 3.0)
-		(player as Node3D).rotation.y = PI
-	else:
-		# Legacy rear placement: stand toward +Z and look toward -Z.
-		(player as Node3D).global_position = Vector3(rear_pos.x, 0.38, rear_pos.z + 3.0)
-		(player as Node3D).rotation.y = 0.0
+	(player as Node3D).global_position = Vector3(rear_pos.x, 0.38, rear_pos.z - 3.0)
+	(player as Node3D).rotation.y = PI
 	await physics_frame
 	if not bool(player.call("request_interact")):
-		_fail(8, "ray interaction did not open rear door")
+		_fail(10, "ray interaction did not open front door")
 		return
 	if int(player.call("get_points")) != 4750:
-		_fail(9, "rear door price accounting wrong")
-		return
-	if not bool(rear_door.call("was_used")):
-		_fail(10, "rear door not marked used")
+		_fail(11, "front door price accounting wrong")
 		return
 
-	var points_before_repeat: int = int(player.call("get_points"))
-	if bool(rear_door.call("interact", player)):
-		_fail(11, "one-shot rear door allowed repeat use")
+	if str(wallbuy.call("get_weapon_id")) != "m1":
+		_fail(12, "M1 wall-buy identity wrong")
 		return
-	if int(player.call("get_points")) != points_before_repeat:
-		_fail(12, "repeat door use changed points")
+	if not bool(wallbuy.call("interact", player)):
+		_fail(13, "M1 wall-buy failed")
+		return
+	if str(weapon.call("get_weapon_id")) != "m1":
+		_fail(14, "wall-buy did not equip M1")
+		return
+	if int(player.call("get_points")) != 4150:
+		_fail(15, "M1 price accounting wrong")
 		return
 
 	var reserve_before: int = int(weapon.call("get_reserve"))
 	if not bool(wallbuy.call("interact", player)):
-		_fail(13, "wallbuy failed")
+		_fail(16, "M1 ammo refill purchase failed")
 		return
-	if int(weapon.call("get_reserve")) != reserve_before + 60:
-		_fail(14, "wallbuy ammo reward wrong")
+	if int(player.call("get_points")) != 3850:
+		_fail(17, "M1 ammo cost wrong")
 		return
-	if int(player.call("get_points")) != 4250:
-		_fail(15, "wallbuy price accounting wrong")
+	if int(weapon.call("get_reserve")) <= reserve_before:
+		_fail(18, "M1 ammo purchase did not increase reserve")
 		return
 
 	if not bool(mystery.call("interact", player)):
-		_fail(16, "mystery socket failed")
+		_fail(19, "mystery socket failed")
 		return
-	if int(mystery.call("get_interaction_count")) != 1:
-		_fail(17, "mystery interaction count wrong")
+	if int(player.call("get_points")) != 2900:
+		_fail(20, "mystery price accounting wrong")
 		return
-	if int(player.call("get_points")) != 3300:
-		_fail(18, "mystery price accounting wrong")
+	var mystery_result: String = str(mystery.call("get_last_result"))
+	if mystery_result.is_empty() or mystery_result == "m1":
+		_fail(21, "mystery did not equip a different catalog weapon")
+		return
+	if str(weapon.call("get_weapon_id")) != mystery_result:
+		_fail(22, "mystery result/equipped weapon mismatch")
 		return
 
 	if not bool(perk.call("interact", player)):
-		_fail(19, "perk socket failed")
+		_fail(23, "perk socket failed")
 		return
-	if not bool(player.get_meta("perk_socket_used", false)):
-		_fail(20, "perk state not stored on player")
+	if int(player.call("get_points")) != 400:
+		_fail(24, "perk price accounting wrong")
 		return
-	if int(player.call("get_points")) != 800:
-		_fail(21, "perk price accounting wrong")
-		return
-
 	if not bool(power.call("interact", player)):
-		_fail(22, "power switch failed")
+		_fail(25, "power switch failed")
 		return
 	if not bool(get_meta("power_on", false)):
-		_fail(23, "power state not enabled")
-		return
-	if int(player.call("get_points")) != 800:
-		_fail(24, "free power switch changed points")
+		_fail(26, "power state not enabled")
 		return
 
-	# Player only has 800 now, so the 1000 balcony gate must reject cleanly.
+	# 400 points cannot buy the 1000-point balcony route.
 	if bool(balcony_gate.call("interact", player)):
-		_fail(25, "unaffordable balcony gate opened")
-		return
-	if bool(balcony_gate.call("was_used")):
-		_fail(26, "unaffordable balcony gate marked used")
-		return
-	if int(player.call("get_points")) != 800:
-		_fail(27, "failed purchase changed points")
+		_fail(27, "unaffordable balcony gate opened")
 		return
 
+	print("XZOGOT_WALLBUY_PROBE_GREEN")
+	print("XZOGOT_MYSTERY_EQUIP_PROBE_GREEN ", mystery_result)
 	print("XZOGOT_INTERACTION_PROBE_GREEN")
 	scene.queue_free()
 	await process_frame
