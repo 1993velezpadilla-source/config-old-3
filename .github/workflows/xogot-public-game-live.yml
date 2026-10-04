@@ -7,6 +7,11 @@ on:
       - feature/church-expansion-v1
     paths:
       - ".github/workflows/xogot-public-game-live.yml"
+      - "services/xz-ws-relay/**"
+      - "xogot/main.tscn"
+      - "xogot/server/dedicated_main.tscn"
+      - "xogot/server/public_ws_dedicated.gd"
+      - "xogot/scripts/network_manager.gd"
 
 permissions:
   contents: read
