@@ -1159,12 +1159,21 @@ func _build_interactions() -> void:
 	# Generic interaction kinds: 0 door, 1 wallbuy, 2 mystery, 3 perk, 4 power.
 	_interactive_box("RearDoor", Vector3(3.4, 3.8, 0.35), Vector3(0, 1.9, 13.10), Color(0.12, 0.07, 0.035), 0, 750, 0, true, "OPEN FRONT DOOR")
 	_interactive_box("BalconyGate", Vector3(3.5, 2.2, 0.30), Vector3(-8.0, 6.0, 7.45), Color(0.13, 0.075, 0.04), 0, 1000, 0, true, "OPEN BALCONY")
-	_interactive_box("WallBuy_01", Vector3(0.28, 1.8, 1.7), Vector3(-10.45, 1.7, -5.0), Color(0.16, 0.42, 0.62), 1, 500, 60, false, "BUY AMMO")
+	# Audited wall-buy ladder: cheap dependable rifle near spawn, SMG on the west
+	# route, shotgun on the risky east/crypt route, and a stronger SMG upstairs.
+	_interactive_box("WallBuy_M1", Vector3(0.28, 1.45, 2.05), Vector3(-10.45, 1.55, 8.0), Color(0.10, 0.24, 0.34), 1, 600, 0, false, "BUY M1", "m1")
+	_add_wallbuy_chalk("M1", Vector3(-10.24, 1.58, 8.0), 600, Vector3(0.0, 0.0, -90.0))
+	_interactive_box("WallBuy_MP40", Vector3(0.28, 1.45, 2.15), Vector3(-17.46, 1.55, 2.8), Color(0.10, 0.24, 0.34), 1, 1000, 0, false, "BUY MP40", "mp40")
+	_add_wallbuy_chalk("MP40", Vector3(-17.25, 1.58, 2.8), 1000, Vector3(0.0, 0.0, -90.0))
+	_interactive_box("WallBuy_Trench", Vector3(0.28, 1.45, 2.30), Vector3(18.47, 1.55, -4.0), Color(0.10, 0.24, 0.34), 1, 1500, 0, false, "BUY TRENCH", "trench")
+	_add_wallbuy_chalk("TRENCH", Vector3(18.24, 1.58, -4.0), 1500, Vector3(0.0, 0.0, 90.0))
+	_interactive_box("WallBuy_Thompson", Vector3(0.28, 1.45, 2.20), Vector3(-10.20, 5.92, -8.0), Color(0.10, 0.24, 0.34), 1, 1200, 0, false, "BUY THOMPSON", "thompson")
+	_add_wallbuy_chalk("THOMPSON", Vector3(-9.98, 5.95, -8.0), 1200, Vector3(0.0, 0.0, -90.0))
 	_interactive_box("MysteryBoxSocket", Vector3(2.2, 1.4, 1.1), Vector3(7.4, 0.9, -15.0), Color(0.18, 0.12, 0.30), 2, 950, 0, false, "MYSTERY BOX")
 	_interactive_box("PerkSocket", Vector3(1.2, 2.0, 1.2), Vector3(-7.4, 1.2, -15.2), Color(0.42, 0.11, 0.09), 3, 2500, 0, true, "PERK")
 	_interactive_box("PowerSwitch", Vector3(0.7, 2.2, 0.7), Vector3(8.6, 1.4, 8.3), Color(0.52, 0.42, 0.12), 4, 0, 0, true, "TURN ON POWER")
 	_build_expansion_interactions()
-	print("XZOGOT_INTERACTIONS_PREPARED 11")
+	print("XZOGOT_INTERACTIONS_PREPARED 14")
 
 func _build_expansion_interactions() -> void:
 	var gate_color := Color(0.16, 0.055, 0.035)
@@ -1178,7 +1187,7 @@ func _build_expansion_interactions() -> void:
 	_interactive_box("CryptGate", Vector3(3.0, 2.8, 0.35), Vector3(16.0, 1.45, -1.1), gate_color, 0, 1250, 0, true, "OPEN CRYPT")
 	print("XZOGOT_EXPANSION_BUY_GATES_READY 5")
 
-func _interactive_box(label: String, size: Vector3, pos: Vector3, color: Color, kind: int, price: int, reward: int, one_shot: bool, prompt: String) -> void:
+func _interactive_box(label: String, size: Vector3, pos: Vector3, color: Color, kind: int, price: int, reward: int, one_shot: bool, prompt: String, weapon_id: String = "") -> void:
 	var script_resource: Script = load("res://scripts/interactable.gd") as Script
 	var body := StaticBody3D.new()
 	body.name = label
@@ -1189,7 +1198,10 @@ func _interactive_box(label: String, size: Vector3, pos: Vector3, color: Color, 
 	body.set("reward_amount", reward)
 	body.set("one_shot", one_shot)
 	body.set("prompt_text", prompt)
+	body.set("weapon_id", weapon_id)
 	body.add_to_group("zombie_interactable")
+	if kind == 1:
+		body.add_to_group("wall_buy")
 
 	var mi := MeshInstance3D.new()
 	var mesh := BoxMesh.new()
@@ -1208,6 +1220,55 @@ func _interactive_box(label: String, size: Vector3, pos: Vector3, color: Color, 
 	cs.shape = shape
 	body.add_child(cs)
 	add_child(body)
+
+func _add_wallbuy_chalk(
+	weapon_label: String,
+	pos: Vector3,
+	price: int,
+	rotation_deg: Vector3
+) -> void:
+	# Original diegetic wall-buy mark: readable white weapon silhouette + price,
+	# never a copyrighted texture ripped from another game.
+	var root := Node3D.new()
+	root.name = "Chalk_" + weapon_label
+	root.position = _wp(pos)
+	root.rotation_degrees = rotation_deg
+	root.add_to_group("wall_buy_chalk")
+
+	var chalk_mat := StandardMaterial3D.new()
+	chalk_mat.albedo_color = Color(0.78, 0.90, 1.0)
+	chalk_mat.emission_enabled = true
+	chalk_mat.emission = Color(0.22, 0.40, 0.62)
+	chalk_mat.emission_energy_multiplier = 1.25
+	chalk_mat.roughness = 0.92
+
+	var pieces: Array[Dictionary] = [
+		{"size":Vector3(0.055, 0.12, 1.55), "pos":Vector3(0.0, 0.08, 0.0)},
+		{"size":Vector3(0.055, 0.42, 0.42), "pos":Vector3(0.0, -0.12, 0.36)},
+		{"size":Vector3(0.055, 0.50, 0.18), "pos":Vector3(0.0, -0.23, -0.32)},
+		{"size":Vector3(0.055, 0.08, 0.62), "pos":Vector3(0.0, 0.22, -0.73)},
+	]
+	for i in range(pieces.size()):
+		var piece: Dictionary = pieces[i]
+		var mi := MeshInstance3D.new()
+		mi.name = "ChalkStroke_%02d" % i
+		var mesh := BoxMesh.new()
+		mesh.size = _ws(piece["size"] as Vector3)
+		mesh.material = chalk_mat
+		mi.mesh = mesh
+		mi.position = _ws(piece["pos"] as Vector3)
+		root.add_child(mi)
+
+	var label := Label3D.new()
+	label.name = "WeaponLabel"
+	label.text = "%s  %d" % [weapon_label, price]
+	label.font_size = 42
+	label.outline_size = 7
+	label.modulate = Color(0.82, 0.92, 1.0)
+	label.position = Vector3(0.025, -0.52 * WORLD_SCALE, 0.0)
+	label.rotation_degrees.y = 90.0
+	root.add_child(label)
+	add_child(root)
 
 func _build_windows() -> void:
 	var glow := Color(0.24, 0.34, 0.48)
