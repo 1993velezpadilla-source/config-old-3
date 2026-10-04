@@ -86,6 +86,7 @@ jobs:
             echo "XZOGOT_FINAL_CHURCH_NO_CHANGE"
           else
             git commit -m "asset: add Blender-authored final church shell"
+            git pull --rebase origin feature/church-expansion-v1
             git push origin HEAD:feature/church-expansion-v1
           fi
 
