@@ -379,14 +379,41 @@ func _nearest_downed_teammate(max_distance: float = revive_range) -> Node:
 func _is_use_held() -> bool:
 	return _use_touch >= 0 or Input.is_key_pressed(KEY_E) or Input.is_key_pressed(KEY_F)
 
+func _network_manager() -> Node:
+	return get_node_or_null("../NetworkManager")
+
+func _network_client_mode() -> bool:
+	var network: Node = _network_manager()
+	return (
+		network != null
+		and network.has_method("get_mode")
+		and str(network.call("get_mode")) == "client"
+	)
+
 func contribute_revive(target: Node, delta: float) -> bool:
 	if downed or eliminated or target == null or delta <= 0.0:
 		return false
-	if not (target is Node3D) or not target.has_method("receive_revive_progress"):
+	if not (target is Node3D):
 		return false
 	if global_position.distance_to((target as Node3D).global_position) > revive_range:
 		return false
 	_revive_target = target
+
+	var target_peer_id: int = int(target.get_meta("network_peer_id", 0))
+	var self_peer_id: int = int(get_meta("network_peer_id", 0))
+	var network: Node = _network_manager()
+	if (
+		network != null
+		and target_peer_id > 0
+		and target_peer_id != self_peer_id
+		and network.has_method("is_network_session")
+		and bool(network.call("is_network_session"))
+		and network.has_method("submit_revive_hold")
+	):
+		return bool(network.call("submit_revive_hold", target_peer_id, delta))
+
+	if not target.has_method("receive_revive_progress"):
+		return false
 	return bool(target.call("receive_revive_progress", self, delta))
 
 func receive_revive_progress(reviver: Node, delta: float) -> bool:
@@ -462,6 +489,9 @@ func _bleed_out() -> void:
 	print("XZOGOT_PLAYER_BLED_OUT")
 
 func _tick_downed_state(delta: float) -> void:
+	# In a network client session, bleedout/revive state comes from the host.
+	if _network_client_mode():
+		return
 	if not downed:
 		return
 	if eliminated:
@@ -701,6 +731,8 @@ func get_camera_fov() -> float:
 	return _camera.fov
 
 func apply_damage(amount: float) -> void:
+	if _network_client_mode():
+		return
 	if _dev_infinite_health:
 		health = max_health
 		downed = false
@@ -724,6 +756,41 @@ func apply_damage(amount: float) -> void:
 	health = maxf(0.0, health - amount)
 	if health <= 0.0:
 		_enter_downed()
+
+func apply_authoritative_network_vitals(
+	server_health: float,
+	server_downed: bool,
+	server_eliminated: bool,
+	server_bleedout: float,
+	server_revive_ratio: float
+) -> void:
+	var was_downed: bool = downed
+	health = clampf(server_health, 0.0, max_health)
+	downed = server_downed
+	eliminated = server_eliminated
+	_bleedout_remaining = maxf(0.0, server_bleedout)
+	_revive_progress = clampf(server_revive_ratio, 0.0, 1.0) * revive_hold_duration
+	set_meta("downed", downed)
+	set_meta("eliminated", eliminated)
+	set_meta("bleedout_remaining", _bleedout_remaining)
+	set_meta("revive_progress", _revive_progress)
+	set_meta("revive_progress_ratio", server_revive_ratio)
+	if downed and not was_downed:
+		_sliding = false
+		_sprinting = false
+		set_meta("ads_toggled", false)
+		if _weapon != null:
+			_weapon.call("set_trigger_held", false)
+		_set_crouched(true)
+		downed_state_changed.emit(true)
+	elif was_downed and not downed:
+		downed_state_changed.emit(false)
+	print(
+		"XZOGOT_NETWORK_VITALS peer=", int(get_meta("network_peer_id", 0)),
+		" hp=", health,
+		" down=", downed,
+		" out=", eliminated
+	)
 
 func heal_full() -> void:
 	health = max_health
