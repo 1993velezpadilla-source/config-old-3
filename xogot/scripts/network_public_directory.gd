@@ -6,7 +6,7 @@ signal registration_changed(registered: bool, message: String)
 
 const PROTOCOL_VERSION := 1
 const HEARTBEAT_SECONDS := 8.0
-const REQUEST_TIMEOUT := 6.0
+const REQUEST_TIMEOUT := 20.0
 
 @export var base_url: String = ""
 
@@ -157,7 +157,18 @@ func _clear_registration() -> void:
 	registration_changed.emit(false, "offline")
 
 func _parse_json(body: PackedByteArray) -> Dictionary:
-	var parsed: Variant = JSON.parse_string(body.get_string_from_utf8())
+	if body.is_empty():
+		return {}
+	var text: String = body.get_string_from_utf8().strip_edges()
+	if text.is_empty():
+		return {}
+	var parser := JSON.new()
+	var parse_error: Error = parser.parse(text)
+	if parse_error != OK:
+		_last_error = "invalid_json_response"
+		print("XZOGOT_PUBLIC_DIRECTORY_INVALID_JSON line=", parser.get_error_line(), " message=", parser.get_error_message())
+		return {}
+	var parsed: Variant = parser.data
 	return parsed as Dictionary if parsed is Dictionary else {}
 
 func _on_request_completed(

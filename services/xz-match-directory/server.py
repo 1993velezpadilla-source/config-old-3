@@ -10,6 +10,9 @@ from urllib.parse import urlparse
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8080"))
 TTL_SECONDS = int(os.environ.get("SESSION_TTL_SECONDS", "25"))
+TRUST_SUPPLIED_IP = os.environ.get("XZ_MATCH_TRUST_SUPPLIED_IP", "").strip().lower() in {
+    "1", "true", "yes", "on"
+}
 MAX_BODY = 16 * 1024
 
 _lock = threading.Lock()
@@ -130,7 +133,8 @@ class Handler(BaseHTTPRequestHandler):
             host_token = secrets.token_hex(24)
 
         supplied_ip = clean_text(body.get("ip"), "", 64)
-        ip = supplied_ip or self._client_ip()
+        observed_ip = self._client_ip()
+        ip = supplied_ip if TRUST_SUPPLIED_IP and supplied_ip else observed_ip
         timestamp = now()
         with _lock:
             prune()
@@ -179,5 +183,9 @@ class Handler(BaseHTTPRequestHandler):
         self._json(200, {"ok": True, "deleted": True})
 
 if __name__ == "__main__":
-    print(f"XZ_MATCH_DIRECTORY_READY {HOST}:{PORT} ttl={TTL_SECONDS}", flush=True)
+    print(
+        f"XZ_MATCH_DIRECTORY_READY {HOST}:{PORT} ttl={TTL_SECONDS} "
+        f"trust_supplied_ip={TRUST_SUPPLIED_IP}",
+        flush=True,
+    )
     ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()

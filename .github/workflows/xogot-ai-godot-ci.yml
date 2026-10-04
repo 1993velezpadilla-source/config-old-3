@@ -193,7 +193,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m py_compile services/xz-match-directory/server.py
-          PORT=18790 SESSION_TTL_SECONDS=25 \
+          PORT=18790 SESSION_TTL_SECONDS=25 XZ_MATCH_TRUST_SUPPLIED_IP=1 \
             python3 services/xz-match-directory/server.py \
             > build/xogot-ai/public-directory-server.log 2>&1 &
           DIR_PID=$!

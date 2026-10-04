@@ -326,7 +326,7 @@ func _build_network_page() -> void:
 
 	var note := Label.new()
 	note.name = "NetworkDirectoryNote"
-	note.text = "LAN Find Match is real UDP discovery. Internet-wide PUBLIC matchmaking still needs a rendezvous/NAT service; the UI does not pretend LAN discovery is global."
+	note.text = "LAN Find Match uses local UDP discovery. Internet Find Match uses the public directory plus UPnP when the host is reachable. Routers/CGNAT without a usable mapping still need the upcoming NAT-punch/relay fallback."
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	note.modulate = Color(0.68, 0.72, 0.76)
