@@ -136,6 +136,17 @@ func _refresh_state() -> void:
 	if cs != null:
 		cs.set_deferred("disabled", _boards <= 0)
 
+func repair_full_no_reward() -> bool:
+	var changed: bool = _boards < max_boards or _broken
+	_boards = max_boards
+	_health = float(max_boards) * board_health
+	_broken = false
+	_refresh_state()
+	if changed:
+		_play_wood_sfx(SFX_REPAIR, -8.0)
+		print("XZOGOT_BARRICADE_CARPENTER_RESTORED ", name)
+	return changed
+
 func get_boards() -> int:
 	return _boards
 
