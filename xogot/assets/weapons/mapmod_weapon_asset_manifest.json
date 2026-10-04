@@ -245,7 +245,7 @@
         "viewmodel": "res://assets/weapons/mapmod/trench/viewmodel.glb",
         "worldmodel": "res://assets/weapons/mapmod/trench/worldmodel.glb",
         "audio": {
-          "fire": "res://assets/audio/weapons/mapmod/trench/fire.ogg",
+          "fire": "res://assets/audio/weapons/mapmod/trench/fire.wav",
           "reload": "res://assets/audio/weapons/mapmod/trench/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/trench/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/trench/dry_fire.ogg"

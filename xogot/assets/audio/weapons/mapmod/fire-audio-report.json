@@ -1,0 +1,32 @@
+[
+  {
+    "weapon": "m1",
+    "source": "wpn_m1garand_st_f",
+    "bytes": 180268,
+    "output": "D:\\a\\config-old-3\\config-old-3\\xogot\\assets\\audio\\weapons\\mapmod\\m1\\fire.wav"
+  },
+  {
+    "weapon": "colt",
+    "source": "wpn_pistol_1911_fire_LN100_pc_snd",
+    "bytes": 160300,
+    "output": "D:\\a\\config-old-3\\config-old-3\\xogot\\assets\\audio\\weapons\\mapmod\\colt\\fire.wav"
+  },
+  {
+    "weapon": "trench",
+    "source": "wpn_shtgun_st_f",
+    "bytes": 116780,
+    "output": "D:\\a\\config-old-3\\config-old-3\\xogot\\assets\\audio\\weapons\\mapmod\\trench\\fire.wav"
+  },
+  {
+    "weapon": "thompson",
+    "source": "wpn_thompson_st_f",
+    "bytes": 61484,
+    "output": "D:\\a\\config-old-3\\config-old-3\\xogot\\assets\\audio\\weapons\\mapmod\\thompson\\fire.wav"
+  },
+  {
+    "weapon": "mp40",
+    "source": "wpn_mp40_st_f",
+    "bytes": 102380,
+    "output": "D:\\a\\config-old-3\\config-old-3\\xogot\\assets\\audio\\weapons\\mapmod\\mp40\\fire.wav"
+  }
+]
