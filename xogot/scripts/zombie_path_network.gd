@@ -56,6 +56,8 @@ func _build_graph() -> void:
 	_add_node(26, "BellTop", Vector3(-25.0, 8.25, 6.0))
 	_add_node(27, "SecondMidWest", Vector3(-8.35, 5.25, -0.10))
 	_add_node(28, "SecondMidEast", Vector3(8.35, 5.25, -0.10))
+	_add_node(29, "ReliquaryEntry", Vector3(16.0, -2.80, -22.6))
+	_add_node(30, "ReliquaryCenter", Vector3(8.0, -2.80, -26.0))
 
 	_link(0, 1)
 	_link(0, 2)
@@ -80,6 +82,8 @@ func _build_graph() -> void:
 	_link(0, 17)
 	_link(17, 16)
 	_link(17, 18, "CryptGate")
+	_link(18, 29)
+	_link(29, 30)
 
 	# Upper church route. BalconyGate is the first-floor progression choke.
 	_link(1, 19, "BalconyGate")
