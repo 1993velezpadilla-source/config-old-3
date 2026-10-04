@@ -130,20 +130,42 @@ func _run() -> void:
 		_fail(15, "BellTowerGate did not open")
 		return
 
-	var ground: Node3D = scene.get_node_or_null("Ground") as Node3D
-	if ground == null:
-		_fail(16, "Ground missing")
-		return
-	var ground_mesh_instance: MeshInstance3D = ground.get_child(0) as MeshInstance3D
-	if ground_mesh_instance == null or not (ground_mesh_instance.mesh is BoxMesh):
-		_fail(17, "Ground mesh missing")
-		return
-	var ground_size: Vector3 = (ground_mesh_instance.mesh as BoxMesh).size
-	if ground_size.x < 87.0 or ground_size.z < 91.0:
-		_fail(18, "expanded playable ground too small: %s" % ground_size)
+	var ground_segments: Array[String] = [
+		"Ground",
+		"GroundEast",
+		"GroundCryptNorth",
+		"GroundCryptSouth",
+	]
+	for ground_name: String in ground_segments:
+		var segment: Node3D = scene.get_node_or_null(ground_name) as Node3D
+		if segment == null:
+			_fail(16, "ground segment missing: " + ground_name)
+			return
+		var mesh_instance: MeshInstance3D = segment.get_child(0) as MeshInstance3D
+		if mesh_instance == null or not (mesh_instance.mesh is BoxMesh):
+			_fail(17, "ground segment mesh missing: " + ground_name)
+			return
+
+	var ground_main: Node3D = scene.get_node_or_null("Ground") as Node3D
+	var main_mesh: MeshInstance3D = ground_main.get_child(0) as MeshInstance3D
+	var ground_size: Vector3 = (main_mesh.mesh as BoxMesh).size
+	if ground_size.z < 91.0:
+		_fail(18, "segmented ground no longer spans full map depth: %s" % ground_size)
 		return
 
-	print("XZOGOT_EXPANSION_GROUND_GREEN ", ground_size)
+	var shaft: Marker3D = scene.get_node_or_null("CryptGroundShaft") as Marker3D
+	if shaft == null:
+		_fail(23, "CryptGroundShaft marker missing")
+		return
+	if absf(float(shaft.get_meta("opening_width_m", 0.0)) - 2.8) > 0.01:
+		_fail(24, "crypt shaft width changed")
+		return
+	if get_nodes_in_group("crypt_traversal_shaft").size() != 1:
+		_fail(25, "expected one crypt traversal shaft")
+		return
+
+	print("XZOGOT_EXPANSION_GROUND_GREEN segmented=4 depth=", ground_size.z)
+	print("XZOGOT_CRYPT_SHAFT_GEOMETRY_GREEN width=2.8")
 	print("XZOGOT_SECOND_FLOOR_PROBE_GREEN")
 	print("XZOGOT_EXPANSION_ZONES_PROBE_GREEN ", zones.size())
 	print("XZOGOT_EXPANSION_RAMPS_PROBE_GREEN ", ramps.size())
