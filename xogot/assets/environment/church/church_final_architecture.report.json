@@ -3,19 +3,19 @@
   "asset": "church_final_architecture.glb",
   "visual_only": true,
   "gameplay_collision_authority": "Godot procedural collision shell",
-  "runtime_meshes": 7,
-  "triangles_estimated": 80500,
-  "vertices": 41162,
+  "runtime_meshes": 8,
+  "triangles_estimated": 83132,
+  "vertices": 42500,
   "objects": [
     {
       "name": "Architecture_stone_dark",
-      "vertices": 3298,
-      "polygons": 6452
+      "vertices": 3106,
+      "polygons": 6072
     },
     {
       "name": "Architecture_trim",
-      "vertices": 25528,
-      "polygons": 49816
+      "vertices": 26568,
+      "polygons": 51876
     },
     {
       "name": "Architecture_stone",
@@ -34,13 +34,18 @@
     },
     {
       "name": "Architecture_wood",
-      "vertices": 8400,
-      "polygons": 16516
+      "vertices": 8592,
+      "polygons": 16892
+    },
+    {
+      "name": "Architecture_roof",
+      "vertices": 202,
+      "polygons": 388
     },
     {
       "name": "Architecture_metal",
-      "vertices": 384,
-      "polygons": 760
+      "vertices": 480,
+      "polygons": 948
     }
   ],
   "render_count": 8,
