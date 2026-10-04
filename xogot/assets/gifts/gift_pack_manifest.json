@@ -4,7 +4,11 @@
     "geometry": "full-density source GLB; no decimation in integration code",
     "textures": "embedded 4096x4096 Color + ORM + NormalGL retained",
     "loading": "optional ResourceLoader slots; missing binaries do not fail CI",
-    "collisions": "existing gameplay collision stays authoritative; gift props start visual-only"
+    "collisions": "existing gameplay collision stays authoritative; gift props start visual-only",
+    "source_semantics": "each uploaded GLB is a multi-model bundle, not one prop",
+    "observed_export_structure": "each source currently reports 1 scene / 1 node / 1 mesh / 1 primitive",
+    "split_strategy": "separate disconnected geometry islands/components before gameplay placement",
+    "whole_bundle_spawn": "forbidden"
   },
   "assets": [
     {
@@ -13,7 +17,10 @@
       "bytes": 23413848,
       "vertices": 1034036,
       "triangles": 1887306,
-      "role": "altar override"
+      "role": "altar override",
+      "bundle": true,
+      "integration_status": "REQUIRES_COMPONENT_SPLIT",
+      "spawn_source_glb_directly": false
     },
     {
       "source_name": "candelabros colgantes techo.glb",
@@ -21,7 +28,10 @@
       "bytes": 20185228,
       "vertices": 1011640,
       "triangles": 1822876,
-      "role": "nave ceiling"
+      "role": "nave ceiling",
+      "bundle": true,
+      "integration_status": "REQUIRES_COMPONENT_SPLIT",
+      "spawn_source_glb_directly": false
     },
     {
       "source_name": "gothic stained glass window 3d model.glb",
@@ -29,7 +39,10 @@
       "bytes": 25748640,
       "vertices": 1015609,
       "triangles": 1957621,
-      "role": "sanctuary clerestory"
+      "role": "sanctuary clerestory",
+      "bundle": true,
+      "integration_status": "REQUIRES_COMPONENT_SPLIT",
+      "spawn_source_glb_directly": false
     },
     {
       "source_name": "multiple gothic stained glass window 3d model.glb",
@@ -37,7 +50,10 @@
       "bytes": 27369508,
       "vertices": 998970,
       "triangles": 1905082,
-      "role": "tower facade"
+      "role": "tower facade",
+      "bundle": true,
+      "integration_status": "REQUIRES_COMPONENT_SPLIT",
+      "spawn_source_glb_directly": false
     },
     {
       "source_name": "religious statue collection 3d model.glb",
@@ -45,7 +61,10 @@
       "bytes": 25443072,
       "vertices": 1022154,
       "triangles": 1949518,
-      "role": "sanctuary statue wall"
+      "role": "sanctuary statue wall",
+      "bundle": true,
+      "integration_status": "REQUIRES_COMPONENT_SPLIT",
+      "spawn_source_glb_directly": false
     },
     {
       "source_name": "ornate candle holder 3d model.glb",
@@ -53,7 +72,10 @@
       "bytes": 21290236,
       "vertices": 1037533,
       "triangles": 1943359,
-      "role": "sanctuary prop"
+      "role": "sanctuary prop",
+      "bundle": true,
+      "integration_status": "REQUIRES_COMPONENT_SPLIT",
+      "spawn_source_glb_directly": false
     },
     {
       "source_name": "gothic church furniture 3d model.glb",
@@ -61,7 +83,10 @@
       "bytes": 21150500,
       "vertices": 975002,
       "triangles": 1800523,
-      "role": "exterior inspection pad"
+      "role": "exterior inspection pad",
+      "bundle": true,
+      "integration_status": "REQUIRES_COMPONENT_SPLIT",
+      "spawn_source_glb_directly": false
     },
     {
       "source_name": "medieval church ruins 3d model.glb",
@@ -69,7 +94,10 @@
       "bytes": 21968232,
       "vertices": 947149,
       "triangles": 1719764,
-      "role": "exterior ruins candidate"
+      "role": "exterior ruins candidate",
+      "bundle": true,
+      "integration_status": "REQUIRES_COMPONENT_SPLIT",
+      "spawn_source_glb_directly": false
     }
   ]
 }
