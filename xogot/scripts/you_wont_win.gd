@@ -208,6 +208,7 @@ func _build_expansion_v1() -> void:
 		)
 
 	_build_side_rooms_v1(wall_stone, wall_dark, timber)
+	_build_church_second_floor_v1(wall_stone, wall_dark, timber)
 	_build_bell_tower_v1(wall_stone, wall_dark, timber)
 	_build_expansion_zone_markers()
 	print("XZOGOT_EXPANSION_V1_LOOP_READY")
@@ -241,6 +242,110 @@ func _build_side_rooms_v1(stone: Color, dark_stone: Color, timber: Color) -> voi
 	_box("CryptBasementFloor", Vector3(12.0, 0.28, 14.0), Vector3(16.0, -2.95, -12.5), Color(0.060, 0.058, 0.055))
 	_box("CryptBasementRearWall", Vector3(12.0, 3.3, 0.55), Vector3(16.0, -1.30, -19.3), dark_stone)
 	print("XZOGOT_SIDE_ROOMS_V1_READY")
+
+func _build_church_second_floor_v1(stone: Color, dark_stone: Color, timber: Color) -> void:
+	# The original rear balcony becomes the entry landing for a real second-floor loop.
+	# Side galleries stay narrow enough to preserve the cathedral void over the nave.
+	var gallery_y: float = 5.02
+	var rail_y: float = 5.78
+
+	_box(
+		"SecondFloorWestGallery",
+		Vector3(3.35, 0.28, 27.0),
+		Vector3(-8.35, gallery_y, -6.0),
+		Color(0.095, 0.080, 0.060)
+	)
+	_box(
+		"SecondFloorEastGallery",
+		Vector3(3.35, 0.28, 27.0),
+		Vector3(8.35, gallery_y, -6.0),
+		Color(0.095, 0.080, 0.060)
+	)
+
+	# Front/choir bridge connects both galleries, making the upper floor a loop
+	# instead of two dead-end catwalks.
+	_box(
+		"SecondFloorChoirBridge",
+		Vector3(16.70, 0.30, 3.10),
+		Vector3(0.0, gallery_y, -18.15),
+		Color(0.090, 0.075, 0.055)
+	)
+
+	# Rear connectors overlap the existing balcony so the current staircase and
+	# BalconyGate remain the only progression entrance from the first floor.
+	_box(
+		"SecondFloorWestRearConnector",
+		Vector3(3.35, 0.28, 4.8),
+		Vector3(-8.35, gallery_y, 8.70),
+		Color(0.095, 0.080, 0.060)
+	)
+	_box(
+		"SecondFloorEastRearConnector",
+		Vector3(3.35, 0.28, 4.8),
+		Vector3(8.35, gallery_y, 8.70),
+		Color(0.095, 0.080, 0.060)
+	)
+
+	# Inner rails are real collision. The outer church wall itself protects the outside edge.
+	_box(
+		"SecondFloorWestInnerRail",
+		Vector3(0.20, 1.35, 27.0),
+		Vector3(-6.63, rail_y, -6.0),
+		timber
+	)
+	_box(
+		"SecondFloorEastInnerRail",
+		Vector3(0.20, 1.35, 27.0),
+		Vector3(6.63, rail_y, -6.0),
+		timber
+	)
+	_box(
+		"SecondFloorChoirRailFront",
+		Vector3(13.10, 1.35, 0.20),
+		Vector3(0.0, rail_y, -16.58),
+		timber
+	)
+	_box(
+		"SecondFloorChoirRailRear",
+		Vector3(13.10, 1.35, 0.20),
+		Vector3(0.0, rail_y, -19.72),
+		timber
+	)
+
+	# Decorative rhythm + cover anchors, kept away from the 2.8m clear walking lanes.
+	for z in [-15.0, -9.0, -3.0, 3.0]:
+		_visual_box(
+			"SecondFloorWestPost_%s" % str(z).replace("-", "N").replace(".", "_"),
+			Vector3(0.24, 2.05, 0.24),
+			Vector3(-6.78, 6.02, z),
+			dark_stone
+		)
+		_visual_box(
+			"SecondFloorEastPost_%s" % str(z).replace("-", "N").replace(".", "_"),
+			Vector3(0.24, 2.05, 0.24),
+			Vector3(6.78, 6.02, z),
+			dark_stone
+		)
+
+	# Dedicated upper-floor zone markers are useful for future AI spawning,
+	# music/occlusion, ads, perks, and Easter-egg logic.
+	var upper_zones: Dictionary = {
+		"SecondFloorWest": Vector3(-8.35, 5.35, -6.0),
+		"SecondFloorEast": Vector3(8.35, 5.35, -6.0),
+		"SecondFloorChoir": Vector3(0.0, 5.35, -18.15),
+	}
+	for zone_name: String in upper_zones.keys():
+		var marker := Marker3D.new()
+		marker.name = "Zone_" + zone_name
+		marker.position = _wp(upper_zones[zone_name])
+		marker.add_to_group("second_floor_zone")
+		marker.add_to_group("gameplay_zone")
+		marker.set_meta("zone_name", zone_name)
+		marker.set_meta("floor", 2)
+		add_child(marker)
+
+	print("XZOGOT_CHURCH_SECOND_FLOOR_READY 3 zones")
+	print("XZOGOT_CHURCH_SECOND_FLOOR_LOOP_READY")
 
 func _build_bell_tower_v1(stone: Color, dark_stone: Color, timber: Color) -> void:
 	var cx: float = -25.0
