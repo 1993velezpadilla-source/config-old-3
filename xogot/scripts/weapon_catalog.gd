@@ -31,6 +31,16 @@ const MYSTERY_POOL: Array[Dictionary] = [
 	{"id":"stg","weight":0.72},
 	{"id":"type100","weight":0.92},
 	{"id":"springfield","weight":0.72},
+	{"id":"357","weight":0.70},
+	{"id":"arisaka","weight":0.78},
+	{"id":"dp28","weight":0.60},
+	{"id":"kar98k","weight":0.82},
+	{"id":"mosin","weight":0.76},
+	{"id":"nambu","weight":0.88},
+	{"id":"svt40","weight":0.86},
+	{"id":"tt33","weight":0.88},
+	{"id":"type99","weight":0.62},
+	{"id":"walther","weight":0.90},
 	{"id":"ray","weight":0.12},
 	{"id":"raymk2","weight":0.07},
 	{"id":"tesla","weight":0.08},
@@ -241,6 +251,96 @@ const WEAPONS: Dictionary = {
 		"visual_recoil_deg":4.4,"wall_cost":-1,"ammo_cost":750,
 		"model_path":"res://assets/weapons/springfield.glb","fire_audio":"res://assets/audio/weapons/springfield_fire.ogg",
 		"reload_audio":"res://assets/audio/weapons/springfield_reload.ogg"
+	},
+	"357": {
+		"display_name":"357 Magnum","family":"pistol","damage":72.0,"range_m":105.0,
+		"fire_interval":0.34,"magazine":6,"reserve":72,"reload_time":2.10,
+		"automatic":false,"ads_fov":47.0,"hip_spread_deg":1.8,"ads_spread_deg":0.20,
+		"visual_recoil_deg":3.4,"wall_cost":-1,"ammo_cost":600,
+		"model_path":"res://assets/weapons/aether_waw_real/357/viewmodel.glb",
+		"fire_audio":"res://assets/audio/weapons/mapmod/357/fire.ogg",
+		"reload_audio":"res://assets/audio/weapons/mapmod/357/reload.ogg"
+	},
+	"arisaka": {
+		"display_name":"Arisaka","family":"rifle","damage":125.0,"range_m":230.0,
+		"fire_interval":0.78,"magazine":5,"reserve":55,"reload_time":2.55,
+		"automatic":false,"ads_fov":31.0,"hip_spread_deg":3.2,"ads_spread_deg":0.05,
+		"visual_recoil_deg":4.1,"wall_cost":-1,"ammo_cost":750,
+		"model_path":"res://assets/weapons/aether_waw_real/arisaka/viewmodel.glb",
+		"fire_audio":"res://assets/audio/weapons/mapmod/arisaka/fire.ogg",
+		"reload_audio":"res://assets/audio/weapons/mapmod/arisaka/reload.ogg"
+	},
+	"dp28": {
+		"display_name":"DP-28","family":"lmg","damage":51.0,"range_m":145.0,
+		"fire_interval":0.105,"magazine":47,"reserve":282,"reload_time":3.65,
+		"automatic":true,"ads_fov":44.0,"hip_spread_deg":2.1,"ads_spread_deg":0.45,
+		"visual_recoil_deg":1.4,"wall_cost":-1,"ammo_cost":850,
+		"model_path":"res://assets/weapons/aether_waw_real/dp28/viewmodel.glb",
+		"fire_audio":"res://assets/audio/weapons/mapmod/dp28/fire.ogg",
+		"reload_audio":"res://assets/audio/weapons/mapmod/dp28/reload.ogg"
+	},
+	"kar98k": {
+		"display_name":"Kar98k","family":"sniper","damage":132.0,"range_m":245.0,
+		"fire_interval":0.82,"magazine":5,"reserve":55,"reload_time":2.60,
+		"automatic":false,"ads_fov":30.0,"hip_spread_deg":3.6,"ads_spread_deg":0.04,
+		"visual_recoil_deg":4.5,"wall_cost":-1,"ammo_cost":750,
+		"model_path":"res://assets/weapons/aether_waw_real/kar98k/viewmodel.glb",
+		"fire_audio":"res://assets/audio/weapons/mapmod/kar98k/fire.ogg",
+		"reload_audio":"res://assets/audio/weapons/mapmod/kar98k/reload.ogg"
+	},
+	"mosin": {
+		"display_name":"Mosin-Nagant","family":"sniper","damage":138.0,"range_m":250.0,
+		"fire_interval":0.84,"magazine":5,"reserve":55,"reload_time":2.65,
+		"automatic":false,"ads_fov":30.0,"hip_spread_deg":3.7,"ads_spread_deg":0.04,
+		"visual_recoil_deg":4.6,"wall_cost":-1,"ammo_cost":750,
+		"model_path":"res://assets/weapons/aether_waw_real/mosin/viewmodel.glb",
+		"fire_audio":"res://assets/audio/weapons/mapmod/mosin/fire.ogg",
+		"reload_audio":"res://assets/audio/weapons/mapmod/mosin/reload.ogg"
+	},
+	"nambu": {
+		"display_name":"Nambu","family":"pistol","damage":28.0,"range_m":90.0,
+		"fire_interval":0.18,"magazine":8,"reserve":96,"reload_time":1.65,
+		"automatic":false,"ads_fov":49.0,"hip_spread_deg":1.5,"ads_spread_deg":0.28,
+		"visual_recoil_deg":1.45,"wall_cost":-1,"ammo_cost":350,
+		"model_path":"res://assets/weapons/aether_waw_real/nambu/viewmodel.glb",
+		"fire_audio":"res://assets/audio/weapons/mapmod/nambu/fire.ogg",
+		"reload_audio":"res://assets/audio/weapons/mapmod/nambu/reload.ogg"
+	},
+	"svt40": {
+		"display_name":"SVT-40","family":"rifle","damage":57.0,"range_m":155.0,
+		"fire_interval":0.17,"magazine":10,"reserve":120,"reload_time":2.05,
+		"automatic":false,"ads_fov":42.0,"hip_spread_deg":1.3,"ads_spread_deg":0.12,
+		"visual_recoil_deg":1.9,"wall_cost":-1,"ammo_cost":650,
+		"model_path":"res://assets/weapons/aether_waw_real/svt40/viewmodel.glb",
+		"fire_audio":"res://assets/audio/weapons/mapmod/svt40/fire.ogg",
+		"reload_audio":"res://assets/audio/weapons/mapmod/svt40/reload.ogg"
+	},
+	"tt33": {
+		"display_name":"TT-33","family":"pistol","damage":31.0,"range_m":92.0,
+		"fire_interval":0.17,"magazine":8,"reserve":96,"reload_time":1.60,
+		"automatic":false,"ads_fov":49.0,"hip_spread_deg":1.45,"ads_spread_deg":0.26,
+		"visual_recoil_deg":1.5,"wall_cost":-1,"ammo_cost":350,
+		"model_path":"res://assets/weapons/aether_waw_real/tt33/viewmodel.glb",
+		"fire_audio":"res://assets/audio/weapons/mapmod/tt33/fire.ogg",
+		"reload_audio":"res://assets/audio/weapons/mapmod/tt33/reload.ogg"
+	},
+	"type99": {
+		"display_name":"Type 99","family":"lmg","damage":49.0,"range_m":145.0,
+		"fire_interval":0.10,"magazine":30,"reserve":210,"reload_time":3.10,
+		"automatic":true,"ads_fov":44.0,"hip_spread_deg":2.0,"ads_spread_deg":0.42,
+		"visual_recoil_deg":1.5,"wall_cost":-1,"ammo_cost":800,
+		"model_path":"res://assets/weapons/aether_waw_real/type99/viewmodel.glb",
+		"fire_audio":"res://assets/audio/weapons/mapmod/type99/fire.ogg",
+		"reload_audio":"res://assets/audio/weapons/mapmod/type99/reload.ogg"
+	},
+	"walther": {
+		"display_name":"Walther P38","family":"pistol","damage":29.0,"range_m":92.0,
+		"fire_interval":0.18,"magazine":8,"reserve":96,"reload_time":1.60,
+		"automatic":false,"ads_fov":49.0,"hip_spread_deg":1.45,"ads_spread_deg":0.27,
+		"visual_recoil_deg":1.45,"wall_cost":-1,"ammo_cost":350,
+		"model_path":"res://assets/weapons/aether_waw_real/walther/viewmodel.glb",
+		"fire_audio":"res://assets/audio/weapons/mapmod/walther/fire.ogg",
+		"reload_audio":"res://assets/audio/weapons/mapmod/walther/reload.ogg"
 	},
 	"ray": {
 		"display_name":"Ray Weapon","family":"wonder","damage":210.0,"range_m":120.0,
