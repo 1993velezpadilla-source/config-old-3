@@ -237,5 +237,7 @@
       "bytes": 651864,
       "sha256": "3a85f15a5cc6bb25a7002ee249edb93fd780d21d74d4aa5ab87862032b8f4fda"
     }
-  ]
+  ],
+  "godot_import_gate": "VERIFY_REAL_GLB_IMPORT",
+  "integration_note": "29 recovered UE5.7 skeletal weapon GLBs are staged; Godot import/smoke must pass before APK release."
 }
