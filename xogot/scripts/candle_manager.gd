@@ -54,7 +54,9 @@ func _find_round_manager() -> Node:
 	return null
 
 func _read_round() -> int:
-	if _round_manager != null and is_instance_valid(_round_manager) and _round_manager.has_method("get_round"):
+	if _round_manager == null or not is_instance_valid(_round_manager):
+		_round_manager = _find_round_manager()
+	if _round_manager != null and _round_manager.has_method("get_round"):
 		return int(_round_manager.call("get_round"))
 	return 0
 
