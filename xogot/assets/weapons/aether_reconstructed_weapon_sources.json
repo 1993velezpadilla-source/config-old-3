@@ -1,0 +1,185 @@
+{
+  "schema": 1,
+  "source": "Project Aether public reconstructed build",
+  "audit_run_id": 37190788280,
+  "audit_artifact_id": 11298597890,
+  "source_path_count": 149740,
+  "note": "Source-path recovery manifest. A path hit is not READY; Xogot READY still requires converted viewmodel, worldmodel, required animation roles, and four verified SFX roles.",
+  "preferred_weapon_roots": {
+    "colt": [
+      "ProjectAether/Content/Assets/Weapons/waw/1911",
+      "ProjectAether/Content/Assets/Weapons/BO1/1911",
+      "ProjectAether/Content/Assets/Weapons/bo3/m1911"
+    ],
+    "m1": [
+      "ProjectAether/Content/Assets/Weapons/waw/M1Garand"
+    ],
+    "mp40": [
+      "ProjectAether/Content/Assets/Weapons/waw/MP40"
+    ],
+    "trench": [
+      "ProjectAether/Content/Assets/Weapons/waw/TrenchGun"
+    ],
+    "thompson": [
+      "ProjectAether/Content/Assets/Weapons/waw/Thompson"
+    ],
+    "browning": [
+      "ProjectAether/Content/Assets/Weapons/waw/Browning"
+    ],
+    "doublebarrel": [
+      "ProjectAether/Content/Assets/Weapons/waw/DoubleBarrel"
+    ],
+    "sawnoff": [
+      "ProjectAether/Content/Assets/Weapons/waw/SawedOffDB"
+    ],
+    "fg42": [
+      "ProjectAether/Content/Assets/Weapons/waw/FG42"
+    ],
+    "gewehr": [
+      "ProjectAether/Content/Assets/Weapons/waw/Gewehr"
+    ],
+    "mg42": [
+      "ProjectAether/Content/Assets/Weapons/waw/MG42"
+    ],
+    "ppsh": [
+      "ProjectAether/Content/Assets/Weapons/waw/PPSH"
+    ],
+    "ptrs": [
+      "ProjectAether/Content/Assets/Weapons/waw/PTRS"
+    ],
+    "stg": [
+      "ProjectAether/Content/Assets/Weapons/waw/STG44"
+    ],
+    "type100": [
+      "ProjectAether/Content/Assets/Weapons/waw/Type100"
+    ],
+    "springfield": [
+      "ProjectAether/Content/Assets/Weapons/waw/Springfield"
+    ],
+    "ray": [
+      "ProjectAether/Content/Assets/Weapons/bo3/RayGun"
+    ],
+    "raymk2": [
+      "ProjectAether/Content/Assets/Weapons/bo3/RayGunMK2"
+    ]
+  },
+  "coverage": {
+    "colt": {
+      "model_like": 315,
+      "animation_like": 277,
+      "audio_like": 231
+    },
+    "m1": {
+      "model_like": 50,
+      "animation_like": 40,
+      "audio_like": 37
+    },
+    "mp40": {
+      "model_like": 57,
+      "animation_like": 38,
+      "audio_like": 35
+    },
+    "trench": {
+      "model_like": 68,
+      "animation_like": 54,
+      "audio_like": 32
+    },
+    "thompson": {
+      "model_like": 48,
+      "animation_like": 42,
+      "audio_like": 39
+    },
+    "bar": {
+      "model_like": 0,
+      "animation_like": 0,
+      "audio_like": 12
+    },
+    "browning": {
+      "model_like": 50,
+      "animation_like": 44,
+      "audio_like": 18
+    },
+    "doublebarrel": {
+      "model_like": 40,
+      "animation_like": 34,
+      "audio_like": 18
+    },
+    "sawnoff": {
+      "model_like": 6,
+      "animation_like": 0,
+      "audio_like": 0
+    },
+    "fg42": {
+      "model_like": 44,
+      "animation_like": 34,
+      "audio_like": 45
+    },
+    "gewehr": {
+      "model_like": 50,
+      "animation_like": 40,
+      "audio_like": 43
+    },
+    "m1a1": {
+      "model_like": 0,
+      "animation_like": 0,
+      "audio_like": 0
+    },
+    "mg42": {
+      "model_like": 40,
+      "animation_like": 28,
+      "audio_like": 33
+    },
+    "ppsh": {
+      "model_like": 44,
+      "animation_like": 36,
+      "audio_like": 41
+    },
+    "ptrs": {
+      "model_like": 50,
+      "animation_like": 36,
+      "audio_like": 41
+    },
+    "stg": {
+      "model_like": 112,
+      "animation_like": 93,
+      "audio_like": 84
+    },
+    "type100": {
+      "model_like": 46,
+      "animation_like": 30,
+      "audio_like": 40
+    },
+    "springfield": {
+      "model_like": 60,
+      "animation_like": 34,
+      "audio_like": 18
+    },
+    "ray": {
+      "model_like": 124,
+      "animation_like": 96,
+      "audio_like": 591
+    },
+    "raymk2": {
+      "model_like": 62,
+      "animation_like": 50,
+      "audio_like": 18
+    },
+    "tesla": {
+      "model_like": 0,
+      "animation_like": 0,
+      "audio_like": 119
+    }
+  },
+  "missing_or_incomplete": {
+    "bar": "No dedicated model/animation root identified in reconstructed Aether audit; audio-like hits only.",
+    "m1a1": "No Aether hits in current alias audit.",
+    "sawnoff": "Model-like path exists but no animation/audio coverage yet.",
+    "tesla": "Audio-like hits only; no dedicated Wunderwaffe/Tesla model/animation root identified yet."
+  },
+  "extraction_policy": {
+    "source_lane": "community_reconstructed_map",
+    "preserve_raw_assets": true,
+    "quake_nzp_final_forbidden": true,
+    "convert_before_runtime_ready": true
+  }
+}
