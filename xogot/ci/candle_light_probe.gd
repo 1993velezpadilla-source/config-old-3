@@ -68,31 +68,67 @@ func _run() -> void:
 		_fail(14, "not enough real-light candidates")
 		return
 
+	var serial_before_power: int = int(manager.call("get_event_serial"))
+	set_meta("power_on", true)
+	manager.call("_poll_world_events")
+	if not bool(manager.call("get_last_power_state")):
+		_fail(15, "power state did not propagate to candle manager")
+		return
+	if int(manager.call("get_event_serial")) <= serial_before_power:
+		_fail(16, "power-on surge did not trigger candle event")
+		return
+
+	var event_active_count: int = 0
+	for candle: Node in candle_nodes:
+		if candle.has_method("is_event_active") and bool(candle.call("is_event_active")):
+			event_active_count += 1
+	if event_active_count <= 0:
+		_fail(17, "power event did not reach burning candles")
+		return
+	if int(manager.call("get_active_dynamic_light_count")) > 8:
+		_fail(18, "power surge exceeded dynamic light budget")
+		return
+
+	var round_manager: Node = scene.get_node_or_null("RoundManager")
+	if round_manager == null or not round_manager.has_method("start_next_round"):
+		_fail(19, "round manager missing")
+		return
+	var serial_before_round: int = int(manager.call("get_event_serial"))
+	round_manager.call("start_next_round")
+	manager.call("_poll_world_events")
+	if int(manager.call("get_last_observed_round")) <= 0:
+		_fail(20, "round state did not propagate to candle manager")
+		return
+	if int(manager.call("get_event_serial")) <= serial_before_round:
+		_fail(21, "round transition did not trigger candle event")
+		return
+	print("XZOGOT_CANDLE_EVENT_REACTIONS_GREEN")
+
 	var stained: Array[Node] = get_nodes_in_group("stained_glass_light")
 	if stained.size() != 4:
-		_fail(15, "expected four stained-glass beams, got %d" % stained.size())
+		_fail(22, "expected four stained-glass beams, got %d" % stained.size())
 		return
 	for node: Node in stained:
 		if not (node is SpotLight3D):
-			_fail(16, "stained glass group contains non-spotlight")
+			_fail(23, "stained glass group contains non-spotlight")
 			return
 		var light := node as SpotLight3D
 		if light.shadow_enabled:
-			_fail(17, "stained-glass beam unexpectedly enables shadows")
+			_fail(24, "stained-glass beam unexpectedly enables shadows")
 			return
 
 	var placement_file := FileAccess.open("res://assets/gifts/gift_runtime_placements.json", FileAccess.READ)
 	if placement_file == null:
-		_fail(18, "gift placement manifest missing")
+		_fail(25, "gift placement manifest missing")
 		return
 	var parsed: Variant = JSON.parse_string(placement_file.get_as_text())
 	if not (parsed is Dictionary):
-		_fail(19, "gift placement manifest invalid")
+		_fail(26, "gift placement manifest invalid")
 		return
 	var manifest := parsed as Dictionary
 	var placements: Array = manifest.get("placements", []) as Array
 	if placements.size() != 32:
-		_fail(20, "expected 32 hero placements, got %d" % placements.size())
+		_fail(27, "expected 32 hero placements, got %d" % placements.size())
 		return
 
 	var has_candleholder: bool = false
@@ -105,7 +141,7 @@ func _run() -> void:
 		if bundle == "stained_single" or bundle == "stained_multi":
 			has_stained = true
 	if not has_candleholder or not has_stained:
-		_fail(21, "candleholder/stained-glass hero placements missing")
+		_fail(28, "candleholder/stained-glass hero placements missing")
 		return
 
 	print("XZOGOT_CANDLE_STATES_GREEN ", counts)
