@@ -71,7 +71,7 @@ jobs:
           grep -q "XZOGOT_COD_VIEW_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_WEAPON_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_INTERACTION_PLAYER_READY 500" build/xogot-ai/runtime.log
-          grep -q "XZOGOT_INTERACTIONS_PREPARED 14" build/xogot-ai/runtime.log
+          grep -q "XZOGOT_INTERACTIONS_PREPARED 20" build/xogot-ai/runtime.log
           grep -q "XZOGOT_EXPANSION_V1_LOOP_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_CHURCH_SECOND_FLOOR_LOOP_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_BELL_TOWER_V1_PLAYABLE" build/xogot-ai/runtime.log
