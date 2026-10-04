@@ -1,0 +1,1194 @@
+{
+  "schema": 1,
+  "id": "xzogot_mapmod_weapon_assets_v1",
+  "final_presentation_rule": "Call of Duty Zombies MapMod-style full weapon packages; Quake/NZ:P weapon models are forbidden as final presentation.",
+  "policy": {
+    "final_ready_requires": [
+      "viewmodel",
+      "worldmodel",
+      "animations",
+      "fire_sfx",
+      "reload_sfx",
+      "mechanical_sfx",
+      "dry_fire_sfx"
+    ],
+    "required_animation_roles": [
+      "idle",
+      "fire",
+      "ads_in",
+      "ads_out",
+      "reload",
+      "equip",
+      "lower",
+      "melee"
+    ],
+    "forbidden_final_source_tokens": [
+      "quake",
+      "nzp",
+      "progs/",
+      ".mdl"
+    ],
+    "procedural_fallback": "development_only",
+    "ready_values": [
+      "READY"
+    ],
+    "partial_values": [
+      "REFERENCE_PARTIAL",
+      "PARTIAL",
+      "MISSING"
+    ]
+  },
+  "weapon_count": 21,
+  "weapons": {
+    "colt": {
+      "desired_source_lane": "cod_zombies_mapmod",
+      "status": "MISSING",
+      "runtime": {
+        "viewmodel": "res://assets/weapons/mapmod/colt/viewmodel.glb",
+        "worldmodel": "res://assets/weapons/mapmod/colt/worldmodel.glb",
+        "audio": {
+          "fire": "res://assets/audio/weapons/mapmod/colt/fire.ogg",
+          "reload": "res://assets/audio/weapons/mapmod/colt/reload.ogg",
+          "mechanical": "res://assets/audio/weapons/mapmod/colt/mechanical.ogg",
+          "dry_fire": "res://assets/audio/weapons/mapmod/colt/dry_fire.ogg"
+        }
+      },
+      "required_animation_aliases": {
+        "idle": [
+          "idle"
+        ],
+        "fire": [
+          "fire",
+          "shoot"
+        ],
+        "ads_in": [
+          "ads_in",
+          "ads_up",
+          "aim_in"
+        ],
+        "ads_out": [
+          "ads_out",
+          "ads_down",
+          "aim_out"
+        ],
+        "reload": [
+          "reload"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "draw"
+        ],
+        "lower": [
+          "lower",
+          "putaway",
+          "holster"
+        ],
+        "melee": [
+          "melee",
+          "knife",
+          "bash"
+        ]
+      },
+      "notes": []
+    },
+    "m1": {
+      "desired_source_lane": "cod_zombies_mapmod",
+      "status": "MISSING",
+      "runtime": {
+        "viewmodel": "res://assets/weapons/mapmod/m1/viewmodel.glb",
+        "worldmodel": "res://assets/weapons/mapmod/m1/worldmodel.glb",
+        "audio": {
+          "fire": "res://assets/audio/weapons/mapmod/m1/fire.ogg",
+          "reload": "res://assets/audio/weapons/mapmod/m1/reload.ogg",
+          "mechanical": "res://assets/audio/weapons/mapmod/m1/mechanical.ogg",
+          "dry_fire": "res://assets/audio/weapons/mapmod/m1/dry_fire.ogg"
+        }
+      },
+      "required_animation_aliases": {
+        "idle": [
+          "idle"
+        ],
+        "fire": [
+          "fire",
+          "shoot"
+        ],
+        "ads_in": [
+          "ads_in",
+          "ads_up",
+          "aim_in"
+        ],
+        "ads_out": [
+          "ads_out",
+          "ads_down",
+          "aim_out"
+        ],
+        "reload": [
+          "reload"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "draw"
+        ],
+        "lower": [
+          "lower",
+          "putaway",
+          "holster"
+        ],
+        "melee": [
+          "melee",
+          "knife",
+          "bash"
+        ]
+      },
+      "notes": []
+    },
+    "mp40": {
+      "desired_source_lane": "cod_zombies_mapmod",
+      "status": "MISSING",
+      "runtime": {
+        "viewmodel": "res://assets/weapons/mapmod/mp40/viewmodel.glb",
+        "worldmodel": "res://assets/weapons/mapmod/mp40/worldmodel.glb",
+        "audio": {
+          "fire": "res://assets/audio/weapons/mapmod/mp40/fire.ogg",
+          "reload": "res://assets/audio/weapons/mapmod/mp40/reload.ogg",
+          "mechanical": "res://assets/audio/weapons/mapmod/mp40/mechanical.ogg",
+          "dry_fire": "res://assets/audio/weapons/mapmod/mp40/dry_fire.ogg"
+        }
+      },
+      "required_animation_aliases": {
+        "idle": [
+          "idle"
+        ],
+        "fire": [
+          "fire",
+          "shoot"
+        ],
+        "ads_in": [
+          "ads_in",
+          "ads_up",
+          "aim_in"
+        ],
+        "ads_out": [
+          "ads_out",
+          "ads_down",
+          "aim_out"
+        ],
+        "reload": [
+          "reload"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "draw"
+        ],
+        "lower": [
+          "lower",
+          "putaway",
+          "holster"
+        ],
+        "melee": [
+          "melee",
+          "knife",
+          "bash"
+        ]
+      },
+      "notes": []
+    },
+    "trench": {
+      "desired_source_lane": "cod_zombies_mapmod",
+      "status": "MISSING",
+      "runtime": {
+        "viewmodel": "res://assets/weapons/mapmod/trench/viewmodel.glb",
+        "worldmodel": "res://assets/weapons/mapmod/trench/worldmodel.glb",
+        "audio": {
+          "fire": "res://assets/audio/weapons/mapmod/trench/fire.ogg",
+          "reload": "res://assets/audio/weapons/mapmod/trench/reload.ogg",
+          "mechanical": "res://assets/audio/weapons/mapmod/trench/mechanical.ogg",
+          "dry_fire": "res://assets/audio/weapons/mapmod/trench/dry_fire.ogg"
+        }
+      },
+      "required_animation_aliases": {
+        "idle": [
+          "idle"
+        ],
+        "fire": [
+          "fire",
+          "shoot"
+        ],
+        "ads_in": [
+          "ads_in",
+          "ads_up",
+          "aim_in"
+        ],
+        "ads_out": [
+          "ads_out",
+          "ads_down",
+          "aim_out"
+        ],
+        "reload": [
+          "reload"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "draw"
+        ],
+        "lower": [
+          "lower",
+          "putaway",
+          "holster"
+        ],
+        "melee": [
+          "melee",
+          "knife",
+          "bash"
+        ]
+      },
+      "notes": []
+    },
+    "thompson": {
+      "desired_source_lane": "cod_zombies_mapmod",
+      "status": "REFERENCE_PARTIAL",
+      "runtime": {
+        "viewmodel": "res://assets/weapons/mapmod/thompson/viewmodel.glb",
+        "worldmodel": "res://assets/weapons/mapmod/thompson/worldmodel.glb",
+        "audio": {
+          "fire": "res://assets/audio/weapons/mapmod/thompson/fire.ogg",
+          "reload": "res://assets/audio/weapons/mapmod/thompson/reload.ogg",
+          "mechanical": "res://assets/audio/weapons/mapmod/thompson/mechanical.ogg",
+          "dry_fire": "res://assets/audio/weapons/mapmod/thompson/dry_fire.ogg"
+        }
+      },
+      "required_animation_aliases": {
+        "idle": [
+          "idle"
+        ],
+        "fire": [
+          "fire",
+          "shoot"
+        ],
+        "ads_in": [
+          "ads_in",
+          "ads_up",
+          "aim_in"
+        ],
+        "ads_out": [
+          "ads_out",
+          "ads_down",
+          "aim_out"
+        ],
+        "reload": [
+          "reload"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "draw"
+        ],
+        "lower": [
+          "lower",
+          "putaway",
+          "holster"
+        ],
+        "melee": [
+          "melee",
+          "knife",
+          "bash"
+        ]
+      },
+      "notes": [
+        "Verified WaW golden-reference exists as importer baseline only; it is not marked as the final MapMod package.",
+        "Golden reference has 11 validated XANIM clips and required weapon tags, but final MapMod audio/worldmodel package is not verified yet."
+      ],
+      "reference": {
+        "kind": "waw_golden_reference",
+        "branch": "experiment/waw-golden-thompson",
+        "source_repository": "CallOfDutyModding/call_of_duty_world_at_war_mod_tools",
+        "model_path": "model_export/american/weapons/SMGs/thompson/viewmodel_usa_thompson_smg.XMODEL_EXPORT",
+        "model_stats": {
+          "bones": 5,
+          "vertices": 2833,
+          "triangles": 4887,
+          "objects": 7,
+          "materials": 2
+        },
+        "animations": [
+          "thompson_idle.XANIM_EXPORT",
+          "thompson_fire.XANIM_EXPORT",
+          "thompson_fire_ads.XANIM_EXPORT",
+          "thompson_reload.XANIM_EXPORT",
+          "thompson_reload_empty.XANIM_EXPORT",
+          "thompson_melee.XANIM_EXPORT",
+          "thompson_pullout.XANIM_EXPORT",
+          "thompson_putaway.XANIM_EXPORT",
+          "thompson_ADS_up.XANIM_EXPORT",
+          "thompson_ADS_down.XANIM_EXPORT",
+          "thompson_lastshot.XANIM_EXPORT"
+        ],
+        "required_tags": [
+          "J_Gun",
+          "J_Bolt",
+          "J_Clip",
+          "tag_brass",
+          "tag_flash"
+        ],
+        "audio_verified": false
+      }
+    },
+    "bar": {
+      "desired_source_lane": "cod_zombies_mapmod",
+      "status": "MISSING",
+      "runtime": {
+        "viewmodel": "res://assets/weapons/mapmod/bar/viewmodel.glb",
+        "worldmodel": "res://assets/weapons/mapmod/bar/worldmodel.glb",
+        "audio": {
+          "fire": "res://assets/audio/weapons/mapmod/bar/fire.ogg",
+          "reload": "res://assets/audio/weapons/mapmod/bar/reload.ogg",
+          "mechanical": "res://assets/audio/weapons/mapmod/bar/mechanical.ogg",
+          "dry_fire": "res://assets/audio/weapons/mapmod/bar/dry_fire.ogg"
+        }
+      },
+      "required_animation_aliases": {
+        "idle": [
+          "idle"
+        ],
+        "fire": [
+          "fire",
+          "shoot"
+        ],
+        "ads_in": [
+          "ads_in",
+          "ads_up",
+          "aim_in"
+        ],
+        "ads_out": [
+          "ads_out",
+          "ads_down",
+          "aim_out"
+        ],
+        "reload": [
+          "reload"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "draw"
+        ],
+        "lower": [
+          "lower",
+          "putaway",
+          "holster"
+        ],
+        "melee": [
+          "melee",
+          "knife",
+          "bash"
+        ]
+      },
+      "notes": []
+    },
+    "browning": {
+      "desired_source_lane": "cod_zombies_mapmod",
+      "status": "MISSING",
+      "runtime": {
+        "viewmodel": "res://assets/weapons/mapmod/browning/viewmodel.glb",
+        "worldmodel": "res://assets/weapons/mapmod/browning/worldmodel.glb",
+        "audio": {
+          "fire": "res://assets/audio/weapons/mapmod/browning/fire.ogg",
+          "reload": "res://assets/audio/weapons/mapmod/browning/reload.ogg",
+          "mechanical": "res://assets/audio/weapons/mapmod/browning/mechanical.ogg",
+          "dry_fire": "res://assets/audio/weapons/mapmod/browning/dry_fire.ogg"
+        }
+      },
+      "required_animation_aliases": {
+        "idle": [
+          "idle"
+        ],
+        "fire": [
+          "fire",
+          "shoot"
+        ],
+        "ads_in": [
+          "ads_in",
+          "ads_up",
+          "aim_in"
+        ],
+        "ads_out": [
+          "ads_out",
+          "ads_down",
+          "aim_out"
+        ],
+        "reload": [
+          "reload"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "draw"
+        ],
+        "lower": [
+          "lower",
+          "putaway",
+          "holster"
+        ],
+        "melee": [
+          "melee",
+          "knife",
+          "bash"
+        ]
+      },
+      "notes": []
+    },
+    "doublebarrel": {
+      "desired_source_lane": "cod_zombies_mapmod",
+      "status": "MISSING",
+      "runtime": {
+        "viewmodel": "res://assets/weapons/mapmod/doublebarrel/viewmodel.glb",
+        "worldmodel": "res://assets/weapons/mapmod/doublebarrel/worldmodel.glb",
+        "audio": {
+          "fire": "res://assets/audio/weapons/mapmod/doublebarrel/fire.ogg",
+          "reload": "res://assets/audio/weapons/mapmod/doublebarrel/reload.ogg",
+          "mechanical": "res://assets/audio/weapons/mapmod/doublebarrel/mechanical.ogg",
+          "dry_fire": "res://assets/audio/weapons/mapmod/doublebarrel/dry_fire.ogg"
+        }
+      },
+      "required_animation_aliases": {
+        "idle": [
+          "idle"
+        ],
+        "fire": [
+          "fire",
+          "shoot"
+        ],
+        "ads_in": [
+          "ads_in",
+          "ads_up",
+          "aim_in"
+        ],
+        "ads_out": [
+          "ads_out",
+          "ads_down",
+          "aim_out"
+        ],
+        "reload": [
+          "reload"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "draw"
+        ],
+        "lower": [
+          "lower",
+          "putaway",
+          "holster"
+        ],
+        "melee": [
+          "melee",
+          "knife",
+          "bash"
+        ]
+      },
+      "notes": []
+    },
+    "sawnoff": {
+      "desired_source_lane": "cod_zombies_mapmod",
+      "status": "MISSING",
+      "runtime": {
+        "viewmodel": "res://assets/weapons/mapmod/sawnoff/viewmodel.glb",
+        "worldmodel": "res://assets/weapons/mapmod/sawnoff/worldmodel.glb",
+        "audio": {
+          "fire": "res://assets/audio/weapons/mapmod/sawnoff/fire.ogg",
+          "reload": "res://assets/audio/weapons/mapmod/sawnoff/reload.ogg",
+          "mechanical": "res://assets/audio/weapons/mapmod/sawnoff/mechanical.ogg",
+          "dry_fire": "res://assets/audio/weapons/mapmod/sawnoff/dry_fire.ogg"
+        }
+      },
+      "required_animation_aliases": {
+        "idle": [
+          "idle"
+        ],
+        "fire": [
+          "fire",
+          "shoot"
+        ],
+        "ads_in": [
+          "ads_in",
+          "ads_up",
+          "aim_in"
+        ],
+        "ads_out": [
+          "ads_out",
+          "ads_down",
+          "aim_out"
+        ],
+        "reload": [
+          "reload"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "draw"
+        ],
+        "lower": [
+          "lower",
+          "putaway",
+          "holster"
+        ],
+        "melee": [
+          "melee",
+          "knife",
+          "bash"
+        ]
+      },
+      "notes": []
+    },
+    "fg42": {
+      "desired_source_lane": "cod_zombies_mapmod",
+      "status": "MISSING",
+      "runtime": {
+        "viewmodel": "res://assets/weapons/mapmod/fg42/viewmodel.glb",
+        "worldmodel": "res://assets/weapons/mapmod/fg42/worldmodel.glb",
+        "audio": {
+          "fire": "res://assets/audio/weapons/mapmod/fg42/fire.ogg",
+          "reload": "res://assets/audio/weapons/mapmod/fg42/reload.ogg",
+          "mechanical": "res://assets/audio/weapons/mapmod/fg42/mechanical.ogg",
+          "dry_fire": "res://assets/audio/weapons/mapmod/fg42/dry_fire.ogg"
+        }
+      },
+      "required_animation_aliases": {
+        "idle": [
+          "idle"
+        ],
+        "fire": [
+          "fire",
+          "shoot"
+        ],
+        "ads_in": [
+          "ads_in",
+          "ads_up",
+          "aim_in"
+        ],
+        "ads_out": [
+          "ads_out",
+          "ads_down",
+          "aim_out"
+        ],
+        "reload": [
+          "reload"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "draw"
+        ],
+        "lower": [
+          "lower",
+          "putaway",
+          "holster"
+        ],
+        "melee": [
+          "melee",
+          "knife",
+          "bash"
+        ]
+      },
+      "notes": []
+    },
+    "gewehr": {
+      "desired_source_lane": "cod_zombies_mapmod",
+      "status": "MISSING",
+      "runtime": {
+        "viewmodel": "res://assets/weapons/mapmod/gewehr/viewmodel.glb",
+        "worldmodel": "res://assets/weapons/mapmod/gewehr/worldmodel.glb",
+        "audio": {
+          "fire": "res://assets/audio/weapons/mapmod/gewehr/fire.ogg",
+          "reload": "res://assets/audio/weapons/mapmod/gewehr/reload.ogg",
+          "mechanical": "res://assets/audio/weapons/mapmod/gewehr/mechanical.ogg",
+          "dry_fire": "res://assets/audio/weapons/mapmod/gewehr/dry_fire.ogg"
+        }
+      },
+      "required_animation_aliases": {
+        "idle": [
+          "idle"
+        ],
+        "fire": [
+          "fire",
+          "shoot"
+        ],
+        "ads_in": [
+          "ads_in",
+          "ads_up",
+          "aim_in"
+        ],
+        "ads_out": [
+          "ads_out",
+          "ads_down",
+          "aim_out"
+        ],
+        "reload": [
+          "reload"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "draw"
+        ],
+        "lower": [
+          "lower",
+          "putaway",
+          "holster"
+        ],
+        "melee": [
+          "melee",
+          "knife",
+          "bash"
+        ]
+      },
+      "notes": []
+    },
+    "m1a1": {
+      "desired_source_lane": "cod_zombies_mapmod",
+      "status": "MISSING",
+      "runtime": {
+        "viewmodel": "res://assets/weapons/mapmod/m1a1/viewmodel.glb",
+        "worldmodel": "res://assets/weapons/mapmod/m1a1/worldmodel.glb",
+        "audio": {
+          "fire": "res://assets/audio/weapons/mapmod/m1a1/fire.ogg",
+          "reload": "res://assets/audio/weapons/mapmod/m1a1/reload.ogg",
+          "mechanical": "res://assets/audio/weapons/mapmod/m1a1/mechanical.ogg",
+          "dry_fire": "res://assets/audio/weapons/mapmod/m1a1/dry_fire.ogg"
+        }
+      },
+      "required_animation_aliases": {
+        "idle": [
+          "idle"
+        ],
+        "fire": [
+          "fire",
+          "shoot"
+        ],
+        "ads_in": [
+          "ads_in",
+          "ads_up",
+          "aim_in"
+        ],
+        "ads_out": [
+          "ads_out",
+          "ads_down",
+          "aim_out"
+        ],
+        "reload": [
+          "reload"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "draw"
+        ],
+        "lower": [
+          "lower",
+          "putaway",
+          "holster"
+        ],
+        "melee": [
+          "melee",
+          "knife",
+          "bash"
+        ]
+      },
+      "notes": []
+    },
+    "mg42": {
+      "desired_source_lane": "cod_zombies_mapmod",
+      "status": "MISSING",
+      "runtime": {
+        "viewmodel": "res://assets/weapons/mapmod/mg42/viewmodel.glb",
+        "worldmodel": "res://assets/weapons/mapmod/mg42/worldmodel.glb",
+        "audio": {
+          "fire": "res://assets/audio/weapons/mapmod/mg42/fire.ogg",
+          "reload": "res://assets/audio/weapons/mapmod/mg42/reload.ogg",
+          "mechanical": "res://assets/audio/weapons/mapmod/mg42/mechanical.ogg",
+          "dry_fire": "res://assets/audio/weapons/mapmod/mg42/dry_fire.ogg"
+        }
+      },
+      "required_animation_aliases": {
+        "idle": [
+          "idle"
+        ],
+        "fire": [
+          "fire",
+          "shoot"
+        ],
+        "ads_in": [
+          "ads_in",
+          "ads_up",
+          "aim_in"
+        ],
+        "ads_out": [
+          "ads_out",
+          "ads_down",
+          "aim_out"
+        ],
+        "reload": [
+          "reload"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "draw"
+        ],
+        "lower": [
+          "lower",
+          "putaway",
+          "holster"
+        ],
+        "melee": [
+          "melee",
+          "knife",
+          "bash"
+        ]
+      },
+      "notes": []
+    },
+    "ppsh": {
+      "desired_source_lane": "cod_zombies_mapmod",
+      "status": "MISSING",
+      "runtime": {
+        "viewmodel": "res://assets/weapons/mapmod/ppsh/viewmodel.glb",
+        "worldmodel": "res://assets/weapons/mapmod/ppsh/worldmodel.glb",
+        "audio": {
+          "fire": "res://assets/audio/weapons/mapmod/ppsh/fire.ogg",
+          "reload": "res://assets/audio/weapons/mapmod/ppsh/reload.ogg",
+          "mechanical": "res://assets/audio/weapons/mapmod/ppsh/mechanical.ogg",
+          "dry_fire": "res://assets/audio/weapons/mapmod/ppsh/dry_fire.ogg"
+        }
+      },
+      "required_animation_aliases": {
+        "idle": [
+          "idle"
+        ],
+        "fire": [
+          "fire",
+          "shoot"
+        ],
+        "ads_in": [
+          "ads_in",
+          "ads_up",
+          "aim_in"
+        ],
+        "ads_out": [
+          "ads_out",
+          "ads_down",
+          "aim_out"
+        ],
+        "reload": [
+          "reload"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "draw"
+        ],
+        "lower": [
+          "lower",
+          "putaway",
+          "holster"
+        ],
+        "melee": [
+          "melee",
+          "knife",
+          "bash"
+        ]
+      },
+      "notes": []
+    },
+    "ptrs": {
+      "desired_source_lane": "cod_zombies_mapmod",
+      "status": "MISSING",
+      "runtime": {
+        "viewmodel": "res://assets/weapons/mapmod/ptrs/viewmodel.glb",
+        "worldmodel": "res://assets/weapons/mapmod/ptrs/worldmodel.glb",
+        "audio": {
+          "fire": "res://assets/audio/weapons/mapmod/ptrs/fire.ogg",
+          "reload": "res://assets/audio/weapons/mapmod/ptrs/reload.ogg",
+          "mechanical": "res://assets/audio/weapons/mapmod/ptrs/mechanical.ogg",
+          "dry_fire": "res://assets/audio/weapons/mapmod/ptrs/dry_fire.ogg"
+        }
+      },
+      "required_animation_aliases": {
+        "idle": [
+          "idle"
+        ],
+        "fire": [
+          "fire",
+          "shoot"
+        ],
+        "ads_in": [
+          "ads_in",
+          "ads_up",
+          "aim_in"
+        ],
+        "ads_out": [
+          "ads_out",
+          "ads_down",
+          "aim_out"
+        ],
+        "reload": [
+          "reload"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "draw"
+        ],
+        "lower": [
+          "lower",
+          "putaway",
+          "holster"
+        ],
+        "melee": [
+          "melee",
+          "knife",
+          "bash"
+        ]
+      },
+      "notes": []
+    },
+    "stg": {
+      "desired_source_lane": "cod_zombies_mapmod",
+      "status": "MISSING",
+      "runtime": {
+        "viewmodel": "res://assets/weapons/mapmod/stg/viewmodel.glb",
+        "worldmodel": "res://assets/weapons/mapmod/stg/worldmodel.glb",
+        "audio": {
+          "fire": "res://assets/audio/weapons/mapmod/stg/fire.ogg",
+          "reload": "res://assets/audio/weapons/mapmod/stg/reload.ogg",
+          "mechanical": "res://assets/audio/weapons/mapmod/stg/mechanical.ogg",
+          "dry_fire": "res://assets/audio/weapons/mapmod/stg/dry_fire.ogg"
+        }
+      },
+      "required_animation_aliases": {
+        "idle": [
+          "idle"
+        ],
+        "fire": [
+          "fire",
+          "shoot"
+        ],
+        "ads_in": [
+          "ads_in",
+          "ads_up",
+          "aim_in"
+        ],
+        "ads_out": [
+          "ads_out",
+          "ads_down",
+          "aim_out"
+        ],
+        "reload": [
+          "reload"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "draw"
+        ],
+        "lower": [
+          "lower",
+          "putaway",
+          "holster"
+        ],
+        "melee": [
+          "melee",
+          "knife",
+          "bash"
+        ]
+      },
+      "notes": []
+    },
+    "type100": {
+      "desired_source_lane": "cod_zombies_mapmod",
+      "status": "MISSING",
+      "runtime": {
+        "viewmodel": "res://assets/weapons/mapmod/type100/viewmodel.glb",
+        "worldmodel": "res://assets/weapons/mapmod/type100/worldmodel.glb",
+        "audio": {
+          "fire": "res://assets/audio/weapons/mapmod/type100/fire.ogg",
+          "reload": "res://assets/audio/weapons/mapmod/type100/reload.ogg",
+          "mechanical": "res://assets/audio/weapons/mapmod/type100/mechanical.ogg",
+          "dry_fire": "res://assets/audio/weapons/mapmod/type100/dry_fire.ogg"
+        }
+      },
+      "required_animation_aliases": {
+        "idle": [
+          "idle"
+        ],
+        "fire": [
+          "fire",
+          "shoot"
+        ],
+        "ads_in": [
+          "ads_in",
+          "ads_up",
+          "aim_in"
+        ],
+        "ads_out": [
+          "ads_out",
+          "ads_down",
+          "aim_out"
+        ],
+        "reload": [
+          "reload"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "draw"
+        ],
+        "lower": [
+          "lower",
+          "putaway",
+          "holster"
+        ],
+        "melee": [
+          "melee",
+          "knife",
+          "bash"
+        ]
+      },
+      "notes": []
+    },
+    "springfield": {
+      "desired_source_lane": "cod_zombies_mapmod",
+      "status": "MISSING",
+      "runtime": {
+        "viewmodel": "res://assets/weapons/mapmod/springfield/viewmodel.glb",
+        "worldmodel": "res://assets/weapons/mapmod/springfield/worldmodel.glb",
+        "audio": {
+          "fire": "res://assets/audio/weapons/mapmod/springfield/fire.ogg",
+          "reload": "res://assets/audio/weapons/mapmod/springfield/reload.ogg",
+          "mechanical": "res://assets/audio/weapons/mapmod/springfield/mechanical.ogg",
+          "dry_fire": "res://assets/audio/weapons/mapmod/springfield/dry_fire.ogg"
+        }
+      },
+      "required_animation_aliases": {
+        "idle": [
+          "idle"
+        ],
+        "fire": [
+          "fire",
+          "shoot"
+        ],
+        "ads_in": [
+          "ads_in",
+          "ads_up",
+          "aim_in"
+        ],
+        "ads_out": [
+          "ads_out",
+          "ads_down",
+          "aim_out"
+        ],
+        "reload": [
+          "reload"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "draw"
+        ],
+        "lower": [
+          "lower",
+          "putaway",
+          "holster"
+        ],
+        "melee": [
+          "melee",
+          "knife",
+          "bash"
+        ]
+      },
+      "notes": []
+    },
+    "ray": {
+      "desired_source_lane": "cod_zombies_mapmod",
+      "status": "MISSING",
+      "runtime": {
+        "viewmodel": "res://assets/weapons/mapmod/ray/viewmodel.glb",
+        "worldmodel": "res://assets/weapons/mapmod/ray/worldmodel.glb",
+        "audio": {
+          "fire": "res://assets/audio/weapons/mapmod/ray/fire.ogg",
+          "reload": "res://assets/audio/weapons/mapmod/ray/reload.ogg",
+          "mechanical": "res://assets/audio/weapons/mapmod/ray/mechanical.ogg",
+          "dry_fire": "res://assets/audio/weapons/mapmod/ray/dry_fire.ogg"
+        }
+      },
+      "required_animation_aliases": {
+        "idle": [
+          "idle"
+        ],
+        "fire": [
+          "fire",
+          "shoot"
+        ],
+        "ads_in": [
+          "ads_in",
+          "ads_up",
+          "aim_in"
+        ],
+        "ads_out": [
+          "ads_out",
+          "ads_down",
+          "aim_out"
+        ],
+        "reload": [
+          "reload"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "draw"
+        ],
+        "lower": [
+          "lower",
+          "putaway",
+          "holster"
+        ],
+        "melee": [
+          "melee",
+          "knife",
+          "bash"
+        ]
+      },
+      "notes": []
+    },
+    "raymk2": {
+      "desired_source_lane": "cod_zombies_mapmod",
+      "status": "MISSING",
+      "runtime": {
+        "viewmodel": "res://assets/weapons/mapmod/raymk2/viewmodel.glb",
+        "worldmodel": "res://assets/weapons/mapmod/raymk2/worldmodel.glb",
+        "audio": {
+          "fire": "res://assets/audio/weapons/mapmod/raymk2/fire.ogg",
+          "reload": "res://assets/audio/weapons/mapmod/raymk2/reload.ogg",
+          "mechanical": "res://assets/audio/weapons/mapmod/raymk2/mechanical.ogg",
+          "dry_fire": "res://assets/audio/weapons/mapmod/raymk2/dry_fire.ogg"
+        }
+      },
+      "required_animation_aliases": {
+        "idle": [
+          "idle"
+        ],
+        "fire": [
+          "fire",
+          "shoot"
+        ],
+        "ads_in": [
+          "ads_in",
+          "ads_up",
+          "aim_in"
+        ],
+        "ads_out": [
+          "ads_out",
+          "ads_down",
+          "aim_out"
+        ],
+        "reload": [
+          "reload"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "draw"
+        ],
+        "lower": [
+          "lower",
+          "putaway",
+          "holster"
+        ],
+        "melee": [
+          "melee",
+          "knife",
+          "bash"
+        ]
+      },
+      "notes": []
+    },
+    "tesla": {
+      "desired_source_lane": "cod_zombies_mapmod",
+      "status": "MISSING",
+      "runtime": {
+        "viewmodel": "res://assets/weapons/mapmod/tesla/viewmodel.glb",
+        "worldmodel": "res://assets/weapons/mapmod/tesla/worldmodel.glb",
+        "audio": {
+          "fire": "res://assets/audio/weapons/mapmod/tesla/fire.ogg",
+          "reload": "res://assets/audio/weapons/mapmod/tesla/reload.ogg",
+          "mechanical": "res://assets/audio/weapons/mapmod/tesla/mechanical.ogg",
+          "dry_fire": "res://assets/audio/weapons/mapmod/tesla/dry_fire.ogg"
+        }
+      },
+      "required_animation_aliases": {
+        "idle": [
+          "idle"
+        ],
+        "fire": [
+          "fire",
+          "shoot"
+        ],
+        "ads_in": [
+          "ads_in",
+          "ads_up",
+          "aim_in"
+        ],
+        "ads_out": [
+          "ads_out",
+          "ads_down",
+          "aim_out"
+        ],
+        "reload": [
+          "reload"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "draw"
+        ],
+        "lower": [
+          "lower",
+          "putaway",
+          "holster"
+        ],
+        "melee": [
+          "melee",
+          "knife",
+          "bash"
+        ]
+      },
+      "notes": []
+    }
+  }
+}
