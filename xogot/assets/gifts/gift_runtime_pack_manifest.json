@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "status": "PACKED_AND_VALIDATED_LOCAL",
+  "install_root": "xogot/assets/gifts_split",
+  "policy": {
+    "geometry": "No decimation; every source triangle conserved exactly once",
+    "textures": "Original 4096x4096 Color/ORM/NormalGL bytes shared once per bundle",
+    "collisions": "Visual-only until per-placement proxies are authored",
+    "runtime": "Load only individual Model_XX.glb files; never spawn original fused bundle"
+  },
+  "totals": {
+    "bundles": 8,
+    "models": 104,
+    "triangles": 14986049,
+    "runtime_bytes": 475893851
+  },
+  "packs": [
+    {
+      "bundle": "altar",
+      "models": 9,
+      "triangles": 1887306,
+      "archive": "altar.zip",
+      "archive_bytes": 34190310,
+      "sha256": "427a6cd1cc5f54e4dec0fec72761872955b9d5820cd4761d48b247ea79decd5f"
+    },
+    {
+      "bundle": "candleholders",
+      "models": 19,
+      "triangles": 1943359,
+      "archive": "candleholders.zip",
+      "archive_bytes": 29287787,
+      "sha256": "3627fcd408fdac84594edb4cc40d8c7ce28e5e580e1e6aca4878e31f7c801d6f"
+    },
+    {
+      "bundle": "chandeliers",
+      "models": 11,
+      "triangles": 1822876,
+      "archive": "chandeliers.zip",
+      "archive_bytes": 27714734,
+      "sha256": "51343ba8401df1e562a6e6b89730c05a9bb1d74f399418ddda45bd44162792d3"
+    },
+    {
+      "bundle": "furniture",
+      "models": 12,
+      "triangles": 1800523,
+      "archive": "furniture.zip",
+      "archive_bytes": 28387042,
+      "sha256": "2d26885f668d9bb019c0495d235888d3c1eccc92e941a97f6dc5edc8e08b5ddd"
+    },
+    {
+      "bundle": "ruins",
+      "models": 29,
+      "triangles": 1719764,
+      "archive": "ruins.zip",
+      "archive_bytes": 29010402,
+      "sha256": "011a889e61bbd5fc4fdbee8aa197aacfe97d15ae6e2d0425350a235bf47a7348"
+    },
+    {
+      "bundle": "stained_multi",
+      "models": 11,
+      "triangles": 1905082,
+      "archive": "stained_multi.zip",
+      "archive_bytes": 35081917,
+      "sha256": "c208d73bf2a7a2563237b8a85a49411f185322cb4c681427b375e47cc87622f5"
+    },
+    {
+      "bundle": "stained_single",
+      "models": 1,
+      "triangles": 1957621,
+      "archive": "stained_single.zip",
+      "archive_bytes": 33673281,
+      "sha256": "37248a62c128ae8536809cd91da2c7ba3f98ea569617b323c7fa6444377f33fe"
+    },
+    {
+      "bundle": "statues",
+      "models": 12,
+      "triangles": 1949518,
+      "archive": "statues.zip",
+      "archive_bytes": 33522358,
+      "sha256": "35da7f3908a8214ed3a323b21c000116e7089509452b593b9d6177c57c0c64f7"
+    }
+  ]
+}
