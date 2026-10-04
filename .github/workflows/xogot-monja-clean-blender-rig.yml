@@ -6,7 +6,7 @@ on:
     branches:
       - feature/church-expansion-v1
     paths:
-      - "xogot/tools/author_monja_clean_blender_rig.py"
+      - "xogot/tools/author_monja_source_pose_rig.py"
       - ".github/workflows/xogot-monja-clean-blender-rig.yml"
 
 permissions:
@@ -37,18 +37,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf xogot/build/monja-clean-blender-rig
-          mkdir -p xogot/build/monja-clean-blender-rig
-          timeout 2700 blender -b --python xogot/tools/author_monja_clean_blender_rig.py             2>&1 | tee xogot/build/monja-clean-blender-rig/blender.log
-          grep -q "XZOGOT_MONJA_CLEAN_BINDPOSE_GREEN" xogot/build/monja-clean-blender-rig/blender.log
-          grep -q "XZOGOT_MONJA_CLEAN_WEIGHTS_GREEN" xogot/build/monja-clean-blender-rig/blender.log
-          grep -q "XZOGOT_MONJA_CLEAN_ACTIONS_GREEN" xogot/build/monja-clean-blender-rig/blender.log
-          grep -q "XZOGOT_MONJA_CLEAN_GEOMETRY_GREEN" xogot/build/monja-clean-blender-rig/blender.log
-          grep -q "XZOGOT_MONJA_CLEAN_RIG_GREEN" xogot/build/monja-clean-blender-rig/blender.log
-          test -s xogot/build/monja-clean-blender-rig/monja_basica_clean_rig.glb
-          test -s xogot/build/monja-clean-blender-rig/bind_pose.png
-          test -s xogot/build/monja-clean-blender-rig/walk_mid.png
-          test -s xogot/build/monja-clean-blender-rig/report.json
+          rm -rf xogot/build/monja-source-pose-rig
+          mkdir -p xogot/build/monja-source-pose-rig
+          timeout 2700 blender -b --python xogot/tools/author_monja_source_pose_rig.py             2>&1 | tee xogot/build/monja-source-pose-rig/blender.log
+          grep -q "XZOGOT_MONJA_SOURCE_POSE_RIG_GREEN" xogot/build/monja-source-pose-rig/blender.log
+          grep -q "XZOGOT_MONJA_SOURCE_POSE_WEIGHTS_GREEN" xogot/build/monja-source-pose-rig/blender.log
+          grep -q "XZOGOT_MONJA_SOURCE_POSE_ANIMS_GREEN" xogot/build/monja-source-pose-rig/blender.log
+          grep -q "XZOGOT_MONJA_SOURCE_POSE_GEOMETRY_GREEN" xogot/build/monja-source-pose-rig/blender.log
+          grep -q "XZOGOT_MONJA_SOURCE_POSE_MATCH_GREEN" xogot/build/monja-source-pose-rig/blender.log
+          test -s xogot/build/monja-source-pose-rig/monja_basica_clean_rig.glb
+          test -s xogot/build/monja-source-pose-rig/bind_pose.png
+          test -s xogot/build/monja-source-pose-rig/walk_mid.png
+          test -s xogot/build/monja-source-pose-rig/report.json
 
       - name: Validate clean rig report
         shell: bash
@@ -57,15 +57,16 @@ jobs:
           python3 - <<'PY'
           import json
           from pathlib import Path
-          r=json.loads(Path("xogot/build/monja-clean-blender-rig/report.json").read_text())
+          r=json.loads(Path("xogot/build/monja-source-pose-rig/report.json").read_text())
           assert r["geometry_conserved"] is True
           assert r["armatures"] == 1
           assert r["bones"] >= 20
-          assert r["rig_mode"] == "smooth_weighted_humanoid_bind_pose"
+          assert r["rig_mode"] == "source_pose_smooth_weighted_humanoid"
           assert r["old_rigid_region_parenting"] is False
           assert all(x["coverage"] >= 0.98 for x in r["weight_transfer"])
           assert len(r["baked"]) >= 3
-          print("XZOGOT_MONJA_CLEAN_REPORT_GREEN",r["bones"],r["output_bytes"])
+          assert r["pose_match"]["validated"] is True
+          print("XZOGOT_MONJA_SOURCE_POSE_REPORT_GREEN",r["bones"],r["output_bytes"])
           PY
 
       - name: Stage clean rig candidate
@@ -74,20 +75,20 @@ jobs:
           python3 - <<'PY'
           import json
           from pathlib import Path
-          r=json.loads(Path("xogot/build/monja-clean-blender-rig/report.json").read_text())
+          r=json.loads(Path("xogot/build/monja-source-pose-rig/report.json").read_text())
           assert r.get("pose_match",{}).get("validated") is True, "Refusing to promote clean Monja until source-pose match is validated"
           print("XZOGOT_MONJA_POSE_MATCH_PROMOTION_GREEN")
           PY
           set -euo pipefail
-          SIZE=$(stat -c%s xogot/build/monja-clean-blender-rig/monja_basica_clean_rig.glb)
+          SIZE=$(stat -c%s xogot/build/monja-source-pose-rig/monja_basica_clean_rig.glb)
           mkdir -p xogot/assets/zombies/monja_clean
-          cp xogot/build/monja-clean-blender-rig/report.json xogot/assets/zombies/monja_clean/report.json
+          cp xogot/build/monja-source-pose-rig/report.json xogot/assets/zombies/monja_clean/report.json
           if [ "$SIZE" -lt 95000000 ]; then
-            cp xogot/build/monja-clean-blender-rig/monja_basica_clean_rig.glb xogot/assets/zombies/monja_clean/monja_basica_clean_rig.glb
+            cp xogot/build/monja-source-pose-rig/monja_basica_clean_rig.glb xogot/assets/zombies/monja_clean/monja_basica_clean_rig.glb
             echo "COMMIT_CLEAN_RIG=1" >> "$GITHUB_ENV"
           else
             echo "COMMIT_CLEAN_RIG=0" >> "$GITHUB_ENV"
-            echo "Clean rig is too large for normal Git; artifact only."
+            echo "Source-pose rig is too large for normal Git; artifact only."
           fi
 
       - name: Commit clean rig candidate
@@ -100,7 +101,7 @@ jobs:
           git pull --rebase origin feature/church-expansion-v1
           git add xogot/assets/zombies/monja_clean/
           if ! git diff --cached --quiet; then
-            git commit -m "asset: add clean Blender-rigged Monja candidate"
+            git commit -m "asset: add source-pose Blender-rigged Monja"
             git push origin HEAD:feature/church-expansion-v1
           fi
 
@@ -108,7 +109,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: monja-clean-blender-rig
-          path: xogot/build/monja-clean-blender-rig/
+          name: monja-source-pose-rig
+          path: xogot/build/monja-source-pose-rig/
           if-no-files-found: warn
           retention-days: 14
