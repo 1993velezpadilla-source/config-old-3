@@ -1224,14 +1224,19 @@ func _host_zombie_by_id(zombie_id: String) -> Node:
 			return zombie
 	return null
 
-func _ensure_network_zombie(zombie_id: String) -> Node:
+func _ensure_network_zombie(zombie_id: String, enemy_variant: String = "normal") -> Node:
 	if _network_zombies.has(zombie_id):
 		var existing: Node = _network_zombies[zombie_id] as Node
 		if is_instance_valid(existing):
-			return existing
+			var existing_variant: String = str(existing.get_meta("enemy_variant", "normal"))
+			if existing_variant == enemy_variant:
+				return existing
+			_remove_network_zombie(zombie_id)
 	var zombie := CharacterBody3D.new()
 	zombie.name = zombie_id
 	zombie.set_script(ZOMBIE_SCRIPT)
+	zombie.set("enemy_variant", enemy_variant)
+	zombie.set_meta("enemy_variant", enemy_variant)
 	zombie.set_meta("network_proxy_boot", true)
 	get_parent().add_child(zombie)
 	zombie.call("set_network_proxy_mode", true)
@@ -1267,6 +1272,7 @@ func _broadcast_zombie_states() -> void:
 			int(zombie.call("get_phase")) if zombie.has_method("get_phase") else 0,
 			bool(zombie.call("is_crawler")) if zombie.has_method("is_crawler") else false,
 			bool(zombie.call("is_headless")) if zombie.has_method("is_headless") else false,
+			str(zombie.get_meta("enemy_variant", "normal")),
 		])
 	rpc("_client_receive_zombie_states", states)
 
@@ -1282,8 +1288,9 @@ func _client_receive_zombie_states(states: Array) -> void:
 		if state.size() < 7:
 			continue
 		var zombie_id: String = str(state[0])
+		var enemy_variant: String = str(state[7]) if state.size() >= 8 else "normal"
 		seen[zombie_id] = true
-		var zombie: Node = _ensure_network_zombie(zombie_id)
+		var zombie: Node = _ensure_network_zombie(zombie_id, enemy_variant)
 		if zombie != null and zombie.has_method("apply_network_proxy_state"):
 			zombie.call(
 				"apply_network_proxy_state",
