@@ -345,6 +345,8 @@ func spawn_from_barricade(barricade: Node) -> Node:
 	var player: Node3D = get_tree().get_first_node_in_group("player") as Node3D
 	if player == null or barricade == null:
 		return null
+	if _alive >= get_simultaneous_cap():
+		return null
 	var script_resource: Script = load("res://scripts/zombie_dummy.gd") as Script
 	var zombie := CharacterBody3D.new()
 	_spawn_serial += 1
@@ -365,7 +367,10 @@ func spawn_from_barricade(barricade: Node) -> Node:
 	_remember_spawn("window:" + barricade.name)
 	return zombie
 
-func _on_zombie_died(_zombie: Node) -> void:
+func _on_zombie_died(zombie: Node) -> void:
+	var powerups: Node = get_tree().get_first_node_in_group("xz_powerup_manager")
+	if powerups != null and powerups.has_method("register_zombie_kill"):
+		powerups.call("register_zombie_kill", zombie)
 	_alive = maxi(0, _alive - 1)
 	if _remaining_to_spawn == 0 and _alive == 0:
 		_break_timer = round_break
