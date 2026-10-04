@@ -64,6 +64,7 @@ def start_room():
     env = os.environ.copy()
     env["PORT"] = str(port)
     env["XZ_RELAY_ROOM_ID"] = room_id
+    env["XZOGOT_DEDICATED"] = "1"
     cmd = [
         GODOT_BIN,
         "--headless",

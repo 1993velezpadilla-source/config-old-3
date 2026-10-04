@@ -192,10 +192,13 @@ func host_game(port: int = DEFAULT_PORT, private_session: bool = true) -> Error:
 	print("XZOGOT_NETWORK_HOST_READY port=", port, " slots=", MAX_PLAYERS, " private=", private_session)
 	return OK
 
-func host_websocket_dedicated(port: int) -> Error:
+func host_websocket_dedicated(port: int, bind_address: String = "*") -> Error:
 	leave_game()
 	var next_peer := WebSocketMultiplayerPeer.new()
-	var err: Error = next_peer.create_server(port, "*")
+	var clean_bind := bind_address.strip_edges()
+	if clean_bind.is_empty():
+		clean_bind = "*"
+	var err: Error = next_peer.create_server(port, clean_bind)
 	if err != OK:
 		network_error.emit("WS_HOST_FAILED_%d" % int(err))
 		print("XZOGOT_WS_HOST_FAIL ", err)
@@ -217,7 +220,7 @@ func host_websocket_dedicated(port: int) -> Error:
 	_set_client_simulation(false)
 	session_state_changed.emit(_mode)
 	_emit_roster()
-	print("XZOGOT_WS_DEDICATED_READY port=", port, " human_slots=", MAX_PLAYERS)
+	print("XZOGOT_WS_DEDICATED_READY port=", port, " bind=", clean_bind, " human_slots=", MAX_PLAYERS)
 	return OK
 
 func join_websocket_game(url: String) -> Error:

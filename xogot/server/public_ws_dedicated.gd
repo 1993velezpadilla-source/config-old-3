@@ -12,9 +12,9 @@ func _room_id() -> String:
 	return room_id if not room_id.is_empty() else "default"
 
 func _run() -> void:
-	var packed := load("res://main.tscn") as PackedScene
+	var packed := load("res://server/dedicated_main.tscn") as PackedScene
 	if packed == null:
-		push_error("XZOGOT_PUBLIC_RELAY_MAIN_MISSING")
+		push_error("XZOGOT_PUBLIC_RELAY_DEDICATED_SCENE_MISSING")
 		quit(2)
 		return
 	var scene := packed.instantiate()
@@ -28,9 +28,10 @@ func _run() -> void:
 		return
 	var port := _port()
 	var room_id := _room_id()
-	var err: Error = network.call("host_websocket_dedicated", port) as Error
+	var err: Error = network.call("host_websocket_dedicated", port, "127.0.0.1") as Error
 	if err != OK:
 		push_error("XZOGOT_PUBLIC_RELAY_BIND_FAILED_" + str(err))
 		quit(4)
 		return
+	print("XZOGOT_PUBLIC_RELAY_HEADLESS_SCENE_GREEN room=", room_id)
 	print("XZOGOT_PUBLIC_RELAY_READY room=", room_id, " port=", port, " human_slots=4")
