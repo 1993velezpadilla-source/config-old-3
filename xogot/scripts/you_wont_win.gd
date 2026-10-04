@@ -183,7 +183,21 @@ func _build_environment() -> void:
 
 func _build_site() -> void:
 	# Expansion V1 needs a real training loop around the full church, not a decorative strip.
-	_box("Ground", Vector3(112, 0.5, 118), Vector3(0, -0.25, -4), Color(0.035, 0.04, 0.045))
+	# Segment the exterior terrain around the crypt shaft. The old monolithic
+	# 112x118 slab physically sealed every underground route at y=0.
+	var ground_color := Color(0.035, 0.04, 0.045)
+	_box("Ground", Vector3(70.6, 0.5, 118.0), Vector3(-20.7, -0.25, -4.0), ground_color)
+	_box("GroundEast", Vector3(38.6, 0.5, 118.0), Vector3(36.7, -0.25, -4.0), ground_color)
+	_box("GroundCryptNorth", Vector3(2.8, 0.5, 53.8), Vector3(16.0, -0.25, 28.1), ground_color)
+	_box("GroundCryptSouth", Vector3(2.8, 0.5, 55.0), Vector3(16.0, -0.25, -35.5), ground_color)
+	var crypt_shaft := Marker3D.new()
+	crypt_shaft.name = "CryptGroundShaft"
+	crypt_shaft.position = _wp(Vector3(16.0, -0.10, -3.4))
+	crypt_shaft.add_to_group("crypt_traversal_shaft")
+	crypt_shaft.set_meta("opening_width_m", 2.8)
+	crypt_shaft.set_meta("opening_z_min_m", -8.0)
+	crypt_shaft.set_meta("opening_z_max_m", 1.2)
+	add_child(crypt_shaft)
 	_box("ChurchFloor", Vector3(22, 0.45, 38), Vector3(0, 0.22, -5), Color(0.12, 0.105, 0.085))
 	_box("FrontWalk", Vector3(6, 0.20, 14), Vector3(0, 0.10, 21), Color(0.13, 0.13, 0.135))
 	for i in range(4):
@@ -201,7 +215,11 @@ func _build_expansion_v1() -> void:
 	# a few centimeters so the player never catches an edge while sprinting.
 	_box("FrontCourtyardFloor", Vector3(36.0, 0.16, 21.0), Vector3(0.0, 0.08, 25.0), yard_stone)
 	_box("WestOuterLoopFloor", Vector3(10.0, 0.16, 72.0), Vector3(-17.0, 0.08, -3.0), yard_stone)
-	_box("EastOuterLoopFloor", Vector3(10.0, 0.16, 72.0), Vector3(17.0, 0.08, -3.0), yard_stone)
+	# Preserve the same shaft through the raised east-loop paving.
+	_box("EastOuterLoopFloor", Vector3(2.6, 0.16, 72.0), Vector3(13.3, 0.08, -3.0), yard_stone)
+	_box("EastOuterLoopFloorEast", Vector3(4.6, 0.16, 72.0), Vector3(19.7, 0.08, -3.0), yard_stone)
+	_box("EastOuterLoopFloorCryptNorth", Vector3(2.8, 0.16, 31.8), Vector3(16.0, 0.08, 17.1), yard_stone)
+	_box("EastOuterLoopFloorCryptSouth", Vector3(2.8, 0.16, 31.0), Vector3(16.0, 0.08, -23.5), yard_stone)
 	_box("RearRuinsYardFloor", Vector3(42.0, 0.16, 20.0), Vector3(0.0, 0.08, -34.0), yard_stone)
 	_box("WestTrainingPad", Vector3(16.0, 0.18, 18.0), Vector3(-25.0, 0.09, -19.0), yard_stone)
 	_box("EastTrainingPad", Vector3(16.0, 0.18, 18.0), Vector3(25.0, 0.09, -19.0), yard_stone)
@@ -288,7 +306,9 @@ func _build_side_rooms_v1(stone: Color, dark_stone: Color, timber: Color) -> voi
 	_box("CryptAccessFloorWest", Vector3(3.60, 0.20, 8.0), Vector3(12.80, 0.10, -3.0), crypt_floor_color)
 	_box("CryptAccessFloorEast", Vector3(1.60, 0.20, 8.0), Vector3(18.20, 0.10, -3.0), crypt_floor_color)
 	_box("CryptOuterWall", Vector3(0.55, 4.2, 8.0), Vector3(18.8, 2.1, -3.0), stone)
-	_box("CryptCapNorth", Vector3(8.0, 4.2, 0.55), Vector3(15.0, 2.1, -6.8), dark_stone)
+	# Split the basement-side cap wall around the same 2.8m ramp opening.
+	_box("CryptCapNorthWest", Vector3(3.60, 4.2, 0.55), Vector3(12.80, 2.1, -6.8), dark_stone)
+	_box("CryptCapNorthEast", Vector3(1.60, 4.2, 0.55), Vector3(18.20, 2.1, -6.8), dark_stone)
 	_box("CryptCapSouth", Vector3(8.0, 4.2, 0.55), Vector3(15.0, 2.1, 0.8), dark_stone)
 	_build_expansion_ramp(
 		"CryptRamp",
