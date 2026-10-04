@@ -7,11 +7,29 @@ var lifetime: float = 30.0
 var _base_y: float = 0.0
 var _age: float = 0.0
 var _collected: bool = false
+var _network_proxy: bool = false
 
 func configure(powerup_kind: String, owner_manager: Node, seconds: float = 30.0) -> void:
 	kind = powerup_kind
 	manager = owner_manager
 	lifetime = seconds
+	_network_proxy = false
+
+func configure_network_proxy(powerup_kind: String, seconds: float = 30.0) -> void:
+	kind = powerup_kind
+	manager = null
+	lifetime = seconds
+	_network_proxy = true
+	set_meta("network_proxy", true)
+
+func is_network_proxy() -> bool:
+	return _network_proxy
+
+func get_powerup_kind() -> String:
+	return kind
+
+func get_lifetime() -> float:
+	return lifetime
 
 func _ready() -> void:
 	add_to_group("xz_powerup_pickup")
@@ -88,6 +106,9 @@ func _process(delta: float) -> void:
 	if lifetime <= 0.0:
 		print("XZOGOT_POWERUP_DROP_EXPIRED ", kind)
 		queue_free()
+		return
+
+	if _network_proxy:
 		return
 
 	for player: Node in get_tree().get_nodes_in_group("player"):
