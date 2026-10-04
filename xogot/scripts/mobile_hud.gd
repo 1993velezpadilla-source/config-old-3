@@ -128,6 +128,63 @@ func _draw_joystick() -> void:
 		0.88
 	)
 
+func _draw_round_tally(origin: Vector2, round_number: int, alpha: float) -> void:
+	var scratch := Color(0.92, 0.92, 0.88, alpha)
+	var shadow := Color(0.0, 0.0, 0.0, alpha * 0.72)
+	var line_h: float = 28.0
+	var spacing: float = 8.0
+	var shown: int = mini(round_number, 5)
+	for i in range(shown):
+		if i < 4:
+			var x: float = origin.x + float(i) * spacing
+			draw_line(Vector2(x + 2.0, origin.y + 1.0), Vector2(x - 1.0, origin.y + line_h), shadow, 4.0)
+			draw_line(Vector2(x, origin.y), Vector2(x - 3.0, origin.y + line_h), scratch, 2.2)
+		else:
+			draw_line(origin + Vector2(-2.0, line_h - 4.0), origin + Vector2(spacing * 3.0 + 4.0, 4.0), shadow, 4.0)
+			draw_line(origin + Vector2(-4.0, line_h - 6.0), origin + Vector2(spacing * 3.0 + 2.0, 2.0), scratch, 2.2)
+
+func _draw_round_counter() -> void:
+	if _round_manager == null or not _round_manager.has_method("get_round"):
+		return
+	var round_number: int = int(_round_manager.call("get_round"))
+	if round_number <= 0:
+		return
+
+	var between: bool = (
+		_round_manager.has_method("is_between_rounds")
+		and bool(_round_manager.call("is_between_rounds"))
+	)
+	var pulse: float = 1.0
+	if between and _round_manager.has_method("get_round_break_remaining"):
+		var remaining: float = float(_round_manager.call("get_round_break_remaining"))
+		pulse = 0.48 + absf(sin(remaining * 5.0)) * 0.52
+
+	var origin := Vector2(size.x * 0.048, size.y * 0.79)
+	if round_number <= 5:
+		_draw_round_tally(origin, round_number, 0.92 * pulse)
+	else:
+		var font: Font = ThemeDB.fallback_font
+		var text_value := str(round_number)
+		var font_size: int = maxi(28, int(size.y * 0.048))
+		draw_string(
+			font,
+			origin + Vector2(2.0, 30.0),
+			text_value,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1,
+			font_size,
+			Color(0.0, 0.0, 0.0, 0.78 * pulse)
+		)
+		draw_string(
+			font,
+			origin + Vector2(0.0, 28.0),
+			text_value,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1,
+			font_size,
+			Color(0.92, 0.92, 0.88, 0.94 * pulse)
+		)
+
 func _draw() -> void:
 	var s: Vector2 = size
 	var white := Color(1.0, 1.0, 1.0, 0.72)
@@ -266,10 +323,6 @@ func _draw() -> void:
 		draw_rect(Rect2(health_pos, health_size), Color(1.0, 1.0, 1.0, 0.10), true)
 		draw_rect(Rect2(health_pos, Vector2(health_size.x * health_ratio, health_size.y)), combat, true)
 
-	if _round_manager != null and _round_manager.has_method("get_round"):
-		var current_round: int = int(_round_manager.call("get_round"))
-		var round_ratio: float = clampf(float(current_round) / 10.0, 0.0, 1.0)
-		var round_size := Vector2(s.x * 0.12, 5.0)
-		var round_pos := Vector2(s.x * 0.44, s.y * 0.06)
-		draw_rect(Rect2(round_pos, round_size), Color(1.0, 1.0, 1.0, 0.10), true)
-		draw_rect(Rect2(round_pos, Vector2(round_size.x * round_ratio, round_size.y)), white, true)
+	# Real round counter: scratch/tally presentation for the opening rounds,
+	# then a compact numeric counter for high-round readability on mobile.
+	_draw_round_counter()
