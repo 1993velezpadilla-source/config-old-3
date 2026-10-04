@@ -52,6 +52,36 @@ jobs:
           test -s "$RUNNER_TEMP/aether-legacy.pak"
           echo "REPAK=$REPAK" >> "$GITHUB_ENV"
 
+      - name: Inventory every Aether weapon source family
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$REPAK" list "$RUNNER_TEMP/aether-legacy.pak" > aether-all-files.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          prefix="ProjectAether/Content/Assets/Weapons/"
+          families={}
+          examples={}
+          for raw in Path("aether-all-files.txt").read_text(errors="ignore").splitlines():
+              line=raw.strip().replace("\\","/")
+              i=line.find(prefix)
+              if i<0: continue
+              rel=line[i+len(prefix):]
+              parts=[p for p in rel.split("/") if p]
+              if not parts: continue
+              family=parts[0]
+              families[family]=families.get(family,0)+1
+              examples.setdefault(family,[])
+              if len(examples[family])<30:
+                  examples[family].append(rel)
+          out={"family_count":len(families),"families":dict(sorted(families.items())),"examples":examples}
+          Path("aether-all-weapon-source-families.json").write_text(json.dumps(out,indent=2)+"\n")
+          print("XZOGOT_AETHER_ALL_WEAPON_FAMILIES",out["family_count"],out["families"])
+          if not families:
+              raise SystemExit("No Aether weapon source families found")
+          PY
+
       - name: Extract complete base weapon sound bank
         shell: bash
         run: |
@@ -139,6 +169,7 @@ jobs:
           name: aether-full-weapon-audio-inventory
           path: |
             aether-full-weapon-audio-candidates.json
+            aether-all-weapon-source-families.json
             audio-files.txt
           if-no-files-found: error
           retention-days: 14
