@@ -22,6 +22,37 @@ var _used: bool = false
 var _interaction_count: int = 0
 var _last_result: String = ""
 
+var _last_power_visual_state: bool = false
+
+func _ready() -> void:
+	_last_power_visual_state = not bool(get_tree().get_meta("power_on", false))
+	_update_power_visual()
+	set_process(requires_power)
+
+func _process(_delta: float) -> void:
+	if not requires_power:
+		return
+	var power_now: bool = bool(get_tree().get_meta("power_on", false))
+	if power_now != _last_power_visual_state:
+		_update_power_visual()
+
+func _update_power_visual() -> void:
+	var powered: bool = not requires_power or bool(get_tree().get_meta("power_on", false))
+	_last_power_visual_state = powered
+	for node: Node in find_children("*", "", true, false):
+		if not bool(node.get_meta("powered_visual", false)):
+			continue
+		if node is Light3D:
+			(node as Light3D).visible = powered
+		elif node is Label3D:
+			var label := node as Label3D
+			label.modulate.a = 1.0 if powered else 0.18
+		elif node is GeometryInstance3D:
+			var geometry := node as GeometryInstance3D
+			geometry.transparency = 0.0 if powered else 0.68
+	if requires_power:
+		set_meta("powered_visual_on", powered)
+
 func interact(player: Node) -> bool:
 	if _used and one_shot:
 		return false
