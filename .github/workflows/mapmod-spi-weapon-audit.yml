@@ -1,0 +1,54 @@
+name: MapMod SPi Weapon Pack Audit
+
+on:
+  push:
+    branches:
+      - feature/church-expansion-v1
+    paths:
+      - ".github/workflows/mapmod-spi-weapon-audit.yml"
+      - "tools/weapons/audit_spi_weapon_pack.py"
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install audit tools
+        run: |
+          set -euo pipefail
+          python3 -m pip install --user requests
+          sudo apt-get update
+          sudo apt-get install -y p7zip-full file
+
+      - name: Download and audit public MapMod pack
+        run: |
+          set -euo pipefail
+          mkdir -p build/mapmod-spi
+          python3 tools/weapons/audit_spi_weapon_pack.py             --output build/mapmod-spi
+
+      - name: Verify audit result
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          p="build/mapmod-spi/report.json"
+          r=json.load(open(p,encoding="utf-8"))
+          assert r["download"]["bytes"] > 60_000_000, r["download"]
+          assert r["download"]["md5"].lower() == "7d0ba62084a7e304b558722891e81b23", r["download"]
+          assert r["archive"]["entries"] > 0, r["archive"]
+          assert r["weapon_hits"], "no weapon-like paths found"
+          print("XZOGOT_SPI_MAPMOD_AUDIT_GREEN", len(r["weapon_hits"]))
+          PY
+
+      - name: Upload audit report only
+        uses: actions/upload-artifact@v4
+        with:
+          name: mapmod-spi-weapon-audit
+          path: |
+            build/mapmod-spi/report.json
+            build/mapmod-spi/archive-list.txt
+          retention-days: 14
+          if-no-files-found: error
