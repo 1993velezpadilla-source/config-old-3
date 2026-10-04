@@ -37,6 +37,8 @@ var _dry_fire_audio: AudioStreamPlayer3D
 var _asset_animation_player: AnimationPlayer
 var _last_ads_state: bool = false
 var _dev_infinite_ammo: bool = false
+var _upgraded_ids: Dictionary = {}
+var _upgraded: bool = false
 
 @onready var _body: CollisionObject3D = get_parent() as CollisionObject3D
 @onready var _camera: Camera3D = get_parent().get_node("Head/Camera3D") as Camera3D
@@ -267,6 +269,52 @@ func _refresh_view_assets(def: Dictionary) -> void:
 		var dry_path := WeaponAssetRegistry.preferred_audio_path(_weapon_id, "dry_fire")
 		_dry_fire_audio.stream = _load_optional_asset(dry_path) as AudioStream
 
+func _player_modifier(method_name: String, default_value: float = 1.0) -> float:
+	if _body != null and _body.has_method(method_name):
+		return float(_body.call(method_name))
+	return default_value
+
+func _apply_upgrade_stats() -> void:
+	if not _upgraded:
+		return
+	damage *= 1.85
+	fire_interval *= 0.92
+	magazine_size = maxi(magazine_size + 1, int(ceil(float(magazine_size) * 1.35)))
+	reload_time *= 0.90
+	_display_name = "SANCTIFIED " + _display_name
+
+func can_upgrade_current_weapon() -> bool:
+	return not _weapon_id.is_empty() and WeaponCatalog.has_weapon(_weapon_id) and not _upgraded
+
+func upgrade_current_weapon() -> bool:
+	if not can_upgrade_current_weapon():
+		return false
+	_upgraded_ids[_weapon_id] = true
+	var id := _weapon_id
+	if not equip_weapon(id, true):
+		_upgraded_ids.erase(id)
+		return false
+	set_meta("weapon_upgraded", true)
+	print("XZOGOT_WEAPON_SANCTIFIED ", id)
+	return true
+
+func is_upgraded() -> bool:
+	return _upgraded
+
+func get_runtime_stats() -> Dictionary:
+	return {
+		"id": _weapon_id,
+		"display_name": _display_name,
+		"damage": damage,
+		"fire_interval": fire_interval,
+		"magazine_size": magazine_size,
+		"reload_time": reload_time,
+		"hip_spread_deg": _hip_spread_deg,
+		"ads_spread_deg": _ads_spread_deg,
+		"visual_recoil_deg": _visual_recoil_deg,
+		"upgraded": _upgraded,
+	}
+
 func equip_weapon(id: String, refill: bool = true) -> bool:
 	if not WeaponCatalog.has_weapon(id):
 		return false
@@ -286,6 +334,8 @@ func equip_weapon(id: String, refill: bool = true) -> bool:
 	_hip_spread_deg = float(def.get("hip_spread_deg", 1.5))
 	_ads_spread_deg = float(def.get("ads_spread_deg", 0.25))
 	_visual_recoil_deg = float(def.get("visual_recoil_deg", 1.2))
+	_upgraded = bool(_upgraded_ids.get(id, false))
+	_apply_upgrade_stats()
 
 	if refill:
 		_magazine = magazine_size
@@ -303,6 +353,7 @@ func equip_weapon(id: String, refill: bool = true) -> bool:
 
 	set_meta("weapon_id", _weapon_id)
 	set_meta("weapon_family", _family)
+	set_meta("weapon_upgraded", _upgraded)
 	print(
 		"XZOGOT_WEAPON_EQUIPPED ",
 		_weapon_id,
@@ -360,7 +411,7 @@ func request_fire() -> void:
 
 	if not _dev_infinite_ammo:
 		_magazine -= 1
-	_cooldown = fire_interval
+	_cooldown = fire_interval * _player_modifier("get_fire_interval_multiplier")
 	_shots_fired += 1
 	_apply_recoil_impulse()
 	_play_asset_animation("fire", 0.025)
@@ -370,7 +421,7 @@ func request_fire() -> void:
 		_mechanical_audio.play()
 
 	var ads: bool = is_ads_active()
-	var spread: float = _ads_spread_deg if ads else _hip_spread_deg
+	var spread: float = (_ads_spread_deg if ads else _hip_spread_deg) * _player_modifier("get_spread_multiplier")
 	for pellet in range(_pellets):
 		_fire_hitscan(spread, pellet)
 	print("XZOGOT_WEAPON_FIRED ", _weapon_id, " ads=", ads, " pellets=", _pellets)
@@ -384,7 +435,7 @@ func request_reload() -> void:
 		return
 	_reloading = true
 	_trigger_held = false
-	_reload_timer = reload_time
+	_reload_timer = reload_time * _player_modifier("get_reload_multiplier")
 	_play_asset_animation("reload", 0.06)
 	if _reload_audio != null and _reload_audio.stream != null:
 		_reload_audio.play()
@@ -444,12 +495,18 @@ func _fire_hitscan(spread_deg: float, pellet: int) -> void:
 		return
 	var hit_position: Vector3 = hit.get("position", target) as Vector3
 	if collider.has_method("apply_hitscan_damage"):
-		collider.call("apply_hitscan_damage", damage, _body, hit_position)
+		var final_damage: float = damage * _player_modifier("get_weapon_damage_multiplier")
+		collider.call("apply_hitscan_damage", final_damage, _body, hit_position)
 	elif collider.has_method("apply_damage"):
-		collider.call("apply_damage", damage, _body)
+		var final_damage: float = damage * _player_modifier("get_weapon_damage_multiplier")
+		collider.call("apply_damage", final_damage, _body)
 
 func _apply_recoil_impulse() -> void:
-	_visual_recoil_velocity += _visual_recoil_deg * (0.88 if is_ads_active() else 1.0)
+	_visual_recoil_velocity += (
+		_visual_recoil_deg
+		* (0.88 if is_ads_active() else 1.0)
+		* _player_modifier("get_recoil_multiplier")
+	)
 
 func _update_visual_recoil(delta: float) -> void:
 	# Presentation only. Ballistic ray direction/spread was already computed above.
