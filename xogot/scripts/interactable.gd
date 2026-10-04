@@ -5,7 +5,8 @@ enum Kind {
 	WALLBUY,
 	MYSTERY,
 	PERK,
-	POWER
+	POWER,
+	UPGRADE
 }
 
 @export var interaction_kind: Kind = Kind.DOOR
@@ -14,6 +15,8 @@ enum Kind {
 @export var one_shot: bool = true
 @export var prompt_text: String = "INTERACT"
 @export var weapon_id: String = ""
+@export var perk_id: String = ""
+@export var requires_power: bool = false
 
 var _used: bool = false
 var _interaction_count: int = 0
@@ -23,15 +26,35 @@ func interact(player: Node) -> bool:
 	if _used and one_shot:
 		return false
 
+	if requires_power and not bool(get_tree().get_meta("power_on", false)):
+		_last_result = "POWER_REQUIRED"
+		print("XZOGOT_INTERACTION_POWER_REQUIRED ", name)
+		return false
+
 	if interaction_kind == Kind.WALLBUY:
 		return _use_wallbuy_weapon(player)
 
-	# Mystery keeps the classic fixed box price. The weapon itself is granted
-	# after payment so a failed purchase never consumes a roll.
+	var weapon: Node = _find_player_weapon(player)
+	if interaction_kind == Kind.PERK:
+		if perk_id.is_empty() or player == null or not player.has_method("can_buy_perk"):
+			return false
+		if not bool(player.call("can_buy_perk", perk_id)):
+			_last_result = "ALREADY_OWNED"
+			return false
+	elif interaction_kind == Kind.UPGRADE:
+		if weapon == null or not weapon.has_method("can_upgrade_current_weapon"):
+			return false
+		if not bool(weapon.call("can_upgrade_current_weapon")):
+			_last_result = "ALREADY_UPGRADED"
+			return false
+
+	# Payment happens only after the interaction has passed all eligibility
+	# checks so duplicate perks/upgrades can never eat points.
 	if price > 0:
 		if player == null or not player.has_method("spend_points"):
 			return false
 		if not bool(player.call("spend_points", price)):
+			_last_result = "INSUFFICIENT_POINTS"
 			return false
 
 	match interaction_kind:
@@ -40,13 +63,22 @@ func interact(player: Node) -> bool:
 		Kind.MYSTERY:
 			_use_mystery(player)
 		Kind.PERK:
+			if not bool(player.call("grant_perk", perk_id)):
+				return false
 			_interaction_count += 1
-			player.set_meta("perk_socket_used", true)
-			print("XZOGOT_PERK_SOCKET_USED")
+			_last_result = perk_id
+			print("XZOGOT_PERK_MACHINE_USED ", perk_id)
 		Kind.POWER:
 			_interaction_count += 1
 			get_tree().set_meta("power_on", true)
+			_last_result = "POWER_ON"
 			print("XZOGOT_POWER_ON")
+		Kind.UPGRADE:
+			if not bool(weapon.call("upgrade_current_weapon")):
+				return false
+			_interaction_count += 1
+			_last_result = str(weapon.call("get_weapon_id"))
+			print("XZOGOT_SANCTUM_FORGE_USED ", _last_result)
 
 	if one_shot:
 		_used = true
@@ -117,6 +149,8 @@ func dev_force_open() -> bool:
 func get_prompt() -> String:
 	if _used and one_shot:
 		return ""
+	if requires_power and not bool(get_tree().get_meta("power_on", false)):
+		return "POWER REQUIRED"
 	if interaction_kind == Kind.WALLBUY and not weapon_id.is_empty():
 		if price > 0:
 			return "%s - %d" % [prompt_text, price]
@@ -136,3 +170,9 @@ func get_last_result() -> String:
 
 func get_weapon_id() -> String:
 	return weapon_id
+
+func get_perk_id() -> String:
+	return perk_id
+
+func is_power_required() -> bool:
+	return requires_power
