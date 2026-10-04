@@ -238,6 +238,14 @@ func _build_expansion_v1() -> void:
 	_build_church_second_floor_v1(wall_stone, wall_dark, timber)
 	_build_bell_tower_v1(wall_stone, wall_dark, timber)
 	_build_expansion_zone_markers()
+	var reliquary_zone := Marker3D.new()
+	reliquary_zone.name = "Zone_ReliquaryOssuary"
+	reliquary_zone.position = _wp(Vector3(8.0, -2.65, -26.0))
+	reliquary_zone.add_to_group("gameplay_zone")
+	reliquary_zone.set_meta("zone_name", "ReliquaryOssuary")
+	reliquary_zone.set_meta("floor", -1)
+	add_child(reliquary_zone)
+	print("XZOGOT_RELIQUARY_ZONE_READY")
 	print("XZOGOT_EXPANSION_V1_LOOP_READY")
 
 func _build_side_rooms_v1(stone: Color, dark_stone: Color, timber: Color) -> void:
@@ -255,6 +263,21 @@ func _build_side_rooms_v1(stone: Color, dark_stone: Color, timber: Color) -> voi
 	_box("WestHallCapA", Vector3(7.0, 4.4, 0.55), Vector3(-14.5, 2.2, -4.7), dark_stone)
 	_box("WestHallCapB", Vector3(7.0, 4.4, 0.55), Vector3(-14.5, 2.2, 10.7), dark_stone)
 
+	# Generator / power-room dressing. Collision stays chunky and touch-safe.
+	_box("GeneratorBase", Vector3(2.65, 0.38, 1.75), Vector3(-15.4, 0.30, 5.1), Color(0.075, 0.072, 0.062))
+	_visual_box("GeneratorBody", Vector3(2.35, 1.40, 1.42), Vector3(-15.4, 1.18, 5.1), Color(0.10, 0.115, 0.105))
+	_visual_box("GeneratorPanel", Vector3(1.10, 0.72, 0.10), Vector3(-15.4, 1.35, 4.34), Color(0.15, 0.12, 0.055))
+	for pipe_i in range(3):
+		_visual_cylinder(
+			"GeneratorPipe_%02d" % pipe_i,
+			0.095,
+			3.8,
+			Vector3(-16.85 + float(pipe_i) * 0.45, 2.15, 2.2),
+			Color(0.10, 0.085, 0.065),
+			10
+		)
+	print("XZOGOT_GENERATOR_ROOM_READY")
+
 	# Crypt access room plus a physical descending ramp to the first basement landing.
 	_box("CryptAccessFloor", Vector3(8.0, 0.20, 8.0), Vector3(15.0, 0.10, -3.0), Color(0.09, 0.085, 0.075))
 	_box("CryptOuterWall", Vector3(0.55, 4.2, 8.0), Vector3(18.8, 2.1, -3.0), stone)
@@ -267,7 +290,30 @@ func _build_side_rooms_v1(stone: Color, dark_stone: Color, timber: Color) -> voi
 		2.4
 	)
 	_box("CryptBasementFloor", Vector3(12.0, 0.28, 14.0), Vector3(16.0, -2.95, -12.5), Color(0.060, 0.058, 0.055))
-	_box("CryptBasementRearWall", Vector3(12.0, 3.3, 0.55), Vector3(16.0, -1.30, -19.3), dark_stone)
+	# Split rear wall leaves a 2.9m opening into the deeper reliquary route.
+	_box("CryptBasementRearWallL", Vector3(4.55, 3.3, 0.55), Vector3(12.275, -1.30, -19.3), dark_stone)
+	_box("CryptBasementRearWallR", Vector3(4.55, 3.3, 0.55), Vector3(19.725, -1.30, -19.3), dark_stone)
+
+	_box("ReliquaryCorridorFloor", Vector3(3.10, 0.24, 7.40), Vector3(16.0, -2.96, -22.8), Color(0.052, 0.050, 0.047))
+	_box("ReliquaryFloor", Vector3(16.0, 0.28, 10.0), Vector3(8.0, -2.95, -26.0), Color(0.050, 0.047, 0.044))
+	_box("ReliquaryNorthWall", Vector3(16.0, 3.3, 0.52), Vector3(8.0, -1.30, -30.75), dark_stone)
+	_box("ReliquaryWestWall", Vector3(0.52, 3.3, 10.0), Vector3(0.25, -1.30, -26.0), dark_stone)
+	_box("ReliquaryEastWallA", Vector3(0.52, 3.3, 3.10), Vector3(15.75, -1.30, -28.45), dark_stone)
+	_box("ReliquaryEastWallB", Vector3(0.52, 3.3, 3.10), Vector3(15.75, -1.30, -23.55), dark_stone)
+	for i in range(3):
+		_box(
+			"ReliquarySarcophagus_%02d" % i,
+			Vector3(1.30, 0.82, 2.70),
+			Vector3(3.0 + float(i) * 4.65, -2.47, -26.2),
+			Color(0.092, 0.086, 0.078)
+		)
+		_visual_box(
+			"ReliquaryLid_%02d" % i,
+			Vector3(1.48, 0.18, 2.88),
+			Vector3(3.0 + float(i) * 4.65, -2.00, -26.2),
+			Color(0.135, 0.122, 0.105)
+		)
+	print("XZOGOT_RELIQUARY_OSSUARY_READY")
 	print("XZOGOT_SIDE_ROOMS_V1_READY")
 
 func _build_church_second_floor_v1(stone: Color, dark_stone: Color, timber: Color) -> void:
@@ -1589,7 +1635,7 @@ func _build_interactions() -> void:
 	var power := _interactive_box(
 		"PowerSwitch",
 		Vector3(0.85, 2.25, 0.72),
-		Vector3(8.6, 1.4, 8.3),
+		Vector3(-13.7, 1.4, 5.0),
 		Color(0.19, 0.17, 0.10),
 		4, 0, 0, true, "TURN ON POWER"
 	)
@@ -1872,7 +1918,7 @@ func _build_perk_and_upgrade_machines() -> void:
 	_add_perk_machine("pilgrim_rush", Vector3(-14.8, 1.12, 29.2), 90.0, "➤")
 	_add_perk_machine("choir_sight", Vector3(4.9, 6.12, -18.15), 180.0, "◎")
 	_add_perk_machine("twin_bells", Vector3(-25.0, 9.22, 7.25), 0.0, "♢")
-	_add_perk_machine("last_rites", Vector3(17.2, -1.78, -16.0), -90.0, "☩")
+	_add_perk_machine("last_rites", Vector3(7.9, -1.78, -29.3), 180.0, "☩")
 
 	var forge := _interactive_box(
 		"SanctumForge",
