@@ -570,7 +570,7 @@ func _build_interior() -> void:
 
 func _build_royal_aisle_carpet() -> void:
 	# Hero runner for the church's main visual axis. It is deliberately visual-only:
-	# no collision, no raised lip, and one draw call so mobile traversal stays clean.
+	# no collision, no raised lip, and only two tiny visual draws so mobile traversal stays clean.
 	var root := Node3D.new()
 	root.name = "RoyalAisleCarpet"
 	root.position = _wp(Vector3(0.0, 0.489, -3.20))
