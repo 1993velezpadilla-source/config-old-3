@@ -108,6 +108,7 @@ func spawn_powerup(kind: String, world_pos: Vector3) -> Node3D:
 	pickup.call("configure", kind, self, drop_lifetime)
 	get_parent().add_child(pickup)
 	pickup.global_position = world_pos + Vector3(0.0, 0.22, 0.0)
+	pickup.set("_base_y", pickup.position.y)
 	print("XZOGOT_POWERUP_DROPPED ", kind, " round=", _current_round())
 	return pickup
 
@@ -243,6 +244,7 @@ func apply_network_pickup_snapshot(states: Array) -> void:
 			get_parent().add_child(pickup)
 			_network_pickups[source_id] = pickup
 		pickup.global_position = world_pos
+		pickup.set("_base_y", pickup.position.y)
 		pickup.set("lifetime", lifetime_value)
 
 	for id_var: Variant in _network_pickups.keys().duplicate():
