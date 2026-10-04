@@ -6,7 +6,7 @@ import signal
 import subprocess
 import time
 from dataclasses import dataclass
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, parse_qsl, urlencode, urlsplit
 
 PUBLIC_PORT = int(os.environ.get("PORT", "10000"))
 BASE_INTERNAL_PORT = int(os.environ.get("XZ_RELAY_INTERNAL_PORT", "10001"))
@@ -14,7 +14,7 @@ MAX_ROOMS = max(1, int(os.environ.get("XZ_RELAY_MAX_ROOMS", "2")))
 MIN_WARM_ROOMS = min(MAX_ROOMS, max(1, int(os.environ.get("XZ_RELAY_MIN_WARM_ROOMS", str(MAX_ROOMS)))))
 ROOM_CAPACITY = 4
 RPC_SCENE_ROOT = "YouWontWin"
-RUNTIME_CONTRACT = "multiroom-reconnect-v3"
+RUNTIME_CONTRACT = "multiroom-reconnect-v4"
 READY_DELAY = max(0.1, float(os.environ.get("XZ_RELAY_READY_DELAY", "8")))
 ROOM_IDLE_SECONDS = max(10.0, float(os.environ.get("XZ_RELAY_ROOM_IDLE_SECONDS", "90")))
 RECONNECT_GRACE_SECONDS = max(10.0, float(os.environ.get("XZ_RELAY_RECONNECT_GRACE_SECONDS", "45")))
@@ -288,6 +288,30 @@ def resume_token_from_query(query):
     token = values[0].strip() if values else ""
     return token if valid_resume_token(token) else ""
 
+def upstream_request_without_resume(request):
+    first, separator, rest = request.partition(b"\r\n")
+    if not separator:
+        return request
+    try:
+        line = first.decode("latin-1")
+        pieces = line.split(" ")
+        if len(pieces) < 3:
+            return request
+        split = urlsplit(pieces[1])
+        filtered = [
+            (key, value)
+            for key, value in parse_qsl(split.query, keep_blank_values=True)
+            if key != "resume"
+        ]
+        clean_target = split.path or "/"
+        clean_query = urlencode(filtered, doseq=True)
+        if clean_query:
+            clean_target += "?" + clean_query
+        pieces[1] = clean_target
+        return " ".join(pieces).encode("latin-1") + separator + rest
+    except Exception:
+        return request
+
 def requested_room_from_path(path):
     prefix = "/room/"
     if not path.startswith(prefix):
@@ -377,7 +401,13 @@ async def handle_client(reader, writer):
             await writer.drain()
             return
 
-        upstream_writer.write(request)
+        upstream_request = upstream_request_without_resume(request)
+        if resume_token:
+            print(
+                f"XZ_RELAY_RESUME_QUERY_STRIPPED room={room.room_id}",
+                flush=True,
+            )
+        upstream_writer.write(upstream_request)
         await upstream_writer.drain()
         downstream = asyncio.create_task(pipe(reader, upstream_writer))
         upstream = asyncio.create_task(pipe(upstream_reader, writer))

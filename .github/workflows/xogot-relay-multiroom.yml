@@ -70,10 +70,11 @@ jobs:
           cat > /tmp/xz-relay-probe/probe.gd <<'GDSCRIPT'
           extends SceneTree
 
-          const URL := "ws://127.0.0.1:18888/matchmake"
+          const BASE_URL := "ws://127.0.0.1:18888/matchmake"
           const CONNECT_TIMEOUT_MS := 30000
 
           var peers: Array[WebSocketMultiplayerPeer] = []
+          var client_serial: int = 0
 
           func _init() -> void:
               call_deferred("_run")
@@ -92,8 +93,11 @@ jobs:
 
           func _add_clients(count: int) -> bool:
               for _index: int in range(count):
+                  client_serial += 1
+                  var token := "local-probe-client-%02d-token" % client_serial
+                  var url := BASE_URL + "?resume=" + token
                   var peer := WebSocketMultiplayerPeer.new()
-                  var err: Error = peer.create_client(URL)
+                  var err: Error = peer.create_client(url)
                   if err != OK:
                       _fail(10, "create_client err=" + str(err))
                       return false
@@ -179,6 +183,7 @@ jobs:
           grep -q "XZ_RELAY_ROOM_SPAWN id=r2 port=18902" build/relay-multiroom/gateway.log
           grep -q "XZ_RELAY_ASSIGN room=r1 occupancy=4/4" build/relay-multiroom/gateway.log
           grep -q "XZ_RELAY_ASSIGN room=r2 occupancy=2/4" build/relay-multiroom/gateway.log
+          test "$(grep -c "XZ_RELAY_RESUME_QUERY_STRIPPED" build/relay-multiroom/gateway.log)" -ge 6
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|RELAY_MULTIROOM_PROBE:" build/relay-multiroom/clients.log
           echo "XZ_RELAY_MULTIROOM_GATE_GREEN"
 

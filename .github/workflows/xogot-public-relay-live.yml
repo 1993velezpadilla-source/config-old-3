@@ -14,28 +14,47 @@ permissions:
   contents: read
 
 concurrency:
-  group: xogot-public-relay-live
-  cancel-in-progress: true
+  group: xogot-public-session-live
+  cancel-in-progress: false
 
 jobs:
   public-wss-multiroom:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Wait for multi-room gateway deployment
+      - name: Wait for empty reconnect-v4 rooms
         shell: bash
         run: |
           set -euo pipefail
           for _i in $(seq 1 180); do
-            BODY="$(curl -fsS https://xz-zombie-relay-gateway.onrender.com/health 2>/dev/null || true)"
-            if printf '%s' "$BODY" | grep -q '"multi_room":true'; then
-              printf '%s\n' "$BODY"
+            HEALTH="$(curl -fsS https://xz-zombie-relay-gateway.onrender.com/health 2>/dev/null || true)"
+            ROOMS="$(curl -fsS https://xz-zombie-relay-gateway.onrender.com/v1/rooms 2>/dev/null || true)"
+            if python3 - "$HEALTH" "$ROOMS" <<'PY'
+          import json, sys
+          try:
+              health = json.loads(sys.argv[1])
+              rooms = json.loads(sys.argv[2]).get("rooms", [])
+          except Exception:
+              raise SystemExit(1)
+          ok = (
+              health.get("runtime_contract") == "multiroom-reconnect-v4"
+              and health.get("multi_room") is True
+              and len(rooms) >= 2
+              and all(bool(room.get("ready")) for room in rooms[:2])
+              and all(int(room.get("players", -1)) == 0 for room in rooms[:2])
+              and all(int(room.get("reserved", 0)) == 0 for room in rooms[:2])
+          )
+          raise SystemExit(0 if ok else 1)
+          PY
+            then
+              echo "$HEALTH"
+              echo "$ROOMS"
               echo "XZ_PUBLIC_MULTIROOM_DEPLOY_GREEN"
               exit 0
             fi
             sleep 2
           done
-          echo "Timed out waiting for multi-room Render deployment" >&2
+          echo "Timed out waiting for empty reconnect-v4 rooms" >&2
           exit 1
 
       - name: Install Godot 4.6.1

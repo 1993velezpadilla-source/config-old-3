@@ -17,8 +17,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: xogot-public-game-live
-  cancel-in-progress: true
+  group: xogot-public-session-live
+  cancel-in-progress: false
 
 jobs:
   public-game-multiroom-6p:
@@ -44,7 +44,7 @@ jobs:
           ok = (
               health.get("multi_room") is True
               and health.get("rpc_scene_root") == "YouWontWin"
-              and health.get("runtime_contract") == "multiroom-reconnect-v3"
+              and health.get("runtime_contract") == "multiroom-reconnect-v4"
               and int(health.get("min_warm_rooms", 0)) >= 2
               and len(rooms) >= 2
               and all(bool(room.get("ready")) for room in rooms[:2])
@@ -75,6 +75,16 @@ jobs:
           mkdir -p /tmp/godot
           unzip -q /tmp/godot.zip -d /tmp/godot
           chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+
+      - name: Import project assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/public-game-live
+          timeout 180 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --editor --path xogot --quit \
+            2>&1 | tee build/public-game-live/import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/public-game-live/import.log
 
       - name: Prepare six-client full-game room probe
         shell: bash
