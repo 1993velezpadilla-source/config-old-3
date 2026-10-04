@@ -1,0 +1,182 @@
+name: Build Aether Animated Weapon GLBs
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/church-expansion-v1
+    paths:
+      - ".github/workflows/xogot-aether-animated-weapons.yml"
+      - "tools/weapons/build_aether_animated_glbs.py"
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: xogot-aether-animated-weapons
+  cancel-in-progress: true
+
+jobs:
+  animate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN_ID: "37234641739"
+    steps:
+      - name: Checkout gameplay branch
+        uses: actions/checkout@v5
+        with:
+          ref: feature/church-expansion-v1
+          fetch-depth: 0
+
+      - name: Wait for mapped material plus PSA export
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh run watch "$SOURCE_RUN_ID" --exit-status
+
+      - name: Download mapped Aether weapon artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf aether-artifact
+          mkdir -p aether-artifact
+          gh run download "$SOURCE_RUN_ID" -n aether-waw-usmap-real-weapons -D aether-artifact
+          test -d aether-artifact/recovered-export
+          test -d aether-artifact/recovered-actorx
+          find aether-artifact/recovered-export -type f -name '*.glb' | wc -l
+          find aether-artifact/recovered-actorx -type f -name '*.psa' | wc -l
+          echo "XZOGOT_ANIMATION_SOURCE_ARTIFACT_READY"
+
+      - name: Install Blender 4.2 LTS
+        shell: bash
+        run: |
+          set -euo pipefail
+          BLENDER_VERSION="4.2.8"
+          curl -L --fail --retry 5 --retry-all-errors             "https://download.blender.org/release/Blender4.2/blender-${BLENDER_VERSION}-linux-x64.tar.xz"             -o "$RUNNER_TEMP/blender.tar.xz"
+          mkdir -p "$RUNNER_TEMP/blender"
+          tar -xJf "$RUNNER_TEMP/blender.tar.xz" -C "$RUNNER_TEMP/blender" --strip-components=1
+          test -x "$RUNNER_TEMP/blender/blender"
+          "$RUNNER_TEMP/blender/blender" --version | head -n 2
+          echo "BLENDER=$RUNNER_TEMP/blender/blender" >> "$GITHUB_ENV"
+
+      - name: Install maintained Unreal PSK PSA Blender importer
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$RUNNER_TEMP/io_scene_psk_psa"
+          git clone --depth 1 https://github.com/DarklightGames/io_scene_psk_psa.git "$RUNNER_TEMP/io_scene_psk_psa"
+          test -f "$RUNNER_TEMP/io_scene_psk_psa/io_scene_psk_psa/__init__.py"
+          echo "XZOGOT_PSK_PSA_IMPORTER_READY"
+
+      - name: Merge real skeleton meshes with real PSA animation actions
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf animated-output
+          mkdir -p animated-output
+          "$BLENDER" --background --factory-startup             --python tools/weapons/build_aether_animated_glbs.py             -- "$PWD/aether-artifact" "$RUNNER_TEMP/io_scene_psk_psa" "$PWD/animated-output"             2>&1 | tee animated-weapons-blender.log
+          grep -q "XZOGOT_29_ANIMATED_REAL_WEAPONS_GREEN" animated-weapons-blender.log
+          test -s animated-output/animated-inventory.json
+
+      - name: Validate animated GLB payloads
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,struct
+          inv=json.loads(Path("animated-output/animated-inventory.json").read_text())
+          assert inv["weapon_count"]==29,inv["weapon_count"]
+          total_anims=0
+          for rec in inv["weapons"]:
+              p=Path(rec["output"])
+              b=p.read_bytes()
+              assert b[:4]==b"glTF",(rec["runtime_id"],b[:4])
+              n,t=struct.unpack_from("<II",b,12)
+              doc=json.loads(b[20:20+n].rstrip(b" \t\r\n\0"))
+              meshes=len(doc.get("meshes",[]))
+              skins=len(doc.get("skins",[]))
+              anims=len(doc.get("animations",[]))
+              assert meshes>=1,(rec["runtime_id"],meshes)
+              assert skins>=1,(rec["runtime_id"],skins)
+              assert anims>=1,(rec["runtime_id"],anims)
+              total_anims += anims
+          assert total_anims>=50,total_anims
+          print("XZOGOT_ANIMATED_GLB_VALIDATION_GREEN",inv["weapon_count"],total_anims)
+          PY
+
+      - name: Replace staged viewmodels with animated real GLBs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,shutil
+          inv=json.loads(Path("animated-output/animated-inventory.json").read_text())
+          root=Path("xogot/assets/weapons/aether_waw_real")
+          for rec in inv["weapons"]:
+              wid=rec["runtime_id"]
+              src=Path(rec["output"])
+              dst=root/wid/"viewmodel.glb"
+              dst.parent.mkdir(parents=True,exist_ok=True)
+              shutil.copy2(src,dst)
+              print("XZOGOT_ANIMATED_VIEWMODEL_STAGED",wid,src.stat().st_size)
+          shutil.copy2("animated-output/animated-inventory.json",root/"animated-inventory.json")
+          PY
+
+      - name: Mark animation-backed manifest records
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          inv=json.loads(Path("xogot/assets/weapons/aether_waw_real/animated-inventory.json").read_text())
+          p=Path("xogot/assets/weapons/mapmod_weapon_asset_manifest.json")
+          d=json.loads(p.read_text())
+          known=d["weapons"]
+          updated=[]
+          for rec in inv["weapons"]:
+              wid=rec["runtime_id"]
+              if wid not in known:
+                  continue
+              notes=known[wid].setdefault("notes",[])
+              marker=f"Aether UE5.7 skeletal GLB now contains {rec['animations']} imported real animation Actions."
+              notes=[n for n in notes if not str(n).startswith("Aether UE5.7 skeletal GLB now contains ")]
+              notes.append(marker)
+              known[wid]["notes"]=notes
+              if known[wid].get("status")=="MISSING":
+                  known[wid]["status"]="PARTIAL"
+              updated.append(wid)
+          p.write_text(json.dumps(d,indent=2)+"\n")
+          print("XZOGOT_ANIMATION_MANIFEST_UPDATED",len(updated),sorted(updated))
+          PY
+
+      - name: Commit animated real weapon viewmodels
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add xogot/assets/weapons/aether_waw_real xogot/assets/weapons/mapmod_weapon_asset_manifest.json
+          if git diff --cached --quiet; then
+            echo "XZOGOT_ANIMATED_WEAPONS_ALREADY_PRESENT"
+            exit 0
+          fi
+          git commit -m "Integrate animated real Aether WaW weapon viewmodels"
+          git pull --rebase origin feature/church-expansion-v1
+          git push origin HEAD:feature/church-expansion-v1
+          echo "XZOGOT_ANIMATED_WEAPON_COMMIT_GREEN"
+
+      - name: Upload animation integration proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: xogot-aether-animated-weapon-proof
+          path: |
+            animated-output/animated-inventory.json
+            animated-weapons-blender.log
+          if-no-files-found: error
+          retention-days: 14
