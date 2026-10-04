@@ -36,7 +36,10 @@ var dev_speed_boost: bool = false
 var _panel: PanelContainer
 var _page_pause: VBoxContainer
 var _page_settings: VBoxContainer
+var _page_network: VBoxContainer
 var _page_dev: VBoxContainer
+var _network_status: Label
+var _network_address: LineEdit
 var _rows: Dictionary = {}
 var _dev_rows: Dictionary = {}
 var _current_page: String = "pause"
@@ -152,10 +155,12 @@ func _build_ui() -> void:
 
 	_page_pause = _page_container(pages, "PausePage")
 	_page_settings = _page_container(pages, "SettingsPage")
+	_page_network = _page_container(pages, "NetworkPage")
 	_page_dev = _page_container(pages, "DevPage")
 
 	_build_pause_page()
 	_build_settings_page()
+	_build_network_page()
 	_build_dev_page()
 	_show_page("pause")
 	_refresh_labels()
@@ -167,6 +172,8 @@ func _build_pause_page() -> void:
 	resume.pressed.connect(close_menu)
 	var settings := _button(_page_pause, "OpenSettings", "SETTINGS")
 	settings.pressed.connect(func(): _show_page("settings"))
+	var multiplayer_button := _button(_page_pause, "OpenNetwork", "MULTIPLAYER")
+	multiplayer_button.pressed.connect(func(): _show_page("network"))
 	if dev_menu_visible_in_release:
 		var dev := _button(_page_pause, "OpenDev", "DEV LAB")
 		dev.pressed.connect(func(): _show_page("dev"))
@@ -202,6 +209,91 @@ func _build_settings_page() -> void:
 	_add_setting("hud_opacity", _cycle_hud_opacity)
 	var back := _button(_page_settings, "SettingsBack", "BACK")
 	back.pressed.connect(func(): _show_page("pause"))
+
+func _network_manager_node() -> Node:
+	return get_node_or_null("../../NetworkManager")
+
+func _build_network_page() -> void:
+	_title(
+		_page_network,
+		"MULTIPLAYER",
+		"4-player ENet session. Host is authoritative for rounds, zombies and revive state."
+	)
+	_network_status = Label.new()
+	_network_status.name = "NetworkStatus"
+	_network_status.text = "OFFLINE"
+	_network_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_network_status.add_theme_font_size_override("font_size", 22)
+	_network_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_page_network.add_child(_network_status)
+
+	_network_address = LineEdit.new()
+	_network_address.name = "JoinAddress"
+	_network_address.placeholder_text = "HOST IP — example 192.168.1.25"
+	_network_address.text = ""
+	_network_address.custom_minimum_size = Vector2(0.0, 54.0)
+	_network_address.virtual_keyboard_enabled = true
+	_page_network.add_child(_network_address)
+
+	var host := _button(_page_network, "HostPrivate", "HOST PRIVATE / LAN — 4 PLAYERS")
+	host.pressed.connect(_network_host)
+	var join := _button(_page_network, "JoinDirect", "JOIN DIRECT IP")
+	join.pressed.connect(_network_join)
+	var leave := _button(_page_network, "LeaveNetwork", "LEAVE SESSION")
+	leave.pressed.connect(_network_leave)
+
+	var note := Label.new()
+	note.text = "Direct ENet/UDP test mode. Public matchmaking/relay is a separate layer; this page does not fake a public lobby."
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	note.modulate = Color(0.68, 0.72, 0.76)
+	_page_network.add_child(note)
+
+	var back := _button(_page_network, "NetworkBack", "BACK")
+	back.pressed.connect(func(): _show_page("pause"))
+	_refresh_network_status()
+
+func _network_host() -> void:
+	var network: Node = _network_manager_node()
+	if network == null or not network.has_method("host_game"):
+		return
+	var err: int = int(network.call("host_game", 7777, true))
+	if err == OK:
+		print("XZOGOT_NETWORK_UI_HOST")
+	_refresh_network_status()
+
+func _network_join() -> void:
+	var network: Node = _network_manager_node()
+	if network == null or not network.has_method("join_game"):
+		return
+	var address: String = _network_address.text.strip_edges() if _network_address != null else ""
+	if address.is_empty():
+		address = "127.0.0.1"
+		_network_address.text = address
+	var err: int = int(network.call("join_game", address, 7777))
+	if err == OK:
+		print("XZOGOT_NETWORK_UI_JOIN ", address)
+	_refresh_network_status()
+
+func _network_leave() -> void:
+	var network: Node = _network_manager_node()
+	if network != null and network.has_method("leave_game"):
+		network.call("leave_game")
+		print("XZOGOT_NETWORK_UI_LEAVE")
+	_refresh_network_status()
+
+func _refresh_network_status() -> void:
+	if _network_status == null:
+		return
+	var network: Node = _network_manager_node()
+	if network == null or not network.has_method("get_status_text"):
+		_network_status.text = "NETWORK MANAGER UNAVAILABLE"
+		return
+	_network_status.text = str(network.call("get_status_text"))
+
+func _process(_delta: float) -> void:
+	if visible and _current_page == "network":
+		_refresh_network_status()
 
 func _add_dev_toggle(key: String, callback: Callable) -> void:
 	var b := _button(_page_dev, "Dev_" + key, "")
@@ -281,7 +373,10 @@ func _show_page(page: String) -> void:
 	_current_page = page
 	_page_pause.get_parent().visible = page == "pause"
 	_page_settings.get_parent().visible = page == "settings"
+	_page_network.get_parent().visible = page == "network"
 	_page_dev.get_parent().visible = page == "dev"
+	if page == "network":
+		_refresh_network_status()
 	if page == "dev":
 		_refresh_dev_labels()
 
