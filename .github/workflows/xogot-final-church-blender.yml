@@ -1,0 +1,103 @@
+name: Author Final Church Blender
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/church-expansion-v1
+    paths:
+      - "xogot/tools/build_final_church_blender.py"
+      - ".github/workflows/xogot-final-church-blender.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: xogot-final-church-blender-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  author:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Install Blender
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender
+          blender --version | head -n 2
+
+      - name: Author final church visual shell
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf xogot/build/final-church-blender
+          mkdir -p xogot/build/final-church-blender
+          timeout 1500 blender -b --python xogot/tools/build_final_church_blender.py \
+            2>&1 | tee xogot/build/final-church-blender/blender.log
+          grep -q "XZOGOT_FINAL_CHURCH_BLENDER_AUTHORING_GREEN" xogot/build/final-church-blender/blender.log
+          grep -q "XZOGOT_FINAL_CHURCH_GLB_GREEN" xogot/build/final-church-blender/blender.log
+          grep -q "XZOGOT_FINAL_CHURCH_BLENDER_RENDERS_GREEN 8" xogot/build/final-church-blender/blender.log
+          test -s xogot/build/final-church-blender/church_final_architecture.glb
+          test -s xogot/build/final-church-blender/church_final_architecture.report.json
+          test "$(find xogot/build/final-church-blender/renders -type f -name '*.png' | wc -l)" -eq 8
+
+      - name: Validate authored asset budget
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("xogot/build/final-church-blender/church_final_architecture.report.json").read_text())
+          assert d["runtime_meshes"] <= 8, d
+          assert d["render_count"] == 8, d
+          assert d["triangles_estimated"] > 1000, d
+          p=Path("xogot/build/final-church-blender/church_final_architecture.glb")
+          assert p.stat().st_size < 95_000_000, p.stat().st_size
+          print("XZOGOT_FINAL_CHURCH_ASSET_BUDGET_GREEN",p.stat().st_size,d["triangles_estimated"])
+          PY
+
+      - name: Stage runtime architecture
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p xogot/assets/environment/church
+          cp xogot/build/final-church-blender/church_final_architecture.glb \
+             xogot/assets/environment/church/church_final_architecture.glb
+          cp xogot/build/final-church-blender/church_final_architecture.report.json \
+             xogot/assets/environment/church/church_final_architecture.report.json
+
+      - name: Commit authored architecture
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "XZOGOT Blender Asset Bot"
+          git config user.email "xogot-blender-bot@users.noreply.github.com"
+          git add xogot/assets/environment/church/church_final_architecture.glb \
+                  xogot/assets/environment/church/church_final_architecture.report.json
+          if git diff --cached --quiet; then
+            echo "XZOGOT_FINAL_CHURCH_NO_CHANGE"
+          else
+            git commit -m "asset: add Blender-authored final church shell"
+            git push origin HEAD:feature/church-expansion-v1
+          fi
+
+      - name: Upload Blender authoring proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Final-Church-Blender-Proof
+          path: |
+            xogot/build/final-church-blender/renders/
+            xogot/build/final-church-blender/church_final_architecture.report.json
+            xogot/build/final-church-blender/blender.log
+            xogot/build/final-church-blender/church_final_architecture.blend
+          if-no-files-found: warn
+          retention-days: 14
