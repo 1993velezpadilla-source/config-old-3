@@ -748,6 +748,11 @@ func _client_apply_barricade_state(relative_path: String, boards: int) -> void:
 func _send_inventory_state(peer_id: int) -> void:
 	if not multiplayer.is_server() or peer_id <= SERVER_PEER_ID or not _roster.has(peer_id):
 		return
+	if not multiplayer.get_peers().has(peer_id):
+		# Unit/runtime probes can create an authoritative proxy without a real
+		# socket peer. Production peers are present here, so only skip synthetic
+		# destinations instead of generating RPC errors.
+		return
 	var player: Node = _network_player_node(peer_id)
 	if player == null:
 		return
