@@ -1,6 +1,7 @@
 extends CharacterBody3D
 
 const MobileLayout = preload("res://scripts/mobile_layout.gd")
+const PerkCatalog = preload("res://scripts/perk_catalog.gd")
 
 const NAV_PATH := "res://data/nav_skeleton.json"
 
@@ -86,6 +87,8 @@ var _dev_infinite_health: bool = false
 var _dev_infinite_points: bool = false
 var _dev_noclip: bool = false
 var _dev_speed_boost: bool = false
+var _perks: Dictionary = {}
+var _base_max_health: float = 100.0
 
 @onready var _head: Node3D = $Head
 @onready var _camera: Camera3D = $Head/Camera3D
@@ -95,7 +98,9 @@ var _dev_speed_boost: bool = false
 func _ready() -> void:
 	_gravity = float(ProjectSettings.get_setting("physics/3d/default_gravity", 18.0))
 	points = starting_points
+	_base_max_health = max_health
 	health = max_health
+	set_meta("owned_perks", [])
 	add_to_group("player")
 	var capsule: CapsuleShape3D = _collider.shape as CapsuleShape3D
 	if capsule != null:
@@ -387,6 +392,64 @@ func try_interact_with(target: Object) -> bool:
 		return false
 	return bool(target.call("interact", self))
 
+func can_buy_perk(id: String) -> bool:
+	return PerkCatalog.has_perk(id) and not _perks.has(id) and not downed
+
+func grant_perk(id: String) -> bool:
+	if not can_buy_perk(id):
+		return false
+	_perks[id] = true
+
+	match id:
+		"martyrs_blood":
+			max_health = maxf(_base_max_health * 2.0, 200.0)
+			health = max_health
+		"quick_hands":
+			pass
+		"pilgrim_rush":
+			pass
+		"choir_sight":
+			pass
+		"twin_bells":
+			pass
+		"last_rites":
+			pass
+
+	set_meta("owned_perks", get_owned_perks())
+	print("XZOGOT_PERK_GRANTED ", id, " total=", _perks.size())
+	return true
+
+func has_perk(id: String) -> bool:
+	return _perks.has(id)
+
+func get_owned_perks() -> Array[String]:
+	var result: Array[String] = []
+	for id_var: Variant in _perks.keys():
+		result.append(str(id_var))
+	result.sort()
+	return result
+
+func get_reload_multiplier() -> float:
+	return 0.70 if has_perk("quick_hands") else 1.0
+
+func get_move_speed_multiplier() -> float:
+	return 1.15 if has_perk("pilgrim_rush") else 1.0
+
+func get_spread_multiplier() -> float:
+	return 0.62 if has_perk("choir_sight") else 1.0
+
+func get_recoil_multiplier() -> float:
+	return 0.68 if has_perk("choir_sight") else 1.0
+
+func get_fire_interval_multiplier() -> float:
+	return 0.78 if has_perk("twin_bells") else 1.0
+
+func get_weapon_damage_multiplier() -> float:
+	return 1.08 if has_perk("twin_bells") else 1.0
+
+func get_max_health() -> float:
+	return max_health
+
 func spend_points(amount: int) -> bool:
 	if amount < 0:
 		return false
@@ -441,6 +504,17 @@ func apply_damage(amount: float) -> void:
 		return
 	if downed or amount <= 0.0:
 		return
+
+	var lethal: bool = health - amount <= 0.0
+	if lethal and has_perk("last_rites"):
+		_perks.erase("last_rites")
+		health = maxf(45.0, max_health * 0.30)
+		downed = false
+		set_meta("owned_perks", get_owned_perks())
+		set_meta("last_rites_triggered", true)
+		print("XZOGOT_LAST_RITES_TRIGGERED health=", health)
+		return
+
 	health = maxf(0.0, health - amount)
 	if health <= 0.0:
 		downed = true
@@ -622,6 +696,7 @@ func _physics_process(delta: float) -> void:
 		velocity.z = _slide_direction.z * current_slide_speed
 	else:
 		var speed: float = crouch_speed if _crouched else (sprint_speed if _sprinting else walk_speed)
+		speed *= get_move_speed_multiplier()
 		if _dev_speed_boost:
 			speed *= 2.35
 		velocity.x = move_toward(velocity.x, wish.x * speed, 22.0 * delta)
