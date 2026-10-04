@@ -113,6 +113,10 @@ var _severed: Dictionary = {
 var _crawler: bool = false
 var _headless: bool = false
 var _headless_survivor: bool = false
+var _network_proxy_mode: bool = false
+var _network_proxy_snapshot_ready: bool = false
+var _network_proxy_target_position := Vector3.ZERO
+var _network_proxy_target_yaw: float = 0.0
 
 const ZOMBIE_MOANS: Array[String] = [
 	"res://assets/audio/church/zombie/moan_01.ogg",
@@ -195,6 +199,49 @@ func _ready() -> void:
 	print("XZOGOT_ZOMBIE_GROUND_SNAP_READY 0.24")
 	print("XZOGOT_ZOMBIE_PATHING_READY ", _motion_profile_id)
 	print("XZOGOT_ZOMBIE_READY")
+
+func set_network_proxy_mode(enabled: bool) -> void:
+	_network_proxy_mode = enabled
+	set_meta("network_proxy", enabled)
+	if enabled:
+		target_player = get_parent().get_node_or_null("Player") as Node3D if get_parent() != null else null
+		target_barricade = null
+		velocity = Vector3.ZERO
+		print("XZOGOT_ZOMBIE_NETWORK_PROXY_READY ", name)
+
+func apply_network_proxy_state(
+	pos: Vector3,
+	yaw: float,
+	server_health: float,
+	server_phase: int,
+	server_crawler: bool,
+	server_headless: bool
+) -> void:
+	if not _network_proxy_mode:
+		set_network_proxy_mode(true)
+	if not _network_proxy_snapshot_ready:
+		global_position = pos
+		rotation.y = yaw
+		_network_proxy_snapshot_ready = true
+	_network_proxy_target_position = pos
+	_network_proxy_target_yaw = yaw
+	health = maxf(0.0, server_health)
+	phase = clampi(server_phase, int(Phase.APPROACH), int(Phase.CROSS_WINDOW))
+	if server_crawler and not _crawler:
+		_make_crawler()
+	_headless = server_headless
+	set_meta("crawler", _crawler)
+	set_meta("headless", _headless)
+
+func _submit_network_proxy_hit(hit_position: Vector3, melee: bool) -> bool:
+	if not _network_proxy_mode:
+		return false
+	var network: Node = get_parent().get_node_or_null("NetworkManager") if get_parent() != null else null
+	if network == null or not network.has_method("submit_zombie_hit"):
+		return true
+	network.call("submit_zombie_hit", name, hit_position, melee)
+	_hit_reaction_timer = hit_reaction_duration
+	return true
 
 func set_last_zombie_mode(enabled: bool) -> void:
 	set_meta("last_zombie", enabled)
@@ -406,6 +453,21 @@ func _build_fallback_visual() -> void:
 
 func _physics_process(delta: float) -> void:
 	_update_hit_reaction(delta)
+	if _network_proxy_mode:
+		_update_voice(delta)
+		var distance: float = global_position.distance_to(_network_proxy_target_position)
+		var blend: float = 1.0 - exp(-14.0 * delta)
+		global_position = global_position.lerp(_network_proxy_target_position, blend)
+		rotation.y = lerp_angle(rotation.y, _network_proxy_target_yaw, blend)
+		if phase == Phase.DEAD:
+			_play_motion_state("death")
+		elif _crawler:
+			_play_motion_state("crawl")
+		elif distance > 0.025:
+			_play_motion_state("walk")
+		else:
+			_play_motion_state("idle")
+		return
 	_update_voice(delta)
 	if phase == Phase.DEAD:
 		return
@@ -875,6 +937,8 @@ func _core_damage_multiplier_for_zone(zone: String) -> float:
 func apply_hitscan_damage(amount: float, source: Node = null, hit_position: Vector3 = Vector3.ZERO) -> void:
 	if phase == Phase.DEAD or amount <= 0.0:
 		return
+	if _submit_network_proxy_hit(hit_position, false):
+		return
 	var local_hit: Vector3 = to_local(hit_position)
 	var zone: String = _classify_hit_zone(local_hit)
 	var is_headshot: bool = zone == "head"
@@ -891,11 +955,15 @@ func apply_hitscan_damage(amount: float, source: Node = null, hit_position: Vect
 func apply_melee_damage(amount: float, source: Node = null, hit_position: Vector3 = Vector3.ZERO) -> void:
 	if phase == Phase.DEAD or amount <= 0.0:
 		return
+	if _submit_network_proxy_hit(hit_position, true):
+		return
 	set_meta("last_damage_kind", "melee")
 	set_meta("last_melee_hit_position", hit_position)
 	_take_damage(amount, source, false)
 
 func apply_damage(amount: float, source: Node = null) -> void:
+	if _network_proxy_mode:
+		return
 	_take_damage(amount, source, false)
 
 func _take_damage(amount: float, source: Node, headshot: bool) -> void:
