@@ -8,6 +8,9 @@ const POWER_LIGHT_RIG_SCRIPT := preload("res://scripts/power_light_rig.gd")
 const PERK_CATALOG := preload("res://scripts/perk_catalog.gd")
 const CHURCH_AUDIO_SCRIPT := preload("res://scripts/church_audio.gd")
 const FINAL_CHURCH_ARCH_PATH := "res://assets/environment/church/church_final_architecture.glb"
+const FINAL_STONE_DIFFUSE := "res://assets/materials/church/stone_wall_4k/stone_wall_diff_4k.jpg"
+const FINAL_STONE_NORMAL := "res://assets/materials/church/stone_wall_4k/stone_wall_nor_gl_4k.jpg"
+const FINAL_STONE_ROUGH := "res://assets/materials/church/stone_wall_4k/stone_wall_rough_4k.jpg"
 
 # High-density user gift pack. These are optional so CI stays green until the
 # binary GLBs are copied into res://assets/gifts/ with the canonical names.
@@ -1214,6 +1217,48 @@ func _collision_box(label: String, size: Vector3, pos: Vector3) -> void:
 	body.add_child(cs)
 	add_child(body)
 
+func _make_final_stone_material(dark_variant: bool = false) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.resource_name = "FinalChurchStone4KDark" if dark_variant else "FinalChurchStone4K"
+	material.roughness = 1.0
+	material.metallic = 0.0
+	material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+	material.uv1_triplanar = true
+	material.uv1_world_triplanar = true
+	# Around 2.1 meters per source texture repetition.
+	material.uv1_scale = Vector3(0.48, 0.48, 0.48)
+
+	if ResourceLoader.exists(FINAL_STONE_DIFFUSE):
+		material.albedo_texture = load(FINAL_STONE_DIFFUSE) as Texture2D
+	if ResourceLoader.exists(FINAL_STONE_NORMAL):
+		material.normal_enabled = true
+		material.normal_texture = load(FINAL_STONE_NORMAL) as Texture2D
+		material.normal_scale = 0.92
+	if ResourceLoader.exists(FINAL_STONE_ROUGH):
+		material.roughness_texture = load(FINAL_STONE_ROUGH) as Texture2D
+		material.roughness_texture_channel = BaseMaterial3D.TEXTURE_CHANNEL_RED
+
+	if dark_variant:
+		material.albedo_color = Color(0.56, 0.53, 0.49, 1.0)
+	else:
+		material.albedo_color = Color(0.82, 0.79, 0.72, 1.0)
+	return material
+
+func _apply_final_arch_materials(node: Node, stone: Material, dark_stone: Material) -> int:
+	var applied: int = 0
+	if node is MeshInstance3D:
+		var mesh_node := node as MeshInstance3D
+		var lower := mesh_node.name.to_lower()
+		if lower.contains("stone_dark"):
+			mesh_node.material_override = dark_stone
+			applied += 1
+		elif lower.contains("stone") or lower.contains("trim"):
+			mesh_node.material_override = stone
+			applied += 1
+	for child: Node in node.get_children():
+		applied += _apply_final_arch_materials(child, stone, dark_stone)
+	return applied
+
 func _configure_final_arch_visibility(node: Node) -> void:
 	if node is GeometryInstance3D:
 		var geometry := node as GeometryInstance3D
@@ -1241,8 +1286,12 @@ func _build_final_church_architecture() -> void:
 	imported.name = "BlenderArchitecture"
 	wrapper.add_child(imported)
 	_configure_final_arch_visibility(imported)
+	var stone_material := _make_final_stone_material(false)
+	var dark_stone_material := _make_final_stone_material(true)
+	var pbr_meshes: int = _apply_final_arch_materials(imported, stone_material, dark_stone_material)
 	add_child(wrapper)
 	print("XZOGOT_FINAL_CHURCH_ARCHITECTURE_READY")
+	print("XZOGOT_FINAL_CHURCH_STONE_4K_PBR_READY meshes=", pbr_meshes)
 
 func _build_realism_pass() -> void:
 	# Visual-only architecture pass. These details intentionally do not alter gameplay collision.
