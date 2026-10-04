@@ -34,12 +34,18 @@ func _run_probe() -> void:
 		return
 
 	var barricade: Node = barricades[0]
-	if int(barricade.call("get_boards")) != 3:
+	var path_networks: Array[Node] = get_nodes_in_group("zombie_path_network")
+	if path_networks.size() != 1:
+		_fail(39, "expected one zombie path network")
+		return
+	if int(round_manager.call("get_direct_spawn_count")) != 8:
+		_fail(40, "expected eight selective direct spawns")
+		return
+	if int(barricade.call("get_boards")) != 6:
 		_fail(5, "barricade did not start with 3 boards")
 		return
 
-	for i in range(6):
-		barricade.call("zombie_damage", 25.0)
+	barricade.call("zombie_damage", 300.0)
 	if not bool(barricade.call("is_broken")) or int(barricade.call("get_boards")) != 0:
 		_fail(6, "zombie damage did not break barricade")
 		return
@@ -71,7 +77,7 @@ func _run_probe() -> void:
 		_fail(12, "round 1 zombie count wrong")
 		return
 
-	var zombie: Node = round_manager.call("spawn_one") as Node
+	var zombie: Node = round_manager.call("spawn_from_barricade", barricade) as Node
 	if zombie == null:
 		_fail(13, "round manager failed to spawn zombie")
 		return
@@ -87,16 +93,19 @@ func _run_probe() -> void:
 	if str(zombie.get_meta("zombie_model", "")) != "monja_basica":
 		_fail(22, "Monja Basica model metadata missing")
 		return
+	if str(zombie.get_meta("motion_profile", "")).is_empty():
+		_fail(41, "Monja Basica motion profile missing")
+		return
 	var fitted_height: float = float(zombie.get_meta("zombie_visual_height_m", 0.0))
 	var fitted_width: float = float(zombie.get_meta("zombie_visual_width_m", 0.0))
 	var fitted_depth: float = float(zombie.get_meta("zombie_visual_depth_m", 0.0))
-	if fitted_height < 1.75 or fitted_height > 1.77:
+	if fitted_height < 1.79 or fitted_height > 1.81:
 		_fail(23, "Monja Basica fitted height out of range: %s" % fitted_height)
 		return
-	if fitted_width < 0.81 or fitted_width > 0.83:
+	if fitted_width < 0.89 or fitted_width > 0.91:
 		_fail(24, "Monja Basica fitted width out of range: %s" % fitted_width)
 		return
-	if fitted_depth < 0.65 or fitted_depth > 0.67:
+	if fitted_depth < 0.71 or fitted_depth > 0.73:
 		_fail(25, "Monja Basica fitted depth out of range: %s" % fitted_depth)
 		return
 	if not bool(zombie.get_meta("zombie_visual_centered_on_feet", false)):
@@ -110,7 +119,7 @@ func _run_probe() -> void:
 	if zombie_capsule == null:
 		_fail(28, "Monja Basica capsule missing")
 		return
-	if absf(zombie_capsule.radius - 0.31) > 0.001 or absf(zombie_capsule.height - 1.72) > 0.001:
+	if absf(zombie_capsule.radius - 0.34) > 0.001 or absf(zombie_capsule.height - 1.78) > 0.001:
 		_fail(29, "Monja Basica collider dimensions wrong")
 		return
 	if absf(float(zombie.get("headshot_height_ratio")) - 0.84) > 0.001:
@@ -214,6 +223,8 @@ func _run_probe() -> void:
 		_fail(20, "player did not enter downed state")
 		return
 
+	print("XZOGOT_ZOMBIE_PATHING_PROBE_GREEN")
+	print("XZOGOT_ZOMBIE_MOTION_PROFILE_GREEN ", zombie if is_instance_valid(zombie) else "freed")
 	print("XZOGOT_ROUND_ZOMBIE_PROBE_GREEN")
 	scene.queue_free()
 	await process_frame
