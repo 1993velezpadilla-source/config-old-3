@@ -227,6 +227,11 @@ func _build_dev_page() -> void:
 	var spawn := _button(_page_dev, "SpawnZombie", "SPAWN ONE TEST ZOMBIE")
 	spawn.pressed.connect(_dev_spawn_one_zombie)
 
+	var power_fx := _button(_page_dev, "TestPowerLights", "TEST POWER LIGHT STARTUP")
+	power_fx.pressed.connect(_dev_test_power_lights)
+	var candle_fx := _button(_page_dev, "TestCandleFlicker", "TEST CANDLE FLICKER")
+	candle_fx.pressed.connect(_dev_test_candle_flicker)
+
 	var divider := HSeparator.new()
 	_page_dev.add_child(divider)
 	var weapon_title := Label.new()
@@ -375,6 +380,24 @@ func _dev_spawn_one_zombie() -> void:
 	var rounds: Node = get_node_or_null("../../RoundManager")
 	if rounds != null and rounds.has_method("dev_spawn_one"):
 		rounds.call("dev_spawn_one")
+
+func _dev_test_power_lights() -> void:
+	var triggered: int = 0
+	for node: Node in get_tree().get_nodes_in_group("xz_power_light_rig"):
+		if node.has_method("dev_trigger_startup"):
+			node.call("dev_trigger_startup")
+			triggered += 1
+	print("XZOGOT_DEV_TEST_POWER_LIGHTS ", triggered)
+	close_menu()
+
+func _dev_test_candle_flicker() -> void:
+	var triggered: int = 0
+	for node: Node in get_tree().get_nodes_in_group("xz_candle_manager"):
+		if node.has_method("_trigger_candle_event"):
+			node.call("_trigger_candle_event", "DEV_FLICKER", 2.0, 0.78)
+			triggered += 1
+	print("XZOGOT_DEV_TEST_CANDLE_FLICKER ", triggered)
+	close_menu()
 
 func _dev_equip_weapon(id: String) -> void:
 	var weapon: Node = get_node_or_null("../../Player/Weapon")
