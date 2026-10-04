@@ -16,11 +16,45 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  public-game-4p:
+  public-game-multiroom-6p:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v5
+
+      - name: Require two warm public rooms
+        shell: bash
+        run: |
+          set -euo pipefail
+          for _i in $(seq 1 120); do
+            HEALTH="$(curl -fsS https://xz-zombie-relay-gateway.onrender.com/health 2>/dev/null || true)"
+            ROOMS="$(curl -fsS https://xz-zombie-relay-gateway.onrender.com/v1/rooms 2>/dev/null || true)"
+            if python3 - "$HEALTH" "$ROOMS" <<'PY'
+          import json, sys
+          try:
+              health = json.loads(sys.argv[1])
+              rooms = json.loads(sys.argv[2]).get("rooms", [])
+          except Exception:
+              raise SystemExit(1)
+          ok = (
+              health.get("multi_room") is True
+              and int(health.get("min_warm_rooms", 0)) >= 2
+              and len(rooms) >= 2
+              and all(bool(room.get("ready")) for room in rooms[:2])
+              and all(int(room.get("players", -1)) == 0 for room in rooms[:2])
+          )
+          raise SystemExit(0 if ok else 1)
+          PY
+            then
+              echo "$HEALTH"
+              echo "$ROOMS"
+              echo "XZ_PUBLIC_GAME_WARM_ROOMS_GREEN"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Two empty warm relay rooms were not ready" >&2
+          exit 1
 
       - name: Install Godot 4.6.1
         shell: bash
@@ -34,29 +68,36 @@ jobs:
           unzip -q /tmp/godot.zip -d /tmp/godot
           chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
 
-      - name: Prepare public game client probe
+      - name: Prepare six-client full-game room probe
         shell: bash
         run: |
           set -euo pipefail
           cat > xogot/ci/public_game_live_client.gd <<'GDSCRIPT'
           extends SceneTree
 
-          const URL := "wss://xz-zombie-relay-gateway.onrender.com"
+          const URL := "wss://xz-zombie-relay-gateway.onrender.com/matchmake"
           const TIMEOUT_MS := 45000
 
           func _init() -> void:
               call_deferred("_run")
 
-          func _tag() -> String:
-              var args := OS.get_cmdline_user_args()
-              return args[0] if not args.is_empty() else "client"
+          func _args() -> Array[String]:
+              var out: Array[String] = []
+              for value: String in OS.get_cmdline_user_args():
+                  out.append(value)
+              return out
 
           func _fail(code: int, message: String) -> void:
               push_error("PUBLIC_GAME_LIVE_CLIENT: " + message)
               quit(code)
 
           func _run() -> void:
-              var tag := _tag()
+              var args := _args()
+              var tag := args[0] if args.size() > 0 else "client"
+              var expected_roster := int(args[1]) if args.size() > 1 else 4
+              var expected_proxies := maxi(0, expected_roster - 1)
+              var stable_ms := int(args[2]) if args.size() > 2 else 8000
+
               var packed := load("res://main.tscn") as PackedScene
               if packed == null:
                   _fail(2, "main scene missing " + tag)
@@ -76,7 +117,7 @@ jobs:
               if err != OK:
                   _fail(4, "join failed " + tag + " err=" + str(err))
                   return
-              print("XZ_PUBLIC_GAME_CLIENT_JOINING ", tag)
+              print("XZ_PUBLIC_GAME_CLIENT_JOINING ", tag, " expected=", expected_roster)
 
               var deadline := Time.get_ticks_msec() + TIMEOUT_MS
               while Time.get_ticks_msec() < deadline:
@@ -85,20 +126,24 @@ jobs:
                   var ids: PackedInt32Array = network.call("get_roster_ids") as PackedInt32Array
                   var proxies := get_nodes_in_group("network_remote_player")
                   var round_id := int(rounds.call("get_round"))
-                  if connected and transport_ok and ids.size() == 4 and proxies.size() == 3 and round_id >= 1:
+                  if connected and transport_ok and ids.size() == expected_roster and proxies.size() == expected_proxies and round_id >= 1:
                       if ids.has(1):
                           _fail(5, "dedicated authority leaked into human roster " + tag + " ids=" + str(ids))
                           return
                       print("XZ_PUBLIC_GAME_CLIENT_ROSTER_GREEN ", tag, " ", ids)
-                      print("XZ_PUBLIC_GAME_CLIENT_PROXIES_GREEN ", tag, " 3")
+                      print("XZ_PUBLIC_GAME_CLIENT_PROXIES_GREEN ", tag, " ", expected_proxies)
                       print("XZ_PUBLIC_GAME_CLIENT_ROUND_GREEN ", tag, " round=", round_id)
-                      var stable_deadline := Time.get_ticks_msec() + 5000
+                      var stable_deadline := Time.get_ticks_msec() + stable_ms
                       while Time.get_ticks_msec() < stable_deadline:
                           if str(network.call("get_mode")) != "client":
                               _fail(6, "lost public relay during stability window " + tag)
                               return
-                          if int(network.call("get_connected_player_count")) != 4:
+                          if int(network.call("get_connected_player_count")) != expected_roster:
                               _fail(7, "roster changed during stability window " + tag)
+                              return
+                          var stable_ids: PackedInt32Array = network.call("get_roster_ids") as PackedInt32Array
+                          if stable_ids != ids:
+                              _fail(8, "roster ids changed during stability window " + tag + " old=" + str(ids) + " new=" + str(stable_ids))
                               return
                           await create_timer(0.05).timeout
                       print("XZ_PUBLIC_GAME_CLIENT_STABLE_GREEN ", tag)
@@ -111,31 +156,61 @@ jobs:
                   await create_timer(0.05).timeout
 
               _fail(
-                  8,
-                  "timeout %s mode=%s transport=%s roster=%d proxies=%d round=%d" % [
+                  9,
+                  "timeout %s mode=%s transport=%s roster=%d proxies=%d round=%d expected=%d" % [
                       tag,
                       str(network.call("get_mode")),
                       str(network.call("get_transport")),
                       int(network.call("get_connected_player_count")),
                       get_nodes_in_group("network_remote_player").size(),
                       int(rounds.call("get_round")),
+                      expected_roster,
                   ]
               )
           GDSCRIPT
 
-      - name: Verify four full game clients over public WSS
+      - name: Verify two isolated full-game rooms over public WSS
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p build/public-game-live
+
           for IDX in 1 2 3 4; do
-            timeout 65 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
-              --headless --path xogot --script res://ci/public_game_live_client.gd -- "client${IDX}" \
+            timeout 80 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+              --headless --path xogot --script res://ci/public_game_live_client.gd -- \
+              "client${IDX}" "4" "22000" \
+              >"build/public-game-live/client${IDX}.log" 2>&1 &
+            eval "P${IDX}=$!"
+          done
+
+          for _i in $(seq 1 500); do
+            READY=1
+            for IDX in 1 2 3 4; do
+              if ! grep -q "XZ_PUBLIC_GAME_CLIENT_ROSTER_GREEN client${IDX}" "build/public-game-live/client${IDX}.log" 2>/dev/null; then
+                READY=0
+              fi
+            done
+            if test "$READY" -eq 1; then
+              echo "XZ_PUBLIC_GAME_ROOM_A_FILLED_GREEN"
+              break
+            fi
+            sleep 0.1
+          done
+          for IDX in 1 2 3 4; do
+            grep -q "XZ_PUBLIC_GAME_CLIENT_ROSTER_GREEN client${IDX}" "build/public-game-live/client${IDX}.log"
+          done
+
+          for IDX in 5 6; do
+            timeout 70 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+              --headless --path xogot --script res://ci/public_game_live_client.gd -- \
+              "client${IDX}" "2" "8000" \
               >"build/public-game-live/client${IDX}.log" 2>&1 &
             eval "P${IDX}=$!"
           done
 
           set +e
+          wait "$P5"; R5=$?
+          wait "$P6"; R6=$?
           wait "$P1"; R1=$?
           wait "$P2"; R2=$?
           wait "$P3"; R3=$?
@@ -152,18 +227,58 @@ jobs:
             grep -q "XZ_PUBLIC_GAME_CLIENT_GREEN client${IDX}" "$LOG"
             ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|PUBLIC_GAME_LIVE_CLIENT:" "$LOG"
           done
+          for IDX in 5 6; do
+            LOG="build/public-game-live/client${IDX}.log"
+            cat "$LOG"
+            grep -q "XZ_PUBLIC_GAME_CLIENT_ROSTER_GREEN client${IDX}" "$LOG"
+            grep -q "XZ_PUBLIC_GAME_CLIENT_PROXIES_GREEN client${IDX} 1" "$LOG"
+            grep -q "XZ_PUBLIC_GAME_CLIENT_ROUND_GREEN client${IDX}" "$LOG"
+            grep -q "XZ_PUBLIC_GAME_CLIENT_STABLE_GREEN client${IDX}" "$LOG"
+            grep -q "XZ_PUBLIC_GAME_CLIENT_GREEN client${IDX}" "$LOG"
+            ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|PUBLIC_GAME_LIVE_CLIENT:" "$LOG"
+          done
 
           test "$R1" -eq 0
           test "$R2" -eq 0
           test "$R3" -eq 0
           test "$R4" -eq 0
-          echo "XZ_PUBLIC_GAME_4P_LIVE_GATE_GREEN"
+          test "$R5" -eq 0
+          test "$R6" -eq 0
+
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          def roster(index):
+              text = Path(f"build/public-game-live/client{index}.log").read_text(
+                  encoding="utf-8", errors="replace"
+              )
+              match = re.search(
+                  rf"XZ_PUBLIC_GAME_CLIENT_ROSTER_GREEN client{index} \[([^\]]+)\]",
+                  text,
+              )
+              assert match, f"missing roster for client{index}"
+              return tuple(sorted(int(piece.strip()) for piece in match.group(1).split(",")))
+
+          room_a = [roster(i) for i in range(1, 5)]
+          room_b = [roster(i) for i in range(5, 7)]
+          assert all(value == room_a[0] for value in room_a), room_a
+          assert all(value == room_b[0] for value in room_b), room_b
+          assert len(room_a[0]) == 4, room_a
+          assert len(room_b[0]) == 2, room_b
+          assert set(room_a[0]).isdisjoint(set(room_b[0])), (room_a, room_b)
+          print("XZ_PUBLIC_GAME_ROOM_A_ROSTER", room_a[0])
+          print("XZ_PUBLIC_GAME_ROOM_B_ROSTER", room_b[0])
+          print("XZ_PUBLIC_GAME_ROOM_ISOLATION_GREEN")
+          PY
+
+          echo "XZ_PUBLIC_GAME_MULTIROOM_6P_LIVE_GATE_GREEN"
 
       - name: Upload public game logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Xogot-Public-Game-Live-logs
+          name: Xogot-Public-Game-Multiroom-Live-logs
           path: build/public-game-live/
           if-no-files-found: warn
           retention-days: 7
