@@ -112,17 +112,20 @@ func _process(_delta: float) -> void:
 
 func clear_mapping() -> void:
 	if _thread != null:
-		# Discovery is synchronous; join before tearing down this node.
+		# Discovery is synchronous; join before tearing down this node. Any
+		# worker result produced while joining belongs to the old request and
+		# must never overwrite the next mapping/session.
 		_thread.wait_to_finish()
 		_thread = null
+	_result_ready = false
+	_pending_result.clear()
 	if _upnp != null and _mapped_port > 0:
 		var delete_result: int = _upnp.delete_port_mapping(_mapped_port, "UDP")
 		print("XZOGOT_UPNP_MAPPING_CLEARED port=", _mapped_port, " result=", delete_result)
 	_upnp = null
 	_mapped_port = 0
 	_external_ip = ""
-	if _status == "mapped":
-		_status = "idle"
+	_status = "idle"
 
 func _exit_tree() -> void:
 	clear_mapping()
