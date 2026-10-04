@@ -179,7 +179,7 @@ func _run() -> void:
 
 	print("XZOGOT_FINAL_EVIDENCE_RIGGED_MONJA ", rigged_seen)
 	print("XZOGOT_FINAL_EVIDENCE_ANIMATED_MONJA ", animated_seen)
-	var rigid_rig_exists := ResourceLoader.exists("res://assets/zombies/monja_basica_rigid_rig.glb")
+	var rigid_rig_exists := ResourceLoader.exists("res://assets/zombies/monja_rigid/monja_basica_rigid_rig.gltf")
 	var smooth_rig_exists := ResourceLoader.exists("res://assets/zombies/monja_basica_rigged.glb")
 	var detachable_rig_exists := ResourceLoader.exists("res://assets/zombies/monja_basica_rigged_dismember.glb")
 	if not rigid_rig_exists and not smooth_rig_exists and not detachable_rig_exists:
