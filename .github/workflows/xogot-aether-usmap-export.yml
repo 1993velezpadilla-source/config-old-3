@@ -159,8 +159,10 @@ jobs:
           $report | ConvertTo-Json -Depth 5 | Set-Content aether-waw-usmap-export-report.json -Encoding utf8
           $report | Format-List | Out-Host
           if ($mesh.Count -lt 29) { throw "Expected real mesh coverage for 29 weapons; got $($mesh.Count)" }
-          if ($anim.Count -lt 20) { throw "Expected real animation export; got $($anim.Count)" }
-          Write-Host "XZOGOT_AETHER_FULL_WAW_EXPORT_GREEN weapons=$($dirs.Count) meshes=$($mesh.Count) anims=$($anim.Count)"
+          # Gltf2 is intentionally the mesh/material pass. CUE4Parse does not
+          # serialize AnimSequence assets into GLB; the following ActorX pass
+          # is the animation authority and must produce the PSA files.
+          Write-Host "XZOGOT_AETHER_FULL_WAW_MESH_MATERIAL_GREEN weapons=$($dirs.Count) meshes=$($mesh.Count) textures=$(@($files | Where-Object { $_.Extension -eq '.png' }).Count)"
 
       - name: Export complete WaW animation tree as ActorX PSA
         shell: pwsh
