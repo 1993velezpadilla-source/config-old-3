@@ -1,0 +1,80 @@
+name: Author Rigid Rigged Monja
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/church-expansion-v1
+    paths:
+      - "xogot/tools/author_monja_rigid_rig.py"
+      - ".github/workflows/xogot-monja-rigid-rig.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: xogot-monja-rigid-rig-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  author:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Install Blender
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender python3-numpy
+          blender --version | head -n 2
+
+      - name: Build full-density rigid-part animated Monja
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf xogot/build/monja-rigid-rig
+          mkdir -p xogot/build/monja-rigid-rig
+          timeout 1500 blender -b --python xogot/tools/author_monja_rigid_rig.py \
+            2>&1 | tee xogot/build/monja-rigid-rig/blender.log
+          grep -q "XZOGOT_MONJA_RIGID_RIG_PARTS_GREEN" xogot/build/monja-rigid-rig/blender.log
+          grep -q "XZOGOT_MONJA_RIGID_RIG_ANIMS_GREEN" xogot/build/monja-rigid-rig/blender.log
+          grep -q "XZOGOT_MONJA_RIGID_RIG_POLYGONS_GREEN" xogot/build/monja-rigid-rig/blender.log
+          grep -q "XZOGOT_MONJA_RIGID_RIG_GREEN" xogot/build/monja-rigid-rig/blender.log
+          test -s xogot/build/monja-rigid-rig/monja_basica_rigid_rig.glb
+
+      - name: Commit when Git-safe
+        shell: bash
+        run: |
+          set -euo pipefail
+          SIZE=$(stat -c%s xogot/build/monja-rigid-rig/monja_basica_rigid_rig.glb)
+          cp xogot/build/monja-rigid-rig/monja_basica_rigid_rig.report.json \
+             xogot/assets/zombies/monja_basica_rigid_rig.report.json
+          if [ "$SIZE" -lt 95000000 ]; then
+            cp xogot/build/monja-rigid-rig/monja_basica_rigid_rig.glb \
+               xogot/assets/zombies/monja_basica_rigid_rig.glb
+          fi
+          git config user.name "XZOGOT Asset Bot"
+          git config user.email "xogot-asset-bot@users.noreply.github.com"
+          git pull --rebase origin feature/church-expansion-v1
+          git add xogot/assets/zombies/monja_basica_rigid_rig.report.json
+          if [ "$SIZE" -lt 95000000 ]; then
+            git add xogot/assets/zombies/monja_basica_rigid_rig.glb
+          fi
+          if ! git diff --cached --quiet; then
+            git commit -m "asset: add rigid-part animated Monja"
+            git push origin HEAD:feature/church-expansion-v1
+          fi
+
+      - name: Upload full rig artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: monja-rigid-rig-authored
+          path: xogot/build/monja-rigid-rig/
+          if-no-files-found: warn
+          retention-days: 14
