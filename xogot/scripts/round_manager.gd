@@ -14,8 +14,8 @@ signal last_zombie_started(round_number: int, zombie: Node)
 const CLASSIC_SIMULTANEOUS_CAP := 24
 const SHEEP_FIRST_ROUND := 5
 const SHEEP_ROUND_INTERVAL := 5
-const SHEEP_RUNNER_PATH := "res://assets/zombies/sheep/sheep_runner.glb"
-const SHEEP_BRUTE_PATH := "res://assets/zombies/sheep/sheep_brute.glb"
+const SHEEP_RUNNER_PATH := "res://assets/zombies/sheep/sheep_runner_animated.glb"
+const SHEEP_BRUTE_PATH := "res://assets/zombies/sheep/sheep_brute_animated.glb"
 const ELITE_NUN_PATH := "res://assets/zombies/monja_elite/monja_black_white_clean_rig.glb"
 
 var current_round: int = 0
