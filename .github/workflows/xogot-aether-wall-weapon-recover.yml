@@ -27,7 +27,8 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq \
             p7zip-full xz-utils \
-            libc6:i386 libgcc-s1:i386 libstdc++6:i386 zlib1g:i386
+            libc6:i386 libgcc-s1:i386 libstdc++6:i386 zlib1g:i386 \
+            libsdl2-2.0-0:i386
           npm --version
 
       - name: Download reconstructed Project Aether build
@@ -107,6 +108,14 @@ jobs:
           UMODEL_LIB="$RUNNER_TEMP/umodel-compat/lib/i386-linux-gnu"
           test -s "$UMODEL_LIB/libpng12.so.0"
 
+          echo "XZOGOT_UMODEL_LDD_BEGIN" | tee recovered/umodel-ldd.txt
+          LD_LIBRARY_PATH="$UMODEL_LIB:${LD_LIBRARY_PATH:-}" \
+            ldd "$RUNNER_TEMP/umodel" | tee -a recovered/umodel-ldd.txt
+          if grep -q "not found" recovered/umodel-ldd.txt; then
+            echo "XZOGOT_UMODEL_DEPENDENCY_MISSING"
+            exit 23
+          fi
+          echo "XZOGOT_UMODEL_LDD_GREEN" | tee -a recovered/umodel-ldd.txt
           LD_LIBRARY_PATH="$UMODEL_LIB:${LD_LIBRARY_PATH:-}" \
             "$RUNNER_TEMP/umodel" -version | tee recovered/umodel-version.txt
           echo "UMODEL=$RUNNER_TEMP/umodel" >> "$GITHUB_ENV"
@@ -157,6 +166,7 @@ jobs:
             recovered/raw-report.json
             recovered/raw-files.txt
             recovered/umodel-version.txt
+            recovered/umodel-ldd.txt
             recovered/umodel-export.log
             recovered/export-report.json
             recovered/export-files.txt
