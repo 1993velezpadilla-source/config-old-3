@@ -2,6 +2,7 @@ extends Node
 
 signal round_started(round_number: int, total_zombies: int)
 signal round_cleared(round_number: int)
+signal last_zombie_started(round_number: int, zombie: Node)
 
 @export var auto_start: bool = true
 @export var first_round_delay: float = 5.0
@@ -23,6 +24,7 @@ var _started: bool = false
 var _spawn_serial: int = 0
 var _recent_spawn_ids: Array[String] = []
 var _last_spawn_id: String = ""
+var _last_zombie_announced: bool = false
 var _dev_no_zombies: bool = false
 
 func _ready() -> void:
@@ -67,6 +69,7 @@ func start_next_round() -> void:
 	_round_total = zombies_for_round(current_round)
 	_remaining_to_spawn = _round_total
 	_round_spawned = 0
+	_last_zombie_announced = false
 	_spawn_timer = 0.0
 	_break_timer = round_break
 
@@ -331,6 +334,7 @@ func spawn_one() -> Node:
 	_round_spawned += 1
 	_alive += 1
 	_remember_spawn(str(candidate["id"]))
+	_refresh_last_zombie_state()
 	print(
 		"XZOGOT_ZOMBIE_SPAWN ",
 		current_round,
@@ -365,6 +369,7 @@ func spawn_from_barricade(barricade: Node) -> Node:
 	_round_spawned += 1
 	_alive += 1
 	_remember_spawn("window:" + barricade.name)
+	_refresh_last_zombie_state()
 	return zombie
 
 func _on_zombie_died(zombie: Node) -> void:
@@ -372,11 +377,31 @@ func _on_zombie_died(zombie: Node) -> void:
 	if powerups != null and powerups.has_method("register_zombie_kill"):
 		powerups.call("register_zombie_kill", zombie)
 	_alive = maxi(0, _alive - 1)
+	_refresh_last_zombie_state()
 	if _remaining_to_spawn == 0 and _alive == 0:
 		_break_timer = round_break
 		round_cleared.emit(current_round)
 		print("XZOGOT_ROUND_CLEAR ", current_round)
 
+
+func _refresh_last_zombie_state() -> void:
+	if not is_last_zombie():
+		return
+	var survivor: Node = null
+	for zombie: Node in get_tree().get_nodes_in_group("zombie"):
+		if is_instance_valid(zombie):
+			survivor = zombie
+			break
+	if survivor == null:
+		return
+	if survivor.has_method("set_last_zombie_mode"):
+		survivor.call("set_last_zombie_mode", true)
+	else:
+		survivor.set_meta("last_zombie", true)
+	if not _last_zombie_announced:
+		_last_zombie_announced = true
+		last_zombie_started.emit(current_round, survivor)
+		print("XZOGOT_LAST_ZOMBIE_STARTED round=", current_round, " zombie=", survivor.name)
 
 func set_dev_no_zombies(enabled: bool) -> void:
 	_dev_no_zombies = enabled
@@ -394,6 +419,7 @@ func dev_clear_zombies() -> void:
 			cleared += 1
 	_alive = 0
 	_remaining_to_spawn = 0
+	_last_zombie_announced = false
 	_spawn_timer = spawn_interval_for_round(maxi(1, current_round))
 	print("XZOGOT_DEV_CLEAR_ZOMBIES ", cleared)
 
