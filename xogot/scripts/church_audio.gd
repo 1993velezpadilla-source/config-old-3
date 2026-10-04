@@ -61,13 +61,7 @@ func _ready() -> void:
 	_round_stinger.volume_db = -12.0
 	add_child(_round_stinger)
 
-	var scene_root: Node = get_parent().get_parent() if get_parent() != null else null
-	var rounds: Node = scene_root.get_node_or_null("RoundManager") if scene_root != null else null
-	if rounds != null:
-		if rounds.has_signal("round_started"):
-			rounds.connect("round_started", Callable(self, "_on_round_started"))
-		if rounds.has_signal("round_cleared"):
-			rounds.connect("round_cleared", Callable(self, "_on_round_cleared"))
+	call_deferred("_bind_round_manager")
 
 	print(
 		"XZOGOT_CHURCH_AUDIO_READY bed=", _bed.stream != null,
@@ -75,6 +69,19 @@ func _ready() -> void:
 		" bell=", _bell.stream != null
 	)
 	print("XZOGOT_ROUND_AUDIO_READY ", _round_stinger.stream != null)
+
+func _bind_round_manager() -> void:
+	var rounds: Node = get_tree().root.find_child("RoundManager", true, false)
+	if rounds == null:
+		push_warning("XZOGOT_ROUND_AUDIO_BIND_PENDING")
+		return
+	var start_cb := Callable(self, "_on_round_started")
+	var clear_cb := Callable(self, "_on_round_cleared")
+	if rounds.has_signal("round_started") and not rounds.is_connected("round_started", start_cb):
+		rounds.connect("round_started", start_cb)
+	if rounds.has_signal("round_cleared") and not rounds.is_connected("round_cleared", clear_cb):
+		rounds.connect("round_cleared", clear_cb)
+	print("XZOGOT_ROUND_AUDIO_BOUND")
 
 func _play_round_cue(kind: String, pitch: float, volume_db: float) -> bool:
 	if _round_stinger == null or _round_stinger.stream == null:
