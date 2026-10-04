@@ -284,12 +284,8 @@ func _build_church_second_floor_v1(stone: Color, dark_stone: Color, timber: Colo
 
 	# Rear connectors overlap the existing balcony so the current staircase and
 	# BalconyGate remain the only progression entrance from the first floor.
-	_box(
-		"SecondFloorWestRearConnector",
-		Vector3(3.35, 0.28, 4.8),
-		Vector3(-8.35, gallery_y, 8.70),
-		Color(0.095, 0.080, 0.060)
-	)
+	# West rear connector intentionally omitted: the original Balcony is the
+	# stair landing. Leaving this volume empty preserves full head clearance.
 	_box(
 		"SecondFloorEastRearConnector",
 		Vector3(3.35, 0.28, 4.8),
