@@ -159,8 +159,12 @@ func _load_or_create_resume_token() -> String:
 func _url_with_resume_token(base_url: String) -> String:
 	if not _valid_resume_token(_resume_token):
 		_resume_token = _load_or_create_resume_token()
-	var separator := "&" if base_url.contains("?") else "?"
-	return base_url + separator + "resume=" + _resume_token
+	var normalized := base_url
+	var scheme_pos := normalized.find("://")
+	if scheme_pos >= 0 and normalized.find("/", scheme_pos + 3) < 0:
+		normalized += "/"
+	var separator := "&" if normalized.contains("?") else "?"
+	return normalized + separator + "resume=" + _resume_token
 
 func _mark_server_activity() -> void:
 	_last_server_activity_ms = Time.get_ticks_msec()
@@ -636,7 +640,7 @@ func _schedule_next_reconnect() -> void:
 		reconnect_state_changed.emit("failed", _reconnect_attempt, 0.0)
 		print("XZOGOT_RECONNECT_GAVE_UP attempts=", _reconnect_attempt)
 		return
-	var delay := 0.0 if _reconnect_attempt == 0 else minf(5.0, float(_reconnect_attempt))
+	var delay := 0.45 if _reconnect_attempt == 0 else minf(5.0, float(_reconnect_attempt))
 	_reconnect_attempt_scheduled = true
 	var generation := _reconnect_generation
 	call_deferred("_reconnect_attempt_after_delay", generation, delay)
