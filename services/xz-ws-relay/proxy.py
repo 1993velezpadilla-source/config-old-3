@@ -6,7 +6,7 @@ import signal
 import subprocess
 import time
 from dataclasses import dataclass
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 PUBLIC_PORT = int(os.environ.get("PORT", "10000"))
 BASE_INTERNAL_PORT = int(os.environ.get("XZ_RELAY_INTERNAL_PORT", "10001"))
@@ -14,9 +14,10 @@ MAX_ROOMS = max(1, int(os.environ.get("XZ_RELAY_MAX_ROOMS", "2")))
 MIN_WARM_ROOMS = min(MAX_ROOMS, max(1, int(os.environ.get("XZ_RELAY_MIN_WARM_ROOMS", str(MAX_ROOMS)))))
 ROOM_CAPACITY = 4
 RPC_SCENE_ROOT = "YouWontWin"
-RUNTIME_CONTRACT = "multiroom-matchflow-v2"
+RUNTIME_CONTRACT = "multiroom-reconnect-v3"
 READY_DELAY = max(0.1, float(os.environ.get("XZ_RELAY_READY_DELAY", "8")))
 ROOM_IDLE_SECONDS = max(10.0, float(os.environ.get("XZ_RELAY_ROOM_IDLE_SECONDS", "90")))
+RECONNECT_GRACE_SECONDS = max(10.0, float(os.environ.get("XZ_RELAY_RECONNECT_GRACE_SECONDS", "45")))
 GODOT_BIN = os.environ.get("XZ_GODOT_BIN", ".render/godot/Godot_v4.6.1-stable_linux.x86_64")
 
 @dataclass
@@ -28,7 +29,14 @@ class Room:
     connections: int = 0
     last_used: float = 0.0
 
+@dataclass
+class ResumeRoute:
+    room_id: str
+    active: bool = True
+    expires_at: float = 0.0
+
 _rooms = {}
+_resume_routes = {}
 _room_counter = 0
 _room_lock = None
 
@@ -37,6 +45,36 @@ def room_alive(room):
 
 def room_ready(room):
     return room_alive(room) and (time.monotonic() - room.started_at) >= READY_DELAY
+
+def valid_resume_token(token):
+    if not token or len(token) < 16 or len(token) > 96:
+        return False
+    return all(ch.isalnum() or ch in "_-" for ch in token)
+
+def cleanup_resume_routes_locked(now=None):
+    now = time.monotonic() if now is None else now
+    expired = [
+        token
+        for token, route in _resume_routes.items()
+        if not route.active and route.expires_at <= now
+    ]
+    for token in expired:
+        route = _resume_routes.pop(token, None)
+        if route is not None:
+            print(f"XZ_RELAY_RESUME_EXPIRED room={route.room_id}", flush=True)
+
+def reserved_count(room_id):
+    now = time.monotonic()
+    return sum(
+        1
+        for route in _resume_routes.values()
+        if route.room_id == room_id
+        and not route.active
+        and route.expires_at > now
+    )
+
+def room_effective_load(room):
+    return room.connections + reserved_count(room.room_id)
 
 def http_response(status, payload, include_body=True):
     body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
@@ -97,6 +135,12 @@ def stop_room(room, reason):
     if room is None:
         return
     _rooms.pop(room.room_id, None)
+    for token in [
+        value
+        for value, route in _resume_routes.items()
+        if route.room_id == room.room_id
+    ]:
+        _resume_routes.pop(token, None)
     if room.child.poll() is None:
         room.child.terminate()
         try:
@@ -113,28 +157,50 @@ def stop_room(room, reason):
 def room_snapshot():
     payload = []
     for room in sorted(_rooms.values(), key=lambda value: value.room_id):
+        reserved = reserved_count(room.room_id)
         payload.append({
             "id": room.room_id,
             "players": room.connections,
+            "reserved": reserved,
+            "effective_load": room.connections + reserved,
             "capacity": ROOM_CAPACITY,
             "ready": room_ready(room),
         })
     return payload
 
-async def allocate_room(requested_room=""):
+async def allocate_room(requested_room="", resume_token=""):
     async with _room_lock:
+        cleanup_resume_routes_locked()
         dead = [room for room in _rooms.values() if not room_alive(room)]
         for room in dead:
             stop_room(room, "child_exit")
 
+        if valid_resume_token(resume_token) and resume_token in _resume_routes:
+            route = _resume_routes[resume_token]
+            candidate = _rooms.get(route.room_id)
+            if candidate is not None and room_alive(candidate):
+                if route.active:
+                    return None
+                candidate.connections += 1
+                candidate.last_used = time.monotonic()
+                route.active = True
+                route.expires_at = 0.0
+                print(
+                    f"XZ_RELAY_RESUME_ROUTE room={candidate.room_id} "
+                    f"occupancy={candidate.connections}/{ROOM_CAPACITY}",
+                    flush=True,
+                )
+                return candidate
+            _resume_routes.pop(resume_token, None)
+
         room = None
         if requested_room:
             candidate = _rooms.get(requested_room)
-            if candidate is not None and candidate.connections < ROOM_CAPACITY:
+            if candidate is not None and room_effective_load(candidate) < ROOM_CAPACITY:
                 room = candidate
         else:
             for candidate in sorted(_rooms.values(), key=lambda value: value.room_id):
-                if candidate.connections < ROOM_CAPACITY:
+                if room_effective_load(candidate) < ROOM_CAPACITY:
                     room = candidate
                     break
             if room is None and len(_rooms) < MAX_ROOMS:
@@ -145,22 +211,40 @@ async def allocate_room(requested_room=""):
 
         room.connections += 1
         room.last_used = time.monotonic()
+        if valid_resume_token(resume_token):
+            _resume_routes[resume_token] = ResumeRoute(
+                room_id=room.room_id,
+                active=True,
+                expires_at=0.0,
+            )
         print(
             f"XZ_RELAY_ASSIGN room={room.room_id} "
-            f"occupancy={room.connections}/{ROOM_CAPACITY}",
+            f"occupancy={room.connections}/{ROOM_CAPACITY} "
+            f"reserved={reserved_count(room.room_id)}",
             flush=True,
         )
         return room
 
-async def release_room(room):
+async def release_room(room, resume_token=""):
     async with _room_lock:
         if room.room_id not in _rooms:
             return
         room.connections = max(0, room.connections - 1)
         room.last_used = time.monotonic()
+        if valid_resume_token(resume_token):
+            route = _resume_routes.get(resume_token)
+            if route is not None and route.room_id == room.room_id:
+                route.active = False
+                route.expires_at = time.monotonic() + RECONNECT_GRACE_SECONDS
+                print(
+                    f"XZ_RELAY_RESUME_RESERVED room={room.room_id} "
+                    f"grace={RECONNECT_GRACE_SECONDS:.0f}s",
+                    flush=True,
+                )
         print(
             f"XZ_RELAY_RELEASE room={room.room_id} "
-            f"occupancy={room.connections}/{ROOM_CAPACITY}",
+            f"occupancy={room.connections}/{ROOM_CAPACITY} "
+            f"reserved={reserved_count(room.room_id)}",
             flush=True,
         )
 
@@ -196,7 +280,13 @@ def request_parts(request):
     pieces = first_line.split(" ")
     method = pieces[0].upper() if pieces else "GET"
     target = pieces[1] if len(pieces) > 1 else "/"
-    return method, urlsplit(target).path
+    split = urlsplit(target)
+    return method, split.path, split.query
+
+def resume_token_from_query(query):
+    values = parse_qs(query, keep_blank_values=False).get("resume", [])
+    token = values[0].strip() if values else ""
+    return token if valid_resume_token(token) else ""
 
 def requested_room_from_path(path):
     prefix = "/room/"
@@ -218,6 +308,7 @@ async def handle_http(method, path, writer):
             "multi_room": True,
             "rpc_scene_root": RPC_SCENE_ROOT,
             "runtime_contract": RUNTIME_CONTRACT,
+            "reconnect_grace_seconds": RECONNECT_GRACE_SECONDS,
             "room_capacity": ROOM_CAPACITY,
             "max_rooms": MAX_ROOMS,
             "min_warm_rooms": MIN_WARM_ROOMS,
@@ -230,6 +321,7 @@ async def handle_http(method, path, writer):
             "room_capacity": ROOM_CAPACITY,
             "max_rooms": MAX_ROOMS,
             "min_warm_rooms": MIN_WARM_ROOMS,
+            "reconnect_grace_seconds": RECONNECT_GRACE_SECONDS,
         }, include_body))
     else:
         writer.write(http_response(404, {"error": "not_found"}, include_body))
@@ -245,7 +337,8 @@ async def handle_client(reader, writer):
         await writer.wait_closed()
         return
 
-    method, path = request_parts(request)
+    method, path, query = request_parts(request)
+    resume_token = resume_token_from_query(query)
     lower = request.lower()
     is_websocket = b"upgrade: websocket" in lower and b"connection:" in lower
 
@@ -261,7 +354,7 @@ async def handle_client(reader, writer):
         return
 
     requested_room = requested_room_from_path(path)
-    room = await allocate_room(requested_room)
+    room = await allocate_room(requested_room, resume_token)
     if room is None:
         status = 404 if requested_room else 429
         error = "room_not_found_or_full" if requested_room else "all_rooms_full"
@@ -296,7 +389,7 @@ async def handle_client(reader, writer):
             task.cancel()
         await asyncio.gather(*pending, return_exceptions=True)
     finally:
-        await release_room(room)
+        await release_room(room, resume_token)
         try:
             writer.close()
             await writer.wait_closed()
@@ -307,6 +400,7 @@ async def reap_idle_rooms():
     while True:
         await asyncio.sleep(5.0)
         async with _room_lock:
+            cleanup_resume_routes_locked()
             if len(_rooms) <= MIN_WARM_ROOMS:
                 continue
             now = time.monotonic()

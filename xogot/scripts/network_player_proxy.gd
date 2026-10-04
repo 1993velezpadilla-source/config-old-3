@@ -215,3 +215,70 @@ func get_network_pitch() -> float:
 
 func get_network_peer_id() -> int:
 	return peer_id
+
+func export_resume_state(slot: int) -> Dictionary:
+	var weapon_state := {
+		"id": "",
+		"magazine": 0,
+		"reserve": 0,
+		"upgraded": false,
+	}
+	var weapon: Node = get_node_or_null("Weapon")
+	if weapon != null and weapon.has_method("get_authoritative_state"):
+		weapon_state = weapon.call("get_authoritative_state") as Dictionary
+	return {
+		"slot": slot,
+		"position": global_position,
+		"yaw": rotation.y,
+		"pitch": _target_pitch,
+		"health": health,
+		"max_health": max_health,
+		"downed": downed,
+		"eliminated": eliminated,
+		"bleedout": bleedout_remaining,
+		"revive_ratio": get_revive_progress_ratio(),
+		"points": points,
+		"perks": get_owned_perks(),
+		"weapon": weapon_state,
+	}
+
+func apply_resume_state(state: Dictionary) -> bool:
+	var pos: Vector3 = state.get("position", global_position) as Vector3
+	var yaw := float(state.get("yaw", rotation.y))
+	var pitch := float(state.get("pitch", 0.0))
+	var perk_ids: Array[String] = []
+	for id_var: Variant in state.get("perks", []) as Array:
+		var id := str(id_var)
+		if PerkCatalog.has_perk(id):
+			perk_ids.append(id)
+	_perks.clear()
+	max_health = 100.0
+	for id: String in perk_ids:
+		_perks[id] = true
+	if _perks.has("martyrs_blood"):
+		max_health = maxf(200.0, float(state.get("max_health", 200.0)))
+	else:
+		max_health = maxf(100.0, float(state.get("max_health", 100.0)))
+	points = maxi(0, int(state.get("points", 500)))
+	apply_network_state(
+		pos,
+		yaw,
+		pitch,
+		clampf(float(state.get("health", max_health)), 0.0, max_health),
+		bool(state.get("downed", false)),
+		bool(state.get("eliminated", false)),
+		maxf(0.0, float(state.get("bleedout", 0.0))),
+		clampf(float(state.get("revive_ratio", 0.0)), 0.0, 1.0),
+		points
+	)
+	set_meta("owned_perks", get_owned_perks())
+	var weapon: Node = get_node_or_null("Weapon")
+	if weapon != null and weapon.has_method("apply_authoritative_state"):
+		weapon.call("apply_authoritative_state", state.get("weapon", {}) as Dictionary)
+	print(
+		"XZOGOT_NETWORK_PROXY_RESUME peer=", peer_id,
+		" slot=", int(state.get("slot", 0)),
+		" points=", points,
+		" perks=", get_owned_perks().size()
+	)
+	return true

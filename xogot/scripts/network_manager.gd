@@ -5,6 +5,7 @@ signal session_state_changed(state: String)
 signal roster_changed(peer_ids: PackedInt32Array)
 signal network_error(message: String)
 signal matchmaking_state_changed(phase: String, ready_count: int, player_count: int, countdown: float)
+signal reconnect_state_changed(state: String, attempt: int, grace_remaining: float)
 
 const REMOTE_PROXY_SCRIPT := preload("res://scripts/network_player_proxy.gd")
 const WeaponCatalog = preload("res://scripts/weapon_catalog.gd")
@@ -19,6 +20,9 @@ const MAX_SNAPSHOT_DELTA := 3.0
 const MAX_PITCH := 1.51
 const MAX_HIT_DISTANCE := 130.0
 const MATCH_START_COUNTDOWN := 3.0
+const RECONNECT_GRACE_MS := 45000
+const RECONNECT_WATCHDOG_MS := 8000
+const RECONNECT_MAX_ATTEMPTS := 12
 
 var _peer: MultiplayerPeer
 var _mode: String = "offline"
@@ -43,6 +47,17 @@ var _match_phase: String = "idle"
 var _ready_peers: Dictionary = {}
 var _match_started: bool = false
 var _match_countdown: float = 0.0
+var _resume_token: String = ""
+var _peer_resume_tokens: Dictionary = {}
+var _peer_slots: Dictionary = {}
+var _resume_snapshots: Dictionary = {}
+var _local_player_slot: int = 0
+var _last_server_activity_ms: int = 0
+var _reconnect_active: bool = false
+var _reconnect_attempt: int = 0
+var _reconnect_generation: int = 0
+var _reconnect_attempt_scheduled: bool = false
+var _reconnect_base_url: String = ""
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -50,6 +65,7 @@ func _ready() -> void:
 	_bind_multiplayer_signals()
 	_configure_local_player(SERVER_PEER_ID)
 	_roster[SERVER_PEER_ID] = true
+	_resume_token = _load_or_create_resume_token()
 	call_deferred("_bind_public_reachability")
 	print("XZOGOT_NETWORK_MANAGER_READY port=", DEFAULT_PORT, " max_players=", MAX_PLAYERS)
 
@@ -107,6 +123,192 @@ func _upnp_node() -> Node:
 func _public_directory() -> Node:
 	return get_parent().get_node_or_null("PublicMatchDirectory")
 
+func _valid_resume_token(token: String) -> bool:
+	if token.length() < 16 or token.length() > 96:
+		return false
+	const ALLOWED := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-"
+	for index in range(token.length()):
+		if ALLOWED.find(token.substr(index, 1)) < 0:
+			return false
+	return true
+
+func _new_resume_token() -> String:
+	var crypto := Crypto.new()
+	var bytes := crypto.generate_random_bytes(24)
+	return bytes.hex_encode()
+
+func _load_or_create_resume_token() -> String:
+	var env_token := OS.get_environment("XZOGOT_RESUME_TOKEN").strip_edges()
+	if _valid_resume_token(env_token):
+		return env_token
+	if OS.has_feature("mobile"):
+		var path := "user://xz_public_resume_token.txt"
+		if FileAccess.file_exists(path):
+			var read_file := FileAccess.open(path, FileAccess.READ)
+			if read_file != null:
+				var stored := read_file.get_as_text().strip_edges()
+				if _valid_resume_token(stored):
+					return stored
+		var generated := _new_resume_token()
+		var write_file := FileAccess.open(path, FileAccess.WRITE)
+		if write_file != null:
+			write_file.store_string(generated)
+		return generated
+	return _new_resume_token()
+
+func _url_with_resume_token(base_url: String) -> String:
+	if not _valid_resume_token(_resume_token):
+		_resume_token = _load_or_create_resume_token()
+	var separator := "&" if base_url.contains("?") else "?"
+	return base_url + separator + "resume=" + _resume_token
+
+func _mark_server_activity() -> void:
+	_last_server_activity_ms = Time.get_ticks_msec()
+
+func _reserved_slots() -> Dictionary:
+	var used := {}
+	for slot_var: Variant in _peer_slots.values():
+		var slot := int(slot_var)
+		if slot > 0:
+			used[slot] = true
+	for snapshot_var: Variant in _resume_snapshots.values():
+		if snapshot_var is Dictionary:
+			var slot := int((snapshot_var as Dictionary).get("slot", 0))
+			if slot > 0:
+				used[slot] = true
+	return used
+
+func _next_available_slot() -> int:
+	var used := _reserved_slots()
+	for slot in range(1, MAX_PLAYERS + 1):
+		if not used.has(slot):
+			return slot
+	return 0
+
+func _resume_snapshot_count() -> int:
+	return _resume_snapshots.size()
+
+func _capture_resume_snapshot(peer_id: int) -> void:
+	if not _dedicated_server:
+		return
+	var token := str(_peer_resume_tokens.get(peer_id, ""))
+	if not _valid_resume_token(token):
+		return
+	var player: Node = _network_player_node(peer_id)
+	if player == null or not player.has_method("export_resume_state"):
+		return
+	var slot := int(_peer_slots.get(peer_id, 0))
+	var snapshot := player.call("export_resume_state", slot) as Dictionary
+	snapshot["ready"] = bool(_ready_peers.get(peer_id, false))
+	snapshot["match_started"] = _match_started
+	snapshot["expires_ms"] = Time.get_ticks_msec() + RECONNECT_GRACE_MS
+	_resume_snapshots[token] = snapshot
+	print(
+		"XZOGOT_RECONNECT_RESERVED slot=", slot,
+		" peer=", peer_id,
+		" grace_ms=", RECONNECT_GRACE_MS
+	)
+
+func _expire_resume_snapshots() -> void:
+	if _resume_snapshots.is_empty():
+		return
+	var now := Time.get_ticks_msec()
+	var expired := PackedStringArray()
+	for token_var: Variant in _resume_snapshots.keys():
+		var token := str(token_var)
+		var snapshot := _resume_snapshots[token] as Dictionary
+		if int(snapshot.get("expires_ms", 0)) <= now:
+			expired.append(token)
+	for token: String in expired:
+		var snapshot := _resume_snapshots[token] as Dictionary
+		print("XZOGOT_RECONNECT_EXPIRED slot=", int(snapshot.get("slot", 0)))
+		_resume_snapshots.erase(token)
+	if _dedicated_server and _roster.is_empty() and _resume_snapshots.is_empty():
+		_reset_dedicated_match()
+	elif _dedicated_server and not _match_started and _resume_snapshots.is_empty():
+		_recompute_matchmaking_phase()
+
+func _set_reconnecting_phase() -> void:
+	_match_phase = "reconnecting"
+	_match_countdown = 0.0
+	_broadcast_matchmaking_state()
+
+@rpc("any_peer", "call_remote", "reliable")
+func _server_register_resume_token(token: String) -> void:
+	if not multiplayer.is_server() or not _dedicated_server or not _valid_resume_token(token):
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	if sender <= SERVER_PEER_ID or not _roster.has(sender):
+		return
+	_peer_resume_tokens[sender] = token
+	var now := Time.get_ticks_msec()
+	var resumed := false
+	var slot := int(_peer_slots.get(sender, 0))
+	if _resume_snapshots.has(token):
+		var snapshot := _resume_snapshots[token] as Dictionary
+		if int(snapshot.get("expires_ms", 0)) > now:
+			resumed = true
+			slot = int(snapshot.get("slot", slot))
+			_peer_slots[sender] = slot
+			var proxy: Node = _ensure_remote_proxy(sender)
+			if proxy != null and proxy.has_method("apply_resume_state"):
+				proxy.call("apply_resume_state", snapshot)
+			_accepted_positions[sender] = snapshot.get("position", Vector3.ZERO) as Vector3
+			var weapon_state := snapshot.get("weapon", {}) as Dictionary
+			_peer_weapon_ids[sender] = str(weapon_state.get("id", WeaponCatalog.STARTING_WEAPON_ID))
+			_peer_weapon_upgraded[sender] = bool(weapon_state.get("upgraded", false))
+			if bool(snapshot.get("ready", false)):
+				_ready_peers[sender] = true
+			else:
+				_ready_peers.erase(sender)
+			_resume_snapshots.erase(token)
+			if bool(snapshot.get("match_started", false)):
+				_match_started = true
+				_match_phase = "started"
+				_set_dedicated_gameplay_active(true)
+			elif _resume_snapshots.is_empty():
+				_recompute_matchmaking_phase()
+			else:
+				_set_reconnecting_phase()
+	if slot <= 0:
+		slot = _next_available_slot()
+		if slot <= 0:
+			print("XZOGOT_RECONNECT_NO_SLOT peer=", sender)
+			if _peer != null:
+				_peer.disconnect_peer(sender, true)
+			return
+		_peer_slots[sender] = slot
+	rpc_id(sender, "_client_resume_accepted", slot, resumed, RECONNECT_GRACE_MS)
+	_broadcast_roster()
+	_send_inventory_state(sender)
+	_send_late_join_state(sender)
+	_send_matchmaking_state(sender)
+	_relay_player_state(sender, _sequence)
+	print(
+		"XZOGOT_RECONNECT_REGISTERED peer=", sender,
+		" slot=", slot,
+		" resumed=", resumed
+	)
+
+@rpc("authority", "call_remote", "reliable")
+func _client_resume_accepted(slot: int, resumed: bool, grace_ms: int) -> void:
+	if multiplayer.is_server():
+		return
+	_mark_server_activity()
+	_local_player_slot = maxi(0, slot)
+	var was_reconnecting := _reconnect_active
+	_reconnect_active = false
+	_reconnect_attempt = 0
+	_reconnect_attempt_scheduled = false
+	_mode = "client"
+	session_state_changed.emit(_mode)
+	reconnect_state_changed.emit("connected", 0, float(grace_ms) / 1000.0)
+	print(
+		"XZOGOT_RECONNECT_ACCEPTED slot=", _local_player_slot,
+		" resumed=", resumed,
+		" handover=", was_reconnecting
+	)
+
 func _ready_count() -> int:
 	var count := 0
 	for peer_var: Variant in _ready_peers.keys():
@@ -145,6 +347,10 @@ func _set_dedicated_gameplay_active(active: bool) -> void:
 	print("XZOGOT_MATCH_GAMEPLAY_ACTIVE ", active)
 
 func _reset_dedicated_match() -> void:
+	if _roster.is_empty():
+		_resume_snapshots.clear()
+		_peer_resume_tokens.clear()
+		_peer_slots.clear()
 	_ready_peers.clear()
 	_match_started = false
 	_match_countdown = 0.0
@@ -228,6 +434,7 @@ func _client_receive_matchmaking_state(
 ) -> void:
 	if multiplayer.is_server():
 		return
+	_mark_server_activity()
 	_match_phase = phase
 	_match_started = phase == "started"
 	_match_countdown = maxf(0.0, countdown)
@@ -378,32 +585,108 @@ func host_websocket_dedicated(port: int, bind_address: String = "*") -> Error:
 	print("XZOGOT_WS_DEDICATED_READY port=", port, " bind=", clean_bind, " human_slots=", MAX_PLAYERS)
 	return OK
 
+func _open_websocket_connection(base_url: String, reconnecting: bool) -> Error:
+	var clean_url := base_url.strip_edges()
+	if not clean_url.begins_with("ws://") and not clean_url.begins_with("wss://"):
+		return ERR_INVALID_PARAMETER
+	if _peer != null:
+		_peer.close()
+	var next_peer := WebSocketMultiplayerPeer.new()
+	var err: Error = next_peer.create_client(_url_with_resume_token(clean_url))
+	if err != OK:
+		print("XZOGOT_WS_JOIN_FAIL ", err)
+		return err
+	_peer = next_peer
+	multiplayer.multiplayer_peer = _peer
+	_mode = "reconnecting" if reconnecting else "joining"
+	_transport = "websocket"
+	_dedicated_server = false
+	_relay_url = clean_url
+	_reconnect_base_url = clean_url
+	if not reconnecting:
+		_match_phase = "searching"
+		_match_started = false
+		_match_countdown = 0.0
+		_ready_peers.clear()
+		_local_player_slot = 0
+	_set_client_simulation(true)
+	_mark_server_activity()
+	_emit_matchmaking_state()
+	session_state_changed.emit(_mode)
+	print("XZOGOT_WS_JOINING ", clean_url, " reconnect=", reconnecting)
+	return OK
+
 func join_websocket_game(url: String) -> Error:
 	var clean_url := url.strip_edges()
 	if not clean_url.begins_with("ws://") and not clean_url.begins_with("wss://"):
 		return ERR_INVALID_PARAMETER
 	leave_game()
-	var next_peer := WebSocketMultiplayerPeer.new()
-	var err: Error = next_peer.create_client(clean_url)
+	_reconnect_active = false
+	_reconnect_attempt = 0
+	_reconnect_attempt_scheduled = false
+	return _open_websocket_connection(clean_url, false)
+
+func _schedule_next_reconnect() -> void:
+	if not _reconnect_active or _reconnect_attempt_scheduled:
+		return
+	if _reconnect_attempt >= RECONNECT_MAX_ATTEMPTS:
+		_reconnect_active = false
+		_reconnect_attempt_scheduled = false
+		network_error.emit("RECONNECT_TIMEOUT")
+		reconnect_state_changed.emit("failed", _reconnect_attempt, 0.0)
+		print("XZOGOT_RECONNECT_GAVE_UP attempts=", _reconnect_attempt)
+		return
+	var delay := 0.0 if _reconnect_attempt == 0 else minf(5.0, float(_reconnect_attempt))
+	_reconnect_attempt_scheduled = true
+	var generation := _reconnect_generation
+	call_deferred("_reconnect_attempt_after_delay", generation, delay)
+
+func _reconnect_attempt_after_delay(generation: int, delay: float) -> void:
+	if delay > 0.0:
+		await get_tree().create_timer(delay, true, false, true).timeout
+	if generation != _reconnect_generation or not _reconnect_active:
+		return
+	_reconnect_attempt_scheduled = false
+	_reconnect_attempt += 1
+	reconnect_state_changed.emit("reconnecting", _reconnect_attempt, float(RECONNECT_GRACE_MS) / 1000.0)
+	print("XZOGOT_RECONNECT_ATTEMPT ", _reconnect_attempt)
+	var err := _open_websocket_connection(_reconnect_base_url, true)
 	if err != OK:
-		network_error.emit("WS_JOIN_FAILED_%d" % int(err))
-		print("XZOGOT_WS_JOIN_FAIL ", err)
-		return err
-	_peer = next_peer
-	multiplayer.multiplayer_peer = _peer
-	_mode = "joining"
-	_transport = "websocket"
-	_dedicated_server = false
-	_relay_url = clean_url
-	_match_phase = "searching"
-	_match_started = false
-	_match_countdown = 0.0
-	_ready_peers.clear()
-	_set_client_simulation(true)
+		_schedule_next_reconnect()
+
+func _begin_public_reconnect(reason: String) -> void:
+	if _transport != "websocket" or _relay_url.is_empty():
+		return
+	if _reconnect_active:
+		_schedule_next_reconnect()
+		return
+	_reconnect_active = true
+	_reconnect_attempt = 0
+	_reconnect_attempt_scheduled = false
+	_reconnect_generation += 1
+	_reconnect_base_url = _relay_url
+	_mode = "reconnecting"
+	_match_phase = "reconnecting"
+	_clear_remote_players()
+	_clear_network_zombies()
+	_roster.clear()
+	_roster[_local_peer_id] = true
+	_emit_roster()
 	_emit_matchmaking_state()
 	session_state_changed.emit(_mode)
-	print("XZOGOT_WS_JOINING ", clean_url)
-	return OK
+	reconnect_state_changed.emit("reconnecting", 0, float(RECONNECT_GRACE_MS) / 1000.0)
+	if _peer != null:
+		_peer.close()
+	_peer = null
+	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
+	print("XZOGOT_RECONNECT_BEGIN reason=", reason)
+	_schedule_next_reconnect()
+
+func force_public_reconnect() -> bool:
+	if _transport != "websocket" or (_mode != "client" and _mode != "reconnecting"):
+		return false
+	_begin_public_reconnect("forced")
+	return true
 
 func join_game(address: String, port: int = DEFAULT_PORT) -> Error:
 	var clean_address: String = address.strip_edges()
@@ -429,6 +712,10 @@ func join_game(address: String, port: int = DEFAULT_PORT) -> Error:
 	return OK
 
 func leave_game() -> void:
+	_reconnect_generation += 1
+	_reconnect_active = false
+	_reconnect_attempt = 0
+	_reconnect_attempt_scheduled = false
 	var discovery: Node = _discovery()
 	if discovery != null:
 		if discovery.has_method("stop_advertising"):
@@ -465,6 +752,10 @@ func leave_game() -> void:
 	_match_started = false
 	_match_countdown = 0.0
 	_ready_peers.clear()
+	_peer_resume_tokens.clear()
+	_peer_slots.clear()
+	_resume_snapshots.clear()
+	_local_player_slot = 0
 	_local_peer_id = SERVER_PEER_ID
 	_configure_local_player(SERVER_PEER_ID)
 	_set_client_simulation(false)
@@ -485,29 +776,53 @@ func _on_peer_connected(peer_id: int) -> void:
 	_roster[peer_id] = true
 	_peer_weapon_ids[peer_id] = WeaponCatalog.STARTING_WEAPON_ID
 	_peer_weapon_upgraded[peer_id] = false
+	var initial_slot := _next_available_slot()
+	if initial_slot > 0:
+		_peer_slots[peer_id] = initial_slot
 	_ensure_remote_proxy(peer_id)
 	_broadcast_roster()
 	if _dedicated_server and not _match_started:
 		_ready_peers.erase(peer_id)
-		_recompute_matchmaking_phase()
-	print("XZOGOT_NETWORK_PEER_JOIN peer=", peer_id, " count=", _roster.size())
+		if _resume_snapshots.is_empty():
+			_recompute_matchmaking_phase()
+		else:
+			_set_reconnecting_phase()
+	print(
+		"XZOGOT_NETWORK_PEER_JOIN peer=", peer_id,
+		" count=", _roster.size(),
+		" slot=", int(_peer_slots.get(peer_id, 0))
+	)
 
 func _on_peer_disconnected(peer_id: int) -> void:
+	_capture_resume_snapshot(peer_id)
 	_roster.erase(peer_id)
 	_accepted_positions.erase(peer_id)
 	_peer_weapon_ids.erase(peer_id)
 	_peer_weapon_upgraded.erase(peer_id)
+	_peer_resume_tokens.erase(peer_id)
+	_peer_slots.erase(peer_id)
 	_remove_remote_proxy(peer_id)
 	_ready_peers.erase(peer_id)
 	if multiplayer.is_server():
 		_broadcast_roster()
 		if _dedicated_server:
 			if _roster.is_empty():
-				_reset_dedicated_match()
+				if _resume_snapshots.is_empty():
+					_reset_dedicated_match()
+				else:
+					_set_dedicated_gameplay_active(false)
+					_set_reconnecting_phase()
 			elif not _match_started:
-				_recompute_matchmaking_phase()
+				if _resume_snapshots.is_empty():
+					_recompute_matchmaking_phase()
+				else:
+					_set_reconnecting_phase()
 	_emit_roster()
-	print("XZOGOT_NETWORK_PEER_LEFT peer=", peer_id, " count=", _roster.size())
+	print(
+		"XZOGOT_NETWORK_PEER_LEFT peer=", peer_id,
+		" count=", _roster.size(),
+		" reserved=", _resume_snapshot_count()
+	)
 
 func _on_connected_to_server() -> void:
 	_mode = "client"
@@ -516,11 +831,18 @@ func _on_connected_to_server() -> void:
 	_roster[_local_peer_id] = true
 	_configure_local_player(_local_peer_id)
 	_set_client_simulation(true)
+	_mark_server_activity()
+	if _transport == "websocket" and _valid_resume_token(_resume_token):
+		rpc_id(SERVER_PEER_ID, "_server_register_resume_token", _resume_token)
 	rpc_id(SERVER_PEER_ID, "_server_request_roster")
 	session_state_changed.emit(_mode)
 	print("XZOGOT_NETWORK_CLIENT_READY peer=", _local_peer_id)
 
 func _on_connection_failed() -> void:
+	if _reconnect_active:
+		print("XZOGOT_RECONNECT_CONNECT_FAILED attempt=", _reconnect_attempt)
+		_schedule_next_reconnect()
+		return
 	if _public_relay_fallback_pending and is_public_relay_configured():
 		var relay_url := get_public_relay_endpoint()
 		_public_relay_fallback_pending = false
@@ -534,6 +856,13 @@ func _on_connection_failed() -> void:
 	leave_game()
 
 func _on_server_disconnected() -> void:
+	if _reconnect_active:
+		print("XZOGOT_RECONNECT_SERVER_DROPPED attempt=", _reconnect_attempt)
+		_schedule_next_reconnect()
+		return
+	if _transport == "websocket" and not _relay_url.is_empty():
+		_begin_public_reconnect("server_disconnected")
+		return
 	network_error.emit("SERVER_DISCONNECTED")
 	print("XZOGOT_NETWORK_SERVER_DISCONNECTED")
 	leave_game()
@@ -575,6 +904,7 @@ func _server_request_roster() -> void:
 func _client_receive_roster(ids: PackedInt32Array) -> void:
 	if multiplayer.is_server():
 		return
+	_mark_server_activity()
 	_roster.clear()
 	for peer_id: int in ids:
 		_roster[peer_id] = true
@@ -618,12 +948,20 @@ func _clear_remote_players() -> void:
 	_remote_players.clear()
 
 func _process(delta: float) -> void:
-	if _mode != "host" and _mode != "client":
+	if _mode != "host" and _mode != "client" and _mode != "reconnecting":
 		return
 	if _mode == "host" and _dedicated_server:
+		_expire_resume_snapshots()
 		_update_matchmaking(delta)
 		if _roster.is_empty():
 			return
+	if _mode == "client" and _transport == "websocket" and not _reconnect_active:
+		var now := Time.get_ticks_msec()
+		if _last_server_activity_ms > 0 and now - _last_server_activity_ms > RECONNECT_WATCHDOG_MS:
+			_begin_public_reconnect("snapshot_watchdog")
+			return
+	if _mode == "reconnecting":
+		return
 
 	_snapshot_timer -= delta
 	if _snapshot_timer <= 0.0:
@@ -1042,6 +1380,7 @@ func _send_session_state(peer_id: int) -> void:
 func _client_receive_session_state(snapshot: Dictionary) -> void:
 	if multiplayer.is_server():
 		return
+	_mark_server_activity()
 	_apply_session_snapshot(snapshot)
 
 func _build_late_join_snapshot() -> Dictionary:
@@ -1280,6 +1619,7 @@ func _client_receive_inventory_state(
 ) -> void:
 	if multiplayer.is_server():
 		return
+	_mark_server_activity()
 	var player: Node = _local_player()
 	if player != null:
 		if player.has_method("apply_authoritative_network_points"):
@@ -1379,7 +1719,21 @@ func get_matchmaking_status_text() -> String:
 			]
 		"started":
 			return "MATCH STARTED  •  %d/%d PLAYERS" % [_roster.size(), MAX_PLAYERS]
+		"reconnecting":
+			return "RECONNECTING PLAYER..."
 	return ""
+
+func get_local_player_slot() -> int:
+	return _local_player_slot
+
+func get_resume_grace_seconds() -> float:
+	return float(RECONNECT_GRACE_MS) / 1000.0
+
+func is_reconnect_in_progress() -> bool:
+	return _reconnect_active
+
+func get_reconnect_attempt() -> int:
+	return _reconnect_attempt
 
 func get_mode() -> String:
 	return _mode

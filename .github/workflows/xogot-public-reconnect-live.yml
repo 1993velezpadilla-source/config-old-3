@@ -1,0 +1,266 @@
+name: Xogot Public Reconnect Live
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/church-expansion-v1
+    paths:
+      - ".github/workflows/xogot-public-reconnect-live.yml"
+      - "services/xz-ws-relay/**"
+      - "xogot/scripts/network_manager.gd"
+      - "xogot/scripts/network_player_proxy.gd"
+      - "xogot/scripts/network_weapon_state.gd"
+      - "xogot/server/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xogot-public-reconnect-live
+  cancel-in-progress: true
+
+jobs:
+  reconnect-same-room:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Wait for reconnect runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          for _i in $(seq 1 180); do
+            HEALTH="$(curl -fsS https://xz-zombie-relay-gateway.onrender.com/health 2>/dev/null || true)"
+            ROOMS="$(curl -fsS https://xz-zombie-relay-gateway.onrender.com/v1/rooms 2>/dev/null || true)"
+            if python3 - "$HEALTH" "$ROOMS" <<'PY'
+          import json, sys
+          try:
+              health = json.loads(sys.argv[1])
+              rooms = json.loads(sys.argv[2]).get("rooms", [])
+          except Exception:
+              raise SystemExit(1)
+          ok = (
+              health.get("runtime_contract") == "multiroom-reconnect-v3"
+              and health.get("rpc_scene_root") == "YouWontWin"
+              and float(health.get("reconnect_grace_seconds", 0)) >= 30
+              and len(rooms) >= 2
+              and all(bool(room.get("ready")) for room in rooms[:2])
+              and all(int(room.get("players", -1)) == 0 for room in rooms[:2])
+              and all(int(room.get("reserved", 0)) == 0 for room in rooms[:2])
+          )
+          raise SystemExit(0 if ok else 1)
+          PY
+            then
+              echo "$HEALTH"
+              echo "$ROOMS"
+              echo "XZ_PUBLIC_RECONNECT_RUNTIME_GREEN"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Reconnect runtime never became empty/ready" >&2
+          exit 1
+
+      - name: Install Godot 4.6.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2             https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip             -o /tmp/godot.zip
+          rm -rf /tmp/godot
+          mkdir -p /tmp/godot
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+
+      - name: Prepare reconnect clients
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > xogot/ci/public_reconnect_client.gd <<'GDSCRIPT'
+          extends SceneTree
+
+          const URL := "wss://xz-zombie-relay-gateway.onrender.com/matchmake"
+          const TIMEOUT_MS := 50000
+
+          func _init() -> void:
+              call_deferred("_run")
+
+          func _args() -> Array[String]:
+              var out: Array[String] = []
+              for value: String in OS.get_cmdline_user_args():
+                  out.append(value)
+              return out
+
+          func _fail(code: int, message: String) -> void:
+              push_error("PUBLIC_RECONNECT_CLIENT: " + message)
+              quit(code)
+
+          func _wait_client(network: Node, expected: int, deadline_ms: int) -> bool:
+              while Time.get_ticks_msec() < deadline_ms:
+                  if str(network.call("get_mode")) == "client" and int(network.call("get_connected_player_count")) == expected:
+                      return true
+                  await create_timer(0.05).timeout
+              return false
+
+          func _run() -> void:
+              var args := _args()
+              var role := args[0] if args.size() > 0 else "reconnector"
+              var packed := load("res://main.tscn") as PackedScene
+              if packed == null:
+                  _fail(2, "main scene missing")
+                  return
+              var scene := packed.instantiate()
+              root.add_child(scene)
+              await process_frame
+              await process_frame
+              var network: Node = scene.get_node_or_null("NetworkManager")
+              var rounds: Node = scene.get_node_or_null("RoundManager")
+              var player: Node3D = scene.get_node_or_null("Player") as Node3D
+              if network == null or rounds == null or player == null:
+                  _fail(3, "runtime missing")
+                  return
+              var err: Error = network.call("join_websocket_game", URL) as Error
+              if err != OK:
+                  _fail(4, "join failed " + str(err))
+                  return
+
+              if not await _wait_client(network, 2, Time.get_ticks_msec() + TIMEOUT_MS):
+                  _fail(5, "two-player roster timeout role=" + role)
+                  return
+              if not bool(network.call("set_local_ready", true)):
+                  _fail(6, "ready failed role=" + role)
+                  return
+
+              var start_deadline := Time.get_ticks_msec() + TIMEOUT_MS
+              while Time.get_ticks_msec() < start_deadline:
+                  if (
+                      str(network.call("get_matchmaking_phase")) == "started"
+                      and int(rounds.call("get_round")) >= 1
+                      and int(network.call("get_local_player_slot")) > 0
+                  ):
+                      break
+                  await create_timer(0.05).timeout
+              if str(network.call("get_matchmaking_phase")) != "started":
+                  _fail(7, "match did not start role=" + role)
+                  return
+
+              var slot_before := int(network.call("get_local_player_slot"))
+              var round_before := int(rounds.call("get_round"))
+              print("XZ_PUBLIC_RECONNECT_STARTED role=", role, " slot=", slot_before, " round=", round_before)
+
+              if role == "anchor":
+                  var anchor_deadline := Time.get_ticks_msec() + 18000
+                  while Time.get_ticks_msec() < anchor_deadline:
+                      if str(network.call("get_mode")) != "client":
+                          _fail(8, "anchor disconnected")
+                          return
+                      await create_timer(0.05).timeout
+                  print("XZ_PUBLIC_RECONNECT_ANCHOR_GREEN slot=", slot_before)
+                  network.call("leave_game")
+                  quit(0)
+                  return
+
+              var marker := player.global_position + Vector3(0.85, 0.0, 0.35)
+              player.global_position = marker
+              await create_timer(1.2).timeout
+              var points_before := int(player.call("get_points"))
+              var perks_before := player.call("get_owned_perks") as Array[String]
+              var weapon: Node = player.get_node_or_null("Weapon")
+              var weapon_before := str(weapon.call("get_weapon_id")) if weapon != null else ""
+              var mag_before := int(weapon.call("get_magazine")) if weapon != null else -1
+              var reserve_before := int(weapon.call("get_reserve")) if weapon != null else -1
+
+              if not bool(network.call("force_public_reconnect")):
+                  _fail(9, "force reconnect rejected")
+                  return
+              print("XZ_PUBLIC_RECONNECT_DROP_TRIGGERED slot=", slot_before)
+
+              var reconnect_deadline := Time.get_ticks_msec() + TIMEOUT_MS
+              while Time.get_ticks_msec() < reconnect_deadline:
+                  if (
+                      str(network.call("get_mode")) == "client"
+                      and not bool(network.call("is_reconnect_in_progress"))
+                      and int(network.call("get_connected_player_count")) == 2
+                      and int(network.call("get_local_player_slot")) == slot_before
+                  ):
+                      break
+                  await create_timer(0.05).timeout
+
+              if str(network.call("get_mode")) != "client":
+                  _fail(10, "did not reconnect")
+                  return
+              if int(network.call("get_local_player_slot")) != slot_before:
+                  _fail(11, "slot changed")
+                  return
+              if int(rounds.call("get_round")) < round_before:
+                  _fail(12, "round rolled back")
+                  return
+              await create_timer(0.8).timeout
+              if player.global_position.distance_to(marker) > 1.6:
+                  _fail(13, "position not restored dist=" + str(player.global_position.distance_to(marker)))
+                  return
+              if int(player.call("get_points")) != points_before:
+                  _fail(14, "points changed")
+                  return
+              var perks_after := player.call("get_owned_perks") as Array[String]
+              if perks_after != perks_before:
+                  _fail(15, "perks changed")
+                  return
+              if weapon == null:
+                  _fail(16, "weapon missing after reconnect")
+                  return
+              if str(weapon.call("get_weapon_id")) != weapon_before:
+                  _fail(17, "weapon changed")
+                  return
+              if int(weapon.call("get_magazine")) != mag_before:
+                  _fail(18, "magazine changed")
+                  return
+              if int(weapon.call("get_reserve")) != reserve_before:
+                  _fail(19, "reserve changed")
+                  return
+              print(
+                  "XZ_PUBLIC_RECONNECT_STATE_GREEN slot=", slot_before,
+                  " round=", int(rounds.call("get_round")),
+                  " points=", int(player.call("get_points")),
+                  " weapon=", str(weapon.call("get_weapon_id"))
+              )
+              network.call("leave_game")
+              quit(0)
+          GDSCRIPT
+
+      - name: Verify same-room reconnect and state restore
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/public-reconnect
+          XZOGOT_RESUME_TOKEN="reconnect-${GITHUB_RUN_ID}-anchor"             timeout 80 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64             --headless --path xogot --script res://ci/public_reconnect_client.gd -- anchor             > build/public-reconnect/anchor.log 2>&1 &
+          PA=$!
+          XZOGOT_RESUME_TOKEN="reconnect-${GITHUB_RUN_ID}-runner"             timeout 80 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64             --headless --path xogot --script res://ci/public_reconnect_client.gd -- reconnector             > build/public-reconnect/reconnector.log 2>&1 &
+          PR=$!
+
+          set +e
+          wait "$PR"; RR=$?
+          wait "$PA"; RA=$?
+          set -e
+
+          cat build/public-reconnect/reconnector.log
+          cat build/public-reconnect/anchor.log
+          test "$RR" -eq 0
+          test "$RA" -eq 0
+          grep -q "XZ_PUBLIC_RECONNECT_DROP_TRIGGERED" build/public-reconnect/reconnector.log
+          grep -q "XZOGOT_RECONNECT_ACCEPTED .*resumed=true" build/public-reconnect/reconnector.log
+          grep -q "XZ_PUBLIC_RECONNECT_STATE_GREEN" build/public-reconnect/reconnector.log
+          grep -q "XZ_PUBLIC_RECONNECT_ANCHOR_GREEN" build/public-reconnect/anchor.log
+          ! grep -E "SCRIPT ERROR|Parse Error|PUBLIC_RECONNECT_CLIENT:" build/public-reconnect/reconnector.log
+          ! grep -E "SCRIPT ERROR|Parse Error|PUBLIC_RECONNECT_CLIENT:" build/public-reconnect/anchor.log
+          echo "XZ_PUBLIC_RECONNECT_LIVE_GATE_GREEN"
+
+      - name: Upload reconnect logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Public-Reconnect-Live-logs
+          path: build/public-reconnect/
+          if-no-files-found: warn
+          retention-days: 7

@@ -44,11 +44,12 @@ jobs:
           ok = (
               health.get("multi_room") is True
               and health.get("rpc_scene_root") == "YouWontWin"
-              and health.get("runtime_contract") == "multiroom-matchflow-v2"
+              and health.get("runtime_contract") == "multiroom-reconnect-v3"
               and int(health.get("min_warm_rooms", 0)) >= 2
               and len(rooms) >= 2
               and all(bool(room.get("ready")) for room in rooms[:2])
               and all(int(room.get("players", -1)) == 0 for room in rooms[:2])
+              and all(int(room.get("reserved", 0)) == 0 for room in rooms[:2])
           )
           raise SystemExit(0 if ok else 1)
           PY
@@ -196,7 +197,7 @@ jobs:
           mkdir -p build/public-game-live
 
           for IDX in 1 2 3 4; do
-            timeout 80 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            XZOGOT_RESUME_TOKEN="game-${GITHUB_RUN_ID}-client${IDX}" timeout 80 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
               --headless --path xogot --script res://ci/public_game_live_client.gd -- \
               "client${IDX}" "4" "22000" \
               >"build/public-game-live/client${IDX}.log" 2>&1 &
@@ -221,7 +222,7 @@ jobs:
           done
 
           for IDX in 5 6; do
-            timeout 70 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            XZOGOT_RESUME_TOKEN="game-${GITHUB_RUN_ID}-client${IDX}" timeout 70 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
               --headless --path xogot --script res://ci/public_game_live_client.gd -- \
               "client${IDX}" "2" "8000" \
               >"build/public-game-live/client${IDX}.log" 2>&1 &

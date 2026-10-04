@@ -90,3 +90,28 @@ func get_authoritative_state() -> Dictionary:
 		"reserve": reserve_ammo,
 		"upgraded": _upgraded,
 	}
+
+func apply_authoritative_state(state: Dictionary) -> bool:
+	var id := str(state.get("id", WeaponCatalog.STARTING_WEAPON_ID))
+	if not WeaponCatalog.has_weapon(id):
+		return false
+	if not equip_weapon(id, true):
+		return false
+	_upgraded = bool(state.get("upgraded", false))
+	if _upgraded:
+		_upgraded_ids[id] = true
+	else:
+		_upgraded_ids.erase(id)
+	var def := WeaponCatalog.get_weapon(id)
+	var max_mag := maxi(1, int(def.get("magazine", 8)))
+	_magazine = clampi(int(state.get("magazine", max_mag)), 0, max_mag)
+	reserve_ammo = maxi(0, int(state.get("reserve", int(def.get("reserve", max_mag * 4)))))
+	set_meta("weapon_id", _weapon_id)
+	set_meta("weapon_upgraded", _upgraded)
+	print(
+		"XZOGOT_NETWORK_WEAPON_RESUME ", _weapon_id,
+		" mag=", _magazine,
+		" reserve=", reserve_ammo,
+		" upgraded=", _upgraded
+	)
+	return true

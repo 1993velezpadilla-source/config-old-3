@@ -1,0 +1,134 @@
+name: Xogot Reconnect State
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/church-expansion-v1
+    paths:
+      - ".github/workflows/xogot-reconnect-state.yml"
+      - "xogot/scripts/network_player_proxy.gd"
+      - "xogot/scripts/network_weapon_state.gd"
+
+permissions:
+  contents: read
+
+jobs:
+  resume-state-roundtrip:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Godot 4.6.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2             https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip             -o /tmp/godot.zip
+          mkdir -p /tmp/godot
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+
+      - name: Verify reconnect state roundtrip
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > xogot/ci/reconnect_state_probe.gd <<'GDSCRIPT'
+          extends SceneTree
+
+          const PROXY_SCRIPT := preload("res://scripts/network_player_proxy.gd")
+
+          func _init() -> void:
+              call_deferred("_run")
+
+          func _fail(message: String) -> void:
+              push_error("RECONNECT_STATE_PROBE: " + message)
+              quit(2)
+
+          func _run() -> void:
+              var source := CharacterBody3D.new()
+              source.set_script(PROXY_SCRIPT)
+              source.call("configure", 2001, "SOURCE")
+              root.add_child(source)
+              await process_frame
+              source.global_position = Vector3(3.25, 0.38, -4.5)
+              source.rotation.y = 1.1
+              source.call("add_points", 2750)
+              source.call("grant_perk", "martyrs_blood")
+              source.call("grant_perk", "quick_hands")
+              source.call(
+                  "apply_network_state",
+                  source.global_position,
+                  1.1,
+                  -0.22,
+                  133.0,
+                  true,
+                  false,
+                  31.5,
+                  0.35,
+                  3250
+              )
+              var weapon: Node = source.get_node_or_null("Weapon")
+              if weapon == null:
+                  _fail("source weapon missing")
+                  return
+              var weapon_state := {
+                  "id": "mp40",
+                  "magazine": 17,
+                  "reserve": 91,
+                  "upgraded": true,
+              }
+              if not bool(weapon.call("apply_authoritative_state", weapon_state)):
+                  _fail("source weapon state rejected")
+                  return
+              var snapshot := source.call("export_resume_state", 3) as Dictionary
+
+              var restored := CharacterBody3D.new()
+              restored.set_script(PROXY_SCRIPT)
+              restored.call("configure", 3001, "RESTORED")
+              root.add_child(restored)
+              await process_frame
+              if not bool(restored.call("apply_resume_state", snapshot)):
+                  _fail("apply_resume_state failed")
+                  return
+              var restored_weapon: Node = restored.get_node_or_null("Weapon")
+              if restored_weapon == null:
+                  _fail("restored weapon missing")
+                  return
+
+              if int(snapshot.get("slot", 0)) != 3:
+                  _fail("slot lost")
+                  return
+              if restored.global_position.distance_to(source.global_position) > 0.01:
+                  _fail("position lost")
+                  return
+              if int(restored.call("get_points")) != 3250:
+                  _fail("points lost")
+                  return
+              var perks := restored.call("get_owned_perks") as Array[String]
+              if not perks.has("martyrs_blood") or not perks.has("quick_hands"):
+                  _fail("perks lost " + str(perks))
+                  return
+              if not bool(restored.call("is_downed")):
+                  _fail("downed state lost")
+                  return
+              if absf(float(restored.call("get_bleedout_remaining")) - 31.5) > 0.01:
+                  _fail("bleedout lost")
+                  return
+              if str(restored_weapon.call("get_weapon_id")) != "mp40":
+                  _fail("weapon id lost")
+                  return
+              if int(restored_weapon.call("get_magazine")) != 17:
+                  _fail("magazine lost")
+                  return
+              if int(restored_weapon.call("get_reserve")) != 91:
+                  _fail("reserve lost")
+                  return
+              if not bool(restored_weapon.call("is_upgraded")):
+                  _fail("upgrade lost")
+                  return
+              print("XZ_RECONNECT_STATE_ROUNDTRIP_GREEN")
+              quit(0)
+          GDSCRIPT
+          /tmp/godot/Godot_v4.6.1-stable_linux.x86_64             --headless --path xogot --script res://ci/reconnect_state_probe.gd             2>&1 | tee /tmp/reconnect-state.log
+          grep -q "XZ_RECONNECT_STATE_ROUNDTRIP_GREEN" /tmp/reconnect-state.log
+          ! grep -E "SCRIPT ERROR|Parse Error|RECONNECT_STATE_PROBE:" /tmp/reconnect-state.log
