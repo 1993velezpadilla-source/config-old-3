@@ -282,7 +282,11 @@ func _build_side_rooms_v1(stone: Color, dark_stone: Color, timber: Color) -> voi
 	print("XZOGOT_GENERATOR_ROOM_READY")
 
 	# Crypt access room plus a physical descending ramp to the first basement landing.
-	_box("CryptAccessFloor", Vector3(8.0, 0.20, 8.0), Vector3(15.0, 0.10, -3.0), Color(0.09, 0.085, 0.075))
+	# Keep a real 2.8 m stairwell/ramp opening through this floor. The previous
+	# single 8x8 slab physically covered CryptRamp and made the descent impossible.
+	var crypt_floor_color := Color(0.09, 0.085, 0.075)
+	_box("CryptAccessFloorWest", Vector3(3.60, 0.20, 8.0), Vector3(12.80, 0.10, -3.0), crypt_floor_color)
+	_box("CryptAccessFloorEast", Vector3(1.60, 0.20, 8.0), Vector3(18.20, 0.10, -3.0), crypt_floor_color)
 	_box("CryptOuterWall", Vector3(0.55, 4.2, 8.0), Vector3(18.8, 2.1, -3.0), stone)
 	_box("CryptCapNorth", Vector3(8.0, 4.2, 0.55), Vector3(15.0, 2.1, -6.8), dark_stone)
 	_box("CryptCapSouth", Vector3(8.0, 4.2, 0.55), Vector3(15.0, 2.1, 0.8), dark_stone)
