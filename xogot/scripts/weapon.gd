@@ -537,6 +537,16 @@ func add_reserve_ammo(amount: int) -> void:
 		return
 	reserve_ammo += amount
 
+func refill_max_ammo() -> void:
+	if not WeaponCatalog.has_weapon(_weapon_id):
+		return
+	var def: Dictionary = WeaponCatalog.get_weapon(_weapon_id)
+	_magazine = magazine_size
+	reserve_ammo = int(def.get("reserve", magazine_size * 4))
+	_reloading = false
+	_reload_timer = 0.0
+	print("XZOGOT_WEAPON_MAX_AMMO ", _weapon_id, " mag=", _magazine, " reserve=", reserve_ammo)
+
 func get_magazine() -> int:
 	return _magazine
 
