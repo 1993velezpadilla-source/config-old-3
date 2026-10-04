@@ -112,8 +112,26 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $src="$env:RUNNER_TEMP\CUE4Parse.CLI"
           $out="$env:RUNNER_TEMP\cue4parse-publish"
-          git clone --depth 1 https://github.com/joric/CUE4Parse.CLI.git $src
-          dotnet publish "$src\CUE4Parse.CLI\CUE4Parse.CLI.csproj" -c Release -r win-x64 --self-contained true -p:PublishTrimmed=false -p:PublishSingleFile=true -o $out
+          git clone --depth 1 --recurse-submodules --shallow-submodules https://github.com/joric/CUE4Parse.CLI.git $src
+          git -C $src submodule update --init --recursive --depth 1
+          $aclHeaders = Join-Path $src 'CUE4Parse-Natives\ACL\external\acl\includes'
+          $rtmHeaders = Join-Path $src 'CUE4Parse-Natives\ACL\external\acl\external\rtm\includes'
+          if (-not (Test-Path $aclHeaders)) { throw "ACL submodule headers missing: $aclHeaders" }
+          if (-not (Test-Path $rtmHeaders)) { throw "ACL RTM submodule headers missing: $rtmHeaders" }
+          Write-Host 'XZOGOT_CUE4PARSE_ACL_SUBMODULE_GREEN'
+
+          dotnet publish "$src\CUE4Parse.CLI\CUE4Parse.CLI.csproj" -c Release -r win-x64 --self-contained true -p:PublishTrimmed=false -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o $out
+
+          $native = Get-ChildItem "$src\CUE4Parse-Natives\bin\Release" -Filter 'CUE4Parse-Natives.dll' -Recurse | Select-Object -First 1
+          if (-not $native) { throw 'CUE4Parse native DLL missing after recursive ACL build' }
+          $nativeAscii = [System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes($native.FullName))
+          foreach ($symbol in @('nAllocate','nDeallocate','nReadACLData')) {
+            if (-not $nativeAscii.Contains($symbol)) {
+              throw "CUE4Parse native DLL missing ACL export marker: $symbol"
+            }
+          }
+          Write-Host "XZOGOT_CUE4PARSE_ACL_NATIVE_GREEN $($native.FullName) bytes=$($native.Length)"
+
           $exe=Get-ChildItem $out -Filter '*.exe' | Sort-Object Length -Descending | Select-Object -First 1
           if (-not $exe) { throw 'CUE4Parse CLI missing' }
           "CUE4PARSE=$($exe.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
