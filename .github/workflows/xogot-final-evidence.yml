@@ -48,13 +48,13 @@ jobs:
           set -euo pipefail
           rm -rf /tmp/xogot-final-evidence
           mkdir -p /tmp/xogot-final-evidence/video_frames
-          xvfb-run -a -s "-screen 0 1280x720x24" \
+          xvfb-run -a -s "-screen 0 1920x1080x24" \
             /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
-            --path xogot --rendering-method gl_compatibility --resolution 1280x720 \
+            --path xogot --rendering-method gl_compatibility --resolution 1920x1080 \
             --script res://ci/final_evidence_capture.gd \
             2>&1 | tee build/final-evidence/capture.log
-          grep -q "XZOGOT_FINAL_EVIDENCE_CAPTURE_GREEN 10_png 96_video_frames" build/final-evidence/capture.log
-          test "$(find /tmp/xogot-final-evidence -maxdepth 1 -name '*.png' | wc -l)" -eq 10
+          grep -q "XZOGOT_FINAL_EVIDENCE_CAPTURE_GREEN 14_png 96_video_frames" build/final-evidence/capture.log
+          test "$(find /tmp/xogot-final-evidence -maxdepth 1 -name '*.png' | wc -l)" -eq 14
           test "$(find /tmp/xogot-final-evidence/video_frames -name '*.png' | wc -l)" -eq 96
 
       - name: Encode gameplay video
@@ -77,10 +77,10 @@ jobs:
           from PIL import Image,ImageStat
           from pathlib import Path
           paths=sorted(Path("/tmp/xogot-final-evidence").glob("*.png"))
-          assert len(paths)==10, len(paths)
+          assert len(paths)==14, len(paths)
           for p in paths:
               im=Image.open(p).convert("RGB")
-              assert im.size==(1280,720), (p,im.size)
+              assert im.size==(1920,1080), (p,im.size)
               gray=im.convert("L")
               stat=ImageStat.Stat(gray)
               lo,hi=gray.getextrema()
