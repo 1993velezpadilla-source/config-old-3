@@ -144,6 +144,24 @@ jobs:
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-ai/round-zombie-probe.log
           echo "XOGOT_AI_VM_GREEN"
 
+      - name: Verify co-op downed revive lifecycle
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 75 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/coop_revive_probe.gd \
+            2>&1 | tee build/xogot-ai/coop-revive-probe.log
+          grep -q "XZOGOT_COOP_DOWNED_STATE_GREEN" build/xogot-ai/coop-revive-probe.log
+          grep -q "XZOGOT_COOP_REVIVE_HOLD_GREEN" build/xogot-ai/coop-revive-probe.log
+          grep -q "XZOGOT_COOP_REVIVE_CANCEL_GREEN" build/xogot-ai/coop-revive-probe.log
+          grep -q "XZOGOT_COOP_REVIVE_COMPLETE_GREEN" build/xogot-ai/coop-revive-probe.log
+          grep -q "XZOGOT_COOP_REVIVE_RANGE_GREEN" build/xogot-ai/coop-revive-probe.log
+          grep -q "XZOGOT_COOP_BLEEDOUT_GREEN" build/xogot-ai/coop-revive-probe.log
+          grep -q "XZOGOT_COOP_RESPAWN_RESET_GREEN" build/xogot-ai/coop-revive-probe.log
+          grep -q "XZOGOT_COOP_REVIVE_SYSTEM_GREEN" build/xogot-ai/coop-revive-probe.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|COOP_REVIVE_PROBE:" build/xogot-ai/coop-revive-probe.log
+          echo "XZOGOT_COOP_REVIVE_GATE_GREEN"
+
       - name: Verify round transition feedback
         shell: bash
         run: |
