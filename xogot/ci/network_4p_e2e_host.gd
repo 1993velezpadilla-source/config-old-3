@@ -75,7 +75,7 @@ func _run() -> void:
 			print("XZOGOT_4P_E2E_HOST_ROSTER_GREEN ", ids)
 			print("XZOGOT_4P_E2E_HOST_PROXIES_GREEN 3")
 			# Let reliable late-join + several unreliable snapshots settle.
-			await _wait(6.0)
+			await _wait(10.0)
 			if int(network.call("get_connected_player_count")) != 4:
 				_fail(9, "client disconnected before stability window")
 				return
