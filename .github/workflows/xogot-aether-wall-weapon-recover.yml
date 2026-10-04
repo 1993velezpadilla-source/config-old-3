@@ -1,6 +1,6 @@
 name: Recover Aether Wall Weapons
 
-# recovery-matrix-trigger: 2026-10-04-v8
+# recovery-matrix-trigger: 2026-10-04-v9
 
 on:
   workflow_dispatch:
@@ -74,6 +74,8 @@ jobs:
           find "$AETHER_PAKDIR" -maxdepth 2 -type f -printf "%f\t%s\n" | sort > recovered/pak-files.txt
           "$REPAK" unpack "$RUNNER_TEMP/aether-legacy.pak"             -o recovered/raw             -i 'ProjectAether/Content/Assets/Weapons/waw/M1Garand/**'             -i 'ProjectAether/Content/Assets/Weapons/waw/MP40/**'             -i 'ProjectAether/Content/Assets/Weapons/waw/TrenchGun/**'             -i 'ProjectAether/Content/Assets/Weapons/waw/Thompson/**'             -i 'ProjectAether/Content/Assets/Sounds/**/*garand*'             -i 'ProjectAether/Content/Assets/Sounds/**/*Garand*'             -i 'ProjectAether/Content/Assets/Sounds/**/*mp40*'             -i 'ProjectAether/Content/Assets/Sounds/**/*MP40*'             -i 'ProjectAether/Content/Assets/Sounds/**/*trench*'             -i 'ProjectAether/Content/Assets/Sounds/**/*Trench*'             -i 'ProjectAether/Content/Assets/Sounds/**/*thompson*'             -i 'ProjectAether/Content/Assets/Sounds/**/*Thompson*'             --force
           find recovered/raw -type f | sort > recovered/raw-files.txt
+          echo "=== EXACT M1/MP40/TRENCH/THOMPSON PACKAGE PATHS ==="
+          grep -Ei 'M1Garand|MP40|TrenchGun|Thompson' recovered/raw-files.txt | head -n 260 || true
           python3 - <<'PY'
           from pathlib import Path
           import json
@@ -193,6 +195,10 @@ jobs:
             MESH_COUNT=$(find recovered/version-probe -type f \
               \( -iname '*.gltf' -o -iname '*.glb' -o -iname '*.psk' -o -iname '*.pskx' -o -iname '*.uemodel' \) | wc -l)
             echo "XZOGOT_CUE4PARSE_VERSION_RESULT $GAME rc=$RC meshes=$MESH_COUNT" | tee -a recovered/cue4parse-export.log
+            if [ "$RC" -ne 0 ]; then
+              echo "=== CUE4PARSE ERROR TAIL $GAME ==="
+              tail -n 60 recovered/cue4parse-export.log || true
+            fi
             if [ "$MESH_COUNT" -gt 0 ]; then
               SUCCESS_GAME="$GAME"
               break
