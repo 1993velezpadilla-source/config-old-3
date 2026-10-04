@@ -1,0 +1,83 @@
+name: Audit Reconstructed Map Weapon Paths
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/church-expansion-v1
+    paths:
+      - ".github/workflows/xogot-reconstructed-weapon-census.yml"
+
+jobs:
+  project-aether:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install archive tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq p7zip-full xz-utils
+          npm install --global itchio-downloader
+
+      - name: Download public reconstructed Nacht build
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/aether-download"
+          itchio-downloader --url "https://verrial.itch.io/projectaether" --downloadDirectory "$RUNNER_TEMP/aether-download"
+          FILE=$(find "$RUNNER_TEMP/aether-download" -type f -name '*.zip' -printf '%s	%p
+' | sort -nr | head -1 | cut -f2-)
+          test -n "$FILE"
+          echo "PAYLOAD=$FILE" >> "$GITHUB_ENV"
+          sha256sum "$FILE"
+
+      - name: Extract IoStore only
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/paks"
+          7z x -y "$PAYLOAD" 'ProjectAether/Content/Paks/*' -o"$RUNNER_TEMP/paks" >/dev/null
+          rm -f "$PAYLOAD"
+          PAKDIR="$RUNNER_TEMP/paks/ProjectAether/Content/Paks"
+          echo "PAKDIR=$PAKDIR" >> "$GITHUB_ENV"
+          test -s "$PAKDIR/ProjectAether-Windows.utoc"
+
+      - name: Install retoc and repak
+        run: |
+          set -euo pipefail
+          curl -fL https://github.com/trumank/retoc/releases/download/v0.1.5/retoc_cli-x86_64-unknown-linux-gnu.tar.xz -o /tmp/retoc.tar.xz
+          mkdir -p /tmp/retoc && tar -xJf /tmp/retoc.tar.xz -C /tmp/retoc
+          echo "RETOC=$(find /tmp/retoc -type f -name 'retoc*' -perm -111 | head -1)" >> "$GITHUB_ENV"
+
+      - name: Census weapon model animation and sound paths
+        run: |
+          set -euo pipefail
+          mkdir -p weapon-census
+          "$RETOC" list "$PAKDIR/ProjectAether-Windows.utoc" > weapon-census/all_paths.txt 2>&1 || true
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,re
+          lines=[x.strip() for x in Path("weapon-census/all_paths.txt").read_text(errors="replace").splitlines() if x.strip()]
+          groups={k:[] for k in ("weapon","viewmodel","worldmodel","animation","sound","classic")}
+          classic=("mp40","thompson","m1","garand","trench","shotgun","bar","browning","fg42","gewehr","m1a1","mg42","ppsh","ptrs","stg","type100","springfield","raygun","ray_gun","wunderwaffe","tesla","colt")
+          for line in lines:
+              lo=line.lower()
+              if "weapon" in lo: groups["weapon"].append(line)
+              if "viewmodel" in lo or "view_model" in lo or "/vm_" in lo: groups["viewmodel"].append(line)
+              if "worldmodel" in lo or "world_model" in lo or "/wm_" in lo: groups["worldmodel"].append(line)
+              if "/anim" in lo or "animation" in lo or "_anim" in lo: groups["animation"].append(line)
+              if "/sound" in lo or "/audio" in lo or "_sfx" in lo: groups["sound"].append(line)
+              if any(x in lo for x in classic): groups["classic"].append(line)
+          out={k:sorted(set(v))[:20000] for k,v in groups.items()}
+          out["counts"]={k:len(set(v)) for k,v in groups.items()}
+          Path("weapon-census/reconstructed_weapon_paths.json").write_text(json.dumps(out,indent=2)+"
+")
+          print("XZOGOT_RECONSTRUCTED_WEAPON_PATHS",out["counts"])
+          PY
+
+      - name: Upload census only
+        uses: actions/upload-artifact@v4
+        with:
+          name: reconstructed-map-weapon-census
+          path: weapon-census/reconstructed_weapon_paths.json
+          retention-days: 14
