@@ -8,6 +8,8 @@ on:
       - feature/church-expansion-v1
     paths:
       - "xogot/**"
+      - "services/xz-match-directory/**"
+      - "render.yaml"
       - ".github/workflows/xogot-ai-godot-ci.yml"
 
 permissions:
