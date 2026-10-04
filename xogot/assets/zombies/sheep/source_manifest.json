@@ -1,0 +1,66 @@
+{
+  "schema": 1,
+  "id": "zombie_sheep_pair_v1",
+  "status": "SOURCE_VALIDATED_PENDING_BINARY_INGEST",
+  "purpose": "special_sheep_round",
+  "final_runtime_paths": {
+    "runner": "res://assets/zombies/sheep/sheep_runner_animated.glb",
+    "brute": "res://assets/zombies/sheep/sheep_brute_animated.glb"
+  },
+  "sources": [
+    {
+      "id": "sheep_runner",
+      "uploaded_name": "obeja zombie1.glb",
+      "bytes": 4111608,
+      "generator": "gltfpack 0.23",
+      "meshes": 1,
+      "materials": 1,
+      "skins": 1,
+      "joints": 34,
+      "animations": 0,
+      "approximate_vertices": 188058,
+      "approximate_triangles": 343548,
+      "authored_role": "fast_runner",
+      "target_gameplay": {
+        "health_scale": 0.78,
+        "min_speed_mps": 4.1,
+        "player_damage": 30
+      }
+    },
+    {
+      "id": "sheep_brute",
+      "uploaded_name": "obeja zombie 2.glb",
+      "bytes": 8683356,
+      "generator": "gltfpack 0.23",
+      "meshes": 1,
+      "materials": 1,
+      "skins": 1,
+      "joints": 33,
+      "animations": 0,
+      "approximate_vertices": 499111,
+      "approximate_triangles": 953356,
+      "authored_role": "heavy_brute",
+      "target_gameplay": {
+        "health_scale": 1.28,
+        "min_speed_mps": 3.45,
+        "player_damage": 42
+      }
+    }
+  ],
+  "animation_gate": {
+    "required": [
+      "Sheep_Idle",
+      "Sheep_Run",
+      "Sheep_Attack",
+      "Sheep_Death"
+    ],
+    "round_activation_requires_both_animated_assets": true,
+    "static_sliding_forbidden": true
+  },
+  "design": {
+    "first_special_round": 5,
+    "cadence_rounds": 5,
+    "end_reward": "max_ammo",
+    "normal_zombies_during_special_round": false
+  }
+}
