@@ -9,6 +9,7 @@ var peer_id: int = 0
 var display_name: String = ""
 var health: float = 100.0
 var max_health: float = 100.0
+var points: int = 500
 var downed: bool = false
 var eliminated: bool = false
 var bleedout_remaining: float = 0.0
@@ -82,7 +83,8 @@ func apply_network_state(
 	server_downed: bool,
 	server_eliminated: bool,
 	server_bleedout: float,
-	server_revive_ratio: float
+	server_revive_ratio: float,
+	server_points: int = 500
 ) -> void:
 	if not _snapshot_ready:
 		global_position = pos
@@ -95,6 +97,7 @@ func apply_network_state(
 	eliminated = server_eliminated
 	bleedout_remaining = maxf(0.0, server_bleedout)
 	revive_progress = clampf(server_revive_ratio, 0.0, 1.0) * revive_hold_duration
+	points = maxi(0, server_points)
 	set_meta("downed", downed)
 	set_meta("eliminated", eliminated)
 	set_meta("bleedout_remaining", bleedout_remaining)
@@ -141,6 +144,20 @@ func is_eliminated() -> bool:
 
 func get_health() -> float:
 	return health
+
+func add_points(amount: int) -> void:
+	if amount > 0:
+		var multiplier: int = int(get_tree().get_meta("xz_double_points_multiplier", 1))
+		points += amount * maxi(1, multiplier)
+
+func spend_points(amount: int) -> bool:
+	if amount < 0 or points < amount:
+		return false
+	points -= amount
+	return true
+
+func get_points() -> int:
+	return points
 
 func get_bleedout_remaining() -> float:
 	return bleedout_remaining
