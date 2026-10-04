@@ -162,6 +162,28 @@ jobs:
           if ($anim.Count -lt 20) { throw "Expected real animation export; got $($anim.Count)" }
           Write-Host "XZOGOT_AETHER_FULL_WAW_EXPORT_GREEN weapons=$($dirs.Count) meshes=$($mesh.Count) anims=$($anim.Count)"
 
+      - name: Export complete WaW animation tree as ActorX PSA
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          @'
+          *Weapons/waw/*/Anims/**/*.uasset
+          '@ | Set-Content aether-waw-anims.txt -Encoding ascii
+          Remove-Item recovered-actorx -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path recovered-actorx | Out-Null
+          & "$env:CUE4PARSE" -i "$env:AETHER_PAKDIR" -g GAME_UE5_7 -m "$PWD\\Mappings.usmap" -c aether-waw-anims.txt -o recovered-actorx -y -v --mesh-format ActorX --mesh-quality Highest --export-materials false 2>&1 | Tee-Object -FilePath cue4parse-actorx.log
+          $psa=@(Get-ChildItem recovered-actorx -Recurse -File -Filter '*.psa')
+          $psk=@(Get-ChildItem recovered-actorx -Recurse -File | Where-Object { $_.Extension -in '.psk','.pskx' })
+          $names=@($psa | Select-Object -ExpandProperty BaseName | Sort-Object -Unique)
+          [PSCustomObject]@{
+            psa_count=$psa.Count
+            psk_count=$psk.Count
+            animation_names=$names
+          } | ConvertTo-Json -Depth 5 | Set-Content aether-waw-actorx-report.json -Encoding utf8
+          Write-Host "XZOGOT_AETHER_ACTORX_ANIMS psa=$($psa.Count) psk=$($psk.Count)"
+          if ($psa.Count -lt 50) { throw "Expected broad real animation export; got only $($psa.Count) PSA files" }
+          Write-Host 'XZOGOT_AETHER_ACTORX_ANIMS_GREEN'
+
       - name: Upload mapping and real weapon export
         uses: actions/upload-artifact@v4
         with:
@@ -171,8 +193,11 @@ jobs:
             jmap.log
             cue4parse-probe.log
             cue4parse-full.log
+            cue4parse-actorx.log
             aether-waw-usmap-export-report.json
+            aether-waw-actorx-report.json
             recovered-probe/**
             recovered-export/**
+            recovered-actorx/**
           if-no-files-found: error
           retention-days: 14
