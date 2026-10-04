@@ -159,6 +159,18 @@ delta=dcenter-scaled_center
 align=Matrix.Translation(delta) @ Matrix.Scale(scale,4)
 for o in src_meshes:o.matrix_world=align @ o.matrix_world
 
+# Normalize topology to triangles before semantic splitting. This changes
+# no surface detail and removes glTF exporter's implicit n-gon triangulation
+# from the conservation accounting.
+for src in src_meshes:
+    bm=bmesh.new()
+    bm.from_mesh(src.data)
+    bm.faces.ensure_lookup_table()
+    bmesh.ops.triangulate(bm,faces=list(bm.faces))
+    bm.to_mesh(src.data)
+    bm.free()
+    src.data.update()
+
 # Recompute aligned bounds, split by region.
 mn,mx=bounds(src_meshes)
 size=mx-mn
