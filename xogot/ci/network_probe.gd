@@ -78,6 +78,58 @@ func _run() -> void:
 		return
 	print("XZOGOT_NETWORK_REVIVE_AUTHORITY_GREEN")
 
+	# Host is authoritative for client weapon damage and score awards.
+	var barricades: Array[Node] = get_nodes_in_group("zombie_barricade")
+	if barricades.is_empty():
+		_fail(27, "no barricade available for network zombie hit test")
+		return
+	rounds.set("auto_start", false)
+	var target_zombie: Node = rounds.call("spawn_from_barricade", barricades[0]) as Node
+	if target_zombie == null:
+		_fail(28, "failed to spawn host zombie for network hit")
+		return
+	var hp_before: float = float(target_zombie.call("get_health"))
+	var points_before: int = int(proxy.call("get_points"))
+	var hit_pos: Vector3 = (target_zombie as Node3D).global_position + Vector3(0.0, 1.45, 0.0)
+	if not bool(network.call("_server_apply_zombie_hit", 2, target_zombie.name, hit_pos, false)):
+		_fail(29, "host rejected valid network zombie hit")
+		return
+	if float(target_zombie.call("get_health")) >= hp_before:
+		_fail(30, "host-authoritative network hit dealt no damage")
+		return
+	if int(proxy.call("get_points")) <= points_before:
+		_fail(31, "host-authoritative hit awarded no points")
+		return
+	print("XZOGOT_NETWORK_ZOMBIE_DAMAGE_GREEN")
+
+	# Client zombie representation uses the same Monja runtime, but no local AI.
+	var net_zombie: Node = network.call("_ensure_network_zombie", "NetworkZombieVisualProbe") as Node
+	if net_zombie == null:
+		_fail(32, "network zombie proxy creation failed")
+		return
+	net_zombie.call(
+		"apply_network_proxy_state",
+		Vector3(2.0, 0.24, 4.0),
+		0.4,
+		125.0,
+		2,
+		false,
+		false
+	)
+	if not bool(net_zombie.get_meta("network_proxy", false)):
+		_fail(33, "network zombie proxy mode missing")
+		return
+	if net_zombie.get_node_or_null("MonjaBasicaVisual") == null:
+		_fail(34, "network zombie did not instantiate Monja visual")
+		return
+	if int(network.call("get_network_zombie_count")) != 1:
+		_fail(35, "network zombie proxy census wrong")
+		return
+	network.call("_remove_network_zombie", "NetworkZombieVisualProbe")
+	target_zombie.call("powerup_kill")
+	await process_frame
+	print("XZOGOT_NETWORK_ZOMBIE_REPLICATION_GREEN")
+
 	# Client mode must not run a second independent round/power-up simulation.
 	network.call("_set_client_simulation", true)
 	if not bool(rounds.get("_dev_no_zombies")):
