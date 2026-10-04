@@ -342,6 +342,13 @@ def join_by_material_group():
         obj=bpy.context.view_layer.objects.active
         obj.name="Architecture_"+key
         obj["xz_material_group"]=key
+        # glTF tangent generation is deterministic on triangles. This changes
+        # topology representation only; it does not decimate or remove detail.
+        tri=obj.modifiers.new("RuntimeTriangulate","TRIANGULATE")
+        tri.quad_method="BEAUTY"
+        tri.ngon_method="BEAUTY"
+        bpy.context.view_layer.objects.active=obj
+        bpy.ops.object.modifier_apply(modifier=tri.name)
 
 def add_preview_lighting():
     world=bpy.data.worlds.new("ChurchWorld")
