@@ -1577,8 +1577,23 @@ func _build_interactions() -> void:
 	_add_wallbuy_chalk("TRENCH", Vector3(18.24, 1.58, -4.0), 1500, Vector3(0.0, 0.0, 90.0))
 	_interactive_box("WallBuy_Thompson", Vector3(0.28, 1.45, 2.20), Vector3(-10.20, 5.92, -8.0), Color(0.10, 0.24, 0.34), 1, 1200, 0, false, "BUY THOMPSON", "thompson")
 	_add_wallbuy_chalk("THOMPSON", Vector3(-9.98, 5.95, -8.0), 1200, Vector3(0.0, 0.0, -90.0))
-	_interactive_box("MysteryBoxSocket", Vector3(2.2, 1.4, 1.1), Vector3(7.4, 0.9, -15.0), Color(0.18, 0.12, 0.30), 2, 950, 0, false, "MYSTERY BOX")
-	_interactive_box("PowerSwitch", Vector3(0.7, 2.2, 0.7), Vector3(8.6, 1.4, 8.3), Color(0.52, 0.42, 0.12), 4, 0, 0, true, "TURN ON POWER")
+	var mystery := _interactive_box(
+		"MysteryBoxSocket",
+		Vector3(2.2, 1.25, 1.1),
+		Vector3(7.4, 0.82, -15.0),
+		Color(0.10, 0.055, 0.16),
+		2, 950, 0, false, "MYSTERY BOX"
+	)
+	_style_mystery_box(mystery)
+
+	var power := _interactive_box(
+		"PowerSwitch",
+		Vector3(0.85, 2.25, 0.72),
+		Vector3(8.6, 1.4, 8.3),
+		Color(0.19, 0.17, 0.10),
+		4, 0, 0, true, "TURN ON POWER"
+	)
+	_style_power_switch(power)
 	_build_expansion_interactions()
 	_build_perk_and_upgrade_machines()
 	var bell_rope := _interactive_box(
@@ -1657,6 +1672,131 @@ func _interactive_box(
 	body.add_child(cs)
 	add_child(body)
 	return body
+
+func _style_mystery_box(body: StaticBody3D) -> void:
+	body.add_to_group("mystery_box")
+	var trim_mat := StandardMaterial3D.new()
+	trim_mat.albedo_color = Color(0.19, 0.13, 0.065)
+	trim_mat.metallic = 0.18
+	trim_mat.roughness = 0.62
+
+	for x in [-0.92, 0.92]:
+		var band := MeshInstance3D.new()
+		band.name = "MysteryBand_%s" % ("L" if x < 0.0 else "R")
+		var mesh := BoxMesh.new()
+		mesh.size = _ws(Vector3(0.15, 1.30, 1.16))
+		mesh.material = trim_mat
+		band.mesh = mesh
+		band.position = _ws(Vector3(x, 0.0, 0.0))
+		body.add_child(band)
+
+	var lid_pivot := Node3D.new()
+	lid_pivot.name = "MysteryLid"
+	lid_pivot.position = _ws(Vector3(0.0, 0.64, 0.48))
+	body.add_child(lid_pivot)
+	var lid := MeshInstance3D.new()
+	var lid_mesh := BoxMesh.new()
+	lid_mesh.size = _ws(Vector3(2.18, 0.18, 1.16))
+	lid_mesh.material = trim_mat
+	lid.mesh = lid_mesh
+	lid.position = _ws(Vector3(0.0, 0.0, -0.48))
+	lid_pivot.add_child(lid)
+
+	var mark := Label3D.new()
+	mark.name = "MysteryMark"
+	mark.text = "?"
+	mark.font_size = 92
+	mark.outline_size = 12
+	mark.pixel_size = 0.0028
+	mark.modulate = Color(0.70, 0.30, 1.0)
+	mark.position = _ws(Vector3(0.0, 0.15, -0.62))
+	mark.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	body.add_child(mark)
+
+	var glow := OmniLight3D.new()
+	glow.name = "MysteryGlow"
+	glow.position = _ws(Vector3(0.0, 1.15, 0.0))
+	glow.light_color = Color(0.46, 0.12, 0.88)
+	glow.light_energy = 0.42
+	glow.omni_range = 3.4 * WORLD_SCALE
+	glow.shadow_enabled = false
+	body.add_child(glow)
+
+func _style_power_switch(body: StaticBody3D) -> void:
+	body.add_to_group("power_switch")
+	var plate := MeshInstance3D.new()
+	plate.name = "PowerFacePlate"
+	var plate_mesh := BoxMesh.new()
+	plate_mesh.size = _ws(Vector3(0.64, 1.40, 0.12))
+	var metal := StandardMaterial3D.new()
+	metal.albedo_color = Color(0.13, 0.12, 0.085)
+	metal.metallic = 0.64
+	metal.roughness = 0.46
+	plate_mesh.material = metal
+	plate.mesh = plate_mesh
+	plate.position = _ws(Vector3(0.0, 0.0, -0.42))
+	body.add_child(plate)
+
+	var lever_pivot := Node3D.new()
+	lever_pivot.name = "PowerLever"
+	lever_pivot.position = _ws(Vector3(0.0, 0.18, -0.51))
+	body.add_child(lever_pivot)
+	var lever := MeshInstance3D.new()
+	var lever_mesh := BoxMesh.new()
+	lever_mesh.size = _ws(Vector3(0.12, 0.72, 0.12))
+	lever_mesh.material = metal
+	lever.mesh = lever_mesh
+	lever.position = _ws(Vector3(0.0, -0.30, 0.0))
+	lever_pivot.rotation_degrees.x = -28.0
+	lever_pivot.add_child(lever)
+
+	var lamp := OmniLight3D.new()
+	lamp.name = "PowerIndicator"
+	lamp.position = _ws(Vector3(0.0, 0.68, -0.58))
+	lamp.light_color = Color(0.92, 0.18, 0.06)
+	lamp.light_energy = 0.18
+	lamp.omni_range = 1.25 * WORLD_SCALE
+	lamp.shadow_enabled = false
+	body.add_child(lamp)
+
+func _style_sanctum_forge(body: StaticBody3D) -> void:
+	body.add_to_group("sanctum_forge_visual")
+	var metal := StandardMaterial3D.new()
+	metal.albedo_color = Color(0.075, 0.055, 0.09)
+	metal.metallic = 0.72
+	metal.roughness = 0.38
+	var emissive := StandardMaterial3D.new()
+	emissive.albedo_color = Color(0.24, 0.055, 0.36)
+	emissive.emission_enabled = true
+	emissive.emission = Color(0.55, 0.10, 0.82)
+	emissive.emission_energy_multiplier = 3.0
+	emissive.roughness = 0.28
+
+	for i in range(3):
+		var ring := MeshInstance3D.new()
+		ring.name = "ForgeRing_%02d" % i
+		var mesh := TorusMesh.new()
+		mesh.inner_radius = (0.31 + float(i) * 0.08) * WORLD_SCALE
+		mesh.outer_radius = (0.39 + float(i) * 0.08) * WORLD_SCALE
+		mesh.rings = 18
+		mesh.ring_segments = 8
+		mesh.material = metal if i != 1 else emissive
+		ring.mesh = mesh
+		ring.position = _ws(Vector3(0.0, 0.18 + float(i) * 0.30, -0.77))
+		ring.rotation_degrees.x = 90.0
+		body.add_child(ring)
+
+	var chamber := MeshInstance3D.new()
+	chamber.name = "ForgeChamber"
+	var chamber_mesh := CylinderMesh.new()
+	chamber_mesh.top_radius = 0.42 * WORLD_SCALE
+	chamber_mesh.bottom_radius = 0.42 * WORLD_SCALE
+	chamber_mesh.height = 1.15 * WORLD_SCALE
+	chamber_mesh.radial_segments = 18
+	chamber_mesh.material = emissive
+	chamber.mesh = chamber_mesh
+	chamber.position = _ws(Vector3(0.0, 0.10, -0.76))
+	body.add_child(chamber)
 
 func _machine_accent(body: StaticBody3D, title: String, accent: Color, icon: String) -> void:
 	var panel := MeshInstance3D.new()
@@ -1750,6 +1890,7 @@ func _build_perk_and_upgrade_machines() -> void:
 	)
 	forge.add_to_group("weapon_upgrade_machine")
 	_machine_accent(forge, "SANCTUM FORGE", Color(0.50, 0.20, 0.72), "✦")
+	_style_sanctum_forge(forge)
 	print("XZOGOT_PERK_MACHINES_READY 6")
 	print("XZOGOT_SANCTUM_FORGE_READY")
 
