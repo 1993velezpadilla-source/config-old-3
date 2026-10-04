@@ -71,9 +71,19 @@ func _run() -> void:
 		_fail(8, "host barricade setup wrong")
 		return
 
-	var zombie: Node = rounds.call("spawn_from_barricade", window) as Node
-	if zombie == null:
-		_fail(9, "host zombie setup failed")
+	var anchors: Array[Node] = get_nodes_in_group("zombie_spawn_anchor")
+	if anchors.is_empty():
+		_fail(9, "host direct zombie anchor missing")
+		return
+	var zombie := CharacterBody3D.new()
+	zombie.name = "E2E_HostZombie"
+	zombie.set_script(load("res://scripts/zombie_dummy.gd") as Script)
+	zombie.set("health", float(rounds.call("zombie_health_for_round", 9)))
+	zombie.call("configure_direct", player as Node3D, anchors[0])
+	scene.add_child(zombie)
+	zombie.global_position = (anchors[0] as Node3D).global_position
+	if int(window.call("get_boards")) != 3:
+		_fail(10, "direct zombie mutated barricade during setup")
 		return
 
 	print("XZOGOT_E2E_HOST_LISTENING port=", PORT)
@@ -85,7 +95,7 @@ func _run() -> void:
 			print("XZOGOT_E2E_HOST_CLIENT_CONNECTED")
 			# Keep the host alive long enough for reliable late-join state plus
 			# several unreliable session/zombie snapshots.
-			await _wait_seconds(3.0)
+			await _wait_seconds(8.0)
 			print("XZOGOT_E2E_HOST_GREEN")
 			network.call("leave_game")
 			scene.queue_free()
@@ -94,4 +104,4 @@ func _run() -> void:
 			return
 		await _wait_seconds(0.05)
 
-	_fail(10, "client never joined")
+	_fail(11, "client never joined")
