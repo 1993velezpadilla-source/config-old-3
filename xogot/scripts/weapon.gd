@@ -31,6 +31,7 @@ var _visual_recoil_velocity: float = 0.0
 var _view_root: Node3D
 var _fire_audio: AudioStreamPlayer3D
 var _reload_audio: AudioStreamPlayer3D
+var _dev_infinite_ammo: bool = false
 
 @onready var _body: CollisionObject3D = get_parent() as CollisionObject3D
 @onready var _camera: Camera3D = get_parent().get_node("Head/Camera3D") as Camera3D
@@ -262,7 +263,8 @@ func request_fire() -> void:
 		request_reload()
 		return
 
-	_magazine -= 1
+	if not _dev_infinite_ammo:
+		_magazine -= 1
 	_cooldown = fire_interval
 	_shots_fired += 1
 	_apply_recoil_impulse()
@@ -276,6 +278,10 @@ func request_fire() -> void:
 	print("XZOGOT_WEAPON_FIRED ", _weapon_id, " ads=", ads, " pellets=", _pellets)
 
 func request_reload() -> void:
+	if _dev_infinite_ammo:
+		_magazine = magazine_size
+		_reloading = false
+		return
 	if _reloading or _magazine >= magazine_size or reserve_ammo <= 0:
 		return
 	_reloading = true
@@ -285,6 +291,11 @@ func request_reload() -> void:
 		_reload_audio.play()
 
 func _finish_reload() -> void:
+	if _dev_infinite_ammo:
+		_magazine = magazine_size
+		_reloading = false
+		_reload_timer = 0.0
+		return
 	var needed: int = magazine_size - _magazine
 	var loaded: int = mini(needed, reserve_ammo)
 	_magazine += loaded
@@ -354,6 +365,17 @@ func _update_visual_recoil(delta: float) -> void:
 	if _view_root != null:
 		_view_root.position.z = -0.48 + minf(_visual_recoil_pitch * 0.0025, 0.022)
 
+func set_dev_infinite_ammo(enabled: bool) -> void:
+	_dev_infinite_ammo = enabled
+	if enabled:
+		_magazine = magazine_size
+		_reloading = false
+	set_meta("dev_infinite_ammo", enabled)
+	print("XZOGOT_DEV_INFINITE_AMMO ", enabled)
+
+func is_dev_infinite_ammo() -> bool:
+	return _dev_infinite_ammo
+
 func add_reserve_ammo(amount: int) -> void:
 	if amount <= 0:
 		return
@@ -363,7 +385,7 @@ func get_magazine() -> int:
 	return _magazine
 
 func get_reserve() -> int:
-	return reserve_ammo
+	return 9999 if _dev_infinite_ammo else reserve_ammo
 
 func is_reloading() -> bool:
 	return _reloading
