@@ -1,5 +1,9 @@
 extends CharacterBody3D
 
+signal downed_state_changed(is_downed: bool)
+signal revived_by(reviver: Node)
+signal bled_out()
+
 const MobileLayout = preload("res://scripts/mobile_layout.gd")
 const PerkCatalog = preload("res://scripts/perk_catalog.gd")
 
@@ -44,6 +48,11 @@ const NAV_PATH := "res://data/nav_skeleton.json"
 @export var interaction_range := 3.4
 @export var starting_points := 500
 @export var max_health := 100.0
+@export var bleedout_duration := 45.0
+@export var revive_hold_duration := 4.0
+@export var revive_range := 2.4
+@export var revive_health_fraction := 0.50
+@export var downed_move_multiplier := 0.32
 
 const PLAYER_RADIUS := 0.36
 const STAND_HEAD_Y := 1.60
@@ -56,6 +65,12 @@ const CROUCH_COLLIDER_Y := 0.58
 var points: int = 0
 var health: float = 100.0
 var downed: bool = false
+var eliminated: bool = false
+var _bleedout_remaining: float = 0.0
+var _revive_progress: float = 0.0
+var _revive_contact_grace: float = 0.0
+var _revive_source: Node = null
+var _revive_target: Node = null
 var _gravity := 18.0
 var _move_touch := -1
 var _look_touch := -1
@@ -101,6 +116,10 @@ func _ready() -> void:
 	_base_max_health = max_health
 	health = max_health
 	set_meta("owned_perks", [])
+	set_meta("downed", false)
+	set_meta("eliminated", false)
+	set_meta("bleedout_remaining", 0.0)
+	set_meta("revive_progress", 0.0)
 	add_to_group("player")
 	var capsule: CapsuleShape3D = _collider.shape as CapsuleShape3D
 	if capsule != null:
@@ -267,6 +286,11 @@ func apply_dev_flags(
 	if _dev_infinite_health:
 		health = max_health
 		downed = false
+		eliminated = false
+		_bleedout_remaining = 0.0
+		_revive_progress = 0.0
+		set_meta("downed", false)
+		set_meta("eliminated", false)
 	if _collider != null:
 		_collider.set_deferred("disabled", _dev_noclip)
 	set_meta("dev_infinite_health", _dev_infinite_health)
@@ -336,6 +360,170 @@ func request_knife() -> bool:
 	print("XZOGOT_KNIFE_HIT ", zombie.name)
 	return true
 
+func _nearest_downed_teammate(max_distance: float = revive_range) -> Node:
+	var best: Node = null
+	var best_d2: float = max_distance * max_distance
+	for node: Node in get_tree().get_nodes_in_group("player"):
+		if node == self or not (node is Node3D):
+			continue
+		if not node.has_method("is_downed") or not bool(node.call("is_downed")):
+			continue
+		if node.has_method("is_eliminated") and bool(node.call("is_eliminated")):
+			continue
+		var d2: float = global_position.distance_squared_to((node as Node3D).global_position)
+		if d2 < best_d2:
+			best_d2 = d2
+			best = node
+	return best
+
+func _is_use_held() -> bool:
+	return _use_touch >= 0 or Input.is_key_pressed(KEY_E) or Input.is_key_pressed(KEY_F)
+
+func contribute_revive(target: Node, delta: float) -> bool:
+	if downed or eliminated or target == null or delta <= 0.0:
+		return false
+	if not (target is Node3D) or not target.has_method("receive_revive_progress"):
+		return false
+	if global_position.distance_to((target as Node3D).global_position) > revive_range:
+		return false
+	_revive_target = target
+	return bool(target.call("receive_revive_progress", self, delta))
+
+func receive_revive_progress(reviver: Node, delta: float) -> bool:
+	if not downed or eliminated or reviver == null or delta <= 0.0:
+		return false
+	if not (reviver is Node3D):
+		return false
+	if global_position.distance_to((reviver as Node3D).global_position) > revive_range:
+		return false
+	if _revive_source != null and _revive_source != reviver:
+		_revive_progress = 0.0
+	_revive_source = reviver
+	_revive_contact_grace = 0.30
+	_revive_progress = minf(revive_hold_duration, _revive_progress + delta)
+	set_meta("revive_progress", _revive_progress)
+	set_meta("revive_progress_ratio", get_revive_progress_ratio())
+	if _revive_progress + 0.0001 >= revive_hold_duration:
+		_complete_revive(reviver)
+	return true
+
+func _complete_revive(reviver: Node) -> void:
+	downed = false
+	eliminated = false
+	health = maxf(1.0, max_health * clampf(revive_health_fraction, 0.05, 1.0))
+	_bleedout_remaining = 0.0
+	_revive_progress = 0.0
+	_revive_contact_grace = 0.0
+	_revive_source = null
+	set_meta("downed", false)
+	set_meta("eliminated", false)
+	set_meta("bleedout_remaining", 0.0)
+	set_meta("revive_progress", 0.0)
+	set_meta("revive_progress_ratio", 0.0)
+	downed_state_changed.emit(false)
+	revived_by.emit(reviver)
+	print("XZOGOT_PLAYER_REVIVED health=", health, " by=", reviver.name if reviver != null else "unknown")
+
+func _enter_downed() -> void:
+	if downed:
+		return
+	downed = true
+	eliminated = false
+	_bleedout_remaining = maxf(1.0, bleedout_duration)
+	_revive_progress = 0.0
+	_revive_contact_grace = 0.0
+	_revive_source = null
+	_sliding = false
+	_sprinting = false
+	_jump_requested = false
+	set_meta("ads_toggled", false)
+	set_meta("downed", true)
+	set_meta("eliminated", false)
+	set_meta("bleedout_remaining", _bleedout_remaining)
+	set_meta("revive_progress", 0.0)
+	set_meta("revive_progress_ratio", 0.0)
+	if _weapon != null:
+		_weapon.call("set_trigger_held", false)
+	_set_crouched(true)
+	downed_state_changed.emit(true)
+	print("XZOGOT_PLAYER_DOWN bleedout=", _bleedout_remaining)
+
+func _bleed_out() -> void:
+	if not downed or eliminated:
+		return
+	eliminated = true
+	health = 0.0
+	_revive_progress = 0.0
+	_revive_source = null
+	set_meta("eliminated", true)
+	set_meta("revive_progress", 0.0)
+	set_meta("revive_progress_ratio", 0.0)
+	bled_out.emit()
+	print("XZOGOT_PLAYER_BLED_OUT")
+
+func _tick_downed_state(delta: float) -> void:
+	if not downed:
+		return
+	if eliminated:
+		return
+	_bleedout_remaining = maxf(0.0, _bleedout_remaining - delta)
+	set_meta("bleedout_remaining", _bleedout_remaining)
+	if _revive_contact_grace > 0.0:
+		_revive_contact_grace = maxf(0.0, _revive_contact_grace - delta)
+	elif _revive_progress > 0.0:
+		_revive_progress = 0.0
+		_revive_source = null
+		set_meta("revive_progress", 0.0)
+		set_meta("revive_progress_ratio", 0.0)
+		print("XZOGOT_REVIVE_CANCELLED")
+	if _bleedout_remaining <= 0.0:
+		_bleed_out()
+
+func _update_revive_support(delta: float) -> bool:
+	if downed or eliminated:
+		_revive_target = null
+		return false
+	if not _is_use_held():
+		_revive_target = null
+		return false
+	var target: Node = _nearest_downed_teammate(revive_range)
+	if target == null:
+		_revive_target = null
+		return false
+	return contribute_revive(target, delta)
+
+func get_bleedout_remaining() -> float:
+	return _bleedout_remaining
+
+func get_bleedout_ratio() -> float:
+	if not downed:
+		return 0.0
+	return clampf(_bleedout_remaining / maxf(bleedout_duration, 0.001), 0.0, 1.0)
+
+func get_revive_progress() -> float:
+	return _revive_progress
+
+func get_revive_progress_ratio() -> float:
+	return clampf(_revive_progress / maxf(revive_hold_duration, 0.001), 0.0, 1.0)
+
+func get_active_revive_progress_ratio() -> float:
+	if _revive_target == null or not is_instance_valid(_revive_target):
+		return 0.0
+	if not _revive_target.has_method("get_revive_progress_ratio"):
+		return 0.0
+	return float(_revive_target.call("get_revive_progress_ratio"))
+
+func is_reviving_teammate() -> bool:
+	return (
+		_revive_target != null
+		and is_instance_valid(_revive_target)
+		and _revive_target.has_method("is_downed")
+		and bool(_revive_target.call("is_downed"))
+	)
+
+func is_eliminated() -> bool:
+	return eliminated
+
 func _nearest_repairable_barricade() -> Node:
 	var best: Node = null
 	var best_d2: float = interaction_range * interaction_range
@@ -360,8 +548,15 @@ func _update_mobile_assists(delta: float) -> void:
 	if auto_knife_enabled and _knife_timer <= 0.0 and is_knife_target_near():
 		request_knife()
 
-	var manual_repair_held: bool = _use_touch >= 0 or Input.is_key_pressed(KEY_E) or Input.is_key_pressed(KEY_F)
-	if _repair_timer <= 0.0 and (auto_rebuild_enabled or manual_repair_held):
+	var reviving: bool = _update_revive_support(delta)
+	var manual_repair_held: bool = _is_use_held()
+	if (
+		not downed
+		and not eliminated
+		and not reviving
+		and _repair_timer <= 0.0
+		and (auto_rebuild_enabled or manual_repair_held)
+	):
 		var barricade: Node = _nearest_repairable_barricade()
 		if barricade != null and barricade.has_method("interact"):
 			if bool(barricade.call("interact", self)):
@@ -369,6 +564,13 @@ func _update_mobile_assists(delta: float) -> void:
 				print("XZOGOT_BARRICADE_AUTO_REPAIR ", barricade.name)
 
 func request_interact() -> bool:
+	if downed or eliminated:
+		return false
+	var teammate: Node = _nearest_downed_teammate(revive_range)
+	if teammate != null:
+		_revive_target = teammate
+		print("XZOGOT_REVIVE_TARGET ", teammate.name)
+		return true
 	if _camera == null:
 		return false
 	var world: World3D = _camera.get_world_3d()
@@ -502,6 +704,8 @@ func apply_damage(amount: float) -> void:
 	if _dev_infinite_health:
 		health = max_health
 		downed = false
+		eliminated = false
+		_bleedout_remaining = 0.0
 		return
 	if downed or amount <= 0.0:
 		return
@@ -511,6 +715,7 @@ func apply_damage(amount: float) -> void:
 		_perks.erase("last_rites")
 		health = maxf(45.0, max_health * 0.30)
 		downed = false
+		eliminated = false
 		set_meta("owned_perks", get_owned_perks())
 		set_meta("last_rites_triggered", true)
 		print("XZOGOT_LAST_RITES_TRIGGERED health=", health)
@@ -518,13 +723,19 @@ func apply_damage(amount: float) -> void:
 
 	health = maxf(0.0, health - amount)
 	if health <= 0.0:
-		downed = true
-		_weapon.call("set_trigger_held", false)
-		print("XZOGOT_PLAYER_DOWN")
+		_enter_downed()
 
 func heal_full() -> void:
 	health = max_health
 	downed = false
+	eliminated = false
+	_bleedout_remaining = 0.0
+	_revive_progress = 0.0
+	_revive_source = null
+	set_meta("downed", false)
+	set_meta("eliminated", false)
+	set_meta("bleedout_remaining", 0.0)
+	set_meta("revive_progress", 0.0)
 
 func get_health() -> float:
 	return health
@@ -610,6 +821,7 @@ func _update_stance(delta: float, crouch_pressed: bool) -> void:
 		_set_crouched(false)
 
 func _physics_process(delta: float) -> void:
+	_tick_downed_state(delta)
 	if _slide_cooldown_timer > 0.0:
 		_slide_cooldown_timer = maxf(0.0, _slide_cooldown_timer - delta)
 
@@ -639,7 +851,13 @@ func _physics_process(delta: float) -> void:
 	if not _dev_noclip:
 		if not is_on_floor():
 			velocity.y -= _gravity * delta
-		if (_jump_requested or Input.is_key_pressed(KEY_SPACE)) and is_on_floor() and not _sliding:
+		if (
+			not downed
+			and not eliminated
+			and (_jump_requested or Input.is_key_pressed(KEY_SPACE))
+			and is_on_floor()
+			and not _sliding
+		):
 			velocity.y = jump_velocity
 	else:
 		velocity = Vector3.ZERO
@@ -661,10 +879,15 @@ func _physics_process(delta: float) -> void:
 	if wish.length_squared() > 0.001:
 		wish = wish.normalized()
 
-	var crouch_pressed: bool = _crouch_touch >= 0 or Input.is_key_pressed(KEY_CTRL) or Input.is_key_pressed(KEY_C)
+	var crouch_pressed: bool = (
+		downed
+		or _crouch_touch >= 0
+		or Input.is_key_pressed(KEY_CTRL)
+		or Input.is_key_pressed(KEY_C)
+	)
 	var crouch_just_pressed: bool = crouch_pressed and not _crouch_was_pressed
 	var sprinting: bool = Input.is_key_pressed(KEY_SHIFT) or input_2d.length() > 0.92
-	_sprinting = sprinting and not _is_ads_active()
+	_sprinting = sprinting and not downed and not eliminated and not _is_ads_active()
 
 	if _dev_noclip:
 		var dev_speed: float = sprint_speed * (2.8 if _dev_speed_boost else 1.45)
@@ -682,7 +905,16 @@ func _physics_process(delta: float) -> void:
 
 	_jump_requested = false
 
-	if crouch_just_pressed and sprinting and input_2d.length() > 0.72 and is_on_floor() and not _sliding and _slide_cooldown_timer <= 0.0:
+	if (
+		not downed
+		and not eliminated
+		and crouch_just_pressed
+		and sprinting
+		and input_2d.length() > 0.72
+		and is_on_floor()
+		and not _sliding
+		and _slide_cooldown_timer <= 0.0
+	):
 		_sliding = true
 		_slide_timer = slide_duration
 		_slide_direction = wish if wish.length_squared() > 0.001 else -transform.basis.z
@@ -698,6 +930,10 @@ func _physics_process(delta: float) -> void:
 	else:
 		var speed: float = crouch_speed if _crouched else (sprint_speed if _sprinting else walk_speed)
 		speed *= get_move_speed_multiplier()
+		if downed:
+			speed *= downed_move_multiplier
+		if eliminated:
+			speed = 0.0
 		if _dev_speed_boost:
 			speed *= 2.35
 		velocity.x = move_toward(velocity.x, wish.x * speed, 22.0 * delta)
