@@ -15,69 +15,155 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Install archive tools
+      - name: Install Playwright archive tools
+        shell: bash
         run: |
+          set -euo pipefail
           sudo apt-get update -qq
           sudo apt-get install -y -qq p7zip-full xz-utils
-          npm install --global itchio-downloader
+          mkdir -p "$RUNNER_TEMP/aether-browser"
+          cd "$RUNNER_TEMP/aether-browser"
+          npm init -y >/dev/null 2>&1
+          npm install playwright@latest >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
 
-      - name: Download public reconstructed Nacht build
+      - name: Resolve public Project Aether download
+        shell: bash
+        env:
+          PURCHASE_URL: https://verrial.itch.io/projectaether/purchase
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/aether-download"
-          itchio-downloader --url "https://verrial.itch.io/projectaether" --downloadDirectory "$RUNNER_TEMP/aether-download"
-          FILE=$(find "$RUNNER_TEMP/aether-download" -type f -name '*.zip' -printf '%s	%p
-' | sort -nr | head -1 | cut -f2-)
-          test -n "$FILE"
-          echo "PAYLOAD=$FILE" >> "$GITHUB_ENV"
-          sha256sum "$FILE"
+          cd "$RUNNER_TEMP/aether-browser"
+          cat > fetch.mjs <<'JS'
+          import { chromium } from 'playwright';
+          import fs from 'fs';
+          import path from 'path';
 
-      - name: Extract IoStore only
+          const outDir = path.join(process.env.RUNNER_TEMP, 'aether-download');
+          fs.mkdirSync(outDir, { recursive: true });
+          const browser = await chromium.launch({ headless: true });
+          const context = await browser.newContext({ acceptDownloads: true });
+          const page = await context.newPage();
+          await page.goto(process.env.PURCHASE_URL, { waitUntil: 'domcontentloaded', timeout: 120000 });
+          const skip = page.getByText('No thanks, just take me to the downloads', { exact: false });
+          if (await skip.count() === 0) throw new Error('itch free-download link not found');
+          await skip.first().click();
+          await page.waitForLoadState('domcontentloaded', { timeout: 120000 }).catch(()=>{});
+          await page.waitForTimeout(1500);
+
+          const candidates = page.locator('a').filter({ hasText: /download/i });
+          let saved = '';
+          for (let i=0; i<await candidates.count(); i++) {
+            const a = candidates.nth(i);
+            if (!(await a.getAttribute('href'))) continue;
+            try {
+              const dp = page.waitForEvent('download', { timeout: 20000 });
+              await a.click({ timeout: 15000 });
+              const d = await dp;
+              saved = path.join(outDir, d.suggestedFilename() || 'Project-Aether.bin');
+              await d.saveAs(saved);
+              break;
+            } catch {
+              await page.goBack({ waitUntil: 'domcontentloaded', timeout: 30000 }).catch(()=>{});
+              await page.waitForTimeout(500);
+            }
+          }
+          await browser.close();
+          if (!saved) throw new Error('Project Aether public payload was not downloaded');
+          fs.writeFileSync(path.join(outDir, 'payload-path.txt'), saved + '\n');
+          console.log('XZOGOT_AETHER_DOWNLOAD_GREEN', saved);
+          JS
+          node fetch.mjs
+          PAYLOAD=$(cat "$RUNNER_TEMP/aether-download/payload-path.txt")
+          test -s "$PAYLOAD"
+          echo "PAYLOAD=$PAYLOAD" >> "$GITHUB_ENV"
+          sha256sum "$PAYLOAD"
+
+      - name: Extract IoStore containers
+        shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/paks"
-          7z x -y "$PAYLOAD" 'ProjectAether/Content/Paks/*' -o"$RUNNER_TEMP/paks" >/dev/null
+          mkdir -p "$RUNNER_TEMP/aether-paks"
+          7z x -y "$PAYLOAD" 'ProjectAether/Content/Paks/*' -o"$RUNNER_TEMP/aether-paks" >/dev/null
+          PAKDIR="$RUNNER_TEMP/aether-paks/ProjectAether/Content/Paks"
+          test -d "$PAKDIR"
+          UTOC=$(find "$PAKDIR" -maxdepth 1 -type f -name '*.utoc' | head -1)
+          test -n "$UTOC"
+          echo "UTOC=$UTOC" >> "$GITHUB_ENV"
+          echo "XZOGOT_AETHER_IOSTORE_GREEN $UTOC"
           rm -f "$PAYLOAD"
-          PAKDIR="$RUNNER_TEMP/paks/ProjectAether/Content/Paks"
-          echo "PAKDIR=$PAKDIR" >> "$GITHUB_ENV"
-          test -s "$PAKDIR/ProjectAether-Windows.utoc"
 
-      - name: Install retoc and repak
+      - name: Install retoc
+        shell: bash
         run: |
           set -euo pipefail
-          curl -fL https://github.com/trumank/retoc/releases/download/v0.1.5/retoc_cli-x86_64-unknown-linux-gnu.tar.xz -o /tmp/retoc.tar.xz
-          mkdir -p /tmp/retoc && tar -xJf /tmp/retoc.tar.xz -C /tmp/retoc
-          echo "RETOC=$(find /tmp/retoc -type f -name 'retoc*' -perm -111 | head -1)" >> "$GITHUB_ENV"
+          curl -fL --retry 5 --retry-all-errors \
+            https://github.com/trumank/retoc/releases/download/v0.1.5/retoc_cli-x86_64-unknown-linux-gnu.tar.xz \
+            -o /tmp/retoc.tar.xz
+          mkdir -p /tmp/retoc
+          tar -xJf /tmp/retoc.tar.xz -C /tmp/retoc
+          RETOC=$(find /tmp/retoc -type f -name 'retoc*' -perm -111 | head -1)
+          test -x "$RETOC"
+          echo "RETOC=$RETOC" >> "$GITHUB_ENV"
+          "$RETOC" --version
 
-      - name: Census weapon model animation and sound paths
+      - name: Census reconstructed weapon paths
+        shell: bash
         run: |
           set -euo pipefail
           mkdir -p weapon-census
-          "$RETOC" list "$PAKDIR/ProjectAether-Windows.utoc" > weapon-census/all_paths.txt 2>&1 || true
+          "$RETOC" list "$UTOC" > weapon-census/all_paths.txt
           python3 - <<'PY'
           from pathlib import Path
           import json,re
+
           lines=[x.strip() for x in Path("weapon-census/all_paths.txt").read_text(errors="replace").splitlines() if x.strip()]
-          groups={k:[] for k in ("weapon","viewmodel","worldmodel","animation","sound","classic")}
-          classic=("mp40","thompson","m1","garand","trench","shotgun","bar","browning","fg42","gewehr","m1a1","mg42","ppsh","ptrs","stg","type100","springfield","raygun","ray_gun","wunderwaffe","tesla","colt")
+          classic=(
+              "colt","m1","garand","mp40","thompson","trench","shotgun","bar","browning",
+              "fg42","gewehr","m1a1","mg42","ppsh","ptrs","stg","mp44","type100",
+              "springfield","raygun","ray_gun","wunderwaffe","tesla"
+          )
+          categories={
+              "weapon":[],
+              "viewmodel":[],
+              "worldmodel":[],
+              "animation":[],
+              "sound":[],
+              "classic_weapon_named":[]
+          }
           for line in lines:
               lo=line.lower()
-              if "weapon" in lo: groups["weapon"].append(line)
-              if "viewmodel" in lo or "view_model" in lo or "/vm_" in lo: groups["viewmodel"].append(line)
-              if "worldmodel" in lo or "world_model" in lo or "/wm_" in lo: groups["worldmodel"].append(line)
-              if "/anim" in lo or "animation" in lo or "_anim" in lo: groups["animation"].append(line)
-              if "/sound" in lo or "/audio" in lo or "_sfx" in lo: groups["sound"].append(line)
-              if any(x in lo for x in classic): groups["classic"].append(line)
-          out={k:sorted(set(v))[:20000] for k,v in groups.items()}
-          out["counts"]={k:len(set(v)) for k,v in groups.items()}
-          Path("weapon-census/reconstructed_weapon_paths.json").write_text(json.dumps(out,indent=2)+"
-")
+              if "weapon" in lo or "/weapons/" in lo:
+                  categories["weapon"].append(line)
+              if "viewmodel" in lo or "view_model" in lo or "/vm_" in lo or "_vm." in lo:
+                  categories["viewmodel"].append(line)
+              if "worldmodel" in lo or "world_model" in lo or "/wm_" in lo or "_wm." in lo:
+                  categories["worldmodel"].append(line)
+              if "/anim" in lo or "animation" in lo or "_anim" in lo or "/anims/" in lo:
+                  categories["animation"].append(line)
+              if "/sound" in lo or "/audio" in lo or "_sfx" in lo or "/sfx/" in lo:
+                  categories["sound"].append(line)
+              if any(token in lo for token in classic):
+                  categories["classic_weapon_named"].append(line)
+
+          out={k:sorted(set(v)) for k,v in categories.items()}
+          out["counts"]={k:len(v) for k,v in out.items()}
+          out["source"]="Project Aether public reconstructed build"
+          out["rule"]="Census only; paths do not imply a complete or redistribution-cleared Xogot weapon package."
+          Path("weapon-census/reconstructed_weapon_paths.json").write_text(
+              json.dumps(out,indent=2)+"\n",encoding="utf-8"
+          )
           print("XZOGOT_RECONSTRUCTED_WEAPON_PATHS",out["counts"])
+          if not lines:
+              raise SystemExit("retoc produced an empty directory index")
           PY
 
-      - name: Upload census only
+      - name: Upload census
         uses: actions/upload-artifact@v4
         with:
           name: reconstructed-map-weapon-census
-          path: weapon-census/reconstructed_weapon_paths.json
+          path: |
+            weapon-census/reconstructed_weapon_paths.json
+            weapon-census/all_paths.txt
+          if-no-files-found: error
           retention-days: 14
