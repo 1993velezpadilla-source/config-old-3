@@ -24,6 +24,28 @@ var _last_result: String = ""
 
 var _last_power_visual_state: bool = false
 
+const SFX_DOOR := "res://assets/audio/church/world/door_open.ogg"
+const SFX_POWER := "res://assets/audio/church/world/power_switch.ogg"
+const SFX_MACHINE := "res://assets/audio/church/world/machine_use.ogg"
+const SFX_MYSTERY := "res://assets/audio/church/world/mystery_open.ogg"
+
+func _play_world_sfx(path: String, volume_db: float = -4.0) -> void:
+	if not ResourceLoader.exists(path):
+		return
+	var stream := load(path) as AudioStream
+	if stream == null:
+		return
+	var player := AudioStreamPlayer3D.new()
+	player.name = "OneShotSFX"
+	player.stream = stream
+	player.volume_db = volume_db
+	player.unit_size = 2.0
+	player.max_distance = 32.0
+	add_child(player)
+	player.finished.connect(player.queue_free)
+	player.play()
+
+
 func _ready() -> void:
 	_last_power_visual_state = not bool(get_tree().get_meta("power_on", false))
 	_update_power_visual()
@@ -91,24 +113,29 @@ func interact(player: Node) -> bool:
 	match interaction_kind:
 		Kind.DOOR:
 			_open_door()
+			_play_world_sfx(SFX_DOOR)
 		Kind.MYSTERY:
 			_use_mystery(player)
+			_play_world_sfx(SFX_MYSTERY)
 		Kind.PERK:
 			if not bool(player.call("grant_perk", perk_id)):
 				return false
 			_interaction_count += 1
 			_last_result = perk_id
+			_play_world_sfx(SFX_MACHINE, -6.0)
 			print("XZOGOT_PERK_MACHINE_USED ", perk_id)
 		Kind.POWER:
 			_interaction_count += 1
 			get_tree().set_meta("power_on", true)
 			_last_result = "POWER_ON"
+			_play_world_sfx(SFX_POWER, -2.0)
 			print("XZOGOT_POWER_ON")
 		Kind.UPGRADE:
 			if not bool(weapon.call("upgrade_current_weapon")):
 				return false
 			_interaction_count += 1
 			_last_result = str(weapon.call("get_weapon_id"))
+			_play_world_sfx(SFX_MACHINE, -1.5)
 			print("XZOGOT_SANCTUM_FORGE_USED ", _last_result)
 
 	if one_shot:
