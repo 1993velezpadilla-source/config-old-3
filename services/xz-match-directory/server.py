@@ -36,18 +36,22 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         print("XZDIR", self.address_string(), fmt % args, flush=True)
 
-    def _headers(self, status=200):
+    def _headers(self, status=200, content_length=None):
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, X-XZ-Host-Token")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+        if content_length is not None:
+            self.send_header("Content-Length", str(int(content_length)))
         self.end_headers()
 
     def _json(self, status, payload):
-        self._headers(status)
-        self.wfile.write(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
+        encoded = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+        self._headers(status, len(encoded))
+        self.wfile.write(encoded)
+        self.wfile.flush()
 
     def _body(self):
         try:
@@ -68,7 +72,7 @@ class Handler(BaseHTTPRequestHandler):
         return forwarded or self.client_address[0]
 
     def do_OPTIONS(self):
-        self._headers(204)
+        self._headers(204, 0)
 
     def do_GET(self):
         parsed = urlparse(self.path)
