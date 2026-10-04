@@ -3,14 +3,25 @@ extends CharacterBody3D
 signal died(zombie: Node)
 
 const MONJA_BASICA_PATH := "res://assets/zombies/monja_basica.glb"
+const MONJA_CLEAN_PATH := "res://assets/zombies/monja_clean/monja_basica_clean_rig.glb"
 const MONJA_RIGGED_PATH := "res://assets/zombies/monja_basica_rigged.glb"
 const MONJA_RIGGED_DISMEMBER_PATH := "res://assets/zombies/monja_basica_rigged_dismember.glb"
 const MONJA_RIGID_RIG_PATH := "res://assets/zombies/monja_rigid/monja_basica_rigid_rig.gltf"
+const MONJA_ELITE_PATH := "res://assets/zombies/monja_elite/monja_black_white_clean_rig.glb"
+const SHEEP_RUNNER_PATH := "res://assets/zombies/sheep/sheep_runner_animated.glb"
+const SHEEP_BRUTE_PATH := "res://assets/zombies/sheep/sheep_brute_animated.glb"
 
 const RIGGED_FALLBACK_ANIMS := {
-	"idle": ["Zombie_Idle_Loop"],
-	"walk": ["Zombie_Walk_Fwd_Loop"],
-	"attack": ["Zombie_Scratch"],
+	"idle": ["Zombie_Idle_Loop", "Zombie_Idle_Clean", "Idle_Clean"],
+	"walk": ["Zombie_Walk_Fwd_Loop", "Zombie_Walk_Clean", "Walk_Clean"],
+	"attack": ["Zombie_Scratch", "Zombie_Attack_Clean", "Attack_Clean"],
+}
+
+const SHEEP_FALLBACK_ANIMS := {
+	"idle": ["Sheep_Idle", "Idle"],
+	"walk": ["Sheep_Run", "Sheep_Walk", "Run", "Walk"],
+	"attack": ["Sheep_Attack", "Attack", "Bite"],
+	"death": ["Sheep_Death", "Death"],
 }
 
 const MOTION_PROFILES: Array[Dictionary] = [
@@ -45,6 +56,7 @@ const DEATH_KEYS: Array[String] = ["fall_on_face", "90_16"]
 const GETUP_KEYS: Array[String] = ["face_down_A", "140_01"]
 const CRAWL_KEYS: Array[String] = ["crawl_A", "111_03"]
 
+@export var enemy_variant: String = "normal"
 @export var move_speed: float = 1.85
 @export var health: float = 100.0
 @export var barricade_damage: float = 25.0
@@ -183,6 +195,8 @@ func _update_voice(delta: float) -> void:
 	_moan_timer = (2.0 + jitter * 0.42) if last_zombie else (4.2 + jitter)
 
 func _ready() -> void:
+	enemy_variant = str(get_meta("enemy_variant", enemy_variant))
+	set_meta("enemy_variant", enemy_variant)
 	_gravity = float(ProjectSettings.get_setting("physics/3d/default_gravity", 18.0))
 	floor_snap_length = 0.24
 	add_to_group("zombie")
@@ -270,6 +284,17 @@ func configure_direct(player: Node3D, anchor: Node) -> void:
 	print("XZOGOT_ZOMBIE_DIRECT_ENTRY ", entry_kind, " ", zone)
 
 func _select_motion_profile() -> void:
+	if enemy_variant.begins_with("sheep_"):
+		_motion_profile = {
+			"id": enemy_variant + "_quadruped",
+			"walk_keys": SHEEP_FALLBACK_ANIMS["walk"],
+			"speed_scale": 1.0,
+			"source": "authored_blender_quadruped",
+		}
+		_motion_profile_id = str(_motion_profile["id"])
+		set_meta("motion_profile", _motion_profile_id)
+		set_meta("motion_source", str(_motion_profile["source"]))
+		return
 	var idx: int = abs(name.hash()) % MOTION_PROFILES.size()
 	_motion_profile = MOTION_PROFILES[idx]
 	_motion_profile_id = str(_motion_profile["id"])
@@ -291,20 +316,36 @@ func _build_body() -> void:
 	var using_rigged: bool = false
 	var using_rigged_dismember: bool = false
 	var using_rigid_rig: bool = false
-	# Prefer a true smooth-skinned rig whenever it is present.  The rigid-region
-	# rig is a compatibility fallback only; it must never shadow a proper skin.
-	if ResourceLoader.exists(MONJA_RIGGED_DISMEMBER_PATH):
-		selected_path = MONJA_RIGGED_DISMEMBER_PATH
+	var special_model_id: String = ""
+	if enemy_variant == "sheep_runner":
+		selected_path = SHEEP_RUNNER_PATH
+		special_model_id = "sheep_runner"
+	elif enemy_variant == "sheep_brute":
+		selected_path = SHEEP_BRUTE_PATH
+		special_model_id = "sheep_brute"
+	elif enemy_variant == "nun_elite":
+		selected_path = MONJA_ELITE_PATH
 		using_rigged = true
-		using_rigged_dismember = true
-	elif ResourceLoader.exists(MONJA_RIGGED_PATH):
-		selected_path = MONJA_RIGGED_PATH
-		using_rigged = true
-	elif ResourceLoader.exists(MONJA_RIGID_RIG_PATH):
-		selected_path = MONJA_RIGID_RIG_PATH
-		using_rigged = true
-		using_rigged_dismember = true
-		using_rigid_rig = true
+		special_model_id = "monja_elite"
+	else:
+		# Prefer the new clean Blender bind-pose rig. Legacy smooth/rigid assets
+		# remain compatibility fallbacks until the clean asset passes its Godot gate.
+		if ResourceLoader.exists(MONJA_CLEAN_PATH):
+			selected_path = MONJA_CLEAN_PATH
+			using_rigged = true
+			special_model_id = "monja_clean"
+		elif ResourceLoader.exists(MONJA_RIGGED_DISMEMBER_PATH):
+			selected_path = MONJA_RIGGED_DISMEMBER_PATH
+			using_rigged = true
+			using_rigged_dismember = true
+		elif ResourceLoader.exists(MONJA_RIGGED_PATH):
+			selected_path = MONJA_RIGGED_PATH
+			using_rigged = true
+		elif ResourceLoader.exists(MONJA_RIGID_RIG_PATH):
+			selected_path = MONJA_RIGID_RIG_PATH
+			using_rigged = true
+			using_rigged_dismember = true
+			using_rigid_rig = true
 
 	if ResourceLoader.exists(selected_path):
 		var packed: PackedScene = load(selected_path) as PackedScene
@@ -312,10 +353,10 @@ func _build_body() -> void:
 			var imported: Node3D = packed.instantiate() as Node3D
 			if imported != null:
 				var visual := Node3D.new()
-				visual.name = "MonjaBasicaVisual"
+				visual.name = "EnemyVisual_" + enemy_variant
 				add_child(visual)
 				_visual_root = visual
-				imported.name = "MonjaRiggedSource" if using_rigged else "MonjaBasicaSource"
+				imported.name = "EnemySource_" + enemy_variant
 				imported.rotation_degrees.y = 90.0
 				visual.add_child(imported)
 				if _fit_visual_to_gameplay_bounds(
@@ -326,33 +367,35 @@ func _build_body() -> void:
 					target_visual_max_depth
 				):
 					_animation_player = _find_animation_player(imported)
-					set_meta(
-						"zombie_model",
-						"monja_basica_rigid_rig" if using_rigid_rig
-						else (
-							"monja_basica_rigged_dismember" if using_rigged_dismember
-							else ("monja_basica_rigged" if using_rigged else "monja_basica")
+					var model_id: String = special_model_id
+					if model_id.is_empty():
+						model_id = (
+							"monja_basica_rigid_rig" if using_rigid_rig
+							else (
+								"monja_basica_rigged_dismember" if using_rigged_dismember
+								else ("monja_basica_rigged" if using_rigged else "monja_basica")
+							)
 						)
-					)
+					set_meta("zombie_model", model_id)
 					set_meta("zombie_visual_forward_fix_deg", 90.0)
 					set_meta("zombie_rig_ready", _animation_player != null)
 					set_meta("zombie_rigged_asset", using_rigged)
 					set_meta("zombie_authored_dismember_asset", using_rigged_dismember)
 					set_meta("zombie_rigid_region_rig", using_rigid_rig)
-					print("XZOGOT_MONJA_FORWARD_FIXED 90")
-					print("XZOGOT_MONJA_BASICA_LOADED")
+					print("XZOGOT_ENEMY_FORWARD_FIXED 90 variant=", enemy_variant)
+					print("XZOGOT_ENEMY_MODEL_LOADED variant=", enemy_variant, " model=", model_id)
 					if _animation_player != null:
 						print("XZOGOT_MONJA_RIGGED_ANIMATION_PLAYER_READY")
 						_play_motion_state("idle")
-					elif using_rigged:
-						push_warning("XZOGOT_MONJA_RIGGED_ASSET_MISSING_ANIMATION_PLAYER")
+					elif using_rigged or enemy_variant.begins_with("sheep_"):
+						push_warning("XZOGOT_ENEMY_RIGGED_ASSET_MISSING_ANIMATION_PLAYER variant=" + enemy_variant)
 					else:
 						print("XZOGOT_MONJA_RETARGET_PENDING")
 					return
 				visual.queue_free()
 
 	_build_fallback_visual()
-	print("XZOGOT_MONJA_BASICA_FALLBACK")
+	print("XZOGOT_ENEMY_VISUAL_FALLBACK variant=", enemy_variant)
 
 func _find_animation_player(node: Node) -> AnimationPlayer:
 	if node is AnimationPlayer:
@@ -737,9 +780,12 @@ func _animation_name_for_keys(keys: Array[String]) -> String:
 	return ""
 
 func _rigged_fallback_animation(state: String) -> String:
-	if _animation_player == null or not RIGGED_FALLBACK_ANIMS.has(state):
+	if _animation_player == null:
 		return ""
-	var aliases: Array = RIGGED_FALLBACK_ANIMS[state] as Array
+	var alias_table: Dictionary = SHEEP_FALLBACK_ANIMS if enemy_variant.begins_with("sheep_") else RIGGED_FALLBACK_ANIMS
+	if not alias_table.has(state):
+		return ""
+	var aliases: Array = alias_table[state] as Array
 	for alias_var: Variant in aliases:
 		var alias: String = str(alias_var)
 		for anim_name: StringName in _animation_player.get_animation_list():
@@ -781,7 +827,7 @@ func _play_motion_state(state: String) -> void:
 	if not anim_name.is_empty():
 		_animation_player.play(anim_name)
 		set_meta("active_animation", anim_name)
-		print("XZOGOT_MONJA_ANIM ", state, " -> ", anim_name)
+		print("XZOGOT_ENEMY_ANIM ", enemy_variant, " ", state, " -> ", anim_name)
 
 func _classify_hit_zone(local_hit: Vector3) -> String:
 	if local_hit.y >= target_visual_height * headshot_height_ratio:
