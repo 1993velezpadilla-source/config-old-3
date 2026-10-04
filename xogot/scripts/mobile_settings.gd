@@ -1,6 +1,12 @@
 extends Control
 
+const WeaponCatalog = preload("res://scripts/weapon_catalog.gd")
 const CONFIG_PATH := "user://xogot_mobile_settings.cfg"
+
+# Intentional: the DEV lab is present in optimized Release builds too so the
+# exact shipping-performance binary can be play-tested. For a public store
+# package this single flag can be turned off without touching gameplay code.
+@export var dev_menu_visible_in_release: bool = true
 
 var ads_toggle_mode: bool = false
 var gyro_mode: int = 1 # 0=OFF, 1=ALWAYS, 2=ADS ONLY
@@ -18,10 +24,24 @@ var auto_rebuild: bool = true
 var repair_repeat_interval: float = 0.45
 var hud_opacity: float = 0.82
 
+# DEV flags deliberately do NOT persist between launches.
+var dev_infinite_health: bool = false
+var dev_infinite_points: bool = false
+var dev_infinite_ammo: bool = false
+var dev_no_zombies: bool = false
+var dev_noclip: bool = false
+var dev_speed_boost: bool = false
+
 var _panel: PanelContainer
+var _page_pause: VBoxContainer
+var _page_settings: VBoxContainer
+var _page_dev: VBoxContainer
 var _rows: Dictionary = {}
+var _dev_rows: Dictionary = {}
+var _current_page: String = "pause"
 
 func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_load_settings()
@@ -29,6 +49,7 @@ func _ready() -> void:
 	visible = false
 	call_deferred("_apply_to_player")
 	print("XZOGOT_MOBILE_SETTINGS_READY")
+	print("XZOGOT_RELEASE_DEV_MENU_READY ", dev_menu_visible_in_release)
 
 func _load_settings() -> void:
 	var cfg := ConfigFile.new()
@@ -69,97 +90,196 @@ func _save_settings() -> void:
 	cfg.set_value("hud", "opacity", hud_opacity)
 	cfg.save(CONFIG_PATH)
 
-func _add_button(vbox: VBoxContainer, key: String, text_value: String) -> Button:
+func _button(vbox: VBoxContainer, name_value: String, text_value: String) -> Button:
 	var button := Button.new()
-	button.name = "Setting_" + key
+	button.name = name_value
 	button.text = text_value
 	button.custom_minimum_size = Vector2(0.0, 50.0)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vbox.add_child(button)
-	_rows[key] = button
 	return button
+
+func _title(vbox: VBoxContainer, text_value: String, subtitle: String = "") -> void:
+	var title := Label.new()
+	title.text = text_value
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 30)
+	vbox.add_child(title)
+	if not subtitle.is_empty():
+		var sub := Label.new()
+		sub.text = subtitle
+		sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		sub.modulate = Color(0.72, 0.76, 0.80)
+		vbox.add_child(sub)
+
+func _page_container(parent: Control, page_name: String) -> VBoxContainer:
+	var scroll := ScrollContainer.new()
+	scroll.name = page_name + "Scroll"
+	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	parent.add_child(scroll)
+	var vbox := VBoxContainer.new()
+	vbox.name = page_name
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_theme_constant_override("separation", 8)
+	scroll.add_child(vbox)
+	return vbox
 
 func _build_ui() -> void:
 	var shade := ColorRect.new()
-	shade.name = "SettingsShade"
+	shade.name = "PauseShade"
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	shade.color = Color(0.01, 0.01, 0.015, 0.90)
+	shade.color = Color(0.008, 0.009, 0.014, 0.92)
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(shade)
 
 	_panel = PanelContainer.new()
-	_panel.name = "SettingsPanel"
-	_panel.anchor_left = 0.12
-	_panel.anchor_top = 0.06
-	_panel.anchor_right = 0.88
-	_panel.anchor_bottom = 0.94
+	_panel.name = "PausePanel"
+	_panel.anchor_left = 0.14
+	_panel.anchor_top = 0.07
+	_panel.anchor_right = 0.86
+	_panel.anchor_bottom = 0.93
 	_panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(_panel)
 
-	var scroll := ScrollContainer.new()
-	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_panel.add_child(scroll)
+	var pages := Control.new()
+	pages.name = "Pages"
+	pages.custom_minimum_size = Vector2(760, 760)
+	pages.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_panel.add_child(pages)
 
-	var vbox := VBoxContainer.new()
-	vbox.name = "SettingsRows"
-	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	vbox.add_theme_constant_override("separation", 8)
-	scroll.add_child(vbox)
+	_page_pause = _page_container(pages, "PausePage")
+	_page_settings = _page_container(pages, "SettingsPage")
+	_page_dev = _page_container(pages, "DevPage")
 
-	var title := Label.new()
-	title.text = "MOBILE SETTINGS"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 30)
-	vbox.add_child(title)
-
-	var ads := _add_button(vbox, "ads_mode", "")
-	ads.pressed.connect(_cycle_ads_mode)
-
-	var gyro := _add_button(vbox, "gyro_mode", "")
-	gyro.pressed.connect(_cycle_gyro_mode)
-
-	var invx := _add_button(vbox, "gyro_invert_x", "")
-	invx.pressed.connect(_toggle_gyro_invert_x)
-
-	var invy := _add_button(vbox, "gyro_invert_y", "")
-	invy.pressed.connect(_toggle_gyro_invert_y)
-
-	var sensx := _add_button(vbox, "gyro_sensitivity_x", "")
-	sensx.pressed.connect(_cycle_gyro_sensitivity_x)
-
-	var sensy := _add_button(vbox, "gyro_sensitivity_y", "")
-	sensy.pressed.connect(_cycle_gyro_sensitivity_y)
-
-	var adsmult := _add_button(vbox, "gyro_ads_multiplier", "")
-	adsmult.pressed.connect(_cycle_gyro_ads_multiplier)
-
-	var deadzone := _add_button(vbox, "gyro_deadzone", "")
-	deadzone.pressed.connect(_cycle_gyro_deadzone)
-
-	var smoothing := _add_button(vbox, "gyro_smoothing", "")
-	smoothing.pressed.connect(_cycle_gyro_smoothing)
-
-	var autoknife := _add_button(vbox, "auto_knife", "")
-	autoknife.pressed.connect(_toggle_auto_knife)
-
-	var knifebutton := _add_button(vbox, "knife_button_range_only", "")
-	knifebutton.pressed.connect(_toggle_knife_button_visibility)
-
-	var autorebuild := _add_button(vbox, "auto_rebuild", "")
-	autorebuild.pressed.connect(_toggle_auto_rebuild)
-
-	var opacity := _add_button(vbox, "hud_opacity", "")
-	opacity.pressed.connect(_cycle_hud_opacity)
-
-	var close := Button.new()
-	close.name = "CloseSettings"
-	close.text = "BACK TO GAME"
-	close.custom_minimum_size = Vector2(0.0, 58.0)
-	close.pressed.connect(close_menu)
-	vbox.add_child(close)
-
+	_build_pause_page()
+	_build_settings_page()
+	_build_dev_page()
+	_show_page("pause")
 	_refresh_labels()
+	_refresh_dev_labels()
+
+func _build_pause_page() -> void:
+	_title(_page_pause, "PAUSED", "YOU WON'T WIN")
+	var resume := _button(_page_pause, "Resume", "RESUME")
+	resume.pressed.connect(close_menu)
+	var settings := _button(_page_pause, "OpenSettings", "SETTINGS")
+	settings.pressed.connect(func(): _show_page("settings"))
+	if dev_menu_visible_in_release:
+		var dev := _button(_page_pause, "OpenDev", "DEV LAB")
+		dev.pressed.connect(func(): _show_page("dev"))
+	var spacer := Control.new()
+	spacer.custom_minimum_size = Vector2(0, 24)
+	_page_pause.add_child(spacer)
+	var info := Label.new()
+	info.text = "Release-performance test menu. DEV tools add no overlay or profiler overhead while disabled."
+	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	info.modulate = Color(0.62, 0.66, 0.70)
+	_page_pause.add_child(info)
+
+func _add_setting(key: String, callback: Callable) -> void:
+	var b := _button(_page_settings, "Setting_" + key, "")
+	b.pressed.connect(callback)
+	_rows[key] = b
+
+func _build_settings_page() -> void:
+	_title(_page_settings, "SETTINGS", "Touch, aim, gyroscope and mobile assists")
+	_add_setting("ads_mode", _cycle_ads_mode)
+	_add_setting("gyro_mode", _cycle_gyro_mode)
+	_add_setting("gyro_invert_x", _toggle_gyro_invert_x)
+	_add_setting("gyro_invert_y", _toggle_gyro_invert_y)
+	_add_setting("gyro_sensitivity_x", _cycle_gyro_sensitivity_x)
+	_add_setting("gyro_sensitivity_y", _cycle_gyro_sensitivity_y)
+	_add_setting("gyro_ads_multiplier", _cycle_gyro_ads_multiplier)
+	_add_setting("gyro_deadzone", _cycle_gyro_deadzone)
+	_add_setting("gyro_smoothing", _cycle_gyro_smoothing)
+	_add_setting("auto_knife", _toggle_auto_knife)
+	_add_setting("knife_button_range_only", _toggle_knife_button_visibility)
+	_add_setting("auto_rebuild", _toggle_auto_rebuild)
+	_add_setting("hud_opacity", _cycle_hud_opacity)
+	var back := _button(_page_settings, "SettingsBack", "BACK")
+	back.pressed.connect(func(): _show_page("pause"))
+
+func _add_dev_toggle(key: String, callback: Callable) -> void:
+	var b := _button(_page_dev, "Dev_" + key, "")
+	b.pressed.connect(callback)
+	_dev_rows[key] = b
+
+func _build_dev_page() -> void:
+	_title(
+		_page_dev,
+		"DEV LAB",
+		"Release-safe gameplay switches. Green means active. Nothing is drawn on the player HUD."
+	)
+	_add_dev_toggle("infinite_health", func(): _set_dev_flag("infinite_health", not dev_infinite_health))
+	_add_dev_toggle("infinite_points", func(): _set_dev_flag("infinite_points", not dev_infinite_points))
+	_add_dev_toggle("infinite_ammo", func(): _set_dev_flag("infinite_ammo", not dev_infinite_ammo))
+	_add_dev_toggle("no_zombies", func(): _set_dev_flag("no_zombies", not dev_no_zombies))
+	_add_dev_toggle("noclip", func(): _set_dev_flag("noclip", not dev_noclip))
+	_add_dev_toggle("speed_boost", func(): _set_dev_flag("speed_boost", not dev_speed_boost))
+
+	var unlock := _button(_page_dev, "UnlockAll", "OPEN ALL DOORS / OBSTACLES")
+	unlock.pressed.connect(_dev_unlock_all)
+	var kill := _button(_page_dev, "KillAllZombies", "CLEAR ALL ZOMBIES")
+	kill.pressed.connect(_dev_clear_all_zombies)
+	var spawn := _button(_page_dev, "SpawnZombie", "SPAWN ONE TEST ZOMBIE")
+	spawn.pressed.connect(_dev_spawn_one_zombie)
+
+	var divider := HSeparator.new()
+	_page_dev.add_child(divider)
+	var weapon_title := Label.new()
+	weapon_title.text = "WEAPON LAB — WALL BUYS + MYSTERY BOX"
+	weapon_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	weapon_title.add_theme_font_size_override("font_size", 22)
+	_page_dev.add_child(weapon_title)
+
+	var wall_set: Dictionary = {}
+	for id: String in WeaponCatalog.WALL_BUY_ORDER:
+		wall_set[id] = true
+	var mystery_set: Dictionary = {}
+	for id: String in WeaponCatalog.mystery_pool_ids():
+		mystery_set[id] = true
+
+	var weapon_ids: Array[String] = []
+	for id_var: Variant in WeaponCatalog.WEAPONS.keys():
+		weapon_ids.append(str(id_var))
+	weapon_ids.sort()
+
+	for id: String in weapon_ids:
+		var def: Dictionary = WeaponCatalog.get_weapon(id)
+		var tags: Array[String] = []
+		if wall_set.has(id):
+			tags.append("WALL")
+		if mystery_set.has(id):
+			tags.append("BOX")
+		if id == WeaponCatalog.STARTING_WEAPON_ID:
+			tags.append("START")
+		var model_ok: bool = ResourceLoader.exists(str(def.get("model_path", "")))
+		var fire_ok: bool = ResourceLoader.exists(str(def.get("fire_audio", "")))
+		var status := "%s | MODEL %s | SFX %s" % [
+			"/".join(tags) if not tags.is_empty() else "CATALOG",
+			"OK" if model_ok else "PENDING",
+			"OK" if fire_ok else "PENDING"
+		]
+		var wb := _button(
+			_page_dev,
+			"Weapon_" + id,
+			"%s  [%s]" % [str(def.get("display_name", id)).to_upper(), status]
+		)
+		wb.pressed.connect(func(weapon_id: String = id): _dev_equip_weapon(weapon_id))
+
+	var back := _button(_page_dev, "DevBack", "BACK")
+	back.pressed.connect(func(): _show_page("pause"))
+
+func _show_page(page: String) -> void:
+	_current_page = page
+	_page_pause.get_parent().visible = page == "pause"
+	_page_settings.get_parent().visible = page == "settings"
+	_page_dev.get_parent().visible = page == "dev"
+	if page == "dev":
+		_refresh_dev_labels()
 
 func _refresh_labels() -> void:
 	if _rows.is_empty():
@@ -179,6 +299,87 @@ func _refresh_labels() -> void:
 	(_rows["auto_rebuild"] as Button).text = "AUTO REBUILD BARRIERS: " + ("ENABLED" if auto_rebuild else "DISABLED")
 	(_rows["hud_opacity"] as Button).text = "HUD OPACITY: %d%%" % int(round(hud_opacity * 100.0))
 
+func _dev_value(key: String) -> bool:
+	match key:
+		"infinite_health": return dev_infinite_health
+		"infinite_points": return dev_infinite_points
+		"infinite_ammo": return dev_infinite_ammo
+		"no_zombies": return dev_no_zombies
+		"noclip": return dev_noclip
+		"speed_boost": return dev_speed_boost
+	return false
+
+func _dev_label(key: String) -> String:
+	match key:
+		"infinite_health": return "INFINITE HEALTH"
+		"infinite_points": return "INFINITE POINTS"
+		"infinite_ammo": return "INFINITE AMMO"
+		"no_zombies": return "NO ZOMBIES"
+		"noclip": return "NOCLIP"
+		"speed_boost": return "SPEED BOOST"
+	return key.to_upper()
+
+func _refresh_dev_labels() -> void:
+	for key: String in _dev_rows.keys():
+		var enabled: bool = _dev_value(key)
+		var b := _dev_rows[key] as Button
+		b.text = ("%s  %s — %s" % ["●" if enabled else "○", _dev_label(key), "ON" if enabled else "OFF"])
+		b.modulate = Color(0.40, 1.00, 0.52) if enabled else Color(0.88, 0.90, 0.94)
+
+func _set_dev_flag(key: String, enabled: bool) -> void:
+	match key:
+		"infinite_health": dev_infinite_health = enabled
+		"infinite_points": dev_infinite_points = enabled
+		"infinite_ammo": dev_infinite_ammo = enabled
+		"no_zombies": dev_no_zombies = enabled
+		"noclip": dev_noclip = enabled
+		"speed_boost": dev_speed_boost = enabled
+	_apply_dev_flags()
+	_refresh_dev_labels()
+	print("XZOGOT_DEV_FLAG ", key, "=", enabled)
+
+func _apply_dev_flags() -> void:
+	var player: Node = get_node_or_null("../../Player")
+	if player != null and player.has_method("apply_dev_flags"):
+		player.call(
+			"apply_dev_flags",
+			dev_infinite_health,
+			dev_infinite_points,
+			dev_noclip,
+			dev_speed_boost
+		)
+	var weapon: Node = get_node_or_null("../../Player/Weapon")
+	if weapon != null and weapon.has_method("set_dev_infinite_ammo"):
+		weapon.call("set_dev_infinite_ammo", dev_infinite_ammo)
+	var rounds: Node = get_node_or_null("../../RoundManager")
+	if rounds != null and rounds.has_method("set_dev_no_zombies"):
+		rounds.call("set_dev_no_zombies", dev_no_zombies)
+
+func _dev_unlock_all() -> void:
+	var count: int = 0
+	for node: Node in get_tree().get_nodes_in_group("zombie_interactable"):
+		if node.has_method("dev_force_open"):
+			if bool(node.call("dev_force_open")):
+				count += 1
+	print("XZOGOT_DEV_UNLOCK_ALL ", count)
+
+func _dev_clear_all_zombies() -> void:
+	var rounds: Node = get_node_or_null("../../RoundManager")
+	if rounds != null and rounds.has_method("dev_clear_zombies"):
+		rounds.call("dev_clear_zombies")
+
+func _dev_spawn_one_zombie() -> void:
+	var rounds: Node = get_node_or_null("../../RoundManager")
+	if rounds != null and rounds.has_method("dev_spawn_one"):
+		rounds.call("dev_spawn_one")
+
+func _dev_equip_weapon(id: String) -> void:
+	var weapon: Node = get_node_or_null("../../Player/Weapon")
+	if weapon != null and weapon.has_method("equip_weapon"):
+		if bool(weapon.call("equip_weapon", id, true)):
+			print("XZOGOT_DEV_WEAPON_EQUIP ", id)
+			close_menu()
+
 func _commit() -> void:
 	_save_settings()
 	_refresh_labels()
@@ -192,17 +393,30 @@ func _apply_to_player() -> void:
 	if player != null and player.has_method("apply_mobile_settings"):
 		player.call("apply_mobile_settings", self)
 
-func toggle_menu() -> void:
-	visible = not visible
-	mouse_filter = Control.MOUSE_FILTER_STOP if visible else Control.MOUSE_FILTER_IGNORE
+func toggle_pause_menu() -> void:
 	if visible:
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	print("XZOGOT_SETTINGS_MENU ", "OPEN" if visible else "CLOSED")
+		close_menu()
+	else:
+		open_pause_menu()
+
+func toggle_menu() -> void:
+	toggle_pause_menu()
+
+func open_pause_menu() -> void:
+	_show_page("pause")
+	visible = true
+	mouse_filter = Control.MOUSE_FILTER_STOP
+	get_tree().paused = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	print("XZOGOT_PAUSE_MENU OPEN")
 
 func close_menu() -> void:
 	visible = false
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	get_tree().paused = false
 	_apply_to_player()
+	_apply_dev_flags()
+	print("XZOGOT_PAUSE_MENU CLOSED")
 
 func is_menu_open() -> bool:
 	return visible
