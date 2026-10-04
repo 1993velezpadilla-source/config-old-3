@@ -1,0 +1,44 @@
+name: Build Meshopt Decoder Helper
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/church-expansion-v1
+    paths:
+      - "tools/third_party/meshoptimizer_decoder/**"
+      - ".github/workflows/build-meshopt-decoder.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build decoder shared library
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/meshopt-decoder
+          g++ -std=c++17 -O3 -fPIC -shared -DMESHOPTIMIZER_NO_SIMD \
+            tools/third_party/meshoptimizer_decoder/vertexcodec.cpp \
+            tools/third_party/meshoptimizer_decoder/indexcodec.cpp \
+            tools/third_party/meshoptimizer_decoder/vertexfilter.cpp \
+            -Itools/third_party/meshoptimizer_decoder \
+            -o build/meshopt-decoder/libmeshoptdecoder.so
+          test -s build/meshopt-decoder/libmeshoptdecoder.so
+          nm -D build/meshopt-decoder/libmeshoptdecoder.so | grep meshopt_decodeVertexBuffer
+          nm -D build/meshopt-decoder/libmeshoptdecoder.so | grep meshopt_decodeIndexBuffer
+          nm -D build/meshopt-decoder/libmeshoptdecoder.so | grep meshopt_decodeFilterOct
+          sha256sum build/meshopt-decoder/libmeshoptdecoder.so | tee build/meshopt-decoder/SHA256SUMS
+          echo "XZOGOT_MESHOPT_DECODER_HELPER_GREEN"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: meshopt-decoder-linux-x64
+          path: build/meshopt-decoder/
+          retention-days: 14
