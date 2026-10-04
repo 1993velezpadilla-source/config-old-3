@@ -54,6 +54,8 @@ func _build_graph() -> void:
 	_add_node(24, "BellLower", Vector3(-25.0, 0.35, 9.0))
 	_add_node(25, "BellMid", Vector3(-25.0, 4.25, 12.0))
 	_add_node(26, "BellTop", Vector3(-25.0, 8.25, 6.0))
+	_add_node(27, "SecondMidWest", Vector3(-8.35, 5.25, -0.10))
+	_add_node(28, "SecondMidEast", Vector3(8.35, 5.25, -0.10))
 
 	_link(0, 1)
 	_link(0, 2)
@@ -81,11 +83,16 @@ func _build_graph() -> void:
 
 	# Upper church route. BalconyGate is the first-floor progression choke.
 	_link(1, 19, "BalconyGate")
-	_link(19, 20)
-	_link(20, 21)
-	_link(21, 22)
-	_link(22, 23)
-	_link(23, 19)
+	# Rear balcony feeds the east gallery; west side is intentionally cut open
+	# over the stairwell for head clearance.
+	_link(19, 23)
+	_link(23, 22)
+	_link(22, 21)
+	_link(21, 20)
+	# Mid bridge closes the second-floor loop without crossing the stair opening.
+	_link(20, 27)
+	_link(27, 28)
+	_link(28, 22)
 
 	# Bell tower switchback.
 	_link(24, 25)
