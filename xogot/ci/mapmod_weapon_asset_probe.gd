@@ -58,9 +58,15 @@ func _run() -> void:
 			return
 
 		var rec := weapons[id] as Dictionary
-		if str(rec.get("desired_source_lane", "")) != "cod_zombies_mapmod":
-			_fail(9, "wrong desired source lane: " + id)
+		var source_lane := str(rec.get("desired_source_lane", ""))
+		if source_lane not in ["cod_zombies_mapmod", "project_aether_waw_real"]:
+			_fail(9, "unapproved desired source lane for %s: %s" % [id, source_lane])
 			return
+		if source_lane == "project_aether_waw_real":
+			var aether_vm := str((rec.get("runtime", {}) as Dictionary).get("viewmodel", ""))
+			if not aether_vm.begins_with("res://assets/weapons/aether_waw_real/"):
+				_fail(9, "Aether source lane points outside real Aether weapon tree: " + id)
+				return
 
 		var runtime: Dictionary = rec.get("runtime", {}) as Dictionary
 		var audio: Dictionary = runtime.get("audio", {}) as Dictionary
