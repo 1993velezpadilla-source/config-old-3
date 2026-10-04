@@ -1,6 +1,6 @@
 name: Recover Aether Wall Weapons
 
-# recovery-matrix-trigger: 2026-10-04-v11-loose-retoc
+# recovery-matrix-trigger: 2026-10-04-v12-binka-fire
 
 on:
   workflow_dispatch:
@@ -9,6 +9,9 @@ on:
       - feature/church-expansion-v1
     paths:
       - ".github/workflows/xogot-aether-wall-weapon-recover.yml"
+
+permissions:
+  contents: write
 
 concurrency:
   group: xogot-aether-wall-weapon-recover
@@ -72,7 +75,7 @@ jobs:
           rm -rf recovered
           mkdir -p recovered/raw
           find "$AETHER_PAKDIR" -maxdepth 2 -type f -printf "%f\t%s\n" | sort > recovered/pak-files.txt
-          "$REPAK" unpack "$RUNNER_TEMP/aether-legacy.pak"             -o recovered/raw             -i 'ProjectAether/Content/Assets/Weapons/waw/1911/**'             -i 'ProjectAether/Content/Assets/Weapons/waw/M1Garand/**'             -i 'ProjectAether/Content/Assets/Weapons/waw/MP40/**'             -i 'ProjectAether/Content/Assets/Weapons/waw/TrenchGun/**'             -i 'ProjectAether/Content/Assets/Weapons/waw/Thompson/**'             -i 'ProjectAether/Content/Assets/Sounds/**/*1911*'             -i 'ProjectAether/Content/Assets/Sounds/**/*colt*'             -i 'ProjectAether/Content/Assets/Sounds/**/*Colt*'             -i 'ProjectAether/Content/Assets/Sounds/**/*garand*'             -i 'ProjectAether/Content/Assets/Sounds/**/*Garand*'             -i 'ProjectAether/Content/Assets/Sounds/**/*mp40*'             -i 'ProjectAether/Content/Assets/Sounds/**/*MP40*'             -i 'ProjectAether/Content/Assets/Sounds/**/*trench*'             -i 'ProjectAether/Content/Assets/Sounds/**/*Trench*'             -i 'ProjectAether/Content/Assets/Sounds/**/*thompson*'             -i 'ProjectAether/Content/Assets/Sounds/**/*Thompson*'             --force
+          "$REPAK" unpack "$RUNNER_TEMP/aether-legacy.pak"             -o recovered/raw             -i 'ProjectAether/Content/Assets/Weapons/waw/1911/**'             -i 'ProjectAether/Content/Assets/Weapons/waw/M1Garand/**'             -i 'ProjectAether/Content/Assets/Weapons/waw/MP40/**'             -i 'ProjectAether/Content/Assets/Weapons/waw/TrenchGun/**'             -i 'ProjectAether/Content/Assets/Weapons/waw/Thompson/**'             -i 'ProjectAether/Content/Assets/Sounds/**/*1911*'             -i 'ProjectAether/Content/Assets/Sounds/**/*colt*'             -i 'ProjectAether/Content/Assets/Sounds/**/*Colt*'             -i 'ProjectAether/Content/Assets/Sounds/**/*garand*'             -i 'ProjectAether/Content/Assets/Sounds/**/*Garand*'             -i 'ProjectAether/Content/Assets/Sounds/**/*mp40*'             -i 'ProjectAether/Content/Assets/Sounds/**/*MP40*'             -i 'ProjectAether/Content/Assets/Sounds/**/*trench*'             -i 'ProjectAether/Content/Assets/Sounds/**/*Trench*'             -i 'ProjectAether/Content/Assets/Sounds/**/*thompson*'             -i 'ProjectAether/Content/Assets/Sounds/**/*Thompson*'             -i 'ProjectAether/Content/Assets/Sounds/**/*wpn_shtgun_st_f*'             -i 'ProjectAether/Content/Assets/Sounds/**/*wpn_shtgun_st_act*'             -i 'ProjectAether/Content/Assets/Sounds/**/*car_m_left*'             -i 'ProjectAether/Content/Assets/Sounds/**/*car_m_right*'             -i 'ProjectAether/Content/Assets/Sounds/**/*dist_us_mg*'             --force
           find recovered/raw -type f | sort > recovered/raw-files.txt
           echo "=== EXACT M1/MP40/TRENCH/THOMPSON PACKAGE PATHS ==="
           grep -Ei '1911|colt|M1Garand|MP40|TrenchGun|Thompson' recovered/raw-files.txt | head -n 260 || true
@@ -145,6 +148,8 @@ jobs:
           echo "XZOGOT_CUE4PARSE_LINUX_DETEX_READY $DETEX_SO"
 
       - name: Export retoc-converted Aether weapon meshes animations textures and sounds
+        id: cue4parse_models
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
@@ -269,3 +274,155 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
           compression-level: 6
+
+
+  decode-real-fire-audio:
+    name: Decode real weapon fire audio
+    needs: recover
+    if: always()
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout Xogot
+        uses: actions/checkout@v5
+        with:
+          ref: feature/church-expansion-v1
+          fetch-depth: 0
+
+      - name: Download recovered Aether raw packages
+        uses: actions/download-artifact@v4
+        with:
+          name: aether-wall-weapons-recovered
+          path: recovered-bundle
+
+      - name: Install UE5 BINKA decoder pipeline
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git clone --depth 1 https://github.com/AbienteSadness/ue5-binka-to-wav.git "$env:RUNNER_TEMP\ue5-binka-to-wav"
+          Invoke-WebRequest 'https://github.com/Keisawaakira/BinkadecWithWavHeader/releases/download/1.0.2/binkadec.zip' -OutFile "$env:RUNNER_TEMP\binkadec.zip"
+          Expand-Archive "$env:RUNNER_TEMP\binkadec.zip" -DestinationPath "$env:RUNNER_TEMP\binkadec" -Force
+          $decoder = Get-ChildItem "$env:RUNNER_TEMP\binkadec" -Filter 'binkadec.exe' -Recurse | Select-Object -First 1
+          if (-not $decoder) { throw 'binkadec.exe missing from decoder release' }
+          "BINKADEC=$($decoder.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "XZOGOT_BINKADEC_READY $($decoder.FullName)"
+
+      - name: Decode authentic 1911 M1 MP40 Trench Thompson fire SFX
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $raw = Join-Path $PWD 'recovered-bundle\raw\ProjectAether\Content\Assets\Sounds\Base'
+          if (-not (Test-Path $raw)) { throw "Recovered sound root missing: $raw" }
+
+          $targets = @{
+            'colt'     = 'wpn_pistol_1911_fire_LN100_pc_snd'
+            'm1'       = 'wpn_m1garand_st_f'
+            'mp40'     = 'wpn_mp40_st_f'
+            'trench'   = 'wpn_shtgun_st_f'
+            'thompson' = 'wpn_thompson_st_f'
+          }
+
+          $tool = Join-Path $env:RUNNER_TEMP 'ue5-binka-to-wav'
+          $report = @()
+          foreach ($weapon in $targets.Keys) {
+            $stem = $targets[$weapon]
+            $ubulk = Get-ChildItem $raw -Filter "$stem.ubulk" -Recurse | Select-Object -First 1
+            if (-not $ubulk) { throw "Missing UE5 BINKA payload for $weapon ($stem.ubulk)" }
+            $uasset = [System.IO.Path]::ChangeExtension($ubulk.FullName, '.uasset')
+            $uexp = [System.IO.Path]::ChangeExtension($ubulk.FullName, '.uexp')
+            if (-not (Test-Path $uasset)) { throw "Missing paired uasset for $weapon" }
+            if (-not (Test-Path $uexp)) { throw "Missing paired uexp for $weapon" }
+
+            $outDir = Join-Path $PWD "xogot\assets\audio\weapons\mapmod\$weapon"
+            New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+            $tmpOut = Join-Path $env:RUNNER_TEMP "decoded-$weapon"
+            New-Item -ItemType Directory -Force -Path $tmpOut | Out-Null
+
+            Push-Location $tool
+            python 'binka2wav-cli.py' $ubulk.FullName -o $tmpOut --binkadec $env:BINKADEC
+            if ($LASTEXITCODE -ne 0) { throw "BINKA decode failed for $weapon" }
+            Pop-Location
+
+            $wav = Get-ChildItem $tmpOut -Filter '*.wav' -Recurse | Select-Object -First 1
+            if (-not $wav -or $wav.Length -le 44) { throw "No valid WAV produced for $weapon" }
+            $dest = Join-Path $outDir 'fire.wav'
+            Copy-Item $wav.FullName $dest -Force
+
+            $bytes = (Get-Item $dest).Length
+            $report += [PSCustomObject]@{ weapon=$weapon; source=$stem; bytes=$bytes; output=$dest }
+            Write-Host "XZOGOT_REAL_FIRE_SFX_READY $weapon bytes=$bytes"
+          }
+
+          $report | ConvertTo-Json -Depth 4 | Set-Content 'xogot/assets/audio/weapons/mapmod/fire-audio-report.json' -Encoding utf8
+          if ($report.Count -ne 5) { throw "Expected five decoded weapon fire sounds, got $($report.Count)" }
+          Write-Host 'XZOGOT_REAL_FIRE_AUDIO_GATE_GREEN'
+
+      - name: Point runtime manifest at decoded WAV fire sounds
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          @'
+          import json
+          from pathlib import Path
+          path=Path("xogot/assets/weapons/mapmod_weapon_asset_manifest.json")
+          data=json.loads(path.read_text(encoding="utf-8"))
+          changed=[]
+          for wid in ("colt","m1","mp40","trench","thompson"):
+              rec=data["weapons"][wid]
+              target=f"res://assets/audio/weapons/mapmod/{wid}/fire.wav"
+              if rec["runtime"]["audio"].get("fire") != target:
+                  rec["runtime"]["audio"]["fire"]=target
+                  changed.append(wid)
+          path.write_text(json.dumps(data,indent=2)+"\n",encoding="utf-8")
+          print("XZOGOT_FIRE_MANIFEST_WAV", changed)
+          '@ | Set-Content "$env:RUNNER_TEMP\patch_manifest.py" -Encoding utf8
+          python "$env:RUNNER_TEMP\patch_manifest.py"
+
+      - name: Verify decoded WAV files
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          @'
+          import wave
+          from pathlib import Path
+          ids=("colt","m1","mp40","trench","thompson")
+          for wid in ids:
+              p=Path(f"xogot/assets/audio/weapons/mapmod/{wid}/fire.wav")
+              assert p.is_file() and p.stat().st_size > 44, p
+              with wave.open(str(p),"rb") as w:
+                  assert w.getnchannels() in (1,2), (wid,w.getnchannels())
+                  assert 8000 <= w.getframerate() <= 96000, (wid,w.getframerate())
+                  assert w.getnframes() > 100, (wid,w.getnframes())
+                  print("XZOGOT_WAV_OK",wid,w.getnchannels(),w.getframerate(),w.getnframes())
+          print("XZOGOT_REAL_FIRE_AUDIO_VALIDATED_GREEN")
+          '@ | Set-Content "$env:RUNNER_TEMP\verify_wav.py" -Encoding utf8
+          python "$env:RUNNER_TEMP\verify_wav.py"
+
+      - name: Commit decoded fire SFX to gameplay branch
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add xogot/assets/audio/weapons/mapmod xogot/assets/weapons/mapmod_weapon_asset_manifest.json
+          git diff --cached --quiet
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host 'XZOGOT_REAL_FIRE_AUDIO_ALREADY_COMMITTED'
+            exit 0
+          }
+          $global:LASTEXITCODE = 0
+          git commit -m "Integrate real Aether weapon fire audio"
+          git pull --rebase origin feature/church-expansion-v1
+          git push origin HEAD:feature/church-expansion-v1
+          Write-Host 'XZOGOT_REAL_FIRE_AUDIO_COMMITTED_GREEN'
+
+      - name: Upload decoded fire audio proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: aether-real-fire-audio
+          path: |
+            xogot/assets/audio/weapons/mapmod/*/fire.wav
+            xogot/assets/audio/weapons/mapmod/fire-audio-report.json
+            xogot/assets/weapons/mapmod_weapon_asset_manifest.json
+          if-no-files-found: error
+          retention-days: 14
