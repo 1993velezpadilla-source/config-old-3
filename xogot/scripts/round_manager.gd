@@ -12,6 +12,11 @@ signal last_zombie_started(round_number: int, zombie: Node)
 # Classic Treyarch-style round flow. The total round population grows beyond
 # 24; the cap only limits how many can exist simultaneously.
 const CLASSIC_SIMULTANEOUS_CAP := 24
+const SHEEP_FIRST_ROUND := 5
+const SHEEP_ROUND_INTERVAL := 5
+const SHEEP_RUNNER_PATH := "res://assets/zombies/sheep/sheep_runner.glb"
+const SHEEP_BRUTE_PATH := "res://assets/zombies/sheep/sheep_brute.glb"
+const ELITE_NUN_PATH := "res://assets/zombies/monja_elite/monja_black_white_clean_rig.glb"
 
 var current_round: int = 0
 var _remaining_to_spawn: int = 0
@@ -28,6 +33,7 @@ var _last_zombie_announced: bool = false
 var _player_focus_serial: int = 0
 var _dev_no_zombies: bool = false
 var _network_match_active: bool = true
+var _special_round_kind: String = ""
 
 func _ready() -> void:
 	set_process(true)
@@ -68,7 +74,17 @@ func _process(delta: float) -> void:
 func start_next_round() -> void:
 	_started = true
 	current_round += 1
-	_round_total = zombies_for_round(current_round)
+	var planned_sheep_round: bool = is_sheep_round_number(current_round)
+	if planned_sheep_round and _sheep_assets_ready():
+		_special_round_kind = "sheep"
+		_round_total = sheep_for_round(current_round)
+	elif planned_sheep_round:
+		_special_round_kind = ""
+		_round_total = zombies_for_round(current_round)
+		push_warning("XZOGOT_SHEEP_ROUND_ASSETS_PENDING round=%d" % current_round)
+	else:
+		_special_round_kind = ""
+		_round_total = zombies_for_round(current_round)
 	_remaining_to_spawn = _round_total
 	_round_spawned = 0
 	_last_zombie_announced = false
@@ -80,6 +96,8 @@ func start_next_round() -> void:
 			barricade.call("begin_round", current_round)
 
 	round_started.emit(current_round, _round_total)
+	if _special_round_kind == "sheep":
+		print("XZOGOT_SHEEP_ROUND_START round=", current_round, " total=", _round_total)
 	print(
 		"XZOGOT_ROUND_START ",
 		current_round,
@@ -117,6 +135,87 @@ func zombies_for_round(round_number: int, player_count: int = -1) -> int:
 		* 0.15
 	))
 
+func is_sheep_round_number(round_number: int) -> bool:
+	var round_id: int = maxi(1, round_number)
+	return round_id >= SHEEP_FIRST_ROUND and (round_id - SHEEP_FIRST_ROUND) % SHEEP_ROUND_INTERVAL == 0
+
+func _sheep_assets_ready() -> bool:
+	return ResourceLoader.exists(SHEEP_RUNNER_PATH) and ResourceLoader.exists(SHEEP_BRUTE_PATH)
+
+func _elite_nun_asset_ready() -> bool:
+	return ResourceLoader.exists(ELITE_NUN_PATH)
+
+func sheep_for_round(round_number: int, player_count: int = -1) -> int:
+	var round_id: int = maxi(SHEEP_FIRST_ROUND, round_number)
+	var wave_index: int = maxi(1, 1 + (round_id - SHEEP_FIRST_ROUND) / SHEEP_ROUND_INTERVAL)
+	var players: int = maxi(1, player_count if player_count > 0 else _active_player_count())
+	return 6 + wave_index * 2 + maxi(0, players - 1) * 3
+
+func _elite_nun_chance(round_number: int) -> float:
+	if round_number < 7:
+		return 0.0
+	return minf(0.18, 0.055 + float(round_number - 7) * 0.0075)
+
+func _enemy_variant_for_spawn(round_number: int, spawn_serial: int) -> String:
+	if _special_round_kind == "sheep":
+		var sheep_roll: int = abs(("sheep:%d:%d" % [round_number, spawn_serial]).hash()) % 100
+		return "sheep_runner" if sheep_roll < 62 else "sheep_brute"
+	if _elite_nun_asset_ready():
+		var elite_roll: float = float(abs(("elite_nun:%d:%d" % [round_number, spawn_serial]).hash()) % 10000) / 10000.0
+		if elite_roll < _elite_nun_chance(round_number):
+			return "nun_elite"
+	return "normal"
+
+func _apply_enemy_variant_stats(zombie: Node, variant: String, round_number: int, spawn_serial: int) -> void:
+	var base_health: float = float(zombie_health_for_round(round_number))
+	var base_speed: float = zombie_speed_for_round(round_number, spawn_serial)
+	zombie.set("enemy_variant", variant)
+	zombie.set_meta("enemy_variant", variant)
+	match variant:
+		"sheep_runner":
+			zombie.set("health", maxf(260.0, base_health * 0.78))
+			zombie.set("move_speed", maxf(4.10, base_speed * 1.34))
+			zombie.set("player_damage", 30.0)
+			zombie.set("barricade_damage", 34.0)
+			zombie.set("attack_interval", 0.72)
+			zombie.set("target_visual_height", 0.88)
+			zombie.set("target_visual_max_width", 1.18)
+			zombie.set("target_visual_max_depth", 0.78)
+			zombie.set("collider_radius", 0.32)
+			zombie.set("collider_height", 0.92)
+			zombie.set("dismemberment_enabled", false)
+			zombie.set_meta("suppress_powerup_drop", true)
+		"sheep_brute":
+			zombie.set("health", maxf(420.0, base_health * 1.28))
+			zombie.set("move_speed", maxf(3.45, base_speed * 1.13))
+			zombie.set("player_damage", 42.0)
+			zombie.set("barricade_damage", 48.0)
+			zombie.set("attack_interval", 0.82)
+			zombie.set("target_visual_height", 1.02)
+			zombie.set("target_visual_max_width", 1.34)
+			zombie.set("target_visual_max_depth", 0.90)
+			zombie.set("collider_radius", 0.38)
+			zombie.set("collider_height", 1.08)
+			zombie.set("dismemberment_enabled", false)
+			zombie.set_meta("suppress_powerup_drop", true)
+		"nun_elite":
+			zombie.set("health", maxf(900.0, base_health * 2.35))
+			zombie.set("move_speed", base_speed * 1.12)
+			zombie.set("player_damage", 36.0)
+			zombie.set("barricade_damage", 46.0)
+			zombie.set("attack_interval", 0.76)
+			zombie.set("head_limb_health", 155.0)
+			zombie.set("arm_limb_health", 205.0)
+			zombie.set("leg_limb_health", 230.0)
+		_:
+			zombie.set("health", base_health)
+			zombie.set("move_speed", base_speed)
+	zombie.set_meta("classic_round_health", float(zombie.get("health")))
+	zombie.set_meta("classic_round_speed", float(zombie.get("move_speed")))
+
+func get_special_round_kind() -> String:
+	return _special_round_kind
+
 func zombie_health_for_round(round_number: int) -> int:
 	var round_id: int = maxi(1, round_number)
 	if round_id <= 9:
@@ -126,6 +225,8 @@ func zombie_health_for_round(round_number: int) -> int:
 func spawn_interval_for_round(round_number: int) -> float:
 	# Preserve the slow first-round crawl and progressively tighten the stream.
 	var round_id: int = maxi(1, round_number)
+	if round_id == current_round and _special_round_kind == "sheep":
+		return maxf(0.46, 0.72 - float(maxi(0, round_id - SHEEP_FIRST_ROUND)) * 0.012)
 	if round_id == 1:
 		return 1.70
 	if round_id == 2:
@@ -157,7 +258,10 @@ func zombie_speed_for_round(round_number: int, spawn_serial: int = 0) -> float:
 	return base * lerpf(0.86, 1.12, variation)
 
 func get_simultaneous_cap() -> int:
-	return maxi(1, max_alive_zombies if max_alive_zombies > 0 else CLASSIC_SIMULTANEOUS_CAP)
+	var base_cap: int = maxi(1, max_alive_zombies if max_alive_zombies > 0 else CLASSIC_SIMULTANEOUS_CAP)
+	if _special_round_kind == "sheep":
+		return mini(base_cap, 10 + maxi(0, _active_player_count() - 1) * 2)
+	return base_cap
 
 func _gate_open(gate_name: String) -> bool:
 	if gate_name.is_empty():
@@ -329,13 +433,11 @@ func spawn_one() -> Node:
 	var script_resource: Script = load("res://scripts/zombie_dummy.gd") as Script
 	var zombie := CharacterBody3D.new()
 	_spawn_serial += 1
-	zombie.name = "Zombie_R%d_%d" % [current_round, _spawn_serial]
+	var variant: String = _enemy_variant_for_spawn(current_round, _spawn_serial)
+	zombie.name = ("%s_R%d_%d" % [variant.capitalize(), current_round, _spawn_serial]).replace(" ", "")
 	zombie.set_script(script_resource)
 	zombie.set_meta("round_number", current_round)
-	zombie.set("health", float(zombie_health_for_round(current_round)))
-	zombie.set("move_speed", zombie_speed_for_round(current_round, _spawn_serial))
-	zombie.set_meta("classic_round_health", zombie_health_for_round(current_round))
-	zombie.set_meta("classic_round_speed", float(zombie.get("move_speed")))
+	_apply_enemy_variant_stats(zombie, variant, current_round, _spawn_serial)
 
 	var entry: Node = candidate["node"] as Node
 	if str(candidate["kind"]) == "window":
@@ -357,7 +459,8 @@ func spawn_one() -> Node:
 		current_round,
 		" alive=", _alive,
 		" entry=", candidate["id"],
-		" score=", candidate["score"]
+		" score=", candidate["score"],
+		" variant=", str(zombie.get_meta("enemy_variant", "normal"))
 	)
 	return zombie
 
@@ -371,13 +474,11 @@ func spawn_from_barricade(barricade: Node) -> Node:
 	var script_resource: Script = load("res://scripts/zombie_dummy.gd") as Script
 	var zombie := CharacterBody3D.new()
 	_spawn_serial += 1
+	var variant: String = _enemy_variant_for_spawn(current_round, _spawn_serial)
 	zombie.name = "Zombie_Probe_%d" % _spawn_serial
 	zombie.set_script(script_resource)
 	zombie.set_meta("round_number", current_round)
-	zombie.set("health", float(zombie_health_for_round(current_round)))
-	zombie.set("move_speed", zombie_speed_for_round(current_round, _spawn_serial))
-	zombie.set_meta("classic_round_health", zombie_health_for_round(current_round))
-	zombie.set_meta("classic_round_speed", float(zombie.get("move_speed")))
+	_apply_enemy_variant_stats(zombie, variant, current_round, _spawn_serial)
 	zombie.call("configure", player, barricade)
 	zombie.connect("died", Callable(self, "_on_zombie_died"))
 	get_parent().add_child(zombie)
@@ -397,9 +498,26 @@ func _on_zombie_died(zombie: Node) -> void:
 	_refresh_last_zombie_state()
 	if _remaining_to_spawn == 0 and _alive == 0:
 		_break_timer = round_break
+		if _special_round_kind == "sheep":
+			_drop_sheep_round_max_ammo(zombie)
 		round_cleared.emit(current_round)
-		print("XZOGOT_ROUND_CLEAR ", current_round)
+		print("XZOGOT_ROUND_CLEAR ", current_round, " special=", _special_round_kind)
 
+
+func _drop_sheep_round_max_ammo(last_enemy: Node) -> void:
+	var powerups: Node = get_tree().get_first_node_in_group("xz_powerup_manager")
+	if powerups == null or not powerups.has_method("spawn_powerup"):
+		push_warning("XZOGOT_SHEEP_ROUND_MAX_AMMO_MANAGER_MISSING")
+		return
+	var world_pos := Vector3.ZERO
+	if last_enemy is Node3D:
+		world_pos = (last_enemy as Node3D).global_position + Vector3(0.0, 0.35, 0.0)
+	else:
+		var player := _select_focus_player()
+		if player != null:
+			world_pos = player.global_position + Vector3(0.0, 0.35, 0.0)
+	powerups.call("spawn_powerup", "max_ammo", world_pos)
+	print("XZOGOT_SHEEP_ROUND_MAX_AMMO round=", current_round)
 
 func _refresh_last_zombie_state() -> void:
 	if not is_last_zombie():
