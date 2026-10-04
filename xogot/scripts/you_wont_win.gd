@@ -124,6 +124,8 @@ func _ready() -> void:
 	_build_gift_pack()
 	_build_interactions()
 	_build_windows()
+	_build_selective_spawn_anchors()
+	_build_zombie_path_network()
 	_build_lights()
 	_build_camera()
 	print("YOU_WONT_WIN: CHURCH_V2_READY")
@@ -1162,7 +1164,7 @@ func _build_interactions() -> void:
 	_interactive_box("PerkSocket", Vector3(1.2, 2.0, 1.2), Vector3(-7.4, 1.2, -15.2), Color(0.42, 0.11, 0.09), 3, 2500, 0, true, "PERK")
 	_interactive_box("PowerSwitch", Vector3(0.7, 2.2, 0.7), Vector3(8.6, 1.4, 8.3), Color(0.52, 0.42, 0.12), 4, 0, 0, true, "TURN ON POWER")
 	_build_expansion_interactions()
-	print("XZOGOT_INTERACTIONS_PREPARED 10")
+	print("XZOGOT_INTERACTIONS_PREPARED 11")
 
 func _build_expansion_interactions() -> void:
 	var gate_color := Color(0.16, 0.055, 0.035)
@@ -1173,7 +1175,8 @@ func _build_expansion_interactions() -> void:
 	_interactive_box("RearRuinsGate", Vector3(5.0, 3.2, 0.35), Vector3(17.0, 1.60, -27.5), gate_color, 0, 1250, 0, true, "OPEN REAR RUINS")
 	# Bell tower becomes a risk/reward vertical detour instead of free spawn access.
 	_interactive_box("BellTowerGate", Vector3(0.35, 3.2, 4.8), Vector3(-19.5, 1.60, 9.0), gate_color, 0, 1250, 0, true, "OPEN BELL TOWER")
-	print("XZOGOT_EXPANSION_BUY_GATES_READY 4")
+	_interactive_box("CryptGate", Vector3(3.0, 2.8, 0.35), Vector3(16.0, 1.45, -1.1), gate_color, 0, 1250, 0, true, "OPEN CRYPT")
+	print("XZOGOT_EXPANSION_BUY_GATES_READY 5")
 
 func _interactive_box(label: String, size: Vector3, pos: Vector3, color: Color, kind: int, price: int, reward: int, one_shot: bool, prompt: String) -> void:
 	var script_resource: Script = load("res://scripts/interactable.gd") as Script
@@ -1305,6 +1308,116 @@ func _add_window_socket(window_id: int, side: String, z: float) -> void:
 	barricade.set_meta("outside_approach", outside_approach)
 	barricade.set_meta("inside_point", inside_point)
 	add_child(barricade)
+
+func _add_direct_spawn_anchor(
+	label: String,
+	pos: Vector3,
+	min_round: int,
+	weight: float,
+	requires_gate: String,
+	entry_kind: String,
+	zone: String
+) -> void:
+	var marker := Marker3D.new()
+	marker.name = label
+	marker.position = _wp(pos)
+	marker.add_to_group("zombie_spawn_anchor")
+	marker.set_meta("spawn_id", label)
+	marker.set_meta("min_round", min_round)
+	marker.set_meta("weight", weight)
+	marker.set_meta("requires_gate", requires_gate)
+	marker.set_meta("entry_kind", entry_kind)
+	marker.set_meta("zone", zone)
+	add_child(marker)
+
+func _build_selective_spawn_anchors() -> void:
+	# Window spawns remain the core early-round language. These hidden/direct
+	# anchors phase in only when their route is purchased and the round allows it.
+	# They are placed behind physical cover / map bounds so there is no visible pop-in.
+	_add_direct_spawn_anchor(
+		"Spawn_WestRuinBreach",
+		Vector3(-32.5, 0.12, -19.0),
+		3,
+		0.78,
+		"WestOuterGate",
+		"breach",
+		"WestOuterLoop"
+	)
+	_add_direct_spawn_anchor(
+		"Spawn_EastGraveyardBreach",
+		Vector3(32.5, 0.12, -18.0),
+		3,
+		0.84,
+		"EastOuterGate",
+		"graveyard",
+		"GraveyardPath"
+	)
+	_add_direct_spawn_anchor(
+		"Spawn_RearRuinsBreach",
+		Vector3(0.0, 0.12, -46.5),
+		4,
+		0.96,
+		"RearRuinsGate",
+		"breach",
+		"RearRuinsYard"
+	)
+	_add_direct_spawn_anchor(
+		"Spawn_FrontCourtyardRoad",
+		Vector3(0.0, 0.12, 39.0),
+		2,
+		0.66,
+		"RearDoor",
+		"offscreen",
+		"FrontCourtyard"
+	)
+	_add_direct_spawn_anchor(
+		"Spawn_CryptCrawl",
+		Vector3(16.0, -2.80, -20.2),
+		6,
+		0.62,
+		"CryptGate",
+		"crawl",
+		"CryptAccess"
+	)
+	_add_direct_spawn_anchor(
+		"Spawn_BellTowerRope",
+		Vector3(-25.0, 8.25, 14.4),
+		8,
+		0.50,
+		"BellTowerGate",
+		"vertical",
+		"BellTowerAccessYard"
+	)
+	_add_direct_spawn_anchor(
+		"Spawn_SecondFloorWest",
+		Vector3(-10.75, 5.25, -13.0),
+		7,
+		0.44,
+		"BalconyGate",
+		"clerestory",
+		"SecondFloorWest"
+	)
+	_add_direct_spawn_anchor(
+		"Spawn_SecondFloorEast",
+		Vector3(10.75, 5.25, -13.0),
+		7,
+		0.44,
+		"BalconyGate",
+		"clerestory",
+		"SecondFloorEast"
+	)
+	print("XZOGOT_SELECTIVE_SPAWNS_READY 8")
+
+func _build_zombie_path_network() -> void:
+	var script_resource: Script = load("res://scripts/zombie_path_network.gd") as Script
+	if script_resource == null:
+		push_error("ZOMBIE_PATH_NETWORK_SCRIPT_MISSING")
+		return
+	var network := Node3D.new()
+	network.name = "ZombiePathNetwork"
+	network.set_script(script_resource)
+	add_child(network)
+	print("XZOGOT_ZOMBIE_PATHING_BOOTSTRAPPED")
 
 func _build_lights() -> void:
 	var light_z: Array[float] = [-17.0, -7.0, 3.0, 10.0]
