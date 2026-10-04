@@ -6,6 +6,8 @@ on:
     branches:
       - feature/church-expansion-v1
     paths:
+      - "services/xz-ws-relay/**"
+      - "xogot/server/public_ws_dedicated.gd"
       - ".github/workflows/xogot-public-relay-live.yml"
 
 permissions:
@@ -16,10 +18,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  public-wss-smoke:
+  public-wss-multiroom:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 10
     steps:
+      - name: Wait for multi-room gateway deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          for _i in $(seq 1 180); do
+            BODY="$(curl -fsS https://xz-zombie-relay-gateway.onrender.com/health 2>/dev/null || true)"
+            if printf '%s' "$BODY" | grep -q '"multi_room":true'; then
+              printf '%s\n' "$BODY"
+              echo "XZ_PUBLIC_MULTIROOM_DEPLOY_GREEN"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Timed out waiting for multi-room Render deployment" >&2
+          exit 1
+
       - name: Install Godot 4.6.1
         shell: bash
         run: |
@@ -27,21 +45,20 @@ jobs:
           curl -L --fail --retry 5 --retry-all-errors --retry-delay 2 \
             https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
             -o /tmp/godot.zip
+          rm -rf /tmp/godot /tmp/xz-public-probe
           mkdir -p /tmp/godot /tmp/xz-public-probe
           unzip -q /tmp/godot.zip -d /tmp/godot
           chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
           cat > /tmp/xz-public-probe/project.godot <<'EOF'
           config_version=5
           [application]
-          config/name="XZ Public Relay Probe"
+          config/name="XZ Public Multi-room Probe"
           EOF
           cat > /tmp/xz-public-probe/probe.gd <<'GDSCRIPT'
           extends SceneTree
 
-          const URL := "wss://xz-zombie-relay-gateway.onrender.com"
-          const CLIENTS := 4
-          const CONNECT_TIMEOUT_MS := 30000
-          const STABLE_SECONDS := 8.0
+          const URL := "wss://xz-zombie-relay-gateway.onrender.com/matchmake"
+          const CONNECT_TIMEOUT_MS := 45000
 
           var peers: Array[WebSocketMultiplayerPeer] = []
 
@@ -49,56 +66,98 @@ jobs:
               call_deferred("_run")
 
           func _fail(code: int, message: String) -> void:
-              push_error("PUBLIC_WSS_LIVE_PROBE: " + message)
+              push_error("PUBLIC_WSS_MULTIROOM_PROBE: " + message)
               quit(code)
 
-          func _run() -> void:
-              for index: int in range(CLIENTS):
+          func _poll_all() -> int:
+              var connected := 0
+              for peer: WebSocketMultiplayerPeer in peers:
+                  peer.poll()
+                  if peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
+                      connected += 1
+              return connected
+
+          func _add_clients(count: int) -> bool:
+              for _index: int in range(count):
                   var peer := WebSocketMultiplayerPeer.new()
                   var err: Error = peer.create_client(URL)
                   if err != OK:
-                      _fail(10 + index, "create_client failed index=%d err=%d" % [index, err])
-                      return
+                      _fail(10, "create_client err=" + str(err))
+                      return false
                   peers.append(peer)
-                  print("XZ_PUBLIC_WSS_CLIENT_STARTED ", index + 1)
+              return true
 
+          func _wait_for_count(target: int) -> bool:
               var deadline := Time.get_ticks_msec() + CONNECT_TIMEOUT_MS
               while Time.get_ticks_msec() < deadline:
-                  var connected := 0
-                  for peer: WebSocketMultiplayerPeer in peers:
-                      peer.poll()
-                      if peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
-                          connected += 1
-                  if connected == CLIENTS:
-                      print("XZ_PUBLIC_WSS_4_CONNECTIONS_GREEN")
-                      var stable_deadline := Time.get_ticks_msec() + int(STABLE_SECONDS * 1000.0)
-                      while Time.get_ticks_msec() < stable_deadline:
-                          for peer: WebSocketMultiplayerPeer in peers:
-                              peer.poll()
-                              if peer.get_connection_status() != MultiplayerPeer.CONNECTION_CONNECTED:
-                                  _fail(30, "connection dropped during stability window")
-                                  return
-                          await create_timer(0.05).timeout
-                      print("XZ_PUBLIC_WSS_4_STABLE_GREEN")
-                      quit(0)
+                  if _poll_all() == target:
+                      return true
+                  await create_timer(0.05).timeout
+              return false
+
+          func _run() -> void:
+              if not _add_clients(4):
+                  return
+              if not await _wait_for_count(4):
+                  _fail(20, "public room one failed")
+                  return
+              print("XZ_PUBLIC_WSS_ROOM1_4P_GREEN")
+
+              if not _add_clients(2):
+                  return
+              if not await _wait_for_count(6):
+                  _fail(21, "public room two failed")
+                  return
+              print("XZ_PUBLIC_WSS_MULTIROOM_6_CONNECTIONS_GREEN")
+
+              var stable_deadline := Time.get_ticks_msec() + 8000
+              while Time.get_ticks_msec() < stable_deadline:
+                  if _poll_all() != 6:
+                      _fail(22, "public connection dropped during stability window")
                       return
                   await create_timer(0.05).timeout
 
-              var states := PackedInt32Array()
-              for peer: WebSocketMultiplayerPeer in peers:
-                  peer.poll()
-                  states.append(int(peer.get_connection_status()))
-              _fail(31, "timeout states=" + str(states))
+              print("XZ_PUBLIC_WSS_MULTIROOM_6_STABLE_GREEN")
+              quit(0)
           GDSCRIPT
 
-      - name: Verify public WSS with four Godot clients
+      - name: Verify public WSS splits six clients into two rooms
         shell: bash
         run: |
           set -euo pipefail
-          timeout 75 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+          /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
             --headless --path /tmp/xz-public-probe --script res://probe.gd \
-            2>&1 | tee /tmp/public-wss-live.log
-          grep -q "XZ_PUBLIC_WSS_4_CONNECTIONS_GREEN" /tmp/public-wss-live.log
-          grep -q "XZ_PUBLIC_WSS_4_STABLE_GREEN" /tmp/public-wss-live.log
-          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|PUBLIC_WSS_LIVE_PROBE:" /tmp/public-wss-live.log
-          echo "XZ_PUBLIC_WSS_LIVE_GATE_GREEN"
+            > /tmp/public-wss-multiroom.log 2>&1 &
+          CLIENT_PID=$!
+
+          for _i in $(seq 1 450); do
+            if grep -q "XZ_PUBLIC_WSS_MULTIROOM_6_CONNECTIONS_GREEN" /tmp/public-wss-multiroom.log 2>/dev/null; then
+              break
+            fi
+            if ! kill -0 "$CLIENT_PID" 2>/dev/null; then
+              cat /tmp/public-wss-multiroom.log
+              exit 1
+            fi
+            sleep 0.1
+          done
+          grep -q "XZ_PUBLIC_WSS_MULTIROOM_6_CONNECTIONS_GREEN" /tmp/public-wss-multiroom.log
+
+          curl -fsS https://xz-zombie-relay-gateway.onrender.com/v1/rooms | tee /tmp/public-rooms.json
+          python3 - <<'PY'
+          import json
+          with open("/tmp/public-rooms.json", "r", encoding="utf-8") as handle:
+              data = json.load(handle)
+          rooms = data.get("rooms", [])
+          counts = sorted(int(room.get("players", -1)) for room in rooms)
+          assert len(rooms) >= 2, data
+          assert counts[-2:] == [2, 4], data
+          assert all(int(room.get("capacity", 0)) == 4 for room in rooms), data
+          print("XZ_PUBLIC_WSS_MULTIROOM_OCCUPANCY_GREEN 4+2")
+          PY
+
+          wait "$CLIENT_PID"
+          cat /tmp/public-wss-multiroom.log
+          grep -q "XZ_PUBLIC_WSS_ROOM1_4P_GREEN" /tmp/public-wss-multiroom.log
+          grep -q "XZ_PUBLIC_WSS_MULTIROOM_6_STABLE_GREEN" /tmp/public-wss-multiroom.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|PUBLIC_WSS_MULTIROOM_PROBE:" /tmp/public-wss-multiroom.log
+          echo "XZ_PUBLIC_WSS_MULTIROOM_LIVE_GATE_GREEN"

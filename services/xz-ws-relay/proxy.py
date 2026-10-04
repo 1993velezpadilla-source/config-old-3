@@ -1,31 +1,174 @@
 #!/usr/bin/env python3
 import asyncio
+import json
 import os
 import signal
 import subprocess
 import time
+from dataclasses import dataclass
+from urllib.parse import urlsplit
 
 PUBLIC_PORT = int(os.environ.get("PORT", "10000"))
-INTERNAL_PORT = int(os.environ.get("XZ_RELAY_INTERNAL_PORT", "10001"))
-READY_DELAY = float(os.environ.get("XZ_RELAY_READY_DELAY", "8"))
+BASE_INTERNAL_PORT = int(os.environ.get("XZ_RELAY_INTERNAL_PORT", "10001"))
+MAX_ROOMS = max(1, int(os.environ.get("XZ_RELAY_MAX_ROOMS", "2")))
+ROOM_CAPACITY = 4
+READY_DELAY = max(0.1, float(os.environ.get("XZ_RELAY_READY_DELAY", "8")))
+ROOM_IDLE_SECONDS = max(10.0, float(os.environ.get("XZ_RELAY_ROOM_IDLE_SECONDS", "90")))
 GODOT_BIN = os.environ.get("XZ_GODOT_BIN", ".render/godot/Godot_v4.6.1-stable_linux.x86_64")
-STARTED_AT = time.monotonic()
-_child = None
 
-def relay_ready():
-    return _child is not None and _child.poll() is None and (time.monotonic() - STARTED_AT) >= READY_DELAY
+@dataclass
+class Room:
+    room_id: str
+    port: int
+    child: subprocess.Popen
+    started_at: float
+    connections: int = 0
+    last_used: float = 0.0
 
-def http_response(status, payload):
-    body = payload.encode("utf-8")
-    reason = "OK" if status == 200 else "Service Unavailable"
-    return (
+_rooms = {}
+_room_counter = 0
+_room_lock = None
+
+def room_alive(room):
+    return room is not None and room.child.poll() is None
+
+def room_ready(room):
+    return room_alive(room) and (time.monotonic() - room.started_at) >= READY_DELAY
+
+def http_response(status, payload, include_body=True):
+    body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    reasons = {
+        200: "OK",
+        404: "Not Found",
+        429: "Too Many Requests",
+        503: "Service Unavailable",
+    }
+    reason = reasons.get(status, "Error")
+    headers = (
         f"HTTP/1.1 {status} {reason}\r\n"
-        "Content-Type: application/json\r\n"
+        "Content-Type: application/json; charset=utf-8\r\n"
         f"Content-Length: {len(body)}\r\n"
         "Cache-Control: no-store\r\n"
         "Connection: close\r\n"
         "\r\n"
-    ).encode("ascii") + body
+    ).encode("ascii")
+    return headers + (body if include_body else b"")
+
+def start_room():
+    global _room_counter
+    _room_counter += 1
+    room_id = f"r{_room_counter}"
+    port = BASE_INTERNAL_PORT + _room_counter - 1
+    if port > 65535:
+        raise RuntimeError("relay internal port range exhausted")
+    env = os.environ.copy()
+    env["PORT"] = str(port)
+    env["XZ_RELAY_ROOM_ID"] = room_id
+    cmd = [
+        GODOT_BIN,
+        "--headless",
+        "--path",
+        "xogot",
+        "--script",
+        "res://server/public_ws_dedicated.gd",
+    ]
+    child = subprocess.Popen(cmd, env=env)
+    stamp = time.monotonic()
+    room = Room(
+        room_id=room_id,
+        port=port,
+        child=child,
+        started_at=stamp,
+        last_used=stamp,
+    )
+    _rooms[room_id] = room
+    print(
+        f"XZ_RELAY_ROOM_SPAWN id={room_id} port={port} pid={child.pid} "
+        f"capacity={ROOM_CAPACITY}",
+        flush=True,
+    )
+    return room
+
+def stop_room(room, reason):
+    if room is None:
+        return
+    _rooms.pop(room.room_id, None)
+    if room.child.poll() is None:
+        room.child.terminate()
+        try:
+            room.child.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            room.child.kill()
+            room.child.wait(timeout=2)
+    print(
+        f"XZ_RELAY_ROOM_STOP id={room.room_id} reason={reason} "
+        f"connections={room.connections}",
+        flush=True,
+    )
+
+def room_snapshot():
+    payload = []
+    for room in sorted(_rooms.values(), key=lambda value: value.room_id):
+        payload.append({
+            "id": room.room_id,
+            "players": room.connections,
+            "capacity": ROOM_CAPACITY,
+            "ready": room_ready(room),
+        })
+    return payload
+
+async def allocate_room(requested_room=""):
+    async with _room_lock:
+        dead = [room for room in _rooms.values() if not room_alive(room)]
+        for room in dead:
+            stop_room(room, "child_exit")
+
+        room = None
+        if requested_room:
+            candidate = _rooms.get(requested_room)
+            if candidate is not None and candidate.connections < ROOM_CAPACITY:
+                room = candidate
+        else:
+            for candidate in sorted(_rooms.values(), key=lambda value: value.room_id):
+                if candidate.connections < ROOM_CAPACITY:
+                    room = candidate
+                    break
+            if room is None and len(_rooms) < MAX_ROOMS:
+                room = start_room()
+
+        if room is None:
+            return None
+
+        room.connections += 1
+        room.last_used = time.monotonic()
+        print(
+            f"XZ_RELAY_ASSIGN room={room.room_id} "
+            f"occupancy={room.connections}/{ROOM_CAPACITY}",
+            flush=True,
+        )
+        return room
+
+async def release_room(room):
+    async with _room_lock:
+        if room.room_id not in _rooms:
+            return
+        room.connections = max(0, room.connections - 1)
+        room.last_used = time.monotonic()
+        print(
+            f"XZ_RELAY_RELEASE room={room.room_id} "
+            f"occupancy={room.connections}/{ROOM_CAPACITY}",
+            flush=True,
+        )
+
+async def wait_room_ready(room):
+    deadline = time.monotonic() + max(READY_DELAY + 10.0, 15.0)
+    while time.monotonic() < deadline:
+        if not room_alive(room):
+            return False
+        if room_ready(room):
+            return True
+        await asyncio.sleep(0.1)
+    return False
 
 async def pipe(reader, writer):
     try:
@@ -44,6 +187,48 @@ async def pipe(reader, writer):
         except Exception:
             pass
 
+def request_parts(request):
+    first_line = request.split(b"\r\n", 1)[0].decode("latin-1", errors="ignore")
+    pieces = first_line.split(" ")
+    method = pieces[0].upper() if pieces else "GET"
+    target = pieces[1] if len(pieces) > 1 else "/"
+    return method, urlsplit(target).path
+
+def requested_room_from_path(path):
+    prefix = "/room/"
+    if not path.startswith(prefix):
+        return ""
+    room_id = path[len(prefix):].strip().split("/", 1)[0]
+    return room_id[:32]
+
+async def handle_http(method, path, writer):
+    include_body = method != "HEAD"
+    if path in ("/", "/health"):
+        rooms = room_snapshot()
+        ready = any(room["ready"] for room in rooms)
+        status = 200 if ready else 503
+        writer.write(http_response(status, {
+            "ok": ready,
+            "service": "xz-zombie-relay",
+            "ready": ready,
+            "multi_room": True,
+            "room_capacity": ROOM_CAPACITY,
+            "max_rooms": MAX_ROOMS,
+            "active_rooms": len(rooms),
+        }, include_body))
+    elif path == "/v1/rooms":
+        rooms = room_snapshot()
+        writer.write(http_response(200, {
+            "rooms": rooms,
+            "room_capacity": ROOM_CAPACITY,
+            "max_rooms": MAX_ROOMS,
+        }, include_body))
+    else:
+        writer.write(http_response(404, {"error": "not_found"}, include_body))
+    await writer.drain()
+    writer.close()
+    await writer.wait_closed()
+
 async def handle_client(reader, writer):
     try:
         request = await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), timeout=5.0)
@@ -52,76 +237,106 @@ async def handle_client(reader, writer):
         await writer.wait_closed()
         return
 
+    method, path = request_parts(request)
     lower = request.lower()
     is_websocket = b"upgrade: websocket" in lower and b"connection:" in lower
 
     if not is_websocket:
-        status = 200 if relay_ready() else 503
-        payload = (
-            '{"ok":true,"service":"xz-zombie-relay","ready":true}'
-            if status == 200
-            else '{"ok":false,"service":"xz-zombie-relay","ready":false}'
-        )
-        writer.write(http_response(status, payload))
+        await handle_http(method, path, writer)
+        return
+
+    if path not in ("/", "/matchmake") and not path.startswith("/room/"):
+        writer.write(http_response(404, {"error": "websocket_path_not_found"}))
         await writer.drain()
         writer.close()
         await writer.wait_closed()
         return
 
-    if not relay_ready():
-        writer.write(http_response(503, '{"ok":false,"error":"relay_starting"}'))
+    requested_room = requested_room_from_path(path)
+    room = await allocate_room(requested_room)
+    if room is None:
+        status = 404 if requested_room else 429
+        error = "room_not_found_or_full" if requested_room else "all_rooms_full"
+        writer.write(http_response(status, {"ok": False, "error": error}))
         await writer.drain()
         writer.close()
         await writer.wait_closed()
         return
 
     try:
-        upstream_reader, upstream_writer = await asyncio.open_connection("127.0.0.1", INTERNAL_PORT)
-    except OSError:
-        writer.write(http_response(503, '{"ok":false,"error":"relay_unavailable"}'))
-        await writer.drain()
-        writer.close()
-        await writer.wait_closed()
-        return
+        if not await wait_room_ready(room):
+            writer.write(http_response(503, {"ok": False, "error": "room_start_failed"}))
+            await writer.drain()
+            return
 
-    upstream_writer.write(request)
-    await upstream_writer.drain()
-    a = asyncio.create_task(pipe(reader, upstream_writer))
-    b = asyncio.create_task(pipe(upstream_reader, writer))
-    _, pending = await asyncio.wait({a, b}, return_when=asyncio.FIRST_COMPLETED)
-    for task in pending:
-        task.cancel()
-    await asyncio.gather(*pending, return_exceptions=True)
+        try:
+            upstream_reader, upstream_writer = await asyncio.open_connection("127.0.0.1", room.port)
+        except OSError:
+            writer.write(http_response(503, {"ok": False, "error": "room_unavailable"}))
+            await writer.drain()
+            return
 
-def start_godot():
-    global _child
-    env = os.environ.copy()
-    env["PORT"] = str(INTERNAL_PORT)
-    cmd = [
-        GODOT_BIN,
-        "--headless",
-        "--path",
-        "xogot",
-        "--script",
-        "res://server/public_ws_dedicated.gd",
-    ]
-    print("XZ_RELAY_GATEWAY_SPAWN", " ".join(cmd), "internal_port=", INTERNAL_PORT, flush=True)
-    _child = subprocess.Popen(cmd, env=env)
+        upstream_writer.write(request)
+        await upstream_writer.drain()
+        downstream = asyncio.create_task(pipe(reader, upstream_writer))
+        upstream = asyncio.create_task(pipe(upstream_reader, writer))
+        _, pending = await asyncio.wait(
+            {downstream, upstream},
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        for task in pending:
+            task.cancel()
+        await asyncio.gather(*pending, return_exceptions=True)
+    finally:
+        await release_room(room)
+        try:
+            writer.close()
+            await writer.wait_closed()
+        except Exception:
+            pass
+
+async def reap_idle_rooms():
+    while True:
+        await asyncio.sleep(5.0)
+        async with _room_lock:
+            if len(_rooms) <= 1:
+                continue
+            now = time.monotonic()
+            candidates = [
+                room
+                for room in sorted(_rooms.values(), key=lambda value: value.room_id, reverse=True)
+                if room.connections == 0 and now - room.last_used >= ROOM_IDLE_SECONDS
+            ]
+            for room in candidates:
+                if len(_rooms) <= 1:
+                    break
+                stop_room(room, "idle")
 
 async def main():
-    start_godot()
+    global _room_lock
+    _room_lock = asyncio.Lock()
+    start_room()
+    reaper = asyncio.create_task(reap_idle_rooms())
     server = await asyncio.start_server(handle_client, "0.0.0.0", PUBLIC_PORT)
-    print(f"XZ_RELAY_GATEWAY_READY 0.0.0.0:{PUBLIC_PORT} -> 127.0.0.1:{INTERNAL_PORT}", flush=True)
-    async with server:
-        await server.serve_forever()
+    print(
+        f"XZ_RELAY_GATEWAY_READY 0.0.0.0:{PUBLIC_PORT} "
+        f"base_internal_port={BASE_INTERNAL_PORT} max_rooms={MAX_ROOMS} "
+        f"capacity={ROOM_CAPACITY}",
+        flush=True,
+    )
+    try:
+        async with server:
+            await server.serve_forever()
+    finally:
+        reaper.cancel()
+        await asyncio.gather(reaper, return_exceptions=True)
+
+def shutdown_children():
+    for room in list(_rooms.values()):
+        stop_room(room, "shutdown")
 
 def shutdown(*_args):
-    if _child is not None and _child.poll() is None:
-        _child.terminate()
-        try:
-            _child.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            _child.kill()
+    shutdown_children()
     raise SystemExit(0)
 
 if __name__ == "__main__":
@@ -130,5 +345,4 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     finally:
-        if _child is not None and _child.poll() is None:
-            _child.terminate()
+        shutdown_children()

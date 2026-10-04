@@ -1,0 +1,200 @@
+name: Xogot Relay Multi-room
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/church-expansion-v1
+    paths:
+      - "services/xz-ws-relay/**"
+      - "xogot/server/public_ws_dedicated.gd"
+      - ".github/workflows/xogot-relay-multiroom.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xogot-relay-multiroom
+  cancel-in-progress: true
+
+jobs:
+  multiroom-4-plus-2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Godot 4.6.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/godot.zip
+          rm -rf /tmp/godot /tmp/xz-relay-probe
+          mkdir -p /tmp/godot /tmp/xz-relay-probe build/relay-multiroom
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+          cat > /tmp/xz-relay-probe/project.godot <<'EOF'
+          config_version=5
+          [application]
+          config/name="XZ Relay Multi-room Probe"
+          EOF
+
+      - name: Start two-room relay gateway
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile services/xz-ws-relay/proxy.py
+          PORT=18888 \
+          XZ_RELAY_INTERNAL_PORT=18901 \
+          XZ_RELAY_MAX_ROOMS=2 \
+          XZ_RELAY_READY_DELAY=1.5 \
+          XZ_RELAY_ROOM_IDLE_SECONDS=30 \
+          XZ_GODOT_BIN=/tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            python3 services/xz-ws-relay/proxy.py \
+            > build/relay-multiroom/gateway.log 2>&1 &
+          echo "$!" > build/relay-multiroom/gateway.pid
+          for _i in $(seq 1 160); do
+            if curl -fsS http://127.0.0.1:18888/health > build/relay-multiroom/health.json 2>/dev/null; then
+              break
+            fi
+            sleep 0.1
+          done
+          grep -q '"multi_room":true' build/relay-multiroom/health.json
+
+      - name: Prepare six-client allocator probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/xz-relay-probe/probe.gd <<'GDSCRIPT'
+          extends SceneTree
+
+          const URL := "ws://127.0.0.1:18888/matchmake"
+          const CONNECT_TIMEOUT_MS := 30000
+
+          var peers: Array[WebSocketMultiplayerPeer] = []
+
+          func _init() -> void:
+              call_deferred("_run")
+
+          func _fail(code: int, message: String) -> void:
+              push_error("RELAY_MULTIROOM_PROBE: " + message)
+              quit(code)
+
+          func _poll_all() -> int:
+              var connected := 0
+              for peer: WebSocketMultiplayerPeer in peers:
+                  peer.poll()
+                  if peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
+                      connected += 1
+              return connected
+
+          func _add_clients(count: int) -> bool:
+              for _index: int in range(count):
+                  var peer := WebSocketMultiplayerPeer.new()
+                  var err: Error = peer.create_client(URL)
+                  if err != OK:
+                      _fail(10, "create_client err=" + str(err))
+                      return false
+                  peers.append(peer)
+              return true
+
+          func _wait_for_count(target: int) -> bool:
+              var deadline := Time.get_ticks_msec() + CONNECT_TIMEOUT_MS
+              while Time.get_ticks_msec() < deadline:
+                  if _poll_all() == target:
+                      return true
+                  await create_timer(0.05).timeout
+              return false
+
+          func _run() -> void:
+              if not _add_clients(4):
+                  return
+              if not await _wait_for_count(4):
+                  _fail(20, "first room failed to reach 4")
+                  return
+              print("XZ_RELAY_ROOM1_4P_CONNECTED_GREEN")
+
+              if not _add_clients(2):
+                  return
+              if not await _wait_for_count(6):
+                  _fail(21, "second room failed to reach 2")
+                  return
+              print("XZ_RELAY_MULTIROOM_6_CONNECTIONS_GREEN")
+
+              var stable_deadline := Time.get_ticks_msec() + 7000
+              while Time.get_ticks_msec() < stable_deadline:
+                  if _poll_all() != 6:
+                      _fail(22, "connection dropped during multi-room stability window")
+                      return
+                  await create_timer(0.05).timeout
+
+              print("XZ_RELAY_MULTIROOM_6_STABLE_GREEN")
+              quit(0)
+          GDSCRIPT
+
+      - name: Verify 4 plus 2 isolated room allocation
+        shell: bash
+        run: |
+          set -euo pipefail
+          /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path /tmp/xz-relay-probe --script res://probe.gd \
+            > build/relay-multiroom/clients.log 2>&1 &
+          CLIENT_PID=$!
+
+          for _i in $(seq 1 300); do
+            if grep -q "XZ_RELAY_MULTIROOM_6_CONNECTIONS_GREEN" build/relay-multiroom/clients.log 2>/dev/null; then
+              break
+            fi
+            if ! kill -0 "$CLIENT_PID" 2>/dev/null; then
+              cat build/relay-multiroom/clients.log
+              exit 1
+            fi
+            sleep 0.1
+          done
+          grep -q "XZ_RELAY_MULTIROOM_6_CONNECTIONS_GREEN" build/relay-multiroom/clients.log
+
+          curl -fsS http://127.0.0.1:18888/v1/rooms | tee build/relay-multiroom/rooms.json
+          python3 - <<'PY'
+          import json
+          with open("build/relay-multiroom/rooms.json", "r", encoding="utf-8") as handle:
+              data = json.load(handle)
+          rooms = data.get("rooms", [])
+          counts = sorted(int(room.get("players", -1)) for room in rooms)
+          assert data.get("max_rooms") == 2, data
+          assert len(rooms) == 2, data
+          assert counts == [2, 4], data
+          assert all(int(room.get("capacity", 0)) == 4 for room in rooms), data
+          assert all(bool(room.get("ready")) for room in rooms), data
+          print("XZ_RELAY_MULTIROOM_OCCUPANCY_GREEN 4+2")
+          PY
+
+          wait "$CLIENT_PID"
+          cat build/relay-multiroom/clients.log
+          cat build/relay-multiroom/gateway.log
+          grep -q "XZ_RELAY_ROOM1_4P_CONNECTED_GREEN" build/relay-multiroom/clients.log
+          grep -q "XZ_RELAY_MULTIROOM_6_STABLE_GREEN" build/relay-multiroom/clients.log
+          grep -q "XZ_RELAY_ROOM_SPAWN id=r1 port=18901" build/relay-multiroom/gateway.log
+          grep -q "XZ_RELAY_ROOM_SPAWN id=r2 port=18902" build/relay-multiroom/gateway.log
+          grep -q "XZ_RELAY_ASSIGN room=r1 occupancy=4/4" build/relay-multiroom/gateway.log
+          grep -q "XZ_RELAY_ASSIGN room=r2 occupancy=2/4" build/relay-multiroom/gateway.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|RELAY_MULTIROOM_PROBE:" build/relay-multiroom/clients.log
+          echo "XZ_RELAY_MULTIROOM_GATE_GREEN"
+
+      - name: Stop relay gateway
+        if: always()
+        shell: bash
+        run: |
+          if test -f build/relay-multiroom/gateway.pid; then
+            kill "$(cat build/relay-multiroom/gateway.pid)" 2>/dev/null || true
+          fi
+
+      - name: Upload multi-room logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Relay-Multiroom-logs
+          path: build/relay-multiroom/
+          if-no-files-found: warn
+          retention-days: 7
