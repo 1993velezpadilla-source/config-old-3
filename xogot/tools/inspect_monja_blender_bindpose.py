@@ -56,6 +56,8 @@ def setup_render(objs,label):
     scene.render.resolution_y=1200
     scene.render.resolution_percentage=100
     scene.render.image_settings.file_format='PNG'
+    if scene.world is None:
+        scene.world=bpy.data.worlds.new("BindPoseWorld")
     scene.world.color=(0.10,0.10,0.10)
 
     def add_light(name,loc,energy,size_l):
