@@ -34,6 +34,7 @@ var _hud_opacity: float = 0.82
 @onready var _player: Node = get_node_or_null("../../Player")
 @onready var _weapon: Node = get_node_or_null("../../Player/Weapon")
 @onready var _round_manager: Node = get_node_or_null("../../RoundManager")
+@onready var _powerups: Node = get_node_or_null("../../PowerUpManager")
 
 func _ready() -> void:
 	set_process(true)
@@ -185,6 +186,40 @@ func _draw_round_counter() -> void:
 			Color(0.92, 0.92, 0.88, 0.94 * pulse)
 		)
 
+func _draw_powerup_effects() -> void:
+	if _powerups == null or not _powerups.has_method("get_active_effects"):
+		return
+	var effects: Dictionary = _powerups.call("get_active_effects") as Dictionary
+	if effects.is_empty():
+		return
+	var font: Font = ThemeDB.fallback_font
+	var font_size: int = maxi(18, int(size.y * 0.028))
+	var y: float = size.y * 0.12
+	for kind: String in ["double_points", "insta_kill"]:
+		if not effects.has(kind):
+			continue
+		var seconds: int = ceili(float(effects[kind]))
+		var label: String = ("2X POINTS" if kind == "double_points" else "INSTA-KILL") + "  " + str(seconds)
+		draw_string(
+			font,
+			Vector2(size.x * 0.045 + 1.0, y + 1.0),
+			label,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1,
+			font_size,
+			Color(0.0, 0.0, 0.0, 0.76)
+		)
+		draw_string(
+			font,
+			Vector2(size.x * 0.045, y),
+			label,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1,
+			font_size,
+			Color(0.94, 0.90, 0.72, 0.94)
+		)
+		y += float(font_size) * 1.18
+
 func _draw() -> void:
 	var s: Vector2 = size
 	var white := Color(1.0, 1.0, 1.0, 0.72)
@@ -326,3 +361,4 @@ func _draw() -> void:
 	# Real round counter: scratch/tally presentation for the opening rounds,
 	# then a compact numeric counter for high-round readability on mobile.
 	_draw_round_counter()
+	_draw_powerup_effects()
