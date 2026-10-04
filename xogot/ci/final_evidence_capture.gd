@@ -2,7 +2,7 @@ extends SceneTree
 
 const OUT_DIR := "/tmp/xogot-final-evidence"
 const VIDEO_DIR := "/tmp/xogot-final-evidence/video_frames"
-const VIEW_SIZE := Vector2i(1280, 720)
+const VIEW_SIZE := Vector2i(1920, 1080)
 
 var _scene: Node
 var _player: Node3D
@@ -149,13 +149,17 @@ func _run() -> void:
 	ok = ok and await _set_free_view("05_sanctuary_altar", Vector3(0.0, 3.3, -10.0), Vector3(0.0, 1.5, -21.0), 55.0)
 	ok = ok and await _set_free_view("06_second_floor_choir", Vector3(0.0, 8.6, -13.0), Vector3(0.0, 4.9, -2.0), 61.0)
 	ok = ok and await _set_free_view("07_bell_tower", Vector3(-35.0, 12.0, 18.0), Vector3(-25.0, 7.0, 9.0), 56.0)
+	ok = ok and await _set_free_view("08_generator_power_room", Vector3(-10.3, 2.7, 6.2), Vector3(-12.0, 1.2, 4.0), 64.0)
+	ok = ok and await _set_free_view("09_crypt_reliquary", Vector3(6.2, -0.35, -18.0), Vector3(6.2, -2.0, -21.0), 68.0)
+	ok = ok and await _set_free_view("10_sacristy", Vector3(10.2, 2.5, -7.2), Vector3(11.8, 1.1, -12.0), 62.0)
 
 	_prepare_gameplay_zombie()
 	await _wait_frames(18)
 	# Real first-person gameplay views with HUD.
-	ok = ok and await _set_gameplay_view("08_gameplay_nave", Vector3(0.0, 0.38, 6.2), 0.0, -2.0)
-	ok = ok and await _set_gameplay_view("09_gameplay_sanctuary", Vector3(1.4, 0.38, -9.0), 0.0, -1.0)
-	ok = ok and await _set_gameplay_view("10_gameplay_exterior", Vector3(0.0, 0.38, 28.0), 180.0, -3.0)
+	ok = ok and await _set_gameplay_view("11_gameplay_nave", Vector3(0.0, 0.38, 6.2), 0.0, -2.0)
+	ok = ok and await _set_gameplay_view("12_gameplay_sanctuary", Vector3(1.4, 0.38, -9.0), 0.0, -1.0)
+	ok = ok and await _set_gameplay_view("13_gameplay_front_exterior", Vector3(0.0, 0.38, 28.0), 180.0, -3.0)
+	ok = ok and await _set_gameplay_view("14_gameplay_rear_ruins", Vector3(-3.0, 0.38, -30.0), 0.0, -2.0)
 
 	if not ok:
 		_fail(5, "one or more PNG captures failed")
@@ -175,10 +179,12 @@ func _run() -> void:
 
 	print("XZOGOT_FINAL_EVIDENCE_RIGGED_MONJA ", rigged_seen)
 	print("XZOGOT_FINAL_EVIDENCE_ANIMATED_MONJA ", animated_seen)
-	if ResourceLoader.exists("res://assets/zombies/monja_basica_rigged.glb"):
-		if not rigged_seen or not animated_seen:
-			_fail(7, "rigged Monja asset exists but evidence scene did not animate it")
-			return
+	if not ResourceLoader.exists("res://assets/zombies/monja_basica_rigged.glb"):
+		_fail(7, "final evidence requires rigged Monja asset")
+		return
+	if not rigged_seen or not animated_seen:
+		_fail(8, "final evidence requires visibly animated rigged Monja")
+		return
 
-	print("XZOGOT_FINAL_EVIDENCE_CAPTURE_GREEN 10_png 96_video_frames")
+	print("XZOGOT_FINAL_EVIDENCE_CAPTURE_GREEN 14_png 96_video_frames")
 	quit(0)
