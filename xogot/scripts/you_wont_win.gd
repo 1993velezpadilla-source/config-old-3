@@ -7,6 +7,7 @@ const CANDLE_MANAGER_SCRIPT := preload("res://scripts/candle_manager.gd")
 const POWER_LIGHT_RIG_SCRIPT := preload("res://scripts/power_light_rig.gd")
 const PERK_CATALOG := preload("res://scripts/perk_catalog.gd")
 const CHURCH_AUDIO_SCRIPT := preload("res://scripts/church_audio.gd")
+const FINAL_CHURCH_ARCH_PATH := "res://assets/environment/church/church_final_architecture.glb"
 
 # High-density user gift pack. These are optional so CI stays green until the
 # binary GLBs are copied into res://assets/gifts/ with the canonical names.
@@ -135,9 +136,12 @@ func _ready() -> void:
 	_build_church()
 	_build_expansion_v1()
 	_build_interior()
-	_build_realism_pass()
-	_build_architectural_shell_v2()
-	_build_church_visual_v3()
+	if ResourceLoader.exists(FINAL_CHURCH_ARCH_PATH):
+		_build_final_church_architecture()
+	else:
+		_build_realism_pass()
+		_build_architectural_shell_v2()
+		_build_church_visual_v3()
 	_build_gift_pack()
 	_build_split_gift_decor()
 	_build_candle_runtime()
@@ -1163,6 +1167,36 @@ func _collision_box(label: String, size: Vector3, pos: Vector3) -> void:
 	cs.shape = shape
 	body.add_child(cs)
 	add_child(body)
+
+func _configure_final_arch_visibility(node: Node) -> void:
+	if node is GeometryInstance3D:
+		var geometry := node as GeometryInstance3D
+		geometry.visibility_range_end = 72.0 * WORLD_SCALE
+		geometry.visibility_range_end_margin = 8.0 * WORLD_SCALE
+		geometry.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+	for child: Node in node.get_children():
+		_configure_final_arch_visibility(child)
+
+func _build_final_church_architecture() -> void:
+	var packed := load(FINAL_CHURCH_ARCH_PATH) as PackedScene
+	if packed == null:
+		push_warning("XZOGOT_FINAL_CHURCH_ARCHITECTURE_LOAD_FAIL")
+		return
+	var imported := packed.instantiate() as Node3D
+	if imported == null:
+		push_warning("XZOGOT_FINAL_CHURCH_ARCHITECTURE_INSTANCE_FAIL")
+		return
+	var wrapper := Node3D.new()
+	wrapper.name = "FinalChurchArchitecture"
+	wrapper.scale = Vector3.ONE * WORLD_SCALE
+	wrapper.add_to_group("final_church_architecture")
+	wrapper.set_meta("visual_only", true)
+	wrapper.set_meta("collision_authority", "procedural_godot")
+	imported.name = "BlenderArchitecture"
+	wrapper.add_child(imported)
+	_configure_final_arch_visibility(imported)
+	add_child(wrapper)
+	print("XZOGOT_FINAL_CHURCH_ARCHITECTURE_READY")
 
 func _build_realism_pass() -> void:
 	# Visual-only architecture pass. These details intentionally do not alter gameplay collision.
