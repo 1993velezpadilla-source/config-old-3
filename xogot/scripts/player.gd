@@ -308,12 +308,17 @@ func _update_camera_fov(delta: float) -> void:
 	var target_fov: float = base_fov
 	if _is_ads_active():
 		target_fov = ads_fov
+		if _weapon != null and _weapon.has_method("get_ads_fov"):
+			target_fov = float(_weapon.call("get_ads_fov"))
 	elif _sliding:
 		target_fov = slide_fov
 	elif _sprinting:
 		target_fov = sprint_fov
 	var blend: float = 1.0 - exp(-10.0 * delta)
 	_camera.fov = lerpf(_camera.fov, target_fov, blend)
+
+func is_ads_active() -> bool:
+	return _is_ads_active()
 
 func _update_stance(delta: float, crouch_pressed: bool) -> void:
 	_update_landing_spring(delta)
