@@ -544,6 +544,7 @@ func _build_interior() -> void:
 	var wood := Color(0.115, 0.062, 0.031)
 	# Center aisle + raised altar. Furniture visuals now come from the authored GLBs.
 	_box("Aisle", Vector3(2.55, 0.035, 29.0), Vector3(0, 0.465, -3), Color(0.145, 0.132, 0.112))
+	_build_royal_aisle_carpet()
 	_box("AltarPlatform", Vector3(7.2, 0.34, 4.2), Vector3(0, 0.49, -20.5), Color(0.105, 0.095, 0.082))
 	_build_authored_altar()
 	_build_authored_benches()
@@ -566,6 +567,117 @@ func _build_interior() -> void:
 		)
 	_box("StairTopLanding", Vector3(3.4, 0.30, 1.6), Vector3(-8.0, 5.08, 7.75), wood, false)
 	_build_balcony_stair_ramp()
+
+func _build_royal_aisle_carpet() -> void:
+	# Hero runner for the church's main visual axis. It is deliberately visual-only:
+	# no collision, no raised lip, and one draw call so mobile traversal stays clean.
+	var root := Node3D.new()
+	root.name = "RoyalAisleCarpet"
+	root.position = _wp(Vector3(0.0, 0.489, -3.20))
+	root.add_to_group("hero_church_decor")
+	root.set_meta("style", "royal_burgundy_gold")
+	root.set_meta("collision_free", true)
+	root.set_meta("source_reference", "royal_ornate_runner_authored_in_engine")
+
+	var mesh_instance := MeshInstance3D.new()
+	mesh_instance.name = "RoyalRunnerSurface"
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(2.18 * WORLD_SCALE, 28.20 * WORLD_SCALE)
+	plane.subdivide_width = 1
+	plane.subdivide_depth = 1
+
+	var shader := Shader.new()
+	shader.code = """
+shader_type spatial;
+render_mode cull_back, depth_draw_opaque;
+
+float line_band(float value, float center, float half_width, float feather) {
+	float d = abs(value - center);
+	return 1.0 - smoothstep(half_width, half_width + feather, d);
+}
+
+float diamond_sdf(vec2 p) {
+	return abs(p.x) + abs(p.y);
+}
+
+void fragment() {
+	vec2 uv = UV;
+	float edge = min(uv.x, 1.0 - uv.x);
+
+	// Dense velvet base: deep wine-red, not arcade bright red.
+	float weave = sin(uv.x * 620.0) * sin(uv.y * 1180.0);
+	float long_grain = 0.5 + 0.5 * sin(uv.y * 310.0 + sin(uv.x * 41.0) * 0.8);
+	vec3 wine_dark = vec3(0.105, 0.0045, 0.012);
+	vec3 wine = vec3(0.245, 0.010, 0.025);
+	vec3 base = mix(wine_dark, wine, 0.60 + weave * 0.035 + long_grain * 0.035);
+
+	// Royal double-gold border.
+	float gold_outer = line_band(edge, 0.035, 0.010, 0.006);
+	float gold_inner = line_band(edge, 0.145, 0.008, 0.006);
+	float dark_guard_a = line_band(edge, 0.073, 0.016, 0.005);
+	float dark_guard_b = line_band(edge, 0.112, 0.013, 0.005);
+
+	// Repeating stylized filigree / diamond ornaments down both sides.
+	float repeat_y = fract(uv.y * 22.0);
+	vec2 ornament_p = vec2((edge - 0.095) / 0.055, (repeat_y - 0.5) * 1.8);
+	float ornament = 1.0 - smoothstep(0.72, 0.88, diamond_sdf(ornament_p));
+	ornament *= 1.0 - smoothstep(0.16, 0.22, abs(edge - 0.095));
+
+	// Tiny crown-like accents nested into the side pattern.
+	float crown_y = abs(repeat_y - 0.50);
+	float crown = (1.0 - smoothstep(0.16, 0.21, crown_y));
+	crown *= (1.0 - smoothstep(0.042, 0.060, abs(edge - 0.095)));
+	float crown_cut = smoothstep(0.024, 0.038, abs(repeat_y - 0.50));
+	crown *= crown_cut;
+
+	// Subtle central medallions keep the long aisle from reading as a flat strip.
+	vec2 center_uv = vec2((uv.x - 0.5) * 2.0, fract(uv.y * 5.0) - 0.5);
+	float medallion_ring = line_band(length(center_uv * vec2(1.0, 2.3)), 0.235, 0.020, 0.015);
+	float medallion_cross = max(
+		1.0 - smoothstep(0.035, 0.055, abs(center_uv.x)),
+		1.0 - smoothstep(0.035, 0.055, abs(center_uv.y))
+	);
+	medallion_cross *= 1.0 - smoothstep(0.0, 0.35, length(center_uv));
+	float center_gold = max(medallion_ring * 0.46, medallion_cross * 0.20);
+
+	vec3 guard = vec3(0.055, 0.006, 0.010);
+	base = mix(base, guard, clamp(dark_guard_a + dark_guard_b, 0.0, 1.0));
+
+	float gold_mask = clamp(max(max(gold_outer, gold_inner), max(ornament, crown)) + center_gold, 0.0, 1.0);
+	vec3 antique_gold = vec3(0.70, 0.43, 0.095);
+	vec3 gold_high = vec3(0.94, 0.72, 0.23);
+	float gold_variation = 0.5 + 0.5 * sin(uv.y * 690.0 + uv.x * 91.0);
+	vec3 gold = mix(antique_gold, gold_high, gold_variation * 0.42);
+
+	ALBEDO = mix(base, gold, gold_mask);
+	ROUGHNESS = mix(0.88, 0.44, gold_mask);
+	METALLIC = gold_mask * 0.58;
+	SPECULAR = mix(0.24, 0.70, gold_mask);
+	AO = 0.92;
+}
+"""
+	var mat := ShaderMaterial.new()
+	mat.shader = shader
+	plane.material = mat
+	mesh_instance.mesh = plane
+	root.add_child(mesh_instance)
+
+	# Dark textile underlay gives the runner a believable edge without creating
+	# a collision lip. It sits only a few millimeters above the aisle slab.
+	var underlay := MeshInstance3D.new()
+	underlay.name = "RoyalRunnerUnderlay"
+	var underlay_mesh := BoxMesh.new()
+	underlay_mesh.size = _ws(Vector3(2.20, 0.012, 28.22))
+	var underlay_mat := StandardMaterial3D.new()
+	underlay_mat.albedo_color = Color(0.035, 0.002, 0.006)
+	underlay_mat.roughness = 0.96
+	underlay_mesh.material = underlay_mat
+	underlay.mesh = underlay_mesh
+	underlay.position.y = -0.007 * WORLD_SCALE
+	root.add_child(underlay)
+
+	add_child(root)
+	print("XZOGOT_ROYAL_AISLE_CARPET_READY 2.18x28.20 burgundy_gold")
 
 func _build_authored_altar() -> void:
 	var altar_base_y: float = 0.66
