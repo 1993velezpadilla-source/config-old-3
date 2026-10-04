@@ -40,7 +40,31 @@ func _ready() -> void:
 	_bind_multiplayer_signals()
 	_configure_local_player(SERVER_PEER_ID)
 	_roster[SERVER_PEER_ID] = true
+	call_deferred("_bind_public_reachability")
 	print("XZOGOT_NETWORK_MANAGER_READY port=", DEFAULT_PORT, " max_players=", MAX_PLAYERS)
+
+func _bind_public_reachability() -> void:
+	var upnp: Node = _upnp_node()
+	if upnp == null or not upnp.has_signal("mapping_finished"):
+		return
+	var cb := Callable(self, "_on_upnp_mapping_finished")
+	if not upnp.is_connected("mapping_finished", cb):
+		upnp.connect("mapping_finished", cb)
+	print("XZOGOT_NETWORK_PUBLIC_REACHABILITY_BOUND")
+
+func _on_upnp_mapping_finished(success: bool, external_ip: String, port: int, status: String) -> void:
+	if _mode != "host" or _session_private:
+		return
+	if not success:
+		print("XZOGOT_NETWORK_PUBLIC_REACHABILITY_UNAVAILABLE status=", status)
+		return
+	print("XZOGOT_NETWORK_PUBLIC_REACHABLE ", external_ip, ":", port)
+	var directory: Node = _public_directory()
+	if directory != null and directory.has_method("register_public_host"):
+		if bool(directory.call("is_configured")):
+			directory.call("register_public_host")
+		else:
+			print("XZOGOT_PUBLIC_DIRECTORY_NOT_CONFIGURED")
 
 func _bind_multiplayer_signals() -> void:
 	var mp := multiplayer
@@ -69,6 +93,9 @@ func _discovery() -> Node:
 
 func _upnp_node() -> Node:
 	return get_parent().get_node_or_null("NetworkUPNP")
+
+func _public_directory() -> Node:
+	return get_parent().get_node_or_null("PublicMatchDirectory")
 
 func _configure_local_player(peer_id: int) -> void:
 	var player: Node = _local_player()
@@ -168,6 +195,9 @@ func leave_game() -> void:
 			discovery.call("stop_advertising")
 		if discovery.has_method("stop_discovery"):
 			discovery.call("stop_discovery")
+	var directory: Node = _public_directory()
+	if directory != null and directory.has_method("unregister_public_host"):
+		directory.call("unregister_public_host")
 	var upnp: Node = _upnp_node()
 	if upnp != null and upnp.has_method("clear_mapping"):
 		upnp.call("clear_mapping")
@@ -1064,6 +1094,43 @@ func get_roster_ids() -> PackedInt32Array:
 		ids.append(int(id_var))
 	ids.sort()
 	return ids
+
+func find_public_matches() -> bool:
+	var directory: Node = _public_directory()
+	if directory == null or not directory.has_method("find_public_matches"):
+		return false
+	if not bool(directory.call("is_configured")):
+		network_error.emit("PUBLIC_DIRECTORY_NOT_CONFIGURED")
+		return false
+	return bool(directory.call("find_public_matches"))
+
+func get_public_matches() -> Array:
+	var directory: Node = _public_directory()
+	if directory == null or not directory.has_method("get_matches"):
+		return []
+	return directory.call("get_matches") as Array
+
+func join_best_public_match() -> Error:
+	var directory: Node = _public_directory()
+	if directory == null or not directory.has_method("get_best_match"):
+		return ERR_UNAVAILABLE
+	var session: Dictionary = directory.call("get_best_match") as Dictionary
+	if session.is_empty():
+		return ERR_DOES_NOT_EXIST
+	var address: String = str(session.get("ip", "")).strip_edges()
+	var game_port: int = int(session.get("port", DEFAULT_PORT))
+	if address.is_empty() or game_port < 1024 or game_port > 65535:
+		return ERR_INVALID_DATA
+	print("XZOGOT_NETWORK_JOIN_PUBLIC ", address, ":", game_port)
+	return join_game(address, game_port)
+
+func is_public_directory_configured() -> bool:
+	var directory: Node = _public_directory()
+	return (
+		directory != null
+		and directory.has_method("is_configured")
+		and bool(directory.call("is_configured"))
+	)
 
 func start_find_match(discovery_port: int = 7778) -> Error:
 	if is_network_session():
