@@ -28,6 +28,35 @@ func _run_probe() -> void:
 		return
 
 	round_manager.set("auto_start", false)
+
+	var expected_round_counts := {
+		1: 6,
+		2: 8,
+		3: 13,
+		4: 18,
+		5: 24,
+		10: 33,
+		20: 60,
+		30: 105,
+	}
+	for round_id: int in expected_round_counts:
+		var actual_count: int = int(round_manager.call("zombies_for_round", round_id, 1))
+		if actual_count != int(expected_round_counts[round_id]):
+			_fail(46, "classic zombie count wrong R%d: %d" % [round_id, actual_count])
+			return
+	if int(round_manager.call("get_simultaneous_cap")) != 24:
+		_fail(47, "classic simultaneous cap must be 24")
+		return
+	var expected_health := {1: 150, 9: 950, 10: 1045, 20: 2710}
+	for round_id: int in expected_health:
+		var actual_health: int = int(round_manager.call("zombie_health_for_round", round_id))
+		if actual_health != int(expected_health[round_id]):
+			_fail(48, "classic zombie health wrong R%d: %d" % [round_id, actual_health])
+			return
+	print("XZOGOT_CLASSIC_ROUND_FLOW_GREEN counts=", expected_round_counts)
+	print("XZOGOT_CLASSIC_ZOMBIE_HEALTH_GREEN ", expected_health)
+	print("XZOGOT_CLASSIC_SIMULTANEOUS_CAP_GREEN 24")
+
 	var barricades: Array[Node] = get_nodes_in_group("zombie_barricade")
 	if barricades.size() != 8:
 		_fail(4, "expected 8 barricades, got %d" % barricades.size())
@@ -73,7 +102,7 @@ func _run_probe() -> void:
 	if int(round_manager.call("get_round")) != 1:
 		_fail(11, "round 1 did not start")
 		return
-	if int(round_manager.call("get_remaining_to_spawn")) != 4:
+	if int(round_manager.call("get_remaining_to_spawn")) != 6:
 		_fail(12, "round 1 zombie count wrong")
 		return
 
@@ -84,11 +113,14 @@ func _run_probe() -> void:
 	if int(round_manager.call("get_alive")) != 1:
 		_fail(14, "alive count wrong after spawn")
 		return
-	if int(round_manager.call("get_remaining_to_spawn")) != 3:
+	if int(round_manager.call("get_remaining_to_spawn")) != 5:
 		_fail(15, "remaining spawn count wrong")
 		return
 	if zombie.get_node_or_null("MonjaBasicaVisual") == null:
 		_fail(21, "Monja Basica visual was not instantiated")
+		return
+	if absf(float(zombie.call("get_health")) - 150.0) > 0.01:
+		_fail(49, "round 1 classic health was not applied")
 		return
 	var monja_model: String = str(zombie.get_meta("zombie_model", ""))
 	if monja_model not in [
@@ -203,9 +235,9 @@ func _run_probe() -> void:
 
 	var points_before_kill: int = int(player.call("get_points"))
 
-	# Body hit: 30 damage, +10 points.
+	# Body hit: 30 damage, +10 points. Round 1 starts at classic 150 HP.
 	zombie.call("apply_damage", 30.0, player)
-	if absf(float(zombie.call("get_health")) - 70.0) > 0.01:
+	if absf(float(zombie.call("get_health")) - 120.0) > 0.01:
 		_fail(35, "body damage amount wrong")
 		return
 
@@ -215,13 +247,13 @@ func _run_probe() -> void:
 	if not bool(zombie.get_meta("last_hit_headshot", false)):
 		_fail(36, "head impact was not classified as headshot")
 		return
-	if absf(float(zombie.call("get_health")) - 10.0) > 0.01:
+	if absf(float(zombie.call("get_health")) - 60.0) > 0.01:
 		_fail(37, "headshot multiplier wrong")
 		return
 
 	# Final body hit kills. Total award stays 100 points:
 	# 10 body + 20 headshot + 10 final hit + 60 kill.
-	zombie.call("apply_damage", 30.0, player)
+	zombie.call("apply_damage", 60.0, player)
 	await process_frame
 	if int(round_manager.call("get_alive")) != 0:
 		_fail(17, "round manager did not receive zombie death")
