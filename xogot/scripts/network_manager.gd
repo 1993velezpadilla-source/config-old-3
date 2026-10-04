@@ -677,13 +677,8 @@ func _server_apply_interaction(peer_id: int, relative_path: String) -> bool:
 		_send_inventory_state(peer_id)
 		return false
 
-	# Interactable/barricade notifies us as well, but the explicit calls make
-	# this path robust for any older runtime node without notification hooks.
-	if target.is_in_group("zombie_barricade"):
-		_broadcast_barricade_state(target)
-	else:
-		_broadcast_interaction_state(target)
-	_send_inventory_state(peer_id)
+	# Current interactable and barricade scripts notify the host manager from
+	# their successful authoritative mutation, avoiding duplicate RPC traffic.
 	print("XZOGOT_NETWORK_INTERACTION_ACCEPT peer=", peer_id, " target=", relative_path)
 	return true
 
