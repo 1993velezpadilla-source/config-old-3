@@ -66,9 +66,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf "$RUNNER_TEMP/io_scene_psk_psa"
+          rm -rf "$RUNNER_TEMP/io_scene_psk_psa" "$RUNNER_TEMP/psk_psa_py_installed"
           git clone --depth 1 https://github.com/DarklightGames/io_scene_psk_psa.git "$RUNNER_TEMP/io_scene_psk_psa"
           test -f "$RUNNER_TEMP/io_scene_psk_psa/io_scene_psk_psa/__init__.py"
+          WHEEL=$(find "$RUNNER_TEMP/io_scene_psk_psa/io_scene_psk_psa/wheels" -maxdepth 1 -type f -name 'psk_psa_py-*.whl' | sort | tail -n 1)
+          test -n "$WHEEL"
+          mkdir -p "$RUNNER_TEMP/psk_psa_py_installed"
+          python3 -m pip install --no-deps --disable-pip-version-check --target "$RUNNER_TEMP/psk_psa_py_installed" "$WHEEL"
+          test -f "$RUNNER_TEMP/psk_psa_py_installed/psk_psa_py/__init__.py"
+          echo "PSK_PSA_PY_TARGET=$RUNNER_TEMP/psk_psa_py_installed" >> "$GITHUB_ENV"
           echo "XZOGOT_PSK_PSA_IMPORTER_READY"
 
       - name: Merge real skeleton meshes with real PSA animation actions
@@ -77,7 +83,7 @@ jobs:
           set -euo pipefail
           rm -rf animated-output
           mkdir -p animated-output
-          "$BLENDER" --background --factory-startup             --python tools/weapons/build_aether_animated_glbs.py             -- "$PWD/aether-artifact" "$RUNNER_TEMP/io_scene_psk_psa" "$PWD/animated-output"             2>&1 | tee animated-weapons-blender.log
+          "$BLENDER" --background --factory-startup             --python tools/weapons/build_aether_animated_glbs.py             -- "$PWD/aether-artifact" "$RUNNER_TEMP/io_scene_psk_psa" "$PSK_PSA_PY_TARGET" "$PWD/animated-output"             2>&1 | tee animated-weapons-blender.log
           grep -q "XZOGOT_29_ANIMATED_REAL_WEAPONS_GREEN" animated-weapons-blender.log
           test -s animated-output/animated-inventory.json
 
