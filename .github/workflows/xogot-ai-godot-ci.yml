@@ -208,6 +208,20 @@ jobs:
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-ai/gift-runtime-probe.log
           echo "XZOGOT_GIFT_RUNTIME_GATE_GREEN"
 
+      - name: Verify animated candles and light FX
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 75 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/candle_light_probe.gd \
+            2>&1 | tee build/xogot-ai/candle-light-probe.log
+          grep -q "XZOGOT_CANDLE_STATES_GREEN" build/xogot-ai/candle-light-probe.log
+          grep -q "XZOGOT_CANDLE_LIGHT_BUDGET_GREEN" build/xogot-ai/candle-light-probe.log
+          grep -q "XZOGOT_STAINED_GLASS_LIGHT_PROBE_GREEN" build/xogot-ai/candle-light-probe.log
+          grep -q "XZOGOT_CANDLE_LIGHT_SYSTEM_GREEN" build/xogot-ai/candle-light-probe.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-ai/candle-light-probe.log
+          echo "XZOGOT_CANDLE_LIGHT_GATE_GREEN"
+
       - name: Upload AI Godot logs
         if: always()
         uses: actions/upload-artifact@v4
