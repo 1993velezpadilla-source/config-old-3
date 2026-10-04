@@ -79,8 +79,8 @@ func _run() -> void:
 
 	# Use the normal powered presentation and keep the player in the nave where
 	# the authored architecture, stained-light FX, HUD and zombie load are visible.
-	get_tree().set_meta("power_on", true)
-	for node: Node in get_tree().get_nodes_in_group("xz_power_light_rig"):
+	set_meta("power_on", true)
+	for node: Node in get_nodes_in_group("xz_power_light_rig"):
 		if node.has_method("dev_trigger_startup"):
 			node.call("dev_trigger_startup")
 	_player.global_position = Vector3(0.0, 0.38, 7.0)
