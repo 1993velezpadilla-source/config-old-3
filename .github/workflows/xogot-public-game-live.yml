@@ -44,7 +44,7 @@ jobs:
           ok = (
               health.get("multi_room") is True
               and health.get("rpc_scene_root") == "YouWontWin"
-              and health.get("runtime_contract") == "multiroom-rpc-root-v1"
+              and health.get("runtime_contract") == "multiroom-matchflow-v2"
               and int(health.get("min_warm_rooms", 0)) >= 2
               and len(rooms) >= 2
               and all(bool(room.get("ready")) for room in rooms[:2])
@@ -132,44 +132,57 @@ jobs:
                   var transport_ok := str(network.call("get_transport")) == "websocket"
                   var ids: PackedInt32Array = network.call("get_roster_ids") as PackedInt32Array
                   var proxies := get_nodes_in_group("network_remote_player")
-                  var round_id := int(rounds.call("get_round"))
-                  if connected and transport_ok and ids.size() == expected_roster and proxies.size() == expected_proxies and round_id >= 1:
+                  if connected and transport_ok and ids.size() == expected_roster and proxies.size() == expected_proxies:
                       if ids.has(1):
                           _fail(5, "dedicated authority leaked into human roster " + tag + " ids=" + str(ids))
                           return
                       print("XZ_PUBLIC_GAME_CLIENT_ROSTER_GREEN ", tag, " ", ids)
                       print("XZ_PUBLIC_GAME_CLIENT_PROXIES_GREEN ", tag, " ", expected_proxies)
-                      print("XZ_PUBLIC_GAME_CLIENT_ROUND_GREEN ", tag, " round=", round_id)
-                      var stable_deadline := Time.get_ticks_msec() + stable_ms
-                      while Time.get_ticks_msec() < stable_deadline:
-                          if str(network.call("get_mode")) != "client":
-                              _fail(6, "lost public relay during stability window " + tag)
-                              return
-                          if int(network.call("get_connected_player_count")) != expected_roster:
-                              _fail(7, "roster changed during stability window " + tag)
-                              return
-                          var stable_ids: PackedInt32Array = network.call("get_roster_ids") as PackedInt32Array
-                          if stable_ids != ids:
-                              _fail(8, "roster ids changed during stability window " + tag + " old=" + str(ids) + " new=" + str(stable_ids))
+                      if not bool(network.call("set_local_ready", true)):
+                          _fail(6, "ready request failed " + tag)
+                          return
+                      print("XZ_PUBLIC_GAME_CLIENT_READY_SENT ", tag)
+                      var start_deadline := Time.get_ticks_msec() + TIMEOUT_MS
+                      while Time.get_ticks_msec() < start_deadline:
+                          var phase := str(network.call("get_matchmaking_phase"))
+                          var round_id := int(rounds.call("get_round"))
+                          if phase == "started" and round_id >= 1:
+                              print("XZ_PUBLIC_GAME_CLIENT_MATCH_STARTED_GREEN ", tag)
+                              print("XZ_PUBLIC_GAME_CLIENT_ROUND_GREEN ", tag, " round=", round_id)
+                              var stable_deadline := Time.get_ticks_msec() + stable_ms
+                              while Time.get_ticks_msec() < stable_deadline:
+                                  if str(network.call("get_mode")) != "client":
+                                      _fail(7, "lost public relay during stability window " + tag)
+                                      return
+                                  if int(network.call("get_connected_player_count")) != expected_roster:
+                                      _fail(8, "roster changed during stability window " + tag)
+                                      return
+                                  var stable_ids: PackedInt32Array = network.call("get_roster_ids") as PackedInt32Array
+                                  if stable_ids != ids:
+                                      _fail(9, "roster ids changed during stability window " + tag + " old=" + str(ids) + " new=" + str(stable_ids))
+                                      return
+                                  await create_timer(0.05).timeout
+                              print("XZ_PUBLIC_GAME_CLIENT_STABLE_GREEN ", tag)
+                              print("XZ_PUBLIC_GAME_CLIENT_GREEN ", tag)
+                              network.call("leave_game")
+                              scene.queue_free()
+                              await process_frame
+                              quit(0)
                               return
                           await create_timer(0.05).timeout
-                      print("XZ_PUBLIC_GAME_CLIENT_STABLE_GREEN ", tag)
-                      print("XZ_PUBLIC_GAME_CLIENT_GREEN ", tag)
-                      network.call("leave_game")
-                      scene.queue_free()
-                      await process_frame
-                      quit(0)
+                      _fail(10, "match did not start after ready " + tag)
                       return
                   await create_timer(0.05).timeout
 
               _fail(
-                  9,
-                  "timeout %s mode=%s transport=%s roster=%d proxies=%d round=%d expected=%d" % [
+                  11,
+                  "timeout %s mode=%s transport=%s roster=%d proxies=%d phase=%s round=%d expected=%d" % [
                       tag,
                       str(network.call("get_mode")),
                       str(network.call("get_transport")),
                       int(network.call("get_connected_player_count")),
                       get_nodes_in_group("network_remote_player").size(),
+                      str(network.call("get_matchmaking_phase")),
                       int(rounds.call("get_round")),
                       expected_roster,
                   ]
@@ -229,6 +242,8 @@ jobs:
             cat "$LOG"
             grep -q "XZ_PUBLIC_GAME_CLIENT_ROSTER_GREEN client${IDX}" "$LOG"
             grep -q "XZ_PUBLIC_GAME_CLIENT_PROXIES_GREEN client${IDX} 3" "$LOG"
+            grep -q "XZ_PUBLIC_GAME_CLIENT_READY_SENT client${IDX}" "$LOG"
+            grep -q "XZ_PUBLIC_GAME_CLIENT_MATCH_STARTED_GREEN client${IDX}" "$LOG"
             grep -q "XZ_PUBLIC_GAME_CLIENT_ROUND_GREEN client${IDX}" "$LOG"
             grep -q "XZ_PUBLIC_GAME_CLIENT_STABLE_GREEN client${IDX}" "$LOG"
             grep -q "XZ_PUBLIC_GAME_CLIENT_GREEN client${IDX}" "$LOG"
@@ -239,6 +254,8 @@ jobs:
             cat "$LOG"
             grep -q "XZ_PUBLIC_GAME_CLIENT_ROSTER_GREEN client${IDX}" "$LOG"
             grep -q "XZ_PUBLIC_GAME_CLIENT_PROXIES_GREEN client${IDX} 1" "$LOG"
+            grep -q "XZ_PUBLIC_GAME_CLIENT_READY_SENT client${IDX}" "$LOG"
+            grep -q "XZ_PUBLIC_GAME_CLIENT_MATCH_STARTED_GREEN client${IDX}" "$LOG"
             grep -q "XZ_PUBLIC_GAME_CLIENT_ROUND_GREEN client${IDX}" "$LOG"
             grep -q "XZ_PUBLIC_GAME_CLIENT_STABLE_GREEN client${IDX}" "$LOG"
             grep -q "XZ_PUBLIC_GAME_CLIENT_GREEN client${IDX}" "$LOG"

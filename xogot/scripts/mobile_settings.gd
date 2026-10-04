@@ -44,6 +44,8 @@ var _network_share: Label
 var _network_error: Label
 var _network_found: Label
 var _network_public: Label
+var _network_match: Label
+var _network_ready: Button
 var _network_address: LineEdit
 var _network_port: LineEdit
 var _network_last_error: String = ""
@@ -228,12 +230,15 @@ func _bind_network_ui_signals() -> void:
 	var state_cb := Callable(self, "_on_network_state_changed")
 	var roster_cb := Callable(self, "_on_network_roster_changed")
 	var error_cb := Callable(self, "_on_network_error")
+	var match_cb := Callable(self, "_on_matchmaking_state_changed")
 	if network.has_signal("session_state_changed") and not network.is_connected("session_state_changed", state_cb):
 		network.connect("session_state_changed", state_cb)
 	if network.has_signal("roster_changed") and not network.is_connected("roster_changed", roster_cb):
 		network.connect("roster_changed", roster_cb)
 	if network.has_signal("network_error") and not network.is_connected("network_error", error_cb):
 		network.connect("network_error", error_cb)
+	if network.has_signal("matchmaking_state_changed") and not network.is_connected("matchmaking_state_changed", match_cb):
+		network.connect("matchmaking_state_changed", match_cb)
 	print("XZOGOT_NETWORK_UI_SIGNALS_READY")
 
 func _build_network_page() -> void:
@@ -258,6 +263,19 @@ func _build_network_page() -> void:
 	_network_roster.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_network_roster.modulate = Color(0.86, 0.88, 0.90)
 	_page_network.add_child(_network_roster)
+
+	_network_match = Label.new()
+	_network_match.name = "MatchmakingState"
+	_network_match.text = ""
+	_network_match.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_network_match.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_network_match.add_theme_font_size_override("font_size", 20)
+	_network_match.modulate = Color(0.52, 0.92, 0.72)
+	_page_network.add_child(_network_match)
+
+	_network_ready = _button(_page_network, "MatchReady", "READY")
+	_network_ready.visible = false
+	_network_ready.pressed.connect(_network_toggle_ready)
 
 	_network_share = Label.new()
 	_network_share.name = "NetworkShare"
@@ -476,6 +494,22 @@ func _on_network_error(message: String) -> void:
 	_network_last_error = message
 	_refresh_network_status()
 
+func _on_matchmaking_state_changed(
+	_phase: String,
+	_ready_count: int,
+	_player_count: int,
+	_countdown: float
+) -> void:
+	_refresh_network_status()
+
+func _network_toggle_ready() -> void:
+	var network: Node = _network_manager_node()
+	if network == null or not network.has_method("set_local_ready"):
+		return
+	var current_ready: bool = bool(network.call("is_local_ready")) if network.has_method("is_local_ready") else false
+	if bool(network.call("set_local_ready", not current_ready)):
+		print("XZOGOT_NETWORK_UI_READY ", not current_ready)
+
 func _lan_share_addresses(port: int) -> PackedStringArray:
 	var result := PackedStringArray()
 	for address: String in IP.get_local_addresses():
@@ -556,6 +590,19 @@ func _refresh_network_status() -> void:
 			max_players,
 			"  |  ".join(roster_parts),
 		]
+
+	if _network_match != null:
+		var phase: String = str(network.call("get_matchmaking_phase")) if network.has_method("get_matchmaking_phase") else "idle"
+		var match_text: String = str(network.call("get_matchmaking_status_text")) if network.has_method("get_matchmaking_status_text") else ""
+		_network_match.text = match_text
+		_network_match.visible = not match_text.is_empty()
+		if _network_ready != null:
+			var relay_client: bool = mode == "client" and str(network.call("get_transport")) == "websocket"
+			var can_ready: bool = relay_client and (phase == "found" or phase == "starting")
+			_network_ready.visible = can_ready
+			_network_ready.disabled = phase == "started"
+			var local_ready: bool = bool(network.call("is_local_ready")) if network.has_method("is_local_ready") else false
+			_network_ready.text = "UNREADY" if local_ready else "READY"
 
 	if _network_share != null:
 		_network_share.text = ""

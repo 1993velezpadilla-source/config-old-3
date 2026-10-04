@@ -27,6 +27,7 @@ var _last_spawn_id: String = ""
 var _last_zombie_announced: bool = false
 var _player_focus_serial: int = 0
 var _dev_no_zombies: bool = false
+var _network_match_active: bool = true
 
 func _ready() -> void:
 	set_process(true)
@@ -36,7 +37,7 @@ func _ready() -> void:
 	print("XZOGOT_SPAWN_DIRECTOR_READY")
 
 func _process(delta: float) -> void:
-	if _dev_no_zombies:
+	if _dev_no_zombies or not _network_match_active:
 		return
 	if not auto_start and not _started:
 		return
@@ -418,6 +419,32 @@ func _refresh_last_zombie_state() -> void:
 		_last_zombie_announced = true
 		last_zombie_started.emit(current_round, survivor)
 		print("XZOGOT_LAST_ZOMBIE_STARTED round=", current_round, " zombie=", survivor.name)
+
+func reset_network_match() -> void:
+	dev_clear_zombies()
+	current_round = 0
+	_remaining_to_spawn = 0
+	_round_total = 0
+	_round_spawned = 0
+	_alive = 0
+	_spawn_timer = 0.0
+	_break_timer = first_round_delay
+	_started = false
+	_spawn_serial = 0
+	_recent_spawn_ids.clear()
+	_last_spawn_id = ""
+	_last_zombie_announced = false
+	_player_focus_serial = 0
+	print("XZOGOT_NETWORK_MATCH_ROUND_RESET")
+
+func set_network_match_active(active: bool) -> void:
+	_network_match_active = active
+	if active and current_round == 0 and _break_timer <= 0.0:
+		_break_timer = first_round_delay
+	print("XZOGOT_NETWORK_MATCH_ROUNDS_ACTIVE ", active)
+
+func is_network_match_active() -> bool:
+	return _network_match_active
 
 func set_dev_no_zombies(enabled: bool) -> void:
 	_dev_no_zombies = enabled

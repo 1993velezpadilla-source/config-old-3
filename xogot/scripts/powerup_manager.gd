@@ -49,6 +49,19 @@ func _set_double_points(active: bool) -> void:
 func _set_insta_kill(active: bool) -> void:
 	get_tree().set_meta("xz_insta_kill_active", active)
 
+func reset_for_match() -> void:
+	for pickup: Node in get_tree().get_nodes_in_group("xz_powerup_pickup"):
+		if is_instance_valid(pickup):
+			pickup.queue_free()
+	_network_pickups.clear()
+	_kills_since_drop = 0
+	_drop_serial = 0
+	_double_points_timer = 0.0
+	_insta_kill_timer = 0.0
+	_set_double_points(false)
+	_set_insta_kill(false)
+	print("XZOGOT_POWERUP_MATCH_RESET")
+
 func _active_drop_count() -> int:
 	var count: int = 0
 	for pickup: Node in get_tree().get_nodes_in_group("xz_powerup_pickup"):

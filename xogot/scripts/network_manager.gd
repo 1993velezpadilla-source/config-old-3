@@ -4,6 +4,7 @@ class_name XzNetworkManager
 signal session_state_changed(state: String)
 signal roster_changed(peer_ids: PackedInt32Array)
 signal network_error(message: String)
+signal matchmaking_state_changed(phase: String, ready_count: int, player_count: int, countdown: float)
 
 const REMOTE_PROXY_SCRIPT := preload("res://scripts/network_player_proxy.gd")
 const WeaponCatalog = preload("res://scripts/weapon_catalog.gd")
@@ -17,6 +18,7 @@ const SESSION_SNAPSHOT_INTERVAL := 0.20
 const MAX_SNAPSHOT_DELTA := 3.0
 const MAX_PITCH := 1.51
 const MAX_HIT_DISTANCE := 130.0
+const MATCH_START_COUNTDOWN := 3.0
 
 var _peer: MultiplayerPeer
 var _mode: String = "offline"
@@ -37,6 +39,10 @@ var _network_zombies: Dictionary = {}
 var _accepted_positions: Dictionary = {}
 var _peer_weapon_ids: Dictionary = {}
 var _peer_weapon_upgraded: Dictionary = {}
+var _match_phase: String = "idle"
+var _ready_peers: Dictionary = {}
+var _match_started: bool = false
+var _match_countdown: float = 0.0
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -100,6 +106,154 @@ func _upnp_node() -> Node:
 
 func _public_directory() -> Node:
 	return get_parent().get_node_or_null("PublicMatchDirectory")
+
+func _ready_count() -> int:
+	var count := 0
+	for peer_var: Variant in _ready_peers.keys():
+		var peer_id := int(peer_var)
+		if _roster.has(peer_id) and bool(_ready_peers[peer_id]):
+			count += 1
+	return count
+
+func _ready_ids() -> PackedInt32Array:
+	var ids := PackedInt32Array()
+	for peer_var: Variant in _ready_peers.keys():
+		var peer_id := int(peer_var)
+		if _roster.has(peer_id) and bool(_ready_peers[peer_id]):
+			ids.append(peer_id)
+	ids.sort()
+	return ids
+
+func _all_current_players_ready() -> bool:
+	return not _roster.is_empty() and _ready_count() == _roster.size()
+
+func _emit_matchmaking_state() -> void:
+	matchmaking_state_changed.emit(
+		_match_phase,
+		_ready_count(),
+		_roster.size(),
+		maxf(0.0, _match_countdown)
+	)
+
+func _set_dedicated_gameplay_active(active: bool) -> void:
+	var rounds: Node = _round_manager()
+	if rounds != null and rounds.has_method("set_network_match_active"):
+		rounds.call("set_network_match_active", active)
+	var powerups: Node = _powerup_manager()
+	if powerups != null:
+		powerups.set_process(active)
+	print("XZOGOT_MATCH_GAMEPLAY_ACTIVE ", active)
+
+func _reset_dedicated_match() -> void:
+	_ready_peers.clear()
+	_match_started = false
+	_match_countdown = 0.0
+	_match_phase = "searching"
+	var rounds: Node = _round_manager()
+	if rounds != null:
+		if rounds.has_method("reset_network_match"):
+			rounds.call("reset_network_match")
+		if rounds.has_method("set_network_match_active"):
+			rounds.call("set_network_match_active", false)
+	var powerups: Node = _powerup_manager()
+	if powerups != null:
+		if powerups.has_method("reset_for_match"):
+			powerups.call("reset_for_match")
+		powerups.set_process(false)
+	_emit_matchmaking_state()
+	print("XZOGOT_MATCH_RESET_WAITING")
+
+func _broadcast_matchmaking_state() -> void:
+	if multiplayer.is_server():
+		rpc(
+			"_client_receive_matchmaking_state",
+			_match_phase,
+			_ready_ids(),
+			maxf(0.0, _match_countdown)
+		)
+	_emit_matchmaking_state()
+
+func _send_matchmaking_state(peer_id: int) -> void:
+	if not multiplayer.is_server() or not multiplayer.get_peers().has(peer_id):
+		return
+	rpc_id(
+		peer_id,
+		"_client_receive_matchmaking_state",
+		_match_phase,
+		_ready_ids(),
+		maxf(0.0, _match_countdown)
+	)
+
+func _recompute_matchmaking_phase() -> void:
+	if not _dedicated_server or _match_started:
+		return
+	if _roster.is_empty():
+		_match_phase = "searching"
+		_match_countdown = 0.0
+	elif _all_current_players_ready():
+		if _match_phase != "starting":
+			_match_countdown = MATCH_START_COUNTDOWN
+		_match_phase = "starting"
+	else:
+		_match_phase = "found"
+		_match_countdown = 0.0
+	_broadcast_matchmaking_state()
+	print(
+		"XZOGOT_MATCH_STATE phase=", _match_phase,
+		" ready=", _ready_count(), "/", _roster.size(),
+		" countdown=", _match_countdown
+	)
+
+func _update_matchmaking(delta: float) -> void:
+	if not _dedicated_server or _match_started or _match_phase != "starting":
+		return
+	if not _all_current_players_ready():
+		_recompute_matchmaking_phase()
+		return
+	_match_countdown = maxf(0.0, _match_countdown - delta)
+	if _match_countdown <= 0.0:
+		_match_started = true
+		_match_phase = "started"
+		_set_dedicated_gameplay_active(true)
+		_broadcast_matchmaking_state()
+		print("XZOGOT_MATCH_STARTED players=", _roster.size())
+		return
+	_emit_matchmaking_state()
+
+@rpc("authority", "call_remote", "reliable")
+func _client_receive_matchmaking_state(
+	phase: String,
+	ready_ids: PackedInt32Array,
+	countdown: float
+) -> void:
+	if multiplayer.is_server():
+		return
+	_match_phase = phase
+	_match_started = phase == "started"
+	_match_countdown = maxf(0.0, countdown)
+	_ready_peers.clear()
+	for peer_id: int in ready_ids:
+		_ready_peers[peer_id] = true
+	_emit_matchmaking_state()
+	print(
+		"XZOGOT_MATCH_CLIENT_STATE phase=", _match_phase,
+		" ready=", _ready_count(), "/", _roster.size(),
+		" countdown=", _match_countdown
+	)
+
+@rpc("any_peer", "call_remote", "reliable")
+func _server_set_ready(ready: bool) -> void:
+	if not multiplayer.is_server() or not _dedicated_server or _match_started:
+		return
+	var sender := multiplayer.get_remote_sender_id()
+	if sender <= SERVER_PEER_ID or not _roster.has(sender):
+		return
+	if ready:
+		_ready_peers[sender] = true
+	else:
+		_ready_peers.erase(sender)
+	_recompute_matchmaking_phase()
+	print("XZOGOT_MATCH_READY peer=", sender, " ready=", ready)
 
 func _configure_local_player(peer_id: int) -> void:
 	var player: Node = _local_player()
@@ -218,6 +372,7 @@ func host_websocket_dedicated(port: int, bind_address: String = "*") -> Error:
 	_peer_weapon_upgraded.clear()
 	_set_dedicated_local_player(true)
 	_set_client_simulation(false)
+	_reset_dedicated_match()
 	session_state_changed.emit(_mode)
 	_emit_roster()
 	print("XZOGOT_WS_DEDICATED_READY port=", port, " bind=", clean_bind, " human_slots=", MAX_PLAYERS)
@@ -240,7 +395,12 @@ func join_websocket_game(url: String) -> Error:
 	_transport = "websocket"
 	_dedicated_server = false
 	_relay_url = clean_url
+	_match_phase = "searching"
+	_match_started = false
+	_match_countdown = 0.0
+	_ready_peers.clear()
 	_set_client_simulation(true)
+	_emit_matchmaking_state()
 	session_state_changed.emit(_mode)
 	print("XZOGOT_WS_JOINING ", clean_url)
 	return OK
@@ -301,6 +461,10 @@ func leave_game() -> void:
 	_dedicated_server = false
 	_relay_url = ""
 	_public_relay_fallback_pending = false
+	_match_phase = "idle"
+	_match_started = false
+	_match_countdown = 0.0
+	_ready_peers.clear()
 	_local_peer_id = SERVER_PEER_ID
 	_configure_local_player(SERVER_PEER_ID)
 	_set_client_simulation(false)
@@ -323,6 +487,9 @@ func _on_peer_connected(peer_id: int) -> void:
 	_peer_weapon_upgraded[peer_id] = false
 	_ensure_remote_proxy(peer_id)
 	_broadcast_roster()
+	if _dedicated_server and not _match_started:
+		_ready_peers.erase(peer_id)
+		_recompute_matchmaking_phase()
 	print("XZOGOT_NETWORK_PEER_JOIN peer=", peer_id, " count=", _roster.size())
 
 func _on_peer_disconnected(peer_id: int) -> void:
@@ -331,8 +498,14 @@ func _on_peer_disconnected(peer_id: int) -> void:
 	_peer_weapon_ids.erase(peer_id)
 	_peer_weapon_upgraded.erase(peer_id)
 	_remove_remote_proxy(peer_id)
+	_ready_peers.erase(peer_id)
 	if multiplayer.is_server():
 		_broadcast_roster()
+		if _dedicated_server:
+			if _roster.is_empty():
+				_reset_dedicated_match()
+			elif not _match_started:
+				_recompute_matchmaking_phase()
 	_emit_roster()
 	print("XZOGOT_NETWORK_PEER_LEFT peer=", peer_id, " count=", _roster.size())
 
@@ -396,6 +569,7 @@ func _server_request_roster() -> void:
 	rpc_id(sender, "_client_receive_roster", ids)
 	_send_inventory_state(sender)
 	_send_late_join_state(sender)
+	_send_matchmaking_state(sender)
 
 @rpc("authority", "call_remote", "reliable")
 func _client_receive_roster(ids: PackedInt32Array) -> void:
@@ -446,6 +620,10 @@ func _clear_remote_players() -> void:
 func _process(delta: float) -> void:
 	if _mode != "host" and _mode != "client":
 		return
+	if _mode == "host" and _dedicated_server:
+		_update_matchmaking(delta)
+		if _roster.is_empty():
+			return
 
 	_snapshot_timer -= delta
 	if _snapshot_timer <= 0.0:
@@ -1162,6 +1340,46 @@ func _server_apply_revive(reviver_peer_id: int, target_peer_id: int, delta: floa
 	if not target.has_method("receive_revive_progress"):
 		return false
 	return bool(target.call("receive_revive_progress", reviver, delta))
+
+func set_local_ready(ready: bool) -> bool:
+	if _mode != "client" or _transport != "websocket" or _match_started:
+		return false
+	if _local_peer_id <= SERVER_PEER_ID:
+		return false
+	rpc_id(SERVER_PEER_ID, "_server_set_ready", ready)
+	print("XZOGOT_MATCH_READY_REQUEST peer=", _local_peer_id, " ready=", ready)
+	return true
+
+func get_matchmaking_phase() -> String:
+	return _match_phase
+
+func get_matchmaking_ready_count() -> int:
+	return _ready_count()
+
+func get_matchmaking_countdown() -> float:
+	return maxf(0.0, _match_countdown)
+
+func is_local_ready() -> bool:
+	return _ready_peers.has(_local_peer_id) and bool(_ready_peers[_local_peer_id])
+
+func is_match_started() -> bool:
+	return _match_started
+
+func get_matchmaking_status_text() -> String:
+	match _match_phase:
+		"searching":
+			return "SEARCHING FOR MATCH..."
+		"found":
+			return "FOUND %d/%d  •  READY %d/%d" % [
+				_roster.size(), MAX_PLAYERS, _ready_count(), _roster.size()
+			]
+		"starting":
+			return "STARTING IN %.1f  •  READY %d/%d" % [
+				maxf(0.0, _match_countdown), _ready_count(), _roster.size()
+			]
+		"started":
+			return "MATCH STARTED  •  %d/%d PLAYERS" % [_roster.size(), MAX_PLAYERS]
+	return ""
 
 func get_mode() -> String:
 	return _mode
