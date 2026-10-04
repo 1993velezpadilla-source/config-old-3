@@ -298,6 +298,8 @@ func spawn_one() -> Node:
 	var player: Node3D = get_tree().get_first_node_in_group("player") as Node3D
 	if player == null:
 		return null
+	if _alive >= get_simultaneous_cap():
+		return null
 
 	var candidate: Dictionary = _choose_candidate(player)
 	if candidate.is_empty():
