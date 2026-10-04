@@ -181,6 +181,21 @@ jobs:
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-ai/mobile-survival-probe.log
           echo "XOGOT_MOBILE_SURVIVAL_GREEN"
 
+      - name: Verify release pause and DEV lab
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 75 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/dev_menu_probe.gd \
+            2>&1 | tee build/xogot-ai/dev-menu-probe.log
+          grep -q "XZOGOT_RELEASE_PAUSE_PROBE_GREEN" build/xogot-ai/dev-menu-probe.log
+          grep -q "XZOGOT_RELEASE_DEV_FLAGS_PROBE_GREEN" build/xogot-ai/dev-menu-probe.log
+          grep -q "XZOGOT_RELEASE_DEV_UNLOCK_PROBE_GREEN" build/xogot-ai/dev-menu-probe.log
+          grep -q "XZOGOT_RELEASE_WEAPON_LAB_PROBE_GREEN" build/xogot-ai/dev-menu-probe.log
+          grep -q "XZOGOT_RELEASE_DEV_MENU_PROBE_GREEN" build/xogot-ai/dev-menu-probe.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-ai/dev-menu-probe.log
+          echo "XOGOT_RELEASE_DEV_LAB_GREEN"
+
       - name: Upload AI Godot logs
         if: always()
         uses: actions/upload-artifact@v4
