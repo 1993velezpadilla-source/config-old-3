@@ -653,7 +653,9 @@ func _play_motion_state(state: String) -> void:
 		if str(get_meta("motion_override", "")) == "crawl":
 			keys = CRAWL_KEYS
 		else:
-			keys = _motion_profile.get("walk_keys", []) as Array[String]
+			var profile_keys: Array = _motion_profile.get("walk_keys", []) as Array
+			for key_var: Variant in profile_keys:
+				keys.append(str(key_var))
 	elif state == "attack":
 		keys = ATTACK_KEYS
 	elif state == "death":
