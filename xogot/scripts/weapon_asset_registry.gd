@@ -69,7 +69,10 @@ static func _collect_animation_names(node: Node, out: Array[String]) -> void:
 static func animation_names_for(id: String) -> Array[String]:
 	var cache_key := id + ":animations"
 	if _inspection_cache.has(cache_key):
-		return (_inspection_cache[cache_key] as Array).duplicate()
+		var cached_names: Array[String] = []
+		for value: Variant in _inspection_cache[cache_key] as Array:
+			cached_names.append(str(value))
+		return cached_names
 	var rec := get_record(id)
 	var runtime: Dictionary = rec.get("runtime", {}) as Dictionary
 	var path: String = str(runtime.get("viewmodel", ""))
@@ -110,7 +113,9 @@ static func inspect(id: String) -> Dictionary:
 	var mechanical_ok := _exists_approved(str(audio.get("mechanical", "")))
 	var dry_ok := _exists_approved(str(audio.get("dry_fire", "")))
 
-	var names: Array[String] = animation_names_for(id) if vm_ok else []
+	var names: Array[String] = []
+	if vm_ok:
+		names = animation_names_for(id)
 	var aliases: Dictionary = rec.get("required_animation_aliases", {}) as Dictionary
 	var missing_roles: Array[String] = []
 	for role_var: Variant in aliases.keys():
