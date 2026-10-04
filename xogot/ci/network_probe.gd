@@ -130,6 +130,135 @@ func _run() -> void:
 	await process_frame
 	print("XZOGOT_NETWORK_ZOMBIE_REPLICATION_GREEN")
 
+	# Host-authoritative interaction economy for peer 2.
+	proxy.call("add_points", 30000)
+	var remote_weapon: Node = proxy.get_node_or_null("Weapon")
+	if remote_weapon == null:
+		_fail(36, "remote authoritative Weapon state missing")
+		return
+
+	var rear_door: Node = scene.get_node_or_null("RearDoor")
+	var wallbuy: Node = scene.get_node_or_null("WallBuy_M1")
+	var mystery: Node = scene.get_node_or_null("MysteryBoxSocket")
+	var power: Node = scene.get_node_or_null("PowerSwitch")
+	var perk: Node = scene.get_node_or_null("Perk_martyrs_blood")
+	var forge: Node = scene.get_node_or_null("SanctumForge")
+	if (
+		rear_door == null or wallbuy == null or mystery == null
+		or power == null or perk == null or forge == null
+	):
+		_fail(37, "network economy interactables missing")
+		return
+
+	(proxy as Node3D).global_position = (rear_door as Node3D).global_position
+	var door_path: String = str(network.call("_relative_world_path", rear_door))
+	var door_points_before: int = int(proxy.call("get_points"))
+	if not bool(network.call("_server_apply_interaction", 2, door_path)):
+		_fail(38, "host rejected valid remote door purchase")
+		return
+	if not bool(rear_door.call("was_used")):
+		_fail(39, "remote door purchase did not open host door")
+		return
+	if int(proxy.call("get_points")) >= door_points_before:
+		_fail(40, "remote door purchase did not charge host points")
+		return
+	print("XZOGOT_NETWORK_DOOR_ECONOMY_GREEN")
+
+	(proxy as Node3D).global_position = (wallbuy as Node3D).global_position
+	var wall_path: String = str(network.call("_relative_world_path", wallbuy))
+	if not bool(network.call("_server_apply_interaction", 2, wall_path)):
+		_fail(41, "host rejected remote M1 wallbuy")
+		return
+	if str(remote_weapon.call("get_weapon_id")) != "m1":
+		_fail(42, "host remote wallbuy did not own M1")
+		return
+	print("XZOGOT_NETWORK_WALLBUY_ECONOMY_GREEN")
+
+	(proxy as Node3D).global_position = (mystery as Node3D).global_position
+	var mystery_path: String = str(network.call("_relative_world_path", mystery))
+	if not bool(network.call("_server_apply_interaction", 2, mystery_path)):
+		_fail(43, "host rejected remote Mystery Box")
+		return
+	var mystery_weapon: String = str(remote_weapon.call("get_weapon_id"))
+	if mystery_weapon.is_empty() or mystery_weapon == "m1":
+		_fail(44, "host Mystery Box did not change remote weapon")
+		return
+	print("XZOGOT_NETWORK_MYSTERY_ECONOMY_GREEN ", mystery_weapon)
+
+	(proxy as Node3D).global_position = (power as Node3D).global_position
+	var power_path: String = str(network.call("_relative_world_path", power))
+	if not bool(network.call("_server_apply_interaction", 2, power_path)):
+		_fail(45, "host rejected remote Power switch")
+		return
+	if not bool(get_meta("power_on", false)):
+		_fail(46, "remote Power interaction did not set host power")
+		return
+	print("XZOGOT_NETWORK_POWER_SHARED_GREEN")
+
+	(proxy as Node3D).global_position = (perk as Node3D).global_position
+	var perk_path: String = str(network.call("_relative_world_path", perk))
+	if not bool(network.call("_server_apply_interaction", 2, perk_path)):
+		_fail(47, "host rejected remote perk purchase")
+		return
+	if not bool(proxy.call("has_perk", "martyrs_blood")):
+		_fail(48, "remote perk not owned on host")
+		return
+	if float(proxy.call("get_max_health")) < 200.0:
+		_fail(49, "remote Martyr perk did not update authoritative max health")
+		return
+	print("XZOGOT_NETWORK_PERK_ECONOMY_GREEN")
+
+	(proxy as Node3D).global_position = (forge as Node3D).global_position
+	var forge_path: String = str(network.call("_relative_world_path", forge))
+	if not bool(network.call("_server_apply_interaction", 2, forge_path)):
+		_fail(50, "host rejected remote Sanctum Forge")
+		return
+	if not bool(remote_weapon.call("is_upgraded")):
+		_fail(51, "remote Forge upgrade not authoritative")
+		return
+	print("XZOGOT_NETWORK_FORGE_ECONOMY_GREEN")
+
+	var window: Node = barricades[0]
+	window.call("zombie_damage", 9999.0)
+	if int(window.call("get_boards")) != 0:
+		_fail(52, "network barricade setup did not break")
+		return
+	(proxy as Node3D).global_position = (window as Node3D).global_position
+	var window_path: String = str(network.call("_relative_world_path", window))
+	var repair_points_before: int = int(proxy.call("get_points"))
+	if not bool(network.call("_server_apply_interaction", 2, window_path)):
+		_fail(53, "host rejected remote barricade repair")
+		return
+	if int(window.call("get_boards")) != 1:
+		_fail(54, "remote barricade repair did not change host board state")
+		return
+	if int(proxy.call("get_points")) <= repair_points_before:
+		_fail(55, "remote barricade repair reward not owned by host")
+		return
+	print("XZOGOT_NETWORK_BARRICADE_SHARED_GREEN")
+
+	# Spoofed client loadout never becomes damage authority.
+	remote_weapon.call("equip_weapon", "colt", true)
+	network.set("_peer_weapon_ids", {2: "tesla"})
+	network.set("_peer_weapon_upgraded", {2: true})
+	var spoof_zombie: Node = rounds.call("spawn_from_barricade", window) as Node
+	if spoof_zombie == null:
+		_fail(56, "failed to spawn loadout authority probe zombie")
+		return
+	var spoof_hp_before: float = float(spoof_zombie.call("get_health"))
+	var spoof_hit := (spoof_zombie as Node3D).global_position + Vector3(0.0, 0.9, 0.0)
+	if not bool(network.call("_server_apply_zombie_hit", 2, spoof_zombie.name, spoof_hit, false)):
+		_fail(57, "valid authoritative Colt hit rejected")
+		return
+	var spoof_damage: float = spoof_hp_before - float(spoof_zombie.call("get_health"))
+	if spoof_damage > 30.0:
+		_fail(58, "client loadout spoof affected authoritative damage: " + str(spoof_damage))
+		return
+	spoof_zombie.call("powerup_kill")
+	await process_frame
+	print("XZOGOT_NETWORK_LOADOUT_AUTHORITY_GREEN damage=", spoof_damage)
+	print("XZOGOT_NETWORK_SHARED_ECONOMY_GREEN")
+
 	# Client mode must not run a second independent round/power-up simulation.
 	network.call("_set_client_simulation", true)
 	if not bool(rounds.get("_dev_no_zombies")):
