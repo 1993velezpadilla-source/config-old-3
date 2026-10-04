@@ -146,9 +146,8 @@ jobs:
               -o recovered/export \
               -y -v \
               --mesh-format Gltf2 \
-              --anim-format ActorX \
               --texture-format Png \
-              --lod-format FirstLod \
+              --mesh-quality Highest \
               --export-materials true \
               >> recovered/cue4parse-export.log 2>&1
             RC=$?
