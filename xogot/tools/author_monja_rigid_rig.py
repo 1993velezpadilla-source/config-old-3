@@ -233,7 +233,26 @@ export_files=[p for p in OUT.iterdir() if p.is_file() and p.name!="monja_basica_
 size_bytes=sum(p.stat().st_size for p in export_files)
 max_file_bytes=max((p.stat().st_size for p in export_files),default=0)
 
-# Reimport validation.
+# The serialized glTF index accessors are the runtime geometry authority.
+# Blender 4.0's importer currently re-triangulates a tiny set of boundary
+# primitives (+80 triangles on this asset) when round-tripping its own glTF.
+# That importer-side reconstruction must not be mistaken for source geometry
+# loss/addition. Validate the file Godot actually consumes directly.
+gltf_doc=json.loads(OUT_GLTF.read_text(encoding="utf-8"))
+serialized_triangles=0
+for mesh in gltf_doc.get("meshes",[]):
+    for primitive in mesh.get("primitives",[]):
+        accessor_index=primitive.get("indices")
+        if accessor_index is None:
+            continue
+        index_count=int(gltf_doc["accessors"][accessor_index]["count"])
+        if index_count%3!=0:
+            fail(f"serialized non-triangle index count {index_count}")
+        serialized_triangles += index_count//3
+if serialized_triangles!=source_triangles:
+    fail(f"serialized triangle mismatch {serialized_triangles}/{source_triangles}")
+
+# Reimport validation for armature/actions/semantic objects.
 reset(); bpy.ops.import_scene.gltf(filepath=str(OUT_GLTF))
 out_mesh=[o for o in bpy.context.scene.objects if o.type=="MESH"]
 out_arms=[o for o in bpy.context.scene.objects if o.type=="ARMATURE"]
@@ -247,7 +266,9 @@ report={
  "source_triangles":source_triangles,
  "output_polygons":out_polys,
  "output_triangles":out_triangles,
- "triangle_conservation_ok":out_triangles==source_triangles,
+ "serialized_triangles":serialized_triangles,
+ "triangle_conservation_ok":serialized_triangles==source_triangles,
+ "blender_reimport_triangle_delta":out_triangles-serialized_triangles,
  "armatures":len(out_arms),
  "actions":out_actions,
  "required_actions":[n for n in out_actions if any(k.lower() in n.lower() for k in required)],
@@ -261,13 +282,13 @@ report={
  "rig_mode":"rigid_region_bone_parenting",
 }
 REPORT.write_text(json.dumps(report,indent=2)+"\n")
-if not report["triangle_conservation_ok"]:fail(f"reimport triangle mismatch {out_triangles}/{source_triangles}")
+if not report["triangle_conservation_ok"]:fail(f"serialized triangle mismatch {serialized_triangles}/{source_triangles}")
 if not out_arms:fail("reimport armature missing")
 if len(report["required_actions"])<3:fail("reimport actions missing")
 if any(v<=0 for v in semantic.values()):fail(f"semantic parts missing {semantic}")
 
 print("XZOGOT_MONJA_RIGID_RIG_PARTS_GREEN",semantic)
 print("XZOGOT_MONJA_RIGID_RIG_ANIMS_GREEN",report["required_actions"])
-print("XZOGOT_MONJA_RIGID_RIG_TRIANGLES_GREEN",out_triangles)
+print("XZOGOT_MONJA_RIGID_RIG_TRIANGLES_GREEN",serialized_triangles,"reimport_delta",out_triangles-serialized_triangles)
 print("XZOGOT_MONJA_RIGID_RIG_BYTES",size_bytes,"max_file",max_file_bytes)
 print("XZOGOT_MONJA_RIGID_RIG_GREEN")
