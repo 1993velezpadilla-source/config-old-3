@@ -1,5 +1,8 @@
 extends Node
 
+signal round_started(round_number: int, total_zombies: int)
+signal round_cleared(round_number: int)
+
 @export var auto_start: bool = true
 @export var first_round_delay: float = 5.0
 @export var round_break: float = 8.0
@@ -71,6 +74,7 @@ func start_next_round() -> void:
 		if barricade.has_method("begin_round"):
 			barricade.call("begin_round", current_round)
 
+	round_started.emit(current_round, _round_total)
 	print(
 		"XZOGOT_ROUND_START ",
 		current_round,
@@ -363,6 +367,7 @@ func _on_zombie_died(_zombie: Node) -> void:
 	_alive = maxi(0, _alive - 1)
 	if _remaining_to_spawn == 0 and _alive == 0:
 		_break_timer = round_break
+		round_cleared.emit(current_round)
 		print("XZOGOT_ROUND_CLEAR ", current_round)
 
 
@@ -412,6 +417,15 @@ func get_round_total() -> int:
 
 func get_round_spawned() -> int:
 	return _round_spawned
+
+func is_between_rounds() -> bool:
+	return current_round > 0 and _remaining_to_spawn == 0 and _alive == 0 and _break_timer > 0.0
+
+func get_round_break_remaining() -> float:
+	return maxf(0.0, _break_timer) if is_between_rounds() else 0.0
+
+func is_last_zombie() -> bool:
+	return _remaining_to_spawn == 0 and _alive == 1
 
 func get_last_spawn_id() -> String:
 	return _last_spawn_id
