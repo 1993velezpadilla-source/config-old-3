@@ -7,6 +7,7 @@ var _weapon_id: String = WeaponCatalog.STARTING_WEAPON_ID
 var _magazine: int = 8
 var reserve_ammo: int = 80
 var _upgraded: bool = false
+var _upgraded_ids: Dictionary = {}
 var _mystery_serial: int = 0
 
 func _ready() -> void:
@@ -38,14 +39,12 @@ func buy_wall_weapon(id: String, player: Node) -> bool:
 	if same_weapon:
 		reserve_ammo += int(WeaponCatalog.get_weapon(id).get("reserve", 80))
 	else:
-		_upgraded = false
 		equip_weapon(id, true)
 	return true
 
 func roll_mystery_weapon() -> String:
 	_mystery_serial += 1
 	var result: String = WeaponCatalog.roll_mystery(_mystery_serial, _weapon_id)
-	_upgraded = false
 	equip_weapon(result, true)
 	return result
 
@@ -56,6 +55,7 @@ func upgrade_current_weapon() -> bool:
 	if not can_upgrade_current_weapon():
 		return false
 	_upgraded = true
+	_upgraded_ids[_weapon_id] = true
 	set_meta("weapon_upgraded", true)
 	return true
 
