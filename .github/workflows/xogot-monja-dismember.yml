@@ -1,0 +1,100 @@
+name: Author Monja Dismember GLB
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/church-expansion-v1
+    paths:
+      - "xogot/tools/author_monja_dismember.py"
+      - ".github/workflows/xogot-monja-dismember.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: xogot-monja-dismember-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  author:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Install Blender
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender
+          blender --version | head -n 2
+
+      - name: Author detachable Monja geometry
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf xogot/build/monja-dismember
+          mkdir -p xogot/build/monja-dismember
+          timeout 1200 blender -b --python xogot/tools/author_monja_dismember.py \
+            2>&1 | tee xogot/build/monja-dismember/blender.log
+          grep -q "XZOGOT_MONJA_DISMEMBER_PIECES_GREEN 6" xogot/build/monja-dismember/blender.log
+          grep -q "XZOGOT_MONJA_DISMEMBER_POLYGONS_GREEN" xogot/build/monja-dismember/blender.log
+          grep -q "XZOGOT_MONJA_DISMEMBER_GLB_GREEN" xogot/build/monja-dismember/blender.log
+          test -s xogot/build/monja-dismember/monja_basica_dismember.glb
+          test -s xogot/build/monja-dismember/monja_dismember_report.json
+
+      - name: Validate output size and report
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("xogot/build/monja-dismember/monja_basica_dismember.glb")
+          r=json.loads(Path("xogot/build/monja-dismember/monja_dismember_report.json").read_text())
+          assert r["polygon_conservation_ok"] is True
+          assert set(r["parts"]) == {"torso","head","left_arm","right_arm","left_leg","right_leg"}
+          assert all(v["polygons"] > 0 for v in r["parts"].values())
+          size=p.stat().st_size
+          print("XZOGOT_MONJA_DISMEMBER_OUTPUT_BYTES",size)
+          if size >= 99_000_000:
+              raise SystemExit("Generated GLB is too large for normal GitHub blob storage")
+          PY
+
+      - name: Stage authored runtime asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp xogot/build/monja-dismember/monja_basica_dismember.glb \
+             xogot/assets/zombies/monja_basica_dismember.glb
+          cp xogot/build/monja-dismember/monja_dismember_report.json \
+             xogot/assets/zombies/monja_basica_dismember.report.json
+
+      - name: Commit authored GLB to expansion branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "XZOGOT Asset Bot"
+          git config user.email "xogot-asset-bot@users.noreply.github.com"
+          git add xogot/assets/zombies/monja_basica_dismember.glb \
+                  xogot/assets/zombies/monja_basica_dismember.report.json
+          if git diff --cached --quiet; then
+            echo "XZOGOT_MONJA_DISMEMBER_NO_CHANGE"
+          else
+            git commit -m "asset: author detachable Monja geometry"
+            git push origin HEAD:feature/church-expansion-v1
+          fi
+
+      - name: Upload authored Monja artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: monja-dismember-authored
+          path: |
+            xogot/build/monja-dismember/
+          if-no-files-found: warn
+          retention-days: 14
