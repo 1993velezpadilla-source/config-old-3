@@ -11,6 +11,10 @@ var world_scale: float = 1.0
 var _player: Node3D
 var _candles: Array[Node3D] = []
 var _budget_timer: float = 0.0
+var _round_manager: Node
+var _last_round: int = 0
+var _last_power_state: bool = false
+var _event_serial: int = 0
 var _state_counts: Dictionary = {
 	"OFF": 0,
 	"DIM": 0,
@@ -25,7 +29,11 @@ func configure(scale_value: float, player: Node3D) -> void:
 
 func _ready() -> void:
 	add_to_group("xz_candle_manager")
+	_round_manager = _find_round_manager()
+	_last_round = _read_round()
+	_last_power_state = _read_power_state()
 	_build_layout()
+	_apply_round_instability(_last_round)
 	_refresh_light_budget()
 	set_process(true)
 	print(
@@ -36,6 +44,53 @@ func _ready() -> void:
 		" light_budget=",
 		max_dynamic_lights
 	)
+
+func _find_round_manager() -> Node:
+	var scene: Node = get_tree().current_scene
+	if scene != null:
+		var node: Node = scene.get_node_or_null("RoundManager")
+		if node != null:
+			return node
+	return null
+
+func _read_round() -> int:
+	if _round_manager != null and is_instance_valid(_round_manager) and _round_manager.has_method("get_round"):
+		return int(_round_manager.call("get_round"))
+	return 0
+
+func _read_power_state() -> bool:
+	return get_tree().has_meta("power_on") and bool(get_tree().get_meta("power_on"))
+
+func _apply_round_instability(round_number: int) -> void:
+	for candle: Node3D in _candles:
+		if candle.has_method("set_round_instability"):
+			candle.call("set_round_instability", round_number)
+
+func _trigger_candle_event(tag: String, duration: float, strength: float) -> void:
+	_event_serial += 1
+	for i in range(_candles.size()):
+		var candle: Node3D = _candles[i]
+		if candle.has_method("trigger_event_flicker"):
+			var phase_offset: float = float((_event_serial * 17 + i * 31) % 360) * PI / 180.0
+			candle.call("trigger_event_flicker", duration, strength, phase_offset)
+	print("XZOGOT_CANDLE_EVENT ", tag, " duration=", duration, " strength=", strength)
+
+func _poll_world_events() -> void:
+	var power_now: bool = _read_power_state()
+	if power_now != _last_power_state:
+		_last_power_state = power_now
+		if power_now:
+			_trigger_candle_event("POWER_ON_SURGE", 2.2, 0.72)
+		else:
+			_trigger_candle_event("POWER_OFF_GUST", 1.35, 0.44)
+
+	var round_now: int = _read_round()
+	if round_now != _last_round:
+		_last_round = round_now
+		_apply_round_instability(round_now)
+		if round_now > 0:
+			var strength: float = clampf(0.18 + float(maxi(0, round_now - 5)) * 0.015, 0.18, 0.42)
+			_trigger_candle_event("ROUND_%d" % round_now, 0.85, strength)
 
 func _state_for(seed_value: int, lit_bias: float = 0.78) -> int:
 	var v: int = abs(seed_value * 37 + 17) % 100
@@ -243,6 +298,7 @@ func _process(delta: float) -> void:
 	_budget_timer -= delta
 	if _budget_timer <= 0.0:
 		_budget_timer = budget_refresh_seconds
+		_poll_world_events()
 		_refresh_light_budget()
 
 func _refresh_light_budget() -> void:
@@ -280,6 +336,15 @@ func _refresh_light_budget() -> void:
 		best.call("set_light_budget_enabled", true)
 
 	set_meta("active_dynamic_lights", selected.size())
+
+func get_last_observed_round() -> int:
+	return _last_round
+
+func get_last_power_state() -> bool:
+	return _last_power_state
+
+func get_event_serial() -> int:
+	return _event_serial
 
 func get_candle_count() -> int:
 	return _candles.size()
