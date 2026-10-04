@@ -1,5 +1,7 @@
 extends SceneTree
 
+const WeaponCatalog = preload("res://scripts/weapon_catalog.gd")
+
 func _init() -> void:
 	call_deferred("_run_probe")
 
@@ -62,9 +64,17 @@ func _run_probe() -> void:
 	if absf(float(weapon.call("get_ads_fov")) - 46.0) > 0.01:
 		_fail(13, "MP40 ADS profile wrong")
 		return
-	if int(weapon.call("get_mystery_pool_size")) != 18:
-		_fail(14, "Mystery pool size wrong")
+	var pool_size: int = int(weapon.call("get_mystery_pool_size"))
+	if pool_size != WeaponCatalog.MYSTERY_POOL.size():
+		_fail(14, "Mystery pool/runtime catalog mismatch")
 		return
+	if pool_size < 28:
+		_fail(14, "Mystery pool unexpectedly lost recovered real weapons")
+		return
+	for required_id: String in ["357", "arisaka", "dp28", "kar98k", "mosin", "nambu", "svt40", "tt33", "type99", "walther"]:
+		if not WeaponCatalog.has_weapon(required_id):
+			_fail(14, "Recovered real weapon missing from catalog: " + required_id)
+			return
 
 	var mystery_id: String = str(weapon.call("roll_mystery_weapon"))
 	if mystery_id.is_empty() or mystery_id == "mp40":
