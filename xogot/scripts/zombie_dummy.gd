@@ -5,7 +5,7 @@ signal died(zombie: Node)
 const MONJA_BASICA_PATH := "res://assets/zombies/monja_basica.glb"
 const MONJA_RIGGED_PATH := "res://assets/zombies/monja_basica_rigged.glb"
 const MONJA_RIGGED_DISMEMBER_PATH := "res://assets/zombies/monja_basica_rigged_dismember.glb"
-const MONJA_RIGID_RIG_PATH := "res://assets/zombies/monja_basica_rigid_rig.glb"
+const MONJA_RIGID_RIG_PATH := "res://assets/zombies/monja_rigid/monja_basica_rigid_rig.gltf"
 
 const RIGGED_FALLBACK_ANIMS := {
 	"idle": ["Zombie_Idle_Loop"],
