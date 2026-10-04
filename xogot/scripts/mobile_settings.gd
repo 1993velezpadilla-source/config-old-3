@@ -39,7 +39,12 @@ var _page_settings: VBoxContainer
 var _page_network: VBoxContainer
 var _page_dev: VBoxContainer
 var _network_status: Label
+var _network_roster: Label
+var _network_share: Label
+var _network_error: Label
 var _network_address: LineEdit
+var _network_port: LineEdit
+var _network_last_error: String = ""
 var _rows: Dictionary = {}
 var _dev_rows: Dictionary = {}
 var _current_page: String = "pause"
@@ -52,6 +57,7 @@ func _ready() -> void:
 	_build_ui()
 	visible = false
 	call_deferred("_apply_to_player")
+	call_deferred("_bind_network_ui_signals")
 	print("XZOGOT_MOBILE_SETTINGS_READY")
 	print("XZOGOT_RELEASE_DEV_MENU_READY ", dev_menu_visible_in_release)
 
@@ -213,12 +219,28 @@ func _build_settings_page() -> void:
 func _network_manager_node() -> Node:
 	return get_node_or_null("../../NetworkManager")
 
+func _bind_network_ui_signals() -> void:
+	var network: Node = _network_manager_node()
+	if network == null:
+		return
+	var state_cb := Callable(self, "_on_network_state_changed")
+	var roster_cb := Callable(self, "_on_network_roster_changed")
+	var error_cb := Callable(self, "_on_network_error")
+	if network.has_signal("session_state_changed") and not network.is_connected("session_state_changed", state_cb):
+		network.connect("session_state_changed", state_cb)
+	if network.has_signal("roster_changed") and not network.is_connected("roster_changed", roster_cb):
+		network.connect("roster_changed", roster_cb)
+	if network.has_signal("network_error") and not network.is_connected("network_error", error_cb):
+		network.connect("network_error", error_cb)
+	print("XZOGOT_NETWORK_UI_SIGNALS_READY")
+
 func _build_network_page() -> void:
 	_title(
 		_page_network,
 		"MULTIPLAYER",
-		"4-player ENet session. Host is authoritative for rounds, zombies and revive state."
+		"Host-authoritative 1–4 player ENet. Rounds, zombies, revive, economy and world state are synchronized."
 	)
+
 	_network_status = Label.new()
 	_network_status.name = "NetworkStatus"
 	_network_status.text = "OFFLINE"
@@ -227,23 +249,58 @@ func _build_network_page() -> void:
 	_network_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_page_network.add_child(_network_status)
 
+	_network_roster = Label.new()
+	_network_roster.name = "NetworkRoster"
+	_network_roster.text = "ROSTER  LOCAL  1/4"
+	_network_roster.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_network_roster.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_network_roster.modulate = Color(0.86, 0.88, 0.90)
+	_page_network.add_child(_network_roster)
+
+	_network_share = Label.new()
+	_network_share.name = "NetworkShare"
+	_network_share.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_network_share.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_network_share.modulate = Color(0.72, 0.78, 0.82)
+	_page_network.add_child(_network_share)
+
+	_network_error = Label.new()
+	_network_error.name = "NetworkError"
+	_network_error.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_network_error.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_network_error.modulate = Color(1.0, 0.52, 0.46)
+	_page_network.add_child(_network_error)
+
 	_network_address = LineEdit.new()
 	_network_address.name = "JoinAddress"
 	_network_address.placeholder_text = "HOST IP — example 192.168.1.25"
 	_network_address.text = ""
 	_network_address.custom_minimum_size = Vector2(0.0, 54.0)
 	_network_address.virtual_keyboard_enabled = true
+	_network_address.clear_button_enabled = true
 	_page_network.add_child(_network_address)
 
-	var host := _button(_page_network, "HostPrivate", "HOST PRIVATE / LAN — 4 PLAYERS")
-	host.pressed.connect(_network_host)
+	_network_port = LineEdit.new()
+	_network_port.name = "JoinPort"
+	_network_port.placeholder_text = "UDP PORT"
+	_network_port.text = "7777"
+	_network_port.custom_minimum_size = Vector2(0.0, 50.0)
+	_network_port.virtual_keyboard_enabled = true
+	_network_port.max_length = 5
+	_page_network.add_child(_network_port)
+
+	var host_private := _button(_page_network, "HostPrivate", "HOST PRIVATE — 1–4 PLAYERS")
+	host_private.pressed.connect(func(): _network_host(true))
+	var host_public := _button(_page_network, "HostPublic", "HOST PUBLIC DIRECT — 1–4 PLAYERS")
+	host_public.pressed.connect(func(): _network_host(false))
 	var join := _button(_page_network, "JoinDirect", "JOIN DIRECT IP")
 	join.pressed.connect(_network_join)
 	var leave := _button(_page_network, "LeaveNetwork", "LEAVE SESSION")
 	leave.pressed.connect(_network_leave)
 
 	var note := Label.new()
-	note.text = "Direct ENet/UDP test mode. Public matchmaking/relay is a separate layer; this page does not fake a public lobby."
+	note.name = "NetworkDirectoryNote"
+	note.text = "PUBLIC DIRECT marks the session public-ready but does not fake internet discovery. A real Find Match directory/relay is the next network layer. LAN/direct-IP works now."
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	note.modulate = Color(0.68, 0.72, 0.76)
@@ -253,26 +310,46 @@ func _build_network_page() -> void:
 	back.pressed.connect(func(): _show_page("pause"))
 	_refresh_network_status()
 
-func _network_host() -> void:
+func _network_port_value() -> int:
+	if _network_port == null:
+		return 7777
+	var value: int = int(_network_port.text) if _network_port.text.is_valid_int() else 7777
+	value = clampi(value, 1024, 65535)
+	_network_port.text = str(value)
+	return value
+
+func _network_host(private_session: bool) -> void:
 	var network: Node = _network_manager_node()
 	if network == null or not network.has_method("host_game"):
+		_network_last_error = "NETWORK MANAGER UNAVAILABLE"
+		_refresh_network_status()
 		return
-	var err: int = int(network.call("host_game", 7777, true))
+	_network_last_error = ""
+	var port: int = _network_port_value()
+	var err: int = int(network.call("host_game", port, private_session))
 	if err == OK:
-		print("XZOGOT_NETWORK_UI_HOST")
+		print("XZOGOT_NETWORK_UI_HOST private=", private_session, " port=", port)
+	else:
+		_network_last_error = "HOST FAILED: " + str(err)
 	_refresh_network_status()
 
 func _network_join() -> void:
 	var network: Node = _network_manager_node()
 	if network == null or not network.has_method("join_game"):
+		_network_last_error = "NETWORK MANAGER UNAVAILABLE"
+		_refresh_network_status()
 		return
 	var address: String = _network_address.text.strip_edges() if _network_address != null else ""
 	if address.is_empty():
 		address = "127.0.0.1"
 		_network_address.text = address
-	var err: int = int(network.call("join_game", address, 7777))
+	_network_last_error = ""
+	var port: int = _network_port_value()
+	var err: int = int(network.call("join_game", address, port))
 	if err == OK:
-		print("XZOGOT_NETWORK_UI_JOIN ", address)
+		print("XZOGOT_NETWORK_UI_JOIN ", address, ":", port)
+	else:
+		_network_last_error = "JOIN FAILED: " + str(err)
 	_refresh_network_status()
 
 func _network_leave() -> void:
@@ -280,7 +357,31 @@ func _network_leave() -> void:
 	if network != null and network.has_method("leave_game"):
 		network.call("leave_game")
 		print("XZOGOT_NETWORK_UI_LEAVE")
+	_network_last_error = ""
 	_refresh_network_status()
+
+func _on_network_state_changed(_state: String) -> void:
+	_network_last_error = ""
+	_refresh_network_status()
+
+func _on_network_roster_changed(_peer_ids: PackedInt32Array) -> void:
+	_refresh_network_status()
+
+func _on_network_error(message: String) -> void:
+	_network_last_error = message
+	_refresh_network_status()
+
+func _lan_share_addresses(port: int) -> PackedStringArray:
+	var result := PackedStringArray()
+	for address: String in IP.get_local_addresses():
+		if address.contains(":"):
+			continue
+		if address.begins_with("127.") or address.begins_with("169.254."):
+			continue
+		if address == "0.0.0.0":
+			continue
+		result.append("%s:%d" % [address, port])
+	return result
 
 func _refresh_network_status() -> void:
 	if _network_status == null:
@@ -288,8 +389,47 @@ func _refresh_network_status() -> void:
 	var network: Node = _network_manager_node()
 	if network == null or not network.has_method("get_status_text"):
 		_network_status.text = "NETWORK MANAGER UNAVAILABLE"
+		if _network_error != null:
+			_network_error.text = _network_last_error
 		return
+
 	_network_status.text = str(network.call("get_status_text"))
+	var mode: String = str(network.call("get_mode")) if network.has_method("get_mode") else "offline"
+	var ids: PackedInt32Array = (
+		network.call("get_roster_ids") as PackedInt32Array
+		if network.has_method("get_roster_ids")
+		else PackedInt32Array()
+	)
+	var max_players: int = int(network.call("get_max_players")) if network.has_method("get_max_players") else 4
+	var local_peer: int = int(network.call("get_local_peer_id")) if network.has_method("get_local_peer_id") else 1
+
+	if _network_roster != null:
+		var roster_parts := PackedStringArray()
+		for id: int in ids:
+			var label: String = "P%d" % id
+			if id == 1:
+				label += " HOST"
+			if id == local_peer:
+				label += " YOU"
+			roster_parts.append(label)
+		if roster_parts.is_empty():
+			roster_parts.append("LOCAL")
+		_network_roster.text = "ROSTER %d/%d  •  %s" % [
+			ids.size(),
+			max_players,
+			"  |  ".join(roster_parts),
+		]
+
+	if _network_share != null:
+		_network_share.text = ""
+		if mode == "host":
+			var port: int = int(network.call("get_session_port")) if network.has_method("get_session_port") else 7777
+			var addresses: PackedStringArray = _lan_share_addresses(port)
+			if not addresses.is_empty():
+				_network_share.text = "SHARE LAN: " + "  •  ".join(addresses)
+
+	if _network_error != null:
+		_network_error.text = _network_last_error
 
 func _process(_delta: float) -> void:
 	if visible and _current_page == "network":
@@ -523,9 +663,15 @@ func open_pause_menu() -> void:
 	_show_page("pause")
 	visible = true
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	get_tree().paused = true
+	var network: Node = _network_manager_node()
+	var online: bool = (
+		network != null
+		and network.has_method("is_network_session")
+		and bool(network.call("is_network_session"))
+	)
+	get_tree().paused = not online
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	print("XZOGOT_PAUSE_MENU OPEN")
+	print("XZOGOT_PAUSE_MENU OPEN online=", online, " world_paused=", get_tree().paused)
 
 func close_menu() -> void:
 	visible = false
