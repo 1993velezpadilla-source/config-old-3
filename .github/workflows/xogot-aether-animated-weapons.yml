@@ -50,17 +50,16 @@ jobs:
           find aether-artifact/recovered-actorx -type f -name '*.psa' | wc -l
           echo "XZOGOT_ANIMATION_SOURCE_ARTIFACT_READY"
 
-      - name: Install Blender 4.2 LTS
+      - name: Install Blender version used by upstream importer CI
         shell: bash
         run: |
           set -euo pipefail
-          BLENDER_VERSION="4.2.8"
-          curl -L --fail --retry 5 --retry-all-errors             "https://download.blender.org/release/Blender4.2/blender-${BLENDER_VERSION}-linux-x64.tar.xz"             -o "$RUNNER_TEMP/blender.tar.xz"
-          mkdir -p "$RUNNER_TEMP/blender"
-          tar -xJf "$RUNNER_TEMP/blender.tar.xz" -C "$RUNNER_TEMP/blender" --strip-components=1
-          test -x "$RUNNER_TEMP/blender/blender"
-          "$RUNNER_TEMP/blender/blender" --version | head -n 2
-          echo "BLENDER=$RUNNER_TEMP/blender/blender" >> "$GITHUB_ENV"
+          python3 -m pip install --disable-pip-version-check blender-downloader
+          BLENDER_PATH=$(blender-downloader 5.0 --extract --remove-compressed --print-blender-executable)
+          test -x "$BLENDER_PATH"
+          "$BLENDER_PATH" --version | head -n 2
+          echo "BLENDER=$BLENDER_PATH" >> "$GITHUB_ENV"
+          echo "XZOGOT_BLENDER_UPSTREAM_COMPAT_READY 5.0"
 
       - name: Install maintained Unreal PSK PSA Blender importer
         shell: bash
