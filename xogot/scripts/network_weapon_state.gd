@@ -63,6 +63,14 @@ func add_reserve_ammo(amount: int) -> void:
 	if amount > 0:
 		reserve_ammo += amount
 
+func refill_max_ammo() -> void:
+	if not WeaponCatalog.has_weapon(_weapon_id):
+		return
+	var def: Dictionary = WeaponCatalog.get_weapon(_weapon_id)
+	_magazine = int(def.get("magazine", _magazine))
+	reserve_ammo = int(def.get("reserve", _magazine * 4))
+	print("XZOGOT_NETWORK_WEAPON_MAX_AMMO ", _weapon_id, " mag=", _magazine, " reserve=", reserve_ammo)
+
 func get_weapon_id() -> String:
 	return _weapon_id
 
