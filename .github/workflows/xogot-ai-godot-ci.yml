@@ -141,7 +141,10 @@ jobs:
           grep -q "XZOGOT_NETWORK_REVIVE_AUTHORITY_GREEN" build/xogot-ai/network-probe.log
           grep -q "XZOGOT_NETWORK_HOST_AUTHORITY_GREEN" build/xogot-ai/network-probe.log
           grep -q "XZOGOT_NETWORK_LEAVE_GREEN" build/xogot-ai/network-probe.log
+          grep -q "XZOGOT_NETWORK_ZOMBIE_DAMAGE_GREEN" build/xogot-ai/network-probe.log
+          grep -q "XZOGOT_NETWORK_ZOMBIE_REPLICATION_GREEN" build/xogot-ai/network-probe.log
           grep -q "XZOGOT_ENET_LOCALHOST_HANDSHAKE_GREEN" build/xogot-ai/network-probe.log
+          grep -q "XZOGOT_ENET_RELIABLE_PACKET_GREEN" build/xogot-ai/network-probe.log
           grep -q "XZOGOT_4P_NETWORK_FOUNDATION_GREEN" build/xogot-ai/network-probe.log
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|NETWORK_PROBE:" build/xogot-ai/network-probe.log
           echo "XZOGOT_4P_NETWORK_GATE_GREEN"
