@@ -11,6 +11,7 @@ from urllib.parse import urlsplit
 PUBLIC_PORT = int(os.environ.get("PORT", "10000"))
 BASE_INTERNAL_PORT = int(os.environ.get("XZ_RELAY_INTERNAL_PORT", "10001"))
 MAX_ROOMS = max(1, int(os.environ.get("XZ_RELAY_MAX_ROOMS", "2")))
+MIN_WARM_ROOMS = min(MAX_ROOMS, max(1, int(os.environ.get("XZ_RELAY_MIN_WARM_ROOMS", str(MAX_ROOMS)))))
 ROOM_CAPACITY = 4
 READY_DELAY = max(0.1, float(os.environ.get("XZ_RELAY_READY_DELAY", "8")))
 ROOM_IDLE_SECONDS = max(10.0, float(os.environ.get("XZ_RELAY_ROOM_IDLE_SECONDS", "90")))
@@ -85,7 +86,7 @@ def start_room():
     _rooms[room_id] = room
     print(
         f"XZ_RELAY_ROOM_SPAWN id={room_id} port={port} pid={child.pid} "
-        f"capacity={ROOM_CAPACITY}",
+        f"capacity={ROOM_CAPACITY} warm_rooms={MIN_WARM_ROOMS}",
         flush=True,
     )
     return room
@@ -215,6 +216,7 @@ async def handle_http(method, path, writer):
             "multi_room": True,
             "room_capacity": ROOM_CAPACITY,
             "max_rooms": MAX_ROOMS,
+            "min_warm_rooms": MIN_WARM_ROOMS,
             "active_rooms": len(rooms),
         }, include_body))
     elif path == "/v1/rooms":
@@ -223,6 +225,7 @@ async def handle_http(method, path, writer):
             "rooms": rooms,
             "room_capacity": ROOM_CAPACITY,
             "max_rooms": MAX_ROOMS,
+            "min_warm_rooms": MIN_WARM_ROOMS,
         }, include_body))
     else:
         writer.write(http_response(404, {"error": "not_found"}, include_body))
@@ -300,7 +303,7 @@ async def reap_idle_rooms():
     while True:
         await asyncio.sleep(5.0)
         async with _room_lock:
-            if len(_rooms) <= 1:
+            if len(_rooms) <= MIN_WARM_ROOMS:
                 continue
             now = time.monotonic()
             candidates = [
@@ -309,14 +312,19 @@ async def reap_idle_rooms():
                 if room.connections == 0 and now - room.last_used >= ROOM_IDLE_SECONDS
             ]
             for room in candidates:
-                if len(_rooms) <= 1:
+                if len(_rooms) <= MIN_WARM_ROOMS:
                     break
                 stop_room(room, "idle")
 
 async def main():
     global _room_lock
     _room_lock = asyncio.Lock()
-    start_room()
+    for _index in range(MIN_WARM_ROOMS):
+        start_room()
+    print(
+        f"XZ_RELAY_WARM_POOL_STARTED rooms={MIN_WARM_ROOMS}/{MAX_ROOMS}",
+        flush=True,
+    )
     reaper = asyncio.create_task(reap_idle_rooms())
     server = await asyncio.start_server(handle_client, "0.0.0.0", PUBLIC_PORT)
     print(
