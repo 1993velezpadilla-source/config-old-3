@@ -1581,6 +1581,19 @@ func _build_interactions() -> void:
 	_interactive_box("PowerSwitch", Vector3(0.7, 2.2, 0.7), Vector3(8.6, 1.4, 8.3), Color(0.52, 0.42, 0.12), 4, 0, 0, true, "TURN ON POWER")
 	_build_expansion_interactions()
 	_build_perk_and_upgrade_machines()
+	var bell_rope := _interactive_box(
+		"BellRope",
+		Vector3(0.34, 2.60, 0.34),
+		Vector3(-25.0, 9.35, 10.1),
+		Color(0.20, 0.105, 0.035),
+		6,
+		0,
+		0,
+		false,
+		"RING CHURCH BELL"
+	)
+	bell_rope.add_to_group("bell_interaction")
+	print("XZOGOT_BELL_ROPE_READY")
 	print("XZOGOT_INTERACTIONS_PREPARED ", get_tree().get_nodes_in_group("zombie_interactable").size())
 
 func _build_expansion_interactions() -> void:
