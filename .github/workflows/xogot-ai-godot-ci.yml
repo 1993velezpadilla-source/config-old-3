@@ -441,6 +441,21 @@ jobs:
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-ai/round-zombie-probe.log
           echo "XOGOT_AI_VM_GREEN"
 
+      - name: Verify sheep rounds and elite nun tuning
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 60 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/special_enemy_round_probe.gd \
+            2>&1 | tee build/xogot-ai/special-enemy-round-probe.log
+          grep -q "XZOGOT_SHEEP_ROUND_SCHEDULE_GREEN" build/xogot-ai/special-enemy-round-probe.log
+          grep -q "XZOGOT_SHEEP_VARIANTS_GREEN" build/xogot-ai/special-enemy-round-probe.log
+          grep -q "XZOGOT_SHEEP_STATS_GREEN" build/xogot-ai/special-enemy-round-probe.log
+          grep -q "XZOGOT_ELITE_NUN_STATS_GREEN" build/xogot-ai/special-enemy-round-probe.log
+          grep -q "XZOGOT_SPECIAL_ENEMY_ROUND_GATE_GREEN" build/xogot-ai/special-enemy-round-probe.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|SPECIAL_ENEMY_ROUND_PROBE:" build/xogot-ai/special-enemy-round-probe.log
+          echo "XZOGOT_SPECIAL_ENEMY_ROUND_GATE_GREEN"
+
       - name: Verify co-op downed revive lifecycle
         shell: bash
         run: |
