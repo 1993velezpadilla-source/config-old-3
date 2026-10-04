@@ -55,6 +55,11 @@ const CRAWL_KEYS: Array[String] = ["crawl_A", "111_03"]
 @export var path_refresh_interval: float = 0.62
 @export var stuck_sample_interval: float = 0.72
 @export var stuck_timeout: float = 1.75
+@export var dismemberment_enabled: bool = true
+@export var head_limb_health: float = 82.0
+@export var arm_limb_health: float = 112.0
+@export var leg_limb_health: float = 126.0
+@export var crawler_speed: float = 0.95
 
 enum Phase {
 	APPROACH,
@@ -88,12 +93,31 @@ var _motion_profile_id: String = ""
 var _animation_player: AnimationPlayer
 var _motion_state: String = ""
 
+var _limb_health: Dictionary = {}
+var _severed: Dictionary = {
+	"head": false,
+	"left_arm": false,
+	"right_arm": false,
+	"left_leg": false,
+	"right_leg": false,
+}
+var _crawler: bool = false
+var _headless: bool = false
+var _headless_survivor: bool = false
+
 func _ready() -> void:
 	_gravity = float(ProjectSettings.get_setting("physics/3d/default_gravity", 18.0))
 	floor_snap_length = 0.24
 	add_to_group("zombie")
 	_path_network = get_tree().get_first_node_in_group("zombie_path_network")
 	_select_motion_profile()
+	_limb_health = {
+		"head": head_limb_health,
+		"left_arm": arm_limb_health,
+		"right_arm": arm_limb_health,
+		"left_leg": leg_limb_health,
+		"right_leg": leg_limb_health,
+	}
 	_build_body()
 	_last_motion_sample = global_position
 	print("XZOGOT_ZOMBIE_GROUND_SNAP_READY 0.24")
@@ -359,7 +383,14 @@ func _tick_chase() -> void:
 		velocity.z = 0.0
 		_play_motion_state("attack")
 		if _attack_timer <= 0.0 and target_player.has_method("apply_damage"):
-			target_player.call("apply_damage", player_damage)
+			var arm_factor: float = 1.0
+			if bool(_severed["left_arm"]):
+				arm_factor -= 0.22
+			if bool(_severed["right_arm"]):
+				arm_factor -= 0.22
+			if _headless:
+				arm_factor *= 0.88
+			target_player.call("apply_damage", player_damage * maxf(arm_factor, 0.42))
 			_attack_timer = attack_interval
 		return
 	_move_toward_navigated(target, 0.0)
@@ -521,17 +552,207 @@ func _play_motion_state(state: String) -> void:
 	if not anim_name.is_empty():
 		_animation_player.play(anim_name)
 
+func _classify_hit_zone(local_hit: Vector3) -> String:
+	if local_hit.y >= target_visual_height * headshot_height_ratio:
+		return "head"
+	if local_hit.y <= 0.78:
+		return "left_leg" if local_hit.x < 0.0 else "right_leg"
+	if local_hit.y >= 0.88 and absf(local_hit.x) >= 0.22:
+		return "left_arm" if local_hit.x < 0.0 else "right_arm"
+	return "torso"
+
+func _weapon_dismember_multiplier(source: Node) -> float:
+	if source == null:
+		return 1.0
+	var weapon: Node = source.get_node_or_null("Weapon")
+	if weapon == null or not weapon.has_method("get_family"):
+		return 1.0
+	var family: String = str(weapon.call("get_family"))
+	match family:
+		"pistol": return 0.62
+		"smg": return 0.82
+		"rifle": return 1.08
+		"lmg": return 1.18
+		"shotgun": return 1.78
+		"sniper": return 1.52
+		"wonder": return 2.75
+	return 1.0
+
+func _authored_limb_name(zone: String) -> String:
+	match zone:
+		"head": return "Dismember_Head"
+		"left_arm": return "Dismember_LeftArm"
+		"right_arm": return "Dismember_RightArm"
+		"left_leg": return "Dismember_LeftLeg"
+		"right_leg": return "Dismember_RightLeg"
+	return ""
+
+func _find_authored_limb(zone: String) -> MeshInstance3D:
+	if _visual_root == null:
+		return null
+	var limb_name: String = _authored_limb_name(zone)
+	if limb_name.is_empty():
+		return null
+	var node: Node = _visual_root.find_child(limb_name, true, false)
+	if node is MeshInstance3D:
+		return node as MeshInstance3D
+	if node != null:
+		for child: Node in node.get_children():
+			if child is MeshInstance3D:
+				return child as MeshInstance3D
+	return null
+
+func _spawn_detached_proxy(zone: String, source_part: MeshInstance3D = null) -> void:
+	var rigid := RigidBody3D.new()
+	rigid.name = "Detached_" + zone
+	rigid.mass = 2.1 if "leg" in zone else (1.25 if "arm" in zone else 1.6)
+	rigid.collision_layer = 0
+	rigid.collision_mask = 1
+	get_parent().add_child(rigid)
+
+	var mesh_instance := MeshInstance3D.new()
+	var shape := CollisionShape3D.new()
+	if source_part != null and source_part.mesh != null:
+		rigid.global_transform = source_part.global_transform
+		mesh_instance.mesh = source_part.mesh
+		var authored_shape := CapsuleShape3D.new()
+		authored_shape.radius = 0.12
+		authored_shape.height = 0.42
+		shape.shape = authored_shape
+	else:
+		rigid.global_position = global_position + Vector3(
+			-0.26 if "left" in zone else (0.26 if "right" in zone else 0.0),
+			1.55 if zone == "head" else (1.05 if "arm" in zone else 0.45),
+			0.0
+		)
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = Color(0.10, 0.095, 0.09) if zone != "head" else Color(0.34, 0.26, 0.22)
+		mat.roughness = 0.92
+		if zone == "head":
+			var sphere := SphereMesh.new()
+			sphere.radius = 0.17
+			sphere.height = 0.34
+			sphere.material = mat
+			mesh_instance.mesh = sphere
+			var sphere_shape := SphereShape3D.new()
+			sphere_shape.radius = 0.17
+			shape.shape = sphere_shape
+		else:
+			var capsule_mesh := CapsuleMesh.new()
+			capsule_mesh.radius = 0.105 if "arm" in zone else 0.13
+			capsule_mesh.height = 0.58 if "arm" in zone else 0.74
+			capsule_mesh.material = mat
+			mesh_instance.mesh = capsule_mesh
+			var capsule_shape := CapsuleShape3D.new()
+			capsule_shape.radius = 0.10 if "arm" in zone else 0.12
+			capsule_shape.height = 0.56 if "arm" in zone else 0.70
+			shape.shape = capsule_shape
+
+	rigid.add_child(mesh_instance)
+	rigid.add_child(shape)
+	var away: Vector3 = Vector3(
+		-1.0 if "left" in zone else (1.0 if "right" in zone else 0.25),
+		0.8,
+		0.35
+	).normalized()
+	rigid.apply_central_impulse(away * 2.2 + Vector3.UP * 1.4)
+	rigid.apply_torque_impulse(Vector3(0.7, 1.1, 0.5))
+
+	var timer := Timer.new()
+	timer.one_shot = true
+	timer.wait_time = 8.0
+	timer.autostart = true
+	timer.timeout.connect(rigid.queue_free)
+	rigid.add_child(timer)
+
+func _make_crawler() -> void:
+	if _crawler:
+		return
+	_crawler = true
+	move_speed = minf(move_speed, crawler_speed)
+	window_cross_speed = minf(window_cross_speed, crawler_speed * 1.25)
+	set_meta("motion_override", "crawl")
+	set_meta("crawler", true)
+	var cs: CollisionShape3D = get_node_or_null("ZombieCollider") as CollisionShape3D
+	if cs != null and cs.shape is CapsuleShape3D:
+		var capsule := cs.shape as CapsuleShape3D
+		capsule.radius = 0.30
+		capsule.height = 0.78
+		cs.position.y = 0.39
+	if _animation_player == null and _visual_root != null:
+		_visual_root.rotation_degrees.x = 72.0
+		_visual_root.position.y = 0.32
+	print("XZOGOT_ZOMBIE_CRAWLER_CONVERTED")
+
+func _headless_survival_roll() -> bool:
+	var round_number: int = int(get_meta("round_number", 1))
+	var chance: float = clampf(0.04 + float(maxi(0, round_number - 10)) * 0.025, 0.04, 0.38)
+	var roll: float = float(abs((name + ":headless:" + str(round_number)).hash()) % 10000) / 10000.0
+	set_meta("headless_survival_chance", chance)
+	return roll < chance
+
+func _sever_limb(zone: String, source: Node, impulse_damage: float) -> bool:
+	if not _severed.has(zone) or bool(_severed[zone]):
+		return false
+	_severed[zone] = true
+	set_meta("severed_" + zone, true)
+
+	var authored: MeshInstance3D = _find_authored_limb(zone)
+	_spawn_detached_proxy(zone, authored)
+	if authored != null:
+		authored.visible = false
+		print("XZOGOT_AUTHORED_LIMB_DETACHED ", zone)
+	else:
+		print("XZOGOT_LIMB_PROXY_DETACHED ", zone)
+
+	if zone == "left_leg" or zone == "right_leg":
+		_make_crawler()
+	elif zone == "head":
+		_headless = true
+		set_meta("headless", true)
+		_headless_survivor = _headless_survival_roll()
+		if _headless_survivor:
+			health = maxf(health, impulse_damage + 35.0)
+			print("XZOGOT_HEADLESS_SURVIVOR round=", int(get_meta("round_number", 1)))
+		else:
+			print("XZOGOT_HEAD_DISMEMBER_FATAL")
+			_die(source)
+			return true
+	return false
+
+func _apply_limb_damage(zone: String, amount: float, source: Node) -> bool:
+	if not dismemberment_enabled or zone == "torso" or not _limb_health.has(zone):
+		return false
+	if bool(_severed.get(zone, false)):
+		return false
+	var scaled: float = amount * _weapon_dismember_multiplier(source)
+	_limb_health[zone] = float(_limb_health[zone]) - scaled
+	set_meta("limb_hp_" + zone, maxf(0.0, float(_limb_health[zone])))
+	if float(_limb_health[zone]) <= 0.0:
+		return _sever_limb(zone, source, amount)
+	return false
+
 func apply_hitscan_damage(amount: float, source: Node = null, hit_position: Vector3 = Vector3.ZERO) -> void:
 	if phase == Phase.DEAD or amount <= 0.0:
 		return
 	var local_hit: Vector3 = to_local(hit_position)
-	var head_threshold: float = target_visual_height * headshot_height_ratio
-	var is_headshot: bool = local_hit.y >= head_threshold
+	var zone: String = _classify_hit_zone(local_hit)
+	var is_headshot: bool = zone == "head"
 	var applied_amount: float = amount * (headshot_multiplier if is_headshot else 1.0)
 	set_meta("last_hit_headshot", is_headshot)
+	set_meta("last_hit_zone", zone)
 	if is_headshot:
 		print("XZOGOT_ZOMBIE_HEADSHOT")
+	if _apply_limb_damage(zone, applied_amount, source):
+		return
 	_take_damage(applied_amount, source, is_headshot)
+
+func apply_melee_damage(amount: float, source: Node = null, hit_position: Vector3 = Vector3.ZERO) -> void:
+	if phase == Phase.DEAD or amount <= 0.0:
+		return
+	set_meta("last_damage_kind", "melee")
+	set_meta("last_melee_hit_position", hit_position)
+	_take_damage(amount, source, false)
 
 func apply_damage(amount: float, source: Node = null) -> void:
 	_take_damage(amount, source, false)
@@ -560,6 +781,30 @@ func _update_hit_reaction(delta: float) -> void:
 
 func get_health() -> float:
 	return health
+
+func is_crawler() -> bool:
+	return _crawler
+
+func is_headless() -> bool:
+	return _headless
+
+func survived_headless() -> bool:
+	return _headless_survivor
+
+func is_limb_severed(zone: String) -> bool:
+	return bool(_severed.get(zone, false))
+
+func get_limb_health(zone: String) -> float:
+	return float(_limb_health.get(zone, 0.0))
+
+func get_dismemberment_state() -> Dictionary:
+	return {
+		"crawler": _crawler,
+		"headless": _headless,
+		"headless_survivor": _headless_survivor,
+		"severed": _severed.duplicate(true),
+		"limb_health": _limb_health.duplicate(true),
+	}
 
 func _die(source: Node) -> void:
 	phase = Phase.DEAD
