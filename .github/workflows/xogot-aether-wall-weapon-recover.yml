@@ -112,6 +112,32 @@ jobs:
           echo "CUE4PARSE=$CUE4PARSE" >> "$GITHUB_ENV"
           echo "XZOGOT_CUE4PARSE_LINUX_READY $CUE4PARSE"
 
+      - name: Build native Linux detex for CUE4Parse
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$RUNNER_TEMP/detex"
+          git clone --depth 1 https://github.com/hglm/detex.git "$RUNNER_TEMP/detex"
+          cd "$RUNNER_TEMP/detex"
+          sed -i -E 's/^LIBRARY_CONFIGURATION[[:space:]]*=.*/LIBRARY_CONFIGURATION = SHARED/' Makefile.conf
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("detex.h")
+          s=p.read_text()
+          old="DETEX_API bool detexDecompressTextureLinear"
+          new="DETEX_HELPER_SHARED_EXPORT bool detexDecompressTextureLinear"
+          if old in s:
+              s=s.replace(old,new)
+          p.write_text(s)
+          PY
+          make -j2
+          DETEX_SO=$(find . -type f \( -name 'libdetex.so' -o -name 'libdetex.so.*' \) | sort | tail -1)
+          test -n "$DETEX_SO"
+          cp "$DETEX_SO" /tmp/Detex.dll
+          file /tmp/Detex.dll
+          ldd /tmp/Detex.dll || true
+          echo "XZOGOT_CUE4PARSE_LINUX_DETEX_READY $DETEX_SO"
+
       - name: Export UE5 Aether weapon meshes animations textures and sounds
         shell: bash
         run: |
