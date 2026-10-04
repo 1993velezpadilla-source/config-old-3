@@ -23,6 +23,11 @@ var flame_visible_distance_m: float = 26.0
 var _phase: float = 0.0
 var _time: float = 0.0
 var _light_budget_enabled: bool = false
+var _event_timer: float = 0.0
+var _event_duration: float = 0.0
+var _event_strength: float = 0.0
+var _event_phase: float = 0.0
+var _round_instability: float = 0.0
 var _flame_outer: MeshInstance3D
 var _flame_inner: MeshInstance3D
 var _wick: MeshInstance3D
@@ -207,6 +212,23 @@ func get_light_anchor_position() -> Vector3:
 		return _light.global_position
 	return global_position
 
+func trigger_event_flicker(duration: float, strength: float, phase_offset: float = 0.0) -> void:
+	if state == FlameState.OFF:
+		return
+	_event_duration = maxf(duration, 0.01)
+	_event_timer = _event_duration
+	_event_strength = clampf(strength, 0.0, 1.0)
+	_event_phase = phase_offset
+
+func set_round_instability(round_number: int) -> void:
+	if round_number < 8:
+		_round_instability = 0.0
+		return
+	_round_instability = clampf(float(round_number - 7) * 0.012, 0.0, 0.16)
+
+func is_event_active() -> bool:
+	return _event_timer > 0.0
+
 func get_state_name() -> String:
 	match state:
 		FlameState.OFF:
@@ -225,6 +247,7 @@ func _process(delta: float) -> void:
 	if state == FlameState.OFF:
 		return
 	_time += delta
+	_event_timer = maxf(0.0, _event_timer - delta)
 
 	var speed: float = 5.1
 	if state == FlameState.DIM:
@@ -238,10 +261,21 @@ func _process(delta: float) -> void:
 	var b: float = sin(_time * speed * 1.77 + _phase * 2.3)
 	var d: float = sin(_time * speed * 0.47 + _phase * 0.71)
 	var flicker: float = a * 0.55 + b * 0.30 + d * 0.15
-	var amount: float = _state_flicker_amount()
+	var amount: float = _state_flicker_amount() + _round_instability
 	var gain: float = _state_gain()
 
-	var sway_x: float = sin(_time * speed * 0.61 + _phase) * 0.020 * world_scale
+	var event_wave: float = 0.0
+	var event_envelope: float = 0.0
+	if _event_timer > 0.0:
+		var progress: float = 1.0 - (_event_timer / maxf(_event_duration, 0.01))
+		event_envelope = sin(progress * PI)
+		event_wave = (
+			sin(_time * 20.0 + _phase + _event_phase) * 0.62
+			+ sin(_time * 33.0 + _phase * 1.7 + _event_phase) * 0.38
+		) * _event_strength * event_envelope
+		flicker += event_wave
+
+	var sway_x: float = sin(_time * speed * 0.61 + _phase) * (0.020 + event_envelope * _event_strength * 0.018) * world_scale
 	var sway_z: float = cos(_time * speed * 0.49 + _phase * 1.3) * 0.014 * world_scale
 	var flame_scale: float = 1.0 + flicker * (0.08 + amount * 0.22)
 
@@ -260,6 +294,7 @@ func _process(delta: float) -> void:
 
 	if _light != null and _light.visible:
 		var energy_flicker: float = 1.0 + flicker * amount
-		_light.light_energy = maxf(0.05, base_energy * gain * energy_flicker)
+		var event_gain: float = 1.0 + event_wave * 0.38
+		_light.light_energy = maxf(0.05, base_energy * gain * energy_flicker * event_gain)
 		var warmth: float = clampf(0.42 + flicker * 0.045, 0.34, 0.52)
 		_light.light_color = Color(1.0, warmth, 0.105 + warmth * 0.11)
