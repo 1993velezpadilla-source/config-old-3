@@ -1,0 +1,113 @@
+name: Author Elite Black White Monja
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/church-expansion-v1
+    paths:
+      - "xogot/assets/zombies/monja_elite/source/monja_black_white.glb"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: xogot-monja-elite-author-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  author:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Install Blender headless dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender python3-numpy libegl1 libgl1-mesa-dri mesa-utils
+          blender --version | head -n 2
+
+      - name: Feed elite source through clean Monja rig pipeline
+        shell: bash
+        run: |
+          set -euo pipefail
+          ELITE=xogot/assets/zombies/monja_elite/source/monja_black_white.glb
+          test -s "$ELITE"
+          cp "$ELITE" xogot/assets/zombies/monja_basica.glb
+          rm -rf xogot/build/monja-clean-blender-rig
+          mkdir -p xogot/build/monja-clean-blender-rig
+          timeout 3000 blender -b --python xogot/tools/author_monja_clean_blender_rig.py             2>&1 | tee xogot/build/monja-clean-blender-rig/blender.log
+          grep -q "XZOGOT_MONJA_CLEAN_BINDPOSE_GREEN" xogot/build/monja-clean-blender-rig/blender.log
+          grep -q "XZOGOT_MONJA_CLEAN_WEIGHTS_GREEN" xogot/build/monja-clean-blender-rig/blender.log
+          grep -q "XZOGOT_MONJA_CLEAN_ACTIONS_GREEN" xogot/build/monja-clean-blender-rig/blender.log
+          grep -q "XZOGOT_MONJA_CLEAN_RIG_GREEN" xogot/build/monja-clean-blender-rig/blender.log
+
+      - name: Validate and relabel elite output
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("xogot/build/monja-clean-blender-rig/report.json")
+          r=json.loads(p.read_text())
+          assert r["geometry_conserved"] is True
+          assert r["armatures"] == 1
+          assert r["bones"] >= 20
+          assert r["rig_mode"] == "smooth_weighted_humanoid_bind_pose"
+          assert r["old_rigid_region_parenting"] is False
+          assert all(x["coverage"] >= 0.98 for x in r["weight_transfer"])
+          names=" ".join(r["actions"]).lower()
+          for required in ("zombie_idle_clean","zombie_walk_clean","zombie_attack_clean"):
+              assert required in names,(required,r["actions"])
+          r["pipeline"]="elite_black_white_clean_blender_rig_v1"
+          r["source"]="assets/zombies/monja_elite/source/monja_black_white.glb"
+          r["gameplay_role"]="elite_nun"
+          p.write_text(json.dumps(r,indent=2)+"\n")
+          print("XZOGOT_ELITE_MONJA_REPORT_GREEN",r["bones"],r["output_bytes"])
+          PY
+
+      - name: Stage elite runtime asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p xogot/assets/zombies/monja_elite
+          cp xogot/build/monja-clean-blender-rig/monja_basica_clean_rig.glb              xogot/assets/zombies/monja_elite/monja_black_white_clean_rig.glb
+          cp xogot/build/monja-clean-blender-rig/report.json              xogot/assets/zombies/monja_elite/rig_report.json
+          git checkout -- xogot/assets/zombies/monja_basica.glb
+
+      - name: Commit elite Monja
+        shell: bash
+        run: |
+          set -euo pipefail
+          SIZE=$(stat -c%s xogot/assets/zombies/monja_elite/monja_black_white_clean_rig.glb)
+          if [ "$SIZE" -ge 95000000 ]; then
+            echo "Elite GLB too large for normal Git: $SIZE"
+            exit 3
+          fi
+          git config user.name "XZOGOT Asset Bot"
+          git config user.email "xogot-asset-bot@users.noreply.github.com"
+          git pull --rebase origin feature/church-expansion-v1
+          git add xogot/assets/zombies/monja_elite/monja_black_white_clean_rig.glb                   xogot/assets/zombies/monja_elite/rig_report.json
+          if ! git diff --cached --quiet; then
+            git commit -m "asset: add clean-rigged elite black white Monja"
+            git push origin HEAD:feature/church-expansion-v1
+          fi
+
+      - name: Upload elite Monja proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: monja-elite-clean-rig-proof
+          path: |
+            xogot/build/monja-clean-blender-rig/report.json
+            xogot/build/monja-clean-blender-rig/blender.log
+            xogot/build/monja-clean-blender-rig/bind_pose.png
+            xogot/build/monja-clean-blender-rig/walk_mid.png
+          if-no-files-found: warn
+          retention-days: 14
