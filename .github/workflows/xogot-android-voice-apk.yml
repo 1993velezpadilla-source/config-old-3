@@ -75,6 +75,31 @@ jobs:
           echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey" >> "$GITHUB_ENV"
           echo "GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android" >> "$GITHUB_ENV"
 
+      - name: Refuse placeholder weapon APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          manifest=Path("xogot/assets/weapons/mapmod_weapon_asset_manifest.json")
+          data=json.loads(manifest.read_text(encoding="utf-8"))
+          required=("colt","m1","mp40","trench","thompson")
+          missing=[]
+          for wid in required:
+              rec=data["weapons"][wid]["runtime"]
+              vm=str(rec.get("viewmodel","")).replace("res://","xogot/")
+              fire=str(rec.get("audio",{}).get("fire","")).replace("res://","xogot/")
+              if not vm or not Path(vm).is_file():
+                  missing.append(f"{wid}:viewmodel")
+              if not fire or not Path(fire).is_file():
+                  missing.append(f"{wid}:fire_sfx")
+          if missing:
+              raise SystemExit("REFUSING BLOCK-GUN APK; real weapon assets missing: " + ", ".join(missing))
+          print("XZOGOT_NO_PLACEHOLDER_WEAPON_APK_GREEN")
+          PY
+
       - name: Import Xogot project
         shell: bash
         run: |
