@@ -125,7 +125,7 @@ jobs:
           $ErrorActionPreference = 'Continue'
           Remove-Item recovered-probe -Recurse -Force -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Force -Path recovered-probe | Out-Null
-          & "$env:CUE4PARSE" -i "$env:AETHER_PAKDIR" -g GAME_UE5_7 -m "$PWD\Mappings.usmap" -p '*Weapons/waw/M1Garand/M1Garand.uasset' -o recovered-probe -y -v --mesh-format Gltf2 --anim-format ActorX --mesh-quality Highest --export-materials false 2>&1 | Tee-Object -FilePath cue4parse-probe.log
+          & "$env:CUE4PARSE" -i "$env:AETHER_PAKDIR" -g GAME_UE5_7 -m "$PWD\Mappings.usmap" -p '*Weapons/waw/M1Garand/M1Garand.uasset' -o recovered-probe -y -v --mesh-format Gltf2 --anim-format ActorX --mesh-quality Highest --export-materials true 2>&1 | Tee-Object -FilePath cue4parse-probe.log
           $mesh=Get-ChildItem recovered-probe -Recurse -File | Where-Object { $_.Extension -in '.gltf','.glb','.psk','.pskx','.uemodel' }
           Write-Host "XZOGOT_M1_MAPPING_PROBE meshes=$($mesh.Count)"
           if ($mesh.Count -lt 1) { throw 'Mapped M1 Garand mesh export produced no mesh' }
@@ -142,7 +142,7 @@ jobs:
           '@ | Set-Content aether-waw-export.txt -Encoding ascii
           Remove-Item recovered-export -Recurse -Force -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Force -Path recovered-export | Out-Null
-          & "$env:CUE4PARSE" -i "$env:AETHER_PAKDIR" -g GAME_UE5_7 -m "$PWD\Mappings.usmap" -c aether-waw-export.txt -o recovered-export -y -v --mesh-format Gltf2 --anim-format ActorX --mesh-quality Highest --export-materials false 2>&1 | Tee-Object -FilePath cue4parse-full.log
+          & "$env:CUE4PARSE" -i "$env:AETHER_PAKDIR" -g GAME_UE5_7 -m "$PWD\Mappings.usmap" -c aether-waw-export.txt -o recovered-export -y -v --mesh-format Gltf2 --anim-format ActorX --mesh-quality Highest --export-materials true 2>&1 | Tee-Object -FilePath cue4parse-full.log
           $files=Get-ChildItem recovered-export -Recurse -File
           $mesh=@($files | Where-Object { $_.Extension -in '.gltf','.glb','.psk','.pskx','.uemodel' })
           $anim=@($files | Where-Object { $_.Extension -in '.psa','.ueanim' })
@@ -172,7 +172,7 @@ jobs:
           '@ | Set-Content aether-waw-anims.txt -Encoding ascii
           Remove-Item recovered-actorx -Recurse -Force -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Force -Path recovered-actorx | Out-Null
-          & "$env:CUE4PARSE" -i "$env:AETHER_PAKDIR" -g GAME_UE5_7 -m "$PWD\\Mappings.usmap" -c aether-waw-anims.txt -o recovered-actorx -y -v --mesh-format ActorX --mesh-quality Highest --export-materials false 2>&1 | Tee-Object -FilePath cue4parse-actorx.log
+          & "$env:CUE4PARSE" -i "$env:AETHER_PAKDIR" -g GAME_UE5_7 -m "$PWD\\Mappings.usmap" -c aether-waw-anims.txt -o recovered-actorx -y -v --mesh-format ActorX --mesh-quality Highest --export-materials true 2>&1 | Tee-Object -FilePath cue4parse-actorx.log
           $psa=@(Get-ChildItem recovered-actorx -Recurse -File -Filter '*.psa')
           $psk=@(Get-ChildItem recovered-actorx -Recurse -File | Where-Object { $_.Extension -in '.psk','.pskx' })
           $names=@($psa | Select-Object -ExpandProperty BaseName | Sort-Object -Unique)
