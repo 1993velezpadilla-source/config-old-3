@@ -53,21 +53,24 @@ def canonical(name):
     swaps={
       "pelvis":"hips","hip":"hips",
       "spine01":"spine","spine02":"spine1","spine03":"spine2",
-      "leftupperarm":"leftarm","lupperarm":"leftarm",
-      "rightupperarm":"rightarm","rupperarm":"rightarm",
-      "leftthigh":"leftupleg","lthigh":"leftupleg",
-      "rightthigh":"rightupleg","rthigh":"rightupleg",
+      "upperarml":"leftarm","leftupperarm":"leftarm","lupperarm":"leftarm",
+      "upperarmr":"rightarm","rightupperarm":"rightarm","rupperarm":"rightarm",
+      "claviclel":"leftshoulder","clavicler":"rightshoulder",
+      "thighl":"leftupleg","leftthigh":"leftupleg","lthigh":"leftupleg",
+      "thighr":"rightupleg","rightthigh":"rightupleg","rthigh":"rightupleg",
+      "calfl":"leftleg","calfr":"rightleg",
+      "neck01":"neck",
     }
     return swaps.get(s,s)
 
 def choose_bone(arm,key):
     prefs={
-      "torso":["spine2","spine1","spine","hips"],
-      "head":["head","neck"],
-      "left_arm":["leftarm","leftupperarm","leftshoulder"],
-      "right_arm":["rightarm","rightupperarm","rightshoulder"],
-      "left_leg":["leftupleg","leftthigh","leftleg"],
-      "right_leg":["rightupleg","rightthigh","rightleg"],
+      "torso":["spine_03","spine03","spine2","spine_02","spine02","spine1","spine","pelvis","hips"],
+      "head":["Head","head","neck_01","neck"],
+      "left_arm":["upperarm_l","leftarm","leftupperarm","clavicle_l","leftshoulder"],
+      "right_arm":["upperarm_r","rightarm","rightupperarm","clavicle_r","rightshoulder"],
+      "left_leg":["thigh_l","leftupleg","leftthigh","calf_l","leftleg"],
+      "right_leg":["thigh_r","rightupleg","rightthigh","calf_r","rightleg"],
     }[key]
     bones=list(arm.data.bones)
     by={canonical(b.name):b.name for b in bones}
