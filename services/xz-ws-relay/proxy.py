@@ -4,6 +4,7 @@ import json
 import os
 import signal
 import subprocess
+import threading
 import time
 from dataclasses import dataclass
 from urllib.parse import parse_qs, parse_qsl, urlencode, urlsplit
@@ -16,6 +17,7 @@ ROOM_CAPACITY = 4
 RPC_SCENE_ROOT = "YouWontWin"
 RUNTIME_CONTRACT = "multiroom-reconnect-v5"
 READY_DELAY = max(0.1, float(os.environ.get("XZ_RELAY_READY_DELAY", "8")))
+READY_TIMEOUT_SECONDS = max(15.0, float(os.environ.get("XZ_RELAY_READY_TIMEOUT_SECONDS", "35")))
 ROOM_IDLE_SECONDS = max(10.0, float(os.environ.get("XZ_RELAY_ROOM_IDLE_SECONDS", "90")))
 RECONNECT_GRACE_SECONDS = max(10.0, float(os.environ.get("XZ_RELAY_RECONNECT_GRACE_SECONDS", "45")))
 GODOT_BIN = os.environ.get("XZ_GODOT_BIN", ".render/godot/Godot_v4.6.1-stable_linux.x86_64")
@@ -28,6 +30,7 @@ class Room:
     started_at: float
     connections: int = 0
     last_used: float = 0.0
+    ready: bool = False
 
 @dataclass
 class ResumeRoute:
@@ -44,7 +47,29 @@ def room_alive(room):
     return room is not None and room.child.poll() is None
 
 def room_ready(room):
-    return room_alive(room) and (time.monotonic() - room.started_at) >= READY_DELAY
+    return room_alive(room) and room.ready
+
+def pump_room_output(room):
+    stream = room.child.stdout
+    if stream is None:
+        return
+    marker = f"XZOGOT_PUBLIC_RELAY_HEADLESS_SCENE_GREEN room={room.room_id}"
+    try:
+        for raw_line in stream:
+            line = raw_line.rstrip("\r\n")
+            if line:
+                print(line, flush=True)
+            if marker in line and not room.ready:
+                room.ready = True
+                print(
+                    f"XZ_RELAY_ROOM_READY id={room.room_id} port={room.port}",
+                    flush=True,
+                )
+    except Exception as exc:
+        print(
+            f"XZ_RELAY_ROOM_LOG_PUMP_ERROR id={room.room_id} error={exc}",
+            flush=True,
+        )
 
 def valid_resume_token(token):
     if not token or len(token) < 16 or len(token) > 96:
@@ -114,7 +139,14 @@ def start_room():
         "--script",
         "res://server/public_ws_dedicated.gd",
     ]
-    child = subprocess.Popen(cmd, env=env)
+    child = subprocess.Popen(
+        cmd,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+    )
     stamp = time.monotonic()
     room = Room(
         room_id=room_id,
@@ -124,6 +156,12 @@ def start_room():
         last_used=stamp,
     )
     _rooms[room_id] = room
+    threading.Thread(
+        target=pump_room_output,
+        args=(room,),
+        name=f"xz-room-log-{room_id}",
+        daemon=True,
+    ).start()
     print(
         f"XZ_RELAY_ROOM_SPAWN id={room_id} port={port} pid={child.pid} "
         f"capacity={ROOM_CAPACITY} warm_rooms={MIN_WARM_ROOMS}",
@@ -249,7 +287,7 @@ async def release_room(room, resume_token=""):
         )
 
 async def wait_room_ready(room):
-    deadline = time.monotonic() + max(READY_DELAY + 10.0, 15.0)
+    deadline = time.monotonic() + READY_TIMEOUT_SECONDS
     while time.monotonic() < deadline:
         if not room_alive(room):
             return False
@@ -333,6 +371,8 @@ async def handle_http(method, path, writer):
             "rpc_scene_root": RPC_SCENE_ROOT,
             "runtime_contract": RUNTIME_CONTRACT,
             "reconnect_grace_seconds": RECONNECT_GRACE_SECONDS,
+            "room_ready_contract": "godot-marker-v1",
+            "room_ready_timeout_seconds": READY_TIMEOUT_SECONDS,
             "room_capacity": ROOM_CAPACITY,
             "max_rooms": MAX_ROOMS,
             "min_warm_rooms": MIN_WARM_ROOMS,
