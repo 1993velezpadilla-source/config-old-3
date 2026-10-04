@@ -1057,7 +1057,7 @@ func start_find_match(discovery_port: int = 7778) -> Error:
 	var err: int = int(discovery.call("start_discovery", discovery_port))
 	if err == OK:
 		print("XZOGOT_NETWORK_FIND_MATCH_READY port=", discovery_port)
-	return err as Error
+	return err
 
 func stop_find_match() -> void:
 	var discovery: Node = _discovery()
