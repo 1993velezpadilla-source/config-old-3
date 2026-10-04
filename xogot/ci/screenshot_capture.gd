@@ -1,5 +1,6 @@
 extends SceneTree
 
+# Church V3 sanctuary + window-light readability capture.
 # Final grounded altar-facing furniture capture.
 
 # Normalized altar bench + Monja facing capture.
