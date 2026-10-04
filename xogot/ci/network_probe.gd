@@ -259,6 +259,93 @@ func _run() -> void:
 	print("XZOGOT_NETWORK_LOADOUT_AUTHORITY_GREEN damage=", spoof_damage)
 	print("XZOGOT_NETWORK_SHARED_ECONOMY_GREEN")
 
+	# Global Max Ammo must refill the authoritative remote Weapon state too.
+	remote_weapon.set("_magazine", 0)
+	remote_weapon.set("reserve_ammo", 0)
+	if not bool(powerups.call("collect_powerup", "max_ammo", proxy)):
+		_fail(59, "host Max Ammo collection failed")
+		return
+	if int(remote_weapon.call("get_magazine")) <= 0 or int(remote_weapon.call("get_reserve")) <= 0:
+		_fail(60, "Max Ammo did not refill remote authoritative weapon")
+		return
+	print("XZOGOT_NETWORK_MAX_AMMO_GREEN")
+
+	# Client display state comes from host snapshots, not a second simulation.
+	rounds.call("apply_network_round_state", 7, 52, 0, 0, 3.5)
+	if int(rounds.call("get_round")) != 7 or not bool(rounds.call("is_between_rounds")):
+		_fail(61, "authoritative round snapshot did not apply")
+		return
+	if absf(float(rounds.call("get_round_break_remaining")) - 3.5) > 0.01:
+		_fail(62, "network intermission timer wrong")
+		return
+	powerups.call("apply_network_effect_state", 12.0, 8.0)
+	var effects: Dictionary = powerups.call("get_active_effects") as Dictionary
+	if not effects.has("double_points") or not effects.has("insta_kill"):
+		_fail(63, "network timed power-up effects did not apply")
+		return
+	print("XZOGOT_NETWORK_ROUND_STATE_GREEN")
+	print("XZOGOT_NETWORK_POWERUP_EFFECTS_GREEN")
+
+	# Existing host pickups are included for late join and client visual proxies
+	# never collect themselves when the local player walks through them.
+	var host_drop: Node3D = powerups.call(
+		"spawn_powerup",
+		"double_points",
+		Vector3(60.0, 0.5, 60.0)
+	) as Node3D
+	if host_drop == null:
+		_fail(64, "host power-up drop setup failed")
+		return
+	var session_snapshot: Dictionary = network.call("_build_session_snapshot") as Dictionary
+	var pickup_states: Array = session_snapshot.get("pickups", []) as Array
+	if int(session_snapshot.get("round", 0)) != 7 or pickup_states.is_empty():
+		_fail(65, "session snapshot missing round or pickup")
+		return
+	powerups.call("apply_network_pickup_snapshot", pickup_states)
+	if int(powerups.call("get_network_pickup_count")) != 1:
+		_fail(66, "client power-up proxy was not created")
+		return
+	var network_pickup: Node3D = null
+	for pickup_node: Node in get_nodes_in_group("xz_powerup_pickup"):
+		if bool(pickup_node.get_meta("network_proxy", false)) and pickup_node is Node3D:
+			network_pickup = pickup_node as Node3D
+			break
+	if network_pickup == null:
+		_fail(67, "network pickup proxy node missing")
+		return
+	network_pickup.global_position = (player as Node3D).global_position
+	await process_frame
+	await process_frame
+	if not is_instance_valid(network_pickup) or int(powerups.call("get_network_pickup_count")) != 1:
+		_fail(68, "network visual pickup collected locally")
+		return
+	print("XZOGOT_NETWORK_POWERUP_PICKUP_GREEN")
+
+	# Late join captures persistent doors/power/barricades plus the session.
+	var late_snapshot: Dictionary = network.call("_build_late_join_snapshot") as Dictionary
+	var late_interactions: Array = late_snapshot.get("interactions", []) as Array
+	var late_barricades: Array = late_snapshot.get("barricades", []) as Array
+	if late_interactions.size() < 2:
+		_fail(69, "late-join snapshot missing persistent world interactions")
+		return
+	if late_barricades.size() < 8:
+		_fail(70, "late-join snapshot missing barricade states")
+		return
+	var late_session: Dictionary = late_snapshot.get("session", {}) as Dictionary
+	if int(late_session.get("round", 0)) != 7:
+		_fail(71, "late-join session round missing")
+		return
+	print(
+		"XZOGOT_NETWORK_LATE_JOIN_STATE_GREEN interactions=",
+		late_interactions.size(),
+		" barricades=", late_barricades.size()
+	)
+
+	powerups.call("apply_network_pickup_snapshot", [])
+	powerups.call("debug_clear_timed_effects")
+	host_drop.queue_free()
+	await process_frame
+
 	# Client mode must not run a second independent round/power-up simulation.
 	network.call("_set_client_simulation", true)
 	if not bool(rounds.get("_dev_no_zombies")):
