@@ -1,13 +1,16 @@
 extends StaticBody3D
 
-@export var max_boards: int = 3
-@export var board_health: float = 50.0
+@export var max_boards: int = 6
+@export var board_health: float = 42.0
 @export var repair_reward: int = 10
+@export var repair_reward_cap_per_round: int = 60
 
-var _boards: int = 3
-var _health: float = 150.0
+var _boards: int = 6
+var _health: float = 252.0
 var _broken: bool = false
 var _board_nodes: Array[MeshInstance3D] = []
+var _repair_round: int = 0
+var _repair_reward_this_round: int = 0
 
 func _ready() -> void:
 	_boards = max_boards
@@ -15,40 +18,54 @@ func _ready() -> void:
 	add_to_group("zombie_barricade")
 	_build_visuals()
 	_refresh_state()
-	print("XZOGOT_BARRICADE_READY ", name)
+	print("XZOGOT_BARRICADE_READY ", name, " boards=", max_boards)
 
 func _build_visuals() -> void:
 	var wood := StandardMaterial3D.new()
 	wood.albedo_color = Color(0.22, 0.12, 0.055)
 	wood.roughness = 0.88
 
+	# Six planks overlap vertically like classic round-based window barricades.
+	# Alternating angles prevent the perfect toy-like ladder look.
+	var angles: Array[float] = [-7.0, 5.0, -3.0, 8.0, -5.0, 4.0]
 	for i in range(max_boards):
 		var board := MeshInstance3D.new()
 		board.name = "Board_%d" % i
 		var mesh := BoxMesh.new()
-		mesh.size = Vector3(0.20, 0.26, 2.45)
+		mesh.size = Vector3(0.20, 0.24, 2.52)
 		mesh.material = wood
 		board.mesh = mesh
-		board.position = Vector3(0.0, -0.62 + float(i) * 0.62, 0.0)
+		board.position = Vector3(0.0, -0.93 + float(i) * 0.37, 0.0)
+		board.rotation_degrees.x = angles[i % angles.size()]
 		add_child(board)
 		_board_nodes.append(board)
 
 	var cs := CollisionShape3D.new()
 	cs.name = "BarricadeCollision"
 	var shape := BoxShape3D.new()
-	shape.size = Vector3(0.24, 2.15, 2.55)
+	shape.size = Vector3(0.24, 2.30, 2.62)
 	cs.shape = shape
 	add_child(cs)
+
+func begin_round(round_number: int) -> void:
+	if round_number == _repair_round:
+		return
+	_repair_round = round_number
+	_repair_reward_this_round = 0
 
 func zombie_damage(amount: float) -> bool:
 	if _boards <= 0 or amount <= 0.0:
 		return false
+
+	var before: int = _boards
 	_health = maxf(0.0, _health - amount)
 	var target_boards: int = ceili(_health / board_health)
 	target_boards = clampi(target_boards, 0, max_boards)
 	if target_boards != _boards:
 		_boards = target_boards
 		_refresh_state()
+		print("XZOGOT_BARRICADE_PLANK_LOST ", name, " ", before, "->", _boards)
+
 	if _boards <= 0:
 		_broken = true
 		_refresh_state()
@@ -58,13 +75,36 @@ func zombie_damage(amount: float) -> bool:
 func interact(player: Node) -> bool:
 	if _boards >= max_boards:
 		return false
+
 	_boards += 1
-	_health = minf(float(max_boards) * board_health, maxf(_health, float(_boards) * board_health))
+	_health = minf(
+		float(max_boards) * board_health,
+		maxf(_health, float(_boards) * board_health)
+	)
 	_broken = false
 	_refresh_state()
-	if player != null and player.has_method("add_points"):
-		player.call("add_points", repair_reward)
-	print("XZOGOT_BARRICADE_REPAIRED ", name, " ", _boards)
+
+	var awarded: int = 0
+	if (
+		player != null
+		and player.has_method("add_points")
+		and _repair_reward_this_round < repair_reward_cap_per_round
+	):
+		awarded = mini(
+			repair_reward,
+			repair_reward_cap_per_round - _repair_reward_this_round
+		)
+		if awarded > 0:
+			player.call("add_points", awarded)
+			_repair_reward_this_round += awarded
+
+	print(
+		"XZOGOT_BARRICADE_REPAIRED ",
+		name,
+		" boards=", _boards,
+		" reward=", awarded,
+		" round_budget=", _repair_reward_this_round
+	)
 	return true
 
 func _refresh_state() -> void:
@@ -76,6 +116,12 @@ func _refresh_state() -> void:
 
 func get_boards() -> int:
 	return _boards
+
+func get_max_boards() -> int:
+	return max_boards
+
+func get_repair_reward_this_round() -> int:
+	return _repair_reward_this_round
 
 func is_broken() -> bool:
 	return _broken or _boards <= 0
