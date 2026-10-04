@@ -1,0 +1,169 @@
+name: Xogot Public Game Live
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/church-expansion-v1
+    paths:
+      - ".github/workflows/xogot-public-game-live.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xogot-public-game-live
+  cancel-in-progress: true
+
+jobs:
+  public-game-4p:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Godot 4.6.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/godot.zip
+          rm -rf /tmp/godot
+          mkdir -p /tmp/godot
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+
+      - name: Prepare public game client probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > xogot/ci/public_game_live_client.gd <<'GDSCRIPT'
+          extends SceneTree
+
+          const URL := "wss://xz-zombie-relay-gateway.onrender.com"
+          const TIMEOUT_MS := 45000
+
+          func _init() -> void:
+              call_deferred("_run")
+
+          func _tag() -> String:
+              var args := OS.get_cmdline_user_args()
+              return args[0] if not args.is_empty() else "client"
+
+          func _fail(code: int, message: String) -> void:
+              push_error("PUBLIC_GAME_LIVE_CLIENT: " + message)
+              quit(code)
+
+          func _run() -> void:
+              var tag := _tag()
+              var packed := load("res://main.tscn") as PackedScene
+              if packed == null:
+                  _fail(2, "main scene missing " + tag)
+                  return
+              var scene := packed.instantiate()
+              root.add_child(scene)
+              await process_frame
+              await process_frame
+
+              var network: Node = scene.get_node_or_null("NetworkManager")
+              var rounds: Node = scene.get_node_or_null("RoundManager")
+              if network == null or rounds == null:
+                  _fail(3, "network runtime missing " + tag)
+                  return
+
+              var err: Error = network.call("join_websocket_game", URL) as Error
+              if err != OK:
+                  _fail(4, "join failed " + tag + " err=" + str(err))
+                  return
+              print("XZ_PUBLIC_GAME_CLIENT_JOINING ", tag)
+
+              var deadline := Time.get_ticks_msec() + TIMEOUT_MS
+              while Time.get_ticks_msec() < deadline:
+                  var connected := str(network.call("get_mode")) == "client"
+                  var transport_ok := str(network.call("get_transport")) == "websocket"
+                  var ids: PackedInt32Array = network.call("get_roster_ids") as PackedInt32Array
+                  var proxies := get_nodes_in_group("network_remote_player")
+                  var round_id := int(rounds.call("get_round"))
+                  if connected and transport_ok and ids.size() == 4 and proxies.size() == 3 and round_id >= 1:
+                      if ids.has(1):
+                          _fail(5, "dedicated authority leaked into human roster " + tag + " ids=" + str(ids))
+                          return
+                      print("XZ_PUBLIC_GAME_CLIENT_ROSTER_GREEN ", tag, " ", ids)
+                      print("XZ_PUBLIC_GAME_CLIENT_PROXIES_GREEN ", tag, " 3")
+                      print("XZ_PUBLIC_GAME_CLIENT_ROUND_GREEN ", tag, " round=", round_id)
+                      var stable_deadline := Time.get_ticks_msec() + 5000
+                      while Time.get_ticks_msec() < stable_deadline:
+                          if str(network.call("get_mode")) != "client":
+                              _fail(6, "lost public relay during stability window " + tag)
+                              return
+                          if int(network.call("get_connected_player_count")) != 4:
+                              _fail(7, "roster changed during stability window " + tag)
+                              return
+                          await create_timer(0.05).timeout
+                      print("XZ_PUBLIC_GAME_CLIENT_STABLE_GREEN ", tag)
+                      print("XZ_PUBLIC_GAME_CLIENT_GREEN ", tag)
+                      network.call("leave_game")
+                      scene.queue_free()
+                      await process_frame
+                      quit(0)
+                      return
+                  await create_timer(0.05).timeout
+
+              _fail(
+                  8,
+                  "timeout %s mode=%s transport=%s roster=%d proxies=%d round=%d" % [
+                      tag,
+                      str(network.call("get_mode")),
+                      str(network.call("get_transport")),
+                      int(network.call("get_connected_player_count")),
+                      get_nodes_in_group("network_remote_player").size(),
+                      int(rounds.call("get_round")),
+                  ]
+              )
+          GDSCRIPT
+
+      - name: Verify four full game clients over public WSS
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/public-game-live
+          for IDX in 1 2 3 4; do
+            timeout 65 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+              --headless --path xogot --script res://ci/public_game_live_client.gd -- "client${IDX}" \
+              >"build/public-game-live/client${IDX}.log" 2>&1 &
+            eval "P${IDX}=$!"
+          done
+
+          set +e
+          wait "$P1"; R1=$?
+          wait "$P2"; R2=$?
+          wait "$P3"; R3=$?
+          wait "$P4"; R4=$?
+          set -e
+
+          for IDX in 1 2 3 4; do
+            LOG="build/public-game-live/client${IDX}.log"
+            cat "$LOG"
+            grep -q "XZ_PUBLIC_GAME_CLIENT_ROSTER_GREEN client${IDX}" "$LOG"
+            grep -q "XZ_PUBLIC_GAME_CLIENT_PROXIES_GREEN client${IDX} 3" "$LOG"
+            grep -q "XZ_PUBLIC_GAME_CLIENT_ROUND_GREEN client${IDX}" "$LOG"
+            grep -q "XZ_PUBLIC_GAME_CLIENT_STABLE_GREEN client${IDX}" "$LOG"
+            grep -q "XZ_PUBLIC_GAME_CLIENT_GREEN client${IDX}" "$LOG"
+            ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|PUBLIC_GAME_LIVE_CLIENT:" "$LOG"
+          done
+
+          test "$R1" -eq 0
+          test "$R2" -eq 0
+          test "$R3" -eq 0
+          test "$R4" -eq 0
+          echo "XZ_PUBLIC_GAME_4P_LIVE_GATE_GREEN"
+
+      - name: Upload public game logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Public-Game-Live-logs
+          path: build/public-game-live/
+          if-no-files-found: warn
+          retention-days: 7
