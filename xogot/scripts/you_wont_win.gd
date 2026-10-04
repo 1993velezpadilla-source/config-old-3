@@ -251,10 +251,12 @@ func _build_church_second_floor_v1(stone: Color, dark_stone: Color, timber: Colo
 	var gallery_y: float = 5.02
 	var rail_y: float = 5.78
 
+	# West gallery stops before the stair volume so a standing player has full
+	# head clearance all the way up the existing ramp.
 	_box(
 		"SecondFloorWestGallery",
-		Vector3(3.35, 0.28, 27.0),
-		Vector3(-8.35, gallery_y, -6.0),
+		Vector3(3.35, 0.28, 19.50),
+		Vector3(-8.35, gallery_y, -9.75),
 		Color(0.095, 0.080, 0.060)
 	)
 	_box(
@@ -270,6 +272,13 @@ func _build_church_second_floor_v1(stone: Color, dark_stone: Color, timber: Colo
 		"SecondFloorChoirBridge",
 		Vector3(16.70, 0.30, 3.10),
 		Vector3(0.0, gallery_y, -18.15),
+		Color(0.090, 0.075, 0.055)
+	)
+	# Mid bridge closes the upper loop while leaving the stairwell volume open.
+	_box(
+		"SecondFloorMidBridge",
+		Vector3(16.70, 0.30, 2.20),
+		Vector3(0.0, gallery_y, -0.10),
 		Color(0.090, 0.075, 0.055)
 	)
 
@@ -291,8 +300,8 @@ func _build_church_second_floor_v1(stone: Color, dark_stone: Color, timber: Colo
 	# Inner rails are real collision. The outer church wall itself protects the outside edge.
 	_box(
 		"SecondFloorWestInnerRail",
-		Vector3(0.20, 1.35, 27.0),
-		Vector3(-6.63, rail_y, -6.0),
+		Vector3(0.20, 1.35, 19.50),
+		Vector3(-6.63, rail_y, -9.75),
 		timber
 	)
 	_box(
