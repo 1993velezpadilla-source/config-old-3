@@ -197,6 +197,17 @@ jobs:
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-ai/dev-menu-probe.log
           echo "XOGOT_RELEASE_DEV_LAB_GREEN"
 
+      - name: Verify split gift runtime contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 75 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/gift_runtime_probe.gd \
+            2>&1 | tee build/xogot-ai/gift-runtime-probe.log
+          grep -q "XZOGOT_GIFT_RUNTIME_CONTRACT_GREEN" build/xogot-ai/gift-runtime-probe.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-ai/gift-runtime-probe.log
+          echo "XZOGOT_GIFT_RUNTIME_GATE_GREEN"
+
       - name: Upload AI Godot logs
         if: always()
         uses: actions/upload-artifact@v4
