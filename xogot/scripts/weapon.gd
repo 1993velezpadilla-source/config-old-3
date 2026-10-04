@@ -38,6 +38,14 @@ var _reload_audio: AudioStreamPlayer3D
 var _mechanical_audio: AudioStreamPlayer3D
 var _dry_fire_audio: AudioStreamPlayer3D
 var _asset_animation_player: AnimationPlayer
+var _weapon_model_root: Node3D
+var _muzzle_anchor: Node3D
+var _shell_anchor: Node3D
+var _muzzle_flash_root: Node3D
+var _muzzle_light: OmniLight3D
+var _smoke_particles: GPUParticles3D
+var _shell_particles: GPUParticles3D
+var _muzzle_flash_timer: float = 0.0
 var _last_ads_state: bool = false
 var _dev_infinite_ammo: bool = false
 var _upgraded_ids: Dictionary = {}
@@ -66,6 +74,7 @@ func _process(delta: float) -> void:
 
 	_update_asset_animation_state()
 	_update_visual_recoil(delta)
+	_update_weapon_fx(delta)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
@@ -108,6 +117,14 @@ func _build_view_runtime() -> void:
 
 func _clear_view_model() -> void:
 	_asset_animation_player = null
+	_weapon_model_root = null
+	_muzzle_anchor = null
+	_shell_anchor = null
+	_muzzle_flash_root = null
+	_muzzle_light = null
+	_smoke_particles = null
+	_shell_particles = null
+	_muzzle_flash_timer = 0.0
 	if _view_root == null:
 		return
 	for child: Node in _view_root.get_children():
@@ -220,6 +237,240 @@ func _load_optional_asset(path: String) -> Resource:
 		return null
 	return load(path)
 
+func _find_named_node3d(node: Node, aliases: Array[String]) -> Node3D:
+	if node is Node3D:
+		var lower_name: String = node.name.to_lower()
+		for alias: String in aliases:
+			if lower_name == alias.to_lower() or lower_name.contains(alias.to_lower()):
+				return node as Node3D
+	for child: Node in node.get_children():
+		var found := _find_named_node3d(child, aliases)
+		if found != null:
+			return found
+	return null
+
+func _find_skeleton_bone_attachment(node: Node, aliases: Array[String], attachment_name: String) -> Node3D:
+	if node is Skeleton3D:
+		var skeleton := node as Skeleton3D
+		for bone_idx in range(skeleton.get_bone_count()):
+			var bone_name: String = str(skeleton.get_bone_name(bone_idx))
+			var lower_name: String = bone_name.to_lower()
+			for alias: String in aliases:
+				if lower_name == alias.to_lower() or lower_name.contains(alias.to_lower()):
+					var attachment := BoneAttachment3D.new()
+					attachment.name = attachment_name
+					attachment.bone_name = skeleton.get_bone_name(bone_idx)
+					skeleton.add_child(attachment)
+					return attachment
+	for child: Node in node.get_children():
+		var found := _find_skeleton_bone_attachment(child, aliases, attachment_name)
+		if found != null:
+			return found
+	return null
+
+func _fallback_barrel_anchor(model: Node3D) -> Node3D:
+	var points: Array[Vector3] = []
+	var stack: Array[Node] = [model]
+	while not stack.is_empty():
+		var node: Node = stack.pop_back()
+		if node is MeshInstance3D:
+			var mesh_node := node as MeshInstance3D
+			var aabb: AABB = mesh_node.get_aabb()
+			for x_idx in range(2):
+				for y_idx in range(2):
+					for z_idx in range(2):
+						var corner := Vector3(
+							aabb.position.x + aabb.size.x * float(x_idx),
+							aabb.position.y + aabb.size.y * float(y_idx),
+							aabb.position.z + aabb.size.z * float(z_idx)
+						)
+						points.append(_view_root.to_local(mesh_node.to_global(corner)))
+		for child: Node in node.get_children():
+			stack.append(child)
+
+	var anchor := Node3D.new()
+	anchor.name = "RuntimeMuzzleAnchor"
+	model.add_child(anchor)
+	if points.is_empty():
+		anchor.position = model.to_local(_view_root.to_global(Vector3(0.0, 0.0, -0.50)))
+		set_meta("weapon_muzzle_anchor_mode", "fallback_default")
+		return anchor
+
+	var min_z: float = INF
+	var max_z: float = -INF
+	for point: Vector3 in points:
+		min_z = minf(min_z, point.z)
+		max_z = maxf(max_z, point.z)
+	var front_band: float = maxf(0.015, (max_z - min_z) * 0.10)
+	var front_sum := Vector3.ZERO
+	var front_count: int = 0
+	for point: Vector3 in points:
+		if point.z <= min_z + front_band:
+			front_sum += point
+			front_count += 1
+	var muzzle_in_view: Vector3 = front_sum / float(maxi(front_count, 1))
+	anchor.position = model.to_local(_view_root.to_global(muzzle_in_view))
+	set_meta("weapon_muzzle_anchor_mode", "geometry_front")
+	return anchor
+
+func _make_flash_material() -> StandardMaterial3D:
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.albedo_color = Color(1.0, 0.46, 0.08, 0.92)
+	mat.emission_enabled = true
+	mat.emission = Color(1.0, 0.24, 0.025)
+	mat.emission_energy_multiplier = 5.0
+	mat.no_depth_test = true
+	return mat
+
+func _build_muzzle_flash(anchor: Node3D) -> void:
+	_muzzle_flash_root = Node3D.new()
+	_muzzle_flash_root.name = "MuzzleFlash"
+	anchor.add_child(_muzzle_flash_root)
+
+	var mat := _make_flash_material()
+	for rot_deg in [0.0, 45.0]:
+		var quad := QuadMesh.new()
+		quad.size = Vector2(0.105, 0.105)
+		quad.material = mat
+		var mesh_instance := MeshInstance3D.new()
+		mesh_instance.mesh = quad
+		mesh_instance.rotation_degrees.z = rot_deg
+		_muzzle_flash_root.add_child(mesh_instance)
+
+	_muzzle_light = OmniLight3D.new()
+	_muzzle_light.name = "MuzzleFlashLight"
+	_muzzle_light.light_color = Color(1.0, 0.49, 0.17)
+	_muzzle_light.light_energy = 0.0
+	_muzzle_light.omni_range = 2.4
+	_muzzle_light.shadow_enabled = false
+	anchor.add_child(_muzzle_light)
+	_muzzle_flash_root.visible = false
+
+	var smoke_mat := StandardMaterial3D.new()
+	smoke_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	smoke_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	smoke_mat.albedo_color = Color(0.34, 0.34, 0.34, 0.32)
+	var smoke_quad := QuadMesh.new()
+	smoke_quad.size = Vector2(0.042, 0.042)
+	smoke_quad.material = smoke_mat
+	var smoke_process := ParticleProcessMaterial.new()
+	smoke_process.direction = Vector3(0.0, 0.08, -1.0)
+	smoke_process.spread = 18.0
+	smoke_process.initial_velocity_min = 0.12
+	smoke_process.initial_velocity_max = 0.38
+	smoke_process.gravity = Vector3(0.0, 0.22, 0.0)
+	smoke_process.scale_min = 0.65
+	smoke_process.scale_max = 1.45
+	_smoke_particles = GPUParticles3D.new()
+	_smoke_particles.name = "MuzzleSmoke"
+	_smoke_particles.amount = 7
+	_smoke_particles.lifetime = 0.42
+	_smoke_particles.one_shot = true
+	_smoke_particles.explosiveness = 0.95
+	_smoke_particles.process_material = smoke_process
+	_smoke_particles.draw_pass_1 = smoke_quad
+	_smoke_particles.emitting = false
+	anchor.add_child(_smoke_particles)
+
+func _build_shell_eject(anchor: Node3D) -> void:
+	var brass := StandardMaterial3D.new()
+	brass.albedo_color = Color(0.54, 0.34, 0.10)
+	brass.metallic = 0.78
+	brass.roughness = 0.32
+	var casing := CylinderMesh.new()
+	casing.top_radius = 0.0032
+	casing.bottom_radius = 0.0032
+	casing.height = 0.014
+	casing.material = brass
+	var process := ParticleProcessMaterial.new()
+	process.direction = Vector3(1.0, 0.58, 0.12)
+	process.spread = 22.0
+	process.initial_velocity_min = 0.65
+	process.initial_velocity_max = 1.35
+	process.gravity = Vector3(0.0, -3.8, 0.0)
+	process.angular_velocity_min = 520.0
+	process.angular_velocity_max = 1100.0
+	process.scale_min = 0.90
+	process.scale_max = 1.05
+	_shell_particles = GPUParticles3D.new()
+	_shell_particles.name = "ShellEject"
+	_shell_particles.amount = 1
+	_shell_particles.lifetime = 0.62
+	_shell_particles.one_shot = true
+	_shell_particles.explosiveness = 1.0
+	_shell_particles.process_material = process
+	_shell_particles.draw_pass_1 = casing
+	_shell_particles.emitting = false
+	anchor.add_child(_shell_particles)
+
+func _bind_weapon_fx(model: Node3D) -> void:
+	_weapon_model_root = model
+	var muzzle_aliases: Array[String] = ["tag_flash", "muzzle_flash", "muzzle", "flash"]
+	_muzzle_anchor = _find_named_node3d(model, muzzle_aliases)
+	if _muzzle_anchor != null:
+		set_meta("weapon_muzzle_anchor_mode", "node_socket")
+	else:
+		_muzzle_anchor = _find_skeleton_bone_attachment(model, muzzle_aliases, "MuzzleBoneAttachment")
+		if _muzzle_anchor != null:
+			set_meta("weapon_muzzle_anchor_mode", "bone_socket")
+	if _muzzle_anchor == null:
+		_muzzle_anchor = _fallback_barrel_anchor(model)
+
+	var shell_aliases: Array[String] = ["tag_brass", "brass", "eject", "shell"]
+	_shell_anchor = _find_named_node3d(model, shell_aliases)
+	if _shell_anchor == null:
+		_shell_anchor = _find_skeleton_bone_attachment(model, shell_aliases, "ShellBoneAttachment")
+	if _shell_anchor == null:
+		_shell_anchor = _muzzle_anchor
+
+	_build_muzzle_flash(_muzzle_anchor)
+	_build_shell_eject(_shell_anchor)
+	set_meta("weapon_muzzle_fx_ready", true)
+	print("XZOGOT_WEAPON_MUZZLE_FX_READY ", _weapon_id, " mode=", get_meta("weapon_muzzle_anchor_mode", "unknown"))
+
+func _trigger_weapon_fx() -> void:
+	if _muzzle_flash_root == null:
+		return
+	_muzzle_flash_timer = 0.050
+	_muzzle_flash_root.visible = true
+	var pulse: float = 0.86 + float(_shots_fired % 4) * 0.07
+	_muzzle_flash_root.scale = Vector3.ONE * pulse
+	_muzzle_flash_root.rotation_degrees.z = float((_shots_fired * 37) % 90)
+	if _muzzle_light != null:
+		_muzzle_light.light_energy = 3.6 if is_ads_active() else 4.4
+	if _smoke_particles != null:
+		_smoke_particles.restart()
+		_smoke_particles.emitting = true
+	if _shell_particles != null and _family != "wonder":
+		_shell_particles.restart()
+		_shell_particles.emitting = true
+	set_meta("weapon_muzzle_flash_active", true)
+
+func _update_weapon_fx(delta: float) -> void:
+	if _muzzle_flash_timer <= 0.0:
+		return
+	_muzzle_flash_timer = maxf(0.0, _muzzle_flash_timer - delta)
+	var alpha: float = clampf(_muzzle_flash_timer / 0.050, 0.0, 1.0)
+	if _muzzle_light != null:
+		_muzzle_light.light_energy = 4.4 * alpha
+	if _muzzle_flash_timer <= 0.0:
+		if _muzzle_flash_root != null:
+			_muzzle_flash_root.visible = false
+		if _muzzle_light != null:
+			_muzzle_light.light_energy = 0.0
+		set_meta("weapon_muzzle_flash_active", false)
+
+func is_muzzle_fx_ready() -> bool:
+	return _muzzle_flash_root != null and _muzzle_anchor != null
+
+func get_muzzle_anchor_mode() -> String:
+	return str(get_meta("weapon_muzzle_anchor_mode", "none"))
+
+func get_muzzle_flash_timer() -> float:
+	return _muzzle_flash_timer
+
 func _refresh_view_assets(def: Dictionary) -> void:
 	_clear_view_model()
 	set_meta("weapon_view_fallback", false)
@@ -233,6 +484,10 @@ func _refresh_view_assets(def: Dictionary) -> void:
 		model.name = "MapModWeaponModel" if using_mapmod else "AuthoredWeaponModel"
 		_view_root.add_child(model)
 		_asset_animation_player = _find_animation_player(model)
+		if model is Node3D:
+			_bind_weapon_fx(model as Node3D)
+		else:
+			push_warning("XZOGOT_WEAPON_MODEL_NOT_NODE3D " + _weapon_id)
 		set_meta("weapon_asset_lane", "mapmod" if using_mapmod else "legacy_optional")
 		print(
 			"XZOGOT_WEAPON_MODEL_LOADED ",
@@ -455,6 +710,7 @@ func request_fire() -> void:
 	_cooldown = fire_interval * _player_modifier("get_fire_interval_multiplier")
 	_shots_fired += 1
 	_apply_recoil_impulse()
+	_trigger_weapon_fx()
 	_play_asset_animation("fire", 0.025)
 	if _fire_audio != null and _fire_audio.stream != null:
 		_fire_audio.play()
