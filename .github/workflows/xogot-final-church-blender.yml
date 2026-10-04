@@ -39,7 +39,7 @@ jobs:
           set -euo pipefail
           rm -rf xogot/build/final-church-blender
           mkdir -p xogot/build/final-church-blender
-          timeout 1500 xvfb-run -a blender -b --python xogot/tools/build_final_church_blender.py \
+          timeout 1500 xvfb-run -a -s "-screen 0 1280x720x24" blender -b --python xogot/tools/build_final_church_blender.py \
             2>&1 | tee xogot/build/final-church-blender/blender.log
           grep -q "XZOGOT_FINAL_CHURCH_BLENDER_AUTHORING_GREEN" xogot/build/final-church-blender/blender.log
           grep -q "XZOGOT_FINAL_CHURCH_GLB_GREEN" xogot/build/final-church-blender/blender.log
