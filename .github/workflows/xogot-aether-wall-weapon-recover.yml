@@ -145,31 +145,39 @@ jobs:
           rm -rf recovered/export
           mkdir -p recovered/export
           cat > recovered/aether-weapon-packages.txt <<'EOF'
-          ProjectAether/Content/Assets/Weapons/waw/M1Garand/*
-          ProjectAether/Content/Assets/Weapons/waw/MP40/*
-          ProjectAether/Content/Assets/Weapons/waw/TrenchGun/*
-          ProjectAether/Content/Assets/Weapons/waw/Thompson/*
-          ProjectAether/Content/Assets/Sounds/**/*garand*
-          ProjectAether/Content/Assets/Sounds/**/*Garand*
-          ProjectAether/Content/Assets/Sounds/**/*mp40*
-          ProjectAether/Content/Assets/Sounds/**/*MP40*
-          ProjectAether/Content/Assets/Sounds/**/*trench*
-          ProjectAether/Content/Assets/Sounds/**/*Trench*
-          ProjectAether/Content/Assets/Sounds/**/*thompson*
-          ProjectAether/Content/Assets/Sounds/**/*Thompson*
+          ProjectAether/Content/Assets/Weapons/waw/M1Garand/*.uasset
+          ProjectAether/Content/Assets/Weapons/waw/MP40/*.uasset
+          ProjectAether/Content/Assets/Weapons/waw/TrenchGun/*.uasset
+          ProjectAether/Content/Assets/Weapons/waw/Thompson/*.uasset
+          ProjectAether/Content/Assets/Sounds/**/*garand*.uasset
+          ProjectAether/Content/Assets/Sounds/**/*Garand*.uasset
+          ProjectAether/Content/Assets/Sounds/**/*mp40*.uasset
+          ProjectAether/Content/Assets/Sounds/**/*MP40*.uasset
+          ProjectAether/Content/Assets/Sounds/**/*trench*.uasset
+          ProjectAether/Content/Assets/Sounds/**/*Trench*.uasset
+          ProjectAether/Content/Assets/Sounds/**/*thompson*.uasset
+          ProjectAether/Content/Assets/Sounds/**/*Thompson*.uasset
           EOF
 
           : > recovered/cue4parse-export.log
           SUCCESS_GAME=""
-          for GAME in GAME_UE5_7 GAME_UE5_6 GAME_UE5_5; do
-            echo "XZOGOT_CUE4PARSE_TRY $GAME" | tee -a recovered/cue4parse-export.log
-            rm -rf recovered/export/*
+          PROBE_PACKAGE="ProjectAether/Content/Assets/Weapons/waw/M1Garand/M1Garand.uasset"
+
+          # Resolve the reconstructed build's actual package version against one
+          # known skeletal weapon package first. Do not let .uexp sidecars count
+          # as a successful export.
+          for GAME in \
+            GAME_UE5_7 GAME_UE5_6 GAME_UE5_5 GAME_UE5_4 GAME_UE5_3 \
+            GAME_UE5_2 GAME_UE5_1 GAME_UE5_0 GAME_UE4_27; do
+            echo "XZOGOT_CUE4PARSE_VERSION_PROBE $GAME" | tee -a recovered/cue4parse-export.log
+            rm -rf recovered/version-probe
+            mkdir -p recovered/version-probe
             set +e
             "$CUE4PARSE" \
               --pak "$RUNNER_TEMP/aether-legacy.pak" \
               -g "$GAME" \
-              -c recovered/aether-weapon-packages.txt \
-              -o recovered/export \
+              -p "$PROBE_PACKAGE" \
+              -o recovered/version-probe \
               -y -v \
               --mesh-format Gltf2 \
               --texture-format Png \
@@ -178,15 +186,40 @@ jobs:
               >> recovered/cue4parse-export.log 2>&1
             RC=$?
             set -e
-            COUNT=$(find recovered/export -type f | wc -l)
-            echo "XZOGOT_CUE4PARSE_RESULT $GAME rc=$RC files=$COUNT" | tee -a recovered/cue4parse-export.log
-            if [ "$COUNT" -gt 0 ]; then
+            MESH_COUNT=$(find recovered/version-probe -type f \
+              \( -iname '*.gltf' -o -iname '*.glb' -o -iname '*.psk' -o -iname '*.pskx' -o -iname '*.uemodel' \) | wc -l)
+            echo "XZOGOT_CUE4PARSE_VERSION_RESULT $GAME rc=$RC meshes=$MESH_COUNT" | tee -a recovered/cue4parse-export.log
+            if [ "$MESH_COUNT" -gt 0 ]; then
               SUCCESS_GAME="$GAME"
               break
             fi
           done
 
+          if [ -z "$SUCCESS_GAME" ]; then
+            echo "No tested engine version exported the M1Garand skeletal mesh." | tee -a recovered/cue4parse-export.log
+            exit 31
+          fi
+
           echo "$SUCCESS_GAME" > recovered/cue4parse-game-version.txt
+          echo "XZOGOT_CUE4PARSE_VERSION_LOCKED $SUCCESS_GAME" | tee -a recovered/cue4parse-export.log
+
+          rm -rf recovered/export
+          mkdir -p recovered/export
+          set +e
+          "$CUE4PARSE" \
+            --pak "$RUNNER_TEMP/aether-legacy.pak" \
+            -g "$SUCCESS_GAME" \
+            -c recovered/aether-weapon-packages.txt \
+            -o recovered/export \
+            -y -v \
+            --mesh-format Gltf2 \
+            --texture-format Png \
+            --mesh-quality Highest \
+            --export-materials true \
+            >> recovered/cue4parse-export.log 2>&1
+          RC=$?
+          set -e
+
           find recovered/export -type f | sort > recovered/export-files.txt
           python3 - <<'PY'
           from pathlib import Path
@@ -198,16 +231,18 @@ jobs:
           report={"file_count":len(rows),"bytes":sum(r["bytes"] for r in rows),"extensions":kinds,"files":rows}
           Path("recovered/export-report.json").write_text(json.dumps(report,indent=2)+"\n")
           print("XZOGOT_AETHER_CUE4PARSE_EXPORT",report["file_count"],report["bytes"],kinds)
-          if not rows:
-              raise SystemExit("CUE4Parse produced no export files; inspect cue4parse-export.log")
           mesh=sum(kinds.get(x,0) for x in (".gltf",".glb",".psk",".pskx",".uemodel",".obj"))
           anim=sum(kinds.get(x,0) for x in (".psa",".ueanim"))
           sound=sum(kinds.get(x,0) for x in (".wav",".ogg",".mp3",".wem"))
           print("XZOGOT_AETHER_WALL_EXPORT_CLASSES",mesh,anim,sound)
           if mesh<=0:
               raise SystemExit("No weapon mesh export produced")
+          if anim<=0:
+              raise SystemExit("No weapon animation export produced")
+          if sound<=0:
+              raise SystemExit("No weapon sound export produced")
           PY
-          test -n "$SUCCESS_GAME"
+          test "$RC" -eq 0
           echo "XZOGOT_AETHER_CUE4PARSE_GREEN $SUCCESS_GAME"
 
       - name: Upload recovered wall weapons
@@ -218,6 +253,8 @@ jobs:
           path: |
             recovered/raw-report.json
             recovered/raw-files.txt
+            recovered/raw/
+            recovered/version-probe/
             recovered/cue4parse-version.txt
             recovered/cue4parse-help.txt
             recovered/cue4parse-game-version.txt
