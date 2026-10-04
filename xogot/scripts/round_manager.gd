@@ -25,6 +25,7 @@ var _spawn_serial: int = 0
 var _recent_spawn_ids: Array[String] = []
 var _last_spawn_id: String = ""
 var _last_zombie_announced: bool = false
+var _player_focus_serial: int = 0
 var _dev_no_zombies: bool = false
 
 func _ready() -> void:
@@ -297,8 +298,23 @@ func _remember_spawn(id: String) -> void:
 	while _recent_spawn_ids.size() > 3:
 		_recent_spawn_ids.pop_front()
 
+func _select_focus_player() -> Node3D:
+	var candidates: Array[Node3D] = []
+	for node: Node in get_tree().get_nodes_in_group("player"):
+		if not (node is Node3D):
+			continue
+		if node.has_method("is_eliminated") and bool(node.call("is_eliminated")):
+			continue
+		candidates.append(node as Node3D)
+	if candidates.is_empty():
+		return null
+	candidates.sort_custom(func(a: Node3D, b: Node3D): return a.name < b.name)
+	var chosen: Node3D = candidates[_player_focus_serial % candidates.size()]
+	_player_focus_serial += 1
+	return chosen
+
 func spawn_one() -> Node:
-	var player: Node3D = get_tree().get_first_node_in_group("player") as Node3D
+	var player: Node3D = _select_focus_player()
 	if player == null:
 		return null
 	if _alive >= get_simultaneous_cap():
@@ -346,7 +362,7 @@ func spawn_one() -> Node:
 
 func spawn_from_barricade(barricade: Node) -> Node:
 	# Deterministic CI/debug path that does not weaken live spawn selection.
-	var player: Node3D = get_tree().get_first_node_in_group("player") as Node3D
+	var player: Node3D = _select_focus_player()
 	if player == null or barricade == null:
 		return null
 	if _alive >= get_simultaneous_cap():
