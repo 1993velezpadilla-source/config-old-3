@@ -108,6 +108,7 @@ func _ready() -> void:
 	_build_interior()
 	_build_realism_pass()
 	_build_architectural_shell_v2()
+	_build_church_visual_v3()
 	_build_interactions()
 	_build_windows()
 	_build_lights()
@@ -121,12 +122,12 @@ func _build_environment() -> void:
 	env.background_color = Color(0.006, 0.009, 0.016)
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color(0.11, 0.14, 0.20)
-	env.ambient_light_energy = 0.30
+	env.ambient_light_energy = 0.38
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.fog_enabled = true
 	env.fog_light_color = Color(0.055, 0.065, 0.085)
-	env.fog_light_energy = 0.72
-	env.fog_density = 0.018
+	env.fog_light_energy = 0.80
+	env.fog_density = 0.014
 	env.fog_aerial_perspective = 0.42
 	world.environment = env
 	add_child(world)
@@ -643,6 +644,119 @@ func _build_architectural_shell_v2() -> void:
 
 	print("XZOGOT_ARCH_SHELL_V2_READY")
 
+func _build_church_visual_v3() -> void:
+	# Visual-only focal and readability pass. Keep gameplay collision untouched.
+	# The goal is a readable horror church on mobile without flattening the contrast.
+	var sanctuary_stone := Color(0.115, 0.105, 0.092)
+	var sanctuary_edge := Color(0.205, 0.175, 0.135)
+	var dark_wood := Color(0.078, 0.038, 0.018)
+	var candle_wax := Color(0.68, 0.53, 0.33)
+	var flame := Color(1.0, 0.42, 0.10)
+
+	# Give the authored altar a proper architectural destination instead of a black rear wall.
+	_visual_box(
+		"SanctuaryDaisTrim",
+		Vector3(8.35, 0.12, 4.72),
+		Vector3(0.0, 0.705, -20.50),
+		sanctuary_edge
+	)
+	_visual_box(
+		"ReredosBack",
+		Vector3(6.60, 4.90, 0.30),
+		Vector3(0.0, 2.90, -23.42),
+		sanctuary_stone
+	)
+	_visual_cylinder(
+		"ReredosColumnL",
+		0.23,
+		4.20,
+		Vector3(-2.75, 2.70, -23.16),
+		sanctuary_edge,
+		12
+	)
+	_visual_cylinder(
+		"ReredosColumnR",
+		0.23,
+		4.20,
+		Vector3(2.75, 2.70, -23.16),
+		sanctuary_edge,
+		12
+	)
+	_visual_box(
+		"ReredosCap",
+		Vector3(6.30, 0.30, 0.42),
+		Vector3(0.0, 5.12, -23.14),
+		sanctuary_edge
+	)
+
+	# Large cross behind the altar gives the player a strong long-axis landmark.
+	_visual_box(
+		"SanctuaryCrossVertical",
+		Vector3(0.24, 2.25, 0.18),
+		Vector3(0.0, 3.82, -22.98),
+		dark_wood
+	)
+	_visual_box(
+		"SanctuaryCrossHorizontal",
+		Vector3(1.42, 0.24, 0.18),
+		Vector3(0.0, 4.18, -22.97),
+		dark_wood
+	)
+
+	# A small candle row adds believable scale and warm specular accents around the real altar.
+	for i in range(7):
+		var x: float = -2.25 + float(i) * 0.75
+		_visual_cylinder(
+			"AltarCandle_%02d" % i,
+			0.035,
+			0.26,
+			Vector3(x, 1.28, -20.20),
+			candle_wax,
+			8
+		)
+		_visual_box(
+			"AltarFlame_%02d" % i,
+			Vector3(0.065, 0.11, 0.065),
+			Vector3(x, 1.465, -20.20),
+			flame
+		)
+
+	# Two cheap, non-shadow sanctuary accents reveal the altar silhouette without a flat flood light.
+	for side in [-1.0, 1.0]:
+		var sanctuary_light := OmniLight3D.new()
+		sanctuary_light.name = "SanctuaryAccent_%s" % ("L" if side < 0.0 else "R")
+		sanctuary_light.position = _wp(Vector3(2.85 * side, 2.65, -19.85))
+		sanctuary_light.light_color = Color(1.0, 0.34, 0.11)
+		sanctuary_light.light_energy = 0.58
+		sanctuary_light.omni_range = 4.1 * WORLD_SCALE
+		sanctuary_light.shadow_enabled = false
+		add_child(sanctuary_light)
+
+	# Moonlight leaking through the eight prepared zombie windows makes the wall depth readable.
+	# These are intentionally non-shadow lights to stay cheap on mobile.
+	var window_z: Array[float] = [-17.0, -9.0, -1.0, 7.0]
+	for i in range(window_z.size()):
+		for side in [-1.0, 1.0]:
+			var window_light := OmniLight3D.new()
+			window_light.name = "WindowMoon_%s_%02d" % ["L" if side < 0.0 else "R", i]
+			window_light.position = _wp(Vector3(9.85 * side, 2.10, window_z[i]))
+			window_light.light_color = Color(0.26, 0.42, 0.72)
+			window_light.light_energy = 0.18
+			window_light.omni_range = 2.85 * WORLD_SCALE
+			window_light.shadow_enabled = false
+			add_child(window_light)
+
+	# Balcony support rhythm keeps the rear second floor from floating visually.
+	for x in [-8.8, -4.4, 0.0, 4.4, 8.8]:
+		_visual_box(
+			"BalconySupport_%s" % str(x).replace(".", "_").replace("-", "N"),
+			Vector3(0.28, 4.65, 0.28),
+			Vector3(x, 2.55, 8.15),
+			dark_wood
+		)
+
+	print("XZOGOT_CHURCH_V3_POLISH_READY")
+
 func _build_pointed_portal_layer(
 	tag: String,
 	half_width: float,
@@ -864,8 +978,8 @@ func _build_lights() -> void:
 	altar_glow.name = "AltarGlow"
 	altar_glow.position = _wp(Vector3(0.0, 2.35, -20.10))
 	altar_glow.light_color = Color(1.0, 0.30, 0.10)
-	altar_glow.light_energy = 1.05
-	altar_glow.omni_range = 5.2 * WORLD_SCALE
+	altar_glow.light_energy = 1.32
+	altar_glow.omni_range = 5.8 * WORLD_SCALE
 	altar_glow.shadow_enabled = true
 	add_child(altar_glow)
 	print("XZOGOT_ALTAR_LIGHT_READY")
