@@ -12,6 +12,25 @@ var _board_nodes: Array[MeshInstance3D] = []
 var _repair_round: int = 0
 var _repair_reward_this_round: int = 0
 
+const SFX_BREAK_A := "res://assets/audio/church/world/wood_break_01.ogg"
+const SFX_BREAK_B := "res://assets/audio/church/world/wood_break_02.ogg"
+const SFX_REPAIR := "res://assets/audio/church/world/wood_repair.ogg"
+
+func _play_wood_sfx(path: String, volume_db: float = -5.0) -> void:
+	if not ResourceLoader.exists(path):
+		return
+	var stream := load(path) as AudioStream
+	if stream == null:
+		return
+	var player := AudioStreamPlayer3D.new()
+	player.stream = stream
+	player.volume_db = volume_db
+	player.unit_size = 1.3
+	player.max_distance = 24.0
+	add_child(player)
+	player.finished.connect(player.queue_free)
+	player.play()
+
 func _ready() -> void:
 	_boards = max_boards
 	_health = float(max_boards) * board_health
@@ -64,6 +83,8 @@ func zombie_damage(amount: float) -> bool:
 	if target_boards != _boards:
 		_boards = target_boards
 		_refresh_state()
+		var break_sfx: String = SFX_BREAK_A if ((_boards + abs(name.hash())) % 2 == 0) else SFX_BREAK_B
+		_play_wood_sfx(break_sfx, -3.5)
 		print("XZOGOT_BARRICADE_PLANK_LOST ", name, " ", before, "->", _boards)
 
 	if _boards <= 0:
@@ -83,6 +104,7 @@ func interact(player: Node) -> bool:
 	)
 	_broken = false
 	_refresh_state()
+	_play_wood_sfx(SFX_REPAIR, -7.0)
 
 	var awarded: int = 0
 	if (
