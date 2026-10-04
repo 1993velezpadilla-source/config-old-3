@@ -155,14 +155,21 @@ def export_animated_glb(path: Path) -> None:
         kwargs["export_materials"] = "EXPORT"
     if "export_animation_mode" in props:
         # Imported PSA clips are explicitly attached as NLA tracks above.
-        # NLA_TRACKS is the most deterministic path in Blender 5.x.
-        kwargs["export_animation_mode"] = "NLA_TRACKS"
+        mode_prop = bpy.ops.export_scene.gltf.get_rna_type().properties["export_animation_mode"]
+        modes = {item.identifier for item in mode_prop.enum_items}
+        if "NLA_TRACKS" in modes:
+            kwargs["export_animation_mode"] = "NLA_TRACKS"
+        elif "ACTIONS" in modes:
+            kwargs["export_animation_mode"] = "ACTIONS"
+        else:
+            raise RuntimeError(f"No usable glTF animation mode; available={sorted(modes)}")
+        print("XZOGOT_GLTF_ANIMATION_MODE", kwargs["export_animation_mode"])
     elif "export_all_actions" in props:
         kwargs["export_all_actions"] = True
     if "export_force_sampling" in props:
         kwargs["export_force_sampling"] = True
     if "export_nla_strips" in props:
-        kwargs["export_nla_strips"] = False
+        kwargs["export_nla_strips"] = True
     result = bpy.ops.export_scene.gltf(**kwargs)
     if "FINISHED" not in result:
         raise RuntimeError(f"GLTF export failed: {result}")
