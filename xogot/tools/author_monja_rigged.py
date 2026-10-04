@@ -134,17 +134,34 @@ for target in monja_meshes:
     if weighted_vertices < max(1,int(len(target.data.vertices)*0.90)):
         raise SystemExit(f"Insufficient transferred weights on {target.name}: {weighted_vertices}/{len(target.data.vertices)}")
 
+# Capture names before deleting anything. Blender invalidates StructRNA
+# object proxies immediately after bpy.data.objects.remove(), so iterating old
+# object references after deletion can raise ReferenceError.
+arm_name=arm.name
+donor_mesh_names=[o.name for o in donor_meshes]
+monja_mesh_names={o.name for o in monja_meshes}
+donor_helper_names=[
+    o.name for o in donor_objs
+    if o.name != arm_name and o.name not in donor_mesh_names
+    and o.name not in monja_mesh_names and o.type!="ARMATURE"
+]
+
 # Keep donor armature/actions, remove donor visible geometry.
-for o in donor_meshes:
-    if o.name in bpy.context.scene.objects:
+for name in donor_mesh_names:
+    o=bpy.data.objects.get(name)
+    if o is not None:
         bpy.data.objects.remove(o,do_unlink=True)
 
 # Remove imported donor non-armature helpers that are not needed by the exported rig.
-for o in donor_objs:
-    if o == arm or o.type=="ARMATURE":
-        continue
-    if o.name in bpy.context.scene.objects and o not in monja_meshes:
+for name in donor_helper_names:
+    o=bpy.data.objects.get(name)
+    if o is not None:
         bpy.data.objects.remove(o,do_unlink=True)
+
+# Reacquire the surviving armature by name after removals to avoid stale RNA.
+arm=bpy.data.objects.get(arm_name)
+if arm is None or arm.type!="ARMATURE":
+    raise SystemExit("Donor armature vanished during donor cleanup")
 
 # Select exactly Monja geometry + donor armature.
 bpy.ops.object.select_all(action='DESELECT')
