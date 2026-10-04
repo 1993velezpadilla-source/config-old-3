@@ -82,6 +82,7 @@ jobs:
           grep -q "XZOGOT_WINDOWS_PREPARED 8" build/xogot-ai/runtime.log
           grep -q "XZOGOT_ARCH_SHELL_V2_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_AUTHORED_ALTAR_READY" build/xogot-ai/runtime.log
+          grep -q "XZOGOT_ROYAL_AISLE_CARPET_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_ALTAR_LIGHT_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_AUTHORED_BENCHES_FACE_ALTAR 180" build/xogot-ai/runtime.log
           grep -q "XZOGOT_AUTHORED_BENCHES_READY 9" build/xogot-ai/runtime.log
