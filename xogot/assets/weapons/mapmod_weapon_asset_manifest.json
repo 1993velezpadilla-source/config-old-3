@@ -84,7 +84,7 @@
       "status": "PARTIAL",
       "runtime": {
         "viewmodel": "res://assets/weapons/aether_waw_real/357/viewmodel.glb",
-        "worldmodel": "res://assets/weapons/mapmod/357/worldmodel.glb",
+        "worldmodel": "res://assets/weapons/aether_waw_real/357/viewmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/357/fire.ogg",
           "reload": "res://assets/audio/weapons/mapmod/357/reload.ogg",
@@ -131,7 +131,8 @@
         ]
       },
       "notes": [
-        "Real Aether UE5.7 skeletal viewmodel staged for 357 Magnum; animations/audio/worldmodel are gated separately."
+        "Real Aether UE5.7 skeletal viewmodel staged for 357 Magnum; animations/audio/worldmodel are gated separately.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded."
       ]
     },
     "colt": {
@@ -139,7 +140,7 @@
       "status": "PARTIAL",
       "runtime": {
         "viewmodel": "res://assets/weapons/aether_waw_real/colt/viewmodel.glb",
-        "worldmodel": "res://assets/weapons/mapmod/colt/worldmodel.glb",
+        "worldmodel": "res://assets/weapons/aether_waw_real/colt/viewmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/colt/fire.wav",
           "reload": "res://assets/audio/weapons/mapmod/colt/reload.ogg",
@@ -186,7 +187,8 @@
         ]
       },
       "notes": [
-        "Real Aether UE5.7 viewmodel staged from 1911."
+        "Real Aether UE5.7 viewmodel staged from 1911.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded."
       ]
     },
     "m1": {
@@ -194,7 +196,7 @@
       "status": "PARTIAL",
       "runtime": {
         "viewmodel": "res://assets/weapons/aether_waw_real/m1/viewmodel.glb",
-        "worldmodel": "res://assets/weapons/mapmod/m1/worldmodel.glb",
+        "worldmodel": "res://assets/weapons/aether_waw_real/m1/viewmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/m1/fire.wav",
           "reload": "res://assets/audio/weapons/mapmod/m1/reload.ogg",
@@ -241,7 +243,8 @@
         ]
       },
       "notes": [
-        "Real Aether UE5.7 viewmodel staged from M1Garand."
+        "Real Aether UE5.7 viewmodel staged from M1Garand.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded."
       ]
     },
     "mp40": {
@@ -249,7 +252,7 @@
       "status": "PARTIAL",
       "runtime": {
         "viewmodel": "res://assets/weapons/aether_waw_real/mp40/viewmodel.glb",
-        "worldmodel": "res://assets/weapons/mapmod/mp40/worldmodel.glb",
+        "worldmodel": "res://assets/weapons/aether_waw_real/mp40/viewmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/mp40/fire.wav",
           "reload": "res://assets/audio/weapons/mapmod/mp40/reload.ogg",
@@ -296,7 +299,8 @@
         ]
       },
       "notes": [
-        "Real Aether UE5.7 viewmodel staged from MP40."
+        "Real Aether UE5.7 viewmodel staged from MP40.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded."
       ]
     },
     "trench": {
@@ -304,7 +308,7 @@
       "status": "PARTIAL",
       "runtime": {
         "viewmodel": "res://assets/weapons/aether_waw_real/trench/viewmodel.glb",
-        "worldmodel": "res://assets/weapons/mapmod/trench/worldmodel.glb",
+        "worldmodel": "res://assets/weapons/aether_waw_real/trench/viewmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/trench/fire.wav",
           "reload": "res://assets/audio/weapons/mapmod/trench/reload.ogg",
@@ -351,7 +355,8 @@
         ]
       },
       "notes": [
-        "Real Aether UE5.7 viewmodel staged from TrenchGun."
+        "Real Aether UE5.7 viewmodel staged from TrenchGun.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded."
       ]
     },
     "thompson": {
@@ -359,7 +364,7 @@
       "status": "REFERENCE_PARTIAL",
       "runtime": {
         "viewmodel": "res://assets/weapons/aether_waw_real/thompson/viewmodel.glb",
-        "worldmodel": "res://assets/weapons/mapmod/thompson/worldmodel.glb",
+        "worldmodel": "res://assets/weapons/aether_waw_real/thompson/viewmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/thompson/fire.wav",
           "reload": "res://assets/audio/weapons/mapmod/thompson/reload.ogg",
@@ -408,7 +413,8 @@
       "notes": [
         "Verified WaW golden-reference exists as importer baseline only; it is not marked as the final MapMod package.",
         "Golden reference has 11 validated XANIM clips and required weapon tags, but final MapMod audio/worldmodel package is not verified yet.",
-        "Real Aether UE5.7 viewmodel staged from Thompson."
+        "Real Aether UE5.7 viewmodel staged from Thompson.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded."
       ],
       "reference": {
         "kind": "waw_golden_reference",
@@ -450,7 +456,7 @@
       "status": "PARTIAL",
       "runtime": {
         "viewmodel": "res://assets/weapons/aether_waw_real/bar/viewmodel.glb",
-        "worldmodel": "res://assets/weapons/mapmod/bar/worldmodel.glb",
+        "worldmodel": "res://assets/weapons/aether_waw_real/bar/viewmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/bar/fire.ogg",
           "reload": "res://assets/audio/weapons/mapmod/bar/reload.ogg",
@@ -497,7 +503,8 @@
         ]
       },
       "notes": [
-        "Real Aether UE5.7 viewmodel staged from BAR."
+        "Real Aether UE5.7 viewmodel staged from BAR.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded."
       ]
     },
     "browning": {
@@ -505,7 +512,7 @@
       "status": "PARTIAL",
       "runtime": {
         "viewmodel": "res://assets/weapons/aether_waw_real/browning/viewmodel.glb",
-        "worldmodel": "res://assets/weapons/mapmod/browning/worldmodel.glb",
+        "worldmodel": "res://assets/weapons/aether_waw_real/browning/viewmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/browning/fire.ogg",
           "reload": "res://assets/audio/weapons/mapmod/browning/reload.ogg",
@@ -552,7 +559,8 @@
         ]
       },
       "notes": [
-        "Real Aether UE5.7 viewmodel staged from Browning."
+        "Real Aether UE5.7 viewmodel staged from Browning.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded."
       ]
     },
     "doublebarrel": {
@@ -560,7 +568,7 @@
       "status": "PARTIAL",
       "runtime": {
         "viewmodel": "res://assets/weapons/aether_waw_real/doublebarrel/viewmodel.glb",
-        "worldmodel": "res://assets/weapons/mapmod/doublebarrel/worldmodel.glb",
+        "worldmodel": "res://assets/weapons/aether_waw_real/doublebarrel/viewmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/doublebarrel/fire.ogg",
           "reload": "res://assets/audio/weapons/mapmod/doublebarrel/reload.ogg",
@@ -607,7 +615,8 @@
         ]
       },
       "notes": [
-        "Real Aether UE5.7 viewmodel staged from DoubleBarrel."
+        "Real Aether UE5.7 viewmodel staged from DoubleBarrel.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded."
       ]
     },
     "sawnoff": {
@@ -615,7 +624,7 @@
       "status": "PARTIAL",
       "runtime": {
         "viewmodel": "res://assets/weapons/aether_waw_real/sawnoff/viewmodel.glb",
-        "worldmodel": "res://assets/weapons/mapmod/sawnoff/worldmodel.glb",
+        "worldmodel": "res://assets/weapons/aether_waw_real/sawnoff/viewmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/sawnoff/fire.ogg",
           "reload": "res://assets/audio/weapons/mapmod/sawnoff/reload.ogg",
@@ -662,7 +671,8 @@
         ]
       },
       "notes": [
-        "Real Aether UE5.7 viewmodel staged from SawedOffDB."
+        "Real Aether UE5.7 viewmodel staged from SawedOffDB.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded."
       ]
     },
     "fg42": {
@@ -670,7 +680,7 @@
       "status": "PARTIAL",
       "runtime": {
         "viewmodel": "res://assets/weapons/aether_waw_real/fg42/viewmodel.glb",
-        "worldmodel": "res://assets/weapons/mapmod/fg42/worldmodel.glb",
+        "worldmodel": "res://assets/weapons/aether_waw_real/fg42/viewmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/fg42/fire.ogg",
           "reload": "res://assets/audio/weapons/mapmod/fg42/reload.ogg",
@@ -717,7 +727,8 @@
         ]
       },
       "notes": [
-        "Real Aether UE5.7 viewmodel staged from FG42."
+        "Real Aether UE5.7 viewmodel staged from FG42.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded."
       ]
     },
     "gewehr": {
@@ -725,7 +736,7 @@
       "status": "PARTIAL",
       "runtime": {
         "viewmodel": "res://assets/weapons/aether_waw_real/gewehr/viewmodel.glb",
-        "worldmodel": "res://assets/weapons/mapmod/gewehr/worldmodel.glb",
+        "worldmodel": "res://assets/weapons/aether_waw_real/gewehr/viewmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/gewehr/fire.ogg",
           "reload": "res://assets/audio/weapons/mapmod/gewehr/reload.ogg",
@@ -772,7 +783,8 @@
         ]
       },
       "notes": [
-        "Real Aether UE5.7 viewmodel staged from Gewehr."
+        "Real Aether UE5.7 viewmodel staged from Gewehr.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded."
       ]
     },
     "m1a1": {
@@ -780,7 +792,7 @@
       "status": "PARTIAL",
       "runtime": {
         "viewmodel": "res://assets/weapons/aether_waw_real/m1a1/viewmodel.glb",
-        "worldmodel": "res://assets/weapons/mapmod/m1a1/worldmodel.glb",
+        "worldmodel": "res://assets/weapons/aether_waw_real/m1a1/viewmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/m1a1/fire.ogg",
           "reload": "res://assets/audio/weapons/mapmod/m1a1/reload.ogg",
@@ -827,7 +839,8 @@
         ]
       },
       "notes": [
-        "Real Aether UE5.7 viewmodel staged from M1Carbine."
+        "Real Aether UE5.7 viewmodel staged from M1Carbine.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded."
       ]
     },
     "mg42": {
@@ -835,7 +848,7 @@
       "status": "PARTIAL",
       "runtime": {
         "viewmodel": "res://assets/weapons/aether_waw_real/mg42/viewmodel.glb",
-        "worldmodel": "res://assets/weapons/mapmod/mg42/worldmodel.glb",
+        "worldmodel": "res://assets/weapons/aether_waw_real/mg42/viewmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/mg42/fire.ogg",
           "reload": "res://assets/audio/weapons/mapmod/mg42/reload.ogg",
@@ -882,7 +895,8 @@
         ]
       },
       "notes": [
-        "Real Aether UE5.7 viewmodel staged from MG42."
+        "Real Aether UE5.7 viewmodel staged from MG42.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded."
       ]
     },
     "ppsh": {
@@ -890,7 +904,7 @@
       "status": "PARTIAL",
       "runtime": {
         "viewmodel": "res://assets/weapons/aether_waw_real/ppsh/viewmodel.glb",
-        "worldmodel": "res://assets/weapons/mapmod/ppsh/worldmodel.glb",
+        "worldmodel": "res://assets/weapons/aether_waw_real/ppsh/viewmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/ppsh/fire.ogg",
           "reload": "res://assets/audio/weapons/mapmod/ppsh/reload.ogg",
@@ -937,7 +951,8 @@
         ]
       },
       "notes": [
-        "Real Aether UE5.7 viewmodel staged from PPSH."
+        "Real Aether UE5.7 viewmodel staged from PPSH.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded."
       ]
     },
     "ptrs": {
@@ -945,7 +960,7 @@
       "status": "PARTIAL",
       "runtime": {
         "viewmodel": "res://assets/weapons/aether_waw_real/ptrs/viewmodel.glb",
-        "worldmodel": "res://assets/weapons/mapmod/ptrs/worldmodel.glb",
+        "worldmodel": "res://assets/weapons/aether_waw_real/ptrs/viewmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/ptrs/fire.ogg",
           "reload": "res://assets/audio/weapons/mapmod/ptrs/reload.ogg",
@@ -992,7 +1007,8 @@
         ]
       },
       "notes": [
-        "Real Aether UE5.7 viewmodel staged from PTRS."
+        "Real Aether UE5.7 viewmodel staged from PTRS.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded."
       ]
     },
     "stg": {
@@ -1000,7 +1016,7 @@
       "status": "PARTIAL",
       "runtime": {
         "viewmodel": "res://assets/weapons/aether_waw_real/stg/viewmodel.glb",
-        "worldmodel": "res://assets/weapons/mapmod/stg/worldmodel.glb",
+        "worldmodel": "res://assets/weapons/aether_waw_real/stg/viewmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/stg/fire.ogg",
           "reload": "res://assets/audio/weapons/mapmod/stg/reload.ogg",
@@ -1047,7 +1063,8 @@
         ]
       },
       "notes": [
-        "Real Aether UE5.7 viewmodel staged from STG44."
+        "Real Aether UE5.7 viewmodel staged from STG44.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded."
       ]
     },
     "type100": {
@@ -1055,7 +1072,7 @@
       "status": "PARTIAL",
       "runtime": {
         "viewmodel": "res://assets/weapons/aether_waw_real/type100/viewmodel.glb",
-        "worldmodel": "res://assets/weapons/mapmod/type100/worldmodel.glb",
+        "worldmodel": "res://assets/weapons/aether_waw_real/type100/viewmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/type100/fire.ogg",
           "reload": "res://assets/audio/weapons/mapmod/type100/reload.ogg",
@@ -1102,7 +1119,8 @@
         ]
       },
       "notes": [
-        "Real Aether UE5.7 viewmodel staged from Type100."
+        "Real Aether UE5.7 viewmodel staged from Type100.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded."
       ]
     },
     "springfield": {
@@ -1110,7 +1128,7 @@
       "status": "PARTIAL",
       "runtime": {
         "viewmodel": "res://assets/weapons/aether_waw_real/springfield/viewmodel.glb",
-        "worldmodel": "res://assets/weapons/mapmod/springfield/worldmodel.glb",
+        "worldmodel": "res://assets/weapons/aether_waw_real/springfield/viewmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/springfield/fire.ogg",
           "reload": "res://assets/audio/weapons/mapmod/springfield/reload.ogg",
@@ -1157,7 +1175,8 @@
         ]
       },
       "notes": [
-        "Real Aether UE5.7 viewmodel staged from Springfield."
+        "Real Aether UE5.7 viewmodel staged from Springfield.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded."
       ]
     },
     "ray": {
@@ -1324,7 +1343,7 @@
       "status": "PARTIAL",
       "runtime": {
         "viewmodel": "res://assets/weapons/aether_waw_real/arisaka/viewmodel.glb",
-        "worldmodel": "res://assets/weapons/mapmod/arisaka/worldmodel.glb",
+        "worldmodel": "res://assets/weapons/aether_waw_real/arisaka/viewmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/arisaka/fire.ogg",
           "reload": "res://assets/audio/weapons/mapmod/arisaka/reload.ogg",
@@ -1371,7 +1390,8 @@
         ]
       },
       "notes": [
-        "Real Aether UE5.7 skeletal viewmodel staged for Arisaka; animations/audio/worldmodel are gated separately."
+        "Real Aether UE5.7 skeletal viewmodel staged for Arisaka; animations/audio/worldmodel are gated separately.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded."
       ]
     },
     "dp28": {
@@ -1379,7 +1399,7 @@
       "status": "PARTIAL",
       "runtime": {
         "viewmodel": "res://assets/weapons/aether_waw_real/dp28/viewmodel.glb",
-        "worldmodel": "res://assets/weapons/mapmod/dp28/worldmodel.glb",
+        "worldmodel": "res://assets/weapons/aether_waw_real/dp28/viewmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/dp28/fire.ogg",
           "reload": "res://assets/audio/weapons/mapmod/dp28/reload.ogg",
@@ -1426,7 +1446,8 @@
         ]
       },
       "notes": [
-        "Real Aether UE5.7 skeletal viewmodel staged for DP-28; animations/audio/worldmodel are gated separately."
+        "Real Aether UE5.7 skeletal viewmodel staged for DP-28; animations/audio/worldmodel are gated separately.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded."
       ]
     },
     "kar98k": {
@@ -1434,7 +1455,7 @@
       "status": "PARTIAL",
       "runtime": {
         "viewmodel": "res://assets/weapons/aether_waw_real/kar98k/viewmodel.glb",
-        "worldmodel": "res://assets/weapons/mapmod/kar98k/worldmodel.glb",
+        "worldmodel": "res://assets/weapons/aether_waw_real/kar98k/viewmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/kar98k/fire.ogg",
           "reload": "res://assets/audio/weapons/mapmod/kar98k/reload.ogg",
@@ -1481,7 +1502,8 @@
         ]
       },
       "notes": [
-        "Real Aether UE5.7 skeletal viewmodel staged for Kar98k; animations/audio/worldmodel are gated separately."
+        "Real Aether UE5.7 skeletal viewmodel staged for Kar98k; animations/audio/worldmodel are gated separately.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded."
       ]
     },
     "mosin": {
@@ -1489,7 +1511,7 @@
       "status": "PARTIAL",
       "runtime": {
         "viewmodel": "res://assets/weapons/aether_waw_real/mosin/viewmodel.glb",
-        "worldmodel": "res://assets/weapons/mapmod/mosin/worldmodel.glb",
+        "worldmodel": "res://assets/weapons/aether_waw_real/mosin/viewmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/mosin/fire.ogg",
           "reload": "res://assets/audio/weapons/mapmod/mosin/reload.ogg",
@@ -1536,7 +1558,8 @@
         ]
       },
       "notes": [
-        "Real Aether UE5.7 skeletal viewmodel staged for Mosin-Nagant; animations/audio/worldmodel are gated separately."
+        "Real Aether UE5.7 skeletal viewmodel staged for Mosin-Nagant; animations/audio/worldmodel are gated separately.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded."
       ]
     },
     "nambu": {
@@ -1544,7 +1567,7 @@
       "status": "PARTIAL",
       "runtime": {
         "viewmodel": "res://assets/weapons/aether_waw_real/nambu/viewmodel.glb",
-        "worldmodel": "res://assets/weapons/mapmod/nambu/worldmodel.glb",
+        "worldmodel": "res://assets/weapons/aether_waw_real/nambu/viewmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/nambu/fire.ogg",
           "reload": "res://assets/audio/weapons/mapmod/nambu/reload.ogg",
@@ -1591,7 +1614,8 @@
         ]
       },
       "notes": [
-        "Real Aether UE5.7 skeletal viewmodel staged for Nambu; animations/audio/worldmodel are gated separately."
+        "Real Aether UE5.7 skeletal viewmodel staged for Nambu; animations/audio/worldmodel are gated separately.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded."
       ]
     },
     "svt40": {
@@ -1599,7 +1623,7 @@
       "status": "PARTIAL",
       "runtime": {
         "viewmodel": "res://assets/weapons/aether_waw_real/svt40/viewmodel.glb",
-        "worldmodel": "res://assets/weapons/mapmod/svt40/worldmodel.glb",
+        "worldmodel": "res://assets/weapons/aether_waw_real/svt40/viewmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/svt40/fire.ogg",
           "reload": "res://assets/audio/weapons/mapmod/svt40/reload.ogg",
@@ -1646,7 +1670,8 @@
         ]
       },
       "notes": [
-        "Real Aether UE5.7 skeletal viewmodel staged for SVT-40; animations/audio/worldmodel are gated separately."
+        "Real Aether UE5.7 skeletal viewmodel staged for SVT-40; animations/audio/worldmodel are gated separately.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded."
       ]
     },
     "tt33": {
@@ -1654,7 +1679,7 @@
       "status": "PARTIAL",
       "runtime": {
         "viewmodel": "res://assets/weapons/aether_waw_real/tt33/viewmodel.glb",
-        "worldmodel": "res://assets/weapons/mapmod/tt33/worldmodel.glb",
+        "worldmodel": "res://assets/weapons/aether_waw_real/tt33/viewmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/tt33/fire.ogg",
           "reload": "res://assets/audio/weapons/mapmod/tt33/reload.ogg",
@@ -1701,7 +1726,8 @@
         ]
       },
       "notes": [
-        "Real Aether UE5.7 skeletal viewmodel staged for TT-33; animations/audio/worldmodel are gated separately."
+        "Real Aether UE5.7 skeletal viewmodel staged for TT-33; animations/audio/worldmodel are gated separately.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded."
       ]
     },
     "type99": {
@@ -1709,7 +1735,7 @@
       "status": "PARTIAL",
       "runtime": {
         "viewmodel": "res://assets/weapons/aether_waw_real/type99/viewmodel.glb",
-        "worldmodel": "res://assets/weapons/mapmod/type99/worldmodel.glb",
+        "worldmodel": "res://assets/weapons/aether_waw_real/type99/viewmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/type99/fire.ogg",
           "reload": "res://assets/audio/weapons/mapmod/type99/reload.ogg",
@@ -1756,7 +1782,8 @@
         ]
       },
       "notes": [
-        "Real Aether UE5.7 skeletal viewmodel staged for Type 99; animations/audio/worldmodel are gated separately."
+        "Real Aether UE5.7 skeletal viewmodel staged for Type 99; animations/audio/worldmodel are gated separately.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded."
       ]
     },
     "walther": {
@@ -1764,7 +1791,7 @@
       "status": "PARTIAL",
       "runtime": {
         "viewmodel": "res://assets/weapons/aether_waw_real/walther/viewmodel.glb",
-        "worldmodel": "res://assets/weapons/mapmod/walther/worldmodel.glb",
+        "worldmodel": "res://assets/weapons/aether_waw_real/walther/viewmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/walther/fire.ogg",
           "reload": "res://assets/audio/weapons/mapmod/walther/reload.ogg",
@@ -1811,7 +1838,8 @@
         ]
       },
       "notes": [
-        "Real Aether UE5.7 skeletal viewmodel staged for Walther P38; animations/audio/worldmodel are gated separately."
+        "Real Aether UE5.7 skeletal viewmodel staged for Walther P38; animations/audio/worldmodel are gated separately.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded."
       ]
     }
   }
