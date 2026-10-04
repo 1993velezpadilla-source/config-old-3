@@ -216,6 +216,7 @@ func spawn_one() -> Node:
 	_spawn_serial += 1
 	zombie.name = "Zombie_R%d_%d" % [current_round, _spawn_serial]
 	zombie.set_script(script_resource)
+	zombie.set_meta("round_number", current_round)
 
 	var entry: Node = candidate["node"] as Node
 	if str(candidate["kind"]) == "window":
@@ -249,6 +250,7 @@ func spawn_from_barricade(barricade: Node) -> Node:
 	_spawn_serial += 1
 	zombie.name = "Zombie_Probe_%d" % _spawn_serial
 	zombie.set_script(script_resource)
+	zombie.set_meta("round_number", current_round)
 	zombie.call("configure", player, barricade)
 	zombie.connect("died", Callable(self, "_on_zombie_died"))
 	get_parent().add_child(zombie)
