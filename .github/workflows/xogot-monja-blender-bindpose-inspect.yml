@@ -28,7 +28,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update -qq
-          sudo apt-get install -y -qq blender python3-numpy
+          sudo apt-get install -y -qq blender python3-numpy libegl1 libgl1-mesa-dri mesa-utils
           blender --version | head -n 2
 
       - name: Inspect source pose donor rig and recorded mocap
