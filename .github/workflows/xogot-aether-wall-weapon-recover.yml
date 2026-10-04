@@ -63,6 +63,7 @@ jobs:
           "$RETOC" to-legacy "$PAKDIR" "$RUNNER_TEMP/aether-legacy.pak"
           test -s "$RUNNER_TEMP/aether-legacy.pak"
           echo "REPAK=$REPAK" >> "$GITHUB_ENV"
+          echo "AETHER_PAKDIR=$PAKDIR" >> "$GITHUB_ENV"
 
       - name: Extract four wall-weapon source packages
         shell: bash
@@ -70,6 +71,7 @@ jobs:
           set -euo pipefail
           rm -rf recovered
           mkdir -p recovered/raw
+          find "$AETHER_PAKDIR" -maxdepth 2 -type f -printf "%f\t%s\n" | sort > recovered/pak-files.txt
           "$REPAK" unpack "$RUNNER_TEMP/aether-legacy.pak"             -o recovered/raw             -i 'ProjectAether/Content/Assets/Weapons/waw/M1Garand/**'             -i 'ProjectAether/Content/Assets/Weapons/waw/MP40/**'             -i 'ProjectAether/Content/Assets/Weapons/waw/TrenchGun/**'             -i 'ProjectAether/Content/Assets/Weapons/waw/Thompson/**'             -i 'ProjectAether/Content/Assets/Sounds/**/*garand*'             -i 'ProjectAether/Content/Assets/Sounds/**/*Garand*'             -i 'ProjectAether/Content/Assets/Sounds/**/*mp40*'             -i 'ProjectAether/Content/Assets/Sounds/**/*MP40*'             -i 'ProjectAether/Content/Assets/Sounds/**/*trench*'             -i 'ProjectAether/Content/Assets/Sounds/**/*Trench*'             -i 'ProjectAether/Content/Assets/Sounds/**/*thompson*'             -i 'ProjectAether/Content/Assets/Sounds/**/*Thompson*'             --force
           find recovered/raw -type f | sort > recovered/raw-files.txt
           python3 - <<'PY'
@@ -147,32 +149,27 @@ jobs:
           rm -rf recovered/export
           mkdir -p recovered/export
           cat > recovered/aether-weapon-packages.txt <<'EOF'
-          ProjectAether/Content/Assets/Weapons/waw/M1Garand/*.uasset
-          ProjectAether/Content/Assets/Weapons/waw/MP40/*.uasset
-          ProjectAether/Content/Assets/Weapons/waw/TrenchGun/*.uasset
-          ProjectAether/Content/Assets/Weapons/waw/Thompson/*.uasset
-          ProjectAether/Content/Assets/Sounds/**/*garand*.uasset
-          ProjectAether/Content/Assets/Sounds/**/*Garand*.uasset
-          ProjectAether/Content/Assets/Sounds/**/*mp40*.uasset
-          ProjectAether/Content/Assets/Sounds/**/*MP40*.uasset
-          ProjectAether/Content/Assets/Sounds/**/*trench*.uasset
-          ProjectAether/Content/Assets/Sounds/**/*Trench*.uasset
-          ProjectAether/Content/Assets/Sounds/**/*thompson*.uasset
-          ProjectAether/Content/Assets/Sounds/**/*Thompson*.uasset
+          *Weapons/waw/M1Garand/*.uasset
+          *Weapons/waw/MP40/*.uasset
+          *Weapons/waw/TrenchGun/*.uasset
+          *Weapons/waw/Thompson/*.uasset
+          *Sounds/**/*garand*.uasset
+          *Sounds/**/*Garand*.uasset
+          *Sounds/**/*mp40*.uasset
+          *Sounds/**/*MP40*.uasset
+          *Sounds/**/*trench*.uasset
+          *Sounds/**/*Trench*.uasset
+          *Sounds/**/*thompson*.uasset
+          *Sounds/**/*Thompson*.uasset
           EOF
 
           : > recovered/cue4parse-export.log
           SUCCESS_GAME=""
-          # The raw provider is already curated to only the requested Aether assets.
-          # Match its normalized package namespace wholesale; the original mount prefix
-          # is not a valid CUE4Parse filesystem-provider package selector.
-          PROBE_PACKAGE="*"
+          # Mount the original IoStore directory directly. This preserves the .utoc/.ucas
+          # package-store metadata that is lost when retoc flattens the build to legacy files.
+          PROBE_PACKAGE="*M1Garand/M1Garand.uasset"
 
-          # Resolve the reconstructed build's actual package version against one
-          # known skeletal weapon package first. Read the extracted package tree
-          # directly so .uasset/.uexp/.ubulk remain paired under one filesystem
-          # provider; the retoc-generated legacy pak was exposing them as raw data.
-          # Do not let sidecars count as a successful export.
+          # Resolve the engine package version against the real IoStore provider.
           for GAME in \
             GAME_UE5_7 GAME_UE5_6 GAME_UE5_5 GAME_UE5_4 GAME_UE5_3 \
             GAME_UE5_2 GAME_UE5_1 GAME_UE5_0 GAME_UE4_27; do
@@ -181,7 +178,7 @@ jobs:
             mkdir -p recovered/version-probe
             set +e
             "$CUE4PARSE" \
-              -i recovered/raw \
+              -i "$AETHER_PAKDIR" \
               -g "$GAME" \
               -p "$PROBE_PACKAGE" \
               -o recovered/version-probe \
@@ -214,9 +211,9 @@ jobs:
           mkdir -p recovered/export
           set +e
           "$CUE4PARSE" \
-            -i recovered/raw \
+            -i "$AETHER_PAKDIR" \
             -g "$SUCCESS_GAME" \
-            -p "*" \
+            -c recovered/aether-weapon-packages.txt \
             -o recovered/export \
             -y -v \
             --mesh-format Gltf2 \
@@ -260,6 +257,7 @@ jobs:
           path: |
             recovered/raw-report.json
             recovered/raw-files.txt
+            recovered/pak-files.txt
             recovered/raw/
             recovered/version-probe/
             recovered/cue4parse-version.txt
