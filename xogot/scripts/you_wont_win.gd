@@ -116,6 +116,7 @@ func _ready() -> void:
 	_build_environment()
 	_build_site()
 	_build_church()
+	_build_expansion_v1()
 	_build_interior()
 	_build_realism_pass()
 	_build_architectural_shell_v2()
@@ -151,11 +152,196 @@ func _build_environment() -> void:
 	add_child(moon)
 
 func _build_site() -> void:
-	_box("Ground", Vector3(72, 0.5, 84), Vector3(0, -0.25, -4), Color(0.035, 0.04, 0.045))
+	# Expansion V1 needs a real training loop around the full church, not a decorative strip.
+	_box("Ground", Vector3(112, 0.5, 118), Vector3(0, -0.25, -4), Color(0.035, 0.04, 0.045))
 	_box("ChurchFloor", Vector3(22, 0.45, 38), Vector3(0, 0.22, -5), Color(0.12, 0.105, 0.085))
 	_box("FrontWalk", Vector3(6, 0.20, 14), Vector3(0, 0.10, 21), Color(0.13, 0.13, 0.135))
 	for i in range(4):
 		_box("Step%d" % i, Vector3(7.0 - i * 0.35, 0.22, 1.15), Vector3(0, 0.11 + i * 0.20, 14.8 - i * 0.8), Color(0.18, 0.18, 0.17))
+
+func _build_expansion_v1() -> void:
+	var yard_stone := Color(0.105, 0.105, 0.102)
+	var yard_edge := Color(0.155, 0.148, 0.135)
+	var wall_stone := Color(0.125, 0.118, 0.108)
+	var wall_dark := Color(0.078, 0.074, 0.070)
+	var timber := Color(0.070, 0.038, 0.020)
+
+	# --- PLAYABLE EXTERIOR LOOP -------------------------------------------------
+	# These slabs are collision floors and intentionally overlap the world ground by
+	# a few centimeters so the player never catches an edge while sprinting.
+	_box("FrontCourtyardFloor", Vector3(36.0, 0.16, 21.0), Vector3(0.0, 0.08, 25.0), yard_stone)
+	_box("WestOuterLoopFloor", Vector3(10.0, 0.16, 72.0), Vector3(-17.0, 0.08, -3.0), yard_stone)
+	_box("EastOuterLoopFloor", Vector3(10.0, 0.16, 72.0), Vector3(17.0, 0.08, -3.0), yard_stone)
+	_box("RearRuinsYardFloor", Vector3(42.0, 0.16, 20.0), Vector3(0.0, 0.08, -34.0), yard_stone)
+	_box("WestTrainingPad", Vector3(16.0, 0.18, 18.0), Vector3(-25.0, 0.09, -19.0), yard_stone)
+	_box("EastTrainingPad", Vector3(16.0, 0.18, 18.0), Vector3(25.0, 0.09, -19.0), yard_stone)
+	_box("BellTowerAccessYardFloor", Vector3(18.0, 0.18, 20.0), Vector3(-25.0, 0.09, 10.0), yard_stone)
+
+	# Low perimeter architecture shapes the route without turning the exterior into
+	# a corridor. Openings stay deliberately wide enough for touch movement + trains.
+	_box("FrontCourtyardWallL", Vector3(0.65, 2.3, 22.0), Vector3(-18.2, 1.15, 27.0), wall_stone)
+	_box("FrontCourtyardWallR", Vector3(0.65, 2.3, 22.0), Vector3(18.2, 1.15, 27.0), wall_stone)
+	_box("RearBoundary", Vector3(42.0, 2.4, 0.65), Vector3(0.0, 1.20, -44.0), wall_dark)
+	_box("WestRearBoundary", Vector3(0.65, 2.4, 20.0), Vector3(-31.0, 1.20, -32.0), wall_dark)
+	_box("EastRearBoundary", Vector3(0.65, 2.4, 20.0), Vector3(31.0, 1.20, -32.0), wall_dark)
+
+	# Graveyard rhythm: collision-light stone markers, spaced so training paths remain clean.
+	for i in range(10):
+		var gx: float = 20.0 + float(i % 2) * 4.2
+		var gz: float = -28.0 + float(i / 2) * 4.8
+		_box(
+			"GraveMarker_%02d" % i,
+			Vector3(0.55, 1.35 + float(i % 3) * 0.18, 0.28),
+			Vector3(gx, 0.70, gz),
+			yard_edge
+		)
+
+	# West ruins read as cover/landmarks while preserving a broad outer training lane.
+	for i in range(6):
+		var rx: float = -27.5 + float(i % 3) * 3.2
+		var rz: float = -34.0 + float(i / 3) * 5.0
+		_box(
+			"RearRuin_%02d" % i,
+			Vector3(2.2, 1.4 + float(i % 2) * 1.2, 0.55),
+			Vector3(rx, 0.70 + float(i % 2) * 0.60, rz),
+			wall_stone
+		)
+
+	_build_side_rooms_v1(wall_stone, wall_dark, timber)
+	_build_bell_tower_v1(wall_stone, wall_dark, timber)
+	_build_expansion_zone_markers()
+	print("XZOGOT_EXPANSION_V1_LOOP_READY")
+
+func _build_side_rooms_v1(stone: Color, dark_stone: Color, timber: Color) -> void:
+	# East sacristy / side chapel shell.
+	_box("SacristyFloor", Vector3(8.0, 0.20, 11.0), Vector3(15.0, 0.10, -15.0), Color(0.11, 0.10, 0.085))
+	_box("SacristyOuterWall", Vector3(0.55, 4.8, 11.0), Vector3(18.8, 2.4, -15.0), stone)
+	_box("SacristyRearWall", Vector3(8.0, 4.8, 0.55), Vector3(15.0, 2.4, -20.3), stone)
+	_box("SacristyFrontWallA", Vector3(2.3, 4.8, 0.55), Vector3(12.1, 2.4, -9.7), dark_stone)
+	_box("SacristyFrontWallB", Vector3(2.3, 4.8, 0.55), Vector3(17.9, 2.4, -9.7), dark_stone)
+	_visual_box("SacristyBeam", Vector3(7.2, 0.28, 0.30), Vector3(15.0, 4.35, -15.0), timber)
+
+	# West utility hallway / future power route.
+	_box("WestHallFloor", Vector3(7.0, 0.20, 16.0), Vector3(-14.5, 0.10, 3.0), Color(0.095, 0.09, 0.08))
+	_box("WestHallOuterWall", Vector3(0.55, 4.4, 16.0), Vector3(-17.8, 2.2, 3.0), stone)
+	_box("WestHallCapA", Vector3(7.0, 4.4, 0.55), Vector3(-14.5, 2.2, -4.7), dark_stone)
+	_box("WestHallCapB", Vector3(7.0, 4.4, 0.55), Vector3(-14.5, 2.2, 10.7), dark_stone)
+
+	# Crypt access room plus a physical descending ramp to the first basement landing.
+	_box("CryptAccessFloor", Vector3(8.0, 0.20, 8.0), Vector3(15.0, 0.10, -3.0), Color(0.09, 0.085, 0.075))
+	_box("CryptOuterWall", Vector3(0.55, 4.2, 8.0), Vector3(18.8, 2.1, -3.0), stone)
+	_box("CryptCapNorth", Vector3(8.0, 4.2, 0.55), Vector3(15.0, 2.1, -6.8), dark_stone)
+	_box("CryptCapSouth", Vector3(8.0, 4.2, 0.55), Vector3(15.0, 2.1, 0.8), dark_stone)
+	_build_expansion_ramp(
+		"CryptRamp",
+		Vector3(16.0, 0.35, -1.0),
+		Vector3(16.0, -2.80, -7.0),
+		2.4
+	)
+	_box("CryptBasementFloor", Vector3(12.0, 0.28, 14.0), Vector3(16.0, -2.95, -12.5), Color(0.060, 0.058, 0.055))
+	_box("CryptBasementRearWall", Vector3(12.0, 3.3, 0.55), Vector3(16.0, -1.30, -19.3), dark_stone)
+	print("XZOGOT_SIDE_ROOMS_V1_READY")
+
+func _build_bell_tower_v1(stone: Color, dark_stone: Color, timber: Color) -> void:
+	var cx: float = -25.0
+	var cz: float = 9.0
+
+	# Lower chamber and four structural piers keep the tower readable while leaving
+	# broad openings for combat and exterior visibility.
+	_box("BellTowerLowerFloor", Vector3(9.0, 0.25, 9.0), Vector3(cx, 0.125, cz), Color(0.11, 0.10, 0.085))
+	for sx in [-1.0, 1.0]:
+		for sz in [-1.0, 1.0]:
+			_box(
+				"BellTowerPier_%s_%s" % [str(sx), str(sz)],
+				Vector3(1.0, 12.8, 1.0),
+				Vector3(cx + 3.8 * sx, 6.4, cz + 3.8 * sz),
+				stone
+			)
+
+	# Switchback traversal: two physical ramps and real landings.
+	_build_expansion_ramp(
+		"BellTowerRampLower",
+		Vector3(cx - 2.1, 0.35, cz - 3.0),
+		Vector3(cx - 2.1, 4.25, cz + 2.8),
+		2.2
+	)
+	_box("BellTowerMidLanding", Vector3(8.0, 0.26, 2.2), Vector3(cx, 4.12, cz + 3.0), Color(0.095, 0.075, 0.050))
+	_build_expansion_ramp(
+		"BellTowerRampUpper",
+		Vector3(cx + 2.1, 4.35, cz + 2.6),
+		Vector3(cx + 2.1, 8.25, cz - 3.0),
+		2.2
+	)
+	_box("BellTowerTopLanding", Vector3(8.0, 0.26, 2.5), Vector3(cx, 8.12, cz - 3.0), Color(0.095, 0.075, 0.050))
+	_box("BellTowerBellDeckL", Vector3(2.4, 0.26, 5.5), Vector3(cx - 2.8, 8.12, cz + 0.7), Color(0.095, 0.075, 0.050))
+	_box("BellTowerBellDeckR", Vector3(2.4, 0.26, 5.5), Vector3(cx + 2.8, 8.12, cz + 0.7), Color(0.095, 0.075, 0.050))
+
+	# Timber cross frame + procedural bell placeholder. This is gameplay geometry now;
+	# the final authored bell GLB can replace the visual without touching traversal.
+	_visual_box("BellFrameTop", Vector3(7.4, 0.45, 0.45), Vector3(cx, 11.2, cz), timber)
+	_visual_box("BellFrameL", Vector3(0.45, 5.8, 0.45), Vector3(cx - 2.8, 9.0, cz), timber)
+	_visual_box("BellFrameR", Vector3(0.45, 5.8, 0.45), Vector3(cx + 2.8, 9.0, cz), timber)
+	_visual_cylinder("ChurchBellCrown", 1.05, 0.55, Vector3(cx, 10.0, cz), Color(0.16, 0.095, 0.045), 24)
+	_visual_cylinder("ChurchBellBody", 1.45, 1.35, Vector3(cx, 9.25, cz), Color(0.19, 0.105, 0.050), 24)
+	_visual_cylinder("ChurchBellLip", 1.70, 0.22, Vector3(cx, 8.52, cz), Color(0.12, 0.065, 0.030), 24)
+
+	# Thin level rails prevent accidental falls while keeping sightlines open.
+	for y in [4.55, 8.55]:
+		_visual_box("BellRailW_%s" % str(y), Vector3(7.5, 0.75, 0.18), Vector3(cx, y, cz + 3.75), timber)
+		_visual_box("BellRailE_%s" % str(y), Vector3(7.5, 0.75, 0.18), Vector3(cx, y, cz - 3.75), timber)
+
+	print("XZOGOT_BELL_TOWER_V1_PLAYABLE")
+
+func _build_expansion_ramp(label: String, start_local: Vector3, end_local: Vector3, width: float) -> void:
+	var start: Vector3 = _wp(start_local)
+	var finish: Vector3 = _wp(end_local)
+	var delta: Vector3 = finish - start
+	var horizontal: float = Vector2(delta.x, delta.z).length()
+	if horizontal <= 0.001:
+		return
+	var slope_length: float = sqrt(horizontal * horizontal + delta.y * delta.y)
+	var yaw: float = rad_to_deg(atan2(delta.x, delta.z))
+	var pitch: float = -rad_to_deg(atan2(delta.y, horizontal))
+
+	var ramp := StaticBody3D.new()
+	ramp.name = label
+	ramp.position = (start + finish) * 0.5
+	ramp.rotation_degrees = Vector3(pitch, yaw, 0.0)
+	ramp.add_to_group("expansion_walkable_ramp")
+
+	var mesh_instance := MeshInstance3D.new()
+	var mesh := BoxMesh.new()
+	mesh.size = Vector3(width * WORLD_SCALE, 0.18 * WORLD_SCALE, slope_length)
+	mesh.material = _make_surface_material(label, Color(0.11, 0.095, 0.075), 0.88)
+	mesh_instance.mesh = mesh
+	ramp.add_child(mesh_instance)
+
+	var collision := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(width * WORLD_SCALE, 0.18 * WORLD_SCALE, slope_length)
+	collision.shape = shape
+	ramp.add_child(collision)
+	add_child(ramp)
+
+func _build_expansion_zone_markers() -> void:
+	var zones: Dictionary = {
+		"FrontCourtyard": Vector3(0.0, 0.5, 25.0),
+		"WestOuterLoop": Vector3(-17.0, 0.5, -3.0),
+		"EastOuterLoop": Vector3(17.0, 0.5, -3.0),
+		"RearRuinsYard": Vector3(0.0, 0.5, -34.0),
+		"GraveyardPath": Vector3(23.0, 0.5, -18.0),
+		"BellTowerAccessYard": Vector3(-25.0, 0.5, 10.0),
+		"Sacristy": Vector3(15.0, 0.5, -15.0),
+		"CryptAccess": Vector3(15.0, 0.5, -3.0),
+	}
+	for zone_name: String in zones.keys():
+		var marker := Marker3D.new()
+		marker.name = "Zone_" + zone_name
+		marker.position = _wp(zones[zone_name])
+		marker.add_to_group("gameplay_zone")
+		marker.set_meta("zone_name", zone_name)
+		add_child(marker)
+	print("XZOGOT_EXPANSION_ZONES_READY ", zones.size())
 
 func _build_church() -> void:
 	var stone := Color(0.20, 0.19, 0.175)
@@ -870,7 +1056,19 @@ func _build_interactions() -> void:
 	_interactive_box("MysteryBoxSocket", Vector3(2.2, 1.4, 1.1), Vector3(7.4, 0.9, -15.0), Color(0.18, 0.12, 0.30), 2, 950, 0, false, "MYSTERY BOX")
 	_interactive_box("PerkSocket", Vector3(1.2, 2.0, 1.2), Vector3(-7.4, 1.2, -15.2), Color(0.42, 0.11, 0.09), 3, 2500, 0, true, "PERK")
 	_interactive_box("PowerSwitch", Vector3(0.7, 2.2, 0.7), Vector3(8.6, 1.4, 8.3), Color(0.52, 0.42, 0.12), 4, 0, 0, true, "TURN ON POWER")
-	print("XZOGOT_INTERACTIONS_PREPARED 6")
+	_build_expansion_interactions()
+	print("XZOGOT_INTERACTIONS_PREPARED 10")
+
+func _build_expansion_interactions() -> void:
+	var gate_color := Color(0.16, 0.055, 0.035)
+	# Front courtyard opens into two independent outer-loop routes.
+	_interactive_box("WestOuterGate", Vector3(0.35, 3.2, 5.0), Vector3(-13.6, 1.60, 18.0), gate_color, 0, 1000, 0, true, "OPEN WEST YARD")
+	_interactive_box("EastOuterGate", Vector3(0.35, 3.2, 5.0), Vector3(13.6, 1.60, 18.0), gate_color, 0, 1000, 0, true, "OPEN EAST YARD")
+	# Rear route is deliberately later progression and unlocks the largest training loop.
+	_interactive_box("RearRuinsGate", Vector3(5.0, 3.2, 0.35), Vector3(17.0, 1.60, -27.5), gate_color, 0, 1250, 0, true, "OPEN REAR RUINS")
+	# Bell tower becomes a risk/reward vertical detour instead of free spawn access.
+	_interactive_box("BellTowerGate", Vector3(0.35, 3.2, 4.8), Vector3(-19.5, 1.60, 9.0), gate_color, 0, 1250, 0, true, "OPEN BELL TOWER")
+	print("XZOGOT_EXPANSION_BUY_GATES_READY 4")
 
 func _interactive_box(label: String, size: Vector3, pos: Vector3, color: Color, kind: int, price: int, reward: int, one_shot: bool, prompt: String) -> void:
 	var script_resource: Script = load("res://scripts/interactable.gd") as Script
