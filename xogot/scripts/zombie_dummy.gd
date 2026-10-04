@@ -64,6 +64,8 @@ const CRAWL_KEYS: Array[String] = ["crawl_A", "111_03"]
 @export var path_refresh_interval: float = 0.62
 @export var stuck_sample_interval: float = 0.72
 @export var stuck_timeout: float = 1.75
+@export var max_step_height: float = 0.42
+@export var step_forward_distance: float = 0.24
 @export var dismemberment_enabled: bool = true
 @export var head_limb_health: float = 82.0
 @export var arm_limb_health: float = 112.0
@@ -289,18 +291,20 @@ func _build_body() -> void:
 	var using_rigged: bool = false
 	var using_rigged_dismember: bool = false
 	var using_rigid_rig: bool = false
-	if ResourceLoader.exists(MONJA_RIGID_RIG_PATH):
-		selected_path = MONJA_RIGID_RIG_PATH
-		using_rigged = true
-		using_rigged_dismember = true
-		using_rigid_rig = true
-	elif ResourceLoader.exists(MONJA_RIGGED_DISMEMBER_PATH):
+	# Prefer a true smooth-skinned rig whenever it is present.  The rigid-region
+	# rig is a compatibility fallback only; it must never shadow a proper skin.
+	if ResourceLoader.exists(MONJA_RIGGED_DISMEMBER_PATH):
 		selected_path = MONJA_RIGGED_DISMEMBER_PATH
 		using_rigged = true
 		using_rigged_dismember = true
 	elif ResourceLoader.exists(MONJA_RIGGED_PATH):
 		selected_path = MONJA_RIGGED_PATH
 		using_rigged = true
+	elif ResourceLoader.exists(MONJA_RIGID_RIG_PATH):
+		selected_path = MONJA_RIGID_RIG_PATH
+		using_rigged = true
+		using_rigged_dismember = true
+		using_rigid_rig = true
 
 	if ResourceLoader.exists(selected_path):
 		var packed: PackedScene = load(selected_path) as PackedScene
@@ -626,7 +630,39 @@ func _move_toward_flat_speed(target: Vector3, stop_distance: float, speed: float
 	rotation.y = lerp_angle(rotation.y, target_yaw, turn_lerp)
 	velocity.x = direction.x * speed
 	velocity.z = direction.z * speed
+	var before_move := global_position
 	move_and_slide()
+	var horizontal_moved := Vector2(
+		global_position.x - before_move.x,
+		global_position.z - before_move.z
+	).length()
+	if is_on_floor() and horizontal_moved < 0.003:
+		_try_step_up(direction)
+	return false
+
+func _try_step_up(direction: Vector3) -> bool:
+	# CharacterBody3D will happily stop on a tiny hard lip.  Probe a short set of
+	# human-sized step heights and advance only when both the vertical clearance
+	# and the raised forward move are collision-free.
+	if direction.length_squared() <= 0.0001:
+		return false
+	var step_heights: Array[float] = [0.10, 0.18, 0.26, 0.34, max_step_height]
+	for step_height: float in step_heights:
+		if step_height <= 0.0 or step_height > max_step_height + 0.001:
+			continue
+		var up := Vector3.UP * step_height
+		if test_move(global_transform, up):
+			continue
+		var raised_transform := global_transform.translated(up)
+		var forward := direction.normalized() * step_forward_distance
+		if test_move(raised_transform, forward):
+			continue
+		global_position += up + forward
+		velocity.y = 0.0
+		apply_floor_snap()
+		set_meta("last_step_up_height", step_height)
+		print("XZOGOT_ZOMBIE_STEP_UP ", name, " height=", step_height)
+		return true
 	return false
 
 func _update_stuck_watchdog(delta: float) -> void:
@@ -714,7 +750,11 @@ func _rigged_fallback_animation(state: String) -> String:
 
 func _play_motion_state(state: String) -> void:
 	if _motion_state == state:
-		return
+		# Imported GLTF clips are not guaranteed to be flagged as loops.  If a
+		# walk/idle clip reached its end, restart it instead of letting the model
+		# slide rigidly through the world.
+		if _animation_player == null or _animation_player.is_playing():
+			return
 	_motion_state = state
 	set_meta("motion_state", state)
 	if _animation_player == null:
