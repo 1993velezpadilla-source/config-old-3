@@ -1,5 +1,7 @@
 name: Recover Aether Wall Weapons
 
+# recovery-matrix-trigger: 2026-10-04-v8
+
 on:
   workflow_dispatch:
   push:
