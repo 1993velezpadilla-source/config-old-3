@@ -193,6 +193,7 @@ jobs:
           grep -q "XZOGOT_RELEASE_DEV_FLAGS_PROBE_GREEN" build/xogot-ai/dev-menu-probe.log
           grep -q "XZOGOT_RELEASE_DEV_UNLOCK_PROBE_GREEN" build/xogot-ai/dev-menu-probe.log
           grep -q "XZOGOT_RELEASE_WEAPON_LAB_PROBE_GREEN" build/xogot-ai/dev-menu-probe.log
+          grep -q "XZOGOT_RELEASE_DEV_LIGHTING_TESTS_GREEN" build/xogot-ai/dev-menu-probe.log
           grep -q "XZOGOT_RELEASE_DEV_MENU_PROBE_GREEN" build/xogot-ai/dev-menu-probe.log
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-ai/dev-menu-probe.log
           echo "XOGOT_RELEASE_DEV_LAB_GREEN"
