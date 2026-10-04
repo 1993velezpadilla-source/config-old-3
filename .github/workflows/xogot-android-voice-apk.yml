@@ -1,0 +1,125 @@
+name: Xogot Android Voice APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/church-expansion-v1
+    paths:
+      - ".github/workflows/xogot-android-voice-apk.yml"
+      - "xogot/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xogot-android-voice-apk
+  cancel-in-progress: true
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android SDK packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [[ ! -x "$SDKMANAGER" ]]; then
+            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n1)"
+          fi
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.1"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+
+      - name: Install Godot 4.6.1 and export templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          GODOT_VER="4.6.1-stable"
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2             "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VER}/Godot_v${GODOT_VER}_linux.x86_64.zip"             -o /tmp/godot.zip
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2             "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VER}/Godot_v${GODOT_VER}_export_templates.tpz"             -o /tmp/godot-templates.tpz
+          rm -rf /tmp/godot /tmp/godot-templates
+          mkdir -p /tmp/godot /tmp/godot-templates
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          unzip -q /tmp/godot-templates.tpz -d /tmp/godot-templates
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+          TEMPLATE_DIR="$HOME/.local/share/godot/export_templates/4.6.1.stable"
+          mkdir -p "$TEMPLATE_DIR"
+          cp -a /tmp/godot-templates/templates/. "$TEMPLATE_DIR/"
+          test -s "$TEMPLATE_DIR/android_debug.apk"
+          test -s "$TEMPLATE_DIR/android_release.apk"
+          printf '%s\n' "4.6.1.stable" > "$TEMPLATE_DIR/version.txt"
+
+      - name: Create Android debug keystore
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/xogot-keystore"
+          KEYSTORE="$RUNNER_TEMP/xogot-keystore/debug.keystore"
+          keytool -genkeypair -v             -keystore "$KEYSTORE"             -storepass android             -alias androiddebugkey             -keypass android             -keyalg RSA             -keysize 2048             -validity 10000             -dname "CN=Android Debug,O=XZIEL,C=US"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$KEYSTORE" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android" >> "$GITHUB_ENV"
+
+      - name: Import Xogot project
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64             --headless --editor --path xogot --quit             2>&1 | tee /tmp/xogot-android-import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" /tmp/xogot-android-import.log
+
+      - name: Export Android ARM64 debug APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/android
+          /tmp/godot/Godot_v4.6.1-stable_linux.x86_64             --headless --path xogot             --export-debug "Android ARM64"             "../build/android/YOU-WONT-WIN-mobile-voice-debug.apk"             2>&1 | tee build/android/export.log
+          APK="build/android/YOU-WONT-WIN-mobile-voice-debug.apk"
+          test -s "$APK"
+          sha256sum "$APK" | tee "$APK.sha256"
+          ls -lh "$APK"
+
+      - name: Verify Android permissions and package
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="build/android/YOU-WONT-WIN-mobile-voice-debug.apk"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n1)"
+          test -x "$AAPT"
+          "$AAPT" dump permissions "$APK" | tee build/android/permissions.txt
+          "$AAPT" dump badging "$APK" | tee build/android/badging.txt
+          grep -q "android.permission.INTERNET" build/android/permissions.txt
+          grep -q "android.permission.RECORD_AUDIO" build/android/permissions.txt
+          grep -q "package: name='com.xziel.youwontwin'" build/android/badging.txt
+          unzip -l "$APK" > build/android/apk-contents.txt
+          echo "XZ_ANDROID_APK_INTERNET_GREEN"
+          echo "XZ_ANDROID_APK_RECORD_AUDIO_GREEN"
+          echo "XZ_ANDROID_APK_ARM64_EXPORT_GREEN"
+
+      - name: Upload Pixel Fold test APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: YOU-WONT-WIN-Mobile-Voice-Android
+          path: |
+            build/android/YOU-WONT-WIN-mobile-voice-debug.apk
+            build/android/YOU-WONT-WIN-mobile-voice-debug.apk.sha256
+            build/android/permissions.txt
+            build/android/badging.txt
+            build/android/apk-contents.txt
+            build/android/export.log
+          if-no-files-found: error
+          retention-days: 14
