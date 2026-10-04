@@ -14,11 +14,25 @@ const NAV_PATH := "res://data/nav_skeleton.json"
 @export var mouse_sensitivity := 0.0022
 @export var touch_sensitivity := 0.0028
 @export var gyro_enabled := true
+@export var gyro_mode: int = 1 # 0=OFF, 1=ALWAYS, 2=ADS ONLY
 @export var gyro_sensitivity := 0.70
+@export var gyro_sensitivity_x := 0.70
+@export var gyro_sensitivity_y := 0.70
+@export var gyro_ads_multiplier := 0.65
+@export var gyro_deadzone := 0.05
+@export var gyro_smoothing := 0.18
+@export var gyro_invert_x := false
+@export var gyro_invert_y := false
 @export var ads_touch_multiplier := 0.62
 @export var fire_touch_multiplier := 1.00
-@export var gyro_ads_multiplier := 0.65
 @export var ads_toggle_mode := false
+@export var auto_knife_enabled := true
+@export var knife_button_range_only := true
+@export var knife_range_m := 1.65
+@export var knife_damage := 150.0
+@export var knife_cooldown := 0.72
+@export var auto_rebuild_enabled := true
+@export var repair_repeat_interval := 0.45
 @export var base_fov := 66.0
 @export var ads_fov := 52.0
 @export var sprint_fov := 69.0
@@ -48,6 +62,8 @@ var _crouch_touch := -1
 var _fire_touch := -1
 var _ads_touch := -1
 var _adsfire_touch := -1
+var _knife_touch := -1
+var _use_touch := -1
 var _move_origin := Vector2.ZERO
 var _move_vector := Vector2.ZERO
 var _jump_requested := false
@@ -62,6 +78,10 @@ var _sprinting := false
 var _was_on_floor := false
 var _land_camera_pos := 0.0
 var _land_camera_vel := 0.0
+var _knife_timer := 0.0
+var _knife_anim_timer := 0.0
+var _repair_timer := 0.0
+var _gyro_filtered := Vector2.ZERO
 
 @onready var _head: Node3D = $Head
 @onready var _camera: Camera3D = $Head/Camera3D
@@ -85,6 +105,9 @@ func _ready() -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	if use_nav_spawn:
 		_place_at_spawn()
+	var settings: Node = get_node_or_null("../HUD/MobileSettings")
+	if settings != null:
+		apply_mobile_settings(settings)
 	print("XZOGOT_PLAYER_READY")
 	print("XZOGOT_MOVEMENT_V2_READY")
 	print("XZOGOT_COD_VIEW_READY")
@@ -106,8 +129,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		_apply_look(Vector2(event.relative.x, event.relative.y) * mouse_sensitivity)
 	elif event is InputEventKey and event.pressed and (event.keycode == KEY_E or event.keycode == KEY_F):
 		request_interact()
+	elif event is InputEventKey and event.pressed and event.keycode == KEY_V:
+		request_knife()
 	elif event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		var settings: Node = get_node_or_null("../HUD/MobileSettings")
+		if settings != null and settings.has_method("toggle_menu"):
+			settings.call("toggle_menu")
+		else:
+			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	elif event is InputEventMouseButton and event.pressed and not OS.has_feature("mobile"):
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	elif event is InputEventScreenTouch:
@@ -118,6 +147,11 @@ func _unhandled_input(event: InputEvent) -> void:
 func _handle_touch(event: InputEventScreenTouch) -> void:
 	var size: Vector2 = get_viewport().get_visible_rect().size
 	if event.pressed:
+		if MobileLayout.inside(event.position, size, MobileLayout.PAUSE_CENTER, MobileLayout.PAUSE_RADIUS):
+			var settings: Node = get_node_or_null("../HUD/MobileSettings")
+			if settings != null and settings.has_method("toggle_menu"):
+				settings.call("toggle_menu")
+			return
 		if MobileLayout.inside(event.position, size, MobileLayout.ADSFIRE_CENTER, MobileLayout.ADSFIRE_RADIUS) and _adsfire_touch < 0:
 			_adsfire_touch = event.index
 			_weapon.call("set_trigger_held", true)
@@ -135,8 +169,12 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 			_crouch_touch = event.index
 		elif MobileLayout.inside(event.position, size, MobileLayout.JUMP_CENTER, MobileLayout.JUMP_RADIUS):
 			_jump_requested = true
-		elif MobileLayout.inside(event.position, size, MobileLayout.USE_CENTER, MobileLayout.USE_RADIUS):
+		elif MobileLayout.inside(event.position, size, MobileLayout.USE_CENTER, MobileLayout.USE_RADIUS) and _use_touch < 0:
+			_use_touch = event.index
 			request_interact()
+		elif MobileLayout.inside(event.position, size, MobileLayout.KNIFE_CENTER, MobileLayout.KNIFE_RADIUS) and _knife_touch < 0:
+			_knife_touch = event.index
+			request_knife()
 		elif MobileLayout.inside(event.position, size, MobileLayout.JOY_CENTER, MobileLayout.JOY_RADIUS) and _move_touch < 0:
 			_move_touch = event.index
 			_move_origin = MobileLayout.screen_point(MobileLayout.JOY_CENTER, size)
@@ -162,6 +200,10 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 			_adsfire_touch = -1
 			if _fire_touch < 0:
 				_weapon.call("set_trigger_held", false)
+		if event.index == _use_touch:
+			_use_touch = -1
+		if event.index == _knife_touch:
+			_knife_touch = -1
 
 func _handle_drag(event: InputEventScreenDrag) -> void:
 	if event.index == _move_touch:
@@ -182,6 +224,108 @@ func _apply_look(delta: Vector2) -> void:
 	rotation.y -= delta.x
 	_pitch = clamp(_pitch - delta.y, deg_to_rad(-86.0), deg_to_rad(86.0))
 	_head.rotation.x = _pitch
+
+func apply_mobile_settings(settings: Node) -> void:
+	if settings == null or not settings.has_method("get_setting_value"):
+		return
+	ads_toggle_mode = bool(settings.call("get_setting_value", "ads_toggle_mode"))
+	gyro_mode = int(settings.call("get_setting_value", "gyro_mode"))
+	gyro_enabled = gyro_mode != 0
+	gyro_invert_x = bool(settings.call("get_setting_value", "gyro_invert_x"))
+	gyro_invert_y = bool(settings.call("get_setting_value", "gyro_invert_y"))
+	gyro_sensitivity_x = float(settings.call("get_setting_value", "gyro_sensitivity_x"))
+	gyro_sensitivity_y = float(settings.call("get_setting_value", "gyro_sensitivity_y"))
+	gyro_ads_multiplier = float(settings.call("get_setting_value", "gyro_ads_multiplier"))
+	gyro_deadzone = float(settings.call("get_setting_value", "gyro_deadzone"))
+	gyro_smoothing = float(settings.call("get_setting_value", "gyro_smoothing"))
+	auto_knife_enabled = bool(settings.call("get_setting_value", "auto_knife"))
+	knife_button_range_only = bool(settings.call("get_setting_value", "knife_button_range_only"))
+	knife_range_m = float(settings.call("get_setting_value", "knife_range_m"))
+	auto_rebuild_enabled = bool(settings.call("get_setting_value", "auto_rebuild"))
+	repair_repeat_interval = float(settings.call("get_setting_value", "repair_repeat_interval"))
+	print("XZOGOT_PLAYER_SETTINGS_APPLIED")
+
+func _nearest_zombie(max_distance: float) -> Node3D:
+	var best: Node3D = null
+	var best_d2: float = max_distance * max_distance
+	for node: Node in get_tree().get_nodes_in_group("zombie"):
+		if not (node is Node3D):
+			continue
+		var zombie := node as Node3D
+		var d2: float = global_position.distance_squared_to(zombie.global_position)
+		if d2 < best_d2:
+			best_d2 = d2
+			best = zombie
+	return best
+
+func is_knife_target_near() -> bool:
+	return _nearest_zombie(knife_range_m) != null
+
+func is_knifing() -> bool:
+	return _knife_anim_timer > 0.0
+
+func request_knife() -> bool:
+	if downed or _knife_timer > 0.0:
+		return false
+	var zombie: Node3D = _nearest_zombie(knife_range_m)
+	if zombie == null:
+		return false
+
+	var world: World3D = get_world_3d()
+	if world != null:
+		var origin: Vector3 = _camera.global_position
+		var target: Vector3 = zombie.global_position + Vector3(0.0, 0.9, 0.0)
+		var ray := PhysicsRayQueryParameters3D.create(origin, target)
+		ray.exclude = [get_rid()]
+		var hit: Dictionary = world.direct_space_state.intersect_ray(ray)
+		if not hit.is_empty():
+			var collider: Object = hit.get("collider") as Object
+			if collider != zombie:
+				return false
+
+	if zombie.has_method("apply_melee_damage"):
+		zombie.call("apply_melee_damage", knife_damage, self, zombie.global_position + Vector3(0.0, 0.95, 0.0))
+	elif zombie.has_method("apply_damage"):
+		zombie.call("apply_damage", knife_damage, self)
+	else:
+		return false
+
+	_knife_timer = knife_cooldown
+	_knife_anim_timer = 0.22
+	print("XZOGOT_KNIFE_HIT ", zombie.name)
+	return true
+
+func _nearest_repairable_barricade() -> Node:
+	var best: Node = null
+	var best_d2: float = interaction_range * interaction_range
+	for barricade: Node in get_tree().get_nodes_in_group("zombie_barricade"):
+		if not barricade.has_method("get_boards") or not barricade.has_method("get_max_boards"):
+			continue
+		if int(barricade.call("get_boards")) >= int(barricade.call("get_max_boards")):
+			continue
+		if not (barricade is Node3D):
+			continue
+		var d2: float = global_position.distance_squared_to((barricade as Node3D).global_position)
+		if d2 < best_d2:
+			best_d2 = d2
+			best = barricade
+	return best
+
+func _update_mobile_assists(delta: float) -> void:
+	_knife_timer = maxf(0.0, _knife_timer - delta)
+	_knife_anim_timer = maxf(0.0, _knife_anim_timer - delta)
+	_repair_timer = maxf(0.0, _repair_timer - delta)
+
+	if auto_knife_enabled and _knife_timer <= 0.0 and is_knife_target_near():
+		request_knife()
+
+	var manual_repair_held: bool = _use_touch >= 0 or Input.is_key_pressed(KEY_E) or Input.is_key_pressed(KEY_F)
+	if _repair_timer <= 0.0 and (auto_rebuild_enabled or manual_repair_held):
+		var barricade: Node = _nearest_repairable_barricade()
+		if barricade != null and barricade.has_method("interact"):
+			if bool(barricade.call("interact", self)):
+				_repair_timer = repair_repeat_interval
+				print("XZOGOT_BARRICADE_AUTO_REPAIR ", barricade.name)
 
 func request_interact() -> bool:
 	if _camera == null:
@@ -350,13 +494,28 @@ func _physics_process(delta: float) -> void:
 	if _slide_cooldown_timer > 0.0:
 		_slide_cooldown_timer = maxf(0.0, _slide_cooldown_timer - delta)
 
-	if gyro_enabled and OS.has_feature("mobile") and _look_touch < 0:
+	var gyro_active: bool = gyro_enabled and gyro_mode != 0 and OS.has_feature("mobile")
+	if gyro_mode == 2 and not _is_ads_active():
+		gyro_active = false
+	if gyro_active:
 		var gyro: Vector3 = Input.get_gyroscope()
-		if gyro.length() > 0.05:
-			var gyro_mult: float = gyro_ads_multiplier if _is_ads_active() else 1.0
-			rotation.y -= gyro.y * gyro_sensitivity * gyro_mult * delta
-			_pitch = clamp(_pitch - gyro.x * gyro_sensitivity * gyro_mult * delta, deg_to_rad(-86.0), deg_to_rad(86.0))
-			_head.rotation.x = _pitch
+		var raw := Vector2(gyro.y, gyro.x)
+		if absf(raw.x) < gyro_deadzone:
+			raw.x = 0.0
+		if absf(raw.y) < gyro_deadzone:
+			raw.y = 0.0
+		if gyro_invert_x:
+			raw.x = -raw.x
+		if gyro_invert_y:
+			raw.y = -raw.y
+		var smoothing_blend: float = 1.0 if gyro_smoothing <= 0.001 else (1.0 - exp(-delta / maxf(gyro_smoothing, 0.001)))
+		_gyro_filtered = _gyro_filtered.lerp(raw, smoothing_blend)
+		var gyro_mult: float = gyro_ads_multiplier if _is_ads_active() else 1.0
+		rotation.y -= _gyro_filtered.x * gyro_sensitivity_x * gyro_mult * delta
+		_pitch = clamp(_pitch - _gyro_filtered.y * gyro_sensitivity_y * gyro_mult * delta, deg_to_rad(-86.0), deg_to_rad(86.0))
+		_head.rotation.x = _pitch
+	else:
+		_gyro_filtered = _gyro_filtered.lerp(Vector2.ZERO, minf(delta * 12.0, 1.0))
 
 	if not is_on_floor():
 		velocity.y -= _gravity * delta
@@ -411,4 +570,5 @@ func _physics_process(delta: float) -> void:
 		_land_camera_vel -= impact * 0.18
 	_was_on_floor = is_on_floor()
 	_update_camera_fov(delta)
+	_update_mobile_assists(delta)
 	_crouch_was_pressed = crouch_pressed
