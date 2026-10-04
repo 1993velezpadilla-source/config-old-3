@@ -116,7 +116,10 @@ func _run() -> void:
 		return
 	await physics_frame
 
-	player.global_position = Vector3(16.0 * world_scale, 0.42, -0.20 * world_scale)
+	# Begin just beyond the opened gate, on the descending ramp. The gate
+	# purchase itself is verified above; this avoids starting the capsule while
+	# it is still touching the door's deferred-disabled collision volume.
+	player.global_position = Vector3(16.0 * world_scale, -0.05, -2.20 * world_scale)
 	player.rotation.y = 0.0
 	player.set("_move_touch", 910)
 	player.set("_move_vector", Vector2(0.0, -1.0))
