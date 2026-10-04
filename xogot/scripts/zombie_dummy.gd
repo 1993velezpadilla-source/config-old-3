@@ -112,6 +112,64 @@ var _crawler: bool = false
 var _headless: bool = false
 var _headless_survivor: bool = false
 
+const ZOMBIE_MOANS: Array[String] = [
+	"res://assets/audio/church/zombie/moan_01.ogg",
+	"res://assets/audio/church/zombie/moan_02.ogg",
+	"res://assets/audio/church/zombie/moan_03.ogg",
+]
+const ZOMBIE_ATTACKS: Array[String] = [
+	"res://assets/audio/church/zombie/attack_01.ogg",
+	"res://assets/audio/church/zombie/attack_02.ogg",
+]
+const ZOMBIE_DEATHS: Array[String] = [
+	"res://assets/audio/church/zombie/death_01.ogg",
+	"res://assets/audio/church/zombie/death_02.ogg",
+]
+var _moan_timer: float = 0.0
+var _voice_serial: int = 0
+
+func _zombie_audio_choice(paths: Array[String]) -> String:
+	if paths.is_empty():
+		return ""
+	var index: int = abs((name + ":" + str(_voice_serial)).hash()) % paths.size()
+	_voice_serial += 1
+	return paths[index]
+
+func _play_zombie_sfx(path: String, volume_db: float = -7.0, detached: bool = false) -> void:
+	if path.is_empty() or not ResourceLoader.exists(path):
+		return
+	var stream := load(path) as AudioStream
+	if stream == null:
+		return
+	var player := AudioStreamPlayer3D.new()
+	player.name = "ZombieVoice"
+	player.stream = stream
+	player.volume_db = volume_db
+	player.unit_size = 1.7
+	player.max_distance = 26.0
+	if detached and get_parent() != null:
+		get_parent().add_child(player)
+		player.global_position = global_position + Vector3(0.0, 1.15, 0.0)
+	else:
+		add_child(player)
+		player.position = Vector3(0.0, 1.15, 0.0)
+	player.finished.connect(player.queue_free)
+	player.play()
+
+func _update_voice(delta: float) -> void:
+	_moan_timer -= delta
+	if _moan_timer > 0.0:
+		return
+	var near_player: bool = (
+		target_player != null
+		and is_instance_valid(target_player)
+		and global_position.distance_squared_to(target_player.global_position) <= 22.0 * 22.0
+	)
+	if near_player:
+		_play_zombie_sfx(_zombie_audio_choice(ZOMBIE_MOANS), -9.0)
+	var jitter: float = float(abs((name + ":moan:" + str(_voice_serial)).hash()) % 550) / 100.0
+	_moan_timer = 4.2 + jitter
+
 func _ready() -> void:
 	_gravity = float(ProjectSettings.get_setting("physics/3d/default_gravity", 18.0))
 	floor_snap_length = 0.24
@@ -127,6 +185,7 @@ func _ready() -> void:
 	}
 	_build_body()
 	_last_motion_sample = global_position
+	_moan_timer = 1.7 + float(abs(name.hash()) % 330) / 100.0
 	print("XZOGOT_ZOMBIE_GROUND_SNAP_READY 0.24")
 	print("XZOGOT_ZOMBIE_PATHING_READY ", _motion_profile_id)
 	print("XZOGOT_ZOMBIE_READY")
@@ -315,6 +374,7 @@ func _build_fallback_visual() -> void:
 
 func _physics_process(delta: float) -> void:
 	_update_hit_reaction(delta)
+	_update_voice(delta)
 	if phase == Phase.DEAD:
 		return
 
@@ -363,6 +423,7 @@ func _tick_barricade() -> void:
 	velocity.z = 0.0
 	if _attack_timer <= 0.0:
 		target_barricade.call("zombie_damage", barricade_damage)
+		_play_zombie_sfx(_zombie_audio_choice(ZOMBIE_ATTACKS), -8.0)
 		_attack_timer = attack_interval
 
 func _begin_window_cross() -> void:
@@ -408,6 +469,7 @@ func _tick_chase() -> void:
 			if _headless:
 				arm_factor *= 0.88
 			target_player.call("apply_damage", player_damage * maxf(arm_factor, 0.42))
+			_play_zombie_sfx(_zombie_audio_choice(ZOMBIE_ATTACKS), -6.0)
 			_attack_timer = attack_interval
 		return
 	_move_toward_navigated(target, 0.0)
@@ -850,6 +912,7 @@ func get_dismemberment_state() -> Dictionary:
 func _die(source: Node) -> void:
 	phase = Phase.DEAD
 	_play_motion_state("death")
+	_play_zombie_sfx(_zombie_audio_choice(ZOMBIE_DEATHS), -4.0, true)
 	if source != null and source.has_method("add_points"):
 		source.call("add_points", 60)
 	print("XZOGOT_ZOMBIE_KILLED ", _motion_profile_id)
