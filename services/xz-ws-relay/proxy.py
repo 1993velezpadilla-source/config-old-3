@@ -13,6 +13,8 @@ BASE_INTERNAL_PORT = int(os.environ.get("XZ_RELAY_INTERNAL_PORT", "10001"))
 MAX_ROOMS = max(1, int(os.environ.get("XZ_RELAY_MAX_ROOMS", "2")))
 MIN_WARM_ROOMS = min(MAX_ROOMS, max(1, int(os.environ.get("XZ_RELAY_MIN_WARM_ROOMS", str(MAX_ROOMS)))))
 ROOM_CAPACITY = 4
+RPC_SCENE_ROOT = "YouWontWin"
+RUNTIME_CONTRACT = "multiroom-rpc-root-v1"
 READY_DELAY = max(0.1, float(os.environ.get("XZ_RELAY_READY_DELAY", "8")))
 ROOM_IDLE_SECONDS = max(10.0, float(os.environ.get("XZ_RELAY_ROOM_IDLE_SECONDS", "90")))
 GODOT_BIN = os.environ.get("XZ_GODOT_BIN", ".render/godot/Godot_v4.6.1-stable_linux.x86_64")
@@ -214,6 +216,8 @@ async def handle_http(method, path, writer):
             "service": "xz-zombie-relay",
             "ready": ready,
             "multi_room": True,
+            "rpc_scene_root": RPC_SCENE_ROOT,
+            "runtime_contract": RUNTIME_CONTRACT,
             "room_capacity": ROOM_CAPACITY,
             "max_rooms": MAX_ROOMS,
             "min_warm_rooms": MIN_WARM_ROOMS,
