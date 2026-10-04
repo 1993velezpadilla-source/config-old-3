@@ -6,6 +6,7 @@ const BENCH_ASSET_PATH := "res://assets/environment/church/bench.glb"
 const CANDLE_MANAGER_SCRIPT := preload("res://scripts/candle_manager.gd")
 const POWER_LIGHT_RIG_SCRIPT := preload("res://scripts/power_light_rig.gd")
 const PERK_CATALOG := preload("res://scripts/perk_catalog.gd")
+const CHURCH_AUDIO_SCRIPT := preload("res://scripts/church_audio.gd")
 
 # High-density user gift pack. These are optional so CI stays green until the
 # binary GLBs are copied into res://assets/gifts/ with the canonical names.
@@ -146,6 +147,7 @@ func _ready() -> void:
 	_build_selective_spawn_anchors()
 	_build_zombie_path_network()
 	_build_lights()
+	_build_audio_runtime()
 	_build_camera()
 	print("YOU_WONT_WIN: CHURCH_V2_READY")
 
@@ -1962,6 +1964,13 @@ func _build_zombie_path_network() -> void:
 	network.set_script(script_resource)
 	add_child(network)
 	print("XZOGOT_ZOMBIE_PATHING_BOOTSTRAPPED")
+
+func _build_audio_runtime() -> void:
+	var audio := Node.new()
+	audio.name = "ChurchAudio"
+	audio.set_script(CHURCH_AUDIO_SCRIPT)
+	add_child(audio)
+	print("XZOGOT_CHURCH_AUDIO_MOUNTED")
 
 func _build_lights() -> void:
 	# Electrical fixtures are physically present before power but emit no light.
