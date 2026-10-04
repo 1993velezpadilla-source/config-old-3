@@ -322,6 +322,10 @@ func request_knife() -> bool:
 	else:
 		return false
 
+	var weapon: Node = get_node_or_null("Weapon")
+	if weapon != null and weapon.has_method("play_melee_animation"):
+		weapon.call("play_melee_animation")
+
 	_knife_timer = knife_cooldown
 	_knife_anim_timer = 0.22
 	print("XZOGOT_KNIFE_HIT ", zombie.name)
