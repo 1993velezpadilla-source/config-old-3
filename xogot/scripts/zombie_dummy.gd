@@ -384,6 +384,9 @@ func _build_body() -> void:
 					set_meta("zombie_rigid_region_rig", using_rigid_rig)
 					print("XZOGOT_ENEMY_FORWARD_FIXED 90 variant=", enemy_variant)
 					print("XZOGOT_ENEMY_MODEL_LOADED variant=", enemy_variant, " model=", model_id)
+					if enemy_variant == "normal":
+						print("XZOGOT_MONJA_FORWARD_FIXED 90")
+						print("XZOGOT_MONJA_BASICA_LOADED")
 					if _animation_player != null:
 						print("XZOGOT_MONJA_RIGGED_ANIMATION_PLAYER_READY")
 						_play_motion_state("idle")
