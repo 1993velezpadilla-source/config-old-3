@@ -470,7 +470,7 @@ func _tick_downed_state(delta: float) -> void:
 	set_meta("bleedout_remaining", _bleedout_remaining)
 	if _revive_contact_grace > 0.0:
 		_revive_contact_grace = maxf(0.0, _revive_contact_grace - delta)
-	elif _revive_progress > 0.0:
+	if _revive_contact_grace <= 0.0 and _revive_progress > 0.0:
 		_revive_progress = 0.0
 		_revive_source = null
 		set_meta("revive_progress", 0.0)
