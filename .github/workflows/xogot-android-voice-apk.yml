@@ -85,19 +85,33 @@ jobs:
 
           manifest=Path("xogot/assets/weapons/mapmod_weapon_asset_manifest.json")
           data=json.loads(manifest.read_text(encoding="utf-8"))
-          required=("colt","m1","mp40","trench","thompson")
+          weapons=data.get("weapons",{})
+          required=tuple(weapons.keys())
+          expected=int(data.get("weapon_count",len(required)))
+          if len(required) != expected:
+              raise SystemExit(f"ARSENAL MANIFEST COUNT MISMATCH expected={expected} actual={len(required)}")
           missing=[]
+          incomplete=[]
           for wid in required:
-              rec=data["weapons"][wid]["runtime"]
+              item=weapons[wid]
+              rec=item.get("runtime",{})
+              audio=rec.get("audio",{})
               vm=str(rec.get("viewmodel","")).replace("res://","xogot/")
-              fire=str(rec.get("audio",{}).get("fire","")).replace("res://","xogot/")
-              if not vm or not Path(vm).is_file():
-                  missing.append(f"{wid}:viewmodel")
-              if not fire or not Path(fire).is_file():
-                  missing.append(f"{wid}:fire_sfx")
-          if missing:
-              raise SystemExit("REFUSING BLOCK-GUN APK; real weapon assets missing: " + ", ".join(missing))
-          print("XZOGOT_NO_PLACEHOLDER_WEAPON_APK_GREEN")
+              wm=str(rec.get("worldmodel","")).replace("res://","xogot/")
+              fire=str(audio.get("fire","")).replace("res://","xogot/")
+              for role,p in (("viewmodel",vm),("worldmodel",wm),("fire_sfx",fire)):
+                  if not p or not Path(p).is_file():
+                      missing.append(f"{wid}:{role}")
+              if str(item.get("status","MISSING")) != "READY":
+                  incomplete.append(f"{wid}:{item.get('status','MISSING')}")
+          if missing or incomplete:
+              details=[]
+              if missing:
+                  details.append("missing=" + ",".join(missing))
+              if incomplete:
+                  details.append("not_ready=" + ",".join(incomplete))
+              raise SystemExit("REFUSING PARTIAL/PLACEHOLDER ARSENAL APK; " + " ; ".join(details))
+          print(f"XZOGOT_REAL_ARSENAL_APK_GREEN weapons={len(required)}")
           PY
 
       - name: Import Xogot project
