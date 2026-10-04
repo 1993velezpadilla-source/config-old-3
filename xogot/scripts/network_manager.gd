@@ -25,6 +25,7 @@ var _port: int = DEFAULT_PORT
 var _transport: String = "enet"
 var _dedicated_server: bool = false
 var _relay_url: String = ""
+var _public_relay_fallback_pending: bool = false
 var _local_peer_id: int = SERVER_PEER_ID
 var _snapshot_timer: float = 0.0
 var _zombie_snapshot_timer: float = 0.0
@@ -296,6 +297,7 @@ func leave_game() -> void:
 	_transport = "enet"
 	_dedicated_server = false
 	_relay_url = ""
+	_public_relay_fallback_pending = false
 	_local_peer_id = SERVER_PEER_ID
 	_configure_local_player(SERVER_PEER_ID)
 	_set_client_simulation(false)
@@ -343,6 +345,14 @@ func _on_connected_to_server() -> void:
 	print("XZOGOT_NETWORK_CLIENT_READY peer=", _local_peer_id)
 
 func _on_connection_failed() -> void:
+	if _public_relay_fallback_pending and is_public_relay_configured():
+		var relay_url := get_public_relay_endpoint()
+		_public_relay_fallback_pending = false
+		print("XZOGOT_NETWORK_DIRECT_FAILED_FALLBACK_RELAY ", relay_url)
+		var relay_err := join_websocket_game(relay_url)
+		if relay_err == OK:
+			return
+		print("XZOGOT_NETWORK_RELAY_FALLBACK_FAIL ", relay_err)
 	network_error.emit("CONNECTION_FAILED")
 	print("XZOGOT_NETWORK_CONNECTION_FAILED")
 	leave_game()
@@ -1205,19 +1215,44 @@ func get_public_matches() -> Array:
 		return []
 	return directory.call("get_matches") as Array
 
+func get_public_relay_endpoint() -> String:
+	var env_url := OS.get_environment("XZOGOT_PUBLIC_RELAY_URL").strip_edges()
+	if not env_url.is_empty():
+		return env_url
+	return str(
+		ProjectSettings.get_setting(
+			"network/xz/public_relay_url",
+			""
+		)
+	).strip_edges()
+
+func is_public_relay_configured() -> bool:
+	var url := get_public_relay_endpoint()
+	return url.begins_with("ws://") or url.begins_with("wss://")
+
+func join_public_relay() -> Error:
+	if not is_public_relay_configured():
+		return ERR_UNAVAILABLE
+	var url := get_public_relay_endpoint()
+	print("XZOGOT_NETWORK_JOIN_PUBLIC_RELAY ", url)
+	return join_websocket_game(url)
+
 func join_best_public_match() -> Error:
 	var directory: Node = _public_directory()
 	if directory == null or not directory.has_method("get_best_match"):
-		return ERR_UNAVAILABLE
+		return join_public_relay() if is_public_relay_configured() else ERR_UNAVAILABLE
 	var session: Dictionary = directory.call("get_best_match") as Dictionary
 	if session.is_empty():
-		return ERR_DOES_NOT_EXIST
+		return join_public_relay() if is_public_relay_configured() else ERR_DOES_NOT_EXIST
 	var address: String = str(session.get("ip", "")).strip_edges()
 	var game_port: int = int(session.get("port", DEFAULT_PORT))
 	if address.is_empty() or game_port < 1024 or game_port > 65535:
-		return ERR_INVALID_DATA
+		return join_public_relay() if is_public_relay_configured() else ERR_INVALID_DATA
 	print("XZOGOT_NETWORK_JOIN_PUBLIC ", address, ":", game_port)
-	return join_game(address, game_port)
+	var err := join_game(address, game_port)
+	if err == OK and is_public_relay_configured():
+		_public_relay_fallback_pending = true
+	return err
 
 func is_public_directory_configured() -> bool:
 	var directory: Node = _public_directory()
@@ -1289,7 +1324,11 @@ func get_status_text() -> String:
 			var privacy: String = "PRIVATE" if _session_private else "PUBLIC DIRECT"
 			return "HOST %s  %d/%d  UDP:%d" % [privacy, _roster.size(), MAX_PLAYERS, _port]
 		"client":
+			if _transport == "websocket":
+				return "CONNECTED RELAY  PEER %d  %d/%d" % [_local_peer_id, _roster.size(), MAX_PLAYERS]
 			return "CONNECTED  PEER %d  %d/%d  UDP:%d" % [_local_peer_id, _roster.size(), MAX_PLAYERS, _port]
 		"joining":
+			if _transport == "websocket":
+				return "CONNECTING INTERNET RELAY..."
 			return "CONNECTING  UDP:%d..." % _port
 	return "OFFLINE"

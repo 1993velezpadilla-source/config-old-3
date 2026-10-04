@@ -9,6 +9,7 @@ on:
     paths:
       - "xogot/**"
       - "services/xz-match-directory/**"
+      - "services/xz-ws-relay/**"
       - "render.yaml"
       - ".github/workflows/xogot-ai-godot-ci.yml"
 
@@ -342,6 +343,20 @@ jobs:
           done
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|NETWORK_4P_HOST:" "$HOST_LOG"
           echo "XZOGOT_REAL_4P_ENET_GATE_GREEN"
+
+      - name: Verify public relay fallback selection
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile services/xz-ws-relay/proxy.py
+          timeout 60 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/public_relay_fallback_probe.gd \
+            2>&1 | tee build/xogot-ai/public-relay-fallback-probe.log
+          grep -q "XZOGOT_PUBLIC_RELAY_CONFIG_GREEN" build/xogot-ai/public-relay-fallback-probe.log
+          grep -q "XZOGOT_PUBLIC_EMPTY_DIRECTORY_FALLBACK_GREEN" build/xogot-ai/public-relay-fallback-probe.log
+          grep -q "XZOGOT_PUBLIC_RELAY_AUTO_FALLBACK_GREEN" build/xogot-ai/public-relay-fallback-probe.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|PUBLIC_RELAY_FALLBACK_PROBE:" build/xogot-ai/public-relay-fallback-probe.log
+          echo "XZOGOT_PUBLIC_RELAY_SELECTION_GATE_GREEN"
 
       - name: Verify real four-player WebSocket relay fallback
         shell: bash

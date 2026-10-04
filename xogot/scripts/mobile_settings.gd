@@ -326,7 +326,7 @@ func _build_network_page() -> void:
 
 	var note := Label.new()
 	note.name = "NetworkDirectoryNote"
-	note.text = "LAN Find Match uses local UDP discovery. Internet Find Match uses the public directory plus UPnP when the host is reachable. Routers/CGNAT without a usable mapping still need the upcoming NAT-punch/relay fallback."
+	note.text = "LAN Find Match uses local UDP discovery. Internet Find Match tries public ENet first, then automatically falls back to the dedicated WSS server when direct reachability fails or no direct host is listed."
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	note.modulate = Color(0.68, 0.72, 0.76)
@@ -515,15 +515,21 @@ func _refresh_network_status() -> void:
 			if network.has_method("get_public_endpoint")
 			else ""
 		)
+		var relay_ready: bool = (
+			network.has_method("is_public_relay_configured")
+			and bool(network.call("is_public_relay_configured"))
+		)
 		if not endpoint.is_empty():
-			_network_public.text = "INTERNET PUBLIC: %s  •  DIRECTORY: %s" % [
+			_network_public.text = "INTERNET PUBLIC: %s  •  DIRECTORY: %s  •  RELAY: %s" % [
 				endpoint,
 				"READY" if directory_ready else "NOT CONFIGURED",
+				"READY" if relay_ready else "OFF",
 			]
 		else:
-			_network_public.text = "INTERNET PUBLIC: %s  •  DIRECTORY: %s" % [
+			_network_public.text = "INTERNET PUBLIC: %s  •  DIRECTORY: %s  •  RELAY: %s" % [
 				upnp_status.to_upper(),
 				"READY" if directory_ready else "NOT CONFIGURED",
+				"READY" if relay_ready else "OFF",
 			]
 	var mode: String = str(network.call("get_mode")) if network.has_method("get_mode") else "offline"
 	var ids: PackedInt32Array = (
