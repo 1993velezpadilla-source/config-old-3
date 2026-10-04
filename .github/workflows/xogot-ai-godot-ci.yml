@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - feature/xogot-port-v1
+      - feature/church-expansion-v1
     paths:
       - "xogot/**"
       - ".github/workflows/xogot-ai-godot-ci.yml"
@@ -70,7 +71,14 @@ jobs:
           grep -q "XZOGOT_COD_VIEW_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_WEAPON_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_INTERACTION_PLAYER_READY 500" build/xogot-ai/runtime.log
-          grep -q "XZOGOT_INTERACTIONS_PREPARED 6" build/xogot-ai/runtime.log
+          grep -q "XZOGOT_INTERACTIONS_PREPARED 14" build/xogot-ai/runtime.log
+          grep -q "XZOGOT_EXPANSION_V1_LOOP_READY" build/xogot-ai/runtime.log
+          grep -q "XZOGOT_CHURCH_SECOND_FLOOR_LOOP_READY" build/xogot-ai/runtime.log
+          grep -q "XZOGOT_BELL_TOWER_V1_PLAYABLE" build/xogot-ai/runtime.log
+          grep -q "XZOGOT_SELECTIVE_SPAWNS_READY 8" build/xogot-ai/runtime.log
+          grep -q "XZOGOT_ZOMBIE_PATH_NETWORK_READY" build/xogot-ai/runtime.log
+          grep -q "XZOGOT_SPAWN_DIRECTOR_READY" build/xogot-ai/runtime.log
+          grep -q "XZOGOT_WEAPON_CATALOG_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_WINDOWS_PREPARED 8" build/xogot-ai/runtime.log
           grep -q "XZOGOT_ARCH_SHELL_V2_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_AUTHORED_ALTAR_READY" build/xogot-ai/runtime.log
@@ -143,6 +151,20 @@ jobs:
           grep -q "XZOGOT_CHURCH_TRAVERSAL_PROBE_GREEN" build/xogot-ai/church-traversal-probe.log
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-ai/church-traversal-probe.log
           echo "XOGOT_AI_VM_GREEN"
+
+      - name: Verify expanded church gameplay in Godot
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 75 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/church_expansion_probe.gd \
+            2>&1 | tee build/xogot-ai/church-expansion-probe.log
+          grep -q "XZOGOT_SECOND_FLOOR_PROBE_GREEN" build/xogot-ai/church-expansion-probe.log
+          grep -q "XZOGOT_SELECTIVE_SPAWN_PROBE_GREEN" build/xogot-ai/church-expansion-probe.log
+          grep -q "XZOGOT_BELL_TOWER_PROBE_GREEN" build/xogot-ai/church-expansion-probe.log
+          grep -q "XZOGOT_CHURCH_EXPANSION_PROBE_GREEN" build/xogot-ai/church-expansion-probe.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-ai/church-expansion-probe.log
+          echo "XOGOT_EXPANSION_VM_GREEN"
 
       - name: Upload AI Godot logs
         if: always()
