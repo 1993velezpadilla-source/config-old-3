@@ -1,6 +1,6 @@
 name: Recover Aether Wall Weapons
 
-# recovery-matrix-trigger: 2026-10-04-v12-binka-fire
+# recovery-matrix-trigger: 2026-10-04-v13-full-waw-arsenal
 
 on:
   workflow_dispatch:
@@ -68,17 +68,58 @@ jobs:
           echo "REPAK=$REPAK" >> "$GITHUB_ENV"
           echo "AETHER_PAKDIR=$PAKDIR" >> "$GITHUB_ENV"
 
-      - name: Extract four wall-weapon source packages
+      - name: Inventory and extract complete WaW weapon arsenal
         shell: bash
         run: |
           set -euo pipefail
           rm -rf recovered
           mkdir -p recovered/raw
           find "$AETHER_PAKDIR" -maxdepth 2 -type f -printf "%f\t%s\n" | sort > recovered/pak-files.txt
-          "$REPAK" unpack "$RUNNER_TEMP/aether-legacy.pak"             -o recovered/raw             -i 'ProjectAether/Content/Assets/Weapons/waw/1911/**'             -i 'ProjectAether/Content/Assets/Weapons/waw/M1Garand/**'             -i 'ProjectAether/Content/Assets/Weapons/waw/MP40/**'             -i 'ProjectAether/Content/Assets/Weapons/waw/TrenchGun/**'             -i 'ProjectAether/Content/Assets/Weapons/waw/Thompson/**'             -i 'ProjectAether/Content/Assets/Sounds/**/*1911*'             -i 'ProjectAether/Content/Assets/Sounds/**/*colt*'             -i 'ProjectAether/Content/Assets/Sounds/**/*Colt*'             -i 'ProjectAether/Content/Assets/Sounds/**/*garand*'             -i 'ProjectAether/Content/Assets/Sounds/**/*Garand*'             -i 'ProjectAether/Content/Assets/Sounds/**/*mp40*'             -i 'ProjectAether/Content/Assets/Sounds/**/*MP40*'             -i 'ProjectAether/Content/Assets/Sounds/**/*trench*'             -i 'ProjectAether/Content/Assets/Sounds/**/*Trench*'             -i 'ProjectAether/Content/Assets/Sounds/**/*thompson*'             -i 'ProjectAether/Content/Assets/Sounds/**/*Thompson*'             -i 'ProjectAether/Content/Assets/Sounds/**/*wpn_shtgun_st_f*'             -i 'ProjectAether/Content/Assets/Sounds/**/*wpn_shtgun_st_act*'             -i 'ProjectAether/Content/Assets/Sounds/**/*car_m_left*'             -i 'ProjectAether/Content/Assets/Sounds/**/*car_m_right*'             -i 'ProjectAether/Content/Assets/Sounds/**/*dist_us_mg*'             --force
+          "$REPAK" list "$RUNNER_TEMP/aether-legacy.pak" > recovered/aether-legacy-files.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          rows=[]
+          prefix="ProjectAether/Content/Assets/Weapons/waw/"
+          for raw in Path("recovered/aether-legacy-files.txt").read_text(errors="ignore").splitlines():
+              line=raw.strip().replace("\\","/")
+              i=line.find(prefix)
+              if i < 0:
+                  continue
+              rel=line[i+len(prefix):]
+              top=rel.split("/",1)[0]
+              if top and top not in rows:
+                  rows.append(top)
+          rows=sorted(rows,key=str.lower)
+          Path("recovered/waw-weapon-directories.json").write_text(json.dumps({"count":len(rows),"directories":rows},indent=2)+"\n")
+          print("XZOGOT_AETHER_WAW_WEAPON_DIRS",len(rows),rows)
+          if not rows:
+              raise SystemExit("No WaW weapon directories discovered")
+          PY
+          "$REPAK" unpack "$RUNNER_TEMP/aether-legacy.pak" \
+            -o recovered/raw \
+            -i 'ProjectAether/Content/Assets/Weapons/waw/**' \
+            -i 'ProjectAether/Content/Assets/Sounds/**/*1911*' \
+            -i 'ProjectAether/Content/Assets/Sounds/**/*colt*' \
+            -i 'ProjectAether/Content/Assets/Sounds/**/*Colt*' \
+            -i 'ProjectAether/Content/Assets/Sounds/**/*garand*' \
+            -i 'ProjectAether/Content/Assets/Sounds/**/*Garand*' \
+            -i 'ProjectAether/Content/Assets/Sounds/**/*mp40*' \
+            -i 'ProjectAether/Content/Assets/Sounds/**/*MP40*' \
+            -i 'ProjectAether/Content/Assets/Sounds/**/*trench*' \
+            -i 'ProjectAether/Content/Assets/Sounds/**/*Trench*' \
+            -i 'ProjectAether/Content/Assets/Sounds/**/*thompson*' \
+            -i 'ProjectAether/Content/Assets/Sounds/**/*Thompson*' \
+            -i 'ProjectAether/Content/Assets/Sounds/**/*wpn_shtgun_st_f*' \
+            -i 'ProjectAether/Content/Assets/Sounds/**/*wpn_shtgun_st_act*' \
+            -i 'ProjectAether/Content/Assets/Sounds/**/*car_m_left*' \
+            -i 'ProjectAether/Content/Assets/Sounds/**/*car_m_right*' \
+            -i 'ProjectAether/Content/Assets/Sounds/**/*dist_us_mg*' \
+            --force
           find recovered/raw -type f | sort > recovered/raw-files.txt
-          echo "=== EXACT M1/MP40/TRENCH/THOMPSON PACKAGE PATHS ==="
-          grep -Ei '1911|colt|M1Garand|MP40|TrenchGun|Thompson' recovered/raw-files.txt | head -n 260 || true
+          echo "=== COMPLETE WAW WEAPON PACKAGE INVENTORY ==="
+          cat recovered/waw-weapon-directories.json
+          grep -F 'ProjectAether/Content/Assets/Weapons/waw/' recovered/raw-files.txt | head -n 400 || true
           python3 - <<'PY'
           from pathlib import Path
           import json
@@ -87,12 +128,18 @@ jobs:
           for p in root.rglob("*"):
               if p.is_file():
                   rows.append({"path":p.as_posix(),"bytes":p.stat().st_size,"ext":p.suffix.lower()})
-          names=("1911","M1Garand","MP40","TrenchGun","Thompson")
-          counts={n:sum(n.lower() in r["path"].lower() for r in rows) for n in names}
-          out={"file_count":len(rows),"bytes":sum(r["bytes"] for r in rows),"weapon_path_counts":counts,"files":rows}
+          prefix="recovered/raw/ProjectAether/Content/Assets/Weapons/waw/"
+          weapon_dirs={}
+          for r in rows:
+              p=r["path"].replace("\\","/")
+              if prefix in p:
+                  rel=p.split(prefix,1)[1]
+                  top=rel.split("/",1)[0]
+                  weapon_dirs[top]=weapon_dirs.get(top,0)+1
+          out={"file_count":len(rows),"bytes":sum(r["bytes"] for r in rows),"weapon_path_counts":dict(sorted(weapon_dirs.items())),"files":rows}
           Path("recovered/raw-report.json").write_text(json.dumps(out,indent=2)+"\n")
-          print("XZOGOT_AETHER_WALL_RAW",out["file_count"],out["bytes"],counts)
-          assert all(v>0 for v in counts.values()), counts
+          print("XZOGOT_AETHER_WAW_RAW",out["file_count"],out["bytes"],out["weapon_path_counts"])
+          assert len(weapon_dirs)>=5, weapon_dirs
           assert any(r["ext"]==".uasset" for r in rows)
           PY
 
@@ -156,11 +203,8 @@ jobs:
           rm -rf recovered/export recovered/version-probe
           mkdir -p recovered/export recovered/version-probe
           cat > recovered/aether-weapon-packages.txt <<'EOF'
-          *Weapons/waw/1911/*.uasset
-          *Weapons/waw/M1Garand/*.uasset
-          *Weapons/waw/MP40/*.uasset
-          *Weapons/waw/TrenchGun/*.uasset
-          *Weapons/waw/Thompson/*.uasset
+          *Weapons/waw/*/*.uasset
+          *Weapons/waw/*/Anims/**/*.uasset
           *Sounds/**/*1911*.uasset
           *Sounds/**/*colt*.uasset
           *Sounds/**/*Colt*.uasset
