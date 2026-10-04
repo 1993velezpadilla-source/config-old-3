@@ -51,6 +51,15 @@ func _find_round_manager() -> Node:
 		var node: Node = scene.get_node_or_null("RoundManager")
 		if node != null:
 			return node
+
+	# Headless probes instantiate main.tscn under SceneTree.root without assigning
+	# current_scene. Search the live tree as a fallback; gameplay also benefits
+	# from this if scene ownership changes during future map streaming.
+	var root_node: Node = get_tree().root
+	if root_node != null:
+		var found: Node = root_node.find_child("RoundManager", true, false)
+		if found != null:
+			return found
 	return null
 
 func _read_round() -> int:
