@@ -15,6 +15,19 @@ const GIFT_CANDLE_HOLDER_ASSET_PATH := "res://assets/gifts/ornate_candle_holder.
 const GIFT_FURNITURE_ASSET_PATH := "res://assets/gifts/gothic_church_furniture.glb"
 const GIFT_RUINS_ASSET_PATH := "res://assets/gifts/medieval_church_ruins.glb"
 
+const GIFT_SPLIT_ROOT := "res://assets/gifts_split"
+const GIFT_SPLIT_COUNTS := {
+	"altar": 9,
+	"candleholders": 19,
+	"chandeliers": 11,
+	"furniture": 12,
+	"ruins": 29,
+	"stained_multi": 11,
+	"stained_single": 1,
+	"statues": 12,
+}
+const GIFT_SPLIT_TOTAL := 104
+
 var _stone_texture: Texture2D
 var _wood_texture: Texture2D
 var _floor_texture: Texture2D
@@ -828,21 +841,62 @@ func _gift_bundle_paths() -> Array[String]:
 		GIFT_RUINS_ASSET_PATH,
 	]
 
-func _build_gift_pack() -> void:
-	# IMPORTANT: each source GLB is a bundle containing multiple visual models.
-	# Their current Tripo export is fused as 1 scene / 1 node / 1 mesh / 1 primitive,
-	# so spawning the source GLB would incorrectly glue every internal model together.
-	# Only split/component assets are allowed into gameplay.
-	var source_present: int = 0
-	for path: String in _gift_bundle_paths():
-		if ResourceLoader.exists(path):
-			source_present += 1
-			print("XZOGOT_GIFT_BUNDLE_REQUIRES_SPLIT ", path)
-		else:
-			print("XZOGOT_GIFT_BUNDLE_PENDING ", path)
+func _gift_split_model_path(bundle: String, model_index: int) -> String:
+	return "%s/%s/Model_%02d.glb" % [GIFT_SPLIT_ROOT, bundle, model_index]
 
-	print("XZOGOT_GIFT_BUNDLE_GATE ", source_present, "/8 source bundles present")
+func _gift_split_present_count() -> int:
+	var present: int = 0
+	for bundle_var: Variant in GIFT_SPLIT_COUNTS.keys():
+		var bundle: String = str(bundle_var)
+		var expected: int = int(GIFT_SPLIT_COUNTS[bundle])
+		for i in range(1, expected + 1):
+			if ResourceLoader.exists(_gift_split_model_path(bundle, i)):
+				present += 1
+	return present
+
+func _gift_split_bundle_complete(bundle: String) -> bool:
+	if not GIFT_SPLIT_COUNTS.has(bundle):
+		return false
+	var expected: int = int(GIFT_SPLIT_COUNTS[bundle])
+	for i in range(1, expected + 1):
+		if not ResourceLoader.exists(_gift_split_model_path(bundle, i)):
+			return false
+	return true
+
+func _build_gift_pack() -> void:
+	# The original Tripo GLBs are fused presentation sheets. Never instantiate
+	# those whole bundles in gameplay. Runtime only accepts spatially-separated
+	# Model_XX.glb assets under assets/gifts_split/<bundle>/.
+	var split_present: int = _gift_split_present_count()
+	var complete_bundles: int = 0
+	for bundle_var: Variant in GIFT_SPLIT_COUNTS.keys():
+		var bundle: String = str(bundle_var)
+		if _gift_split_bundle_complete(bundle):
+			complete_bundles += 1
+			print(
+				"XZOGOT_GIFT_SPLIT_BUNDLE_READY ",
+				bundle,
+				" ",
+				GIFT_SPLIT_COUNTS[bundle],
+				"/",
+				GIFT_SPLIT_COUNTS[bundle]
+			)
+
+	print("XZOGOT_GIFT_SPLIT_RUNTIME ", split_present, "/", GIFT_SPLIT_TOTAL)
+	print("XZOGOT_GIFT_SPLIT_BUNDLES ", complete_bundles, "/8")
 	print("XZOGOT_GIFT_WHOLE_BUNDLE_SPAWN_DISABLED")
+
+	# Do not silently fall back to fused source GLBs. The old files are allowed to
+	# exist as authoring sources but never become runtime props.
+	if split_present == 0:
+		print("XZOGOT_GIFT_SPLIT_RUNTIME_PENDING")
+	elif split_present == GIFT_SPLIT_TOTAL:
+		print("XZOGOT_GIFT_SPLIT_RUNTIME_READY_104")
+	else:
+		push_warning(
+			"XZOGOT_GIFT_SPLIT_RUNTIME_PARTIAL %d/%d" %
+			[split_present, GIFT_SPLIT_TOTAL]
+		)
 
 func _collect_furniture_bounds(
 	node: Node3D,
