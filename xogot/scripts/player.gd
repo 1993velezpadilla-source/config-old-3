@@ -82,6 +82,10 @@ var _knife_timer := 0.0
 var _knife_anim_timer := 0.0
 var _repair_timer := 0.0
 var _gyro_filtered := Vector2.ZERO
+var _dev_infinite_health: bool = false
+var _dev_infinite_points: bool = false
+var _dev_noclip: bool = false
+var _dev_speed_boost: bool = false
 
 @onready var _head: Node3D = $Head
 @onready var _camera: Camera3D = $Head/Camera3D
@@ -245,6 +249,34 @@ func apply_mobile_settings(settings: Node) -> void:
 	repair_repeat_interval = float(settings.call("get_setting_value", "repair_repeat_interval"))
 	print("XZOGOT_PLAYER_SETTINGS_APPLIED")
 
+func apply_dev_flags(
+	infinite_health: bool,
+	infinite_points: bool,
+	noclip: bool,
+	speed_boost: bool
+) -> void:
+	_dev_infinite_health = infinite_health
+	_dev_infinite_points = infinite_points
+	_dev_noclip = noclip
+	_dev_speed_boost = speed_boost
+	if _dev_infinite_health:
+		health = max_health
+		downed = false
+	if _collider != null:
+		_collider.set_deferred("disabled", _dev_noclip)
+	set_meta("dev_infinite_health", _dev_infinite_health)
+	set_meta("dev_infinite_points", _dev_infinite_points)
+	set_meta("dev_noclip", _dev_noclip)
+	set_meta("dev_speed_boost", _dev_speed_boost)
+	print(
+		"XZOGOT_DEV_PLAYER_FLAGS ",
+		_dev_infinite_health, " ",
+		_dev_infinite_points, " ",
+		_dev_noclip, " ",
+		_dev_speed_boost
+	)
+
+
 func _nearest_zombie(max_distance: float) -> Node3D:
 	var best: Node3D = null
 	var best_d2: float = max_distance * max_distance
@@ -352,7 +384,11 @@ func try_interact_with(target: Object) -> bool:
 	return bool(target.call("interact", self))
 
 func spend_points(amount: int) -> bool:
-	if amount < 0 or points < amount:
+	if amount < 0:
+		return false
+	if _dev_infinite_points:
+		return true
+	if points < amount:
 		return false
 	points -= amount
 	return true
@@ -362,7 +398,7 @@ func add_points(amount: int) -> void:
 		points += amount
 
 func get_points() -> int:
-	return points
+	return 999999 if _dev_infinite_points else points
 
 func get_move_vector() -> Vector2:
 	return _move_vector
@@ -395,6 +431,10 @@ func get_camera_fov() -> float:
 	return _camera.fov
 
 func apply_damage(amount: float) -> void:
+	if _dev_infinite_health:
+		health = max_health
+		downed = false
+		return
 	if downed or amount <= 0.0:
 		return
 	health = maxf(0.0, health - amount)
@@ -517,11 +557,13 @@ func _physics_process(delta: float) -> void:
 	else:
 		_gyro_filtered = _gyro_filtered.lerp(Vector2.ZERO, minf(delta * 12.0, 1.0))
 
-	if not is_on_floor():
-		velocity.y -= _gravity * delta
-	if (_jump_requested or Input.is_key_pressed(KEY_SPACE)) and is_on_floor() and not _sliding:
-		velocity.y = jump_velocity
-	_jump_requested = false
+	if not _dev_noclip:
+		if not is_on_floor():
+			velocity.y -= _gravity * delta
+		if (_jump_requested or Input.is_key_pressed(KEY_SPACE)) and is_on_floor() and not _sliding:
+			velocity.y = jump_velocity
+	else:
+		velocity = Vector3.ZERO
 
 	var input_2d := Vector2.ZERO
 	input_2d.x = float(Input.is_key_pressed(KEY_D)) - float(Input.is_key_pressed(KEY_A))
@@ -545,6 +587,22 @@ func _physics_process(delta: float) -> void:
 	var sprinting: bool = Input.is_key_pressed(KEY_SHIFT) or input_2d.length() > 0.92
 	_sprinting = sprinting and not _is_ads_active()
 
+	if _dev_noclip:
+		var dev_speed: float = sprint_speed * (2.8 if _dev_speed_boost else 1.45)
+		var vertical_axis: float = 0.0
+		if _jump_requested or Input.is_key_pressed(KEY_SPACE):
+			vertical_axis += 1.0
+		if crouch_pressed:
+			vertical_axis -= 1.0
+		global_position += (wish * dev_speed + Vector3.UP * vertical_axis * dev_speed) * delta
+		_jump_requested = false
+		_update_camera_fov(delta)
+		_update_mobile_assists(delta)
+		_crouch_was_pressed = crouch_pressed
+		return
+
+	_jump_requested = false
+
 	if crouch_just_pressed and sprinting and input_2d.length() > 0.72 and is_on_floor() and not _sliding and _slide_cooldown_timer <= 0.0:
 		_sliding = true
 		_slide_timer = slide_duration
@@ -560,6 +618,8 @@ func _physics_process(delta: float) -> void:
 		velocity.z = _slide_direction.z * current_slide_speed
 	else:
 		var speed: float = crouch_speed if _crouched else (sprint_speed if _sprinting else walk_speed)
+		if _dev_speed_boost:
+			speed *= 2.35
 		velocity.x = move_toward(velocity.x, wish.x * speed, 22.0 * delta)
 		velocity.z = move_toward(velocity.z, wish.z * speed, 22.0 * delta)
 
