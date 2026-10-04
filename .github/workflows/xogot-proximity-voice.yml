@@ -1,0 +1,95 @@
+name: Xogot Proximity Voice
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/church-expansion-v1
+    paths:
+      - ".github/workflows/xogot-proximity-voice.yml"
+      - "xogot/scripts/voice_chat.gd"
+      - "xogot/scripts/network_manager.gd"
+      - "xogot/main.tscn"
+      - "xogot/server/dedicated_main.tscn"
+      - "xogot/project.godot"
+
+permissions:
+  contents: read
+
+jobs:
+  voice-codec-and-radius:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Godot 4.6.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2             https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip             -o /tmp/godot.zip
+          mkdir -p /tmp/godot
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+      - name: Verify voice codec radius and scene contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > xogot/ci/proximity_voice_probe.gd <<'GDSCRIPT'
+          extends SceneTree
+
+          func _init() -> void:
+              call_deferred("_run")
+
+          func _fail(message: String) -> void:
+              push_error("PROXIMITY_VOICE_PROBE: " + message)
+              quit(2)
+
+          func _run() -> void:
+              var packed := load("res://main.tscn") as PackedScene
+              if packed == null:
+                  _fail("main scene missing")
+                  return
+              var scene := packed.instantiate()
+              root.add_child(scene)
+              await process_frame
+              var voice: Node = scene.get_node_or_null("VoiceChat")
+              if voice == null:
+                  _fail("VoiceChat node missing")
+                  return
+              if not bool(voice.call("is_distance_audible", 4.0)):
+                  _fail("near voice rejected")
+                  return
+              if not bool(voice.call("is_distance_audible", 18.0)):
+                  _fail("edge voice rejected")
+                  return
+              if bool(voice.call("is_distance_audible", 18.01)):
+                  _fail("far voice leaked")
+                  return
+              var near_gain := float(voice.call("distance_gain", 4.0))
+              var mid_gain := float(voice.call("distance_gain", 11.0))
+              var far_gain := float(voice.call("distance_gain", 18.0))
+              if not (near_gain > mid_gain and mid_gain > far_gain):
+                  _fail("attenuation not monotonic")
+                  return
+              var codec_error := float(voice.call("debug_codec_roundtrip_error"))
+              if codec_error >= 0.03:
+                  _fail("codec error too high " + str(codec_error))
+                  return
+              voice.call("set_slot_muted", 2, true)
+              if not bool(voice.call("is_slot_muted", 2)):
+                  _fail("slot mute failed")
+                  return
+              voice.call("set_slot_muted", 2, false)
+              if bool(voice.call("is_slot_muted", 2)):
+                  _fail("slot unmute failed")
+                  return
+              print("XZ_PROXIMITY_VOICE_RADIUS_GREEN")
+              print("XZ_PROXIMITY_VOICE_CODEC_GREEN error=", codec_error)
+              print("XZ_PROXIMITY_VOICE_SLOT_MUTE_GREEN")
+              quit(0)
+          GDSCRIPT
+          XZOGOT_DISABLE_MIC_CAPTURE=1 XZOGOT_DISABLE_VOICE_PLAYBACK=1             /tmp/godot/Godot_v4.6.1-stable_linux.x86_64             --headless --path xogot --script res://ci/proximity_voice_probe.gd             2>&1 | tee /tmp/proximity-voice.log
+          grep -q "XZ_PROXIMITY_VOICE_RADIUS_GREEN" /tmp/proximity-voice.log
+          grep -q "XZ_PROXIMITY_VOICE_CODEC_GREEN" /tmp/proximity-voice.log
+          grep -q "XZ_PROXIMITY_VOICE_SLOT_MUTE_GREEN" /tmp/proximity-voice.log
+          ! grep -E "SCRIPT ERROR|Parse Error|PROXIMITY_VOICE_PROBE:" /tmp/proximity-voice.log

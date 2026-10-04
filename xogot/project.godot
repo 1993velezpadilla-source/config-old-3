@@ -17,6 +17,10 @@ window/size/window_height_override=720
 window/stretch/mode="canvas_items"
 window/handheld/orientation=1
 
+[audio]
+
+driver/enable_input=true
+
 [physics]
 
 3d/default_gravity=18.0

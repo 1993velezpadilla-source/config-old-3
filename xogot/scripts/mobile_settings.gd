@@ -24,6 +24,8 @@ var knife_range_m: float = 1.65
 var auto_rebuild: bool = true
 var repair_repeat_interval: float = 0.45
 var hud_opacity: float = 0.82
+var voice_input_enabled: bool = true
+var voice_output_enabled: bool = true
 
 # DEV flags deliberately do NOT persist between launches.
 var dev_infinite_health: bool = false
@@ -46,6 +48,10 @@ var _network_found: Label
 var _network_public: Label
 var _network_match: Label
 var _network_ready: Button
+var _voice_status: Label
+var _voice_mic_button: Button
+var _voice_output_button: Button
+var _voice_slot_buttons: Dictionary = {}
 var _network_address: LineEdit
 var _network_port: LineEdit
 var _network_last_error: String = ""
@@ -62,6 +68,7 @@ func _ready() -> void:
 	visible = false
 	call_deferred("_apply_to_player")
 	call_deferred("_bind_network_ui_signals")
+	call_deferred("_apply_voice_settings")
 	print("XZOGOT_MOBILE_SETTINGS_READY")
 	print("XZOGOT_RELEASE_DEV_MENU_READY ", dev_menu_visible_in_release)
 
@@ -84,6 +91,8 @@ func _load_settings() -> void:
 	auto_rebuild = bool(cfg.get_value("gameplay", "auto_rebuild", auto_rebuild))
 	repair_repeat_interval = float(cfg.get_value("gameplay", "repair_repeat_interval", repair_repeat_interval))
 	hud_opacity = float(cfg.get_value("hud", "opacity", hud_opacity))
+	voice_input_enabled = bool(cfg.get_value("voice", "input_enabled", voice_input_enabled))
+	voice_output_enabled = bool(cfg.get_value("voice", "output_enabled", voice_output_enabled))
 
 func _save_settings() -> void:
 	var cfg := ConfigFile.new()
@@ -102,6 +111,8 @@ func _save_settings() -> void:
 	cfg.set_value("gameplay", "auto_rebuild", auto_rebuild)
 	cfg.set_value("gameplay", "repair_repeat_interval", repair_repeat_interval)
 	cfg.set_value("hud", "opacity", hud_opacity)
+	cfg.set_value("voice", "input_enabled", voice_input_enabled)
+	cfg.set_value("voice", "output_enabled", voice_output_enabled)
 	cfg.save(CONFIG_PATH)
 
 func _button(vbox: VBoxContainer, name_value: String, text_value: String) -> Button:
@@ -223,6 +234,18 @@ func _build_settings_page() -> void:
 func _network_manager_node() -> Node:
 	return get_node_or_null("../../NetworkManager")
 
+func _voice_chat_node() -> Node:
+	return get_node_or_null("../../VoiceChat")
+
+func _apply_voice_settings() -> void:
+	var voice := _voice_chat_node()
+	if voice == null:
+		return
+	if voice.has_method("set_input_enabled"):
+		voice.call("set_input_enabled", voice_input_enabled)
+	if voice.has_method("set_output_enabled"):
+		voice.call("set_output_enabled", voice_output_enabled)
+
 func _bind_network_ui_signals() -> void:
 	var network: Node = _network_manager_node()
 	if network == null:
@@ -276,6 +299,23 @@ func _build_network_page() -> void:
 	_network_ready = _button(_page_network, "MatchReady", "READY")
 	_network_ready.visible = false
 	_network_ready.pressed.connect(_network_toggle_ready)
+
+	_voice_status = Label.new()
+	_voice_status.name = "VoiceStatus"
+	_voice_status.text = "PROXIMITY VOICE"
+	_voice_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_voice_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_voice_status.modulate = Color(0.72, 0.88, 1.0)
+	_page_network.add_child(_voice_status)
+
+	_voice_mic_button = _button(_page_network, "VoiceMic", "MIC: ON")
+	_voice_mic_button.pressed.connect(_voice_toggle_mic)
+	_voice_output_button = _button(_page_network, "VoiceOutput", "VOICE OUTPUT: ON")
+	_voice_output_button.pressed.connect(_voice_toggle_output)
+	for slot in range(1, 5):
+		var mute_button := _button(_page_network, "VoiceMuteP%d" % slot, "P%d VOICE: AUDIBLE" % slot)
+		mute_button.pressed.connect(func(slot_value: int = slot): _voice_toggle_slot(slot_value))
+		_voice_slot_buttons[slot] = mute_button
 
 	_network_share = Label.new()
 	_network_share.name = "NetworkShare"
@@ -502,6 +542,40 @@ func _on_matchmaking_state_changed(
 ) -> void:
 	_refresh_network_status()
 
+func _voice_toggle_mic() -> void:
+	voice_input_enabled = not voice_input_enabled
+	_save_settings()
+	_apply_voice_settings()
+	_refresh_voice_controls()
+
+func _voice_toggle_output() -> void:
+	voice_output_enabled = not voice_output_enabled
+	_save_settings()
+	_apply_voice_settings()
+	_refresh_voice_controls()
+
+func _voice_toggle_slot(slot: int) -> void:
+	var voice := _voice_chat_node()
+	if voice == null or not voice.has_method("set_slot_muted"):
+		return
+	var muted := bool(voice.call("is_slot_muted", slot)) if voice.has_method("is_slot_muted") else false
+	voice.call("set_slot_muted", slot, not muted)
+	_refresh_voice_controls()
+
+func _refresh_voice_controls() -> void:
+	var voice := _voice_chat_node()
+	if _voice_status != null:
+		_voice_status.text = str(voice.call("get_status_text")) if voice != null and voice.has_method("get_status_text") else "PROXIMITY VOICE: UNAVAILABLE"
+	if _voice_mic_button != null:
+		_voice_mic_button.text = "MIC: " + ("ON" if voice_input_enabled else "OFF")
+	if _voice_output_button != null:
+		_voice_output_button.text = "VOICE OUTPUT: " + ("ON" if voice_output_enabled else "OFF")
+	for slot_var: Variant in _voice_slot_buttons.keys():
+		var slot := int(slot_var)
+		var button := _voice_slot_buttons[slot] as Button
+		var muted := bool(voice.call("is_slot_muted", slot)) if voice != null and voice.has_method("is_slot_muted") else false
+		button.text = "P%d VOICE: %s" % [slot, "MUTED" if muted else "AUDIBLE"]
+
 func _network_toggle_ready() -> void:
 	var network: Node = _network_manager_node()
 	if network == null or not network.has_method("set_local_ready"):
@@ -603,6 +677,8 @@ func _refresh_network_status() -> void:
 			_network_ready.disabled = phase == "started"
 			var local_ready: bool = bool(network.call("is_local_ready")) if network.has_method("is_local_ready") else false
 			_network_ready.text = "UNREADY" if local_ready else "READY"
+
+	_refresh_voice_controls()
 
 	if _network_share != null:
 		_network_share.text = ""
@@ -885,6 +961,8 @@ func get_setting_value(key: String) -> Variant:
 		"auto_rebuild": return auto_rebuild
 		"repair_repeat_interval": return repair_repeat_interval
 		"hud_opacity": return hud_opacity
+		"voice_input_enabled": return voice_input_enabled
+		"voice_output_enabled": return voice_output_enabled
 	return null
 
 func _cycle_ads_mode() -> void:

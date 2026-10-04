@@ -12,6 +12,7 @@ on:
       - "xogot/server/dedicated_main.tscn"
       - "xogot/server/public_ws_dedicated.gd"
       - "xogot/scripts/network_manager.gd"
+      - "xogot/scripts/voice_chat.gd"
 
 permissions:
   contents: read
@@ -44,7 +45,7 @@ jobs:
           ok = (
               health.get("multi_room") is True
               and health.get("rpc_scene_root") == "YouWontWin"
-              and health.get("runtime_contract") == "multiroom-reconnect-v5"
+              and health.get("runtime_contract") == "multiroom-voice-v6"
               and int(health.get("min_warm_rooms", 0)) >= 2
               and len(rooms) >= 2
               and all(bool(room.get("ready")) for room in rooms[:2])

@@ -1727,6 +1727,17 @@ func get_matchmaking_status_text() -> String:
 			return "RECONNECTING PLAYER..."
 	return ""
 
+func get_peer_world_position(peer_id: int) -> Vector3:
+	var player := _network_player_node(peer_id)
+	return (player as Node3D).global_position if player is Node3D else Vector3.ZERO
+
+func get_peer_slot(peer_id: int) -> int:
+	if _peer_slots.has(peer_id):
+		return int(_peer_slots[peer_id])
+	var ids := get_roster_ids()
+	var index := ids.find(peer_id)
+	return index + 1 if index >= 0 else 0
+
 func get_local_player_slot() -> int:
 	return _local_player_slot
 
