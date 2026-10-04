@@ -167,7 +167,8 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           @'
-          *Weapons/waw/*/Anims/**/*.uasset
+          *Weapons/waw/*/Anims/Gun/*.uasset
+          *Weapons/waw/*/Anims/Hands/*.uasset
           '@ | Set-Content aether-waw-anims.txt -Encoding ascii
           Remove-Item recovered-actorx -Recurse -Force -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Force -Path recovered-actorx | Out-Null
