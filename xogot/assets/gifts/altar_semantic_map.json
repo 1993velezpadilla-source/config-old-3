@@ -1,0 +1,20 @@
+{
+  "source": "intricate wooden altar 3d model.glb",
+  "validated_against_user_reference": true,
+  "models": {
+    "Model_01": "SmallAltar",
+    "Model_02": "PulpitStairs",
+    "Model_03": "MainAltar",
+    "Model_04": "Confessional",
+    "Model_05": "ThroneChair",
+    "Model_06": "TallLectern",
+    "Model_07": "TripodBookLectern",
+    "Model_08": "CredenzaCabinet",
+    "Model_09": "Railing"
+  },
+  "triangle_conservation": {
+    "source": 1887306,
+    "exported": 1887306,
+    "ok": true
+  }
+}
