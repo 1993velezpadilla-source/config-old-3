@@ -104,6 +104,44 @@ func _run() -> void:
 		return
 	print("XZOGOT_CANDLE_EVENT_REACTIONS_GREEN")
 
+	var power_rigs: Array[Node] = get_nodes_in_group("xz_power_light_rig")
+	if power_rigs.size() != 1:
+		_fail(22, "expected one PowerLightRig, got %d" % power_rigs.size())
+		return
+	var power_rig: Node = power_rigs[0]
+	if int(power_rig.call("get_fixture_count")) != 10:
+		_fail(23, "expected ten electrical fixtures")
+		return
+
+	var power_fixtures: Array[Node] = get_nodes_in_group("power_light_fixture")
+	if power_fixtures.size() != 10:
+		_fail(24, "power fixture group mismatch")
+		return
+	for fixture_node: Node in power_fixtures:
+		if not (fixture_node is OmniLight3D):
+			_fail(25, "power fixture is not OmniLight3D")
+			return
+		if (fixture_node as OmniLight3D).shadow_enabled:
+			_fail(26, "power fixture unexpectedly enables shadows")
+			return
+
+	power_rig.call("dev_trigger_startup")
+	if not bool(power_rig.call("is_sequence_active")):
+		_fail(27, "power startup sequence did not begin")
+		return
+	power_rig.call("_process", 0.08)
+	if int(power_rig.call("get_visible_fixture_count")) <= 0:
+		_fail(28, "first electrical flash was not visible")
+		return
+	power_rig.call("_process", 2.0)
+	if bool(power_rig.call("is_sequence_active")):
+		_fail(29, "power startup sequence did not settle")
+		return
+	if int(power_rig.call("get_visible_fixture_count")) != 10:
+		_fail(30, "not all power fixtures stabilized")
+		return
+	print("XZOGOT_POWER_LIGHT_STARTUP_GREEN 10")
+
 	var stained: Array[Node] = get_nodes_in_group("stained_glass_light")
 	if stained.size() != 4:
 		_fail(22, "expected four stained-glass beams, got %d" % stained.size())
