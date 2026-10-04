@@ -20,6 +20,8 @@ import tempfile
 import zipfile
 from pathlib import Path
 
+from dequantize_godot_glb import convert as dequantize_glb
+
 MANIFEST_REL = Path("assets/gifts/gift_runtime_pack_manifest.json")
 
 
@@ -51,6 +53,7 @@ def main() -> int:
     target_root = project / "assets" / "gifts_split"
     target_root.mkdir(parents=True, exist_ok=True)
 
+    godot_fixed = 0
     with tempfile.TemporaryDirectory(prefix="xzogot-gifts-") as td:
         staging = Path(td)
         for pack in manifest["packs"]:
@@ -86,6 +89,12 @@ def main() -> int:
             if destination.exists():
                 shutil.rmtree(destination)
             shutil.copytree(extracted, destination)
+            # Godot 4.6.x cannot import KHR_mesh_quantization. Expand only the
+            # quantized vertex attributes to FLOAT; topology/UVs/textures stay exact.
+            for model in sorted(destination.glob("Model_*.glb")):
+                converted_attrs, _converted_values = dequantize_glb(model)
+                if converted_attrs > 0:
+                    godot_fixed += 1
             print(
                 "XZOGOT_GIFT_PACK_INSTALLED",
                 bundle,
@@ -101,6 +110,7 @@ def main() -> int:
     if installed != expected_total:
         fail(f"model count {installed}/{expected_total}")
 
+    print("XZOGOT_GIFT_GODOT_COMPAT_READY", godot_fixed, installed)
     print("XZOGOT_GIFT_PACK_INSTALL_GREEN", installed)
     return 0
 
