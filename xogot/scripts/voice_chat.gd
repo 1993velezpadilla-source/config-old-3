@@ -25,11 +25,128 @@ var _muted_slots: Dictionary = {}
 var _last_server_packet_ms: Dictionary = {}
 var _last_server_sequence: Dictionary = {}
 var _received_frames: int = 0
+var _app_paused: bool = false
+var _mic_permission_granted: bool = false
+var _permission_request_pending: bool = false
+var _lifecycle_pause_count: int = 0
+var _lifecycle_resume_count: int = 0
+var _capture_restart_count: int = 0
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	set_process(true)
+	var main_loop := Engine.get_main_loop()
+	if main_loop != null and main_loop.has_signal("on_request_permissions_result"):
+		var permission_cb := Callable(self, "_on_permission_result")
+		if not main_loop.is_connected("on_request_permissions_result", permission_cb):
+			main_loop.connect("on_request_permissions_result", permission_cb)
+	_refresh_mic_permission()
 	print("XZOGOT_PROXIMITY_VOICE_READY rate=", int(SAMPLE_RATE), " packet=", PACKET_BYTES, " max_m=", PROXIMITY_MAX_M)
+
+func _notification(what: int) -> void:
+	if what == MainLoop.NOTIFICATION_APPLICATION_PAUSED:
+		_handle_application_paused("os")
+	elif what == MainLoop.NOTIFICATION_APPLICATION_RESUMED:
+		_handle_application_resumed("os")
+
+func _microphone_permission_name() -> String:
+	if OS.has_feature("android"):
+		return "android.permission.RECORD_AUDIO"
+	if OS.has_feature("ios"):
+		return "appleembedded.permission.AUDIO_RECORD"
+	return ""
+
+func _refresh_mic_permission() -> bool:
+	var permission := _microphone_permission_name()
+	if permission.is_empty():
+		_mic_permission_granted = true
+		return true
+	var granted := OS.get_granted_permissions()
+	_mic_permission_granted = granted.has(permission) or granted.has("RECORD_AUDIO") or granted.has("AUDIO_RECORD")
+	return _mic_permission_granted
+
+func _request_mic_permission() -> bool:
+	if _refresh_mic_permission():
+		return true
+	if _permission_request_pending:
+		return false
+	var permission := _microphone_permission_name()
+	if permission.is_empty():
+		_mic_permission_granted = true
+		return true
+	_permission_request_pending = true
+	_mic_permission_granted = OS.request_permission(permission)
+	if _mic_permission_granted:
+		_permission_request_pending = false
+		print("XZOGOT_VOICE_PERMISSION_GRANTED immediate=true permission=", permission)
+	else:
+		print("XZOGOT_VOICE_PERMISSION_REQUESTED permission=", permission)
+	return _mic_permission_granted
+
+func _on_permission_result(permission: String, granted: bool) -> void:
+	var expected := _microphone_permission_name()
+	if expected.is_empty():
+		return
+	if permission != expected and not permission.ends_with("RECORD_AUDIO") and not permission.ends_with("AUDIO_RECORD"):
+		return
+	_permission_request_pending = false
+	_mic_permission_granted = granted
+	print("XZOGOT_VOICE_PERMISSION_RESULT permission=", permission, " granted=", granted)
+	if granted and input_enabled and not _app_paused:
+		call_deferred("_ensure_capture")
+
+func _stop_capture_for_route_change() -> void:
+	if _capture != null:
+		var available := _capture.get_frames_available()
+		if available > 0:
+			_capture.get_buffer(available)
+	if _mic_player != null and is_instance_valid(_mic_player):
+		_mic_player.stop()
+		_mic_player.queue_free()
+	_mic_player = null
+	_capture_ready = false
+
+func _reset_playback_routes() -> void:
+	for player_var: Variant in _playback_players.values():
+		var player := player_var as AudioStreamPlayer
+		if player != null and is_instance_valid(player):
+			player.stop()
+			player.queue_free()
+	_playback_players.clear()
+
+func _handle_application_paused(source: String) -> void:
+	if _app_paused:
+		return
+	_app_paused = true
+	_lifecycle_pause_count += 1
+	_stop_capture_for_route_change()
+	_reset_playback_routes()
+	var network := _network()
+	if network != null and network.has_method("handle_application_paused"):
+		network.call("handle_application_paused")
+	print("XZOGOT_MOBILE_AUDIO_PAUSED source=", source, " count=", _lifecycle_pause_count)
+
+func _handle_application_resumed(source: String) -> bool:
+	var was_paused := _app_paused
+	_app_paused = false
+	_lifecycle_resume_count += 1
+	_stop_capture_for_route_change()
+	_reset_playback_routes()
+	_refresh_mic_permission()
+	var handover_started := false
+	var network := _network()
+	if network != null and network.has_method("handle_application_resumed"):
+		handover_started = bool(network.call("handle_application_resumed"))
+	if input_enabled and _mic_permission_granted:
+		_capture_restart_count += 1
+		call_deferred("_ensure_capture")
+	print(
+		"XZOGOT_MOBILE_AUDIO_RESUMED source=", source,
+		" was_paused=", was_paused,
+		" handover=", handover_started,
+		" count=", _lifecycle_resume_count
+	)
+	return handover_started
 
 func _network() -> Node:
 	return get_parent().get_node_or_null("NetworkManager")
@@ -43,12 +160,10 @@ func _is_dedicated() -> bool:
 	return OS.get_environment("XZOGOT_DEDICATED") == "1" or (network != null and network.has_method("is_dedicated_server") and bool(network.call("is_dedicated_server")))
 
 func _ensure_capture() -> void:
-	if _capture_ready or _is_dedicated() or OS.get_environment("XZOGOT_DISABLE_MIC_CAPTURE") == "1":
+	if _capture_ready or _app_paused or _is_dedicated() or OS.get_environment("XZOGOT_DISABLE_MIC_CAPTURE") == "1":
 		return
-	if OS.has_feature("android"):
-		var granted := OS.get_granted_permissions()
-		if not granted.has("RECORD_AUDIO"):
-			OS.request_permission("RECORD_AUDIO")
+	if not _request_mic_permission():
+		return
 	var bus_index := AudioServer.get_bus_index(CAPTURE_BUS)
 	if bus_index < 0:
 		AudioServer.add_bus()
@@ -71,7 +186,7 @@ func _ensure_capture() -> void:
 	print("XZOGOT_VOICE_CAPTURE_READY mix_rate=", AudioServer.get_mix_rate())
 
 func _process(_delta: float) -> void:
-	if _is_dedicated():
+	if _app_paused or _is_dedicated():
 		return
 	var mode := _network_mode()
 	if mode != "host" and mode != "client":
@@ -230,8 +345,10 @@ func is_distance_audible(distance_m: float) -> bool:
 
 func set_input_enabled(enabled: bool) -> void:
 	input_enabled = enabled
-	if input_enabled:
+	if input_enabled and not _app_paused:
 		_ensure_capture()
+	elif not input_enabled:
+		_stop_capture_for_route_change()
 	voice_state_changed.emit()
 	print("XZOGOT_VOICE_MIC ", "ON" if input_enabled else "OFF")
 
@@ -293,3 +410,24 @@ func debug_codec_roundtrip_error() -> float:
 	for index in range(SAMPLES_PER_PACKET):
 		error += absf(decoded[index].x - samples[index])
 	return error / float(SAMPLES_PER_PACKET)
+
+func is_application_paused() -> bool:
+	return _app_paused
+
+func has_microphone_permission() -> bool:
+	return _mic_permission_granted
+
+func get_lifecycle_pause_count() -> int:
+	return _lifecycle_pause_count
+
+func get_lifecycle_resume_count() -> int:
+	return _lifecycle_resume_count
+
+func get_capture_restart_count() -> int:
+	return _capture_restart_count
+
+func debug_simulate_application_paused() -> void:
+	_handle_application_paused("debug")
+
+func debug_simulate_application_resumed() -> bool:
+	return _handle_application_resumed("debug")

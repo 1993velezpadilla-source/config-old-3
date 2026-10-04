@@ -13,6 +13,8 @@ on:
       - "xogot/scripts/network_weapon_state.gd"
       - "xogot/scripts/voice_chat.gd"
       - "xogot/main.tscn"
+      - "xogot/project.godot"
+      - "xogot/export_presets.cfg"
       - "xogot/server/**"
 
 permissions:
@@ -44,7 +46,7 @@ jobs:
           except Exception:
               raise SystemExit(1)
           ok = (
-              health.get("runtime_contract") == "multiroom-voice-v6"
+              health.get("runtime_contract") == "multiroom-mobile-voice-v7"
               and health.get("rpc_scene_root") == "YouWontWin"
               and float(health.get("reconnect_grace_seconds", 0)) >= 30
               and len(rooms) >= 2
@@ -196,9 +198,13 @@ jobs:
               var mag_before := int(weapon.call("get_magazine")) if weapon != null else -1
               var reserve_before := int(weapon.call("get_reserve")) if weapon != null else -1
 
-              if not bool(network.call("force_public_reconnect")):
-                  _fail(9, "force reconnect rejected")
+              voice.call("debug_simulate_application_paused")
+              print("XZ_PUBLIC_MOBILE_PAUSE_TRIGGERED slot=", slot_before)
+              await create_timer(0.15).timeout
+              if not bool(voice.call("debug_simulate_application_resumed")):
+                  _fail(9, "mobile resume did not start websocket handover")
                   return
+              print("XZ_PUBLIC_MOBILE_RESUME_HANDOVER_TRIGGERED slot=", slot_before)
               print("XZ_PUBLIC_RECONNECT_DROP_TRIGGERED slot=", slot_before)
 
               var reconnect_deadline := Time.get_ticks_msec() + TIMEOUT_MS
@@ -278,6 +284,10 @@ jobs:
           cat build/public-reconnect/anchor.log
           test "$RR" -eq 0
           test "$RA" -eq 0
+          grep -q "XZ_PUBLIC_MOBILE_PAUSE_TRIGGERED" build/public-reconnect/reconnector.log
+          grep -q "XZ_PUBLIC_MOBILE_RESUME_HANDOVER_TRIGGERED" build/public-reconnect/reconnector.log
+          grep -q "XZOGOT_MOBILE_NETWORK_RESUMED handover=true" build/public-reconnect/reconnector.log
+          grep -q "XZOGOT_MOBILE_AUDIO_RESUMED .*handover=true" build/public-reconnect/reconnector.log
           grep -q "XZ_PUBLIC_RECONNECT_DROP_TRIGGERED" build/public-reconnect/reconnector.log
           grep -q "XZOGOT_RECONNECT_ACCEPTED .*resumed=true" build/public-reconnect/reconnector.log
           grep -q "XZ_PUBLIC_RECONNECT_STATE_GREEN" build/public-reconnect/reconnector.log
@@ -286,6 +296,7 @@ jobs:
           grep -q "XZ_PUBLIC_RECONNECT_ANCHOR_GREEN" build/public-reconnect/anchor.log
           ! grep -E "SCRIPT ERROR|Parse Error|PUBLIC_RECONNECT_CLIENT:" build/public-reconnect/reconnector.log
           ! grep -E "SCRIPT ERROR|Parse Error|PUBLIC_RECONNECT_CLIENT:" build/public-reconnect/anchor.log
+          echo "XZ_PUBLIC_MOBILE_HANDOVER_GREEN"
           echo "XZ_PUBLIC_RECONNECT_PROXIMITY_VOICE_GREEN"
           echo "XZ_PUBLIC_RECONNECT_LIVE_GATE_GREEN"
 

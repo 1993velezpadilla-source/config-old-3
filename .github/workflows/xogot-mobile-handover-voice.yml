@@ -1,0 +1,92 @@
+name: Xogot Mobile Handover Voice
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/church-expansion-v1
+    paths:
+      - ".github/workflows/xogot-mobile-handover-voice.yml"
+      - "xogot/scripts/voice_chat.gd"
+      - "xogot/scripts/network_manager.gd"
+      - "xogot/project.godot"
+      - "xogot/export_presets.cfg"
+
+permissions:
+  contents: read
+
+jobs:
+  mobile-lifecycle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Godot 4.6.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2             https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip             -o /tmp/godot.zip
+          mkdir -p /tmp/godot
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+      - name: Import project assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64             --headless --editor --path xogot --quit             2>&1 | tee /tmp/mobile-handover-import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" /tmp/mobile-handover-import.log
+      - name: Verify lifecycle and Android permissions
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'driver/enable_input=true' xogot/project.godot
+          grep -q 'permissions/internet=true' xogot/export_presets.cfg
+          grep -q 'permissions/record_audio=true' xogot/export_presets.cfg
+          grep -q 'architectures/arm64-v8a=true' xogot/export_presets.cfg
+          cat > xogot/ci/mobile_handover_voice_probe.gd <<'GDSCRIPT'
+          extends SceneTree
+
+          func _init() -> void:
+              call_deferred("_run")
+
+          func _fail(message: String) -> void:
+              push_error("MOBILE_HANDOVER_VOICE_PROBE: " + message)
+              quit(2)
+
+          func _run() -> void:
+              var packed := load("res://main.tscn") as PackedScene
+              if packed == null:
+                  _fail("main scene missing")
+                  return
+              var scene := packed.instantiate()
+              root.add_child(scene)
+              await process_frame
+              var voice: Node = scene.get_node_or_null("VoiceChat")
+              if voice == null:
+                  _fail("VoiceChat missing")
+                  return
+              voice.call("debug_simulate_application_paused")
+              if not bool(voice.call("is_application_paused")):
+                  _fail("pause lifecycle not entered")
+                  return
+              if int(voice.call("get_lifecycle_pause_count")) != 1:
+                  _fail("pause count wrong")
+                  return
+              var started := bool(voice.call("debug_simulate_application_resumed"))
+              if bool(voice.call("is_application_paused")):
+                  _fail("resume lifecycle not entered")
+                  return
+              if int(voice.call("get_lifecycle_resume_count")) != 1:
+                  _fail("resume count wrong")
+                  return
+              if started:
+                  _fail("offline lifecycle should not invent reconnect")
+                  return
+              print("XZ_MOBILE_LIFECYCLE_PAUSE_RESUME_GREEN")
+              print("XZ_MOBILE_PERMISSION_EXPORT_GREEN")
+              quit(0)
+          GDSCRIPT
+          XZOGOT_DISABLE_MIC_CAPTURE=1 XZOGOT_DISABLE_VOICE_PLAYBACK=1             /tmp/godot/Godot_v4.6.1-stable_linux.x86_64             --headless --path xogot --script res://ci/mobile_handover_voice_probe.gd             2>&1 | tee /tmp/mobile-handover-voice.log
+          grep -q "XZ_MOBILE_LIFECYCLE_PAUSE_RESUME_GREEN" /tmp/mobile-handover-voice.log
+          grep -q "XZ_MOBILE_PERMISSION_EXPORT_GREEN" /tmp/mobile-handover-voice.log
+          ! grep -E "SCRIPT ERROR|Parse Error|MOBILE_HANDOVER_VOICE_PROBE:" /tmp/mobile-handover-voice.log

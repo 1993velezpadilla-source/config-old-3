@@ -59,6 +59,10 @@ var _reconnect_generation: int = 0
 var _reconnect_attempt_scheduled: bool = false
 var _reconnect_base_url: String = ""
 
+var _application_paused: bool = false
+var _background_websocket_session: bool = false
+var _mobile_handover_count: int = 0
+
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	set_process(true)
@@ -685,6 +689,44 @@ func _begin_public_reconnect(reason: String) -> void:
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
 	print("XZOGOT_RECONNECT_BEGIN reason=", reason)
 	_schedule_next_reconnect()
+
+func handle_application_paused() -> bool:
+	_application_paused = true
+	_background_websocket_session = (
+		_transport == "websocket"
+		and not _relay_url.is_empty()
+		and (_mode == "client" or _mode == "reconnecting")
+	)
+	print(
+		"XZOGOT_MOBILE_NETWORK_PAUSED websocket_session=",
+		_background_websocket_session,
+		" mode=", _mode
+	)
+	return _background_websocket_session
+
+func handle_application_resumed() -> bool:
+	var should_handover := _application_paused and _background_websocket_session
+	_application_paused = false
+	_background_websocket_session = false
+	if not should_handover:
+		print("XZOGOT_MOBILE_NETWORK_RESUMED handover=false mode=", _mode)
+		return false
+	_mobile_handover_count += 1
+	if _mode == "client":
+		_begin_public_reconnect("application_resumed_handover")
+	elif _mode == "reconnecting" and _reconnect_active:
+		_reconnect_generation += 1
+		_reconnect_attempt = 0
+		_reconnect_attempt_scheduled = false
+		_schedule_next_reconnect()
+	else:
+		print("XZOGOT_MOBILE_NETWORK_RESUMED handover=false stale_mode=", _mode)
+		return false
+	print("XZOGOT_MOBILE_NETWORK_RESUMED handover=true count=", _mobile_handover_count)
+	return true
+
+func get_mobile_handover_count() -> int:
+	return _mobile_handover_count
 
 func force_public_reconnect() -> bool:
 	if _transport != "websocket" or (_mode != "client" and _mode != "reconnecting"):

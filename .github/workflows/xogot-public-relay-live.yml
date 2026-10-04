@@ -30,7 +30,7 @@ jobs:
           except Exception:
               raise SystemExit(1)
           ok = (
-              health.get("runtime_contract") == "multiroom-voice-v6"
+              health.get("runtime_contract") == "multiroom-mobile-voice-v7"
               and health.get("multi_room") is True
               and len(rooms) >= 2
               and all(bool(room.get("ready")) for room in rooms[:2])
