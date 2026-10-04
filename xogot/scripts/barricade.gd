@@ -16,6 +16,11 @@ const SFX_BREAK_A := "res://assets/audio/church/world/wood_break_01.ogg"
 const SFX_BREAK_B := "res://assets/audio/church/world/wood_break_02.ogg"
 const SFX_REPAIR := "res://assets/audio/church/world/wood_repair.ogg"
 
+func _notify_network_state(player: Node = null) -> void:
+	var network: Node = get_tree().root.find_child("NetworkManager", true, false)
+	if network != null and network.has_method("notify_host_barricade"):
+		network.call("notify_host_barricade", self, player)
+
 func _play_wood_sfx(path: String, volume_db: float = -5.0) -> void:
 	if not ResourceLoader.exists(path):
 		return
@@ -91,6 +96,8 @@ func zombie_damage(amount: float) -> bool:
 		_broken = true
 		_refresh_state()
 		print("XZOGOT_BARRICADE_BROKEN ", name)
+	if before != _boards:
+		_notify_network_state()
 	return true
 
 func interact(player: Node) -> bool:
@@ -127,6 +134,7 @@ func interact(player: Node) -> bool:
 		" reward=", awarded,
 		" round_budget=", _repair_reward_this_round
 	)
+	_notify_network_state(player)
 	return true
 
 func _refresh_state() -> void:
@@ -145,7 +153,15 @@ func repair_full_no_reward() -> bool:
 	if changed:
 		_play_wood_sfx(SFX_REPAIR, -8.0)
 		print("XZOGOT_BARRICADE_CARPENTER_RESTORED ", name)
+		_notify_network_state()
 	return changed
+
+func apply_network_boards(boards: int) -> void:
+	_boards = clampi(boards, 0, max_boards)
+	_health = float(_boards) * board_health
+	_broken = _boards <= 0
+	_refresh_state()
+	print("XZOGOT_NETWORK_BARRICADE_STATE ", name, " boards=", _boards)
 
 func get_boards() -> int:
 	return _boards
