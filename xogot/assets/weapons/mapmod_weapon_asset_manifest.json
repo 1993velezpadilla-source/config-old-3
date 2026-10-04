@@ -81,9 +81,9 @@
   "weapons": {
     "colt": {
       "desired_source_lane": "cod_zombies_mapmod",
-      "status": "MISSING",
+      "status": "PARTIAL",
       "runtime": {
-        "viewmodel": "res://assets/weapons/mapmod/colt/viewmodel.glb",
+        "viewmodel": "res://assets/weapons/aether_waw_real/colt/viewmodel.glb",
         "worldmodel": "res://assets/weapons/mapmod/colt/worldmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/colt/fire.wav",
@@ -130,13 +130,15 @@
           "bash"
         ]
       },
-      "notes": []
+      "notes": [
+        "Real Aether UE5.7 viewmodel staged from 1911."
+      ]
     },
     "m1": {
       "desired_source_lane": "cod_zombies_mapmod",
-      "status": "MISSING",
+      "status": "PARTIAL",
       "runtime": {
-        "viewmodel": "res://assets/weapons/mapmod/m1/viewmodel.glb",
+        "viewmodel": "res://assets/weapons/aether_waw_real/m1/viewmodel.glb",
         "worldmodel": "res://assets/weapons/mapmod/m1/worldmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/m1/fire.wav",
@@ -183,13 +185,15 @@
           "bash"
         ]
       },
-      "notes": []
+      "notes": [
+        "Real Aether UE5.7 viewmodel staged from M1Garand."
+      ]
     },
     "mp40": {
       "desired_source_lane": "cod_zombies_mapmod",
-      "status": "MISSING",
+      "status": "PARTIAL",
       "runtime": {
-        "viewmodel": "res://assets/weapons/mapmod/mp40/viewmodel.glb",
+        "viewmodel": "res://assets/weapons/aether_waw_real/mp40/viewmodel.glb",
         "worldmodel": "res://assets/weapons/mapmod/mp40/worldmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/mp40/fire.wav",
@@ -236,13 +240,15 @@
           "bash"
         ]
       },
-      "notes": []
+      "notes": [
+        "Real Aether UE5.7 viewmodel staged from MP40."
+      ]
     },
     "trench": {
       "desired_source_lane": "cod_zombies_mapmod",
-      "status": "MISSING",
+      "status": "PARTIAL",
       "runtime": {
-        "viewmodel": "res://assets/weapons/mapmod/trench/viewmodel.glb",
+        "viewmodel": "res://assets/weapons/aether_waw_real/trench/viewmodel.glb",
         "worldmodel": "res://assets/weapons/mapmod/trench/worldmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/trench/fire.wav",
@@ -289,13 +295,15 @@
           "bash"
         ]
       },
-      "notes": []
+      "notes": [
+        "Real Aether UE5.7 viewmodel staged from TrenchGun."
+      ]
     },
     "thompson": {
       "desired_source_lane": "cod_zombies_mapmod",
       "status": "REFERENCE_PARTIAL",
       "runtime": {
-        "viewmodel": "res://assets/weapons/mapmod/thompson/viewmodel.glb",
+        "viewmodel": "res://assets/weapons/aether_waw_real/thompson/viewmodel.glb",
         "worldmodel": "res://assets/weapons/mapmod/thompson/worldmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/thompson/fire.wav",
@@ -344,7 +352,8 @@
       },
       "notes": [
         "Verified WaW golden-reference exists as importer baseline only; it is not marked as the final MapMod package.",
-        "Golden reference has 11 validated XANIM clips and required weapon tags, but final MapMod audio/worldmodel package is not verified yet."
+        "Golden reference has 11 validated XANIM clips and required weapon tags, but final MapMod audio/worldmodel package is not verified yet.",
+        "Real Aether UE5.7 viewmodel staged from Thompson."
       ],
       "reference": {
         "kind": "waw_golden_reference",
@@ -383,9 +392,9 @@
     },
     "bar": {
       "desired_source_lane": "cod_zombies_mapmod",
-      "status": "MISSING",
+      "status": "PARTIAL",
       "runtime": {
-        "viewmodel": "res://assets/weapons/mapmod/bar/viewmodel.glb",
+        "viewmodel": "res://assets/weapons/aether_waw_real/bar/viewmodel.glb",
         "worldmodel": "res://assets/weapons/mapmod/bar/worldmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/bar/fire.ogg",
@@ -432,13 +441,15 @@
           "bash"
         ]
       },
-      "notes": []
+      "notes": [
+        "Real Aether UE5.7 viewmodel staged from BAR."
+      ]
     },
     "browning": {
       "desired_source_lane": "cod_zombies_mapmod",
-      "status": "MISSING",
+      "status": "PARTIAL",
       "runtime": {
-        "viewmodel": "res://assets/weapons/mapmod/browning/viewmodel.glb",
+        "viewmodel": "res://assets/weapons/aether_waw_real/browning/viewmodel.glb",
         "worldmodel": "res://assets/weapons/mapmod/browning/worldmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/browning/fire.ogg",
@@ -485,13 +496,15 @@
           "bash"
         ]
       },
-      "notes": []
+      "notes": [
+        "Real Aether UE5.7 viewmodel staged from Browning."
+      ]
     },
     "doublebarrel": {
       "desired_source_lane": "cod_zombies_mapmod",
-      "status": "MISSING",
+      "status": "PARTIAL",
       "runtime": {
-        "viewmodel": "res://assets/weapons/mapmod/doublebarrel/viewmodel.glb",
+        "viewmodel": "res://assets/weapons/aether_waw_real/doublebarrel/viewmodel.glb",
         "worldmodel": "res://assets/weapons/mapmod/doublebarrel/worldmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/doublebarrel/fire.ogg",
@@ -538,13 +551,15 @@
           "bash"
         ]
       },
-      "notes": []
+      "notes": [
+        "Real Aether UE5.7 viewmodel staged from DoubleBarrel."
+      ]
     },
     "sawnoff": {
       "desired_source_lane": "cod_zombies_mapmod",
-      "status": "MISSING",
+      "status": "PARTIAL",
       "runtime": {
-        "viewmodel": "res://assets/weapons/mapmod/sawnoff/viewmodel.glb",
+        "viewmodel": "res://assets/weapons/aether_waw_real/sawnoff/viewmodel.glb",
         "worldmodel": "res://assets/weapons/mapmod/sawnoff/worldmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/sawnoff/fire.ogg",
@@ -591,13 +606,15 @@
           "bash"
         ]
       },
-      "notes": []
+      "notes": [
+        "Real Aether UE5.7 viewmodel staged from SawedOffDB."
+      ]
     },
     "fg42": {
       "desired_source_lane": "cod_zombies_mapmod",
-      "status": "MISSING",
+      "status": "PARTIAL",
       "runtime": {
-        "viewmodel": "res://assets/weapons/mapmod/fg42/viewmodel.glb",
+        "viewmodel": "res://assets/weapons/aether_waw_real/fg42/viewmodel.glb",
         "worldmodel": "res://assets/weapons/mapmod/fg42/worldmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/fg42/fire.ogg",
@@ -644,13 +661,15 @@
           "bash"
         ]
       },
-      "notes": []
+      "notes": [
+        "Real Aether UE5.7 viewmodel staged from FG42."
+      ]
     },
     "gewehr": {
       "desired_source_lane": "cod_zombies_mapmod",
-      "status": "MISSING",
+      "status": "PARTIAL",
       "runtime": {
-        "viewmodel": "res://assets/weapons/mapmod/gewehr/viewmodel.glb",
+        "viewmodel": "res://assets/weapons/aether_waw_real/gewehr/viewmodel.glb",
         "worldmodel": "res://assets/weapons/mapmod/gewehr/worldmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/gewehr/fire.ogg",
@@ -697,13 +716,15 @@
           "bash"
         ]
       },
-      "notes": []
+      "notes": [
+        "Real Aether UE5.7 viewmodel staged from Gewehr."
+      ]
     },
     "m1a1": {
       "desired_source_lane": "cod_zombies_mapmod",
-      "status": "MISSING",
+      "status": "PARTIAL",
       "runtime": {
-        "viewmodel": "res://assets/weapons/mapmod/m1a1/viewmodel.glb",
+        "viewmodel": "res://assets/weapons/aether_waw_real/m1a1/viewmodel.glb",
         "worldmodel": "res://assets/weapons/mapmod/m1a1/worldmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/m1a1/fire.ogg",
@@ -750,13 +771,15 @@
           "bash"
         ]
       },
-      "notes": []
+      "notes": [
+        "Real Aether UE5.7 viewmodel staged from M1Carbine."
+      ]
     },
     "mg42": {
       "desired_source_lane": "cod_zombies_mapmod",
-      "status": "MISSING",
+      "status": "PARTIAL",
       "runtime": {
-        "viewmodel": "res://assets/weapons/mapmod/mg42/viewmodel.glb",
+        "viewmodel": "res://assets/weapons/aether_waw_real/mg42/viewmodel.glb",
         "worldmodel": "res://assets/weapons/mapmod/mg42/worldmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/mg42/fire.ogg",
@@ -803,13 +826,15 @@
           "bash"
         ]
       },
-      "notes": []
+      "notes": [
+        "Real Aether UE5.7 viewmodel staged from MG42."
+      ]
     },
     "ppsh": {
       "desired_source_lane": "cod_zombies_mapmod",
-      "status": "MISSING",
+      "status": "PARTIAL",
       "runtime": {
-        "viewmodel": "res://assets/weapons/mapmod/ppsh/viewmodel.glb",
+        "viewmodel": "res://assets/weapons/aether_waw_real/ppsh/viewmodel.glb",
         "worldmodel": "res://assets/weapons/mapmod/ppsh/worldmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/ppsh/fire.ogg",
@@ -856,13 +881,15 @@
           "bash"
         ]
       },
-      "notes": []
+      "notes": [
+        "Real Aether UE5.7 viewmodel staged from PPSH."
+      ]
     },
     "ptrs": {
       "desired_source_lane": "cod_zombies_mapmod",
-      "status": "MISSING",
+      "status": "PARTIAL",
       "runtime": {
-        "viewmodel": "res://assets/weapons/mapmod/ptrs/viewmodel.glb",
+        "viewmodel": "res://assets/weapons/aether_waw_real/ptrs/viewmodel.glb",
         "worldmodel": "res://assets/weapons/mapmod/ptrs/worldmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/ptrs/fire.ogg",
@@ -909,13 +936,15 @@
           "bash"
         ]
       },
-      "notes": []
+      "notes": [
+        "Real Aether UE5.7 viewmodel staged from PTRS."
+      ]
     },
     "stg": {
       "desired_source_lane": "cod_zombies_mapmod",
-      "status": "MISSING",
+      "status": "PARTIAL",
       "runtime": {
-        "viewmodel": "res://assets/weapons/mapmod/stg/viewmodel.glb",
+        "viewmodel": "res://assets/weapons/aether_waw_real/stg/viewmodel.glb",
         "worldmodel": "res://assets/weapons/mapmod/stg/worldmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/stg/fire.ogg",
@@ -962,13 +991,15 @@
           "bash"
         ]
       },
-      "notes": []
+      "notes": [
+        "Real Aether UE5.7 viewmodel staged from STG44."
+      ]
     },
     "type100": {
       "desired_source_lane": "cod_zombies_mapmod",
-      "status": "MISSING",
+      "status": "PARTIAL",
       "runtime": {
-        "viewmodel": "res://assets/weapons/mapmod/type100/viewmodel.glb",
+        "viewmodel": "res://assets/weapons/aether_waw_real/type100/viewmodel.glb",
         "worldmodel": "res://assets/weapons/mapmod/type100/worldmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/type100/fire.ogg",
@@ -1015,13 +1046,15 @@
           "bash"
         ]
       },
-      "notes": []
+      "notes": [
+        "Real Aether UE5.7 viewmodel staged from Type100."
+      ]
     },
     "springfield": {
       "desired_source_lane": "cod_zombies_mapmod",
-      "status": "MISSING",
+      "status": "PARTIAL",
       "runtime": {
-        "viewmodel": "res://assets/weapons/mapmod/springfield/viewmodel.glb",
+        "viewmodel": "res://assets/weapons/aether_waw_real/springfield/viewmodel.glb",
         "worldmodel": "res://assets/weapons/mapmod/springfield/worldmodel.glb",
         "audio": {
           "fire": "res://assets/audio/weapons/mapmod/springfield/fire.ogg",
@@ -1068,7 +1101,9 @@
           "bash"
         ]
       },
-      "notes": []
+      "notes": [
+        "Real Aether UE5.7 viewmodel staged from Springfield."
+      ]
     },
     "ray": {
       "desired_source_lane": "cod_zombies_mapmod",

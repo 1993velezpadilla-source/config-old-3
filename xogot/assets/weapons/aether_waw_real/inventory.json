@@ -1,0 +1,241 @@
+{
+  "schema": 1,
+  "id": "aether_waw_real_mesh_inventory_v1",
+  "source_run": 37233982456,
+  "weapon_count": 29,
+  "placeholder_geometry": false,
+  "weapons": [
+    {
+      "source_dir": "1911",
+      "runtime_id": "colt",
+      "source_file": "Colt1911.glb",
+      "runtime_path": "res://assets/weapons/aether_waw_real/colt/viewmodel.glb",
+      "bytes": 461428,
+      "sha256": "c7b0b08d95f54cf2100480d0d158b40dc9c919a234b853b07660521ed64eb85d"
+    },
+    {
+      "source_dir": "357",
+      "runtime_id": "357",
+      "source_file": "357.glb",
+      "runtime_path": "res://assets/weapons/aether_waw_real/357/viewmodel.glb",
+      "bytes": 787324,
+      "sha256": "99102acb012eaffc2e6b2d0633d95ad0253ba77a53561c3e0028cfde5cc79857"
+    },
+    {
+      "source_dir": "Arisaka",
+      "runtime_id": "arisaka",
+      "source_file": "viewmodel_mp_type99_rifle.glb",
+      "runtime_path": "res://assets/weapons/aether_waw_real/arisaka/viewmodel.glb",
+      "bytes": 672984,
+      "sha256": "bc89b139a7c2656649f2336469228bd8802ad9925abf880d1301436cb3a6e3f1"
+    },
+    {
+      "source_dir": "BAR",
+      "runtime_id": "bar",
+      "source_file": "BARGunModel.glb",
+      "runtime_path": "res://assets/weapons/aether_waw_real/bar/viewmodel.glb",
+      "bytes": 761468,
+      "sha256": "1dff6e17b1e18aa352ef6c59c64f4f40c68b2e7b3964451c8c8ee93d4e47a49d"
+    },
+    {
+      "source_dir": "Browning",
+      "runtime_id": "browning",
+      "source_file": "Browning_SM.glb",
+      "runtime_path": "res://assets/weapons/aether_waw_real/browning/viewmodel.glb",
+      "bytes": 903012,
+      "sha256": "45c198d7905cef9a21a5ffd68879efa661f107dc6b5e81a9a58fb0dffbe212a2"
+    },
+    {
+      "source_dir": "DoubleBarrel",
+      "runtime_id": "doublebarrel",
+      "source_file": "DoubleBarrel.glb",
+      "runtime_path": "res://assets/weapons/aether_waw_real/doublebarrel/viewmodel.glb",
+      "bytes": 744936,
+      "sha256": "8769dbdf0d0d06ff2239c5f17d3c4c35985902192e6fd10861ee6fa9ef85c871"
+    },
+    {
+      "source_dir": "DP28",
+      "runtime_id": "dp28",
+      "source_file": "viewmodel_mp_dp28_lmg.glb",
+      "runtime_path": "res://assets/weapons/aether_waw_real/dp28/viewmodel.glb",
+      "bytes": 1131936,
+      "sha256": "2665d806de017acae9d94c0d01ac2bc1b2d34b1ef928fc4e33929a0cd8ab9c1e"
+    },
+    {
+      "source_dir": "FG42",
+      "runtime_id": "fg42",
+      "source_file": "FG42.glb",
+      "runtime_path": "res://assets/weapons/aether_waw_real/fg42/viewmodel.glb",
+      "bytes": 721880,
+      "sha256": "1b0b93a44674ec445b2a2e132eacbf3a29972145fddb27716c3cdf7758240e8f"
+    },
+    {
+      "source_dir": "Gewehr",
+      "runtime_id": "gewehr",
+      "source_file": "Gewehr.glb",
+      "runtime_path": "res://assets/weapons/aether_waw_real/gewehr/viewmodel.glb",
+      "bytes": 567404,
+      "sha256": "1fcd2e3ef918337b8fcbad30fb6b1f8ba96ff42f5f0d60df5ed9ae594569bf47"
+    },
+    {
+      "source_dir": "Kar98k",
+      "runtime_id": "kar98k",
+      "source_file": "Kar98kGun.glb",
+      "runtime_path": "res://assets/weapons/aether_waw_real/kar98k/viewmodel.glb",
+      "bytes": 636788,
+      "sha256": "fe3cebc3eac2e9d7e3d88823d9dd501d0789605e477c864a2ad8635f76763754"
+    },
+    {
+      "source_dir": "M1Carbine",
+      "runtime_id": "m1a1",
+      "source_file": "viewmodel_m1carbine.glb",
+      "runtime_path": "res://assets/weapons/aether_waw_real/m1a1/viewmodel.glb",
+      "bytes": 549052,
+      "sha256": "e447af07a30ed0e6dc3f6e526277c7c12e05030915daeadd85460a93dab45a97"
+    },
+    {
+      "source_dir": "M1Garand",
+      "runtime_id": "m1",
+      "source_file": "M1Garand.glb",
+      "runtime_path": "res://assets/weapons/aether_waw_real/m1/viewmodel.glb",
+      "bytes": 712060,
+      "sha256": "1426b7e32a51868bad491a6bfb0ecb505f1ac43e48a864dd2389f1c9b90c6bd7"
+    },
+    {
+      "source_dir": "MG42",
+      "runtime_id": "mg42",
+      "source_file": "MG42.glb",
+      "runtime_path": "res://assets/weapons/aether_waw_real/mg42/viewmodel.glb",
+      "bytes": 876392,
+      "sha256": "cee20c1acc7360735f85f05296548f0d8dd16faeb80d6a32712e1f75ff06512e"
+    },
+    {
+      "source_dir": "MosinNagant",
+      "runtime_id": "mosin",
+      "source_file": "viewmodel_mp_mosinnagant_rifle.glb",
+      "runtime_path": "res://assets/weapons/aether_waw_real/mosin/viewmodel.glb",
+      "bytes": 753972,
+      "sha256": "cedf5dc8f05f723604f6198e0f50cf950402e417a9dc7cc83096235a81580ff6"
+    },
+    {
+      "source_dir": "MP40",
+      "runtime_id": "mp40",
+      "source_file": "MP40_SM.glb",
+      "runtime_path": "res://assets/weapons/aether_waw_real/mp40/viewmodel.glb",
+      "bytes": 481204,
+      "sha256": "41db24163bc65fd5bed2bfe601ba7df22a5185c471bc0e7c47cde3292b4cb1d3"
+    },
+    {
+      "source_dir": "Nambu",
+      "runtime_id": "nambu",
+      "source_file": "viewmodel_jap_nambu_pistol.glb",
+      "runtime_path": "res://assets/weapons/aether_waw_real/nambu/viewmodel.glb",
+      "bytes": 591060,
+      "sha256": "ec1245108de37ae304055a44a5be80273f8b71f6a8179ca6d8099ac3fe282ce2"
+    },
+    {
+      "source_dir": "PPSH",
+      "runtime_id": "ppsh",
+      "source_file": "PPSH.glb",
+      "runtime_path": "res://assets/weapons/aether_waw_real/ppsh/viewmodel.glb",
+      "bytes": 725476,
+      "sha256": "2d98837f0c82d19050c9a9807b2b765538d59b3c9acaa8e521dc74fd24ae8f43"
+    },
+    {
+      "source_dir": "PTRS",
+      "runtime_id": "ptrs",
+      "source_file": "PTRS.glb",
+      "runtime_path": "res://assets/weapons/aether_waw_real/ptrs/viewmodel.glb",
+      "bytes": 880148,
+      "sha256": "ac0eb06970c0d5629136d9cc5c0965c64ca00ebe1bcd025aa3dd5bd41604d5d4"
+    },
+    {
+      "source_dir": "SawedOffDB",
+      "runtime_id": "sawnoff",
+      "source_file": "SawedOffModel.glb",
+      "runtime_path": "res://assets/weapons/aether_waw_real/sawnoff/viewmodel.glb",
+      "bytes": 680644,
+      "sha256": "1e3b7b2c8c1764a66264d2cfbc8f97535ef8739be1f56dab1b0ae3586072ea06"
+    },
+    {
+      "source_dir": "Springfield",
+      "runtime_id": "springfield",
+      "source_file": "viewmodel_mp_springfield.glb",
+      "runtime_path": "res://assets/weapons/aether_waw_real/springfield/viewmodel.glb",
+      "bytes": 709280,
+      "sha256": "aaa368ec57561b77032d3de21ae4d8ad341771ff0d448cabe426998e64b5621c"
+    },
+    {
+      "source_dir": "STG44",
+      "runtime_id": "stg",
+      "source_file": "STG44_SM.glb",
+      "runtime_path": "res://assets/weapons/aether_waw_real/stg/viewmodel.glb",
+      "bytes": 561820,
+      "sha256": "18fe665c7771e2f728b8176e37a5989f3c393fdfc2795267fc4c2a75523e2d8e"
+    },
+    {
+      "source_dir": "Stielhand",
+      "runtime_id": "stielhand",
+      "source_file": "projectile_ger_grenade.glb",
+      "runtime_path": "res://assets/weapons/aether_waw_real/stielhand/viewmodel.glb",
+      "bytes": 23972,
+      "sha256": "36e8c26e14d55b5a179338d61af1ca7d0221609223921b83693c0b2b3c59adf4"
+    },
+    {
+      "source_dir": "SVT40",
+      "runtime_id": "svt40",
+      "source_file": "viewmodel_mp_svt40.glb",
+      "runtime_path": "res://assets/weapons/aether_waw_real/svt40/viewmodel.glb",
+      "bytes": 433328,
+      "sha256": "f5b30c0382c684a70ef43c8c765f41f2ee1de937c72843c06d755b92643eae12"
+    },
+    {
+      "source_dir": "Thompson",
+      "runtime_id": "thompson",
+      "source_file": "ThompsonGun.glb",
+      "runtime_path": "res://assets/weapons/aether_waw_real/thompson/viewmodel.glb",
+      "bytes": 766220,
+      "sha256": "e43894bbb180ae26e0759a4d3c7dec3f2bc0eacf83749b061a56fd0127e74c46"
+    },
+    {
+      "source_dir": "TrenchGun",
+      "runtime_id": "trench",
+      "source_file": "viewmodel_usa_trenchgun_rifle.glb",
+      "runtime_path": "res://assets/weapons/aether_waw_real/trench/viewmodel.glb",
+      "bytes": 990504,
+      "sha256": "d789a073bc1c886205c13eca9861bf803d5e9d46a9659b8a32cc9a5eb29938c1"
+    },
+    {
+      "source_dir": "TT33",
+      "runtime_id": "tt33",
+      "source_file": "viewmodel_rus_tt30_pistol.glb",
+      "runtime_path": "res://assets/weapons/aether_waw_real/tt33/viewmodel.glb",
+      "bytes": 516940,
+      "sha256": "10da53c162c8c4fdf8abf5e1aea2e6c636952ebc97dfb757b48dfe7a9455082d"
+    },
+    {
+      "source_dir": "Type100",
+      "runtime_id": "type100",
+      "source_file": "Type100.glb",
+      "runtime_path": "res://assets/weapons/aether_waw_real/type100/viewmodel.glb",
+      "bytes": 723576,
+      "sha256": "085c98f0648e39ae44d1739fd31d21f1e37cbd8acd53f023ef5e7c5c0d9f3d40"
+    },
+    {
+      "source_dir": "Type99",
+      "runtime_id": "type99",
+      "source_file": "viewmodel_mp_type99_lmg.glb",
+      "runtime_path": "res://assets/weapons/aether_waw_real/type99/viewmodel.glb",
+      "bytes": 815056,
+      "sha256": "724d5eecb4416115500d2f28a63f5b9edd97f75d6785d660a4932a4a742dc628"
+    },
+    {
+      "source_dir": "Walther",
+      "runtime_id": "walther",
+      "source_file": "viewmodel_ger_walther_pistol.glb",
+      "runtime_path": "res://assets/weapons/aether_waw_real/walther/viewmodel.glb",
+      "bytes": 651864,
+      "sha256": "3a85f15a5cc6bb25a7002ee249edb93fd780d21d74d4aa5ab87862032b8f4fda"
+    }
+  ]
+}

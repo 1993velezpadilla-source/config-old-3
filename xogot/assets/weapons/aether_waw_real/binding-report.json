@@ -1,0 +1,35 @@
+{
+  "bound_existing": [
+    "bar",
+    "browning",
+    "colt",
+    "doublebarrel",
+    "fg42",
+    "gewehr",
+    "m1",
+    "m1a1",
+    "mg42",
+    "mp40",
+    "ppsh",
+    "ptrs",
+    "sawnoff",
+    "springfield",
+    "stg",
+    "thompson",
+    "trench",
+    "type100"
+  ],
+  "future_weapon_ids": [
+    "357",
+    "arisaka",
+    "dp28",
+    "kar98k",
+    "mosin",
+    "nambu",
+    "stielhand",
+    "svt40",
+    "tt33",
+    "type99",
+    "walther"
+  ]
+}
