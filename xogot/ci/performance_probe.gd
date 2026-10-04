@@ -3,9 +3,11 @@ extends SceneTree
 # Rendered CI characterization for the full church. This intentionally runs with
 # a real viewport (Xvfb in CI), not --headless, so geometry, lights, animation,
 # HUD and zombie processing all contribute to measured frame cadence.
+# Keep the 12-Monja load intact; CI uses a short sample window because llvmpipe
+# software rendering is orders of magnitude slower than the Android GPU target.
 
-const WARMUP_FRAMES := 90
-const SAMPLE_FRAMES := 240
+const WARMUP_FRAMES := 8
+const SAMPLE_FRAMES := 24
 const TARGET_ZOMBIES := 12
 const CI_P95_LIMIT_MS := 180.0
 const CI_MAX_LIMIT_MS := 500.0
