@@ -101,49 +101,82 @@ func _run() -> void:
 		return
 	print("XZOGOT_NETWORK_LEAVE_GREEN")
 
-	# Two independent SceneMultiplayer instances exercise a real localhost ENet
-	# handshake in one Godot process without replacing the production tree API.
-	var server_peer := ENetMultiplayerPeer.new()
-	var client_peer := ENetMultiplayerPeer.new()
+	# Real localhost ENet socket handshake + reliable packet transfer. We use
+	# ENetConnection directly here so two endpoints can coexist in one process.
+	var server_host := ENetConnection.new()
+	var client_host := ENetConnection.new()
 	var transport_port: int = 18778
-	var server_err: Error = server_peer.create_server(transport_port, 3)
+	var server_err: Error = server_host.create_host_bound("127.0.0.1", transport_port, 3)
 	if server_err != OK:
 		_fail(21, "raw ENet server failed: " + str(server_err))
 		return
-	var client_err: Error = client_peer.create_client("127.0.0.1", transport_port)
-	if client_err != OK:
-		server_peer.close()
-		_fail(22, "raw ENet client failed: " + str(client_err))
+	var client_host_err: Error = client_host.create_host(1)
+	if client_host_err != OK:
+		server_host.destroy()
+		_fail(22, "raw ENet client host failed: " + str(client_host_err))
+		return
+	var client_link: ENetPacketPeer = client_host.connect_to_host("127.0.0.1", transport_port, 2)
+	if client_link == null:
+		client_host.destroy()
+		server_host.destroy()
+		_fail(23, "raw ENet connect_to_host returned null")
 		return
 
-	var server_api := SceneMultiplayer.new()
-	var client_api := SceneMultiplayer.new()
-	server_api.multiplayer_peer = server_peer
-	client_api.multiplayer_peer = client_peer
+	var server_link: ENetPacketPeer = null
 	var server_connected: bool = false
 	var client_connected: bool = false
-	server_api.peer_connected.connect(func(_id: int): server_connected = true)
-	client_api.connected_to_server.connect(func(): client_connected = true)
-
-	for _i in range(240):
-		server_api.poll()
-		client_api.poll()
+	for _i in range(360):
+		var server_event: Array = server_host.service(0)
+		var client_event: Array = client_host.service(0)
+		if server_event.size() >= 2 and int(server_event[0]) == ENetConnection.EVENT_CONNECT:
+			server_connected = true
+			server_link = server_event[1] as ENetPacketPeer
+		if client_event.size() >= 2 and int(client_event[0]) == ENetConnection.EVENT_CONNECT:
+			client_connected = true
 		if server_connected and client_connected:
 			break
 		await process_frame
 
-	server_peer.close()
-	client_peer.close()
-	if not server_connected or not client_connected:
+	if not server_connected or not client_connected or server_link == null:
+		client_host.destroy()
+		server_host.destroy()
 		_fail(
-			23,
+			24,
 			"localhost ENet handshake failed server=%s client=%s" % [
 				str(server_connected),
 				str(client_connected),
 			]
 		)
 		return
+
+	var ping := "XZPING".to_utf8_buffer()
+	var send_err: Error = client_link.send(0, ping, ENetPacketPeer.FLAG_RELIABLE)
+	if send_err != OK:
+		client_host.destroy()
+		server_host.destroy()
+		_fail(25, "reliable ENet send failed: " + str(send_err))
+		return
+
+	var received: bool = false
+	for _i in range(240):
+		var server_event: Array = server_host.service(0)
+		client_host.service(0)
+		if server_event.size() >= 2 and int(server_event[0]) == ENetConnection.EVENT_RECEIVE:
+			var packet_peer: ENetPacketPeer = server_event[1] as ENetPacketPeer
+			if packet_peer != null and packet_peer.get_available_packet_count() > 0:
+				var packet: PackedByteArray = packet_peer.get_packet()
+				if packet.get_string_from_utf8() == "XZPING":
+					received = true
+					break
+		await process_frame
+
+	client_host.destroy()
+	server_host.destroy()
+	if not received:
+		_fail(26, "localhost ENet reliable packet was not received")
+		return
 	print("XZOGOT_ENET_LOCALHOST_HANDSHAKE_GREEN")
+	print("XZOGOT_ENET_RELIABLE_PACKET_GREEN")
 	print("XZOGOT_4P_NETWORK_FOUNDATION_GREEN")
 
 	scene.queue_free()
