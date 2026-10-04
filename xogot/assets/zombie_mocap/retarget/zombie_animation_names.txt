@@ -1,0 +1,3 @@
+Zombie_Idle_Loop
+Zombie_Scratch
+Zombie_Walk_Fwd_Loop
