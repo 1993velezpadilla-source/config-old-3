@@ -1,0 +1,69 @@
+name: Author Rigged Dismember Monja
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/church-expansion-v1
+    paths:
+      - "xogot/assets/zombies/monja_basica_rigged.glb"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: xogot-monja-rigged-dismember
+  cancel-in-progress: true
+
+jobs:
+  author:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Install Blender
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender python3-numpy
+
+      - name: Build skinned detachable Monja
+        run: |
+          set -euo pipefail
+          rm -rf xogot/build/monja-rigged-dismember
+          timeout 2700 blender -b --python xogot/tools/author_monja_rigged_dismember.py \
+            2>&1 | tee /tmp/monja-rigged-dismember.log
+          grep -q "XZOGOT_RIGGED_DISMEMBER_GREEN" /tmp/monja-rigged-dismember.log
+          test -s xogot/build/monja-rigged-dismember/monja_basica_rigged_dismember.glb
+          test -s xogot/build/monja-rigged-dismember/monja_basica_rigged_dismember.report.json
+
+      - name: Validate and stage
+        run: |
+          set -euo pipefail
+          python3 -c 'import json; p="xogot/build/monja-rigged-dismember/monja_basica_rigged_dismember.report.json"; r=json.load(open(p)); assert r["polygon_conservation_ok"]; assert r["armatures"]>=1; assert all(v>0 for v in r["semantic_mesh_counts"].values()); print("XZOGOT_RIGGED_DISMEMBER_REPORT_GREEN")'
+          SIZE=$(stat -c%s xogot/build/monja-rigged-dismember/monja_basica_rigged_dismember.glb)
+          if [ "$SIZE" -lt 95000000 ]; then
+            cp xogot/build/monja-rigged-dismember/monja_basica_rigged_dismember.glb xogot/assets/zombies/monja_basica_rigged_dismember.glb
+            cp xogot/build/monja-rigged-dismember/monja_basica_rigged_dismember.report.json xogot/assets/zombies/monja_basica_rigged_dismember.report.json
+            git config user.name "XZOGOT Asset Bot"
+            git config user.email "xogot-asset-bot@users.noreply.github.com"
+            git add xogot/assets/zombies/monja_basica_rigged_dismember.glb xogot/assets/zombies/monja_basica_rigged_dismember.report.json
+            git commit -m "asset: add rigged detachable Monja"
+            git fetch origin feature/church-expansion-v1
+            git rebase origin/feature/church-expansion-v1
+            git push origin HEAD:feature/church-expansion-v1
+          else
+            echo "XZOGOT_RIGGED_DISMEMBER_ARTIFACT_ONLY $SIZE"
+          fi
+
+      - name: Upload proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: monja-rigged-dismember-authored
+          path: |
+            xogot/build/monja-rigged-dismember/
+            /tmp/monja-rigged-dismember.log
+          retention-days: 14
