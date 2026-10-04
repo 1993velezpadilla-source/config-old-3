@@ -30,7 +30,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update -qq
-          sudo apt-get install -y -qq blender
+          sudo apt-get install -y -qq blender python3-numpy libegl1 libgl1-mesa-dri xvfb
           blender --version | head -n 2
 
       - name: Author final church visual shell
@@ -39,7 +39,7 @@ jobs:
           set -euo pipefail
           rm -rf xogot/build/final-church-blender
           mkdir -p xogot/build/final-church-blender
-          timeout 1500 blender -b --python xogot/tools/build_final_church_blender.py \
+          timeout 1500 xvfb-run -a blender -b --python xogot/tools/build_final_church_blender.py \
             2>&1 | tee xogot/build/final-church-blender/blender.log
           grep -q "XZOGOT_FINAL_CHURCH_BLENDER_AUTHORING_GREEN" xogot/build/final-church-blender/blender.log
           grep -q "XZOGOT_FINAL_CHURCH_GLB_GREEN" xogot/build/final-church-blender/blender.log
