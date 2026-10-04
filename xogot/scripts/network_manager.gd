@@ -333,12 +333,12 @@ func _server_submit_motion(
 		return
 	if not pos.is_finite() or not is_finite(yaw) or not is_finite(pitch):
 		return
-	if WeaponCatalog.has_weapon(weapon_id):
-		_peer_weapon_ids[sender] = weapon_id
-		_peer_weapon_upgraded[sender] = upgraded
-	else:
-		_peer_weapon_ids[sender] = WeaponCatalog.STARTING_WEAPON_ID
-		_peer_weapon_upgraded[sender] = false
+	# Client-reported loadout is telemetry only. Purchases/upgrades are owned
+	# by the host-side Weapon node on the remote player proxy.
+	if not WeaponCatalog.has_weapon(weapon_id):
+		weapon_id = WeaponCatalog.STARTING_WEAPON_ID
+	if upgraded and not bool(_authoritative_weapon_state(sender).get("upgraded", false)):
+		print("XZOGOT_NETWORK_LOADOUT_CLAIM_IGNORED peer=", sender)
 	var previous: Vector3 = _accepted_positions.get(sender, pos) as Vector3
 	var delta_pos: Vector3 = pos - previous
 	var accepted: Vector3 = pos
@@ -444,6 +444,38 @@ func _client_receive_player_state(
 			revive_ratio,
 			points_value
 		)
+
+func _authoritative_weapon_state(peer_id: int) -> Dictionary:
+	var player: Node = _network_player_node(peer_id)
+	if player == null:
+		return {
+			"id": WeaponCatalog.STARTING_WEAPON_ID,
+			"magazine": 8,
+			"reserve": 80,
+			"upgraded": false,
+		}
+	var weapon: Node = player.get_node_or_null("Weapon")
+	if weapon == null:
+		return {
+			"id": WeaponCatalog.STARTING_WEAPON_ID,
+			"magazine": 8,
+			"reserve": 80,
+			"upgraded": false,
+		}
+	if weapon.has_method("get_authoritative_state"):
+		return weapon.call("get_authoritative_state") as Dictionary
+	return {
+		"id": str(weapon.call("get_weapon_id")) if weapon.has_method("get_weapon_id") else WeaponCatalog.STARTING_WEAPON_ID,
+		"magazine": int(weapon.call("get_magazine")) if weapon.has_method("get_magazine") else 8,
+		"reserve": int(weapon.call("get_reserve")) if weapon.has_method("get_reserve") else 80,
+		"upgraded": bool(weapon.call("is_upgraded")) if weapon.has_method("is_upgraded") else false,
+	}
+
+func _authoritative_perks(peer_id: int) -> Array[String]:
+	var player: Node = _network_player_node(peer_id)
+	if player != null and player.has_method("get_owned_perks"):
+		return player.call("get_owned_perks") as Array[String]
+	return []
 
 func _host_zombie_by_id(zombie_id: String) -> Node:
 	for zombie: Node in get_tree().get_nodes_in_group("zombie"):
@@ -561,13 +593,16 @@ func _server_apply_zombie_hit(
 
 	var damage_value: float = 150.0
 	if not melee:
-		var weapon_id: String = str(_peer_weapon_ids.get(peer_id, WeaponCatalog.STARTING_WEAPON_ID))
+		var weapon_state: Dictionary = _authoritative_weapon_state(peer_id)
+		var weapon_id: String = str(weapon_state.get("id", WeaponCatalog.STARTING_WEAPON_ID))
 		if not WeaponCatalog.has_weapon(weapon_id):
 			return false
 		var def: Dictionary = WeaponCatalog.get_weapon(weapon_id)
 		damage_value = float(def.get("damage", 30.0))
-		if bool(_peer_weapon_upgraded.get(peer_id, false)):
+		if bool(weapon_state.get("upgraded", false)):
 			damage_value *= 1.85
+		if source.has_method("get_weapon_damage_multiplier"):
+			damage_value *= float(source.call("get_weapon_damage_multiplier"))
 
 	if melee and zombie.has_method("apply_melee_damage"):
 		zombie.call("apply_melee_damage", damage_value, source, hit_position)
@@ -586,6 +621,180 @@ func _server_apply_zombie_hit(
 
 func get_network_zombie_count() -> int:
 	return _network_zombies.size()
+
+func _relative_world_path(target: Node) -> String:
+	if target == null or get_parent() == null:
+		return ""
+	return str(get_parent().get_path_to(target))
+
+func submit_interaction(target: Node) -> bool:
+	if _mode != "client" or target == null:
+		return false
+	var relative_path: String = _relative_world_path(target)
+	if relative_path.is_empty() or relative_path.length() > 256:
+		return false
+	rpc_id(SERVER_PEER_ID, "_server_interaction_request", relative_path)
+	print("XZOGOT_NETWORK_INTERACTION_REQUEST ", relative_path)
+	return true
+
+@rpc("any_peer", "call_remote", "reliable", 5)
+func _server_interaction_request(relative_path: String) -> void:
+	if not multiplayer.is_server():
+		return
+	var sender: int = multiplayer.get_remote_sender_id()
+	_server_apply_interaction(sender, relative_path)
+
+func _server_apply_interaction(peer_id: int, relative_path: String) -> bool:
+	if peer_id <= SERVER_PEER_ID or not _roster.has(peer_id):
+		return false
+	if relative_path.is_empty() or relative_path.length() > 256:
+		return false
+	var player: Node = _network_player_node(peer_id)
+	var target: Node = get_parent().get_node_or_null(NodePath(relative_path))
+	if (
+		player == null
+		or target == null
+		or not (player is Node3D)
+		or not (target is Node3D)
+		or not target.has_method("interact")
+	):
+		return false
+	if (
+		not target.is_in_group("zombie_interactable")
+		and not target.is_in_group("zombie_barricade")
+	):
+		return false
+	if player.has_method("is_downed") and bool(player.call("is_downed")):
+		return false
+	if player.has_method("is_eliminated") and bool(player.call("is_eliminated")):
+		return false
+	if (player as Node3D).global_position.distance_to((target as Node3D).global_position) > 5.0:
+		print("XZOGOT_NETWORK_INTERACTION_REJECT_RANGE peer=", peer_id, " target=", relative_path)
+		return false
+
+	var success: bool = bool(target.call("interact", player))
+	if not success:
+		_send_inventory_state(peer_id)
+		return false
+
+	# Interactable/barricade notifies us as well, but the explicit calls make
+	# this path robust for any older runtime node without notification hooks.
+	if target.is_in_group("zombie_barricade"):
+		_broadcast_barricade_state(target)
+	else:
+		_broadcast_interaction_state(target)
+	_send_inventory_state(peer_id)
+	print("XZOGOT_NETWORK_INTERACTION_ACCEPT peer=", peer_id, " target=", relative_path)
+	return true
+
+func notify_host_interaction(target: Node, player: Node) -> void:
+	if _mode != "host" or not multiplayer.is_server() or target == null:
+		return
+	_broadcast_interaction_state(target)
+	var peer_id: int = int(player.get_meta("network_peer_id", SERVER_PEER_ID)) if player != null else SERVER_PEER_ID
+	if peer_id > SERVER_PEER_ID:
+		_send_inventory_state(peer_id)
+
+func notify_host_barricade(target: Node, player: Node = null) -> void:
+	if _mode != "host" or not multiplayer.is_server() or target == null:
+		return
+	_broadcast_barricade_state(target)
+	var peer_id: int = int(player.get_meta("network_peer_id", SERVER_PEER_ID)) if player != null else SERVER_PEER_ID
+	if peer_id > SERVER_PEER_ID:
+		_send_inventory_state(peer_id)
+
+func _broadcast_interaction_state(target: Node) -> void:
+	if target == null:
+		return
+	var relative_path: String = _relative_world_path(target)
+	if relative_path.is_empty():
+		return
+	var used: bool = bool(target.call("was_used")) if target.has_method("was_used") else false
+	var last_result: String = str(target.call("get_last_result")) if target.has_method("get_last_result") else ""
+	var power_on: bool = bool(get_tree().get_meta("power_on", false))
+	rpc("_client_apply_interaction_state", relative_path, used, power_on, last_result)
+
+@rpc("authority", "call_remote", "reliable", 6)
+func _client_apply_interaction_state(
+	relative_path: String,
+	used: bool,
+	power_on: bool,
+	last_result: String
+) -> void:
+	if multiplayer.is_server():
+		return
+	var target: Node = get_parent().get_node_or_null(NodePath(relative_path))
+	if target != null and target.has_method("apply_network_world_state"):
+		target.call("apply_network_world_state", used, power_on, last_result)
+	else:
+		get_tree().set_meta("power_on", power_on)
+
+func _broadcast_barricade_state(target: Node) -> void:
+	if target == null or not target.has_method("get_boards"):
+		return
+	var relative_path: String = _relative_world_path(target)
+	if relative_path.is_empty():
+		return
+	rpc("_client_apply_barricade_state", relative_path, int(target.call("get_boards")))
+
+@rpc("authority", "call_remote", "reliable", 7)
+func _client_apply_barricade_state(relative_path: String, boards: int) -> void:
+	if multiplayer.is_server():
+		return
+	var target: Node = get_parent().get_node_or_null(NodePath(relative_path))
+	if target != null and target.has_method("apply_network_boards"):
+		target.call("apply_network_boards", boards)
+
+func _send_inventory_state(peer_id: int) -> void:
+	if not multiplayer.is_server() or peer_id <= SERVER_PEER_ID or not _roster.has(peer_id):
+		return
+	var player: Node = _network_player_node(peer_id)
+	if player == null:
+		return
+	var weapon_state: Dictionary = _authoritative_weapon_state(peer_id)
+	rpc_id(
+		peer_id,
+		"_client_receive_inventory_state",
+		int(player.call("get_points")) if player.has_method("get_points") else 500,
+		_authoritative_perks(peer_id),
+		str(weapon_state.get("id", WeaponCatalog.STARTING_WEAPON_ID)),
+		int(weapon_state.get("magazine", 8)),
+		int(weapon_state.get("reserve", 80)),
+		bool(weapon_state.get("upgraded", false))
+	)
+
+@rpc("authority", "call_remote", "reliable", 8)
+func _client_receive_inventory_state(
+	points_value: int,
+	perks: Array[String],
+	weapon_id: String,
+	magazine: int,
+	reserve: int,
+	upgraded: bool
+) -> void:
+	if multiplayer.is_server():
+		return
+	var player: Node = _local_player()
+	if player != null:
+		if player.has_method("apply_authoritative_network_points"):
+			player.call("apply_authoritative_network_points", points_value)
+		if player.has_method("apply_authoritative_network_perks"):
+			player.call("apply_authoritative_network_perks", perks)
+		var weapon: Node = player.get_node_or_null("Weapon")
+		if weapon != null and weapon.has_method("apply_authoritative_network_loadout"):
+			weapon.call(
+				"apply_authoritative_network_loadout",
+				weapon_id,
+				magazine,
+				reserve,
+				upgraded
+			)
+	print(
+		"XZOGOT_NETWORK_INVENTORY_SYNC points=", points_value,
+		" perks=", perks.size(),
+		" weapon=", weapon_id,
+		" upgraded=", upgraded
+	)
 
 func _network_player_node(peer_id: int) -> Node:
 	if peer_id == SERVER_PEER_ID and multiplayer.is_server():
