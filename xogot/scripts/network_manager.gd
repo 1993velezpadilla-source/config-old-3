@@ -64,6 +64,9 @@ func _round_manager() -> Node:
 func _powerup_manager() -> Node:
 	return get_parent().get_node_or_null("PowerUpManager")
 
+func _discovery() -> Node:
+	return get_parent().get_node_or_null("NetworkDiscovery")
+
 func _configure_local_player(peer_id: int) -> void:
 	var player: Node = _local_player()
 	if player == null:
@@ -109,6 +112,16 @@ func host_game(port: int = DEFAULT_PORT, private_session: bool = true) -> Error:
 		_accepted_positions[SERVER_PEER_ID] = player.global_position
 	_configure_local_player(SERVER_PEER_ID)
 	_set_client_simulation(false)
+	var discovery: Node = _discovery()
+	if discovery != null:
+		if private_session:
+			if discovery.has_method("stop_advertising"):
+				discovery.call("stop_advertising")
+		elif discovery.has_method("start_advertising"):
+			var discovery_err: int = int(discovery.call("start_advertising", port, "YOU WON'T WIN", "CHURCH", 7778))
+			if discovery_err != OK:
+				network_error.emit("LAN_ADVERTISE_FAILED_%d" % discovery_err)
+				print("XZOGOT_NETWORK_LAN_ADVERTISE_FAIL ", discovery_err)
 	session_state_changed.emit(_mode)
 	_emit_roster()
 	print("XZOGOT_NETWORK_HOST_READY port=", port, " slots=", MAX_PLAYERS, " private=", private_session)
@@ -135,6 +148,12 @@ func join_game(address: String, port: int = DEFAULT_PORT) -> Error:
 	return OK
 
 func leave_game() -> void:
+	var discovery: Node = _discovery()
+	if discovery != null:
+		if discovery.has_method("stop_advertising"):
+			discovery.call("stop_advertising")
+		if discovery.has_method("stop_discovery"):
+			discovery.call("stop_discovery")
 	if _peer != null:
 		_peer.close()
 	_peer = null
@@ -1028,6 +1047,45 @@ func get_roster_ids() -> PackedInt32Array:
 		ids.append(int(id_var))
 	ids.sort()
 	return ids
+
+func start_find_match(discovery_port: int = 7778) -> Error:
+	if is_network_session():
+		return ERR_ALREADY_IN_USE
+	var discovery: Node = _discovery()
+	if discovery == null or not discovery.has_method("start_discovery"):
+		return ERR_UNAVAILABLE
+	var err: int = int(discovery.call("start_discovery", discovery_port))
+	if err == OK:
+		print("XZOGOT_NETWORK_FIND_MATCH_READY port=", discovery_port)
+	return err as Error
+
+func stop_find_match() -> void:
+	var discovery: Node = _discovery()
+	if discovery != null and discovery.has_method("stop_discovery"):
+		discovery.call("stop_discovery")
+
+func get_discovered_matches() -> Array:
+	var discovery: Node = _discovery()
+	if discovery == null or not discovery.has_method("get_discovered_sessions"):
+		return []
+	return discovery.call("get_discovered_sessions") as Array
+
+func join_best_lan_match() -> Error:
+	var discovery: Node = _discovery()
+	if discovery == null or not discovery.has_method("get_best_session"):
+		return ERR_UNAVAILABLE
+	var session: Dictionary = discovery.call("get_best_session") as Dictionary
+	if session.is_empty():
+		return ERR_DOES_NOT_EXIST
+	var address: String = str(session.get("ip", ""))
+	var game_port: int = int(session.get("port", DEFAULT_PORT))
+	if address.is_empty() or game_port <= 0:
+		return ERR_INVALID_DATA
+	print("XZOGOT_NETWORK_JOIN_FOUND ", address, ":", game_port)
+	return join_game(address, game_port)
+
+func is_private_session() -> bool:
+	return _session_private
 
 func get_status_text() -> String:
 	match _mode:
