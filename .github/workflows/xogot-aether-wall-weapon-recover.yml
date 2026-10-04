@@ -90,11 +90,27 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl -fL --retry 5             https://raw.githubusercontent.com/gildor2/UEViewer/master/umodel             -o "$RUNNER_TEMP/umodel"
+          curl -fL --retry 5 \
+            https://raw.githubusercontent.com/gildor2/UEViewer/master/umodel \
+            -o "$RUNNER_TEMP/umodel"
           chmod +x "$RUNNER_TEMP/umodel"
           file "$RUNNER_TEMP/umodel"
-          "$RUNNER_TEMP/umodel" -version | tee recovered/umodel-version.txt
+
+          # UEViewer's Linux CLI is an old 32-bit binary. Ubuntu 24.04 no longer
+          # ships libpng12, so stage that one legacy ABI locally instead of
+          # downgrading the runner.
+          mkdir -p "$RUNNER_TEMP/umodel-compat"
+          curl -fL --retry 5 \
+            https://archive.ubuntu.com/ubuntu/pool/main/libp/libpng/libpng12-0_1.2.54-1ubuntu1.1_i386.deb \
+            -o "$RUNNER_TEMP/libpng12-i386.deb"
+          dpkg-deb -x "$RUNNER_TEMP/libpng12-i386.deb" "$RUNNER_TEMP/umodel-compat"
+          UMODEL_LIB="$RUNNER_TEMP/umodel-compat/lib/i386-linux-gnu"
+          test -s "$UMODEL_LIB/libpng12.so.0"
+
+          LD_LIBRARY_PATH="$UMODEL_LIB:${LD_LIBRARY_PATH:-}" \
+            "$RUNNER_TEMP/umodel" -version | tee recovered/umodel-version.txt
           echo "UMODEL=$RUNNER_TEMP/umodel" >> "$GITHUB_ENV"
+          echo "UMODEL_LIB=$UMODEL_LIB" >> "$GITHUB_ENV"
 
       - name: Export weapon meshes animations textures and sounds
         shell: bash
@@ -102,7 +118,12 @@ jobs:
           set -euo pipefail
           mkdir -p recovered/export
           set +e
-          "$UMODEL" -export -gltf -sounds -png             -path="$(pwd)/recovered/raw"             -out="$(pwd)/recovered/export"             '*.uasset'             > recovered/umodel-export.log 2>&1
+          LD_LIBRARY_PATH="$UMODEL_LIB:${LD_LIBRARY_PATH:-}" \
+            "$UMODEL" -export -gltf -sounds -png \
+            -path="$(pwd)/recovered/raw" \
+            -out="$(pwd)/recovered/export" \
+            '*.uasset' \
+            > recovered/umodel-export.log 2>&1
           RC=$?
           set -e
           echo "UMODEL_RC=$RC"
