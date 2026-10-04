@@ -1,0 +1,147 @@
+[
+  {
+    "weapon": "walther",
+    "stem": "wpn_p38_st_f",
+    "bytes": 143404
+  },
+  {
+    "weapon": "stg",
+    "stem": "wpn_mp44_st_f",
+    "bytes": 172076
+  },
+  {
+    "weapon": "fg42",
+    "stem": "wpn_fg42_st_f",
+    "bytes": 52768
+  },
+  {
+    "weapon": "svt40",
+    "stem": "wpn_svt40_st_f",
+    "bytes": 57388
+  },
+  {
+    "weapon": "ray",
+    "stem": "wpn_ray_st_f",
+    "bytes": 146680
+  },
+  {
+    "weapon": "ptrs",
+    "stem": "wpn_ptrs_st_shot",
+    "bytes": 202796
+  },
+  {
+    "weapon": "thompson",
+    "stem": "wpn_thompson_st_f",
+    "bytes": 61484
+  },
+  {
+    "weapon": "ppsh",
+    "stem": "wpn_ppsh_st_f",
+    "bytes": 57388
+  },
+  {
+    "weapon": "m1",
+    "stem": "wpn_m1garand_st_f",
+    "bytes": 180268
+  },
+  {
+    "weapon": "mosin",
+    "stem": "wpn_mosin_st_f",
+    "bytes": 475180
+  },
+  {
+    "weapon": "arisaka",
+    "stem": "wpn_arisaka_st_f",
+    "bytes": 104168
+  },
+  {
+    "weapon": "springfield",
+    "stem": "wpn_springfield_st_f",
+    "bytes": 117800
+  },
+  {
+    "weapon": "kar98k",
+    "stem": "wpn_kar98_st_f",
+    "bytes": 204360
+  },
+  {
+    "weapon": "doublebarrel",
+    "stem": "wpn_dbshot_st_f",
+    "bytes": 233516
+  },
+  {
+    "weapon": "trench",
+    "stem": "wpn_shtgun_st_f",
+    "bytes": 116780
+  },
+  {
+    "weapon": "dp28",
+    "stem": "wpn_dp28_st_f",
+    "bytes": 226836
+  },
+  {
+    "weapon": "nambu",
+    "stem": "wpn_nambu_st_f",
+    "bytes": 136964
+  },
+  {
+    "weapon": "browning",
+    "stem": "wpn_30cal_st_f",
+    "bytes": 92248
+  },
+  {
+    "weapon": "gewehr",
+    "stem": "wpn_g43_st_f",
+    "bytes": 36908
+  },
+  {
+    "weapon": "bar",
+    "stem": "wpn_bar_st_f",
+    "bytes": 90156
+  },
+  {
+    "weapon": "m1a1",
+    "stem": "wpn_m1carbine_st_f",
+    "bytes": 55008
+  },
+  {
+    "weapon": "mp40",
+    "stem": "wpn_mp40_st_f",
+    "bytes": 102380
+  },
+  {
+    "weapon": "357",
+    "stem": "wpn_357_st_shot",
+    "bytes": 79916
+  },
+  {
+    "weapon": "type99",
+    "stem": "wpn_type99_st_f",
+    "bytes": 111688
+  },
+  {
+    "weapon": "type100",
+    "stem": "wpn_type100_st_f",
+    "bytes": 88108
+  },
+  {
+    "weapon": "colt",
+    "stem": "wpn_colt1911_st_f",
+    "bytes": 71232
+  },
+  {
+    "weapon": "thundergun",
+    "stem": "ThundergunFire",
+    "bytes": 930228
+  },
+  {
+    "weapon": "sawnoff",
+    "stem": "wpn_dbsawshot_st_f",
+    "bytes": 153172
+  },
+  {
+    "weapon": "tt33",
+    "stem": "wpn_tt33_st_f",
+    "bytes": 43052
+  }
+]

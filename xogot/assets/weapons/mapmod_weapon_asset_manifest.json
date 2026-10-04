@@ -86,7 +86,7 @@
         "viewmodel": "res://assets/weapons/aether_waw_real/357/viewmodel.glb",
         "worldmodel": "res://assets/weapons/aether_waw_real/357/viewmodel.glb",
         "audio": {
-          "fire": "res://assets/audio/weapons/mapmod/357/fire.ogg",
+          "fire": "res://assets/audio/weapons/mapmod/357/fire.wav",
           "reload": "res://assets/audio/weapons/mapmod/357/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/357/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/357/dry_fire.ogg"
@@ -458,7 +458,7 @@
         "viewmodel": "res://assets/weapons/aether_waw_real/bar/viewmodel.glb",
         "worldmodel": "res://assets/weapons/aether_waw_real/bar/viewmodel.glb",
         "audio": {
-          "fire": "res://assets/audio/weapons/mapmod/bar/fire.ogg",
+          "fire": "res://assets/audio/weapons/mapmod/bar/fire.wav",
           "reload": "res://assets/audio/weapons/mapmod/bar/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/bar/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/bar/dry_fire.ogg"
@@ -514,7 +514,7 @@
         "viewmodel": "res://assets/weapons/aether_waw_real/browning/viewmodel.glb",
         "worldmodel": "res://assets/weapons/aether_waw_real/browning/viewmodel.glb",
         "audio": {
-          "fire": "res://assets/audio/weapons/mapmod/browning/fire.ogg",
+          "fire": "res://assets/audio/weapons/mapmod/browning/fire.wav",
           "reload": "res://assets/audio/weapons/mapmod/browning/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/browning/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/browning/dry_fire.ogg"
@@ -570,7 +570,7 @@
         "viewmodel": "res://assets/weapons/aether_waw_real/doublebarrel/viewmodel.glb",
         "worldmodel": "res://assets/weapons/aether_waw_real/doublebarrel/viewmodel.glb",
         "audio": {
-          "fire": "res://assets/audio/weapons/mapmod/doublebarrel/fire.ogg",
+          "fire": "res://assets/audio/weapons/mapmod/doublebarrel/fire.wav",
           "reload": "res://assets/audio/weapons/mapmod/doublebarrel/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/doublebarrel/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/doublebarrel/dry_fire.ogg"
@@ -626,7 +626,7 @@
         "viewmodel": "res://assets/weapons/aether_waw_real/sawnoff/viewmodel.glb",
         "worldmodel": "res://assets/weapons/aether_waw_real/sawnoff/viewmodel.glb",
         "audio": {
-          "fire": "res://assets/audio/weapons/mapmod/sawnoff/fire.ogg",
+          "fire": "res://assets/audio/weapons/mapmod/sawnoff/fire.wav",
           "reload": "res://assets/audio/weapons/mapmod/sawnoff/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/sawnoff/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/sawnoff/dry_fire.ogg"
@@ -682,7 +682,7 @@
         "viewmodel": "res://assets/weapons/aether_waw_real/fg42/viewmodel.glb",
         "worldmodel": "res://assets/weapons/aether_waw_real/fg42/viewmodel.glb",
         "audio": {
-          "fire": "res://assets/audio/weapons/mapmod/fg42/fire.ogg",
+          "fire": "res://assets/audio/weapons/mapmod/fg42/fire.wav",
           "reload": "res://assets/audio/weapons/mapmod/fg42/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/fg42/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/fg42/dry_fire.ogg"
@@ -738,7 +738,7 @@
         "viewmodel": "res://assets/weapons/aether_waw_real/gewehr/viewmodel.glb",
         "worldmodel": "res://assets/weapons/aether_waw_real/gewehr/viewmodel.glb",
         "audio": {
-          "fire": "res://assets/audio/weapons/mapmod/gewehr/fire.ogg",
+          "fire": "res://assets/audio/weapons/mapmod/gewehr/fire.wav",
           "reload": "res://assets/audio/weapons/mapmod/gewehr/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/gewehr/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/gewehr/dry_fire.ogg"
@@ -794,7 +794,7 @@
         "viewmodel": "res://assets/weapons/aether_waw_real/m1a1/viewmodel.glb",
         "worldmodel": "res://assets/weapons/aether_waw_real/m1a1/viewmodel.glb",
         "audio": {
-          "fire": "res://assets/audio/weapons/mapmod/m1a1/fire.ogg",
+          "fire": "res://assets/audio/weapons/mapmod/m1a1/fire.wav",
           "reload": "res://assets/audio/weapons/mapmod/m1a1/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/m1a1/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/m1a1/dry_fire.ogg"
@@ -906,7 +906,7 @@
         "viewmodel": "res://assets/weapons/aether_waw_real/ppsh/viewmodel.glb",
         "worldmodel": "res://assets/weapons/aether_waw_real/ppsh/viewmodel.glb",
         "audio": {
-          "fire": "res://assets/audio/weapons/mapmod/ppsh/fire.ogg",
+          "fire": "res://assets/audio/weapons/mapmod/ppsh/fire.wav",
           "reload": "res://assets/audio/weapons/mapmod/ppsh/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/ppsh/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/ppsh/dry_fire.ogg"
@@ -962,7 +962,7 @@
         "viewmodel": "res://assets/weapons/aether_waw_real/ptrs/viewmodel.glb",
         "worldmodel": "res://assets/weapons/aether_waw_real/ptrs/viewmodel.glb",
         "audio": {
-          "fire": "res://assets/audio/weapons/mapmod/ptrs/fire.ogg",
+          "fire": "res://assets/audio/weapons/mapmod/ptrs/fire.wav",
           "reload": "res://assets/audio/weapons/mapmod/ptrs/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/ptrs/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/ptrs/dry_fire.ogg"
@@ -1018,7 +1018,7 @@
         "viewmodel": "res://assets/weapons/aether_waw_real/stg/viewmodel.glb",
         "worldmodel": "res://assets/weapons/aether_waw_real/stg/viewmodel.glb",
         "audio": {
-          "fire": "res://assets/audio/weapons/mapmod/stg/fire.ogg",
+          "fire": "res://assets/audio/weapons/mapmod/stg/fire.wav",
           "reload": "res://assets/audio/weapons/mapmod/stg/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/stg/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/stg/dry_fire.ogg"
@@ -1074,7 +1074,7 @@
         "viewmodel": "res://assets/weapons/aether_waw_real/type100/viewmodel.glb",
         "worldmodel": "res://assets/weapons/aether_waw_real/type100/viewmodel.glb",
         "audio": {
-          "fire": "res://assets/audio/weapons/mapmod/type100/fire.ogg",
+          "fire": "res://assets/audio/weapons/mapmod/type100/fire.wav",
           "reload": "res://assets/audio/weapons/mapmod/type100/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/type100/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/type100/dry_fire.ogg"
@@ -1130,7 +1130,7 @@
         "viewmodel": "res://assets/weapons/aether_waw_real/springfield/viewmodel.glb",
         "worldmodel": "res://assets/weapons/aether_waw_real/springfield/viewmodel.glb",
         "audio": {
-          "fire": "res://assets/audio/weapons/mapmod/springfield/fire.ogg",
+          "fire": "res://assets/audio/weapons/mapmod/springfield/fire.wav",
           "reload": "res://assets/audio/weapons/mapmod/springfield/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/springfield/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/springfield/dry_fire.ogg"
@@ -1186,7 +1186,7 @@
         "viewmodel": "res://assets/weapons/mapmod/ray/viewmodel.glb",
         "worldmodel": "res://assets/weapons/mapmod/ray/worldmodel.glb",
         "audio": {
-          "fire": "res://assets/audio/weapons/mapmod/ray/fire.ogg",
+          "fire": "res://assets/audio/weapons/mapmod/ray/fire.wav",
           "reload": "res://assets/audio/weapons/mapmod/ray/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/ray/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/ray/dry_fire.ogg"
@@ -1345,7 +1345,7 @@
         "viewmodel": "res://assets/weapons/aether_waw_real/arisaka/viewmodel.glb",
         "worldmodel": "res://assets/weapons/aether_waw_real/arisaka/viewmodel.glb",
         "audio": {
-          "fire": "res://assets/audio/weapons/mapmod/arisaka/fire.ogg",
+          "fire": "res://assets/audio/weapons/mapmod/arisaka/fire.wav",
           "reload": "res://assets/audio/weapons/mapmod/arisaka/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/arisaka/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/arisaka/dry_fire.ogg"
@@ -1401,7 +1401,7 @@
         "viewmodel": "res://assets/weapons/aether_waw_real/dp28/viewmodel.glb",
         "worldmodel": "res://assets/weapons/aether_waw_real/dp28/viewmodel.glb",
         "audio": {
-          "fire": "res://assets/audio/weapons/mapmod/dp28/fire.ogg",
+          "fire": "res://assets/audio/weapons/mapmod/dp28/fire.wav",
           "reload": "res://assets/audio/weapons/mapmod/dp28/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/dp28/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/dp28/dry_fire.ogg"
@@ -1457,7 +1457,7 @@
         "viewmodel": "res://assets/weapons/aether_waw_real/kar98k/viewmodel.glb",
         "worldmodel": "res://assets/weapons/aether_waw_real/kar98k/viewmodel.glb",
         "audio": {
-          "fire": "res://assets/audio/weapons/mapmod/kar98k/fire.ogg",
+          "fire": "res://assets/audio/weapons/mapmod/kar98k/fire.wav",
           "reload": "res://assets/audio/weapons/mapmod/kar98k/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/kar98k/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/kar98k/dry_fire.ogg"
@@ -1513,7 +1513,7 @@
         "viewmodel": "res://assets/weapons/aether_waw_real/mosin/viewmodel.glb",
         "worldmodel": "res://assets/weapons/aether_waw_real/mosin/viewmodel.glb",
         "audio": {
-          "fire": "res://assets/audio/weapons/mapmod/mosin/fire.ogg",
+          "fire": "res://assets/audio/weapons/mapmod/mosin/fire.wav",
           "reload": "res://assets/audio/weapons/mapmod/mosin/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/mosin/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/mosin/dry_fire.ogg"
@@ -1569,7 +1569,7 @@
         "viewmodel": "res://assets/weapons/aether_waw_real/nambu/viewmodel.glb",
         "worldmodel": "res://assets/weapons/aether_waw_real/nambu/viewmodel.glb",
         "audio": {
-          "fire": "res://assets/audio/weapons/mapmod/nambu/fire.ogg",
+          "fire": "res://assets/audio/weapons/mapmod/nambu/fire.wav",
           "reload": "res://assets/audio/weapons/mapmod/nambu/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/nambu/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/nambu/dry_fire.ogg"
@@ -1625,7 +1625,7 @@
         "viewmodel": "res://assets/weapons/aether_waw_real/svt40/viewmodel.glb",
         "worldmodel": "res://assets/weapons/aether_waw_real/svt40/viewmodel.glb",
         "audio": {
-          "fire": "res://assets/audio/weapons/mapmod/svt40/fire.ogg",
+          "fire": "res://assets/audio/weapons/mapmod/svt40/fire.wav",
           "reload": "res://assets/audio/weapons/mapmod/svt40/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/svt40/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/svt40/dry_fire.ogg"
@@ -1681,7 +1681,7 @@
         "viewmodel": "res://assets/weapons/aether_waw_real/tt33/viewmodel.glb",
         "worldmodel": "res://assets/weapons/aether_waw_real/tt33/viewmodel.glb",
         "audio": {
-          "fire": "res://assets/audio/weapons/mapmod/tt33/fire.ogg",
+          "fire": "res://assets/audio/weapons/mapmod/tt33/fire.wav",
           "reload": "res://assets/audio/weapons/mapmod/tt33/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/tt33/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/tt33/dry_fire.ogg"
@@ -1737,7 +1737,7 @@
         "viewmodel": "res://assets/weapons/aether_waw_real/type99/viewmodel.glb",
         "worldmodel": "res://assets/weapons/aether_waw_real/type99/viewmodel.glb",
         "audio": {
-          "fire": "res://assets/audio/weapons/mapmod/type99/fire.ogg",
+          "fire": "res://assets/audio/weapons/mapmod/type99/fire.wav",
           "reload": "res://assets/audio/weapons/mapmod/type99/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/type99/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/type99/dry_fire.ogg"
@@ -1793,7 +1793,7 @@
         "viewmodel": "res://assets/weapons/aether_waw_real/walther/viewmodel.glb",
         "worldmodel": "res://assets/weapons/aether_waw_real/walther/viewmodel.glb",
         "audio": {
-          "fire": "res://assets/audio/weapons/mapmod/walther/fire.ogg",
+          "fire": "res://assets/audio/weapons/mapmod/walther/fire.wav",
           "reload": "res://assets/audio/weapons/mapmod/walther/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/walther/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/walther/dry_fire.ogg"
