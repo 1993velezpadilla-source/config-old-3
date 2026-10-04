@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "id": "monja_black_white_elite_v1",
+  "status": "SOURCE_VALIDATED_PENDING_BINARY_INGEST",
+  "source": {
+    "uploaded_name": "monja black white.glb",
+    "bytes": 20374600,
+    "generator": "gltfpack 1.2",
+    "meshes": 1,
+    "materials": 1,
+    "textures": 3,
+    "skins": 0,
+    "animations": 0,
+    "approximate_vertices": 1041352,
+    "approximate_triangles": 1990042
+  },
+  "final_runtime_path": "res://assets/zombies/monja_elite/monja_black_white_clean_rig.glb",
+  "rig_gate": {
+    "mode": "smooth_weighted_humanoid_bind_pose",
+    "minimum_bones": 20,
+    "required_animations": [
+      "Zombie_Idle_Clean",
+      "Zombie_Walk_Clean",
+      "Zombie_Attack_Clean"
+    ],
+    "old_rigid_region_parenting_forbidden": true
+  },
+  "gameplay": {
+    "role": "elite_nun",
+    "earliest_round": 7,
+    "max_spawn_chance": 0.18,
+    "health_scale": 2.35,
+    "speed_scale": 1.12,
+    "player_damage": 36,
+    "barricade_damage": 46
+  }
+}
