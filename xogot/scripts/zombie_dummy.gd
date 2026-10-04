@@ -3,6 +3,13 @@ extends CharacterBody3D
 signal died(zombie: Node)
 
 const MONJA_BASICA_PATH := "res://assets/zombies/monja_basica.glb"
+const MONJA_RIGGED_PATH := "res://assets/zombies/monja_basica_rigged.glb"
+
+const RIGGED_FALLBACK_ANIMS := {
+	"idle": ["Zombie_Idle_Loop"],
+	"walk": ["Zombie_Walk_Fwd_Loop"],
+	"attack": ["Zombie_Scratch"],
+}
 
 const MOTION_PROFILES: Array[Dictionary] = [
 	{
@@ -160,8 +167,14 @@ func _build_body() -> void:
 	cs.position.y = collider_height * 0.5
 	add_child(cs)
 
-	if ResourceLoader.exists(MONJA_BASICA_PATH):
-		var packed: PackedScene = load(MONJA_BASICA_PATH) as PackedScene
+	var selected_path: String = MONJA_BASICA_PATH
+	var using_rigged: bool = false
+	if ResourceLoader.exists(MONJA_RIGGED_PATH):
+		selected_path = MONJA_RIGGED_PATH
+		using_rigged = true
+
+	if ResourceLoader.exists(selected_path):
+		var packed: PackedScene = load(selected_path) as PackedScene
 		if packed != null:
 			var imported: Node3D = packed.instantiate() as Node3D
 			if imported != null:
@@ -169,7 +182,7 @@ func _build_body() -> void:
 				visual.name = "MonjaBasicaVisual"
 				add_child(visual)
 				_visual_root = visual
-				imported.name = "MonjaBasicaSource"
+				imported.name = "MonjaRiggedSource" if using_rigged else "MonjaBasicaSource"
 				imported.rotation_degrees.y = 90.0
 				visual.add_child(imported)
 				if _fit_visual_to_gameplay_bounds(
@@ -180,13 +193,17 @@ func _build_body() -> void:
 					target_visual_max_depth
 				):
 					_animation_player = _find_animation_player(imported)
-					set_meta("zombie_model", "monja_basica")
+					set_meta("zombie_model", "monja_basica_rigged" if using_rigged else "monja_basica")
 					set_meta("zombie_visual_forward_fix_deg", 90.0)
 					set_meta("zombie_rig_ready", _animation_player != null)
+					set_meta("zombie_rigged_asset", using_rigged)
 					print("XZOGOT_MONJA_FORWARD_FIXED 90")
 					print("XZOGOT_MONJA_BASICA_LOADED")
 					if _animation_player != null:
 						print("XZOGOT_MONJA_RIGGED_ANIMATION_PLAYER_READY")
+						_play_motion_state("idle")
+					elif using_rigged:
+						push_warning("XZOGOT_MONJA_RIGGED_ASSET_MISSING_ANIMATION_PLAYER")
 					else:
 						print("XZOGOT_MONJA_RETARGET_PENDING")
 					return
@@ -527,6 +544,18 @@ func _animation_name_for_keys(keys: Array[String]) -> String:
 				return str(anim_name)
 	return ""
 
+func _rigged_fallback_animation(state: String) -> String:
+	if _animation_player == null or not RIGGED_FALLBACK_ANIMS.has(state):
+		return ""
+	var aliases: Array = RIGGED_FALLBACK_ANIMS[state] as Array
+	for alias_var: Variant in aliases:
+		var alias: String = str(alias_var)
+		for anim_name: StringName in _animation_player.get_animation_list():
+			var candidate: String = str(anim_name)
+			if candidate.to_lower().contains(alias.to_lower()):
+				return candidate
+	return ""
+
 func _play_motion_state(state: String) -> void:
 	if _motion_state == state:
 		return
@@ -549,8 +578,12 @@ func _play_motion_state(state: String) -> void:
 		keys = GETUP_KEYS
 
 	var anim_name: String = _animation_name_for_keys(keys)
+	if anim_name.is_empty():
+		anim_name = _rigged_fallback_animation(state)
 	if not anim_name.is_empty():
 		_animation_player.play(anim_name)
+		set_meta("active_animation", anim_name)
+		print("XZOGOT_MONJA_ANIM ", state, " -> ", anim_name)
 
 func _classify_hit_zone(local_hit: Vector3) -> String:
 	if local_hit.y >= target_visual_height * headshot_height_ratio:
