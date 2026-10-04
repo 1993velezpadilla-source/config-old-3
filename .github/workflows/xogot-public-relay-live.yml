@@ -1,0 +1,104 @@
+name: Xogot Public Relay Live
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/church-expansion-v1
+    paths:
+      - ".github/workflows/xogot-public-relay-live.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xogot-public-relay-live
+  cancel-in-progress: true
+
+jobs:
+  public-wss-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Install Godot 4.6.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/godot.zip
+          mkdir -p /tmp/godot /tmp/xz-public-probe
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+          cat > /tmp/xz-public-probe/project.godot <<'EOF'
+          config_version=5
+          [application]
+          config/name="XZ Public Relay Probe"
+          EOF
+          cat > /tmp/xz-public-probe/probe.gd <<'GDSCRIPT'
+          extends SceneTree
+
+          const URL := "wss://xz-zombie-relay-gateway.onrender.com"
+          const CLIENTS := 4
+          const CONNECT_TIMEOUT_MS := 30000
+          const STABLE_SECONDS := 8.0
+
+          var peers: Array[WebSocketMultiplayerPeer] = []
+
+          func _init() -> void:
+              call_deferred("_run")
+
+          func _fail(code: int, message: String) -> void:
+              push_error("PUBLIC_WSS_LIVE_PROBE: " + message)
+              quit(code)
+
+          func _run() -> void:
+              for index: int in range(CLIENTS):
+                  var peer := WebSocketMultiplayerPeer.new()
+                  var err: Error = peer.create_client(URL)
+                  if err != OK:
+                      _fail(10 + index, "create_client failed index=%d err=%d" % [index, err])
+                      return
+                  peers.append(peer)
+                  print("XZ_PUBLIC_WSS_CLIENT_STARTED ", index + 1)
+
+              var deadline := Time.get_ticks_msec() + CONNECT_TIMEOUT_MS
+              while Time.get_ticks_msec() < deadline:
+                  var connected := 0
+                  for peer: WebSocketMultiplayerPeer in peers:
+                      peer.poll()
+                      if peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
+                          connected += 1
+                  if connected == CLIENTS:
+                      print("XZ_PUBLIC_WSS_4_CONNECTIONS_GREEN")
+                      var stable_deadline := Time.get_ticks_msec() + int(STABLE_SECONDS * 1000.0)
+                      while Time.get_ticks_msec() < stable_deadline:
+                          for peer: WebSocketMultiplayerPeer in peers:
+                              peer.poll()
+                              if peer.get_connection_status() != MultiplayerPeer.CONNECTION_CONNECTED:
+                                  _fail(30, "connection dropped during stability window")
+                                  return
+                          await create_timer(0.05).timeout
+                      print("XZ_PUBLIC_WSS_4_STABLE_GREEN")
+                      quit(0)
+                      return
+                  await create_timer(0.05).timeout
+
+              var states := PackedInt32Array()
+              for peer: WebSocketMultiplayerPeer in peers:
+                  peer.poll()
+                  states.append(int(peer.get_connection_status()))
+              _fail(31, "timeout states=" + str(states))
+          GDSCRIPT
+
+      - name: Verify public WSS with four Godot clients
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 75 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path /tmp/xz-public-probe --script res://probe.gd \
+            2>&1 | tee /tmp/public-wss-live.log
+          grep -q "XZ_PUBLIC_WSS_4_CONNECTIONS_GREEN" /tmp/public-wss-live.log
+          grep -q "XZ_PUBLIC_WSS_4_STABLE_GREEN" /tmp/public-wss-live.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|PUBLIC_WSS_LIVE_PROBE:" /tmp/public-wss-live.log
+          echo "XZ_PUBLIC_WSS_LIVE_GATE_GREEN"
