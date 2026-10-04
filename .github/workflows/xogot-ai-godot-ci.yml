@@ -186,6 +186,44 @@ jobs:
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|LAN_DISCOVERY_PROBE:" build/xogot-ai/lan-discovery-probe.log
           echo "XZOGOT_LAN_DISCOVERY_GATE_GREEN"
 
+      - name: Verify public directory and UPnP integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile services/xz-match-directory/server.py
+          PORT=18790 SESSION_TTL_SECONDS=25 \
+            python3 services/xz-match-directory/server.py \
+            > build/xogot-ai/public-directory-server.log 2>&1 &
+          DIR_PID=$!
+          cleanup_directory() {
+            kill "$DIR_PID" 2>/dev/null || true
+            wait "$DIR_PID" 2>/dev/null || true
+          }
+          trap cleanup_directory EXIT
+
+          for _i in $(seq 1 80); do
+            if curl -fsS http://127.0.0.1:18790/health >/dev/null 2>&1; then
+              break
+            fi
+            sleep 0.1
+          done
+          curl -fsS http://127.0.0.1:18790/health | tee build/xogot-ai/public-directory-health.json
+
+          timeout 90 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/public_matchmaking_probe.gd \
+            2>&1 | tee build/xogot-ai/public-matchmaking-probe.log
+
+          grep -q "XZOGOT_PUBLIC_DIRECTORY_CONFIG_PROBE_GREEN" build/xogot-ai/public-matchmaking-probe.log
+          grep -q "XZOGOT_UPNP_FAILSAFE_HOST_GREEN" build/xogot-ai/public-matchmaking-probe.log
+          grep -q "XZOGOT_PUBLIC_DIRECTORY_REGISTER_GREEN" build/xogot-ai/public-matchmaking-probe.log
+          grep -q "XZOGOT_PUBLIC_FIND_MATCH_GREEN" build/xogot-ai/public-matchmaking-probe.log
+          grep -q "XZOGOT_PUBLIC_BEST_MATCH_GREEN" build/xogot-ai/public-matchmaking-probe.log
+          grep -q "XZOGOT_PUBLIC_DIRECTORY_UNREGISTER_GREEN" build/xogot-ai/public-matchmaking-probe.log
+          grep -q "XZOGOT_PUBLIC_PRIVATE_ISOLATION_GREEN" build/xogot-ai/public-matchmaking-probe.log
+          grep -q "XZOGOT_PUBLIC_MATCHMAKING_CLIENT_GREEN" build/xogot-ai/public-matchmaking-probe.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|PUBLIC_MATCH_PROBE:" build/xogot-ai/public-matchmaking-probe.log
+          echo "XZOGOT_PUBLIC_MATCHMAKING_GATE_GREEN"
+
       - name: Verify real two-process ENet late join
         shell: bash
         run: |
