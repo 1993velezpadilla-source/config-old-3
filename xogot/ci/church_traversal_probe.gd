@@ -157,7 +157,7 @@ func _run() -> void:
 		await physics_frame
 		if (
 			player.global_position.x <= 11.0 * world_scale
-			and player.global_position.z <= -22.0 * world_scale
+			and player.global_position.z <= -25.6 * world_scale
 			and player.global_position.y <= -1.70
 		):
 			reached_ossuary = true
