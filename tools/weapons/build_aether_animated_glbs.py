@@ -117,6 +117,32 @@ def glb_stats(path: Path) -> dict:
     }
 
 
+def bind_actions_to_armature_nla(armature, action_names: list[str]) -> list[str]:
+    """Attach imported PSA actions to the weapon armature so glTF can see them."""
+    anim = armature.animation_data_create()
+    # The importer intentionally creates Actions without applying them.  glTF
+    # ACTIONS mode can therefore skip them.  Give each real PSA action its own
+    # NLA track on the actual weapon skeleton.
+    bound = []
+    for action_name in action_names:
+        action = bpy.data.actions.get(action_name)
+        if action is None:
+            continue
+        try:
+            track = anim.nla_tracks.new()
+            track.name = "PSA_" + action_name
+            start = int(round(float(action.frame_range[0])))
+            strip = track.strips.new(action_name, start, action)
+            strip.name = action_name
+            bound.append(action_name)
+        except Exception as exc:
+            print("XZOGOT_PSA_NLA_BIND_FAIL", armature.name, action_name, repr(exc))
+    if not bound:
+        raise RuntimeError(f"{armature.name}: no imported PSA Actions could be bound to NLA")
+    print("XZOGOT_PSA_NLA_BOUND", armature.name, len(bound), bound[:8])
+    return bound
+
+
 def export_animated_glb(path: Path) -> None:
     props = set(bpy.ops.export_scene.gltf.get_rna_type().properties.keys())
     kwargs = {
@@ -128,7 +154,9 @@ def export_animated_glb(path: Path) -> None:
     if "export_materials" in props:
         kwargs["export_materials"] = "EXPORT"
     if "export_animation_mode" in props:
-        kwargs["export_animation_mode"] = "ACTIONS"
+        # Imported PSA clips are explicitly attached as NLA tracks above.
+        # NLA_TRACKS is the most deterministic path in Blender 5.x.
+        kwargs["export_animation_mode"] = "NLA_TRACKS"
     elif "export_all_actions" in props:
         kwargs["export_all_actions"] = True
     if "export_force_sampling" in props:
@@ -241,6 +269,11 @@ def main() -> int:
                 )
             for action_name in new_actions:
                 bpy.data.actions[action_name].use_fake_user = True
+            bound_actions = bind_actions_to_armature_nla(armature, new_actions)
+            if len(bound_actions) != len(new_actions):
+                raise RuntimeError(
+                    f"{runtime_id}: only {len(bound_actions)}/{len(new_actions)} PSA Actions bound to NLA"
+                )
 
             export_animated_glb(out_glb)
             stats = glb_stats(out_glb)
@@ -255,6 +288,7 @@ def main() -> int:
             "psa_source": psa_source,
             "psa_files": len(psas),
             "actions_imported": len(new_actions),
+            "actions_nla_bound": len(new_actions) if animation_mode == "embedded_psa_actions" else 0,
             "import_failures": import_failures,
             "animation_mode": animation_mode,
             "output": str(out_glb),
