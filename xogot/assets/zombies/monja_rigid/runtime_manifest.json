@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "id": "monja_basica_rigid_runtime_v1",
+  "status": "AUTHORED_FULL_DENSITY",
+  "geometry": {
+    "source_triangles": 1938984,
+    "serialized_triangles": 1938984,
+    "conservation_ok": true,
+    "decimation": false,
+    "semantic_mesh_counts": {
+      "torso": 1,
+      "head": 1,
+      "left_arm": 1,
+      "right_arm": 1,
+      "left_leg": 1,
+      "right_leg": 1
+    }
+  },
+  "rig": {
+    "mode": "rigid_region_bone_parenting",
+    "armatures": 1,
+    "part_bones": {
+      "torso": "spine_03",
+      "head": "Head",
+      "left_arm": "upperarm_l",
+      "right_arm": "upperarm_r",
+      "left_leg": "thigh_l",
+      "right_leg": "thigh_r"
+    },
+    "required_actions": [
+      "Zombie_Idle_Loop_Armature",
+      "Zombie_Scratch_Armature",
+      "Zombie_Walk_Fwd_Loop_Armature"
+    ],
+    "runtime_motion_map": {
+      "idle": "Zombie_Idle_Loop",
+      "walk": "Zombie_Walk_Fwd_Loop",
+      "attack": "Zombie_Scratch"
+    }
+  },
+  "files": {
+    "scene": "res://assets/zombies/monja_rigid/monja_basica_rigid_rig.gltf",
+    "buffer": "res://assets/zombies/monja_rigid/monja_basica_rigid_rig.bin",
+    "color": "res://assets/zombies/monja_rigid/Color_e0d2d1df-9996-4a5d-a164-d9b0d05071ed.jpg",
+    "normal": "res://assets/zombies/monja_rigid/NormalGL_e0d2d1df-9996-4a5d-a164-d9b0d05071ed.png",
+    "orm": "res://assets/zombies/monja_rigid/ORM_e0d2d1df-9996-4a5d-a164-d9b0d05071ed.jpg"
+  },
+  "gameplay": {
+    "priority_over_static_monja": true,
+    "dismember_parts": [
+      "torso",
+      "head",
+      "left_arm",
+      "right_arm",
+      "left_leg",
+      "right_leg"
+    ],
+    "target_height_m": 1.8,
+    "target_max_width_m": 0.9,
+    "target_max_depth_m": 0.72
+  }
+}
