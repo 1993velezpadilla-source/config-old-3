@@ -31,6 +31,7 @@ func _run() -> void:
 		"SecondFloorWest",
 		"SecondFloorEast",
 		"SecondFloorChoir",
+		"ReliquaryOssuary",
 	]
 	for zone_name: String in expected_zones:
 		if scene.get_node_or_null("Zone_" + zone_name) == null:
@@ -38,8 +39,8 @@ func _run() -> void:
 			return
 
 	var zones: Array[Node] = get_nodes_in_group("gameplay_zone")
-	if zones.size() != 11:
-		_fail(4, "expected 11 gameplay zones, got %d" % zones.size())
+	if zones.size() != 12:
+		_fail(4, "expected 12 gameplay zones, got %d" % zones.size())
 		return
 	if get_nodes_in_group("second_floor_zone").size() != 3:
 		_fail(5, "expected 3 second-floor zones")
@@ -56,6 +57,9 @@ func _run() -> void:
 		"EastOuterLoopFloor",
 		"RearRuinsYardFloor",
 		"CryptBasementFloor",
+		"ReliquaryCorridorFloor",
+		"ReliquaryFloor",
+		"GeneratorBase",
 		"SecondFloorWestGallery",
 		"SecondFloorEastGallery",
 		"SecondFloorChoirBridge",
@@ -73,11 +77,26 @@ func _run() -> void:
 	if networks.size() != 1:
 		_fail(8, "expected one zombie path network")
 		return
-	if int(networks[0].call("get_node_count")) < 27:
-		_fail(9, "path network node count too small")
+	if int(networks[0].call("get_node_count")) < 31:
+		_fail(9, "path network node count too small for Reliquary route")
 		return
 	if get_nodes_in_group("zombie_spawn_anchor").size() != 8:
 		_fail(10, "expected 8 selective non-window spawn anchors")
+		return
+
+	var last_rites: Node3D = scene.get_node_or_null("Perk_last_rites") as Node3D
+	if last_rites == null:
+		_fail(19, "Last Rites machine missing")
+		return
+	if last_rites.global_position.y > -1.0:
+		_fail(20, "Last Rites must be in underground Reliquary")
+		return
+	var power_switch: Node3D = scene.get_node_or_null("PowerSwitch") as Node3D
+	if power_switch == null:
+		_fail(21, "Power switch missing")
+		return
+	if power_switch.global_position.x > -5.0:
+		_fail(22, "Power switch was not moved into west Generator Room")
 		return
 
 	var player: CharacterBody3D = scene.get_node_or_null("Player") as CharacterBody3D
@@ -131,6 +150,7 @@ func _run() -> void:
 	print("XZOGOT_EXPANSION_BUY_GATE_PROBE_GREEN")
 	print("XZOGOT_SELECTIVE_SPAWN_PROBE_GREEN")
 	print("XZOGOT_BELL_TOWER_PROBE_GREEN")
+	print("XZOGOT_RELIQUARY_GENERATOR_PROBE_GREEN")
 	print("XZOGOT_CHURCH_EXPANSION_PROBE_GREEN")
 	scene.queue_free()
 	await process_frame
