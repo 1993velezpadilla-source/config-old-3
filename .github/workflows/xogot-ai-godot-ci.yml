@@ -170,6 +170,22 @@ jobs:
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|NETWORK_PROBE:" build/xogot-ai/network-probe.log
           echo "XZOGOT_4P_NETWORK_GATE_GREEN"
 
+      - name: Verify LAN Find Match discovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 75 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/lan_discovery_probe.gd \
+            2>&1 | tee build/xogot-ai/lan-discovery-probe.log
+          grep -q "XZOGOT_LAN_BEACON_DISCOVERY_GREEN" build/xogot-ai/lan-discovery-probe.log
+          grep -q "XZOGOT_LAN_FIND_MATCH_GREEN" build/xogot-ai/lan-discovery-probe.log
+          grep -q "XZOGOT_LAN_PRIVATE_HIDDEN_GREEN" build/xogot-ai/lan-discovery-probe.log
+          grep -q "XZOGOT_LAN_PUBLIC_ADVERTISE_GREEN" build/xogot-ai/lan-discovery-probe.log
+          grep -q "XZOGOT_LAN_LEAVE_STOPS_ADVERTISE_GREEN" build/xogot-ai/lan-discovery-probe.log
+          grep -q "XZOGOT_LAN_DISCOVERY_SYSTEM_GREEN" build/xogot-ai/lan-discovery-probe.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|LAN_DISCOVERY_PROBE:" build/xogot-ai/lan-discovery-probe.log
+          echo "XZOGOT_LAN_DISCOVERY_GATE_GREEN"
+
       - name: Verify real two-process ENet late join
         shell: bash
         run: |
