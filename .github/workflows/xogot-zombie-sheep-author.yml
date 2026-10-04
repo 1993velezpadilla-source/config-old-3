@@ -1,0 +1,102 @@
+name: Author Zombie Sheep Animations
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/church-expansion-v1
+    paths:
+      - "xogot/assets/zombies/sheep/source/sheep_runner.glb"
+      - "xogot/assets/zombies/sheep/source/sheep_brute.glb"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: xogot-zombie-sheep-author-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  author:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Install Blender headless dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender python3-numpy libegl1 libgl1-mesa-dri mesa-utils
+          blender --version | head -n 2
+
+      - name: Author sheep idle run attack and death
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s xogot/assets/zombies/sheep/source/sheep_runner.glb
+          test -s xogot/assets/zombies/sheep/source/sheep_brute.glb
+          rm -rf xogot/build/sheep-animated
+          mkdir -p xogot/build/sheep-animated
+          timeout 2400 blender -b --python xogot/tools/author_zombie_sheep_animations.py             2>&1 | tee xogot/build/sheep-animated/blender.log
+          grep -q "XZOGOT_SHEEP_ANIMATIONS_GREEN" xogot/build/sheep-animated/blender.log
+          grep -q "XZOGOT_SHEEP_PAIR_GREEN" xogot/build/sheep-animated/blender.log
+          test -s xogot/build/sheep-animated/sheep_runner_animated.glb
+          test -s xogot/build/sheep-animated/sheep_brute_animated.glb
+          test -s xogot/build/sheep-animated/sheep_runner_run_mid.png
+          test -s xogot/build/sheep-animated/sheep_brute_run_mid.png
+
+      - name: Validate authored sheep pair
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("xogot/build/sheep-animated/report.json").read_text())
+          assert len(r["variants"])==2
+          for v in r["variants"]:
+              assert v["bones"] >= 20
+              assert v["source_triangles"] == v["output_triangles"]
+              names=" ".join(v["actions"]).lower()
+              for required in ("sheep_idle","sheep_run","sheep_attack","sheep_death"):
+                  assert required in names,(v["id"],required,v["actions"])
+          print("XZOGOT_SHEEP_REPORT_GREEN")
+          PY
+
+      - name: Stage animated sheep runtime assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp xogot/build/sheep-animated/sheep_runner_animated.glb xogot/assets/zombies/sheep/sheep_runner_animated.glb
+          cp xogot/build/sheep-animated/sheep_brute_animated.glb xogot/assets/zombies/sheep/sheep_brute_animated.glb
+          cp xogot/build/sheep-animated/report.json xogot/assets/zombies/sheep/animation_report.json
+
+      - name: Commit animated sheep pair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "XZOGOT Asset Bot"
+          git config user.email "xogot-asset-bot@users.noreply.github.com"
+          git pull --rebase origin feature/church-expansion-v1
+          git add xogot/assets/zombies/sheep/sheep_runner_animated.glb                   xogot/assets/zombies/sheep/sheep_brute_animated.glb                   xogot/assets/zombies/sheep/animation_report.json
+          if ! git diff --cached --quiet; then
+            git commit -m "asset: add animated zombie sheep pair"
+            git push origin HEAD:feature/church-expansion-v1
+          fi
+
+      - name: Upload sheep animation proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zombie-sheep-animation-proof
+          path: |
+            xogot/build/sheep-animated/report.json
+            xogot/build/sheep-animated/blender.log
+            xogot/build/sheep-animated/sheep_runner_run_mid.png
+            xogot/build/sheep-animated/sheep_brute_run_mid.png
+          if-no-files-found: warn
+          retention-days: 14
