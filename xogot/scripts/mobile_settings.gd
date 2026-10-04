@@ -43,6 +43,7 @@ var _network_roster: Label
 var _network_share: Label
 var _network_error: Label
 var _network_found: Label
+var _network_public: Label
 var _network_address: LineEdit
 var _network_port: LineEdit
 var _network_last_error: String = ""
@@ -298,14 +299,26 @@ func _build_network_page() -> void:
 	_network_found.modulate = Color(0.76, 0.84, 0.78)
 	_page_network.add_child(_network_found)
 
+	_network_public = Label.new()
+	_network_public.name = "PublicReachability"
+	_network_public.text = "INTERNET PUBLIC: CHECKING"
+	_network_public.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_network_public.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_network_public.modulate = Color(0.76, 0.80, 0.90)
+	_page_network.add_child(_network_public)
+
 	var host_private := _button(_page_network, "HostPrivate", "HOST PRIVATE — 1–4 PLAYERS")
 	host_private.pressed.connect(func(): _network_host(true))
 	var host_public := _button(_page_network, "HostPublic", "HOST PUBLIC / LAN — DISCOVERABLE")
 	host_public.pressed.connect(func(): _network_host(false))
 	var find_lan := _button(_page_network, "FindLan", "FIND MATCH — LAN")
 	find_lan.pressed.connect(_network_find_lan)
-	var join_found := _button(_page_network, "JoinFound", "JOIN FOUND MATCH")
+	var join_found := _button(_page_network, "JoinFound", "JOIN FOUND LAN MATCH")
 	join_found.pressed.connect(_network_join_found)
+	var find_public := _button(_page_network, "FindPublic", "FIND MATCH — INTERNET")
+	find_public.pressed.connect(_network_find_public)
+	var join_public := _button(_page_network, "JoinPublic", "JOIN INTERNET MATCH")
+	join_public.pressed.connect(_network_join_public)
 	var join := _button(_page_network, "JoinDirect", "JOIN DIRECT IP")
 	join.pressed.connect(_network_join)
 	var leave := _button(_page_network, "LeaveNetwork", "LEAVE SESSION")
@@ -344,6 +357,33 @@ func _network_host(private_session: bool) -> void:
 		print("XZOGOT_NETWORK_UI_HOST private=", private_session, " port=", port)
 	else:
 		_network_last_error = "HOST FAILED: " + str(err)
+	_refresh_network_status()
+
+func _network_find_public() -> void:
+	var network: Node = _network_manager_node()
+	if network == null or not network.has_method("find_public_matches"):
+		_network_last_error = "PUBLIC DIRECTORY UNAVAILABLE"
+		_refresh_network_status()
+		return
+	_network_last_error = ""
+	if bool(network.call("find_public_matches")):
+		print("XZOGOT_NETWORK_UI_FIND_PUBLIC")
+	else:
+		_network_last_error = "PUBLIC DIRECTORY NOT CONFIGURED / UNREACHABLE"
+	_refresh_network_status()
+
+func _network_join_public() -> void:
+	var network: Node = _network_manager_node()
+	if network == null or not network.has_method("join_best_public_match"):
+		_network_last_error = "PUBLIC DIRECTORY UNAVAILABLE"
+		_refresh_network_status()
+		return
+	_network_last_error = ""
+	var err: int = int(network.call("join_best_public_match"))
+	if err == OK:
+		print("XZOGOT_NETWORK_UI_JOIN_PUBLIC")
+	else:
+		_network_last_error = "NO JOINABLE INTERNET MATCH" if err == ERR_DOES_NOT_EXIST else ("JOIN INTERNET FAILED: " + str(err))
 	_refresh_network_status()
 
 func _network_find_lan() -> void:
@@ -460,6 +500,31 @@ func _refresh_network_status() -> void:
 
 	_network_status.text = str(network.call("get_status_text"))
 	_refresh_found_matches(network)
+	if _network_public != null:
+		var directory_ready: bool = (
+			network.has_method("is_public_directory_configured")
+			and bool(network.call("is_public_directory_configured"))
+		)
+		var upnp_status: String = (
+			str(network.call("get_upnp_status"))
+			if network.has_method("get_upnp_status")
+			else "unavailable"
+		)
+		var endpoint: String = (
+			str(network.call("get_public_endpoint"))
+			if network.has_method("get_public_endpoint")
+			else ""
+		)
+		if not endpoint.is_empty():
+			_network_public.text = "INTERNET PUBLIC: %s  •  DIRECTORY: %s" % [
+				endpoint,
+				"READY" if directory_ready else "NOT CONFIGURED",
+			]
+		else:
+			_network_public.text = "INTERNET PUBLIC: %s  •  DIRECTORY: %s" % [
+				upnp_status.to_upper(),
+				"READY" if directory_ready else "NOT CONFIGURED",
+			]
 	var mode: String = str(network.call("get_mode")) if network.has_method("get_mode") else "offline"
 	var ids: PackedInt32Array = (
 		network.call("get_roster_ids") as PackedInt32Array
