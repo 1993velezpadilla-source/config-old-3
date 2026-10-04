@@ -1,0 +1,219 @@
+name: Ingest Aether Real Weapon Meshes
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/church-expansion-v1
+    paths:
+      - ".github/workflows/xogot-aether-ingest-real-meshes.yml"
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: xogot-aether-ingest-real-meshes
+  cancel-in-progress: true
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN_ID: "37233982456"
+    steps:
+      - name: Checkout gameplay branch
+        uses: actions/checkout@v5
+        with:
+          ref: feature/church-expansion-v1
+          fetch-depth: 0
+
+      - name: Download successful mapped Aether export
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf aether-export
+          mkdir -p aether-export
+          gh run download "$SOURCE_RUN_ID" -n aether-waw-usmap-real-weapons -D aether-export
+          test -s aether-export/aether-waw-usmap-export-report.json
+          echo "XZOGOT_AETHER_REAL_EXPORT_DOWNLOADED"
+
+      - name: Stage every recovered real weapon mesh
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, shutil
+
+          root=Path("aether-export/recovered-export/ProjectAether/Content/Assets/Weapons/waw")
+          out_root=Path("xogot/assets/weapons/aether_waw_real")
+          out_root.mkdir(parents=True,exist_ok=True)
+
+          mapping={
+            "1911":"colt",
+            "357":"357",
+            "Arisaka":"arisaka",
+            "BAR":"bar",
+            "Browning":"browning",
+            "DoubleBarrel":"doublebarrel",
+            "DP28":"dp28",
+            "FG42":"fg42",
+            "Gewehr":"gewehr",
+            "Kar98k":"kar98k",
+            "M1Carbine":"m1a1",
+            "M1Garand":"m1",
+            "MG42":"mg42",
+            "MosinNagant":"mosin",
+            "MP40":"mp40",
+            "Nambu":"nambu",
+            "PPSH":"ppsh",
+            "PTRS":"ptrs",
+            "SawedOffDB":"sawnoff",
+            "Springfield":"springfield",
+            "STG44":"stg",
+            "Stielhand":"stielhand",
+            "SVT40":"svt40",
+            "Thompson":"thompson",
+            "TrenchGun":"trench",
+            "TT33":"tt33",
+            "Type100":"type100",
+            "Type99":"type99",
+            "Walther":"walther",
+          }
+
+          preferred={
+            "TrenchGun":"viewmodel_usa_trenchgun_rifle.glb",
+          }
+
+          rows=[]
+          missing=[]
+          for source,runtime_id in mapping.items():
+              folder=root/source
+              candidates=sorted(folder.glob("*.glb"))
+              if not candidates:
+                  missing.append(source)
+                  continue
+              chosen=None
+              pref=preferred.get(source)
+              if pref:
+                  chosen=folder/pref
+                  if not chosen.is_file():
+                      chosen=None
+              if chosen is None:
+                  view=[p for p in candidates if "viewmodel" in p.name.lower()]
+                  chosen=view[0] if view else candidates[0]
+              dest_dir=out_root/runtime_id
+              dest_dir.mkdir(parents=True,exist_ok=True)
+              dest=dest_dir/"viewmodel.glb"
+              shutil.copy2(chosen,dest)
+              blob=dest.read_bytes()
+              rows.append({
+                  "source_dir":source,
+                  "runtime_id":runtime_id,
+                  "source_file":chosen.name,
+                  "runtime_path":f"res://assets/weapons/aether_waw_real/{runtime_id}/viewmodel.glb",
+                  "bytes":len(blob),
+                  "sha256":hashlib.sha256(blob).hexdigest(),
+              })
+              print("XZOGOT_REAL_WEAPON_MESH_STAGED",runtime_id,chosen.name,len(blob))
+
+          if missing:
+              raise SystemExit("Missing exported GLB for: "+",".join(missing))
+          if len(rows)!=29:
+              raise SystemExit(f"Expected 29 staged real weapon meshes, got {len(rows)}")
+
+          inv={
+              "schema":1,
+              "id":"aether_waw_real_mesh_inventory_v1",
+              "source_run":int("37233982456"),
+              "weapon_count":len(rows),
+              "placeholder_geometry":False,
+              "weapons":rows,
+          }
+          (out_root/"inventory.json").write_text(json.dumps(inv,indent=2)+"\n",encoding="utf-8")
+          print("XZOGOT_29_REAL_WEAPON_MESHES_STAGED_GREEN")
+          PY
+
+      - name: Bind real meshes for existing playable weapon IDs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+
+          inv_path=Path("xogot/assets/weapons/aether_waw_real/inventory.json")
+          manifest_path=Path("xogot/assets/weapons/mapmod_weapon_asset_manifest.json")
+          inv=json.loads(inv_path.read_text(encoding="utf-8"))
+          manifest=json.loads(manifest_path.read_text(encoding="utf-8"))
+          known=manifest["weapons"]
+          bound=[]
+          future=[]
+          for rec in inv["weapons"]:
+              wid=rec["runtime_id"]
+              if wid not in known:
+                  future.append(wid)
+                  continue
+              known[wid]["runtime"]["viewmodel"]=rec["runtime_path"]
+              if known[wid].get("status")=="MISSING":
+                  known[wid]["status"]="PARTIAL"
+              notes=known[wid].setdefault("notes",[])
+              marker=f"Real Aether UE5.7 viewmodel staged from {rec['source_dir']}."
+              if marker not in notes:
+                  notes.append(marker)
+              bound.append(wid)
+          manifest_path.write_text(json.dumps(manifest,indent=2)+"\n",encoding="utf-8")
+          report={"bound_existing":sorted(bound),"future_weapon_ids":sorted(future)}
+          Path("xogot/assets/weapons/aether_waw_real/binding-report.json").write_text(json.dumps(report,indent=2)+"\n",encoding="utf-8")
+          print("XZOGOT_REAL_MESH_BINDINGS",len(bound),sorted(bound))
+          print("XZOGOT_REAL_MESH_FUTURE_IDS",len(future),sorted(future))
+          if len(bound) < 18:
+              raise SystemExit(f"Expected at least 18 existing runtime bindings, got {len(bound)}")
+          PY
+
+      - name: Reject placeholder geometry in staged arsenal
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,struct
+          inv=json.loads(Path("xogot/assets/weapons/aether_waw_real/inventory.json").read_text())
+          for rec in inv["weapons"]:
+              p=Path(rec["runtime_path"].replace("res://","xogot/"))
+              b=p.read_bytes()
+              assert len(b)>512,(rec["runtime_id"],len(b))
+              assert b[:4]==b"glTF",(rec["runtime_id"],b[:4])
+              version=struct.unpack_from("<I",b,4)[0]
+              assert version==2,(rec["runtime_id"],version)
+          print("XZOGOT_REAL_GLB_GATE_GREEN",len(inv["weapons"]))
+          PY
+
+      - name: Commit 29 real Aether weapon meshes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add xogot/assets/weapons/aether_waw_real xogot/assets/weapons/mapmod_weapon_asset_manifest.json
+          if git diff --cached --quiet; then
+            echo "XZOGOT_REAL_WEAPON_MESHES_ALREADY_PRESENT"
+            exit 0
+          fi
+          git commit -m "Integrate 29 real Aether WaW weapon meshes"
+          git pull --rebase origin feature/church-expansion-v1
+          git push origin HEAD:feature/church-expansion-v1
+          echo "XZOGOT_29_REAL_WEAPON_MESH_COMMIT_GREEN"
+
+      - name: Upload mesh integration proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: xogot-aether-29-real-mesh-proof
+          path: |
+            xogot/assets/weapons/aether_waw_real/inventory.json
+            xogot/assets/weapons/aether_waw_real/binding-report.json
+          if-no-files-found: error
+          retention-days: 14
