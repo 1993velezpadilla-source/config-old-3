@@ -9,6 +9,7 @@ const WeaponAssetRegistry = preload("res://scripts/weapon_asset_registry.gd")
 @export var magazine_size: int = 8
 @export var reserve_ammo: int = 80
 @export var reload_time: float = 1.48
+@export var allow_procedural_weapon_fallback: bool = false
 
 var _weapon_id: String = WeaponCatalog.STARTING_WEAPON_ID
 var _display_name: String = "Colt"
@@ -240,9 +241,15 @@ func _refresh_view_assets(def: Dictionary) -> void:
 			"mapmod" if using_mapmod else "legacy_optional"
 		)
 	else:
-		_build_fallback_view_model()
-		set_meta("weapon_asset_lane", "procedural_fallback")
-		print("XZOGOT_WEAPON_MODEL_PENDING ", _weapon_id, " ", model_path)
+		# Never ship the old BoxMesh/CylinderMesh placeholder as a gun. The
+		# procedural shape is retained only as an explicit developer opt-in.
+		if allow_procedural_weapon_fallback:
+			_build_fallback_view_model()
+			set_meta("weapon_asset_lane", "procedural_fallback_dev_only")
+			push_warning("XZOGOT_WEAPON_DEV_FALLBACK " + _weapon_id + " " + model_path)
+		else:
+			set_meta("weapon_asset_lane", "missing_real_asset")
+			push_error("XZOGOT_REAL_WEAPON_ASSET_REQUIRED " + _weapon_id + " " + model_path)
 
 	if _fire_audio != null:
 		var fire_path: String = WeaponAssetRegistry.preferred_audio_path(
