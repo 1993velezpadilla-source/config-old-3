@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: xz-match-directory
+    runtime: python
+    plan: free
+    rootDir: services/xz-match-directory
+    buildCommand: "python -m py_compile server.py"
+    startCommand: "python server.py"
+    healthCheckPath: /health
+    envVars:
+      - key: SESSION_TTL_SECONDS
+        value: "25"
