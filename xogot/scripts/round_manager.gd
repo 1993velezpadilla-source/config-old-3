@@ -15,6 +15,7 @@ var _started: bool = false
 var _spawn_serial: int = 0
 var _recent_spawn_ids: Array[String] = []
 var _last_spawn_id: String = ""
+var _dev_no_zombies: bool = false
 
 func _ready() -> void:
 	set_process(true)
@@ -24,6 +25,8 @@ func _ready() -> void:
 	print("XZOGOT_SPAWN_DIRECTOR_READY")
 
 func _process(delta: float) -> void:
+	if _dev_no_zombies:
+		return
 	if not auto_start and not _started:
 		return
 
@@ -265,6 +268,39 @@ func _on_zombie_died(_zombie: Node) -> void:
 	if _remaining_to_spawn == 0 and _alive == 0:
 		_break_timer = round_break
 		print("XZOGOT_ROUND_CLEAR ", current_round)
+
+
+func set_dev_no_zombies(enabled: bool) -> void:
+	_dev_no_zombies = enabled
+	if enabled:
+		dev_clear_zombies()
+	else:
+		_break_timer = 0.0
+	print("XZOGOT_DEV_NO_ZOMBIES ", enabled)
+
+func dev_clear_zombies() -> void:
+	var cleared: int = 0
+	for zombie: Node in get_tree().get_nodes_in_group("zombie"):
+		if is_instance_valid(zombie):
+			zombie.queue_free()
+			cleared += 1
+	_alive = 0
+	_remaining_to_spawn = 0
+	_spawn_timer = spawn_interval
+	print("XZOGOT_DEV_CLEAR_ZOMBIES ", cleared)
+
+func dev_spawn_one() -> Node:
+	var prior_remaining: int = _remaining_to_spawn
+	if _remaining_to_spawn <= 0:
+		_remaining_to_spawn = 1
+	var zombie: Node = spawn_one()
+	if zombie == null:
+		_remaining_to_spawn = prior_remaining
+	print("XZOGOT_DEV_SPAWN_ONE ", zombie != null)
+	return zombie
+
+func is_dev_no_zombies() -> bool:
+	return _dev_no_zombies
 
 func get_round() -> int:
 	return current_round
