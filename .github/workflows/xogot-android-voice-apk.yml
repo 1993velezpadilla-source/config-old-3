@@ -101,13 +101,19 @@ jobs:
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n1)"
           test -x "$AAPT"
           "$AAPT" dump permissions "$APK" | tee build/android/permissions.txt
-          "$AAPT" dump badging "$APK" | tee build/android/badging.txt
+          "$AAPT" dump badging "$APK" > build/android/badging.txt 2>&1 || true
           grep -q "android.permission.INTERNET" build/android/permissions.txt
           grep -q "android.permission.RECORD_AUDIO" build/android/permissions.txt
-          grep -q "package: name='com.xziel.youwontwin'" build/android/badging.txt
+          grep -q "^package: com.xziel.youwontwin$" build/android/permissions.txt
           unzip -l "$APK" > build/android/apk-contents.txt
+          grep -q "lib/arm64-v8a/" build/android/apk-contents.txt
+          if grep -q "lib/armeabi-v7a/" build/android/apk-contents.txt; then
+            echo "Unexpected armeabi-v7a payload in ARM64-only APK" >&2
+            exit 1
+          fi
           echo "XZ_ANDROID_APK_INTERNET_GREEN"
           echo "XZ_ANDROID_APK_RECORD_AUDIO_GREEN"
+          echo "XZ_ANDROID_APK_PACKAGE_GREEN"
           echo "XZ_ANDROID_APK_ARM64_EXPORT_GREEN"
 
       - name: Upload Pixel Fold test APK
