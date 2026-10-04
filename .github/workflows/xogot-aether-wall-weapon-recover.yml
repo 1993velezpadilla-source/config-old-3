@@ -1,0 +1,142 @@
+name: Recover Aether Wall Weapons
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/church-expansion-v1
+    paths:
+      - ".github/workflows/xogot-aether-wall-weapon-recover.yml"
+
+concurrency:
+  group: xogot-aether-wall-weapon-recover
+  cancel-in-progress: true
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install package tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq p7zip-full xz-utils
+          npm --version
+
+      - name: Download reconstructed Project Aether build
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/aether-download"
+          npx --yes itchio-downloader             --url "https://verrial.itch.io/projectaether"             --downloadDirectory "$RUNNER_TEMP/aether-download"
+          FILE=$(find "$RUNNER_TEMP/aether-download" -type f -name '*.zip' -printf '%s\t%p\n' | sort -nr | head -1 | cut -f2-)
+          test -s "$FILE"
+          echo "PAYLOAD=$FILE" >> "$GITHUB_ENV"
+
+      - name: Prepare legacy pak
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/aether-paks"
+          7z x -y "$PAYLOAD" 'ProjectAether/Content/Paks/*' -o"$RUNNER_TEMP/aether-paks" >/dev/null
+          rm -f "$PAYLOAD"
+          PAKDIR="$RUNNER_TEMP/aether-paks/ProjectAether/Content/Paks"
+          curl -fL --retry 5             https://github.com/trumank/retoc/releases/download/v0.1.5/retoc_cli-x86_64-unknown-linux-gnu.tar.xz             -o "$RUNNER_TEMP/retoc.tar.xz"
+          mkdir -p "$RUNNER_TEMP/retoc"
+          tar -xJf "$RUNNER_TEMP/retoc.tar.xz" -C "$RUNNER_TEMP/retoc"
+          RETOC=$(find "$RUNNER_TEMP/retoc" -type f -name 'retoc*' -perm -111 | head -1)
+          curl -fL --retry 5             https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-unknown-linux-gnu.tar.xz             -o "$RUNNER_TEMP/repak.tar.xz"
+          mkdir -p "$RUNNER_TEMP/repak"
+          tar -xJf "$RUNNER_TEMP/repak.tar.xz" -C "$RUNNER_TEMP/repak"
+          REPAK=$(find "$RUNNER_TEMP/repak" -type f -name 'repak*' -perm -111 | head -1)
+          test -x "$RETOC" && test -x "$REPAK"
+          "$RETOC" to-legacy "$PAKDIR" "$RUNNER_TEMP/aether-legacy.pak"
+          test -s "$RUNNER_TEMP/aether-legacy.pak"
+          echo "REPAK=$REPAK" >> "$GITHUB_ENV"
+
+      - name: Extract four wall-weapon source packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf recovered
+          mkdir -p recovered/raw
+          "$REPAK" unpack "$RUNNER_TEMP/aether-legacy.pak"             -o recovered/raw             -i 'ProjectAether/Content/Assets/Weapons/waw/M1Garand/**'             -i 'ProjectAether/Content/Assets/Weapons/waw/MP40/**'             -i 'ProjectAether/Content/Assets/Weapons/waw/TrenchGun/**'             -i 'ProjectAether/Content/Assets/Weapons/waw/Thompson/**'             -i 'ProjectAether/Content/Assets/Sounds/**/*garand*'             -i 'ProjectAether/Content/Assets/Sounds/**/*Garand*'             -i 'ProjectAether/Content/Assets/Sounds/**/*mp40*'             -i 'ProjectAether/Content/Assets/Sounds/**/*MP40*'             -i 'ProjectAether/Content/Assets/Sounds/**/*trench*'             -i 'ProjectAether/Content/Assets/Sounds/**/*Trench*'             -i 'ProjectAether/Content/Assets/Sounds/**/*thompson*'             -i 'ProjectAether/Content/Assets/Sounds/**/*Thompson*'             --force
+          find recovered/raw -type f | sort > recovered/raw-files.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          root=Path("recovered/raw")
+          rows=[]
+          for p in root.rglob("*"):
+              if p.is_file():
+                  rows.append({"path":p.as_posix(),"bytes":p.stat().st_size,"ext":p.suffix.lower()})
+          names=("M1Garand","MP40","TrenchGun","Thompson")
+          counts={n:sum(n.lower() in r["path"].lower() for r in rows) for n in names}
+          out={"file_count":len(rows),"bytes":sum(r["bytes"] for r in rows),"weapon_path_counts":counts,"files":rows}
+          Path("recovered/raw-report.json").write_text(json.dumps(out,indent=2)+"\n")
+          print("XZOGOT_AETHER_WALL_RAW",out["file_count"],out["bytes"],counts)
+          assert all(v>0 for v in counts.values()), counts
+          assert any(r["ext"]==".uasset" for r in rows)
+          PY
+
+      - name: Install current UModel command-line exporter
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 5             https://raw.githubusercontent.com/gildor2/UEViewer/master/umodel             -o "$RUNNER_TEMP/umodel"
+          chmod +x "$RUNNER_TEMP/umodel"
+          file "$RUNNER_TEMP/umodel"
+          "$RUNNER_TEMP/umodel" -version | tee recovered/umodel-version.txt
+          echo "UMODEL=$RUNNER_TEMP/umodel" >> "$GITHUB_ENV"
+
+      - name: Export weapon meshes animations textures and sounds
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p recovered/export
+          set +e
+          "$UMODEL" -export -gltf -sounds -png             -path="$(pwd)/recovered/raw"             -out="$(pwd)/recovered/export"             '*.uasset'             > recovered/umodel-export.log 2>&1
+          RC=$?
+          set -e
+          echo "UMODEL_RC=$RC"
+          find recovered/export -type f | sort > recovered/export-files.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          root=Path("recovered/export")
+          rows=[{"path":p.as_posix(),"bytes":p.stat().st_size,"ext":p.suffix.lower()} for p in root.rglob("*") if p.is_file()]
+          kinds={}
+          for r in rows:kinds[r["ext"]]=kinds.get(r["ext"],0)+1
+          report={"file_count":len(rows),"bytes":sum(r["bytes"] for r in rows),"extensions":kinds,"files":rows}
+          Path("recovered/export-report.json").write_text(json.dumps(report,indent=2)+"\n")
+          print("XZOGOT_AETHER_UMODEL_EXPORT",report["file_count"],report["bytes"],kinds)
+          if not rows:
+              raise SystemExit("UModel produced no export files")
+          mesh=sum(kinds.get(x,0) for x in (".gltf",".glb",".psk",".pskx"))
+          anim=sum(kinds.get(x,0) for x in (".psa",".md5anim"))
+          sound=sum(kinds.get(x,0) for x in (".wav",".ogg",".mp3"))
+          print("XZOGOT_AETHER_WALL_EXPORT_CLASSES",mesh,anim,sound)
+          if mesh<=0:
+              raise SystemExit("No weapon mesh export produced")
+          PY
+
+      - name: Upload recovered wall weapons
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aether-wall-weapons-recovered
+          path: |
+            recovered/raw-report.json
+            recovered/raw-files.txt
+            recovered/umodel-version.txt
+            recovered/umodel-export.log
+            recovered/export-report.json
+            recovered/export-files.txt
+            recovered/export/
+          if-no-files-found: warn
+          retention-days: 14
+          compression-level: 6
