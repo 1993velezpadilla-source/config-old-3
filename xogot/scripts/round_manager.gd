@@ -452,6 +452,29 @@ func dev_spawn_one() -> Node:
 func is_dev_no_zombies() -> bool:
 	return _dev_no_zombies
 
+func apply_network_round_state(
+	round_number: int,
+	round_total: int,
+	remaining_to_spawn: int,
+	alive_count: int,
+	break_remaining: float
+) -> void:
+	current_round = maxi(0, round_number)
+	_round_total = maxi(0, round_total)
+	_remaining_to_spawn = maxi(0, remaining_to_spawn)
+	_alive = maxi(0, alive_count)
+	_break_timer = maxf(0.0, break_remaining)
+	_round_spawned = maxi(0, _round_total - _remaining_to_spawn)
+	_started = current_round > 0
+	set_meta("network_round_state", true)
+	print(
+		"XZOGOT_NETWORK_ROUND_STATE round=", current_round,
+		" total=", _round_total,
+		" remaining=", _remaining_to_spawn,
+		" alive=", _alive,
+		" break=", _break_timer
+	)
+
 func get_round() -> int:
 	return current_round
 
