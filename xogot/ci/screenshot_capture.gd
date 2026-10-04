@@ -81,4 +81,26 @@ func _capture() -> void:
 		return
 
 	print("XZOGOT_SCREENSHOT_GREEN ", path, " ", image.get_width(), "x", image.get_height())
+
+	# Second independent view: exterior/front facade audit from the playable yard.
+	if player != null:
+		player.global_position = Vector3(0.0, 0.38, 27.0)
+		player.rotation.y = 0.0
+		for i in range(16):
+			await process_frame
+
+		var exterior_image: Image = root.get_texture().get_image()
+		if exterior_image == null or exterior_image.is_empty():
+			push_error("SCREENSHOT: exterior viewport capture empty")
+			quit(5)
+			return
+
+		var exterior_path := "/tmp/xogot-current-exterior.png"
+		var exterior_err: Error = exterior_image.save_png(exterior_path)
+		if exterior_err != OK:
+			push_error("SCREENSHOT: exterior save_png failed %s" % exterior_err)
+			quit(6)
+			return
+		print("XZOGOT_EXTERIOR_SCREENSHOT_GREEN ", exterior_path, " ", exterior_image.get_width(), "x", exterior_image.get_height())
+
 	quit(0)
