@@ -1,0 +1,131 @@
+{
+  "schema": 1,
+  "id": "xzogot_legacy_reconstructed_map_asset_sources_v1",
+  "purpose": "Preserve and prioritize previously audited/downloaded community reconstructed Call of Duty Zombies map assets for Xogot weapon/model/animation/audio integration.",
+  "hard_rules": [
+    "Do not treat Quake/NZ:P weapon models as final presentation assets.",
+    "Before sourcing a new weapon, search all previously preserved reconstructed-map inventories and branches.",
+    "Prefer complete weapon packages containing viewmodel, worldmodel, animations and audio.",
+    "Do not mark a weapon READY from identity/stats metadata alone.",
+    "Do not discard or overwrite legacy reconstructed-map asset inventories when porting to Xogot."
+  ],
+  "priority_sources": [
+    {
+      "name": "Enhanced Nacht asset foundation",
+      "branch": "feature/enhanced-assets-foundation",
+      "known_paths": [
+        "asset_manifest.json",
+        "docs/NACHT_ENHANCED_VERTICAL_SLICE.md",
+        "content/enhanced/maps/ndu/targets.json"
+      ],
+      "known_categories": [
+        "weapons",
+        "first_person_arms",
+        "animations",
+        "audio",
+        "vfx",
+        "zombies",
+        "props",
+        "mystery_box",
+        "ray_gun_fx",
+        "powerups",
+        "pack_a_punch",
+        "barricades",
+        "ui",
+        "decals"
+      ],
+      "priority": "PRIMARY_LEGACY_INVENTORY"
+    },
+    {
+      "name": "XZIEL Nacht weapon runtime",
+      "branch": "feature/xziel-nacht-weapon-runtime-v1",
+      "known_paths": [
+        "assets/weapons/xziel_weapon_catalog_v1.json",
+        "assets/weapons/xziel_weapon_id_registry_v1.json",
+        "assets/weapons/xziel_mystery_box_runtime_pool_v1.json",
+        "assets/weapons/bo3_weapon_source_coverage_v1.json",
+        "assets/weapons/bo3_weapon_source_stats_v1.json"
+      ],
+      "priority": "PRIMARY_WEAPON_METADATA"
+    },
+    {
+      "name": "BO3 style map loader and Nuketown audits",
+      "branch": "feature/xziel-bo3-style-map-loader-v1",
+      "known_scope": [
+        "Nacht visual/material workflows",
+        "Nuketown Zombies virgin package census",
+        "static scene runtime",
+        "standalone visual workflows"
+      ],
+      "priority": "PRIMARY_RECONSTRUCTED_MAP_SOURCE"
+    },
+    {
+      "name": "BO3 Nacht Workshop extracted package",
+      "branch": "experiment/bo3-nacht-workshop-audit",
+      "known_scope": [
+        "community standalone/reconstructed Nacht package",
+        "XAssetList inventory",
+        "XMODEL/XANIM/SOUND/WEAPON asset classes"
+      ],
+      "priority": "PRIMARY_PACKAGE_AUDIT"
+    },
+    {
+      "name": "BO3 Nacht Madgaz community pack",
+      "branch": "experiment/bo3-nacht-madgaz-pack-audit",
+      "known_scope": [
+        "archived public BO3 Nacht community model pack",
+        "XMODEL/material/texture/source-data inventory"
+      ],
+      "priority": "SECONDARY_MAP_ASSET_SOURCE"
+    },
+    {
+      "name": "BO3 Nacht MindMirror community pack",
+      "branch": "experiment/bo3-nacht-mindmirror-pack-audit",
+      "known_scope": [
+        "33-model public Nacht release",
+        "XMODEL_EXPORT/XMODEL_BIN/GDT/TIFF inventory"
+      ],
+      "priority": "SECONDARY_MAP_ASSET_SOURCE"
+    },
+    {
+      "name": "Project Aether reconstructed Nacht reference",
+      "branch": "experiment/project-aether-golden-reference",
+      "known_scope": [
+        "community reconstructed Nacht implementation",
+        "cooked map geometry/material packages",
+        "large reconstructed-map asset reference"
+      ],
+      "priority": "RECONSTRUCTED_MAP_REFERENCE"
+    },
+    {
+      "name": "WaW Thompson importer golden reference",
+      "branch": "experiment/waw-golden-thompson",
+      "known_scope": [
+        "viewmodel",
+        "textures",
+        "11 validated animations"
+      ],
+      "priority": "IMPORTER_REFERENCE_ONLY",
+      "note": "Not final MapMod source by itself; audio and final community-mod package still require verification."
+    }
+  ],
+  "preserved_runtime_context": {
+    "nacht_scene_summary": {
+      "meshes": 492,
+      "instances": 10791
+    },
+    "prior_weapon_catalog_summary": {
+      "weapon_identities": 52,
+      "pack_a_punch_identities": 35
+    }
+  },
+  "integration_order": [
+    "Search preserved reconstructed-map inventories/branches first.",
+    "Locate full weapon package candidate.",
+    "Verify source is not Quake/NZP final presentation.",
+    "Convert/import model and animations.",
+    "Bind fire/reload/mechanical/dry-fire audio.",
+    "Validate in WeaponAssetRegistry.",
+    "Only then mark READY in DEV Weapon Lab."
+  ]
+}
