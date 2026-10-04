@@ -68,7 +68,7 @@ func _run() -> void:
 			print("XZOGOT_4P_E2E_CLIENT_WORLD_GREEN ", tag)
 			print("XZOGOT_4P_E2E_CLIENT_EFFECTS_GREEN ", tag)
 			# Remain online so the host can verify a stable four-player window.
-			await _wait(7.0)
+			await _wait(5.0)
 			if str(network.call("get_mode")) != "client":
 				_fail(6, "lost session during stability window " + tag)
 				return
