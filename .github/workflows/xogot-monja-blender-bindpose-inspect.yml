@@ -1,0 +1,52 @@
+name: Inspect Monja Blender Bind Pose
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/church-expansion-v1
+    paths:
+      - "xogot/tools/inspect_monja_blender_bindpose.py"
+      - ".github/workflows/xogot-monja-blender-bindpose-inspect.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xogot-monja-bindpose-inspect-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Blender
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender python3-numpy
+          blender --version | head -n 2
+
+      - name: Inspect source pose donor rig and recorded mocap
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf xogot/build/monja-blender-bindpose-inspect
+          mkdir -p xogot/build/monja-blender-bindpose-inspect
+          timeout 1800 blender -b --python xogot/tools/inspect_monja_blender_bindpose.py             2>&1 | tee xogot/build/monja-blender-bindpose-inspect/blender.log
+          grep -q "XZOGOT_MONJA_BLENDER_BINDPOSE_INSPECT_GREEN" xogot/build/monja-blender-bindpose-inspect/blender.log
+          test -s xogot/build/monja-blender-bindpose-inspect/inspect.json
+          test -s xogot/build/monja-blender-bindpose-inspect/monja_source_front.png
+          test -s xogot/build/monja-blender-bindpose-inspect/monja_source_side.png
+
+      - name: Upload real Blender inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: monja-blender-bindpose-inspect
+          path: xogot/build/monja-blender-bindpose-inspect/
+          if-no-files-found: error
+          retention-days: 14
