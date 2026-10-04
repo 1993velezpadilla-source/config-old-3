@@ -2,7 +2,7 @@
 """Merge mapped Aether WaW skeletal GLBs with their ActorX PSA animations in Blender.
 
 Run inside Blender:
-  blender --background --python build_aether_animated_glbs.py -- <artifact_root> <output_root>
+  blender --background --python build_aether_animated_glbs.py -- <artifact_root> <addon_parent> <psk_psa_py_target> <output_root>
 """
 
 from __future__ import annotations
@@ -130,24 +130,22 @@ def export_animated_glb(path: Path) -> None:
 
 def main() -> int:
     args = argv_after_double_dash()
-    if len(args) != 3:
+    if len(args) != 4:
         raise SystemExit(
             "usage: blender --background --python build_aether_animated_glbs.py "
-            "-- <artifact_root> <addon_parent> <output_root>"
+            "-- <artifact_root> <addon_parent> <psk_psa_py_target> <output_root>"
         )
     artifact_root = Path(args[0]).resolve()
     addon_parent = Path(args[1]).resolve()
-    output_root = Path(args[2]).resolve()
+    psk_psa_py_target = Path(args[2]).resolve()
+    output_root = Path(args[3]).resolve()
 
+    if not (psk_psa_py_target / "psk_psa_py" / "__init__.py").is_file():
+        raise SystemExit(f"Installed psk_psa_py package missing: {psk_psa_py_target}")
+    sys.path.insert(0, str(psk_psa_py_target))
     sys.path.insert(0, str(addon_parent))
-    wheels = sorted((addon_parent / "io_scene_psk_psa" / "wheels").glob("psk_psa_py-*.whl"))
-    if not wheels:
-        raise SystemExit(f"Bundled psk_psa_py wheel missing under {addon_parent}")
-    # Wheels are ZIP-importable; adding the bundled wheel to sys.path avoids
-    # mutating Blender's embedded Python installation on the CI runner.
-    sys.path.insert(0, str(wheels[-1]))
     import psk_psa_py  # type: ignore
-    print("XZOGOT_PSK_PSA_PY_READY", getattr(psk_psa_py, "__file__", "wheel"))
+    print("XZOGOT_PSK_PSA_PY_READY", getattr(psk_psa_py, "__file__", "installed"))
     import io_scene_psk_psa  # type: ignore
     io_scene_psk_psa.register()
 
