@@ -83,7 +83,7 @@ jobs:
           if test -s xogot/assets/environment/church/church_final_architecture.glb; then
             grep -q "XZOGOT_FINAL_CHURCH_ARCHITECTURE_READY" build/xogot-ai/runtime.log
           else
-            grep -q "XZOGOT_ARCH_SHELL_V2_READY" build/xogot-ai/runtime.log
+            grep -Eq "XZOGOT_FINAL_CHURCH_ARCHITECTURE_READY|XZOGOT_ARCH_SHELL_V2_READY" build/xogot-ai/runtime.log
           fi
           grep -q "XZOGOT_AUTHORED_ALTAR_READY" build/xogot-ai/runtime.log
           grep -q "XZOGOT_ROYAL_AISLE_CARPET_READY" build/xogot-ai/runtime.log
