@@ -732,6 +732,13 @@ func _apply_limb_damage(zone: String, amount: float, source: Node) -> bool:
 		return _sever_limb(zone, source, amount)
 	return false
 
+func _core_damage_multiplier_for_zone(zone: String) -> float:
+	match zone:
+		"left_arm", "right_arm": return 0.42
+		"left_leg", "right_leg": return 0.35
+		"head": return 1.0
+	return 1.0
+
 func apply_hitscan_damage(amount: float, source: Node = null, hit_position: Vector3 = Vector3.ZERO) -> void:
 	if phase == Phase.DEAD or amount <= 0.0:
 		return
@@ -745,7 +752,8 @@ func apply_hitscan_damage(amount: float, source: Node = null, hit_position: Vect
 		print("XZOGOT_ZOMBIE_HEADSHOT")
 	if _apply_limb_damage(zone, applied_amount, source):
 		return
-	_take_damage(applied_amount, source, is_headshot)
+	var core_damage: float = applied_amount * _core_damage_multiplier_for_zone(zone)
+	_take_damage(core_damage, source, is_headshot)
 
 func apply_melee_damage(amount: float, source: Node = null, hit_position: Vector3 = Vector3.ZERO) -> void:
 	if phase == Phase.DEAD or amount <= 0.0:
