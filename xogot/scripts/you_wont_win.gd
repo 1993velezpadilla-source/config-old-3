@@ -5,6 +5,7 @@ const ALTAR_ASSET_PATH := "res://assets/environment/church/altar.glb"
 const BENCH_ASSET_PATH := "res://assets/environment/church/bench.glb"
 const CANDLE_MANAGER_SCRIPT := preload("res://scripts/candle_manager.gd")
 const POWER_LIGHT_RIG_SCRIPT := preload("res://scripts/power_light_rig.gd")
+const PERK_CATALOG := preload("res://scripts/perk_catalog.gd")
 
 # High-density user gift pack. These are optional so CI stays green until the
 # binary GLBs are copied into res://assets/gifts/ with the canonical names.
@@ -1527,7 +1528,7 @@ func _build_balcony_stair_ramp() -> void:
 	print("XZOGOT_BALCONY_RAMP_READY ", angle_deg)
 
 func _build_interactions() -> void:
-	# Generic interaction kinds: 0 door, 1 wallbuy, 2 mystery, 3 perk, 4 power.
+	# Interaction kinds: 0 door, 1 wallbuy, 2 mystery, 3 perk, 4 power, 5 weapon upgrade.
 	_interactive_box("RearDoor", Vector3(3.4, 3.8, 0.35), Vector3(0, 1.9, 13.10), Color(0.12, 0.07, 0.035), 0, 750, 0, true, "OPEN FRONT DOOR")
 	_interactive_box("BalconyGate", Vector3(3.5, 2.2, 0.30), Vector3(-8.0, 6.0, 7.45), Color(0.13, 0.075, 0.04), 0, 1000, 0, true, "OPEN BALCONY")
 	# Audited wall-buy ladder: cheap dependable rifle near spawn, SMG on the west
@@ -1541,10 +1542,10 @@ func _build_interactions() -> void:
 	_interactive_box("WallBuy_Thompson", Vector3(0.28, 1.45, 2.20), Vector3(-10.20, 5.92, -8.0), Color(0.10, 0.24, 0.34), 1, 1200, 0, false, "BUY THOMPSON", "thompson")
 	_add_wallbuy_chalk("THOMPSON", Vector3(-9.98, 5.95, -8.0), 1200, Vector3(0.0, 0.0, -90.0))
 	_interactive_box("MysteryBoxSocket", Vector3(2.2, 1.4, 1.1), Vector3(7.4, 0.9, -15.0), Color(0.18, 0.12, 0.30), 2, 950, 0, false, "MYSTERY BOX")
-	_interactive_box("PerkSocket", Vector3(1.2, 2.0, 1.2), Vector3(-7.4, 1.2, -15.2), Color(0.42, 0.11, 0.09), 3, 2500, 0, true, "PERK")
 	_interactive_box("PowerSwitch", Vector3(0.7, 2.2, 0.7), Vector3(8.6, 1.4, 8.3), Color(0.52, 0.42, 0.12), 4, 0, 0, true, "TURN ON POWER")
 	_build_expansion_interactions()
-	print("XZOGOT_INTERACTIONS_PREPARED 14")
+	_build_perk_and_upgrade_machines()
+	print("XZOGOT_INTERACTIONS_PREPARED ", get_tree().get_nodes_in_group("zombie_interactable").size())
 
 func _build_expansion_interactions() -> void:
 	var gate_color := Color(0.16, 0.055, 0.035)
@@ -1558,7 +1559,20 @@ func _build_expansion_interactions() -> void:
 	_interactive_box("CryptGate", Vector3(3.0, 2.8, 0.35), Vector3(16.0, 1.45, -1.1), gate_color, 0, 1250, 0, true, "OPEN CRYPT")
 	print("XZOGOT_EXPANSION_BUY_GATES_READY 5")
 
-func _interactive_box(label: String, size: Vector3, pos: Vector3, color: Color, kind: int, price: int, reward: int, one_shot: bool, prompt: String, weapon_id: String = "") -> void:
+func _interactive_box(
+	label: String,
+	size: Vector3,
+	pos: Vector3,
+	color: Color,
+	kind: int,
+	price: int,
+	reward: int,
+	one_shot: bool,
+	prompt: String,
+	weapon_id: String = "",
+	perk_id: String = "",
+	requires_power: bool = false
+) -> StaticBody3D:
 	var script_resource: Script = load("res://scripts/interactable.gd") as Script
 	var body := StaticBody3D.new()
 	body.name = label
@@ -1570,6 +1584,8 @@ func _interactive_box(label: String, size: Vector3, pos: Vector3, color: Color, 
 	body.set("one_shot", one_shot)
 	body.set("prompt_text", prompt)
 	body.set("weapon_id", weapon_id)
+	body.set("perk_id", perk_id)
+	body.set("requires_power", requires_power)
 	body.add_to_group("zombie_interactable")
 	if kind == 1:
 		body.add_to_group("wall_buy")
@@ -1591,6 +1607,102 @@ func _interactive_box(label: String, size: Vector3, pos: Vector3, color: Color, 
 	cs.shape = shape
 	body.add_child(cs)
 	add_child(body)
+	return body
+
+func _machine_accent(body: StaticBody3D, title: String, accent: Color, icon: String) -> void:
+	var panel := MeshInstance3D.new()
+	panel.name = "MachinePanel"
+	var panel_mesh := BoxMesh.new()
+	panel_mesh.size = _ws(Vector3(0.74, 0.68, 0.10))
+	var panel_mat := StandardMaterial3D.new()
+	panel_mat.albedo_color = accent.darkened(0.45)
+	panel_mat.emission_enabled = true
+	panel_mat.emission = accent
+	panel_mat.emission_energy_multiplier = 1.8
+	panel_mat.roughness = 0.42
+	panel_mesh.material = panel_mat
+	panel.mesh = panel_mesh
+	panel.position = _ws(Vector3(0.0, 0.28, -0.66))
+	panel.set_meta("powered_visual", true)
+	body.add_child(panel)
+
+	var badge := Label3D.new()
+	badge.name = "MachineLabel"
+	badge.text = icon + "\n" + title
+	badge.font_size = 42
+	badge.outline_size = 8
+	badge.modulate = accent.lightened(0.28)
+	badge.position = _ws(Vector3(0.0, 0.30, -0.73))
+	badge.pixel_size = 0.0024
+	badge.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	badge.set_meta("powered_visual", true)
+	body.add_child(badge)
+
+	var glow := OmniLight3D.new()
+	glow.name = "MachineGlow"
+	glow.position = _ws(Vector3(0.0, 0.40, -0.88))
+	glow.light_color = accent
+	glow.light_energy = 0.32
+	glow.omni_range = 2.6 * WORLD_SCALE
+	glow.shadow_enabled = false
+	glow.set_meta("powered_visual", true)
+	body.add_child(glow)
+
+func _add_perk_machine(
+	perk_id: String,
+	pos: Vector3,
+	rotation_y: float,
+	icon: String
+) -> void:
+	var def: Dictionary = PERK_CATALOG.get_perk(perk_id)
+	var color_a: Array = def.get("machine_color", [0.3, 0.3, 0.3]) as Array
+	var accent := Color(float(color_a[0]), float(color_a[1]), float(color_a[2]))
+	var display: String = str(def.get("display_name", perk_id.to_upper()))
+	var price: int = int(def.get("price", 2000))
+	var body := _interactive_box(
+		"Perk_" + perk_id,
+		Vector3(1.35, 2.20, 1.15),
+		pos,
+		accent.darkened(0.62),
+		3,
+		price,
+		0,
+		false,
+		"BUY " + display,
+		"",
+		perk_id,
+		true
+	)
+	body.rotation_degrees.y = rotation_y
+	body.add_to_group("perk_machine")
+	_machine_accent(body, display, accent, icon)
+
+func _build_perk_and_upgrade_machines() -> void:
+	_add_perk_machine("martyrs_blood", Vector3(-7.55, 1.12, -15.15), 180.0, "✚")
+	_add_perk_machine("quick_hands", Vector3(17.45, 1.12, -13.35), -90.0, "⚙")
+	_add_perk_machine("pilgrim_rush", Vector3(-14.8, 1.12, 29.2), 90.0, "➤")
+	_add_perk_machine("choir_sight", Vector3(4.9, 6.12, -18.15), 180.0, "◎")
+	_add_perk_machine("twin_bells", Vector3(-25.0, 9.22, 7.25), 0.0, "♢")
+	_add_perk_machine("last_rites", Vector3(17.2, -1.78, -16.0), -90.0, "☩")
+
+	var forge := _interactive_box(
+		"SanctumForge",
+		Vector3(2.3, 1.8, 1.45),
+		Vector3(0.0, 1.0, -38.4),
+		Color(0.11, 0.085, 0.16),
+		5,
+		5000,
+		0,
+		false,
+		"SANCTIFY CURRENT WEAPON",
+		"",
+		"",
+		true
+	)
+	forge.add_to_group("weapon_upgrade_machine")
+	_machine_accent(forge, "SANCTUM FORGE", Color(0.50, 0.20, 0.72), "✦")
+	print("XZOGOT_PERK_MACHINES_READY 6")
+	print("XZOGOT_SANCTUM_FORGE_READY")
 
 func _add_wallbuy_chalk(
 	weapon_label: String,
