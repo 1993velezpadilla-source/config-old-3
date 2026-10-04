@@ -130,6 +130,19 @@ func _exit_tree() -> void:
 func is_busy() -> bool:
 	return _thread != null and _thread.is_started()
 
+func debug_set_mapping_for_probe(external_ip: String, port: int) -> bool:
+	# Test seam: never opens a socket or router mapping. Production hosting only
+	# reaches mapped state through request_mapping() + the UPNP worker.
+	if external_ip.is_empty() or port < 1024 or port > 65535:
+		return false
+	clear_mapping()
+	_external_ip = external_ip
+	_mapped_port = port
+	_status = "mapped_probe"
+	print("XZOGOT_UPNP_PROBE_MAPPING ", get_public_endpoint())
+	mapping_finished.emit(true, _external_ip, _mapped_port, _status)
+	return true
+
 func has_mapping() -> bool:
 	return _mapped_port > 0 and not _external_ip.is_empty()
 
