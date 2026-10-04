@@ -150,6 +150,24 @@ static func inspect(id: String) -> Dictionary:
 	_inspection_cache[id] = report
 	return report.duplicate(true)
 
+static func animation_name_for_role(id: String, role: String) -> String:
+	var rec := get_record(id)
+	var aliases: Dictionary = rec.get("required_animation_aliases", {}) as Dictionary
+	if not aliases.has(role):
+		return ""
+	var names := animation_names_for(id)
+	for name: String in names:
+		for alias_var: Variant in aliases[role] as Array:
+			var alias := str(alias_var).to_lower()
+			if not alias.is_empty() and name.contains(alias):
+				return name
+	return ""
+
+static func preferred_worldmodel_path(id: String, fallback: String = "") -> String:
+	var report := inspect(id)
+	var path := str(report.get("worldmodel_path", ""))
+	return path if bool(report.get("worldmodel", false)) else fallback
+
 static func preferred_viewmodel_path(id: String, fallback: String = "") -> String:
 	var report := inspect(id)
 	var path := str(report.get("viewmodel_path", ""))
