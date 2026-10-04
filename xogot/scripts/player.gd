@@ -700,6 +700,11 @@ func add_points(amount: int) -> void:
 func get_points() -> int:
 	return 999999 if _dev_infinite_points else points
 
+func apply_authoritative_network_points(server_points: int) -> void:
+	if _network_client_mode():
+		points = maxi(0, server_points)
+		set_meta("network_authoritative_points", points)
+
 func get_move_vector() -> Vector2:
 	return _move_vector
 
