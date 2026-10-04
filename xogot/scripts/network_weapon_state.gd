@@ -16,6 +16,8 @@ func equip_weapon(id: String, refill: bool = true) -> bool:
 	if not WeaponCatalog.has_weapon(id):
 		return false
 	var def: Dictionary = WeaponCatalog.get_weapon(id)
+	if id != _weapon_id:
+		_upgraded = false
 	_weapon_id = id
 	if refill:
 		_magazine = int(def.get("magazine", 8))
