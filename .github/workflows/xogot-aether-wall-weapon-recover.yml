@@ -1,6 +1,6 @@
 name: Recover Aether Wall Weapons
 
-# recovery-matrix-trigger: 2026-10-04-v9
+# recovery-matrix-trigger: 2026-10-04-v10
 
 on:
   workflow_dispatch:
@@ -72,10 +72,10 @@ jobs:
           rm -rf recovered
           mkdir -p recovered/raw
           find "$AETHER_PAKDIR" -maxdepth 2 -type f -printf "%f\t%s\n" | sort > recovered/pak-files.txt
-          "$REPAK" unpack "$RUNNER_TEMP/aether-legacy.pak"             -o recovered/raw             -i 'ProjectAether/Content/Assets/Weapons/waw/M1Garand/**'             -i 'ProjectAether/Content/Assets/Weapons/waw/MP40/**'             -i 'ProjectAether/Content/Assets/Weapons/waw/TrenchGun/**'             -i 'ProjectAether/Content/Assets/Weapons/waw/Thompson/**'             -i 'ProjectAether/Content/Assets/Sounds/**/*garand*'             -i 'ProjectAether/Content/Assets/Sounds/**/*Garand*'             -i 'ProjectAether/Content/Assets/Sounds/**/*mp40*'             -i 'ProjectAether/Content/Assets/Sounds/**/*MP40*'             -i 'ProjectAether/Content/Assets/Sounds/**/*trench*'             -i 'ProjectAether/Content/Assets/Sounds/**/*Trench*'             -i 'ProjectAether/Content/Assets/Sounds/**/*thompson*'             -i 'ProjectAether/Content/Assets/Sounds/**/*Thompson*'             --force
+          "$REPAK" unpack "$RUNNER_TEMP/aether-legacy.pak"             -o recovered/raw             -i 'ProjectAether/Content/Assets/Weapons/waw/1911/**'             -i 'ProjectAether/Content/Assets/Weapons/waw/M1Garand/**'             -i 'ProjectAether/Content/Assets/Weapons/waw/MP40/**'             -i 'ProjectAether/Content/Assets/Weapons/waw/TrenchGun/**'             -i 'ProjectAether/Content/Assets/Weapons/waw/Thompson/**'             -i 'ProjectAether/Content/Assets/Sounds/**/*1911*'             -i 'ProjectAether/Content/Assets/Sounds/**/*colt*'             -i 'ProjectAether/Content/Assets/Sounds/**/*Colt*'             -i 'ProjectAether/Content/Assets/Sounds/**/*garand*'             -i 'ProjectAether/Content/Assets/Sounds/**/*Garand*'             -i 'ProjectAether/Content/Assets/Sounds/**/*mp40*'             -i 'ProjectAether/Content/Assets/Sounds/**/*MP40*'             -i 'ProjectAether/Content/Assets/Sounds/**/*trench*'             -i 'ProjectAether/Content/Assets/Sounds/**/*Trench*'             -i 'ProjectAether/Content/Assets/Sounds/**/*thompson*'             -i 'ProjectAether/Content/Assets/Sounds/**/*Thompson*'             --force
           find recovered/raw -type f | sort > recovered/raw-files.txt
           echo "=== EXACT M1/MP40/TRENCH/THOMPSON PACKAGE PATHS ==="
-          grep -Ei 'M1Garand|MP40|TrenchGun|Thompson' recovered/raw-files.txt | head -n 260 || true
+          grep -Ei '1911|colt|M1Garand|MP40|TrenchGun|Thompson' recovered/raw-files.txt | head -n 260 || true
           python3 - <<'PY'
           from pathlib import Path
           import json
@@ -84,7 +84,7 @@ jobs:
           for p in root.rglob("*"):
               if p.is_file():
                   rows.append({"path":p.as_posix(),"bytes":p.stat().st_size,"ext":p.suffix.lower()})
-          names=("M1Garand","MP40","TrenchGun","Thompson")
+          names=("1911","M1Garand","MP40","TrenchGun","Thompson")
           counts={n:sum(n.lower() in r["path"].lower() for r in rows) for n in names}
           out={"file_count":len(rows),"bytes":sum(r["bytes"] for r in rows),"weapon_path_counts":counts,"files":rows}
           Path("recovered/raw-report.json").write_text(json.dumps(out,indent=2)+"\n")
@@ -151,10 +151,14 @@ jobs:
           rm -rf recovered/export
           mkdir -p recovered/export
           cat > recovered/aether-weapon-packages.txt <<'EOF'
+          *Weapons/waw/1911/*.uasset
           *Weapons/waw/M1Garand/*.uasset
           *Weapons/waw/MP40/*.uasset
           *Weapons/waw/TrenchGun/*.uasset
           *Weapons/waw/Thompson/*.uasset
+          *Sounds/**/*1911*.uasset
+          *Sounds/**/*colt*.uasset
+          *Sounds/**/*Colt*.uasset
           *Sounds/**/*garand*.uasset
           *Sounds/**/*Garand*.uasset
           *Sounds/**/*mp40*.uasset
