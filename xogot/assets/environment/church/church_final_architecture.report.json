@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "asset": "church_final_architecture.glb",
+  "visual_only": true,
+  "gameplay_collision_authority": "Godot procedural collision shell",
+  "runtime_meshes": 7,
+  "triangles_estimated": 80500,
+  "vertices": 41162,
+  "objects": [
+    {
+      "name": "Architecture_stone_dark",
+      "vertices": 3298,
+      "polygons": 6452
+    },
+    {
+      "name": "Architecture_trim",
+      "vertices": 25528,
+      "polygons": 49816
+    },
+    {
+      "name": "Architecture_stone",
+      "vertices": 2400,
+      "polygons": 4700
+    },
+    {
+      "name": "Architecture_glass_gold",
+      "vertices": 576,
+      "polygons": 1128
+    },
+    {
+      "name": "Architecture_glass_red",
+      "vertices": 576,
+      "polygons": 1128
+    },
+    {
+      "name": "Architecture_wood",
+      "vertices": 8400,
+      "polygons": 16516
+    },
+    {
+      "name": "Architecture_metal",
+      "vertices": 384,
+      "polygons": 760
+    }
+  ],
+  "render_count": 8,
+  "features": [
+    "gothic pointed zombie-window surrounds",
+    "upper clerestory stained-glass frames",
+    "beveled nave pilasters and buttresses",
+    "rib-vault curves and timber roof trusses",
+    "nested front portal",
+    "front tower detailing and pinnacles",
+    "sanctuary reredos and cross",
+    "second-floor balustrades",
+    "bell tower decorative skin and bell",
+    "side-room and crypt arch framing"
+  ]
+}
