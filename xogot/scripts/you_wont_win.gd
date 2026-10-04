@@ -4,6 +4,17 @@ const WORLD_SCALE: float = 0.78
 const ALTAR_ASSET_PATH := "res://assets/environment/church/altar.glb"
 const BENCH_ASSET_PATH := "res://assets/environment/church/bench.glb"
 
+# High-density user gift pack. These are optional so CI stays green until the
+# binary GLBs are copied into res://assets/gifts/ with the canonical names.
+const GIFT_ALTAR_ASSET_PATH := "res://assets/gifts/intricate_wooden_altar.glb"
+const GIFT_CHANDELIER_ASSET_PATH := "res://assets/gifts/candelabros_colgantes_techo.glb"
+const GIFT_STAINED_GLASS_ASSET_PATH := "res://assets/gifts/gothic_stained_glass_window.glb"
+const GIFT_MULTI_STAINED_GLASS_ASSET_PATH := "res://assets/gifts/multiple_gothic_stained_glass_window.glb"
+const GIFT_STATUES_ASSET_PATH := "res://assets/gifts/religious_statue_collection.glb"
+const GIFT_CANDLE_HOLDER_ASSET_PATH := "res://assets/gifts/ornate_candle_holder.glb"
+const GIFT_FURNITURE_ASSET_PATH := "res://assets/gifts/gothic_church_furniture.glb"
+const GIFT_RUINS_ASSET_PATH := "res://assets/gifts/medieval_church_ruins.glb"
+
 var _stone_texture: Texture2D
 var _wood_texture: Texture2D
 var _floor_texture: Texture2D
@@ -109,6 +120,7 @@ func _ready() -> void:
 	_build_realism_pass()
 	_build_architectural_shell_v2()
 	_build_church_visual_v3()
+	_build_gift_pack()
 	_build_interactions()
 	_build_windows()
 	_build_lights()
@@ -260,9 +272,20 @@ func _build_interior() -> void:
 func _build_authored_altar() -> void:
 	var altar_base_y: float = 0.66
 	var altar_target := Vector3(3.60, 1.45, 1.35)
+	var altar_path: String = ALTAR_ASSET_PATH
+	var altar_label: String = "AuthoredAltar"
+
+	# Prefer the new full-density wooden altar when the gift pack is present.
+	# The old authored altar remains the automatic fallback.
+	if ResourceLoader.exists(GIFT_ALTAR_ASSET_PATH):
+		altar_path = GIFT_ALTAR_ASSET_PATH
+		altar_label = "GiftIntricateWoodenAltar"
+		altar_target = Vector3(4.25, 2.05, 1.55)
+		print("XZOGOT_GIFT_ALTAR_SELECTED")
+
 	var altar := _spawn_fitted_furniture(
-		ALTAR_ASSET_PATH,
-		"AuthoredAltar",
+		altar_path,
+		altar_label,
 		Vector3(0.0, altar_base_y, -20.85),
 		altar_target,
 		90.0,
@@ -393,6 +416,164 @@ func _spawn_fitted_furniture(
 	wrapper.set_meta("target_size_m", target_size * WORLD_SCALE)
 	add_child(wrapper)
 	return wrapper
+
+func _spawn_optional_gift_prop(
+	path: String,
+	label: String,
+	base_pos: Vector3,
+	max_local_size: Vector3,
+	rotation_y_deg: float
+) -> Node3D:
+	if not ResourceLoader.exists(path):
+		print("XZOGOT_GIFT_PENDING ", path)
+		return null
+
+	var packed: PackedScene = load(path) as PackedScene
+	if packed == null:
+		push_warning("GIFT_ASSET_NOT_PACKED: " + path)
+		return null
+
+	var imported: Node3D = packed.instantiate() as Node3D
+	if imported == null:
+		push_warning("GIFT_ASSET_INSTANTIATE_FAILED: " + path)
+		return null
+
+	var points: Array[Vector3] = []
+	_collect_furniture_bounds(imported, Transform3D.IDENTITY, points)
+	if points.is_empty():
+		imported.queue_free()
+		push_warning("GIFT_ASSET_BOUNDS_EMPTY: " + path)
+		return null
+
+	var min_v: Vector3 = points[0]
+	var max_v: Vector3 = points[0]
+	for point: Vector3 in points:
+		min_v.x = minf(min_v.x, point.x)
+		min_v.y = minf(min_v.y, point.y)
+		min_v.z = minf(min_v.z, point.z)
+		max_v.x = maxf(max_v.x, point.x)
+		max_v.y = maxf(max_v.y, point.y)
+		max_v.z = maxf(max_v.z, point.z)
+
+	var raw_size: Vector3 = max_v - min_v
+	if raw_size.x <= 0.0001 or raw_size.y <= 0.0001 or raw_size.z <= 0.0001:
+		imported.queue_free()
+		push_warning("GIFT_ASSET_BAD_BOUNDS: " + path)
+		return null
+
+	# Preserve authored proportions: fit uniformly inside the requested box.
+	var desired_world: Vector3 = max_local_size * WORLD_SCALE
+	var uniform_scale: float = minf(
+		desired_world.x / raw_size.x,
+		minf(desired_world.y / raw_size.y, desired_world.z / raw_size.z)
+	)
+
+	var wrapper := Node3D.new()
+	wrapper.name = label
+	wrapper.position = _wp(base_pos)
+	wrapper.rotation_degrees.y = rotation_y_deg
+	wrapper.scale = Vector3.ONE * uniform_scale
+	wrapper.add_to_group("gift_pack_prop")
+	wrapper.set_meta("source_asset", path)
+	wrapper.set_meta("full_density", true)
+
+	imported.name = "Source"
+	imported.position = Vector3(
+		-(min_v.x + max_v.x) * 0.5,
+		-min_v.y,
+		-(min_v.z + max_v.z) * 0.5
+	)
+	wrapper.add_child(imported)
+	add_child(wrapper)
+	print("XZOGOT_GIFT_LOADED ", label, " ", path)
+	return wrapper
+
+func _build_gift_pack() -> void:
+	# One instance of each heavy GLB for the first gameplay judge pass.
+	# No mesh decimation and no texture downscale are performed here.
+	var loaded: int = 0
+	var prop: Node3D
+
+	# One high-density chandelier cluster centered over the nave.
+	prop = _spawn_optional_gift_prop(
+		GIFT_CHANDELIER_ASSET_PATH,
+		"GiftCeilingChandeliers",
+		Vector3(0.0, 4.35, -5.0),
+		Vector3(2.0, 2.6, 4.5),
+		0.0
+	)
+	if prop != null:
+		loaded += 1
+
+	# Single stained-glass showcase in the upper sanctuary wall zone.
+	prop = _spawn_optional_gift_prop(
+		GIFT_STAINED_GLASS_ASSET_PATH,
+		"GiftStainedGlassSingle",
+		Vector3(-10.42, 3.95, -13.0),
+		Vector3(0.18, 2.25, 1.30),
+		0.0
+	)
+	if prop != null:
+		loaded += 1
+
+	# Multi-window set on the tower facade. Rotating 90 degrees maps its thin X
+	# axis to facade depth and its authored Z span to horizontal width.
+	prop = _spawn_optional_gift_prop(
+		GIFT_MULTI_STAINED_GLASS_ASSET_PATH,
+		"GiftStainedGlassTower",
+		Vector3(0.0, 10.75, 13.22),
+		Vector3(0.16, 2.65, 3.55),
+		90.0
+	)
+	if prop != null:
+		loaded += 1
+
+	# Statue collection and candle holder flank the sanctuary without touching
+	# the center aisle or the zombie-window traversal path.
+	prop = _spawn_optional_gift_prop(
+		GIFT_STATUES_ASSET_PATH,
+		"GiftReligiousStatues",
+		Vector3(-9.65, 0.72, -18.4),
+		Vector3(0.45, 2.15, 3.10),
+		0.0
+	)
+	if prop != null:
+		loaded += 1
+
+	prop = _spawn_optional_gift_prop(
+		GIFT_CANDLE_HOLDER_ASSET_PATH,
+		"GiftOrnateCandleHolder",
+		Vector3(7.2, 0.72, -18.8),
+		Vector3(0.95, 1.55, 2.05),
+		0.0
+	)
+	if prop != null:
+		loaded += 1
+
+	# The fused furniture collection gets its own inspection pad outside the
+	# playable front path so we can walk around it without cluttering the nave.
+	prop = _spawn_optional_gift_prop(
+		GIFT_FURNITURE_ASSET_PATH,
+		"GiftChurchFurnitureShowcase",
+		Vector3(18.0, 0.0, -4.0),
+		Vector3(5.0, 3.2, 6.2),
+		-18.0
+	)
+	if prop != null:
+		loaded += 1
+
+	# Ruins become an exterior silhouette/cover candidate on the opposite yard.
+	prop = _spawn_optional_gift_prop(
+		GIFT_RUINS_ASSET_PATH,
+		"GiftMedievalChurchRuins",
+		Vector3(-21.0, 0.0, -8.0),
+		Vector3(6.0, 5.5, 10.0),
+		18.0
+	)
+	if prop != null:
+		loaded += 1
+
+	print("XZOGOT_GIFT_PACK_READY ", loaded, "/7 decorative + altar override")
 
 func _collect_furniture_bounds(
 	node: Node3D,
