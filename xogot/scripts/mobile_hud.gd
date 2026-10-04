@@ -56,17 +56,25 @@ func apply_mobile_settings(settings: Node) -> void:
 		_hud_opacity = clampf(float(settings.call("get_setting_value", "hud_opacity")), 0.25, 1.0)
 	queue_redraw()
 
-func _draw_settings_button() -> void:
+func _draw_pause_button() -> void:
 	var center: Vector2 = _screen(MobileLayout.PAUSE_CENTER)
 	var radius: float = MobileLayout.PAUSE_RADIUS * size.y
-	draw_circle(center, radius, Color(0.04, 0.04, 0.05, 0.62 * _hud_opacity))
-	draw_arc(center, radius * 0.56, 0.0, TAU, 24, Color(1.0, 1.0, 1.0, 0.78 * _hud_opacity), 2.2)
-	for i in range(8):
-		var a: float = float(i) * TAU / 8.0
-		var p0: Vector2 = center + Vector2(cos(a), sin(a)) * radius * 0.63
-		var p1: Vector2 = center + Vector2(cos(a), sin(a)) * radius * 0.82
-		draw_line(p0, p1, Color(1.0, 1.0, 1.0, 0.78 * _hud_opacity), 2.0)
-	draw_circle(center, radius * 0.17, Color(1.0, 1.0, 1.0, 0.82 * _hud_opacity))
+	var alpha: float = _hud_opacity
+	draw_circle(center, radius, Color(0.04, 0.04, 0.05, 0.64 * alpha))
+	draw_arc(center, radius * 0.88, 0.0, TAU, 32, Color(1.0, 1.0, 1.0, 0.34 * alpha), 1.6)
+	var bar_w: float = radius * 0.22
+	var bar_h: float = radius * 0.82
+	var gap: float = radius * 0.18
+	draw_rect(
+		Rect2(center + Vector2(-gap - bar_w, -bar_h * 0.5), Vector2(bar_w, bar_h)),
+		Color(1.0, 1.0, 1.0, 0.86 * alpha),
+		true
+	)
+	draw_rect(
+		Rect2(center + Vector2(gap, -bar_h * 0.5), Vector2(bar_w, bar_h)),
+		Color(1.0, 1.0, 1.0, 0.86 * alpha),
+		true
+	)
 
 func _draw_tex_center(
 	texture: Texture2D,
@@ -211,7 +219,7 @@ func _draw() -> void:
 			knife_pressed
 		)
 
-	_draw_settings_button()
+	_draw_pause_button()
 
 	# Same gameplay button: crouch at normal pace, tactical slide while sprinting.
 	var stance_texture: Texture2D = HUD_SLIDE if (sprinting or sliding) else HUD_CROUCH
