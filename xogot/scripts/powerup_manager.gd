@@ -21,6 +21,7 @@ var _kills_since_drop: int = 0
 var _drop_serial: int = 0
 var _double_points_timer: float = 0.0
 var _insta_kill_timer: float = 0.0
+var _network_pickups: Dictionary = {}
 
 func _ready() -> void:
 	add_to_group("xz_powerup_manager")
@@ -49,7 +50,12 @@ func _set_insta_kill(active: bool) -> void:
 	get_tree().set_meta("xz_insta_kill_active", active)
 
 func _active_drop_count() -> int:
-	return get_tree().get_nodes_in_group("xz_powerup_pickup").size()
+	var count: int = 0
+	for pickup: Node in get_tree().get_nodes_in_group("xz_powerup_pickup"):
+		if bool(pickup.get_meta("network_proxy", false)):
+			continue
+		count += 1
+	return count
 
 func _current_round() -> int:
 	var manager: Node = get_parent().get_node_or_null("RoundManager") if get_parent() != null else null
@@ -125,6 +131,9 @@ func collect_powerup(kind: String, collector: Node) -> bool:
 		"carpenter":
 			_apply_carpenter()
 	print("XZOGOT_POWERUP_COLLECTED ", kind, " by=", collector.name if collector != null else "none")
+	var network: Node = get_tree().root.find_child("NetworkManager", true, false)
+	if network != null and network.has_method("notify_host_powerup"):
+		network.call("notify_host_powerup", kind)
 	return true
 
 func _apply_max_ammo() -> void:
@@ -182,6 +191,84 @@ func get_active_effects() -> Dictionary:
 	if _insta_kill_timer > 0.0:
 		result["insta_kill"] = _insta_kill_timer
 	return result
+
+func get_network_pickup_states() -> Array:
+	var states: Array = []
+	for pickup: Node in get_tree().get_nodes_in_group("xz_powerup_pickup"):
+		if bool(pickup.get_meta("network_proxy", false)) or not (pickup is Node3D):
+			continue
+		var kind_value: String = str(pickup.call("get_powerup_kind")) if pickup.has_method("get_powerup_kind") else ""
+		var lifetime_value: float = float(pickup.call("get_lifetime")) if pickup.has_method("get_lifetime") else 0.0
+		if kind_value.is_empty() or lifetime_value <= 0.0:
+			continue
+		states.append([
+			pickup.name,
+			kind_value,
+			(pickup as Node3D).global_position,
+			lifetime_value,
+		])
+	return states
+
+func apply_network_effect_state(double_points_remaining: float, insta_kill_remaining: float) -> void:
+	_double_points_timer = maxf(0.0, double_points_remaining)
+	_insta_kill_timer = maxf(0.0, insta_kill_remaining)
+	_set_double_points(_double_points_timer > 0.0)
+	_set_insta_kill(_insta_kill_timer > 0.0)
+	print(
+		"XZOGOT_NETWORK_POWERUP_EFFECTS double=", _double_points_timer,
+		" insta=", _insta_kill_timer
+	)
+
+func apply_network_pickup_snapshot(states: Array) -> void:
+	var seen: Dictionary = {}
+	for state_var: Variant in states:
+		if not (state_var is Array):
+			continue
+		var state: Array = state_var as Array
+		if state.size() < 4:
+			continue
+		var source_id: String = str(state[0])
+		var kind_value: String = str(state[1])
+		var world_pos: Vector3 = state[2] as Vector3
+		var lifetime_value: float = float(state[3])
+		if source_id.is_empty() or not POWERUPS.has(kind_value) or lifetime_value <= 0.0:
+			continue
+		seen[source_id] = true
+		var pickup: Node3D = _network_pickups.get(source_id, null) as Node3D
+		if pickup == null or not is_instance_valid(pickup):
+			pickup = Node3D.new()
+			pickup.name = "Net_" + source_id
+			pickup.set_script(PICKUP_SCRIPT)
+			pickup.call("configure_network_proxy", kind_value, lifetime_value)
+			get_parent().add_child(pickup)
+			_network_pickups[source_id] = pickup
+		pickup.global_position = world_pos
+		pickup.set("lifetime", lifetime_value)
+
+	for id_var: Variant in _network_pickups.keys().duplicate():
+		var source_id: String = str(id_var)
+		if seen.has(source_id):
+			continue
+		var stale: Node = _network_pickups[source_id] as Node
+		_network_pickups.erase(source_id)
+		if is_instance_valid(stale):
+			stale.queue_free()
+	print("XZOGOT_NETWORK_POWERUP_PICKUPS ", seen.size())
+
+func clear_network_pickups() -> void:
+	for id_var: Variant in _network_pickups.keys().duplicate():
+		var pickup: Node = _network_pickups[id_var] as Node
+		if is_instance_valid(pickup):
+			pickup.queue_free()
+	_network_pickups.clear()
+
+func get_network_pickup_count() -> int:
+	var count: int = 0
+	for pickup_var: Variant in _network_pickups.values():
+		var pickup: Node = pickup_var as Node
+		if is_instance_valid(pickup):
+			count += 1
+	return count
 
 func debug_clear_timed_effects() -> void:
 	_double_points_timer = 0.0
