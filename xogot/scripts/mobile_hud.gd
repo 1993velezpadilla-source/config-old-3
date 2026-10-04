@@ -29,12 +29,17 @@ const TEX_JOY_KNOB_ACTIVE = preload("res://assets/hud/official/joystick_knob_act
 const IDLE_ALPHA := 210.0 / 255.0
 const PRESSED_ALPHA := 246.0 / 255.0
 
+var _hud_opacity: float = 0.82
+
 @onready var _player: Node = get_node_or_null("../../Player")
 @onready var _weapon: Node = get_node_or_null("../../Player/Weapon")
 @onready var _round_manager: Node = get_node_or_null("../../RoundManager")
 
 func _ready() -> void:
 	set_process(true)
+	var settings: Node = get_node_or_null("../MobileSettings")
+	if settings != null:
+		apply_mobile_settings(settings)
 	queue_redraw()
 	print("XZOGOT_HUD_V8_READY")
 	print("XZOGOT_LATEST_12_SKINS_READY")
@@ -45,6 +50,23 @@ func _process(_delta: float) -> void:
 
 func _screen(center: Vector2) -> Vector2:
 	return MobileLayout.screen_point(center, size)
+
+func apply_mobile_settings(settings: Node) -> void:
+	if settings != null and settings.has_method("get_setting_value"):
+		_hud_opacity = clampf(float(settings.call("get_setting_value", "hud_opacity")), 0.25, 1.0)
+	queue_redraw()
+
+func _draw_settings_button() -> void:
+	var center: Vector2 = _screen(MobileLayout.PAUSE_CENTER)
+	var radius: float = MobileLayout.PAUSE_RADIUS * size.y
+	draw_circle(center, radius, Color(0.04, 0.04, 0.05, 0.62 * _hud_opacity))
+	draw_arc(center, radius * 0.56, 0.0, TAU, 24, Color(1.0, 1.0, 1.0, 0.78 * _hud_opacity), 2.2)
+	for i in range(8):
+		var a: float = float(i) * TAU / 8.0
+		var p0: Vector2 = center + Vector2(cos(a), sin(a)) * radius * 0.63
+		var p1: Vector2 = center + Vector2(cos(a), sin(a)) * radius * 0.82
+		draw_line(p0, p1, Color(1.0, 1.0, 1.0, 0.78 * _hud_opacity), 2.0)
+	draw_circle(center, radius * 0.17, Color(1.0, 1.0, 1.0, 0.82 * _hud_opacity))
 
 func _draw_tex_center(
 	texture: Texture2D,
@@ -72,7 +94,7 @@ func _draw_latest_control(
 	var center: Vector2 = _screen(center_norm)
 	var press_scale: float = 1.06 if pressed else 1.0
 	var diameter: float = radius_h * size.y * 2.20 * visual_scale * press_scale
-	var alpha: float = PRESSED_ALPHA if pressed else IDLE_ALPHA
+	var alpha: float = (PRESSED_ALPHA if pressed else IDLE_ALPHA) * _hud_opacity
 	_draw_tex_center(texture, center, diameter, alpha)
 
 func _draw_joystick() -> void:
@@ -173,6 +195,23 @@ func _draw() -> void:
 		HUD_JUMP,
 		false
 	)
+
+	var show_knife: bool = true
+	var knife_pressed: bool = false
+	if _player != null:
+		if bool(_player.get("knife_button_range_only")) and _player.has_method("is_knife_target_near"):
+			show_knife = bool(_player.call("is_knife_target_near"))
+		if _player.has_method("is_knifing"):
+			knife_pressed = bool(_player.call("is_knifing"))
+	if show_knife:
+		_draw_latest_control(
+			MobileLayout.KNIFE_CENTER,
+			MobileLayout.KNIFE_RADIUS,
+			HUD_KNIFE,
+			knife_pressed
+		)
+
+	_draw_settings_button()
 
 	# Same gameplay button: crouch at normal pace, tactical slide while sprinting.
 	var stance_texture: Texture2D = HUD_SLIDE if (sprinting or sliding) else HUD_CROUCH
