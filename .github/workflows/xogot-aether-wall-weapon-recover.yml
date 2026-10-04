@@ -166,8 +166,10 @@ jobs:
           PROBE_PACKAGE="ProjectAether/Content/Assets/Weapons/waw/M1Garand/M1Garand.uasset"
 
           # Resolve the reconstructed build's actual package version against one
-          # known skeletal weapon package first. Do not let .uexp sidecars count
-          # as a successful export.
+          # known skeletal weapon package first. Read the extracted package tree
+          # directly so .uasset/.uexp/.ubulk remain paired under one filesystem
+          # provider; the retoc-generated legacy pak was exposing them as raw data.
+          # Do not let sidecars count as a successful export.
           for GAME in \
             GAME_UE5_7 GAME_UE5_6 GAME_UE5_5 GAME_UE5_4 GAME_UE5_3 \
             GAME_UE5_2 GAME_UE5_1 GAME_UE5_0 GAME_UE4_27; do
@@ -176,7 +178,7 @@ jobs:
             mkdir -p recovered/version-probe
             set +e
             "$CUE4PARSE" \
-              --pak "$RUNNER_TEMP/aether-legacy.pak" \
+              -i recovered/raw \
               -g "$GAME" \
               -p "$PROBE_PACKAGE" \
               -o recovered/version-probe \
@@ -209,7 +211,7 @@ jobs:
           mkdir -p recovered/export
           set +e
           "$CUE4PARSE" \
-            --pak "$RUNNER_TEMP/aether-legacy.pak" \
+            -i recovered/raw \
             -g "$SUCCESS_GAME" \
             -c recovered/aether-weapon-packages.txt \
             -o recovered/export \
