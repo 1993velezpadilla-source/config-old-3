@@ -10,7 +10,7 @@ MONJA=ROOT/"assets/zombies/monja_basica.glb"
 DONOR=ROOT/"assets/zombie_mocap/retarget/UAL2_Standard.glb"
 OUT=ROOT/"build/monja-rigid-rig"
 OUT.mkdir(parents=True,exist_ok=True)
-OUT_GLB=OUT/"monja_basica_rigid_rig.glb"
+OUT_GLTF=OUT/"monja_basica_rigid_rig.gltf"
 REPORT=OUT/"monja_basica_rigid_rig.report.json"
 
 PART_NAMES={
@@ -34,6 +34,14 @@ def meshes(objs):
 
 def snapshot():
     return set(bpy.context.scene.objects)
+
+def triangle_count(objs):
+    total=0
+    for o in objs:
+        if o.type!="MESH": continue
+        for p in o.data.polygons:
+            total += max(1,len(p.vertices)-2)
+    return total
 
 def bounds(objs):
     pts=[]
@@ -168,8 +176,10 @@ for src in list(src_meshes):
             part_polys[key]+=len(dup.data.polygons)
 
 source_polys=sum(len(o.data.polygons) for o in src_meshes)
-if sum(part_polys.values())!=source_polys:
-    fail(f"polygon conservation {sum(part_polys.values())}/{source_polys}")
+source_triangles=triangle_count(src_meshes)
+part_polys_total=sum(part_polys.values())
+if part_polys_total!=source_polys:
+    fail(f"region polygon partition {part_polys_total}/{source_polys}")
 if any(v<=0 for v in part_polys.values()):
     fail(f"empty rigid part {part_polys}")
 
@@ -200,44 +210,52 @@ for _,o in generated:o.select_set(True)
 bpy.context.view_layer.objects.active=arm
 
 bpy.ops.export_scene.gltf(
-    filepath=str(OUT_GLB),export_format='GLB',use_selection=True,
+    filepath=str(OUT_GLTF),export_format='GLTF_SEPARATE',use_selection=True,
     export_animations=True,export_skins=True,export_nla_strips=True,
     export_apply=False,export_extras=True,export_texcoords=True,
-    export_normals=True,export_tangents=True,export_materials='EXPORT'
+    export_normals=True,export_tangents=True,export_materials='EXPORT',
+    export_image_format='AUTO'
 )
-if not OUT_GLB.is_file():fail("export missing")
-size_bytes=OUT_GLB.stat().st_size
+if not OUT_GLTF.is_file():fail("export missing")
+export_files=[p for p in OUT.iterdir() if p.is_file() and p.name!="monja_basica_rigid_rig.report.json"]
+size_bytes=sum(p.stat().st_size for p in export_files)
+max_file_bytes=max((p.stat().st_size for p in export_files),default=0)
 
 # Reimport validation.
-reset(); bpy.ops.import_scene.gltf(filepath=str(OUT_GLB))
+reset(); bpy.ops.import_scene.gltf(filepath=str(OUT_GLTF))
 out_mesh=[o for o in bpy.context.scene.objects if o.type=="MESH"]
 out_arms=[o for o in bpy.context.scene.objects if o.type=="ARMATURE"]
 out_actions=[a.name for a in bpy.data.actions]
 out_polys=sum(len(o.data.polygons) for o in out_mesh)
+out_triangles=triangle_count(out_mesh)
 semantic={k:sum(PART_NAMES[k].lower() in o.name.lower() for o in out_mesh) for k in PART_NAMES}
 
 report={
  "source_polygons":source_polys,
+ "source_triangles":source_triangles,
  "output_polygons":out_polys,
- "polygon_conservation_ok":out_polys==source_polys,
+ "output_triangles":out_triangles,
+ "triangle_conservation_ok":out_triangles==source_triangles,
  "armatures":len(out_arms),
  "actions":out_actions,
  "required_actions":[n for n in out_actions if any(k.lower() in n.lower() for k in required)],
  "semantic_mesh_counts":semantic,
  "part_polygons":part_polys,
  "part_bones":part_bones,
- "output_bytes":size_bytes,
+ "output_bytes_total":size_bytes,
+ "max_file_bytes":max_file_bytes,
+ "export_files":[{"name":p.name,"bytes":p.stat().st_size} for p in export_files],
  "decimation":False,
  "rig_mode":"rigid_region_bone_parenting",
 }
 REPORT.write_text(json.dumps(report,indent=2)+"\n")
-if not report["polygon_conservation_ok"]:fail("reimport polygon mismatch")
+if not report["triangle_conservation_ok"]:fail(f"reimport triangle mismatch {out_triangles}/{source_triangles}")
 if not out_arms:fail("reimport armature missing")
 if len(report["required_actions"])<3:fail("reimport actions missing")
 if any(v<=0 for v in semantic.values()):fail(f"semantic parts missing {semantic}")
 
 print("XZOGOT_MONJA_RIGID_RIG_PARTS_GREEN",semantic)
 print("XZOGOT_MONJA_RIGID_RIG_ANIMS_GREEN",report["required_actions"])
-print("XZOGOT_MONJA_RIGID_RIG_POLYGONS_GREEN",out_polys)
-print("XZOGOT_MONJA_RIGID_RIG_BYTES",size_bytes)
+print("XZOGOT_MONJA_RIGID_RIG_TRIANGLES_GREEN",out_triangles)
+print("XZOGOT_MONJA_RIGID_RIG_BYTES",size_bytes,"max_file",max_file_bytes)
 print("XZOGOT_MONJA_RIGID_RIG_GREEN")
