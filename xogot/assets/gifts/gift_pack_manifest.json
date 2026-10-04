@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "policy": {
+    "geometry": "full-density source GLB; no decimation in integration code",
+    "textures": "embedded 4096x4096 Color + ORM + NormalGL retained",
+    "loading": "optional ResourceLoader slots; missing binaries do not fail CI",
+    "collisions": "existing gameplay collision stays authoritative; gift props start visual-only"
+  },
+  "assets": [
+    {
+      "source_name": "intricate wooden altar 3d model.glb",
+      "target_path": "xogot/assets/gifts/intricate_wooden_altar.glb",
+      "bytes": 23413848,
+      "vertices": 1034036,
+      "triangles": 1887306,
+      "role": "altar override"
+    },
+    {
+      "source_name": "candelabros colgantes techo.glb",
+      "target_path": "xogot/assets/gifts/candelabros_colgantes_techo.glb",
+      "bytes": 20185228,
+      "vertices": 1011640,
+      "triangles": 1822876,
+      "role": "nave ceiling"
+    },
+    {
+      "source_name": "gothic stained glass window 3d model.glb",
+      "target_path": "xogot/assets/gifts/gothic_stained_glass_window.glb",
+      "bytes": 25748640,
+      "vertices": 1015609,
+      "triangles": 1957621,
+      "role": "sanctuary clerestory"
+    },
+    {
+      "source_name": "multiple gothic stained glass window 3d model.glb",
+      "target_path": "xogot/assets/gifts/multiple_gothic_stained_glass_window.glb",
+      "bytes": 27369508,
+      "vertices": 998970,
+      "triangles": 1905082,
+      "role": "tower facade"
+    },
+    {
+      "source_name": "religious statue collection 3d model.glb",
+      "target_path": "xogot/assets/gifts/religious_statue_collection.glb",
+      "bytes": 25443072,
+      "vertices": 1022154,
+      "triangles": 1949518,
+      "role": "sanctuary statue wall"
+    },
+    {
+      "source_name": "ornate candle holder 3d model.glb",
+      "target_path": "xogot/assets/gifts/ornate_candle_holder.glb",
+      "bytes": 21290236,
+      "vertices": 1037533,
+      "triangles": 1943359,
+      "role": "sanctuary prop"
+    },
+    {
+      "source_name": "gothic church furniture 3d model.glb",
+      "target_path": "xogot/assets/gifts/gothic_church_furniture.glb",
+      "bytes": 21150500,
+      "vertices": 975002,
+      "triangles": 1800523,
+      "role": "exterior inspection pad"
+    },
+    {
+      "source_name": "medieval church ruins 3d model.glb",
+      "target_path": "xogot/assets/gifts/medieval_church_ruins.glb",
+      "bytes": 21968232,
+      "vertices": 947149,
+      "triangles": 1719764,
+      "role": "exterior ruins candidate"
+    }
+  ]
+}
