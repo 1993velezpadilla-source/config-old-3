@@ -39,6 +39,12 @@ func _run() -> void:
 	if settings.find_child("Weapon_mp40", true, false) == null:
 		_fail(7, "weapon lab button missing")
 		return
+	if settings.find_child("TestPowerLights", true, false) == null:
+		_fail(22, "DEV power-light test button missing")
+		return
+	if settings.find_child("TestCandleFlicker", true, false) == null:
+		_fail(23, "DEV candle-flicker test button missing")
+		return
 
 	settings.call("open_pause_menu")
 	if not paused or not bool(settings.call("is_menu_open")):
@@ -92,6 +98,30 @@ func _run() -> void:
 		_fail(17, "speed boost player state missing")
 		return
 	print("XZOGOT_RELEASE_DEV_FLAGS_PROBE_GREEN")
+
+	var candle_managers: Array[Node] = get_nodes_in_group("xz_candle_manager")
+	var power_rigs: Array[Node] = get_nodes_in_group("xz_power_light_rig")
+	if candle_managers.size() != 1 or power_rigs.size() != 1:
+		_fail(24, "DEV lighting dependencies missing")
+		return
+	var candle_serial_before: int = int(candle_managers[0].call("get_event_serial"))
+	settings.call("_dev_test_candle_flicker")
+	if int(candle_managers[0].call("get_event_serial")) <= candle_serial_before:
+		_fail(25, "DEV candle test did not trigger")
+		return
+	if bool(settings.call("is_menu_open")):
+		_fail(26, "DEV candle test should return to gameplay")
+		return
+
+	settings.call("open_pause_menu")
+	settings.call("_dev_test_power_lights")
+	if not bool(power_rigs[0].call("is_sequence_active")):
+		_fail(27, "DEV power-light test did not trigger")
+		return
+	if bool(settings.call("is_menu_open")):
+		_fail(28, "DEV power test should return to gameplay")
+		return
+	print("XZOGOT_RELEASE_DEV_LIGHTING_TESTS_GREEN")
 
 	settings.call("_dev_unlock_all")
 	for gate_name: String in [
