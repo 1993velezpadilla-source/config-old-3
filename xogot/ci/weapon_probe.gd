@@ -33,6 +33,16 @@ func _run_probe() -> void:
 		return
 
 	weapon.call("request_fire")
+	if not bool(weapon.call("is_muzzle_fx_ready")):
+		_fail(16, "muzzle FX did not bind to starting real viewmodel")
+		return
+	if str(weapon.call("get_muzzle_anchor_mode")) == "none":
+		_fail(17, "muzzle anchor mode missing")
+		return
+	if float(weapon.call("get_muzzle_flash_timer")) <= 0.0:
+		_fail(18, "muzzle flash did not trigger on shot")
+		return
+	print("XZOGOT_WEAPON_MUZZLE_FX_GREEN ", weapon.call("get_muzzle_anchor_mode"))
 	if int(weapon.call("get_magazine")) != 7:
 		_fail(6, "Colt fire did not consume one round")
 		return
