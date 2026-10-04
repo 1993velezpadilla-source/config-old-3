@@ -13,8 +13,12 @@ from urllib.parse import urljoin
 import requests
 
 START_URL = "https://www.moddb.com/downloads/start/252606"
+# ModDB returns 403 to some datacenter IPs on the landing page. This mirror
+# route was resolved from that same public page and issues its own current CDN
+# redirect. START_URL stays as discovery/fallback.
+MIRROR_SEED_URL = "https://www.moddb.com/downloads/mirror/252606/135/713b4e02777c96e9a66c2ecea44fba18"
 EXPECTED_NAME = "COD2_SPis_Weapon_Overhaul_Mod_V1.1.zip"
-USER_AGENT = "Mozilla/5.0 (Xogot MapMod asset audit; reproducible CI)"
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140.0 Safari/537.36"
 
 WEAPON_TERMS = (
     "thompson", "mp40", "m1garand", "m1_garand", "m1a1", "bar",
@@ -34,34 +38,67 @@ def digest(path: Path, algo: str) -> str:
 
 def fetch_zip(out: Path) -> tuple[Path, str, str]:
     session = requests.Session()
-    session.headers.update({"User-Agent": USER_AGENT})
-    start = session.get(START_URL, timeout=45)
-    start.raise_for_status()
-
-    candidates = re.findall(
-        r'href=["\']([^"\']*/downloads/mirror/252606/[^"\']+)["\']',
-        start.text,
-        flags=re.I,
+    session.headers.update(
+        {
+            "User-Agent": USER_AGENT,
+            "Accept": "*/*",
+            "Referer": "https://www.moddb.com/",
+        }
     )
-    if not candidates:
-        raise RuntimeError("ModDB mirror link not found on start page")
-    mirror = urljoin(START_URL, candidates[0])
 
-    payload = session.get(
-        mirror,
-        headers={"Referer": START_URL, "User-Agent": USER_AGENT},
-        timeout=120,
-        stream=True,
-        allow_redirects=True,
+    mirrors = [MIRROR_SEED_URL]
+    discovery_error = None
+    try:
+        start = session.get(START_URL, timeout=45)
+        if start.ok:
+            candidates = re.findall(
+                r'href=["\\\']([^"\\\']*/downloads/mirror/252606/[^"\\\']+)["\\\']',
+                start.text,
+                flags=re.I,
+            )
+            for candidate in candidates:
+                discovered = urljoin(START_URL, candidate)
+                if discovered not in mirrors:
+                    mirrors.insert(0, discovered)
+        else:
+            discovery_error = f"start HTTP {start.status_code}"
+    except Exception as exc:
+        discovery_error = repr(exc)
+
+    errors = []
+    for mirror in mirrors:
+        try:
+            payload = session.get(
+                mirror,
+                headers={"Referer": START_URL, "User-Agent": USER_AGENT},
+                timeout=180,
+                stream=True,
+                allow_redirects=True,
+            )
+            payload.raise_for_status()
+            content_type = payload.headers.get("content-type", "").lower()
+            dst = out / EXPECTED_NAME
+            with dst.open("wb") as handle:
+                for chunk in payload.iter_content(1024 * 1024):
+                    if chunk:
+                        handle.write(chunk)
+
+            if dst.stat().st_size < 50_000_000 or "text/html" in content_type:
+                errors.append(
+                    f"{mirror}: suspicious bytes={dst.stat().st_size} type={content_type}"
+                )
+                dst.unlink(missing_ok=True)
+                continue
+            return dst, mirror, payload.url
+        except Exception as exc:
+            errors.append(f"{mirror}: {exc!r}")
+
+    raise RuntimeError(
+        "No ModDB mirror succeeded; discovery="
+        + str(discovery_error)
+        + "; "
+        + " | ".join(errors)
     )
-    payload.raise_for_status()
-
-    dst = out / EXPECTED_NAME
-    with dst.open("wb") as f:
-        for chunk in payload.iter_content(1024 * 1024):
-            if chunk:
-                f.write(chunk)
-    return dst, mirror, payload.url
 
 
 def archive_inventory(zip_path: Path, out: Path) -> dict:
