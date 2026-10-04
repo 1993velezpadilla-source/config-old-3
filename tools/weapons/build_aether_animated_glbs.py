@@ -50,6 +50,18 @@ PREFERRED = {
     "TrenchGun": "viewmodel_usa_trenchgun_rifle.glb",
 }
 
+# Aether does not ship a dedicated SawedOffDB PSA folder, but the mesh shares
+# the functional double-barrel joint layout (j_gun/tag_barrels/tag_extractor/
+# tag_shell1/tag_shell2/tag_flash/tag_grip/tag_brass/tag_lever). Reuse those
+# source clips instead of fabricating animations.
+PSA_SOURCE_OVERRIDE = {
+    "SawedOffDB": "DoubleBarrel",
+}
+
+# Projectile-only source: animation belongs to the player's hand/throw action,
+# not to the grenade mesh itself.
+THROWABLE_STATIC = {"Stielhand"}
+
 
 def argv_after_double_dash() -> list[str]:
     if "--" not in sys.argv:
@@ -170,60 +182,89 @@ def main() -> int:
         bpy.context.view_layer.objects.active = armature
         armature.select_set(True)
 
-        source_token = source_name.lower()
+        psa_source = PSA_SOURCE_OVERRIDE.get(source_name, source_name)
+        source_token = psa_source.lower()
         psas = sorted(
             p for p in actorx_root.rglob("*.psa")
             if f"/{source_token}/" in p.as_posix().lower()
         )
-        if not psas:
-            raise RuntimeError(f"{runtime_id}: no PSA animations found for {source_name}")
-
-        before = set(bpy.data.actions.keys())
-        import_failures = []
-        for psa in psas:
-            bpy.context.view_layer.objects.active = armature
-            armature.select_set(True)
-            try:
-                result = bpy.ops.psa.import_all(
-                    filepath=str(psa),
-                    should_convert_to_samples=True,
-                )
-                if "FINISHED" not in result:
-                    import_failures.append(f"{psa.name}:{result}")
-            except Exception as exc:
-                import_failures.append(f"{psa.name}:{exc}")
-
-        new_actions = sorted(set(bpy.data.actions.keys()) - before)
-        if not new_actions:
-            raise RuntimeError(
-                f"{runtime_id}: PSA files were present but no Blender Actions imported; "
-                f"failures={import_failures[:5]}"
-            )
-        for action_name in new_actions:
-            bpy.data.actions[action_name].use_fake_user = True
 
         out_dir = output_root / runtime_id
         out_dir.mkdir(parents=True, exist_ok=True)
         out_glb = out_dir / "viewmodel.glb"
-        export_animated_glb(out_glb)
-        stats = glb_stats(out_glb)
-        if stats["meshes"] < 1 or stats["skins"] < 1 or stats["animations"] < 1:
-            raise RuntimeError(f"{runtime_id}: invalid animated GLB stats {stats}")
+
+        if source_name in THROWABLE_STATIC:
+            # Preserve the recovered real skinned projectile mesh exactly. Its
+            # animation is authored on the player's hands/throw state.
+            out_glb.write_bytes(source_glb.read_bytes())
+            stats = glb_stats(out_glb)
+            if stats["meshes"] < 1 or stats["skins"] < 1:
+                raise RuntimeError(f"{runtime_id}: invalid throwable GLB stats {stats}")
+            new_actions = []
+            import_failures = []
+            animation_mode = "throwable_static_mesh"
+        else:
+            if not psas:
+                raise RuntimeError(
+                    f"{runtime_id}: no PSA animations found for {source_name} "
+                    f"(PSA source {psa_source})"
+                )
+
+            # Sawed-off and full double barrel share the same functional joints;
+            # only their root skeleton node label differs. Rename that one root
+            # locally so the inherited DoubleBarrel PSA can bind cleanly.
+            if source_name == "SawedOffDB":
+                roots = [b for b in armature.data.bones if b.parent is None]
+                if roots:
+                    roots[0].name = "viewmodel_usa_double_barrel_LOD0_skel"
+
+            before = set(bpy.data.actions.keys())
+            import_failures = []
+            for psa in psas:
+                bpy.context.view_layer.objects.active = armature
+                armature.select_set(True)
+                try:
+                    result = bpy.ops.psa.import_all(
+                        filepath=str(psa),
+                        should_convert_to_samples=True,
+                    )
+                    if "FINISHED" not in result:
+                        import_failures.append(f"{psa.name}:{result}")
+                except Exception as exc:
+                    import_failures.append(f"{psa.name}:{exc}")
+
+            new_actions = sorted(set(bpy.data.actions.keys()) - before)
+            if not new_actions:
+                raise RuntimeError(
+                    f"{runtime_id}: PSA files were present but no Blender Actions imported; "
+                    f"failures={import_failures[:5]}"
+                )
+            for action_name in new_actions:
+                bpy.data.actions[action_name].use_fake_user = True
+
+            export_animated_glb(out_glb)
+            stats = glb_stats(out_glb)
+            if stats["meshes"] < 1 or stats["skins"] < 1 or stats["animations"] < 1:
+                raise RuntimeError(f"{runtime_id}: invalid animated GLB stats {stats}")
+            animation_mode = "embedded_psa_actions"
 
         row = {
             "source_dir": source_name,
             "runtime_id": runtime_id,
             "source_glb": source_glb.name,
+            "psa_source": psa_source,
             "psa_files": len(psas),
             "actions_imported": len(new_actions),
             "import_failures": import_failures,
+            "animation_mode": animation_mode,
             "output": str(out_glb),
             **stats,
         }
         report.append(row)
         print(
-            "XZOGOT_ANIMATED_WEAPON_GREEN",
+            "XZOGOT_WEAPON_ASSET_GREEN",
             runtime_id,
+            "mode=", animation_mode,
             "psa=", len(psas),
             "actions=", len(new_actions),
             "glb_anims=", stats["animations"],
@@ -231,8 +272,14 @@ def main() -> int:
         )
 
     if len(report) != 29:
-        raise RuntimeError(f"Expected 29 animated weapons, got {len(report)}")
-    if sum(int(r["animations"]) for r in report) < 50:
+        raise RuntimeError(f"Expected 29 recovered Aether assets, got {len(report)}")
+    animated = [r for r in report if r["animation_mode"] == "embedded_psa_actions"]
+    throwables = [r for r in report if r["animation_mode"] == "throwable_static_mesh"]
+    if len(animated) != 28 or len(throwables) != 1:
+        raise RuntimeError(
+            f"Expected 28 animated firearms + 1 throwable; got {len(animated)} + {len(throwables)}"
+        )
+    if sum(int(r["animations"]) for r in animated) < 50:
         raise RuntimeError("Animation coverage unexpectedly low")
 
     output_root.mkdir(parents=True, exist_ok=True)
@@ -242,13 +289,15 @@ def main() -> int:
                 "schema": 1,
                 "id": "aether_waw_animated_weapon_inventory_v1",
                 "weapon_count": len(report),
+                "animated_weapon_count": len(animated),
+                "throwable_count": len(throwables),
                 "weapons": report,
             },
             indent=2,
         ) + "\n",
         encoding="utf-8",
     )
-    print("XZOGOT_29_ANIMATED_REAL_WEAPONS_GREEN")
+    print("XZOGOT_28_ANIMATED_FIREARMS_1_THROWABLE_GREEN")
     return 0
 
 
