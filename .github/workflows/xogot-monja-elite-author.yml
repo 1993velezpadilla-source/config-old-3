@@ -39,13 +39,13 @@ jobs:
           ELITE=xogot/assets/zombies/monja_elite/source/monja_black_white.glb
           test -s "$ELITE"
           cp "$ELITE" xogot/assets/zombies/monja_basica.glb
-          rm -rf xogot/build/monja-clean-blender-rig
-          mkdir -p xogot/build/monja-clean-blender-rig
-          timeout 3000 blender -b --python xogot/tools/author_monja_clean_blender_rig.py             2>&1 | tee xogot/build/monja-clean-blender-rig/blender.log
-          grep -q "XZOGOT_MONJA_CLEAN_BINDPOSE_GREEN" xogot/build/monja-clean-blender-rig/blender.log
-          grep -q "XZOGOT_MONJA_CLEAN_WEIGHTS_GREEN" xogot/build/monja-clean-blender-rig/blender.log
-          grep -q "XZOGOT_MONJA_CLEAN_ACTIONS_GREEN" xogot/build/monja-clean-blender-rig/blender.log
-          grep -q "XZOGOT_MONJA_CLEAN_RIG_GREEN" xogot/build/monja-clean-blender-rig/blender.log
+          rm -rf xogot/build/monja-source-pose-rig
+          mkdir -p xogot/build/monja-source-pose-rig
+          timeout 3000 blender -b --python xogot/tools/author_monja_source_pose_rig.py             2>&1 | tee xogot/build/monja-source-pose-rig/blender.log
+          grep -q "XZOGOT_MONJA_SOURCE_POSE_RIG_GREEN" xogot/build/monja-source-pose-rig/blender.log
+          grep -q "XZOGOT_MONJA_SOURCE_POSE_WEIGHTS_GREEN" xogot/build/monja-source-pose-rig/blender.log
+          grep -q "XZOGOT_MONJA_SOURCE_POSE_ANIMS_GREEN" xogot/build/monja-source-pose-rig/blender.log
+          grep -q "XZOGOT_MONJA_SOURCE_POSE_MATCH_GREEN" xogot/build/monja-source-pose-rig/blender.log
 
       - name: Validate and relabel elite output
         shell: bash
@@ -54,13 +54,14 @@ jobs:
           python3 - <<'PY'
           import json
           from pathlib import Path
-          p=Path("xogot/build/monja-clean-blender-rig/report.json")
+          p=Path("xogot/build/monja-source-pose-rig/report.json")
           r=json.loads(p.read_text())
           assert r["geometry_conserved"] is True
           assert r["armatures"] == 1
           assert r["bones"] >= 20
-          assert r["rig_mode"] == "smooth_weighted_humanoid_bind_pose"
+          assert r["rig_mode"] == "source_pose_smooth_weighted_humanoid"
           assert r["old_rigid_region_parenting"] is False
+          assert r["pose_match"]["validated"] is True
           assert all(x["coverage"] >= 0.98 for x in r["weight_transfer"])
           names=" ".join(r["actions"]).lower()
           for required in ("zombie_idle_clean","zombie_walk_clean","zombie_attack_clean"):
@@ -77,8 +78,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p xogot/assets/zombies/monja_elite
-          cp xogot/build/monja-clean-blender-rig/monja_basica_clean_rig.glb              xogot/assets/zombies/monja_elite/monja_black_white_clean_rig.glb
-          cp xogot/build/monja-clean-blender-rig/report.json              xogot/assets/zombies/monja_elite/rig_report.json
+          cp xogot/build/monja-source-pose-rig/monja_basica_clean_rig.glb              xogot/assets/zombies/monja_elite/monja_black_white_clean_rig.glb
+          cp xogot/build/monja-source-pose-rig/report.json              xogot/assets/zombies/monja_elite/rig_report.json
           git checkout -- xogot/assets/zombies/monja_basica.glb
 
       - name: Commit elite Monja
@@ -105,9 +106,9 @@ jobs:
         with:
           name: monja-elite-clean-rig-proof
           path: |
-            xogot/build/monja-clean-blender-rig/report.json
-            xogot/build/monja-clean-blender-rig/blender.log
-            xogot/build/monja-clean-blender-rig/bind_pose.png
-            xogot/build/monja-clean-blender-rig/walk_mid.png
+            xogot/build/monja-source-pose-rig/report.json
+            xogot/build/monja-source-pose-rig/blender.log
+            xogot/build/monja-source-pose-rig/bind_pose.png
+            xogot/build/monja-source-pose-rig/walk_mid.png
           if-no-files-found: warn
           retention-days: 14
