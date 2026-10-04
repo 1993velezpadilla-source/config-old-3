@@ -12,12 +12,6 @@
     "output": "D:\\a\\config-old-3\\config-old-3\\xogot\\assets\\audio\\weapons\\mapmod\\colt\\fire.wav"
   },
   {
-    "weapon": "trench",
-    "source": "wpn_shtgun_st_f",
-    "bytes": 116780,
-    "output": "D:\\a\\config-old-3\\config-old-3\\xogot\\assets\\audio\\weapons\\mapmod\\trench\\fire.wav"
-  },
-  {
     "weapon": "thompson",
     "source": "wpn_thompson_st_f",
     "bytes": 61484,
@@ -28,5 +22,11 @@
     "source": "wpn_mp40_st_f",
     "bytes": 102380,
     "output": "D:\\a\\config-old-3\\config-old-3\\xogot\\assets\\audio\\weapons\\mapmod\\mp40\\fire.wav"
+  },
+  {
+    "weapon": "trench",
+    "source": "wpn_shtgun_st_f",
+    "bytes": 116780,
+    "output": "D:\\a\\config-old-3\\config-old-3\\xogot\\assets\\audio\\weapons\\mapmod\\trench\\fire.wav"
   }
 ]
