@@ -1,0 +1,5 @@
+Asset: Stone Wall by Charlotte Baglioni / Dario Barresi
+Source: https://polyhaven.com/a/stone_wall
+License: CC0
+Resolution staged for runtime: 4096x4096
+Maps: diffuse, OpenGL normal, roughness
