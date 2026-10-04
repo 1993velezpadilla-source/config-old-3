@@ -135,6 +135,7 @@ func _ready() -> void:
 	_build_architectural_shell_v2()
 	_build_church_visual_v3()
 	_build_gift_pack()
+	_build_split_gift_decor()
 	_build_interactions()
 	_build_windows()
 	_build_selective_spawn_anchors()
@@ -910,6 +911,135 @@ func _build_gift_pack() -> void:
 			"XZOGOT_GIFT_SPLIT_RUNTIME_PARTIAL %d/%d" %
 			[split_present, GIFT_SPLIT_TOTAL]
 		)
+
+func _configure_gift_visibility(node: Node, range_m: float) -> void:
+	if node is GeometryInstance3D:
+		var geometry := node as GeometryInstance3D
+		geometry.visibility_range_end = range_m * WORLD_SCALE
+		geometry.visibility_range_end_margin = minf(6.0 * WORLD_SCALE, range_m * WORLD_SCALE * 0.18)
+		geometry.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+	for child: Node in node.get_children():
+		_configure_gift_visibility(child, range_m)
+
+func _spawn_split_gift(
+	bundle: String,
+	model_index: int,
+	label: String,
+	base_pos: Vector3,
+	target_height: float,
+	rotation_y_deg: float,
+	visibility_end_m: float
+) -> Node3D:
+	var path: String = _gift_split_model_path(bundle, model_index)
+	if not ResourceLoader.exists(path):
+		return null
+
+	var packed: PackedScene = load(path) as PackedScene
+	if packed == null:
+		push_warning("XZOGOT_GIFT_SPLIT_LOAD_FAIL " + path)
+		return null
+	var imported: Node3D = packed.instantiate() as Node3D
+	if imported == null:
+		push_warning("XZOGOT_GIFT_SPLIT_INSTANCE_FAIL " + path)
+		return null
+
+	var points: Array[Vector3] = []
+	_collect_furniture_bounds(imported, Transform3D.IDENTITY, points)
+	if points.is_empty():
+		imported.queue_free()
+		push_warning("XZOGOT_GIFT_SPLIT_BOUNDS_EMPTY " + path)
+		return null
+
+	var min_v: Vector3 = points[0]
+	var max_v: Vector3 = points[0]
+	for point: Vector3 in points:
+		min_v.x = minf(min_v.x, point.x)
+		min_v.y = minf(min_v.y, point.y)
+		min_v.z = minf(min_v.z, point.z)
+		max_v.x = maxf(max_v.x, point.x)
+		max_v.y = maxf(max_v.y, point.y)
+		max_v.z = maxf(max_v.z, point.z)
+
+	var raw_height: float = max_v.y - min_v.y
+	if raw_height <= 0.0001:
+		imported.queue_free()
+		push_warning("XZOGOT_GIFT_SPLIT_BAD_HEIGHT " + path)
+		return null
+
+	var wrapper := Node3D.new()
+	wrapper.name = label
+	wrapper.position = _wp(base_pos)
+	wrapper.rotation_degrees.y = rotation_y_deg
+	var uniform_scale: float = (target_height * WORLD_SCALE) / raw_height
+	wrapper.scale = Vector3.ONE * uniform_scale
+	wrapper.add_to_group("split_gift_decor")
+	wrapper.set_meta("source_asset", path)
+	wrapper.set_meta("bundle", bundle)
+	wrapper.set_meta("model_index", model_index)
+	wrapper.set_meta("target_height_m", target_height * WORLD_SCALE)
+	wrapper.set_meta("collision_mode", "visual_only")
+
+	imported.name = "Source"
+	imported.position = Vector3(
+		-(min_v.x + max_v.x) * 0.5,
+		-min_v.y,
+		-(min_v.z + max_v.z) * 0.5
+	)
+	wrapper.add_child(imported)
+	_configure_gift_visibility(imported, visibility_end_m)
+	add_child(wrapper)
+	return wrapper
+
+func _read_gift_placement_manifest() -> Dictionary:
+	var path := "res://assets/gifts/gift_runtime_placements.json"
+	if not FileAccess.file_exists(path):
+		return {}
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return {}
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	return parsed as Dictionary if parsed is Dictionary else {}
+
+func _build_split_gift_decor() -> void:
+	var manifest: Dictionary = _read_gift_placement_manifest()
+	if manifest.is_empty():
+		push_warning("XZOGOT_GIFT_PLACEMENTS_MISSING")
+		return
+
+	var placements: Array = manifest.get("placements", []) as Array
+	var installed: int = _gift_split_present_count()
+	if installed == 0:
+		print("XZOGOT_GIFT_DECOR_WAITING_FOR_RUNTIME_PACKS")
+		return
+
+	var spawned: int = 0
+	for placement_var: Variant in placements:
+		var placement := placement_var as Dictionary
+		var bundle: String = str(placement.get("bundle", ""))
+		var model_name: String = str(placement.get("model", ""))
+		var model_index: int = int(model_name.trim_prefix("Model_"))
+		var role: String = str(placement.get("role", "%s_%02d" % [bundle, model_index]))
+		var p: Array = placement.get("position", []) as Array
+		if p.size() != 3 or model_index <= 0:
+			push_warning("XZOGOT_GIFT_PLACEMENT_INVALID " + role)
+			continue
+
+		var node := _spawn_split_gift(
+			bundle,
+			model_index,
+			"Gift_" + role,
+			Vector3(float(p[0]), float(p[1]), float(p[2])),
+			float(placement.get("target_height", 1.0)),
+			float(placement.get("rotation_y", 0.0)),
+			float(placement.get("visibility_end", 32.0))
+		)
+		if node != null:
+			node.set_meta("semantic_role", role)
+			spawned += 1
+
+	print("XZOGOT_GIFT_DECOR_PLACED ", spawned, "/", placements.size())
+	if installed == GIFT_SPLIT_TOTAL and spawned == placements.size():
+		print("XZOGOT_GIFT_HERO_DECOR_READY")
 
 func _collect_furniture_bounds(
 	node: Node3D,
