@@ -1013,6 +1013,15 @@ func get_local_peer_id() -> int:
 func get_connected_player_count() -> int:
 	return _roster.size()
 
+func is_session_private() -> bool:
+	return _session_private
+
+func get_session_port() -> int:
+	return _port
+
+func get_max_players() -> int:
+	return MAX_PLAYERS
+
 func get_roster_ids() -> PackedInt32Array:
 	var ids := PackedInt32Array()
 	for id_var: Variant in _roster.keys():
@@ -1023,9 +1032,10 @@ func get_roster_ids() -> PackedInt32Array:
 func get_status_text() -> String:
 	match _mode:
 		"host":
-			return "HOST  %d/4  UDP:%d" % [_roster.size(), _port]
+			var privacy: String = "PRIVATE" if _session_private else "PUBLIC DIRECT"
+			return "HOST %s  %d/%d  UDP:%d" % [privacy, _roster.size(), MAX_PLAYERS, _port]
 		"client":
-			return "CONNECTED  PEER %d  %d/4" % [_local_peer_id, _roster.size()]
+			return "CONNECTED  PEER %d  %d/%d  UDP:%d" % [_local_peer_id, _roster.size(), MAX_PLAYERS, _port]
 		"joining":
-			return "CONNECTING..."
+			return "CONNECTING  UDP:%d..." % _port
 	return "OFFLINE"
