@@ -1,0 +1,148 @@
+name: Fast Aether Fire Audio Recovery
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/church-expansion-v1
+    paths:
+      - ".github/workflows/xogot-aether-fire-audio-fast.yml"
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: xogot-aether-fire-audio-fast
+  cancel-in-progress: true
+
+jobs:
+  decode:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout gameplay branch
+        uses: actions/checkout@v5
+        with:
+          ref: feature/church-expansion-v1
+          fetch-depth: 0
+
+      - name: Download preserved Aether raw weapon artifact
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force -Path recovered-bundle | Out-Null
+          gh run download 37231816172 -n aether-wall-weapons-recovered -D recovered-bundle
+          $root = Join-Path $PWD 'recovered-bundle\raw\ProjectAether\Content\Assets\Sounds\Base'
+          if (-not (Test-Path $root)) { throw "Aether raw sound root missing: $root" }
+          Write-Host 'XZOGOT_PRESERVED_AETHER_AUDIO_DOWNLOADED'
+
+      - name: Install UE5 BINKA decoder
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git clone --depth 1 https://github.com/AbienteSadness/ue5-binka-to-wav.git "$env:RUNNER_TEMP\ue5-binka-to-wav"
+          Invoke-WebRequest 'https://github.com/Keisawaakira/BinkadecWithWavHeader/releases/download/1.0.2/binkadec.zip' -OutFile "$env:RUNNER_TEMP\binkadec.zip"
+          Expand-Archive "$env:RUNNER_TEMP\binkadec.zip" -DestinationPath "$env:RUNNER_TEMP\binkadec" -Force
+          $decoder = Get-ChildItem "$env:RUNNER_TEMP\binkadec" -Filter 'binkadec.exe' -Recurse | Select-Object -First 1
+          if (-not $decoder) { throw 'binkadec.exe missing' }
+          "BINKADEC=$($decoder.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "XZOGOT_BINKADEC_READY $($decoder.FullName)"
+
+      - name: Decode Colt M1 MP40 Thompson real fire audio
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $raw = Join-Path $PWD 'recovered-bundle\raw\ProjectAether\Content\Assets\Sounds\Base'
+          $targets = @{
+            'colt'     = 'wpn_pistol_1911_fire_LN100_pc_snd'
+            'm1'       = 'wpn_m1garand_st_f'
+            'mp40'     = 'wpn_mp40_st_f'
+            'thompson' = 'wpn_thompson_st_f'
+          }
+          $tool = Join-Path $env:RUNNER_TEMP 'ue5-binka-to-wav'
+          $report = @()
+          foreach ($weapon in $targets.Keys) {
+            $stem = $targets[$weapon]
+            $ubulk = Get-ChildItem $raw -Filter "$stem.ubulk" -Recurse | Select-Object -First 1
+            if (-not $ubulk) { throw "Missing $stem.ubulk" }
+            $outDir = Join-Path $PWD "xogot\assets\audio\weapons\mapmod\$weapon"
+            New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+            $tmpOut = Join-Path $env:RUNNER_TEMP "fast-decoded-$weapon"
+            New-Item -ItemType Directory -Force -Path $tmpOut | Out-Null
+            Push-Location $tool
+            python 'binka2wav-cli.py' $ubulk.FullName -o $tmpOut --binkadec $env:BINKADEC
+            if ($LASTEXITCODE -ne 0) { throw "Decode failed for $weapon" }
+            Pop-Location
+            $wav = Get-ChildItem $tmpOut -Filter '*.wav' -Recurse | Select-Object -First 1
+            if (-not $wav -or $wav.Length -le 44) { throw "Invalid WAV for $weapon" }
+            $dest = Join-Path $outDir 'fire.wav'
+            Copy-Item $wav.FullName $dest -Force
+            $report += [PSCustomObject]@{weapon=$weapon;source=$stem;bytes=(Get-Item $dest).Length}
+            Write-Host "XZOGOT_REAL_FIRE_SFX_READY $weapon"
+          }
+          $report | ConvertTo-Json -Depth 4 | Set-Content 'xogot/assets/audio/weapons/mapmod/fire-audio-fast-report.json' -Encoding utf8
+          Write-Host 'XZOGOT_FAST_REAL_FIRE_AUDIO_GREEN'
+
+      - name: Bind decoded fire sounds
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          @'
+          import json
+          from pathlib import Path
+          p=Path("xogot/assets/weapons/mapmod_weapon_asset_manifest.json")
+          d=json.loads(p.read_text(encoding="utf-8"))
+          for wid in ("colt","m1","mp40","thompson"):
+              d["weapons"][wid]["runtime"]["audio"]["fire"]=f"res://assets/audio/weapons/mapmod/{wid}/fire.wav"
+          p.write_text(json.dumps(d,indent=2)+"\n",encoding="utf-8")
+          '@ | Set-Content "$env:RUNNER_TEMP\bind_audio.py" -Encoding utf8
+          python "$env:RUNNER_TEMP\bind_audio.py"
+
+      - name: Validate WAV payloads
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          @'
+          import wave
+          from pathlib import Path
+          for wid in ("colt","m1","mp40","thompson"):
+              p=Path(f"xogot/assets/audio/weapons/mapmod/{wid}/fire.wav")
+              assert p.stat().st_size > 44
+              with wave.open(str(p),"rb") as w:
+                  assert w.getnframes() > 100
+                  assert 8000 <= w.getframerate() <= 96000
+                  print("XZOGOT_WAV_OK",wid,w.getnchannels(),w.getframerate(),w.getnframes())
+          print("XZOGOT_FAST_FIRE_WAV_GATE_GREEN")
+          '@ | Set-Content "$env:RUNNER_TEMP\verify.py" -Encoding utf8
+          python "$env:RUNNER_TEMP\verify.py"
+
+      - name: Commit real fire audio
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add xogot/assets/audio/weapons/mapmod xogot/assets/weapons/mapmod_weapon_asset_manifest.json
+          git diff --cached --quiet
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host 'XZOGOT_FAST_FIRE_AUDIO_ALREADY_PRESENT'
+            exit 0
+          }
+          $global:LASTEXITCODE = 0
+          git commit -m "Integrate authentic Aether fire sounds"
+          git pull --rebase origin feature/church-expansion-v1
+          git push origin HEAD:feature/church-expansion-v1
+          Write-Host 'XZOGOT_FAST_FIRE_AUDIO_COMMIT_GREEN'
+
+      - name: Upload proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: fast-aether-fire-audio
+          path: |
+            xogot/assets/audio/weapons/mapmod/*/fire.wav
+            xogot/assets/audio/weapons/mapmod/fire-audio-fast-report.json
+          if-no-files-found: error
+          retention-days: 14
