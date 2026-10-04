@@ -127,12 +127,13 @@ func _run() -> void:
 		return
 	var manifest := parsed as Dictionary
 	var placements: Array = manifest.get("placements", []) as Array
-	if placements.size() != 32:
-		_fail(27, "expected 32 hero placements, got %d" % placements.size())
+	if placements.size() != 40:
+		_fail(27, "expected 40 hero placements, got %d" % placements.size())
 		return
 
 	var has_candleholder: bool = false
 	var has_stained: bool = false
+	var has_ruins: bool = false
 	for placement_var: Variant in placements:
 		var placement := placement_var as Dictionary
 		var bundle: String = str(placement.get("bundle", ""))
@@ -140,8 +141,10 @@ func _run() -> void:
 			has_candleholder = true
 		if bundle == "stained_single" or bundle == "stained_multi":
 			has_stained = true
-	if not has_candleholder or not has_stained:
-		_fail(28, "candleholder/stained-glass hero placements missing")
+		if bundle == "ruins":
+			has_ruins = true
+	if not has_candleholder or not has_stained or not has_ruins:
+		_fail(28, "candleholder/stained-glass/ruins hero placements missing")
 		return
 
 	print("XZOGOT_CANDLE_STATES_GREEN ", counts)
