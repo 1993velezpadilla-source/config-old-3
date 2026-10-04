@@ -75,6 +75,20 @@ def add_box(name,size,pos,material="stone",bevel=0.05,rot=(0,0,0)):
     set_mat(o,material)
     return o
 
+def add_torus(name,major_radius,minor_radius,pos,material="trim",major_segments=32,minor_segments=10,rot=(0,0,0)):
+    bpy.ops.mesh.primitive_torus_add(
+        major_segments=major_segments,
+        minor_segments=minor_segments,
+        location=B(*pos),
+        major_radius=major_radius,
+        minor_radius=minor_radius,
+    )
+    o=bpy.context.object
+    o.name=name
+    o.rotation_euler=(math.radians(rot[0]),math.radians(rot[2]),math.radians(-rot[1]))
+    set_mat(o,material)
+    return o
+
 def add_cylinder(name,radius,height,pos,material="stone",verts=16,bevel=0.03):
     bpy.ops.mesh.primitive_cylinder_add(vertices=verts, radius=radius, depth=height, location=B(*pos))
     o=bpy.context.object
@@ -211,6 +225,18 @@ def build_nave():
         add_box(f"RoofBraceL_{i:02d}",(7.1,0.22,0.25),(-3.45,7.25,z),"wood",0.025,(0,0,-19))
         add_box(f"RoofBraceR_{i:02d}",(7.1,0.22,0.25),(3.45,7.25,z),"wood",0.025,(0,0,19))
 
+    # Complete steep gothic roof skin. The procedural collision shell remains
+    # authoritative; these are visual-only slate panels above it.
+    roof_angle=28.3
+    add_box("NaveRoofWest",(12.25,0.32,38.8),(-5.30,8.66,-5.0),"roof",0.025,(0,0,roof_angle))
+    add_box("NaveRoofEast",(12.25,0.32,38.8),(5.30,8.66,-5.0),"roof",0.025,(0,0,-roof_angle))
+    add_box("NaveRidgeCap",(0.38,0.42,39.0),(0.0,11.48,-5.0),"metal",0.05)
+
+    # Layered eave/fascia lines read strongly from the exterior without creating
+    # any gameplay collision.
+    add_box("NaveEaveWest",(0.36,0.32,39.0),(-10.62,5.82,-5.0),"wood",0.035)
+    add_box("NaveEaveEast",(0.36,0.32,39.0),(10.62,5.82,-5.0),"wood",0.035)
+
     # Exterior stepped buttresses.
     for i,z in enumerate([-19.0,-11.0,-3.0,5.0,12.0]):
         for side in (-1,1):
@@ -245,14 +271,29 @@ def build_front_tower():
 
     # Bell/rose window frame on front face.
     add_arch_curve("TowerFrontBellArch",1.48,10.7,13.2,13.50,0.20,"trim",24)
-    add_cylinder("TowerRoseOuter",1.05,0.20,(0,11.62,13.42),"trim",32,0.03)
-    add_cylinder("TowerRoseInner",0.72,0.18,(0,11.62,13.31),"stone_dark",32,0.02)
+    add_torus("TowerRoseOuter",0.92,0.10,(0,11.62,13.34),"trim",40,10,(90,0,0))
+    add_torus("TowerRoseInner",0.55,0.065,(0,11.62,13.32),"trim",32,8,(90,0,0))
+    for angle in range(0,180,30):
+        spoke=add_box(
+            "TowerRoseSpoke_%03d"%angle,
+            (1.70,0.075,0.075),
+            (0,11.62,13.30),
+            "trim",0.015
+        )
+        # Front plane is Godot X/Y, so rotate around Godot Z.
+        spoke.rotation_euler[1]=math.radians(angle)
 
     # Small pinnacles.
     for x in (-2.9,2.9):
         add_cylinder(f"TowerPinnacleBase_{x}",0.32,0.75,(x,14.7,11.0),"trim",12,0.03)
         bpy.ops.mesh.primitive_cone_add(vertices=12,radius1=0.32,radius2=0.0,depth=1.55,location=B(x,15.8,11.0))
         o=bpy.context.object; o.name=f"TowerPinnacle_{x}"; set_mat(o,"stone_dark")
+
+    bpy.ops.mesh.primitive_cone_add(vertices=4,radius1=4.55,radius2=0.0,depth=6.4,location=B(0,17.45,10.9))
+    tower_roof=bpy.context.object
+    tower_roof.name="FrontTowerSlateRoof"
+    tower_roof.rotation_euler[2]=math.radians(45)
+    set_mat(tower_roof,"roof")
 
 def build_sanctuary():
     add_box("SanctuaryBackFrame",(7.15,5.25,0.42),(0,3.05,-23.28),"stone_dark",0.08)
@@ -308,6 +349,12 @@ def build_bell_tower():
     add_box("BellFrameR",(0.42,5.8,0.42),(cx+2.8,9.0,cz),"wood",0.035)
     add_cylinder("BellBody",1.35,1.45,(cx,9.25,cz),"metal",32,0.06)
     add_cylinder("BellLip",1.62,0.24,(cx,8.50,cz),"metal",32,0.04)
+
+    bpy.ops.mesh.primitive_cone_add(vertices=4,radius1=5.0,radius2=0.0,depth=5.2,location=B(cx,15.0,cz))
+    roof=bpy.context.object
+    roof.name="BellTowerSlateRoof"
+    roof.rotation_euler[2]=math.radians(45)
+    set_mat(roof,"roof")
 
 def build_side_rooms():
     # Sacristy cornices / chapel arch.
