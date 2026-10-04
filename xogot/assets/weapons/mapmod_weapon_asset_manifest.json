@@ -36,7 +36,46 @@
       "REFERENCE_PARTIAL",
       "PARTIAL",
       "MISSING"
-    ]
+    ],
+    "viewmodel_quality_gate": {
+      "runtime_space": "meters",
+      "up_axis": "+Y",
+      "camera_forward": "+Z",
+      "longest_axis_min_m": 0.3,
+      "longest_axis_max_m": 1.5,
+      "recommended_rifle_axis_m": [
+        0.75,
+        1.05
+      ],
+      "min_vertices": 96,
+      "max_vertices": 600000,
+      "min_indices": 96,
+      "max_indices": 900000,
+      "max_render_batches": 128,
+      "triangle_indices_required": true,
+      "collapsed_geometry_rejected": true,
+      "near_zero_3d_thickness_rejected": true,
+      "visual_inspection_required": true
+    },
+    "recommended_movable_parts": [
+      "weapon_body",
+      "magazine",
+      "bolt",
+      "charging_handle",
+      "muzzle",
+      "trigger"
+    ],
+    "materials": {
+      "preserve": [
+        "base_color",
+        "normal",
+        "roughness",
+        "metallic",
+        "ao"
+      ],
+      "hero_4k_allowed": true,
+      "destructive_texture_downscale_forbidden": true
+    }
   },
   "weapon_count": 21,
   "weapons": {
