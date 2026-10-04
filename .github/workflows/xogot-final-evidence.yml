@@ -1,0 +1,108 @@
+name: Xogot Final Evidence
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install renderer and ffmpeg
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq unzip curl xvfb libgl1-mesa-dri libglx-mesa0 mesa-vulkan-drivers ffmpeg
+
+      - name: Install Godot 4.6.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/godot.zip
+          mkdir -p /tmp/godot
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+
+      - name: Import final Xogot project
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/final-evidence
+          timeout 240 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --editor --path xogot --quit \
+            2>&1 | tee build/final-evidence/import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/final-evidence/import.log
+
+      - name: Capture real map views and gameplay
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/xogot-final-evidence
+          mkdir -p /tmp/xogot-final-evidence/video_frames
+          xvfb-run -a -s "-screen 0 1280x720x24" \
+            /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --path xogot --rendering-method gl_compatibility --resolution 1280x720 \
+            --script res://ci/final_evidence_capture.gd \
+            2>&1 | tee build/final-evidence/capture.log
+          grep -q "XZOGOT_FINAL_EVIDENCE_CAPTURE_GREEN 10_png 96_video_frames" build/final-evidence/capture.log
+          test "$(find /tmp/xogot-final-evidence -maxdepth 1 -name '*.png' | wc -l)" -eq 10
+          test "$(find /tmp/xogot-final-evidence/video_frames -name '*.png' | wc -l)" -eq 96
+
+      - name: Encode gameplay video
+        shell: bash
+        run: |
+          set -euo pipefail
+          ffmpeg -hide_banner -loglevel error -y -framerate 16 \
+            -i /tmp/xogot-final-evidence/video_frames/frame_%04d.png \
+            -c:v libx264 -preset medium -crf 19 -pix_fmt yuv420p \
+            -movflags +faststart /tmp/xogot-final-evidence/xogot-final-gameplay.mp4
+          test -s /tmp/xogot-final-evidence/xogot-final-gameplay.mp4
+          ffprobe -v error -show_entries format=duration,size -of default=nw=1 \
+            /tmp/xogot-final-evidence/xogot-final-gameplay.mp4
+
+      - name: Validate image readability
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from PIL import Image,ImageStat
+          from pathlib import Path
+          paths=sorted(Path("/tmp/xogot-final-evidence").glob("*.png"))
+          assert len(paths)==10, len(paths)
+          for p in paths:
+              im=Image.open(p).convert("RGB")
+              assert im.size==(1280,720), (p,im.size)
+              gray=im.convert("L")
+              stat=ImageStat.Stat(gray)
+              lo,hi=gray.getextrema()
+              assert hi-lo >= 18, (p,lo,hi)
+              assert stat.stddev[0] >= 4.5, (p,stat.stddev[0])
+              print("XZOGOT_FINAL_IMAGE_GREEN",p.name,(lo,hi),round(stat.stddev[0],2))
+          PY
+
+      - name: Stage evidence artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/final-evidence/output
+          cp /tmp/xogot-final-evidence/*.png build/final-evidence/output/
+          cp /tmp/xogot-final-evidence/xogot-final-gameplay.mp4 build/final-evidence/output/
+          cp build/final-evidence/capture.log build/final-evidence/output/
+          cp build/final-evidence/import.log build/final-evidence/output/
+
+      - name: Upload final evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Final-Evidence
+          path: build/final-evidence/output/
+          if-no-files-found: error
+          retention-days: 14
