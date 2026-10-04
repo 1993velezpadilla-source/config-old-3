@@ -3,6 +3,7 @@ extends Node3D
 const WORLD_SCALE: float = 0.78
 const ALTAR_ASSET_PATH := "res://assets/environment/church/altar.glb"
 const BENCH_ASSET_PATH := "res://assets/environment/church/bench.glb"
+const CANDLE_MANAGER_SCRIPT := preload("res://scripts/candle_manager.gd")
 
 # High-density user gift pack. These are optional so CI stays green until the
 # binary GLBs are copied into res://assets/gifts/ with the canonical names.
@@ -136,6 +137,8 @@ func _ready() -> void:
 	_build_church_visual_v3()
 	_build_gift_pack()
 	_build_split_gift_decor()
+	_build_candle_runtime()
+	_build_stained_glass_light_effects()
 	_build_interactions()
 	_build_windows()
 	_build_selective_spawn_anchors()
@@ -1041,6 +1044,87 @@ func _build_split_gift_decor() -> void:
 	if installed == GIFT_SPLIT_TOTAL and spawned == placements.size():
 		print("XZOGOT_GIFT_HERO_DECOR_READY")
 
+func _find_player_for_candles() -> Node3D:
+	var candidate: Node = get_node_or_null("../Player")
+	if candidate is Node3D:
+		return candidate as Node3D
+	if get_tree().current_scene != null:
+		candidate = get_tree().current_scene.get_node_or_null("Player")
+		if candidate is Node3D:
+			return candidate as Node3D
+	return null
+
+func _build_candle_runtime() -> void:
+	var manager := Node3D.new()
+	manager.name = "CandleManager"
+	manager.set_script(CANDLE_MANAGER_SCRIPT)
+	manager.call("configure", WORLD_SCALE, _find_player_for_candles())
+	add_child(manager)
+	print("XZOGOT_CANDLE_MANAGER_MOUNTED")
+
+func _add_stained_glass_beam(
+	label: String,
+	origin_m: Vector3,
+	target_m: Vector3,
+	color: Color,
+	energy: float,
+	angle: float,
+	range_m: float
+) -> void:
+	var light := SpotLight3D.new()
+	light.name = label
+	light.position = _wp(origin_m)
+	light.light_color = color
+	light.light_energy = energy
+	light.spot_range = range_m * WORLD_SCALE
+	light.spot_angle = angle
+	light.spot_attenuation = 1.85
+	light.shadow_enabled = false
+	add_child(light)
+	light.look_at(_wp(target_m), Vector3.UP)
+	light.add_to_group("stained_glass_light")
+
+func _build_stained_glass_light_effects() -> void:
+	# Color pools are deliberately sparse and non-shadowed. They sell stained
+	# glass on stone/floor without making the mobile renderer pay for projectors.
+	_add_stained_glass_beam(
+		"StainedBeam_WestRear",
+		Vector3(-10.0, 5.3, -15.0),
+		Vector3(-2.6, 0.45, -12.0),
+		Color(0.28, 0.18, 0.62),
+		0.34,
+		24.0,
+		10.0
+	)
+	_add_stained_glass_beam(
+		"StainedBeam_EastRear",
+		Vector3(10.0, 5.1, -12.0),
+		Vector3(2.2, 0.45, -9.0),
+		Color(0.72, 0.16, 0.11),
+		0.30,
+		22.0,
+		9.5
+	)
+	_add_stained_glass_beam(
+		"StainedBeam_WestMid",
+		Vector3(-10.0, 5.0, -4.0),
+		Vector3(-1.8, 0.45, -1.0),
+		Color(0.11, 0.38, 0.66),
+		0.28,
+		21.0,
+		9.0
+	)
+	_add_stained_glass_beam(
+		"StainedBeam_EastFront",
+		Vector3(10.0, 5.2, 5.0),
+		Vector3(1.5, 0.45, 2.0),
+		Color(0.70, 0.43, 0.10),
+		0.26,
+		20.0,
+		9.0
+	)
+	print("XZOGOT_STAINED_GLASS_LIGHT_FX_READY 4")
+
 func _collect_furniture_bounds(
 	node: Node3D,
 	parent_transform: Transform3D,
@@ -1297,8 +1381,6 @@ func _build_church_visual_v3() -> void:
 	var sanctuary_stone := Color(0.115, 0.105, 0.092)
 	var sanctuary_edge := Color(0.205, 0.175, 0.135)
 	var dark_wood := Color(0.078, 0.038, 0.018)
-	var candle_wax := Color(0.68, 0.53, 0.33)
-	var flame := Color(1.0, 0.42, 0.10)
 
 	# Give the authored altar a proper architectural destination instead of a black rear wall.
 	_visual_box(
@@ -1350,34 +1432,8 @@ func _build_church_visual_v3() -> void:
 		dark_wood
 	)
 
-	# A small candle row adds believable scale and warm specular accents around the real altar.
-	for i in range(7):
-		var x: float = -2.25 + float(i) * 0.75
-		_visual_cylinder(
-			"AltarCandle_%02d" % i,
-			0.035,
-			0.26,
-			Vector3(x, 1.28, -20.20),
-			candle_wax,
-			8
-		)
-		_visual_box(
-			"AltarFlame_%02d" % i,
-			Vector3(0.065, 0.11, 0.065),
-			Vector3(x, 1.465, -20.20),
-			flame
-		)
-
-	# Two cheap, non-shadow sanctuary accents reveal the altar silhouette without a flat flood light.
-	for side in [-1.0, 1.0]:
-		var sanctuary_light := OmniLight3D.new()
-		sanctuary_light.name = "SanctuaryAccent_%s" % ("L" if side < 0.0 else "R")
-		sanctuary_light.position = _wp(Vector3(2.85 * side, 2.65, -19.85))
-		sanctuary_light.light_color = Color(1.0, 0.34, 0.11)
-		sanctuary_light.light_energy = 0.58
-		sanctuary_light.omni_range = 4.1 * WORLD_SCALE
-		sanctuary_light.shadow_enabled = false
-		add_child(sanctuary_light)
+	# Candle geometry, flame animation and warm light are authored by
+	# XzCandleManager. Keep this visual pass free of duplicate fake flames/lights.
 
 	# Moonlight leaking through the eight prepared zombie windows makes the wall depth readable.
 	# These are intentionally non-shadow lights to stay cheap on mobile.
