@@ -2,27 +2,20 @@ name: Xogot Public Relay Live
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - feature/church-expansion-v1
-    paths:
-      - "services/xz-ws-relay/**"
-      - "xogot/server/public_ws_dedicated.gd"
-      - ".github/workflows/xogot-public-relay-live.yml"
 
 permissions:
   contents: read
 
 concurrency:
-  group: xogot-public-session-live
-  cancel-in-progress: false
+  group: xogot-public-relay-live-manual
+  cancel-in-progress: true
 
 jobs:
   public-wss-multiroom:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Wait for empty reconnect-v4 rooms
+      - name: Wait for empty reconnect-v5 rooms
         shell: bash
         run: |
           set -euo pipefail
@@ -37,7 +30,7 @@ jobs:
           except Exception:
               raise SystemExit(1)
           ok = (
-              health.get("runtime_contract") == "multiroom-reconnect-v4"
+              health.get("runtime_contract") == "multiroom-reconnect-v5"
               and health.get("multi_room") is True
               and len(rooms) >= 2
               and all(bool(room.get("ready")) for room in rooms[:2])
@@ -54,7 +47,7 @@ jobs:
             fi
             sleep 2
           done
-          echo "Timed out waiting for empty reconnect-v4 rooms" >&2
+          echo "Timed out waiting for empty reconnect-v5 rooms" >&2
           exit 1
 
       - name: Install Godot 4.6.1

@@ -42,7 +42,7 @@ jobs:
           except Exception:
               raise SystemExit(1)
           ok = (
-              health.get("runtime_contract") == "multiroom-reconnect-v4"
+              health.get("runtime_contract") == "multiroom-reconnect-v5"
               and health.get("rpc_scene_root") == "YouWontWin"
               and float(health.get("reconnect_grace_seconds", 0)) >= 30
               and len(rooms) >= 2
