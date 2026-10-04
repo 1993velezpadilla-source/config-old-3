@@ -1,0 +1,22 @@
+[
+  {
+    "weapon": "mp40",
+    "source": "wpn_mp40_st_f",
+    "bytes": 102380
+  },
+  {
+    "weapon": "colt",
+    "source": "wpn_pistol_1911_fire_LN100_pc_snd",
+    "bytes": 160300
+  },
+  {
+    "weapon": "m1",
+    "source": "wpn_m1garand_st_f",
+    "bytes": 180268
+  },
+  {
+    "weapon": "thompson",
+    "source": "wpn_thompson_st_f",
+    "bytes": 61484
+  }
+]

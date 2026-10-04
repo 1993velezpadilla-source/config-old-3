@@ -86,7 +86,7 @@
         "viewmodel": "res://assets/weapons/mapmod/colt/viewmodel.glb",
         "worldmodel": "res://assets/weapons/mapmod/colt/worldmodel.glb",
         "audio": {
-          "fire": "res://assets/audio/weapons/mapmod/colt/fire.ogg",
+          "fire": "res://assets/audio/weapons/mapmod/colt/fire.wav",
           "reload": "res://assets/audio/weapons/mapmod/colt/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/colt/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/colt/dry_fire.ogg"
@@ -139,7 +139,7 @@
         "viewmodel": "res://assets/weapons/mapmod/m1/viewmodel.glb",
         "worldmodel": "res://assets/weapons/mapmod/m1/worldmodel.glb",
         "audio": {
-          "fire": "res://assets/audio/weapons/mapmod/m1/fire.ogg",
+          "fire": "res://assets/audio/weapons/mapmod/m1/fire.wav",
           "reload": "res://assets/audio/weapons/mapmod/m1/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/m1/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/m1/dry_fire.ogg"
@@ -192,7 +192,7 @@
         "viewmodel": "res://assets/weapons/mapmod/mp40/viewmodel.glb",
         "worldmodel": "res://assets/weapons/mapmod/mp40/worldmodel.glb",
         "audio": {
-          "fire": "res://assets/audio/weapons/mapmod/mp40/fire.ogg",
+          "fire": "res://assets/audio/weapons/mapmod/mp40/fire.wav",
           "reload": "res://assets/audio/weapons/mapmod/mp40/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/mp40/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/mp40/dry_fire.ogg"
@@ -298,7 +298,7 @@
         "viewmodel": "res://assets/weapons/mapmod/thompson/viewmodel.glb",
         "worldmodel": "res://assets/weapons/mapmod/thompson/worldmodel.glb",
         "audio": {
-          "fire": "res://assets/audio/weapons/mapmod/thompson/fire.ogg",
+          "fire": "res://assets/audio/weapons/mapmod/thompson/fire.wav",
           "reload": "res://assets/audio/weapons/mapmod/thompson/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/thompson/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/thompson/dry_fire.ogg"
