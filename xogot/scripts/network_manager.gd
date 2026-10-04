@@ -6,12 +6,16 @@ signal roster_changed(peer_ids: PackedInt32Array)
 signal network_error(message: String)
 
 const REMOTE_PROXY_SCRIPT := preload("res://scripts/network_player_proxy.gd")
+const WeaponCatalog = preload("res://scripts/weapon_catalog.gd")
+const ZOMBIE_SCRIPT := preload("res://scripts/zombie_dummy.gd")
 const SERVER_PEER_ID := 1
 const DEFAULT_PORT := 7777
 const MAX_PLAYERS := 4
 const SNAPSHOT_INTERVAL := 0.05
+const ZOMBIE_SNAPSHOT_INTERVAL := 0.10
 const MAX_SNAPSHOT_DELTA := 3.0
 const MAX_PITCH := 1.51
+const MAX_HIT_DISTANCE := 130.0
 
 var _peer: ENetMultiplayerPeer
 var _mode: String = "offline"
@@ -19,10 +23,14 @@ var _session_private: bool = true
 var _port: int = DEFAULT_PORT
 var _local_peer_id: int = SERVER_PEER_ID
 var _snapshot_timer: float = 0.0
+var _zombie_snapshot_timer: float = 0.0
 var _sequence: int = 0
 var _roster: Dictionary = {}
 var _remote_players: Dictionary = {}
+var _network_zombies: Dictionary = {}
 var _accepted_positions: Dictionary = {}
+var _peer_weapon_ids: Dictionary = {}
+var _peer_weapon_upgraded: Dictionary = {}
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -130,9 +138,12 @@ func leave_game() -> void:
 	_peer = null
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
 	_clear_remote_players()
+	_clear_network_zombies()
 	_roster.clear()
 	_roster[SERVER_PEER_ID] = true
 	_accepted_positions.clear()
+	_peer_weapon_ids.clear()
+	_peer_weapon_upgraded.clear()
 	_mode = "offline"
 	_local_peer_id = SERVER_PEER_ID
 	_configure_local_player(SERVER_PEER_ID)
@@ -147,6 +158,8 @@ func _on_peer_connected(peer_id: int) -> void:
 	if peer_id <= 0:
 		return
 	_roster[peer_id] = true
+	_peer_weapon_ids[peer_id] = WeaponCatalog.STARTING_WEAPON_ID
+	_peer_weapon_upgraded[peer_id] = false
 	_ensure_remote_proxy(peer_id)
 	_broadcast_roster()
 	print("XZOGOT_NETWORK_PEER_JOIN peer=", peer_id, " count=", _roster.size())
@@ -154,6 +167,8 @@ func _on_peer_connected(peer_id: int) -> void:
 func _on_peer_disconnected(peer_id: int) -> void:
 	_roster.erase(peer_id)
 	_accepted_positions.erase(peer_id)
+	_peer_weapon_ids.erase(peer_id)
+	_peer_weapon_upgraded.erase(peer_id)
 	_remove_remote_proxy(peer_id)
 	if multiplayer.is_server():
 		_broadcast_roster()
@@ -260,16 +275,22 @@ func _clear_remote_players() -> void:
 func _process(delta: float) -> void:
 	if _mode != "host" and _mode != "client":
 		return
+
 	_snapshot_timer -= delta
-	if _snapshot_timer > 0.0:
-		return
-	_snapshot_timer = SNAPSHOT_INTERVAL
-	_sequence += 1
+	if _snapshot_timer <= 0.0:
+		_snapshot_timer = SNAPSHOT_INTERVAL
+		_sequence += 1
+		if _mode == "host":
+			_broadcast_host_player_state()
+			_broadcast_authoritative_remote_states()
+		else:
+			_send_client_motion()
+
 	if _mode == "host":
-		_broadcast_host_player_state()
-		_broadcast_authoritative_remote_states()
-	else:
-		_send_client_motion()
+		_zombie_snapshot_timer -= delta
+		if _zombie_snapshot_timer <= 0.0:
+			_zombie_snapshot_timer = ZOMBIE_SNAPSHOT_INTERVAL
+			_broadcast_zombie_states()
 
 func _safe_pitch(player: Node) -> float:
 	var head: Node3D = player.get_node_or_null("Head") as Node3D
@@ -279,17 +300,32 @@ func _send_client_motion() -> void:
 	var player: Node3D = _local_player() as Node3D
 	if player == null:
 		return
+	var weapon: Node = player.get_node_or_null("Weapon")
+	var weapon_id: String = WeaponCatalog.STARTING_WEAPON_ID
+	var upgraded: bool = false
+	if weapon != null:
+		weapon_id = str(weapon.get_meta("weapon_id", WeaponCatalog.STARTING_WEAPON_ID))
+		upgraded = bool(weapon.get_meta("weapon_upgraded", false))
 	rpc_id(
 		SERVER_PEER_ID,
 		"_server_submit_motion",
 		player.global_position,
 		player.rotation.y,
 		_safe_pitch(player),
+		weapon_id,
+		upgraded,
 		_sequence
 	)
 
 @rpc("any_peer", "call_remote", "unreliable_ordered", 1)
-func _server_submit_motion(pos: Vector3, yaw: float, pitch: float, sequence: int) -> void:
+func _server_submit_motion(
+	pos: Vector3,
+	yaw: float,
+	pitch: float,
+	weapon_id: String,
+	upgraded: bool,
+	sequence: int
+) -> void:
 	if not multiplayer.is_server():
 		return
 	var sender: int = multiplayer.get_remote_sender_id()
@@ -297,6 +333,12 @@ func _server_submit_motion(pos: Vector3, yaw: float, pitch: float, sequence: int
 		return
 	if not pos.is_finite() or not is_finite(yaw) or not is_finite(pitch):
 		return
+	if WeaponCatalog.has_weapon(weapon_id):
+		_peer_weapon_ids[sender] = weapon_id
+		_peer_weapon_upgraded[sender] = upgraded
+	else:
+		_peer_weapon_ids[sender] = WeaponCatalog.STARTING_WEAPON_ID
+		_peer_weapon_upgraded[sender] = false
 	var previous: Vector3 = _accepted_positions.get(sender, pos) as Vector3
 	var delta_pos: Vector3 = pos - previous
 	var accepted: Vector3 = pos
@@ -315,7 +357,8 @@ func _server_submit_motion(pos: Vector3, yaw: float, pitch: float, sequence: int
 			bool(proxy.call("is_downed")),
 			bool(proxy.call("is_eliminated")),
 			float(proxy.call("get_bleedout_remaining")),
-			float(proxy.call("get_revive_progress_ratio"))
+			float(proxy.call("get_revive_progress_ratio")),
+			int(proxy.call("get_points"))
 		)
 	_relay_player_state(sender, sequence)
 
@@ -329,6 +372,7 @@ func _relay_player_state(peer_id: int, sequence: int) -> void:
 	var eliminated_value: bool = bool(node.call("is_eliminated")) if node.has_method("is_eliminated") else false
 	var bleedout_value: float = float(node.call("get_bleedout_remaining")) if node.has_method("get_bleedout_remaining") else 0.0
 	var revive_ratio: float = float(node.call("get_revive_progress_ratio")) if node.has_method("get_revive_progress_ratio") else 0.0
+	var points_value: int = int(node.call("get_points")) if node.has_method("get_points") else 500
 	var pitch: float = _safe_pitch(node) if peer_id == SERVER_PEER_ID else (
 		float(node.call("get_network_pitch")) if node.has_method("get_network_pitch") else 0.0
 	)
@@ -343,6 +387,7 @@ func _relay_player_state(peer_id: int, sequence: int) -> void:
 		eliminated_value,
 		bleedout_value,
 		revive_ratio,
+		points_value,
 		sequence
 	)
 
@@ -364,6 +409,7 @@ func _client_receive_player_state(
 	eliminated_value: bool,
 	bleedout_value: float,
 	revive_ratio: float,
+	points_value: int,
 	_sequence_id: int
 ) -> void:
 	if multiplayer.is_server():
@@ -379,6 +425,8 @@ func _client_receive_player_state(
 				bleedout_value,
 				revive_ratio
 			)
+		if local != null and local.has_method("apply_authoritative_network_points"):
+			local.call("apply_authoritative_network_points", points_value)
 		if local is Node3D and (local as Node3D).global_position.distance_to(pos) > 1.25:
 			(local as Node3D).global_position = (local as Node3D).global_position.lerp(pos, 0.35)
 		return
@@ -393,8 +441,151 @@ func _client_receive_player_state(
 			downed_value,
 			eliminated_value,
 			bleedout_value,
-			revive_ratio
+			revive_ratio,
+			points_value
 		)
+
+func _host_zombie_by_id(zombie_id: String) -> Node:
+	for zombie: Node in get_tree().get_nodes_in_group("zombie"):
+		if bool(zombie.get_meta("network_proxy", false)):
+			continue
+		if zombie.name == zombie_id:
+			return zombie
+	return null
+
+func _ensure_network_zombie(zombie_id: String) -> Node:
+	if _network_zombies.has(zombie_id):
+		var existing: Node = _network_zombies[zombie_id] as Node
+		if is_instance_valid(existing):
+			return existing
+	var zombie := CharacterBody3D.new()
+	zombie.name = zombie_id
+	zombie.set_script(ZOMBIE_SCRIPT)
+	zombie.set_meta("network_proxy_boot", true)
+	get_parent().add_child(zombie)
+	zombie.call("set_network_proxy_mode", true)
+	_network_zombies[zombie_id] = zombie
+	return zombie
+
+func _remove_network_zombie(zombie_id: String) -> void:
+	if not _network_zombies.has(zombie_id):
+		return
+	var zombie: Node = _network_zombies[zombie_id] as Node
+	_network_zombies.erase(zombie_id)
+	if is_instance_valid(zombie):
+		zombie.queue_free()
+
+func _clear_network_zombies() -> void:
+	for id_var: Variant in _network_zombies.keys().duplicate():
+		_remove_network_zombie(str(id_var))
+	_network_zombies.clear()
+
+func _broadcast_zombie_states() -> void:
+	if not multiplayer.is_server():
+		return
+	var states: Array = []
+	for zombie: Node in get_tree().get_nodes_in_group("zombie"):
+		if not (zombie is Node3D) or bool(zombie.get_meta("network_proxy", false)):
+			continue
+		var body := zombie as Node3D
+		states.append([
+			zombie.name,
+			body.global_position,
+			body.rotation.y,
+			float(zombie.call("get_health")) if zombie.has_method("get_health") else 0.0,
+			int(zombie.call("get_phase")) if zombie.has_method("get_phase") else 0,
+			bool(zombie.call("is_crawler")) if zombie.has_method("is_crawler") else false,
+			bool(zombie.call("is_headless")) if zombie.has_method("is_headless") else false,
+		])
+	rpc("_client_receive_zombie_states", states)
+
+@rpc("authority", "call_remote", "unreliable_ordered", 3)
+func _client_receive_zombie_states(states: Array) -> void:
+	if multiplayer.is_server():
+		return
+	var seen: Dictionary = {}
+	for state_var: Variant in states:
+		if not (state_var is Array):
+			continue
+		var state: Array = state_var as Array
+		if state.size() < 7:
+			continue
+		var zombie_id: String = str(state[0])
+		seen[zombie_id] = true
+		var zombie: Node = _ensure_network_zombie(zombie_id)
+		if zombie != null and zombie.has_method("apply_network_proxy_state"):
+			zombie.call(
+				"apply_network_proxy_state",
+				state[1] as Vector3,
+				float(state[2]),
+				float(state[3]),
+				int(state[4]),
+				bool(state[5]),
+				bool(state[6])
+			)
+	for id_var: Variant in _network_zombies.keys().duplicate():
+		var zombie_id: String = str(id_var)
+		if not seen.has(zombie_id):
+			_remove_network_zombie(zombie_id)
+
+func submit_zombie_hit(zombie_id: String, hit_position: Vector3, melee: bool = false) -> bool:
+	if _mode != "client":
+		return false
+	if zombie_id.is_empty() or not hit_position.is_finite():
+		return false
+	rpc_id(SERVER_PEER_ID, "_server_zombie_hit", zombie_id, hit_position, melee)
+	return true
+
+@rpc("any_peer", "call_remote", "reliable", 4)
+func _server_zombie_hit(zombie_id: String, hit_position: Vector3, melee: bool) -> void:
+	if not multiplayer.is_server():
+		return
+	var sender: int = multiplayer.get_remote_sender_id()
+	_server_apply_zombie_hit(sender, zombie_id, hit_position, melee)
+
+func _server_apply_zombie_hit(
+	peer_id: int,
+	zombie_id: String,
+	hit_position: Vector3,
+	melee: bool
+) -> bool:
+	if peer_id <= SERVER_PEER_ID or not _roster.has(peer_id):
+		return false
+	var source: Node = _network_player_node(peer_id)
+	var zombie: Node = _host_zombie_by_id(zombie_id)
+	if source == null or zombie == null or not (source is Node3D):
+		return false
+	if (source as Node3D).global_position.distance_to(hit_position) > MAX_HIT_DISTANCE:
+		print("XZOGOT_NETWORK_HIT_REJECT_RANGE peer=", peer_id)
+		return false
+
+	var damage_value: float = 150.0
+	if not melee:
+		var weapon_id: String = str(_peer_weapon_ids.get(peer_id, WeaponCatalog.STARTING_WEAPON_ID))
+		if not WeaponCatalog.has_weapon(weapon_id):
+			return false
+		var def: Dictionary = WeaponCatalog.get_weapon(weapon_id)
+		damage_value = float(def.get("damage", 30.0))
+		if bool(_peer_weapon_upgraded.get(peer_id, false)):
+			damage_value *= 1.85
+
+	if melee and zombie.has_method("apply_melee_damage"):
+		zombie.call("apply_melee_damage", damage_value, source, hit_position)
+	elif zombie.has_method("apply_hitscan_damage"):
+		zombie.call("apply_hitscan_damage", damage_value, source, hit_position)
+	else:
+		return false
+
+	print(
+		"XZOGOT_NETWORK_ZOMBIE_HIT peer=", peer_id,
+		" zombie=", zombie_id,
+		" damage=", damage_value,
+		" melee=", melee
+	)
+	return true
+
+func get_network_zombie_count() -> int:
+	return _network_zombies.size()
 
 func _network_player_node(peer_id: int) -> Node:
 	if peer_id == SERVER_PEER_ID and multiplayer.is_server():
