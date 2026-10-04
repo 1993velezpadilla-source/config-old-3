@@ -4,6 +4,7 @@ const WORLD_SCALE: float = 0.78
 const ALTAR_ASSET_PATH := "res://assets/environment/church/altar.glb"
 const BENCH_ASSET_PATH := "res://assets/environment/church/bench.glb"
 const CANDLE_MANAGER_SCRIPT := preload("res://scripts/candle_manager.gd")
+const POWER_LIGHT_RIG_SCRIPT := preload("res://scripts/power_light_rig.gd")
 
 # High-density user gift pack. These are optional so CI stays green until the
 # binary GLBs are copied into res://assets/gifts/ with the canonical names.
@@ -1851,27 +1852,38 @@ func _build_zombie_path_network() -> void:
 	print("XZOGOT_ZOMBIE_PATHING_BOOTSTRAPPED")
 
 func _build_lights() -> void:
+	# Electrical fixtures are physically present before power but emit no light.
+	# PowerLightRig owns the dirty startup sequence and then disables its own
+	# processing once stable.
+	var power_rig := Node3D.new()
+	power_rig.name = "PowerLightRig"
+	power_rig.set_script(POWER_LIGHT_RIG_SCRIPT)
+
 	var light_z: Array[float] = [-17.0, -7.0, 3.0, 10.0]
-	for z: float in light_z:
+	for i in range(light_z.size()):
+		var z: float = light_z[i]
 		var lamp := OmniLight3D.new()
+		lamp.name = "NavePowerLamp_%02d" % i
 		lamp.position = _wp(Vector3(0, 4.2, z))
 		lamp.light_color = Color(1.0, 0.52, 0.22)
-		lamp.light_energy = 1.42
-		lamp.omni_range = 7.0 * WORLD_SCALE
-		lamp.shadow_enabled = true
-		add_child(lamp)
+		lamp.light_energy = 1.12
+		lamp.omni_range = 6.6 * WORLD_SCALE
+		lamp.shadow_enabled = false
+		lamp.add_to_group("power_light_fixture")
+		power_rig.add_child(lamp)
 
 	var altar_glow := OmniLight3D.new()
 	altar_glow.name = "AltarGlow"
 	altar_glow.position = _wp(Vector3(0.0, 2.35, -20.10))
 	altar_glow.light_color = Color(1.0, 0.30, 0.10)
-	altar_glow.light_energy = 1.32
-	altar_glow.omni_range = 5.8 * WORLD_SCALE
-	altar_glow.shadow_enabled = true
+	altar_glow.light_energy = 0.74
+	altar_glow.omni_range = 5.0 * WORLD_SCALE
+	altar_glow.shadow_enabled = false
 	add_child(altar_glow)
 	print("XZOGOT_ALTAR_LIGHT_READY")
 
-	# Low-energy wall sconces reveal architecture without flattening the horror contrast.
+	# Six electric sconces. Their meshes stay visible while their light remains
+	# under PowerLightRig control.
 	var sconce_z: Array[float] = [-13.0, -3.0, 7.0]
 	var sconce_sides: Array[float] = [-1.0, 1.0]
 	for i in range(sconce_z.size()):
@@ -1881,10 +1893,11 @@ func _build_lights() -> void:
 			sconce.name = "WallSconce_%s_%02d" % ["L" if side < 0.0 else "R", i]
 			sconce.position = _wp(Vector3(9.7 * side, 2.65, z))
 			sconce.light_color = Color(1.0, 0.35, 0.12)
-			sconce.light_energy = 0.42
-			sconce.omni_range = 3.6 * WORLD_SCALE
+			sconce.light_energy = 0.36
+			sconce.omni_range = 3.5 * WORLD_SCALE
 			sconce.shadow_enabled = false
-			add_child(sconce)
+			sconce.add_to_group("power_light_fixture")
+			power_rig.add_child(sconce)
 
 			_visual_box(
 				"SconceFixture_%s_%02d" % ["L" if side < 0.0 else "R", i],
@@ -1892,6 +1905,9 @@ func _build_lights() -> void:
 				Vector3(9.95 * side, 2.65, z),
 				Color(0.12, 0.075, 0.035)
 			)
+
+	add_child(power_rig)
+	print("XZOGOT_POWER_LIGHT_FIXTURES_READY 10")
 
 func _build_camera() -> void:
 	if get_viewport().get_camera_3d() != null:
