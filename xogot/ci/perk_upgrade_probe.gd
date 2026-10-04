@@ -34,9 +34,18 @@ func _run() -> void:
 
 	player.call("add_points", 50000)
 	var before_points: int = int(player.call("get_points"))
-	var martyr: Node = scene.get_node_or_null("YouWontWin/Perk_martyrs_blood")
+	var machines_by_id: Dictionary = {}
+	for machine_node: Node in perk_nodes:
+		if machine_node.has_method("get_perk_id"):
+			var machine_id: String = str(machine_node.call("get_perk_id"))
+			if not machine_id.is_empty():
+				machines_by_id[machine_id] = machine_node
+	if machines_by_id.size() != 6:
+		_fail(6, "perk machine id registry incomplete")
+		return
+	var martyr: Node = machines_by_id.get("martyrs_blood") as Node
 	if martyr == null:
-		_fail(6, "Martyr machine missing")
+		_fail(7, "Martyr machine missing")
 		return
 	if bool(martyr.call("interact", player)):
 		_fail(7, "powered perk worked before Power")
@@ -45,7 +54,7 @@ func _run() -> void:
 		_fail(8, "failed pre-Power interaction consumed points")
 		return
 
-	var power: Node = scene.get_node_or_null("YouWontWin/PowerSwitch")
+	var power: Node = scene.get_node_or_null("PowerSwitch")
 	if power == null or not bool(power.call("interact", player)):
 		_fail(9, "Power switch failed")
 		return
@@ -63,7 +72,7 @@ func _run() -> void:
 		"last_rites",
 	]
 	for id: String in perk_ids:
-		var machine: Node = scene.get_node_or_null("YouWontWin/Perk_" + id)
+		var machine: Node = machines_by_id.get(id) as Node
 		if machine == null:
 			_fail(11, "perk machine missing: " + id)
 			return
