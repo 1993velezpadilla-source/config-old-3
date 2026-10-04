@@ -163,7 +163,10 @@ jobs:
 
           : > recovered/cue4parse-export.log
           SUCCESS_GAME=""
-          # The raw provider is already curated to only the requested Aether assets.\n          # Match its normalized package namespace wholesale; the original mount prefix\n          # is not a valid CUE4Parse filesystem-provider package selector.\n          PROBE_PACKAGE="*"
+          # The raw provider is already curated to only the requested Aether assets.
+          # Match its normalized package namespace wholesale; the original mount prefix
+          # is not a valid CUE4Parse filesystem-provider package selector.
+          PROBE_PACKAGE="*"
 
           # Resolve the reconstructed build's actual package version against one
           # known skeletal weapon package first. Read the extracted package tree
