@@ -891,7 +891,12 @@ func apply_damage(amount: float, source: Node = null) -> void:
 func _take_damage(amount: float, source: Node, headshot: bool) -> void:
 	if phase == Phase.DEAD or amount <= 0.0:
 		return
-	health -= amount
+	var applied_amount: float = amount
+	if source != null and bool(get_tree().get_meta("xz_insta_kill_active", false)):
+		applied_amount = maxf(applied_amount, health)
+		set_meta("insta_kill_hit", true)
+		print("XZOGOT_INSTA_KILL_HIT ", name)
+	health -= applied_amount
 	_hit_reaction_timer = hit_reaction_duration
 	if source != null and source.has_method("add_points"):
 		source.call("add_points", 10)
@@ -936,6 +941,12 @@ func get_dismemberment_state() -> Dictionary:
 		"severed": _severed.duplicate(true),
 		"limb_health": _limb_health.duplicate(true),
 	}
+
+func powerup_kill() -> void:
+	if phase == Phase.DEAD:
+		return
+	set_meta("suppress_powerup_drop", true)
+	_die(null)
 
 func _die(source: Node) -> void:
 	phase = Phase.DEAD
