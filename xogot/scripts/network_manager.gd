@@ -18,10 +18,13 @@ const MAX_SNAPSHOT_DELTA := 3.0
 const MAX_PITCH := 1.51
 const MAX_HIT_DISTANCE := 130.0
 
-var _peer: ENetMultiplayerPeer
+var _peer: MultiplayerPeer
 var _mode: String = "offline"
 var _session_private: bool = true
 var _port: int = DEFAULT_PORT
+var _transport: String = "enet"
+var _dedicated_server: bool = false
+var _relay_url: String = ""
 var _local_peer_id: int = SERVER_PEER_ID
 var _snapshot_timer: float = 0.0
 var _zombie_snapshot_timer: float = 0.0
@@ -106,6 +109,23 @@ func _configure_local_player(peer_id: int) -> void:
 	player.set_meta("network_remote", false)
 	player.set_meta("network_session", _mode)
 
+func _set_dedicated_local_player(enabled: bool) -> void:
+	var player: Node = _local_player()
+	if player == null:
+		return
+	if enabled:
+		if player.is_in_group("player"):
+			player.remove_from_group("player")
+	else:
+		if not player.is_in_group("player"):
+			player.add_to_group("player")
+	player.set_process(not enabled)
+	player.set_physics_process(not enabled)
+	player.set_process_unhandled_input(not enabled)
+	if player is Node3D:
+		(player as Node3D).visible = not enabled
+	print("XZOGOT_NETWORK_DEDICATED_LOCAL_PLAYER disabled=", enabled)
+
 func _set_client_simulation(client_mode: bool) -> void:
 	var rounds: Node = _round_manager()
 	if rounds != null:
@@ -133,6 +153,9 @@ func host_game(port: int = DEFAULT_PORT, private_session: bool = true) -> Error:
 	_mode = "host"
 	_session_private = private_session
 	_port = port
+	_transport = "enet"
+	_dedicated_server = false
+	_relay_url = ""
 	_local_peer_id = SERVER_PEER_ID
 	_roster.clear()
 	_roster[SERVER_PEER_ID] = true
@@ -168,6 +191,56 @@ func host_game(port: int = DEFAULT_PORT, private_session: bool = true) -> Error:
 	print("XZOGOT_NETWORK_HOST_READY port=", port, " slots=", MAX_PLAYERS, " private=", private_session)
 	return OK
 
+func host_websocket_dedicated(port: int) -> Error:
+	leave_game()
+	var next_peer := WebSocketMultiplayerPeer.new()
+	var err: Error = next_peer.create_server(port, "*")
+	if err != OK:
+		network_error.emit("WS_HOST_FAILED_%d" % int(err))
+		print("XZOGOT_WS_HOST_FAIL ", err)
+		return err
+	_peer = next_peer
+	multiplayer.multiplayer_peer = _peer
+	_mode = "host"
+	_session_private = false
+	_port = port
+	_transport = "websocket"
+	_dedicated_server = true
+	_relay_url = ""
+	_local_peer_id = SERVER_PEER_ID
+	_roster.clear()
+	_accepted_positions.clear()
+	_peer_weapon_ids.clear()
+	_peer_weapon_upgraded.clear()
+	_set_dedicated_local_player(true)
+	_set_client_simulation(false)
+	session_state_changed.emit(_mode)
+	_emit_roster()
+	print("XZOGOT_WS_DEDICATED_READY port=", port, " human_slots=", MAX_PLAYERS)
+	return OK
+
+func join_websocket_game(url: String) -> Error:
+	var clean_url := url.strip_edges()
+	if not clean_url.begins_with("ws://") and not clean_url.begins_with("wss://"):
+		return ERR_INVALID_PARAMETER
+	leave_game()
+	var next_peer := WebSocketMultiplayerPeer.new()
+	var err: Error = next_peer.create_client(clean_url)
+	if err != OK:
+		network_error.emit("WS_JOIN_FAILED_%d" % int(err))
+		print("XZOGOT_WS_JOIN_FAIL ", err)
+		return err
+	_peer = next_peer
+	multiplayer.multiplayer_peer = _peer
+	_mode = "joining"
+	_transport = "websocket"
+	_dedicated_server = false
+	_relay_url = clean_url
+	_set_client_simulation(true)
+	session_state_changed.emit(_mode)
+	print("XZOGOT_WS_JOINING ", clean_url)
+	return OK
+
 func join_game(address: String, port: int = DEFAULT_PORT) -> Error:
 	var clean_address: String = address.strip_edges()
 	if clean_address.is_empty():
@@ -183,6 +256,9 @@ func join_game(address: String, port: int = DEFAULT_PORT) -> Error:
 	multiplayer.multiplayer_peer = _peer
 	_mode = "joining"
 	_port = port
+	_transport = "enet"
+	_dedicated_server = false
+	_relay_url = ""
 	_set_client_simulation(true)
 	session_state_changed.emit(_mode)
 	print("XZOGOT_NETWORK_JOINING address=", clean_address, " port=", port)
@@ -215,7 +291,11 @@ func leave_game() -> void:
 	_accepted_positions.clear()
 	_peer_weapon_ids.clear()
 	_peer_weapon_upgraded.clear()
+	_set_dedicated_local_player(false)
 	_mode = "offline"
+	_transport = "enet"
+	_dedicated_server = false
+	_relay_url = ""
 	_local_peer_id = SERVER_PEER_ID
 	_configure_local_player(SERVER_PEER_ID)
 	_set_client_simulation(false)
@@ -227,6 +307,11 @@ func _on_peer_connected(peer_id: int) -> void:
 	if not multiplayer.is_server():
 		return
 	if peer_id <= 0:
+		return
+	if _roster.size() >= MAX_PLAYERS:
+		if _peer != null:
+			_peer.disconnect_peer(peer_id, true)
+		print("XZOGOT_NETWORK_SESSION_FULL_REJECT peer=", peer_id)
 		return
 	_roster[peer_id] = true
 	_peer_weapon_ids[peer_id] = WeaponCatalog.STARTING_WEAPON_ID
@@ -354,7 +439,8 @@ func _process(delta: float) -> void:
 		_snapshot_timer = SNAPSHOT_INTERVAL
 		_sequence += 1
 		if _mode == "host":
-			_broadcast_host_player_state()
+			if not _dedicated_server:
+				_broadcast_host_player_state()
 			_broadcast_authoritative_remote_states()
 		else:
 			_send_client_motion()
@@ -1027,7 +1113,7 @@ func _client_receive_inventory_state(
 
 func _network_player_node(peer_id: int) -> Node:
 	if peer_id == SERVER_PEER_ID and multiplayer.is_server():
-		return _local_player()
+		return null if _dedicated_server else _local_player()
 	if peer_id == _local_peer_id:
 		return _local_player()
 	return _remote_players.get(peer_id, null) as Node
@@ -1078,6 +1164,15 @@ func get_local_peer_id() -> int:
 
 func get_connected_player_count() -> int:
 	return _roster.size()
+
+func get_transport() -> String:
+	return _transport
+
+func is_dedicated_server() -> bool:
+	return _dedicated_server
+
+func get_relay_url() -> String:
+	return _relay_url
 
 func is_session_private() -> bool:
 	return _session_private
@@ -1189,6 +1284,8 @@ func has_public_mapping() -> bool:
 func get_status_text() -> String:
 	match _mode:
 		"host":
+			if _dedicated_server:
+				return "DEDICATED RELAY  %d/%d  WS:%d" % [_roster.size(), MAX_PLAYERS, _port]
 			var privacy: String = "PRIVATE" if _session_private else "PUBLIC DIRECT"
 			return "HOST %s  %d/%d  UDP:%d" % [privacy, _roster.size(), MAX_PLAYERS, _port]
 		"client":

@@ -343,6 +343,72 @@ jobs:
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|NETWORK_4P_HOST:" "$HOST_LOG"
           echo "XZOGOT_REAL_4P_ENET_GATE_GREEN"
 
+      - name: Verify real four-player WebSocket relay fallback
+        shell: bash
+        run: |
+          set -euo pipefail
+          SERVER_LOG="build/xogot-ai/ws-4p-server.log"
+          C1_LOG="build/xogot-ai/ws-4p-client1.log"
+          C2_LOG="build/xogot-ai/ws-4p-client2.log"
+          C3_LOG="build/xogot-ai/ws-4p-client3.log"
+          C4_LOG="build/xogot-ai/ws-4p-client4.log"
+
+          timeout 35 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/network_ws_4p_server.gd \
+            >"$SERVER_LOG" 2>&1 &
+          SERVER_PID=$!
+
+          for _i in $(seq 1 140); do
+            if grep -q "XZOGOT_WS_4P_SERVER_LISTENING" "$SERVER_LOG" 2>/dev/null; then
+              break
+            fi
+            sleep 0.1
+          done
+          grep -q "XZOGOT_WS_4P_SERVER_LISTENING" "$SERVER_LOG"
+
+          for IDX in 1 2 3 4; do
+            timeout 30 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+              --headless --path xogot --script res://ci/network_ws_4p_client.gd -- "client${IDX}" \
+              >"build/xogot-ai/ws-4p-client${IDX}.log" 2>&1 &
+            eval "C${IDX}_PID=$!"
+          done
+
+          set +e
+          wait "$C1_PID"; C1_RC=$?
+          wait "$C2_PID"; C2_RC=$?
+          wait "$C3_PID"; C3_RC=$?
+          wait "$C4_PID"; C4_RC=$?
+          wait "$SERVER_PID"; SERVER_RC=$?
+          set -e
+
+          cat "$SERVER_LOG"
+          cat "$C1_LOG"
+          cat "$C2_LOG"
+          cat "$C3_LOG"
+          cat "$C4_LOG"
+
+          test "$SERVER_RC" -eq 0
+          test "$C1_RC" -eq 0
+          test "$C2_RC" -eq 0
+          test "$C3_RC" -eq 0
+          test "$C4_RC" -eq 0
+          grep -q "XZOGOT_WS_DEDICATED_ZERO_HUMANS_GREEN" "$SERVER_LOG"
+          grep -q "XZOGOT_WS_4P_SERVER_ROSTER_GREEN" "$SERVER_LOG"
+          grep -q "XZOGOT_WS_4P_SERVER_HUMAN_SLOTS_GREEN 4" "$SERVER_LOG"
+          grep -q "XZOGOT_WS_4P_SERVER_STATE_GREEN" "$SERVER_LOG"
+          grep -q "XZOGOT_WS_4P_SERVER_STABLE_GREEN" "$SERVER_LOG"
+          grep -q "XZOGOT_WS_4P_SERVER_GREEN" "$SERVER_LOG"
+          for LOG in "$C1_LOG" "$C2_LOG" "$C3_LOG" "$C4_LOG"; do
+            grep -q "XZOGOT_WS_4P_CLIENT_ROSTER_GREEN" "$LOG"
+            grep -q "XZOGOT_WS_4P_CLIENT_PROXIES_GREEN" "$LOG"
+            grep -q "XZOGOT_WS_4P_CLIENT_STATE_GREEN" "$LOG"
+            grep -q "XZOGOT_WS_4P_CLIENT_STABLE_GREEN" "$LOG"
+            grep -q "XZOGOT_WS_4P_CLIENT_GREEN" "$LOG"
+            ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|WS_4P_CLIENT:" "$LOG"
+          done
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|WS_4P_SERVER:" "$SERVER_LOG"
+          echo "XZOGOT_WS_RELAY_4P_GATE_GREEN"
+
       - name: Verify round barricade and zombie loop
         shell: bash
         run: |
