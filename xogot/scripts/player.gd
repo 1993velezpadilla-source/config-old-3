@@ -462,7 +462,8 @@ func spend_points(amount: int) -> bool:
 
 func add_points(amount: int) -> void:
 	if amount > 0:
-		points += amount
+		var multiplier: int = int(get_tree().get_meta("xz_double_points_multiplier", 1))
+		points += amount * maxi(1, multiplier)
 
 func get_points() -> int:
 	return 999999 if _dev_infinite_points else points
