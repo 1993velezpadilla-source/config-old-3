@@ -258,8 +258,11 @@ func _build_dev_page() -> void:
 			tags.append("START")
 		var model_ok: bool = ResourceLoader.exists(str(def.get("model_path", "")))
 		var fire_ok: bool = ResourceLoader.exists(str(def.get("fire_audio", "")))
+		var tag_text: String = "CATALOG"
+		if not tags.is_empty():
+			tag_text = "/".join(PackedStringArray(tags))
 		var status := "%s | MODEL %s | SFX %s" % [
-			"/".join(tags) if not tags.is_empty() else "CATALOG",
+			tag_text,
 			"OK" if model_ok else "PENDING",
 			"OK" if fire_ok else "PENDING"
 		]
@@ -268,7 +271,7 @@ func _build_dev_page() -> void:
 			"Weapon_" + id,
 			"%s  [%s]" % [str(def.get("display_name", id)).to_upper(), status]
 		)
-		wb.pressed.connect(func(weapon_id: String = id): _dev_equip_weapon(weapon_id))
+		wb.pressed.connect(_dev_equip_weapon.bind(id))
 
 	var back := _button(_page_dev, "DevBack", "BACK")
 	back.pressed.connect(func(): _show_page("pause"))
