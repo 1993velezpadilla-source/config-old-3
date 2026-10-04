@@ -1,10 +1,11 @@
 {
-  "version": 1,
+  "version": 2,
   "policy": {
     "geometry": "Full density; no decimation",
     "loading": "Only instantiate if split asset exists",
     "visibility": "Distance-cull high-density decor instead of reducing geometry",
-    "collision": "Visual-only unless an explicit gameplay collision proxy already exists"
+    "collision": "Visual-only unless an explicit gameplay collision proxy already exists",
+    "lighting": "Candleholders pair with XzCandleManager; stained glass pairs with non-shadow colored SpotLight3D beams"
   },
   "placements": [
     {
@@ -279,6 +280,149 @@
       "rotation_y": 180,
       "target_height": 1.18,
       "visibility_end": 24
+    },
+    {
+      "bundle": "candleholders",
+      "model": "Model_01",
+      "role": "AltarCandleHolder_L",
+      "position": [
+        -2.25,
+        0.7,
+        -20.35
+      ],
+      "rotation_y": 180,
+      "target_height": 1.05,
+      "visibility_end": 28
+    },
+    {
+      "bundle": "candleholders",
+      "model": "Model_04",
+      "role": "AltarCandleHolder_R",
+      "position": [
+        2.25,
+        0.7,
+        -20.35
+      ],
+      "rotation_y": 180,
+      "target_height": 1.05,
+      "visibility_end": 28
+    },
+    {
+      "bundle": "candleholders",
+      "model": "Model_08",
+      "role": "ReredosCandleHolder_L",
+      "position": [
+        -1.75,
+        1,
+        -22.55
+      ],
+      "rotation_y": 180,
+      "target_height": 1.15,
+      "visibility_end": 27
+    },
+    {
+      "bundle": "candleholders",
+      "model": "Model_11",
+      "role": "ReredosCandleHolder_R",
+      "position": [
+        1.75,
+        1,
+        -22.55
+      ],
+      "rotation_y": 180,
+      "target_height": 1.15,
+      "visibility_end": 27
+    },
+    {
+      "bundle": "candleholders",
+      "model": "Model_14",
+      "role": "SacristyCandleHolder",
+      "position": [
+        16.55,
+        0.22,
+        -15.85
+      ],
+      "rotation_y": -90,
+      "target_height": 1.2,
+      "visibility_end": 24
+    },
+    {
+      "bundle": "candleholders",
+      "model": "Model_18",
+      "role": "CryptCandleHolder",
+      "position": [
+        17.1,
+        -2.82,
+        -16.1
+      ],
+      "rotation_y": 0,
+      "target_height": 1.05,
+      "visibility_end": 18
+    },
+    {
+      "bundle": "stained_single",
+      "model": "Model_01",
+      "role": "SanctuaryHeroStainedGlass",
+      "position": [
+        0,
+        1.1,
+        -23.2
+      ],
+      "rotation_y": 0,
+      "target_height": 4.65,
+      "visibility_end": 48
+    },
+    {
+      "bundle": "stained_multi",
+      "model": "Model_01",
+      "role": "NaveStained_WestRear",
+      "position": [
+        -10.5,
+        2.7,
+        -15
+      ],
+      "rotation_y": 90,
+      "target_height": 3.4,
+      "visibility_end": 44
+    },
+    {
+      "bundle": "stained_multi",
+      "model": "Model_03",
+      "role": "NaveStained_EastRear",
+      "position": [
+        10.5,
+        2.7,
+        -12
+      ],
+      "rotation_y": -90,
+      "target_height": 3.4,
+      "visibility_end": 44
+    },
+    {
+      "bundle": "stained_multi",
+      "model": "Model_05",
+      "role": "NaveStained_WestMid",
+      "position": [
+        -10.5,
+        2.7,
+        -4
+      ],
+      "rotation_y": 90,
+      "target_height": 3.35,
+      "visibility_end": 42
+    },
+    {
+      "bundle": "stained_multi",
+      "model": "Model_07",
+      "role": "NaveStained_EastFront",
+      "position": [
+        10.5,
+        2.7,
+        5
+      ],
+      "rotation_y": -90,
+      "target_height": 3.35,
+      "visibility_end": 42
     }
   ]
 }
