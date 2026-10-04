@@ -1,6 +1,7 @@
 extends Control
 
 const WeaponCatalog = preload("res://scripts/weapon_catalog.gd")
+const WeaponAssetRegistry = preload("res://scripts/weapon_asset_registry.gd")
 const CONFIG_PATH := "user://xogot_mobile_settings.cfg"
 
 # Intentional: the DEV lab is present in optimized Release builds too so the
@@ -261,16 +262,11 @@ func _build_dev_page() -> void:
 			tags.append("BOX")
 		if id == WeaponCatalog.STARTING_WEAPON_ID:
 			tags.append("START")
-		var model_ok: bool = ResourceLoader.exists(str(def.get("model_path", "")))
-		var fire_ok: bool = ResourceLoader.exists(str(def.get("fire_audio", "")))
 		var tag_text: String = "CATALOG"
 		if not tags.is_empty():
 			tag_text = "/".join(PackedStringArray(tags))
-		var status := "%s | MODEL %s | SFX %s" % [
-			tag_text,
-			"OK" if model_ok else "PENDING",
-			"OK" if fire_ok else "PENDING"
-		]
+		var asset_status: String = WeaponAssetRegistry.lab_status_text(id)
+		var status := "%s | %s" % [tag_text, asset_status]
 		var wb := _button(
 			_page_dev,
 			"Weapon_" + id,
