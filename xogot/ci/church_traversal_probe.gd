@@ -104,6 +104,75 @@ func _run() -> void:
 		_fail(15, "human scale floor dimensions wrong: %s" % floor_size)
 		return
 
+	# Physical crypt -> basement -> reliquary traversal. This is deliberately
+	# driven through CharacterBody3D movement instead of teleport-only node checks.
+	var crypt_gate: Node = scene.get_node_or_null("CryptGate")
+	if crypt_gate == null:
+		_fail(16, "CryptGate missing")
+		return
+	player.call("add_points", 1250)
+	if not bool(crypt_gate.call("interact", player)):
+		_fail(17, "CryptGate could not be purchased/opened")
+		return
+	await physics_frame
+
+	player.global_position = Vector3(16.0 * world_scale, 0.42, -0.20 * world_scale)
+	player.rotation.y = 0.0
+	player.set("_move_touch", 910)
+	player.set("_move_vector", Vector2(0.0, -1.0))
+
+	var reached_reliquary_corridor: bool = false
+	var crypt_min_y: float = player.global_position.y
+	for i in range(360):
+		await physics_frame
+		crypt_min_y = minf(crypt_min_y, player.global_position.y)
+		if (
+			player.global_position.z <= -22.0 * world_scale
+			and player.global_position.y <= -1.70
+		):
+			reached_reliquary_corridor = true
+			break
+
+	if not reached_reliquary_corridor:
+		player.set("_move_touch", -1)
+		player.set("_move_vector", Vector2.ZERO)
+		_fail(
+			18,
+			"player failed crypt descent/reliquary corridor; pos=%s min_y=%s" % [
+				player.global_position,
+				crypt_min_y,
+			]
+		)
+		return
+
+	# Turn west into the reliquary chamber after clearing the 2.9m doorway.
+	player.set("_move_vector", Vector2(-1.0, 0.0))
+	var reached_ossuary: bool = false
+	for i in range(220):
+		await physics_frame
+		if (
+			player.global_position.x <= 11.0 * world_scale
+			and player.global_position.z <= -22.0 * world_scale
+			and player.global_position.y <= -1.70
+		):
+			reached_ossuary = true
+			break
+
+	player.set("_move_touch", -1)
+	player.set("_move_vector", Vector2.ZERO)
+	if not reached_ossuary:
+		_fail(19, "player failed physical entry into Reliquary/Ossuary; pos=%s" % player.global_position)
+		return
+
+	var reliquary_zone: Node3D = scene.get_node_or_null("Zone_ReliquaryOssuary") as Node3D
+	if reliquary_zone == null:
+		_fail(20, "Reliquary zone marker missing")
+		return
+	if player.global_position.distance_to(reliquary_zone.global_position) > 9.5 * world_scale:
+		_fail(21, "player traversal ended outside Reliquary zone: %s" % player.global_position)
+		return
+
+	print("XZOGOT_CRYPT_RELIQUARY_TRAVERSAL_GREEN ", player.global_position, " min_y=", crypt_min_y)
 	print("XZOGOT_HUMAN_SCALE_GREEN ", floor_size)
 	print("XZOGOT_BALCONY_TRAVERSAL_GREEN ", player.global_position)
 	print("XZOGOT_CHURCH_TRAVERSAL_PROBE_GREEN")
