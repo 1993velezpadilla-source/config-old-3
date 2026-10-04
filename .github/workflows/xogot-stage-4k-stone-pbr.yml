@@ -1,0 +1,64 @@
+name: Stage 4K Church Stone PBR
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/church-expansion-v1
+    paths:
+      - ".github/workflows/xogot-stage-4k-stone-pbr.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  stage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Download Poly Haven CC0 Stone Wall 4K
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq python3-pil
+          OUT=xogot/assets/materials/church/stone_wall_4k
+          mkdir -p "$OUT"
+          BASE=https://dl.polyhaven.org/file/ph-assets/Textures/jpg/4k/stone_wall
+          curl -L --fail --retry 5 "$BASE/stone_wall_diff_4k.jpg" -o "$OUT/stone_wall_diff_4k.jpg"
+          curl -L --fail --retry 5 "$BASE/stone_wall_nor_gl_4k.jpg" -o "$OUT/stone_wall_nor_gl_4k.jpg"
+          curl -L --fail --retry 5 "$BASE/stone_wall_rough_4k.jpg" -o "$OUT/stone_wall_rough_4k.jpg"
+          python3 - <<'PY'
+          from PIL import Image
+          from pathlib import Path
+          root=Path("xogot/assets/materials/church/stone_wall_4k")
+          for p in root.glob("*.jpg"):
+              im=Image.open(p)
+              assert im.size==(4096,4096),(p,im.size)
+              assert p.stat().st_size>100000
+              print("XZOGOT_STONE_4K_GREEN",p.name,p.stat().st_size,im.size)
+          assert len(list(root.glob("*.jpg")))==3
+          PY
+          cat > "$OUT/LICENSE.txt" <<'EOF'
+          Asset: Stone Wall by Charlotte Baglioni / Dario Barresi
+          Source: https://polyhaven.com/a/stone_wall
+          License: CC0
+          Resolution staged for runtime: 4096x4096
+          Maps: diffuse, OpenGL normal, roughness
+          EOF
+
+      - name: Commit 4K PBR
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "XZOGOT Material Bot"
+          git config user.email "xogot-material-bot@users.noreply.github.com"
+          git add xogot/assets/materials/church/stone_wall_4k
+          git commit -m "asset: add CC0 4K stone wall PBR"
+          git fetch origin feature/church-expansion-v1
+          git rebase origin/feature/church-expansion-v1
+          git push origin HEAD:feature/church-expansion-v1
