@@ -84,7 +84,7 @@ jobs:
           rm -rf animated-output
           mkdir -p animated-output
           "$BLENDER" --background --factory-startup             --python tools/weapons/build_aether_animated_glbs.py             -- "$PWD/aether-artifact" "$RUNNER_TEMP/io_scene_psk_psa" "$PSK_PSA_PY_TARGET" "$PWD/animated-output"             2>&1 | tee animated-weapons-blender.log
-          grep -q "XZOGOT_29_ANIMATED_REAL_WEAPONS_GREEN" animated-weapons-blender.log
+          grep -q "XZOGOT_28_ANIMATED_FIREARMS_1_THROWABLE_GREEN" animated-weapons-blender.log
           test -s animated-output/animated-inventory.json
 
       - name: Validate animated GLB payloads
@@ -96,6 +96,8 @@ jobs:
           import json,struct
           inv=json.loads(Path("animated-output/animated-inventory.json").read_text())
           assert inv["weapon_count"]==29,inv["weapon_count"]
+          assert inv["animated_weapon_count"]==28,inv["animated_weapon_count"]
+          assert inv["throwable_count"]==1,inv["throwable_count"]
           total_anims=0
           for rec in inv["weapons"]:
               p=Path(rec["output"])
@@ -108,10 +110,14 @@ jobs:
               anims=len(doc.get("animations",[]))
               assert meshes>=1,(rec["runtime_id"],meshes)
               assert skins>=1,(rec["runtime_id"],skins)
-              assert anims>=1,(rec["runtime_id"],anims)
-              total_anims += anims
+              if rec["animation_mode"]=="embedded_psa_actions":
+                  assert anims>=1,(rec["runtime_id"],anims)
+                  total_anims += anims
+              else:
+                  assert rec["runtime_id"]=="stielhand",rec
+                  assert anims==0,(rec["runtime_id"],anims)
           assert total_anims>=50,total_anims
-          print("XZOGOT_ANIMATED_GLB_VALIDATION_GREEN",inv["weapon_count"],total_anims)
+          print("XZOGOT_ANIMATED_GLB_VALIDATION_GREEN",inv["animated_weapon_count"],inv["throwable_count"],total_anims)
           PY
 
       - name: Replace staged viewmodels with animated real GLBs
