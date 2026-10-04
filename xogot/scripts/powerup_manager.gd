@@ -60,7 +60,7 @@ func _roll_01(seed_text: String) -> float:
 
 func _choose_kind() -> String:
 	var round_id := _current_round()
-	var index := abs(("drop:" + str(round_id) + ":" + str(_drop_serial)).hash()) % POWERUPS.size()
+	var index: int = absi(("drop:" + str(round_id) + ":" + str(_drop_serial)).hash()) % POWERUPS.size()
 	return POWERUPS[index]
 
 func register_zombie_kill(zombie: Node) -> void:
