@@ -6,7 +6,8 @@ enum Kind {
 	MYSTERY,
 	PERK,
 	POWER,
-	UPGRADE
+	UPGRADE,
+	BELL
 }
 
 @export var interaction_kind: Kind = Kind.DOOR
@@ -137,6 +138,16 @@ func interact(player: Node) -> bool:
 			_last_result = str(weapon.call("get_weapon_id"))
 			_play_world_sfx(SFX_MACHINE, -1.5)
 			print("XZOGOT_SANCTUM_FORGE_USED ", _last_result)
+		Kind.BELL:
+			_interaction_count += 1
+			var rung: bool = false
+			for audio_node: Node in get_tree().get_nodes_in_group("church_audio_runtime"):
+				if audio_node.has_method("ring_bell"):
+					rung = bool(audio_node.call("ring_bell")) or rung
+			if not rung:
+				return false
+			_last_result = "BELL_RUNG"
+			print("XZOGOT_BELL_ROPE_USED ", _interaction_count)
 
 	if one_shot:
 		_used = true
