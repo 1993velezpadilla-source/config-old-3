@@ -13,6 +13,7 @@ const DEFAULT_PORT := 7777
 const MAX_PLAYERS := 4
 const SNAPSHOT_INTERVAL := 0.05
 const ZOMBIE_SNAPSHOT_INTERVAL := 0.10
+const SESSION_SNAPSHOT_INTERVAL := 0.20
 const MAX_SNAPSHOT_DELTA := 3.0
 const MAX_PITCH := 1.51
 const MAX_HIT_DISTANCE := 130.0
@@ -24,6 +25,7 @@ var _port: int = DEFAULT_PORT
 var _local_peer_id: int = SERVER_PEER_ID
 var _snapshot_timer: float = 0.0
 var _zombie_snapshot_timer: float = 0.0
+var _session_snapshot_timer: float = 0.0
 var _sequence: int = 0
 var _roster: Dictionary = {}
 var _remote_players: Dictionary = {}
@@ -139,6 +141,9 @@ func leave_game() -> void:
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
 	_clear_remote_players()
 	_clear_network_zombies()
+	var powerups: Node = _powerup_manager()
+	if powerups != null and powerups.has_method("clear_network_pickups"):
+		powerups.call("clear_network_pickups")
 	_roster.clear()
 	_roster[SERVER_PEER_ID] = true
 	_accepted_positions.clear()
@@ -225,6 +230,8 @@ func _server_request_roster() -> void:
 		ids.append(int(id_var))
 	ids.sort()
 	rpc_id(sender, "_client_receive_roster", ids)
+	_send_inventory_state(sender)
+	_send_late_join_state(sender)
 
 @rpc("authority", "call_remote", "reliable")
 func _client_receive_roster(ids: PackedInt32Array) -> void:
@@ -291,6 +298,11 @@ func _process(delta: float) -> void:
 		if _zombie_snapshot_timer <= 0.0:
 			_zombie_snapshot_timer = ZOMBIE_SNAPSHOT_INTERVAL
 			_broadcast_zombie_states()
+
+		_session_snapshot_timer -= delta
+		if _session_snapshot_timer <= 0.0:
+			_session_snapshot_timer = SESSION_SNAPSHOT_INTERVAL
+			_broadcast_session_state()
 
 func _safe_pitch(player: Node) -> float:
 	var head: Node3D = player.get_node_or_null("Head") as Node3D
@@ -622,6 +634,147 @@ func _server_apply_zombie_hit(
 func get_network_zombie_count() -> int:
 	return _network_zombies.size()
 
+func _build_session_snapshot() -> Dictionary:
+	var rounds: Node = _round_manager()
+	var powerups: Node = _powerup_manager()
+	var snapshot := {
+		"round": 0,
+		"round_total": 0,
+		"remaining": 0,
+		"alive": 0,
+		"break_remaining": 0.0,
+		"double_points": 0.0,
+		"insta_kill": 0.0,
+		"pickups": [],
+	}
+	if rounds != null:
+		snapshot["round"] = int(rounds.call("get_round")) if rounds.has_method("get_round") else 0
+		snapshot["round_total"] = int(rounds.call("get_round_total")) if rounds.has_method("get_round_total") else 0
+		snapshot["remaining"] = int(rounds.call("get_remaining_to_spawn")) if rounds.has_method("get_remaining_to_spawn") else 0
+		snapshot["alive"] = int(rounds.call("get_alive")) if rounds.has_method("get_alive") else 0
+		snapshot["break_remaining"] = float(rounds.call("get_round_break_remaining")) if rounds.has_method("get_round_break_remaining") else 0.0
+	if powerups != null:
+		snapshot["double_points"] = float(powerups.call("get_effect_remaining", "double_points")) if powerups.has_method("get_effect_remaining") else 0.0
+		snapshot["insta_kill"] = float(powerups.call("get_effect_remaining", "insta_kill")) if powerups.has_method("get_effect_remaining") else 0.0
+		snapshot["pickups"] = powerups.call("get_network_pickup_states") if powerups.has_method("get_network_pickup_states") else []
+	return snapshot
+
+func _apply_session_snapshot(snapshot: Dictionary) -> void:
+	var rounds: Node = _round_manager()
+	if rounds != null and rounds.has_method("apply_network_round_state"):
+		rounds.call(
+			"apply_network_round_state",
+			int(snapshot.get("round", 0)),
+			int(snapshot.get("round_total", 0)),
+			int(snapshot.get("remaining", 0)),
+			int(snapshot.get("alive", 0)),
+			float(snapshot.get("break_remaining", 0.0))
+		)
+	var powerups: Node = _powerup_manager()
+	if powerups != null:
+		if powerups.has_method("apply_network_effect_state"):
+			powerups.call(
+				"apply_network_effect_state",
+				float(snapshot.get("double_points", 0.0)),
+				float(snapshot.get("insta_kill", 0.0))
+			)
+		if powerups.has_method("apply_network_pickup_snapshot"):
+			powerups.call("apply_network_pickup_snapshot", snapshot.get("pickups", []) as Array)
+	print(
+		"XZOGOT_NETWORK_SESSION_STATE round=", int(snapshot.get("round", 0)),
+		" pickups=", (snapshot.get("pickups", []) as Array).size()
+	)
+
+func _broadcast_session_state() -> void:
+	if not multiplayer.is_server():
+		return
+	rpc("_client_receive_session_state", _build_session_snapshot())
+
+func _send_session_state(peer_id: int) -> void:
+	if not multiplayer.is_server() or not multiplayer.get_peers().has(peer_id):
+		return
+	rpc_id(peer_id, "_client_receive_session_state", _build_session_snapshot())
+
+@rpc("authority", "call_remote", "unreliable_ordered", 9)
+func _client_receive_session_state(snapshot: Dictionary) -> void:
+	if multiplayer.is_server():
+		return
+	_apply_session_snapshot(snapshot)
+
+func _build_late_join_snapshot() -> Dictionary:
+	var interactions: Array = []
+	for target: Node in get_tree().get_nodes_in_group("zombie_interactable"):
+		if not target.has_method("was_used"):
+			continue
+		# Only persistent world switches belong in the initial snapshot.
+		# Personal machines are restored from the joining player's inventory.
+		var kind_value: int = int(target.get("interaction_kind"))
+		if kind_value != 0 and kind_value != 4:
+			continue
+		var relative_path: String = _relative_world_path(target)
+		if relative_path.is_empty():
+			continue
+		interactions.append([
+			relative_path,
+			bool(target.call("was_used")),
+			bool(get_tree().get_meta("power_on", false)),
+			str(target.call("get_last_result")) if target.has_method("get_last_result") else "",
+		])
+
+	var barricades: Array = []
+	for barricade: Node in get_tree().get_nodes_in_group("zombie_barricade"):
+		if not barricade.has_method("get_boards"):
+			continue
+		var relative_path: String = _relative_world_path(barricade)
+		if relative_path.is_empty():
+			continue
+		barricades.append([relative_path, int(barricade.call("get_boards"))])
+
+	return {
+		"session": _build_session_snapshot(),
+		"interactions": interactions,
+		"barricades": barricades,
+	}
+
+func _apply_late_join_snapshot(snapshot: Dictionary) -> void:
+	_apply_session_snapshot(snapshot.get("session", {}) as Dictionary)
+	for state_var: Variant in snapshot.get("interactions", []) as Array:
+		if not (state_var is Array):
+			continue
+		var state: Array = state_var as Array
+		if state.size() < 4:
+			continue
+		_client_apply_interaction_state(
+			str(state[0]),
+			bool(state[1]),
+			bool(state[2]),
+			str(state[3])
+		)
+	for state_var: Variant in snapshot.get("barricades", []) as Array:
+		if not (state_var is Array):
+			continue
+		var state: Array = state_var as Array
+		if state.size() < 2:
+			continue
+		_client_apply_barricade_state(str(state[0]), int(state[1]))
+	print(
+		"XZOGOT_NETWORK_LATE_JOIN_STATE interactions=",
+		(snapshot.get("interactions", []) as Array).size(),
+		" barricades=",
+		(snapshot.get("barricades", []) as Array).size()
+	)
+
+func _send_late_join_state(peer_id: int) -> void:
+	if not multiplayer.is_server() or not multiplayer.get_peers().has(peer_id):
+		return
+	rpc_id(peer_id, "_client_receive_late_join_state", _build_late_join_snapshot())
+
+@rpc("authority", "call_remote", "reliable", 10)
+func _client_receive_late_join_state(snapshot: Dictionary) -> void:
+	if multiplayer.is_server():
+		return
+	_apply_late_join_snapshot(snapshot)
+
 func _relative_world_path(target: Node) -> String:
 	if target == null or get_parent() == null:
 		return ""
@@ -689,6 +842,16 @@ func notify_host_interaction(target: Node, player: Node) -> void:
 	var peer_id: int = int(player.get_meta("network_peer_id", SERVER_PEER_ID)) if player != null else SERVER_PEER_ID
 	if peer_id > SERVER_PEER_ID:
 		_send_inventory_state(peer_id)
+
+func notify_host_powerup(kind: String) -> void:
+	if _mode != "host" or not multiplayer.is_server():
+		return
+	_broadcast_session_state()
+	for peer_var: Variant in _roster.keys():
+		var peer_id: int = int(peer_var)
+		if peer_id > SERVER_PEER_ID:
+			_send_inventory_state(peer_id)
+	print("XZOGOT_NETWORK_POWERUP_SYNC ", kind)
 
 func notify_host_barricade(target: Node, player: Node = null) -> void:
 	if _mode != "host" or not multiplayer.is_server() or target == null:
