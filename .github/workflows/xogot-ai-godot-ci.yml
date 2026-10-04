@@ -224,6 +224,19 @@ jobs:
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-ai/candle-light-probe.log
           echo "XZOGOT_CANDLE_LIGHT_GATE_GREEN"
 
+      - name: Verify MapMod weapon asset contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 75 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/mapmod_weapon_asset_probe.gd \
+            2>&1 | tee build/xogot-ai/mapmod-weapon-probe.log
+          grep -q "XZOGOT_MAPMOD_WEAPON_GATE_GREEN" build/xogot-ai/mapmod-weapon-probe.log
+          grep -q "XZOGOT_QUAKE_FINAL_WEAPONS_BLOCKED" build/xogot-ai/mapmod-weapon-probe.log
+          grep -q "XZOGOT_THOMPSON_REFERENCE_PARTIAL_LOCKED" build/xogot-ai/mapmod-weapon-probe.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-ai/mapmod-weapon-probe.log
+          echo "XZOGOT_MAPMOD_WEAPON_ASSET_GATE_GREEN"
+
       - name: Upload AI Godot logs
         if: always()
         uses: actions/upload-artifact@v4
