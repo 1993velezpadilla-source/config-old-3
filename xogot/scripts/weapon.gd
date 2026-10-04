@@ -29,6 +29,8 @@ var _shots_fired: int = 0
 var _mystery_serial: int = 0
 var _visual_recoil_pitch: float = 0.0
 var _visual_recoil_velocity: float = 0.0
+var _ads_pose_alpha: float = 0.0
+var _view_pose_position := Vector3(0.22, -0.20, -0.48)
 var _view_root: Node3D
 var _fire_audio: AudioStreamPlayer3D
 var _reload_audio: AudioStreamPlayer3D
@@ -75,7 +77,8 @@ func _build_view_runtime() -> void:
 		return
 	_view_root = Node3D.new()
 	_view_root.name = "WeaponViewRoot"
-	_view_root.position = Vector3(0.22, -0.20, -0.48)
+	_view_pose_position = Vector3(0.22, -0.20, -0.48)
+	_view_root.position = _view_pose_position
 	_camera.add_child(_view_root)
 
 	_fire_audio = AudioStreamPlayer3D.new()
@@ -348,6 +351,10 @@ func equip_weapon(id: String, refill: bool = true) -> bool:
 	_cooldown = 0.0
 	_trigger_held = false
 	_refresh_view_assets(def)
+	_ads_pose_alpha = 0.0
+	_view_pose_position = Vector3(0.22, -0.20, -0.48)
+	if _view_root != null:
+		_view_root.position = _view_pose_position
 	_last_ads_state = is_ads_active()
 	_play_asset_animation("equip", 0.0)
 
@@ -546,7 +553,20 @@ func _update_visual_recoil(delta: float) -> void:
 	if _camera != null:
 		_camera.rotation.x = deg_to_rad(-_visual_recoil_pitch)
 	if _view_root != null:
-		_view_root.position.z = -0.48 + minf(_visual_recoil_pitch * 0.0025, 0.022)
+		# ADS must physically bring the first-person weapon onto the sight line,
+		# not only narrow the camera FOV.  Asset-specific animations still play
+		# on top of this camera-space pose.
+		var ads_target: float = 1.0 if is_ads_active() else 0.0
+		var ads_speed: float = 12.0 if ads_target > _ads_pose_alpha else 15.0
+		_ads_pose_alpha = move_toward(_ads_pose_alpha, ads_target, ads_speed * delta)
+		var hip_position := Vector3(0.22, -0.20, -0.48)
+		var ads_position := Vector3(0.0, -0.145, -0.365)
+		var target_position: Vector3 = hip_position.lerp(ads_position, _ads_pose_alpha)
+		var pose_blend: float = 1.0 - exp(-22.0 * delta)
+		_view_pose_position = _view_pose_position.lerp(target_position, pose_blend)
+		var recoil_push: float = minf(_visual_recoil_pitch * 0.0025, 0.022)
+		_view_root.position = _view_pose_position + Vector3(0.0, 0.0, recoil_push)
+		set_meta("weapon_ads_pose_alpha", _ads_pose_alpha)
 
 func set_dev_infinite_ammo(enabled: bool) -> void:
 	_dev_infinite_ammo = enabled
