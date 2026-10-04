@@ -77,8 +77,63 @@
       "destructive_texture_downscale_forbidden": true
     }
   },
-  "weapon_count": 21,
+  "weapon_count": 31,
   "weapons": {
+    "357": {
+      "desired_source_lane": "project_aether_waw_real",
+      "status": "PARTIAL",
+      "runtime": {
+        "viewmodel": "res://assets/weapons/aether_waw_real/357/viewmodel.glb",
+        "worldmodel": "res://assets/weapons/mapmod/357/worldmodel.glb",
+        "audio": {
+          "fire": "res://assets/audio/weapons/mapmod/357/fire.ogg",
+          "reload": "res://assets/audio/weapons/mapmod/357/reload.ogg",
+          "mechanical": "res://assets/audio/weapons/mapmod/357/mechanical.ogg",
+          "dry_fire": "res://assets/audio/weapons/mapmod/357/dry_fire.ogg"
+        }
+      },
+      "required_animation_aliases": {
+        "idle": [
+          "idle"
+        ],
+        "fire": [
+          "fire",
+          "shoot"
+        ],
+        "ads_in": [
+          "ads_in",
+          "ads_up",
+          "aim_in"
+        ],
+        "ads_out": [
+          "ads_out",
+          "ads_down",
+          "aim_out"
+        ],
+        "reload": [
+          "reload"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "draw"
+        ],
+        "lower": [
+          "lower",
+          "putaway",
+          "holster"
+        ],
+        "melee": [
+          "melee",
+          "knife",
+          "bash"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 skeletal viewmodel staged for 357 Magnum; animations/audio/worldmodel are gated separately."
+      ]
+    },
     "colt": {
       "desired_source_lane": "cod_zombies_mapmod",
       "status": "PARTIAL",
@@ -1263,6 +1318,501 @@
         ]
       },
       "notes": []
+    },
+    "arisaka": {
+      "desired_source_lane": "project_aether_waw_real",
+      "status": "PARTIAL",
+      "runtime": {
+        "viewmodel": "res://assets/weapons/aether_waw_real/arisaka/viewmodel.glb",
+        "worldmodel": "res://assets/weapons/mapmod/arisaka/worldmodel.glb",
+        "audio": {
+          "fire": "res://assets/audio/weapons/mapmod/arisaka/fire.ogg",
+          "reload": "res://assets/audio/weapons/mapmod/arisaka/reload.ogg",
+          "mechanical": "res://assets/audio/weapons/mapmod/arisaka/mechanical.ogg",
+          "dry_fire": "res://assets/audio/weapons/mapmod/arisaka/dry_fire.ogg"
+        }
+      },
+      "required_animation_aliases": {
+        "idle": [
+          "idle"
+        ],
+        "fire": [
+          "fire",
+          "shoot"
+        ],
+        "ads_in": [
+          "ads_in",
+          "ads_up",
+          "aim_in"
+        ],
+        "ads_out": [
+          "ads_out",
+          "ads_down",
+          "aim_out"
+        ],
+        "reload": [
+          "reload"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "draw"
+        ],
+        "lower": [
+          "lower",
+          "putaway",
+          "holster"
+        ],
+        "melee": [
+          "melee",
+          "knife",
+          "bash"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 skeletal viewmodel staged for Arisaka; animations/audio/worldmodel are gated separately."
+      ]
+    },
+    "dp28": {
+      "desired_source_lane": "project_aether_waw_real",
+      "status": "PARTIAL",
+      "runtime": {
+        "viewmodel": "res://assets/weapons/aether_waw_real/dp28/viewmodel.glb",
+        "worldmodel": "res://assets/weapons/mapmod/dp28/worldmodel.glb",
+        "audio": {
+          "fire": "res://assets/audio/weapons/mapmod/dp28/fire.ogg",
+          "reload": "res://assets/audio/weapons/mapmod/dp28/reload.ogg",
+          "mechanical": "res://assets/audio/weapons/mapmod/dp28/mechanical.ogg",
+          "dry_fire": "res://assets/audio/weapons/mapmod/dp28/dry_fire.ogg"
+        }
+      },
+      "required_animation_aliases": {
+        "idle": [
+          "idle"
+        ],
+        "fire": [
+          "fire",
+          "shoot"
+        ],
+        "ads_in": [
+          "ads_in",
+          "ads_up",
+          "aim_in"
+        ],
+        "ads_out": [
+          "ads_out",
+          "ads_down",
+          "aim_out"
+        ],
+        "reload": [
+          "reload"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "draw"
+        ],
+        "lower": [
+          "lower",
+          "putaway",
+          "holster"
+        ],
+        "melee": [
+          "melee",
+          "knife",
+          "bash"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 skeletal viewmodel staged for DP-28; animations/audio/worldmodel are gated separately."
+      ]
+    },
+    "kar98k": {
+      "desired_source_lane": "project_aether_waw_real",
+      "status": "PARTIAL",
+      "runtime": {
+        "viewmodel": "res://assets/weapons/aether_waw_real/kar98k/viewmodel.glb",
+        "worldmodel": "res://assets/weapons/mapmod/kar98k/worldmodel.glb",
+        "audio": {
+          "fire": "res://assets/audio/weapons/mapmod/kar98k/fire.ogg",
+          "reload": "res://assets/audio/weapons/mapmod/kar98k/reload.ogg",
+          "mechanical": "res://assets/audio/weapons/mapmod/kar98k/mechanical.ogg",
+          "dry_fire": "res://assets/audio/weapons/mapmod/kar98k/dry_fire.ogg"
+        }
+      },
+      "required_animation_aliases": {
+        "idle": [
+          "idle"
+        ],
+        "fire": [
+          "fire",
+          "shoot"
+        ],
+        "ads_in": [
+          "ads_in",
+          "ads_up",
+          "aim_in"
+        ],
+        "ads_out": [
+          "ads_out",
+          "ads_down",
+          "aim_out"
+        ],
+        "reload": [
+          "reload"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "draw"
+        ],
+        "lower": [
+          "lower",
+          "putaway",
+          "holster"
+        ],
+        "melee": [
+          "melee",
+          "knife",
+          "bash"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 skeletal viewmodel staged for Kar98k; animations/audio/worldmodel are gated separately."
+      ]
+    },
+    "mosin": {
+      "desired_source_lane": "project_aether_waw_real",
+      "status": "PARTIAL",
+      "runtime": {
+        "viewmodel": "res://assets/weapons/aether_waw_real/mosin/viewmodel.glb",
+        "worldmodel": "res://assets/weapons/mapmod/mosin/worldmodel.glb",
+        "audio": {
+          "fire": "res://assets/audio/weapons/mapmod/mosin/fire.ogg",
+          "reload": "res://assets/audio/weapons/mapmod/mosin/reload.ogg",
+          "mechanical": "res://assets/audio/weapons/mapmod/mosin/mechanical.ogg",
+          "dry_fire": "res://assets/audio/weapons/mapmod/mosin/dry_fire.ogg"
+        }
+      },
+      "required_animation_aliases": {
+        "idle": [
+          "idle"
+        ],
+        "fire": [
+          "fire",
+          "shoot"
+        ],
+        "ads_in": [
+          "ads_in",
+          "ads_up",
+          "aim_in"
+        ],
+        "ads_out": [
+          "ads_out",
+          "ads_down",
+          "aim_out"
+        ],
+        "reload": [
+          "reload"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "draw"
+        ],
+        "lower": [
+          "lower",
+          "putaway",
+          "holster"
+        ],
+        "melee": [
+          "melee",
+          "knife",
+          "bash"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 skeletal viewmodel staged for Mosin-Nagant; animations/audio/worldmodel are gated separately."
+      ]
+    },
+    "nambu": {
+      "desired_source_lane": "project_aether_waw_real",
+      "status": "PARTIAL",
+      "runtime": {
+        "viewmodel": "res://assets/weapons/aether_waw_real/nambu/viewmodel.glb",
+        "worldmodel": "res://assets/weapons/mapmod/nambu/worldmodel.glb",
+        "audio": {
+          "fire": "res://assets/audio/weapons/mapmod/nambu/fire.ogg",
+          "reload": "res://assets/audio/weapons/mapmod/nambu/reload.ogg",
+          "mechanical": "res://assets/audio/weapons/mapmod/nambu/mechanical.ogg",
+          "dry_fire": "res://assets/audio/weapons/mapmod/nambu/dry_fire.ogg"
+        }
+      },
+      "required_animation_aliases": {
+        "idle": [
+          "idle"
+        ],
+        "fire": [
+          "fire",
+          "shoot"
+        ],
+        "ads_in": [
+          "ads_in",
+          "ads_up",
+          "aim_in"
+        ],
+        "ads_out": [
+          "ads_out",
+          "ads_down",
+          "aim_out"
+        ],
+        "reload": [
+          "reload"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "draw"
+        ],
+        "lower": [
+          "lower",
+          "putaway",
+          "holster"
+        ],
+        "melee": [
+          "melee",
+          "knife",
+          "bash"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 skeletal viewmodel staged for Nambu; animations/audio/worldmodel are gated separately."
+      ]
+    },
+    "svt40": {
+      "desired_source_lane": "project_aether_waw_real",
+      "status": "PARTIAL",
+      "runtime": {
+        "viewmodel": "res://assets/weapons/aether_waw_real/svt40/viewmodel.glb",
+        "worldmodel": "res://assets/weapons/mapmod/svt40/worldmodel.glb",
+        "audio": {
+          "fire": "res://assets/audio/weapons/mapmod/svt40/fire.ogg",
+          "reload": "res://assets/audio/weapons/mapmod/svt40/reload.ogg",
+          "mechanical": "res://assets/audio/weapons/mapmod/svt40/mechanical.ogg",
+          "dry_fire": "res://assets/audio/weapons/mapmod/svt40/dry_fire.ogg"
+        }
+      },
+      "required_animation_aliases": {
+        "idle": [
+          "idle"
+        ],
+        "fire": [
+          "fire",
+          "shoot"
+        ],
+        "ads_in": [
+          "ads_in",
+          "ads_up",
+          "aim_in"
+        ],
+        "ads_out": [
+          "ads_out",
+          "ads_down",
+          "aim_out"
+        ],
+        "reload": [
+          "reload"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "draw"
+        ],
+        "lower": [
+          "lower",
+          "putaway",
+          "holster"
+        ],
+        "melee": [
+          "melee",
+          "knife",
+          "bash"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 skeletal viewmodel staged for SVT-40; animations/audio/worldmodel are gated separately."
+      ]
+    },
+    "tt33": {
+      "desired_source_lane": "project_aether_waw_real",
+      "status": "PARTIAL",
+      "runtime": {
+        "viewmodel": "res://assets/weapons/aether_waw_real/tt33/viewmodel.glb",
+        "worldmodel": "res://assets/weapons/mapmod/tt33/worldmodel.glb",
+        "audio": {
+          "fire": "res://assets/audio/weapons/mapmod/tt33/fire.ogg",
+          "reload": "res://assets/audio/weapons/mapmod/tt33/reload.ogg",
+          "mechanical": "res://assets/audio/weapons/mapmod/tt33/mechanical.ogg",
+          "dry_fire": "res://assets/audio/weapons/mapmod/tt33/dry_fire.ogg"
+        }
+      },
+      "required_animation_aliases": {
+        "idle": [
+          "idle"
+        ],
+        "fire": [
+          "fire",
+          "shoot"
+        ],
+        "ads_in": [
+          "ads_in",
+          "ads_up",
+          "aim_in"
+        ],
+        "ads_out": [
+          "ads_out",
+          "ads_down",
+          "aim_out"
+        ],
+        "reload": [
+          "reload"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "draw"
+        ],
+        "lower": [
+          "lower",
+          "putaway",
+          "holster"
+        ],
+        "melee": [
+          "melee",
+          "knife",
+          "bash"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 skeletal viewmodel staged for TT-33; animations/audio/worldmodel are gated separately."
+      ]
+    },
+    "type99": {
+      "desired_source_lane": "project_aether_waw_real",
+      "status": "PARTIAL",
+      "runtime": {
+        "viewmodel": "res://assets/weapons/aether_waw_real/type99/viewmodel.glb",
+        "worldmodel": "res://assets/weapons/mapmod/type99/worldmodel.glb",
+        "audio": {
+          "fire": "res://assets/audio/weapons/mapmod/type99/fire.ogg",
+          "reload": "res://assets/audio/weapons/mapmod/type99/reload.ogg",
+          "mechanical": "res://assets/audio/weapons/mapmod/type99/mechanical.ogg",
+          "dry_fire": "res://assets/audio/weapons/mapmod/type99/dry_fire.ogg"
+        }
+      },
+      "required_animation_aliases": {
+        "idle": [
+          "idle"
+        ],
+        "fire": [
+          "fire",
+          "shoot"
+        ],
+        "ads_in": [
+          "ads_in",
+          "ads_up",
+          "aim_in"
+        ],
+        "ads_out": [
+          "ads_out",
+          "ads_down",
+          "aim_out"
+        ],
+        "reload": [
+          "reload"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "draw"
+        ],
+        "lower": [
+          "lower",
+          "putaway",
+          "holster"
+        ],
+        "melee": [
+          "melee",
+          "knife",
+          "bash"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 skeletal viewmodel staged for Type 99; animations/audio/worldmodel are gated separately."
+      ]
+    },
+    "walther": {
+      "desired_source_lane": "project_aether_waw_real",
+      "status": "PARTIAL",
+      "runtime": {
+        "viewmodel": "res://assets/weapons/aether_waw_real/walther/viewmodel.glb",
+        "worldmodel": "res://assets/weapons/mapmod/walther/worldmodel.glb",
+        "audio": {
+          "fire": "res://assets/audio/weapons/mapmod/walther/fire.ogg",
+          "reload": "res://assets/audio/weapons/mapmod/walther/reload.ogg",
+          "mechanical": "res://assets/audio/weapons/mapmod/walther/mechanical.ogg",
+          "dry_fire": "res://assets/audio/weapons/mapmod/walther/dry_fire.ogg"
+        }
+      },
+      "required_animation_aliases": {
+        "idle": [
+          "idle"
+        ],
+        "fire": [
+          "fire",
+          "shoot"
+        ],
+        "ads_in": [
+          "ads_in",
+          "ads_up",
+          "aim_in"
+        ],
+        "ads_out": [
+          "ads_out",
+          "ads_down",
+          "aim_out"
+        ],
+        "reload": [
+          "reload"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "draw"
+        ],
+        "lower": [
+          "lower",
+          "putaway",
+          "holster"
+        ],
+        "melee": [
+          "melee",
+          "knife",
+          "bash"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 skeletal viewmodel staged for Walther P38; animations/audio/worldmodel are gated separately."
+      ]
     }
   }
 }
