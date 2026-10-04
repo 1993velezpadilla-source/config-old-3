@@ -167,10 +167,14 @@ func _update_voice(delta: float) -> void:
 		and is_instance_valid(target_player)
 		and global_position.distance_squared_to(target_player.global_position) <= 22.0 * 22.0
 	)
+	var last_zombie: bool = bool(get_meta("last_zombie", false))
 	if near_player:
-		_play_zombie_sfx(_zombie_audio_choice(ZOMBIE_MOANS), -9.0)
+		_play_zombie_sfx(
+			_zombie_audio_choice(ZOMBIE_MOANS),
+			-6.0 if last_zombie else -9.0
+		)
 	var jitter: float = float(abs((name + ":moan:" + str(_voice_serial)).hash()) % 550) / 100.0
-	_moan_timer = 4.2 + jitter
+	_moan_timer = (2.0 + jitter * 0.42) if last_zombie else (4.2 + jitter)
 
 func _ready() -> void:
 	_gravity = float(ProjectSettings.get_setting("physics/3d/default_gravity", 18.0))
@@ -191,6 +195,12 @@ func _ready() -> void:
 	print("XZOGOT_ZOMBIE_GROUND_SNAP_READY 0.24")
 	print("XZOGOT_ZOMBIE_PATHING_READY ", _motion_profile_id)
 	print("XZOGOT_ZOMBIE_READY")
+
+func set_last_zombie_mode(enabled: bool) -> void:
+	set_meta("last_zombie", enabled)
+	if enabled:
+		_moan_timer = minf(_moan_timer, 0.25)
+		print("XZOGOT_LAST_ZOMBIE_VOICE_READY ", name)
 
 func configure(player: Node3D, barricade: Node) -> void:
 	target_player = player
