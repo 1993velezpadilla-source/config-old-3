@@ -74,12 +74,17 @@ func _run() -> void:
 				return
 			print("XZOGOT_4P_E2E_HOST_ROSTER_GREEN ", ids)
 			print("XZOGOT_4P_E2E_HOST_PROXIES_GREEN 3")
-			# Let reliable late-join + several unreliable snapshots settle.
-			await _wait(10.0)
+			# Hold all four peers together long enough to prove roster/snapshot
+			# stability, then keep the host alive while clients exit cleanly.
+			await _wait(3.0)
 			if int(network.call("get_connected_player_count")) != 4:
-				_fail(9, "client disconnected before stability window")
+				_fail(9, "client disconnected during stability window")
+				return
+			if get_nodes_in_group("network_remote_player").size() != 3:
+				_fail(11, "remote proxy count changed during stability window")
 				return
 			print("XZOGOT_4P_E2E_HOST_STABLE_GREEN")
+			await _wait(4.0)
 			print("XZOGOT_4P_E2E_HOST_GREEN")
 			network.call("leave_game")
 			scene.queue_free()
