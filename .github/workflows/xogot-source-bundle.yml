@@ -8,7 +8,7 @@ on:
     paths:
       - ".github/workflows/xogot-source-bundle.yml"
 
-# BUNDLE_REV=1
+# BUNDLE_REV=2
 jobs:
   package:
     runs-on: ubuntu-latest
