@@ -695,9 +695,17 @@ void fragment() {
 func _build_authored_altar() -> void:
 	var altar_base_y: float = 0.66
 	var altar_target := Vector3(3.60, 1.45, 1.35)
+	var split_main_altar: String = _gift_split_model_path("altar", 3)
+	var selected_path: String = ALTAR_ASSET_PATH
+	var selected_label: String = "AuthoredAltar"
+	var using_split_gift: bool = ResourceLoader.exists(split_main_altar)
+	if using_split_gift:
+		selected_path = split_main_altar
+		selected_label = "GiftMainAltar"
+
 	var altar := _spawn_fitted_furniture(
-		ALTAR_ASSET_PATH,
-		"AuthoredAltar",
+		selected_path,
+		selected_label,
 		Vector3(0.0, altar_base_y, -20.85),
 		altar_target,
 		90.0,
@@ -705,12 +713,17 @@ func _build_authored_altar() -> void:
 	)
 	if altar != null:
 		altar.add_to_group("authored_church_furniture")
+		altar.set_meta("semantic_role", "MainAltar")
+		altar.set_meta("split_gift_asset", using_split_gift)
 		_collision_box(
 			"AltarCollision",
 			Vector3(3.35, 1.12, 1.15),
 			Vector3(0.0, altar_base_y + 0.56, -20.85)
 		)
-		print("XZOGOT_AUTHORED_ALTAR_READY")
+		if using_split_gift:
+			print("XZOGOT_GIFT_MAIN_ALTAR_READY Model_03")
+		else:
+			print("XZOGOT_AUTHORED_ALTAR_READY")
 
 func _build_authored_benches() -> void:
 	var bench_base_y: float = 0.445
