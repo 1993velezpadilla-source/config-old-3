@@ -33,6 +33,14 @@ const SFX_MYSTERY := "res://assets/audio/church/world/mystery_open.ogg"
 
 var _machine_loop_audio: AudioStreamPlayer3D
 
+func _network_manager() -> Node:
+	return get_tree().root.find_child("NetworkManager", true, false)
+
+func _notify_network_success(player: Node) -> void:
+	var network: Node = _network_manager()
+	if network != null and network.has_method("notify_host_interaction"):
+		network.call("notify_host_interaction", self, player)
+
 func _play_world_sfx(path: String, volume_db: float = -4.0) -> void:
 	if not ResourceLoader.exists(path):
 		return
@@ -167,7 +175,10 @@ func interact(player: Node) -> bool:
 		return false
 
 	if interaction_kind == Kind.WALLBUY:
-		return _use_wallbuy_weapon(player)
+		var wall_success: bool = _use_wallbuy_weapon(player)
+		if wall_success:
+			_notify_network_success(player)
+		return wall_success
 
 	var weapon: Node = _find_player_weapon(player)
 	if interaction_kind == Kind.PERK:
@@ -236,6 +247,7 @@ func interact(player: Node) -> bool:
 
 	if one_shot:
 		_used = true
+	_notify_network_success(player)
 	return true
 
 func _find_player_weapon(player: Node) -> Node:
@@ -281,14 +293,64 @@ func _use_mystery(player: Node) -> void:
 		_last_result = ""
 	print("XZOGOT_MYSTERY_SPIN ", _interaction_count, " result=", _last_result)
 
-func _open_door() -> void:
-	_interaction_count += 1
+func _apply_door_open_visual() -> void:
 	for child: Node in get_children():
 		if child is MeshInstance3D:
 			(child as MeshInstance3D).visible = false
 		elif child is CollisionShape3D:
 			(child as CollisionShape3D).set_deferred("disabled", true)
+
+func _open_door() -> void:
+	_interaction_count += 1
+	_apply_door_open_visual()
 	print("XZOGOT_DOOR_OPEN")
+
+func apply_network_world_state(
+	used: bool,
+	power_on: bool,
+	last_result: String
+) -> void:
+	get_tree().set_meta("power_on", power_on)
+	_last_result = last_result
+	if one_shot and used:
+		_used = true
+	_update_power_visual()
+
+	match interaction_kind:
+		Kind.DOOR:
+			if used:
+				_apply_door_open_visual()
+		Kind.MYSTERY:
+			if not last_result.is_empty():
+				_animate_mystery_box()
+				_play_world_sfx(SFX_MYSTERY, -7.0)
+		Kind.PERK:
+			if not last_result.is_empty():
+				_pulse_perk_machine()
+				_play_world_sfx(SFX_MACHINE, -8.0)
+		Kind.POWER:
+			if power_on:
+				_animate_power_lever()
+				_play_world_sfx(SFX_POWER, -4.0)
+		Kind.UPGRADE:
+			if not last_result.is_empty():
+				_animate_forge()
+				_play_world_sfx(SFX_MACHINE, -5.0)
+		Kind.BELL:
+			if last_result == "BELL_RUNG":
+				for audio_node: Node in get_tree().get_nodes_in_group("church_audio_runtime"):
+					if audio_node.has_method("ring_bell"):
+						audio_node.call("ring_bell")
+		_:
+			pass
+
+	print(
+		"XZOGOT_NETWORK_WORLD_INTERACTION ",
+		name,
+		" used=", used,
+		" power=", power_on,
+		" result=", last_result
+	)
 
 func dev_force_open() -> bool:
 	if interaction_kind != Kind.DOOR:
