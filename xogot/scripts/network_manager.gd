@@ -67,6 +67,9 @@ func _powerup_manager() -> Node:
 func _discovery() -> Node:
 	return get_parent().get_node_or_null("NetworkDiscovery")
 
+func _upnp_node() -> Node:
+	return get_parent().get_node_or_null("NetworkUPNP")
+
 func _configure_local_player(peer_id: int) -> void:
 	var player: Node = _local_player()
 	if player == null:
@@ -122,6 +125,17 @@ func host_game(port: int = DEFAULT_PORT, private_session: bool = true) -> Error:
 			if discovery_err != OK:
 				network_error.emit("LAN_ADVERTISE_FAILED_%d" % discovery_err)
 				print("XZOGOT_NETWORK_LAN_ADVERTISE_FAIL ", discovery_err)
+
+	var upnp: Node = _upnp_node()
+	if upnp != null:
+		if private_session:
+			if upnp.has_method("clear_mapping"):
+				upnp.call("clear_mapping")
+		elif upnp.has_method("request_mapping"):
+			# Public internet reachability is best-effort. ENet/LAN hosting stays
+			# live even when the router has UPnP disabled or unsupported.
+			var mapping_started: bool = bool(upnp.call("request_mapping", port))
+			print("XZOGOT_NETWORK_UPNP_REQUEST started=", mapping_started, " port=", port)
 	session_state_changed.emit(_mode)
 	_emit_roster()
 	print("XZOGOT_NETWORK_HOST_READY port=", port, " slots=", MAX_PLAYERS, " private=", private_session)
@@ -154,6 +168,9 @@ func leave_game() -> void:
 			discovery.call("stop_advertising")
 		if discovery.has_method("stop_discovery"):
 			discovery.call("stop_discovery")
+	var upnp: Node = _upnp_node()
+	if upnp != null and upnp.has_method("clear_mapping"):
+		upnp.call("clear_mapping")
 	if _peer != null:
 		_peer.close()
 	_peer = null
@@ -1086,6 +1103,21 @@ func join_best_lan_match() -> Error:
 
 func is_private_session() -> bool:
 	return _session_private
+
+func get_upnp_status() -> String:
+	var upnp: Node = _upnp_node()
+	if upnp == null or not upnp.has_method("get_status"):
+		return "unavailable"
+	return str(upnp.call("get_status"))
+
+func get_public_endpoint() -> String:
+	var upnp: Node = _upnp_node()
+	if upnp == null or not upnp.has_method("get_public_endpoint"):
+		return ""
+	return str(upnp.call("get_public_endpoint"))
+
+func has_public_mapping() -> bool:
+	return not get_public_endpoint().is_empty()
 
 func get_status_text() -> String:
 	match _mode:
