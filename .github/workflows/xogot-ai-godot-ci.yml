@@ -91,6 +91,7 @@ jobs:
           grep -q "XZOGOT_AUTHORED_BENCHES_FACE_ALTAR 180" build/xogot-ai/runtime.log
           grep -q "XZOGOT_AUTHORED_BENCHES_READY 9" build/xogot-ai/runtime.log
           grep -q "XZOGOT_ROUND_MANAGER_READY" build/xogot-ai/runtime.log
+          grep -q "XZOGOT_NETWORK_MANAGER_READY" build/xogot-ai/runtime.log
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-ai/runtime.log
 
       - name: Verify movement state in Godot
@@ -126,6 +127,24 @@ jobs:
           grep -q "XZOGOT_INTERACTION_PROBE_GREEN" build/xogot-ai/interaction-probe.log
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-ai/interaction-probe.log
           echo "XOGOT_AI_VM_GREEN"
+
+      - name: Verify ENet four-player foundation
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 75 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/network_probe.gd \
+            2>&1 | tee build/xogot-ai/network-probe.log
+          grep -q "XZOGOT_NETWORK_BOOT_GREEN" build/xogot-ai/network-probe.log
+          grep -q "XZOGOT_ENET_HOST_GREEN" build/xogot-ai/network-probe.log
+          grep -q "XZOGOT_NETWORK_ROSTER_2P_GREEN" build/xogot-ai/network-probe.log
+          grep -q "XZOGOT_NETWORK_REVIVE_AUTHORITY_GREEN" build/xogot-ai/network-probe.log
+          grep -q "XZOGOT_NETWORK_HOST_AUTHORITY_GREEN" build/xogot-ai/network-probe.log
+          grep -q "XZOGOT_NETWORK_LEAVE_GREEN" build/xogot-ai/network-probe.log
+          grep -q "XZOGOT_ENET_LOCALHOST_HANDSHAKE_GREEN" build/xogot-ai/network-probe.log
+          grep -q "XZOGOT_4P_NETWORK_FOUNDATION_GREEN" build/xogot-ai/network-probe.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|NETWORK_PROBE:" build/xogot-ai/network-probe.log
+          echo "XZOGOT_4P_NETWORK_GATE_GREEN"
 
       - name: Verify round barricade and zombie loop
         shell: bash
