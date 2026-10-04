@@ -90,9 +90,28 @@ func _run_probe() -> void:
 	if zombie.get_node_or_null("MonjaBasicaVisual") == null:
 		_fail(21, "Monja Basica visual was not instantiated")
 		return
-	if str(zombie.get_meta("zombie_model", "")) != "monja_basica":
-		_fail(22, "Monja Basica model metadata missing")
+	var monja_model: String = str(zombie.get_meta("zombie_model", ""))
+	if monja_model not in [
+		"monja_basica",
+		"monja_basica_rigged",
+		"monja_basica_rigged_dismember",
+		"monja_basica_rigid_rig",
+	]:
+		_fail(22, "Monja Basica model metadata missing: " + monja_model)
 		return
+	if ResourceLoader.exists("res://assets/zombies/monja_rigid/monja_basica_rigid_rig.gltf"):
+		if monja_model != "monja_basica_rigid_rig":
+			_fail(42, "full-density rigid Monja exists but runtime did not select it")
+			return
+		if not bool(zombie.get_meta("zombie_rigged_asset", false)):
+			_fail(43, "rigid Monja was not marked rigged")
+			return
+		if not bool(zombie.get_meta("zombie_rigid_region_rig", false)):
+			_fail(44, "rigid-region rig marker missing")
+			return
+		if zombie.get_node_or_null("MonjaBasicaVisual") == null:
+			_fail(45, "rigged Monja visual missing")
+			return
 	if str(zombie.get_meta("motion_profile", "")).is_empty():
 		_fail(41, "Monja Basica motion profile missing")
 		return
