@@ -1,0 +1,198 @@
+{
+  "schema": 1,
+  "id": "aether_waw_source_inventory_v1",
+  "source": {
+    "project": "Project Aether",
+    "engine": "Unreal Engine 5.7",
+    "source_tree": "ProjectAether/Content/Assets/Weapons/waw",
+    "discovery_run": 37233716995,
+    "discovery_commit": "2a9534c1436a976eed9b000c8f3bd685b7d05f7f"
+  },
+  "rules": {
+    "source_package_present_is_not_runtime_ready": true,
+    "placeholder_geometry_forbidden": true,
+    "runtime_ready_requires": [
+      "real_viewmodel",
+      "real_worldmodel",
+      "animations",
+      "weapon_audio"
+    ]
+  },
+  "weapon_count": 29,
+  "weapons": [
+    {
+      "source_dir": "1911",
+      "runtime_id": "colt",
+      "source_status": "SOURCE_PACKAGE_PRESENT",
+      "runtime_status": "PENDING_USMAP_EXPORT"
+    },
+    {
+      "source_dir": "357",
+      "runtime_id": "357",
+      "source_status": "SOURCE_PACKAGE_PRESENT",
+      "runtime_status": "PENDING_USMAP_EXPORT"
+    },
+    {
+      "source_dir": "Arisaka",
+      "runtime_id": "arisaka",
+      "source_status": "SOURCE_PACKAGE_PRESENT",
+      "runtime_status": "PENDING_USMAP_EXPORT"
+    },
+    {
+      "source_dir": "BAR",
+      "runtime_id": "bar",
+      "source_status": "SOURCE_PACKAGE_PRESENT",
+      "runtime_status": "PENDING_USMAP_EXPORT"
+    },
+    {
+      "source_dir": "Browning",
+      "runtime_id": "browning",
+      "source_status": "SOURCE_PACKAGE_PRESENT",
+      "runtime_status": "PENDING_USMAP_EXPORT"
+    },
+    {
+      "source_dir": "DoubleBarrel",
+      "runtime_id": "doublebarrel",
+      "source_status": "SOURCE_PACKAGE_PRESENT",
+      "runtime_status": "PENDING_USMAP_EXPORT"
+    },
+    {
+      "source_dir": "DP28",
+      "runtime_id": "dp28",
+      "source_status": "SOURCE_PACKAGE_PRESENT",
+      "runtime_status": "PENDING_USMAP_EXPORT"
+    },
+    {
+      "source_dir": "FG42",
+      "runtime_id": "fg42",
+      "source_status": "SOURCE_PACKAGE_PRESENT",
+      "runtime_status": "PENDING_USMAP_EXPORT"
+    },
+    {
+      "source_dir": "Gewehr",
+      "runtime_id": "gewehr",
+      "source_status": "SOURCE_PACKAGE_PRESENT",
+      "runtime_status": "PENDING_USMAP_EXPORT"
+    },
+    {
+      "source_dir": "Kar98k",
+      "runtime_id": "kar98k",
+      "source_status": "SOURCE_PACKAGE_PRESENT",
+      "runtime_status": "PENDING_USMAP_EXPORT"
+    },
+    {
+      "source_dir": "M1Carbine",
+      "runtime_id": "m1a1",
+      "source_status": "SOURCE_PACKAGE_PRESENT",
+      "runtime_status": "PENDING_USMAP_EXPORT"
+    },
+    {
+      "source_dir": "M1Garand",
+      "runtime_id": "m1",
+      "source_status": "SOURCE_PACKAGE_PRESENT",
+      "runtime_status": "PENDING_USMAP_EXPORT"
+    },
+    {
+      "source_dir": "MG42",
+      "runtime_id": "mg42",
+      "source_status": "SOURCE_PACKAGE_PRESENT",
+      "runtime_status": "PENDING_USMAP_EXPORT"
+    },
+    {
+      "source_dir": "MosinNagant",
+      "runtime_id": "mosin",
+      "source_status": "SOURCE_PACKAGE_PRESENT",
+      "runtime_status": "PENDING_USMAP_EXPORT"
+    },
+    {
+      "source_dir": "MP40",
+      "runtime_id": "mp40",
+      "source_status": "SOURCE_PACKAGE_PRESENT",
+      "runtime_status": "PENDING_USMAP_EXPORT"
+    },
+    {
+      "source_dir": "Nambu",
+      "runtime_id": "nambu",
+      "source_status": "SOURCE_PACKAGE_PRESENT",
+      "runtime_status": "PENDING_USMAP_EXPORT"
+    },
+    {
+      "source_dir": "PPSH",
+      "runtime_id": "ppsh",
+      "source_status": "SOURCE_PACKAGE_PRESENT",
+      "runtime_status": "PENDING_USMAP_EXPORT"
+    },
+    {
+      "source_dir": "PTRS",
+      "runtime_id": "ptrs",
+      "source_status": "SOURCE_PACKAGE_PRESENT",
+      "runtime_status": "PENDING_USMAP_EXPORT"
+    },
+    {
+      "source_dir": "SawedOffDB",
+      "runtime_id": "sawnoff",
+      "source_status": "SOURCE_PACKAGE_PRESENT",
+      "runtime_status": "PENDING_USMAP_EXPORT"
+    },
+    {
+      "source_dir": "Springfield",
+      "runtime_id": "springfield",
+      "source_status": "SOURCE_PACKAGE_PRESENT",
+      "runtime_status": "PENDING_USMAP_EXPORT"
+    },
+    {
+      "source_dir": "STG44",
+      "runtime_id": "stg",
+      "source_status": "SOURCE_PACKAGE_PRESENT",
+      "runtime_status": "PENDING_USMAP_EXPORT"
+    },
+    {
+      "source_dir": "Stielhand",
+      "runtime_id": "stielhand",
+      "source_status": "SOURCE_PACKAGE_PRESENT",
+      "runtime_status": "PENDING_USMAP_EXPORT"
+    },
+    {
+      "source_dir": "SVT40",
+      "runtime_id": "svt40",
+      "source_status": "SOURCE_PACKAGE_PRESENT",
+      "runtime_status": "PENDING_USMAP_EXPORT"
+    },
+    {
+      "source_dir": "Thompson",
+      "runtime_id": "thompson",
+      "source_status": "SOURCE_PACKAGE_PRESENT",
+      "runtime_status": "PENDING_USMAP_EXPORT"
+    },
+    {
+      "source_dir": "TrenchGun",
+      "runtime_id": "trench",
+      "source_status": "SOURCE_PACKAGE_PRESENT",
+      "runtime_status": "PENDING_USMAP_EXPORT"
+    },
+    {
+      "source_dir": "TT33",
+      "runtime_id": "tt33",
+      "source_status": "SOURCE_PACKAGE_PRESENT",
+      "runtime_status": "PENDING_USMAP_EXPORT"
+    },
+    {
+      "source_dir": "Type100",
+      "runtime_id": "type100",
+      "source_status": "SOURCE_PACKAGE_PRESENT",
+      "runtime_status": "PENDING_USMAP_EXPORT"
+    },
+    {
+      "source_dir": "Type99",
+      "runtime_id": "type99",
+      "source_status": "SOURCE_PACKAGE_PRESENT",
+      "runtime_status": "PENDING_USMAP_EXPORT"
+    },
+    {
+      "source_dir": "Walther",
+      "runtime_id": "walther",
+      "source_status": "SOURCE_PACKAGE_PRESENT",
+      "runtime_status": "PENDING_USMAP_EXPORT"
+    }
+  ]
+}
