@@ -622,6 +622,12 @@ func request_interact() -> bool:
 func try_interact_with(target: Object) -> bool:
 	if target == null or not target.has_method("interact"):
 		return false
+	if _network_client_mode() and target is Node:
+		var node := target as Node
+		if node.is_in_group("zombie_interactable") or node.is_in_group("zombie_barricade"):
+			var network: Node = _network_manager()
+			if network != null and network.has_method("submit_interaction"):
+				return bool(network.call("submit_interaction", node))
 	return bool(target.call("interact", self))
 
 func can_buy_perk(id: String) -> bool:
@@ -704,6 +710,23 @@ func apply_authoritative_network_points(server_points: int) -> void:
 	if _network_client_mode():
 		points = maxi(0, server_points)
 		set_meta("network_authoritative_points", points)
+
+func apply_authoritative_network_perks(perk_ids: Array[String]) -> void:
+	if not _network_client_mode():
+		return
+	var had_martyr: bool = _perks.has("martyrs_blood")
+	_perks.clear()
+	for id: String in perk_ids:
+		if PerkCatalog.has_perk(id):
+			_perks[id] = true
+	var has_martyr: bool = _perks.has("martyrs_blood")
+	max_health = maxf(_base_max_health * 2.0, 200.0) if has_martyr else _base_max_health
+	if has_martyr and not had_martyr:
+		health = max_health
+	else:
+		health = minf(health, max_health)
+	set_meta("owned_perks", get_owned_perks())
+	print("XZOGOT_NETWORK_PERKS_SYNC ", get_owned_perks())
 
 func get_move_vector() -> Vector2:
 	return _move_vector
