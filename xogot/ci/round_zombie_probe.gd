@@ -57,6 +57,27 @@ func _run_probe() -> void:
 	print("XZOGOT_CLASSIC_ZOMBIE_HEALTH_GREEN ", expected_health)
 	print("XZOGOT_CLASSIC_SIMULTANEOUS_CAP_GREEN 24")
 
+	var expected_coop := {
+		2: {1: 7, 5: 27, 10: 42, 20: 96},
+		3: {1: 9, 5: 32, 10: 60, 20: 168},
+		4: {1: 10, 5: 37, 10: 78, 20: 240},
+	}
+	for player_count: int in expected_coop:
+		var player_rounds: Dictionary = expected_coop[player_count] as Dictionary
+		for round_id: int in player_rounds:
+			var actual_count: int = int(round_manager.call("zombies_for_round", round_id, player_count))
+			if actual_count != int(player_rounds[round_id]):
+				_fail(
+					50,
+					"classic co-op count wrong P%d R%d: %d" % [
+						player_count,
+						round_id,
+						actual_count,
+					]
+				)
+				return
+	print("XZOGOT_CLASSIC_COOP_ROUND_FLOW_GREEN ", expected_coop)
+
 	var barricades: Array[Node] = get_nodes_in_group("zombie_barricade")
 	if barricades.size() != 8:
 		_fail(4, "expected 8 barricades, got %d" % barricades.size())
