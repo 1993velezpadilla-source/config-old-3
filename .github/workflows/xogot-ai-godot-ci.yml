@@ -144,6 +144,20 @@ jobs:
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-ai/round-zombie-probe.log
           echo "XOGOT_AI_VM_GREEN"
 
+      - name: Verify round transition feedback
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 75 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/round_feedback_probe.gd \
+            2>&1 | tee build/xogot-ai/round-feedback-probe.log
+          grep -q "XZOGOT_ROUND_START_FEEDBACK_GREEN" build/xogot-ai/round-feedback-probe.log
+          grep -q "XZOGOT_LAST_ZOMBIE_FEEDBACK_GREEN" build/xogot-ai/round-feedback-probe.log
+          grep -q "XZOGOT_ROUND_CLEAR_FEEDBACK_GREEN" build/xogot-ai/round-feedback-probe.log
+          grep -q "XZOGOT_ROUND_TRANSITION_FLOW_GREEN" build/xogot-ai/round-feedback-probe.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|ROUND_FEEDBACK_PROBE:" build/xogot-ai/round-feedback-probe.log
+          echo "XZOGOT_ROUND_TRANSITION_GATE_GREEN"
+
       - name: Verify classic Zombies power-ups
         shell: bash
         run: |
