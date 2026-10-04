@@ -100,6 +100,63 @@ func _update_power_visual() -> void:
 	if requires_power:
 		set_meta("powered_visual_on", powered)
 
+func _animate_mystery_box() -> void:
+	var lid := find_child("MysteryLid", true, false) as Node3D
+	if lid == null:
+		return
+	var tween := create_tween()
+	tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(lid, "rotation_degrees:x", -72.0, 0.26)
+	tween.tween_interval(0.55)
+	tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	tween.tween_property(lid, "rotation_degrees:x", 0.0, 0.34)
+
+	var glow := find_child("MysteryGlow", true, false) as OmniLight3D
+	if glow != null:
+		var glow_tween := create_tween()
+		glow_tween.tween_property(glow, "light_energy", 1.25, 0.14)
+		glow_tween.tween_interval(0.56)
+		glow_tween.tween_property(glow, "light_energy", 0.42, 0.35)
+
+func _animate_power_lever() -> void:
+	var lever := find_child("PowerLever", true, false) as Node3D
+	if lever != null:
+		var tween := create_tween()
+		tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tween.tween_property(lever, "rotation_degrees:x", 42.0, 0.32)
+	var indicator := find_child("PowerIndicator", true, false) as OmniLight3D
+	if indicator != null:
+		indicator.light_color = Color(0.12, 0.95, 0.28)
+		var t := create_tween()
+		t.tween_property(indicator, "light_energy", 0.78, 0.18)
+		t.tween_property(indicator, "light_energy", 0.30, 0.45)
+
+func _animate_forge() -> void:
+	var rings: Array[Node3D] = []
+	for child: Node in find_children("ForgeRing_*", "Node3D", true, false):
+		if child is Node3D:
+			rings.append(child as Node3D)
+	for i in range(rings.size()):
+		var ring: Node3D = rings[i]
+		var tween := create_tween()
+		var direction: float = -1.0 if i % 2 == 0 else 1.0
+		tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		tween.tween_property(
+			ring,
+			"rotation_degrees:z",
+			ring.rotation_degrees.z + direction * 360.0,
+			0.95 + float(i) * 0.12
+		)
+
+func _pulse_perk_machine() -> void:
+	var glow := find_child("MachineGlow", true, false) as OmniLight3D
+	if glow == null:
+		return
+	var base: float = glow.light_energy
+	var tween := create_tween()
+	tween.tween_property(glow, "light_energy", maxf(base * 3.0, 0.75), 0.12)
+	tween.tween_property(glow, "light_energy", base, 0.48)
+
 func interact(player: Node) -> bool:
 	if _used and one_shot:
 		return false
@@ -141,18 +198,21 @@ func interact(player: Node) -> bool:
 			_play_world_sfx(SFX_DOOR)
 		Kind.MYSTERY:
 			_use_mystery(player)
+			_animate_mystery_box()
 			_play_world_sfx(SFX_MYSTERY)
 		Kind.PERK:
 			if not bool(player.call("grant_perk", perk_id)):
 				return false
 			_interaction_count += 1
 			_last_result = perk_id
+			_pulse_perk_machine()
 			_play_world_sfx(SFX_MACHINE, -6.0)
 			print("XZOGOT_PERK_MACHINE_USED ", perk_id)
 		Kind.POWER:
 			_interaction_count += 1
 			get_tree().set_meta("power_on", true)
 			_last_result = "POWER_ON"
+			_animate_power_lever()
 			_play_world_sfx(SFX_POWER, -2.0)
 			print("XZOGOT_POWER_ON")
 		Kind.UPGRADE:
@@ -160,6 +220,7 @@ func interact(player: Node) -> bool:
 				return false
 			_interaction_count += 1
 			_last_result = str(weapon.call("get_weapon_id"))
+			_animate_forge()
 			_play_world_sfx(SFX_MACHINE, -1.5)
 			print("XZOGOT_SANCTUM_FORGE_USED ", _last_result)
 		Kind.BELL:
