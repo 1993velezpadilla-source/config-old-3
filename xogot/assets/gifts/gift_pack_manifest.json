@@ -1,103 +1,29 @@
 {
-  "version": 1,
+  "version": 2,
+  "status": "SPLIT_VALIDATED_LOCAL",
   "policy": {
-    "geometry": "full-density source GLB; no decimation in integration code",
-    "textures": "embedded 4096x4096 Color + ORM + NormalGL retained",
-    "loading": "optional ResourceLoader slots; missing binaries do not fail CI",
-    "collisions": "existing gameplay collision stays authoritative; gift props start visual-only",
-    "source_semantics": "each uploaded GLB is a multi-model bundle, not one prop",
-    "observed_export_structure": "each source currently reports 1 scene / 1 node / 1 mesh / 1 primitive",
-    "split_strategy": "separate disconnected geometry islands/components before gameplay placement",
-    "whole_bundle_spawn": "forbidden"
+    "decimation": false,
+    "geometry": "Every source triangle assigned exactly once",
+    "textures": "Exact original 4096x4096 Color/ORM/NormalGL bytes, shared once per bundle; no resize or recompression",
+    "grouping": "3D spatial groups of disconnected islands into complete authored models",
+    "collision": "Visual-only until placement-specific collision proxies are authored"
   },
-  "assets": [
-    {
-      "source_name": "intricate wooden altar 3d model.glb",
-      "target_path": "xogot/assets/gifts/intricate_wooden_altar.glb",
-      "bytes": 23413848,
-      "vertices": 1034036,
-      "triangles": 1887306,
-      "role": "altar override",
-      "bundle": true,
-      "integration_status": "REQUIRES_COMPONENT_SPLIT",
-      "spawn_source_glb_directly": false
-    },
-    {
-      "source_name": "candelabros colgantes techo.glb",
-      "target_path": "xogot/assets/gifts/candelabros_colgantes_techo.glb",
-      "bytes": 20185228,
-      "vertices": 1011640,
-      "triangles": 1822876,
-      "role": "nave ceiling",
-      "bundle": true,
-      "integration_status": "REQUIRES_COMPONENT_SPLIT",
-      "spawn_source_glb_directly": false
-    },
-    {
-      "source_name": "gothic stained glass window 3d model.glb",
-      "target_path": "xogot/assets/gifts/gothic_stained_glass_window.glb",
-      "bytes": 25748640,
-      "vertices": 1015609,
-      "triangles": 1957621,
-      "role": "sanctuary clerestory",
-      "bundle": true,
-      "integration_status": "REQUIRES_COMPONENT_SPLIT",
-      "spawn_source_glb_directly": false
-    },
-    {
-      "source_name": "multiple gothic stained glass window 3d model.glb",
-      "target_path": "xogot/assets/gifts/multiple_gothic_stained_glass_window.glb",
-      "bytes": 27369508,
-      "vertices": 998970,
-      "triangles": 1905082,
-      "role": "tower facade",
-      "bundle": true,
-      "integration_status": "REQUIRES_COMPONENT_SPLIT",
-      "spawn_source_glb_directly": false
-    },
-    {
-      "source_name": "religious statue collection 3d model.glb",
-      "target_path": "xogot/assets/gifts/religious_statue_collection.glb",
-      "bytes": 25443072,
-      "vertices": 1022154,
-      "triangles": 1949518,
-      "role": "sanctuary statue wall",
-      "bundle": true,
-      "integration_status": "REQUIRES_COMPONENT_SPLIT",
-      "spawn_source_glb_directly": false
-    },
-    {
-      "source_name": "ornate candle holder 3d model.glb",
-      "target_path": "xogot/assets/gifts/ornate_candle_holder.glb",
-      "bytes": 21290236,
-      "vertices": 1037533,
-      "triangles": 1943359,
-      "role": "sanctuary prop",
-      "bundle": true,
-      "integration_status": "REQUIRES_COMPONENT_SPLIT",
-      "spawn_source_glb_directly": false
-    },
-    {
-      "source_name": "gothic church furniture 3d model.glb",
-      "target_path": "xogot/assets/gifts/gothic_church_furniture.glb",
-      "bytes": 21150500,
-      "vertices": 975002,
-      "triangles": 1800523,
-      "role": "exterior inspection pad",
-      "bundle": true,
-      "integration_status": "REQUIRES_COMPONENT_SPLIT",
-      "spawn_source_glb_directly": false
-    },
-    {
-      "source_name": "medieval church ruins 3d model.glb",
-      "target_path": "xogot/assets/gifts/medieval_church_ruins.glb",
-      "bytes": 21968232,
-      "vertices": 947149,
-      "triangles": 1719764,
-      "role": "exterior ruins candidate",
-      "bundle": true,
-      "integration_status": "REQUIRES_COMPONENT_SPLIT",
-      "spawn_source_glb_directly": false
-    }
-  ]
+  "totals": {
+    "sourceBundles": 8,
+    "individualModels": 104,
+    "triangles": 14986049,
+    "runtimeBytesLocal": 475893851,
+    "validationFailures": 0
+  },
+  "bundles": [
+    {"id":"altar","source":"intricate wooden altar 3d model.glb","models":9,"triangles":1887306},
+    {"id":"statues","source":"religious statue collection 3d model.glb","models":12,"triangles":1949518},
+    {"id":"furniture","source":"gothic church furniture 3d model.glb","models":12,"triangles":1800523},
+    {"id":"chandeliers","source":"candelabros colgantes techo.glb","models":11,"triangles":1822876},
+    {"id":"candleholders","source":"ornate candle holder 3d model.glb","models":19,"triangles":1943359},
+    {"id":"stained_multi","source":"multiple gothic stained glass window 3d model.glb","models":11,"triangles":1905082},
+    {"id":"stained_single","source":"gothic stained glass window 3d model.glb","models":1,"triangles":1957621},
+    {"id":"ruins","source":"medieval church ruins 3d model.glb","models":29,"triangles":1719764}
+  ],
+  "validationMarker": "XZOGOT_GIFT_SPLIT_104_GREEN"
 }
