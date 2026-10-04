@@ -1,6 +1,7 @@
 extends Node
 
 const WeaponCatalog = preload("res://scripts/weapon_catalog.gd")
+const WeaponAssetRegistry = preload("res://scripts/weapon_asset_registry.gd")
 
 @export var damage: float = 24.0
 @export var range_m: float = 95.0
@@ -31,6 +32,10 @@ var _visual_recoil_velocity: float = 0.0
 var _view_root: Node3D
 var _fire_audio: AudioStreamPlayer3D
 var _reload_audio: AudioStreamPlayer3D
+var _mechanical_audio: AudioStreamPlayer3D
+var _dry_fire_audio: AudioStreamPlayer3D
+var _asset_animation_player: AnimationPlayer
+var _last_ads_state: bool = false
 var _dev_infinite_ammo: bool = false
 
 @onready var _body: CollisionObject3D = get_parent() as CollisionObject3D
@@ -54,6 +59,7 @@ func _process(delta: float) -> void:
 		if _trigger_held and _automatic:
 			request_fire()
 
+	_update_asset_animation_state()
 	_update_visual_recoil(delta)
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -82,7 +88,20 @@ func _build_view_runtime() -> void:
 	_reload_audio.max_distance = 24.0
 	_camera.add_child(_reload_audio)
 
+	_mechanical_audio = AudioStreamPlayer3D.new()
+	_mechanical_audio.name = "WeaponMechanicalAudio"
+	_mechanical_audio.unit_size = 1.0
+	_mechanical_audio.max_distance = 18.0
+	_camera.add_child(_mechanical_audio)
+
+	_dry_fire_audio = AudioStreamPlayer3D.new()
+	_dry_fire_audio.name = "WeaponDryFireAudio"
+	_dry_fire_audio.unit_size = 0.9
+	_dry_fire_audio.max_distance = 14.0
+	_camera.add_child(_dry_fire_audio)
+
 func _clear_view_model() -> void:
+	_asset_animation_player = null
 	if _view_root == null:
 		return
 	for child: Node in _view_root.get_children():
@@ -147,6 +166,49 @@ func _build_fallback_view_model() -> void:
 
 	set_meta("weapon_view_fallback", true)
 
+func _find_animation_player(node: Node) -> AnimationPlayer:
+	if node is AnimationPlayer:
+		return node as AnimationPlayer
+	for child: Node in node.get_children():
+		var found := _find_animation_player(child)
+		if found != null:
+			return found
+	return null
+
+func _play_asset_animation(role: String, blend: float = 0.06) -> bool:
+	if _asset_animation_player == null or not is_instance_valid(_asset_animation_player):
+		return false
+	var animation_name: String = WeaponAssetRegistry.animation_name_for_role(_weapon_id, role)
+	if animation_name.is_empty() or not _asset_animation_player.has_animation(animation_name):
+		return false
+	_asset_animation_player.play(animation_name, blend)
+	return true
+
+func _ensure_asset_idle() -> void:
+	if _asset_animation_player == null or not is_instance_valid(_asset_animation_player):
+		return
+	if _asset_animation_player.is_playing():
+		return
+	_play_asset_animation("idle", 0.10)
+
+func _update_asset_animation_state() -> void:
+	var ads_now: bool = is_ads_active()
+	if ads_now != _last_ads_state:
+		_last_ads_state = ads_now
+		if not _reloading:
+			_play_asset_animation("ads_in" if ads_now else "ads_out", 0.05)
+	elif not _reloading and _cooldown <= 0.0:
+		_ensure_asset_idle()
+
+func play_melee_animation() -> void:
+	_play_asset_animation("melee", 0.04)
+
+func get_mapmod_asset_status() -> Dictionary:
+	return WeaponAssetRegistry.inspect(_weapon_id)
+
+func get_worldmodel_path() -> String:
+	return WeaponAssetRegistry.preferred_worldmodel_path(_weapon_id)
+
 func _load_optional_asset(path: String) -> Resource:
 	if path.is_empty() or not ResourceLoader.exists(path):
 		return null
@@ -156,28 +218,54 @@ func _refresh_view_assets(def: Dictionary) -> void:
 	_clear_view_model()
 	set_meta("weapon_view_fallback", false)
 
-	var model_path: String = str(def.get("model_path", ""))
+	var fallback_model_path: String = str(def.get("model_path", ""))
+	var model_path: String = WeaponAssetRegistry.preferred_viewmodel_path(_weapon_id, fallback_model_path)
+	var using_mapmod: bool = model_path != fallback_model_path
 	var model_res: Resource = _load_optional_asset(model_path)
 	if model_res is PackedScene and _view_root != null:
 		var model: Node = (model_res as PackedScene).instantiate()
-		model.name = "AuthoredWeaponModel"
+		model.name = "MapModWeaponModel" if using_mapmod else "AuthoredWeaponModel"
 		_view_root.add_child(model)
-		print("XZOGOT_WEAPON_MODEL_LOADED ", _weapon_id)
+		_asset_animation_player = _find_animation_player(model)
+		set_meta("weapon_asset_lane", "mapmod" if using_mapmod else "legacy_optional")
+		print(
+			"XZOGOT_WEAPON_MODEL_LOADED ",
+			_weapon_id,
+			" lane=",
+			"mapmod" if using_mapmod else "legacy_optional"
+		)
 	else:
 		_build_fallback_view_model()
+		set_meta("weapon_asset_lane", "procedural_fallback")
 		print("XZOGOT_WEAPON_MODEL_PENDING ", _weapon_id, " ", model_path)
 
 	if _fire_audio != null:
-		var fire_path: String = str(def.get("fire_audio", ""))
+		var fire_path: String = WeaponAssetRegistry.preferred_audio_path(
+			_weapon_id,
+			"fire",
+			str(def.get("fire_audio", ""))
+		)
 		var fire_res: Resource = _load_optional_asset(fire_path)
 		_fire_audio.stream = fire_res as AudioStream
 		if _fire_audio.stream == null:
 			print("XZOGOT_WEAPON_FIRE_AUDIO_PENDING ", _weapon_id)
 
 	if _reload_audio != null:
-		var reload_path: String = str(def.get("reload_audio", ""))
+		var reload_path: String = WeaponAssetRegistry.preferred_audio_path(
+			_weapon_id,
+			"reload",
+			str(def.get("reload_audio", ""))
+		)
 		var reload_res: Resource = _load_optional_asset(reload_path)
 		_reload_audio.stream = reload_res as AudioStream
+
+	if _mechanical_audio != null:
+		var mechanical_path := WeaponAssetRegistry.preferred_audio_path(_weapon_id, "mechanical")
+		_mechanical_audio.stream = _load_optional_asset(mechanical_path) as AudioStream
+
+	if _dry_fire_audio != null:
+		var dry_path := WeaponAssetRegistry.preferred_audio_path(_weapon_id, "dry_fire")
+		_dry_fire_audio.stream = _load_optional_asset(dry_path) as AudioStream
 
 func equip_weapon(id: String, refill: bool = true) -> bool:
 	if not WeaponCatalog.has_weapon(id):
@@ -210,6 +298,8 @@ func equip_weapon(id: String, refill: bool = true) -> bool:
 	_cooldown = 0.0
 	_trigger_held = false
 	_refresh_view_assets(def)
+	_last_ads_state = is_ads_active()
+	_play_asset_animation("equip", 0.0)
 
 	set_meta("weapon_id", _weapon_id)
 	set_meta("weapon_family", _family)
@@ -260,7 +350,12 @@ func request_fire() -> void:
 	if _reloading or _cooldown > 0.0:
 		return
 	if _magazine <= 0:
-		request_reload()
+		if reserve_ammo > 0:
+			request_reload()
+		else:
+			if _dry_fire_audio != null and _dry_fire_audio.stream != null:
+				_dry_fire_audio.play()
+			print("XZOGOT_WEAPON_DRY_FIRE ", _weapon_id)
 		return
 
 	if not _dev_infinite_ammo:
@@ -268,8 +363,11 @@ func request_fire() -> void:
 	_cooldown = fire_interval
 	_shots_fired += 1
 	_apply_recoil_impulse()
+	_play_asset_animation("fire", 0.025)
 	if _fire_audio != null and _fire_audio.stream != null:
 		_fire_audio.play()
+	if _mechanical_audio != null and _mechanical_audio.stream != null:
+		_mechanical_audio.play()
 
 	var ads: bool = is_ads_active()
 	var spread: float = _ads_spread_deg if ads else _hip_spread_deg
@@ -287,6 +385,7 @@ func request_reload() -> void:
 	_reloading = true
 	_trigger_held = false
 	_reload_timer = reload_time
+	_play_asset_animation("reload", 0.06)
 	if _reload_audio != null and _reload_audio.stream != null:
 		_reload_audio.play()
 
