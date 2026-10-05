@@ -62,6 +62,8 @@ func _capture() -> void:
 		await process_frame
 
 	if weapon != null:
+		if weapon.has_method("get_first_person_debug_snapshot"):
+			print("XZOGOT_FIRST_PERSON_CAMERA_SNAPSHOT_HIP ", weapon.call("get_first_person_debug_snapshot"))
 		var yaw_fix := float(weapon.get_meta("weapon_model_yaw_correction_deg", 0.0))
 		if absf(yaw_fix - 90.0) > 0.01:
 			push_error("SCREENSHOT: weapon forward-axis correction missing")
@@ -189,6 +191,8 @@ func _capture() -> void:
 		await create_timer(0.28).timeout
 		for i in range(2):
 			await process_frame
+		if weapon.has_method("get_first_person_debug_snapshot"):
+			print("XZOGOT_FIRST_PERSON_CAMERA_SNAPSHOT_ADS ", weapon.call("get_first_person_debug_snapshot"))
 		var ads_image: Image = root.get_texture().get_image()
 		if ads_image == null or ads_image.is_empty():
 			push_error("SCREENSHOT: ADS viewport capture empty")
