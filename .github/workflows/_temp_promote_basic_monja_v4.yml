@@ -1,0 +1,122 @@
+name: Temp Promote Basic Monja V4
+
+on:
+  push:
+    branches:
+      - feature/church-expansion-v1
+    paths:
+      - ".github/workflows/_temp_promote_basic_monja_v4.yml"
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: temp-promote-basic-monja-v4-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Download validated V4 rig proof
+        uses: actions/download-artifact@v4
+        with:
+          name: monja-source-pose-rig
+          path: xogot/build/monja-source-pose-rig
+          github-token: ${{ github.token }}
+          run-id: 37334996794
+
+      - name: Verify validated proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s xogot/build/monja-source-pose-rig/monja_basica_clean_rig.glb
+          test -s xogot/build/monja-source-pose-rig/report.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("xogot/build/monja-source-pose-rig/report.json").read_text())
+          assert r["geometry_conserved"] is True
+          assert r["raw_glb_bind_valid"] is True
+          assert r["raw_glb_geometry_conserved"] is True
+          assert r["raw_glb_animation_motion_valid"] is True
+          assert r["pose_match"]["validated"] is True
+          assert r["armatures"] == 1
+          assert r["bones"] >= 20
+          assert not r.get("deformation_sanity_violations", [])
+          assert all(v["valid"] is True for v in r["deformation_sanity"].values())
+          assert len(r["baked"]) == 5
+          print("XZOGOT_MONJA_BASIC_V4_PROOF_GREEN",r["bones"],r["output_bytes"])
+          PY
+
+      - name: Pack Godot-compatible separate glTF
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo npm install --global @gltf-transform/cli@4.5.1
+          rm -rf xogot/build/monja-clean-runtime
+          mkdir -p xogot/build/monja-clean-runtime
+          gltf-transform dequantize \
+            xogot/build/monja-source-pose-rig/monja_basica_clean_rig.glb \
+            xogot/build/monja-clean-runtime/monja_basica_clean_rig.gltf
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("xogot/build/monja-clean-runtime")
+          p=root/"monja_basica_clean_rig.gltf"
+          doc=json.loads(p.read_text())
+          used=set(doc.get("extensionsUsed",[]))
+          required=set(doc.get("extensionsRequired",[]))
+          assert "EXT_meshopt_compression" not in used|set(required),(used,required)
+          assert "KHR_mesh_quantization" not in required,required
+          files=[x for x in root.iterdir() if x.is_file()]
+          assert files
+          too_big=[(x.name,x.stat().st_size) for x in files if x.stat().st_size>=99_000_000]
+          assert not too_big,too_big
+          for buf in doc.get("buffers",[]):
+              uri=buf.get("uri")
+              assert uri and (root/uri).is_file(),uri
+          for img in doc.get("images",[]):
+              uri=img.get("uri")
+              if uri:
+                  assert (root/uri).is_file(),uri
+          report_path=Path("xogot/build/monja-source-pose-rig/report.json")
+          r=json.loads(report_path.read_text())
+          r["runtime_format"]="gltf_separate"
+          r["runtime_compression"]="none"
+          r["runtime_simplification"]=False
+          r["runtime_quantization"]=False
+          r["runtime_files"]={x.name:x.stat().st_size for x in files}
+          r["runtime_output_bytes"]=sum(x.stat().st_size for x in files)
+          report_path.write_text(json.dumps(r,indent=2)+"\n")
+          print("XZOGOT_MONJA_BASIC_V4_RUNTIME_GREEN",r["runtime_files"])
+          PY
+
+      - name: Stage and commit validated runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p xogot/assets/zombies/monja_clean
+          rm -f xogot/assets/zombies/monja_clean/monja_basica_clean_rig.glb
+          rm -rf xogot/assets/zombies/monja_clean/clean_runtime
+          mkdir -p xogot/assets/zombies/monja_clean/clean_runtime
+          cp -a xogot/build/monja-clean-runtime/. xogot/assets/zombies/monja_clean/clean_runtime/
+          cp xogot/build/monja-source-pose-rig/report.json xogot/assets/zombies/monja_clean/report.json
+
+          git config user.name "XZOGOT Asset Bot"
+          git config user.email "xogot-asset-bot@users.noreply.github.com"
+          git add -A xogot/assets/zombies/monja_clean/
+          if git diff --cached --quiet; then
+            echo "XZOGOT_MONJA_BASIC_V4_ALREADY_PROMOTED"
+            exit 0
+          fi
+          git commit -m "asset: promote Godot-compatible basic Monja V4"
+          git pull --rebase origin feature/church-expansion-v1
+          git push origin HEAD:feature/church-expansion-v1
+          echo "XZOGOT_MONJA_BASIC_V4_PROMOTION_GREEN"
