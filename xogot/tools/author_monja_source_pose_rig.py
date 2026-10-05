@@ -677,6 +677,31 @@ def glb_raw_bind_stats(path):
     if skinned_nodes<1 or not bind_errors:
         fail("exported GLB skin/inverse bind data missing")
 
+    animation_motion={}
+    for anim in doc.get("animations",[]):
+        name=anim.get("name","Animation")
+        varying_channels=0
+        max_component_range=0.0
+        sampled_channels=0
+        for channel in anim.get("channels",[]):
+            target_path=channel.get("target",{}).get("path")
+            if target_path not in ("translation","rotation","scale"):
+                continue
+            sampler=anim["samplers"][int(channel["sampler"])]
+            values=read_accessor(int(sampler["output"])).astype(np.float64)
+            if len(values)<2:
+                continue
+            sampled_channels += 1
+            component_range=float(np.max(np.max(values,axis=0)-np.min(values,axis=0)))
+            max_component_range=max(max_component_range,component_range)
+            if component_range>1e-5:
+                varying_channels += 1
+        animation_motion[name]={
+            "sampled_channels":int(sampled_channels),
+            "varying_channels":int(varying_channels),
+            "max_component_range":float(max_component_range),
+        }
+
     return {
         "triangles":int(total_triangles),
         "surface_area":float(total_area),
@@ -686,10 +711,13 @@ def glb_raw_bind_stats(path):
         "skinned_nodes":int(skinned_nodes),
         "inverse_bind_identity_max_error":float(max(bind_errors)),
         "inverse_bind_identity_mean_error":float(sum(bind_errors)/len(bind_errors)),
+        "animation_motion":animation_motion,
     }
 
 def render_preview(arm,mesh_objects,action,label,frame):
     arm.animation_data_create()
+    previous_pose_position=arm.data.pose_position
+    arm.data.pose_position='REST' if action is None else 'POSE'
     arm.animation_data.action=action
     bpy.context.scene.frame_set(frame)
     bpy.context.view_layer.update()
@@ -732,6 +760,7 @@ def render_preview(arm,mesh_objects,action,label,frame):
     scene.render.filepath=str(OUT/(label+".png"))
     bpy.ops.render.render(write_still=True)
     arm.animation_data.action=None
+    arm.data.pose_position=previous_pose_position
 
 def export_selected(arm,mesh_objects):
     bpy.ops.object.select_all(action='DESELECT')
@@ -831,7 +860,7 @@ for action in list(bpy.data.actions):
         bpy.data.actions.remove(action)
 print("XZOGOT_MONJA_DONOR_ACTIONS_PURGED_GREEN",sorted(keep_action_names),len(bpy.data.actions))
 
-arm.data.pose_position='REST'
+arm.data.pose_position='POSE'
 if arm.animation_data:
     arm.animation_data.action=None
 export_selected(arm,monja_meshes)
@@ -850,8 +879,20 @@ raw_geometry_conserved=(
     and raw_extent_delta<=raw_extent_tolerance
 )
 raw_bind_valid=raw_glb["inverse_bind_identity_max_error"]<=1e-4
+expected_motion_tokens=("Idle_Clean","Walk_Clean","Attack_Clean","Hit_Clean","Death_Clean")
+motion_matches={}
+for token in expected_motion_tokens:
+    matches=[(name,m) for name,m in raw_glb["animation_motion"].items() if token.lower() in name.lower()]
+    motion_matches[token]=matches[0][1] if matches else None
+raw_animation_motion_valid=all(
+    metric is not None
+    and metric["varying_channels"]>=3
+    and metric["max_component_range"]>1e-4
+    for metric in motion_matches.values()
+)
 print("XZOGOT_MONJA_RAW_GLB_GEOMETRY",raw_glb["triangles"],raw_glb["surface_area"],raw_area_delta,raw_extent_delta)
 print("XZOGOT_MONJA_RAW_GLB_BIND",raw_glb["inverse_bind_identity_max_error"],raw_glb["inverse_bind_identity_mean_error"])
+print("XZOGOT_MONJA_RAW_GLB_ANIMATION_MOTION",json.dumps(motion_matches,sort_keys=True))
 
 # Reimport exported file to validate skeleton/actions. Blender's evaluated REST
 # mesh is kept as diagnostics only: its Armature modifier evaluation can report
@@ -920,6 +961,8 @@ report={
     "raw_glb_extent_tolerance":raw_extent_tolerance,
     "raw_glb_geometry_conserved":bool(raw_geometry_conserved),
     "raw_glb_bind_valid":bool(raw_bind_valid),
+    "raw_glb_animation_motion":motion_matches,
+    "raw_glb_animation_motion_valid":bool(raw_animation_motion_valid),
     "geometry_conserved":geometry_conserved,
     "geometry_gate":"serialized_glb_exact_triangle_area_extent_plus_inverse_bind_identity",
     "export_reindexed_vertices":out_vertices!=source_vertices,
@@ -950,6 +993,8 @@ if not report["geometry_conserved"]:
         f"bind_error={raw_glb['inverse_bind_identity_max_error']}"
     )
 if not report["pose_match"]["validated"]: fail("rest pose moved source geometry")
+if not report["raw_glb_animation_motion_valid"]:
+    fail("exported animation channels are static "+repr(motion_matches))
 if len(out_arm)!=1 or report["bones"]<20: fail("humanoid skeleton missing")
 for token in ("Idle_Clean","Walk_Clean","Attack_Clean","Hit_Clean","Death_Clean"):
     if not any(token.lower() in n.lower() for n in out_actions):
@@ -959,6 +1004,7 @@ print("XZOGOT_MONJA_SOURCE_POSE_LANDMARKS_GREEN",json.dumps(report["landmarks"])
 print("XZOGOT_MONJA_SOURCE_POSE_WEIGHTS_GREEN",json.dumps(weights))
 print("XZOGOT_MONJA_SOURCE_POSE_MATCH_GREEN",rest_rms,rest_max)
 print("XZOGOT_MONJA_SOURCE_POSE_ANIMS_GREEN",out_actions)
+print("XZOGOT_MONJA_SOURCE_POSE_ANIMATION_MOTION_GREEN",json.dumps(motion_matches,sort_keys=True))
 print("XZOGOT_MONJA_SOURCE_POSE_GEOMETRY_GREEN",out_vertices,out_polygons,out_triangles)
 print("XZOGOT_MONJA_SOURCE_POSE_PROFILE_GREEN",PROFILE)
 print("XZOGOT_MONJA_SOURCE_POSE_RIG_GREEN",report["bones"],report["output_bytes"])
