@@ -32,6 +32,8 @@ const SFX_MACHINE_LOOP := "res://assets/audio/church/world/machine_loop.ogg"
 const SFX_MYSTERY := "res://assets/audio/church/world/mystery_open.ogg"
 
 var _machine_loop_audio: AudioStreamPlayer3D
+var _machine_animation_player: AnimationPlayer
+var _machine_animation_role: String = ""
 
 func _network_manager() -> Node:
 	return get_tree().root.find_child("NetworkManager", true, false)
@@ -61,9 +63,77 @@ func _play_world_sfx(path: String, volume_db: float = -4.0) -> void:
 func _ready() -> void:
 	if interaction_kind == Kind.PERK or interaction_kind == Kind.UPGRADE:
 		_build_machine_loop_audio()
+		_machine_animation_player = _find_machine_animation_player(self)
+		if _machine_animation_player != null:
+			_machine_animation_player.animation_finished.connect(_on_machine_animation_finished)
 	_last_power_visual_state = not bool(get_tree().get_meta("power_on", false))
 	_update_power_visual()
+	if interaction_kind == Kind.PERK or interaction_kind == Kind.UPGRADE:
+		_play_machine_animation("idle", 0.0)
 	set_process(requires_power)
+
+func _find_machine_animation_player(node: Node) -> AnimationPlayer:
+	if node is AnimationPlayer:
+		return node as AnimationPlayer
+	for child: Node in node.get_children():
+		var found := _find_machine_animation_player(child)
+		if found != null:
+			return found
+	return null
+
+func _machine_animation_aliases(role: String) -> Array[String]:
+	match role:
+		"idle":
+			return ["idle", "loop", "powered_idle", "machine_idle"]
+		"power_on":
+			return ["power_on", "powerup", "power_up", "turn_on", "startup", "activate"]
+		"power_off":
+			return ["power_off", "shutdown", "turn_off", "inactive", "off"]
+		"purchase":
+			return ["purchase", "buy", "dispense", "vend", "use", "drink", "bottle"]
+		"upgrade":
+			return ["upgrade", "pack", "process", "forge", "use"]
+		_:
+			return [role]
+
+func _machine_animation_name_for_role(role: String) -> String:
+	if _machine_animation_player == null or not is_instance_valid(_machine_animation_player):
+		return ""
+	var aliases := _machine_animation_aliases(role)
+	var best := ""
+	var best_score := -1
+	for anim_name: StringName in _machine_animation_player.get_animation_list():
+		var candidate := str(anim_name)
+		var lower := candidate.to_lower()
+		for alias: String in aliases:
+			var token := alias.to_lower()
+			if lower == token:
+				return candidate
+			if lower.contains(token):
+				var score := token.length()
+				if score > best_score:
+					best_score = score
+					best = candidate
+	return best
+
+func _play_machine_animation(role: String, blend: float = 0.08) -> bool:
+	if _machine_animation_player == null or not is_instance_valid(_machine_animation_player):
+		return false
+	var animation_name := _machine_animation_name_for_role(role)
+	if animation_name.is_empty():
+		return false
+	_machine_animation_role = role
+	_machine_animation_player.play(animation_name, blend)
+	set_meta("machine_animation_role", role)
+	set_meta("machine_animation_name", animation_name)
+	print("XZOGOT_MACHINE_ANIMATION ", name, " role=", role, " clip=", animation_name)
+	return true
+
+func _on_machine_animation_finished(_animation_name: StringName) -> void:
+	if interaction_kind != Kind.PERK and interaction_kind != Kind.UPGRADE:
+		return
+	if _machine_animation_role in ["purchase", "upgrade", "power_on"]:
+		_play_machine_animation("idle", 0.08)
 
 func _build_machine_loop_audio() -> void:
 	if not ResourceLoader.exists(SFX_MACHINE_LOOP):
@@ -105,6 +175,12 @@ func _update_power_visual() -> void:
 			geometry.transparency = 0.0 if powered else 0.68
 	if _machine_loop_audio != null:
 		_machine_loop_audio.stream_paused = not powered
+	if interaction_kind == Kind.PERK or interaction_kind == Kind.UPGRADE:
+		if powered:
+			if not _play_machine_animation("power_on", 0.10):
+				_play_machine_animation("idle", 0.10)
+		else:
+			_play_machine_animation("power_off", 0.10)
 	if requires_power:
 		set_meta("powered_visual_on", powered)
 
@@ -217,6 +293,7 @@ func interact(player: Node) -> bool:
 			_interaction_count += 1
 			_last_result = perk_id
 			_pulse_perk_machine()
+			_play_machine_animation("purchase", 0.04)
 			_play_world_sfx(SFX_MACHINE, -6.0)
 			print("XZOGOT_PERK_MACHINE_USED ", perk_id)
 		Kind.POWER:
@@ -232,6 +309,7 @@ func interact(player: Node) -> bool:
 			_interaction_count += 1
 			_last_result = str(weapon.call("get_weapon_id"))
 			_animate_forge()
+			_play_machine_animation("upgrade", 0.04)
 			_play_world_sfx(SFX_MACHINE, -1.5)
 			print("XZOGOT_SANCTUM_FORGE_USED ", _last_result)
 		Kind.BELL:
@@ -327,6 +405,7 @@ func apply_network_world_state(
 		Kind.PERK:
 			if not last_result.is_empty():
 				_pulse_perk_machine()
+				_play_machine_animation("purchase", 0.04)
 				_play_world_sfx(SFX_MACHINE, -8.0)
 		Kind.POWER:
 			if power_on:
@@ -335,6 +414,7 @@ func apply_network_world_state(
 		Kind.UPGRADE:
 			if not last_result.is_empty():
 				_animate_forge()
+				_play_machine_animation("upgrade", 0.04)
 				_play_world_sfx(SFX_MACHINE, -5.0)
 		Kind.BELL:
 			if last_result == "BELL_RUNG":
