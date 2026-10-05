@@ -148,9 +148,43 @@ func _capture() -> void:
 	print("XZOGOT_SCREENSHOT_HIP_GREEN ", path, " ", image.get_width(), "x", image.get_height())
 	print("XZOGOT_SCREENSHOT_GREEN ", path, " ", image.get_width(), "x", image.get_height())
 
-	print("XZOGOT_SCREENSHOT_ADS_SOURCE_PENDING MP40")
+	# Independent source-authored ADS acceptance frame. DT_Weapons row 5 is now
+	# authoritative for MP40 HandTransform / ADSTransform and 0.20 s transitions.
+	if player != null and weapon != null:
+		if str(weapon.call("get_ads_calibration_mode")) != "source_datatable":
+			push_error("SCREENSHOT: MP40 is not using recovered DT_Weapons ADS")
+			quit(18)
+			return
+		if not bool(weapon.get_meta("weapon_source_weapon_attachment_ready", false)):
+			push_error("SCREENSHOT: MP40 tag_weapon attachment missing")
+			quit(19)
+			return
+		if not bool(weapon.get_meta("weapon_hands_animation_ready", false)):
+			push_error("SCREENSHOT: MP40 source hands animation missing")
+			quit(20)
+			return
+		player.set_meta("ads_toggled", true)
+		for i in range(24):
+			await process_frame
+		var ads_image: Image = root.get_texture().get_image()
+		if ads_image == null or ads_image.is_empty():
+			push_error("SCREENSHOT: ADS viewport capture empty")
+			quit(21)
+			return
+		var ads_path := "/tmp/xogot-current-ads.png"
+		var ads_err: Error = ads_image.save_png(ads_path)
+		if ads_err != OK:
+			push_error("SCREENSHOT: ADS save_png failed %s" % ads_err)
+			quit(22)
+			return
+		print(
+			"XZOGOT_SCREENSHOT_ADS_GREEN ", ads_path, " ",
+			ads_image.get_width(), "x", ads_image.get_height(),
+			" mode=", weapon.call("get_ads_calibration_mode"),
+			" alpha=", weapon.get_meta("weapon_ads_pose_alpha", 0.0)
+		)
 
-	# Second independent view: exterior/front facade audit from the playable yard.
+	# Third independent view: exterior/front facade audit from the playable yard.
 	if player != null:
 		player.set_meta("ads_toggled", false)
 		player.global_position = Vector3(0.0, 0.38, 27.0)
