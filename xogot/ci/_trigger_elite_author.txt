@@ -1,1 +1,1 @@
-trigger elite Monja 2026-10-05 evaluated-rest-surface-runtime-meshopt-5
+trigger elite Monja 2026-10-05 bake-source-world-transform-bind-fix-6
