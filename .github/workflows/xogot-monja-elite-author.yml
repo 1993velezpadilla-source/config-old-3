@@ -38,10 +38,14 @@ jobs:
           set -euo pipefail
           ELITE=xogot/assets/zombies/monja_elite/source/monja_black_white.glb
           test -s "$ELITE"
-          cp "$ELITE" xogot/assets/zombies/monja_basica.glb
           rm -rf xogot/build/monja-source-pose-rig
           mkdir -p xogot/build/monja-source-pose-rig
-          timeout 3000 blender -b --python xogot/tools/author_monja_source_pose_rig.py             2>&1 | tee xogot/build/monja-source-pose-rig/blender.log
+          timeout 3000 blender -b --python xogot/tools/author_monja_source_pose_rig.py -- \
+            --source "$PWD/$ELITE" \
+            --profile elite \
+            --output-dir "$PWD/xogot/build/monja-source-pose-rig" \
+            --output-name monja_black_white_clean_rig.glb \
+            2>&1 | tee xogot/build/monja-source-pose-rig/blender.log
           grep -q "XZOGOT_MONJA_SOURCE_POSE_RIG_GREEN" xogot/build/monja-source-pose-rig/blender.log
           grep -q "XZOGOT_MONJA_SOURCE_POSE_WEIGHTS_GREEN" xogot/build/monja-source-pose-rig/blender.log
           grep -q "XZOGOT_MONJA_SOURCE_POSE_ANIMS_GREEN" xogot/build/monja-source-pose-rig/blender.log
@@ -62,12 +66,15 @@ jobs:
           assert r["rig_mode"] == "source_pose_smooth_weighted_humanoid"
           assert r["old_rigid_region_parenting"] is False
           assert r["pose_match"]["validated"] is True
-          assert r["pose_match"]["validated"] is True
+          assert r["profile"] == "elite"
           assert all(x["coverage"] >= 0.98 for x in r["weight_transfer"])
           names=" ".join(r["actions"]).lower()
-          for required in ("zombie_idle_clean","zombie_walk_clean","zombie_attack_clean"):
+          for required in (
+              "zombie_idle_clean","zombie_walk_clean","zombie_attack_clean",
+              "zombie_hit_clean","zombie_death_clean"
+          ):
               assert required in names,(required,r["actions"])
-          r["pipeline"]="elite_black_white_clean_blender_rig_v1"
+          r["pipeline"]="elite_black_white_source_pose_mocap_rig_v2"
           r["source"]="assets/zombies/monja_elite/source/monja_black_white.glb"
           r["gameplay_role"]="elite_nun"
           p.write_text(json.dumps(r,indent=2)+"\n")
@@ -79,9 +86,10 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p xogot/assets/zombies/monja_elite
-          cp xogot/build/monja-source-pose-rig/monja_basica_clean_rig.glb              xogot/assets/zombies/monja_elite/monja_black_white_clean_rig.glb
-          cp xogot/build/monja-source-pose-rig/report.json              xogot/assets/zombies/monja_elite/rig_report.json
-          git checkout -- xogot/assets/zombies/monja_basica.glb
+          cp xogot/build/monja-source-pose-rig/monja_black_white_clean_rig.glb \
+             xogot/assets/zombies/monja_elite/monja_black_white_clean_rig.glb
+          cp xogot/build/monja-source-pose-rig/report.json \
+             xogot/assets/zombies/monja_elite/rig_report.json
 
       - name: Commit elite Monja
         shell: bash
