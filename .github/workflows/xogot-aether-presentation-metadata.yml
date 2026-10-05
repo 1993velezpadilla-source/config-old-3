@@ -1,0 +1,179 @@
+name: Aether Source Presentation Metadata
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-aether-presentation-metadata.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xogot-aether-presentation-metadata
+  cancel-in-progress: true
+
+jobs:
+  extract:
+    runs-on: windows-latest
+    timeout-minutes: 150
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_MAPPING_RUN: "37244741312"
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Reuse proven UE5.7 mappings
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dir="$env:RUNNER_TEMP\mapping-artifact"
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          gh run download "$env:SOURCE_MAPPING_RUN" -n aether-waw-usmap-real-weapons -D $dir
+          $map=Get-ChildItem $dir -Filter 'Mappings.usmap' -Recurse | Select-Object -First 1
+          if (-not $map) { throw 'Mappings.usmap missing from proven Aether export artifact' }
+          Copy-Item $map.FullName "$PWD\Mappings.usmap"
+          if ((Get-Item "$PWD\Mappings.usmap").Length -lt 4096) { throw 'Mappings.usmap too small' }
+          Write-Host "XZOGOT_PRESENTATION_USMAP_READY $((Get-Item "$PWD\Mappings.usmap").Length)"
+
+      - name: Download Project Aether source runtime
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force -Path "$env:RUNNER_TEMP\aether-download" | Out-Null
+          npx --yes itchio-downloader --url "https://verrial.itch.io/projectaether" --downloadDirectory "$env:RUNNER_TEMP\aether-download"
+          $zip=Get-ChildItem "$env:RUNNER_TEMP\aether-download" -Filter '*.zip' -Recurse |
+            Sort-Object Length -Descending | Select-Object -First 1
+          if (-not $zip) { throw 'Aether ZIP missing' }
+          $pakRoot="$env:RUNNER_TEMP\aether-paks"
+          New-Item -ItemType Directory -Force -Path $pakRoot | Out-Null
+          7z x -y $zip.FullName 'ProjectAether/Content/Paks/*' "-o$pakRoot" | Out-Host
+          $pakDir=Get-ChildItem $pakRoot -Directory -Recurse |
+            Where-Object { $_.Name -eq 'Paks' -and (Get-ChildItem $_.FullName -Filter '*.utoc' -ErrorAction SilentlyContinue) } |
+            Select-Object -First 1
+          if (-not $pakDir) { throw 'Aether IoStore Paks missing' }
+          "AETHER_PAKDIR=$($pakDir.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "XZOGOT_PRESENTATION_PAKS_READY $($pakDir.FullName)"
+
+      - name: Build current CUE4Parse CLI
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Compile CUE4Parse
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $src="$env:RUNNER_TEMP\CUE4Parse.CLI"
+          $out="$env:RUNNER_TEMP\cue4parse-publish"
+          git clone --depth 1 --recurse-submodules --shallow-submodules https://github.com/joric/CUE4Parse.CLI.git $src
+          git -C $src submodule update --init --recursive --depth 1
+          dotnet publish "$src\CUE4Parse.CLI\CUE4Parse.CLI.csproj" -c Release -r win-x64 --self-contained true -p:PublishTrimmed=false -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o $out
+          $exe=Get-ChildItem $out -Filter '*.exe' | Sort-Object Length -Descending | Select-Object -First 1
+          if (-not $exe) { throw 'CUE4Parse CLI missing' }
+          "CUE4PARSE=$($exe.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "XZOGOT_PRESENTATION_CUE4PARSE_READY"
+
+      - name: Export first-person weapon and camera authority packages
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          @'
+          *Assets/BP/Weapons/BP_WeaponBase.uasset
+          *Assets/BP/Weapons/*Viewmodel*.uasset
+          *Assets/BP/Weapons/*ViewModel*.uasset
+          *Assets/BP/Weapons/*Weapon*.uasset
+          *Assets/FirstPerson/Blueprints/Weapons/*/*.uasset
+          *Assets/FirstPerson/Blueprints/Weapons/*/*/*.uasset
+          *Assets/BP/Anims/ABP_Legacy_Viewhands.uasset
+          *Assets/BP/Anims/ABP_T7_Viewhands.uasset
+          *Assets/Viewmodels/Viewhands/*/*/*.uasset
+          '@ | Set-Content presentation-patterns.txt -Encoding ascii
+
+          Remove-Item presentation-export -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path presentation-export | Out-Null
+          & "$env:CUE4PARSE" -i "$env:AETHER_PAKDIR" -g GAME_UE5_7 -m "$PWD\Mappings.usmap" -c presentation-patterns.txt -o presentation-export -y -v --mesh-format Gltf2 --mesh-quality Highest --export-materials true 2>&1 |
+            Tee-Object -FilePath presentation-cue4parse.log
+
+          $files=@(Get-ChildItem presentation-export -Recurse -File)
+          if ($files.Count -lt 1) { throw 'Presentation export produced no files' }
+          Write-Host "XZOGOT_PRESENTATION_EXPORT_READY files=$($files.Count)"
+
+      - name: Build numeric presentation metadata report
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          @'
+          from pathlib import Path
+          import json,re
+
+          root=Path("presentation-export")
+          key_rx=re.compile(r"(ads|aim|offset|camera|viewmodel|viewhands|field.?of.?view|fov|height|stance|weapon)",re.I)
+          value_rx=re.compile(r"[-+]?\d+(?:\.\d+)?")
+          hits=[]
+
+          def walk(value,path,source):
+              if isinstance(value,dict):
+                  for k,v in value.items():
+                      p=path+[str(k)]
+                      if key_rx.search(str(k)):
+                          if isinstance(v,(int,float,str)):
+                              sv=str(v)
+                              if value_rx.search(sv):
+                                  hits.append({"source":source,"path":".".join(p),"value":v})
+                      walk(v,p,source)
+              elif isinstance(value,list):
+                  for i,v in enumerate(value):
+                      walk(v,path+[str(i)],source)
+
+          json_files=list(root.rglob("*.json"))
+          for path in json_files:
+              try:
+                  data=json.loads(path.read_text(encoding="utf-8-sig",errors="strict"))
+              except Exception:
+                  continue
+              walk(data,[],path.as_posix())
+
+          log=Path("presentation-cue4parse.log").read_text(errors="ignore")
+          markers=sorted(set(
+              line.strip() for line in log.splitlines()
+              if re.search(r"BP_WeaponBase|AetherViewmodel|CameraAnimOffset|Legacy_Viewhands|T7_Viewhands|FirstPerson",line,re.I)
+          ))
+
+          report={
+              "schema":1,
+              "source":"Project Aether UE5.7 reconstructed first-person presentation packages",
+              "mapping_run":37244741312,
+              "export_file_count":sum(1 for p in root.rglob("*") if p.is_file()),
+              "json_file_count":len(json_files),
+              "numeric_property_hit_count":len(hits),
+              "numeric_property_hits":hits[:10000],
+              "authority_markers":markers[:2000],
+              "policy":{
+                  "family_offset_guessing_forbidden":True,
+                  "godot_binding_requires_source_property_or_authored_hand_tag":True
+              }
+          }
+          Path("aether-presentation-metadata-report.json").write_text(json.dumps(report,indent=2)+"\n",encoding="utf-8")
+          print("XZOGOT_PRESENTATION_METADATA_REPORT",report["export_file_count"],report["json_file_count"],report["numeric_property_hit_count"])
+          joined="\n".join(markers)
+          if not re.search(r"BP_WeaponBase|Legacy_Viewhands|T7_Viewhands|FirstPerson",joined,re.I):
+              raise SystemExit("Presentation authority markers were not recovered")
+          print("XZOGOT_PRESENTATION_METADATA_SOURCE_GREEN")
+          '@ | python -
+
+      - name: Upload source presentation evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: aether-source-presentation-metadata
+          path: |
+            aether-presentation-metadata-report.json
+            presentation-patterns.txt
+            presentation-cue4parse.log
+            presentation-export/**
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 6
