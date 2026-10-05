@@ -1,6 +1,6 @@
 extends SceneTree
 
-const CLEAN_PATH := "res://assets/zombies/monja_clean/monja_basica_clean_rig.glb"
+const CLEAN_PATH := "res://assets/zombies/monja_clean/clean_runtime/monja_basica_clean_rig.gltf"
 
 func _fail(code: int, message: String) -> void:
 	push_error("MONJA_CLEAN_RIG_PROBE: " + message)
