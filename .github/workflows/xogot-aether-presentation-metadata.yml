@@ -110,18 +110,24 @@ jobs:
           if ($paths.Count -lt 1) { throw 'CUE4Parse provider index returned no weapon BP uasset paths' }
           Write-Host "XZOGOT_WEAPON_BP_PROVIDER_PATHS_READY count=$($paths.Count)"
 
+      - name: Discover first-person weapon package paths
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $stdout = & "$env:CUE4PARSE" -i "$env:AETHER_PAKDIR" -g GAME_UE5_7 -m "$PWD\Mappings.usmap" -l -p '*FirstPerson/Blueprints/Weapons/*.uasset' 2> presentation-firstperson-list-stderr.log
+          $paths = @($stdout | Where-Object { $_ -match '(?i)/FirstPerson/Blueprints/Weapons/' -and $_ -match '(?i)\.uasset$' } | Sort-Object -Unique)
+          $paths | Set-Content firstperson-weapon-packages.txt -Encoding ascii
+          if ($paths.Count -lt 1) { throw 'CUE4Parse provider index returned no FirstPerson weapon uasset paths' }
+          Write-Host "XZOGOT_FIRSTPERSON_WEAPON_PATHS_READY count=$($paths.Count)"
+
       - name: Export first-person weapon and camera authority packages
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          @'
-          *Assets/BP/Anims/ABP_Legacy_Viewhands.uasset
-          *Assets/BP/Anims/ABP_T7_Viewhands.uasset
-          *FirstPerson/Blueprints/Weapons/Player/BO2/zOrigins/zOriginsRichtofen/Legacy_Viewhands.uasset
-          *FirstPerson/Blueprints/Weapons/Player/bo3/RichtofenUltimis/T7_Viewhands.uasset
-          '@ | Set-Content presentation-patterns.txt -Encoding ascii
+          @() | Set-Content presentation-patterns.txt -Encoding ascii
           Get-Content mp40-packages.txt | Add-Content presentation-patterns.txt -Encoding ascii
           Get-Content weapon-bp-packages.txt | Add-Content presentation-patterns.txt -Encoding ascii
+          Get-Content firstperson-weapon-packages.txt | Add-Content presentation-patterns.txt -Encoding ascii
           $uniquePatterns = @(Get-Content presentation-patterns.txt | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique)
           $uniquePatterns | Set-Content presentation-patterns.txt -Encoding ascii
           Write-Host "XZOGOT_PRESENTATION_PATTERN_SET_GREEN count=$($uniquePatterns.Count)"
@@ -226,7 +232,9 @@ jobs:
             presentation-patterns.txt
             mp40-packages.txt
             weapon-bp-packages.txt
+            firstperson-weapon-packages.txt
             presentation-mp40-list-stderr.log
+            presentation-firstperson-list-stderr.log
             presentation-weapon-bp-list-stderr.log
             presentation-cue4parse.log
             presentation-export/**
