@@ -4,6 +4,7 @@ const WeaponCatalog = preload("res://scripts/weapon_catalog.gd")
 const WeaponAssetRegistry = preload("res://scripts/weapon_asset_registry.gd")
 const WeaponBalanceAAA = preload("res://scripts/weapon_balance_aaa.gd")
 const WeaponTextureRegistry = preload("res://scripts/weapon_texture_registry.gd")
+const WeaponViewmodelSourcePose = preload("res://scripts/weapon_viewmodel_source_pose.gd")
 
 @export var damage: float = 24.0
 @export var range_m: float = 95.0
@@ -33,10 +34,10 @@ var _mystery_serial: int = 0
 var _visual_recoil_pitch: float = 0.0
 var _visual_recoil_velocity: float = 0.0
 var _ads_pose_alpha: float = 0.0
-var _hip_pose_position := Vector3(0.22, -0.20, -0.48)
-var _ads_pose_position := Vector3(0.0, -0.145, -0.365)
-var _view_pose_position := Vector3(0.22, -0.20, -0.48)
-var _ads_calibration_mode: String = "generic"
+var _hip_pose_position := Vector3.ZERO
+var _ads_pose_position := Vector3.ZERO
+var _view_pose_position := Vector3.ZERO
+var _ads_calibration_mode: String = "source_pending"
 var _view_root: Node3D
 var _viewmodel_fill_light: OmniLight3D
 var _fire_audio: AudioStreamPlayer3D
@@ -158,9 +159,9 @@ func _clear_view_model() -> void:
 	_smoke_particles = null
 	_shell_particles = null
 	_muzzle_flash_timer = 0.0
-	_hip_pose_position = Vector3(0.22, -0.20, -0.48)
-	_ads_pose_position = Vector3(0.0, -0.145, -0.365)
-	_ads_calibration_mode = "generic"
+	_hip_pose_position = Vector3.ZERO
+	_ads_pose_position = Vector3.ZERO
+	_ads_calibration_mode = "source_pending"
 	if _view_root == null:
 		return
 	for child: Node in _view_root.get_children():
@@ -428,138 +429,53 @@ func _viewmodel_bounds_in_view(model: Node3D) -> AABB:
 			stack.append(child)
 	return bounds
 
-func _target_viewmodel_depth() -> float:
-	match _family:
-		"pistol": return 0.34
-		"smg": return 0.60
-		"rifle": return 0.78
-		"shotgun": return 0.82
-		"lmg": return 0.86
-		"sniper": return 0.90
-		_: return 0.68
-
-func _hip_near_limit_for_family() -> float:
-	match _family:
-		"pistol": return -0.22
-		"smg": return -0.30
-		"rifle": return -0.32
-		"shotgun": return -0.34
-		"lmg": return -0.36
-		"sniper": return -0.34
-		_: return -0.30
-
-func _fallback_ads_near_limit_for_family() -> float:
-	match _family:
-		"pistol": return -0.30
-		"smg": return -0.44
-		"rifle": return -0.46
-		"shotgun": return -0.48
-		"lmg": return -0.50
-		"sniper": return -0.48
-		_: return -0.42
-
-func _normalize_viewmodel_presentation(model: Node3D) -> void:
+func _apply_source_hip_pose(model: Node3D) -> bool:
 	if model == null or _view_root == null:
-		return
+		return false
+	if not WeaponViewmodelSourcePose.has_source_hip_pose(_weapon_id):
+		_hip_pose_position = Vector3.ZERO
+		_ads_pose_position = _hip_pose_position
+		set_meta("weapon_source_hip_pose_ready", false)
+		set_meta("weapon_source_pose_status", WeaponViewmodelSourcePose.status(_weapon_id))
+		set_meta("weapon_source_idle_psa", WeaponViewmodelSourcePose.source_idle_psa(_weapon_id))
+		set_meta("weapon_viewmodel_scale_factor", 1.0)
+		model.scale = Vector3.ONE
+		print("XZOGOT_WEAPON_SOURCE_HIP_PENDING ", _weapon_id)
+		return false
+
+	# This translation comes directly from Hands/*idle.psa tag_weapon relative
+	# to tag_view. No family/class offsets and no AABB normalization.
+	_hip_pose_position = WeaponViewmodelSourcePose.hip_position(_weapon_id)
+	_ads_pose_position = _hip_pose_position
+	_view_pose_position = _hip_pose_position
+	model.scale = Vector3.ONE
+
 	var bounds := _viewmodel_bounds_in_view(model)
-	if bounds.size.length_squared() <= 0.000001:
-		return
-
-	var depth := maxf(bounds.size.z, 0.001)
-	var target_depth := _target_viewmodel_depth()
-	var scale_factor := clampf(target_depth / depth, 0.62, 1.32)
-	model.scale *= Vector3.ONE * scale_factor
-
-	# Re-read after scale so all subsequent camera-space math uses the final mesh.
-	bounds = _viewmodel_bounds_in_view(model)
-	var nearest_local_z := bounds.position.z + bounds.size.z
-
-	# Never let stocks/receivers live inside the camera. Long guns need to sit
-	# farther forward than pistols; this remains independent from ADS centering.
-	var hip_near_limit := _hip_near_limit_for_family()
-	_hip_pose_position.z = minf(_hip_pose_position.z, hip_near_limit - nearest_local_z)
-
-	set_meta("weapon_viewmodel_scale_factor", scale_factor)
+	set_meta("weapon_source_hip_pose_ready", true)
+	set_meta("weapon_source_pose_status", "source_authored")
+	set_meta("weapon_source_idle_psa", WeaponViewmodelSourcePose.source_idle_psa(_weapon_id))
+	set_meta("weapon_viewmodel_scale_factor", 1.0)
 	set_meta("weapon_viewmodel_depth_m", bounds.size.z)
-	set_meta("weapon_viewmodel_nearest_local_z", nearest_local_z)
-	set_meta("weapon_hip_nearest_camera_z", _hip_pose_position.z + nearest_local_z)
+	set_meta("weapon_source_hip_position", _hip_pose_position)
 	print(
-		"XZOGOT_WEAPON_BOUNDS_NORMALIZED ",
+		"XZOGOT_WEAPON_SOURCE_HIP_READY ",
 		_weapon_id,
-		" depth=", bounds.size.z,
-		" scale=", scale_factor,
-		" hip_near=", _hip_pose_position.z + nearest_local_z
+		" psa=", WeaponViewmodelSourcePose.source_idle_psa(_weapon_id),
+		" pos=", _hip_pose_position
 	)
-
-func _enforce_ads_camera_clearance(model: Node3D) -> void:
-	if model == null or _view_root == null:
-		return
-	var bounds := _viewmodel_bounds_in_view(model)
-	if bounds.size.length_squared() <= 0.000001:
-		return
-	var nearest_local_z := bounds.position.z + bounds.size.z
-	# Authored rear/front sight data can safely sit closer to the eye. A muzzle-
-	# only fallback cannot, because centering the barrel would put the receiver
-	# almost inside the near plane.
-	var near_limit := (
-		-0.17
-		if _ads_calibration_mode in ["authored_sight_tag", "rear_front_sights"]
-		else _fallback_ads_near_limit_for_family()
-	)
-	_ads_pose_position.z = minf(_ads_pose_position.z, near_limit - nearest_local_z)
-	set_meta("weapon_ads_nearest_camera_z", _ads_pose_position.z + nearest_local_z)
-	set_meta("weapon_ads_near_limit", near_limit)
-	print(
-		"XZOGOT_WEAPON_ADS_CLEARANCE ",
-		_weapon_id,
-		" near=", _ads_pose_position.z + nearest_local_z,
-		" limit=", near_limit
-	)
+	return true
 
 func _calibrate_ads_pose(model: Node3D) -> void:
-	_ads_pose_position = Vector3(0.0, -0.145, -0.365)
-	_ads_calibration_mode = "generic"
-	if _view_root == null or model == null:
-		set_meta("weapon_ads_calibration_mode", _ads_calibration_mode)
-		return
-
-	var sight := _find_named_node3d(
-		model,
-		["tag_iron_sights", "tag_ironsights", "tag_ads", "ads_anchor", "tag_scope", "scope_view", "scope_anchor"]
-	)
-	if sight != null:
-		var sight_local: Vector3 = _view_root.to_local(sight.global_position)
-		_ads_pose_position = Vector3(0.0, 0.0, -0.18) - sight_local
-		_ads_calibration_mode = "authored_sight_tag"
-	else:
-		var rear := _find_named_node3d(model, ["rear_sight", "rearsight", "iron_rear", "ads_rear"])
-		var front := _find_named_node3d(model, ["front_sight", "frontsight", "iron_front", "ads_front"])
-		if rear != null and front != null:
-			var midpoint_world: Vector3 = rear.global_position.lerp(front.global_position, 0.20)
-			var midpoint_local: Vector3 = _view_root.to_local(midpoint_world)
-			_ads_pose_position = Vector3(0.0, 0.0, -0.18) - midpoint_local
-			_ads_calibration_mode = "rear_front_sights"
-		else:
-			var muzzle := _find_named_node3d(model, ["tag_flash", "muzzle", "muzzle_flash"])
-			if muzzle != null:
-				var muzzle_local: Vector3 = _view_root.to_local(muzzle.global_position)
-				_ads_pose_position.x = -muzzle_local.x
-				# The muzzle center is useful horizontally, but vertically it points the
-				# camera through the receiver/magazine. Put the upper weapon profile
-				# near the screen center as a geometry-derived iron-sight fallback.
-				var bounds := _viewmodel_bounds_in_view(model)
-				if bounds.size.length_squared() > 0.000001:
-					var top_line_y := bounds.position.y + bounds.size.y * 0.94
-					_ads_pose_position.y = -top_line_y
-					set_meta("weapon_ads_topline_y", top_line_y)
-				else:
-					_ads_pose_position.y = -muzzle_local.y
-				_ads_calibration_mode = "authored_muzzle_topline"
-
-	_enforce_ads_camera_clearance(model)
+	_ads_pose_position = _hip_pose_position
+	_ads_calibration_mode = "source_pending"
 	set_meta("weapon_ads_calibration_mode", _ads_calibration_mode)
 	set_meta("weapon_ads_pose_position", _ads_pose_position)
-	print("XZOGOT_WEAPON_ADS_CALIBRATED ", _weapon_id, " mode=", _ads_calibration_mode, " pose=", _ads_pose_position)
+	set_meta("weapon_ads_authority", "SOURCE_METADATA_PENDING")
+	print(
+		"XZOGOT_WEAPON_ADS_SOURCE_PENDING ",
+		_weapon_id,
+		" hip=", _hip_pose_position
+	)
 
 func get_ads_calibration_mode() -> String:
 	return _ads_calibration_mode
@@ -786,7 +702,7 @@ func _refresh_view_assets(def: Dictionary) -> void:
 		if model is Node3D:
 			_weapon_model_root = model as Node3D
 			_orient_imported_viewmodel(_weapon_model_root, model_path)
-			_normalize_viewmodel_presentation(_weapon_model_root)
+			_apply_source_hip_pose(_weapon_model_root)
 			var texture_report: Dictionary = WeaponTextureRegistry.apply_to_model(_weapon_model_root, _weapon_id)
 			set_meta("weapon_texture_surfaces", int(texture_report.get("surfaces", 0)))
 			set_meta("weapon_resolved_surfaces", int(texture_report.get("resolved", 0)))
@@ -939,7 +855,9 @@ func get_runtime_stats() -> Dictionary:
 		"model_yaw_correction_deg": float(get_meta("weapon_model_yaw_correction_deg", 0.0)),
 		"viewmodel_scale_factor": float(get_meta("weapon_viewmodel_scale_factor", 1.0)),
 		"viewmodel_depth_m": float(get_meta("weapon_viewmodel_depth_m", 0.0)),
-		"ads_nearest_camera_z": float(get_meta("weapon_ads_nearest_camera_z", 0.0)),
+		"source_hip_pose_ready": bool(get_meta("weapon_source_hip_pose_ready", false)),
+		"source_idle_psa": str(get_meta("weapon_source_idle_psa", "")),
+		"ads_authority": str(get_meta("weapon_ads_authority", "SOURCE_METADATA_PENDING")),
 		"texture_ready": bool(get_meta("weapon_texture_ready", false)),
 	}
 

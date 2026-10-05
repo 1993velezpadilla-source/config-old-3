@@ -64,14 +64,17 @@ func _capture() -> void:
 			push_error("SCREENSHOT: weapon forward-axis correction missing")
 			quit(11)
 			return
-		var ads_near := float(weapon.get_meta("weapon_ads_nearest_camera_z", 0.0))
-		var ads_limit := float(weapon.get_meta("weapon_ads_near_limit", -0.16))
-		if ads_near > ads_limit + 0.005:
-			push_error(
-				"SCREENSHOT: weapon ADS clearance failed "
-				+ str(ads_near) + " limit=" + str(ads_limit)
-			)
+		if not bool(weapon.get_meta("weapon_source_hip_pose_ready", false)):
+			push_error("SCREENSHOT: MP40 source-authored HIP pose missing")
 			quit(13)
+			return
+		if str(weapon.get_meta("weapon_source_idle_psa", "")) != "HandIdleMP40.psa":
+			push_error("SCREENSHOT: MP40 source PSA provenance mismatch")
+			quit(16)
+			return
+		if absf(float(weapon.get_meta("weapon_viewmodel_scale_factor", 0.0)) - 1.0) > 0.0001:
+			push_error("SCREENSHOT: heuristic viewmodel scale detected")
+			quit(17)
 			return
 		if not bool(weapon.get_meta("weapon_texture_ready", false)):
 			push_error(
@@ -83,18 +86,11 @@ func _capture() -> void:
 			quit(12)
 			return
 		print(
-			"XZOGOT_SCREENSHOT_WEAPON_PRESENTATION_GREEN yaw=",
-			yaw_fix,
-			" ads_near=",
-			ads_near,
-			" limit=",
-			ads_limit,
-			" materials=",
-			weapon.get_meta("weapon_resolved_surfaces", 0),
-			"/",
-			weapon.get_meta("weapon_texture_surfaces", 0),
-			" hidden=",
-			weapon.get_meta("weapon_hidden_surfaces", 0)
+			"XZOGOT_SCREENSHOT_SOURCE_HIP_GREEN yaw=", yaw_fix,
+			" psa=", weapon.get_meta("weapon_source_idle_psa", ""),
+			" pos=", weapon.get_meta("weapon_source_hip_position", Vector3.ZERO),
+			" materials=", weapon.get_meta("weapon_resolved_surfaces", 0),
+			"/", weapon.get_meta("weapon_texture_surfaces", 0)
 		)
 
 	var round_manager: Node = scene.get_node_or_null("RoundManager")
@@ -151,26 +147,9 @@ func _capture() -> void:
 		return
 	print("XZOGOT_SCREENSHOT_HIP_GREEN ", path, " ", image.get_width(), "x", image.get_height())
 
-	# Independent ADS acceptance frame. Let FOV and viewmodel pose fully settle.
-	if player != null:
-		player.set_meta("ads_toggled", true)
-	for i in range(30):
-		await process_frame
-	var ads_image: Image = root.get_texture().get_image()
-	if ads_image == null or ads_image.is_empty():
-		push_error("SCREENSHOT: ADS viewport capture empty")
-		quit(14)
-		return
-	var ads_path := "/tmp/xogot-current-ads.png"
-	var ads_err: Error = ads_image.save_png(ads_path)
-	if ads_err != OK:
-		push_error("SCREENSHOT: ADS save_png failed %s" % ads_err)
-		quit(15)
-		return
-	print("XZOGOT_SCREENSHOT_ADS_GREEN ", ads_path, " ", ads_image.get_width(), "x", ads_image.get_height())
-	print("XZOGOT_SCREENSHOT_GREEN ", path, " ", image.get_width(), "x", image.get_height())
+	print("XZOGOT_SCREENSHOT_ADS_SOURCE_PENDING MP40")
 
-	# Third independent view: exterior/front facade audit from the playable yard.
+	# Second independent view: exterior/front facade audit from the playable yard.
 	if player != null:
 		player.set_meta("ads_toggled", false)
 		player.global_position = Vector3(0.0, 0.38, 27.0)

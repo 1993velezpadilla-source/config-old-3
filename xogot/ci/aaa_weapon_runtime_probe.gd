@@ -3,6 +3,7 @@ extends SceneTree
 const WeaponCatalog = preload("res://scripts/weapon_catalog.gd")
 const WeaponAssetRegistry = preload("res://scripts/weapon_asset_registry.gd")
 const WeaponBalanceAAA = preload("res://scripts/weapon_balance_aaa.gd")
+const WeaponViewmodelSourcePose = preload("res://scripts/weapon_viewmodel_source_pose.gd")
 
 const FIREARMS: Array[String] = ["colt","walther","nambu","tt33","357","mp40","thompson","ppsh","type100","stg","m1","m1a1","gewehr","svt40","arisaka","kar98k","springfield","mosin","ptrs","trench","doublebarrel","sawnoff","bar","fg42","mg42","browning","dp28","type99"]
 
@@ -100,8 +101,8 @@ func _run_probe() -> void:
 			_fail(19, "runtime selected missing asset lane " + id)
 			return
 		var ads_mode := str(weapon.call("get_ads_calibration_mode"))
-		if ads_mode == "generic":
-			_fail(20, "ADS has no per-model calibration " + id)
+		if ads_mode != "source_pending":
+			_fail(20, "ADS must remain source_pending until exact archive metadata is bound " + id)
 			return
 
 		var yaw_fix := float(weapon.get_meta("weapon_model_yaw_correction_deg", 0.0))
@@ -131,25 +132,28 @@ func _run_probe() -> void:
 			_fail(33, "visible/hidden accounting mismatch " + id)
 			return
 
-		var view_depth := float(weapon.get_meta("weapon_viewmodel_depth_m", 0.0))
-		if view_depth < 0.20 or view_depth > 1.55:
-			_fail(30, "viewmodel depth out of sane range " + id + " depth=" + str(view_depth))
-			return
+		var source_pose_ready := bool(weapon.get_meta("weapon_source_hip_pose_ready", false))
+		var source_status := WeaponViewmodelSourcePose.status(id)
+		if id == "sawnoff":
+			if source_pose_ready or source_status != "missing_idle_hands":
+				_fail(30, "Sawed-Off must stay PENDING_SOURCE until idle-hands pose is recovered")
+				return
+			print("XZOGOT_AAA_WEAPON_SOURCE_PENDING sawnoff missing_idle_hands")
+		else:
+			if not WeaponViewmodelSourcePose.has_source_hip_pose(id):
+				_fail(30, "source-authored HIP pose missing " + id)
+				return
+			if not source_pose_ready:
+				_fail(31, "runtime did not bind source-authored HIP pose " + id)
+				return
+			if str(weapon.get_meta("weapon_source_idle_psa", "")).is_empty():
+				_fail(32, "runtime source idle PSA provenance missing " + id)
+				return
+			var source_scale := float(weapon.get_meta("weapon_viewmodel_scale_factor", 0.0))
+			if absf(source_scale - 1.0) > 0.0001:
+				_fail(34, "heuristic viewmodel scaling forbidden " + id + " scale=" + str(source_scale))
+				return
 
-		var view_scale := float(weapon.get_meta("weapon_viewmodel_scale_factor", 0.0))
-		if view_scale < 0.619 or view_scale > 1.321:
-			_fail(31, "viewmodel normalization scale invalid " + id + " scale=" + str(view_scale))
-			return
-
-		var ads_near := float(weapon.get_meta("weapon_ads_nearest_camera_z", 0.0))
-		var ads_limit := float(weapon.get_meta("weapon_ads_near_limit", -0.16))
-		if ads_near > ads_limit + 0.005:
-			_fail(
-				32,
-				"ADS clearance failed " + id + " near=" + str(ads_near)
-				+ " limit=" + str(ads_limit)
-			)
-			return
 
 		weapon.call("set_dev_infinite_ammo", true)
 		var shots_before := int(weapon.call("get_shots_fired"))
@@ -186,9 +190,8 @@ func _run_probe() -> void:
 			" textures=", textured_surfaces,
 			" hidden=", hidden_surfaces,
 			" resolved=", resolved_surfaces, "/", texture_surfaces,
-			" depth=", view_depth,
-			" near=", ads_near,
-			" limit=", ads_limit,
+			" source_pose=", source_pose_ready,
+			" source_psa=", str(weapon.get_meta("weapon_source_idle_psa", "")),
 			" pap=", expected_pack_damage
 		)
 

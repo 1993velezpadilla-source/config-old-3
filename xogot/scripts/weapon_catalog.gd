@@ -20,7 +20,6 @@ const MYSTERY_POOL: Array[Dictionary] = [
 	{"id":"bar","weight":0.82},
 	{"id":"browning","weight":0.58},
 	{"id":"doublebarrel","weight":0.78},
-	{"id":"sawnoff","weight":0.72},
 	{"id":"fg42","weight":0.82},
 	{"id":"gewehr","weight":0.92},
 	{"id":"m1a1","weight":0.95},
