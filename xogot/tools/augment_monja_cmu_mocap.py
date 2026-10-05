@@ -657,3 +657,5 @@ print("XZOGOT_MONJA_CMU_9_REAL_MOCAP_CLIPS_GREEN",expected)
 print("XZOGOT_MONJA_CMU_ANIMATION_MOTION_GREEN",json.dumps(expected_motion,sort_keys=True))
 print("XZOGOT_MONJA_CMU_PROFILE_GREEN",PROFILE)
 print("XZOGOT_MONJA_CMU_RIG_GREEN",report["bones"],out_bytes)
+
+# dense-bake-eval-suspension-v1
