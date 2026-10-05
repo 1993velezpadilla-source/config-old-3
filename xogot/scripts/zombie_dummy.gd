@@ -15,6 +15,7 @@ const RIGGED_FALLBACK_ANIMS := {
 	"idle": ["Zombie_Idle_Loop", "Zombie_Idle_Clean", "Idle_Clean"],
 	"walk": ["Zombie_Walk_Fwd_Loop", "Zombie_Walk_Clean", "Walk_Clean"],
 	"attack": ["Zombie_Scratch", "Zombie_Attack_Clean", "Attack_Clean"],
+	"death": ["Zombie_Death_Clean", "Death_Clean", "LayToIdle", "fall_on_face"],
 }
 
 const SHEEP_FALLBACK_ANIMS := {
@@ -62,6 +63,7 @@ const CRAWL_KEYS: Array[String] = ["crawl_A", "111_03"]
 @export var barricade_damage: float = 25.0
 @export var player_damage: float = 20.0
 @export var attack_interval: float = 0.90
+@export var death_linger_time: float = 1.25
 @export var window_cross_speed: float = 2.65
 @export var turn_lerp: float = 0.22
 @export var target_visual_height: float = 1.80
@@ -1116,14 +1118,36 @@ func powerup_kill() -> void:
 	_die(null)
 
 func _die(source: Node) -> void:
+	if phase == Phase.DEAD:
+		return
 	phase = Phase.DEAD
+	velocity = Vector3.ZERO
+	collision_layer = 0
+	collision_mask = 0
 	_play_motion_state("death")
 	_play_zombie_sfx(_zombie_audio_choice(ZOMBIE_DEATHS), -4.0, true)
 	if source != null and source.has_method("add_points"):
 		source.call("add_points", 60)
-	print("XZOGOT_ZOMBIE_KILLED ", _motion_profile_id)
+	print("XZOGOT_ZOMBIE_KILLED ", _motion_profile_id, " variant=", enemy_variant)
 	died.emit(self)
-	queue_free()
+
+	# Let the authored death clip remain visible.  Previously queue_free() ran in
+	# the same frame as AnimationPlayer.play(), so sheep/nun death animations
+	# existed in the asset but could never be seen.
+	var linger: float = maxf(0.35, death_linger_time)
+	if enemy_variant == "sheep_runner":
+		linger = maxf(linger, 1.05)
+	elif enemy_variant == "sheep_brute":
+		linger = maxf(linger, 1.20)
+	elif enemy_variant == "nun_elite":
+		linger = maxf(linger, 1.40)
+	set_meta("death_animation_linger", linger)
+	var cleanup_timer := get_tree().create_timer(linger)
+	cleanup_timer.timeout.connect(_finish_death_cleanup)
+
+func _finish_death_cleanup() -> void:
+	if is_instance_valid(self):
+		queue_free()
 
 func get_phase() -> int:
 	return int(phase)
