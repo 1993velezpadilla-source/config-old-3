@@ -146,6 +146,7 @@ func _capture() -> void:
 		quit(4)
 		return
 	print("XZOGOT_SCREENSHOT_HIP_GREEN ", path, " ", image.get_width(), "x", image.get_height())
+	print("XZOGOT_SCREENSHOT_GREEN ", path, " ", image.get_width(), "x", image.get_height())
 
 	print("XZOGOT_SCREENSHOT_ADS_SOURCE_PENDING MP40")
 
