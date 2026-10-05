@@ -75,6 +75,35 @@ jobs:
           cp xogot/build/sheep-animated/sheep_brute_animated.glb xogot/assets/zombies/sheep/sheep_brute_animated.glb
           cp xogot/build/sheep-animated/report.json xogot/assets/zombies/sheep/animation_report.json
 
+      - name: Install Godot 4.6.1 for sheep import gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/godot.zip
+          rm -rf /tmp/godot
+          mkdir -p /tmp/godot
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+          /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 --version
+
+      - name: Verify animated sheep pair in Godot
+        shell: bash
+        env:
+          XZOGOT_SPECIAL_ENEMY_MODE: sheep
+        run: |
+          set -euo pipefail
+          timeout 180 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --editor --path xogot --quit \
+            2>&1 | tee xogot/build/sheep-animated/godot-import.log
+          timeout 90 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/special_enemy_asset_probe.gd \
+            2>&1 | tee xogot/build/sheep-animated/godot-probe.log
+          grep -q "XZOGOT_SHEEP_ASSET_PAIR_GODOT_GREEN" xogot/build/sheep-animated/godot-probe.log
+          grep -q "XZOGOT_SPECIAL_ENEMY_ASSET_GATE_GREEN mode=sheep" xogot/build/sheep-animated/godot-probe.log
+          ! grep -E "SCRIPT ERROR|Parse Error|SPECIAL_ENEMY_ASSET_PROBE:" xogot/build/sheep-animated/godot-probe.log
+
       - name: Commit animated sheep pair
         shell: bash
         run: |
@@ -98,5 +127,7 @@ jobs:
             xogot/build/sheep-animated/blender.log
             xogot/build/sheep-animated/sheep_runner_run_mid.png
             xogot/build/sheep-animated/sheep_brute_run_mid.png
+            xogot/build/sheep-animated/godot-import.log
+            xogot/build/sheep-animated/godot-probe.log
           if-no-files-found: warn
           retention-days: 14
