@@ -1162,7 +1162,7 @@
         "viewmodel": "res://assets/weapons/aether_waw_real/mg42/viewmodel.glb",
         "worldmodel": "res://assets/weapons/aether_waw_real/mg42/viewmodel.glb",
         "audio": {
-          "fire": "res://assets/audio/weapons/mapmod/mg42/fire.ogg",
+          "fire": "res://assets/audio/weapons/mapmod/mg42/fire.wav",
           "reload": "res://assets/audio/weapons/mapmod/mg42/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/mg42/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/mg42/dry_fire.ogg"
@@ -1196,7 +1196,8 @@
         "Real Aether UE5.7 viewmodel staged from MG42.",
         "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
         "Aether UE5.7 skeletal GLB now contains 14 imported real animation Actions.",
-        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists."
+        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists.",
+        "Project Aether MG42Shot SoundCue resolves to Base/wpn_bar_st_f plus wpn_bar_st_act; MG42 runtime fire uses a dedicated copy of that real Aether wave."
       ],
       "optional_animation_aliases": {
         "ads_in": [
