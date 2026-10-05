@@ -470,38 +470,55 @@ def retarget_action(source,target,source_action,new_name,height_scale):
     print("XZOGOT_MONJA_SOURCE_POSE_CLIP_GREEN",new_name,lo,hi,len(common))
     return {"name":new_name,"frames":[lo,hi],"bones":len(common)}
 
-def triangle_count(mesh_objects):
-    return mesh_surface_stats(mesh_objects)["triangles"]
-
 def mesh_surface_stats(mesh_objects):
+    depsgraph=bpy.context.evaluated_depsgraph_get()
     total_triangles=0
     total_area=0.0
     degenerate=0
+    bounds_min=None
+    bounds_max=None
     for obj in mesh_objects:
-        mesh=obj.data
-        mesh.calc_loop_triangles()
-        tri_n=len(mesh.loop_triangles)
-        total_triangles += tri_n
-        if tri_n==0:
-            continue
-        raw=np.empty(len(mesh.vertices)*3,dtype=np.float32)
-        mesh.vertices.foreach_get("co",raw)
-        local=raw.reshape((-1,3)).astype(np.float64)
-        M=np.array(obj.matrix_world,dtype=np.float64)
-        homo=np.concatenate([local,np.ones((len(local),1),dtype=np.float64)],axis=1)
-        world=(homo @ M.T)[:,:3]
-        idx=np.empty(tri_n*3,dtype=np.int32)
-        mesh.loop_triangles.foreach_get("vertices",idx)
-        tri=world[idx.reshape((-1,3))]
-        cross=np.cross(tri[:,1]-tri[:,0],tri[:,2]-tri[:,0])
-        areas=0.5*np.linalg.norm(cross,axis=1)
-        total_area += float(areas.sum())
-        degenerate += int(np.count_nonzero(areas <= 1e-12))
+        eval_obj=obj.evaluated_get(depsgraph)
+        mesh=eval_obj.to_mesh()
+        try:
+            mesh.calc_loop_triangles()
+            tri_n=len(mesh.loop_triangles)
+            total_triangles += tri_n
+            if len(mesh.vertices)==0:
+                continue
+            raw=np.empty(len(mesh.vertices)*3,dtype=np.float32)
+            mesh.vertices.foreach_get("co",raw)
+            local=raw.reshape((-1,3)).astype(np.float64)
+            M=np.array(eval_obj.matrix_world,dtype=np.float64)
+            homo=np.concatenate([local,np.ones((len(local),1),dtype=np.float64)],axis=1)
+            world=(homo @ M.T)[:,:3]
+            mn=world.min(axis=0)
+            mx=world.max(axis=0)
+            bounds_min=mn if bounds_min is None else np.minimum(bounds_min,mn)
+            bounds_max=mx if bounds_max is None else np.maximum(bounds_max,mx)
+            if tri_n:
+                idx=np.empty(tri_n*3,dtype=np.int32)
+                mesh.loop_triangles.foreach_get("vertices",idx)
+                tri=world[idx.reshape((-1,3))]
+                cross=np.cross(tri[:,1]-tri[:,0],tri[:,2]-tri[:,0])
+                areas=0.5*np.linalg.norm(cross,axis=1)
+                total_area += float(areas.sum())
+                degenerate += int(np.count_nonzero(areas <= 1e-12))
+        finally:
+            eval_obj.to_mesh_clear()
+    if bounds_min is None:
+        bounds_min=np.zeros(3,dtype=np.float64)
+        bounds_max=np.zeros(3,dtype=np.float64)
     return {
         "triangles":int(total_triangles),
         "surface_area":float(total_area),
         "degenerate_triangles":int(degenerate),
+        "bounds_min":[float(x) for x in bounds_min],
+        "bounds_max":[float(x) for x in bounds_max],
     }
+
+def triangle_count(mesh_objects):
+    return mesh_surface_stats(mesh_objects)["triangles"]
 
 def render_preview(arm,mesh_objects,action,label,frame):
     arm.animation_data_create()
@@ -513,12 +530,12 @@ def render_preview(arm,mesh_objects,action,label,frame):
 
     scene=bpy.context.scene
     scene.render.engine='BLENDER_EEVEE'
-    scene.render.resolution_x=600 if PROFILE=="elite" else 900
-    scene.render.resolution_y=800 if PROFILE=="elite" else 1200
+    scene.render.resolution_x=480 if PROFILE=="elite" else 900
+    scene.render.resolution_y=640 if PROFILE=="elite" else 1200
     scene.render.resolution_percentage=100
     if PROFILE=="elite" and hasattr(scene,"eevee"):
         try:
-            scene.eevee.taa_render_samples=24
+            scene.eevee.taa_render_samples=12
         except Exception:
             pass
     scene.render.image_settings.file_format='PNG'
@@ -656,6 +673,12 @@ reset()
 bpy.ops.import_scene.gltf(filepath=str(OUT_GLB))
 out_mesh=objs("MESH"); out_arm=objs("ARMATURE")
 out_actions=[a.name for a in bpy.data.actions]
+for out_rig in out_arm:
+    out_rig.data.pose_position='REST'
+    if out_rig.animation_data:
+        out_rig.animation_data.action=None
+bpy.context.scene.frame_set(0)
+bpy.context.view_layer.update()
 out_vertices=sum(len(o.data.vertices) for o in out_mesh)
 out_polygons=sum(len(o.data.polygons) for o in out_mesh)
 out_surface=mesh_surface_stats(out_mesh)
@@ -663,10 +686,20 @@ out_triangles=out_surface["triangles"]
 extra_triangles=out_triangles-source_triangles
 area_delta=abs(out_surface["surface_area"]-source_surface["surface_area"])
 area_tolerance=max(source_surface["surface_area"]*1e-5,1e-8)
+bounds_delta=max(
+    max(abs(a-b) for a,b in zip(out_surface["bounds_min"],source_surface["bounds_min"])),
+    max(abs(a-b) for a,b in zip(out_surface["bounds_max"],source_surface["bounds_max"])),
+)
+source_extent=max(
+    source_surface["bounds_max"][i]-source_surface["bounds_min"][i]
+    for i in range(3)
+)
+bounds_tolerance=max(source_extent*1e-5,1e-6)
 geometry_conserved=(
     extra_triangles>=0
     and extra_triangles<=256
     and area_delta<=area_tolerance
+    and bounds_delta<=bounds_tolerance
 )
 
 report={
@@ -688,6 +721,12 @@ report={
     "triangle_delta":extra_triangles,
     "surface_area_delta":area_delta,
     "surface_area_tolerance":area_tolerance,
+    "source_bounds_min":source_surface["bounds_min"],
+    "source_bounds_max":source_surface["bounds_max"],
+    "output_bounds_min":out_surface["bounds_min"],
+    "output_bounds_max":out_surface["bounds_max"],
+    "bounds_delta":bounds_delta,
+    "bounds_tolerance":bounds_tolerance,
     "geometry_conserved":geometry_conserved,
     "geometry_gate":"no_triangle_loss_plus_surface_area_conservation",
     "export_reindexed_vertices":out_vertices!=source_vertices,
@@ -713,7 +752,8 @@ REPORT.write_text(json.dumps(report,indent=2)+"\n",encoding="utf-8")
 if not report["geometry_conserved"]:
     fail(
         f"surface geometry changed tris={out_triangles}/{source_triangles} "
-        f"delta={extra_triangles} area_delta={area_delta} tol={area_tolerance}"
+        f"delta={extra_triangles} area_delta={area_delta} tol={area_tolerance} "
+        f"bounds_delta={bounds_delta} bounds_tol={bounds_tolerance}"
     )
 if not report["pose_match"]["validated"]: fail("rest pose moved source geometry")
 if len(out_arm)!=1 or report["bones"]<20: fail("humanoid skeleton missing")
