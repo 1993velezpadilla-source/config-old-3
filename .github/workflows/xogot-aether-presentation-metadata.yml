@@ -94,87 +94,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $stdout = & "$env:CUE4PARSE" -i "$env:AETHER_PAKDIR" -g GAME_UE5_7 -m "$PWD\Mappings.usmap" -l -p '*MP40*' -p '*mp40*' 2> presentation-mp40-list-stderr.log
-          $paths = @($stdout | Where-Object { $_ -match '(?i)mp40' -and $_ -match '(?i)\.uasset
-      - name: Build numeric presentation metadata report
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          @'
-          from pathlib import Path
-          import json,re
-
-          root=Path("presentation-export")
-          key_rx=re.compile(r"(ads|aim|offset|camera|viewmodel|viewhands|field.?of.?view|fov|height|stance|weapon|transform|location|rotation|scale|socket|attach|tag|hand)",re.I)
-          value_rx=re.compile(r"[-+]?\d+(?:\.\d+)?")
-          hits=[]
-
-          def walk(value,path,source):
-              if isinstance(value,dict):
-                  for k,v in value.items():
-                      p=path+[str(k)]
-                      if key_rx.search(str(k)):
-                          if isinstance(v,(int,float,str)):
-                              sv=str(v)
-                              if value_rx.search(sv):
-                                  hits.append({"source":source,"path":".".join(p),"value":v})
-                      walk(v,p,source)
-              elif isinstance(value,list):
-                  for i,v in enumerate(value):
-                      walk(v,path+[str(i)],source)
-
-          json_files=list(root.rglob("*.json"))
-          for path in json_files:
-              try:
-                  data=json.loads(path.read_text(encoding="utf-8-sig",errors="strict"))
-              except Exception:
-                  continue
-              walk(data,[],path.as_posix())
-
-          log=Path("presentation-cue4parse.log").read_text(errors="ignore")
-          markers=sorted(set(
-              line.strip() for line in log.splitlines()
-              if re.search(r"BP_WeaponBase|AetherViewmodel|CameraAnimOffset|Legacy_Viewhands|T7_Viewhands|FirstPerson",line,re.I)
-          ))
-
-          base_hits=[h for h in hits if "BP_WeaponBase" in h["source"]]
-          report={
-              "schema":1,
-              "source":"Project Aether UE5.7 reconstructed first-person presentation packages",
-              "bp_weapon_base_numeric_hits":base_hits,
-              "mapping_run":37244741312,
-              "export_file_count":sum(1 for p in root.rglob("*") if p.is_file()),
-              "json_file_count":len(json_files),
-              "numeric_property_hit_count":len(hits),
-              "numeric_property_hits":hits[:10000],
-              "authority_markers":markers[:2000],
-              "policy":{
-                  "family_offset_guessing_forbidden":True,
-                  "godot_binding_requires_source_property_or_authored_hand_tag":True
-              }
-          }
-          Path("aether-presentation-metadata-report.json").write_text(json.dumps(report,indent=2)+"\n",encoding="utf-8")
-          print("XZOGOT_PRESENTATION_METADATA_REPORT",report["export_file_count"],report["json_file_count"],report["numeric_property_hit_count"])
-          joined="\n".join(markers)
-          if not re.search(r"BP_WeaponBase|Legacy_Viewhands|T7_Viewhands|FirstPerson",joined,re.I):
-              raise SystemExit("Presentation authority markers were not recovered")
-          print("XZOGOT_PRESENTATION_METADATA_SOURCE_GREEN")
-          '@ | python -
-
-      - name: Upload source presentation evidence
-        uses: actions/upload-artifact@v4
-        with:
-          name: aether-source-presentation-metadata
-          path: |
-            aether-presentation-metadata-report.json
-            presentation-patterns.txt
-            mp40-packages.txt
-            presentation-mp40-list-stderr.log
-            presentation-cue4parse.log
-            presentation-export/**
-          if-no-files-found: error
-          retention-days: 14
-          compression-level: 6
- } | Sort-Object -Unique)
+          $paths = @($stdout | Where-Object { $_ -match '(?i)mp40' -and $_ -match '(?i)\.uasset$' } | Sort-Object -Unique)
           $paths | Set-Content mp40-packages.txt -Encoding ascii
           if ($paths.Count -lt 1) { throw 'CUE4Parse provider index returned no MP40 uasset paths' }
           Write-Host "XZOGOT_MP40_PROVIDER_PATHS_READY count=$($paths.Count)"
@@ -274,6 +194,8 @@ jobs:
           path: |
             aether-presentation-metadata-report.json
             presentation-patterns.txt
+            mp40-packages.txt
+            presentation-mp40-list-stderr.log
             presentation-cue4parse.log
             presentation-export/**
           if-no-files-found: error
