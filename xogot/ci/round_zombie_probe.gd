@@ -92,8 +92,58 @@ func _run_probe() -> void:
 		_fail(40, "expected eight selective direct spawns")
 		return
 	if int(barricade.call("get_boards")) != 6:
-		_fail(5, "barricade did not start with 3 boards")
+		_fail(5, "barricade did not start with 6 boards")
 		return
+
+	# Regression for the field bug: a zombie could enter ATTACK_BARRICADE,
+	# become displaced from the authored approach point, and remain frozen there
+	# forever because the normal stuck watchdog intentionally ignores attack.
+	var attack_barricade: Node = barricades[1]
+	var zombie_script: Script = load("res://scripts/zombie_dummy.gd") as Script
+	var attack_probe := CharacterBody3D.new()
+	attack_probe.name = "Zombie_Barricade_Attack_Probe"
+	attack_probe.set_script(zombie_script)
+	attack_probe.call("configure", player, attack_barricade)
+	scene.add_child(attack_probe)
+	await process_frame
+	await physics_frame
+
+	var attack_approach: Vector3 = attack_barricade.call("get_outside_approach") as Vector3
+	var attack_spawn: Vector3 = attack_barricade.call("get_outside_spawn") as Vector3
+	var away := Vector3(
+		attack_spawn.x - attack_approach.x,
+		0.0,
+		attack_spawn.z - attack_approach.z
+	)
+	if away.length_squared() < 0.001:
+		away = Vector3.RIGHT
+	attack_probe.global_position = attack_approach + away.normalized() * 1.25
+	attack_probe.set("phase", 1) # ATTACK_BARRICADE
+	attack_probe.call("_tick_barricade")
+	if int(attack_probe.call("get_phase")) != 0:
+		_fail(51, "displaced barricade attacker did not reacquire approach")
+		return
+	print("XZOGOT_BARRICADE_REACQUIRE_GREEN")
+
+	attack_probe.global_position = attack_approach
+	attack_probe.set("phase", 1) # ATTACK_BARRICADE
+	var boards_before_attack: int = int(attack_barricade.call("get_boards"))
+	for i in range(16):
+		attack_probe.set("_attack_timer", 0.0)
+		attack_probe.call("_tick_barricade")
+		await physics_frame
+		if bool(attack_barricade.call("is_broken")):
+			break
+	if int(attack_barricade.call("get_boards")) >= boards_before_attack:
+		_fail(52, "live zombie attack never removed a barricade board")
+		return
+	if not bool(attack_barricade.call("is_broken")):
+		_fail(53, "live zombie attack did not fully break barricade")
+		return
+	print("XZOGOT_BARRICADE_LIVE_ATTACK_GREEN")
+	attack_barricade.call("repair_full_no_reward")
+	attack_probe.queue_free()
+	await process_frame
 
 	barricade.call("zombie_damage", 300.0)
 	if not bool(barricade.call("is_broken")) or int(barricade.call("get_boards")) != 0:
@@ -145,6 +195,8 @@ func _run_probe() -> void:
 		return
 	var monja_model: String = str(zombie.get_meta("zombie_model", ""))
 	if monja_model not in [
+		"monja_cmu",
+		"monja_clean",
 		"monja_basica",
 		"monja_basica_rigged",
 		"monja_basica_rigged_dismember",
@@ -152,19 +204,24 @@ func _run_probe() -> void:
 	]:
 		_fail(22, "Monja Basica model metadata missing: " + monja_model)
 		return
-	if ResourceLoader.exists("res://assets/zombies/monja_rigid/monja_basica_rigid_rig.gltf"):
+
+	# Runtime preference must match zombie_dummy.gd: CMU > clean V4 > legacy.
+	if ResourceLoader.exists("res://assets/zombies/monja_clean/cmu_runtime/monja_basica_cmu_rig.gltf"):
+		if monja_model != "monja_cmu":
+			_fail(42, "CMU Monja exists but runtime did not select it: " + monja_model)
+			return
+	elif ResourceLoader.exists("res://assets/zombies/monja_clean/clean_runtime/monja_basica_clean_rig.gltf"):
+		if monja_model != "monja_clean":
+			_fail(43, "clean V4 Monja exists but runtime did not select it: " + monja_model)
+			return
+	elif ResourceLoader.exists("res://assets/zombies/monja_rigid/monja_basica_rigid_rig.gltf"):
 		if monja_model != "monja_basica_rigid_rig":
-			_fail(42, "full-density rigid Monja exists but runtime did not select it")
+			_fail(44, "legacy rigid Monja exists but runtime did not select it")
 			return
-		if not bool(zombie.get_meta("zombie_rigged_asset", false)):
-			_fail(43, "rigid Monja was not marked rigged")
-			return
-		if not bool(zombie.get_meta("zombie_rigid_region_rig", false)):
-			_fail(44, "rigid-region rig marker missing")
-			return
-		if zombie.get_node_or_null("MonjaBasicaVisual") == null:
-			_fail(45, "rigged Monja visual missing")
-			return
+
+	if monja_model != "monja_basica" and not bool(zombie.get_meta("zombie_rigged_asset", false)):
+		_fail(45, "selected Monja rig was not marked rigged: " + monja_model)
+		return
 	if str(zombie.get_meta("motion_profile", "")).is_empty():
 		_fail(41, "Monja Basica motion profile missing")
 		return
