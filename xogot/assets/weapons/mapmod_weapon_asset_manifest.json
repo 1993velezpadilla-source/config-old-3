@@ -336,7 +336,8 @@
           "reload": "res://assets/audio/weapons/mapmod/mp40/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/mp40/mechanical.ogg",
           "dry_fire": "res://assets/audio/weapons/mapmod/mp40/dry_fire.ogg"
-        }
+        },
+        "hands": "res://assets/weapons/aether_waw_hands/legacy_richtofen/viewhands.glb"
       },
       "required_animation_aliases": {
         "idle": [
@@ -366,7 +367,8 @@
         "Real Aether UE5.7 viewmodel staged from MP40.",
         "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
         "Aether UE5.7 skeletal GLB now contains 18 imported real animation Actions.",
-        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists."
+        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists.",
+        "Source-authored BO2 Legacy Richtofen viewhands with MP40 Hands PSA actions."
       ],
       "optional_animation_aliases": {
         "ads_in": [

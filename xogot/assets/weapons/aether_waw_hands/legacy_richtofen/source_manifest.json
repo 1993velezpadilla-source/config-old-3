@@ -20,5 +20,21 @@
     "right_color": "res://assets/weapons/aether_waw_hands/legacy_richtofen/textures/arm_right_color.png",
     "normal": "res://assets/weapons/aether_waw_hands/legacy_richtofen/textures/arm_normal.png",
     "specular": "res://assets/weapons/aether_waw_hands/legacy_richtofen/textures/arm_specular.png"
-  }
+  },
+  "animation_source": "Aether WaW MP40 Anims/Hands ActorX PSA",
+  "animation_actions": [
+    "PSA_HandIdleMP40",
+    "PSA_MP40Equip",
+    "PSA_MP40Equip.001",
+    "PSA_MP40ReloadHands",
+    "PSA_MP40ReloadHands.001",
+    "PSA_MP40Unequip",
+    "PSA_MP40Unequip.001",
+    "PSA_viewmodel_mp40_fire",
+    "PSA_viewmodel_mp40_fire.001",
+    "PSA_viewmodel_mp40_first_raise",
+    "PSA_viewmodel_mp40_first_raise.001",
+    "PSA_viewmodel_mp40_reload_empty",
+    "PSA_viewmodel_mp40_reload_empty.001"
+  ]
 }

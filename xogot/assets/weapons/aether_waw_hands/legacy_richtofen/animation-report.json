@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "source": "Project Aether UE5.7 BO2 Legacy Richtofen viewhands + WaW MP40 Hands PSA",
+  "psa_files": [
+    "HandIdleMP40.psa",
+    "MP40Equip.psa",
+    "MP40Equip_Montage.psa",
+    "MP40ReloadHands.psa",
+    "MP40ReloadHands_Montage.psa",
+    "MP40Unequip.psa",
+    "MP40Unequip_Montage.psa",
+    "viewmodel_mp40_fire.psa",
+    "viewmodel_mp40_fire_Montage.psa",
+    "viewmodel_mp40_first_raise.psa",
+    "viewmodel_mp40_first_raise_Montage.psa",
+    "viewmodel_mp40_reload_empty.psa",
+    "viewmodel_mp40_reload_empty_Montage.psa"
+  ],
+  "actions_imported": [
+    "HandIdleMP40",
+    "MP40Equip",
+    "MP40Equip.001",
+    "MP40ReloadHands",
+    "MP40ReloadHands.001",
+    "MP40Unequip",
+    "MP40Unequip.001",
+    "viewmodel_mp40_fire",
+    "viewmodel_mp40_fire.001",
+    "viewmodel_mp40_first_raise",
+    "viewmodel_mp40_first_raise.001",
+    "viewmodel_mp40_reload_empty",
+    "viewmodel_mp40_reload_empty.001"
+  ],
+  "actions_exported": [
+    "PSA_HandIdleMP40",
+    "PSA_MP40Equip",
+    "PSA_MP40Equip.001",
+    "PSA_MP40ReloadHands",
+    "PSA_MP40ReloadHands.001",
+    "PSA_MP40Unequip",
+    "PSA_MP40Unequip.001",
+    "PSA_viewmodel_mp40_fire",
+    "PSA_viewmodel_mp40_fire.001",
+    "PSA_viewmodel_mp40_first_raise",
+    "PSA_viewmodel_mp40_first_raise.001",
+    "PSA_viewmodel_mp40_reload_empty",
+    "PSA_viewmodel_mp40_reload_empty.001"
+  ],
+  "import_warnings_or_failures": [],
+  "armature_bones": 100,
+  "required_tags": [
+    "RootBone",
+    "j_wrist_le",
+    "j_wrist_ri",
+    "tag_ads",
+    "tag_camera",
+    "tag_torso",
+    "tag_view",
+    "tag_weapon"
+  ],
+  "output_bytes": 1311560
+}
