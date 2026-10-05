@@ -143,6 +143,19 @@
           "melee",
           "knife",
           "bash"
+        ],
+        "fire_ads": [
+          "ads_fire",
+          "fire_ads"
+        ],
+        "reload_empty": [
+          "reload_empty",
+          "reloadempty",
+          "empty_reload"
+        ],
+        "lastshot": [
+          "lastshot",
+          "lastfire"
         ]
       }
     },
@@ -210,6 +223,19 @@
           "melee",
           "knife",
           "bash"
+        ],
+        "fire_ads": [
+          "ads_fire",
+          "fire_ads"
+        ],
+        "reload_empty": [
+          "reload_empty",
+          "reloadempty",
+          "empty_reload"
+        ],
+        "lastshot": [
+          "lastshot",
+          "lastfire"
         ]
       }
     },
@@ -277,6 +303,19 @@
           "melee",
           "knife",
           "bash"
+        ],
+        "fire_ads": [
+          "ads_fire",
+          "fire_ads"
+        ],
+        "reload_empty": [
+          "reload_empty",
+          "reloadempty",
+          "empty_reload"
+        ],
+        "lastshot": [
+          "lastshot",
+          "lastfire"
         ]
       }
     },
@@ -344,6 +383,19 @@
           "melee",
           "knife",
           "bash"
+        ],
+        "fire_ads": [
+          "ads_fire",
+          "fire_ads"
+        ],
+        "reload_empty": [
+          "reload_empty",
+          "reloadempty",
+          "empty_reload"
+        ],
+        "lastshot": [
+          "lastshot",
+          "lastfire"
         ]
       }
     },
@@ -411,6 +463,19 @@
           "melee",
           "knife",
           "bash"
+        ],
+        "fire_ads": [
+          "ads_fire",
+          "fire_ads"
+        ],
+        "reload_empty": [
+          "reload_empty",
+          "reloadempty",
+          "empty_reload"
+        ],
+        "lastshot": [
+          "lastshot",
+          "lastfire"
         ]
       }
     },
@@ -514,6 +579,19 @@
           "melee",
           "knife",
           "bash"
+        ],
+        "fire_ads": [
+          "ads_fire",
+          "fire_ads"
+        ],
+        "reload_empty": [
+          "reload_empty",
+          "reloadempty",
+          "empty_reload"
+        ],
+        "lastshot": [
+          "lastshot",
+          "lastfire"
         ]
       }
     },
@@ -581,6 +659,19 @@
           "melee",
           "knife",
           "bash"
+        ],
+        "fire_ads": [
+          "ads_fire",
+          "fire_ads"
+        ],
+        "reload_empty": [
+          "reload_empty",
+          "reloadempty",
+          "empty_reload"
+        ],
+        "lastshot": [
+          "lastshot",
+          "lastfire"
         ]
       }
     },
@@ -648,6 +739,19 @@
           "melee",
           "knife",
           "bash"
+        ],
+        "fire_ads": [
+          "ads_fire",
+          "fire_ads"
+        ],
+        "reload_empty": [
+          "reload_empty",
+          "reloadempty",
+          "empty_reload"
+        ],
+        "lastshot": [
+          "lastshot",
+          "lastfire"
         ]
       }
     },
@@ -715,6 +819,19 @@
           "melee",
           "knife",
           "bash"
+        ],
+        "fire_ads": [
+          "ads_fire",
+          "fire_ads"
+        ],
+        "reload_empty": [
+          "reload_empty",
+          "reloadempty",
+          "empty_reload"
+        ],
+        "lastshot": [
+          "lastshot",
+          "lastfire"
         ]
       }
     },
@@ -782,6 +899,19 @@
           "melee",
           "knife",
           "bash"
+        ],
+        "fire_ads": [
+          "ads_fire",
+          "fire_ads"
+        ],
+        "reload_empty": [
+          "reload_empty",
+          "reloadempty",
+          "empty_reload"
+        ],
+        "lastshot": [
+          "lastshot",
+          "lastfire"
         ]
       }
     },
@@ -849,6 +979,19 @@
           "melee",
           "knife",
           "bash"
+        ],
+        "fire_ads": [
+          "ads_fire",
+          "fire_ads"
+        ],
+        "reload_empty": [
+          "reload_empty",
+          "reloadempty",
+          "empty_reload"
+        ],
+        "lastshot": [
+          "lastshot",
+          "lastfire"
         ]
       }
     },
@@ -916,6 +1059,19 @@
           "melee",
           "knife",
           "bash"
+        ],
+        "fire_ads": [
+          "ads_fire",
+          "fire_ads"
+        ],
+        "reload_empty": [
+          "reload_empty",
+          "reloadempty",
+          "empty_reload"
+        ],
+        "lastshot": [
+          "lastshot",
+          "lastfire"
         ]
       }
     },
@@ -983,6 +1139,19 @@
           "melee",
           "knife",
           "bash"
+        ],
+        "fire_ads": [
+          "ads_fire",
+          "fire_ads"
+        ],
+        "reload_empty": [
+          "reload_empty",
+          "reloadempty",
+          "empty_reload"
+        ],
+        "lastshot": [
+          "lastshot",
+          "lastfire"
         ]
       }
     },
@@ -1050,6 +1219,19 @@
           "melee",
           "knife",
           "bash"
+        ],
+        "fire_ads": [
+          "ads_fire",
+          "fire_ads"
+        ],
+        "reload_empty": [
+          "reload_empty",
+          "reloadempty",
+          "empty_reload"
+        ],
+        "lastshot": [
+          "lastshot",
+          "lastfire"
         ]
       }
     },
@@ -1117,6 +1299,19 @@
           "melee",
           "knife",
           "bash"
+        ],
+        "fire_ads": [
+          "ads_fire",
+          "fire_ads"
+        ],
+        "reload_empty": [
+          "reload_empty",
+          "reloadempty",
+          "empty_reload"
+        ],
+        "lastshot": [
+          "lastshot",
+          "lastfire"
         ]
       }
     },
@@ -1184,6 +1379,19 @@
           "melee",
           "knife",
           "bash"
+        ],
+        "fire_ads": [
+          "ads_fire",
+          "fire_ads"
+        ],
+        "reload_empty": [
+          "reload_empty",
+          "reloadempty",
+          "empty_reload"
+        ],
+        "lastshot": [
+          "lastshot",
+          "lastfire"
         ]
       }
     },
@@ -1251,6 +1459,19 @@
           "melee",
           "knife",
           "bash"
+        ],
+        "fire_ads": [
+          "ads_fire",
+          "fire_ads"
+        ],
+        "reload_empty": [
+          "reload_empty",
+          "reloadempty",
+          "empty_reload"
+        ],
+        "lastshot": [
+          "lastshot",
+          "lastfire"
         ]
       }
     },
@@ -1318,6 +1539,19 @@
           "melee",
           "knife",
           "bash"
+        ],
+        "fire_ads": [
+          "ads_fire",
+          "fire_ads"
+        ],
+        "reload_empty": [
+          "reload_empty",
+          "reloadempty",
+          "empty_reload"
+        ],
+        "lastshot": [
+          "lastshot",
+          "lastfire"
         ]
       }
     },
@@ -1385,6 +1619,19 @@
           "melee",
           "knife",
           "bash"
+        ],
+        "fire_ads": [
+          "ads_fire",
+          "fire_ads"
+        ],
+        "reload_empty": [
+          "reload_empty",
+          "reloadempty",
+          "empty_reload"
+        ],
+        "lastshot": [
+          "lastshot",
+          "lastfire"
         ]
       }
     },
@@ -1611,6 +1858,19 @@
           "melee",
           "knife",
           "bash"
+        ],
+        "fire_ads": [
+          "ads_fire",
+          "fire_ads"
+        ],
+        "reload_empty": [
+          "reload_empty",
+          "reloadempty",
+          "empty_reload"
+        ],
+        "lastshot": [
+          "lastshot",
+          "lastfire"
         ]
       }
     },
@@ -1678,6 +1938,19 @@
           "melee",
           "knife",
           "bash"
+        ],
+        "fire_ads": [
+          "ads_fire",
+          "fire_ads"
+        ],
+        "reload_empty": [
+          "reload_empty",
+          "reloadempty",
+          "empty_reload"
+        ],
+        "lastshot": [
+          "lastshot",
+          "lastfire"
         ]
       }
     },
@@ -1745,6 +2018,19 @@
           "melee",
           "knife",
           "bash"
+        ],
+        "fire_ads": [
+          "ads_fire",
+          "fire_ads"
+        ],
+        "reload_empty": [
+          "reload_empty",
+          "reloadempty",
+          "empty_reload"
+        ],
+        "lastshot": [
+          "lastshot",
+          "lastfire"
         ]
       }
     },
@@ -1812,6 +2098,19 @@
           "melee",
           "knife",
           "bash"
+        ],
+        "fire_ads": [
+          "ads_fire",
+          "fire_ads"
+        ],
+        "reload_empty": [
+          "reload_empty",
+          "reloadempty",
+          "empty_reload"
+        ],
+        "lastshot": [
+          "lastshot",
+          "lastfire"
         ]
       }
     },
@@ -1879,6 +2178,19 @@
           "melee",
           "knife",
           "bash"
+        ],
+        "fire_ads": [
+          "ads_fire",
+          "fire_ads"
+        ],
+        "reload_empty": [
+          "reload_empty",
+          "reloadempty",
+          "empty_reload"
+        ],
+        "lastshot": [
+          "lastshot",
+          "lastfire"
         ]
       }
     },
@@ -1946,6 +2258,19 @@
           "melee",
           "knife",
           "bash"
+        ],
+        "fire_ads": [
+          "ads_fire",
+          "fire_ads"
+        ],
+        "reload_empty": [
+          "reload_empty",
+          "reloadempty",
+          "empty_reload"
+        ],
+        "lastshot": [
+          "lastshot",
+          "lastfire"
         ]
       }
     },
@@ -2013,6 +2338,19 @@
           "melee",
           "knife",
           "bash"
+        ],
+        "fire_ads": [
+          "ads_fire",
+          "fire_ads"
+        ],
+        "reload_empty": [
+          "reload_empty",
+          "reloadempty",
+          "empty_reload"
+        ],
+        "lastshot": [
+          "lastshot",
+          "lastfire"
         ]
       }
     },
@@ -2080,6 +2418,19 @@
           "melee",
           "knife",
           "bash"
+        ],
+        "fire_ads": [
+          "ads_fire",
+          "fire_ads"
+        ],
+        "reload_empty": [
+          "reload_empty",
+          "reloadempty",
+          "empty_reload"
+        ],
+        "lastshot": [
+          "lastshot",
+          "lastfire"
         ]
       }
     },
@@ -2147,6 +2498,19 @@
           "melee",
           "knife",
           "bash"
+        ],
+        "fire_ads": [
+          "ads_fire",
+          "fire_ads"
+        ],
+        "reload_empty": [
+          "reload_empty",
+          "reloadempty",
+          "empty_reload"
+        ],
+        "lastshot": [
+          "lastshot",
+          "lastfire"
         ]
       }
     }
