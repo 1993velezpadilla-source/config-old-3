@@ -456,6 +456,8 @@ def find_action(token):
 def retarget_action(source,target,source_action,new_name,height_scale):
     source.animation_data_create()
     target.animation_data_create()
+    source.data.pose_position='POSE'
+    target.data.pose_position='POSE'
     source.animation_data.action=source_action
     action=bpy.data.actions.new(new_name)
     target.animation_data.action=action
@@ -469,7 +471,10 @@ def retarget_action(source,target,source_action,new_name,height_scale):
     src_rest={n:rest_local(source,n) for n in common}
     tgt_rest={n:rest_local(target,n) for n in common}
 
-    # Evaluate hierarchy top-down by data bone order.
+    # Rotation-only retarget. Donor and Monja bone lengths/rest pose differ.
+    # Copying donor per-bone translation/scale was stretching the robe and limbs
+    # into long spikes. Preserve target rest translations/scales exactly and
+    # transfer only the donor local rotational delta.
     ordered=[b.name for b in target.data.bones if b.name in common]
     for frame in range(lo,hi+1):
         bpy.context.scene.frame_set(frame)
@@ -477,22 +482,25 @@ def retarget_action(source,target,source_action,new_name,height_scale):
         target_world={}
         for name in ordered:
             s_local=pose_local(source,name)
-            delta=src_rest[name].inverted() @ s_local
-            # In-place locomotion: keep root planted. Pelvis gets scaled vertical bob only.
-            if name=="root":
-                delta.translation=Vector((0.0,0.0,0.0))
-            elif name=="pelvis":
-                tr=delta.translation
-                delta.translation=Vector((0.0,0.0,tr.z*height_scale))
-            desired_local=tgt_rest[name] @ delta
+            src_rest_q=src_rest[name].to_quaternion()
+            src_pose_q=s_local.to_quaternion()
+            delta_q=src_rest_q.inverted() @ src_pose_q
+
+            tgt_rest_local=tgt_rest[name]
+            desired_q=tgt_rest_local.to_quaternion() @ delta_q
+            desired_local=desired_q.to_matrix().to_4x4()
+            desired_local.translation=tgt_rest_local.translation.copy()
+
             tb=target.pose.bones[name]
             parent_name=tb.parent.name if tb.parent and tb.parent.name in target_world else None
             desired_world=(target_world[parent_name] @ desired_local) if parent_name else desired_local
             tb.matrix=desired_world
             target_world[name]=desired_world.copy()
-            tb.keyframe_insert(data_path="location",frame=frame,group=name)
+
             if tb.rotation_mode!='QUATERNION':
                 tb.rotation_mode='QUATERNION'
+            tb.scale=Vector((1.0,1.0,1.0))
+            tb.keyframe_insert(data_path="location",frame=frame,group=name)
             tb.keyframe_insert(data_path="rotation_quaternion",frame=frame,group=name)
             tb.keyframe_insert(data_path="scale",frame=frame,group=name)
 
@@ -501,8 +509,13 @@ def retarget_action(source,target,source_action,new_name,height_scale):
     tr=target.animation_data.nla_tracks.new()
     tr.name="NLA_"+new_name
     tr.strips.new(new_name,lo,action)
-    print("XZOGOT_MONJA_SOURCE_POSE_CLIP_GREEN",new_name,lo,hi,len(common))
-    return {"name":new_name,"frames":[lo,hi],"bones":len(common)}
+    print("XZOGOT_MONJA_SOURCE_POSE_CLIP_GREEN",new_name,lo,hi,len(common),"rotation_only")
+    return {
+        "name":new_name,
+        "frames":[lo,hi],
+        "bones":len(common),
+        "retarget":"rotation_only_preserve_target_lengths",
+    }
 
 def mesh_surface_stats(mesh_objects):
     depsgraph=bpy.context.evaluated_depsgraph_get()
@@ -714,6 +727,68 @@ def glb_raw_bind_stats(path):
         "animation_motion":animation_motion,
     }
 
+def validate_action_deformation(arm,mesh_objects,actions,source_surface):
+    src_min=np.array(source_surface["bounds_min"],dtype=np.float64)
+    src_max=np.array(source_surface["bounds_max"],dtype=np.float64)
+    src_ext=np.sort(np.maximum(src_max-src_min,1e-8))
+    src_diag=float(np.linalg.norm(src_max-src_min))
+    src_area=max(float(source_surface["surface_area"]),1e-8)
+    out={}
+    previous_pose=arm.data.pose_position
+    arm.data.pose_position='POSE'
+    arm.animation_data_create()
+    for action in actions:
+        if action is None:
+            continue
+        frames=[
+            int(math.floor(action.frame_range[0])),
+            int(round((action.frame_range[0]+action.frame_range[1])*0.5)),
+            int(math.ceil(action.frame_range[1])),
+        ]
+        worst_extent=0.0
+        worst_diag=0.0
+        worst_area=0.0
+        samples=[]
+        arm.animation_data.action=action
+        for frame in sorted(set(frames)):
+            bpy.context.scene.frame_set(frame)
+            bpy.context.view_layer.update()
+            s=mesh_surface_stats(mesh_objects)
+            mn=np.array(s["bounds_min"],dtype=np.float64)
+            mx=np.array(s["bounds_max"],dtype=np.float64)
+            ext=np.sort(np.maximum(mx-mn,1e-8))
+            extent_ratio=float(np.max(ext/src_ext))
+            diag_ratio=float(np.linalg.norm(mx-mn)/max(src_diag,1e-8))
+            area_ratio=float(s["surface_area"]/src_area)
+            if not all(math.isfinite(x) for x in (extent_ratio,diag_ratio,area_ratio)):
+                fail(f"{action.name}: non-finite deformation metric")
+            worst_extent=max(worst_extent,extent_ratio)
+            worst_diag=max(worst_diag,diag_ratio)
+            worst_area=max(worst_area,area_ratio)
+            samples.append({
+                "frame":frame,
+                "extent_ratio":extent_ratio,
+                "diag_ratio":diag_ratio,
+                "surface_area_ratio":area_ratio,
+            })
+        if worst_extent>2.75 or worst_diag>2.25 or worst_area>3.0:
+            fail(
+                f"{action.name}: deformation exploded "
+                f"extent={worst_extent:.4f} diag={worst_diag:.4f} area={worst_area:.4f}"
+            )
+        out[action.name]={
+            "max_extent_ratio":worst_extent,
+            "max_diag_ratio":worst_diag,
+            "max_surface_area_ratio":worst_area,
+            "samples":samples,
+        }
+    arm.animation_data.action=None
+    arm.data.pose_position=previous_pose
+    bpy.context.scene.frame_set(0)
+    bpy.context.view_layer.update()
+    print("XZOGOT_MONJA_DEFORMATION_SANITY_GREEN",json.dumps(out,sort_keys=True))
+    return out
+
 def render_preview(arm,mesh_objects,action,label,frame):
     arm.animation_data_create()
     previous_pose_position=arm.data.pose_position
@@ -825,6 +900,13 @@ height_scale=source_height/max(abs(source_height_donor),1e-5)
 baked=[]
 for new_name,token in CLIPS.items():
     baked.append(retarget_action(source_arm,arm,find_action(token),new_name,height_scale))
+
+deformation_sanity=validate_action_deformation(
+    arm,
+    monja_meshes,
+    [bpy.data.actions.get(name) for name in CLIPS.keys()],
+    source_surface,
+)
 
 # Hide donor so previews contain only the nun.
 for o in donor_meshes+[source_arm]:
@@ -972,6 +1054,7 @@ report={
     "actions":out_actions,
     "weight_transfer":weights,
     "baked":baked,
+    "deformation_sanity":deformation_sanity,
     "output_bytes":OUT_GLB.stat().st_size,
     "rig_mode":"source_pose_smooth_weighted_humanoid",
     "old_rigid_region_parenting":False,
