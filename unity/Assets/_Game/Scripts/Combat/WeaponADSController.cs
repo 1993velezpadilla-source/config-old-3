@@ -50,7 +50,11 @@ namespace Sanctum.Zombies.Combat
         {
             if (weaponRoot == null || definition == null) return false;
 
-            Transform authored = FindByNames(weaponRoot, "tag_iron_sights", "tag_ironsights", "tag_ads", "ads_anchor");
+            Transform authored = FindByNames(
+                weaponRoot,
+                "tag_iron_sights", "tag_ironsights", "tag_ads", "ads_anchor",
+                "tag_scope", "scope_view", "scope_anchor");
+
             Vector3 sightWorld;
 
             if (authored != null)
@@ -61,11 +65,27 @@ namespace Sanctum.Zombies.Combat
             {
                 Transform rear = FindByNames(weaponRoot, "rear_sight", "rearsight", "rear sight", "iron_rear", "ads_rear");
                 Transform front = FindByNames(weaponRoot, "front_sight", "frontsight", "front sight", "iron_front", "ads_front");
-                if (rear == null || front == null) return false;
-                sightWorld = Vector3.Lerp(rear.position, front.position, 0.2f);
+
+                if (rear != null && front != null)
+                {
+                    sightWorld = Vector3.Lerp(rear.position, front.position, 0.20f);
+                }
+                else
+                {
+                    // Many recovered WaW viewmodels expose tag_flash but no explicit iron-sight tag.
+                    // Centering the authored muzzle on the camera axis gives a per-weapon fallback
+                    // instead of forcing every gun through one generic ADS translation.
+                    Transform muzzle = FindByNames(weaponRoot, "tag_flash", "muzzle", "muzzle_flash");
+                    if (muzzle == null) return false;
+                    sightWorld = muzzle.position;
+                }
             }
 
-            Vector3 desired = playerCamera.transform.position + playerCamera.transform.forward * 0.18f;
+            Transform cameraTransform = playerCamera.transform;
+            float depth = Vector3.Dot(sightWorld - cameraTransform.position, cameraTransform.forward);
+            depth = Mathf.Clamp(depth, 0.15f, 1.75f);
+
+            Vector3 desired = cameraTransform.position + cameraTransform.forward * depth;
             Vector3 worldDelta = desired - sightWorld;
             Vector3 localDelta = weaponRoot.parent.InverseTransformVector(worldDelta);
             definition.adsLocalPosition = weaponRoot.localPosition + localDelta;

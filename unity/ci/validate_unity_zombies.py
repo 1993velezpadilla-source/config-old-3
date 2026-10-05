@@ -230,6 +230,25 @@ photo_capture = (root / "Assets/_Game/Scripts/Debug/GameplayScreenshotCapture.cs
 if "UNITY_ZOMBIES_SCREENSHOT_DIR" not in photo_capture:
     errors.append("CI screenshot output override missing")
 
+ads_code = (root / "Assets/_Game/Scripts/Combat/WeaponADSController.cs").read_text()
+for token in ["tag_iron_sights", "tag_scope", "tag_flash", "muzzle_flash"]:
+    if token not in ads_code:
+        errors.append(f"per-weapon ADS calibration fallback missing: {token}")
+
+weapon_bootstrap = (root / "Assets/_Game/Scripts/Editor/WeaponCatalogBootstrap.cs").read_text()
+for token in ["ApplyADSPreset", "WeaponClass.Sniper", "adsFieldOfView", "adsSpeed"]:
+    if token not in weapon_bootstrap:
+        errors.append(f"weapon-class ADS tuning missing: {token}")
+
+real_build_workflow = (root.parent / ".github/workflows/unity-zombies-real-build.yml").read_text()
+for token in ["UNITY_LICENSE", "UNITY_EMAIL", "UNITY_PASSWORD"]:
+    if token not in real_build_workflow:
+        errors.append(f"Unity CI secret preflight missing: {token}")
+
+ci_entry_text = (root / "Assets/_Game/Scripts/Editor/UnityZombiesCIEntry.cs").read_text()
+if "SetApplicationIdentifier(NamedBuildTarget.Android" not in ci_entry_text:
+    errors.append("Android application identifier is not target-specific in batchmode")
+
 if errors:
     print("UNITY_ZOMBIES_STATIC_GATE=RED")
     for error in errors:
@@ -251,7 +270,8 @@ print("ZOMBIE_STUCK_RECOVERY=WIRED")
 print("NAVMESH_DERIVED_PLAYER_AND_ZOMBIE_SPAWNS=WIRED")
 print("LANDSCAPE_ONLY_RUNTIME_AND_ANDROID_BUILD=WIRED")
 print("REAL_GAMEPLAY_PHOTO_CAPTURE=WIRED")
-print("GAMECI_REAL_PREVIEW_AND_ANDROID_BUILD=READY_IF_LICENSE_PRESENT")
+print("GAMECI_REAL_PREVIEW_AND_ANDROID_BUILD=READY_IF_CREDENTIALS_PRESENT")
+print("PER_WEAPON_ADS_TAG_OR_MUZZLE_CALIBRATION=WIRED")
 print("URP_MOBILE_PIPELINE_AND_POST=WIRED")
 print("MOBILE_HUD_SOURCE_AND_TOUCH_LAYOUT=WIRED")
 print("ADS_DAMAGE_ROUNDS_BARRICADES_PAP_MOBILE_TOUCH_GYRO_LIGHTING=WIRED")

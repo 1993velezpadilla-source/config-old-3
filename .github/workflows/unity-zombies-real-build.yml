@@ -16,6 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+      UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+      UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
     steps:
       - uses: actions/checkout@v5
 
@@ -23,12 +25,12 @@ jobs:
         id: license
         shell: bash
         run: |
-          if [ -n "$UNITY_LICENSE" ]; then
+          if [ -n "$UNITY_LICENSE" ] && [ -n "$UNITY_EMAIL" ] && [ -n "$UNITY_PASSWORD" ]; then
             echo "available=true" >> "$GITHUB_OUTPUT"
             echo "Unity license secret detected."
           else
             echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "UNITY_LICENSE is not configured; real Unity preview build is skipped." >> "$GITHUB_STEP_SUMMARY"
+            echo "Unity CI credentials incomplete. Required: UNITY_LICENSE + UNITY_EMAIL + UNITY_PASSWORD. Real preview build skipped." >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Build real Linux preview
@@ -36,6 +38,8 @@ jobs:
         uses: game-ci/unity-builder@v6.0.0
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
         with:
           projectPath: unity
           unityVersion: auto
@@ -71,6 +75,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+      UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+      UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
     steps:
       - uses: actions/checkout@v5
 
@@ -78,11 +84,11 @@ jobs:
         id: license
         shell: bash
         run: |
-          if [ -n "$UNITY_LICENSE" ]; then
+          if [ -n "$UNITY_LICENSE" ] && [ -n "$UNITY_EMAIL" ] && [ -n "$UNITY_PASSWORD" ]; then
             echo "available=true" >> "$GITHUB_OUTPUT"
           else
             echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "UNITY_LICENSE is not configured; Android APK build is skipped." >> "$GITHUB_STEP_SUMMARY"
+            echo "Unity CI credentials incomplete. Required: UNITY_LICENSE + UNITY_EMAIL + UNITY_PASSWORD. Android APK build skipped." >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Build real Android APK
@@ -90,6 +96,8 @@ jobs:
         uses: game-ci/unity-builder@v6.0.0
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
         with:
           projectPath: unity
           unityVersion: auto

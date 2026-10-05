@@ -1,6 +1,7 @@
 #if UNITY_EDITOR
 using System;
 using UnityEditor;
+using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
 
@@ -46,7 +47,7 @@ namespace Sanctum.Zombies.EditorTools
             PlayerSettings.companyName = "Bubblegum Engine";
             PlayerSettings.productName = "Sanctum Zombies";
             PlayerSettings.bundleVersion = "0.1.0";
-            PlayerSettings.applicationIdentifier = "com.bubblegumengine.sanctumzombies";
+            PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, "com.bubblegumengine.sanctumzombies");
         }
     }
 }

@@ -97,6 +97,7 @@ namespace Sanctum.Zombies.EditorTools
                 definition.hipSpreadDegrees = row.hipSpread;
                 definition.adsSpreadDegrees = row.adsSpread;
                 definition.headMultiplier = row.headMultiplier;
+                ApplyADSPreset(definition);
 
                 EditorUtility.SetDirty(definition);
                 built++;
@@ -105,6 +106,37 @@ namespace Sanctum.Zombies.EditorTools
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Debug.Log($"UNITY_ZOMBIES weapon bootstrap: {built}/{table.weapons.Length} REAL viewmodels bound.");
+        }
+
+        private static void ApplyADSPreset(WeaponDefinition definition)
+        {
+            switch (definition.weaponClass)
+            {
+                case WeaponClass.Pistol:
+                    definition.adsFieldOfView = 62f;
+                    definition.adsSpeed = 17f;
+                    break;
+                case WeaponClass.SMG:
+                    definition.adsFieldOfView = 60f;
+                    definition.adsSpeed = 16f;
+                    break;
+                case WeaponClass.Shotgun:
+                    definition.adsFieldOfView = 60f;
+                    definition.adsSpeed = 13f;
+                    break;
+                case WeaponClass.LMG:
+                    definition.adsFieldOfView = 56f;
+                    definition.adsSpeed = 10f;
+                    break;
+                case WeaponClass.Sniper:
+                    definition.adsFieldOfView = 40f;
+                    definition.adsSpeed = 8f;
+                    break;
+                default:
+                    definition.adsFieldOfView = 54f;
+                    definition.adsSpeed = 12.5f;
+                    break;
+            }
         }
     }
 }
