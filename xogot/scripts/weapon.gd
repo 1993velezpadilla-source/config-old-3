@@ -444,6 +444,9 @@ func _apply_source_hands_textures(model: Node3D) -> Dictionary:
 		var node: Node = stack.pop_back()
 		if node is MeshInstance3D:
 			var mesh_node := node as MeshInstance3D
+			# Match the weapon viewmodel render layer so the dedicated
+			# first-person fill light affects the source-authored hands too.
+			mesh_node.layers = mesh_node.layers | (1 << 1)
 			if mesh_node.mesh != null:
 				for surface_idx in range(mesh_node.mesh.get_surface_count()):
 					surfaces += 1
