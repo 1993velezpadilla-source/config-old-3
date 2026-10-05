@@ -7,6 +7,7 @@ on:
       - feature/church-expansion-v1
     paths:
       - "xogot/assets/zombies/monja_clean/monja_basica_clean_rig.glb"
+      - ".github/workflows/xogot-monja-cmu-mocap.yml"
 
 permissions:
   contents: write
