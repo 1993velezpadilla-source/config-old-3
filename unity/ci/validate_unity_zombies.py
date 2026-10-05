@@ -31,7 +31,9 @@ for rel in [
     "Assets/_Game/Scripts/AI/ZombieBarricade.cs",
     "Assets/_Game/Scripts/AI/ZombieSpawnDirector.cs",
     "Assets/_Game/Scripts/Player/MobileFPSController.cs",
+    "Assets/_Game/Scripts/Player/LandscapeModeEnforcer.cs",
     "Assets/_Game/Scripts/Player/TouchFPSInput.cs",
+    "Assets/_Game/Scripts/Debug/GameplayScreenshotCapture.cs",
     "Assets/_Game/Scripts/UI/MobileHUDLayout.cs",
     "Assets/_Game/Scripts/UI/MobileHUDOverlay.cs",
     "Assets/_Game/Scripts/Interaction/PlayerInteractor.cs",
@@ -43,6 +45,7 @@ for rel in [
     "Assets/_Game/Scripts/Editor/WeaponAnimatorBootstrap.cs",
     "Assets/_Game/Scripts/Editor/MonjaImportValidator.cs",
     "Assets/_Game/Scripts/Editor/AndroidBuild.cs",
+    "Assets/_Game/Scripts/Editor/PlaymodeScreenshotMenu.cs",
 ]:
     if not (root / rel).exists():
         errors.append(f"missing runtime/editor code: {rel}")
@@ -139,6 +142,29 @@ else:
         if token not in discovered:
             errors.append(f"clean monja source report missing {token} animation")
 
+android_build = (root / "Assets/_Game/Scripts/Editor/AndroidBuild.cs").read_text()
+for token in [
+    "defaultInterfaceOrientation = UIOrientation.LandscapeLeft",
+    "allowedAutorotateToPortrait = false",
+    "allowedAutorotateToPortraitUpsideDown = false",
+    "allowedAutorotateToLandscapeLeft = true",
+    "allowedAutorotateToLandscapeRight = true",
+]:
+    if token not in android_build:
+        errors.append(f"Android landscape hard-lock missing: {token}")
+
+landscape_runtime = (root / "Assets/_Game/Scripts/Player/LandscapeModeEnforcer.cs").read_text()
+if "Screen.autorotateToPortrait = false" not in landscape_runtime:
+    errors.append("runtime portrait lock missing")
+if "ScreenOrientation.AutoRotation" not in landscape_runtime:
+    errors.append("runtime landscape flip support missing")
+
+photo_capture = (root / "Assets/_Game/Scripts/Debug/GameplayScreenshotCapture.cs").read_text()
+if "ScreenCapture.CaptureScreenshot" not in photo_capture:
+    errors.append("real gameplay screenshot capture missing")
+if "captureFirstPlayableFrame = true" not in photo_capture:
+    errors.append("automatic first playable-frame photo disabled")
+
 if errors:
     print("UNITY_ZOMBIES_STATIC_GATE=RED")
     for error in errors:
@@ -155,6 +181,8 @@ print("RECOVERED_FIRE_WAVS=27")
 print("MG42_FIRE_AUDIO=EXPLICIT_BROWNING_FALLBACK")
 print("MOSIN_RELOAD_SOURCE_GAP=KNOWN_FALLBACK")
 print("MONJA_EMBEDDED_IDLE_WALK_ATTACK_HIT_DEATH=VALID")
+print("LANDSCAPE_ONLY_RUNTIME_AND_ANDROID_BUILD=WIRED")
+print("REAL_GAMEPLAY_PHOTO_CAPTURE=WIRED")
 print("URP_MOBILE_PIPELINE_AND_POST=WIRED")
 print("MOBILE_HUD_SOURCE_AND_TOUCH_LAYOUT=WIRED")
 print("ADS_DAMAGE_ROUNDS_BARRICADES_PAP_MOBILE_TOUCH_GYRO_LIGHTING=WIRED")

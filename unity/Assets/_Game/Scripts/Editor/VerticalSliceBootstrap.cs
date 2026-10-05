@@ -13,6 +13,7 @@ using Sanctum.Zombies.Player;
 using Sanctum.Zombies.Interaction;
 using Sanctum.Zombies.World;
 using Sanctum.Zombies.UI;
+using Sanctum.Zombies.Debugging;
 
 namespace Sanctum.Zombies.EditorTools
 {
@@ -29,6 +30,12 @@ namespace Sanctum.Zombies.EditorTools
         [MenuItem("Zombies/Bootstrap/Build Vertical Slice Scene")]
         public static void Build()
         {
+            PlayerSettings.defaultInterfaceOrientation = UIOrientation.LandscapeLeft;
+            PlayerSettings.allowedAutorotateToPortrait = false;
+            PlayerSettings.allowedAutorotateToPortraitUpsideDown = false;
+            PlayerSettings.allowedAutorotateToLandscapeLeft = true;
+            PlayerSettings.allowedAutorotateToLandscapeRight = true;
+
             URPVisualBootstrap.BuildOrGetPipeline();
             WeaponCatalogBootstrap.Build();
             Directory.CreateDirectory("Assets/_Game/Scenes");
@@ -93,6 +100,9 @@ namespace Sanctum.Zombies.EditorTools
             cam.nearClipPlane = 0.03f;
             cam.tag = "MainCamera";
             URPVisualBootstrap.ConfigureCamera(cam);
+
+            player.AddComponent<LandscapeModeEnforcer>();
+            player.AddComponent<GameplayScreenshotCapture>();
 
             MobileFPSController motor = player.AddComponent<MobileFPSController>();
             motor.Configure(cam);
