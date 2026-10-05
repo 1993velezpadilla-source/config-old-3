@@ -142,10 +142,12 @@ jobs:
           print("XZOGOT_AETHER_INTERACTIVE_EXTRACT_PATHS",len(keep))
           PY
 
+          args=(unpack "$AETHER_LEGACY" -o interactive-census/raw --force)
           while IFS= read -r asset; do
             [ -n "$asset" ] || continue
-            "$REPAK" unpack "$AETHER_LEGACY" -o interactive-census/raw -i "$asset" --force >/dev/null 2>&1 || true
+            args+=(-i "$asset")
           done < interactive-census/extract_paths.txt
+          "$REPAK" "${args[@]}" >/dev/null 2>&1 || true
 
           find interactive-census/raw -type f | sort > interactive-census/raw_files.txt
           python3 - <<'PY'
