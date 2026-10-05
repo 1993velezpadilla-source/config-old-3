@@ -39,6 +39,11 @@ var _mechanical_audio: AudioStreamPlayer3D
 var _dry_fire_audio: AudioStreamPlayer3D
 var _asset_animation_player: AnimationPlayer
 var _weapon_model_root: Node3D
+var _hands_animation_player: AnimationPlayer
+var _hands_model_root: Node3D
+var _melee_animation_player: AnimationPlayer
+var _melee_model_root: Node3D
+var _melee_overlay_timer: float = 0.0
 var _muzzle_anchor: Node3D
 var _shell_anchor: Node3D
 var _muzzle_flash_root: Node3D
@@ -72,6 +77,10 @@ func _process(delta: float) -> void:
 		if _trigger_held and _automatic:
 			request_fire()
 
+	if _melee_overlay_timer > 0.0:
+		_melee_overlay_timer = maxf(0.0, _melee_overlay_timer - delta)
+		if _melee_overlay_timer <= 0.0:
+			_finish_melee_overlay()
 	_update_asset_animation_state()
 	_update_visual_recoil(delta)
 	_update_weapon_fx(delta)
@@ -118,6 +127,11 @@ func _build_view_runtime() -> void:
 func _clear_view_model() -> void:
 	_asset_animation_player = null
 	_weapon_model_root = null
+	_hands_animation_player = null
+	_hands_model_root = null
+	_melee_animation_player = null
+	_melee_model_root = null
+	_melee_overlay_timer = 0.0
 	_muzzle_anchor = null
 	_shell_anchor = null
 	_muzzle_flash_root = null
@@ -198,14 +212,68 @@ func _find_animation_player(node: Node) -> AnimationPlayer:
 			return found
 	return null
 
-func _play_asset_animation(role: String, blend: float = 0.06) -> bool:
-	if _asset_animation_player == null or not is_instance_valid(_asset_animation_player):
+func _aux_animation_aliases(role: String) -> Array[String]:
+	match role:
+		"idle":
+			return ["idle", "hold"]
+		"fire":
+			return ["fire", "shoot", "recoil"]
+		"fire_ads":
+			return ["ads_fire", "fire_ads", "aim_fire"]
+		"reload":
+			return ["reload", "rechamber", "mag", "clip"]
+		"reload_empty":
+			return ["reload_empty", "reloadempty", "empty_reload"]
+		"equip":
+			return ["equip", "pullout", "bringout", "raise"]
+		"ads_in":
+			return ["ads_in", "ads_up", "aim_in"]
+		"ads_out":
+			return ["ads_out", "ads_down", "aim_out"]
+		"melee":
+			return ["knife", "melee", "stab", "slash", "bash"]
+		"perk_use":
+			return ["perk", "drink", "bottle", "purchase", "use", "interact"]
+		"machine_use":
+			return ["use", "interact", "grab", "press", "machine"]
+		_:
+			return [role]
+
+func _animation_name_for_aux_player(player: AnimationPlayer, role: String) -> String:
+	if player == null or not is_instance_valid(player):
+		return ""
+	var aliases := _aux_animation_aliases(role)
+	var best := ""
+	var best_score := -1
+	for anim_name: StringName in player.get_animation_list():
+		var candidate := str(anim_name)
+		var lower := candidate.to_lower()
+		for alias: String in aliases:
+			var token := alias.to_lower()
+			if lower == token:
+				return candidate
+			if lower.contains(token) and token.length() > best_score:
+				best_score = token.length()
+				best = candidate
+	return best
+
+func _play_aux_animation(player: AnimationPlayer, role: String, blend: float = 0.06) -> bool:
+	var animation_name := _animation_name_for_aux_player(player, role)
+	if animation_name.is_empty():
 		return false
-	var animation_name: String = WeaponAssetRegistry.animation_name_for_role(_weapon_id, role)
-	if animation_name.is_empty() or not _asset_animation_player.has_animation(animation_name):
-		return false
-	_asset_animation_player.play(animation_name, blend)
+	player.play(animation_name, blend)
 	return true
+
+func _play_asset_animation(role: String, blend: float = 0.06) -> bool:
+	var played := false
+	if _asset_animation_player != null and is_instance_valid(_asset_animation_player):
+		var animation_name: String = WeaponAssetRegistry.animation_name_for_role(_weapon_id, role)
+		if not animation_name.is_empty() and _asset_animation_player.has_animation(animation_name):
+			_asset_animation_player.play(animation_name, blend)
+			played = true
+	if _hands_animation_player != null and is_instance_valid(_hands_animation_player):
+		played = _play_aux_animation(_hands_animation_player, role, blend) or played
+	return played
 
 func _ensure_asset_idle() -> void:
 	if _asset_animation_player == null or not is_instance_valid(_asset_animation_player):
@@ -223,8 +291,36 @@ func _update_asset_animation_state() -> void:
 	elif not _reloading and _cooldown <= 0.0:
 		_ensure_asset_idle()
 
+func _finish_melee_overlay() -> void:
+	if _melee_model_root != null and is_instance_valid(_melee_model_root):
+		_melee_model_root.visible = false
+	if _weapon_model_root != null and is_instance_valid(_weapon_model_root):
+		_weapon_model_root.visible = true
+	if _hands_model_root != null and is_instance_valid(_hands_model_root):
+		_hands_model_root.visible = true
+	set_meta("weapon_melee_overlay_active", false)
+
 func play_melee_animation() -> void:
-	_play_asset_animation("melee", 0.04)
+	var overlay_played := false
+	if _melee_model_root != null and is_instance_valid(_melee_model_root):
+		_melee_model_root.visible = true
+		if _weapon_model_root != null and is_instance_valid(_weapon_model_root):
+			_weapon_model_root.visible = false
+		if _hands_model_root != null and is_instance_valid(_hands_model_root):
+			_hands_model_root.visible = false
+		overlay_played = _play_aux_animation(_melee_animation_player, "melee", 0.035)
+		_melee_overlay_timer = 0.34
+		if _melee_animation_player != null and is_instance_valid(_melee_animation_player):
+			_melee_overlay_timer = clampf(_melee_animation_player.current_animation_length, 0.22, 0.72)
+		set_meta("weapon_melee_overlay_active", true)
+	if not overlay_played:
+		_play_asset_animation("melee", 0.04)
+	print("XZOGOT_FIRST_PERSON_MELEE_ANIM ", _weapon_id, " overlay=", overlay_played)
+
+func play_interaction_animation(role: String = "machine_use") -> void:
+	if _hands_animation_player != null and is_instance_valid(_hands_animation_player):
+		if _play_aux_animation(_hands_animation_player, role, 0.06):
+			print("XZOGOT_FIRST_PERSON_HANDS_INTERACTION ", _weapon_id, " role=", role)
 
 func get_mapmod_asset_status() -> Dictionary:
 	return WeaponAssetRegistry.inspect(_weapon_id)
@@ -505,6 +601,33 @@ func _refresh_view_assets(def: Dictionary) -> void:
 		else:
 			set_meta("weapon_asset_lane", "missing_real_asset")
 			push_warning("XZOGOT_REAL_WEAPON_ASSET_REQUIRED " + _weapon_id + " " + model_path)
+
+	var hands_path := WeaponAssetRegistry.preferred_hands_path(_weapon_id)
+	var hands_res: Resource = _load_optional_asset(hands_path)
+	if hands_res is PackedScene and _view_root != null:
+		var hands_node: Node = (hands_res as PackedScene).instantiate()
+		hands_node.name = "FirstPersonHands"
+		_view_root.add_child(hands_node)
+		if hands_node is Node3D:
+			_hands_model_root = hands_node as Node3D
+		_hands_animation_player = _find_animation_player(hands_node)
+		set_meta("weapon_hands_asset", hands_path)
+		set_meta("weapon_hands_animation_ready", _hands_animation_player != null)
+		print("XZOGOT_FIRST_PERSON_HANDS_LOADED ", _weapon_id, " ", hands_path)
+
+	var melee_path := WeaponAssetRegistry.preferred_melee_viewmodel_path(_weapon_id)
+	var melee_res: Resource = _load_optional_asset(melee_path)
+	if melee_res is PackedScene and _view_root != null:
+		var melee_node: Node = (melee_res as PackedScene).instantiate()
+		melee_node.name = "FirstPersonMeleeOverlay"
+		_view_root.add_child(melee_node)
+		if melee_node is Node3D:
+			_melee_model_root = melee_node as Node3D
+			_melee_model_root.visible = false
+		_melee_animation_player = _find_animation_player(melee_node)
+		set_meta("weapon_melee_viewmodel_asset", melee_path)
+		set_meta("weapon_melee_animation_ready", _melee_animation_player != null)
+		print("XZOGOT_FIRST_PERSON_MELEE_VIEWMODEL_LOADED ", _weapon_id, " ", melee_path)
 
 	if _fire_audio != null:
 		var fire_path: String = WeaponAssetRegistry.preferred_audio_path(
