@@ -525,7 +525,7 @@ def export_selected(arm,mesh_objects):
     )
     props=bpy.ops.export_scene.gltf.get_rna_type().properties.keys()
     if 'export_nla_strips' in props: kwargs['export_nla_strips']=True
-    if 'export_all_actions' in props: kwargs['export_all_actions']=True
+    if 'export_all_actions' in props: kwargs['export_all_actions']=False
     if 'export_force_sampling' in props: kwargs['export_force_sampling']=True
     if 'export_def_bones' in props: kwargs['export_def_bones']=True
     bpy.ops.export_scene.gltf(**kwargs)
@@ -586,6 +586,24 @@ if walk:
 for o in donor_meshes+[source_arm]:
     if bpy.data.objects.get(o.name):
         bpy.data.objects.remove(bpy.data.objects.get(o.name),do_unlink=True)
+
+# Purge donor actions before glTF export. On high-density meshes Blender 4.0's
+# exporter otherwise tries to remap every donor finger/toe curve onto the
+# 23-bone gameplay rig, emitting thousands of "pose.bones[...] not found"
+# warnings and spending tens of minutes on actions that must not ship anyway.
+# Keep only actions referenced by the target Monja's NLA strips.
+keep_action_names=set()
+if arm.animation_data:
+    if arm.animation_data.action:
+        keep_action_names.add(arm.animation_data.action.name)
+    for track in arm.animation_data.nla_tracks:
+        for strip in track.strips:
+            if strip.action:
+                keep_action_names.add(strip.action.name)
+for action in list(bpy.data.actions):
+    if action.name not in keep_action_names:
+        bpy.data.actions.remove(action)
+print("XZOGOT_MONJA_DONOR_ACTIONS_PURGED_GREEN",sorted(keep_action_names),len(bpy.data.actions))
 
 arm.data.pose_position='REST'
 if arm.animation_data:
