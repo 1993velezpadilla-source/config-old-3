@@ -274,6 +274,8 @@ def export_target(target,target_meshes):
 def render_preview(target,target_meshes,action_name,label):
     action=bpy.data.actions.get(action_name)
     if action is None:return
+    previous_pose_position=target.data.pose_position
+    target.data.pose_position='POSE'
     target.animation_data_create(); target.animation_data.action=action
     mid=int((action.frame_range[0]+action.frame_range[1])*0.5)
     bpy.context.scene.frame_set(mid); bpy.context.view_layer.update()
@@ -309,6 +311,70 @@ def render_preview(target,target_meshes,action_name,label):
     scene.render.filepath=str(OUT/(label+".png"))
     bpy.ops.render.render(write_still=True)
     target.animation_data.action=None
+    target.data.pose_position=previous_pose_position
+
+def glb_animation_motion(path):
+    import struct
+    data=Path(path).read_bytes()
+    if len(data)<20 or data[:4]!=b"glTF":
+        fail("CMU exported GLB header invalid")
+    pos=12
+    doc=None
+    bin_blob=None
+    while pos+8<=len(data):
+        chunk_len,chunk_type=struct.unpack_from("<II",data,pos)
+        chunk=data[pos+8:pos+8+chunk_len]
+        if chunk_type==0x4E4F534A:
+            doc=json.loads(chunk.decode("utf-8").rstrip("\x00 \t\r\n"))
+        elif chunk_type==0x004E4942:
+            bin_blob=chunk
+        pos += 8 + chunk_len
+    if doc is None or bin_blob is None:
+        fail("CMU exported GLB missing JSON/BIN")
+
+    dtypes={5120:np.int8,5121:np.uint8,5122:np.int16,5123:np.uint16,5125:np.uint32,5126:np.float32}
+    dims={"SCALAR":1,"VEC2":2,"VEC3":3,"VEC4":4,"MAT4":16}
+    def read_accessor(index):
+        acc=doc["accessors"][index]
+        bv=doc["bufferViews"][acc["bufferView"]]
+        dtype=dtypes[acc["componentType"]]
+        width=dims[acc["type"]]
+        off=int(bv.get("byteOffset",0))+int(acc.get("byteOffset",0))
+        stride=int(bv.get("byteStride",np.dtype(dtype).itemsize*width))
+        count=int(acc["count"])
+        item_bytes=np.dtype(dtype).itemsize*width
+        if stride==item_bytes:
+            return np.frombuffer(bin_blob,dtype=dtype,count=count*width,offset=off).reshape((count,width)).copy()
+        out=np.empty((count,width),dtype=dtype)
+        for i in range(count):
+            out[i]=np.frombuffer(bin_blob,dtype=dtype,count=width,offset=off+i*stride)
+        return out
+
+    motion={}
+    for anim in doc.get("animations",[]):
+        name=anim.get("name","Animation")
+        varying=0
+        sampled=0
+        max_range=0.0
+        for channel in anim.get("channels",[]):
+            target_path=channel.get("target",{}).get("path")
+            if target_path not in ("translation","rotation","scale"):
+                continue
+            sampler=anim["samplers"][int(channel["sampler"])]
+            values=read_accessor(int(sampler["output"])).astype(np.float64)
+            if len(values)<2:
+                continue
+            sampled += 1
+            r=float(np.max(np.max(values,axis=0)-np.min(values,axis=0)))
+            max_range=max(max_range,r)
+            if r>1e-5:
+                varying += 1
+        motion[name]={
+            "sampled_channels":int(sampled),
+            "varying_channels":int(varying),
+            "max_component_range":float(max_range),
+        }
+    return motion
 
 # -------- main --------
 if not BASE.is_file(): fail("base source-pose Monja missing")
@@ -334,6 +400,7 @@ base_actions=target_existing_actions(target)
 if not any("Zombie_Walk_Clean".lower() in x.lower() for x in base_actions):
     fail("base clean Monja does not expose expected clean walk action")
 
+target.data.pose_position='POSE'
 baked=[]
 for new_name,fbx in CLIPS:
     before=snapshot()
@@ -364,9 +431,24 @@ render_preview(target,target_meshes,"CMU_DragBadLeg_105_25","cmu_drag_bad_leg_mi
 render_preview(target,target_meshes,"CMU_Crawl_111_03","cmu_crawl_mid")
 render_preview(target,target_meshes,"CMU_Strike_02_05","cmu_strike_mid")
 
+target.data.pose_position='POSE'
+if target.animation_data:
+    target.animation_data.action=None
 export_target(target,target_meshes)
 if not OUT_GLB.is_file(): fail("CMU augmented GLB missing")
 out_bytes=OUT_GLB.stat().st_size
+raw_animation_motion=glb_animation_motion(OUT_GLB)
+expected_motion={}
+for name,_ in CLIPS:
+    matches=[(anim,metric) for anim,metric in raw_animation_motion.items() if name.lower() in anim.lower()]
+    expected_motion[name]=matches[0][1] if matches else None
+raw_animation_motion_valid=all(
+    metric is not None
+    and metric["varying_channels"]>=3
+    and metric["max_component_range"]>1e-4
+    for metric in expected_motion.values()
+)
+print("XZOGOT_MONJA_CMU_RAW_ANIMATION_MOTION",json.dumps(expected_motion,sort_keys=True))
 
 # Validate exported deliverable.
 reset()
@@ -439,6 +521,8 @@ report={
     "output_actions":out_actions,
     "missing_cmu_actions":missing,
     "output_bytes":out_bytes,
+    "raw_glb_animation_motion":expected_motion,
+    "raw_glb_animation_motion_valid":bool(raw_animation_motion_valid),
     "mocap_provenance":{
         "provider":"Carnegie Mellon University Graphics Lab Motion Capture Database",
         "capture":"human marker-based Vicon motion capture",
@@ -455,10 +539,13 @@ if not report["geometry_conserved"]:
         f"bounds_delta={bounds_delta} bounds_tol={bounds_tolerance}"
     )
 if len(out_arm)!=1 or report["bones"]<20: fail("target skeleton lost")
+if not report["raw_glb_animation_motion_valid"]:
+    fail("exported CMU animation channels are static "+repr(expected_motion))
 if missing: fail("missing exported CMU actions: "+repr(missing))
 if len(baked)!=9: fail("expected nine CMU clips")
 
 print("XZOGOT_MONJA_CMU_GEOMETRY_GREEN",out_vertices,out_polygons,out_triangles)
 print("XZOGOT_MONJA_CMU_9_REAL_MOCAP_CLIPS_GREEN",expected)
+print("XZOGOT_MONJA_CMU_ANIMATION_MOTION_GREEN",json.dumps(expected_motion,sort_keys=True))
 print("XZOGOT_MONJA_CMU_PROFILE_GREEN",PROFILE)
 print("XZOGOT_MONJA_CMU_RIG_GREEN",report["bones"],out_bytes)
