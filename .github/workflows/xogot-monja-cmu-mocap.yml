@@ -75,11 +75,20 @@ jobs:
           set -euo pipefail
           rm -rf xogot/build/monja-cmu-mocap
           mkdir -p xogot/build/monja-cmu-mocap
-          timeout 2700 blender -b --python xogot/tools/augment_monja_cmu_mocap.py -- \
+          timeout 1500 blender -b --python xogot/tools/augment_monja_cmu_mocap.py -- \
             --base "$PWD/xogot/build/monja-cmu-input/monja_basica_clean_rig.glb" \
             --output-dir "$PWD/xogot/build/monja-cmu-mocap" \
             --output-name monja_basica_cmu_rig.glb \
             2>&1 | tee xogot/build/monja-cmu-mocap/blender.log
+          test -s xogot/build/monja-cmu-mocap/cmu_animation_only.glb
+          python3 xogot/tools/merge_glb_animations.py \
+            --base xogot/build/monja-cmu-input/monja_basica_clean_rig.glb \
+            --animations xogot/build/monja-cmu-mocap/cmu_animation_only.glb \
+            --output xogot/build/monja-cmu-mocap/monja_basica_cmu_rig.glb \
+            --prefix CMU_ \
+            --report xogot/build/monja-cmu-mocap/report.json \
+            2>&1 | tee xogot/build/monja-cmu-mocap/merge.log
+          grep -q "XZOGOT_GLTF_ANIMATION_MERGE_GREEN" xogot/build/monja-cmu-mocap/merge.log
           grep -q "XZOGOT_MONJA_CMU_GEOMETRY_GREEN" xogot/build/monja-cmu-mocap/blender.log
           grep -q "XZOGOT_MONJA_CMU_9_REAL_MOCAP_CLIPS_GREEN" xogot/build/monja-cmu-mocap/blender.log
           grep -q "XZOGOT_MONJA_CMU_RIG_GREEN" xogot/build/monja-cmu-mocap/blender.log
@@ -186,6 +195,8 @@ jobs:
           path: |
             xogot/build/monja-cmu-mocap/report.json
             xogot/build/monja-cmu-mocap/blender.log
+            xogot/build/monja-cmu-mocap/merge.log
+            xogot/build/monja-cmu-mocap/cmu_animation_only.glb
             xogot/build/monja-cmu-mocap/cmu_zombie_walk_mid.png
             xogot/build/monja-cmu-mocap/cmu_drag_bad_leg_mid.png
             xogot/build/monja-cmu-mocap/cmu_crawl_mid.png
