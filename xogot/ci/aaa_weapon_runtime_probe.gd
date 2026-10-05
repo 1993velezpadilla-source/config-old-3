@@ -101,9 +101,44 @@ func _run_probe() -> void:
 			_fail(19, "runtime selected missing asset lane " + id)
 			return
 		var ads_mode := str(weapon.call("get_ads_calibration_mode"))
-		if ads_mode != "source_pending":
-			_fail(20, "ADS must remain source_pending until exact archive metadata is bound " + id)
-			return
+		if id == "mp40":
+			if ads_mode != "source_datatable":
+				_fail(20, "MP40 must use recovered DT_Weapons ADS transform, got " + ads_mode)
+				return
+			if not bool(weapon.get_meta("weapon_source_weapon_attachment_ready", false)):
+				_fail(35, "MP40 source tag_weapon attachment missing")
+				return
+			if str(weapon.get_meta("weapon_source_rig_mode", "")) != "legacy_hands_tag_weapon":
+				_fail(36, "MP40 source hands rig mode missing")
+				return
+			if not bool(weapon.get_meta("weapon_hands_animation_ready", false)):
+				_fail(37, "MP40 source hands AnimationPlayer missing")
+				return
+			if not bool(weapon.get_meta("weapon_hands_texture_ready", false)):
+				_fail(
+					38,
+					"MP40 source hands textures incomplete "
+					+ str(weapon.get_meta("weapon_hands_textured_surfaces", 0))
+					+ "/"
+					+ str(weapon.get_meta("weapon_hands_texture_surfaces", 0))
+				)
+				return
+			if str(weapon.get_meta("weapon_source_presentation_table", "")).find("DT_Weapons") < 0:
+				_fail(39, "MP40 DT_Weapons provenance missing")
+				return
+			if int(weapon.get_meta("weapon_source_presentation_row", -1)) != 5:
+				_fail(40, "MP40 DT_Weapons row provenance mismatch")
+				return
+			if absf(float(weapon.get_meta("weapon_source_ads_in_time", 0.0)) - 0.20) > 0.0001:
+				_fail(41, "MP40 source ADS-in timing mismatch")
+				return
+			if absf(float(weapon.get_meta("weapon_source_ads_out_time", 0.0)) - 0.20) > 0.0001:
+				_fail(42, "MP40 source ADS-out timing mismatch")
+				return
+		else:
+			if ads_mode != "source_pending":
+				_fail(20, "ADS must remain source_pending until exact archive metadata is bound " + id)
+				return
 
 		var yaw_fix := float(weapon.get_meta("weapon_model_yaw_correction_deg", 0.0))
 		if absf(yaw_fix - 90.0) > 0.01:
@@ -182,6 +217,14 @@ func _run_probe() -> void:
 		if float(pack_stats.get("damage", 0.0)) <= float(base_stats.get("damage", 0.0)):
 			_fail(26, "PaP did not increase damage " + id)
 			return
+
+		if id == "mp40":
+			print(
+				"XZOGOT_AAA_MP40_SOURCE_RIG_GREEN hands=",
+				weapon.get_meta("weapon_hands_asset", ""),
+				" hip=", weapon.get_meta("weapon_source_hand_transform_position", Vector3.ZERO),
+				" ads=", weapon.get_meta("weapon_source_ads_transform_position", Vector3.ZERO)
+			)
 
 		print(
 			"XZOGOT_AAA_WEAPON_GREEN ",
