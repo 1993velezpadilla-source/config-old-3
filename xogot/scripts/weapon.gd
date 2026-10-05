@@ -54,6 +54,9 @@ var _asset_animation_player: AnimationPlayer
 var _weapon_model_root: Node3D
 var _hands_animation_player: AnimationPlayer
 var _hands_model_root: Node3D
+var _source_hands_skeleton: Skeleton3D
+var _source_weapon_attachment: BoneAttachment3D
+var _source_weapon_bone_idx: int = -1
 var _melee_animation_player: AnimationPlayer
 var _melee_model_root: Node3D
 var _melee_overlay_timer: float = 0.0
@@ -155,6 +158,9 @@ func _clear_view_model() -> void:
 	_weapon_model_root = null
 	_hands_animation_player = null
 	_hands_model_root = null
+	_source_hands_skeleton = null
+	_source_weapon_attachment = null
+	_source_weapon_bone_idx = -1
 	_melee_animation_player = null
 	_melee_model_root = null
 	_melee_overlay_timer = 0.0
@@ -395,6 +401,27 @@ func _find_named_node3d(node: Node, aliases: Array[String]) -> Node3D:
 			return found
 	return null
 
+func _sync_source_weapon_attachment() -> void:
+	if (
+		_source_hands_skeleton == null
+		or not is_instance_valid(_source_hands_skeleton)
+		or _source_weapon_attachment == null
+		or not is_instance_valid(_source_weapon_attachment)
+		or _source_weapon_bone_idx < 0
+	):
+		return
+	# BoneAttachment3D created at runtime was retaining the bind/rest transform
+	# even while Skeleton3D.get_bone_global_pose() was correctly animated.
+	# Copy the authoritative animated bone pose directly; no presentation
+	# offsets or guessed corrections are involved.
+	var animated_pose := _source_hands_skeleton.get_bone_global_pose(_source_weapon_bone_idx)
+	_source_weapon_attachment.transform = animated_pose
+	set_meta("weapon_source_attachment_manual_pose_sync", true)
+	set_meta("weapon_source_attachment_pose", animated_pose)
+
+func _on_source_hands_skeleton_updated() -> void:
+	_sync_source_weapon_attachment()
+
 func _find_skeleton_bone_attachment(node: Node, aliases: Array[String], attachment_name: String) -> Node3D:
 	if node is Skeleton3D:
 		var skeleton := node as Skeleton3D
@@ -405,8 +432,18 @@ func _find_skeleton_bone_attachment(node: Node, aliases: Array[String], attachme
 				if lower_name == alias.to_lower() or lower_name.contains(alias.to_lower()):
 					var attachment := BoneAttachment3D.new()
 					attachment.name = attachment_name
-					attachment.bone_name = skeleton.get_bone_name(bone_idx)
+					# Add to the Skeleton3D first, then resolve by index/name.
+					# Setting only bone_name before parenting can leave a runtime
+					# attachment initialized from the bind pose.
 					skeleton.add_child(attachment)
+					attachment.bone_idx = bone_idx
+					attachment.bone_name = skeleton.get_bone_name(bone_idx)
+					_source_hands_skeleton = skeleton
+					_source_weapon_attachment = attachment
+					_source_weapon_bone_idx = bone_idx
+					if not skeleton.skeleton_updated.is_connected(_on_source_hands_skeleton_updated):
+						skeleton.skeleton_updated.connect(_on_source_hands_skeleton_updated)
+					_sync_source_weapon_attachment()
 					return attachment
 	for child: Node in node.get_children():
 		var found := _find_skeleton_bone_attachment(child, aliases, attachment_name)
@@ -569,6 +606,7 @@ func _bind_weapon_to_source_hands() -> bool:
 	_weapon_model_root.reparent(attachment, false)
 	_weapon_model_root.transform = Transform3D.IDENTITY
 	_weapon_model_root.scale = Vector3.ONE
+	_sync_source_weapon_attachment()
 
 	if WeaponViewmodelSourcePresentation.has_source_presentation(_weapon_id):
 		_hip_pose_position = WeaponViewmodelSourcePresentation.hip_position(_weapon_id)
