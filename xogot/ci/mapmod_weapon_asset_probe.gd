@@ -33,9 +33,14 @@ func _run() -> void:
 		return
 
 	var required_roles: Array = policy.get("required_animation_roles", []) as Array
-	for role: String in ["idle","fire","ads_in","ads_out","reload","equip","lower","melee"]:
+	for role: String in ["idle","fire","reload","equip"]:
 		if not required_roles.has(role):
-			_fail(6, "required animation role missing: " + role)
+			_fail(6, "required core animation role missing: " + role)
+			return
+	var optional_roles: Array = policy.get("optional_animation_roles", []) as Array
+	for role: String in ["ads_in","ads_out","lower","melee","fire_ads","reload_empty","lastshot"]:
+		if not optional_roles.has(role):
+			_fail(6, "optional authored animation role missing from policy: " + role)
 			return
 
 	var final_requirements: Array = policy.get("final_ready_requires", []) as Array
@@ -84,9 +89,14 @@ func _run() -> void:
 				return
 
 		var aliases: Dictionary = rec.get("required_animation_aliases", {}) as Dictionary
+		var optional_aliases: Dictionary = rec.get("optional_animation_aliases", {}) as Dictionary
 		for role: String in required_roles:
 			if not aliases.has(role) or (aliases[role] as Array).is_empty():
-				_fail(11, "animation aliases missing for %s/%s" % [id, role])
+				_fail(11, "core animation aliases missing for %s/%s" % [id, role])
+				return
+		for role: String in optional_roles:
+			if optional_aliases.has(role) and (optional_aliases[role] as Array).is_empty():
+				_fail(11, "optional animation aliases empty for %s/%s" % [id, role])
 				return
 
 		var report := WeaponAssetRegistry.inspect(id)
