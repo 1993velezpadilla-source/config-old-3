@@ -311,11 +311,26 @@ func _play_asset_animation(role: String, blend: float = 0.06) -> bool:
 	return played
 
 func _ensure_asset_idle() -> void:
-	if _asset_animation_player == null or not is_instance_valid(_asset_animation_player):
-		return
-	if _asset_animation_player.is_playing():
-		return
-	_play_asset_animation("idle", 0.10)
+	# Keep gun and source hands idle independently. The old implementation
+	# watched only the gun AnimationPlayer and then called _play_asset_animation,
+	# which restarted HandIdleMP40 every frame whenever the gun had no active
+	# idle. With a 0.10 s blend that pinned the hand skeleton near its rest pose.
+	if _asset_animation_player != null and is_instance_valid(_asset_animation_player):
+		var gun_idle := WeaponAssetRegistry.animation_name_for_role(_weapon_id, "idle")
+		if (
+			not gun_idle.is_empty()
+			and _asset_animation_player.has_animation(gun_idle)
+			and str(_asset_animation_player.current_animation) != gun_idle
+		):
+			_asset_animation_player.play(gun_idle, 0.10)
+
+	if _hands_animation_player != null and is_instance_valid(_hands_animation_player):
+		var hands_idle := _animation_name_for_aux_player(_hands_animation_player, "idle")
+		if (
+			not hands_idle.is_empty()
+			and str(_hands_animation_player.current_animation) != hands_idle
+		):
+			_hands_animation_player.play(hands_idle, 0.10)
 
 func _update_asset_animation_state() -> void:
 	var ads_now: bool = is_ads_active()
