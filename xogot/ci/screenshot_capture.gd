@@ -166,6 +166,23 @@ func _capture() -> void:
 			push_error("SCREENSHOT: MP40 source hands animation missing")
 			quit(20)
 			return
+		var hands_report_path := "res://assets/weapons/aether_waw_hands/legacy_richtofen/animation-report.json"
+		var hands_report_file := FileAccess.open(hands_report_path, FileAccess.READ)
+		if hands_report_file == null:
+			push_error("SCREENSHOT: MP40 source hands animation report unreadable")
+			quit(23)
+			return
+		var hands_report_value: Variant = JSON.parse_string(hands_report_file.get_as_text())
+		if not (hands_report_value is Dictionary):
+			push_error("SCREENSHOT: MP40 source hands animation report invalid")
+			quit(24)
+			return
+		var hands_report: Dictionary = hands_report_value
+		if absf(float(hands_report.get("translation_scale", 0.0)) - 0.01) > 0.000001:
+			push_error("SCREENSHOT: MP40 hand PSA translation units are not cm->m")
+			quit(25)
+			return
+		print("XZOGOT_SCREENSHOT_HAND_UNITS_GREEN scale=0.01")
 		player.set_meta("ads_toggled", true)
 		# Recovered DT_Weapons ADS in/out time is 0.20 s; wait beyond the
 		# authored transition so the screenshot captures settled ADS.
