@@ -171,10 +171,10 @@ jobs:
           set -euo pipefail
           git config user.name "XZOGOT Asset Bot"
           git config user.email "xogot-asset-bot@users.noreply.github.com"
-          git pull --rebase origin feature/church-expansion-v1
           git add -A xogot/assets/zombies/monja_clean/
           if ! git diff --cached --quiet; then
             git commit -m "asset: add nine real CMU mocap clips to Monja"
+            git pull --rebase origin feature/church-expansion-v1
             git push origin HEAD:feature/church-expansion-v1
           fi
 
