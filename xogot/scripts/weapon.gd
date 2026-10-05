@@ -680,6 +680,69 @@ func _bounds_in_camera(model: Node3D) -> Dictionary:
 		"visible": model.is_visible_in_tree(),
 	}
 
+func _source_hands_animation_debug() -> Dictionary:
+	var report := {
+		"skeleton_found": false,
+		"tag_weapon_found": false,
+		"animation_found": false,
+		"animation_name": "",
+		"animation_length": 0.0,
+		"animation_loop_mode": -1,
+		"animation_track_count": 0,
+		"tag_weapon_tracks": [],
+	}
+	if _hands_model_root == null:
+		return report
+	var skeleton: Skeleton3D = null
+	var stack: Array[Node] = [_hands_model_root]
+	while not stack.is_empty():
+		var node: Node = stack.pop_back()
+		if node is Skeleton3D:
+			skeleton = node as Skeleton3D
+			break
+		for child: Node in node.get_children():
+			stack.append(child)
+	if skeleton == null:
+		return report
+	report["skeleton_found"] = true
+	var tag_idx := skeleton.find_bone("tag_weapon")
+	if tag_idx >= 0:
+		report["tag_weapon_found"] = true
+		report["tag_weapon_index"] = tag_idx
+		report["tag_weapon_rest"] = skeleton.get_bone_rest(tag_idx)
+		report["tag_weapon_pose"] = skeleton.get_bone_pose(tag_idx)
+		report["tag_weapon_global_pose"] = skeleton.get_bone_global_pose(tag_idx)
+	if _hands_animation_player == null:
+		return report
+	var anim_name := str(_hands_animation_player.current_animation)
+	report["animation_name"] = anim_name
+	if anim_name.is_empty() or not _hands_animation_player.has_animation(anim_name):
+		return report
+	var animation: Animation = _hands_animation_player.get_animation(anim_name)
+	if animation == null:
+		return report
+	report["animation_found"] = true
+	report["animation_length"] = animation.length
+	report["animation_loop_mode"] = int(animation.loop_mode)
+	report["animation_track_count"] = animation.get_track_count()
+	var tag_tracks: Array[Dictionary] = []
+	for track_idx in range(animation.get_track_count()):
+		var track_path := str(animation.track_get_path(track_idx))
+		if track_path.to_lower().contains("tag_weapon"):
+			var key_count := animation.track_get_key_count(track_idx)
+			var row := {
+				"track": track_idx,
+				"path": track_path,
+				"type": int(animation.track_get_type(track_idx)),
+				"keys": key_count,
+			}
+			if key_count > 0:
+				row["key0_time"] = animation.track_get_key_time(track_idx, 0)
+				row["key0_value"] = animation.track_get_key_value(track_idx, 0)
+			tag_tracks.append(row)
+	report["tag_weapon_tracks"] = tag_tracks
+	return report
+
 func get_first_person_debug_snapshot() -> Dictionary:
 	var attachment_camera_position := Vector3.ZERO
 	var attachment_found := false
@@ -706,6 +769,7 @@ func get_first_person_debug_snapshot() -> Dictionary:
 		"camera_fov": _camera.fov if _camera != null else 0.0,
 		"hands_animation": _hands_animation_player.current_animation if _hands_animation_player != null else "",
 		"hands_animation_position": _hands_animation_player.current_animation_position if _hands_animation_player != null else 0.0,
+		"hands_animation_debug": _source_hands_animation_debug(),
 	}
 
 func _apply_source_hip_pose(model: Node3D) -> bool:
