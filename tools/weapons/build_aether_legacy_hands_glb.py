@@ -137,6 +137,19 @@ def main() -> int:
     if not armatures:
         raise RuntimeError("Legacy hands GLB has no armature")
     armature = max(armatures, key=lambda o: len(o.data.bones))
+
+    # The staged GLB may itself be the output of an earlier animation build.
+    # Never layer newly corrected PSA actions on top of stale imported NLA/actions:
+    # that previously let the old 100x-centimeter HandIdleMP40 survive while the
+    # corrected 0.01-scale action was imported under a suffixed name.
+    for obj in armatures:
+        if obj.animation_data is not None:
+            obj.animation_data_clear()
+    for action in list(bpy.data.actions):
+        bpy.data.actions.remove(action)
+    if len(bpy.data.actions) != 0:
+        raise RuntimeError("Failed to clear stale viewhands actions before PSA import")
+
     bone_names = {b.name for b in armature.data.bones}
     required_tags = {
         "RootBone", "tag_view", "tag_ads", "tag_torso",
@@ -216,6 +229,7 @@ def main() -> int:
         "required_tags": sorted(required_tags),
         "translation_scale": 0.01,
         "translation_units": "ActorX UE cm -> GLB meters",
+        "stale_base_actions_cleared": true,
         "output_bytes": output.stat().st_size,
     }
     output.with_suffix(".animation-report.json").write_text(
