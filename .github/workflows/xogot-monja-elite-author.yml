@@ -19,7 +19,7 @@ concurrency:
 jobs:
   author:
     runs-on: ubuntu-latest
-    timeout-minutes: 55
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v5
         with:
@@ -84,7 +84,7 @@ jobs:
           test -s "$ELITE"
           rm -rf xogot/build/monja-source-pose-rig
           mkdir -p xogot/build/monja-source-pose-rig
-          timeout 3000 blender -b --python xogot/tools/author_monja_source_pose_rig.py -- \
+          timeout 3600 blender -b --python xogot/tools/author_monja_source_pose_rig.py -- \
             --source "$PWD/$ELITE" \
             --profile elite \
             --output-dir "$PWD/xogot/build/monja-source-pose-rig" \
