@@ -58,6 +58,31 @@ func _initialize() -> void:
 				return
 			print("XZOGOT_AETHER_ROLE_GREEN ", weapon_id, " ", role, " -> ", resolved)
 
+		var hip_fire := WeaponAssetRegistry.animation_name_for_role(weapon_id, "fire")
+		var hip_fire_lower := hip_fire.to_lower()
+		var has_clean_fire := false
+		for candidate: String in names:
+			var lower := candidate.to_lower()
+			if lower.contains("fire") and not lower.contains("ads") and not lower.contains("lastshot") and not lower.contains("lastfire"):
+				has_clean_fire = true
+				break
+		if has_clean_fire and (hip_fire_lower.contains("ads") or hip_fire_lower.contains("lastshot") or hip_fire_lower.contains("lastfire")):
+			_fail(12, "%s hip-fire resolved wrong variant: %s" % [weapon_id, hip_fire])
+			return
+
+		var normal_reload := WeaponAssetRegistry.animation_name_for_role(weapon_id, "reload")
+		var normal_reload_lower := normal_reload.to_lower()
+		var has_clean_reload := false
+		for candidate: String in names:
+			var lower := candidate.to_lower()
+			if lower.contains("reload") and not lower.contains("empty") and not lower.contains("partial"):
+				has_clean_reload = true
+				break
+		if has_clean_reload and (normal_reload_lower.contains("empty") or normal_reload_lower.contains("partial")):
+			_fail(13, "%s normal reload resolved wrong variant: %s" % [weapon_id, normal_reload])
+			return
+		print("XZOGOT_AETHER_VARIANT_RESOLUTION_GREEN ", weapon_id, " fire=", hip_fire, " reload=", normal_reload)
+
 		var report := WeaponAssetRegistry.readiness_for(weapon_id)
 		if not bool(report.get("animations", false)):
 			_fail(9, "%s registry animation readiness is false: %s" % [weapon_id, report])
