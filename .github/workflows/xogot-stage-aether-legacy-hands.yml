@@ -1,0 +1,101 @@
+name: Stage Aether Legacy Viewhands
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-stage-aether-legacy-hands.yml"
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: xogot-stage-aether-legacy-hands
+  cancel-in-progress: true
+
+jobs:
+  stage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SOURCE_RUN: "37382140735"
+      SOURCE_ARTIFACT: "aether-source-presentation-metadata"
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: feature/godot-aaa-rebuild-v1
+          fetch-depth: 0
+
+      - name: Download validated first-person source artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          src="$RUNNER_TEMP/aether-firstperson"
+          mkdir -p "$src"
+          gh run download "$SOURCE_RUN" -n "$SOURCE_ARTIFACT" -D "$src"
+          test -s "$src/presentation-export/ProjectAether/Content/FirstPerson/Blueprints/Weapons/Player/BO2/zOrigins/zOriginsRichtofen/BO2SkeletonTest.glb"
+          echo "XZOGOT_LEGACY_HANDS_SOURCE_ARTIFACT_GREEN"
+
+      - name: Stage Legacy Richtofen viewhands and source textures
+        shell: bash
+        run: |
+          set -euo pipefail
+          src="$RUNNER_TEMP/aether-firstperson/presentation-export/ProjectAether/Content"
+          dst="xogot/assets/weapons/aether_waw_hands/legacy_richtofen"
+          mkdir -p "$dst/textures" "$dst/source_materials"
+
+          cp "$src/FirstPerson/Blueprints/Weapons/Player/BO2/zOrigins/zOriginsRichtofen/BO2SkeletonTest.glb" "$dst/viewhands.glb"
+          cp "$src/Assets/Materials/Textures/_-gviewarm_zom_richtofen_l_c.png" "$dst/textures/arm_left_color.png"
+          cp "$src/Assets/Materials/Textures/_-gviewarm_zom_richtofen_r_c.png" "$dst/textures/arm_right_color.png"
+          cp "$src/Assets/Materials/Textures/viewarm_zom_richtofen_n.png" "$dst/textures/arm_normal.png"
+          cp "$src/Assets/Materials/Textures/__-gviewarm_zom_richtofen_s-r_96ca889b.png" "$dst/textures/arm_specular.png"
+          cp "$src/Assets/Materials/mtl_viewarm_zom_richtofen_l_MI.json" "$dst/source_materials/left.json"
+          cp "$src/Assets/Materials/mtl_viewarm_zom_richtofen_r_MI.json" "$dst/source_materials/right.json"
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          dst=Path("xogot/assets/weapons/aether_waw_hands/legacy_richtofen")
+          manifest={
+              "schema":1,
+              "source":"Project Aether UE5.7 first-person export",
+              "source_run":37382140735,
+              "source_asset":"FirstPerson/Blueprints/Weapons/Player/BO2/zOrigins/zOriginsRichtofen/BO2SkeletonTest",
+              "runtime_glb":"res://assets/weapons/aether_waw_hands/legacy_richtofen/viewhands.glb",
+              "armature_lane":"legacy_waw_bo1_bo2",
+              "required_tags":["RootBone","tag_view","tag_ads","tag_torso","tag_weapon","tag_camera","j_wrist_le","j_wrist_ri"],
+              "textures":{
+                  "left_color":"res://assets/weapons/aether_waw_hands/legacy_richtofen/textures/arm_left_color.png",
+                  "right_color":"res://assets/weapons/aether_waw_hands/legacy_richtofen/textures/arm_right_color.png",
+                  "normal":"res://assets/weapons/aether_waw_hands/legacy_richtofen/textures/arm_normal.png",
+                  "specular":"res://assets/weapons/aether_waw_hands/legacy_richtofen/textures/arm_specular.png"
+              }
+          }
+          (dst/"source_manifest.json").write_text(json.dumps(manifest,indent=2)+"\n",encoding="utf-8")
+          PY
+
+          test -s "$dst/viewhands.glb"
+          test -s "$dst/textures/arm_left_color.png"
+          test -s "$dst/textures/arm_right_color.png"
+          test -s "$dst/textures/arm_normal.png"
+          echo "XZOGOT_LEGACY_HANDS_STAGED_GREEN"
+
+      - name: Commit source-authored viewhands
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add xogot/assets/weapons/aether_waw_hands/legacy_richtofen
+          if git diff --cached --quiet; then
+            echo "XZOGOT_LEGACY_HANDS_ALREADY_STAGED"
+            exit 0
+          fi
+          git commit -m "assets: stage source-authored Aether legacy viewhands"
+          git push origin HEAD:feature/godot-aaa-rebuild-v1
+          echo "XZOGOT_LEGACY_HANDS_COMMIT_GREEN"
