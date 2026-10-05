@@ -141,6 +141,7 @@ jobs:
         with:
           name: xogot-aether-legacy-hands-proof
           path: |
+            build/legacy-hands/viewhands.glb
             build/legacy-hands/viewhands.animation-report.json
             build/legacy-hands/blender.log
           if-no-files-found: error
