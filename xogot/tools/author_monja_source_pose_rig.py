@@ -496,7 +496,7 @@ def retarget_action(source,target,source_action,new_name,height_scale):
             # arc, but bound the retarget amplitude for any humanoid using this
             # authoring pipeline.
             smooth=t*t*(3.0-2.0*t)
-            motion_gain=0.50*smooth
+            motion_gain=0.46*smooth
         elif new_name=="Zombie_Attack_Clean":
             motion_gain=0.78*math.sin(math.pi*t)
         elif new_name=="Zombie_Idle_Clean":
@@ -563,7 +563,7 @@ def retarget_action(source,target,source_action,new_name,height_scale):
         "frames":[lo,hi],
         "bones":len(common),
         "retarget":"rotation_only_preserve_target_lengths",
-        "motion_profile":"bounded_action_specific_v3_cloth_safe",
+        "motion_profile":"bounded_action_specific_v4_cloth_safe",
         "source_reversed":new_name=="Zombie_Death_Clean",
     }
 
