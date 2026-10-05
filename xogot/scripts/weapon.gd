@@ -711,13 +711,15 @@ func request_fire() -> void:
 	_shots_fired += 1
 	_apply_recoil_impulse()
 	_trigger_weapon_fx()
-	_play_asset_animation("fire", 0.025)
+	var ads: bool = is_ads_active()
+	var fire_role: String = "fire_ads" if ads else "fire"
+	if not _play_asset_animation(fire_role, 0.025) and fire_role != "fire":
+		_play_asset_animation("fire", 0.025)
 	if _fire_audio != null and _fire_audio.stream != null:
 		_fire_audio.play()
 	if _mechanical_audio != null and _mechanical_audio.stream != null:
 		_mechanical_audio.play()
 
-	var ads: bool = is_ads_active()
 	var spread: float = (_ads_spread_deg if ads else _hip_spread_deg) * _player_modifier("get_spread_multiplier")
 	for pellet in range(_pellets):
 		_fire_hitscan(spread, pellet)
@@ -733,7 +735,9 @@ func request_reload() -> void:
 	_reloading = true
 	_trigger_held = false
 	_reload_timer = reload_time * _player_modifier("get_reload_multiplier")
-	_play_asset_animation("reload", 0.06)
+	var reload_role: String = "reload_empty" if _magazine <= 0 else "reload"
+	if not _play_asset_animation(reload_role, 0.06) and reload_role != "reload":
+		_play_asset_animation("reload", 0.06)
 	if _reload_audio != null and _reload_audio.stream != null:
 		_reload_audio.play()
 
