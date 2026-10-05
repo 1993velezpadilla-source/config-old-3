@@ -23,3 +23,5 @@ jobs:
             --json databaseId,name,workflowName,status,conclusion,headSha,createdAt,updatedAt,url \
             --jq '.[] | select((.name|ascii_downcase|contains("monja")) or (.workflowName|ascii_downcase|contains("monja")))'
           exit 1
+
+# probe after pose-mode animation fix
