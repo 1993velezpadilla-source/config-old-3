@@ -1,0 +1,110 @@
+name: Add CMU Human Mocap to Monja
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/church-expansion-v1
+    paths:
+      - "xogot/assets/zombies/monja_clean/monja_basica_clean_rig.glb"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: xogot-monja-cmu-mocap-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  augment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Install Blender headless dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq blender python3-numpy libegl1 libgl1-mesa-dri mesa-utils
+          blender --version | head -n 2
+
+      - name: Bake nine CMU human mocap clips onto clean Monja
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s xogot/assets/zombies/monja_clean/monja_basica_clean_rig.glb
+          rm -rf xogot/build/monja-cmu-mocap
+          mkdir -p xogot/build/monja-cmu-mocap
+          timeout 2700 blender -b --python xogot/tools/augment_monja_cmu_mocap.py             2>&1 | tee xogot/build/monja-cmu-mocap/blender.log
+          grep -q "XZOGOT_MONJA_CMU_GEOMETRY_GREEN" xogot/build/monja-cmu-mocap/blender.log
+          grep -q "XZOGOT_MONJA_CMU_9_REAL_MOCAP_CLIPS_GREEN" xogot/build/monja-cmu-mocap/blender.log
+          grep -q "XZOGOT_MONJA_CMU_RIG_GREEN" xogot/build/monja-cmu-mocap/blender.log
+          test -s xogot/build/monja-cmu-mocap/monja_basica_cmu_rig.glb
+          test -s xogot/build/monja-cmu-mocap/report.json
+          test -s xogot/build/monja-cmu-mocap/cmu_zombie_walk_mid.png
+          test -s xogot/build/monja-cmu-mocap/cmu_drag_bad_leg_mid.png
+          test -s xogot/build/monja-cmu-mocap/cmu_crawl_mid.png
+          test -s xogot/build/monja-cmu-mocap/cmu_strike_mid.png
+
+      - name: Validate CMU augmented Monja
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path("xogot/build/monja-cmu-mocap/report.json").read_text())
+          assert r["geometry_conserved"] is True
+          assert r["armatures"] == 1
+          assert r["bones"] >= 20
+          assert len(r["baked_cmu"]) == 9
+          assert not r["missing_cmu_actions"]
+          names=" ".join(r["output_actions"]).lower()
+          for token in ("104_41","105_25","74_01","139_19","02_05","111_19","111_03","90_16","140_01"):
+              assert token in names,(token,r["output_actions"])
+          print("XZOGOT_MONJA_CMU_REPORT_GREEN",r["bones"],r["output_bytes"])
+          PY
+
+      - name: Stage CMU Monja candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          SIZE=$(stat -c%s xogot/build/monja-cmu-mocap/monja_basica_cmu_rig.glb)
+          if [ "$SIZE" -ge 95000000 ]; then
+            echo "CMU Monja GLB too large for normal Git: $SIZE"
+            exit 3
+          fi
+          cp xogot/build/monja-cmu-mocap/monja_basica_cmu_rig.glb              xogot/assets/zombies/monja_clean/monja_basica_cmu_rig.glb
+          cp xogot/build/monja-cmu-mocap/report.json              xogot/assets/zombies/monja_clean/cmu_mocap_report.json
+
+      - name: Commit CMU Monja candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "XZOGOT Asset Bot"
+          git config user.email "xogot-asset-bot@users.noreply.github.com"
+          git pull --rebase origin feature/church-expansion-v1
+          git add xogot/assets/zombies/monja_clean/monja_basica_cmu_rig.glb                   xogot/assets/zombies/monja_clean/cmu_mocap_report.json
+          if ! git diff --cached --quiet; then
+            git commit -m "asset: add nine real CMU mocap clips to Monja"
+            git push origin HEAD:feature/church-expansion-v1
+          fi
+
+      - name: Upload CMU Monja proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: monja-cmu-human-mocap-proof
+          path: |
+            xogot/build/monja-cmu-mocap/report.json
+            xogot/build/monja-cmu-mocap/blender.log
+            xogot/build/monja-cmu-mocap/cmu_zombie_walk_mid.png
+            xogot/build/monja-cmu-mocap/cmu_drag_bad_leg_mid.png
+            xogot/build/monja-cmu-mocap/cmu_crawl_mid.png
+            xogot/build/monja-cmu-mocap/cmu_strike_mid.png
+          if-no-files-found: warn
+          retention-days: 14
