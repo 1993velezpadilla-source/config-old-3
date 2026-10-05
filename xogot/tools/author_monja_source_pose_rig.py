@@ -734,6 +734,7 @@ def validate_action_deformation(arm,mesh_objects,actions,source_surface):
     src_diag=float(np.linalg.norm(src_max-src_min))
     src_area=max(float(source_surface["surface_area"]),1e-8)
     out={}
+    violations=[]
     previous_pose=arm.data.pose_position
     arm.data.pose_position='POSE'
     arm.animation_data_create()
@@ -761,7 +762,7 @@ def validate_action_deformation(arm,mesh_objects,actions,source_surface):
             diag_ratio=float(np.linalg.norm(mx-mn)/max(src_diag,1e-8))
             area_ratio=float(s["surface_area"]/src_area)
             if not all(math.isfinite(x) for x in (extent_ratio,diag_ratio,area_ratio)):
-                fail(f"{action.name}: non-finite deformation metric")
+                violations.append(f"{action.name}: non-finite deformation metric")
             worst_extent=max(worst_extent,extent_ratio)
             worst_diag=max(worst_diag,diag_ratio)
             worst_area=max(worst_area,area_ratio)
@@ -771,12 +772,14 @@ def validate_action_deformation(arm,mesh_objects,actions,source_surface):
                 "diag_ratio":diag_ratio,
                 "surface_area_ratio":area_ratio,
             })
-        if worst_extent>2.75 or worst_diag>2.25 or worst_area>3.0:
-            fail(
-                f"{action.name}: deformation exploded "
-                f"extent={worst_extent:.4f} diag={worst_diag:.4f} area={worst_area:.4f}"
+        action_ok=worst_extent<=2.75 and worst_diag<=2.25 and worst_area<=3.0
+        if not action_ok:
+            violations.append(
+                f"{action.name}: extent={worst_extent:.4f} "
+                f"diag={worst_diag:.4f} area={worst_area:.4f}"
             )
         out[action.name]={
+            "valid":bool(action_ok),
             "max_extent_ratio":worst_extent,
             "max_diag_ratio":worst_diag,
             "max_surface_area_ratio":worst_area,
@@ -786,8 +789,12 @@ def validate_action_deformation(arm,mesh_objects,actions,source_surface):
     arm.data.pose_position=previous_pose
     bpy.context.scene.frame_set(0)
     bpy.context.view_layer.update()
-    print("XZOGOT_MONJA_DEFORMATION_SANITY_GREEN",json.dumps(out,sort_keys=True))
-    return out
+    print("XZOGOT_MONJA_DEFORMATION_SANITY_DIAGNOSTIC",json.dumps(out,sort_keys=True))
+    if violations:
+        print("XZOGOT_MONJA_DEFORMATION_SANITY_VIOLATIONS",json.dumps(violations))
+    else:
+        print("XZOGOT_MONJA_DEFORMATION_SANITY_GREEN",json.dumps(out,sort_keys=True))
+    return out,violations
 
 def render_preview(arm,mesh_objects,action,label,frame):
     arm.animation_data_create()
@@ -801,10 +808,10 @@ def render_preview(arm,mesh_objects,action,label,frame):
 
     scene=bpy.context.scene
     scene.render.engine='BLENDER_EEVEE'
-    scene.render.resolution_x=480 if PROFILE=="elite" else 900
-    scene.render.resolution_y=640 if PROFILE=="elite" else 1200
+    scene.render.resolution_x=480
+    scene.render.resolution_y=640
     scene.render.resolution_percentage=100
-    if PROFILE=="elite" and hasattr(scene,"eevee"):
+    if hasattr(scene,"eevee"):
         try:
             scene.eevee.taa_render_samples=12
         except Exception:
@@ -901,7 +908,7 @@ baked=[]
 for new_name,token in CLIPS.items():
     baked.append(retarget_action(source_arm,arm,find_action(token),new_name,height_scale))
 
-deformation_sanity=validate_action_deformation(
+deformation_sanity,deformation_violations=validate_action_deformation(
     arm,
     monja_meshes,
     [bpy.data.actions.get(name) for name in CLIPS.keys()],
@@ -914,10 +921,19 @@ for o in donor_meshes+[source_arm]:
     o.hide_viewport=True
 
 render_preview(arm,monja_meshes,None,"bind_pose",0)
-walk=bpy.data.actions.get("Zombie_Walk_Clean")
-if walk:
-    mid=int((walk.frame_range[0]+walk.frame_range[1])*0.5)
-    render_preview(arm,monja_meshes,walk,"walk_mid",mid)
+for action_name,label in (
+    ("Zombie_Walk_Clean","walk_mid"),
+    ("Zombie_Hit_Clean","hit_mid"),
+    ("Zombie_Attack_Clean","attack_mid"),
+    ("Zombie_Death_Clean","death_mid"),
+):
+    action=bpy.data.actions.get(action_name)
+    if action:
+        mid=int((action.frame_range[0]+action.frame_range[1])*0.5)
+        render_preview(arm,monja_meshes,action,label,mid)
+
+if deformation_violations:
+    fail("deformation sanity failed after diagnostic previews: "+repr(deformation_violations))
 
 # Remove donor objects before export.
 for o in donor_meshes+[source_arm]:
@@ -1055,6 +1071,7 @@ report={
     "weight_transfer":weights,
     "baked":baked,
     "deformation_sanity":deformation_sanity,
+    "deformation_sanity_violations":deformation_violations,
     "output_bytes":OUT_GLB.stat().st_size,
     "rig_mode":"source_pose_smooth_weighted_humanoid",
     "old_rigid_region_parenting":False,
