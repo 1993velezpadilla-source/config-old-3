@@ -1,0 +1,231 @@
+{
+  "schema": 1,
+  "purpose": "data-driven per-weapon Pack-a-Punch balance for Godot/Xogot",
+  "firearm_count": 28,
+  "firearms": {
+    "357": {
+      "base_reference_damage": 105,
+      "pack_damage": 245,
+      "base_reference_magazine": 6,
+      "pack_magazine": 12,
+      "head_multiplier": 2.35,
+      "pellets": 1
+    },
+    "colt": {
+      "base_reference_damage": 35,
+      "pack_damage": 95,
+      "base_reference_magazine": 8,
+      "pack_magazine": 16,
+      "head_multiplier": 2.2,
+      "pellets": 1
+    },
+    "walther": {
+      "base_reference_damage": 32,
+      "pack_damage": 88,
+      "base_reference_magazine": 8,
+      "pack_magazine": 16,
+      "head_multiplier": 2.2,
+      "pellets": 1
+    },
+    "nambu": {
+      "base_reference_damage": 30,
+      "pack_damage": 82,
+      "base_reference_magazine": 8,
+      "pack_magazine": 16,
+      "head_multiplier": 2.15,
+      "pellets": 1
+    },
+    "tt33": {
+      "base_reference_damage": 34,
+      "pack_damage": 90,
+      "base_reference_magazine": 8,
+      "pack_magazine": 16,
+      "head_multiplier": 2.2,
+      "pellets": 1
+    },
+    "mp40": {
+      "base_reference_damage": 30,
+      "pack_damage": 70,
+      "base_reference_magazine": 32,
+      "pack_magazine": 64,
+      "head_multiplier": 2,
+      "pellets": 1
+    },
+    "thompson": {
+      "base_reference_damage": 32,
+      "pack_damage": 76,
+      "base_reference_magazine": 20,
+      "pack_magazine": 40,
+      "head_multiplier": 2,
+      "pellets": 1
+    },
+    "ppsh": {
+      "base_reference_damage": 27,
+      "pack_damage": 65,
+      "base_reference_magazine": 71,
+      "pack_magazine": 115,
+      "head_multiplier": 1.95,
+      "pellets": 1
+    },
+    "type100": {
+      "base_reference_damage": 29,
+      "pack_damage": 70,
+      "base_reference_magazine": 30,
+      "pack_magazine": 60,
+      "head_multiplier": 2,
+      "pellets": 1
+    },
+    "stg": {
+      "base_reference_damage": 34,
+      "pack_damage": 80,
+      "base_reference_magazine": 30,
+      "pack_magazine": 60,
+      "head_multiplier": 2.1,
+      "pellets": 1
+    },
+    "m1": {
+      "base_reference_damage": 72,
+      "pack_damage": 155,
+      "base_reference_magazine": 8,
+      "pack_magazine": 16,
+      "head_multiplier": 2.3,
+      "pellets": 1
+    },
+    "m1a1": {
+      "base_reference_damage": 54,
+      "pack_damage": 120,
+      "base_reference_magazine": 15,
+      "pack_magazine": 30,
+      "head_multiplier": 2.2,
+      "pellets": 1
+    },
+    "gewehr": {
+      "base_reference_damage": 62,
+      "pack_damage": 140,
+      "base_reference_magazine": 10,
+      "pack_magazine": 20,
+      "head_multiplier": 2.25,
+      "pellets": 1
+    },
+    "svt40": {
+      "base_reference_damage": 68,
+      "pack_damage": 150,
+      "base_reference_magazine": 10,
+      "pack_magazine": 20,
+      "head_multiplier": 2.25,
+      "pellets": 1
+    },
+    "arisaka": {
+      "base_reference_damage": 112,
+      "pack_damage": 270,
+      "base_reference_magazine": 5,
+      "pack_magazine": 10,
+      "head_multiplier": 2.6,
+      "pellets": 1
+    },
+    "kar98k": {
+      "base_reference_damage": 110,
+      "pack_damage": 260,
+      "base_reference_magazine": 5,
+      "pack_magazine": 10,
+      "head_multiplier": 2.6,
+      "pellets": 1
+    },
+    "springfield": {
+      "base_reference_damage": 118,
+      "pack_damage": 275,
+      "base_reference_magazine": 5,
+      "pack_magazine": 10,
+      "head_multiplier": 2.8,
+      "pellets": 1
+    },
+    "mosin": {
+      "base_reference_damage": 120,
+      "pack_damage": 285,
+      "base_reference_magazine": 5,
+      "pack_magazine": 10,
+      "head_multiplier": 2.8,
+      "pellets": 1
+    },
+    "ptrs": {
+      "base_reference_damage": 300,
+      "pack_damage": 650,
+      "base_reference_magazine": 5,
+      "pack_magazine": 10,
+      "head_multiplier": 3,
+      "pellets": 1
+    },
+    "trench": {
+      "base_reference_damage": 42,
+      "pack_damage": 82,
+      "base_reference_magazine": 6,
+      "pack_magazine": 12,
+      "head_multiplier": 1.45,
+      "pellets": 8
+    },
+    "doublebarrel": {
+      "base_reference_damage": 52,
+      "pack_damage": 98,
+      "base_reference_magazine": 2,
+      "pack_magazine": 4,
+      "head_multiplier": 1.45,
+      "pellets": 8
+    },
+    "sawnoff": {
+      "base_reference_damage": 46,
+      "pack_damage": 90,
+      "base_reference_magazine": 2,
+      "pack_magazine": 4,
+      "head_multiplier": 1.4,
+      "pellets": 8
+    },
+    "bar": {
+      "base_reference_damage": 42,
+      "pack_damage": 95,
+      "base_reference_magazine": 20,
+      "pack_magazine": 40,
+      "head_multiplier": 2.15,
+      "pellets": 1
+    },
+    "fg42": {
+      "base_reference_damage": 35,
+      "pack_damage": 82,
+      "base_reference_magazine": 20,
+      "pack_magazine": 40,
+      "head_multiplier": 2.1,
+      "pellets": 1
+    },
+    "mg42": {
+      "base_reference_damage": 34,
+      "pack_damage": 78,
+      "base_reference_magazine": 50,
+      "pack_magazine": 125,
+      "head_multiplier": 2.05,
+      "pellets": 1
+    },
+    "browning": {
+      "base_reference_damage": 48,
+      "pack_damage": 110,
+      "base_reference_magazine": 125,
+      "pack_magazine": 250,
+      "head_multiplier": 2.15,
+      "pellets": 1
+    },
+    "dp28": {
+      "base_reference_damage": 44,
+      "pack_damage": 100,
+      "base_reference_magazine": 47,
+      "pack_magazine": 94,
+      "head_multiplier": 2.12,
+      "pellets": 1
+    },
+    "type99": {
+      "base_reference_damage": 46,
+      "pack_damage": 105,
+      "base_reference_magazine": 30,
+      "pack_magazine": 60,
+      "head_multiplier": 2.12,
+      "pellets": 1
+    }
+  }
+}

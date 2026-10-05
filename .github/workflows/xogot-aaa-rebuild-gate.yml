@@ -1,0 +1,92 @@
+name: Xogot AAA Rebuild Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - "xogot/**"
+      - ".github/workflows/xogot-aaa-rebuild-gate.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xogot-aaa-rebuild-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  aaa-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Godot 4.6.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/godot.zip
+          rm -rf /tmp/godot
+          mkdir -p /tmp/godot
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+          /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 --version
+
+      - name: Import and parse Godot project
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/xogot-aaa
+          timeout 240 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --editor --path xogot --quit \
+            2>&1 | tee build/xogot-aaa/import.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-aaa/import.log
+
+      - name: Gate clean Monja rig
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 120 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/monja_clean_rig_probe.gd \
+            2>&1 | tee build/xogot-aaa/monja-rig.log
+          grep -q "XZOGOT_MONJA_CLEAN_GODOT_GATE_GREEN" build/xogot-aaa/monja-rig.log
+          ! grep -E "SCRIPT ERROR|Parse Error|MONJA_CLEAN_RIG_PROBE:" build/xogot-aaa/monja-rig.log
+
+      - name: Gate Monja gameplay animations
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 120 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/monja_runtime_animation_probe.gd \
+            2>&1 | tee build/xogot-aaa/monja-runtime.log
+          grep -q "XZOGOT_MONJA_RUNTIME_ANIMATION_GATE_GREEN" build/xogot-aaa/monja-runtime.log
+          grep -q "XZOGOT_MONJA_ATTACK_IMPACT_SYNC_GREEN" build/xogot-aaa/monja-runtime.log
+          ! grep -E "SCRIPT ERROR|Parse Error|MONJA_RUNTIME_ANIMATION_PROBE:" build/xogot-aaa/monja-runtime.log
+
+      - name: Gate 28 real firearm runtimes
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/aaa_weapon_runtime_probe.gd \
+            2>&1 | tee build/xogot-aaa/weapons.log
+          grep -q "XZOGOT_AAA_28_FIREARMS_GREEN 28" build/xogot-aaa/weapons.log
+          grep -q "XZOGOT_AAA_WEAPON_RUNTIME_GATE_GREEN" build/xogot-aaa/weapons.log
+          ! grep -E "SCRIPT ERROR|Parse Error|AAA_WEAPON_RUNTIME_PROBE:" build/xogot-aaa/weapons.log
+
+      - name: Regression round zombie loop
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 120 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/round_zombie_probe.gd \
+            2>&1 | tee build/xogot-aaa/round-zombie.log
+          grep -q "XZOGOT_ROUND_ZOMBIE_PROBE_GREEN" build/xogot-aaa/round-zombie.log
+          grep -q "XZOGOT_WINDOW_PHYSICAL_CROSS_GREEN" build/xogot-aaa/round-zombie.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ROUND_ZOMBIE_PROBE:" build/xogot-aaa/round-zombie.log
+          echo "XZOGOT_AAA_REBUILD_GATE_GREEN"

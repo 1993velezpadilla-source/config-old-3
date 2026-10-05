@@ -78,9 +78,14 @@ func _run_probe() -> void:
 	if pool_size != WeaponCatalog.MYSTERY_POOL.size():
 		_fail(14, "Mystery pool/runtime catalog mismatch")
 		return
-	if pool_size < 28:
-		_fail(14, "Mystery pool unexpectedly lost recovered real weapons")
+	if pool_size != 25:
+		_fail(14, "Mystery pool must contain the 25 recovered real box firearms, got %d" % pool_size)
 		return
+	for entry: Dictionary in WeaponCatalog.MYSTERY_POOL:
+		var box_id := str(entry.get("id", ""))
+		if box_id in ["ray", "raymk2", "tesla"]:
+			_fail(14, "Mystery pool exposed a weapon whose real model is still missing: " + box_id)
+			return
 	for required_id: String in ["357", "arisaka", "dp28", "kar98k", "mosin", "nambu", "svt40", "tt33", "type99", "walther"]:
 		if not WeaponCatalog.has_weapon(required_id):
 			_fail(14, "Recovered real weapon missing from catalog: " + required_id)

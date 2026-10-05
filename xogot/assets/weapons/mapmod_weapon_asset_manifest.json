@@ -1168,10 +1168,11 @@
         "viewmodel": "res://assets/weapons/aether_waw_real/mg42/viewmodel.glb",
         "worldmodel": "res://assets/weapons/aether_waw_real/mg42/viewmodel.glb",
         "audio": {
-          "fire": "res://assets/audio/weapons/mapmod/mg42/fire.wav",
+          "fire": "res://assets/audio/weapons/mapmod/browning/fire.wav",
           "reload": "res://assets/audio/weapons/mapmod/mg42/reload.ogg",
           "mechanical": "res://assets/audio/weapons/mapmod/mg42/mechanical.ogg",
-          "dry_fire": "res://assets/audio/weapons/mapmod/mg42/dry_fire.ogg"
+          "dry_fire": "res://assets/audio/weapons/mapmod/mg42/dry_fire.ogg",
+          "fire_source_id": "browning_fallback_until_mg42_source_recovered"
         }
       },
       "required_animation_aliases": {

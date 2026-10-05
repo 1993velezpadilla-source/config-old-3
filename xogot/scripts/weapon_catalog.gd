@@ -41,9 +41,6 @@ const MYSTERY_POOL: Array[Dictionary] = [
 	{"id":"tt33","weight":0.88},
 	{"id":"type99","weight":0.62},
 	{"id":"walther","weight":0.90},
-	{"id":"ray","weight":0.12},
-	{"id":"raymk2","weight":0.07},
-	{"id":"tesla","weight":0.08},
 ]
 
 const WEAPONS: Dictionary = {

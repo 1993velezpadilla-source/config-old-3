@@ -205,14 +205,14 @@ func _run_probe() -> void:
 		_fail(22, "Monja Basica model metadata missing: " + monja_model)
 		return
 
-	# Runtime preference must match zombie_dummy.gd: CMU > clean V4 > legacy.
-	if ResourceLoader.exists("res://assets/zombies/monja_clean/cmu_runtime/monja_basica_cmu_rig.gltf"):
-		if monja_model != "monja_cmu":
-			_fail(42, "CMU Monja exists but runtime did not select it: " + monja_model)
-			return
-	elif ResourceLoader.exists("res://assets/zombies/monja_clean/clean_runtime/monja_basica_clean_rig.gltf"):
+	# Runtime preference must match zombie_dummy.gd: clean V4 > CMU > legacy.
+	if ResourceLoader.exists("res://assets/zombies/monja_clean/clean_runtime/monja_basica_clean_rig.gltf"):
 		if monja_model != "monja_clean":
 			_fail(43, "clean V4 Monja exists but runtime did not select it: " + monja_model)
+			return
+	elif ResourceLoader.exists("res://assets/zombies/monja_clean/cmu_runtime/monja_basica_cmu_rig.gltf"):
+		if monja_model != "monja_cmu":
+			_fail(42, "CMU Monja exists but runtime did not select it: " + monja_model)
 			return
 	elif ResourceLoader.exists("res://assets/zombies/monja_rigid/monja_basica_rigid_rig.gltf"):
 		if monja_model != "monja_basica_rigid_rig":

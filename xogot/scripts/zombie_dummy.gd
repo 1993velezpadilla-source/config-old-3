@@ -68,6 +68,7 @@ const CRAWL_KEYS: Array[String] = ["crawl_A", "111_03"]
 @export var barricade_attack_max_distance: float = 0.82
 @export var player_damage: float = 20.0
 @export var attack_interval: float = 0.90
+@export var player_attack_impact_delay: float = 0.30
 @export var death_linger_time: float = 1.25
 @export var window_cross_speed: float = 2.65
 @export var turn_lerp: float = 0.22
@@ -103,6 +104,8 @@ var target_player: Node3D
 var target_barricade: Node
 var phase: Phase = Phase.APPROACH
 var _attack_timer: float = 0.0
+var _player_attack_pending: bool = false
+var _player_attack_impact_timer: float = 0.0
 var _gravity: float = 18.0
 var _hit_reaction_timer: float = 0.0
 var _visual_root: Node3D
@@ -348,16 +351,17 @@ func _build_body() -> void:
 		using_rigged = true
 		special_model_id = "monja_elite_cmu" if selected_path == MONJA_ELITE_CMU_PATH else "monja_elite"
 	else:
-		# Prefer the new clean Blender bind-pose rig. Legacy smooth/rigid assets
-		# remain compatibility fallbacks until the clean asset passes its Godot gate.
-		if ResourceLoader.exists(MONJA_CMU_PATH):
-			selected_path = MONJA_CMU_PATH
-			using_rigged = true
-			special_model_id = "monja_cmu"
-		elif ResourceLoader.exists(MONJA_CLEAN_PATH):
+		# Production normal zombie: use the validated clean V4 rig first.
+		# It has the strongest geometry/bind/deformation gate and the exact
+		# Idle/Walk/Attack/Hit/Death clip set used by the gameplay state machine.
+		if ResourceLoader.exists(MONJA_CLEAN_PATH):
 			selected_path = MONJA_CLEAN_PATH
 			using_rigged = true
 			special_model_id = "monja_clean"
+		elif ResourceLoader.exists(MONJA_CMU_PATH):
+			selected_path = MONJA_CMU_PATH
+			using_rigged = true
+			special_model_id = "monja_cmu"
 		elif ResourceLoader.exists(MONJA_RIGGED_DISMEMBER_PATH):
 			selected_path = MONJA_RIGGED_DISMEMBER_PATH
 			using_rigged = true
@@ -527,6 +531,7 @@ func _build_fallback_visual() -> void:
 
 func _physics_process(delta: float) -> void:
 	_update_hit_reaction(delta)
+	_update_player_attack_impact(delta)
 	if _network_proxy_mode:
 		_update_voice(delta)
 		var distance: float = global_position.distance_to(_network_proxy_target_position)
@@ -661,19 +666,63 @@ func _tick_chase() -> void:
 		velocity.x = 0.0
 		velocity.z = 0.0
 		_play_motion_state("attack")
-		if _attack_timer <= 0.0 and target_player.has_method("apply_damage"):
-			var arm_factor: float = 1.0
-			if bool(_severed["left_arm"]):
-				arm_factor -= 0.22
-			if bool(_severed["right_arm"]):
-				arm_factor -= 0.22
-			if _headless:
-				arm_factor *= 0.88
-			target_player.call("apply_damage", player_damage * maxf(arm_factor, 0.42))
-			_play_zombie_sfx(_zombie_audio_choice(ZOMBIE_ATTACKS), -6.0)
-			_attack_timer = attack_interval
+		if _attack_timer <= 0.0 and not _player_attack_pending:
+			_queue_player_attack()
 		return
 	_move_toward_navigated(target, 0.0)
+
+func _effective_player_attack_damage() -> float:
+	var arm_factor: float = 1.0
+	if bool(_severed["left_arm"]):
+		arm_factor -= 0.22
+	if bool(_severed["right_arm"]):
+		arm_factor -= 0.22
+	if _headless:
+		arm_factor *= 0.88
+	return player_damage * maxf(arm_factor, 0.42)
+
+func _queue_player_attack() -> void:
+	if target_player == null or not is_instance_valid(target_player):
+		return
+	_player_attack_pending = true
+	_player_attack_impact_timer = maxf(0.0, player_attack_impact_delay)
+	_attack_timer = attack_interval
+	_motion_state = ""
+	_play_motion_state("attack")
+	_play_zombie_sfx(_zombie_audio_choice(ZOMBIE_ATTACKS), -6.0)
+	set_meta("player_attack_pending", true)
+	set_meta("player_attack_impact_delay", _player_attack_impact_timer)
+
+func _update_player_attack_impact(delta: float) -> void:
+	if not _player_attack_pending:
+		return
+	_player_attack_impact_timer = maxf(0.0, _player_attack_impact_timer - delta)
+	if _player_attack_impact_timer > 0.0:
+		return
+
+	_player_attack_pending = false
+	set_meta("player_attack_pending", false)
+	if phase == Phase.DEAD:
+		return
+	if target_player == null or not is_instance_valid(target_player):
+		return
+	if not target_player.has_method("apply_damage"):
+		return
+	if target_player.has_method("is_downed") and bool(target_player.call("is_downed")):
+		return
+
+	var flat_distance: float = Vector2(
+		global_position.x - target_player.global_position.x,
+		global_position.z - target_player.global_position.z
+	).length()
+	if flat_distance > 1.45 or absf(global_position.y - target_player.global_position.y) >= 1.7:
+		set_meta("player_attack_missed", true)
+		return
+
+	target_player.call("apply_damage", _effective_player_attack_damage())
+	set_meta("player_attack_missed", false)
+	set_meta("player_attack_hit", true)
+	print("XZOGOT_ZOMBIE_ATTACK_IMPACT_SYNC ", name)
 
 func _has_clear_path_to(target: Vector3) -> bool:
 	var world: World3D = get_world_3d()
@@ -1219,6 +1268,8 @@ func _die(source: Node) -> void:
 	if phase == Phase.DEAD:
 		return
 	phase = Phase.DEAD
+	_player_attack_pending = false
+	_player_attack_impact_timer = 0.0
 	velocity = Vector3.ZERO
 	collision_layer = 0
 	collision_mask = 0

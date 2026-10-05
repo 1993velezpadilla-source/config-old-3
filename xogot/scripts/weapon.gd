@@ -2,6 +2,7 @@ extends Node
 
 const WeaponCatalog = preload("res://scripts/weapon_catalog.gd")
 const WeaponAssetRegistry = preload("res://scripts/weapon_asset_registry.gd")
+const WeaponBalanceAAA = preload("res://scripts/weapon_balance_aaa.gd")
 
 @export var damage: float = 24.0
 @export var range_m: float = 95.0
@@ -31,7 +32,10 @@ var _mystery_serial: int = 0
 var _visual_recoil_pitch: float = 0.0
 var _visual_recoil_velocity: float = 0.0
 var _ads_pose_alpha: float = 0.0
+var _hip_pose_position := Vector3(0.22, -0.20, -0.48)
+var _ads_pose_position := Vector3(0.0, -0.145, -0.365)
 var _view_pose_position := Vector3(0.22, -0.20, -0.48)
+var _ads_calibration_mode: String = "generic"
 var _view_root: Node3D
 var _fire_audio: AudioStreamPlayer3D
 var _reload_audio: AudioStreamPlayer3D
@@ -96,7 +100,7 @@ func _build_view_runtime() -> void:
 		return
 	_view_root = Node3D.new()
 	_view_root.name = "WeaponViewRoot"
-	_view_pose_position = Vector3(0.22, -0.20, -0.48)
+	_view_pose_position = _hip_pose_position
 	_view_root.position = _view_pose_position
 	_camera.add_child(_view_root)
 
@@ -139,6 +143,8 @@ func _clear_view_model() -> void:
 	_smoke_particles = null
 	_shell_particles = null
 	_muzzle_flash_timer = 0.0
+	_ads_pose_position = Vector3(0.0, -0.145, -0.365)
+	_ads_calibration_mode = "generic"
 	if _view_root == null:
 		return
 	for child: Node in _view_root.get_children():
@@ -364,6 +370,49 @@ func _find_skeleton_bone_attachment(node: Node, aliases: Array[String], attachme
 			return found
 	return null
 
+func _calibrate_ads_pose(model: Node3D) -> void:
+	_ads_pose_position = Vector3(0.0, -0.145, -0.365)
+	_ads_calibration_mode = "generic"
+	if _view_root == null or model == null:
+		set_meta("weapon_ads_calibration_mode", _ads_calibration_mode)
+		return
+
+	var sight := _find_named_node3d(
+		model,
+		["tag_iron_sights", "tag_ironsights", "tag_ads", "ads_anchor", "tag_scope", "scope_view", "scope_anchor"]
+	)
+	if sight != null:
+		var sight_local: Vector3 = _view_root.to_local(sight.global_position)
+		_ads_pose_position = Vector3(0.0, 0.0, -0.18) - sight_local
+		_ads_calibration_mode = "authored_sight_tag"
+	else:
+		var rear := _find_named_node3d(model, ["rear_sight", "rearsight", "iron_rear", "ads_rear"])
+		var front := _find_named_node3d(model, ["front_sight", "frontsight", "iron_front", "ads_front"])
+		if rear != null and front != null:
+			var midpoint_world: Vector3 = rear.global_position.lerp(front.global_position, 0.20)
+			var midpoint_local: Vector3 = _view_root.to_local(midpoint_world)
+			_ads_pose_position = Vector3(0.0, 0.0, -0.18) - midpoint_local
+			_ads_calibration_mode = "rear_front_sights"
+		else:
+			var muzzle := _find_named_node3d(model, ["tag_flash", "muzzle", "muzzle_flash"])
+			if muzzle != null:
+				var muzzle_local: Vector3 = _view_root.to_local(muzzle.global_position)
+				# A muzzle is not the eye-line, but its X/Y centerline is authored per weapon.
+				# Preserve a comfortable ADS depth while centering each real model individually.
+				_ads_pose_position.x = -muzzle_local.x
+				_ads_pose_position.y = -muzzle_local.y
+				_ads_calibration_mode = "authored_muzzle_centerline"
+
+	set_meta("weapon_ads_calibration_mode", _ads_calibration_mode)
+	set_meta("weapon_ads_pose_position", _ads_pose_position)
+	print("XZOGOT_WEAPON_ADS_CALIBRATED ", _weapon_id, " mode=", _ads_calibration_mode, " pose=", _ads_pose_position)
+
+func get_ads_calibration_mode() -> String:
+	return _ads_calibration_mode
+
+func get_ads_pose_position() -> Vector3:
+	return _ads_pose_position
+
 func _fallback_barrel_anchor(model: Node3D) -> Node3D:
 	var points: Array[Vector3] = []
 	var stack: Array[Node] = [model]
@@ -581,7 +630,9 @@ func _refresh_view_assets(def: Dictionary) -> void:
 		_view_root.add_child(model)
 		_asset_animation_player = _find_animation_player(model)
 		if model is Node3D:
-			_bind_weapon_fx(model as Node3D)
+			_weapon_model_root = model as Node3D
+			_bind_weapon_fx(_weapon_model_root)
+			_calibrate_ads_pose(_weapon_model_root)
 		else:
 			push_warning("XZOGOT_WEAPON_MODEL_NOT_NODE3D " + _weapon_id)
 		set_meta("weapon_asset_lane", "mapmod" if using_mapmod else "legacy_optional")
@@ -665,11 +716,17 @@ func _player_modifier(method_name: String, default_value: float = 1.0) -> float:
 func _apply_upgrade_stats() -> void:
 	if not _upgraded:
 		return
-	damage *= 1.85
+	var balance: Dictionary = WeaponBalanceAAA.get_record(_weapon_id)
+	var fallback_damage: float = damage * 1.85
+	var fallback_magazine: int = maxi(magazine_size + 1, int(ceil(float(magazine_size) * 1.35)))
+	damage = WeaponBalanceAAA.pack_damage(_weapon_id, fallback_damage)
+	magazine_size = WeaponBalanceAAA.pack_magazine(_weapon_id, fallback_magazine)
 	fire_interval *= 0.92
-	magazine_size = maxi(magazine_size + 1, int(ceil(float(magazine_size) * 1.35)))
 	reload_time *= 0.90
 	_display_name = "SANCTIFIED " + _display_name
+	set_meta("weapon_pack_balance_data_driven", not balance.is_empty())
+	set_meta("weapon_pack_damage", damage)
+	set_meta("weapon_pack_magazine", magazine_size)
 
 func can_upgrade_current_weapon() -> bool:
 	return not _weapon_id.is_empty() and WeaponCatalog.has_weapon(_weapon_id) and not _upgraded
@@ -701,6 +758,9 @@ func get_runtime_stats() -> Dictionary:
 		"ads_spread_deg": _ads_spread_deg,
 		"visual_recoil_deg": _visual_recoil_deg,
 		"upgraded": _upgraded,
+		"pack_balance_data_driven": WeaponBalanceAAA.has_data(_weapon_id),
+		"ads_calibration_mode": _ads_calibration_mode,
+		"ads_pose_position": _ads_pose_position,
 	}
 
 func equip_weapon(id: String, refill: bool = true) -> bool:
@@ -737,7 +797,7 @@ func equip_weapon(id: String, refill: bool = true) -> bool:
 	_trigger_held = false
 	_refresh_view_assets(def)
 	_ads_pose_alpha = 0.0
-	_view_pose_position = Vector3(0.22, -0.20, -0.48)
+	_view_pose_position = _hip_pose_position
 	if _view_root != null:
 		_view_root.position = _view_pose_position
 	_last_ads_state = is_ads_active()
@@ -953,9 +1013,7 @@ func _update_visual_recoil(delta: float) -> void:
 		var ads_target: float = 1.0 if is_ads_active() else 0.0
 		var ads_speed: float = 12.0 if ads_target > _ads_pose_alpha else 15.0
 		_ads_pose_alpha = move_toward(_ads_pose_alpha, ads_target, ads_speed * delta)
-		var hip_position := Vector3(0.22, -0.20, -0.48)
-		var ads_position := Vector3(0.0, -0.145, -0.365)
-		var target_position: Vector3 = hip_position.lerp(ads_position, _ads_pose_alpha)
+		var target_position: Vector3 = _hip_pose_position.lerp(_ads_pose_position, _ads_pose_alpha)
 		var pose_blend: float = 1.0 - exp(-22.0 * delta)
 		_view_pose_position = _view_pose_position.lerp(target_position, pose_blend)
 		var recoil_push: float = minf(_visual_recoil_pitch * 0.0025, 0.022)
