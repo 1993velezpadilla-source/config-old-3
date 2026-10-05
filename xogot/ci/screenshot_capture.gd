@@ -1,5 +1,7 @@
 extends SceneTree
 
+# Capture rebuilt source-authored hands after stale-action purge.
+
 # Weapon presentation acceptance: real texture binding + +X to -Z axis correction.
 
 # Church V3 sanctuary + window-light readability capture.
