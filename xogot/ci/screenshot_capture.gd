@@ -56,6 +56,30 @@ func _capture() -> void:
 	for i in range(20):
 		await process_frame
 
+	if weapon != null:
+		var yaw_fix := float(weapon.get_meta("weapon_model_yaw_correction_deg", 0.0))
+		if absf(yaw_fix - 90.0) > 0.01:
+			push_error("SCREENSHOT: weapon forward-axis correction missing")
+			quit(11)
+			return
+		if not bool(weapon.get_meta("weapon_texture_ready", false)):
+			push_error(
+				"SCREENSHOT: weapon texture binding incomplete "
+				+ str(weapon.get_meta("weapon_textured_surfaces", 0))
+				+ "/"
+				+ str(weapon.get_meta("weapon_texture_surfaces", 0))
+			)
+			quit(12)
+			return
+		print(
+			"XZOGOT_SCREENSHOT_WEAPON_PRESENTATION_GREEN yaw=",
+			yaw_fix,
+			" textures=",
+			weapon.get_meta("weapon_textured_surfaces", 0),
+			"/",
+			weapon.get_meta("weapon_texture_surfaces", 0)
+		)
+
 	var round_manager: Node = scene.get_node_or_null("RoundManager")
 	if round_manager != null:
 		round_manager.set("auto_start", false)
