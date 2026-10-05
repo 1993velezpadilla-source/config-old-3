@@ -82,6 +82,48 @@ jobs:
               raise SystemExit("No Aether weapon source families found")
           PY
 
+      - name: Discover MG42 audio across the entire Aether sound tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,re
+
+          candidates=[]
+          for raw in Path("aether-all-files.txt").read_text(errors="ignore").splitlines():
+              line=raw.strip().replace("\\","/")
+              low=line.lower()
+              if "projectaether/content/assets/sounds/" not in low:
+                  continue
+              name=Path(line).name.lower()
+              score=0
+              if "mg42" in low:
+                  score+=200
+              if re.search(r"(?:^|[_/])mg[_-]?42(?:[_./]|$)",low):
+                  score+=140
+              if "fire" in low:
+                  score+=60
+              if re.search(r"(?:^|_)st_f(?:_|\.|$)",name):
+                  score+=70
+              if re.search(r"(?:^|_)f(?:_|\.|$)",name):
+                  score+=25
+              if any(x in low for x in ("charge","mag_in","mag_out","pull","reload","mech","jimmy")):
+                  score-=80
+              if any(x in low for x in ("tail","dist","distant")):
+                  score-=25
+              if score>0:
+                  candidates.append({"score":score,"path":line})
+          candidates.sort(key=lambda r:(-r["score"],r["path"].lower()))
+          out={"candidate_count":len(candidates),"candidates":candidates}
+          Path("aether-mg42-all-sound-candidates.json").write_text(json.dumps(out,indent=2)+"\n")
+          print("XZOGOT_MG42_ALL_SOUND_CANDIDATES",len(candidates))
+          for row in candidates[:80]:
+              print("XZOGOT_MG42_SOUND_PATH",row["score"],row["path"])
+          if not candidates:
+              print("XZOGOT_MG42_NOT_PRESENT_IN_AETHER_SOUND_TREE")
+          PY
+
       - name: Extract complete base weapon sound bank
         shell: bash
         run: |
@@ -169,6 +211,7 @@ jobs:
           name: aether-full-weapon-audio-inventory
           path: |
             aether-full-weapon-audio-candidates.json
+            aether-mg42-all-sound-candidates.json
             aether-all-weapon-source-families.json
             audio-files.txt
           if-no-files-found: error
