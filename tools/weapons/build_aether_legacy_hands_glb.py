@@ -229,7 +229,7 @@ def main() -> int:
         "required_tags": sorted(required_tags),
         "translation_scale": 0.01,
         "translation_units": "ActorX UE cm -> GLB meters",
-        "stale_base_actions_cleared": true,
+        "stale_base_actions_cleared": True,
         "output_bytes": output.stat().st_size,
     }
     output.with_suffix(".animation-report.json").write_text(
