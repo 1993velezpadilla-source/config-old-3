@@ -470,6 +470,13 @@ def retarget_action(source,target,source_action,new_name,height_scale):
     print("XZOGOT_MONJA_SOURCE_POSE_CLIP_GREEN",new_name,lo,hi,len(common))
     return {"name":new_name,"frames":[lo,hi],"bones":len(common)}
 
+def triangle_count(mesh_objects):
+    total=0
+    for obj in mesh_objects:
+        for poly in obj.data.polygons:
+            total += max(1, len(poly.vertices)-2)
+    return total
+
 def render_preview(arm,mesh_objects,action,label,frame):
     arm.animation_data_create()
     arm.animation_data.action=action
@@ -540,6 +547,7 @@ monja_meshes=[o for o in monja_objs if o.type=="MESH"]
 if not monja_meshes: fail("monja mesh missing")
 source_vertices=sum(len(o.data.vertices) for o in monja_meshes)
 source_polygons=sum(len(o.data.polygons) for o in monja_meshes)
+source_triangles=triangle_count(monja_meshes)
 v,owners=get_world_vertices(monja_meshes)
 lm,mn,mx=landmarks_from_geometry(v)
 source_height=float(mx[2]-mn[2])
@@ -618,6 +626,7 @@ out_mesh=objs("MESH"); out_arm=objs("ARMATURE")
 out_actions=[a.name for a in bpy.data.actions]
 out_vertices=sum(len(o.data.vertices) for o in out_mesh)
 out_polygons=sum(len(o.data.polygons) for o in out_mesh)
+out_triangles=triangle_count(out_mesh)
 
 report={
     "schema":1,
@@ -627,9 +636,13 @@ report={
     "donor":"assets/zombie_mocap/retarget/UAL2_Standard.glb",
     "source_vertices":source_vertices,
     "source_polygons":source_polygons,
+    "source_triangles":source_triangles,
     "output_vertices":out_vertices,
     "output_polygons":out_polygons,
-    "geometry_conserved":out_polygons==source_polygons and out_vertices==source_vertices,
+    "output_triangles":out_triangles,
+    "geometry_conserved":out_triangles==source_triangles,
+    "export_reindexed_vertices":out_vertices!=source_vertices,
+    "export_triangulated_nontri_faces":out_polygons!=source_polygons,
     "armatures":len(out_arm),
     "bones":len(out_arm[0].data.bones) if out_arm else 0,
     "actions":out_actions,
@@ -648,7 +661,7 @@ report={
 }
 REPORT.write_text(json.dumps(report,indent=2)+"\n",encoding="utf-8")
 
-if not report["geometry_conserved"]: fail("geometry/topology changed")
+if not report["geometry_conserved"]: fail(f"triangle topology changed {out_triangles}/{source_triangles}")
 if not report["pose_match"]["validated"]: fail("rest pose moved source geometry")
 if len(out_arm)!=1 or report["bones"]<20: fail("humanoid skeleton missing")
 for token in ("Idle_Clean","Walk_Clean","Attack_Clean","Hit_Clean","Death_Clean"):
@@ -659,6 +672,6 @@ print("XZOGOT_MONJA_SOURCE_POSE_LANDMARKS_GREEN",json.dumps(report["landmarks"])
 print("XZOGOT_MONJA_SOURCE_POSE_WEIGHTS_GREEN",json.dumps(weights))
 print("XZOGOT_MONJA_SOURCE_POSE_MATCH_GREEN",rest_rms,rest_max)
 print("XZOGOT_MONJA_SOURCE_POSE_ANIMS_GREEN",out_actions)
-print("XZOGOT_MONJA_SOURCE_POSE_GEOMETRY_GREEN",out_vertices,out_polygons)
+print("XZOGOT_MONJA_SOURCE_POSE_GEOMETRY_GREEN",out_vertices,out_polygons,out_triangles)
 print("XZOGOT_MONJA_SOURCE_POSE_PROFILE_GREEN",PROFILE)
 print("XZOGOT_MONJA_SOURCE_POSE_RIG_GREEN",report["bones"],report["output_bytes"])
