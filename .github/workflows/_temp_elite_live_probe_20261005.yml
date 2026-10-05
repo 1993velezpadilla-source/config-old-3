@@ -11,22 +11,15 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Query Monja runs
+      - name: Query all Monja runs
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          echo "=== BASIC CLEAN RIG ==="
           gh run list --repo "${GITHUB_REPOSITORY}" \
-            --workflow xogot-monja-clean-blender-rig.yml \
             --branch feature/church-expansion-v1 \
-            --limit 6 \
-            --json databaseId,status,conclusion,headSha,createdAt,updatedAt,url
-          echo "=== ELITE ==="
-          gh run list --repo "${GITHUB_REPOSITORY}" \
-            --workflow xogot-monja-elite-author.yml \
-            --branch feature/church-expansion-v1 \
-            --limit 6 \
-            --json databaseId,status,conclusion,headSha,createdAt,updatedAt,url
+            --limit 60 \
+            --json databaseId,name,workflowName,status,conclusion,headSha,createdAt,updatedAt,url \
+            --jq '.[] | select((.name|ascii_downcase|contains("monja")) or (.workflowName|ascii_downcase|contains("monja")))'
           exit 1
