@@ -196,6 +196,13 @@ def bake_cmu_clip(target,src,src_action,new_name):
         "height_scale":scale,
     }
 
+def triangle_count(mesh_objects):
+    total=0
+    for obj in mesh_objects:
+        for poly in obj.data.polygons:
+            total += max(1, len(poly.vertices)-2)
+    return total
+
 def export_target(target,target_meshes):
     bpy.ops.object.select_all(action='DESELECT')
     target.select_set(True)
@@ -272,6 +279,7 @@ target_meshes=meshes(base_objs)
 if not target_meshes: fail("base Monja mesh missing")
 source_vertices=sum(len(o.data.vertices) for o in target_meshes)
 source_polygons=sum(len(o.data.polygons) for o in target_meshes)
+source_triangles=triangle_count(target_meshes)
 base_actions=target_existing_actions(target)
 if not any("Zombie_Walk_Clean".lower() in x.lower() for x in base_actions):
     fail("base clean Monja does not expose expected clean walk action")
@@ -317,6 +325,7 @@ out_mesh=meshes(); out_arm=arms()
 out_actions=sorted(a.name for a in bpy.data.actions)
 out_vertices=sum(len(o.data.vertices) for o in out_mesh)
 out_polygons=sum(len(o.data.polygons) for o in out_mesh)
+out_triangles=triangle_count(out_mesh)
 expected=[n for n,_ in CLIPS]
 missing=[n for n in expected if not any(n.lower() in a.lower() for a in out_actions)]
 
@@ -327,9 +336,13 @@ report={
     "profile":PROFILE,
     "source_vertices":source_vertices,
     "source_polygons":source_polygons,
+    "source_triangles":source_triangles,
     "output_vertices":out_vertices,
     "output_polygons":out_polygons,
-    "geometry_conserved":source_vertices==out_vertices and source_polygons==out_polygons,
+    "output_triangles":out_triangles,
+    "geometry_conserved":source_triangles==out_triangles,
+    "export_reindexed_vertices":source_vertices!=out_vertices,
+    "export_triangulated_nontri_faces":source_polygons!=out_polygons,
     "armatures":len(out_arm),
     "bones":len(out_arm[0].data.bones) if out_arm else 0,
     "base_actions":base_actions,
@@ -346,12 +359,12 @@ report={
 }
 REPORT.write_text(json.dumps(report,indent=2)+"\n",encoding="utf-8")
 
-if not report["geometry_conserved"]: fail("geometry changed during CMU augmentation")
+if not report["geometry_conserved"]: fail(f"triangle topology changed during CMU augmentation {out_triangles}/{source_triangles}")
 if len(out_arm)!=1 or report["bones"]<20: fail("target skeleton lost")
 if missing: fail("missing exported CMU actions: "+repr(missing))
 if len(baked)!=9: fail("expected nine CMU clips")
 
-print("XZOGOT_MONJA_CMU_GEOMETRY_GREEN",out_vertices,out_polygons)
+print("XZOGOT_MONJA_CMU_GEOMETRY_GREEN",out_vertices,out_polygons,out_triangles)
 print("XZOGOT_MONJA_CMU_9_REAL_MOCAP_CLIPS_GREEN",expected)
 print("XZOGOT_MONJA_CMU_PROFILE_GREEN",PROFILE)
 print("XZOGOT_MONJA_CMU_RIG_GREEN",report["bones"],out_bytes)
