@@ -6,6 +6,7 @@ signal bled_out()
 
 const MobileLayout = preload("res://scripts/mobile_layout.gd")
 const PerkCatalog = preload("res://scripts/perk_catalog.gd")
+const CODSourceContract = preload("res://scripts/cod_source_contract.gd")
 
 const NAV_PATH := "res://data/nav_skeleton.json"
 
@@ -23,13 +24,13 @@ const NAV_PATH := "res://data/nav_skeleton.json"
 @export var gyro_sensitivity := 0.70
 @export var gyro_sensitivity_x := 0.70
 @export var gyro_sensitivity_y := 0.70
-@export var gyro_ads_multiplier := 0.65
+@export var gyro_ads_multiplier := CODSourceContract.GYRO_ADS_MULTIPLIER
 @export var gyro_deadzone := 0.05
 @export var gyro_smoothing := 0.18
 @export var gyro_invert_x := false
 @export var gyro_invert_y := false
-@export var ads_touch_multiplier := 0.62
-@export var fire_touch_multiplier := 1.00
+@export var ads_touch_multiplier := CODSourceContract.ADS_TOUCH_MULTIPLIER
+@export var fire_touch_multiplier := CODSourceContract.TOUCH_LOOK_MULTIPLIER
 @export var ads_toggle_mode := false
 @export var auto_knife_enabled := true
 @export var knife_button_range_only := true
@@ -38,12 +39,12 @@ const NAV_PATH := "res://data/nav_skeleton.json"
 @export var knife_cooldown := 0.72
 @export var auto_rebuild_enabled := true
 @export var repair_repeat_interval := 0.45
-@export var base_fov := 66.0
-@export var ads_fov := 52.0
-@export var sprint_fov := 69.0
-@export var slide_fov := 70.5
-@export var camera_stance_response := 18.0
-@export var landing_spring_frequency := 17.0
+@export var base_fov := CODSourceContract.BASE_VERTICAL_FOV
+@export var ads_fov := CODSourceContract.ADS_VERTICAL_FOV
+@export var sprint_fov := CODSourceContract.SPRINT_VERTICAL_FOV
+@export var slide_fov := CODSourceContract.SLIDE_VERTICAL_FOV
+@export var camera_stance_response := CODSourceContract.STANCE_EYE_RESPONSE_HZ
+@export var landing_spring_frequency := CODSourceContract.LANDING_SPRING_HZ
 @export var use_nav_spawn := true
 @export var interaction_range := 3.4
 @export var starting_points := 500
@@ -54,11 +55,11 @@ const NAV_PATH := "res://data/nav_skeleton.json"
 @export var revive_health_fraction := 0.50
 @export var downed_move_multiplier := 0.32
 
-const PLAYER_RADIUS := 0.36
-const STAND_HEAD_Y := 1.60
-const CROUCH_HEAD_Y := 1.03
-const STAND_CAPSULE_HEIGHT := 1.76
-const CROUCH_CAPSULE_HEIGHT := 1.16
+const PLAYER_RADIUS := CODSourceContract.PLAYER_RADIUS
+const STAND_HEAD_Y := CODSourceContract.PLAYER_STAND_EYE_HEIGHT
+const CROUCH_HEAD_Y := CODSourceContract.PLAYER_CROUCH_EYE_HEIGHT
+const STAND_CAPSULE_HEIGHT := CODSourceContract.PLAYER_STAND_CAPSULE_HEIGHT
+const CROUCH_CAPSULE_HEIGHT := CODSourceContract.PLAYER_CROUCH_CAPSULE_HEIGHT
 const STAND_COLLIDER_Y := 0.88
 const CROUCH_COLLIDER_Y := 0.58
 
@@ -860,12 +861,12 @@ func _slide_visual_pose() -> float:
 	if not _sliding or slide_duration <= 0.001:
 		return 0.0
 	var slide_t: float = clampf(1.0 - (_slide_timer / slide_duration), 0.0, 1.0)
-	if slide_t < 0.14:
-		var u: float = slide_t / 0.14
+	if slide_t < CODSourceContract.SLIDE_ENTRY_PHASE:
+		var u: float = slide_t / CODSourceContract.SLIDE_ENTRY_PHASE
 		return u * u * (3.0 - 2.0 * u)
-	if slide_t < 0.72:
+	if slide_t < CODSourceContract.SLIDE_HOLD_END_PHASE:
 		return 1.0
-	var u: float = (slide_t - 0.72) / 0.28
+	var u: float = (slide_t - CODSourceContract.SLIDE_HOLD_END_PHASE) / (1.0 - CODSourceContract.SLIDE_HOLD_END_PHASE)
 	var smooth: float = u * u * (3.0 - 2.0 * u)
 	return 1.0 - smooth
 
@@ -905,7 +906,7 @@ func _update_stance(delta: float, crouch_pressed: bool) -> void:
 	target_head_y += _land_camera_pos
 	var blend: float = 1.0 - exp(-camera_stance_response * delta)
 	_head.position.y = lerpf(_head.position.y, target_head_y, blend)
-	_head.rotation.z = lerpf(_head.rotation.z, deg_to_rad(-1.15 * sin(slide_pose * PI)), blend)
+	_head.rotation.z = lerpf(_head.rotation.z, deg_to_rad(-CODSourceContract.SLIDE_CAMERA_ROLL_DEG * sin(slide_pose * PI)), blend)
 
 	if _sliding:
 		_slide_timer -= delta
