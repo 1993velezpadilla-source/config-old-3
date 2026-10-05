@@ -115,7 +115,6 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           @'
-          *Assets/BP/Weapons/BP_WeaponBase.uasset
           *Assets/BP/Anims/ABP_Legacy_Viewhands.uasset
           *Assets/BP/Anims/ABP_T7_Viewhands.uasset
           *FirstPerson/Blueprints/Weapons/Player/BO2/zOrigins/zOriginsRichtofen/Legacy_Viewhands.uasset
