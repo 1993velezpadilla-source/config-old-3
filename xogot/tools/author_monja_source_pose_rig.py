@@ -9,18 +9,52 @@ except Exception as exc:
 from mathutils import Vector, Matrix
 
 ROOT = Path(__file__).resolve().parents[1]
-MONJA = ROOT / "assets/zombies/monja_basica.glb"
+
+def _tool_args():
+    raw = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
+    out = {}
+    i = 0
+    while i < len(raw):
+        key = raw[i]
+        if key.startswith("--") and i + 1 < len(raw):
+            out[key[2:]] = raw[i + 1]
+            i += 2
+        else:
+            i += 1
+    return out
+
+ARGS = _tool_args()
+PROFILE = ARGS.get("profile", "normal").strip().lower()
+MONJA = Path(ARGS.get("source", str(ROOT / "assets/zombies/monja_basica.glb"))).resolve()
 DONOR = ROOT / "assets/zombie_mocap/retarget/UAL2_Standard.glb"
-OUT = ROOT / "build/monja-source-pose-rig"
+OUT = Path(ARGS.get("output-dir", str(ROOT / "build/monja-source-pose-rig"))).resolve()
 OUT.mkdir(parents=True, exist_ok=True)
-OUT_GLB = OUT / "monja_basica_clean_rig.glb"
+OUT_GLB = OUT / ARGS.get(
+    "output-name",
+    "monja_black_white_clean_rig.glb" if PROFILE == "elite" else "monja_basica_clean_rig.glb",
+)
 REPORT = OUT / "report.json"
 
-CLIPS = {
-    "Zombie_Idle_Clean": "Zombie_Idle_Loop",
-    "Zombie_Walk_Clean": "Zombie_Walk_Fwd_Loop",
-    "Zombie_Attack_Clean": "Zombie_Scratch",
-}
+# The clips come from the humanoid motion-capture donor.  The elite keeps the
+# same locomotion grammar so networking/gameplay remains compatible, but gets a
+# heavier hook attack.  Both variants now carry hit/death clips so the runtime
+# can actually show those states instead of deleting the model immediately.
+if PROFILE == "elite":
+    CLIPS = {
+        "Zombie_Idle_Clean": "Zombie_Idle_Loop",
+        "Zombie_Walk_Clean": "Zombie_Walk_Fwd_Loop",
+        "Zombie_Attack_Clean": "Melee_Hook",
+        "Zombie_Hit_Clean": "Hit_Knockback",
+        "Zombie_Death_Clean": "LayToIdle",
+    }
+else:
+    CLIPS = {
+        "Zombie_Idle_Clean": "Zombie_Idle_Loop",
+        "Zombie_Walk_Clean": "Zombie_Walk_Fwd_Loop",
+        "Zombie_Attack_Clean": "Zombie_Scratch",
+        "Zombie_Hit_Clean": "Hit_Knockback",
+        "Zombie_Death_Clean": "LayToIdle",
+    }
 
 MAJOR_BONES = [
     "root","pelvis","spine_01","spine_02","spine_03","neck_01","Head",
@@ -570,7 +604,8 @@ out_polygons=sum(len(o.data.polygons) for o in out_mesh)
 report={
     "schema":1,
     "pipeline":"source_pose_manual_humanoid_rig_v2",
-    "source":"assets/zombies/monja_basica.glb",
+    "source":str(MONJA.relative_to(ROOT)) if ROOT in MONJA.parents else str(MONJA),
+    "profile":PROFILE,
     "donor":"assets/zombie_mocap/retarget/UAL2_Standard.glb",
     "source_vertices":source_vertices,
     "source_polygons":source_polygons,
@@ -598,7 +633,7 @@ REPORT.write_text(json.dumps(report,indent=2)+"\n",encoding="utf-8")
 if not report["geometry_conserved"]: fail("geometry/topology changed")
 if not report["pose_match"]["validated"]: fail("rest pose moved source geometry")
 if len(out_arm)!=1 or report["bones"]<20: fail("humanoid skeleton missing")
-for token in ("Idle_Clean","Walk_Clean","Attack_Clean"):
+for token in ("Idle_Clean","Walk_Clean","Attack_Clean","Hit_Clean","Death_Clean"):
     if not any(token.lower() in n.lower() for n in out_actions):
         fail("missing exported action "+token)
 
@@ -607,4 +642,5 @@ print("XZOGOT_MONJA_SOURCE_POSE_WEIGHTS_GREEN",json.dumps(weights))
 print("XZOGOT_MONJA_SOURCE_POSE_MATCH_GREEN",rest_rms,rest_max)
 print("XZOGOT_MONJA_SOURCE_POSE_ANIMS_GREEN",out_actions)
 print("XZOGOT_MONJA_SOURCE_POSE_GEOMETRY_GREEN",out_vertices,out_polygons)
+print("XZOGOT_MONJA_SOURCE_POSE_PROFILE_GREEN",PROFILE)
 print("XZOGOT_MONJA_SOURCE_POSE_RIG_GREEN",report["bones"],report["output_bytes"])
