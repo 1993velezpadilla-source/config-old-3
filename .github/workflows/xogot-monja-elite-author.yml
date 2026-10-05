@@ -166,14 +166,63 @@ jobs:
           print("XZOGOT_ELITE_MONJA_CMU_REPORT_GREEN",r["bones"],r["output_bytes"])
           PY
 
+      - name: Compress elite runtime GLBs with high-precision Meshopt
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p xogot/build/monja-runtime
+          COMMON_ARGS="--level medium --quantize-position 16 --quantize-normal 16 --quantize-texcoord 16 --quantize-weight 16 --quantize-color 16 --quantize-generic 16"
+          gltf-transform meshopt \
+            xogot/build/monja-source-pose-rig/monja_black_white_clean_rig.glb \
+            xogot/build/monja-runtime/monja_black_white_clean_rig.glb \
+            $COMMON_ARGS
+          gltf-transform meshopt \
+            xogot/build/monja-elite-cmu/monja_black_white_cmu_rig.glb \
+            xogot/build/monja-runtime/monja_black_white_cmu_rig.glb \
+            $COMMON_ARGS
+          python3 - <<'PY'
+          import json,struct
+          from pathlib import Path
+          runtime=Path("xogot/build/monja-runtime")
+          reports=[
+              Path("xogot/build/monja-source-pose-rig/report.json"),
+              Path("xogot/build/monja-elite-cmu/report.json"),
+          ]
+          names=[
+              "monja_black_white_clean_rig.glb",
+              "monja_black_white_cmu_rig.glb",
+          ]
+          for report_path,name in zip(reports,names):
+              p=runtime/name
+              data=p.read_bytes()
+              assert data[:4]==b"glTF" and len(data)>20,name
+              json_len,json_type=struct.unpack_from("<II",data,12)
+              assert json_type==0x4E4F534A,name
+              doc=json.loads(data[20:20+json_len].decode("utf-8").rstrip("\x00 \t\r\n"))
+              used=set(doc.get("extensionsUsed",[]))
+              required=set(doc.get("extensionsRequired",[]))
+              assert "EXT_meshopt_compression" in used,(name,used)
+              assert "EXT_meshopt_compression" in required,(name,required)
+              size=p.stat().st_size
+              assert size < 95_000_000,(name,size)
+              r=json.loads(report_path.read_text())
+              r["runtime_compression"]="EXT_meshopt_compression"
+              r["runtime_meshopt_level"]="medium"
+              r["runtime_quantization_bits"]=16
+              r["runtime_simplification"]=False
+              r["runtime_output_bytes"]=size
+              report_path.write_text(json.dumps(r,indent=2)+"\n")
+              print("XZOGOT_ELITE_RUNTIME_MESHOPT_GREEN",name,size)
+          PY
+
       - name: Stage elite runtime asset
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p xogot/assets/zombies/monja_elite
-          cp xogot/build/monja-source-pose-rig/monja_black_white_clean_rig.glb \
+          cp xogot/build/monja-runtime/monja_black_white_clean_rig.glb \
              xogot/assets/zombies/monja_elite/monja_black_white_clean_rig.glb
-          cp xogot/build/monja-elite-cmu/monja_black_white_cmu_rig.glb \
+          cp xogot/build/monja-runtime/monja_black_white_cmu_rig.glb \
              xogot/assets/zombies/monja_elite/monja_black_white_cmu_rig.glb
           cp xogot/build/monja-source-pose-rig/report.json \
              xogot/assets/zombies/monja_elite/rig_report.json
