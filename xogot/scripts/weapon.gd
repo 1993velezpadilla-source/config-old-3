@@ -3,6 +3,7 @@ extends Node
 const WeaponCatalog = preload("res://scripts/weapon_catalog.gd")
 const WeaponAssetRegistry = preload("res://scripts/weapon_asset_registry.gd")
 const WeaponBalanceAAA = preload("res://scripts/weapon_balance_aaa.gd")
+const WeaponTextureRegistry = preload("res://scripts/weapon_texture_registry.gd")
 
 @export var damage: float = 24.0
 @export var range_m: float = 95.0
@@ -631,6 +632,19 @@ func _refresh_view_assets(def: Dictionary) -> void:
 		_asset_animation_player = _find_animation_player(model)
 		if model is Node3D:
 			_weapon_model_root = model as Node3D
+			var texture_report: Dictionary = WeaponTextureRegistry.apply_to_model(_weapon_model_root, _weapon_id)
+			set_meta("weapon_texture_surfaces", int(texture_report.get("surfaces", 0)))
+			set_meta("weapon_textured_surfaces", int(texture_report.get("textured", 0)))
+			set_meta("weapon_texture_ready", bool(texture_report.get("ready", false)))
+			set_meta("weapon_texture_missing", texture_report.get("missing", []))
+			print(
+				"XZOGOT_WEAPON_TEXTURE_BIND ",
+				_weapon_id,
+				" ",
+				int(texture_report.get("textured", 0)),
+				"/",
+				int(texture_report.get("surfaces", 0))
+			)
 			_bind_weapon_fx(_weapon_model_root)
 			_calibrate_ads_pose(_weapon_model_root)
 		else:

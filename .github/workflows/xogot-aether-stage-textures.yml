@@ -1,0 +1,215 @@
+name: Stage Aether Weapon Textures
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-aether-stage-textures.yml"
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: xogot-aether-stage-textures
+  cancel-in-progress: true
+
+jobs:
+  stage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN_ID: "37244741312"
+      TARGET_BRANCH: "feature/godot-aaa-rebuild-v1"
+    steps:
+      - name: Checkout Godot AAA branch
+        uses: actions/checkout@v5
+        with:
+          ref: feature/godot-aaa-rebuild-v1
+          fetch-depth: 0
+
+      - name: Download mapped material export
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf aether-artifact
+          mkdir -p aether-artifact
+          gh run download "$SOURCE_RUN_ID" -n aether-waw-usmap-real-weapons -D aether-artifact
+          test -d aether-artifact/recovered-export/ProjectAether/Content/Assets/Materials
+          echo "XZOGOT_AETHER_TEXTURE_SOURCE_READY"
+
+      - name: Stage referenced weapon textures and bindings
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, shutil, struct, re
+
+          artifact = Path("aether-artifact/recovered-export")
+          content = artifact / "ProjectAether" / "Content"
+          mat_root = content / "Assets" / "Materials"
+          tex_root = mat_root / "Textures"
+          weapon_root = content / "Assets" / "Weapons" / "waw"
+          out_root = Path("xogot/assets/weapons/aether_waw_textures")
+          data_path = Path("xogot/data/weapon_material_bindings.json")
+
+          mapping = {
+              "1911":"colt","357":"357","Arisaka":"arisaka","BAR":"bar",
+              "Browning":"browning","DoubleBarrel":"doublebarrel","DP28":"dp28",
+              "FG42":"fg42","Gewehr":"gewehr","Kar98k":"kar98k",
+              "M1Carbine":"m1a1","M1Garand":"m1","MG42":"mg42",
+              "MosinNagant":"mosin","MP40":"mp40","Nambu":"nambu",
+              "PPSH":"ppsh","PTRS":"ptrs","SawedOffDB":"sawnoff",
+              "Springfield":"springfield","STG44":"stg","Stielhand":"stielhand",
+              "SVT40":"svt40","Thompson":"thompson","TrenchGun":"trench",
+              "TT33":"tt33","Type100":"type100","Type99":"type99","Walther":"walther",
+          }
+          preferred = {"TrenchGun":"viewmodel_usa_trenchgun_rifle.glb"}
+
+          if out_root.exists():
+              shutil.rmtree(out_root)
+          out_root.mkdir(parents=True, exist_ok=True)
+          data_path.parent.mkdir(parents=True, exist_ok=True)
+
+          png_index = {p.stem.lower(): p for p in artifact.rglob("*.png")}
+
+          def read_glb_materials(path: Path):
+              b = path.read_bytes()
+              if b[:4] != b"glTF":
+                  raise RuntimeError(f"not glb: {path}")
+              json_len, json_type = struct.unpack_from("<II", b, 12)
+              if json_type != 0x4E4F534A:
+                  raise RuntimeError(f"bad json chunk: {path}")
+              doc = json.loads(b[20:20+json_len].rstrip(b" \t\r\n\0"))
+              return [str(m.get("name","")) for m in doc.get("materials",[])]
+
+          def choose_glb(folder: Path, source: str):
+              candidates = sorted(folder.glob("*.glb"))
+              if not candidates:
+                  raise RuntimeError(f"missing GLB folder {source}")
+              pref = preferred.get(source)
+              if pref and (folder / pref).is_file():
+                  return folder / pref
+              view = [p for p in candidates if "viewmodel" in p.name.lower()]
+              return view[0] if view else candidates[0]
+
+          def basename_from_object_path(value: str):
+              leaf = value.rsplit("/",1)[-1]
+              return leaf.split(".",1)[0]
+
+          copied = {}
+          materials = {}
+          weapon_materials = {}
+          unresolved = []
+
+          all_used_names = set()
+          for source, wid in mapping.items():
+              glb = choose_glb(weapon_root / source, source)
+              names = read_glb_materials(glb)
+              weapon_materials[wid] = names
+              all_used_names.update(n for n in names if n)
+
+          for material_name in sorted(all_used_names):
+              material_json = mat_root / f"{material_name}.json"
+              if not material_json.is_file():
+                  unresolved.append({"material":material_name,"reason":"json_missing"})
+                  continue
+              doc = json.loads(material_json.read_text(encoding="utf-8"))
+              textures = doc.get("Textures", {})
+              scalars = doc.get("Parameters", {}).get("Scalars", {})
+              overrides = (
+                  doc.get("Parameters", {}).get("Properties", {})
+                  .get("BasePropertyOverrides", {})
+              )
+
+              rec = {
+                  "albedo":"",
+                  "normal":"",
+                  "specular":"",
+                  "metallic":float(scalars.get("Metallic",0.34)),
+                  "roughness":0.42,
+                  "normal_scale":float(scalars.get("NormalIntensity", scalars.get("normalIntensity",1.0))),
+                  "two_sided":bool(overrides.get("TwoSided",False)),
+              }
+              if "RoughnessMin" in scalars or "RoughnessMax" in scalars:
+                  lo=float(scalars.get("RoughnessMin",0.18))
+                  hi=float(scalars.get("RoughnessMax",0.62))
+                  rec["roughness"]=(lo+hi)*0.5
+              elif "glossMax" in scalars:
+                  rec["roughness"]=max(0.12,1.0-float(scalars.get("glossMax",0.6))*0.65)
+
+              roles = {
+                  "albedo":["colorMap","PM_Diffuse","diffuseMap"],
+                  "normal":["normalMap","PM_Normals"],
+                  "specular":["specularMap","PM_SpecularMasks"],
+              }
+              for role, keys in roles.items():
+                  value=""
+                  for key in keys:
+                      if key in textures:
+                          value=str(textures[key])
+                          break
+                  if not value:
+                      continue
+                  stem=basename_from_object_path(value)
+                  source_png=png_index.get(stem.lower())
+                  if source_png is None:
+                      unresolved.append({"material":material_name,"role":role,"texture":stem})
+                      continue
+                  dest=out_root/source_png.name
+                  if source_png.name not in copied:
+                      shutil.copy2(source_png,dest)
+                      copied[source_png.name]=source_png
+                  rec[role]=f"res://assets/weapons/aether_waw_textures/{source_png.name}"
+              materials[material_name]=rec
+
+          payload = {
+              "schema":1,
+              "source_run":int("37244741312"),
+              "weapon_count":len(mapping),
+              "material_count":len(materials),
+              "texture_count":len(copied),
+              "weapon_materials":weapon_materials,
+              "materials":materials,
+              "unresolved":unresolved,
+          }
+          data_path.write_text(json.dumps(payload,indent=2)+"\n",encoding="utf-8")
+
+          required = [
+              "mtl_weapon_colt45_Inst",
+              "mtl_weapon_mp40_Inst",
+              "mtl_weapon_mp_thompson_Inst",
+              "mtl_weapon_mp_m1garand_Inst",
+              "mtl_weapon_trenchgun_Inst",
+          ]
+          for name in required:
+              rec=materials.get(name,{})
+              if not rec.get("albedo"):
+                  raise SystemExit(f"Required weapon albedo missing: {name}")
+          if len(materials) < 35:
+              raise SystemExit(f"Material coverage too low: {len(materials)}")
+          if len(copied) < 45:
+              raise SystemExit(f"Texture coverage too low: {len(copied)}")
+          print("XZOGOT_AETHER_WEAPON_TEXTURES_GREEN",len(materials),len(copied))
+          print("XZOGOT_AETHER_TEXTURE_UNRESOLVED",len(unresolved))
+          PY
+
+      - name: Commit texture payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add xogot/assets/weapons/aether_waw_textures xogot/data/weapon_material_bindings.json
+          if git diff --cached --quiet; then
+            echo "XZOGOT_AETHER_TEXTURE_PAYLOAD_ALREADY_PRESENT"
+            exit 0
+          fi
+          git commit -m "assets: restore Aether weapon textures and material bindings"
+          git pull --rebase origin "$TARGET_BRANCH"
+          git push origin HEAD:"$TARGET_BRANCH"
+          echo "XZOGOT_AETHER_TEXTURE_COMMIT_GREEN"
