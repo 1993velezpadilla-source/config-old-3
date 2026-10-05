@@ -23,6 +23,13 @@ func _init() -> void:
 	call_deferred("_capture")
 
 func _capture() -> void:
+	var orientation_setting: int = int(ProjectSettings.get_setting("display/window/handheld/orientation", -1))
+	if orientation_setting != 4:
+		push_error("SCREENSHOT: landscape sensor lock missing")
+		quit(7)
+		return
+	print("XZOGOT_SCREENSHOT_LANDSCAPE_LOCK_GREEN")
+
 	var packed: PackedScene = load("res://main.tscn") as PackedScene
 	if packed == null:
 		push_error("SCREENSHOT: main scene missing")
@@ -36,6 +43,15 @@ func _capture() -> void:
 	if player != null:
 		player.global_position = Vector3(3.4, 0.38, 6.2)
 		player.rotation.y = deg_to_rad(7.2)
+		player.set_meta("ads_toggled", true)
+
+	var weapon: Node = scene.get_node_or_null("Player/Weapon")
+	if weapon != null and weapon.has_method("equip_weapon"):
+		if not bool(weapon.call("equip_weapon", "mp40", true)):
+			push_error("SCREENSHOT: MP40 real-viewmodel equip failed")
+			quit(8)
+			return
+		print("XZOGOT_SCREENSHOT_REAL_MP40_ADS_READY")
 
 	for i in range(20):
 		await process_frame
@@ -50,6 +66,13 @@ func _capture() -> void:
 			zombie.global_position = Vector3(0.35, 0.35, 1.75)
 			if player != null:
 				zombie.look_at(player.global_position, Vector3.UP)
+			if zombie.has_method("_play_motion_state"):
+				zombie.call("_play_motion_state", "walk")
+			if str(zombie.get_meta("zombie_model", "")) != "monja_clean":
+				push_error("SCREENSHOT: clean Monja not selected")
+				quit(9)
+				return
+			print("XZOGOT_SCREENSHOT_CLEAN_MONJA_READY")
 			zombie.set_physics_process(false)
 
 			# Very soft warm fill only for visibility; keep gameplay contrast/shadows intact.
@@ -72,6 +95,12 @@ func _capture() -> void:
 		push_error("SCREENSHOT: viewport capture empty")
 		quit(3)
 		return
+
+	if image.get_width() <= image.get_height():
+		push_error("SCREENSHOT: capture is not landscape")
+		quit(10)
+		return
+	print("XZOGOT_SCREENSHOT_LANDSCAPE_FRAME_GREEN ", image.get_width(), "x", image.get_height())
 
 	var path := "/tmp/xogot-current-game.png"
 	var err: Error = image.save_png(path)
