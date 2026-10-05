@@ -145,6 +145,7 @@ jobs:
             2>&1 | tee xogot/build/monja-elite-cmu/blender.log
           grep -q "XZOGOT_MONJA_CMU_PROFILE_GREEN elite" xogot/build/monja-elite-cmu/blender.log
           grep -q "XZOGOT_MONJA_CMU_9_REAL_MOCAP_CLIPS_GREEN" xogot/build/monja-elite-cmu/blender.log
+          grep -q "XZOGOT_MONJA_CMU_DEFORMATION_SANITY_GREEN" xogot/build/monja-elite-cmu/blender.log
           grep -q "XZOGOT_MONJA_CMU_RIG_GREEN" xogot/build/monja-elite-cmu/blender.log
           test -s xogot/build/monja-elite-cmu/monja_black_white_cmu_rig.glb
           test -s xogot/build/monja-elite-cmu/report.json
@@ -165,6 +166,9 @@ jobs:
           assert len(r["baked_cmu"]) == 9
           assert not r["missing_cmu_actions"]
           assert r.get("raw_glb_animation_motion_valid") is True
+          assert not r.get("deformation_sanity_violations",[])
+          assert r.get("deformation_sanity")
+          assert all(x["valid"] is True for x in r["deformation_sanity"].values())
           names=" ".join(r["output_actions"]).lower()
           for token in ("104_41","105_25","74_01","139_19","02_05","111_19","111_03","90_16","140_01"):
               assert token in names,(token,r["output_actions"])
@@ -317,6 +321,7 @@ jobs:
             xogot/build/monja-elite-cmu/cmu_drag_bad_leg_mid.png
             xogot/build/monja-elite-cmu/cmu_crawl_mid.png
             xogot/build/monja-elite-cmu/cmu_strike_mid.png
+            xogot/build/monja-elite-cmu/deformation_diagnostic.json
             xogot/build/monja-elite-cmu/godot-import.log
             xogot/build/monja-elite-cmu/godot-probe.log
           if-no-files-found: warn
