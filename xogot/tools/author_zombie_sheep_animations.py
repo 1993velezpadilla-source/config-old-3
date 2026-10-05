@@ -3,13 +3,28 @@ from pathlib import Path
 from mathutils import Vector
 
 ROOT = Path(__file__).resolve().parents[1]
+
+def _tool_args():
+    raw = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
+    out = {}
+    i = 0
+    while i < len(raw):
+        key = raw[i]
+        if key.startswith("--") and i + 1 < len(raw):
+            out[key[2:]] = raw[i + 1]
+            i += 2
+        else:
+            i += 1
+    return out
+
+ARGS = _tool_args()
 SOURCE_DIR = ROOT / "assets" / "zombies" / "sheep" / "source"
-OUT = ROOT / "build" / "sheep-animated"
+OUT = Path(ARGS.get("output-dir", str(ROOT / "build" / "sheep-animated"))).resolve()
 OUT.mkdir(parents=True, exist_ok=True)
 
 SOURCES = {
-    "sheep_runner": SOURCE_DIR / "sheep_runner.glb",
-    "sheep_brute": SOURCE_DIR / "sheep_brute.glb",
+    "sheep_runner": Path(ARGS.get("runner-source", str(SOURCE_DIR / "sheep_runner.glb"))).resolve(),
+    "sheep_brute": Path(ARGS.get("brute-source", str(SOURCE_DIR / "sheep_brute.glb"))).resolve(),
 }
 
 REQUIRED = ["Sheep_Idle", "Sheep_Run", "Sheep_Attack", "Sheep_Death"]
