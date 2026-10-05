@@ -34,8 +34,10 @@ namespace Sanctum.Zombies.AI
         private int spawnedThisRound;
         private int totalThisRound;
         private bool running;
+        private bool gameOver;
 
         public int Round => round;
+        public bool IsGameOver => gameOver;
 
         private IEnumerator Start()
         {
@@ -45,9 +47,10 @@ namespace Sanctum.Zombies.AI
 
         public void BeginRound(int value)
         {
+            if (gameOver) return;
             round = Mathf.Max(1, value);
             spawnedThisRound = 0;
-            int players = Mathf.Clamp(PlayerTarget.Active.Count, 1, 4);
+            int players = Mathf.Clamp(AlivePlayerCount(), 1, 4);
             totalThisRound = tuning.TotalForRound(round, players);
             if (!running) StartCoroutine(RoundLoop());
         }
@@ -58,6 +61,13 @@ namespace Sanctum.Zombies.AI
 
             while (spawnedThisRound < totalThisRound)
             {
+                if (AlivePlayerCount() == 0)
+                {
+                    gameOver = true;
+                    running = false;
+                    yield break;
+                }
+
                 CleanupDead();
 
                 if (alive.Count < tuning.maxAliveMobile)
@@ -77,6 +87,13 @@ namespace Sanctum.Zombies.AI
 
             while (true)
             {
+                if (AlivePlayerCount() == 0)
+                {
+                    gameOver = true;
+                    running = false;
+                    yield break;
+                }
+
                 CleanupDead();
                 if (alive.Count == 0) break;
                 yield return new WaitForSeconds(0.5f);
@@ -85,6 +102,26 @@ namespace Sanctum.Zombies.AI
             running = false;
             yield return new WaitForSeconds(intermissionSeconds);
             BeginRound(round + 1);
+        }
+
+        public void ResetGame()
+        {
+            StopAllCoroutines();
+            foreach (ZombieHealth zombie in alive)
+                if (zombie != null) Destroy(zombie.gameObject);
+            alive.Clear();
+            gameOver = false;
+            running = false;
+            round = 0;
+            BeginRound(1);
+        }
+
+        private static int AlivePlayerCount()
+        {
+            int count = 0;
+            foreach (PlayerTarget player in PlayerTarget.Active)
+                if (player != null && player.IsAlive) count++;
+            return count;
         }
 
         private void CleanupDead() => alive.RemoveAll(z => z == null || !z.IsAlive);

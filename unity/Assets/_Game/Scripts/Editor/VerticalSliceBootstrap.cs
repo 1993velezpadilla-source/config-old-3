@@ -89,7 +89,8 @@ namespace Sanctum.Zombies.EditorTools
             cc.height = 1.76f;
             cc.radius = 0.34f;
             cc.center = new Vector3(0f, 0.88f, 0f);
-            player.AddComponent<PlayerTarget>();
+            PlayerTarget playerTarget = player.AddComponent<PlayerTarget>();
+            PlayerHealth playerHealth = player.AddComponent<PlayerHealth>();
             PlayerWallet wallet = player.AddComponent<PlayerWallet>();
 
             GameObject cameraGo = new GameObject("PlayerCamera");
@@ -145,7 +146,7 @@ namespace Sanctum.Zombies.EditorTools
             Texture2D fireIcon = AssetDatabase.LoadAssetAtPath<Texture2D>(HUDFirePath);
             Texture2D jumpIcon = AssetDatabase.LoadAssetAtPath<Texture2D>(HUDJumpPath);
             MobileHUDOverlay hud = player.AddComponent<MobileHUDOverlay>();
-            hud.Configure(hudLayout, weapon, wallet, roundDirector, fireIcon, jumpIcon);
+            hud.Configure(hudLayout, weapon, wallet, roundDirector, playerHealth, fireIcon, jumpIcon);
 
             GameObject pap = new GameObject("PackAPunch_Test");
             pap.transform.position = new Vector3(3f, 1f, 8f);
@@ -182,6 +183,11 @@ namespace Sanctum.Zombies.EditorTools
             agent.speed = 1.8f;
             agent.acceleration = 18f;
             agent.angularSpeed = 720f;
+            agent.stoppingDistance = 0.72f;
+            agent.autoRepath = true;
+            agent.autoBraking = false;
+            agent.obstacleAvoidanceType = ObstacleAvoidanceType.HighQualityObstacleAvoidance;
+            root.AddComponent<ZombieStuckRecovery>();
 
             Animator animator = model.GetComponentInChildren<Animator>();
             if (animator == null) animator = model.AddComponent<Animator>();

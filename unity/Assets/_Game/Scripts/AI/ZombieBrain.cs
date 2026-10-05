@@ -14,6 +14,8 @@ namespace Sanctum.Zombies.AI
         [SerializeField] private float attackRange = 1.25f;
         [SerializeField] private float barricadeAttackRange = 1.35f;
         [SerializeField] private float attackCooldown = 0.9f;
+        [SerializeField] private float attackImpactDelay = 0.30f;
+        [SerializeField] private int attackDamage = 50;
 
         private NavMeshAgent agent;
         private ZombieHealth health;
@@ -23,6 +25,8 @@ namespace Sanctum.Zombies.AI
         private float nextTargetRefresh;
         private float nextPathRefresh;
         private float nextAttack;
+        private float pendingImpactAt = -1f;
+        private PlayerTarget pendingImpactTarget;
         private readonly NavMeshPath probe = new NavMeshPath();
 
         private void Awake()
@@ -45,6 +49,8 @@ namespace Sanctum.Zombies.AI
         private void Update()
         {
             if (!health.IsAlive) return;
+
+            ResolvePendingPlayerHit();
 
             if (Time.time >= nextTargetRefresh)
             {
@@ -136,6 +142,30 @@ namespace Sanctum.Zombies.AI
                     }
                     break;
             }
+        }
+
+        private void QueuePlayerAttack()
+        {
+            if (target == null || !target.IsAlive) return;
+            if (animator != null) animator.SetTrigger("Attack");
+            pendingImpactTarget = target;
+            pendingImpactAt = Time.time + attackImpactDelay;
+        }
+
+        private void ResolvePendingPlayerHit()
+        {
+            if (pendingImpactTarget == null || pendingImpactAt < 0f || Time.time < pendingImpactAt) return;
+
+            PlayerTarget victim = pendingImpactTarget;
+            pendingImpactTarget = null;
+            pendingImpactAt = -1f;
+
+            if (!victim.IsAlive || victim.Health == null) return;
+
+            float maxImpactRange = attackRange * 1.35f;
+            if (Vector3.Distance(transform.position, victim.transform.position) > maxImpactRange) return;
+
+            victim.Health.TakeZombieHit(attackDamage, transform.position);
         }
 
         private PlayerTarget FindBestPlayer()

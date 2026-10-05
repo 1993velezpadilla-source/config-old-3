@@ -28,9 +28,11 @@ for rel in [
     "Assets/_Game/Scripts/Combat/WeaponADSController.cs",
     "Assets/_Game/Scripts/Combat/ZombieHitbox.cs",
     "Assets/_Game/Scripts/AI/ZombieBrain.cs",
+    "Assets/_Game/Scripts/AI/ZombieStuckRecovery.cs",
     "Assets/_Game/Scripts/AI/ZombieBarricade.cs",
     "Assets/_Game/Scripts/AI/ZombieSpawnDirector.cs",
     "Assets/_Game/Scripts/Player/MobileFPSController.cs",
+    "Assets/_Game/Scripts/Player/PlayerHealth.cs",
     "Assets/_Game/Scripts/Player/LandscapeModeEnforcer.cs",
     "Assets/_Game/Scripts/Player/TouchFPSInput.cs",
     "Assets/_Game/Scripts/Debug/GameplayScreenshotCapture.cs",
@@ -142,6 +144,24 @@ else:
         if token not in discovered:
             errors.append(f"clean monja source report missing {token} animation")
 
+player_health = (root / "Assets/_Game/Scripts/Player/PlayerHealth.cs").read_text()
+if "TakeZombieHit" not in player_health or "TryRevive" not in player_health:
+    errors.append("player down/revive health loop missing")
+
+zombie_brain = (root / "Assets/_Game/Scripts/AI/ZombieBrain.cs").read_text()
+for token in ["attackImpactDelay", "attackDamage", "QueuePlayerAttack", "TakeZombieHit"]:
+    if token not in zombie_brain:
+        errors.append(f"zombie real attack damage missing: {token}")
+
+stuck_recovery = (root / "Assets/_Game/Scripts/AI/ZombieStuckRecovery.cs").read_text()
+for token in ["NavMesh.SamplePosition", "agent.Warp", "agent.ResetPath", "localSnapRadius"]:
+    if token not in stuck_recovery:
+        errors.append(f"zombie stuck recovery missing: {token}")
+
+spawn_director = (root / "Assets/_Game/Scripts/AI/ZombieSpawnDirector.cs").read_text()
+if "AlivePlayerCount" not in spawn_director or "IsGameOver" not in spawn_director:
+    errors.append("round director game-over awareness missing")
+
 android_build = (root / "Assets/_Game/Scripts/Editor/AndroidBuild.cs").read_text()
 for token in [
     "defaultInterfaceOrientation = UIOrientation.LandscapeLeft",
@@ -181,6 +201,8 @@ print("RECOVERED_FIRE_WAVS=27")
 print("MG42_FIRE_AUDIO=EXPLICIT_BROWNING_FALLBACK")
 print("MOSIN_RELOAD_SOURCE_GAP=KNOWN_FALLBACK")
 print("MONJA_EMBEDDED_IDLE_WALK_ATTACK_HIT_DEATH=VALID")
+print("PLAYER_DAMAGE_DOWN_REVIVE_AND_GAME_OVER=WIRED")
+print("ZOMBIE_STUCK_RECOVERY=WIRED")
 print("LANDSCAPE_ONLY_RUNTIME_AND_ANDROID_BUILD=WIRED")
 print("REAL_GAMEPLAY_PHOTO_CAPTURE=WIRED")
 print("URP_MOBILE_PIPELINE_AND_POST=WIRED")

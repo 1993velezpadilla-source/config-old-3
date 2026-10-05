@@ -2,6 +2,7 @@ using UnityEngine;
 using Sanctum.Zombies.AI;
 using Sanctum.Zombies.Combat;
 using Sanctum.Zombies.Interaction;
+using Sanctum.Zombies.Player;
 
 namespace Sanctum.Zombies.UI
 {
@@ -11,6 +12,7 @@ namespace Sanctum.Zombies.UI
         [SerializeField] private WeaponRuntime weapon;
         [SerializeField] private PlayerWallet wallet;
         [SerializeField] private ZombieSpawnDirector rounds;
+        [SerializeField] private PlayerHealth health;
         [SerializeField] private Texture2D fireIcon;
         [SerializeField] private Texture2D jumpIcon;
 
@@ -22,6 +24,7 @@ namespace Sanctum.Zombies.UI
             WeaponRuntime weaponRef,
             PlayerWallet walletRef,
             ZombieSpawnDirector roundsRef,
+            PlayerHealth healthRef,
             Texture2D fireTexture,
             Texture2D jumpTexture)
         {
@@ -29,6 +32,7 @@ namespace Sanctum.Zombies.UI
             weapon = weaponRef;
             wallet = walletRef;
             rounds = roundsRef;
+            health = healthRef;
             fireIcon = fireTexture;
             jumpIcon = jumpTexture;
         }
@@ -95,12 +99,19 @@ namespace Sanctum.Zombies.UI
                 : "-- / --";
             string points = wallet != null ? wallet.Points.ToString() : "0";
             string round = rounds != null ? rounds.Round.ToString() : "-";
+            string hp = health != null ? $"{health.CurrentHealth}/{health.MaxHealth} HP" : "-- HP";
 
             Rect right = new Rect(Screen.width * 0.70f, Screen.height * 0.84f, Screen.width * 0.27f, Screen.height * 0.10f);
             GUI.Label(right, $"{ammo}   |   {points} pts", dataStyle);
 
             Rect left = new Rect(Screen.width * 0.03f, Screen.height * 0.04f, Screen.width * 0.20f, Screen.height * 0.08f);
-            GUI.Label(left, $"ROUND {round}", dataStyle);
+            GUI.Label(left, $"ROUND {round}   |   {hp}", dataStyle);
+
+            if (health != null && health.IsDowned)
+            {
+                Rect down = new Rect(Screen.width * 0.30f, Screen.height * 0.40f, Screen.width * 0.40f, Screen.height * 0.12f);
+                GUI.Label(down, rounds != null && rounds.IsGameOver ? "GAME OVER" : "DOWNED", dataStyle);
+            }
         }
 
         private void EnsureStyles()
