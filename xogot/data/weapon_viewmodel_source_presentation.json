@@ -1,0 +1,116 @@
+{
+  "schema": 1,
+  "source": "Project Aether UE5.7 /Game/Assets/Data/DataTables/DT_Weapons row 5 (MP40)",
+  "coordinate_conversion": "UE cm (X forward,Y right,Z up) -> Godot m (X=Yue/100,Y=Zue/100,Z=-Xue/100); quaternion Godot=(-Yue,-Zue,Xue,Wue)",
+  "policy": {
+    "source_authored_only": true,
+    "scale_guessing_forbidden": true,
+    "family_offsets_forbidden": true
+  },
+  "weapons": {
+    "mp40": {
+      "status": "source_datatable",
+      "source_table": "/Game/Assets/Data/DataTables/DT_Weapons",
+      "source_row_index": 5,
+      "source_weapon_name": "MP40",
+      "view_transform_ue_cm": {
+        "rotation_xyzw": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "translation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "hand_transform_ue_cm": {
+        "rotation_xyzw": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "translation": [
+          22,
+          5,
+          -5
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "hand_transform_godot": {
+        "rotation_xyzw": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "translation_m": [
+          0.05,
+          -0.05,
+          -0.22
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "ads_transform_ue_cm": {
+        "rotation_xyzw": [
+          0.002472,
+          -0.012176,
+          0.009857,
+          0.999874
+        ],
+        "translation": [
+          24.045,
+          -4.142,
+          1.04
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "ads_transform_godot": {
+        "rotation_xyzw": [
+          0.012176,
+          -0.009857,
+          0.002472,
+          0.999874
+        ],
+        "translation_m": [
+          -0.04142,
+          0.0104,
+          -0.24045
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "ads_in_time_s": 0.2,
+      "ads_out_time_s": 0.2,
+      "ads_fov_multiplier": 1,
+      "hand_idle_source": "/Game/Assets/Weapons/WAW/MP40/Anims/Hands/HandIdleMP40",
+      "hand_fire_source": "/Game/Assets/Weapons/WAW/MP40/Anims/Hands/viewmodel_mp40_fire_Montage",
+      "hand_reload_source": "/Game/Assets/Weapons/WAW/MP40/Anims/Hands/MP40ReloadHands_Montage",
+      "hand_equip_source": "/Game/Assets/Weapons/WAW/MP40/Anims/Hands/MP40Equip_Montage",
+      "t7_armature": false
+    }
+  }
+}
