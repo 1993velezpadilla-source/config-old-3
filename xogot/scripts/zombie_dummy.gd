@@ -3,6 +3,7 @@ extends CharacterBody3D
 signal died(zombie: Node)
 
 const MONJA_BASICA_PATH := "res://assets/zombies/monja_basica.glb"
+const MONJA_CMU_PATH := "res://assets/zombies/monja_clean/monja_basica_cmu_rig.glb"
 const MONJA_CLEAN_PATH := "res://assets/zombies/monja_clean/monja_basica_clean_rig.glb"
 const MONJA_RIGGED_PATH := "res://assets/zombies/monja_basica_rigged.glb"
 const MONJA_RIGGED_DISMEMBER_PATH := "res://assets/zombies/monja_basica_rigged_dismember.glb"
@@ -332,7 +333,11 @@ func _build_body() -> void:
 	else:
 		# Prefer the new clean Blender bind-pose rig. Legacy smooth/rigid assets
 		# remain compatibility fallbacks until the clean asset passes its Godot gate.
-		if ResourceLoader.exists(MONJA_CLEAN_PATH):
+		if ResourceLoader.exists(MONJA_CMU_PATH):
+			selected_path = MONJA_CMU_PATH
+			using_rigged = true
+			special_model_id = "monja_cmu"
+		elif ResourceLoader.exists(MONJA_CLEAN_PATH):
 			selected_path = MONJA_CLEAN_PATH
 			using_rigged = true
 			special_model_id = "monja_clean"
