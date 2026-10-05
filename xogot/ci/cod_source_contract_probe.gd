@@ -71,7 +71,8 @@ func _run() -> void:
 		return
 
 	player.call("_set_crouched", true)
-	await process_frame
+	# Read immediately: normal gameplay stands back up on the next frame when
+	# there is no crouch input.
 	capsule = collider.shape as CapsuleShape3D
 	if not _near(capsule.height, CODSourceContract.PLAYER_CROUCH_CAPSULE_HEIGHT):
 		_fail(21, "crouch capsule height drift " + str(capsule.height))

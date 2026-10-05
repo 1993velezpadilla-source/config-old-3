@@ -43,11 +43,23 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          New-Item -ItemType Directory -Force -Path "$env:RUNNER_TEMP\aether-download" | Out-Null
-          npx --yes itchio-downloader --url "https://verrial.itch.io/projectaether" --downloadDirectory "$env:RUNNER_TEMP\aether-download"
-          $zip=Get-ChildItem "$env:RUNNER_TEMP\aether-download" -Filter '*.zip' -Recurse |
-            Sort-Object Length -Descending | Select-Object -First 1
-          if (-not $zip) { throw 'Aether ZIP missing' }
+          $downloadDir="$env:RUNNER_TEMP\aether-download"
+          New-Item -ItemType Directory -Force -Path $downloadDir | Out-Null
+          $zip=$null
+          for ($attempt=1; $attempt -le 6; $attempt++) {
+            Write-Host "XZOGOT_AETHER_DOWNLOAD_ATTEMPT $attempt"
+            npx --yes itchio-downloader --url "https://verrial.itch.io/projectaether" --downloadDirectory $downloadDir
+            $rc=$LASTEXITCODE
+            $zip=Get-ChildItem $downloadDir -Filter '*.zip' -Recurse |
+              Sort-Object Length -Descending | Select-Object -First 1
+            if ($rc -eq 0 -and $zip) { break }
+            if ($attempt -lt 6) {
+              $delay=45 + ($attempt * 30)
+              Write-Host "XZOGOT_AETHER_DOWNLOAD_BACKOFF seconds=$delay rc=$rc"
+              Start-Sleep -Seconds $delay
+            }
+          }
+          if (-not $zip) { throw 'Aether ZIP missing after retry/backoff' }
           $pakRoot="$env:RUNNER_TEMP\aether-paks"
           New-Item -ItemType Directory -Force -Path $pakRoot | Out-Null
           7z x -y $zip.FullName 'ProjectAether/Content/Paks/*' "-o$pakRoot" | Out-Host
