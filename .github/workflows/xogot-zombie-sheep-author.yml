@@ -7,7 +7,7 @@ on:
       - feature/church-expansion-v1
     paths:
       - "xogot/assets/zombies/sheep/source/sheep_runner.glb"
-      - "xogot/assets/zombies/sheep/source/sheep_brute.glb"
+      - "xogot/assets/zombies/sheep/source/sheep_brute.glb"\n      - "xogot/ci/_trigger_sheep_author.txt"
 
 permissions:
   contents: write
