@@ -47,6 +47,7 @@ jobs:
           grep -q "XZOGOT_MONJA_SOURCE_POSE_ANIMS_GREEN" xogot/build/monja-source-pose-rig/blender.log
           grep -q "XZOGOT_MONJA_SOURCE_POSE_GEOMETRY_GREEN" xogot/build/monja-source-pose-rig/blender.log
           grep -q "XZOGOT_MONJA_SOURCE_POSE_MATCH_GREEN" xogot/build/monja-source-pose-rig/blender.log
+          grep -q "XZOGOT_MONJA_DEFORMATION_SANITY_GREEN" xogot/build/monja-source-pose-rig/blender.log
           test -s xogot/build/monja-source-pose-rig/monja_basica_clean_rig.glb
           test -s xogot/build/monja-source-pose-rig/bind_pose.png
           test -s xogot/build/monja-source-pose-rig/walk_mid.png
@@ -68,48 +69,53 @@ jobs:
           assert all(x["coverage"] >= 0.98 for x in r["weight_transfer"])
           assert len(r["baked"]) >= 3
           assert r["pose_match"]["validated"] is True
+          assert r.get("deformation_sanity")
+          assert all(v["max_extent_ratio"] <= 2.75 for v in r["deformation_sanity"].values())
+          assert all(v["max_diag_ratio"] <= 2.25 for v in r["deformation_sanity"].values())
+          assert all(v["max_surface_area_ratio"] <= 3.0 for v in r["deformation_sanity"].values())
           print("XZOGOT_MONJA_SOURCE_POSE_REPORT_GREEN",r["bones"],r["output_bytes"])
           PY
 
-      - name: Compress clean rig for runtime Git
+      - name: Pack Godot-compatible clean runtime as separate glTF
         shell: bash
         run: |
           set -euo pipefail
+          rm -rf xogot/build/monja-clean-runtime
           mkdir -p xogot/build/monja-clean-runtime
-          gltf-transform meshopt \
+          gltf-transform copy \
             xogot/build/monja-source-pose-rig/monja_basica_clean_rig.glb \
-            xogot/build/monja-clean-runtime/monja_basica_clean_rig.glb \
-            --level medium \
-            --quantize-position 16 \
-            --quantize-normal 16 \
-            --quantize-texcoord 16 \
-            --quantize-weight 16 \
-            --quantize-color 16 \
-            --quantize-generic 16
+            xogot/build/monja-clean-runtime/monja_basica_clean_rig.gltf
           python3 - <<'PY'
-          import json,struct
+          import json
           from pathlib import Path
-          p=Path("xogot/build/monja-clean-runtime/monja_basica_clean_rig.glb")
-          data=p.read_bytes()
-          assert data[:4]==b"glTF" and len(data)>20
-          json_len,json_type=struct.unpack_from("<II",data,12)
-          assert json_type==0x4E4F534A
-          doc=json.loads(data[20:20+json_len].decode("utf-8").rstrip("\x00 \t\r\n"))
+          root=Path("xogot/build/monja-clean-runtime")
+          p=root/"monja_basica_clean_rig.gltf"
+          doc=json.loads(p.read_text())
           used=set(doc.get("extensionsUsed",[]))
           required=set(doc.get("extensionsRequired",[]))
-          assert "EXT_meshopt_compression" in used, used
-          assert "EXT_meshopt_compression" in required, required
-          size=p.stat().st_size
-          assert size < 95_000_000, size
+          assert "EXT_meshopt_compression" not in used|set(required), (used,required)
+          assert "KHR_mesh_quantization" not in required, required
+          files=[x for x in root.iterdir() if x.is_file()]
+          assert files, files
+          too_big=[(x.name,x.stat().st_size) for x in files if x.stat().st_size>=99_000_000]
+          assert not too_big, too_big
+          for buf in doc.get("buffers",[]):
+              uri=buf.get("uri")
+              assert uri and (root/uri).is_file(), uri
+          for img in doc.get("images",[]):
+              uri=img.get("uri")
+              if uri:
+                  assert (root/uri).is_file(), uri
           report_path=Path("xogot/build/monja-source-pose-rig/report.json")
           r=json.loads(report_path.read_text())
-          r["runtime_compression"]="EXT_meshopt_compression"
-          r["runtime_meshopt_level"]="medium"
-          r["runtime_quantization_bits"]=16
+          r["runtime_format"]="gltf_separate"
+          r["runtime_compression"]="none"
           r["runtime_simplification"]=False
-          r["runtime_output_bytes"]=size
+          r["runtime_quantization"]=False
+          r["runtime_files"]={x.name:x.stat().st_size for x in files}
+          r["runtime_output_bytes"]=sum(x.stat().st_size for x in files)
           report_path.write_text(json.dumps(r,indent=2)+"\n")
-          print("XZOGOT_MONJA_BASIC_RUNTIME_MESHOPT_GREEN",size)
+          print("XZOGOT_MONJA_BASIC_RUNTIME_GLTF_SEPARATE_GREEN",r["runtime_files"])
           PY
 
       - name: Stage clean rig candidate
@@ -124,13 +130,17 @@ jobs:
           assert r.get("raw_glb_bind_valid") is True
           assert r.get("raw_glb_geometry_conserved") is True
           assert r.get("runtime_simplification") is False
+          assert r.get("runtime_format") == "gltf_separate"
+          assert r.get("runtime_compression") == "none"
+          assert r.get("runtime_quantization") is False
           print("XZOGOT_MONJA_POSE_MATCH_PROMOTION_GREEN")
           PY
-          SIZE=$(stat -c%s xogot/build/monja-clean-runtime/monja_basica_clean_rig.glb)
-          test "$SIZE" -lt 95000000
           mkdir -p xogot/assets/zombies/monja_clean
-          cp xogot/build/monja-clean-runtime/monja_basica_clean_rig.glb \
-             xogot/assets/zombies/monja_clean/monja_basica_clean_rig.glb
+          rm -f xogot/assets/zombies/monja_clean/monja_basica_clean_rig.glb
+          rm -rf xogot/assets/zombies/monja_clean/clean_runtime
+          mkdir -p xogot/assets/zombies/monja_clean/clean_runtime
+          cp -a xogot/build/monja-clean-runtime/. \
+             xogot/assets/zombies/monja_clean/clean_runtime/
           cp xogot/build/monja-source-pose-rig/report.json \
              xogot/assets/zombies/monja_clean/report.json
 
