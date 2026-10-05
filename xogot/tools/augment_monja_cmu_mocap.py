@@ -107,6 +107,12 @@ def action_for_armature(arm):
 def rest_global(arm,bone_name):
     return arm.data.bones[bone_name].matrix_local.copy()
 
+def rest_local(arm,bone_name):
+    b=arm.data.bones[bone_name]
+    if b.parent:
+        return b.parent.matrix_local.inverted() @ b.matrix_local
+    return b.matrix_local.copy()
+
 def pose_global(arm,bone_name):
     return arm.pose.bones[bone_name].matrix.copy()
 
@@ -135,8 +141,10 @@ def bake_cmu_clip(target,src,src_action,new_name):
             fail(f"{new_name}: CMU source missing {source}")
 
     src.animation_data_create()
+    src.data.pose_position='POSE'
     src.animation_data.action=src_action
     target.animation_data_create()
+    target.data.pose_position='POSE'
     new_action=bpy.data.actions.new(new_name)
     target.animation_data.action=new_action
 
@@ -147,36 +155,46 @@ def bake_cmu_clip(target,src,src_action,new_name):
     scale=target_h/source_h
 
     src_rest={s:rest_global(src,s) for s in BONE_MAP.values()}
-    tgt_rest={t:rest_global(target,t) for t in BONE_MAP.keys()}
+    tgt_rest_global={t:rest_global(target,t) for t in BONE_MAP.keys()}
+    tgt_rest_local={t:rest_local(target,t) for t in BONE_MAP.keys()}
     src_hip_rest=src_rest["hip"].translation.copy()
+    ordered=[b.name for b in target.data.bones if b.name in BONE_MAP]
 
-    # Preserve source FPS. FBX CMU captures are typically 120Hz; Blender import
-    # may represent them at scene FPS. We key every imported frame to avoid
-    # inventing interpolation.
     for frame in range(lo,hi+1):
         bpy.context.scene.frame_set(frame)
         bpy.context.view_layer.update()
         hip_pose=pose_global(src,"hip")
-        root_delta=(hip_pose.translation-src_hip_rest)*scale
-        # CharacterBody owns horizontal locomotion; keep animation in-place but
-        # retain vertical body motion for limps/crawl/fall/get-up.
-        root_delta.x=0.0
-        root_delta.y=0.0
+        pelvis_z=float((hip_pose.translation-src_hip_rest).z*scale)
+        pelvis_z=max(-target_h*0.20,min(target_h*0.20,pelvis_z))
+        target_world={}
 
-        for tgt_name,src_name in BONE_MAP.items():
+        for tgt_name in ordered:
+            src_name=BONE_MAP[tgt_name]
             src_r=src_rest[src_name]
             src_p=pose_global(src,src_name)
-            # Global rotational delta from captured rest -> captured pose.
             delta_q=src_p.to_quaternion() @ src_r.to_quaternion().inverted()
-            tgt_r=tgt_rest[tgt_name]
-            desired_q=delta_q @ tgt_r.to_quaternion()
-            desired_loc=tgt_r.translation.copy()+root_delta
+            desired_world_q=delta_q @ tgt_rest_global[tgt_name].to_quaternion()
 
             pb=target.pose.bones[tgt_name]
-            desired=desired_q.to_matrix().to_4x4()
-            desired.translation=desired_loc
-            pb.matrix=desired
+            parent=pb.parent
+            if parent is not None:
+                parent_world=target_world.get(parent.name,target.data.bones[parent.name].matrix_local.copy())
+                local_q=parent_world.to_quaternion().inverted() @ desired_world_q
+            else:
+                parent_world=Matrix.Identity(4)
+                local_q=desired_world_q
+
+            desired_local=local_q.to_matrix().to_4x4()
+            local_translation=tgt_rest_local[tgt_name].translation.copy()
+            if tgt_name=="pelvis":
+                local_translation.z += pelvis_z
+            desired_local.translation=local_translation
+            desired_world=parent_world @ desired_local
+
+            pb.matrix=desired_world
             pb.rotation_mode='QUATERNION'
+            pb.scale=Vector((1.0,1.0,1.0))
+            target_world[tgt_name]=desired_world.copy()
             pb.keyframe_insert(data_path="location",frame=frame,group=tgt_name)
             pb.keyframe_insert(data_path="rotation_quaternion",frame=frame,group=tgt_name)
             pb.keyframe_insert(data_path="scale",frame=frame,group=tgt_name)
@@ -188,13 +206,15 @@ def bake_cmu_clip(target,src,src_action,new_name):
     strip=tr.strips.new(new_name,lo,new_action)
     strip.name=new_name
     new_action.use_fake_user=True
-    print("XZOGOT_MONJA_CMU_CLIP_GREEN",new_name,lo,hi,len(BONE_MAP))
+    print("XZOGOT_MONJA_CMU_CLIP_GREEN",new_name,lo,hi,len(BONE_MAP),"hierarchy_preserved")
     return {
         "name":new_name,
         "source_action":src_action.name,
         "frames":[lo,hi],
         "mapped_bones":len(BONE_MAP),
         "height_scale":scale,
+        "retarget":"global_rotation_delta_parent_local_target_lengths",
+        "pelvis_vertical_translation_limit":target_h*0.20,
     }
 
 def mesh_surface_stats(mesh_objects):
