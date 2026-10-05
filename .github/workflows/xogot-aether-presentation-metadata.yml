@@ -100,6 +100,16 @@ jobs:
           Write-Host "XZOGOT_MP40_PROVIDER_PATHS_READY count=$($paths.Count)"
           $paths | ForEach-Object { Write-Host "XZOGOT_MP40_PATH $_" }
 
+      - name: Discover weapon blueprint package paths
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $stdout = & "$env:CUE4PARSE" -i "$env:AETHER_PAKDIR" -g GAME_UE5_7 -m "$PWD\Mappings.usmap" -l -p '*Assets/BP/Weapons/*.uasset' 2> presentation-weapon-bp-list-stderr.log
+          $paths = @($stdout | Where-Object { $_ -match '(?i)/Assets/BP/Weapons/' -and $_ -match '(?i)\.uasset$' } | Sort-Object -Unique)
+          $paths | Set-Content weapon-bp-packages.txt -Encoding ascii
+          if ($paths.Count -lt 1) { throw 'CUE4Parse provider index returned no weapon BP uasset paths' }
+          Write-Host "XZOGOT_WEAPON_BP_PROVIDER_PATHS_READY count=$($paths.Count)"
+
       - name: Export first-person weapon and camera authority packages
         shell: pwsh
         run: |
@@ -112,6 +122,7 @@ jobs:
           *FirstPerson/Blueprints/Weapons/Player/bo3/RichtofenUltimis/T7_Viewhands.uasset
           '@ | Set-Content presentation-patterns.txt -Encoding ascii
           Get-Content mp40-packages.txt | Add-Content presentation-patterns.txt -Encoding ascii
+          Get-Content weapon-bp-packages.txt | Add-Content presentation-patterns.txt -Encoding ascii
 
           Remove-Item presentation-export -Recurse -Force -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Force -Path presentation-export | Out-Null
@@ -164,10 +175,27 @@ jobs:
           ))
 
           base_hits=[h for h in hits if "BP_WeaponBase" in h["source"]]
+          mp40_refs=[]
+          def scan_refs(value,path,source):
+              if isinstance(value,dict):
+                  for k,v in value.items():
+                      scan_refs(v,path+[str(k)],source)
+              elif isinstance(value,list):
+                  for i,v in enumerate(value):
+                      scan_refs(v,path+[str(i)],source)
+              elif isinstance(value,str) and re.search(r"mp40|HandIdleMP40|MP40_SM",value,re.I):
+                  mp40_refs.append({"source":source,"path":".".join(path),"value":value})
+          for path in json_files:
+              try:
+                  data=json.loads(path.read_text(encoding="utf-8-sig",errors="strict"))
+              except Exception:
+                  continue
+              scan_refs(data,[],path.as_posix())
           report={
               "schema":1,
               "source":"Project Aether UE5.7 reconstructed first-person presentation packages",
               "bp_weapon_base_numeric_hits":base_hits,
+              "mp40_reference_hits":mp40_refs[:5000],
               "mapping_run":37244741312,
               "export_file_count":sum(1 for p in root.rglob("*") if p.is_file()),
               "json_file_count":len(json_files),
@@ -195,7 +223,9 @@ jobs:
             aether-presentation-metadata-report.json
             presentation-patterns.txt
             mp40-packages.txt
+            weapon-bp-packages.txt
             presentation-mp40-list-stderr.log
+            presentation-weapon-bp-list-stderr.log
             presentation-cue4parse.log
             presentation-export/**
           if-no-files-found: error
