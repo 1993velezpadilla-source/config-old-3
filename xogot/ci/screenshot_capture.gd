@@ -55,7 +55,10 @@ func _capture() -> void:
 			return
 		print("XZOGOT_SCREENSHOT_REAL_MP40_READY")
 
-	for i in range(20):
+	# The source MP40 equip action is 0.4667 s. CI rendering is uncapped,
+	# so a frame count is not a valid time wait; use real simulation time.
+	await create_timer(0.62).timeout
+	for i in range(2):
 		await process_frame
 
 	if weapon != null:
@@ -164,7 +167,10 @@ func _capture() -> void:
 			quit(20)
 			return
 		player.set_meta("ads_toggled", true)
-		for i in range(24):
+		# Recovered DT_Weapons ADS in/out time is 0.20 s; wait beyond the
+		# authored transition so the screenshot captures settled ADS.
+		await create_timer(0.28).timeout
+		for i in range(2):
 			await process_frame
 		var ads_image: Image = root.get_texture().get_image()
 		if ads_image == null or ads_image.is_empty():
