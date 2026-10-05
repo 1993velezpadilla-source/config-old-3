@@ -1,0 +1,45 @@
+name: Temp Actions Snapshot
+
+on:
+  push:
+    branches:
+      - feature/church-expansion-v1
+    paths:
+      - ".github/workflows/_temp_actions_snapshot_20261004.yml"
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Collect run status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -u
+          mkdir -p xogot/ci_status
+          {
+            echo "=== sheep ==="
+            gh run list --repo "${GITHUB_REPOSITORY}" --workflow xogot-zombie-sheep-author.yml --branch feature/church-expansion-v1 --limit 5 --json databaseId,status,conclusion,headSha,event,createdAt,updatedAt,url 2>&1 || true
+            echo
+            echo "=== elite ==="
+            gh run list --repo "${GITHUB_REPOSITORY}" --workflow xogot-monja-elite-author.yml --branch feature/church-expansion-v1 --limit 5 --json databaseId,status,conclusion,headSha,event,createdAt,updatedAt,url 2>&1 || true
+          } > xogot/ci_status/special_enemy_runs.txt
+          cat xogot/ci_status/special_enemy_runs.txt
+      - name: Commit snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "XZOGOT Status Bot"
+          git config user.email "xogot-status-bot@users.noreply.github.com"
+          git pull --rebase origin feature/church-expansion-v1
+          git add xogot/ci_status/special_enemy_runs.txt
+          git commit -m "ci: snapshot special enemy Actions" || exit 0
+          git push origin HEAD:feature/church-expansion-v1
