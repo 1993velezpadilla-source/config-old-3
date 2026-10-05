@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "pipeline": "zombie_sheep_blender_animation_v1",
+  "variants": [
+    {
+      "id": "sheep_runner",
+      "source": "build/special-enemy-decoded/sheep_runner.glb",
+      "source_vertices": 188100,
+      "source_triangles": 343628,
+      "output_triangles": 343628,
+      "bones": 34,
+      "actions": [
+        "NLA_Sheep_Attack_Armature",
+        "NLA_Sheep_Death_Armature",
+        "NLA_Sheep_Idle_Armature",
+        "NLA_Sheep_Run_Armature"
+      ],
+      "output": "sheep_runner_animated.glb",
+      "output_bytes": 15577932
+    },
+    {
+      "id": "sheep_brute",
+      "source": "build/special-enemy-decoded/sheep_brute.glb",
+      "source_vertices": 499153,
+      "source_triangles": 953436,
+      "output_triangles": 953436,
+      "bones": 33,
+      "actions": [
+        "NLA_Sheep_Attack_Armature",
+        "NLA_Sheep_Death_Armature",
+        "NLA_Sheep_Idle_Armature",
+        "NLA_Sheep_Run_Armature"
+      ],
+      "output": "sheep_brute_animated.glb",
+      "output_bytes": 39892244
+    }
+  ]
+}
