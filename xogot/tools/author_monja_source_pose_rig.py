@@ -6,7 +6,7 @@ try:
 except Exception as exc:
     raise SystemExit("numpy required: %r" % (exc,))
 
-from mathutils import Vector, Matrix
+from mathutils import Vector, Matrix, Quaternion
 
 ROOT = Path(__file__).resolve().parents[1]
 
