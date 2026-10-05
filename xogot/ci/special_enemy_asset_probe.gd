@@ -2,7 +2,7 @@ extends SceneTree
 
 const SHEEP_RUNNER := "res://assets/zombies/sheep/sheep_runner_animated.glb"
 const SHEEP_BRUTE := "res://assets/zombies/sheep/sheep_brute_animated.glb"
-const ELITE_NUN := "res://assets/zombies/monja_elite/monja_black_white_cmu_rig.glb"
+const ELITE_NUN := "res://assets/zombies/monja_elite/cmu_runtime/monja_black_white_cmu_rig.gltf"
 
 func _fail(code: int, message: String) -> void:
 	push_error("SPECIAL_ENEMY_ASSET_PROBE: " + message)
