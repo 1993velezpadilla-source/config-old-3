@@ -64,6 +64,11 @@ func _capture() -> void:
 			push_error("SCREENSHOT: weapon forward-axis correction missing")
 			quit(11)
 			return
+		var ads_near := float(weapon.get_meta("weapon_ads_nearest_camera_z", 0.0))
+		if ads_near > -0.16:
+			push_error("SCREENSHOT: weapon intersects camera near plane " + str(ads_near))
+			quit(13)
+			return
 		if not bool(weapon.get_meta("weapon_texture_ready", false)):
 			push_error(
 				"SCREENSHOT: weapon texture binding incomplete "
@@ -76,6 +81,8 @@ func _capture() -> void:
 		print(
 			"XZOGOT_SCREENSHOT_WEAPON_PRESENTATION_GREEN yaw=",
 			yaw_fix,
+			" ads_near=",
+			ads_near,
 			" textures=",
 			weapon.get_meta("weapon_textured_surfaces", 0),
 			"/",

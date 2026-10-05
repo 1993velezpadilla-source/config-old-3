@@ -80,6 +80,7 @@ static func apply_to_model(root: Node3D, weapon_id: String) -> Dictionary:
 		if not (node is MeshInstance3D):
 			continue
 		var mesh_instance := node as MeshInstance3D
+		mesh_instance.layers = mesh_instance.layers | (1 << 1)
 		if mesh_instance.mesh == null:
 			continue
 		for surface_index in range(mesh_instance.mesh.get_surface_count()):

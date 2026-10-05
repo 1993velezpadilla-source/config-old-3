@@ -38,6 +38,7 @@ var _ads_pose_position := Vector3(0.0, -0.145, -0.365)
 var _view_pose_position := Vector3(0.22, -0.20, -0.48)
 var _ads_calibration_mode: String = "generic"
 var _view_root: Node3D
+var _viewmodel_fill_light: OmniLight3D
 var _fire_audio: AudioStreamPlayer3D
 var _reload_audio: AudioStreamPlayer3D
 var _mechanical_audio: AudioStreamPlayer3D
@@ -105,6 +106,19 @@ func _build_view_runtime() -> void:
 	_view_root.position = _view_pose_position
 	_camera.add_child(_view_root)
 
+	# Dedicated first-person fill keeps the real metal/wood textures readable in
+	# the deliberately dark church without brightening the level itself.
+	_viewmodel_fill_light = OmniLight3D.new()
+	_viewmodel_fill_light.name = "WeaponViewFill"
+	_viewmodel_fill_light.position = Vector3(0.10, -0.02, -0.18)
+	_viewmodel_fill_light.light_color = Color(1.0, 0.78, 0.62)
+	_viewmodel_fill_light.light_energy = 1.55
+	_viewmodel_fill_light.omni_range = 1.85
+	_viewmodel_fill_light.shadow_enabled = false
+	_viewmodel_fill_light.light_cull_mask = 1 << 1
+	_camera.add_child(_viewmodel_fill_light)
+	print("XZOGOT_WEAPON_VIEWMODEL_FILL_READY")
+
 	_fire_audio = AudioStreamPlayer3D.new()
 	_fire_audio.name = "WeaponFireAudio"
 	_fire_audio.unit_size = 1.4
@@ -144,6 +158,7 @@ func _clear_view_model() -> void:
 	_smoke_particles = null
 	_shell_particles = null
 	_muzzle_flash_timer = 0.0
+	_hip_pose_position = Vector3(0.22, -0.20, -0.48)
 	_ads_pose_position = Vector3(0.0, -0.145, -0.365)
 	_ads_calibration_mode = "generic"
 	if _view_root == null:
@@ -385,6 +400,98 @@ func _orient_imported_viewmodel(model: Node3D, model_path: String) -> void:
 	else:
 		set_meta("weapon_model_yaw_correction_deg", 0.0)
 
+func _viewmodel_bounds_in_view(model: Node3D) -> AABB:
+	var found := false
+	var bounds := AABB()
+	var stack: Array[Node] = [model]
+	while not stack.is_empty():
+		var node: Node = stack.pop_back()
+		if node is MeshInstance3D:
+			var mesh_node := node as MeshInstance3D
+			if mesh_node.mesh != null:
+				var aabb := mesh_node.get_aabb()
+				for x_idx in range(2):
+					for y_idx in range(2):
+						for z_idx in range(2):
+							var corner := Vector3(
+								aabb.position.x + aabb.size.x * float(x_idx),
+								aabb.position.y + aabb.size.y * float(y_idx),
+								aabb.position.z + aabb.size.z * float(z_idx)
+							)
+							var point := _view_root.to_local(mesh_node.to_global(corner))
+							if not found:
+								bounds = AABB(point, Vector3.ZERO)
+								found = true
+							else:
+								bounds = bounds.expand(point)
+		for child: Node in node.get_children():
+			stack.append(child)
+	return bounds
+
+func _target_viewmodel_depth() -> float:
+	match _family:
+		"pistol": return 0.34
+		"smg": return 0.60
+		"rifle": return 0.78
+		"shotgun": return 0.82
+		"lmg": return 0.86
+		"sniper": return 0.90
+		_: return 0.68
+
+func _normalize_viewmodel_presentation(model: Node3D) -> void:
+	if model == null or _view_root == null:
+		return
+	var bounds := _viewmodel_bounds_in_view(model)
+	if bounds.size.length_squared() <= 0.000001:
+		return
+
+	var depth := maxf(bounds.size.z, 0.001)
+	var target_depth := _target_viewmodel_depth()
+	var scale_factor := clampf(target_depth / depth, 0.62, 1.32)
+	model.scale *= Vector3.ONE * scale_factor
+
+	# Re-read after scale so all subsequent camera-space math uses the final mesh.
+	bounds = _viewmodel_bounds_in_view(model)
+	var nearest_local_z := bounds.position.z + bounds.size.z
+
+	# Never let stocks/receivers live inside the camera. Long guns need to sit
+	# farther forward than pistols; this remains independent from ADS centering.
+	var hip_near_limit := -0.24
+	_hip_pose_position.z = minf(_hip_pose_position.z, hip_near_limit - nearest_local_z)
+
+	set_meta("weapon_viewmodel_scale_factor", scale_factor)
+	set_meta("weapon_viewmodel_depth_m", bounds.size.z)
+	set_meta("weapon_viewmodel_nearest_local_z", nearest_local_z)
+	set_meta("weapon_hip_nearest_camera_z", _hip_pose_position.z + nearest_local_z)
+	print(
+		"XZOGOT_WEAPON_BOUNDS_NORMALIZED ",
+		_weapon_id,
+		" depth=", bounds.size.z,
+		" scale=", scale_factor,
+		" hip_near=", _hip_pose_position.z + nearest_local_z
+	)
+
+func _enforce_ads_camera_clearance(model: Node3D) -> void:
+	if model == null or _view_root == null:
+		return
+	var bounds := _viewmodel_bounds_in_view(model)
+	if bounds.size.length_squared() <= 0.000001:
+		return
+	var nearest_local_z := bounds.position.z + bounds.size.z
+	# Authored rear/front sight data can safely sit closer to the eye. A muzzle-
+	# only fallback cannot, because centering the barrel would put the receiver
+	# almost inside the near plane.
+	var near_limit := -0.17 if _ads_calibration_mode in ["authored_sight_tag", "rear_front_sights"] else -0.30
+	_ads_pose_position.z = minf(_ads_pose_position.z, near_limit - nearest_local_z)
+	set_meta("weapon_ads_nearest_camera_z", _ads_pose_position.z + nearest_local_z)
+	set_meta("weapon_ads_near_limit", near_limit)
+	print(
+		"XZOGOT_WEAPON_ADS_CLEARANCE ",
+		_weapon_id,
+		" near=", _ads_pose_position.z + nearest_local_z,
+		" limit=", near_limit
+	)
+
 func _calibrate_ads_pose(model: Node3D) -> void:
 	_ads_pose_position = Vector3(0.0, -0.145, -0.365)
 	_ads_calibration_mode = "generic"
@@ -418,6 +525,7 @@ func _calibrate_ads_pose(model: Node3D) -> void:
 				_ads_pose_position.y = -muzzle_local.y
 				_ads_calibration_mode = "authored_muzzle_centerline"
 
+	_enforce_ads_camera_clearance(model)
 	set_meta("weapon_ads_calibration_mode", _ads_calibration_mode)
 	set_meta("weapon_ads_pose_position", _ads_pose_position)
 	print("XZOGOT_WEAPON_ADS_CALIBRATED ", _weapon_id, " mode=", _ads_calibration_mode, " pose=", _ads_pose_position)
@@ -647,6 +755,7 @@ func _refresh_view_assets(def: Dictionary) -> void:
 		if model is Node3D:
 			_weapon_model_root = model as Node3D
 			_orient_imported_viewmodel(_weapon_model_root, model_path)
+			_normalize_viewmodel_presentation(_weapon_model_root)
 			var texture_report: Dictionary = WeaponTextureRegistry.apply_to_model(_weapon_model_root, _weapon_id)
 			set_meta("weapon_texture_surfaces", int(texture_report.get("surfaces", 0)))
 			set_meta("weapon_textured_surfaces", int(texture_report.get("textured", 0)))
@@ -791,6 +900,9 @@ func get_runtime_stats() -> Dictionary:
 		"ads_calibration_mode": _ads_calibration_mode,
 		"ads_pose_position": _ads_pose_position,
 		"model_yaw_correction_deg": float(get_meta("weapon_model_yaw_correction_deg", 0.0)),
+		"viewmodel_scale_factor": float(get_meta("weapon_viewmodel_scale_factor", 1.0)),
+		"viewmodel_depth_m": float(get_meta("weapon_viewmodel_depth_m", 0.0)),
+		"ads_nearest_camera_z": float(get_meta("weapon_ads_nearest_camera_z", 0.0)),
 		"texture_ready": bool(get_meta("weapon_texture_ready", false)),
 	}
 
