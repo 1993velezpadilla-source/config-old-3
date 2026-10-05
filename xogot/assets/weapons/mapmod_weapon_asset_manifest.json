@@ -98,8 +98,31 @@
         ],
         "fire": [
           "fire",
-          "shoot"
+          "shoot",
+          "lastshot",
+          "lastfire"
         ],
+        "reload": [
+          "reload",
+          "rechamber",
+          "insert",
+          "clip",
+          "mag"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "bringout"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 skeletal viewmodel staged for 357 Magnum; animations/audio/worldmodel are gated separately.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
+        "Aether UE5.7 skeletal GLB now contains 14 imported real animation Actions.",
+        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists."
+      ],
+      "optional_animation_aliases": {
         "ads_in": [
           "ads_in",
           "ads_up",
@@ -110,18 +133,10 @@
           "ads_down",
           "aim_out"
         ],
-        "reload": [
-          "reload"
-        ],
-        "equip": [
-          "equip",
-          "pullout",
-          "raise",
-          "draw"
-        ],
         "lower": [
           "lower",
           "putaway",
+          "unequip",
           "holster"
         ],
         "melee": [
@@ -129,12 +144,7 @@
           "knife",
           "bash"
         ]
-      },
-      "notes": [
-        "Real Aether UE5.7 skeletal viewmodel staged for 357 Magnum; animations/audio/worldmodel are gated separately.",
-        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
-        "Aether UE5.7 skeletal GLB now contains 14 imported real animation Actions."
-      ]
+      }
     },
     "colt": {
       "desired_source_lane": "cod_zombies_mapmod",
@@ -155,8 +165,31 @@
         ],
         "fire": [
           "fire",
-          "shoot"
+          "shoot",
+          "lastshot",
+          "lastfire"
         ],
+        "reload": [
+          "reload",
+          "rechamber",
+          "insert",
+          "clip",
+          "mag"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "bringout"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 viewmodel staged from 1911.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
+        "Aether UE5.7 skeletal GLB now contains 19 imported real animation Actions.",
+        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists."
+      ],
+      "optional_animation_aliases": {
         "ads_in": [
           "ads_in",
           "ads_up",
@@ -167,18 +200,10 @@
           "ads_down",
           "aim_out"
         ],
-        "reload": [
-          "reload"
-        ],
-        "equip": [
-          "equip",
-          "pullout",
-          "raise",
-          "draw"
-        ],
         "lower": [
           "lower",
           "putaway",
+          "unequip",
           "holster"
         ],
         "melee": [
@@ -186,12 +211,7 @@
           "knife",
           "bash"
         ]
-      },
-      "notes": [
-        "Real Aether UE5.7 viewmodel staged from 1911.",
-        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
-        "Aether UE5.7 skeletal GLB now contains 19 imported real animation Actions."
-      ]
+      }
     },
     "m1": {
       "desired_source_lane": "cod_zombies_mapmod",
@@ -212,8 +232,31 @@
         ],
         "fire": [
           "fire",
-          "shoot"
+          "shoot",
+          "lastshot",
+          "lastfire"
         ],
+        "reload": [
+          "reload",
+          "rechamber",
+          "insert",
+          "clip",
+          "mag"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "bringout"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 viewmodel staged from M1Garand.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
+        "Aether UE5.7 skeletal GLB now contains 20 imported real animation Actions.",
+        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists."
+      ],
+      "optional_animation_aliases": {
         "ads_in": [
           "ads_in",
           "ads_up",
@@ -224,18 +267,10 @@
           "ads_down",
           "aim_out"
         ],
-        "reload": [
-          "reload"
-        ],
-        "equip": [
-          "equip",
-          "pullout",
-          "raise",
-          "draw"
-        ],
         "lower": [
           "lower",
           "putaway",
+          "unequip",
           "holster"
         ],
         "melee": [
@@ -243,12 +278,7 @@
           "knife",
           "bash"
         ]
-      },
-      "notes": [
-        "Real Aether UE5.7 viewmodel staged from M1Garand.",
-        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
-        "Aether UE5.7 skeletal GLB now contains 20 imported real animation Actions."
-      ]
+      }
     },
     "mp40": {
       "desired_source_lane": "cod_zombies_mapmod",
@@ -269,8 +299,31 @@
         ],
         "fire": [
           "fire",
-          "shoot"
+          "shoot",
+          "lastshot",
+          "lastfire"
         ],
+        "reload": [
+          "reload",
+          "rechamber",
+          "insert",
+          "clip",
+          "mag"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "bringout"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 viewmodel staged from MP40.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
+        "Aether UE5.7 skeletal GLB now contains 18 imported real animation Actions.",
+        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists."
+      ],
+      "optional_animation_aliases": {
         "ads_in": [
           "ads_in",
           "ads_up",
@@ -281,18 +334,10 @@
           "ads_down",
           "aim_out"
         ],
-        "reload": [
-          "reload"
-        ],
-        "equip": [
-          "equip",
-          "pullout",
-          "raise",
-          "draw"
-        ],
         "lower": [
           "lower",
           "putaway",
+          "unequip",
           "holster"
         ],
         "melee": [
@@ -300,12 +345,7 @@
           "knife",
           "bash"
         ]
-      },
-      "notes": [
-        "Real Aether UE5.7 viewmodel staged from MP40.",
-        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
-        "Aether UE5.7 skeletal GLB now contains 18 imported real animation Actions."
-      ]
+      }
     },
     "trench": {
       "desired_source_lane": "cod_zombies_mapmod",
@@ -326,8 +366,31 @@
         ],
         "fire": [
           "fire",
-          "shoot"
+          "shoot",
+          "lastshot",
+          "lastfire"
         ],
+        "reload": [
+          "reload",
+          "rechamber",
+          "insert",
+          "clip",
+          "mag"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "bringout"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 viewmodel staged from TrenchGun.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
+        "Aether UE5.7 skeletal GLB now contains 26 imported real animation Actions.",
+        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists."
+      ],
+      "optional_animation_aliases": {
         "ads_in": [
           "ads_in",
           "ads_up",
@@ -338,18 +401,10 @@
           "ads_down",
           "aim_out"
         ],
-        "reload": [
-          "reload"
-        ],
-        "equip": [
-          "equip",
-          "pullout",
-          "raise",
-          "draw"
-        ],
         "lower": [
           "lower",
           "putaway",
+          "unequip",
           "holster"
         ],
         "melee": [
@@ -357,12 +412,7 @@
           "knife",
           "bash"
         ]
-      },
-      "notes": [
-        "Real Aether UE5.7 viewmodel staged from TrenchGun.",
-        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
-        "Aether UE5.7 skeletal GLB now contains 26 imported real animation Actions."
-      ]
+      }
     },
     "thompson": {
       "desired_source_lane": "cod_zombies_mapmod",
@@ -383,36 +433,22 @@
         ],
         "fire": [
           "fire",
-          "shoot"
-        ],
-        "ads_in": [
-          "ads_in",
-          "ads_up",
-          "aim_in"
-        ],
-        "ads_out": [
-          "ads_out",
-          "ads_down",
-          "aim_out"
+          "shoot",
+          "lastshot",
+          "lastfire"
         ],
         "reload": [
-          "reload"
+          "reload",
+          "rechamber",
+          "insert",
+          "clip",
+          "mag"
         ],
         "equip": [
           "equip",
           "pullout",
           "raise",
-          "draw"
-        ],
-        "lower": [
-          "lower",
-          "putaway",
-          "holster"
-        ],
-        "melee": [
-          "melee",
-          "knife",
-          "bash"
+          "bringout"
         ]
       },
       "notes": [
@@ -420,7 +456,8 @@
         "Golden reference has 11 validated XANIM clips and required weapon tags, but final MapMod audio/worldmodel package is not verified yet.",
         "Real Aether UE5.7 viewmodel staged from Thompson.",
         "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
-        "Aether UE5.7 skeletal GLB now contains 20 imported real animation Actions."
+        "Aether UE5.7 skeletal GLB now contains 20 imported real animation Actions.",
+        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists."
       ],
       "reference": {
         "kind": "waw_golden_reference",
@@ -455,6 +492,29 @@
           "tag_flash"
         ],
         "audio_verified": false
+      },
+      "optional_animation_aliases": {
+        "ads_in": [
+          "ads_in",
+          "ads_up",
+          "aim_in"
+        ],
+        "ads_out": [
+          "ads_out",
+          "ads_down",
+          "aim_out"
+        ],
+        "lower": [
+          "lower",
+          "putaway",
+          "unequip",
+          "holster"
+        ],
+        "melee": [
+          "melee",
+          "knife",
+          "bash"
+        ]
       }
     },
     "bar": {
@@ -476,8 +536,31 @@
         ],
         "fire": [
           "fire",
-          "shoot"
+          "shoot",
+          "lastshot",
+          "lastfire"
         ],
+        "reload": [
+          "reload",
+          "rechamber",
+          "insert",
+          "clip",
+          "mag"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "bringout"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 viewmodel staged from BAR.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
+        "Aether UE5.7 skeletal GLB now contains 20 imported real animation Actions.",
+        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists."
+      ],
+      "optional_animation_aliases": {
         "ads_in": [
           "ads_in",
           "ads_up",
@@ -488,18 +571,10 @@
           "ads_down",
           "aim_out"
         ],
-        "reload": [
-          "reload"
-        ],
-        "equip": [
-          "equip",
-          "pullout",
-          "raise",
-          "draw"
-        ],
         "lower": [
           "lower",
           "putaway",
+          "unequip",
           "holster"
         ],
         "melee": [
@@ -507,12 +582,7 @@
           "knife",
           "bash"
         ]
-      },
-      "notes": [
-        "Real Aether UE5.7 viewmodel staged from BAR.",
-        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
-        "Aether UE5.7 skeletal GLB now contains 20 imported real animation Actions."
-      ]
+      }
     },
     "browning": {
       "desired_source_lane": "cod_zombies_mapmod",
@@ -533,8 +603,31 @@
         ],
         "fire": [
           "fire",
-          "shoot"
+          "shoot",
+          "lastshot",
+          "lastfire"
         ],
+        "reload": [
+          "reload",
+          "rechamber",
+          "insert",
+          "clip",
+          "mag"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "bringout"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 viewmodel staged from Browning.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
+        "Aether UE5.7 skeletal GLB now contains 22 imported real animation Actions.",
+        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists."
+      ],
+      "optional_animation_aliases": {
         "ads_in": [
           "ads_in",
           "ads_up",
@@ -545,18 +638,10 @@
           "ads_down",
           "aim_out"
         ],
-        "reload": [
-          "reload"
-        ],
-        "equip": [
-          "equip",
-          "pullout",
-          "raise",
-          "draw"
-        ],
         "lower": [
           "lower",
           "putaway",
+          "unequip",
           "holster"
         ],
         "melee": [
@@ -564,12 +649,7 @@
           "knife",
           "bash"
         ]
-      },
-      "notes": [
-        "Real Aether UE5.7 viewmodel staged from Browning.",
-        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
-        "Aether UE5.7 skeletal GLB now contains 22 imported real animation Actions."
-      ]
+      }
     },
     "doublebarrel": {
       "desired_source_lane": "cod_zombies_mapmod",
@@ -590,8 +670,31 @@
         ],
         "fire": [
           "fire",
-          "shoot"
+          "shoot",
+          "lastshot",
+          "lastfire"
         ],
+        "reload": [
+          "reload",
+          "rechamber",
+          "insert",
+          "clip",
+          "mag"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "bringout"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 viewmodel staged from DoubleBarrel.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
+        "Aether UE5.7 skeletal GLB now contains 17 imported real animation Actions.",
+        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists."
+      ],
+      "optional_animation_aliases": {
         "ads_in": [
           "ads_in",
           "ads_up",
@@ -602,18 +705,10 @@
           "ads_down",
           "aim_out"
         ],
-        "reload": [
-          "reload"
-        ],
-        "equip": [
-          "equip",
-          "pullout",
-          "raise",
-          "draw"
-        ],
         "lower": [
           "lower",
           "putaway",
+          "unequip",
           "holster"
         ],
         "melee": [
@@ -621,12 +716,7 @@
           "knife",
           "bash"
         ]
-      },
-      "notes": [
-        "Real Aether UE5.7 viewmodel staged from DoubleBarrel.",
-        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
-        "Aether UE5.7 skeletal GLB now contains 17 imported real animation Actions."
-      ]
+      }
     },
     "sawnoff": {
       "desired_source_lane": "cod_zombies_mapmod",
@@ -647,8 +737,31 @@
         ],
         "fire": [
           "fire",
-          "shoot"
+          "shoot",
+          "lastshot",
+          "lastfire"
         ],
+        "reload": [
+          "reload",
+          "rechamber",
+          "insert",
+          "clip",
+          "mag"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "bringout"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 viewmodel staged from SawedOffDB.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
+        "Aether UE5.7 skeletal GLB now contains 17 imported real animation Actions.",
+        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists."
+      ],
+      "optional_animation_aliases": {
         "ads_in": [
           "ads_in",
           "ads_up",
@@ -659,18 +772,10 @@
           "ads_down",
           "aim_out"
         ],
-        "reload": [
-          "reload"
-        ],
-        "equip": [
-          "equip",
-          "pullout",
-          "raise",
-          "draw"
-        ],
         "lower": [
           "lower",
           "putaway",
+          "unequip",
           "holster"
         ],
         "melee": [
@@ -678,12 +783,7 @@
           "knife",
           "bash"
         ]
-      },
-      "notes": [
-        "Real Aether UE5.7 viewmodel staged from SawedOffDB.",
-        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
-        "Aether UE5.7 skeletal GLB now contains 17 imported real animation Actions."
-      ]
+      }
     },
     "fg42": {
       "desired_source_lane": "cod_zombies_mapmod",
@@ -704,8 +804,31 @@
         ],
         "fire": [
           "fire",
-          "shoot"
+          "shoot",
+          "lastshot",
+          "lastfire"
         ],
+        "reload": [
+          "reload",
+          "rechamber",
+          "insert",
+          "clip",
+          "mag"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "bringout"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 viewmodel staged from FG42.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
+        "Aether UE5.7 skeletal GLB now contains 17 imported real animation Actions.",
+        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists."
+      ],
+      "optional_animation_aliases": {
         "ads_in": [
           "ads_in",
           "ads_up",
@@ -716,18 +839,10 @@
           "ads_down",
           "aim_out"
         ],
-        "reload": [
-          "reload"
-        ],
-        "equip": [
-          "equip",
-          "pullout",
-          "raise",
-          "draw"
-        ],
         "lower": [
           "lower",
           "putaway",
+          "unequip",
           "holster"
         ],
         "melee": [
@@ -735,12 +850,7 @@
           "knife",
           "bash"
         ]
-      },
-      "notes": [
-        "Real Aether UE5.7 viewmodel staged from FG42.",
-        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
-        "Aether UE5.7 skeletal GLB now contains 17 imported real animation Actions."
-      ]
+      }
     },
     "gewehr": {
       "desired_source_lane": "cod_zombies_mapmod",
@@ -761,8 +871,31 @@
         ],
         "fire": [
           "fire",
-          "shoot"
+          "shoot",
+          "lastshot",
+          "lastfire"
         ],
+        "reload": [
+          "reload",
+          "rechamber",
+          "insert",
+          "clip",
+          "mag"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "bringout"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 viewmodel staged from Gewehr.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
+        "Aether UE5.7 skeletal GLB now contains 20 imported real animation Actions.",
+        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists."
+      ],
+      "optional_animation_aliases": {
         "ads_in": [
           "ads_in",
           "ads_up",
@@ -773,18 +906,10 @@
           "ads_down",
           "aim_out"
         ],
-        "reload": [
-          "reload"
-        ],
-        "equip": [
-          "equip",
-          "pullout",
-          "raise",
-          "draw"
-        ],
         "lower": [
           "lower",
           "putaway",
+          "unequip",
           "holster"
         ],
         "melee": [
@@ -792,12 +917,7 @@
           "knife",
           "bash"
         ]
-      },
-      "notes": [
-        "Real Aether UE5.7 viewmodel staged from Gewehr.",
-        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
-        "Aether UE5.7 skeletal GLB now contains 20 imported real animation Actions."
-      ]
+      }
     },
     "m1a1": {
       "desired_source_lane": "cod_zombies_mapmod",
@@ -818,8 +938,31 @@
         ],
         "fire": [
           "fire",
-          "shoot"
+          "shoot",
+          "lastshot",
+          "lastfire"
         ],
+        "reload": [
+          "reload",
+          "rechamber",
+          "insert",
+          "clip",
+          "mag"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "bringout"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 viewmodel staged from M1Carbine.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
+        "Aether UE5.7 skeletal GLB now contains 22 imported real animation Actions.",
+        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists."
+      ],
+      "optional_animation_aliases": {
         "ads_in": [
           "ads_in",
           "ads_up",
@@ -830,18 +973,10 @@
           "ads_down",
           "aim_out"
         ],
-        "reload": [
-          "reload"
-        ],
-        "equip": [
-          "equip",
-          "pullout",
-          "raise",
-          "draw"
-        ],
         "lower": [
           "lower",
           "putaway",
+          "unequip",
           "holster"
         ],
         "melee": [
@@ -849,12 +984,7 @@
           "knife",
           "bash"
         ]
-      },
-      "notes": [
-        "Real Aether UE5.7 viewmodel staged from M1Carbine.",
-        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
-        "Aether UE5.7 skeletal GLB now contains 22 imported real animation Actions."
-      ]
+      }
     },
     "mg42": {
       "desired_source_lane": "cod_zombies_mapmod",
@@ -875,8 +1005,31 @@
         ],
         "fire": [
           "fire",
-          "shoot"
+          "shoot",
+          "lastshot",
+          "lastfire"
         ],
+        "reload": [
+          "reload",
+          "rechamber",
+          "insert",
+          "clip",
+          "mag"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "bringout"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 viewmodel staged from MG42.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
+        "Aether UE5.7 skeletal GLB now contains 14 imported real animation Actions.",
+        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists."
+      ],
+      "optional_animation_aliases": {
         "ads_in": [
           "ads_in",
           "ads_up",
@@ -887,18 +1040,10 @@
           "ads_down",
           "aim_out"
         ],
-        "reload": [
-          "reload"
-        ],
-        "equip": [
-          "equip",
-          "pullout",
-          "raise",
-          "draw"
-        ],
         "lower": [
           "lower",
           "putaway",
+          "unequip",
           "holster"
         ],
         "melee": [
@@ -906,12 +1051,7 @@
           "knife",
           "bash"
         ]
-      },
-      "notes": [
-        "Real Aether UE5.7 viewmodel staged from MG42.",
-        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
-        "Aether UE5.7 skeletal GLB now contains 14 imported real animation Actions."
-      ]
+      }
     },
     "ppsh": {
       "desired_source_lane": "cod_zombies_mapmod",
@@ -932,8 +1072,31 @@
         ],
         "fire": [
           "fire",
-          "shoot"
+          "shoot",
+          "lastshot",
+          "lastfire"
         ],
+        "reload": [
+          "reload",
+          "rechamber",
+          "insert",
+          "clip",
+          "mag"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "bringout"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 viewmodel staged from PPSH.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
+        "Aether UE5.7 skeletal GLB now contains 18 imported real animation Actions.",
+        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists."
+      ],
+      "optional_animation_aliases": {
         "ads_in": [
           "ads_in",
           "ads_up",
@@ -944,18 +1107,10 @@
           "ads_down",
           "aim_out"
         ],
-        "reload": [
-          "reload"
-        ],
-        "equip": [
-          "equip",
-          "pullout",
-          "raise",
-          "draw"
-        ],
         "lower": [
           "lower",
           "putaway",
+          "unequip",
           "holster"
         ],
         "melee": [
@@ -963,12 +1118,7 @@
           "knife",
           "bash"
         ]
-      },
-      "notes": [
-        "Real Aether UE5.7 viewmodel staged from PPSH.",
-        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
-        "Aether UE5.7 skeletal GLB now contains 18 imported real animation Actions."
-      ]
+      }
     },
     "ptrs": {
       "desired_source_lane": "cod_zombies_mapmod",
@@ -989,8 +1139,31 @@
         ],
         "fire": [
           "fire",
-          "shoot"
+          "shoot",
+          "lastshot",
+          "lastfire"
         ],
+        "reload": [
+          "reload",
+          "rechamber",
+          "insert",
+          "clip",
+          "mag"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "bringout"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 viewmodel staged from PTRS.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
+        "Aether UE5.7 skeletal GLB now contains 18 imported real animation Actions.",
+        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists."
+      ],
+      "optional_animation_aliases": {
         "ads_in": [
           "ads_in",
           "ads_up",
@@ -1001,18 +1174,10 @@
           "ads_down",
           "aim_out"
         ],
-        "reload": [
-          "reload"
-        ],
-        "equip": [
-          "equip",
-          "pullout",
-          "raise",
-          "draw"
-        ],
         "lower": [
           "lower",
           "putaway",
+          "unequip",
           "holster"
         ],
         "melee": [
@@ -1020,12 +1185,7 @@
           "knife",
           "bash"
         ]
-      },
-      "notes": [
-        "Real Aether UE5.7 viewmodel staged from PTRS.",
-        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
-        "Aether UE5.7 skeletal GLB now contains 18 imported real animation Actions."
-      ]
+      }
     },
     "stg": {
       "desired_source_lane": "cod_zombies_mapmod",
@@ -1046,8 +1206,31 @@
         ],
         "fire": [
           "fire",
-          "shoot"
+          "shoot",
+          "lastshot",
+          "lastfire"
         ],
+        "reload": [
+          "reload",
+          "rechamber",
+          "insert",
+          "clip",
+          "mag"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "bringout"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 viewmodel staged from STG44.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
+        "Aether UE5.7 skeletal GLB now contains 23 imported real animation Actions.",
+        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists."
+      ],
+      "optional_animation_aliases": {
         "ads_in": [
           "ads_in",
           "ads_up",
@@ -1058,18 +1241,10 @@
           "ads_down",
           "aim_out"
         ],
-        "reload": [
-          "reload"
-        ],
-        "equip": [
-          "equip",
-          "pullout",
-          "raise",
-          "draw"
-        ],
         "lower": [
           "lower",
           "putaway",
+          "unequip",
           "holster"
         ],
         "melee": [
@@ -1077,12 +1252,7 @@
           "knife",
           "bash"
         ]
-      },
-      "notes": [
-        "Real Aether UE5.7 viewmodel staged from STG44.",
-        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
-        "Aether UE5.7 skeletal GLB now contains 23 imported real animation Actions."
-      ]
+      }
     },
     "type100": {
       "desired_source_lane": "cod_zombies_mapmod",
@@ -1103,8 +1273,31 @@
         ],
         "fire": [
           "fire",
-          "shoot"
+          "shoot",
+          "lastshot",
+          "lastfire"
         ],
+        "reload": [
+          "reload",
+          "rechamber",
+          "insert",
+          "clip",
+          "mag"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "bringout"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 viewmodel staged from Type100.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
+        "Aether UE5.7 skeletal GLB now contains 15 imported real animation Actions.",
+        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists."
+      ],
+      "optional_animation_aliases": {
         "ads_in": [
           "ads_in",
           "ads_up",
@@ -1115,18 +1308,10 @@
           "ads_down",
           "aim_out"
         ],
-        "reload": [
-          "reload"
-        ],
-        "equip": [
-          "equip",
-          "pullout",
-          "raise",
-          "draw"
-        ],
         "lower": [
           "lower",
           "putaway",
+          "unequip",
           "holster"
         ],
         "melee": [
@@ -1134,12 +1319,7 @@
           "knife",
           "bash"
         ]
-      },
-      "notes": [
-        "Real Aether UE5.7 viewmodel staged from Type100.",
-        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
-        "Aether UE5.7 skeletal GLB now contains 15 imported real animation Actions."
-      ]
+      }
     },
     "springfield": {
       "desired_source_lane": "cod_zombies_mapmod",
@@ -1160,8 +1340,31 @@
         ],
         "fire": [
           "fire",
-          "shoot"
+          "shoot",
+          "lastshot",
+          "lastfire"
         ],
+        "reload": [
+          "reload",
+          "rechamber",
+          "insert",
+          "clip",
+          "mag"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "bringout"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 viewmodel staged from Springfield.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
+        "Aether UE5.7 skeletal GLB now contains 17 imported real animation Actions.",
+        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists."
+      ],
+      "optional_animation_aliases": {
         "ads_in": [
           "ads_in",
           "ads_up",
@@ -1172,18 +1375,10 @@
           "ads_down",
           "aim_out"
         ],
-        "reload": [
-          "reload"
-        ],
-        "equip": [
-          "equip",
-          "pullout",
-          "raise",
-          "draw"
-        ],
         "lower": [
           "lower",
           "putaway",
+          "unequip",
           "holster"
         ],
         "melee": [
@@ -1191,12 +1386,7 @@
           "knife",
           "bash"
         ]
-      },
-      "notes": [
-        "Real Aether UE5.7 viewmodel staged from Springfield.",
-        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
-        "Aether UE5.7 skeletal GLB now contains 17 imported real animation Actions."
-      ]
+      }
     },
     "ray": {
       "desired_source_lane": "cod_zombies_mapmod",
@@ -1376,8 +1566,31 @@
         ],
         "fire": [
           "fire",
-          "shoot"
+          "shoot",
+          "lastshot",
+          "lastfire"
         ],
+        "reload": [
+          "reload",
+          "rechamber",
+          "insert",
+          "clip",
+          "mag"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "bringout"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 skeletal viewmodel staged for Arisaka; animations/audio/worldmodel are gated separately.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
+        "Aether UE5.7 skeletal GLB now contains 19 imported real animation Actions.",
+        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists."
+      ],
+      "optional_animation_aliases": {
         "ads_in": [
           "ads_in",
           "ads_up",
@@ -1388,18 +1601,10 @@
           "ads_down",
           "aim_out"
         ],
-        "reload": [
-          "reload"
-        ],
-        "equip": [
-          "equip",
-          "pullout",
-          "raise",
-          "draw"
-        ],
         "lower": [
           "lower",
           "putaway",
+          "unequip",
           "holster"
         ],
         "melee": [
@@ -1407,12 +1612,7 @@
           "knife",
           "bash"
         ]
-      },
-      "notes": [
-        "Real Aether UE5.7 skeletal viewmodel staged for Arisaka; animations/audio/worldmodel are gated separately.",
-        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
-        "Aether UE5.7 skeletal GLB now contains 19 imported real animation Actions."
-      ]
+      }
     },
     "dp28": {
       "desired_source_lane": "project_aether_waw_real",
@@ -1433,8 +1633,31 @@
         ],
         "fire": [
           "fire",
-          "shoot"
+          "shoot",
+          "lastshot",
+          "lastfire"
         ],
+        "reload": [
+          "reload",
+          "rechamber",
+          "insert",
+          "clip",
+          "mag"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "bringout"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 skeletal viewmodel staged for DP-28; animations/audio/worldmodel are gated separately.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
+        "Aether UE5.7 skeletal GLB now contains 19 imported real animation Actions.",
+        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists."
+      ],
+      "optional_animation_aliases": {
         "ads_in": [
           "ads_in",
           "ads_up",
@@ -1445,18 +1668,10 @@
           "ads_down",
           "aim_out"
         ],
-        "reload": [
-          "reload"
-        ],
-        "equip": [
-          "equip",
-          "pullout",
-          "raise",
-          "draw"
-        ],
         "lower": [
           "lower",
           "putaway",
+          "unequip",
           "holster"
         ],
         "melee": [
@@ -1464,12 +1679,7 @@
           "knife",
           "bash"
         ]
-      },
-      "notes": [
-        "Real Aether UE5.7 skeletal viewmodel staged for DP-28; animations/audio/worldmodel are gated separately.",
-        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
-        "Aether UE5.7 skeletal GLB now contains 19 imported real animation Actions."
-      ]
+      }
     },
     "kar98k": {
       "desired_source_lane": "project_aether_waw_real",
@@ -1490,8 +1700,31 @@
         ],
         "fire": [
           "fire",
-          "shoot"
+          "shoot",
+          "lastshot",
+          "lastfire"
         ],
+        "reload": [
+          "reload",
+          "rechamber",
+          "insert",
+          "clip",
+          "mag"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "bringout"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 skeletal viewmodel staged for Kar98k; animations/audio/worldmodel are gated separately.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
+        "Aether UE5.7 skeletal GLB now contains 22 imported real animation Actions.",
+        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists."
+      ],
+      "optional_animation_aliases": {
         "ads_in": [
           "ads_in",
           "ads_up",
@@ -1502,18 +1735,10 @@
           "ads_down",
           "aim_out"
         ],
-        "reload": [
-          "reload"
-        ],
-        "equip": [
-          "equip",
-          "pullout",
-          "raise",
-          "draw"
-        ],
         "lower": [
           "lower",
           "putaway",
+          "unequip",
           "holster"
         ],
         "melee": [
@@ -1521,12 +1746,7 @@
           "knife",
           "bash"
         ]
-      },
-      "notes": [
-        "Real Aether UE5.7 skeletal viewmodel staged for Kar98k; animations/audio/worldmodel are gated separately.",
-        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
-        "Aether UE5.7 skeletal GLB now contains 22 imported real animation Actions."
-      ]
+      }
     },
     "mosin": {
       "desired_source_lane": "project_aether_waw_real",
@@ -1547,8 +1767,31 @@
         ],
         "fire": [
           "fire",
-          "shoot"
+          "shoot",
+          "lastshot",
+          "lastfire"
         ],
+        "reload": [
+          "reload",
+          "rechamber",
+          "insert",
+          "clip",
+          "mag"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "bringout"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 skeletal viewmodel staged for Mosin-Nagant; animations/audio/worldmodel are gated separately.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
+        "Aether UE5.7 skeletal GLB now contains 22 imported real animation Actions.",
+        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists."
+      ],
+      "optional_animation_aliases": {
         "ads_in": [
           "ads_in",
           "ads_up",
@@ -1559,18 +1802,10 @@
           "ads_down",
           "aim_out"
         ],
-        "reload": [
-          "reload"
-        ],
-        "equip": [
-          "equip",
-          "pullout",
-          "raise",
-          "draw"
-        ],
         "lower": [
           "lower",
           "putaway",
+          "unequip",
           "holster"
         ],
         "melee": [
@@ -1578,12 +1813,7 @@
           "knife",
           "bash"
         ]
-      },
-      "notes": [
-        "Real Aether UE5.7 skeletal viewmodel staged for Mosin-Nagant; animations/audio/worldmodel are gated separately.",
-        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
-        "Aether UE5.7 skeletal GLB now contains 22 imported real animation Actions."
-      ]
+      }
     },
     "nambu": {
       "desired_source_lane": "project_aether_waw_real",
@@ -1604,8 +1834,31 @@
         ],
         "fire": [
           "fire",
-          "shoot"
+          "shoot",
+          "lastshot",
+          "lastfire"
         ],
+        "reload": [
+          "reload",
+          "rechamber",
+          "insert",
+          "clip",
+          "mag"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "bringout"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 skeletal viewmodel staged for Nambu; animations/audio/worldmodel are gated separately.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
+        "Aether UE5.7 skeletal GLB now contains 20 imported real animation Actions.",
+        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists."
+      ],
+      "optional_animation_aliases": {
         "ads_in": [
           "ads_in",
           "ads_up",
@@ -1616,18 +1869,10 @@
           "ads_down",
           "aim_out"
         ],
-        "reload": [
-          "reload"
-        ],
-        "equip": [
-          "equip",
-          "pullout",
-          "raise",
-          "draw"
-        ],
         "lower": [
           "lower",
           "putaway",
+          "unequip",
           "holster"
         ],
         "melee": [
@@ -1635,12 +1880,7 @@
           "knife",
           "bash"
         ]
-      },
-      "notes": [
-        "Real Aether UE5.7 skeletal viewmodel staged for Nambu; animations/audio/worldmodel are gated separately.",
-        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
-        "Aether UE5.7 skeletal GLB now contains 20 imported real animation Actions."
-      ]
+      }
     },
     "svt40": {
       "desired_source_lane": "project_aether_waw_real",
@@ -1661,8 +1901,31 @@
         ],
         "fire": [
           "fire",
-          "shoot"
+          "shoot",
+          "lastshot",
+          "lastfire"
         ],
+        "reload": [
+          "reload",
+          "rechamber",
+          "insert",
+          "clip",
+          "mag"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "bringout"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 skeletal viewmodel staged for SVT-40; animations/audio/worldmodel are gated separately.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
+        "Aether UE5.7 skeletal GLB now contains 20 imported real animation Actions.",
+        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists."
+      ],
+      "optional_animation_aliases": {
         "ads_in": [
           "ads_in",
           "ads_up",
@@ -1673,18 +1936,10 @@
           "ads_down",
           "aim_out"
         ],
-        "reload": [
-          "reload"
-        ],
-        "equip": [
-          "equip",
-          "pullout",
-          "raise",
-          "draw"
-        ],
         "lower": [
           "lower",
           "putaway",
+          "unequip",
           "holster"
         ],
         "melee": [
@@ -1692,12 +1947,7 @@
           "knife",
           "bash"
         ]
-      },
-      "notes": [
-        "Real Aether UE5.7 skeletal viewmodel staged for SVT-40; animations/audio/worldmodel are gated separately.",
-        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
-        "Aether UE5.7 skeletal GLB now contains 20 imported real animation Actions."
-      ]
+      }
     },
     "tt33": {
       "desired_source_lane": "project_aether_waw_real",
@@ -1718,8 +1968,31 @@
         ],
         "fire": [
           "fire",
-          "shoot"
+          "shoot",
+          "lastshot",
+          "lastfire"
         ],
+        "reload": [
+          "reload",
+          "rechamber",
+          "insert",
+          "clip",
+          "mag"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "bringout"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 skeletal viewmodel staged for TT-33; animations/audio/worldmodel are gated separately.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
+        "Aether UE5.7 skeletal GLB now contains 20 imported real animation Actions.",
+        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists."
+      ],
+      "optional_animation_aliases": {
         "ads_in": [
           "ads_in",
           "ads_up",
@@ -1730,18 +2003,10 @@
           "ads_down",
           "aim_out"
         ],
-        "reload": [
-          "reload"
-        ],
-        "equip": [
-          "equip",
-          "pullout",
-          "raise",
-          "draw"
-        ],
         "lower": [
           "lower",
           "putaway",
+          "unequip",
           "holster"
         ],
         "melee": [
@@ -1749,12 +2014,7 @@
           "knife",
           "bash"
         ]
-      },
-      "notes": [
-        "Real Aether UE5.7 skeletal viewmodel staged for TT-33; animations/audio/worldmodel are gated separately.",
-        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
-        "Aether UE5.7 skeletal GLB now contains 20 imported real animation Actions."
-      ]
+      }
     },
     "type99": {
       "desired_source_lane": "project_aether_waw_real",
@@ -1775,8 +2035,31 @@
         ],
         "fire": [
           "fire",
-          "shoot"
+          "shoot",
+          "lastshot",
+          "lastfire"
         ],
+        "reload": [
+          "reload",
+          "rechamber",
+          "insert",
+          "clip",
+          "mag"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "bringout"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 skeletal viewmodel staged for Type 99; animations/audio/worldmodel are gated separately.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
+        "Aether UE5.7 skeletal GLB now contains 19 imported real animation Actions.",
+        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists."
+      ],
+      "optional_animation_aliases": {
         "ads_in": [
           "ads_in",
           "ads_up",
@@ -1787,18 +2070,10 @@
           "ads_down",
           "aim_out"
         ],
-        "reload": [
-          "reload"
-        ],
-        "equip": [
-          "equip",
-          "pullout",
-          "raise",
-          "draw"
-        ],
         "lower": [
           "lower",
           "putaway",
+          "unequip",
           "holster"
         ],
         "melee": [
@@ -1806,12 +2081,7 @@
           "knife",
           "bash"
         ]
-      },
-      "notes": [
-        "Real Aether UE5.7 skeletal viewmodel staged for Type 99; animations/audio/worldmodel are gated separately.",
-        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
-        "Aether UE5.7 skeletal GLB now contains 19 imported real animation Actions."
-      ]
+      }
     },
     "walther": {
       "desired_source_lane": "project_aether_waw_real",
@@ -1832,8 +2102,31 @@
         ],
         "fire": [
           "fire",
-          "shoot"
+          "shoot",
+          "lastshot",
+          "lastfire"
         ],
+        "reload": [
+          "reload",
+          "rechamber",
+          "insert",
+          "clip",
+          "mag"
+        ],
+        "equip": [
+          "equip",
+          "pullout",
+          "raise",
+          "bringout"
+        ]
+      },
+      "notes": [
+        "Real Aether UE5.7 skeletal viewmodel staged for Walther P38; animations/audio/worldmodel are gated separately.",
+        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
+        "Aether UE5.7 skeletal GLB now contains 20 imported real animation Actions.",
+        "Aether core gun animation gate requires real idle/fire/reload/equip clips; ADS transitions remain physical runtime alignment unless a real clip exists."
+      ],
+      "optional_animation_aliases": {
         "ads_in": [
           "ads_in",
           "ads_up",
@@ -1844,18 +2137,10 @@
           "ads_down",
           "aim_out"
         ],
-        "reload": [
-          "reload"
-        ],
-        "equip": [
-          "equip",
-          "pullout",
-          "raise",
-          "draw"
-        ],
         "lower": [
           "lower",
           "putaway",
+          "unequip",
           "holster"
         ],
         "melee": [
@@ -1863,12 +2148,7 @@
           "knife",
           "bash"
         ]
-      },
-      "notes": [
-        "Real Aether UE5.7 skeletal viewmodel staged for Walther P38; animations/audio/worldmodel are gated separately.",
-        "Aether UE5.7 gun-only skeletal mesh is approved for both first-person and world-model presentation; no hands are embedded.",
-        "Aether UE5.7 skeletal GLB now contains 20 imported real animation Actions."
-      ]
+      }
     }
   }
 }
