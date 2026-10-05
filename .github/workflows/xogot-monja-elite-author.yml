@@ -181,10 +181,10 @@ jobs:
           set -euo pipefail
           rm -rf xogot/build/monja-runtime
           mkdir -p xogot/build/monja-runtime/clean xogot/build/monja-runtime/cmu
-          gltf-transform copy \
+          gltf-transform dequantize \
             xogot/build/monja-source-pose-rig/monja_black_white_clean_rig.glb \
             xogot/build/monja-runtime/clean/monja_black_white_clean_rig.gltf
-          gltf-transform copy \
+          gltf-transform dequantize \
             xogot/build/monja-elite-cmu/monja_black_white_cmu_rig.glb \
             xogot/build/monja-runtime/cmu/monja_black_white_cmu_rig.gltf
           python3 - <<'PY'
