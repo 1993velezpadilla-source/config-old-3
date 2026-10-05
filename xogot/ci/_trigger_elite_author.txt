@@ -6,3 +6,4 @@ trigger elite Monja 2026-10-05 cloth-safe-death-v4
 trigger elite Monja 2026-10-05 cloth-safe-v4-fast-cmu
 trigger elite Monja 2026-10-05 final-v4-fast-cmu-lossless-splitter
 trigger elite Monja 2026-10-05 commit-order-fixed-final
+trigger elite Monja 2026-10-05 lossless-animation-merge
