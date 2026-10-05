@@ -157,12 +157,18 @@ static func inspect(id: String) -> Dictionary:
 
 static func animation_name_for_role(id: String, role: String) -> String:
 	var rec := get_record(id)
-	var aliases: Dictionary = rec.get("required_animation_aliases", {}) as Dictionary
-	if not aliases.has(role):
+	var required: Dictionary = rec.get("required_animation_aliases", {}) as Dictionary
+	var optional: Dictionary = rec.get("optional_animation_aliases", {}) as Dictionary
+	var role_aliases: Array = []
+	if required.has(role):
+		role_aliases = required[role] as Array
+	elif optional.has(role):
+		role_aliases = optional[role] as Array
+	else:
 		return ""
 	var names := animation_names_for(id)
 	for name: String in names:
-		for alias_var: Variant in aliases[role] as Array:
+		for alias_var: Variant in role_aliases:
 			var alias := str(alias_var).to_lower()
 			if not alias.is_empty() and name.contains(alias):
 				return name
