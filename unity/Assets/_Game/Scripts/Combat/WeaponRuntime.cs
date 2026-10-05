@@ -14,6 +14,9 @@ namespace Sanctum.Zombies.Combat
 
         private WeaponDefinition definition;
         private GameObject viewModelInstance;
+        private Animator viewModelAnimator;
+        private Light muzzleLight;
+        private float muzzleLightUntil;
         private int magazine;
         private int reserve;
         private bool packed;
@@ -45,7 +48,28 @@ namespace Sanctum.Zombies.Combat
             viewModelInstance = Instantiate(definition.viewModelPrefab, viewModelSocket, false);
             viewModelInstance.name = $"VM_{definition.weaponId}";
             viewModelInstance.transform.localScale = Vector3.one;
+
+            viewModelAnimator = viewModelInstance.GetComponentInChildren<Animator>();
+            if (viewModelAnimator == null) viewModelAnimator = viewModelInstance.AddComponent<Animator>();
+            viewModelAnimator.runtimeAnimatorController = definition.viewModelAnimatorController;
+            viewModelAnimator.applyRootMotion = false;
+
+            Transform flash = FindChildByName(viewModelInstance.transform, "tag_flash");
+            if (flash != null)
+            {
+                muzzleLight = flash.GetComponent<Light>();
+                if (muzzleLight == null) muzzleLight = flash.gameObject.AddComponent<Light>();
+                muzzleLight.type = LightType.Point;
+                muzzleLight.range = 2.4f;
+                muzzleLight.intensity = 3.2f;
+                muzzleLight.shadows = LightShadows.None;
+                muzzleLight.enabled = false;
+            }
+
             adsController.Bind(viewModelInstance.transform, definition);
+            adsController.TryAutoCalibrateFromSightNames();
+            adsController.Snap(false);
+            TriggerAnimation("Equip");
         }
 
         public void SetFireHeld(bool value)
@@ -62,6 +86,10 @@ namespace Sanctum.Zombies.Combat
             int capacity = definition.MagazineFor(packed);
             int need = capacity - magazine;
             if (need <= 0) return false;
+
+            bool wasEmpty = magazine == 0;
+            TriggerAnimation(wasEmpty ? "ReloadEmpty" : "Reload");
+
             int moved = Mathf.Min(need, reserve);
             magazine += moved;
             reserve -= moved;
@@ -81,6 +109,9 @@ namespace Sanctum.Zombies.Combat
 
         private void Update()
         {
+            if (muzzleLight != null && muzzleLight.enabled && Time.time >= muzzleLightUntil)
+                muzzleLight.enabled = false;
+
             if (definition == null) return;
 
             bool shouldFire = definition.fireMode == WeaponFireMode.FullAuto ? fireHeld : triggerPressed;
@@ -92,13 +123,38 @@ namespace Sanctum.Zombies.Combat
         {
             if (playerCamera == null || Time.time < nextShotTime || magazine <= 0) return;
             nextShotTime = Time.time + definition.SecondsPerShot;
+            bool lastShot = magazine == 1;
             magazine--;
+
+            TriggerAnimation(lastShot ? "LastShot" : (adsController.IsAiming ? "FireADS" : "Fire"));
+
+            if (muzzleLight != null)
+            {
+                muzzleLight.enabled = true;
+                muzzleLightUntil = Time.time + 0.045f;
+            }
 
             if (muzzleFlash != null) muzzleFlash.Play(true);
             if (fireAudio != null) fireAudio.Play();
 
             int pelletCount = Mathf.Max(1, definition.pellets);
             for (int i = 0; i < pelletCount; i++) FirePellet();
+        }
+
+        private void TriggerAnimation(string parameter)
+        {
+            if (viewModelAnimator == null || viewModelAnimator.runtimeAnimatorController == null) return;
+            viewModelAnimator.ResetTrigger(parameter);
+            viewModelAnimator.SetTrigger(parameter);
+        }
+
+        private static Transform FindChildByName(Transform root, string exactName)
+        {
+            Transform[] all = root.GetComponentsInChildren<Transform>(true);
+            foreach (Transform t in all)
+                if (string.Equals(t.name, exactName, System.StringComparison.OrdinalIgnoreCase))
+                    return t;
+            return null;
         }
 
         private void FirePellet()

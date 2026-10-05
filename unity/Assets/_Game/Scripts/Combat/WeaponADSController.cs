@@ -50,13 +50,23 @@ namespace Sanctum.Zombies.Combat
         {
             if (weaponRoot == null || definition == null) return false;
 
-            Transform rear = FindByNames(weaponRoot, "rear_sight", "rearsight", "rear sight", "iron_rear", "ads_rear");
-            Transform front = FindByNames(weaponRoot, "front_sight", "frontsight", "front sight", "iron_front", "ads_front");
-            if (rear == null || front == null) return false;
+            Transform authored = FindByNames(weaponRoot, "tag_iron_sights", "tag_ironsights", "tag_ads", "ads_anchor");
+            Vector3 sightWorld;
 
-            Vector3 midpoint = Vector3.Lerp(rear.position, front.position, 0.2f);
+            if (authored != null)
+            {
+                sightWorld = authored.position;
+            }
+            else
+            {
+                Transform rear = FindByNames(weaponRoot, "rear_sight", "rearsight", "rear sight", "iron_rear", "ads_rear");
+                Transform front = FindByNames(weaponRoot, "front_sight", "frontsight", "front sight", "iron_front", "ads_front");
+                if (rear == null || front == null) return false;
+                sightWorld = Vector3.Lerp(rear.position, front.position, 0.2f);
+            }
+
             Vector3 desired = playerCamera.transform.position + playerCamera.transform.forward * 0.18f;
-            Vector3 worldDelta = desired - midpoint;
+            Vector3 worldDelta = desired - sightWorld;
             Vector3 localDelta = weaponRoot.parent.InverseTransformVector(worldDelta);
             definition.adsLocalPosition = weaponRoot.localPosition + localDelta;
             return true;

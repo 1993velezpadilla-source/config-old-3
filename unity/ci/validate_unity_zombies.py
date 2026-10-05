@@ -39,6 +39,7 @@ for rel in [
     "Assets/_Game/Scripts/World/LightingQualityDirector.cs",
     "Assets/_Game/Scripts/Editor/VerticalSliceBootstrap.cs",
     "Assets/_Game/Scripts/Editor/ZombieAnimatorBootstrap.cs",
+    "Assets/_Game/Scripts/Editor/WeaponAnimatorBootstrap.cs",
     "Assets/_Game/Scripts/Editor/MonjaImportValidator.cs",
     "Assets/_Game/Scripts/Editor/AndroidBuild.cs",
 ]:
@@ -77,6 +78,24 @@ else:
             errors.append(f"{row['id']}: pellets must be >=1")
 
 
+weapon_anim_inventory = root.parent / "xogot/assets/weapons/aether_waw_real/animated-inventory.json"
+if not weapon_anim_inventory.exists():
+    errors.append("Aether animated weapon inventory missing")
+else:
+    inventory = json.loads(weapon_anim_inventory.read_text())
+    if inventory.get("animated_weapon_count", 0) < 28:
+        errors.append(f"expected 28 animated firearm sources, got {inventory.get('animated_weapon_count')}")
+    for weapon in inventory.get("weapons", []):
+        if weapon.get("runtime_id") == "stielhand":
+            continue
+        if weapon.get("animations", 0) <= 0:
+            errors.append(f"{weapon.get('runtime_id')}: no embedded weapon animations")
+        names = " ".join(weapon.get("animation_names", [])).lower()
+        if "fire" not in names and "shoot" not in names:
+            errors.append(f"{weapon.get('runtime_id')}: no embedded fire animation")
+        if "reload" not in names:
+            errors.append(f"{weapon.get('runtime_id')}: no embedded reload animation")
+
 report_path = root.parent / "xogot/assets/zombies/monja_clean/report.json"
 if not report_path.exists():
     errors.append("source monja rig report missing")
@@ -101,6 +120,7 @@ print(f"REAL_WEAPON_MODELS={len(models)}")
 print("WEAPON_BALANCE_ROWS=28+")
 print("REAL_CHURCH=YES")
 print("CLEAN_MONJA_RIG=YES")
+print("AETHER_ANIMATED_FIREARMS=28")
 print("MONJA_EMBEDDED_IDLE_WALK_ATTACK_HIT_DEATH=VALID")
 print("MOBILE_HUD_SOURCE_AND_TOUCH_LAYOUT=WIRED")
 print("ADS_DAMAGE_ROUNDS_BARRICADES_PAP_MOBILE_TOUCH_GYRO_LIGHTING=WIRED")

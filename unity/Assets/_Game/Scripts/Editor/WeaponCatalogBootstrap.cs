@@ -73,6 +73,7 @@ namespace Sanctum.Zombies.EditorTools
                 definition.weaponClass = (WeaponClass)Enum.Parse(typeof(WeaponClass), row.weaponClass);
                 definition.fireMode = (WeaponFireMode)Enum.Parse(typeof(WeaponFireMode), row.fireMode);
                 definition.viewModelPrefab = model;
+                definition.viewModelAnimatorController = WeaponAnimatorBootstrap.BuildFor(row.id, definition.fireMode);
                 definition.baseDamage = row.baseDamage;
                 definition.packAPunchDamage = row.packDamage;
                 definition.roundsPerMinute = row.rpm;

@@ -25,6 +25,8 @@ namespace Sanctum.Zombies.EditorTools
                 WeaponDefinition definition = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(path);
                 if (definition == null || definition.viewModelPrefab == null)
                     throw new InvalidDataException($"{path}: missing REAL viewmodel.");
+                if (definition.viewModelAnimatorController == null)
+                    throw new InvalidDataException($"{path}: missing embedded-animation controller.");
                 if (definition.packAPunchDamage <= definition.baseDamage)
                     throw new InvalidDataException($"{path}: Pack-a-Punch damage must exceed base damage.");
             }
@@ -35,7 +37,7 @@ namespace Sanctum.Zombies.EditorTools
             if (!File.Exists("Assets/_Game/Art/Environment/Church/church_final_architecture.glb"))
                 throw new FileNotFoundException("Real church architecture missing.");
 
-            Debug.Log($"UNITY_ZOMBIES PRODUCTION ASSET GATE GREEN: {models.Length} real weapons, {definitions.Length} definitions, church + clean monja present.");
+            Debug.Log($"UNITY_ZOMBIES PRODUCTION ASSET GATE GREEN: {models.Length} real animated weapons, {definitions.Length} definitions/controllers, church + clean monja present.");
         }
     }
 }
