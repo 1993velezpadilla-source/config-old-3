@@ -1,1 +1,1 @@
-trigger elite Monja author 2026-10-04 retry-2
+trigger elite Monja author 2026-10-04 meshopt-decode-1
