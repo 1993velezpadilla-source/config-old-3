@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "source": "Project Aether UE5.7 first-person export",
+  "source_run": 37382140735,
+  "source_asset": "FirstPerson/Blueprints/Weapons/Player/BO2/zOrigins/zOriginsRichtofen/BO2SkeletonTest",
+  "runtime_glb": "res://assets/weapons/aether_waw_hands/legacy_richtofen/viewhands.glb",
+  "armature_lane": "legacy_waw_bo1_bo2",
+  "required_tags": [
+    "RootBone",
+    "tag_view",
+    "tag_ads",
+    "tag_torso",
+    "tag_weapon",
+    "tag_camera",
+    "j_wrist_le",
+    "j_wrist_ri"
+  ],
+  "textures": {
+    "left_color": "res://assets/weapons/aether_waw_hands/legacy_richtofen/textures/arm_left_color.png",
+    "right_color": "res://assets/weapons/aether_waw_hands/legacy_richtofen/textures/arm_right_color.png",
+    "normal": "res://assets/weapons/aether_waw_hands/legacy_richtofen/textures/arm_normal.png",
+    "specular": "res://assets/weapons/aether_waw_hands/legacy_richtofen/textures/arm_specular.png"
+  }
+}

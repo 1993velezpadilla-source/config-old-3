@@ -1,0 +1,54 @@
+{
+  "Textures": {
+    "unk_semantic_85fd017c": "/Game/Assets/Materials/Textures/c_gen_arm_rim_mask_c.c_gen_arm_rim_mask_c",
+    "PM_Diffuse": "/Game/Assets/Materials/Textures/c_gen_arm_rim_mask_c.c_gen_arm_rim_mask_c",
+    "c_gen_arm_rim_mask_c": "/Game/Assets/Materials/Textures/c_gen_arm_rim_mask_c.c_gen_arm_rim_mask_c",
+    "PM_SpecularMasks": "/Game/Assets/Materials/Textures/_-gviewarm_zom_richtofen_r_c._-gviewarm_zom_richtofen_r_c",
+    "specularMap": "/Game/Assets/Materials/Textures/__-gviewarm_zom_richtofen_s-r_96ca889b.__-gviewarm_zom_richtofen_s-r_96ca889b",
+    "PM_Normals": "/Game/Assets/Materials/Textures/viewarm_zom_richtofen_n.viewarm_zom_richtofen_n",
+    "normalMap": "/Game/Assets/Materials/Textures/viewarm_zom_richtofen_n.viewarm_zom_richtofen_n",
+    "colorMap": "/Game/Assets/Materials/Textures/_-gviewarm_zom_richtofen_r_c._-gviewarm_zom_richtofen_r_c"
+  },
+  "Parameters": {
+    "BlendMode": 0,
+    "ShadingModel": 0,
+    "Colors": {
+      "Reflection_Amount": {
+        "R": 1.0,
+        "G": 0.0,
+        "B": 0.0,
+        "A": 1.0,
+        "Hex": "FF0000"
+      },
+      "Diffuse_Normal_Height_Facing": {
+        "R": 0.85,
+        "G": 0.0,
+        "B": 0.0,
+        "A": 1.0,
+        "Hex": "EE0000"
+      },
+      "Specular_Amount": {
+        "R": 1.0,
+        "G": 0.0,
+        "B": 0.0,
+        "A": 1.0,
+        "Hex": "FF0000"
+      }
+    },
+    "Scalars": {},
+    "Switches": {},
+    "Properties": {
+      "BasePropertyOverrides": {
+        "ShadingModel": "EMaterialShadingModel::MSM_NativeSpecular",
+        "OpacityMaskClipValue": 0.3333
+      },
+      "bIncludedInBaseGame": true
+    },
+    "HasTopDiffuse": false,
+    "HasTopNormals": false,
+    "HasTopSpecularMasks": false,
+    "HasTopEmissive": false,
+    "IsTranslucent": false,
+    "IsNull": false
+  }
+}
