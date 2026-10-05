@@ -32,6 +32,8 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq blender python3-numpy libegl1 libgl1-mesa-dri mesa-utils
           blender --version | head -n 2
+          sudo npm install --global @gltf-transform/cli@4.5.1
+          gltf-transform --version
 
       - name: Build clean humanoid Monja rig
         shell: bash
@@ -69,30 +71,70 @@ jobs:
           print("XZOGOT_MONJA_SOURCE_POSE_REPORT_GREEN",r["bones"],r["output_bytes"])
           PY
 
+      - name: Compress clean rig for runtime Git
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p xogot/build/monja-clean-runtime
+          gltf-transform meshopt \
+            xogot/build/monja-source-pose-rig/monja_basica_clean_rig.glb \
+            xogot/build/monja-clean-runtime/monja_basica_clean_rig.glb \
+            --level medium \
+            --quantize-position 16 \
+            --quantize-normal 16 \
+            --quantize-texcoord 16 \
+            --quantize-weight 16 \
+            --quantize-color 16 \
+            --quantize-generic 16
+          python3 - <<'PY'
+          import json,struct
+          from pathlib import Path
+          p=Path("xogot/build/monja-clean-runtime/monja_basica_clean_rig.glb")
+          data=p.read_bytes()
+          assert data[:4]==b"glTF" and len(data)>20
+          json_len,json_type=struct.unpack_from("<II",data,12)
+          assert json_type==0x4E4F534A
+          doc=json.loads(data[20:20+json_len].decode("utf-8").rstrip("\x00 \t\r\n"))
+          used=set(doc.get("extensionsUsed",[]))
+          required=set(doc.get("extensionsRequired",[]))
+          assert "EXT_meshopt_compression" in used, used
+          assert "EXT_meshopt_compression" in required, required
+          size=p.stat().st_size
+          assert size < 95_000_000, size
+          report_path=Path("xogot/build/monja-source-pose-rig/report.json")
+          r=json.loads(report_path.read_text())
+          r["runtime_compression"]="EXT_meshopt_compression"
+          r["runtime_meshopt_level"]="medium"
+          r["runtime_quantization_bits"]=16
+          r["runtime_simplification"]=False
+          r["runtime_output_bytes"]=size
+          report_path.write_text(json.dumps(r,indent=2)+"\n")
+          print("XZOGOT_MONJA_BASIC_RUNTIME_MESHOPT_GREEN",size)
+          PY
+
       - name: Stage clean rig candidate
         shell: bash
         run: |
+          set -euo pipefail
           python3 - <<'PY'
           import json
           from pathlib import Path
           r=json.loads(Path("xogot/build/monja-source-pose-rig/report.json").read_text())
           assert r.get("pose_match",{}).get("validated") is True, "Refusing to promote clean Monja until source-pose match is validated"
+          assert r.get("raw_glb_bind_valid") is True
+          assert r.get("raw_glb_geometry_conserved") is True
+          assert r.get("runtime_simplification") is False
           print("XZOGOT_MONJA_POSE_MATCH_PROMOTION_GREEN")
           PY
-          set -euo pipefail
-          SIZE=$(stat -c%s xogot/build/monja-source-pose-rig/monja_basica_clean_rig.glb)
+          SIZE=$(stat -c%s xogot/build/monja-clean-runtime/monja_basica_clean_rig.glb)
+          test "$SIZE" -lt 95000000
           mkdir -p xogot/assets/zombies/monja_clean
-          cp xogot/build/monja-source-pose-rig/report.json xogot/assets/zombies/monja_clean/report.json
-          if [ "$SIZE" -lt 95000000 ]; then
-            cp xogot/build/monja-source-pose-rig/monja_basica_clean_rig.glb xogot/assets/zombies/monja_clean/monja_basica_clean_rig.glb
-            echo "COMMIT_CLEAN_RIG=1" >> "$GITHUB_ENV"
-          else
-            echo "COMMIT_CLEAN_RIG=0" >> "$GITHUB_ENV"
-            echo "Source-pose rig is too large for normal Git; artifact only."
-          fi
+          cp xogot/build/monja-clean-runtime/monja_basica_clean_rig.glb \
+             xogot/assets/zombies/monja_clean/monja_basica_clean_rig.glb
+          cp xogot/build/monja-source-pose-rig/report.json \
+             xogot/assets/zombies/monja_clean/report.json
 
       - name: Commit clean rig candidate
-        if: env.COMMIT_CLEAN_RIG == '1'
         shell: bash
         run: |
           set -euo pipefail
