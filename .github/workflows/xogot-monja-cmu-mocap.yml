@@ -192,3 +192,5 @@ jobs:
             xogot/build/monja-cmu-mocap/cmu_strike_mid.png
           if-no-files-found: warn
           retention-days: 14
+
+# explicit V4 clean-runtime CMU bake 2026-10-05
