@@ -32,6 +32,24 @@ func _initialize() -> void:
 		_fail(6, "4P first sheep population mismatch")
 		return
 
+	var sheep_assets_ready: bool = bool(manager.call("_sheep_assets_ready"))
+	var elite_asset_ready: bool = bool(manager.call("_elite_nun_asset_ready"))
+	manager.set("_special_round_kind", "")
+	for serial: int in range(1, 160):
+		var guarded_variant: String = str(manager.call("_enemy_variant_for_spawn", 10, serial))
+		if guarded_variant.begins_with("sheep_"):
+			_fail(7, "sheep variant escaped outside sheep round: " + guarded_variant)
+			return
+		if not elite_asset_ready and guarded_variant == "nun_elite":
+			_fail(7, "elite spawned without full CMU elite asset")
+			return
+	print(
+		"XZOGOT_SPECIAL_ENEMY_NO_PLACEHOLDER_SPAWN_GREEN sheep_assets=",
+		sheep_assets_ready,
+		" elite_cmu=",
+		elite_asset_ready
+	)
+
 	manager.set("_special_round_kind", "sheep")
 	var seen: Dictionary = {}
 	for serial: int in range(1, 100):
