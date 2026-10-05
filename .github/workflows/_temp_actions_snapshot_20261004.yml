@@ -39,7 +39,11 @@ jobs:
           set -euo pipefail
           git config user.name "XZOGOT Status Bot"
           git config user.email "xogot-status-bot@users.noreply.github.com"
+          cp xogot/ci_status/special_enemy_runs.txt /tmp/special_enemy_runs.txt
+          git reset --hard
           git pull --rebase origin feature/church-expansion-v1
+          mkdir -p xogot/ci_status
+          cp /tmp/special_enemy_runs.txt xogot/ci_status/special_enemy_runs.txt
           git add xogot/ci_status/special_enemy_runs.txt
           git commit -m "ci: snapshot special enemy Actions" || exit 0
           git push origin HEAD:feature/church-expansion-v1
