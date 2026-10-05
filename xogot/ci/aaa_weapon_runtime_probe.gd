@@ -135,6 +135,22 @@ func _run_probe() -> void:
 			if absf(float(weapon.get_meta("weapon_source_ads_out_time", 0.0)) - 0.20) > 0.0001:
 				_fail(42, "MP40 source ADS-out timing mismatch")
 				return
+			var hands_report_path := "res://assets/weapons/aether_waw_hands/legacy_richtofen/animation-report.json"
+			if not FileAccess.file_exists(hands_report_path):
+				_fail(43, "MP40 source hands animation report missing")
+				return
+			var hands_report_file := FileAccess.open(hands_report_path, FileAccess.READ)
+			if hands_report_file == null:
+				_fail(44, "MP40 source hands animation report unreadable")
+				return
+			var hands_report_value: Variant = JSON.parse_string(hands_report_file.get_as_text())
+			if not (hands_report_value is Dictionary):
+				_fail(45, "MP40 source hands animation report invalid JSON")
+				return
+			var hands_report: Dictionary = hands_report_value
+			if absf(float(hands_report.get("translation_scale", 0.0)) - 0.01) > 0.000001:
+				_fail(46, "MP40 source hands PSA translation scale must be UE cm -> GLB m")
+				return
 		else:
 			if ads_mode != "source_pending":
 				_fail(20, "ADS must remain source_pending until exact archive metadata is bound " + id)
