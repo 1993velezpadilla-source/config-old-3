@@ -81,6 +81,47 @@ jobs:
           print("XZOGOT_ELITE_MONJA_REPORT_GREEN",r["bones"],r["output_bytes"])
           PY
 
+      - name: Bake nine real CMU clips onto elite Monja
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="$PWD/xogot/build/monja-source-pose-rig/monja_black_white_clean_rig.glb"
+          test -s "$BASE"
+          rm -rf xogot/build/monja-elite-cmu
+          mkdir -p xogot/build/monja-elite-cmu
+          timeout 2700 blender -b --python xogot/tools/augment_monja_cmu_mocap.py -- \
+            --base "$BASE" \
+            --profile elite \
+            --output-dir "$PWD/xogot/build/monja-elite-cmu" \
+            --output-name monja_black_white_cmu_rig.glb \
+            2>&1 | tee xogot/build/monja-elite-cmu/blender.log
+          grep -q "XZOGOT_MONJA_CMU_PROFILE_GREEN elite" xogot/build/monja-elite-cmu/blender.log
+          grep -q "XZOGOT_MONJA_CMU_9_REAL_MOCAP_CLIPS_GREEN" xogot/build/monja-elite-cmu/blender.log
+          grep -q "XZOGOT_MONJA_CMU_RIG_GREEN" xogot/build/monja-elite-cmu/blender.log
+          test -s xogot/build/monja-elite-cmu/monja_black_white_cmu_rig.glb
+          test -s xogot/build/monja-elite-cmu/report.json
+
+      - name: Validate elite CMU output
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("xogot/build/monja-elite-cmu/report.json")
+          r=json.loads(p.read_text())
+          assert r["profile"] == "elite"
+          assert r["geometry_conserved"] is True
+          assert r["armatures"] == 1
+          assert r["bones"] >= 20
+          assert len(r["baked_cmu"]) == 9
+          assert not r["missing_cmu_actions"]
+          names=" ".join(r["output_actions"]).lower()
+          for token in ("104_41","105_25","74_01","139_19","02_05","111_19","111_03","90_16","140_01"):
+              assert token in names,(token,r["output_actions"])
+          print("XZOGOT_ELITE_MONJA_CMU_REPORT_GREEN",r["bones"],r["output_bytes"])
+          PY
+
       - name: Stage elite runtime asset
         shell: bash
         run: |
@@ -88,22 +129,30 @@ jobs:
           mkdir -p xogot/assets/zombies/monja_elite
           cp xogot/build/monja-source-pose-rig/monja_black_white_clean_rig.glb \
              xogot/assets/zombies/monja_elite/monja_black_white_clean_rig.glb
+          cp xogot/build/monja-elite-cmu/monja_black_white_cmu_rig.glb \
+             xogot/assets/zombies/monja_elite/monja_black_white_cmu_rig.glb
           cp xogot/build/monja-source-pose-rig/report.json \
              xogot/assets/zombies/monja_elite/rig_report.json
+          cp xogot/build/monja-elite-cmu/report.json \
+             xogot/assets/zombies/monja_elite/cmu_mocap_report.json
 
       - name: Commit elite Monja
         shell: bash
         run: |
           set -euo pipefail
-          SIZE=$(stat -c%s xogot/assets/zombies/monja_elite/monja_black_white_clean_rig.glb)
-          if [ "$SIZE" -ge 95000000 ]; then
-            echo "Elite GLB too large for normal Git: $SIZE"
+          CLEAN_SIZE=$(stat -c%s xogot/assets/zombies/monja_elite/monja_black_white_clean_rig.glb)
+          CMU_SIZE=$(stat -c%s xogot/assets/zombies/monja_elite/monja_black_white_cmu_rig.glb)
+          if [ "$CLEAN_SIZE" -ge 95000000 ] || [ "$CMU_SIZE" -ge 95000000 ]; then
+            echo "Elite GLB too large for normal Git: clean=$CLEAN_SIZE cmu=$CMU_SIZE"
             exit 3
           fi
           git config user.name "XZOGOT Asset Bot"
           git config user.email "xogot-asset-bot@users.noreply.github.com"
           git pull --rebase origin feature/church-expansion-v1
-          git add xogot/assets/zombies/monja_elite/monja_black_white_clean_rig.glb                   xogot/assets/zombies/monja_elite/rig_report.json
+          git add xogot/assets/zombies/monja_elite/monja_black_white_clean_rig.glb \
+                  xogot/assets/zombies/monja_elite/monja_black_white_cmu_rig.glb \
+                  xogot/assets/zombies/monja_elite/rig_report.json \
+                  xogot/assets/zombies/monja_elite/cmu_mocap_report.json
           if ! git diff --cached --quiet; then
             git commit -m "asset: add clean-rigged elite black white Monja"
             git push origin HEAD:feature/church-expansion-v1
@@ -119,5 +168,11 @@ jobs:
             xogot/build/monja-source-pose-rig/blender.log
             xogot/build/monja-source-pose-rig/bind_pose.png
             xogot/build/monja-source-pose-rig/walk_mid.png
+            xogot/build/monja-elite-cmu/report.json
+            xogot/build/monja-elite-cmu/blender.log
+            xogot/build/monja-elite-cmu/cmu_zombie_walk_mid.png
+            xogot/build/monja-elite-cmu/cmu_drag_bad_leg_mid.png
+            xogot/build/monja-elite-cmu/cmu_crawl_mid.png
+            xogot/build/monja-elite-cmu/cmu_strike_mid.png
           if-no-files-found: warn
           retention-days: 14
