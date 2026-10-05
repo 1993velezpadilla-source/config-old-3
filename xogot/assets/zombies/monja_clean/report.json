@@ -1,0 +1,318 @@
+{
+  "schema": 1,
+  "pipeline": "source_pose_manual_humanoid_rig_v2",
+  "source": "assets/zombies/monja_basica.glb",
+  "profile": "normal",
+  "donor": "assets/zombie_mocap/retarget/UAL2_Standard.glb",
+  "source_transform_baked_to_world": true,
+  "source_transform_bake_rms": 0.0,
+  "source_transform_bake_max": 0.0,
+  "source_vertices": 1023652,
+  "source_polygons": 1938984,
+  "source_triangles": 1938984,
+  "source_surface_area": 1.5023620433945557,
+  "source_degenerate_triangles": 0,
+  "output_vertices": 1330412,
+  "output_polygons": 1939064,
+  "output_triangles": 1939064,
+  "output_surface_area": 13.168293088702866,
+  "output_degenerate_triangles": 0,
+  "triangle_delta": 80,
+  "surface_area_delta": 11.66593104530831,
+  "surface_area_tolerance": 1.5023620433945558e-05,
+  "source_bounds_min": [
+    -0.263916015625,
+    -0.213775634765625,
+    -0.4896240234375
+  ],
+  "source_bounds_max": [
+    0.264312744140625,
+    0.2138214111328125,
+    0.4896240234375
+  ],
+  "output_bounds_min": [
+    -0.9510578513145447,
+    -0.9999999403953552,
+    -1.0
+  ],
+  "output_bounds_max": [
+    0.9510578513145447,
+    0.9999999403953552,
+    1.0
+  ],
+  "bounds_delta": 0.7862243056297302,
+  "bounds_tolerance": 9.79248046875e-06,
+  "raw_glb": {
+    "triangles": 1938984,
+    "surface_area": 1.5023620433945553,
+    "bounds_min": [
+      -0.263916015625,
+      -0.4896240234375,
+      -0.2138214111328125
+    ],
+    "bounds_max": [
+      0.264312744140625,
+      0.4896240234375,
+      0.213775634765625
+    ],
+    "bounds_extents_sorted": [
+      0.4275970458984375,
+      0.528228759765625,
+      0.979248046875
+    ],
+    "skinned_nodes": 1,
+    "inverse_bind_identity_max_error": 1.1982167066743044e-06,
+    "inverse_bind_identity_mean_error": 3.398962297301122e-07,
+    "animation_motion": {
+      "NLA_Zombie_Attack_Clean": {
+        "sampled_channels": 72,
+        "varying_channels": 44,
+        "max_component_range": 1.3251209259033203
+      },
+      "NLA_Zombie_Death_Clean": {
+        "sampled_channels": 72,
+        "varying_channels": 44,
+        "max_component_range": 1.8458985090255737
+      },
+      "NLA_Zombie_Hit_Clean": {
+        "sampled_channels": 72,
+        "varying_channels": 44,
+        "max_component_range": 1.6199731230735779
+      },
+      "NLA_Zombie_Idle_Clean": {
+        "sampled_channels": 72,
+        "varying_channels": 44,
+        "max_component_range": 0.1806635558605194
+      },
+      "NLA_Zombie_Walk_Clean": {
+        "sampled_channels": 72,
+        "varying_channels": 44,
+        "max_component_range": 0.7087422013282776
+      }
+    }
+  },
+  "raw_glb_area_delta": 4.440892098500626e-16,
+  "raw_glb_area_tolerance": 1.5023620433945558e-05,
+  "raw_glb_extent_delta": 0.0,
+  "raw_glb_extent_tolerance": 9.79248046875e-06,
+  "raw_glb_geometry_conserved": true,
+  "raw_glb_bind_valid": true,
+  "raw_glb_animation_motion": {
+    "Idle_Clean": {
+      "sampled_channels": 72,
+      "varying_channels": 44,
+      "max_component_range": 0.1806635558605194
+    },
+    "Walk_Clean": {
+      "sampled_channels": 72,
+      "varying_channels": 44,
+      "max_component_range": 0.7087422013282776
+    },
+    "Attack_Clean": {
+      "sampled_channels": 72,
+      "varying_channels": 44,
+      "max_component_range": 1.3251209259033203
+    },
+    "Hit_Clean": {
+      "sampled_channels": 72,
+      "varying_channels": 44,
+      "max_component_range": 1.6199731230735779
+    },
+    "Death_Clean": {
+      "sampled_channels": 72,
+      "varying_channels": 44,
+      "max_component_range": 1.8458985090255737
+    }
+  },
+  "raw_glb_animation_motion_valid": true,
+  "geometry_conserved": true,
+  "geometry_gate": "serialized_glb_exact_triangle_area_extent_plus_inverse_bind_identity",
+  "export_reindexed_vertices": true,
+  "export_triangulated_nontri_faces": true,
+  "armatures": 1,
+  "bones": 24,
+  "actions": [
+    "NLA_Zombie_Attack_Clean_Monja_SourcePose_Rig",
+    "NLA_Zombie_Death_Clean_Monja_SourcePose_Rig",
+    "NLA_Zombie_Hit_Clean_Monja_SourcePose_Rig",
+    "NLA_Zombie_Idle_Clean_Monja_SourcePose_Rig",
+    "NLA_Zombie_Walk_Clean_Monja_SourcePose_Rig"
+  ],
+  "weight_transfer": [
+    {
+      "mesh": "tripo_node_e0d2d1df-9996-4a5d-a164-d9b0d05071ed",
+      "vertices": 1023652,
+      "covered": 1023652,
+      "coverage": 1.0,
+      "groups": 20
+    }
+  ],
+  "baked": [
+    {
+      "name": "Zombie_Idle_Clean",
+      "frames": [
+        0,
+        32
+      ],
+      "bones": 23
+    },
+    {
+      "name": "Zombie_Walk_Clean",
+      "frames": [
+        0,
+        32
+      ],
+      "bones": 23
+    },
+    {
+      "name": "Zombie_Attack_Clean",
+      "frames": [
+        0,
+        44
+      ],
+      "bones": 23
+    },
+    {
+      "name": "Zombie_Hit_Clean",
+      "frames": [
+        0,
+        20
+      ],
+      "bones": 23
+    },
+    {
+      "name": "Zombie_Death_Clean",
+      "frames": [
+        0,
+        37
+      ],
+      "bones": 23
+    }
+  ],
+  "output_bytes": 104709288,
+  "rig_mode": "source_pose_smooth_weighted_humanoid",
+  "old_rigid_region_parenting": false,
+  "pose_match": {
+    "validated": true,
+    "strategy": "rig_built_on_original_source_pose_no_geometry_repose",
+    "rest_vertex_rms": 0.0,
+    "rest_vertex_max": 0.0
+  },
+  "landmarks": {
+    "pelvis": [
+      0.008224,
+      0.018969,
+      0.074883
+    ],
+    "spine1": [
+      0.007529,
+      -0.000814,
+      0.119068
+    ],
+    "spine2": [
+      0.006904,
+      -0.018619,
+      0.158835
+    ],
+    "spine3": [
+      0.005908,
+      -0.046974,
+      0.222168
+    ],
+    "neck": [
+      -7.4e-05,
+      0.002491,
+      0.287598
+    ],
+    "head": [
+      0.012551,
+      -0.003853,
+      0.376068
+    ],
+    "shoulder_l": [
+      -0.111832,
+      0.02055,
+      0.226013
+    ],
+    "elbow_l": [
+      -0.111061,
+      0.090363,
+      0.110493
+    ],
+    "wrist_l": [
+      -0.13295,
+      0.061255,
+      -0.012184
+    ],
+    "hand_l": [
+      -0.140717,
+      0.022869,
+      -0.028931
+    ],
+    "hip_l": [
+      -0.036676,
+      0.018969,
+      0.03917
+    ],
+    "knee_l": [
+      -0.100775,
+      0.089357,
+      -0.197612
+    ],
+    "ankle_l": [
+      -0.159943,
+      0.127258,
+      -0.41618
+    ],
+    "toe_l": [
+      -0.159943,
+      0.159328,
+      -0.445558
+    ],
+    "shoulder_r": [
+      0.079834,
+      -0.117104,
+      0.210281
+    ],
+    "elbow_r": [
+      0.130936,
+      -0.147919,
+      0.115639
+    ],
+    "wrist_r": [
+      0.216324,
+      -0.151505,
+      0.020121
+    ],
+    "hand_r": [
+      0.216721,
+      -0.152672,
+      0.002542
+    ],
+    "hip_r": [
+      0.053123,
+      0.018969,
+      0.03917
+    ],
+    "knee_r": [
+      0.087139,
+      -0.084053,
+      -0.197612
+    ],
+    "ankle_r": [
+      0.118538,
+      -0.139526,
+      -0.41618
+    ],
+    "toe_r": [
+      0.118538,
+      -0.171596,
+      -0.445558
+    ]
+  },
+  "runtime_compression": "EXT_meshopt_compression",
+  "runtime_meshopt_level": "medium",
+  "runtime_quantization_bits": 16,
+  "runtime_simplification": false,
+  "runtime_output_bytes": 32534048
+}
