@@ -8,6 +8,7 @@ const MONJA_CLEAN_PATH := "res://assets/zombies/monja_clean/monja_basica_clean_r
 const MONJA_RIGGED_PATH := "res://assets/zombies/monja_basica_rigged.glb"
 const MONJA_RIGGED_DISMEMBER_PATH := "res://assets/zombies/monja_basica_rigged_dismember.glb"
 const MONJA_RIGID_RIG_PATH := "res://assets/zombies/monja_rigid/monja_basica_rigid_rig.gltf"
+const MONJA_ELITE_CMU_PATH := "res://assets/zombies/monja_elite/monja_black_white_cmu_rig.glb"
 const MONJA_ELITE_PATH := "res://assets/zombies/monja_elite/monja_black_white_clean_rig.glb"
 const SHEEP_RUNNER_PATH := "res://assets/zombies/sheep/sheep_runner_animated.glb"
 const SHEEP_BRUTE_PATH := "res://assets/zombies/sheep/sheep_brute_animated.glb"
@@ -298,6 +299,19 @@ func _select_motion_profile() -> void:
 		set_meta("motion_profile", _motion_profile_id)
 		set_meta("motion_source", str(_motion_profile["source"]))
 		return
+	if enemy_variant == "nun_elite":
+		# Elite uses a distinct captured limp gait but keeps the stronger variant's
+		# gameplay speed; do not apply the normal wounded-zombie slowdown again.
+		_motion_profile = {
+			"id": "elite_cmu_wounded_139_19",
+			"walk_keys": ["wounded_leg", "139_19"],
+			"speed_scale": 1.0,
+			"source": "res://assets/zombie_mocap/raw/walk/wounded_leg_139_A__139_19.fbx",
+		}
+		_motion_profile_id = str(_motion_profile["id"])
+		set_meta("motion_profile", _motion_profile_id)
+		set_meta("motion_source", str(_motion_profile["source"]))
+		return
 	var idx: int = abs(name.hash()) % MOTION_PROFILES.size()
 	_motion_profile = MOTION_PROFILES[idx]
 	_motion_profile_id = str(_motion_profile["id"])
@@ -327,9 +341,9 @@ func _build_body() -> void:
 		selected_path = SHEEP_BRUTE_PATH
 		special_model_id = "sheep_brute"
 	elif enemy_variant == "nun_elite":
-		selected_path = MONJA_ELITE_PATH
+		selected_path = MONJA_ELITE_CMU_PATH if ResourceLoader.exists(MONJA_ELITE_CMU_PATH) else MONJA_ELITE_PATH
 		using_rigged = true
-		special_model_id = "monja_elite"
+		special_model_id = "monja_elite_cmu" if selected_path == MONJA_ELITE_CMU_PATH else "monja_elite"
 	else:
 		# Prefer the new clean Blender bind-pose rig. Legacy smooth/rigid assets
 		# remain compatibility fallbacks until the clean asset passes its Godot gate.
