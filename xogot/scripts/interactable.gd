@@ -285,11 +285,15 @@ func interact(player: Node) -> bool:
 			_play_world_sfx(SFX_DOOR)
 		Kind.MYSTERY:
 			_use_mystery(player)
+			if weapon != null and weapon.has_method("play_interaction_animation"):
+				weapon.call("play_interaction_animation", "machine_use")
 			_animate_mystery_box()
 			_play_world_sfx(SFX_MYSTERY)
 		Kind.PERK:
 			if not bool(player.call("grant_perk", perk_id)):
 				return false
+			if weapon != null and weapon.has_method("play_interaction_animation"):
+				weapon.call("play_interaction_animation", "perk_use")
 			_interaction_count += 1
 			_last_result = perk_id
 			_pulse_perk_machine()
@@ -298,6 +302,8 @@ func interact(player: Node) -> bool:
 			print("XZOGOT_PERK_MACHINE_USED ", perk_id)
 		Kind.POWER:
 			_interaction_count += 1
+			if weapon != null and weapon.has_method("play_interaction_animation"):
+				weapon.call("play_interaction_animation", "machine_use")
 			get_tree().set_meta("power_on", true)
 			_last_result = "POWER_ON"
 			_animate_power_lever()
@@ -306,6 +312,8 @@ func interact(player: Node) -> bool:
 		Kind.UPGRADE:
 			if not bool(weapon.call("upgrade_current_weapon")):
 				return false
+			if weapon.has_method("play_interaction_animation"):
+				weapon.call("play_interaction_animation", "machine_use")
 			_interaction_count += 1
 			_last_result = str(weapon.call("get_weapon_id"))
 			_animate_forge()
