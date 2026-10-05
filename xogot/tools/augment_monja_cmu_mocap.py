@@ -1,13 +1,31 @@
-import bpy, json, math
+import bpy, json, math, sys
 from pathlib import Path
 from mathutils import Vector, Matrix
 
 ROOT=Path(__file__).resolve().parents[1]
-BASE=ROOT/"assets/zombies/monja_clean/monja_basica_clean_rig.glb"
+
+def _tool_args():
+    raw=sys.argv[sys.argv.index("--")+1:] if "--" in sys.argv else []
+    out={}
+    i=0
+    while i<len(raw):
+        if raw[i].startswith("--") and i+1<len(raw):
+            out[raw[i][2:]]=raw[i+1]
+            i+=2
+        else:
+            i+=1
+    return out
+
+ARGS=_tool_args()
+PROFILE=ARGS.get("profile","normal").strip().lower()
+BASE=Path(ARGS.get("base",str(ROOT/"assets/zombies/monja_clean/monja_basica_clean_rig.glb"))).resolve()
 RAW=ROOT/"assets/zombie_mocap/raw"
-OUT=ROOT/"build/monja-cmu-mocap"
+OUT=Path(ARGS.get("output-dir",str(ROOT/"build/monja-cmu-mocap"))).resolve()
 OUT.mkdir(parents=True,exist_ok=True)
-OUT_GLB=OUT/"monja_basica_cmu_rig.glb"
+OUT_GLB=OUT/ARGS.get(
+    "output-name",
+    "monja_black_white_cmu_rig.glb" if PROFILE=="elite" else "monja_basica_cmu_rig.glb",
+)
 REPORT=OUT/"report.json"
 
 CLIPS=[
@@ -305,7 +323,8 @@ missing=[n for n in expected if not any(n.lower() in a.lower() for a in out_acti
 report={
     "schema":1,
     "pipeline":"monja_source_pose_plus_cmu_human_mocap_v1",
-    "base":"assets/zombies/monja_clean/monja_basica_clean_rig.glb",
+    "base":str(BASE.relative_to(ROOT)) if ROOT in BASE.parents else str(BASE),
+    "profile":PROFILE,
     "source_vertices":source_vertices,
     "source_polygons":source_polygons,
     "output_vertices":out_vertices,
@@ -334,4 +353,5 @@ if len(baked)!=9: fail("expected nine CMU clips")
 
 print("XZOGOT_MONJA_CMU_GEOMETRY_GREEN",out_vertices,out_polygons)
 print("XZOGOT_MONJA_CMU_9_REAL_MOCAP_CLIPS_GREEN",expected)
+print("XZOGOT_MONJA_CMU_PROFILE_GREEN",PROFILE)
 print("XZOGOT_MONJA_CMU_RIG_GREEN",report["bones"],out_bytes)
