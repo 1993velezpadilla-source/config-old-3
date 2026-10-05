@@ -1,0 +1,23 @@
+name: Unity Zombies Static Gate
+
+on:
+  push:
+    branches: [feature/unity-zombies-v1]
+    paths:
+      - 'unity/**'
+      - '.github/workflows/unity-zombies-static-gate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Validate Unity Zombies foundation
+        run: python unity/ci/validate_unity_zombies.py
