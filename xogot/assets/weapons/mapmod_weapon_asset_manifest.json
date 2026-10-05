@@ -15,12 +15,8 @@
     "required_animation_roles": [
       "idle",
       "fire",
-      "ads_in",
-      "ads_out",
       "reload",
-      "equip",
-      "lower",
-      "melee"
+      "equip"
     ],
     "forbidden_final_source_tokens": [
       "quake",
@@ -75,7 +71,17 @@
       ],
       "hero_4k_allowed": true,
       "destructive_texture_downscale_forbidden": true
-    }
+    },
+    "optional_animation_roles": [
+      "ads_in",
+      "ads_out",
+      "lower",
+      "melee",
+      "fire_ads",
+      "reload_empty",
+      "lastshot"
+    ],
+    "animation_contract": "Core weapon operation requires idle/fire/reload/equip. ADS transitions use physical runtime alignment unless a real authored clip exists; optional authored roles are used when present."
   },
   "weapon_count": 31,
   "weapons": {
