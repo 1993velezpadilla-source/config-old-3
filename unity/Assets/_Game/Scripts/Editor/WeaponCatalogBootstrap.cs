@@ -15,6 +15,7 @@ namespace Sanctum.Zombies.EditorTools
         {
             public string id;
             public string displayName;
+            public string fireAudioId;
             public string weaponClass;
             public string fireMode;
             public float baseDamage;
@@ -34,6 +35,7 @@ namespace Sanctum.Zombies.EditorTools
 
         private const string BalancePath = "Assets/_Game/Data/weapon_balance.json";
         private const string ModelRoot = "Assets/_Game/Art/Weapons";
+        private const string AudioRoot = "Assets/_Game/Audio/Weapons";
         private const string DefinitionRoot = "Assets/_Game/Data/Weapons";
 
         [MenuItem("Zombies/Bootstrap/Build Weapon Assets")]
@@ -74,6 +76,14 @@ namespace Sanctum.Zombies.EditorTools
                 definition.fireMode = (WeaponFireMode)Enum.Parse(typeof(WeaponFireMode), row.fireMode);
                 definition.viewModelPrefab = model;
                 definition.viewModelAnimatorController = WeaponAnimatorBootstrap.BuildFor(row.id, definition.fireMode);
+
+                string audioId = string.IsNullOrWhiteSpace(row.fireAudioId) ? row.id : row.fireAudioId;
+                string fireAudioPath = $"{AudioRoot}/{audioId}/fire.wav";
+                definition.fireClip = AssetDatabase.LoadAssetAtPath<AudioClip>(fireAudioPath);
+                definition.fireAudioSourceId = audioId;
+                if (definition.fireClip == null)
+                    throw new FileNotFoundException($"REAL/fallback fire audio missing: {fireAudioPath}");
+
                 definition.baseDamage = row.baseDamage;
                 definition.packAPunchDamage = row.packDamage;
                 definition.roundsPerMinute = row.rpm;

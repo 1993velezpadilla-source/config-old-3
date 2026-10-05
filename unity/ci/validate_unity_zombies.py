@@ -46,6 +46,13 @@ for rel in [
     if not (root / rel).exists():
         errors.append(f"missing runtime/editor code: {rel}")
 
+audio_files = sorted((root / "Assets/_Game/Audio/Weapons").glob("*/fire.wav"))
+if len(audio_files) < 27:
+    errors.append(f"expected >=27 recovered firearm WAVs, found {len(audio_files)}")
+for audio in audio_files:
+    if audio.stat().st_size < 10_000:
+        errors.append(f"suspiciously small fire audio: {audio.relative_to(root)}")
+
 for rel in [
     "Assets/_Game/Art/HUD/hud_fire.png",
     "Assets/_Game/Art/HUD/hud_jump.png",
@@ -68,6 +75,12 @@ else:
         model = root / "Assets/_Game/Art/Weapons" / row["id"] / "viewmodel.glb"
         if not model.exists():
             errors.append(f"balance row has no real model: {row['id']}")
+        audio_id = row.get("fireAudioId", row["id"])
+        audio = root / "Assets/_Game/Audio/Weapons" / audio_id / "fire.wav"
+        if not audio.exists():
+            errors.append(f"{row['id']}: fire audio source missing ({audio_id})")
+        if row["id"] == "mg42" and audio_id != "browning":
+            errors.append("MG42 recovered audio gap must remain explicitly mapped/auditable")
         if row["packDamage"] <= row["baseDamage"]:
             errors.append(f"{row['id']}: Pack-a-Punch damage must exceed base")
         if row["packMagazine"] < row["magazine"]:
@@ -124,6 +137,8 @@ print("WEAPON_BALANCE_ROWS=28+")
 print("REAL_CHURCH=YES")
 print("CLEAN_MONJA_RIG=YES")
 print("AETHER_ANIMATED_FIREARMS=28")
+print("RECOVERED_FIRE_WAVS=27")
+print("MG42_FIRE_AUDIO=EXPLICIT_BROWNING_FALLBACK")
 print("MOSIN_RELOAD_SOURCE_GAP=KNOWN_FALLBACK")
 print("MONJA_EMBEDDED_IDLE_WALK_ATTACK_HIT_DEATH=VALID")
 print("MOBILE_HUD_SOURCE_AND_TOUCH_LAYOUT=WIRED")

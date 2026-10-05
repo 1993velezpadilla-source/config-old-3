@@ -27,6 +27,10 @@ namespace Sanctum.Zombies.EditorTools
                     throw new InvalidDataException($"{path}: missing REAL viewmodel.");
                 if (definition.viewModelAnimatorController == null)
                     throw new InvalidDataException($"{path}: missing embedded-animation controller.");
+                if (definition.fireClip == null)
+                    throw new InvalidDataException($"{path}: missing weapon fire audio.");
+                if (string.IsNullOrWhiteSpace(definition.fireAudioSourceId))
+                    throw new InvalidDataException($"{path}: fire audio source ID is not auditable.");
                 if (definition.packAPunchDamage <= definition.baseDamage)
                     throw new InvalidDataException($"{path}: Pack-a-Punch damage must exceed base damage.");
             }

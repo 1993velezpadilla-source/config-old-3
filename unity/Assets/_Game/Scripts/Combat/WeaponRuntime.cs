@@ -54,6 +54,17 @@ namespace Sanctum.Zombies.Combat
             viewModelAnimator.runtimeAnimatorController = definition.viewModelAnimatorController;
             viewModelAnimator.applyRootMotion = false;
 
+            if (fireAudio == null)
+            {
+                fireAudio = viewModelInstance.GetComponent<AudioSource>();
+                if (fireAudio == null) fireAudio = viewModelInstance.AddComponent<AudioSource>();
+            }
+            fireAudio.playOnAwake = false;
+            fireAudio.loop = false;
+            fireAudio.spatialBlend = 0f;
+            fireAudio.dopplerLevel = 0f;
+            fireAudio.clip = definition.fireClip;
+
             Transform flash = FindChildByName(viewModelInstance.transform, "tag_flash");
             if (flash != null)
             {
@@ -135,7 +146,7 @@ namespace Sanctum.Zombies.Combat
             }
 
             if (muzzleFlash != null) muzzleFlash.Play(true);
-            if (fireAudio != null) fireAudio.Play();
+            if (fireAudio != null && definition.fireClip != null) fireAudio.PlayOneShot(definition.fireClip);
 
             int pelletCount = Mathf.Max(1, definition.pellets);
             for (int i = 0; i < pelletCount; i++) FirePellet();
