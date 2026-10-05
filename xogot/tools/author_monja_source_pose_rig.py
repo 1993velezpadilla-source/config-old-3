@@ -237,7 +237,7 @@ def bone_segment(arm,name):
     b=arm.data.bones[name]
     return np.array(b.head_local,dtype=np.float64),np.array(b.tail_local,dtype=np.float64)
 
-def assign_quantized_group(obj,group_name,global_weights,offset,count,levels=20):
+def assign_quantized_group(obj,group_name,global_weights,offset,count,levels=12):
     w=np.clip(global_weights[offset:offset+count],0.0,1.0)
     q=np.rint(w*levels).astype(np.int16)
     vg=obj.vertex_groups.new(name=group_name)
@@ -315,6 +315,31 @@ def build_weights(v,owners,arm,lm,mn,mx):
     stack[unowned,DEFORM_BONES.index("pelvis")]=1.0
     sums=stack.sum(axis=1)
     stack/=sums[:,None]
+
+    # Production skinning gate: keep at most four bone influences per vertex.
+    # The first source-pose attempt kept tiny non-zero weights on many groups,
+    # which made Blender spend tens of minutes assigning ~1M vertices.  Top-4
+    # preserves smooth deformation while matching normal real-time skinning.
+    if stack.shape[1] > 4:
+        top4=np.argpartition(stack,-4,axis=1)[:,-4:]
+        keep=np.zeros_like(stack,dtype=bool)
+        rows=np.arange(stack.shape[0])[:,None]
+        keep[rows,top4]=True
+        stack=np.where(keep,stack,0.0)
+    stack[stack<0.025]=0.0
+    sums=stack.sum(axis=1)
+    zero=sums<1e-6
+    stack[zero,DEFORM_BONES.index("pelvis")]=1.0
+    sums=stack.sum(axis=1)
+    stack/=sums[:,None]
+
+    influences=(stack>0.0).sum(axis=1)
+    max_influences=int(influences.max())
+    mean_influences=float(influences.mean())
+    if max_influences>4:
+        fail("weight influence cap failed")
+    print("XZOGOT_MONJA_TOP4_WEIGHTS_GREEN",max_influences,round(mean_influences,4))
+
     for j,name in enumerate(DEFORM_BONES):
         W[name]=stack[:,j].astype(np.float32)
 
