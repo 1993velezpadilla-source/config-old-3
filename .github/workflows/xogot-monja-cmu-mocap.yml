@@ -7,6 +7,8 @@ on:
       - feature/church-expansion-v1
     paths:
       - "xogot/assets/zombies/monja_clean/clean_runtime/**"
+      - "xogot/tools/augment_monja_cmu_mocap.py"
+      - ".github/workflows/xogot-monja-cmu-mocap.yml"
       - ".github/workflows/xogot-monja-cmu-mocap.yml"
 
 permissions:
