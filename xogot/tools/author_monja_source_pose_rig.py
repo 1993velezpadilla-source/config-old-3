@@ -412,10 +412,17 @@ def build_weights(v,owners,arm,lm,mn,mx):
             assign_quantized_group(obj,name,W[name],offset,count)
         mod=obj.modifiers.new("Monja_SourcePose_Armature","ARMATURE")
         mod.object=arm
+        # Keep the skinned mesh in world/identity space.  Parenting the mesh to
+        # the armature in addition to the modifier caused Blender glTF export to
+        # serialize the original normalized Tripo bind space (~[-1,1]) instead
+        # of the baked source-world geometry.  The modifier alone is sufficient
+        # for glTF skin discovery and avoids inherited bind transforms.
         world=obj.matrix_world.copy()
-        obj.parent=arm
-        obj.matrix_parent_inverse=arm.matrix_world.inverted()
+        obj.parent=None
+        obj.matrix_parent_inverse=Matrix.Identity(4)
         obj.matrix_world=world
+        if not obj.matrix_world.is_identity:
+            fail("skinned source mesh must remain identity after world bake")
         # Coverage = vertices with at least one quantized group.
         covered=sum(1 for vert in obj.data.vertices if len(vert.groups)>0)
         reports.append({
@@ -603,7 +610,7 @@ def export_selected(arm,mesh_objects):
         use_selection=True,
         export_animations=True,
         export_skins=True,
-        export_apply=False,
+        export_apply=True,
     )
     props=bpy.ops.export_scene.gltf.get_rna_type().properties.keys()
     if 'export_nla_strips' in props: kwargs['export_nla_strips']=True
