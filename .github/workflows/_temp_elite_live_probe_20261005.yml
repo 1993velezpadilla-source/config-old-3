@@ -1,0 +1,21 @@
+name: Temp Elite Live Probe
+on:
+  push:
+    branches:
+      - feature/church-expansion-v1
+    paths:
+      - ".github/workflows/_temp_elite_live_probe_20261005.yml"
+permissions:
+  actions: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query elite run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh run list --repo "${GITHUB_REPOSITORY}"             --workflow xogot-monja-elite-author.yml             --branch feature/church-expansion-v1             --limit 10             --json databaseId,status,conclusion,headSha,createdAt,updatedAt,url
+          exit 1
