@@ -31,10 +31,13 @@ for rel in [
     "Assets/_Game/Scripts/AI/ZombieBarricade.cs",
     "Assets/_Game/Scripts/AI/ZombieSpawnDirector.cs",
     "Assets/_Game/Scripts/Player/MobileFPSController.cs",
+    "Assets/_Game/Scripts/Player/TouchFPSInput.cs",
     "Assets/_Game/Scripts/Interaction/PlayerInteractor.cs",
     "Assets/_Game/Scripts/Interaction/PackAPunchMachine.cs",
     "Assets/_Game/Scripts/World/LightingQualityDirector.cs",
     "Assets/_Game/Scripts/Editor/VerticalSliceBootstrap.cs",
+    "Assets/_Game/Scripts/Editor/ZombieAnimatorBootstrap.cs",
+    "Assets/_Game/Scripts/Editor/MonjaImportValidator.cs",
     "Assets/_Game/Scripts/Editor/AndroidBuild.cs",
 ]:
     if not (root / rel).exists():
@@ -63,6 +66,20 @@ else:
         if row["pellets"] < 1:
             errors.append(f"{row['id']}: pellets must be >=1")
 
+
+report_path = root.parent / "xogot/assets/zombies/monja_clean/report.json"
+if not report_path.exists():
+    errors.append("source monja rig report missing")
+else:
+    report = json.loads(report_path.read_text())
+    if not report.get("raw_glb_animation_motion_valid"):
+        errors.append("clean monja embedded animation motion did not pass source gate")
+    motion = report.get("raw_glb_animation_motion", {})
+    discovered = " ".join(motion.keys()).lower()
+    for token in ["idle", "walk", "attack", "hit", "death"]:
+        if token not in discovered:
+            errors.append(f"clean monja source report missing {token} animation")
+
 if errors:
     print("UNITY_ZOMBIES_STATIC_GATE=RED")
     for error in errors:
@@ -74,4 +91,5 @@ print(f"REAL_WEAPON_MODELS={len(models)}")
 print("WEAPON_BALANCE_ROWS=28+")
 print("REAL_CHURCH=YES")
 print("CLEAN_MONJA_RIG=YES")
-print("ADS_DAMAGE_ROUNDS_BARRICADES_PAP_MOBILE_GYRO_LIGHTING=WIRED")
+print("MONJA_EMBEDDED_IDLE_WALK_ATTACK_HIT_DEATH=VALID")
+print("ADS_DAMAGE_ROUNDS_BARRICADES_PAP_MOBILE_TOUCH_GYRO_LIGHTING=WIRED")

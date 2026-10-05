@@ -100,6 +100,9 @@ namespace Sanctum.Zombies.EditorTools
             MobileWeaponInput mobileInput = player.AddComponent<MobileWeaponInput>();
             mobileInput.Configure(weapon, interactor);
 
+            TouchFPSInput touchInput = player.AddComponent<TouchFPSInput>();
+            touchInput.Configure(motor, mobileInput, interactor);
+
             WeaponDefinition mp40 = AssetDatabase.LoadAssetAtPath<WeaponDefinition>("Assets/_Game/Data/Weapons/mp40.asset");
             if (mp40 == null) throw new FileNotFoundException("Generated MP40 definition missing.");
             weapon.Equip(mp40);
@@ -140,6 +143,7 @@ namespace Sanctum.Zombies.EditorTools
             GameObject model = (GameObject)PrefabUtility.InstantiatePrefab(modelAsset);
             model.name = "MonjaCleanRig";
             model.transform.SetParent(root.transform, false);
+            NormalizeModelHeight(model, root.transform, 1.76f);
 
             NavMeshAgent agent = root.AddComponent<NavMeshAgent>();
             agent.radius = 0.34f;
@@ -151,6 +155,10 @@ namespace Sanctum.Zombies.EditorTools
 
             Animator animator = model.GetComponentInChildren<Animator>();
             if (animator == null) animator = model.AddComponent<Animator>();
+            animator.runtimeAnimatorController = ZombieAnimatorBootstrap.BuildOrGetController();
+            animator.applyRootMotion = false;
+            animator.updateMode = AnimatorUpdateMode.Normal;
+            animator.cullingMode = AnimatorCullingMode.CullUpdateTransforms;
 
             ZombieHealth health = root.AddComponent<ZombieHealth>();
             SetObjectReference(health, "tuning", tuning);
@@ -167,6 +175,25 @@ namespace Sanctum.Zombies.EditorTools
             GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
             UnityEngine.Object.DestroyImmediate(root);
             return prefab;
+        }
+
+        private static void NormalizeModelHeight(GameObject model, Transform root, float targetHeight)
+        {
+            Renderer[] renderers = model.GetComponentsInChildren<Renderer>(true);
+            if (renderers.Length == 0) throw new InvalidDataException("Monja rig contains no renderers.");
+
+            Bounds bounds = renderers[0].bounds;
+            for (int i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
+
+            if (bounds.size.y <= 0.0001f) throw new InvalidDataException("Monja renderer bounds have zero height.");
+
+            float scale = targetHeight / bounds.size.y;
+            model.transform.localScale *= scale;
+
+            bounds = renderers[0].bounds;
+            for (int i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
+
+            model.transform.position += Vector3.up * (root.position.y - bounds.min.y);
         }
 
         private static void CreateHitbox(Transform parent, ZombieHealth owner, string name, HitZone zone, Vector3 pos, float radius, float height)
