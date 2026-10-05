@@ -490,8 +490,13 @@ def retarget_action(source,target,source_action,new_name,height_scale):
         if new_name=="Zombie_Hit_Clean":
             motion_gain=0.55*math.sin(math.pi*t)
         elif new_name=="Zombie_Death_Clean":
+            # Generic cloth-safe death profile.  Full donor collapse rotations are
+            # too aggressive for long garments / robe meshes and can create
+            # stretched skinning even with valid weights.  Keep the same motion
+            # arc, but bound the retarget amplitude for any humanoid using this
+            # authoring pipeline.
             smooth=t*t*(3.0-2.0*t)
-            motion_gain=0.65*smooth
+            motion_gain=0.50*smooth
         elif new_name=="Zombie_Attack_Clean":
             motion_gain=0.78*math.sin(math.pi*t)
         elif new_name=="Zombie_Idle_Clean":
@@ -514,7 +519,10 @@ def retarget_action(source,target,source_action,new_name,height_scale):
                 name.startswith("ball_")
             )
             if new_name=="Zombie_Death_Clean":
-                max_deg=95.0 if limb else (75.0 if name=="root" else 60.0)
+                # Generic fall/death clamp: preserve recognizable collapse while
+                # preventing long-skirt / robe vertices from being pulled across
+                # the body by extreme chained rotations.
+                max_deg=78.0 if limb else (45.0 if name=="root" else 48.0)
             elif new_name=="Zombie_Attack_Clean":
                 max_deg=85.0 if limb else 48.0
             elif new_name=="Zombie_Hit_Clean":
@@ -555,7 +563,7 @@ def retarget_action(source,target,source_action,new_name,height_scale):
         "frames":[lo,hi],
         "bones":len(common),
         "retarget":"rotation_only_preserve_target_lengths",
-        "motion_profile":"bounded_action_specific_v2",
+        "motion_profile":"bounded_action_specific_v3_cloth_safe",
         "source_reversed":new_name=="Zombie_Death_Clean",
     }
 
