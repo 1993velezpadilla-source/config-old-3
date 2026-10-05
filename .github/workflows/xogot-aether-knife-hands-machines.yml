@@ -84,6 +84,7 @@ jobs:
               "perk_soda_machines": [],
               "pack_upgrade_machines": [],
               "machine_audio": [],
+              "other_interactives": [],
           }
 
           knife_rx=re.compile(r"(knife|melee|stab|bayonet|slash|combat.?knife|bowie)",re.I)
@@ -91,6 +92,7 @@ jobs:
           perk_rx=re.compile(r"(perk|jugger|revive|speed.?cola|double.?tap|stamin|deadshot|mule.?kick|soda|vending)",re.I)
           pap_rx=re.compile(r"(pack.?a.?punch|packapunch|pap_|upgrade.?machine|weapon.?upgrade)",re.I)
           machine_audio_rx=re.compile(r"(perk|jugger|revive|speed.?cola|double.?tap|pack.?a.?punch|vending|soda).*(sound|audio|sfx)|(?:sound|audio|sfx).*(perk|jugger|revive|speed.?cola|double.?tap|pack.?a.?punch)",re.I)
+          interactive_rx=re.compile(r"(mystery.?box|weapon.?box|power.?switch|power.?lever|wall.?buy|wallbuy|weapon.?buy|teleporter|trap.?switch|switch.?lever)",re.I)
 
           for line in lines:
               if knife_rx.search(line):
@@ -103,6 +105,8 @@ jobs:
                   categories["pack_upgrade_machines"].append(line)
               if machine_audio_rx.search(line):
                   categories["machine_audio"].append(line)
+              if interactive_rx.search(line):
+                  categories["other_interactives"].append(line)
 
           for key in categories:
               categories[key]=sorted(set(categories[key]))
@@ -131,7 +135,7 @@ jobs:
           import json,shlex
           d=json.loads(Path("interactive-census/interactive_asset_paths.json").read_text())
           keep=[]
-          for key in ("knife_melee","first_person_hands","perk_soda_machines","pack_upgrade_machines","machine_audio"):
+          for key in ("knife_melee","first_person_hands","perk_soda_machines","pack_upgrade_machines","machine_audio","other_interactives"):
               keep.extend(d["categories"][key])
           # UE asset triplets are adjacent by stem; keep unique exact package paths.
           keep=sorted(set(x for x in keep if x.startswith("ProjectAether/Content/")))
@@ -169,6 +173,7 @@ jobs:
             interactive-census/perk_soda_machines.txt
             interactive-census/pack_upgrade_machines.txt
             interactive-census/machine_audio.txt
+            interactive-census/other_interactives.txt
             interactive-census/extract_paths.txt
             interactive-census/raw_files.txt
             interactive-census/raw/
