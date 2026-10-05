@@ -7,6 +7,7 @@ on:
   push:
     branches:
       - feature/xogot-port-v1
+      - feature/godot-aaa-rebuild-v1
     paths:
       - "xogot/ci/screenshot_capture.gd"
       - ".github/workflows/xogot-screenshot.yml"
