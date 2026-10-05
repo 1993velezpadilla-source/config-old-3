@@ -1,1 +1,1 @@
-trigger elite Monja 2026-10-05 pose-mode-motion-gate-8
+trigger elite Monja 2026-10-05 clean-plus-cmu-real-motion-9
