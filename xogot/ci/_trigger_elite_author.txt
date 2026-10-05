@@ -1,1 +1,1 @@
-trigger elite Monja author 2026-10-04\n
+trigger elite Monja author 2026-10-04 retry-2
