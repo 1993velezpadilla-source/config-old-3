@@ -1,4 +1,4 @@
-name: Temp Elite Live Probe
+name: Temp Monja Live Probe
 on:
   push:
     branches:
@@ -11,19 +11,22 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Query elite run
+      - name: Query Monja runs
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          gh run list --repo "${GITHUB_REPOSITORY}"             --workflow xogot-monja-elite-author.yml             --branch feature/church-expansion-v1             --limit 10             --json databaseId,status,conclusion,headSha,createdAt,updatedAt,url
+          echo "=== BASIC CLEAN RIG ==="
+          gh run list --repo "${GITHUB_REPOSITORY}" \
+            --workflow xogot-monja-clean-blender-rig.yml \
+            --branch feature/church-expansion-v1 \
+            --limit 6 \
+            --json databaseId,status,conclusion,headSha,createdAt,updatedAt,url
+          echo "=== ELITE ==="
+          gh run list --repo "${GITHUB_REPOSITORY}" \
+            --workflow xogot-monja-elite-author.yml \
+            --branch feature/church-expansion-v1 \
+            --limit 6 \
+            --json databaseId,status,conclusion,headSha,createdAt,updatedAt,url
           exit 1
-
-# probe retry 3
-
-# probe retry 4
-
-# probe retry 5
-
-# probe bind-space retry 6
