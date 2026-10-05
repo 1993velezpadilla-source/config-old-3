@@ -25,3 +25,5 @@ jobs:
 # probe retry 4
 
 # probe retry 5
+
+# probe bind-space retry 6
