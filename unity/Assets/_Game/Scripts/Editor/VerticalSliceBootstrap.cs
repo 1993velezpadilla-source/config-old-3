@@ -5,6 +5,7 @@ using Unity.AI.Navigation;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.AI;
 using Sanctum.Zombies.AI;
 using Sanctum.Zombies.Combat;
@@ -28,6 +29,7 @@ namespace Sanctum.Zombies.EditorTools
         [MenuItem("Zombies/Bootstrap/Build Vertical Slice Scene")]
         public static void Build()
         {
+            URPVisualBootstrap.BuildOrGetPipeline();
             WeaponCatalogBootstrap.Build();
             Directory.CreateDirectory("Assets/_Game/Scenes");
             Directory.CreateDirectory("Assets/_Game/Prefabs");
@@ -60,6 +62,13 @@ namespace Sanctum.Zombies.EditorTools
 
             GameObject lightingRoot = new GameObject("LIGHTING");
             lightingRoot.AddComponent<LightingQualityDirector>();
+
+            GameObject volumeGo = new GameObject("GLOBAL_POST_PROCESS");
+            volumeGo.transform.SetParent(lightingRoot.transform, false);
+            Volume globalVolume = volumeGo.AddComponent<Volume>();
+            globalVolume.isGlobal = true;
+            globalVolume.priority = 10f;
+            globalVolume.profile = URPVisualBootstrap.BuildOrGetVolumeProfile();
             CreateLight(lightingRoot.transform, "Moon", LightType.Directional, new Vector3(48f, -32f, 0f), 0.55f, true, LightingPriority.Critical);
             Light nave = CreateLight(lightingRoot.transform, "NaveWarm", LightType.Point, new Vector3(0f, 3.4f, 2f), 4.0f, true, LightingPriority.Critical);
             nave.range = 14f;
@@ -83,6 +92,7 @@ namespace Sanctum.Zombies.EditorTools
             cam.fieldOfView = 72f;
             cam.nearClipPlane = 0.03f;
             cam.tag = "MainCamera";
+            URPVisualBootstrap.ConfigureCamera(cam);
 
             MobileFPSController motor = player.AddComponent<MobileFPSController>();
             motor.Configure(cam);

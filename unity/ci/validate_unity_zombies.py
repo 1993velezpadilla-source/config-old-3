@@ -38,6 +38,7 @@ for rel in [
     "Assets/_Game/Scripts/Interaction/PackAPunchMachine.cs",
     "Assets/_Game/Scripts/World/LightingQualityDirector.cs",
     "Assets/_Game/Scripts/Editor/VerticalSliceBootstrap.cs",
+    "Assets/_Game/Scripts/Editor/URPVisualBootstrap.cs",
     "Assets/_Game/Scripts/Editor/ZombieAnimatorBootstrap.cs",
     "Assets/_Game/Scripts/Editor/WeaponAnimatorBootstrap.cs",
     "Assets/_Game/Scripts/Editor/MonjaImportValidator.cs",
@@ -60,6 +61,19 @@ for rel in [
 ]:
     if not (root / rel).exists():
         errors.append(f"missing mobile HUD asset: {rel}")
+
+manifest_path = root / "Packages/manifest.json"
+if not manifest_path.exists():
+    errors.append("Unity package manifest missing")
+else:
+    manifest = json.loads(manifest_path.read_text())
+    deps = manifest.get("dependencies", {})
+    if "com.unity.render-pipelines.universal" not in deps:
+        errors.append("URP package missing")
+    if "com.unity.ai.navigation" not in deps:
+        errors.append("AI Navigation package missing")
+    if "com.unity.inputsystem" not in deps:
+        errors.append("Input System package missing")
 
 balance_path = root / "Assets/_Game/Data/weapon_balance.json"
 if not balance_path.exists():
@@ -141,5 +155,6 @@ print("RECOVERED_FIRE_WAVS=27")
 print("MG42_FIRE_AUDIO=EXPLICIT_BROWNING_FALLBACK")
 print("MOSIN_RELOAD_SOURCE_GAP=KNOWN_FALLBACK")
 print("MONJA_EMBEDDED_IDLE_WALK_ATTACK_HIT_DEATH=VALID")
+print("URP_MOBILE_PIPELINE_AND_POST=WIRED")
 print("MOBILE_HUD_SOURCE_AND_TOUCH_LAYOUT=WIRED")
 print("ADS_DAMAGE_ROUNDS_BARRICADES_PAP_MOBILE_TOUCH_GYRO_LIGHTING=WIRED")
