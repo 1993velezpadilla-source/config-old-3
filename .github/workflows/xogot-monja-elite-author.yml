@@ -6,7 +6,8 @@ on:
     branches:
       - feature/church-expansion-v1
     paths:
-      - "xogot/assets/zombies/monja_elite/source/monja_black_white.glb"\n      - "xogot/ci/_trigger_elite_author.txt"
+      - "xogot/assets/zombies/monja_elite/source/monja_black_white.glb"
+      - "xogot/ci/_trigger_elite_author.txt"
 
 permissions:
   contents: write
