@@ -94,6 +94,7 @@ jobs:
           grep -q "XZOGOT_MONJA_SOURCE_POSE_WEIGHTS_GREEN" xogot/build/monja-source-pose-rig/blender.log
           grep -q "XZOGOT_MONJA_SOURCE_POSE_ANIMS_GREEN" xogot/build/monja-source-pose-rig/blender.log
           grep -q "XZOGOT_MONJA_SOURCE_POSE_MATCH_GREEN" xogot/build/monja-source-pose-rig/blender.log
+          grep -q "XZOGOT_MONJA_DEFORMATION_SANITY_GREEN" xogot/build/monja-source-pose-rig/blender.log
 
       - name: Validate and relabel elite output
         shell: bash
@@ -112,6 +113,9 @@ jobs:
           assert r["pose_match"]["validated"] is True
           assert r["profile"] == "elite"
           assert all(x["coverage"] >= 0.98 for x in r["weight_transfer"])
+          assert not r.get("deformation_sanity_violations",[])
+          assert r.get("deformation_sanity")
+          assert all(x["valid"] is True for x in r["deformation_sanity"].values())
           names=" ".join(r["actions"]).lower()
           for required in (
               "zombie_idle_clean","zombie_walk_clean","zombie_attack_clean",
@@ -160,59 +164,67 @@ jobs:
           assert r["bones"] >= 20
           assert len(r["baked_cmu"]) == 9
           assert not r["missing_cmu_actions"]
+          assert r.get("raw_glb_animation_motion_valid") is True
           names=" ".join(r["output_actions"]).lower()
           for token in ("104_41","105_25","74_01","139_19","02_05","111_19","111_03","90_16","140_01"):
               assert token in names,(token,r["output_actions"])
           print("XZOGOT_ELITE_MONJA_CMU_REPORT_GREEN",r["bones"],r["output_bytes"])
           PY
 
-      - name: Compress elite runtime GLBs with high-precision Meshopt
+      - name: Pack elite runtimes as Godot-compatible separate glTF
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p xogot/build/monja-runtime
-          COMMON_ARGS="--level medium --quantize-position 16 --quantize-normal 16 --quantize-texcoord 16 --quantize-weight 16 --quantize-color 16 --quantize-generic 16"
-          gltf-transform meshopt \
+          rm -rf xogot/build/monja-runtime
+          mkdir -p xogot/build/monja-runtime/clean xogot/build/monja-runtime/cmu
+          gltf-transform copy \
             xogot/build/monja-source-pose-rig/monja_black_white_clean_rig.glb \
-            xogot/build/monja-runtime/monja_black_white_clean_rig.glb \
-            $COMMON_ARGS
-          gltf-transform meshopt \
+            xogot/build/monja-runtime/clean/monja_black_white_clean_rig.gltf
+          gltf-transform copy \
             xogot/build/monja-elite-cmu/monja_black_white_cmu_rig.glb \
-            xogot/build/monja-runtime/monja_black_white_cmu_rig.glb \
-            $COMMON_ARGS
+            xogot/build/monja-runtime/cmu/monja_black_white_cmu_rig.gltf
           python3 - <<'PY'
-          import json,struct
+          import json
           from pathlib import Path
-          runtime=Path("xogot/build/monja-runtime")
-          reports=[
-              Path("xogot/build/monja-source-pose-rig/report.json"),
-              Path("xogot/build/monja-elite-cmu/report.json"),
+          configs=[
+              (
+                  Path("xogot/build/monja-runtime/clean"),
+                  "monja_black_white_clean_rig.gltf",
+                  Path("xogot/build/monja-source-pose-rig/report.json"),
+              ),
+              (
+                  Path("xogot/build/monja-runtime/cmu"),
+                  "monja_black_white_cmu_rig.gltf",
+                  Path("xogot/build/monja-elite-cmu/report.json"),
+              ),
           ]
-          names=[
-              "monja_black_white_clean_rig.glb",
-              "monja_black_white_cmu_rig.glb",
-          ]
-          for report_path,name in zip(reports,names):
-              p=runtime/name
-              data=p.read_bytes()
-              assert data[:4]==b"glTF" and len(data)>20,name
-              json_len,json_type=struct.unpack_from("<II",data,12)
-              assert json_type==0x4E4F534A,name
-              doc=json.loads(data[20:20+json_len].decode("utf-8").rstrip("\x00 \t\r\n"))
+          for root,name,report_path in configs:
+              p=root/name
+              doc=json.loads(p.read_text())
               used=set(doc.get("extensionsUsed",[]))
               required=set(doc.get("extensionsRequired",[]))
-              assert "EXT_meshopt_compression" in used,(name,used)
-              assert "EXT_meshopt_compression" in required,(name,required)
-              size=p.stat().st_size
-              assert size < 95_000_000,(name,size)
+              assert "EXT_meshopt_compression" not in used|set(required),(name,used,required)
+              assert "KHR_mesh_quantization" not in required,(name,required)
+              files=[x for x in root.iterdir() if x.is_file()]
+              assert files,name
+              too_big=[(x.name,x.stat().st_size) for x in files if x.stat().st_size>=99_000_000]
+              assert not too_big,(name,too_big)
+              for buf in doc.get("buffers",[]):
+                  uri=buf.get("uri")
+                  assert uri and (root/uri).is_file(),(name,uri)
+              for img in doc.get("images",[]):
+                  uri=img.get("uri")
+                  if uri:
+                      assert (root/uri).is_file(),(name,uri)
               r=json.loads(report_path.read_text())
-              r["runtime_compression"]="EXT_meshopt_compression"
-              r["runtime_meshopt_level"]="medium"
-              r["runtime_quantization_bits"]=16
+              r["runtime_format"]="gltf_separate"
+              r["runtime_compression"]="none"
               r["runtime_simplification"]=False
-              r["runtime_output_bytes"]=size
+              r["runtime_quantization"]=False
+              r["runtime_files"]={x.name:x.stat().st_size for x in files}
+              r["runtime_output_bytes"]=sum(x.stat().st_size for x in files)
               report_path.write_text(json.dumps(r,indent=2)+"\n")
-              print("XZOGOT_ELITE_RUNTIME_MESHOPT_GREEN",name,size)
+              print("XZOGOT_ELITE_RUNTIME_GLTF_SEPARATE_GREEN",name,r["runtime_files"])
           PY
 
       - name: Stage elite runtime asset
@@ -220,10 +232,16 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p xogot/assets/zombies/monja_elite
-          cp xogot/build/monja-runtime/monja_black_white_clean_rig.glb \
-             xogot/assets/zombies/monja_elite/monja_black_white_clean_rig.glb
-          cp xogot/build/monja-runtime/monja_black_white_cmu_rig.glb \
-             xogot/assets/zombies/monja_elite/monja_black_white_cmu_rig.glb
+          rm -f xogot/assets/zombies/monja_elite/monja_black_white_clean_rig.glb
+          rm -f xogot/assets/zombies/monja_elite/monja_black_white_cmu_rig.glb
+          rm -rf xogot/assets/zombies/monja_elite/clean_runtime
+          rm -rf xogot/assets/zombies/monja_elite/cmu_runtime
+          mkdir -p xogot/assets/zombies/monja_elite/clean_runtime
+          mkdir -p xogot/assets/zombies/monja_elite/cmu_runtime
+          cp -a xogot/build/monja-runtime/clean/. \
+             xogot/assets/zombies/monja_elite/clean_runtime/
+          cp -a xogot/build/monja-runtime/cmu/. \
+             xogot/assets/zombies/monja_elite/cmu_runtime/
           cp xogot/build/monja-source-pose-rig/report.json \
              xogot/assets/zombies/monja_elite/rig_report.json
           cp xogot/build/monja-elite-cmu/report.json \
@@ -262,21 +280,24 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          CLEAN_SIZE=$(stat -c%s xogot/assets/zombies/monja_elite/monja_black_white_clean_rig.glb)
-          CMU_SIZE=$(stat -c%s xogot/assets/zombies/monja_elite/monja_black_white_cmu_rig.glb)
-          if [ "$CLEAN_SIZE" -ge 95000000 ] || [ "$CMU_SIZE" -ge 95000000 ]; then
-            echo "Elite GLB too large for normal Git: clean=$CLEAN_SIZE cmu=$CMU_SIZE"
-            exit 3
-          fi
+          python3 - <<'PY'
+          from pathlib import Path
+          for root in (
+              Path("xogot/assets/zombies/monja_elite/clean_runtime"),
+              Path("xogot/assets/zombies/monja_elite/cmu_runtime"),
+          ):
+              files=[x for x in root.iterdir() if x.is_file()]
+              assert files,root
+              for p in files:
+                  assert p.stat().st_size < 99_000_000,(p,p.stat().st_size)
+          print("XZOGOT_ELITE_GIT_FILE_SIZE_GATE_GREEN")
+          PY
           git config user.name "XZOGOT Asset Bot"
           git config user.email "xogot-asset-bot@users.noreply.github.com"
           git pull --rebase origin feature/church-expansion-v1
-          git add xogot/assets/zombies/monja_elite/monja_black_white_clean_rig.glb \
-                  xogot/assets/zombies/monja_elite/monja_black_white_cmu_rig.glb \
-                  xogot/assets/zombies/monja_elite/rig_report.json \
-                  xogot/assets/zombies/monja_elite/cmu_mocap_report.json
+          git add -A xogot/assets/zombies/monja_elite/
           if ! git diff --cached --quiet; then
-            git commit -m "asset: add clean-rigged elite black white Monja"
+            git commit -m "asset: add Godot-compatible elite Monja runtimes"
             git push origin HEAD:feature/church-expansion-v1
           fi
 
