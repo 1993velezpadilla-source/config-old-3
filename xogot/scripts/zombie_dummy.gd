@@ -65,6 +65,7 @@ const CRAWL_KEYS: Array[String] = ["crawl_A", "111_03"]
 @export var move_speed: float = 1.85
 @export var health: float = 100.0
 @export var barricade_damage: float = 25.0
+@export var barricade_attack_max_distance: float = 0.82
 @export var player_damage: float = 20.0
 @export var attack_interval: float = 0.90
 @export var death_linger_time: float = 1.25
@@ -596,10 +597,33 @@ func _tick_barricade() -> void:
 	if bool(target_barricade.call("is_broken")):
 		_begin_window_cross()
 		return
+
+	# Do not allow a zombie to remain forever in ATTACK_BARRICADE after a
+	# collision nudge, step-up, network correction, or bad approach transform
+	# moved it away from the actual window. Re-acquire the authored approach.
+	var approach: Vector3 = target_barricade.call("get_outside_approach") as Vector3
+	var attack_distance := Vector2(
+		global_position.x - approach.x,
+		global_position.z - approach.z
+	).length()
+	if attack_distance > barricade_attack_max_distance:
+		phase = Phase.APPROACH
+		_attack_timer = 0.0
+		_path_refresh_timer = 0.0
+		print("XZOGOT_ZOMBIE_BARRICADE_REACQUIRE ", name, " distance=", attack_distance)
+		return
+
 	velocity.x = 0.0
 	velocity.z = 0.0
 	if _attack_timer <= 0.0:
-		target_barricade.call("zombie_damage", barricade_damage)
+		var damaged: bool = bool(target_barricade.call("zombie_damage", barricade_damage))
+		if not damaged and not bool(target_barricade.call("is_broken")):
+			# A live barricade that rejected damage must not trap the AI in a
+			# zero-velocity attack state forever.
+			phase = Phase.APPROACH
+			_path_refresh_timer = 0.0
+			print("XZOGOT_ZOMBIE_BARRICADE_DAMAGE_RETRY ", name)
+			return
 		_play_zombie_sfx(_zombie_audio_choice(ZOMBIE_ATTACKS), -8.0)
 		_attack_timer = attack_interval
 
@@ -783,9 +807,16 @@ func _attempt_unstuck() -> void:
 	_path_points.clear()
 	_path_index = 0
 
-	var recovery: Vector3 = target_player.global_position
+	var recovery_goal: Vector3 = target_player.global_position
+	if target_barricade != null and is_instance_valid(target_barricade):
+		if phase == Phase.APPROACH and target_barricade.has_method("get_outside_approach"):
+			recovery_goal = target_barricade.call("get_outside_approach") as Vector3
+		elif phase == Phase.CROSS_WINDOW and target_barricade.has_method("get_inside_point"):
+			recovery_goal = target_barricade.call("get_inside_point") as Vector3
+
+	var recovery: Vector3 = recovery_goal
 	if _path_network != null and is_instance_valid(_path_network) and _path_network.has_method("recovery_point"):
-		recovery = _path_network.call("recovery_point", global_position, target_player.global_position) as Vector3
+		recovery = _path_network.call("recovery_point", global_position, recovery_goal) as Vector3
 
 	var flat := Vector3(recovery.x - global_position.x, 0.0, recovery.z - global_position.z)
 	if flat.length_squared() <= 0.0001:
