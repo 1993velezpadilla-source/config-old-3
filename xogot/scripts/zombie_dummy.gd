@@ -830,6 +830,34 @@ func _rigged_fallback_animation(state: String) -> String:
 				return candidate
 	return ""
 
+func _animation_speed_for_state(state: String) -> float:
+	if enemy_variant == "sheep_runner":
+		match state:
+			"walk": return 1.38
+			"attack": return 1.16
+			"death": return 1.08
+			_: return 1.0
+	if enemy_variant == "sheep_brute":
+		match state:
+			"walk": return 0.92
+			"attack": return 0.88
+			"death": return 0.82
+			_: return 0.94
+	if enemy_variant == "nun_elite":
+		match state:
+			"walk": return 1.04
+			"attack": return 1.08
+			"hit": return 1.05
+			_: return 1.0
+	return 1.0
+
+func _animation_blend_for_state(state: String) -> float:
+	match state:
+		"attack": return 0.06
+		"hit": return 0.04
+		"death": return 0.08
+		_: return 0.10
+
 func _play_motion_state(state: String) -> void:
 	if _motion_state == state:
 		# Imported GLTF clips are not guaranteed to be flagged as loops.  If a
@@ -863,9 +891,12 @@ func _play_motion_state(state: String) -> void:
 	if anim_name.is_empty():
 		anim_name = _rigged_fallback_animation(state)
 	if not anim_name.is_empty():
-		_animation_player.play(anim_name)
+		var anim_speed: float = _animation_speed_for_state(state)
+		var anim_blend: float = _animation_blend_for_state(state)
+		_animation_player.play(anim_name, anim_blend, anim_speed)
 		set_meta("active_animation", anim_name)
-		print("XZOGOT_ENEMY_ANIM ", enemy_variant, " ", state, " -> ", anim_name)
+		set_meta("active_animation_speed", anim_speed)
+		print("XZOGOT_ENEMY_ANIM ", enemy_variant, " ", state, " -> ", anim_name, " speed=", anim_speed)
 
 func _classify_hit_zone(local_hit: Vector3) -> String:
 	if local_hit.y >= target_visual_height * headshot_height_ratio:
