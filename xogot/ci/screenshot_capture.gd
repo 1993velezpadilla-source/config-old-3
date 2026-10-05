@@ -72,7 +72,7 @@ func _capture() -> void:
 		if not bool(weapon.get_meta("weapon_texture_ready", false)):
 			push_error(
 				"SCREENSHOT: weapon texture binding incomplete "
-				+ str(weapon.get_meta("weapon_textured_surfaces", 0))
+				+ str(weapon.get_meta("weapon_resolved_surfaces", 0))
 				+ "/"
 				+ str(weapon.get_meta("weapon_texture_surfaces", 0))
 			)
@@ -83,10 +83,12 @@ func _capture() -> void:
 			yaw_fix,
 			" ads_near=",
 			ads_near,
-			" textures=",
-			weapon.get_meta("weapon_textured_surfaces", 0),
+			" materials=",
+			weapon.get_meta("weapon_resolved_surfaces", 0),
 			"/",
-			weapon.get_meta("weapon_texture_surfaces", 0)
+			weapon.get_meta("weapon_texture_surfaces", 0),
+			" hidden=",
+			weapon.get_meta("weapon_hidden_surfaces", 0)
 		)
 
 	var round_manager: Node = scene.get_node_or_null("RoundManager")

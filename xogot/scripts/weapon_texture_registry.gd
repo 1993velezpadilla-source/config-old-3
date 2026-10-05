@@ -63,6 +63,19 @@ static func _build_material(material_name: String, binding: Dictionary) -> Stand
 
 	return material
 
+static func _build_invisible_material(material_name: String) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.resource_name = "RuntimeHidden_" + material_name
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.albedo_color = Color(0.0, 0.0, 0.0, 0.0)
+	material.no_depth_test = true
+	return material
+
+static func _is_intentionally_invisible(material_name: String) -> bool:
+	var lower := _normalize_material_name(material_name)
+	return lower.contains("invisible") or lower.contains("hidden")
+
 static func apply_to_model(root: Node3D, weapon_id: String) -> Dictionary:
 	if root == null:
 		return {"surfaces": 0, "textured": 0, "missing": []}
@@ -73,7 +86,9 @@ static func apply_to_model(root: Node3D, weapon_id: String) -> Dictionary:
 	)
 	var fallback_index := 0
 	var surfaces := 0
+	var resolved := 0
 	var textured := 0
+	var hidden := 0
 	var missing: Array[String] = []
 
 	for node: Node in root.find_children("*", "MeshInstance3D", true, false):
@@ -98,6 +113,14 @@ static func apply_to_model(root: Node3D, weapon_id: String) -> Dictionary:
 			fallback_index += 1
 
 			if binding.is_empty():
+				if _is_intentionally_invisible(material_name):
+					mesh_instance.set_surface_override_material(
+						surface_index,
+						_build_invisible_material(material_name)
+					)
+					resolved += 1
+					hidden += 1
+					continue
 				missing.append(material_name if not material_name.is_empty() else ("surface_" + str(surface_index)))
 				continue
 
@@ -105,13 +128,16 @@ static func apply_to_model(root: Node3D, weapon_id: String) -> Dictionary:
 				surface_index,
 				_build_material(binding_name, binding)
 			)
+			resolved += 1
 			textured += 1
 
 	var report := {
 		"weapon_id": weapon_id,
 		"surfaces": surfaces,
+		"resolved": resolved,
 		"textured": textured,
+		"hidden": hidden,
 		"missing": missing,
-		"ready": surfaces > 0 and textured == surfaces,
+		"ready": surfaces > 0 and resolved == surfaces,
 	}
 	return report

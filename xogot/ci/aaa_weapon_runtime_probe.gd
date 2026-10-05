@@ -110,7 +110,9 @@ func _run_probe() -> void:
 			return
 
 		var texture_surfaces := int(weapon.get_meta("weapon_texture_surfaces", 0))
+		var resolved_surfaces := int(weapon.get_meta("weapon_resolved_surfaces", 0))
 		var textured_surfaces := int(weapon.get_meta("weapon_textured_surfaces", 0))
+		var hidden_surfaces := int(weapon.get_meta("weapon_hidden_surfaces", 0))
 		if not bool(weapon.get_meta("weapon_texture_ready", false)):
 			_fail(
 				28,
@@ -118,8 +120,15 @@ func _run_probe() -> void:
 				+ str(textured_surfaces) + "/" + str(texture_surfaces)
 			)
 			return
-		if texture_surfaces <= 0 or textured_surfaces != texture_surfaces:
-			_fail(29, "texture surface mismatch " + id)
+		if texture_surfaces <= 0 or resolved_surfaces != texture_surfaces:
+			_fail(
+				29,
+				"material surface mismatch " + id + " resolved="
+				+ str(resolved_surfaces) + "/" + str(texture_surfaces)
+			)
+			return
+		if textured_surfaces + hidden_surfaces != texture_surfaces:
+			_fail(33, "visible/hidden accounting mismatch " + id)
 			return
 
 		var view_depth := float(weapon.get_meta("weapon_viewmodel_depth_m", 0.0))
@@ -169,7 +178,9 @@ func _run_probe() -> void:
 			"XZOGOT_AAA_WEAPON_GREEN ",
 			id,
 			" ads=", ads_mode,
-			" textures=", textured_surfaces, "/", texture_surfaces,
+			" textures=", textured_surfaces,
+			" hidden=", hidden_surfaces,
+			" resolved=", resolved_surfaces, "/", texture_surfaces,
 			" depth=", view_depth,
 			" near=", ads_near,
 			" pap=", expected_pack_damage

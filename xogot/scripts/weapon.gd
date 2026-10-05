@@ -758,7 +758,9 @@ func _refresh_view_assets(def: Dictionary) -> void:
 			_normalize_viewmodel_presentation(_weapon_model_root)
 			var texture_report: Dictionary = WeaponTextureRegistry.apply_to_model(_weapon_model_root, _weapon_id)
 			set_meta("weapon_texture_surfaces", int(texture_report.get("surfaces", 0)))
+			set_meta("weapon_resolved_surfaces", int(texture_report.get("resolved", 0)))
 			set_meta("weapon_textured_surfaces", int(texture_report.get("textured", 0)))
+			set_meta("weapon_hidden_surfaces", int(texture_report.get("hidden", 0)))
 			set_meta("weapon_texture_ready", bool(texture_report.get("ready", false)))
 			set_meta("weapon_texture_missing", texture_report.get("missing", []))
 			print(
@@ -766,8 +768,12 @@ func _refresh_view_assets(def: Dictionary) -> void:
 				_weapon_id,
 				" ",
 				int(texture_report.get("textured", 0)),
-				"/",
-				int(texture_report.get("surfaces", 0))
+				" textured + ",
+				int(texture_report.get("hidden", 0)),
+				" hidden / ",
+				int(texture_report.get("surfaces", 0)),
+				" resolved=",
+				int(texture_report.get("resolved", 0))
 			)
 			_bind_weapon_fx(_weapon_model_root)
 			_calibrate_ads_pose(_weapon_model_root)
