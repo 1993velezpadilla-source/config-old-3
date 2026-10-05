@@ -25,3 +25,5 @@ jobs:
           exit 1
 
 # probe after pose-mode animation fix
+
+# probe after clean+CMU motion fixes
