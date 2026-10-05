@@ -31,15 +31,46 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq blender python3-numpy libegl1 libgl1-mesa-dri mesa-utils
           blender --version | head -n 2
+          sudo npm install --global @gltf-transform/cli@4.5.1
+          gltf-transform --version
+
+      - name: Decode clean runtime Monja for Blender
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s xogot/assets/zombies/monja_clean/monja_basica_clean_rig.glb
+          rm -rf xogot/build/monja-cmu-input
+          mkdir -p xogot/build/monja-cmu-input
+          gltf-transform copy \
+            xogot/assets/zombies/monja_clean/monja_basica_clean_rig.glb \
+            xogot/build/monja-cmu-input/monja_basica_clean_rig.glb
+          python3 - <<'PY'
+          import json,struct
+          from pathlib import Path
+          p=Path("xogot/build/monja-cmu-input/monja_basica_clean_rig.glb")
+          data=p.read_bytes()
+          assert data[:4]==b"glTF" and len(data)>20
+          json_len,json_type=struct.unpack_from("<II",data,12)
+          assert json_type==0x4E4F534A
+          doc=json.loads(data[20:20+json_len].decode("utf-8").rstrip("\x00 \t\r\n"))
+          used=set(doc.get("extensionsUsed",[]))
+          required=set(doc.get("extensionsRequired",[]))
+          assert "EXT_meshopt_compression" not in used, used
+          assert "EXT_meshopt_compression" not in required, required
+          print("XZOGOT_MONJA_BASIC_CMU_INPUT_DECODE_GREEN",p.stat().st_size)
+          PY
 
       - name: Bake nine CMU human mocap clips onto clean Monja
         shell: bash
         run: |
           set -euo pipefail
-          test -s xogot/assets/zombies/monja_clean/monja_basica_clean_rig.glb
           rm -rf xogot/build/monja-cmu-mocap
           mkdir -p xogot/build/monja-cmu-mocap
-          timeout 2700 blender -b --python xogot/tools/augment_monja_cmu_mocap.py             2>&1 | tee xogot/build/monja-cmu-mocap/blender.log
+          timeout 2700 blender -b --python xogot/tools/augment_monja_cmu_mocap.py -- \
+            --base "$PWD/xogot/build/monja-cmu-input/monja_basica_clean_rig.glb" \
+            --output-dir "$PWD/xogot/build/monja-cmu-mocap" \
+            --output-name monja_basica_cmu_rig.glb \
+            2>&1 | tee xogot/build/monja-cmu-mocap/blender.log
           grep -q "XZOGOT_MONJA_CMU_GEOMETRY_GREEN" xogot/build/monja-cmu-mocap/blender.log
           grep -q "XZOGOT_MONJA_CMU_9_REAL_MOCAP_CLIPS_GREEN" xogot/build/monja-cmu-mocap/blender.log
           grep -q "XZOGOT_MONJA_CMU_RIG_GREEN" xogot/build/monja-cmu-mocap/blender.log
@@ -69,17 +100,58 @@ jobs:
           print("XZOGOT_MONJA_CMU_REPORT_GREEN",r["bones"],r["output_bytes"])
           PY
 
+      - name: Compress CMU Monja for runtime Git
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p xogot/build/monja-cmu-runtime
+          gltf-transform meshopt \
+            xogot/build/monja-cmu-mocap/monja_basica_cmu_rig.glb \
+            xogot/build/monja-cmu-runtime/monja_basica_cmu_rig.glb \
+            --level medium \
+            --quantize-position 16 \
+            --quantize-normal 16 \
+            --quantize-texcoord 16 \
+            --quantize-weight 16 \
+            --quantize-color 16 \
+            --quantize-generic 16
+          python3 - <<'PY'
+          import json,struct
+          from pathlib import Path
+          p=Path("xogot/build/monja-cmu-runtime/monja_basica_cmu_rig.glb")
+          data=p.read_bytes()
+          assert data[:4]==b"glTF" and len(data)>20
+          json_len,json_type=struct.unpack_from("<II",data,12)
+          assert json_type==0x4E4F534A
+          doc=json.loads(data[20:20+json_len].decode("utf-8").rstrip("\x00 \t\r\n"))
+          used=set(doc.get("extensionsUsed",[]))
+          required=set(doc.get("extensionsRequired",[]))
+          assert "EXT_meshopt_compression" in used, used
+          assert "EXT_meshopt_compression" in required, required
+          size=p.stat().st_size
+          assert size < 95_000_000, size
+          report_path=Path("xogot/build/monja-cmu-mocap/report.json")
+          r=json.loads(report_path.read_text())
+          r["runtime_compression"]="EXT_meshopt_compression"
+          r["runtime_meshopt_level"]="medium"
+          r["runtime_quantization_bits"]=16
+          r["runtime_simplification"]=False
+          r["runtime_output_bytes"]=size
+          report_path.write_text(json.dumps(r,indent=2)+"\n")
+          print("XZOGOT_MONJA_BASIC_CMU_RUNTIME_MESHOPT_GREEN",size)
+          PY
+
       - name: Stage CMU Monja candidate
         shell: bash
         run: |
           set -euo pipefail
-          SIZE=$(stat -c%s xogot/build/monja-cmu-mocap/monja_basica_cmu_rig.glb)
-          if [ "$SIZE" -ge 95000000 ]; then
-            echo "CMU Monja GLB too large for normal Git: $SIZE"
-            exit 3
-          fi
-          cp xogot/build/monja-cmu-mocap/monja_basica_cmu_rig.glb              xogot/assets/zombies/monja_clean/monja_basica_cmu_rig.glb
-          cp xogot/build/monja-cmu-mocap/report.json              xogot/assets/zombies/monja_clean/cmu_mocap_report.json
+          SIZE=$(stat -c%s xogot/build/monja-cmu-runtime/monja_basica_cmu_rig.glb)
+          test "$SIZE" -lt 95000000
+          mkdir -p xogot/assets/zombies/monja_clean
+          cp xogot/build/monja-cmu-runtime/monja_basica_cmu_rig.glb \
+             xogot/assets/zombies/monja_clean/monja_basica_cmu_rig.glb
+          cp xogot/build/monja-cmu-mocap/report.json \
+             xogot/assets/zombies/monja_clean/cmu_mocap_report.json
 
       - name: Commit CMU Monja candidate
         shell: bash
