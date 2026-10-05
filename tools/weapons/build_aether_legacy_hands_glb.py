@@ -164,6 +164,12 @@ def main() -> int:
             result = bpy.ops.psa.import_all(
                 filepath=str(psa),
                 should_convert_to_samples=True,
+                # ActorX/Unreal PSA translations are authored in centimeters.
+                # The recovered Aether glTF/GLB mesh is already meters. The
+                # maintained importer defaults to 1.0, so omitting this made
+                # every animated translation 100x too large and pushed the
+                # first-person rig outside the camera frustum.
+                translation_scale=0.01,
             )
             if "FINISHED" not in result:
                 failures.append(f"{psa.name}:{result}")
@@ -208,6 +214,8 @@ def main() -> int:
         "import_warnings_or_failures": failures,
         "armature_bones": len(bone_names),
         "required_tags": sorted(required_tags),
+        "translation_scale": 0.01,
+        "translation_units": "ActorX UE cm -> GLB meters",
         "output_bytes": output.stat().st_size,
     }
     output.with_suffix(".animation-report.json").write_text(
