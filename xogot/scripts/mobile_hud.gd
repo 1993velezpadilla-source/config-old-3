@@ -248,12 +248,16 @@ func _draw() -> void:
 	var warm := Color(1.0, 0.42, 0.12, 0.24)
 	var combat := Color(1.0, 0.16, 0.12, 0.28)
 
-	# Small COD-style center reticle.
-	var c: Vector2 = s * 0.5
-	draw_line(c + Vector2(-8, 0), c + Vector2(-3, 0), white, 1.8)
-	draw_line(c + Vector2(3, 0), c + Vector2(8, 0), white, 1.8)
-	draw_line(c + Vector2(0, -8), c + Vector2(0, -3), white, 1.8)
-	draw_line(c + Vector2(0, 3), c + Vector2(0, 8), white, 1.8)
+	# Hip-fire reticle only. True ADS uses the weapon's own sight line.
+	var ads_active := false
+	if _player != null and _player.has_method("is_ads_active"):
+		ads_active = bool(_player.call("is_ads_active"))
+	if not ads_active:
+		var c: Vector2 = s * 0.5
+		draw_line(c + Vector2(-8, 0), c + Vector2(-3, 0), white, 1.8)
+		draw_line(c + Vector2(3, 0), c + Vector2(8, 0), white, 1.8)
+		draw_line(c + Vector2(0, -8), c + Vector2(0, -3), white, 1.8)
+		draw_line(c + Vector2(0, 3), c + Vector2(0, 8), white, 1.8)
 
 	_draw_joystick()
 

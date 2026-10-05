@@ -438,6 +438,26 @@ func _target_viewmodel_depth() -> float:
 		"sniper": return 0.90
 		_: return 0.68
 
+func _hip_near_limit_for_family() -> float:
+	match _family:
+		"pistol": return -0.22
+		"smg": return -0.30
+		"rifle": return -0.32
+		"shotgun": return -0.34
+		"lmg": return -0.36
+		"sniper": return -0.34
+		_: return -0.30
+
+func _fallback_ads_near_limit_for_family() -> float:
+	match _family:
+		"pistol": return -0.30
+		"smg": return -0.44
+		"rifle": return -0.46
+		"shotgun": return -0.48
+		"lmg": return -0.50
+		"sniper": return -0.48
+		_: return -0.42
+
 func _normalize_viewmodel_presentation(model: Node3D) -> void:
 	if model == null or _view_root == null:
 		return
@@ -456,7 +476,7 @@ func _normalize_viewmodel_presentation(model: Node3D) -> void:
 
 	# Never let stocks/receivers live inside the camera. Long guns need to sit
 	# farther forward than pistols; this remains independent from ADS centering.
-	var hip_near_limit := -0.24
+	var hip_near_limit := _hip_near_limit_for_family()
 	_hip_pose_position.z = minf(_hip_pose_position.z, hip_near_limit - nearest_local_z)
 
 	set_meta("weapon_viewmodel_scale_factor", scale_factor)
@@ -481,7 +501,11 @@ func _enforce_ads_camera_clearance(model: Node3D) -> void:
 	# Authored rear/front sight data can safely sit closer to the eye. A muzzle-
 	# only fallback cannot, because centering the barrel would put the receiver
 	# almost inside the near plane.
-	var near_limit := -0.17 if _ads_calibration_mode in ["authored_sight_tag", "rear_front_sights"] else -0.30
+	var near_limit := (
+		-0.17
+		if _ads_calibration_mode in ["authored_sight_tag", "rear_front_sights"]
+		else _fallback_ads_near_limit_for_family()
+	)
 	_ads_pose_position.z = minf(_ads_pose_position.z, near_limit - nearest_local_z)
 	set_meta("weapon_ads_nearest_camera_z", _ads_pose_position.z + nearest_local_z)
 	set_meta("weapon_ads_near_limit", near_limit)
@@ -519,11 +543,18 @@ func _calibrate_ads_pose(model: Node3D) -> void:
 			var muzzle := _find_named_node3d(model, ["tag_flash", "muzzle", "muzzle_flash"])
 			if muzzle != null:
 				var muzzle_local: Vector3 = _view_root.to_local(muzzle.global_position)
-				# A muzzle is not the eye-line, but its X/Y centerline is authored per weapon.
-				# Preserve a comfortable ADS depth while centering each real model individually.
 				_ads_pose_position.x = -muzzle_local.x
-				_ads_pose_position.y = -muzzle_local.y
-				_ads_calibration_mode = "authored_muzzle_centerline"
+				# The muzzle center is useful horizontally, but vertically it points the
+				# camera through the receiver/magazine. Put the upper weapon profile
+				# near the screen center as a geometry-derived iron-sight fallback.
+				var bounds := _viewmodel_bounds_in_view(model)
+				if bounds.size.length_squared() > 0.000001:
+					var top_line_y := bounds.position.y + bounds.size.y * 0.94
+					_ads_pose_position.y = -top_line_y
+					set_meta("weapon_ads_topline_y", top_line_y)
+				else:
+					_ads_pose_position.y = -muzzle_local.y
+				_ads_calibration_mode = "authored_muzzle_topline"
 
 	_enforce_ads_camera_clearance(model)
 	set_meta("weapon_ads_calibration_mode", _ads_calibration_mode)

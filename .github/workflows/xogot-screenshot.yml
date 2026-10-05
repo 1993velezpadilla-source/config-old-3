@@ -73,11 +73,15 @@ jobs:
             2>&1 | tee build/xogot-screenshot/render.log
           grep -q "XZOGOT_MONJA_BASICA_LOADED" build/xogot-screenshot/render.log
           ! grep -q "XZOGOT_MONJA_BASICA_FALLBACK" build/xogot-screenshot/render.log
+          grep -q "XZOGOT_SCREENSHOT_HIP_GREEN" build/xogot-screenshot/render.log
+          grep -q "XZOGOT_SCREENSHOT_ADS_GREEN" build/xogot-screenshot/render.log
           grep -q "XZOGOT_SCREENSHOT_GREEN" build/xogot-screenshot/render.log
           grep -q "XZOGOT_EXTERIOR_SCREENSHOT_GREEN" build/xogot-screenshot/render.log
           test -s /tmp/xogot-current-game.png
+          test -s /tmp/xogot-current-ads.png
           test -s /tmp/xogot-current-exterior.png
           cp /tmp/xogot-current-game.png build/xogot-screenshot/xogot-current-game.png
+          cp /tmp/xogot-current-ads.png build/xogot-screenshot/xogot-current-ads.png
           cp /tmp/xogot-current-exterior.png build/xogot-screenshot/xogot-current-exterior.png
 
       - name: Upload screenshot
@@ -86,6 +90,7 @@ jobs:
           name: Xogot-Current-Gameplay-Screenshot
           path: |
             build/xogot-screenshot/xogot-current-game.png
+            build/xogot-screenshot/xogot-current-ads.png
             build/xogot-screenshot/xogot-current-exterior.png
           if-no-files-found: error
           retention-days: 7

@@ -142,8 +142,13 @@ func _run_probe() -> void:
 			return
 
 		var ads_near := float(weapon.get_meta("weapon_ads_nearest_camera_z", 0.0))
-		if ads_near > -0.16:
-			_fail(32, "ADS geometry intersects camera " + id + " near=" + str(ads_near))
+		var ads_limit := float(weapon.get_meta("weapon_ads_near_limit", -0.16))
+		if ads_near > ads_limit + 0.005:
+			_fail(
+				32,
+				"ADS clearance failed " + id + " near=" + str(ads_near)
+				+ " limit=" + str(ads_limit)
+			)
 			return
 
 		weapon.call("set_dev_infinite_ammo", true)
@@ -183,6 +188,7 @@ func _run_probe() -> void:
 			" resolved=", resolved_surfaces, "/", texture_surfaces,
 			" depth=", view_depth,
 			" near=", ads_near,
+			" limit=", ads_limit,
 			" pap=", expected_pack_damage
 		)
 

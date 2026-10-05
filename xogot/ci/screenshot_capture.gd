@@ -45,7 +45,7 @@ func _capture() -> void:
 	if player != null:
 		player.global_position = Vector3(3.4, 0.38, 6.2)
 		player.rotation.y = deg_to_rad(7.2)
-		player.set_meta("ads_toggled", true)
+		player.set_meta("ads_toggled", false)
 
 	var weapon: Node = scene.get_node_or_null("Player/Weapon")
 	if weapon != null and weapon.has_method("equip_weapon"):
@@ -53,7 +53,7 @@ func _capture() -> void:
 			push_error("SCREENSHOT: MP40 real-viewmodel equip failed")
 			quit(8)
 			return
-		print("XZOGOT_SCREENSHOT_REAL_MP40_ADS_READY")
+		print("XZOGOT_SCREENSHOT_REAL_MP40_READY")
 
 	for i in range(20):
 		await process_frame
@@ -65,8 +65,12 @@ func _capture() -> void:
 			quit(11)
 			return
 		var ads_near := float(weapon.get_meta("weapon_ads_nearest_camera_z", 0.0))
-		if ads_near > -0.16:
-			push_error("SCREENSHOT: weapon intersects camera near plane " + str(ads_near))
+		var ads_limit := float(weapon.get_meta("weapon_ads_near_limit", -0.16))
+		if ads_near > ads_limit + 0.005:
+			push_error(
+				"SCREENSHOT: weapon ADS clearance failed "
+				+ str(ads_near) + " limit=" + str(ads_limit)
+			)
 			quit(13)
 			return
 		if not bool(weapon.get_meta("weapon_texture_ready", false)):
@@ -83,6 +87,8 @@ func _capture() -> void:
 			yaw_fix,
 			" ads_near=",
 			ads_near,
+			" limit=",
+			ads_limit,
 			" materials=",
 			weapon.get_meta("weapon_resolved_surfaces", 0),
 			"/",
@@ -143,11 +149,30 @@ func _capture() -> void:
 		push_error("SCREENSHOT: save_png failed %s" % err)
 		quit(4)
 		return
+	print("XZOGOT_SCREENSHOT_HIP_GREEN ", path, " ", image.get_width(), "x", image.get_height())
 
+	# Independent ADS acceptance frame. Let FOV and viewmodel pose fully settle.
+	if player != null:
+		player.set_meta("ads_toggled", true)
+	for i in range(30):
+		await process_frame
+	var ads_image: Image = root.get_texture().get_image()
+	if ads_image == null or ads_image.is_empty():
+		push_error("SCREENSHOT: ADS viewport capture empty")
+		quit(14)
+		return
+	var ads_path := "/tmp/xogot-current-ads.png"
+	var ads_err: Error = ads_image.save_png(ads_path)
+	if ads_err != OK:
+		push_error("SCREENSHOT: ADS save_png failed %s" % ads_err)
+		quit(15)
+		return
+	print("XZOGOT_SCREENSHOT_ADS_GREEN ", ads_path, " ", ads_image.get_width(), "x", ads_image.get_height())
 	print("XZOGOT_SCREENSHOT_GREEN ", path, " ", image.get_width(), "x", image.get_height())
 
-	# Second independent view: exterior/front facade audit from the playable yard.
+	# Third independent view: exterior/front facade audit from the playable yard.
 	if player != null:
+		player.set_meta("ads_toggled", false)
 		player.global_position = Vector3(0.0, 0.38, 27.0)
 		player.rotation.y = 0.0
 		for i in range(16):
