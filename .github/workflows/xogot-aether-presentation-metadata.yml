@@ -120,6 +120,20 @@ jobs:
           if ($paths.Count -lt 1) { throw 'CUE4Parse provider index returned no FirstPerson weapon uasset paths' }
           Write-Host "XZOGOT_FIRSTPERSON_WEAPON_PATHS_READY count=$($paths.Count)"
 
+      - name: Discover weapon data package paths
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $stdout = & "$env:CUE4PARSE" -i "$env:AETHER_PAKDIR" -g GAME_UE5_7 -m "$PWD\Mappings.usmap" -l -p '*Assets/Data/*.uasset' 2> presentation-weapon-data-list-stderr.log
+          $all = @($stdout | Where-Object { $_ -match '(?i)/Assets/Data/' -and $_ -match '(?i)\.uasset$' } | Sort-Object -Unique)
+          $paths = @($all | Where-Object {
+            $_ -match '(?i)(weapon|weap|waw|gun|handanim|weaponanim|weaponstats|s_weapons|s_sounds|s_enums|armature)'
+          } | Sort-Object -Unique)
+          $paths | Set-Content weapon-data-packages.txt -Encoding ascii
+          if ($paths.Count -lt 1) { throw 'CUE4Parse provider index returned no weapon data packages' }
+          Write-Host "XZOGOT_WEAPON_DATA_PATHS_READY count=$($paths.Count)"
+          $paths | ForEach-Object { Write-Host "XZOGOT_WEAPON_DATA_PATH $_" }
+
       - name: Export first-person weapon and camera authority packages
         shell: pwsh
         run: |
@@ -128,6 +142,7 @@ jobs:
           Get-Content mp40-packages.txt | Add-Content presentation-patterns.txt -Encoding ascii
           Get-Content weapon-bp-packages.txt | Add-Content presentation-patterns.txt -Encoding ascii
           Get-Content firstperson-weapon-packages.txt | Add-Content presentation-patterns.txt -Encoding ascii
+          Get-Content weapon-data-packages.txt | Add-Content presentation-patterns.txt -Encoding ascii
           $uniquePatterns = @(Get-Content presentation-patterns.txt | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique)
           $uniquePatterns | Set-Content presentation-patterns.txt -Encoding ascii
           Write-Host "XZOGOT_PRESENTATION_PATTERN_SET_GREEN count=$($uniquePatterns.Count)"
@@ -199,11 +214,28 @@ jobs:
               except Exception:
                   continue
               scan_refs(data,[],path.as_posix())
+          mp40_rows=[]
+          def scan_rows(value,path,source):
+              if isinstance(value,dict):
+                  for k,v in value.items():
+                      if re.search(r"^mp40$|mp[_ -]?40|german.*mp40",str(k),re.I):
+                          mp40_rows.append({"source":source,"path":".".join(path+[str(k)]),"value":v})
+                      scan_rows(v,path+[str(k)],source)
+              elif isinstance(value,list):
+                  for i,v in enumerate(value):
+                      scan_rows(v,path+[str(i)],source)
+          for path in json_files:
+              try:
+                  data=json.loads(path.read_text(encoding="utf-8-sig",errors="strict"))
+              except Exception:
+                  continue
+              scan_rows(data,[],path.as_posix())
           report={
               "schema":1,
               "source":"Project Aether UE5.7 reconstructed first-person presentation packages",
               "bp_weapon_base_numeric_hits":base_hits,
               "mp40_reference_hits":mp40_refs[:5000],
+              "mp40_data_rows":mp40_rows[:1000],
               "mapping_run":37244741312,
               "export_file_count":sum(1 for p in root.rglob("*") if p.is_file()),
               "json_file_count":len(json_files),
@@ -233,9 +265,11 @@ jobs:
             mp40-packages.txt
             weapon-bp-packages.txt
             firstperson-weapon-packages.txt
+            weapon-data-packages.txt
             presentation-mp40-list-stderr.log
             presentation-firstperson-list-stderr.log
             presentation-weapon-bp-list-stderr.log
+            presentation-weapon-data-list-stderr.log
             presentation-cue4parse.log
             presentation-export/**
           if-no-files-found: error
