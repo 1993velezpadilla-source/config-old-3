@@ -401,6 +401,111 @@ func _orient_imported_viewmodel(model: Node3D, model_path: String) -> void:
 	else:
 		set_meta("weapon_model_yaw_correction_deg", 0.0)
 
+func _orient_imported_hands(model: Node3D, hands_path: String) -> void:
+	if model == null:
+		return
+	if hands_path.contains("/aether_waw_hands/"):
+		# Aether first-person source uses +X forward. Rotate the complete hand rig
+		# once into Godot -Z forward; a weapon attached to tag_weapon inherits it.
+		model.rotation_degrees = Vector3(0.0, 90.0, 0.0)
+		set_meta("weapon_hands_yaw_correction_deg", 90.0)
+		set_meta("weapon_source_rig_forward_axis", "-Z")
+		print("XZOGOT_SOURCE_HANDS_FORWARD_AXIS_FIXED ", _weapon_id, " +X -> -Z yaw=90")
+
+func _apply_source_hands_textures(model: Node3D) -> Dictionary:
+	var left := _load_optional_asset(
+		"res://assets/weapons/aether_waw_hands/legacy_richtofen/textures/arm_left_color.png"
+	) as Texture2D
+	var right := _load_optional_asset(
+		"res://assets/weapons/aether_waw_hands/legacy_richtofen/textures/arm_right_color.png"
+	) as Texture2D
+	var normal := _load_optional_asset(
+		"res://assets/weapons/aether_waw_hands/legacy_richtofen/textures/arm_normal.png"
+	) as Texture2D
+	var surfaces := 0
+	var textured := 0
+	var stack: Array[Node] = [model]
+	while not stack.is_empty():
+		var node: Node = stack.pop_back()
+		if node is MeshInstance3D:
+			var mesh_node := node as MeshInstance3D
+			if mesh_node.mesh != null:
+				for surface_idx in range(mesh_node.mesh.get_surface_count()):
+					surfaces += 1
+					var source_mat: Material = mesh_node.get_active_material(surface_idx)
+					if source_mat == null:
+						source_mat = mesh_node.mesh.surface_get_material(surface_idx)
+					var material_name := ""
+					if source_mat != null:
+						material_name = source_mat.resource_name.to_lower()
+					if material_name.is_empty():
+						material_name = str(mesh_node.mesh.surface_get_name(surface_idx)).to_lower()
+					var albedo: Texture2D = null
+					if material_name.contains("richtofen_l") or material_name.contains("left"):
+						albedo = left
+					elif material_name.contains("richtofen_r") or material_name.contains("right"):
+						albedo = right
+					if albedo == null:
+						continue
+					var runtime_mat: StandardMaterial3D
+					if source_mat is StandardMaterial3D:
+						runtime_mat = (source_mat as StandardMaterial3D).duplicate() as StandardMaterial3D
+					else:
+						runtime_mat = StandardMaterial3D.new()
+					runtime_mat.albedo_texture = albedo
+					# Source material declares Specular_Amount=1 and the recovered
+					# normalMap explicitly. Preserve those authored properties; do not
+					# reinterpret the UE specular mask as a guessed roughness map.
+					runtime_mat.metallic_specular = 1.0
+					if normal != null:
+						runtime_mat.normal_enabled = true
+						runtime_mat.normal_texture = normal
+					mesh_node.set_surface_override_material(surface_idx, runtime_mat)
+					textured += 1
+		for child: Node in node.get_children():
+			stack.append(child)
+	var ready := surfaces > 0 and textured == surfaces
+	set_meta("weapon_hands_texture_surfaces", surfaces)
+	set_meta("weapon_hands_textured_surfaces", textured)
+	set_meta("weapon_hands_texture_ready", ready)
+	print("XZOGOT_SOURCE_HANDS_TEXTURE_BIND ", _weapon_id, " ", textured, "/", surfaces)
+	return {"surfaces": surfaces, "textured": textured, "ready": ready}
+
+func _bind_weapon_to_source_hands() -> bool:
+	if _view_root == null or _hands_model_root == null or _weapon_model_root == null:
+		return false
+	var attachment := _find_skeleton_bone_attachment(
+		_hands_model_root,
+		["tag_weapon"],
+		"SourceWeaponAttachment"
+	)
+	if attachment == null:
+		set_meta("weapon_source_weapon_attachment_ready", false)
+		return false
+
+	# The source hand rig owns the first-person hierarchy:
+	# tag_view -> tag_ads -> tag_torso -> tag_weapon -> weapon.
+	# The weapon mesh stays at unit scale and identity local transform. The
+	# tag_weapon bone supplies the authored per-weapon HIP placement.
+	_weapon_model_root.reparent(attachment, false)
+	_weapon_model_root.transform = Transform3D.IDENTITY
+	_weapon_model_root.scale = Vector3.ONE
+	_hip_pose_position = Vector3.ZERO
+	_ads_pose_position = Vector3.ZERO
+	_view_pose_position = Vector3.ZERO
+	_view_root.position = Vector3.ZERO
+
+	# Effective +X -> -Z correction now lives on the complete source hands rig,
+	# not on the gun child. Keep the existing effective yaw metadata truthful
+	# for the 28-weapon forward-axis gate.
+	set_meta("weapon_model_yaw_correction_deg", 90.0)
+	set_meta("weapon_source_rig_mode", "legacy_hands_tag_weapon")
+	set_meta("weapon_source_weapon_attachment_ready", true)
+	set_meta("weapon_source_weapon_attachment", "tag_weapon")
+	set_meta("weapon_viewmodel_scale_factor", 1.0)
+	print("XZOGOT_SOURCE_WEAPON_ATTACHED_TO_HANDS ", _weapon_id, " tag_weapon")
+	return true
+
 func _viewmodel_bounds_in_view(model: Node3D) -> AABB:
 	var found := false
 	var bounds := AABB()
@@ -752,10 +857,23 @@ func _refresh_view_assets(def: Dictionary) -> void:
 		_view_root.add_child(hands_node)
 		if hands_node is Node3D:
 			_hands_model_root = hands_node as Node3D
+			_orient_imported_hands(_hands_model_root, hands_path)
+			_apply_source_hands_textures(_hands_model_root)
 		_hands_animation_player = _find_animation_player(hands_node)
+		var source_attachment_ready := _bind_weapon_to_source_hands()
 		set_meta("weapon_hands_asset", hands_path)
 		set_meta("weapon_hands_animation_ready", _hands_animation_player != null)
-		print("XZOGOT_FIRST_PERSON_HANDS_LOADED ", _weapon_id, " ", hands_path)
+		set_meta("weapon_source_weapon_attachment_ready", source_attachment_ready)
+		print(
+			"XZOGOT_FIRST_PERSON_HANDS_LOADED ",
+			_weapon_id,
+			" ",
+			hands_path,
+			" anim=",
+			_hands_animation_player != null,
+			" attached=",
+			source_attachment_ready
+		)
 
 	var melee_path := WeaponAssetRegistry.preferred_melee_viewmodel_path(_weapon_id)
 	var melee_res: Resource = _load_optional_asset(melee_path)
