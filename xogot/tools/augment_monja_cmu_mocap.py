@@ -479,6 +479,15 @@ if not any("Zombie_Walk_Clean".lower() in x.lower() for x in base_actions):
     fail("base clean Monja does not expose expected clean walk action")
 
 target.data.pose_position='POSE'
+
+# Bone retargeting does not need to evaluate the million-vertex target mesh on
+# every source mocap frame. Temporarily remove it from viewport evaluation while
+# preserving the mesh/weights untouched for the later deformation and export gates.
+for _mesh in target_meshes:
+    _mesh.hide_viewport=True
+bpy.context.view_layer.update()
+print("XZOGOT_MONJA_CMU_BAKE_MESH_EVAL_SUSPENDED_GREEN",sum(len(o.data.vertices) for o in target_meshes))
+
 baked=[]
 for new_name,fbx in CLIPS:
     before=snapshot()
@@ -486,6 +495,16 @@ for new_name,fbx in CLIPS:
     bpy.ops.import_scene.fbx(filepath=str(fbx),automatic_bone_orientation=False,use_anim=True)
     imported=list(snapshot()-before)
     src=find_primary_armature(imported)
+
+    # CMU FBX geometry is irrelevant to retargeting. Delete donor meshes before
+    # frame-by-frame baking so only the source armature/action participates in
+    # depsgraph evaluation.
+    donor_meshes=[o for o in imported if o.type=="MESH"]
+    imported=[o for o in imported if o.type!="MESH"]
+    for donor_mesh in donor_meshes:
+        if bpy.data.objects.get(donor_mesh.name):
+            bpy.data.objects.remove(bpy.data.objects.get(donor_mesh.name),do_unlink=True)
+
     new_action_names=list(set(bpy.data.actions.keys())-actions_before)
     if src.animation_data and src.animation_data.action:
         src_action=src.animation_data.action
@@ -503,6 +522,11 @@ for new_name,fbx in CLIPS:
         a=bpy.data.actions.get(action_name)
         if a is not None and a.name!=new_name and a.users==0:
             bpy.data.actions.remove(a)
+
+for _mesh in target_meshes:
+    _mesh.hide_viewport=False
+bpy.context.view_layer.update()
+print("XZOGOT_MONJA_CMU_BAKE_MESH_EVAL_RESTORED_GREEN")
 
 cmu_deformation_sanity,cmu_deformation_violations=validate_cmu_deformation(
     target,target_meshes,[name for name,_ in CLIPS],source_surface
