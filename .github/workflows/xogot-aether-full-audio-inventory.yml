@@ -124,6 +124,50 @@ jobs:
               print("XZOGOT_MG42_NOT_PRESENT_IN_AETHER_SOUND_TREE")
           PY
 
+      - name: Resolve MG42 SoundCue dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf mg42-cue-raw
+          mkdir -p mg42-cue-raw
+          "$REPAK" unpack "$RUNNER_TEMP/aether-legacy.pak"             -o mg42-cue-raw             -i 'ProjectAether/Content/Assets/Sounds/Cues/MG42Shot.*'             --force
+          find mg42-cue-raw -type f -printf '%p\t%s\n' | sort > mg42-cue-files.txt
+          test -s mg42-cue-files.txt
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,re
+          blobs=[]
+          tokens=set()
+          for p in Path("mg42-cue-raw").rglob("*"):
+              if not p.is_file(): continue
+              data=p.read_bytes()
+              # Pull printable ASCII and UTF-16LE strings from UE asset payloads.
+              ascii_strings=re.findall(rb"[ -~]{4,}",data)
+              utf16_strings=[]
+              for m in re.finditer(rb"(?:[ -~]\x00){4,}",data):
+                  try:
+                      utf16_strings.append(m.group(0).decode("utf-16le"))
+                  except Exception:
+                      pass
+              strings=[x.decode("latin1","ignore") for x in ascii_strings]+utf16_strings
+              interesting=[]
+              for text in strings:
+                  low=text.lower()
+                  if any(k in low for k in ("soundwave","sounds/base","mg42","30cal","wpn_","waveplayer","soundnode")):
+                      interesting.append(text)
+                      for token in re.findall(r"[A-Za-z0-9_./-]{4,}",text):
+                          if any(k in token.lower() for k in ("mg42","30cal","wpn_","sound")):
+                              tokens.add(token)
+              blobs.append({"file":p.as_posix(),"interesting":interesting[:300]})
+          out={"files":blobs,"tokens":sorted(tokens,key=str.lower)}
+          Path("mg42-cue-dependencies.json").write_text(json.dumps(out,indent=2)+"\n")
+          print("XZOGOT_MG42_CUE_TOKENS",out["tokens"])
+          if not out["tokens"]:
+              raise SystemExit("MG42Shot cue produced no dependency tokens")
+          PY
+          echo "XZOGOT_MG42_CUE_DEPENDENCY_SCAN_GREEN"
+
       - name: Extract complete base weapon sound bank
         shell: bash
         run: |
@@ -212,6 +256,8 @@ jobs:
           path: |
             aether-full-weapon-audio-candidates.json
             aether-mg42-all-sound-candidates.json
+            mg42-cue-dependencies.json
+            mg42-cue-files.txt
             aether-all-weapon-source-families.json
             audio-files.txt
           if-no-files-found: error
