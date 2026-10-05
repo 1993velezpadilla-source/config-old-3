@@ -1,3 +1,4 @@
 trigger elite Monja 2026-10-05 clean-plus-cmu-real-motion-9
 trigger elite Monja 2026-10-05 rotation-only-deformation-gltf-runtime-8
 trigger elite Monja 2026-10-05 dequantized-godot-runtime-quaternion-fix
+trigger elite Monja 2026-10-05 cloth-safe-death-v3
