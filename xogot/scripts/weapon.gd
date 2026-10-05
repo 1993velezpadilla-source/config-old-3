@@ -712,9 +712,13 @@ func request_fire() -> void:
 	_apply_recoil_impulse()
 	_trigger_weapon_fx()
 	var ads: bool = is_ads_active()
-	var fire_role: String = "fire_ads" if ads else "fire"
-	if not _play_asset_animation(fire_role, 0.025) and fire_role != "fire":
-		_play_asset_animation("fire", 0.025)
+	var is_last_round: bool = not _dev_infinite_ammo and _magazine == 0
+	var fire_role: String = "lastshot" if is_last_round else ("fire_ads" if ads else "fire")
+	if not _play_asset_animation(fire_role, 0.025):
+		if ads and fire_role != "fire_ads" and _play_asset_animation("fire_ads", 0.025):
+			pass
+		elif fire_role != "fire":
+			_play_asset_animation("fire", 0.025)
 	if _fire_audio != null and _fire_audio.stream != null:
 		_fire_audio.play()
 	if _mechanical_audio != null and _mechanical_audio.stream != null:
