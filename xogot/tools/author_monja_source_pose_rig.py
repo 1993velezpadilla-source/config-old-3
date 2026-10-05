@@ -84,6 +84,33 @@ def objs(kind=None):
 def snapshot():
     return set(bpy.context.scene.objects)
 
+def flatten_meshes_to_world(mesh_objects):
+    # Tripo GLBs may keep the visible source proportions in a non-uniform node
+    # transform while the underlying mesh remains roughly normalized.  Our
+    # source-pose armature is authored from world-space landmarks, so bake each
+    # source mesh's complete world transform into vertex data first.  This keeps
+    # the rendered source pose identical while putting mesh vertices and bones
+    # in the same coordinate space for stable inverse-bind export.
+    before,_=get_world_vertices(mesh_objects)
+    for obj in mesh_objects:
+        if obj.data.users > 1:
+            obj.data=obj.data.copy()
+        world=obj.matrix_world.copy()
+        obj.data.transform(world)
+        obj.parent=None
+        obj.matrix_world=Matrix.Identity(4)
+    bpy.context.view_layer.update()
+    after,_=get_world_vertices(mesh_objects)
+    if before.shape != after.shape:
+        fail("source transform bake vertex count changed")
+    delta=np.linalg.norm(after-before,axis=1)
+    rms=float(np.sqrt(np.mean(delta*delta))) if len(delta) else 0.0
+    mx=float(delta.max()) if len(delta) else 0.0
+    if mx > 1e-6:
+        fail(f"source transform bake moved geometry rms={rms} max={mx}")
+    print("XZOGOT_MONJA_SOURCE_TRANSFORM_BAKED_GREEN",rms,mx)
+    return rms,mx
+
 def get_world_vertices(mesh_objects):
     chunks=[]
     owners=[]
@@ -593,6 +620,7 @@ bpy.ops.import_scene.gltf(filepath=str(MONJA))
 monja_objs=list(snapshot()-before)
 monja_meshes=[o for o in monja_objs if o.type=="MESH"]
 if not monja_meshes: fail("monja mesh missing")
+source_transform_rms,source_transform_max=flatten_meshes_to_world(monja_meshes)
 source_vertices=sum(len(o.data.vertices) for o in monja_meshes)
 source_polygons=sum(len(o.data.polygons) for o in monja_meshes)
 source_surface=mesh_surface_stats(monja_meshes)
@@ -708,6 +736,9 @@ report={
     "source":str(MONJA.relative_to(ROOT)) if ROOT in MONJA.parents else str(MONJA),
     "profile":PROFILE,
     "donor":"assets/zombie_mocap/retarget/UAL2_Standard.glb",
+    "source_transform_baked_to_world":True,
+    "source_transform_bake_rms":source_transform_rms,
+    "source_transform_bake_max":source_transform_max,
     "source_vertices":source_vertices,
     "source_polygons":source_polygons,
     "source_triangles":source_triangles,
