@@ -82,6 +82,8 @@ const CRAWL_KEYS: Array[String] = ["crawl_A", "111_03"]
 @export var headshot_bonus_points: int = 10
 @export var hit_reaction_duration: float = 0.14
 @export var path_refresh_interval: float = 0.62
+@export var direct_path_vertical_limit: float = 1.05
+@export var waypoint_vertical_tolerance: float = 0.95
 @export var stuck_sample_interval: float = 0.72
 @export var stuck_timeout: float = 1.75
 @export var max_step_height: float = 0.42
@@ -208,7 +210,10 @@ func _ready() -> void:
 	enemy_variant = str(get_meta("enemy_variant", enemy_variant))
 	set_meta("enemy_variant", enemy_variant)
 	_gravity = float(ProjectSettings.get_setting("physics/3d/default_gravity", 18.0))
-	floor_snap_length = 0.24
+	motion_mode = CharacterBody3D.MOTION_MODE_GROUNDED
+	floor_snap_length = 0.38
+	floor_max_angle = deg_to_rad(52.0)
+	safe_margin = 0.035
 	add_to_group("zombie")
 	_path_network = get_tree().get_first_node_in_group("zombie_path_network")
 	_select_motion_profile()
@@ -222,7 +227,8 @@ func _ready() -> void:
 	_build_body()
 	_last_motion_sample = global_position
 	_moan_timer = 1.7 + float(abs(name.hash()) % 330) / 100.0
-	print("XZOGOT_ZOMBIE_GROUND_SNAP_READY 0.24")
+	print("XZOGOT_ZOMBIE_GROUND_SNAP_READY 0.38")
+	print("XZOGOT_ZOMBIE_MULTILEVEL_PATH_GUARD_READY")
 	print("XZOGOT_ZOMBIE_PATHING_READY ", _motion_profile_id)
 	print("XZOGOT_ZOMBIE_READY")
 
@@ -725,6 +731,10 @@ func _update_player_attack_impact(delta: float) -> void:
 	print("XZOGOT_ZOMBIE_ATTACK_IMPACT_SYNC ", name)
 
 func _has_clear_path_to(target: Vector3) -> bool:
+	# Never shortcut graph routing across floors. A clear horizontal ray can
+	# otherwise make a zombie chase the X/Z below a balcony or above a crypt.
+	if absf(global_position.y - target.y) > direct_path_vertical_limit:
+		return false
 	var world: World3D = get_world_3d()
 	if world == null:
 		return true
@@ -762,7 +772,17 @@ func _move_toward_navigated(target: Vector3, stop_distance: float) -> bool:
 
 	while _path_index < _path_points.size():
 		var waypoint: Vector3 = _path_points[_path_index]
-		if Vector2(global_position.x - waypoint.x, global_position.z - waypoint.z).length() <= 0.55:
+		var waypoint_flat_distance := Vector2(
+			global_position.x - waypoint.x,
+			global_position.z - waypoint.z
+		).length()
+		var waypoint_vertical_distance := absf(global_position.y - waypoint.y)
+		# Do not skip a balcony/crypt waypoint just because X/Z overlaps while
+		# the zombie is still on the wrong floor.
+		if (
+			waypoint_flat_distance <= 0.55
+			and waypoint_vertical_distance <= waypoint_vertical_tolerance
+		):
 			_path_index += 1
 			continue
 		return _move_toward_flat(waypoint, 0.22)
@@ -871,10 +891,18 @@ func _attempt_unstuck() -> void:
 	if flat.length_squared() <= 0.0001:
 		return
 	var forward: Vector3 = flat.normalized()
+	if is_on_floor() and _try_step_up(forward):
+		print("XZOGOT_ZOMBIE_UNSTUCK_STEP ", name, " attempt=", _unstuck_count)
+		return
+	var right := Vector3(-forward.z, 0.0, forward.x)
 	var candidates: Array[Vector3] = [
 		forward * 0.42,
-		Vector3(-forward.z, 0.0, forward.x) * 0.34,
-		Vector3(forward.z, 0.0, -forward.x) * 0.34,
+		right * 0.34,
+		-right * 0.34,
+		forward * 0.64 + right * 0.24,
+		forward * 0.64 - right * 0.24,
+		right * 0.58,
+		-right * 0.58,
 		-forward * 0.24,
 	]
 	for motion: Vector3 in candidates:
