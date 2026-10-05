@@ -589,6 +589,19 @@ jobs:
           ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script" build/xogot-ai/candle-light-probe.log
           echo "XZOGOT_CANDLE_LIGHT_GATE_GREEN"
 
+      - name: Verify 28 animated Aether firearms in Godot
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot --script res://ci/aether_animated_weapon_probe.gd \
+            2>&1 | tee build/xogot-ai/aether-animated-weapon-probe.log
+          grep -q "XZOGOT_AETHER_28_FIREARMS_GODOT_GREEN" build/xogot-ai/aether-animated-weapon-probe.log
+          grep -q "XZOGOT_AETHER_538_ANIMATIONS_GODOT_GREEN" build/xogot-ai/aether-animated-weapon-probe.log
+          grep -q "XZOGOT_AETHER_ANIMATED_WEAPON_GATE_GREEN" build/xogot-ai/aether-animated-weapon-probe.log
+          ! grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed to load script|AETHER_ANIMATED_WEAPON_PROBE:" build/xogot-ai/aether-animated-weapon-probe.log
+          echo "XZOGOT_AETHER_ANIMATED_WEAPON_GODOT_GATE_GREEN"
+
       - name: Verify MapMod weapon asset contract
         shell: bash
         run: |
