@@ -476,15 +476,55 @@ def retarget_action(source,target,source_action,new_name,height_scale):
     # into long spikes. Preserve target rest translations/scales exactly and
     # transfer only the donor local rotational delta.
     ordered=[b.name for b in target.data.bones if b.name in common]
+    identity_q=Quaternion((1.0,0.0,0.0,0.0))
+    span=max(1,hi-lo)
     for frame in range(lo,hi+1):
-        bpy.context.scene.frame_set(frame)
+        t=float(frame-lo)/float(span)
+
+        # The donor's LayToIdle is a get-up clip. Death must run it backwards so
+        # the Monja starts standing and ends down instead of spawning collapsed.
+        source_frame=(hi-(frame-lo)) if new_name=="Zombie_Death_Clean" else frame
+        bpy.context.scene.frame_set(source_frame)
         bpy.context.view_layer.update()
+
+        if new_name=="Zombie_Hit_Clean":
+            motion_gain=0.55*math.sin(math.pi*t)
+        elif new_name=="Zombie_Death_Clean":
+            smooth=t*t*(3.0-2.0*t)
+            motion_gain=0.65*smooth
+        elif new_name=="Zombie_Attack_Clean":
+            motion_gain=0.78*math.sin(math.pi*t)
+        elif new_name=="Zombie_Idle_Clean":
+            motion_gain=0.45
+        else:
+            motion_gain=0.72
+
         target_world={}
         for name in ordered:
             s_local=pose_local(source,name)
             src_rest_q=src_rest[name].to_quaternion()
             src_pose_q=s_local.to_quaternion()
-            delta_q=src_rest_q.inverted() @ src_pose_q
+            raw_delta=src_rest_q.inverted() @ src_pose_q
+            delta_q=identity_q.slerp(raw_delta,max(0.0,min(1.0,motion_gain)))
+
+            limb=(
+                name.startswith("upperarm_") or name.startswith("lowerarm_") or
+                name.startswith("hand_") or name.startswith("thigh_") or
+                name.startswith("calf_") or name.startswith("foot_") or
+                name.startswith("ball_")
+            )
+            if new_name=="Zombie_Death_Clean":
+                max_deg=95.0 if limb else (75.0 if name=="root" else 60.0)
+            elif new_name=="Zombie_Attack_Clean":
+                max_deg=85.0 if limb else 48.0
+            elif new_name=="Zombie_Hit_Clean":
+                max_deg=70.0 if limb else 42.0
+            else:
+                max_deg=65.0 if limb else 38.0
+            max_angle=math.radians(max_deg)
+            angle=float(delta_q.angle)
+            if angle>max_angle and angle>1e-8:
+                delta_q=identity_q.slerp(delta_q,max_angle/angle)
 
             tgt_rest_local=tgt_rest[name]
             desired_q=tgt_rest_local.to_quaternion() @ delta_q
@@ -515,6 +555,8 @@ def retarget_action(source,target,source_action,new_name,height_scale):
         "frames":[lo,hi],
         "bones":len(common),
         "retarget":"rotation_only_preserve_target_lengths",
+        "motion_profile":"bounded_action_specific_v2",
+        "source_reversed":new_name=="Zombie_Death_Clean",
     }
 
 def mesh_surface_stats(mesh_objects):
