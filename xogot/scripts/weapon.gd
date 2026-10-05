@@ -5,6 +5,7 @@ const WeaponAssetRegistry = preload("res://scripts/weapon_asset_registry.gd")
 const WeaponBalanceAAA = preload("res://scripts/weapon_balance_aaa.gd")
 const WeaponTextureRegistry = preload("res://scripts/weapon_texture_registry.gd")
 const WeaponViewmodelSourcePose = preload("res://scripts/weapon_viewmodel_source_pose.gd")
+const WeaponViewmodelSourcePresentation = preload("res://scripts/weapon_viewmodel_source_presentation.gd")
 
 @export var damage: float = 24.0
 @export var range_m: float = 95.0
@@ -37,6 +38,11 @@ var _ads_pose_alpha: float = 0.0
 var _hip_pose_position := Vector3.ZERO
 var _ads_pose_position := Vector3.ZERO
 var _view_pose_position := Vector3.ZERO
+var _hip_pose_rotation := Quaternion.IDENTITY
+var _ads_pose_rotation := Quaternion.IDENTITY
+var _view_pose_rotation := Quaternion.IDENTITY
+var _source_ads_in_time: float = 0.0
+var _source_ads_out_time: float = 0.0
 var _ads_calibration_mode: String = "source_pending"
 var _view_root: Node3D
 var _viewmodel_fill_light: OmniLight3D
@@ -161,6 +167,12 @@ func _clear_view_model() -> void:
 	_muzzle_flash_timer = 0.0
 	_hip_pose_position = Vector3.ZERO
 	_ads_pose_position = Vector3.ZERO
+	_view_pose_position = Vector3.ZERO
+	_hip_pose_rotation = Quaternion.IDENTITY
+	_ads_pose_rotation = Quaternion.IDENTITY
+	_view_pose_rotation = Quaternion.IDENTITY
+	_source_ads_in_time = 0.0
+	_source_ads_out_time = 0.0
 	_ads_calibration_mode = "source_pending"
 	if _view_root == null:
 		return
@@ -490,10 +502,52 @@ func _bind_weapon_to_source_hands() -> bool:
 	_weapon_model_root.reparent(attachment, false)
 	_weapon_model_root.transform = Transform3D.IDENTITY
 	_weapon_model_root.scale = Vector3.ONE
-	_hip_pose_position = Vector3.ZERO
-	_ads_pose_position = Vector3.ZERO
-	_view_pose_position = Vector3.ZERO
-	_view_root.position = Vector3.ZERO
+
+	if WeaponViewmodelSourcePresentation.has_source_presentation(_weapon_id):
+		_hip_pose_position = WeaponViewmodelSourcePresentation.hip_position(_weapon_id)
+		_ads_pose_position = WeaponViewmodelSourcePresentation.ads_position(_weapon_id)
+		_hip_pose_rotation = WeaponViewmodelSourcePresentation.hip_rotation(_weapon_id)
+		_ads_pose_rotation = WeaponViewmodelSourcePresentation.ads_rotation(_weapon_id)
+		_view_pose_position = _hip_pose_position
+		_view_pose_rotation = _hip_pose_rotation
+		_source_ads_in_time = WeaponViewmodelSourcePresentation.ads_in_time(_weapon_id)
+		_source_ads_out_time = WeaponViewmodelSourcePresentation.ads_out_time(_weapon_id)
+		_ads_calibration_mode = "source_datatable"
+		_view_root.position = _hip_pose_position
+		_view_root.quaternion = _hip_pose_rotation
+		set_meta("weapon_source_hand_transform_position", _hip_pose_position)
+		set_meta("weapon_source_ads_transform_position", _ads_pose_position)
+		set_meta("weapon_source_ads_in_time", _source_ads_in_time)
+		set_meta("weapon_source_ads_out_time", _source_ads_out_time)
+		set_meta(
+			"weapon_source_ads_fov_multiplier",
+			WeaponViewmodelSourcePresentation.ads_fov_multiplier(_weapon_id)
+		)
+		set_meta(
+			"weapon_source_presentation_table",
+			WeaponViewmodelSourcePresentation.source_table(_weapon_id)
+		)
+		set_meta(
+			"weapon_source_presentation_row",
+			WeaponViewmodelSourcePresentation.source_row_index(_weapon_id)
+		)
+		print(
+			"XZOGOT_SOURCE_PRESENTATION_BOUND ",
+			_weapon_id,
+			" hip=", _hip_pose_position,
+			" ads=", _ads_pose_position,
+			" in=", _source_ads_in_time,
+			" out=", _source_ads_out_time
+		)
+	else:
+		_hip_pose_position = Vector3.ZERO
+		_ads_pose_position = Vector3.ZERO
+		_view_pose_position = Vector3.ZERO
+		_hip_pose_rotation = Quaternion.IDENTITY
+		_ads_pose_rotation = Quaternion.IDENTITY
+		_view_pose_rotation = Quaternion.IDENTITY
+		_view_root.position = Vector3.ZERO
+		_view_root.quaternion = Quaternion.IDENTITY
 
 	# Effective +X -> -Z correction now lives on the complete source hands rig,
 	# not on the gun child. Keep the existing effective yaw metadata truthful
@@ -571,7 +625,25 @@ func _apply_source_hip_pose(model: Node3D) -> bool:
 	return true
 
 func _calibrate_ads_pose(model: Node3D) -> void:
+	if WeaponViewmodelSourcePresentation.has_source_presentation(_weapon_id):
+		_ads_pose_position = WeaponViewmodelSourcePresentation.ads_position(_weapon_id)
+		_ads_pose_rotation = WeaponViewmodelSourcePresentation.ads_rotation(_weapon_id)
+		_source_ads_in_time = WeaponViewmodelSourcePresentation.ads_in_time(_weapon_id)
+		_source_ads_out_time = WeaponViewmodelSourcePresentation.ads_out_time(_weapon_id)
+		_ads_calibration_mode = "source_datatable_pending_hands"
+		set_meta("weapon_ads_calibration_mode", _ads_calibration_mode)
+		set_meta("weapon_ads_pose_position", _ads_pose_position)
+		set_meta("weapon_ads_authority", "AETHER_DT_WEAPONS")
+		set_meta("weapon_source_ads_in_time", _source_ads_in_time)
+		set_meta("weapon_source_ads_out_time", _source_ads_out_time)
+		print(
+			"XZOGOT_WEAPON_ADS_DATATABLE_READY ",
+			_weapon_id,
+			" ads=", _ads_pose_position
+		)
+		return
 	_ads_pose_position = _hip_pose_position
+	_ads_pose_rotation = _hip_pose_rotation
 	_ads_calibration_mode = "source_pending"
 	set_meta("weapon_ads_calibration_mode", _ads_calibration_mode)
 	set_meta("weapon_ads_pose_position", _ads_pose_position)
@@ -1014,8 +1086,10 @@ func equip_weapon(id: String, refill: bool = true) -> bool:
 	_refresh_view_assets(def)
 	_ads_pose_alpha = 0.0
 	_view_pose_position = _hip_pose_position
+	_view_pose_rotation = _hip_pose_rotation
 	if _view_root != null:
 		_view_root.position = _view_pose_position
+		_view_root.quaternion = _view_pose_rotation
 	_last_ads_state = is_ads_active()
 	_play_asset_animation("equip", 0.0)
 
@@ -1223,17 +1297,30 @@ func _update_visual_recoil(delta: float) -> void:
 	if _camera != null:
 		_camera.rotation.x = deg_to_rad(-_visual_recoil_pitch)
 	if _view_root != null:
-		# ADS must physically bring the first-person weapon onto the sight line,
-		# not only narrow the camera FOV.  Asset-specific animations still play
-		# on top of this camera-space pose.
+		# ADS physically moves the complete first-person source rig. For weapons
+		# with recovered Aether DT_Weapons data, use the exact HandTransform and
+		# ADSTransform plus their authored transition times.
 		var ads_target: float = 1.0 if is_ads_active() else 0.0
-		var ads_speed: float = 12.0 if ads_target > _ads_pose_alpha else 15.0
+		var source_presentation := _ads_calibration_mode == "source_datatable"
+		var ads_speed: float
+		if source_presentation:
+			var transition_time := _source_ads_in_time if ads_target > _ads_pose_alpha else _source_ads_out_time
+			ads_speed = 1.0 / maxf(transition_time, 0.001)
+		else:
+			ads_speed = 12.0 if ads_target > _ads_pose_alpha else 15.0
 		_ads_pose_alpha = move_toward(_ads_pose_alpha, ads_target, ads_speed * delta)
 		var target_position: Vector3 = _hip_pose_position.lerp(_ads_pose_position, _ads_pose_alpha)
-		var pose_blend: float = 1.0 - exp(-22.0 * delta)
-		_view_pose_position = _view_pose_position.lerp(target_position, pose_blend)
+		var target_rotation: Quaternion = _hip_pose_rotation.slerp(_ads_pose_rotation, _ads_pose_alpha)
+		if source_presentation:
+			_view_pose_position = target_position
+			_view_pose_rotation = target_rotation
+		else:
+			var pose_blend: float = 1.0 - exp(-22.0 * delta)
+			_view_pose_position = _view_pose_position.lerp(target_position, pose_blend)
+			_view_pose_rotation = _view_pose_rotation.slerp(target_rotation, pose_blend)
 		var recoil_push: float = minf(_visual_recoil_pitch * 0.0025, 0.022)
 		_view_root.position = _view_pose_position + Vector3(0.0, 0.0, recoil_push)
+		_view_root.quaternion = _view_pose_rotation
 		set_meta("weapon_ads_pose_alpha", _ads_pose_alpha)
 
 func set_dev_infinite_ammo(enabled: bool) -> void:
