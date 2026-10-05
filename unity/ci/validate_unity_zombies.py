@@ -42,6 +42,7 @@ for rel in [
     "Assets/_Game/Scripts/Interaction/PackAPunchMachine.cs",
     "Assets/_Game/Scripts/World/LightingQualityDirector.cs",
     "Assets/_Game/Scripts/Editor/VerticalSliceBootstrap.cs",
+    "Assets/_Game/Scripts/Editor/NavMeshVerticalSlicePlacement.cs",
     "Assets/_Game/Scripts/Editor/URPVisualBootstrap.cs",
     "Assets/_Game/Scripts/Editor/ZombieAnimatorBootstrap.cs",
     "Assets/_Game/Scripts/Editor/WeaponAnimatorBootstrap.cs",
@@ -162,6 +163,21 @@ spawn_director = (root / "Assets/_Game/Scripts/AI/ZombieSpawnDirector.cs").read_
 if "AlivePlayerCount" not in spawn_director or "IsGameOver" not in spawn_director:
     errors.append("round director game-over awareness missing")
 
+placement = (root / "Assets/_Game/Scripts/Editor/NavMeshVerticalSlicePlacement.cs").read_text()
+for token in ["NavMesh.CalculateTriangulation", "NavMesh.SamplePosition", "primary", "zombieSpawns"]:
+    if token not in placement:
+        errors.append(f"NavMesh-derived vertical slice placement missing: {token}")
+
+bootstrap = (root / "Assets/_Game/Scripts/Editor/VerticalSliceBootstrap.cs").read_text()
+if "NavMeshVerticalSlicePlacement.Build(8)" not in bootstrap:
+    errors.append("vertical slice still lacks NavMesh-derived player/spawn placement")
+if "new Vector3(-7f,0f,5f)" in bootstrap or "new Vector3(7f,0f,5f)" in bootstrap:
+    errors.append("hardcoded zombie spawn coordinates returned")
+
+spawn_code = (root / "Assets/_Game/Scripts/AI/ZombieSpawnDirector.cs").read_text()
+if "TryGetSpawnPosition" not in spawn_code or "spawnPosition" not in spawn_code:
+    errors.append("zombie spawn points are not snapped to baked NavMesh")
+
 android_build = (root / "Assets/_Game/Scripts/Editor/AndroidBuild.cs").read_text()
 for token in [
     "defaultInterfaceOrientation = UIOrientation.LandscapeLeft",
@@ -203,6 +219,7 @@ print("MOSIN_RELOAD_SOURCE_GAP=KNOWN_FALLBACK")
 print("MONJA_EMBEDDED_IDLE_WALK_ATTACK_HIT_DEATH=VALID")
 print("PLAYER_DAMAGE_DOWN_REVIVE_AND_GAME_OVER=WIRED")
 print("ZOMBIE_STUCK_RECOVERY=WIRED")
+print("NAVMESH_DERIVED_PLAYER_AND_ZOMBIE_SPAWNS=WIRED")
 print("LANDSCAPE_ONLY_RUNTIME_AND_ANDROID_BUILD=WIRED")
 print("REAL_GAMEPLAY_PHOTO_CAPTURE=WIRED")
 print("URP_MOBILE_PIPELINE_AND_POST=WIRED")

@@ -66,6 +66,13 @@ namespace Sanctum.Zombies.EditorTools
             NavMeshSurface nav = world.AddComponent<NavMeshSurface>();
             nav.collectObjects = CollectObjects.All;
             nav.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
+            nav.BuildNavMesh();
+
+            NavMeshVerticalSlicePlacement.Layout navLayout = NavMeshVerticalSlicePlacement.Build(8);
+            Vector3 combatForward = navLayout.lookTarget - navLayout.playerPosition;
+            combatForward.y = 0f;
+            if (combatForward.sqrMagnitude < 0.01f) combatForward = Vector3.forward;
+            combatForward.Normalize();
 
             GameObject lightingRoot = new GameObject("LIGHTING");
             lightingRoot.AddComponent<LightingQualityDirector>();
@@ -77,14 +84,18 @@ namespace Sanctum.Zombies.EditorTools
             globalVolume.priority = 10f;
             globalVolume.profile = URPVisualBootstrap.BuildOrGetVolumeProfile();
             CreateLight(lightingRoot.transform, "Moon", LightType.Directional, new Vector3(48f, -32f, 0f), 0.55f, true, LightingPriority.Critical);
-            Light nave = CreateLight(lightingRoot.transform, "NaveWarm", LightType.Point, new Vector3(0f, 3.4f, 2f), 4.0f, true, LightingPriority.Critical);
+            Vector3 naveLightPosition = navLayout.lookTarget + Vector3.up * 2.0f;
+            Light nave = CreateLight(lightingRoot.transform, "NaveWarm", LightType.Point, naveLightPosition, 4.0f, true, LightingPriority.Critical);
             nave.range = 14f;
-            Light altar = CreateLight(lightingRoot.transform, "AltarWarm", LightType.Point, new Vector3(0f, 2.6f, 12f), 3.2f, true, LightingPriority.Accent);
+
+            Vector3 altarLightPosition = navLayout.lookTarget + combatForward * 7.5f + Vector3.up * 1.6f;
+            Light altar = CreateLight(lightingRoot.transform, "AltarWarm", LightType.Point, altarLightPosition, 3.2f, true, LightingPriority.Accent);
             altar.range = 10f;
             altar.gameObject.AddComponent<HorrorLightFlicker>();
 
             GameObject player = new GameObject("PLAYER");
-            player.transform.position = new Vector3(0f, 1.0f, -7f);
+            player.transform.position = navLayout.playerPosition;
+            player.transform.rotation = Quaternion.LookRotation(combatForward, Vector3.up);
             CharacterController cc = player.AddComponent<CharacterController>();
             cc.height = 1.76f;
             cc.radius = 0.34f;
@@ -141,7 +152,7 @@ namespace Sanctum.Zombies.EditorTools
             }
 
             GameObject zombiePrefab = BuildZombiePrefab(tuning);
-            ZombieSpawnDirector roundDirector = CreateSpawnDirector(zombiePrefab, tuning);
+            ZombieSpawnDirector roundDirector = CreateSpawnDirector(zombiePrefab, tuning, navLayout.zombieSpawns);
 
             Texture2D fireIcon = AssetDatabase.LoadAssetAtPath<Texture2D>(HUDFirePath);
             Texture2D jumpIcon = AssetDatabase.LoadAssetAtPath<Texture2D>(HUDJumpPath);
@@ -149,12 +160,10 @@ namespace Sanctum.Zombies.EditorTools
             hud.Configure(hudLayout, weapon, wallet, roundDirector, playerHealth, fireIcon, jumpIcon);
 
             GameObject pap = new GameObject("PackAPunch_Test");
-            pap.transform.position = new Vector3(3f, 1f, 8f);
+            pap.transform.position = NavMeshVerticalSlicePlacement.Project(navLayout.lookTarget + Vector3.right * 2.0f, 4f) + Vector3.up;
             BoxCollider papCollider = pap.AddComponent<BoxCollider>();
             papCollider.size = new Vector3(1.2f, 2f, 0.8f);
             pap.AddComponent<PackAPunchMachine>();
-
-            nav.BuildNavMesh();
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -245,23 +254,22 @@ namespace Sanctum.Zombies.EditorTools
             SetEnum(hitbox, "zone", (int)zone);
         }
 
-        private static ZombieSpawnDirector CreateSpawnDirector(GameObject zombiePrefab, ZombieRoundTuning tuning)
+        private static ZombieSpawnDirector CreateSpawnDirector(GameObject zombiePrefab, ZombieRoundTuning tuning, Vector3[] spawnPositions)
         {
             GameObject directorGo = new GameObject("ROUND_DIRECTOR");
             ZombieSpawnDirector director = directorGo.AddComponent<ZombieSpawnDirector>();
             SetObjectReference(director, "tuning", tuning);
             SetObjectReference(director, "zombiePrefab", zombiePrefab.GetComponent<ZombieBrain>());
 
-            ZombieSpawnPoint[] points = new ZombieSpawnPoint[6];
-            Vector3[] positions = {
-                new Vector3(-7f,0f,5f), new Vector3(7f,0f,5f), new Vector3(-6f,0f,14f),
-                new Vector3(6f,0f,14f), new Vector3(-8f,0f,-2f), new Vector3(8f,0f,-2f)
-            };
+            if (spawnPositions == null || spawnPositions.Length == 0)
+                throw new InvalidDataException("No NavMesh-derived zombie spawn positions were generated.");
+
+            ZombieSpawnPoint[] points = new ZombieSpawnPoint[spawnPositions.Length];
 
             for (int i = 0; i < points.Length; i++)
             {
                 GameObject go = new GameObject($"ZombieSpawn_{i:00}");
-                go.transform.position = positions[i];
+                go.transform.position = spawnPositions[i];
                 points[i] = go.AddComponent<ZombieSpawnPoint>();
             }
 

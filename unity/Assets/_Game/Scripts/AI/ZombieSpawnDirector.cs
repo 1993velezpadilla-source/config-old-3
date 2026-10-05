@@ -9,15 +9,23 @@ namespace Sanctum.Zombies.AI
     {
         [SerializeField] private float minimumPlayerDistance = 7f;
 
-        public bool CanSpawn()
+        public bool CanSpawn() => TryGetSpawnPosition(out _);
+
+        public bool TryGetSpawnPosition(out Vector3 position)
         {
+            position = transform.position;
+
             foreach (PlayerTarget p in PlayerTarget.Active)
             {
                 if (p != null && p.IsAlive && Vector3.Distance(transform.position, p.transform.position) < minimumPlayerDistance)
                     return false;
             }
 
-            return NavMesh.SamplePosition(transform.position, out _, 1.5f, NavMesh.AllAreas);
+            if (!NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 1.5f, NavMesh.AllAreas))
+                return false;
+
+            position = hit.position;
+            return true;
         }
     }
 
@@ -73,9 +81,9 @@ namespace Sanctum.Zombies.AI
                 if (alive.Count < tuning.maxAliveMobile)
                 {
                     ZombieSpawnPoint point = ChooseSpawnPoint();
-                    if (point != null)
+                    if (point != null && point.TryGetSpawnPosition(out Vector3 spawnPosition))
                     {
-                        ZombieBrain zombie = Instantiate(zombiePrefab, point.transform.position, point.transform.rotation);
+                        ZombieBrain zombie = Instantiate(zombiePrefab, spawnPosition, point.transform.rotation);
                         zombie.Initialize(round, tuning.SpeedForRound(round, Random.value));
                         alive.Add(zombie.GetComponent<ZombieHealth>());
                         spawnedThisRound++;
