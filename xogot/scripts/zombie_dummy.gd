@@ -17,6 +17,7 @@ const RIGGED_FALLBACK_ANIMS := {
 	"idle": ["Zombie_Idle_Loop", "Zombie_Idle_Clean", "Idle_Clean"],
 	"walk": ["Zombie_Walk_Fwd_Loop", "Zombie_Walk_Clean", "Walk_Clean"],
 	"attack": ["Zombie_Scratch", "Zombie_Attack_Clean", "Attack_Clean"],
+	"hit": ["Zombie_Hit_Clean", "Hit_Clean", "Hit_Knockback"],
 	"death": ["Zombie_Death_Clean", "Death_Clean", "LayToIdle", "fall_on_face"],
 }
 
@@ -55,7 +56,8 @@ const MOTION_PROFILES: Array[Dictionary] = [
 ]
 
 const ATTACK_KEYS: Array[String] = ["strike_A", "02_05", "punch_kick", "111_19"]
-const DEATH_KEYS: Array[String] = ["fall_on_face", "90_16"]
+const HIT_KEYS: Array[String] = ["Zombie_Hit_Clean", "Hit_Knockback"]
+const DEATH_KEYS: Array[String] = ["fall_on_face", "90_16", "Zombie_Death_Clean", "LayToIdle"]
 const GETUP_KEYS: Array[String] = ["face_down_A", "140_01"]
 const CRAWL_KEYS: Array[String] = ["crawl_A", "111_03"]
 
@@ -532,6 +534,8 @@ func _physics_process(delta: float) -> void:
 		rotation.y = lerp_angle(rotation.y, _network_proxy_target_yaw, blend)
 		if phase == Phase.DEAD:
 			_play_motion_state("death")
+		elif _hit_reaction_timer > 0.0:
+			_play_motion_state("hit")
 		elif _crawler:
 			_play_motion_state("crawl")
 		elif distance > 0.025:
@@ -541,6 +545,14 @@ func _physics_process(delta: float) -> void:
 		return
 	_update_voice(delta)
 	if phase == Phase.DEAD:
+		return
+	if _hit_reaction_timer > 0.0:
+		_play_motion_state("hit")
+		velocity.x = 0.0
+		velocity.z = 0.0
+		if not is_on_floor():
+			velocity.y -= _gravity * delta
+		move_and_slide()
 		return
 
 	_path_refresh_timer = maxf(0.0, _path_refresh_timer - delta)
@@ -840,6 +852,8 @@ func _play_motion_state(state: String) -> void:
 				keys.append(str(key_var))
 	elif state == "attack":
 		keys = ATTACK_KEYS
+	elif state == "hit":
+		keys = HIT_KEYS
 	elif state == "death":
 		keys = DEATH_KEYS
 	elif state == "getup":
@@ -1086,6 +1100,9 @@ func _take_damage(amount: float, source: Node, headshot: bool) -> void:
 		print("XZOGOT_INSTA_KILL_HIT ", name)
 	health -= applied_amount
 	_hit_reaction_timer = hit_reaction_duration
+	if health > 0.0:
+		_motion_state = ""
+		_play_motion_state("hit")
 	if source != null and source.has_method("add_points"):
 		source.call("add_points", 10)
 		if headshot:
