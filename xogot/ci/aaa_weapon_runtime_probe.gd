@@ -104,6 +104,39 @@ func _run_probe() -> void:
 			_fail(20, "ADS has no per-model calibration " + id)
 			return
 
+		var yaw_fix := float(weapon.get_meta("weapon_model_yaw_correction_deg", 0.0))
+		if absf(yaw_fix - 90.0) > 0.01:
+			_fail(27, "forward-axis correction missing " + id + " yaw=" + str(yaw_fix))
+			return
+
+		var texture_surfaces := int(weapon.get_meta("weapon_texture_surfaces", 0))
+		var textured_surfaces := int(weapon.get_meta("weapon_textured_surfaces", 0))
+		if not bool(weapon.get_meta("weapon_texture_ready", false)):
+			_fail(
+				28,
+				"texture binding incomplete " + id + " "
+				+ str(textured_surfaces) + "/" + str(texture_surfaces)
+			)
+			return
+		if texture_surfaces <= 0 or textured_surfaces != texture_surfaces:
+			_fail(29, "texture surface mismatch " + id)
+			return
+
+		var view_depth := float(weapon.get_meta("weapon_viewmodel_depth_m", 0.0))
+		if view_depth < 0.20 or view_depth > 1.55:
+			_fail(30, "viewmodel depth out of sane range " + id + " depth=" + str(view_depth))
+			return
+
+		var view_scale := float(weapon.get_meta("weapon_viewmodel_scale_factor", 0.0))
+		if view_scale < 0.619 or view_scale > 1.321:
+			_fail(31, "viewmodel normalization scale invalid " + id + " scale=" + str(view_scale))
+			return
+
+		var ads_near := float(weapon.get_meta("weapon_ads_nearest_camera_z", 0.0))
+		if ads_near > -0.16:
+			_fail(32, "ADS geometry intersects camera " + id + " near=" + str(ads_near))
+			return
+
 		weapon.call("set_dev_infinite_ammo", true)
 		var shots_before := int(weapon.call("get_shots_fired"))
 		weapon.set("_cooldown", 0.0)
@@ -132,7 +165,15 @@ func _run_probe() -> void:
 			_fail(26, "PaP did not increase damage " + id)
 			return
 
-		print("XZOGOT_AAA_WEAPON_GREEN ", id, " ads=", ads_mode, " pap=", expected_pack_damage)
+		print(
+			"XZOGOT_AAA_WEAPON_GREEN ",
+			id,
+			" ads=", ads_mode,
+			" textures=", textured_surfaces, "/", texture_surfaces,
+			" depth=", view_depth,
+			" near=", ads_near,
+			" pap=", expected_pack_damage
+		)
 
 	print("XZOGOT_AAA_28_FIREARMS_GREEN 28")
 	print("XZOGOT_AAA_WEAPON_RUNTIME_GATE_GREEN")
