@@ -434,6 +434,9 @@ func _apply_source_hands_textures(model: Node3D) -> Dictionary:
 	var normal := _load_optional_asset(
 		"res://assets/weapons/aether_waw_hands/legacy_richtofen/textures/arm_normal.png"
 	) as Texture2D
+	var specular := _load_optional_asset(
+		"res://assets/weapons/aether_waw_hands/legacy_richtofen/textures/arm_specular.png"
+	) as Texture2D
 	var surfaces := 0
 	var textured := 0
 	var stack: Array[Node] = [model]
@@ -452,6 +455,52 @@ func _apply_source_hands_textures(model: Node3D) -> Dictionary:
 						material_name = source_mat.resource_name.to_lower()
 					if material_name.is_empty():
 						material_name = str(mesh_node.mesh.surface_get_name(surface_idx)).to_lower()
+					# CUE4Parse preserves the BO2 Origins Richtofen mesh as three
+					# source surfaces: material slot None = both sleeve/forearm shells,
+					# then explicit left/right hand materials. The sleeve primitive uses
+					# the cloth half of the same bilateral atlases (U 0..~0.5), while
+					# the hand primitives use the skin half. Reconstruct that lost UE
+					# runtime material assignment from the authored geometry side:
+					# negative local Z follows the left atlas, positive local Z the right.
+					if material_name == "none" or source_mat == null:
+						if left == null or right == null:
+							continue
+						var sleeve_shader := Shader.new()
+						sleeve_shader.code = """
+shader_type spatial;
+uniform sampler2D left_albedo : source_color;
+uniform sampler2D right_albedo : source_color;
+uniform sampler2D source_normal : hint_normal;
+uniform sampler2D source_specular;
+varying float source_right_side;
+void vertex() {
+	source_right_side = step(0.0, VERTEX.z);
+}
+void fragment() {
+	vec4 left_sample = texture(left_albedo, UV);
+	vec4 right_sample = texture(right_albedo, UV);
+	vec4 base = mix(left_sample, right_sample, source_right_side);
+	ALBEDO = base.rgb;
+	ALPHA = base.a;
+	NORMAL_MAP = texture(source_normal, UV).rgb;
+	SPECULAR = texture(source_specular, UV).r;
+	ROUGHNESS = 0.58;
+}
+"""
+						var sleeve_mat := ShaderMaterial.new()
+						sleeve_mat.shader = sleeve_shader
+						sleeve_mat.set_shader_parameter("left_albedo", left)
+						sleeve_mat.set_shader_parameter("right_albedo", right)
+						if normal != null:
+							sleeve_mat.set_shader_parameter("source_normal", normal)
+						if specular != null:
+							sleeve_mat.set_shader_parameter("source_specular", specular)
+						mesh_node.set_surface_override_material(surface_idx, sleeve_mat)
+						textured += 1
+						set_meta("weapon_hands_source_null_surface_reconstructed", true)
+						set_meta("weapon_hands_source_null_surface_mode", "bilateral_richtofen_atlas_by_local_z")
+						continue
+
 					var albedo: Texture2D = null
 					if material_name.contains("richtofen_l") or material_name.contains("left"):
 						albedo = left
