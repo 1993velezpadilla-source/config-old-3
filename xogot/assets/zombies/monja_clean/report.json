@@ -66,28 +66,28 @@
     "animation_motion": {
       "NLA_Zombie_Attack_Clean": {
         "sampled_channels": 72,
-        "varying_channels": 44,
-        "max_component_range": 1.3251209259033203
+        "varying_channels": 43,
+        "max_component_range": 1.8091670274734497
       },
       "NLA_Zombie_Death_Clean": {
         "sampled_channels": 72,
-        "varying_channels": 44,
-        "max_component_range": 1.8458985090255737
+        "varying_channels": 43,
+        "max_component_range": 1.268335998058319
       },
       "NLA_Zombie_Hit_Clean": {
         "sampled_channels": 72,
-        "varying_channels": 44,
-        "max_component_range": 1.6199731230735779
+        "varying_channels": 43,
+        "max_component_range": 1.6902559399604797
       },
       "NLA_Zombie_Idle_Clean": {
         "sampled_channels": 72,
-        "varying_channels": 44,
-        "max_component_range": 0.1806635558605194
+        "varying_channels": 43,
+        "max_component_range": 1.5586116909980774
       },
       "NLA_Zombie_Walk_Clean": {
         "sampled_channels": 72,
-        "varying_channels": 44,
-        "max_component_range": 0.7087422013282776
+        "varying_channels": 43,
+        "max_component_range": 1.7847225666046143
       }
     }
   },
@@ -100,28 +100,28 @@
   "raw_glb_animation_motion": {
     "Idle_Clean": {
       "sampled_channels": 72,
-      "varying_channels": 44,
-      "max_component_range": 0.1806635558605194
+      "varying_channels": 43,
+      "max_component_range": 1.5586116909980774
     },
     "Walk_Clean": {
       "sampled_channels": 72,
-      "varying_channels": 44,
-      "max_component_range": 0.7087422013282776
+      "varying_channels": 43,
+      "max_component_range": 1.7847225666046143
     },
     "Attack_Clean": {
       "sampled_channels": 72,
-      "varying_channels": 44,
-      "max_component_range": 1.3251209259033203
+      "varying_channels": 43,
+      "max_component_range": 1.8091670274734497
     },
     "Hit_Clean": {
       "sampled_channels": 72,
-      "varying_channels": 44,
-      "max_component_range": 1.6199731230735779
+      "varying_channels": 43,
+      "max_component_range": 1.6902559399604797
     },
     "Death_Clean": {
       "sampled_channels": 72,
-      "varying_channels": 44,
-      "max_component_range": 1.8458985090255737
+      "varying_channels": 43,
+      "max_component_range": 1.268335998058319
     }
   },
   "raw_glb_animation_motion_valid": true,
@@ -154,7 +154,10 @@
         0,
         32
       ],
-      "bones": 23
+      "bones": 23,
+      "retarget": "rotation_only_preserve_target_lengths",
+      "motion_profile": "bounded_action_specific_v4_cloth_safe",
+      "source_reversed": false
     },
     {
       "name": "Zombie_Walk_Clean",
@@ -162,7 +165,10 @@
         0,
         32
       ],
-      "bones": 23
+      "bones": 23,
+      "retarget": "rotation_only_preserve_target_lengths",
+      "motion_profile": "bounded_action_specific_v4_cloth_safe",
+      "source_reversed": false
     },
     {
       "name": "Zombie_Attack_Clean",
@@ -170,7 +176,10 @@
         0,
         44
       ],
-      "bones": 23
+      "bones": 23,
+      "retarget": "rotation_only_preserve_target_lengths",
+      "motion_profile": "bounded_action_specific_v4_cloth_safe",
+      "source_reversed": false
     },
     {
       "name": "Zombie_Hit_Clean",
@@ -178,7 +187,10 @@
         0,
         20
       ],
-      "bones": 23
+      "bones": 23,
+      "retarget": "rotation_only_preserve_target_lengths",
+      "motion_profile": "bounded_action_specific_v4_cloth_safe",
+      "source_reversed": false
     },
     {
       "name": "Zombie_Death_Clean",
@@ -186,10 +198,146 @@
         0,
         37
       ],
-      "bones": 23
+      "bones": 23,
+      "retarget": "rotation_only_preserve_target_lengths",
+      "motion_profile": "bounded_action_specific_v4_cloth_safe",
+      "source_reversed": true
     }
   ],
-  "output_bytes": 104709288,
+  "deformation_sanity": {
+    "Zombie_Idle_Clean": {
+      "valid": true,
+      "max_extent_ratio": 1.2835405292081505,
+      "max_diag_ratio": 1.0084732557820837,
+      "max_surface_area_ratio": 1.6624811897039022,
+      "samples": [
+        {
+          "frame": 0,
+          "extent_ratio": 1.2835405292081505,
+          "diag_ratio": 1.0042774573988686,
+          "surface_area_ratio": 1.6624811897039022
+        },
+        {
+          "frame": 16,
+          "extent_ratio": 1.0358326615669593,
+          "diag_ratio": 1.0084732557820837,
+          "surface_area_ratio": 1.1670236666229514
+        },
+        {
+          "frame": 32,
+          "extent_ratio": 1.0617035699470079,
+          "diag_ratio": 1.0053129136802001,
+          "surface_area_ratio": 1.2007392148356066
+        }
+      ]
+    },
+    "Zombie_Walk_Clean": {
+      "valid": true,
+      "max_extent_ratio": 1.2992954448131893,
+      "max_diag_ratio": 1.0621936978634008,
+      "max_surface_area_ratio": 1.9715833338126283,
+      "samples": [
+        {
+          "frame": 0,
+          "extent_ratio": 1.2407486373598995,
+          "diag_ratio": 1.048185328841919,
+          "surface_area_ratio": 1.9715833338126283
+        },
+        {
+          "frame": 16,
+          "extent_ratio": 1.110666608140996,
+          "diag_ratio": 1.0158261786758043,
+          "surface_area_ratio": 1.3878799066634013
+        },
+        {
+          "frame": 32,
+          "extent_ratio": 1.2992954448131893,
+          "diag_ratio": 1.0621936978634008,
+          "surface_area_ratio": 1.4390124432203186
+        }
+      ]
+    },
+    "Zombie_Attack_Clean": {
+      "valid": true,
+      "max_extent_ratio": 1.2963054343753346,
+      "max_diag_ratio": 1.0301909960069073,
+      "max_surface_area_ratio": 2.3097364635391675,
+      "samples": [
+        {
+          "frame": 0,
+          "extent_ratio": 1.1890233022874068,
+          "diag_ratio": 0.9201836192815501,
+          "surface_area_ratio": 2.3097364635391675
+        },
+        {
+          "frame": 22,
+          "extent_ratio": 1.2963054343753346,
+          "diag_ratio": 1.0301909960069073,
+          "surface_area_ratio": 1.7111488129728252
+        },
+        {
+          "frame": 44,
+          "extent_ratio": 0.9976146529660621,
+          "diag_ratio": 0.9959829441949977,
+          "surface_area_ratio": 1.006566810087721
+        }
+      ]
+    },
+    "Zombie_Hit_Clean": {
+      "valid": true,
+      "max_extent_ratio": 1.4936674923450228,
+      "max_diag_ratio": 1.0815289465824403,
+      "max_surface_area_ratio": 1.9703291899122304,
+      "samples": [
+        {
+          "frame": 0,
+          "extent_ratio": 1.1890233022874068,
+          "diag_ratio": 0.8746770369499212,
+          "surface_area_ratio": 1.9703291899122304
+        },
+        {
+          "frame": 10,
+          "extent_ratio": 1.4936674923450228,
+          "diag_ratio": 1.0815289465824403,
+          "surface_area_ratio": 1.4336699906137824
+        },
+        {
+          "frame": 20,
+          "extent_ratio": 1.00285177675455,
+          "diag_ratio": 0.9990008427131251,
+          "surface_area_ratio": 1.0595393811132567
+        }
+      ]
+    },
+    "Zombie_Death_Clean": {
+      "valid": true,
+      "max_extent_ratio": 1.289426180057453,
+      "max_diag_ratio": 1.029581016102468,
+      "max_surface_area_ratio": 2.420261082627459,
+      "samples": [
+        {
+          "frame": 0,
+          "extent_ratio": 1.1029735549258646,
+          "diag_ratio": 0.9890552640968476,
+          "surface_area_ratio": 1.1722358647593647
+        },
+        {
+          "frame": 18,
+          "extent_ratio": 1.0910263559600497,
+          "diag_ratio": 1.029581016102468,
+          "surface_area_ratio": 1.1502316127091035
+        },
+        {
+          "frame": 37,
+          "extent_ratio": 1.289426180057453,
+          "diag_ratio": 0.9228989390376119,
+          "surface_area_ratio": 2.420261082627459
+        }
+      ]
+    }
+  },
+  "deformation_sanity_violations": [],
+  "output_bytes": 104707336,
   "rig_mode": "source_pose_smooth_weighted_humanoid",
   "old_rigid_region_parenting": false,
   "pose_match": {
@@ -310,9 +458,16 @@
       -0.445558
     ]
   },
-  "runtime_compression": "EXT_meshopt_compression",
-  "runtime_meshopt_level": "medium",
-  "runtime_quantization_bits": 16,
+  "runtime_format": "gltf_separate",
+  "runtime_compression": "none",
   "runtime_simplification": false,
-  "runtime_output_bytes": 32534048
+  "runtime_quantization": false,
+  "runtime_files": {
+    "monja_basica_clean_rig.bin": 92555404,
+    "monja_basica_clean_rig.gltf": 147096,
+    "baseColor_1.jpg": 4158585,
+    "normal_1.png": 5818888,
+    "metallicRoughness_1.jpg": 2085075
+  },
+  "runtime_output_bytes": 104765048
 }
