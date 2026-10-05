@@ -1,0 +1,43 @@
+name: Temp ingest special enemy GLBs
+on:
+  push:
+    branches:
+      - feature/church-expansion-v1
+    paths:
+      - .github/workflows/_temp_ingest_special_enemy_glbs_20261004.yml
+
+permissions:
+  contents: write
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/church-expansion-v1
+          fetch-depth: 1
+      - name: Download exact GLBs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p xogot/assets/zombies/sheep/source
+          mkdir -p xogot/assets/zombies/monja_elite/source
+          curl -fL --retry 3 --retry-delay 2 'https://sdmntprcentralus.oaiusercontent.com/files/00000000-c460-81f5-aa48-23ed44e8bd9b/raw?se=2026-10-05T01%3A38%3A06Z&sp=r&sv=2026-02-06&sr=b&scid=66c0cabf-95f5-5a90-aa91-ae8878aba0cf&skoid=a1be202a-6464-476c-a496-723317c4a4db&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-04T15%3A59%3A46Z&ske=2026-10-05T15%3A59%3A46Z&sks=b&skv=2026-02-06&sig=bNYjn8UwYkP9rvAFJ3qpbnPGCcM5rWiSYff8UFiNQFM%3D' -o xogot/assets/zombies/sheep/source/sheep_runner.glb
+          curl -fL --retry 3 --retry-delay 2 'https://sdmntprcentralus.oaiusercontent.com/files/00000000-24a0-81f5-bd30-a4924d9c8ebe/raw?se=2026-10-05T01%3A38%3A23Z&sp=r&sv=2026-02-06&sr=b&scid=42e037e3-41bd-5780-81cf-14118e14384b&skoid=a1be202a-6464-476c-a496-723317c4a4db&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-04T23%3A33%3A37Z&ske=2026-10-05T23%3A33%3A37Z&sks=b&skv=2026-02-06&sig=74eH05EGeRMOFBouqnGVFtRIHmDU2p/p%2BXcAl7dVt2g%3D' -o xogot/assets/zombies/sheep/source/sheep_brute.glb
+          curl -fL --retry 3 --retry-delay 2 'https://sdmntprcentralus.oaiusercontent.com/files/00000000-808c-81f5-bdd1-39878b2e7c70/raw?se=2026-10-05T01%3A38%3A40Z&sp=r&sv=2026-02-06&sr=b&scid=65ce4862-087d-50ee-b1b7-559437def8f4&skoid=a1be202a-6464-476c-a496-723317c4a4db&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-10-04T15%3A59%3A46Z&ske=2026-10-05T15%3A59%3A46Z&sks=b&skv=2026-02-06&sig=LtqM8sr3ndxVh17G8YgYXJs/ng7FTEZ1qAD3VumZ9oA%3D' -o xogot/assets/zombies/monja_elite/source/monja_black_white.glb
+          test "$(stat -c %s xogot/assets/zombies/sheep/source/sheep_runner.glb)" = "4111608"
+          test "$(stat -c %s xogot/assets/zombies/sheep/source/sheep_brute.glb)" = "8683356"
+          test "$(stat -c %s xogot/assets/zombies/monja_elite/source/monja_black_white.glb)" = "20374600"
+      - name: Commit binary sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add xogot/assets/zombies/sheep/source/sheep_runner.glb
+          git add xogot/assets/zombies/sheep/source/sheep_brute.glb
+          git add xogot/assets/zombies/monja_elite/source/monja_black_white.glb
+          git diff --cached --quiet && exit 0
+          git commit -m "Add special enemy source GLBs"
+          git push origin HEAD:feature/church-expansion-v1
