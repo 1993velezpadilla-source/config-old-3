@@ -554,6 +554,140 @@ def mesh_surface_stats(mesh_objects):
 def triangle_count(mesh_objects):
     return mesh_surface_stats(mesh_objects)["triangles"]
 
+def glb_raw_bind_stats(path):
+    import struct
+
+    data=Path(path).read_bytes()
+    if len(data)<20 or data[:4]!=b"glTF":
+        fail("exported GLB header invalid")
+    pos=12
+    doc=None
+    bin_blob=None
+    while pos+8<=len(data):
+        chunk_len,chunk_type=struct.unpack_from("<II",data,pos)
+        chunk=data[pos+8:pos+8+chunk_len]
+        if chunk_type==0x4E4F534A:
+            doc=json.loads(chunk.decode("utf-8").rstrip("\x00 \t\r\n"))
+        elif chunk_type==0x004E4942:
+            bin_blob=chunk
+        pos += 8 + chunk_len
+    if doc is None or bin_blob is None:
+        fail("exported GLB missing JSON/BIN chunks")
+
+    component_dtypes={
+        5120:np.int8,5121:np.uint8,5122:np.int16,5123:np.uint16,
+        5125:np.uint32,5126:np.float32,
+    }
+    type_dims={"SCALAR":1,"VEC2":2,"VEC3":3,"VEC4":4,"MAT4":16}
+
+    def read_accessor(index):
+        acc=doc["accessors"][index]
+        if "sparse" in acc:
+            fail("sparse accessor unsupported in bind validator")
+        bv=doc["bufferViews"][acc["bufferView"]]
+        dtype=component_dtypes[acc["componentType"]]
+        dims=type_dims[acc["type"]]
+        off=int(bv.get("byteOffset",0))+int(acc.get("byteOffset",0))
+        stride=int(bv.get("byteStride",np.dtype(dtype).itemsize*dims))
+        item_bytes=np.dtype(dtype).itemsize*dims
+        count=int(acc["count"])
+        if stride==item_bytes:
+            return np.frombuffer(bin_blob,dtype=dtype,count=count*dims,offset=off).reshape((count,dims)).copy()
+        out=np.empty((count,dims),dtype=dtype)
+        for i in range(count):
+            out[i]=np.frombuffer(bin_blob,dtype=dtype,count=dims,offset=off+i*stride)
+        return out
+
+    total_triangles=0
+    total_area=0.0
+    raw_min=None
+    raw_max=None
+    for mesh in doc.get("meshes",[]):
+        for prim in mesh.get("primitives",[]):
+            if int(prim.get("mode",4))!=4:
+                fail("non-triangle primitive in exported GLB")
+            positions=read_accessor(prim["attributes"]["POSITION"]).astype(np.float64)
+            mn=positions.min(axis=0); mx=positions.max(axis=0)
+            raw_min=mn if raw_min is None else np.minimum(raw_min,mn)
+            raw_max=mx if raw_max is None else np.maximum(raw_max,mx)
+            if "indices" in prim:
+                indices=read_accessor(prim["indices"]).reshape(-1).astype(np.int64)
+            else:
+                indices=np.arange(len(positions),dtype=np.int64)
+            if len(indices)%3:
+                fail("triangle index count not divisible by three")
+            total_triangles += len(indices)//3
+            # Chunk the area calculation so ~2M-triangle assets do not spike RAM.
+            for start in range(0,len(indices),600000):
+                chunk=indices[start:start+600000].reshape((-1,3))
+                tri=positions[chunk]
+                cross=np.cross(tri[:,1]-tri[:,0],tri[:,2]-tri[:,0])
+                total_area += float((0.5*np.linalg.norm(cross,axis=1)).sum())
+
+    def quat_matrix(q):
+        x,y,z,w=[float(v) for v in q]
+        n=x*x+y*y+z*z+w*w
+        if n<1e-20:
+            return np.eye(3,dtype=np.float64)
+        s=2.0/n
+        xx,yy,zz=x*x*s,y*y*s,z*z*s
+        xy,xz,yz=x*y*s,x*z*s,y*z*s
+        wx,wy,wz=w*x*s,w*y*s,w*z*s
+        return np.array([
+            [1-(yy+zz),xy-wz,xz+wy],
+            [xy+wz,1-(xx+zz),yz-wx],
+            [xz-wy,yz+wx,1-(xx+yy)],
+        ],dtype=np.float64)
+
+    def local_matrix(node):
+        if "matrix" in node:
+            return np.array(node["matrix"],dtype=np.float64).reshape((4,4)).T
+        M=np.eye(4,dtype=np.float64)
+        M[:3,:3]=quat_matrix(node.get("rotation",[0,0,0,1])) @ np.diag(np.array(node.get("scale",[1,1,1]),dtype=np.float64))
+        M[:3,3]=np.array(node.get("translation",[0,0,0]),dtype=np.float64)
+        return M
+
+    nodes=doc.get("nodes",[])
+    parents={}
+    for ni,node in enumerate(nodes):
+        for ch in node.get("children",[]) or []:
+            parents[int(ch)]=ni
+    locals_=[local_matrix(n) for n in nodes]
+    globals_=[None]*len(nodes)
+    def global_matrix(i):
+        if globals_[i] is not None:
+            return globals_[i]
+        globals_[i]=(global_matrix(parents[i]) @ locals_[i]) if i in parents else locals_[i]
+        return globals_[i]
+
+    bind_errors=[]
+    skinned_nodes=0
+    for ni,node in enumerate(nodes):
+        if "mesh" not in node or "skin" not in node:
+            continue
+        skinned_nodes += 1
+        skin=doc["skins"][int(node["skin"])]
+        ibm=read_accessor(skin["inverseBindMatrices"]).astype(np.float64).reshape((-1,4,4)).transpose((0,2,1))
+        mesh_world=global_matrix(ni)
+        mesh_inv=np.linalg.inv(mesh_world)
+        for ji,joint_node in enumerate(skin["joints"]):
+            bind=mesh_inv @ global_matrix(int(joint_node)) @ ibm[ji]
+            bind_errors.append(float(np.max(np.abs(bind-np.eye(4,dtype=np.float64)))))
+
+    if skinned_nodes<1 or not bind_errors:
+        fail("exported GLB skin/inverse bind data missing")
+
+    return {
+        "triangles":int(total_triangles),
+        "surface_area":float(total_area),
+        "bounds_min":[float(x) for x in raw_min],
+        "bounds_max":[float(x) for x in raw_max],
+        "bounds_extents_sorted":[float(x) for x in np.sort(raw_max-raw_min)],
+        "skinned_nodes":int(skinned_nodes),
+        "inverse_bind_identity_max_error":float(max(bind_errors)),
+        "inverse_bind_identity_mean_error":float(sum(bind_errors)/len(bind_errors)),
+    }
+
 def render_preview(arm,mesh_objects,action,label,frame):
     arm.animation_data_create()
     arm.animation_data.action=action
@@ -703,7 +837,26 @@ if arm.animation_data:
 export_selected(arm,monja_meshes)
 if not OUT_GLB.is_file(): fail("output glb missing")
 
-# Reimport exported file and validate actual deliverable.
+raw_glb=glb_raw_bind_stats(OUT_GLB)
+source_extents_sorted=np.sort(np.array(source_surface["bounds_max"])-np.array(source_surface["bounds_min"]))
+raw_extents_sorted=np.array(raw_glb["bounds_extents_sorted"],dtype=np.float64)
+raw_area_delta=abs(raw_glb["surface_area"]-source_surface["surface_area"])
+raw_area_tolerance=max(source_surface["surface_area"]*1e-5,1e-8)
+raw_extent_delta=float(np.max(np.abs(raw_extents_sorted-source_extents_sorted)))
+raw_extent_tolerance=max(float(np.max(source_extents_sorted))*1e-5,1e-6)
+raw_geometry_conserved=(
+    raw_glb["triangles"]==source_triangles
+    and raw_area_delta<=raw_area_tolerance
+    and raw_extent_delta<=raw_extent_tolerance
+)
+raw_bind_valid=raw_glb["inverse_bind_identity_max_error"]<=1e-4
+print("XZOGOT_MONJA_RAW_GLB_GEOMETRY",raw_glb["triangles"],raw_glb["surface_area"],raw_area_delta,raw_extent_delta)
+print("XZOGOT_MONJA_RAW_GLB_BIND",raw_glb["inverse_bind_identity_max_error"],raw_glb["inverse_bind_identity_mean_error"])
+
+# Reimport exported file to validate skeleton/actions. Blender's evaluated REST
+# mesh is kept as diagnostics only: its Armature modifier evaluation can report
+# a normalized donor-space surface even when the serialized glTF POSITION data
+# and inverse-bind matrices are correct.
 reset()
 bpy.ops.import_scene.gltf(filepath=str(OUT_GLB))
 out_mesh=objs("MESH"); out_arm=objs("ARMATURE")
@@ -730,12 +883,7 @@ source_extent=max(
     for i in range(3)
 )
 bounds_tolerance=max(source_extent*1e-5,1e-6)
-geometry_conserved=(
-    extra_triangles>=0
-    and extra_triangles<=256
-    and area_delta<=area_tolerance
-    and bounds_delta<=bounds_tolerance
-)
+geometry_conserved=bool(raw_geometry_conserved and raw_bind_valid)
 
 report={
     "schema":1,
@@ -765,8 +913,15 @@ report={
     "output_bounds_max":out_surface["bounds_max"],
     "bounds_delta":bounds_delta,
     "bounds_tolerance":bounds_tolerance,
+    "raw_glb":raw_glb,
+    "raw_glb_area_delta":raw_area_delta,
+    "raw_glb_area_tolerance":raw_area_tolerance,
+    "raw_glb_extent_delta":raw_extent_delta,
+    "raw_glb_extent_tolerance":raw_extent_tolerance,
+    "raw_glb_geometry_conserved":bool(raw_geometry_conserved),
+    "raw_glb_bind_valid":bool(raw_bind_valid),
     "geometry_conserved":geometry_conserved,
-    "geometry_gate":"no_triangle_loss_plus_surface_area_conservation",
+    "geometry_gate":"serialized_glb_exact_triangle_area_extent_plus_inverse_bind_identity",
     "export_reindexed_vertices":out_vertices!=source_vertices,
     "export_triangulated_nontri_faces":out_polygons!=source_polygons,
     "armatures":len(out_arm),
@@ -789,9 +944,10 @@ REPORT.write_text(json.dumps(report,indent=2)+"\n",encoding="utf-8")
 
 if not report["geometry_conserved"]:
     fail(
-        f"surface geometry changed tris={out_triangles}/{source_triangles} "
-        f"delta={extra_triangles} area_delta={area_delta} tol={area_tolerance} "
-        f"bounds_delta={bounds_delta} bounds_tol={bounds_tolerance}"
+        f"serialized GLB validation failed raw_tris={raw_glb['triangles']}/{source_triangles} "
+        f"raw_area_delta={raw_area_delta} raw_area_tol={raw_area_tolerance} "
+        f"raw_extent_delta={raw_extent_delta} raw_extent_tol={raw_extent_tolerance} "
+        f"bind_error={raw_glb['inverse_bind_identity_max_error']}"
     )
 if not report["pose_match"]["validated"]: fail("rest pose moved source geometry")
 if len(out_arm)!=1 or report["bones"]<20: fail("humanoid skeleton missing")
