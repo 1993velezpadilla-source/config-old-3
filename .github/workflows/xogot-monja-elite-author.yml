@@ -62,6 +62,7 @@ jobs:
           assert r["rig_mode"] == "source_pose_smooth_weighted_humanoid"
           assert r["old_rigid_region_parenting"] is False
           assert r["pose_match"]["validated"] is True
+          assert r["pose_match"]["validated"] is True
           assert all(x["coverage"] >= 0.98 for x in r["weight_transfer"])
           names=" ".join(r["actions"]).lower()
           for required in ("zombie_idle_clean","zombie_walk_clean","zombie_attack_clean"):
