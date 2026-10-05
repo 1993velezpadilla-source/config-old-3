@@ -49,7 +49,7 @@ jobs:
           fi
           rm -rf xogot/build/monja-cmu-input
           mkdir -p xogot/build/monja-cmu-input
-          gltf-transform copy "$INPUT" \
+          gltf-transform dequantize "$INPUT" \
             xogot/build/monja-cmu-input/monja_basica_clean_rig.glb
           python3 - <<'PY'
           import json,struct
@@ -114,7 +114,7 @@ jobs:
           set -euo pipefail
           rm -rf xogot/build/monja-cmu-runtime
           mkdir -p xogot/build/monja-cmu-runtime
-          gltf-transform copy \
+          gltf-transform dequantize \
             xogot/build/monja-cmu-mocap/monja_basica_cmu_rig.glb \
             xogot/build/monja-cmu-runtime/monja_basica_cmu_rig.gltf
           python3 - <<'PY'
