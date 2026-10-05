@@ -1,5 +1,7 @@
 extends SceneTree
 
+# Weapon presentation acceptance: real texture binding + +X to -Z axis correction.
+
 # Church V3 sanctuary + window-light readability capture.
 # Final grounded altar-facing furniture capture.
 
