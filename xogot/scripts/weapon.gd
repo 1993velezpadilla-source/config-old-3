@@ -640,6 +640,74 @@ func _viewmodel_bounds_in_view(model: Node3D) -> AABB:
 			stack.append(child)
 	return bounds
 
+func _bounds_in_camera(model: Node3D) -> Dictionary:
+	if model == null or _camera == null:
+		return {"found": false}
+	var found := false
+	var bounds := AABB()
+	var mesh_count := 0
+	var stack: Array[Node] = [model]
+	while not stack.is_empty():
+		var node: Node = stack.pop_back()
+		if node is MeshInstance3D:
+			var mesh_node := node as MeshInstance3D
+			if mesh_node.mesh != null:
+				mesh_count += 1
+				var aabb := mesh_node.get_aabb()
+				for x_idx in range(2):
+					for y_idx in range(2):
+						for z_idx in range(2):
+							var corner := Vector3(
+								aabb.position.x + aabb.size.x * float(x_idx),
+								aabb.position.y + aabb.size.y * float(y_idx),
+								aabb.position.z + aabb.size.z * float(z_idx)
+							)
+							var point := _camera.to_local(mesh_node.to_global(corner))
+							if not found:
+								bounds = AABB(point, Vector3.ZERO)
+								found = true
+							else:
+								bounds = bounds.expand(point)
+		for child: Node in node.get_children():
+			stack.append(child)
+	return {
+		"found": found,
+		"position": bounds.position,
+		"size": bounds.size,
+		"end": bounds.end,
+		"mesh_count": mesh_count,
+		"root_camera_position": _camera.to_local(model.global_position),
+		"visible": model.is_visible_in_tree(),
+	}
+
+func get_first_person_debug_snapshot() -> Dictionary:
+	var attachment_camera_position := Vector3.ZERO
+	var attachment_found := false
+	if _hands_model_root != null:
+		var stack: Array[Node] = [_hands_model_root]
+		while not stack.is_empty():
+			var node: Node = stack.pop_back()
+			if node.name == "SourceWeaponAttachment" and node is Node3D:
+				attachment_camera_position = _camera.to_local((node as Node3D).global_position)
+				attachment_found = true
+				break
+			for child: Node in node.get_children():
+				stack.append(child)
+	return {
+		"weapon_id": _weapon_id,
+		"view_root_position": _view_root.position if _view_root != null else Vector3.ZERO,
+		"view_root_rotation": _view_root.rotation_degrees if _view_root != null else Vector3.ZERO,
+		"hands": _bounds_in_camera(_hands_model_root),
+		"weapon": _bounds_in_camera(_weapon_model_root),
+		"attachment_found": attachment_found,
+		"attachment_camera_position": attachment_camera_position,
+		"camera_near": _camera.near if _camera != null else 0.0,
+		"camera_far": _camera.far if _camera != null else 0.0,
+		"camera_fov": _camera.fov if _camera != null else 0.0,
+		"hands_animation": _hands_animation_player.current_animation if _hands_animation_player != null else "",
+		"hands_animation_position": _hands_animation_player.current_animation_position if _hands_animation_player != null else 0.0,
+	}
+
 func _apply_source_hip_pose(model: Node3D) -> bool:
 	if model == null or _view_root == null:
 		return false
