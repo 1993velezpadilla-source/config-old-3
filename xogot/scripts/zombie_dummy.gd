@@ -3,13 +3,13 @@ extends CharacterBody3D
 signal died(zombie: Node)
 
 const MONJA_BASICA_PATH := "res://assets/zombies/monja_basica.glb"
-const MONJA_CMU_PATH := "res://assets/zombies/monja_clean/monja_basica_cmu_rig.glb"
-const MONJA_CLEAN_PATH := "res://assets/zombies/monja_clean/monja_basica_clean_rig.glb"
+const MONJA_CMU_PATH := "res://assets/zombies/monja_clean/cmu_runtime/monja_basica_cmu_rig.gltf"
+const MONJA_CLEAN_PATH := "res://assets/zombies/monja_clean/clean_runtime/monja_basica_clean_rig.gltf"
 const MONJA_RIGGED_PATH := "res://assets/zombies/monja_basica_rigged.glb"
 const MONJA_RIGGED_DISMEMBER_PATH := "res://assets/zombies/monja_basica_rigged_dismember.glb"
 const MONJA_RIGID_RIG_PATH := "res://assets/zombies/monja_rigid/monja_basica_rigid_rig.gltf"
-const MONJA_ELITE_CMU_PATH := "res://assets/zombies/monja_elite/monja_black_white_cmu_rig.glb"
-const MONJA_ELITE_PATH := "res://assets/zombies/monja_elite/monja_black_white_clean_rig.glb"
+const MONJA_ELITE_CMU_PATH := "res://assets/zombies/monja_elite/cmu_runtime/monja_black_white_cmu_rig.gltf"
+const MONJA_ELITE_PATH := "res://assets/zombies/monja_elite/clean_runtime/monja_black_white_clean_rig.gltf"
 const SHEEP_RUNNER_PATH := "res://assets/zombies/sheep/sheep_runner_animated.glb"
 const SHEEP_BRUTE_PATH := "res://assets/zombies/sheep/sheep_brute_animated.glb"
 
