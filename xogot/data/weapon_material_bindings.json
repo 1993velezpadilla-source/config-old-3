@@ -1,0 +1,616 @@
+{
+  "schema": 1,
+  "source_run": 37244741312,
+  "weapon_count": 29,
+  "material_count": 53,
+  "texture_count": 106,
+  "weapon_materials": {
+    "colt": [
+      "mtl_weapon_colt45_Inst"
+    ],
+    "357": [
+      "mtl_weapon_sw_357_Inst"
+    ],
+    "arisaka": [
+      "mtl_ammo_belt_Inst",
+      "mtl_weapon_stripper_clip_c",
+      "mtl_weapon_mp_type99rifle_metal",
+      "mtl_weapon_mp_type99rifle_wood"
+    ],
+    "bar": [
+      "mtl_weapon_bar_Inst",
+      "mtl_weapon_bar_Inst1"
+    ],
+    "browning": [
+      "mtl_usa_30cal_m1919_Inst",
+      "mtl_30cal_cloth_Inst",
+      "mtl_ammo_belt_Inst"
+    ],
+    "doublebarrel": [
+      "mtl_double_barrel_Inst",
+      "mtl_double_barrel_Inst1"
+    ],
+    "dp28": [
+      "mtl_weapon_mp_dp28_top",
+      "mtl_weapon_mp_dp28"
+    ],
+    "fg42": [
+      "mtl_weapon_mp_fg42_Inst",
+      "mtl_weapon_mp_fg42_Inst1"
+    ],
+    "gewehr": [
+      "mtl_weapon_mp_g43_Inst1",
+      "mtl_weapon_mp_g43_Inst"
+    ],
+    "kar98k": [
+      "mtl_weapon_k98round_c",
+      "mtl_weapon_stripper_clip_c",
+      "mtl_weapon_mp_kar98_Inst",
+      "mtl_weapon_mp_kar98_Inst1"
+    ],
+    "m1a1": [
+      "mtl_weapon_mp_carbine"
+    ],
+    "m1": [
+      "mtl_weapon_mp_m1garand_Inst",
+      "mtl_brass_shells_Inst",
+      "mtl_weapon_mp_m1garand_Inst1"
+    ],
+    "mg42": [
+      "mtl_weapon_mp_mg42_Inst",
+      "mtl_weapon_mp_drumclip_mg42_Inst"
+    ],
+    "mosin": [
+      "mtl_ammo_belt_Inst",
+      "mtl_weapon_stripper_clip_c",
+      "mtl_weapon_mp_rus_scope",
+      "mtl_weapon_mp_mosin",
+      "M_Invisible_Inst",
+      "mtl_rus_scope_glass"
+    ],
+    "mp40": [
+      "mtl_weapon_mp40_Inst"
+    ],
+    "nambu": [
+      "mtl_weapon_nambu"
+    ],
+    "ppsh": [
+      "mtl_weapon_mp_ppsh41_Inst"
+    ],
+    "ptrs": [
+      "mtl_weapon_ptrs_scope_Inst",
+      "mtl_weapon_ptrs",
+      "mtl_ammo_belt_Inst",
+      "mtl_rus_scope_glass",
+      "mtl_weapon_ptrs_wood"
+    ],
+    "sawnoff": [
+      "mtl_double_barrel_Inst",
+      "mtl_double_barrel_Inst1"
+    ],
+    "springfield": [
+      "mtl_ammo_belt_Inst",
+      "mtl_weapon_mp_springfield_noscope",
+      "mtl_weapon_stripper_clip_c",
+      "mtl_weapon_mp_springfield"
+    ],
+    "stg": [
+      "mtl_weapon_mp44_Inst1",
+      "mtl_weapon_mp44_Inst"
+    ],
+    "stielhand": [
+      "mtl_weapon_nebelhandgranate"
+    ],
+    "svt40": [
+      "mtl_weapon_mp_svt40",
+      "mtl_weapon_mp_svt40_wood",
+      "mtl_weapon_mp_svt40_clip"
+    ],
+    "thompson": [
+      "mtl_weapon_mp_thompson_Inst"
+    ],
+    "trench": [
+      "mtl_weapon_trenchgun_Inst",
+      "mtl_weapon_trenchgun_Inst1"
+    ],
+    "tt33": [
+      "mtl_tokarevtt30_pistol"
+    ],
+    "type100": [
+      "mtl_weapon_mp_type100_metal_Inst",
+      "mtl_weapon_mp_type100_metal_Inst1"
+    ],
+    "type99": [
+      "mtl_weapon_mp_type99_lmg",
+      "mtl_weapon_99bayonet"
+    ],
+    "walther": [
+      "mtl_weapon_walther"
+    ]
+  },
+  "materials": {
+    "mtl_30cal_cloth_Inst": {
+      "albedo": "res://assets/weapons/aether_waw_textures/usa_mg_30cal_cloth_c.png",
+      "normal": "",
+      "specular": "res://assets/weapons/aether_waw_textures/usa_mg_30cal_cloth_c.png",
+      "metallic": 0.34,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_ammo_belt_Inst": {
+      "albedo": "res://assets/weapons/aether_waw_textures/ammo_belt_c.png",
+      "normal": "",
+      "specular": "res://assets/weapons/aether_waw_textures/_ammo_belt_s-rgb_ammo_belt_g-l-11.png",
+      "metallic": 1.0,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_brass_shells_Inst": {
+      "albedo": "res://assets/weapons/aether_waw_textures/brass_garand.png",
+      "normal": "",
+      "specular": "res://assets/weapons/aether_waw_textures/brass_garand.png",
+      "metallic": 1.0,
+      "roughness": 0.515,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_double_barrel_Inst": {
+      "albedo": "res://assets/weapons/aether_waw_textures/double_barrel_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/double_barrel_n.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_double_barrel_mp_s-rgb_doubl_f3508968.png",
+      "metallic": 0.34,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_double_barrel_Inst1": {
+      "albedo": "res://assets/weapons/aether_waw_textures/double_barrel_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/double_barrel_n.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_double_barrel_mp_s-rgb_doubl_f3508968.png",
+      "metallic": 0.34,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_rus_scope_glass": {
+      "albedo": "res://assets/weapons/aether_waw_textures/scope_lens_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/_identitynormalmap_normal.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_scope_lens_s-rgb_scope_lens_g-l-11.png",
+      "metallic": 0.0,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_tokarevtt30_pistol": {
+      "albedo": "res://assets/weapons/aether_waw_textures/rus_pistol_tokarevtt30_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/rus_pistol_tokarevtt30_n.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_rus_pistol_tokarevtt30_s-rgb_b9a3183e.png",
+      "metallic": 0.33,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_usa_30cal_m1919_Inst": {
+      "albedo": "res://assets/weapons/aether_waw_textures/usa_mg_30cal_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/usa_mg_30cal_n.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_usa_mg_30cal_s-rgb_usa_mg_30cal_g-l.png",
+      "metallic": 0.5,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_weapon_99bayonet": {
+      "albedo": "res://assets/weapons/aether_waw_textures/weapon_type99bayonet_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/_identitynormalmap_normal.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_weapon_type99bayonet_s-rgb_w_31465f27.png",
+      "metallic": 0.4,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_weapon_bar_Inst": {
+      "albedo": "res://assets/weapons/aether_waw_textures/w_bar_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/_identitynormalmap.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_w_bar_s-rgb_w_bar_cp-l-11.png",
+      "metallic": 0.34,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_weapon_bar_Inst1": {
+      "albedo": "res://assets/weapons/aether_waw_textures/w_bar_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/_identitynormalmap.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_w_bar_s-rgb_w_bar_cp-l-11.png",
+      "metallic": 0.34,
+      "roughness": 0.42,
+      "normal_scale": 1.33,
+      "two_sided": false
+    },
+    "mtl_weapon_colt45_Inst": {
+      "albedo": "res://assets/weapons/aether_waw_textures/colt45_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/colt45_n_normal.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_colt45_s-rgb_colt45_g-l-11.png",
+      "metallic": 0.34,
+      "roughness": 0.42,
+      "normal_scale": 1.33,
+      "two_sided": false
+    },
+    "mtl_weapon_k98round_c": {
+      "albedo": "res://assets/weapons/aether_waw_textures/k98round_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/_normal_linear.png",
+      "specular": "res://assets/weapons/aether_waw_textures/k98round_c.png",
+      "metallic": 1.0,
+      "roughness": 0.0,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_weapon_mp40_Inst": {
+      "albedo": "res://assets/weapons/aether_waw_textures/weapon_mp40_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/weapon_mp40_n.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_weapon_mp40_mp_s-rgb_weapon__08433bb1.png",
+      "metallic": 0.4,
+      "roughness": 0.31,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_weapon_mp44_Inst": {
+      "albedo": "res://assets/weapons/aether_waw_textures/weapon_stg44_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/weapon_stg44_n.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_weapon_stg44_s-rgb_weapon_st_1cff1461.png",
+      "metallic": 0.34,
+      "roughness": 0.675,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_weapon_mp44_Inst1": {
+      "albedo": "res://assets/weapons/aether_waw_textures/weapon_stg44_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/weapon_stg44_n.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_weapon_stg44_s-rgb_weapon_st_1cff1461.png",
+      "metallic": 0.34,
+      "roughness": 0.675,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_weapon_mp_carbine": {
+      "albedo": "res://assets/weapons/aether_waw_textures/weapon_carbine_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/weapon_carbine_n.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_weapon_carbine_s-rgb_weapon__5582aa69.png",
+      "metallic": 0.34,
+      "roughness": 0.425,
+      "normal_scale": 3.0,
+      "two_sided": false
+    },
+    "mtl_weapon_mp_dp28": {
+      "albedo": "res://assets/weapons/aether_waw_textures/w_dp_28_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/w_dp_28_n_normal.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_w_dp_28_s-rgb_w_dp_28_g-l.png",
+      "metallic": 0.5,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_weapon_mp_dp28_top": {
+      "albedo": "res://assets/weapons/aether_waw_textures/w_dp_28_disc_512_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/w_dp_28_disc_512_n_normal.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_w_dp_28_disc_512_s-rgb_w_dp__c6a9affb.png",
+      "metallic": 0.4,
+      "roughness": 0.42,
+      "normal_scale": 2.0,
+      "two_sided": false
+    },
+    "mtl_weapon_mp_drumclip_mg42_Inst": {
+      "albedo": "res://assets/weapons/aether_waw_textures/ger_mg_mg42_drumclip_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/ger_mg_mg42_drumclip_n_normal.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_ger_mg_mg42_drumclip_s-rgb_g_4bb30c2b.png",
+      "metallic": 0.4,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_weapon_mp_fg42_Inst": {
+      "albedo": "res://assets/weapons/aether_waw_textures/w_fg42_c.png",
+      "normal": "",
+      "specular": "res://assets/weapons/aether_waw_textures/_w_fg42_s-rgb_w_fg42_g-l-11.png",
+      "metallic": 0.4,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_weapon_mp_fg42_Inst1": {
+      "albedo": "res://assets/weapons/aether_waw_textures/w_fg42_c.png",
+      "normal": "",
+      "specular": "res://assets/weapons/aether_waw_textures/_w_fg42_s-rgb_w_fg42_g-l-11.png",
+      "metallic": 0.34,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_weapon_mp_g43_Inst": {
+      "albedo": "res://assets/weapons/aether_waw_textures/w_ge43_c.png",
+      "normal": "",
+      "specular": "res://assets/weapons/aether_waw_textures/_w_ge43_s-rgb_w_ge43_g-l.png",
+      "metallic": 0.6,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_weapon_mp_g43_Inst1": {
+      "albedo": "res://assets/weapons/aether_waw_textures/w_ge43_c.png",
+      "normal": "",
+      "specular": "res://assets/weapons/aether_waw_textures/_w_ge43_s-rgb_w_ge43_g-l.png",
+      "metallic": 0.34,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_weapon_mp_kar98_Inst": {
+      "albedo": "res://assets/weapons/aether_waw_textures/weapon_kar98_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/_identitynormalmap.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_weapon_kar98_s-rgb_weapon_kar98_cp-l.png",
+      "metallic": 0.35,
+      "roughness": 0.25,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_weapon_mp_kar98_Inst1": {
+      "albedo": "res://assets/weapons/aether_waw_textures/weapon_kar98_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/weapon_kar98_n_normal.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_weapon_kar98_s-rgb_weapon_kar98_cp-l.png",
+      "metallic": 0.34,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_weapon_mp_m1garand_Inst": {
+      "albedo": "res://assets/weapons/aether_waw_textures/w_m1garand_mp_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/w_m1garand_n.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_w_m1garand_mp_s-rgb_w_m1gara_202acb26.png",
+      "metallic": 0.5,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_weapon_mp_m1garand_Inst1": {
+      "albedo": "res://assets/weapons/aether_waw_textures/w_m1garand_mp_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/w_m1garand_n.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_w_m1garand_mp_s-rgb_w_m1gara_202acb26.png",
+      "metallic": 0.34,
+      "roughness": 0.42,
+      "normal_scale": 1.5,
+      "two_sided": false
+    },
+    "mtl_weapon_mp_mg42_Inst": {
+      "albedo": "res://assets/weapons/aether_waw_textures/ger_mg_mg42_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/ger_mg_mg42_n.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_ger_mg_mg42_mp_s-rgb_ger_mg__2659e04c.png",
+      "metallic": 0.4,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_weapon_mp_mosin": {
+      "albedo": "res://assets/weapons/aether_waw_textures/rus_rifle_mosinnagant_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/rus_rifle_mosinnagant_n_normal.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_rus_rifle_mosinnagant_s-rgb__12ebe0ef.png",
+      "metallic": 0.34,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_weapon_mp_ppsh41_Inst": {
+      "albedo": "res://assets/weapons/aether_waw_textures/rus_smg_ppsh41_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/rus_smg_ppsh41_n.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_rus_smg_ppsh41_s-rgb_rus_smg_ea9bcaa8.png",
+      "metallic": 0.33,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_weapon_mp_rus_scope": {
+      "albedo": "res://assets/weapons/aether_waw_textures/rus_scope_mosinnagant_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/metal_bumps_n.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_rus_scope_mosinnagant_s-rgb__1adff3e3.png",
+      "metallic": 0.4,
+      "roughness": 0.42,
+      "normal_scale": 2.2,
+      "two_sided": false
+    },
+    "mtl_weapon_mp_springfield": {
+      "albedo": "res://assets/weapons/aether_waw_textures/weapon_springfield_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/weapon_springfield_n_normal.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_weapon_springfield_s-rgb_wea_314cd595.png",
+      "metallic": 0.34,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_weapon_mp_springfield_noscope": {
+      "albedo": "res://assets/weapons/aether_waw_textures/weapon_springfield_noscope_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/weapon_springfield_noscope_n_normal.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_weapon_springfield_noscope_s_6a2f6004.png",
+      "metallic": 0.5,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_weapon_mp_svt40": {
+      "albedo": "res://assets/weapons/aether_waw_textures/w_svt40_mp_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/w_svt40_n_normal.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_w_svt40_mp_s-rgb_w_svt40_mp_g-l-11.png",
+      "metallic": 0.5,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_weapon_mp_svt40_clip": {
+      "albedo": "res://assets/weapons/aether_waw_textures/w_svt40_mp_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/w_svt40_n_normal.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_w_svt40_mp_s-rgb_w_svt40_mp_g-l-11.png",
+      "metallic": 0.5,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_weapon_mp_svt40_wood": {
+      "albedo": "res://assets/weapons/aether_waw_textures/w_svt40_mp_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/w_svt40_n_normal.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_w_svt40_mp_s-rgb_w_svt40_mp_g-l-11.png",
+      "metallic": 0.34,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_weapon_mp_thompson_Inst": {
+      "albedo": "res://assets/weapons/aether_waw_textures/w_tommy_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/w_tommy_n_normal.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_w_tommy_s-rgb_w_tommy_g-l-11.png",
+      "metallic": 0.34,
+      "roughness": 0.35,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_weapon_mp_type100_metal_Inst": {
+      "albedo": "res://assets/weapons/aether_waw_textures/w_type100_c_new.png",
+      "normal": "res://assets/weapons/aether_waw_textures/_identitynormalmap.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_w_type100_s-rgb_w_type100_g-l-11.png",
+      "metallic": 0.33,
+      "roughness": 0.42,
+      "normal_scale": 2.2,
+      "two_sided": false
+    },
+    "mtl_weapon_mp_type100_metal_Inst1": {
+      "albedo": "res://assets/weapons/aether_waw_textures/w_type100_c_new.png",
+      "normal": "",
+      "specular": "res://assets/weapons/aether_waw_textures/_w_type100_s-rgb_w_type100_g-l-11.png",
+      "metallic": 0.34,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_weapon_mp_type99_lmg": {
+      "albedo": "res://assets/weapons/aether_waw_textures/w_type99_lmg_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/w_type99_lmg_n_normal.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_w_type99_lmg_s-rgb_w_type99__6287fbe6.png",
+      "metallic": 0.33,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_weapon_mp_type99rifle_metal": {
+      "albedo": "res://assets/weapons/aether_waw_textures/weapon_arisaka_type99_mp_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/weapon_arisaka_type99_n.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_weapon_arisaka_type99_s-rgb__ef887a6c.png",
+      "metallic": 0.44,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_weapon_mp_type99rifle_wood": {
+      "albedo": "res://assets/weapons/aether_waw_textures/weapon_arisaka_type99_mp_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/weapon_arisaka_type99_n.png",
+      "specular": "res://assets/weapons/aether_waw_textures/__-gweapon_arisaka_type99_mp__7eb76f2c.png",
+      "metallic": 0.34,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_weapon_nambu": {
+      "albedo": "res://assets/weapons/aether_waw_textures/nambu_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/nambu_n_normal.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_nambu_s-rgb_nambu_g-l-11.png",
+      "metallic": 0.3,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_weapon_nebelhandgranate": {
+      "albedo": "res://assets/weapons/aether_waw_textures/stielhandgranate_color.png",
+      "normal": "res://assets/weapons/aether_waw_textures/_identitynormalmap_normal.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_stielhandgranate_spec-rgbl-11.png",
+      "metallic": 0.33,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_weapon_ptrs": {
+      "albedo": "res://assets/weapons/aether_waw_textures/w_ptrs_c.png",
+      "normal": "",
+      "specular": "res://assets/weapons/aether_waw_textures/_w_ptrs_s-rgb_w_ptrs_g-l-11.png",
+      "metallic": 0.34,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_weapon_ptrs_scope_Inst": {
+      "albedo": "res://assets/weapons/aether_waw_textures/w_ptrs_scope_c.png",
+      "normal": "",
+      "specular": "res://assets/weapons/aether_waw_textures/_w_ptrs_scope_s-rgb_w_ptrs_sc_d14832ea.png",
+      "metallic": 0.34,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_weapon_ptrs_wood": {
+      "albedo": "res://assets/weapons/aether_waw_textures/w_ptrs_c.png",
+      "normal": "",
+      "specular": "res://assets/weapons/aether_waw_textures/_w_ptrs_s-rgb_w_ptrs_g-l-11.png",
+      "metallic": 0.34,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_weapon_stripper_clip_c": {
+      "albedo": "res://assets/weapons/aether_waw_textures/stripper_clip_c.png",
+      "normal": "",
+      "specular": "res://assets/weapons/aether_waw_textures/stripper_clip_c.png",
+      "metallic": 0.5,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_weapon_sw_357_Inst": {
+      "albedo": "res://assets/weapons/aether_waw_textures/sw357_magnum_pistol_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/sw357_magnum_pistol_n_normal.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_sw357_magnum_pistol_s-rgb_sw_26f566d7.png",
+      "metallic": 0.2,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    },
+    "mtl_weapon_trenchgun_Inst": {
+      "albedo": "res://assets/weapons/aether_waw_textures/w_shotgun_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/plain_smooth_n.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_w_shotgun_s-rgb_w_shotgun_g-l.png",
+      "metallic": 0.34,
+      "roughness": 0.42,
+      "normal_scale": 2.2,
+      "two_sided": true
+    },
+    "mtl_weapon_trenchgun_Inst1": {
+      "albedo": "res://assets/weapons/aether_waw_textures/w_shotgun_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/plain_smooth_n.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_w_shotgun_s-rgb_w_shotgun_g-l.png",
+      "metallic": 0.34,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": true
+    },
+    "mtl_weapon_walther": {
+      "albedo": "res://assets/weapons/aether_waw_textures/walther_c.png",
+      "normal": "res://assets/weapons/aether_waw_textures/walther_n.png",
+      "specular": "res://assets/weapons/aether_waw_textures/_walther_s-rgb_walther_g-l-11.png",
+      "metallic": 0.33,
+      "roughness": 0.42,
+      "normal_scale": 1.0,
+      "two_sided": false
+    }
+  },
+  "unresolved": [
+    {
+      "material": "M_Invisible_Inst",
+      "reason": "json_missing"
+    }
+  ]
+}
