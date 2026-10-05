@@ -67,3 +67,5 @@ jobs:
           path: build/monja-clean-godot/
           if-no-files-found: warn
           retention-days: 14
+
+# explicit V4 promoted-runtime gate 2026-10-05
