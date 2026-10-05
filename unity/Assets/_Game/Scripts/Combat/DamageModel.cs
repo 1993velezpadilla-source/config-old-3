@@ -1,0 +1,2 @@
+using UnityEngine;
+namespace Sanctum.Zombies.Combat{public enum HitZone{Head,Torso,Arm,Leg}public static class DamageModel{public static float Calculate(WeaponDefinition w,bool packed,HitZone z,float d){if(!w)return 0;float t=Mathf.InverseLerp(w.falloffStartMeters,w.falloffEndMeters,Mathf.Max(0,d));float fall=Mathf.Lerp(1,w.minimumFalloffMultiplier,t);float zone=z==HitZone.Head?w.headMultiplier:(z==HitZone.Arm||z==HitZone.Leg?w.limbMultiplier:1);return w.DamageFor(packed)*fall*zone;}}}
