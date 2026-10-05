@@ -188,16 +188,22 @@ static func _animation_role_score(role: String, animation_name: String, aliases:
 			if lower.contains("lastshot") or lower.contains("lastfire"):
 				score += 120
 		"reload":
-			if lower.contains("reload") and not lower.contains("empty") and not lower.contains("partial"):
+			# WaW Colt names its ordinary tactical reload "reload_notempty".
+			# Do not classify the "empty" substring inside "notempty" as an
+			# empty-mag reload.
+			var is_notempty := lower.contains("notempty") or lower.contains("not_empty")
+			var is_empty := (lower.contains("empty") and not is_notempty)
+			if lower.contains("reload") and not is_empty and not lower.contains("partial"):
 				score += 70
-			if lower.contains("empty"):
+			if is_empty:
 				score -= 120
 			if lower.contains("partial"):
 				score -= 55
 			if lower.contains("rechamber"):
 				score -= 20
 		"reload_empty":
-			if lower.contains("reload") and lower.contains("empty"):
+			var is_notempty := lower.contains("notempty") or lower.contains("not_empty")
+			if lower.contains("reload") and lower.contains("empty") and not is_notempty:
 				score += 120
 			else:
 				score -= 140
