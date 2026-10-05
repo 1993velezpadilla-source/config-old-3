@@ -196,12 +196,38 @@ def bake_cmu_clip(target,src,src_action,new_name):
         "height_scale":scale,
     }
 
-def triangle_count(mesh_objects):
-    total=0
+def mesh_surface_stats(mesh_objects):
+    total_triangles=0
+    total_area=0.0
+    degenerate=0
     for obj in mesh_objects:
-        for poly in obj.data.polygons:
-            total += max(1, len(poly.vertices)-2)
-    return total
+        mesh=obj.data
+        mesh.calc_loop_triangles()
+        tri_n=len(mesh.loop_triangles)
+        total_triangles += tri_n
+        if tri_n==0:
+            continue
+        raw=np.empty(len(mesh.vertices)*3,dtype=np.float32)
+        mesh.vertices.foreach_get("co",raw)
+        local=raw.reshape((-1,3)).astype(np.float64)
+        M=np.array(obj.matrix_world,dtype=np.float64)
+        homo=np.concatenate([local,np.ones((len(local),1),dtype=np.float64)],axis=1)
+        world=(homo @ M.T)[:,:3]
+        idx=np.empty(tri_n*3,dtype=np.int32)
+        mesh.loop_triangles.foreach_get("vertices",idx)
+        tri=world[idx.reshape((-1,3))]
+        cross=np.cross(tri[:,1]-tri[:,0],tri[:,2]-tri[:,0])
+        areas=0.5*np.linalg.norm(cross,axis=1)
+        total_area += float(areas.sum())
+        degenerate += int(np.count_nonzero(areas <= 1e-12))
+    return {
+        "triangles":int(total_triangles),
+        "surface_area":float(total_area),
+        "degenerate_triangles":int(degenerate),
+    }
+
+def triangle_count(mesh_objects):
+    return mesh_surface_stats(mesh_objects)["triangles"]
 
 def export_target(target,target_meshes):
     bpy.ops.object.select_all(action='DESELECT')
@@ -279,7 +305,8 @@ target_meshes=meshes(base_objs)
 if not target_meshes: fail("base Monja mesh missing")
 source_vertices=sum(len(o.data.vertices) for o in target_meshes)
 source_polygons=sum(len(o.data.polygons) for o in target_meshes)
-source_triangles=triangle_count(target_meshes)
+source_surface=mesh_surface_stats(target_meshes)
+source_triangles=source_surface["triangles"]
 base_actions=target_existing_actions(target)
 if not any("Zombie_Walk_Clean".lower() in x.lower() for x in base_actions):
     fail("base clean Monja does not expose expected clean walk action")
@@ -325,7 +352,16 @@ out_mesh=meshes(); out_arm=arms()
 out_actions=sorted(a.name for a in bpy.data.actions)
 out_vertices=sum(len(o.data.vertices) for o in out_mesh)
 out_polygons=sum(len(o.data.polygons) for o in out_mesh)
-out_triangles=triangle_count(out_mesh)
+out_surface=mesh_surface_stats(out_mesh)
+out_triangles=out_surface["triangles"]
+extra_triangles=out_triangles-source_triangles
+area_delta=abs(out_surface["surface_area"]-source_surface["surface_area"])
+area_tolerance=max(source_surface["surface_area"]*1e-5,1e-8)
+geometry_conserved=(
+    extra_triangles>=0
+    and extra_triangles<=256
+    and area_delta<=area_tolerance
+)
 expected=[n for n,_ in CLIPS]
 missing=[n for n in expected if not any(n.lower() in a.lower() for a in out_actions)]
 
@@ -337,10 +373,18 @@ report={
     "source_vertices":source_vertices,
     "source_polygons":source_polygons,
     "source_triangles":source_triangles,
+    "source_surface_area":source_surface["surface_area"],
+    "source_degenerate_triangles":source_surface["degenerate_triangles"],
     "output_vertices":out_vertices,
     "output_polygons":out_polygons,
     "output_triangles":out_triangles,
-    "geometry_conserved":source_triangles==out_triangles,
+    "output_surface_area":out_surface["surface_area"],
+    "output_degenerate_triangles":out_surface["degenerate_triangles"],
+    "triangle_delta":extra_triangles,
+    "surface_area_delta":area_delta,
+    "surface_area_tolerance":area_tolerance,
+    "geometry_conserved":geometry_conserved,
+    "geometry_gate":"no_triangle_loss_plus_surface_area_conservation",
     "export_reindexed_vertices":source_vertices!=out_vertices,
     "export_triangulated_nontri_faces":source_polygons!=out_polygons,
     "armatures":len(out_arm),
@@ -359,7 +403,11 @@ report={
 }
 REPORT.write_text(json.dumps(report,indent=2)+"\n",encoding="utf-8")
 
-if not report["geometry_conserved"]: fail(f"triangle topology changed during CMU augmentation {out_triangles}/{source_triangles}")
+if not report["geometry_conserved"]:
+    fail(
+        f"surface geometry changed during CMU augmentation tris={out_triangles}/{source_triangles} "
+        f"delta={extra_triangles} area_delta={area_delta} tol={area_tolerance}"
+    )
 if len(out_arm)!=1 or report["bones"]<20: fail("target skeleton lost")
 if missing: fail("missing exported CMU actions: "+repr(missing))
 if len(baked)!=9: fail("expected nine CMU clips")
