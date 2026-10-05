@@ -328,9 +328,19 @@ func is_knifing() -> bool:
 func request_knife() -> bool:
 	if downed or _knife_timer > 0.0:
 		return false
+
+	# COD-style behavior: the knife swing is an input action, not a hit-only
+	# animation. Always play the first-person slash; damage is conditional.
+	var weapon: Node = get_node_or_null("Weapon")
+	if weapon != null and weapon.has_method("play_melee_animation"):
+		weapon.call("play_melee_animation")
+	_knife_timer = knife_cooldown
+	_knife_anim_timer = 0.34
+
 	var zombie: Node3D = _nearest_zombie(knife_range_m)
 	if zombie == null:
-		return false
+		print("XZOGOT_KNIFE_MISS no_target")
+		return true
 
 	var world: World3D = get_world_3d()
 	if world != null:
@@ -342,21 +352,17 @@ func request_knife() -> bool:
 		if not hit.is_empty():
 			var collider: Object = hit.get("collider") as Object
 			if collider != zombie:
-				return false
+				print("XZOGOT_KNIFE_MISS blocked")
+				return true
 
 	if zombie.has_method("apply_melee_damage"):
 		zombie.call("apply_melee_damage", knife_damage, self, zombie.global_position + Vector3(0.0, 0.95, 0.0))
 	elif zombie.has_method("apply_damage"):
 		zombie.call("apply_damage", knife_damage, self)
 	else:
-		return false
+		print("XZOGOT_KNIFE_MISS invalid_target")
+		return true
 
-	var weapon: Node = get_node_or_null("Weapon")
-	if weapon != null and weapon.has_method("play_melee_animation"):
-		weapon.call("play_melee_animation")
-
-	_knife_timer = knife_cooldown
-	_knife_anim_timer = 0.22
 	print("XZOGOT_KNIFE_HIT ", zombie.name)
 	return true
 
