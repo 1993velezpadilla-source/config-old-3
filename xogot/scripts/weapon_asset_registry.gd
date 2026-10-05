@@ -155,6 +155,64 @@ static func inspect(id: String) -> Dictionary:
 	_inspection_cache[id] = report
 	return report.duplicate(true)
 
+static func _animation_role_score(role: String, animation_name: String, aliases: Array) -> int:
+	var lower := animation_name.to_lower()
+	var score := -100000
+	for alias_var: Variant in aliases:
+		var alias := str(alias_var).to_lower()
+		if alias.is_empty() or not lower.contains(alias):
+			continue
+		score = maxi(score, 100 + alias.length())
+	if score < 0:
+		return score
+
+	# Broad aliases such as "fire" and "reload" intentionally cover inconsistent
+	# source naming, but they must not make hip-fire select ADS/last-shot clips or
+	# a normal reload select empty/partial reload when a proper clip exists.
+	match role:
+		"fire":
+			if lower.contains("ads"):
+				score -= 120
+			if lower.contains("lastshot") or lower.contains("lastfire"):
+				score -= 120
+			if lower.contains("_fire") or lower.ends_with("fire"):
+				score += 28
+			if lower.contains("shoot"):
+				score += 18
+		"fire_ads":
+			if lower.contains("ads"):
+				score += 100
+			else:
+				score -= 150
+		"lastshot":
+			if lower.contains("lastshot") or lower.contains("lastfire"):
+				score += 120
+		"reload":
+			if lower.contains("reload") and not lower.contains("empty") and not lower.contains("partial"):
+				score += 70
+			if lower.contains("empty"):
+				score -= 120
+			if lower.contains("partial"):
+				score -= 55
+			if lower.contains("rechamber"):
+				score -= 20
+		"reload_empty":
+			if lower.contains("reload") and lower.contains("empty"):
+				score += 120
+			else:
+				score -= 140
+		"equip":
+			if lower.contains("equip"):
+				score += 80
+			elif lower.contains("pullout") or lower.contains("bringout"):
+				score += 65
+			elif lower.contains("raise"):
+				score += 30
+		"idle":
+			if lower.ends_with("idle") or lower.contains("_idle"):
+				score += 45
+	return score
+
 static func animation_name_for_role(id: String, role: String) -> String:
 	var rec := get_record(id)
 	var required: Dictionary = rec.get("required_animation_aliases", {}) as Dictionary
@@ -166,13 +224,15 @@ static func animation_name_for_role(id: String, role: String) -> String:
 		role_aliases = optional[role] as Array
 	else:
 		return ""
-	var names := animation_names_for(id)
-	for name: String in names:
-		for alias_var: Variant in role_aliases:
-			var alias := str(alias_var).to_lower()
-			if not alias.is_empty() and name.contains(alias):
-				return name
-	return ""
+
+	var best_name := ""
+	var best_score := -100000
+	for name: String in animation_names_for(id):
+		var score := _animation_role_score(role, name, role_aliases)
+		if score > best_score:
+			best_score = score
+			best_name = name
+	return best_name if best_score >= 0 else ""
 
 static func preferred_worldmodel_path(id: String, fallback: String = "") -> String:
 	var report := inspect(id)
