@@ -33,6 +33,25 @@ jobs:
           sudo apt-get install -y -qq blender python3-numpy libegl1 libgl1-mesa-dri mesa-utils
           blender --version | head -n 2
 
+      - name: Verify exact user sheep source GLBs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path("xogot")
+          m=json.loads((root/"assets/zombies/special_enemy_source_manifest.json").read_text())
+          for key in ("sheep_runner","sheep_brute"):
+              rec=m["sources"][key]
+              p=root/rec["repo_path"]
+              assert p.is_file(), p
+              data=p.read_bytes()
+              assert len(data)==rec["bytes"], (key,len(data),rec["bytes"])
+              assert hashlib.sha256(data).hexdigest()==rec["sha256"], key
+          print("XZOGOT_SHEEP_SOURCE_HASHES_GREEN")
+          PY
+
       - name: Author sheep idle run attack and death
         shell: bash
         run: |
