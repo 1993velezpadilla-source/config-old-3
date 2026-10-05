@@ -123,6 +123,9 @@ jobs:
           '@ | Set-Content presentation-patterns.txt -Encoding ascii
           Get-Content mp40-packages.txt | Add-Content presentation-patterns.txt -Encoding ascii
           Get-Content weapon-bp-packages.txt | Add-Content presentation-patterns.txt -Encoding ascii
+          $uniquePatterns = @(Get-Content presentation-patterns.txt | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique)
+          $uniquePatterns | Set-Content presentation-patterns.txt -Encoding ascii
+          Write-Host "XZOGOT_PRESENTATION_PATTERN_SET_GREEN count=$($uniquePatterns.Count)"
 
           Remove-Item presentation-export -Recurse -Force -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Force -Path presentation-export | Out-Null
