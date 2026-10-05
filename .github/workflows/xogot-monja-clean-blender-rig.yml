@@ -82,7 +82,7 @@ jobs:
           set -euo pipefail
           rm -rf xogot/build/monja-clean-runtime
           mkdir -p xogot/build/monja-clean-runtime
-          gltf-transform copy \
+          gltf-transform dequantize \
             xogot/build/monja-source-pose-rig/monja_basica_clean_rig.glb \
             xogot/build/monja-clean-runtime/monja_basica_clean_rig.gltf
           python3 - <<'PY'
