@@ -240,6 +240,18 @@ static func animation_name_for_role(id: String, role: String) -> String:
 			best_name = name
 	return best_name if best_score >= 0 else ""
 
+static func _preferred_runtime_scene_path(id: String, key: String, fallback: String = "") -> String:
+	var rec := get_record(id)
+	var runtime: Dictionary = rec.get("runtime", {}) as Dictionary
+	var path := str(runtime.get(key, ""))
+	return path if _exists_approved(path) else fallback
+
+static func preferred_hands_path(id: String, fallback: String = "") -> String:
+	return _preferred_runtime_scene_path(id, "hands", fallback)
+
+static func preferred_melee_viewmodel_path(id: String, fallback: String = "") -> String:
+	return _preferred_runtime_scene_path(id, "melee_viewmodel", fallback)
+
 static func preferred_worldmodel_path(id: String, fallback: String = "") -> String:
 	var report := inspect(id)
 	var path := str(report.get("worldmodel_path", ""))
