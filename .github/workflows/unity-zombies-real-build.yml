@@ -1,0 +1,105 @@
+name: Unity Zombies Real Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/unity-zombies-v1]
+    paths:
+      - 'unity/**'
+      - '.github/workflows/unity-zombies-real-build.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  linux-preview:
+    runs-on: ubuntu-latest
+    env:
+      UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check Unity license
+        id: license
+        shell: bash
+        run: |
+          if [ -n "$UNITY_LICENSE" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            echo "Unity license secret detected."
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "UNITY_LICENSE is not configured; real Unity preview build is skipped." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Build real Linux preview
+        if: steps.license.outputs.available == 'true'
+        uses: game-ci/unity-builder@v6.0.0
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+        with:
+          projectPath: unity
+          unityVersion: auto
+          targetPlatform: StandaloneLinux64
+          buildMethod: Sanctum.Zombies.EditorTools.UnityZombiesCIEntry.BuildLinuxPreview
+
+      - name: Run preview and capture real gameplay frame
+        if: steps.license.outputs.available == 'true'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+          mkdir -p "$GITHUB_WORKSPACE/unity/Builds/PreviewScreenshots"
+          chmod +x "$GITHUB_WORKSPACE/unity/Builds/LinuxPreview/UnityZombiesPreview.x86_64"
+          set +e
+          UNITY_ZOMBIES_SCREENSHOT_DIR="$GITHUB_WORKSPACE/unity/Builds/PreviewScreenshots"             timeout 15s xvfb-run -a             "$GITHUB_WORKSPACE/unity/Builds/LinuxPreview/UnityZombiesPreview.x86_64"             -screen-fullscreen 0 -screen-width 1280 -screen-height 720 -logFile -
+          EXIT_CODE=$?
+          set -e
+          if [ "$EXIT_CODE" -ne 0 ] && [ "$EXIT_CODE" -ne 124 ]; then
+            exit "$EXIT_CODE"
+          fi
+          test -n "$(find "$GITHUB_WORKSPACE/unity/Builds/PreviewScreenshots" -name '*.png' -print -quit)"
+
+      - name: Upload real gameplay photo
+        if: steps.license.outputs.available == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: unity-zombies-real-gameplay-photo
+          path: unity/Builds/PreviewScreenshots/*.png
+          if-no-files-found: error
+
+  android-apk:
+    runs-on: ubuntu-latest
+    env:
+      UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check Unity license
+        id: license
+        shell: bash
+        run: |
+          if [ -n "$UNITY_LICENSE" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "UNITY_LICENSE is not configured; Android APK build is skipped." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Build real Android APK
+        if: steps.license.outputs.available == 'true'
+        uses: game-ci/unity-builder@v6.0.0
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+        with:
+          projectPath: unity
+          unityVersion: auto
+          targetPlatform: Android
+          buildMethod: Sanctum.Zombies.EditorTools.UnityZombiesCIEntry.BuildAndroid
+
+      - name: Upload Android APK
+        if: steps.license.outputs.available == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: unity-zombies-android-apk
+          path: unity/Builds/Android/*.apk
+          if-no-files-found: error

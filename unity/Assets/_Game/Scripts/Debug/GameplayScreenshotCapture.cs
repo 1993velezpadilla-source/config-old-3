@@ -34,7 +34,10 @@ namespace Sanctum.Zombies.Debugging
 
         private void Capture(string label)
         {
-            string folder = Path.Combine(Application.persistentDataPath, "Screenshots");
+            string overrideFolder = Environment.GetEnvironmentVariable("UNITY_ZOMBIES_SCREENSHOT_DIR");
+            string folder = string.IsNullOrWhiteSpace(overrideFolder)
+                ? Path.Combine(Application.persistentDataPath, "Screenshots")
+                : overrideFolder;
             Directory.CreateDirectory(folder);
 
             string stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");

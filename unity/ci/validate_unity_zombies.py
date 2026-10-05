@@ -48,6 +48,7 @@ for rel in [
     "Assets/_Game/Scripts/Editor/WeaponAnimatorBootstrap.cs",
     "Assets/_Game/Scripts/Editor/MonjaImportValidator.cs",
     "Assets/_Game/Scripts/Editor/AndroidBuild.cs",
+    "Assets/_Game/Scripts/Editor/UnityZombiesCIEntry.cs",
     "Assets/_Game/Scripts/Editor/PlaymodeScreenshotMenu.cs",
 ]:
     if not (root / rel).exists():
@@ -201,6 +202,34 @@ if "ScreenCapture.CaptureScreenshot" not in photo_capture:
 if "captureFirstPlayableFrame = true" not in photo_capture:
     errors.append("automatic first playable-frame photo disabled")
 
+real_build_workflow = root.parent / ".github/workflows/unity-zombies-real-build.yml"
+if not real_build_workflow.exists():
+    errors.append("real Unity build/photo workflow missing")
+else:
+    real_build = real_build_workflow.read_text()
+    for token in [
+        "game-ci/unity-builder@v6.0.0",
+        "UnityZombiesCIEntry.BuildLinuxPreview",
+        "UnityZombiesCIEntry.BuildAndroid",
+        "unity-zombies-real-gameplay-photo",
+        "unity-zombies-android-apk",
+        "UNITY_LICENSE",
+        "xvfb-run",
+    ]:
+        if token not in real_build:
+            errors.append(f"real Unity build workflow missing: {token}")
+
+ci_entry = root / "Assets/_Game/Scripts/Editor/UnityZombiesCIEntry.cs"
+if ci_entry.exists():
+    ci_text = ci_entry.read_text()
+    for token in ["VerticalSliceBootstrap.Build()", "ProductionAssetValidator.Validate()", "BuildLinuxPreview", "BuildAndroid"]:
+        if token not in ci_text:
+            errors.append(f"Unity CI entry missing: {token}")
+
+photo_capture = (root / "Assets/_Game/Scripts/Debug/GameplayScreenshotCapture.cs").read_text()
+if "UNITY_ZOMBIES_SCREENSHOT_DIR" not in photo_capture:
+    errors.append("CI screenshot output override missing")
+
 if errors:
     print("UNITY_ZOMBIES_STATIC_GATE=RED")
     for error in errors:
@@ -222,6 +251,7 @@ print("ZOMBIE_STUCK_RECOVERY=WIRED")
 print("NAVMESH_DERIVED_PLAYER_AND_ZOMBIE_SPAWNS=WIRED")
 print("LANDSCAPE_ONLY_RUNTIME_AND_ANDROID_BUILD=WIRED")
 print("REAL_GAMEPLAY_PHOTO_CAPTURE=WIRED")
+print("GAMECI_REAL_PREVIEW_AND_ANDROID_BUILD=READY_IF_LICENSE_PRESENT")
 print("URP_MOBILE_PIPELINE_AND_POST=WIRED")
 print("MOBILE_HUD_SOURCE_AND_TOUCH_LAYOUT=WIRED")
 print("ADS_DAMAGE_ROUNDS_BARRICADES_PAP_MOBILE_TOUCH_GYRO_LIGHTING=WIRED")
