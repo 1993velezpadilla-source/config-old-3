@@ -96,7 +96,7 @@ func _initialize() -> void:
 			cmu_root.free()
 			_fail(12, "CMU AnimationPlayer missing")
 			return
-		for token: String in ["104_41", "105_25", "74_01", "139_19", "02_05", "111_19", "111_03", "90_16", "140_01"]:
+		for token: String in ["Idle_Clean", "Walk_Clean", "Attack_Clean", "Hit_Clean", "Death_Clean", "104_41", "105_25", "74_01", "139_19", "02_05", "111_19", "111_03", "90_16", "140_01"]:
 			if not _has_anim_token(cmu_player, token):
 				var cmu_names := cmu_player.get_animation_list()
 				cmu_root.free()
