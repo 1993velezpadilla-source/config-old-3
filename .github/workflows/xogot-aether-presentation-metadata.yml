@@ -95,6 +95,10 @@ jobs:
           $ErrorActionPreference = 'Stop'
           @'
           *Assets/BP/Weapons/BP_WeaponBase.uasset
+          *Assets/BP/Weapons/*MP40*.uasset
+          *FirstPerson/Blueprints/Weapons/*MP40*.uasset
+          *FirstPerson/*MP40*.uasset
+          *Viewmodels/*MP40*.uasset
           *Assets/BP/Anims/ABP_Legacy_Viewhands.uasset
           *Assets/BP/Anims/ABP_T7_Viewhands.uasset
           *FirstPerson/Blueprints/Weapons/Player/BO2/zOrigins/zOriginsRichtofen/Legacy_Viewhands.uasset
@@ -119,7 +123,7 @@ jobs:
           import json,re
 
           root=Path("presentation-export")
-          key_rx=re.compile(r"(ads|aim|offset|camera|viewmodel|viewhands|field.?of.?view|fov|height|stance|weapon)",re.I)
+          key_rx=re.compile(r"(ads|aim|offset|camera|viewmodel|viewhands|field.?of.?view|fov|height|stance|weapon|transform|location|rotation|scale|socket|attach|tag|hand)",re.I)
           value_rx=re.compile(r"[-+]?\d+(?:\.\d+)?")
           hits=[]
 
