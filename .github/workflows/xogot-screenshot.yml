@@ -14,6 +14,8 @@ on:
       - "xogot/scripts/weapon_texture_registry.gd"
       - "xogot/data/weapon_material_bindings.json"
       - "xogot/assets/weapons/aether_waw_textures/**"
+      - "xogot/assets/weapons/aether_waw_hands/**"
+      - "xogot/assets/weapons/mapmod_weapon_asset_manifest.json"
       - ".github/workflows/xogot-screenshot.yml"
 
 permissions:
