@@ -1,0 +1,147 @@
+name: Build Aether Legacy Hands Animations
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-aether-legacy-hands-animations.yml"
+      - "tools/weapons/build_aether_legacy_hands_glb.py"
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: xogot-aether-legacy-hands-animations
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN_ID: "37244741312"
+    steps:
+      - name: Checkout gameplay branch
+        uses: actions/checkout@v5
+        with:
+          ref: feature/godot-aaa-rebuild-v1
+          fetch-depth: 0
+
+      - name: Download mapped Aether ActorX artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf aether-artifact
+          mkdir -p aether-artifact
+          gh run download "$SOURCE_RUN_ID" -n aether-waw-usmap-real-weapons -D aether-artifact
+          test -d aether-artifact/recovered-actorx
+          test -s xogot/assets/weapons/aether_waw_hands/legacy_richtofen/viewhands.glb
+          find aether-artifact/recovered-actorx -type f -path '*/MP40/Anims/Hands/*.psa' -print
+          echo "XZOGOT_LEGACY_HANDS_PSA_SOURCE_GREEN"
+
+      - name: Install Blender 5
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check blender-downloader
+          BLENDER_PATH=$(blender-downloader 5.0 --extract --remove-compressed --print-blender-executable)
+          test -x "$BLENDER_PATH"
+          "$BLENDER_PATH" --version | head -n 2
+          echo "BLENDER=$BLENDER_PATH" >> "$GITHUB_ENV"
+          echo "XZOGOT_LEGACY_HANDS_BLENDER_READY"
+
+      - name: Install maintained PSK PSA importer
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$RUNNER_TEMP/io_scene_psk_psa" "$RUNNER_TEMP/psk_psa_py_installed"
+          git clone --depth 1 https://github.com/DarklightGames/io_scene_psk_psa.git "$RUNNER_TEMP/io_scene_psk_psa"
+          WHEEL=$(find "$RUNNER_TEMP/io_scene_psk_psa/io_scene_psk_psa/wheels" -maxdepth 1 -type f -name 'psk_psa_py-*.whl' | sort | tail -n 1)
+          test -n "$WHEEL"
+          mkdir -p "$RUNNER_TEMP/psk_psa_py_installed"
+          python3 -m pip install --no-deps --disable-pip-version-check --target "$RUNNER_TEMP/psk_psa_py_installed" "$WHEEL"
+          test -f "$RUNNER_TEMP/psk_psa_py_installed/psk_psa_py/__init__.py"
+          echo "PSK_PSA_PY_TARGET=$RUNNER_TEMP/psk_psa_py_installed" >> "$GITHUB_ENV"
+          echo "XZOGOT_LEGACY_HANDS_IMPORTER_READY"
+
+      - name: Build animated Legacy viewhands
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf build/legacy-hands
+          mkdir -p build/legacy-hands
+          "$BLENDER" --background --factory-startup \
+            --python tools/weapons/build_aether_legacy_hands_glb.py \
+            -- "$PWD/xogot/assets/weapons/aether_waw_hands/legacy_richtofen/viewhands.glb" \
+               "$PWD/aether-artifact/recovered-actorx" \
+               "$RUNNER_TEMP/io_scene_psk_psa" \
+               "$PSK_PSA_PY_TARGET" \
+               "$PWD/build/legacy-hands/viewhands.glb" \
+            2>&1 | tee build/legacy-hands/blender.log
+          grep -q "XZOGOT_LEGACY_HANDS_ANIMATION_GREEN" build/legacy-hands/blender.log
+          grep -q "XZOGOT_LEGACY_HANDS_CORE_ROLES_GREEN" build/legacy-hands/blender.log
+          test -s build/legacy-hands/viewhands.glb
+          test -s build/legacy-hands/viewhands.animation-report.json
+
+      - name: Stage animated hands and bind MP40 runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp build/legacy-hands/viewhands.glb xogot/assets/weapons/aether_waw_hands/legacy_richtofen/viewhands.glb
+          cp build/legacy-hands/viewhands.animation-report.json xogot/assets/weapons/aether_waw_hands/legacy_richtofen/animation-report.json
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+
+          hands_path="res://assets/weapons/aether_waw_hands/legacy_richtofen/viewhands.glb"
+          manifest_path=Path("xogot/assets/weapons/mapmod_weapon_asset_manifest.json")
+          d=json.loads(manifest_path.read_text())
+          rec=d["weapons"]["mp40"]
+          rec.setdefault("runtime",{})["hands"]=hands_path
+          notes=[str(x) for x in rec.setdefault("notes",[])]
+          marker="Source-authored BO2 Legacy Richtofen viewhands with MP40 Hands PSA actions."
+          if marker not in notes:
+              notes.append(marker)
+          rec["notes"]=notes
+          manifest_path.write_text(json.dumps(d,indent=2)+"\n")
+
+          source_path=Path("xogot/assets/weapons/aether_waw_hands/legacy_richtofen/source_manifest.json")
+          source=json.loads(source_path.read_text())
+          report=json.loads(Path("xogot/assets/weapons/aether_waw_hands/legacy_richtofen/animation-report.json").read_text())
+          source["animation_source"]="Aether WaW MP40 Anims/Hands ActorX PSA"
+          source["animation_actions"]=report["actions_exported"]
+          source_path.write_text(json.dumps(source,indent=2)+"\n")
+          print("XZOGOT_MP40_RUNTIME_HANDS_BOUND_GREEN",hands_path,len(report["actions_exported"]))
+          PY
+
+      - name: Commit animated source hands
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            xogot/assets/weapons/aether_waw_hands/legacy_richtofen \
+            xogot/assets/weapons/mapmod_weapon_asset_manifest.json
+          if git diff --cached --quiet; then
+            echo "XZOGOT_LEGACY_HANDS_ANIMATIONS_ALREADY_PRESENT"
+            exit 0
+          fi
+          git commit -m "assets: animate source-authored Aether legacy viewhands"
+          git pull --rebase origin feature/godot-aaa-rebuild-v1
+          git push origin HEAD:feature/godot-aaa-rebuild-v1
+          echo "XZOGOT_LEGACY_HANDS_ANIMATION_COMMIT_GREEN"
+
+      - name: Upload hands animation proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: xogot-aether-legacy-hands-proof
+          path: |
+            build/legacy-hands/viewhands.animation-report.json
+            build/legacy-hands/blender.log
+          if-no-files-found: error
+          retention-days: 14
