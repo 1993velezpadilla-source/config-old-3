@@ -304,10 +304,10 @@ jobs:
           PY
           git config user.name "XZOGOT Asset Bot"
           git config user.email "xogot-asset-bot@users.noreply.github.com"
-          git pull --rebase origin feature/church-expansion-v1
           git add -A xogot/assets/zombies/monja_elite/
           if ! git diff --cached --quiet; then
             git commit -m "asset: add Godot-compatible elite Monja runtimes"
+            git pull --rebase origin feature/church-expansion-v1
             git push origin HEAD:feature/church-expansion-v1
           fi
 
