@@ -83,7 +83,7 @@ func _initialize() -> void:
 			return
 		print("XZOGOT_AETHER_VARIANT_RESOLUTION_GREEN ", weapon_id, " fire=", hip_fire, " reload=", normal_reload)
 
-		var report := WeaponAssetRegistry.readiness_for(weapon_id)
+		var report := WeaponAssetRegistry.inspect(weapon_id)
 		if not bool(report.get("animations", false)):
 			_fail(9, "%s registry animation readiness is false: %s" % [weapon_id, report])
 			return
