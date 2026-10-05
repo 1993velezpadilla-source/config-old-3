@@ -16,7 +16,7 @@ const SHEEP_FIRST_ROUND := 5
 const SHEEP_ROUND_INTERVAL := 5
 const SHEEP_RUNNER_PATH := "res://assets/zombies/sheep/sheep_runner_animated.glb"
 const SHEEP_BRUTE_PATH := "res://assets/zombies/sheep/sheep_brute_animated.glb"
-const ELITE_NUN_PATH := "res://assets/zombies/monja_elite/monja_black_white_clean_rig.glb"
+const ELITE_NUN_PATH := "res://assets/zombies/monja_elite/monja_black_white_cmu_rig.glb"
 
 var current_round: int = 0
 var _remaining_to_spawn: int = 0
