@@ -471,7 +471,7 @@ def retarget_action(source,target,source_action,new_name,height_scale):
     return {"name":new_name,"frames":[lo,hi],"bones":len(common)}
 
 def triangle_count(mesh_objects):
-    return sum(mesh_surface_stats(mesh_objects)["triangles"] for _ in [0])
+    return mesh_surface_stats(mesh_objects)["triangles"]
 
 def mesh_surface_stats(mesh_objects):
     total_triangles=0
