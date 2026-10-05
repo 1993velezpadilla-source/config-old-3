@@ -165,3 +165,5 @@ jobs:
           path: xogot/build/monja-source-pose-rig/
           if-no-files-found: warn
           retention-days: 14
+
+# bounded-motion-v2 explicit retry
