@@ -32,19 +32,19 @@
     "viewmodel_mp40_reload_empty.001"
   ],
   "actions_exported": [
-    "PSA_viewmodel_mp40_reload_empty.001",
-    "PSA_viewmodel_mp40_reload_empty",
-    "PSA_viewmodel_mp40_first_raise.001",
-    "PSA_viewmodel_mp40_first_raise",
-    "PSA_viewmodel_mp40_fire.001",
-    "PSA_viewmodel_mp40_fire",
-    "PSA_MP40Unequip.001",
-    "PSA_MP40Unequip",
-    "PSA_MP40ReloadHands.001",
-    "PSA_MP40ReloadHands",
-    "PSA_MP40Equip.001",
+    "PSA_HandIdleMP40",
     "PSA_MP40Equip",
-    "PSA_HandIdleMP40"
+    "PSA_MP40Equip.001",
+    "PSA_MP40ReloadHands",
+    "PSA_MP40ReloadHands.001",
+    "PSA_MP40Unequip",
+    "PSA_MP40Unequip.001",
+    "PSA_viewmodel_mp40_fire",
+    "PSA_viewmodel_mp40_fire.001",
+    "PSA_viewmodel_mp40_first_raise",
+    "PSA_viewmodel_mp40_first_raise.001",
+    "PSA_viewmodel_mp40_reload_empty",
+    "PSA_viewmodel_mp40_reload_empty.001"
   ],
   "import_warnings_or_failures": [],
   "armature_bones": 100,
@@ -60,5 +60,6 @@
   ],
   "translation_scale": 0.01,
   "translation_units": "ActorX UE cm -> GLB meters",
-  "output_bytes": 1525912
+  "stale_base_actions_cleared": true,
+  "output_bytes": 1314704
 }
