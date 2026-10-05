@@ -267,6 +267,58 @@ def mesh_surface_stats(mesh_objects):
 def triangle_count(mesh_objects):
     return mesh_surface_stats(mesh_objects)["triangles"]
 
+def validate_cmu_deformation(target,target_meshes,action_names,source_surface):
+    src_min=np.array(source_surface["bounds_min"],dtype=np.float64)
+    src_max=np.array(source_surface["bounds_max"],dtype=np.float64)
+    src_ext=np.sort(np.maximum(src_max-src_min,1e-8))
+    src_diag=float(np.linalg.norm(src_max-src_min))
+    src_area=max(float(source_surface["surface_area"]),1e-8)
+    previous_pose=target.data.pose_position
+    target.data.pose_position='POSE'
+    target.animation_data_create()
+    out={}
+    violations=[]
+    for name in action_names:
+        action=bpy.data.actions.get(name)
+        if action is None:
+            violations.append(name+": action missing")
+            continue
+        target.animation_data.action=action
+        frames=[
+            int(math.floor(action.frame_range[0])),
+            int(round((action.frame_range[0]+action.frame_range[1])*0.5)),
+            int(math.ceil(action.frame_range[1])),
+        ]
+        worst_extent=0.0; worst_diag=0.0; worst_area=0.0; samples=[]
+        for frame in sorted(set(frames)):
+            bpy.context.scene.frame_set(frame)
+            bpy.context.view_layer.update()
+            stats=mesh_surface_stats(target_meshes)
+            mn=np.array(stats["bounds_min"],dtype=np.float64)
+            mx=np.array(stats["bounds_max"],dtype=np.float64)
+            ext=np.sort(np.maximum(mx-mn,1e-8))
+            extent_ratio=float(np.max(ext/src_ext))
+            diag_ratio=float(np.linalg.norm(mx-mn)/max(src_diag,1e-8))
+            area_ratio=float(stats["surface_area"]/src_area)
+            worst_extent=max(worst_extent,extent_ratio)
+            worst_diag=max(worst_diag,diag_ratio)
+            worst_area=max(worst_area,area_ratio)
+            samples.append({"frame":frame,"extent_ratio":extent_ratio,"diag_ratio":diag_ratio,"surface_area_ratio":area_ratio})
+        ok=worst_extent<=2.75 and worst_diag<=2.25 and worst_area<=3.0
+        if not ok:
+            violations.append(f"{name}: extent={worst_extent:.4f} diag={worst_diag:.4f} area={worst_area:.4f}")
+        out[name]={"valid":bool(ok),"max_extent_ratio":worst_extent,"max_diag_ratio":worst_diag,"max_surface_area_ratio":worst_area,"samples":samples}
+    target.animation_data.action=None
+    target.data.pose_position=previous_pose
+    bpy.context.scene.frame_set(0)
+    bpy.context.view_layer.update()
+    diagnostic={"actions":out,"violations":violations}
+    (OUT/"deformation_diagnostic.json").write_text(json.dumps(diagnostic,indent=2)+"\n",encoding="utf-8")
+    print("XZOGOT_MONJA_CMU_DEFORMATION_DIAGNOSTIC",json.dumps(diagnostic,sort_keys=True))
+    if not violations:
+        print("XZOGOT_MONJA_CMU_DEFORMATION_SANITY_GREEN")
+    return out,violations
+
 def export_target(target,target_meshes):
     bpy.ops.object.select_all(action='DESELECT')
     target.select_set(True)
@@ -311,7 +363,13 @@ def render_preview(target,target_meshes,action_name,label):
 
     scene=bpy.context.scene
     scene.render.engine='BLENDER_EEVEE'
-    scene.render.resolution_x=900; scene.render.resolution_y=1200
+    scene.render.resolution_x=480; scene.render.resolution_y=640
+    if hasattr(scene,"eevee"):
+        try:
+            scene.eevee.taa_render_samples=12
+        except Exception:
+            pass
+    scene["CMUPreviewFastSamples"]=12
     scene.render.resolution_percentage=100
     scene.render.image_settings.file_format='PNG'
     if scene.world is None: scene.world=bpy.data.worlds.new("CMUPreviewWorld")
@@ -446,6 +504,10 @@ for new_name,fbx in CLIPS:
         if a is not None and a.name!=new_name and a.users==0:
             bpy.data.actions.remove(a)
 
+cmu_deformation_sanity,cmu_deformation_violations=validate_cmu_deformation(
+    target,target_meshes,[name for name,_ in CLIPS],source_surface
+)
+
 render_preview(target,target_meshes,"CMU_ZombieWalk_104_41","cmu_zombie_walk_mid")
 render_preview(target,target_meshes,"CMU_DragBadLeg_105_25","cmu_drag_bad_leg_mid")
 render_preview(target,target_meshes,"CMU_Crawl_111_03","cmu_crawl_mid")
@@ -538,6 +600,8 @@ report={
     "bones":len(out_arm[0].data.bones) if out_arm else 0,
     "base_actions":base_actions,
     "baked_cmu":baked,
+    "deformation_sanity":cmu_deformation_sanity,
+    "deformation_sanity_violations":cmu_deformation_violations,
     "output_actions":out_actions,
     "missing_cmu_actions":missing,
     "output_bytes":out_bytes,
