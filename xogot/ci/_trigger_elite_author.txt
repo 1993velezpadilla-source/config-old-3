@@ -1,1 +1,1 @@
-trigger elite Monja 2026-10-05 donor-action-purge-1
+trigger elite Monja 2026-10-05 donor-action-purge-headroom-2
