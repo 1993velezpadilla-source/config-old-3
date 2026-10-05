@@ -371,6 +371,20 @@ func _find_skeleton_bone_attachment(node: Node, aliases: Array[String], attachme
 			return found
 	return null
 
+func _orient_imported_viewmodel(model: Node3D, model_path: String) -> void:
+	if model == null:
+		return
+	# Aether/WaW source convention: tag_flash is authored along +X.
+	# Godot camera forward is -Z, therefore +90 deg around Y maps +X -> -Z.
+	if model_path.contains("/aether_waw_real/"):
+		model.rotation_degrees = Vector3(0.0, 90.0, 0.0)
+		set_meta("weapon_forward_axis_source", "+X")
+		set_meta("weapon_forward_axis_runtime", "-Z")
+		set_meta("weapon_model_yaw_correction_deg", 90.0)
+		print("XZOGOT_WEAPON_FORWARD_AXIS_FIXED ", _weapon_id, " +X -> -Z yaw=90")
+	else:
+		set_meta("weapon_model_yaw_correction_deg", 0.0)
+
 func _calibrate_ads_pose(model: Node3D) -> void:
 	_ads_pose_position = Vector3(0.0, -0.145, -0.365)
 	_ads_calibration_mode = "generic"
@@ -632,6 +646,7 @@ func _refresh_view_assets(def: Dictionary) -> void:
 		_asset_animation_player = _find_animation_player(model)
 		if model is Node3D:
 			_weapon_model_root = model as Node3D
+			_orient_imported_viewmodel(_weapon_model_root, model_path)
 			var texture_report: Dictionary = WeaponTextureRegistry.apply_to_model(_weapon_model_root, _weapon_id)
 			set_meta("weapon_texture_surfaces", int(texture_report.get("surfaces", 0)))
 			set_meta("weapon_textured_surfaces", int(texture_report.get("textured", 0)))
@@ -775,6 +790,8 @@ func get_runtime_stats() -> Dictionary:
 		"pack_balance_data_driven": WeaponBalanceAAA.has_data(_weapon_id),
 		"ads_calibration_mode": _ads_calibration_mode,
 		"ads_pose_position": _ads_pose_position,
+		"model_yaw_correction_deg": float(get_meta("weapon_model_yaw_correction_deg", 0.0)),
+		"texture_ready": bool(get_meta("weapon_texture_ready", false)),
 	}
 
 func equip_weapon(id: String, refill: bool = true) -> bool:
