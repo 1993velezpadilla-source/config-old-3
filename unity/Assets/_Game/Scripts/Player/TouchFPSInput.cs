@@ -1,6 +1,7 @@
 using UnityEngine;
 using Sanctum.Zombies.Combat;
 using Sanctum.Zombies.Interaction;
+using Sanctum.Zombies.UI;
 
 namespace Sanctum.Zombies.Player
 {
@@ -11,8 +12,9 @@ namespace Sanctum.Zombies.Player
         [SerializeField] private MobileFPSController motor;
         [SerializeField] private MobileWeaponInput weapons;
         [SerializeField] private PlayerInteractor interactor;
+        [SerializeField] private MobileHUDLayout layout;
 
-        [Header("Touch regions (normalized screen)")]
+        [Header("Fallback touch regions (used when no layout asset is assigned)")]
         [SerializeField] private Rect moveRegion = new Rect(0.00f, 0.00f, 0.45f, 0.70f);
         [SerializeField] private Rect lookRegion = new Rect(0.45f, 0.00f, 0.55f, 1.00f);
         [SerializeField] private Rect fireRegion = new Rect(0.80f, 0.18f, 0.18f, 0.30f);
@@ -32,11 +34,12 @@ namespace Sanctum.Zombies.Player
         private bool aiming;
         private bool sprinting;
 
-        public void Configure(MobileFPSController motorRef, MobileWeaponInput weaponRef, PlayerInteractor interactorRef)
+        public void Configure(MobileFPSController motorRef, MobileWeaponInput weaponRef, PlayerInteractor interactorRef, MobileHUDLayout layoutRef)
         {
             motor = motorRef;
             weapons = weaponRef;
             interactor = interactorRef;
+            layout = layoutRef;
         }
 
         private void OnDisable()
@@ -62,19 +65,19 @@ namespace Sanctum.Zombies.Player
 
                 if (touch.phase == TouchPhase.Began)
                 {
-                    if (Contains(fireRegion, normalized)) { fireNow = true; continue; }
-                    if (Contains(adsRegion, normalized)) { adsNow = true; continue; }
-                    if (Contains(reloadRegion, normalized)) { weapons?.Reload(); continue; }
-                    if (Contains(useRegion, normalized)) { interactor?.TryUse(); continue; }
-                    if (Contains(jumpRegion, normalized)) { motor?.QueueJump(); continue; }
-                    if (Contains(sprintRegion, normalized)) { sprintNow = true; continue; }
+                    if (Contains(FireRegion, normalized)) { fireNow = true; continue; }
+                    if (Contains(ADSRegion, normalized)) { adsNow = true; continue; }
+                    if (Contains(ReloadRegion, normalized)) { weapons?.Reload(); continue; }
+                    if (Contains(UseRegion, normalized)) { interactor?.TryUse(); continue; }
+                    if (Contains(JumpRegion, normalized)) { motor?.QueueJump(); continue; }
+                    if (Contains(SprintRegion, normalized)) { sprintNow = true; continue; }
 
-                    if (moveFinger < 0 && Contains(moveRegion, normalized))
+                    if (moveFinger < 0 && Contains(MoveRegion, normalized))
                     {
                         moveFinger = touch.fingerId;
                         moveOrigin = touch.position;
                     }
-                    else if (lookFinger < 0 && Contains(lookRegion, normalized))
+                    else if (lookFinger < 0 && Contains(LookRegion, normalized))
                     {
                         lookFinger = touch.fingerId;
                     }
@@ -90,7 +93,7 @@ namespace Sanctum.Zombies.Player
                     else
                     {
                         moveSeen = true;
-                        Vector2 delta = (touch.position - moveOrigin) / Mathf.Max(1f, stickRadiusPixels);
+                        Vector2 delta = (touch.position - moveOrigin) / Mathf.Max(1f, StickRadiusPixels);
                         motor?.SetMove(Vector2.ClampMagnitude(delta, 1f));
                     }
                     continue;
@@ -105,14 +108,14 @@ namespace Sanctum.Zombies.Player
                     else
                     {
                         lookSeen = true;
-                        motor?.AddLookDelta(touch.deltaPosition * lookScale);
+                        motor?.AddLookDelta(touch.deltaPosition * LookScale);
                     }
                     continue;
                 }
 
-                if (Contains(fireRegion, normalized)) fireNow = true;
-                if (Contains(adsRegion, normalized)) adsNow = true;
-                if (Contains(sprintRegion, normalized)) sprintNow = true;
+                if (Contains(FireRegion, normalized)) fireNow = true;
+                if (Contains(ADSRegion, normalized)) adsNow = true;
+                if (Contains(SprintRegion, normalized)) sprintNow = true;
             }
 
             if (!moveSeen && moveFinger < 0) motor?.SetMove(Vector2.zero);
@@ -123,6 +126,17 @@ namespace Sanctum.Zombies.Player
             SetSprint(sprintNow);
 #endif
         }
+
+        private Rect MoveRegion => layout != null ? layout.moveRegion : moveRegion;
+        private Rect LookRegion => layout != null ? layout.lookRegion : lookRegion;
+        private Rect FireRegion => layout != null ? layout.fireRegion : fireRegion;
+        private Rect ADSRegion => layout != null ? layout.adsRegion : adsRegion;
+        private Rect ReloadRegion => layout != null ? layout.reloadRegion : reloadRegion;
+        private Rect UseRegion => layout != null ? layout.useRegion : useRegion;
+        private Rect JumpRegion => layout != null ? layout.jumpRegion : jumpRegion;
+        private Rect SprintRegion => layout != null ? layout.sprintRegion : sprintRegion;
+        private float StickRadiusPixels => layout != null ? layout.stickRadiusPixels : stickRadiusPixels;
+        private float LookScale => layout != null ? layout.lookScale : lookScale;
 
         private static bool Contains(Rect rect, Vector2 point) => rect.Contains(point);
 

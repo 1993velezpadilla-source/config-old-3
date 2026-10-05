@@ -32,6 +32,8 @@ for rel in [
     "Assets/_Game/Scripts/AI/ZombieSpawnDirector.cs",
     "Assets/_Game/Scripts/Player/MobileFPSController.cs",
     "Assets/_Game/Scripts/Player/TouchFPSInput.cs",
+    "Assets/_Game/Scripts/UI/MobileHUDLayout.cs",
+    "Assets/_Game/Scripts/UI/MobileHUDOverlay.cs",
     "Assets/_Game/Scripts/Interaction/PlayerInteractor.cs",
     "Assets/_Game/Scripts/Interaction/PackAPunchMachine.cs",
     "Assets/_Game/Scripts/World/LightingQualityDirector.cs",
@@ -42,6 +44,14 @@ for rel in [
 ]:
     if not (root / rel).exists():
         errors.append(f"missing runtime/editor code: {rel}")
+
+for rel in [
+    "Assets/_Game/Art/HUD/hud_fire.png",
+    "Assets/_Game/Art/HUD/hud_jump.png",
+    "Assets/_Game/Art/HUD/Source/LICENSE-CC0.txt",
+]:
+    if not (root / rel).exists():
+        errors.append(f"missing mobile HUD asset: {rel}")
 
 balance_path = root / "Assets/_Game/Data/weapon_balance.json"
 if not balance_path.exists():
@@ -92,4 +102,5 @@ print("WEAPON_BALANCE_ROWS=28+")
 print("REAL_CHURCH=YES")
 print("CLEAN_MONJA_RIG=YES")
 print("MONJA_EMBEDDED_IDLE_WALK_ATTACK_HIT_DEATH=VALID")
+print("MOBILE_HUD_SOURCE_AND_TOUCH_LAYOUT=WIRED")
 print("ADS_DAMAGE_ROUNDS_BARRICADES_PAP_MOBILE_TOUCH_GYRO_LIGHTING=WIRED")

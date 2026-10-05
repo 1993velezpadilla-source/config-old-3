@@ -11,6 +11,7 @@ using Sanctum.Zombies.Combat;
 using Sanctum.Zombies.Player;
 using Sanctum.Zombies.Interaction;
 using Sanctum.Zombies.World;
+using Sanctum.Zombies.UI;
 
 namespace Sanctum.Zombies.EditorTools
 {
@@ -20,6 +21,9 @@ namespace Sanctum.Zombies.EditorTools
         private const string ChurchPath = "Assets/_Game/Art/Environment/Church/church_final_architecture.glb";
         private const string NunPath = "Assets/_Game/Art/Zombies/MonjaClean/monja_basica_clean_rig.gltf";
         private const string TuningPath = "Assets/_Game/Data/ZombieRoundTuning.asset";
+        private const string HUDLayoutPath = "Assets/_Game/Data/MobileHUDLayout.asset";
+        private const string HUDFirePath = "Assets/_Game/Art/HUD/hud_fire.png";
+        private const string HUDJumpPath = "Assets/_Game/Art/HUD/hud_jump.png";
 
         [MenuItem("Zombies/Bootstrap/Build Vertical Slice Scene")]
         public static void Build()
@@ -100,8 +104,9 @@ namespace Sanctum.Zombies.EditorTools
             MobileWeaponInput mobileInput = player.AddComponent<MobileWeaponInput>();
             mobileInput.Configure(weapon, interactor);
 
+            MobileHUDLayout hudLayout = GetOrCreateHUDLayout();
             TouchFPSInput touchInput = player.AddComponent<TouchFPSInput>();
-            touchInput.Configure(motor, mobileInput, interactor);
+            touchInput.Configure(motor, mobileInput, interactor, hudLayout);
 
             WeaponDefinition mp40 = AssetDatabase.LoadAssetAtPath<WeaponDefinition>("Assets/_Game/Data/Weapons/mp40.asset");
             if (mp40 == null) throw new FileNotFoundException("Generated MP40 definition missing.");
@@ -115,7 +120,12 @@ namespace Sanctum.Zombies.EditorTools
             }
 
             GameObject zombiePrefab = BuildZombiePrefab(tuning);
-            CreateSpawnDirector(zombiePrefab, tuning);
+            ZombieSpawnDirector roundDirector = CreateSpawnDirector(zombiePrefab, tuning);
+
+            Texture2D fireIcon = AssetDatabase.LoadAssetAtPath<Texture2D>(HUDFirePath);
+            Texture2D jumpIcon = AssetDatabase.LoadAssetAtPath<Texture2D>(HUDJumpPath);
+            MobileHUDOverlay hud = player.AddComponent<MobileHUDOverlay>();
+            hud.Configure(hudLayout, weapon, wallet, roundDirector, fireIcon, jumpIcon);
 
             GameObject pap = new GameObject("PackAPunch_Test");
             pap.transform.position = new Vector3(3f, 1f, 8f);
@@ -209,7 +219,7 @@ namespace Sanctum.Zombies.EditorTools
             SetEnum(hitbox, "zone", (int)zone);
         }
 
-        private static void CreateSpawnDirector(GameObject zombiePrefab, ZombieRoundTuning tuning)
+        private static ZombieSpawnDirector CreateSpawnDirector(GameObject zombiePrefab, ZombieRoundTuning tuning)
         {
             GameObject directorGo = new GameObject("ROUND_DIRECTOR");
             ZombieSpawnDirector director = directorGo.AddComponent<ZombieSpawnDirector>();
@@ -234,6 +244,17 @@ namespace Sanctum.Zombies.EditorTools
             sp.arraySize = points.Length;
             for (int i = 0; i < points.Length; i++) sp.GetArrayElementAtIndex(i).objectReferenceValue = points[i];
             so.ApplyModifiedPropertiesWithoutUndo();
+            return director;
+        }
+
+        private static MobileHUDLayout GetOrCreateHUDLayout()
+        {
+            MobileHUDLayout layout = AssetDatabase.LoadAssetAtPath<MobileHUDLayout>(HUDLayoutPath);
+            if (layout != null) return layout;
+
+            layout = ScriptableObject.CreateInstance<MobileHUDLayout>();
+            AssetDatabase.CreateAsset(layout, HUDLayoutPath);
+            return layout;
         }
 
         private static Light CreateLight(Transform parent, string name, LightType type, Vector3 eulerOrPosition, float intensity, bool shadows, LightingPriority priority)
