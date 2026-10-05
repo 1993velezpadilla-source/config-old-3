@@ -1,4 +1,5 @@
 import bpy, json, math, sys
+import numpy as np
 from pathlib import Path
 from mathutils import Vector, Matrix
 
