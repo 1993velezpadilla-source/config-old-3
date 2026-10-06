@@ -64,8 +64,20 @@ jobs:
           else
             SOURCE_RUN=$(gh api \
               -H "Accept: application/vnd.github+json" \
-              "/repos/${GITHUB_REPOSITORY}/actions/runs?per_page=100" \
-              --jq '[.workflow_runs[] | select(.head_branch=="feature/godot-aaa-rebuild-v1" and .name=="Xogot Nacht Chronicles Full Map Authority" and .conclusion=="success")][0].id // empty')
+              "/repos/${GITHUB_REPOSITORY}/actions/workflows/xogot-nacht-chronicles-full-map-authority.yml/runs?branch=feature%2Fgodot-aaa-rebuild-v1&status=success&per_page=20" \
+              --jq '.workflow_runs[0].id // empty' || true)
+            if [ -z "$SOURCE_RUN" ]; then
+              for PAGE in 1 2 3 4 5 6 7 8 9 10; do
+                SOURCE_RUN=$(gh api \
+                  -H "Accept: application/vnd.github+json" \
+                  "/repos/${GITHUB_REPOSITORY}/actions/runs?per_page=100&page=$PAGE" \
+                  --jq '[.workflow_runs[] | select(.head_branch=="feature/godot-aaa-rebuild-v1" and .name=="Xogot Nacht Chronicles Full Map Authority" and .conclusion=="success")][0].id // empty')
+                if [ -n "$SOURCE_RUN" ]; then
+                  echo "XZOGOT_NACHT_STAGE_SOURCE_AUTHORITY_FALLBACK_PAGE_GREEN page=$PAGE run=$SOURCE_RUN"
+                  break
+                fi
+              done
+            fi
           fi
           echo "XZOGOT_NACHT_STAGE_SELECTED_SOURCE_RUN=$SOURCE_RUN"
           test -n "$SOURCE_RUN"
@@ -75,17 +87,22 @@ jobs:
           mkdir -p "$RUNNER_TEMP/nacht-authority"
           gh run download "$SOURCE_RUN" -n "$SOURCE_ARTIFACT" -D "$RUNNER_TEMP/nacht-authority"
 
-          AUDIO_BYTECODE_RUN=""
-          for PAGE in 1 2 3 4 5; do
-            AUDIO_BYTECODE_RUN=$(gh api \
-              -H "Accept: application/vnd.github+json" \
-              "/repos/${GITHUB_REPOSITORY}/actions/runs?per_page=100&page=$PAGE" \
-              --jq '[.workflow_runs[] | select(.head_branch=="feature/godot-aaa-rebuild-v1" and .name=="Xogot Nacht Blueprint Audio Bytecode Truth" and .conclusion=="success")][0].id // empty')
-            if [ -n "$AUDIO_BYTECODE_RUN" ]; then
-              echo "XZOGOT_NACHT_STAGE_AUDIO_BYTECODE_PAGE_GREEN page=$PAGE run=$AUDIO_BYTECODE_RUN"
-              break
-            fi
-          done
+          AUDIO_BYTECODE_RUN=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${GITHUB_REPOSITORY}/actions/workflows/xogot-nacht-blueprint-audio-bytecode.yml/runs?branch=feature%2Fgodot-aaa-rebuild-v1&status=success&per_page=20" \
+            --jq '.workflow_runs[0].id // empty' || true)
+          if [ -z "$AUDIO_BYTECODE_RUN" ]; then
+            for PAGE in 1 2 3 4 5 6 7 8 9 10; do
+              AUDIO_BYTECODE_RUN=$(gh api \
+                -H "Accept: application/vnd.github+json" \
+                "/repos/${GITHUB_REPOSITORY}/actions/runs?per_page=100&page=$PAGE" \
+                --jq '[.workflow_runs[] | select(.head_branch=="feature/godot-aaa-rebuild-v1" and .name=="Xogot Nacht Blueprint Audio Bytecode Truth" and .conclusion=="success")][0].id // empty')
+              if [ -n "$AUDIO_BYTECODE_RUN" ]; then
+                echo "XZOGOT_NACHT_STAGE_AUDIO_BYTECODE_FALLBACK_PAGE_GREEN page=$PAGE run=$AUDIO_BYTECODE_RUN"
+                break
+              fi
+            done
+          fi
           echo "XZOGOT_NACHT_STAGE_SELECTED_AUDIO_BYTECODE_RUN=$AUDIO_BYTECODE_RUN"
           test -n "$AUDIO_BYTECODE_RUN"
           echo "NACHT_AUDIO_BYTECODE_RUN=$AUDIO_BYTECODE_RUN" >> "$GITHUB_ENV"
