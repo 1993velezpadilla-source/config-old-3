@@ -124,6 +124,12 @@ jobs:
           cp "$AUTH/nacht-audio-cues.json" "$root/"
           cp "$AUTH/nacht-materials.json" "$root/"
 
+          python3 tools/maps/compile_nacht_particle_runtime.py \
+            --placements "$root/nacht-particles.json" \
+            --graphs "$root/nacht-particle-graphs.json" \
+            --output "$root/particle-runtime-manifest.json"
+          echo "XZOGOT_NACHT_PARTICLE_RUNTIME_MANIFEST_GREEN"
+
           python3 tools/maps/xzaw_to_ogg.py \
             "$AUTH/nacht-native/audio" \
             "$root/audio" \
@@ -221,6 +227,7 @@ jobs:
           particles=json.loads((root/"nacht-particles.json").read_text())
           particle_graph=json.loads((root/"nacht-particle-graphs.json").read_text())
           particle_graphs=json.loads((root/"nacht-particle-graphs.json").read_text())
+          particle_runtime=json.loads((root/"particle-runtime-manifest.json").read_text())
           environment=json.loads((root/"nacht-environment-scene.json").read_text())
           audio_scene=json.loads((root/"nacht-audio-scene.json").read_text())
           audio_cues=json.loads((root/"nacht-audio-cues.json").read_text())
@@ -245,6 +252,8 @@ jobs:
           assert particles["nullTemplateCount"] == 0, particles
           assert particle_graph["particleSystemCount"] == 39 and particle_graph["ready"] is True, particle_graph
           assert particle_graphs["particleSystemCount"] == 39 and particle_graphs["ready"] is True, particle_graphs
+          assert particle_runtime["ready"] is True, particle_runtime
+          assert particle_runtime["placementCount"] == 29, particle_runtime
           assert environment["ready"] is True, environment
           assert audio_scene["audioComponentCount"] == 3 and audio_scene["ready"] is True, audio_scene
           assert audio_scene["referencedSoundCount"] == 3, audio_scene
