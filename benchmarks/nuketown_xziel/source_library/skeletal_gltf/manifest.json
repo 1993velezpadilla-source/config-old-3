@@ -8,6 +8,7 @@
     {
       "output": "skeletal_00_untitled.gltf",
       "sourceGeometry": "Pavlov/Plugins/UGC5097941/Content/box/1/untitled.uasset",
+      "sourceXzskFile": "s0000.xsk",
       "sourceSkeleton": "Pavlov/Plugins/UGC5097941/Content/box/1/untitled_Skeleton.uasset",
       "skeletonHash": "40e5473fcfae14e8",
       "bones": 5,
@@ -76,6 +77,7 @@
     {
       "output": "skeletal_01_untitled.gltf",
       "sourceGeometry": "Pavlov/Plugins/UGC5097941/Content/props/shades/1/untitled.uasset",
+      "sourceXzskFile": "s0001.xsk",
       "sourceSkeleton": "Pavlov/Plugins/UGC5097941/Content/props/shades/1/untitled_Skeleton.uasset",
       "skeletonHash": "70299695c85b0559",
       "bones": 10,
@@ -96,6 +98,7 @@
     {
       "output": "skeletal_02_untitled.gltf",
       "sourceGeometry": "Pavlov/Plugins/UGC5097941/Content/props/shades/2/untitled.uasset",
+      "sourceXzskFile": "s0002.xsk",
       "sourceSkeleton": "Pavlov/Plugins/UGC5097941/Content/props/shades/2/untitled_Skeleton.uasset",
       "skeletonHash": "09f7e917b6599364",
       "bones": 8,
