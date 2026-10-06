@@ -70,6 +70,9 @@ func _boot_full_map() -> void:
 	_source_loader.name = "NuketownSourceWorld"
 	_source_loader.set("source_root", source_root)
 	_source_loader.set("load_on_ready", true)
+	# Full Map owns exact skeletal actor mounting so the shared benchmark loader
+	# does not instantiate a second copy of the same two source actors.
+	_source_loader.set("build_skeletal_actors", false)
 	add_child(_source_loader)
 
 	var ready := false
@@ -328,7 +331,11 @@ func _mount_source_skeletal_actor_visuals() -> bool:
 			return false
 
 		visual.name = "SourceSkeletalVisual_" + str(row.get("actorName", "Actor"))
-		visual.transform = Transform3D.IDENTITY
+		# The binding matrix is the cooked SkeletalMeshComponent world transform,
+		# already converted into the shared XZIEL X,-Y,Z meter basis. Parent it
+		# directly under SourceActorAnchors, whose basis performs the one Godot
+		# coordinate conversion, instead of inheriting the coarser actor marker.
+		visual.transform = _transform_from_row_major(row.get("matrixRowMajor", []))
 		visual.add_to_group("nuketown_source_skeletal_visual")
 		visual.set_meta("source_actor_object_path", actor_object_path)
 		visual.set_meta("source_skeletal_mesh_object_path", str(row.get("sourceSkeletalMeshObjectPath", "")))
@@ -336,8 +343,8 @@ func _mount_source_skeletal_actor_visuals() -> bool:
 		visual.set_meta("source_xzsk_file", str(row.get("sourceXzskFile", "")))
 		visual.set_meta("source_skeleton_hash", str(row.get("skeletonHash", "")))
 		visual.set_meta("source_gltf", gltf_name)
-		visual.set_meta("source_transform_inherited_from_exact_actor_marker", true)
-		marker.add_child(visual)
+		visual.set_meta("source_transform_from_cooked_component", true)
+		_source_actor_root.add_child(visual)
 
 		var animation_player := _find_animation_player_recursive(visual)
 		if animation_player == null:
