@@ -333,26 +333,103 @@ def main() -> int:
                 else None
             )
 
+        # CUE4Parse's UMaterial model initializes ShadingModel to Unlit,
+        # but UE4.21.2's UMaterial constructor initializes it to DefaultLit.
+        # Cooked packages omit properties that equal the engine constructor
+        # default, so an absent ShadingModel property is positive source
+        # authority for MSM_DefaultLit, not MSM_Unlit. Apply the same rule
+        # through MaterialInstance inheritance unless that instance explicitly
+        # overrides the property.
+        raw_property_keys = material.get("rawPropertyKeys", [])
+        base_path = material.get("semanticBaseMaterialPath") or material_path
+        base_material = material_by_path.get(
+            canonical_ue_path(base_path),
+            material,
+        )
+        base_raw_property_keys = base_material.get(
+            "rawPropertyKeys",
+            [],
+        )
+
+        runtime_blend_mode = material["blendMode"]
+        runtime_shading_model = material["shadingModel"]
+        runtime_opacity_mask_clip = material.get(
+            "opacityMaskClipValue",
+        )
+        runtime_two_sided = material.get("twoSided")
+        runtime_disable_depth_test = material.get(
+            "disableDepthTest",
+        )
+        runtime_default_sources = []
+
+        if (
+            base_material.get("exportType") == "Material"
+            and not material.get("semanticShadingOverride", False)
+            and "ShadingModel" not in base_raw_property_keys
+        ):
+            runtime_shading_model = "MSM_DefaultLit"
+            runtime_default_sources.append(
+                "UE4.21.2 UMaterial ctor ShadingModel=MSM_DefaultLit"
+            )
+
+        if (
+            base_material.get("exportType") == "Material"
+            and not material.get("semanticBlendOverride", False)
+            and "BlendMode" not in base_raw_property_keys
+        ):
+            runtime_blend_mode = "BLEND_Opaque"
+            runtime_default_sources.append(
+                "UE4.21.2 UMaterial ctor BlendMode=BLEND_Opaque"
+            )
+
+        if (
+            base_material.get("exportType") == "Material"
+            and not material.get("semanticOpacityMaskOverride", False)
+            and "OpacityMaskClipValue" not in base_raw_property_keys
+        ):
+            runtime_opacity_mask_clip = 0.3333
+            runtime_default_sources.append(
+                "UE4.21.2 UMaterial ctor OpacityMaskClipValue=0.3333"
+            )
+
+        if (
+            base_material.get("exportType") == "Material"
+            and not material.get("semanticTwoSidedOverride", False)
+            and "TwoSided" not in base_raw_property_keys
+        ):
+            runtime_two_sided = False
+            runtime_default_sources.append(
+                "UE4.21.2 UMaterial ctor TwoSided=false"
+            )
+
+        if (
+            base_material.get("exportType") == "Material"
+            and "bDisableDepthTest" not in base_raw_property_keys
+        ):
+            runtime_disable_depth_test = False
+            runtime_default_sources.append(
+                "UE4.21.2 UMaterial ctor bDisableDepthTest=false"
+            )
+
         material_library.append({
             "materialPath": material_path,
             "exportType": material["exportType"],
-            "blendMode": material["blendMode"],
-            "shadingModel": material["shadingModel"],
-            "opacityMaskClipValue":
-                material.get("opacityMaskClipValue"),
-            "twoSided": material.get("twoSided"),
-            "disableDepthTest":
-                material.get("disableDepthTest"),
-            "isMasked": material.get("isMasked"),
+            "blendMode": runtime_blend_mode,
+            "shadingModel": runtime_shading_model,
+            "opacityMaskClipValue": runtime_opacity_mask_clip,
+            "twoSided": runtime_two_sided,
+            "disableDepthTest": runtime_disable_depth_test,
+            "isMasked": runtime_blend_mode == "BLEND_Masked",
             "canonicalTextures": canonical,
             "textures": texture_rows,
             "scalars": material.get("scalars", []),
             "colors": material.get("colors", []),
             "switches": material.get("switches", []),
-            "rawPropertyKeys": material.get(
-                "rawPropertyKeys",
-                [],
-            ),
+            "rawPropertyKeys": raw_property_keys,
+            "auditBlendMode": material.get("blendMode"),
+            "auditShadingModel": material.get("shadingModel"),
+            "semanticBaseMaterialPath": base_path,
+            "runtimeEngineDefaults": runtime_default_sources,
         })
 
     # De-duplicate error rows while keeping deterministic JSON.
