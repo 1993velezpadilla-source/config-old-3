@@ -39,6 +39,7 @@ var _texture_runtime_files: Dictionary = {}
 var _source_srgb_texture_paths: Array[String] = []
 var _source_material_alias_diffuse: Dictionary = {}
 var _source_material_alias_conflicts: Dictionary = {}
+var _source_material_resolved_alias_diffuse: Dictionary = {}
 var _source_material_alias_hits: int = 0
 var _source_material_textured_count: int = 0
 var _source_material_flat_fallback_count: int = 0
@@ -143,6 +144,7 @@ func _load_benchmark_world() -> void:
 	set_meta("xziel_benchmark_xzms_fallback_mesh_count", _xzms_fallback_mesh_count)
 	set_meta("xziel_benchmark_material_alias_count", _source_material_alias_diffuse.size())
 	set_meta("xziel_benchmark_material_alias_conflict_count", _source_material_alias_conflicts.size())
+	set_meta("xziel_benchmark_material_alias_resolved_count", _source_material_resolved_alias_diffuse.size())
 	set_meta("xziel_benchmark_material_alias_hits", _source_material_alias_hits)
 	set_meta("xziel_benchmark_material_textured_count", _source_material_textured_count)
 	set_meta("xziel_benchmark_material_flat_fallback_count", _source_material_flat_fallback_count)
@@ -158,6 +160,7 @@ func _load_benchmark_world() -> void:
 		" materials=", _material_cache.size(),
 		" textures=", _texture_cache.size(),
 		" aliases=", _source_material_alias_diffuse.size(),
+		" alias_resolved=", _source_material_resolved_alias_diffuse.size(),
 		" alias_hits=", _source_material_alias_hits,
 		" alias_conflicts=", _source_material_alias_conflicts.size(),
 		" textured_materials=", _source_material_textured_count,
@@ -182,6 +185,7 @@ func _prepare_material_authority() -> void:
 	_source_srgb_texture_paths.clear()
 	_source_material_alias_diffuse.clear()
 	_source_material_alias_conflicts.clear()
+	_source_material_resolved_alias_diffuse.clear()
 	_source_material_alias_hits = 0
 	_source_material_textured_count = 0
 	_source_material_flat_fallback_count = 0
@@ -708,18 +712,46 @@ func _build_source_material_aliases() -> void:
 			_register_source_material_alias(key, diffuse_source)
 		for key: String in _source_semantic_keys(diffuse_source):
 			_register_source_material_alias(key, diffuse_source)
+
+	# Resolve every generated /nt/ base layer once, after the unique source
+	# alias table is complete. This makes the source-authoritative relationship
+	# explicit instead of recomputing it while individual mesh surfaces load.
+	for material_path_var: Variant in _material_records.keys():
+		var material_path := str(material_path_var)
+		if not material_path.to_lower().contains("/nt/"):
+			continue
+		var alias_source := _source_alias_diffuse_for_composite(material_path)
+		if not alias_source.is_empty():
+			_source_material_resolved_alias_diffuse[material_path] = alias_source
+
 	print(
 		"XZOGOT_NUKETOWN_MATERIAL_ALIASES aliases=",
 		_source_material_alias_diffuse.size(),
+		" resolved=", _source_material_resolved_alias_diffuse.size(),
 		" conflicts=", _source_material_alias_conflicts.size()
 	)
+
+func _source_alias_diffuse_for_composite(material_path: String) -> String:
+	if not material_path.to_lower().contains("/nt/"):
+		return ""
+	var material_name := material_path.get_file().get_basename()
+	var layers := material_name.split("__", false)
+	if layers.is_empty():
+		return ""
+	var base_layer := str(layers[0])
+	for key: String in _source_semantic_keys(base_layer):
+		if _source_material_alias_diffuse.has(key):
+			var alias_source := str(_source_material_alias_diffuse[key])
+			if not alias_source.is_empty():
+				return alias_source
+	return ""
 
 func _source_named_composite_diffuse(material_path: String) -> String:
 	# Generated Nuketown composites encode the base material first and optional
 	# overlays after "__". Albedo authority must come only from the first/base
 	# layer: later layers are decals, burn/rubble blends, trim or masks and must
 	# never repaint the whole surface.
-	if not material_path.contains("/nt/"):
+	if not material_path.to_lower().contains("/nt/"):
 		return ""
 	var material_name := material_path.get_file().get_basename()
 	var layers := material_name.split("__", false)
@@ -727,14 +759,12 @@ func _source_named_composite_diffuse(material_path: String) -> String:
 		return ""
 	var base_layer := str(layers[0])
 
-	# First use aliases recovered from source /text/ materials that still retain
-	# a unique sRGB albedo binding. Ambiguous aliases are discarded at build.
-	for key: String in _source_semantic_keys(base_layer):
-		if _source_material_alias_diffuse.has(key):
-			var alias_source := str(_source_material_alias_diffuse[key])
-			if not alias_source.is_empty():
-				_source_material_alias_hits += 1
-				return alias_source
+	# Prefer the pre-resolved unique source alias. Ambiguous aliases never enter
+	# this map, so a hit remains deterministic and source-authored.
+	var resolved_alias := str(_source_material_resolved_alias_diffuse.get(material_path, ""))
+	if not resolved_alias.is_empty():
+		_source_material_alias_hits += 1
+		return resolved_alias
 
 	# Preserve the older exact-token path as a second, conservative authority,
 	# but restrict it to the base layer as well.
