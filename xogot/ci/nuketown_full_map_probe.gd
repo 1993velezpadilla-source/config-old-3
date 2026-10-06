@@ -197,6 +197,11 @@ func _run() -> void:
 	if get_nodes_in_group("nuketown_zombie_spawn_anchor").size() != zombie_spawn_anchor_count:
 		_fail(49, "zombie spawn anchor group mismatch")
 		return
+	var player := scene.get_node_or_null("Player") as CharacterBody3D
+	if player == null:
+		_fail(12, "player missing")
+		return
+
 	var nav_runtime: Node = get_nodes_in_group("zombie_path_network")[0]
 	var nav_spawns: Array[Node] = []
 	for nav_spawn: Node in get_nodes_in_group("nuketown_zombie_spawn_anchor"):
@@ -229,10 +234,6 @@ func _run() -> void:
 		return
 	print("XZOGOT_NUKETOWN_NAV_ALL_SPAWNS_GREEN routes=", proven_spawn_routes)
 
-	var player := scene.get_node_or_null("Player") as CharacterBody3D
-	if player == null:
-		_fail(12, "player missing")
-		return
 	if not player.has_meta("nuketown_source_spawn_export"):
 		_fail(13, "player was not placed from source spawn")
 		return
