@@ -1,6 +1,9 @@
 {
-  "schema": 1,
+  "schema": 2,
   "mesh_count": 52,
+  "mesh_chunks": 53,
+  "max_chunk_surfaces": 240,
+  "surface_chunk_limit": 240,
   "vertices": 671012,
   "indices": 859353,
   "submeshes": 563,
@@ -11,7 +14,12 @@
       "vertices": 1318,
       "indices": 3516,
       "submeshes": 2,
-      "bytes": 152680
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 152840
     },
     {
       "source": "m0001.xzm",
@@ -19,7 +27,13 @@
       "vertices": 325801,
       "indices": 393096,
       "submeshes": 464,
-      "bytes": 35598692
+      "mesh_chunks": 2,
+      "max_chunk_surfaces": 240,
+      "chunk_surface_counts": [
+        240,
+        224
+      ],
+      "bytes": 35599008
     },
     {
       "source": "m0002.xzm",
@@ -27,7 +41,12 @@
       "vertices": 2124,
       "indices": 4992,
       "submeshes": 2,
-      "bytes": 242412
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 242572
     },
     {
       "source": "m0003.xzm",
@@ -35,7 +54,12 @@
       "vertices": 1708,
       "indices": 6165,
       "submeshes": 3,
-      "bytes": 204136
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 3,
+      "chunk_surface_counts": [
+        3
+      ],
+      "bytes": 204296
     },
     {
       "source": "m0004.xzm",
@@ -43,7 +67,12 @@
       "vertices": 5745,
       "indices": 5853,
       "submeshes": 3,
-      "bytes": 622736
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 3,
+      "chunk_surface_counts": [
+        3
+      ],
+      "bytes": 622896
     },
     {
       "source": "m0005.xzm",
@@ -51,7 +80,12 @@
       "vertices": 450,
       "indices": 696,
       "submeshes": 1,
-      "bytes": 50808
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 1,
+      "chunk_surface_counts": [
+        1
+      ],
+      "bytes": 50968
     },
     {
       "source": "m0006.xzm",
@@ -59,7 +93,12 @@
       "vertices": 3270,
       "indices": 4569,
       "submeshes": 1,
-      "bytes": 359608
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 1,
+      "chunk_surface_counts": [
+        1
+      ],
+      "bytes": 359768
     },
     {
       "source": "m0007.xzm",
@@ -67,7 +106,12 @@
       "vertices": 494,
       "indices": 828,
       "submeshes": 2,
-      "bytes": 56220
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 56380
     },
     {
       "source": "m0008.xzm",
@@ -75,7 +119,12 @@
       "vertices": 13752,
       "indices": 42942,
       "submeshes": 2,
-      "bytes": 1603536
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 1603696
     },
     {
       "source": "m0009.xzm",
@@ -83,7 +132,12 @@
       "vertices": 827,
       "indices": 1056,
       "submeshes": 1,
-      "bytes": 91472
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 1,
+      "chunk_surface_counts": [
+        1
+      ],
+      "bytes": 91632
     },
     {
       "source": "m0014.xzm",
@@ -91,7 +145,12 @@
       "vertices": 132,
       "indices": 156,
       "submeshes": 1,
-      "bytes": 15576
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 1,
+      "chunk_surface_counts": [
+        1
+      ],
+      "bytes": 15736
     },
     {
       "source": "m0015.xzm",
@@ -99,7 +158,12 @@
       "vertices": 1262,
       "indices": 1296,
       "submeshes": 1,
-      "bytes": 137684
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 1,
+      "chunk_surface_counts": [
+        1
+      ],
+      "bytes": 137844
     },
     {
       "source": "m0024.xzm",
@@ -107,7 +171,12 @@
       "vertices": 2030,
       "indices": 2142,
       "submeshes": 1,
-      "bytes": 220940
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 1,
+      "chunk_surface_counts": [
+        1
+      ],
+      "bytes": 221100
     },
     {
       "source": "m0025.xzm",
@@ -115,7 +184,12 @@
       "vertices": 2030,
       "indices": 2142,
       "submeshes": 1,
-      "bytes": 220940
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 1,
+      "chunk_surface_counts": [
+        1
+      ],
+      "bytes": 221100
     },
     {
       "source": "m0026.xzm",
@@ -123,7 +197,12 @@
       "vertices": 375,
       "indices": 570,
       "submeshes": 2,
-      "bytes": 42820
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 42980
     },
     {
       "source": "m0027.xzm",
@@ -131,7 +210,12 @@
       "vertices": 4108,
       "indices": 4476,
       "submeshes": 2,
-      "bytes": 446676
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 446836
     },
     {
       "source": "m0028.xzm",
@@ -139,7 +223,12 @@
       "vertices": 4677,
       "indices": 5523,
       "submeshes": 2,
-      "bytes": 510040
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 510200
     },
     {
       "source": "m0029.xzm",
@@ -147,7 +236,12 @@
       "vertices": 12071,
       "indices": 13698,
       "submeshes": 2,
-      "bytes": 1311728
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 1311888
     },
     {
       "source": "m0030.xzm",
@@ -155,7 +249,12 @@
       "vertices": 10492,
       "indices": 10788,
       "submeshes": 2,
-      "bytes": 1135868
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 1136028
     },
     {
       "source": "m0031.xzm",
@@ -163,7 +262,12 @@
       "vertices": 34482,
       "indices": 34974,
       "submeshes": 3,
-      "bytes": 3727880
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 3,
+      "chunk_surface_counts": [
+        3
+      ],
+      "bytes": 3728040
     },
     {
       "source": "m0032.xzm",
@@ -171,7 +275,12 @@
       "vertices": 6456,
       "indices": 7617,
       "submeshes": 2,
-      "bytes": 703436
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 703596
     },
     {
       "source": "m0033.xzm",
@@ -179,7 +288,12 @@
       "vertices": 14675,
       "indices": 16626,
       "submeshes": 3,
-      "bytes": 1594556
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 3,
+      "chunk_surface_counts": [
+        3
+      ],
+      "bytes": 1594716
     },
     {
       "source": "m0034.xzm",
@@ -187,7 +301,12 @@
       "vertices": 2836,
       "indices": 3396,
       "submeshes": 2,
-      "bytes": 310068
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 310228
     },
     {
       "source": "m0035.xzm",
@@ -195,7 +314,12 @@
       "vertices": 9638,
       "indices": 11049,
       "submeshes": 2,
-      "bytes": 1048096
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 1048256
     },
     {
       "source": "m0036.xzm",
@@ -203,7 +327,12 @@
       "vertices": 2068,
       "indices": 2412,
       "submeshes": 2,
-      "bytes": 226260
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 226420
     },
     {
       "source": "m0037.xzm",
@@ -211,7 +340,12 @@
       "vertices": 11215,
       "indices": 11940,
       "submeshes": 2,
-      "bytes": 1215672
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 1215832
     },
     {
       "source": "m0038.xzm",
@@ -219,7 +353,12 @@
       "vertices": 10924,
       "indices": 11112,
       "submeshes": 2,
-      "bytes": 1182092
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 1182252
     },
     {
       "source": "m0039.xzm",
@@ -227,7 +366,12 @@
       "vertices": 8030,
       "indices": 9159,
       "submeshes": 2,
-      "bytes": 873300
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 873460
     },
     {
       "source": "m0040.xzm",
@@ -235,7 +379,12 @@
       "vertices": 10062,
       "indices": 11100,
       "submeshes": 3,
-      "bytes": 1092700
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 3,
+      "chunk_surface_counts": [
+        3
+      ],
+      "bytes": 1092860
     },
     {
       "source": "m0041.xzm",
@@ -243,7 +392,12 @@
       "vertices": 31915,
       "indices": 32601,
       "submeshes": 4,
-      "bytes": 3451724
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 4,
+      "chunk_surface_counts": [
+        4
+      ],
+      "bytes": 3451884
     },
     {
       "source": "m0042.xzm",
@@ -251,7 +405,12 @@
       "vertices": 1755,
       "indices": 2112,
       "submeshes": 2,
-      "bytes": 192512
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 192672
     },
     {
       "source": "m0043.xzm",
@@ -259,7 +418,12 @@
       "vertices": 8330,
       "indices": 9405,
       "submeshes": 2,
-      "bytes": 905484
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 905644
     },
     {
       "source": "m0044.xzm",
@@ -267,7 +431,12 @@
       "vertices": 6360,
       "indices": 6900,
       "submeshes": 1,
-      "bytes": 690280
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 1,
+      "chunk_surface_counts": [
+        1
+      ],
+      "bytes": 690440
     },
     {
       "source": "m0045.xzm",
@@ -275,7 +444,12 @@
       "vertices": 5564,
       "indices": 6240,
       "submeshes": 1,
-      "bytes": 604856
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 1,
+      "chunk_surface_counts": [
+        1
+      ],
+      "bytes": 605016
     },
     {
       "source": "m0046.xzm",
@@ -283,7 +457,12 @@
       "vertices": 3691,
       "indices": 4287,
       "submeshes": 3,
-      "bytes": 402848
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 3,
+      "chunk_surface_counts": [
+        3
+      ],
+      "bytes": 403008
     },
     {
       "source": "m0059.xzm",
@@ -291,7 +470,12 @@
       "vertices": 845,
       "indices": 1098,
       "submeshes": 2,
-      "bytes": 93812
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 93972
     },
     {
       "source": "m0060.xzm",
@@ -299,7 +483,12 @@
       "vertices": 850,
       "indices": 1098,
       "submeshes": 2,
-      "bytes": 94332
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 94492
     },
     {
       "source": "m0061.xzm",
@@ -307,7 +496,12 @@
       "vertices": 3752,
       "indices": 5952,
       "submeshes": 3,
-      "bytes": 415864
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 3,
+      "chunk_surface_counts": [
+        3
+      ],
+      "bytes": 416024
     },
     {
       "source": "m0069.xzm",
@@ -315,7 +509,12 @@
       "vertices": 1215,
       "indices": 1320,
       "submeshes": 2,
-      "bytes": 133168
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 133328
     },
     {
       "source": "m0070.xzm",
@@ -323,7 +522,12 @@
       "vertices": 536,
       "indices": 714,
       "submeshes": 1,
-      "bytes": 59836
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 1,
+      "chunk_surface_counts": [
+        1
+      ],
+      "bytes": 59996
     },
     {
       "source": "m0071.xzm",
@@ -331,7 +535,12 @@
       "vertices": 16671,
       "indices": 16671,
       "submeshes": 2,
-      "bytes": 1802020
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 1802180
     },
     {
       "source": "m0072.xzm",
@@ -339,7 +548,12 @@
       "vertices": 82,
       "indices": 228,
       "submeshes": 1,
-      "bytes": 10672
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 1,
+      "chunk_surface_counts": [
+        1
+      ],
+      "bytes": 10832
     },
     {
       "source": "m0073.xzm",
@@ -347,7 +561,12 @@
       "vertices": 1519,
       "indices": 3417,
       "submeshes": 2,
-      "bytes": 173192
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 173352
     },
     {
       "source": "m0074.xzm",
@@ -355,7 +574,12 @@
       "vertices": 410,
       "indices": 546,
       "submeshes": 1,
-      "bytes": 46060
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 1,
+      "chunk_surface_counts": [
+        1
+      ],
+      "bytes": 46220
     },
     {
       "source": "m0075.xzm",
@@ -363,7 +587,12 @@
       "vertices": 12240,
       "indices": 12312,
       "submeshes": 2,
-      "bytes": 1323760
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 1323920
     },
     {
       "source": "m0076.xzm",
@@ -371,7 +600,12 @@
       "vertices": 34,
       "indices": 36,
       "submeshes": 1,
-      "bytes": 4908
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 1,
+      "chunk_surface_counts": [
+        1
+      ],
+      "bytes": 5068
     },
     {
       "source": "m0077.xzm",
@@ -379,7 +613,12 @@
       "vertices": 44,
       "indices": 60,
       "submeshes": 1,
-      "bytes": 6048
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 1,
+      "chunk_surface_counts": [
+        1
+      ],
+      "bytes": 6208
     },
     {
       "source": "m0078.xzm",
@@ -387,7 +626,12 @@
       "vertices": 28747,
       "indices": 77772,
       "submeshes": 2,
-      "bytes": 3302332
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 3302492
     },
     {
       "source": "m0079.xzm",
@@ -395,7 +639,12 @@
       "vertices": 7001,
       "indices": 11736,
       "submeshes": 2,
-      "bytes": 776600
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 776760
     },
     {
       "source": "m0080.xzm",
@@ -403,7 +652,12 @@
       "vertices": 13169,
       "indices": 13881,
       "submeshes": 3,
-      "bytes": 1426956
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 3,
+      "chunk_surface_counts": [
+        3
+      ],
+      "bytes": 1427116
     },
     {
       "source": "m0081.xzm",
@@ -411,7 +665,12 @@
       "vertices": 6915,
       "indices": 7779,
       "submeshes": 2,
-      "bytes": 751824
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 2,
+      "chunk_surface_counts": [
+        2
+      ],
+      "bytes": 751984
     },
     {
       "source": "m0082.xzm",
@@ -419,7 +678,12 @@
       "vertices": 16315,
       "indices": 19299,
       "submeshes": 3,
-      "bytes": 1775812
+      "mesh_chunks": 1,
+      "max_chunk_surfaces": 3,
+      "chunk_surface_counts": [
+        3
+      ],
+      "bytes": 1775972
     }
   ]
 }

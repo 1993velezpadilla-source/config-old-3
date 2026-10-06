@@ -17,7 +17,9 @@
   "runtime_loader": "res://scripts/xziel_benchmark_loader.gd",
   "runtime_mesh_format": "GLB",
   "runtime_mesh_directory": "vfs/xziel/maps/xziel_nuketown_zombies/meshes_glb",
-  "runtime_mesh_conversion": "lossless XZMS vertex/index/submesh bridge",
+  "runtime_mesh_conversion": "lossless XZMS vertex/index/submesh bridge; Godot-safe surface chunking only",
+  "runtime_mesh_chunks": 53,
+  "runtime_max_surfaces_per_mesh": 240,
   "source_xzms_authority": {
     "source_run": 36613010234,
     "source_artifact": "XZIEL-Nuketown-Zombies-Virgin-Package-Census",
