@@ -174,7 +174,9 @@ jobs:
 
           assert handoff["sourcePackageCount"] == 3871, handoff
           assert scene["summary"]["ready"] is True, scene["summary"]
-          assert scene["summary"]["sceneInstanceCount"] > 0, scene["summary"]
+          assert scene["summary"]["actorAnchorCount"] == 11023, scene["summary"]
+          assert scene["summary"]["sceneInstanceCount"] == 10793, scene["summary"]
+          assert scene["summary"]["referencedNativeMeshCount"] == 493, scene["summary"]
           assert scene["summary"]["unresolvedMeshCount"] == 0, scene["summary"]
           assert mats["summary"]["ready"] is True, mats["summary"]
           assert mats["summary"]["unresolvedMaterialCount"] == 0, mats["summary"]
