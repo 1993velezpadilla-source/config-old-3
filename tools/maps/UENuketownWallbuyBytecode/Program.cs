@@ -8,16 +8,44 @@ using UAssetAPI.PropertyTypes.Objects;
 using UAssetAPI.UnrealTypes;
 using UAssetAPI.Unversioned;
 
-if (args.Length < 4)
+if (args.Length < 3)
 {
     Console.Error.WriteLine(
-        "usage: UENuketownWallbuyBytecode <mappings.usmap> <output.json> <asset.uasset> <asset.uasset> [...]");
+        "usage: UENuketownWallbuyBytecode <mappings.usmap> <output.json> <asset.uasset|@filelist> [...]");
     return 2;
 }
 
 var mappingsPath = args[0];
 var outputPath = args[1];
-var assetPaths = args.Skip(2).ToArray();
+
+var assetPaths = new List<string>();
+foreach (var raw in args.Skip(2))
+{
+    if (raw.StartsWith("@", StringComparison.Ordinal))
+    {
+        var listPath = raw[1..];
+        if (!File.Exists(listPath))
+            throw new FileNotFoundException("asset list missing", listPath);
+
+        assetPaths.AddRange(
+            File.ReadAllLines(listPath)
+                .Select(line => line.Trim())
+                .Where(line =>
+                    line.Length > 0 &&
+                    !line.StartsWith("#", StringComparison.Ordinal)));
+    }
+    else
+    {
+        assetPaths.Add(raw);
+    }
+}
+
+assetPaths = assetPaths
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .ToList();
+
+if (assetPaths.Count == 0)
+    throw new InvalidDataException("no asset paths requested");
 
 if (!File.Exists(mappingsPath))
     throw new FileNotFoundException("mappings missing", mappingsPath);
@@ -311,7 +339,7 @@ foreach (var assetPath in assetPaths)
 
 var ready =
     failures.Count == 0 &&
-    packageRows.Count == assetPaths.Length &&
+    packageRows.Count == assetPaths.Count &&
     (
         (parsedFunctions > 0 && parsedExpressions > 0) ||
         parsedDataTableRows > 0 ||
@@ -322,7 +350,7 @@ var report = new JObject
 {
     ["schemaVersion"] = 1,
     ["engineVersion"] = engineVersion.ToString(),
-    ["assetCount"] = assetPaths.Length,
+    ["assetCount"] = assetPaths.Count,
     ["packageSuccessCount"] = packageRows.Count,
     ["failureCount"] = failures.Count,
     ["parsedFunctions"] = parsedFunctions,
@@ -345,7 +373,7 @@ Console.WriteLine(
     "XZOGOT_NUKETOWN_WALLBUY_BYTECODE " +
     new JObject
     {
-        ["assets"] = assetPaths.Length,
+        ["assets"] = assetPaths.Count,
         ["packages"] = packageRows.Count,
         ["failures"] = failures.Count,
         ["functions"] = parsedFunctions,
