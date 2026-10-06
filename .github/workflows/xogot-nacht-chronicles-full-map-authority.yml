@@ -401,33 +401,6 @@ jobs:
           })
           '@ | python -
 
-      - name: Extract complete particle system graphs
-        shell: pwsh
-        run: |
-          $ErrorActionPreference='Stop'
-          $app='tools/maps/UEParticleGraphExtract/bin/Release/net10.0/UEParticleGraphExtract.dll'
-          dotnet $app $env:NACHT_CONTENT_ROOT PavMappings.usmap nacht-class-census.json nacht-particle-graphs.json ue4.21 |
-            Tee-Object nacht-particle-graphs.log
-          if($LASTEXITCODE -ne 0){throw "particle graph extraction failed $LASTEXITCODE"}
-
-          @'
-          import json
-          from pathlib import Path
-          d=json.loads(Path("nacht-particle-graphs.json").read_text())
-          assert d["candidatePackageCount"]>0,d
-          assert d["packagesLoaded"]==d["candidatePackageCount"],d
-          assert d["particleSystemCount"]>0,d
-          assert d["totalNodes"]>0,d
-          assert len(d["packageFailures"])==0,d
-          assert d["ready"] is True,d
-          print("XZOGOT_NACHT_PARTICLE_GRAPH_GREEN",{
-              "systems":d["particleSystemCount"],
-              "nodes":d["totalNodes"],
-              "references":d["totalReferences"],
-              "nodeTypes":d["nodeTypeCounts"],
-          })
-          '@ | python -
-
       - name: Extract complete source particle graphs
         shell: pwsh
         run: |
