@@ -11,6 +11,10 @@ var _source_stream_count: int = 0
 var _fallback_stream_count: int = 0
 var _missing_stream_count: int = 0
 var _join_player: AudioStreamPlayer
+var _network_manager: Node
+var _known_peer_ids: Dictionary = {}
+var _source_identities: Dictionary = {}
+var _join_schedule_serial: int = 0
 
 func configure(source_actor_root: Node3D) -> bool:
 	_source_actor_root = source_actor_root
@@ -22,6 +26,7 @@ func configure(source_actor_root: Node3D) -> bool:
 	add_to_group("nuketown_source_audio_runtime")
 	_build_join_player()
 	_build_ambient_players()
+	_bind_network_join_signal()
 	set_meta("ambient_runtime_count", _ambient_runtime_count)
 	set_meta("source_stream_count", _source_stream_count)
 	set_meta("fallback_stream_count", _fallback_stream_count)
@@ -140,6 +145,116 @@ func _build_join_player() -> void:
 	_join_player.name = "SourceJoinSoundPlayer"
 	add_child(_join_player)
 	_join_player.add_to_group("nuketown_source_join_audio_runtime")
+
+func _bind_network_join_signal() -> void:
+	_network_manager = get_parent().get_node_or_null("NetworkManager") if get_parent() != null else null
+	if _network_manager == null:
+		set_meta("join_network_bound", false)
+		return
+	if _network_manager.has_method("get_roster_ids"):
+		var current: PackedInt32Array = _network_manager.call("get_roster_ids") as PackedInt32Array
+		for peer_id: int in current:
+			_known_peer_ids[peer_id] = true
+	if _network_manager.has_signal("roster_changed"):
+		var callback := Callable(self, "_on_network_roster_changed")
+		if not _network_manager.is_connected("roster_changed", callback):
+			_network_manager.connect("roster_changed", callback)
+			set_meta("join_network_bound", true)
+
+func _on_network_roster_changed(peer_ids: PackedInt32Array) -> void:
+	var current: Dictionary = {}
+	for peer_id: int in peer_ids:
+		current[peer_id] = true
+		if _known_peer_ids.has(peer_id):
+			continue
+		var identity: Dictionary = _source_identities.get(peer_id, {})
+		var steam_id := str(identity.get("steam_id", ""))
+		var shack_name := str(identity.get("shack_name", ""))
+		var is_shack := bool(identity.get("is_shack", false))
+		notify_source_player_join(peer_id, steam_id, shack_name, is_shack)
+	_known_peer_ids = current
+
+func set_source_identity(
+	peer_id: int,
+	steam_id: String,
+	shack_name: String,
+	is_shack: bool
+) -> void:
+	_source_identities[peer_id] = {
+		"steam_id": steam_id,
+		"shack_name": shack_name,
+		"is_shack": is_shack,
+	}
+	set_meta("source_identity_hook_ready", true)
+
+func join_source_decision(
+	source_class: String,
+	steam_id: String,
+	shack_name: String,
+	is_shack: bool
+) -> bool:
+	var joins: Dictionary = _data.get("joinSounds", {})
+	if not joins.has(source_class):
+		return false
+	var config: Dictionary = joins[source_class]
+	if str(config.get("trigger", "")) != "OnPlayerJoinedServer":
+		return false
+	if not bool(config.get("whitelistRequired", false)):
+		return true
+	if is_shack:
+		var shack_names: Array = config.get("shackNames", [])
+		return shack_names.has(shack_name)
+	var steam_ids: Array = config.get("steamIDs", [])
+	return steam_ids.has(steam_id)
+
+func get_join_delay(source_class: String) -> float:
+	var joins: Dictionary = _data.get("joinSounds", {})
+	var config: Dictionary = joins.get(source_class, {})
+	return float(config.get("delaySeconds", -1.0))
+
+func notify_source_player_join(
+	peer_id: int,
+	steam_id: String = "",
+	shack_name: String = "",
+	is_shack: bool = false
+) -> int:
+	var scheduled := 0
+	var joins: Dictionary = _data.get("joinSounds", {})
+	for source_var: Variant in joins.keys():
+		var source_class := str(source_var)
+		if not join_source_decision(source_class, steam_id, shack_name, is_shack):
+			continue
+		var delay := get_join_delay(source_class)
+		_schedule_join_sound(source_class, peer_id, maxf(0.0, delay))
+		scheduled += 1
+	set_meta("last_join_peer_id", peer_id)
+	set_meta("last_join_route_count", scheduled)
+	print(
+		"XZOGOT_NUKETOWN_SOURCE_JOIN peer=", peer_id,
+		" routes=", scheduled,
+		" identity=", "shack" if is_shack else ("steam" if not steam_id.is_empty() else "xogot_only")
+	)
+	return scheduled
+
+func _schedule_join_sound(source_class: String, peer_id: int, delay: float) -> void:
+	_join_schedule_serial += 1
+	var serial := _join_schedule_serial
+	set_meta("last_join_schedule_class", source_class)
+	set_meta("last_join_schedule_delay", delay)
+	if delay > 0.0:
+		await get_tree().create_timer(delay).timeout
+	if not is_inside_tree():
+		return
+	var played := play_join_sound(source_class)
+	print(
+		"XZOGOT_NUKETOWN_JOIN_ROUTE_FIRE class=", source_class,
+		" peer=", peer_id,
+		" serial=", serial,
+		" played=", played
+	)
+
+func get_join_route_count() -> int:
+	return (_data.get("joinSounds", {}) as Dictionary).size()
 
 func play_join_sound(source_class: String) -> bool:
 	var joins: Dictionary = _data.get("joinSounds", {})

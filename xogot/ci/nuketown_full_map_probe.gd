@@ -98,6 +98,58 @@ func _run() -> void:
 	if get_nodes_in_group("nuketown_source_join_audio_runtime").size() != 1:
 		_fail(58, "source join audio router missing")
 		return
+	var source_audio_runtime: Node = get_nodes_in_group("nuketown_source_audio_runtime")[0]
+	if int(source_audio_runtime.call("get_join_route_count")) != 3:
+		_fail(62, "source join route count mismatch")
+		return
+	if absf(float(source_audio_runtime.call("get_join_delay", "JoinSounds_C")) - 2.0) > 0.001:
+		_fail(63, "base join delay mismatch")
+		return
+	if absf(float(source_audio_runtime.call("get_join_delay", "JoinSounds_2_C")) - 8.0) > 0.001:
+		_fail(64, "creator join delay mismatch")
+		return
+	if absf(float(source_audio_runtime.call("get_join_delay", "JoinSounds_3_C")) - 13.0) > 0.001:
+		_fail(65, "admin join delay mismatch")
+		return
+	if not bool(source_audio_runtime.call("join_source_decision", "JoinSounds_C", "", "", false)):
+		_fail(66, "base join source route should be unconditional")
+		return
+	if not bool(source_audio_runtime.call(
+		"join_source_decision",
+		"JoinSounds_2_C",
+		"76561198801811658",
+		"",
+		false
+	)):
+		_fail(67, "creator Steam whitelist truth mismatch")
+		return
+	if bool(source_audio_runtime.call(
+		"join_source_decision",
+		"JoinSounds_2_C",
+		"not_whitelisted",
+		"",
+		false
+	)):
+		_fail(68, "creator whitelist accepted unknown Steam identity")
+		return
+	if not bool(source_audio_runtime.call(
+		"join_source_decision",
+		"JoinSounds_3_C",
+		"",
+		"Psycho_gamer",
+		true
+	)):
+		_fail(69, "admin Shack whitelist truth mismatch")
+		return
+	if bool(source_audio_runtime.call(
+		"join_source_decision",
+		"JoinSounds_3_C",
+		"",
+		"not_whitelisted",
+		true
+	)):
+		_fail(70, "admin whitelist accepted unknown Shack identity")
+		return
 	if source_audio_source_stream_count + source_audio_fallback_stream_count + source_audio_missing_stream_count != 4:
 		_fail(59, "source ambient disposition total mismatch")
 		return

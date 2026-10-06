@@ -89,19 +89,74 @@
       "availability": "EXTERNAL_UGC_NOT_IN_NUKETOWN_PAYLOAD",
       "runtimeDisposition": "XOGOT_REPLACEMENT_REQUIRED",
       "wave": "",
-      "fallback": "res://assets/audio/church/world/machine_use.ogg"
+      "fallback": "res://assets/audio/church/world/machine_use.ogg",
+      "trigger": "OnPlayerJoinedServer",
+      "delaySeconds": 2,
+      "playScope": "PlaySoundForAll",
+      "authorityRequired": true,
+      "replicated": true,
+      "alwaysRelevant": true,
+      "whitelistRequired": false,
+      "sourceDefaultSteamIDs": [
+        "76561198801811658"
+      ],
+      "sourceDefaultShackNames": [
+        "Crunchyrabbit24"
+      ],
+      "bytecodeWhitelistCheck": false
     },
     "JoinSounds_2_C": {
       "source": "/UGC5097941/map_creator",
       "availability": "SOURCE_INTERNAL_DECODED",
       "wave": "map_creator",
-      "fallback": "res://assets/audio/church/world/machine_use.ogg"
+      "fallback": "res://assets/audio/church/world/machine_use.ogg",
+      "trigger": "OnPlayerJoinedServer",
+      "delaySeconds": 8,
+      "playScope": "PlaySoundForAll",
+      "authorityRequired": true,
+      "replicated": true,
+      "alwaysRelevant": true,
+      "whitelistRequired": true,
+      "steamIDs": [
+        "76561198801811658"
+      ],
+      "shackNames": [
+        "Crunchyrabbit24"
+      ],
+      "bytecodeWhitelistCheck": true,
+      "identitySelector": "IsShack ? Whitelist_ShackNames : Whitelist_SteamIDs"
     },
     "JoinSounds_3_C": {
       "source": "/UGC5097941/admin",
       "availability": "SOURCE_INTERNAL_DECODED",
       "wave": "admin",
-      "fallback": "res://assets/audio/church/world/machine_use.ogg"
+      "fallback": "res://assets/audio/church/world/machine_use.ogg",
+      "trigger": "OnPlayerJoinedServer",
+      "delaySeconds": 13,
+      "playScope": "PlaySoundForAll",
+      "authorityRequired": true,
+      "replicated": true,
+      "alwaysRelevant": true,
+      "whitelistRequired": true,
+      "steamIDs": [],
+      "shackNames": [
+        "Psycho_gamer",
+        "LynTheNobody",
+        "Lilliadasharkfox",
+        "FarSealingEye5"
+      ],
+      "bytecodeWhitelistCheck": true,
+      "identitySelector": "IsShack ? Whitelist_ShackNames : Whitelist_SteamIDs"
     }
+  },
+  "joinSoundAuthority": {
+    "bytecodeWorkflow": "Xogot Nuketown Wallbuy Bytecode Truth #8",
+    "defaultsWorkflow": "Xogot Nuketown Gameplay Truth Extract #8",
+    "sourceTrigger": "OnPlayerJoinedServer_Delegate_Event",
+    "notes": [
+      "JoinSounds_C bytecode does not execute Array_Contains despite retaining whitelist defaults.",
+      "JoinSounds_2_C and JoinSounds_3_C execute Array_Contains and IsShack before delayed PlaySound2D.",
+      "Xogot ENet peer IDs are not equivalent to Pavlov Steam/Shack identities; whitelisted routes remain dormant until an identity is supplied."
+    ]
   }
 }
