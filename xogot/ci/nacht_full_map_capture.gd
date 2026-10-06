@@ -125,7 +125,7 @@ func _capture() -> void:
 	spawn_camera.far = 800.0
 	spawn_camera.current = true
 
-	if not await _save_view("/tmp/xogot-nacht-spawn.png", "spawn"):
+	if not (await _save_view("/tmp/xogot-nacht-spawn.png", "spawn")):
 		return
 
 	var anchors := get_nodes_in_group("nacht_source_actor")
@@ -185,7 +185,7 @@ func _capture() -> void:
 		" camera=", overview_camera.global_position
 	)
 
-	if not await _save_view("/tmp/xogot-nacht-overview.png", "overview"):
+	if not (await _save_view("/tmp/xogot-nacht-overview.png", "overview")):
 		return
 
 	scene.queue_free()
