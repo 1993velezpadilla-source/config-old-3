@@ -387,6 +387,69 @@ func _run() -> void:
 	var particle_fire_smoke_peaks: Array = scene.get_meta(
 		"source_particle_fire_smoke_peak_active_by_lod", []
 	) as Array
+	var particle_pap_wheel_out_lifetime_min := float(
+		scene.get_meta("source_particle_pap_wheel_out_lifetime_min", -1.0)
+	)
+	var particle_pap_wheel_out_lifetime_max := float(
+		scene.get_meta("source_particle_pap_wheel_out_lifetime_max", -1.0)
+	)
+	var particle_pap_wheel_out_location_min := scene.get_meta(
+		"source_particle_pap_wheel_out_location_min_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_pap_wheel_out_location_max := scene.get_meta(
+		"source_particle_pap_wheel_out_location_max_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_pap_wheel_out_size_min := scene.get_meta(
+		"source_particle_pap_wheel_out_start_size_min_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_pap_wheel_out_size_max := scene.get_meta(
+		"source_particle_pap_wheel_out_start_size_max_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_pap_wheel_out_size_life_values := int(
+		scene.get_meta("source_particle_pap_wheel_out_size_life_table_value_count", -1)
+	)
+	var particle_pap_wheel_out_size_life_time_scale := float(
+		scene.get_meta("source_particle_pap_wheel_out_size_life_time_scale", -1.0)
+	)
+	var particle_pap_wheel_out_velocity_min := scene.get_meta(
+		"source_particle_pap_wheel_out_start_velocity_min_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_pap_wheel_out_velocity_max := scene.get_meta(
+		"source_particle_pap_wheel_out_start_velocity_max_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_pap_wheel_out_velocity_life_max := scene.get_meta(
+		"source_particle_pap_wheel_out_velocity_life_max", Vector3.INF
+	) as Vector3
+	var particle_pap_wheel_out_velocity_life_values := int(
+		scene.get_meta("source_particle_pap_wheel_out_velocity_life_table_value_count", -1)
+	)
+	var particle_pap_wheel_out_velocity_life_time_scale := float(
+		scene.get_meta("source_particle_pap_wheel_out_velocity_life_time_scale", -1.0)
+	)
+	var particle_pap_wheel_out_accel_min := scene.get_meta(
+		"source_particle_pap_wheel_out_acceleration_min_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_pap_wheel_out_accel_max := scene.get_meta(
+		"source_particle_pap_wheel_out_acceleration_max_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_pap_wheel_out_accel_world := bool(
+		scene.get_meta("source_particle_pap_wheel_out_acceleration_world_space", false)
+	)
+	var particle_pap_wheel_out_rotation_rate_min := float(
+		scene.get_meta("source_particle_pap_wheel_out_rotation_rate_min", 999.0)
+	)
+	var particle_pap_wheel_out_rotation_rate_max := float(
+		scene.get_meta("source_particle_pap_wheel_out_rotation_rate_max", -999.0)
+	)
+	var particle_pap_wheel_out_spawn_rate := float(
+		scene.get_meta("source_particle_pap_wheel_out_spawn_rate", -1.0)
+	)
+	var particle_pap_wheel_out_spawn_rate_scale := float(
+		scene.get_meta("source_particle_pap_wheel_out_spawn_rate_scale", -1.0)
+	)
+	var particle_pap_wheel_out_peak := int(
+		scene.get_meta("source_particle_pap_wheel_out_peak_active", -1)
+	)
 	var source_particles := int(scene.get_meta("source_particle_component_count", -1))
 	var particle_authority := int(scene.get_meta("runtime_particle_authority_count", -1))
 	var source_particle_systems := int(scene.get_meta("source_particle_system_count", -1))
@@ -499,14 +562,14 @@ func _run() -> void:
 		if not particle_semantic_ready:
 			_fail(34, "source-complete Cascade semantic runtime is not ready")
 			return
-		if particle_semantic_systems != 8 or particle_semantic_placements != 17:
+		if particle_semantic_systems != 9 or particle_semantic_placements != 18:
 			_fail(
 				34,
 				"Cascade semantic runtime coverage mismatch systems=%d placements=%d"
 				% [particle_semantic_systems, particle_semantic_placements]
 			)
 			return
-		if get_nodes_in_group("nacht_source_particle_semantic").size() != 17:
+		if get_nodes_in_group("nacht_source_particle_semantic").size() != 18:
 			_fail(34, "Cascade semantic placement group mismatch")
 			return
 		if (
@@ -777,6 +840,57 @@ func _run() -> void:
 					particle_fire_smoke_alpha_values,
 					particle_fire_smoke_spawn_rates,
 					particle_fire_smoke_peaks,
+				]
+			)
+			return
+		if (
+			not is_equal_approx(particle_pap_wheel_out_lifetime_min, 0.5)
+			or not is_equal_approx(particle_pap_wheel_out_lifetime_max, 1.5)
+			or not particle_pap_wheel_out_location_min.is_equal_approx(Vector3(-50.0, -50.0, -10.0))
+			or not particle_pap_wheel_out_location_max.is_equal_approx(Vector3(50.0, 50.0, 10.0))
+			or not particle_pap_wheel_out_size_min.is_equal_approx(Vector3(3.0, 3.0, 3.0))
+			or not particle_pap_wheel_out_size_max.is_equal_approx(Vector3(5.0, 5.0, 5.0))
+			or particle_pap_wheel_out_size_life_values != 384
+			or not is_equal_approx(particle_pap_wheel_out_size_life_time_scale, 127.34587)
+			or not particle_pap_wheel_out_velocity_min.is_equal_approx(Vector3(60.0, -5.0, -5.0))
+			or not particle_pap_wheel_out_velocity_max.is_equal_approx(Vector3(80.0, 5.0, 5.0))
+			or not particle_pap_wheel_out_velocity_life_max.is_equal_approx(Vector3(1.0, 10.0, 10.0))
+			or particle_pap_wheel_out_velocity_life_values != 6
+			or not is_equal_approx(particle_pap_wheel_out_velocity_life_time_scale, 2.0)
+			or not particle_pap_wheel_out_accel_min.is_equal_approx(Vector3(0.0, 0.0, -10.0))
+			or not particle_pap_wheel_out_accel_max.is_equal_approx(Vector3(0.0, 0.0, -15.0))
+			or not particle_pap_wheel_out_accel_world
+			or not is_equal_approx(particle_pap_wheel_out_rotation_rate_min, -0.1)
+			or not is_equal_approx(particle_pap_wheel_out_rotation_rate_max, 0.2)
+			or not is_equal_approx(particle_pap_wheel_out_spawn_rate, 15.0)
+			or not is_equal_approx(particle_pap_wheel_out_spawn_rate_scale, 15.0)
+			or particle_pap_wheel_out_peak != 339
+		):
+			_fail(
+				34,
+				"PaP wheel out Cascade values mismatch lifetime=%s..%s location=%s..%s size=%s..%s life_values=%d life_scale=%s velocity=%s..%s vel_life_max=%s vel_values=%d vel_scale=%s accel=%s..%s accel_world=%s rotation_rate=%s..%s rate=%s rate_scale=%s peak=%d"
+				% [
+					particle_pap_wheel_out_lifetime_min,
+					particle_pap_wheel_out_lifetime_max,
+					particle_pap_wheel_out_location_min,
+					particle_pap_wheel_out_location_max,
+					particle_pap_wheel_out_size_min,
+					particle_pap_wheel_out_size_max,
+					particle_pap_wheel_out_size_life_values,
+					particle_pap_wheel_out_size_life_time_scale,
+					particle_pap_wheel_out_velocity_min,
+					particle_pap_wheel_out_velocity_max,
+					particle_pap_wheel_out_velocity_life_max,
+					particle_pap_wheel_out_velocity_life_values,
+					particle_pap_wheel_out_velocity_life_time_scale,
+					particle_pap_wheel_out_accel_min,
+					particle_pap_wheel_out_accel_max,
+					str(particle_pap_wheel_out_accel_world),
+					particle_pap_wheel_out_rotation_rate_min,
+					particle_pap_wheel_out_rotation_rate_max,
+					particle_pap_wheel_out_spawn_rate,
+					particle_pap_wheel_out_spawn_rate_scale,
+					particle_pap_wheel_out_peak,
 				]
 			)
 			return
