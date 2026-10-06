@@ -14,6 +14,7 @@ on:
       - "tools/maps/xzaw_to_ogg.py"
       - "xogot/scripts/nacht_full_map.gd"
       - "xogot/scripts/nacht_particle_source.gd"
+      - "xogot/scripts/nacht_cascade_runtime.gd"
       - "xogot/scripts/xziel_benchmark_loader.gd"
       - "xogot/ci/nacht_full_map_probe.gd"
   workflow_dispatch:
