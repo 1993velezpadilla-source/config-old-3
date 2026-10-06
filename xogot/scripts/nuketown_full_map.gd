@@ -54,7 +54,7 @@ func _boot_full_map() -> void:
 	if int(_source_gameplay_truth.get("schemaVersion", 0)) != 1:
 		push_error("NUKETOWN_FULL_MAP: unsupported source gameplay truth schema")
 		return
-	if int(_source_actor_coverage.get("schemaVersion", 0)) != 1:
+	if int(_source_actor_coverage.get("schemaVersion", 0)) != 2:
 		push_error("NUKETOWN_FULL_MAP: source actor coverage missing")
 		return
 

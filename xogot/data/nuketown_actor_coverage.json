@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "sourceActorCount": 233,
   "sourceClassCount": 37,
   "classes": {
@@ -17,7 +17,15 @@
     },
     "Enter_your_key_C": {
       "count": 1,
-      "disposition": "PAVLOV_ADMIN_SOURCE_ANCHOR"
+      "disposition": "PAVLOV_MENU_KEY_FLOW_EXCLUDED_FROM_XOGOT_SHIPPING",
+      "sourceAsset": "Content/Enter_your_key.uasset",
+      "sourceEvidence": [
+        "GameplayStatics.GetAllActorsWithTag",
+        "KismetArrayLibrary.Array_Get",
+        "KismetStringLibrary.Concat_StrStr",
+        "KismetSystemLibrary.Delay"
+      ],
+      "runtimeReplacement": "XOGOT_MENU_AND_ACCESS_CONTROL"
     },
     "ExponentialHeightFog": {
       "count": 1,
@@ -25,7 +33,15 @@
     },
     "GamemodeDetector_C": {
       "count": 1,
-      "disposition": "ENGINE_GAMEMODE_REPLACED"
+      "disposition": "PAVLOV_GAMEMODE_DETECTOR_REPLACED_BY_XOGOT_MATCH_RUNTIME",
+      "sourceAsset": "Content/mode/GamemodeDetector.uasset",
+      "sourceEvidence": [
+        "Pavlov_GameLogic.GetPavlovGameModeType",
+        "GameplayStatics.PlaySound2D",
+        "Actor.FlushNetDormancy",
+        "MarkPropertyDirtyFromRepIndex"
+      ],
+      "runtimeReplacement": "XOGOT_ROUND_AND_NETWORK_MANAGER"
     },
     "JoinSounds_2_C": {
       "count": 1,
@@ -61,19 +77,43 @@
     },
     "NewBlueprint_11_C": {
       "count": 1,
-      "disposition": "PAVLOV_SKIN_HELPER_SOURCE_ANCHOR"
+      "disposition": "PAVLOV_SKIN_SETTER_REPLACED_BY_XOGOT_PLAYER_SKINS",
+      "sourceAsset": "Content/admin/skins/NewBlueprint_11.uasset",
+      "sourceEvidence": [
+        "Actor.HasAuthority",
+        "PavlovPawn.SetPlayerSkin"
+      ],
+      "runtimeReplacement": "XOGOT_PLAYER_SKIN_SYSTEM"
     },
     "NewBlueprint_19_C": {
       "count": 1,
-      "disposition": "PAVLOV_SKIN_HELPER_SOURCE_ANCHOR"
+      "disposition": "PAVLOV_SKIN_SETTER_REPLACED_BY_XOGOT_PLAYER_SKINS",
+      "sourceAsset": "Content/admin/skins/NewBlueprint_19.uasset",
+      "sourceEvidence": [
+        "Actor.HasAuthority",
+        "PavlovPawn.SetPlayerSkin"
+      ],
+      "runtimeReplacement": "XOGOT_PLAYER_SKIN_SYSTEM"
     },
     "NewBlueprint_C": {
       "count": 2,
-      "disposition": "PAVLOV_CAMERA_OR_SKIN_HELPER_SOURCE_ANCHOR"
+      "disposition": "MYSTERY_BOX_SOURCE_CLEANUP_HELPER_REPLACED",
+      "sourceAsset": "Content/box/NewBlueprint.uasset",
+      "sourceEvidence": [
+        "K2_DestroyActor"
+      ],
+      "runtimeReplacement": "XOGOT_MYSTERY_BOX_LIFECYCLE"
     },
     "OldFashionedGod_C": {
       "count": 1,
-      "disposition": "PAVLOV_ADMIN_SOURCE_ANCHOR"
+      "disposition": "PAVLOV_ADMIN_GOD_DAMAGE_FLOW_EXCLUDED_FROM_XOGOT_SHIPPING",
+      "sourceAsset": "Content/admin/OldFashionedGod.uasset",
+      "sourceEvidence": [
+        "Actor.HasAuthority",
+        "GameplayStatics.ApplyDamage",
+        "Pavlov_GameLogic.SetPlayerVitality"
+      ],
+      "runtimeReplacement": "NONE_ADMIN_ONLY"
     },
     "Pavlov_Ladder": {
       "count": 2,
@@ -121,23 +161,59 @@
     },
     "cash_text_C": {
       "count": 1,
-      "disposition": "HUD_REPLACED_BY_XOGOT"
+      "disposition": "PAVLOV_CASH_TEXT_REPLACED_BY_XOGOT_HUD",
+      "sourceAsset": "Content/box/cash_text.uasset",
+      "sourceEvidence": [
+        "GameplayStatics.GetPlayerPawn",
+        "Conv_IntToString",
+        "TextRenderComponent.K2_SetText",
+        "GetPavlovPlayerStatusByPawn"
+      ],
+      "runtimeReplacement": "XOGOT_POINTS_HUD"
     },
     "disgod_C": {
       "count": 1,
-      "disposition": "PAVLOV_ADMIN_SOURCE_ANCHOR"
+      "disposition": "PAVLOV_ADMIN_DISABLE_GOD_FLOW_EXCLUDED_FROM_XOGOT_SHIPPING",
+      "sourceAsset": "Content/admin/disgod.uasset",
+      "sourceEvidence": [
+        "Actor.HasAuthority",
+        "GameplayStatics.ApplyDamage",
+        "Pavlov_GameLogic.SetPlayerVitality"
+      ],
+      "runtimeReplacement": "NONE_ADMIN_ONLY"
     },
     "speed_C": {
       "count": 1,
-      "disposition": "PAVLOV_ADMIN_SOURCE_ANCHOR"
+      "disposition": "PAVLOV_ADMIN_SPEED_HELPER_EXCLUDED_FROM_XOGOT_SHIPPING",
+      "sourceAsset": "Content/admin/speed.uasset",
+      "sourceEvidence": [
+        "ExecuteUbergraph_speed"
+      ],
+      "runtimeReplacement": "NONE_ADMIN_ONLY"
     },
     "tpout1_C": {
       "count": 1,
-      "disposition": "PAVLOV_ADMIN_TELEPORT_SOURCE_ANCHOR"
+      "disposition": "PAVLOV_ADMIN_TELEPORT_WHITELIST_EXCLUDED_FROM_XOGOT_SHIPPING",
+      "sourceAsset": "Content/admin/tpout1.uasset",
+      "sourceEvidence": [
+        "Actor.HasAuthority",
+        "Actor.K2_TeleportTo",
+        "KismetArrayLibrary.Array_Contains",
+        "PlayerState.GetPlayerName"
+      ],
+      "runtimeReplacement": "NONE_ADMIN_ONLY"
     },
     "viptp_C": {
       "count": 5,
-      "disposition": "PAVLOV_ADMIN_TELEPORT_SOURCE_ANCHOR"
+      "disposition": "PAVLOV_VIP_TELEPORT_WHITELIST_EXCLUDED_FROM_XOGOT_SHIPPING",
+      "sourceAsset": "Content/admin/viptp.uasset",
+      "sourceEvidence": [
+        "Actor.HasAuthority",
+        "Actor.K2_TeleportTo",
+        "KismetArrayLibrary.Array_Contains",
+        "PlayerState.GetPlayerName"
+      ],
+      "runtimeReplacement": "NONE_ADMIN_ONLY"
     },
     "wallbuy_2_C": {
       "count": 1,
@@ -151,5 +227,14 @@
       "count": 1,
       "disposition": "WALLBUY_ADAPTER"
     }
+  },
+  "customBlueprintTruth": {
+    "workflow": "Xogot Nuketown Custom Blueprint Truth #1",
+    "assets": 11,
+    "packages": 11,
+    "failures": 0,
+    "parsedFunctions": 22,
+    "parsedExpressions": 666,
+    "integerConstants": 29
   }
 }

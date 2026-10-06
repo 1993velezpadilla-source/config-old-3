@@ -74,6 +74,32 @@ func _run() -> void:
 	if get_nodes_in_group("nuketown_source_covered_actor").size() != 233:
 		_fail(27, "covered source actor group mismatch")
 		return
+	var expected_dispositions := {
+		"Enter_your_key_C": "PAVLOV_MENU_KEY_FLOW_EXCLUDED_FROM_XOGOT_SHIPPING",
+		"OldFashionedGod_C": "PAVLOV_ADMIN_GOD_DAMAGE_FLOW_EXCLUDED_FROM_XOGOT_SHIPPING",
+		"disgod_C": "PAVLOV_ADMIN_DISABLE_GOD_FLOW_EXCLUDED_FROM_XOGOT_SHIPPING",
+		"speed_C": "PAVLOV_ADMIN_SPEED_HELPER_EXCLUDED_FROM_XOGOT_SHIPPING",
+		"tpout1_C": "PAVLOV_ADMIN_TELEPORT_WHITELIST_EXCLUDED_FROM_XOGOT_SHIPPING",
+		"viptp_C": "PAVLOV_VIP_TELEPORT_WHITELIST_EXCLUDED_FROM_XOGOT_SHIPPING",
+		"NewBlueprint_11_C": "PAVLOV_SKIN_SETTER_REPLACED_BY_XOGOT_PLAYER_SKINS",
+		"NewBlueprint_19_C": "PAVLOV_SKIN_SETTER_REPLACED_BY_XOGOT_PLAYER_SKINS",
+		"NewBlueprint_C": "MYSTERY_BOX_SOURCE_CLEANUP_HELPER_REPLACED",
+		"cash_text_C": "PAVLOV_CASH_TEXT_REPLACED_BY_XOGOT_HUD",
+		"GamemodeDetector_C": "PAVLOV_GAMEMODE_DETECTOR_REPLACED_BY_XOGOT_MATCH_RUNTIME",
+	}
+	var seen_dispositions: Dictionary = {}
+	for source_actor: Node in get_nodes_in_group("nuketown_source_covered_actor"):
+		var source_class := str(source_actor.get_meta("source_class_name", ""))
+		if expected_dispositions.has(source_class):
+			seen_dispositions[source_class] = str(source_actor.get_meta("source_disposition", ""))
+	for source_class_var: Variant in expected_dispositions.keys():
+		var source_class := str(source_class_var)
+		if not seen_dispositions.has(source_class):
+			_fail(76, "custom Blueprint disposition missing " + source_class)
+			return
+		if str(seen_dispositions[source_class]) != str(expected_dispositions[source_class]):
+			_fail(77, "custom Blueprint disposition mismatch " + source_class + " -> " + str(seen_dispositions[source_class]))
+			return
 	if interactable_count != 6:
 		_fail(28, "source interactable adapter count mismatch " + str(interactable_count))
 		return
