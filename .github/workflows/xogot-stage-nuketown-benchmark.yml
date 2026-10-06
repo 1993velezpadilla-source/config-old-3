@@ -12,6 +12,7 @@ on:
       - feature/godot-aaa-rebuild-v1
     paths:
       - ".github/workflows/xogot-stage-nuketown-benchmark.yml"
+      - "tools/maps/xz_skeletal_library_to_gltf.py"
   workflow_run:
     workflows:
       - "Xogot Nuketown Full Source Authority"
