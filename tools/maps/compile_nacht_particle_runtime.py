@@ -18,10 +18,10 @@ STRUCTURAL_TYPES = {
     "ParticleLODLevel",
 }
 
-# These are the Cascade module families for which the Godot bridge has a
-# direct semantic mapping plan. Keeping this explicit makes unsupported
-# source behavior fail closed instead of silently degrading.
-SUPPORTED_MODULE_TYPES = {
+# These Cascade module families appear to have direct Godot mapping candidates.
+# This is NOT a runtime-support declaration. Visual runtime remains RED until
+# the renderer implements and probes every placed source graph.
+DIRECT_MAPPING_CANDIDATE_TYPES = {
     "ParticleModuleRequired",
     "ParticleModuleSpawn",
     "ParticleModuleLifetime",
@@ -98,14 +98,14 @@ def main() -> int:
                 for node in graph.get("nodes", [])
                 if str(node.get("exportType", ""))
                 and str(node.get("exportType", "")) not in STRUCTURAL_TYPES
-                and str(node.get("exportType", "")) not in SUPPORTED_MODULE_TYPES
+                and str(node.get("exportType", "")) not in DIRECT_MAPPING_CANDIDATE_TYPES
             }
         )
         unsupported_types.update(system_unsupported)
 
-        runtime_ready = not system_unsupported
-        if runtime_ready:
-            runtime_ready_count += 1
+        # Authority and module classification are complete, but no placed
+        # Cascade renderer has passed a Godot visual/runtime probe yet.
+        runtime_ready = False
 
         compiled.append(
             {
@@ -138,10 +138,11 @@ def main() -> int:
         "placementCount": len(compiled),
         "sourceParticleSystemCount": graphs.get("particleSystemCount"),
         "supportedStructuralTypes": sorted(STRUCTURAL_TYPES),
-        "supportedModuleTypes": sorted(SUPPORTED_MODULE_TYPES),
+        "directMappingCandidateTypes": sorted(DIRECT_MAPPING_CANDIDATE_TYPES),
         "unsupportedNodeTypes": sorted(unsupported_types),
         "runtimeReadyPlacementCount": runtime_ready_count,
-        "allPlacementsSemanticallySupported": runtime_ready_count == len(compiled),
+        "allPlacementsSemanticallySupported": False,
+        "visualRuntimeReady": False,
         "placements": compiled,
         "ready": True,
     }
