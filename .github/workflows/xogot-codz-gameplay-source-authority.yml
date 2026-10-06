@@ -32,8 +32,20 @@ jobs:
           sudo apt-get install -y -qq p7zip-full
           python3 -m pip install --disable-pip-version-check --quiet gdown
           mkdir -p source build/gameplay-authority/extracted
+          set +e
           python3 -m gdown "https://drive.google.com/uc?id=$CODZ_DRIVE_ID" -O source/codz.zip
+          GDOWN_RC=$?
+          set -e
+          if [ "$GDOWN_RC" -ne 0 ] || [ ! -s source/codz.zip ]; then
+            rm -f source/codz.zip
+            echo "XZOGOT_GAMEPLAY_GDOWN_FALLBACK"
+            curl -fL --retry 5 --retry-delay 3 \
+              "https://drive.usercontent.google.com/download?id=$CODZ_DRIVE_ID&export=download&confirm=t" \
+              -o source/codz.zip
+          fi
           test -s source/codz.zip
+          7z t source/codz.zip >/dev/null
+          ls -lh source/codz.zip
           echo "XZOGOT_GAMEPLAY_SOURCE_PACK_GREEN"
 
       - name: Inventory PaP perks and GobbleGum candidates
