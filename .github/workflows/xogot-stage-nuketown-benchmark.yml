@@ -104,10 +104,18 @@ jobs:
           if [ -s "$AUTH_ROOT/nuketown-complete-converted-library.json" ]; then
             cp "$AUTH_ROOT/nuketown-complete-converted-library.json" "$dst/nuketown-complete-converted-library.json"
           fi
+          test -s "$AUTH_ROOT/ue-xztx-probe/report.json"
+          cp "$AUTH_ROOT/ue-xztx-probe/report.json" "$dst/complete-xztx-native-report.json"
 
           srcmap="$RUNTIME_ROOT/vfs/xziel/maps/xziel_nuketown_zombies"
           cp -a "$srcmap/meshes" "$dst/vfs/xziel/maps/xziel_nuketown_zombies/meshes"
           cp -a "$srcmap/textures" "$dst/vfs/xziel/maps/xziel_nuketown_zombies/textures"
+          # The map's XZML references 221 textures, but the literal Content
+          # authority contains 321 converted Texture2D assets. Stage all of them
+          # under the same stable native indices so Godot can recover source
+          # bindings that were not part of the original visible subset.
+          cp "$AUTH_ROOT"/ue-xztx-probe/*.xzt             "$dst/vfs/xziel/maps/xziel_nuketown_zombies/textures/"
+          test "$(find "$dst/vfs/xziel/maps/xziel_nuketown_zombies/textures" -maxdepth 1 -type f -name '*.xzt' | wc -l)" -eq 321
           cp "$srcmap/scene.xzsc" "$dst/vfs/xziel/maps/xziel_nuketown_zombies/scene.xzsc"
           cp "$srcmap/environment.xzen" "$dst/vfs/xziel/maps/xziel_nuketown_zombies/environment.xzen"
           cp "$srcmap/materials.xzml" "$dst/vfs/xziel/maps/xziel_nuketown_zombies/materials.xzml"
@@ -130,6 +138,40 @@ jobs:
               if complete_library_path.is_file()
               else {}
           )
+          complete_native=json.loads((dst/"complete-xztx-native-report.json").read_text())
+          assert complete_native["ready"] is True, complete_native
+          assert complete_native["convertedTextures"] == 321, complete_native
+          complete_rows=[]
+          for row in complete_native["textures"]:
+              complete_rows.append({
+                  "sourcePath":row["objectPath"],
+                  "runtimeFile":row["file"],
+                  "format":row["format"],
+                  "width":row["width"],
+                  "height":row["height"],
+                  "mipCount":row["mipCount"],
+                  "srgb":row["srgb"],
+              })
+          complete_report={
+              "schemaVersion":1,
+              "authority":"literal_complete_nuketown_content_folder",
+              "textureAssetCount":len(complete_rows),
+              "astc6Count":sum(1 for row in complete_rows if row["format"]=="PF_ASTC_6x6"),
+              "bgra8Count":sum(1 for row in complete_rows if row["format"]=="PF_B8G8R8A8"),
+              "textureAssets":complete_rows,
+              "ready":True,
+          }
+          assert complete_report["textureAssetCount"] == 321
+          assert complete_report["astc6Count"] == 312
+          assert complete_report["bgra8Count"] == 9
+          (dst/"complete-xztx-report.json").write_text(
+              json.dumps(complete_report,indent=2)+"\n"
+          )
+          full_by_path={row["sourcePath"]:row for row in complete_rows}
+          for row in tex["textureAssets"]:
+              source=row["sourcePath"]
+              assert source in full_by_path, source
+              assert full_by_path[source]["runtimeFile"] == row["runtimeFile"], (source,row,full_by_path[source])
           mesh_files=sorted((dst/"vfs/xziel/maps/xziel_nuketown_zombies/meshes").glob("*.xzm"))
           texture_files=sorted((dst/"vfs/xziel/maps/xziel_nuketown_zombies/textures").glob("*.xzt"))
 
@@ -141,7 +183,8 @@ jobs:
           assert lights["lightCount"] == 5
           assert mats["summary"]["unresolvedMaterialCount"] == 0
           assert mats["summary"]["unresolvedTextureCount"] == 0
-          assert len(texture_files) == tex["textureAssetCount"]
+          assert tex["textureAssetCount"] == 221, tex["textureAssetCount"]
+          assert len(texture_files) == 321, len(texture_files)
 
           manifest={
               "schema":2,
@@ -156,6 +199,10 @@ jobs:
               "instance_count":len(scene["instances"]),
               "material_count":mats["summary"]["usedMaterialCount"],
               "texture_count":len(texture_files),
+              "runtime_referenced_texture_count":tex["textureAssetCount"],
+              "complete_source_texture_count":complete_report["textureAssetCount"],
+              "complete_source_astc6_count":complete_report["astc6Count"],
+              "complete_source_bgra8_count":complete_report["bgra8Count"],
               "light_count":lights["lightCount"],
               "unresolved_meshes":scene["summary"]["unresolvedMeshCount"],
               "unresolved_materials":mats["summary"]["unresolvedMaterialCount"],
