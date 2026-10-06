@@ -212,6 +212,12 @@ func _run() -> void:
 			_fail(30, "source environment runtime node types incomplete")
 			return
 		var fog_environment := fog_node.environment
+		if fog_environment.fog_enabled:
+			_fail(31, "non-exact stock Godot fog fallback must default disabled")
+			return
+		if bool(fog_node.get_meta("approximate_fog_fallback_enabled", true)):
+			_fail(31, "approximate Nacht fog fallback metadata unexpectedly enabled")
+			return
 		if (
 			absf(fog_environment.fog_density - 0.1) > 0.00001
 			or absf(float(fog_node.get_meta("source_fog_height_falloff", -1.0)) - 2.0) > 0.00001
