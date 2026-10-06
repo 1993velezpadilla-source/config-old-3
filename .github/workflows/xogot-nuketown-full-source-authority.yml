@@ -2445,6 +2445,7 @@ jobs:
             nuketown-download/ue-xzms-probe.log
             nuketown-download/ue-xzms-native-gate.log
             nuketown-download/runtime-static-scene/
+            nuketown-download/runtime-skeletal-scene/
             nuketown-download/deep-payload-shards/
             nuketown-download/nuketown-complete-converted-library.json
             nuketown-download/nuketown-source-export-manifest-summary.json
