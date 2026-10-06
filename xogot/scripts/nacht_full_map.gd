@@ -92,6 +92,7 @@ var _source_particle_bonefire_descriptor: Dictionary = {}
 var _source_particle_bonefire3_descriptor: Dictionary = {}
 var _source_particle_pap_wheel_descriptor: Dictionary = {}
 var _source_particle_mystery_fog_descriptor: Dictionary = {}
+var _source_particle_mystery_inside_descriptor: Dictionary = {}
 var _source_environment_fog_runtime_ready := false
 var _source_environment_reflection_runtime_ready := false
 var _source_spawn_candidates: Array[Node3D] = []
@@ -213,7 +214,7 @@ func _boot() -> void:
 	# audible runtime reproduction. They must only flip when those systems are
 	# actually mounted, never merely because the JSON exists.
 	set_meta("particle_visual_runtime_ready", false)
-	set_meta("source_particle_semantic_runtime_ready", _source_particle_semantic_runtime_count == 6 and _source_particle_semantic_placement_count == 13)
+	set_meta("source_particle_semantic_runtime_ready", _source_particle_semantic_runtime_count == 7 and _source_particle_semantic_placement_count == 16)
 	set_meta("source_particle_semantic_runtime_count", _source_particle_semantic_runtime_count)
 	set_meta("source_particle_semantic_placement_count", _source_particle_semantic_placement_count)
 	set_meta("source_audio_runtime_ready", _source_audio_semantics_ready())
@@ -1264,6 +1265,21 @@ func _build_source_particle_semantic_runtime() -> bool:
 		return false
 	_source_particle_semantic_runtime_count += 1
 
+	_source_particle_mystery_inside_descriptor = NachtCascadeRuntime.mystery_inside_descriptor(_particle_graphs)
+	if not bool(_source_particle_mystery_inside_descriptor.get("ready", false)):
+		push_error(
+			"NACHT_FULL_MAP: mystery inside Cascade semantics unresolved "
+			+ str(_source_particle_mystery_inside_descriptor.get("error", "unknown"))
+		)
+		return false
+	if not _mount_source_particle_semantic_anchors(
+		_source_particle_mystery_inside_descriptor,
+		3,
+		"mystery inside"
+	):
+		return false
+	_source_particle_semantic_runtime_count += 1
+
 	set_meta(
 		"source_particle_mystery_spawn_rate",
 		float(_source_particle_mystery_descriptor.get("spawnRateMin", -1.0))
@@ -1512,6 +1528,86 @@ func _build_source_particle_semantic_runtime() -> bool:
 		"source_particle_mystery_fog_start_velocity_max_ue_cm",
 		_source_particle_mystery_fog_descriptor.get("startVelocityMaxUEcm", Vector3.INF)
 	)
+	set_meta(
+		"source_particle_mystery_inside_lifetime_min",
+		float(_source_particle_mystery_inside_descriptor.get("lifetimeMin", -1.0))
+	)
+	set_meta(
+		"source_particle_mystery_inside_lifetime_max",
+		float(_source_particle_mystery_inside_descriptor.get("lifetimeMax", -1.0))
+	)
+	set_meta(
+		"source_particle_mystery_inside_location_min_ue_cm",
+		_source_particle_mystery_inside_descriptor.get("startLocationMinUEcm", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_mystery_inside_location_max_ue_cm",
+		_source_particle_mystery_inside_descriptor.get("startLocationMaxUEcm", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_mystery_inside_start_size_min_ue_cm",
+		_source_particle_mystery_inside_descriptor.get("startSizeMinUEcm", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_mystery_inside_start_size_max_ue_cm",
+		_source_particle_mystery_inside_descriptor.get("startSizeMaxUEcm", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_mystery_inside_spawn_rate",
+		float(_source_particle_mystery_inside_descriptor.get("spawnRate", -1.0))
+	)
+	set_meta(
+		"source_particle_mystery_inside_start_velocity_min_ue_cm",
+		_source_particle_mystery_inside_descriptor.get("startVelocityMinUEcm", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_mystery_inside_start_velocity_max_ue_cm",
+		_source_particle_mystery_inside_descriptor.get("startVelocityMaxUEcm", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_mystery_inside_rgb_table_value_count",
+		int(_source_particle_mystery_inside_descriptor.get("rgbTableValueCount", -1))
+	)
+	set_meta(
+		"source_particle_mystery_inside_alpha_table_value_count",
+		int(_source_particle_mystery_inside_descriptor.get("alphaTableValueCount", -1))
+	)
+	set_meta(
+		"source_particle_mystery_inside_orbit_enabled",
+		bool(_source_particle_mystery_inside_descriptor.get("orbitEnabled", true))
+	)
+	set_meta(
+		"source_particle_mystery_inside_orbit_offset_min",
+		_source_particle_mystery_inside_descriptor.get("orbitOffsetMin", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_mystery_inside_orbit_offset_max",
+		_source_particle_mystery_inside_descriptor.get("orbitOffsetMax", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_mystery_inside_gpu_inv_max_size",
+		_source_particle_mystery_inside_descriptor.get("gpuInvMaxSize", Vector2.INF)
+	)
+	set_meta(
+		"source_particle_mystery_inside_gpu_inv_rotation_rate_scale",
+		float(_source_particle_mystery_inside_descriptor.get("gpuInvRotationRateScale", -1.0))
+	)
+	set_meta(
+		"source_particle_mystery_inside_gpu_max_lifetime",
+		float(_source_particle_mystery_inside_descriptor.get("gpuMaxLifetime", -1.0))
+	)
+	set_meta(
+		"source_particle_mystery_inside_gpu_max_particle_count",
+		int(_source_particle_mystery_inside_descriptor.get("gpuMaxParticleCount", -1))
+	)
+	set_meta(
+		"source_particle_mystery_inside_gpu_rotation_rate_scale",
+		float(_source_particle_mystery_inside_descriptor.get("gpuRotationRateScale", -1.0))
+	)
+	set_meta(
+		"source_particle_mystery_inside_gpu_quantized_color_sample_count",
+		int(_source_particle_mystery_inside_descriptor.get("gpuQuantizedColorSampleCount", -1))
+	)
 
 	print(
 		"XZOGOT_NACHT_CASCADE_SEMANTIC_RUNTIME_GREEN systems=",
@@ -1549,7 +1645,11 @@ func _build_source_particle_semantic_runtime() -> bool:
 		" mystery_fog_rate=",
 		_source_particle_mystery_fog_descriptor.get("spawnRate"),
 		" mystery_fog_subuv_fps=",
-		_source_particle_mystery_fog_descriptor.get("subUVFrameRate")
+		_source_particle_mystery_fog_descriptor.get("subUVFrameRate"),
+		" mystery_inside_rate=",
+		_source_particle_mystery_inside_descriptor.get("spawnRate"),
+		" mystery_inside_gpu_max=",
+		_source_particle_mystery_inside_descriptor.get("gpuMaxParticleCount")
 	)
 	return true
 
