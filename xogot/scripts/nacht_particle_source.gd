@@ -192,6 +192,31 @@ static func table_values(distribution_row: Dictionary) -> Array:
 	return raw_values as Array if raw_values is Array else []
 
 
+static func float_value(value: Variant, default_value := 0.0) -> float:
+	var decoded: Variant = unwrap(value)
+	if decoded is float or decoded is int:
+		return float(decoded)
+	if decoded is String:
+		var text := str(decoded).strip_edges()
+		if text.is_valid_float():
+			return text.to_float()
+	return float(default_value)
+
+
+static func table_float_values(distribution_row: Dictionary) -> Array[float]:
+	var result: Array[float] = []
+	for raw: Variant in table_values(distribution_row):
+		var decoded: Variant = unwrap(raw)
+		if decoded is float or decoded is int:
+			result.append(float(decoded))
+			continue
+		var text := str(decoded).strip_edges()
+		if not text.is_valid_float():
+			return []
+		result.append(text.to_float())
+	return result
+
+
 static func find_system(graphs: Dictionary, object_path: String) -> Dictionary:
 	for raw: Variant in graphs.get("systems", []):
 		if not (raw is Dictionary):
