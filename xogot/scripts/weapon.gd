@@ -490,7 +490,71 @@ func _orient_imported_hands(model: Node3D, hands_path: String) -> void:
 		set_meta("weapon_source_rig_forward_axis", "-Z")
 		print("XZOGOT_SOURCE_HANDS_FORWARD_AXIS_FIXED ", _weapon_id, " +X -> -Z yaw=90")
 
-func _apply_source_hands_textures(model: Node3D) -> Dictionary:
+func _apply_source_hands_textures(model: Node3D, hands_path: String = "") -> Dictionary:
+	if hands_path.contains("/aether_waw_hands/t4_marine/"):
+		var albedo := _load_optional_asset(
+			"res://assets/weapons/aether_waw_hands/t4_marine/common/textures/viewmodel_usa_marine_c.png"
+		) as Texture2D
+		var normal_t4 := _load_optional_asset(
+			"res://assets/weapons/aether_waw_hands/t4_marine/common/textures/viewmodel_usa_marine_n.png"
+		) as Texture2D
+		var specular_t4 := _load_optional_asset(
+			"res://assets/weapons/aether_waw_hands/t4_marine/common/textures/viewmodel_usa_marine_specular.png"
+		) as Texture2D
+		var surfaces_t4 := 0
+		var textured_t4 := 0
+		if albedo != null and normal_t4 != null and specular_t4 != null:
+			var source_shader := Shader.new()
+			source_shader.code = """
+shader_type spatial;
+uniform sampler2D source_albedo : source_color;
+uniform sampler2D source_normal : hint_normal;
+uniform sampler2D source_specular;
+void fragment() {
+	vec4 base = texture(source_albedo, UV);
+	ALBEDO = base.rgb;
+	ALPHA = base.a;
+	NORMAL_MAP = texture(source_normal, UV).rgb;
+	vec3 spec_rgb = texture(source_specular, UV).rgb;
+	SPECULAR = dot(spec_rgb, vec3(0.3333333));
+}
+"""
+			var stack_t4: Array[Node] = [model]
+			while not stack_t4.is_empty():
+				var node_t4: Node = stack_t4.pop_back()
+				if node_t4 is MeshInstance3D:
+					var mesh_t4 := node_t4 as MeshInstance3D
+					mesh_t4.layers = mesh_t4.layers | (1 << 1)
+					if mesh_t4.mesh != null:
+						for surface_idx_t4 in range(mesh_t4.mesh.get_surface_count()):
+							surfaces_t4 += 1
+							var runtime_t4 := ShaderMaterial.new()
+							runtime_t4.shader = source_shader
+							runtime_t4.set_shader_parameter("source_albedo", albedo)
+							runtime_t4.set_shader_parameter("source_normal", normal_t4)
+							runtime_t4.set_shader_parameter("source_specular", specular_t4)
+							mesh_t4.set_surface_override_material(surface_idx_t4, runtime_t4)
+							textured_t4 += 1
+				for child_t4: Node in node_t4.get_children():
+					stack_t4.append(child_t4)
+		else:
+			var stack_count: Array[Node] = [model]
+			while not stack_count.is_empty():
+				var count_node: Node = stack_count.pop_back()
+				if count_node is MeshInstance3D:
+					var count_mesh := count_node as MeshInstance3D
+					if count_mesh.mesh != null:
+						surfaces_t4 += count_mesh.mesh.get_surface_count()
+				for count_child: Node in count_node.get_children():
+					stack_count.append(count_child)
+		var ready_t4 := surfaces_t4 > 0 and textured_t4 == surfaces_t4
+		set_meta("weapon_hands_texture_surfaces", surfaces_t4)
+		set_meta("weapon_hands_textured_surfaces", textured_t4)
+		set_meta("weapon_hands_texture_ready", ready_t4)
+		set_meta("weapon_hands_material_authority", "AETHER_T4_MARINE_SOURCE")
+		print("XZOGOT_T4_SOURCE_HANDS_TEXTURE_BIND ", _weapon_id, " ", textured_t4, "/", surfaces_t4)
+		return {"surfaces": surfaces_t4, "textured": textured_t4, "ready": ready_t4}
+
 	var left := _load_optional_asset(
 		"res://assets/weapons/aether_waw_hands/legacy_richtofen/textures/arm_left_color.png"
 	) as Texture2D
@@ -1181,7 +1245,7 @@ func _refresh_view_assets(def: Dictionary) -> void:
 		if hands_node is Node3D:
 			_hands_model_root = hands_node as Node3D
 			_orient_imported_hands(_hands_model_root, hands_path)
-			_apply_source_hands_textures(_hands_model_root)
+			_apply_source_hands_textures(_hands_model_root, hands_path)
 		_hands_animation_player = _find_animation_player(hands_node)
 		var source_attachment_ready := _bind_weapon_to_source_hands()
 		set_meta("weapon_hands_asset", hands_path)
