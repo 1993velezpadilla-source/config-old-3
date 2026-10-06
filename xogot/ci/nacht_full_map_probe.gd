@@ -36,6 +36,9 @@ func _run() -> void:
 	var collisions := int(scene.get_meta("world_collision_count", -1))
 	var source_lights := int(scene.get_meta("source_light_count", -1))
 	var runtime_lights := int(scene.get_meta("runtime_light_count", -1))
+	var complete_textures := int(scene.get_meta("source_complete_texture_catalog_count", -1))
+	var texture_failures := int(scene.get_meta("source_texture_load_failures", -1))
+	var textured_materials := int(scene.get_meta("source_material_textured_count", -1))
 
 	if packages != 3871:
 		_fail(4, "package authority mismatch " + str(packages))
@@ -49,8 +52,8 @@ func _run() -> void:
 	if missing_meshes != 0:
 		_fail(7, "missing mesh bridge count " + str(missing_meshes))
 		return
-	if source_actors <= 0 or runtime_actors != source_actors:
-		_fail(8, "actor coverage mismatch %d/%d" % [runtime_actors, source_actors])
+	if source_actors != 11023 or runtime_actors != source_actors:
+		_fail(8, "actor coverage mismatch %d/%d expected=11023" % [runtime_actors, source_actors])
 		return
 	if get_nodes_in_group("nacht_source_actor").size() != source_actors:
 		_fail(9, "actor runtime group mismatch")
@@ -60,6 +63,15 @@ func _run() -> void:
 		return
 	if source_lights <= 0 or runtime_lights != source_lights:
 		_fail(11, "light coverage mismatch %d/%d" % [runtime_lights, source_lights])
+		return
+	if complete_textures != 1581:
+		_fail(14, "complete texture catalog mismatch " + str(complete_textures))
+		return
+	if texture_failures != 0:
+		_fail(15, "source texture load failures " + str(texture_failures))
+		return
+	if textured_materials <= 0:
+		_fail(16, "no source materials resolved with textures")
 		return
 
 	var player := scene.get_node_or_null("Player") as CharacterBody3D
@@ -80,6 +92,8 @@ func _run() -> void:
 		" actors=", runtime_actors,
 		" collisions=", collisions,
 		" lights=", runtime_lights,
+		" textures=", complete_textures,
+		" textured_materials=", textured_materials,
 		" player=", player.global_position
 	)
 	scene.queue_free()
