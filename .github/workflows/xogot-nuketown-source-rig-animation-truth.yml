@@ -1,0 +1,310 @@
+name: Xogot Nuketown Source Rig Animation Truth
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-nuketown-source-rig-animation-truth.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xogot-nuketown-source-rig-animation-truth-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  extract-source-rig-animation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Restore proven XZIEL source converters
+        shell: bash
+        run: |
+          set -euo pipefail
+          OLD=055f0d0721eb212e3f4713e149d1e2ace5c53674
+          FILES=(
+            tools/maps/UESkeletonXZRG/UESkeletonXZRG.csproj
+            tools/maps/UESkeletonXZRG/Program.cs
+            tools/maps/UESkeletalMeshXZSK/UESkeletalMeshXZSK.csproj
+            tools/maps/UESkeletalMeshXZSK/Program.cs
+            tools/maps/UEAnimationXZAN/UEAnimationXZAN.csproj
+            tools/maps/UEAnimationXZAN/Program.cs
+            tools/maps/common/XzielSkeletonIdentity.cs
+            tools/maps/patch_cue4parse_animation_fallback.py
+            engine/xz/xz_xzrig.h
+            engine/xz/xz_xzrig.c
+            engine/xz/xz_xzskel.h
+            engine/xz/xz_xzskel.c
+            engine/xz/xz_xzanim.h
+            engine/xz/xz_xzanim.c
+            tools/maps/xz_xzrig_file_gate.c
+            tools/maps/xz_xzskel_file_gate.c
+            tools/maps/xz_xzanim_file_gate.c
+          )
+          for path in "${FILES[@]}"; do
+            mkdir -p "$(dirname "$path")"
+            git show "$OLD:$path" > "$path"
+            test -s "$path"
+          done
+          echo "XZOGOT_NUKETOWN_LEGACY_CONVERTERS_RESTORED ${#FILES[@]}"
+
+      - name: Install source package tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq p7zip-full xz-utils
+          mkdir -p "$RUNNER_TEMP/repak"
+          curl -fL --retry 5 \
+            https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-unknown-linux-gnu.tar.xz \
+            -o "$RUNNER_TEMP/repak.tar.xz"
+          tar -xJf "$RUNNER_TEMP/repak.tar.xz" -C "$RUNNER_TEMP/repak"
+          REPAK=$(find "$RUNNER_TEMP/repak" -type f -name 'repak*' -perm -111 | head -1)
+          test -n "$REPAK"
+          echo "REPAK=$REPAK" >> "$GITHUB_ENV"
+
+      - name: Download and unpack pinned Nuketown source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p source-download source-outer source-unpacked
+          curl -fL --retry 8 --retry-delay 3 --retry-all-errors \
+            -o source-download/nuketown-v49-oculus.zip \
+            "https://g-3959.modapi.io/v1/games/3959/mods/5097941/files/7509509/download"
+          7z x -y source-download/nuketown-v49-oculus.zip -osource-outer >/dev/null
+          PAK=$(find source-outer -type f -name '*.pak' -print -quit)
+          test -n "$PAK"
+          "$REPAK" unpack "$PAK" -o source-unpacked
+
+      - name: Pin Pavlov UE5 mappings
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 5 --retry-delay 2 \
+            -o source-download/PavMappings.usmap \
+            "https://raw.githubusercontent.com/THW-Reaper/PavlovVRMappings/4976647b4f3a209042460bc55a7a3122662d05b7/PavMappings.usmap"
+          echo "6d19f9731cc3fbaba34ca8e0833e81e4ffdf1b407edf24de48b1ccb5c63b060c  source-download/PavMappings.usmap" \
+            | sha256sum -c -
+
+      - name: Build exact 3/3/9 source census
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nuketown-rig-animation
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          skeletons=[
+            "Pavlov/Plugins/UGC5097941/Content/box/1/untitled_Skeleton.uasset",
+            "Pavlov/Plugins/UGC5097941/Content/props/shades/1/untitled_Skeleton.uasset",
+            "Pavlov/Plugins/UGC5097941/Content/props/shades/2/untitled_Skeleton.uasset",
+          ]
+          meshes=[
+            "Pavlov/Plugins/UGC5097941/Content/box/1/untitled.uasset",
+            "Pavlov/Plugins/UGC5097941/Content/props/shades/1/untitled.uasset",
+            "Pavlov/Plugins/UGC5097941/Content/props/shades/2/untitled.uasset",
+          ]
+          anims=[
+            "Pavlov/Plugins/UGC5097941/Content/box/1/untitled_Anim_Armature_006_o_zombie_magic_box_arrive.uasset",
+            "Pavlov/Plugins/UGC5097941/Content/box/1/untitled_Anim_Armature_006_o_zombie_magic_box_close.uasset",
+            "Pavlov/Plugins/UGC5097941/Content/box/1/untitled_Anim_Armature_006_o_zombie_magic_box_leave.uasset",
+            "Pavlov/Plugins/UGC5097941/Content/box/1/untitled_Anim_Armature_006_o_zombie_magic_box_open.uasset",
+            "Pavlov/Plugins/UGC5097941/Content/box/1/untitled_Anim_Armature_006_o_zombie_magic_box_teddy_rise.uasset",
+            "Pavlov/Plugins/UGC5097941/Content/box/1/untitled_Anim_Armature_006_o_zombie_magic_box_weapon_dual_rise.uasset",
+            "Pavlov/Plugins/UGC5097941/Content/box/1/untitled_Anim_Armature_006_o_zombie_magic_box_weapon_rise.uasset",
+            "Pavlov/Plugins/UGC5097941/Content/props/shades/1/untitled_Anim.uasset",
+            "Pavlov/Plugins/UGC5097941/Content/props/shades/2/untitled_Anim.uasset",
+          ]
+          packages=[]
+          for p in skeletons:
+            packages.append({"packagePath":p,"classes":{"Skeleton":1}})
+          for p in meshes:
+            packages.append({"packagePath":p,"classes":{"SkeletalMesh":1}})
+          for p in anims:
+            packages.append({"packagePath":p,"classes":{"AnimSequence":1}})
+          for p in skeletons+meshes+anims:
+            assert (Path("source-unpacked")/p).is_file(), p
+          out={"schemaVersion":1,"packages":packages}
+          Path("build/nuketown-rig-animation/class-census.json").write_text(
+            json.dumps(out,indent=2)+"\n"
+          )
+          print("XZOGOT_NUKETOWN_RIG_ANIM_CENSUS_GREEN skeletons=3 meshes=3 anims=9")
+          PY
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Prepare pinned CUE4Parse animation fallback
+        shell: bash
+        run: |
+          set -euo pipefail
+          CUE4PARSE_ROOT="$RUNNER_TEMP/CUE4Parse"
+          git init "$CUE4PARSE_ROOT"
+          git -C "$CUE4PARSE_ROOT" remote add origin https://github.com/FabianFG/CUE4Parse.git
+          git -C "$CUE4PARSE_ROOT" fetch --depth=1 origin 28f385e622468c4ab84997d596b46bb1c3adfcfa
+          git -C "$CUE4PARSE_ROOT" checkout --detach FETCH_HEAD
+          test "$(git -C "$CUE4PARSE_ROOT" rev-parse HEAD)" = "28f385e622468c4ab84997d596b46bb1c3adfcfa"
+          python3 tools/maps/patch_cue4parse_animation_fallback.py --root "$CUE4PARSE_ROOT"
+          echo "CUE4PARSE_SOURCE_ROOT=$CUE4PARSE_ROOT" >> "$GITHUB_ENV"
+
+      - name: Convert all three source skeletons
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet restore tools/maps/UESkeletonXZRG/UESkeletonXZRG.csproj \
+            -p:CUE4ParseSourceRoot="$CUE4PARSE_SOURCE_ROOT" -p:CUE4PARSE_SKIP_NATIVE=true
+          dotnet build tools/maps/UESkeletonXZRG/UESkeletonXZRG.csproj \
+            --configuration Release --no-restore \
+            -p:CUE4ParseSourceRoot="$CUE4PARSE_SOURCE_ROOT" -p:CUE4PARSE_SKIP_NATIVE=true
+          mkdir -p build/nuketown-rig-animation/xzrg
+          dotnet tools/maps/UESkeletonXZRG/bin/Release/net10.0/UESkeletonXZRG.dll \
+            source-unpacked source-download/PavMappings.usmap \
+            build/nuketown-rig-animation/class-census.json \
+            build/nuketown-rig-animation/xzrg 3 ue5.1 \
+            | tee build/nuketown-rig-animation/xzrg.log
+          grep -q "XZIEL_UE_XZRG_PROBE_GREEN" build/nuketown-rig-animation/xzrg.log
+
+      - name: Convert all three source skinned meshes
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet restore tools/maps/UESkeletalMeshXZSK/UESkeletalMeshXZSK.csproj \
+            -p:CUE4ParseSourceRoot="$CUE4PARSE_SOURCE_ROOT" -p:CUE4PARSE_SKIP_NATIVE=true
+          dotnet build tools/maps/UESkeletalMeshXZSK/UESkeletalMeshXZSK.csproj \
+            --configuration Release --no-restore \
+            -p:CUE4ParseSourceRoot="$CUE4PARSE_SOURCE_ROOT" -p:CUE4PARSE_SKIP_NATIVE=true
+          mkdir -p build/nuketown-rig-animation/xzsk
+          dotnet tools/maps/UESkeletalMeshXZSK/bin/Release/net10.0/UESkeletalMeshXZSK.dll \
+            source-unpacked source-download/PavMappings.usmap \
+            build/nuketown-rig-animation/class-census.json \
+            build/nuketown-rig-animation/xzsk 3 ue5.1 \
+            | tee build/nuketown-rig-animation/xzsk.log
+          grep -q "XZIEL_UE_XZSK_PROBE_GREEN" build/nuketown-rig-animation/xzsk.log
+
+      - name: Convert all nine source animations
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet restore tools/maps/UEAnimationXZAN/UEAnimationXZAN.csproj \
+            -p:CUE4ParseSourceRoot="$CUE4PARSE_SOURCE_ROOT" -p:CUE4PARSE_SKIP_NATIVE=true
+          dotnet build tools/maps/UEAnimationXZAN/UEAnimationXZAN.csproj \
+            --configuration Release --no-restore \
+            -p:CUE4ParseSourceRoot="$CUE4PARSE_SOURCE_ROOT" -p:CUE4PARSE_SKIP_NATIVE=true
+          mkdir -p build/nuketown-rig-animation/xzan
+          dotnet tools/maps/UEAnimationXZAN/bin/Release/net10.0/UEAnimationXZAN.dll \
+            source-unpacked source-download/PavMappings.usmap \
+            build/nuketown-rig-animation/class-census.json \
+            build/nuketown-rig-animation/xzan 9 ue5.1 \
+            | tee build/nuketown-rig-animation/xzan.log
+          grep -q "XZIEL_UE_XZAN_PROBE_GREEN" build/nuketown-rig-animation/xzan.log
+
+      - name: Native-gate XZRG XZSK XZAN payloads
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nuketown-rig-animation/native-gates
+          cc -std=gnu11 -Wall -Wextra -Werror -Iengine/xz \
+            tools/maps/xz_xzrig_file_gate.c engine/xz/xz_xzrig.c -lm \
+            -o build/nuketown-rig-animation/native-gates/xzrg-gate
+          cc -std=gnu11 -Wall -Wextra -Werror -Iengine/xz \
+            tools/maps/xz_xzskel_file_gate.c engine/xz/xz_xzskel.c -lm \
+            -o build/nuketown-rig-animation/native-gates/xzsk-gate
+          cc -std=gnu11 -Wall -Wextra -Werror -Iengine/xz \
+            tools/maps/xz_xzanim_file_gate.c engine/xz/xz_xzanim.c -lm \
+            -o build/nuketown-rig-animation/native-gates/xzan-gate
+
+          mapfile -t RIGS < <(find build/nuketown-rig-animation/xzrg -maxdepth 1 -name '*.xrg' | sort)
+          mapfile -t MESHES < <(find build/nuketown-rig-animation/xzsk -maxdepth 1 -name '*.xsk' | sort)
+          mapfile -t ANIMS < <(find build/nuketown-rig-animation/xzan -maxdepth 1 -name '*.xan' | sort)
+          test "${#RIGS[@]}" -eq 3
+          test "${#MESHES[@]}" -eq 3
+          test "${#ANIMS[@]}" -eq 9
+
+          build/nuketown-rig-animation/native-gates/xzrg-gate "${RIGS[@]}" \
+            | tee build/nuketown-rig-animation/xzrg-native.log
+          build/nuketown-rig-animation/native-gates/xzsk-gate "${MESHES[@]}" \
+            | tee build/nuketown-rig-animation/xzsk-native.log
+          build/nuketown-rig-animation/native-gates/xzan-gate "${ANIMS[@]}" \
+            | tee build/nuketown-rig-animation/xzan-native.log
+
+      - name: Validate exact source payload parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          r=json.loads(Path("build/nuketown-rig-animation/xzrg/report.json").read_text())
+          m=json.loads(Path("build/nuketown-rig-animation/xzsk/report.json").read_text())
+          a=json.loads(Path("build/nuketown-rig-animation/xzan/report.json").read_text())
+          assert r["ready"] and r["failureCount"]==0 and r["convertedSkeletons"]==3
+          assert m["ready"] and m["failureCount"]==0 and m["convertedMeshes"]==3
+          assert a["ready"] and a["failureCount"]==0 and a["convertedAnimations"]==9
+          assert m["totalBones"]==23, m
+          assert m["totalVertices"]==6994, m
+          assert m["totalIndices"]==16527, m
+          assert m["totalTriangles"]==5509, m
+          assert m["totalSections"]==13, m
+          assert a["totalFrames"]==1107, a
+          assert a["totalTracks"]==53, a
+
+          mystery_mesh=[
+              x for x in m["meshes"]
+              if "/box/1/untitled.uasset" in x["packagePath"]
+          ]
+          assert len(mystery_mesh)==1 and mystery_mesh[0]["bones"]==5, mystery_mesh
+          mystery_hash=mystery_mesh[0]["skeletonHash"]
+          mystery_anims=[
+              x for x in a["animations"]
+              if x["skeletonHash"]==mystery_hash
+          ]
+          assert len(mystery_anims)==7, mystery_anims
+          names=[Path(x["packagePath"]).stem for x in mystery_anims]
+          required=["arrive","close","leave","open","teddy_rise","weapon_dual_rise","weapon_rise"]
+          for token in required:
+              assert any(name.endswith(token) for name in names), (token,names)
+
+          summary={
+              "schemaVersion":1,
+              "skeletons":3,
+              "skeletalMeshes":3,
+              "animations":9,
+              "mysteryBones":5,
+              "mysterySkeletonHash":mystery_hash,
+              "mysteryAnimationCount":7,
+              "mysteryAnimationPackages":sorted(x["packagePath"] for x in mystery_anims),
+              "ready":True,
+          }
+          Path("build/nuketown-rig-animation/source-rig-animation-summary.json").write_text(
+              json.dumps(summary,indent=2)+"\n"
+          )
+          print("XZOGOT_NUKETOWN_SOURCE_RIG_ANIMATION_GREEN", summary)
+          PY
+
+      - name: Upload private source rig animation proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Nuketown-Source-Rig-Animation-Proof
+          path: |
+            build/nuketown-rig-animation/source-rig-animation-summary.json
+            build/nuketown-rig-animation/xzrg/report.json
+            build/nuketown-rig-animation/xzrg/*.xrg
+            build/nuketown-rig-animation/xzsk/report.json
+            build/nuketown-rig-animation/xzsk/*.xsk
+            build/nuketown-rig-animation/xzan/report.json
+            build/nuketown-rig-animation/xzan/*.xan
+            build/nuketown-rig-animation/*-native.log
+          if-no-files-found: error
+          retention-days: 14
