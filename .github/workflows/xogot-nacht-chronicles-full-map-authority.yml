@@ -9,6 +9,7 @@ on:
       - ".github/workflows/xogot-nacht-chronicles-full-map-authority.yml"
       - "tools/maps/UEStaticSceneExtract/Program.cs"
       - "tools/patches/patch_ue421_material_texture_refs.py"
+      - "tools/patches/synthesize_ue_basic_cube_xzms.py"
 
 permissions:
   contents: read
@@ -284,9 +285,17 @@ jobs:
         run: |
           $ErrorActionPreference='Stop'
           $app='tools/maps/UEStaticSceneExtract/bin/Release/net10.0/UEStaticSceneExtract.dll'
-          $xzms='nacht-native/static-meshes/report.json'
-          if(-not (Test-Path $xzms)){throw 'static mesh report missing'}
-          dotnet $app $env:NACHT_CONTENT_ROOT PavMappings.usmap nacht-class-census.json $xzms nacht-static-scene.json ue4.21 |
+          $sourceXzms='nacht-native/static-meshes/report.json'
+          $runtimeXzms='nacht-static-runtime-meshes.json'
+          if(-not (Test-Path $sourceXzms)){throw 'static mesh report missing'}
+
+          python tools/patches/synthesize_ue_basic_cube_xzms.py `
+            --source-report $sourceXzms `
+            --mesh-dir nacht-native/static-meshes `
+            --output-report $runtimeXzms
+          if($LASTEXITCODE -ne 0){throw 'UE engine basic cube synthesis failed'}
+
+          dotnet $app $env:NACHT_CONTENT_ROOT PavMappings.usmap nacht-class-census.json $runtimeXzms nacht-static-scene.json ue4.21 |
             Tee-Object nacht-static-scene.log
           if($LASTEXITCODE -ne 0){throw "static scene extraction failed $LASTEXITCODE"}
 
@@ -298,7 +307,8 @@ jobs:
           assert s.get("mapPackageCount",0)==1,s
           assert s.get("packagesLoaded",0)==1,s
           assert s.get("actorAnchorCount",0)>0,s
-          assert s.get("sceneInstanceCount",0)>0,s
+          assert s.get("sceneInstanceCount",0)==10793,s
+          assert s.get("referencedNativeMeshCount",0)==493,s
           assert s.get("unresolvedMeshCount",1)==0,s
           assert s.get("packageFailureCount",1)==0,s
           assert s.get("componentFailureCount",1)==0,s
@@ -308,6 +318,8 @@ jobs:
               "instances":s.get("sceneInstanceCount"),
               "staticComponents":s.get("staticComponents"),
               "meshes":s.get("referencedNativeMeshCount"),
+              "sourcePackageMeshes":568,
+              "engineBuiltins":1,
           })
           '@ | python -
 
@@ -505,7 +517,7 @@ jobs:
               "sourceAuthority":"validated complete workshop PAK 2755515831",
               "sourcePackageCount":3871,
               "sourceMap":"Nacht_de_Untoten.umap",
-              "nativeAuthority":"nacht-native/** + nacht-static-scene.json + nacht-lights.json + nacht-audio-scene.json + nacht-materials.json",
+              "nativeAuthority":"568 workshop StaticMeshes + canonical /Engine/BasicShapes/Cube runtime builtin + Nacht native audio/skeletal/texture/material/light authority",
               "portableExportFileCount":len(files),
               "portableMeshCount":sum(p.suffix.lower() in {".glb",".gltf"} for p in files),
               "portableImageCount":sum(p.suffix.lower() in {".png",".jpg",".jpeg",".tga"} for p in files),
@@ -540,6 +552,7 @@ jobs:
             nacht-native/**
             nacht-materials.json
             nacht-materials.log
+            nacht-static-runtime-meshes.json
             nacht-static-scene.json
             nacht-static-scene.log
             nacht-lights.json
