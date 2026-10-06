@@ -198,6 +198,115 @@ jobs:
           })
           PY
 
+      - name: Build placed Cascade candidate matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          root=Path("full")
+          out=Path("slice")
+          graphs_path=next(root.rglob("nacht-particle-graphs.json"), None)
+          runtime_path=next(root.rglob("particle-runtime-manifest.json"), None)
+          materials_path=next(root.rglob("nacht-materials.json"), None)
+          if not graphs_path or not runtime_path or not materials_path:
+              raise SystemExit("particle/material authority missing")
+
+          graphs=json.loads(graphs_path.read_text())
+          runtime=json.loads(runtime_path.read_text())
+          materials=json.loads(materials_path.read_text())
+
+          def canonical(raw):
+              value=str(raw or "").strip().replace("\\","/")
+              if "'" in value and value.endswith("'"):
+                  value=value.split("'",1)[1][:-1]
+              if value.startswith("Content/"):
+                  value="/Game/"+value[8:]
+              elif value.startswith("Game/"):
+                  value="/"+value
+              return value.lower()
+
+          def unwrap(value):
+              if isinstance(value,list):
+                  return [unwrap(x) for x in value]
+              if not isinstance(value,dict):
+                  return value
+              kind=str(value.get("kind",""))
+              if kind=="FScriptStruct":
+                  return unwrap(value.get("value"))
+              if kind=="FPackageIndex":
+                  return value.get("path")
+              members=value.get("members")
+              if isinstance(members,dict):
+                  if "GenericValue" in members:
+                      return unwrap(members["GenericValue"])
+                  if "Value" in members and len(members)<=4:
+                      return unwrap(members["Value"])
+              if kind=="FStructFallback":
+                  result={}
+                  for row in value.get("properties",[]):
+                      if isinstance(row,dict) and row.get("name"):
+                          result[str(row["name"])]=unwrap(row.get("value"))
+                  return result
+              return {str(k):unwrap(v) for k,v in value.items()}
+
+          def props(node):
+              result={}
+              for row in node.get("properties",[]):
+                  if isinstance(row,dict) and row.get("name"):
+                      result[str(row["name"])]=unwrap(row.get("value"))
+              return result
+
+          mats={canonical(row.get("objectPath")):row for row in materials.get("materials",[]) if row.get("objectPath")}
+          rows=[]
+          seen=set()
+          for placement in runtime.get("placements",[]):
+              system_path=str(placement.get("templatePath",""))
+              key=canonical(system_path)
+              graph=next((g for g in graphs.get("systems",[]) if canonical(g.get("objectPath"))==key),None)
+              if graph is None:
+                  continue
+              if key in seen:
+                  continue
+              seen.add(key)
+              required=[n for n in graph.get("nodes",[]) if n.get("exportType")=="ParticleModuleRequired"]
+              material_path=""
+              screen_alignment=""
+              if len(required)==1:
+                  p=props(required[0])
+                  material_path=str(p.get("Material","") or "")
+                  screen_alignment=str(p.get("ScreenAlignment","") or "")
+              mat=mats.get(canonical(material_path),{})
+              node_types=sorted({str(n.get("exportType","")) for n in graph.get("nodes",[]) if n.get("exportType")})
+              rows.append({
+                  "systemPath":system_path,
+                  "placementCount":sum(1 for p in runtime.get("placements",[]) if canonical(p.get("templatePath"))==key),
+                  "nodeCount":graph.get("nodeCount"),
+                  "referenceCount":graph.get("referenceCount"),
+                  "unsupportedNodeTypes":placement.get("unsupportedNodeTypes",[]),
+                  "nodeTypes":node_types,
+                  "materialPath":material_path,
+                  "screenAlignment":screen_alignment,
+                  "materialFound":bool(mat),
+                  "materialExportType":mat.get("exportType"),
+                  "materialCanonicalTextures":mat.get("canonicalTextures",{}),
+                  "materialTextureCount":len(mat.get("textures",[])),
+                  "materialRawPropertyKeys":mat.get("rawPropertyKeys",[]),
+                  "materialExpressionTypes":sorted({str(x.get("exportType","")) for x in mat.get("expressions",[]) if isinstance(x,dict) and x.get("exportType")}),
+              })
+
+          rows.sort(key=lambda r:(len(r["unsupportedNodeTypes"]),r["materialTextureCount"],r["systemPath"].lower()))
+          payload={"systemCount":len(rows),"systems":rows}
+          (out/"particle-candidate-matrix.json").write_text(json.dumps(payload,indent=2)+"\n")
+          print("XZOGOT_NACHT_PARTICLE_CANDIDATE_MATRIX_GREEN", {
+              "systems":len(rows),
+              "zeroUnsupported":sum(1 for r in rows if not r["unsupportedNodeTypes"]),
+              "materialsFound":sum(1 for r in rows if r["materialFound"]),
+          })
+          PY
+
       - name: Upload material graph slice
         uses: actions/upload-artifact@v4
         with:
