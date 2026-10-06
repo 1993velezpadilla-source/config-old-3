@@ -15,7 +15,7 @@ permissions:
 
 concurrency:
   group: xogot-nacht-chronicles-full-map-authority
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   full-authority:
