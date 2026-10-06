@@ -501,6 +501,42 @@ func _run() -> void:
 	var particle_electric_beam_peak := int(
 		scene.get_meta("source_particle_electric_beam_peak_active", -1)
 	)
+	var particle_acid_ball_mesh_burst := int(
+		scene.get_meta("source_particle_acid_ball_mesh_burst_count", -1)
+	)
+	var particle_acid_ball_spawn_rate := float(
+		scene.get_meta("source_particle_acid_ball_sprite_spawn_rate", -1.0)
+	)
+	var particle_acid_ball_lifetime_min := float(
+		scene.get_meta("source_particle_acid_ball_sprite_lifetime_min", -1.0)
+	)
+	var particle_acid_ball_lifetime_max := float(
+		scene.get_meta("source_particle_acid_ball_sprite_lifetime_max", -1.0)
+	)
+	var particle_acid_ball_mesh_size := scene.get_meta(
+		"source_particle_acid_ball_mesh_size_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_acid_ball_sprite_size_min := scene.get_meta(
+		"source_particle_acid_ball_sprite_size_min_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_acid_ball_sprite_size_max := scene.get_meta(
+		"source_particle_acid_ball_sprite_size_max_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_acid_ball_dynamic_count := int(
+		scene.get_meta("source_particle_acid_ball_dynamic_param_count", -1)
+	)
+	var particle_acid_ball_dynamic_ranges: Array = scene.get_meta(
+		"source_particle_acid_ball_dynamic_ranges", []
+	) as Array
+	var particle_acid_ball_dynamic_spawn_only: Array = scene.get_meta(
+		"source_particle_acid_ball_dynamic_spawn_time_only", []
+	) as Array
+	var particle_acid_ball_dynamic_samples: Array = scene.get_meta(
+		"source_particle_acid_ball_dynamic_samples", []
+	) as Array
+	var particle_acid_ball_peaks: Array = scene.get_meta(
+		"source_particle_acid_ball_peak_active_by_emitter", []
+	) as Array
 	var source_particles := int(scene.get_meta("source_particle_component_count", -1))
 	var particle_authority := int(scene.get_meta("runtime_particle_authority_count", -1))
 	var source_particle_systems := int(scene.get_meta("source_particle_system_count", -1))
@@ -613,14 +649,14 @@ func _run() -> void:
 		if not particle_semantic_ready:
 			_fail(34, "source-complete Cascade semantic runtime is not ready")
 			return
-		if particle_semantic_systems != 10 or particle_semantic_placements != 19:
+		if particle_semantic_systems != 11 or particle_semantic_placements != 21:
 			_fail(
 				34,
 				"Cascade semantic runtime coverage mismatch systems=%d placements=%d"
 				% [particle_semantic_systems, particle_semantic_placements]
 			)
 			return
-		if get_nodes_in_group("nacht_source_particle_semantic").size() != 19:
+		if get_nodes_in_group("nacht_source_particle_semantic").size() != 21:
 			_fail(34, "Cascade semantic placement group mismatch")
 			return
 		if (
@@ -985,6 +1021,80 @@ func _run() -> void:
 					particle_electric_beam_interpolation_points,
 					particle_electric_beam_max_count,
 					particle_electric_beam_peak,
+				]
+			)
+			return
+		var acid_ranges_ok := (
+			particle_acid_ball_dynamic_ranges.size() == 4
+			and particle_acid_ball_dynamic_ranges[0] is Vector2
+			and (particle_acid_ball_dynamic_ranges[0] as Vector2).is_equal_approx(Vector2(0.0, 0.5))
+			and particle_acid_ball_dynamic_ranges[1] is Vector2
+			and (particle_acid_ball_dynamic_ranges[1] as Vector2).is_equal_approx(Vector2(0.3, 0.6))
+			and particle_acid_ball_dynamic_ranges[2] is Vector2
+			and (particle_acid_ball_dynamic_ranges[2] as Vector2).is_equal_approx(Vector2.ZERO)
+			and particle_acid_ball_dynamic_ranges[3] is Vector2
+			and (particle_acid_ball_dynamic_ranges[3] as Vector2).is_equal_approx(Vector2.ZERO)
+		)
+		var acid_spawn_only_ok := (
+			particle_acid_ball_dynamic_spawn_only.size() == 4
+			and not bool(particle_acid_ball_dynamic_spawn_only[0])
+			and bool(particle_acid_ball_dynamic_spawn_only[1])
+			and not bool(particle_acid_ball_dynamic_spawn_only[2])
+			and not bool(particle_acid_ball_dynamic_spawn_only[3])
+		)
+		var acid_samples_ok := false
+		if particle_acid_ball_dynamic_samples.size() == 4:
+			var acid_samples_0: Array = particle_acid_ball_dynamic_samples[0] as Array
+			var acid_samples_1: Array = particle_acid_ball_dynamic_samples[1] as Array
+			var acid_samples_2: Array = particle_acid_ball_dynamic_samples[2] as Array
+			var acid_samples_3: Array = particle_acid_ball_dynamic_samples[3] as Array
+			acid_samples_ok = (
+				acid_samples_0.size() == 2
+				and is_equal_approx(float(acid_samples_0[0]), 0.0)
+				and is_equal_approx(float(acid_samples_0[1]), 0.5)
+				and acid_samples_1.size() == 2
+				and is_equal_approx(float(acid_samples_1[0]), 0.3)
+				and is_equal_approx(float(acid_samples_1[1]), 0.6)
+				and acid_samples_2.size() == 1
+				and is_equal_approx(float(acid_samples_2[0]), 0.0)
+				and acid_samples_3.size() == 1
+				and is_equal_approx(float(acid_samples_3[0]), 0.0)
+			)
+		var acid_peaks_ok := (
+			particle_acid_ball_peaks.size() == 2
+			and int(particle_acid_ball_peaks[0]) == 3
+			and int(particle_acid_ball_peaks[1]) == 20
+		)
+		if (
+			particle_acid_ball_mesh_burst != 1
+			or not is_equal_approx(particle_acid_ball_spawn_rate, 10.0)
+			or not is_equal_approx(particle_acid_ball_lifetime_min, 1.0)
+			or not is_equal_approx(particle_acid_ball_lifetime_max, 2.0)
+			or not particle_acid_ball_mesh_size.is_equal_approx(Vector3(0.5, 0.6, 0.5))
+			or not particle_acid_ball_sprite_size_min.is_equal_approx(Vector3(5.0, 8.333333, 8.333333))
+			or not particle_acid_ball_sprite_size_max.is_equal_approx(Vector3(6.666667, 8.333333, 8.333333))
+			or particle_acid_ball_dynamic_count != 4
+			or not acid_ranges_ok
+			or not acid_spawn_only_ok
+			or not acid_samples_ok
+			or not acid_peaks_ok
+		):
+			_fail(
+				34,
+				"AcidBall Cascade mismatch burst=%d rate=%s life=%s..%s mesh_size=%s sprite_size=%s..%s dynamic_count=%d ranges=%s spawn_only=%s samples=%s peaks=%s"
+				% [
+					particle_acid_ball_mesh_burst,
+					particle_acid_ball_spawn_rate,
+					particle_acid_ball_lifetime_min,
+					particle_acid_ball_lifetime_max,
+					particle_acid_ball_mesh_size,
+					particle_acid_ball_sprite_size_min,
+					particle_acid_ball_sprite_size_max,
+					particle_acid_ball_dynamic_count,
+					particle_acid_ball_dynamic_ranges,
+					particle_acid_ball_dynamic_spawn_only,
+					particle_acid_ball_dynamic_samples,
+					particle_acid_ball_peaks,
 				]
 			)
 			return
