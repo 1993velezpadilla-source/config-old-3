@@ -112,7 +112,10 @@ jobs:
           set -euo pipefail
           old=055f0d0721eb212e3f4713e149d1e2ace5c53674
           git fetch origin "$old" --depth=1
-          git checkout "$old" --             tools/maps/compile_ue_material_bindings.py             tools/maps/compile_xziel_material_instance_bindings.py             tools/maps/compile_xziel_material_library.py
+          git checkout "$old" -- \
+            tools/maps/compile_xziel_material_instance_bindings.py \
+            tools/maps/compile_xziel_material_library.py
+          test -s tools/maps/compile_ue_material_bindings.py
           test -s tools/maps/compile_xziel_environment.py
           test -s tools/maps/xzms_to_glb.py
           test -s tools/maps/xztx_to_dds.py
