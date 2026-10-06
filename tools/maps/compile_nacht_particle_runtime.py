@@ -18,6 +18,11 @@ STRUCTURAL_TYPES = {
     "ParticleLODLevel",
 }
 
+VALUE_NODE_PREFIXES = (
+    "DistributionFloat",
+    "DistributionVector",
+)
+
 # These Cascade module families appear to have direct Godot mapping candidates.
 # This is NOT a runtime-support declaration. Visual runtime remains RED until
 # the renderer implements and probes every placed source graph.
