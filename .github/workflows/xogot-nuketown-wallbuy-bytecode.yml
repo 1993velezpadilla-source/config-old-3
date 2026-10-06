@@ -58,6 +58,9 @@ jobs:
           done
           test -s source-unpacked/Pavlov/Plugins/UGC5097941/Content/box/NewBlueprint1_2.uasset
           test -s source-unpacked/Pavlov/Plugins/UGC5097941/Content/admin/BuyWheelBox_2.uasset
+          test -s source-unpacked/Pavlov/Plugins/UGC5097941/Content/JoinSounds.uasset
+          test -s source-unpacked/Pavlov/Plugins/UGC5097941/Content/JoinSounds_2.uasset
+          test -s source-unpacked/Pavlov/Plugins/UGC5097941/Content/JoinSounds_3.uasset
 
       - name: Pin Pavlov UE5 mappings
         shell: bash
@@ -95,6 +98,9 @@ jobs:
             source-unpacked/Pavlov/Plugins/UGC5097941/Content/pulse/wallbuy_3.uasset \
             source-unpacked/Pavlov/Plugins/UGC5097941/Content/box/NewBlueprint1_2.uasset \
             source-unpacked/Pavlov/Plugins/UGC5097941/Content/admin/BuyWheelBox_2.uasset \
+            source-unpacked/Pavlov/Plugins/UGC5097941/Content/JoinSounds.uasset \
+            source-unpacked/Pavlov/Plugins/UGC5097941/Content/JoinSounds_2.uasset \
+            source-unpacked/Pavlov/Plugins/UGC5097941/Content/JoinSounds_3.uasset \
             | tee build/nuketown-wallbuy-bytecode/extract.log
 
           grep -q "XZOGOT_NUKETOWN_WALLBUY_BYTECODE_GREEN" \
@@ -111,7 +117,7 @@ jobs:
           p=Path("build/nuketown-wallbuy-bytecode/wallbuy-bytecode.json")
           d=json.loads(p.read_text())
           assert d["ready"] is True, d
-          assert d["packageSuccessCount"] == 5, d
+          assert d["packageSuccessCount"] == 8, d
 
           for package in d["packages"]:
               values=[]
