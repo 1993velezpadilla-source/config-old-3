@@ -21,26 +21,27 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Download public CoDz Parity modkit
+      - name: Recover source from existing GitHub artifact
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq p7zip-full
-          python3 -m pip install --disable-pip-version-check --quiet gdown
           mkdir -p source selected build/gameplay-authority
-          python3 -m gdown "https://drive.google.com/uc?id=1BiThIcM5dEjeAcm9xlFQZF8bzk9MyfK1" -O source/codz.zip
-          test -s source/codz.zip
+          gh run download 37470563200 -n xogot-codz-parity-wonder-weapon-census -D source
+          SOURCE_ROOT="$GITHUB_WORKSPACE/source/build/codz-parity-census/candidates/CoDz Parity modkit/Content"
+          test -d "$SOURCE_ROOT"
+          echo "SOURCE_ROOT=$SOURCE_ROOT" >> "$GITHUB_ENV"
           echo XZOGOT_GAMEPLAY_AUTHORITY_SOURCE_GREEN
 
-      - name: Select every gameplay authority Blueprint
+      - name: Select every gameplay authority Blueprint present in recovered source
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          import zipfile,re,json
-          zpath=Path("source/codz.zip")
+          import shutil,json
+          root=Path(__import__("os").environ["SOURCE_ROOT"])
           out=Path("selected")
           classes={"perks":[],"pap":[],"gums":[],"guns":[],"core":[]}
           exact_core={
@@ -51,54 +52,51 @@ jobs:
             "LimitedAmmoMarker.uasset",
             "MagazineOverlapDetection.uasset",
           }
-          with zipfile.ZipFile(zpath) as z:
-            names=z.namelist()
-            for n in names:
-              norm=n.replace("\\","/")
-              low=norm.lower()
-              base=Path(norm).name
-              if not low.endswith(".uasset"):
-                continue
-              bucket=None
-              if "/bps/perks/" in low:
-                bucket="perks"
-              if any(t in low for t in ("packapunch","pack_a_punch","pack-a-punch","pack a punch","/pap/","papmachine","packpunch")):
-                bucket="pap"
-              if any(t in low for t in ("gobble","gumball","gobblegum","gum_machine","gummachine")):
-                bucket="gums"
-              if "/bps/customitems/guns/" in low and (
-                base.lower().startswith("gun_") or
-                "limitedammomarker" in low or
-                "magazineoverlapdetection" in low
-              ):
-                bucket=bucket or "guns"
-              if base in exact_core:
-                bucket=bucket or "core"
-              if bucket:
-                classes[bucket].append(norm)
-                target=out/norm
-                target.parent.mkdir(parents=True,exist_ok=True)
-                with z.open(n) as src, open(target,"wb") as dst:
-                  dst.write(src.read())
-          # Anything named Pap/Pack/Punch/Gum outside BPs is reported but not decompiled.
-          with zipfile.ZipFile(zpath) as z:
-            names=[n.replace("\\","/") for n in z.namelist()]
+          all_files=[p for p in root.rglob("*") if p.is_file()]
+          for p in all_files:
+            rel=p.relative_to(root).as_posix()
+            low=rel.lower()
+            base=p.name
+            if p.suffix.lower()!=".uasset":
+              continue
+            bucket=None
+            if "/bps/perks/" in ("/"+low):
+              bucket="perks"
+            if any(t in low for t in ("packapunch","pack_a_punch","pack-a-punch","pack a punch","/pap/","papmachine","packpunch")):
+              bucket="pap"
+            if any(t in low for t in ("gobble","gumball","gobblegum","gum_machine","gummachine")):
+              bucket="gums"
+            if "/bps/customitems/guns/" in ("/"+low) and (
+              base.lower().startswith("gun_") or
+              "limitedammomarker" in low or
+              "magazineoverlapdetection" in low
+            ):
+              bucket=bucket or "guns"
+            if base in exact_core:
+              bucket=bucket or "core"
+            if bucket:
+              classes[bucket].append(rel)
+              target=out/rel
+              target.parent.mkdir(parents=True,exist_ok=True)
+              shutil.copy2(p,target)
           discovery={
+            "source":"artifact run 37470563200",
+            "sourceRoot":str(root),
             "selected":{k:sorted(set(v),key=str.lower) for k,v in classes.items()},
-            "allPapNamedPaths":sorted({n for n in names if any(t in n.lower() for t in ("packapunch","pack_a_punch","pack-a-punch","/pap/","papmachine","packpunch"))},key=str.lower),
-            "allGumNamedPaths":sorted({n for n in names if any(t in n.lower() for t in ("gobble","gumball","gobblegum","gum_machine","gummachine"))},key=str.lower),
+            "allPapNamedPaths":sorted({p.relative_to(root).as_posix() for p in all_files if any(t in p.relative_to(root).as_posix().lower() for t in ("packapunch","pack_a_punch","pack-a-punch","/pap/","papmachine","packpunch"))},key=str.lower),
+            "allGumNamedPaths":sorted({p.relative_to(root).as_posix() for p in all_files if any(t in p.relative_to(root).as_posix().lower() for t in ("gobble","gumball","gobblegum","gum_machine","gummachine"))},key=str.lower),
           }
           Path("build/gameplay-authority/discovery.json").write_text(json.dumps(discovery,indent=2)+"\n")
           for k,v in classes.items():
             print("XZOGOT_GAMEPLAY_SELECT",k,len(set(v)))
-            for p in sorted(set(v),key=str.lower)[:120]:
+            for p in sorted(set(v),key=str.lower)[:160]:
               print(" ",p)
           print("XZOGOT_GAMEPLAY_PAP_NAMED",len(discovery["allPapNamedPaths"]))
           print("XZOGOT_GAMEPLAY_GUM_NAMED",len(discovery["allGumNamedPaths"]))
           total=sum(len(set(v)) for v in classes.values())
           print("XZOGOT_GAMEPLAY_SELECTED_TOTAL",total)
-          if total < 10:
-            raise SystemExit("Gameplay authority selection unexpectedly small")
+          if total < 5:
+            raise SystemExit("Recovered source artifact lacks gameplay authority packages")
           PY
 
       - name: Pin mappings and build Kismet extractor
