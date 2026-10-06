@@ -51,6 +51,8 @@ var _source_duplicate_material_conflicts: Dictionary = {}
 var _source_material_alias_hits: int = 0
 var _source_duplicate_material_hits: int = 0
 var _source_material_exact_token_hits: int = 0
+var _source_material_sibling_semantic_hits: int = 0
+var _source_effective_sibling_semantic_hits: int = 0
 var _source_material_textured_count: int = 0
 var _source_material_flat_fallback_count: int = 0
 var _source_effective_material_textured_count: int = 0
@@ -190,6 +192,8 @@ func _load_benchmark_world() -> void:
 	set_meta("xziel_benchmark_material_duplicate_source_hits", _source_duplicate_material_hits)
 	set_meta("xziel_benchmark_material_duplicate_source_conflicts", _source_duplicate_material_conflicts.size())
 	set_meta("xziel_benchmark_material_exact_token_hits", _source_material_exact_token_hits)
+	set_meta("xziel_benchmark_material_sibling_semantic_hits", _source_material_sibling_semantic_hits)
+	set_meta("xziel_benchmark_effective_sibling_semantic_hits", _source_effective_sibling_semantic_hits)
 	set_meta("xziel_benchmark_material_textured_count", _source_material_textured_count)
 	set_meta("xziel_benchmark_material_flat_fallback_count", _source_material_flat_fallback_count)
 	set_meta("xziel_benchmark_effective_material_count", _source_effective_material_paths.size())
@@ -222,6 +226,8 @@ func _load_benchmark_world() -> void:
 		" duplicate_source_hits=", _source_duplicate_material_hits,
 		" duplicate_source_conflicts=", _source_duplicate_material_conflicts.size(),
 		" exact_token_hits=", _source_material_exact_token_hits,
+		" sibling_semantic_hits=", _source_material_sibling_semantic_hits,
+		" effective_sibling_semantic_hits=", _source_effective_sibling_semantic_hits,
 		" alias_conflicts=", _source_material_alias_conflicts.size(),
 		" textured_materials=", _source_material_textured_count,
 		" flat_fallbacks=", _source_material_flat_fallback_count,
@@ -328,6 +334,8 @@ func _prepare_material_authority() -> void:
 	_source_material_alias_hits = 0
 	_source_duplicate_material_hits = 0
 	_source_material_exact_token_hits = 0
+	_source_material_sibling_semantic_hits = 0
+	_source_effective_sibling_semantic_hits = 0
 	_source_material_textured_count = 0
 	_source_material_flat_fallback_count = 0
 	_source_effective_material_textured_count = 0
@@ -634,6 +642,14 @@ func _material_for_path(material_path: String) -> Material:
 	var record: Dictionary = _material_records.get(material_path, {})
 	if record.is_empty():
 		return null
+
+	var sibling_semantics_raw: Variant = record.get("sourceSiblingSemanticBindings", {})
+	if sibling_semantics_raw is Dictionary:
+		var sibling_semantics := sibling_semantics_raw as Dictionary
+		if not sibling_semantics.is_empty():
+			_source_material_sibling_semantic_hits += sibling_semantics.size()
+			if _source_effective_material_paths.has(material_path):
+				_source_effective_sibling_semantic_hits += sibling_semantics.size()
 
 	var material := StandardMaterial3D.new()
 	material.resource_name = material_path.get_file()
