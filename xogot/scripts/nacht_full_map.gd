@@ -96,6 +96,7 @@ var _source_particle_mystery_inside_descriptor: Dictionary = {}
 var _source_particle_fire_smoke_descriptor: Dictionary = {}
 var _source_particle_pap_wheel_out_descriptor: Dictionary = {}
 var _source_particle_electric_beam_descriptor: Dictionary = {}
+var _source_particle_acid_ball_descriptor: Dictionary = {}
 var _source_environment_fog_runtime_ready := false
 var _source_environment_reflection_runtime_ready := false
 var _source_spawn_candidates: Array[Node3D] = []
@@ -217,7 +218,7 @@ func _boot() -> void:
 	# audible runtime reproduction. They must only flip when those systems are
 	# actually mounted, never merely because the JSON exists.
 	set_meta("particle_visual_runtime_ready", false)
-	set_meta("source_particle_semantic_runtime_ready", _source_particle_semantic_runtime_count == 10 and _source_particle_semantic_placement_count == 19)
+	set_meta("source_particle_semantic_runtime_ready", _source_particle_semantic_runtime_count == 11 and _source_particle_semantic_placement_count == 21)
 	set_meta("source_particle_semantic_runtime_count", _source_particle_semantic_runtime_count)
 	set_meta("source_particle_semantic_placement_count", _source_particle_semantic_placement_count)
 	set_meta("source_audio_runtime_ready", _source_audio_semantics_ready())
@@ -1328,6 +1329,21 @@ func _build_source_particle_semantic_runtime() -> bool:
 		return false
 	_source_particle_semantic_runtime_count += 1
 
+	_source_particle_acid_ball_descriptor = NachtCascadeRuntime.acid_ball_descriptor(_particle_graphs)
+	if not bool(_source_particle_acid_ball_descriptor.get("ready", false)):
+		push_error(
+			"NACHT_FULL_MAP: AcidBall Cascade semantics unresolved "
+			+ str(_source_particle_acid_ball_descriptor.get("error", "unknown"))
+		)
+		return false
+	if not _mount_source_particle_semantic_anchors(
+		_source_particle_acid_ball_descriptor,
+		2,
+		"AcidBall"
+	):
+		return false
+	_source_particle_semantic_runtime_count += 1
+
 	set_meta(
 		"source_particle_mystery_spawn_rate",
 		float(_source_particle_mystery_descriptor.get("spawnRateMin", -1.0))
@@ -1876,6 +1892,54 @@ func _build_source_particle_semantic_runtime() -> bool:
 		"source_particle_electric_beam_peak_active",
 		int(_source_particle_electric_beam_descriptor.get("peakActiveParticles", -1))
 	)
+	set_meta(
+		"source_particle_acid_ball_mesh_burst_count",
+		int(_source_particle_acid_ball_descriptor.get("meshBurstCount", -1))
+	)
+	set_meta(
+		"source_particle_acid_ball_sprite_spawn_rate",
+		float(_source_particle_acid_ball_descriptor.get("spriteSpawnRate", -1.0))
+	)
+	set_meta(
+		"source_particle_acid_ball_sprite_lifetime_min",
+		float(_source_particle_acid_ball_descriptor.get("spriteLifetimeMin", -1.0))
+	)
+	set_meta(
+		"source_particle_acid_ball_sprite_lifetime_max",
+		float(_source_particle_acid_ball_descriptor.get("spriteLifetimeMax", -1.0))
+	)
+	set_meta(
+		"source_particle_acid_ball_mesh_size_ue_cm",
+		_source_particle_acid_ball_descriptor.get("meshSizeUEcm", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_acid_ball_sprite_size_min_ue_cm",
+		_source_particle_acid_ball_descriptor.get("spriteSizeMinUEcm", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_acid_ball_sprite_size_max_ue_cm",
+		_source_particle_acid_ball_descriptor.get("spriteSizeMaxUEcm", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_acid_ball_dynamic_param_count",
+		int(_source_particle_acid_ball_descriptor.get("dynamicParamCount", -1))
+	)
+	set_meta(
+		"source_particle_acid_ball_dynamic_ranges",
+		_source_particle_acid_ball_descriptor.get("dynamicRanges", [])
+	)
+	set_meta(
+		"source_particle_acid_ball_dynamic_spawn_time_only",
+		_source_particle_acid_ball_descriptor.get("dynamicSpawnTimeOnly", [])
+	)
+	set_meta(
+		"source_particle_acid_ball_dynamic_samples",
+		_source_particle_acid_ball_descriptor.get("dynamicSamples", [])
+	)
+	set_meta(
+		"source_particle_acid_ball_peak_active_by_emitter",
+		_source_particle_acid_ball_descriptor.get("peakActiveByEmitter", [])
+	)
 
 	print(
 		"XZOGOT_NACHT_CASCADE_SEMANTIC_RUNTIME_GREEN systems=",
@@ -1929,7 +1993,11 @@ func _build_source_particle_semantic_runtime() -> bool:
 		" electric_beam_rate=",
 		_source_particle_electric_beam_descriptor.get("spawnRate"),
 		" electric_beam_target=",
-		_source_particle_electric_beam_descriptor.get("targetUEcm")
+		_source_particle_electric_beam_descriptor.get("targetUEcm"),
+		" acid_ball_dynamic=",
+		_source_particle_acid_ball_descriptor.get("dynamicRanges"),
+		" acid_ball_peaks=",
+		_source_particle_acid_ball_descriptor.get("peakActiveByEmitter")
 	)
 	return true
 
