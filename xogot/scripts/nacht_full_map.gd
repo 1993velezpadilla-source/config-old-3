@@ -26,6 +26,7 @@ const ENVIRONMENT_SCENE_FILE := "nacht-environment-scene.json"
 const AUDIO_SCENE_FILE := "nacht-audio-scene.json"
 const AUDIO_CUES_FILE := "nacht-audio-cues.json"
 const AUDIO_RUNTIME_REPORT_FILE := "audio-runtime-report.json"
+const AUDIO_RUNTIME_REPORT_FILE := "audio-runtime-report.json"
 
 var _runtime_root: Node3D
 var _benchmark_loader: Node3D
@@ -49,6 +50,8 @@ var _missing_meshes := 0
 var _actor_anchor_count := 0
 var _collision_count := 0
 var _light_count := 0
+var _source_audio_player_count := 0
+var _source_audio_stream_count := 0
 var _source_spawn_candidates: Array[Node3D] = []
 
 func _ready() -> void:
@@ -80,6 +83,7 @@ func _boot() -> void:
 	_audio_scene = _read_json(_source_path(AUDIO_SCENE_FILE))
 	_audio_cues = _read_json(_source_path(AUDIO_CUES_FILE))
 	_audio_runtime_report = _read_json(_source_path(AUDIO_RUNTIME_REPORT_FILE))
+	_audio_runtime_report = _read_json(_source_path(AUDIO_RUNTIME_REPORT_FILE))
 	_index_audio_authority()
 
 	if not _validate_authority():
@@ -101,6 +105,9 @@ func _boot() -> void:
 	add_child(_runtime_root)
 
 	_build_actor_anchors()
+
+	if not _build_source_audio_runtime():
+		return
 
 	if place_player_from_source_anchor:
 		_place_player()
@@ -218,6 +225,12 @@ func _validate_authority() -> bool:
 	if int(_audio_cues.get("cueCount", 0)) != 102:
 		push_error("NACHT_FULL_MAP: source SoundCue graph count mismatch")
 		return false
+	if _audio_runtime_report.is_empty() or not bool(_audio_runtime_report.get("ready", false)):
+		push_error("NACHT_FULL_MAP: staged source OGG report missing")
+		return false
+	if int(_audio_runtime_report.get("audioCount", 0)) != 295:
+		push_error("NACHT_FULL_MAP: staged source OGG count mismatch")
+		return false
 	return true
 
 func _canonical_ue_object_path(raw_path: String) -> String:
@@ -264,6 +277,179 @@ func _runtime_audio_file_for_wave(wave_path: String) -> String:
 func _source_cue_for_path(cue_path: String) -> Dictionary:
 	var canonical := _canonical_ue_object_path(cue_path)
 	return _audio_cue_by_path.get(canonical, {}) as Dictionary
+
+func _authority_object_key(raw: String) -> String:
+	var value := raw.strip_edges().replace("\\", "/")
+	var quote := value.find("'")
+	if quote >= 0 and value.ends_with("'"):
+		value = value.substr(quote + 1, value.length() - quote - 2)
+	if value.begins_with("Content/"):
+		value = "/Game/" + value.substr(8)
+	elif value.begins_with("Game/"):
+		value = "/" + value
+	return value.to_lower()
+
+
+func _audio_component_position(raw_hierarchy: Variant) -> Vector3:
+	if not (raw_hierarchy is Array):
+		return Vector3.ZERO
+	var hierarchy := raw_hierarchy as Array
+	if hierarchy.is_empty():
+		return Vector3.ZERO
+	# The last hierarchy row is the root component. All three source audio
+	# components have zero local offset, so the root relative location is the
+	# exact actor-space placement serialized in the UMAP.
+	var root_row := hierarchy[hierarchy.size() - 1] as Dictionary
+	var loc := root_row.get("locationUEcm", {}) as Dictionary
+	return Vector3(
+		float(loc.get("X", 0.0)),
+		float(loc.get("Y", 0.0)),
+		float(loc.get("Z", 0.0))
+	) * 0.01
+
+
+func _cue_has_loop(cue: Dictionary) -> bool:
+	for raw: Variant in cue.get("nodes", []):
+		if raw is Dictionary:
+			var node := raw as Dictionary
+			if str(node.get("exportType", "")).to_lower().contains("loop"):
+				return true
+	return false
+
+
+func _set_audio_stream_loop(stream: AudioStream, enabled: bool) -> void:
+	if not enabled or stream == null:
+		return
+	if stream is AudioStreamOggVorbis:
+		(stream as AudioStreamOggVorbis).loop = true
+	elif stream is AudioStreamWAV:
+		(stream as AudioStreamWAV).loop_mode = AudioStreamWAV.LOOP_FORWARD
+
+
+func _build_source_audio_runtime() -> bool:
+	_source_audio_players.clear()
+	_source_audio_player_count = 0
+	_source_audio_stream_count = 0
+
+	var runtime_wave_by_key: Dictionary = {}
+	for raw: Variant in _audio_runtime_report.get("audio", []):
+		if not (raw is Dictionary):
+			continue
+		var row := raw as Dictionary
+		var object_path := str(row.get("objectPath", ""))
+		var runtime_file := str(row.get("runtimeFile", ""))
+		if object_path.is_empty() or runtime_file.is_empty():
+			continue
+		runtime_wave_by_key[_authority_object_key(object_path)] = _source_path("audio").path_join(runtime_file)
+
+	var cue_by_key: Dictionary = {}
+	for raw: Variant in _audio_cues.get("cues", []):
+		if raw is Dictionary:
+			var cue := raw as Dictionary
+			var cue_path := str(cue.get("objectPath", ""))
+			if not cue_path.is_empty():
+				cue_by_key[_authority_object_key(cue_path)] = cue
+
+	for raw: Variant in _audio_scene.get("audioComponents", []):
+		if not (raw is Dictionary):
+			continue
+		var row := raw as Dictionary
+		var sound := row.get("sound", {}) as Dictionary
+		var cue_path := str(sound.get("objectPath", ""))
+		var cue_key := _authority_object_key(cue_path)
+		if cue_key.is_empty() or not cue_by_key.has(cue_key):
+			push_error("NACHT_FULL_MAP: source audio cue graph missing " + cue_path)
+			return false
+
+		var cue := cue_by_key[cue_key] as Dictionary
+		var wave_refs := cue.get("waveObjectPaths", []) as Array
+		if wave_refs.size() != 1:
+			push_error(
+				"NACHT_FULL_MAP: source UMAP cue requires unsupported multi-wave runtime "
+				+ cue_path + " waves=" + str(wave_refs.size())
+			)
+			return false
+
+		var wave_path := str(wave_refs[0])
+		var wave_key := _authority_object_key(wave_path)
+		if not runtime_wave_by_key.has(wave_key):
+			push_error("NACHT_FULL_MAP: staged source wave missing " + wave_path)
+			return false
+		var runtime_path := str(runtime_wave_by_key[wave_key])
+		if not ResourceLoader.exists(runtime_path):
+			push_error("NACHT_FULL_MAP: Godot source audio resource missing " + runtime_path)
+			return false
+		var stream := load(runtime_path) as AudioStream
+		if stream == null:
+			push_error("NACHT_FULL_MAP: Godot failed to load source audio " + runtime_path)
+			return false
+
+		_set_audio_stream_loop(stream, _cue_has_loop(cue))
+
+		var player := AudioStreamPlayer3D.new()
+		var actor_name := str(row.get("actorName", ""))
+		var component_name := str(row.get("componentName", ""))
+		player.name = actor_name + "_" + component_name + "_SourceAudio"
+		player.position = _audio_component_position(row.get("hierarchy", []))
+		player.stream = stream
+		var props := row.get("properties", {}) as Dictionary
+		var component_volume := maxf(0.0001, float(props.get("volumeMultiplier", 1.0)))
+		var cue_volume := maxf(0.0001, float(cue.get("volumeMultiplier", 1.0)))
+		player.volume_db = linear_to_db(component_volume * cue_volume)
+		player.pitch_scale = maxf(
+			0.01,
+			float(props.get("pitchMultiplier", 1.0))
+			* float(cue.get("pitchMultiplier", 1.0))
+		)
+		player.autoplay = false
+		player.add_to_group("nacht_source_audio_runtime")
+		player.set_meta("source_actor_name", actor_name)
+		player.set_meta("source_component_name", component_name)
+		player.set_meta("source_cue_path", cue_path)
+		player.set_meta("source_wave_path", wave_path)
+		player.set_meta("source_runtime_path", runtime_path)
+		player.set_meta("source_provenance", str(sound.get("provenance", "")))
+		_runtime_root.add_child(player)
+
+		var key := actor_name + "." + component_name
+		_source_audio_players[key] = player
+		_source_audio_player_count += 1
+		_source_audio_stream_count += 1
+
+	if _source_audio_player_count != 3 or _source_audio_stream_count != 3:
+		push_error(
+			"NACHT_FULL_MAP: source audio runtime coverage mismatch "
+			+ str(_source_audio_player_count) + "/3 players "
+			+ str(_source_audio_stream_count) + "/3 streams"
+		)
+		return false
+
+	print(
+		"XZOGOT_NACHT_SOURCE_AUDIO_RUNTIME_GREEN players=",
+		_source_audio_player_count,
+		" streams=",
+		_source_audio_stream_count
+	)
+	return true
+
+
+func play_source_audio_component(actor_name: String, component_name: String) -> bool:
+	var key := actor_name + "." + component_name
+	var player := _source_audio_players.get(key) as AudioStreamPlayer3D
+	if player == null:
+		return false
+	player.play()
+	return true
+
+
+func stop_source_audio_component(actor_name: String, component_name: String) -> bool:
+	var key := actor_name + "." + component_name
+	var player := _source_audio_players.get(key) as AudioStreamPlayer3D
+	if player == null:
+		return false
+	player.stop()
+	return true
+
 
 func _build_shared_source_world() -> bool:
 	_benchmark_loader = XzielBenchmarkLoaderScript.new() as Node3D
