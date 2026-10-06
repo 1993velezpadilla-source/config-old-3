@@ -50,6 +50,8 @@ var mapPackages = censusDoc.RootElement
 
 var nativeMeshes = new Dictionary<string, NativeMesh>(
     StringComparer.OrdinalIgnoreCase);
+var nativeMeshesCanonical = new Dictionary<string, NativeMesh>(
+    StringComparer.OrdinalIgnoreCase);
 
 foreach (var row in xzmsDoc.RootElement
              .GetProperty("meshes")
@@ -72,17 +74,35 @@ foreach (var row in xzmsDoc.RootElement
             .Select(value => value.GetInt32())
             .ToArray();
 
-    if (!nativeMeshes.TryAdd(
-            objectPath,
-            new NativeMesh(
-                objectPath,
-                file,
-                sourceIndex,
-                sourceMaterialCount,
-                sourceSectionMaterialIndices)))
+    var nativeRow = new NativeMesh(
+        objectPath,
+        file,
+        sourceIndex,
+        sourceMaterialCount,
+        sourceSectionMaterialIndices);
+
+    if (!nativeMeshes.TryAdd(objectPath, nativeRow))
     {
         throw new InvalidDataException(
             "duplicate XZMS objectPath: " + objectPath);
+    }
+
+    var canonicalObjectPath = CanonicalObjectPath(objectPath);
+    if (!nativeMeshesCanonical.TryAdd(
+            canonicalObjectPath,
+            nativeRow))
+    {
+        var existing =
+            nativeMeshesCanonical[canonicalObjectPath];
+        if (!string.Equals(
+                existing.ObjectPath,
+                objectPath,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException(
+                "duplicate canonical XZMS objectPath: " +
+                canonicalObjectPath);
+        }
     }
 }
 
@@ -128,6 +148,8 @@ var instancedComponents = 0;
 var instancedRows = 0;
 var absoluteTransformComponents = 0;
 var nullMeshComponents = 0;
+var loadedMeshComponents = 0;
+var resolvedMeshReferenceComponents = 0;
 var nonFiniteMatrices = 0;
 var componentsWithMaterialOverrides = 0;
 var overrideMaterialSlotCount = 0;
@@ -297,31 +319,48 @@ foreach (var logicalPackage in mapPackages)
                 }
 
                 var mesh = component.GetLoadedStaticMesh();
-                if (mesh is null)
+                string? meshPath = null;
+
+                if (mesh is not null)
                 {
-                    // GetLoadedStaticMesh follows the component template chain,
-                    // but some cooked Blueprint instances resolve the property
-                    // through generated-class defaults. SearchPropertyInTemplate
-                    // covers that path; load the exact FPackageIndex as fallback.
-                    var inheritedMeshIndex =
-                        component.GetOrDefault<FPackageIndex>("StaticMesh");
-                    if (!inheritedMeshIndex.IsNull)
+                    loadedMeshComponents++;
+                    meshPath = mesh.GetPathName();
+                }
+                else
+                {
+                    // UE4.21 cooked Blueprint components can retain the exact
+                    // StaticMesh FPackageIndex while provider-side loading
+                    // fails because the cooked import uses /Game virtual
+                    // paths and the unpacked provider uses Pavlov/Content.
+                    // Preserve the source reference itself and resolve it
+                    // against the already-converted XZMS object-path catalog.
+                    var meshReference = component.GetStaticMesh();
+                    if (!meshReference.IsNull)
                     {
-                        mesh = inheritedMeshIndex.Load<
-                            CUE4Parse.UE4.Assets.Exports.StaticMesh.UStaticMesh>();
+                        meshPath =
+                            meshReference.ResolvedObject?.GetPathName();
+                        if (!string.IsNullOrWhiteSpace(meshPath))
+                            resolvedMeshReferenceComponents++;
                     }
                 }
 
-                if (mesh is null)
+                if (string.IsNullOrWhiteSpace(meshPath))
                 {
                     nullMeshComponents++;
                     continue;
                 }
 
-                var meshPath = mesh.GetPathName();
+                NativeMesh? nativeMesh = null;
                 if (!nativeMeshes.TryGetValue(
                         meshPath,
-                        out var nativeMesh))
+                        out nativeMesh))
+                {
+                    nativeMeshesCanonical.TryGetValue(
+                        CanonicalObjectPath(meshPath),
+                        out nativeMesh);
+                }
+
+                if (nativeMesh is null)
                 {
                     unresolvedMeshes.Add(meshPath);
                     continue;
@@ -534,6 +573,8 @@ var output = new
         instancedComponents,
         instancedRows,
         nullMeshComponents,
+        loadedMeshComponents,
+        resolvedMeshReferenceComponents,
         componentsWithMaterialOverrides,
         overrideMaterialSlotCount,
         nonNullOverrideMaterialSlotCount,
@@ -728,6 +769,43 @@ static float[] ToXzielMatrix(FTransform transform)
 static bool FiniteMatrix(float[] matrix)
     => matrix.Length == 16 &&
        matrix.All(float.IsFinite);
+
+static string CanonicalObjectPath(string value)
+{
+    var path = value.Replace('\\', '/');
+
+    var pavlovContent = path.IndexOf(
+        "/Pavlov/Content/",
+        StringComparison.OrdinalIgnoreCase);
+    if (pavlovContent >= 0)
+    {
+        path = "/Game/" + path[
+            (pavlovContent + "/Pavlov/Content/".Length)..];
+    }
+    else if (path.StartsWith(
+        "Pavlov/Content/",
+        StringComparison.OrdinalIgnoreCase))
+    {
+        path = "/Game/" +
+            path["Pavlov/Content/".Length..];
+    }
+    else
+    {
+        var content = path.IndexOf(
+            "/Content/",
+            StringComparison.OrdinalIgnoreCase);
+        if (content >= 0 &&
+            !path.StartsWith(
+                "/Game/",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            path = "/Game/" +
+                path[(content + "/Content/".Length)..];
+        }
+    }
+
+    return path.Trim();
+}
 
 static string NormalizeMergedShardPath(string path)
 {
