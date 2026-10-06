@@ -336,6 +336,57 @@ func _run() -> void:
 	var particle_mystery_inside_gpu_color_samples := int(
 		scene.get_meta("source_particle_mystery_inside_gpu_quantized_color_sample_count", -1)
 	)
+	var particle_fire_smoke_lifetime_min := float(
+		scene.get_meta("source_particle_fire_smoke_lifetime_min", -1.0)
+	)
+	var particle_fire_smoke_lifetime_max := float(
+		scene.get_meta("source_particle_fire_smoke_lifetime_max", -1.0)
+	)
+	var particle_fire_smoke_radius := float(
+		scene.get_meta("source_particle_fire_smoke_cylinder_radius_ue_cm", -1.0)
+	)
+	var particle_fire_smoke_pivot := scene.get_meta(
+		"source_particle_fire_smoke_pivot_offset", Vector2.INF
+	) as Vector2
+	var particle_fire_smoke_life_multiplier_min := scene.get_meta(
+		"source_particle_fire_smoke_life_multiplier_min", Vector3.INF
+	) as Vector3
+	var particle_fire_smoke_life_multiplier_max := scene.get_meta(
+		"source_particle_fire_smoke_life_multiplier_max", Vector3.INF
+	) as Vector3
+	var particle_fire_smoke_speed_scale := scene.get_meta(
+		"source_particle_fire_smoke_speed_scale", Vector2.INF
+	) as Vector2
+	var particle_fire_smoke_max_scale := scene.get_meta(
+		"source_particle_fire_smoke_max_scale", Vector2.INF
+	) as Vector2
+	var particle_fire_smoke_size_min := scene.get_meta(
+		"source_particle_fire_smoke_start_size_min_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_fire_smoke_size_max := scene.get_meta(
+		"source_particle_fire_smoke_start_size_max_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_fire_smoke_subuv_fps := float(
+		scene.get_meta("source_particle_fire_smoke_subuv_frame_rate", -1.0)
+	)
+	var particle_fire_smoke_velocity_min := scene.get_meta(
+		"source_particle_fire_smoke_start_velocity_min_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_fire_smoke_velocity_max := scene.get_meta(
+		"source_particle_fire_smoke_start_velocity_max_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_fire_smoke_rgb_values := int(
+		scene.get_meta("source_particle_fire_smoke_rgb_table_value_count", -1)
+	)
+	var particle_fire_smoke_alpha_values := int(
+		scene.get_meta("source_particle_fire_smoke_alpha_table_value_count", -1)
+	)
+	var particle_fire_smoke_spawn_rates: Array = scene.get_meta(
+		"source_particle_fire_smoke_spawn_rates_by_lod", []
+	) as Array
+	var particle_fire_smoke_peaks: Array = scene.get_meta(
+		"source_particle_fire_smoke_peak_active_by_lod", []
+	) as Array
 	var source_particles := int(scene.get_meta("source_particle_component_count", -1))
 	var particle_authority := int(scene.get_meta("runtime_particle_authority_count", -1))
 	var source_particle_systems := int(scene.get_meta("source_particle_system_count", -1))
@@ -448,14 +499,14 @@ func _run() -> void:
 		if not particle_semantic_ready:
 			_fail(34, "source-complete Cascade semantic runtime is not ready")
 			return
-		if particle_semantic_systems != 7 or particle_semantic_placements != 16:
+		if particle_semantic_systems != 8 or particle_semantic_placements != 17:
 			_fail(
 				34,
 				"Cascade semantic runtime coverage mismatch systems=%d placements=%d"
 				% [particle_semantic_systems, particle_semantic_placements]
 			)
 			return
-		if get_nodes_in_group("nacht_source_particle_semantic").size() != 16:
+		if get_nodes_in_group("nacht_source_particle_semantic").size() != 17:
 			_fail(34, "Cascade semantic placement group mismatch")
 			return
 		if (
@@ -682,6 +733,53 @@ func _run() -> void:
 				]
 			)
 			return
+		if (
+			not is_equal_approx(particle_fire_smoke_lifetime_min, 3.0)
+			or not is_equal_approx(particle_fire_smoke_lifetime_max, 5.0)
+			or not is_equal_approx(particle_fire_smoke_radius, 100.0)
+			or not particle_fire_smoke_pivot.is_equal_approx(Vector2(0.0, -0.5))
+			or not particle_fire_smoke_life_multiplier_min.is_equal_approx(Vector3(6.0, 6.0, 0.0))
+			or not particle_fire_smoke_life_multiplier_max.is_equal_approx(Vector3(7.0, 8.0, 0.0))
+			or not particle_fire_smoke_speed_scale.is_equal_approx(Vector2(1.0, 2.0))
+			or not particle_fire_smoke_max_scale.is_equal_approx(Vector2(10.0, 50.0))
+			or not particle_fire_smoke_size_min.is_equal_approx(Vector3(20.0, 10.0, 0.0))
+			or not particle_fire_smoke_size_max.is_equal_approx(Vector3(15.0, 6.0, 0.0))
+			or not is_equal_approx(particle_fire_smoke_subuv_fps, 45.0)
+			or not particle_fire_smoke_velocity_min.is_equal_approx(Vector3(-10.0, -10.0, 1.0))
+			or not particle_fire_smoke_velocity_max.is_equal_approx(Vector3(10.0, 10.0, 5.0))
+			or particle_fire_smoke_rgb_values != 3
+			or particle_fire_smoke_alpha_values != 16
+			or particle_fire_smoke_spawn_rates.size() != 2
+			or not is_equal_approx(float(particle_fire_smoke_spawn_rates[0]), 0.29999998)
+			or not is_equal_approx(float(particle_fire_smoke_spawn_rates[1]), 3.0)
+			or particle_fire_smoke_peaks.size() != 2
+			or int(particle_fire_smoke_peaks[0]) != 7
+			or int(particle_fire_smoke_peaks[1]) != 17
+		):
+			_fail(
+				34,
+				"big fire vg smoke Cascade values mismatch lifetime=%s..%s radius=%s pivot=%s life_mul=%s..%s speed=%s max=%s size=%s..%s subuv_fps=%s velocity=%s..%s rgb=%d alpha=%d rates=%s peaks=%s"
+				% [
+					particle_fire_smoke_lifetime_min,
+					particle_fire_smoke_lifetime_max,
+					particle_fire_smoke_radius,
+					particle_fire_smoke_pivot,
+					particle_fire_smoke_life_multiplier_min,
+					particle_fire_smoke_life_multiplier_max,
+					particle_fire_smoke_speed_scale,
+					particle_fire_smoke_max_scale,
+					particle_fire_smoke_size_min,
+					particle_fire_smoke_size_max,
+					particle_fire_smoke_subuv_fps,
+					particle_fire_smoke_velocity_min,
+					particle_fire_smoke_velocity_max,
+					particle_fire_smoke_rgb_values,
+					particle_fire_smoke_alpha_values,
+					particle_fire_smoke_spawn_rates,
+					particle_fire_smoke_peaks,
+				]
+			)
+			return
 		if effective_unresolved_fallbacks != 0:
 			_fail(
 				33,
@@ -900,6 +998,8 @@ func _run() -> void:
 		" mystery_fog_subuv_fps=", particle_mystery_fog_subuv_fps,
 		" mystery_inside_rate=", particle_mystery_inside_spawn_rate,
 		" mystery_inside_gpu_max=", particle_mystery_inside_gpu_max_particles,
+		" fire_smoke_subuv_fps=", particle_fire_smoke_subuv_fps,
+		" fire_smoke_rates=", particle_fire_smoke_spawn_rates,
 		" particles_authority=", particle_authority,
 		" particle_graphs_authority=", particle_graph_authority,
 		" environment_authority=", environment_authority,
