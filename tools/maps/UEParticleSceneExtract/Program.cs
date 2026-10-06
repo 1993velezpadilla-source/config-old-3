@@ -1,5 +1,6 @@
 using CUE4Parse.FileProvider;
 using CUE4Parse.MappingsProvider.Usmap;
+using CUE4Parse.UE4.Assets.Exports;
 using CUE4Parse.UE4.Assets.Exports.Component;
 using CUE4Parse.UE4.Objects.UObject;
 using CUE4Parse.UE4.Versions;
@@ -18,6 +19,9 @@ var mappingsPath = args[1];
 var censusPath = args[2];
 var outputPath = args[3];
 var sourceGameName = args[4];
+
+// Blueprint particle components can inherit Template and flags from cooked archetypes.
+PropertyUtil.SearchPropertyInTemplate = true;
 
 EGame sourceGame =
     sourceGameName.Trim().ToLowerInvariant() switch
@@ -86,7 +90,18 @@ List<object> BuildHierarchy(USceneComponent start)
             scale = new { X = scale.X, Y = scale.Y, Z = scale.Z }
         });
 
-        current = current.GetAttachParent();
+        USceneComponent? parent = null;
+        try
+        {
+            var attach = current.AttachParent;
+            if (attach is { IsNull: false })
+                attach.TryLoad<USceneComponent>(out parent);
+        }
+        catch
+        {
+            parent = null;
+        }
+        current = parent;
     }
 
     if (rows.Count == 0)
@@ -126,6 +141,7 @@ provider.LoadVirtualPaths();
 
 var rows = new List<object>();
 var packageFailures = new List<object>();
+var componentFailures = new List<object>();
 var packagesLoaded = 0;
 var referencedTemplateCount = 0;
 var loadedTemplateCount = 0;
@@ -150,6 +166,8 @@ foreach (var logicalPackage in mapPackages)
                      .OfType<UParticleSystemComponent>()
                      .OrderBy(x => x.GetPathName(), StringComparer.Ordinal))
         {
+            try
+            {
             var templateIndex = component.GetOrDefault<FPackageIndex>("Template");
             string? templatePath = null;
             string? templateType = null;
@@ -244,6 +262,15 @@ foreach (var logicalPackage in mapPackages)
                         component.GetOrDefault<bool>("bSkipUpdateDynamicDataDuringTick", false)
                 }
             });
+            }
+            catch (Exception componentError)
+            {
+                componentFailures.Add(new {
+                    packagePath = logicalPackage,
+                    componentPath = component.GetPathName(),
+                    error = componentError.GetType().Name + ": " + componentError.Message
+                });
+            }
         }
     }
     catch (Exception ex)
@@ -259,6 +286,7 @@ foreach (var logicalPackage in mapPackages)
 var ready =
     packagesLoaded == mapPackages.Length &&
     packageFailures.Count == 0 &&
+    componentFailures.Count == 0 &&
     rows.Count > 0 &&
     referencedTemplateCount > 0;
 
@@ -281,6 +309,7 @@ var output = new
     templateTypeCounts,
     particleComponents = rows,
     packageFailures,
+    componentFailures,
     ready
 };
 
@@ -300,9 +329,16 @@ Console.WriteLine(
         output.loadedTemplateCount,
         output.nullTemplateCount,
         output.templateTypeCounts,
-        failureCount = packageFailures.Count,
+        packageFailureCount = packageFailures.Count,
+        componentFailureCount = componentFailures.Count,
         output.ready
     }));
+
+foreach (var failure in packageFailures.Take(20))
+    Console.WriteLine("XZIEL_UE_PARTICLE_SCENE_PACKAGE_FAILURE " + JsonSerializer.Serialize(failure));
+
+foreach (var failure in componentFailures.Take(40))
+    Console.WriteLine("XZIEL_UE_PARTICLE_SCENE_COMPONENT_FAILURE " + JsonSerializer.Serialize(failure));
 
 if (!ready)
 {
