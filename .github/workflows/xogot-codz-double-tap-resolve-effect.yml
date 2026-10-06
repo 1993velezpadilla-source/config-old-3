@@ -1,0 +1,87 @@
+name: Resolve CoDz Double Tap Effect
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-codz-double-tap-resolve-effect.yml"
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SOURCE_RUN_ID: "37473419825"
+      SOURCE_ARTIFACT: "xogot-codz-double-tap-source-truth"
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download source truth report
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p source-truth
+          gh run download "$SOURCE_RUN_ID" -n "$SOURCE_ARTIFACT" -D source-truth
+          test -s source-truth/package-truth.json
+          echo "XZOGOT_DOUBLE_TAP_TRUTH_REPORT_DOWNLOADED"
+
+      - name: Resolve effect owners
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,re
+          rows=json.loads(Path("source-truth/package-truth.json").read_text())
+          enum="perk_list::newenumerator6"
+          behavior_tokens=[
+              "firerate","fire rate","rate of fire","fireinterval","fire interval",
+              "damage","bullet","projectile","weapon","shoot","shot","ammo",
+              "doubl","tap","perk"
+          ]
+          candidates=[]
+          for row in rows:
+              strings=row.get("interesting_strings",[])
+              low=[s.lower() for s in strings]
+              joined="\n".join(low)
+              enum_hit=enum in joined
+              score=sum(1 for t in behavior_tokens if t in joined)
+              if enum_hit or score>=5:
+                  candidates.append({
+                      "path":row["path"],
+                      "bytes":row["bytes"],
+                      "enum6":enum_hit,
+                      "score":score,
+                      "strings":[s for s in strings if any(t in s.lower() for t in behavior_tokens)][:200],
+                      "floats":row.get("candidate_floats",[])[:80],
+                  })
+          candidates.sort(key=lambda r:(not r["enum6"],-r["score"],-r["bytes"],r["path"].lower()))
+          out={"candidate_count":len(candidates),"candidates":candidates}
+          Path("double-tap-effect-candidates.json").write_text(json.dumps(out,indent=2)+"\n")
+          print("XZOGOT_DOUBLE_TAP_EFFECT_CANDIDATES",len(candidates))
+          for r in candidates[:120]:
+              print("XZOGOT_DOUBLE_TAP_EFFECT_OWNER",
+                    "enum6=",r["enum6"],"score=",r["score"],"bytes=",r["bytes"],r["path"])
+              for s in r["strings"][:60]:
+                  print("  STR",repr(s))
+              if r["floats"]:
+                  print("  FLOATS",r["floats"][:30])
+          if not candidates:
+              raise SystemExit("No Double Tap behavior candidates")
+          PY
+
+      - name: Upload resolver report
+        uses: actions/upload-artifact@v4
+        with:
+          name: xogot-codz-double-tap-effect-candidates
+          path: double-tap-effect-candidates.json
+          if-no-files-found: error
+          retention-days: 14
