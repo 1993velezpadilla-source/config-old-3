@@ -147,76 +147,7 @@ jobs:
           '@ | Set-Content interactive-actorx-patterns.txt -Encoding ascii
 
           $actorStdout=& "$env:CUE4PARSE" -i "$env:AETHER_PAKDIR" -g GAME_UE5_7 -m "$PWD\Mappings.usmap" -l -c interactive-actorx-patterns.txt 2> interactive-actorx-list-stderr.log
-          $actorPaths=@($actorStdout | Where-Object {$_ -match '(?i)\.uasset
-          $psa=@(Get-ChildItem interactive-actorx -Recurse -File -Filter '*.psa')
-          $psk=@(Get-ChildItem interactive-actorx -Recurse -File | Where-Object {$_.Extension -in '.psk','.pskx'})
-          Write-Host "XZOGOT_INTERACTIVES_ACTORX_GREEN psa=$($psa.Count) psk=$($psk.Count)"
-          if($psa.Count -lt 3){throw "Too few interaction/melee PSA files: $($psa.Count)"}
-
-      - name: Classify full source interaction roles
-        shell: pwsh
-        run: |
-          $ErrorActionPreference='Stop'
-          @'
-          import json,re
-          from pathlib import Path
-
-          roots=[Path("interactive-gltf"),Path("interactive-actorx")]
-          files=[p for r in roots for p in r.rglob("*") if p.is_file()]
-          rules={
-            "knife_melee":r"(bowie|knife|melee|stab|slash|swipe|bayonet)",
-            "perk_drink":r"(perk.*drink|drink.*perk|bottle|jugger|speed.?cola|double.?tap|quick.?revive|stamin)",
-            "pack_a_punch":r"(pack.?a.?punch|packapunch|pap_|upgrade)",
-            "power":r"(power.?switch|power.?lever|electric|breaker|generator)",
-            "trap":r"(trap|electric.?trap|flame.?trap|switch.?trap)",
-            "teleporter":r"(teleporter|teleport|linker)",
-            "wunderfizz":r"(wunderfizz|wonderfizz)",
-            "mystery_box":r"(mystery.?box|weapon.?box|box.?weapon)",
-            "wallbuy":r"(wall.?buy|wallbuy|chalk|weapon.?buy)",
-            "generic_use_hands":r"(view.?hand|view.?arm|hand.*use|use.*hand|interact|grab|press)",
-            "perk_data":r"(dt_perks|s_perks|perk.*data)"
-          }
-          cats={k:[] for k in rules}
-          for p in files:
-              s=p.as_posix()
-              for k,rx in rules.items():
-                  if re.search(rx,s,re.I):
-                      cats[k].append(s)
-          cats={k:sorted(set(v)) for k,v in cats.items()}
-          report={
-            "schema":1,
-            "source":"Project Aether UE5.7 source-first interactive export",
-            "file_count":len(files),
-            "counts":{k:len(v) for k,v in cats.items()},
-            "categories":cats,
-          }
-          Path("interactive-source-inventory.json").write_text(json.dumps(report,indent=2)+"\n")
-          print("XZOGOT_INTERACTIVE_SOURCE_INVENTORY_GREEN",report["counts"])
-          for required in ("knife_melee","perk_drink","pack_a_punch","power","teleporter","wunderfizz"):
-              if report["counts"][required] < 1:
-                  raise SystemExit(f"missing required source interaction category: {required}")
-          '@ | python -
-
-      - name: Upload complete interactive source package
-        uses: actions/upload-artifact@v4
-        with:
-          name: xogot-source-first-interactives
-          path: |
-            interactive-source-inventory.json
-            interactive-patterns.txt
-            interactive-actorx-patterns.txt
-            interactive-provider-paths.txt
-            interactive-actorx-provider-paths.txt
-            interactive-actorx-list-stderr.log
-            interactive-list-stderr.log
-            interactive-gltf.log
-            interactive-actorx.log
-            interactive-gltf/**
-            interactive-actorx/**
-          if-no-files-found: error
-          retention-days: 14
-          compression-level: 6
-} | Sort-Object -Unique)
+          $actorPaths=@($actorStdout | Where-Object {$_ -match '(?i)\.uasset$'} | Sort-Object -Unique)
           $actorPaths | Set-Content interactive-actorx-provider-paths.txt -Encoding ascii
           if($actorPaths.Count -lt 3){throw "Interactive ActorX provider set too small: $($actorPaths.Count)"}
 
@@ -281,6 +212,8 @@ jobs:
             interactive-patterns.txt
             interactive-actorx-patterns.txt
             interactive-provider-paths.txt
+            interactive-actorx-provider-paths.txt
+            interactive-actorx-list-stderr.log
             interactive-list-stderr.log
             interactive-gltf.log
             interactive-actorx.log
