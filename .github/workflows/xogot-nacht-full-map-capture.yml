@@ -2,12 +2,13 @@ name: Xogot Nacht Full Map Capture
 
 on:
   workflow_dispatch:
-  push:
+  workflow_run:
+    workflows:
+      - "Stage Nacht Chronicles Full Map"
+    types:
+      - completed
     branches:
       - feature/godot-aaa-rebuild-v1
-    paths:
-      - "xogot/ci/nacht_full_map_capture.gd"
-      - ".github/workflows/xogot-nacht-full-map-capture.yml"
 
 permissions:
   contents: read
@@ -19,6 +20,7 @@ concurrency:
 
 jobs:
   capture:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
@@ -32,17 +34,28 @@ jobs:
           ref: feature/godot-aaa-rebuild-v1
           fetch-depth: 1
 
-      - name: Resolve latest GREEN Nacht staged runtime
+      - name: Resolve exact GREEN Nacht staged runtime
         shell: bash
         run: |
           set -euo pipefail
-          SOURCE_RUN=$(gh api \
-            -H "Accept: application/vnd.github+json" \
-            "/repos/${GITHUB_REPOSITORY}/actions/runs?per_page=100" \
-            --jq '[.workflow_runs[] | select(.head_branch=="feature/godot-aaa-rebuild-v1" and .name=="Stage Nacht Chronicles Full Map" and .conclusion=="success")][0].id // empty')
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            SOURCE_RUN="${{ github.event.workflow_run.id }}"
+            SOURCE_SHA="${{ github.event.workflow_run.head_sha }}"
+          else
+            SOURCE_RUN=$(gh api \
+              -H "Accept: application/vnd.github+json" \
+              "/repos/${GITHUB_REPOSITORY}/actions/runs?per_page=100" \
+              --jq '[.workflow_runs[] | select(.head_branch=="feature/godot-aaa-rebuild-v1" and .name=="Stage Nacht Chronicles Full Map" and .conclusion=="success")][0].id // empty')
+            SOURCE_SHA=$(gh api \
+              -H "Accept: application/vnd.github+json" \
+              "/repos/${GITHUB_REPOSITORY}/actions/runs/$SOURCE_RUN" \
+              --jq '.head_sha')
+          fi
           test -n "$SOURCE_RUN"
+          test -n "$SOURCE_SHA"
           echo "SOURCE_RUN=$SOURCE_RUN" >> "$GITHUB_ENV"
-          echo "XZOGOT_NACHT_CAPTURE_SELECTED_STAGE_RUN=$SOURCE_RUN"
+          echo "SOURCE_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
+          echo "XZOGOT_NACHT_CAPTURE_SELECTED_STAGE_RUN=$SOURCE_RUN sha=$SOURCE_SHA"
 
       - name: Download exact staged Nacht runtime
         shell: bash
