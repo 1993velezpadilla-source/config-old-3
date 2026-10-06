@@ -60,6 +60,7 @@ jobs:
           test -s authority/nacht-static-scene.json
           test -s authority/nacht-lights.json
           test -s authority/nacht-particles.json
+          test -s authority/nacht-particle-graphs.json
           test -s authority/nacht-environment-scene.json
           test -s authority/nacht-audio-scene.json
           test -s authority/nacht-audio-cues.json
@@ -104,6 +105,7 @@ jobs:
 
           lights=json.loads(Path("authority/nacht-lights.json").read_text())
           particles=json.loads(Path("authority/nacht-particles.json").read_text())
+          particle_graphs=json.loads(Path("authority/nacht-particle-graphs.json").read_text())
           environment=json.loads(Path("authority/nacht-environment-scene.json").read_text())
           audio_scene=json.loads(Path("authority/nacht-audio-scene.json").read_text())
           audio_cues=json.loads(Path("authority/nacht-audio-cues.json").read_text())
@@ -115,6 +117,10 @@ jobs:
           assert particles["particleComponentCount"]>0,particles
           assert particles["referencedTemplateCount"]>0,particles
           assert particles["ready"] is True,particles
+          assert particle_graphs["particleSystemCount"]==39,particle_graphs
+          assert particle_graphs["packagesLoaded"]==particle_graphs["candidatePackageCount"],particle_graphs
+          assert len(particle_graphs["packageFailures"])==0,particle_graphs
+          assert particle_graphs["ready"] is True,particle_graphs
           assert environment["mapPackageCount"]==1,environment
           assert environment["packagesLoaded"]==1,environment
           assert environment["ready"] is True,environment
@@ -143,6 +149,8 @@ jobs:
               "instances":summary["sceneInstanceCount"],
               "lights":lights["lightCount"],
               "particleComponents":particles["particleComponentCount"],
+              "particleSystems":particle_graphs["particleSystemCount"],
+              "particleNodes":particle_graphs["totalNodes"],
               "environmentComponents":environment["environmentComponentCount"],
               "audioComponents":audio_scene["audioComponentCount"],
               "soundCues":audio_cues["cueCount"],
@@ -343,6 +351,7 @@ jobs:
           cp build/nacht-normalized/scene.json "$STAGE/nacht-static-scene.json"
           cp authority/nacht-lights.json "$STAGE/nacht-lights.json"
           cp authority/nacht-particles.json "$STAGE/nacht-particles.json"
+          cp authority/nacht-particle-graphs.json "$STAGE/nacht-particle-graphs.json"
           cp authority/nacht-environment-scene.json "$STAGE/nacht-environment-scene.json"
           cp authority/nacht-audio-scene.json "$STAGE/nacht-audio-scene.json"
           cp authority/nacht-audio-cues.json "$STAGE/nacht-audio-cues.json"
@@ -404,6 +413,7 @@ jobs:
             xogot/assets/benchmarks/nacht_chronicles/xztx-dds-report.json
             xogot/assets/benchmarks/nacht_chronicles/source-audio-report.json
             xogot/assets/benchmarks/nacht_chronicles/nacht-particles.json
+            xogot/assets/benchmarks/nacht_chronicles/nacht-particle-graphs.json
             xogot/assets/benchmarks/nacht_chronicles/nacht-environment-scene.json
             xogot/assets/benchmarks/nacht_chronicles/nacht-audio-scene.json
             xogot/assets/benchmarks/nacht_chronicles/nacht-audio-cues.json
