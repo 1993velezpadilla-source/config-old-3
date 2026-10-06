@@ -31,13 +31,15 @@ jobs:
       - name: Checkout gameplay branch
         uses: actions/checkout@v5
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Restore proven generic UE source conversion stack
         shell: pwsh
         run: |
           $ErrorActionPreference='Stop'
           $old='055f0d0721eb212e3f4713e149d1e2ace5c53674'
+          git fetch origin $old --depth=1
+          if($LASTEXITCODE -ne 0){throw 'converter commit fetch failed'}
           git cat-file -e "$old^{commit}"
           git checkout $old -- engine/xz tools/maps tests
           Write-Host "XZOGOT_NACHT_CONVERTER_STACK_GREEN source=$old"
