@@ -150,6 +150,36 @@ UBlueprintGeneratedClass? ResolveGeneratedClassByResolvedClassPath(
     }
 }
 
+UBlueprintGeneratedClass? ResolveBlueprintSuperClass(
+    DefaultFileProvider provider,
+    UBlueprintGeneratedClass current)
+{
+    try
+    {
+        if (current.Super?.Object?.Value is UBlueprintGeneratedClass loaded)
+            return loaded;
+    }
+    catch { }
+
+    string? superPath = null;
+    string? superName = null;
+    try
+    {
+        superPath = current.Super?.GetPathName();
+        superName = current.Super?.Name.Text;
+    }
+    catch { }
+
+    if (string.IsNullOrWhiteSpace(superName) ||
+        !superName.EndsWith("_C", StringComparison.Ordinal))
+        return null;
+
+    return ResolveGeneratedClassByResolvedClassPath(
+        provider,
+        superPath,
+        superName);
+}
+
 UBlueprintGeneratedClass? ResolveGeneratedClassByExportType(
     DefaultFileProvider provider,
     string actorExportType)
@@ -239,7 +269,7 @@ ResolveBlueprintParticleTemplate(
     var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     for (var current = generated;
          current is not null && seen.Add(current.GetPathName());
-         current = current.Super?.Object?.Value as UBlueprintGeneratedClass)
+         current = ResolveBlueprintSuperClass(provider, current))
     {
         foreach (var templateRef in current.ComponentTemplates)
         {
