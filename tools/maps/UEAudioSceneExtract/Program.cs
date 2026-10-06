@@ -246,6 +246,64 @@ UBlueprintGeneratedClass? ResolveBlueprintSuperClass(
         superName);
 }
 
+(USoundBase? loaded, FPackageIndex? index, string? provenance)
+ResolveCookedAudioComponentExport(
+    DefaultFileProvider provider,
+    UBlueprintGeneratedClass generated,
+    string instanceName)
+{
+    string path;
+    try
+    {
+        path = generated.GetPathName().Replace('\\', '/');
+    }
+    catch
+    {
+        return (null, null, null);
+    }
+
+    var objectDot = path.LastIndexOf('.');
+    var assetPath = objectDot > 0 ? path[..objectDot] : path;
+
+    string logicalAssetPath;
+    if (assetPath.StartsWith("/Game/", StringComparison.OrdinalIgnoreCase))
+        logicalAssetPath = "Content/" + assetPath[6..] + ".uasset";
+    else if (assetPath.StartsWith("Game/", StringComparison.OrdinalIgnoreCase))
+        logicalAssetPath = "Content/" + assetPath[5..] + ".uasset";
+    else if (assetPath.StartsWith("Content/", StringComparison.OrdinalIgnoreCase))
+        logicalAssetPath = assetPath + ".uasset";
+    else
+        logicalAssetPath = assetPath.TrimStart('/') + ".uasset";
+
+    var providerPath = ResolveProviderPackagePath(provider, logicalAssetPath);
+    if (providerPath is null)
+        return (null, null, null);
+
+    try
+    {
+        var package = provider.LoadPackage(providerPath);
+        foreach (var candidate in package.GetExports()
+                     .OfType<UAudioComponent>()
+                     .OrderBy(x => x.GetPathName(), StringComparer.Ordinal))
+        {
+            if (!ComponentAuthorityNameMatches(candidate.Name, instanceName))
+                continue;
+
+            var resolved = TryResolveSound(
+                candidate,
+                "cooked_package_component_export:" + candidate.GetPathName());
+            if (resolved.loaded is not null || resolved.index is not null)
+                return resolved;
+        }
+    }
+    catch
+    {
+        // Cooked package may be partial. Continue to SCS/handler authorities.
+    }
+
+    return (null, null, null);
+}
+
 UBlueprintGeneratedClass? ResolveGeneratedClassByExportType(
     DefaultFileProvider provider,
     string actorExportType)
@@ -353,6 +411,14 @@ ResolveBlueprintSoundTemplate(
                         provider,
                         current))
             {
+                var cookedExport = ResolveCookedAudioComponentExport(
+                    provider,
+                    current,
+                    component.Name);
+                if (cookedExport.loaded is not null ||
+                    cookedExport.index is not null)
+                    return cookedExport;
+
                 foreach (var templateIndex in current.ComponentTemplates)
                 {
                     try
