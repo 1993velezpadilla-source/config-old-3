@@ -43,6 +43,7 @@ const SUPPORTED_SOURCE_SOUND_CUE_NODE_TYPES := {
 	"SoundNode": true,
 	"SoundNodeWavePlayer": true,
 	"SoundNodeLooping": true,
+	"SoundNodeRandom": true,
 }
 
 var _runtime_root: Node3D
@@ -66,6 +67,7 @@ var _audio_cue_by_path: Dictionary = {}
 var _source_audio_players: Dictionary = {}
 var _source_audio_component_key_by_id: Dictionary = {}
 var _source_audio_events_by_key: Dictionary = {}
+var _source_audio_random_remaining: Dictionary = {}
 var _mesh_cache: Dictionary = {}
 
 var _created_instances := 0
@@ -358,16 +360,157 @@ func _index_audio_runtime_events() -> void:
 		_source_audio_events_by_key[key] = event
 
 
+func _cue_node_property(node: Dictionary, property_name: String, default_value: Variant = null) -> Variant:
+	for raw: Variant in node.get("properties", []):
+		if not (raw is Dictionary):
+			continue
+		var row := raw as Dictionary
+		if str(row.get("name", "")).to_lower() == property_name.to_lower():
+			return row.get("value", default_value)
+	return default_value
+
+
+func _cue_node_map(cue: Dictionary) -> Dictionary:
+	var result: Dictionary = {}
+	for raw: Variant in cue.get("nodes", []):
+		if not (raw is Dictionary):
+			continue
+		var node := raw as Dictionary
+		var object_path := str(node.get("objectPath", ""))
+		if object_path.is_empty():
+			continue
+		result[_authority_object_key(object_path)] = node
+	return result
+
+
+func _random_node_child_index(cue_path: String, node: Dictionary) -> int:
+	var children := node.get("children", []) as Array
+	if children.is_empty():
+		return -1
+
+	var weights_raw: Variant = _cue_node_property(node, "Weights", [])
+	var weights: Array = weights_raw as Array if weights_raw is Array else []
+	var without_replacement := bool(
+		_cue_node_property(node, "bRandomizeWithoutReplacement", false)
+	)
+
+	var node_path := str(node.get("objectPath", ""))
+	var state_key := _authority_object_key(cue_path) + "|" + _authority_object_key(node_path)
+	var candidates: Array[int] = []
+
+	if without_replacement:
+		var remaining_raw: Variant = _source_audio_random_remaining.get(state_key, [])
+		if remaining_raw is Array:
+			for raw_index: Variant in remaining_raw:
+				candidates.append(int(raw_index))
+		if candidates.is_empty():
+			for index in range(children.size()):
+				candidates.append(index)
+	else:
+		for index in range(children.size()):
+			candidates.append(index)
+
+	var total_weight := 0.0
+	var candidate_weights: Array[float] = []
+	for index: int in candidates:
+		var weight := 1.0
+		if index >= 0 and index < weights.size():
+			weight = maxf(0.0, float(weights[index]))
+		candidate_weights.append(weight)
+		total_weight += weight
+
+	var selected_candidate := 0
+	if total_weight > 0.0:
+		var target := randf() * total_weight
+		var running := 0.0
+		for i in range(candidates.size()):
+			running += candidate_weights[i]
+			if target <= running:
+				selected_candidate = i
+				break
+	else:
+		selected_candidate = randi_range(0, candidates.size() - 1)
+
+	var selected_index := candidates[selected_candidate]
+	if without_replacement:
+		candidates.remove_at(selected_candidate)
+		_source_audio_random_remaining[state_key] = candidates
+	return selected_index
+
+
+func _resolve_cue_wave_selection(
+	cue: Dictionary,
+	node_path: String = "",
+	inherited_loop: bool = false,
+	depth: int = 0
+) -> Dictionary:
+	if depth > 64:
+		return {}
+
+	var nodes := _cue_node_map(cue)
+	var current_path := node_path
+	if current_path.is_empty():
+		current_path = str(cue.get("firstNode", ""))
+	if current_path.is_empty():
+		return {}
+
+	var node := nodes.get(_authority_object_key(current_path), {}) as Dictionary
+	if node.is_empty():
+		return {}
+
+	var node_type := str(node.get("exportType", ""))
+	if node_type == "SoundNodeWavePlayer":
+		var wave_path := str(node.get("wavePath", ""))
+		if wave_path.is_empty():
+			return {}
+		var looping := inherited_loop
+		for property_name in ["bLooping", "Looping", "bLoop"]:
+			var value: Variant = _cue_node_property(node, property_name, null)
+			if value is bool and bool(value):
+				looping = true
+			elif str(value).to_lower() in ["true", "1"]:
+				looping = true
+		return {
+			"wavePath": wave_path,
+			"looping": looping,
+			"nodePath": str(node.get("objectPath", "")),
+		}
+
+	var children := node.get("children", []) as Array
+	if children.is_empty():
+		return {}
+
+	if node_type == "SoundNodeRandom":
+		var child_index := _random_node_child_index(str(cue.get("objectPath", "")), node)
+		if child_index < 0 or child_index >= children.size():
+			return {}
+		return _resolve_cue_wave_selection(
+			cue,
+			str(children[child_index]),
+			inherited_loop,
+			depth + 1
+		)
+
+	var next_loop := inherited_loop or node_type == "SoundNodeLooping"
+	return _resolve_cue_wave_selection(
+		cue,
+		str(children[0]),
+		next_loop,
+		depth + 1
+	)
+
+
 func _source_audio_stream_for_asset(asset_path: String) -> Dictionary:
 	var canonical := _canonical_ue_object_path(asset_path)
 	var cue := _source_cue_for_path(canonical)
 	var wave_path := canonical
 
+	var selection: Dictionary = {}
 	if not cue.is_empty():
-		var waves := cue.get("waveObjectPaths", []) as Array
-		if waves.size() != 1:
+		selection = _resolve_cue_wave_selection(cue)
+		if selection.is_empty():
 			return {}
-		wave_path = str(waves[0])
+		wave_path = str(selection.get("wavePath", ""))
 
 	var runtime_path := _runtime_audio_file_for_wave(wave_path)
 	if runtime_path.is_empty() or not ResourceLoader.exists(runtime_path):
@@ -377,13 +520,17 @@ func _source_audio_stream_for_asset(asset_path: String) -> Dictionary:
 		return {}
 
 	if not cue.is_empty():
-		_set_audio_stream_loop(stream, _cue_has_loop(cue))
+		_set_audio_stream_loop(
+			stream,
+			bool(selection.get("looping", _cue_has_loop(cue)))
+		)
 
 	return {
 		"stream": stream,
 		"cue": cue,
 		"wavePath": wave_path,
 		"runtimePath": runtime_path,
+		"looping": bool(selection.get("looping", false)),
 	}
 
 
@@ -473,6 +620,8 @@ func play_source_audio_event(
 		if component_player == null:
 			return false
 		if call == "play":
+			if not _refresh_source_audio_component_stream(component_player):
+				return false
 			component_player.play(_audio_event_number(event, 0, 0.0))
 		else:
 			component_player.stop()
@@ -639,15 +788,15 @@ func _build_source_audio_runtime() -> bool:
 			return false
 
 		var cue := cue_by_key[cue_key] as Dictionary
-		var wave_refs := cue.get("waveObjectPaths", []) as Array
-		if wave_refs.size() != 1:
+		var selection := _resolve_cue_wave_selection(cue)
+		if selection.is_empty():
 			push_error(
-				"NACHT_FULL_MAP: source UMAP cue requires unsupported multi-wave runtime "
-				+ cue_path + " waves=" + str(wave_refs.size())
+				"NACHT_FULL_MAP: source UMAP cue graph could not resolve a wave "
+				+ cue_path
 			)
 			return false
 
-		var wave_path := str(wave_refs[0])
+		var wave_path := str(selection.get("wavePath", ""))
 		var wave_key := _authority_object_key(wave_path)
 		if not runtime_wave_by_key.has(wave_key):
 			push_error("NACHT_FULL_MAP: staged source wave missing " + wave_path)
@@ -661,7 +810,10 @@ func _build_source_audio_runtime() -> bool:
 			push_error("NACHT_FULL_MAP: Godot failed to load source audio " + runtime_path)
 			return false
 
-		_set_audio_stream_loop(stream, _cue_has_loop(cue))
+		_set_audio_stream_loop(
+			stream,
+			bool(selection.get("looping", _cue_has_loop(cue)))
+		)
 
 		var player := AudioStreamPlayer3D.new()
 		var actor_name := str(row.get("actorName", ""))
@@ -711,10 +863,28 @@ func _build_source_audio_runtime() -> bool:
 	return true
 
 
+func _refresh_source_audio_component_stream(player: AudioStreamPlayer3D) -> bool:
+	var cue_path := str(player.get_meta("source_cue_path", ""))
+	if cue_path.is_empty():
+		return false
+	var resolved := _source_audio_stream_for_asset(cue_path)
+	if resolved.is_empty():
+		return false
+	var stream := resolved.get("stream") as AudioStream
+	if stream == null:
+		return false
+	player.stream = stream
+	player.set_meta("source_wave_path", str(resolved.get("wavePath", "")))
+	player.set_meta("source_runtime_path", str(resolved.get("runtimePath", "")))
+	return true
+
+
 func play_source_audio_component(actor_name: String, component_name: String) -> bool:
 	var key := actor_name + "." + component_name
 	var player := _source_audio_players.get(key) as AudioStreamPlayer3D
 	if player == null:
+		return false
+	if not _refresh_source_audio_component_stream(player):
 		return false
 	player.play()
 	return true
