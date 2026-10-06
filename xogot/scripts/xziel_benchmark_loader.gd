@@ -1187,8 +1187,30 @@ func _build_source_lights() -> void:
 				# physically equivalent lumens for projects using physical units.
 				if str(row.get("units", "")) == "Candelas":
 					light.light_intensity_lumens = intensity * 4.0 * PI
-				light.set_meta("source_intensity", intensity)
-				light.set_meta("source_intensity_units", str(row.get("units", "")))
+				elif str(row.get("units", "")) == "Lumens":
+					light.light_intensity_lumens = intensity
+				_apply_source_light_semantics(light, row)
+				_runtime_root.add_child(light)
+				created += 1
+			"spot":
+				var light := SpotLight3D.new()
+				light.name = str(row.get("id", "SourceSpotLight"))
+				light.position = source_position
+				light.light_color = color
+				light.spot_range = float(row.get("radiusMeters", 10.0))
+				light.spot_angle = float(row.get("outerConeAngleDegrees", 45.0))
+				light.basis = _directional_basis_xziel(row.get("worldRotationUE", {}))
+				light.light_energy = 1.0
+				var source_units := str(row.get("units", ""))
+				if source_units == "Lumens":
+					light.light_intensity_lumens = intensity
+				elif source_units == "Candelas":
+					var outer_radians := deg_to_rad(maxf(0.001, light.spot_angle))
+					var solid_angle := 2.0 * PI * (1.0 - cos(outer_radians))
+					light.light_intensity_lumens = intensity * solid_angle
+				_apply_source_light_semantics(light, row)
+				light.set_meta("source_inner_cone_degrees", row.get("innerConeAngleDegrees", null))
+				light.set_meta("source_outer_cone_degrees", row.get("outerConeAngleDegrees", null))
 				_runtime_root.add_child(light)
 				created += 1
 			"directional":
@@ -1199,8 +1221,7 @@ func _build_source_lights() -> void:
 				light.light_energy = 1.0
 				light.light_intensity_lux = intensity
 				light.basis = _directional_basis_xziel(row.get("worldRotationUE", {}))
-				light.set_meta("source_intensity", intensity)
-				light.set_meta("source_rotation_ue", row.get("worldRotationUE", {}))
+				_apply_source_light_semantics(light, row)
 				_runtime_root.add_child(light)
 				created += 1
 			"sky":
@@ -1266,6 +1287,22 @@ func _apply_source_environment_truth(
 		" fog_density=", target_environment.fog_density,
 		" skylight_realtime=", target_world.get_meta("source_sky_realtime_capture")
 	)
+
+func _apply_source_light_semantics(light: Light3D, row: Dictionary) -> void:
+	light.shadow_enabled = bool(row.get("castShadows", false))
+	light.visible = bool(row.get("visible", true))
+	light.set_meta("source_intensity", float(row.get("intensity", 0.0)))
+	light.set_meta("source_intensity_units", str(row.get("units", "")))
+	light.set_meta("source_inverse_squared", row.get("inverseSquared", null))
+	light.set_meta("source_falloff_exponent", row.get("falloffExponent", null))
+	light.set_meta("source_temperature_kelvin", row.get("temperatureKelvin", null))
+	light.set_meta("source_use_temperature", row.get("useTemperature", null))
+	light.set_meta("source_radius_meters", row.get("radiusMeters", null))
+	light.set_meta("source_radius_source_meters", row.get("sourceRadiusMeters", null))
+	light.set_meta("source_soft_radius_meters", row.get("softSourceRadiusMeters", null))
+	light.set_meta("source_length_meters", row.get("sourceLengthMeters", null))
+	light.set_meta("source_rotation_ue", row.get("worldRotationUE", {}))
+	light.set_meta("source_atmosphere_sun", row.get("atmosphereSun", null))
 
 func _directional_basis_xziel(raw: Variant) -> Basis:
 	if not (raw is Dictionary):
