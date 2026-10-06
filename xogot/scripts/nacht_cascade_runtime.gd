@@ -29,6 +29,8 @@ const ACID_BALL_MATERIAL := "/Game/CustomMaps/UGC2755515831/Magnum/Materials/Uni
 const ACID_BALL_MESH := "/Game/CustomMaps/UGC2755515831/Magnum/Meshes/Sphere.Sphere"
 const SPARKS_SMALL_SYSTEM := "/Game/CustomMaps/UGC2755515831/CoD/Particles/sparks/sparksParticlesSmall.sparksParticlesSmall"
 const SPARKS_SMALL_MATERIAL := "/Game/CustomMaps/UGC2755515831/CoD/Particles/Dust/Dust.Dust"
+const SPARKS_SMALL_SYSTEM := "/Game/CustomMaps/UGC2755515831/CoD/Particles/sparks/sparksParticlesSmall.sparksParticlesSmall"
+const SPARKS_SMALL_MATERIAL := "/Game/CustomMaps/UGC2755515831/CoD/Particles/Dust/Dust.Dust"
 
 
 static func _canonical(raw: String) -> String:
@@ -2326,6 +2328,214 @@ static func sparks_small_descriptor(graphs: Dictionary) -> Dictionary:
 		"gpuMaxParticleCount": gpu_max_particles,
 		"gpuCollisionRadiusScale": collision_radius_scale,
 		"gpuCollisionRandomDistribution": collision_random,
+		"peakActiveByLOD": peaks,
+		"sourceNodeCount": int(system.get("nodeCount", 0)),
+		"sourceReferenceCount": int(system.get("referenceCount", 0)),
+	}
+
+
+static func sparks_small_descriptor(graphs: Dictionary) -> Dictionary:
+	var system := _find_system(graphs, SPARKS_SMALL_SYSTEM)
+	if system.is_empty():
+		return {"ready": false, "error": "small sparks source system missing"}
+	if int(system.get("nodeCount", -1)) != 17:
+		return {"ready": false, "error": "small sparks node count mismatch %d" % int(system.get("nodeCount", -1))}
+	if int(system.get("referenceCount", -1)) != 7:
+		return {"ready": false, "error": "small sparks reference count mismatch %d" % int(system.get("referenceCount", -1))}
+
+	var required := _one_node(system, "ParticleModuleRequired")
+	var lifetime := _one_node(system, "ParticleModuleLifetime")
+	var location := _one_node(system, "ParticleModuleLocation_Seeded")
+	var size := _one_node(system, "ParticleModuleSize")
+	var size_speed := _one_node(system, "ParticleModuleSizeScaleBySpeed")
+	var spawn := _one_node(system, "ParticleModuleSpawn")
+	var velocity := _one_node(system, "ParticleModuleVelocity")
+	var acceleration := _one_node(system, "ParticleModuleAccelerationConstant")
+	var collision := _one_node(system, "ParticleModuleCollisionGPU")
+	var color := _one_node(system, "ParticleModuleColorOverLife")
+	var gpu := _one_node(system, "ParticleModuleTypeDataGpu")
+	var lod_nodes := ParticleSource.nodes_by_type(system, "ParticleLODLevel")
+	for pair: Array in [
+		["ParticleModuleRequired", required],
+		["ParticleModuleLifetime", lifetime],
+		["ParticleModuleLocation_Seeded", location],
+		["ParticleModuleSize", size],
+		["ParticleModuleSizeScaleBySpeed", size_speed],
+		["ParticleModuleSpawn", spawn],
+		["ParticleModuleVelocity", velocity],
+		["ParticleModuleAccelerationConstant", acceleration],
+		["ParticleModuleCollisionGPU", collision],
+		["ParticleModuleColorOverLife", color],
+		["ParticleModuleTypeDataGpu", gpu],
+	]:
+		if (pair[1] as Dictionary).is_empty():
+			return {"ready": false, "error": "small sparks missing or duplicate " + str(pair[0])}
+	if lod_nodes.size() != 2:
+		return {"ready": false, "error": "small sparks LOD count mismatch %d" % lod_nodes.size()}
+
+	var required_props := ParticleSource.properties(required)
+	var lifetime_props := ParticleSource.properties(lifetime)
+	var location_props := ParticleSource.properties(location)
+	var size_props := ParticleSource.properties(size)
+	var size_speed_props := ParticleSource.properties(size_speed)
+	var spawn_props := ParticleSource.properties(spawn)
+	var velocity_props := ParticleSource.properties(velocity)
+	var acceleration_props := ParticleSource.properties(acceleration)
+	var collision_props := ParticleSource.properties(collision)
+	var color_props := ParticleSource.properties(color)
+	var gpu_props := ParticleSource.properties(gpu)
+
+	var material_path := str(required_props.get("Material", ""))
+	var screen_alignment := str(required_props.get("ScreenAlignment", ""))
+	var random_image_time := int(required_props.get("RandomImageTime", -1))
+	var legacy_emitter_time := bool(required_props.get("bUseLegacyEmitterTime", true))
+	var life := _distribution(lifetime_props.get("Lifetime"))
+	var start_location := _distribution(location_props.get("StartLocation"))
+	var start_size := _distribution(size_props.get("StartSize"))
+	var rate := _distribution(spawn_props.get("Rate"))
+	var rate_scale := _distribution(spawn_props.get("RateScale"))
+	var burst_scale := _distribution(spawn_props.get("BurstScale"))
+	var start_velocity := _distribution(velocity_props.get("StartVelocity"))
+	var radial_velocity := _distribution(velocity_props.get("StartVelocityRadial"))
+	var rgb := _distribution(color_props.get("ColorOverLife"))
+	var alpha := _distribution(color_props.get("AlphaOverLife"))
+
+	var life_min := float(life.get("MinValue", -1.0))
+	var life_max := float(life.get("MaxValue", -1.0))
+	var location_values := ParticleSource.table_float_values(start_location)
+	var size_min := _vector_from_distribution(start_size, "MinValueVec", Vector3.INF)
+	var size_max := _vector_from_distribution(start_size, "MaxValueVec", Vector3.INF)
+	var speed_scale := ParticleSource.vector2(size_speed_props.get("SpeedScale"), Vector2.INF)
+	var max_scale := ParticleSource.vector2(size_speed_props.get("MaxScale"), Vector2.INF)
+	var spawn_rate := float(rate.get("MinValue", -1.0))
+	var spawn_rate_max := float(rate.get("MaxValue", -1.0))
+	var spawn_scale := float(rate_scale.get("MinValue", -1.0))
+	var burst_scale_value := float(burst_scale.get("MinValue", -1.0))
+	var velocity_min := _vector_from_distribution(start_velocity, "MinValueVec", Vector3.INF)
+	var velocity_max := _vector_from_distribution(start_velocity, "MaxValueVec", Vector3.INF)
+	var radial_values := ParticleSource.table_float_values(radial_velocity)
+	var accel := ParticleSource.vector3(acceleration_props.get("Acceleration"), Vector3.INF)
+	var accel_world := bool(acceleration_props.get("bAlwaysInWorldSpace", false))
+	var rgb_values := ParticleSource.table_float_values(rgb)
+	var alpha_values := ParticleSource.table_float_values(alpha)
+
+	var resilience := _distribution(collision_props.get("Resilience"))
+	var resilience_scale := _distribution(collision_props.get("ResilienceScaleOverLife"))
+	var resilience_node := _node_by_path(system, str(resilience.get("Distribution", "")))
+	var resilience_scale_node := _node_by_path(system, str(resilience_scale.get("Distribution", "")))
+	if resilience_node.is_empty() or resilience_scale_node.is_empty():
+		return {"ready": false, "error": "small sparks collision distribution authority missing"}
+	var resilience_value := float(ParticleSource.properties(resilience_node).get("Constant", -1.0))
+	var resilience_scale_value := float(ParticleSource.properties(resilience_scale_node).get("Constant", -1.0))
+	var collision_enabled := bool(collision_props.get("bEnabled", true))
+
+	var emitter_info_raw: Variant = gpu_props.get("EmitterInfo", {})
+	var emitter_info := emitter_info_raw as Dictionary if emitter_info_raw is Dictionary else {}
+	var resource_raw: Variant = gpu_props.get("ResourceData", {})
+	var resource := resource_raw as Dictionary if resource_raw is Dictionary else {}
+	var gpu_accel := ParticleSource.vector3(emitter_info.get("ConstantAcceleration"), Vector3.INF)
+	var gpu_inv_max_size := ParticleSource.vector2(emitter_info.get("InvMaxSize"), Vector2.INF)
+	var gpu_inv_rotation_scale := float(emitter_info.get("InvRotationRateScale", -1.0))
+	var gpu_max_lifetime := float(emitter_info.get("MaxLifetime", -1.0))
+	var gpu_max_particles := int(emitter_info.get("MaxParticleCount", -1))
+	var gpu_screen_alignment := str(emitter_info.get("ScreenAlignment", ""))
+	var resource_accel := ParticleSource.vector3(resource.get("ConstantAcceleration"), Vector3.INF)
+	var collision_radius_scale := float(resource.get("CollisionRadiusScale", -1.0))
+	var collision_random_distribution := float(resource.get("CollisionRandomDistribution", -1.0))
+	var one_minus_friction := float(resource.get("OneMinusFriction", -1.0))
+	var rotation_rate_scale := float(resource.get("RotationRateScale", -1.0))
+	var size_by_speed_raw: Variant = resource.get("SizeBySpeed", {})
+	var size_by_speed := size_by_speed_raw as Dictionary if size_by_speed_raw is Dictionary else {}
+	var quantized_raw: Variant = resource.get("QuantizedColorSamples", [])
+	var quantized_count := (quantized_raw as Array).size() if quantized_raw is Array else -1
+
+	var burst_raw: Variant = spawn_props.get("BurstList", [])
+	if not (burst_raw is Array) or (burst_raw as Array).size() != 1:
+		return {"ready": false, "error": "small sparks burst list mismatch"}
+	var burst_entry_raw: Variant = (burst_raw as Array)[0]
+	if not (burst_entry_raw is Dictionary):
+		return {"ready": false, "error": "small sparks burst entry invalid"}
+	var burst := burst_entry_raw as Dictionary
+	var burst_count := int(burst.get("Count", -1))
+	var burst_count_low := int(burst.get("CountLow", -999))
+	var burst_time := float(burst.get("Time", -1.0))
+
+	var peaks: Array[int] = []
+	for node: Dictionary in lod_nodes:
+		var p := ParticleSource.properties(node)
+		peaks.append(int(p.get("PeakActiveParticles", -1)))
+	peaks.sort()
+
+	if _canonical(material_path) != _canonical(SPARKS_SMALL_MATERIAL):
+		return {"ready": false, "error": "small sparks material mismatch " + material_path}
+	if screen_alignment != "PSA_Velocity" or gpu_screen_alignment != "PSA_Velocity":
+		return {"ready": false, "error": "small sparks screen alignment mismatch"}
+	if random_image_time != 1 or legacy_emitter_time:
+		return {"ready": false, "error": "small sparks emitter timing flags mismatch"}
+	if not is_equal_approx(life_min, 0.2) or not is_equal_approx(life_max, 0.5):
+		return {"ready": false, "error": "small sparks lifetime mismatch %s..%s" % [life_min, life_max]}
+	if location_values != [0.0, 0.0, 0.0, 1.0, 4.0, 6.0]:
+		return {"ready": false, "error": "small sparks seeded location samples mismatch " + str(location_values)}
+	if not size_min.is_equal_approx(Vector3(0.1, 0.1, 0.1)) or not size_max.is_equal_approx(Vector3(2.0, 2.0, 2.0)):
+		return {"ready": false, "error": "small sparks size mismatch"}
+	if not speed_scale.is_equal_approx(Vector2(0.0, 7.0)) or not max_scale.is_equal_approx(Vector2(1.0, 10.0)):
+		return {"ready": false, "error": "small sparks size-by-speed mismatch"}
+	if not is_equal_approx(spawn_rate, 10.0) or not is_equal_approx(spawn_rate_max, 10.0) or not is_equal_approx(spawn_scale, 1.0):
+		return {"ready": false, "error": "small sparks spawn rate mismatch"}
+	if bool(spawn_props.get("bApplyGlobalSpawnRateScale", true)):
+		return {"ready": false, "error": "small sparks global spawn scale unexpectedly enabled"}
+	if burst_count != 20 or burst_count_low != 4 or not is_equal_approx(burst_time, 0.2) or not is_equal_approx(burst_scale_value, 0.5):
+		return {"ready": false, "error": "small sparks burst mismatch"}
+	if not velocity_min.is_equal_approx(Vector3(100.0, -100.0, -10.0)) or not velocity_max.is_equal_approx(Vector3(100.0, 100.0, 125.0)):
+		return {"ready": false, "error": "small sparks velocity mismatch"}
+	if radial_values != [0.0]:
+		return {"ready": false, "error": "small sparks radial velocity mismatch " + str(radial_values)}
+	if not accel.is_equal_approx(Vector3(0.0, 0.0, -900.0)) or not accel_world:
+		return {"ready": false, "error": "small sparks acceleration mismatch"}
+	if rgb_values != [1.0, 1.0, 1.0] or alpha_values != [1.0, 0.0]:
+		return {"ready": false, "error": "small sparks color curve mismatch"}
+	if collision_enabled or not is_equal_approx(resilience_value, 0.75) or not is_equal_approx(resilience_scale_value, 1.0):
+		return {"ready": false, "error": "small sparks collision authority mismatch"}
+	if not gpu_accel.is_equal_approx(Vector3(0.0, 0.0, -900.0)) or not resource_accel.is_equal_approx(Vector3(0.0, 0.0, -900.0)):
+		return {"ready": false, "error": "small sparks GPU acceleration mismatch"}
+	if not gpu_inv_max_size.is_equal_approx(Vector2(0.5, 0.5)) or not is_equal_approx(gpu_inv_rotation_scale, 2.0):
+		return {"ready": false, "error": "small sparks GPU inverse size/rotation mismatch"}
+	if not is_equal_approx(gpu_max_lifetime, 0.5) or gpu_max_particles != 27:
+		return {"ready": false, "error": "small sparks GPU lifetime/particle count mismatch"}
+	if not is_equal_approx(collision_radius_scale, 0.5) or not is_equal_approx(collision_random_distribution, 1.0) or not is_equal_approx(one_minus_friction, 1.0):
+		return {"ready": false, "error": "small sparks GPU collision resource mismatch"}
+	if not is_equal_approx(rotation_rate_scale, 0.5):
+		return {"ready": false, "error": "small sparks GPU rotation rate scale mismatch"}
+	if not is_equal_approx(float(size_by_speed.get("X", -1.0)), 0.0) or not is_equal_approx(float(size_by_speed.get("Y", -1.0)), 7.0) or not is_equal_approx(float(size_by_speed.get("Z", -1.0)), 1.0) or not is_equal_approx(float(size_by_speed.get("W", -1.0)), 10.0):
+		return {"ready": false, "error": "small sparks GPU size-by-speed resource mismatch"}
+	if quantized_count != 2:
+		return {"ready": false, "error": "small sparks GPU quantized color count mismatch %d" % quantized_count}
+	if peaks != [27, 27]:
+		return {"ready": false, "error": "small sparks LOD peaks mismatch " + str(peaks)}
+
+	return {
+		"ready": true,
+		"systemPath": SPARKS_SMALL_SYSTEM,
+		"materialPath": material_path,
+		"lifetimeMin": life_min,
+		"lifetimeMax": life_max,
+		"seededLocationSamples": location_values,
+		"startSizeMinUEcm": size_min,
+		"startSizeMaxUEcm": size_max,
+		"speedScale": speed_scale,
+		"maxScale": max_scale,
+		"spawnRate": spawn_rate,
+		"burstCount": burst_count,
+		"burstCountLow": burst_count_low,
+		"burstTime": burst_time,
+		"burstScale": burst_scale_value,
+		"startVelocityMinUEcm": velocity_min,
+		"startVelocityMaxUEcm": velocity_max,
+		"accelerationUEcm": accel,
+		"collisionEnabled": collision_enabled,
+		"collisionResilience": resilience_value,
+		"gpuMaxLifetime": gpu_max_lifetime,
+		"gpuMaxParticleCount": gpu_max_particles,
 		"peakActiveByLOD": peaks,
 		"sourceNodeCount": int(system.get("nodeCount", 0)),
 		"sourceReferenceCount": int(system.get("referenceCount", 0)),
