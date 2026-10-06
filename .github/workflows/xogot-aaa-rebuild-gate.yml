@@ -67,16 +67,17 @@ jobs:
           grep -q "XZOGOT_MONJA_CLEAN_GODOT_GATE_GREEN" build/xogot-aaa/monja-rig.log
           ! grep -E "SCRIPT ERROR|Parse Error|MONJA_CLEAN_RIG_PROBE:" build/xogot-aaa/monja-rig.log
 
-      - name: Gate Monja gameplay animations
+      - name: Gate WaW source zombie gameplay runtime
         shell: bash
         run: |
           set -euo pipefail
           timeout 120 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
-            --headless --path xogot --script res://ci/monja_runtime_animation_probe.gd \
-            2>&1 | tee build/xogot-aaa/monja-runtime.log
-          grep -q "XZOGOT_MONJA_RUNTIME_ANIMATION_GATE_GREEN" build/xogot-aaa/monja-runtime.log
-          grep -q "XZOGOT_MONJA_ATTACK_IMPACT_SYNC_GREEN" build/xogot-aaa/monja-runtime.log
-          ! grep -E "SCRIPT ERROR|Parse Error|MONJA_RUNTIME_ANIMATION_PROBE:" build/xogot-aaa/monja-runtime.log
+            --headless --path xogot --script res://ci/waw_source_runtime_probe.gd \
+            2>&1 | tee build/xogot-aaa/waw-source-runtime.log
+          grep -q "XZOGOT_WAW_SOURCE_RUNTIME_GATE_GREEN" build/xogot-aaa/waw-source-runtime.log
+          grep -q "XZOGOT_WAW_SOURCE_ATTACK_IMPACT_SYNC_GREEN" build/xogot-aaa/waw-source-runtime.log
+          grep -q "XZOGOT_WAW_SOURCE_MODEL_GREEN" build/xogot-aaa/waw-source-runtime.log
+          ! grep -E "SCRIPT ERROR|Parse Error|WAW_SOURCE_RUNTIME_PROBE:" build/xogot-aaa/waw-source-runtime.log
 
       - name: Gate 28 real firearm runtimes
         shell: bash
