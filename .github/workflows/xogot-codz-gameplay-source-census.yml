@@ -7,26 +7,33 @@ on:
     paths: [".github/workflows/xogot-codz-gameplay-source-census.yml"]
 
 permissions:
+  actions: read
   contents: read
 
 jobs:
   census:
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    env:
+      SOURCE_RUN_ID: "37470563200"
+      SOURCE_ARTIFACT: "xogot-codz-parity-wonder-weapon-census"
     steps:
       - uses: actions/checkout@v5
 
-      - name: Download public source pack
+      - name: Reuse preserved complete modkit inventory
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq p7zip-full
-          python3 -m pip install --quiet gdown
-          mkdir -p source build/gameplay-census
-          python3 -m gdown "https://drive.google.com/uc?id=1BiThIcM5dEjeAcm9xlFQZF8bzk9MyfK1" -O source/codz.zip
-          test -s source/codz.zip
-          7z l -slt source/codz.zip > build/gameplay-census/archive-slt.txt
+          mkdir -p census build/gameplay-census
+          gh run download "$SOURCE_RUN_ID" -n "$SOURCE_ARTIFACT" -D census
+          SRC="$(find census -type f -name 'all-paths.txt' -print -quit)"
+          test -n "$SRC"
+          test -s "$SRC"
+          cp "$SRC" build/gameplay-census/all-source-paths.txt
+          echo "XZOGOT_GAMEPLAY_CENSUS_SOURCE_REUSED run=$SOURCE_RUN_ID"
+          echo "XZOGOT_GAMEPLAY_CENSUS_SOURCE_PATHS $(wc -l < build/gameplay-census/all-source-paths.txt)"
 
       - name: Build exhaustive gameplay manifest
         shell: bash
@@ -35,19 +42,17 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import json,re
-          raw=Path("build/gameplay-census/archive-slt.txt").read_text(errors="ignore")
-          paths=[]
-          for line in raw.splitlines():
-              if line.startswith("Path = "):
-                  p=line[7:].strip().replace("\\","/")
-                  if p and not p.lower().endswith(".zip"):
-                      paths.append(p)
-          paths=sorted(set(paths),key=str.lower)
+
+          src=Path("build/gameplay-census/all-source-paths.txt")
+          paths=sorted(
+              {line.strip().replace("\\","/") for line in src.read_text(errors="ignore").splitlines() if line.strip()},
+              key=str.lower,
+          )
 
           groups={
             "pack_a_punch":[
               r"pack.?a.?punch",r"packapunch",r"/pap/",r"_pap",r"pap_",r"pack.?punch",
-              r"upgrade.?weapon",r"weapon.?upgrade"
+              r"upgrade.?weapon",r"weapon.?upgrade",r"killerjimspap"
             ],
             "perks":[
               r"/bps/perks/",r"perkmachine",r"perkbottle",r"perk_core",r"perk_list",
@@ -59,9 +64,9 @@ jobs:
               r"gobble",r"gobblegum",r"gobble.?gum",r"gum.?machine",r"gumball",
               r"/gum/",r"_gum",r"gum_",r"mega.?gum",r"liquid.?divinium"
             ],
-            "mystery_box":[r"mystery.?box",r"/mysterybox/",r"random.?weapon"],
-            "wallbuy":[r"wallbuy",r"wall.?buy",r"chalk.?weapon"],
-            "power":[r"power.?switch",r"powerswitch",r"electricity",r"turn.?power"],
+            "mystery_box":[r"mystery.?box",r"/mysterybox/",r"random.?weapon",r"weapon.?box"],
+            "wallbuy":[r"wallbuy",r"wall.?buy",r"chalk.?weapon",r"wall.?weapon"],
+            "power":[r"power.?switch",r"powerswitch",r"electricity",r"turn.?power",r"/power/"],
             "player_gameplay":[
               r"playerproxy",r"player_proxy",r"bp_cod[z]?_player",r"proxiesandgamelogics",
               r"playerstate",r"gamemode",r"game.?logic"
@@ -71,11 +76,12 @@ jobs:
               r"bullet_base",r"weapon.?base"
             ],
             "interaction":[
-              r"interact",r"hand",r"drink",r"bottle",r"lever",r"button",r"machine"
+              r"interact",r"hand",r"drink",r"bottle",r"lever",r"button",r"machine",
+              r"pickup",r"use.?prompt",r"activate"
             ],
           }
 
-          out={"schema":1,"total_paths":len(paths),"groups":{}}
+          out={"schema":2,"source_run_id":37470563200,"total_paths":len(paths),"groups":{}}
           all_gameplay=set()
           for name,patterns in groups.items():
               rx=[re.compile(p,re.I) for p in patterns]
@@ -101,23 +107,24 @@ jobs:
           Path("build/gameplay-census/all-gameplay-paths.txt").write_text(
               "\n".join(sorted(all_gameplay,key=str.lower))+"\n",encoding="utf-8")
 
-          if not out["groups"]["pack_a_punch"]["count"]:
-              raise SystemExit("No Pack-a-Punch source paths")
-          if not out["groups"]["perks"]["count"]:
-              raise SystemExit("No perk source paths")
+          required=("pack_a_punch","perks","mystery_box","wallbuy","power","player_gameplay","weapon_gameplay","interaction")
+          missing=[name for name in required if not out["groups"][name]["count"]]
+          if missing:
+              raise SystemExit("Required gameplay source groups missing: "+", ".join(missing))
           print("XZOGOT_GAMEPLAY_SOURCE_CENSUS_GREEN",
                 "paths=",len(paths),
                 "gameplay=",len(all_gameplay),
                 "blueprintish=",len(blueprintish))
           PY
 
-      - name: Upload lean gameplay census
+      - name: Upload durable gameplay census
         uses: actions/upload-artifact@v4
         with:
           name: xogot-codz-gameplay-source-census
           path: |
+            build/gameplay-census/all-source-paths.txt
             build/gameplay-census/gameplay-source-manifest.json
             build/gameplay-census/gameplay-blueprints.txt
             build/gameplay-census/all-gameplay-paths.txt
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 90
