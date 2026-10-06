@@ -51,6 +51,7 @@ var _source_material_textured_count: int = 0
 var _source_material_flat_fallback_count: int = 0
 var _source_effective_material_textured_count: int = 0
 var _source_effective_material_flat_fallback_count: int = 0
+var _source_effective_flat_fallback_rows: Array[Dictionary] = []
 var _mesh_material_paths: Dictionary = {}
 var _instance_overrides: Dictionary = {}
 var _runtime_root: Node3D
@@ -134,7 +135,7 @@ func _load_benchmark_world() -> void:
 				else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			)
 			node.set_meta("source_surface_offset", surface_offset)
-			_apply_instance_material_overrides(node, instance_id, surface_offset)
+			_apply_instance_materials(node, instance_id, mesh_index, surface_offset)
 			instance_root.add_child(node)
 			surface_offset += node.mesh.get_surface_count()
 		created += 1
@@ -196,6 +197,8 @@ func _load_benchmark_world() -> void:
 		" effective_textured=", _source_effective_material_textured_count,
 		" effective_flat_fallbacks=", _source_effective_material_flat_fallback_count
 	)
+	for fallback_row: Dictionary in _source_effective_flat_fallback_rows:
+		print("XZOGOT_EFFECTIVE_FLAT_FALLBACK ", JSON.stringify(fallback_row))
 
 func _build_source_skeletal_actors() -> void:
 	_source_skeletal_actor_count = 0
@@ -287,6 +290,7 @@ func _prepare_material_authority() -> void:
 	_source_material_flat_fallback_count = 0
 	_source_effective_material_textured_count = 0
 	_source_effective_material_flat_fallback_count = 0
+	_source_effective_flat_fallback_rows.clear()
 	_mesh_material_paths.clear()
 	_instance_overrides.clear()
 
@@ -403,14 +407,9 @@ func _load_benchmark_mesh_chunks(runtime_file: String, scene_mesh_index: int) ->
 					var mesh := (mesh_node.mesh as ArrayMesh).duplicate() as ArrayMesh
 					if mesh == null:
 						continue
-					if build_materials:
-						for local_surface in range(mesh.get_surface_count()):
-							var source_surface := surface_offset + local_surface
-							if source_surface >= base_materials.size():
-								break
-							var material := _material_for_path(str(base_materials[source_surface]))
-							if material != null:
-								mesh.surface_set_material(local_surface, material)
+					# Material authority is instance-effective, not mesh-base. Do not
+					# materialize all 661 source slots here: 463 are superseded by
+					# per-instance overrides in the final XZMI binding table.
 					chunks.append(mesh)
 					surface_offset += mesh.get_surface_count()
 
@@ -563,12 +562,8 @@ func _load_xzmesh(runtime_file: String, scene_mesh_index: int) -> ArrayMesh:
 		arrays[Mesh.ARRAY_INDEX] = local_indices
 		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 
-		var surface := mesh.get_surface_count() - 1
-		if build_materials and submesh_index < base_materials.size():
-			var material_path := str(base_materials[submesh_index])
-			var material := _material_for_path(material_path)
-			if material != null:
-				mesh.surface_set_material(surface, material)
+		# Instance-effective material binding is applied after this shared mesh
+		# is mounted, matching XZMI rather than eagerly materializing base slots.
 
 	_mesh_cache[runtime_file] = mesh
 	return mesh
@@ -635,6 +630,25 @@ func _material_for_path(material_path: String) -> Material:
 		_source_material_flat_fallback_count += 1
 		if _source_effective_material_paths.has(material_path):
 			_source_effective_material_flat_fallback_count += 1
+			var diagnostic_textures: Array[Dictionary] = []
+			for texture_raw: Variant in record.get("textures", []):
+				if not (texture_raw is Dictionary):
+					continue
+				var texture_row := texture_raw as Dictionary
+				var native_row: Dictionary = texture_row.get("native", {})
+				diagnostic_textures.append({
+					"parameter": str(texture_row.get("parameter", "")),
+					"texturePath": str(texture_row.get("texturePath", "")),
+					"srgb": bool(native_row.get("srgb", false)),
+				})
+			_source_effective_flat_fallback_rows.append({
+				"materialPath": material_path,
+				"exportType": str(record.get("exportType", "")),
+				"textureCount": diagnostic_textures.size(),
+				"textures": diagnostic_textures,
+				"colorCount": (record.get("colors", []) as Array).size(),
+				"rawPropertyKeys": record.get("rawPropertyKeys", []),
+			})
 		var colors: Array = record.get("colors", [])
 		if not colors.is_empty() and colors[0] is Dictionary:
 			var color_row := colors[0] as Dictionary
@@ -1040,21 +1054,32 @@ func _load_xztexture(runtime_file: String) -> Texture2D:
 	push_warning("XZIEL benchmark unsupported XZTX format: " + format_name)
 	return null
 
-func _apply_instance_material_overrides(
+func _apply_instance_materials(
 	node: MeshInstance3D,
 	instance_id: String,
+	scene_mesh_index: int,
 	surface_offset: int = 0
 ) -> void:
-	if not build_materials or not _instance_overrides.has(instance_id):
+	if not build_materials or node.mesh == null:
 		return
-	var overrides: Dictionary = _instance_overrides[instance_id]
-	var surface_count := node.mesh.get_surface_count() if node.mesh != null else 0
-	for submesh_raw: Variant in overrides.keys():
-		var source_surface := int(submesh_raw)
-		var local_surface := source_surface - surface_offset
-		if local_surface < 0 or local_surface >= surface_count:
+	var base_materials: Array = _mesh_material_paths.get(scene_mesh_index, [])
+	var overrides: Dictionary = _instance_overrides.get(instance_id, {})
+	var surface_count := node.mesh.get_surface_count()
+	for local_surface in range(surface_count):
+		var source_surface := surface_offset + local_surface
+		var material_path := ""
+		if overrides.has(source_surface):
+			material_path = str(overrides[source_surface])
+		elif source_surface >= 0 and source_surface < base_materials.size():
+			material_path = str(base_materials[source_surface])
+		if material_path.is_empty():
 			continue
-		var material := _material_for_path(str(overrides[submesh_raw]))
+		if not _source_effective_material_paths.has(material_path):
+			push_warning(
+				"XZIEL benchmark effective material missing from XZMI authority: "
+				+ material_path
+			)
+		var material := _material_for_path(material_path)
 		if material != null:
 			node.set_surface_override_material(local_surface, material)
 
