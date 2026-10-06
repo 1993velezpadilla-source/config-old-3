@@ -41,6 +41,7 @@ var _source_material_alias_diffuse: Dictionary = {}
 var _source_material_alias_conflicts: Dictionary = {}
 var _source_material_resolved_alias_diffuse: Dictionary = {}
 var _source_material_alias_hits: int = 0
+var _source_material_exact_token_hits: int = 0
 var _source_material_textured_count: int = 0
 var _source_material_flat_fallback_count: int = 0
 var _mesh_material_paths: Dictionary = {}
@@ -146,6 +147,7 @@ func _load_benchmark_world() -> void:
 	set_meta("xziel_benchmark_material_alias_conflict_count", _source_material_alias_conflicts.size())
 	set_meta("xziel_benchmark_material_alias_resolved_count", _source_material_resolved_alias_diffuse.size())
 	set_meta("xziel_benchmark_material_alias_hits", _source_material_alias_hits)
+	set_meta("xziel_benchmark_material_exact_token_hits", _source_material_exact_token_hits)
 	set_meta("xziel_benchmark_material_textured_count", _source_material_textured_count)
 	set_meta("xziel_benchmark_material_flat_fallback_count", _source_material_flat_fallback_count)
 	print(
@@ -162,6 +164,7 @@ func _load_benchmark_world() -> void:
 		" aliases=", _source_material_alias_diffuse.size(),
 		" alias_resolved=", _source_material_resolved_alias_diffuse.size(),
 		" alias_hits=", _source_material_alias_hits,
+		" exact_token_hits=", _source_material_exact_token_hits,
 		" alias_conflicts=", _source_material_alias_conflicts.size(),
 		" textured_materials=", _source_material_textured_count,
 		" flat_fallbacks=", _source_material_flat_fallback_count
@@ -187,6 +190,7 @@ func _prepare_material_authority() -> void:
 	_source_material_alias_conflicts.clear()
 	_source_material_resolved_alias_diffuse.clear()
 	_source_material_alias_hits = 0
+	_source_material_exact_token_hits = 0
 	_source_material_textured_count = 0
 	_source_material_flat_fallback_count = 0
 	_mesh_material_paths.clear()
@@ -501,6 +505,14 @@ func _material_for_path(material_path: String) -> Material:
 				diffuse_source = resolved_alias
 				diffuse = alias_texture
 				_source_material_alias_hits += 1
+	if diffuse == null:
+		var exact_source := _source_exact_token_diffuse_for_composite(material_path)
+		if not exact_source.is_empty() and exact_source != diffuse_source:
+			var exact_texture := _texture_for_source(exact_source)
+			if exact_texture != null:
+				diffuse_source = exact_source
+				diffuse = exact_texture
+				_source_material_exact_token_hits += 1
 	var normal := _texture_for_source(normal_source)
 	var emissive := _texture_for_source(emissive_source)
 	if diffuse != null:
@@ -777,9 +789,19 @@ func _source_named_composite_diffuse(material_path: String) -> String:
 		_source_material_alias_hits += 1
 		return resolved_alias
 
-	# Preserve the older exact-token path as a second, conservative authority,
-	# but restrict it to the base layer as well.
-	var layer := _source_name_token(base_layer)
+	return _source_exact_token_diffuse_for_composite(material_path)
+
+func _source_exact_token_diffuse_for_composite(material_path: String) -> String:
+	if not material_path.to_lower().contains("/nt/"):
+		return ""
+	var material_name := material_path.get_file().get_basename()
+	var layers := material_name.split("__", false)
+	if layers.is_empty():
+		return ""
+	# Generated composites encode the base material before "__". A unique exact
+	# token containment in the source sRGB catalog is conservative enough to use;
+	# zero or multiple matches remain flat instead of guessing.
+	var layer := _source_name_token(str(layers[0]))
 	if layer.length() < 5:
 		return ""
 	var matches: Array[String] = []
