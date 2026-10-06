@@ -43,6 +43,26 @@ func _run() -> void:
 	var source_audio_fallback_stream_count := int(scene.get_meta("source_audio_fallback_stream_count", -1))
 	var source_audio_missing_stream_count := int(scene.get_meta("source_audio_missing_stream_count", -1))
 	var source_audio_join_sound_count := int(scene.get_meta("source_audio_join_sound_count", -1))
+	var source_loader := scene.get_node_or_null("NuketownSourceWorld")
+	if source_loader == null:
+		_fail(93, "Nuketown source loader missing")
+		return
+	var alias_resolved := int(source_loader.get_meta("xziel_benchmark_material_alias_resolved_count", -1))
+	var alias_hits := int(source_loader.get_meta("xziel_benchmark_material_alias_hits", -1))
+	var textured_materials := int(source_loader.get_meta("xziel_benchmark_material_textured_count", -1))
+	var flat_fallbacks := int(source_loader.get_meta("xziel_benchmark_material_flat_fallback_count", -1))
+	if alias_resolved < 100:
+		_fail(94, "source material alias resolver recovered too few mappings " + str(alias_resolved))
+		return
+	if alias_hits <= 0:
+		_fail(95, "source material aliases were resolved but never consumed")
+		return
+	if textured_materials <= 132:
+		_fail(96, "source material texture recovery did not improve baseline " + str(textured_materials))
+		return
+	if flat_fallbacks >= 529:
+		_fail(97, "source flat fallback count did not improve baseline " + str(flat_fallbacks))
+		return
 
 	if mesh_count != 52:
 		_fail(4, "mesh count mismatch " + str(mesh_count))
