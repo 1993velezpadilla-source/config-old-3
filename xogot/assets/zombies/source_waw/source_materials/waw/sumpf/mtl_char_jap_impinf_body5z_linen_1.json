@@ -1,0 +1,55 @@
+{
+  "Textures": {
+    "PM_SpecularMasks": "/Game/Assets/Materials/Textures/char_body_burn_swatch_c.char_body_burn_swatch_c",
+    "colorMap": "/Game/Assets/Materials/Textures/char_jap_impinf_body5z_1_c.char_jap_impinf_body5z_1_c",
+    "detailMap": "/Game/Assets/Materials/Textures/char_base_fabric_linen_n.char_base_fabric_linen_n",
+    "PM_Normals": "/Game/Assets/Materials/Textures/char_burned_swatch_n.char_burned_swatch_n",
+    "char_base_fabric_linen_n": "/Game/Assets/Materials/Textures/char_base_fabric_linen_n.char_base_fabric_linen_n",
+    "normalMap": "/Game/Assets/Materials/Textures/char_jap_impinf_body5_n.char_jap_impinf_body5_n",
+    "specularMap": "/Game/Assets/Materials/Textures/_char_jap_impinf_body5z_s-rgb_cc91f0f3._char_jap_impinf_body5z_s-rgb_cc91f0f3",
+    "clothcharrMaskMap": "/Game/Assets/Materials/Textures/char_burning_mask.char_burning_mask",
+    "clothcharrColorMap": "/Game/Assets/Materials/Textures/char_body_burn_swatch_c.char_body_burn_swatch_c",
+    "clothcharrNormalMap": "/Game/Assets/Materials/Textures/char_burned_swatch_n.char_burned_swatch_n"
+  },
+  "Parameters": {
+    "BlendMode": 0,
+    "ShadingModel": 0,
+    "Colors": {
+      "colorTint": {
+        "R": 1.0,
+        "G": 1.0,
+        "B": 1.0,
+        "A": 1.0,
+        "Hex": "FFFFFF"
+      },
+      "detailScale": {
+        "R": 20.0,
+        "G": 20.0,
+        "B": 2.0,
+        "A": 0.0,
+        "Hex": "FFFFFF"
+      }
+    },
+    "Scalars": {
+      "RefractionDepthBias": 0.0
+    },
+    "Switches": {},
+    "Properties": {
+      "bHasStaticPermutationResource": true,
+      "BasePropertyOverrides": {
+        "bOverride_bNativeSpecularUseRoughness": true,
+        "bOverride_NativeSpecularResponse": true,
+        "NativeSpecularResponse": "ENativeSpecularResponse::NSR_AdvancedWarfare",
+        "ShadingModel": "EMaterialShadingModel::MSM_NativeSpecular",
+        "OpacityMaskClipValue": 0.3333
+      },
+      "bIncludedInBaseGame": true
+    },
+    "HasTopDiffuse": false,
+    "HasTopNormals": false,
+    "HasTopSpecularMasks": false,
+    "HasTopEmissive": false,
+    "IsTranslucent": false,
+    "IsNull": false
+  }
+}

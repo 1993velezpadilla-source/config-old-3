@@ -1,0 +1,77 @@
+{
+  "Textures": {
+    "PM_SpecularMasks": "/Game/Assets/Materials/Textures/char_ger_honorguard_body1_c.char_ger_honorguard_body1_c",
+    "clothcharrMaskMap": "/Game/Assets/Materials/Textures/char_burning_mask.char_burning_mask",
+    "clothcharrColorMap": "/Game/Assets/Materials/Textures/char_body_burn_swatch_c.char_body_burn_swatch_c",
+    "specularMap": "/Game/Assets/Materials/Textures/_char_ger_honorguard_body1_s-rgbl-11._char_ger_honorguard_body1_s-rgbl-11",
+    "PM_Normals": "/Game/Assets/Materials/Textures/char_base_fabric_cotton_n.char_base_fabric_cotton_n",
+    "normalMap": "/Game/Assets/Materials/Textures/char_ger_honorguard_body1_n.char_ger_honorguard_body1_n",
+    "clothcharrNormalMap": "/Game/Assets/Materials/Textures/char_burned_swatch_n.char_burned_swatch_n",
+    "colorMap": "/Game/Assets/Materials/Textures/char_ger_honorguard_body1_c.char_ger_honorguard_body1_c",
+    "detailMap": "/Game/Assets/Materials/Textures/char_base_fabric_cotton_n.char_base_fabric_cotton_n",
+    "char_base_fabric_cotton_n": "/Game/Assets/Materials/Textures/char_base_fabric_cotton_n.char_base_fabric_cotton_n"
+  },
+  "Parameters": {
+    "BlendMode": 0,
+    "ShadingModel": 0,
+    "Colors": {
+      "clothcharrColorMapScale": {
+        "R": 2.5,
+        "G": 0.0,
+        "B": 0.0,
+        "A": 1.0,
+        "Hex": "FF0000"
+      },
+      "detailScale": {
+        "R": 12.0,
+        "G": 12.0,
+        "B": 2.0,
+        "A": 0.0,
+        "Hex": "FFFFFF"
+      },
+      "clothcharrMaskMapScale": {
+        "R": 2.5,
+        "G": 0.0,
+        "B": 0.0,
+        "A": 1.0,
+        "Hex": "FF0000"
+      },
+      "envMapParms": {
+        "R": 0.0,
+        "G": 12.0,
+        "B": -5.1,
+        "A": 0.625,
+        "Hex": "9F00FF00"
+      },
+      "clothcharrEmberColorAndBrightness": {
+        "R": 0.38,
+        "G": 0.04,
+        "B": 0.0,
+        "A": 0.0,
+        "Hex": "A63800"
+      },
+      "colorTint": {
+        "R": 1.0,
+        "G": 1.0,
+        "B": 1.0,
+        "A": 1.0,
+        "Hex": "FFFFFF"
+      }
+    },
+    "Scalars": {},
+    "Switches": {},
+    "Properties": {
+      "BasePropertyOverrides": {
+        "ShadingModel": "EMaterialShadingModel::MSM_NativeSpecular",
+        "OpacityMaskClipValue": 0.3333
+      },
+      "bIncludedInBaseGame": true
+    },
+    "HasTopDiffuse": false,
+    "HasTopNormals": false,
+    "HasTopSpecularMasks": false,
+    "HasTopEmissive": false,
+    "IsTranslucent": false,
+    "IsNull": false
+  }
+}

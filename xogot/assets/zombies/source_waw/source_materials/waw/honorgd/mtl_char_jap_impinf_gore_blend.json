@@ -1,0 +1,60 @@
+{
+  "Textures": {
+    "PM_SpecularMasks": "/Game/Assets/Materials/Textures/char_gen_gib_decals.char_gen_gib_decals",
+    "specularMap": "/Game/Assets/Materials/Textures/_char_gen_gib_decals_s-rgb_ch_87e6ce78._char_gen_gib_decals_s-rgb_ch_87e6ce78",
+    "PM_Normals": "/Game/Assets/Materials/Textures/metal_bumps_n.metal_bumps_n",
+    "normalMap": "/Game/Assets/Materials/Textures/metal_bumps_n.metal_bumps_n",
+    "colorMap": "/Game/Assets/Materials/Textures/char_gen_gib_decals.char_gen_gib_decals",
+    "detailMap": "/Game/Assets/Materials/Textures/metal_bumps_n.metal_bumps_n",
+    "metal_bumps_n": "/Game/Assets/Materials/Textures/metal_bumps_n.metal_bumps_n"
+  },
+  "Parameters": {
+    "BlendMode": 0,
+    "ShadingModel": 0,
+    "Colors": {
+      "detailScale": {
+        "R": 8.0,
+        "G": 2.0,
+        "B": 2.0,
+        "A": 0.0,
+        "Hex": "FFFFFF"
+      },
+      "envMapParms": {
+        "R": 3.0,
+        "G": 9.0,
+        "B": -5.1,
+        "A": 0.625,
+        "Hex": "9FFFFF00"
+      },
+      "dynamicFoliageSunDiffuseMinMax": {
+        "R": 0.0,
+        "G": 1.0,
+        "B": 0.0,
+        "A": 1.0,
+        "Hex": "00FF00"
+      },
+      "colorTint": {
+        "R": 1.0,
+        "G": 1.0,
+        "B": 1.0,
+        "A": 1.0,
+        "Hex": "FFFFFF"
+      }
+    },
+    "Scalars": {},
+    "Switches": {},
+    "Properties": {
+      "BasePropertyOverrides": {
+        "ShadingModel": "EMaterialShadingModel::MSM_NativeSpecular",
+        "OpacityMaskClipValue": 0.3333
+      },
+      "bIncludedInBaseGame": true
+    },
+    "HasTopDiffuse": false,
+    "HasTopNormals": false,
+    "HasTopSpecularMasks": false,
+    "HasTopEmissive": false,
+    "IsTranslucent": false,
+    "IsNull": false
+  }
+}

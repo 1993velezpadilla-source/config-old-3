@@ -1,0 +1,88 @@
+﻿[
+  {
+    "Type": "SoundCue",
+    "Name": "zm_hellhound_combust",
+    "Flags": "RF_Public | RF_Standalone | RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SoundCue'",
+    "Package": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/zm_hellhound_combust",
+    "Properties": {
+      "FirstNode": {
+        "ObjectName": "SoundNodeRandom'zm_hellhound_combust:SoundNodeRandom_0'",
+        "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/zm_hellhound_combust.1"
+      },
+      "VolumeMultiplier": 1.0,
+      "Duration": 7.147354,
+      "MaxDistance": 3200.0,
+      "AttenuationSettings": {
+        "ObjectName": "SoundAttenuation'ATT_Medium'",
+        "ObjectPath": "/Game/Assets/Sounds/Misc/Attenuations/ATT_Medium.0"
+      }
+    }
+  },
+  {
+    "Type": "SoundNodeRandom",
+    "Name": "SoundNodeRandom_0",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SoundNodeRandom'",
+    "Outer": {
+      "ObjectName": "SoundCue'zm_hellhound_combust'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/zm_hellhound_combust.0"
+    },
+    "Properties": {
+      "Weights": [
+        1.0,
+        1.0
+      ],
+      "ChildNodes": [
+        {
+          "ObjectName": "SoundNodeWavePlayer'zm_hellhound_combust:SoundNodeWavePlayer_0'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/zm_hellhound_combust.2"
+        },
+        {
+          "ObjectName": "SoundNodeWavePlayer'zm_hellhound_combust:SoundNodeWavePlayer_1'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/zm_hellhound_combust.3"
+        }
+      ]
+    }
+  },
+  {
+    "Type": "SoundNodeWavePlayer",
+    "Name": "SoundNodeWavePlayer_0",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SoundNodeWavePlayer'",
+    "Outer": {
+      "ObjectName": "SoundCue'zm_hellhound_combust'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/zm_hellhound_combust.0"
+    },
+    "Properties": {
+      "SoundWaveAssetPtr": {
+        "AssetPathName": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/exp_hellhound_00_pc_snd.exp_hellhound_00_pc_snd",
+        "SubPathString": ""
+      }
+    },
+    "SoundWave": {
+      "ObjectName": "SoundWave'exp_hellhound_00_pc_snd'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/exp_hellhound_00_pc_snd.0"
+    }
+  },
+  {
+    "Type": "SoundNodeWavePlayer",
+    "Name": "SoundNodeWavePlayer_1",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SoundNodeWavePlayer'",
+    "Outer": {
+      "ObjectName": "SoundCue'zm_hellhound_combust'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/zm_hellhound_combust.0"
+    },
+    "Properties": {
+      "SoundWaveAssetPtr": {
+        "AssetPathName": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/exp_hellhound_01_pc_snd.exp_hellhound_01_pc_snd",
+        "SubPathString": ""
+      }
+    },
+    "SoundWave": {
+      "ObjectName": "SoundWave'exp_hellhound_01_pc_snd'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/exp_hellhound_01_pc_snd.0"
+    }
+  }
+]

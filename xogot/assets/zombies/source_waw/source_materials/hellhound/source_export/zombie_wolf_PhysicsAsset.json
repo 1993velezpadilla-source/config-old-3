@@ -1,0 +1,3414 @@
+﻿[
+  {
+    "Type": "PhysicsAsset",
+    "Name": "zombie_wolf_PhysicsAsset",
+    "Flags": "RF_Public | RF_Standalone | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'PhysicsAsset'",
+    "Package": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset",
+    "Properties": {
+      "BoundsBodies": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19
+      ],
+      "SkeletalBodySetups": [
+        {
+          "ObjectName": "SkeletalBodySetup'zombie_wolf_PhysicsAsset:SkeletalBodySetup_0'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.20"
+        },
+        {
+          "ObjectName": "SkeletalBodySetup'zombie_wolf_PhysicsAsset:SkeletalBodySetup_1'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.21"
+        },
+        {
+          "ObjectName": "SkeletalBodySetup'zombie_wolf_PhysicsAsset:SkeletalBodySetup_2'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.32"
+        },
+        {
+          "ObjectName": "SkeletalBodySetup'zombie_wolf_PhysicsAsset:SkeletalBodySetup_3'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.33"
+        },
+        {
+          "ObjectName": "SkeletalBodySetup'zombie_wolf_PhysicsAsset:SkeletalBodySetup_4'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.34"
+        },
+        {
+          "ObjectName": "SkeletalBodySetup'zombie_wolf_PhysicsAsset:SkeletalBodySetup_5'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.35"
+        },
+        {
+          "ObjectName": "SkeletalBodySetup'zombie_wolf_PhysicsAsset:SkeletalBodySetup_6'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.36"
+        },
+        {
+          "ObjectName": "SkeletalBodySetup'zombie_wolf_PhysicsAsset:SkeletalBodySetup_7'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.37"
+        },
+        {
+          "ObjectName": "SkeletalBodySetup'zombie_wolf_PhysicsAsset:SkeletalBodySetup_8'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.38"
+        },
+        {
+          "ObjectName": "SkeletalBodySetup'zombie_wolf_PhysicsAsset:SkeletalBodySetup_9'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.39"
+        },
+        {
+          "ObjectName": "SkeletalBodySetup'zombie_wolf_PhysicsAsset:SkeletalBodySetup_10'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.22"
+        },
+        {
+          "ObjectName": "SkeletalBodySetup'zombie_wolf_PhysicsAsset:SkeletalBodySetup_11'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.23"
+        },
+        {
+          "ObjectName": "SkeletalBodySetup'zombie_wolf_PhysicsAsset:SkeletalBodySetup_12'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.24"
+        },
+        {
+          "ObjectName": "SkeletalBodySetup'zombie_wolf_PhysicsAsset:SkeletalBodySetup_13'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.25"
+        },
+        {
+          "ObjectName": "SkeletalBodySetup'zombie_wolf_PhysicsAsset:SkeletalBodySetup_14'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.26"
+        },
+        {
+          "ObjectName": "SkeletalBodySetup'zombie_wolf_PhysicsAsset:SkeletalBodySetup_15'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.27"
+        },
+        {
+          "ObjectName": "SkeletalBodySetup'zombie_wolf_PhysicsAsset:SkeletalBodySetup_16'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.28"
+        },
+        {
+          "ObjectName": "SkeletalBodySetup'zombie_wolf_PhysicsAsset:SkeletalBodySetup_17'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.29"
+        },
+        {
+          "ObjectName": "SkeletalBodySetup'zombie_wolf_PhysicsAsset:SkeletalBodySetup_18'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.30"
+        },
+        {
+          "ObjectName": "SkeletalBodySetup'zombie_wolf_PhysicsAsset:SkeletalBodySetup_19'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.31"
+        }
+      ],
+      "ConstraintSetup": [
+        {
+          "ObjectName": "PhysicsConstraintTemplate'zombie_wolf_PhysicsAsset:PhysicsConstraintTemplate_0'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.1"
+        },
+        {
+          "ObjectName": "PhysicsConstraintTemplate'zombie_wolf_PhysicsAsset:PhysicsConstraintTemplate_1'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.2"
+        },
+        {
+          "ObjectName": "PhysicsConstraintTemplate'zombie_wolf_PhysicsAsset:PhysicsConstraintTemplate_2'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.12"
+        },
+        {
+          "ObjectName": "PhysicsConstraintTemplate'zombie_wolf_PhysicsAsset:PhysicsConstraintTemplate_3'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.13"
+        },
+        {
+          "ObjectName": "PhysicsConstraintTemplate'zombie_wolf_PhysicsAsset:PhysicsConstraintTemplate_4'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.14"
+        },
+        {
+          "ObjectName": "PhysicsConstraintTemplate'zombie_wolf_PhysicsAsset:PhysicsConstraintTemplate_5'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.15"
+        },
+        {
+          "ObjectName": "PhysicsConstraintTemplate'zombie_wolf_PhysicsAsset:PhysicsConstraintTemplate_6'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.16"
+        },
+        {
+          "ObjectName": "PhysicsConstraintTemplate'zombie_wolf_PhysicsAsset:PhysicsConstraintTemplate_7'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.17"
+        },
+        {
+          "ObjectName": "PhysicsConstraintTemplate'zombie_wolf_PhysicsAsset:PhysicsConstraintTemplate_8'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.18"
+        },
+        {
+          "ObjectName": "PhysicsConstraintTemplate'zombie_wolf_PhysicsAsset:PhysicsConstraintTemplate_9'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.19"
+        },
+        {
+          "ObjectName": "PhysicsConstraintTemplate'zombie_wolf_PhysicsAsset:PhysicsConstraintTemplate_10'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.3"
+        },
+        {
+          "ObjectName": "PhysicsConstraintTemplate'zombie_wolf_PhysicsAsset:PhysicsConstraintTemplate_11'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.4"
+        },
+        {
+          "ObjectName": "PhysicsConstraintTemplate'zombie_wolf_PhysicsAsset:PhysicsConstraintTemplate_12'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.5"
+        },
+        {
+          "ObjectName": "PhysicsConstraintTemplate'zombie_wolf_PhysicsAsset:PhysicsConstraintTemplate_13'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.6"
+        },
+        {
+          "ObjectName": "PhysicsConstraintTemplate'zombie_wolf_PhysicsAsset:PhysicsConstraintTemplate_14'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.7"
+        },
+        {
+          "ObjectName": "PhysicsConstraintTemplate'zombie_wolf_PhysicsAsset:PhysicsConstraintTemplate_15'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.8"
+        },
+        {
+          "ObjectName": "PhysicsConstraintTemplate'zombie_wolf_PhysicsAsset:PhysicsConstraintTemplate_16'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.9"
+        },
+        {
+          "ObjectName": "PhysicsConstraintTemplate'zombie_wolf_PhysicsAsset:PhysicsConstraintTemplate_17'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.10"
+        },
+        {
+          "ObjectName": "PhysicsConstraintTemplate'zombie_wolf_PhysicsAsset:PhysicsConstraintTemplate_18'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.11"
+        }
+      ]
+    },
+    "CollisionDisableTable": [
+      {
+        "Key": {
+          "Indices": [
+            0,
+            1
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            0,
+            2
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            1,
+            2
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            0,
+            3
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            1,
+            3
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            2,
+            3
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            0,
+            4
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            1,
+            4
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            2,
+            4
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            3,
+            4
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            0,
+            5
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            1,
+            5
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            2,
+            5
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            3,
+            5
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            4,
+            5
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            0,
+            6
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            1,
+            6
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            2,
+            6
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            3,
+            6
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            4,
+            6
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            5,
+            6
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            0,
+            7
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            1,
+            7
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            2,
+            7
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            3,
+            7
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            4,
+            7
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            5,
+            7
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            6,
+            7
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            0,
+            8
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            1,
+            8
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            2,
+            8
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            3,
+            8
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            4,
+            8
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            5,
+            8
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            6,
+            8
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            7,
+            8
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            0,
+            9
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            1,
+            9
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            2,
+            9
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            3,
+            9
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            4,
+            9
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            5,
+            9
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            6,
+            9
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            7,
+            9
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            8,
+            9
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            0,
+            10
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            1,
+            10
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            2,
+            10
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            3,
+            10
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            4,
+            10
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            5,
+            10
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            6,
+            10
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            7,
+            10
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            8,
+            10
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            9,
+            10
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            0,
+            11
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            1,
+            11
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            2,
+            11
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            3,
+            11
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            4,
+            11
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            5,
+            11
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            6,
+            11
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            7,
+            11
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            8,
+            11
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            9,
+            11
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            10,
+            11
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            0,
+            12
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            1,
+            12
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            2,
+            12
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            3,
+            12
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            4,
+            12
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            5,
+            12
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            6,
+            12
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            7,
+            12
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            8,
+            12
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            9,
+            12
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            10,
+            12
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            11,
+            12
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            0,
+            13
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            1,
+            13
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            2,
+            13
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            3,
+            13
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            4,
+            13
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            5,
+            13
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            6,
+            13
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            7,
+            13
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            8,
+            13
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            9,
+            13
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            10,
+            13
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            11,
+            13
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            12,
+            13
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            0,
+            14
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            1,
+            14
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            2,
+            14
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            3,
+            14
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            4,
+            14
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            5,
+            14
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            6,
+            14
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            7,
+            14
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            8,
+            14
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            9,
+            14
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            10,
+            14
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            11,
+            14
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            12,
+            14
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            13,
+            14
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            0,
+            15
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            1,
+            15
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            2,
+            15
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            3,
+            15
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            4,
+            15
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            5,
+            15
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            6,
+            15
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            7,
+            15
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            8,
+            15
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            9,
+            15
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            10,
+            15
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            11,
+            15
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            12,
+            15
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            13,
+            15
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            14,
+            15
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            0,
+            16
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            1,
+            16
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            2,
+            16
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            3,
+            16
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            4,
+            16
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            5,
+            16
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            6,
+            16
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            7,
+            16
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            8,
+            16
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            9,
+            16
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            10,
+            16
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            11,
+            16
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            12,
+            16
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            13,
+            16
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            14,
+            16
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            15,
+            16
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            0,
+            17
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            1,
+            17
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            2,
+            17
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            3,
+            17
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            4,
+            17
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            5,
+            17
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            6,
+            17
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            7,
+            17
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            8,
+            17
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            9,
+            17
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            10,
+            17
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            11,
+            17
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            12,
+            17
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            13,
+            17
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            14,
+            17
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            15,
+            17
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            16,
+            17
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            0,
+            18
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            1,
+            18
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            2,
+            18
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            3,
+            18
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            4,
+            18
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            5,
+            18
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            6,
+            18
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            7,
+            18
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            8,
+            18
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            9,
+            18
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            10,
+            18
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            11,
+            18
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            12,
+            18
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            13,
+            18
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            14,
+            18
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            15,
+            18
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            16,
+            18
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            17,
+            18
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            0,
+            19
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            1,
+            19
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            2,
+            19
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            3,
+            19
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            4,
+            19
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            5,
+            19
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            6,
+            19
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            7,
+            19
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            8,
+            19
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            9,
+            19
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            10,
+            19
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            11,
+            19
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            12,
+            19
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            13,
+            19
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            14,
+            19
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            15,
+            19
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            16,
+            19
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            17,
+            19
+          ]
+        },
+        "Value": false
+      },
+      {
+        "Key": {
+          "Indices": [
+            18,
+            19
+          ]
+        },
+        "Value": false
+      }
+    ]
+  },
+  {
+    "Type": "PhysicsConstraintTemplate",
+    "Name": "PhysicsConstraintTemplate_0",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'PhysicsConstraintTemplate'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "DefaultInstance": {
+        "JointName": "j_pelvis",
+        "ConstraintBone1": "j_pelvis",
+        "ConstraintBone2": "j_mainroot",
+        "Pos2": {
+          "X": -2.005088E-06,
+          "Y": 1.8397095E-06,
+          "Z": 0.0
+        },
+        "PriAxis2": {
+          "X": -0.7720179,
+          "Y": 0.63560075,
+          "Z": -0.0
+        },
+        "SecAxis2": {
+          "X": -0.63560075,
+          "Y": -0.7720179,
+          "Z": -0.0
+        },
+        "ProfileInstance": {
+          "ConeLimit": {
+            "Swing1Motion": "EAngularConstraintMotion::ACM_Limited",
+            "Swing2Motion": "EAngularConstraintMotion::ACM_Limited"
+          },
+          "TwistLimit": {
+            "TwistMotion": "EAngularConstraintMotion::ACM_Limited"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Type": "PhysicsConstraintTemplate",
+    "Name": "PhysicsConstraintTemplate_1",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'PhysicsConstraintTemplate'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "DefaultInstance": {
+        "JointName": "j_spine1",
+        "ConstraintBone1": "j_spine1",
+        "ConstraintBone2": "j_mainroot",
+        "Pos2": {
+          "X": -2.005088E-06,
+          "Y": 1.8397095E-06,
+          "Z": 0.0
+        },
+        "PriAxis2": {
+          "X": -0.9214202,
+          "Y": 0.38856757,
+          "Z": 0.0
+        },
+        "SecAxis2": {
+          "X": 0.38856757,
+          "Y": 0.9214202,
+          "Z": -0.0
+        },
+        "ProfileInstance": {
+          "ConeLimit": {
+            "Swing1Motion": "EAngularConstraintMotion::ACM_Limited",
+            "Swing2Motion": "EAngularConstraintMotion::ACM_Limited"
+          },
+          "TwistLimit": {
+            "TwistMotion": "EAngularConstraintMotion::ACM_Limited"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Type": "PhysicsConstraintTemplate",
+    "Name": "PhysicsConstraintTemplate_10",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'PhysicsConstraintTemplate'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "DefaultInstance": {
+        "JointName": "j_neck",
+        "ConstraintBone1": "j_neck",
+        "ConstraintBone2": "j_spine4",
+        "Pos2": {
+          "X": 10.243691,
+          "Y": -9.04099,
+          "Z": 0.0
+        },
+        "PriAxis2": {
+          "X": 0.93282866,
+          "Y": -0.36032027,
+          "Z": 0.0
+        },
+        "SecAxis2": {
+          "X": 0.36032027,
+          "Y": 0.93282866,
+          "Z": 0.0
+        },
+        "ProfileInstance": {
+          "ConeLimit": {
+            "Swing1Motion": "EAngularConstraintMotion::ACM_Limited",
+            "Swing2Motion": "EAngularConstraintMotion::ACM_Limited"
+          },
+          "TwistLimit": {
+            "TwistMotion": "EAngularConstraintMotion::ACM_Limited"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Type": "PhysicsConstraintTemplate",
+    "Name": "PhysicsConstraintTemplate_11",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'PhysicsConstraintTemplate'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "DefaultInstance": {
+        "JointName": "j_neck_end",
+        "ConstraintBone1": "j_neck_end",
+        "ConstraintBone2": "j_neck",
+        "Pos2": {
+          "X": 17.469759,
+          "Y": -6.161327,
+          "Z": 0.0
+        },
+        "ProfileInstance": {
+          "ConeLimit": {
+            "Swing1Motion": "EAngularConstraintMotion::ACM_Limited",
+            "Swing2Motion": "EAngularConstraintMotion::ACM_Limited"
+          },
+          "TwistLimit": {
+            "TwistMotion": "EAngularConstraintMotion::ACM_Limited"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Type": "PhysicsConstraintTemplate",
+    "Name": "PhysicsConstraintTemplate_12",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'PhysicsConstraintTemplate'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "DefaultInstance": {
+        "JointName": "j_shoulder_le",
+        "ConstraintBone1": "j_shoulder_le",
+        "ConstraintBone2": "j_spine4",
+        "Pos2": {
+          "X": 13.79819,
+          "Y": 7.9935155,
+          "Z": -15.412675
+        },
+        "PriAxis2": {
+          "X": -0.6158332,
+          "Y": 0.7859325,
+          "Z": -0.055314083
+        },
+        "SecAxis2": {
+          "X": 0.78719985,
+          "Y": 0.61669517,
+          "Z": -0.0018627536
+        },
+        "ProfileInstance": {
+          "ConeLimit": {
+            "Swing1Motion": "EAngularConstraintMotion::ACM_Limited",
+            "Swing2Motion": "EAngularConstraintMotion::ACM_Limited"
+          },
+          "TwistLimit": {
+            "TwistMotion": "EAngularConstraintMotion::ACM_Limited"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Type": "PhysicsConstraintTemplate",
+    "Name": "PhysicsConstraintTemplate_13",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'PhysicsConstraintTemplate'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "DefaultInstance": {
+        "JointName": "j_shoulder_ri",
+        "ConstraintBone1": "j_shoulder_ri",
+        "ConstraintBone2": "j_spine4",
+        "Pos2": {
+          "X": 13.800935,
+          "Y": 7.9945498,
+          "Z": 15.390987
+        },
+        "PriAxis2": {
+          "X": 0.6157705,
+          "Y": -0.7859287,
+          "Z": -0.056059696
+        },
+        "SecAxis2": {
+          "X": -0.78719854,
+          "Y": -0.6166989,
+          "Z": -0.0009317879
+        },
+        "ProfileInstance": {
+          "ConeLimit": {
+            "Swing1Motion": "EAngularConstraintMotion::ACM_Limited",
+            "Swing2Motion": "EAngularConstraintMotion::ACM_Limited"
+          },
+          "TwistLimit": {
+            "TwistMotion": "EAngularConstraintMotion::ACM_Limited"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Type": "PhysicsConstraintTemplate",
+    "Name": "PhysicsConstraintTemplate_14",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'PhysicsConstraintTemplate'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "DefaultInstance": {
+        "JointName": "j_elbow_le",
+        "ConstraintBone1": "j_elbow_le",
+        "ConstraintBone2": "j_shoulder_le",
+        "Pos2": {
+          "X": 30.286816,
+          "Y": 1.3876294,
+          "Z": -0.008716262
+        },
+        "PriAxis2": {
+          "X": 0.92532665,
+          "Y": 0.37914753,
+          "Z": 0.004214799
+        },
+        "SecAxis2": {
+          "X": -0.37914932,
+          "Y": 0.9253354,
+          "Z": -0.00039453653
+        },
+        "ProfileInstance": {
+          "ConeLimit": {
+            "Swing1Motion": "EAngularConstraintMotion::ACM_Limited",
+            "Swing2Motion": "EAngularConstraintMotion::ACM_Limited"
+          },
+          "TwistLimit": {
+            "TwistMotion": "EAngularConstraintMotion::ACM_Limited"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Type": "PhysicsConstraintTemplate",
+    "Name": "PhysicsConstraintTemplate_15",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'PhysicsConstraintTemplate'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "DefaultInstance": {
+        "JointName": "j_elbow_ri",
+        "ConstraintBone1": "j_elbow_ri",
+        "ConstraintBone2": "j_shoulder_ri",
+        "Pos2": {
+          "X": -30.28686,
+          "Y": -1.3878622,
+          "Z": 0.0057272892
+        },
+        "PriAxis2": {
+          "X": 0.92532665,
+          "Y": 0.37914753,
+          "Z": 0.004214799
+        },
+        "SecAxis2": {
+          "X": -0.37914932,
+          "Y": 0.9253354,
+          "Z": -0.00039453653
+        },
+        "ProfileInstance": {
+          "ConeLimit": {
+            "Swing1Motion": "EAngularConstraintMotion::ACM_Limited",
+            "Swing2Motion": "EAngularConstraintMotion::ACM_Limited"
+          },
+          "TwistLimit": {
+            "TwistMotion": "EAngularConstraintMotion::ACM_Limited"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Type": "PhysicsConstraintTemplate",
+    "Name": "PhysicsConstraintTemplate_16",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'PhysicsConstraintTemplate'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "DefaultInstance": {
+        "JointName": "j_head",
+        "ConstraintBone1": "j_head",
+        "ConstraintBone2": "j_neck_end",
+        "Pos2": {
+          "X": 21.655495,
+          "Y": -7.873437,
+          "Z": 0.0
+        },
+        "PriAxis2": {
+          "X": 0.9180703,
+          "Y": -0.39641753,
+          "Z": 0.0
+        },
+        "SecAxis2": {
+          "X": 0.39641753,
+          "Y": 0.9180703,
+          "Z": 0.0
+        },
+        "ProfileInstance": {
+          "ConeLimit": {
+            "Swing1Motion": "EAngularConstraintMotion::ACM_Limited",
+            "Swing2Motion": "EAngularConstraintMotion::ACM_Limited"
+          },
+          "TwistLimit": {
+            "TwistMotion": "EAngularConstraintMotion::ACM_Limited"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Type": "PhysicsConstraintTemplate",
+    "Name": "PhysicsConstraintTemplate_17",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'PhysicsConstraintTemplate'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "DefaultInstance": {
+        "JointName": "j_wrist_le",
+        "ConstraintBone1": "j_wrist_le",
+        "ConstraintBone2": "j_elbow_le",
+        "Pos2": {
+          "X": 34.744427,
+          "Y": 0.9759183,
+          "Z": 0.034718305
+        },
+        "PriAxis2": {
+          "X": 0.9596444,
+          "Y": 0.2810573,
+          "Z": 0.00946004
+        },
+        "SecAxis2": {
+          "X": -0.28117132,
+          "Y": 0.9595501,
+          "Z": 0.014365934
+        },
+        "ProfileInstance": {
+          "ConeLimit": {
+            "Swing1Motion": "EAngularConstraintMotion::ACM_Limited",
+            "Swing2Motion": "EAngularConstraintMotion::ACM_Limited"
+          },
+          "TwistLimit": {
+            "TwistMotion": "EAngularConstraintMotion::ACM_Limited"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Type": "PhysicsConstraintTemplate",
+    "Name": "PhysicsConstraintTemplate_18",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'PhysicsConstraintTemplate'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "DefaultInstance": {
+        "JointName": "j_wrist_ri",
+        "ConstraintBone1": "j_wrist_ri",
+        "ConstraintBone2": "j_elbow_ri",
+        "Pos2": {
+          "X": -34.74437,
+          "Y": -0.97607875,
+          "Z": -0.033935096
+        },
+        "PriAxis2": {
+          "X": 0.9596292,
+          "Y": 0.28112382,
+          "Z": 0.009011063
+        },
+        "SecAxis2": {
+          "X": -0.28122577,
+          "Y": 0.9595483,
+          "Z": 0.0133819925
+        },
+        "ProfileInstance": {
+          "ConeLimit": {
+            "Swing1Motion": "EAngularConstraintMotion::ACM_Limited",
+            "Swing2Motion": "EAngularConstraintMotion::ACM_Limited"
+          },
+          "TwistLimit": {
+            "TwistMotion": "EAngularConstraintMotion::ACM_Limited"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Type": "PhysicsConstraintTemplate",
+    "Name": "PhysicsConstraintTemplate_2",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'PhysicsConstraintTemplate'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "DefaultInstance": {
+        "JointName": "j_tail_base",
+        "ConstraintBone1": "j_tail_base",
+        "ConstraintBone2": "j_pelvis",
+        "Pos2": {
+          "X": -29.517004,
+          "Y": -14.249477,
+          "Z": 0.0
+        },
+        "PriAxis2": {
+          "X": -0.9586599,
+          "Y": 0.28455442,
+          "Z": 0.0
+        },
+        "SecAxis2": {
+          "X": 0.28455442,
+          "Y": 0.9586599,
+          "Z": -0.0
+        },
+        "ProfileInstance": {
+          "ConeLimit": {
+            "Swing1Motion": "EAngularConstraintMotion::ACM_Limited",
+            "Swing2Motion": "EAngularConstraintMotion::ACM_Limited"
+          },
+          "TwistLimit": {
+            "TwistMotion": "EAngularConstraintMotion::ACM_Limited"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Type": "PhysicsConstraintTemplate",
+    "Name": "PhysicsConstraintTemplate_3",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'PhysicsConstraintTemplate'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "DefaultInstance": {
+        "JointName": "j_hip_le",
+        "ConstraintBone1": "j_hip_le",
+        "ConstraintBone2": "j_pelvis",
+        "Pos2": {
+          "X": -23.814459,
+          "Y": -4.213351,
+          "Z": -15.573405
+        },
+        "PriAxis2": {
+          "X": 0.2204755,
+          "Y": 0.9753925,
+          "Z": 0.0
+        },
+        "SecAxis2": {
+          "X": 0.9753925,
+          "Y": -0.2204755,
+          "Z": 0.0
+        },
+        "ProfileInstance": {
+          "ConeLimit": {
+            "Swing1Motion": "EAngularConstraintMotion::ACM_Limited",
+            "Swing2Motion": "EAngularConstraintMotion::ACM_Limited"
+          },
+          "TwistLimit": {
+            "TwistMotion": "EAngularConstraintMotion::ACM_Limited"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Type": "PhysicsConstraintTemplate",
+    "Name": "PhysicsConstraintTemplate_4",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'PhysicsConstraintTemplate'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "DefaultInstance": {
+        "JointName": "j_hip_ri",
+        "ConstraintBone1": "j_hip_ri",
+        "ConstraintBone2": "j_pelvis",
+        "Pos2": {
+          "X": -23.814474,
+          "Y": -4.2133517,
+          "Z": 15.573414
+        },
+        "PriAxis2": {
+          "X": -0.2204755,
+          "Y": -0.9753925,
+          "Z": -0.0
+        },
+        "SecAxis2": {
+          "X": -0.9753925,
+          "Y": 0.2204755,
+          "Z": -0.0
+        },
+        "ProfileInstance": {
+          "ConeLimit": {
+            "Swing1Motion": "EAngularConstraintMotion::ACM_Limited",
+            "Swing2Motion": "EAngularConstraintMotion::ACM_Limited"
+          },
+          "TwistLimit": {
+            "TwistMotion": "EAngularConstraintMotion::ACM_Limited"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Type": "PhysicsConstraintTemplate",
+    "Name": "PhysicsConstraintTemplate_5",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'PhysicsConstraintTemplate'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "DefaultInstance": {
+        "JointName": "j_knee_ri",
+        "ConstraintBone1": "j_knee_ri",
+        "ConstraintBone2": "j_hip_ri",
+        "Pos2": {
+          "X": -31.376457,
+          "Y": 7.0892525,
+          "Z": 0.0
+        },
+        "PriAxis2": {
+          "X": 0.52724946,
+          "Y": -0.8497105,
+          "Z": 0.0
+        },
+        "SecAxis2": {
+          "X": 0.8497105,
+          "Y": 0.52724946,
+          "Z": 0.0
+        },
+        "ProfileInstance": {
+          "ConeLimit": {
+            "Swing1Motion": "EAngularConstraintMotion::ACM_Limited",
+            "Swing2Motion": "EAngularConstraintMotion::ACM_Limited"
+          },
+          "TwistLimit": {
+            "TwistMotion": "EAngularConstraintMotion::ACM_Limited"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Type": "PhysicsConstraintTemplate",
+    "Name": "PhysicsConstraintTemplate_6",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'PhysicsConstraintTemplate'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "DefaultInstance": {
+        "JointName": "j_spine4",
+        "ConstraintBone1": "j_spine4",
+        "ConstraintBone2": "j_spine1",
+        "Pos2": {
+          "X": 51.394848,
+          "Y": 6.571466,
+          "Z": 0.0
+        },
+        "PriAxis2": {
+          "X": 0.91713,
+          "Y": 0.39858824,
+          "Z": 0.0
+        },
+        "SecAxis2": {
+          "X": 0.39858824,
+          "Y": -0.91713,
+          "Z": 0.0
+        },
+        "ProfileInstance": {
+          "ConeLimit": {
+            "Swing1Motion": "EAngularConstraintMotion::ACM_Limited",
+            "Swing2Motion": "EAngularConstraintMotion::ACM_Limited"
+          },
+          "TwistLimit": {
+            "TwistMotion": "EAngularConstraintMotion::ACM_Limited"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Type": "PhysicsConstraintTemplate",
+    "Name": "PhysicsConstraintTemplate_7",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'PhysicsConstraintTemplate'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "DefaultInstance": {
+        "JointName": "j_tail1",
+        "ConstraintBone1": "j_tail1",
+        "ConstraintBone2": "j_tail_base",
+        "Pos2": {
+          "X": 38.240402,
+          "Y": 22.206701,
+          "Z": 0.0
+        },
+        "PriAxis2": {
+          "X": 0.62510633,
+          "Y": 0.78053963,
+          "Z": 0.0
+        },
+        "SecAxis2": {
+          "X": -0.78053963,
+          "Y": 0.62510633,
+          "Z": 0.0
+        },
+        "ProfileInstance": {
+          "ConeLimit": {
+            "Swing1Motion": "EAngularConstraintMotion::ACM_Limited",
+            "Swing2Motion": "EAngularConstraintMotion::ACM_Limited"
+          },
+          "TwistLimit": {
+            "TwistMotion": "EAngularConstraintMotion::ACM_Limited"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Type": "PhysicsConstraintTemplate",
+    "Name": "PhysicsConstraintTemplate_8",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'PhysicsConstraintTemplate'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "DefaultInstance": {
+        "JointName": "j_ankle_le",
+        "ConstraintBone1": "j_ankle_le",
+        "ConstraintBone2": "j_hip_le",
+        "Pos2": {
+          "X": 52.19012,
+          "Y": -28.756983,
+          "Z": 0.0
+        },
+        "PriAxis2": {
+          "X": 0.97392267,
+          "Y": 0.22688027,
+          "Z": 0.0
+        },
+        "SecAxis2": {
+          "X": -0.22688027,
+          "Y": 0.97392267,
+          "Z": 0.0
+        },
+        "ProfileInstance": {
+          "ConeLimit": {
+            "Swing1Motion": "EAngularConstraintMotion::ACM_Limited",
+            "Swing2Motion": "EAngularConstraintMotion::ACM_Limited"
+          },
+          "TwistLimit": {
+            "TwistMotion": "EAngularConstraintMotion::ACM_Limited"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Type": "PhysicsConstraintTemplate",
+    "Name": "PhysicsConstraintTemplate_9",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'PhysicsConstraintTemplate'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "DefaultInstance": {
+        "JointName": "j_ankle_ri",
+        "ConstraintBone1": "j_ankle_ri",
+        "ConstraintBone2": "j_knee_ri",
+        "Pos2": {
+          "X": -29.385382,
+          "Y": -6.261172,
+          "Z": 0.0
+        },
+        "PriAxis2": {
+          "X": 0.32071766,
+          "Y": 0.94717485,
+          "Z": -0.0
+        },
+        "SecAxis2": {
+          "X": -0.94717485,
+          "Y": 0.32071766,
+          "Z": -0.0
+        },
+        "ProfileInstance": {
+          "ConeLimit": {
+            "Swing1Motion": "EAngularConstraintMotion::ACM_Limited",
+            "Swing2Motion": "EAngularConstraintMotion::ACM_Limited"
+          },
+          "TwistLimit": {
+            "TwistMotion": "EAngularConstraintMotion::ACM_Limited"
+          }
+        }
+      }
+    }
+  },
+  {
+    "Type": "SkeletalBodySetup",
+    "Name": "SkeletalBodySetup_0",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SkeletalBodySetup'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "AggGeom": {
+        "SphylElems": [
+          {
+            "Center": {
+              "X": 0.0,
+              "Y": 0.0,
+              "Z": 0.0
+            },
+            "Rotation": {
+              "Pitch": -0.0,
+              "Yaw": -90.0,
+              "Roll": 0.0
+            },
+            "Radius": 0.505,
+            "Length": 0.505,
+            "RestOffset": 0.0,
+            "Name": "None",
+            "bContributeToMass": true,
+            "CollisionEnabled": "ECollisionEnabled::QueryAndPhysics"
+          }
+        ]
+      },
+      "BoneName": "j_mainroot",
+      "CollisionTraceFlag": "ECollisionTraceFlag::CTF_UseSimpleAsComplex"
+    },
+    "BodySetupGuid": "5C97932F4EE1228D4E2784990373FD05"
+  },
+  {
+    "Type": "SkeletalBodySetup",
+    "Name": "SkeletalBodySetup_1",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SkeletalBodySetup'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "AggGeom": {
+        "SphylElems": [
+          {
+            "Center": {
+              "X": -13.253031,
+              "Y": -9.371052,
+              "Z": 0.6690855
+            },
+            "Rotation": {
+              "Pitch": 0.0,
+              "Yaw": 40.16484,
+              "Roll": -89.51729
+            },
+            "Radius": 19.679588,
+            "Length": 29.975822,
+            "RestOffset": 0.0,
+            "Name": "None",
+            "bContributeToMass": true,
+            "CollisionEnabled": "ECollisionEnabled::QueryAndPhysics"
+          }
+        ]
+      },
+      "BoneName": "j_pelvis",
+      "CollisionTraceFlag": "ECollisionTraceFlag::CTF_UseSimpleAsComplex"
+    },
+    "BodySetupGuid": "A1DBFD0C4A3CCA1A71C55188616CA1A1"
+  },
+  {
+    "Type": "SkeletalBodySetup",
+    "Name": "SkeletalBodySetup_10",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SkeletalBodySetup'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "AggGeom": {
+        "SphylElems": [
+          {
+            "Center": {
+              "X": -14.683116,
+              "Y": 4.2936893,
+              "Z": 1.27152
+            },
+            "Rotation": {
+              "Pitch": -3.1805547E-15,
+              "Yaw": 100.46742,
+              "Roll": -88.49422
+            },
+            "Radius": 7.6413665,
+            "Length": 19.136772,
+            "RestOffset": 0.0,
+            "Name": "None",
+            "bContributeToMass": true,
+            "CollisionEnabled": "ECollisionEnabled::QueryAndPhysics"
+          }
+        ]
+      },
+      "BoneName": "j_ankle_ri",
+      "CollisionTraceFlag": "ECollisionTraceFlag::CTF_UseSimpleAsComplex"
+    },
+    "BodySetupGuid": "B3ACB933416191635739EEAD68CB9423"
+  },
+  {
+    "Type": "SkeletalBodySetup",
+    "Name": "SkeletalBodySetup_11",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SkeletalBodySetup'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "AggGeom": {
+        "SphylElems": [
+          {
+            "Center": {
+              "X": 19.084433,
+              "Y": -11.62022,
+              "Z": 3.8486028
+            },
+            "Rotation": {
+              "Pitch": 3.1805547E-15,
+              "Yaw": 160.8608,
+              "Roll": -85.83196
+            },
+            "Radius": 18.479921,
+            "Length": 19.439665,
+            "RestOffset": 0.0,
+            "Name": "None",
+            "bContributeToMass": true,
+            "CollisionEnabled": "ECollisionEnabled::QueryAndPhysics"
+          }
+        ]
+      },
+      "BoneName": "j_neck",
+      "CollisionTraceFlag": "ECollisionTraceFlag::CTF_UseSimpleAsComplex"
+    },
+    "BodySetupGuid": "E48444C4439981EE6784A7A7CA7614DF"
+  },
+  {
+    "Type": "SkeletalBodySetup",
+    "Name": "SkeletalBodySetup_12",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SkeletalBodySetup'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "AggGeom": {
+        "SphylElems": [
+          {
+            "Center": {
+              "X": 8.294539,
+              "Y": -4.8966866,
+              "Z": 1.0377015
+            },
+            "Rotation": {
+              "Pitch": -1.5902774E-15,
+              "Yaw": -17.740166,
+              "Roll": -87.58465
+            },
+            "Radius": 19.049332,
+            "Length": 19.437952,
+            "RestOffset": 0.0,
+            "Name": "None",
+            "bContributeToMass": true,
+            "CollisionEnabled": "ECollisionEnabled::QueryAndPhysics"
+          }
+        ]
+      },
+      "BoneName": "j_neck_end",
+      "CollisionTraceFlag": "ECollisionTraceFlag::CTF_UseSimpleAsComplex"
+    },
+    "BodySetupGuid": "A09B307243DC5C48F57C138D37A8713D"
+  },
+  {
+    "Type": "SkeletalBodySetup",
+    "Name": "SkeletalBodySetup_13",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SkeletalBodySetup'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "AggGeom": {
+        "SphylElems": [
+          {
+            "Center": {
+              "X": 13.8685055,
+              "Y": -1.8180416,
+              "Z": 1.4174635
+            },
+            "Rotation": {
+              "Pitch": 0.0,
+              "Yaw": -100.73193,
+              "Roll": -68.62869
+            },
+            "Radius": 13.733871,
+            "Length": 18.849794,
+            "RestOffset": 0.0,
+            "Name": "None",
+            "bContributeToMass": true,
+            "CollisionEnabled": "ECollisionEnabled::QueryAndPhysics"
+          }
+        ]
+      },
+      "BoneName": "j_shoulder_le",
+      "CollisionTraceFlag": "ECollisionTraceFlag::CTF_UseSimpleAsComplex"
+    },
+    "BodySetupGuid": "E7889DE1487CD3ECC240F580F1CAEE96"
+  },
+  {
+    "Type": "SkeletalBodySetup",
+    "Name": "SkeletalBodySetup_14",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SkeletalBodySetup'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "AggGeom": {
+        "SphylElems": [
+          {
+            "Center": {
+              "X": -12.959415,
+              "Y": 3.3850923,
+              "Z": -2.6303294
+            },
+            "Rotation": {
+              "Pitch": 3.1805547E-15,
+              "Yaw": -80.866974,
+              "Roll": -68.58314
+            },
+            "Radius": 10.956977,
+            "Length": 19.928331,
+            "RestOffset": 0.0,
+            "Name": "None",
+            "bContributeToMass": true,
+            "CollisionEnabled": "ECollisionEnabled::QueryAndPhysics"
+          }
+        ]
+      },
+      "BoneName": "j_shoulder_ri",
+      "CollisionTraceFlag": "ECollisionTraceFlag::CTF_UseSimpleAsComplex"
+    },
+    "BodySetupGuid": "07DD25D5479B5560DCA41389CB1A8242"
+  },
+  {
+    "Type": "SkeletalBodySetup",
+    "Name": "SkeletalBodySetup_15",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SkeletalBodySetup'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "AggGeom": {
+        "SphylElems": [
+          {
+            "Center": {
+              "X": 14.558483,
+              "Y": 1.5457202,
+              "Z": 0.3128951
+            },
+            "Rotation": {
+              "Pitch": -6.3611094E-15,
+              "Yaw": -80.68146,
+              "Roll": -89.88755
+            },
+            "Radius": 6.6484075,
+            "Length": 19.188814,
+            "RestOffset": 0.0,
+            "Name": "None",
+            "bContributeToMass": true,
+            "CollisionEnabled": "ECollisionEnabled::QueryAndPhysics"
+          }
+        ]
+      },
+      "BoneName": "j_elbow_le",
+      "CollisionTraceFlag": "ECollisionTraceFlag::CTF_UseSimpleAsComplex"
+    },
+    "BodySetupGuid": "A349272F45D69BA551160E948E18B7CD"
+  },
+  {
+    "Type": "SkeletalBodySetup",
+    "Name": "SkeletalBodySetup_16",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SkeletalBodySetup'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "AggGeom": {
+        "SphylElems": [
+          {
+            "Center": {
+              "X": -16.02105,
+              "Y": -1.5810202,
+              "Z": -1.6896123
+            },
+            "Rotation": {
+              "Pitch": -9.541664E-15,
+              "Yaw": -83.08652,
+              "Roll": -80.00746
+            },
+            "Radius": 7.2815704,
+            "Length": 19.264055,
+            "RestOffset": 0.0,
+            "Name": "None",
+            "bContributeToMass": true,
+            "CollisionEnabled": "ECollisionEnabled::QueryAndPhysics"
+          }
+        ]
+      },
+      "BoneName": "j_elbow_ri",
+      "CollisionTraceFlag": "ECollisionTraceFlag::CTF_UseSimpleAsComplex"
+    },
+    "BodySetupGuid": "F6AF2AC448AE23778923CC9E31213102"
+  },
+  {
+    "Type": "SkeletalBodySetup",
+    "Name": "SkeletalBodySetup_17",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SkeletalBodySetup'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "AggGeom": {
+        "SphylElems": [
+          {
+            "Center": {
+              "X": 5.0893116,
+              "Y": 10.316959,
+              "Z": -0.052639205
+            },
+            "Rotation": {
+              "Pitch": 7.951387E-16,
+              "Yaw": -168.01073,
+              "Roll": -89.349396
+            },
+            "Radius": 21.595804,
+            "Length": 27.05077,
+            "RestOffset": 0.0,
+            "Name": "None",
+            "bContributeToMass": true,
+            "CollisionEnabled": "ECollisionEnabled::QueryAndPhysics"
+          }
+        ]
+      },
+      "BoneName": "j_head",
+      "CollisionTraceFlag": "ECollisionTraceFlag::CTF_UseSimpleAsComplex"
+    },
+    "BodySetupGuid": "3702C7E24ED53FFAD41CAC832ADA6A14"
+  },
+  {
+    "Type": "SkeletalBodySetup",
+    "Name": "SkeletalBodySetup_18",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SkeletalBodySetup'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "AggGeom": {
+        "SphylElems": [
+          {
+            "Center": {
+              "X": 13.717306,
+              "Y": 4.9034567,
+              "Z": 0.99262434
+            },
+            "Rotation": {
+              "Pitch": 3.1805547E-15,
+              "Yaw": 130.95052,
+              "Roll": -87.40245
+            },
+            "Radius": 7.937865,
+            "Length": 15.973849,
+            "RestOffset": 0.0,
+            "Name": "None",
+            "bContributeToMass": true,
+            "CollisionEnabled": "ECollisionEnabled::QueryAndPhysics"
+          }
+        ]
+      },
+      "BoneName": "j_wrist_le",
+      "CollisionTraceFlag": "ECollisionTraceFlag::CTF_UseSimpleAsComplex"
+    },
+    "BodySetupGuid": "D3BF858F4A6DC4C5C4D7D78CD47090A6"
+  },
+  {
+    "Type": "SkeletalBodySetup",
+    "Name": "SkeletalBodySetup_19",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SkeletalBodySetup'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "AggGeom": {
+        "SphylElems": [
+          {
+            "Center": {
+              "X": -13.389843,
+              "Y": -5.448131,
+              "Z": 0.5527178
+            },
+            "Rotation": {
+              "Pitch": 3.1805547E-15,
+              "Yaw": 130.30037,
+              "Roll": -85.99124
+            },
+            "Radius": 7.450215,
+            "Length": 16.112822,
+            "RestOffset": 0.0,
+            "Name": "None",
+            "bContributeToMass": true,
+            "CollisionEnabled": "ECollisionEnabled::QueryAndPhysics"
+          }
+        ]
+      },
+      "BoneName": "j_wrist_ri",
+      "CollisionTraceFlag": "ECollisionTraceFlag::CTF_UseSimpleAsComplex"
+    },
+    "BodySetupGuid": "698D23604B6E65D2A99BC79B4B6E50C0"
+  },
+  {
+    "Type": "SkeletalBodySetup",
+    "Name": "SkeletalBodySetup_2",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SkeletalBodySetup'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "AggGeom": {
+        "SphylElems": [
+          {
+            "Center": {
+              "X": 14.383071,
+              "Y": 1.4318975,
+              "Z": 0.11583571
+            },
+            "Rotation": {
+              "Pitch": 0.0,
+              "Yaw": 25.479364,
+              "Roll": -87.20276
+            },
+            "Radius": 14.280526,
+            "Length": 25.872234,
+            "RestOffset": 0.0,
+            "Name": "None",
+            "bContributeToMass": true,
+            "CollisionEnabled": "ECollisionEnabled::QueryAndPhysics"
+          }
+        ]
+      },
+      "BoneName": "j_spine1",
+      "CollisionTraceFlag": "ECollisionTraceFlag::CTF_UseSimpleAsComplex"
+    },
+    "BodySetupGuid": "28215C234731C9576E141AA2CA1FAB36"
+  },
+  {
+    "Type": "SkeletalBodySetup",
+    "Name": "SkeletalBodySetup_3",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SkeletalBodySetup'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "AggGeom": {
+        "SphylElems": [
+          {
+            "Center": {
+              "X": 21.671597,
+              "Y": 10.168736,
+              "Z": -0.8366781
+            },
+            "Rotation": {
+              "Pitch": 0.0,
+              "Yaw": 128.42047,
+              "Roll": -89.78866
+            },
+            "Radius": 9.527759,
+            "Length": 21.712957,
+            "RestOffset": 0.0,
+            "Name": "None",
+            "bContributeToMass": true,
+            "CollisionEnabled": "ECollisionEnabled::QueryAndPhysics"
+          }
+        ]
+      },
+      "BoneName": "j_tail_base",
+      "CollisionTraceFlag": "ECollisionTraceFlag::CTF_UseSimpleAsComplex"
+    },
+    "BodySetupGuid": "968D043748E247270497FDBC07BF4442"
+  },
+  {
+    "Type": "SkeletalBodySetup",
+    "Name": "SkeletalBodySetup_4",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SkeletalBodySetup'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "AggGeom": {
+        "SphylElems": [
+          {
+            "Center": {
+              "X": 22.315308,
+              "Y": -1.663271,
+              "Z": -3.4137547
+            },
+            "Rotation": {
+              "Pitch": 0.0,
+              "Yaw": 58.288486,
+              "Roll": -87.88464
+            },
+            "Radius": 21.48261,
+            "Length": 39.834625,
+            "RestOffset": 0.0,
+            "Name": "None",
+            "bContributeToMass": true,
+            "CollisionEnabled": "ECollisionEnabled::QueryAndPhysics"
+          }
+        ]
+      },
+      "BoneName": "j_hip_le",
+      "CollisionTraceFlag": "ECollisionTraceFlag::CTF_UseSimpleAsComplex"
+    },
+    "BodySetupGuid": "118123D840322F17D1C336BD22E92EA7"
+  },
+  {
+    "Type": "SkeletalBodySetup",
+    "Name": "SkeletalBodySetup_5",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SkeletalBodySetup'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "AggGeom": {
+        "SphylElems": [
+          {
+            "Center": {
+              "X": -15.536842,
+              "Y": -3.1287305,
+              "Z": 5.102121
+            },
+            "Rotation": {
+              "Pitch": 6.3611094E-15,
+              "Yaw": 77.405136,
+              "Roll": -87.84295
+            },
+            "Radius": 18.744911,
+            "Length": 32.023525,
+            "RestOffset": 0.0,
+            "Name": "None",
+            "bContributeToMass": true,
+            "CollisionEnabled": "ECollisionEnabled::QueryAndPhysics"
+          }
+        ]
+      },
+      "BoneName": "j_hip_ri",
+      "CollisionTraceFlag": "ECollisionTraceFlag::CTF_UseSimpleAsComplex"
+    },
+    "BodySetupGuid": "293EB19D40597B681D4A8FBC9D9F6379"
+  },
+  {
+    "Type": "SkeletalBodySetup",
+    "Name": "SkeletalBodySetup_6",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SkeletalBodySetup'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "AggGeom": {
+        "SphylElems": [
+          {
+            "Center": {
+              "X": -14.197596,
+              "Y": -6.4396744,
+              "Z": 0.7044224
+            },
+            "Rotation": {
+              "Pitch": 0.9689571,
+              "Yaw": 16.723995,
+              "Roll": -90.0
+            },
+            "Radius": 13.208894,
+            "Length": 13.464853,
+            "RestOffset": 0.0,
+            "Name": "None",
+            "bContributeToMass": true,
+            "CollisionEnabled": "ECollisionEnabled::QueryAndPhysics"
+          }
+        ]
+      },
+      "BoneName": "j_knee_ri",
+      "CollisionTraceFlag": "ECollisionTraceFlag::CTF_UseSimpleAsComplex"
+    },
+    "BodySetupGuid": "EB3734B84323307E72601494DC152436"
+  },
+  {
+    "Type": "SkeletalBodySetup",
+    "Name": "SkeletalBodySetup_7",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SkeletalBodySetup'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "AggGeom": {
+        "SphylElems": [
+          {
+            "Center": {
+              "X": -1.633129,
+              "Y": -3.61613,
+              "Z": -0.3176542
+            },
+            "Rotation": {
+              "Pitch": 0.0,
+              "Yaw": 38.16043,
+              "Roll": -78.46971
+            },
+            "Radius": 26.800673,
+            "Length": 34.22764,
+            "RestOffset": 0.0,
+            "Name": "None",
+            "bContributeToMass": true,
+            "CollisionEnabled": "ECollisionEnabled::QueryAndPhysics"
+          }
+        ]
+      },
+      "BoneName": "j_spine4",
+      "CollisionTraceFlag": "ECollisionTraceFlag::CTF_UseSimpleAsComplex"
+    },
+    "BodySetupGuid": "E2E627C04ED768BE31E4AA97D63CD1AE"
+  },
+  {
+    "Type": "SkeletalBodySetup",
+    "Name": "SkeletalBodySetup_8",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SkeletalBodySetup'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "AggGeom": {
+        "SphylElems": [
+          {
+            "Center": {
+              "X": 17.04351,
+              "Y": 4.545524,
+              "Z": -0.53568876
+            },
+            "Rotation": {
+              "Pitch": 3.1805547E-15,
+              "Yaw": -96.1561,
+              "Roll": -89.74269
+            },
+            "Radius": 7.241237,
+            "Length": 16.10856,
+            "RestOffset": 0.0,
+            "Name": "None",
+            "bContributeToMass": true,
+            "CollisionEnabled": "ECollisionEnabled::QueryAndPhysics"
+          }
+        ]
+      },
+      "BoneName": "j_tail1",
+      "CollisionTraceFlag": "ECollisionTraceFlag::CTF_UseSimpleAsComplex"
+    },
+    "BodySetupGuid": "9CCFCD6B41AD9D10CCAFE9ADB698AE18"
+  },
+  {
+    "Type": "SkeletalBodySetup",
+    "Name": "SkeletalBodySetup_9",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SkeletalBodySetup'",
+    "Outer": {
+      "ObjectName": "PhysicsAsset'zombie_wolf_PhysicsAsset'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset.0"
+    },
+    "Properties": {
+      "AggGeom": {
+        "SphylElems": [
+          {
+            "Center": {
+              "X": 14.560117,
+              "Y": -3.2686324,
+              "Z": -2.1578875
+            },
+            "Rotation": {
+              "Pitch": 3.1805547E-15,
+              "Yaw": 99.59406,
+              "Roll": -84.69187
+            },
+            "Radius": 8.592686,
+            "Length": 19.146778,
+            "RestOffset": 0.0,
+            "Name": "None",
+            "bContributeToMass": true,
+            "CollisionEnabled": "ECollisionEnabled::QueryAndPhysics"
+          }
+        ]
+      },
+      "BoneName": "j_ankle_le",
+      "CollisionTraceFlag": "ECollisionTraceFlag::CTF_UseSimpleAsComplex"
+    },
+    "BodySetupGuid": "94E6E45B455988C7571C829A3A417C4C"
+  }
+]

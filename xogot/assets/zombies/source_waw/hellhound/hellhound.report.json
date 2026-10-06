@@ -1,0 +1,32 @@
+{
+  "source_id": "hellhound",
+  "base_glb": "/home/runner/work/config-old-3/config-old-3/source-first/source-first-export/ProjectAether/Content/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf.glb",
+  "base_bones": 58,
+  "source_psa_count": 5,
+  "actions_imported": [
+    "zombie_dog_death_front",
+    "zombie_dog_idle",
+    "zombie_dog_run",
+    "zombie_dog_run_attack",
+    "zombie_dog_trot"
+  ],
+  "actions_exported": [
+    "PSA_zombie_dog_death_front",
+    "PSA_zombie_dog_idle",
+    "PSA_zombie_dog_run",
+    "PSA_zombie_dog_run_attack",
+    "PSA_zombie_dog_trot"
+  ],
+  "roles": {
+    "idle": true,
+    "trot": true,
+    "run": true,
+    "attack": true,
+    "death": true
+  },
+  "import_failures": [],
+  "translation_scale": 0.01,
+  "translation_units": "ActorX UE cm -> GLB meters",
+  "output": "/home/runner/work/config-old-3/config-old-3/build/source-enemies/hellhound/hellhound.glb",
+  "output_bytes": 1292772
+}

@@ -1,0 +1,51 @@
+{
+  "Textures": {
+    "PM_SpecularMasks": "/Game/Assets/Materials/Textures/_limbs_s-rgb_limbs_g-l-11._limbs_s-rgb_limbs_g-l-11",
+    "colorMap": "/Game/Assets/Materials/Textures/limbs_c.limbs_c",
+    "detailMap": "/UECast/Shading/Base/Textures/detail/metal_bumps_detail.metal_bumps_detail",
+    "metal_bumps_detail": "/UECast/Shading/Base/Textures/detail/metal_bumps_detail.metal_bumps_detail",
+    "PM_Normals": "/Game/Assets/Materials/Textures/limbs_n.limbs_n",
+    "normalMap": "/Game/Assets/Materials/Textures/limbs_n.limbs_n",
+    "specularMap": "/Game/Assets/Materials/Textures/_limbs_s-rgb_limbs_g-l-11._limbs_s-rgb_limbs_g-l-11"
+  },
+  "Parameters": {
+    "BlendMode": 0,
+    "ShadingModel": 0,
+    "Colors": {
+      "colorTint": {
+        "R": 1.0,
+        "G": 1.0,
+        "B": 1.0,
+        "A": 1.0,
+        "Hex": "FFFFFF"
+      },
+      "detailScale": {
+        "R": 8.0,
+        "G": 8.0,
+        "B": 2.0,
+        "A": 0.0,
+        "Hex": "FFFFFF"
+      }
+    },
+    "Scalars": {
+      "RefractionDepthBias": 0.0
+    },
+    "Switches": {},
+    "Properties": {
+      "bHasStaticPermutationResource": true,
+      "BasePropertyOverrides": {
+        "bOverride_NativeSpecularResponse": true,
+        "NativeSpecularResponse": "ENativeSpecularResponse::NSR_AdvancedWarfare",
+        "ShadingModel": "EMaterialShadingModel::MSM_NativeSpecular",
+        "OpacityMaskClipValue": 0.3333
+      },
+      "bIncludedInBaseGame": true
+    },
+    "HasTopDiffuse": false,
+    "HasTopNormals": false,
+    "HasTopSpecularMasks": false,
+    "HasTopEmissive": false,
+    "IsTranslucent": false,
+    "IsNull": false
+  }
+}

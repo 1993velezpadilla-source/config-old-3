@@ -1,0 +1,54 @@
+{
+  "Textures": {
+    "PM_SpecularMasks": "/Game/Assets/Materials/Textures/char_burned_head_c.char_burned_head_c",
+    "colorMap": "/Game/Assets/Materials/Textures/char_jap_impinf2_head2z_c.char_jap_impinf2_head2z_c",
+    "detailMap": "/UECast/Shading/Base/Textures/detail/skin_pore_detail.skin_pore_detail",
+    "skin_pore_detail": "/UECast/Shading/Base/Textures/detail/skin_pore_detail.skin_pore_detail",
+    "PM_Normals": "/Game/Assets/Materials/Textures/char_burned_swatch_n.char_burned_swatch_n",
+    "normalMap": "/Game/Assets/Materials/Textures/char_jap_impinf2_head1z_n.char_jap_impinf2_head1z_n",
+    "specularMap": "/Game/Assets/Materials/Textures/_char_head_spec-rgb_char_head_3c7873c9._char_head_spec-rgb_char_head_3c7873c9",
+    "clothcharrMaskMap": "/Game/Assets/Materials/Textures/char_burning_mask.char_burning_mask",
+    "clothcharrColorMap": "/Game/Assets/Materials/Textures/char_burned_head_c.char_burned_head_c",
+    "clothcharrNormalMap": "/Game/Assets/Materials/Textures/char_burned_swatch_n.char_burned_swatch_n"
+  },
+  "Parameters": {
+    "BlendMode": 0,
+    "ShadingModel": 0,
+    "Colors": {
+      "colorTint": {
+        "R": 1.0,
+        "G": 1.0,
+        "B": 1.0,
+        "A": 1.0,
+        "Hex": "FFFFFF"
+      },
+      "detailScale": {
+        "R": 32.0,
+        "G": 16.0,
+        "B": 1.0,
+        "A": 0.0,
+        "Hex": "FFFFFF"
+      }
+    },
+    "Scalars": {
+      "RefractionDepthBias": 0.0
+    },
+    "Switches": {},
+    "Properties": {
+      "bHasStaticPermutationResource": true,
+      "BasePropertyOverrides": {
+        "bOverride_NativeSpecularResponse": true,
+        "NativeSpecularResponse": "ENativeSpecularResponse::NSR_AdvancedWarfare",
+        "ShadingModel": "EMaterialShadingModel::MSM_NativeSpecular",
+        "OpacityMaskClipValue": 0.3333
+      },
+      "bIncludedInBaseGame": true
+    },
+    "HasTopDiffuse": false,
+    "HasTopNormals": false,
+    "HasTopSpecularMasks": false,
+    "HasTopEmissive": false,
+    "IsTranslucent": false,
+    "IsNull": false
+  }
+}

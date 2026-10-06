@@ -1,0 +1,53 @@
+{
+  "Textures": {
+    "PM_SpecularMasks": "/Game/Assets/Materials/Textures/_char_head_spec-rgb_char_head_3c7873c9._char_head_spec-rgb_char_head_3c7873c9",
+    "colorMap": "/Game/Assets/Materials/Textures/char_ger_honorguard_head1_c.char_ger_honorguard_head1_c",
+    "detailMap": "/UECast/Shading/Base/Textures/detail/skin_pore_detail.skin_pore_detail",
+    "skin_pore_detail": "/UECast/Shading/Base/Textures/detail/skin_pore_detail.skin_pore_detail",
+    "glossMap": "/Game/Assets/Materials/Textures/c_ger_zombie_head1_g.c_ger_zombie_head1_g",
+    "c_ger_zombie_head1_g": "/Game/Assets/Materials/Textures/c_ger_zombie_head1_g.c_ger_zombie_head1_g",
+    "PM_Normals": "/Game/Assets/Materials/Textures/char_ger_honorguard_head1_n.char_ger_honorguard_head1_n",
+    "normalMap": "/Game/Assets/Materials/Textures/char_ger_honorguard_head1_n.char_ger_honorguard_head1_n",
+    "specularMap": "/Game/Assets/Materials/Textures/_char_head_spec-rgb_char_head_3c7873c9._char_head_spec-rgb_char_head_3c7873c9"
+  },
+  "Parameters": {
+    "BlendMode": 0,
+    "ShadingModel": 0,
+    "Colors": {
+      "colorTint": {
+        "R": 1.0,
+        "G": 1.0,
+        "B": 1.0,
+        "A": 1.0,
+        "Hex": "FFFFFF"
+      },
+      "detailScale": {
+        "R": 32.0,
+        "G": 16.0,
+        "B": 1.0,
+        "A": 0.0,
+        "Hex": "FFFFFF"
+      }
+    },
+    "Scalars": {
+      "RefractionDepthBias": 0.0
+    },
+    "Switches": {
+      "glossMap": true
+    },
+    "Properties": {
+      "bHasStaticPermutationResource": true,
+      "BasePropertyOverrides": {
+        "ShadingModel": "EMaterialShadingModel::MSM_NativeSpecular",
+        "OpacityMaskClipValue": 0.3333
+      },
+      "bIncludedInBaseGame": true
+    },
+    "HasTopDiffuse": false,
+    "HasTopNormals": false,
+    "HasTopSpecularMasks": false,
+    "HasTopEmissive": false,
+    "IsTranslucent": false,
+    "IsNull": false
+  }
+}

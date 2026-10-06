@@ -1,0 +1,238 @@
+﻿[
+  {
+    "Type": "SoundCue",
+    "Name": "zm_hellhound_step",
+    "Flags": "RF_Public | RF_Standalone | RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SoundCue'",
+    "Package": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/zm_hellhound_step",
+    "Properties": {
+      "FirstNode": {
+        "ObjectName": "SoundNodeRandom'zm_hellhound_step:SoundNodeRandom_0'",
+        "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/zm_hellhound_step.1"
+      },
+      "VolumeMultiplier": 0.33,
+      "Duration": 0.586125,
+      "MaxDistance": 3200.0,
+      "AttenuationSettings": {
+        "ObjectName": "SoundAttenuation'ATT_Medium'",
+        "ObjectPath": "/Game/Assets/Sounds/Misc/Attenuations/ATT_Medium.0"
+      }
+    }
+  },
+  {
+    "Type": "SoundNodeRandom",
+    "Name": "SoundNodeRandom_0",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SoundNodeRandom'",
+    "Outer": {
+      "ObjectName": "SoundCue'zm_hellhound_step'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/zm_hellhound_step.0"
+    },
+    "Properties": {
+      "Weights": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "ChildNodes": [
+        {
+          "ObjectName": "SoundNodeWavePlayer'zm_hellhound_step:SoundNodeWavePlayer_0'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/zm_hellhound_step.2"
+        },
+        {
+          "ObjectName": "SoundNodeWavePlayer'zm_hellhound_step:SoundNodeWavePlayer_1'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/zm_hellhound_step.3"
+        },
+        {
+          "ObjectName": "SoundNodeWavePlayer'zm_hellhound_step:SoundNodeWavePlayer_2'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/zm_hellhound_step.4"
+        },
+        {
+          "ObjectName": "SoundNodeWavePlayer'zm_hellhound_step:SoundNodeWavePlayer_3'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/zm_hellhound_step.5"
+        },
+        {
+          "ObjectName": "SoundNodeWavePlayer'zm_hellhound_step:SoundNodeWavePlayer_4'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/zm_hellhound_step.6"
+        },
+        {
+          "ObjectName": "SoundNodeWavePlayer'zm_hellhound_step:SoundNodeWavePlayer_5'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/zm_hellhound_step.7"
+        },
+        {
+          "ObjectName": "SoundNodeWavePlayer'zm_hellhound_step:SoundNodeWavePlayer_6'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/zm_hellhound_step.8"
+        },
+        {
+          "ObjectName": "SoundNodeWavePlayer'zm_hellhound_step:SoundNodeWavePlayer_7'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/zm_hellhound_step.9"
+        }
+      ]
+    }
+  },
+  {
+    "Type": "SoundNodeWavePlayer",
+    "Name": "SoundNodeWavePlayer_0",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SoundNodeWavePlayer'",
+    "Outer": {
+      "ObjectName": "SoundCue'zm_hellhound_step'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/zm_hellhound_step.0"
+    },
+    "Properties": {
+      "SoundWaveAssetPtr": {
+        "AssetPathName": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/step_00_pc_snd.step_00_pc_snd",
+        "SubPathString": ""
+      }
+    },
+    "SoundWave": {
+      "ObjectName": "SoundWave'step_00_pc_snd'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/step_00_pc_snd.0"
+    }
+  },
+  {
+    "Type": "SoundNodeWavePlayer",
+    "Name": "SoundNodeWavePlayer_1",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SoundNodeWavePlayer'",
+    "Outer": {
+      "ObjectName": "SoundCue'zm_hellhound_step'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/zm_hellhound_step.0"
+    },
+    "Properties": {
+      "SoundWaveAssetPtr": {
+        "AssetPathName": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/step_01_pc_snd.step_01_pc_snd",
+        "SubPathString": ""
+      }
+    },
+    "SoundWave": {
+      "ObjectName": "SoundWave'step_01_pc_snd'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/step_01_pc_snd.0"
+    }
+  },
+  {
+    "Type": "SoundNodeWavePlayer",
+    "Name": "SoundNodeWavePlayer_2",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SoundNodeWavePlayer'",
+    "Outer": {
+      "ObjectName": "SoundCue'zm_hellhound_step'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/zm_hellhound_step.0"
+    },
+    "Properties": {
+      "SoundWaveAssetPtr": {
+        "AssetPathName": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/step_02_pc_snd.step_02_pc_snd",
+        "SubPathString": ""
+      }
+    },
+    "SoundWave": {
+      "ObjectName": "SoundWave'step_02_pc_snd'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/step_02_pc_snd.0"
+    }
+  },
+  {
+    "Type": "SoundNodeWavePlayer",
+    "Name": "SoundNodeWavePlayer_3",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SoundNodeWavePlayer'",
+    "Outer": {
+      "ObjectName": "SoundCue'zm_hellhound_step'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/zm_hellhound_step.0"
+    },
+    "Properties": {
+      "SoundWaveAssetPtr": {
+        "AssetPathName": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/step_03_pc_snd.step_03_pc_snd",
+        "SubPathString": ""
+      }
+    },
+    "SoundWave": {
+      "ObjectName": "SoundWave'step_03_pc_snd'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/step_03_pc_snd.0"
+    }
+  },
+  {
+    "Type": "SoundNodeWavePlayer",
+    "Name": "SoundNodeWavePlayer_4",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SoundNodeWavePlayer'",
+    "Outer": {
+      "ObjectName": "SoundCue'zm_hellhound_step'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/zm_hellhound_step.0"
+    },
+    "Properties": {
+      "SoundWaveAssetPtr": {
+        "AssetPathName": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/step_04_pc_snd.step_04_pc_snd",
+        "SubPathString": ""
+      }
+    },
+    "SoundWave": {
+      "ObjectName": "SoundWave'step_04_pc_snd'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/step_04_pc_snd.0"
+    }
+  },
+  {
+    "Type": "SoundNodeWavePlayer",
+    "Name": "SoundNodeWavePlayer_5",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SoundNodeWavePlayer'",
+    "Outer": {
+      "ObjectName": "SoundCue'zm_hellhound_step'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/zm_hellhound_step.0"
+    },
+    "Properties": {
+      "SoundWaveAssetPtr": {
+        "AssetPathName": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/step_05_pc_snd.step_05_pc_snd",
+        "SubPathString": ""
+      }
+    },
+    "SoundWave": {
+      "ObjectName": "SoundWave'step_05_pc_snd'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/step_05_pc_snd.0"
+    }
+  },
+  {
+    "Type": "SoundNodeWavePlayer",
+    "Name": "SoundNodeWavePlayer_6",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SoundNodeWavePlayer'",
+    "Outer": {
+      "ObjectName": "SoundCue'zm_hellhound_step'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/zm_hellhound_step.0"
+    },
+    "Properties": {
+      "SoundWaveAssetPtr": {
+        "AssetPathName": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/step_06_pc_snd.step_06_pc_snd",
+        "SubPathString": ""
+      }
+    },
+    "SoundWave": {
+      "ObjectName": "SoundWave'step_06_pc_snd'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/step_06_pc_snd.0"
+    }
+  },
+  {
+    "Type": "SoundNodeWavePlayer",
+    "Name": "SoundNodeWavePlayer_7",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SoundNodeWavePlayer'",
+    "Outer": {
+      "ObjectName": "SoundCue'zm_hellhound_step'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/zm_hellhound_step.0"
+    },
+    "Properties": {
+      "SoundWaveAssetPtr": {
+        "AssetPathName": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/step_07_pc_snd.step_07_pc_snd",
+        "SubPathString": ""
+      }
+    },
+    "SoundWave": {
+      "ObjectName": "SoundWave'step_07_pc_snd'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/step_07_pc_snd.0"
+    }
+  }
+]

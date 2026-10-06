@@ -1,0 +1,208 @@
+﻿[
+  {
+    "Type": "SoundCue",
+    "Name": "death_06_pc_snd_Cue",
+    "Flags": "RF_Public | RF_Standalone | RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SoundCue'",
+    "Package": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/death_06_pc_snd_Cue",
+    "Properties": {
+      "FirstNode": {
+        "ObjectName": "SoundNodeRandom'death_06_pc_snd_Cue:SoundNodeRandom_0'",
+        "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/death_06_pc_snd_Cue.1"
+      },
+      "Duration": 2.476479,
+      "MaxDistance": 2097152.0
+    }
+  },
+  {
+    "Type": "SoundNodeRandom",
+    "Name": "SoundNodeRandom_0",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SoundNodeRandom'",
+    "Outer": {
+      "ObjectName": "SoundCue'death_06_pc_snd_Cue'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/death_06_pc_snd_Cue.0"
+    },
+    "Properties": {
+      "Weights": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "ChildNodes": [
+        {
+          "ObjectName": "SoundNodeWavePlayer'death_06_pc_snd_Cue:SoundNodeWavePlayer_0'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/death_06_pc_snd_Cue.2"
+        },
+        {
+          "ObjectName": "SoundNodeWavePlayer'death_06_pc_snd_Cue:SoundNodeWavePlayer_1'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/death_06_pc_snd_Cue.3"
+        },
+        {
+          "ObjectName": "SoundNodeWavePlayer'death_06_pc_snd_Cue:SoundNodeWavePlayer_2'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/death_06_pc_snd_Cue.4"
+        },
+        {
+          "ObjectName": "SoundNodeWavePlayer'death_06_pc_snd_Cue:SoundNodeWavePlayer_3'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/death_06_pc_snd_Cue.5"
+        },
+        {
+          "ObjectName": "SoundNodeWavePlayer'death_06_pc_snd_Cue:SoundNodeWavePlayer_4'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/death_06_pc_snd_Cue.6"
+        },
+        {
+          "ObjectName": "SoundNodeWavePlayer'death_06_pc_snd_Cue:SoundNodeWavePlayer_5'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/death_06_pc_snd_Cue.7"
+        },
+        {
+          "ObjectName": "SoundNodeWavePlayer'death_06_pc_snd_Cue:SoundNodeWavePlayer_6'",
+          "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/death_06_pc_snd_Cue.8"
+        }
+      ]
+    }
+  },
+  {
+    "Type": "SoundNodeWavePlayer",
+    "Name": "SoundNodeWavePlayer_0",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SoundNodeWavePlayer'",
+    "Outer": {
+      "ObjectName": "SoundCue'death_06_pc_snd_Cue'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/death_06_pc_snd_Cue.0"
+    },
+    "Properties": {
+      "SoundWaveAssetPtr": {
+        "AssetPathName": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/death_00_pc_snd.death_00_pc_snd",
+        "SubPathString": ""
+      }
+    },
+    "SoundWave": {
+      "ObjectName": "SoundWave'death_00_pc_snd'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/death_00_pc_snd.0"
+    }
+  },
+  {
+    "Type": "SoundNodeWavePlayer",
+    "Name": "SoundNodeWavePlayer_1",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SoundNodeWavePlayer'",
+    "Outer": {
+      "ObjectName": "SoundCue'death_06_pc_snd_Cue'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/death_06_pc_snd_Cue.0"
+    },
+    "Properties": {
+      "SoundWaveAssetPtr": {
+        "AssetPathName": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/death_01_pc_snd.death_01_pc_snd",
+        "SubPathString": ""
+      }
+    },
+    "SoundWave": {
+      "ObjectName": "SoundWave'death_01_pc_snd'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/death_01_pc_snd.0"
+    }
+  },
+  {
+    "Type": "SoundNodeWavePlayer",
+    "Name": "SoundNodeWavePlayer_2",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SoundNodeWavePlayer'",
+    "Outer": {
+      "ObjectName": "SoundCue'death_06_pc_snd_Cue'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/death_06_pc_snd_Cue.0"
+    },
+    "Properties": {
+      "SoundWaveAssetPtr": {
+        "AssetPathName": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/death_02_pc_snd.death_02_pc_snd",
+        "SubPathString": ""
+      }
+    },
+    "SoundWave": {
+      "ObjectName": "SoundWave'death_02_pc_snd'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/death_02_pc_snd.0"
+    }
+  },
+  {
+    "Type": "SoundNodeWavePlayer",
+    "Name": "SoundNodeWavePlayer_3",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SoundNodeWavePlayer'",
+    "Outer": {
+      "ObjectName": "SoundCue'death_06_pc_snd_Cue'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/death_06_pc_snd_Cue.0"
+    },
+    "Properties": {
+      "SoundWaveAssetPtr": {
+        "AssetPathName": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/death_03_pc_snd.death_03_pc_snd",
+        "SubPathString": ""
+      }
+    },
+    "SoundWave": {
+      "ObjectName": "SoundWave'death_03_pc_snd'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/death_03_pc_snd.0"
+    }
+  },
+  {
+    "Type": "SoundNodeWavePlayer",
+    "Name": "SoundNodeWavePlayer_4",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SoundNodeWavePlayer'",
+    "Outer": {
+      "ObjectName": "SoundCue'death_06_pc_snd_Cue'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/death_06_pc_snd_Cue.0"
+    },
+    "Properties": {
+      "SoundWaveAssetPtr": {
+        "AssetPathName": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/death_04_pc_snd.death_04_pc_snd",
+        "SubPathString": ""
+      }
+    },
+    "SoundWave": {
+      "ObjectName": "SoundWave'death_04_pc_snd'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/death_04_pc_snd.0"
+    }
+  },
+  {
+    "Type": "SoundNodeWavePlayer",
+    "Name": "SoundNodeWavePlayer_5",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SoundNodeWavePlayer'",
+    "Outer": {
+      "ObjectName": "SoundCue'death_06_pc_snd_Cue'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/death_06_pc_snd_Cue.0"
+    },
+    "Properties": {
+      "SoundWaveAssetPtr": {
+        "AssetPathName": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/death_05_pc_snd.death_05_pc_snd",
+        "SubPathString": ""
+      }
+    },
+    "SoundWave": {
+      "ObjectName": "SoundWave'death_05_pc_snd'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/death_05_pc_snd.0"
+    }
+  },
+  {
+    "Type": "SoundNodeWavePlayer",
+    "Name": "SoundNodeWavePlayer_6",
+    "Flags": "RF_Transactional | RF_WasLoaded | RF_LoadCompleted",
+    "Class": "UScriptClass'SoundNodeWavePlayer'",
+    "Outer": {
+      "ObjectName": "SoundCue'death_06_pc_snd_Cue'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/death_06_pc_snd_Cue.0"
+    },
+    "Properties": {
+      "SoundWaveAssetPtr": {
+        "AssetPathName": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/death_06_pc_snd.death_06_pc_snd",
+        "SubPathString": ""
+      }
+    },
+    "SoundWave": {
+      "ObjectName": "SoundWave'death_06_pc_snd'",
+      "ObjectPath": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/Sounds/death_06_pc_snd.0"
+    }
+  }
+]
