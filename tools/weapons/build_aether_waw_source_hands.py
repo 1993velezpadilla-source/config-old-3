@@ -57,7 +57,7 @@ CORE_TOKENS = {
     "idle": ("idle", "hold"),
     "fire": ("fire", "shoot"),
     "reload": ("reload", "rechamber"),
-    "equip": ("equip", "raise", "pullout", "first_raise"),
+    "equip": ("equip", "raise", "pullout", "bringout", "bring_out", "first_raise"),
 }
 
 
@@ -170,17 +170,38 @@ def core_role_report(action_names: list[str]) -> dict[str, bool]:
 
 
 def build_one(
-    base_glb: Path,
+    base_hands: Path,
     actorx_root: Path,
     output_root: Path,
     runtime_id: str,
     source_dir: str,
 ) -> dict:
     clear_scene()
-    bpy.ops.import_scene.gltf(filepath=str(base_glb))
+    suffix = base_hands.suffix.lower()
+    if suffix in {".psk", ".pskx"}:
+        result = bpy.ops.psk.import_file(
+            filepath=str(base_hands),
+            components="ALL",
+            # ActorX mesh/skeleton uses UE centimeters. Keep PSA translations
+            # in the same source unit system and scale the complete rig once.
+            scale=0.01,
+        )
+        if "FINISHED" not in result:
+            raise RuntimeError(f"{runtime_id}: T4 Marine PSK import failed: {result}")
+        psa_translation_scale = 1.0
+        source_mesh_scale = 0.01
+        base_kind = "actorx_psk"
+    elif suffix == ".glb":
+        bpy.ops.import_scene.gltf(filepath=str(base_hands))
+        psa_translation_scale = 0.01
+        source_mesh_scale = 1.0
+        base_kind = "gltf"
+    else:
+        raise RuntimeError(f"{runtime_id}: unsupported T4 hands base {base_hands}")
+
     armatures = [o for o in bpy.context.scene.objects if o.type == "ARMATURE"]
     if not armatures:
-        raise RuntimeError(f"{runtime_id}: T4 Marine hands GLB has no armature")
+        raise RuntimeError(f"{runtime_id}: T4 Marine hands source has no armature")
     armature = max(armatures, key=lambda o: len(o.data.bones))
     purge_imported_animation()
 
@@ -208,7 +229,7 @@ def build_one(
             result = bpy.ops.psa.import_all(
                 filepath=str(psa),
                 should_convert_to_samples=True,
-                translation_scale=0.01,
+                translation_scale=psa_translation_scale,
             )
             if "FINISHED" not in result:
                 failures.append(f"{psa.name}:{result}")
@@ -266,8 +287,14 @@ def build_one(
         "has_tag_ads": "tag_ads" in bone_names,
         "has_tag_weapon": "tag_weapon" in bone_names,
         "has_tag_camera": "tag_camera" in bone_names,
-        "translation_scale": 0.01,
-        "translation_units": "ActorX UE cm -> GLB meters",
+        "base_hands_kind": base_kind,
+        "source_mesh_scale": source_mesh_scale,
+        "translation_scale": psa_translation_scale,
+        "translation_units": (
+            "ActorX mesh+PSA remain in matching UE centimeters; complete rig object scale=0.01"
+            if base_kind == "actorx_psk"
+            else "ActorX UE cm -> existing GLB meters"
+        ),
         "output": output.as_posix(),
         "output_bytes": output.stat().st_size,
     }
@@ -290,18 +317,18 @@ def main() -> int:
     if len(args) != 5:
         raise SystemExit(
             "usage: blender --background --python build_aether_waw_source_hands.py -- "
-            "<t4_marine_hands.glb> <actorx_root> <addon_parent> "
+            "<t4_marine_hands.psk|pskx|glb> <actorx_root> <addon_parent> "
             "<psk_psa_py_target> <output_root>"
         )
 
-    base_glb = Path(args[0]).resolve()
+    base_hands = Path(args[0]).resolve()
     actorx_root = Path(args[1]).resolve()
     addon_parent = Path(args[2]).resolve()
     psk_target = Path(args[3]).resolve()
     output_root = Path(args[4]).resolve()
 
-    if not base_glb.is_file():
-        raise SystemExit(f"T4 Marine hands GLB missing: {base_glb}")
+    if not base_hands.is_file():
+        raise SystemExit(f"T4 Marine hands source missing: {base_hands}")
     if not actorx_root.is_dir():
         raise SystemExit(f"ActorX source root missing: {actorx_root}")
     if not (psk_target / "psk_psa_py" / "__init__.py").is_file():
@@ -316,7 +343,7 @@ def main() -> int:
     reports: list[dict] = []
     for runtime_id, source_dir in RUNTIME_TO_SOURCE.items():
         reports.append(
-            build_one(base_glb, actorx_root, output_root, runtime_id, source_dir)
+            build_one(base_hands, actorx_root, output_root, runtime_id, source_dir)
         )
 
     inventory = {
@@ -325,7 +352,7 @@ def main() -> int:
         "built_weapon_count": len(reports),
         "expected_weapon_count": 27,
         "source_pending": SOURCE_PENDING,
-        "translation_scale": 0.01,
+        "source_units_policy": "PSK base preferred: mesh+PSA remain matched in UE cm, complete rig scaled to meters once.",
         "weapons": reports,
     }
     if len(reports) != 27:
