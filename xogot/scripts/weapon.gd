@@ -277,6 +277,22 @@ func _aux_animation_aliases(role: String) -> Array[String]:
 			return ["perk", "drink", "bottle", "purchase", "use", "interact"]
 		"machine_use":
 			return ["use", "interact", "grab", "press", "machine"]
+		"power_switch":
+			return ["power", "switch", "lever", "activate", "press", "use", "interact"]
+		"gumball_use":
+			return ["gumball", "gum", "grab", "machine", "use", "interact"]
+		"repair_barricade":
+			return ["repair", "board", "barricade", "nail", "use", "interact"]
+		"pickup":
+			return ["pickup", "pick_up", "grab", "take", "use", "interact"]
+		"revive":
+			return ["revive", "heal", "help", "use", "interact"]
+		"trap_activate":
+			return ["trap", "switch", "activate", "press", "use", "interact"]
+		"teleporter_use":
+			return ["teleport", "teleporter", "link", "activate", "use", "interact"]
+		"pack_a_punch_use":
+			return ["pack", "pap", "upgrade", "machine", "use", "interact"]
 		_:
 			return [role]
 
