@@ -135,14 +135,33 @@ def main() -> int:
 
     root = args.root
     report_path = root / "xzml-report.json"
+    complete_report_path = root / "complete-xztx-report.json"
     texture_dir = root / MAP_REL / "textures"
     output_dir = root / MAP_REL / "textures_png"
     report = json.loads(report_path.read_text())
-    rows = report.get("textureAssets", [])
-    if len(rows) != int(report.get("textureAssetCount", len(rows))):
+    runtime_rows = report.get("textureAssets", [])
+    if len(runtime_rows) != int(report.get("textureAssetCount", len(runtime_rows))):
         raise ValueError("xzml-report textureAssetCount mismatch")
-    if not rows:
+    if not runtime_rows:
         raise ValueError("xzml-report contains no textures")
+
+    rows = runtime_rows
+    if complete_report_path.is_file():
+        complete_report = json.loads(complete_report_path.read_text())
+        complete_rows = complete_report.get("textureAssets", [])
+        if len(complete_rows) != int(
+            complete_report.get("textureAssetCount", len(complete_rows))
+        ):
+            raise ValueError("complete-xztx-report textureAssetCount mismatch")
+        if complete_rows:
+            rows = complete_rows
+
+    astc_rows = [
+        row for row in rows
+        if str(row.get("format", "")) == "PF_ASTC_6x6"
+    ]
+    if not astc_rows:
+        raise ValueError("source texture catalog contains no PF_ASTC_6x6 textures")
 
     output_dir.mkdir(parents=True, exist_ok=True)
     for stale in output_dir.glob("*.png"):
@@ -152,12 +171,10 @@ def main() -> int:
     cache: dict[tuple[str, bool], Path] = {}
     with tempfile.TemporaryDirectory(prefix="xogot-astc6-") as tmp_raw:
         tmp = Path(tmp_raw)
-        for row in rows:
+        for row in astc_rows:
             runtime_file = str(row.get("runtimeFile", ""))
             if not runtime_file:
                 raise ValueError("texture row missing runtimeFile")
-            if str(row.get("format", "")) != "PF_ASTC_6x6":
-                raise ValueError(f"{runtime_file}: unexpected report format")
 
             src = texture_dir / runtime_file
             if not src.is_file():
@@ -184,19 +201,20 @@ def main() -> int:
             decoded += 1
 
     png_count = len(list(output_dir.glob("*.png")))
-    if decoded != len(rows) or png_count != len(rows):
+    if decoded != len(astc_rows) or png_count != len(astc_rows):
         raise RuntimeError(
             f"decoded PNG count mismatch decoded={decoded} "
-            f"png={png_count} expected={len(rows)}"
+            f"png={png_count} expected={len(astc_rows)}"
         )
 
-    srgb_count = sum(1 for row in rows if bool(row.get("srgb", False)))
+    srgb_count = sum(1 for row in astc_rows if bool(row.get("srgb", False)))
     print(
         "XZOGOT_ASTC6_DECODE_GREEN",
         f"textures={decoded}",
+        f"catalog={len(rows)}",
         f"unique_payloads={len(cache)}",
         f"srgb={srgb_count}",
-        f"linear={len(rows) - srgb_count}",
+        f"linear={len(astc_rows) - srgb_count}",
     )
     return 0
 
