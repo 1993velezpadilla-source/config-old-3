@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches: [feature/godot-aaa-rebuild-v1]
-    paths: [".github/workflows/xogot-codz-gameplay-source-census.yml"]
+    paths:\n      - ".github/workflows/xogot-codz-gameplay-source-census.yml"\n      - "tools/maps/UENuketownWallbuyBytecode/**"
 
 permissions:
   actions: read
