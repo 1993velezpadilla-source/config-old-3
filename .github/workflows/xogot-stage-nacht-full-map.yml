@@ -7,6 +7,7 @@ on:
     paths:
       - ".github/workflows/xogot-stage-nacht-full-map.yml"
       - "tools/maps/compile_nacht_*"
+      - "tools/maps/compile_ue_material_bindings.py"
       - "tools/maps/xzaw_to_ogg.py"
       - "xogot/scripts/nacht_full_map.gd"
       - "xogot/ci/nacht_full_map_probe.gd"
