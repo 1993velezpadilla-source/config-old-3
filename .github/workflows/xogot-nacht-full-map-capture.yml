@@ -6,6 +6,10 @@ on:
       - feature/godot-aaa-rebuild-v1
     paths:
       - ".github/workflows/xogot-nacht-full-map-capture.yml"
+      - "xogot/scripts/nacht_full_map.gd"
+      - "xogot/scripts/nacht_particle_source.gd"
+      - "xogot/scripts/xziel_benchmark_loader.gd"
+      - "xogot/ci/nacht_full_map_capture.gd"
   workflow_dispatch:
   workflow_run:
     workflows:
