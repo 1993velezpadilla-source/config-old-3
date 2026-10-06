@@ -1,0 +1,133 @@
+name: Nacht Material Graph Slice
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-nacht-material-graph-slice.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xogot-nacht-material-graph-slice
+  cancel-in-progress: true
+
+jobs:
+  slice:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_ARTIFACT: Xogot-Nacht-Chronicles-Full-Map-Authority
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: feature/godot-aaa-rebuild-v1
+          fetch-depth: 1
+
+      - name: Resolve latest GREEN full Nacht authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_RUN=""
+          for PAGE in 1 2 3 4 5; do
+            SOURCE_RUN=$(gh api \
+              -H "Accept: application/vnd.github+json" \
+              "/repos/${GITHUB_REPOSITORY}/actions/runs?per_page=100&page=$PAGE" \
+              --jq '[.workflow_runs[] | select(.head_branch=="feature/godot-aaa-rebuild-v1" and .name=="Xogot Nacht Chronicles Full Map Authority" and .conclusion=="success")][0].id // empty')
+            if [ -n "$SOURCE_RUN" ]; then break; fi
+          done
+          test -n "$SOURCE_RUN"
+          echo "SOURCE_RUN=$SOURCE_RUN" >> "$GITHUB_ENV"
+          echo "XZOGOT_NACHT_MATERIAL_GRAPH_SLICE_SOURCE_GREEN run=$SOURCE_RUN"
+
+      - name: Download exact full authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf full slice
+          mkdir -p full slice
+          downloaded=false
+          for attempt in 1 2 3; do
+            rm -rf full
+            mkdir -p full
+            if gh run download "$SOURCE_RUN" \
+              -R "${GITHUB_REPOSITORY}" \
+              -n "$SOURCE_ARTIFACT" \
+              -D full; then
+              downloaded=true
+              break
+            fi
+            sleep $((attempt * 8))
+          done
+          test "$downloaded" = true
+
+      - name: Slice unresolved material graphs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+
+          root=Path("full")
+          out=Path("slice")
+          out.mkdir(exist_ok=True)
+          matches=list(root.rglob("nacht-materials.json"))
+          if not matches:
+              raise SystemExit("nacht-materials.json missing")
+          source=json.loads(matches[0].read_text())
+
+          needles=[
+              "mtl_p7_zm_gen_debris_concrete_rubble_lg_03",
+              "t7_water_cp_bio_muddy_waterfall",
+          ]
+          rows=source.get("materials",[])
+          selected=[]
+          selected_paths=set()
+          base_paths=set()
+
+          for row in rows:
+              path=str(row.get("objectPath",""))
+              if any(n.lower() in path.lower() for n in needles):
+                  selected.append(row)
+                  selected_paths.add(path.lower())
+                  base=str(row.get("semanticBaseMaterialPath",""))
+                  if base:
+                      base_paths.add(base.lower())
+
+          for row in rows:
+              path=str(row.get("objectPath",""))
+              if path.lower() in base_paths and path.lower() not in selected_paths:
+                  selected.append(row)
+                  selected_paths.add(path.lower())
+
+          payload={
+              "sourceRun":int(os.environ["SOURCE_RUN"]),
+              "targets":needles,
+              "selectedCount":len(selected),
+              "materials":selected,
+          }
+          (out/"material-graph-slice.json").write_text(
+              json.dumps(payload,indent=2)+"\n"
+          )
+          print("XZOGOT_NACHT_MATERIAL_GRAPH_SLICE_GREEN", {
+              "sourceRun":payload["sourceRun"],
+              "selectedCount":payload["selectedCount"],
+              "paths":[r.get("objectPath") for r in selected],
+          })
+          PY
+
+      - name: Upload material graph slice
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Nacht-Material-Graph-Slice
+          path: slice/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 9
