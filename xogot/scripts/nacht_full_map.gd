@@ -22,6 +22,7 @@ const LIGHTS_FILE := "nacht-lights.json"
 const ENVIRONMENT_REPORT_FILE := "nacht-environment-report.json"
 const PARTICLES_FILE := "nacht-particles.json"
 const PARTICLE_GRAPHS_FILE := "nacht-particle-graphs.json"
+const PARTICLE_RUNTIME_AUTHORITY_FILE := "nacht-particle-runtime-authority.json"
 const ENVIRONMENT_SCENE_FILE := "nacht-environment-scene.json"
 const AUDIO_SCENE_FILE := "nacht-audio-scene.json"
 const AUDIO_CUES_FILE := "nacht-audio-cues.json"
@@ -36,6 +37,7 @@ var _lights_source: Dictionary = {}
 var _environment_report: Dictionary = {}
 var _particle_scene: Dictionary = {}
 var _particle_graphs: Dictionary = {}
+var _particle_runtime_authority: Dictionary = {}
 var _environment_scene: Dictionary = {}
 var _audio_scene: Dictionary = {}
 var _audio_cues: Dictionary = {}
@@ -79,6 +81,7 @@ func _boot() -> void:
 	_environment_report = _read_json(_source_path(ENVIRONMENT_REPORT_FILE))
 	_particle_scene = _read_json(_source_path(PARTICLES_FILE))
 	_particle_graphs = _read_json(_source_path(PARTICLE_GRAPHS_FILE))
+	_particle_runtime_authority = _read_json(_source_path(PARTICLE_RUNTIME_AUTHORITY_FILE))
 	_environment_scene = _read_json(_source_path(ENVIRONMENT_SCENE_FILE))
 	_audio_scene = _read_json(_source_path(AUDIO_SCENE_FILE))
 	_audio_cues = _read_json(_source_path(AUDIO_CUES_FILE))
@@ -127,6 +130,8 @@ func _boot() -> void:
 	set_meta("runtime_particle_authority_count", (_particle_scene.get("particleComponents", []) as Array).size())
 	set_meta("source_particle_system_count", int(_particle_graphs.get("particleSystemCount", -1)))
 	set_meta("runtime_particle_graph_authority_count", (_particle_graphs.get("systems", []) as Array).size())
+	set_meta("runtime_placed_particle_system_count", int(_particle_runtime_authority.get("uniquePlacedSystemCount", 0)))
+	set_meta("runtime_placed_particle_node_type_count", (_particle_runtime_authority.get("placedNodeTypeCounts", {}) as Dictionary).size())
 	set_meta("source_environment_component_count", int(_environment_scene.get("environmentComponentCount", -1)))
 	set_meta("runtime_environment_authority_count", (_environment_scene.get("components", []) as Array).size())
 	set_meta("source_audio_component_count", int(_audio_scene.get("audioComponentCount", -1)))
@@ -210,6 +215,16 @@ func _validate_authority() -> bool:
 	if int(_particle_graphs.get("particleSystemCount", 0)) != 39:
 		push_error("NACHT_FULL_MAP: source particle graph count mismatch")
 		return false
+	if not _particle_runtime_authority.is_empty():
+		if not bool(_particle_runtime_authority.get("ready", false)):
+			push_error("NACHT_FULL_MAP: placed particle runtime authority is not ready")
+			return false
+		if int(_particle_runtime_authority.get("placementCount", 0)) != 29:
+			push_error("NACHT_FULL_MAP: placed particle runtime placement count mismatch")
+			return false
+		if int(_particle_runtime_authority.get("resolvedPlacementCount", 0)) != 29:
+			push_error("NACHT_FULL_MAP: placed particle graph coverage mismatch")
+			return false
 	if _environment_scene.is_empty() or not bool(_environment_scene.get("ready", false)):
 		push_error("NACHT_FULL_MAP: source environment authority missing")
 		return false
