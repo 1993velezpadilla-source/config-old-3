@@ -1360,6 +1360,22 @@ func _build_source_lights() -> void:
 			+ str(_environment_report.get("lightCount", -1))
 		)
 
+func _godot_player_basis_from_source_anchor(anchor: Node3D) -> Basis:
+	# UE characters are X-forward / Z-up. The source anchor already carries the
+	# XZIEL axis conversion in global space, so its +X column is the desired
+	# Godot forward vector and its +Z column is the desired Godot up vector.
+	# Rebuild a native Godot X-right / Y-up / -Z-forward basis instead of
+	# assigning the UE component basis directly to CharacterBody3D.
+	var forward := anchor.global_basis.x.normalized()
+	var up := anchor.global_basis.z.normalized()
+	var z_axis := -forward
+	var x_axis := up.cross(z_axis).normalized()
+	if x_axis.length_squared() < 0.000001:
+		x_axis = Vector3.RIGHT
+	var y_axis := z_axis.cross(x_axis).normalized()
+	return Basis(x_axis, y_axis, z_axis).orthonormalized()
+
+
 func _place_player() -> void:
 	var player := get_node_or_null("Player") as CharacterBody3D
 	if player == null or _source_spawn_candidates.is_empty():
@@ -1369,12 +1385,13 @@ func _place_player() -> void:
 	# ahead of Pavlov_Spawn2 and pretend that string ordering is gameplay
 	# authority.
 	var chosen := _source_spawn_candidates[0]
-	player.global_basis = chosen.global_basis
+	player.global_basis = _godot_player_basis_from_source_anchor(chosen)
 
 	# Pavlov_Spawn is rooted on its CollisionCapsule. The extracted anchor is
 	# therefore the source capsule CENTER, while our CharacterBody3D origin is
 	# at the feet and its CollisionShape3D center is +0.88 m. Align capsule
-	# center to capsule center instead of adding another player-height offset.
+	# center to capsule center after converting UE X-forward/Z-up orientation
+	# into native Godot Y-up character orientation.
 	var collision := player.get_node_or_null("CollisionShape3D") as CollisionShape3D
 	if collision != null:
 		player.global_position = (
