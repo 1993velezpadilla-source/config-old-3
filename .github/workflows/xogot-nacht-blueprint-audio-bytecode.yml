@@ -70,6 +70,7 @@ jobs:
           $assets=@(
             'CustomMaps\UGC2755515831\Blueprints\Objects\EasterEgg\Box5.uasset',
             'CustomMaps\UGC2755515831\Blueprints\Perks\PerkMachine_QuickRevive.uasset',
+            'CustomMaps\UGC2755515831\Blueprints\Perks\PerkMachine_Base.uasset',
             'CustomMaps\UGC2755515831\Blueprints\KillerJimsPaP\PunchAPackMachine.uasset'
           )
           foreach($rel in $assets){
@@ -108,6 +109,7 @@ jobs:
           $assets=@(
             (Join-Path $env:NACHT_CONTENT_ROOT 'CustomMaps\UGC2755515831\Blueprints\Objects\EasterEgg\Box5.uasset'),
             (Join-Path $env:NACHT_CONTENT_ROOT 'CustomMaps\UGC2755515831\Blueprints\Perks\PerkMachine_QuickRevive.uasset'),
+            (Join-Path $env:NACHT_CONTENT_ROOT 'CustomMaps\UGC2755515831\Blueprints\Perks\PerkMachine_Base.uasset'),
             (Join-Path $env:NACHT_CONTENT_ROOT 'CustomMaps\UGC2755515831\Blueprints\KillerJimsPaP\PunchAPackMachine.uasset')
           )
 
@@ -130,7 +132,7 @@ jobs:
           p=Path("build/nacht-audio-bytecode/blueprint-audio-bytecode.json")
           d=json.loads(p.read_text())
           assert d["ready"] is True,d
-          assert d["packageSuccessCount"]==3,d
+          assert d["packageSuccessCount"]==4,d
 
           rx=re.compile(r"(sound|audio|cue|wave|play|hum|perk|quick|pack|punch|box|mystery)",re.I)
           proof=[]
@@ -171,7 +173,39 @@ jobs:
           Path("build/nacht-audio-bytecode/audio-proof.json").write_text(
               json.dumps(proof,indent=2)+"\n"
           )
-          assert len(proof)==3
+
+          # Preserve only exact audio object imports and the complete top-level
+          # expression trees that contain audio calls. This exposes the
+          # SoundCue/SoundWave argument instead of inferring it from a name.
+          exact=[]
+          audio_class={"SoundCue","SoundWave","AudioComponent","SoundClass","SoundAttenuation"}
+          audio_call=re.compile(r"(PlaySoundAtLocation|PlaySound2D|SpawnSound|SetSound|\\bPlay\\b|\\bStop\\b)",re.I)
+          for package in d["packages"]:
+              imports=[
+                  imp for imp in package.get("imports",[])
+                  if str(imp.get("className","")) in audio_class
+                  or re.search(r"(sound|cue|jingle|sting|hum)",str(imp.get("objectName","")),re.I)
+              ]
+              trees=[]
+              for fn in package.get("functions",[]):
+                  for top in fn.get("topLevelExpressions",[]):
+                      blob=json.dumps(top,sort_keys=True)
+                      if audio_call.search(blob):
+                          trees.append({"function":fn["name"],"tree":top})
+              row={"file":package["fileName"],"imports":imports,"audioTrees":trees}
+              exact.append(row)
+              print("XZOGOT_NACHT_AUDIO_EXACT_TREE",json.dumps({
+                  "file":row["file"],
+                  "imports":imports,
+                  "audioTreeCount":len(trees),
+                  "audioTrees":trees[:12],
+              },separators=(",",":")))
+          Path("build/nacht-audio-bytecode/audio-exact-trees.json").write_text(
+              json.dumps(exact,indent=2)+"\n"
+          )
+
+          assert len(proof)==4
+          assert any(row["audioTrees"] for row in exact),exact
           print("XZOGOT_NACHT_BLUEPRINT_AUDIO_BYTECODE_GREEN")
           '@ | python -
 
@@ -182,6 +216,7 @@ jobs:
           path: |
             build/nacht-audio-bytecode/blueprint-audio-bytecode.json
             build/nacht-audio-bytecode/audio-proof.json
+            build/nacht-audio-bytecode/audio-exact-trees.json
             build/nacht-audio-bytecode/extract.log
           if-no-files-found: error
           retention-days: 14
