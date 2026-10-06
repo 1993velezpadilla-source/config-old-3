@@ -1,0 +1,225 @@
+name: UModel CoDz Wonder Weapon Export
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-codz-umodel-wonders.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xogot-codz-umodel-wonders
+  cancel-in-progress: true
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      CODZ_PARITY_DRIVE_ID: "1BiThIcM5dEjeAcm9xlFQZF8bzk9MyfK1"
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download public CoDz source zip
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq p7zip-full
+          python3 -m pip install --disable-pip-version-check --quiet gdown
+          mkdir -p "$RUNNER_TEMP/codz"
+          python3 -m gdown "https://drive.google.com/uc?id=$CODZ_PARITY_DRIVE_ID" \
+            -O "$RUNNER_TEMP/codz/CoDz-Parity-modkit.zip"
+          test -s "$RUNNER_TEMP/codz/CoDz-Parity-modkit.zip"
+          echo "XZOGOT_UMODEL_CODZ_DOWNLOAD_GREEN"
+
+      - name: Extract only wonder weapon source neighborhoods
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf source-target
+          mkdir -p source-target
+          ZIP="$RUNNER_TEMP/codz/CoDz-Parity-modkit.zip"
+          ROOT='CoDz Parity modkit/Content/CustomMaps/UGC2554408402'
+          for PATTERN in \
+            "$ROOT/Meshes/RayGun/*" \
+            "$ROOT/Materials/RayGun/*" \
+            "$ROOT/Animations/Raygun/*" \
+            "$ROOT/BPs/CustomItems/Guns/RayGun/*" \
+            "$ROOT/Sounds/Weapons/RayGun/*" \
+            "$ROOT/BPs/CustomItems/Guns/gavs_Wonderweaps/RaygunMk2/*" \
+            "$ROOT/BPs/CustomItems/Guns/gavs_Wonderweaps/Thundergun/*"; do
+            7z x -y "$ZIP" "$PATTERN" -osource-target >/dev/null || true
+          done
+          PROVIDER="$GITHUB_WORKSPACE/source-target/CoDz Parity modkit/Content"
+          test -d "$PROVIDER"
+          echo "CODZ_PROVIDER=$PROVIDER" >> "$GITHUB_ENV"
+          test -s "$PROVIDER/CustomMaps/UGC2554408402/Meshes/RayGun/raygun_body.uasset"
+          test -s "$PROVIDER/CustomMaps/UGC2554408402/BPs/CustomItems/Guns/gavs_Wonderweaps/RaygunMk2/model/blackop3/mk2BO3.uasset"
+          test -s "$PROVIDER/CustomMaps/UGC2554408402/BPs/CustomItems/Guns/gavs_Wonderweaps/Thundergun/Model/thunderBody.uasset"
+          find "$PROVIDER" -type f | sort > source-target-files.txt
+          echo "XZOGOT_UMODEL_SOURCE_TARGET_GREEN files=$(wc -l < source-target-files.txt)"
+
+      - name: Build UE Viewer UModel for Linux
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y -qq \
+            build-essential perl libsdl2-dev zlib1g-dev libpng-dev libgl1-mesa-dev
+          git clone --depth 1 https://github.com/gildor2/UEViewer.git "$RUNNER_TEMP/UEViewer"
+          pushd "$RUNNER_TEMP/UEViewer"
+          ./build.sh
+          popd
+          UMODEL=$(find "$RUNNER_TEMP/UEViewer" -type f -name 'umodel' -perm -111 | head -1)
+          test -x "$UMODEL"
+          echo "UMODEL=$UMODEL" >> "$GITHUB_ENV"
+          mkdir -p build/codz-umodel
+          "$UMODEL" -version | tee build/codz-umodel/version.txt
+          "$UMODEL" -help > build/codz-umodel/help.txt
+          "$UMODEL" -taglist > build/codz-umodel/taglist.txt
+          echo "XZOGOT_UMODEL_READY $UMODEL"
+
+      - name: Probe UE4 versions on Ray Gun geometry
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROBE='CustomMaps/UGC2554408402/Meshes/RayGun/raygun_body.uasset'
+          : > build/codz-umodel/probe.log
+          SUCCESS=""
+          for GAME in \
+            ue4.12 ue4.13 ue4.14 ue4.15 ue4.16 ue4.17 ue4.18 ue4.19 ue4.20 \
+            ue4.21 ue4.22 ue4.23 ue4.24 ue4.25 ue4.26 ue4.27; do
+            OUT="build/codz-umodel/probe-$GAME"
+            rm -rf "$OUT"
+            mkdir -p "$OUT"
+            echo "XZOGOT_UMODEL_PROBE $GAME" | tee -a build/codz-umodel/probe.log
+            set +e
+            "$UMODEL" -path="$CODZ_PROVIDER" -game="$GAME" \
+              -export -gltf -notex -noanim -nostat \
+              -out="$GITHUB_WORKSPACE/$OUT" "$PROBE" \
+              >> build/codz-umodel/probe.log 2>&1
+            RC=$?
+            set -e
+            COUNT=$(find "$OUT" -type f \( -iname '*.gltf' -o -iname '*.glb' -o -iname '*.psk' -o -iname '*.pskx' \) | wc -l)
+            BYTES=$(find "$OUT" -type f -printf '%s\n' 2>/dev/null | awk '{s+=$1} END{print s+0}')
+            echo "XZOGOT_UMODEL_PROBE_RESULT game=$GAME rc=$RC meshes=$COUNT bytes=$BYTES" | tee -a build/codz-umodel/probe.log
+            if [ "$COUNT" -gt 0 ] && [ "$BYTES" -gt 1000 ]; then
+              SUCCESS="$GAME"
+              break
+            fi
+          done
+          if [ -z "$SUCCESS" ]; then
+            echo "=== UMODEL PROBE TAIL ==="
+            tail -n 300 build/codz-umodel/probe.log
+            exit 41
+          fi
+          echo "$SUCCESS" > build/codz-umodel/game-version.txt
+          echo "CODZ_UMODEL_GAME=$SUCCESS" >> "$GITHUB_ENV"
+          echo "XZOGOT_UMODEL_VERSION_GREEN $SUCCESS"
+
+      - name: Export three wonder weapon meshes
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf build/codz-umodel/meshes
+          mkdir -p build/codz-umodel/meshes
+          cat > build/codz-umodel/targets.tsv <<'EOF'
+          ray	CustomMaps/UGC2554408402/Meshes/RayGun/raygun_body.uasset
+          raymk2	CustomMaps/UGC2554408402/BPs/CustomItems/Guns/gavs_Wonderweaps/RaygunMk2/model/blackop3/mk2BO3.uasset
+          thundergun	CustomMaps/UGC2554408402/BPs/CustomItems/Guns/gavs_Wonderweaps/Thundergun/Model/thunderBody.uasset
+          EOF
+          : > build/codz-umodel/export.log
+          while IFS=$'\t' read -r ID PACKAGE; do
+            OUT="$GITHUB_WORKSPACE/build/codz-umodel/meshes/$ID"
+            mkdir -p "$OUT"
+            echo "XZOGOT_UMODEL_EXPORT_BEGIN $ID $PACKAGE" | tee -a build/codz-umodel/export.log
+            "$UMODEL" -path="$CODZ_PROVIDER" -game="$CODZ_UMODEL_GAME" \
+              -export -gltf -png -noanim -nostat \
+              -out="$OUT" "$PACKAGE" \
+              >> build/codz-umodel/export.log 2>&1
+            COUNT=$(find "$OUT" -type f \( -iname '*.gltf' -o -iname '*.glb' -o -iname '*.psk' -o -iname '*.pskx' \) | wc -l)
+            test "$COUNT" -gt 0
+            echo "XZOGOT_UMODEL_EXPORT_MESH_GREEN $ID files=$COUNT"
+          done < build/codz-umodel/targets.tsv
+          find build/codz-umodel/meshes -type f | sort > build/codz-umodel/mesh-files.txt
+
+      - name: Export source animation packages and sounds
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/codz-umodel/support
+          # Export packages individually. Some are source AnimSequence assets and
+          # may export PSA only when their referenced skeleton can be resolved.
+          mapfile -t SUPPORT < <(
+            find "$CODZ_PROVIDER/CustomMaps/UGC2554408402" -type f -name '*.uasset' \
+              | grep -Ei '/(Animations/Raygun|RaygunMk2|Thundergun)/' \
+              | grep -Ei '(fire|idle|raise|reload|insert|mag|shot|sound|snd|pap|zeus)' \
+              | head -n 220
+          )
+          : > build/codz-umodel/support.log
+          for ABS in "${SUPPORT[@]}"; do
+            REL="${ABS#"$CODZ_PROVIDER/"}"
+            set +e
+            "$UMODEL" -path="$CODZ_PROVIDER" -game="$CODZ_UMODEL_GAME" \
+              -export -psk -png -sounds \
+              -out="$GITHUB_WORKSPACE/build/codz-umodel/support" "$REL" \
+              >> build/codz-umodel/support.log 2>&1
+            set -e
+          done
+          find build/codz-umodel/support -type f | sort > build/codz-umodel/support-files.txt
+          PSA=$(find build/codz-umodel/support -type f -iname '*.psa' | wc -l)
+          AUDIO=$(find build/codz-umodel/support -type f \( -iname '*.wav' -o -iname '*.ogg' -o -iname '*.mp3' \) | wc -l)
+          echo "XZOGOT_UMODEL_SUPPORT psa=$PSA audio=$AUDIO"
+
+      - name: Build UModel export report
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          root=Path("build/codz-umodel")
+          rows=[]
+          for p in root.rglob("*"):
+              if p.is_file():
+                  rows.append({"path":p.as_posix(),"bytes":p.stat().st_size,"ext":p.suffix.lower()})
+          by_ext={}
+          for r in rows:
+              by_ext[r["ext"]]=by_ext.get(r["ext"],0)+1
+          weapons={}
+          for wid in ("ray","raymk2","thundergun"):
+              d=root/"meshes"/wid
+              files=[{"path":p.as_posix(),"bytes":p.stat().st_size} for p in d.rglob("*") if p.is_file()]
+              weapons[wid]=files
+          report={
+              "schema":1,
+              "game_version":(root/"game-version.txt").read_text().strip(),
+              "files":len(rows),
+              "bytes":sum(r["bytes"] for r in rows),
+              "extensions":dict(sorted(by_ext.items())),
+              "weapons":weapons,
+          }
+          (root/"report.json").write_text(json.dumps(report,indent=2)+"\n")
+          print("XZOGOT_UMODEL_WONDER_GREEN",
+                "game=",report["game_version"],
+                "extensions=",report["extensions"])
+          for wid,files in weapons.items():
+              if not files:
+                  raise SystemExit(f"{wid}: no exported files")
+              print("XZOGOT_UMODEL_WEAPON",wid,"files=",len(files),"bytes=",sum(x["bytes"] for x in files))
+          PY
+
+      - name: Upload UModel wonder exports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xogot-codz-umodel-wonder-export
+          path: |
+            build/codz-umodel/**
+          if-no-files-found: warn
+          retention-days: 14
+          compression-level: 6
