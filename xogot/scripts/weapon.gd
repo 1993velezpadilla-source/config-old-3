@@ -55,7 +55,7 @@ var _weapon_model_root: Node3D
 var _hands_animation_player: AnimationPlayer
 var _hands_model_root: Node3D
 var _source_hands_skeleton: Skeleton3D
-var _source_weapon_attachment: BoneAttachment3D
+var _source_weapon_attachment: Node3D
 var _source_weapon_bone_idx: int = -1
 var _melee_animation_player: AnimationPlayer
 var _melee_model_root: Node3D
@@ -430,14 +430,12 @@ func _find_skeleton_bone_attachment(node: Node, aliases: Array[String], attachme
 			var lower_name: String = bone_name.to_lower()
 			for alias: String in aliases:
 				if lower_name == alias.to_lower() or lower_name.contains(alias.to_lower()):
-					var attachment := BoneAttachment3D.new()
+					# Use a plain Node3D driven from Skeleton3D's animated pose.
+					# BoneAttachment3D was re-applying its bind/rest transform after
+					# runtime updates, leaving the gun frozen while the hands animated.
+					var attachment := Node3D.new()
 					attachment.name = attachment_name
-					# Add to the Skeleton3D first, then resolve by index/name.
-					# Setting only bone_name before parenting can leave a runtime
-					# attachment initialized from the bind pose.
 					skeleton.add_child(attachment)
-					attachment.bone_idx = bone_idx
-					attachment.bone_name = skeleton.get_bone_name(bone_idx)
 					_source_hands_skeleton = skeleton
 					_source_weapon_attachment = attachment
 					_source_weapon_bone_idx = bone_idx
