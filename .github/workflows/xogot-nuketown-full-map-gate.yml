@@ -69,7 +69,26 @@ jobs:
               "animations":9,
           }
           assert {k:int(complete[k]["count"]) for k in expected} == expected, complete
+          assert authority["texture_count"] == 321, authority
+          assert authority["complete_source_texture_count"] == 321, authority
+          skeletal=authority["complete_skeletal_runtime_library"]
+          assert skeletal["skeletons"] == 3, skeletal
+          assert skeletal["skeletal_meshes"] == 3, skeletal
+          assert skeletal["animations"] == 9, skeletal
+          assert skeletal["gltf_outputs"] == 3, skeletal
+          assert skeletal["exact_runtime_bindings_ready"] is True, skeletal
+          bindings=json.loads((root/skeletal["runtime_bindings"]).read_text())
+          assert bindings["ready"] is True, bindings
+          assert bindings["bindingCount"] == 3, bindings
+          assert len(bindings["bindings"]) == 3, bindings
+          assert len({row["sourceXzskFile"] for row in bindings["bindings"]}) == 3, bindings
+          assert len({row["gltf"] for row in bindings["bindings"]}) == 3, bindings
+          assert sum(len(row["animations"]) for row in bindings["bindings"]) == 9, bindings
           print("XZOGOT_NUKETOWN_COMPLETE_SOURCE_AUTHORITY_GREEN", expected)
+          print(
+              "XZOGOT_NUKETOWN_EXACT_SKELETAL_PREFLIGHT_GREEN",
+              [(row["actorName"],row["sourceXzskFile"],row["gltf"]) for row in bindings["bindings"]]
+          )
           classes=Counter(x["className"] for x in d["actorAnchors"])
           assert d["summary"]["ready"] is True
           assert len(d["meshes"]) == 52
@@ -222,7 +241,6 @@ jobs:
           name: Xogot-Nuketown-Full-Map-Proof
           path: |
             build/nuketown-full-map-textures.log
-            build/nuketown-mystery-source-gltf.log
             build/nuketown-full-map-import.log
             build/nuketown-full-map-probe.log
           if-no-files-found: error
