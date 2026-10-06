@@ -195,21 +195,32 @@ jobs:
           $ErrorActionPreference='Stop'
           New-Item -ItemType Directory -Force -Path nacht-native | Out-Null
 
+          $census=Get-Content nacht-class-census.json -Raw | ConvertFrom-Json
+          $textureCount=0
+          foreach($p in $census.classCounts.PSObject.Properties){
+            if($p.Name -like '*Texture2D'){ $textureCount += [int]$p.Value }
+          }
           $jobs=@(
-            @('UEStaticMeshXZMS','nacht-native/static-meshes'),
-            @('UETextureXZTX','nacht-native/textures'),
-            @('UEAudioXZAW','nacht-native/audio'),
-            @('UESkeletonXZRG','nacht-native/skeletons'),
-            @('UESkeletalMeshXZSK','nacht-native/skeletal-meshes'),
-            @('UEAnimationXZAN','nacht-native/animations')
+            @('UEStaticMeshXZMS','nacht-native/static-meshes',[int]$census.classCounts.StaticMesh),
+            @('UETextureXZTX','nacht-native/textures',[int]$textureCount),
+            @('UEAudioXZAW','nacht-native/audio',[int]$census.classCounts.SoundWave),
+            @('UESkeletonXZRG','nacht-native/skeletons',[int]$census.classCounts.Skeleton),
+            @('UESkeletalMeshXZSK','nacht-native/skeletal-meshes',[int]$census.classCounts.SkeletalMesh),
+            @('UEAnimationXZAN','nacht-native/animations',[int]$census.classCounts.AnimSequence)
           )
 
           foreach($job in $jobs){
             $name=$job[0]
             $out=$job[1]
+            $count=[int]$job[2]
             New-Item -ItemType Directory -Force -Path $out | Out-Null
+            if($count -le 0){
+              Write-Host "XZOGOT_NACHT_NATIVE_GROUP_EMPTY $name"
+              continue
+            }
             $dll="tools/maps/$name/bin/Release/net10.0/$name.dll"
-            dotnet $dll nacht-source PavMappings.usmap nacht-class-census.json $out 1000000 ue4.21 |
+            Write-Host "XZOGOT_NACHT_NATIVE_CONVERT $name expected=$count"
+            dotnet $dll nacht-source PavMappings.usmap nacht-class-census.json $out $count ue4.21 |
               Tee-Object "nacht-$name.log"
             if($LASTEXITCODE -ne 0){throw "$name failed $LASTEXITCODE"}
           }
