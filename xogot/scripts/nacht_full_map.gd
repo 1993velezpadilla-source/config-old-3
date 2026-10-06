@@ -498,10 +498,22 @@ func _audio_component_position(raw_hierarchy: Variant) -> Vector3:
 
 func _cue_has_loop(cue: Dictionary) -> bool:
 	for raw: Variant in cue.get("nodes", []):
-		if raw is Dictionary:
-			var node := raw as Dictionary
-			if str(node.get("exportType", "")).to_lower().contains("loop"):
-				return true
+		if not (raw is Dictionary):
+			continue
+		var node := raw as Dictionary
+		if str(node.get("exportType", "")).to_lower().contains("loop"):
+			return true
+		for raw_property: Variant in node.get("properties", []):
+			if not (raw_property is Dictionary):
+				continue
+			var property := raw_property as Dictionary
+			var property_name := str(property.get("name", "")).to_lower()
+			if property_name in ["blooping", "looping", "bloop"]:
+				var value: Variant = property.get("value", false)
+				if value is bool and bool(value):
+					return true
+				if str(value).to_lower() in ["true", "1"]:
+					return true
 	return false
 
 
