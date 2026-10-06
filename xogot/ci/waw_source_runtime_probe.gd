@@ -83,6 +83,17 @@ func _run_probe() -> void:
 	if not _expect_source_state(zombie, "traverse", 1.85, "ai_zombie_traverse"):
 		return
 
+	# Exercise the real window-crossing gameplay path, not only the animation
+	# selector in isolation.
+	zombie.set("_motion_state", "")
+	zombie.set("phase", 4)
+	zombie.call("_tick_cross_window")
+	var live_traverse := str(zombie.get_meta("active_animation", "")).to_lower()
+	if not live_traverse.contains("ai_zombie_traverse"):
+		_fail(14, "live window crossing did not use source traverse clip: " + live_traverse)
+		return
+	print("XZOGOT_WAW_SOURCE_LIVE_TRAVERSE_GREEN ", live_traverse)
+
 	# The validated 57-PSA WaW set has no dedicated hit-reaction or crawler clip.
 	# Hit flinch remains procedural and crawler visual stays source-pending rather
 	# than substituting an unrelated animation.

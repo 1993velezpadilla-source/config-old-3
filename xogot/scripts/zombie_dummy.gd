@@ -700,7 +700,13 @@ func _begin_window_cross() -> void:
 	print("XZOGOT_ZOMBIE_WINDOW_CROSS_BEGIN")
 
 func _tick_cross_window() -> void:
-	_play_motion_state("walk")
+	# Source WaW has a recovered authored window/ground traversal clip. Use it
+	# in the live crossing path instead of validating it only in CI while the
+	# actual zombie continues to walk through the barricade opening.
+	if bool(get_meta("zombie_source_waw", false)):
+		_play_motion_state("traverse")
+	else:
+		_play_motion_state("walk")
 	if target_barricade == null or not is_instance_valid(target_barricade):
 		phase = Phase.CHASE_PLAYER
 		return
