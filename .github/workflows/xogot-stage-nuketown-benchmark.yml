@@ -57,7 +57,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          dst=xogot/assets/benchmarks/nuketown_xziel
+          dst=benchmarks/nuketown_xziel
           rm -rf "$dst"
           mkdir -p "$dst/vfs/xziel/maps/xziel_nuketown_zombies"
 
@@ -82,7 +82,7 @@ jobs:
           import json
           from pathlib import Path
 
-          dst=Path("xogot/assets/benchmarks/nuketown_xziel")
+          dst=Path("benchmarks/nuketown_xziel")
           scene=json.loads((dst/"visual-scene.json").read_text())
           lights=json.loads((dst/"xzen-report.json").read_text())
           mats=json.loads((dst/"material-binding-manifest.json").read_text())
@@ -130,9 +130,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          src=xogot/assets/benchmarks/nuketown_xziel/vfs/xziel/maps/xziel_nuketown_zombies/meshes
-          dst=xogot/assets/benchmarks/nuketown_xziel/vfs/xziel/maps/xziel_nuketown_zombies/meshes_glb
-          report=xogot/assets/benchmarks/nuketown_xziel/native-glb-report.json
+          src=benchmarks/nuketown_xziel/vfs/xziel/maps/xziel_nuketown_zombies/meshes
+          dst=benchmarks/nuketown_xziel/vfs/xziel/maps/xziel_nuketown_zombies/meshes_glb
+          report=benchmarks/nuketown_xziel/native-glb-report.json
           test -d "$src"
           rm -rf "$dst"
           mkdir -p "$dst"
@@ -145,7 +145,7 @@ jobs:
           import json
           from pathlib import Path
 
-          root=Path("xogot/assets/benchmarks/nuketown_xziel")
+          root=Path("benchmarks/nuketown_xziel")
           report_path=root/"native-glb-report.json"
           manifest_path=root/"source_manifest.json"
           glb_dir=root/"vfs/xziel/maps/xziel_nuketown_zombies/meshes_glb"
@@ -178,7 +178,7 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add xogot/assets/benchmarks/nuketown_xziel
+          git add benchmarks/nuketown_xziel
           if git diff --cached --quiet; then
             echo "XZOGOT_NUKETOWN_WORLD_ALREADY_STAGED"
             exit 0
@@ -192,6 +192,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: xogot-nuketown-world-stage-proof
-          path: xogot/assets/benchmarks/nuketown_xziel/source_manifest.json
+          path: benchmarks/nuketown_xziel/source_manifest.json
           if-no-files-found: error
           retention-days: 14
