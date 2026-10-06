@@ -1,0 +1,123 @@
+name: CoDz Gameplay Source Census
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/godot-aaa-rebuild-v1]
+    paths: [".github/workflows/xogot-codz-gameplay-source-census.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  census:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download public source pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq p7zip-full
+          python3 -m pip install --quiet gdown
+          mkdir -p source build/gameplay-census
+          python3 -m gdown "https://drive.google.com/uc?id=1BiThIcM5dEjeAcm9xlFQZF8bzk9MyfK1" -O source/codz.zip
+          test -s source/codz.zip
+          7z l -slt source/codz.zip > build/gameplay-census/archive-slt.txt
+
+      - name: Build exhaustive gameplay manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,re
+          raw=Path("build/gameplay-census/archive-slt.txt").read_text(errors="ignore")
+          paths=[]
+          for line in raw.splitlines():
+              if line.startswith("Path = "):
+                  p=line[7:].strip().replace("\\","/")
+                  if p and not p.lower().endswith(".zip"):
+                      paths.append(p)
+          paths=sorted(set(paths),key=str.lower)
+
+          groups={
+            "pack_a_punch":[
+              r"pack.?a.?punch",r"packapunch",r"/pap/",r"_pap",r"pap_",r"pack.?punch",
+              r"upgrade.?weapon",r"weapon.?upgrade"
+            ],
+            "perks":[
+              r"/bps/perks/",r"perkmachine",r"perkbottle",r"perk_core",r"perk_list",
+              r"wunderfizz",r"jug",r"speed.?cola",r"quick.?revive",r"double.?tap",
+              r"deadshot",r"stamin",r"mule.?kick",r"phd",r"cherry",r"widow",
+              r"who.?s.?who",r"tombstone",r"vulture"
+            ],
+            "gobblegum":[
+              r"gobble",r"gobblegum",r"gobble.?gum",r"gum.?machine",r"gumball",
+              r"/gum/",r"_gum",r"gum_",r"mega.?gum",r"liquid.?divinium"
+            ],
+            "mystery_box":[r"mystery.?box",r"/mysterybox/",r"random.?weapon"],
+            "wallbuy":[r"wallbuy",r"wall.?buy",r"chalk.?weapon"],
+            "power":[r"power.?switch",r"powerswitch",r"electricity",r"turn.?power"],
+            "player_gameplay":[
+              r"playerproxy",r"player_proxy",r"bp_cod[z]?_player",r"proxiesandgamelogics",
+              r"playerstate",r"gamemode",r"game.?logic"
+            ],
+            "weapon_gameplay":[
+              r"/bps/customitems/guns/",r"gun_base",r"customgunbase",r"weaponid",
+              r"bullet_base",r"weapon.?base"
+            ],
+            "interaction":[
+              r"interact",r"hand",r"drink",r"bottle",r"lever",r"button",r"machine"
+            ],
+          }
+
+          out={"schema":1,"total_paths":len(paths),"groups":{}}
+          all_gameplay=set()
+          for name,patterns in groups.items():
+              rx=[re.compile(p,re.I) for p in patterns]
+              hits=[p for p in paths if any(r.search(p) for r in rx)]
+              out["groups"][name]={"count":len(hits),"paths":hits}
+              all_gameplay.update(hits)
+              print("XZOGOT_GAMEPLAY_CENSUS",name,"count=",len(hits))
+              for p in hits[:120]:
+                  print("  ",p)
+
+          blueprintish=[
+              p for p in sorted(all_gameplay,key=str.lower)
+              if p.lower().endswith((".uasset",".umap"))
+          ]
+          out["gameplay_unique_count"]=len(all_gameplay)
+          out["blueprintish_count"]=len(blueprintish)
+          out["blueprintish_paths"]=blueprintish
+
+          Path("build/gameplay-census/gameplay-source-manifest.json").write_text(
+              json.dumps(out,indent=2)+"\n",encoding="utf-8")
+          Path("build/gameplay-census/gameplay-blueprints.txt").write_text(
+              "\n".join(blueprintish)+"\n",encoding="utf-8")
+          Path("build/gameplay-census/all-gameplay-paths.txt").write_text(
+              "\n".join(sorted(all_gameplay,key=str.lower))+"\n",encoding="utf-8")
+
+          if not out["groups"]["pack_a_punch"]["count"]:
+              raise SystemExit("No Pack-a-Punch source paths")
+          if not out["groups"]["perks"]["count"]:
+              raise SystemExit("No perk source paths")
+          print("XZOGOT_GAMEPLAY_SOURCE_CENSUS_GREEN",
+                "paths=",len(paths),
+                "gameplay=",len(all_gameplay),
+                "blueprintish=",len(blueprintish))
+          PY
+
+      - name: Upload lean gameplay census
+        uses: actions/upload-artifact@v4
+        with:
+          name: xogot-codz-gameplay-source-census
+          path: |
+            build/gameplay-census/gameplay-source-manifest.json
+            build/gameplay-census/gameplay-blueprints.txt
+            build/gameplay-census/all-gameplay-paths.txt
+          if-no-files-found: error
+          retention-days: 30
