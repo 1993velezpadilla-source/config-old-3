@@ -67,6 +67,10 @@ func _run() -> void:
 	var placed_particle_systems := int(scene.get_meta("runtime_placed_particle_system_count", 0))
 	var placed_particle_node_types := int(scene.get_meta("runtime_placed_particle_node_type_count", 0))
 	var runtime_environment_components := int(scene.get_meta("runtime_environment_component_count", 0))
+	var runtime_environment_visual_nodes := int(scene.get_meta("runtime_environment_visual_node_count", 0))
+	var source_environment_runtime := bool(scene.get_meta("source_environment_runtime_ready", false))
+	var source_environment_fog_runtime := bool(scene.get_meta("source_environment_fog_runtime_ready", false))
+	var source_environment_reflection_runtime := bool(scene.get_meta("source_environment_reflection_runtime_ready", false))
 	var staged_runtime := FileAccess.file_exists(
 		"res://assets/benchmarks/nacht_chronicles/nacht-audio-runtime-authority.json"
 	)
@@ -161,6 +165,29 @@ func _run() -> void:
 				% runtime_environment_components
 			)
 			return
+		if not source_audio_runtime:
+			_fail(26, "staged source audio semantics are not runtime-ready")
+			return
+		if (
+			not source_environment_runtime
+			or not source_environment_fog_runtime
+			or not source_environment_reflection_runtime
+			or runtime_environment_visual_nodes != 2
+		):
+			_fail(
+				27,
+				"source environment runtime incomplete ready=%s fog=%s reflection=%s nodes=%d"
+				% [
+					str(source_environment_runtime),
+					str(source_environment_fog_runtime),
+					str(source_environment_reflection_runtime),
+					runtime_environment_visual_nodes,
+				]
+			)
+			return
+		if get_nodes_in_group("nacht_source_environment_runtime").size() != 2:
+			_fail(28, "source environment runtime node coverage mismatch")
+			return
 
 	var player := scene.get_node_or_null("Player") as CharacterBody3D
 	var weapon := scene.get_node_or_null("Player/Weapon")
@@ -197,7 +224,10 @@ func _run() -> void:
 		" placed_particle_systems=", placed_particle_systems,
 		" placed_particle_node_types=", placed_particle_node_types,
 		" runtime_environment_components=", runtime_environment_components,
-		" source_environment_runtime=", bool(scene.get_meta("source_environment_runtime_ready", false)),
+		" runtime_environment_visual_nodes=", runtime_environment_visual_nodes,
+		" source_environment_runtime=", source_environment_runtime,
+		" source_environment_fog_runtime=", source_environment_fog_runtime,
+		" source_environment_reflection_runtime=", source_environment_reflection_runtime,
 		" player=", player.global_position
 	)
 	scene.queue_free()
