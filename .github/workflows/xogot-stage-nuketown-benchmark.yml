@@ -436,8 +436,8 @@ jobs:
           if exact_path.is_file():
               exact=json.loads(exact_path.read_text())
               assert exact["ready"] is True, exact
-              assert exact["skeletalComponentCount"]==2, exact
-              assert exact["resolvedActorCount"]==2, exact
+              assert exact["skeletalComponentCount"]==3, exact
+              assert exact["resolvedActorCount"]==3, exact
               assert exact["unresolvedCount"]==0, exact
               assert exact["failureCount"]==0, exact
               by_xzsk={row["sourceXzskFile"]:row for row in lib["meshes"]}
@@ -459,8 +459,8 @@ jobs:
                       "gltf":asset["output"],
                       "animations":[row["name"] for row in asset["animations"]],
                   })
-              assert len(bindings)==2, bindings
-              assert len({row["gltf"] for row in bindings})==2, bindings
+              assert len(bindings)==3, bindings
+              assert len({row["gltf"] for row in bindings})==3, bindings
               exact_ready=True
 
           (root/"skeletal-runtime-bindings.json").write_text(
