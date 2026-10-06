@@ -177,6 +177,39 @@ func _run() -> void:
 	var particle_bonefire3_alpha_values := int(
 		scene.get_meta("source_particle_bonefire3_alpha_table_value_count", -1)
 	)
+	var particle_pap_wheel_emitters := int(
+		scene.get_meta("source_particle_pap_wheel_emitter_count", -1)
+	)
+	var particle_pap_wheel_lifetime := float(
+		scene.get_meta("source_particle_pap_wheel_lifetime_seconds", -1.0)
+	)
+	var particle_pap_wheel_size_min := scene.get_meta(
+		"source_particle_pap_wheel_start_size_min_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_pap_wheel_size_max := scene.get_meta(
+		"source_particle_pap_wheel_start_size_max_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_pap_wheel_spawn_rate := float(
+		scene.get_meta("source_particle_pap_wheel_spawn_rate", -1.0)
+	)
+	var particle_pap_wheel_burst_count := int(
+		scene.get_meta("source_particle_pap_wheel_burst_count", -1)
+	)
+	var particle_pap_wheel_rotation_rate_min := float(
+		scene.get_meta("source_particle_pap_wheel_rotation_rate_min", 999.0)
+	)
+	var particle_pap_wheel_rotation_rate_max := float(
+		scene.get_meta("source_particle_pap_wheel_rotation_rate_max", -999.0)
+	)
+	var particle_pap_wheel_velocity_life_min := scene.get_meta(
+		"source_particle_pap_wheel_velocity_life_min", Vector3.INF
+	) as Vector3
+	var particle_pap_wheel_velocity_life_time_scale := float(
+		scene.get_meta("source_particle_pap_wheel_velocity_life_time_scale", -1.0)
+	)
+	var particle_pap_wheel_size_life_table_values := int(
+		scene.get_meta("source_particle_pap_wheel_size_life_table_value_count", -1)
+	)
 	var source_particles := int(scene.get_meta("source_particle_component_count", -1))
 	var particle_authority := int(scene.get_meta("runtime_particle_authority_count", -1))
 	var source_particle_systems := int(scene.get_meta("source_particle_system_count", -1))
@@ -289,14 +322,14 @@ func _run() -> void:
 		if not particle_semantic_ready:
 			_fail(34, "source-complete Cascade semantic runtime is not ready")
 			return
-		if particle_semantic_systems != 4 or particle_semantic_placements != 7:
+		if particle_semantic_systems != 5 or particle_semantic_placements != 10:
 			_fail(
 				34,
 				"Cascade semantic runtime coverage mismatch systems=%d placements=%d"
 				% [particle_semantic_systems, particle_semantic_placements]
 			)
 			return
-		if get_nodes_in_group("nacht_source_particle_semantic").size() != 7:
+		if get_nodes_in_group("nacht_source_particle_semantic").size() != 10:
 			_fail(34, "Cascade semantic placement group mismatch")
 			return
 		if (
@@ -387,6 +420,37 @@ func _run() -> void:
 					particle_bonefire3_subuv_fps,
 					particle_bonefire3_rgb_values,
 					particle_bonefire3_alpha_values,
+				]
+			)
+			return
+		if (
+			particle_pap_wheel_emitters != 2
+			or not is_equal_approx(particle_pap_wheel_lifetime, 8.0)
+			or not particle_pap_wheel_size_min.is_equal_approx(Vector3(60.0, 60.0, 60.0))
+			or not particle_pap_wheel_size_max.is_equal_approx(Vector3(70.0, 70.0, 70.0))
+			or not is_equal_approx(particle_pap_wheel_spawn_rate, 3.0)
+			or particle_pap_wheel_burst_count != 2
+			or not is_equal_approx(particle_pap_wheel_rotation_rate_min, -0.1)
+			or not is_equal_approx(particle_pap_wheel_rotation_rate_max, 0.2)
+			or not particle_pap_wheel_velocity_life_min.is_equal_approx(Vector3(-2.0, -2.0, -2.0))
+			or not is_equal_approx(particle_pap_wheel_velocity_life_time_scale, 5.0)
+			or particle_pap_wheel_size_life_table_values != 384
+		):
+			_fail(
+				34,
+				"PaP wheel Cascade values mismatch emitters=%d lifetime=%s size=%s..%s rate=%s burst=%d rotation_rate=%s..%s vel_life=%s vel_scale=%s size_life_values=%d"
+				% [
+					particle_pap_wheel_emitters,
+					particle_pap_wheel_lifetime,
+					particle_pap_wheel_size_min,
+					particle_pap_wheel_size_max,
+					particle_pap_wheel_spawn_rate,
+					particle_pap_wheel_burst_count,
+					particle_pap_wheel_rotation_rate_min,
+					particle_pap_wheel_rotation_rate_max,
+					particle_pap_wheel_velocity_life_min,
+					particle_pap_wheel_velocity_life_time_scale,
+					particle_pap_wheel_size_life_table_values,
 				]
 			)
 			return
@@ -602,6 +666,8 @@ func _run() -> void:
 		" bonefire3_size=", particle_bonefire3_size_min,
 		"..", particle_bonefire3_size_max,
 		" bonefire3_subuv_fps=", particle_bonefire3_subuv_fps,
+		" pap_wheel_rate=", particle_pap_wheel_spawn_rate,
+		" pap_wheel_burst=", particle_pap_wheel_burst_count,
 		" particles_authority=", particle_authority,
 		" particle_graphs_authority=", particle_graph_authority,
 		" environment_authority=", environment_authority,
