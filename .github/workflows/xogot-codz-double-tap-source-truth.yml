@@ -1,0 +1,163 @@
+name: CoDz Double Tap Source Truth
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-codz-double-tap-source-truth.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xogot-codz-double-tap-source-truth
+  cancel-in-progress: true
+
+jobs:
+  source-truth:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      CODZ_PARITY_DRIVE_ID: "1BiThIcM5dEjeAcm9xlFQZF8bzk9MyfK1"
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install archive tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq p7zip-full binutils
+          python3 -m pip install --disable-pip-version-check --quiet gdown
+          echo "XZOGOT_DOUBLE_TAP_TOOLS_READY"
+
+      - name: Download public CoDz Parity source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/codz"
+          python3 -m gdown "https://drive.google.com/uc?id=$CODZ_PARITY_DRIVE_ID"             -O "$RUNNER_TEMP/codz/CoDz-Parity-modkit.zip"
+          test -s "$RUNNER_TEMP/codz/CoDz-Parity-modkit.zip"
+          echo "XZOGOT_DOUBLE_TAP_SOURCE_DOWNLOADED"
+
+      - name: Locate exact Double Tap source packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/double-tap-truth
+          7z l -slt "$RUNNER_TEMP/codz/CoDz-Parity-modkit.zip" > build/double-tap-truth/archive-slt.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,re
+          raw=Path("build/double-tap-truth/archive-slt.txt").read_text(errors="ignore")
+          paths=[]
+          for line in raw.splitlines():
+              if line.startswith("Path = "):
+                  p=line[7:].strip().replace("\\","/")
+                  if p:
+                      paths.append(p)
+          exact=[]
+          perk_context=[]
+          for p in sorted(set(paths),key=str.lower):
+              low=p.lower()
+              if re.search(r"double[ _-]?tap|doubletap|dtap", low):
+                  exact.append(p)
+              if ("perk" in low or "soda" in low or "machine" in low) and any(t in low for t in ("double","tap","weapon","fire","damage")):
+                  perk_context.append(p)
+          Path("build/double-tap-truth/exact-paths.txt").write_text("\n".join(exact)+"\n")
+          Path("build/double-tap-truth/perk-context-paths.txt").write_text("\n".join(perk_context)+"\n")
+          report={"exact_count":len(exact),"exact_paths":exact,"context_count":len(perk_context),"context_paths":perk_context}
+          Path("build/double-tap-truth/path-report.json").write_text(json.dumps(report,indent=2)+"\n")
+          print("XZOGOT_DOUBLE_TAP_EXACT_PATHS",len(exact))
+          for p in exact:
+              print("XZOGOT_DOUBLE_TAP_PATH",p)
+          print("XZOGOT_DOUBLE_TAP_PERK_CONTEXT",len(perk_context))
+          if not exact:
+              raise SystemExit("No Double Tap named source packages found")
+          PY
+
+      - name: Extract Double Tap neighborhoods
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/double-tap-truth/extracted
+          python3 - <<'PY'
+          from pathlib import Path
+          roots=set()
+          for line in Path("build/double-tap-truth/exact-paths.txt").read_text().splitlines():
+              if not line.strip():
+                  continue
+              p=Path(line.strip())
+              roots.add(p.parent.as_posix())
+              if len(p.parts)>1:
+                  roots.add(p.parent.parent.as_posix())
+          Path("build/double-tap-truth/roots.txt").write_text("\n".join(sorted(roots,key=str.lower))+"\n")
+          print("XZOGOT_DOUBLE_TAP_ROOTS",len(roots))
+          PY
+          while IFS= read -r root; do
+            [ -n "$root" ] || continue
+            7z x -y "$RUNNER_TEMP/codz/CoDz-Parity-modkit.zip" "$root/*"               -obuild/double-tap-truth/extracted >/dev/null || true
+          done < build/double-tap-truth/roots.txt
+          find build/double-tap-truth/extracted -type f -printf '%P\t%s\n' | sort > build/double-tap-truth/extracted-files.tsv
+
+      - name: Extract literal source strings and constants
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,re,struct
+          root=Path("build/double-tap-truth/extracted")
+          rows=[]
+          interesting_tokens=(
+              "damage","firerate","fire rate","fireinterval","ammo","bullet","projectile",
+              "double","tap","perk","weapon","multiplier","rate","shoot","shot"
+          )
+          for p in root.rglob("*.uasset"):
+              data=p.read_bytes()
+              ascii_strings=[x.decode("latin1","ignore") for x in re.findall(rb"[\x20-\x7e]{4,}",data)]
+              interesting=[s for s in ascii_strings if any(t in s.lower() for t in interesting_tokens)]
+              # Surface IEEE floats that often encode Blueprint defaults/constants,
+              # but only keep sane gameplay-scale values.
+              floats=[]
+              for off in range(0,max(0,len(data)-4),4):
+                  try:
+                      v=struct.unpack_from("<f",data,off)[0]
+                  except Exception:
+                      continue
+                  if v==v and abs(v) < 10000 and (0.001 <= abs(v) <= 1000):
+                      if any(abs(v-k)<1e-6 for k in (0.5,0.66,0.67,0.75,1.0,1.25,1.33,1.5,2.0,2000.0)):
+                          floats.append({"offset":off,"value":v})
+              row={
+                  "path":p.relative_to(root).as_posix(),
+                  "bytes":len(data),
+                  "interesting_strings":interesting[:500],
+                  "candidate_floats":floats[:200],
+              }
+              rows.append(row)
+              print("XZOGOT_DOUBLE_TAP_PACKAGE",row["bytes"],row["path"])
+              for s in interesting[:80]:
+                  print("XZOGOT_DOUBLE_TAP_STRING",row["path"],repr(s))
+              for f in floats[:30]:
+                  print("XZOGOT_DOUBLE_TAP_FLOAT",row["path"],f["offset"],f["value"])
+          Path("build/double-tap-truth/package-truth.json").write_text(json.dumps(rows,indent=2)+"\n")
+          if not rows:
+              raise SystemExit("No Double Tap uassets extracted")
+          print("XZOGOT_DOUBLE_TAP_PACKAGE_TRUTH_GREEN",len(rows))
+          PY
+
+      - name: Upload Double Tap source truth
+        uses: actions/upload-artifact@v4
+        with:
+          name: xogot-codz-double-tap-source-truth
+          path: |
+            build/double-tap-truth/path-report.json
+            build/double-tap-truth/exact-paths.txt
+            build/double-tap-truth/perk-context-paths.txt
+            build/double-tap-truth/roots.txt
+            build/double-tap-truth/extracted-files.tsv
+            build/double-tap-truth/package-truth.json
+          if-no-files-found: error
+          retention-days: 14
