@@ -55,6 +55,24 @@ jobs:
           mkdir -p "$RUNNER_TEMP/nacht-authority"
           gh run download "$SOURCE_RUN" -n "$SOURCE_ARTIFACT" -D "$RUNNER_TEMP/nacht-authority"
 
+          AUDIO_BYTECODE_RUN=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${GITHUB_REPOSITORY}/actions/runs?branch=feature%2Fgodot-aaa-rebuild-v1&status=success&per_page=100" \
+            --jq '.workflow_runs[] | select(.name=="Xogot Nacht Blueprint Audio Bytecode Truth") | .id' \
+            | head -1)
+          test -n "$AUDIO_BYTECODE_RUN"
+          echo "NACHT_AUDIO_BYTECODE_RUN=$AUDIO_BYTECODE_RUN" >> "$GITHUB_ENV"
+
+          rm -rf "$RUNNER_TEMP/nacht-audio-bytecode"
+          mkdir -p "$RUNNER_TEMP/nacht-audio-bytecode"
+          gh run download "$AUDIO_BYTECODE_RUN" \
+            -n "Xogot-Nacht-Blueprint-Audio-Bytecode-Truth" \
+            -D "$RUNNER_TEMP/nacht-audio-bytecode"
+          AUDIO_BYTECODE="$RUNNER_TEMP/nacht-audio-bytecode"
+          test -s "$AUDIO_BYTECODE/blueprint-audio-bytecode.json"
+          echo "AUDIO_BYTECODE=$AUDIO_BYTECODE" >> "$GITHUB_ENV"
+          echo "XZOGOT_NACHT_STAGE_AUDIO_BYTECODE_GREEN run=$AUDIO_BYTECODE_RUN"
+
           AUTH="$RUNNER_TEMP/nacht-authority"
           test -s "$AUTH/nacht-full-map-handoff.json"
           test -s "$AUTH/nacht-full-map-authority.json"
@@ -114,6 +132,15 @@ jobs:
 
           cp "$AUTH/nacht-native/audio/report.json" "$root/nacht-native-audio-report.json"
           echo "XZOGOT_NACHT_AUDIO_RUNTIME_PREP_GREEN"
+
+          python3 tools/maps/compile_nacht_audio_runtime_authority.py \
+            --audio-scene "$root/nacht-audio-scene.json" \
+            --bytecode "$AUDIO_BYTECODE/blueprint-audio-bytecode.json" \
+            --cue-graph "$root/nacht-audio-cues.json" \
+            --native-audio-report "$AUTH/nacht-native/audio/report.json" \
+            --output "$root/nacht-audio-runtime-authority.json"
+          echo "XZOGOT_NACHT_STAGE_AUDIO_RUNTIME_AUTHORITY_GREEN"
+
 
           python3 tools/maps/compile_ue_material_bindings.py             --scene "$root/nacht-static-scene.json"             --xzms "$AUTH/nacht-static-runtime-meshes.json"             --materials "$root/nacht-materials.json"             --xztx "$AUTH/nacht-native/textures/report.json"             --output "$root/material-binding-manifest.json"
 
@@ -197,6 +224,7 @@ jobs:
           environment=json.loads((root/"nacht-environment-scene.json").read_text())
           audio_scene=json.loads((root/"nacht-audio-scene.json").read_text())
           audio_cues=json.loads((root/"nacht-audio-cues.json").read_text())
+          audio_runtime_authority=json.loads((root/"nacht-audio-runtime-authority.json").read_text())
           mats=json.loads((root/"material-binding-manifest.json").read_text())
           glb=json.loads((root/"native-glb-report.json").read_text())
           dds=json.loads((root/"native-dds-report.json").read_text())
@@ -222,6 +250,12 @@ jobs:
           assert audio_scene["referencedSoundCount"] == 3, audio_scene
           assert audio_scene["nullSoundCount"] == 0, audio_scene
           assert audio_cues["cueCount"] == 102 and audio_cues["ready"] is True, audio_cues
+          assert audio_runtime_authority["ready"] is True, audio_runtime_authority
+          assert audio_runtime_authority["audioComponentCount"] == 3, audio_runtime_authority
+          assert audio_runtime_authority["resolvedAudioComponentCount"] == 3, audio_runtime_authority
+          assert len(audio_runtime_authority["unresolvedComponents"]) == 0, audio_runtime_authority
+          assert len(audio_runtime_authority["unresolvedActorEvents"]) == 0, audio_runtime_authority
+          assert len(audio_runtime_authority["unresolvedAssets"]) == 0, audio_runtime_authority
           assert glb["mesh_count"] == len(scene["meshes"]), (glb["mesh_count"],len(scene["meshes"]))
           assert dds["ready"] is True and dds["failure_count"] == 0, dds
           assert dds["texture_count"] == xzml["textureAssetCount"], (dds,xzml["textureAssetCount"])
@@ -243,6 +277,8 @@ jobs:
               "sourceTextures":xzml["textureAssetCount"],
               "sourceAudioWaves":audio_runtime["audioCount"],
               "sourceAudioFormat":audio_runtime["format"],
+              "sourceAudioRuntimeEvents":audio_runtime_authority["actorAudioEventCount"],
+              "sourceAudioRuntimeComponents":audio_runtime_authority["resolvedAudioComponentCount"],
               "ddsFormats":dds["format_counts"],
               "ready":True,
           }
