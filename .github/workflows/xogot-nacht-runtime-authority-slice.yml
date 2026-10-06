@@ -15,55 +15,148 @@ permissions:
 jobs:
   slice:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BRANCH: feature/godot-aaa-rebuild-v1
+      SOURCE_ARTIFACT: Xogot-Nacht-Chronicles-Godot-Runtime
+
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          ref: feature/godot-aaa-rebuild-v1
 
-      - name: Download Stage 18 runtime artifact
+      - name: Resolve latest GREEN Nacht staged runtime
         shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          mkdir -p full slice
-          gh run download 37516399357 \
-            -R "${{ github.repository }}" \
-            -n Xogot-Nacht-Chronicles-Godot-Runtime \
-            -D full
+          SOURCE_RUN=$(gh api             -H "Accept: application/vnd.github+json"             "/repos/${GITHUB_REPOSITORY}/actions/runs?per_page=100"             --jq '[.workflow_runs[] | select(.head_branch=="feature/godot-aaa-rebuild-v1" and .name=="Stage Nacht Chronicles Full Map" and .conclusion=="success")][0].id // empty')
+          test -n "$SOURCE_RUN"
+          echo "SOURCE_RUN=$SOURCE_RUN" >> "$GITHUB_ENV"
+          echo "XZOGOT_NACHT_SLICE_SELECTED_STAGE_RUN=$SOURCE_RUN"
 
-          for name in \
-            nacht-particles.json \
-            nacht-particle-graphs.json \
-            nacht-particle-runtime-authority.json \
-            particle-runtime-manifest.json \
-            nacht-environment-scene.json \
-            nacht-environment-runtime-authority.json \
-            source_manifest.json \
-            probe.log; do
-            src="$(find full -type f -name "$name" -print -quit)"
-            if [[ -z "$src" ]]; then
-              echo "missing $name" >&2
-              exit 1
+      - name: Download exact staged runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf full slice
+          mkdir -p full slice
+          for attempt in 1 2 3; do
+            if gh run download "$SOURCE_RUN"               -R "${GITHUB_REPOSITORY}"               -n "$SOURCE_ARTIFACT"               -D full; then
+              echo "XZOGOT_NACHT_SLICE_ARTIFACT_DOWNLOAD_GREEN attempt=$attempt"
+              break
             fi
-            cp "$src" "slice/$name"
+            rm -rf full
+            mkdir -p full
+            test "$attempt" -lt 3
+            sleep 8
           done
 
+      - name: Build focused source authority slice
+        shell: bash
+        run: |
+          set -euo pipefail
           python3 - <<'PY'
-          from pathlib import Path
           import json
-          p=Path("slice/nacht-particle-runtime-authority.json")
-          d=json.loads(p.read_text())
-          assert d["ready"] is True
-          assert d["placementCount"] == 29
-          assert d["resolvedPlacementCount"] == 29
-          e=json.loads(Path("slice/nacht-environment-runtime-authority.json").read_text())
-          assert e["ready"] is True
-          assert e["componentCount"] == 2
-          print("XZOGOT_NACHT_RUNTIME_AUTHORITY_SLICE_GREEN",
-                {"placements": d["placementCount"],
-                 "particleSystems": d["uniquePlacedSystemCount"],
-                 "environmentComponents": e["componentCount"]})
+          from pathlib import Path
+
+          root = Path("full")
+          out = Path("slice")
+          out.mkdir(exist_ok=True)
+
+          def find(name):
+              matches=list(root.rglob(name))
+              if not matches:
+                  raise SystemExit(f"missing {name}")
+              return matches[0]
+
+          passthrough = [
+              "nacht-particles.json",
+              "nacht-particle-graphs.json",
+              "nacht-particle-runtime-authority.json",
+              "particle-runtime-manifest.json",
+              "nacht-environment-scene.json",
+              "nacht-environment-runtime-authority.json",
+              "source_manifest.json",
+              "probe.log",
+          ]
+          for name in passthrough:
+              src=find(name)
+              (out/name).write_bytes(src.read_bytes())
+
+          targets = [
+              "p7_fxanim_gp_tarp_drape_beige_02_s1_smod_Mat",
+              "mtl_p7_fxanim_zm_factory_flag_iron_cross",
+              "Atlas_39246_Mat",
+              "mtl_p7_zm_der_vista_moon",
+              "mtl_p7_zm_gen_debris_concrete_rubble_lg_02",
+              "mtl_p7_zm_gen_debris_concrete_rubble_lg_03",
+              "i_t7_decal_blood_footprints_r_Mat",
+              "i_t7_decal_blood_smear_01_r_mat",
+              "t7_water_cp_bio_muddy_waterfall",
+              "mtl_p7_light_hurricane_lamp",
+              "mtl_p7_zm_der_light_set_metal_worn",
+          ]
+          targets_l=[x.lower() for x in targets]
+
+          def rows_containing(obj, source_name):
+              hits=[]
+              def walk(value, path="$"):
+                  if isinstance(value, dict):
+                      blob=json.dumps(value, sort_keys=True).lower()
+                      if any(t in blob for t in targets_l):
+                          # Keep leaf-ish records, not every parent container.
+                          scalar_keys=sum(not isinstance(v,(dict,list)) for v in value.values())
+                          if scalar_keys or any(k in value for k in ("materialPath","objectPath","source","sourcePath","textures","parameters","parent")):
+                              hits.append({"source":source_name,"path":path,"value":value})
+                      for k,v in value.items():
+                          walk(v, f"{path}.{k}")
+                  elif isinstance(value, list):
+                      for i,v in enumerate(value):
+                          walk(v, f"{path}[{i}]")
+              walk(obj)
+              # Deduplicate identical JSON records.
+              seen=set(); unique=[]
+              for hit in hits:
+                  key=json.dumps(hit["value"], sort_keys=True)
+                  if key in seen: continue
+                  seen.add(key); unique.append(hit)
+              return unique
+
+          material_hits=[]
+          for name in [
+              "material-binding-manifest.json",
+              "xzmi-report.json",
+              "xzml-report.json",
+              "complete-xztx-report.json",
+          ]:
+              p=find(name)
+              data=json.loads(p.read_text())
+              material_hits.extend(rows_containing(data,name))
+
+          (out/"material-fallback-authority-slice.json").write_text(
+              json.dumps({"targets":targets,"hits":material_hits}, indent=2)+"\n"
+          )
+
+          scene=json.loads(find("nacht-static-scene.json").read_text())
+          anchors=[]
+          for row in scene.get("actorAnchors", []):
+              ident=" ".join(str(row.get(k,"")) for k in (
+                  "className","objectPath","rootComponentPath","anchorSource"
+              )).lower()
+              if "playerstart" in ident or "pavlov_spawn" in ident:
+                  anchors.append(row)
+
+          (out/"player-start-authority-slice.json").write_text(
+              json.dumps({"count":len(anchors),"anchors":anchors}, indent=2)+"\n"
+          )
+
+          print("XZOGOT_NACHT_RUNTIME_AUTHORITY_SLICE_GREEN", {
+              "sourceRun": int(__import__("os").environ["SOURCE_RUN"]),
+              "materialHits": len(material_hits),
+              "playerStarts": len(anchors),
+          })
           PY
 
       - name: Upload authority slice
