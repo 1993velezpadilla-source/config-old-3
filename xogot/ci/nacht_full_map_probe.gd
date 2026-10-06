@@ -240,6 +240,42 @@ func _run() -> void:
 	var particle_mystery_fog_peak := int(
 		scene.get_meta("source_particle_mystery_fog_peak_active", -1)
 	)
+	var particle_mystery_fog_life_multiplier_min := scene.get_meta(
+		"source_particle_mystery_fog_life_multiplier_min", Vector3.INF
+	) as Vector3
+	var particle_mystery_fog_life_multiplier_max := scene.get_meta(
+		"source_particle_mystery_fog_life_multiplier_max", Vector3.INF
+	) as Vector3
+	var particle_mystery_fog_life_multiplier_values := int(
+		scene.get_meta("source_particle_mystery_fog_life_multiplier_table_value_count", -1)
+	)
+	var particle_mystery_fog_color_min := scene.get_meta(
+		"source_particle_mystery_fog_color_min", Vector3.INF
+	) as Vector3
+	var particle_mystery_fog_color_max := scene.get_meta(
+		"source_particle_mystery_fog_color_max", Vector3.INF
+	) as Vector3
+	var particle_mystery_fog_rgb_values := int(
+		scene.get_meta("source_particle_mystery_fog_rgb_table_value_count", -1)
+	)
+	var particle_mystery_fog_alpha_max := float(
+		scene.get_meta("source_particle_mystery_fog_alpha_max", -1.0)
+	)
+	var particle_mystery_fog_velocity_life_min := scene.get_meta(
+		"source_particle_mystery_fog_velocity_life_min", Vector3.INF
+	) as Vector3
+	var particle_mystery_fog_velocity_life_max := scene.get_meta(
+		"source_particle_mystery_fog_velocity_life_max", Vector3.INF
+	) as Vector3
+	var particle_mystery_fog_velocity_life_time_scale := float(
+		scene.get_meta("source_particle_mystery_fog_velocity_life_time_scale", -1.0)
+	)
+	var particle_mystery_fog_start_velocity_min := scene.get_meta(
+		"source_particle_mystery_fog_start_velocity_min_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_mystery_fog_start_velocity_max := scene.get_meta(
+		"source_particle_mystery_fog_start_velocity_max_ue_cm", Vector3.INF
+	) as Vector3
 	var source_particles := int(scene.get_meta("source_particle_component_count", -1))
 	var particle_authority := int(scene.get_meta("runtime_particle_authority_count", -1))
 	var source_particle_systems := int(scene.get_meta("source_particle_system_count", -1))
@@ -491,14 +527,26 @@ func _run() -> void:
 			or not particle_mystery_fog_location_max.is_equal_approx(Vector3(95.0, 10.0, 5.0))
 			or not particle_mystery_fog_size_min.is_equal_approx(Vector3(3.0, 3.0, 3.0))
 			or not particle_mystery_fog_size_max.is_equal_approx(Vector3(5.0, 5.0, 5.0))
+			or not particle_mystery_fog_life_multiplier_min.is_equal_approx(Vector3(10.0, 0.0, 0.0))
+			or not particle_mystery_fog_life_multiplier_max.is_equal_approx(Vector3(50.0, 1.0, 1.0))
+			or particle_mystery_fog_life_multiplier_values != 96
+			or not particle_mystery_fog_color_min.is_equal_approx(Vector3(0.49479154, 0.489095, 0.4591))
+			or not particle_mystery_fog_color_max.is_equal_approx(Vector3(1.0, 1.0, 0.97423244))
+			or particle_mystery_fog_rgb_values != 12
+			or particle_mystery_fog_alpha_values != 128
+			or not is_equal_approx(particle_mystery_fog_alpha_max, 1.0380507)
 			or not is_equal_approx(particle_mystery_fog_spawn_rate, 4.0)
 			or not is_equal_approx(particle_mystery_fog_subuv_fps, 16.0)
-			or particle_mystery_fog_alpha_values != 128
+			or not particle_mystery_fog_velocity_life_min.is_equal_approx(Vector3(0.0, 0.0, -1.5))
+			or not particle_mystery_fog_velocity_life_max.is_equal_approx(Vector3(0.0, 0.2, 0.75))
+			or not is_equal_approx(particle_mystery_fog_velocity_life_time_scale, 1.0)
+			or not particle_mystery_fog_start_velocity_min.is_equal_approx(Vector3(0.0, 100.0, 0.0))
+			or not particle_mystery_fog_start_velocity_max.is_equal_approx(Vector3(0.0, 100.0, 40.0))
 			or particle_mystery_fog_peak != 22
 		):
 			_fail(
 				34,
-				"mystery box fog Cascade values mismatch lifetime=%s..%s location=%s..%s size=%s..%s rate=%s subuv_fps=%s alpha=%d peak=%d"
+				"mystery box fog Cascade values mismatch lifetime=%s..%s location=%s..%s size=%s..%s life_mul=%s..%s life_values=%d color=%s..%s rgb=%d alpha=%d alpha_max=%s rate=%s subuv_fps=%s vel_life=%s..%s vel_scale=%s start_vel=%s..%s peak=%d"
 				% [
 					particle_mystery_fog_lifetime_min,
 					particle_mystery_fog_lifetime_max,
@@ -506,9 +554,21 @@ func _run() -> void:
 					particle_mystery_fog_location_max,
 					particle_mystery_fog_size_min,
 					particle_mystery_fog_size_max,
+					particle_mystery_fog_life_multiplier_min,
+					particle_mystery_fog_life_multiplier_max,
+					particle_mystery_fog_life_multiplier_values,
+					particle_mystery_fog_color_min,
+					particle_mystery_fog_color_max,
+					particle_mystery_fog_rgb_values,
+					particle_mystery_fog_alpha_values,
+					particle_mystery_fog_alpha_max,
 					particle_mystery_fog_spawn_rate,
 					particle_mystery_fog_subuv_fps,
-					particle_mystery_fog_alpha_values,
+					particle_mystery_fog_velocity_life_min,
+					particle_mystery_fog_velocity_life_max,
+					particle_mystery_fog_velocity_life_time_scale,
+					particle_mystery_fog_start_velocity_min,
+					particle_mystery_fog_start_velocity_max,
 					particle_mystery_fog_peak,
 				]
 			)
