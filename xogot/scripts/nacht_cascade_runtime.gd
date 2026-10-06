@@ -19,6 +19,8 @@ const MYSTERY_INSIDE_SYSTEM := "/Game/CustomMaps/UGC2755515831/CoD/Particles/mys
 const MYSTERY_INSIDE_MATERIAL := "/Game/CustomMaps/UGC2755515831/CoD/Particles/mysteryBox/inside/mysteryParticle.mysteryParticle"
 const BIG_FIRE_VG_SMK_SYSTEM := "/Game/CustomMaps/UGC2755515831/M5VFXVOL2/Particles/Reference/Fireloop/4_bigfire_vg_smk_pt.4_bigfire_vg_smk_pt"
 const BIG_FIRE_VG_SMK_MATERIAL := "/Game/CustomMaps/UGC2755515831/M5VFXVOL2/Materials/Fireloop_Inst/bigfire_vg_smk_Inst.bigfire_vg_smk_Inst"
+const PAP_WHEEL_OUT_SYSTEM := "/Game/CustomMaps/UGC2755515831/Materials/KillerJim/PapEffects/PaPWheelParticlesOut.PaPWheelParticlesOut"
+const PAP_WHEEL_OUT_MATERIAL := "/Game/CustomMaps/UGC2755515831/Materials/KillerJim/PapEffects/PaPWheelMaterial1.PaPWheelMaterial1"
 
 
 static func _canonical(raw: String) -> String:
@@ -1408,6 +1410,197 @@ static func big_fire_vg_smk_descriptor(graphs: Dictionary) -> Dictionary:
 		"alphaTableValueCount": alpha_values.size(),
 		"spawnRatesByLOD": spawn_rates,
 		"peakActiveByLOD": peaks,
+		"sourceNodeCount": int(system.get("nodeCount", 0)),
+		"sourceReferenceCount": int(system.get("referenceCount", 0)),
+	}
+
+
+static func pap_wheel_out_descriptor(graphs: Dictionary) -> Dictionary:
+	var system := _find_system(graphs, PAP_WHEEL_OUT_SYSTEM)
+	if system.is_empty():
+		return {"ready": false, "error": "PaP wheel out source system missing"}
+	if int(system.get("nodeCount", -1)) != 16:
+		return {"ready": false, "error": "PaP wheel out node count mismatch %d" % int(system.get("nodeCount", -1))}
+	if int(system.get("referenceCount", -1)) != 4:
+		return {"ready": false, "error": "PaP wheel out reference count mismatch %d" % int(system.get("referenceCount", -1))}
+
+	var required := _one_node(system, "ParticleModuleRequired")
+	var lifetime := _one_node(system, "ParticleModuleLifetime")
+	var location := _one_node(system, "ParticleModuleLocation")
+	var size := _one_node(system, "ParticleModuleSize")
+	var size_life := _one_node(system, "ParticleModuleSizeMultiplyLife")
+	var velocity := _one_node(system, "ParticleModuleVelocity")
+	var velocity_life := _one_node(system, "ParticleModuleVelocityOverLifetime")
+	var acceleration := _one_node(system, "ParticleModuleAcceleration")
+	var rotation := _one_node(system, "ParticleModuleRotation")
+	var rotation_rate := _one_node(system, "ParticleModuleRotationRate")
+	var start_color := _one_node(system, "ParticleModuleColor")
+	var color_life := _one_node(system, "ParticleModuleColorOverLife")
+	var spawn := _one_node(system, "ParticleModuleSpawn")
+	var lod := _one_node(system, "ParticleLODLevel")
+	for pair: Array in [
+		["ParticleModuleRequired", required],
+		["ParticleModuleLifetime", lifetime],
+		["ParticleModuleLocation", location],
+		["ParticleModuleSize", size],
+		["ParticleModuleSizeMultiplyLife", size_life],
+		["ParticleModuleVelocity", velocity],
+		["ParticleModuleVelocityOverLifetime", velocity_life],
+		["ParticleModuleAcceleration", acceleration],
+		["ParticleModuleRotation", rotation],
+		["ParticleModuleRotationRate", rotation_rate],
+		["ParticleModuleColor", start_color],
+		["ParticleModuleColorOverLife", color_life],
+		["ParticleModuleSpawn", spawn],
+		["ParticleLODLevel", lod],
+	]:
+		if (pair[1] as Dictionary).is_empty():
+			return {"ready": false, "error": "PaP wheel out missing or duplicate " + str(pair[0])}
+
+	var required_props := ParticleSource.properties(required)
+	var lifetime_props := ParticleSource.properties(lifetime)
+	var location_props := ParticleSource.properties(location)
+	var size_props := ParticleSource.properties(size)
+	var size_life_props := ParticleSource.properties(size_life)
+	var velocity_props := ParticleSource.properties(velocity)
+	var velocity_life_props := ParticleSource.properties(velocity_life)
+	var acceleration_props := ParticleSource.properties(acceleration)
+	var rotation_props := ParticleSource.properties(rotation)
+	var rotation_rate_props := ParticleSource.properties(rotation_rate)
+	var start_color_props := ParticleSource.properties(start_color)
+	var color_life_props := ParticleSource.properties(color_life)
+	var spawn_props := ParticleSource.properties(spawn)
+	var lod_props := ParticleSource.properties(lod)
+
+	var material_path := str(required_props.get("Material", ""))
+	var emitter_duration := float(required_props.get("EmitterDuration", -1.0))
+	var emitter_loops := int(required_props.get("EmitterLoops", -1))
+	var random_image_time := int(required_props.get("RandomImageTime", -1))
+	var legacy_emitter_time := bool(required_props.get("bUseLegacyEmitterTime", true))
+
+	var life := _distribution(lifetime_props.get("Lifetime"))
+	var start_location := _distribution(location_props.get("StartLocation"))
+	var start_size := _distribution(size_props.get("StartSize"))
+	var life_multiplier := _distribution(size_life_props.get("LifeMultiplier"))
+	var start_velocity := _distribution(velocity_props.get("StartVelocity"))
+	var velocity_over_life := _distribution(velocity_life_props.get("VelOverLife"))
+	var accel := _distribution(acceleration_props.get("Acceleration"))
+	var start_rotation := _distribution(rotation_props.get("StartRotation"))
+	var start_rotation_rate := _distribution(rotation_rate_props.get("StartRotationRate"))
+	var color_start := _distribution(start_color_props.get("StartColor"))
+	var alpha_start := _distribution(start_color_props.get("StartAlpha"))
+	var color_over_life := _distribution(color_life_props.get("ColorOverLife"))
+	var alpha_over_life := _distribution(color_life_props.get("AlphaOverLife"))
+	var rate := _distribution(spawn_props.get("Rate"))
+	var rate_scale := _distribution(spawn_props.get("RateScale"))
+
+	var life_min := float(life.get("MinValue", -1.0))
+	var life_max := float(life.get("MaxValue", -1.0))
+	var location_min := _vector_from_distribution(start_location, "MinValueVec", Vector3.INF)
+	var location_max := _vector_from_distribution(start_location, "MaxValueVec", Vector3.INF)
+	var size_min := _vector_from_distribution(start_size, "MinValueVec", Vector3.INF)
+	var size_max := _vector_from_distribution(start_size, "MaxValueVec", Vector3.INF)
+	var velocity_min := _vector_from_distribution(start_velocity, "MinValueVec", Vector3.INF)
+	var velocity_max := _vector_from_distribution(start_velocity, "MaxValueVec", Vector3.INF)
+	var velocity_life_max := _vector_from_distribution(velocity_over_life, "MaxValueVec", Vector3.INF)
+	var accel_min := _vector_from_distribution(accel, "MinValueVec", Vector3.INF)
+	var accel_max := _vector_from_distribution(accel, "MaxValueVec", Vector3.INF)
+	var start_color_min := _vector_from_distribution(color_start, "MinValueVec", Vector3.INF)
+	var start_color_max := _vector_from_distribution(color_start, "MaxValueVec", Vector3.INF)
+
+	var life_multiplier_values := ParticleSource.table_values(life_multiplier)
+	var velocity_life_values := ParticleSource.table_values(velocity_over_life)
+	var color_life_values := ParticleSource.table_values(color_over_life)
+	var alpha_life_values := ParticleSource.table_values(alpha_over_life)
+	var rotation_values := ParticleSource.table_values(start_rotation)
+
+	var velocity_life_table_raw: Variant = velocity_over_life.get("Table", {})
+	var velocity_life_table := velocity_life_table_raw as Dictionary if velocity_life_table_raw is Dictionary else {}
+	var velocity_life_time_scale := float(velocity_life_table.get("TimeScale", -1.0))
+	var life_table_raw: Variant = life_multiplier.get("Table", {})
+	var life_table := life_table_raw as Dictionary if life_table_raw is Dictionary else {}
+	var life_time_scale := float(life_table.get("TimeScale", -1.0))
+
+	var spawn_rate := float(rate.get("MinValue", -1.0))
+	var spawn_rate_max := float(rate.get("MaxValue", -1.0))
+	var spawn_scale := float(rate_scale.get("MinValue", -1.0))
+	var spawn_scale_max := float(rate_scale.get("MaxValue", -1.0))
+	var rotation_rate_min := float(start_rotation_rate.get("MinValue", 999.0))
+	var rotation_rate_max := float(start_rotation_rate.get("MaxValue", -999.0))
+	var rotation_max := float(start_rotation.get("MaxValue", -1.0))
+	var start_alpha_min := float(alpha_start.get("MinValue", -1.0))
+	var start_alpha_max := float(alpha_start.get("MaxValue", -1.0))
+	var peak_active := int(lod_props.get("PeakActiveParticles", -1))
+	var acceleration_world_space := bool(acceleration_props.get("bAlwaysInWorldSpace", false))
+
+	if _canonical(material_path) != _canonical(PAP_WHEEL_OUT_MATERIAL):
+		return {"ready": false, "error": "PaP wheel out material mismatch " + material_path}
+	if not is_equal_approx(emitter_duration, 5.0) or emitter_loops != 1:
+		return {"ready": false, "error": "PaP wheel out emitter duration/loops mismatch"}
+	if random_image_time != 1 or legacy_emitter_time:
+		return {"ready": false, "error": "PaP wheel out emitter timing flags mismatch"}
+	if not is_equal_approx(life_min, 0.5) or not is_equal_approx(life_max, 1.5):
+		return {"ready": false, "error": "PaP wheel out lifetime mismatch %s..%s" % [life_min, life_max]}
+	if not location_min.is_equal_approx(Vector3(-50.0, -50.0, -10.0)) or not location_max.is_equal_approx(Vector3(50.0, 50.0, 10.0)):
+		return {"ready": false, "error": "PaP wheel out location range mismatch"}
+	if not size_min.is_equal_approx(Vector3(3.0, 3.0, 3.0)) or not size_max.is_equal_approx(Vector3(5.0, 5.0, 5.0)):
+		return {"ready": false, "error": "PaP wheel out size range mismatch"}
+	if life_multiplier_values.size() != 384 or not is_equal_approx(life_time_scale, 127.34587):
+		return {"ready": false, "error": "PaP wheel out size-life table mismatch values=%d time=%s" % [life_multiplier_values.size(), life_time_scale]}
+	if not velocity_min.is_equal_approx(Vector3(60.0, -5.0, -5.0)) or not velocity_max.is_equal_approx(Vector3(80.0, 5.0, 5.0)):
+		return {"ready": false, "error": "PaP wheel out start velocity mismatch"}
+	if not velocity_life_max.is_equal_approx(Vector3(1.0, 10.0, 10.0)):
+		return {"ready": false, "error": "PaP wheel out velocity-over-life max mismatch " + str(velocity_life_max)}
+	if velocity_life_values.size() != 6 or not is_equal_approx(velocity_life_time_scale, 2.0):
+		return {"ready": false, "error": "PaP wheel out velocity-over-life table mismatch"}
+	if not accel_min.is_equal_approx(Vector3(0.0, 0.0, -10.0)) or not accel_max.is_equal_approx(Vector3(0.0, 0.0, -15.0)):
+		return {"ready": false, "error": "PaP wheel out acceleration mismatch"}
+	if not acceleration_world_space:
+		return {"ready": false, "error": "PaP wheel out acceleration world-space flag mismatch"}
+	if not is_equal_approx(rotation_rate_min, -0.1) or not is_equal_approx(rotation_rate_max, 0.2):
+		return {"ready": false, "error": "PaP wheel out rotation rate mismatch"}
+	if not is_equal_approx(rotation_max, 1.0) or rotation_values.size() != 2:
+		return {"ready": false, "error": "PaP wheel out start rotation mismatch"}
+	if not start_color_min.is_equal_approx(Vector3(0.786901, 0.890625, 0.844701)) or not start_color_max.is_equal_approx(Vector3.ONE):
+		return {"ready": false, "error": "PaP wheel out start color mismatch"}
+	if not is_equal_approx(start_alpha_min, 1.0) or not is_equal_approx(start_alpha_max, 1.0):
+		return {"ready": false, "error": "PaP wheel out start alpha mismatch"}
+	if color_life_values.size() != 6 or alpha_life_values.size() != 2:
+		return {"ready": false, "error": "PaP wheel out color-over-life table mismatch"}
+	if not is_equal_approx(spawn_rate, 15.0) or not is_equal_approx(spawn_rate_max, 15.0):
+		return {"ready": false, "error": "PaP wheel out spawn rate mismatch"}
+	if not is_equal_approx(spawn_scale, 15.0) or not is_equal_approx(spawn_scale_max, 15.0):
+		return {"ready": false, "error": "PaP wheel out spawn rate scale mismatch"}
+	if peak_active != 339:
+		return {"ready": false, "error": "PaP wheel out peak active mismatch %d" % peak_active}
+
+	return {
+		"ready": true,
+		"systemPath": PAP_WHEEL_OUT_SYSTEM,
+		"materialPath": material_path,
+		"emitterDuration": emitter_duration,
+		"emitterLoops": emitter_loops,
+		"lifetimeMin": life_min,
+		"lifetimeMax": life_max,
+		"startLocationMinUEcm": location_min,
+		"startLocationMaxUEcm": location_max,
+		"startSizeMinUEcm": size_min,
+		"startSizeMaxUEcm": size_max,
+		"sizeLifeTableValueCount": life_multiplier_values.size(),
+		"sizeLifeTimeScale": life_time_scale,
+		"startVelocityMinUEcm": velocity_min,
+		"startVelocityMaxUEcm": velocity_max,
+		"velocityOverLifeMax": velocity_life_max,
+		"velocityOverLifeTableValueCount": velocity_life_values.size(),
+		"velocityOverLifeTimeScale": velocity_life_time_scale,
+		"accelerationMinUEcm": accel_min,
+		"accelerationMaxUEcm": accel_max,
+		"accelerationWorldSpace": acceleration_world_space,
+		"rotationRateMin": rotation_rate_min,
+		"rotationRateMax": rotation_rate_max,
+		"spawnRate": spawn_rate,
+		"spawnRateScale": spawn_scale,
+		"peakActiveParticles": peak_active,
 		"sourceNodeCount": int(system.get("nodeCount", 0)),
 		"sourceReferenceCount": int(system.get("referenceCount", 0)),
 	}
