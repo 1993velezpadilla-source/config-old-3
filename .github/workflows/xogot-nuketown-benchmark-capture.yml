@@ -62,7 +62,20 @@ jobs:
               "animations":9,
           }
           assert {k:int(complete[k]["count"]) for k in expected} == expected, complete
+          assert authority["texture_count"] == 321, authority
+          assert authority["complete_source_texture_count"] == 321, authority
+          skeletal=authority["complete_skeletal_runtime_library"]
+          assert skeletal["exact_runtime_bindings_ready"] is True, skeletal
+          bindings=json.loads((root/skeletal["runtime_bindings"]).read_text())
+          assert bindings["ready"] is True, bindings
+          assert bindings["bindingCount"] == 3, bindings
+          assert len(bindings["bindings"]) == 3, bindings
+          assert sum(len(row["animations"]) for row in bindings["bindings"]) == 9, bindings
           print("XZOGOT_NUKETOWN_CAPTURE_COMPLETE_SOURCE_GREEN", expected)
+          print(
+              "XZOGOT_NUKETOWN_CAPTURE_SKELETAL_GREEN",
+              [(row["actorName"],row["sourceXzskFile"],row["gltf"]) for row in bindings["bindings"]]
+          )
 
           p=root/"native-glb-report.json"
           d=json.loads(p.read_text())
