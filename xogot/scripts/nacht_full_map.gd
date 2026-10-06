@@ -309,9 +309,11 @@ func _build_actor_anchors() -> void:
 			+ str(row.get("objectPath", "")) + " "
 			+ str(row.get("rootComponentPath", ""))
 		).to_lower()
+		# Only source actor identities known to represent player starts are
+		# eligible. Never fall back to a generic "spawn" substring because the
+		# Nacht package also contains zombie/dog/FX spawn actors.
 		if (
 			identity.contains("playerstart")
-			or identity.contains("spawn")
 			or identity.contains("pavlov_spawn")
 		):
 			_source_spawn_candidates.append(anchor)
