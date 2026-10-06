@@ -150,8 +150,14 @@ func _run() -> void:
 	)):
 		_fail(70, "admin whitelist accepted unknown Shack identity")
 		return
-	if source_audio_source_stream_count + source_audio_fallback_stream_count + source_audio_missing_stream_count != 4:
-		_fail(59, "source ambient disposition total mismatch")
+	if source_audio_source_stream_count != 4:
+		_fail(71, "all four ambient source WAVs were not active " + str(source_audio_source_stream_count))
+		return
+	if source_audio_fallback_stream_count != 0:
+		_fail(72, "ambient fallback used despite mounted source WAVs " + str(source_audio_fallback_stream_count))
+		return
+	if source_audio_missing_stream_count != 0:
+		_fail(73, "mounted source WAV route still missing " + str(source_audio_missing_stream_count))
 		return
 	if navigation_polygon_count <= 0:
 		_fail(46, "source-collision navigation bake produced no polygons")
@@ -284,6 +290,13 @@ func _run() -> void:
 		return
 	if not bool(weapon.call("is_source_external_placeholder")):
 		_fail(45, "mystery external item placeholder was not explicit")
+		return
+	if not bool(mystery_runtime.get_meta("source_sfx_active", false)):
+		_fail(74, "Mystery Box did not play mounted source WAV")
+		return
+	var mystery_active_sfx := str(mystery_runtime.get_meta("active_sfx_path", ""))
+	if not mystery_active_sfx.ends_with("music_box_00.wav"):
+		_fail(75, "Mystery Box active source WAV mismatch " + mystery_active_sfx)
 		return
 
 	var round_manager := scene.get_node_or_null("RoundManager")

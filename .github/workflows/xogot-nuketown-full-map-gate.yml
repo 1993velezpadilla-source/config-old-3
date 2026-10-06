@@ -65,6 +65,35 @@ jobs:
           print("XZOGOT_NUKETOWN_FULL_SOURCE_PREFLIGHT_GREEN", dict(classes))
           PY
 
+      - name: Mount latest private Nuketown source WAV proof
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          AUDIO_RUN=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${GITHUB_REPOSITORY}/actions/workflows/xogot-nuketown-audio-truth.yml/runs?branch=feature%2Fgodot-aaa-rebuild-v1&status=success&per_page=1" \
+            --jq '.workflow_runs[0].id')
+          test -n "$AUDIO_RUN"
+          rm -rf "$RUNNER_TEMP/nuketown-audio-proof"
+          mkdir -p "$RUNNER_TEMP/nuketown-audio-proof"
+          gh run download "$AUDIO_RUN" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name Xogot-Nuketown-Source-Audio-Proof \
+            --dir "$RUNNER_TEMP/nuketown-audio-proof"
+
+          mkdir -p xogot/assets/benchmarks/nuketown_xziel/audio
+          find "$RUNNER_TEMP/nuketown-audio-proof" -type f -name '*.wav' -print0 \
+            | xargs -0 -I{} cp "{}" xogot/assets/benchmarks/nuketown_xziel/audio/
+
+          WAV_COUNT=$(find xogot/assets/benchmarks/nuketown_xziel/audio -maxdepth 1 -type f -name '*.wav' | wc -l)
+          test "$WAV_COUNT" -eq 20
+          test -s xogot/assets/benchmarks/nuketown_xziel/audio/music_box_00.wav
+          test -s xogot/assets/benchmarks/nuketown_xziel/audio/ntzombiesamb.wav
+          test -s xogot/assets/benchmarks/nuketown_xziel/audio/marlton_1.wav
+          echo "XZOGOT_NUKETOWN_SOURCE_AUDIO_MOUNT_GREEN run=$AUDIO_RUN wavs=$WAV_COUNT"
+
       - name: Install rendering and ASTC tools
         shell: bash
         run: |
