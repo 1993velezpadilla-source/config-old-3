@@ -103,7 +103,18 @@ List<object> BuildHierarchy(USceneComponent start)
             }
         });
 
-        current = current.GetAttachParent();
+        USceneComponent? parent = null;
+        try
+        {
+            var attach = current.AttachParent;
+            if (attach is { IsNull: false })
+                attach.TryLoad<USceneComponent>(out parent);
+        }
+        catch
+        {
+            parent = null;
+        }
+        current = parent;
     }
 
     if (rows.Count == 0)
@@ -202,6 +213,20 @@ object[] DescribeProperties(
         .ToArray();
 }
 
+Dictionary<string, object?> DescribeNamedProperties(
+    USceneComponent component,
+    IEnumerable<string> names)
+{
+    var wanted = names.ToHashSet(StringComparer.Ordinal);
+    return component.Properties
+        .Where(p => wanted.Contains(p.Name.Text))
+        .OrderBy(p => p.Name.Text, StringComparer.Ordinal)
+        .ToDictionary(
+            p => p.Name.Text,
+            p => DescribeDiagnosticValue(p.Tag?.GenericValue),
+            StringComparer.Ordinal);
+}
+
 string Kind(USceneComponent component)
 {
     if (component is UExponentialHeightFogComponent)
@@ -296,92 +321,75 @@ foreach (var logicalPackage in mapPackages)
                 counts.GetValueOrDefault(kind) + 1;
 
             object typed;
-            if (component is UExponentialHeightFogComponent fog)
+            if (component is UExponentialHeightFogComponent)
             {
-                typed = new {
-                    fogDensity = fog.FogDensity,
-                    fogHeightFalloff = fog.FogHeightFalloff,
-                    fogMaxOpacity = fog.FogMaxOpacity,
-                    startDistanceCm = fog.StartDistance,
-                    fogInscatteringLuminance =
-                        fog.FogInscatteringLuminance.ToString(),
-                    directionalInscatteringLuminance =
-                        fog.DirectionalInscatteringLuminance.ToString(),
-                    directionalInscatteringExponent =
-                        fog.DirectionalInscatteringExponent,
-                    directionalInscatteringStartDistanceCm =
-                        fog.DirectionalInscatteringStartDistance
-                };
+                typed = DescribeNamedProperties(component, new[] {
+                    "FogDensity",
+                    "FogHeightFalloff",
+                    "FogMaxOpacity",
+                    "StartDistance",
+                    "FogInscatteringLuminance",
+                    "DirectionalInscatteringLuminance",
+                    "DirectionalInscatteringExponent",
+                    "DirectionalInscatteringStartDistance",
+                    "SecondFogData",
+                    "FogCutoffDistance",
+                    "VolumetricFog",
+                    "VolumetricFogScatteringDistribution",
+                    "VolumetricFogAlbedo",
+                    "VolumetricFogEmissive",
+                    "VolumetricFogExtinctionScale",
+                    "VolumetricFogDistance",
+                    "VolumetricFogStaticLightingScatteringIntensity"
+                });
             }
-            else if (component is UAtmosphericFogComponent atmospheric)
+            else if (
+                component is UAtmosphericFogComponent ||
+                component is USkyAtmosphereComponent)
             {
-                typed = new {
-                    transformMode = atmospheric.TransformMode.ToString(),
-                    bottomRadiusKm = atmospheric.BottomRadius,
-                    atmosphereHeightKm = atmospheric.AtmosphereHeight,
-                    rayleighScatteringScale =
-                        atmospheric.RayleighScatteringScale,
-                    rayleighScattering =
-                        atmospheric.RayleighScattering.ToString(),
-                    rayleighDistributionKm =
-                        atmospheric.RayleighExponentialDistribution,
-                    mieScatteringScale =
-                        atmospheric.MieScatteringScale,
-                    mieScattering =
-                        atmospheric.MieScattering.ToString(),
-                    mieAbsorptionScale =
-                        atmospheric.MieAbsorptionScale,
-                    mieAbsorption =
-                        atmospheric.MieAbsorption.ToString(),
-                    mieAnisotropy =
-                        atmospheric.MieAnisotropy,
-                    mieDistributionKm =
-                        atmospheric.MieExponentialDistribution,
-                    skyLuminanceFactor =
-                        atmospheric.SkyLuminanceFactor.ToString()
-                };
+                typed = DescribeNamedProperties(component, new[] {
+                    "TransformMode",
+                    "BottomRadius",
+                    "AtmosphereHeight",
+                    "GroundAlbedo",
+                    "RayleighScatteringScale",
+                    "RayleighScattering",
+                    "RayleighExponentialDistribution",
+                    "MieScatteringScale",
+                    "MieScattering",
+                    "MieAbsorptionScale",
+                    "MieAbsorption",
+                    "MieAnisotropy",
+                    "MieExponentialDistribution",
+                    "OtherAbsorptionScale",
+                    "OtherAbsorption",
+                    "SkyLuminanceFactor",
+                    "AerialPespectiveViewDistanceScale",
+                    "HeightFogContribution",
+                    "TransmittanceMinLightElevationAngle"
+                });
             }
-            else if (component is USkyAtmosphereComponent sky)
+            else if (component is UReflectionCaptureComponent)
             {
-                typed = new {
-                    transformMode = sky.TransformMode.ToString(),
-                    bottomRadiusKm = sky.BottomRadius,
-                    atmosphereHeightKm = sky.AtmosphereHeight,
-                    rayleighScatteringScale =
-                        sky.RayleighScatteringScale,
-                    rayleighScattering =
-                        sky.RayleighScattering.ToString(),
-                    rayleighDistributionKm =
-                        sky.RayleighExponentialDistribution,
-                    mieScatteringScale =
-                        sky.MieScatteringScale,
-                    mieScattering =
-                        sky.MieScattering.ToString(),
-                    mieAbsorptionScale =
-                        sky.MieAbsorptionScale,
-                    mieAbsorption =
-                        sky.MieAbsorption.ToString(),
-                    mieAnisotropy =
-                        sky.MieAnisotropy,
-                    mieDistributionKm =
-                        sky.MieExponentialDistribution,
-                    skyLuminanceFactor =
-                        sky.SkyLuminanceFactor.ToString()
-                };
+                typed = DescribeNamedProperties(component, new[] {
+                    "AverageBrightness",
+                    "Brightness",
+                    "CaptureOffset",
+                    "InfluenceRadius",
+                    "ReflectionSourceType",
+                    "Cubemap"
+                });
             }
-            else if (component is UReflectionCaptureComponent reflection)
+            else if (component is UPostProcessComponent)
             {
-                typed = new {
-                    averageBrightness =
-                        reflection.AverageBrightness,
-                    legacy = reflection.bLegacy,
-                    legacyCubemapSize =
-                        reflection.LegacyMapBuildData?
-                            .CubemapSize,
-                    legacyAverageBrightness =
-                        reflection.LegacyMapBuildData?
-                            .AverageBrightness
-                };
+                typed = DescribeNamedProperties(component, new[] {
+                    "BlendRadius",
+                    "BlendWeight",
+                    "Priority",
+                    "bEnabled",
+                    "bUnbound",
+                    "Settings"
+                });
             }
             else
             {
