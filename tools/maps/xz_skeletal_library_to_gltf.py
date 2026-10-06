@@ -297,28 +297,56 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("artifact_root", type=Path)
     parser.add_argument("output_dir", type=Path)
+    parser.add_argument("--rig-report", type=Path)
+    parser.add_argument("--mesh-report", type=Path)
+    parser.add_argument("--anim-report", type=Path)
+    parser.add_argument("--expected-rigs", type=int, default=3)
+    parser.add_argument("--expected-meshes", type=int, default=3)
+    parser.add_argument("--expected-anims", type=int, default=9)
     args = parser.parse_args()
 
-    rig_report_path, rig_report = find_probe_report(
-        args.artifact_root, "ue-xzrg-probe"
-    )
-    mesh_report_path, mesh_report = find_probe_report(
-        args.artifact_root, "ue-xzsk-probe"
-    )
-    anim_report_path, anim_report = find_probe_report(
-        args.artifact_root, "ue-xzan-probe"
-    )
+    explicit = [args.rig_report, args.mesh_report, args.anim_report]
+    if any(value is not None for value in explicit):
+        if not all(value is not None for value in explicit):
+            raise SystemExit(
+                "--rig-report, --mesh-report and --anim-report must be provided together"
+            )
+        rig_report_path = args.rig_report
+        mesh_report_path = args.mesh_report
+        anim_report_path = args.anim_report
+        assert rig_report_path is not None
+        assert mesh_report_path is not None
+        assert anim_report_path is not None
+        rig_report = json.loads(rig_report_path.read_text())
+        mesh_report = json.loads(mesh_report_path.read_text())
+        anim_report = json.loads(anim_report_path.read_text())
+    else:
+        rig_report_path, rig_report = find_probe_report(
+            args.artifact_root, "ue-xzrg-probe"
+        )
+        mesh_report_path, mesh_report = find_probe_report(
+            args.artifact_root, "ue-xzsk-probe"
+        )
+        anim_report_path, anim_report = find_probe_report(
+            args.artifact_root, "ue-xzan-probe"
+        )
 
     rigs = list(rig_report.get("skeletons", []))
     meshes = list(mesh_report.get("meshes", []))
     animations = list(anim_report.get("animations", []))
 
-    if len(rigs) != 3:
-        raise SystemExit(f"expected 3 source skeletons, got {len(rigs)}")
-    if len(meshes) != 3:
-        raise SystemExit(f"expected 3 source skeletal meshes, got {len(meshes)}")
-    if len(animations) != 9:
-        raise SystemExit(f"expected 9 source animations, got {len(animations)}")
+    if len(rigs) != args.expected_rigs:
+        raise SystemExit(
+            f"expected {args.expected_rigs} source skeletons, got {len(rigs)}"
+        )
+    if len(meshes) != args.expected_meshes:
+        raise SystemExit(
+            f"expected {args.expected_meshes} source skeletal meshes, got {len(meshes)}"
+        )
+    if len(animations) != args.expected_anims:
+        raise SystemExit(
+            f"expected {args.expected_anims} source animations, got {len(animations)}"
+        )
 
     rig_by_hash = {str(row["skeletonHash"]): row for row in rigs}
     animations_by_hash: dict[str, list[dict]] = defaultdict(list)
@@ -367,14 +395,39 @@ def main() -> int:
         missing = sorted(source_animation_packages - covered_animation_packages)
         raise SystemExit(f"source animations not bridged: {missing}")
 
+    mesh_hashes = {str(row["skeletonHash"]) for row in meshes}
+    animation_hashes = {str(row["skeletonHash"]) for row in animations}
+    rig_hashes = {str(row["skeletonHash"]) for row in rigs}
+    missing_animation_rigs = sorted(animation_hashes - rig_hashes)
+    unmounted_animation_hashes = sorted(animation_hashes - mesh_hashes)
+    if missing_animation_rigs:
+        raise SystemExit(
+            "animations reference unrecovered skeleton hashes: "
+            + repr(missing_animation_rigs)
+        )
+    if unmounted_animation_hashes:
+        raise SystemExit(
+            "animations have no skeletal mesh carrier: "
+            + repr(unmounted_animation_hashes)
+        )
+
     manifest = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "sourceSkeletonCount": len(rigs),
         "sourceSkeletalMeshCount": len(meshes),
         "sourceAnimationCount": len(animations),
         "outputCount": len(rows),
+        "coveredAnimationCount": len(covered_animation_packages),
+        "skeletonHashCount": len(rig_hashes),
+        "meshSkeletonHashCount": len(mesh_hashes),
+        "animationSkeletonHashCount": len(animation_hashes),
+        "unmountedAnimationSkeletonHashes": unmounted_animation_hashes,
         "meshes": rows,
-        "ready": True,
+        "ready": (
+            len(covered_animation_packages) == len(animations)
+            and not missing_animation_rigs
+            and not unmounted_animation_hashes
+        ),
     }
     (output_dir / "manifest.json").write_text(
         json.dumps(manifest, indent=2) + "\n"
