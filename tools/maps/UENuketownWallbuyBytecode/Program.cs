@@ -505,6 +505,29 @@ static JToken SafeObjectTree(object? value, UAsset asset, int depth)
                 depth + 1);
         }
 
+        // PropertyData<T>.Value is an inherited public property rather than a
+        // field. Dump it explicitly so DataTable rows and Blueprint defaults
+        // retain their authoritative cooked values (weapon IDs, costs, enum
+        // values, multipliers, etc.) instead of only property metadata.
+        var mainValueProperty = type.GetProperty(
+            "Value",
+            BindingFlags.Public | BindingFlags.Instance);
+        if (mainValueProperty is not null &&
+            mainValueProperty.CanRead &&
+            mainValueProperty.GetIndexParameters().Length == 0)
+        {
+            try
+            {
+                var mainValue = mainValueProperty.GetValue(value);
+                if (mainValue is not null)
+                    row["Value"] = SafeObjectTree(
+                        mainValue,
+                        asset,
+                        depth + 1);
+            }
+            catch { }
+        }
+
         return row;
     }
 
