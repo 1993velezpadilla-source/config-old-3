@@ -1285,6 +1285,10 @@ func _build_shared_source_world() -> bool:
 		int(_benchmark_loader.get_meta("xziel_benchmark_effective_default_surface_count", 0))
 	)
 	set_meta(
+		"source_effective_engine_default_count",
+		int(_benchmark_loader.get_meta("xziel_benchmark_effective_engine_default_count", 0))
+	)
+	set_meta(
 		"source_effective_unresolved_fallback_count",
 		int(_benchmark_loader.get_meta("xziel_benchmark_effective_unresolved_fallback_count", 0))
 	)
