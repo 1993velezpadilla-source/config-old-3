@@ -238,6 +238,14 @@ ResolveAuthoritativeTextureReferences(
     }
 }
 
+'''
+if anchor not in text:
+    raise SystemExit("helper insertion anchor missing")
+text = text.replace(anchor, helper + anchor, 1)
+
+if "sealed record TextureTruth(" not in text:
+    text = text.rstrip() + r"""
+
 sealed record TextureTruth(
     string Parameter,
     string? ObjectPath,
@@ -245,11 +253,7 @@ sealed record TextureTruth(
     bool Loaded,
     string? Reference,
     string? ReferenceType);
-
-'''
-if anchor not in text:
-    raise SystemExit("helper insertion anchor missing")
-text = text.replace(anchor, helper + anchor, 1)
+""" + "\n"
 
 path.write_text(text, encoding="utf-8")
 print("XZOGOT_UE421_MATERIAL_TEXTURE_REFERENCE_PATCH_GREEN")
