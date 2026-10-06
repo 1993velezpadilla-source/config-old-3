@@ -272,6 +272,7 @@ jobs:
           audio_cues=json.loads((root/"nacht-audio-cues.json").read_text())
           audio_runtime_authority=json.loads((root/"nacht-audio-runtime-authority.json").read_text())
           audio_cue_runtime=json.loads((root/"audio-cue-runtime-manifest.json").read_text())
+          audio_runtime=json.loads((root/"audio-runtime-report.json").read_text())
           mats=json.loads((root/"material-binding-manifest.json").read_text())
           glb=json.loads((root/"native-glb-report.json").read_text())
           dds=json.loads((root/"native-dds-report.json").read_text())
@@ -311,6 +312,8 @@ jobs:
           assert len(audio_runtime_authority["unresolvedAssets"]) == 0, audio_runtime_authority
           assert audio_cue_runtime["ready"] is True, audio_cue_runtime
           assert audio_cue_runtime["placementCount"] == 3, audio_cue_runtime
+          assert audio_cue_runtime["semanticRuntimeReadyPlacementCount"] == 3, audio_cue_runtime
+          assert audio_cue_runtime["allPlacedCueSemanticsSupported"] is True, audio_cue_runtime
           assert glb["mesh_count"] == len(scene["meshes"]), (glb["mesh_count"],len(scene["meshes"]))
           assert dds["ready"] is True and dds["failure_count"] == 0, dds
           assert dds["texture_count"] == xzml["textureAssetCount"], (dds,xzml["textureAssetCount"])
