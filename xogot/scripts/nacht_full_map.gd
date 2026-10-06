@@ -182,6 +182,18 @@ func _build_shared_source_world() -> bool:
 		"source_texture_load_failures",
 		int(_benchmark_loader.get_meta("xziel_benchmark_texture_load_failures", 0))
 	)
+	set_meta(
+		"source_complete_texture_catalog_count",
+		int(_benchmark_loader.get_meta("xziel_benchmark_complete_texture_catalog_count", 0))
+	)
+	set_meta(
+		"source_texture_resource_hits",
+		int(_benchmark_loader.get_meta("xziel_benchmark_texture_resource_hits", 0))
+	)
+	set_meta(
+		"source_texture_image_hits",
+		int(_benchmark_loader.get_meta("xziel_benchmark_texture_image_hits", 0))
+	)
 	if not ready:
 		push_error(
 			"NACHT_FULL_MAP: generic source world incomplete instances="
