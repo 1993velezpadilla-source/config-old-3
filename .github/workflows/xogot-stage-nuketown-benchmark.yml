@@ -2,13 +2,11 @@ name: Stage Nuketown Source World Benchmark
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - feature/godot-aaa-rebuild-v1
-    paths:
-      - ".github/workflows/xogot-stage-nuketown-benchmark.yml"
-      - "tools/maps/xzms_to_glb.py"
-      - "xogot/scripts/xziel_benchmark_loader.gd"
+  workflow_run:
+    workflows:
+      - "Xogot Nuketown Full Source Authority"
+    types:
+      - completed
 
 permissions:
   contents: write
@@ -20,12 +18,12 @@ concurrency:
 
 jobs:
   stage:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
       GH_TOKEN: ${{ github.token }}
-      SOURCE_RUN: "36613010234"
-      SOURCE_ARTIFACT: "XZIEL-Nuketown-Zombies-Virgin-Package-Census"
+      SOURCE_ARTIFACT: "Xogot-Nuketown-Full-Source-Authority"
 
     steps:
       - uses: actions/checkout@v5
@@ -33,10 +31,22 @@ jobs:
           ref: feature/godot-aaa-rebuild-v1
           fetch-depth: 0
 
-      - name: Download resolved XZIEL Nuketown world artifact
+      - name: Download complete-source-derived Nuketown runtime artifact
         shell: bash
         run: |
           set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            SOURCE_RUN="${{ github.event.workflow_run.id }}"
+          else
+            SOURCE_RUN=$(gh api \
+              -H "Accept: application/vnd.github+json" \
+              "/repos/${GITHUB_REPOSITORY}/actions/runs?branch=feature%2Fgodot-aaa-rebuild-v1&status=success&per_page=100" \
+              --jq '.workflow_runs[] | select(.name=="Xogot Nuketown Full Source Authority") | .id' \
+              | head -1)
+          fi
+          test -n "$SOURCE_RUN"
+          echo "SOURCE_RUN=$SOURCE_RUN" >> "$GITHUB_ENV"
+
           rm -rf "$RUNNER_TEMP/nuketown-rich"
           mkdir -p "$RUNNER_TEMP/nuketown-rich"
           gh run download "$SOURCE_RUN" -n "$SOURCE_ARTIFACT" -D "$RUNNER_TEMP/nuketown-rich"
@@ -44,15 +54,20 @@ jobs:
           SCENE=$(find "$RUNNER_TEMP/nuketown-rich" -type f -path '*/runtime-static-scene/visual-scene.json' | head -1)
           test -n "$SCENE"
           RUNTIME_ROOT=$(dirname "$SCENE")
+          AUTH_ROOT=$(dirname "$RUNTIME_ROOT")
           echo "RUNTIME_ROOT=$RUNTIME_ROOT" >> "$GITHUB_ENV"
+          echo "AUTH_ROOT=$AUTH_ROOT" >> "$GITHUB_ENV"
 
+          test -s "$AUTH_ROOT/nuketown-full-content-manifest.json"
+          test -s "$AUTH_ROOT/nuketown-content-files.txt"
+          test -s "$AUTH_ROOT/nuketown-source-export-manifest-summary.json"
           test -s "$RUNTIME_ROOT/ue-lights.json"
           test -s "$RUNTIME_ROOT/xzen-report.json"
           test -s "$RUNTIME_ROOT/material-binding-manifest.json"
           test -s "$RUNTIME_ROOT/xzml-report.json"
           test -d "$RUNTIME_ROOT/vfs/xziel/maps/xziel_nuketown_zombies/meshes"
           test -d "$RUNTIME_ROOT/vfs/xziel/maps/xziel_nuketown_zombies/textures"
-          echo "XZOGOT_NUKETOWN_RESOLVED_WORLD_SOURCE_GREEN"
+          echo "XZOGOT_NUKETOWN_COMPLETE_SOURCE_RUNTIME_GREEN run=$SOURCE_RUN"
 
       - name: Stage only runtime world payload
         shell: bash
@@ -70,6 +85,9 @@ jobs:
           cp "$RUNTIME_ROOT/xzmi-report.json" "$dst/xzmi-report.json"
           cp "$RUNTIME_ROOT/materials.xzml" "$dst/materials.xzml"
           cp "$RUNTIME_ROOT/materials.xzmi" "$dst/materials.xzmi"
+          cp "$AUTH_ROOT/nuketown-full-content-manifest.json" "$dst/nuketown-full-content-manifest.json"
+          cp "$AUTH_ROOT/nuketown-content-files.txt" "$dst/nuketown-content-files.txt"
+          cp "$AUTH_ROOT/nuketown-source-export-manifest-summary.json" "$dst/nuketown-source-export-manifest-summary.json"
 
           srcmap="$RUNTIME_ROOT/vfs/xziel/maps/xziel_nuketown_zombies"
           cp -a "$srcmap/meshes" "$dst/vfs/xziel/maps/xziel_nuketown_zombies/meshes"
@@ -102,11 +120,12 @@ jobs:
           assert len(texture_files) == tex["textureAssetCount"]
 
           manifest={
-              "schema":1,
-              "id":"xogot_nuketown_xziel_source_world_benchmark",
-              "purpose":"complete world-import benchmark; not final church art",
-              "source_run":36613010234,
-              "source_artifact":"XZIEL-Nuketown-Zombies-Virgin-Package-Census",
+              "schema":2,
+              "id":"xogot_nuketown_complete_source_runtime",
+              "purpose":"Godot runtime derived from the literal complete Nuketown Content folder",
+              "source_run":int(__import__("os").environ["SOURCE_RUN"]),
+              "source_artifact":"Xogot-Nuketown-Full-Source-Authority",
+              "source_authority":"Pavlov/Plugins/UGC5097941/Content (complete folder)",
               "source_map":"Pavlov/Plugins/UGC5097941/Content/nuketownz.umap",
               "coordinate_system":"XZIEL X,-Y,Z meters; Godot conversion happens once at XZIELSceneRoot",
               "mesh_count":len(mesh_files),
@@ -118,6 +137,9 @@ jobs:
               "unresolved_materials":mats["summary"]["unresolvedMaterialCount"],
               "unresolved_textures":mats["summary"]["unresolvedTextureCount"],
               "runtime_loader":"res://scripts/xziel_benchmark_loader.gd",
+              "full_content_manifest":"nuketown-full-content-manifest.json",
+              "full_content_file_list":"nuketown-content-files.txt",
+              "full_dependency_manifest":"nuketown-source-export-manifest-summary.json",
           }
           (dst/"source_manifest.json").write_text(json.dumps(manifest,indent=2)+"\n")
           print("XZOGOT_NUKETOWN_WORLD_STAGE_GREEN",manifest)
@@ -169,8 +191,8 @@ jobs:
           manifest["runtime_mesh_chunks"]=report["mesh_chunks"]
           manifest["runtime_max_surfaces_per_mesh"]=report["max_chunk_surfaces"]
           manifest["source_xzms_authority"]={
-              "source_run":36613010234,
-              "source_artifact":"XZIEL-Nuketown-Zombies-Virgin-Package-Census",
+              "source_run":int(__import__("os").environ["SOURCE_RUN"]),
+              "source_artifact":"Xogot-Nuketown-Full-Source-Authority",
               "staged_directory":"vfs/xziel/maps/xziel_nuketown_zombies/meshes",
           }
           manifest_path.write_text(json.dumps(manifest,indent=2)+"\n")
