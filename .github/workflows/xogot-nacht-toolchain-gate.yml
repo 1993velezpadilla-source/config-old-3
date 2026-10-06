@@ -10,6 +10,7 @@ on:
       - "tools/patches/synthesize_ue_basic_cube_xzms.py"
       - "tools/maps/UEAudioSceneExtract/**"
       - "tools/maps/UEAudioCueGraphExtract/**"
+      - "tools/maps/UEParticleSceneExtract/**"
       - "tools/maps/UELightExtract/Program.cs"
       - ".github/workflows/xogot-nacht-toolchain-gate.yml"
 
@@ -138,3 +139,13 @@ jobs:
             2>&1 | tee /tmp/nacht-light-build.log
           ! grep -q " error CS" /tmp/nacht-light-build.log
           echo "XZOGOT_NACHT_LIGHT_TOOLCHAIN_GREEN"
+
+      - name: Compile generic particle scene authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet restore tools/maps/UEParticleSceneExtract/UEParticleSceneExtract.csproj
+          dotnet build tools/maps/UEParticleSceneExtract/UEParticleSceneExtract.csproj -c Release --no-restore \
+            2>&1 | tee /tmp/nacht-particle-scene-build.log
+          ! grep -q " error CS" /tmp/nacht-particle-scene-build.log
+          echo "XZOGOT_NACHT_PARTICLE_SCENE_TOOLCHAIN_GREEN"
