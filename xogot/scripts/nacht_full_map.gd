@@ -174,8 +174,14 @@ func _validate_authority() -> bool:
 	if _particle_scene.is_empty() or not bool(_particle_scene.get("ready", false)):
 		push_error("NACHT_FULL_MAP: source particle placement authority missing")
 		return false
-	if int(_particle_scene.get("particleComponentCount", 0)) <= 0:
-		push_error("NACHT_FULL_MAP: source particle placement authority empty")
+	if int(_particle_scene.get("particleComponentCount", 0)) != 29:
+		push_error("NACHT_FULL_MAP: source particle placement count mismatch")
+		return false
+	if int(_particle_scene.get("referencedTemplateCount", 0)) != 29:
+		push_error("NACHT_FULL_MAP: source particle template coverage mismatch")
+		return false
+	if int(_particle_scene.get("nullTemplateCount", -1)) != 0:
+		push_error("NACHT_FULL_MAP: source particle template authority contains nulls")
 		return false
 	if _particle_graphs.is_empty() or not bool(_particle_graphs.get("ready", false)):
 		push_error("NACHT_FULL_MAP: source particle graph authority missing")
@@ -189,8 +195,14 @@ func _validate_authority() -> bool:
 	if _audio_scene.is_empty() or not bool(_audio_scene.get("ready", false)):
 		push_error("NACHT_FULL_MAP: source audio placement authority missing")
 		return false
-	if int(_audio_scene.get("audioComponentCount", 0)) <= 0:
-		push_error("NACHT_FULL_MAP: source audio placement authority empty")
+	if int(_audio_scene.get("audioComponentCount", 0)) != 3:
+		push_error("NACHT_FULL_MAP: source audio placement count mismatch")
+		return false
+	if int(_audio_scene.get("referencedSoundCount", 0)) != 3:
+		push_error("NACHT_FULL_MAP: source audio reference coverage mismatch")
+		return false
+	if int(_audio_scene.get("nullSoundCount", -1)) != 0:
+		push_error("NACHT_FULL_MAP: source audio authority contains nulls")
 		return false
 	if _audio_cues.is_empty() or not bool(_audio_cues.get("ready", false)):
 		push_error("NACHT_FULL_MAP: source SoundCue graph authority missing")
