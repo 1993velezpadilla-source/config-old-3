@@ -110,6 +110,46 @@ List<object> BuildHierarchy(USceneComponent start)
 }
 
 
+
+UBlueprintGeneratedClass? ResolveGeneratedClassByResolvedClassPath(
+    DefaultFileProvider provider,
+    string? classPath,
+    string actorExportType)
+{
+    if (string.IsNullOrWhiteSpace(classPath))
+        return null;
+
+    var normalized = classPath!.Replace('\\', '/');
+    var objectDot = normalized.LastIndexOf('.');
+    var assetObjectPath =
+        objectDot > 0 ? normalized[..objectDot] : normalized;
+
+    string logicalAssetPath;
+    if (assetObjectPath.StartsWith("/Game/", StringComparison.OrdinalIgnoreCase))
+        logicalAssetPath = "Content/" + assetObjectPath[6..] + ".uasset";
+    else if (assetObjectPath.StartsWith("Game/", StringComparison.OrdinalIgnoreCase))
+        logicalAssetPath = "Content/" + assetObjectPath[5..] + ".uasset";
+    else
+        logicalAssetPath = assetObjectPath.TrimStart('/') + ".uasset";
+
+    var providerPath = ResolveProviderPackagePath(provider, logicalAssetPath);
+    if (providerPath is null)
+        return null;
+
+    try
+    {
+        var package = provider.LoadPackage(providerPath);
+        return package.GetExports()
+            .OfType<UBlueprintGeneratedClass>()
+            .FirstOrDefault(x =>
+                x.Name.Equals(actorExportType, StringComparison.OrdinalIgnoreCase));
+    }
+    catch
+    {
+        return null;
+    }
+}
+
 UBlueprintGeneratedClass? ResolveGeneratedClassByExportType(
     DefaultFileProvider provider,
     string actorExportType)
@@ -178,7 +218,21 @@ ResolveBlueprintParticleTemplate(
         !owner.ExportType.EndsWith("_C", StringComparison.Ordinal))
         return (null, null);
 
-    var generated = ResolveGeneratedClassByExportType(provider, owner.ExportType);
+    string? resolvedClassPath = null;
+    try
+    {
+        resolvedClassPath = owner.Class?.GetPathName();
+    }
+    catch { }
+
+    var generated = ResolveGeneratedClassByResolvedClassPath(
+        provider,
+        resolvedClassPath,
+        owner.ExportType);
+
+    if (generated is null)
+        generated = ResolveGeneratedClassByExportType(provider, owner.ExportType);
+
     if (generated is null)
         return (null, null);
 
