@@ -265,13 +265,43 @@ foreach (var logical in packages)
                 var cdo = generated.ClassDefaultObject.Load<CUE4Parse.UE4.Assets.Exports.UObject>();
                 if (cdo is not null)
                 {
+                    var audioDefaults = new List<object>();
+                    foreach (var propertyName in cdo.Properties
+                                 .Select(p => p.Name.Text)
+                                 .Where(name =>
+                                     name.Contains("Sound", StringComparison.OrdinalIgnoreCase) ||
+                                     name.Contains("Cue", StringComparison.OrdinalIgnoreCase) ||
+                                     name.Contains("Audio", StringComparison.OrdinalIgnoreCase) ||
+                                     name.Contains("Jingle", StringComparison.OrdinalIgnoreCase) ||
+                                     name.Contains("Sting", StringComparison.OrdinalIgnoreCase))
+                                 .Distinct(StringComparer.OrdinalIgnoreCase)
+                                 .OrderBy(x => x, StringComparer.OrdinalIgnoreCase))
+                    {
+                        FPackageIndex? index = null;
+                        try
+                        {
+                            index = cdo.GetOrDefault<FPackageIndex?>(propertyName);
+                        }
+                        catch { }
+
+                        audioDefaults.Add(new {
+                            propertyName,
+                            reference = index is { IsNull: false } ? index.ToString() : null,
+                            objectPath = index is { IsNull: false } ? ReferencePath(index) : null,
+                            className = index is { IsNull: false }
+                                ? index.ResolvedObject?.Class?.Name.Text
+                                : null
+                        });
+                    }
+
                     classDefaultObject = new {
                         objectPath = cdo.GetPathName(),
                         exportType = cdo.ExportType,
                         propertyNames = cdo.Properties
                             .Select(p => p.Name.Text)
                             .OrderBy(x => x, StringComparer.Ordinal)
-                            .ToArray()
+                            .ToArray(),
+                        audioDefaults
                     };
                 }
             }
@@ -281,6 +311,8 @@ foreach (var logical in packages)
                 packagePath = logical,
                 generatedClass = generated.Name,
                 generatedClassPath = generated.GetPathName(),
+                superPath = generated.Super?.GetPathName(),
+                superClassName = generated.Super?.Name.Text,
                 componentTemplateCount = generated.ComponentTemplates.Length,
                 simpleConstructionScript = generated.SimpleConstructionScript?.ToString(),
                 inheritableComponentHandler = generated.InheritableComponentHandler?.ToString(),
