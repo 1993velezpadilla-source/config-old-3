@@ -18,6 +18,7 @@ on:
       - "xogot/data/nuketown_actor_coverage.json"
       - "xogot/scripts/xziel_benchmark_loader.gd"
       - "tools/maps/xztx_astc6_to_png.py"
+      - "tools/maps/xz_mystery_to_gltf.py"
       - "benchmarks/nuketown_xziel/**"
       - ".github/workflows/xogot-nuketown-full-map-gate.yml"
 
@@ -94,6 +95,44 @@ jobs:
           test -s xogot/assets/benchmarks/nuketown_xziel/audio/marlton_1.wav
           echo "XZOGOT_NUKETOWN_SOURCE_AUDIO_MOUNT_GREEN run=$AUDIO_RUN wavs=$WAV_COUNT"
 
+      - name: Mount real Mystery Box source rig and animations
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          RIG_RUN=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${GITHUB_REPOSITORY}/actions/workflows/xogot-nuketown-source-rig-animation-truth.yml/runs?branch=feature%2Fgodot-aaa-rebuild-v1&status=success&per_page=1" \
+            --jq '.workflow_runs[0].id')
+          test -n "$RIG_RUN"
+          rm -rf "$RUNNER_TEMP/nuketown-rig-proof"
+          mkdir -p "$RUNNER_TEMP/nuketown-rig-proof" build
+          gh run download "$RIG_RUN" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name Xogot-Nuketown-Source-Rig-Animation-Proof \
+            --dir "$RUNNER_TEMP/nuketown-rig-proof"
+
+          rm -rf xogot/assets/benchmarks/nuketown_xziel/mystery_source
+          python3 tools/maps/xz_mystery_to_gltf.py \
+            "$RUNNER_TEMP/nuketown-rig-proof" \
+            xogot/assets/benchmarks/nuketown_xziel/mystery_source \
+            2>&1 | tee build/nuketown-mystery-source-gltf.log
+          grep -q "XZOGOT_MYSTERY_GLTF_GREEN" build/nuketown-mystery-source-gltf.log
+          test -s xogot/assets/benchmarks/nuketown_xziel/mystery_source/mystery_box_source.gltf
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("xogot/assets/benchmarks/nuketown_xziel/mystery_source/manifest.json")
+          d=json.loads(p.read_text())
+          assert d["ready"] is True
+          assert d["bones"] == 5
+          assert len(d["animations"]) == 7
+          required={"arrive","close","leave","open","teddy_rise","weapon_dual_rise","weapon_rise"}
+          assert required == {x["name"] for x in d["animations"]}, d["animations"]
+          print("XZOGOT_MYSTERY_SOURCE_MOUNT_GREEN", d["skeletonHash"], sorted(required))
+          PY
+
       - name: Install rendering and ASTC tools
         shell: bash
         run: |
@@ -150,6 +189,7 @@ jobs:
           name: Xogot-Nuketown-Full-Map-Proof
           path: |
             build/nuketown-full-map-textures.log
+            build/nuketown-mystery-source-gltf.log
             build/nuketown-full-map-import.log
             build/nuketown-full-map-probe.log
           if-no-files-found: error
