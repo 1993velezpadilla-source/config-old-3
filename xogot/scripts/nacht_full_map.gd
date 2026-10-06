@@ -141,7 +141,7 @@ func _boot() -> void:
 	# audible runtime reproduction. They must only flip when those systems are
 	# actually mounted, never merely because the JSON exists.
 	set_meta("particle_visual_runtime_ready", false)
-	set_meta("source_audio_runtime_ready", _source_audio_player_count == 3 and _source_audio_stream_count == 3)
+	set_meta("source_audio_runtime_ready", false)
 	set_meta("source_environment_runtime_ready", false)
 	set_meta("source_class_count", int((_handoff.get("fullMapAuthority", {}) as Dictionary).get("classCensus", {}).get("uniqueClasses", -1)))
 	set_meta("nacht_full_map_ready", true)
