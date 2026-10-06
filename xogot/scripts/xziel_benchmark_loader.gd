@@ -441,11 +441,27 @@ func _material_for_path(material_path: String) -> Material:
 	material.resource_name = material_path.get_file()
 
 	var canonical: Dictionary = record.get("canonicalTextures", {})
-	var diffuse := _texture_for_source(str(canonical.get("diffuse", "")))
-	var normal := _texture_for_source(str(canonical.get("normal", "")))
-	var emissive := _texture_for_source(str(canonical.get("emissive", "")))
+	var diffuse_source := str(canonical.get("diffuse", ""))
+	var normal_source := str(canonical.get("normal", ""))
+	var emissive_source := str(canonical.get("emissive", ""))
+
+	# Some cooked source materials expose their real texture binding under the
+	# original parameter name instead of PM_Diffuse/PM_Normals. Do not guess by
+	# material name: accept a fallback only when the manifest itself declares
+	# exactly one unique sRGB texturePath (albedo) or one unique normal-like
+	# linear texturePath. These paths are source-authored UE bindings.
+	if diffuse_source.is_empty():
+		diffuse_source = _unique_source_srgb_texture(record)
+	if normal_source.is_empty():
+		normal_source = _unique_source_normal_texture(record)
+
+	var diffuse := _texture_for_source(diffuse_source)
+	var normal := _texture_for_source(normal_source)
+	var emissive := _texture_for_source(emissive_source)
 	if diffuse != null:
 		material.albedo_texture = diffuse
+		if str(canonical.get("diffuse", "")).is_empty():
+			material.set_meta("source_noncanonical_diffuse_path", diffuse_source)
 	else:
 		var colors: Array = record.get("colors", [])
 		if not colors.is_empty() and colors[0] is Dictionary:
@@ -489,6 +505,46 @@ func _material_for_path(material_path: String) -> Material:
 	material.set_meta("source_specular_mask_path", str(canonical.get("specular_masks", "")))
 	_material_cache[material_path] = material
 	return material
+
+func _unique_source_srgb_texture(record: Dictionary) -> String:
+	var unique: Dictionary = {}
+	for raw: Variant in record.get("textures", []):
+		if not (raw is Dictionary):
+			continue
+		var row := raw as Dictionary
+		var native: Dictionary = row.get("native", {})
+		if not bool(native.get("srgb", false)):
+			continue
+		var source := str(row.get("texturePath", ""))
+		if not source.is_empty():
+			unique[source] = true
+	if unique.size() != 1:
+		return ""
+	return str(unique.keys()[0])
+
+func _unique_source_normal_texture(record: Dictionary) -> String:
+	var unique: Dictionary = {}
+	for raw: Variant in record.get("textures", []):
+		if not (raw is Dictionary):
+			continue
+		var row := raw as Dictionary
+		var native: Dictionary = row.get("native", {})
+		if bool(native.get("srgb", true)):
+			continue
+		var parameter := str(row.get("parameter", "")).to_lower()
+		var source := str(row.get("texturePath", ""))
+		var semantic := parameter + " " + source.to_lower()
+		if not (
+			semantic.contains("normal")
+			or semantic.contains("nml")
+			or semantic.contains("norm")
+		):
+			continue
+		if not source.is_empty():
+			unique[source] = true
+	if unique.size() != 1:
+		return ""
+	return str(unique.keys()[0])
 
 func _source_scalar(record: Dictionary, token: String, fallback: float) -> float:
 	var needle := token.to_lower()
