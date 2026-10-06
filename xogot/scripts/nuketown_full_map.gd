@@ -367,26 +367,18 @@ func _build_navigation_runtime() -> bool:
 		return false
 	_navigation_runtime.name = "NuketownNavigationRuntime"
 	add_child(_navigation_runtime)
-
-	var finished := false
-	var succeeded := false
-	_navigation_runtime.navigation_ready.connect(
-		func(_polygons: int, _spawns: int) -> void:
-			succeeded = true
-			finished = true
-	)
-	_navigation_runtime.navigation_failed.connect(
-		func(_reason: String) -> void:
-			succeeded = false
-			finished = true
-	)
 	_navigation_runtime.call("begin_bake")
 
+	var succeeded := false
 	for _attempt in range(2400):
-		if finished:
+		if bool(_navigation_runtime.call("is_navigation_ready")):
+			succeeded = true
+			break
+		if _navigation_runtime.has_meta("navigation_failure"):
 			break
 		await get_tree().create_timer(0.05).timeout
-	if not finished or not succeeded:
+
+	if not succeeded:
 		push_error(
 			"NUKETOWN_FULL_MAP: navigation bake failed " +
 			str(_navigation_runtime.get_meta("navigation_failure", "TIMEOUT"))
@@ -399,6 +391,7 @@ func _build_navigation_runtime() -> bool:
 		if round_manager.has_method("reset_network_match"):
 			round_manager.call("reset_network_match")
 		set_meta("round_manager_activated_from_source_nav", true)
+
 	print(
 		"XZOGOT_NUKETOWN_ROUNDS_READY nav_polygons=",
 		_navigation_runtime.call("get_polygon_count"),
