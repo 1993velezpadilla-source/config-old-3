@@ -91,6 +91,7 @@ var _source_particle_fire_descriptor: Dictionary = {}
 var _source_particle_bonefire_descriptor: Dictionary = {}
 var _source_particle_bonefire3_descriptor: Dictionary = {}
 var _source_particle_pap_wheel_descriptor: Dictionary = {}
+var _source_particle_mystery_fog_descriptor: Dictionary = {}
 var _source_environment_fog_runtime_ready := false
 var _source_environment_reflection_runtime_ready := false
 var _source_spawn_candidates: Array[Node3D] = []
@@ -212,7 +213,7 @@ func _boot() -> void:
 	# audible runtime reproduction. They must only flip when those systems are
 	# actually mounted, never merely because the JSON exists.
 	set_meta("particle_visual_runtime_ready", false)
-	set_meta("source_particle_semantic_runtime_ready", _source_particle_semantic_runtime_count == 5 and _source_particle_semantic_placement_count == 10)
+	set_meta("source_particle_semantic_runtime_ready", _source_particle_semantic_runtime_count == 6 and _source_particle_semantic_placement_count == 13)
 	set_meta("source_particle_semantic_runtime_count", _source_particle_semantic_runtime_count)
 	set_meta("source_particle_semantic_placement_count", _source_particle_semantic_placement_count)
 	set_meta("source_audio_runtime_ready", _source_audio_semantics_ready())
@@ -1248,6 +1249,21 @@ func _build_source_particle_semantic_runtime() -> bool:
 		return false
 	_source_particle_semantic_runtime_count += 1
 
+	_source_particle_mystery_fog_descriptor = NachtCascadeRuntime.mystery_box_fog_descriptor(_particle_graphs)
+	if not bool(_source_particle_mystery_fog_descriptor.get("ready", false)):
+		push_error(
+			"NACHT_FULL_MAP: mystery box fog Cascade semantics unresolved "
+			+ str(_source_particle_mystery_fog_descriptor.get("error", "unknown"))
+		)
+		return false
+	if not _mount_source_particle_semantic_anchors(
+		_source_particle_mystery_fog_descriptor,
+		3,
+		"mystery box fog"
+	):
+		return false
+	_source_particle_semantic_runtime_count += 1
+
 	set_meta(
 		"source_particle_mystery_spawn_rate",
 		float(_source_particle_mystery_descriptor.get("spawnRateMin", -1.0))
@@ -1408,6 +1424,46 @@ func _build_source_particle_semantic_runtime() -> bool:
 		"source_particle_pap_wheel_size_life_table_value_count",
 		int(_source_particle_pap_wheel_descriptor.get("sizeLifeTableValueCount", -1))
 	)
+	set_meta(
+		"source_particle_mystery_fog_lifetime_min",
+		float(_source_particle_mystery_fog_descriptor.get("lifetimeMin", -1.0))
+	)
+	set_meta(
+		"source_particle_mystery_fog_lifetime_max",
+		float(_source_particle_mystery_fog_descriptor.get("lifetimeMax", -1.0))
+	)
+	set_meta(
+		"source_particle_mystery_fog_location_min_ue_cm",
+		_source_particle_mystery_fog_descriptor.get("startLocationMinUEcm", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_mystery_fog_location_max_ue_cm",
+		_source_particle_mystery_fog_descriptor.get("startLocationMaxUEcm", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_mystery_fog_start_size_min_ue_cm",
+		_source_particle_mystery_fog_descriptor.get("startSizeMinUEcm", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_mystery_fog_start_size_max_ue_cm",
+		_source_particle_mystery_fog_descriptor.get("startSizeMaxUEcm", Vector3.INF)
+	)
+	set_meta(
+		"source_particle_mystery_fog_spawn_rate",
+		float(_source_particle_mystery_fog_descriptor.get("spawnRate", -1.0))
+	)
+	set_meta(
+		"source_particle_mystery_fog_subuv_frame_rate",
+		float(_source_particle_mystery_fog_descriptor.get("subUVFrameRate", -1.0))
+	)
+	set_meta(
+		"source_particle_mystery_fog_alpha_table_value_count",
+		int(_source_particle_mystery_fog_descriptor.get("alphaTableValueCount", -1))
+	)
+	set_meta(
+		"source_particle_mystery_fog_peak_active",
+		int(_source_particle_mystery_fog_descriptor.get("peakActiveParticles", -1))
+	)
 
 	print(
 		"XZOGOT_NACHT_CASCADE_SEMANTIC_RUNTIME_GREEN systems=",
@@ -1441,7 +1497,11 @@ func _build_source_particle_semantic_runtime() -> bool:
 		" pap_wheel_rate=",
 		_source_particle_pap_wheel_descriptor.get("spawnRate"),
 		" pap_wheel_burst=",
-		_source_particle_pap_wheel_descriptor.get("burstCount")
+		_source_particle_pap_wheel_descriptor.get("burstCount"),
+		" mystery_fog_rate=",
+		_source_particle_mystery_fog_descriptor.get("spawnRate"),
+		" mystery_fog_subuv_fps=",
+		_source_particle_mystery_fog_descriptor.get("subUVFrameRate")
 	)
 	return true
 
