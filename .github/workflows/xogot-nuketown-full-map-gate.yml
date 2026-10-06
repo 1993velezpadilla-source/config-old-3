@@ -8,8 +8,12 @@ on:
     paths:
       - "xogot/nuketown_full_map.tscn"
       - "xogot/scripts/nuketown_full_map.gd"
+      - "xogot/scripts/nuketown_navigation_runtime.gd"
+      - "xogot/scripts/interactable.gd"
+      - "xogot/scripts/weapon.gd"
       - "xogot/ci/nuketown_full_map_probe.gd"
       - "xogot/data/nuketown_source_gameplay.json"
+      - "xogot/data/nuketown_actor_coverage.json"
       - "xogot/scripts/xziel_benchmark_loader.gd"
       - "tools/maps/xztx_astc6_to_png.py"
       - "benchmarks/nuketown_xziel/**"
