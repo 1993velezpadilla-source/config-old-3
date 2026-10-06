@@ -183,7 +183,6 @@ func _build_perimeter_spawn_anchors(vertices: PackedVector3Array) -> int:
 		var anchor := Marker3D.new()
 		anchor.name = "NuketownZombieSpawn_%02d" % i
 		add_child(anchor)
-		add_child(anchor)
 		anchor.global_position = chosen[i] + Vector3.UP * 0.08
 		anchor.add_to_group("zombie_spawn_anchor")
 		anchor.add_to_group("nuketown_zombie_spawn_anchor")
