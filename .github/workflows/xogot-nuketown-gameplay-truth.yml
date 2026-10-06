@@ -95,6 +95,9 @@ jobs:
             Pavlov/Plugins/UGC5097941/Content/pulse/wallbuy_3.uasset \
             Pavlov/Plugins/UGC5097941/Content/box/NewBlueprint1_2.uasset \
             Pavlov/Plugins/UGC5097941/Content/admin/BuyWheelBox_2.uasset \
+            Pavlov/Plugins/UGC5097941/Content/JoinSounds.uasset \
+            Pavlov/Plugins/UGC5097941/Content/JoinSounds_2.uasset \
+            Pavlov/Plugins/UGC5097941/Content/JoinSounds_3.uasset \
             | tee build/nuketown-gameplay-truth/extract.log
 
           grep -q "XZOGOT_NUKETOWN_GAMEPLAY_TRUTH_GREEN" \
@@ -112,7 +115,7 @@ jobs:
           p=Path("build/nuketown-gameplay-truth/source-gameplay.json")
           d=json.loads(p.read_text())
           assert d["ready"] is True, d
-          assert d["packageSuccessCount"] == 6, d
+          assert d["packageSuccessCount"] == 9, d
           types=[]
           for package in d["packages"]:
               for export in package["exports"]:
@@ -125,6 +128,9 @@ jobs:
               "BuyWheelBox_2_C",
               "Pavlov_Spawn",
               "Pavlov_Ladder",
+              "JoinSounds_C",
+              "JoinSounds_2_C",
+              "JoinSounds_3_C",
           ):
               assert required in types, required
           print("XZOGOT_NUKETOWN_GAMEPLAY_TRUTH_VALIDATE_GREEN", {
