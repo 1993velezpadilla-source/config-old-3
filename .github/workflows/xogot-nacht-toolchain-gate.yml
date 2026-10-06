@@ -7,6 +7,7 @@ on:
       - feature/godot-aaa-rebuild-v1
     paths:
       - "tools/patches/patch_ue421_material_texture_refs.py"
+      - "tools/patches/synthesize_ue_basic_cube_xzms.py"
       - "tools/maps/UEAudioSceneExtract/**"
       - "tools/maps/UEAudioCueGraphExtract/**"
       - ".github/workflows/xogot-nacht-toolchain-gate.yml"
@@ -69,3 +70,58 @@ jobs:
             2>&1 | tee /tmp/nacht-audio-cue-build.log
           ! grep -q " error CS" /tmp/nacht-audio-cue-build.log
           echo "XZOGOT_NACHT_AUDIO_CUE_TOOLCHAIN_GREEN"
+
+      - name: Validate canonical UE engine cube bridge
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/nacht-cube
+          mkdir -p /tmp/nacht-cube/meshes
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          rows=[]
+          for i in range(568):
+              rows.append({
+                  "index":i,
+                  "file":f"m{i:04d}.xzm",
+                  "objectPath":f"/Game/Fake/M{i}.M{i}",
+                  "sourceMaterialCount":1,
+                  "sourceSectionMaterialIndices":[0],
+              })
+          Path("/tmp/nacht-cube/source.json").write_text(
+              json.dumps({"meshes":rows},indent=2)+"\n"
+          )
+          PY
+
+          python3 tools/patches/synthesize_ue_basic_cube_xzms.py \
+            --source-report /tmp/nacht-cube/source.json \
+            --mesh-dir /tmp/nacht-cube/meshes \
+            --output-report /tmp/nacht-cube/runtime.json
+
+          python3 - <<'PY'
+          import json,struct
+          from pathlib import Path
+          report=json.loads(Path("/tmp/nacht-cube/runtime.json").read_text())
+          assert report["sourcePackageMeshCount"]==568,report
+          assert report["engineBuiltinMeshCount"]==1,report
+          assert report["runtimeMeshCount"]==569,report
+          row=report["meshes"][-1]
+          assert row["objectPath"]=="/Engine/BasicShapes/Cube.Cube",row
+          assert row["vertexCount"]==24 and row["indexCount"]==36,row
+          p=Path("/tmp/nacht-cube/meshes")/row["file"]
+          data=p.read_bytes()
+          assert data[:4]==b"XZMS"
+          version,vc,ic,sc,flags,vstride,sstride=struct.unpack_from("<7I",data,4)
+          assert (version,vc,ic,sc,vstride,sstride)==(4,24,36,1,104,16)
+          bmin=struct.unpack_from("<3f",data,32)
+          bmax=struct.unpack_from("<3f",data,44)
+          assert bmin==(-0.5,-0.5,-0.5),(bmin,bmax)
+          assert bmax==(0.5,0.5,0.5),(bmin,bmax)
+          print("XZOGOT_NACHT_ENGINE_CUBE_TOOLCHAIN_GREEN",{
+              "runtimeMeshes":569,
+              "vertices":vc,
+              "indices":ic,
+              "bounds":[bmin,bmax],
+          })
+          PY
