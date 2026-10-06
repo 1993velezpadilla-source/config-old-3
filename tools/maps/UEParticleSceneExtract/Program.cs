@@ -268,7 +268,8 @@ foreach (var logicalPackage in mapPackages)
                 componentFailures.Add(new {
                     packagePath = logicalPackage,
                     componentPath = component.GetPathName(),
-                    error = componentError.GetType().Name + ": " + componentError.Message
+                    error = componentError.GetType().Name + ": " + componentError.Message,
+                    stack = componentError.StackTrace
                 });
             }
         }
