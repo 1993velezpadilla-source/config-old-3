@@ -1,0 +1,147 @@
+name: Xogot Nacht UMAP Particle Fast Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - "tools/maps/UEParticleSceneExtract/**"
+      - ".github/workflows/xogot-nacht-umap-particle-fast-gate.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xogot-nacht-umap-particle-fast-gate
+  cancel-in-progress: true
+
+jobs:
+  particles:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      WORKSHOP_APP_ID: "555160"
+      WORKSHOP_ITEM_ID: "2755515831"
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: Download and unpack exact Nacht source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $steam=Join-Path $env:RUNNER_TEMP 'steamcmd'
+          New-Item -ItemType Directory -Force -Path $steam | Out-Null
+          Invoke-WebRequest 'https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip' -OutFile "$env:RUNNER_TEMP\steamcmd.zip"
+          Expand-Archive "$env:RUNNER_TEMP\steamcmd.zip" -DestinationPath $steam -Force
+          & (Join-Path $steam 'steamcmd.exe') +login anonymous +workshop_download_item $env:WORKSHOP_APP_ID $env:WORKSHOP_ITEM_ID validate +quit
+
+          $root=Get-ChildItem $steam,$env:RUNNER_TEMP -Directory -Recurse -ErrorAction SilentlyContinue |
+            Where-Object {$_.FullName -like "*steamapps\workshop\content\$env:WORKSHOP_APP_ID\$env:WORKSHOP_ITEM_ID"} |
+            Select-Object -First 1
+          if(-not $root){throw 'Nacht workshop payload not found'}
+          $pak=Join-Path $root.FullName 'WindowsNoEditor.pak'
+          if(-not (Test-Path $pak)){throw 'Nacht PAK missing'}
+
+          Invoke-WebRequest 'https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-pc-windows-msvc.zip' -OutFile "$env:RUNNER_TEMP\repak.zip"
+          $repakDir="$env:RUNNER_TEMP\repak"
+          Expand-Archive "$env:RUNNER_TEMP\repak.zip" -DestinationPath $repakDir -Force
+          $repak=Get-ChildItem $repakDir -Filter repak.exe -Recurse | Select-Object -First 1
+          if(-not $repak){throw 'repak.exe missing'}
+
+          Remove-Item nacht-source -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path nacht-source | Out-Null
+          & $repak.FullName unpack "$pak" -o nacht-source --force
+          if($LASTEXITCODE -ne 0){throw "repak unpack failed $LASTEXITCODE"}
+
+          $contentRoot=Join-Path $PWD 'nacht-source\Pavlov\Content'
+          if(-not (Test-Path $contentRoot)){throw 'Pavlov Content root missing'}
+          "NACHT_CONTENT_ROOT=$contentRoot" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "XZOGOT_NACHT_PARTICLE_FAST_SOURCE_GREEN"
+
+      - name: Pin mappings
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          Invoke-WebRequest 'https://raw.githubusercontent.com/THW-Reaper/PavlovVRMappings/4976647b4f3a209042460bc55a7a3122662d05b7/PavMappings.usmap' -OutFile PavMappings.usmap
+          $hash=(Get-FileHash PavMappings.usmap -Algorithm SHA256).Hash.ToLowerInvariant()
+          if($hash -ne '6d19f9731cc3fbaba34ca8e0833e81e4ffdf1b407edf24de48b1ccb5c63b060c'){throw "mapping hash mismatch $hash"}
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Build only ParticleScene extractor
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          dotnet restore tools/maps/UEParticleSceneExtract/UEParticleSceneExtract.csproj
+          dotnet build tools/maps/UEParticleSceneExtract/UEParticleSceneExtract.csproj -c Release --no-restore
+          if($LASTEXITCODE -ne 0){throw 'ParticleScene build failed'}
+
+      - name: Write minimal exact UMAP census
+        shell: pwsh
+        run: |
+          @'
+          import json
+          from pathlib import Path
+          report={
+              "schemaVersion":1,
+              "packages":[{
+                  "packagePath":"Content/CustomMaps/UGC2755515831/Nacht_de_Untoten.umap",
+                  "classes":{}
+              }]
+          }
+          Path("nacht-umap-minimal-census.json").write_text(json.dumps(report,indent=2)+"\n")
+          '@ | python -
+
+      - name: Extract exact UMAP particle placement
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $dll='tools/maps/UEParticleSceneExtract/bin/Release/net10.0/UEParticleSceneExtract.dll'
+          dotnet $dll $env:NACHT_CONTENT_ROOT PavMappings.usmap nacht-umap-minimal-census.json nacht-particles.json ue4.21 |
+            Tee-Object nacht-particles.log
+          if($LASTEXITCODE -ne 0){throw "ParticleScene runtime extraction failed $LASTEXITCODE"}
+
+          @'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("nacht-particles.json").read_text())
+          assert d["mapPackageCount"]==1,d
+          assert d["packagesLoaded"]==1,d
+          assert d["particleComponentCount"]>0,d
+          assert d["referencedTemplateCount"]>0,d
+          assert len(d["packageFailures"])==0,d
+          assert len(d["componentFailures"])==0,d
+          assert d["ready"] is True,d
+          print("XZOGOT_NACHT_PARTICLE_FAST_RESULT",{
+              "components":d["particleComponentCount"],
+              "referencedTemplates":d["referencedTemplateCount"],
+              "loadedTemplates":d["loadedTemplateCount"],
+              "nullTemplates":d["nullTemplateCount"],
+              "types":d["templateTypeCounts"],
+              "placements":[
+                  {
+                      "actor":x["actorName"],
+                      "component":x["componentName"],
+                      "template":x["template"],
+                  }
+                  for x in d["particleComponents"]
+              ],
+          })
+          print("XZOGOT_NACHT_PARTICLE_FAST_GREEN")
+          '@ | python -
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Xogot-Nacht-UMAP-Particle-Fast-Proof
+          path: |
+            nacht-particles.json
+            nacht-particles.log
+          if-no-files-found: warn
+          retention-days: 7
