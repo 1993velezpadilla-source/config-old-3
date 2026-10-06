@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "sourceArtifact": "Xogot-Nuketown-Source-Audio-Proof",
+  "sourceAudioRoot": "res://assets/benchmarks/nuketown_xziel/audio/",
+  "sourcePolicy": "PRIVATE_BENCHMARK_SOURCE_IF_MOUNTED_OTHERWISE_EXPLICIT_FALLBACK",
+  "mysteryBox": {
+    "sourceClass": "NewBlueprint1_2_C",
+    "wave": "music_box_00",
+    "sourcePackage": "Pavlov/Plugins/UGC5097941/Content/box/music_box_00.uasset",
+    "fallback": "res://assets/audio/church/world/mystery_open.ogg"
+  },
+  "ambientActors": {
+    "AmbientSound_1": {
+      "cue": "marlton_1_SoundCue",
+      "loop": true,
+      "volumeMultiplier": 1.2,
+      "attenuationShapeExtentCm": 430,
+      "falloffDistanceCm": 180,
+      "relativeLocationUE": [
+        -3446.2954,
+        -2458.0461,
+        253.4512
+      ],
+      "waves": [
+        "marlton_5",
+        "marlton_4",
+        "marlton_2",
+        "marlton_3",
+        "marlton_1"
+      ],
+      "fallback": ""
+    },
+    "AmbientSound_2": {
+      "cue": "ntzombiesamb_SoundCue",
+      "loop": true,
+      "canPlayMultipleInstances": true,
+      "relativeLocationUE": [
+        197.16177,
+        -1483.09,
+        317.21808
+      ],
+      "waves": [
+        "ntzombiesamb"
+      ],
+      "fallback": "res://assets/audio/church/ambience/horror_bed.ogg"
+    },
+    "AmbientSound_3": {
+      "cue": "Call_of_Duty__Zombies_-_Quick_Revive_Song_SoundCue",
+      "loop": true,
+      "attenuationShapeExtentCm": 280,
+      "falloffDistanceCm": 250,
+      "relativeLocationUE": [
+        -1135.2125,
+        -1309.3485,
+        308.49698
+      ],
+      "waves": [
+        "Call_of_Duty__Zombies_-_Quick_Revive_Song",
+        "Perk-a-Cola_OST_-_Quick_Revive_Jingle__2024_",
+        "Perk-a-Cola_OST_-_Quick_Revive_Jingle__2025_",
+        "Perk-a-Cola_OST_-_Quick_Revive_Jingle__Dark_Aether_",
+        "Quick_Revive__Call_of_Duty_",
+        "Shadows_of_Evil_NEW__Quick_Revive_Perk_Jingle__in_BO3_Zombies___NEW_Black_Ops_3_Zombies_Perks_"
+      ],
+      "fallback": ""
+    },
+    "AmbientSound_4": {
+      "cue": "_NEW__The_Official_80_s_Double_Tap_Perk_Jingle_Music_Video_SoundCue",
+      "loop": true,
+      "falloffDistanceCm": 300,
+      "relativeLocationUE": [
+        -149.82141,
+        -1483.9275,
+        331.50946
+      ],
+      "waves": [
+        "_NEW__The_Official_80_s_Double_Tap_Perk_Jingle_Music_Video",
+        "Call_of_Duty__Black_Ops_Zombies_-_Double_Tap_Jingle__Mob_of_the_Dead_Version_",
+        "Call_of_Duty__Zombies_-_Double_Tap_Song",
+        "Perk-a-Cola_OST_-_Double_Tap_Root_Beer_Jingle__Dark_Aether_",
+        "Shadows_of_Evil_NEW__Double_Tap_Perk_Jingle__in_BO3_Zombies___NEW_Black_Ops_3_Zombies_Perks_"
+      ],
+      "fallback": ""
+    }
+  },
+  "joinSounds": {
+    "JoinSounds_C": {
+      "source": "/UGC4905655/bps/synthesized_audio_wav",
+      "availability": "EXTERNAL_UGC_NOT_IN_NUKETOWN_PAYLOAD",
+      "runtimeDisposition": "XOGOT_REPLACEMENT_REQUIRED",
+      "wave": "",
+      "fallback": "res://assets/audio/church/world/machine_use.ogg"
+    },
+    "JoinSounds_2_C": {
+      "source": "/UGC5097941/map_creator",
+      "availability": "SOURCE_INTERNAL_DECODED",
+      "wave": "map_creator",
+      "fallback": "res://assets/audio/church/world/machine_use.ogg"
+    },
+    "JoinSounds_3_C": {
+      "source": "/UGC5097941/admin",
+      "availability": "SOURCE_INTERNAL_DECODED",
+      "wave": "admin",
+      "fallback": "res://assets/audio/church/world/machine_use.ogg"
+    }
+  }
+}
