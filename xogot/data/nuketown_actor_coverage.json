@@ -1,0 +1,155 @@
+{
+  "schemaVersion": 1,
+  "sourceActorCount": 233,
+  "sourceClassCount": 37,
+  "classes": {
+    "AmbientSound": {
+      "count": 4,
+      "disposition": "SOURCE_AUDIO_ANCHOR"
+    },
+    "BuyWheelBox_2_C": {
+      "count": 1,
+      "disposition": "MYSTERY_BOX_HELPER_SOURCE_ANCHOR"
+    },
+    "DirectionalLight": {
+      "count": 1,
+      "disposition": "SOURCE_LIGHT_RUNTIME"
+    },
+    "Enter_your_key_C": {
+      "count": 1,
+      "disposition": "PAVLOV_ADMIN_SOURCE_ANCHOR"
+    },
+    "ExponentialHeightFog": {
+      "count": 1,
+      "disposition": "ENVIRONMENT_TRUTH_ADAPTER"
+    },
+    "GamemodeDetector_C": {
+      "count": 1,
+      "disposition": "ENGINE_GAMEMODE_REPLACED"
+    },
+    "JoinSounds_2_C": {
+      "count": 1,
+      "disposition": "SOURCE_AUDIO_JOIN_ANCHOR"
+    },
+    "JoinSounds_3_C": {
+      "count": 1,
+      "disposition": "SOURCE_AUDIO_JOIN_ANCHOR"
+    },
+    "JoinSounds_C": {
+      "count": 1,
+      "disposition": "SOURCE_AUDIO_JOIN_ANCHOR"
+    },
+    "Level": {
+      "count": 1,
+      "disposition": "ENGINE_LEVEL_REPLACED"
+    },
+    "LightmassImportanceVolume": {
+      "count": 1,
+      "disposition": "BAKED_LIGHTING_SOURCE_ONLY"
+    },
+    "NavMeshBoundsVolume": {
+      "count": 1,
+      "disposition": "NAV_SOURCE_VOLUME"
+    },
+    "NavModifierVolume": {
+      "count": 17,
+      "disposition": "NAV_SOURCE_VOLUME"
+    },
+    "NewBlueprint1_2_C": {
+      "count": 1,
+      "disposition": "MYSTERY_BOX_ADAPTER"
+    },
+    "NewBlueprint_11_C": {
+      "count": 1,
+      "disposition": "PAVLOV_SKIN_HELPER_SOURCE_ANCHOR"
+    },
+    "NewBlueprint_19_C": {
+      "count": 1,
+      "disposition": "PAVLOV_SKIN_HELPER_SOURCE_ANCHOR"
+    },
+    "NewBlueprint_C": {
+      "count": 2,
+      "disposition": "PAVLOV_CAMERA_OR_SKIN_HELPER_SOURCE_ANCHOR"
+    },
+    "OldFashionedGod_C": {
+      "count": 1,
+      "disposition": "PAVLOV_ADMIN_SOURCE_ANCHOR"
+    },
+    "Pavlov_Ladder": {
+      "count": 2,
+      "disposition": "LADDER_INTERACTION_ADAPTER"
+    },
+    "Pavlov_Spawn": {
+      "count": 3,
+      "disposition": "PLAYER_SPAWN_ADAPTER"
+    },
+    "PointLight": {
+      "count": 3,
+      "disposition": "SOURCE_LIGHT_RUNTIME"
+    },
+    "RecastNavMesh": {
+      "count": 1,
+      "disposition": "NAV_SOURCE_VOLUME"
+    },
+    "SkeletalMeshActor": {
+      "count": 2,
+      "disposition": "SOURCE_SKELETAL_ANCHOR"
+    },
+    "SkyAtmosphere": {
+      "count": 1,
+      "disposition": "ENVIRONMENT_TRUTH_ADAPTER"
+    },
+    "SkyLight": {
+      "count": 1,
+      "disposition": "SOURCE_LIGHT_RUNTIME"
+    },
+    "StaticMeshActor": {
+      "count": 166,
+      "disposition": "WORLD_RENDERED"
+    },
+    "TextRenderActor": {
+      "count": 2,
+      "disposition": "SOURCE_TEXT_ANCHOR"
+    },
+    "VolumetricCloud": {
+      "count": 1,
+      "disposition": "ENVIRONMENT_TRUTH_ADAPTER"
+    },
+    "World": {
+      "count": 1,
+      "disposition": "ENGINE_WORLD_REPLACED"
+    },
+    "cash_text_C": {
+      "count": 1,
+      "disposition": "HUD_REPLACED_BY_XOGOT"
+    },
+    "disgod_C": {
+      "count": 1,
+      "disposition": "PAVLOV_ADMIN_SOURCE_ANCHOR"
+    },
+    "speed_C": {
+      "count": 1,
+      "disposition": "PAVLOV_ADMIN_SOURCE_ANCHOR"
+    },
+    "tpout1_C": {
+      "count": 1,
+      "disposition": "PAVLOV_ADMIN_TELEPORT_SOURCE_ANCHOR"
+    },
+    "viptp_C": {
+      "count": 5,
+      "disposition": "PAVLOV_ADMIN_TELEPORT_SOURCE_ANCHOR"
+    },
+    "wallbuy_2_C": {
+      "count": 1,
+      "disposition": "WALLBUY_ADAPTER"
+    },
+    "wallbuy_3_C": {
+      "count": 1,
+      "disposition": "WALLBUY_ADAPTER"
+    },
+    "wallbuy_C": {
+      "count": 1,
+      "disposition": "WALLBUY_ADAPTER"
+    }
+  }
+}

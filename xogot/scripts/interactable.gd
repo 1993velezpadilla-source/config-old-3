@@ -13,7 +13,8 @@ enum Kind {
 	TRAP,
 	TELEPORTER,
 	PICKUP,
-	REVIVE
+	REVIVE,
+	LADDER
 }
 
 @export var interaction_kind: Kind = Kind.DOOR
@@ -28,6 +29,10 @@ enum Kind {
 @export var teleporter_target_path: NodePath
 @export var trap_duration: float = 8.0
 @export var trap_damage_per_second: float = 225.0
+@export var source_external_item: bool = false
+@export var source_item_pool: Array[String] = []
+@export var source_item_authority: String = ""
+@export var ladder_climb_height: float = 2.25
 
 var _used: bool = false
 var _interaction_count: int = 0
@@ -73,6 +78,7 @@ func _play_world_sfx(path: String, volume_db: float = -4.0) -> void:
 
 
 func _ready() -> void:
+	add_to_group("zombie_interactable")
 	if interaction_kind == Kind.PERK or interaction_kind == Kind.UPGRADE:
 		_build_machine_loop_audio()
 		_machine_animation_player = _find_machine_animation_player(self)
@@ -307,6 +313,20 @@ func _use_teleporter(player: Node) -> bool:
 	print("XZOGOT_TELEPORT_USED ", name, " -> ", target.name)
 	return true
 
+func _use_ladder(player: Node) -> bool:
+	if player == null or not (player is CharacterBody3D):
+		_last_result = "LADDER_PLAYER_MISSING"
+		return false
+	var body := player as CharacterBody3D
+	var climb := maxf(1.0, ladder_climb_height)
+	body.global_position += Vector3.UP * climb
+	body.velocity.y = 0.0
+	_interaction_count += 1
+	_last_result = "LADDER_CLIMBED"
+	_play_player_hand_role(player, "ladder_use")
+	print("XZOGOT_SOURCE_LADDER_USED ", name, " climb=", climb)
+	return true
+
 func _use_generic_source_interaction(player: Node, role: String, result: String) -> bool:
 	_play_player_hand_role(player, role)
 	_interaction_count += 1
@@ -423,6 +443,9 @@ func interact(player: Node) -> bool:
 		Kind.REVIVE:
 			if not _use_generic_source_interaction(player, "revive", interaction_id if not interaction_id.is_empty() else "REVIVE"):
 				return false
+		Kind.LADDER:
+			if not _use_ladder(player):
+				return false
 
 	if one_shot:
 		_used = true
@@ -454,10 +477,18 @@ func _use_wallbuy_weapon(player: Node) -> bool:
 		return false
 
 	var weapon: Node = _find_player_weapon(player)
-	if weapon == null or not weapon.has_method("buy_wall_weapon"):
+	if weapon == null:
 		return false
-	if not bool(weapon.call("buy_wall_weapon", weapon_id, player)):
-		return false
+	if source_external_item:
+		if not weapon.has_method("buy_source_wall_weapon"):
+			return false
+		if not bool(weapon.call("buy_source_wall_weapon", weapon_id, price, player)):
+			return false
+	else:
+		if not weapon.has_method("buy_wall_weapon"):
+			return false
+		if not bool(weapon.call("buy_wall_weapon", weapon_id, player)):
+			return false
 	_interaction_count += 1
 	_last_result = weapon_id
 	print("XZOGOT_WALLBUY_USED ", weapon_id, " count=", _interaction_count)
@@ -466,7 +497,9 @@ func _use_wallbuy_weapon(player: Node) -> bool:
 func _use_mystery(player: Node) -> void:
 	_interaction_count += 1
 	var weapon: Node = _find_player_weapon(player)
-	if weapon != null and weapon.has_method("roll_mystery_weapon"):
+	if weapon != null and not source_item_pool.is_empty() and weapon.has_method("roll_source_mystery_weapon"):
+		_last_result = str(weapon.call("roll_source_mystery_weapon", source_item_pool))
+	elif weapon != null and weapon.has_method("roll_mystery_weapon"):
 		_last_result = str(weapon.call("roll_mystery_weapon"))
 	else:
 		_last_result = ""

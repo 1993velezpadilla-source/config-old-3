@@ -33,6 +33,9 @@ func _run() -> void:
 	var wallbuy_count := int(scene.get_meta("source_wallbuy_count", -1))
 	var mystery_count := int(scene.get_meta("source_mystery_count", -1))
 	var ladder_count := int(scene.get_meta("source_ladder_count", -1))
+	var interactable_count := int(scene.get_meta("source_interactable_count", -1))
+	var covered_actor_count := int(scene.get_meta("source_covered_actor_count", -1))
+	var coverage_class_count := int(scene.get_meta("source_coverage_class_count", -1))
 
 	if mesh_count != 52:
 		_fail(4, "mesh count mismatch " + str(mesh_count))
@@ -57,6 +60,24 @@ func _run() -> void:
 		return
 	if ladder_count != 2:
 		_fail(11, "source ladder count mismatch " + str(ladder_count))
+		return
+	if covered_actor_count != 233 or coverage_class_count != 37:
+		_fail(26, "source actor coverage mismatch")
+		return
+	if get_nodes_in_group("nuketown_source_covered_actor").size() != 233:
+		_fail(27, "covered source actor group mismatch")
+		return
+	if interactable_count != 6:
+		_fail(28, "source interactable adapter count mismatch " + str(interactable_count))
+		return
+	if get_nodes_in_group("nuketown_source_wallbuy_runtime").size() != 3:
+		_fail(29, "wallbuy runtime adapter mismatch")
+		return
+	if get_nodes_in_group("nuketown_source_mystery_runtime").size() != 1:
+		_fail(30, "mystery runtime adapter mismatch")
+		return
+	if get_nodes_in_group("nuketown_source_ladder_runtime").size() != 2:
+		_fail(31, "ladder runtime adapter mismatch")
 		return
 
 	var player := scene.get_node_or_null("Player") as CharacterBody3D
@@ -104,11 +125,26 @@ func _run() -> void:
 	if not bool(mystery_node.get_meta("source_always_relevant", false)):
 		_fail(24, "source mystery always-relevant flag missing")
 		return
-	if bool(mystery_node.get_meta("source_interaction_ready", true)):
-		_fail(25, "source mystery pool was silently replaced by current catalog")
+	if not bool(mystery_node.get_meta("source_interaction_ready", false)):
+		_fail(25, "source mystery runtime bridge not ready")
 		return
 	if get_nodes_in_group("nuketown_world_collision").size() < 124:
 		_fail(17, "collision group mismatch")
+		return
+
+	var runtime_wallbuy: Node = get_nodes_in_group("nuketown_source_wallbuy_runtime")[0]
+	if not bool(runtime_wallbuy.call("interact", player)):
+		_fail(32, "source wallbuy runtime interaction failed")
+		return
+	var weapon := player.get_node_or_null("Weapon")
+	if weapon == null or not weapon.has_method("get_source_external_item_id"):
+		_fail(33, "source external weapon bridge missing")
+		return
+	if str(weapon.call("get_source_external_item_id")).is_empty():
+		_fail(34, "source wallbuy did not preserve external item id")
+		return
+	if not bool(weapon.call("is_source_external_placeholder")):
+		_fail(35, "external source item placeholder was not explicit")
 		return
 
 	print(

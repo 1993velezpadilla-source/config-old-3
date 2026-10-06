@@ -71,6 +71,9 @@ var _last_ads_state: bool = false
 var _dev_infinite_ammo: bool = false
 var _upgraded_ids: Dictionary = {}
 var _upgraded: bool = false
+var _source_external_item_id: String = ""
+var _source_external_runtime_id: String = ""
+var _source_external_placeholder: bool = false
 
 @onready var _body: CollisionObject3D = get_parent() as CollisionObject3D
 @onready var _camera: Camera3D = get_parent().get_node("Head/Camera3D") as Camera3D
@@ -1364,11 +1367,21 @@ func get_runtime_stats() -> Dictionary:
 		"source_idle_psa": str(get_meta("weapon_source_idle_psa", "")),
 		"ads_authority": str(get_meta("weapon_ads_authority", "SOURCE_METADATA_PENDING")),
 		"texture_ready": bool(get_meta("weapon_texture_ready", false)),
+		"source_external_item_id": _source_external_item_id,
+		"source_external_runtime_id": _source_external_runtime_id,
+		"source_external_placeholder": _source_external_placeholder,
 	}
 
 func equip_weapon(id: String, refill: bool = true) -> bool:
 	if not WeaponCatalog.has_weapon(id):
 		return false
+
+	_source_external_item_id = ""
+	_source_external_runtime_id = ""
+	_source_external_placeholder = false
+	set_meta("source_external_item_id", "")
+	set_meta("source_external_runtime_id", "")
+	set_meta("source_external_placeholder", false)
 
 	var def: Dictionary = WeaponCatalog.get_weapon(id)
 	_weapon_id = id
@@ -1467,6 +1480,78 @@ func buy_wall_weapon(id: String, player: Node) -> bool:
 		equip_weapon(id, true)
 		print("XZOGOT_WALLBUY_WEAPON ", id, " cost=", cost)
 	return true
+
+func _source_placeholder_runtime_id(source_id: String) -> String:
+	var pool := WeaponCatalog.mystery_pool_ids()
+	if pool.is_empty():
+		return WeaponCatalog.STARTING_WEAPON_ID
+	var index := posmod(source_id.hash(), pool.size())
+	return pool[index]
+
+func equip_source_external_item(source_id: String, refill: bool = true) -> bool:
+	if source_id.strip_edges().is_empty():
+		return false
+	var runtime_id := _source_placeholder_runtime_id(source_id)
+	if not equip_weapon(runtime_id, refill):
+		return false
+	_source_external_item_id = source_id
+	_source_external_runtime_id = runtime_id
+	_source_external_placeholder = true
+	_display_name = source_id.to_upper() + " [SOURCE PLACEHOLDER]"
+	set_meta("source_external_item_id", source_id)
+	set_meta("source_external_runtime_id", runtime_id)
+	set_meta("source_external_placeholder", true)
+	set_meta("source_external_authority", "PAVLOV_CUSTOM_ITEM_EXTERNAL_ASSET_NOT_IN_UGC_PAYLOAD")
+	print(
+		"XZOGOT_SOURCE_EXTERNAL_WEAPON ",
+		source_id,
+		" runtime_placeholder=", runtime_id
+	)
+	return true
+
+func buy_source_wall_weapon(source_id: String, source_price: int, player: Node) -> bool:
+	if source_price < 0 or player == null or not player.has_method("spend_points"):
+		return false
+	if not bool(player.call("spend_points", source_price)):
+		return false
+	if _source_external_item_id == source_id and not _source_external_runtime_id.is_empty():
+		var current_def := WeaponCatalog.get_weapon(_source_external_runtime_id)
+		reserve_ammo += int(current_def.get("reserve", magazine_size * 4))
+		print("XZOGOT_SOURCE_WALLBUY_AMMO ", source_id, " cost=", source_price)
+		return true
+	if not equip_source_external_item(source_id, true):
+		return false
+	print("XZOGOT_SOURCE_WALLBUY_WEAPON ", source_id, " cost=", source_price)
+	return true
+
+func roll_source_mystery_weapon(source_pool: Array[String]) -> String:
+	if source_pool.is_empty():
+		return ""
+	_mystery_serial += 1
+	var candidates: Array[String] = []
+	for source_id: String in source_pool:
+		if source_id != _source_external_item_id:
+			candidates.append(source_id)
+	if candidates.is_empty():
+		candidates = source_pool.duplicate()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(0x4E554B45) + _mystery_serial * 7919
+	var source_result := candidates[rng.randi_range(0, candidates.size() - 1)]
+	if not equip_source_external_item(source_result, true):
+		return ""
+	print(
+		"XZOGOT_SOURCE_MYSTERY_RESULT ",
+		source_result,
+		" runtime_placeholder=", _source_external_runtime_id,
+		" spin=", _mystery_serial
+	)
+	return source_result
+
+func get_source_external_item_id() -> String:
+	return _source_external_item_id
+
+func is_source_external_placeholder() -> bool:
+	return _source_external_placeholder
 
 func roll_mystery_weapon() -> String:
 	_mystery_serial += 1

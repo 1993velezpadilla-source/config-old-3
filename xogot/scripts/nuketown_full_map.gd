@@ -17,19 +17,24 @@ extends Node3D
 @export var spawn_anchor_index: int = 0
 
 const SOURCE_LOADER := preload("res://scripts/xziel_benchmark_loader.gd")
+const INTERACTABLE := preload("res://scripts/interactable.gd")
 const WeaponCatalog := preload("res://scripts/weapon_catalog.gd")
 const VISUAL_SCENE_FILE := "visual-scene.json"
 const SOURCE_GAMEPLAY_FILE := "res://data/nuketown_source_gameplay.json"
+const SOURCE_ACTOR_COVERAGE_FILE := "res://data/nuketown_actor_coverage.json"
 
 var _source_loader: Node3D
 var _source_actor_root: Node3D
 var _source_gameplay_truth: Dictionary = {}
+var _source_actor_coverage: Dictionary = {}
 var _collision_count: int = 0
 var _actor_anchor_count: int = 0
 var _source_spawn_count: int = 0
 var _source_wallbuy_count: int = 0
 var _source_mystery_count: int = 0
 var _source_ladder_count: int = 0
+var _source_interactable_count: int = 0
+var _source_covered_actor_count: int = 0
 
 func _ready() -> void:
 	get_tree().set_meta("active_map_id", "nuketown_xziel_full")
@@ -38,11 +43,15 @@ func _ready() -> void:
 
 func _boot_full_map() -> void:
 	_source_gameplay_truth = _read_json(SOURCE_GAMEPLAY_FILE)
+	_source_actor_coverage = _read_json(SOURCE_ACTOR_COVERAGE_FILE)
 	if _source_gameplay_truth.is_empty():
 		push_error("NUKETOWN_FULL_MAP: source gameplay truth missing")
 		return
 	if int(_source_gameplay_truth.get("schemaVersion", 0)) != 1:
 		push_error("NUKETOWN_FULL_MAP: unsupported source gameplay truth schema")
+		return
+	if int(_source_actor_coverage.get("schemaVersion", 0)) != 1:
+		push_error("NUKETOWN_FULL_MAP: source actor coverage missing")
 		return
 
 	_source_loader = SOURCE_LOADER.new() as Node3D
@@ -73,6 +82,8 @@ func _boot_full_map() -> void:
 	if scene.is_empty():
 		push_error("NUKETOWN_FULL_MAP: visual-scene.json missing")
 		return
+	if not _validate_actor_coverage(scene):
+		return
 
 	if preserve_all_actor_anchors:
 		_build_source_actor_anchors(scene)
@@ -91,6 +102,9 @@ func _boot_full_map() -> void:
 	set_meta("source_wallbuy_count", _source_wallbuy_count)
 	set_meta("source_mystery_count", _source_mystery_count)
 	set_meta("source_ladder_count", _source_ladder_count)
+	set_meta("source_interactable_count", _source_interactable_count)
+	set_meta("source_covered_actor_count", _source_covered_actor_count)
+	set_meta("source_coverage_class_count", int(_source_actor_coverage.get("sourceClassCount", 0)))
 	set_meta("source_gameplay_truth_schema", int(_source_gameplay_truth.get("schemaVersion", 0)))
 	var mystery_truth: Dictionary = _source_gameplay_truth.get("mysteryBox", {})
 	set_meta("source_mystery_pool_count", (mystery_truth.get("pool", []) as Array).size())
@@ -117,6 +131,63 @@ func _read_json(path: String) -> Dictionary:
 		return {}
 	var parsed: Variant = JSON.parse_string(file.get_as_text())
 	return parsed as Dictionary if parsed is Dictionary else {}
+
+func _validate_actor_coverage(scene: Dictionary) -> bool:
+	var actual: Dictionary = {}
+	var total := 0
+	for raw: Variant in scene.get("actorAnchors", []):
+		if not (raw is Dictionary):
+			continue
+		var class_id := str((raw as Dictionary).get("className", ""))
+		actual[class_id] = int(actual.get(class_id, 0)) + 1
+		total += 1
+	var expected_classes: Dictionary = _source_actor_coverage.get("classes", {})
+	if total != int(_source_actor_coverage.get("sourceActorCount", -1)):
+		push_error("NUKETOWN_FULL_MAP: actor coverage total mismatch " + str(total))
+		return false
+	if actual.size() != int(_source_actor_coverage.get("sourceClassCount", -1)):
+		push_error("NUKETOWN_FULL_MAP: actor coverage class-count mismatch")
+		return false
+	for class_var: Variant in expected_classes.keys():
+		var class_id := str(class_var)
+		var row: Dictionary = expected_classes[class_id]
+		if int(actual.get(class_id, -1)) != int(row.get("count", -2)):
+			push_error("NUKETOWN_FULL_MAP: uncovered actor class " + class_id)
+			return false
+	_source_covered_actor_count = total
+	print("XZOGOT_NUKETOWN_ACTOR_COVERAGE_GREEN actors=", total, " classes=", actual.size())
+	return true
+
+func _source_disposition(source_class: String) -> String:
+	var classes: Dictionary = _source_actor_coverage.get("classes", {})
+	var row: Dictionary = classes.get(source_class, {})
+	return str(row.get("disposition", "UNCLASSIFIED"))
+
+func _make_source_interactable(
+	marker: Marker3D,
+	kind: int,
+	prompt: String,
+	size: Vector3
+) -> StaticBody3D:
+	var node := INTERACTABLE.new() as StaticBody3D
+	node.name = marker.name + "_Runtime"
+	node.transform = marker.transform
+	node.collision_layer = 8
+	node.collision_mask = 0
+	node.set("interaction_kind", kind)
+	node.set("prompt_text", prompt)
+	node.set("one_shot", false)
+	node.set_meta("source_actor_adapter", true)
+	node.set_meta("source_class_name", marker.get_meta("source_class_name", ""))
+	node.set_meta("source_export_index", marker.get_meta("source_export_index", -1))
+	var collision := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = size
+	collision.shape = shape
+	node.add_child(collision)
+	_source_actor_root.add_child(node)
+	_source_interactable_count += 1
+	return node
 
 func _source_basis() -> Basis:
 	# Same single coordinate conversion as XzielBenchmarkLoader.
@@ -169,6 +240,12 @@ func _build_source_actor_anchors(scene: Dictionary) -> void:
 		marker.set_meta("source_class_name", str(row.get("className", "")))
 		marker.set_meta("source_export_index", int(row.get("exportIndex", -1)))
 		marker.set_meta("source_anchor_source", str(row.get("anchorSource", "")))
+		var disposition := _source_disposition(str(row.get("className", "")))
+		marker.set_meta("source_disposition", disposition)
+		if disposition == "UNCLASSIFIED":
+			push_error("NUKETOWN_FULL_MAP: silent source actor drop " + str(row.get("className", "")))
+			continue
+		marker.add_to_group("nuketown_source_covered_actor")
 		_source_actor_root.add_child(marker)
 		_actor_anchor_count += 1
 
@@ -179,6 +256,17 @@ func _build_source_actor_anchors(scene: Dictionary) -> void:
 				_source_spawn_count += 1
 			"Pavlov_Ladder":
 				marker.add_to_group("nuketown_source_ladder")
+				var ladder := _make_source_interactable(
+					marker,
+					INTERACTABLE.Kind.LADDER,
+					"CLIMB",
+					Vector3(0.9, 2.4, 0.45)
+				)
+				var source_scale := marker.transform.basis.get_scale()
+				var inferred_height := maxf(2.0, maxf(source_scale.x, maxf(source_scale.y, source_scale.z)))
+				ladder.set("ladder_climb_height", inferred_height)
+				ladder.set_meta("source_ladder_height_inferred", true)
+				ladder.add_to_group("nuketown_source_ladder_runtime")
 				_source_ladder_count += 1
 			"wallbuy_C", "wallbuy_2_C", "wallbuy_3_C":
 				marker.add_to_group("nuketown_source_wallbuy")
@@ -192,7 +280,18 @@ func _build_source_actor_anchors(scene: Dictionary) -> void:
 				marker.set_meta("source_price", source_price)
 				marker.set_meta("source_price_authority", str(source_wallbuy.get("priceAuthority", "")))
 				marker.set_meta("source_item_catalog_ready", catalog_ready)
-				marker.set_meta("source_interaction_ready", catalog_ready and source_price >= 0)
+				marker.set_meta("source_interaction_ready", source_price >= 0)
+				var wallbuy_runtime := _make_source_interactable(
+					marker,
+					INTERACTABLE.Kind.WALLBUY,
+					"BUY " + source_weapon_id.to_upper(),
+					Vector3(0.75, 1.25, 0.40)
+				)
+				wallbuy_runtime.set("weapon_id", source_weapon_id)
+				wallbuy_runtime.set("price", source_price)
+				wallbuy_runtime.set("source_external_item", not catalog_ready)
+				wallbuy_runtime.set("source_item_authority", str(source_wallbuy.get("priceAuthority", "")))
+				wallbuy_runtime.add_to_group("nuketown_source_wallbuy_runtime")
 				_source_wallbuy_count += 1
 			"NewBlueprint1_2_C":
 				marker.add_to_group("nuketown_source_mystery")
@@ -208,7 +307,19 @@ func _build_source_actor_anchors(scene: Dictionary) -> void:
 				marker.set_meta("source_replicated", bool(mystery.get("replicated", false)))
 				marker.set_meta("source_always_relevant", bool(mystery.get("alwaysRelevant", false)))
 				marker.set_meta("source_item_class", str(mystery.get("itemClass", "")))
-				marker.set_meta("source_interaction_ready", supported == pool.size() and pool.size() > 0)
+				marker.set_meta("source_interaction_ready", pool.size() > 0)
+				var mystery_runtime := _make_source_interactable(
+					marker,
+					INTERACTABLE.Kind.MYSTERY,
+					"USE MYSTERY BOX",
+					Vector3(1.15, 1.25, 0.85)
+				)
+				var typed_pool: Array[String] = []
+				for item_raw: Variant in pool:
+					typed_pool.append(str(item_raw))
+				mystery_runtime.set("source_item_pool", typed_pool)
+				mystery_runtime.set("source_item_authority", str(mystery.get("itemClass", "")))
+				mystery_runtime.add_to_group("nuketown_source_mystery_runtime")
 				_source_mystery_count += 1
 			_:
 				pass
