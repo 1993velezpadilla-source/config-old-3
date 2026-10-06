@@ -8,6 +8,7 @@ on:
     paths:
       - ".github/workflows/xogot-nacht-chronicles-full-map-authority.yml"
       - "tools/maps/UEStaticSceneExtract/Program.cs"
+      - "tools/maps/UELightExtract/Program.cs"
       - "tools/patches/patch_ue421_material_texture_refs.py"
       - "tools/patches/synthesize_ue_basic_cube_xzms.py"
 
@@ -47,6 +48,8 @@ jobs:
           git checkout $old -- engine/xz tools/maps tests
           git checkout $env:GITHUB_SHA -- tools/maps/UEStaticSceneExtract/Program.cs
           if($LASTEXITCODE -ne 0){throw 'patched UEStaticSceneExtract restore failed'}
+          git checkout $env:GITHUB_SHA -- tools/maps/UELightExtract/Program.cs
+          if($LASTEXITCODE -ne 0){throw 'patched UELightExtract restore failed'}
           git checkout $env:GITHUB_SHA -- tools/maps/UEAudioSceneExtract
           if($LASTEXITCODE -ne 0){throw 'UEAudioSceneExtract restore failed'}
           python tools/patches/patch_ue421_material_texture_refs.py
