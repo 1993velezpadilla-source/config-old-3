@@ -4,6 +4,8 @@ const ParticleSource = preload("res://scripts/nacht_particle_source.gd")
 
 const MYSTERY_VERTICAL_SYSTEM := "/Game/CustomMaps/UGC2755515831/CoD/Particles/mysteryBox/findMe/mysteryVerticalParticlesPurple.mysteryVerticalParticlesPurple"
 const MYSTERY_VERTICAL_MATERIAL := "/Game/CustomMaps/UGC2755515831/CoD/Particles/mysteryBox/findMe/mysterBoxVerticalMat.mysterBoxVerticalMat"
+const BIG_FIRE_FORWARD_SYSTEM := "/Game/CustomMaps/UGC2755515831/M5VFXVOL2/Particles/Reference/Fire/4_bigfire_fwd2_pt.4_bigfire_fwd2_pt"
+const BIG_FIRE_FORWARD_MATERIAL := "/Game/CustomMaps/UGC2755515831/M5VFXVOL2/Materials/Fire_Inst/bigfire_fwd2_Inst.bigfire_fwd2_Inst"
 
 
 static func _canonical(raw: String) -> String:
@@ -162,6 +164,161 @@ static func mystery_vertical_descriptor(graphs: Dictionary) -> Dictionary:
 		"rgbTable": rgb,
 		"alphaTable": alpha,
 		"startVelocityTable": start_velocity,
+		"sourceNodeCount": int(system.get("nodeCount", 0)),
+		"sourceReferenceCount": int(system.get("referenceCount", 0)),
+	}
+
+
+
+static func big_fire_forward_descriptor(graphs: Dictionary) -> Dictionary:
+	var system := _find_system(graphs, BIG_FIRE_FORWARD_SYSTEM)
+	if system.is_empty():
+		return {"ready": false, "error": "big fire source system missing"}
+	if int(system.get("nodeCount", -1)) != 18:
+		return {
+			"ready": false,
+			"error": "big fire node count mismatch %d" % int(system.get("nodeCount", -1)),
+		}
+	if int(system.get("referenceCount", -1)) != 6:
+		return {
+			"ready": false,
+			"error": "big fire reference count mismatch %d" % int(system.get("referenceCount", -1)),
+		}
+
+	var required := _one_node(system, "ParticleModuleRequired")
+	var lifetime := _one_node(system, "ParticleModuleLifetime")
+	var size := _one_node(system, "ParticleModuleSize")
+	var velocity := _one_node(system, "ParticleModuleVelocity")
+	var size_life := _one_node(system, "ParticleModuleSizeMultiplyLife")
+	var cylinder := _one_node(system, "ParticleModuleLocationPrimitiveCylinder")
+	var orientation := _one_node(system, "ParticleModuleOrientationAxisLock")
+	var subuv := _one_node(system, "ParticleModuleSubUV")
+	var pivot := _one_node(system, "ParticleModulePivotOffset")
+	var size_speed := _one_node(system, "ParticleModuleSizeScaleBySpeed")
+	for pair: Array in [
+		["ParticleModuleRequired", required],
+		["ParticleModuleLifetime", lifetime],
+		["ParticleModuleSize", size],
+		["ParticleModuleVelocity", velocity],
+		["ParticleModuleSizeMultiplyLife", size_life],
+		["ParticleModuleLocationPrimitiveCylinder", cylinder],
+		["ParticleModuleOrientationAxisLock", orientation],
+		["ParticleModuleSubUV", subuv],
+		["ParticleModulePivotOffset", pivot],
+		["ParticleModuleSizeScaleBySpeed", size_speed],
+	]:
+		if (pair[1] as Dictionary).is_empty():
+			return {"ready": false, "error": "missing or duplicate " + str(pair[0])}
+
+	var spawn_nodes := ParticleSource.nodes_by_type(system, "ParticleModuleSpawn")
+	var lod_nodes := ParticleSource.nodes_by_type(system, "ParticleLODLevel")
+	if spawn_nodes.size() != 2:
+		return {"ready": false, "error": "big fire spawn LOD count mismatch %d" % spawn_nodes.size()}
+	if lod_nodes.size() != 2:
+		return {"ready": false, "error": "big fire LOD count mismatch %d" % lod_nodes.size()}
+
+	var required_props := ParticleSource.properties(required)
+	var lifetime_props := ParticleSource.properties(lifetime)
+	var size_props := ParticleSource.properties(size)
+	var velocity_props := ParticleSource.properties(velocity)
+	var cylinder_props := ParticleSource.properties(cylinder)
+	var orientation_props := ParticleSource.properties(orientation)
+	var subuv_props := ParticleSource.properties(subuv)
+	var pivot_props := ParticleSource.properties(pivot)
+	var size_speed_props := ParticleSource.properties(size_speed)
+
+	var material_path := str(required_props.get("Material", ""))
+	var screen_alignment := str(required_props.get("ScreenAlignment", ""))
+	var interpolation := str(required_props.get("InterpolationMethod", ""))
+	var subimages_h := int(required_props.get("SubImages_Horizontal", -1))
+	var subimages_v := int(required_props.get("SubImages_Vertical", -1))
+	var life := _distribution(lifetime_props.get("Lifetime"))
+	var start_size := _distribution(size_props.get("StartSize"))
+	var start_velocity := _distribution(velocity_props.get("StartVelocity"))
+	var radius := _distribution(cylinder_props.get("StartRadius"))
+	var subimage_index := _distribution(subuv_props.get("SubImageIndex"))
+	var pivot_offset := ParticleSource.vector2(pivot_props.get("PivotOffset"), Vector2.INF)
+	var speed_scale := ParticleSource.vector2(size_speed_props.get("SpeedScale"), Vector2.INF)
+	var max_scale := ParticleSource.vector2(size_speed_props.get("MaxScale"), Vector2.INF)
+	var lock_axis := str(orientation_props.get("LockAxisFlags", ""))
+
+	var life_min := float(life.get("MinValue", -1.0))
+	var life_max := float(life.get("MaxValue", -1.0))
+	var size_min := _vector_from_distribution(start_size, "MinValueVec", Vector3.INF)
+	var size_max := _vector_from_distribution(start_size, "MaxValueVec", Vector3.INF)
+	var velocity_min := _vector_from_distribution(start_velocity, "MinValueVec", Vector3.INF)
+	var velocity_max := _vector_from_distribution(start_velocity, "MaxValueVec", Vector3.INF)
+	var radius_min := float(radius.get("MinValue", -1.0))
+	var radius_max := float(radius.get("MaxValue", -1.0))
+	var subuv_max := float(subimage_index.get("MaxValue", -1.0))
+
+	var spawn_rates: Array[float] = []
+	for node: Dictionary in spawn_nodes:
+		var spawn_props := ParticleSource.properties(node)
+		var rate := _distribution(spawn_props.get("Rate"))
+		spawn_rates.append(float(rate.get("MinValue", -1.0)))
+	spawn_rates.sort()
+
+	var peak_active: Array[int] = []
+	for node: Dictionary in lod_nodes:
+		var lod_props := ParticleSource.properties(node)
+		peak_active.append(int(lod_props.get("PeakActiveParticles", -1)))
+	peak_active.sort()
+
+	if _canonical(material_path) != _canonical(BIG_FIRE_FORWARD_MATERIAL):
+		return {"ready": false, "error": "big fire material mismatch " + material_path}
+	if screen_alignment != "PSA_Velocity":
+		return {"ready": false, "error": "big fire screen alignment mismatch " + screen_alignment}
+	if interpolation != "PSUVIM_Linear_Blend":
+		return {"ready": false, "error": "big fire SubUV interpolation mismatch " + interpolation}
+	if subimages_h != 8 or subimages_v != 6:
+		return {"ready": false, "error": "big fire SubUV grid mismatch %dx%d" % [subimages_h, subimages_v]}
+	if lock_axis != "EPAL_ROTATE_Z":
+		return {"ready": false, "error": "big fire axis lock mismatch " + lock_axis}
+	if not pivot_offset.is_equal_approx(Vector2(0.0, -0.5)):
+		return {"ready": false, "error": "big fire pivot mismatch " + str(pivot_offset)}
+	if not speed_scale.is_equal_approx(Vector2(1.0, 1.0)):
+		return {"ready": false, "error": "big fire speed scale mismatch " + str(speed_scale)}
+	if not max_scale.is_equal_approx(Vector2(10.0, 10.0)):
+		return {"ready": false, "error": "big fire max scale mismatch " + str(max_scale)}
+	if not is_equal_approx(life_min, 1.0) or not is_equal_approx(life_max, 1.75):
+		return {"ready": false, "error": "big fire lifetime mismatch %s..%s" % [life_min, life_max]}
+	if not size_min.is_equal_approx(Vector3(10.0, 10.0, 0.0)) or not size_max.is_equal_approx(Vector3(10.0, 10.0, 0.0)):
+		return {"ready": false, "error": "big fire start size mismatch"}
+	if not velocity_min.is_equal_approx(Vector3(-10.0, -10.0, 10.0)):
+		return {"ready": false, "error": "big fire velocity min mismatch " + str(velocity_min)}
+	if not velocity_max.is_equal_approx(Vector3(10.0, 10.0, 80.0)):
+		return {"ready": false, "error": "big fire velocity max mismatch " + str(velocity_max)}
+	if not is_equal_approx(radius_min, 50.0) or not is_equal_approx(radius_max, 50.0):
+		return {"ready": false, "error": "big fire cylinder radius mismatch"}
+	if not is_equal_approx(subuv_max, 47.0):
+		return {"ready": false, "error": "big fire SubUV max mismatch " + str(subuv_max)}
+	if spawn_rates.size() != 2 or not is_equal_approx(spawn_rates[0], 0.99999994) or not is_equal_approx(spawn_rates[1], 10.0):
+		return {"ready": false, "error": "big fire LOD spawn rates mismatch " + str(spawn_rates)}
+	if peak_active != [4, 20]:
+		return {"ready": false, "error": "big fire peak active LOD mismatch " + str(peak_active)}
+
+	return {
+		"ready": true,
+		"systemPath": BIG_FIRE_FORWARD_SYSTEM,
+		"materialPath": material_path,
+		"screenAlignment": screen_alignment,
+		"interpolationMethod": interpolation,
+		"subImagesHorizontal": subimages_h,
+		"subImagesVertical": subimages_v,
+		"pivotOffset": pivot_offset,
+		"speedScale": speed_scale,
+		"maxScale": max_scale,
+		"lifetimeMin": life_min,
+		"lifetimeMax": life_max,
+		"startSizeMinUEcm": size_min,
+		"startSizeMaxUEcm": size_max,
+		"startVelocityMinUEcm": velocity_min,
+		"startVelocityMaxUEcm": velocity_max,
+		"cylinderRadiusUEcm": radius_min,
+		"subUVMaxIndex": subuv_max,
+		"spawnRatesByLOD": spawn_rates,
+		"peakActiveByLOD": peak_active,
 		"sourceNodeCount": int(system.get("nodeCount", 0)),
 		"sourceReferenceCount": int(system.get("referenceCount", 0)),
 	}
