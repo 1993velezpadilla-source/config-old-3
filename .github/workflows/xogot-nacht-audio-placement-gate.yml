@@ -87,6 +87,17 @@ jobs:
           '@ | python -
           Write-Host "XZOGOT_NACHT_AUDIO_MINIMAL_CENSUS_GREEN"
 
+      - name: Restore proven class census tool
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $old='055f0d0721eb212e3f4713e149d1e2ace5c53674'
+          git fetch origin $old --depth=1
+          if($LASTEXITCODE -ne 0){throw 'failed to fetch proven census tool commit'}
+          git checkout $old -- tools/maps/UEAssetClassCensus
+          if($LASTEXITCODE -ne 0){throw 'failed to restore UEAssetClassCensus'}
+          Write-Host "XZOGOT_NACHT_AUDIO_CENSUS_TOOL_RESTORED_GREEN source=$old"
+
       - name: Compile exact audio tools
         shell: pwsh
         run: |
