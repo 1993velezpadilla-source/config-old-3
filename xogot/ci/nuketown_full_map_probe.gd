@@ -113,8 +113,8 @@ func _run() -> void:
 		if str(skeletal_visual.get_meta("source_skeleton_hash", "")).is_empty():
 			_fail(102, "source skeletal visual missing skeleton hash")
 			return
-		if not bool(skeletal_visual.get_meta("source_transform_inherited_from_exact_actor_marker", false)):
-			_fail(103, "source skeletal visual lost exact actor transform authority")
+		if not bool(skeletal_visual.get_meta("source_transform_from_cooked_component", false)):
+			_fail(103, "source skeletal visual lost exact cooked-component transform authority")
 			return
 		if bool(skeletal_visual.get_meta("source_animation_playback_decoded", true)):
 			_fail(104, "source skeletal visual invented animation playback state")
