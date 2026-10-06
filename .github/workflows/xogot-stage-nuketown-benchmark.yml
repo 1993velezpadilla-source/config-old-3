@@ -126,6 +126,52 @@ jobs:
           find "$dst" -type f -size +95M -print -quit | (! grep .)
           echo "XZOGOT_NUKETOWN_WORLD_FILESIZE_GATE_GREEN"
 
+      - name: Regenerate native Godot GLB benchmark meshes
+        shell: bash
+        run: |
+          set -euo pipefail
+          src=xogot/assets/benchmarks/nuketown_xziel/vfs/xziel/maps/xziel_nuketown_zombies/meshes
+          dst=xogot/assets/benchmarks/nuketown_xziel/vfs/xziel/maps/xziel_nuketown_zombies/meshes_glb
+          report=xogot/assets/benchmarks/nuketown_xziel/native-glb-report.json
+          test -d "$src"
+          rm -rf "$dst"
+          mkdir -p "$dst"
+
+          python3 tools/maps/xzms_to_glb.py "$src" "$dst" \
+            --report "$report" | tee /tmp/nuketown-stage-glb.log
+          grep -q "XZOGOT_XZMS_GLB_GREEN" /tmp/nuketown-stage-glb.log
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          root=Path("xogot/assets/benchmarks/nuketown_xziel")
+          report_path=root/"native-glb-report.json"
+          manifest_path=root/"source_manifest.json"
+          glb_dir=root/"vfs/xziel/maps/xziel_nuketown_zombies/meshes_glb"
+
+          report=json.loads(report_path.read_text())
+          files=sorted(glb_dir.glob("*.glb"))
+          assert report["mesh_count"] == 52, report
+          assert report["vertices"] == 671012, report
+          assert report["indices"] == 859353, report
+          assert report["submeshes"] == 563, report
+          assert len(files) == 52, len(files)
+          assert all(path.stat().st_size > 100 for path in files)
+
+          manifest=json.loads(manifest_path.read_text())
+          manifest["runtime_mesh_format"]="GLB"
+          manifest["runtime_mesh_directory"]="vfs/xziel/maps/xziel_nuketown_zombies/meshes_glb"
+          manifest["runtime_mesh_conversion"]="lossless XZMS vertex/index/submesh bridge"
+          manifest["source_xzms_authority"]={
+              "source_run":36613010234,
+              "source_artifact":"XZIEL-Nuketown-Zombies-Virgin-Package-Census",
+              "staged_directory":"vfs/xziel/maps/xziel_nuketown_zombies/meshes",
+          }
+          manifest_path.write_text(json.dumps(manifest,indent=2)+"\n")
+          print("XZOGOT_NUKETOWN_STAGE_NATIVE_GLB_GREEN",len(files))
+          PY
+
       - name: Commit portable Godot benchmark payload
         shell: bash
         run: |
