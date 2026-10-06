@@ -220,21 +220,40 @@ UBlueprintGeneratedClass? ResolveBlueprintSuperClass(
     DefaultFileProvider provider,
     UBlueprintGeneratedClass current)
 {
+    string? superPath = null;
+    string? superName = null;
+
+    // UE4 serializes Blueprint class inheritance on UStruct.SuperStruct.
+    // In cooked packages UObject.Super can be empty even when SuperStruct
+    // points at a BlueprintGeneratedClass in another package.
     try
     {
-        if (current.Super?.Object?.Value is UBlueprintGeneratedClass loaded)
-            return loaded;
+        var superStruct = current.SuperStruct;
+        if (!superStruct.IsNull)
+        {
+            if (superStruct.TryLoad<UBlueprintGeneratedClass>(out var loaded) &&
+                loaded is not null)
+                return loaded;
+
+            superPath = superStruct.ResolvedObject?.GetPathName();
+            superName = superStruct.ResolvedObject?.Name.Text
+                ?? superStruct.Name;
+        }
     }
     catch { }
 
-    string? superPath = null;
-    string? superName = null;
-    try
+    if (string.IsNullOrWhiteSpace(superName))
     {
-        superPath = current.Super?.GetPathName();
-        superName = current.Super?.Name.Text;
+        try
+        {
+            if (current.Super?.Object?.Value is UBlueprintGeneratedClass loaded)
+                return loaded;
+
+            superPath ??= current.Super?.GetPathName();
+            superName ??= current.Super?.Name.Text;
+        }
+        catch { }
     }
-    catch { }
 
     if (string.IsNullOrWhiteSpace(superName) ||
         !superName.EndsWith("_C", StringComparison.Ordinal))
