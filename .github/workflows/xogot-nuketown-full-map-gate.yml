@@ -172,7 +172,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq unzip curl xvfb libgl1-mesa-dri libglx-mesa0 mesa-vulkan-drivers astcenc
 
-      - name: Decode source ASTC 6x6 textures
+      - name: Decode all 321 source textures
         shell: bash
         run: |
           set -euo pipefail
@@ -181,6 +181,7 @@ jobs:
             xogot/assets/benchmarks/nuketown_xziel \
             2>&1 | tee build/nuketown-full-map-textures.log
           grep -q "XZOGOT_ASTC6_DECODE_GREEN" build/nuketown-full-map-textures.log
+          grep -q "XZOGOT_XZTX_COMPLETE_DECODE_GREEN textures=321 astc6=312 bgra8=9" build/nuketown-full-map-textures.log
 
       - name: Install Godot 4.6.1
         shell: bash
