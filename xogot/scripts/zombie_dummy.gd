@@ -12,6 +12,8 @@ const MONJA_ELITE_CMU_PATH := "res://assets/zombies/monja_elite/cmu_runtime/monj
 const MONJA_ELITE_PATH := "res://assets/zombies/monja_elite/clean_runtime/monja_black_white_clean_rig.gltf"
 const SHEEP_RUNNER_PATH := "res://assets/zombies/sheep/sheep_runner_animated.glb"
 const SHEEP_BRUTE_PATH := "res://assets/zombies/sheep/sheep_brute_animated.glb"
+const WAW_HONORGD_PATH := "res://assets/zombies/source_waw/honorgd/zombie.glb"
+const WAW_SUMPF_PATH := "res://assets/zombies/source_waw/sumpf/zombie.glb"
 
 const RIGGED_FALLBACK_ANIMS := {
 	"idle": ["Zombie_Idle_Loop", "Zombie_Idle_Clean", "Idle_Clean"],
@@ -60,6 +62,17 @@ const HIT_KEYS: Array[String] = ["Zombie_Hit_Clean", "Hit_Knockback"]
 const DEATH_KEYS: Array[String] = ["fall_on_face", "90_16", "Zombie_Death_Clean", "LayToIdle"]
 const GETUP_KEYS: Array[String] = ["face_down_A", "140_01"]
 const CRAWL_KEYS: Array[String] = ["crawl_A", "111_03"]
+
+const WAW_SOURCE_STATE_KEYS := {
+	"idle": ["ai_zombie_idle_v1_delta"],
+	"walk": ["ai_zombie_walk_v1"],
+	"walk_fast": ["ai_zombie_walk_fast_v1"],
+	"run": ["ai_zombie_run_v1"],
+	"sprint": ["ai_zombie_sprint_v1"],
+	"attack": ["ai_zombie_attack_forward_v1", "ai_zombie_attack_v1"],
+	"death": ["ai_zombie_death_v1", "ai_zombie_death_v2"],
+	"traverse": ["ai_zombie_traverse_ground_v1_run", "ai_zombie_traverse_v1"],
+}
 
 @export var enemy_variant: String = "normal"
 @export var move_speed: float = 1.85
@@ -345,6 +358,7 @@ func _build_body() -> void:
 	var using_rigged: bool = false
 	var using_rigged_dismember: bool = false
 	var using_rigid_rig: bool = false
+	var using_source_waw: bool = false
 	var special_model_id: String = ""
 	if enemy_variant == "sheep_runner":
 		selected_path = SHEEP_RUNNER_PATH
@@ -357,29 +371,27 @@ func _build_body() -> void:
 		using_rigged = true
 		special_model_id = "monja_elite_cmu" if selected_path == MONJA_ELITE_CMU_PATH else "monja_elite"
 	else:
-		# Production normal zombie: use the validated clean V4 rig first.
-		# It has the strongest geometry/bind/deformation gate and the exact
-		# Idle/Walk/Attack/Hit/Death clip set used by the gameplay state machine.
-		if ResourceLoader.exists(MONJA_CLEAN_PATH):
+		# Source-first golden baseline: normal gameplay uses the recovered WaW
+		# zombie body + WaW animation contract before any Monja reskin.  Keep
+		# geometry at authored meter scale; custom art may replace this visual
+		# only after the source runtime is visually/gameplay GREEN.
+		var source_variant: String = str(get_meta("source_waw_variant", "honorgd"))
+		if source_variant == "sumpf" and ResourceLoader.exists(WAW_SUMPF_PATH):
+			selected_path = WAW_SUMPF_PATH
+			using_rigged = true
+			using_source_waw = true
+			special_model_id = "waw_sumpf"
+		elif ResourceLoader.exists(WAW_HONORGD_PATH):
+			selected_path = WAW_HONORGD_PATH
+			using_rigged = true
+			using_source_waw = true
+			special_model_id = "waw_honorgd"
+		elif ResourceLoader.exists(MONJA_CLEAN_PATH):
+			# Fail-soft development fallback only; source gate rejects this when
+			# the WaW assets are expected to be present.
 			selected_path = MONJA_CLEAN_PATH
 			using_rigged = true
-			special_model_id = "monja_clean"
-		elif ResourceLoader.exists(MONJA_CMU_PATH):
-			selected_path = MONJA_CMU_PATH
-			using_rigged = true
-			special_model_id = "monja_cmu"
-		elif ResourceLoader.exists(MONJA_RIGGED_DISMEMBER_PATH):
-			selected_path = MONJA_RIGGED_DISMEMBER_PATH
-			using_rigged = true
-			using_rigged_dismember = true
-		elif ResourceLoader.exists(MONJA_RIGGED_PATH):
-			selected_path = MONJA_RIGGED_PATH
-			using_rigged = true
-		elif ResourceLoader.exists(MONJA_RIGID_RIG_PATH):
-			selected_path = MONJA_RIGID_RIG_PATH
-			using_rigged = true
-			using_rigged_dismember = true
-			using_rigid_rig = true
+			special_model_id = "monja_clean_fallback"
 
 	if ResourceLoader.exists(selected_path):
 		var packed: PackedScene = load(selected_path) as PackedScene
@@ -391,15 +403,20 @@ func _build_body() -> void:
 				add_child(visual)
 				_visual_root = visual
 				imported.name = "EnemySource_" + enemy_variant
-				imported.rotation_degrees.y = 90.0
+				imported.rotation_degrees.y = 0.0 if using_source_waw else 90.0
 				visual.add_child(imported)
-				if _fit_visual_to_gameplay_bounds(
-					visual,
-					imported,
-					target_visual_height,
-					target_visual_max_width,
-					target_visual_max_depth
-				):
+				var visual_ready: bool = (
+					_place_source_visual_on_feet(visual, imported)
+					if using_source_waw
+					else _fit_visual_to_gameplay_bounds(
+						visual,
+						imported,
+						target_visual_height,
+						target_visual_max_width,
+						target_visual_max_depth
+					)
+				)
+				if visual_ready:
 					_animation_player = _find_animation_player(imported)
 					var model_id: String = special_model_id
 					if model_id.is_empty():
@@ -411,16 +428,17 @@ func _build_body() -> void:
 							)
 						)
 					set_meta("zombie_model", model_id)
-					set_meta("zombie_visual_forward_fix_deg", 90.0)
+					set_meta("zombie_visual_forward_fix_deg", 0.0 if using_source_waw else 90.0)
 					set_meta("zombie_rig_ready", _animation_player != null)
 					set_meta("zombie_rigged_asset", using_rigged)
+					set_meta("zombie_source_waw", using_source_waw)
 					set_meta("zombie_authored_dismember_asset", using_rigged_dismember)
 					set_meta("zombie_rigid_region_rig", using_rigid_rig)
-					print("XZOGOT_ENEMY_FORWARD_FIXED 90 variant=", enemy_variant)
 					print("XZOGOT_ENEMY_MODEL_LOADED variant=", enemy_variant, " model=", model_id)
-					if enemy_variant == "normal":
-						print("XZOGOT_MONJA_FORWARD_FIXED 90")
-						print("XZOGOT_MONJA_BASICA_LOADED")
+					if using_source_waw:
+						print("XZOGOT_WAW_ZOMBIE_SOURCE_LOADED model=", model_id, " scale=", visual.scale)
+					elif enemy_variant == "normal":
+						print("XZOGOT_MONJA_BASICA_FALLBACK")
 					if _animation_player != null:
 						print("XZOGOT_MONJA_RIGGED_ANIMATION_PLAYER_READY")
 						_play_motion_state("idle")
@@ -442,6 +460,40 @@ func _find_animation_player(node: Node) -> AnimationPlayer:
 		if found != null:
 			return found
 	return null
+
+func _place_source_visual_on_feet(wrapper: Node3D, imported: Node3D) -> bool:
+	var points: Array[Vector3] = []
+	_collect_mesh_bounds(imported, Transform3D.IDENTITY, points)
+	if points.is_empty():
+		return false
+
+	var min_v: Vector3 = points[0]
+	var max_v: Vector3 = points[0]
+	for point: Vector3 in points:
+		min_v.x = minf(min_v.x, point.x)
+		min_v.y = minf(min_v.y, point.y)
+		min_v.z = minf(min_v.z, point.z)
+		max_v.x = maxf(max_v.x, point.x)
+		max_v.y = maxf(max_v.y, point.y)
+		max_v.z = maxf(max_v.z, point.z)
+
+	var raw_size := max_v - min_v
+	if raw_size.x <= 0.0001 or raw_size.y <= 0.0001 or raw_size.z <= 0.0001:
+		return false
+
+	var center_x := (min_v.x + max_v.x) * 0.5
+	var center_z := (min_v.z + max_v.z) * 0.5
+	wrapper.scale = Vector3.ONE
+	wrapper.position = Vector3(-center_x, -min_v.y, -center_z)
+
+	set_meta("zombie_visual_height_m", raw_size.y)
+	set_meta("zombie_visual_width_m", raw_size.x)
+	set_meta("zombie_visual_depth_m", raw_size.z)
+	set_meta("zombie_visual_scale_xyz", Vector3.ONE)
+	set_meta("zombie_visual_centered_on_feet", true)
+	set_meta("zombie_source_scale_preserved", true)
+	print("XZOGOT_WAW_ZOMBIE_SCALE_GREEN raw=", raw_size, " scale=1")
+	return true
 
 func _fit_visual_to_gameplay_bounds(
 	wrapper: Node3D,
@@ -979,7 +1031,38 @@ func _play_motion_state(state: String) -> void:
 		return
 
 	var keys: Array[String] = []
-	if state == "walk":
+	var source_waw: bool = str(get_meta("zombie_model", "")).begins_with("waw_")
+	if source_waw:
+		match state:
+			"idle":
+				keys = WAW_SOURCE_STATE_KEYS["idle"]
+			"walk":
+				if str(get_meta("motion_override", "")) == "crawl":
+					# Exact WaW crawler clip is still being recovered from the
+					# Nacht lane. Do not substitute an unrelated authored clip.
+					set_meta("crawler_visual_source_pending", true)
+					keys = []
+				elif move_speed >= 3.55:
+					keys = WAW_SOURCE_STATE_KEYS["sprint"]
+				elif move_speed >= 2.55:
+					keys = WAW_SOURCE_STATE_KEYS["run"]
+				elif move_speed >= 2.05:
+					keys = WAW_SOURCE_STATE_KEYS["walk_fast"]
+				else:
+					keys = WAW_SOURCE_STATE_KEYS["walk"]
+			"attack":
+				keys = WAW_SOURCE_STATE_KEYS["attack"]
+			"death":
+				keys = WAW_SOURCE_STATE_KEYS["death"]
+			"traverse":
+				keys = WAW_SOURCE_STATE_KEYS["traverse"]
+			"hit":
+				# No WaW hit-reaction clip exists in the validated 57-PSA set.
+				# Gameplay hit reaction remains procedural; do not fake a source clip.
+				keys = []
+			_:
+				keys = []
+	elif state == "walk":
 		if str(get_meta("motion_override", "")) == "crawl":
 			keys = CRAWL_KEYS
 		else:
@@ -996,7 +1079,7 @@ func _play_motion_state(state: String) -> void:
 		keys = GETUP_KEYS
 
 	var anim_name: String = _animation_name_for_keys(keys)
-	if anim_name.is_empty():
+	if anim_name.is_empty() and not source_waw:
 		anim_name = _rigged_fallback_animation(state)
 	if not anim_name.is_empty():
 		var anim_speed: float = _animation_speed_for_state(state)
