@@ -20,6 +20,10 @@ const GLB_REPORT_FILE := "native-glb-report.json"
 const GLB_DIR := "static_glb"
 const LIGHTS_FILE := "nacht-lights.json"
 const ENVIRONMENT_REPORT_FILE := "nacht-environment-report.json"
+const PARTICLES_FILE := "nacht-particles.json"
+const ENVIRONMENT_SCENE_FILE := "nacht-environment-scene.json"
+const AUDIO_SCENE_FILE := "nacht-audio-scene.json"
+const AUDIO_CUES_FILE := "nacht-audio-cues.json"
 
 var _runtime_root: Node3D
 var _benchmark_loader: Node3D
@@ -28,6 +32,10 @@ var _handoff: Dictionary = {}
 var _glb_report: Dictionary = {}
 var _lights_source: Dictionary = {}
 var _environment_report: Dictionary = {}
+var _particle_scene: Dictionary = {}
+var _environment_scene: Dictionary = {}
+var _audio_scene: Dictionary = {}
+var _audio_cues: Dictionary = {}
 var _mesh_cache: Dictionary = {}
 
 var _created_instances := 0
@@ -60,6 +68,10 @@ func _boot() -> void:
 	_glb_report = _read_json(_source_path(GLB_REPORT_FILE))
 	_lights_source = _read_json(_source_path(LIGHTS_FILE))
 	_environment_report = _read_json(_source_path(ENVIRONMENT_REPORT_FILE))
+	_particle_scene = _read_json(_source_path(PARTICLES_FILE))
+	_environment_scene = _read_json(_source_path(ENVIRONMENT_SCENE_FILE))
+	_audio_scene = _read_json(_source_path(AUDIO_SCENE_FILE))
+	_audio_cues = _read_json(_source_path(AUDIO_CUES_FILE))
 
 	if not _validate_authority():
 		return
@@ -95,6 +107,20 @@ func _boot() -> void:
 	set_meta("world_collision_count", _collision_count)
 	set_meta("source_light_count", int(_environment_report.get("lightCount", -1)))
 	set_meta("runtime_light_count", _light_count)
+	set_meta("source_particle_component_count", int(_particle_scene.get("particleComponentCount", -1)))
+	set_meta("runtime_particle_authority_count", (_particle_scene.get("particleComponents", []) as Array).size())
+	set_meta("source_environment_component_count", int(_environment_scene.get("environmentComponentCount", -1)))
+	set_meta("runtime_environment_authority_count", (_environment_scene.get("components", []) as Array).size())
+	set_meta("source_audio_component_count", int(_audio_scene.get("audioComponentCount", -1)))
+	set_meta("runtime_audio_authority_count", (_audio_scene.get("audioComponents", []) as Array).size())
+	set_meta("source_sound_cue_count", int(_audio_cues.get("cueCount", -1)))
+	set_meta("runtime_sound_cue_authority_count", (_audio_cues.get("cues", []) as Array).size())
+	# These flags intentionally distinguish parsed source authority from visual /
+	# audible runtime reproduction. They must only flip when those systems are
+	# actually mounted, never merely because the JSON exists.
+	set_meta("particle_visual_runtime_ready", false)
+	set_meta("source_audio_runtime_ready", false)
+	set_meta("source_environment_runtime_ready", false)
 	set_meta("source_class_count", int((_handoff.get("fullMapAuthority", {}) as Dictionary).get("classCensus", {}).get("uniqueClasses", -1)))
 	set_meta("nacht_full_map_ready", true)
 	get_tree().set_meta("nacht_full_map_ready", true)
@@ -106,7 +132,11 @@ func _boot() -> void:
 		" instances=", _created_instances,
 		" actors=", _actor_anchor_count,
 		" collisions=", _collision_count,
-		" lights=", _light_count
+		" lights=", _light_count,
+		" particles_authority=", get_meta("runtime_particle_authority_count"),
+		" environment_authority=", get_meta("runtime_environment_authority_count"),
+		" audio_authority=", get_meta("runtime_audio_authority_count"),
+		" cues_authority=", get_meta("runtime_sound_cue_authority_count")
 	)
 
 func _validate_authority() -> bool:
@@ -132,8 +162,29 @@ func _validate_authority() -> bool:
 	if _glb_report.is_empty() or int(_glb_report.get("mesh_count", 0)) <= 0:
 		push_error("NACHT_FULL_MAP: native GLB bridge missing")
 		return false
-	if _environment_report.is_empty() or int(_environment_report.get("lightCount", 0)) <= 0:
-		push_error("NACHT_FULL_MAP: source light report missing")
+	if _environment_report.is_empty() or int(_environment_report.get("lightCount", 0)) != 166:
+		push_error("NACHT_FULL_MAP: source light report missing or incomplete")
+		return false
+	if _particle_scene.is_empty() or not bool(_particle_scene.get("ready", false)):
+		push_error("NACHT_FULL_MAP: source particle placement authority missing")
+		return false
+	if int(_particle_scene.get("particleComponentCount", 0)) <= 0:
+		push_error("NACHT_FULL_MAP: source particle placement authority empty")
+		return false
+	if _environment_scene.is_empty() or not bool(_environment_scene.get("ready", false)):
+		push_error("NACHT_FULL_MAP: source environment authority missing")
+		return false
+	if _audio_scene.is_empty() or not bool(_audio_scene.get("ready", false)):
+		push_error("NACHT_FULL_MAP: source audio placement authority missing")
+		return false
+	if int(_audio_scene.get("audioComponentCount", 0)) <= 0:
+		push_error("NACHT_FULL_MAP: source audio placement authority empty")
+		return false
+	if _audio_cues.is_empty() or not bool(_audio_cues.get("ready", false)):
+		push_error("NACHT_FULL_MAP: source SoundCue graph authority missing")
+		return false
+	if int(_audio_cues.get("cueCount", 0)) != 102:
+		push_error("NACHT_FULL_MAP: source SoundCue graph count mismatch")
 		return false
 	return true
 
