@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -493,6 +494,11 @@ def main() -> int:
                 "waveObjectPaths": waves,
                 "nodeCount": cue.get("nodeCount"),
                 "edgeCount": cue.get("edgeCount"),
+                "nodeTypes": sorted({
+                    str(node.get("exportType", ""))
+                    for node in cue.get("nodes", [])
+                    if str(node.get("exportType", ""))
+                }),
                 "volumeMultiplier": cue.get("volumeMultiplier"),
                 "pitchMultiplier": cue.get("pitchMultiplier"),
             }
@@ -555,6 +561,18 @@ def main() -> int:
             if not event.get("resolvedAsset"):
                 unresolved_actor_events.append(event)
 
+    used_cue_node_types: Counter[str] = Counter()
+    used_cues: set[str] = set()
+    for row in component_bindings + actor_events:
+        authority = row.get("assetAuthority")
+        if not isinstance(authority, dict) or authority.get("kind") != "SoundCue":
+            continue
+        cue_path = authority.get("objectPath")
+        if cue_path:
+            used_cues.add(str(cue_path))
+        for node_type in authority.get("nodeTypes", []):
+            used_cue_node_types[str(node_type)] += 1
+
     ready = (
         len(component_bindings) == int(audio_scene.get("audioComponentCount", -1))
         and not unresolved_components
@@ -579,6 +597,8 @@ def main() -> int:
         "unresolvedAssets": unresolved_assets,
         "cueAuthorityCount": int(cue_graph.get("cueCount", 0)) if cue_graph else None,
         "nativeWaveAuthorityCount": int(native_audio.get("convertedSoundWaves", 0)) if native_audio else None,
+        "usedSoundCueCount": len(used_cues),
+        "usedSoundCueNodeTypeCounts": dict(sorted(used_cue_node_types.items())),
         "ready": ready,
     }
 
@@ -597,6 +617,8 @@ def main() -> int:
                 "unresolvedComponents": len(unresolved_components),
                 "unresolvedActorEvents": len(unresolved_actor_events),
                 "unresolvedAssets": len(unresolved_assets),
+                "usedSoundCues": len(used_cues),
+                "usedCueNodeTypes": dict(sorted(used_cue_node_types.items())),
                 "ready": ready,
             },
             separators=(",", ":"),
