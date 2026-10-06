@@ -17,10 +17,13 @@ extends Node3D
 @export var spawn_anchor_index: int = 0
 
 const SOURCE_LOADER := preload("res://scripts/xziel_benchmark_loader.gd")
+const WeaponCatalog := preload("res://scripts/weapon_catalog.gd")
 const VISUAL_SCENE_FILE := "visual-scene.json"
+const SOURCE_GAMEPLAY_FILE := "res://data/nuketown_source_gameplay.json"
 
 var _source_loader: Node3D
 var _source_actor_root: Node3D
+var _source_gameplay_truth: Dictionary = {}
 var _collision_count: int = 0
 var _actor_anchor_count: int = 0
 var _source_spawn_count: int = 0
@@ -34,6 +37,14 @@ func _ready() -> void:
 	call_deferred("_boot_full_map")
 
 func _boot_full_map() -> void:
+	_source_gameplay_truth = _read_json(SOURCE_GAMEPLAY_FILE)
+	if _source_gameplay_truth.is_empty():
+		push_error("NUKETOWN_FULL_MAP: source gameplay truth missing")
+		return
+	if int(_source_gameplay_truth.get("schemaVersion", 0)) != 1:
+		push_error("NUKETOWN_FULL_MAP: unsupported source gameplay truth schema")
+		return
+
 	_source_loader = SOURCE_LOADER.new() as Node3D
 	if _source_loader == null:
 		push_error("NUKETOWN_FULL_MAP: source loader instantiate failed")
@@ -80,6 +91,9 @@ func _boot_full_map() -> void:
 	set_meta("source_wallbuy_count", _source_wallbuy_count)
 	set_meta("source_mystery_count", _source_mystery_count)
 	set_meta("source_ladder_count", _source_ladder_count)
+	set_meta("source_gameplay_truth_schema", int(_source_gameplay_truth.get("schemaVersion", 0)))
+	var mystery_truth: Dictionary = _source_gameplay_truth.get("mysteryBox", {})
+	set_meta("source_mystery_pool_count", (mystery_truth.get("pool", []) as Array).size())
 	set_meta("nuketown_full_map_ready", true)
 	get_tree().set_meta("nuketown_full_map_ready", true)
 
@@ -168,30 +182,36 @@ func _build_source_actor_anchors(scene: Dictionary) -> void:
 				_source_ladder_count += 1
 			"wallbuy_C", "wallbuy_2_C", "wallbuy_3_C":
 				marker.add_to_group("nuketown_source_wallbuy")
-				var source_weapon_id := _source_wallbuy_weapon_id(source_class)
+				var wallbuys: Dictionary = _source_gameplay_truth.get("wallbuys", {})
+				var source_wallbuy: Dictionary = wallbuys.get(source_class, {})
+				var source_weapon_id := str(source_wallbuy.get("itemId", ""))
+				var source_price := int(source_wallbuy.get("price", -1))
+				var catalog_ready := WeaponCatalog.has_weapon(source_weapon_id)
 				marker.set_meta("source_weapon_id", source_weapon_id)
-				marker.set_meta("source_price_known", false)
-				marker.set_meta("source_price", -1)
-				marker.set_meta("source_interaction_ready", false)
+				marker.set_meta("source_price_known", source_price >= 0)
+				marker.set_meta("source_price", source_price)
+				marker.set_meta("source_price_authority", str(source_wallbuy.get("priceAuthority", "")))
+				marker.set_meta("source_item_catalog_ready", catalog_ready)
+				marker.set_meta("source_interaction_ready", catalog_ready and source_price >= 0)
 				_source_wallbuy_count += 1
 			"NewBlueprint1_2_C":
-				# Proven from the source Blueprint dependencies: GiveItem,
-				# box open/close/arrive animations and music_box_00.
 				marker.add_to_group("nuketown_source_mystery")
+				var mystery: Dictionary = _source_gameplay_truth.get("mysteryBox", {})
+				var pool: Array = mystery.get("pool", [])
+				var supported := 0
+				for item_raw: Variant in pool:
+					if WeaponCatalog.has_weapon(str(item_raw)):
+						supported += 1
+				marker.set_meta("source_item_pool", pool.duplicate())
+				marker.set_meta("source_item_pool_count", pool.size())
+				marker.set_meta("source_supported_item_count", supported)
+				marker.set_meta("source_replicated", bool(mystery.get("replicated", false)))
+				marker.set_meta("source_always_relevant", bool(mystery.get("alwaysRelevant", false)))
+				marker.set_meta("source_item_class", str(mystery.get("itemClass", "")))
+				marker.set_meta("source_interaction_ready", supported == pool.size() and pool.size() > 0)
 				_source_mystery_count += 1
 			_:
 				pass
-
-func _source_wallbuy_weapon_id(source_class: String) -> String:
-	match source_class:
-		"wallbuy_C":
-			return "stingray"
-		"wallbuy_2_C":
-			return "crraygun"
-		"wallbuy_3_C":
-			return "crminigun"
-		_:
-			return ""
 
 func _build_collision_recursive(node: Node) -> int:
 	var created := 0

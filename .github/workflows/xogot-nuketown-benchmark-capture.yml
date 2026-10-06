@@ -8,6 +8,7 @@ on:
     paths:
       - "xogot/ci/nuketown_benchmark_capture.gd"
       - "xogot/scripts/xziel_benchmark_loader.gd"
+      - "xogot/data/nuketown_source_gameplay.json"
       - "tools/maps/xztx_astc6_to_png.py"
       - "benchmarks/nuketown_xziel/**"
       - ".github/workflows/xogot-nuketown-benchmark-capture.yml"

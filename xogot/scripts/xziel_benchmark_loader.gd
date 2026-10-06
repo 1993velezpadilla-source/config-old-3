@@ -19,6 +19,7 @@ const VISUAL_SCENE_FILE := "visual-scene.json"
 const MATERIAL_BINDINGS_FILE := "material-binding-manifest.json"
 const TEXTURE_REPORT_FILE := "xzml-report.json"
 const LIGHT_REPORT_FILE := "xzen-report.json"
+const SOURCE_GAMEPLAY_TRUTH_FILE := "res://data/nuketown_source_gameplay.json"
 const VFS_MAP_ROOT := "vfs/xziel/maps/xziel_nuketown_zombies"
 const XZMS_HEADER_BYTES := 56
 const XZMS_SUBMESH_BYTES := 16
@@ -787,8 +788,52 @@ func _build_source_lights() -> void:
 					world_environment.set_meta("source_sky_intensity", intensity)
 					created += 1
 
+	_apply_source_environment_truth(environment, world_environment)
 	set_meta("xziel_benchmark_light_count", created)
 	print("XZOGOT_XZIEL_BENCHMARK_LIGHTS ", created)
+
+func _apply_source_environment_truth(
+	environment: Environment,
+	world_environment: WorldEnvironment
+) -> void:
+	var truth := _read_json(SOURCE_GAMEPLAY_TRUTH_FILE)
+	if truth.is_empty():
+		push_warning("XZIEL benchmark source gameplay truth missing")
+		return
+	var env_truth: Dictionary = truth.get("environment", {})
+	var fog: Dictionary = env_truth.get("fog", {})
+	if fog.is_empty():
+		return
+
+	var target_environment := environment
+	var target_world := world_environment
+	if target_environment == null:
+		target_environment = Environment.new()
+		target_environment.background_mode = Environment.BG_CLEAR_COLOR
+	if target_world == null:
+		target_world = WorldEnvironment.new()
+		target_world.name = "SourceGameplayEnvironment"
+		target_world.environment = target_environment
+		_runtime_root.add_child(target_world)
+
+	var mode := str(fog.get("mode", ""))
+	if mode == "exponential":
+		target_environment.fog_mode = Environment.FOG_MODE_EXPONENTIAL
+	target_environment.fog_enabled = true
+	target_environment.fog_density = float(fog.get("density", 0.0))
+
+	var sky_light: Dictionary = env_truth.get("skyLight", {})
+	target_world.set_meta("source_sky_realtime_capture", bool(sky_light.get("realTimeCapture", false)))
+	target_world.set_meta("source_fog_location_ue", fog.get("relativeLocationUE", []))
+	set_meta("xziel_benchmark_fog_enabled", target_environment.fog_enabled)
+	set_meta("xziel_benchmark_fog_density", target_environment.fog_density)
+	set_meta("xziel_benchmark_fog_mode", mode)
+	print(
+		"XZOGOT_NUKETOWN_SOURCE_ENV_GREEN ",
+		"fog_mode=", mode,
+		" fog_density=", target_environment.fog_density,
+		" skylight_realtime=", target_world.get_meta("source_sky_realtime_capture")
+	)
 
 func _directional_basis_xziel(raw: Variant) -> Basis:
 	if not (raw is Dictionary):

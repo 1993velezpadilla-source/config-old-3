@@ -76,17 +76,36 @@ func _run() -> void:
 	var wallbuy_ids: Array[String] = []
 	for node: Node in get_nodes_in_group("nuketown_source_wallbuy"):
 		wallbuy_ids.append(str(node.get_meta("source_weapon_id", "")))
-		if bool(node.get_meta("source_price_known", true)):
-			_fail(18, "source wallbuy price was guessed")
+		if not bool(node.get_meta("source_price_known", false)):
+			_fail(18, "source wallbuy price truth missing")
+			return
+		if int(node.get_meta("source_price", -1)) != 0:
+			_fail(19, "source wallbuy price mismatch " + str(node.get_meta("source_price", -1)))
+			return
+		if bool(node.get_meta("source_interaction_ready", true)):
+			_fail(20, "source-only wallbuy was silently aliased into current catalog")
 			return
 	wallbuy_ids.sort()
 	var expected_wallbuy_ids: Array[String] = ["crminigun", "crraygun", "stingray"]
 	expected_wallbuy_ids.sort()
 	if wallbuy_ids != expected_wallbuy_ids:
-		_fail(19, "source wallbuy weapon ids mismatch " + str(wallbuy_ids))
+		_fail(21, "source wallbuy weapon ids mismatch " + str(wallbuy_ids))
 		return
 	if get_nodes_in_group("nuketown_source_mystery").size() != 1:
 		_fail(16, "mystery marker group mismatch")
+		return
+	var mystery_node: Node = get_nodes_in_group("nuketown_source_mystery")[0]
+	if int(mystery_node.get_meta("source_item_pool_count", -1)) != 52:
+		_fail(22, "source mystery pool count mismatch")
+		return
+	if not bool(mystery_node.get_meta("source_replicated", false)):
+		_fail(23, "source mystery replication flag missing")
+		return
+	if not bool(mystery_node.get_meta("source_always_relevant", false)):
+		_fail(24, "source mystery always-relevant flag missing")
+		return
+	if bool(mystery_node.get_meta("source_interaction_ready", true)):
+		_fail(25, "source mystery pool was silently replaced by current catalog")
 		return
 	if get_nodes_in_group("nuketown_world_collision").size() < 124:
 		_fail(17, "collision group mismatch")

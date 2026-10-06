@@ -1,0 +1,149 @@
+{
+  "schemaVersion": 1,
+  "id": "nuketown_v49_source_gameplay_truth",
+  "sourceMap": "Pavlov/Plugins/UGC5097941/Content/nuketownz.umap",
+  "provenance": {
+    "sourceRun": 36613010234,
+    "sourceArtifact": "XZIEL-Nuketown-Zombies-Virgin-Package-Census",
+    "gameplayTruthWorkflow": "Xogot Nuketown Gameplay Truth Extract",
+    "wallbuyBytecodeWorkflow": "Xogot Nuketown Wallbuy Bytecode Truth"
+  },
+  "environment": {
+    "fog": {
+      "sourceClass": "ExponentialHeightFog",
+      "mode": "exponential",
+      "density": 0.0436,
+      "relativeLocationUE": [
+        -5600,
+        -50,
+        -6850
+      ]
+    },
+    "skyAtmosphere": {
+      "sourceClass": "SkyAtmosphere",
+      "relativeLocationUE": [
+        0,
+        0,
+        3650
+      ],
+      "usesSourceDefaults": true
+    },
+    "skyLight": {
+      "sourceClass": "SkyLight",
+      "realTimeCapture": true,
+      "relativeLocationUE": [
+        0,
+        0,
+        3750
+      ]
+    },
+    "volumetricCloud": {
+      "sourceClass": "VolumetricCloud",
+      "relativeLocationUE": [
+        0,
+        0,
+        3850
+      ],
+      "usesSourceDefaults": true
+    },
+    "directionalLight": {
+      "sourceClass": "DirectionalLight",
+      "intensity": 4,
+      "relativeLocationUE": [
+        0,
+        0,
+        3550
+      ],
+      "relativeRotationUE": {
+        "Pitch": -9.954514,
+        "Yaw": -173.22598,
+        "Roll": 283.30792
+      }
+    }
+  },
+  "wallbuys": {
+    "wallbuy_C": {
+      "itemId": "stingray",
+      "price": 0,
+      "priceAuthority": "Kismet Less_IntInt(Cash,0) + Subtract_IntInt(Cash,0)"
+    },
+    "wallbuy_2_C": {
+      "itemId": "crraygun",
+      "price": 0,
+      "priceAuthority": "Kismet Less_IntInt(Cash,0) + Subtract_IntInt(Cash,0)"
+    },
+    "wallbuy_3_C": {
+      "itemId": "crminigun",
+      "price": 0,
+      "priceAuthority": "Kismet Less_IntInt(Cash,0) + Subtract_IntInt(Cash,0)"
+    }
+  },
+  "mysteryBox": {
+    "sourceClass": "NewBlueprint1_2_C",
+    "replicated": true,
+    "alwaysRelevant": true,
+    "itemClass": "/CustomMapTools/PavExamples/Guns/CustomGunBase",
+    "pool": [
+      "zebra",
+      "coda9",
+      "falcon",
+      "husky",
+      "puma",
+      "maelstom",
+      "uncle12",
+      "rk5",
+      "peacekeeper",
+      "hawk",
+      "zebra_pap",
+      "zebra_fallout",
+      "komodo",
+      "zebra_puzzle",
+      "love85",
+      "coslo_repair",
+      "monstrosity",
+      "kilo141",
+      "kite",
+      "cobra",
+      "hyena",
+      "orca",
+      "egret",
+      "otter",
+      "ww_rable",
+      "dingo-lmg",
+      "smg-razorback",
+      "sh-shepherd",
+      "sh_shepherd_fieldmed",
+      "base_akita",
+      "deathmc2",
+      "haymaker",
+      "x52-shotgun",
+      "x52-base",
+      "claw",
+      "necrofluidgauntlet",
+      "wdf",
+      "ar_eagle",
+      "bandelere",
+      "blazephaze",
+      "phd",
+      "etherial",
+      "secrets",
+      "dyingwish",
+      "energyblade",
+      "godofwar axe",
+      "hzd axe",
+      "Banana Bus-knife",
+      "h11-saw",
+      "cashback",
+      "dragon-shield",
+      "rocket-shield"
+    ]
+  },
+  "compatibility": {
+    "sourceOnlyItemIds": [
+      "stingray",
+      "crraygun",
+      "crminigun"
+    ],
+    "note": "Source item identifiers are preserved exactly. Do not silently alias them to Xogot catalog weapons."
+  }
+}

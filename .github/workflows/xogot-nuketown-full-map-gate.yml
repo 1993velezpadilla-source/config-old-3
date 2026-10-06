@@ -9,6 +9,7 @@ on:
       - "xogot/nuketown_full_map.tscn"
       - "xogot/scripts/nuketown_full_map.gd"
       - "xogot/ci/nuketown_full_map_probe.gd"
+      - "xogot/data/nuketown_source_gameplay.json"
       - "xogot/scripts/xziel_benchmark_loader.gd"
       - "tools/maps/xztx_astc6_to_png.py"
       - "benchmarks/nuketown_xziel/**"
