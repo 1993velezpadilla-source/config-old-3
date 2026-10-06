@@ -47,9 +47,13 @@ string? ResolveProviderPackagePath(DefaultFileProvider provider, string logicalP
     return null;
 }
 
+const int MaxDescribeDepth = 12;
 var scriptStructCount = 0;
 var scriptStructExpandedCount = 0;
 var scriptStructOpaqueCount = 0;
+var truncatedSourceValueCount = 0;
+var truncatedSourceValueTypeCounts =
+    new SortedDictionary<string, int>(StringComparer.Ordinal);
 var reflectedValueTypeCounts =
     new SortedDictionary<string, int>(StringComparer.Ordinal);
 var opaqueValueTypeCounts =
@@ -74,12 +78,18 @@ object? DescribeReflectedSourceValue(object value, int depth)
     reflectedValueTypeCounts[reflectedType] =
         reflectedValueTypeCounts.GetValueOrDefault(reflectedType) + 1;
 
-    if (depth >= 6)
+    if (depth >= MaxDescribeDepth)
+    {
+        var typeName = value.GetType().FullName ?? value.GetType().Name;
+        truncatedSourceValueCount++;
+        truncatedSourceValueTypeCounts[typeName] =
+            truncatedSourceValueTypeCounts.GetValueOrDefault(typeName) + 1;
         return new {
-            kind = value.GetType().FullName,
+            kind = typeName,
             truncated = true,
             text = value.ToString()
         };
+    }
 
     var flags =
         System.Reflection.BindingFlags.Instance |
@@ -141,7 +151,25 @@ object? DescribeReflectedSourceValue(object value, int depth)
 object? DescribeValue(object? value, int depth = 0)
 {
     if (value is null) return null;
-    if (depth >= 6) return value.ToString();
+    if (depth >= MaxDescribeDepth)
+    {
+        var typeName = value.GetType().FullName ?? value.GetType().Name;
+        if (
+            value is FScriptStruct ||
+            value is FStructFallback ||
+            IsReflectableSourceValue(value))
+        {
+            truncatedSourceValueCount++;
+            truncatedSourceValueTypeCounts[typeName] =
+                truncatedSourceValueTypeCounts.GetValueOrDefault(typeName) + 1;
+            return new {
+                kind = typeName,
+                truncated = true,
+                text = value.ToString()
+            };
+        }
+        return value.ToString();
+    }
 
     if (value is FPackageIndex index)
     {
@@ -381,7 +409,8 @@ var ready =
     candidates.Length > 0 &&
     packagesLoaded == candidates.Length &&
     packageFailures.Count == 0 &&
-    systems.Count > 0;
+    systems.Count > 0 &&
+    truncatedSourceValueCount == 0;
 
 var output = new {
     schemaVersion = 1,
@@ -395,6 +424,8 @@ var output = new {
     scriptStructCount,
     scriptStructExpandedCount,
     scriptStructOpaqueCount,
+    truncatedSourceValueCount,
+    truncatedSourceValueTypeCounts,
     reflectedValueTypeCounts,
     opaqueValueTypeCounts,
     nodeTypeCounts,
@@ -417,6 +448,8 @@ Console.WriteLine("XZIEL_UE_PARTICLE_GRAPH " + JsonSerializer.Serialize(new {
     output.scriptStructCount,
     output.scriptStructExpandedCount,
     output.scriptStructOpaqueCount,
+    output.truncatedSourceValueCount,
+    output.truncatedSourceValueTypeCounts,
     output.reflectedValueTypeCounts,
     output.opaqueValueTypeCounts,
     output.nodeTypeCounts,
