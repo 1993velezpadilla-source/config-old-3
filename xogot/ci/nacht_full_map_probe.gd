@@ -615,6 +615,57 @@ func _run() -> void:
 	var particle_sparks_peaks: Array = scene.get_meta(
 		"source_particle_sparks_peak_active_by_lod", []
 	) as Array
+	var particle_quad_smoke_lifetime_min := float(
+		scene.get_meta("source_particle_quad_smoke_lifetime_min", -1.0)
+	)
+	var particle_quad_smoke_lifetime_max := float(
+		scene.get_meta("source_particle_quad_smoke_lifetime_max", -1.0)
+	)
+	var particle_quad_smoke_size_min := scene.get_meta(
+		"source_particle_quad_smoke_start_size_min_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_quad_smoke_size_max := scene.get_meta(
+		"source_particle_quad_smoke_start_size_max_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_quad_smoke_location_min := scene.get_meta(
+		"source_particle_quad_smoke_start_location_min_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_quad_smoke_location_max := scene.get_meta(
+		"source_particle_quad_smoke_start_location_max_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_quad_smoke_velocity_min := scene.get_meta(
+		"source_particle_quad_smoke_start_velocity_min_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_quad_smoke_velocity_max := scene.get_meta(
+		"source_particle_quad_smoke_start_velocity_max_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_quad_smoke_rate := float(
+		scene.get_meta("source_particle_quad_smoke_spawn_rate", -1.0)
+	)
+	var particle_quad_smoke_rate_scale := float(
+		scene.get_meta("source_particle_quad_smoke_spawn_rate_scale", -1.0)
+	)
+	var particle_quad_smoke_burst := int(
+		scene.get_meta("source_particle_quad_smoke_burst_count", -1)
+	)
+	var particle_quad_smoke_subuv_fps := float(
+		scene.get_meta("source_particle_quad_smoke_subuv_frame_rate", -1.0)
+	)
+	var particle_quad_smoke_size_life_values := int(
+		scene.get_meta("source_particle_quad_smoke_size_life_table_value_count", -1)
+	)
+	var particle_quad_smoke_rgb_values := int(
+		scene.get_meta("source_particle_quad_smoke_rgb_table_value_count", -1)
+	)
+	var particle_quad_smoke_alpha_values := int(
+		scene.get_meta("source_particle_quad_smoke_alpha_table_value_count", -1)
+	)
+	var particle_quad_smoke_disabled: Array = scene.get_meta(
+		"source_particle_quad_smoke_disabled_module_types", []
+	) as Array
+	var particle_quad_smoke_peak := int(
+		scene.get_meta("source_particle_quad_smoke_peak_active", -1)
+	)
 	var source_particles := int(scene.get_meta("source_particle_component_count", -1))
 	var particle_authority := int(scene.get_meta("runtime_particle_authority_count", -1))
 	var source_particle_systems := int(scene.get_meta("source_particle_system_count", -1))
@@ -727,14 +778,14 @@ func _run() -> void:
 		if not particle_semantic_ready:
 			_fail(34, "source-complete Cascade semantic runtime is not ready")
 			return
-		if particle_semantic_systems != 12 or particle_semantic_placements != 23:
+		if particle_semantic_systems != 13 or particle_semantic_placements != 24:
 			_fail(
 				34,
 				"Cascade semantic runtime coverage mismatch systems=%d placements=%d"
 				% [particle_semantic_systems, particle_semantic_placements]
 			)
 			return
-		if get_nodes_in_group("nacht_source_particle_semantic").size() != 23:
+		if get_nodes_in_group("nacht_source_particle_semantic").size() != 24:
 			_fail(34, "Cascade semantic placement group mismatch")
 			return
 		if (
@@ -1239,6 +1290,57 @@ func _run() -> void:
 					particle_sparks_gpu_collision_radius,
 					particle_sparks_gpu_collision_random,
 					particle_sparks_peaks,
+				]
+			)
+			return
+		var quad_disabled_expected := [
+			"ParticleModuleAcceleration",
+			"ParticleModuleColor",
+			"ParticleModuleLocationPrimitiveCylinder",
+			"ParticleModuleLocationSkelVertSurface",
+			"ParticleModuleRotationRate",
+			"ParticleModuleVelocityOverLifetime",
+		]
+		if (
+			not is_equal_approx(particle_quad_smoke_lifetime_min, 1.0)
+			or not is_equal_approx(particle_quad_smoke_lifetime_max, 2.0)
+			or not particle_quad_smoke_size_min.is_equal_approx(Vector3(200.0, 200.0, 200.0))
+			or not particle_quad_smoke_size_max.is_equal_approx(Vector3(250.0, 250.0, 250.0))
+			or not particle_quad_smoke_location_min.is_equal_approx(Vector3(-120.0, -120.0, 5.0))
+			or not particle_quad_smoke_location_max.is_equal_approx(Vector3(120.0, 120.0, 25.0))
+			or not particle_quad_smoke_velocity_min.is_equal_approx(Vector3(-20.0, -20.0, 7.0))
+			or not particle_quad_smoke_velocity_max.is_equal_approx(Vector3(20.0, 20.0, 25.0))
+			or not is_equal_approx(particle_quad_smoke_rate, 5.0)
+			or not is_equal_approx(particle_quad_smoke_rate_scale, 5.0)
+			or particle_quad_smoke_burst != 5
+			or not is_equal_approx(particle_quad_smoke_subuv_fps, 15.0)
+			or particle_quad_smoke_size_life_values != 384
+			or particle_quad_smoke_rgb_values != 48
+			or particle_quad_smoke_alpha_values != 128
+			or particle_quad_smoke_disabled != quad_disabled_expected
+			or particle_quad_smoke_peak != 31
+		):
+			_fail(
+				34,
+				"quad smoke Cascade mismatch life=%s..%s size=%s..%s location=%s..%s velocity=%s..%s rate=%s scale=%s burst=%d subuv=%s size_life=%d rgb=%d alpha=%d disabled=%s peak=%d"
+				% [
+					particle_quad_smoke_lifetime_min,
+					particle_quad_smoke_lifetime_max,
+					particle_quad_smoke_size_min,
+					particle_quad_smoke_size_max,
+					particle_quad_smoke_location_min,
+					particle_quad_smoke_location_max,
+					particle_quad_smoke_velocity_min,
+					particle_quad_smoke_velocity_max,
+					particle_quad_smoke_rate,
+					particle_quad_smoke_rate_scale,
+					particle_quad_smoke_burst,
+					particle_quad_smoke_subuv_fps,
+					particle_quad_smoke_size_life_values,
+					particle_quad_smoke_rgb_values,
+					particle_quad_smoke_alpha_values,
+					particle_quad_smoke_disabled,
+					particle_quad_smoke_peak,
 				]
 			)
 			return
