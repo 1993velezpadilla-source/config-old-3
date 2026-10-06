@@ -11,6 +11,7 @@ on:
       - "tools/maps/UEAudioSceneExtract/**"
       - "tools/maps/UEAudioCueGraphExtract/**"
       - "tools/maps/UEParticleSceneExtract/**"
+      - "tools/maps/UEParticleGraphExtract/**"
       - "tools/maps/UEEnvironmentSceneExtract/**"
       - "tools/maps/UELightExtract/Program.cs"
       - ".github/workflows/xogot-nacht-toolchain-gate.yml"
@@ -160,3 +161,13 @@ jobs:
             2>&1 | tee /tmp/nacht-environment-build.log
           ! grep -q " error CS" /tmp/nacht-environment-build.log
           echo "XZOGOT_NACHT_ENVIRONMENT_TOOLCHAIN_GREEN"
+
+      - name: Compile complete UE particle graph authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet restore tools/maps/UEParticleGraphExtract/UEParticleGraphExtract.csproj
+          dotnet build tools/maps/UEParticleGraphExtract/UEParticleGraphExtract.csproj -c Release --no-restore \
+            2>&1 | tee /tmp/nacht-particle-graph-build.log
+          ! grep -q " error CS" /tmp/nacht-particle-graph-build.log
+          echo "XZOGOT_NACHT_PARTICLE_GRAPH_TOOLCHAIN_GREEN"
