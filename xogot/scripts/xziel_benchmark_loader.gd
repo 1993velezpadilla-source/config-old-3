@@ -532,6 +532,30 @@ func _source_name_token(value: String) -> String:
 			previous_separator = true
 	return out.trim_prefix("_").trim_suffix("_")
 
+func _source_texture_likely_color(source_path: String) -> bool:
+	var token := _source_name_token(source_path)
+	var has_color_marker := (
+		token.contains("_c_")
+		or token.ends_with("_c")
+		or token.contains("_col_")
+		or token.contains("color")
+		or token.contains("rgb")
+	)
+	var explicit_non_color := (
+		token.contains("_normal_")
+		or token.contains("_nml_")
+		or token.ends_with("_n")
+		or token.contains("_spc_")
+		or token.contains("_spec_")
+		or token.contains("_rough_")
+		or token.contains("_mask_")
+		or token.ends_with("_s")
+		or token.contains("_s_")
+	)
+	if explicit_non_color and not has_color_marker:
+		return false
+	return true
+
 func _source_named_composite_diffuse(material_path: String) -> String:
 	# Nuketown contains hundreds of cooked "nt/" composite materials whose
 	# source graph was flattened into a generated material name. The original
@@ -548,6 +572,8 @@ func _source_named_composite_diffuse(material_path: String) -> String:
 			continue
 		var matches: Array[String] = []
 		for source_path: String in _source_srgb_texture_paths:
+			if not _source_texture_likely_color(source_path):
+				continue
 			var source_name := _source_name_token(source_path)
 			if source_name.contains(layer):
 				matches.append(source_path)
