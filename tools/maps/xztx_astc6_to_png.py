@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Decode XZIEL XZTX PF_ASTC_6x6 mip0 payloads to PNG sidecars.
+"""Decode the complete Nuketown XZTX mip0 catalog to PNG sidecars.
 
-Godot 4.6 exposes ASTC 4x4 and 8x8 Image formats, but not ASTC 6x6.
-This bridge preserves the source texture bytes: it wraps each source mip0 in
-the standard ASTC file header and lets Arm astcenc perform the decode.
+PF_ASTC_6x6 is decoded losslessly from the recovered compressed source payload
+through Arm astcenc. PF_B8G8R8A8 is converted directly from the recovered BGRA
+bytes to RGBA PNG with no resampling. The complete source catalog therefore
+remains available to Godot instead of silently dropping non-ASTC textures.
 """
 
 from __future__ import annotations
@@ -48,8 +49,56 @@ def chain_bytes(width: int, height: int, mip_count: int) -> int:
         for level in range(mip_count)
     )
 
+def png_chunk(kind: bytes, payload: bytes) -> bytes:
+    import zlib
 
-def parse_xztx(path: Path, expected: dict) -> tuple[bytes, int, int]:
+    body = kind + payload
+    return (
+        struct.pack(">I", len(payload))
+        + body
+        + struct.pack(">I", zlib.crc32(body) & 0xFFFFFFFF)
+    )
+
+
+def write_rgba_png(
+    path: Path,
+    width: int,
+    height: int,
+    rgba: bytes,
+    srgb: bool,
+) -> None:
+    import zlib
+
+    expected = width * height * 4
+    if len(rgba) != expected:
+        raise ValueError(
+            f"{path}: RGBA payload mismatch {len(rgba)} != {expected}"
+        )
+
+    stride = width * 4
+    scanlines = b"".join(
+        b"\x00" + rgba[row * stride : (row + 1) * stride]
+        for row in range(height)
+    )
+    chunks = [
+        png_chunk(
+            b"IHDR",
+            struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0),
+        )
+    ]
+    if srgb:
+        chunks.append(png_chunk(b"sRGB", b"\x00"))
+    chunks.append(png_chunk(b"IDAT", zlib.compress(scanlines, 9)))
+    chunks.append(png_chunk(b"IEND", b""))
+    path.write_bytes(
+        b"\x89PNG\r\n\x1a\n" + b"".join(chunks)
+    )
+
+
+def parse_xztx_mip0(
+    path: Path,
+    expected: dict,
+) -> tuple[str, bytes, int, int]:
     data = path.read_bytes()
     if len(data) < XZTX_HEADER_BYTES or data[:4] != b"XZTX":
         raise ValueError(f"{path}: invalid XZTX magic/header")
@@ -67,21 +116,20 @@ def parse_xztx(path: Path, expected: dict) -> tuple[bytes, int, int]:
     format_name = data[48 : 48 + format_name_bytes].decode("ascii")
 
     if version != 1 or depth != 1:
-        raise ValueError(f"{path}: unsupported XZTX version/depth {version}/{depth}")
-    if format_name != "PF_ASTC_6x6":
-        raise ValueError(f"{path}: expected PF_ASTC_6x6, got {format_name}")
-    if mip_record_bytes != XZTX_MIP_RECORD_BYTES or mip_table_offset != XZTX_HEADER_BYTES:
+        raise ValueError(
+            f"{path}: unsupported XZTX version/depth {version}/{depth}"
+        )
+    if mip_count <= 0:
+        raise ValueError(f"{path}: no mips")
+    if (
+        mip_record_bytes != XZTX_MIP_RECORD_BYTES
+        or mip_table_offset != XZTX_HEADER_BYTES
+    ):
         raise ValueError(f"{path}: unexpected mip table layout")
     if payload_offset != XZTX_HEADER_BYTES + mip_count * XZTX_MIP_RECORD_BYTES:
         raise ValueError(f"{path}: unexpected payload offset {payload_offset}")
     if payload_offset + payload_bytes != len(data):
         raise ValueError(f"{path}: payload size mismatch")
-
-    expected_chain = chain_bytes(width, height, mip_count)
-    if payload_bytes != expected_chain:
-        raise ValueError(
-            f"{path}: ASTC mip-chain bytes mismatch {payload_bytes} != {expected_chain}"
-        )
 
     if int(expected.get("width", width)) != width:
         raise ValueError(f"{path}: report width mismatch")
@@ -89,13 +137,70 @@ def parse_xztx(path: Path, expected: dict) -> tuple[bytes, int, int]:
         raise ValueError(f"{path}: report height mismatch")
     if int(expected.get("mipCount", mip_count)) != mip_count:
         raise ValueError(f"{path}: report mip count mismatch")
+    if str(expected.get("format", format_name)) != format_name:
+        raise ValueError(f"{path}: report format mismatch")
 
-    base_size = mip_bytes(width, height)
-    base_payload = data[payload_offset : payload_offset + base_size]
-    if len(base_payload) != base_size:
-        raise ValueError(f"{path}: truncated mip0")
+    record = XZTX_HEADER_BYTES
+    mip_width = u32(data, record + 0)
+    mip_height = u32(data, record + 4)
+    mip_depth = u32(data, record + 8)
+    mip_offset = u32(data, record + 12)
+    mip_size = u32(data, record + 16)
+    source_mip = u32(data, record + 20)
+    if (
+        mip_width != width
+        or mip_height != height
+        or mip_depth != 1
+        or source_mip != 0
+    ):
+        raise ValueError(f"{path}: invalid mip0 record")
+    if mip_offset < payload_offset or mip_offset + mip_size > len(data):
+        raise ValueError(f"{path}: mip0 range invalid")
+
+    payload = data[mip_offset : mip_offset + mip_size]
+    return format_name, payload, width, height
+
+
+def bgra8_to_rgba(payload: bytes, width: int, height: int) -> bytes:
+    expected = width * height * 4
+    if len(payload) != expected:
+        raise ValueError(
+            f"BGRA8 mip0 bytes mismatch {len(payload)} != {expected}"
+        )
+    out = bytearray(expected)
+    for offset in range(0, expected, 4):
+        b, g, r, a = payload[offset : offset + 4]
+        out[offset : offset + 4] = bytes((r, g, b, a))
+    return bytes(out)
+
+
+
+def parse_xztx(path: Path, expected: dict) -> tuple[bytes, int, int]:
+    format_name, base_payload, width, height = parse_xztx_mip0(
+        path, expected
+    )
+    if format_name != "PF_ASTC_6x6":
+        raise ValueError(
+            f"{path}: expected PF_ASTC_6x6, got {format_name}"
+        )
+    expected_base = mip_bytes(width, height)
+    if len(base_payload) != expected_base:
+        raise ValueError(
+            f"{path}: ASTC mip0 bytes mismatch "
+            f"{len(base_payload)} != {expected_base}"
+        )
+
+    # The complete ASTC chain remains validated against the source report.
+    data = path.read_bytes()
+    mip_count = u32(data, 20)
+    payload_bytes = u32(data, 44)
+    expected_chain = chain_bytes(width, height, mip_count)
+    if payload_bytes != expected_chain:
+        raise ValueError(
+            f"{path}: ASTC mip-chain bytes mismatch "
+            f"{payload_bytes} != {expected_chain}"
+        )
     return base_payload, width, height
-
 
 def astc_file(payload: bytes, width: int, height: int) -> bytes:
     header = (
@@ -160,8 +265,24 @@ def main() -> int:
         row for row in rows
         if str(row.get("format", "")) == "PF_ASTC_6x6"
     ]
+    bgra_rows = [
+        row for row in rows
+        if str(row.get("format", "")) == "PF_B8G8R8A8"
+    ]
+    unsupported = [
+        row for row in rows
+        if str(row.get("format", ""))
+        not in {"PF_ASTC_6x6", "PF_B8G8R8A8"}
+    ]
+    if unsupported:
+        raise ValueError(
+            "unsupported complete-source texture formats: "
+            + str(sorted({str(row.get("format", "")) for row in unsupported}))
+        )
     if not astc_rows:
-        raise ValueError("source texture catalog contains no PF_ASTC_6x6 textures")
+        raise ValueError(
+            "source texture catalog contains no PF_ASTC_6x6 textures"
+        )
 
     output_dir.mkdir(parents=True, exist_ok=True)
     for stale in output_dir.glob("*.png"):
@@ -200,21 +321,65 @@ def main() -> int:
                 cache[key] = dst
             decoded += 1
 
+    bgra_cache: dict[tuple[str, bool], Path] = {}
+    for row in bgra_rows:
+        runtime_file = str(row.get("runtimeFile", ""))
+        if not runtime_file:
+            raise ValueError("texture row missing runtimeFile")
+        src = texture_dir / runtime_file
+        if not src.is_file():
+            raise FileNotFoundError(src)
+        format_name, payload, width, height = parse_xztx_mip0(src, row)
+        if format_name != "PF_B8G8R8A8":
+            raise ValueError(
+                f"{src}: expected PF_B8G8R8A8, got {format_name}"
+            )
+        srgb = bool(row.get("srgb", False))
+        key = (
+            hashlib.sha256(
+                payload + struct.pack("<II", width, height)
+            ).hexdigest(),
+            srgb,
+        )
+        dst = output_dir / (Path(runtime_file).stem + ".png")
+        cached = bgra_cache.get(key)
+        if cached is not None:
+            shutil.copyfile(cached, dst)
+        else:
+            rgba = bgra8_to_rgba(payload, width, height)
+            write_rgba_png(dst, width, height, rgba, srgb)
+            bgra_cache[key] = dst
+        decoded += 1
+
     png_count = len(list(output_dir.glob("*.png")))
-    if decoded != len(astc_rows) or png_count != len(astc_rows):
+    if decoded != len(rows) or png_count != len(rows):
         raise RuntimeError(
             f"decoded PNG count mismatch decoded={decoded} "
-            f"png={png_count} expected={len(astc_rows)}"
+            f"png={png_count} expected={len(rows)}"
         )
 
-    srgb_count = sum(1 for row in astc_rows if bool(row.get("srgb", False)))
+    srgb_count = sum(
+        1 for row in rows if bool(row.get("srgb", False))
+    )
+    astc_srgb = sum(
+        1 for row in astc_rows if bool(row.get("srgb", False))
+    )
     print(
         "XZOGOT_ASTC6_DECODE_GREEN",
-        f"textures={decoded}",
+        f"textures={len(astc_rows)}",
         f"catalog={len(rows)}",
         f"unique_payloads={len(cache)}",
+        f"srgb={astc_srgb}",
+        f"linear={len(astc_rows) - astc_srgb}",
+    )
+    print(
+        "XZOGOT_XZTX_COMPLETE_DECODE_GREEN",
+        f"textures={decoded}",
+        f"astc6={len(astc_rows)}",
+        f"bgra8={len(bgra_rows)}",
         f"srgb={srgb_count}",
-        f"linear={len(astc_rows) - srgb_count}",
+        f"linear={len(rows) - srgb_count}",
+        f"png={png_count}",
     )
     return 0
 
