@@ -61,6 +61,9 @@ jobs:
           test -s source-unpacked/Pavlov/Plugins/UGC5097941/Content/JoinSounds.uasset
           test -s source-unpacked/Pavlov/Plugins/UGC5097941/Content/JoinSounds_2.uasset
           test -s source-unpacked/Pavlov/Plugins/UGC5097941/Content/JoinSounds_3.uasset
+          test -s source-unpacked/Pavlov/Plugins/UGC5097941/Content/JoinSounds.uasset
+          test -s source-unpacked/Pavlov/Plugins/UGC5097941/Content/JoinSounds_2.uasset
+          test -s source-unpacked/Pavlov/Plugins/UGC5097941/Content/JoinSounds_3.uasset
 
       - name: Pin Pavlov UE5 mappings
         shell: bash
