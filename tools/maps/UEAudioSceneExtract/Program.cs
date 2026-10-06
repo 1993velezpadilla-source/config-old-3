@@ -158,8 +158,52 @@ string? ReferencePath(FPackageIndex index)
     return (null, null, null);
 }
 
+UBlueprintGeneratedClass? ResolveGeneratedClassByExportType(
+    DefaultFileProvider provider,
+    string actorExportType)
+{
+    if (string.IsNullOrWhiteSpace(actorExportType) ||
+        !actorExportType.EndsWith("_C", StringComparison.Ordinal))
+        return null;
+
+    var assetBase = actorExportType[..^2];
+    var assetFile = assetBase + ".uasset";
+
+    foreach (var file in provider.Files.Values
+                 .Where(file => {
+                     var p = file.Path.Replace('\\', '/');
+                     return p.EndsWith(
+                         "/" + assetFile,
+                         StringComparison.OrdinalIgnoreCase) ||
+                         p.Equals(assetFile, StringComparison.OrdinalIgnoreCase);
+                 })
+                 .OrderBy(file => file.Path, StringComparer.OrdinalIgnoreCase))
+    {
+        try
+        {
+            var package = provider.LoadPackage(file.Path);
+            var generated = package.GetExports()
+                .OfType<UBlueprintGeneratedClass>()
+                .FirstOrDefault(x =>
+                    x.Name.Equals(
+                        actorExportType,
+                        StringComparison.OrdinalIgnoreCase));
+            if (generated is not null)
+                return generated;
+        }
+        catch
+        {
+            // Try another package candidate with the same asset basename.
+        }
+    }
+
+    return null;
+}
+
 (USoundBase? loaded, FPackageIndex? index, string? provenance)
-ResolveBlueprintSoundTemplate(UAudioComponent component)
+ResolveBlueprintSoundTemplate(
+    DefaultFileProvider provider,
+    UAudioComponent component)
 {
     var directTemplate =
         component.Template?.Object?.Value as UAudioComponent;
@@ -186,6 +230,15 @@ ResolveBlueprintSoundTemplate(UAudioComponent component)
     {
         var generated =
             owner.Class?.Object?.Value as UBlueprintGeneratedClass;
+
+        if (generated is null &&
+            owner.ExportType.EndsWith("_C", StringComparison.Ordinal))
+        {
+            generated = ResolveGeneratedClassByExportType(
+                provider,
+                owner.ExportType);
+        }
+
         if (generated is not null)
         {
             var seenClasses =
@@ -512,7 +565,7 @@ foreach (var logicalPackage in mapPackages)
                 else
                 {
                     var inherited =
-                        ResolveBlueprintSoundTemplate(component);
+                        ResolveBlueprintSoundTemplate(provider, component);
                     if (inherited.loaded is not null)
                     {
                         soundObjectPath =
