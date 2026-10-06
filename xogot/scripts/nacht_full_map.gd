@@ -80,7 +80,6 @@ func _boot() -> void:
 	add_child(_runtime_root)
 
 	_build_actor_anchors()
-	_build_source_lights()
 
 	if place_player_from_source_anchor:
 		_place_player()
@@ -148,7 +147,7 @@ func _build_shared_source_world() -> bool:
 	_benchmark_loader.set("source_root", source_root)
 	_benchmark_loader.set("load_on_ready", false)
 	_benchmark_loader.set("build_materials", true)
-	_benchmark_loader.set("build_lights", false)
+	_benchmark_loader.set("build_lights", true)
 	_benchmark_loader.set("build_skeletal_actors", false)
 	_benchmark_loader.set("cast_geometry_shadows", true)
 	_benchmark_loader.set("build_world_collision", build_world_collision)
@@ -160,6 +159,9 @@ func _build_shared_source_world() -> bool:
 	_benchmark_loader.set("texture_report_file", "xzml-report.json")
 	_benchmark_loader.set("effective_material_report_file", "xzmi-report.json")
 	_benchmark_loader.set("complete_texture_report_file", "complete-xztx-report.json")
+	_benchmark_loader.set("light_report_file", ENVIRONMENT_REPORT_FILE)
+	# Never inherit another map's environment/fog authority.
+	_benchmark_loader.set("source_environment_truth_file", "")
 	add_child(_benchmark_loader)
 
 	_benchmark_loader.call("_load_benchmark_world")
@@ -167,13 +169,14 @@ func _build_shared_source_world() -> bool:
 	_created_instances = int(_benchmark_loader.get_meta("xziel_benchmark_instance_count", 0))
 	_missing_meshes = int(_benchmark_loader.get_meta("xziel_benchmark_missing_meshes", 0))
 	_collision_count = int(_benchmark_loader.get_meta("xziel_benchmark_world_collision_count", 0))
+	_light_count = int(_benchmark_loader.get_meta("xziel_benchmark_light_count", 0))
 	set_meta(
 		"source_material_textured_count",
 		int(_benchmark_loader.get_meta("xziel_benchmark_material_textured_count", 0))
 	)
 	set_meta(
 		"source_material_flat_fallback_count",
-		int(_benchmark_loader.get_meta("xziel_benchmark_flat_fallback_count", 0))
+		int(_benchmark_loader.get_meta("xziel_benchmark_material_flat_fallback_count", 0))
 	)
 	set_meta(
 		"source_texture_load_failures",
@@ -184,6 +187,13 @@ func _build_shared_source_world() -> bool:
 			"NACHT_FULL_MAP: generic source world incomplete instances="
 			+ str(_created_instances)
 			+ " missing=" + str(_missing_meshes)
+		)
+		return false
+	var expected_lights := int(_environment_report.get("lightCount", -1))
+	if expected_lights <= 0 or _light_count != expected_lights:
+		push_error(
+			"NACHT_FULL_MAP: generic source light coverage mismatch "
+			+ str(_light_count) + "/" + str(expected_lights)
 		)
 		return false
 	return true
