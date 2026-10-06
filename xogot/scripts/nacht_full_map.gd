@@ -99,6 +99,7 @@ var _source_particle_electric_beam_descriptor: Dictionary = {}
 var _source_particle_acid_ball_descriptor: Dictionary = {}
 var _source_particle_sparks_small_descriptor: Dictionary = {}
 var _source_particle_quad_smoke_descriptor: Dictionary = {}
+var _source_particle_monster_descriptor: Dictionary = {}
 var _source_environment_fog_runtime_ready := false
 var _source_environment_reflection_runtime_ready := false
 var _source_spawn_candidates: Array[Node3D] = []
@@ -220,7 +221,7 @@ func _boot() -> void:
 	# audible runtime reproduction. They must only flip when those systems are
 	# actually mounted, never merely because the JSON exists.
 	set_meta("particle_visual_runtime_ready", false)
-	set_meta("source_particle_semantic_runtime_ready", _source_particle_semantic_runtime_count == 13 and _source_particle_semantic_placement_count == 24)
+	set_meta("source_particle_semantic_runtime_ready", _source_particle_semantic_runtime_count == 14 and _source_particle_semantic_placement_count == 25)
 	set_meta("source_particle_semantic_runtime_count", _source_particle_semantic_runtime_count)
 	set_meta("source_particle_semantic_placement_count", _source_particle_semantic_placement_count)
 	set_meta("source_audio_runtime_ready", _source_audio_semantics_ready())
