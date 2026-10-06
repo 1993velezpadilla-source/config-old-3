@@ -1,0 +1,129 @@
+{
+  "schema": 1,
+  "id": "xogot_source_first_golden_reference_v1",
+  "source": "Project Aether UE5.7 reconstructed Call of Duty Zombies/WaW content",
+  "policy": {
+    "source_baseline_before_reskin": true,
+    "manual_per_weapon_pose_offsets_forbidden": true,
+    "manual_per_weapon_hand_pose_fixes_forbidden": true,
+    "source_animation_and_socket_authority_required": true,
+    "visual_green_requires_human_visible_correctness": true,
+    "custom_reskin_allowed_only_after_source_runtime_green": true,
+    "weapon_reskin_preserves_source_rig_and_animation_contract": true,
+    "enemy_reskin_preserves_source_rig_and_animation_state_machine": true
+  },
+  "weapons": {
+    "source_artifact_run": 37244741312,
+    "source_artifact": "aether-waw-usmap-real-weapons",
+    "recovered_hand_psa_count": 358,
+    "hand_rig": {
+      "lane": "t4_waw_marine",
+      "mesh_source": "/Game/Assets/Viewmodels/Viewhands/T4/Marine/viewmodel_usa_marine_arms",
+      "physics_source": "/Game/Assets/Viewmodels/Viewhands/T4/Marine/viewmodel_usa_marine_arms_PhysicsAsset",
+      "t7_variant_source": "/Game/Assets/Viewmodels/Viewhands/T4/Marine/viewmodel_usa_marine_arms_T7"
+    },
+    "presentation_table": "/Game/Assets/Data/DataTables/DT_Weapons",
+    "runtime_to_source_dir": {
+      "colt": "1911",
+      "357": "357",
+      "arisaka": "Arisaka",
+      "bar": "BAR",
+      "browning": "Browning",
+      "doublebarrel": "DoubleBarrel",
+      "dp28": "DP28",
+      "fg42": "FG42",
+      "gewehr": "Gewehr",
+      "kar98k": "Kar98k",
+      "m1a1": "M1Carbine",
+      "m1": "M1Garand",
+      "mg42": "MG42",
+      "mp40": "MP40",
+      "mosin": "MosinNagant",
+      "nambu": "Nambu",
+      "ppsh": "PPSH",
+      "ptrs": "PTRS",
+      "springfield": "Springfield",
+      "stg": "STG44",
+      "svt40": "SVT40",
+      "thompson": "Thompson",
+      "trench": "TrenchGun",
+      "tt33": "TT33",
+      "type100": "Type100",
+      "type99": "Type99",
+      "walther": "Walther",
+      "sawnoff": "SawedOffDB"
+    },
+    "hands_source_status": {
+      "covered_runtime_count": 27,
+      "pending": ["sawnoff"],
+      "required_roles": ["idle", "fire", "reload", "equip"],
+      "preferred_roles": [
+        "idle",
+        "fire",
+        "ads_fire",
+        "lastshot",
+        "reload",
+        "reload_empty",
+        "reload_start",
+        "reload_loop",
+        "reload_stop",
+        "equip",
+        "putaway",
+        "rechamber",
+        "sprint_in",
+        "sprint_loop",
+        "sprint_out"
+      ]
+    }
+  },
+  "zombies": {
+    "source_census_run": 37348949163,
+    "source_artifact": "unity-aether-original-enemy-census",
+    "blueprint": "/Game/FirstPerson/Blueprints/Zombies/Blueprint/BP_Zombie",
+    "interface": "/Game/FirstPerson/Blueprints/Zombies/Blueprint/BPI_Enemy",
+    "waw_animation_root": "/Game/FirstPerson/Blueprints/Zombies/Resources/Anims/waw",
+    "waw_body_root": "/Game/FirstPerson/Blueprints/Zombies/Resources/Models/Bodies/waw",
+    "known_skeleton": "t4_zmb_sk",
+    "required_states": [
+      "idle",
+      "walk",
+      "jog",
+      "run",
+      "sprint",
+      "attack",
+      "run_attack",
+      "hit",
+      "stumble",
+      "death",
+      "traverse",
+      "board_tear",
+      "crawler"
+    ],
+    "dismemberment": {
+      "required": true,
+      "required_regions": ["head", "left_arm", "right_arm", "left_leg", "right_leg"],
+      "crawler_from_leg_or_explosion_damage": true,
+      "source_gore_materials_required": true
+    }
+  },
+  "hellhound": {
+    "source_root": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf",
+    "blueprint": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/BP_zombie_wolf",
+    "animation_blueprint": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/ABP_zombie_wolf",
+    "mesh": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf",
+    "skeleton": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_Skeleton",
+    "physics_asset": "/Game/FirstPerson/Blueprints/Zombies/Other/zombie_wolf/zombie_wolf_PhysicsAsset",
+    "required_animations": [
+      "zombie_dog_idle",
+      "zombie_dog_run",
+      "zombie_dog_trot",
+      "zombie_dog_run_attack",
+      "zombie_dog_death_front"
+    ],
+    "custom_target_after_green": "zombie_sheep_reskin"
+  },
+  "player": {
+    "camera_and_stance_authority": "res://scripts/cod_source_contract.gd",
+    "reuse_source_measurements": true
+  }
+}
