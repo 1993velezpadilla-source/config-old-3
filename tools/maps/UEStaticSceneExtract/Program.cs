@@ -789,6 +789,13 @@ static string CanonicalObjectPath(string value)
         path = "/Game/" +
             path["Pavlov/Content/".Length..];
     }
+    else if (path.StartsWith(
+        "Content/",
+        StringComparison.OrdinalIgnoreCase))
+    {
+        path = "/Game/" +
+            path["Content/".Length..];
+    }
     else
     {
         var content = path.IndexOf(
