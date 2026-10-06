@@ -112,11 +112,15 @@ func _capture() -> void:
 				zombie.look_at(player.global_position, Vector3.UP)
 			if zombie.has_method("_play_motion_state"):
 				zombie.call("_play_motion_state", "walk")
-			if str(zombie.get_meta("zombie_model", "")) != "monja_clean":
-				push_error("SCREENSHOT: clean Monja not selected")
+			if str(zombie.get_meta("zombie_model", "")) != "waw_honorgd":
+				push_error("SCREENSHOT: WaW source zombie baseline not selected")
 				quit(9)
 				return
-			print("XZOGOT_SCREENSHOT_CLEAN_MONJA_READY")
+			if not bool(zombie.get_meta("zombie_source_waw", false)):
+				push_error("SCREENSHOT: WaW source authority metadata missing")
+				quit(23)
+				return
+			print("XZOGOT_SCREENSHOT_WAW_SOURCE_ZOMBIE_READY")
 			zombie.set_physics_process(false)
 
 			# Very soft warm fill only for visibility; keep gameplay contrast/shadows intact.
