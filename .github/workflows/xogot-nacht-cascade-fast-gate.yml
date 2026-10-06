@@ -1,0 +1,98 @@
+name: Xogot Nacht Cascade Fast Gate
+
+on:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-nacht-cascade-fast-gate.yml"
+      - "xogot/scripts/nacht_cascade_runtime.gd"
+      - "xogot/scripts/nacht_particle_source.gd"
+      - "xogot/ci/nacht_cascade_semantic_probe.gd"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xogot-nacht-cascade-fast-gate
+  cancel-in-progress: true
+
+jobs:
+  cascade-fast-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SLICE_ARTIFACT: "Xogot-Nacht-Material-Graph-Slice"
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Resolve latest GREEN particle slice
+        shell: bash
+        run: |
+          set -euo pipefail
+          SLICE_RUN=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${GITHUB_REPOSITORY}/actions/workflows/xogot-nacht-material-graph-slice.yml/runs?branch=feature%2Fgodot-aaa-rebuild-v1&status=success&per_page=20" \
+            --jq '.workflow_runs[0].id // empty' || true)
+          test -n "$SLICE_RUN"
+          echo "SLICE_RUN=$SLICE_RUN" >> "$GITHUB_ENV"
+          echo "XZOGOT_NACHT_CASCADE_FAST_SLICE_SOURCE_GREEN run=$SLICE_RUN"
+
+      - name: Download particle candidate source graphs
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf particle-slice xogot/assets/benchmarks/nacht_particle_slice
+          mkdir -p particle-slice xogot/assets/benchmarks/nacht_particle_slice
+          gh run download "$SLICE_RUN" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "$SLICE_ARTIFACT" \
+            --dir particle-slice
+          graphs=$(find particle-slice -type f -name particle-candidate-graphs.json -print -quit)
+          matrix=$(find particle-slice -type f -name particle-candidate-matrix.json -print -quit)
+          test -n "$graphs"
+          test -n "$matrix"
+          cp "$graphs" xogot/assets/benchmarks/nacht_particle_slice/particle-candidate-graphs.json
+          cp "$matrix" xogot/assets/benchmarks/nacht_particle_slice/particle-candidate-matrix.json
+          echo "XZOGOT_NACHT_CASCADE_FAST_SLICE_GREEN"
+
+      - name: Install Godot 4.6.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq unzip curl libgl1-mesa-dri libglx-mesa0 mesa-vulkan-drivers
+          curl -L --fail --retry 5 --retry-all-errors --retry-delay 2 \
+            https://github.com/godotengine/godot-builds/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip \
+            -o /tmp/godot.zip
+          mkdir -p /tmp/godot
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.6.1-stable_linux.x86_64
+
+      - name: Gate Cascade source semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/nacht-cascade-fast
+          timeout 300 /tmp/godot/Godot_v4.6.1-stable_linux.x86_64 \
+            --headless --path xogot \
+            --script res://ci/nacht_cascade_semantic_probe.gd \
+            2>&1 | tee build/nacht-cascade-fast/probe.log
+          grep -q "XZOGOT_NACHT_CASCADE_FAST_SEMANTIC_GREEN systems=7 placements=16" \
+            build/nacht-cascade-fast/probe.log
+          echo "XZOGOT_NACHT_CASCADE_FAST_GATE_GREEN head=${GITHUB_SHA}"
+
+      - name: Upload Cascade semantic proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Nacht-Cascade-Fast-Proof
+          path: build/nacht-cascade-fast/probe.log
+          if-no-files-found: error
+          retention-days: 7
