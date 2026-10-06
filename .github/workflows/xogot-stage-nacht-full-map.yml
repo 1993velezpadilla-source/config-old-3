@@ -57,9 +57,10 @@ jobs:
           else
             SOURCE_RUN=$(gh api \
               -H "Accept: application/vnd.github+json" \
-              "/repos/${GITHUB_REPOSITORY}/actions/runs?branch=feature%2Fgodot-aaa-rebuild-v1&per_page=100" \
-              --jq '[.workflow_runs[] | select(.name=="Xogot Nacht Chronicles Full Map Authority" and .conclusion=="success")][0].id // empty')
+              "/repos/${GITHUB_REPOSITORY}/actions/runs?per_page=100" \
+              --jq '[.workflow_runs[] | select(.head_branch=="feature/godot-aaa-rebuild-v1" and .name=="Xogot Nacht Chronicles Full Map Authority" and .conclusion=="success")][0].id // empty')
           fi
+          echo "XZOGOT_NACHT_STAGE_SELECTED_SOURCE_RUN=$SOURCE_RUN"
           test -n "$SOURCE_RUN"
           echo "SOURCE_RUN=$SOURCE_RUN" >> "$GITHUB_ENV"
 
@@ -69,8 +70,9 @@ jobs:
 
           AUDIO_BYTECODE_RUN=$(gh api \
             -H "Accept: application/vnd.github+json" \
-            "/repos/${GITHUB_REPOSITORY}/actions/runs?branch=feature%2Fgodot-aaa-rebuild-v1&per_page=100" \
-            --jq '[.workflow_runs[] | select(.name=="Xogot Nacht Blueprint Audio Bytecode Truth" and .conclusion=="success")][0].id // empty')
+            "/repos/${GITHUB_REPOSITORY}/actions/runs?per_page=100" \
+            --jq '[.workflow_runs[] | select(.head_branch=="feature/godot-aaa-rebuild-v1" and .name=="Xogot Nacht Blueprint Audio Bytecode Truth" and .conclusion=="success")][0].id // empty')
+          echo "XZOGOT_NACHT_STAGE_SELECTED_AUDIO_BYTECODE_RUN=$AUDIO_BYTECODE_RUN"
           test -n "$AUDIO_BYTECODE_RUN"
           echo "NACHT_AUDIO_BYTECODE_RUN=$AUDIO_BYTECODE_RUN" >> "$GITHUB_ENV"
 
