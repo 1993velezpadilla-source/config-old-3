@@ -6,6 +6,7 @@ on:
       - feature/godot-aaa-rebuild-v1
     paths:
       - ".github/workflows/xogot-stage-nacht-full-map.yml"
+      - ".github/workflows/xogot-nacht-full-map-capture.yml"
       - "tools/maps/compile_nacht_*"
       - "tools/maps/compile_ue_material_bindings.py"
       - "tools/maps/UEParticleGraphExtract/**"
