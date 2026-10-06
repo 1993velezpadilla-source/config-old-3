@@ -1,0 +1,190 @@
+name: Xogot Nacht Interactive Source Export
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-nacht-interactive-source-export.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xogot-nacht-interactive-source-export
+  cancel-in-progress: true
+
+jobs:
+  export:
+    runs-on: windows-latest
+    timeout-minutes: 180
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download validated Nacht workshop package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $steam=Join-Path $env:RUNNER_TEMP 'steamcmd'
+          New-Item -ItemType Directory -Force -Path $steam | Out-Null
+          Invoke-WebRequest 'https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip' -OutFile "$env:RUNNER_TEMP\steamcmd.zip"
+          Expand-Archive "$env:RUNNER_TEMP\steamcmd.zip" -DestinationPath $steam -Force
+          & (Join-Path $steam 'steamcmd.exe') +login anonymous +workshop_download_item 555160 2755515831 validate +quit
+          $root=Get-ChildItem $steam,$env:RUNNER_TEMP -Directory -Recurse -ErrorAction SilentlyContinue |
+            Where-Object {$_.FullName -like '*steamapps\workshop\content\555160\2755515831'} |
+            Select-Object -First 1
+          if(-not $root){throw 'Nacht workshop payload missing'}
+          $pak=Join-Path $root.FullName 'WindowsNoEditor.pak'
+          if(-not (Test-Path $pak)){throw 'Nacht WindowsNoEditor.pak missing'}
+          "NACHT_PAK=$pak" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "XZOGOT_NACHT_INTERACTIVE_PAK_GREEN $((Get-Item $pak).Length)"
+          $global:LASTEXITCODE=0
+          exit 0
+
+      - name: Install repak and extract exact interaction roots
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          Invoke-WebRequest 'https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-pc-windows-msvc.zip' -OutFile "$env:RUNNER_TEMP\repak.zip"
+          $dir="$env:RUNNER_TEMP\repak"
+          Expand-Archive "$env:RUNNER_TEMP\repak.zip" -DestinationPath $dir -Force
+          $repak=Get-ChildItem $dir -Filter repak.exe -Recurse | Select-Object -First 1
+          if(-not $repak){throw 'repak.exe missing'}
+          "REPAK=$($repak.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+
+          & $repak.FullName list "$env:NACHT_PAK" | Set-Content nacht-all-paths.txt -Encoding utf8
+          @'
+          import re,json
+          from pathlib import Path
+          lines=sorted(set(x.strip().replace("\\","/") for x in Path("nacht-all-paths.txt").read_text(encoding="utf-8-sig",errors="ignore").splitlines() if x.strip()))
+          rules={
+            "gumball_machine":r"/Blueprints/Gumball_Machine/",
+            "power_box":r"(PowerBox|PowerSwitch|Power_Box)",
+            "mystery_box":r"(MysteryBox|Mystery_Box|WeaponBox)",
+            "perk_bottles":r"(Perk.*Bottle|Bottle.*Perk|Jugger|QuickRevive|DoubleTap|SpeedCola|Stamin)",
+            "powerups":r"(/PowerUps/|PowerUp)",
+            "barricade":r"(BarricadeBoard|Barricade.*Struct|Board.*Barricade)",
+            "viewhands":r"(view.?hands|view.?arms|first.?person.?arms|/Hands/|/Arms/)",
+            "knife":r"(Knife|Bowie|Melee)",
+          }
+          cats={k:[] for k in rules}
+          selected=[]
+          for line in lines:
+            for k,rx in rules.items():
+              if re.search(rx,line,re.I):
+                cats[k].append(line); selected.append(line)
+          cats={k:sorted(set(v)) for k,v in cats.items()}
+          selected=sorted(set(selected))
+          Path("nacht-interactive-paths.txt").write_text("\n".join(selected)+"\n",encoding="utf-8")
+          Path("nacht-interactive-census.json").write_text(json.dumps({"schema":1,"counts":{k:len(v) for k,v in cats.items()},"categories":cats},indent=2)+"\n",encoding="utf-8")
+          print("XZOGOT_NACHT_INTERACTIVE_CENSUS_GREEN",{k:len(v) for k,v in cats.items()},"selected",len(selected))
+          assert len(cats["gumball_machine"])>20
+          assert len(cats["mystery_box"])>0
+          assert len(cats["barricade"])>0
+          '@ | python -
+
+          Remove-Item nacht-interactive-raw -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path nacht-interactive-raw | Out-Null
+          $args=@('unpack',"$env:NACHT_PAK",'-o','nacht-interactive-raw','--force')
+          Get-Content nacht-interactive-paths.txt | ForEach-Object {
+            if($_){$args += @('-i',$_)}
+          }
+          & $repak.FullName @args
+          $global:LASTEXITCODE=0
+          $files=@(Get-ChildItem nacht-interactive-raw -Recurse -File)
+          if($files.Count -lt 20){throw "Too few extracted Nacht interactive files: $($files.Count)"}
+          Write-Host "XZOGOT_NACHT_INTERACTIVE_RAW_GREEN files=$($files.Count)"
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build CUE4Parse CLI
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $src="$env:RUNNER_TEMP\CUE4Parse.CLI"
+          $out="$env:RUNNER_TEMP\cue4parse"
+          git clone --depth 1 --recurse-submodules --shallow-submodules https://github.com/joric/CUE4Parse.CLI.git $src
+          git -C $src submodule update --init --recursive --depth 1
+          dotnet publish "$src\CUE4Parse.CLI\CUE4Parse.CLI.csproj" -c Release -r win-x64 --self-contained true -p:PublishTrimmed=false -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o $out
+          $exe=Get-ChildItem $out -Filter '*.exe' | Sort-Object Length -Descending | Select-Object -First 1
+          if(-not $exe){throw 'CUE4Parse CLI missing'}
+          "CUE4PARSE=$($exe.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Export Nacht interaction meshes and animations
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $uassets=@(Get-ChildItem nacht-interactive-raw -Recurse -File -Filter '*.uasset')
+          $rel=@($uassets | ForEach-Object {
+            $_.FullName.Substring((Resolve-Path nacht-interactive-raw).Path.Length+1).Replace('\','/')
+          } | Sort-Object -Unique)
+          $rel | Set-Content nacht-interactive-uassets.txt -Encoding ascii
+          if($rel.Count -lt 10){throw "Too few Nacht interactive uassets: $($rel.Count)"}
+
+          Remove-Item nacht-interactive-gltf -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path nacht-interactive-gltf | Out-Null
+          & "$env:CUE4PARSE" -i "$PWD\nacht-interactive-raw" -g GAME_UE4_21 -c nacht-interactive-uassets.txt -o nacht-interactive-gltf -y -v --mesh-format Gltf2 --mesh-quality Highest --export-materials true 2>&1 | Tee-Object nacht-interactive-gltf.log
+          $gltfFiles=@(Get-ChildItem nacht-interactive-gltf -Recurse -File)
+          $meshes=@($gltfFiles | Where-Object {$_.Extension -in '.glb','.gltf'})
+          Write-Host "XZOGOT_NACHT_INTERACTIVE_GLTF files=$($gltfFiles.Count) meshes=$($meshes.Count)"
+
+          Remove-Item nacht-interactive-actorx -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path nacht-interactive-actorx | Out-Null
+          & "$env:CUE4PARSE" -i "$PWD\nacht-interactive-raw" -g GAME_UE4_21 -c nacht-interactive-uassets.txt -o nacht-interactive-actorx -y -v --mesh-format ActorX --mesh-quality Highest --export-materials true 2>&1 | Tee-Object nacht-interactive-actorx.log
+          $psa=@(Get-ChildItem nacht-interactive-actorx -Recurse -File -Filter '*.psa')
+          Write-Host "XZOGOT_NACHT_INTERACTIVE_ACTORX psa=$($psa.Count)"
+
+          # Export success is useful but raw cooked packages remain the source
+          # authority if a dependency prevents conversion of a specific asset.
+          if($meshes.Count -lt 1 -and $psa.Count -lt 1){
+            Write-Host "XZOGOT_NACHT_INTERACTIVE_CONVERSION_PARTIAL raw_source_authority=true"
+          }
+
+      - name: Build portable interaction inventory
+        shell: pwsh
+        run: |
+          @'
+          import json,re
+          from pathlib import Path
+          census=json.loads(Path("nacht-interactive-census.json").read_text())
+          roots=[Path("nacht-interactive-gltf"),Path("nacht-interactive-actorx")]
+          converted=[p.as_posix() for r in roots if r.exists() for p in r.rglob("*") if p.is_file()]
+          report={
+            "schema":1,
+            "source":"Validated Nacht workshop package 2755515831",
+            "counts":census["counts"],
+            "raw_source_authority":True,
+            "converted_file_count":len(converted),
+            "converted":converted,
+            "required_runtime_roles":{
+              "gumball_machine":"present" if census["counts"]["gumball_machine"] else "missing",
+              "power_box":"present" if census["counts"]["power_box"] else "missing",
+              "mystery_box":"present" if census["counts"]["mystery_box"] else "missing",
+              "barricade":"present" if census["counts"]["barricade"] else "missing",
+            }
+          }
+          Path("nacht-interactive-source-inventory.json").write_text(json.dumps(report,indent=2)+"\n")
+          print("XZOGOT_NACHT_INTERACTIVE_SOURCE_GREEN",report["required_runtime_roles"],"converted",len(converted))
+          '@ | python -
+
+      - name: Upload Nacht interactive source package
+        uses: actions/upload-artifact@v4
+        with:
+          name: xogot-nacht-interactive-source
+          path: |
+            nacht-interactive-census.json
+            nacht-interactive-source-inventory.json
+            nacht-interactive-paths.txt
+            nacht-interactive-uassets.txt
+            nacht-interactive-gltf.log
+            nacht-interactive-actorx.log
+            nacht-interactive-raw/**
+            nacht-interactive-gltf/**
+            nacht-interactive-actorx/**
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 6
