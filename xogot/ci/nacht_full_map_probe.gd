@@ -537,6 +537,84 @@ func _run() -> void:
 	var particle_acid_ball_peaks: Array = scene.get_meta(
 		"source_particle_acid_ball_peak_active_by_emitter", []
 	) as Array
+	var particle_sparks_lifetime_min := float(
+		scene.get_meta("source_particle_sparks_lifetime_min", -1.0)
+	)
+	var particle_sparks_lifetime_max := float(
+		scene.get_meta("source_particle_sparks_lifetime_max", -1.0)
+	)
+	var particle_sparks_location_min := scene.get_meta(
+		"source_particle_sparks_seeded_location_min_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_sparks_location_max := scene.get_meta(
+		"source_particle_sparks_seeded_location_max_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_sparks_accel := scene.get_meta(
+		"source_particle_sparks_acceleration_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_sparks_accel_world := bool(
+		scene.get_meta("source_particle_sparks_acceleration_world_space", false)
+	)
+	var particle_sparks_collision_enabled := bool(
+		scene.get_meta("source_particle_sparks_collision_enabled", true)
+	)
+	var particle_sparks_resilience := float(
+		scene.get_meta("source_particle_sparks_collision_resilience", -1.0)
+	)
+	var particle_sparks_resilience_scale := float(
+		scene.get_meta("source_particle_sparks_collision_resilience_scale", -1.0)
+	)
+	var particle_sparks_speed_scale := scene.get_meta(
+		"source_particle_sparks_speed_scale", Vector2.INF
+	) as Vector2
+	var particle_sparks_max_scale := scene.get_meta(
+		"source_particle_sparks_max_scale", Vector2.INF
+	) as Vector2
+	var particle_sparks_size_min := scene.get_meta(
+		"source_particle_sparks_start_size_min_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_sparks_size_max := scene.get_meta(
+		"source_particle_sparks_start_size_max_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_sparks_spawn_rate := float(
+		scene.get_meta("source_particle_sparks_spawn_rate", -1.0)
+	)
+	var particle_sparks_burst_count := int(
+		scene.get_meta("source_particle_sparks_burst_count", -1)
+	)
+	var particle_sparks_burst_low := int(
+		scene.get_meta("source_particle_sparks_burst_count_low", -1)
+	)
+	var particle_sparks_burst_time := float(
+		scene.get_meta("source_particle_sparks_burst_time", -1.0)
+	)
+	var particle_sparks_burst_scale := float(
+		scene.get_meta("source_particle_sparks_burst_scale", -1.0)
+	)
+	var particle_sparks_velocity_min := scene.get_meta(
+		"source_particle_sparks_start_velocity_min_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_sparks_velocity_max := scene.get_meta(
+		"source_particle_sparks_start_velocity_max_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_sparks_gpu_inv_max_size := scene.get_meta(
+		"source_particle_sparks_gpu_inv_max_size", Vector2.INF
+	) as Vector2
+	var particle_sparks_gpu_max_lifetime := float(
+		scene.get_meta("source_particle_sparks_gpu_max_lifetime", -1.0)
+	)
+	var particle_sparks_gpu_max_particles := int(
+		scene.get_meta("source_particle_sparks_gpu_max_particle_count", -1)
+	)
+	var particle_sparks_gpu_collision_radius := float(
+		scene.get_meta("source_particle_sparks_gpu_collision_radius_scale", -1.0)
+	)
+	var particle_sparks_gpu_collision_random := float(
+		scene.get_meta("source_particle_sparks_gpu_collision_random_distribution", -1.0)
+	)
+	var particle_sparks_peaks: Array = scene.get_meta(
+		"source_particle_sparks_peak_active_by_lod", []
+	) as Array
 	var source_particles := int(scene.get_meta("source_particle_component_count", -1))
 	var particle_authority := int(scene.get_meta("runtime_particle_authority_count", -1))
 	var source_particle_systems := int(scene.get_meta("source_particle_system_count", -1))
@@ -649,14 +727,14 @@ func _run() -> void:
 		if not particle_semantic_ready:
 			_fail(34, "source-complete Cascade semantic runtime is not ready")
 			return
-		if particle_semantic_systems != 11 or particle_semantic_placements != 21:
+		if particle_semantic_systems != 12 or particle_semantic_placements != 23:
 			_fail(
 				34,
 				"Cascade semantic runtime coverage mismatch systems=%d placements=%d"
 				% [particle_semantic_systems, particle_semantic_placements]
 			)
 			return
-		if get_nodes_in_group("nacht_source_particle_semantic").size() != 21:
+		if get_nodes_in_group("nacht_source_particle_semantic").size() != 23:
 			_fail(34, "Cascade semantic placement group mismatch")
 			return
 		if (
@@ -1095,6 +1173,72 @@ func _run() -> void:
 					particle_acid_ball_dynamic_spawn_only,
 					particle_acid_ball_dynamic_samples,
 					particle_acid_ball_peaks,
+				]
+			)
+			return
+		var sparks_peaks_ok := (
+			particle_sparks_peaks.size() == 2
+			and int(particle_sparks_peaks[0]) == 27
+			and int(particle_sparks_peaks[1]) == 27
+		)
+		if (
+			not is_equal_approx(particle_sparks_lifetime_min, 0.2)
+			or not is_equal_approx(particle_sparks_lifetime_max, 0.5)
+			or not particle_sparks_location_min.is_equal_approx(Vector3.ZERO)
+			or not particle_sparks_location_max.is_equal_approx(Vector3(1.0, 4.0, 6.0))
+			or not particle_sparks_accel.is_equal_approx(Vector3(0.0, 0.0, -900.0))
+			or not particle_sparks_accel_world
+			or particle_sparks_collision_enabled
+			or not is_equal_approx(particle_sparks_resilience, 0.75)
+			or not is_equal_approx(particle_sparks_resilience_scale, 1.0)
+			or not particle_sparks_speed_scale.is_equal_approx(Vector2(0.0, 7.0))
+			or not particle_sparks_max_scale.is_equal_approx(Vector2(1.0, 10.0))
+			or not particle_sparks_size_min.is_equal_approx(Vector3(0.1, 0.1, 0.1))
+			or not particle_sparks_size_max.is_equal_approx(Vector3(2.0, 2.0, 2.0))
+			or not is_equal_approx(particle_sparks_spawn_rate, 10.0)
+			or particle_sparks_burst_count != 20
+			or particle_sparks_burst_low != 4
+			or not is_equal_approx(particle_sparks_burst_time, 0.2)
+			or not is_equal_approx(particle_sparks_burst_scale, 0.5)
+			or not particle_sparks_velocity_min.is_equal_approx(Vector3(100.0, -100.0, -10.0))
+			or not particle_sparks_velocity_max.is_equal_approx(Vector3(100.0, 100.0, 125.0))
+			or not particle_sparks_gpu_inv_max_size.is_equal_approx(Vector2(0.5, 0.5))
+			or not is_equal_approx(particle_sparks_gpu_max_lifetime, 0.5)
+			or particle_sparks_gpu_max_particles != 27
+			or not is_equal_approx(particle_sparks_gpu_collision_radius, 0.5)
+			or not is_equal_approx(particle_sparks_gpu_collision_random, 1.0)
+			or not sparks_peaks_ok
+		):
+			_fail(
+				34,
+				"sparks Cascade mismatch life=%s..%s location=%s..%s accel=%s world=%s collision=%s resilience=%s/%s speed=%s max=%s size=%s..%s rate=%s burst=%d/%d@%s scale=%s velocity=%s..%s gpu_inv=%s gpu_life=%s gpu_max=%d gpu_collision=%s/%s peaks=%s"
+				% [
+					particle_sparks_lifetime_min,
+					particle_sparks_lifetime_max,
+					particle_sparks_location_min,
+					particle_sparks_location_max,
+					particle_sparks_accel,
+					str(particle_sparks_accel_world),
+					str(particle_sparks_collision_enabled),
+					particle_sparks_resilience,
+					particle_sparks_resilience_scale,
+					particle_sparks_speed_scale,
+					particle_sparks_max_scale,
+					particle_sparks_size_min,
+					particle_sparks_size_max,
+					particle_sparks_spawn_rate,
+					particle_sparks_burst_low,
+					particle_sparks_burst_count,
+					particle_sparks_burst_time,
+					particle_sparks_burst_scale,
+					particle_sparks_velocity_min,
+					particle_sparks_velocity_max,
+					particle_sparks_gpu_inv_max_size,
+					particle_sparks_gpu_max_lifetime,
+					particle_sparks_gpu_max_particles,
+					particle_sparks_gpu_collision_radius,
+					particle_sparks_gpu_collision_random,
+					particle_sparks_peaks,
 				]
 			)
 			return
