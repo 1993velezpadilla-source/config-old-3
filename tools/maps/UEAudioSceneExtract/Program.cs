@@ -158,6 +158,48 @@ string? ReferencePath(FPackageIndex index)
     return (null, null, null);
 }
 
+
+UBlueprintGeneratedClass? ResolveGeneratedClassByResolvedClassPath(
+    DefaultFileProvider provider,
+    string? classPath,
+    string actorExportType)
+{
+    if (string.IsNullOrWhiteSpace(classPath))
+        return null;
+
+    var normalized = classPath!.Replace('\\', '/');
+    var objectDot = normalized.LastIndexOf('.');
+    var assetObjectPath =
+        objectDot > 0 ? normalized[..objectDot] : normalized;
+
+    string logicalAssetPath;
+    if (assetObjectPath.StartsWith("/Game/", StringComparison.OrdinalIgnoreCase))
+        logicalAssetPath = "Content/" + assetObjectPath[6..] + ".uasset";
+    else if (assetObjectPath.StartsWith("Game/", StringComparison.OrdinalIgnoreCase))
+        logicalAssetPath = "Content/" + assetObjectPath[5..] + ".uasset";
+    else
+        logicalAssetPath = assetObjectPath.TrimStart('/') + ".uasset";
+
+    var providerPath = ResolveProviderPackagePath(provider, logicalAssetPath);
+    if (providerPath is null)
+        return null;
+
+    try
+    {
+        var package = provider.LoadPackage(providerPath);
+        return package.GetExports()
+            .OfType<UBlueprintGeneratedClass>()
+            .FirstOrDefault(x =>
+                x.Name.Equals(
+                    actorExportType,
+                    StringComparison.OrdinalIgnoreCase));
+    }
+    catch
+    {
+        return null;
+    }
+}
+
 UBlueprintGeneratedClass? ResolveGeneratedClassByExportType(
     DefaultFileProvider provider,
     string actorExportType)
@@ -228,15 +270,28 @@ ResolveBlueprintSoundTemplate(
 
     while (owner is not null)
     {
-        var generated =
-            owner.Class?.Object?.Value as UBlueprintGeneratedClass;
+        UBlueprintGeneratedClass? generated = null;
 
-        if (generated is null &&
-            owner.ExportType.EndsWith("_C", StringComparison.Ordinal))
+        if (owner.ExportType.EndsWith("_C", StringComparison.Ordinal))
         {
-            generated = ResolveGeneratedClassByExportType(
+            string? resolvedClassPath = null;
+            try
+            {
+                resolvedClassPath = owner.Class?.GetPathName();
+            }
+            catch { }
+
+            generated = ResolveGeneratedClassByResolvedClassPath(
                 provider,
+                resolvedClassPath,
                 owner.ExportType);
+
+            if (generated is null)
+            {
+                generated = ResolveGeneratedClassByExportType(
+                    provider,
+                    owner.ExportType);
+            }
         }
 
         if (generated is not null)
@@ -394,19 +449,25 @@ object[] DescribeOwnerResolutionChain(UAudioComponent component)
 
         try
         {
+            classPath = current.Class?.GetPathName();
             var cls = current.Class?.Object?.Value;
-            classPath = cls?.GetPathName();
-            classType = cls?.ExportType;
+            classType = cls?.ExportType ?? current.Class?.Class?.Name.Text;
         }
-        catch { }
+        catch
+        {
+            try { classPath = current.Class?.GetPathName(); } catch { }
+        }
 
         try
         {
+            templatePath = current.Template?.GetPathName();
             var template = current.Template?.Object?.Value;
-            templatePath = template?.GetPathName();
-            templateType = template?.ExportType;
+            templateType = template?.ExportType ?? current.Template?.Class?.Name.Text;
         }
-        catch { }
+        catch
+        {
+            try { templatePath = current.Template?.GetPathName(); } catch { }
+        }
 
         rows.Add(new
         {
