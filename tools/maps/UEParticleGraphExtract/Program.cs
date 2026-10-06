@@ -62,6 +62,15 @@ object? DescribeValue(object? value, int depth = 0)
         };
     }
 
+    if (value is FScriptStruct scriptStruct)
+    {
+        return new {
+            kind = "FScriptStruct",
+            structType = scriptStruct.StructType?.GetType().FullName,
+            value = DescribeValue(scriptStruct.StructType, depth + 1)
+        };
+    }
+
     if (value is FStructFallback fallback)
     {
         return new {
@@ -120,6 +129,12 @@ void CollectRefs(object? value, SortedSet<string> refs, int depth = 0)
             if (!string.IsNullOrWhiteSpace(path))
                 refs.Add(path);
         }
+        return;
+    }
+
+    if (value is FScriptStruct scriptStruct)
+    {
+        CollectRefs(scriptStruct.StructType, refs, depth + 1);
         return;
     }
 
