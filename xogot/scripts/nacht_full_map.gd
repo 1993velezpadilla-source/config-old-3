@@ -194,12 +194,17 @@ func _boot() -> void:
 	# actually mounted, never merely because the JSON exists.
 	set_meta("particle_visual_runtime_ready", false)
 	set_meta("source_audio_runtime_ready", _source_audio_semantics_ready())
-	set_meta(
-		"source_environment_runtime_ready",
+	var environment_mounted := (
 		_source_environment_fog_runtime_ready
 		and _source_environment_reflection_runtime_ready
 		and _source_environment_visual_node_count == 2
 	)
+	set_meta("source_environment_runtime_mounted", environment_mounted)
+	# Mounted source inputs are not the same thing as 1:1 UE4.21 visual parity.
+	# Godot mobile has no direct FogMaxOpacity/StartDistance equivalent and its
+	# ReflectionProbe influence volume is box-shaped rather than spherical.
+	set_meta("source_environment_runtime_ready", false)
+	set_meta("source_environment_visual_exact", false)
 	set_meta("source_class_count", int((_handoff.get("fullMapAuthority", {}) as Dictionary).get("classCensus", {}).get("uniqueClasses", -1)))
 	set_meta("nacht_full_map_ready", true)
 	get_tree().set_meta("nacht_full_map_ready", true)
