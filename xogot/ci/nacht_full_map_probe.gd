@@ -53,6 +53,14 @@ func _run() -> void:
 	var source_audio_stream_mount := bool(scene.get_meta("source_audio_stream_mount_ready", false))
 	var source_audio_players := int(scene.get_meta("source_audio_runtime_player_count", -1))
 	var source_audio_streams := int(scene.get_meta("source_audio_runtime_stream_count", -1))
+	var source_audio_event_authority := int(scene.get_meta("source_audio_event_authority_count", 0))
+	var source_audio_event_index := int(scene.get_meta("source_audio_event_index_count", 0))
+	var placed_particle_systems := int(scene.get_meta("runtime_placed_particle_system_count", 0))
+	var placed_particle_node_types := int(scene.get_meta("runtime_placed_particle_node_type_count", 0))
+	var runtime_environment_components := int(scene.get_meta("runtime_environment_component_count", 0))
+	var staged_runtime := FileAccess.file_exists(
+		"res://assets/benchmarks/nacht_chronicles/nacht-audio-runtime-authority.json"
+	)
 
 	if packages != 3871:
 		_fail(4, "package authority mismatch " + str(packages))
@@ -102,13 +110,35 @@ func _run() -> void:
 	if source_cues != 102 or cue_authority != source_cues:
 		_fail(20, "SoundCue authority coverage mismatch %d/%d expected=102" % [cue_authority, source_cues])
 		return
-	if not source_audio_stream_mount or source_audio_players != 3 or source_audio_streams != 3:
-		_fail(
-			22,
-			"source audio stream mount mismatch ready=%s players=%d streams=%d"
-			% [str(source_audio_stream_mount), source_audio_players, source_audio_streams]
-		)
-		return
+	if staged_runtime:
+		if not source_audio_stream_mount or source_audio_players != 3 or source_audio_streams != 3:
+			_fail(
+				22,
+				"source audio stream mount mismatch ready=%s players=%d streams=%d"
+				% [str(source_audio_stream_mount), source_audio_players, source_audio_streams]
+			)
+			return
+		if source_audio_event_authority <= 0 or source_audio_event_index <= 0:
+			_fail(
+				23,
+				"staged audio event authority missing authority=%d index=%d"
+				% [source_audio_event_authority, source_audio_event_index]
+			)
+			return
+		if placed_particle_systems <= 0 or placed_particle_node_types <= 0:
+			_fail(
+				24,
+				"staged particle runtime authority missing systems=%d nodeTypes=%d"
+				% [placed_particle_systems, placed_particle_node_types]
+			)
+			return
+		if runtime_environment_components != 2:
+			_fail(
+				25,
+				"staged environment runtime authority mismatch %d/2"
+				% runtime_environment_components
+			)
+			return
 
 	var player := scene.get_node_or_null("Player") as CharacterBody3D
 	var weapon := scene.get_node_or_null("Player/Weapon")
@@ -140,6 +170,10 @@ func _run() -> void:
 		" source_audio_runtime=", source_audio_runtime,
 		" source_audio_players=", source_audio_players,
 		" source_audio_streams=", source_audio_streams,
+		" source_audio_events=", source_audio_event_index,
+		" placed_particle_systems=", placed_particle_systems,
+		" placed_particle_node_types=", placed_particle_node_types,
+		" runtime_environment_components=", runtime_environment_components,
 		" source_environment_runtime=", bool(scene.get_meta("source_environment_runtime_ready", false)),
 		" player=", player.global_position
 	)
