@@ -1035,7 +1035,7 @@ func _play_motion_state(state: String) -> void:
 	if source_waw:
 		match state:
 			"idle":
-				keys = WAW_SOURCE_STATE_KEYS["idle"]
+				keys.assign(WAW_SOURCE_STATE_KEYS["idle"])
 			"walk":
 				if str(get_meta("motion_override", "")) == "crawl":
 					# Exact WaW crawler clip is still being recovered from the
@@ -1043,19 +1043,19 @@ func _play_motion_state(state: String) -> void:
 					set_meta("crawler_visual_source_pending", true)
 					keys = []
 				elif move_speed >= 3.55:
-					keys = WAW_SOURCE_STATE_KEYS["sprint"]
+					keys.assign(WAW_SOURCE_STATE_KEYS["sprint"])
 				elif move_speed >= 2.55:
-					keys = WAW_SOURCE_STATE_KEYS["run"]
+					keys.assign(WAW_SOURCE_STATE_KEYS["run"])
 				elif move_speed >= 2.05:
-					keys = WAW_SOURCE_STATE_KEYS["walk_fast"]
+					keys.assign(WAW_SOURCE_STATE_KEYS["walk_fast"])
 				else:
-					keys = WAW_SOURCE_STATE_KEYS["walk"]
+					keys.assign(WAW_SOURCE_STATE_KEYS["walk"])
 			"attack":
-				keys = WAW_SOURCE_STATE_KEYS["attack"]
+				keys.assign(WAW_SOURCE_STATE_KEYS["attack"])
 			"death":
-				keys = WAW_SOURCE_STATE_KEYS["death"]
+				keys.assign(WAW_SOURCE_STATE_KEYS["death"])
 			"traverse":
-				keys = WAW_SOURCE_STATE_KEYS["traverse"]
+				keys.assign(WAW_SOURCE_STATE_KEYS["traverse"])
 			"hit":
 				# No WaW hit-reaction clip exists in the validated 57-PSA set.
 				# Gameplay hit reaction remains procedural; do not fake a source clip.
