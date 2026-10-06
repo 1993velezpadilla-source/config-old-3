@@ -12,6 +12,7 @@ on:
       - "tools/maps/UEAudioSceneExtract/**"
       - "tools/maps/UEAudioCueGraphExtract/**"
       - "tools/maps/UEParticleSceneExtract/**"
+      - "tools/maps/UEParticleGraphExtract/**"
       - "tools/maps/UEEnvironmentSceneExtract/**"
       - "tools/patches/patch_ue421_material_texture_refs.py"
       - "tools/patches/synthesize_ue_basic_cube_xzms.py"
@@ -60,6 +61,8 @@ jobs:
           if($LASTEXITCODE -ne 0){throw 'UEAudioCueGraphExtract restore failed'}
           git checkout $env:GITHUB_SHA -- tools/maps/UEParticleSceneExtract
           if($LASTEXITCODE -ne 0){throw 'UEParticleSceneExtract restore failed'}
+          git checkout $env:GITHUB_SHA -- tools/maps/UEParticleGraphExtract
+          if($LASTEXITCODE -ne 0){throw 'UEParticleGraphExtract restore failed'}
           git checkout $env:GITHUB_SHA -- tools/maps/UEEnvironmentSceneExtract
           if($LASTEXITCODE -ne 0){throw 'UEEnvironmentSceneExtract restore failed'}
           python tools/patches/patch_ue421_material_texture_refs.py
@@ -184,6 +187,7 @@ jobs:
             'tools/maps/UEAudioSceneExtract/UEAudioSceneExtract.csproj',
             'tools/maps/UEAudioCueGraphExtract/UEAudioCueGraphExtract.csproj',
             'tools/maps/UEParticleSceneExtract/UEParticleSceneExtract.csproj',
+            'tools/maps/UEParticleGraphExtract/UEParticleGraphExtract.csproj',
             'tools/maps/UEEnvironmentSceneExtract/UEEnvironmentSceneExtract.csproj'
           )
           foreach($project in $projects){
@@ -397,6 +401,33 @@ jobs:
           })
           '@ | python -
 
+      - name: Extract complete particle system graphs
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $app='tools/maps/UEParticleGraphExtract/bin/Release/net10.0/UEParticleGraphExtract.dll'
+          dotnet $app $env:NACHT_CONTENT_ROOT PavMappings.usmap nacht-class-census.json nacht-particle-graphs.json ue4.21 |
+            Tee-Object nacht-particle-graphs.log
+          if($LASTEXITCODE -ne 0){throw "particle graph extraction failed $LASTEXITCODE"}
+
+          @'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("nacht-particle-graphs.json").read_text())
+          assert d["candidatePackageCount"]>0,d
+          assert d["packagesLoaded"]==d["candidatePackageCount"],d
+          assert d["particleSystemCount"]>0,d
+          assert d["totalNodes"]>0,d
+          assert len(d["packageFailures"])==0,d
+          assert d["ready"] is True,d
+          print("XZOGOT_NACHT_PARTICLE_GRAPH_GREEN",{
+              "systems":d["particleSystemCount"],
+              "nodes":d["totalNodes"],
+              "references":d["totalReferences"],
+              "nodeTypes":d["nodeTypeCounts"],
+          })
+          '@ | python -
+
       - name: Extract exact UMAP environment authority
         shell: pwsh
         run: |
@@ -521,6 +552,7 @@ jobs:
           scene=json.loads(Path("nacht-static-scene.json").read_text())
           lights=json.loads(Path("nacht-lights.json").read_text())
           particle_scene=json.loads(Path("nacht-particles.json").read_text())
+          particle_graph=json.loads(Path("nacht-particle-graphs.json").read_text())
           environment_scene=json.loads(Path("nacht-environment-scene.json").read_text())
           audio_scene=json.loads(Path("nacht-audio-scene.json").read_text())
           audio_cues=json.loads(Path("nacht-audio-cues.json").read_text())
@@ -555,6 +587,12 @@ jobs:
                   "loadedTemplates":particle_scene["loadedTemplateCount"],
                   "nullTemplates":particle_scene["nullTemplateCount"],
                   "types":particle_scene["templateTypeCounts"],
+              },
+              "particleGraph":{
+                  "systems":particle_graph["particleSystemCount"],
+                  "nodes":particle_graph["totalNodes"],
+                  "references":particle_graph["totalReferences"],
+                  "nodeTypes":particle_graph["nodeTypeCounts"],
               },
               "environmentScene":{
                   "components":environment_scene["environmentComponentCount"],
@@ -635,7 +673,7 @@ jobs:
               "sourceAuthority":"validated complete workshop PAK 2755515831",
               "sourcePackageCount":3871,
               "sourceMap":"Nacht_de_Untoten.umap",
-              "nativeAuthority":"568 workshop StaticMeshes + canonical /Engine/BasicShapes/Cube runtime builtin + Nacht native particle/environment/audio placement/cue-graph/skeletal/texture/material/light authority",
+              "nativeAuthority":"568 workshop StaticMeshes + canonical /Engine/BasicShapes/Cube runtime builtin + Nacht native particle placement/full particle graph/environment/audio placement/cue-graph/skeletal/texture/material/light authority",
               "portableExportFileCount":len(files),
               "portableMeshCount":sum(p.suffix.lower() in {".glb",".gltf"} for p in files),
               "portableImageCount":sum(p.suffix.lower() in {".png",".jpg",".jpeg",".tga"} for p in files),
@@ -677,6 +715,8 @@ jobs:
             nacht-lights.log
             nacht-particles.json
             nacht-particles.log
+            nacht-particle-graphs.json
+            nacht-particle-graphs.log
             nacht-environment-scene.json
             nacht-environment-scene.log
             nacht-audio-scene.json
