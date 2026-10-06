@@ -1,0 +1,139 @@
+name: Resolve CoDz Parity Weapon Candidates
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-codz-parity-resolve-candidates.yml"
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      SOURCE_RUN_ID: "37470563200"
+      SOURCE_ARTIFACT: "xogot-codz-parity-wonder-weapon-census"
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download extracted candidate artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p source-artifact
+          gh run download "$SOURCE_RUN_ID" -n "$SOURCE_ARTIFACT" -D source-artifact
+          test -s source-artifact/build/codz-parity-census/extraction-summary.json
+          echo "XZOGOT_CODZ_CANDIDATES_DOWNLOADED"
+
+      - name: Resolve direct 3D and likely weapon mesh packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,re
+          root=Path("source-artifact/build/codz-parity-census")
+          ex=json.loads((root/"extraction-summary.json").read_text())
+          census=json.loads((root/"census.json").read_text())
+
+          print("XZOGOT_CODZ_DIRECT3D_BEGIN")
+          for p in ex.get("direct_3d",[]):
+              f=root/"candidates"/p
+              print("XZOGOT_CODZ_DIRECT3D",p,"bytes=",f.stat().st_size if f.exists() else -1)
+          print("XZOGOT_CODZ_DIRECT3D_END")
+
+          # Candidate file list contains byte size from the extraction step.
+          rows=[]
+          for line in (root/"candidate-files.tsv").read_text(errors="ignore").splitlines():
+              if not line.strip():
+                  continue
+              try:
+                  p,b=line.rsplit("\t",1)
+                  rows.append((p,int(b)))
+              except Exception:
+                  pass
+
+          groups={
+              "raygun":re.compile(r"ray.?gun",re.I),
+              "raygunmk2":re.compile(r"ray.?gun.*(?:mk|mark).?2|(?:mk|mark).?2.*ray",re.I),
+              "thundergun":re.compile(r"thunder.?gun|thundergun",re.I),
+          }
+          modelish=re.compile(r"(sk_|skeletal|mesh|model|view|weapon|gun|magazine|mag\b)",re.I)
+          texish=re.compile(r"(_c\.|_n\.|_s\.|_g\.|_r\.|_o\.|material|mat\b|texture|fx|tracer|bullet)",re.I)
+
+          report={"direct_3d":ex.get("direct_3d",[]),"groups":{}}
+          for name,rx in groups.items():
+              hits=[(p,b) for p,b in rows if rx.search(p)]
+              likely=[(p,b) for p,b in hits if modelish.search(Path(p).name) and not texish.search(Path(p).name)]
+              likely=sorted(likely,key=lambda x:x[1],reverse=True)
+              allbig=sorted(hits,key=lambda x:x[1],reverse=True)
+              report["groups"][name]={
+                  "hit_count":len(hits),
+                  "likely_mesh_packages":likely[:80],
+                  "largest_files":allbig[:80],
+              }
+              print("XZOGOT_CODZ_RESOLVE",name,"hits=",len(hits),"likely=",len(likely))
+              for p,b in likely[:35]:
+                  print("XZOGOT_CODZ_LIKELY_MESH",name,b,p)
+              print("XZOGOT_CODZ_LARGEST_BEGIN",name)
+              for p,b in allbig[:20]:
+                  print("XZOGOT_CODZ_LARGEST",name,b,p)
+              print("XZOGOT_CODZ_LARGEST_END",name)
+
+          Path("codz-parity-resolved-candidates.json").write_text(
+              json.dumps(report,indent=2)+"\n",encoding="utf-8"
+          )
+          PY
+
+      - name: Inspect candidate package headers
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,re,subprocess
+          report=json.loads(Path("codz-parity-resolved-candidates.json").read_text())
+          root=Path("source-artifact/build/codz-parity-census/candidates")
+          out={}
+          for group,row in report["groups"].items():
+              inspected=[]
+              for rel,size in row["largest_files"][:40]:
+                  if not rel.lower().endswith(".uasset"):
+                      continue
+                  p=root/rel
+                  if not p.is_file():
+                      continue
+                  data=p.read_bytes()
+                  # Unreal package names/class strings are often visible enough
+                  # to distinguish SkeletalMesh/StaticMesh/Animation/Blueprint.
+                  strings=re.findall(rb"[\x20-\x7e]{4,}",data)
+                  text="\n".join(s.decode("latin1","ignore") for s in strings)
+                  classes=sorted({c for c in (
+                      "SkeletalMesh","StaticMesh","AnimSequence","AnimationBlueprint",
+                      "BlueprintGeneratedClass","Material","MaterialInstanceConstant",
+                      "Texture2D","SoundWave"
+                  ) if c.lower() in text.lower()})
+                  if classes:
+                      inspected.append({"path":rel,"bytes":size,"classes":classes})
+                      print("XZOGOT_CODZ_PACKAGE_CLASS",group,size,classes,rel)
+              out[group]=inspected
+          Path("codz-parity-package-classes.json").write_text(json.dumps(out,indent=2)+"\n")
+          PY
+
+      - name: Upload lean resolver reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: xogot-codz-parity-resolved-candidates
+          path: |
+            codz-parity-resolved-candidates.json
+            codz-parity-package-classes.json
+          if-no-files-found: error
+          retention-days: 14
