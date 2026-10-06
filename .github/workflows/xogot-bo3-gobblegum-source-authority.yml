@@ -1,0 +1,69 @@
+name: BO3 GobbleGum Source Authority
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/godot-aaa-rebuild-v1]
+    paths:
+      - ".github/workflows/xogot-bo3-gobblegum-source-authority.yml"
+      - "tools/gameplay/extract_bo3_gobblegum_manifest.py"
+
+permissions:
+  contents: read
+
+jobs:
+  authority:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - name: Pin public BO3 decompiled source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none --no-checkout https://github.com/SyndiShanX/COD-GSC-Source.git "$RUNNER_TEMP/COD-GSC-Source"
+          cd "$RUNNER_TEMP/COD-GSC-Source"
+          git sparse-checkout init --cone
+          git sparse-checkout set BO3-GSC/zm
+          git checkout b8cce0ff15d27a1d12496f58708d814fef853de2
+          echo "BO3_SOURCE_ROOT=$RUNNER_TEMP/COD-GSC-Source" >> "$GITHUB_ENV"
+          echo "BO3_SOURCE_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "XZOGOT_BO3_GSC_PINNED $(git rev-parse HEAD)"
+      - name: Build complete GobbleGum manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/gameplay/extract_bo3_gobblegum_manifest.py             --source-root "$BO3_SOURCE_ROOT"             --source-commit "$BO3_SOURCE_COMMIT"             --output build/bo3-gobblegum-source.json
+      - name: Gate machine and all gum source coverage
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("build/bo3-gobblegum-source.json").read_text())
+          ids=set(d["registered_ids"])
+          required={
+            "zm_bgb_perkaholic","zm_bgb_shopping_free","zm_bgb_wall_power",
+            "zm_bgb_crate_power","zm_bgb_near_death_experience",
+            "zm_bgb_alchemical_antithesis","zm_bgb_power_vacuum",
+            "zm_bgb_soda_fountain","zm_bgb_reign_drops",
+            "zm_bgb_self_medication","zm_bgb_temporal_gift",
+            "zm_bgb_immolation_liquidation","zm_bgb_phoenix_up"
+          }
+          missing=sorted(required-ids)
+          print("XZOGOT_BO3_GUM_REGISTERED",d["registered_gum_count"])
+          print("XZOGOT_BO3_GUM_LIMIT_TYPES",d["limit_type_counts"])
+          print("XZOGOT_BO3_GUM_REQUIRED_MISSING",missing)
+          if d["registered_gum_count"] < 55 or missing:
+              raise SystemExit("GobbleGum authority coverage incomplete")
+          if not any(x["source_path"].endswith("_zm_bgb_machine.gsc") for x in d["core"]):
+              raise SystemExit("GobbleGum machine source missing")
+          print("XZOGOT_BO3_GOBBLEGUM_SOURCE_AUTHORITY_GREEN")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xogot-bo3-gobblegum-source-authority
+          path: build/bo3-gobblegum-source.json
+          if-no-files-found: error
+          retention-days: 14
