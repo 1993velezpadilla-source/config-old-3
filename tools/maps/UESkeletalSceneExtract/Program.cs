@@ -247,8 +247,8 @@ var ready =
     packagesLoaded == mapPackages.Length &&
     failures.Count == 0 &&
     unresolved.Count == 0 &&
-    skeletalComponents == 2 &&
-    ordered.Length == 2 &&
+    skeletalComponents == 3 &&
+    ordered.Length == 3 &&
     ordered
         .Select(row => JsonSerializer.Serialize(row))
         .Distinct(StringComparer.Ordinal)
@@ -331,9 +331,12 @@ static UObject? FindOwningActor(UObject source)
         if (!outer.TryLoad(out var loaded) || loaded is null)
             return null;
 
-        if (loaded.ExportType.EndsWith(
-                "Actor",
-                StringComparison.OrdinalIgnoreCase))
+        // Cooked Blueprint actor instances do not necessarily have an
+        // ExportType ending in "Actor" (for example NewBlueprint1_2_C).
+        // Scene components may be nested under other scene components, so walk
+        // outward until the first non-scene-component UObject. That object is
+        // the owning cooked actor instance and preserves Blueprint ownership.
+        if (loaded is not USceneComponent)
             return loaded;
 
         outer = loaded.Outer;
