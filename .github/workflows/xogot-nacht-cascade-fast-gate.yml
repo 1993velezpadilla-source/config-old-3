@@ -43,10 +43,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          SLICE_RUN=$(gh api \
-            -H "Accept: application/vnd.github+json" \
-            "/repos/${GITHUB_REPOSITORY}/actions/workflows/xogot-nacht-material-graph-slice.yml/runs?branch=feature%2Fgodot-aaa-rebuild-v1&status=success&per_page=20" \
-            --jq '.workflow_runs[0].id // empty' || true)
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_run" ]; then
+            SLICE_RUN="${{ github.event.workflow_run.id }}"
+          else
+            SLICE_RUN=$(gh api \
+              -H "Accept: application/vnd.github+json" \
+              "/repos/${GITHUB_REPOSITORY}/actions/workflows/xogot-nacht-material-graph-slice.yml/runs?branch=feature%2Fgodot-aaa-rebuild-v1&status=success&per_page=20" \
+              --jq '.workflow_runs[0].id // empty' || true)
+          fi
           test -n "$SLICE_RUN"
           echo "SLICE_RUN=$SLICE_RUN" >> "$GITHUB_ENV"
           echo "XZOGOT_NACHT_CASCADE_FAST_SLICE_SOURCE_GREEN run=$SLICE_RUN"
