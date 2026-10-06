@@ -385,6 +385,24 @@ func _source_audio_actor_position(actor_name: String) -> Vector3:
 	return Vector3.ZERO
 
 
+func _audio_event_number(
+	event: Dictionary,
+	parameter_index: int,
+	default_value: float
+) -> float:
+	var parameters := event.get("parameters", []) as Array
+	if parameter_index < 0 or parameter_index >= parameters.size():
+		return default_value
+	var raw: Variant = parameters[parameter_index]
+	if not (raw is Dictionary):
+		return default_value
+	var row := raw as Dictionary
+	var value: Variant = row.get("value", null)
+	if value is int or value is float:
+		return float(value)
+	return default_value
+
+
 func play_source_audio_event(
 	actor_name: String,
 	function_name: String,
@@ -403,7 +421,7 @@ func play_source_audio_event(
 		if component_player == null:
 			return false
 		if call == "play":
-			component_player.play()
+			component_player.play(_audio_event_number(event, 0, 0.0))
 		else:
 			component_player.stop()
 		return true
@@ -419,17 +437,20 @@ func play_source_audio_event(
 	if stream == null:
 		return false
 	var cue := resolved.get("cue", {}) as Dictionary
-	var volume_scale := maxf(0.0001, float(cue.get("volumeMultiplier", 1.0)))
-	var pitch_scale := maxf(0.01, float(cue.get("pitchMultiplier", 1.0)))
+	var cue_volume := maxf(0.0001, float(cue.get("volumeMultiplier", 1.0)))
+	var cue_pitch := maxf(0.01, float(cue.get("pitchMultiplier", 1.0)))
 
 	if call == "playsound2d":
+		var event_volume := maxf(0.0001, _audio_event_number(event, 2, 1.0))
+		var event_pitch := maxf(0.01, _audio_event_number(event, 3, 1.0))
+		var start_time := maxf(0.0, _audio_event_number(event, 4, 0.0))
 		var player_2d := AudioStreamPlayer.new()
 		player_2d.stream = stream
-		player_2d.volume_db = linear_to_db(volume_scale)
-		player_2d.pitch_scale = pitch_scale
+		player_2d.volume_db = linear_to_db(cue_volume * event_volume)
+		player_2d.pitch_scale = cue_pitch * event_pitch
 		player_2d.finished.connect(player_2d.queue_free)
 		add_child(player_2d)
-		player_2d.play()
+		player_2d.play(start_time)
 		return true
 
 	if call in [
@@ -438,10 +459,13 @@ func play_source_audio_event(
 		"spawnsoundattached",
 		"playsoundattached"
 	]:
+		var event_volume := maxf(0.0001, _audio_event_number(event, 4, 1.0))
+		var event_pitch := maxf(0.01, _audio_event_number(event, 5, 1.0))
+		var start_time := maxf(0.0, _audio_event_number(event, 6, 0.0))
 		var player_3d := AudioStreamPlayer3D.new()
 		player_3d.stream = stream
-		player_3d.volume_db = linear_to_db(volume_scale)
-		player_3d.pitch_scale = pitch_scale
+		player_3d.volume_db = linear_to_db(cue_volume * event_volume)
+		player_3d.pitch_scale = cue_pitch * event_pitch
 		if source_position is Vector3:
 			player_3d.position = source_position
 		else:
@@ -449,7 +473,7 @@ func play_source_audio_event(
 		if not _cue_has_loop(cue):
 			player_3d.finished.connect(player_3d.queue_free)
 		_runtime_root.add_child(player_3d)
-		player_3d.play()
+		player_3d.play(start_time)
 		return true
 
 	return false
