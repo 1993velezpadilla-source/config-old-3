@@ -1,0 +1,137 @@
+name: Xogot Chronicles Nacht Gameplay Census
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-chronicles-nacht-gameplay-census.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xogot-chronicles-nacht-gameplay-census
+  cancel-in-progress: true
+
+jobs:
+  census:
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download validated Nacht workshop payload
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $steam=Join-Path $env:RUNNER_TEMP 'steamcmd'
+          New-Item -ItemType Directory -Force -Path $steam | Out-Null
+          Invoke-WebRequest 'https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip' -OutFile (Join-Path $env:RUNNER_TEMP 'steamcmd.zip')
+          Expand-Archive (Join-Path $env:RUNNER_TEMP 'steamcmd.zip') -DestinationPath $steam -Force
+          & (Join-Path $steam 'steamcmd.exe') +login anonymous +workshop_download_item 555160 2755515831 validate +quit
+          $root=Get-ChildItem $steam,$env:RUNNER_TEMP -Directory -Recurse -ErrorAction SilentlyContinue |
+            Where-Object {$_.FullName -like '*steamapps\workshop\content\555160\2755515831'} |
+            Select-Object -First 1
+          if(-not $root){throw 'Nacht workshop payload not found'}
+          $pak=Join-Path $root.FullName 'WindowsNoEditor.pak'
+          if(-not (Test-Path $pak)){throw 'Nacht WindowsNoEditor.pak missing'}
+          "PAK=$pak" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "XZOGOT_CHRONICLES_NACHT_PAYLOAD_GREEN $((Get-Item $pak).Length)"
+
+      - name: Install repak and index full PAK
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          Invoke-WebRequest 'https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-pc-windows-msvc.zip' -OutFile "$env:RUNNER_TEMP\repak.zip"
+          $dir="$env:RUNNER_TEMP\repak"
+          Expand-Archive "$env:RUNNER_TEMP\repak.zip" -DestinationPath $dir -Force
+          $repak=Get-ChildItem $dir -Filter repak.exe -Recurse | Select-Object -First 1
+          if(-not $repak){throw 'repak.exe missing'}
+          & $repak.FullName list $env:PAK | Set-Content nacht-full-paths.txt -Encoding utf8
+          if((Get-Item nacht-full-paths.txt).Length -lt 1024){throw 'Nacht PAK index unexpectedly small'}
+          "REPAK=$($repak.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "XZOGOT_CHRONICLES_NACHT_INDEX_GREEN"
+
+      - name: Classify gameplay source candidates
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          @'
+          from pathlib import Path
+          import json,re
+
+          lines=sorted(set(
+              x.strip().replace("\\","/")
+              for x in Path("nacht-full-paths.txt").read_text(encoding="utf-8-sig",errors="ignore").splitlines()
+              if x.strip()
+          ))
+          rx={
+              "viewhands": re.compile(r"(view.?hands|view.?arms|first.?person.?arms|/hands/|/arms/|hand.?rig|vm_.*arm)",re.I),
+              "weapons": re.compile(r"(weapon|weap|pistol|rifle|smg|shotgun|lmg|mp40|thompson|garand|kar98|ray.?gun|gun[_/])",re.I),
+              "zombies": re.compile(r"(zombie|zmb|undead)",re.I),
+              "dogs": re.compile(r"(hell.?hound|hound|zombie.?dog|dog|wolf)",re.I),
+              "animations": re.compile(r"(/anim|animation|anim_|_anim|xanim)",re.I),
+              "gore_dismember": re.compile(r"(gore|dismember|limb|sever|crawler|crawl|head.?off|arm.?off|leg.?off)",re.I),
+              "audio": re.compile(r"(sound|audio|sfx|voice|vo_|_vo|dialog)",re.I),
+          }
+          categories={k:[] for k in rx}
+          for line in lines:
+              for key,pat in rx.items():
+                  if pat.search(line):
+                      categories[key].append(line)
+          for key in categories:
+              categories[key]=sorted(set(categories[key]))
+              Path(f"nacht-{key}.txt").write_text("\n".join(categories[key])+"\n",encoding="utf-8")
+
+          intersections={
+              "weapon_hand_animation":[x for x in lines if rx["weapons"].search(x) and (rx["viewhands"].search(x) or rx["animations"].search(x))],
+              "zombie_animation":[x for x in lines if rx["zombies"].search(x) and rx["animations"].search(x)],
+              "dog_animation":[x for x in lines if rx["dogs"].search(x) and rx["animations"].search(x)],
+              "zombie_gore":[x for x in lines if rx["zombies"].search(x) and rx["gore_dismember"].search(x)],
+          }
+          report={
+              "schema":1,
+              "source":"Pavlov Workshop 2755515831 validated BO3 Nacht-derived package",
+              "path_count":len(lines),
+              "category_counts":{k:len(v) for k,v in categories.items()},
+              "intersection_counts":{k:len(v) for k,v in intersections.items()},
+              "categories":categories,
+              "intersections":intersections,
+          }
+          Path("nacht-gameplay-census.json").write_text(json.dumps(report,indent=2)+"\n",encoding="utf-8")
+          print("XZOGOT_CHRONICLES_NACHT_GAMEPLAY_CENSUS",report["category_counts"],report["intersection_counts"])
+          '@ | python -
+
+      - name: Extract candidate gameplay packages when present
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          New-Item -ItemType Directory -Force -Path nacht-unpacked | Out-Null
+          & $env:REPAK unpack $env:PAK -o nacht-unpacked
+          if($LASTEXITCODE -ne 0){throw "repak unpack failed $LASTEXITCODE"}
+          $candidateCount=@(
+            Get-ChildItem nacht-unpacked -Recurse -File |
+            Where-Object {
+              $_.FullName -match '(?i)(view.?hands|view.?arms|weapon|zombie|zmb|hell.?hound|zombie.?dog|crawler|gore|dismember)'
+            }
+          ).Count
+          Write-Host "XZOGOT_CHRONICLES_NACHT_EXTRACTED_GAMEPLAY_CANDIDATES $candidateCount"
+
+      - name: Upload Nacht gameplay census
+        uses: actions/upload-artifact@v4
+        with:
+          name: xogot-chronicles-nacht-gameplay-census
+          path: |
+            nacht-gameplay-census.json
+            nacht-full-paths.txt
+            nacht-viewhands.txt
+            nacht-weapons.txt
+            nacht-zombies.txt
+            nacht-dogs.txt
+            nacht-animations.txt
+            nacht-gore_dismember.txt
+            nacht-audio.txt
+          if-no-files-found: error
+          retention-days: 14
