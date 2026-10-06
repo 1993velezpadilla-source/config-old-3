@@ -26,7 +26,6 @@ const SOURCE_SKELETAL_BINDINGS_FILE := "skeletal-runtime-bindings.json"
 const SOURCE_SKELETAL_LIBRARY_DIR := "source_library/skeletal_gltf"
 const SOURCE_GAMEPLAY_FILE := "res://data/nuketown_source_gameplay.json"
 const SOURCE_ACTOR_COVERAGE_FILE := "res://data/nuketown_actor_coverage.json"
-const MYSTERY_SOURCE_VISUAL := "res://assets/benchmarks/nuketown_xziel/mystery_source/mystery_box_source.gltf"
 
 var _source_loader: Node3D
 var _source_actor_root: Node3D
@@ -231,39 +230,6 @@ func _find_animation_player_recursive(node: Node) -> AnimationPlayer:
 		if found != null:
 			return found
 	return null
-
-func _attach_mystery_source_visual(runtime: Node3D) -> bool:
-	if not ResourceLoader.exists(MYSTERY_SOURCE_VISUAL):
-		push_error("NUKETOWN_FULL_MAP: Mystery source visual missing")
-		return false
-	var packed := load(MYSTERY_SOURCE_VISUAL) as PackedScene
-	if packed == null:
-		push_error("NUKETOWN_FULL_MAP: Mystery source visual failed to import")
-		return false
-	var visual := packed.instantiate() as Node3D
-	if visual == null:
-		push_error("NUKETOWN_FULL_MAP: Mystery source visual instantiate failed")
-		return false
-	visual.name = "MysterySourceVisual"
-	visual.add_to_group("nuketown_source_mystery_visual")
-	runtime.add_child(visual)
-	var animation_player := _find_animation_player_recursive(visual)
-	if animation_player == null:
-		push_error("NUKETOWN_FULL_MAP: Mystery source AnimationPlayer missing")
-		return false
-	var source_clips: Array[String] = []
-	for raw_name: StringName in animation_player.get_animation_list():
-		var clip := str(raw_name)
-		if clip != "RESET":
-			source_clips.append(clip)
-	source_clips.sort()
-	runtime.set_meta("source_mystery_visual_ready", true)
-	runtime.set_meta("source_mystery_animation_count", source_clips.size())
-	runtime.set_meta("source_mystery_animation_names", source_clips)
-	if runtime.has_method("refresh_source_animation_player"):
-		runtime.call("refresh_source_animation_player")
-	print("XZOGOT_MYSTERY_SOURCE_VISUAL_GREEN clips=", source_clips.size(), " names=", source_clips)
-	return source_clips.size() == 7
 
 func _source_actor_marker_by_object_path(source_object_path: String) -> Marker3D:
 	for node: Node in get_tree().get_nodes_in_group("nuketown_source_covered_actor"):
