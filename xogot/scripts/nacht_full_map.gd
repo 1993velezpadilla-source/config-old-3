@@ -77,6 +77,9 @@ var _collision_count := 0
 var _light_count := 0
 var _source_audio_player_count := 0
 var _source_audio_stream_count := 0
+var _source_environment_visual_node_count := 0
+var _source_environment_fog_runtime_ready := false
+var _source_environment_reflection_runtime_ready := false
 var _source_spawn_candidates: Array[Node3D] = []
 
 func _ready() -> void:
@@ -134,6 +137,10 @@ func _boot() -> void:
 
 	_build_actor_anchors()
 
+	if not _environment_runtime_authority.is_empty():
+		if not _build_source_environment_runtime():
+			return
+
 	if not _audio_runtime_report.is_empty():
 		if not _build_source_audio_runtime():
 			return
@@ -161,6 +168,9 @@ func _boot() -> void:
 	set_meta("source_environment_component_count", int(_environment_scene.get("environmentComponentCount", -1)))
 	set_meta("runtime_environment_authority_count", (_environment_scene.get("components", []) as Array).size())
 	set_meta("runtime_environment_component_count", int(_environment_runtime_authority.get("componentCount", 0)))
+	set_meta("runtime_environment_visual_node_count", _source_environment_visual_node_count)
+	set_meta("source_environment_fog_runtime_ready", _source_environment_fog_runtime_ready)
+	set_meta("source_environment_reflection_runtime_ready", _source_environment_reflection_runtime_ready)
 	set_meta("source_audio_component_count", int(_audio_scene.get("audioComponentCount", -1)))
 	set_meta("runtime_audio_authority_count", (_audio_scene.get("audioComponents", []) as Array).size())
 	set_meta("source_sound_cue_count", int(_audio_cues.get("cueCount", -1)))
@@ -184,7 +194,12 @@ func _boot() -> void:
 	# actually mounted, never merely because the JSON exists.
 	set_meta("particle_visual_runtime_ready", false)
 	set_meta("source_audio_runtime_ready", _source_audio_semantics_ready())
-	set_meta("source_environment_runtime_ready", false)
+	set_meta(
+		"source_environment_runtime_ready",
+		_source_environment_fog_runtime_ready
+		and _source_environment_reflection_runtime_ready
+		and _source_environment_visual_node_count == 2
+	)
 	set_meta("source_class_count", int((_handoff.get("fullMapAuthority", {}) as Dictionary).get("classCensus", {}).get("uniqueClasses", -1)))
 	set_meta("nacht_full_map_ready", true)
 	get_tree().set_meta("nacht_full_map_ready", true)
@@ -655,6 +670,7 @@ func play_source_audio_event(
 	if stream == null:
 		return false
 	var cue := resolved.get("cue", {}) as Dictionary
+	var resolved_looping := bool(resolved.get("looping", false))
 	var cue_volume := maxf(0.0001, float(cue.get("volumeMultiplier", 1.0)))
 	var cue_pitch := maxf(0.01, float(cue.get("pitchMultiplier", 1.0)))
 
@@ -688,7 +704,7 @@ func play_source_audio_event(
 			player_3d.position = source_position
 		else:
 			player_3d.position = _source_audio_actor_position(actor_name)
-		if not _cue_has_loop(cue):
+		if not resolved_looping:
 			player_3d.finished.connect(player_3d.queue_free)
 		_runtime_root.add_child(player_3d)
 		player_3d.play(start_time)
@@ -738,6 +754,157 @@ func _audio_component_position(raw_hierarchy: Variant) -> Vector3:
 	) * 0.01
 
 
+func _environment_component_position(raw_hierarchy: Variant) -> Vector3:
+	if not (raw_hierarchy is Array):
+		return Vector3.ZERO
+	var hierarchy := raw_hierarchy as Array
+	if hierarchy.size() != 1:
+		push_error(
+			"NACHT_FULL_MAP: environment hierarchy is not source-flat count="
+			+ str(hierarchy.size())
+		)
+		return Vector3.INF
+	var row := hierarchy[0] as Dictionary
+	var loc := row.get("locationUEcm", {}) as Dictionary
+	return Vector3(
+		float(loc.get("X", 0.0)),
+		float(loc.get("Y", 0.0)),
+		float(loc.get("Z", 0.0))
+	) * 0.01
+
+
+func _find_world_environment(node: Node) -> WorldEnvironment:
+	if node is WorldEnvironment:
+		return node as WorldEnvironment
+	for child: Node in node.get_children():
+		var found := _find_world_environment(child)
+		if found != null:
+			return found
+	return null
+
+
+func _build_source_environment_runtime() -> bool:
+	_source_environment_visual_node_count = 0
+	_source_environment_fog_runtime_ready = false
+	_source_environment_reflection_runtime_ready = false
+
+	if not bool(_environment_runtime_authority.get("ready", false)):
+		push_error("NACHT_FULL_MAP: environment runtime authority is not ready")
+		return false
+	if int(_environment_runtime_authority.get("componentCount", 0)) != 2:
+		push_error("NACHT_FULL_MAP: environment runtime authority expected 2 components")
+		return false
+
+	var fog := _environment_runtime_authority.get("fog", {}) as Dictionary
+	var reflection := (
+		_environment_runtime_authority.get("reflectionCapture", {}) as Dictionary
+	)
+	if fog.is_empty() or reflection.is_empty():
+		push_error("NACHT_FULL_MAP: source fog or reflection capture missing")
+		return false
+
+	var fog_position := _environment_component_position(fog.get("hierarchy", []))
+	var reflection_position := _environment_component_position(
+		reflection.get("hierarchy", [])
+	)
+	if not fog_position.is_finite() or not reflection_position.is_finite():
+		return false
+
+	var world := _find_world_environment(_benchmark_loader)
+	if world == null:
+		world = WorldEnvironment.new()
+		world.name = "NachtSourceWorldEnvironment"
+		world.environment = Environment.new()
+		_runtime_root.add_child(world)
+	if world.environment == null:
+		world.environment = Environment.new()
+
+	var environment := world.environment
+	var fog_typed := fog.get("typed", {}) as Dictionary
+	var fog_density := float(fog_typed.get("FogDensity", -1.0))
+	var fog_height_falloff := float(fog_typed.get("FogHeightFalloff", -1.0))
+	var fog_max_opacity := float(fog_typed.get("FogMaxOpacity", -1.0))
+	var fog_start_distance_cm := float(fog_typed.get("StartDistance", -1.0))
+	var volumetric_distance_cm := float(
+		fog_typed.get("VolumetricFogDistance", -1.0)
+	)
+	if (
+		fog_density < 0.0
+		or fog_height_falloff < 0.0
+		or fog_max_opacity < 0.0
+		or fog_start_distance_cm < 0.0
+		or volumetric_distance_cm < 0.0
+	):
+		push_error("NACHT_FULL_MAP: source fog typed authority incomplete")
+		return false
+
+	environment.fog_enabled = true
+	environment.fog_mode = Environment.FOG_MODE_EXPONENTIAL
+	environment.fog_density = fog_density
+	environment.fog_height = fog_position.z
+	environment.fog_height_density = fog_height_falloff
+	world.set_meta("source_environment_component_type", "exponential_height_fog")
+	world.set_meta("source_environment_path", str(fog.get("sourcePath", "")))
+	world.set_meta("source_fog_density", fog_density)
+	world.set_meta("source_fog_height_falloff", fog_height_falloff)
+	world.set_meta("source_fog_max_opacity", fog_max_opacity)
+	world.set_meta("source_fog_start_distance_m", fog_start_distance_cm * 0.01)
+	world.set_meta(
+		"source_volumetric_fog_distance_m",
+		volumetric_distance_cm * 0.01
+	)
+	world.set_meta("source_fog_location_ue_cm", fog_position * 100.0)
+	world.set_meta(
+		"source_fog_semantic_note",
+		"Godot exponential fog directly mounts density/height/falloff; UE "
+		+ "FogMaxOpacity, StartDistance and VolumetricFogDistance are preserved "
+		+ "as source authority because Godot 4 mobile/compatibility has no exact "
+		+ "UE4.21 ExponentialHeightFog equivalent for those controls."
+	)
+	world.add_to_group("nacht_source_environment_runtime")
+	_source_environment_visual_node_count += 1
+	_source_environment_fog_runtime_ready = true
+
+	var reflection_typed := reflection.get("typed", {}) as Dictionary
+	var radius_cm := float(reflection_typed.get("InfluenceRadius", -1.0))
+	if radius_cm <= 0.0:
+		push_error("NACHT_FULL_MAP: source reflection influence radius invalid")
+		return false
+	var radius_m := radius_cm * 0.01
+	var probe := ReflectionProbe.new()
+	probe.name = "NachtSourceSphereReflectionCapture"
+	probe.position = reflection_position
+	probe.size = Vector3.ONE * radius_m * 2.0
+	probe.set_meta("source_environment_component_type", "reflection_capture")
+	probe.set_meta("source_environment_path", str(reflection.get("sourcePath", "")))
+	probe.set_meta("source_shape", "sphere")
+	probe.set_meta("source_influence_radius_m", radius_m)
+	probe.set_meta("source_location_ue_cm", reflection_position * 100.0)
+	probe.set_meta(
+		"runtime_shape_note",
+		"Godot ReflectionProbe influence is box-shaped; source UE4.21 authority "
+		+ "is spherical. Position and diameter are mounted exactly and the shape "
+		+ "difference remains explicitly flagged rather than hidden."
+	)
+	probe.add_to_group("nacht_source_environment_runtime")
+	_runtime_root.add_child(probe)
+	_source_environment_visual_node_count += 1
+	_source_environment_reflection_runtime_ready = true
+
+	print(
+		"XZOGOT_NACHT_SOURCE_ENVIRONMENT_RUNTIME_GREEN ",
+		"fog_density=", fog_density,
+		" fog_height_m=", fog_position.z,
+		" fog_height_falloff=", fog_height_falloff,
+		" fog_max_opacity=", fog_max_opacity,
+		" start_distance_m=", fog_start_distance_cm * 0.01,
+		" volumetric_distance_m=", volumetric_distance_cm * 0.01,
+		" reflection_radius_m=", radius_m,
+		" nodes=", _source_environment_visual_node_count
+	)
+	return true
+
+
 func _cue_has_loop(cue: Dictionary) -> bool:
 	for raw: Variant in cue.get("nodes", []):
 		if not (raw is Dictionary):
@@ -760,12 +927,16 @@ func _cue_has_loop(cue: Dictionary) -> bool:
 
 
 func _set_audio_stream_loop(stream: AudioStream, enabled: bool) -> void:
-	if not enabled or stream == null:
+	if stream == null:
 		return
 	if stream is AudioStreamOggVorbis:
-		(stream as AudioStreamOggVorbis).loop = true
+		(stream as AudioStreamOggVorbis).loop = enabled
 	elif stream is AudioStreamWAV:
-		(stream as AudioStreamWAV).loop_mode = AudioStreamWAV.LOOP_FORWARD
+		(stream as AudioStreamWAV).loop_mode = (
+			AudioStreamWAV.LOOP_FORWARD
+			if enabled
+			else AudioStreamWAV.LOOP_DISABLED
+		)
 
 
 func _build_source_audio_runtime() -> bool:
