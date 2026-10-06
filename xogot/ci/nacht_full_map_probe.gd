@@ -450,6 +450,57 @@ func _run() -> void:
 	var particle_pap_wheel_out_peak := int(
 		scene.get_meta("source_particle_pap_wheel_out_peak_active", -1)
 	)
+	var particle_electric_beam_lifetime := float(
+		scene.get_meta("source_particle_electric_beam_lifetime_seconds", -1.0)
+	)
+	var particle_electric_beam_size := scene.get_meta(
+		"source_particle_electric_beam_start_size_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_electric_beam_spawn_rate := float(
+		scene.get_meta("source_particle_electric_beam_spawn_rate", -1.0)
+	)
+	var particle_electric_beam_noise_frequency := int(
+		scene.get_meta("source_particle_electric_beam_noise_frequency", -1)
+	)
+	var particle_electric_beam_noise_lock_time := float(
+		scene.get_meta("source_particle_electric_beam_noise_lock_time", -1.0)
+	)
+	var particle_electric_beam_noise_range := scene.get_meta(
+		"source_particle_electric_beam_noise_range_max_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_electric_beam_noise_speed := scene.get_meta(
+		"source_particle_electric_beam_noise_speed_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_electric_beam_noise_tangent := float(
+		scene.get_meta("source_particle_electric_beam_noise_tangent_strength", -1.0)
+	)
+	var particle_electric_beam_source_strength := float(
+		scene.get_meta("source_particle_electric_beam_source_strength", -1.0)
+	)
+	var particle_electric_beam_source_tangent := scene.get_meta(
+		"source_particle_electric_beam_source_tangent", Vector3.INF
+	) as Vector3
+	var particle_electric_beam_target := scene.get_meta(
+		"source_particle_electric_beam_target_ue_cm", Vector3.INF
+	) as Vector3
+	var particle_electric_beam_target_strength := float(
+		scene.get_meta("source_particle_electric_beam_target_strength", -1.0)
+	)
+	var particle_electric_beam_target_tangent := scene.get_meta(
+		"source_particle_electric_beam_target_tangent", Vector3.INF
+	) as Vector3
+	var particle_electric_beam_distance := float(
+		scene.get_meta("source_particle_electric_beam_distance", -1.0)
+	)
+	var particle_electric_beam_interpolation_points := int(
+		scene.get_meta("source_particle_electric_beam_interpolation_points", -1)
+	)
+	var particle_electric_beam_max_count := int(
+		scene.get_meta("source_particle_electric_beam_max_beam_count", -1)
+	)
+	var particle_electric_beam_peak := int(
+		scene.get_meta("source_particle_electric_beam_peak_active", -1)
+	)
 	var source_particles := int(scene.get_meta("source_particle_component_count", -1))
 	var particle_authority := int(scene.get_meta("runtime_particle_authority_count", -1))
 	var source_particle_systems := int(scene.get_meta("source_particle_system_count", -1))
@@ -562,14 +613,14 @@ func _run() -> void:
 		if not particle_semantic_ready:
 			_fail(34, "source-complete Cascade semantic runtime is not ready")
 			return
-		if particle_semantic_systems != 9 or particle_semantic_placements != 18:
+		if particle_semantic_systems != 10 or particle_semantic_placements != 19:
 			_fail(
 				34,
 				"Cascade semantic runtime coverage mismatch systems=%d placements=%d"
 				% [particle_semantic_systems, particle_semantic_placements]
 			)
 			return
-		if get_nodes_in_group("nacht_source_particle_semantic").size() != 18:
+		if get_nodes_in_group("nacht_source_particle_semantic").size() != 19:
 			_fail(34, "Cascade semantic placement group mismatch")
 			return
 		if (
@@ -891,6 +942,49 @@ func _run() -> void:
 					particle_pap_wheel_out_spawn_rate,
 					particle_pap_wheel_out_spawn_rate_scale,
 					particle_pap_wheel_out_peak,
+				]
+			)
+			return
+		if (
+			not is_equal_approx(particle_electric_beam_lifetime, 1.0)
+			or not particle_electric_beam_size.is_equal_approx(Vector3(25.0, 25.0, 25.0))
+			or not is_equal_approx(particle_electric_beam_spawn_rate, 20.0)
+			or particle_electric_beam_noise_frequency != 5
+			or not is_equal_approx(particle_electric_beam_noise_lock_time, 0.025)
+			or not particle_electric_beam_noise_range.is_equal_approx(Vector3(30.0, 30.0, 20.0))
+			or not particle_electric_beam_noise_speed.is_equal_approx(Vector3(50.0, 50.0, 50.0))
+			or not is_equal_approx(particle_electric_beam_noise_tangent, 250.0)
+			or not is_equal_approx(particle_electric_beam_source_strength, 25.0)
+			or not particle_electric_beam_source_tangent.is_equal_approx(Vector3(1.0, 0.0, 0.0))
+			or not particle_electric_beam_target.is_equal_approx(Vector3(0.0, 0.0, 280.0))
+			or not is_equal_approx(particle_electric_beam_target_strength, 25.0)
+			or not particle_electric_beam_target_tangent.is_equal_approx(Vector3(1.0, 0.0, 0.0))
+			or not is_equal_approx(particle_electric_beam_distance, 25.0)
+			or particle_electric_beam_interpolation_points != 20
+			or particle_electric_beam_max_count != 1
+			or particle_electric_beam_peak != 3
+		):
+			_fail(
+				34,
+				"electric beam Cascade values mismatch life=%s size=%s rate=%s noise_freq=%d noise_lock=%s noise_range=%s noise_speed=%s noise_tangent=%s source_strength=%s source_tangent=%s target=%s target_strength=%s target_tangent=%s distance=%s points=%d max=%d peak=%d"
+				% [
+					particle_electric_beam_lifetime,
+					particle_electric_beam_size,
+					particle_electric_beam_spawn_rate,
+					particle_electric_beam_noise_frequency,
+					particle_electric_beam_noise_lock_time,
+					particle_electric_beam_noise_range,
+					particle_electric_beam_noise_speed,
+					particle_electric_beam_noise_tangent,
+					particle_electric_beam_source_strength,
+					particle_electric_beam_source_tangent,
+					particle_electric_beam_target,
+					particle_electric_beam_target_strength,
+					particle_electric_beam_target_tangent,
+					particle_electric_beam_distance,
+					particle_electric_beam_interpolation_points,
+					particle_electric_beam_max_count,
+					particle_electric_beam_peak,
 				]
 			)
 			return
