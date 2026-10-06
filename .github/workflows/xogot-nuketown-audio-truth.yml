@@ -113,6 +113,58 @@ jobs:
             | tee build/nuketown-source-audio/extract.log
           grep -q "XZOGOT_NUKETOWN_AUDIO_EXTRACT_GREEN" build/nuketown-source-audio/extract.log
 
+      - name: Convert BINKA source audio to WAV
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/vgmstream"
+          curl -fL --retry 5 --retry-delay 2 \
+            "https://github.com/vgmstream/vgmstream/releases/download/r2117/vgmstream-linux.zip" \
+            -o "$RUNNER_TEMP/vgmstream-linux.zip"
+          unzip -q "$RUNNER_TEMP/vgmstream-linux.zip" -d "$RUNNER_TEMP/vgmstream"
+          VGM=$(find "$RUNNER_TEMP/vgmstream" -type f -name 'vgmstream-cli' -perm -111 | head -1)
+          test -n "$VGM"
+
+          for src in build/nuketown-source-audio/files/*.binka; do
+            out="${src%.binka}.wav"
+            "$VGM" -i -o "$out" "$src"
+            test -s "$out"
+          done
+
+          python3 - <<'PY'
+          import json, wave
+          from pathlib import Path
+
+          root=Path("build/nuketown-source-audio/files")
+          manifest=Path("build/nuketown-source-audio/audio-manifest.json")
+          d=json.loads(manifest.read_text())
+          wav_rows=[]
+          for row in d["sounds"]:
+              source=root/row["fileName"]
+              wav=source.with_suffix(".wav")
+              assert wav.exists() and wav.stat().st_size > 44, wav
+              with wave.open(str(wav), "rb") as w:
+                  frames=w.getnframes()
+                  rate=w.getframerate()
+                  channels=w.getnchannels()
+                  width=w.getsampwidth()
+              assert frames > 0 and rate > 0 and channels > 0
+              duration=frames/float(rate)
+              assert duration > 0.01
+              row["godotFileName"]=wav.name
+              row["wavBytes"]=wav.stat().st_size
+              row["sampleRate"]=rate
+              row["channels"]=channels
+              row["sampleWidthBytes"]=width
+              row["durationSeconds"]=round(duration, 6)
+              wav_rows.append((wav.name, duration, rate, channels))
+          d["godotPlayableCount"]=len(wav_rows)
+          d["godotPlayableReady"]=len(wav_rows)==d["decodedSoundCount"]
+          manifest.write_text(json.dumps(d, indent=2)+"\n")
+          assert d["godotPlayableReady"] is True, d
+          print("XZOGOT_NUKETOWN_AUDIO_WAV_GREEN", wav_rows)
+          PY
+
       - name: Record JoinSounds provenance
         shell: bash
         run: |
