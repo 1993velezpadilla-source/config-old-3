@@ -103,6 +103,7 @@ def main() -> int:
                 for node in graph.get("nodes", [])
                 if str(node.get("exportType", ""))
                 and str(node.get("exportType", "")) not in STRUCTURAL_TYPES
+                and not str(node.get("exportType", "")).startswith(VALUE_NODE_PREFIXES)
                 and str(node.get("exportType", "")) not in DIRECT_MAPPING_CANDIDATE_TYPES
             }
         )
@@ -143,6 +144,15 @@ def main() -> int:
         "placementCount": len(compiled),
         "sourceParticleSystemCount": graphs.get("particleSystemCount"),
         "supportedStructuralTypes": sorted(STRUCTURAL_TYPES),
+        "valueNodePrefixes": list(VALUE_NODE_PREFIXES),
+        "valueNodeTypes": sorted(
+            {
+                str(node.get("exportType", ""))
+                for graph in graphs.get("systems", [])
+                for node in graph.get("nodes", [])
+                if str(node.get("exportType", "")).startswith(VALUE_NODE_PREFIXES)
+            }
+        ),
         "directMappingCandidateTypes": sorted(DIRECT_MAPPING_CANDIDATE_TYPES),
         "unsupportedNodeTypes": sorted(unsupported_types),
         "runtimeReadyPlacementCount": runtime_ready_count,
