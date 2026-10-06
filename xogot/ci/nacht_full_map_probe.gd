@@ -39,6 +39,14 @@ func _run() -> void:
 	var complete_textures := int(scene.get_meta("source_complete_texture_catalog_count", -1))
 	var texture_failures := int(scene.get_meta("source_texture_load_failures", -1))
 	var textured_materials := int(scene.get_meta("source_material_textured_count", -1))
+	var source_particles := int(scene.get_meta("source_particle_component_count", -1))
+	var particle_authority := int(scene.get_meta("runtime_particle_authority_count", -1))
+	var source_environment := int(scene.get_meta("source_environment_component_count", -1))
+	var environment_authority := int(scene.get_meta("runtime_environment_authority_count", -1))
+	var source_audio_components := int(scene.get_meta("source_audio_component_count", -1))
+	var audio_authority := int(scene.get_meta("runtime_audio_authority_count", -1))
+	var source_cues := int(scene.get_meta("source_sound_cue_count", -1))
+	var cue_authority := int(scene.get_meta("runtime_sound_cue_authority_count", -1))
 
 	if packages != 3871:
 		_fail(4, "package authority mismatch " + str(packages))
@@ -73,6 +81,18 @@ func _run() -> void:
 	if textured_materials <= 0:
 		_fail(16, "no source materials resolved with textures")
 		return
+	if source_particles <= 0 or particle_authority != source_particles:
+		_fail(17, "particle authority coverage mismatch %d/%d" % [particle_authority, source_particles])
+		return
+	if source_environment < 0 or environment_authority != source_environment:
+		_fail(18, "environment authority coverage mismatch %d/%d" % [environment_authority, source_environment])
+		return
+	if source_audio_components <= 0 or audio_authority != source_audio_components:
+		_fail(19, "audio placement authority coverage mismatch %d/%d" % [audio_authority, source_audio_components])
+		return
+	if source_cues != 102 or cue_authority != source_cues:
+		_fail(20, "SoundCue authority coverage mismatch %d/%d expected=102" % [cue_authority, source_cues])
+		return
 
 	var player := scene.get_node_or_null("Player") as CharacterBody3D
 	var weapon := scene.get_node_or_null("Player/Weapon")
@@ -94,6 +114,13 @@ func _run() -> void:
 		" lights=", runtime_lights,
 		" textures=", complete_textures,
 		" textured_materials=", textured_materials,
+		" particles_authority=", particle_authority,
+		" environment_authority=", environment_authority,
+		" audio_authority=", audio_authority,
+		" cues_authority=", cue_authority,
+		" particles_rendered=", bool(scene.get_meta("particle_visual_runtime_ready", false)),
+		" source_audio_runtime=", bool(scene.get_meta("source_audio_runtime_ready", false)),
+		" source_environment_runtime=", bool(scene.get_meta("source_environment_runtime_ready", false)),
 		" player=", player.global_position
 	)
 	scene.queue_free()
