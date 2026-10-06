@@ -1,0 +1,187 @@
+name: Xogot Nacht Blueprint Audio Bytecode Truth
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-nacht-blueprint-audio-bytecode.yml"
+      - "tools/maps/UENuketownWallbuyBytecode/**"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xogot-nacht-blueprint-audio-bytecode-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  extract:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    env:
+      WORKSHOP_APP_ID: "555160"
+      WORKSHOP_ITEM_ID: "2755515831"
+      XZOGOT_ENGINE_VERSION: "VER_UE4_21"
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Download and unpack exact validated Nacht source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $steam=Join-Path $env:RUNNER_TEMP 'steamcmd'
+          New-Item -ItemType Directory -Force -Path $steam | Out-Null
+          Invoke-WebRequest 'https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip' -OutFile "$env:RUNNER_TEMP\steamcmd.zip"
+          Expand-Archive "$env:RUNNER_TEMP\steamcmd.zip" -DestinationPath $steam -Force
+
+          & (Join-Path $steam 'steamcmd.exe') +login anonymous +workshop_download_item $env:WORKSHOP_APP_ID $env:WORKSHOP_ITEM_ID validate +quit
+          $root=Get-ChildItem $steam,$env:RUNNER_TEMP -Directory -Recurse -ErrorAction SilentlyContinue |
+            Where-Object {$_.FullName -like "*steamapps\workshop\content\$env:WORKSHOP_APP_ID\$env:WORKSHOP_ITEM_ID"} |
+            Select-Object -First 1
+          if(-not $root){throw 'Nacht workshop payload not found'}
+
+          $pak=Join-Path $root.FullName 'WindowsNoEditor.pak'
+          if(-not (Test-Path $pak)){throw 'Nacht PAK missing'}
+          if((Get-Item $pak).Length -ne 2543506907){throw 'Nacht PAK byte authority mismatch'}
+
+          Invoke-WebRequest 'https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-pc-windows-msvc.zip' -OutFile "$env:RUNNER_TEMP\repak.zip"
+          $repakDir="$env:RUNNER_TEMP\repak"
+          Expand-Archive "$env:RUNNER_TEMP\repak.zip" -DestinationPath $repakDir -Force
+          $repak=Get-ChildItem $repakDir -Filter repak.exe -Recurse | Select-Object -First 1
+          if(-not $repak){throw 'repak missing'}
+
+          Remove-Item nacht-source -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path nacht-source | Out-Null
+          & $repak.FullName unpack $pak -o nacht-source --force
+          if($LASTEXITCODE -ne 0){throw "repak failed $LASTEXITCODE"}
+
+          $contentRoot=Join-Path $PWD 'nacht-source\Pavlov\Content'
+          if(-not (Test-Path $contentRoot)){throw 'Pavlov Content root missing'}
+          "NACHT_CONTENT_ROOT=$contentRoot" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+
+          $assets=@(
+            'CustomMaps\UGC2755515831\Blueprints\Objects\EasterEgg\Box5.uasset',
+            'CustomMaps\UGC2755515831\Blueprints\Perks\PerkMachine_QuickRevive.uasset',
+            'CustomMaps\UGC2755515831\Blueprints\KillerJimsPaP\PunchAPackMachine.uasset'
+          )
+          foreach($rel in $assets){
+            $full=Join-Path $contentRoot $rel
+            if(-not (Test-Path $full)){throw "required Blueprint missing: $rel"}
+            Write-Host "XZOGOT_NACHT_AUDIO_BLUEPRINT_FOUND $rel bytes=$((Get-Item $full).Length)"
+          }
+
+          Write-Host 'XZOGOT_NACHT_AUDIO_BLUEPRINT_SOURCE_GREEN'
+
+      - name: Pin Pavlov UE4 mappings
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          Invoke-WebRequest 'https://raw.githubusercontent.com/THW-Reaper/PavlovVRMappings/4976647b4f3a209042460bc55a7a3122662d05b7/PavMappings.usmap' -OutFile PavMappings.usmap
+          $hash=(Get-FileHash PavMappings.usmap -Algorithm SHA256).Hash.ToLowerInvariant()
+          if($hash -ne '6d19f9731cc3fbaba34ca8e0833e81e4ffdf1b407edf24de48b1ccb5c63b060c'){throw "mappings mismatch $hash"}
+
+      - name: Build proven UAssetAPI bytecode extractor
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $project='tools/maps/UENuketownWallbuyBytecode/UENuketownWallbuyBytecode.csproj'
+          dotnet restore $project
+          if($LASTEXITCODE -ne 0){throw 'restore failed'}
+          dotnet build $project -c Release --no-restore
+          if($LASTEXITCODE -ne 0){throw 'build failed'}
+          Write-Host 'XZOGOT_NACHT_AUDIO_BYTECODE_TOOL_GREEN'
+
+      - name: Decompile exact source Blueprints
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          New-Item -ItemType Directory -Force -Path build/nacht-audio-bytecode | Out-Null
+          $app='tools/maps/UENuketownWallbuyBytecode/bin/Release/net10.0/UENuketownWallbuyBytecode.dll'
+          $assets=@(
+            (Join-Path $env:NACHT_CONTENT_ROOT 'CustomMaps\UGC2755515831\Blueprints\Objects\EasterEgg\Box5.uasset'),
+            (Join-Path $env:NACHT_CONTENT_ROOT 'CustomMaps\UGC2755515831\Blueprints\Perks\PerkMachine_QuickRevive.uasset'),
+            (Join-Path $env:NACHT_CONTENT_ROOT 'CustomMaps\UGC2755515831\Blueprints\KillerJimsPaP\PunchAPackMachine.uasset')
+          )
+
+          dotnet $app PavMappings.usmap build/nacht-audio-bytecode/blueprint-audio-bytecode.json @assets |
+            Tee-Object build/nacht-audio-bytecode/extract.log
+          if($LASTEXITCODE -ne 0){throw "bytecode extractor failed $LASTEXITCODE"}
+
+          if(-not (Select-String -Path build/nacht-audio-bytecode/extract.log -Pattern 'XZOGOT_NUKETOWN_WALLBUY_BYTECODE_GREEN' -Quiet)){
+            throw 'bytecode green marker missing'
+          }
+
+      - name: Prove audio calls imports and defaults
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          @'
+          import json,re
+          from pathlib import Path
+
+          p=Path("build/nacht-audio-bytecode/blueprint-audio-bytecode.json")
+          d=json.loads(p.read_text())
+          assert d["ready"] is True,d
+          assert d["packageSuccessCount"]==3,d
+
+          rx=re.compile(r"(sound|audio|cue|wave|play|hum|perk|quick|pack|punch|box|mystery)",re.I)
+          proof=[]
+
+          for package in d["packages"]:
+              hits={"file":package["fileName"],"imports":[],"calls":[],"defaults":[],"expressions":[]}
+
+              for imp in package.get("imports",[]):
+                  blob=json.dumps(imp,sort_keys=True)
+                  if rx.search(blob):
+                      hits["imports"].append(imp)
+
+              for fn in package.get("functions",[]):
+                  for call in fn.get("calls",[]):
+                      if rx.search(str(call.get("call",""))):
+                          hits["calls"].append({"function":fn["name"],**call})
+                  for expr in fn.get("expressions",[]):
+                      blob=json.dumps(expr,sort_keys=True)
+                      if rx.search(blob):
+                          hits["expressions"].append({"function":fn["name"],**expr})
+
+              for row in package.get("normalExportProperties",[]):
+                  blob=json.dumps(row,sort_keys=True)
+                  if rx.search(blob):
+                      hits["defaults"].append(row)
+
+              proof.append(hits)
+              print("XZOGOT_NACHT_BLUEPRINT_AUDIO_PROOF",json.dumps({
+                  "file":hits["file"],
+                  "importHits":len(hits["imports"]),
+                  "callHits":len(hits["calls"]),
+                  "defaultHits":len(hits["defaults"]),
+                  "expressionHits":len(hits["expressions"]),
+                  "imports":hits["imports"][:80],
+                  "calls":hits["calls"][:80],
+              },separators=(",",":")))
+
+          Path("build/nacht-audio-bytecode/audio-proof.json").write_text(
+              json.dumps(proof,indent=2)+"\n"
+          )
+          assert len(proof)==3
+          print("XZOGOT_NACHT_BLUEPRINT_AUDIO_BYTECODE_GREEN")
+          '@ | python -
+
+      - name: Upload exact Blueprint audio truth
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Nacht-Blueprint-Audio-Bytecode-Truth
+          path: |
+            build/nacht-audio-bytecode/blueprint-audio-bytecode.json
+            build/nacht-audio-bytecode/audio-proof.json
+            build/nacht-audio-bytecode/extract.log
+          if-no-files-found: error
+          retention-days: 14
