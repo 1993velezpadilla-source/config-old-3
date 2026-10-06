@@ -111,6 +111,22 @@ List<object> BuildHierarchy(USceneComponent start)
 
 
 
+bool ComponentAuthorityNameMatches(string authorityName, string instanceName)
+{
+    if (authorityName.Equals(instanceName, StringComparison.OrdinalIgnoreCase))
+        return true;
+
+    const string suffix = "_GEN_VARIABLE";
+    if (authorityName.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+    {
+        var baseName = authorityName[..^suffix.Length];
+        if (baseName.Equals(instanceName, StringComparison.OrdinalIgnoreCase))
+            return true;
+    }
+
+    return false;
+}
+
 UBlueprintGeneratedClass? ResolveGeneratedClassByResolvedClassPath(
     DefaultFileProvider provider,
     string? classPath,
@@ -278,7 +294,7 @@ ResolveBlueprintParticleTemplate(
                 if (templateRef is not { IsNull: false } ||
                     !templateRef.TryLoad<UParticleSystemComponent>(out var template) ||
                     template is null ||
-                    !template.Name.Equals(component.Name, StringComparison.OrdinalIgnoreCase))
+                    !ComponentAuthorityNameMatches(template.Name, component.Name))
                     continue;
 
                 var index = ReadParticleTemplateIndex(template);
