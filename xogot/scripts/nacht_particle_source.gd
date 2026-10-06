@@ -45,7 +45,7 @@ static func _reflected_array(value: Dictionary) -> Array:
 	var result: Array = []
 	for item: Variant in raw_properties:
 		if item is Dictionary:
-			var decoded := _reflected_property_value(item as Dictionary)
+			var decoded: Variant = _reflected_property_value(item as Dictionary)
 			if decoded != null:
 				result.append(decoded)
 			else:
