@@ -227,8 +227,16 @@ jobs:
           complete_rows=[]
           complete_texture_files=set()
           complete_source_paths=set()
+          def canonical_texture_object_path(raw):
+              source_path=str(raw or "").replace("\\","/")
+              if source_path.startswith("Content/"):
+                  source_path="/Game/"+source_path[len("Content/"):]
+              elif source_path.startswith("Game/"):
+                  source_path="/"+source_path
+              return source_path
+
           for row in native_rows:
-              source_path=str(row["objectPath"])
+              source_path=canonical_texture_object_path(row["objectPath"])
               runtime_file=str(row["file"])
               assert source_path and runtime_file, row
               assert source_path not in complete_source_paths, source_path
