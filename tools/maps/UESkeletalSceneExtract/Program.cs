@@ -168,9 +168,12 @@ foreach (var logicalPackage in mapPackages)
                         componentObjectPath = component.GetPathName(),
                         disposition = "embedded_skeletal_component_preserved_for_actor_adapter"
                     });
-                    continue;
                 }
 
+                // FULL source authority includes standalone SkeletalMeshActor
+                // components and Blueprint-owned skeletal components alike.
+                // Keep the embedded classification as audit metadata, but
+                // resolve every cooked component to its exact source XZSK.
                 skeletalComponents++;
 
                 var meshReference =
@@ -267,13 +270,13 @@ var ready =
     failures.Count == 0 &&
     unresolved.Count == 0 &&
     allSkeletalComponents == 3 &&
-    skeletalComponents == 2 &&
+    skeletalComponents == 3 &&
     embeddedSkeletalComponents.Count == 1 &&
-    ordered.Length == 2 &&
+    ordered.Length == 3 &&
     ordered
         .Select(row => JsonSerializer.Serialize(row))
         .Distinct(StringComparer.Ordinal)
-        .Count() == 2;
+        .Count() == 3;
 
 var output = new {
     schemaVersion = 1,
