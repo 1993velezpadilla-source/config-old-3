@@ -259,9 +259,16 @@ UBlueprintGeneratedClass? ResolveBlueprintSuperClass(
         !superName.EndsWith("_C", StringComparison.Ordinal))
         return null;
 
-    return ResolveGeneratedClassByResolvedClassPath(
+    var resolved = ResolveGeneratedClassByResolvedClassPath(
         provider,
         superPath,
+        superName);
+
+    if (resolved is not null)
+        return resolved;
+
+    return ResolveGeneratedClassByExportType(
+        provider,
         superName);
 }
 
