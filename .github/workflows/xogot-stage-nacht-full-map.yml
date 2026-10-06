@@ -124,6 +124,12 @@ jobs:
           cp "$AUTH/nacht-audio-cues.json" "$root/"
           cp "$AUTH/nacht-materials.json" "$root/"
 
+          python3 tools/maps/compile_nacht_environment_runtime_authority.py \
+            --source "$root/nacht-environment-scene.json" \
+            --output "$root/nacht-environment-runtime-authority.json"
+          echo "XZOGOT_NACHT_STAGE_ENVIRONMENT_RUNTIME_AUTHORITY_GREEN"
+
+
           python3 tools/maps/compile_nacht_particle_runtime_authority.py \
             --scene "$root/nacht-particles.json" \
             --graphs "$root/nacht-particle-graphs.json" \
@@ -237,6 +243,7 @@ jobs:
           particle_graphs=json.loads((root/"nacht-particle-graphs.json").read_text())
           particle_runtime=json.loads((root/"particle-runtime-manifest.json").read_text())
           environment=json.loads((root/"nacht-environment-scene.json").read_text())
+          environment_runtime_authority=json.loads((root/"nacht-environment-runtime-authority.json").read_text())
           audio_scene=json.loads((root/"nacht-audio-scene.json").read_text())
           audio_cues=json.loads((root/"nacht-audio-cues.json").read_text())
           audio_runtime_authority=json.loads((root/"nacht-audio-runtime-authority.json").read_text())
@@ -263,6 +270,10 @@ jobs:
           assert particle_runtime["ready"] is True, particle_runtime
           assert particle_runtime["placementCount"] == 29, particle_runtime
           assert environment["ready"] is True, environment
+          assert environment_runtime_authority["ready"] is True, environment_runtime_authority
+          assert environment_runtime_authority["componentCount"] == 2, environment_runtime_authority
+          assert environment_runtime_authority["typeCounts"] == {"exponential_height_fog":1,"reflection_capture":1}, environment_runtime_authority
+          assert len(environment_runtime_authority["unsupportedComponents"]) == 0, environment_runtime_authority
           assert audio_scene["audioComponentCount"] == 3 and audio_scene["ready"] is True, audio_scene
           assert audio_scene["referencedSoundCount"] == 3, audio_scene
           assert audio_scene["nullSoundCount"] == 0, audio_scene
@@ -290,6 +301,7 @@ jobs:
               "sourceInstances":scene["summary"]["sceneInstanceCount"],
               "sourceMeshes":len(scene["meshes"]),
               "sourceLights":lights["lightCount"],
+              "sourceEnvironmentComponents":environment_runtime_authority["componentCount"],
               "sourceParticlePlacements":particle_runtime_authority["resolvedPlacementCount"],
               "sourcePlacedParticleSystems":particle_runtime_authority["uniquePlacedSystemCount"],
               "sourceMaterials":mats["summary"]["usedMaterialCount"],
