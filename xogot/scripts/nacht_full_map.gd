@@ -12,6 +12,10 @@ const XzielBenchmarkLoaderScript = preload("res://scripts/xziel_benchmark_loader
 @export_dir var source_root: String = "res://assets/benchmarks/nacht_chronicles"
 @export var build_world_collision: bool = true
 @export var place_player_from_source_anchor: bool = true
+# Stock Godot exponential fog is only a diagnostic fallback. Its density and
+# influence semantics are not UE4.21 ExponentialHeightFog 1:1, so shipping
+# Nacht keeps it disabled until the dedicated source shader is validated.
+@export var enable_approximate_environment_fallback: bool = false
 
 const EXPECTED_SOURCE_PACKAGES := 3871
 const HANDOFF_FILE := "nacht-full-map-handoff.json"
@@ -843,7 +847,7 @@ func _build_source_environment_runtime() -> bool:
 		push_error("NACHT_FULL_MAP: source fog typed authority incomplete")
 		return false
 
-	environment.fog_enabled = true
+	environment.fog_enabled = enable_approximate_environment_fallback
 	environment.fog_mode = Environment.FOG_MODE_EXPONENTIAL
 	environment.fog_density = fog_density
 	environment.fog_height = fog_position.z
@@ -851,6 +855,10 @@ func _build_source_environment_runtime() -> bool:
 	world.set_meta("source_environment_component_type", "exponential_height_fog")
 	world.set_meta("source_environment_path", str(fog.get("sourcePath", "")))
 	world.set_meta("source_fog_density", fog_density)
+	world.set_meta(
+		"approximate_fog_fallback_enabled",
+		enable_approximate_environment_fallback
+	)
 	world.set_meta("source_fog_height_falloff", fog_height_falloff)
 	world.set_meta("source_fog_max_opacity", fog_max_opacity)
 	world.set_meta("source_fog_start_distance_m", fog_start_distance_cm * 0.01)
