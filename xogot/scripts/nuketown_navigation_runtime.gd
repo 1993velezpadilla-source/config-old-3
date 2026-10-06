@@ -31,9 +31,9 @@ func begin_bake() -> void:
 		return
 
 	_navigation_mesh = NavigationMesh.new()
-	_navigation_mesh.agent_height = 1.78
+	_navigation_mesh.agent_height = 1.75
 	_navigation_mesh.agent_radius = 0.36
-	_navigation_mesh.agent_max_climb = 0.46
+	_navigation_mesh.agent_max_climb = 0.50
 	_navigation_mesh.agent_max_slope = 52.0
 	_navigation_mesh.cell_size = 0.40
 	_navigation_mesh.cell_height = 0.25
