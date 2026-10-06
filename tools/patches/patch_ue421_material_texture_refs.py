@@ -219,6 +219,80 @@ ResolveAuthoritativeTextureReferences(
             }
         }
 
+        // Cooked base UMaterial graphs can keep exact texture authority only
+        // on MaterialExpressionTextureSample exports. CMaterialParams2 may
+        // expose zero textures for these materials, so recover only explicit
+        // source properties named Texture. Do not assign diffuse/normal
+        // semantics here; downstream code may use them only when unambiguous.
+        if (material is UMaterial baseMaterial)
+        {
+            for (var expressionIndex = 0;
+                 expressionIndex < baseMaterial.Expressions.Length;
+                 ++expressionIndex)
+            {
+                var expressionRef =
+                    baseMaterial.Expressions[expressionIndex];
+
+                if (!expressionRef.TryLoad(
+                        out CUE4Parse.UE4.Assets.Exports.UObject
+                            expression) ||
+                    expression is null)
+                    continue;
+
+                foreach (var property in expression.Properties)
+                {
+                    if (!property.Name.Text.Equals(
+                            "Texture",
+                            StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    var value = property.Tag?.GenericValue;
+                    UTexture? loadedTexture = null;
+                    string? objectPath = null;
+                    string? exportType = null;
+                    string? reference = null;
+                    string? referenceType = null;
+
+                    if (value is FPackageIndex textureRef &&
+                        !textureRef.IsNull)
+                    {
+                        textureRef.TryLoad<UTexture>(
+                            out loadedTexture);
+                        objectPath =
+                            loadedTexture?.GetPathName()
+                            ?? textureRef.ResolvedObject?.GetPathName();
+                        exportType = loadedTexture?.ExportType;
+                        reference = textureRef.ToString();
+                        referenceType =
+                            textureRef.GetType().FullName;
+                    }
+                    else if (value is UTexture directTexture)
+                    {
+                        loadedTexture = directTexture;
+                        objectPath = directTexture.GetPathName();
+                        exportType = directTexture.ExportType;
+                        reference = objectPath;
+                        referenceType =
+                            directTexture.GetType().FullName;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(objectPath))
+                        continue;
+
+                    var name =
+                        $"ExpressionTexture_{expressionIndex}_" +
+                        property.Name.Text;
+                    result[name] = new TextureTruth(
+                        name,
+                        objectPath,
+                        exportType,
+                        loadedTexture is not null,
+                        reference,
+                        referenceType);
+                }
+            }
+        }
+
         return result;
     }
     finally
