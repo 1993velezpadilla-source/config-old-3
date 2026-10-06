@@ -990,6 +990,14 @@ func _rigged_fallback_animation(state: String) -> String:
 				return candidate
 	return ""
 
+func _waw_source_keys(role: String) -> Array[String]:
+	var result: Array[String] = []
+	var raw: Variant = WAW_SOURCE_STATE_KEYS.get(role, [])
+	if raw is Array:
+		for value: Variant in raw as Array:
+			result.append(str(value))
+	return result
+
 func _animation_speed_for_state(state: String) -> float:
 	if enemy_variant == "sheep_runner":
 		match state:
