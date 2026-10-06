@@ -12,6 +12,7 @@ extends Node3D
 @export var load_on_ready: bool = true
 @export var build_materials: bool = true
 @export var build_lights: bool = true
+@export var build_skeletal_actors: bool = true
 @export var cast_geometry_shadows: bool = true
 @export var max_instances: int = 0
 
@@ -134,7 +135,8 @@ func _load_benchmark_world() -> void:
 			surface_offset += node.mesh.get_surface_count()
 		created += 1
 
-	_build_source_skeletal_actors()
+	if build_skeletal_actors:
+		_build_source_skeletal_actors()
 
 	if build_lights:
 		_build_source_lights()
