@@ -1,0 +1,477 @@
+name: Xogot Nacht Chronicles Full Map Authority
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-nacht-chronicles-full-map-authority.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xogot-nacht-chronicles-full-map-authority
+  cancel-in-progress: true
+
+jobs:
+  full-authority:
+    runs-on: windows-latest
+    timeout-minutes: 330
+    env:
+      WORKSHOP_APP_ID: "555160"
+      WORKSHOP_ITEM_ID: "2755515831"
+      SOURCE_GAME: "ue4.21"
+      EXPECTED_PACKAGE_COUNT: "3871"
+      EXPECTED_MAP: "Pavlov/Content/CustomMaps/UGC2755515831/Nacht_de_Untoten.umap"
+
+    steps:
+      - name: Checkout gameplay branch
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Restore proven generic UE source conversion stack
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $old='055f0d0721eb212e3f4713e149d1e2ace5c53674'
+          git cat-file -e "$old^{commit}"
+          git checkout $old -- engine/xz tools/maps tests
+          Write-Host "XZOGOT_NACHT_CONVERTER_STACK_GREEN source=$old"
+
+      - name: Download exact validated Nacht package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $steam=Join-Path $env:RUNNER_TEMP 'steamcmd'
+          New-Item -ItemType Directory -Force -Path $steam | Out-Null
+          Invoke-WebRequest 'https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip' -OutFile "$env:RUNNER_TEMP\steamcmd.zip"
+          Expand-Archive "$env:RUNNER_TEMP\steamcmd.zip" -DestinationPath $steam -Force
+
+          & (Join-Path $steam 'steamcmd.exe') +login anonymous +workshop_download_item $env:WORKSHOP_APP_ID $env:WORKSHOP_ITEM_ID validate +quit
+
+          $root=Get-ChildItem $steam,$env:RUNNER_TEMP -Directory -Recurse -ErrorAction SilentlyContinue |
+            Where-Object {$_.FullName -like "*steamapps\workshop\content\$env:WORKSHOP_APP_ID\$env:WORKSHOP_ITEM_ID"} |
+            Select-Object -First 1
+          if(-not $root){throw 'Nacht workshop payload not found'}
+
+          $pak=Join-Path $root.FullName 'WindowsNoEditor.pak'
+          if(-not (Test-Path $pak)){throw 'Nacht WindowsNoEditor.pak missing'}
+
+          "NACHT_PAK=$pak" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          $size=(Get-Item $pak).Length
+          Write-Host "XZOGOT_NACHT_FULL_SOURCE_PAK_GREEN bytes=$size"
+          $global:LASTEXITCODE=0
+          exit 0
+
+      - name: Install repak and unpack literally complete PAK
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          Invoke-WebRequest 'https://github.com/trumank/repak/releases/download/v0.2.3/repak_cli-x86_64-pc-windows-msvc.zip' -OutFile "$env:RUNNER_TEMP\repak.zip"
+          $repakDir="$env:RUNNER_TEMP\repak"
+          Expand-Archive "$env:RUNNER_TEMP\repak.zip" -DestinationPath $repakDir -Force
+          $repak=Get-ChildItem $repakDir -Filter repak.exe -Recurse | Select-Object -First 1
+          if(-not $repak){throw 'repak.exe missing'}
+          "REPAK=$($repak.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+
+          Remove-Item nacht-source -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path nacht-source | Out-Null
+
+          & $repak.FullName list "$env:NACHT_PAK" | Set-Content nacht-full-paths.txt -Encoding utf8
+          & $repak.FullName unpack "$env:NACHT_PAK" -o nacht-source --force
+          if($LASTEXITCODE -ne 0){throw "repak unpack failed $LASTEXITCODE"}
+
+          @'
+          from pathlib import Path
+          import json,collections
+
+          paths=sorted(set(
+              x.strip().replace("\\","/")
+              for x in Path("nacht-full-paths.txt").read_text(encoding="utf-8-sig",errors="ignore").splitlines()
+              if x.strip()
+          ))
+          expected=int(__import__("os").environ["EXPECTED_PACKAGE_COUNT"])
+          expected_map=__import__("os").environ["EXPECTED_MAP"]
+          maps=[p for p in paths if p.lower().endswith(".umap")]
+          uassets=[p for p in paths if p.lower().endswith(".uasset")]
+
+          physical=sorted(
+              p.relative_to(Path("nacht-source")).as_posix()
+              for p in Path("nacht-source").rglob("*")
+              if p.is_file() and p.suffix.lower() in {".uasset",".umap"}
+          )
+
+          report={
+              "schemaVersion":1,
+              "authority":"literal complete validated Nacht workshop PAK",
+              "workshopItem":"2755515831",
+              "sourceGame":"UE4.21",
+              "packageCount":len(paths),
+              "uassetCount":len(uassets),
+              "umapCount":len(maps),
+              "maps":maps,
+              "physicalPackageCount":len(physical),
+              "ready":len(paths)==expected and maps==[expected_map] and len(physical)==expected,
+          }
+          Path("nacht-source-authority.json").write_text(json.dumps(report,indent=2)+"\n")
+          assert report["ready"], report
+          print("XZOGOT_NACHT_LITERAL_FULL_SOURCE_GREEN",report)
+          '@ | python -
+
+      - name: Pin Pavlov mappings
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          Invoke-WebRequest 'https://raw.githubusercontent.com/THW-Reaper/PavlovVRMappings/4976647b4f3a209042460bc55a7a3122662d05b7/PavMappings.usmap' -OutFile PavMappings.usmap
+          $hash=(Get-FileHash PavMappings.usmap -Algorithm SHA256).Hash.ToLowerInvariant()
+          if($hash -ne '6d19f9731cc3fbaba34ca8e0833e81e4ffdf1b407edf24de48b1ccb5c63b060c'){
+            throw "PavMappings hash mismatch $hash"
+          }
+          Write-Host "XZOGOT_NACHT_PAVLOV_MAPPINGS_GREEN $hash"
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build complete UE4.21 source tools
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $projects=@(
+            'tools/maps/UEAssetClassCensus/UEAssetClassCensus.csproj',
+            'tools/maps/UEStaticMeshXZMS/UEStaticMeshXZMS.csproj',
+            'tools/maps/UETextureXZTX/UETextureXZTX.csproj',
+            'tools/maps/UEAudioXZAW/UEAudioXZAW.csproj',
+            'tools/maps/UESkeletonXZRG/UESkeletonXZRG.csproj',
+            'tools/maps/UESkeletalMeshXZSK/UESkeletalMeshXZSK.csproj',
+            'tools/maps/UEAnimationXZAN/UEAnimationXZAN.csproj',
+            'tools/maps/UEMaterialAudit/UEMaterialAudit.csproj',
+            'tools/maps/UEStaticSceneExtract/UEStaticSceneExtract.csproj',
+            'tools/maps/UELightExtract/UELightExtract.csproj'
+          )
+          foreach($project in $projects){
+            if(-not (Test-Path $project)){throw "missing source tool $project"}
+            dotnet restore $project
+            if($LASTEXITCODE -ne 0){throw "restore failed $project"}
+            dotnet build $project -c Release --no-restore
+            if($LASTEXITCODE -ne 0){throw "build failed $project"}
+          }
+          Write-Host "XZOGOT_NACHT_SOURCE_TOOLS_GREEN count=$($projects.Count)"
+
+      - name: Census every cooked package and export class
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $app='tools/maps/UEAssetClassCensus/bin/Release/net10.0/UEAssetClassCensus.dll'
+          dotnet $app nacht-source nacht-class-census.json ue4.21 | Tee-Object nacht-class-census.log
+          if($LASTEXITCODE -ne 0){throw "class census exited $LASTEXITCODE"}
+
+          @'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("nacht-class-census.json").read_text())
+          expected=int(__import__("os").environ["EXPECTED_PACKAGE_COUNT"])
+          assert d["packageCount"]==expected,d["packageCount"]
+          assert d["packagesLoaded"]==expected,d["packagesLoaded"]
+          assert d["packageLoadFailureCount"]==0,d["packageLoadFailures"][:10]
+          assert d["packageExtensionCounts"].get(".umap",0)==1,d["packageExtensionCounts"]
+          assert d["totalExports"]>0,d["totalExports"]
+          print("XZOGOT_NACHT_CLASS_CENSUS_GREEN",{
+              "packages":d["packageCount"],
+              "exports":d["totalExports"],
+              "classes":d["uniqueExportClassCount"],
+          })
+          '@ | python -
+
+      - name: Convert every static mesh texture sound skeleton skeletal mesh and animation
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          New-Item -ItemType Directory -Force -Path nacht-native | Out-Null
+
+          $jobs=@(
+            @('UEStaticMeshXZMS','nacht-native/static-meshes'),
+            @('UETextureXZTX','nacht-native/textures'),
+            @('UEAudioXZAW','nacht-native/audio'),
+            @('UESkeletonXZRG','nacht-native/skeletons'),
+            @('UESkeletalMeshXZSK','nacht-native/skeletal-meshes'),
+            @('UEAnimationXZAN','nacht-native/animations')
+          )
+
+          foreach($job in $jobs){
+            $name=$job[0]
+            $out=$job[1]
+            New-Item -ItemType Directory -Force -Path $out | Out-Null
+            $dll="tools/maps/$name/bin/Release/net10.0/$name.dll"
+            dotnet $dll nacht-source PavMappings.usmap nacht-class-census.json $out 1000000 ue4.21 |
+              Tee-Object "nacht-$name.log"
+            if($LASTEXITCODE -ne 0){throw "$name failed $LASTEXITCODE"}
+          }
+
+          @'
+          from pathlib import Path
+          import json
+          roots={
+              "static_meshes":Path("nacht-native/static-meshes"),
+              "textures":Path("nacht-native/textures"),
+              "audio":Path("nacht-native/audio"),
+              "skeletons":Path("nacht-native/skeletons"),
+              "skeletal_meshes":Path("nacht-native/skeletal-meshes"),
+              "animations":Path("nacht-native/animations"),
+          }
+          report={"schemaVersion":1,"assets":{}}
+          for name,root in roots.items():
+              files=[p for p in root.rglob("*") if p.is_file() and p.name!="report.json"]
+              report["assets"][name]={"count":len(files),"bytes":sum(p.stat().st_size for p in files)}
+              rp=root/"report.json"
+              if rp.is_file():
+                  report["assets"][name]["converterReport"]=json.loads(rp.read_text())
+          report["ready"]=report["assets"]["static_meshes"]["count"]>0 and report["assets"]["textures"]["count"]>0
+          Path("nacht-native-library.json").write_text(json.dumps(report,indent=2)+"\n")
+          assert report["ready"],report
+          print("XZOGOT_NACHT_NATIVE_LIBRARY_GREEN",report["assets"])
+          '@ | python -
+
+      - name: Extract exact material semantics
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $app='tools/maps/UEMaterialAudit/bin/Release/net10.0/UEMaterialAudit.dll'
+          dotnet $app nacht-source PavMappings.usmap nacht-class-census.json nacht-materials.json ue4.21 |
+            Tee-Object nacht-materials.log
+          if($LASTEXITCODE -ne 0){throw "material audit failed $LASTEXITCODE"}
+          if(-not (Test-Path nacht-materials.json)){throw 'material report missing'}
+          Write-Host "XZOGOT_NACHT_MATERIAL_AUTHORITY_GREEN"
+
+      - name: Extract exact UMAP scene transforms and all actor anchors
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $app='tools/maps/UEStaticSceneExtract/bin/Release/net10.0/UEStaticSceneExtract.dll'
+          $xzms='nacht-native/static-meshes/report.json'
+          if(-not (Test-Path $xzms)){throw 'static mesh report missing'}
+          dotnet $app nacht-source PavMappings.usmap nacht-class-census.json $xzms nacht-static-scene.json ue4.21 |
+            Tee-Object nacht-static-scene.log
+          if($LASTEXITCODE -ne 0){throw "static scene extraction failed $LASTEXITCODE"}
+
+          @'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("nacht-static-scene.json").read_text())
+          assert d.get("packagesLoaded",0)==1,d
+          assert d.get("actorAnchorCount",0)>0,d
+          assert d.get("instanceCount",0)>0 or d.get("sceneCandidateCount",0)>0,d
+          print("XZOGOT_NACHT_EXACT_SCENE_GREEN",{
+              "actors":d.get("actorAnchorCount"),
+              "instances":d.get("instanceCount",d.get("sceneCandidateCount")),
+              "staticComponents":d.get("staticComponentCount"),
+          })
+          '@ | python -
+
+      - name: Extract exact complete UMAP lighting
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $app='tools/maps/UELightExtract/bin/Release/net10.0/UELightExtract.dll'
+          dotnet $app nacht-source PavMappings.usmap nacht-class-census.json nacht-lights.json ue4.21 |
+            Tee-Object nacht-lights.log
+          if($LASTEXITCODE -ne 0){throw "light extraction failed $LASTEXITCODE"}
+
+          @'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("nacht-lights.json").read_text())
+          assert d["mapPackageCount"]==1,d
+          assert d["packagesLoaded"]==1,d
+          assert d["lightCount"]>0,d
+          required=("intensity","lightColor","visible","castShadows")
+          for row in d["lights"]:
+              props=row["properties"]
+              assert props.get("intensity") is not None,row
+              assert props.get("visible") is not None,row
+              assert props.get("castShadows") is not None,row
+              if row["componentType"]!="sky":
+                  assert props.get("lightColor") is not None,row
+          print("XZOGOT_NACHT_EXACT_LIGHTING_GREEN",{
+              "lights":d["lightCount"],
+              "types":d["typeCounts"],
+          })
+          '@ | python -
+
+      - name: Build full gameplay interactive FX and environment manifest
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          @'
+          from pathlib import Path
+          import json,re,collections
+
+          paths=sorted(set(
+              x.strip().replace("\\","/")
+              for x in Path("nacht-full-paths.txt").read_text(encoding="utf-8-sig",errors="ignore").splitlines()
+              if x.strip()
+          ))
+          rules={
+              "world_map":r"\.umap$",
+              "static_world":r"(CoD_nacht|/Environment/|/Props?/|/xmodels?/)",
+              "materials":r"(/materials?/|_Mat\.uasset$|mtl_)",
+              "textures":r"(/textures?/|texture)",
+              "audio":r"(sound|sfx|voice|dialog|music)",
+              "particles_fx":r"(particle|/fx|effects|smoke|fire|dust|lightning)",
+              "lights":r"(light|lamp|flicker)",
+              "blueprints":r"(/Blueprints/|Blueprint)",
+              "zombies":r"(zombie|zmb|undead)",
+              "dogs":r"(dog|hound|wolf)",
+              "weapons":r"(weapon|weap|gun|pistol|rifle|smg|shotgun|lmg)",
+              "perks":r"(perk|jugger|quickrevive|doubletap|speedcola|stamin|deadshot|mule)",
+              "gumball":r"(gumball|gobble|gum_machine)",
+              "mystery_box":r"(mysterybox|mystery_box|weaponbox|mysteryBox)",
+              "pack_a_punch":r"(pack.?a.?punch|killerjimspap|pap)",
+              "power":r"(powerswitch|power_box|powered_object|poweron|power_on)",
+              "wallbuy":r"(wallbuy|wall_buy|chalk)",
+              "barricades":r"(barricade|boardrepair|boardbreak)",
+              "spawns_navigation":r"(spawn|nav|doorlink|traverse)",
+          }
+          groups={}
+          for key,rx in rules.items():
+              hits=[p for p in paths if re.search(rx,p,re.I)]
+              groups[key]={"count":len(hits),"paths":hits}
+
+          classes=json.loads(Path("nacht-class-census.json").read_text())
+          scene=json.loads(Path("nacht-static-scene.json").read_text())
+          lights=json.loads(Path("nacht-lights.json").read_text())
+          native=json.loads(Path("nacht-native-library.json").read_text())
+
+          report={
+              "schemaVersion":1,
+              "source":{
+                  "workshopItem":"2755515831",
+                  "sourceGame":"UE4.21",
+                  "packageCount":len(paths),
+                  "map":"Pavlov/Content/CustomMaps/UGC2755515831/Nacht_de_Untoten.umap",
+              },
+              "groups":groups,
+              "classCensus":{
+                  "exports":classes["totalExports"],
+                  "uniqueClasses":classes["uniqueExportClassCount"],
+                  "packageFailures":classes["packageLoadFailureCount"],
+              },
+              "scene":{
+                  "actorAnchors":scene.get("actorAnchorCount",0),
+                  "instances":scene.get("instanceCount",scene.get("sceneCandidateCount",0)),
+              },
+              "lighting":{
+                  "count":lights["lightCount"],
+                  "types":lights["typeCounts"],
+              },
+              "nativeLibrary":native["assets"],
+              "ready":True,
+          }
+          Path("nacht-full-map-authority.json").write_text(json.dumps(report,indent=2)+"\n")
+          print("XZOGOT_NACHT_FULL_MAP_AUTHORITY_GREEN",{
+              "packages":len(paths),
+              "actors":report["scene"]["actorAnchors"],
+              "lights":report["lighting"]["count"],
+              "groups":{k:v["count"] for k,v in groups.items()},
+          })
+          '@ | python -
+
+      - name: Build current CUE4Parse portable exporter
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $src="$env:RUNNER_TEMP\CUE4Parse.CLI"
+          $out="$env:RUNNER_TEMP\cue4parse"
+          git clone --depth 1 --recurse-submodules --shallow-submodules https://github.com/joric/CUE4Parse.CLI.git $src
+          git -C $src submodule update --init --recursive --depth 1
+          dotnet publish "$src\CUE4Parse.CLI\CUE4Parse.CLI.csproj" -c Release -r win-x64 --self-contained true -p:PublishTrimmed=false -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o $out
+          $exe=Get-ChildItem $out -Filter '*.exe' | Sort-Object Length -Descending | Select-Object -First 1
+          if(-not $exe){throw 'CUE4Parse CLI missing'}
+          "CUE4PARSE=$($exe.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "XZOGOT_NACHT_CUE4PARSE_GREEN"
+
+      - name: Export complete portable GLTF texture material audio payload
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          $ErrorActionPreference='Continue'
+          Remove-Item nacht-portable -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path nacht-portable | Out-Null
+
+          & "$env:CUE4PARSE" -i "$PWD\nacht-source" -g GAME_UE4_21 -m "$PWD\PavMappings.usmap" -o nacht-portable -y -v --mesh-format Gltf2 --mesh-quality Highest --export-materials true 2>&1 |
+            Tee-Object nacht-portable-export.log
+
+          $files=@(Get-ChildItem nacht-portable -Recurse -File -ErrorAction SilentlyContinue)
+          $meshes=@($files | Where-Object {$_.Extension -in '.glb','.gltf'})
+          $images=@($files | Where-Object {$_.Extension -in '.png','.jpg','.jpeg','.tga'})
+          $audio=@($files | Where-Object {$_.Extension -in '.wav','.ogg'})
+          Write-Host "XZOGOT_NACHT_PORTABLE_EXPORT_RESULT files=$($files.Count) meshes=$($meshes.Count) images=$($images.Count) audio=$($audio.Count)"
+          $global:LASTEXITCODE=0
+          exit 0
+
+      - name: Write immutable full-map handoff manifest
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          @'
+          from pathlib import Path
+          import json
+          authority=json.loads(Path("nacht-full-map-authority.json").read_text())
+          portable=Path("nacht-portable")
+          files=[p for p in portable.rglob("*") if p.is_file()] if portable.exists() else []
+          handoff={
+              "schemaVersion":1,
+              "id":"nacht_chronicles_full_map_authority_v1",
+              "sourceAuthority":"validated complete workshop PAK 2755515831",
+              "sourcePackageCount":3871,
+              "sourceMap":"Nacht_de_Untoten.umap",
+              "nativeAuthority":"nacht-native/** + nacht-static-scene.json + nacht-lights.json + nacht-materials.json",
+              "portableExportFileCount":len(files),
+              "portableMeshCount":sum(p.suffix.lower() in {".glb",".gltf"} for p in files),
+              "portableImageCount":sum(p.suffix.lower() in {".png",".jpg",".jpeg",".tga"} for p in files),
+              "portableAudioCount":sum(p.suffix.lower() in {".wav",".ogg"} for p in files),
+              "gameplayAuthority":{
+                  "weapons":"source-first/Aether plus Nacht package census",
+                  "gobblegum":"BO3 GSC authority (63 registered gums) plus Nacht machine assets",
+                  "interactives":"Nacht cooked Blueprints and source package paths",
+              },
+              "fullMapAuthority":authority,
+              "nextGate":"Godot full-map runtime must account for every UMAP actor anchor and every extracted source light; no church/Nuketown substitutions",
+              "ready":True,
+          }
+          Path("nacht-full-map-handoff.json").write_text(json.dumps(handoff,indent=2)+"\n")
+          print("XZOGOT_NACHT_FULL_MAP_HANDOFF_GREEN",{
+              "packages":handoff["sourcePackageCount"],
+              "portableFiles":handoff["portableExportFileCount"],
+              "lights":authority["lighting"]["count"],
+          })
+          '@ | python -
+
+      - name: Upload full Nacht authority
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Nacht-Chronicles-Full-Map-Authority
+          path: |
+            nacht-source-authority.json
+            nacht-full-paths.txt
+            nacht-class-census.json
+            nacht-class-census.log
+            nacht-native-library.json
+            nacht-native/**
+            nacht-materials.json
+            nacht-materials.log
+            nacht-static-scene.json
+            nacht-static-scene.log
+            nacht-lights.json
+            nacht-lights.log
+            nacht-full-map-authority.json
+            nacht-full-map-handoff.json
+            nacht-portable-export.log
+            nacht-portable/**
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 6
