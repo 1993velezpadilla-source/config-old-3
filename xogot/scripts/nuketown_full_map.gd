@@ -314,6 +314,14 @@ func _build_source_actor_anchors(scene: Dictionary) -> void:
 					"USE MYSTERY BOX",
 					Vector3(1.15, 1.25, 0.85)
 				)
+				var mystery_price := int(mystery.get("price", -1))
+				mystery_runtime.set("price", mystery_price)
+				mystery_runtime.set_meta("source_price", mystery_price)
+				mystery_runtime.set_meta("source_price_authority", str(mystery.get("priceAuthority", "")))
+				mystery_runtime.set_meta("source_selection_authority", str(mystery.get("selectionAuthority", "")))
+				marker.set_meta("source_price", mystery_price)
+				marker.set_meta("source_price_known", mystery_price >= 0)
+				marker.set_meta("source_price_authority", str(mystery.get("priceAuthority", "")))
 				var typed_pool: Array[String] = []
 				for item_raw: Variant in pool:
 					typed_pool.append(str(item_raw))

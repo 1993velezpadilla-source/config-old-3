@@ -103,8 +103,11 @@ func _run() -> void:
 		if int(node.get_meta("source_price", -1)) != 0:
 			_fail(19, "source wallbuy price mismatch " + str(node.get_meta("source_price", -1)))
 			return
-		if bool(node.get_meta("source_interaction_ready", true)):
-			_fail(20, "source-only wallbuy was silently aliased into current catalog")
+		if bool(node.get_meta("source_item_catalog_ready", true)):
+			_fail(20, "source-only wallbuy was silently added to the native catalog")
+			return
+		if not bool(node.get_meta("source_interaction_ready", false)):
+			_fail(36, "source wallbuy external bridge is not runtime-ready")
 			return
 	wallbuy_ids.sort()
 	var expected_wallbuy_ids: Array[String] = ["crminigun", "crraygun", "stingray"]
@@ -128,6 +131,12 @@ func _run() -> void:
 	if not bool(mystery_node.get_meta("source_interaction_ready", false)):
 		_fail(25, "source mystery runtime bridge not ready")
 		return
+	if not bool(mystery_node.get_meta("source_price_known", false)):
+		_fail(37, "mystery price truth missing")
+		return
+	if int(mystery_node.get_meta("source_price", -1)) != 950:
+		_fail(38, "mystery source price mismatch")
+		return
 	if get_nodes_in_group("nuketown_world_collision").size() < 124:
 		_fail(17, "collision group mismatch")
 		return
@@ -145,6 +154,33 @@ func _run() -> void:
 		return
 	if not bool(weapon.call("is_source_external_placeholder")):
 		_fail(35, "external source item placeholder was not explicit")
+		return
+
+	var mystery_runtime: Node = get_nodes_in_group("nuketown_source_mystery_runtime")[0]
+	var points_before_mystery := int(player.call("get_points"))
+	if points_before_mystery != 500:
+		_fail(39, "unexpected starting points before mystery test " + str(points_before_mystery))
+		return
+	if bool(mystery_runtime.call("interact", player)):
+		_fail(40, "mystery incorrectly accepted insufficient points")
+		return
+	player.call("add_points", 450)
+	if int(player.call("get_points")) != 950:
+		_fail(41, "mystery affordability setup failed")
+		return
+	if not bool(mystery_runtime.call("interact", player)):
+		_fail(42, "source mystery runtime interaction failed")
+		return
+	if int(player.call("get_points")) != 0:
+		_fail(43, "mystery did not subtract exact source price")
+		return
+	var mystery_source_id := str(weapon.call("get_source_external_item_id"))
+	var source_pool: Array = mystery_node.get_meta("source_item_pool", [])
+	if not source_pool.has(mystery_source_id):
+		_fail(44, "mystery result not in exact source pool " + mystery_source_id)
+		return
+	if not bool(weapon.call("is_source_external_placeholder")):
+		_fail(45, "mystery external item placeholder was not explicit")
 		return
 
 	print(

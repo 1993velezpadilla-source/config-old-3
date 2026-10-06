@@ -136,7 +136,17 @@
       "cashback",
       "dragon-shield",
       "rocket-shield"
-    ]
+    ],
+    "price": 950,
+    "priceAuthority": "Kismet Less_IntInt(Cash,950) + Subtract_IntInt(Cash,950) -> SetPlayerCash",
+    "selectionAuthority": "Kismet Array_Random(NewVar) -> PavlovPawn.GiveItem",
+    "authorityRequired": true,
+    "sourceBytecodeEvidence": {
+      "workflow": "Xogot Nuketown Wallbuy Bytecode Truth",
+      "parsedFunctions": 12,
+      "parsedExpressions": 551,
+      "package": "NewBlueprint1_2.uasset"
+    }
   },
   "compatibility": {
     "sourceOnlyItemIds": [
