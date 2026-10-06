@@ -17,7 +17,7 @@ UE_DEFAULT_SURFACE_MATERIAL = "xziel://ue/default-surface"
 def canonical_ue_path(value):
     if value is None:
         return None
-    text = str(value).strip().replace("\\\\", "/")
+    text = str(value).strip().replace("\\", "/")
     if "'" in text and text.endswith("'"):
         first = text.find("'")
         if first >= 0:
