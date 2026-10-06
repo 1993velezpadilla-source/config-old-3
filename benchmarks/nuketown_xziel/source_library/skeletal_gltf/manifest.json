@@ -1,9 +1,14 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "sourceSkeletonCount": 3,
   "sourceSkeletalMeshCount": 3,
   "sourceAnimationCount": 9,
   "outputCount": 3,
+  "coveredAnimationCount": 9,
+  "skeletonHashCount": 3,
+  "meshSkeletonHashCount": 3,
+  "animationSkeletonHashCount": 3,
+  "unmountedAnimationSkeletonHashes": [],
   "meshes": [
     {
       "output": "skeletal_00_untitled.gltf",
