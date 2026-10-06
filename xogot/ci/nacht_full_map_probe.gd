@@ -41,6 +41,8 @@ func _run() -> void:
 	var textured_materials := int(scene.get_meta("source_material_textured_count", -1))
 	var source_particles := int(scene.get_meta("source_particle_component_count", -1))
 	var particle_authority := int(scene.get_meta("runtime_particle_authority_count", -1))
+	var source_particle_systems := int(scene.get_meta("source_particle_system_count", -1))
+	var particle_graph_authority := int(scene.get_meta("runtime_particle_graph_authority_count", -1))
 	var source_environment := int(scene.get_meta("source_environment_component_count", -1))
 	var environment_authority := int(scene.get_meta("runtime_environment_authority_count", -1))
 	var source_audio_components := int(scene.get_meta("source_audio_component_count", -1))
@@ -84,8 +86,11 @@ func _run() -> void:
 	if source_particles <= 0 or particle_authority != source_particles:
 		_fail(17, "particle authority coverage mismatch %d/%d" % [particle_authority, source_particles])
 		return
+	if source_particle_systems != 39 or particle_graph_authority != source_particle_systems:
+		_fail(18, "particle graph authority coverage mismatch %d/%d expected=39" % [particle_graph_authority, source_particle_systems])
+		return
 	if source_environment < 0 or environment_authority != source_environment:
-		_fail(18, "environment authority coverage mismatch %d/%d" % [environment_authority, source_environment])
+		_fail(21, "environment authority coverage mismatch %d/%d" % [environment_authority, source_environment])
 		return
 	if source_audio_components <= 0 or audio_authority != source_audio_components:
 		_fail(19, "audio placement authority coverage mismatch %d/%d" % [audio_authority, source_audio_components])
@@ -115,6 +120,7 @@ func _run() -> void:
 		" textures=", complete_textures,
 		" textured_materials=", textured_materials,
 		" particles_authority=", particle_authority,
+		" particle_graphs_authority=", particle_graph_authority,
 		" environment_authority=", environment_authority,
 		" audio_authority=", audio_authority,
 		" cues_authority=", cue_authority,
