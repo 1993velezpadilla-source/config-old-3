@@ -105,8 +105,9 @@ func _boot() -> void:
 
 	_build_actor_anchors()
 
-	if not _build_source_audio_runtime():
-		return
+	if not _audio_runtime_report.is_empty():
+		if not _build_source_audio_runtime():
+			return
 
 	if place_player_from_source_anchor:
 		_place_player()
@@ -226,12 +227,13 @@ func _validate_authority() -> bool:
 	if int(_audio_cues.get("cueCount", 0)) != 102:
 		push_error("NACHT_FULL_MAP: source SoundCue graph count mismatch")
 		return false
-	if _audio_runtime_report.is_empty() or not bool(_audio_runtime_report.get("ready", false)):
-		push_error("NACHT_FULL_MAP: staged source OGG report missing")
-		return false
-	if int(_audio_runtime_report.get("audioCount", 0)) != 295:
-		push_error("NACHT_FULL_MAP: staged source OGG count mismatch")
-		return false
+	if not _audio_runtime_report.is_empty():
+		if not bool(_audio_runtime_report.get("ready", false)):
+			push_error("NACHT_FULL_MAP: staged source OGG report is not ready")
+			return false
+		if int(_audio_runtime_report.get("audioCount", 0)) != 295:
+			push_error("NACHT_FULL_MAP: staged source OGG count mismatch")
+			return false
 	return true
 
 func _canonical_ue_object_path(raw_path: String) -> String:
