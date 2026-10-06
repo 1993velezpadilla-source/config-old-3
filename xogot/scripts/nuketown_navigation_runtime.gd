@@ -36,7 +36,7 @@ func begin_bake() -> void:
 	_navigation_mesh.agent_max_climb = 0.46
 	_navigation_mesh.agent_max_slope = 52.0
 	_navigation_mesh.cell_size = 0.40
-	_navigation_mesh.cell_height = 0.20
+	_navigation_mesh.cell_height = 0.25
 	_navigation_mesh.region_min_size = 2.0
 	_navigation_mesh.region_merge_size = 20.0
 	_navigation_mesh.sample_partition_type = NavigationMesh.SAMPLE_PARTITION_MONOTONE
