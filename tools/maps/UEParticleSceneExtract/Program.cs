@@ -312,9 +312,9 @@ ResolveBlueprintParticleTemplate(
             {
                 foreach (var node in scs.GetAllNodesRecursive())
                 {
-                    if (!node.InternalVariableName.Text.Equals(
-                            component.Name,
-                            StringComparison.OrdinalIgnoreCase))
+                    if (!ComponentAuthorityNameMatches(
+                            node.InternalVariableName.Text,
+                            component.Name))
                         continue;
 
                     var template = node.GetComponentTemplate() as UParticleSystemComponent;
@@ -337,9 +337,9 @@ ResolveBlueprintParticleTemplate(
             {
                 foreach (var record in handler.GetRecords())
                 {
-                    if (!record.ComponentKey.SCSVariableName.Text.Equals(
-                            component.Name,
-                            StringComparison.OrdinalIgnoreCase))
+                    if (!ComponentAuthorityNameMatches(
+                            record.ComponentKey.SCSVariableName.Text,
+                            component.Name))
                         continue;
 
                     if (record.ComponentTemplate is not { IsNull: false } templateRef ||
