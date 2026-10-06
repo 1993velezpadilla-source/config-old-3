@@ -18,6 +18,7 @@ extends Node3D
 const VISUAL_SCENE_FILE := "visual-scene.json"
 const MATERIAL_BINDINGS_FILE := "material-binding-manifest.json"
 const TEXTURE_REPORT_FILE := "xzml-report.json"
+const COMPLETE_TEXTURE_REPORT_FILE := "complete-xztx-report.json"
 const LIGHT_REPORT_FILE := "xzen-report.json"
 const SOURCE_GAMEPLAY_TRUTH_FILE := "res://data/nuketown_source_gameplay.json"
 const VFS_MAP_ROOT := "vfs/xziel/maps/xziel_nuketown_zombies"
@@ -201,21 +202,29 @@ func _prepare_material_authority() -> void:
 
 	var bindings := _read_json(_source_path(MATERIAL_BINDINGS_FILE))
 	var texture_report := _read_json(_source_path(TEXTURE_REPORT_FILE))
+	var complete_texture_report := _read_json(_source_path(COMPLETE_TEXTURE_REPORT_FILE))
 
 	for raw: Variant in bindings.get("materials", []):
 		if raw is Dictionary:
 			var record := raw as Dictionary
 			_material_records[str(record.get("materialPath", ""))] = record
 
-	for raw: Variant in texture_report.get("textureAssets", []):
-		if raw is Dictionary:
-			var texture_row := raw as Dictionary
-			var source_path := str(texture_row.get("sourcePath", ""))
-			_texture_runtime_files[source_path] = str(
-				texture_row.get("runtimeFile", "")
-			)
-			if bool(texture_row.get("srgb", false)) and not source_path.is_empty():
-				_source_srgb_texture_paths.append(source_path)
+	var texture_reports: Array[Dictionary] = [texture_report]
+	if not complete_texture_report.is_empty():
+		texture_reports.append(complete_texture_report)
+	for report: Dictionary in texture_reports:
+		for raw: Variant in report.get("textureAssets", []):
+			if raw is Dictionary:
+				var texture_row := raw as Dictionary
+				var source_path := str(texture_row.get("sourcePath", ""))
+				if source_path.is_empty():
+					continue
+				_texture_runtime_files[source_path] = str(
+					texture_row.get("runtimeFile", "")
+				)
+				if bool(texture_row.get("srgb", false)) and not _source_srgb_texture_paths.has(source_path):
+					_source_srgb_texture_paths.append(source_path)
+	set_meta("xziel_benchmark_complete_texture_catalog_count", _texture_runtime_files.size())
 
 	_build_source_material_aliases()
 
