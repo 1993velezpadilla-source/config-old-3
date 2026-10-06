@@ -174,6 +174,12 @@ provider.Initialize();
 provider.PostMount();
 provider.LoadVirtualPaths();
 
+// Nacht's cooked Blueprint instances intentionally omit AudioComponent.Sound
+// when the authoritative value lives on the component archetype/template.
+// Match the proven static-mesh resolver: resolve inherited defaults before
+// loading the UMAP instead of treating omitted instance properties as null.
+PropertyUtil.SearchPropertyInTemplate = true;
+
 var rows = new List<object>();
 var packageFailures = new List<object>();
 var componentFailures = new List<object>();
