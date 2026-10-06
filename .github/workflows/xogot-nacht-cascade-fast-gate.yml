@@ -1,6 +1,11 @@
 name: Xogot Nacht Cascade Fast Gate
 
 on:
+  workflow_run:
+    workflows:
+      - "Nacht Material Graph Slice"
+    types:
+      - completed
   push:
     branches:
       - feature/godot-aaa-rebuild-v1
@@ -21,6 +26,7 @@ concurrency:
 
 jobs:
   cascade-fast-gate:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -30,7 +36,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: ${{ github.sha }}
+          ref: feature/godot-aaa-rebuild-v1
           fetch-depth: 1
 
       - name: Resolve latest GREEN particle slice
