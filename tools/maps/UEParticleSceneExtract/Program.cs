@@ -232,6 +232,65 @@ UBlueprintGeneratedClass? ResolveGeneratedClassByExportType(
     return null;
 }
 
+(FPackageIndex? index, string? provenance)
+ResolveCookedParticleComponentExport(
+    DefaultFileProvider provider,
+    UBlueprintGeneratedClass generated,
+    string instanceName)
+{
+    string path;
+    try
+    {
+        path = generated.GetPathName().Replace('\\', '/');
+    }
+    catch
+    {
+        return (null, null);
+    }
+
+    var objectDot = path.LastIndexOf('.');
+    var assetPath = objectDot > 0 ? path[..objectDot] : path;
+
+    string logicalAssetPath;
+    if (assetPath.StartsWith("/Game/", StringComparison.OrdinalIgnoreCase))
+        logicalAssetPath = "Content/" + assetPath[6..] + ".uasset";
+    else if (assetPath.StartsWith("Game/", StringComparison.OrdinalIgnoreCase))
+        logicalAssetPath = "Content/" + assetPath[5..] + ".uasset";
+    else if (assetPath.StartsWith("Content/", StringComparison.OrdinalIgnoreCase))
+        logicalAssetPath = assetPath + ".uasset";
+    else
+        logicalAssetPath = assetPath.TrimStart('/') + ".uasset";
+
+    var providerPath = ResolveProviderPackagePath(provider, logicalAssetPath);
+    if (providerPath is null)
+        return (null, null);
+
+    try
+    {
+        var package = provider.LoadPackage(providerPath);
+        foreach (var candidate in package.GetExports()
+                     .OfType<UParticleSystemComponent>()
+                     .OrderBy(x => x.GetPathName(), StringComparer.Ordinal))
+        {
+            if (!ComponentAuthorityNameMatches(candidate.Name, instanceName))
+                continue;
+
+            var index = ReadParticleTemplateIndex(candidate);
+            if (index is { IsNull: false })
+                return (
+                    index,
+                    "cooked_package_component_export:" +
+                    candidate.GetPathName());
+        }
+    }
+    catch
+    {
+        // Cooked package may be partial. Continue to SCS/handler authorities.
+    }
+
+    return (null, null);
+}
+
 FPackageIndex? ReadParticleTemplateIndex(UParticleSystemComponent candidate)
 {
     try
@@ -287,6 +346,13 @@ ResolveBlueprintParticleTemplate(
          current is not null && seen.Add(current.GetPathName());
          current = ResolveBlueprintSuperClass(provider, current))
     {
+        var cookedExport = ResolveCookedParticleComponentExport(
+            provider,
+            current,
+            component.Name);
+        if (cookedExport.index is { IsNull: false })
+            return cookedExport;
+
         foreach (var templateRef in current.ComponentTemplates)
         {
             try
