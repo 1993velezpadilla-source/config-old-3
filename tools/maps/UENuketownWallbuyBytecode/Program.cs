@@ -57,16 +57,18 @@ foreach (var assetPath in assetPaths)
             var constants = new JArray();
             var calls = new JArray();
 
+            var topLevelRows = new JArray();
             if (function.ScriptBytecode is { Length: > 0 })
             {
                 parsedFunctions++;
+                uint absoluteOffset = 0;
 
                 foreach (var root in function.ScriptBytecode)
                 {
-                    uint offset = 0;
+                    var rootStartOffset = absoluteOffset;
                     root.Visit(
                         asset,
-                        ref offset,
+                        ref absoluteOffset,
                         (expression, inMemoryOffset) =>
                         {
                             parsedExpressions++;
@@ -126,6 +128,12 @@ foreach (var assetPath in assetPaths)
 
                             flattened.Add(row);
                         });
+                    topLevelRows.Add(new JObject
+                    {
+                        ["startOffset"] = rootStartOffset,
+                        ["endOffset"] = absoluteOffset,
+                        ["expression"] = SafeObjectTree(root, asset, 0)
+                    });
                 }
             }
 
@@ -156,7 +164,8 @@ foreach (var assetPath in assetPaths)
                 ["integerConstants"] = constants,
                 ["calls"] = calls,
                 ["expressions"] = flattened,
-                ["rawExpressionJson"] = rawJson
+                ["rawExpressionJson"] = rawJson,
+                ["topLevelExpressions"] = topLevelRows
             });
         }
 
