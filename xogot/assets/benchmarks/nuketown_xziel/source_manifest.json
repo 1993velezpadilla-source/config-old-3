@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "id": "xogot_nuketown_xziel_source_world_benchmark",
+  "purpose": "complete world-import benchmark; not final church art",
+  "source_run": 36613010234,
+  "source_artifact": "XZIEL-Nuketown-Zombies-Virgin-Package-Census",
+  "source_map": "Pavlov/Plugins/UGC5097941/Content/nuketownz.umap",
+  "coordinate_system": "XZIEL X,-Y,Z meters; Godot conversion happens once at XZIELSceneRoot",
+  "mesh_count": 52,
+  "instance_count": 124,
+  "material_count": 661,
+  "texture_count": 221,
+  "light_count": 5,
+  "unresolved_meshes": 0,
+  "unresolved_materials": 0,
+  "unresolved_textures": 0,
+  "runtime_loader": "res://scripts/xziel_benchmark_loader.gd"
+}

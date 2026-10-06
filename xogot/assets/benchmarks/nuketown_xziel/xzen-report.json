@@ -1,0 +1,152 @@
+{
+  "format": "XZEN",
+  "version": 2,
+  "bytes": 468,
+  "lightCount": 5,
+  "pointCount": 3,
+  "spotCount": 0,
+  "directionalCount": 1,
+  "skyCount": 1,
+  "lights": [
+    {
+      "id": "light_0000",
+      "packagePath": "Pavlov/Plugins/UGC5097941/Content/nuketownz.umap",
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/nuketownz.nuketownz:PersistentLevel.DirectionalLight_0.LightComponent0",
+      "componentType": "directional",
+      "flags": 49679,
+      "behaviorFlags": 2,
+      "worldPositionMeters": [
+        0.0,
+        0.0,
+        35.5
+      ],
+      "worldRotationUE": {
+        "Pitch": -9.954513549804688,
+        "Yaw": -173.22598266601562,
+        "Roll": -76.69207763671878
+      },
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "intensity": 4.0,
+      "radiusMeters": null,
+      "units": null,
+      "inverseSquared": null,
+      "atmosphereSun": null
+    },
+    {
+      "id": "light_0001",
+      "packagePath": "Pavlov/Plugins/UGC5097941/Content/nuketownz.umap",
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/nuketownz.nuketownz:PersistentLevel.PointLight_2.LightComponent0",
+      "componentType": "point",
+      "flags": 65343,
+      "behaviorFlags": 1,
+      "worldPositionMeters": [
+        -5.761845092773438,
+        21.4428955078125,
+        3.5165701293945313
+      ],
+      "worldRotationUE": {
+        "Pitch": 0.0,
+        "Yaw": 0.0,
+        "Roll": -0.0
+      },
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "intensity": 20.0,
+      "radiusMeters": 10.0,
+      "units": "Candelas",
+      "inverseSquared": true,
+      "atmosphereSun": null
+    },
+    {
+      "id": "light_0002",
+      "packagePath": "Pavlov/Plugins/UGC5097941/Content/nuketownz.umap",
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/nuketownz.nuketownz:PersistentLevel.PointLight_3.LightComponent0",
+      "componentType": "point",
+      "flags": 65343,
+      "behaviorFlags": 1,
+      "worldPositionMeters": [
+        -2.2237469482421877,
+        14.800753173828125,
+        3.0532955932617187
+      ],
+      "worldRotationUE": {
+        "Pitch": 0.0,
+        "Yaw": 0.0,
+        "Roll": -0.0
+      },
+      "color": [
+        1.0,
+        0.7019607843137254,
+        0.0
+      ],
+      "intensity": 20.0,
+      "radiusMeters": 10.0,
+      "units": "Candelas",
+      "inverseSquared": true,
+      "atmosphereSun": null
+    },
+    {
+      "id": "light_0003",
+      "packagePath": "Pavlov/Plugins/UGC5097941/Content/nuketownz.umap",
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/nuketownz.nuketownz:PersistentLevel.PointLight_5.LightComponent0",
+      "componentType": "point",
+      "flags": 65343,
+      "behaviorFlags": 1,
+      "worldPositionMeters": [
+        -11.12194091796875,
+        13.631829833984375,
+        3.18593994140625
+      ],
+      "worldRotationUE": {
+        "Pitch": 0.0,
+        "Yaw": 0.0,
+        "Roll": -0.0
+      },
+      "color": [
+        0.0,
+        0.7411764705882353,
+        1.0
+      ],
+      "intensity": 16.0,
+      "radiusMeters": 10.0,
+      "units": "Candelas",
+      "inverseSquared": true,
+      "atmosphereSun": null
+    },
+    {
+      "id": "light_0004",
+      "packagePath": "Pavlov/Plugins/UGC5097941/Content/nuketownz.umap",
+      "sourcePath": "nuketown-pak-unpacked/Pavlov/Plugins/UGC5097941/Content/nuketownz.nuketownz:PersistentLevel.SkyLight_0.SkyLightComponent0",
+      "componentType": "sky",
+      "flags": 32783,
+      "behaviorFlags": 0,
+      "worldPositionMeters": [
+        0.0,
+        0.0,
+        37.5
+      ],
+      "worldRotationUE": {
+        "Pitch": 0.0,
+        "Yaw": 0.0,
+        "Roll": -0.0
+      },
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "intensity": 3.1415927410125732,
+      "radiusMeters": null,
+      "units": null,
+      "inverseSquared": null,
+      "atmosphereSun": null
+    }
+  ]
+}
