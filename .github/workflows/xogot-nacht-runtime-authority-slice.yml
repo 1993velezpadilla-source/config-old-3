@@ -1,0 +1,76 @@
+name: Nacht Runtime Authority Slice
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-nacht-runtime-authority-slice.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  slice:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Download Stage 18 runtime artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p full slice
+          gh run download 37516399357 \
+            -R "${{ github.repository }}" \
+            -n Xogot-Nacht-Chronicles-Godot-Runtime \
+            -D full
+
+          for name in \
+            nacht-particles.json \
+            nacht-particle-graphs.json \
+            nacht-particle-runtime-authority.json \
+            particle-runtime-manifest.json \
+            nacht-environment-scene.json \
+            nacht-environment-runtime-authority.json \
+            source_manifest.json \
+            probe.log; do
+            src="$(find full -type f -name "$name" -print -quit)"
+            if [[ -z "$src" ]]; then
+              echo "missing $name" >&2
+              exit 1
+            fi
+            cp "$src" "slice/$name"
+          done
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          p=Path("slice/nacht-particle-runtime-authority.json")
+          d=json.loads(p.read_text())
+          assert d["ready"] is True
+          assert d["placementCount"] == 29
+          assert d["resolvedPlacementCount"] == 29
+          e=json.loads(Path("slice/nacht-environment-runtime-authority.json").read_text())
+          assert e["ready"] is True
+          assert e["componentCount"] == 2
+          print("XZOGOT_NACHT_RUNTIME_AUTHORITY_SLICE_GREEN",
+                {"placements": d["placementCount"],
+                 "particleSystems": d["uniquePlacedSystemCount"],
+                 "environmentComponents": e["componentCount"]})
+          PY
+
+      - name: Upload authority slice
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xogot-Nacht-Runtime-Authority-Slice
+          path: slice/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 9
