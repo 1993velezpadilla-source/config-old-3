@@ -83,7 +83,11 @@ func _prepare_structural_visual_proof(scene: Node3D) -> void:
 		" approximate_fog_disabled=", disabled_fog_nodes
 	)
 
-func _save_view(path: String, label: String) -> bool:
+func _save_view(
+	path: String,
+	label: String,
+	require_visual_detail: bool = true
+) -> bool:
 	for _i in range(12):
 		await process_frame
 	var image := root.get_texture().get_image()
@@ -93,7 +97,7 @@ func _save_view(path: String, label: String) -> bool:
 	if image.get_width() <= image.get_height():
 		_fail(31, label + " frame not landscape")
 		return false
-	if not _validate_visual_detail(image, label):
+	if require_visual_detail and not _validate_visual_detail(image, label):
 		return false
 	if image.save_png(path) != OK:
 		_fail(32, label + " save failed")
@@ -103,6 +107,22 @@ func _save_view(path: String, label: String) -> bool:
 		path, " ", image.get_width(), "x", image.get_height()
 	)
 	return true
+
+func _capture_player_basis_from_source_anchor(anchor: Node3D) -> Basis:
+	# Match nacht_full_map.gd source-spawn conversion: UE +X is gameplay
+	# forward, while the Godot character must remain native +Y-up.
+	var source_forward := anchor.global_basis.x
+	source_forward.y = 0.0
+	if source_forward.length_squared() < 0.000001:
+		source_forward = Vector3.FORWARD
+	else:
+		source_forward = source_forward.normalized()
+	var godot_z := -source_forward
+	var godot_x := Vector3.UP.cross(godot_z).normalized()
+	if godot_x.length_squared() < 0.000001:
+		godot_x = Vector3.RIGHT
+	return Basis(godot_x, Vector3.UP, godot_z).orthonormalized()
+
 
 func _capture() -> void:
 	var packed := load("res://nacht_full_map.tscn") as PackedScene
@@ -197,6 +217,75 @@ func _capture() -> void:
 	if anchors.size() != EXPECTED_ACTORS:
 		_fail(13, "source actor group mismatch " + str(anchors.size()))
 		return
+
+	# Source does not identify one of the ten Pavlov_Spawn actors as the solo
+	# gameplay start. Capture all ten from the exact capsule-center transform so
+	# visual clearance can be judged from evidence instead of picking by name.
+	var spawn_candidates: Array[Node3D] = []
+	for raw: Node in anchors:
+		if not (raw is Node3D):
+			continue
+		var anchor := raw as Node3D
+		var source_object_path := str(
+			anchor.get_meta("source_object_path", "")
+		)
+		if source_object_path.contains("Pavlov_Spawn"):
+			spawn_candidates.append(anchor)
+	if spawn_candidates.size() != 10:
+		_fail(
+			35,
+			"source Pavlov spawn candidate coverage mismatch %d/10"
+			% spawn_candidates.size()
+		)
+		return
+
+	var collision := player.get_node_or_null("CollisionShape3D") as CollisionShape3D
+	if collision == null:
+		_fail(36, "player collision capsule missing for spawn sweep")
+		return
+	var saved_player_transform := player.global_transform
+	var saved_player_velocity := player.velocity
+	player.set_physics_process(false)
+	player.velocity = Vector3.ZERO
+	var head := scene.get_node_or_null("Player/Head") as Node3D
+	if head != null:
+		head.rotation.x = 0.0
+
+	for spawn_index in range(spawn_candidates.size()):
+		var anchor := spawn_candidates[spawn_index]
+		var candidate_basis := _capture_player_basis_from_source_anchor(anchor)
+		player.global_basis = candidate_basis
+		player.global_position = (
+			anchor.global_position
+			- candidate_basis * collision.position
+		)
+		spawn_camera.current = true
+		var source_object_path := str(
+			anchor.get_meta("source_object_path", "")
+		)
+		var candidate_path := (
+			"/tmp/xogot-nacht-spawn-candidate-%02d.png"
+			% spawn_index
+		)
+		print(
+			"XZOGOT_NACHT_SPAWN_CANDIDATE_CAPTURE ",
+			"index=", spawn_index,
+			" source=", source_object_path,
+			" anchor=", anchor.global_position,
+			" player=", player.global_position
+		)
+		# Candidate frames intentionally do not fail on low visual spread: an
+		# obstructed/inside-geometry image is evidence that the candidate is bad.
+		if not (await _save_view(
+			candidate_path,
+			"spawn_candidate_%02d" % spawn_index,
+			false
+		)):
+			return
+
+	player.global_transform = saved_player_transform
+	player.velocity = saved_player_velocity
+	player.set_physics_process(true)
 
 	var xs: Array[float] = []
 	var ys: Array[float] = []
