@@ -8,6 +8,7 @@ on:
     paths:
       - "tools/patches/patch_ue421_material_texture_refs.py"
       - "tools/maps/UEAudioSceneExtract/**"
+      - "tools/maps/UEAudioCueGraphExtract/**"
       - ".github/workflows/xogot-nacht-toolchain-gate.yml"
 
 permissions:
@@ -58,3 +59,13 @@ jobs:
           dotnet build tools/maps/UEAudioSceneExtract/UEAudioSceneExtract.csproj -c Release --no-restore             2>&1 | tee /tmp/nacht-audio-scene-build.log
           ! grep -q " error CS" /tmp/nacht-audio-scene-build.log
           echo "XZOGOT_NACHT_AUDIO_SCENE_TOOLCHAIN_GREEN"
+
+      - name: Compile generic audio cue graph authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet restore tools/maps/UEAudioCueGraphExtract/UEAudioCueGraphExtract.csproj
+          dotnet build tools/maps/UEAudioCueGraphExtract/UEAudioCueGraphExtract.csproj -c Release --no-restore \
+            2>&1 | tee /tmp/nacht-audio-cue-build.log
+          ! grep -q " error CS" /tmp/nacht-audio-cue-build.log
+          echo "XZOGOT_NACHT_AUDIO_CUE_TOOLCHAIN_GREEN"
