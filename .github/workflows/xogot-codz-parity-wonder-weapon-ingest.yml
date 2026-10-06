@@ -1,0 +1,201 @@
+name: Ingest CoDz Parity Wonder Weapons
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-codz-parity-wonder-weapon-ingest.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: xogot-codz-parity-wonder-weapon-ingest
+  cancel-in-progress: true
+
+jobs:
+  census:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      CODZ_PARITY_DRIVE_ID: "1BiThIcM5dEjeAcm9xlFQZF8bzk9MyfK1"
+    steps:
+      - name: Checkout benchmark branch
+        uses: actions/checkout@v5
+
+      - name: Install archive and Drive tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq p7zip-full
+          python3 -m pip install --disable-pip-version-check --quiet gdown
+          echo "XZOGOT_CODZ_PARITY_TOOLS_READY"
+
+      - name: Download public CoDz Parity modkit
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/codz-parity"
+          python3 -m gdown "https://drive.google.com/uc?id=$CODZ_PARITY_DRIVE_ID" \
+            -O "$RUNNER_TEMP/codz-parity/CoDz-Parity-modkit.zip"
+          test -s "$RUNNER_TEMP/codz-parity/CoDz-Parity-modkit.zip"
+          ls -lh "$RUNNER_TEMP/codz-parity/CoDz-Parity-modkit.zip"
+          sha256sum "$RUNNER_TEMP/codz-parity/CoDz-Parity-modkit.zip" | tee codz-parity-modkit.sha256
+          echo "XZOGOT_CODZ_PARITY_DOWNLOAD_GREEN"
+
+      - name: Inventory complete modkit without guessing names
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf build/codz-parity-census
+          mkdir -p build/codz-parity-census
+          7z l -slt "$RUNNER_TEMP/codz-parity/CoDz-Parity-modkit.zip" > build/codz-parity-census/archive-list-slt.txt
+          7z l "$RUNNER_TEMP/codz-parity/CoDz-Parity-modkit.zip" > build/codz-parity-census/archive-list.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,re
+          src=Path("build/codz-parity-census/archive-list-slt.txt").read_text(errors="ignore")
+          paths=[]
+          for line in src.splitlines():
+              if line.startswith("Path = "):
+                  p=line[7:].strip().replace("\\","/")
+                  if p and not p.lower().endswith(".zip"):
+                      paths.append(p)
+          paths=sorted(set(paths),key=str.lower)
+          targets={
+            "raygun":[r"ray.?gun",r"rayweapon",r"ray_gun"],
+            "raygun_mk2":[r"ray.?gun.*(mk|mark).?2",r"mk.?2.*ray"],
+            "thundergun":[r"thunder.?gun",r"thundergun"],
+            "minigun":[r"mini.?gun",r"crminigun"],
+            "shepherd":[r"shepherd",r"sh[-_ ]shepherd"],
+            "stingray":[r"sting.?ray",r"stingray"],
+            "wonder":[r"wonder.?weapon",r"wonderweapon"],
+          }
+          candidates={}
+          for key,patterns in targets.items():
+              hits=[]
+              for p in paths:
+                  low=p.lower()
+                  if any(re.search(rx,low) for rx in patterns):
+                      hits.append(p)
+              candidates[key]=hits
+          weaponish=[p for p in paths if any(t in p.lower() for t in (
+              "/weapon","/weapons","/gun","/guns","wonder","ray","thunder","mini","shepherd","sting"
+          ))]
+          exts={}
+          for p in paths:
+              ext=Path(p).suffix.lower()
+              if ext:
+                  exts[ext]=exts.get(ext,0)+1
+          report={
+              "schema":1,
+              "source":"CoDz Parity modkit.zip",
+              "drive_id":"1BiThIcM5dEjeAcm9xlFQZF8bzk9MyfK1",
+              "total_paths":len(paths),
+              "extensions":dict(sorted(exts.items())),
+              "targets":{k:{"count":len(v),"paths":v} for k,v in candidates.items()},
+              "weapon_context_count":len(weaponish),
+              "weapon_context_paths":weaponish[:5000],
+          }
+          out=Path("build/codz-parity-census/census.json")
+          out.write_text(json.dumps(report,indent=2)+"\n",encoding="utf-8")
+          Path("build/codz-parity-census/all-paths.txt").write_text("\n".join(paths)+"\n",encoding="utf-8")
+          Path("build/codz-parity-census/weapon-context-paths.txt").write_text("\n".join(weaponish)+"\n",encoding="utf-8")
+          print("XZOGOT_CODZ_PARITY_PATHS",len(paths))
+          for k,v in candidates.items():
+              print("XZOGOT_CODZ_TARGET",k,"count=",len(v))
+              for p in v[:40]:
+                  print("  ",p)
+          print("XZOGOT_CODZ_WEAPON_CONTEXT",len(weaponish))
+          if not paths:
+              raise SystemExit("CoDz Parity archive produced no paths")
+          PY
+
+      - name: Extract candidate weapon packages and source meshes
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/codz-parity-census/candidates
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          r=json.loads(Path("build/codz-parity-census/census.json").read_text())
+          roots=set()
+          for row in r["targets"].values():
+              for p in row["paths"]:
+                  roots.add(Path(p).parent.as_posix())
+          Path("build/codz-parity-census/candidate-roots.txt").write_text(
+              "\n".join(sorted(roots,key=str.lower))+"\n",encoding="utf-8"
+          )
+          print("XZOGOT_CODZ_CANDIDATE_ROOTS",len(roots))
+          PY
+          while IFS= read -r root; do
+            [ -n "$root" ] || continue
+            7z x -y "$RUNNER_TEMP/codz-parity/CoDz-Parity-modkit.zip" "$root/*" \
+              -obuild/codz-parity-census/candidates >/dev/null || true
+          done < build/codz-parity-census/candidate-roots.txt
+          find build/codz-parity-census/candidates -type f -printf '%P\t%s\n' | sort \
+            > build/codz-parity-census/candidate-files.tsv
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          root=Path("build/codz-parity-census/candidates")
+          files=[p for p in root.rglob("*") if p.is_file()]
+          usable={".glb",".gltf",".fbx",".obj",".psk",".pskx",".psa"}
+          ue={".uasset",".uexp",".ubulk",".uptnl",".umap"}
+          direct=[p.relative_to(root).as_posix() for p in files if p.suffix.lower() in usable]
+          packages=[p.relative_to(root).as_posix() for p in files if p.suffix.lower() in ue]
+          summary={
+              "file_count":len(files),
+              "bytes":sum(p.stat().st_size for p in files),
+              "direct_3d_count":len(direct),
+              "direct_3d":sorted(direct),
+              "ue_package_file_count":len(packages),
+              "ue_package_files":sorted(packages),
+          }
+          Path("build/codz-parity-census/extraction-summary.json").write_text(
+              json.dumps(summary,indent=2)+"\n",encoding="utf-8"
+          )
+          print("XZOGOT_CODZ_DIRECT_3D",len(direct))
+          print("XZOGOT_CODZ_UE_PACKAGE_FILES",len(packages))
+          PY
+
+      - name: Gate candidate provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          r=json.loads(Path("build/codz-parity-census/census.json").read_text())
+          e=json.loads(Path("build/codz-parity-census/extraction-summary.json").read_text())
+          found=sum(row["count"] for row in r["targets"].values())
+          print("XZOGOT_CODZ_PARITY_CENSUS_GREEN",
+                "paths=",r["total_paths"],
+                "named_target_hits=",found,
+                "weapon_context=",r["weapon_context_count"],
+                "direct3d=",e["direct_3d_count"],
+                "ue_package_files=",e["ue_package_file_count"])
+          if r["weapon_context_count"] <= 0:
+              raise SystemExit("No weapon-context paths found in CoDz Parity modkit")
+          PY
+
+      - name: Upload CoDz weapon census
+        uses: actions/upload-artifact@v4
+        with:
+          name: xogot-codz-parity-wonder-weapon-census
+          path: |
+            codz-parity-modkit.sha256
+            build/codz-parity-census/census.json
+            build/codz-parity-census/all-paths.txt
+            build/codz-parity-census/weapon-context-paths.txt
+            build/codz-parity-census/candidate-roots.txt
+            build/codz-parity-census/candidate-files.tsv
+            build/codz-parity-census/extraction-summary.json
+            build/codz-parity-census/candidates/**
+          if-no-files-found: error
+          retention-days: 7
