@@ -58,6 +58,7 @@ jobs:
           AUTH="$RUNNER_TEMP/nacht-authority"
           test -s "$AUTH/nacht-full-map-handoff.json"
           test -s "$AUTH/nacht-full-map-authority.json"
+          test -s "$AUTH/nacht-static-runtime-meshes.json"
           test -s "$AUTH/nacht-static-scene.json"
           test -s "$AUTH/nacht-lights.json"
           test -s "$AUTH/nacht-materials.json"
@@ -91,7 +92,7 @@ jobs:
           cp "$AUTH/nacht-lights.json" "$root/"
           cp "$AUTH/nacht-materials.json" "$root/"
 
-          python3 tools/maps/compile_ue_material_bindings.py             --scene "$root/nacht-static-scene.json"             --xzms "$AUTH/nacht-native/static-meshes/report.json"             --materials "$root/nacht-materials.json"             --xztx "$AUTH/nacht-native/textures/report.json"             --output "$root/material-binding-manifest.json"
+          python3 tools/maps/compile_ue_material_bindings.py             --scene "$root/nacht-static-scene.json"             --xzms "$AUTH/nacht-static-runtime-meshes.json"             --materials "$root/nacht-materials.json"             --xztx "$AUTH/nacht-native/textures/report.json"             --output "$root/material-binding-manifest.json"
 
           python3 tools/maps/compile_xziel_material_instance_bindings.py             --scene "$root/nacht-static-scene.json"             --manifest "$root/material-binding-manifest.json"             --output "$root/materials.xzmi"             --report "$root/xzmi-report.json"
 
