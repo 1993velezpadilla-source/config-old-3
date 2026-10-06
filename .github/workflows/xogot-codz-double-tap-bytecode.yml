@@ -1,0 +1,188 @@
+name: CoDz Double Tap Bytecode Truth
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-codz-double-tap-bytecode.yml"
+      - "tools/maps/UENuketownWallbuyBytecode/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xogot-codz-double-tap-bytecode
+  cancel-in-progress: true
+
+jobs:
+  decompile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      CODZ_PARITY_DRIVE_ID: "1BiThIcM5dEjeAcm9xlFQZF8bzk9MyfK1"
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install source tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq p7zip-full
+          python3 -m pip install --disable-pip-version-check --quiet gdown
+          mkdir -p source-download source-targets build/double-tap-bytecode
+          python3 -m gdown "https://drive.google.com/uc?id=$CODZ_PARITY_DRIVE_ID" \
+            -O source-download/CoDz-Parity-modkit.zip
+          test -s source-download/CoDz-Parity-modkit.zip
+          echo "XZOGOT_DOUBLE_TAP_BYTECODE_SOURCE_READY"
+
+      - name: Extract exact Double Tap authority Blueprints
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP=source-download/CoDz-Parity-modkit.zip
+          PREFIX='CoDz Parity modkit/Content/CustomMaps/UGC2554408402'
+          for rel in \
+            'BPs/ProxiesAndGameLogics/BP_CODZ_PlayerProxy.uasset' \
+            'BPs/ProxiesAndGameLogics/Perk_Core.uasset' \
+            'BPs/Perks/Perk_list.uasset' \
+            'BPs/Perks/dtap/PerkMachine_DoubleTap.uasset' \
+            'BPs/Perks/dtap/DoubleTap_Bottle.uasset'
+          do
+            7z x -y "$ZIP" "$PREFIX/$rel" -osource-targets >/dev/null
+          done
+          find source-targets -type f -name '*.uasset' -printf '%p\t%s\n' | sort \
+            | tee build/double-tap-bytecode/targets.tsv
+          test "$(find source-targets -type f -name '*.uasset' | wc -l)" -eq 5
+          echo "XZOGOT_DOUBLE_TAP_5_SOURCE_BPS_GREEN"
+
+      - name: Pin Pavlov mappings
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 5 --retry-delay 2 \
+            -o source-download/PavMappings.usmap \
+            "https://raw.githubusercontent.com/THW-Reaper/PavlovVRMappings/4976647b4f3a209042460bc55a7a3122662d05b7/PavMappings.usmap"
+          echo "6d19f9731cc3fbaba34ca8e0833e81e4ffdf1b407edf24de48b1ccb5c63b060c  source-download/PavMappings.usmap" \
+            | sha256sum -c -
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build exact Kismet extractor
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet restore tools/maps/UENuketownWallbuyBytecode/UENuketownWallbuyBytecode.csproj
+          dotnet build tools/maps/UENuketownWallbuyBytecode/UENuketownWallbuyBytecode.csproj \
+            --configuration Release --no-restore
+          echo "XZOGOT_DOUBLE_TAP_KISMET_EXTRACTOR_READY"
+
+      - name: Probe engine version and decompile
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=tools/maps/UENuketownWallbuyBytecode/bin/Release/net10.0/UENuketownWallbuyBytecode.dll
+          mapfile -t ASSETS < <(find source-targets -type f -name '*.uasset' | sort)
+          : > build/double-tap-bytecode/probe.log
+          SUCCESS=""
+          for V in \
+            VER_UE4_18 VER_UE4_19 VER_UE4_20 VER_UE4_21 VER_UE4_22 \
+            VER_UE4_23 VER_UE4_24 VER_UE4_25 VER_UE4_26 VER_UE4_27 \
+            VER_UE5_0 VER_UE5_1
+          do
+            echo "XZOGOT_DOUBLE_TAP_ENGINE_PROBE $V" | tee -a build/double-tap-bytecode/probe.log
+            export XZOGOT_ENGINE_VERSION="$V"
+            set +e
+            dotnet "$APP" source-download/PavMappings.usmap \
+              "build/double-tap-bytecode/probe-$V.json" "${ASSETS[@]}" \
+              >> build/double-tap-bytecode/probe.log 2>&1
+            RC=$?
+            set -e
+            echo "XZOGOT_DOUBLE_TAP_ENGINE_RESULT $V rc=$RC" | tee -a build/double-tap-bytecode/probe.log
+            if [ "$RC" -eq 0 ]; then
+              SUCCESS="$V"
+              cp "build/double-tap-bytecode/probe-$V.json" build/double-tap-bytecode/bytecode.json
+              break
+            fi
+          done
+          if [ -z "$SUCCESS" ]; then
+            tail -n 300 build/double-tap-bytecode/probe.log
+            exit 31
+          fi
+          echo "$SUCCESS" | tee build/double-tap-bytecode/engine-version.txt
+          echo "XZOGOT_DOUBLE_TAP_ENGINE_LOCKED $SUCCESS"
+
+      - name: Isolate exact Double Tap execution flow
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,re
+          d=json.loads(Path("build/double-tap-bytecode/bytecode.json").read_text())
+          tokens=[
+              "NewEnumerator6","Doubletap","doubletap","HasPerk",
+              "BaseDamage","Damage","FireRate","BulletClass","ApplyDamage",
+              "Multiply","FloatFloat","fire","perk"
+          ]
+          matched=[]
+          def collect_numbers(v,out):
+              if isinstance(v,(int,float)):
+                  out.append(v)
+              elif isinstance(v,dict):
+                  for x in v.values(): collect_numbers(x,out)
+              elif isinstance(v,list):
+                  for x in v: collect_numbers(x,out)
+          for pkg in d.get("packages",[]):
+              for fn in pkg.get("functions",[]):
+                  blob=json.dumps(fn,sort_keys=True)
+                  hit=[t for t in tokens if t.lower() in blob.lower()]
+                  if not hit:
+                      continue
+                  nums=[]
+                  collect_numbers(fn.get("rawExpressionJson",[]),nums)
+                  row={
+                      "assetPath":pkg["assetPath"],
+                      "fileName":pkg["fileName"],
+                      "function":fn["name"],
+                      "hits":hit,
+                      "numericConstants":nums,
+                      "calls":fn.get("calls",[]),
+                      "integerConstants":fn.get("integerConstants",[]),
+                      "expressions":fn.get("expressions",[]),
+                      "rawExpressionJson":fn.get("rawExpressionJson",[]),
+                  }
+                  matched.append(row)
+                  print("XZOGOT_DOUBLE_TAP_KISMET_FUNCTION",pkg["fileName"],fn["name"],"hits=",hit,"nums=",nums[:80])
+                  for call in fn.get("calls",[]):
+                      c=str(call.get("call",""))
+                      if any(t.lower() in c.lower() for t in tokens):
+                          print("XZOGOT_DOUBLE_TAP_KISMET_CALL",pkg["fileName"],fn["name"],call)
+          out={
+              "schema":1,
+              "engineVersion":d.get("engineVersion"),
+              "matchedFunctionCount":len(matched),
+              "functions":matched,
+          }
+          Path("build/double-tap-bytecode/double-tap-flow.json").write_text(json.dumps(out,indent=2)+"\n")
+          if not matched:
+              raise SystemExit("No Double Tap Kismet functions matched")
+          print("XZOGOT_DOUBLE_TAP_BYTECODE_TRUTH_GREEN",len(matched))
+          PY
+
+      - name: Upload exact Double Tap bytecode truth
+        uses: actions/upload-artifact@v4
+        with:
+          name: xogot-codz-double-tap-bytecode-truth
+          path: |
+            build/double-tap-bytecode/targets.tsv
+            build/double-tap-bytecode/engine-version.txt
+            build/double-tap-bytecode/probe.log
+            build/double-tap-bytecode/bytecode.json
+            build/double-tap-bytecode/double-tap-flow.json
+          if-no-files-found: error
+          retention-days: 14
