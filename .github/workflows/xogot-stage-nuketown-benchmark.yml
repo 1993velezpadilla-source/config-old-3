@@ -81,7 +81,7 @@ jobs:
           test -d "$RUNTIME_ROOT/vfs/xziel/maps/xziel_nuketown_zombies/textures"
           echo "XZOGOT_NUKETOWN_COMPLETE_SOURCE_RUNTIME_GREEN run=$SOURCE_RUN"
 
-      - name: Stage only runtime world payload
+      - name: Stage complete source-derived runtime world payload
         shell: bash
         run: |
           set -euo pipefail
@@ -232,6 +232,200 @@ jobs:
           }
           manifest_path.write_text(json.dumps(manifest,indent=2)+"\n")
           print("XZOGOT_NUKETOWN_STAGE_NATIVE_GLB_GREEN",len(files))
+          PY
+
+      - name: Bridge complete static mesh source library
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=benchmarks/nuketown_xziel
+          tmp="$RUNNER_TEMP/nuketown-extra-xzms"
+          extra="$root/source_library/extra_static_glb"
+          rm -rf "$tmp" "$root/source_library"
+          mkdir -p "$tmp" "$extra"
+
+          python3 - <<'PY'
+          import json
+          import os
+          import shutil
+          from pathlib import Path
+
+          auth=Path(os.environ["AUTH_ROOT"])
+          root=Path("benchmarks/nuketown_xziel")
+          source_dir=auth/"ue-xzms-probe"
+          scene=json.loads((root/"visual-scene.json").read_text())
+          source_files=sorted(source_dir.glob("*.xzm"))
+          used={str(row["runtimeFile"]) for row in scene["meshes"]}
+          extras=[path for path in source_files if path.name not in used]
+
+          assert len(source_files)==83, len(source_files)
+          assert len(used)==52, len(used)
+          assert used.issubset({path.name for path in source_files})
+          assert len(extras)==31, len(extras)
+
+          tmp=Path(os.environ["RUNNER_TEMP"])/"nuketown-extra-xzms"
+          for path in extras:
+              shutil.copy2(path,tmp/path.name)
+
+          source_report=source_dir/"report.json"
+          assert source_report.is_file(), source_report
+          shutil.copy2(source_report,root/"complete-static-mesh-source-report.json")
+
+          manifest={
+              "schemaVersion":1,
+              "authority":"literal complete Nuketown converted static-mesh library",
+              "sourceCount":len(source_files),
+              "placedCount":len(used),
+              "extraCount":len(extras),
+              "placedFiles":sorted(used),
+              "extraFiles":[path.name for path in extras],
+              "ready":True,
+          }
+          (root/"complete-static-mesh-library.json").write_text(
+              json.dumps(manifest,indent=2)+"\n"
+          )
+          print(
+              "XZOGOT_NUKETOWN_COMPLETE_STATIC_LIBRARY_SPLIT_GREEN",
+              f"source={len(source_files)}",
+              f"placed={len(used)}",
+              f"extra={len(extras)}",
+          )
+          PY
+
+          python3 tools/maps/xzms_to_glb.py "$tmp" "$extra"             --report "$root/complete-static-extra-glb-report.json"             | tee /tmp/nuketown-complete-static-glb.log
+          grep -q "XZOGOT_XZMS_GLB_GREEN" /tmp/nuketown-complete-static-glb.log
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          root=Path("benchmarks/nuketown_xziel")
+          split=json.loads((root/"complete-static-mesh-library.json").read_text())
+          report=json.loads((root/"complete-static-extra-glb-report.json").read_text())
+          glbs=sorted((root/"source_library/extra_static_glb").glob("*.glb"))
+
+          assert split["sourceCount"]==83, split
+          assert split["placedCount"]==52, split
+          assert split["extraCount"]==31, split
+          assert report["mesh_count"]==31, report
+          assert len(glbs)==31, len(glbs)
+          assert all(path.stat().st_size>100 for path in glbs)
+
+          manifest_path=root/"source_manifest.json"
+          manifest=json.loads(manifest_path.read_text())
+          manifest["complete_static_mesh_runtime_library"]={
+              "source_count":83,
+              "map_referenced_count":52,
+              "unplaced_library_count":31,
+              "map_referenced_directory":"vfs/xziel/maps/xziel_nuketown_zombies/meshes_glb",
+              "unplaced_library_directory":"source_library/extra_static_glb",
+              "source_report":"complete-static-mesh-source-report.json",
+              "split_manifest":"complete-static-mesh-library.json",
+          }
+          manifest_path.write_text(json.dumps(manifest,indent=2)+"\n")
+          print(
+              "XZOGOT_NUKETOWN_COMPLETE_STATIC_GODOT_LIBRARY_GREEN",
+              "placed=52 extra=31 total=83"
+          )
+          PY
+
+      - name: Bridge complete source skeletal library
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=benchmarks/nuketown_xziel
+          out="$root/source_library/skeletal_gltf"
+          rm -rf "$out"
+          mkdir -p "$out"
+
+          python3 tools/maps/xz_skeletal_library_to_gltf.py             "$RUNNER_TEMP/nuketown-rich"             "$out"             | tee /tmp/nuketown-skeletal-library.log
+          grep -q "XZOGOT_SKELETAL_LIBRARY_GLTF_GREEN"             /tmp/nuketown-skeletal-library.log
+
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root=Path("benchmarks/nuketown_xziel")
+          skeletal=root/"source_library/skeletal_gltf"
+          lib=json.loads((skeletal/"manifest.json").read_text())
+          assert lib["ready"] is True, lib
+          assert lib["sourceSkeletonCount"]==3, lib
+          assert lib["sourceSkeletalMeshCount"]==3, lib
+          assert lib["sourceAnimationCount"]==9, lib
+          assert lib["outputCount"]==3, lib
+          outputs=sorted(skeletal.glob("*.gltf"))
+          assert len(outputs)==3, outputs
+          assert all(path.stat().st_size>100 for path in outputs)
+
+          scene=json.loads((root/"visual-scene.json").read_text())
+          anchors=[
+              row for row in scene["actorAnchors"]
+              if row.get("className")=="SkeletalMeshActor"
+          ]
+          assert len(anchors)==2, anchors
+          (root/"skeletal-actor-anchors.json").write_text(
+              json.dumps(
+                  {
+                      "schemaVersion":1,
+                      "sourceActorCount":len(anchors),
+                      "actors":anchors,
+                      "ready":True,
+                  },
+                  indent=2,
+              )+"\n"
+          )
+
+          names=[
+              "SkeletalMeshActor_3",
+              "SkeletalMeshActor_5",
+          ]
+          matched=[]
+          shard_root=Path(os.environ["AUTH_ROOT"])/"source-manifest-shards"
+          shards=sorted(shard_root.glob("shard-*.json"))
+          assert len(shards)==16, len(shards)
+          for shard_path in shards:
+              shard=json.loads(shard_path.read_text())
+              for node in shard.get("nodes",[]):
+                  encoded=json.dumps(node,sort_keys=True)
+                  if any(name in encoded for name in names):
+                      matched.append(node)
+
+          (root/"skeletal-actor-source-node-audit.json").write_text(
+              json.dumps(
+                  {
+                      "schemaVersion":1,
+                      "actorNames":names,
+                      "matchCount":len(matched),
+                      "nodes":matched,
+                      "ready":len(matched)>=2,
+                  },
+                  indent=2,
+              )+"\n"
+          )
+          assert len(matched)>=2, len(matched)
+
+          manifest_path=root/"source_manifest.json"
+          manifest=json.loads(manifest_path.read_text())
+          manifest["source_skeletal_actor_count"]=2
+          manifest["complete_skeletal_runtime_library"]={
+              "skeletons":3,
+              "skeletal_meshes":3,
+              "animations":9,
+              "gltf_outputs":3,
+              "directory":"source_library/skeletal_gltf",
+              "manifest":"source_library/skeletal_gltf/manifest.json",
+              "actor_anchors":"skeletal-actor-anchors.json",
+              "source_node_audit":"skeletal-actor-source-node-audit.json",
+              "source_node_matches":len(matched),
+          }
+          manifest_path.write_text(json.dumps(manifest,indent=2)+"\n")
+
+          print(
+              "XZOGOT_NUKETOWN_SKELETAL_ACTOR_AUDIT_GREEN",
+              f"actors={len(anchors)}",
+              f"source_nodes={len(matched)}",
+          )
           PY
 
       - name: Commit portable Godot benchmark payload
