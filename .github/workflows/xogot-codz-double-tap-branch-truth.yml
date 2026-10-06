@@ -1,0 +1,105 @@
+name: CoDz Double Tap Branch Truth
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/godot-aaa-rebuild-v1
+    paths:
+      - ".github/workflows/xogot-codz-double-tap-branch-truth.yml"
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  isolate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SOURCE_RUN_ID: "37474803252"
+      SOURCE_ARTIFACT: "xogot-codz-double-tap-bytecode-truth"
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download bytecode truth
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p truth
+          gh run download "$SOURCE_RUN_ID" -n "$SOURCE_ARTIFACT" -D truth
+          test -s truth/bytecode.json
+          echo "XZOGOT_DOUBLE_TAP_BRANCH_SOURCE_READY"
+
+      - name: Isolate NewEnumerator6 branch and math
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+
+          d=json.loads(Path("truth/bytecode.json").read_text())
+          proxy=next(p for p in d["packages"] if p["fileName"]=="BP_CODZ_PlayerProxy.uasset")
+          fn=next(f for f in proxy["functions"] if f["name"]=="ExecuteUbergraph_BP_CODZ_PlayerProxy")
+          roots=fn["rawExpressionJson"]
+
+          def contains(obj, needle):
+              return needle.lower() in json.dumps(obj,sort_keys=True).lower()
+
+          def walk(obj,path=()):
+              if isinstance(obj,dict):
+                  yield path,obj
+                  for k,v in obj.items():
+                      yield from walk(v,path+(str(k),))
+              elif isinstance(obj,list):
+                  for i,v in enumerate(obj):
+                      yield from walk(v,path+(str(i),))
+
+          hits=[]
+          for path,obj in walk(roots):
+              blob=json.dumps(obj,sort_keys=True)
+              if "NewEnumerator6" in blob:
+                  hits.append((path,obj))
+
+          print("XZOGOT_DOUBLE_TAP_ENUM6_NODES",len(hits))
+          for i,(path,obj) in enumerate(hits[:80]):
+              print("XZOGOT_DOUBLE_TAP_ENUM6_NODE",i,"PATH","/".join(path))
+              print(json.dumps(obj,sort_keys=True)[:24000])
+
+          # Also print compact math/apply-damage nodes that contain HasPerk and
+          # enum/perk evidence in the same subtree.
+          relevant=[]
+          for path,obj in walk(roots):
+              blob=json.dumps(obj,sort_keys=True)
+              low=blob.lower()
+              if ("hasperk" in low or "newenumerator6" in low) and any(
+                  x in low for x in ("multiply_floatfloat","applydamage","basedamage","damage")
+              ):
+                  relevant.append((path,obj))
+          print("XZOGOT_DOUBLE_TAP_RELEVANT_NODES",len(relevant))
+          for i,(path,obj) in enumerate(relevant[:100]):
+              print("XZOGOT_DOUBLE_TAP_RELEVANT_NODE",i,"PATH","/".join(path))
+              print(json.dumps(obj,sort_keys=True)[:32000])
+
+          Path("double-tap-enum6-branch.json").write_text(json.dumps({
+              "engineVersion":d.get("engineVersion"),
+              "enum6NodeCount":len(hits),
+              "enum6Nodes":[{"path":list(p),"node":o} for p,o in hits],
+              "relevantNodeCount":len(relevant),
+              "relevantNodes":[{"path":list(p),"node":o} for p,o in relevant],
+          },indent=2)+"\n")
+          if not hits:
+              raise SystemExit("Double Tap enum6 branch not found")
+          print("XZOGOT_DOUBLE_TAP_ENUM6_BRANCH_GREEN")
+          PY
+
+      - name: Upload branch truth
+        uses: actions/upload-artifact@v4
+        with:
+          name: xogot-codz-double-tap-enum6-branch
+          path: double-tap-enum6-branch.json
+          if-no-files-found: error
+          retention-days: 14
