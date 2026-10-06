@@ -212,27 +212,71 @@ jobs:
 
           texture_source=auth/"nacht-native/textures"
           texture_dst=root/map_rel/"textures"
-          rows=xzml["textureAssets"]
-          referenced_textures={str(row["runtimeFile"]) for row in rows}
-          for name in sorted(referenced_textures):
+          used_rows=xzml["textureAssets"]
+          used_texture_files={str(row["runtimeFile"]) for row in used_rows}
+
+          native_texture_report=json.loads(
+              (auth/"nacht-native/textures/report.json").read_text()
+          )
+          assert native_texture_report["ready"] is True, native_texture_report
+          assert native_texture_report["failureCount"] == 0, native_texture_report
+          native_rows=native_texture_report["textures"]
+          assert len(native_rows)==int(native_texture_report["convertedTextures"])
+          assert len(native_rows)==1581, len(native_rows)
+
+          complete_rows=[]
+          complete_texture_files=set()
+          complete_source_paths=set()
+          for row in native_rows:
+              source_path=str(row["objectPath"])
+              runtime_file=str(row["file"])
+              assert source_path and runtime_file, row
+              assert source_path not in complete_source_paths, source_path
+              assert runtime_file not in complete_texture_files, runtime_file
+              complete_source_paths.add(source_path)
+              complete_texture_files.add(runtime_file)
+              complete_rows.append({
+                  "sourcePath":source_path,
+                  "runtimeFile":runtime_file,
+                  "format":str(row["format"]),
+                  "srgb":bool(row["srgb"]),
+                  "width":int(row["width"]),
+                  "height":int(row["height"]),
+                  "depth":int(row["depth"]),
+                  "mipCount":int(row["mipCount"]),
+                  "payloadBytes":int(row["payloadBytes"]),
+                  "fileBytes":int(row["fileBytes"]),
+              })
+
+          assert used_texture_files.issubset(complete_texture_files), (
+              len(used_texture_files),
+              len(complete_texture_files),
+          )
+
+          for name in sorted(complete_texture_files):
               src=texture_source/name
               assert src.is_file(), src
               shutil.copy2(src,texture_dst/name)
 
           assert len(list(mesh_dst.glob("*.xzm")))==len(referenced)
-          assert len(list(texture_dst.glob("*.xzt")))==len(referenced_textures)
+          assert len(list(texture_dst.glob("*.xzt")))==len(complete_texture_files)
 
           complete={
               "schemaVersion":1,
-              "authority":"Nacht UMAP effective material texture set",
-              "textureAssetCount":len(rows),
-              "textureAssets":rows,
+              "authority":"Nacht complete native Texture2D catalog",
+              "textureAssetCount":len(complete_rows),
+              "usedTextureAssetCount":len(used_rows),
+              "textureAssets":complete_rows,
               "ready":True,
           }
           (root/"complete-xztx-report.json").write_text(json.dumps(complete,indent=2)+"\n")
           print(
               "XZOGOT_NACHT_VISIBLE_SUBSET_GREEN",
-              {"meshes":len(referenced),"textures":len(referenced_textures)}
+              {
+                  "meshes":len(referenced),
+                  "used_textures":len(used_texture_files),
+                  "complete_textures":len(complete_texture_files),
+              }
           )
           PY
 
@@ -277,6 +321,7 @@ jobs:
           glb=json.loads((root/"native-glb-report.json").read_text())
           dds=json.loads((root/"native-dds-report.json").read_text())
           xzml=json.loads((root/"xzml-report.json").read_text())
+          complete_textures=json.loads((root/"complete-xztx-report.json").read_text())
 
           assert handoff["sourcePackageCount"] == 3871, handoff
           assert scene["summary"]["ready"] is True, scene["summary"]
@@ -316,7 +361,16 @@ jobs:
           assert audio_cue_runtime["allPlacedCueSemanticsSupported"] is True, audio_cue_runtime
           assert glb["mesh_count"] == len(scene["meshes"]), (glb["mesh_count"],len(scene["meshes"]))
           assert dds["ready"] is True and dds["failure_count"] == 0, dds
-          assert dds["texture_count"] == xzml["textureAssetCount"], (dds,xzml["textureAssetCount"])
+          assert complete_textures["ready"] is True, complete_textures
+          assert complete_textures["textureAssetCount"] == 1581, complete_textures
+          assert complete_textures["usedTextureAssetCount"] == xzml["textureAssetCount"], (
+              complete_textures,
+              xzml["textureAssetCount"],
+          )
+          assert dds["texture_count"] == complete_textures["textureAssetCount"], (
+              dds["texture_count"],
+              complete_textures["textureAssetCount"],
+          )
           assert audio_runtime["ready"] is True, audio_runtime
           assert audio_runtime["audioCount"] == 295, audio_runtime
           assert len(audio_runtime["audio"]) == 295, audio_runtime
@@ -335,7 +389,8 @@ jobs:
               "sourceParticlePlacements":particle_runtime_authority["resolvedPlacementCount"],
               "sourcePlacedParticleSystems":particle_runtime_authority["uniquePlacedSystemCount"],
               "sourceMaterials":mats["summary"]["usedMaterialCount"],
-              "sourceTextures":xzml["textureAssetCount"],
+              "sourceTextures":complete_textures["textureAssetCount"],
+              "sourceUsedTextures":xzml["textureAssetCount"],
               "sourceAudioWaves":audio_runtime["audioCount"],
               "sourceAudioFormat":audio_runtime["format"],
               "sourceAudioRuntimeEvents":audio_runtime_authority["actorAudioEventCount"],
