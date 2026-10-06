@@ -8,6 +8,7 @@ on:
     paths:
       - "xogot/ci/nuketown_benchmark_capture.gd"
       - "xogot/scripts/xziel_benchmark_loader.gd"
+      - "tools/maps/xztx_astc6_to_png.py"
       - "benchmarks/nuketown_xziel/**"
       - ".github/workflows/xogot-nuketown-benchmark-capture.yml"
 
@@ -65,7 +66,17 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update -qq
-          sudo apt-get install -y -qq unzip curl xvfb libgl1-mesa-dri libglx-mesa0 mesa-vulkan-drivers
+          sudo apt-get install -y -qq unzip curl xvfb libgl1-mesa-dri libglx-mesa0 mesa-vulkan-drivers astcenc
+
+      - name: Decode source ASTC 6x6 textures for Godot
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          python3 tools/maps/xztx_astc6_to_png.py \
+            xogot/assets/benchmarks/nuketown_xziel \
+            2>&1 | tee build/nuketown-benchmark-texture-decode.log
+          grep -q "XZOGOT_ASTC6_DECODE_GREEN" build/nuketown-benchmark-texture-decode.log
 
       - name: Install Godot 4.6.1
         shell: bash

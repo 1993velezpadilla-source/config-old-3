@@ -507,12 +507,32 @@ func _texture_for_source(source_path: String) -> Texture2D:
 	var runtime_file := str(_texture_runtime_files.get(source_path, ""))
 	if runtime_file.is_empty():
 		return null
-	var texture := _load_xztexture(runtime_file)
+
+	# Godot 4.6 does not expose an Image format for ASTC 6x6. The benchmark
+	# capture pipeline decodes the source XZTX mip0 through astcenc into PNG
+	# sidecars before import. Prefer that source-derived sidecar.
+	var texture := _load_decoded_texture(runtime_file)
+	if texture == null:
+		texture = _load_xztexture(runtime_file)
 	if texture != null:
 		_texture_cache[source_path] = texture
 	return texture
 
+func _load_decoded_texture(runtime_file: String) -> Texture2D:
+	var decoded_name := runtime_file.get_basename() + ".png"
+	var decoded_path := _source_path(
+		VFS_MAP_ROOT.path_join("textures_png").path_join(decoded_name)
+	)
+	if not ResourceLoader.exists(decoded_path):
+		return null
+	var resource := load(decoded_path)
+	if resource is Texture2D:
+		return resource as Texture2D
+	return null
+
 func _load_xztexture(runtime_file: String) -> Texture2D:
+	# Keep XZTX validation for truthful diagnostics, but never reinterpret ASTC
+	# 6x6 as 4x4/8x8. Godot 4.6 has no FORMAT_ASTC_6x6 enum.
 	var path := _source_path(VFS_MAP_ROOT.path_join("textures").path_join(runtime_file))
 	if not FileAccess.file_exists(path):
 		return null
@@ -520,8 +540,6 @@ func _load_xztexture(runtime_file: String) -> Texture2D:
 	if bytes.size() < XZTX_HEADER_BYTES or bytes.slice(0, 4).get_string_from_ascii() != "XZTX":
 		return null
 	var version := int(bytes.decode_u32(4))
-	var width := int(bytes.decode_u32(8))
-	var height := int(bytes.decode_u32(12))
 	var depth := int(bytes.decode_u32(16))
 	var mip_count := int(bytes.decode_u32(20))
 	var format_name_bytes := int(bytes.decode_u32(28))
@@ -536,20 +554,13 @@ func _load_xztexture(runtime_file: String) -> Texture2D:
 	if payload_offset < XZTX_HEADER_BYTES or payload_offset + payload_bytes != bytes.size():
 		return null
 	var format_name := bytes.slice(48, 48 + format_name_bytes).get_string_from_ascii()
-	var image_format: Image.Format
-	match format_name:
-		"PF_ASTC_6x6":
-			image_format = Image.FORMAT_ASTC_6x6
-		_:
-			push_warning("XZIEL benchmark unsupported XZTX format: " + format_name)
-			return null
-	var payload := bytes.slice(payload_offset, payload_offset + payload_bytes)
-	var image := Image.create_from_data(width, height, mip_count > 1, image_format, payload)
-	if image == null or image.is_empty():
+	if format_name == "PF_ASTC_6x6":
+		push_warning(
+			"XZIEL benchmark ASTC 6x6 requires decoded source sidecar: " + runtime_file
+		)
 		return null
-	var texture := ImageTexture.create_from_image(image)
-	texture.resource_name = runtime_file
-	return texture
+	push_warning("XZIEL benchmark unsupported XZTX format: " + format_name)
+	return null
 
 func _apply_instance_material_overrides(
 	node: MeshInstance3D,
