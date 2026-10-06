@@ -26,7 +26,7 @@ BLOCK_X = 6
 BLOCK_Y = 6
 BLOCK_Z = 1
 BLOCK_BYTES = 16
-MAP_REL = Path("vfs/xziel/maps/xziel_nuketown_zombies")
+DEFAULT_MAP_REL = Path("vfs/xziel/maps/xziel_nuketown_zombies")
 
 
 def u32(data: bytes, offset: int) -> int:
@@ -236,13 +236,17 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("root", type=Path, help="Mounted Nuketown benchmark root")
     parser.add_argument("--astcenc", default="astcenc")
+    parser.add_argument("--map-rel", default=str(DEFAULT_MAP_REL))
     args = parser.parse_args()
 
     root = args.root
+    map_rel = Path(args.map_rel)
+    if map_rel.is_absolute() or ".." in map_rel.parts:
+        raise ValueError("map-rel must be a safe relative path")
     report_path = root / "xzml-report.json"
     complete_report_path = root / "complete-xztx-report.json"
-    texture_dir = root / MAP_REL / "textures"
-    output_dir = root / MAP_REL / "textures_png"
+    texture_dir = root / map_rel / "textures"
+    output_dir = root / map_rel / "textures_png"
     report = json.loads(report_path.read_text())
     runtime_rows = report.get("textureAssets", [])
     if len(runtime_rows) != int(report.get("textureAssetCount", len(runtime_rows))):
