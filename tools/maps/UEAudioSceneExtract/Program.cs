@@ -103,7 +103,18 @@ List<object> BuildHierarchy(USceneComponent start)
             }
         });
 
-        current = current.GetAttachParent();
+        USceneComponent? parent = null;
+        try
+        {
+            var attach = current.AttachParent;
+            if (attach is { IsNull: false })
+                attach.TryLoad<USceneComponent>(out parent);
+        }
+        catch
+        {
+            parent = null;
+        }
+        current = parent;
     }
 
     if (rows.Count == 0)
@@ -165,6 +176,7 @@ provider.LoadVirtualPaths();
 
 var rows = new List<object>();
 var packageFailures = new List<object>();
+var componentFailures = new List<object>();
 var packagesLoaded = 0;
 var nullSoundCount = 0;
 var loadedSoundCount = 0;
@@ -203,6 +215,8 @@ foreach (var logicalPackage in mapPackages)
 
         foreach (var component in components)
         {
+            try
+            {
             var sound = component.Sound;
             string? soundObjectPath = null;
             string? soundExportType = null;
@@ -220,10 +234,16 @@ foreach (var logicalPackage in mapPackages)
             }
             else
             {
-                var soundIndex =
-                    component.GetOrDefault<FPackageIndex>(
-                        "Sound");
-                if (!soundIndex.IsNull)
+                FPackageIndex? soundIndex = null;
+                try
+                {
+                    soundIndex = component.GetOrDefault<FPackageIndex?>("Sound");
+                }
+                catch
+                {
+                    soundIndex = null;
+                }
+                if (soundIndex is { IsNull: false })
                 {
                     rawSoundReference = soundIndex.ToString();
                     soundObjectPath =
@@ -252,9 +272,17 @@ foreach (var logicalPackage in mapPackages)
                     ? oldCount + 1
                     : 1;
 
-            var attenuation =
-                component.GetOrDefault<FPackageIndex>(
-                    "AttenuationSettings");
+            FPackageIndex? attenuation = null;
+            try
+            {
+                attenuation =
+                    component.GetOrDefault<FPackageIndex?>(
+                        "AttenuationSettings");
+            }
+            catch
+            {
+                attenuation = null;
+            }
 
             var path = component.GetPathName();
             var lastDot = path.LastIndexOf('.');
@@ -315,9 +343,22 @@ foreach (var logicalPackage in mapPackages)
                             "bSuppressSubtitles",
                             false),
                     attenuationSettings =
-                        ReferencePath(attenuation)
+                        attenuation is null
+                            ? null
+                            : ReferencePath(attenuation)
                 }
             });
+            }
+            catch (Exception componentError)
+            {
+                componentFailures.Add(new {
+                    packagePath = logicalPackage,
+                    componentPath = component.GetPathName(),
+                    error =
+                        componentError.GetType().Name + ": " +
+                        componentError.Message
+                });
+            }
         }
     }
     catch (Exception ex)
@@ -331,7 +372,8 @@ foreach (var logicalPackage in mapPackages)
 
 var ready =
     packagesLoaded == mapPackages.Length &&
-    packageFailures.Count == 0;
+    packageFailures.Count == 0 &&
+    componentFailures.Count == 0;
 
 var output = new {
     schemaVersion = 1,
@@ -351,6 +393,7 @@ var output = new {
     soundTypeCounts,
     audioComponents = rows,
     packageFailures,
+    componentFailures,
     ready
 };
 
@@ -376,7 +419,8 @@ Console.WriteLine(
         output.loadedSoundCount,
         output.nullSoundCount,
         output.soundTypeCounts,
-        failureCount = packageFailures.Count,
+        packageFailureCount = packageFailures.Count,
+        componentFailureCount = componentFailures.Count,
         output.ready
     }));
 
@@ -384,6 +428,13 @@ foreach (var failure in packageFailures.Take(20))
 {
     Console.WriteLine(
         "XZIEL_UE_AUDIO_SCENE_PACKAGE_FAILURE " +
+        JsonSerializer.Serialize(failure));
+}
+
+foreach (var failure in componentFailures.Take(40))
+{
+    Console.WriteLine(
+        "XZIEL_UE_AUDIO_SCENE_COMPONENT_FAILURE " +
         JsonSerializer.Serialize(failure));
 }
 
