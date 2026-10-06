@@ -1,6 +1,8 @@
 using CUE4Parse.FileProvider;
 using CUE4Parse.MappingsProvider.Usmap;
 using CUE4Parse.UE4.Assets.Exports.Component;
+using CUE4Parse.UE4.Assets.Exports.Engine;
+using CUE4Parse.UE4.Objects.Engine;
 using CUE4Parse.UE4.Objects.UObject;
 using CUE4Parse.UE4.Versions;
 using System.Text.Json;
@@ -106,6 +108,156 @@ List<object> BuildHierarchy(USceneComponent start)
     return rows;
 }
 
+
+UBlueprintGeneratedClass? ResolveGeneratedClassByExportType(
+    DefaultFileProvider provider,
+    string actorExportType)
+{
+    if (string.IsNullOrWhiteSpace(actorExportType) ||
+        !actorExportType.EndsWith("_C", StringComparison.Ordinal))
+        return null;
+
+    var assetFile = actorExportType[..^2] + ".uasset";
+    foreach (var file in provider.Files.Values
+                 .Where(file => {
+                     var p = file.Path.Replace('\\', '/');
+                     return p.EndsWith("/" + assetFile, StringComparison.OrdinalIgnoreCase) ||
+                            p.Equals(assetFile, StringComparison.OrdinalIgnoreCase);
+                 })
+                 .OrderBy(file => file.Path, StringComparer.OrdinalIgnoreCase))
+    {
+        try
+        {
+            var package = provider.LoadPackage(file.Path);
+            var generated = package.GetExports()
+                .OfType<UBlueprintGeneratedClass>()
+                .FirstOrDefault(x =>
+                    x.Name.Equals(actorExportType, StringComparison.OrdinalIgnoreCase));
+            if (generated is not null)
+                return generated;
+        }
+        catch
+        {
+            // Try another package with the same asset basename.
+        }
+    }
+
+    return null;
+}
+
+FPackageIndex? ReadParticleTemplateIndex(UParticleSystemComponent candidate)
+{
+    try
+    {
+        var index = candidate.GetOrDefault<FPackageIndex?>("Template");
+        return index is { IsNull: false } ? index : null;
+    }
+    catch
+    {
+        return null;
+    }
+}
+
+(FPackageIndex? index, string? provenance)
+ResolveBlueprintParticleTemplate(
+    DefaultFileProvider provider,
+    UParticleSystemComponent component)
+{
+    UObject? owner = null;
+    try
+    {
+        owner = component.Outer?.Object?.Value;
+    }
+    catch
+    {
+        owner = null;
+    }
+
+    if (owner is null ||
+        !owner.ExportType.EndsWith("_C", StringComparison.Ordinal))
+        return (null, null);
+
+    var generated = ResolveGeneratedClassByExportType(provider, owner.ExportType);
+    if (generated is null)
+        return (null, null);
+
+    var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    for (var current = generated;
+         current is not null && seen.Add(current.GetPathName());
+         current = current.Super?.Object?.Value as UBlueprintGeneratedClass)
+    {
+        foreach (var templateRef in current.ComponentTemplates)
+        {
+            try
+            {
+                if (templateRef is not { IsNull: false } ||
+                    !templateRef.TryLoad<UParticleSystemComponent>(out var template) ||
+                    template is null ||
+                    !template.Name.Equals(component.Name, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var index = ReadParticleTemplateIndex(template);
+                if (index is { IsNull: false })
+                    return (index, "generated_class_component_template:" + template.GetPathName());
+            }
+            catch { }
+        }
+
+        try
+        {
+            if (current.SimpleConstructionScript is { IsNull: false } scsRef &&
+                scsRef.TryLoad<USimpleConstructionScript>(out var scs) &&
+                scs is not null)
+            {
+                foreach (var node in scs.GetAllNodesRecursive())
+                {
+                    if (!node.InternalVariableName.Text.Equals(
+                            component.Name,
+                            StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    var template = node.GetComponentTemplate() as UParticleSystemComponent;
+                    if (template is null)
+                        continue;
+
+                    var index = ReadParticleTemplateIndex(template);
+                    if (index is { IsNull: false })
+                        return (index, "scs_component_template:" + template.GetPathName());
+                }
+            }
+        }
+        catch { }
+
+        try
+        {
+            if (current.InheritableComponentHandler is { IsNull: false } handlerRef &&
+                handlerRef.TryLoad<UInheritableComponentHandler>(out var handler) &&
+                handler is not null)
+            {
+                foreach (var record in handler.GetRecords())
+                {
+                    if (!record.ComponentKey.SCSVariableName.Text.Equals(
+                            component.Name,
+                            StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    if (record.ComponentTemplate is not { IsNull: false } templateRef ||
+                        !templateRef.TryLoad<UParticleSystemComponent>(out var template) ||
+                        template is null)
+                        continue;
+
+                    var index = ReadParticleTemplateIndex(template);
+                    if (index is { IsNull: false })
+                        return (index, "inheritable_component_template:" + template.GetPathName());
+                }
+            }
+        }
+        catch { }
+    }
+
+    return (null, null);
+}
+
 using var censusDoc = JsonDocument.Parse(File.ReadAllText(censusPath));
 var mapPackages = censusDoc.RootElement
     .GetProperty("packages")
@@ -164,15 +316,18 @@ foreach (var logicalPackage in mapPackages)
         {
             try
             {
-            FPackageIndex? templateIndex = null;
-            try
+            FPackageIndex? templateIndex = ReadParticleTemplateIndex(component);
+            string? templateProvenance = templateIndex is { IsNull: false }
+                ? "instance:property"
+                : null;
+
+            if (templateIndex is null)
             {
-                templateIndex = component.GetOrDefault<FPackageIndex?>("Template");
+                var inherited = ResolveBlueprintParticleTemplate(provider, component);
+                templateIndex = inherited.index;
+                templateProvenance = inherited.provenance;
             }
-            catch
-            {
-                templateIndex = null;
-            }
+
             string? templatePath = null;
             string? templateType = null;
             var templateLoaded = false;
@@ -243,7 +398,8 @@ foreach (var logicalPackage in mapPackages)
                     objectPath = templatePath,
                     exportType = templateType,
                     loaded = templateLoaded,
-                    reference = templateIndex is { IsNull: false } ? templateIndex.ToString() : null
+                    reference = templateIndex is { IsNull: false } ? templateIndex.ToString() : null,
+                    provenance = templateProvenance
                 },
                 properties = new
                 {
