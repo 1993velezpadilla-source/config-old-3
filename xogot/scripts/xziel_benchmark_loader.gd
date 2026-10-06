@@ -51,8 +51,15 @@ var _source_material_textured_count: int = 0
 var _source_material_flat_fallback_count: int = 0
 var _source_effective_material_textured_count: int = 0
 var _source_effective_material_flat_fallback_count: int = 0
+var _source_effective_source_color_count: int = 0
+var _source_effective_default_surface_count: int = 0
+var _source_effective_unresolved_fallback_count: int = 0
 var _source_effective_flat_fallback_rows: Array[Dictionary] = []
+var _source_texture_resource_hits: int = 0
+var _source_texture_image_hits: int = 0
+var _source_texture_load_failures: int = 0
 var _mesh_material_paths: Dictionary = {}
+var _mesh_material_slots: Dictionary = {}
 var _instance_overrides: Dictionary = {}
 var _runtime_root: Node3D
 var _native_glb_mesh_count: int = 0
@@ -173,6 +180,12 @@ func _load_benchmark_world() -> void:
 	set_meta("xziel_benchmark_effective_material_count", _source_effective_material_paths.size())
 	set_meta("xziel_benchmark_effective_material_textured_count", _source_effective_material_textured_count)
 	set_meta("xziel_benchmark_effective_material_flat_fallback_count", _source_effective_material_flat_fallback_count)
+	set_meta("xziel_benchmark_effective_source_color_count", _source_effective_source_color_count)
+	set_meta("xziel_benchmark_effective_default_surface_count", _source_effective_default_surface_count)
+	set_meta("xziel_benchmark_effective_unresolved_fallback_count", _source_effective_unresolved_fallback_count)
+	set_meta("xziel_benchmark_texture_resource_hits", _source_texture_resource_hits)
+	set_meta("xziel_benchmark_texture_image_hits", _source_texture_image_hits)
+	set_meta("xziel_benchmark_texture_load_failures", _source_texture_load_failures)
 	print(
 		"XZOGOT_XZIEL_BENCHMARK_WORLD ",
 		"meshes=", meshes.size(),
@@ -195,7 +208,13 @@ func _load_benchmark_world() -> void:
 		" flat_fallbacks=", _source_material_flat_fallback_count,
 		" effective_materials=", _source_effective_material_paths.size(),
 		" effective_textured=", _source_effective_material_textured_count,
-		" effective_flat_fallbacks=", _source_effective_material_flat_fallback_count
+		" effective_flat_fallbacks=", _source_effective_material_flat_fallback_count,
+		" effective_source_color=", _source_effective_source_color_count,
+		" effective_default_surface=", _source_effective_default_surface_count,
+		" effective_unresolved_fallbacks=", _source_effective_unresolved_fallback_count,
+		" texture_resource_hits=", _source_texture_resource_hits,
+		" texture_image_hits=", _source_texture_image_hits,
+		" texture_load_failures=", _source_texture_load_failures
 	)
 	for fallback_row: Dictionary in _source_effective_flat_fallback_rows:
 		print("XZOGOT_EFFECTIVE_FLAT_FALLBACK ", JSON.stringify(fallback_row))
@@ -290,8 +309,15 @@ func _prepare_material_authority() -> void:
 	_source_material_flat_fallback_count = 0
 	_source_effective_material_textured_count = 0
 	_source_effective_material_flat_fallback_count = 0
+	_source_effective_source_color_count = 0
+	_source_effective_default_surface_count = 0
+	_source_effective_unresolved_fallback_count = 0
 	_source_effective_flat_fallback_rows.clear()
+	_source_texture_resource_hits = 0
+	_source_texture_image_hits = 0
+	_source_texture_load_failures = 0
 	_mesh_material_paths.clear()
+	_mesh_material_slots.clear()
 	_instance_overrides.clear()
 
 	if not build_materials:
@@ -341,13 +367,18 @@ func _prepare_material_authority() -> void:
 		var paths: Array[String] = []
 		paths.resize(submesh_count)
 		paths.fill("")
+		var slots: Array[int] = []
+		slots.resize(submesh_count)
+		slots.fill(-1)
 		for section_raw: Variant in mesh_row.get("sections", []):
 			if section_raw is Dictionary:
 				var section := section_raw as Dictionary
 				var submesh := int(section.get("submeshIndex", -1))
 				if submesh >= 0 and submesh < paths.size():
 					paths[submesh] = str(section.get("baseMaterialPath", ""))
+					slots[submesh] = int(section.get("slotIndex", -1))
 		_mesh_material_paths[mesh_index] = paths
+		_mesh_material_slots[mesh_index] = slots
 
 	for raw: Variant in bindings.get("instanceOverrides", []):
 		if not (raw is Dictionary):
@@ -358,12 +389,7 @@ func _prepare_material_authority() -> void:
 			if slot_raw is Dictionary:
 				var slot := slot_raw as Dictionary
 				by_slot[int(slot.get("slotIndex", -1))] = str(slot.get("materialPath", ""))
-		var submesh_paths: Dictionary = {}
-		for submesh_raw: Variant in row.get("affectedSubmeshes", []):
-			var submesh := int(submesh_raw)
-			if by_slot.has(submesh):
-				submesh_paths[submesh] = by_slot[submesh]
-		_instance_overrides[str(row.get("instanceId", ""))] = submesh_paths
+		_instance_overrides[str(row.get("instanceId", ""))] = by_slot
 
 func _collect_mesh_instances(node: Node, out: Array[MeshInstance3D]) -> void:
 	if node is MeshInstance3D:
@@ -628,8 +654,17 @@ func _material_for_path(material_path: String) -> Material:
 			material.set_meta("source_noncanonical_diffuse_path", diffuse_source)
 	else:
 		_source_material_flat_fallback_count += 1
+		var colors: Array = record.get("colors", [])
+		var is_source_color := not colors.is_empty() and colors[0] is Dictionary
+		var is_default_surface := str(record.get("exportType", "")) == "SyntheticDefaultSurface"
 		if _source_effective_material_paths.has(material_path):
 			_source_effective_material_flat_fallback_count += 1
+			if is_source_color:
+				_source_effective_source_color_count += 1
+			elif is_default_surface:
+				_source_effective_default_surface_count += 1
+			else:
+				_source_effective_unresolved_fallback_count += 1
 			var diagnostic_textures: Array[Dictionary] = []
 			for texture_raw: Variant in record.get("textures", []):
 				if not (texture_raw is Dictionary):
@@ -649,7 +684,6 @@ func _material_for_path(material_path: String) -> Material:
 				"colorCount": (record.get("colors", []) as Array).size(),
 				"rawPropertyKeys": record.get("rawPropertyKeys", []),
 			})
-		var colors: Array = record.get("colors", [])
 		if not colors.is_empty() and colors[0] is Dictionary:
 			var color_row := colors[0] as Dictionary
 			material.albedo_color = Color(
@@ -1015,11 +1049,24 @@ func _load_decoded_texture(runtime_file: String) -> Texture2D:
 	var decoded_path := _source_path(
 		VFS_MAP_ROOT.path_join("textures_png").path_join(decoded_name)
 	)
-	if not ResourceLoader.exists(decoded_path):
-		return null
-	var resource := load(decoded_path)
-	if resource is Texture2D:
-		return resource as Texture2D
+	if ResourceLoader.exists(decoded_path):
+		var resource := load(decoded_path)
+		if resource is Texture2D:
+			_source_texture_resource_hits += 1
+			return resource as Texture2D
+
+	# The complete-source catalog contains textures outside the minimal XZML
+	# runtime subset. Their PNG sidecars are generated from the exact XZTX source
+	# before the Godot import step. If the importer has no ResourceLoader entry,
+	# read that exact source-derived PNG directly instead of declaring a false
+	# material fallback.
+	if FileAccess.file_exists(decoded_path):
+		var image := Image.new()
+		var image_error := image.load(decoded_path)
+		if image_error == OK and not image.is_empty():
+			_source_texture_image_hits += 1
+			return ImageTexture.create_from_image(image)
+	_source_texture_load_failures += 1
 	return null
 
 func _load_xztexture(runtime_file: String) -> Texture2D:
@@ -1063,13 +1110,19 @@ func _apply_instance_materials(
 	if not build_materials or node.mesh == null:
 		return
 	var base_materials: Array = _mesh_material_paths.get(scene_mesh_index, [])
+	var material_slots: Array = _mesh_material_slots.get(scene_mesh_index, [])
 	var overrides: Dictionary = _instance_overrides.get(instance_id, {})
 	var surface_count := node.mesh.get_surface_count()
 	for local_surface in range(surface_count):
 		var source_surface := surface_offset + local_surface
+		var source_slot := (
+			int(material_slots[source_surface])
+			if source_surface >= 0 and source_surface < material_slots.size()
+			else -1
+		)
 		var material_path := ""
-		if overrides.has(source_surface):
-			material_path = str(overrides[source_surface])
+		if source_slot >= 0 and overrides.has(source_slot):
+			material_path = str(overrides[source_slot])
 		elif source_surface >= 0 and source_surface < base_materials.size():
 			material_path = str(base_materials[source_surface])
 		if material_path.is_empty():
